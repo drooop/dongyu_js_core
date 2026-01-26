@@ -1,0 +1,26 @@
+{
+  "name": "dongyuapp_elysia_based",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drooop/dongyu_js_core.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/drooop/dongyu_js_core/issues"
+  },
+  "homepage": "https://github.com/drooop/dongyu_js_core#readme",
+  "devDependencies": {
+    "jsdom": "^27.0.1"
+  }
+}
