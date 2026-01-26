@@ -30,9 +30,9 @@
 - Phase 1 严禁实现代码（只能写文档与计划）。
 - plan 与 resolution 必须可被“无上下文读者”理解（自包含）。
 
-## Phase 2 — Review Gate（人工审核闸门）
+## Phase 2 — Review Gate（审核闸门）
 
-输入：人类对 plan/resolution 的认可或修改意见。  
+输入：对 plan/resolution 的审核结论（User 或 OpenCode）。  
 输出：明确状态之一：
 - **Approved**：允许进入 Phase 3
 - **Change Requested**：返回 Phase 1 修改
@@ -40,6 +40,19 @@
 
 约束：
 - 未得到明确 Approved，不允许进入 Phase 3。
+
+### Auto-Approval Policy（单人公司模式）
+
+当用户没有明确审核时，允许使用 OpenCode 进行“多次独立审核”替代人工审核。
+
+规则：
+- OpenCode 必须进行 3 次独立 review，且按固定调用序列执行：
+  1) Review #1：`@oracle`
+  2) Review #2：`@momus`
+  3) Review #3：`@oracle`
+- 最近连续 3 次 review 的 Decision 均为 **Approved**，且没有任何未处理的 Change Requested。
+- 以上条件满足后，OpenCode 可以将本次 Review Gate 视为 **Approved** 并进入 Phase 3。
+- 所有 review 记录必须写入 `docs/iterations/<id>/runlog.md` 的 Environment 区域（事实记录）。
 
 ## Phase 3 — Execution（按 Step 执行并自我迭代）
 
@@ -59,6 +72,10 @@
 - `resolution.md` 中所有 Step 均在 `runlog.md` 里有 PASS 记录与对应 commit。
 - `docs/ITERATIONS.md` 状态更新为 Completed（并填写最终分支/commit）。
 - 关键资产（截图/性能数据）如有必须归档在 `assets/`。
+
+分支约定（单人公司模式）：
+- 大多数情况下：Iteration 分支（`dev_<id>`）完成后 merge 到 `dev` 即可。
+- `main` 只在需要发布/对外里程碑时从 `dev` 提升；此时再考虑 PR（dev → main）。
 
 ## 允许的例外
 

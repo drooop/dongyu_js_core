@@ -26,3 +26,11 @@
 | dy-workerbase-ui-feature-parity | 2026-01-16 | Worker Base UI feature parity (Code/Model tab + submt) | 4 | dy-workerbase-ui-feature-parity | Planned | ./docs/iterations/dy-workerbase-ui-feature-parity/ |
 | dy-workerbase-pin-task-mqtt | 2026-01-16 | Worker Base runtime pin/task/mqtt parity | 4 | dy-workerbase-pin-task-mqtt | Completed | ./docs/iterations/dy-workerbase-pin-task-mqtt/ |
 | dy-workerbase-mqtt-config-page-ssot | 2026-01-16 | MQTT config page SSOT (page0) | 3 | dy-workerbase-mqtt-config-page-ssot | Completed | ./docs/iterations/dy-workerbase-mqtt-config-page-ssot/ |
+| 0122-pictest-evidence | 2026-01-22 | PICtest Evidence Extraction | 2 | dev_0122-pictest-evidence | Completed | ./docs/iterations/0122-pictest-evidence/ |
+| 0122-oracle-harness-plan | 2026-01-22 | Oracle Test Harness Plan | 2 | dev_0122-oracle-harness-plan | Completed | ./docs/iterations/0122-oracle-harness-plan/ |
+| 0123-modeltable-runtime-v0 | 2026-01-23 | ModelTable Runtime v0 | 2 | dev_0123-modeltable-runtime-v0 | Completed | ./docs/iterations/0123-modeltable-runtime-v0/ |
+| 0123-builtins-v0 | 2026-01-23 | Built-in k Behavior v0 | 2 | dev_0123-builtins-v0 | Completed | ./docs/iterations/0123-builtins-v0/ |
+| 0123-builtins-v0-impl | 2026-01-23 | Built-in k Behavior v0 (Implementation) | 2 | dev_0123-builtins-v0-impl | Completed | ./docs/iterations/0123-builtins-v0-impl/ |
+| 0123-pin-mqtt-loop | 2026-01-23 | PIN_IN/OUT + MQTT Loop | 2 | dev_0123-pin-mqtt-loop | Completed | ./docs/iterations/0123-pin-mqtt-loop/ |
+| 0123-ui-ast-spec | 2026-01-23 | UI AST Spec (Contract) |  | dev_0123-ui-ast-spec | Completed | ./docs/iterations/0123-ui-ast-spec/ |
+| 0123-ui-renderer-impl | 2026-01-23 | UI Renderer v0 (Implementation) | 2 | dev_0123-ui-renderer-impl | Completed | ./docs/iterations/0123-ui-renderer-impl/ |

@@ -37,4 +37,18 @@
 ## 8. Open Questions
 需要在 Review Gate 前确认的问题（若无写 “None”）。
 
+## 9. Compliance Checklists
+
+### 9.1 SSOT Alignment Checklist
+- SSOT references:
+  - ...
+- Notes:
+  - ...
+
+### 9.2 Charter Compliance Checklist
+- Charter references:
+  - ...
+- Notes:
+  - ...
+
 > 禁止在本文件写 Step 编号、执行命令、commit 记录与验证输出。

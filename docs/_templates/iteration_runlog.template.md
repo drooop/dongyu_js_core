@@ -8,6 +8,18 @@
 - Key env flags:
 - Notes:
 
+### Review Gate Records (FACTS)
+```text
+Review Gate Record
+- Iteration ID:
+- Review Date:
+- Review Type: User / OpenCode
+- Reviewer: @oracle / @momus
+- Review Index: 1/2/3...
+- Decision: Approved / Change Requested / On Hold
+- Notes:
+```
+
 ---
 
 ## Step 1 — <Title>

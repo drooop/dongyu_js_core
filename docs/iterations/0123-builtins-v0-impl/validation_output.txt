@@ -1,0 +1,11 @@
+VALIDATION RESULTS
+local_mqtt: PASS
+global_mqtt: PASS
+model_type: PASS
+data_type: PASS
+v1n_id: PASS
+CELL_CONNECT: PASS
+MODEL_CONNECT: PASS
+V1N_CONNECT: PASS
+run_<func> (registered): PASS
+run_<func> (missing): PASS
