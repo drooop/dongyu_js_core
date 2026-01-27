@@ -33,9 +33,9 @@ SSOT: docs/architecture_mantanet_and_workers.md
 
 ## Current State
 
-- Current Phase: Phase 4 – Dual Bus (Matrix ↔ MBR ↔ MQTT) (Stage 4.1) — not current implementation scope
-- Current Iteration: 0127-doit-auto-docs-refresh
-- Last Completed Checkpoint: Stage 3.2 completed (0123-ui-renderer-impl)
+- Current Phase: Phase 2 – JS Worker Base Minimal Loop (Stage 2.5)
+- Current Iteration: 0127-program-model-loader-v0 (completed) / next: TBD (propose 0128-function-exec-v0)
+- Last Completed Checkpoint: Stage 2.4 completed (0127-program-model-loader-v0)
 - Blockers: None
 
 ---
@@ -165,14 +165,81 @@ Implement control bus semantics using local Docker MQTT.
 
 ### Checkpoints
 - [ ] MQTT → PIN_IN writes cell
-- [ ] Trigger fires program model
 - [ ] PIN_OUT publishes MQTT
-- [ ] Behavior matches PICtest
+- [ ] MQTT config sourced from page0/args
 
 ### Status
 - Status: COMPLETED
 - Iteration ID: 0123-pin-mqtt-loop
 - Verified By: validation_protocol + runlog PASS
+
+---
+
+## Stage 2.4 – Program Model Loader v0 (sqlite replay)
+
+### Description
+Load `yhl.db` (sqlite `mt_data`) and replay ModelTable through `add_label`/`rm_label` to rebuild in-memory state.
+This stage is a prerequisite for `test_files/test7` end-to-end worker-base validation.
+
+### Checkpoints
+- [ ] Load `mt_data` into ModelTableRuntime (multi-model)
+- [ ] Deterministic replay order and EventLog monotonicity
+- [ ] Function label registration exists (minimal)
+- [ ] `run_<func>` gating matches evidence preconditions (no silent fail)
+- [ ] Validation script exists and PASS against `test_files/test7/yhl.db`
+
+### Status
+- Status: COMPLETED
+- Iteration ID: 0127-program-model-loader-v0
+- Verified By: validation_protocol + runlog PASS
+
+---
+
+## Stage 2.5 – Function Execution Engine v0 (PICtest behavior closure)
+
+### Description
+Implement minimal function execution semantics to close the observable chain:
+`RunLabel/run_<func>` / pin_callin entry → `Function.handle_call` → `Function.run` → result writeback/propagation.
+This stage must follow PICtest Level-A evidence; do not invent semantics.
+
+### Checkpoints
+- [ ] Implement `Function.handle_call` and `Function.run` observable behavior (Level A)
+- [ ] Implement `pin_callin` / `pin_callout` minimal semantics (Level A)
+- [ ] Implement `not_function_call` behavior boundary (Model.add_method wrapper)
+- [ ] Errors are recorded (EventLog + error labels), no silent fail
+- [ ] Scripted validation exists and PASS
+
+### Status
+- Status: PENDING
+- Iteration ID: TBD (propose 0128-function-exec-v0)
+
+---
+
+## Stage 2.6 – Worker Base v0 End-to-End (test7)
+
+### Description
+Make `test_files/test7` the single end-to-end gate:
+load `yhl.db` + register minimal JS cellcode + drive PIN_IN → trigger execution → observe PIN_OUT + ModelTable mutations.
+
+### Checkpoints
+- [ ] End-to-end script runs from a single command
+- [ ] Covers: load db → start mqtt loop (mock ok) → mqttIncoming → function run → mqtt publish
+- [ ] Includes negative cases (missing function / invalid label)
+- [ ] Evidence-driven PASS/FAIL matches PICtest observable behavior
+
+### Status
+- Status: PENDING
+- Iteration ID: TBD (propose 0128-test7-e2e-workerbase)
+
+---
+
+## Phase 2 Completion Criteria (JS Worker Base v0)
+
+Phase 2 is COMPLETE when all Stage 2.x are COMPLETED and the following scripts PASS:
+- `node scripts/validate_builtins_v0.mjs`
+- `node scripts/validate_pin_mqtt_loop.mjs --case all`
+- `bun scripts/validate_program_model_loader_v0.mjs --case all --db test_files/test7/yhl.db`
+- `bun scripts/validate_worker_base_v0.mjs --case all` (to be added in Stage 2.6)
 
 ---
 
@@ -288,3 +355,5 @@ The roadmap is COMPLETE when:
 ## Notes & Decisions Log
 
 > Append-only. Do not rewrite history.
+
+- 2026-01-27: Split Phase 2 milestones: Stage 2.3 kept for MQTT transport semantics only; program model trigger/execution moved to new Stage 2.5/2.6. Added Stage 2.4 (sqlite replay loader) with iteration 0127-program-model-loader-v0 and defined Phase 2 completion criteria scripts.
