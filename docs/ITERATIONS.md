@@ -34,3 +34,4 @@
 | 0123-pin-mqtt-loop | 2026-01-23 | PIN_IN/OUT + MQTT Loop | 2 | dev_0123-pin-mqtt-loop | Completed | ./docs/iterations/0123-pin-mqtt-loop/ |
 | 0123-ui-ast-spec | 2026-01-23 | UI AST Spec (Contract) |  | dev_0123-ui-ast-spec | Completed | ./docs/iterations/0123-ui-ast-spec/ |
 | 0123-ui-renderer-impl | 2026-01-23 | UI Renderer v0 (Implementation) | 2 | dev_0123-ui-renderer-impl | Completed | ./docs/iterations/0123-ui-renderer-impl/ |
+| 0127-doit-auto-docs-refresh | 2026-01-27 | Doit-auto docs refresh (program model load + test case) | 3 | dev_0127-doit-auto-docs-refresh | Completed | ./docs/iterations/0127-doit-auto-docs-refresh/ |
