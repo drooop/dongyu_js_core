@@ -24,9 +24,7 @@ async function setupJsdom() {
     globalThis.document = dom.window.document;
     return { env: 'jsdom', note: 'jsdom' };
   } catch (err) {
-    globalThis.window = { document: { createElement: () => ({}) } };
-    globalThis.document = globalThis.window.document;
-    return { env: 'jsdom_stub', note: 'jsdom_stub' };
+    throw new Error('jsdom required');
   }
 }
 
@@ -101,6 +99,7 @@ function buildAst() {
   };
 }
 
+
 function createHostAdapter(snapshot, calls) {
   return {
     getSnapshot() {
@@ -144,6 +143,7 @@ function validateEventWrite(renderer, ast, calls) {
   assert(calls[1].label && calls[1].label.t === 'event', 'Dispatch add label t mismatch');
   return { calls };
 }
+
 
 async function run() {
   const args = parseArgs(process.argv.slice(2));
