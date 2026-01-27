@@ -214,6 +214,4 @@ function createRenderer(options) {
   };
 }
 
-module.exports = {
-  createRenderer,
-};
+export { createRenderer };

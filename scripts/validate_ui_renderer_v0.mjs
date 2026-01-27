@@ -99,6 +99,27 @@ function buildAst() {
   };
 }
 
+function buildAstExtension() {
+  return {
+    id: 'root',
+    type: 'Root',
+    children: [
+      {
+        id: 'card1',
+        type: 'Card',
+        props: { title: 'Demo' },
+        children: [
+          {
+            id: 'code1',
+            type: 'CodeBlock',
+            props: { text: '{"ok":true}' },
+          },
+        ],
+      },
+    ],
+  };
+}
+
 
 function createHostAdapter(snapshot, calls) {
   return {
@@ -144,6 +165,17 @@ function validateEventWrite(renderer, ast, calls) {
   return { calls };
 }
 
+function validateRenderExtension(renderer, ast) {
+  const tree = renderer.renderTree(ast);
+  assert(tree.type === 'Root', 'Extension root missing');
+  const card = tree.children[0];
+  assert(card.type === 'Card', 'Card node missing');
+  assert(card.title === 'Demo', 'Card title mismatch');
+  const code = card.children[0];
+  assert(code.type === 'CodeBlock', 'CodeBlock node missing');
+  assert(code.text === '{"ok":true}', 'CodeBlock text mismatch');
+}
+
 
 async function run() {
   const args = parseArgs(process.argv.slice(2));
@@ -160,7 +192,7 @@ async function run() {
   const renderer = createRenderer({ host });
 
   const results = [];
-  const cases = args.case === 'all' ? ['render_minimal', 'event_write'] : [args.case];
+  const cases = args.case === 'all' ? ['render_minimal', 'event_write', 'render_extension'] : [args.case];
 
   for (const name of cases) {
     if (name === 'render_minimal') {
@@ -168,6 +200,9 @@ async function run() {
       results.push({ case: name, status: 'PASS' });
     } else if (name === 'event_write') {
       validateEventWrite(renderer, ast, calls);
+      results.push({ case: name, status: 'PASS' });
+    } else if (name === 'render_extension') {
+      validateRenderExtension(renderer, buildAstExtension());
       results.push({ case: name, status: 'PASS' });
     } else {
       throw new Error(`Unknown case: ${name}`);
