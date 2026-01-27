@@ -2,7 +2,7 @@
 
 ## 0. Metadata
 - Roadmap ID: dongyu-app-next-runtime-elysia
-- Date: 2026-01-22
+- Date: 2026-01-27
 - Owner: (TBD)
 - Goal (system-level): 完成“新版洞宇 APP”的整体重写：以 Bun/Elysia 为软件工人基座，完整复刻并对齐 PICtest 的可观测行为（程序模型内建 k、PIN_IN/OUT 等），并在此基础上逐步构建由 ModelTable 驱动的 UI AST 与滑动 UI 体系，最终替代旧的 Python/NiceGUI 实现。
 

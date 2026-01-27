@@ -209,9 +209,14 @@ Review Gate Record
 - Commits:
   - `2d7cca8` - docs: refresh roadmap summary with evidence links
 - Commands executed:
+  - `test -f test_files/test7/main.py`
+  - `test -f test_files/test7/yhl.db`
+  - `test -f docs/concepts/pictest_pin_and_program_model.md`
+  - `test -f docs/v1n_concept_and_implement.md`
   - `git show :docs/roadmaps/dongyu-app-next-runtime-elysia.md | rg -n "test_files/test7/main.py"`
   - `git show :docs/roadmaps/dongyu-app-next-runtime-elysia.md | rg -n "test_files/test7/yhl.db"`
   - `git show :docs/roadmaps/dongyu-app-next-runtime-elysia.md | rg -n "\]\([^)]*(pictest_pin_and_program_model\.md|v1n_concept_and_implement\.md)[^)]*\)"`
+  - `git show :docs/roadmaps/dongyu-app-next-runtime-elysia.md | rg -n "程序模型注册/加载过程"`
   - `git diff --cached --name-only`
   - `test -n "$(git diff --cached --name-only)"`
   - `test -z "$(git diff --cached --name-only | rg -v '^docs/roadmaps/dongyu-app-next-runtime-elysia.md$')"`
@@ -237,9 +242,14 @@ Review Gate Record
 - Commits:
   - `1beb743` - docs: align execution roadmap evidence and test case
 - Commands executed:
+  - `test -f test_files/test7/main.py`
+  - `test -f test_files/test7/yhl.db`
+  - `test -f docs/concepts/pictest_pin_and_program_model.md`
+  - `test -f docs/v1n_concept_and_implement.md`
   - `git show :docs/roadmap/dongyu_app_next_runtime.md | rg -n "test_files/test7/main.py"`
   - `git show :docs/roadmap/dongyu_app_next_runtime.md | rg -n "test_files/test7/yhl.db"`
   - `git show :docs/roadmap/dongyu_app_next_runtime.md | rg -n "\]\([^)]*(pictest_pin_and_program_model\.md|v1n_concept_and_implement\.md)[^)]*\)"`
+  - `git show :docs/roadmap/dongyu_app_next_runtime.md | rg -n "程序模型注册/加载过程"`
   - `git show :docs/roadmap/dongyu_app_next_runtime.md | rg -n "Current Phase:.*not current implementation scope"`
   - `git diff --cached --name-only`
   - `test -n "$(git diff --cached --name-only)"`
@@ -266,6 +276,8 @@ Review Gate Record
 - Commits:
   - `2d7cca8` - docs: refresh roadmap summary with evidence links
   - `1beb743` - docs: align execution roadmap evidence and test case
+  - `2549989` - docs: finalize iteration 0127 records
+  - `0c9390e` - docs: finalize iteration 0127 plan/resolution records
 - Commands executed:
   - `git show :docs/ITERATIONS.md | rg -n '^\\| 0127-doit-auto-docs-refresh \\|.*\\| dev_0127-doit-auto-docs-refresh \\| Completed \\| \\./docs/iterations/0127-doit-auto-docs-refresh/ \\|'`
   - `git diff --cached --name-only`

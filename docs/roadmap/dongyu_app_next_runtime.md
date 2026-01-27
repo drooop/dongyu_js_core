@@ -19,7 +19,7 @@ SSOT: docs/architecture_mantanet_and_workers.md
 - Charter: docs/charters/dongyu_app_next_runtime.md
 - Behavior Oracle: PICtest (vendor/PICtest or vender/PICtest)
 - Execution Mode: `$doit` + `$doit-auto`
-- Last Updated: 2026-01-23
+- Last Updated: 2026-01-27
 
 ## Evidence & Final Test Case
 - 程序模型注册/加载过程（证据指针）：
