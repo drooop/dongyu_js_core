@@ -190,6 +190,15 @@ Review Gate Record
 - Decision: Change Requested
 - Notes: Step3 runlog 完整性需排除更多占位符（to be recorded / Review Gate template）。
 
+Review Gate Record
+- Iteration ID: 0127-doit-auto-docs-refresh
+- Review Date: 2026-01-27
+- Review Type: OpenCode
+- Reviewer: @momus
+- Review Index: 2
+- Decision: Approved
+- Notes: Phase3 Review #2 approved after fixing evidence links and runlog placeholders.
+
 ---
 
 ## Phase0 Discovery Notes (FACTS)
