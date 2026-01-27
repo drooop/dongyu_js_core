@@ -124,6 +124,15 @@ Review Gate Record
 - Review Type: OpenCode
 - Reviewer: @oracle
 - Review Index: 1
+- Decision: Change Requested
+- Notes: Step3 PASS/FAIL 占位符检查需避免命中命令行文本。
+
+Review Gate Record
+- Iteration ID: 0127-doit-auto-docs-refresh
+- Review Date: 2026-01-27
+- Review Type: OpenCode
+- Reviewer: @oracle
+- Review Index: 1
 - Decision: Approved
 - Notes: Cycle13-Review1; commit-hash 校验通过。
 
@@ -262,11 +271,14 @@ Review Gate Record
   - `git diff --cached --name-only`
   - `test -n "$(git diff --cached --name-only)"`
   - `test -n "$(git diff --cached --name-only | rg -n '^docs/ITERATIONS\.md$')"`
+  - `test -n "$(git diff --cached --name-only | rg -n '^docs/iterations/0127-doit-auto-docs-refresh/plan\.md$')"`
+  - `test -n "$(git diff --cached --name-only | rg -n '^docs/iterations/0127-doit-auto-docs-refresh/resolution\.md$')"`
   - `test -n "$(git diff --cached --name-only | rg -n '^docs/iterations/0127-doit-auto-docs-refresh/runlog\.md$')"`
-  - `test -z "$(git diff --cached --name-only | rg -v '^(docs/iterations/0127-doit-auto-docs-refresh/runlog\.md|docs/ITERATIONS\.md)$')"`
+  - `test -z "$(git diff --cached --name-only | rg -v '^(docs/iterations/0127-doit-auto-docs-refresh/(plan|resolution|runlog)\.md|docs/ITERATIONS\.md)$')"`
   - `git show :docs/iterations/0127-doit-auto-docs-refresh/runlog.md | rg -n "Result: PASS"`
   - `test "$(git show :docs/iterations/0127-doit-auto-docs-refresh/runlog.md | rg -c "Result: PASS")" -ge 3`
-  - `test -z "$(git show :docs/iterations/0127-doit-auto-docs-refresh/runlog.md | rg -n "<hash>|PASS / FAIL")"`
+  - `test -z "$(git show :docs/iterations/0127-doit-auto-docs-refresh/runlog.md | rg -n "\`<hash>\`")"`
+  - `test -z "$(git show :docs/iterations/0127-doit-auto-docs-refresh/runlog.md | rg -n "Result: PASS / FAIL")"`
   - `test -z "$(git show :docs/iterations/0127-doit-auto-docs-refresh/runlog.md | rg -n '\(to be recorded\)')"`
   - `test -z "$(git show :docs/iterations/0127-doit-auto-docs-refresh/runlog.md | rg -n 'Decision: Approved / Change Requested / On Hold')"`
   - `test -z "$(git show :docs/iterations/0127-doit-auto-docs-refresh/runlog.md | rg -n 'Review Index: 1/2/3\.\.\.')"`
