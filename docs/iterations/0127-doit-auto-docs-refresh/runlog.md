@@ -208,7 +208,9 @@ Review Gate Record
 - Branch: dev_0127-doit-auto-docs-refresh
 - Commits:
   - `2d7cca8` - docs: refresh roadmap summary with evidence links
+  - `50eef73` - docs: fix roadmap summary evidence links
 - Commands executed:
+  - `git add docs/roadmaps/dongyu-app-next-runtime-elysia.md`
   - `test -f test_files/test7/main.py`
   - `test -f test_files/test7/yhl.db`
   - `test -f docs/concepts/pictest_pin_and_program_model.md`
@@ -222,16 +224,11 @@ Review Gate Record
   - `test -z "$(git diff --cached --name-only | rg -v '^docs/roadmaps/dongyu-app-next-runtime-elysia.md$')"`
   - `test -z "$(git diff --cached --name-only | rg -n '^(docs/architecture_mantanet_and_workers\.md|docs/charters/dongyu_app_next_runtime\.md|docs/concepts/pictest_pin_and_program_model\.md|docs/v1n_concept_and_implement\.md)$')"`
 - Key outputs (snippets):
-  - 25:  - [test_files/test7/main.py](test_files/test7/main.py)
-  - 26:  - [test_files/test7/yhl.db](test_files/test7/yhl.db)
-  - 19:  - [PICtest PIN_IN/PIN_OUT 与程序模型触发机制（理解记录）](docs/concepts/pictest_pin_and_program_model.md)
+  - 25:  - [test_files/test7/main.py](../../test_files/test7/main.py)
+  - 26:  - [test_files/test7/yhl.db](../../test_files/test7/yhl.db)
+  - 19:  - [PICtest PIN_IN/PIN_OUT 与程序模型触发机制（理解记录）](../concepts/pictest_pin_and_program_model.md)
   - 21:- 本路线图涉及的“程序模型注册/加载过程”必须以以上证据文档为准。
 - Result: PASS
-- If FAIL:
-  - Cause:
-  - Fix commits:
-  - Re-run commands:
-  - Final result:
 
 ---
 
@@ -241,7 +238,9 @@ Review Gate Record
 - Branch: dev_0127-doit-auto-docs-refresh
 - Commits:
   - `1beb743` - docs: align execution roadmap evidence and test case
+  - `5103b4c` - docs: fix execution roadmap evidence links
 - Commands executed:
+  - `git add docs/roadmap/dongyu_app_next_runtime.md`
   - `test -f test_files/test7/main.py`
   - `test -f test_files/test7/yhl.db`
   - `test -f docs/concepts/pictest_pin_and_program_model.md`
@@ -256,16 +255,11 @@ Review Gate Record
   - `test -z "$(git diff --cached --name-only | rg -v '^docs/roadmap/dongyu_app_next_runtime.md$')"`
   - `test -z "$(git diff --cached --name-only | rg -n '^(docs/architecture_mantanet_and_workers\.md|docs/charters/dongyu_app_next_runtime\.md|docs/concepts/pictest_pin_and_program_model\.md|docs/v1n_concept_and_implement\.md)$')"`
 - Key outputs (snippets):
-  - 29:  - [test_files/test7/main.py](test_files/test7/main.py)
-  - 30:  - [test_files/test7/yhl.db](test_files/test7/yhl.db)
+  - 29:  - [test_files/test7/main.py](../../test_files/test7/main.py)
+  - 30:  - [test_files/test7/yhl.db](../../test_files/test7/yhl.db)
   - 25:- 程序模型注册/加载过程（证据指针）：
   - 36:- Current Phase: Phase 4 – Dual Bus (Matrix ↔ MBR ↔ MQTT) (Stage 4.1) — not current implementation scope
 - Result: PASS
-- If FAIL:
-  - Cause:
-  - Fix commits:
-  - Re-run commands:
-  - Final result:
 
 ---
 
@@ -278,7 +272,9 @@ Review Gate Record
   - `1beb743` - docs: align execution roadmap evidence and test case
   - `2549989` - docs: finalize iteration 0127 records
   - `0c9390e` - docs: finalize iteration 0127 plan/resolution records
+  - `e28441a` - docs: sync runlog evidence and roadmap metadata
 - Commands executed:
+  - `git add docs/ITERATIONS.md docs/iterations/0127-doit-auto-docs-refresh/runlog.md`
   - `git show :docs/ITERATIONS.md | rg -n '^\\| 0127-doit-auto-docs-refresh \\|.*\\| dev_0127-doit-auto-docs-refresh \\| Completed \\| \\./docs/iterations/0127-doit-auto-docs-refresh/ \\|'`
   - `git diff --cached --name-only`
   - `test -n "$(git diff --cached --name-only)"`
@@ -300,8 +296,3 @@ Review Gate Record
 - Key outputs (snippets):
   - 37:| 0127-doit-auto-docs-refresh | 2026-01-27 | Doit-auto docs refresh (program model load + test case) | 3 | dev_0127-doit-auto-docs-refresh | Completed | ./docs/iterations/0127-doit-auto-docs-refresh/ |
 - Result: PASS
-- If FAIL:
-  - Cause:
-  - Fix commits:
-  - Re-run commands:
-  - Final result:
