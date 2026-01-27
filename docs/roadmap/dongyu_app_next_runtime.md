@@ -278,6 +278,25 @@ Introduce UI without introducing execution authority.
 
 ---
 
+## Stage 3.3 – UI Model Demo Frontend (Dongyu App)
+
+### Description
+Design and ship a Dongyu App demo frontend built primarily from the "UI model" display capability.
+During implementation, if a required UI component is missing, extend UI AST and the Element Plus renderer mapping.
+
+### Checkpoints
+- [ ] A runnable demo frontend exists (no dual bus; local-only)
+- [ ] Demo UI is driven by UI model (ModelTable -> UI AST -> renderer), not hard-coded pages
+- [ ] UI events are normalized to "write Cell" only
+- [ ] Renderer supports all components needed by the demo (added via explicit AST + mapping)
+- [ ] Scripted validation exists (at least jsdom-level) to prevent regression of used components
+
+### Status
+- Status: PENDING
+- Iteration ID: TBD (propose 0128-ui-model-demo-frontend)
+
+---
+
 # Phase 4 – Dual Bus (Matrix ↔ MBR ↔ MQTT)
 
 ## Goal
