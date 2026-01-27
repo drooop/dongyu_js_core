@@ -14,6 +14,17 @@
 - UI 事件只能表现为“写单元格”，不得直接产生副作用
 - 第一阶段仅控制总线（MQTT + PIN_IN/OUT），不引入 Matrix/双总线
 
+## 1.1 Program Model Registration/Loading Evidence
+- 证据与理解记录：
+  - [PICtest PIN_IN/PIN_OUT 与程序模型触发机制（理解记录）](docs/concepts/pictest_pin_and_program_model.md)
+  - [V1N / PICtest 软件工人基座：概念与实现理解](docs/v1n_concept_and_implement.md)
+- 本路线图涉及的“程序模型注册/加载过程”必须以以上证据文档为准。
+
+## 1.2 Final Test Case (Program Model + PIN)
+- 最终测试用例（程序模型加载、PIN_IN 与触发链路）：
+  - [test_files/test7/main.py](test_files/test7/main.py)
+  - [test_files/test7/yhl.db](test_files/test7/yhl.db)
+
 ## 2. Mandatory Early Iterations (Hard Gate)
 - Iteration-1: PICtest Evidence Extraction（行为证据提取）
 - Iteration-2: Oracle Test Harness Plan（对照验证方案）
@@ -37,3 +48,4 @@
 ## 4. Notes
 - 上述 Iteration ID 为建议，可在 Phase1 Review Gate 微调，但必须保持顺序与依赖关系。
 - 任何与 PICtest 行为不一致的设计结论必须先回到 Evidence Extraction 追加证据。
+- 最终验收样例以 test_files/test7 为准，不得替换为其他样例。
