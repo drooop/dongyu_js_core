@@ -21,12 +21,20 @@ SSOT: docs/architecture_mantanet_and_workers.md
 - Execution Mode: `$doit` + `$doit-auto`
 - Last Updated: 2026-01-23
 
+## Evidence & Final Test Case
+- 程序模型注册/加载过程（证据指针）：
+  - [PICtest PIN_IN/PIN_OUT 与程序模型触发机制（理解记录）](docs/concepts/pictest_pin_and_program_model.md)
+  - [V1N / PICtest 软件工人基座：概念与实现理解](docs/v1n_concept_and_implement.md)
+- 最终测试用例（程序模型加载、PIN_IN、运行时触发）：
+  - [test_files/test7/main.py](test_files/test7/main.py)
+  - [test_files/test7/yhl.db](test_files/test7/yhl.db)
+
 ---
 
 ## Current State
 
-- Current Phase: Phase 4 – Dual Bus (Matrix ↔ MBR ↔ MQTT) (Stage 4.1)
-- Current Iteration: (pending)
+- Current Phase: Phase 4 – Dual Bus (Matrix ↔ MBR ↔ MQTT) (Stage 4.1) — not current implementation scope
+- Current Iteration: 0127-doit-auto-docs-refresh
 - Last Completed Checkpoint: Stage 3.2 completed (0123-ui-renderer-impl)
 - Blockers: None
 
