@@ -135,6 +135,7 @@ class ModelTableRuntime {
     this.mqttClient = null;
     this.pinInSet = new Set();
     this.pinOutSet = new Set();
+    this.runLoopActive = true;
 
     const root = new Model({ id: 0, name: 'MT', type: 'main' });
     this.models.set(root.id, root);
@@ -151,6 +152,14 @@ class ModelTableRuntime {
 
   getModel(id) {
     return this.models.get(id);
+  }
+
+  setRunLoopActive(active) {
+    this.runLoopActive = Boolean(active);
+  }
+
+  isRunLoopActive() {
+    return this.runLoopActive;
   }
 
   createCell(model, p, r, c) {
@@ -321,6 +330,7 @@ class ModelTableRuntime {
 
     this._applyBuiltins(model, p, r, c, label, prevLabel);
     this._applyPinDeclarations(model, p, r, c, label);
+    this._applyLabelTypes(model, p, r, c, label);
     return { applied: true };
   }
 
@@ -384,6 +394,12 @@ class ModelTableRuntime {
       if (prevLabel.t === 'PIN_OUT') {
         this.pinOutSet.delete(prevLabel.k);
       }
+    }
+  }
+
+  _applyLabelTypes(model, p, r, c, label) {
+    if (label.t === 'function') {
+      model.registerFunction(label.k);
     }
   }
 
@@ -456,6 +472,9 @@ class ModelTableRuntime {
     }
 
     if (key.startsWith('run_')) {
+      if (!this.runLoopActive) {
+        return;
+      }
       const funcName = key.slice('run_'.length);
       if (model.hasFunction(funcName)) {
         this.intercepts.record('run_func', { model_id: model.id, func: funcName });
