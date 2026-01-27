@@ -16,14 +16,14 @@
 
 ## 1.1 Program Model Registration/Loading Evidence
 - 证据与理解记录：
-  - [PICtest PIN_IN/PIN_OUT 与程序模型触发机制（理解记录）](docs/concepts/pictest_pin_and_program_model.md)
-  - [V1N / PICtest 软件工人基座：概念与实现理解](docs/v1n_concept_and_implement.md)
+  - [PICtest PIN_IN/PIN_OUT 与程序模型触发机制（理解记录）](../concepts/pictest_pin_and_program_model.md)
+  - [V1N / PICtest 软件工人基座：概念与实现理解](../v1n_concept_and_implement.md)
 - 本路线图涉及的“程序模型注册/加载过程”必须以以上证据文档为准。
 
 ## 1.2 Final Test Case (Program Model + PIN)
 - 最终测试用例（程序模型加载、PIN_IN 与触发链路）：
-  - [test_files/test7/main.py](test_files/test7/main.py)
-  - [test_files/test7/yhl.db](test_files/test7/yhl.db)
+  - [test_files/test7/main.py](../../test_files/test7/main.py)
+  - [test_files/test7/yhl.db](../../test_files/test7/yhl.db)
 
 ## 2. Mandatory Early Iterations (Hard Gate)
 - Iteration-1: PICtest Evidence Extraction（行为证据提取）
