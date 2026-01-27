@@ -31,17 +31,26 @@ Before doing anything, `$doit-auto` MUST load and respect (in this exact order):
 3. `docs/charters/*.md` (if present)
 4. `docs/roadmap/dongyu_app_next_runtime.md` (if present)
 5. `docs/WORKFLOW.md`
-6. `docs/ITERATIONS.md`
-7. `docs/_templates/iteration_plan.template.md`
-8. `docs/_templates/iteration_resolution.template.md`
-9. `docs/_templates/iteration_runlog.template.md`
-10. `docs/ai-work-conventions.md` (if present)
+6. `docs/ssot/execution_governance_ultrawork_doit.md` (execution governance)
+7. `docs/ITERATIONS.md`
+8. `docs/_templates/iteration_plan.template.md`
+9. `docs/_templates/iteration_resolution.template.md`
+10. `docs/_templates/iteration_runlog.template.md`
+11. `docs/ai-work-conventions.md` (if present)
 
 If any of the above are missing or ambiguous, `$doit-auto` MUST stop and ask the user.
 
 ---
 
 ## Operating Model
+
+### Stage Type Classification (DOCS vs IMPL)
+
+`$doit-auto` MUST classify each Stage as one of:
+- DOCS stage: documents-only; no implementation; Gate must still be explicit.
+- IMPL stage: requires full Phase 1 -> Gate -> Phase 3 -> Gate; implementation is executed by `$doit`.
+
+`$doit-auto` MUST NOT guess stage type. If unclear, stop and ask.
 
 ### Phase A — Roadmap Construction (Documents Only)
 
@@ -124,9 +133,28 @@ At no time may `$doit-auto` skip an Iteration or reorder them.
 - Modify `docs/architecture_mantanet_and_workers.md`
 - Modify `AGENTS.md`
 - Modify `docs/WORKFLOW.md`
-- Modify `docs/ITERATIONS.md` except to append a new Iteration entry
+- Modify `docs/ITERATIONS.md` except to register a new Iteration and to update the Iteration row status/branch fields per Gate outcomes
 - Generate or modify production code
 - Enter Phase 3 on behalf of the user
+
+---
+
+## Governance Gate Enforcement (Repo Policy)
+
+This section is subordinate to SSOT/Charter/WORKFLOW and is enforced by:
+- `docs/ssot/execution_governance_ultrawork_doit.md`
+
+Rules:
+- Gate MUST be explicit:
+  - Phase 1 Gate: Approved / Change Requested / On Hold
+  - Phase 3 Gate: Validation Protocol ALL PASS + runlog auditable
+- Major revision cap:
+  - Phase 1: at most 3 major revisions
+  - Phase 3: at most 3 major revisions
+  - Major revision definition: changes that affect scope / contract / validation criteria
+- Roadmap state machine:
+  - Completed stages MUST NOT be reverted
+  - Only Notes / Follow-ups may be appended for Completed stages
 
 ---
 
