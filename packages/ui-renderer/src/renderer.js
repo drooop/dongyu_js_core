@@ -195,7 +195,7 @@ function buildVueNode(node, snapshot, vue, host) {
     const bind = node.bind && node.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
     props.modelValue = value !== undefined ? value : '';
-    props.onInput = (ev) => {
+    props['onUpdate:modelValue'] = (ev) => {
       const target = node.bind && node.bind.write;
       if (!target) return;
       const payload = { value: ev && ev.target ? ev.target.value : ev };
@@ -215,7 +215,6 @@ function buildVueNode(node, snapshot, vue, host) {
       if (!target) return;
       dispatchEvent(node, target, { value: v }, host);
     };
-    props.onChange = onValue;
     props['onUpdate:modelValue'] = onValue;
     const optionNodes = options.map((opt, idx) => h(resolve('ElOption'), {
       key: opt && Object.prototype.hasOwnProperty.call(opt, 'value') ? opt.value : idx,
@@ -234,7 +233,6 @@ function buildVueNode(node, snapshot, vue, host) {
       if (!target) return;
       dispatchEvent(node, target, { value: v }, host);
     };
-    props.onChange = onValue;
     props['onUpdate:modelValue'] = onValue;
     return h(resolve('ElInputNumber'), props);
   }
@@ -242,13 +240,21 @@ function buildVueNode(node, snapshot, vue, host) {
   if (node.type === 'Switch') {
     const bind = node.bind && node.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
-    props.modelValue = value !== undefined ? Boolean(value) : false;
+    if (value === true || value === false) {
+      props.modelValue = value;
+    } else if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === 'true') props.modelValue = true;
+      else if (trimmed === 'false') props.modelValue = false;
+      else props.modelValue = Boolean(value);
+    } else {
+      props.modelValue = value !== undefined ? Boolean(value) : false;
+    }
     const onValue = (v) => {
       const target = node.bind && node.bind.write;
       if (!target) return;
       dispatchEvent(node, target, { value: v }, host);
     };
-    props.onChange = onValue;
     props['onUpdate:modelValue'] = onValue;
     return h(resolve('ElSwitch'), props);
   }
@@ -319,7 +325,14 @@ function dispatchEvent(node, target, payload, host, overrideType) {
       if (target.value_ref !== undefined) {
         out.value = target.value_ref;
       } else {
-        out.value = { t: 'str', v: payload && payload.value !== undefined ? payload.value : '' };
+        const raw = payload && payload.value !== undefined ? payload.value : '';
+        let t = 'str';
+        if (typeof raw === 'boolean') {
+          t = 'bool';
+        } else if (typeof raw === 'number' && Number.isSafeInteger(raw)) {
+          t = 'int';
+        }
+        out.value = { t, v: raw };
       }
     } else if (action === 'submodel_create') {
       out.value = target.value_ref;
