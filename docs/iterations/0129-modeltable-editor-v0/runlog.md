@@ -128,6 +128,7 @@ Review Gate Record
 - Commits:
   - `7d7b280` - ui-demo: add modeltable editor demo and adapter
   - `f2e4457` - ui-demo: harden mailbox validation and tests
+  - `87aec10` - ui-demo: assert submodel_create omits target
 - Commands executed:
   - `npm -C packages/ui-model-demo-frontend run test`
 - Key outputs (snippets):
