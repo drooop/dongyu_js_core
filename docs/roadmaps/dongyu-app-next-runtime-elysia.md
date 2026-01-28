@@ -43,7 +43,7 @@
 | 7 | 0128-function-exec-v0 (proposed) | worker-base | 0127-program-model-loader-v0 | 实现 Function.handle_call/run + pin_callin/out 的最小闭环（Level A）并脚本验收 | 不做 Flow/Task 全量系统 |
 | 8 | 0128-test7-e2e-workerbase (proposed) | worker-base | 0128-function-exec-v0 | 将 test7 变成唯一 E2E gate：load db → pin_in → trigger → pin_out（脚本验收） | 不引入 UI/双总线 |
 | 9 | 0128-workerbase-aggregate-validate (proposed) | worker-base | 0128-test7-e2e-workerbase | 提供一键聚合验收脚本（builtins + mqtt loop + loader + test7 e2e） | 不引入重构/新架构 |
-| 10 | 0128-ui-model-demo-frontend (proposed) | sliding-ui / UI model | 0123-ui-renderer-impl | 设计并利用 UI 模型展示能力完成洞宇 APP demo 前端；缺组件则扩充 UI AST 与 Element Plus renderer 映射 | 不引入双总线/Matrix/Element Call/E2EE |
+| 10 | 0128-ui-line-demo-frontend | sliding-ui / UI model | 0123-ui-renderer-impl | 设计并利用 UI 模型展示能力完成洞宇 APP demo 前端；缺组件则扩充 UI AST 与 Element Plus renderer 映射 | 不引入双总线/Matrix/Element Call/E2EE |
 
 ## 4. Notes
 - 上述 Iteration ID 中标注 (proposed) 的为建议，可在 Phase1 Review Gate 微调，但必须保持顺序与依赖关系。

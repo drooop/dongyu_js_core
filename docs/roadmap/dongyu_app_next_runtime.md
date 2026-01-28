@@ -261,6 +261,8 @@ Introduce UI without introducing execution authority.
 - Status: COMPLETED
 - Iteration ID: 0123-ui-ast-spec
 - Verified By: runlog PASS
+### Notes
+- 2026-01-27: 追加 Stage 3.3 demo 证据引用（Iteration 0128-ui-line-demo-frontend）。
 
 ---
 
@@ -275,6 +277,8 @@ Introduce UI without introducing execution authority.
 - Status: COMPLETED
 - Iteration ID: 0123-ui-renderer-impl
 - Verified By: runlog PASS (jsdom)
+### Notes
+- 2026-01-27: 追加 Stage 3.3 demo 证据引用（Iteration 0128-ui-line-demo-frontend）。
 
 ---
 
@@ -292,8 +296,9 @@ During implementation, if a required UI component is missing, extend UI AST and 
 - [ ] Scripted validation exists (at least jsdom-level) to prevent regression of used components
 
 ### Status
-- Status: PENDING
-- Iteration ID: TBD (propose 0128-ui-model-demo-frontend)
+- Status: COMPLETED
+- Iteration ID: 0128-ui-line-demo-frontend
+- Verified By: runlog PASS
 
 ---
 
