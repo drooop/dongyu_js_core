@@ -58,3 +58,4 @@ Thumbs.db
 
 # Repo-local folders to ignore
 PICtest/
+.sisyphus/

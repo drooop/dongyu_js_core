@@ -2,3 +2,4 @@ node_modules
 package.json
 bun.lock
 background-tasks.json
+oh-my-opencode.json
