@@ -76,7 +76,7 @@ Review Gate Record
 - End time: 2026-01-28 10:26:00 +0800
 - Branch: dev_0130-modeltable-editor-v1
 - Commits:
-  - (pending)
+  - `dc3060f` - docs: record 0130 step4 evidence
 - Commands executed:
   - `npm -C packages/ui-model-demo-frontend run build`
   - `node scripts/validate_iteration_guard.mjs --case forbidden_imports`
@@ -87,4 +87,4 @@ Review Gate Record
   - `forbidden_imports: PASS`
   - `stage4: PASS`
   - `PASS: mailbox_contract_unchanged_since_0129`
-- Result: PASS (pre-commit)
+- Result: PASS
