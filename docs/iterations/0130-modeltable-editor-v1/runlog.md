@@ -72,4 +72,19 @@ Review Gate Record
 ---
 
 ## Step 4 — Build + smoke validation
-(同上结构复制)
+- Start time: 2026-01-28 10:23:00 +0800
+- End time: 2026-01-28 10:26:00 +0800
+- Branch: dev_0130-modeltable-editor-v1
+- Commits:
+  - (pending)
+- Commands executed:
+  - `npm -C packages/ui-model-demo-frontend run build`
+  - `node scripts/validate_iteration_guard.mjs --case forbidden_imports`
+  - `node scripts/validate_iteration_guard.mjs --case stage4`
+  - `node -e "...mailbox_contract_unchanged"` (initial attempt)
+  - `node -e "...mailbox_contract_unchanged_since_0129"` (rerun with dev_0129 base)
+- Key outputs (snippets):
+  - `forbidden_imports: PASS`
+  - `stage4: PASS`
+  - `PASS: mailbox_contract_unchanged_since_0129`
+- Result: PASS (pre-commit)
