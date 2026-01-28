@@ -69,10 +69,10 @@ function normalizeEvent(node, target, payload, overrideType) {
 function normalizeEditorEvent(payload) {
   const event_id = nextEditorEventId();
   const op_id = `op_${event_id}`;
-  const body = {
-    action: payload.action,
-    target: payload.target === undefined ? null : payload.target,
-  };
+  const body = { action: payload.action };
+  if (payload.target !== undefined) {
+    body.target = payload.target;
+  }
   if (payload.value !== undefined) {
     body.value = payload.value;
   }
