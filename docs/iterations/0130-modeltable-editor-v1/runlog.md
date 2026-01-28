@@ -73,18 +73,25 @@ Review Gate Record
 
 ## Step 4 — Build + smoke validation
 - Start time: 2026-01-28 10:23:00 +0800
-- End time: 2026-01-28 10:26:00 +0800
+- End time: 2026-01-28 10:33:00 +0800
 - Branch: dev_0130-modeltable-editor-v1
 - Commits:
   - `dc3060f` - docs: record 0130 step4 evidence
+  - `8432f4f` - ui-renderer: fix v-model handlers and infer editor value types
+  - `a934360` - ui-demo: coerce bool draft values
+  - `c625e85` - docs: finalize 0130 step4 runlog
 - Commands executed:
   - `npm -C packages/ui-model-demo-frontend run build`
   - `node scripts/validate_iteration_guard.mjs --case forbidden_imports`
   - `node scripts/validate_iteration_guard.mjs --case stage4`
   - `node -e "...mailbox_contract_unchanged"` (initial attempt)
   - `node -e "...mailbox_contract_unchanged_since_0129"` (rerun with dev_0129 base)
+  - `node scripts/validate_ui_renderer_v0.mjs --case editor --env jsdom` (post-review)
+  - `npm -C packages/ui-model-demo-frontend run test` (post-review)
+  - `npm -C packages/ui-model-demo-frontend run build` (post-review)
 - Key outputs (snippets):
   - `forbidden_imports: PASS`
   - `stage4: PASS`
   - `PASS: mailbox_contract_unchanged_since_0129`
+- Post-review: `editor_event_mailbox_only: PASS` + `editor_v1_typed_value_error_priority_preserved: PASS`
 - Result: PASS
