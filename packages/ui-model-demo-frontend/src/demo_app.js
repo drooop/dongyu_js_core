@@ -28,7 +28,12 @@ export function createDemoRoot(store) {
   return {
     name: 'DemoRoot',
     setup() {
-      const ast = computed(() => store.getUiAst());
+      const ast = computed(() => {
+        const { models, v1nConfig } = store.snapshot;
+        void models;
+        void v1nConfig;
+        return store.getUiAst();
+      });
       return () => {
         if (!ast.value) {
           return h('div', 'No UI AST');
