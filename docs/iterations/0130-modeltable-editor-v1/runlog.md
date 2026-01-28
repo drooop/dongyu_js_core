@@ -27,12 +27,12 @@ Review Gate Record
 - End time: 2026-01-28 10:09:00 +0800
 - Branch: dev_0130-modeltable-editor-v1
 - Commits:
-  - (pending)
+  - `a393151` - scripts: extend ui-ast v0.x nodes for editor v1
 - Commands executed:
   - `node scripts/validate_ui_ast_v0x.mjs --case all`
 - Key outputs (snippets):
   - `summary: PASS`
-- Result: PASS (pre-commit)
+- Result: PASS
 - If FAIL:
   - Cause:
   - Fix commits:
