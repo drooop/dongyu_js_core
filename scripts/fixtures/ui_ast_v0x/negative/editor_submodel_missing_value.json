@@ -1,0 +1,16 @@
+{
+  "id": "root",
+  "type": "Root",
+  "children": [
+    {
+      "id": "btn",
+      "type": "Button",
+      "props": { "label": "Create" },
+      "bind": {
+        "write": {
+          "action": "submodel_create"
+        }
+      }
+    }
+  ]
+}

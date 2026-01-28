@@ -1,0 +1,6 @@
+{
+  "id": "root",
+  "type": "Root",
+  "props": { "script": "alert(1)" },
+  "children": []
+}

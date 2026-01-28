@@ -1,0 +1,41 @@
+{
+  "id": "root",
+  "type": "Root",
+  "children": [
+    {
+      "id": "table1",
+      "type": "Table",
+      "props": { "title": "Cells" }
+    },
+    {
+      "id": "tree1",
+      "type": "Tree",
+      "props": { "title": "Models" }
+    },
+    {
+      "id": "form1",
+      "type": "Form",
+      "children": [
+        {
+          "id": "fi1",
+          "type": "FormItem",
+          "props": { "label": "Add label" },
+          "children": [
+            {
+              "id": "btn_add",
+              "type": "Button",
+              "props": { "label": "Add" },
+              "bind": {
+                "write": {
+                  "action": "label_add",
+                  "target_ref": { "model_id": 1, "p": 0, "r": 0, "c": 0, "k": "title" },
+                  "value_ref": { "t": "str", "v": "Hello" }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

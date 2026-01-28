@@ -1,0 +1,17 @@
+{
+  "id": "root",
+  "type": "Root",
+  "children": [
+    {
+      "id": "btn",
+      "type": "Button",
+      "props": { "label": "Remove" },
+      "bind": {
+        "write": {
+          "action": "label_remove",
+          "target_ref": { "model_id": 1, "p": 0, "r": 0, "c": 0 }
+        }
+      }
+    }
+  ]
+}

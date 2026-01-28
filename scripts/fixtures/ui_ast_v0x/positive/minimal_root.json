@@ -1,0 +1,41 @@
+{
+  "id": "root",
+  "type": "Root",
+  "children": [
+    {
+      "id": "container",
+      "type": "Container",
+      "props": { "layout": "column", "gap": 8 },
+      "children": [
+        {
+          "id": "text1",
+          "type": "Text",
+          "bind": { "read": { "p": 0, "r": 0, "c": 0, "k": "title" } }
+        },
+        {
+          "id": "input1",
+          "type": "Input",
+          "bind": {
+            "read": { "p": 0, "r": 0, "c": 0, "k": "input_value" },
+            "write": {
+              "target": { "p": 0, "r": 0, "c": 0, "k": "input_event" },
+              "event_type": "change",
+              "policy": "clear_then_add"
+            }
+          }
+        },
+        {
+          "id": "button1",
+          "type": "Button",
+          "props": { "label": "Submit" },
+          "bind": {
+            "write": {
+              "target": { "p": 0, "r": 0, "c": 0, "k": "button_event" },
+              "event_type": "click"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

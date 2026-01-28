@@ -1,0 +1,7 @@
+{
+  "id": "root",
+  "type": "Root",
+  "children": [
+    { "id": "x", "type": "Nope" }
+  ]
+}
