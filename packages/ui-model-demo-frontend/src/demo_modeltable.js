@@ -35,7 +35,7 @@ function parseSafeInt(value) {
   return null;
 }
 
-function buildEditorAstV0() {
+export function buildEditorAstV0() {
   return {
     id: 'root',
     type: 'Root',
@@ -155,7 +155,7 @@ function buildEditorAstV0() {
   };
 }
 
-function buildEditorAstV1(snapshot) {
+export function buildEditorAstV1(snapshot) {
   const models = (snapshot && snapshot.models) ? snapshot.models : {};
   const modelOptions = Object.values(models)
     .map((m) => ({ id: m && typeof m.id === 'number' ? m.id : parseSafeInt(m && m.id), name: m && m.name ? String(m.name) : '' }))
