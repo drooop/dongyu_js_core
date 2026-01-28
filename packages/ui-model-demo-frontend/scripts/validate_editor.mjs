@@ -100,6 +100,10 @@ function run() {
   // 1) create model 1
   const labelCreate = renderer.dispatchEvent(btnCreateModel, {});
   assert(labelCreate && labelCreate.t === 'event', 'editor_event_only: label.t must be event');
+  assert(
+    labelCreate.v && labelCreate.v.payload && !Object.prototype.hasOwnProperty.call(labelCreate.v.payload, 'target'),
+    'editor_submodel_create_target_omitted'
+  );
 
   // no state bypass: model 1 not created before consume
   assert(!store.runtime.getModel(1), 'editor_no_state_bypass: model created before consume');
@@ -317,6 +321,7 @@ function run() {
     'editor_event_only: PASS',
     'editor_cell_crud: PASS',
     'editor_submodel_create: PASS',
+    'editor_submodel_create_target_omitted: PASS',
     'editor_no_state_bypass: PASS',
     'editor_event_consumed_once: PASS',
     'editor_forbidden_k_reject: PASS',
