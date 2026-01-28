@@ -183,7 +183,16 @@ function buildEditorAstV1(snapshot) {
   if (valueT === 'int') {
     valueV = typeof draftInt === 'number' ? draftInt : parseSafeInt(draftInt) ?? 0;
   } else if (valueT === 'bool') {
-    valueV = Boolean(draftBool);
+    if (draftBool === true || draftBool === false) {
+      valueV = draftBool;
+    } else if (typeof draftBool === 'string') {
+      const trimmed = draftBool.trim();
+      if (trimmed === 'true') valueV = true;
+      else if (trimmed === 'false') valueV = false;
+      else valueV = Boolean(draftBool);
+    } else {
+      valueV = Boolean(draftBool);
+    }
   } else if (valueT === 'json') {
     valueV = draftText;
   }
