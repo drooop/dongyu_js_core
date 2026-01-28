@@ -169,3 +169,21 @@ Note: `submodel_create` does NOT apply forbidden_t; any `value.t != "json"` is `
 
 ## Charter Mapping Note
 - `labels` is a projection of `(p,r,c,k,t,v)` records (no new semantic fields).
+
+## Demo Operational Notes (ui-model-demo-frontend)
+
+These notes are not additional runtime semantics; they document expected demo behavior when validating this contract via the demo UI.
+
+### 1) "missing_model" is expected before the target model exists
+- In the demo editor UI AST, most editor actions target a concrete `target.model_id` (e.g. `model_id=1`).
+- LocalBusAdapter validates `payload.target` and MUST reject with `invalid_target` / `detail="missing_model"` when `runtime.getModel(target.model_id)` returns null.
+- Therefore, before creating the target model, actions like `label_add` / `label_update` / `label_remove` / `cell_clear` against that model will correctly fail with `missing_model`.
+
+### 2) Input typing appears "not working" when the target model/label is missing
+- The Input component is controlled by `snapshot` (ModelTable is the only source of truth).
+- If an Input emits events but the event is rejected (e.g. `missing_model`) or not consumed, the next render will re-apply `props.modelValue` from snapshot and the typed text may be overwritten.
+- After the target model is created and events are consumed successfully, Input updates are reflected as `label_update` and typing becomes visible.
+
+### 3) Demo interaction requires an event consumer loop
+- The UI only writes mailbox events (`ui_event`).
+- The demo must run a local consumer (e.g. `consumeOnce()` after a write, or a controlled loop) to apply the change to ModelTable; otherwise UI actions will only enqueue events and state will not change.
