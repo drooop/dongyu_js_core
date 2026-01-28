@@ -22,7 +22,62 @@ function toErrorValue(op_id, code, detail) {
 }
 
 export function createLocalBusAdapter({ runtime, eventLog }) {
+  const mode = arguments.length > 0 && arguments[0] && arguments[0].mode ? arguments[0].mode : 'v0';
   const mailboxModelId = 99;
+
+  function normalizeTypedValue(value) {
+    if (!value || typeof value.t !== 'string') {
+      return { ok: false, code: 'invalid_target', detail: 'invalid_value' };
+    }
+    const t = value.t;
+    const v = value.v;
+    if (t === 'str') {
+      return { ok: true, value: String(v) };
+    }
+    if (t === 'int') {
+      if (typeof v === 'number') {
+        if (Number.isSafeInteger(v)) return { ok: true, value: v };
+        return { ok: false, code: 'invalid_target', detail: 'invalid_int' };
+      }
+      if (typeof v === 'string') {
+        const trimmed = v.trim();
+        if (trimmed.length === 0) return { ok: false, code: 'invalid_target', detail: 'invalid_int' };
+        if (!/^-?\d+$/.test(trimmed)) return { ok: false, code: 'invalid_target', detail: 'invalid_int' };
+        const parsed = Number(trimmed);
+        if (!Number.isSafeInteger(parsed)) return { ok: false, code: 'invalid_target', detail: 'invalid_int' };
+        return { ok: true, value: parsed };
+      }
+      return { ok: false, code: 'invalid_target', detail: 'invalid_int' };
+    }
+    if (t === 'bool') {
+      if (typeof v === 'boolean') return { ok: true, value: v };
+      if (typeof v === 'string') {
+        const trimmed = v.trim();
+        if (trimmed === 'true') return { ok: true, value: true };
+        if (trimmed === 'false') return { ok: true, value: false };
+        return { ok: false, code: 'invalid_target', detail: 'invalid_bool' };
+      }
+      return { ok: false, code: 'invalid_target', detail: 'invalid_bool' };
+    }
+    if (t === 'json') {
+      if (typeof v === 'string') {
+        const trimmed = v.trim();
+        if (trimmed.length === 0) return { ok: false, code: 'invalid_target', detail: 'invalid_json' };
+        try {
+          return { ok: true, value: JSON.parse(trimmed) };
+        } catch (_) {
+          return { ok: false, code: 'invalid_target', detail: 'invalid_json' };
+        }
+      }
+      try {
+        JSON.stringify(v);
+        return { ok: true, value: v };
+      } catch (_) {
+        return { ok: false, code: 'invalid_target', detail: 'invalid_json' };
+      }
+    }
+    return { ok: false, code: 'invalid_target', detail: 'invalid_value_t' };
+  }
 
   function mailboxCell() {
     const model = runtime.getModel(mailboxModelId);
@@ -210,7 +265,15 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
     }
 
     try {
-      runtime.addLabel(model, target.p, target.r, target.c, { k: target.k, t: payload.value.t, v: payload.value.v });
+      if (mode === 'v1') {
+        const normalized = normalizeTypedValue(payload.value);
+        if (!normalized.ok) {
+          return fail(op_id, normalized.code, normalized.detail);
+        }
+        runtime.addLabel(model, target.p, target.r, target.c, { k: target.k, t: payload.value.t, v: normalized.value });
+      } else {
+        runtime.addLabel(model, target.p, target.r, target.c, { k: target.k, t: payload.value.t, v: payload.value.v });
+      }
       return succeed(op_id, action);
     } catch (_) {
       return fail(op_id, 'invalid_target', 'runtime_error');

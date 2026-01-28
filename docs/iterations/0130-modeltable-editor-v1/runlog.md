@@ -56,7 +56,18 @@ Review Gate Record
 ---
 
 ## Step 3 — Demo editor v1 UI model
-(同上结构复制)
+- Start time: 2026-01-28 10:13:00 +0800
+- End time: 2026-01-28 10:23:00 +0800
+- Branch: dev_0130-modeltable-editor-v1
+- Commits:
+  - (pending)
+- Commands executed:
+  - `npm -C packages/ui-model-demo-frontend run test`
+- Key outputs (snippets):
+  - `editor_v1_controls_disabled_before_model: PASS`
+  - `editor_v1_typed_int_ok: PASS`
+  - `editor_v1_typed_json_invalid_json: PASS`
+- Result: PASS (pre-commit)
 
 ---
 

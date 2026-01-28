@@ -75,6 +75,12 @@ function getErrorOpId(store) {
   return err && err.v ? err.v.op_id : null;
 }
 
+function getErrorDetail(store) {
+  const cell = getMailboxCell(store);
+  const err = cell.labels.get('ui_event_error');
+  return err && err.v ? err.v.detail : null;
+}
+
 function getLastOpId(store) {
   const cell = getMailboxCell(store);
   const last = cell.labels.get('ui_event_last_op_id');
@@ -82,7 +88,7 @@ function getLastOpId(store) {
 }
 
 function run() {
-  const store = createDemoStore();
+  const store = createDemoStore({ uiMode: 'v0', adapterMode: 'v0' });
   const calls = [];
   const host = createHost(store, calls);
   const renderer = createRenderer({ host });
@@ -355,6 +361,119 @@ function run() {
     'editor_single_outstanding_event: PASS',
     'editor_op_id_replay: PASS',
   ];
+
+  // v1 suite (editor v1 UI model + typed normalization)
+  const storeV1 = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  const callsV1 = [];
+  const hostV1 = createHost(storeV1, callsV1);
+  const rendererV1 = createRenderer({ host: hostV1 });
+
+  let astV1 = storeV1.getUiAst();
+  assert(astV1 && astV1.type === 'Root', 'editor_v1_ast: missing Root');
+
+  const btnCreateNext = findNodeById(astV1, 'btn_create_next_model');
+  const btnApplyAdd = findNodeById(astV1, 'btn_apply_add');
+  const selTargetModel = findNodeById(astV1, 'sel_target_model');
+  assert(btnCreateNext && btnApplyAdd && selTargetModel, 'editor_v1_ast: missing nodes');
+
+  assert(btnApplyAdd.props && btnApplyAdd.props.disabled === true, 'editor_v1_controls_disabled_before_model');
+  results.push('editor_v1_controls_disabled_before_model: PASS');
+
+  rendererV1.dispatchEvent(btnCreateNext, {});
+  storeV1.consumeOnce();
+  assert(storeV1.runtime.getModel(1), 'editor_v1_model_create_failed');
+
+  astV1 = storeV1.getUiAst();
+  const btnApplyAdd2 = findNodeById(astV1, 'btn_apply_add');
+  assert(btnApplyAdd2 && btnApplyAdd2.props && btnApplyAdd2.props.disabled === false, 'editor_v1_controls_enabled_after_model');
+
+  const sel2 = findNodeById(astV1, 'sel_target_model');
+  const options = sel2 && sel2.props ? sel2.props.options : null;
+  assert(Array.isArray(options), 'editor_v1_model_selector_excludes_reserved: options missing');
+  const forbidden = new Set([0, 98, 99]);
+  assert(options.every((o) => !forbidden.has(o.value)), 'editor_v1_model_selector_excludes_reserved');
+  results.push('editor_v1_model_selector_excludes_reserved: PASS');
+
+  const cell1 = storeV1.runtime.getCell(storeV1.runtime.getModel(1), 0, 0, 0);
+
+  sendMailbox(storeV1, mailboxEnvelope({
+    event_id: 500,
+    action: 'label_add',
+    op_id: 'op_500',
+    target: { model_id: 1, p: 0, r: 0, c: 0, k: 'count' },
+    value: { t: 'int', v: '123' },
+  }));
+  storeV1.consumeOnce();
+  assert(cell1.labels.get('count') && cell1.labels.get('count').v === 123, 'editor_v1_typed_int_ok');
+  results.push('editor_v1_typed_int_ok: PASS');
+
+  sendMailbox(storeV1, mailboxEnvelope({
+    event_id: 501,
+    action: 'label_add',
+    op_id: 'op_501',
+    target: { model_id: 1, p: 0, r: 0, c: 0, k: 'count_bad' },
+    value: { t: 'int', v: '1.2' },
+  }));
+  storeV1.consumeOnce();
+  assert(getErrorCode(storeV1) === 'invalid_target' && getErrorDetail(storeV1) === 'invalid_int', 'editor_v1_typed_int_invalid_int');
+  results.push('editor_v1_typed_int_invalid_int: PASS');
+
+  sendMailbox(storeV1, mailboxEnvelope({
+    event_id: 502,
+    action: 'label_add',
+    op_id: 'op_502',
+    target: { model_id: 1, p: 0, r: 0, c: 0, k: 'flag' },
+    value: { t: 'bool', v: 'true' },
+  }));
+  storeV1.consumeOnce();
+  assert(cell1.labels.get('flag') && cell1.labels.get('flag').v === true, 'editor_v1_typed_bool_ok');
+  results.push('editor_v1_typed_bool_ok: PASS');
+
+  sendMailbox(storeV1, mailboxEnvelope({
+    event_id: 503,
+    action: 'label_add',
+    op_id: 'op_503',
+    target: { model_id: 1, p: 0, r: 0, c: 0, k: 'flag_bad' },
+    value: { t: 'bool', v: 'yes' },
+  }));
+  storeV1.consumeOnce();
+  assert(getErrorCode(storeV1) === 'invalid_target' && getErrorDetail(storeV1) === 'invalid_bool', 'editor_v1_typed_bool_invalid_bool');
+  results.push('editor_v1_typed_bool_invalid_bool: PASS');
+
+  sendMailbox(storeV1, mailboxEnvelope({
+    event_id: 504,
+    action: 'label_add',
+    op_id: 'op_504',
+    target: { model_id: 1, p: 0, r: 0, c: 0, k: 'obj' },
+    value: { t: 'json', v: '{"a":1}' },
+  }));
+  storeV1.consumeOnce();
+  assert(cell1.labels.get('obj') && JSON.stringify(cell1.labels.get('obj').v) === JSON.stringify({ a: 1 }), 'editor_v1_typed_json_ok');
+  results.push('editor_v1_typed_json_ok: PASS');
+
+  sendMailbox(storeV1, mailboxEnvelope({
+    event_id: 505,
+    action: 'label_add',
+    op_id: 'op_505',
+    target: { model_id: 1, p: 0, r: 0, c: 0, k: 'obj_bad' },
+    value: { t: 'json', v: '{' },
+  }));
+  storeV1.consumeOnce();
+  assert(getErrorCode(storeV1) === 'invalid_target' && getErrorDetail(storeV1) === 'invalid_json', 'editor_v1_typed_json_invalid_json');
+  results.push('editor_v1_typed_json_invalid_json: PASS');
+
+  sendMailbox(storeV1, mailboxEnvelope({
+    event_id: 506,
+    action: 'label_add',
+    op_id: 'op_506',
+    target: { model_id: 0, p: 0, r: 0, c: 0, k: 'x' },
+    value: { t: 'json', v: '{' },
+  }));
+  storeV1.consumeOnce();
+  assert(getErrorCode(storeV1) === 'reserved_cell', 'editor_v1_typed_value_error_priority_preserved');
+  results.push('editor_v1_typed_value_error_priority_preserved: PASS');
+
+  results.push('editor_v1_v0_suite_still_passes: PASS');
   process.stdout.write(results.join('\n'));
   process.stdout.write('\n');
 }
