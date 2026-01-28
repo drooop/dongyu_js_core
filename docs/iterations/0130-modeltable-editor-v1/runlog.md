@@ -42,7 +42,16 @@ Review Gate Record
 ---
 
 ## Step 2 — ui-renderer support for new nodes
-(同上结构复制)
+- Start time: 2026-01-28 10:09:00 +0800
+- End time: 2026-01-28 10:13:00 +0800
+- Branch: dev_0130-modeltable-editor-v1
+- Commits:
+  - (pending)
+- Commands executed:
+  - `node scripts/validate_ui_renderer_v0.mjs --case editor --env jsdom`
+- Key outputs (snippets):
+  - `editor_event_mailbox_only: PASS`
+- Result: PASS (pre-commit)
 
 ---
 

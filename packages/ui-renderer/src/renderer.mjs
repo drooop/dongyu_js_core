@@ -116,7 +116,15 @@ function renderTreeNode(node, snapshot) {
     children: [],
   };
 
-  if (node.type === 'Root' || node.type === 'Container' || node.type === 'Table' || node.type === 'Tree' || node.type === 'Form' || node.type === 'FormItem') {
+  if (
+    node.type === 'Root'
+    || node.type === 'Container'
+    || node.type === 'Table'
+    || node.type === 'TableColumn'
+    || node.type === 'Tree'
+    || node.type === 'Form'
+    || node.type === 'FormItem'
+  ) {
     base.children = (node.children || []).map((child) => renderTreeNode(child, snapshot));
     return base;
   }
@@ -142,6 +150,13 @@ function renderTreeNode(node, snapshot) {
   }
 
   if (node.type === 'Input') {
+    const bind = node.bind && node.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    base.value = value !== undefined ? value : '';
+    return base;
+  }
+
+  if (node.type === 'Select' || node.type === 'NumberInput' || node.type === 'Switch') {
     const bind = node.bind && node.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
     base.value = value !== undefined ? value : '';
@@ -189,6 +204,55 @@ function buildVueNode(node, snapshot, vue, host) {
     return h(resolve('ElInput'), props);
   }
 
+  if (node.type === 'Select') {
+    const bind = node.bind && node.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    const options = Array.isArray(props.options) ? props.options : [];
+    delete props.options;
+    props.modelValue = value !== undefined ? value : '';
+    const onValue = (v) => {
+      const target = node.bind && node.bind.write;
+      if (!target) return;
+      dispatchEvent(node, target, { value: v }, host);
+    };
+    props.onChange = onValue;
+    props['onUpdate:modelValue'] = onValue;
+    const optionNodes = options.map((opt, idx) => h(resolve('ElOption'), {
+      key: opt && Object.prototype.hasOwnProperty.call(opt, 'value') ? opt.value : idx,
+      label: opt && Object.prototype.hasOwnProperty.call(opt, 'label') ? opt.label : '',
+      value: opt && Object.prototype.hasOwnProperty.call(opt, 'value') ? opt.value : undefined,
+    }));
+    return h(resolve('ElSelect'), props, { default: () => optionNodes.concat(children) });
+  }
+
+  if (node.type === 'NumberInput') {
+    const bind = node.bind && node.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    props.modelValue = value !== undefined ? value : null;
+    const onValue = (v) => {
+      const target = node.bind && node.bind.write;
+      if (!target) return;
+      dispatchEvent(node, target, { value: v }, host);
+    };
+    props.onChange = onValue;
+    props['onUpdate:modelValue'] = onValue;
+    return h(resolve('ElInputNumber'), props);
+  }
+
+  if (node.type === 'Switch') {
+    const bind = node.bind && node.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    props.modelValue = value !== undefined ? Boolean(value) : false;
+    const onValue = (v) => {
+      const target = node.bind && node.bind.write;
+      if (!target) return;
+      dispatchEvent(node, target, { value: v }, host);
+    };
+    props.onChange = onValue;
+    props['onUpdate:modelValue'] = onValue;
+    return h(resolve('ElSwitch'), props);
+  }
+
   if (node.type === 'Button') {
     props.onClick = () => {
       const target = node.bind && node.bind.write;
@@ -216,6 +280,10 @@ function buildVueNode(node, snapshot, vue, host) {
 
   if (node.type === 'Table') {
     return h(resolve('ElTable'), props, { default: () => children });
+  }
+
+  if (node.type === 'TableColumn') {
+    return h(resolve('ElTableColumn'), props, children.length > 0 ? { default: () => children } : undefined);
   }
 
   if (node.type === 'Tree') {

@@ -139,7 +139,15 @@ function buildEditorAst() {
     id: 'root_editor',
     type: 'Root',
     children: [
-      { id: 'tbl', type: 'Table', props: { title: 'Cells' } },
+      {
+        id: 'tbl',
+        type: 'Table',
+        props: { title: 'Cells' },
+        children: [
+          { id: 'col_k', type: 'TableColumn', props: { label: 'k', prop: 'k' } },
+          { id: 'col_t', type: 'TableColumn', props: { label: 't', prop: 't' } },
+        ],
+      },
       { id: 'tree', type: 'Tree', props: { title: 'Models' } },
       {
         id: 'form',
@@ -160,6 +168,57 @@ function buildEditorAst() {
                     target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' },
                     value_ref: { t: 'str', v: 'Hello' },
                   },
+                },
+              },
+            ],
+          },
+          {
+            id: 'fi_select',
+            type: 'FormItem',
+            props: { label: 'Model' },
+            children: [
+              {
+                id: 'sel_model',
+                type: 'Select',
+                props: {
+                  options: [
+                    { label: '1', value: 1 },
+                    { label: '2', value: 2 },
+                  ],
+                },
+                bind: {
+                  read: { model_id: 99, p: 0, r: 2, c: 0, k: 'selected_model_id' },
+                  write: { action: 'label_update', target_ref: { model_id: 99, p: 0, r: 2, c: 0, k: 'selected_model_id' } },
+                },
+              },
+            ],
+          },
+          {
+            id: 'fi_num',
+            type: 'FormItem',
+            props: { label: 'p' },
+            children: [
+              {
+                id: 'num_p',
+                type: 'NumberInput',
+                bind: {
+                  read: { model_id: 99, p: 0, r: 2, c: 0, k: 'draft_p' },
+                  write: { action: 'label_update', target_ref: { model_id: 99, p: 0, r: 2, c: 0, k: 'draft_p' } },
+                },
+              },
+            ],
+          },
+          {
+            id: 'fi_switch',
+            type: 'FormItem',
+            props: { label: 'Enabled' },
+            children: [
+              {
+                id: 'sw_enabled',
+                type: 'Switch',
+                bind: {
+                  read: { model_id: 99, p: 0, r: 2, c: 0, k: 'draft_enabled' },
+                  write: { action: 'label_update', target_ref: { model_id: 99, p: 0, r: 2, c: 0, k: 'draft_enabled' } },
                 },
               },
             ],
@@ -237,6 +296,7 @@ function validateEditorRender(renderer) {
   assert(tree.type === 'Root', 'Editor root missing');
   assert(tree.children.length === 3, 'Editor root children mismatch');
   assert(tree.children[0].type === 'Table', 'Editor Table missing');
+  assert(tree.children[0].children.length === 2, 'Editor TableColumn children missing');
   assert(tree.children[1].type === 'Tree', 'Editor Tree missing');
   assert(tree.children[2].type === 'Form', 'Editor Form missing');
   return { tree };
