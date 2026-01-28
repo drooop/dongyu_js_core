@@ -155,9 +155,17 @@ export function createDemoStore() {
   }
 
   function updateDerived() {
+    const snap = runtime.snapshot();
+    const safeModels = {};
+    const snapModels = snap && snap.models ? snap.models : {};
+    for (const [id, model] of Object.entries(snapModels)) {
+      if (String(id) === '99') continue;
+      safeModels[id] = model;
+    }
+
     adapter.updateUiDerived({
       uiAst: buildEditorAst(),
-      snapshotJson: JSON.stringify(runtime.snapshot(), null, 2),
+      snapshotJson: JSON.stringify({ models: safeModels, v1nConfig: snap ? snap.v1nConfig : undefined }, null, 2),
       eventLogJson: JSON.stringify(eventLog, null, 2),
     });
   }

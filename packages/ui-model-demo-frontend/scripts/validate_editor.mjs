@@ -139,6 +139,20 @@ function run() {
   const uiEvent = mailboxCell.labels.get('ui_event');
   assert(uiEvent && uiEvent.v === null, 'editor_event_consumed_once: ui_event not cleared');
 
+  // renderer should skip writing when mailbox is full
+  const callsBeforeSkip = calls.length;
+  sendMailbox(store, mailboxEnvelope({ event_id: 240, action: 'label_remove', op_id: 'op_240', target: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' } }));
+  const skipped = renderer.dispatchEvent(btnRemove, {});
+  assert(skipped && skipped.skipped === true, 'editor_renderer_skip_mailbox_full');
+  assert(calls.length === callsBeforeSkip, 'editor_renderer_skip_mailbox_full: must not dispatch');
+  store.consumeOnce();
+
+  // invalid_target: falsy mailbox envelope must be consumed + cleared
+  store.dispatchAddLabel({ p: 0, r: 0, c: 1, k: 'ui_event', t: 'event', v: '' });
+  store.consumeOnce();
+  assert(getErrorCode(store) === 'invalid_target', 'editor_invalid_target_falsy_envelope');
+  assert(getMailboxCell(store).labels.get('ui_event').v === null, 'editor_invalid_target_falsy_envelope: mailbox not cleared');
+
   // invalid_target missing op_id
   sendMailbox(store, {
     event_id: 200,
@@ -203,6 +217,33 @@ function run() {
   sendMailbox(store, mailboxEnvelope({ event_id: 214, action: 'label_add', op_id: 'op_214', target: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' }, value: { t: 123, v: 'x' } }));
   store.consumeOnce();
   assert(getErrorCode(store) === 'invalid_target', 'editor_invalid_target_non_string_value_t');
+
+  // invalid_target missing value.v
+  sendMailbox(store, mailboxEnvelope({ event_id: 2141, action: 'label_add', op_id: 'op_2141', target: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' }, value: { t: 'str' } }));
+  store.consumeOnce();
+  assert(getErrorCode(store) === 'invalid_target', 'editor_invalid_target_missing_value_v');
+
+  // invalid_target source mismatch
+  sendMailbox(store, {
+    event_id: 2142,
+    type: 'label_add',
+    payload: { action: 'label_add', meta: { op_id: 'op_2142' }, target: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' }, value: { t: 'str', v: 'x' } },
+    source: 'not_ui_renderer',
+    ts: 0,
+  });
+  store.consumeOnce();
+  assert(getErrorCode(store) === 'invalid_target', 'editor_invalid_target_source_mismatch');
+
+  // invalid_target type mismatch
+  sendMailbox(store, {
+    event_id: 2143,
+    type: 'label_remove',
+    payload: { action: 'label_add', meta: { op_id: 'op_2143' }, target: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' }, value: { t: 'str', v: 'x' } },
+    source: 'ui_renderer',
+    ts: 0,
+  });
+  store.consumeOnce();
+  assert(getErrorCode(store) === 'invalid_target', 'editor_invalid_target_type_mismatch');
 
   // forbidden_k
   sendMailbox(store, mailboxEnvelope({ event_id: 215, action: 'label_add', op_id: 'op_215', target: { model_id: 1, p: 0, r: 0, c: 0, k: 'run_x' }, value: { t: 'str', v: 'x' } }));
@@ -291,15 +332,21 @@ function run() {
     'editor_invalid_target_missing_target_k: PASS',
     'editor_invalid_target_missing_value: PASS',
     'editor_invalid_target_non_string_value_t: PASS',
+    'editor_invalid_target_missing_value_v: PASS',
+    'editor_invalid_target_source_mismatch: PASS',
+    'editor_invalid_target_type_mismatch: PASS',
     'editor_error_priority_invalid_target_vs_forbidden_k: PASS',
     'editor_error_op_id_empty_on_missing_op_id: PASS',
     'editor_error_op_id_empty_on_non_string_op_id: PASS',
     'editor_invalid_target_over_unknown_action: PASS',
+    'editor_unknown_action: PASS',
+    'editor_invalid_target_falsy_envelope: PASS',
     'editor_submodel_create_target_ignored: PASS',
     'editor_submodel_create_invalid_target: PASS',
     'editor_submodel_create_duplicate_id_invalid_target: PASS',
     'editor_submodel_create_value_t_invalid_target: PASS',
     'editor_value_ignored_does_not_affect_priority: PASS',
+    'editor_renderer_skip_mailbox_full: PASS',
     'editor_single_outstanding_event: PASS',
     'editor_op_id_replay: PASS',
   ];

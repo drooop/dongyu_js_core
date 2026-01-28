@@ -90,7 +90,7 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
   function consumeOnce() {
     const envelope = getMailboxEnvelope();
-    if (!envelope) return { consumed: false };
+    if (envelope === null || envelope === undefined) return { consumed: false };
     if (!isPlainObject(envelope) || !isPlainObject(envelope.payload)) {
       return fail('', 'invalid_target', 'envelope_shape');
     }
@@ -111,6 +111,13 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
     const allowedActions = new Set(['label_add', 'label_update', 'label_remove', 'cell_clear', 'submodel_create']);
     if (typeof action !== 'string' || !allowedActions.has(action)) {
       return fail(op_id, 'unknown_action', 'unknown_action');
+    }
+
+    if (envelope.source !== 'ui_renderer') {
+      return fail(op_id, 'invalid_target', 'source_mismatch');
+    }
+    if (typeof envelope.type !== 'string' || envelope.type !== action) {
+      return fail(op_id, 'invalid_target', 'type_mismatch');
     }
 
     if (action === 'submodel_create') {
@@ -151,9 +158,9 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
     if (!isPlainObject(target)) {
       return fail(op_id, 'invalid_target', 'missing_target');
     }
-      if (!Number.isInteger(target.model_id) || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c)) {
-        return fail(op_id, 'invalid_target', 'missing_target_coords');
-      }
+    if (!Number.isInteger(target.model_id) || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c)) {
+      return fail(op_id, 'invalid_target', 'missing_target_coords');
+    }
     if (isReservedTarget(target)) {
       return fail(op_id, 'reserved_cell', 'reserved_model_id');
     }
@@ -178,11 +185,14 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
     }
 
     if (action === 'label_add' || action === 'label_update') {
-      if (!payload.value) {
+      if (!isPlainObject(payload.value)) {
         return fail(op_id, 'invalid_target', 'missing_value');
       }
       if (typeof payload.value.t !== 'string') {
         return fail(op_id, 'invalid_target', 'non_string_value_t');
+      }
+      if (!Object.prototype.hasOwnProperty.call(payload.value, 'v')) {
+        return fail(op_id, 'invalid_target', 'missing_value_v');
       }
     }
 
