@@ -1,0 +1,82 @@
+{
+  "id": "root",
+  "type": "Root",
+  "children": [
+    {
+      "id": "table",
+      "type": "Table",
+      "children": [
+        { "id": "col_k", "type": "TableColumn", "props": { "label": "k", "prop": "k" } },
+        { "id": "col_t", "type": "TableColumn", "props": { "label": "t", "prop": "t" } }
+      ]
+    },
+    {
+      "id": "form",
+      "type": "Form",
+      "children": [
+        {
+          "id": "fi_model",
+          "type": "FormItem",
+          "props": { "label": "Model" },
+          "children": [
+            {
+              "id": "select_model",
+              "type": "Select",
+              "props": {
+                "placeholder": "Select model",
+                "options": [
+                  { "label": "1", "value": 1 },
+                  { "label": "2", "value": 2 }
+                ]
+              },
+              "bind": {
+                "read": { "model_id": 99, "p": 0, "r": 2, "c": 0, "k": "selected_model_id" },
+                "write": {
+                  "action": "label_update",
+                  "target_ref": { "model_id": 99, "p": 0, "r": 2, "c": 0, "k": "selected_model_id" },
+                  "value_ref": { "t": "int", "v": 1 }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "fi_p",
+          "type": "FormItem",
+          "props": { "label": "p" },
+          "children": [
+            {
+              "id": "num_p",
+              "type": "NumberInput",
+              "bind": {
+                "read": { "model_id": 99, "p": 0, "r": 2, "c": 0, "k": "draft_p" },
+                "write": {
+                  "action": "label_update",
+                  "target_ref": { "model_id": 99, "p": 0, "r": 2, "c": 0, "k": "draft_p" }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "fi_enabled",
+          "type": "FormItem",
+          "props": { "label": "Enabled" },
+          "children": [
+            {
+              "id": "switch_enabled",
+              "type": "Switch",
+              "bind": {
+                "read": { "model_id": 99, "p": 0, "r": 2, "c": 0, "k": "draft_enabled" },
+                "write": {
+                  "action": "label_update",
+                  "target_ref": { "model_id": 99, "p": 0, "r": 2, "c": 0, "k": "draft_enabled" }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

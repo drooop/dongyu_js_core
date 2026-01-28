@@ -1,0 +1,17 @@
+{
+  "id": "root",
+  "type": "Root",
+  "children": [
+    {
+      "id": "select_model",
+      "type": "Select",
+      "bind": {
+        "read": { "model_id": 99, "p": 0, "r": 0, "c": 0, "k": "selected_model_id" },
+        "write": {
+          "action": "label_update",
+          "target_ref": { "p": 0, "r": 0, "c": 0, "k": "selected_model_id" }
+        }
+      }
+    }
+  ]
+}

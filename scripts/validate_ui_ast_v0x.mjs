@@ -62,9 +62,13 @@ const NODE_TYPES = new Set([
   'Input',
   'Button',
   'Table',
+  'TableColumn',
   'Tree',
   'Form',
   'FormItem',
+  'Select',
+  'NumberInput',
+  'Switch',
 ]);
 
 function validateLabelRef(ref, where, { allowMissingModelId, allowMissingK }) {
