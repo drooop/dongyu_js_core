@@ -1,8 +1,6 @@
 import { reactive } from 'vue';
-import workerBase from '../../worker-base/src/index.js';
+import { ModelTableRuntime } from '../../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from './local_bus_adapter.js';
-
-const { ModelTableRuntime } = workerBase;
 
 function buildEditorAst() {
   return {
