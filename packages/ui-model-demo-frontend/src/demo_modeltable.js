@@ -1,6 +1,10 @@
 import { reactive } from 'vue';
+import workerBase from '../../worker-base/src/index.js';
+import { createLocalBusAdapter } from './local_bus_adapter.js';
 
-function buildDemoAst() {
+const { ModelTableRuntime } = workerBase;
+
+function buildEditorAst() {
   return {
     id: 'root',
     type: 'Root',
@@ -11,83 +15,106 @@ function buildDemoAst() {
         props: { layout: 'column', gap: 12 },
         children: [
           {
-            id: 'card_model',
+            id: 'card_actions',
             type: 'Card',
-            props: { title: 'Model' },
+            props: { title: 'Actions' },
             children: [
               {
-                id: 'model_title',
-                type: 'Text',
-                bind: { read: { p: 0, r: 1, c: 0, k: 'model_title' } },
+                id: 'btn_create_model1',
+                type: 'Button',
+                props: { label: 'Create Model 1' },
+                bind: {
+                  write: {
+                    action: 'submodel_create',
+                    value_ref: { t: 'json', v: { id: 1, name: 'M1', type: 'main' } },
+                  },
+                },
               },
               {
-                id: 'model_code',
-                type: 'CodeBlock',
-                bind: { read: { p: 0, r: 1, c: 0, k: 'model_json' } },
+                id: 'btn_add_title',
+                type: 'Button',
+                props: { label: 'Add title' },
+                bind: {
+                  write: {
+                    action: 'label_add',
+                    target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' },
+                    value_ref: { t: 'str', v: 'Hello' },
+                  },
+                },
+              },
+              {
+                id: 'input_update_title',
+                type: 'Input',
+                bind: {
+                  read: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' },
+                  write: {
+                    action: 'label_update',
+                    target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' },
+                  },
+                },
+              },
+              {
+                id: 'btn_remove_title',
+                type: 'Button',
+                props: { label: 'Remove title' },
+                bind: {
+                  write: {
+                    action: 'label_remove',
+                    target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' },
+                  },
+                },
+              },
+              {
+                id: 'btn_clear_cell',
+                type: 'Button',
+                props: { label: 'Clear cell(0,0,0)' },
+                bind: {
+                  write: {
+                    action: 'cell_clear',
+                    target_ref: { model_id: 1, p: 0, r: 0, c: 0 },
+                  },
+                },
               },
             ],
           },
           {
-            id: 'card_code',
+            id: 'card_status',
             type: 'Card',
-            props: { title: 'Code' },
+            props: { title: 'Mailbox' },
             children: [
               {
-                id: 'code_text',
+                id: 'txt_last_op',
                 type: 'Text',
-                bind: { read: { p: 0, r: 1, c: 1, k: 'code_text' } },
+                bind: { read: { model_id: 99, p: 0, r: 0, c: 1, k: 'ui_event_last_op_id' } },
               },
               {
-                id: 'code_block',
+                id: 'txt_error',
                 type: 'CodeBlock',
-                bind: { read: { p: 0, r: 1, c: 1, k: 'code_snippet' } },
+                bind: { read: { model_id: 99, p: 0, r: 0, c: 1, k: 'ui_event_error' } },
               },
             ],
           },
           {
-            id: 'card_events',
+            id: 'card_snapshot',
             type: 'Card',
-            props: { title: 'Events' },
+            props: { title: 'Snapshot' },
             children: [
               {
-                id: 'event_title',
-                type: 'Text',
-                bind: { read: { p: 0, r: 1, c: 2, k: 'event_title' } },
+                id: 'snapshot_json',
+                type: 'CodeBlock',
+                bind: { read: { model_id: 99, p: 0, r: 1, c: 0, k: 'snapshot_json' } },
               },
+            ],
+          },
+          {
+            id: 'card_eventlog',
+            type: 'Card',
+            props: { title: 'Event Log' },
+            children: [
               {
                 id: 'event_log',
                 type: 'CodeBlock',
-                bind: { read: { p: 0, r: 1, c: 2, k: 'event_log' } },
-              },
-            ],
-          },
-          {
-            id: 'card_controls',
-            type: 'Card',
-            props: { title: 'Controls' },
-            children: [
-              {
-                id: 'input_value',
-                type: 'Input',
-                bind: {
-                  read: { p: 0, r: 2, c: 0, k: 'input_value' },
-                  write: {
-                    target: { p: 0, r: 0, c: 1, k: 'ui_event' },
-                    event_type: 'change',
-                    policy: 'clear_then_add',
-                  },
-                },
-              },
-              {
-                id: 'button_submit',
-                type: 'Button',
-                props: { label: 'Submit' },
-                bind: {
-                  write: {
-                    target: { p: 0, r: 0, c: 1, k: 'ui_event' },
-                    event_type: 'click',
-                  },
-                },
+                bind: { read: { model_id: 99, p: 0, r: 1, c: 1, k: 'event_log' } },
               },
             ],
           },
@@ -97,108 +124,100 @@ function buildDemoAst() {
   };
 }
 
-function createCell(p, r, c, labels) {
-  return { p, r, c, labels: labels || {} };
+function stringify(value) {
+  if (value === undefined) return '';
+  if (value === null) return 'null';
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch (_) {
+    return String(value);
+  }
 }
 
 export function createDemoStore() {
+  const runtime = new ModelTableRuntime();
+  runtime.createModel({ id: 99, name: 'editor_mailbox', type: 'ui' });
+
+  const snapshot = reactive(runtime.snapshot());
   const eventLog = [];
-  const snapshot = reactive({
-    models: {
-      0: {
-        id: 0,
-        cells: {
-          '0,0,0': createCell(0, 0, 0, {
-            ui_ast_v0: { k: 'ui_ast_v0', t: 'json', v: buildDemoAst() },
-          }),
-          '0,0,1': createCell(0, 0, 1, {
-            ui_event: { k: 'ui_event', t: 'event', v: null },
-          }),
-          '0,1,0': createCell(0, 1, 0, {
-            model_title: { k: 'model_title', t: 'str', v: 'ModelTable' },
-            model_json: { k: 'model_json', t: 'str', v: '{"cells": 4}' },
-          }),
-          '0,1,1': createCell(0, 1, 1, {
-            code_text: { k: 'code_text', t: 'str', v: 'UI AST (v0.1)' },
-            code_snippet: { k: 'code_snippet', t: 'str', v: '{"type":"Root"}' },
-          }),
-          '0,1,2': createCell(0, 1, 2, {
-            event_title: { k: 'event_title', t: 'str', v: 'Event Log' },
-            event_log: { k: 'event_log', t: 'str', v: '[]' },
-          }),
-          '0,2,0': createCell(0, 2, 0, {
-            input_value: { k: 'input_value', t: 'str', v: 'Hello' },
-          }),
-        },
-      },
-    },
-  });
+  const adapter = createLocalBusAdapter({ runtime, eventLog });
 
-  function cellKey(p, r, c) {
-    return `${p},${r},${c}`;
+  function refreshSnapshot() {
+    const next = runtime.snapshot();
+    snapshot.models = next.models;
+    snapshot.v1nConfig = next.v1nConfig;
   }
 
-  function ensureCell(p, r, c) {
-    const key = cellKey(p, r, c);
-    if (!snapshot.models[0].cells[key]) {
-      snapshot.models[0].cells[key] = createCell(p, r, c, {});
-    }
-    return snapshot.models[0].cells[key];
+  function setMailboxValue(envelopeOrNull) {
+    const model = runtime.getModel(99);
+    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v: envelopeOrNull });
   }
 
-  function setLabel(p, r, c, label) {
-    const cell = ensureCell(p, r, c);
-    cell.labels[label.k] = { ...label };
-  }
-
-  function getLabel(p, r, c, k) {
-    const key = cellKey(p, r, c);
-    const cell = snapshot.models[0].cells[key];
-    if (!cell || !cell.labels) return undefined;
-    return cell.labels[k];
+  function updateDerived() {
+    adapter.updateUiDerived({
+      uiAst: buildEditorAst(),
+      snapshotJson: JSON.stringify(runtime.snapshot(), null, 2),
+      eventLogJson: JSON.stringify(eventLog, null, 2),
+    });
   }
 
   function getUiAst() {
-    const label = getLabel(0, 0, 0, 'ui_ast_v0');
+    const model = runtime.getModel(99);
+    const cell = runtime.getCell(model, 0, 0, 0);
+    const label = cell.labels.get('ui_ast_v0');
     return label ? label.v : null;
   }
 
-  function setUiAst(ast) {
-    setLabel(0, 0, 0, { k: 'ui_ast_v0', t: 'json', v: ast });
-  }
-
   function dispatchAddLabel(label) {
-    if (label.t !== 'event') {
+    if (!label || label.t !== 'event') {
       throw new Error('non_event_write');
     }
     if (label.p !== 0 || label.r !== 0 || label.c !== 1 || label.k !== 'ui_event') {
       throw new Error('event_mailbox_mismatch');
     }
-    setLabel(0, 0, 1, label);
-    eventLog.push(label);
-    setLabel(0, 1, 2, {
-      k: 'event_log',
-      t: 'str',
-      v: JSON.stringify(eventLog, null, 2),
-    });
+
+    const model = runtime.getModel(99);
+    const cell = runtime.getCell(model, 0, 0, 1);
+    const current = cell.labels.get('ui_event');
+    if (current && current.v !== null && current.v !== undefined) {
+      throw new Error('event_mailbox_full');
+    }
+
+    setMailboxValue(label.v);
+    refreshSnapshot();
   }
 
   function dispatchRmLabel(labelRef) {
-    if (labelRef.p !== 0 || labelRef.r !== 0 || labelRef.c !== 1 || labelRef.k !== 'ui_event') {
+    if (!labelRef || labelRef.p !== 0 || labelRef.r !== 0 || labelRef.c !== 1 || labelRef.k !== 'ui_event') {
       return;
     }
-    setLabel(0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+    setMailboxValue(null);
+    refreshSnapshot();
   }
 
+  function consumeOnce() {
+    const result = adapter.consumeOnce();
+    updateDerived();
+    refreshSnapshot();
+    return result;
+  }
+
+  setMailboxValue(null);
+  updateDerived();
+  refreshSnapshot();
+
   return {
+    runtime,
     snapshot,
     getUiAst,
-    setUiAst,
     dispatchAddLabel,
     dispatchRmLabel,
+    consumeOnce,
+    stringify,
   };
 }
 
 export function buildDemoAstSample() {
-  return buildDemoAst();
+  return buildEditorAst();
 }
