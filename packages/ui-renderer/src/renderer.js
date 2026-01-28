@@ -1,4 +1,5 @@
 let eventCounter = 0;
+let editorEventCounter = 0;
 
 function ensureHostAdapter(host) {
   if (!host || typeof host.getSnapshot !== 'function') {
@@ -12,10 +13,11 @@ function ensureHostAdapter(host) {
   }
 }
 
-function getModel(snapshot) {
+function getModel(snapshot, modelId) {
   if (!snapshot) return null;
   if (snapshot.models) {
-    return snapshot.models[0] || snapshot.models['0'] || null;
+    const id = modelId === undefined ? 0 : modelId;
+    return snapshot.models[id] || snapshot.models[String(id)] || null;
   }
   if (snapshot.cells) {
     return snapshot;
@@ -24,7 +26,7 @@ function getModel(snapshot) {
 }
 
 function getLabelValue(snapshot, ref) {
-  const model = getModel(snapshot);
+  const model = getModel(snapshot, ref && typeof ref.model_id === 'number' ? ref.model_id : undefined);
   if (!model || !model.cells) return undefined;
   const key = `${ref.p},${ref.r},${ref.c}`;
   const cell = model.cells[key];
@@ -34,9 +36,23 @@ function getLabelValue(snapshot, ref) {
   return label.v;
 }
 
+function getMailboxValue(snapshot) {
+  const model = getModel(snapshot, 99);
+  if (!model || !model.cells) return undefined;
+  const cell = model.cells['0,0,1'];
+  if (!cell || !cell.labels) return undefined;
+  const label = cell.labels.ui_event;
+  return label ? label.v : undefined;
+}
+
 function nextEventId() {
   eventCounter += 1;
   return `evt_${Date.now()}_${eventCounter}`;
+}
+
+function nextEditorEventId() {
+  editorEventCounter += 1;
+  return editorEventCounter;
 }
 
 function normalizeEvent(node, target, payload, overrideType) {
@@ -47,6 +63,26 @@ function normalizeEvent(node, target, payload, overrideType) {
     payload: payload === undefined ? null : payload,
     source: { node_id: node.id, node_type: node.type },
     ts: Date.now(),
+  };
+}
+
+function normalizeEditorEvent(payload) {
+  const event_id = nextEditorEventId();
+  const op_id = `op_${event_id}`;
+  const body = {
+    action: payload.action,
+    target: payload.target === undefined ? null : payload.target,
+  };
+  if (payload.value !== undefined) {
+    body.value = payload.value;
+  }
+  body.meta = { op_id };
+  return {
+    event_id,
+    type: payload.action,
+    payload: body,
+    source: 'ui_renderer',
+    ts: 0,
   };
 }
 
@@ -61,6 +97,17 @@ function buildEventLabel(target, envelope) {
   };
 }
 
+function buildMailboxEventLabel(envelope) {
+  return {
+    p: 0,
+    r: 0,
+    c: 1,
+    k: 'ui_event',
+    t: 'event',
+    v: envelope,
+  };
+}
+
 function renderTreeNode(node, snapshot) {
   const base = {
     id: node.id,
@@ -69,7 +116,7 @@ function renderTreeNode(node, snapshot) {
     children: [],
   };
 
-  if (node.type === 'Root' || node.type === 'Container') {
+  if (node.type === 'Root' || node.type === 'Container' || node.type === 'Table' || node.type === 'Tree' || node.type === 'Form' || node.type === 'FormItem') {
     base.children = (node.children || []).map((child) => renderTreeNode(child, snapshot));
     return base;
   }
@@ -167,10 +214,55 @@ function buildVueNode(node, snapshot, vue, host) {
     return h(resolve('ElSpace'), props, { default: () => children });
   }
 
+  if (node.type === 'Table') {
+    return h(resolve('ElTable'), props, { default: () => children });
+  }
+
+  if (node.type === 'Tree') {
+    return h(resolve('ElTree'), props);
+  }
+
+  if (node.type === 'Form') {
+    return h(resolve('ElForm'), props, { default: () => children });
+  }
+
+  if (node.type === 'FormItem') {
+    return h(resolve('ElFormItem'), props, { default: () => children });
+  }
+
   return h('div', props, children);
 }
 
 function dispatchEvent(node, target, payload, host, overrideType) {
+  if (target && Object.prototype.hasOwnProperty.call(target, 'action')) {
+    const snapshot = host.getSnapshot();
+    const mailboxValue = getMailboxValue(snapshot);
+    if (mailboxValue !== undefined && mailboxValue !== null) {
+      return { skipped: true, reason: 'mailbox_full' };
+    }
+
+    const action = target.action;
+    const out = { action };
+    if (action !== 'submodel_create') {
+      out.target = target.target_ref;
+    }
+
+    if (action === 'label_add' || action === 'label_update') {
+      if (target.value_ref !== undefined) {
+        out.value = target.value_ref;
+      } else {
+        out.value = { t: 'str', v: payload && payload.value !== undefined ? payload.value : '' };
+      }
+    } else if (action === 'submodel_create') {
+      out.value = target.value_ref;
+    }
+
+    const envelope = normalizeEditorEvent(out);
+    const label = buildMailboxEventLabel(envelope);
+    host.dispatchAddLabel(label);
+    return label;
+  }
+
   const envelope = normalizeEvent(node, target, payload, overrideType);
   const label = buildEventLabel(target, envelope);
 

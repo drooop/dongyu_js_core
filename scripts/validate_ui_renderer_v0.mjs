@@ -1,4 +1,5 @@
 import { createRenderer } from '../packages/ui-renderer/src/index.js';
+import crypto from 'node:crypto';
 
 function parseArgs(argv) {
   const args = { case: 'all', env: 'jsdom' };
@@ -47,6 +48,19 @@ function buildSnapshot() {
             labels: {
               title: { k: 'title', t: 'str', v: 'Hello' },
               input_value: { k: 'input_value', t: 'str', v: 'World' },
+            },
+          },
+        },
+      },
+      99: {
+        id: 99,
+        cells: {
+          '0,0,1': {
+            p: 0,
+            r: 0,
+            c: 1,
+            labels: {
+              ui_event: { k: 'ui_event', t: 'event', v: null },
             },
           },
         },
@@ -120,6 +134,42 @@ function buildAstExtension() {
   };
 }
 
+function buildEditorAst() {
+  return {
+    id: 'root_editor',
+    type: 'Root',
+    children: [
+      { id: 'tbl', type: 'Table', props: { title: 'Cells' } },
+      { id: 'tree', type: 'Tree', props: { title: 'Models' } },
+      {
+        id: 'form',
+        type: 'Form',
+        children: [
+          {
+            id: 'fi',
+            type: 'FormItem',
+            props: { label: 'Add label' },
+            children: [
+              {
+                id: 'btn_add',
+                type: 'Button',
+                props: { label: 'Add' },
+                bind: {
+                  write: {
+                    action: 'label_add',
+                    target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' },
+                    value_ref: { t: 'str', v: 'Hello' },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 
 function createHostAdapter(snapshot, calls) {
   return {
@@ -176,6 +226,44 @@ function validateRenderExtension(renderer, ast) {
   assert(code.text === '{"ok":true}', 'CodeBlock text mismatch');
 }
 
+function stableHash(obj) {
+  const text = JSON.stringify(obj);
+  return crypto.createHash('sha256').update(text).digest('hex');
+}
+
+function validateEditorRender(renderer) {
+  const ast = buildEditorAst();
+  const tree = renderer.renderTree(ast);
+  assert(tree.type === 'Root', 'Editor root missing');
+  assert(tree.children.length === 3, 'Editor root children mismatch');
+  assert(tree.children[0].type === 'Table', 'Editor Table missing');
+  assert(tree.children[1].type === 'Tree', 'Editor Tree missing');
+  assert(tree.children[2].type === 'Form', 'Editor Form missing');
+  return { tree };
+}
+
+function validateEditorEventMailboxOnly(renderer, calls) {
+  const ast = buildEditorAst();
+  const btn = ast.children[2].children[0].children[0];
+  const label = renderer.dispatchEvent(btn, { value: 'ignored' });
+
+  assert(label && label.t === 'event', 'Editor event label t must be event');
+  assert(label.k === 'ui_event', 'Editor event label must write ui_event');
+  assert(label.p === 0 && label.r === 0 && label.c === 1, 'Editor event label must write mailbox coords');
+  assert(label.v && typeof label.v === 'object', 'Editor envelope missing');
+  assert(label.v.source === 'ui_renderer', 'Editor source must be ui_renderer');
+  assert(label.v.type === 'label_add', 'Editor type must equal payload.action');
+  assert(Number.isInteger(label.v.event_id), 'Editor event_id must be integer');
+  assert(label.v.event_id === 1, 'Editor event_id must start at 1 in test run');
+  assert(label.v.payload && label.v.payload.action === 'label_add', 'Editor payload.action mismatch');
+  assert(label.v.payload.meta && label.v.payload.meta.op_id === 'op_1', 'Editor payload.meta.op_id mismatch');
+  assert(label.v.payload.target && label.v.payload.target.model_id === 1, 'Editor payload.target missing');
+
+  assert(calls.length === 1, 'Editor expected add only');
+  assert(calls[0].type === 'add', 'Editor expected add call');
+  return { label };
+}
+
 
 async function run() {
   const args = parseArgs(process.argv.slice(2));
@@ -192,7 +280,7 @@ async function run() {
   const renderer = createRenderer({ host });
 
   const results = [];
-  const cases = args.case === 'all' ? ['render_minimal', 'event_write', 'render_extension'] : [args.case];
+  const cases = args.case === 'all' ? ['render_minimal', 'event_write', 'render_extension', 'editor'] : [args.case];
 
   for (const name of cases) {
     if (name === 'render_minimal') {
@@ -204,6 +292,19 @@ async function run() {
     } else if (name === 'render_extension') {
       validateRenderExtension(renderer, buildAstExtension());
       results.push({ case: name, status: 'PASS' });
+    } else if (name === 'editor') {
+      const editorCalls = [];
+      const editorHost = createHostAdapter(snapshot, editorCalls);
+      const editorRenderer = createRenderer({ host: editorHost });
+      const { tree } = validateEditorRender(editorRenderer);
+      const hash = stableHash(tree);
+      assert(typeof hash === 'string' && hash.length > 10, 'Editor snapshot hash missing');
+      validateEditorEventMailboxOnly(editorRenderer, editorCalls);
+      results.push({ case: 'editor_table_render', status: 'PASS' });
+      results.push({ case: 'editor_tree_render', status: 'PASS' });
+      results.push({ case: 'editor_form_render', status: 'PASS' });
+      results.push({ case: 'editor_event_mailbox_only', status: 'PASS' });
+      results.push({ case: 'editor_snapshot_hash', status: 'PASS' });
     } else {
       throw new Error(`Unknown case: ${name}`);
     }
