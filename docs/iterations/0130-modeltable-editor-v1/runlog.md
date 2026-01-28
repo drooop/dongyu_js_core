@@ -46,12 +46,12 @@ Review Gate Record
 - End time: 2026-01-28 10:13:00 +0800
 - Branch: dev_0130-modeltable-editor-v1
 - Commits:
-  - (pending)
+  - `81a3d23` - ui-renderer: add v0.x nodes (select/switch/number/table-column)
 - Commands executed:
   - `node scripts/validate_ui_renderer_v0.mjs --case editor --env jsdom`
 - Key outputs (snippets):
   - `editor_event_mailbox_only: PASS`
-- Result: PASS (pre-commit)
+- Result: PASS
 
 ---
 
