@@ -102,6 +102,7 @@ Review Gate Record
 - Branch: dev_0129-modeltable-editor-v0
 - Commits:
   - `00dac3b` - ui-renderer: write editor events to mailbox
+  - `89ef8c8` - ui-renderer: omit null target in editor envelope
 - Commands executed:
   - `node scripts/validate_ui_renderer_v0.mjs --case editor --env jsdom`
 - Key outputs (snippets):
@@ -126,6 +127,7 @@ Review Gate Record
 - Branch: dev_0129-modeltable-editor-v0
 - Commits:
   - `7d7b280` - ui-demo: add modeltable editor demo and adapter
+  - `f2e4457` - ui-demo: harden mailbox validation and tests
 - Commands executed:
   - `npm -C packages/ui-model-demo-frontend run test`
 - Key outputs (snippets):
