@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MatrixRoomEventV0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_type", "content"],
+  "properties": {
+    "event_type": { "const": "dy.bus.v0" },
+    "content": { "$ref": "./mgmt_bus_event_v0.schema.json" },
+    "room_id": { "type": "string" },
+    "event_id": { "type": "string" },
+    "sender": { "type": "string" }
+  }
+}

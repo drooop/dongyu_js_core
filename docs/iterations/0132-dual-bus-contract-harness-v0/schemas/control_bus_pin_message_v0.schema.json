@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ControlBusPinMessageV0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["pin", "t", "value"],
+  "properties": {
+    "pin": { "type": "string", "minLength": 1 },
+    "t": { "enum": ["IN", "OUT"] },
+    "value": {},
+    "op_id": { "type": "string" }
+  }
+}
