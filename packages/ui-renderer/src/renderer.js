@@ -37,7 +37,7 @@ function getLabelValue(snapshot, ref) {
 }
 
 function getMailboxValue(snapshot) {
-  const model = getModel(snapshot, 99);
+  const model = getModel(snapshot, -1);
   if (!model || !model.cells) return undefined;
   const cell = model.cells['0,0,1'];
   if (!cell || !cell.labels) return undefined;
@@ -124,6 +124,7 @@ function renderTreeNode(node, snapshot) {
     || node.type === 'Tree'
     || node.type === 'Form'
     || node.type === 'FormItem'
+    || node.type === 'TabPane'
   ) {
     base.children = (node.children || []).map((child) => renderTreeNode(child, snapshot));
     return base;
@@ -156,6 +157,45 @@ function renderTreeNode(node, snapshot) {
     return base;
   }
 
+  if (node.type === 'DatePicker' || node.type === 'TimePicker') {
+    const bind = node.bind && node.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    base.value = value !== undefined ? value : '';
+    return base;
+  }
+
+  if (node.type === 'Tabs') {
+    const bind = node.bind && node.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    base.value = value !== undefined ? value : '';
+    base.children = (node.children || []).map((child) => renderTreeNode(child, snapshot));
+    return base;
+  }
+
+  if (node.type === 'Dialog') {
+    const bind = node.bind && node.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    base.value = value !== undefined ? Boolean(value) : false;
+    base.children = (node.children || []).map((child) => renderTreeNode(child, snapshot));
+    return base;
+  }
+
+  if (node.type === 'Pagination') {
+    const models = node.bind && node.bind.models;
+    const currentRead = models && models.currentPage && models.currentPage.read;
+    const sizeRead = models && models.pageSize && models.pageSize.read;
+    const currentValue = currentRead ? getLabelValue(snapshot, currentRead) : undefined;
+    const sizeValue = sizeRead ? getLabelValue(snapshot, sizeRead) : undefined;
+    if (currentValue !== undefined) base.currentPage = currentValue;
+    if (sizeValue !== undefined) base.pageSize = sizeValue;
+    return base;
+  }
+
+  if (node.type === 'Include') {
+    // Keep tree node shallow; included fragment is resolved at render time.
+    return base;
+  }
+
   if (node.type === 'Select' || node.type === 'NumberInput' || node.type === 'Switch') {
     const bind = node.bind && node.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
@@ -176,6 +216,21 @@ function buildVueNode(node, snapshot, vue, host) {
   const resolve = vue.resolveComponent || ((name) => name);
   const children = (node.children || []).map((child) => buildVueNode(child, snapshot, vue, host));
   const props = { ...(node.props || {}) };
+
+  if (node.type === 'Include') {
+    const ref = node.props && node.props.ref;
+    const fallbackText = node.props && Object.prototype.hasOwnProperty.call(node.props, 'fallbackText')
+      ? String(node.props.fallbackText)
+      : 'Missing include';
+    if (!ref || typeof ref !== 'object') {
+      return h('div', fallbackText);
+    }
+    const fragment = getLabelValue(snapshot, ref);
+    if (!fragment || typeof fragment !== 'object') {
+      return h('div', fallbackText);
+    }
+    return buildVueNode(fragment, snapshot, vue, host);
+  }
 
   if (node.type === 'Text') {
     const bind = node.bind && node.bind.read;
@@ -202,6 +257,44 @@ function buildVueNode(node, snapshot, vue, host) {
       dispatchEvent(node, target, payload, host);
     };
     return h(resolve('ElInput'), props);
+  }
+
+  if (node.type === 'DatePicker') {
+    const bind = node.bind && node.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    props.modelValue = value !== undefined ? value : '';
+    const onValue = (v) => {
+      const target = node.bind && node.bind.write;
+      if (!target) return;
+      dispatchEvent(node, target, { value: v }, host);
+    };
+    props['onUpdate:modelValue'] = onValue;
+    const changeTarget = node.bind && node.bind.change;
+    if (changeTarget) {
+      props.onChange = (v) => {
+        dispatchEvent(node, changeTarget, { value: v }, host, 'change');
+      };
+    }
+    return h(resolve('ElDatePicker'), props);
+  }
+
+  if (node.type === 'TimePicker') {
+    const bind = node.bind && node.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    props.modelValue = value !== undefined ? value : '';
+    const onValue = (v) => {
+      const target = node.bind && node.bind.write;
+      if (!target) return;
+      dispatchEvent(node, target, { value: v }, host);
+    };
+    props['onUpdate:modelValue'] = onValue;
+    const changeTarget = node.bind && node.bind.change;
+    if (changeTarget) {
+      props.onChange = (v) => {
+        dispatchEvent(node, changeTarget, { value: v }, host, 'change');
+      };
+    }
+    return h(resolve('ElTimePicker'), props);
   }
 
   if (node.type === 'Select') {
@@ -259,6 +352,29 @@ function buildVueNode(node, snapshot, vue, host) {
     return h(resolve('ElSwitch'), props);
   }
 
+  if (node.type === 'Tabs') {
+    const bind = node.bind && node.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    props.modelValue = value !== undefined ? value : '';
+    const onValue = (v) => {
+      const target = node.bind && node.bind.write;
+      if (!target) return;
+      dispatchEvent(node, target, { value: v }, host);
+    };
+    props['onUpdate:modelValue'] = onValue;
+    const changeTarget = node.bind && node.bind.change;
+    if (changeTarget) {
+      props.onTabChange = (v) => {
+        dispatchEvent(node, changeTarget, { value: v }, host, 'change');
+      };
+    }
+    return h(resolve('ElTabs'), props, { default: () => children });
+  }
+
+  if (node.type === 'TabPane') {
+    return h(resolve('ElTabPane'), props, { default: () => children });
+  }
+
   if (node.type === 'Button') {
     props.onClick = () => {
       const target = node.bind && node.bind.write;
@@ -293,7 +409,151 @@ function buildVueNode(node, snapshot, vue, host) {
   }
 
   if (node.type === 'Tree') {
+    const changeTarget = node.bind && node.bind.change;
+    if (changeTarget) {
+      props.onNodeClick = (data) => {
+        const path = data && Object.prototype.hasOwnProperty.call(data, 'path') ? data.path : undefined;
+        dispatchEvent(node, changeTarget, { value: path }, host, 'change');
+      };
+    }
     return h(resolve('ElTree'), props);
+  }
+
+  if (node.type === 'Html') {
+    const bind = node.bind && node.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    const html = value !== undefined
+      ? String(value)
+      : (node.props && Object.prototype.hasOwnProperty.call(node.props, 'html') ? String(node.props.html) : '');
+    const divProps = { ...props };
+    delete divProps.html;
+    divProps.innerHTML = html;
+    return h('div', divProps);
+  }
+
+  if (node.type === 'Link') {
+    const href = Object.prototype.hasOwnProperty.call(props, 'href') ? props.href : '';
+    const text = Object.prototype.hasOwnProperty.call(props, 'text') ? props.text : '';
+    const aProps = { ...props, href: href || '', target: props.target || '_blank', rel: props.rel || 'noopener noreferrer' };
+    delete aProps.text;
+    return h('a', aProps, String(text || href || ''));
+  }
+
+  if (node.type === 'FileInput') {
+    const accept = node.props && Object.prototype.hasOwnProperty.call(node.props, 'accept') ? node.props.accept : undefined;
+    const multiple = Boolean(node.props && Object.prototype.hasOwnProperty.call(node.props, 'multiple') ? node.props.multiple : false);
+    const directory = Boolean(node.props && Object.prototype.hasOwnProperty.call(node.props, 'directory') ? node.props.directory : false);
+    const labelText = node.props && Object.prototype.hasOwnProperty.call(node.props, 'label') ? String(node.props.label) : '';
+    const wrapStyle = node.props && node.props.style ? node.props.style : undefined;
+    const multiAttr = multiple || directory;
+    const onChange = (e) => {
+      const input = e && e.target ? e.target : null;
+      const files = input && input.files ? input.files : null;
+      const target = node.bind && node.bind.write;
+      if (!target) return;
+      if (!files || files.length === 0) return;
+
+      const readOne = (file) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result;
+          if (!(result instanceof ArrayBuffer)) {
+            resolve(null);
+            return;
+          }
+          const bytes = new Uint8Array(result);
+          let binary = '';
+          for (let i = 0; i < bytes.length; i += 1) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          const b64 = btoa(binary);
+          resolve(b64);
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsArrayBuffer(file);
+      });
+
+      const shouldMulti = multiple || directory || files.length > 1;
+      if (!shouldMulti) {
+        const file = files[0];
+        void readOne(file).then((b64) => {
+          if (typeof b64 !== 'string' || b64.length === 0) return;
+          dispatchEvent(node, target, { value: b64 }, host);
+        });
+        return;
+      }
+
+      const list = Array.from(files);
+      void (async () => {
+        const out = [];
+        for (const f of list) {
+          const b64 = await readOne(f);
+          if (typeof b64 !== 'string' || b64.length === 0) continue;
+          const relPath = String((f && Object.prototype.hasOwnProperty.call(f, 'webkitRelativePath') ? f.webkitRelativePath : '') || f.name || '').replace(/\\/g, '/');
+          out.push({ path: relPath, b64 });
+        }
+        dispatchEvent(node, target, { value: out }, host);
+      })();
+    };
+    return h('div', { style: wrapStyle }, [
+      labelText ? h('div', { style: { marginBottom: '6px', fontSize: '12px', color: '#374151' } }, labelText) : null,
+      h('input', { type: 'file', accept, multiple: multiAttr, webkitdirectory: directory, directory, onChange }),
+    ].filter(Boolean));
+  }
+
+  if (node.type === 'Dialog') {
+    const bind = node.bind && node.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    props.modelValue = value === true;
+    props['onUpdate:modelValue'] = (v) => {
+      const target = node.bind && node.bind.write;
+      if (!target) return;
+      dispatchEvent(node, target, { value: Boolean(v) }, host);
+    };
+    return h(resolve('ElDialog'), props, { default: () => children });
+  }
+
+  if (node.type === 'Pagination') {
+    const models = node.bind && node.bind.models;
+    const currentRead = models && models.currentPage && models.currentPage.read;
+    const sizeRead = models && models.pageSize && models.pageSize.read;
+    const currentValue = currentRead ? getLabelValue(snapshot, currentRead) : undefined;
+    const sizeValue = sizeRead ? getLabelValue(snapshot, sizeRead) : undefined;
+    if (currentValue !== undefined) {
+      props.currentPage = currentValue;
+    }
+    if (sizeValue !== undefined) {
+      props.pageSize = sizeValue;
+    }
+    const currentWrite = models && models.currentPage && models.currentPage.write;
+    const sizeWrite = models && models.pageSize && models.pageSize.write;
+    if (currentWrite) {
+      const onCurrent = (v) => {
+        dispatchEvent(node, currentWrite, { value: v }, host);
+      };
+      props['onUpdate:currentPage'] = onCurrent;
+      props['onUpdate:current-page'] = onCurrent;
+      const changeTarget = node.bind && node.bind.change;
+      if (changeTarget) {
+        props.onCurrentChange = (v) => {
+          dispatchEvent(node, changeTarget, { value: v }, host, 'change');
+        };
+      }
+    }
+    if (sizeWrite) {
+      const onSize = (v) => {
+        dispatchEvent(node, sizeWrite, { value: v }, host);
+      };
+      props['onUpdate:pageSize'] = onSize;
+      props['onUpdate:page-size'] = onSize;
+      const changeTarget = node.bind && node.bind.change;
+      if (changeTarget) {
+        props.onSizeChange = (v) => {
+          dispatchEvent(node, changeTarget, { value: v }, host, 'change');
+        };
+      }
+    }
+    return h(resolve('ElPagination'), props);
   }
 
   if (node.type === 'Form') {
@@ -331,6 +591,8 @@ function dispatchEvent(node, target, payload, host, overrideType) {
           t = 'bool';
         } else if (typeof raw === 'number' && Number.isSafeInteger(raw)) {
           t = 'int';
+        } else if (raw && typeof raw === 'object') {
+          t = 'json';
         }
         out.value = { t, v: raw };
       }

@@ -69,6 +69,19 @@ const NODE_TYPES = new Set([
   'Select',
   'NumberInput',
   'Switch',
+  'Checkbox',
+  'RadioGroup',
+  'Radio',
+  'Slider',
+  'DatePicker',
+  'TimePicker',
+  'Tabs',
+  'TabPane',
+  'Dialog',
+  'Pagination',
+  'Include',
+  'Html',
+  'FileInput',
 ]);
 
 function validateLabelRef(ref, where, { allowMissingModelId, allowMissingK }) {
@@ -129,7 +142,7 @@ function validateLegacyWrite(write, where) {
 
 function validateBind(bind, where) {
   assert(isPlainObject(bind), `${where}:bind_not_object`);
-  const allowedKeys = new Set(['read', 'write']);
+  const allowedKeys = new Set(['read', 'write', 'change', 'models']);
   for (const k of Object.keys(bind)) {
     assert(allowedKeys.has(k), `${where}:unknown_key:${k}`);
   }
@@ -142,6 +155,57 @@ function validateBind(bind, where) {
       validateEditorWrite(bind.write, `${where}.write`);
     } else {
       validateLegacyWrite(bind.write, `${where}.write`);
+    }
+  }
+  if (bind.change !== undefined) {
+    assert(isPlainObject(bind.change), `${where}.change:not_object`);
+    if (Object.prototype.hasOwnProperty.call(bind.change, 'action')) {
+      validateEditorWrite(bind.change, `${where}.change`);
+    } else {
+      validateLegacyWrite(bind.change, `${where}.change`);
+    }
+  }
+  if (bind.models !== undefined) {
+    assert(isPlainObject(bind.models), `${where}:models:not_object`);
+    const modelKeys = new Set(['currentPage', 'pageSize']);
+    for (const k of Object.keys(bind.models)) {
+      assert(modelKeys.has(k), `${where}:models:unknown_key:${k}`);
+    }
+    if (bind.models.currentPage !== undefined) {
+      assert(isPlainObject(bind.models.currentPage), `${where}:models.currentPage:not_object`);
+      const currentPageKeys = new Set(['read', 'write']);
+      for (const k of Object.keys(bind.models.currentPage)) {
+        assert(currentPageKeys.has(k), `${where}:models.currentPage:unknown_key:${k}`);
+      }
+      if (bind.models.currentPage.read !== undefined) {
+        validateLabelRef(bind.models.currentPage.read, `${where}.models.currentPage.read`, { allowMissingModelId: true, allowMissingK: false });
+      }
+      if (bind.models.currentPage.write !== undefined) {
+        assert(isPlainObject(bind.models.currentPage.write), `${where}.models.currentPage.write:not_object`);
+        if (Object.prototype.hasOwnProperty.call(bind.models.currentPage.write, 'action')) {
+          validateEditorWrite(bind.models.currentPage.write, `${where}.models.currentPage.write`);
+        } else {
+          validateLegacyWrite(bind.models.currentPage.write, `${where}.models.currentPage.write`);
+        }
+      }
+    }
+    if (bind.models.pageSize !== undefined) {
+      assert(isPlainObject(bind.models.pageSize), `${where}:models.pageSize:not_object`);
+      const pageSizeKeys = new Set(['read', 'write']);
+      for (const k of Object.keys(bind.models.pageSize)) {
+        assert(pageSizeKeys.has(k), `${where}:models.pageSize:unknown_key:${k}`);
+      }
+      if (bind.models.pageSize.read !== undefined) {
+        validateLabelRef(bind.models.pageSize.read, `${where}.models.pageSize.read`, { allowMissingModelId: true, allowMissingK: false });
+      }
+      if (bind.models.pageSize.write !== undefined) {
+        assert(isPlainObject(bind.models.pageSize.write), `${where}.models.pageSize.write:not_object`);
+        if (Object.prototype.hasOwnProperty.call(bind.models.pageSize.write, 'action')) {
+          validateEditorWrite(bind.models.pageSize.write, `${where}.models.pageSize.write`);
+        } else {
+          validateLegacyWrite(bind.models.pageSize.write, `${where}.models.pageSize.write`);
+        }
+      }
     }
   }
 }

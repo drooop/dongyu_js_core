@@ -52,8 +52,8 @@ function buildSnapshot() {
           },
         },
       },
-      99: {
-        id: 99,
+      '-1': {
+        id: -1,
         cells: {
           '0,0,1': {
             p: 0,
@@ -187,8 +187,8 @@ function buildEditorAst() {
                   ],
                 },
                 bind: {
-                  read: { model_id: 99, p: 0, r: 2, c: 0, k: 'selected_model_id' },
-                  write: { action: 'label_update', target_ref: { model_id: 99, p: 0, r: 2, c: 0, k: 'selected_model_id' } },
+                  read: { model_id: -1, p: 0, r: 2, c: 0, k: 'selected_model_id' },
+                  write: { action: 'label_update', target_ref: { model_id: -1, p: 0, r: 2, c: 0, k: 'selected_model_id' } },
                 },
               },
             ],
@@ -202,8 +202,8 @@ function buildEditorAst() {
                 id: 'num_p',
                 type: 'NumberInput',
                 bind: {
-                  read: { model_id: 99, p: 0, r: 2, c: 0, k: 'draft_p' },
-                  write: { action: 'label_update', target_ref: { model_id: 99, p: 0, r: 2, c: 0, k: 'draft_p' } },
+                  read: { model_id: -1, p: 0, r: 2, c: 0, k: 'draft_p' },
+                  write: { action: 'label_update', target_ref: { model_id: -1, p: 0, r: 2, c: 0, k: 'draft_p' } },
                 },
               },
             ],
@@ -217,8 +217,8 @@ function buildEditorAst() {
                 id: 'sw_enabled',
                 type: 'Switch',
                 bind: {
-                  read: { model_id: 99, p: 0, r: 2, c: 0, k: 'draft_enabled' },
-                  write: { action: 'label_update', target_ref: { model_id: 99, p: 0, r: 2, c: 0, k: 'draft_enabled' } },
+                  read: { model_id: -1, p: 0, r: 2, c: 0, k: 'draft_enabled' },
+                  write: { action: 'label_update', target_ref: { model_id: -1, p: 0, r: 2, c: 0, k: 'draft_enabled' } },
                 },
               },
             ],
