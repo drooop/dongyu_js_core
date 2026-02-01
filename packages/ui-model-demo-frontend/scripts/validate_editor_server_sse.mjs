@@ -127,11 +127,12 @@ async function main() {
   const port = 8791;
   const serverPath = new URL('../../ui-model-demo-server/server.mjs', import.meta.url).pathname;
 
-  const proc = spawn('node', [serverPath], {
+  const proc = spawn('bun', [serverPath], {
     env: {
       ...process.env,
       PORT: String(port),
       CORS_ORIGIN: 'http://127.0.0.1:5173',
+      WORKER_BASE_WORKSPACE: 'editor_sse_demo',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -203,11 +204,11 @@ async function main() {
     assert(r3.json.ui_event_error && r3.json.ui_event_error.detail === 'invalid_int', 'typed_int_invalid_error_detail');
 
     // ui_ast_v0 exists in mailbox model
-    const ast = r3.json.snapshot.models['99']
-      && r3.json.snapshot.models['99'].cells
-      && r3.json.snapshot.models['99'].cells['0,0,0']
-      && r3.json.snapshot.models['99'].cells['0,0,0'].labels
-      && r3.json.snapshot.models['99'].cells['0,0,0'].labels.ui_ast_v0;
+    const ast = r3.json.snapshot.models['-1']
+      && r3.json.snapshot.models['-1'].cells
+      && r3.json.snapshot.models['-1'].cells['0,0,0']
+      && r3.json.snapshot.models['-1'].cells['0,0,0'].labels
+      && r3.json.snapshot.models['-1'].cells['0,0,0'].labels.ui_ast_v0;
     assert(ast && ast.t === 'json' && ast.v && typeof ast.v === 'object', 'ui_ast_v0_present');
 
     // Wait until SSE saw at least one more snapshot after POSTs.

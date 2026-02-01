@@ -53,8 +53,8 @@ async function main() {
   const port = 8792;
   const serverPath = new URL('../../ui-model-demo-server/server.mjs', import.meta.url).pathname;
 
-  const proc = spawn('node', [serverPath], {
-    env: { ...process.env, PORT: String(port) },
+  const proc = spawn('bun', [serverPath], {
+    env: { ...process.env, PORT: String(port), WORKER_BASE_WORKSPACE: 'editor_static_demo' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 

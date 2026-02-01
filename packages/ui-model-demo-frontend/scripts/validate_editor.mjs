@@ -59,7 +59,7 @@ function sendMailbox(store, envelope) {
 }
 
 function getMailboxCell(store) {
-  const mailboxModel = store.runtime.getModel(99);
+  const mailboxModel = store.runtime.getModel(-1);
   return store.runtime.getCell(mailboxModel, 0, 0, 1);
 }
 
@@ -88,7 +88,13 @@ function getLastOpId(store) {
 }
 
 function run() {
-  const store = createDemoStore({ uiMode: 'v0', adapterMode: 'v0' });
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+
+  // Force Test page for editor test suite.
+  const stateModel = store.runtime.getModel(-2);
+  store.runtime.addLabel(stateModel, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'test' });
+  store.consumeOnce();
+
   const calls = [];
   const host = createHost(store, calls);
   const renderer = createRenderer({ host });
@@ -96,14 +102,18 @@ function run() {
   const ast = store.getUiAst();
   assert(ast && ast.type === 'Root', 'editor_ast: missing Root');
 
-  const btnCreateModel = findNodeById(ast, 'btn_create_model1');
-  const btnAdd = findNodeById(ast, 'btn_add_title');
-  const inputUpdate = findNodeById(ast, 'input_update_title');
-  const btnRemove = findNodeById(ast, 'btn_remove_title');
-  const btnClear = findNodeById(ast, 'btn_clear_cell');
-  assert(btnCreateModel && btnAdd && inputUpdate && btnRemove && btnClear, 'editor_ast: missing nodes');
+  const btnCreateModel = findNodeById(ast, 'btn_create_next_model');
+  const btnAdd = findNodeById(ast, 'btn_apply_add');
+  const inputVText = findNodeById(ast, 'input_v_text');
+  const btnUpdate = findNodeById(ast, 'btn_apply_update');
+  const btnRemove = findNodeById(ast, 'btn_apply_remove');
+  const btnClear = findNodeById(ast, 'btn_apply_clear');
+  assert(btnCreateModel && btnAdd && inputVText && btnUpdate && btnRemove && btnClear, 'editor_ast: missing nodes');
 
-  // 1) create model 1
+  // Default user model exists.
+  assert(store.runtime.getModel(1), 'editor_default_model_1_missing');
+
+  // 1) create model 2
   const labelCreate = renderer.dispatchEvent(btnCreateModel, {});
   assert(labelCreate && labelCreate.t === 'event', 'editor_event_only: label.t must be event');
   assert(
@@ -111,12 +121,12 @@ function run() {
     'editor_submodel_create_target_omitted'
   );
 
-  // no state bypass: model 1 not created before consume
-  assert(!store.runtime.getModel(1), 'editor_no_state_bypass: model created before consume');
+  // no state bypass: model 2 not created before consume
+  assert(!store.runtime.getModel(2), 'editor_no_state_bypass: model created before consume');
   store.consumeOnce();
-  assert(store.runtime.getModel(1), 'editor_submodel_create: model 1 not created');
+  assert(store.runtime.getModel(2), 'editor_submodel_create: model 2 not created');
 
-  // 2) add label
+  // 2) add label (defaults target model 1, title=Hello)
   renderer.dispatchEvent(btnAdd, {});
   assert(!store.runtime.getCell(store.runtime.getModel(1), 0, 0, 0).labels.get('title'), 'editor_no_state_bypass: label changed before consume');
   store.consumeOnce();
@@ -124,8 +134,13 @@ function run() {
   const cell = store.runtime.getCell(m1, 0, 0, 0);
   assert(cell.labels.get('title') && cell.labels.get('title').v === 'Hello', 'editor_cell_crud: add failed');
 
-  // 3) update via input (payload.value from input)
-  renderer.dispatchEvent(inputUpdate, { value: 'World' });
+  // 3) update via input (draft_v_text) + update label
+  renderer.dispatchEvent(inputVText, { value: 'World' });
+  store.consumeOnce();
+  const ast2 = store.getUiAst();
+  const btnUpdate2 = findNodeById(ast2, 'btn_apply_update');
+  assert(btnUpdate2, 'editor_ast: missing btn_apply_update after value edit');
+  renderer.dispatchEvent(btnUpdate2, {});
   store.consumeOnce();
   assert(cell.labels.get('title') && cell.labels.get('title').v === 'World', 'editor_cell_crud: update failed');
 
@@ -364,6 +379,11 @@ function run() {
 
   // v1 suite (editor v1 UI model + typed normalization)
   const storeV1 = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+
+  // Force Test page for this test suite.
+  const stateModelV1Init = storeV1.runtime.getModel(-2);
+  storeV1.runtime.addLabel(stateModelV1Init, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'test' });
+  storeV1.consumeOnce();
   const callsV1 = [];
   const hostV1 = createHost(storeV1, callsV1);
   const rendererV1 = createRenderer({ host: hostV1 });
@@ -376,12 +396,12 @@ function run() {
   const selTargetModel = findNodeById(astV1, 'sel_target_model');
   assert(btnCreateNext && btnApplyAdd && selTargetModel, 'editor_v1_ast: missing nodes');
 
-  assert(btnApplyAdd.props && btnApplyAdd.props.disabled === true, 'editor_v1_controls_disabled_before_model');
-  results.push('editor_v1_controls_disabled_before_model: PASS');
+  assert(btnApplyAdd.props && btnApplyAdd.props.disabled === false, 'editor_v1_controls_enabled_by_default');
+  results.push('editor_v1_controls_enabled_by_default: PASS');
 
   rendererV1.dispatchEvent(btnCreateNext, {});
   storeV1.consumeOnce();
-  assert(storeV1.runtime.getModel(1), 'editor_v1_model_create_failed');
+  assert(storeV1.runtime.getModel(2), 'editor_v1_model_create_failed');
 
   astV1 = storeV1.getUiAst();
   const btnApplyAdd2 = findNodeById(astV1, 'btn_apply_add');
@@ -390,9 +410,10 @@ function run() {
   const sel2 = findNodeById(astV1, 'sel_target_model');
   const options = sel2 && sel2.props ? sel2.props.options : null;
   assert(Array.isArray(options), 'editor_v1_model_selector_excludes_reserved: options missing');
-  const forbidden = new Set([0, 98, 99]);
-  assert(options.every((o) => !forbidden.has(o.value)), 'editor_v1_model_selector_excludes_reserved');
-  results.push('editor_v1_model_selector_excludes_reserved: PASS');
+  assert(options.every((o) => o.value !== 0), 'editor_v1_model_selector_excludes_model_0');
+  assert(options.some((o) => o.value === -1), 'editor_v1_model_selector_includes_minus_1');
+  assert(options.some((o) => o.value === -2), 'editor_v1_model_selector_includes_minus_2');
+  results.push('editor_v1_model_selector_excludes_model_0: PASS');
 
   const cell1 = storeV1.runtime.getCell(storeV1.runtime.getModel(1), 0, 0, 0);
 
@@ -472,6 +493,14 @@ function run() {
   storeV1.consumeOnce();
   assert(getErrorCode(storeV1) === 'reserved_cell', 'editor_v1_typed_value_error_priority_preserved');
   results.push('editor_v1_typed_value_error_priority_preserved: PASS');
+
+  // PIN page branch exists.
+  const stateModelV1 = storeV1.runtime.getModel(-2);
+  storeV1.runtime.addLabel(stateModelV1, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'pin' });
+  storeV1.consumeOnce();
+  const astPin = storeV1.getUiAst();
+  assert(findNodeById(astPin, 'card_pin_demo'), 'editor_v1_pin_page_missing');
+  results.push('editor_v1_pin_page_present: PASS');
 
   results.push('editor_v1_v0_suite_still_passes: PASS');
   process.stdout.write(results.join('\n'));

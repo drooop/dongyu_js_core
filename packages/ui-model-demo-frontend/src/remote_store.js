@@ -35,17 +35,48 @@ export function createRemoteStore(options) {
   const baseUrl = options && options.baseUrl ? String(options.baseUrl).replace(/\/$/, '') : defaultBaseUrl;
   const snapshot = reactive({ models: {}, v1nConfig: { local_mqtt: null, global_mqtt: null } });
 
-  const EDITOR_MODEL_ID = 99;
-  const EDITOR_STATE_MODEL_ID = 98;
+  const EDITOR_MODEL_ID = -1;
+  const EDITOR_STATE_MODEL_ID = -2;
+
+  let pauseSse = false;
+  let pendingSseSnapshot = null;
+
+  function computePauseSse(next) {
+    const v = getSnapshotLabelValue(next, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_pause_sse' });
+    if (v === true || v === false) return v;
+    if (typeof v === 'string') {
+      const t = v.trim().toLowerCase();
+      if (t === 'true') return true;
+      if (t === 'false') return false;
+    }
+    return false;
+  }
 
   function applySnapshot(next) {
     if (!next || !next.models) return;
     snapshot.models = next.models;
     snapshot.v1nConfig = next.v1nConfig;
+    pauseSse = computePauseSse(next);
+    if (!pauseSse) {
+      const pending = pendingSseSnapshot;
+      pendingSseSnapshot = null;
+      if (pending && pending !== next) applySnapshot(pending);
+    }
   }
 
   function getUiAst() {
-    return getSnapshotLabelValue(snapshot, { model_id: 99, p: 0, r: 0, c: 0, k: 'ui_ast_v0' }) || null;
+    const raw = getSnapshotLabelValue(snapshot, { model_id: EDITOR_MODEL_ID, p: 0, r: 0, c: 0, k: 'ui_ast_v0' });
+    if (!raw) return null;
+    // Defensive: some producers may store json-typed values as strings.
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+      } catch (_) {
+        return null;
+      }
+    }
+    return raw;
   }
 
   function assertMailboxWriteLabel(label) {
@@ -117,6 +148,12 @@ export function createRemoteStore(options) {
     const action = envelope.payload.action;
     if (!['label_add', 'label_update', 'label_remove', 'cell_clear'].includes(action)) return envelope;
 
+    // If target is explicitly provided, do not rewrite it.
+    // This is required for app-shell level controls (like routing) that target editor_state labels.
+    if (envelope.payload.target && typeof envelope.payload.target === 'object') {
+      return envelope;
+    }
+
     const s = getEditorState();
     const target = { model_id: s.selectedModelId, p: s.draftP, r: s.draftR, c: s.draftC };
     if (action !== 'cell_clear') {
@@ -129,13 +166,66 @@ export function createRemoteStore(options) {
     return envelope;
   }
 
+  async function fetchSnapshotAndApply(context) {
+    try {
+      const resp = await fetch(`${baseUrl}/snapshot`);
+      if (!resp.ok) {
+        console.error('snapshot fetch failed', { context, status: resp.status, statusText: resp.statusText });
+        return;
+      }
+      const data = await resp.json();
+      if (data && data.snapshot) {
+        applySnapshot(data.snapshot);
+      } else {
+        console.warn('snapshot response missing snapshot', { context });
+      }
+    } catch (err) {
+      console.error('snapshot fetch error', { context, err });
+    }
+  }
+
   async function postEnvelope(envelope) {
-    const resp = await fetch(`${baseUrl}/ui_event`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(envelope),
-    });
-    const data = await resp.json();
+    let resp;
+    try {
+      resp = await fetch(`${baseUrl}/ui_event`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(envelope),
+      });
+    } catch (err) {
+      console.error('ui_event fetch error', { err });
+      await fetchSnapshotAndApply('ui_event fetch error');
+      return null;
+    }
+
+    if (!resp.ok) {
+      let detail = '';
+      try {
+        const t = await resp.text();
+        detail = t.length > 800 ? `${t.slice(0, 800)}…` : t;
+      } catch (_) {
+        // ignore
+      }
+      console.error('ui_event response not ok', { status: resp.status, statusText: resp.statusText, detail });
+      await fetchSnapshotAndApply('ui_event response not ok');
+      return null;
+    }
+
+    const contentType = resp.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      console.error('ui_event response not json', { contentType });
+      await fetchSnapshotAndApply('ui_event response not json');
+      return null;
+    }
+
+    let data;
+    try {
+      data = await resp.json();
+    } catch (err) {
+      console.error('ui_event response json parse error', { err });
+      await fetchSnapshotAndApply('ui_event response json parse error');
+      return null;
+    }
     if (data && data.snapshot) applySnapshot(data.snapshot);
     return data;
   }
@@ -168,7 +258,7 @@ export function createRemoteStore(options) {
     const rawTarget = rawPayload && rawPayload.target ? rawPayload.target : null;
 
     // Remote mode UX mitigation:
-    // - Draft edits live in editor_state (model 98). Apply optimistically for input responsiveness.
+  // - Draft edits live in editor_state (model -2). Apply optimistically for input responsiveness.
     // - Coalesce draft writes to reduce per-keystroke network chatter.
     if (rawAction === 'label_update' && rawTarget && rawTarget.model_id === EDITOR_STATE_MODEL_ID) {
       patchEditorStateLabel(rawTarget, rawPayload.value);
@@ -209,11 +299,23 @@ export function createRemoteStore(options) {
       es.addEventListener('snapshot', (evt) => {
         try {
           const data = JSON.parse(evt.data);
-          if (data && data.snapshot) applySnapshot(data.snapshot);
-        } catch (_) {
-          // ignore
+          if (data && data.snapshot) {
+            if (pauseSse) {
+              const nextPause = computePauseSse(data.snapshot);
+              if (nextPause) {
+                pendingSseSnapshot = data.snapshot;
+                return;
+              }
+            }
+            applySnapshot(data.snapshot);
+          }
+        } catch (err) {
+          console.warn('sse snapshot parse error', { err });
         }
       });
+      es.onerror = (err) => {
+        console.error('sse error', { err });
+      };
     } catch (_) {
       // ignore
     }
