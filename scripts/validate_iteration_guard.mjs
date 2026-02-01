@@ -37,6 +37,16 @@ function validateStage4() {
   const s = t.slice(idx);
   assert(s.includes('Status: PENDING'), 'stage4:status_not_pending');
   assert(!s.includes('0129-modeltable-editor-v0'), 'stage4:mentions_0129');
+
+  const contractPath = path.join(process.cwd(), 'docs', 'iterations', '0132-dual-bus-contract-harness-v0', 'contract_dual_bus_v0.md');
+  assert(fs.existsSync(contractPath), 'stage4:missing_contract_v0');
+  const contract = readText(contractPath);
+  assert(contract.includes('Redaction Rules'), 'stage4:missing_redaction_rules');
+  assert(contract.includes('Auth Priority'), 'stage4:missing_auth_priority');
+
+  const harnessPath = path.join(process.cwd(), 'scripts', 'validate_dual_bus_harness_v0.mjs');
+  assert(fs.existsSync(harnessPath), 'stage4:missing_harness_script');
+
   process.stdout.write('stage4: PASS\n');
 }
 
@@ -45,6 +55,7 @@ function validateForbiddenImports() {
     'packages/ui-renderer/src/renderer.js',
     'packages/ui-renderer/src/renderer.mjs',
     'packages/ui-model-demo-frontend/src/local_bus_adapter.js',
+    'packages/ui-model-demo-server/server.mjs',
   ];
   const bad = [];
   for (const rel of candidates) {
