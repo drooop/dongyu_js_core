@@ -10,6 +10,8 @@
 
 本文件不是实现指南，而是语义裁判规则。
 
+宿主能力接口规范：`docs/ssot/host_ctx_api.md`
+
 ---
 
 # Runtime Semantics: ModelTable-Driven Side Effects (v0)
@@ -22,6 +24,8 @@
 - 副作用不是写代码触发的
 - 副作用是模型表结构变化的结果
 - 运行时只负责解释，不负责发明语义
+
+应用层能力必须由 ModelTable 的结构性声明表达；系统级扩展通过系统自带的负数 model_id 模型承载，不改变运行时的语义边界与入口约束。
 
 本规范适用于但不限于：
 - PIN_IN / PIN_OUT
@@ -52,6 +56,12 @@
 - 建立/解除 PIN 连接
 - 注册/调用函数
 - 写入运行时状态（如 last_msg_received）
+
+### 1.3 System Negative Models（系统负数模型）
+
+- `model_id < 0` 为系统负数模型：承载基座应用层能力扩展（非核心解释器变更）。
+- 系统负数模型的静态定义以仓库内 JSON 作为 bootstrap 来源（启动时注入 ModelTable）；运行时真值仍以 ModelTable 为唯一数据源。
+- 系统内建 `k` 为保留命名空间：用户模型可调用但不得重定义其语义。
 
 ---
 
@@ -104,7 +114,9 @@
 ### 4.1 唯一性约束
 
 当某类结构性声明被定义为 全局唯一 时：
-- 同一 k 在整个 ModelTable 中只能出现一次
+- 系统负数模型域内：同一 k 在系统域内只能出现一次
+- 用户模型域内：不要求全局唯一，仅要求同一 cell 内不重复
+- 系统内建 k 视为保留字，用户不得覆盖/重定义其语义
 
 冲突写入必须：
 - 被 rejected
@@ -140,7 +152,85 @@ PIN_IN 不享有任何“特殊通道”。
 
 ---
 
-## 6. v0 强约束（为了可裁决性）
+### 5.3 PIN Patch Payload（ModelTablePatch v0）
+
+为保证可审计与可回放，PIN_IN / PIN_OUT 的消息体必须为“纯 ModelTable patch”。
+
+- Patch 结构（最小集合）：
+  - `version`: `"mt.v0"`
+  - `op_id`: string（必须存在，用于审计与去重）
+  - `records`: array
+    - record: `{ op, model_id, p, r, c, k, t?, v? }`
+    - `op` in `{ "add_label", "rm_label" }`
+
+- PIN_OUT：
+  - 用户模型的 `Label.t = "PIN_OUT"` 时，其 `Label.v` 必须是 ModelTablePatch。
+  - 运行时将 Patch 作为 payload 发送（MQTT）。
+
+- PIN_IN：
+  - MQTT 入站 payload 必须是 ModelTablePatch。
+  - 运行时应用 patch 到目标 Cell（目标由程序模型/注册表决定）。
+
+---
+
+### 5.4 Direct-Path Semantics（In-proc Transport）
+
+本节定义“直达 path”的语义边界：仅替换传输层，不改变 ModelTable 驱动的副作用语义。
+
+语义差异清单（MUST/MUST NOT）：
+- MUST：直达 path 只替换传输层，不得绕过 add_label/rm_label 触发入口。
+- MUST：EventLog / mqttTrace / intercepts 的可观测结果与 MQTT path 等价。
+- MUST NOT：UI 直连总线；UI 仍只能写 mailbox。
+- MUST：pin mailbox 的 IN/OUT 写入规则保持不变（IN 由 mqttIncoming 写入，OUT 由 mailbox t="OUT" 发布）。
+- MUST NOT：引入隐式副作用或跳过 ModelTable（与本规范 2.1/8.x 一致）。
+
+最小验证用例（现有脚本）：
+- `node scripts/validate_pin_mqtt_loop.mjs --case args_override`
+- `node scripts/validate_dual_bus_harness_v0.mjs --case e2e`
+- `node scripts/validate_iteration_guard.mjs --case stage4`
+
+等价性断言（最小）：
+- IN：`mqttIncoming(topic, payload)` → pin mailbox add_label(`t="IN"`).
+- OUT：pin mailbox add_label(`t="OUT"`) → publish + mqttTrace 记录。
+- 上述断言在 in-proc 与 MQTT transport 下均成立。
+
+---
+
+## 6. 管理总线 Patch 规则（MGMT_IN / MGMT_OUT）
+
+管理总线消息体统一为 ModelTablePatch，并且必须携带 `op_id`。
+
+### 6.1 系统侧声明（系统负数模型）
+- 仅允许在系统自带的负数 model_id 模型中声明：
+  - `Label.t = "MGMT_OUT"`：`Label.v` 为 ModelTablePatch
+  - `Label.t = "MGMT_IN"`：`Label.v` 为 TargetRef（仅目标信息）
+- 用户模型不使用 MGMT_*，用户侧入口保持为 PIN_IN / PIN_OUT。
+
+TargetRef 结构：
+```
+{ "model_id": 1, "p": 2, "r": 3, "c": 4, "k": "pageA.textA1" }
+```
+
+### 6.2 匹配规则（必须全部满足）
+- `session_id` 必须一致（由系统注入，用户不填写）。
+- `channel` 必须一致：`channel == Label.k`。
+- 若消息带 `target`，则 `target` 坐标必须与该 Label 所在 Cell 完全一致。
+- 不满足任一条件 → 丢弃并记录。
+
+---
+
+## 7. 用户输入（Mailbox）
+
+用户输入通过 event mailbox 进入运行时（派生规范，详见合同）：
+- Mailbox 位置：`model_id=-1 Cell(0,0,1)`
+- Label: `ui_event` / `ui_event_error` / `ui_event_last_op_id`
+- 事件 envelope 必须带 `op_id`（审计/去重必需）
+
+> 详见 `docs/iterations/0129-modeltable-editor-v0/contract_event_mailbox.md`。
+
+---
+
+## 8. v0 强约束（为了可裁决性）
 
 v0 版本必须遵守：
 - 所有副作用 可观测（EventLog / intercept）
@@ -151,17 +241,17 @@ v0 版本必须遵守：
 
 ---
 
-## 7. 非目标（明确排除）
+## 9. 非目标（明确排除）
 
 本规范 不定义：
-- UI 行为
-- 双总线（Matrix）
+- UI 布局/组件渲染细节
+- 双总线（Matrix）实现细节（仅定义 Patch 口径）
 - E2EE
 - 调度/优化策略
 
 ---
 
-## 8. 解释优先级
+## 10. 解释优先级
 
 当存在歧义时：
 1) `docs/architecture_mantanet_and_workers.md`

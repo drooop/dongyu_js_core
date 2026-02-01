@@ -73,6 +73,24 @@
 - `docs/ITERATIONS.md` 状态更新为 Completed（并填写最终分支/commit）。
 - 关键资产（截图/性能数据）如有必须归档在 `assets/`。
 
+## Documentation Maintenance（必须执行）
+
+以下变更必须同步更新用户指南，并在对应 iteration 的 runlog 中记录“docs updated”：
+- mailbox contract（事件信封/错误码/单槽规则）
+- PIN topic/payload 口径
+- MGMT patch/routing 规则
+- reserved model ids / reserved cells
+
+指南入口：`docs/user-guide/modeltable_user_guide.md`
+
+### Living Docs Review（必须评估）
+
+每次相关变更都必须评估是否需要更新以下文档，并在 runlog 记录评估结论：
+- `docs/ssot/runtime_semantics_modeltable_driven.md`
+- `docs/user-guide/modeltable_user_guide.md`
+- `docs/iterations/<id>/*`（plan/resolution/contract/validation）
+- `docs/ssot/execution_governance_ultrawork_doit.md`
+
 分支约定（单人公司模式）：
 - 大多数情况下：Iteration 分支（`dev_<id>`）完成后 merge 到 `dev` 即可。
 - `main` 只在需要发布/对外里程碑时从 `dev` 提升；此时再考虑 PR（dev → main）。

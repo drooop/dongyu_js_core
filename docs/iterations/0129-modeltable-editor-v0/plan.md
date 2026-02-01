@@ -25,7 +25,7 @@
 - Stage 3.1/3.2 已提供 UI AST v0 与 renderer v0。
 - Stage 3.3 已有 demo 前端，但缺少面向 ModelTable 编辑的 UI 与事件闭环。
 - 双总线尚未实现，当前需要“本地自滑”且不破坏未来双总线机制一致性。
-- 本迭代将把 demo mailbox 从 `model_id=0` 迁移到 `model_id=99`（更新 demo 与验证脚本）。
+- 本迭代将把 demo mailbox 从 `model_id=0` 迁移到 `model_id=-1`（更新 demo 与验证脚本）。
 
 ## 2.1 Phase Boundaries (Workflow)
 - Phase 1 仅产出文档与计划：
@@ -49,9 +49,9 @@
 - 禁止引入新 built-in 语义或修改现有 built-in 行为。
 - LocalBusAdapter 不得触发任何网络/总线行为（MQTT/Matrix 等）。
 - Event mailbox 位置与命名锚定 Stage 3.3 demo 的 key/shape，但为避免运行时保留坐标冲突，将 mailbox 放在 editor 专用 model_id：
-  - UI mailbox 专用 model_id=99（editor-only），p=0,r=0,c=1，k="ui_event"。
-  - 必须在 demo init 阶段创建 model_id=99（createModel）。
-  - submodel_create 禁止使用 id=0/99。
+- UI mailbox 专用 model_id=-1（editor-only），p=0,r=0,c=1，k="ui_event"。
+- 必须在 demo init 阶段创建 model_id=-1（createModel）。
+- submodel_create 禁止使用 id=0/-1/-2。
   - 禁止使用 runtime 保留 model_id=0 的保留坐标。
 - 禁止编辑或写入可能触发 bus 副作用的 label.k/label.t/保留坐标（见 Contract）。
 
@@ -66,14 +66,14 @@
   - `addLabel(model, p, r, c, { k, t, v }) -> { applied: boolean }`
   - `rmLabel(model, p, r, c, key) -> { applied: boolean }`
 - 事件邮箱在快照中示例（JSON 表示，非 Map）：
-  - `cells["0,0,1"].labels.ui_event = { k: "ui_event", t: "event", v: { ...envelope } }` (model_id=99)
-  - `cells["0,0,1"].labels.ui_event_error = { k: "ui_event_error", t: "json", v: { op_id, code, detail } }` (model_id=99)
-  - `cells["0,0,1"].labels.ui_event_last_op_id = { k: "ui_event_last_op_id", t: "str", v: "op_x" }` (model_id=99)
+- `cells["0,0,1"].labels.ui_event = { k: "ui_event", t: "event", v: { ...envelope } }` (model_id=-1)
+- `cells["0,0,1"].labels.ui_event_error = { k: "ui_event_error", t: "json", v: { op_id, code, detail } }` (model_id=-1)
+- `cells["0,0,1"].labels.ui_event_last_op_id = { k: "ui_event_last_op_id", t: "str", v: "op_x" }` (model_id=-1)
 - 运行时保留 Cell（来自 runtime.js）：
   - `_configCell()` -> `model_id=0,p=0,r=0,c=0`
   - `_pinRegistryCell()` -> `model_id=0,p=0,r=0,c=1`
   - `_pinMailboxCell()` -> `model_id=0,p=0,r=1,c=1`
-- 本迭代仅允许在 model_id=99 的 `Cell(0,0,1)` 写入 `k="ui_event"` / `k="ui_event_error"` / `k="ui_event_last_op_id"` 且 `t` 为 `event/json/str`。
+- 本迭代仅允许在 model_id=-1 的 `Cell(0,0,1)` 写入 `k="ui_event"` / `k="ui_event_error"` / `k="ui_event_last_op_id"` 且 `t` 为 `event/json/str`。
 - `labels` 只是对 `(p,r,c,k,t,v)` 的聚合视图，不新增语义字段。
 
 ## 3.2 Event Payload Construction Rules
@@ -90,7 +90,7 @@
   - `payload.value = node.bind.write.value_ref || { t: 'str', v: <input_value> }` (omit for `label_remove` / `cell_clear`)
   - if `label_remove` / `cell_clear` include `payload.value`, LocalBusAdapter ignores it and MUST NOT validate it
   - `payload.meta.op_id = 'op_' + event_id`（由 renderer 生成，确保唯一）
-  - event label write location is always mailbox `model_id=99 Cell(0,0,1) k="ui_event" t="event"` regardless of `payload.target`
+- event label write location is always mailbox `model_id=-1 Cell(0,0,1) k="ui_event" t="event"` regardless of `payload.target`
 - 事件 envelope 的唯一规范形状：
   - `{ event_id, type, payload, source, ts }`
   - `op_id` 固定在 `payload.meta.op_id`
@@ -111,7 +111,7 @@
 - forbidden_t 仅适用于 `label_add` / `label_update`，`submodel_create` 的 `value.t != json` 归类为 invalid_target。
 
 ## 3.2.1 Action → Runtime API Mapping (Editor)
-- For actions that use `payload.target`: `payload.target.model_id` in `{0,99}` maps to `reserved_cell`.
+- For actions that use `payload.target`: `payload.target.model_id` in `{0,-1}` maps to `reserved_cell`.
 - `label_add`:
   - require: `target.model_id/p/r/c/k`, `value.{t,v}`
   - `value.t` must be in allowlist (`str|int|bool|json`)
@@ -128,19 +128,19 @@
   - ignore `payload.value` if present
   - reserved/forbidden labels are skipped without error
 - `submodel_create`:
-  - require: `value.t = "json"`, `value.v = { id, name, type }` (id must not be 0/99)
+- require: `value.t = "json"`, `value.v = { id, name, type }` (id must not be 0/-1/-2)
   - runtime: `createModel({ id, name, type })`
   - `payload.target` ignored if present
   - LocalBusAdapter must pre-check duplicate id (runtime.getModel) and name/type non-empty strings; failures map to invalid_target
 
 ## 3.3 Demo Wiring (Renderer / Store / LocalBusAdapter)
 - `runtime = new ModelTableRuntime()` 在 demo 初始化时创建（单例）。
-- demo init 必须 `runtime.createModel({ id: 99, name: 'editor_mailbox', type: 'ui' })`。
+- demo init 必须 `runtime.createModel({ id: -1, name: 'editor_mailbox', type: 'ui' })`。
 - `store.snapshot` 始终来自 `runtime.snapshot()` 的序列化结果。
 - `host.getSnapshot()` 返回 `store.snapshot`（即 runtime 的快照）。
-- `host.dispatchAddLabel(label)` 仅用于写入 event mailbox：调用 `runtime.addLabel(model99, 0,0,1, label)` 并刷新 `store.snapshot`。
+- `host.dispatchAddLabel(label)` 仅用于写入 event mailbox：调用 `runtime.addLabel(model-1, 0,0,1, label)` 并刷新 `store.snapshot`。
 - UI 侧仅能写 `ui_event`；`ui_event_error` 与 `ui_event_last_op_id` 只能由 LocalBusAdapter 写入。
-- `host.dispatchRmLabel(labelRef)` 仅清空 event mailbox：调用 `runtime.rmLabel(model99, 0,0,1, 'ui_event')` 并刷新 `store.snapshot`。
+- `host.dispatchRmLabel(labelRef)` 仅清空 event mailbox：调用 `runtime.rmLabel(model-1, 0,0,1, 'ui_event')` 并刷新 `store.snapshot`。
 - LocalBusAdapter 从 `runtime` 读取 mailbox（或通过 host 写入触发），执行后刷新 `store.snapshot`。
 - host.dispatchAddLabel/dispatchRmLabel 必须强制校验只允许写/清 mailbox 的 `ui_event`，否则返回错误并拒绝写入。
 - host.dispatchAddLabel 必须拒绝覆盖已存在的 `ui_event`（single outstanding event）。

@@ -6,20 +6,20 @@
 
 - 入口：`packages/ui-model-demo-frontend`
 - Runtime：浏览器内 `ModelTableRuntime`（内存态，无持久化）
-- UI AST：由 `buildEditorAstV1(snapshot)` 生成并写入 `model_id=99` 的 `ui_ast_v0`
+- UI AST：由 `buildEditorAstV1(snapshot)` 生成并写入 `model_id=-1` 的 `ui_ast_v0`
 - 消费方式：UI 写 mailbox → 本地 `LocalBusAdapter` 消费 → runtime 更新 → snapshot/派生 UI 更新
 
 ## 2. 核心契约（必须保持）
 
 - Mailbox 位置与事件信封形状见 `docs/iterations/0129-modeltable-editor-v0/contract_event_mailbox.md`
 - 0130 仅新增 typed value 归一化，见 `docs/iterations/0130-modeltable-editor-v1/contract_typed_values.md`
-- UI 只能写 mailbox（`model_id=99`, `Cell(0,0,1)`, `k=ui_event`, `t=event`）
+- UI 只能写 mailbox（`model_id=-1`, `Cell(0,0,1)`, `k=ui_event`, `t=event`）
 - 错误优先级、reserved_cell/forbidden_k/forbidden_t 规则保持不变
 
 ## 3. 编辑器状态模型
 
-- `model_id=99`: editor_mailbox
-- `model_id=98`: editor_state（用于 UI 控件状态与草稿）
+- `model_id=-1`: editor_mailbox
+- `model_id=-2`: editor_state（用于 UI 控件状态与草稿）
   - `selected_model_id`, `draft_p/r/c`, `draft_k`, `draft_t`
   - `draft_v_text`, `draft_v_int`, `draft_v_bool`
 

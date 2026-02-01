@@ -15,6 +15,7 @@
 
 ### 0.2 核心不变量（必须长期成立）
 - **模型驱动**：业务能力优先由模型表描述，代码是运行时与扩展，不是唯一事实来源。
+- **应用层扩展**：除模型表核心数据依赖外，基座内的应用层能力应由 ModelTable 的模型能力（数据/程序/流程/UI/文档）提供；系统级扩展通过“系统自带的负数 model_id 模型”承载，避免改动基座核心层语义边界。
 - **UI 是投影**：滑动 UI 是模型表的投影与交互入口，UI 不应承载业务真相。
 - **执行在工人**：软件工人承担业务逻辑执行、流程推进与状态演进；终端壳负责呈现与交互。
 - **总线解耦**：消息、指令、状态更新应通过“总线抽象”解耦，不绑定具体实现名。
@@ -125,6 +126,8 @@
   - 是系统枢纽，必须可观测（日志、指标、异常追踪）。
   - 必须执行策略：鉴权、过滤、限流、审计、重放保护（至少具备策略接口）。
 
+- 直达 path（in-proc transport）仅替换传输层，不绕过 ModelTable 语义，详见 `docs/ssot/runtime_semantics_modeltable_driven.md`。
+
 ---
 
 ## 6. 工作区（Workspace）：隔离与安全边界
@@ -194,7 +197,7 @@
 ## 11. 建议的后续文档（可选但强烈建议）
 
 为提升可执行性，建议在 docs 下补齐：
+- `docs/user-guide/modeltable_user_guide.md`：面向用户的 ModelTable 操作指南（Living Doc）
 - `docs/runbooks/`：按平台记录集成经验（desktop/android/linux/macos）
 - `docs/design/`：UI 规范、token、导航规则、审视报告
 - `docs/plans/`：迭代计划（由 Iteration Workflow 生成）
-

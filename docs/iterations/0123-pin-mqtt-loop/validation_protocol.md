@@ -20,10 +20,38 @@
   - PIN OUT → publish from mailbox `t="OUT"`\n
 
 ## MQTT Topic & Payload Assertions (v0)
-- Topic: `<prefix>/<pin_name>/in` 和 `<prefix>/<pin_name>/out`\n
+- Topic: `<prefix>/<pin_name>`（若 prefix 为空则为 `<pin_name>`）\n
 - Payload: JSON `{ "pin": "<pin_name>", "value": <payload>, "t": "IN|OUT" }`\n
 - QoS: 0; Retain: false\n
 > 若 PICtest 未明确 topic/payload，则对齐点仅限 PIN 行为副作用；topic 字符串不作为硬性一致条件。
+
+## MQTT Topic Mode (Backward Compatible)
+
+默认仍是 Stage 2 v0：`<prefix>/<pin_name>`。
+
+为支持同一 runtime 同时服务多个 `model_id`（multi-model），引入一个可选 mode：
+
+### Mode: `uiput_mm_v1`
+
+**配置（写入 page0 config cell：`model_id=0,p=0,r=0,c=0`）**
+- `k="mqtt_topic_mode" t="str" v="uiput_mm_v1"`
+- `k="mqtt_topic_base" t="str" v="UIPUT/<workspace>/<DAM>/<PIC>/<DE>/<SW>"`
+
+**Topic 规则（v1）**
+- Topic: `<base>/<model_id>/<pin_k>`
+  - `<base> == mqtt_topic_base`
+  - `<model_id>` 为十进制整数（例如 `2`）
+  - `<pin_k>` 为 leaf（不得包含 `/`）
+
+**结构性声明位置（v1）**
+- PIN registry cell（每个 model 自己一份）：`model_id=<model_id>, p=0,r=0,c=1`
+  - `k=<pin_k>, t=PIN_IN|PIN_OUT`
+- PIN mailbox cell（每个 model 自己一份）：`model_id=<model_id>, p=0,r=1,c=1`
+  - MQTT IN → add_label(`k=<pin_k>, t=IN, v=<payload>`)
+  - PIN OUT → publish from mailbox `t=OUT`
+
+**兼容性约束**
+- `mqtt_topic_mode` 未设置时视为 Stage 2 v0；不得影响既有用例。
 
 ---
 

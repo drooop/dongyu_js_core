@@ -3,7 +3,7 @@
 This contract defines the event mailbox, payload shape, write policy, and LocalBusAdapter rules for iteration 0129.
 
 ## Mailbox Location
-- model_id: 99 (editor-only)
+- model_id: -1 (editor-only)
 - Cell: `Cell(0,0,1)`
 - Labels:
   - `k="ui_event"`, `t="event"`, `v=<event envelope>`
@@ -35,23 +35,23 @@ This contract defines the event mailbox, payload shape, write policy, and LocalB
 ## Action → Runtime API Mapping
 - `label_add`:
   - require: `target.model_id/p/r/c/k`, `value.{t,v}`
-  - if `target.model_id` in `{0,99}` => `reserved_cell`
+- if `target.model_id` in `{0,-1}` => `reserved_cell`
   - runtime: `addLabel(model, p, r, c, { k, t, v })`
 - `label_update`:
   - same as `label_add` (overwrite)
 - `label_remove`:
   - require: `target.model_id/p/r/c/k`
-  - if `target.model_id` in `{0,99}` => `reserved_cell`
+- if `target.model_id` in `{0,-1}` => `reserved_cell`
   - runtime: `rmLabel(model, p, r, c, k)`
 - if payload.value is present, LocalBusAdapter MUST ignore it
 - `cell_clear`:
   - require: `target.model_id/p/r/c`
-  - if `target.model_id` in `{0,99}` => `reserved_cell`
+- if `target.model_id` in `{0,-1}` => `reserved_cell`
   - runtime: iterate labels in that cell and `rmLabel` each editable label only (ignore payload.value if present)
   - forbidden or reserved labels are left intact (no error)
 - payload.value MUST be ignored and MUST NOT affect error priority
 - `submodel_create`:
-  - require: `value.t = "json"`, `value.v = { id, name, type }`, and `id` not in `{0,99}`
+- require: `value.t = "json"`, `value.v = { id, name, type }`, and `id` not in `{0,-1,-2}`
   - runtime: `createModel({ id, name, type })`
   - if payload.target is present, LocalBusAdapter MUST ignore it and MUST NOT validate reserved/forbidden rules
   - LocalBusAdapter MUST check for duplicate id via `runtime.getModel(id)` before calling createModel
@@ -86,13 +86,13 @@ This contract defines the event mailbox, payload shape, write policy, and LocalB
 1) `op_id_replay` when `op_id` equals `ui_event_last_op_id`
 2) `unknown_action` when `payload.action` missing or not in supported set
 3) `invalid_target` when required fields missing or invalid types (excluding op_id schema)
-4) `reserved_cell` when action uses `payload.target` and target points to reserved cells/mailbox or target.model_id in {0,99}
+4) `reserved_cell` when action uses `payload.target` and target points to reserved cells/mailbox or target.model_id in {0,-1}
 5) `forbidden_k` when target.k matches forbidden patterns
 6) `forbidden_t` when action in {label_add,label_update} and value.t is a string but not in allowlist
 7) `invalid_target` when createModel throws after pre-check (defensive; runtime does not require throws)
 
 Hard rule:
-- if action uses `payload.target` and `payload.target.model_id` in `{0,99}` => `reserved_cell`
+- if action uses `payload.target` and `payload.target.model_id` in `{0,-1}` => `reserved_cell`
 - if action does NOT use `payload.target` (e.g. submodel_create value.id) => do not evaluate reserved_cell for target
 
 Note: `invalid_target` has two categories: schema/shape failures (step 3) and unexpected createModel throws (step 7).
@@ -126,7 +126,7 @@ Note: `submodel_create` does NOT apply forbidden_t; any `value.t != "json"` is `
 
 ## Write Policy
 - UI Writes (renderer/host):
-  - Allowed: only `model_id=99 Cell(0,0,1) k="ui_event" t="event"`
+  - Allowed: only `model_id=-1 Cell(0,0,1) k="ui_event" t="event"`
   - Forbidden: any other `ui_*` / `editor_*` writes
 - UI allowed mutations:
   - `addLabel` for `ui_event` only
@@ -137,7 +137,7 @@ Note: `submodel_create` does NOT apply forbidden_t; any `value.t != "json"` is `
 - LocalBusAdapter Writes:
   - Allowed mailbox status:
     - `ui_event_error` (t=json), `ui_event_last_op_id` (t=str)
-  - Allowed UI model derived labels (model_id=99 only):
+  - Allowed UI model derived labels (model_id=-1 only):
     - `Cell(0,0,0)` `k="ui_ast_v0"` (t=json)
     - `Cell(0,1,0)` `k="snapshot_json"` (t=str)
     - `Cell(0,1,1)` `k="event_log"` (t=str)
@@ -160,7 +160,7 @@ Note: `submodel_create` does NOT apply forbidden_t; any `value.t != "json"` is `
   - model_id=0 `Cell(0,0,0)` config
   - model_id=0 `Cell(0,0,1)` pin registry
   - model_id=0 `Cell(0,1,1)` pin mailbox
-  - model_id=99 `Cell(0,0,1)` mailbox (only `ui_event` / `ui_event_error` / `ui_event_last_op_id`)
+  - model_id=-1 `Cell(0,0,1)` mailbox (only `ui_event` / `ui_event_error` / `ui_event_last_op_id`)
 
 ## LocalBusAdapter Rules
 - Only consumes the event mailbox and calls ModelTableRuntime API.
