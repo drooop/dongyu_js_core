@@ -1,0 +1,116 @@
+{
+  "version": "mt.v0",
+  "op_id": "system_models_seed_v0",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_topic_mode",
+      "t": "str",
+      "v": "uiput_mm_v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_topic_base",
+      "t": "str",
+      "v": "UIPUT/ws/dam/pic/de/sw"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mgmt_send",
+      "t": "function",
+      "v": "const payload = ctx.getMgmtOutPayload('change_out') || ctx.getMgmtOutPayload(); if (payload) { return ctx.sendMatrix(payload); }"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mgmt_receive",
+      "t": "function",
+      "v": "const inbox = ctx.getMgmtInbox(); if (!inbox || !inbox.k) return; const target = ctx.getMgmtInTarget(inbox.k); if (!target) return; let vv = inbox.v; if (inbox.t === 'json' && typeof inbox.v === 'string') { vv = ctx.parseJson(inbox.v); } ctx.writeLabel(target, inbox.t, vv); ctx.clearMgmtInbox();"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "intent_dispatch",
+      "t": "function",
+      "v": "const sys = ctx.runtime.getModel(-10); if (!sys) return; const cell = ctx.runtime.getCell(sys, 0, 0, 0); let nextKey = null; let nextId = null; let nextLabel = null; for (const [k, l] of cell.labels.entries()) { if (!k.startsWith('intent_job_')) continue; const id = Number(k.slice('intent_job_'.length)); if (!Number.isInteger(id)) continue; if (nextId === null || id < nextId) { nextId = id; nextKey = k; nextLabel = l; } } if (!nextKey || !nextLabel) return; const job = nextLabel.v; const source = job && job.source ? job.source : null; const intent = job && job.intent ? job.intent : null; const sourceModelId = source && Number.isInteger(source.model_id) ? source.model_id : null; const sourceRef = source && Number.isInteger(source.p) && Number.isInteger(source.r) && Number.isInteger(source.c) && typeof source.k === 'string' ? source : null; const opId = intent && typeof intent.op_id === 'string' ? intent.op_id : ''; const action = intent && typeof intent.action === 'string' ? intent.action : ''; function ok(extra) { if (sourceRef) { ctx.writeLabel({ model_id: sourceRef.model_id, p: sourceRef.p, r: sourceRef.r, c: sourceRef.c, k: 'intent_result' }, 'json', Object.assign({ op_id: opId, result: 'ok', action }, extra || {})); } ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: nextKey }); } function fail(code, detail) { ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'intent_error' }, 'json', { op_id: opId, code, detail, job: nextKey }); if (sourceRef) { ctx.writeLabel({ model_id: sourceRef.model_id, p: sourceRef.p, r: sourceRef.r, c: sourceRef.c, k: 'intent_result' }, 'json', { op_id: opId, result: 'error', code, detail }); } ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: nextKey }); return; } if (!sourceModelId || sourceModelId <= 0) return fail('invalid_source', 'source.model_id must be > 0'); if (!opId || !action) return fail('invalid_intent', 'missing op_id/action'); const dedupeKey = `intent_last_op_id_${sourceModelId}`; const last = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: dedupeKey }); if (last && last === opId) { ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: nextKey }); return; } ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: dedupeKey }, 'str', opId); if (action === 'pin_register') { const pinK = typeof intent.pin_k === 'string' ? intent.pin_k.trim() : ''; if (!pinK) return fail('invalid_pin', 'missing pin_k'); ctx.writeLabel({ model_id: sourceModelId, p: 0, r: 0, c: 1, k: pinK }, 'PIN_IN', pinK); ctx.writeLabel({ model_id: sourceModelId, p: 0, r: 0, c: 1, k: pinK }, 'PIN_OUT', pinK); ok({ pin_k: pinK }); return; } if (action === 'pin_send_out') { const pinK = typeof intent.pin_k === 'string' ? intent.pin_k.trim() : ''; if (!pinK) return fail('invalid_pin', 'missing pin_k'); const value = Object.prototype.hasOwnProperty.call(intent, 'value') ? intent.value : null; ctx.writeLabel({ model_id: sourceModelId, p: 0, r: 0, c: 1, k: pinK }, 'PIN_OUT', pinK); ctx.writeLabel({ model_id: sourceModelId, p: 0, r: 1, c: 1, k: pinK }, 'OUT', value); ok({ pin_k: pinK }); return; } if (action === 'mgmt_bind_in') { const channel = typeof intent.channel === 'string' ? intent.channel.trim() : ''; const target = intent && typeof intent.target_ref === 'object' ? intent.target_ref : null; if (!channel) return fail('invalid_channel', 'missing channel'); if (!target || !Number.isInteger(target.model_id) || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c) || typeof target.k !== 'string' || !target.k) return fail('invalid_target', 'target_ref invalid'); ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 1, k: channel }, 'MGMT_IN', target); ok({ channel }); return; } if (action === 'mgmt_publish') { const channel = typeof intent.channel === 'string' ? intent.channel.trim() : 'change_out'; const payload = Object.prototype.hasOwnProperty.call(intent, 'payload') ? intent.payload : null; if (!payload || typeof payload !== 'object') return fail('invalid_payload', 'missing payload'); ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 2, k: channel }, 'MGMT_OUT', payload); ok({ channel }); return; } if (action === 'mgmt_put_mbr_v0') { const base = String(ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'mqtt_topic_base' }) || '').trim(); if (!base) return fail('missing_topic_base', 'mqtt_topic_base required'); const cellK = typeof intent.cell_k === 'string' ? intent.cell_k.trim() : ''; if (!cellK) return fail('invalid_cell_k', 'missing cell_k'); const t = typeof intent.t === 'string' ? intent.t : 'json'; const raw = Object.prototype.hasOwnProperty.call(intent, 'v') ? intent.v : null; let vv = raw; if (t === 'json') { if (typeof raw === 'string') { vv = raw; } else { try { vv = JSON.stringify(raw); } catch (_) { return fail('invalid_json', 'v not json-serializable'); } } } else { vv = typeof raw === 'string' ? raw : String(raw); } const topic = `${base}/${sourceModelId}/${cellK}`; const payload = { topic, signature: opId, op_id: opId, k: cellK, t, v: vv, timestamp: String(Date.now()), channel: cellK }; ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 2, k: cellK }, 'MGMT_OUT', payload); ok({ channel: cellK, topic }); return; } return fail('unknown_action', action);"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "pin_demo_set_mqtt_config",
+      "t": "function",
+      "v": "const host = String(ctx.getState('pin_demo_host') || '').trim(); const port = ctx.getStateInt('pin_demo_port'); const clientId = String(ctx.getState('pin_demo_client_id') || '').trim(); if (!host || !port || !clientId) return; ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'mqtt_target_host' }, 'str', host); ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'mqtt_target_port' }, 'int', port); ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'mqtt_target_client_id' }, 'str', clientId);"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "pin_demo_start_mqtt_loop",
+      "t": "function",
+      "v": "ctx.startMqttLoop();"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "pin_demo_declare_pin_in",
+      "t": "function",
+      "v": "const pinName = String(ctx.getState('pin_demo_pin') || 'demo').trim(); if (!pinName) return; const mode = String(ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'mqtt_topic_mode' }) || '').trim(); const selected = ctx.getStateInt('selected_model_id'); const targetModelId = mode === 'uiput_mm_v1' && Number.isInteger(selected) && selected > 0 ? selected : 0; ctx.writeLabel({ model_id: targetModelId, p: 0, r: 0, c: 1, k: pinName }, 'PIN_IN', pinName);"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "pin_demo_declare_pin_out",
+      "t": "function",
+      "v": "const pinName = String(ctx.getState('pin_demo_pin') || 'demo').trim(); if (!pinName) return; const mode = String(ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'mqtt_topic_mode' }) || '').trim(); const selected = ctx.getStateInt('selected_model_id'); const targetModelId = mode === 'uiput_mm_v1' && Number.isInteger(selected) && selected > 0 ? selected : 0; ctx.writeLabel({ model_id: targetModelId, p: 0, r: 0, c: 1, k: pinName }, 'PIN_OUT', pinName);"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "pin_demo_inject_in",
+      "t": "function",
+      "v": "const pinName = String(ctx.getState('pin_demo_pin') || 'demo').trim(); if (!pinName) return; const mode = String(ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'mqtt_topic_mode' }) || '').trim(); const selected = ctx.getStateInt('selected_model_id'); const targetModelId = mode === 'uiput_mm_v1' && Number.isInteger(selected) && selected > 0 ? selected : 0; const payloadValue = ctx.parseJson(ctx.getState('pin_demo_in_json')); const topic = ctx.currentTopic(pinName, targetModelId); ctx.mqttIncoming(topic, { pin: pinName, t: 'IN', value: payloadValue });"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "pin_demo_send_out",
+      "t": "function",
+      "v": "const pinName = String(ctx.getState('pin_demo_pin') || 'demo').trim(); if (!pinName) return; const mode = String(ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'mqtt_topic_mode' }) || '').trim(); const selected = ctx.getStateInt('selected_model_id'); const targetModelId = mode === 'uiput_mm_v1' && Number.isInteger(selected) && selected > 0 ? selected : 0; const payloadValue = ctx.parseJson(ctx.getState('pin_demo_out_json')); ctx.writeLabel({ model_id: targetModelId, p: 0, r: 1, c: 1, k: pinName }, 'OUT', payloadValue);"
+    }
+  ]
+}

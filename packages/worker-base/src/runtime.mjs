@@ -133,9 +133,12 @@ class ModelTableRuntime {
     this.models = new Map();
     this.v1nConfig = { local_mqtt: null, global_mqtt: null };
     this.mqttClient = null;
+    // Declared PINs.
+    // Stored as "<model_id>:<pin_k>" to support multi-model topic routing.
     this.pinInSet = new Set();
     this.pinOutSet = new Set();
     this.runLoopActive = true;
+    this.persistence = null;
 
     const root = new Model({ id: 0, name: 'MT', type: 'main' });
     this.models.set(root.id, root);
@@ -147,7 +150,19 @@ class ModelTableRuntime {
     }
     const model = new Model({ id, name, type });
     this.models.set(id, model);
+    if (this.persistence && typeof this.persistence.ensureModel === 'function') {
+      this.persistence.ensureModel(model);
+    }
     return model;
+  }
+
+  setPersistence(persister) {
+    this.persistence = persister || null;
+    if (this.persistence && typeof this.persistence.ensureModel === 'function') {
+      for (const model of this.models.values()) {
+        this.persistence.ensureModel(model);
+      }
+    }
   }
 
   getModel(id) {
@@ -193,6 +208,61 @@ class ModelTableRuntime {
     return null;
   }
 
+  applyPatch(patch, options = {}) {
+    const records = patch && Array.isArray(patch.records) ? patch.records : null;
+    if (!records) {
+      return { applied: 0, rejected: 0, reason: 'invalid_patch' };
+    }
+    const allowCreateModel = Boolean(options.allowCreateModel);
+    let applied = 0;
+    let rejected = 0;
+    for (const record of records) {
+      if (!record || typeof record !== 'object') {
+        rejected += 1;
+        continue;
+      }
+      const op = record.op;
+      const modelId = record.model_id;
+      if (!Number.isInteger(modelId)) {
+        rejected += 1;
+        continue;
+      }
+      let model = this.getModel(modelId);
+      if (!model && allowCreateModel) {
+        const name = modelId < 0 ? `system_model_${modelId}` : `model_${modelId}`;
+        const type = modelId < 0 ? 'system' : 'data';
+        model = this.createModel({ id: modelId, name, type });
+      }
+      if (!model) {
+        rejected += 1;
+        continue;
+      }
+      const p = record.p;
+      const r = record.r;
+      const c = record.c;
+      const k = record.k;
+      if (!this._validateCell(p, r, c) || typeof k !== 'string' || k.length === 0) {
+        rejected += 1;
+        continue;
+      }
+      if (op === 'add_label') {
+        const label = { k, t: record.t, v: record.v };
+        const res = this.addLabel(model, p, r, c, label);
+        if (res && res.applied) applied += 1;
+        else rejected += 1;
+        continue;
+      }
+      if (op === 'rm_label') {
+        const res = this.rmLabel(model, p, r, c, k);
+        if (res && res.applied) applied += 1;
+        else rejected += 1;
+        continue;
+      }
+      rejected += 1;
+    }
+    return { applied, rejected };
+  }
+
   _recordError(model, p, r, c, label, reason) {
     this.eventLog.record({
       op: 'error',
@@ -207,11 +277,37 @@ class ModelTableRuntime {
     return { model_id: 0, p: 0, r: 0, c: 0 };
   }
 
-  _pinRegistryCell() {
+  _pinKey(modelId, pinK) {
+    return `${modelId}:${pinK}`;
+  }
+
+  _parsePinKey(key) {
+    if (typeof key !== 'string') return null;
+    const idx = key.indexOf(':');
+    if (idx <= 0) return null;
+    const modelId = Number(key.slice(0, idx));
+    const pinK = key.slice(idx + 1);
+    if (!Number.isInteger(modelId) || !pinK) return null;
+    return { modelId, pinK };
+  }
+
+  _topicMode(config) {
+    const mode = config && typeof config.topic_mode === 'string' ? config.topic_mode : null;
+    if (mode === 'uiput_mm_v1') return 'uiput_mm_v1';
+    return 'stage2';
+  }
+
+  _pinRegistryCellFor(modelId, topicMode) {
+    if (topicMode === 'uiput_mm_v1') {
+      return { model_id: modelId, p: 0, r: 0, c: 1 };
+    }
     return { model_id: 0, p: 0, r: 0, c: 1 };
   }
 
-  _pinMailboxCell() {
+  _pinMailboxCellFor(modelId, topicMode) {
+    if (topicMode === 'uiput_mm_v1') {
+      return { model_id: modelId, p: 0, r: 1, c: 1 };
+    }
     return { model_id: 0, p: 0, r: 1, c: 1 };
   }
 
@@ -243,6 +339,8 @@ class ModelTableRuntime {
       password: get('mqtt_target_password')?.v ?? null,
       tls: get('mqtt_target_tls')?.v ?? null,
       topic_prefix: get('mqtt_target_topic_prefix')?.v ?? null,
+      topic_mode: get('mqtt_topic_mode')?.v ?? null,
+      topic_base: get('mqtt_topic_base')?.v ?? null,
     };
   }
 
@@ -251,7 +349,10 @@ class ModelTableRuntime {
     if (!config.host) missing.push('mqtt_target_host');
     if (!Number.isInteger(config.port)) missing.push('mqtt_target_port');
     if (!config.client_id) missing.push('mqtt_target_client_id');
-    if (!config.topic_prefix) missing.push('mqtt_target_topic_prefix');
+    const mode = this._topicMode(config);
+    if (mode === 'uiput_mm_v1') {
+      if (!config.topic_base || typeof config.topic_base !== 'string') missing.push('mqtt_topic_base');
+    }
     return missing;
   }
 
@@ -288,6 +389,7 @@ class ModelTableRuntime {
     }
     this.mqttClient = new MqttClientMock(this.mqttTrace);
     this.mqttClient.connect(config);
+    this._subscribeDeclaredPinsOnStart();
     this._writeRuntimeStatus('running');
     return { status: 'running' };
   }
@@ -328,6 +430,10 @@ class ModelTableRuntime {
       result: 'applied',
     });
 
+    if (this.persistence && typeof this.persistence.onLabelAdded === 'function') {
+      this.persistence.onLabelAdded({ model, p, r, c, label });
+    }
+
     this._applyBuiltins(model, p, r, c, label, prevLabel);
     this._applyPinDeclarations(model, p, r, c, label);
     this._applyLabelTypes(model, p, r, c, label);
@@ -348,51 +454,79 @@ class ModelTableRuntime {
       prev_label: prevLabel,
       result: 'applied',
     });
+    if (this.persistence && typeof this.persistence.onLabelRemoved === 'function') {
+      this.persistence.onLabelRemoved({ model, p, r, c, label: prevLabel });
+    }
     this._applyPinRemoval(model, p, r, c, prevLabel);
     return { applied: true };
   }
 
-  _topicFor(pinName, direction) {
+  _topicFor(modelId, pinName) {
     const config = this._getConfigFromPage0();
+    const mode = this._topicMode(config);
+    if (mode === 'uiput_mm_v1') {
+      const base = config.topic_base || '';
+      if (!base) return null;
+      return `${base}/${modelId}/${pinName}`;
+    }
     const prefix = config.topic_prefix || '';
-    return `${prefix}/${pinName}/${direction}`;
+    if (prefix) return `${prefix}/${pinName}`;
+    return `${pinName}`;
+  }
+
+  _subscribeDeclaredPinsOnStart() {
+    if (!this.mqttClient) return;
+    for (const key of this.pinInSet) {
+      const parsed = this._parsePinKey(key);
+      if (!parsed) continue;
+      const topic = this._topicFor(parsed.modelId, parsed.pinK);
+      if (!topic) continue;
+      this.mqttClient.subscribe(topic);
+    }
   }
 
   _applyPinDeclarations(model, p, r, c, label) {
-    const reg = this._pinRegistryCell();
-    const mailbox = this._pinMailboxCell();
+    const config = this._getConfigFromPage0();
+    const mode = this._topicMode(config);
+    const reg = this._pinRegistryCellFor(model.id, mode);
+    const mailbox = this._pinMailboxCellFor(model.id, mode);
     if (model.id === reg.model_id && p === reg.p && r === reg.r && c === reg.c) {
       if (label.t === 'PIN_IN') {
-        this.pinInSet.add(label.k);
+        this.pinInSet.add(this._pinKey(model.id, label.k));
         if (this.mqttClient) {
-          this.mqttClient.subscribe(this._topicFor(label.k, 'in'));
+          const topic = this._topicFor(model.id, label.k);
+          if (topic) this.mqttClient.subscribe(topic);
         }
       }
       if (label.t === 'PIN_OUT') {
-        this.pinOutSet.add(label.k);
+        this.pinOutSet.add(this._pinKey(model.id, label.k));
       }
       return;
     }
 
     if (model.id === mailbox.model_id && p === mailbox.p && r === mailbox.r && c === mailbox.c) {
-      if (label.t === 'OUT' && this.pinOutSet.has(label.k) && this.mqttClient) {
+      if (label.t === 'OUT' && this.pinOutSet.has(this._pinKey(model.id, label.k)) && this.mqttClient) {
         const payload = { pin: label.k, value: label.v, t: 'OUT' };
-        this.mqttClient.publish(this._topicFor(label.k, 'out'), payload);
+        const topic = this._topicFor(model.id, label.k);
+        if (topic) this.mqttClient.publish(topic, payload);
       }
     }
   }
 
   _applyPinRemoval(model, p, r, c, prevLabel) {
-    const reg = this._pinRegistryCell();
+    const config = this._getConfigFromPage0();
+    const mode = this._topicMode(config);
+    const reg = this._pinRegistryCellFor(model.id, mode);
     if (model.id === reg.model_id && p === reg.p && r === reg.r && c === reg.c) {
       if (prevLabel.t === 'PIN_IN') {
-        this.pinInSet.delete(prevLabel.k);
+        this.pinInSet.delete(this._pinKey(model.id, prevLabel.k));
         if (this.mqttClient) {
-          this.mqttClient.unsubscribe(this._topicFor(prevLabel.k, 'in'));
+          const topic = this._topicFor(model.id, prevLabel.k);
+          if (topic) this.mqttClient.unsubscribe(topic);
         }
       }
       if (prevLabel.t === 'PIN_OUT') {
-        this.pinOutSet.delete(prevLabel.k);
+        this.pinOutSet.delete(this._pinKey(model.id, prevLabel.k));
       }
     }
   }
@@ -405,17 +539,53 @@ class ModelTableRuntime {
 
   mqttIncoming(topic, payload) {
     const config = this._getConfigFromPage0();
+    const mode = this._topicMode(config);
+    if (!payload || payload.t !== 'IN') {
+      return false;
+    }
+
+    if (mode === 'uiput_mm_v1') {
+      const base = config.topic_base || '';
+      if (!base) return false;
+      const prefix = `${base}/`;
+      if (!topic || typeof topic !== 'string' || !topic.startsWith(prefix)) {
+        return false;
+      }
+      const rest = topic.slice(prefix.length);
+      const parts = rest.split('/');
+      if (parts.length !== 2) {
+        return false;
+      }
+      const modelId = Number(parts[0]);
+      const pinName = parts[1] || '';
+      if (!Number.isInteger(modelId) || !pinName || pinName.includes('/')) {
+        return false;
+      }
+      if (!this.pinInSet.has(this._pinKey(modelId, pinName))) {
+        return false;
+      }
+      const model = this.getModel(modelId);
+      if (!model) {
+        return false;
+      }
+      const mailbox = this._pinMailboxCellFor(modelId, mode);
+      this.addLabel(model, mailbox.p, mailbox.r, mailbox.c, { k: pinName, t: 'IN', v: payload });
+      this.mqttTrace.record('inbound', { topic, payload });
+      return true;
+    }
+
     const prefix = config.topic_prefix || '';
-    if (!topic.startsWith(`${prefix}/`)) {
+    let pinName = topic;
+    if (prefix && topic.startsWith(`${prefix}/`)) {
+      pinName = topic.slice(prefix.length + 1);
+    }
+    if (!pinName || pinName.includes('/')) {
       return false;
     }
-    const parts = topic.slice(prefix.length + 1).split('/');
-    const pinName = parts[0];
-    const direction = parts[1];
-    if (direction !== 'in' || !this.pinInSet.has(pinName)) {
+    if (!this.pinInSet.has(this._pinKey(0, pinName))) {
       return false;
     }
-    const mailbox = this._pinMailboxCell();
+    const mailbox = this._pinMailboxCellFor(0, mode);
     const model = this.getModel(mailbox.model_id);
     this.addLabel(model, mailbox.p, mailbox.r, mailbox.c, { k: pinName, t: 'IN', v: payload });
     this.mqttTrace.record('inbound', { topic, payload });
