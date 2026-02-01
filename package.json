@@ -20,6 +20,20 @@
     "url": "https://github.com/drooop/dongyu_js_core/issues"
   },
   "homepage": "https://github.com/drooop/dongyu_js_core#readme",
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "dotenv": "^16.6.1",
+    "katex": "^0.16.22",
+    "matrix-js-sdk": "^37.6.0"
+    ,
+    "rehype-katex": "^7.0.1",
+    "rehype-sanitize": "^6.0.0",
+    "rehype-stringify": "^10.0.1",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5"
+  },
   "devDependencies": {
     "jsdom": "^27.0.1"
   }
