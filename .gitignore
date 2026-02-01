@@ -60,3 +60,4 @@ Thumbs.db
 PICtest/
 .sisyphus/
 test_files/
+.dy_static_projects/
