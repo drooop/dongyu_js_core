@@ -95,6 +95,110 @@ class MqttClientMock {
   }
 }
 
+let _mqttPkg = null;
+function lazyMqtt() {
+  if (_mqttPkg) return _mqttPkg;
+  // ESM-safe lazy import to avoid pulling mqtt in browser bundles.
+  // This file is used in Node/Bun runtime contexts.
+  // eslint-disable-next-line no-new-func
+  const req = (new Function('return (typeof require!=="undefined")?require:null;'))();
+  if (!req) {
+    throw new Error('mqtt_package_unavailable');
+  }
+  _mqttPkg = req('mqtt');
+  return _mqttPkg;
+}
+
+class MqttClientReal {
+  constructor(trace, onMessage) {
+    this.trace = trace;
+    this.connected = false;
+    this.subscriptions = new Set();
+    this._client = null;
+    this._onMessage = typeof onMessage === 'function' ? onMessage : null;
+  }
+
+  connect(config) {
+    const mqtt = lazyMqtt();
+    const host = config && typeof config.host === 'string' ? config.host : '';
+    const port = Number.isInteger(config && config.port) ? config.port : 1883;
+    const tls = Boolean(config && config.tls);
+    const protocol = tls ? 'mqtts' : 'mqtt';
+    const url = `${protocol}://${host}:${port}`;
+
+    const options = {
+      clientId: config && config.client_id ? String(config.client_id) : undefined,
+      username: config && config.username ? String(config.username) : undefined,
+      password: config && config.password ? String(config.password) : undefined,
+      reconnectPeriod: 500,
+      connectTimeout: 10000,
+    };
+    if (tls) {
+      options.rejectUnauthorized = false;
+    }
+
+    this._client = mqtt.connect(url, options);
+    this.trace.record('connect', { target: { ...config, password: config && config.password ? '<redacted>' : null } });
+
+    this._client.on('connect', () => {
+      this.connected = true;
+      this.trace.record('connected', { url });
+    });
+    this._client.on('reconnect', () => {
+      this.trace.record('reconnect', { url });
+    });
+    this._client.on('error', (err) => {
+      this.trace.record('error', { message: String(err && err.message ? err.message : err) });
+    });
+    this._client.on('message', (topic, buf) => {
+      if (!this._onMessage) return;
+      let parsed = null;
+      try {
+        parsed = JSON.parse(buf.toString('utf8'));
+      } catch (_) {
+        this.trace.record('inbound_parse_error', { topic });
+        return;
+      }
+      this.trace.record('inbound', { topic, payload: parsed });
+      this._onMessage(topic, parsed);
+    });
+  }
+
+  subscribe(topic) {
+    if (!this._client) return;
+    this.subscriptions.add(topic);
+    this._client.subscribe(topic);
+    this.trace.record('subscribe', { topic });
+  }
+
+  unsubscribe(topic) {
+    if (!this._client) return;
+    this.subscriptions.delete(topic);
+    this._client.unsubscribe(topic);
+    this.trace.record('unsubscribe', { topic });
+  }
+
+  publish(topic, payload) {
+    if (!this._client) return;
+    this.trace.record('publish', { topic, payload });
+    try {
+      this._client.publish(topic, JSON.stringify(payload));
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  close() {
+    if (!this._client) return;
+    try {
+      this._client.end(true);
+    } catch (_) {
+      // ignore
+    }
+    this._client = null;
+  }
+}
+
 class Model {
   constructor({ id, name, type }) {
     this.id = id;
@@ -214,6 +318,27 @@ class ModelTableRuntime {
       return { applied: 0, rejected: 0, reason: 'invalid_patch' };
     }
     const allowCreateModel = Boolean(options.allowCreateModel);
+
+    const RESERVED_CLEAR_LABELS = new Set(['ui_event', 'ui_event_error', 'ui_event_last_op_id']);
+    const CLEAR_ALLOW_T = new Set(['str', 'int', 'bool', 'json']);
+    const matchForbiddenK = (k) => {
+      if (typeof k !== 'string') return false;
+      if (k === 'pin_in' || k === 'pin_out') return true;
+      if (k === 'v1n_id' || k === 'data_type') return true;
+      if (k.startsWith('run_')) return true;
+      if (k.startsWith('mqtt_')) return true;
+      if (k.startsWith('matrix_')) return true;
+      if (k.startsWith('CONNECT_')) return true;
+      if (k.endsWith('_CONNECT')) return true;
+      return false;
+    };
+    const clearableLabel = (label) => {
+      if (!label || typeof label.k !== 'string') return false;
+      if (RESERVED_CLEAR_LABELS.has(label.k)) return false;
+      if (matchForbiddenK(label.k)) return false;
+      if (!CLEAR_ALLOW_T.has(label.t)) return false;
+      return true;
+    };
     let applied = 0;
     let rejected = 0;
     for (const record of records) {
@@ -227,7 +352,39 @@ class ModelTableRuntime {
         rejected += 1;
         continue;
       }
+
+      if (op === 'create_model') {
+        if (!allowCreateModel) {
+          rejected += 1;
+          continue;
+        }
+        if (modelId === 0) {
+          rejected += 1;
+          continue;
+        }
+        const name = record.name;
+        const type = record.type;
+        if (typeof name !== 'string' || name.length === 0 || typeof type !== 'string' || type.length === 0) {
+          rejected += 1;
+          continue;
+        }
+        if (this.getModel(modelId)) {
+          applied += 1;
+          continue;
+        }
+        try {
+          this.createModel({ id: modelId, name, type });
+          applied += 1;
+        } catch (_) {
+          rejected += 1;
+        }
+        continue;
+      }
       let model = this.getModel(modelId);
+      if (!model && op === 'cell_clear') {
+        rejected += 1;
+        continue;
+      }
       if (!model && allowCreateModel) {
         const name = modelId < 0 ? `system_model_${modelId}` : `model_${modelId}`;
         const type = modelId < 0 ? 'system' : 'data';
@@ -241,6 +398,25 @@ class ModelTableRuntime {
       const r = record.r;
       const c = record.c;
       const k = record.k;
+
+      if (op === 'cell_clear') {
+        if (!this._validateCell(p, r, c)) {
+          rejected += 1;
+          continue;
+        }
+        const cell = this.getCell(model, p, r, c);
+        const toRemove = [];
+        for (const [lk, lv] of cell.labels.entries()) {
+          const label = { k: lv.k, t: lv.t, v: lv.v };
+          if (!clearableLabel(label)) continue;
+          toRemove.push(lk);
+        }
+        for (const lk of toRemove) {
+          this.rmLabel(model, p, r, c, lk);
+        }
+        applied += 1;
+        continue;
+      }
       if (!this._validateCell(p, r, c) || typeof k !== 'string' || k.length === 0) {
         rejected += 1;
         continue;
@@ -297,6 +473,12 @@ class ModelTableRuntime {
     return 'stage2';
   }
 
+  _payloadMode(config) {
+    const mode = config && typeof config.payload_mode === 'string' ? config.payload_mode : null;
+    if (mode === 'mt_v0') return 'mt_v0';
+    return 'legacy';
+  }
+
   _pinRegistryCellFor(modelId, topicMode) {
     if (topicMode === 'uiput_mm_v1') {
       return { model_id: modelId, p: 0, r: 0, c: 1 };
@@ -341,6 +523,7 @@ class ModelTableRuntime {
       topic_prefix: get('mqtt_target_topic_prefix')?.v ?? null,
       topic_mode: get('mqtt_topic_mode')?.v ?? null,
       topic_base: get('mqtt_topic_base')?.v ?? null,
+      payload_mode: get('mqtt_payload_mode')?.v ?? null,
     };
   }
 
@@ -387,7 +570,10 @@ class ModelTableRuntime {
       this._writeRuntimeStatus('failed');
       return { status: 'failed', missing };
     }
-    this.mqttClient = new MqttClientMock(this.mqttTrace);
+    const transport = argsConfig && typeof argsConfig.transport === 'string' ? argsConfig.transport : 'mock';
+    this.mqttClient = transport === 'real'
+      ? new MqttClientReal(this.mqttTrace, (topic, payload) => this.mqttIncoming(topic, payload))
+      : new MqttClientMock(this.mqttTrace);
     this.mqttClient.connect(config);
     this._subscribeDeclaredPinsOnStart();
     this._writeRuntimeStatus('running');
@@ -488,6 +674,7 @@ class ModelTableRuntime {
   _applyPinDeclarations(model, p, r, c, label) {
     const config = this._getConfigFromPage0();
     const mode = this._topicMode(config);
+    const payloadMode = this._payloadMode(config);
     const reg = this._pinRegistryCellFor(model.id, mode);
     const mailbox = this._pinMailboxCellFor(model.id, mode);
     if (model.id === reg.model_id && p === reg.p && r === reg.r && c === reg.c) {
@@ -506,7 +693,10 @@ class ModelTableRuntime {
 
     if (model.id === mailbox.model_id && p === mailbox.p && r === mailbox.r && c === mailbox.c) {
       if (label.t === 'OUT' && this.pinOutSet.has(this._pinKey(model.id, label.k)) && this.mqttClient) {
-        const payload = { pin: label.k, value: label.v, t: 'OUT' };
+        const valueIsPatch = label.v && typeof label.v === 'object' && label.v.version === 'mt.v0' && Array.isArray(label.v.records);
+        const payload = (payloadMode === 'mt_v0' && valueIsPatch)
+          ? label.v
+          : { pin: label.k, value: label.v, t: 'OUT' };
         const topic = this._topicFor(model.id, label.k);
         if (topic) this.mqttClient.publish(topic, payload);
       }
@@ -540,8 +730,14 @@ class ModelTableRuntime {
   mqttIncoming(topic, payload) {
     const config = this._getConfigFromPage0();
     const mode = this._topicMode(config);
-    if (!payload || payload.t !== 'IN') {
-      return false;
+    const payloadMode = this._payloadMode(config);
+    if (!payload) return false;
+    if (payloadMode === 'mt_v0') {
+      if (!(typeof payload === 'object' && payload.version === 'mt.v0' && Array.isArray(payload.records))) {
+        return false;
+      }
+    } else {
+      if (payload.t !== 'IN') return false;
     }
 
     if (mode === 'uiput_mm_v1') {
