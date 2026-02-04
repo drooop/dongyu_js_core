@@ -396,6 +396,10 @@ class ProgramModelEngine {
     // - Work created during a tick is processed in a subsequent tick round.
     this.tickInFlight = null;
     this.tickRequested = false;
+    
+    // Callback invoked when snapshot changes due to Matrix/external events.
+    // Set by server to trigger SSE broadcast.
+    this.onSnapshotChanged = null;
   }
 
   async init() {
@@ -441,17 +445,19 @@ class ProgramModelEngine {
   }
 
   async sendMatrix(payload) {
+    console.log('[sendMatrix] CALLED with payload:', JSON.stringify(payload));
     if (!this.matrixClient || !this.matrixRoomId) {
+      console.log('[sendMatrix] ERROR: matrix_not_ready');
       throw new Error('matrix_not_ready');
     }
     if (!this.matrixDmPeerUserId) {
+      console.log('[sendMatrix] ERROR: matrix_dm_peer_user_id_required');
       throw new Error('matrix_dm_peer_user_id_required');
     }
-    const body = JSON.stringify(payload);
-    await this.matrixClient.sendEvent(this.matrixRoomId, 'm.room.message', {
-      msgtype: 'm.text',
-      body,
-    });
+    console.log('[sendMatrix] Sending to Matrix room:', this.matrixRoomId);
+    // Use dy.bus.v0 event type for MBR worker compatibility
+    await this.matrixClient.sendEvent(this.matrixRoomId, 'dy.bus.v0', payload);
+    console.log('[sendMatrix] SUCCESS: Message sent to Matrix (dy.bus.v0)');
   }
 
   startMatrixListener() {
@@ -462,8 +468,9 @@ class ProgramModelEngine {
     client.on('Room.timeline', (event, room, toStartOfTimeline) => {
       if (toStartOfTimeline) return;
       if (!room || room.roomId !== roomId) return;
-      if (event.getType && event.getType() !== 'm.room.message') return;
-
+      
+      const eventType = event.getType ? event.getType() : null;
+      
       // DM-only: accept only messages from the configured peer.
       if (peerUserId) {
         const sender = event.getSender ? event.getSender() : null;
@@ -471,6 +478,17 @@ class ProgramModelEngine {
       }
 
       const content = event.getContent ? event.getContent() : null;
+      
+      // Handle dy.bus.v0 events (from MBR)
+      if (eventType === 'dy.bus.v0') {
+        if (!content || typeof content !== 'object') return;
+        console.log('[startMatrixListener] Received dy.bus.v0 event:', JSON.stringify(content).substring(0, 200));
+        this.handleDyBusEvent(content);
+        return;
+      }
+      
+      // Handle m.room.message events (legacy)
+      if (eventType !== 'm.room.message') return;
       if (!content || typeof content.body !== 'string') return;
       let payload = null;
       try {
@@ -492,9 +510,87 @@ class ProgramModelEngine {
     this.tick().catch(() => {});
   }
 
+  handleDyBusEvent(content) {
+    // Handle dy.bus.v0 events from MBR (return path: K8s -> MQTT -> MBR -> Matrix -> here)
+    // Expected format: { version: 'v0', type: 'snapshot_delta', op_id, payload: { version: 'mt.v0', records: [...] } }
+    console.log('[handleDyBusEvent] Processing:', JSON.stringify(content).substring(0, 300));
+    
+    if (!content || typeof content !== 'object') {
+      console.log('[handleDyBusEvent] Invalid content - not an object');
+      return;
+    }
+    
+    if (content.version !== 'v0') {
+      console.log('[handleDyBusEvent] Unknown version:', content.version);
+      return;
+    }
+    
+    if (content.type === 'snapshot_delta') {
+      // This is a return patch from K8s worker via MBR
+      const patch = content.payload;
+      if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) {
+        console.log('[handleDyBusEvent] Invalid patch format');
+        return;
+      }
+      
+      console.log('[handleDyBusEvent] Received snapshot_delta, patch op_id:', patch.op_id);
+      
+      // Check if any record targets Model 100
+      const hasModel100 = patch.records.some(r => r.model_id === 100);
+      
+      if (hasModel100) {
+        // Write to Model 100 PIN_IN (patch_in) at Cell (0,1,1) with type 'IN'
+        // This will trigger on_model100_patch_in function via processEventsSnapshot
+        const model100 = this.runtime.getModel(100);
+        if (model100) {
+          console.log('[handleDyBusEvent] Writing patch to Model 100 PIN_IN (patch_in)');
+          this.runtime.addLabel(model100, 0, 1, 1, { k: 'patch_in', t: 'IN', v: patch });
+          this.tick().then(() => {
+            console.log('[handleDyBusEvent] tick() completed for Model 100 patch, broadcasting snapshot');
+            this.onSnapshotChanged?.();
+          }).catch(() => {});
+        } else {
+          console.log('[handleDyBusEvent] Model 100 not found, cannot write PIN_IN');
+        }
+      } else {
+        // General patch - apply directly or route to appropriate handler
+        console.log('[handleDyBusEvent] General patch (not Model 100), applying directly');
+        try {
+          this.runtime.applyPatch(patch, { allowCreateModel: false });
+          this.tick().then(() => {
+            this.onSnapshotChanged?.();
+          }).catch(() => {});
+        } catch (err) {
+          console.error('[handleDyBusEvent] Failed to apply patch:', err.message);
+        }
+      }
+      return;
+    }
+    
+    if (content.type === 'mbr_ready') {
+      console.log('[handleDyBusEvent] Received mbr_ready signal from MBR');
+      const model100 = this.runtime.getModel(100);
+      if (model100) {
+        this.runtime.addLabel(model100, 0, 0, 0, { k: 'system_ready', t: 'bool', v: true });
+        console.log('[handleDyBusEvent] Set system_ready=true on Model 100');
+        this.tick().then(() => {
+          this.onSnapshotChanged?.();
+        }).catch(() => {});
+      }
+      return;
+    }
+    
+    console.log('[handleDyBusEvent] Unhandled event type:', content.type);
+  }
+
   executeFunction(name) {
+    console.log('[executeFunction] CALLED with name:', name);
     const code = this.functions.get(name);
-    if (!code) return;
+    if (!code) {
+      console.log('[executeFunction] WARNING: no code found for function:', name);
+      return;
+    }
+    console.log('[executeFunction] Found code, executing...');
     const ctx = {
       runtime: this.runtime,
       getLabel: (ref) => {
@@ -589,6 +685,62 @@ class ProgramModelEngine {
     for (; this.eventCursor < end; this.eventCursor += 1) {
       const event = events[this.eventCursor];
       if (event.op !== 'add_label') continue;
+
+      // UI event in mailbox -> trigger forward_ui_events function
+      // Debug: log all ui_event labels being processed
+      if (event.cell && event.label && event.label.k === 'ui_event') {
+        console.log('[processEventsSnapshot] ui_event detected:', {
+          model_id: event.cell.model_id,
+          expected_model_id: EDITOR_MODEL_ID,
+          p: event.cell.p, r: event.cell.r, c: event.cell.c,
+          label_v: event.label.v,
+          label_v_truthy: !!event.label.v
+        });
+      }
+      if (event.cell && event.cell.model_id === EDITOR_MODEL_ID && 
+          event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 1 &&
+          event.label && event.label.k === 'ui_event' && event.label.v) {
+        // Check if forward_ui_events function exists
+        console.log('[processEventsSnapshot] ui_event MATCHED! Triggering forward_ui_events...');
+        const sys = firstSystemModel(this.runtime);
+        if (sys && sys.hasFunction('forward_ui_events')) {
+          console.log('[processEventsSnapshot] forward_ui_events function exists, recording intercept');
+          this.runtime.intercepts.record('run_func', { func: 'forward_ui_events' });
+        } else {
+          console.log('[processEventsSnapshot] WARNING: forward_ui_events function NOT found, sys=', !!sys);
+        }
+        continue;
+      }
+
+      // Model 100 ui_event -> trigger forward_model100_events function
+      // This forwards UI events from Model 100 to K8s via dual-bus
+      if (event.cell && event.cell.model_id === 100 && 
+          event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 2 &&
+          event.label && event.label.k === 'ui_event' && event.label.v) {
+        console.log('[processEventsSnapshot] Model 100 ui_event detected, triggering forward_model100_events');
+        const sys = firstSystemModel(this.runtime);
+        if (sys && sys.hasFunction('forward_model100_events')) {
+          this.runtime.intercepts.record('run_func', { func: 'forward_model100_events' });
+        } else {
+          console.log('[processEventsSnapshot] WARNING: forward_model100_events function NOT found');
+        }
+        continue;
+      }
+
+      // Model 100 PIN_IN (patch_in) -> trigger on_model100_patch_in function
+      // This handles return patches from K8s worker via dual-bus
+      if (event.cell && event.cell.model_id === 100 && 
+          event.cell.p === 0 && event.cell.r === 1 && event.cell.c === 1 &&
+          event.label && event.label.t === 'IN' && event.label.k === 'patch_in') {
+        console.log('[processEventsSnapshot] Model 100 patch_in detected, triggering on_model100_patch_in');
+        const sys = firstSystemModel(this.runtime);
+        if (sys && sys.hasFunction('on_model100_patch_in')) {
+          this.runtime.intercepts.record('run_func', { func: 'on_model100_patch_in' });
+        } else {
+          console.log('[processEventsSnapshot] WARNING: on_model100_patch_in function NOT found');
+        }
+        continue;
+      }
 
       // User intent -> enqueue a system job + trigger system dispatcher.
       if (event.cell && event.cell.model_id > 0 && event.label && event.label.k === 'intent.v0') {
@@ -922,6 +1074,13 @@ function createServerState(options) {
 
   async function submitEnvelope(envelopeOrNull) {
     setMailboxEnvelope(runtime, envelopeOrNull);
+    
+    // Trigger forward_ui_events BEFORE any action processing clears the mailbox
+    // This gives the function a chance to forward the event to Matrix
+    if (envelopeOrNull) {
+      await programEngine.tick();
+    }
+    
     const envelope = envelopeOrNull;
     const payload = envelope && envelope.payload ? envelope.payload : null;
     const action = payload && typeof payload.action === 'string' ? payload.action : '';
@@ -1394,6 +1553,7 @@ function createServerState(options) {
     submitEnvelope,
     getLastOpId: () => getLastOpId(runtime),
     getEventError: () => getEventError(runtime),
+    programEngine,
   };
 }
 
@@ -1422,6 +1582,9 @@ function startServer(options) {
       }
     }
   }
+
+  // Wire up Matrix/external event handler to broadcast snapshot changes via SSE
+  state.programEngine.onSnapshotChanged = broadcastSnapshot;
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
