@@ -768,6 +768,123 @@ export function buildEditorAstV1(snapshot) {
                 },
               ],
             },
+
+            {
+              id: 'card_form_bg_demo',
+              type: 'Card',
+              props: { title: 'Form Submit -> Box Background' },
+              children: [
+                {
+                  id: 'row_form_bg_demo',
+                  type: 'Container',
+                  props: { layout: 'row', wrap: true, size: 12, style: { alignItems: 'stretch' } },
+                  children: [
+                    {
+                      id: 'box_form_bg_demo_form',
+                      type: 'Box',
+                      props: { style: { width: '360px', maxWidth: '100%' } },
+                      children: [
+                        {
+                          id: 'form_bg_demo',
+                          type: 'Form',
+                          children: [
+                            {
+                              id: 'fi_bg_demo_color',
+                              type: 'FormItem',
+                              props: { label: 'Color' },
+                              children: [
+                                {
+                                  id: 'input_bg_demo_color',
+                                  type: 'Input',
+                                  props: { placeholder: '#fef3c7', style: { width: '240px' } },
+                                  bind: {
+                                    read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_color_input' },
+                                    write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_color_input' } },
+                                  },
+                                },
+                              ],
+                            },
+                            {
+                              id: 'fi_bg_demo_actions',
+                              type: 'FormItem',
+                              props: { label: 'Action' },
+                              children: [
+                                {
+                                  id: 'row_bg_demo_actions',
+                                  type: 'Container',
+                                  props: { layout: 'row', wrap: true, size: 8, style: { alignItems: 'center' } },
+                                  children: [
+                                    {
+                                      id: 'btn_bg_demo_submit',
+                                      type: 'Button',
+                                      props: { label: 'Submit', type: 'primary' },
+                                      bind: {
+                                        write: {
+                                          action: 'label_update',
+                                          target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_bg_color' },
+                                          value_ref: {
+                                            t: 'str',
+                                            v: { $label: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_color_input' } },
+                                          },
+                                        },
+                                      },
+                                    },
+                                    {
+                                      id: 'btn_bg_demo_reset',
+                                      type: 'Button',
+                                      props: { label: 'Reset' },
+                                      bind: {
+                                        write: {
+                                          action: 'label_update',
+                                          target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_bg_color' },
+                                          value_ref: { t: 'str', v: '#f8fafc' },
+                                        },
+                                      },
+                                    },
+                                  ],
+                                },
+                              ],
+                            },
+                          ],
+                        },
+                        {
+                          id: 'txt_bg_demo_hint',
+                          type: 'Text',
+                          props: {
+                            type: 'info',
+                            text: 'Submit only writes ui_event mailbox; LocalBusAdapter consumes it and updates form_demo_bg_color.',
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      id: 'box_form_bg_demo_preview',
+                      type: 'Box',
+                      props: {
+                        style: {
+                          flex: '1',
+                          minWidth: '260px',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '12px',
+                          padding: '16px',
+                          backgroundColor: { $label: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_bg_color' } },
+                          transition: 'background-color 200ms ease',
+                        },
+                      },
+                      children: [
+                        { id: 'txt_bg_demo_title', type: 'Text', props: { text: 'Preview', style: { fontWeight: '600' } } },
+                        {
+                          id: 'txt_bg_demo_value',
+                          type: 'Text',
+                          bind: { read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_bg_color' } },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+
             missingModelText
               ? { id: 'txt_home_missing_model', type: 'Text', props: { type: 'danger', text: missingModelText } }
               : null,
@@ -883,7 +1000,7 @@ export function buildEditorAstV1(snapshot) {
         {
           id: 'drawer_detail',
           type: 'Drawer',
-          props: { title: { $ref: 'dt_detail_title' }, size: '40%' },
+          props: { title: { $label: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_detail_title' } }, size: '40%' },
           bind: {
             read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_detail_open' },
             write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_detail_open' } },
@@ -892,7 +1009,7 @@ export function buildEditorAstV1(snapshot) {
             {
               id: 'txt_detail',
               type: 'Text',
-              props: { text: { $ref: 'dt_detail_text' }, style: { whiteSpace: 'pre-wrap', wordBreak: 'break-word' } },
+              props: { text: { $label: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_detail_text' } }, style: { whiteSpace: 'pre-wrap', wordBreak: 'break-word' } },
             },
           ],
         },
@@ -2084,6 +2201,10 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_open', t: 'bool', v: false });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_title', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_text', t: 'str', v: '' });
+
+  // Form demo (submit updates right-side box background).
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'form_demo_color_input', t: 'str', v: '#fef3c7' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'form_demo_bg_color', t: 'str', v: '#fef3c7' });
 
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_edit_open', t: 'bool', v: false });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_edit_model_id', t: 'str', v: '' });

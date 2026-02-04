@@ -14,7 +14,7 @@ function matchForbiddenK(k) {
   return false;
 }
 
-const ALLOW_T = new Set(['str', 'int', 'bool', 'json']);
+const ALLOW_T = new Set(['str', 'int', 'bool', 'json', 'event']);
 const RESERVED_LABELS = new Set(['ui_event', 'ui_event_error', 'ui_event_last_op_id']);
 
 function toErrorValue(op_id, code, detail) {
