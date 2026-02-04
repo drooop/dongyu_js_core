@@ -1,5 +1,6 @@
 export const ROUTE_HOME = '/';
 export const ROUTE_GALLERY = '/gallery';
+export const ROUTE_MODEL100 = '/model100';
 export const ROUTE_TEST = '/test';
 export const ROUTE_PIN = '/pin';
 export const ROUTE_DOCS = '/docs';
@@ -61,6 +62,10 @@ export function isDocsPath(path) {
 
 export function isStaticPath(path) {
   return normalizeHashPath(path) === ROUTE_STATIC;
+}
+
+export function isModel100Path(path) {
+  return normalizeHashPath(path) === ROUTE_MODEL100;
 }
 
 export function subscribeHashPath(onChange) {

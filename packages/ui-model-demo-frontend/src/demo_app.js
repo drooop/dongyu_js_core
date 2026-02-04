@@ -1,10 +1,12 @@
 import { computed, h, onBeforeUnmount, onMounted, ref, resolveComponent } from 'vue';
 import { createRenderer } from '@ui-renderer/index.mjs';
 import { buildGalleryAst } from './gallery_model.js';
+import { buildModel100Ast } from './model100_ast.js';
 import {
   ROUTE_GALLERY,
   ROUTE_HOME,
   ROUTE_DOCS,
+  ROUTE_MODEL100,
   ROUTE_PIN,
   ROUTE_STATIC,
   ROUTE_TEST,
@@ -12,6 +14,7 @@ import {
   isDocsPath,
   isGalleryPath,
   isHomePath,
+  isModel100Path,
   isPinPath,
   isStaticPath,
   isTestPath,
@@ -76,6 +79,10 @@ export function createAppShell({ mainStore, galleryStore }) {
     ...mainStore,
     getUiAst: () => buildGalleryAst(),
   });
+  const Model100Root = createDemoRoot({
+    ...mainStore,
+    getUiAst: () => buildModel100Ast(),
+  });
   const PinRoot = createDemoRoot(mainStore);
   const TestRoot = createDemoRoot(mainStore);
 
@@ -89,7 +96,7 @@ export function createAppShell({ mainStore, galleryStore }) {
       let unsubscribe = null;
 
       function normalizeIfUnknown(p) {
-        if (isHomePath(p) || isGalleryPath(p) || isDocsPath(p) || isStaticPath(p) || isPinPath(p) || isTestPath(p)) return;
+        if (isHomePath(p) || isGalleryPath(p) || isModel100Path(p) || isDocsPath(p) || isStaticPath(p) || isPinPath(p) || isTestPath(p)) return;
         setHashPath(ROUTE_HOME, { replace: true });
       }
 
@@ -142,6 +149,7 @@ export function createAppShell({ mainStore, galleryStore }) {
       });
 
       const isGallery = computed(() => isGalleryPath(path.value));
+      const isModel100 = computed(() => isModel100Path(path.value));
       const isDocs = computed(() => isDocsPath(path.value));
       const isStatic = computed(() => isStaticPath(path.value));
       const isPin = computed(() => isPinPath(path.value));
@@ -154,6 +162,7 @@ export function createAppShell({ mainStore, galleryStore }) {
               h(ElButton, { type: isHomePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_HOME) }, { default: () => '首页' }),
               h('span', { style: { display: 'inline-block', width: '24px' } }, ''),
               h(ElButton, { type: isGalleryPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_GALLERY) }, { default: () => 'Gallery' }),
+              h(ElButton, { type: isModel100Path(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_MODEL100) }, { default: () => 'Model100' }),
               h(ElButton, { type: isDocsPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_DOCS) }, { default: () => 'Docs' }),
               h(ElButton, { type: isStaticPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_STATIC) }, { default: () => 'Static' }),
               h(ElButton, { type: isPinPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_PIN) }, { default: () => 'PIN' }),
@@ -165,10 +174,11 @@ export function createAppShell({ mainStore, galleryStore }) {
 
       return () => {
         if (isGallery.value) {
-          // In remote mode, galleryStore uses its own local runtime and would diverge.
-          // Render Gallery AST on top of the mainStore snapshot so edits to model -102 reflect.
           const isRemoteMode = !mainStore || !Object.prototype.hasOwnProperty.call(mainStore, 'runtime');
           return h('div', [h(Header), h(isRemoteMode ? GalleryRemoteRoot : GalleryRoot)]);
+        }
+        if (isModel100.value) {
+          return h('div', [h(Header), h(Model100Root)]);
         }
         if (isDocs.value || isStatic.value) {
           return h('div', [h(Header), h(HomeRoot)]);

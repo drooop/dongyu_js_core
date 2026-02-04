@@ -13,3 +13,6 @@ export const GALLERY_STATE_MODEL_ID = -102;
 
 // Wave C demo submodel.
 export const WAVE_C_SUBMODEL_ID = 2001;
+
+// Model 100 - Dual-bus E2E test model.
+export const MODEL_100_ID = 100;
