@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remote-worker
+  labels:
+    app: remote-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: remote-worker
+  template:
+    metadata:
+      labels:
+        app: remote-worker
+    spec:
+      containers:
+      - name: worker
+        image: dy-remote-worker:v2
+        imagePullPolicy: Never
+        envFrom:
+        - configMapRef:
+            name: remote-worker-config
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: remote-worker-svc
+spec:
+  selector:
+    app: remote-worker
+  ports:
+  - port: 8080
+    targetPort: 8080

@@ -1,0 +1,21 @@
+FROM oven/bun:latest
+
+WORKDIR /app
+
+# 复制依赖文件
+COPY package.json package-lock.json* ./
+RUN bun install
+
+# 复制必要的代码
+COPY packages/worker-base/ ./packages/worker-base/
+
+# 复制 K8s Worker v2 脚本及依赖
+COPY scripts/run_remote_worker_k8s_v2.mjs ./scripts/
+COPY scripts/worker_engine_v0.mjs ./scripts/
+
+# 确保 patch 文件存在 (包括 Model 100 完整定义)
+COPY packages/worker-base/system-models/remote_worker_model.json ./packages/worker-base/system-models/
+COPY packages/worker-base/system-models/test_model_100_full.json ./packages/worker-base/system-models/
+
+# 使用 K8s Worker v2 (支持 Model 100 + 程序模型执行)
+CMD ["bun", "scripts/run_remote_worker_k8s_v2.mjs"]

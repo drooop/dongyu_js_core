@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: remote-worker-config
+data:
+  MQTT_HOST: "host.docker.internal"
+  MQTT_PORT: "1883"
+  MQTT_USER: "u"
+  MQTT_PASS: "p"
+  WORKER_ID: "2"
