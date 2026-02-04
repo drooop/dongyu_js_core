@@ -45,6 +45,29 @@ function getMailboxValue(snapshot) {
   return label ? label.v : undefined;
 }
 
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function resolveRefsDeep(value, snapshot) {
+  if (!value) return value;
+  if (isPlainObject(value) && Object.keys(value).length === 1 && Object.prototype.hasOwnProperty.call(value, '$label')) {
+    const ref = resolveRefsDeep(value.$label, snapshot);
+    return snapshot ? getLabelValue(snapshot, ref) : undefined;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => resolveRefsDeep(v, snapshot));
+  }
+  if (isPlainObject(value)) {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = resolveRefsDeep(v, snapshot);
+    }
+    return out;
+  }
+  return value;
+}
+
 function nextEventId() {
   eventCounter += 1;
   return `evt_${Date.now()}_${eventCounter}`;
@@ -215,7 +238,7 @@ function buildVueNode(node, snapshot, vue, host) {
   const h = vue.h;
   const resolve = vue.resolveComponent || ((name) => name);
   const children = (node.children || []).map((child) => buildVueNode(child, snapshot, vue, host));
-  const props = { ...(node.props || {}) };
+  const props = resolveRefsDeep({ ...(node.props || {}) }, snapshot);
 
   if (node.type === 'Include') {
     const ref = node.props && node.props.ref;
@@ -578,12 +601,12 @@ function dispatchEvent(node, target, payload, host, overrideType) {
     const action = target.action;
     const out = { action };
     if (action !== 'submodel_create') {
-      out.target = target.target_ref;
+      out.target = resolveRefsDeep(target.target_ref, snapshot);
     }
 
     if (action === 'label_add' || action === 'label_update') {
       if (target.value_ref !== undefined) {
-        out.value = target.value_ref;
+        out.value = resolveRefsDeep(target.value_ref, snapshot);
       } else {
         const raw = payload && payload.value !== undefined ? payload.value : '';
         let t = 'str';
@@ -597,7 +620,7 @@ function dispatchEvent(node, target, payload, host, overrideType) {
         out.value = { t, v: raw };
       }
     } else if (action === 'submodel_create') {
-      out.value = target.value_ref;
+      out.value = resolveRefsDeep(target.value_ref, snapshot);
     }
 
     const envelope = normalizeEditorEvent(out);

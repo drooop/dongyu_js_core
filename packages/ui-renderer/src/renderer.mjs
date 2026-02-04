@@ -65,19 +65,23 @@ function resolveRefValue(ref, ctx) {
   return undefined;
 }
 
-function resolveRefsDeep(value, ctx) {
-  if (!ctx) return value;
+function resolveRefsDeep(value, ctx, snapshot) {
   if (!value) return value;
+  if (isPlainObject(value) && Object.keys(value).length === 1 && Object.prototype.hasOwnProperty.call(value, '$label')) {
+    const ref = resolveRefsDeep(value.$label, ctx, snapshot);
+    return snapshot ? getLabelValue(snapshot, ref) : undefined;
+  }
   if (isPlainObject(value) && typeof value.$ref === 'string' && Object.keys(value).length === 1) {
+    if (!ctx) return value;
     return resolveRefValue(value.$ref, ctx);
   }
   if (Array.isArray(value)) {
-    return value.map((v) => resolveRefsDeep(v, ctx));
+    return value.map((v) => resolveRefsDeep(v, ctx, snapshot));
   }
   if (isPlainObject(value)) {
     const out = {};
     for (const [k, v] of Object.entries(value)) {
-      out[k] = resolveRefsDeep(v, ctx);
+      out[k] = resolveRefsDeep(v, ctx, snapshot);
     }
     return out;
   }
@@ -107,7 +111,7 @@ function normalizeEvent(node, target, payload, overrideType) {
 
 function normalizeEditorEvent(payload) {
   const event_id = nextEditorEventId();
-  const op_id = `op_${event_id}`;
+  const op_id = `op_${Date.now()}_${event_id}`;
   const body = { action: payload.action };
   if (payload.target !== undefined) {
     body.target = payload.target;
@@ -258,7 +262,7 @@ function buildVueNode(node, snapshot, vue, host) {
   const h = vue.h;
   const resolve = vue.resolveComponent || ((name) => name);
   const children = (node.children || []).map((child) => buildVueNode(child, snapshot, vue, host, ctx));
-  const props = resolveRefsDeep({ ...(node.props || {}) }, ctx);
+  const props = resolveRefsDeep({ ...(node.props || {}) }, ctx, snapshot);
 
   if (node.type === 'Include') {
     const ref = props && Object.prototype.hasOwnProperty.call(props, 'ref') ? props.ref : null;
@@ -525,6 +529,15 @@ function buildVueNode(node, snapshot, vue, host) {
   }
 
   if (node.type === 'Button') {
+    const bind = node.bind && node.bind.read;
+    if (bind) {
+      const value = getLabelValue(snapshot, bind);
+      if (value === false) {
+        props.disabled = true;
+      } else if (value === true) {
+        props.disabled = false;
+      }
+    }
     props.onClick = () => {
       const target = node.bind && node.bind.write;
       if (!target) return;
@@ -614,6 +627,25 @@ function buildVueNode(node, snapshot, vue, host) {
     const layout = (node.props && node.props.layout) || 'column';
     props.direction = layout === 'row' ? 'horizontal' : 'vertical';
     return h(resolve('ElSpace'), props, { default: () => children });
+  }
+
+  if (node.type === 'ColorBox') {
+    const bind = node.bind && node.bind.read;
+    const colorValue = bind ? getLabelValue(snapshot, bind) : undefined;
+    const bgColor = typeof colorValue === 'string' && colorValue.startsWith('#') ? colorValue : '#FFFFFF';
+    const boxStyle = {
+      backgroundColor: bgColor,
+      width: (node.props && node.props.width) || '100px',
+      height: (node.props && node.props.height) || '60px',
+      borderRadius: (node.props && node.props.borderRadius) || '8px',
+      border: '2px solid #e5e7eb',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transition: 'background-color 0.3s ease',
+      ...(node.props && node.props.style),
+    };
+    return h('div', { style: boxStyle }, children);
   }
 
   if (node.type === 'Table') {
@@ -756,12 +788,12 @@ function dispatchEvent(node, target, payload, host, overrideType) {
     const action = target.action;
     const out = { action };
     if (action !== 'submodel_create') {
-      out.target = resolveRefsDeep(target.target_ref, ctx);
+      out.target = resolveRefsDeep(target.target_ref, ctx, snapshot);
     }
 
     if (action === 'label_add' || action === 'label_update') {
       if (target.value_ref !== undefined) {
-        out.value = resolveRefsDeep(target.value_ref, ctx);
+        out.value = resolveRefsDeep(target.value_ref, ctx, snapshot);
       } else {
         const raw = payload && payload.value !== undefined ? payload.value : '';
         let t = 'str';
@@ -775,7 +807,7 @@ function dispatchEvent(node, target, payload, host, overrideType) {
         out.value = { t, v: raw };
       }
     } else if (action === 'submodel_create') {
-      out.value = resolveRefsDeep(target.value_ref, ctx);
+      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot);
     }
 
     const envelope = normalizeEditorEvent(out);
