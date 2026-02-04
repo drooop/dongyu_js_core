@@ -1,0 +1,16 @@
+{
+  "version": "mt.v0",
+  "op_id": "ui_to_matrix_forwarder_v0",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "forward_ui_events",
+      "t": "function",
+      "v": "const mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' });\nconsole.log('[forward_ui_events] mailbox value:', JSON.stringify(mailbox));\nif (mailbox) {\n  // mailbox is the envelope directly (getLabel returns label.v)\n  // It could be: { action, target, value, meta, payload... } or { payload: { action... } }\n  const payload = mailbox.payload || mailbox;\n  const action = payload.action || 'unknown';\n  const opId = (payload.meta && payload.meta.op_id) || ('ui_' + Date.now());\n  console.log('[forward_ui_events] Sending to Matrix:', action, 'op_id:', opId);\n  try {\n    ctx.sendMatrix({\n      version: 'v0',\n      type: 'ui_event',\n      op_id: opId,\n      action: action,\n      data: payload,\n      timestamp: Date.now()\n    });\n    console.log('[forward_ui_events] Matrix send OK');\n  } catch (err) {\n    console.error('[forward_ui_events] Matrix send failed:', err.message);\n  }\n  ctx.setLabel(\n    { model_id: -1, p: 0, r: 0, c: 1 },\n    { k: 'ui_event', t: 'event', v: null }\n  );\n} else {\n  console.log('[forward_ui_events] No mailbox data, skipping');\n}"
+    }
+  ]
+}

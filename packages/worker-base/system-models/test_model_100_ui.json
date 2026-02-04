@@ -1,0 +1,77 @@
+{
+  "version": "mt.v0",
+  "op_id": "test_model_100_ui_v0",
+  "description": "Model 100 UI 部分 - 本地侧使用，只有 UI 模型 + PIN_IN（接收返回）+ 事件转发",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 100,
+      "name": "test_color_form",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "ui_type",
+      "t": "str",
+      "v": "color_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "input_value",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "bg_color",
+      "t": "str",
+      "v": "#FFFFFF"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "status",
+      "t": "str",
+      "v": "ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "system_ready",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 1, "c": 1,
+      "k": "patch_in",
+      "t": "PIN_IN",
+      "v": "patch_in"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0, "r": 0, "c": 0,
+      "k": "on_model100_patch_in",
+      "t": "function",
+      "v": "const cell = ctx.runtime.getCell(ctx.runtime.getModel(100), 0, 1, 1);\nconst inLabel = cell.labels.get('patch_in');\nif (!inLabel || inLabel.t !== 'IN') return;\nconst patch = inLabel.v;\nconsole.log('[on_model100_patch_in] Received patch:', JSON.stringify(patch));\nif (patch && patch.version === 'mt.v0' && Array.isArray(patch.records)) {\n  ctx.runtime.applyPatch(patch, { allowCreateModel: false });\n  console.log('[on_model100_patch_in] Patch applied successfully');\n}\nctx.runtime.rmLabel(ctx.runtime.getModel(100), 0, 1, 1, 'patch_in');\nctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_on_model100_patch_in' });"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0, "r": 0, "c": 0,
+      "k": "forward_model100_events",
+      "t": "function",
+      "v": "const cell = ctx.runtime.getCell(ctx.runtime.getModel(100), 0, 0, 2);\nconst eventLabel = cell.labels.get('ui_event');\nif (!eventLabel || !eventLabel.v) return;\nconst event = eventLabel.v;\nconsole.log('[forward_model100_events] Event:', JSON.stringify(event));\nconst action = event.action || 'unknown';\nconst opId = 'm100_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);\ntry {\n  ctx.sendMatrix({\n    version: 'v0',\n    type: 'ui_event',\n    op_id: opId,\n    source_model_id: 100,\n    action: action,\n    data: event,\n    timestamp: Date.now()\n  });\n  console.log('[forward_model100_events] Matrix send OK, op_id:', opId);\n} catch (err) {\n  console.error('[forward_model100_events] Matrix send failed:', err.message);\n}\nctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 2, { k: 'ui_event', t: 'event', v: null });\nctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_forward_model100_events' });"
+    }
+  ]
+}

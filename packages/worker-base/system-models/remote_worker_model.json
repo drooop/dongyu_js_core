@@ -1,0 +1,32 @@
+{
+  "version": "mt.v0",
+  "op_id": "remote_worker_model_v0",
+  "records": [
+    {
+      "op": "create_model",
+      "id": 2,
+      "name": "remote_worker",
+      "type": "main"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "worker_name",
+      "t": "str",
+      "v": "k8s_remote_worker_1"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 3,
+      "r": 0,
+      "c": 0,
+      "k": "process_mqtt_message",
+      "t": "function",
+      "v": "const pinData = ctx.getLabel({ model_id: 2, p: 0, r: 1, c: 1, k: 'mqtt_in' });\nif (pinData) {\n  try {\n    const payload = typeof pinData === 'string' ? JSON.parse(pinData) : pinData;\n    console.log('[remote_worker] Received:', payload.action || 'unknown');\n    \n    // 存储到 Cell\n    ctx.setLabel(\n      { model_id: 2, p: 1, r: 0, c: 0 },\n      { k: 'last_event', t: 'json', v: payload }\n    );\n    \n    // 清空 PIN_IN\n    ctx.setLabel(\n      { model_id: 2, p: 0, r: 1, c: 1 },\n      { k: 'mqtt_in', t: 'event', v: null }\n    );\n    \n    console.log('[remote_worker] Event processed successfully');\n  } catch (err) {\n    console.error('[remote_worker] Error:', err.message);\n  }\n}"
+    }
+  ]
+}

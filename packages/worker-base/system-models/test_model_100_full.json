@@ -1,0 +1,69 @@
+{
+  "version": "mt.v0",
+  "op_id": "test_model_100_full_v0",
+  "description": "Model 100 完整定义 - K8s 侧使用，包含 UI 模型 + 程序模型 + PIN",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 100,
+      "name": "test_color_form",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "ui_type",
+      "t": "str",
+      "v": "color_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "input_value",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "bg_color",
+      "t": "str",
+      "v": "#FFFFFF"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "status",
+      "t": "str",
+      "v": "ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 1,
+      "k": "event_in",
+      "t": "PIN_IN",
+      "v": "event_in"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 1,
+      "k": "patch_out",
+      "t": "PIN_OUT",
+      "v": "patch_out"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0, "r": 0, "c": 0,
+      "k": "on_model100_event_in",
+      "t": "function",
+      "v": "const cell = ctx.runtime.getCell(ctx.runtime.getModel(100), 0, 1, 1);\nconst inLabel = cell.labels.get('event_in');\nif (!inLabel || inLabel.t !== 'IN') return;\nconst payload = inLabel.v;\nconsole.log('[on_model100_event_in] Received event:', JSON.stringify(payload));\nconst action = payload && payload.action ? payload.action : '';\nif (action === 'submit') {\n  const color = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');\n  console.log('[on_model100_event_in] Generated color:', color);\n  const patch = {\n    version: 'mt.v0',\n    op_id: 'color_response_' + Date.now(),\n    records: [{\n      op: 'add_label',\n      model_id: 100,\n      p: 0, r: 0, c: 0,\n      k: 'bg_color',\n      t: 'str',\n      v: color\n    }, {\n      op: 'add_label',\n      model_id: 100,\n      p: 0, r: 0, c: 0,\n      k: 'status',\n      t: 'str',\n      v: 'color_updated_' + color\n    }]\n  };\n  ctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'bg_color', t: 'str', v: color });\n  ctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'status', t: 'str', v: 'processed' });\n  ctx.writeLabel({ model_id: 100, p: 0, r: 1, c: 1, k: 'patch_out' }, 'OUT', patch);\n  console.log('[on_model100_event_in] Sent patch_out');\n}\nctx.runtime.rmLabel(ctx.runtime.getModel(100), 0, 1, 1, 'event_in');\nctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_on_model100_event_in' });"
+    }
+  ]
+}

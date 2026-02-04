@@ -1,0 +1,26 @@
+{
+  "version": "mt.v0",
+  "op_id": "matrix_config_localhost_v0",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "matrix_room_id",
+      "t": "str",
+      "v": "!rvgIBRtgXATQGGRWiS:localhost"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 1,
+      "k": "matrix_dm_peer_user_id",
+      "t": "str",
+      "v": "@mbr:localhost"
+    }
+  ]
+}
