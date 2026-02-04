@@ -24,8 +24,8 @@
     "adm-zip": "^0.5.16",
     "dotenv": "^16.6.1",
     "katex": "^0.16.22",
-    "matrix-js-sdk": "^37.6.0"
-    ,
+    "matrix-js-sdk": "^37.6.0",
+    "mqtt": "^5.14.1",
     "rehype-katex": "^7.0.1",
     "rehype-sanitize": "^6.0.0",
     "rehype-stringify": "^10.0.1",
