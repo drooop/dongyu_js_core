@@ -24,6 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **docs/architecture_mantanet_and_workers.md** - Architecture SSOT (Single Source of Truth)
 - **docs/WORKFLOW.md** - Iteration workflow (all non-emergency work must follow this)
 - **docs/ITERATIONS.md** - Iteration registry (check current status here)
+- **docs/ssot/mt_v0_patch_ops.md** - mt.v0 Patch 操作规范（add_label, rm_label, create_model, cell_clear）
 
 ## Build & Development Commands
 
