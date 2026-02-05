@@ -214,6 +214,8 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       // Static projects actions (remote-only).
       'static_project_list',
       'static_project_upload',
+      // Workspace actions (remote-only).
+      'ws_select_app',
     ]);
     if (typeof action !== 'string' || !allowedActions.has(action)) {
       return fail(op_id, 'unknown_action', 'unknown_action');
@@ -317,6 +319,10 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
     if (action === 'static_project_list' || action === 'static_project_upload') {
       return fail(op_id, 'unsupported', 'static_remote_only');
+    }
+
+    if (action === 'ws_select_app') {
+      return fail(op_id, 'unsupported', 'ws_remote_only');
     }
 
     if (action.startsWith('datatable_')) {

@@ -10,6 +10,7 @@ import {
   ROUTE_PIN,
   ROUTE_STATIC,
   ROUTE_TEST,
+  ROUTE_WORKSPACE,
   getHashPath,
   isDocsPath,
   isGalleryPath,
@@ -18,6 +19,7 @@ import {
   isPinPath,
   isStaticPath,
   isTestPath,
+  isWorkspacePath,
   setHashPath,
   subscribeHashPath,
 } from './router.js';
@@ -96,7 +98,7 @@ export function createAppShell({ mainStore, galleryStore }) {
       let unsubscribe = null;
 
       function normalizeIfUnknown(p) {
-        if (isHomePath(p) || isGalleryPath(p) || isModel100Path(p) || isDocsPath(p) || isStaticPath(p) || isPinPath(p) || isTestPath(p)) return;
+        if (isHomePath(p) || isGalleryPath(p) || isModel100Path(p) || isDocsPath(p) || isStaticPath(p) || isPinPath(p) || isTestPath(p) || isWorkspacePath(p)) return;
         setHashPath(ROUTE_HOME, { replace: true });
       }
 
@@ -105,11 +107,13 @@ export function createAppShell({ mainStore, galleryStore }) {
           ? 'docs'
           : (isStaticPath(routePath)
             ? 'static'
-            : (isHomePath(routePath)
-              ? 'home'
-              : (isPinPath(routePath)
-                ? 'pin'
-                : 'test')));
+            : (isWorkspacePath(routePath)
+              ? 'workspace'
+              : (isHomePath(routePath)
+                ? 'home'
+                : (isPinPath(routePath)
+                  ? 'pin'
+                  : 'test'))));
         try {
           if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
           const opId = `route_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -152,6 +156,7 @@ export function createAppShell({ mainStore, galleryStore }) {
       const isModel100 = computed(() => isModel100Path(path.value));
       const isDocs = computed(() => isDocsPath(path.value));
       const isStatic = computed(() => isStaticPath(path.value));
+      const isWorkspace = computed(() => isWorkspacePath(path.value));
       const isPin = computed(() => isPinPath(path.value));
       const isTest = computed(() => isTestPath(path.value));
 
@@ -165,6 +170,7 @@ export function createAppShell({ mainStore, galleryStore }) {
               h(ElButton, { type: isModel100Path(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_MODEL100) }, { default: () => 'Model100' }),
               h(ElButton, { type: isDocsPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_DOCS) }, { default: () => 'Docs' }),
               h(ElButton, { type: isStaticPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_STATIC) }, { default: () => 'Static' }),
+              h(ElButton, { type: isWorkspacePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_WORKSPACE) }, { default: () => 'Workspace' }),
               h(ElButton, { type: isPinPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_PIN) }, { default: () => 'PIN' }),
               h(ElButton, { type: isTestPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_TEST) }, { default: () => 'Test' }),
             ],
@@ -180,7 +186,7 @@ export function createAppShell({ mainStore, galleryStore }) {
         if (isModel100.value) {
           return h('div', [h(Header), h(Model100Root)]);
         }
-        if (isDocs.value || isStatic.value) {
+        if (isDocs.value || isStatic.value || isWorkspace.value) {
           return h('div', [h(Header), h(HomeRoot)]);
         }
         if (isPin.value) {

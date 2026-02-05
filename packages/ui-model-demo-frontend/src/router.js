@@ -5,6 +5,7 @@ export const ROUTE_TEST = '/test';
 export const ROUTE_PIN = '/pin';
 export const ROUTE_DOCS = '/docs';
 export const ROUTE_STATIC = '/static';
+export const ROUTE_WORKSPACE = '/workspace';
 
 export function normalizeHashPath(value) {
   let s = value === undefined || value === null ? '' : String(value);
@@ -66,6 +67,10 @@ export function isStaticPath(path) {
 
 export function isModel100Path(path) {
   return normalizeHashPath(path) === ROUTE_MODEL100;
+}
+
+export function isWorkspacePath(path) {
+  return normalizeHashPath(path) === ROUTE_WORKSPACE;
 }
 
 export function subscribeHashPath(onChange) {

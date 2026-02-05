@@ -234,18 +234,25 @@ export function createRemoteStore(options) {
   const pendingDraftByKey = new Map();
   let draftTimer = null;
 
+  function flushDraftsNow() {
+    if (draftTimer) {
+      clearTimeout(draftTimer);
+      draftTimer = null;
+    }
+    const drafts = Array.from(pendingDraftByKey.values());
+    pendingDraftByKey.clear();
+    for (const env of drafts) {
+      sendQueue = sendQueue.then(() => postEnvelope(env)).catch(() => {
+        // keep queue alive
+      });
+    }
+  }
+
   function scheduleDraftFlush() {
     if (draftTimer) return;
     draftTimer = setTimeout(() => {
       draftTimer = null;
-      const drafts = Array.from(pendingDraftByKey.values());
-      pendingDraftByKey.clear();
-      if (drafts.length === 0) return;
-      for (const env of drafts) {
-        sendQueue = sendQueue.then(() => postEnvelope(env)).catch(() => {
-          // keep queue alive
-        });
-      }
+      flushDraftsNow();
     }, 200);
   }
 
@@ -258,7 +265,7 @@ export function createRemoteStore(options) {
     const rawTarget = rawPayload && rawPayload.target ? rawPayload.target : null;
 
     // Remote mode UX mitigation:
-  // - Draft edits live in editor_state (model -2). Apply optimistically for input responsiveness.
+    // - Draft edits live in editor_state (model -2). Apply optimistically for input responsiveness.
     // - Coalesce draft writes to reduce per-keystroke network chatter.
     if (rawAction === 'label_update' && rawTarget && rawTarget.model_id === EDITOR_STATE_MODEL_ID) {
       patchEditorStateLabel(rawTarget, rawPayload.value);
@@ -268,6 +275,11 @@ export function createRemoteStore(options) {
       scheduleDraftFlush();
       return;
     }
+
+    // Non-label_update action (e.g. static_project_upload, docs_search, etc.):
+    // Force-flush all pending draft writes FIRST so the server state is up-to-date
+    // before processing the action. Without this, the action might read stale labels.
+    flushDraftsNow();
 
     const envelope = rewriteEditorActionEnvelope(rawEnvelope);
 

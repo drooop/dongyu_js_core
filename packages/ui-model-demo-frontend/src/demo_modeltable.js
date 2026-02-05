@@ -263,6 +263,92 @@ export function buildEditorAstV0() {
   };
 }
 
+/**
+ * Build a complete AST tree from a model's p=1 UI schema labels.
+ *
+ * Convention (p=1 cell at (1,0,0)):
+ *   k:'_title'            → page/form title (str)
+ *   k:'_field_order'      → display order (json array of field names)
+ *   k:'<field>'           → component type, e.g. 'Input', 'Select' (str)
+ *   k:'<field>__label'    → FormItem label (str)
+ *   k:'<field>__props'    → extra component props (json)
+ *   k:'<field>__opts'     → options for Select/RadioGroup (json array)
+ *
+ * Data values live at p=0 cell (0,0,0) with k:<field>.
+ *
+ * Returns an AST subtree (Container > Title + Form > FormItems) or null if
+ * the model has no p=1 schema.
+ */
+function buildAstFromSchema(snapshot, modelId) {
+  const model = getSnapshotModel(snapshot, modelId);
+  if (!model || !model.cells) return null;
+
+  const schemaCell = model.cells['1,0,0'];
+  if (!schemaCell || !schemaCell.labels) return null;
+
+  const getSchema = (k) => {
+    const label = schemaCell.labels[k];
+    return label ? label.v : undefined;
+  };
+
+  const fieldOrder = getSchema('_field_order');
+  if (!Array.isArray(fieldOrder) || fieldOrder.length === 0) return null;
+
+  const title = getSchema('_title') || `App ${modelId}`;
+
+  const formItems = [];
+  for (let idx = 0; idx < fieldOrder.length; idx++) {
+    const fieldName = fieldOrder[idx];
+    const componentType = getSchema(fieldName);
+    if (typeof componentType !== 'string' || componentType.length === 0) continue;
+
+    const fieldLabel = getSchema(`${fieldName}__label`) || fieldName;
+    const extraProps = getSchema(`${fieldName}__props`) || {};
+    const opts = getSchema(`${fieldName}__opts`);
+
+    const componentProps = typeof extraProps === 'object' && extraProps !== null ? { ...extraProps } : {};
+    if (Array.isArray(opts)) {
+      componentProps.options = opts;
+    }
+
+    formItems.push({
+      id: `schema_fi_${modelId}_${fieldName}`,
+      type: 'FormItem',
+      props: { label: fieldLabel },
+      children: [
+        {
+          id: `schema_${modelId}_${fieldName}`,
+          type: componentType,
+          props: componentProps,
+          bind: {
+            read: { model_id: modelId, p: 0, r: 0, c: 0, k: fieldName },
+            write: {
+              action: 'label_update',
+              target_ref: { model_id: modelId, p: 0, r: 0, c: 0, k: fieldName },
+            },
+          },
+        },
+      ],
+    });
+  }
+
+  if (formItems.length === 0) return null;
+
+  return {
+    id: `schema_root_${modelId}`,
+    type: 'Container',
+    props: { layout: 'column', gap: 12 },
+    children: [
+      { id: `schema_title_${modelId}`, type: 'Text', props: { type: 'title', text: title } },
+      {
+        id: `schema_form_${modelId}`,
+        type: 'Form',
+        children: formItems,
+      },
+    ],
+  };
+}
+
 export function buildEditorAstV1(snapshot) {
   const uiPage = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'ui_page' }) ?? '').trim().toLowerCase();
   const models = (snapshot && snapshot.models) ? snapshot.models : {};
@@ -1450,6 +1536,124 @@ export function buildEditorAstV1(snapshot) {
     };
   }
 
+  if (uiPage === 'workspace') {
+    const wsRegistry = (() => {
+      const raw = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'ws_apps_registry' });
+      return Array.isArray(raw) ? raw : [];
+    })();
+    const wsSelected = (() => {
+      const raw = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'ws_app_selected' });
+      return typeof raw === 'number' ? raw : (parseSafeInt(raw) ?? 0);
+    })();
+
+    // Build list items from registry.
+    const listItems = wsRegistry.map((app, idx) => {
+      const isActive = wsSelected === app.model_id;
+      return {
+        id: `ws_app_item_${app.model_id}`,
+        type: 'Box',
+        props: {
+          style: {
+            padding: '10px 14px',
+            cursor: 'pointer',
+            borderRadius: '6px',
+            backgroundColor: isActive ? '#ecf5ff' : 'transparent',
+            border: isActive ? '1px solid #b3d8ff' : '1px solid transparent',
+            transition: 'all 150ms ease',
+          },
+        },
+        children: [
+          {
+            id: `ws_app_name_${app.model_id}`,
+            type: 'Text',
+            props: {
+              text: app.name || `App ${app.model_id}`,
+              style: { fontWeight: isActive ? '600' : '400', color: isActive ? '#409eff' : '#303133' },
+            },
+          },
+          {
+            id: `ws_app_source_${app.model_id}`,
+            type: 'Text',
+            props: {
+              text: app.source ? `from: ${app.source}` : '',
+              style: { fontSize: '12px', color: '#909399', marginTop: '2px' },
+            },
+          },
+        ],
+        bind: {
+          write: {
+            action: 'label_update',
+            target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
+            value_ref: { t: 'int', v: app.model_id },
+          },
+        },
+      };
+    });
+
+    const rightChildren = [];
+    if (wsSelected > 0) {
+      const schemaAst = buildAstFromSchema(snapshot, wsSelected);
+      if (schemaAst) {
+        rightChildren.push(schemaAst);
+      } else {
+        const selectedModel = getSnapshotModel(snapshot, wsSelected);
+        if (selectedModel && selectedModel.cells) {
+          const astCell = selectedModel.cells['0,0,0'];
+          const appAst = astCell && astCell.labels && astCell.labels.ui_ast_v0 ? astCell.labels.ui_ast_v0.v : null;
+          if (appAst && typeof appAst === 'object') {
+            rightChildren.push(appAst);
+          } else {
+            rightChildren.push({
+              id: 'ws_no_ast',
+              type: 'Text',
+              props: { type: 'warning', text: `Model ${wsSelected} has no UI schema or AST.` },
+            });
+          }
+        } else {
+          rightChildren.push({
+            id: 'ws_model_missing',
+            type: 'Text',
+            props: { type: 'danger', text: `Model ${wsSelected} not found. It may not have synced yet.` },
+          });
+        }
+      }
+    } else {
+      rightChildren.push({
+        id: 'ws_placeholder',
+        type: 'Text',
+        props: { type: 'info', text: '请从左侧选择一个应用', style: { fontSize: '16px', color: '#909399', padding: '40px 0', textAlign: 'center' } },
+      });
+    }
+
+    return {
+      id: 'root_workspace',
+      type: 'Root',
+      children: [
+        {
+          id: 'ws_layout',
+          type: 'Container',
+          props: { layout: 'row', gap: 16, style: { alignItems: 'flex-start', minHeight: '600px' } },
+          children: [
+            {
+              id: 'ws_left_panel',
+              type: 'Card',
+              props: { title: '滑动应用', style: { width: '280px', flexShrink: 0 } },
+              children: listItems.length > 0
+                ? listItems
+                : [{ id: 'ws_empty_list', type: 'Text', props: { type: 'info', text: '暂无可用应用' } }],
+            },
+            {
+              id: 'ws_right_panel',
+              type: 'Card',
+              props: { title: wsSelected > 0 ? (wsRegistry.find((a) => a.model_id === wsSelected)?.name || `App ${wsSelected}`) : '应用详情', style: { flex: 1, minWidth: 0 } },
+              children: rightChildren,
+            },
+          ],
+        },
+      ],
+    };
+  }
+
   return {
     id: 'root_v1',
     type: 'Root',
@@ -2241,6 +2445,11 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'static_html_b64', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'static_status', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'static_projects_json', t: 'json', v: [] });
+
+  // Workspace (sliding UI) state labels for local mode.
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: 0 });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: 1001 });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: [] });
 
   const snapshot = reactive(runtime.snapshot());
   const eventLog = [];

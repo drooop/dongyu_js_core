@@ -773,6 +773,16 @@ function buildVueNode(node, snapshot, vue, host) {
     return h(resolve('ElFormItem'), props, { default: () => children });
   }
 
+  if (node.type === 'Box') {
+    const writeTarget = node.bind && node.bind.write;
+    if (writeTarget) {
+      props.onClick = () => {
+        dispatchEvent(node, writeTarget, { click: true }, host, undefined, ctx);
+      };
+    }
+    return h('div', props, children);
+  }
+
   return h('div', props, children);
 }
 
