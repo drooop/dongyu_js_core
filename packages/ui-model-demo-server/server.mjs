@@ -319,7 +319,12 @@ function loadEnvOnce() {
   if (envLoaded) return;
   try {
     const dotenv = require('dotenv');
-    dotenv.config();
+    // Try cwd first, then walk up to project root to find .env
+    const result = dotenv.config();
+    if (result.error) {
+      const rootEnv = new URL('../../.env', import.meta.url).pathname;
+      dotenv.config({ path: rootEnv });
+    }
   } catch (_) {
     // dotenv optional
   }
@@ -328,6 +333,10 @@ function loadEnvOnce() {
 
 async function createMatrixClient() {
   loadEnvOnce();
+  // Must be set before any HTTPS request to skip self-signed cert validation
+  if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  }
   const homeserverUrl = process.env.MATRIX_HOMESERVER_URL;
   if (!homeserverUrl) {
     throw new Error('missing_matrix_homeserver_url');
@@ -409,8 +418,17 @@ class ProgramModelEngine {
     const peerLabel = findSystemLabel(this.runtime, 'matrix_dm_peer_user_id');
     this.matrixDmPeerUserId = peerLabel ? String(peerLabel.label.v || '') : '';
     if (this.matrixRoomId) {
-      this.matrixClient = await createMatrixClient();
-      this.startMatrixListener();
+      try {
+        this.matrixClient = await createMatrixClient();
+        this.startMatrixListener();
+        console.log('[ProgramModelEngine] Matrix client connected, room:', this.matrixRoomId);
+      } catch (err) {
+        console.warn('[ProgramModelEngine] Matrix init failed (non-fatal):', err.message || err);
+        console.warn('[ProgramModelEngine] Program engine will run without Matrix. UI events won\'t reach MBR/MQTT.');
+        this.matrixClient = null;
+      }
+    } else {
+      console.log('[ProgramModelEngine] No matrix_room_id configured, running without Matrix.');
     }
     this.started = true;
   }
@@ -978,12 +996,96 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'docs_render_html', 'str', '');
 
   // Static projects page state.
+  // Upload-related labels are volatile (single-operation data); force-reset on startup
+  // to prevent stale kind/b64 from a previous session causing wrong code path.
   ensureStateLabel(runtime, 'static_project_name', 'str', '');
-  ensureStateLabel(runtime, 'static_upload_kind', 'str', 'zip');
-  ensureStateLabel(runtime, 'static_zip_b64', 'str', '');
-  ensureStateLabel(runtime, 'static_html_b64', 'str', '');
+  const stateModelForReset = runtime.getModel(EDITOR_STATE_MODEL_ID);
+  runtime.addLabel(stateModelForReset, 0, 0, 0, { k: 'static_upload_kind', t: 'str', v: 'zip' });
+  runtime.addLabel(stateModelForReset, 0, 0, 0, { k: 'static_zip_b64', t: 'str', v: '' });
+  runtime.addLabel(stateModelForReset, 0, 0, 0, { k: 'static_html_b64', t: 'str', v: '' });
   ensureStateLabel(runtime, 'static_status', 'str', '');
   ensureStateLabel(runtime, 'static_projects_json', 'json', []);
+
+  // Workspace (sliding UI) state.
+  ensureStateLabel(runtime, 'ws_app_selected', 'int', 0);
+  ensureStateLabel(runtime, 'ws_app_next_id', 'int', 1001);
+
+  // Seed mock sliding-UI models (p=0 data + p=1 UI schema).
+  // Convention: see buildAstFromSchema() in demo_modeltable.js.
+  const MOCK_SLIDING_APPS = [
+    {
+      model_id: 1001, name: '请假申请', source: 'worker-A',
+      data: [
+        { k: 'applicant', t: 'str', v: '' },
+        { k: 'leave_type', t: 'str', v: '' },
+        { k: 'days', t: 'int', v: 1 },
+        { k: 'reason', t: 'str', v: '' },
+      ],
+      schema: [
+        { k: '_title', t: 'str', v: '请假申请表' },
+        { k: '_field_order', t: 'json', v: ['applicant', 'leave_type', 'days', 'reason'] },
+        { k: 'applicant', t: 'str', v: 'Input' },
+        { k: 'applicant__label', t: 'str', v: '姓名' },
+        { k: 'applicant__props', t: 'json', v: { placeholder: '请输入姓名' } },
+        { k: 'leave_type', t: 'str', v: 'Select' },
+        { k: 'leave_type__label', t: 'str', v: '假别' },
+        { k: 'leave_type__opts', t: 'json', v: [
+          { label: '年假', value: 'annual' }, { label: '事假', value: 'personal' }, { label: '病假', value: 'sick' },
+        ] },
+        { k: 'days', t: 'str', v: 'NumberInput' },
+        { k: 'days__label', t: 'str', v: '天数' },
+        { k: 'days__props', t: 'json', v: { min: 1, max: 30 } },
+        { k: 'reason', t: 'str', v: 'Input' },
+        { k: 'reason__label', t: 'str', v: '事由' },
+        { k: 'reason__props', t: 'json', v: { type: 'textarea', rows: 3, placeholder: '请简要说明请假事由' } },
+      ],
+    },
+    {
+      model_id: 1002, name: '设备报修', source: 'worker-B',
+      data: [
+        { k: 'device_name', t: 'str', v: '' },
+        { k: 'location', t: 'str', v: '' },
+        { k: 'urgency', t: 'str', v: '' },
+        { k: 'description', t: 'str', v: '' },
+      ],
+      schema: [
+        { k: '_title', t: 'str', v: '设备报修单' },
+        { k: '_field_order', t: 'json', v: ['device_name', 'location', 'urgency', 'description'] },
+        { k: 'device_name', t: 'str', v: 'Input' },
+        { k: 'device_name__label', t: 'str', v: '设备名称' },
+        { k: 'device_name__props', t: 'json', v: { placeholder: '例：3号会议室投影仪' } },
+        { k: 'location', t: 'str', v: 'Input' },
+        { k: 'location__label', t: 'str', v: '位置' },
+        { k: 'location__props', t: 'json', v: { placeholder: '楼层/房间号' } },
+        { k: 'urgency', t: 'str', v: 'RadioGroup' },
+        { k: 'urgency__label', t: 'str', v: '紧急程度' },
+        { k: 'urgency__opts', t: 'json', v: [
+          { label: '低', value: 'low' }, { label: '中', value: 'medium' }, { label: '高', value: 'high' },
+        ] },
+        { k: 'description', t: 'str', v: 'Input' },
+        { k: 'description__label', t: 'str', v: '故障描述' },
+        { k: 'description__props', t: 'json', v: { type: 'textarea', rows: 4, placeholder: '请描述故障现象' } },
+      ],
+    },
+  ];
+
+  const wsRegistry = [];
+  for (const app of MOCK_SLIDING_APPS) {
+    if (!runtime.getModel(app.model_id)) {
+      runtime.createModel({ id: app.model_id, name: app.name, type: 'sliding_ui' });
+    }
+    const m = runtime.getModel(app.model_id);
+    for (const label of app.data) {
+      runtime.addLabel(m, 0, 0, 0, label);
+    }
+    for (const label of app.schema) {
+      runtime.addLabel(m, 1, 0, 0, label);
+    }
+    runtime.addLabel(m, 0, 0, 0, { k: 'app_name', t: 'str', v: app.name });
+    runtime.addLabel(m, 0, 0, 0, { k: 'source_worker', t: 'str', v: app.source });
+    wsRegistry.push({ model_id: app.model_id, name: app.name, source: app.source });
+  }
+  ensureStateLabel(runtime, 'ws_apps_registry', 'json', wsRegistry);
 
   // Gallery model defaults (so the models are non-empty and discoverable).
   try {
@@ -1087,7 +1189,7 @@ function createServerState(options) {
 
     try {
 
-    if (action.startsWith('docs_') || action.startsWith('static_')) {
+    if (action.startsWith('docs_') || action.startsWith('static_') || action.startsWith('ws_')) {
       const meta = payload && payload.meta ? payload.meta : null;
       const opId = meta && typeof meta.op_id === 'string' ? meta.op_id : '';
       const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
@@ -1232,6 +1334,12 @@ function createServerState(options) {
         const projects = listStaticProjects();
         runtime.addLabel(stateModel, 0, 0, 0, { k: 'static_projects_json', t: 'json', v: projects });
         return succeed(`uploaded: ${name}`);
+      }
+
+      if (action === 'ws_select_app') {
+        const selected = Number(getState('ws_app_selected'));
+        if (!Number.isInteger(selected)) return fail('invalid_target', 'ws_app_selected must be int');
+        return succeed(`ws_select: ${selected}`);
       }
     }
 
@@ -1622,9 +1730,26 @@ function startServer(options) {
         return;
       }
       if (!fs.existsSync(fp) || !fs.statSync(fp).isFile()) {
-        // SPA fallback
-        const fallback = safeJoin(projectRoot, 'index.html');
+        // Fallback 1: index.html
+        let fallback = safeJoin(projectRoot, 'index.html');
         if (!fallback || !fs.existsSync(fallback) || !fs.statSync(fallback).isFile()) {
+          fallback = null;
+        }
+        // Fallback 2: if no index.html, try the sole .html file at project root
+        if (!fallback) {
+          try {
+            const rootFiles = fs.readdirSync(projectRoot).filter(f => {
+              const full = path.join(projectRoot, f);
+              return f.endsWith('.html') && fs.statSync(full).isFile();
+            });
+            if (rootFiles.length === 1) {
+              fallback = path.join(projectRoot, rootFiles[0]);
+            }
+          } catch (_) {
+            // ignore readdir errors
+          }
+        }
+        if (!fallback) {
           res.writeHead(404);
           res.end('not_found');
           return;

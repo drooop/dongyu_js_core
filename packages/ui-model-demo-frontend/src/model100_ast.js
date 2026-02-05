@@ -139,9 +139,8 @@ export function buildModel100Ast() {
                       {
                         id: 'submit_button',
                         type: 'Button',
-                        props: { label: 'Generate Color', type: 'primary', size: 'large', disabled: true },
+                        props: { label: 'Generate Color', type: 'primary', size: 'large' },
                         bind: {
-                          read: { model_id: MODEL_100_ID, p: 0, r: 0, c: 0, k: 'system_ready' },
                           write: {
                             action: 'label_add',
                             target_ref: { model_id: MODEL_100_ID, p: 0, r: 0, c: 2, k: 'ui_event' },
