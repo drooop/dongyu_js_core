@@ -331,32 +331,36 @@ function loadEnvOnce() {
   envLoaded = true;
 }
 
+// Custom fetch that skips TLS certificate verification (for self-signed certs).
+// Bun supports `tls: { rejectUnauthorized: false }` as a fetch option.
+function insecureFetch(url, opts) {
+  return fetch(url, { ...opts, tls: { rejectUnauthorized: false } });
+}
+
 async function createMatrixClient() {
   loadEnvOnce();
-  // Must be set before any HTTPS request to skip self-signed cert validation
-  if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-  }
   const homeserverUrl = process.env.MATRIX_HOMESERVER_URL;
   if (!homeserverUrl) {
     throw new Error('missing_matrix_homeserver_url');
   }
+  const skipTls = homeserverUrl.startsWith('https:');
+  const fetchFn = skipTls ? insecureFetch : undefined;
   const token = process.env.MATRIX_MBR_ACCESS_TOKEN;
   if (token) {
     const userId = process.env.MATRIX_MBR_USER || null;
-    return sdk.createClient({ baseUrl: homeserverUrl, accessToken: token, userId });
+    return sdk.createClient({ baseUrl: homeserverUrl, accessToken: token, userId, fetchFn });
   }
   const user = process.env.MATRIX_MBR_USER;
   const password = process.env.MATRIX_MBR_PASSWORD;
   if (!user || !password) {
     throw new Error('missing_matrix_credentials');
   }
-  const tmp = sdk.createClient({ baseUrl: homeserverUrl });
+  const tmp = sdk.createClient({ baseUrl: homeserverUrl, fetchFn });
   const res = await tmp.login('m.login.password', {
     identifier: { type: 'm.id.user', user },
     password,
   });
-  return sdk.createClient({ baseUrl: homeserverUrl, accessToken: res.access_token, userId: res.user_id });
+  return sdk.createClient({ baseUrl: homeserverUrl, accessToken: res.access_token, userId: res.user_id, fetchFn });
 }
 
 function listSystemLabels(runtime, predicate) {
