@@ -268,11 +268,14 @@ export function buildEditorAstV0() {
  *
  * Convention (p=1 cell at (1,0,0)):
  *   k:'_title'            → page/form title (str)
+ *   k:'_subtitle'         → subtitle text (str, optional)
  *   k:'_field_order'      → display order (json array of field names)
- *   k:'<field>'           → component type, e.g. 'Input', 'Select' (str)
+ *   k:'<field>'           → component type, e.g. 'Input', 'Select', 'Button', 'Text', 'ColorBox' (str)
  *   k:'<field>__label'    → FormItem label (str)
  *   k:'<field>__props'    → extra component props (json)
  *   k:'<field>__opts'     → options for Select/RadioGroup (json array)
+ *   k:'<field>__bind'     → custom bind override (json). Replaces default read/write.
+ *   k:'<field>__no_wrap'  → if truthy, render without FormItem wrapper (bool/str)
  *
  * Data values live at p=0 cell (0,0,0) with k:<field>.
  *
@@ -295,8 +298,11 @@ function buildAstFromSchema(snapshot, modelId) {
   if (!Array.isArray(fieldOrder) || fieldOrder.length === 0) return null;
 
   const title = getSchema('_title') || `App ${modelId}`;
+  const subtitle = getSchema('_subtitle');
 
   const formItems = [];
+  const standaloneItems = [];
+
   for (let idx = 0; idx < fieldOrder.length; idx++) {
     const fieldName = fieldOrder[idx];
     const componentType = getSchema(fieldName);
@@ -305,47 +311,70 @@ function buildAstFromSchema(snapshot, modelId) {
     const fieldLabel = getSchema(`${fieldName}__label`) || fieldName;
     const extraProps = getSchema(`${fieldName}__props`) || {};
     const opts = getSchema(`${fieldName}__opts`);
+    const customBind = getSchema(`${fieldName}__bind`);
+    const noWrap = getSchema(`${fieldName}__no_wrap`);
 
     const componentProps = typeof extraProps === 'object' && extraProps !== null ? { ...extraProps } : {};
     if (Array.isArray(opts)) {
       componentProps.options = opts;
     }
 
-    formItems.push({
-      id: `schema_fi_${modelId}_${fieldName}`,
-      type: 'FormItem',
-      props: { label: fieldLabel },
-      children: [
-        {
-          id: `schema_${modelId}_${fieldName}`,
-          type: componentType,
-          props: componentProps,
-          bind: {
-            read: { model_id: modelId, p: 0, r: 0, c: 0, k: fieldName },
-            write: {
-              action: 'label_update',
-              target_ref: { model_id: modelId, p: 0, r: 0, c: 0, k: fieldName },
-            },
-          },
+    let bind;
+    if (customBind && typeof customBind === 'object') {
+      bind = customBind;
+    } else {
+      bind = {
+        read: { model_id: modelId, p: 0, r: 0, c: 0, k: fieldName },
+        write: {
+          action: 'label_update',
+          target_ref: { model_id: modelId, p: 0, r: 0, c: 0, k: fieldName },
         },
-      ],
-    });
+      };
+    }
+
+    const node = {
+      id: `schema_${modelId}_${fieldName}`,
+      type: componentType,
+      props: componentProps,
+      bind,
+    };
+
+    if (noWrap) {
+      standaloneItems.push(node);
+    } else {
+      formItems.push({
+        id: `schema_fi_${modelId}_${fieldName}`,
+        type: 'FormItem',
+        props: { label: fieldLabel },
+        children: [node],
+      });
+    }
   }
 
-  if (formItems.length === 0) return null;
+  if (formItems.length === 0 && standaloneItems.length === 0) return null;
+
+  const children = [
+    { id: `schema_title_${modelId}`, type: 'Text', props: { type: 'title', text: title } },
+  ];
+  if (subtitle) {
+    children.push({ id: `schema_subtitle_${modelId}`, type: 'Text', props: { type: 'info', text: subtitle } });
+  }
+  if (formItems.length > 0) {
+    children.push({
+      id: `schema_form_${modelId}`,
+      type: 'Form',
+      children: formItems,
+    });
+  }
+  for (const item of standaloneItems) {
+    children.push(item);
+  }
 
   return {
     id: `schema_root_${modelId}`,
     type: 'Container',
     props: { layout: 'column', gap: 12 },
-    children: [
-      { id: `schema_title_${modelId}`, type: 'Text', props: { type: 'title', text: title } },
-      {
-        id: `schema_form_${modelId}`,
-        type: 'Form',
-        children: formItems,
-      },
-    ],
+    children,
   };
 }
 

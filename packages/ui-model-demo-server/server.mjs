@@ -1014,9 +1014,46 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'ws_app_selected', 'int', 0);
   ensureStateLabel(runtime, 'ws_app_next_id', 'int', 1001);
 
-  // Seed mock sliding-UI models (p=0 data + p=1 UI schema).
-  // Convention: see buildAstFromSchema() in demo_modeltable.js.
   const MOCK_SLIDING_APPS = [
+    {
+      model_id: 100, name: 'E2E 颜色生成器', source: 'k8s-worker',
+      data: [],
+      schema: [
+        { k: '_title', t: 'str', v: 'Model 100 - 双总线 E2E 测试' },
+        { k: '_subtitle', t: 'str', v: 'Local UI → Matrix → MBR → MQTT → K8s Worker → MQTT → MBR → Matrix → Local UI' },
+        { k: '_field_order', t: 'json', v: ['bg_color_box', 'bg_color_text', 'input_value', 'submit', 'system_ready_text', 'status_text'] },
+        { k: 'bg_color_box', t: 'str', v: 'ColorBox' },
+        { k: 'bg_color_box__label', t: 'str', v: '当前颜色' },
+        { k: 'bg_color_box__props', t: 'json', v: { width: '120px', height: '80px', borderRadius: '12px' } },
+        { k: 'bg_color_box__bind', t: 'json', v: { read: { model_id: 100, p: 0, r: 0, c: 0, k: 'bg_color' } } },
+        { k: 'bg_color_text', t: 'str', v: 'Text' },
+        { k: 'bg_color_text__label', t: 'str', v: '颜色值' },
+        { k: 'bg_color_text__props', t: 'json', v: { style: { fontFamily: 'monospace', fontSize: '24px', fontWeight: 'bold' } } },
+        { k: 'bg_color_text__bind', t: 'json', v: { read: { model_id: 100, p: 0, r: 0, c: 0, k: 'bg_color' } } },
+        { k: 'input_value', t: 'str', v: 'Input' },
+        { k: 'input_value__label', t: 'str', v: '输入文本' },
+        { k: 'input_value__props', t: 'json', v: { placeholder: 'Enter any text (optional)' } },
+        { k: 'submit', t: 'str', v: 'Button' },
+        { k: 'submit__label', t: 'str', v: '' },
+        { k: 'submit__props', t: 'json', v: { label: 'Generate Color', type: 'primary', size: 'large' } },
+        { k: 'submit__no_wrap', t: 'bool', v: true },
+        { k: 'submit__bind', t: 'json', v: {
+          write: {
+            action: 'label_add',
+            target_ref: { model_id: 100, p: 0, r: 0, c: 2, k: 'ui_event' },
+            value_ref: { t: 'json', v: { action: 'submit', input_value: '', meta: {} } },
+          },
+        } },
+        { k: 'system_ready_text', t: 'str', v: 'Text' },
+        { k: 'system_ready_text__label', t: 'str', v: 'MBR Ready' },
+        { k: 'system_ready_text__props', t: 'json', v: { style: { fontFamily: 'monospace', fontWeight: 'bold' } } },
+        { k: 'system_ready_text__bind', t: 'json', v: { read: { model_id: 100, p: 0, r: 0, c: 0, k: 'system_ready' } } },
+        { k: 'status_text', t: 'str', v: 'Text' },
+        { k: 'status_text__label', t: 'str', v: '颜色状态' },
+        { k: 'status_text__props', t: 'json', v: { style: { fontFamily: 'monospace' } } },
+        { k: 'status_text__bind', t: 'json', v: { read: { model_id: 100, p: 0, r: 0, c: 0, k: 'status' } } },
+      ],
+    },
     {
       model_id: 1001, name: '请假申请', source: 'worker-A',
       data: [
@@ -1089,7 +1126,8 @@ function createServerState(options) {
     runtime.addLabel(m, 0, 0, 0, { k: 'source_worker', t: 'str', v: app.source });
     wsRegistry.push({ model_id: app.model_id, name: app.name, source: app.source });
   }
-  ensureStateLabel(runtime, 'ws_apps_registry', 'json', wsRegistry);
+  const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+  runtime.addLabel(stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: wsRegistry });
 
   // Gallery model defaults (so the models are non-empty and discoverable).
   try {

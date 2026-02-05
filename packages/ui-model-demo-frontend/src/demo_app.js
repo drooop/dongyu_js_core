@@ -1,7 +1,7 @@
 import { computed, h, onBeforeUnmount, onMounted, ref, resolveComponent } from 'vue';
 import { createRenderer } from '@ui-renderer/index.mjs';
 import { buildGalleryAst } from './gallery_model.js';
-import { buildModel100Ast } from './model100_ast.js';
+
 import {
   ROUTE_GALLERY,
   ROUTE_HOME,
@@ -81,10 +81,7 @@ export function createAppShell({ mainStore, galleryStore }) {
     ...mainStore,
     getUiAst: () => buildGalleryAst(),
   });
-  const Model100Root = createDemoRoot({
-    ...mainStore,
-    getUiAst: () => buildModel100Ast(),
-  });
+
   const PinRoot = createDemoRoot(mainStore);
   const TestRoot = createDemoRoot(mainStore);
 
@@ -98,8 +95,30 @@ export function createAppShell({ mainStore, galleryStore }) {
       let unsubscribe = null;
 
       function normalizeIfUnknown(p) {
-        if (isHomePath(p) || isGalleryPath(p) || isModel100Path(p) || isDocsPath(p) || isStaticPath(p) || isPinPath(p) || isTestPath(p) || isWorkspacePath(p)) return;
+        if (isModel100Path(p)) {
+          setHashPath(ROUTE_WORKSPACE, { replace: true });
+          selectWorkspaceModel(100);
+          return;
+        }
+        if (isHomePath(p) || isGalleryPath(p) || isDocsPath(p) || isStaticPath(p) || isPinPath(p) || isTestPath(p) || isWorkspacePath(p)) return;
         setHashPath(ROUTE_HOME, { replace: true });
+      }
+
+      function selectWorkspaceModel(modelId) {
+        if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
+        const opId = `ws_sel_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        mainStore.dispatchAddLabel({
+          p: 0, r: 0, c: 1, k: 'ui_event', t: 'event',
+          v: {
+            event_id: Date.now(), type: 'label_update', source: 'ui_renderer', ts: 0,
+            payload: {
+              action: 'label_update',
+              meta: { op_id: opId },
+              target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
+              value: modelId,
+            },
+          },
+        });
       }
 
       function syncPageLabel(routePath) {
@@ -153,7 +172,7 @@ export function createAppShell({ mainStore, galleryStore }) {
       });
 
       const isGallery = computed(() => isGalleryPath(path.value));
-      const isModel100 = computed(() => isModel100Path(path.value));
+
       const isDocs = computed(() => isDocsPath(path.value));
       const isStatic = computed(() => isStaticPath(path.value));
       const isWorkspace = computed(() => isWorkspacePath(path.value));
@@ -167,7 +186,6 @@ export function createAppShell({ mainStore, galleryStore }) {
               h(ElButton, { type: isHomePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_HOME) }, { default: () => '首页' }),
               h('span', { style: { display: 'inline-block', width: '24px' } }, ''),
               h(ElButton, { type: isGalleryPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_GALLERY) }, { default: () => 'Gallery' }),
-              h(ElButton, { type: isModel100Path(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_MODEL100) }, { default: () => 'Model100' }),
               h(ElButton, { type: isDocsPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_DOCS) }, { default: () => 'Docs' }),
               h(ElButton, { type: isStaticPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_STATIC) }, { default: () => 'Static' }),
               h(ElButton, { type: isWorkspacePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_WORKSPACE) }, { default: () => 'Workspace' }),
@@ -182,9 +200,6 @@ export function createAppShell({ mainStore, galleryStore }) {
         if (isGallery.value) {
           const isRemoteMode = !mainStore || !Object.prototype.hasOwnProperty.call(mainStore, 'runtime');
           return h('div', [h(Header), h(isRemoteMode ? GalleryRemoteRoot : GalleryRoot)]);
-        }
-        if (isModel100.value) {
-          return h('div', [h(Header), h(Model100Root)]);
         }
         if (isDocs.value || isStatic.value || isWorkspace.value) {
           return h('div', [h(Header), h(HomeRoot)]);
