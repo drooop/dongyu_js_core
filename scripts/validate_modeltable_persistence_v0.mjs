@@ -12,7 +12,11 @@ function assert(condition, message) {
 }
 
 function dbPath() {
-  return path.resolve(process.cwd(), 'data', 'persist_demo', 'yhl.db');
+  const configuredRoot = process.env.WORKER_BASE_DATA_ROOT;
+  const dataRoot = configuredRoot && configuredRoot.trim()
+    ? (path.isAbsolute(configuredRoot) ? configuredRoot : path.resolve(process.cwd(), configuredRoot))
+    : path.resolve(process.cwd(), 'packages', 'ui-model-demo-server', 'data');
+  return path.resolve(dataRoot, 'persist_demo', 'yhl.db');
 }
 
 function resetDb(fp) {

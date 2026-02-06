@@ -12,8 +12,18 @@ function resolveWorkspace() {
   return process.env.WORKER_BASE_WORKSPACE || 'default';
 }
 
+function resolveDataRoot() {
+  const configuredRoot = process.env.WORKER_BASE_DATA_ROOT;
+  if (configuredRoot && configuredRoot.trim()) {
+    return path.isAbsolute(configuredRoot)
+      ? configuredRoot
+      : path.resolve(process.cwd(), configuredRoot);
+  }
+  return path.resolve(process.cwd(), 'packages', 'ui-model-demo-server', 'data');
+}
+
 function resolveDbPath(workspace) {
-  return path.resolve(process.cwd(), 'data', workspace, 'yhl.db');
+  return path.resolve(resolveDataRoot(), workspace, 'yhl.db');
 }
 
 function resetDbFile(dbPath) {
