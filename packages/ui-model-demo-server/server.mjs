@@ -22,10 +22,52 @@ import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from '../ui-model-de
 const require = createRequire(import.meta.url);
 const { loadProgramModelFromSqlite } = require('../worker-base/src/program_model_loader.js');
 const { createSqlitePersister } = require('../worker-base/src/modeltable_persistence_sqlite.js');
+const { initDataModel } = require('../worker-base/src/data_models.js');
 const sdk = require('matrix-js-sdk');
 
 const EDITOR_MODEL_ID = -1;
 const EDITOR_STATE_MODEL_ID = -2;
+const TRACE_MODEL_ID = -100;
+
+// Monotonic sequence counter for trace events (module-level, survives across calls).
+let _traceSeq = 0;
+
+/**
+ * Emit a trace event into the Bus Trace model's mailbox.
+ * The mailbox trigger (trace_append) will fire and push it into the CircularBuffer.
+ *
+ * @param {object} runtime - ModelTableRuntime instance
+ * @param {object} opts
+ * @param {string} opts.hop - e.g. 'ui→server', 'server→matrix', 'matrix→server', 'mqtt→mbr'
+ * @param {string} opts.direction - 'inbound' | 'outbound'
+ * @param {string} [opts.op_id] - operation id for correlation
+ * @param {number|string} [opts.model_id] - related model id
+ * @param {string} [opts.summary] - short human-readable summary
+ * @param {*} [opts.payload] - full payload (will be truncated in UI)
+ * @param {string} [opts.error] - error message if applicable
+ */
+function emitTrace(runtime, { hop, direction, op_id, model_id, summary, payload, error }) {
+  const tm = runtime.getModel(TRACE_MODEL_ID);
+  if (!tm) return;
+  const enabled = runtime.getLabelValue(tm, 0, 0, 0, 'trace_enabled');
+  if (!enabled) return;
+  _traceSeq += 1;
+  runtime.addLabel(tm, 0, 0, 1, {
+    k: 'trace_event',
+    t: 'json',
+    v: {
+      ts: Date.now(),
+      seq: _traceSeq,
+      hop: hop || '',
+      direction: direction || '',
+      op_id: op_id || '',
+      model_id: model_id != null ? model_id : '',
+      summary: summary || '',
+      payload: payload != null ? payload : null,
+      error: error || null,
+    },
+  });
+}
 
 const AdmZip = AdmZipPkg && AdmZipPkg.default ? AdmZipPkg.default : AdmZipPkg;
 
@@ -468,6 +510,13 @@ class ProgramModelEngine {
 
   async sendMatrix(payload) {
     console.log('[sendMatrix] CALLED with payload:', JSON.stringify(payload));
+    emitTrace(this.runtime, {
+      hop: 'server\u2192matrix', direction: 'outbound',
+      op_id: payload && payload.op_id ? payload.op_id : '',
+      model_id: payload && payload.model_id != null ? payload.model_id : '',
+      summary: `type=${payload && payload.type ? payload.type : '?'}`,
+      payload,
+    });
     if (!this.matrixClient || !this.matrixRoomId) {
       console.log('[sendMatrix] ERROR: matrix_not_ready');
       throw new Error('matrix_not_ready');
@@ -536,6 +585,13 @@ class ProgramModelEngine {
     // Handle dy.bus.v0 events from MBR (return path: K8s -> MQTT -> MBR -> Matrix -> here)
     // Expected format: { version: 'v0', type: 'snapshot_delta', op_id, payload: { version: 'mt.v0', records: [...] } }
     console.log('[handleDyBusEvent] Processing:', JSON.stringify(content).substring(0, 300));
+    emitTrace(this.runtime, {
+      hop: 'matrix\u2192server', direction: 'inbound',
+      op_id: content && content.op_id ? content.op_id : '',
+      model_id: '',
+      summary: `dy.bus.v0 type=${content && content.type ? content.type : '?'}`,
+      payload: content,
+    });
     
     if (!content || typeof content !== 'object') {
       console.log('[handleDyBusEvent] Invalid content - not an object');
@@ -605,8 +661,42 @@ class ProgramModelEngine {
     console.log('[handleDyBusEvent] Unhandled event type:', content.type);
   }
 
-  executeFunction(name) {
+  executeFunction(name, interceptPayload) {
     console.log('[executeFunction] CALLED with name:', name);
+    // Emit trace for function execution (skip trace_append to avoid infinite loop)
+    if (name !== 'trace_append' && name !== 'add_data') {
+      emitTrace(this.runtime, {
+        hop: 'engine', direction: 'internal',
+        op_id: interceptPayload && interceptPayload.op_id ? interceptPayload.op_id : '',
+        model_id: interceptPayload && interceptPayload.model_id != null ? interceptPayload.model_id : '',
+        summary: `exec func=${name}`,
+      });
+    }
+
+    // --- Path A: runtime-registered handler (mailbox trigger / data model functions) ---
+    // When the intercept carries a model_id, look up the handler on that model.
+    if (interceptPayload && Number.isInteger(interceptPayload.model_id)) {
+      const targetModel = this.runtime.getModel(interceptPayload.model_id);
+      if (targetModel) {
+        const handler = targetModel.getFunction(name);
+        if (typeof handler === 'function') {
+          console.log('[executeFunction] Using runtime handler for', name, 'on model', interceptPayload.model_id);
+          try {
+            return handler({
+              runtime: this.runtime,
+              model: targetModel,
+              event: interceptPayload,
+              label: interceptPayload.trigger_label || null,
+            });
+          } catch (err) {
+            console.error('[executeFunction] runtime handler error:', name, err);
+            return;
+          }
+        }
+      }
+    }
+
+    // --- Path B: code-string function (legacy / SQLite-loaded program model) ---
     const code = this.functions.get(name);
     if (!code) {
       console.log('[executeFunction] WARNING: no code found for function:', name);
@@ -809,7 +899,7 @@ class ProgramModelEngine {
       if (item.type !== 'run_func') continue;
       const name = item.payload && item.payload.func ? item.payload.func : '';
       if (!name) continue;
-      await this.executeFunction(name);
+      await this.executeFunction(name, item.payload);
     }
   }
 
@@ -821,7 +911,7 @@ class ProgramModelEngine {
       if (item.type !== 'run_func') continue;
       const name = item.payload && item.payload.func ? item.payload.func : '';
       if (!name) continue;
-      await this.executeFunction(name);
+      await this.executeFunction(name, item.payload);
     }
   }
 
@@ -1127,6 +1217,116 @@ function createServerState(options) {
     wsRegistry.push({ model_id: app.model_id, name: app.name, source: app.source });
   }
   const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+  // ---------------------------------------------------------------------------
+  // Bus Trace model (CircularBuffer data model, model_id = TRACE_MODEL_ID)
+  // ---------------------------------------------------------------------------
+  if (!runtime.getModel(TRACE_MODEL_ID)) {
+    runtime.createModel({ id: TRACE_MODEL_ID, name: 'bus_trace', type: 'Data' });
+  }
+  const traceModel = runtime.getModel(TRACE_MODEL_ID);
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'data_type', t: 'str', v: 'CircularBuffer' });
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'size_max', t: 'int', v: 2000 });
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_enabled', t: 'bool', v: true });
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'app_name', t: 'str', v: 'Bus Trace' });
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'source_worker', t: 'str', v: 'system' });
+  initDataModel(runtime, traceModel);
+
+  // Register trace_append handler + mailbox trigger on cell(0,0,1)
+  runtime.registerFunction(traceModel, 'trace_append', (ctx) => {
+    const enabled = runtime.getLabelValue(traceModel, 0, 0, 0, 'trace_enabled');
+    if (!enabled) return;
+    const triggerLabel = ctx.label;
+    if (!triggerLabel) return;
+    // The trigger_label from mailbox trigger only has {k, t} — read the full label from the cell
+    const mailboxCell = runtime.getCell(traceModel, 0, 0, 1);
+    const eventLabel = mailboxCell.labels.get('trace_event');
+    if (!eventLabel || !eventLabel.v) return;
+    const ev = eventLabel.v;
+    // Call add_data to push into the circular buffer
+    const addData = traceModel.getFunction('add_data');
+    if (typeof addData === 'function') {
+      addData({
+        runtime,
+        model: traceModel,
+        label: { k: 'trace', t: 'json', v: ev },
+      });
+    }
+    // Update count label for UI display
+    const count = runtime.getLabelValue(traceModel, 0, 0, 0, 'size_now') || 0;
+    runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_count', t: 'str', v: `${count} events` });
+    // Maintain a rolling text log of the latest 50 events for simple Text display
+    const getAllData = traceModel.getFunction('get_all_data');
+    if (typeof getAllData === 'function') {
+      const allData = getAllData({ runtime, model: traceModel });
+      const recent = allData.slice(-50);
+      const lines = recent.map((d) => {
+        const val = d.v;
+        if (!val || typeof val !== 'object') return JSON.stringify(d);
+        const ts = val.ts ? new Date(val.ts).toLocaleTimeString('en-US', { hour12: false }) : '';
+        return `[${ts}] #${val.seq || ''} ${val.hop || ''} ${val.direction || ''} | ${val.summary || ''} ${val.error ? '❌ ' + val.error : ''}`;
+      });
+      runtime.addLabel(traceModel, 0, 0, 0, {
+        k: 'trace_log_text', t: 'str',
+        v: lines.reverse().join('\n'),
+      });
+    }
+  });
+  runtime.addMailboxTrigger(traceModel, 0, 0, 1, 'trace_append');
+
+  // Trace Model p=1 UI schema
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_count', t: 'str', v: '0 events' });
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_log_text', t: 'str', v: '(no events yet)' });
+  const traceSchema = [
+    { k: '_title', t: 'str', v: 'Bus Trace — 全链路事件追踪' },
+    { k: '_subtitle', t: 'str', v: '实时记录 UI→Server→Matrix→MBR→MQTT 全链路消息' },
+    { k: '_field_order', t: 'json', v: ['trace_enabled', 'trace_count', 'clear_trace', 'trace_log_text'] },
+    { k: 'trace_enabled', t: 'str', v: 'Switch' },
+    { k: 'trace_enabled__label', t: 'str', v: 'Trace 开关' },
+    { k: 'trace_enabled__bind', t: 'json', v: {
+      read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_enabled' },
+      write: { action: 'label_update', target_ref: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_enabled' } },
+    } },
+    { k: 'trace_count', t: 'str', v: 'Text' },
+    { k: 'trace_count__label', t: 'str', v: '事件计数' },
+    { k: 'trace_count__props', t: 'json', v: { style: { fontFamily: 'monospace', fontWeight: 'bold', fontSize: '16px' } } },
+    { k: 'trace_count__bind', t: 'json', v: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_count' } } },
+    { k: 'clear_trace', t: 'str', v: 'Button' },
+    { k: 'clear_trace__label', t: 'str', v: '' },
+    { k: 'clear_trace__props', t: 'json', v: { label: '清空 Trace', type: 'danger', size: 'default' } },
+    { k: 'clear_trace__no_wrap', t: 'bool', v: true },
+    { k: 'clear_trace__bind', t: 'json', v: {
+      write: {
+        action: 'label_add',
+        target_ref: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 2, k: 'clear_cmd' },
+        value_ref: { t: 'str', v: '1' },
+      },
+    } },
+    { k: 'trace_log_text', t: 'str', v: 'Input' },
+    { k: 'trace_log_text__label', t: 'str', v: '事件日志 (最新 50 条)' },
+    { k: 'trace_log_text__props', t: 'json', v: {
+      type: 'textarea', rows: 20, readonly: true,
+      style: { fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.4' },
+    } },
+    { k: 'trace_log_text__bind', t: 'json', v: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_log_text' } } },
+  ];
+  for (const label of traceSchema) {
+    runtime.addLabel(traceModel, 1, 0, 0, label);
+  }
+
+  // Register clear handler — when clear_cmd is written to cell(0,0,2), clear the buffer
+  runtime.registerFunction(traceModel, 'clear_trace', (ctx) => {
+    const clearData = traceModel.getFunction('clear_data');
+    if (typeof clearData === 'function') {
+      clearData({ runtime, model: traceModel });
+    }
+    runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_count', t: 'str', v: '0 events' });
+    runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_log_text', t: 'str', v: '(cleared)' });
+    _traceSeq = 0;
+  });
+  runtime.addMailboxTrigger(traceModel, 0, 0, 2, 'clear_trace');
+
+  // Add trace model to workspace registry
+  wsRegistry.push({ model_id: TRACE_MODEL_ID, name: 'Bus Trace', source: 'system' });
   runtime.addLabel(stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: wsRegistry });
 
   // Gallery model defaults (so the models are non-empty and discoverable).
@@ -1217,6 +1417,16 @@ function createServerState(options) {
   }
 
   async function submitEnvelope(envelopeOrNull) {
+    if (envelopeOrNull) {
+      const ep = envelopeOrNull.payload || envelopeOrNull;
+      emitTrace(runtime, {
+        hop: 'ui\u2192server', direction: 'inbound',
+        op_id: ep && ep.meta && ep.meta.op_id ? ep.meta.op_id : '',
+        model_id: ep && ep.meta && ep.meta.model_id != null ? ep.meta.model_id : '',
+        summary: `action=${ep && ep.action ? ep.action : '?'}`,
+        payload: ep,
+      });
+    }
     setMailboxEnvelope(runtime, envelopeOrNull);
     
     // Trigger forward_ui_events BEFORE any action processing clears the mailbox

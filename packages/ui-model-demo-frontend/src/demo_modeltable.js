@@ -1620,7 +1620,7 @@ export function buildEditorAstV1(snapshot) {
     });
 
     const rightChildren = [];
-    if (wsSelected > 0) {
+    if (wsSelected !== 0) {
       const schemaAst = buildAstFromSchema(snapshot, wsSelected);
       if (schemaAst) {
         rightChildren.push(schemaAst);

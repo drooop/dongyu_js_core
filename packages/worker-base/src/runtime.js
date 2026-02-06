@@ -201,15 +201,54 @@ class Model {
     this.name = name;
     this.type = type;
     this.cells = new Map();
-    this.functions = new Set();
+    /**
+     * Functions registered on this model.
+     * Key = function name, Value = handler function or null (declaration only).
+     * A handler receives (ctx) where ctx = { runtime, model, event, label }.
+     */
+    this.functions = new Map();
+    /**
+     * Mailbox triggers: map from cell key ("p,r,c") to array of function names.
+     * When a label is written to a mailbox cell, all registered functions fire.
+     */
+    this.mailboxTriggers = new Map();
   }
 
-  registerFunction(name) {
-    this.functions.add(name);
+  /**
+   * Register a function on this model.
+   * @param {string} name - function name
+   * @param {Function|null} handler - JS handler or null (declaration-only, for legacy compat)
+   */
+  registerFunction(name, handler) {
+    this.functions.set(name, handler !== undefined ? handler : null);
   }
 
   hasFunction(name) {
     return this.functions.has(name);
+  }
+
+  getFunction(name) {
+    return this.functions.get(name) || null;
+  }
+
+  /**
+   * Register a mailbox trigger: when a label is written to cell (p,r,c),
+   * the named function will be triggered.
+   */
+  addMailboxTrigger(p, r, c, funcName) {
+    const key = `${p},${r},${c}`;
+    if (!this.mailboxTriggers.has(key)) {
+      this.mailboxTriggers.set(key, []);
+    }
+    const list = this.mailboxTriggers.get(key);
+    if (!list.includes(funcName)) {
+      list.push(funcName);
+    }
+  }
+
+  getMailboxTriggers(p, r, c) {
+    const key = `${p},${r},${c}`;
+    return this.mailboxTriggers.get(key) || [];
   }
 
   cellKey(p, r, c) {
@@ -222,6 +261,11 @@ class Model {
       this.cells.set(key, { p, r, c, labels: new Map() });
     }
     return this.cells.get(key);
+  }
+
+  removeCell(p, r, c) {
+    const key = this.cellKey(p, r, c);
+    this.cells.delete(key);
   }
 }
 
@@ -283,6 +327,37 @@ class ModelTableRuntime {
 
   getCell(model, p, r, c) {
     return model.getCell(p, r, c);
+  }
+
+  removeCell(model, p, r, c) {
+    model.removeCell(p, r, c);
+    if (this.persistence && typeof this.persistence.onCellRemoved === 'function') {
+      this.persistence.onCellRemoved({ model, p, r, c });
+    }
+  }
+
+  registerFunction(model, name, handler) {
+    model.registerFunction(name, handler);
+    // Only write the function label to Cell(0,0,0) for declaration-only functions
+    // (code-string functions loaded from SQLite). Runtime handlers (with a handler
+    // function) don't need a label — they're registered directly on the model.
+    // Writing function labels for runtime handlers would pollute listSystemLabels.
+    if (!handler) {
+      const cell = this.getCell(model, 0, 0, 0);
+      if (!cell.labels.has(name) || cell.labels.get(name).t !== 'function') {
+        cell.labels.set(name, { k: name, t: 'function', v: null });
+      }
+    }
+  }
+
+  addMailboxTrigger(model, p, r, c, funcName) {
+    model.addMailboxTrigger(p, r, c, funcName);
+  }
+
+  getLabelValue(model, p, r, c, k) {
+    const cell = model.getCell(p, r, c);
+    const label = cell.labels.get(k);
+    return label ? label.v : undefined;
   }
 
   _isInteger(value) {
@@ -623,6 +698,7 @@ class ModelTableRuntime {
     this._applyBuiltins(model, p, r, c, label, prevLabel);
     this._applyPinDeclarations(model, p, r, c, label);
     this._applyLabelTypes(model, p, r, c, label);
+    this._applyMailboxTriggers(model, p, r, c, label);
     return { applied: true };
   }
 
@@ -724,6 +800,20 @@ class ModelTableRuntime {
   _applyLabelTypes(model, p, r, c, label) {
     if (label.t === 'function') {
       model.registerFunction(label.k);
+    }
+  }
+
+  _applyMailboxTriggers(model, p, r, c, label) {
+    if (!this.runLoopActive) return;
+    const triggers = model.getMailboxTriggers(p, r, c);
+    for (const funcName of triggers) {
+      if (model.hasFunction(funcName)) {
+        this.intercepts.record('run_func', {
+          model_id: model.id,
+          func: funcName,
+          trigger_label: { k: label.k, t: label.t },
+        });
+      }
     }
   }
 
