@@ -30,13 +30,13 @@ function listChangedFiles() {
 }
 
 function validateStage4() {
-  const fp = path.join(process.cwd(), 'docs', 'roadmap', 'dongyu_app_next_runtime.md');
+  const fp = path.join(process.cwd(), 'docs', 'roadmaps', 'dongyu-app-next-runtime.md');
   const t = readText(fp);
-  const idx = t.indexOf('# Phase 4');
-  assert(idx >= 0, 'stage4:missing_phase4_header');
-  const s = t.slice(idx);
-  assert(s.includes('Status: PENDING'), 'stage4:status_not_pending');
-  assert(!s.includes('0129-modeltable-editor-v0'), 'stage4:mentions_0129');
+  assert(t.includes('Phase 4'), 'stage4:missing_phase4_section');
+  const phase4LineOk = /\|\s*Phase 4\s*\|[^\n]*\|\s*Planned\s*\|/m.test(t);
+  assert(phase4LineOk, 'stage4:status_not_planned');
+  const phase4Line = (t.split(/\n/).find((l) => /\|\s*Phase 4\s*\|/.test(l)) || '');
+  assert(!phase4Line.includes('0129-modeltable-editor-v0'), 'stage4:mentions_0129');
 
   const contractPath = path.join(process.cwd(), 'docs', 'iterations', '0132-dual-bus-contract-harness-v0', 'contract_dual_bus_v0.md');
   assert(fs.existsSync(contractPath), 'stage4:missing_contract_v0');
@@ -76,7 +76,7 @@ function validateForbiddenImports() {
 function validateStep5ChangedFiles() {
   const allowed = new Set([
     'docs/ITERATIONS.md',
-    'docs/roadmap/dongyu_app_next_runtime.md',
+    'docs/roadmaps/dongyu-app-next-runtime.md',
     'docs/iterations/0129-modeltable-editor-v0/runlog.md',
     'scripts/validate_iteration_guard.mjs',
   ]);

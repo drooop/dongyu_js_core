@@ -50,6 +50,22 @@ node scripts/validate_pin_mqtt_loop.mjs         # PIN_IN/OUT + MQTT
 node scripts/validate_dual_worker_slide_e2e_v0.mjs  # End-to-end flow
 ```
 
+## 目录职责与文件落位 (Directory Ownership)
+
+- 先分类再落位：新文件必须先判断属于哪一类（产品代码/部署资产/流程文档/测试资产），再决定目录，不允许“先放根目录再说”。
+- 根目录只允许仓库级入口与全局配置；任何任务期产物（调试输出、临时脚本、实验文件）都不得落在根目录。
+- 未经用户明确同意，不新增新的顶层目录；需要新增时优先复用现有职责目录。
+- `docs/` 只用于规范、架构、流程与迭代记录（plan/resolution/runlog）。`docs/` 不是测试数据仓；测试输入、测试输出、临时快照不得放入 `docs/`。
+- 迭代证据按 `docs/WORKFLOW.md` 执行：默认以 `runlog.md` 记录可复现命令与结果；仅在“必须保留的人类证据”场景下，才放 `docs/iterations/<id>/assets/`。
+- 测试相关文件按用途分层：
+  - 可复用且可版本化的 fixture 放 `scripts/fixtures/`（或对应 package 内 fixture 目录）。
+  - 本地测试输入/临时数据库/临时导出放 `test_files/` 或 package 局部临时目录，并保持 gitignored。
+- 部署与运行环境资产放在基础设施目录（如 `k8s/`），并与业务代码、文档目录分离。
+- 就近归属原则：文件应放在其主要消费者旁边（哪个 package 使用，就落在哪个 package 或其子目录），避免跨域散落。
+- 收尾检查是必做项：结束任务前必须确认新增文件均在职责目录内；若出现错放，先归位再结束。
+- 发生文件迁移时，必须同步修正文档、脚本和命令中的路径引用，保证可执行性不回归。
+- `docs/tmp/` 仅用于仓库约定的 handoff/compact 文稿，不用于存放测试数据或调试产物。
+
 ## Package Structure
 
 | Package | Purpose |

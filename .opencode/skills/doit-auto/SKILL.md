@@ -29,7 +29,7 @@ Before doing anything, `$doit-auto` MUST load and respect (in this exact order):
 1. `AGENTS.md`
 2. `docs/architecture_mantanet_and_workers.md` (SSOT, immutable)
 3. `docs/charters/*.md` (if present)
-4. `docs/roadmap/dongyu_app_next_runtime.md` (if present)
+4. `docs/roadmaps/dongyu-app-next-runtime.md` (if present)
 5. `docs/WORKFLOW.md`
 6. `docs/ssot/execution_governance_ultrawork_doit.md` (execution governance)
 7. `docs/ITERATIONS.md`

@@ -1,7 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { URL } from 'node:url';
+import { URL, fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 
@@ -334,7 +334,12 @@ function buildSafeSnapshotJson(runtime) {
 
 function resolveDbPath() {
   const workspace = process.env.WORKER_BASE_WORKSPACE || 'default';
-  return path.resolve(process.cwd(), 'data', workspace, 'yhl.db');
+  const configuredRoot = process.env.WORKER_BASE_DATA_ROOT;
+  const serverDir = path.dirname(fileURLToPath(import.meta.url));
+  const dataRoot = configuredRoot && configuredRoot.trim()
+    ? (path.isAbsolute(configuredRoot) ? configuredRoot : path.resolve(process.cwd(), configuredRoot))
+    : path.resolve(serverDir, 'data');
+  return path.resolve(dataRoot, workspace, 'yhl.db');
 }
 
 function ensureStateLabel(runtime, key, t, v) {

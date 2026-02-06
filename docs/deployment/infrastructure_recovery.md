@@ -15,6 +15,9 @@
 | **Element Docker Demo** | Matrix Homeserver (管理总线) | Docker Compose 多容器堆栈 |
 | **K8S Remote Worker** | 远端软件工人 | Docker Desktop Kubernetes |
 
+相关运行手册：
+- `docs/deployment/remote_worker_k8s_runbook.md`（远端 worker 部署与链路验收）
+
 ---
 
 ## 1. EMQX (MQTT Broker)
@@ -242,7 +245,7 @@ kubectl get nodes
 
 | 文件 | 用途 |
 |------|------|
-| `Dockerfile.remote-worker` | Worker 容器镜像构建 |
+| `k8s/Dockerfile.remote-worker` | Worker 容器镜像构建 |
 | `k8s/remote-worker-config.yaml` | ConfigMap (环境变量) |
 | `k8s/remote-worker-deployment.yaml` | Deployment + Service |
 | `scripts/run_remote_worker_k8s_v2.mjs` | Worker 启动脚本 |
@@ -269,7 +272,7 @@ data:
 cd /Users/wwpic/codebase/cowork/dongyuapp_elysia_based
 
 # 1. 构建 Docker 镜像
-docker build -f Dockerfile.remote-worker -t dy-remote-worker:v2 .
+docker build -f k8s/Dockerfile.remote-worker -t dy-remote-worker:v2 .
 
 # 2. 应用 K8S 配置
 kubectl apply -f k8s/remote-worker-config.yaml
@@ -401,7 +404,7 @@ sleep 30
 
 echo "=== Step 6: Build and deploy K8S Worker ==="
 cd /Users/wwpic/codebase/cowork/dongyuapp_elysia_based
-docker build -f Dockerfile.remote-worker -t dy-remote-worker:v2 .
+docker build -f k8s/Dockerfile.remote-worker -t dy-remote-worker:v2 .
 kubectl apply -f k8s/
 
 echo "=== Done! ==="

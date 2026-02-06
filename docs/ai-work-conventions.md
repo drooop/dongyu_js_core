@@ -63,3 +63,6 @@ Review Gate Record
 - 不自动变更依赖或执行未在计划中的脚本。
 - secrets 不入库；使用 `.env`/密管系统。
 - `logs/` 与 `*.log` 必须保持 gitignored，不得提交。
+- 新增文件必须按目录职责落位；禁止将调试产物、临时脚本、测试导出放在仓库根目录。
+- `docs/` 仅用于规范/流程/迭代文档与必要证据，不存放测试数据或临时运行数据。
+- 测试输入与临时数据库应放 `test_files/` 或 package 局部目录；可复用 fixture 放 `scripts/fixtures/`。
