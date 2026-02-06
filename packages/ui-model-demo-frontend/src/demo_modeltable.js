@@ -1575,38 +1575,69 @@ export function buildEditorAstV1(snapshot) {
       return typeof raw === 'number' ? raw : (parseSafeInt(raw) ?? 0);
     })();
 
-    // Build list items from registry.
-    const listItems = wsRegistry.map((app, idx) => {
+    // Split apps into system apps (negative ID) and digital workers (positive ID)
+    const systemApps = wsRegistry.filter((app) => app.model_id < 0);
+    const workerApps = wsRegistry.filter((app) => app.model_id > 0);
+
+    // Icon mapping for app types
+    const appIconMap = {
+      bus_trace: '📊', trace: '📊', system: '⚙️', default_system: '🔧',
+      worker: '👤', k8s: '☸️', default_worker: '🤖',
+    };
+
+    // Helper to build app item
+    const buildAppItem = (app) => {
       const isActive = wsSelected === app.model_id;
+      const iconKey = app.name?.toLowerCase().includes('trace') ? 'trace'
+        : app.source?.includes('k8s') ? 'k8s'
+        : app.model_id < 0 ? 'default_system' : 'default_worker';
+      const icon = appIconMap[iconKey] || '📱';
+
       return {
         id: `ws_app_item_${app.model_id}`,
         type: 'Box',
         props: {
           style: {
-            padding: '10px 14px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '10px',
+            padding: '10px 12px',
             cursor: 'pointer',
-            borderRadius: '6px',
-            backgroundColor: isActive ? '#ecf5ff' : 'transparent',
-            border: isActive ? '1px solid #b3d8ff' : '1px solid transparent',
+            borderRadius: '8px',
+            backgroundColor: isActive ? '#EFF6FF' : 'transparent',
+            border: isActive ? '1px solid #BFDBFE' : '1px solid transparent',
             transition: 'all 150ms ease',
+            marginBottom: '4px',
           },
         },
         children: [
           {
-            id: `ws_app_name_${app.model_id}`,
+            id: `ws_app_icon_${app.model_id}`,
             type: 'Text',
-            props: {
-              text: app.name || `App ${app.model_id}`,
-              style: { fontWeight: isActive ? '600' : '400', color: isActive ? '#409eff' : '#303133' },
-            },
+            props: { text: icon, style: { fontSize: '18px', lineHeight: '1.4' } },
           },
           {
-            id: `ws_app_source_${app.model_id}`,
-            type: 'Text',
-            props: {
-              text: app.source ? `from: ${app.source}` : '',
-              style: { fontSize: '12px', color: '#909399', marginTop: '2px' },
-            },
+            id: `ws_app_info_${app.model_id}`,
+            type: 'Container',
+            props: { layout: 'column', gap: 2 },
+            children: [
+              {
+                id: `ws_app_name_${app.model_id}`,
+                type: 'Text',
+                props: {
+                  text: app.name || `App ${app.model_id}`,
+                  style: { fontWeight: isActive ? '600' : '500', color: isActive ? '#3B82F6' : '#1E293B', fontSize: '14px' },
+                },
+              },
+              {
+                id: `ws_app_source_${app.model_id}`,
+                type: 'Text',
+                props: {
+                  text: app.source ? `from: ${app.source}` : '',
+                  style: { fontSize: '12px', color: '#94A3B8' },
+                },
+              },
+            ],
           },
         ],
         bind: {
@@ -1617,7 +1648,41 @@ export function buildEditorAstV1(snapshot) {
           },
         },
       };
+    };
+
+    // Build section header
+    const buildSectionHeader = (id, icon, title) => ({
+      id,
+      type: 'Container',
+      props: {
+        layout: 'row',
+        gap: 8,
+        align: 'center',
+        style: { padding: '8px 12px', marginTop: '8px', marginBottom: '4px' },
+      },
+      children: [
+        { id: `${id}_icon`, type: 'Text', props: { text: icon, style: { fontSize: '14px' } } },
+        { id: `${id}_title`, type: 'Text', props: { text: title, style: { fontSize: '12px', fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' } } },
+      ],
     });
+
+    const sidebarChildren = [];
+
+    if (systemApps.length > 0) {
+      sidebarChildren.push(buildSectionHeader('ws_section_system', '⚙️', '系统应用'));
+      for (const app of systemApps) {
+        sidebarChildren.push(buildAppItem(app));
+      }
+    }
+
+    if (workerApps.length > 0) {
+      sidebarChildren.push(buildSectionHeader('ws_section_workers', '👤', '数字员工'));
+      for (const app of workerApps) {
+        sidebarChildren.push(buildAppItem(app));
+      }
+    }
+
+    const listItems = sidebarChildren;
 
     const rightChildren = [];
     if (wsSelected !== 0) {
@@ -1666,7 +1731,7 @@ export function buildEditorAstV1(snapshot) {
             {
               id: 'ws_left_panel',
               type: 'Card',
-              props: { title: '滑动应用', style: { width: '280px', flexShrink: 0 } },
+              props: { title: '资产树 ASSET TREE', style: { width: '260px', flexShrink: 0 } },
               children: listItems.length > 0
                 ? listItems
                 : [{ id: 'ws_empty_list', type: 'Text', props: { type: 'info', text: '暂无可用应用' } }],
@@ -1674,7 +1739,7 @@ export function buildEditorAstV1(snapshot) {
             {
               id: 'ws_right_panel',
               type: 'Card',
-              props: { title: wsSelected > 0 ? (wsRegistry.find((a) => a.model_id === wsSelected)?.name || `App ${wsSelected}`) : '应用详情', style: { flex: 1, minWidth: 0 } },
+              props: { title: wsSelected !== 0 ? (wsRegistry.find((a) => a.model_id === wsSelected)?.name || `App ${wsSelected}`) : '应用详情', style: { flex: 1, minWidth: 0 } },
               children: rightChildren,
             },
           ],

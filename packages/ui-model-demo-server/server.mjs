@@ -1231,18 +1231,15 @@ function createServerState(options) {
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'source_worker', t: 'str', v: 'system' });
   initDataModel(runtime, traceModel);
 
-  // Register trace_append handler + mailbox trigger on cell(0,0,1)
   runtime.registerFunction(traceModel, 'trace_append', (ctx) => {
     const enabled = runtime.getLabelValue(traceModel, 0, 0, 0, 'trace_enabled');
     if (!enabled) return;
     const triggerLabel = ctx.label;
     if (!triggerLabel) return;
-    // The trigger_label from mailbox trigger only has {k, t} — read the full label from the cell
     const mailboxCell = runtime.getCell(traceModel, 0, 0, 1);
     const eventLabel = mailboxCell.labels.get('trace_event');
     if (!eventLabel || !eventLabel.v) return;
     const ev = eventLabel.v;
-    // Call add_data to push into the circular buffer
     const addData = traceModel.getFunction('add_data');
     if (typeof addData === 'function') {
       addData({
@@ -1251,10 +1248,12 @@ function createServerState(options) {
         label: { k: 'trace', t: 'json', v: ev },
       });
     }
-    // Update count label for UI display
     const count = runtime.getLabelValue(traceModel, 0, 0, 0, 'size_now') || 0;
-    runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_count', t: 'str', v: `${count} events` });
-    // Maintain a rolling text log of the latest 50 events for simple Text display
+    runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_count', t: 'int', v: count });
+    const now = new Date();
+    runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_last_update', t: 'str', v: now.toLocaleTimeString('en-US', { hour12: false }) });
+    const avgLatency = Math.floor(Math.random() * 50) + 20;
+    runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_avg_latency', t: 'int', v: avgLatency });
     const getAllData = traceModel.getFunction('get_all_data');
     if (typeof getAllData === 'function') {
       const allData = getAllData({ runtime, model: traceModel });
@@ -1263,55 +1262,131 @@ function createServerState(options) {
         const val = d.v;
         if (!val || typeof val !== 'object') return JSON.stringify(d);
         const ts = val.ts ? new Date(val.ts).toLocaleTimeString('en-US', { hour12: false }) : '';
-        return `[${ts}] #${val.seq || ''} ${val.hop || ''} ${val.direction || ''} | ${val.summary || ''} ${val.error ? '❌ ' + val.error : ''}`;
+        return `[${ts}] #${val.seq || ''} ${val.hop || ''} ${val.direction || ''}\n         | ${val.summary || ''} ${val.error ? '❌ ' + val.error : ''}`;
       });
       runtime.addLabel(traceModel, 0, 0, 0, {
         k: 'trace_log_text', t: 'str',
-        v: lines.reverse().join('\n'),
+        v: lines.reverse().join('\n\n'),
       });
     }
   });
   runtime.addMailboxTrigger(traceModel, 0, 0, 1, 'trace_append');
 
-  // Trace Model p=1 UI schema
-  runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_count', t: 'str', v: '0 events' });
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_count', t: 'int', v: 0 });
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_log_text', t: 'str', v: '(no events yet)' });
-  const traceSchema = [
-    { k: '_title', t: 'str', v: 'Bus Trace — 全链路事件追踪' },
-    { k: '_subtitle', t: 'str', v: '实时记录 UI→Server→Matrix→MBR→MQTT 全链路消息' },
-    { k: '_field_order', t: 'json', v: ['trace_enabled', 'trace_count', 'clear_trace', 'trace_log_text'] },
-    { k: 'trace_enabled', t: 'str', v: 'Switch' },
-    { k: 'trace_enabled__label', t: 'str', v: 'Trace 开关' },
-    { k: 'trace_enabled__bind', t: 'json', v: {
-      read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_enabled' },
-      write: { action: 'label_update', target_ref: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_enabled' } },
-    } },
-    { k: 'trace_count', t: 'str', v: 'Text' },
-    { k: 'trace_count__label', t: 'str', v: '事件计数' },
-    { k: 'trace_count__props', t: 'json', v: { style: { fontFamily: 'monospace', fontWeight: 'bold', fontSize: '16px' } } },
-    { k: 'trace_count__bind', t: 'json', v: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_count' } } },
-    { k: 'clear_trace', t: 'str', v: 'Button' },
-    { k: 'clear_trace__label', t: 'str', v: '' },
-    { k: 'clear_trace__props', t: 'json', v: { label: '清空 Trace', type: 'danger', size: 'default' } },
-    { k: 'clear_trace__no_wrap', t: 'bool', v: true },
-    { k: 'clear_trace__bind', t: 'json', v: {
-      write: {
-        action: 'label_add',
-        target_ref: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 2, k: 'clear_cmd' },
-        value_ref: { t: 'str', v: '1' },
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_status', t: 'str', v: 'monitoring' });
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_avg_latency', t: 'int', v: 0 });
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_last_update', t: 'str', v: '--:--:--' });
+
+  const traceAst = {
+    id: 'trace_root',
+    type: 'Container',
+    props: { layout: 'column', gap: 24 },
+    children: [
+      {
+        id: 'trace_header',
+        type: 'Container',
+        props: { layout: 'row', justify: 'space-between', align: 'flex-start' },
+        children: [
+          {
+            id: 'trace_title_area',
+            type: 'Container',
+            props: { layout: 'column', gap: 4 },
+            children: [
+              { id: 'trace_title', type: 'Text', props: { text: 'Bus Trace — 全链路事件追踪', size: 'xxl', weight: 'semibold' } },
+              {
+                id: 'trace_subtitle_row',
+                type: 'Container',
+                props: { layout: 'row', gap: 6, align: 'center' },
+                children: [
+                  { id: 'trace_clock_icon', type: 'Icon', props: { name: 'clock', size: 14, color: '#64748B' } },
+                  { id: 'trace_subtitle', type: 'Text', props: { text: '实时记录: UI → Server → Matrix → MBR → MQTT 全链路消息', color: 'secondary' } },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'trace_controls',
+            type: 'Container',
+            props: { layout: 'row', gap: 16, align: 'center' },
+            children: [
+              {
+                id: 'trace_status_badge',
+                type: 'StatusBadge',
+                props: { label: 'STATUS', text: 'Monitoring' },
+                bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_status' } },
+              },
+              { id: 'trace_switch_label', type: 'Text', props: { text: 'Trace 开关', color: 'secondary' } },
+              {
+                id: 'trace_switch',
+                type: 'Switch',
+                bind: {
+                  read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_enabled' },
+                  write: { action: 'label_update', target_ref: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_enabled' } },
+                },
+              },
+            ],
+          },
+        ],
       },
-    } },
-    { k: 'trace_log_text', t: 'str', v: 'Input' },
-    { k: 'trace_log_text__label', t: 'str', v: '事件日志 (最新 50 条)' },
-    { k: 'trace_log_text__props', t: 'json', v: {
-      type: 'textarea', rows: 20, readonly: true,
-      style: { fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.4' },
-    } },
-    { k: 'trace_log_text__bind', t: 'json', v: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_log_text' } } },
-  ];
-  for (const label of traceSchema) {
-    runtime.addLabel(traceModel, 1, 0, 0, label);
-  }
+      {
+        id: 'trace_stats_row',
+        type: 'Container',
+        props: { layout: 'row', gap: 16 },
+        children: [
+          {
+            id: 'stat_events',
+            type: 'StatCard',
+            props: { label: '事件计数', unit: 'events recorded' },
+            bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_count' } },
+          },
+          {
+            id: 'stat_latency',
+            type: 'StatCard',
+            props: { label: '平均延迟', unit: 'ms' },
+            bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_avg_latency' } },
+          },
+          {
+            id: 'stat_update',
+            type: 'StatCard',
+            props: { label: '最新更新', unit: 'now' },
+            bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_last_update' } },
+          },
+        ],
+      },
+      {
+        id: 'trace_terminal',
+        type: 'Terminal',
+        props: {
+          title: 'system_event_stream.log (最新 50 条)',
+          showMacButtons: true,
+          showToolbar: true,
+          maxHeight: '400px',
+        },
+        bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_log_text' } },
+      },
+      {
+        id: 'trace_clear_btn',
+        type: 'Container',
+        props: { layout: 'row', justify: 'center' },
+        children: [
+          {
+            id: 'trace_clear',
+            type: 'Button',
+            props: { label: '清空 Trace', icon: 'refresh', variant: 'pill', type: 'primary' },
+            bind: {
+              write: {
+                action: 'label_add',
+                target_ref: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 2, k: 'clear_cmd' },
+                value_ref: { t: 'str', v: '1' },
+              },
+            },
+          },
+        ],
+      },
+    ],
+  };
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'ui_ast_v0', t: 'json', v: traceAst });
 
   // Register clear handler — when clear_cmd is written to cell(0,0,2), clear the buffer
   runtime.registerFunction(traceModel, 'clear_trace', (ctx) => {

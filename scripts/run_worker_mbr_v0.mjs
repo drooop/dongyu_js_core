@@ -1,6 +1,14 @@
 import { createRequire } from 'node:module';
 import { WorkerEngineV0, loadSystemPatch } from './worker_engine_v0.mjs';
 
+// MBR Worker should use BOT credentials (separate from UI Server's drop user)
+// This allows UI Server to filter messages by sender and accept only from @mbr:localhost
+if (process.env.MATRIX_MBR_BOT_USER && process.env.MATRIX_MBR_BOT_ACCESS_TOKEN) {
+  process.env.MATRIX_MBR_USER = process.env.MATRIX_MBR_BOT_USER;
+  process.env.MATRIX_MBR_ACCESS_TOKEN = process.env.MATRIX_MBR_BOT_ACCESS_TOKEN;
+  console.log('[mbr-worker] Using BOT credentials:', process.env.MATRIX_MBR_USER);
+}
+
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
 const { createMatrixLiveAdapter } = require('../packages/bus-mgmt/src/matrix_live.js');

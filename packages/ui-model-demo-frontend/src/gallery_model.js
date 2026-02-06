@@ -651,6 +651,180 @@ export function buildGalleryAst() {
               },
             ],
           },
+          {
+            id: 'wave_d_new_components',
+            type: 'Card',
+            props: {
+              title: 'Wave D: New UI Components (v2)',
+              style: { width: '100%' },
+            },
+            children: [
+              { id: 'wave_d_desc', type: 'Text', props: { text: 'StatCard, StatusBadge, Terminal, Icon, and extended Button/Text/Container', type: 'info' } },
+              {
+                id: 'wave_d_content',
+                type: 'Container',
+                props: { layout: 'column', gap: 24, style: { marginTop: '16px' } },
+                children: [
+                  {
+                    id: 'wave_d_statcard_group',
+                    type: 'Container',
+                    props: { layout: 'column', gap: 12 },
+                    children: [
+                      { id: 'wave_d_statcard_title', type: 'Text', props: { text: 'StatCard - 统计卡片', weight: 'semibold', size: 'lg' } },
+                      {
+                        id: 'wave_d_statcard_row',
+                        type: 'Container',
+                        props: { layout: 'row', gap: 16, wrap: true },
+                        children: [
+                          { id: 'stat_demo_1', type: 'StatCard', props: { label: '事件计数', value: 170, unit: 'events' } },
+                          { id: 'stat_demo_2', type: 'StatCard', props: { label: '平均延迟', value: 42, unit: 'ms', variant: 'info' } },
+                          { id: 'stat_demo_3', type: 'StatCard', props: { label: '错误数', value: 3, unit: 'errors', variant: 'error' } },
+                          { id: 'stat_demo_4', type: 'StatCard', props: { label: '成功率', value: '98%', unit: '', variant: 'success' } },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    id: 'wave_d_statusbadge_group',
+                    type: 'Container',
+                    props: { layout: 'column', gap: 12 },
+                    children: [
+                      { id: 'wave_d_statusbadge_title', type: 'Text', props: { text: 'StatusBadge - 状态徽章', weight: 'semibold', size: 'lg' } },
+                      {
+                        id: 'wave_d_statusbadge_row',
+                        type: 'Container',
+                        props: { layout: 'row', gap: 16, wrap: true },
+                        children: [
+                          { id: 'badge_demo_1', type: 'StatusBadge', props: { label: 'STATUS', status: 'monitoring', text: 'Monitoring' } },
+                          { id: 'badge_demo_2', type: 'StatusBadge', props: { label: 'STATUS', status: 'online', text: 'Online' } },
+                          { id: 'badge_demo_3', type: 'StatusBadge', props: { label: 'STATUS', status: 'warning', text: 'Warning' } },
+                          { id: 'badge_demo_4', type: 'StatusBadge', props: { label: 'STATUS', status: 'error', text: 'Error' } },
+                          { id: 'badge_demo_5', type: 'StatusBadge', props: { label: 'STATUS', status: 'offline', text: 'Offline' } },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    id: 'wave_d_icon_group',
+                    type: 'Container',
+                    props: { layout: 'column', gap: 12 },
+                    children: [
+                      { id: 'wave_d_icon_title', type: 'Text', props: { text: 'Icon - 图标组件', weight: 'semibold', size: 'lg' } },
+                      {
+                        id: 'wave_d_icon_row',
+                        type: 'Container',
+                        props: { layout: 'row', gap: 16, align: 'center', wrap: true },
+                        children: [
+                          { id: 'icon_demo_1', type: 'Icon', props: { name: 'clock', size: 24 } },
+                          { id: 'icon_demo_2', type: 'Icon', props: { name: 'settings', size: 24 } },
+                          { id: 'icon_demo_3', type: 'Icon', props: { name: 'user', size: 24 } },
+                          { id: 'icon_demo_4', type: 'Icon', props: { name: 'star', size: 24 } },
+                          { id: 'icon_demo_5', type: 'Icon', props: { name: 'search', size: 24 } },
+                          { id: 'icon_demo_6', type: 'Icon', props: { name: 'refresh', size: 24, color: '#3B82F6' } },
+                          { id: 'icon_demo_7', type: 'Icon', props: { name: 'check', size: 24, color: '#22C55E' } },
+                          { id: 'icon_demo_8', type: 'Icon', props: { name: 'close', size: 24, color: '#EF4444' } },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    id: 'wave_d_terminal_group',
+                    type: 'Container',
+                    props: { layout: 'column', gap: 12 },
+                    children: [
+                      { id: 'wave_d_terminal_title', type: 'Text', props: { text: 'Terminal - 终端日志查看器', weight: 'semibold', size: 'lg' } },
+                      {
+                        id: 'terminal_demo',
+                        type: 'Terminal',
+                        props: {
+                          title: 'demo_log.txt (示例)',
+                          content: '[10:07:44] #69 matrix→server inbound\n         | dy.bus.v0 | type=mbr_ready\n\n[10:07:15] #68 ui→server inbound\n         | action=label_update | model_id=100\n\n[10:06:44] #67 server→matrix outbound\n         | type=snapshot_delta | op_id=op_123',
+                          showMacButtons: true,
+                          showToolbar: true,
+                          maxHeight: '200px',
+                        },
+                      },
+                    ],
+                  },
+                  {
+                    id: 'wave_d_text_group',
+                    type: 'Container',
+                    props: { layout: 'column', gap: 12 },
+                    children: [
+                      { id: 'wave_d_text_title', type: 'Text', props: { text: 'Text - 扩展文字样式', weight: 'semibold', size: 'lg' } },
+                      {
+                        id: 'wave_d_text_sizes',
+                        type: 'Container',
+                        props: { layout: 'row', gap: 16, align: 'baseline', wrap: true },
+                        children: [
+                          { id: 'text_xs', type: 'Text', props: { text: 'xs (12px)', size: 'xs' } },
+                          { id: 'text_sm', type: 'Text', props: { text: 'sm (13px)', size: 'sm' } },
+                          { id: 'text_md', type: 'Text', props: { text: 'md (14px)', size: 'md' } },
+                          { id: 'text_lg', type: 'Text', props: { text: 'lg (16px)', size: 'lg' } },
+                          { id: 'text_xl', type: 'Text', props: { text: 'xl (20px)', size: 'xl' } },
+                          { id: 'text_xxl', type: 'Text', props: { text: 'xxl (24px)', size: 'xxl' } },
+                          { id: 'text_stat', type: 'Text', props: { text: 'stat (36px)', size: 'stat' } },
+                        ],
+                      },
+                      {
+                        id: 'wave_d_text_colors',
+                        type: 'Container',
+                        props: { layout: 'row', gap: 16, wrap: true },
+                        children: [
+                          { id: 'text_primary', type: 'Text', props: { text: 'primary', color: 'primary' } },
+                          { id: 'text_secondary', type: 'Text', props: { text: 'secondary', color: 'secondary' } },
+                          { id: 'text_muted', type: 'Text', props: { text: 'muted', color: 'muted' } },
+                          { id: 'text_success', type: 'Text', props: { text: 'success', color: 'success' } },
+                          { id: 'text_warning', type: 'Text', props: { text: 'warning', color: 'warning' } },
+                          { id: 'text_error', type: 'Text', props: { text: 'error', color: 'error' } },
+                          { id: 'text_info', type: 'Text', props: { text: 'info', color: 'info' } },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    id: 'wave_d_button_group',
+                    type: 'Container',
+                    props: { layout: 'column', gap: 12 },
+                    children: [
+                      { id: 'wave_d_button_title', type: 'Text', props: { text: 'Button - 扩展按钮样式', weight: 'semibold', size: 'lg' } },
+                      {
+                        id: 'wave_d_button_row',
+                        type: 'Container',
+                        props: { layout: 'row', gap: 12, align: 'center', wrap: true },
+                        children: [
+                          { id: 'btn_default', type: 'Button', props: { label: 'Default' } },
+                          { id: 'btn_primary', type: 'Button', props: { label: 'Primary', type: 'primary' } },
+                          { id: 'btn_pill', type: 'Button', props: { label: 'Pill Style', type: 'primary', variant: 'pill' } },
+                          { id: 'btn_icon', type: 'Button', props: { label: 'With Icon', icon: 'refresh', type: 'primary' } },
+                          { id: 'btn_icon_right', type: 'Button', props: { label: 'Icon Right', icon: 'check', iconPosition: 'right', type: 'success' } },
+                          { id: 'btn_text', type: 'Button', props: { label: 'Text Button', variant: 'text' } },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    id: 'wave_d_container_group',
+                    type: 'Container',
+                    props: { layout: 'column', gap: 12 },
+                    children: [
+                      { id: 'wave_d_container_title', type: 'Text', props: { text: 'Container - 布局扩展 (justify/align)', weight: 'semibold', size: 'lg' } },
+                      {
+                        id: 'wave_d_container_demo',
+                        type: 'Container',
+                        props: { layout: 'row', justify: 'space-between', align: 'center', style: { padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px' } },
+                        children: [
+                          { id: 'c_left', type: 'Text', props: { text: 'Left (space-between)' } },
+                          { id: 'c_center', type: 'Text', props: { text: 'Center' } },
+                          { id: 'c_right', type: 'Text', props: { text: 'Right' } },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
         ],
       },
     ],

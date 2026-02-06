@@ -282,7 +282,42 @@ function buildVueNode(node, snapshot, vue, host) {
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
     const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
     const text = value !== undefined ? String(value) : (props && Object.prototype.hasOwnProperty.call(props, 'text') ? props.text : '');
-    return h(resolve('ElText'), props, { default: () => text });
+
+    // Size variants mapping
+    const sizeMap = {
+      xs: '12px', sm: '13px', md: '14px', lg: '16px', xl: '20px', xxl: '24px', stat: '36px',
+    };
+    // Weight variants mapping
+    const weightMap = {
+      normal: '400', medium: '500', semibold: '600', bold: '700',
+    };
+    // Color variants mapping (from design system)
+    const colorMap = {
+      primary: '#1E293B', secondary: '#64748B', muted: '#94A3B8',
+      success: '#22C55E', warning: '#F59E0B', error: '#EF4444', info: '#3B82F6',
+    };
+
+    const textStyle = { ...(props.style || {}) };
+    if (props.size && sizeMap[props.size]) {
+      textStyle.fontSize = sizeMap[props.size];
+    }
+    if (props.weight && weightMap[props.weight]) {
+      textStyle.fontWeight = weightMap[props.weight];
+    }
+    if (props.color && colorMap[props.color]) {
+      textStyle.color = colorMap[props.color];
+    }
+
+    const textProps = { ...props };
+    delete textProps.size;
+    delete textProps.weight;
+    delete textProps.color;
+    delete textProps.text;
+    if (Object.keys(textStyle).length > 0) {
+      textProps.style = textStyle;
+    }
+
+    return h(resolve('ElText'), textProps, { default: () => text });
   }
 
   if (node.type === 'CodeBlock') {
@@ -543,7 +578,45 @@ function buildVueNode(node, snapshot, vue, host) {
       if (!target) return;
       dispatchEvent(node, target, { click: true }, host, undefined, ctx);
     };
-    return h(resolve('ElButton'), props, { default: () => (node.props && node.props.label) || '' });
+
+    // Variant support: pill (capsule button), text, link
+    const variant = node.props && node.props.variant;
+    if (variant === 'pill') {
+      props.round = true;
+      props.style = { borderRadius: '9999px', paddingLeft: '24px', paddingRight: '24px', ...(props.style || {}) };
+    } else if (variant === 'text') {
+      props.text = true;
+    } else if (variant === 'link') {
+      props.link = true;
+    }
+
+    // Icon support
+    const icon = node.props && node.props.icon;
+    const iconPosition = (node.props && node.props.iconPosition) || 'left';
+    const label = (node.props && node.props.label) || '';
+
+    // Clean up custom props from ElButton
+    const buttonProps = { ...props };
+    delete buttonProps.variant;
+    delete buttonProps.icon;
+    delete buttonProps.iconPosition;
+    delete buttonProps.label;
+
+    // Icon mapping (simple emoji/symbol icons for now)
+    const iconMap = {
+      refresh: '↻', close: '✕', check: '✓', plus: '+', minus: '−',
+      search: '🔍', download: '⬇', upload: '⬆', copy: '📋', trash: '🗑',
+      edit: '✎', clock: '🕐', settings: '⚙', user: '👤', star: '★',
+    };
+    const iconChar = icon && iconMap[icon] ? iconMap[icon] : (icon || '');
+
+    if (iconChar) {
+      const iconSpan = h('span', { style: { marginRight: iconPosition === 'left' && label ? '6px' : '0', marginLeft: iconPosition === 'right' && label ? '6px' : '0' } }, iconChar);
+      const content = iconPosition === 'left' ? [iconSpan, label] : [label, iconSpan];
+      return h(resolve('ElButton'), buttonProps, { default: () => content });
+    }
+
+    return h(resolve('ElButton'), buttonProps, { default: () => label });
   }
 
   if (node.type === 'Drawer') {
@@ -625,8 +698,28 @@ function buildVueNode(node, snapshot, vue, host) {
 
   if (node.type === 'Container') {
     const layout = (node.props && node.props.layout) || 'column';
-    props.direction = layout === 'row' ? 'horizontal' : 'vertical';
-    return h(resolve('ElSpace'), props, { default: () => children });
+    const gap = node.props && node.props.gap;
+    const justify = node.props && node.props.justify;
+    const align = node.props && node.props.align;
+    const wrap = node.props && node.props.wrap;
+
+    // Build flexbox style
+    const flexStyle = {
+      display: 'flex',
+      flexDirection: layout === 'row' ? 'row' : 'column',
+      ...(gap !== undefined && { gap: typeof gap === 'number' ? `${gap}px` : gap }),
+      ...(justify && { justifyContent: justify }),
+      ...(align && { alignItems: align }),
+      ...(wrap && { flexWrap: 'wrap' }),
+      ...(props.style || {}),
+    };
+    const containerProps = { ...props, style: flexStyle };
+    delete containerProps.layout;
+    delete containerProps.gap;
+    delete containerProps.justify;
+    delete containerProps.align;
+    delete containerProps.wrap;
+    return h('div', containerProps, children);
   }
 
   if (node.type === 'ColorBox') {
@@ -781,6 +874,174 @@ function buildVueNode(node, snapshot, vue, host) {
       };
     }
     return h('div', props, children);
+  }
+
+  // =====================================================
+  // NEW COMPONENTS: StatCard, StatusBadge, Terminal, Icon
+  // =====================================================
+
+  if (node.type === 'Icon') {
+    const iconMap = {
+      refresh: '↻', close: '✕', check: '✓', plus: '+', minus: '−',
+      search: '🔍', download: '⬇', upload: '⬆', copy: '📋', trash: '🗑',
+      edit: '✎', clock: '🕐', settings: '⚙', user: '👤', star: '★',
+      activity: '📊', zap: '⚡', alert: '⚠', info: 'ℹ', terminal: '💻',
+    };
+    const name = (node.props && node.props.name) || '';
+    const size = (node.props && node.props.size) || 16;
+    const color = (node.props && node.props.color) || 'inherit';
+    const iconChar = iconMap[name] || name;
+    const iconStyle = {
+      fontSize: typeof size === 'number' ? `${size}px` : size,
+      color,
+      lineHeight: 1,
+      ...(props.style || {}),
+    };
+    return h('span', { ...props, style: iconStyle }, iconChar);
+  }
+
+  if (node.type === 'StatCard') {
+    const bind = node.bind && node.bind.read;
+    const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
+    const boundValue = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+
+    const label = (node.props && node.props.label) || '';
+    const value = boundValue !== undefined ? boundValue : (node.props && node.props.value) || '—';
+    const unit = (node.props && node.props.unit) || '';
+    const variant = (node.props && node.props.variant) || 'default';
+
+    const variantColors = {
+      default: '#1E293B', success: '#22C55E', warning: '#F59E0B', error: '#EF4444', info: '#3B82F6',
+    };
+    const valueColor = variantColors[variant] || variantColors.default;
+
+    const cardStyle = {
+      backgroundColor: '#FFFFFF',
+      border: '1px solid #E2E8F0',
+      borderRadius: '12px',
+      padding: '16px 20px',
+      minWidth: '140px',
+      ...(props.style || {}),
+    };
+
+    return h('div', { ...props, style: cardStyle }, [
+      h('div', { style: { fontSize: '12px', color: '#94A3B8', marginBottom: '8px', fontWeight: '500' } }, label),
+      h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '8px' } }, [
+        h('span', { style: { fontSize: '36px', fontWeight: '700', color: valueColor, lineHeight: '1.1' } }, String(value)),
+        unit ? h('span', { style: { fontSize: '14px', color: '#64748B' } }, unit) : null,
+      ].filter(Boolean)),
+    ]);
+  }
+
+  if (node.type === 'StatusBadge') {
+    const bind = node.bind && node.bind.read;
+    const boundStatus = bind ? getLabelValue(snapshot, bind) : undefined;
+
+    const label = (node.props && node.props.label) || 'STATUS';
+    const status = boundStatus !== undefined ? boundStatus : (node.props && node.props.status) || 'idle';
+    const text = (node.props && node.props.text) || status;
+
+    const statusColors = {
+      monitoring: '#22C55E', online: '#22C55E', success: '#22C55E',
+      warning: '#F59E0B', pending: '#F59E0B',
+      error: '#EF4444', offline: '#EF4444',
+      idle: '#94A3B8',
+    };
+    const dotColor = statusColors[status] || statusColors.idle;
+
+    const badgeStyle = {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      padding: '8px 16px',
+      backgroundColor: '#F8FAFC',
+      borderRadius: '8px',
+      border: '1px solid #E2E8F0',
+      ...(props.style || {}),
+    };
+
+    return h('div', { ...props, style: badgeStyle }, [
+      h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end' } }, [
+        h('span', { style: { fontSize: '10px', color: '#94A3B8', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' } }, label),
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' } }, [
+          h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', backgroundColor: dotColor } }),
+          h('span', { style: { fontSize: '14px', color: '#1E293B', fontWeight: '600' } }, text),
+        ]),
+      ]),
+    ]);
+  }
+
+  if (node.type === 'Terminal') {
+    const bind = node.bind && node.bind.read;
+    const boundContent = bind ? getLabelValue(snapshot, bind) : undefined;
+
+    const title = (node.props && node.props.title) || 'terminal';
+    const content = boundContent !== undefined ? String(boundContent) : (node.props && node.props.content) || '';
+    const showMacButtons = node.props && node.props.showMacButtons !== false;
+    const showToolbar = node.props && node.props.showToolbar !== false;
+    const maxHeight = (node.props && node.props.maxHeight) || '400px';
+
+    const containerStyle = {
+      borderRadius: '12px',
+      overflow: 'hidden',
+      border: '1px solid #334155',
+      ...(props.style || {}),
+    };
+
+    // Title bar with macOS-style buttons
+    const titleBarStyle = {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '10px 14px',
+      backgroundColor: '#334155',
+    };
+
+    const macButtons = showMacButtons ? h('div', { style: { display: 'flex', gap: '8px' } }, [
+      h('span', { style: { width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#EF4444' } }),
+      h('span', { style: { width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#F59E0B' } }),
+      h('span', { style: { width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#22C55E' } }),
+    ]) : null;
+
+    const titleText = h('span', { style: { fontSize: '13px', color: '#94A3B8', flex: 1, textAlign: 'center' } }, title);
+
+    const toolbarButtons = showToolbar ? h('div', { style: { display: 'flex', gap: '8px' } }, [
+      h('span', { style: { cursor: 'pointer', color: '#94A3B8', fontSize: '14px' }, title: '下载' }, '⬇'),
+      h('span', { style: { cursor: 'pointer', color: '#94A3B8', fontSize: '14px' }, title: '复制' }, '📋'),
+    ]) : h('div', { style: { width: '52px' } }); // placeholder for alignment
+
+    // Content area
+    const contentStyle = {
+      backgroundColor: '#1E293B',
+      padding: '16px',
+      fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+      fontSize: '13px',
+      lineHeight: '1.6',
+      color: '#E2E8F0',
+      maxHeight,
+      overflowY: 'auto',
+      whiteSpace: 'pre-wrap',
+      wordBreak: 'break-word',
+    };
+
+    // Simple syntax highlighting for trace logs
+    const highlightedContent = content.split('\n').map((line, idx) => {
+      // Highlight patterns like #69, matrix→server, inbound, etc.
+      let parts = [line];
+      const highlightPatterns = [
+        { regex: /(#\d+)/g, color: '#60A5FA' },
+        { regex: /(matrix→server|server→matrix|ui→server|engine)/g, color: '#60A5FA' },
+        { regex: /(inbound|outbound|internal)/g, color: '#4ADE80' },
+        { regex: /(\[[\d:]+\])/g, color: '#94A3B8' },
+      ];
+      // For simplicity, just return the line with basic structure
+      return h('div', { key: idx, style: { minHeight: '20px' } }, line || ' ');
+    });
+
+    return h('div', { ...props, style: containerStyle }, [
+      h('div', { style: titleBarStyle }, [macButtons, titleText, toolbarButtons].filter(Boolean)),
+      h('div', { style: contentStyle }, highlightedContent),
+    ]);
   }
 
   return h('div', props, children);
