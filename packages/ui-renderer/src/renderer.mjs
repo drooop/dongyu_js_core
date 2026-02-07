@@ -254,6 +254,17 @@ function renderTreeNode(node, snapshot) {
     return base;
   }
 
+  if (node.type === 'ProgressBar') {
+    const bind = node.bind && node.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    base.percentage = value !== undefined ? Number(value) : (node.props && node.props.percentage) || 0;
+    return base;
+  }
+
+  if (node.type === 'Divider' || node.type === 'Breadcrumb') {
+    return base;
+  }
+
   return base;
 }
 
@@ -886,6 +897,9 @@ function buildVueNode(node, snapshot, vue, host) {
       search: '🔍', download: '⬇', upload: '⬆', copy: '📋', trash: '🗑',
       edit: '✎', clock: '🕐', settings: '⚙', user: '👤', star: '★',
       activity: '📊', zap: '⚡', alert: '⚠', info: 'ℹ', terminal: '💻',
+      arrow_down: '↓', arrow_up: '↑', arrow_right: '→',
+      filter: '⊟', export: '📤', link: '🔗', globe: '🌐',
+      play: '▶', pause: '⏸', stop: '⏹', chart: '📈',
     };
     const name = (node.props && node.props.name) || '';
     const size = (node.props && node.props.size) || 16;
@@ -924,13 +938,30 @@ function buildVueNode(node, snapshot, vue, host) {
       ...(props.style || {}),
     };
 
-    return h('div', { ...props, style: cardStyle }, [
+    const trend = (node.props && node.props.trend) || '';
+    const trendDirection = (node.props && node.props.trendDirection) || 'neutral';
+    const trendColors = {
+      up: '#EF4444', down: '#22C55E', neutral: '#3B82F6', positive: '#22C55E', negative: '#EF4444',
+    };
+    const trendColor = trendColors[trendDirection] || trendColors.neutral;
+
+    const cardChildren = [
       h('div', { style: { fontSize: '12px', color: '#94A3B8', marginBottom: '8px', fontWeight: '500' } }, label),
       h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '8px' } }, [
         h('span', { style: { fontSize: '36px', fontWeight: '700', color: valueColor, lineHeight: '1.1' } }, String(value)),
         unit ? h('span', { style: { fontSize: '14px', color: '#64748B' } }, unit) : null,
       ].filter(Boolean)),
-    ]);
+    ];
+
+    if (trend) {
+      cardChildren.push(
+        h('div', { style: { marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' } }, [
+          h('span', { style: { color: trendColor, fontSize: '13px', fontWeight: '500' } }, trend),
+        ])
+      );
+    }
+
+    return h('div', { ...props, style: cardStyle }, cardChildren);
   }
 
   if (node.type === 'StatusBadge') {
@@ -1024,24 +1055,106 @@ function buildVueNode(node, snapshot, vue, host) {
       wordBreak: 'break-word',
     };
 
-    // Simple syntax highlighting for trace logs
+    // Parse lines: support \x01 separator for hover detail (displayText\x01hoverDetail)
     const highlightedContent = content.split('\n').map((line, idx) => {
-      // Highlight patterns like #69, matrix→server, inbound, etc.
-      let parts = [line];
-      const highlightPatterns = [
-        { regex: /(#\d+)/g, color: '#60A5FA' },
-        { regex: /(matrix→server|server→matrix|ui→server|engine)/g, color: '#60A5FA' },
-        { regex: /(inbound|outbound|internal)/g, color: '#4ADE80' },
-        { regex: /(\[[\d:]+\])/g, color: '#94A3B8' },
-      ];
-      // For simplicity, just return the line with basic structure
-      return h('div', { key: idx, style: { minHeight: '20px' } }, line || ' ');
+      if (!line) return h('div', { key: idx, style: { minHeight: '4px' } });
+      let displayText = line;
+      let hoverDetail = null;
+      const sepIdx = line.indexOf('\x01');
+      if (sepIdx !== -1) {
+        displayText = line.slice(0, sepIdx);
+        hoverDetail = line.slice(sepIdx + 1);
+      }
+
+      // Color-code segments separated by |
+      const segments = displayText.split(' | ');
+      const segmentNodes = segments.map((seg, si) => {
+        let color = '#E2E8F0'; // default
+        if (/^\[[\d:]+\]/.test(seg)) color = '#94A3B8';        // timestamp
+        else if (/#\d+/.test(seg)) color = '#94A3B8';           // has seq
+        else if (/→/.test(seg)) color = '#60A5FA';              // hop
+        else if (/^(inbound|outbound|internal)/.test(seg)) color = '#4ADE80'; // direction
+        else if (/^(action=|type=)/.test(seg)) color = '#FBBF24'; // summary
+        else if (/^model:/.test(seg)) color = '#A78BFA';        // model_id
+        else if (/^❌/.test(seg)) color = '#EF4444';            // error
+        else if (/^\{/.test(seg) || /^\[/.test(seg)) color = '#64748B'; // payload preview
+        const sepSpan = si > 0 ? h('span', { style: { color: '#475569' } }, ' | ') : null;
+        return [sepSpan, h('span', { key: si, style: { color } }, seg)];
+      }).flat().filter(Boolean);
+
+      const lineStyle = {
+        minHeight: '22px', padding: '2px 0',
+        borderBottom: '1px solid rgba(255,255,255,0.04)',
+        cursor: hoverDetail ? 'help' : 'default',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      };
+
+      // Pretty-print compact JSON for readable tooltip
+      let titleText = undefined;
+      if (hoverDetail) {
+        try { titleText = JSON.stringify(JSON.parse(hoverDetail), null, 2); } catch (_) { titleText = hoverDetail; }
+      }
+      return h('div', { key: idx, style: lineStyle, title: titleText }, segmentNodes);
     });
 
     return h('div', { ...props, style: containerStyle }, [
       h('div', { style: titleBarStyle }, [macButtons, titleText, toolbarButtons].filter(Boolean)),
       h('div', { style: contentStyle }, highlightedContent),
     ]);
+  }
+
+  // NEW COMPONENTS: ProgressBar, Divider, Breadcrumb
+  // ================================================
+
+  if (node.type === 'ProgressBar') {
+    const bind = node.bind && node.bind.read;
+    const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
+    const boundValue = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+
+    const percentage = boundValue !== undefined ? Number(boundValue) : (node.props && node.props.percentage) || 0;
+    const label = (node.props && node.props.label) || '';
+    const strokeWidth = (node.props && node.props.strokeWidth) || 8;
+    const variant = (node.props && node.props.variant) || 'default';
+
+    const variantColorMap = {
+      default: '#409EFF', success: '#22C55E', warning: '#F59E0B', error: '#EF4444', info: '#3B82F6',
+    };
+    const color = (node.props && node.props.color) || variantColorMap[variant] || variantColorMap.default;
+    const clampedPct = Math.min(100, Math.max(0, percentage));
+
+    const progressProps = { percentage: clampedPct, color, strokeWidth, showText: false };
+
+    if (label) {
+      return h('div', { ...props, style: { display: 'flex', flexDirection: 'column', gap: '4px', ...(props.style || {}) } }, [
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }, [
+          h('span', { style: { fontSize: '14px', color: '#64748B' } }, label),
+          h('span', { style: { fontSize: '14px', fontWeight: '600', color: '#1E293B' } }, `${clampedPct}%`),
+        ]),
+        h(resolve('ElProgress'), progressProps),
+      ]);
+    }
+    return h(resolve('ElProgress'), { ...props, ...progressProps });
+  }
+
+  if (node.type === 'Divider') {
+    const direction = (node.props && node.props.direction) || 'horizontal';
+    const contentPosition = (node.props && node.props.contentPosition) || 'center';
+    const text = (node.props && node.props.text) || '';
+    const dividerProps = { ...props, direction, contentPosition };
+    if (text) {
+      return h(resolve('ElDivider'), dividerProps, { default: () => text });
+    }
+    return h(resolve('ElDivider'), dividerProps);
+  }
+
+  if (node.type === 'Breadcrumb') {
+    const items = (node.props && Array.isArray(node.props.items)) ? node.props.items : [];
+    const separator = (node.props && node.props.separator) || '/';
+    const bcItems = items.map((item, idx) => {
+      const lbl = typeof item === 'string' ? item : (item.label || '');
+      return h(resolve('ElBreadcrumbItem'), { key: idx }, { default: () => lbl });
+    });
+    return h(resolve('ElBreadcrumb'), { ...props, separator }, { default: () => bcItems });
   }
 
   return h('div', props, children);

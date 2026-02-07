@@ -74,7 +74,7 @@ export function createDemoRoot(store) {
   };
 }
 
-export function createAppShell({ mainStore, galleryStore }) {
+export function createAppShell({ mainStore, galleryStore, authStore }) {
   const HomeRoot = createDemoRoot(mainStore);
   const GalleryRoot = createDemoRoot(galleryStore);
   const GalleryRemoteRoot = createDemoRoot({
@@ -180,19 +180,43 @@ export function createAppShell({ mainStore, galleryStore }) {
       const isTest = computed(() => isTestPath(path.value));
 
       function Header() {
-        return h('div', { style: { padding: '12px 16px', borderBottom: '1px solid #e5e7eb' } }, [
-          h(ElSpace, { wrap: true }, {
-            default: () => [
-              h(ElButton, { type: isHomePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_HOME) }, { default: () => '首页' }),
-              h('span', { style: { display: 'inline-block', width: '24px' } }, ''),
-              h(ElButton, { type: isGalleryPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_GALLERY) }, { default: () => 'Gallery' }),
-              h(ElButton, { type: isDocsPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_DOCS) }, { default: () => 'Docs' }),
-              h(ElButton, { type: isStaticPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_STATIC) }, { default: () => 'Static' }),
-              h(ElButton, { type: isWorkspacePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_WORKSPACE) }, { default: () => 'Workspace' }),
-              h(ElButton, { type: isPinPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_PIN) }, { default: () => 'PIN' }),
-              h(ElButton, { type: isTestPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_TEST) }, { default: () => 'Test' }),
-            ],
-          }),
+        const navButtons = [
+          h(ElButton, { type: isHomePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_HOME) }, { default: () => '首页' }),
+          h('span', { style: { display: 'inline-block', width: '24px' } }, ''),
+          h(ElButton, { type: isGalleryPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_GALLERY) }, { default: () => 'Gallery' }),
+          h(ElButton, { type: isDocsPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_DOCS) }, { default: () => 'Docs' }),
+          h(ElButton, { type: isStaticPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_STATIC) }, { default: () => 'Static' }),
+          h(ElButton, { type: isWorkspacePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_WORKSPACE) }, { default: () => 'Workspace' }),
+          h(ElButton, { type: isPinPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_PIN) }, { default: () => 'PIN' }),
+          h(ElButton, { type: isTestPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_TEST) }, { default: () => 'Test' }),
+        ];
+
+        const userSection = [];
+        if (authStore && authStore.state && authStore.state.authenticated) {
+          userSection.push(
+            h('span', { style: { fontSize: '13px', color: '#606266' } }, authStore.state.userId),
+            h(ElButton, {
+              size: 'small',
+              onClick: () => {
+                authStore.logout().then(() => { window.location.reload(); });
+              },
+            }, { default: () => 'Logout' }),
+          );
+        }
+
+        return h('div', {
+          style: {
+            padding: '12px 16px',
+            borderBottom: '1px solid #e5e7eb',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          },
+        }, [
+          h(ElSpace, { wrap: true }, { default: () => navButtons }),
+          userSection.length > 0
+            ? h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, userSection)
+            : null,
         ]);
       }
 

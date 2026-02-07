@@ -168,7 +168,7 @@ export function createRemoteStore(options) {
 
   async function fetchSnapshotAndApply(context) {
     try {
-      const resp = await fetch(`${baseUrl}/snapshot`);
+      const resp = await fetch(`${baseUrl}/snapshot`, { credentials: 'same-origin' });
       if (!resp.ok) {
         console.error('snapshot fetch failed', { context, status: resp.status, statusText: resp.statusText });
         return;
@@ -191,6 +191,7 @@ export function createRemoteStore(options) {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(envelope),
+        credentials: 'same-origin',
       });
     } catch (err) {
       console.error('ui_event fetch error', { err });
@@ -299,7 +300,7 @@ export function createRemoteStore(options) {
 
   async function bootstrap() {
     try {
-      const resp = await fetch(`${baseUrl}/snapshot`);
+      const resp = await fetch(`${baseUrl}/snapshot`, { credentials: 'same-origin' });
       const data = await resp.json();
       if (data && data.snapshot) applySnapshot(data.snapshot);
     } catch (_) {
@@ -307,7 +308,7 @@ export function createRemoteStore(options) {
     }
 
     try {
-      const es = new EventSource(`${baseUrl}/stream`);
+      const es = new EventSource(`${baseUrl}/stream`, { withCredentials: true });
       es.addEventListener('snapshot', (evt) => {
         try {
           const data = JSON.parse(evt.data);

@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mbr-worker
+  labels:
+    app: mbr-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mbr-worker
+  template:
+    metadata:
+      labels:
+        app: mbr-worker
+    spec:
+      hostAliases:
+      - ip: "172.18.0.13"
+        hostnames:
+        - "matrix.localhost"
+      containers:
+      - name: mbr
+        image: dy-mbr-worker:v0
+        imagePullPolicy: Never
+        envFrom:
+        - configMapRef:
+            name: mbr-worker-config
+        - secretRef:
+            name: mbr-worker-secret
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"

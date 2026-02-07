@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mbr-worker-config
+data:
+  # Matrix connection (matrix.localhost resolved via hostAliases in deployment)
+  MATRIX_HOMESERVER_URL: "https://matrix.localhost"
+  MATRIX_MBR_BOT_USER: "@mbr:localhost"
+  DY_MATRIX_ROOM_ID: "!rvgIBRtgXATQGGRWiS:localhost"
+  # MQTT connection (host.docker.internal = host machine from k8s pod)
+  DY_MQTT_HOST: "host.docker.internal"
+  DY_MQTT_PORT: "1883"
+  DY_MQTT_USER: "u"
+  DY_MQTT_PASS: "p"
+  # TLS
+  NODE_TLS_REJECT_UNAUTHORIZED: "0"
