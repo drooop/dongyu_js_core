@@ -827,6 +827,84 @@ export function buildGalleryAst() {
           },
         ],
       },
+
+      // ─── Wave E: TraceFlow Components ───────────────────────────
+      {
+        id: 'wave_e_traceflow',
+        type: 'Card',
+        props: { title: 'Wave E: TraceFlow Components (ProgressBar, Divider, Breadcrumb, StatCard trend)' },
+        children: [
+          { id: 'wave_e_desc', type: 'Text', props: { text: 'New components for dashboard layouts — ProgressBar, Divider, Breadcrumb, and StatCard with trend indicators.', type: 'info' } },
+          {
+            id: 'wave_e_content',
+            type: 'Container',
+            props: { layout: 'column', gap: 24, style: { marginTop: '16px' } },
+            children: [
+              // ProgressBar demos
+              {
+                id: 'wave_e_progress_group',
+                type: 'Container',
+                props: { layout: 'column', gap: 12 },
+                children: [
+                  { id: 'wave_e_progress_title', type: 'Text', props: { text: 'ProgressBar - 进度条', weight: 'semibold', size: 'lg' } },
+                  { id: 'pb_demo_1', type: 'ProgressBar', props: { percentage: 92, label: 'System Uptime', variant: 'success' } },
+                  { id: 'pb_demo_2', type: 'ProgressBar', props: { percentage: 67, label: 'Memory Usage', variant: 'warning' } },
+                  { id: 'pb_demo_3', type: 'ProgressBar', props: { percentage: 15, label: 'Error Rate', variant: 'error' } },
+                  {
+                    id: 'pb_demo_bound',
+                    type: 'ProgressBar',
+                    props: { label: 'Bound to Cell (row 10, col 0)', variant: 'info' },
+                    bind: { read: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 10, c: 0, k: 'wave_e_progress' } },
+                  },
+                ],
+              },
+              // Divider demos
+              {
+                id: 'wave_e_divider_group',
+                type: 'Container',
+                props: { layout: 'column', gap: 12 },
+                children: [
+                  { id: 'wave_e_divider_title', type: 'Text', props: { text: 'Divider - 分隔线', weight: 'semibold', size: 'lg' } },
+                  { id: 'div_demo_1', type: 'Divider', props: {} },
+                  { id: 'div_demo_2', type: 'Divider', props: { text: '分隔文字' } },
+                  { id: 'div_demo_3', type: 'Divider', props: { text: 'LEFT', contentPosition: 'left' } },
+                ],
+              },
+              // Breadcrumb demos
+              {
+                id: 'wave_e_breadcrumb_group',
+                type: 'Container',
+                props: { layout: 'column', gap: 12 },
+                children: [
+                  { id: 'wave_e_bc_title', type: 'Text', props: { text: 'Breadcrumb - 面包屑导航', weight: 'semibold', size: 'lg' } },
+                  { id: 'bc_demo_1', type: 'Breadcrumb', props: { items: [{ label: 'Applications' }, { label: 'Bus Trace' }] } },
+                  { id: 'bc_demo_2', type: 'Breadcrumb', props: { items: [{ label: 'Home' }, { label: 'Dashboard' }, { label: 'Analytics' }], separator: '>' } },
+                ],
+              },
+              // StatCard with trend demos
+              {
+                id: 'wave_e_trend_group',
+                type: 'Container',
+                props: { layout: 'column', gap: 12 },
+                children: [
+                  { id: 'wave_e_trend_title', type: 'Text', props: { text: 'StatCard with Trend - 趋势指标', weight: 'semibold', size: 'lg' } },
+                  {
+                    id: 'wave_e_trend_row',
+                    type: 'Container',
+                    props: { layout: 'row', gap: 16, wrap: true },
+                    children: [
+                      { id: 'trend_demo_1', type: 'StatCard', props: { label: 'Avg Latency', value: 42, unit: 'ms', variant: 'info', trend: '↓ 12%', trendDirection: 'down' } },
+                      { id: 'trend_demo_2', type: 'StatCard', props: { label: 'Throughput', value: '1.2k/s', variant: 'info', trend: 'Stable', trendDirection: 'neutral' } },
+                      { id: 'trend_demo_3', type: 'StatCard', props: { label: 'Error Rate', value: '0.02%', variant: 'success', trend: 'Optimal', trendDirection: 'neutral' } },
+                      { id: 'trend_demo_4', type: 'StatCard', props: { label: 'CPU Usage', value: '78%', variant: 'warning', trend: '↑ 5%', trendDirection: 'up' } },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
     ],
   };
 }
