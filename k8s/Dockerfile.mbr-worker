@@ -1,0 +1,22 @@
+FROM node:22-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY package.json package-lock.json* ./
+RUN npm install --omit=dev
+
+# Copy worker-base runtime
+COPY packages/worker-base/ ./packages/worker-base/
+
+# Copy bus-mgmt (Matrix adapter)
+COPY packages/bus-mgmt/ ./packages/bus-mgmt/
+
+# Copy generic worker bootstrap and engine
+COPY scripts/run_worker_v0.mjs ./scripts/
+COPY scripts/worker_engine_v0.mjs ./scripts/
+
+# Copy MBR role patches
+COPY deploy/sys-v1ns/mbr/patches/ ./deploy/sys-v1ns/mbr/patches/
+
+CMD ["node", "scripts/run_worker_v0.mjs", "deploy/sys-v1ns/mbr/patches"]
