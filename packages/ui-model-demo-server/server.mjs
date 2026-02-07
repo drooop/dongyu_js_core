@@ -18,6 +18,12 @@ import { ModelTableRuntime } from '../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from '../ui-model-demo-frontend/src/local_bus_adapter.js';
 import { buildEditorAstV1 } from '../ui-model-demo-frontend/src/demo_modeltable.js';
 import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from '../ui-model-demo-frontend/src/model_ids.js';
+import {
+  getSession, isAuthenticated, loginWithMatrix, logout,
+  makeSetCookieHeader, makeClearCookieHeader,
+  loadHomeservers, addHomeserver, removeHomeserver,
+  checkLoginRateLimit,
+} from './auth.mjs';
 
 const require = createRequire(import.meta.url);
 const { loadProgramModelFromSqlite } = require('../worker-base/src/program_model_loader.js');
@@ -1262,16 +1268,51 @@ function createServerState(options) {
     const getAllData = traceModel.getFunction('get_all_data');
     if (typeof getAllData === 'function') {
       const allData = getAllData({ runtime, model: traceModel });
+
+      // Throughput: events per second (approximate from recent window)
+      if (allData.length >= 2) {
+        const newest = allData[allData.length - 1];
+        const oldest = allData[Math.max(0, allData.length - 20)];
+        const spanMs = (newest.v && oldest.v) ? (newest.v.ts - oldest.v.ts) : 1000;
+        const spanSec = Math.max(1, spanMs / 1000);
+        const windowSize = Math.min(20, allData.length);
+        const tp = (windowSize / spanSec).toFixed(1);
+        runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_throughput', t: 'str', v: `${tp}/s` });
+      }
+
+      // Error rate
+      const errors = allData.filter((d) => d.v && d.v.error).length;
+      const errorRate = count > 0 ? ((errors / count) * 100).toFixed(2) + '%' : '0%';
+      runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_error_rate', t: 'str', v: errorRate });
+
       const recent = allData.slice(-50);
       const lines = recent.map((d) => {
         const val = d.v;
         if (!val || typeof val !== 'object') return JSON.stringify(d);
         const ts = val.ts ? new Date(val.ts).toLocaleTimeString('en-US', { hour12: false }) : '';
-        return `[${ts}] #${val.seq || ''} ${val.hop || ''} ${val.direction || ''}\n         | ${val.summary || ''} ${val.error ? '❌ ' + val.error : ''}`;
+
+        // Build payload preview (truncated for display)
+        let payloadPreview = '';
+        if (val.payload && typeof val.payload === 'object') {
+          const raw = JSON.stringify(val.payload);
+          payloadPreview = raw.length > 80 ? raw.slice(0, 80) + '…' : raw;
+        }
+
+        // Build display line: timestamp, seq, hop, direction, summary, payload preview
+        const parts = [`[${ts}] #${val.seq || ''}`, `${val.hop || ''} ${val.direction || ''}`];
+        if (val.summary) parts.push(val.summary);
+        if (val.model_id !== '' && val.model_id != null) parts.push(`model:${val.model_id}`);
+        if (val.error) parts.push(`❌ ${val.error}`);
+        if (payloadPreview) parts.push(payloadPreview);
+        const displayLine = parts.join(' | ');
+
+        // Full detail for hover (after \x01 separator) — compact JSON (no newlines)
+        const fullDetail = JSON.stringify(val);
+        return `${displayLine}\x01${fullDetail}`;
       });
       runtime.addLabel(traceModel, 0, 0, 0, {
         k: 'trace_log_text', t: 'str',
-        v: lines.reverse().join('\n\n'),
+        v: lines.reverse().join('\n'),
       });
     }
   });
@@ -1282,110 +1323,230 @@ function createServerState(options) {
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_status', t: 'str', v: 'monitoring' });
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_avg_latency', t: 'int', v: 0 });
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_last_update', t: 'str', v: '--:--:--' });
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_throughput', t: 'str', v: '0/s' });
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_error_rate', t: 'str', v: '0%' });
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_uptime', t: 'int', v: 92 });
+
+  // TraceFlow Dashboard AST — matches Stitch Screen 3 design
+  const runningApps = [
+    { name: 'E2E Color Generator', source: 'k8s-worker', icon: '🎨', active: false },
+    { name: 'Leave Application', source: 'worker-A', icon: '📋', active: false },
+    { name: 'Device Repair', source: 'worker-B', icon: '🔧', active: false },
+    { name: 'Bus Trace', source: 'system', icon: '📊', active: true },
+  ];
 
   const traceAst = {
     id: 'trace_root',
     type: 'Container',
-    props: { layout: 'column', gap: 24 },
+    props: { layout: 'column', gap: 0, style: { minHeight: '100%' } },
     children: [
+      // ── Section 1: Running Applications ──
       {
-        id: 'trace_header',
+        id: 'trace_apps_section',
         type: 'Container',
-        props: { layout: 'row', justify: 'space-between', align: 'flex-start' },
+        props: { layout: 'column', gap: 12, style: { padding: '20px 24px', borderBottom: '1px solid #E2E8F0' } },
+        children: [
+          { id: 'trace_apps_label', type: 'Text', props: { text: 'Running Applications', size: 'sm', weight: 'semibold', color: 'secondary' } },
+          {
+            id: 'trace_apps_row',
+            type: 'Container',
+            props: { layout: 'row', gap: 12, wrap: true },
+            children: runningApps.map((app, i) => ({
+              id: `trace_app_card_${i}`,
+              type: 'Box',
+              props: {
+                style: {
+                  padding: '12px 16px', borderRadius: '8px',
+                  border: app.active ? '2px solid #3B82F6' : '1px solid #E2E8F0',
+                  backgroundColor: app.active ? '#EFF6FF' : '#FFFFFF',
+                  minWidth: '180px', flex: '1',
+                  display: 'flex', flexDirection: 'column', gap: '6px',
+                },
+              },
+              children: [
+                {
+                  id: `trace_app_head_${i}`,
+                  type: 'Container',
+                  props: { layout: 'row', gap: 8, align: 'center' },
+                  children: [
+                    { id: `trace_app_icon_${i}`, type: 'Text', props: { text: app.icon, style: { fontSize: '16px' } } },
+                    { id: `trace_app_name_${i}`, type: 'Text', props: { text: app.name, size: 'sm', weight: 'medium' } },
+                  ],
+                },
+                {
+                  id: `trace_app_meta_${i}`,
+                  type: 'Container',
+                  props: { layout: 'row', gap: 8, align: 'center' },
+                  children: [
+                    { id: `trace_app_src_${i}`, type: 'Text', props: { text: app.source, size: 'xs', color: 'muted' } },
+                    { id: `trace_app_dot_${i}`, type: 'Text', props: { text: '●', style: { fontSize: '8px', color: '#22C55E' } } },
+                  ],
+                },
+              ],
+            })),
+          },
+        ],
+      },
+
+      // ── Section 2: System Health ──
+      {
+        id: 'trace_health_section',
+        type: 'Container',
+        props: { layout: 'column', gap: 8, style: { padding: '16px 24px', borderBottom: '1px solid #E2E8F0' } },
         children: [
           {
-            id: 'trace_title_area',
+            id: 'trace_health_bar',
+            type: 'ProgressBar',
+            props: { label: 'System Health', variant: 'success', strokeWidth: 10 },
+            bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_uptime' } },
+          },
+          { id: 'trace_health_detail', type: 'Text', props: { text: 'Up-time across 14 nodes', size: 'xs', color: 'muted' } },
+        ],
+      },
+
+      // ── Section 3: Breadcrumb + Action Buttons ──
+      {
+        id: 'trace_nav_section',
+        type: 'Container',
+        props: { layout: 'row', justify: 'space-between', align: 'center', style: { padding: '12px 24px', borderBottom: '1px solid #E2E8F0' } },
+        children: [
+          { id: 'trace_breadcrumb', type: 'Breadcrumb', props: { items: [{ label: 'Applications' }, { label: 'Bus Trace' }] } },
+          {
+            id: 'trace_action_buttons',
             type: 'Container',
-            props: { layout: 'column', gap: 4 },
+            props: { layout: 'row', gap: 8 },
             children: [
-              { id: 'trace_title', type: 'Text', props: { text: 'Bus Trace — 全链路事件追踪', size: 'xxl', weight: 'semibold' } },
+              { id: 'trace_btn_refresh', type: 'Button', props: { label: 'Refresh', icon: 'refresh', size: 'small' } },
+              { id: 'trace_btn_export', type: 'Button', props: { label: 'Export Logs', icon: 'download', size: 'small' } },
+            ],
+          },
+        ],
+      },
+
+      // ── Section 4: Title + Tracing Toggle ──
+      {
+        id: 'trace_main_section',
+        type: 'Container',
+        props: { layout: 'column', gap: 20, style: { padding: '20px 24px' } },
+        children: [
+          {
+            id: 'trace_title_row',
+            type: 'Container',
+            props: { layout: 'row', justify: 'space-between', align: 'center' },
+            children: [
               {
-                id: 'trace_subtitle_row',
+                id: 'trace_title_area',
                 type: 'Container',
-                props: { layout: 'row', gap: 6, align: 'center' },
+                props: { layout: 'column', gap: 4 },
                 children: [
-                  { id: 'trace_clock_icon', type: 'Icon', props: { name: 'clock', size: 14, color: '#64748B' } },
-                  { id: 'trace_subtitle', type: 'Text', props: { text: '实时记录: UI → Server → Matrix → MBR → MQTT 全链路消息', color: 'secondary' } },
+                  { id: 'trace_title', type: 'Text', props: { text: 'Bus Trace \u2014 Full Link Event Tracking', size: 'xxl', weight: 'semibold' } },
+                  {
+                    id: 'trace_subtitle_row',
+                    type: 'Container',
+                    props: { layout: 'row', gap: 6, align: 'center' },
+                    children: [
+                      { id: 'trace_clock_icon', type: 'Icon', props: { name: 'clock', size: 14, color: '#64748B' } },
+                      { id: 'trace_subtitle', type: 'Text', props: { text: 'UI \u2192 Server \u2192 Matrix \u2192 MBR \u2192 MQTT', color: 'secondary' } },
+                    ],
+                  },
+                ],
+              },
+              {
+                id: 'trace_controls',
+                type: 'Container',
+                props: { layout: 'row', gap: 12, align: 'center' },
+                children: [
+                  {
+                    id: 'trace_status_badge',
+                    type: 'StatusBadge',
+                    props: { label: 'STATUS', text: 'Monitoring' },
+                    bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_status' } },
+                  },
+                  { id: 'trace_switch_label', type: 'Text', props: { text: 'Tracing', color: 'secondary' } },
+                  {
+                    id: 'trace_switch',
+                    type: 'Switch',
+                    bind: {
+                      read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_enabled' },
+                      write: { action: 'label_update', target_ref: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_enabled' } },
+                    },
+                  },
                 ],
               },
             ],
           },
+
+          // ── Divider ──
+          { id: 'trace_divider_1', type: 'Divider', props: {} },
+
+          // ── Section 5: Metrics Row ──
           {
-            id: 'trace_controls',
+            id: 'trace_metrics_row',
             type: 'Container',
-            props: { layout: 'row', gap: 16, align: 'center' },
+            props: { layout: 'row', gap: 16, wrap: true },
             children: [
               {
-                id: 'trace_status_badge',
-                type: 'StatusBadge',
-                props: { label: 'STATUS', text: 'Monitoring' },
-                bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_status' } },
+                id: 'stat_events',
+                type: 'StatCard',
+                props: { label: 'Events', unit: 'total', variant: 'info', style: { flex: 1 } },
+                bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_count' } },
               },
-              { id: 'trace_switch_label', type: 'Text', props: { text: 'Trace 开关', color: 'secondary' } },
               {
-                id: 'trace_switch',
-                type: 'Switch',
-                bind: {
-                  read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_enabled' },
-                  write: { action: 'label_update', target_ref: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_enabled' } },
-                },
+                id: 'stat_latency',
+                type: 'StatCard',
+                props: { label: 'Avg Latency', unit: 'ms', variant: 'info', trend: '\u2193 12%', trendDirection: 'down', style: { flex: 1 } },
+                bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_avg_latency' } },
+              },
+              {
+                id: 'stat_throughput',
+                type: 'StatCard',
+                props: { label: 'Throughput', variant: 'info', trend: 'Stable', trendDirection: 'neutral', style: { flex: 1 } },
+                bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_throughput' } },
+              },
+              {
+                id: 'stat_error_rate',
+                type: 'StatCard',
+                props: { label: 'Error Rate', variant: 'success', trend: 'Optimal', trendDirection: 'neutral', style: { flex: 1 } },
+                bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_error_rate' } },
               },
             ],
           },
-        ],
-      },
-      {
-        id: 'trace_stats_row',
-        type: 'Container',
-        props: { layout: 'row', gap: 16 },
-        children: [
+
+          // ── Divider ──
+          { id: 'trace_divider_2', type: 'Divider', props: {} },
+
+          // ── Section 6: Terminal ──
           {
-            id: 'stat_events',
-            type: 'StatCard',
-            props: { label: '事件计数', unit: 'events recorded' },
-            bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_count' } },
-          },
-          {
-            id: 'stat_latency',
-            type: 'StatCard',
-            props: { label: '平均延迟', unit: 'ms' },
-            bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_avg_latency' } },
-          },
-          {
-            id: 'stat_update',
-            type: 'StatCard',
-            props: { label: '最新更新', unit: 'now' },
-            bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_last_update' } },
-          },
-        ],
-      },
-      {
-        id: 'trace_terminal',
-        type: 'Terminal',
-        props: {
-          title: 'system_event_stream.log (最新 50 条)',
-          showMacButtons: true,
-          showToolbar: true,
-          maxHeight: '400px',
-        },
-        bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_log_text' } },
-      },
-      {
-        id: 'trace_clear_btn',
-        type: 'Container',
-        props: { layout: 'row', justify: 'center' },
-        children: [
-          {
-            id: 'trace_clear',
-            type: 'Button',
-            props: { label: '清空 Trace', icon: 'refresh', variant: 'pill', type: 'primary' },
-            bind: {
-              write: {
-                action: 'label_add',
-                target_ref: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 2, k: 'clear_cmd' },
-                value_ref: { t: 'str', v: '1' },
-              },
+            id: 'trace_terminal',
+            type: 'Terminal',
+            props: {
+              title: 'system_event_stream.log (50 recent entries)',
+              showMacButtons: true,
+              showToolbar: true,
+              maxHeight: '400px',
             },
+            bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_log_text' } },
+          },
+
+          // ── Section 7: Clear Trace ──
+          {
+            id: 'trace_clear_btn',
+            type: 'Container',
+            props: { layout: 'row', justify: 'center', style: { marginTop: '8px' } },
+            children: [
+              {
+                id: 'trace_clear',
+                type: 'Button',
+                props: { label: 'Clear Trace', icon: 'trash', variant: 'pill' },
+                bind: {
+                  write: {
+                    action: 'label_add',
+                    target_ref: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 2, k: 'clear_cmd' },
+                    value_ref: { t: 'str', v: '1' },
+                  },
+                },
+              },
+            ],
           },
         ],
       },
@@ -1459,6 +1620,10 @@ function createServerState(options) {
           ],
         },
       });
+
+      // Wave E: ProgressBar demo state
+      ensureGallery(0, 10, 0, { k: 'wave_e_progress', t: 'int', v: 92 });
+      ensureGallery(0, 10, 1, { k: 'wave_e_progress2', t: 'int', v: 67 });
     }
   } catch (_) {
     // ignore
@@ -2033,6 +2198,99 @@ function startServer(options) {
     if (req.method === 'OPTIONS') {
       res.writeHead(204, cors);
       res.end();
+      return;
+    }
+
+    // ── Auth endpoints ───────────────────────────────────────────────────
+    if (req.method === 'POST' && url.pathname === '/auth/login') {
+      const clientIp = req.socket.remoteAddress || '127.0.0.1';
+      if (!checkLoginRateLimit(clientIp)) {
+        writeJson(res, 429, { ok: false, error: 'rate_limited' }, cors);
+        return;
+      }
+      try {
+        const body = await readJsonBody(req);
+        if (!body || !body.username || !body.password || !body.homeserverUrl) {
+          writeJson(res, 400, { ok: false, error: 'missing_fields' }, cors);
+          return;
+        }
+        const session = await loginWithMatrix(body.homeserverUrl, body.username, body.password);
+        res.writeHead(200, {
+          ...cors,
+          'content-type': 'application/json; charset=utf-8',
+          'set-cookie': makeSetCookieHeader(session.token),
+        });
+        res.end(JSON.stringify({
+          ok: true,
+          userId: session.userId,
+          displayName: session.displayName,
+          homeserverUrl: session.homeserverUrl,
+        }));
+      } catch (err) {
+        console.error('[auth] login failed:', err && err.message ? err.message : err);
+        writeJson(res, 401, { ok: false, error: 'login_failed' }, cors);
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/auth/logout') {
+      logout(req);
+      res.writeHead(200, {
+        ...cors,
+        'content-type': 'application/json; charset=utf-8',
+        'set-cookie': makeClearCookieHeader(),
+      });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/auth/me') {
+      const session = getSession(req);
+      if (!session) {
+        writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
+        return;
+      }
+      writeJson(res, 200, {
+        ok: true,
+        userId: session.userId,
+        displayName: session.displayName,
+        homeserverUrl: session.homeserverUrl,
+      }, cors);
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/auth/homeservers') {
+      writeJson(res, 200, { homeservers: loadHomeservers() }, cors);
+      return;
+    }
+
+    if (req.method === 'DELETE' && url.pathname === '/auth/homeservers') {
+      if (!isAuthenticated(req)) {
+        writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
+        return;
+      }
+      const hsUrl = url.searchParams.get('url');
+      if (!hsUrl) {
+        writeJson(res, 400, { ok: false, error: 'missing_url' }, cors);
+        return;
+      }
+      removeHomeserver(hsUrl);
+      writeJson(res, 200, { ok: true }, cors);
+      return;
+    }
+
+    // ── Auth guard ───────────────────────────────────────────────────────
+    function isPublicPath(method, pathname) {
+      if (pathname === '/auth/login' || pathname === '/auth/me') return true;
+      if (method === 'GET' && pathname === '/auth/homeservers') return true;
+      if (method === 'GET' && (pathname === '/' || pathname === '/index.html'
+          || pathname.startsWith('/assets/'))) return true;
+      if (method === 'OPTIONS') return true;
+      return false;
+    }
+
+    if (!isPublicPath(req.method, url.pathname) && !isAuthenticated(req)) {
+      writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
       return;
     }
 
