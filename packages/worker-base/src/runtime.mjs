@@ -522,6 +522,7 @@ class ModelTableRuntime {
 
   _topicMode(config) {
     const mode = config && typeof config.topic_mode === 'string' ? config.topic_mode : null;
+    if (mode === 'uiput_9layer_v2') return 'uiput_9layer_v2';
     if (mode === 'uiput_mm_v1') return 'uiput_mm_v1';
     return 'stage2';
   }
@@ -533,14 +534,14 @@ class ModelTableRuntime {
   }
 
   _pinRegistryCellFor(modelId, topicMode) {
-    if (topicMode === 'uiput_mm_v1') {
+    if (topicMode === 'uiput_9layer_v2' || topicMode === 'uiput_mm_v1') {
       return { model_id: modelId, p: 0, r: 0, c: 1 };
     }
     return { model_id: 0, p: 0, r: 0, c: 1 };
   }
 
   _pinMailboxCellFor(modelId, topicMode) {
-    if (topicMode === 'uiput_mm_v1') {
+    if (topicMode === 'uiput_9layer_v2' || topicMode === 'uiput_mm_v1') {
       return { model_id: modelId, p: 0, r: 1, c: 1 };
     }
     return { model_id: 0, p: 0, r: 1, c: 1 };
@@ -577,6 +578,13 @@ class ModelTableRuntime {
       topic_mode: get('mqtt_topic_mode')?.v ?? null,
       topic_base: get('mqtt_topic_base')?.v ?? null,
       payload_mode: get('mqtt_payload_mode')?.v ?? null,
+      // 9-layer segment labels
+      topic_ns: get('mqtt_topic_ns')?.v ?? null,
+      topic_ws: get('mqtt_topic_ws')?.v ?? null,
+      topic_dam: get('mqtt_topic_dam')?.v ?? null,
+      topic_pic: get('mqtt_topic_pic')?.v ?? null,
+      topic_de: get('mqtt_topic_de')?.v ?? null,
+      topic_sw: get('mqtt_topic_sw')?.v ?? null,
     };
   }
 
@@ -586,7 +594,9 @@ class ModelTableRuntime {
     if (!Number.isInteger(config.port)) missing.push('mqtt_target_port');
     if (!config.client_id) missing.push('mqtt_target_client_id');
     const mode = this._topicMode(config);
-    if (mode === 'uiput_mm_v1') {
+    if (mode === 'uiput_9layer_v2') {
+      if (!config.topic_ns || typeof config.topic_ns !== 'string') missing.push('mqtt_topic_ns');
+    } else if (mode === 'uiput_mm_v1') {
       if (!config.topic_base || typeof config.topic_base !== 'string') missing.push('mqtt_topic_base');
     }
     return missing;
@@ -701,9 +711,26 @@ class ModelTableRuntime {
     return { applied: true };
   }
 
-  _topicFor(modelId, pinName) {
+  /**
+   * Build MQTT topic for a given model/pin.
+   * @param {number} modelId
+   * @param {string} pinName
+   * @param {string} [direction] - 'in' or 'out'. Required for uiput_9layer_v2, ignored for older modes.
+   */
+  _topicFor(modelId, pinName, direction) {
     const config = this._getConfigFromPage0();
     const mode = this._topicMode(config);
+    if (mode === 'uiput_9layer_v2') {
+      const ns = config.topic_ns || '';
+      if (!ns) return null;
+      const dir = direction || 'in';
+      const ws = config.topic_ws || 'ws';
+      const dam = config.topic_dam || 'dam';
+      const pic = config.topic_pic || 'pic';
+      const de = config.topic_de || 'de';
+      const sw = config.topic_sw || 'sw';
+      return `${ns}/${dir}/${ws}/${dam}/${pic}/${de}/${sw}/${modelId}/${pinName}`;
+    }
     if (mode === 'uiput_mm_v1') {
       const base = config.topic_base || '';
       if (!base) return null;
@@ -719,9 +746,19 @@ class ModelTableRuntime {
     for (const key of this.pinInSet) {
       const parsed = this._parsePinKey(key);
       if (!parsed) continue;
-      const topic = this._topicFor(parsed.modelId, parsed.pinK);
+      const topic = this._topicFor(parsed.modelId, parsed.pinK, 'in');
       if (!topic) continue;
       this.mqttClient.subscribe(topic);
+    }
+    // Subscribe wildcard topics declared via MQTT_WILDCARD_SUB labels
+    for (const [, model] of this.models) {
+      for (const [, cell] of model.cells) {
+        for (const [, label] of cell.labels) {
+          if (label.t === 'MQTT_WILDCARD_SUB' && typeof label.v === 'string' && label.v) {
+            this.mqttClient.subscribe(label.v);
+          }
+        }
+      }
     }
   }
 
@@ -735,12 +772,16 @@ class ModelTableRuntime {
       if (label.t === 'PIN_IN') {
         this.pinInSet.add(this._pinKey(model.id, label.k));
         if (this.mqttClient) {
-          const topic = this._topicFor(model.id, label.k);
+          const topic = this._topicFor(model.id, label.k, 'in');
           if (topic) this.mqttClient.subscribe(topic);
         }
       }
       if (label.t === 'PIN_OUT') {
         this.pinOutSet.add(this._pinKey(model.id, label.k));
+      }
+      // Handle MQTT_WILDCARD_SUB labels (subscribe to wildcard topics)
+      if (label.t === 'MQTT_WILDCARD_SUB' && typeof label.v === 'string' && label.v && this.mqttClient) {
+        this.mqttClient.subscribe(label.v);
       }
       return;
     }
@@ -751,7 +792,7 @@ class ModelTableRuntime {
         const payload = (payloadMode === 'mt_v0' && valueIsPatch)
           ? label.v
           : { pin: label.k, value: label.v, t: 'OUT' };
-        const topic = this._topicFor(model.id, label.k);
+        const topic = this._topicFor(model.id, label.k, 'out');
         if (topic) this.mqttClient.publish(topic, payload);
       }
     }
@@ -765,12 +806,15 @@ class ModelTableRuntime {
       if (prevLabel.t === 'PIN_IN') {
         this.pinInSet.delete(this._pinKey(model.id, prevLabel.k));
         if (this.mqttClient) {
-          const topic = this._topicFor(model.id, prevLabel.k);
+          const topic = this._topicFor(model.id, prevLabel.k, 'in');
           if (topic) this.mqttClient.unsubscribe(topic);
         }
       }
       if (prevLabel.t === 'PIN_OUT') {
         this.pinOutSet.delete(this._pinKey(model.id, prevLabel.k));
+      }
+      if (prevLabel.t === 'MQTT_WILDCARD_SUB' && typeof prevLabel.v === 'string' && prevLabel.v && this.mqttClient) {
+        this.mqttClient.unsubscribe(prevLabel.v);
       }
     }
   }
@@ -806,6 +850,44 @@ class ModelTableRuntime {
       }
     } else {
       if (payload.t !== 'IN') return false;
+    }
+
+    if (mode === 'uiput_9layer_v2') {
+      // 9-layer: UIPUT/{dir}/{ws}/{dam}/{pic}/{de}/{sw}/{model}/{pin}
+      const ns = config.topic_ns || '';
+      if (!ns) return false;
+      if (!topic || typeof topic !== 'string' || !topic.startsWith(`${ns}/`)) {
+        return false;
+      }
+      const rest = topic.slice(ns.length + 1);
+      const parts = rest.split('/');
+      // parts: [dir, ws, dam, pic, de, sw, model, pin]
+      if (parts.length !== 8) {
+        return false;
+      }
+      const direction = parts[0];
+      // Only accept 'in' direction for incoming messages to this worker
+      if (direction !== 'in') {
+        // Could be a wildcard subscription match (e.g. UIPUT/out/#)
+        // Route to wildcard inbox if any MQTT_WILDCARD_SUB label matches
+        return this._handleWildcardIncoming(topic, payload, config, mode);
+      }
+      const modelId = Number(parts[6]);
+      const pinName = parts[7] || '';
+      if (!Number.isInteger(modelId) || !pinName) {
+        return false;
+      }
+      if (!this.pinInSet.has(this._pinKey(modelId, pinName))) {
+        return false;
+      }
+      const model = this.getModel(modelId);
+      if (!model) {
+        return false;
+      }
+      const mailbox = this._pinMailboxCellFor(modelId, mode);
+      this.addLabel(model, mailbox.p, mailbox.r, mailbox.c, { k: pinName, t: 'IN', v: payload });
+      this.mqttTrace.record('inbound', { topic, payload });
+      return true;
     }
 
     if (mode === 'uiput_mm_v1') {
@@ -854,6 +936,50 @@ class ModelTableRuntime {
     this.addLabel(model, mailbox.p, mailbox.r, mailbox.c, { k: pinName, t: 'IN', v: payload });
     this.mqttTrace.record('inbound', { topic, payload });
     return true;
+  }
+
+  /**
+   * Handle messages arriving via wildcard subscriptions (MQTT_WILDCARD_SUB).
+   * Writes to the declaring model's mailbox cell with topic+payload.
+   */
+  _handleWildcardIncoming(topic, payload, config, mode) {
+    let matched = false;
+    for (const [, model] of this.models) {
+      for (const [, cell] of model.cells) {
+        for (const [, label] of cell.labels) {
+          if (label.t !== 'MQTT_WILDCARD_SUB' || typeof label.v !== 'string') continue;
+          if (!this._topicMatchesWildcard(topic, label.v)) continue;
+          // Write to the model's mailbox
+          const mailbox = this._pinMailboxCellFor(model.id, mode);
+          this.addLabel(model, mailbox.p, mailbox.r, mailbox.c, {
+            k: label.k,
+            t: 'IN',
+            v: { topic, payload },
+          });
+          this.mqttTrace.record('wildcard_inbound', { topic, wildcard: label.v, model_id: model.id });
+          matched = true;
+        }
+      }
+    }
+    return matched;
+  }
+
+  /**
+   * Check if an MQTT topic matches a wildcard subscription pattern.
+   * Supports '+' (single-level) and '#' (multi-level, must be last).
+   */
+  _topicMatchesWildcard(topic, pattern) {
+    if (!topic || !pattern) return false;
+    if (pattern === '#') return true;
+    const topicParts = topic.split('/');
+    const patternParts = pattern.split('/');
+    for (let i = 0; i < patternParts.length; i++) {
+      if (patternParts[i] === '#') return true;
+      if (i >= topicParts.length) return false;
+      if (patternParts[i] === '+') continue;
+      if (patternParts[i] !== topicParts[i]) return false;
+    }
+    return topicParts.length === patternParts.length;
   }
 
   _applyBuiltins(model, p, r, c, label, prevLabel) {

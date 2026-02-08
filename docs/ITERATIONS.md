@@ -26,6 +26,9 @@
 | 0131-server-connected-editor-sse | 2026-01-28 | Server-connected ModelTable editor demo (SSE + HTTP; backend self-sliding; renderer-only frontend) | 4 | dev_0131-server-connected-editor-sse | Completed | ./docs/iterations/0131-server-connected-editor-sse/ |
 | 0132-dual-bus-contract-harness-v0 | 2026-01-28 | Dual Bus (Stage 4) contract + harness v0 (no real Matrix creds) | 6 | dev_0132-dual-bus-contract-harness-v0 | Completed | ./docs/iterations/0132-dual-bus-contract-harness-v0/ |
 | 0133-ui-component-gallery-v0 | 2026-01-31 | UI component Gallery (Element Plus subset) + virtual routing + props/events coverage + submodel composition | 7 | dev_gallery_ui_component_gallery_v0 | Completed | ./docs/iterations/0133-ui-component-gallery-v0/ |
+| 0134-color-generator-e2e-repro | 2026-02-09 | Color Generator E2E repro + runbook solidification | 4 | dev_0134-color-generator-e2e-repro | Completed | ./docs/iterations/0134-color-generator-e2e-repro/ |
+| 0135-color-generator-patch-only-repro | 2026-02-09 | Color Generator E2E repro in patch-only mode (empty yhl.db assumption) | 4 | dev_0135-color-generator-patch-only-repro | Completed | ./docs/iterations/0135-color-generator-patch-only-repro/ |
+| 0136-runtime-baseline-k8s-default | 2026-02-09 | Runtime baseline fixed to Docker+K8s; local MBR archived | 4 | dev_0136-runtime-baseline-k8s-default | Completed | ./docs/iterations/0136-runtime-baseline-k8s-default/ |
 
 ---
 

@@ -52,10 +52,22 @@
     {
       "op": "add_label",
       "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "dual_bus_model",
+      "t": "json",
+      "v": {
+        "ui_event_func": "forward_model100_events",
+        "patch_in_func": "on_model100_patch_in",
+        "patch_in_pin": "patch"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
       "p": 0, "r": 1, "c": 1,
-      "k": "patch_in",
+      "k": "patch",
       "t": "PIN_IN",
-      "v": "patch_in"
+      "v": "patch"
     },
     {
       "op": "add_label",
@@ -63,7 +75,7 @@
       "p": 0, "r": 0, "c": 0,
       "k": "on_model100_patch_in",
       "t": "function",
-      "v": "const cell = ctx.runtime.getCell(ctx.runtime.getModel(100), 0, 1, 1);\nconst inLabel = cell.labels.get('patch_in');\nif (!inLabel || inLabel.t !== 'IN') return;\nconst patch = inLabel.v;\nconsole.log('[on_model100_patch_in] Received patch:', JSON.stringify(patch));\nif (patch && patch.version === 'mt.v0' && Array.isArray(patch.records)) {\n  ctx.runtime.applyPatch(patch, { allowCreateModel: false });\n  console.log('[on_model100_patch_in] Patch applied successfully');\n}\nctx.runtime.rmLabel(ctx.runtime.getModel(100), 0, 1, 1, 'patch_in');\nctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_on_model100_patch_in' });"
+      "v": "const cell = ctx.runtime.getCell(ctx.runtime.getModel(100), 0, 1, 1);\nconst inLabel = cell.labels.get('patch');\nif (!inLabel || inLabel.t !== 'IN') return;\nconst patch = inLabel.v;\nconsole.log('[on_model100_patch_in] Received patch:', JSON.stringify(patch));\nif (patch && patch.version === 'mt.v0' && Array.isArray(patch.records)) {\n  ctx.runtime.applyPatch(patch, { allowCreateModel: false });\n  console.log('[on_model100_patch_in] Patch applied successfully');\n}\nctx.runtime.rmLabel(ctx.runtime.getModel(100), 0, 1, 1, 'patch');\nctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_on_model100_patch_in' });"
     },
     {
       "op": "add_label",

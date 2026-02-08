@@ -1,0 +1,19 @@
+6:[mbr-worker] mqtt READY subscribed=UIPUT/ws/dam/pic/de/sw/+/patch
+50:[mbr-worker] mbr_ready signal sent to Matrix
+109:[mbr_mgmt_to_mqtt] Converted ui_event to patch: {"version":"mt.v0","op_id":"it0135_1770578469746","records":[{"op":"add_label","model_id":2,"p":0,"r":0,"c":0,"k":"ui_event","t":"json","v":{"action":"label_add","data":{"action":"label_add","meta":{"op_id":"it0135_1770578469746"},"target":{"model_id":100,"p":0,"r":0,"c":2,"k":"ui_event"},"value":{"t":"json","v":{"action":"submit","meta":{"op_id":"it0135_1770578469746"}}}},"timestamp":1770578469755}}]}
+111:[mbr_mgmt_to_mqtt] Publishing to MQTT topic: UIPUT/ws/dam/pic/de/sw/2/patch targetModelId: 2 pinName: patch
+121:[mbr_mgmt_to_mqtt] ui_event, routing to 100/event
+122:[mbr_mgmt_to_mqtt] Converted ui_event to patch: {"version":"mt.v0","op_id":"m100_1770578469780_r7ezpz","records":[],"action":"submit","data":{"action":"submit","meta":{"op_id":"it0135_1770578469746"}},"timestamp":1770578469780}
+124:[mbr_mgmt_to_mqtt] Publishing to MQTT topic: UIPUT/ws/dam/pic/de/sw/100/event targetModelId: 100 pinName: event
+158:[mbr_mgmt_to_mqtt] Converted ui_event to patch: {"version":"mt.v0","op_id":"route_1770578485893_0b878c792850a","records":[{"op":"add_label","model_id":2,"p":0,"r":0,"c":0,"k":"ui_event","t":"json","v":{"action":"label_update","data":{"action":"label_update","meta":{"op_id":"route_1770578485893_0b878c792850a"},"target":{"model_id":-2,"p":0,"r":0,"c":0,"k":"ui_page"},"value":{"t":"str","v":"home"}},"timestamp":1770578486103}}]}
+160:[mbr_mgmt_to_mqtt] Publishing to MQTT topic: UIPUT/ws/dam/pic/de/sw/2/patch targetModelId: 2 pinName: patch
+176:[mbr_mgmt_to_mqtt] Converted ui_event to patch: {"version":"mt.v0","op_id":"it0135_pw_1770578500702","records":[{"op":"add_label","model_id":2,"p":0,"r":0,"c":0,"k":"ui_event","t":"json","v":{"action":"label_add","data":{"action":"label_add","meta":{"op_id":"it0135_pw_1770578500702"},"target":{"model_id":100,"p":0,"r":0,"c":2,"k":"ui_event"},"value":{"t":"json","v":{"action":"submit","meta":{"op_id":"it0135_pw_1770578500702"}}}},"timestamp":1770578500711}}]}
+178:[mbr_mgmt_to_mqtt] Publishing to MQTT topic: UIPUT/ws/dam/pic/de/sw/2/patch targetModelId: 2 pinName: patch
+188:[mbr_mgmt_to_mqtt] ui_event, routing to 100/event
+189:[mbr_mgmt_to_mqtt] Converted ui_event to patch: {"version":"mt.v0","op_id":"m100_1770578500727_i286mm","records":[],"action":"submit","data":{"action":"submit","meta":{"op_id":"it0135_pw_1770578500702"}},"timestamp":1770578500727}
+191:[mbr_mgmt_to_mqtt] Publishing to MQTT topic: UIPUT/ws/dam/pic/de/sw/100/event targetModelId: 100 pinName: event
+213:[mbr_mgmt_to_mqtt] Converted ui_event to patch: {"version":"mt.v0","op_id":"it0135_pw_1770578511878","records":[{"op":"add_label","model_id":2,"p":0,"r":0,"c":0,"k":"ui_event","t":"json","v":{"action":"label_add","data":{"action":"label_add","meta":{"op_id":"it0135_pw_1770578511878"},"target":{"model_id":100,"p":0,"r":0,"c":2,"k":"ui_event"},"value":{"t":"json","v":{"action":"submit","meta":{"op_id":"it0135_pw_1770578511878"}}}},"timestamp":1770578511888}}]}
+215:[mbr_mgmt_to_mqtt] Publishing to MQTT topic: UIPUT/ws/dam/pic/de/sw/2/patch targetModelId: 2 pinName: patch
+225:[mbr_mgmt_to_mqtt] ui_event, routing to 100/event
+226:[mbr_mgmt_to_mqtt] Converted ui_event to patch: {"version":"mt.v0","op_id":"m100_1770578511907_3cm0j2","records":[],"action":"submit","data":{"action":"submit","meta":{"op_id":"it0135_pw_1770578511878"}},"timestamp":1770578511907}
+228:[mbr_mgmt_to_mqtt] Publishing to MQTT topic: UIPUT/ws/dam/pic/de/sw/100/event targetModelId: 100 pinName: event

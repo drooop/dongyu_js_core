@@ -28,6 +28,7 @@
 
 ## 5. 部署文档
 
+- `docs/deployment/runtime_baseline_default.md`（默认常驻基线：Docker + K8s）
 - `docs/deployment/infrastructure_recovery.md`
 - `docs/deployment/remote_worker_k8s_runbook.md`
 
