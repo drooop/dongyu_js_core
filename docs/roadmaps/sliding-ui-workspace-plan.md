@@ -1,7 +1,6 @@
 # Roadmap: Sliding UI Workspace
 
-> 来源：原 `docs/handover/sliding_ui_workspace_plan.md` 的有效内容收敛。  
-> 目标：把 Workspace 从“静态 AST 页面”演进到“ModelTable UI schema 驱动”。
+> 目标：把 Workspace 从"静态 AST 页面"演进到"ModelTable UI schema 驱动"。
 
 ## 1. 背景
 
