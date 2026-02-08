@@ -7,18 +7,14 @@ import {
   ROUTE_HOME,
   ROUTE_DOCS,
   ROUTE_MODEL100,
-  ROUTE_PIN,
   ROUTE_STATIC,
-  ROUTE_TEST,
   ROUTE_WORKSPACE,
   getHashPath,
   isDocsPath,
   isGalleryPath,
   isHomePath,
   isModel100Path,
-  isPinPath,
   isStaticPath,
-  isTestPath,
   isWorkspacePath,
   setHashPath,
   subscribeHashPath,
@@ -82,9 +78,6 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
     getUiAst: () => buildGalleryAst(),
   });
 
-  const PinRoot = createDemoRoot(mainStore);
-  const TestRoot = createDemoRoot(mainStore);
-
   return {
     name: 'AppShell',
     setup() {
@@ -100,7 +93,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           selectWorkspaceModel(100);
           return;
         }
-        if (isHomePath(p) || isGalleryPath(p) || isDocsPath(p) || isStaticPath(p) || isPinPath(p) || isTestPath(p) || isWorkspacePath(p)) return;
+        if (isHomePath(p) || isGalleryPath(p) || isDocsPath(p) || isStaticPath(p) || isWorkspacePath(p)) return;
         setHashPath(ROUTE_HOME, { replace: true });
       }
 
@@ -128,11 +121,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
             ? 'static'
             : (isWorkspacePath(routePath)
               ? 'workspace'
-              : (isHomePath(routePath)
-                ? 'home'
-                : (isPinPath(routePath)
-                  ? 'pin'
-                  : 'test'))));
+              : 'home'));
         try {
           if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
           const opId = `route_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -176,8 +165,6 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       const isDocs = computed(() => isDocsPath(path.value));
       const isStatic = computed(() => isStaticPath(path.value));
       const isWorkspace = computed(() => isWorkspacePath(path.value));
-      const isPin = computed(() => isPinPath(path.value));
-      const isTest = computed(() => isTestPath(path.value));
 
       function Header() {
         const navButtons = [
@@ -187,8 +174,6 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           h(ElButton, { type: isDocsPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_DOCS) }, { default: () => 'Docs' }),
           h(ElButton, { type: isStaticPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_STATIC) }, { default: () => 'Static' }),
           h(ElButton, { type: isWorkspacePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_WORKSPACE) }, { default: () => 'Workspace' }),
-          h(ElButton, { type: isPinPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_PIN) }, { default: () => 'PIN' }),
-          h(ElButton, { type: isTestPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_TEST) }, { default: () => 'Test' }),
         ];
 
         const userSection = [];
@@ -228,13 +213,6 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         if (isDocs.value || isStatic.value || isWorkspace.value) {
           return h('div', [h(Header), h(HomeRoot)]);
         }
-        if (isPin.value) {
-          return h('div', [h(Header), h(PinRoot)]);
-        }
-        if (isTest.value) {
-          return h('div', [h(Header), h(TestRoot)]);
-        }
-
         return h('div', [
           h(Header),
           h(ElDivider, { style: { margin: '12px 0' } }),

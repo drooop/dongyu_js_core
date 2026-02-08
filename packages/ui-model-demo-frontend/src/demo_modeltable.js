@@ -124,136 +124,6 @@ export function buildEditorAstV0() {
                   },
                 },
               },
-              {
-                id: 'pin_demo_divider',
-                type: 'Text',
-                props: { text: 'PIN Demo (server mode)' },
-              },
-              {
-                id: 'pin_demo_host',
-                type: 'Input',
-                props: { placeholder: 'mqtt host' },
-                bind: {
-                  read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_host' },
-                  write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_host' } },
-                },
-              },
-              {
-                id: 'pin_demo_port',
-                type: 'NumberInput',
-                bind: {
-                  read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_port' },
-                  write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_port' } },
-                },
-              },
-              {
-                id: 'pin_demo_client_id',
-                type: 'Input',
-                props: { placeholder: 'client_id' },
-                bind: {
-                  read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_client_id' },
-                  write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_client_id' } },
-                },
-              },
-              {
-                id: 'pin_demo_pin',
-                type: 'Input',
-                props: { placeholder: 'pin name' },
-                bind: {
-                  read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_pin' },
-                  write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_pin' } },
-                },
-              },
-              {
-                id: 'pin_demo_in_json',
-                type: 'Input',
-                props: { placeholder: 'IN payload (json)' },
-                bind: {
-                  read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_in_json' },
-                  write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_in_json' } },
-                },
-              },
-              {
-                id: 'pin_demo_out_json',
-                type: 'Input',
-                props: { placeholder: 'OUT payload (json)' },
-                bind: {
-                  read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_out_json' },
-                  write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_out_json' } },
-                },
-              },
-              {
-                id: 'pin_demo_set_config',
-                type: 'Button',
-                props: { label: 'Set MQTT config', disabled: controlsDisabled },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_set_mqtt_config' },
-                    value_ref: { t: 'str', v: '1' },
-                  },
-                },
-              },
-              {
-                id: 'pin_demo_start',
-                type: 'Button',
-                props: { label: 'Start MQTT loop', disabled: controlsDisabled },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_start_mqtt_loop' },
-                    value_ref: { t: 'str', v: '1' },
-                  },
-                },
-              },
-              {
-                id: 'pin_demo_declare_in',
-                type: 'Button',
-                props: { label: 'Declare PIN_IN', disabled: controlsDisabled },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_declare_pin_in' },
-                    value_ref: { t: 'str', v: '1' },
-                  },
-                },
-              },
-              {
-                id: 'pin_demo_declare_out',
-                type: 'Button',
-                props: { label: 'Declare PIN_OUT', disabled: controlsDisabled },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_declare_pin_out' },
-                    value_ref: { t: 'str', v: '1' },
-                  },
-                },
-              },
-              {
-                id: 'pin_demo_inject_in',
-                type: 'Button',
-                props: { label: 'Inject IN', disabled: controlsDisabled },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_inject_in' },
-                    value_ref: { t: 'str', v: '1' },
-                  },
-                },
-              },
-          {
-            id: 'pin_demo_send_out',
-            type: 'Button',
-            props: { label: 'Send OUT', disabled: controlsDisabled },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_send_out' },
-                    value_ref: { t: 'str', v: '1' },
-                  },
-                },
-              },
             ],
           },
           // Debug panels intentionally omitted from UI (Snapshot/Mailbox/Event Log).
@@ -449,7 +319,6 @@ export function buildEditorAstV1(snapshot) {
   const valueTextDisabled = valueT === 'int' || valueT === 'bool';
   const valueIntDisabled = valueT !== 'int';
   const valueBoolDisabled = valueT !== 'bool';
-  const pinDemoDisabled = false;
 
   const editOpen = Boolean(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_open' }));
   const editModelId = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_model_id' }));
@@ -478,204 +347,6 @@ export function buildEditorAstV1(snapshot) {
     }
   } else if (editValueT === 'json') {
     editValueV = editText;
-  }
-
-  if (uiPage === 'pin') {
-    return {
-      id: 'root_pin',
-      type: 'Root',
-      children: [
-        {
-          id: 'layout',
-          type: 'Container',
-          props: { layout: 'column', gap: 12 },
-          children: [
-            {
-              id: 'card_pin_demo',
-              type: 'Card',
-              props: { title: 'PIN Demo' },
-              children: [
-                {
-                  id: 'form_pin_demo',
-                  type: 'Form',
-                  children: [
-                    {
-                      id: 'fi_pin_demo_host',
-                      type: 'FormItem',
-                      props: { label: 'MQTT host' },
-                      children: [
-                        {
-                          id: 'input_pin_demo_host',
-                          type: 'Input',
-                          bind: {
-                            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_host' },
-                            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_host' } },
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      id: 'fi_pin_demo_port',
-                      type: 'FormItem',
-                      props: { label: 'MQTT port' },
-                      children: [
-                        {
-                          id: 'num_pin_demo_port',
-                          type: 'NumberInput',
-                          bind: {
-                            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_port' },
-                            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_port' } },
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      id: 'fi_pin_demo_client_id',
-                      type: 'FormItem',
-                      props: { label: 'client_id' },
-                      children: [
-                        {
-                          id: 'input_pin_demo_client_id',
-                          type: 'Input',
-                          bind: {
-                            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_client_id' },
-                            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_client_id' } },
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      id: 'fi_pin_demo_pin',
-                      type: 'FormItem',
-                      props: { label: 'pin' },
-                      children: [
-                        {
-                          id: 'input_pin_demo_pin',
-                          type: 'Input',
-                          bind: {
-                            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_pin' },
-                            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_pin' } },
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      id: 'fi_pin_demo_in_json',
-                      type: 'FormItem',
-                      props: { label: 'IN json' },
-                      children: [
-                        {
-                          id: 'input_pin_demo_in_json',
-                          type: 'Input',
-                          bind: {
-                            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_in_json' },
-                            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_in_json' } },
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      id: 'fi_pin_demo_out_json',
-                      type: 'FormItem',
-                      props: { label: 'OUT json' },
-                      children: [
-                        {
-                          id: 'input_pin_demo_out_json',
-                          type: 'Input',
-                          bind: {
-                            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_out_json' },
-                            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_out_json' } },
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      id: 'fi_pin_demo_actions',
-                      type: 'FormItem',
-                      props: { label: 'Actions' },
-                      children: [
-                        {
-                          id: 'btn_pin_demo_set_cfg',
-                          type: 'Button',
-                          props: { label: 'Set MQTT config', disabled: pinDemoDisabled },
-                          bind: {
-                            write: {
-                              action: 'label_add',
-                              target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_set_mqtt_config' },
-                              value_ref: { t: 'str', v: '1' },
-                            },
-                          },
-                        },
-                        {
-                          id: 'btn_pin_demo_start',
-                          type: 'Button',
-                          props: { label: 'Start MQTT loop', disabled: pinDemoDisabled },
-                          bind: {
-                            write: {
-                              action: 'label_add',
-                              target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_start_mqtt_loop' },
-                              value_ref: { t: 'str', v: '1' },
-                            },
-                          },
-                        },
-                        {
-                          id: 'btn_pin_demo_declare_in',
-                          type: 'Button',
-                          props: { label: 'Declare PIN_IN', disabled: pinDemoDisabled },
-                          bind: {
-                            write: {
-                              action: 'label_add',
-                              target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_declare_pin_in' },
-                              value_ref: { t: 'str', v: '1' },
-                            },
-                          },
-                        },
-                        {
-                          id: 'btn_pin_demo_declare_out',
-                          type: 'Button',
-                          props: { label: 'Declare PIN_OUT', disabled: pinDemoDisabled },
-                          bind: {
-                            write: {
-                              action: 'label_add',
-                              target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_declare_pin_out' },
-                              value_ref: { t: 'str', v: '1' },
-                            },
-                          },
-                        },
-                        {
-                          id: 'btn_pin_demo_inject_in',
-                          type: 'Button',
-                          props: { label: 'Inject IN', disabled: pinDemoDisabled },
-                          bind: {
-                            write: {
-                              action: 'label_add',
-                              target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_inject_in' },
-                              value_ref: { t: 'str', v: '1' },
-                            },
-                          },
-                        },
-                        {
-                          id: 'btn_pin_demo_send_out',
-                          type: 'Button',
-                          props: { label: 'Send OUT', disabled: pinDemoDisabled },
-                          bind: {
-                            write: {
-                              action: 'label_add',
-                              target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_send_out' },
-                              value_ref: { t: 'str', v: '1' },
-                            },
-                          },
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
   }
 
   const labelRows = [];
@@ -778,13 +449,14 @@ export function buildEditorAstV1(snapshot) {
           props: { layout: 'column', gap: 12 },
           children: [
             {
-              id: 'card_home_filters',
+              id: 'card_home_datatable',
               type: 'Card',
               props: { title: 'DataTable' },
               children: [
                 {
                   id: 'form_home_filters',
                   type: 'Form',
+                  props: { style: { marginBottom: '12px' } },
                   children: [
                     {
                       id: 'fi_home_model',
@@ -881,133 +553,9 @@ export function buildEditorAstV1(snapshot) {
                     },
                   ],
                 },
-              ],
-            },
-
-            {
-              id: 'card_form_bg_demo',
-              type: 'Card',
-              props: { title: 'Form Submit -> Box Background' },
-              children: [
-                {
-                  id: 'row_form_bg_demo',
-                  type: 'Container',
-                  props: { layout: 'row', wrap: true, size: 12, style: { alignItems: 'stretch' } },
-                  children: [
-                    {
-                      id: 'box_form_bg_demo_form',
-                      type: 'Box',
-                      props: { style: { width: '360px', maxWidth: '100%' } },
-                      children: [
-                        {
-                          id: 'form_bg_demo',
-                          type: 'Form',
-                          children: [
-                            {
-                              id: 'fi_bg_demo_color',
-                              type: 'FormItem',
-                              props: { label: 'Color' },
-                              children: [
-                                {
-                                  id: 'input_bg_demo_color',
-                                  type: 'Input',
-                                  props: { placeholder: '#fef3c7', style: { width: '240px' } },
-                                  bind: {
-                                    read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_color_input' },
-                                    write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_color_input' } },
-                                  },
-                                },
-                              ],
-                            },
-                            {
-                              id: 'fi_bg_demo_actions',
-                              type: 'FormItem',
-                              props: { label: 'Action' },
-                              children: [
-                                {
-                                  id: 'row_bg_demo_actions',
-                                  type: 'Container',
-                                  props: { layout: 'row', wrap: true, size: 8, style: { alignItems: 'center' } },
-                                  children: [
-                                    {
-                                      id: 'btn_bg_demo_submit',
-                                      type: 'Button',
-                                      props: { label: 'Submit', type: 'primary' },
-                                      bind: {
-                                        write: {
-                                          action: 'label_update',
-                                          target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_bg_color' },
-                                          value_ref: {
-                                            t: 'str',
-                                            v: { $label: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_color_input' } },
-                                          },
-                                        },
-                                      },
-                                    },
-                                    {
-                                      id: 'btn_bg_demo_reset',
-                                      type: 'Button',
-                                      props: { label: 'Reset' },
-                                      bind: {
-                                        write: {
-                                          action: 'label_update',
-                                          target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_bg_color' },
-                                          value_ref: { t: 'str', v: '#f8fafc' },
-                                        },
-                                      },
-                                    },
-                                  ],
-                                },
-                              ],
-                            },
-                          ],
-                        },
-                        {
-                          id: 'txt_bg_demo_hint',
-                          type: 'Text',
-                          props: {
-                            type: 'info',
-                            text: 'Submit only writes ui_event mailbox; LocalBusAdapter consumes it and updates form_demo_bg_color.',
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      id: 'box_form_bg_demo_preview',
-                      type: 'Box',
-                      props: {
-                        style: {
-                          flex: '1',
-                          minWidth: '260px',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '12px',
-                          padding: '16px',
-                          backgroundColor: { $label: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_bg_color' } },
-                          transition: 'background-color 200ms ease',
-                        },
-                      },
-                      children: [
-                        { id: 'txt_bg_demo_title', type: 'Text', props: { text: 'Preview', style: { fontWeight: '600' } } },
-                        {
-                          id: 'txt_bg_demo_value',
-                          type: 'Text',
-                          bind: { read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'form_demo_bg_color' } },
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-
-            missingModelText
-              ? { id: 'txt_home_missing_model', type: 'Text', props: { type: 'danger', text: missingModelText } }
-              : null,
-            {
-              id: 'card_home_table',
-              type: 'Card',
-              props: { title: 'Rows' },
-              children: [
+                missingModelText
+                  ? { id: 'txt_home_missing_model', type: 'Text', props: { type: 'danger', text: missingModelText } }
+                  : null,
                 {
                   id: 'tbl_home_cells',
                   type: 'Table',
@@ -1106,9 +654,9 @@ export function buildEditorAstV1(snapshot) {
                     },
                   ],
                 },
-              ],
+              ].filter(Boolean),
             },
-          ].filter(Boolean),
+          ],
         },
 
         // Reuse existing detail drawer + edit dialog for row actions.
@@ -1438,54 +986,25 @@ export function buildEditorAstV1(snapshot) {
                       ],
                     },
                     {
-                      id: 'fi_static_kind',
+                      id: 'fi_static_file',
                       type: 'FormItem',
-                      props: { label: 'Upload kind' },
+                      props: { label: 'Upload file' },
                       children: [
                         {
-                          id: 'rg_static_kind',
-                          type: 'RadioGroup',
+                          id: 'file_static_direct',
+                          type: 'FileInput',
                           props: {
-                            options: [
-                              { label: 'Zip (folder project)', value: 'zip' },
-                              { label: 'Single HTML', value: 'html' },
-                            ],
+                            accept: '.html,.htm,.zip',
+                            label: 'Select .html or .zip file (max 50MB, direct upload)',
+                            directUpload: { fileKey: 'static_file' },
                           },
                           bind: {
-                            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_upload_kind' },
-                            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_upload_kind' } },
+                            write: {
+                              action: 'label_update',
+                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_status' },
+                            },
                           },
                         },
-                      ],
-                    },
-                    {
-                      id: 'fi_static_zip',
-                      type: 'FormItem',
-                      props: { label: 'Upload' },
-                      children: [
-                        staticUploadKind === 'html'
-                          ? {
-                            id: 'file_static_html',
-                            type: 'FileInput',
-                            props: { accept: '.html,.htm', label: 'Select a single .html file (saved as index.html)' },
-                            bind: {
-                              write: {
-                                action: 'label_update',
-                                target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_html_b64' },
-                              },
-                            },
-                          }
-                          : {
-                            id: 'file_static_zip',
-                            type: 'FileInput',
-                            props: { accept: '.zip', label: 'Zip your folder (must include index.html at root)' },
-                            bind: {
-                              write: {
-                                action: 'label_update',
-                                target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_zip_b64' },
-                              },
-                            },
-                          },
                       ],
                     },
                     {
@@ -1496,11 +1015,18 @@ export function buildEditorAstV1(snapshot) {
                         {
                           id: 'btn_static_upload',
                           type: 'Button',
-                          props: { type: 'primary', label: 'Upload', disabled: staticProjectName.length === 0 },
-                          bind: {
-                            write: {
-                              action: 'static_project_upload',
-                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_zip_b64' },
+                          props: {
+                            type: 'primary',
+                            label: 'Upload',
+                            disabled: staticProjectName.length === 0,
+                            directUpload: {
+                              fileKey: 'static_file',
+                              url: '/api/static/upload',
+                              nameLabel: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_project_name' },
+                              statusTarget: {
+                                action: 'label_update',
+                                target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_status' },
+                              },
                             },
                           },
                         },
@@ -2079,138 +1605,6 @@ export function buildEditorAstV1(snapshot) {
                       },
                     ],
                   },
-                  {
-                    id: 'fi_pin_demo',
-                    type: 'FormItem',
-                    props: { label: 'PIN Demo (server mode)' },
-                    children: [
-                      {
-                        id: 'pin_demo_host',
-                        type: 'Input',
-                        props: { placeholder: 'mqtt host' },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_host' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_host' } },
-                        },
-                      },
-                      {
-                        id: 'pin_demo_port',
-                        type: 'NumberInput',
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_port' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_port' } },
-                        },
-                      },
-                      {
-                        id: 'pin_demo_client_id',
-                        type: 'Input',
-                        props: { placeholder: 'client_id' },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_client_id' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_client_id' } },
-                        },
-                      },
-                      {
-                        id: 'pin_demo_pin',
-                        type: 'Input',
-                        props: { placeholder: 'pin name' },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_pin' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_pin' } },
-                        },
-                      },
-                      {
-                        id: 'pin_demo_in_json',
-                        type: 'Input',
-                        props: { placeholder: 'IN payload (json)' },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_in_json' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_in_json' } },
-                        },
-                      },
-                      {
-                        id: 'pin_demo_out_json',
-                        type: 'Input',
-                        props: { placeholder: 'OUT payload (json)' },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_out_json' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'pin_demo_out_json' } },
-                        },
-                      },
-                      {
-                        id: 'pin_demo_set_config',
-                        type: 'Button',
-                        props: { label: 'Set MQTT config', disabled: pinDemoDisabled },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_set_mqtt_config' },
-                    value_ref: { t: 'str', v: '1' },
-                  },
-                },
-              },
-                      {
-                        id: 'pin_demo_start',
-                        type: 'Button',
-                        props: { label: 'Start MQTT loop', disabled: pinDemoDisabled },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_start_mqtt_loop' },
-                    value_ref: { t: 'str', v: '1' },
-                  },
-                },
-              },
-                      {
-                        id: 'pin_demo_declare_in',
-                        type: 'Button',
-                        props: { label: 'Declare PIN_IN', disabled: pinDemoDisabled },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_declare_pin_in' },
-                    value_ref: { t: 'str', v: '1' },
-                  },
-                },
-              },
-                      {
-                        id: 'pin_demo_declare_out',
-                        type: 'Button',
-                        props: { label: 'Declare PIN_OUT', disabled: pinDemoDisabled },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_declare_pin_out' },
-                    value_ref: { t: 'str', v: '1' },
-                  },
-                },
-              },
-                      {
-                        id: 'pin_demo_inject_in',
-                        type: 'Button',
-                        props: { label: 'Inject IN', disabled: pinDemoDisabled },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_inject_in' },
-                    value_ref: { t: 'str', v: '1' },
-                  },
-                },
-              },
-                      {
-                        id: 'pin_demo_send_out',
-                        type: 'Button',
-                        props: { label: 'Send OUT', disabled: pinDemoDisabled },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: SYSTEM_MODEL_ID, p: 0, r: 0, c: 0, k: 'run_pin_demo_send_out' },
-                    value_ref: { t: 'str', v: '1' },
-                  },
-                },
-              },
-                    ],
-                  },
                 ],
               },
           // Debug panels intentionally omitted from UI (Snapshot/Mailbox/Event Log).
@@ -2500,9 +1894,6 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_title', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_text', t: 'str', v: '' });
 
-  // Form demo (submit updates right-side box background).
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'form_demo_color_input', t: 'str', v: '#fef3c7' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'form_demo_bg_color', t: 'str', v: '#fef3c7' });
 
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_edit_open', t: 'bool', v: false });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_edit_model_id', t: 'str', v: '' });
@@ -2515,12 +1906,6 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_edit_v_int', t: 'int', v: 0 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_edit_v_bool', t: 'bool', v: false });
 
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'pin_demo_host', t: 'str', v: '127.0.0.1' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'pin_demo_port', t: 'int', v: 1883 });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'pin_demo_client_id', t: 'str', v: 'pin-demo' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'pin_demo_pin', t: 'str', v: 'demo' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'pin_demo_in_json', t: 'str', v: '{"value":1}' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'pin_demo_out_json', t: 'str', v: '{"value":2}' });
 
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'cellab_payload_json', t: 'str', v: '{"hello":1}' });
 
