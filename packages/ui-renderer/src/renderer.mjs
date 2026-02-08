@@ -584,7 +584,37 @@ function buildVueNode(node, snapshot, vue, host) {
         props.disabled = false;
       }
     }
+    const directUpload = node.props && node.props.directUpload;
     props.onClick = () => {
+      // Direct upload mode: POST file binary to server, bypass Cell system
+      if (directUpload) {
+        const fileKey = directUpload.fileKey;
+        const file = window.__dyPendingFiles && window.__dyPendingFiles[fileKey];
+        if (!file) return;
+        const snapshot = host.getSnapshot();
+        const nameVal = directUpload.nameLabel ? getLabelValue(snapshot, directUpload.nameLabel) : '';
+        const name = typeof nameVal === 'string' ? nameVal.trim() : '';
+        if (!name) return;
+        const kind = file.name.endsWith('.zip') ? 'zip' : 'html';
+        const uploadUrl = `${directUpload.url}?name=${encodeURIComponent(name)}&kind=${kind}`;
+        const statusTarget = directUpload.statusTarget;
+        const updateStatus = (msg) => {
+          if (statusTarget) {
+            dispatchEvent(node, statusTarget, { value: msg }, host, undefined, ctx);
+          }
+        };
+        updateStatus('uploading...');
+        fetch(uploadUrl, { method: 'POST', body: file, credentials: 'same-origin' })
+          .then((resp) => resp.json())
+          .then((result) => {
+            delete window.__dyPendingFiles[fileKey];
+            updateStatus(result.ok ? result.message : `error: ${result.error}`);
+          })
+          .catch((err) => {
+            updateStatus(`upload failed: ${err.message || err}`);
+          });
+        return;
+      }
       const target = node.bind && node.bind.write;
       if (!target) return;
       dispatchEvent(node, target, { click: true }, host, undefined, ctx);
@@ -807,12 +837,25 @@ function buildVueNode(node, snapshot, vue, host) {
     const labelText = node.props && Object.prototype.hasOwnProperty.call(node.props, 'label') ? String(node.props.label) : '';
     const wrapStyle = node.props && node.props.style ? node.props.style : undefined;
     const multiAttr = multiple || directory;
+    const directUpload = node.props && node.props.directUpload;
     const onChange = (e) => {
       const input = e && e.target ? e.target : null;
       const files = input && input.files ? input.files : null;
       const target = node.bind && node.bind.write;
-      if (!target) return;
       if (!files || files.length === 0) return;
+
+      // Direct upload mode: store raw File object, dispatch filename (not content)
+      if (directUpload) {
+        if (!window.__dyPendingFiles) window.__dyPendingFiles = {};
+        window.__dyPendingFiles[directUpload.fileKey || node.id] = files[0];
+        if (target) {
+          const sizeMB = (files[0].size / 1024 / 1024).toFixed(1);
+          dispatchEvent(node, target, { value: `selected: ${files[0].name} (${sizeMB}MB)` }, host, undefined, ctx);
+        }
+        return;
+      }
+
+      if (!target) return;
 
       const readOne = (file) => new Promise((resolve) => {
         const reader = new FileReader();
