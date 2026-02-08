@@ -2,8 +2,6 @@
 node_modules/
 .pnp/
 .pnp.js
-
-# Package manager state
 .yarn/
 !.yarn/patches/
 !.yarn/plugins/
@@ -26,7 +24,7 @@ pids/
 *.seed
 *.pid.lock
 
-# Coverage
+# Coverage & testing
 coverage/
 .nyc_output/
 
@@ -56,8 +54,35 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Repo-local folders to ignore
-PICtest/
+# ── AI coding assistants (local-only, not versioned) ──
+CLAUDE.md
+AGENTS.md
+.claude/
+.codex/
+.opencode/
 .sisyphus/
+.playwright-mcp/
+.github/
+skills/
+
+# ── Project-specific ignores ──
+
+# Root-level debris prevention
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/*.mp4
+
+# Repo-local test/data folders
+PICtest/
 test_files/
 .dy_static_projects/
+
+# Infrastructure secrets
+k8s/*-secret.yaml
+
+# Server test databases (only default/ is tracked)
+packages/ui-model-demo-server/data/*/
+!packages/ui-model-demo-server/data/default/
+packages/ui-model-demo-server/data/default/homeservers.json

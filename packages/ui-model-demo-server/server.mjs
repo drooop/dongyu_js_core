@@ -1062,12 +1062,6 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'draft_v_int', 'int', 0);
   ensureStateLabel(runtime, 'draft_v_bool', 'bool', false);
 
-  ensureStateLabel(runtime, 'pin_demo_host', 'str', '127.0.0.1');
-  ensureStateLabel(runtime, 'pin_demo_port', 'int', 1883);
-  ensureStateLabel(runtime, 'pin_demo_client_id', 'str', 'pin-demo');
-  ensureStateLabel(runtime, 'pin_demo_pin', 'str', 'demo');
-  ensureStateLabel(runtime, 'pin_demo_in_json', 'str', '{"value":1}');
-  ensureStateLabel(runtime, 'pin_demo_out_json', 'str', '{"value":2}');
 
   ensureStateLabel(runtime, 'dt_filter_model_query', 'str', '');
   ensureStateLabel(runtime, 'dt_filter_p', 'str', '');
@@ -1840,81 +1834,6 @@ function createServerState(options) {
       }
     }
 
-    if (action.startsWith('pin_demo_')) {
-      const meta = payload && payload.meta ? payload.meta : null;
-      const opId = meta && typeof meta.op_id === 'string' ? meta.op_id : '';
-      const model0 = runtime.getModel(0);
-      const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
-      const stateCell = runtime.getCell(stateModel, 0, 0, 0);
-      const getState = (key) => stateCell.labels.get(key)?.v ?? null;
-
-      async function succeed(note) {
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
-        editorEventLog.push({ op_id: opId, result: 'ok', note: note || '' });
-        updateDerived();
-        await programEngine.tick();
-        return { consumed: true, result: 'ok' };
-      }
-
-      async function fail(code, detail) {
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: { op_id: opId, code, detail } });
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
-        editorEventLog.push({ op_id: opId, result: 'error', code, detail });
-        updateDerived();
-        await programEngine.tick();
-        return { consumed: true, result: 'error', code };
-      }
-
-      const pinName = String(getState('pin_demo_pin') || 'demo').trim();
-      if (!pinName) return fail('invalid_target', 'missing_pin');
-
-      if (action === 'pin_demo_set_mqtt_config') {
-        const host = String(getState('pin_demo_host') || '').trim();
-        const port = Number(getState('pin_demo_port'));
-        const clientId = String(getState('pin_demo_client_id') || '').trim();
-        if (!host || !Number.isInteger(port) || !clientId) {
-          return fail('invalid_target', 'invalid_mqtt_config');
-        }
-        runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_target_host', t: 'str', v: host });
-        runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_target_port', t: 'int', v: port });
-        runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_target_client_id', t: 'str', v: clientId });
-        return succeed('pin_demo_set_mqtt_config');
-      }
-
-      if (action === 'pin_demo_start_mqtt_loop') {
-        runtime.startMqttLoop();
-        return succeed('pin_demo_start_mqtt_loop');
-      }
-
-      if (action === 'pin_demo_declare_pin_in') {
-        runtime.addLabel(model0, 0, 0, 1, { k: pinName, t: 'PIN_IN', v: pinName });
-        return succeed('pin_demo_declare_pin_in');
-      }
-
-      if (action === 'pin_demo_declare_pin_out') {
-        runtime.addLabel(model0, 0, 0, 1, { k: pinName, t: 'PIN_OUT', v: pinName });
-        return succeed('pin_demo_declare_pin_out');
-      }
-
-      if (action === 'pin_demo_inject_in') {
-        const raw = getState('pin_demo_in_json');
-        const payloadValue = parseJsonMaybe(raw);
-        const topic = currentTopic(runtime, pinName);
-        runtime.mqttIncoming(topic, { pin: pinName, t: 'IN', value: payloadValue });
-        return succeed('pin_demo_inject_in');
-      }
-
-      if (action === 'pin_demo_send_out') {
-        const raw = getState('pin_demo_out_json');
-        const payloadValue = parseJsonMaybe(raw);
-        runtime.addLabel(model0, 0, 1, 1, { k: pinName, t: 'OUT', v: payloadValue });
-        return succeed('pin_demo_send_out');
-      }
-
-      return fail('unknown_action', action);
-    }
-
     if (action.startsWith('cellab_')) {
       const meta = payload && payload.meta ? payload.meta : null;
       const opId = meta && typeof meta.op_id === 'string' ? meta.op_id : '';
@@ -2279,12 +2198,75 @@ function startServer(options) {
       return;
     }
 
+    // ── Direct file upload for static projects ──────────────────────────
+    if (req.method === 'POST' && url.pathname === '/api/static/upload') {
+      if (!isAuthenticated(req)) {
+        writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
+        return;
+      }
+      const name = (url.searchParams.get('name') || '').trim();
+      if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
+        writeJson(res, 400, { ok: false, error: 'invalid_project_name' }, cors);
+        return;
+      }
+      const kind = url.searchParams.get('kind') || 'html';
+      if (kind !== 'html' && kind !== 'zip') {
+        writeJson(res, 400, { ok: false, error: 'invalid_kind' }, cors);
+        return;
+      }
+      const MAX_UPLOAD = 50 * 1024 * 1024;
+      try {
+        const chunks = [];
+        let totalSize = 0;
+        await new Promise((resolve, reject) => {
+          req.on('data', (chunk) => {
+            totalSize += chunk.length;
+            if (totalSize > MAX_UPLOAD) {
+              reject(new Error('file_too_large'));
+              return;
+            }
+            chunks.push(chunk);
+          });
+          req.on('end', resolve);
+          req.on('error', reject);
+        });
+        const buf = Buffer.concat(chunks);
+        if (buf.length === 0) {
+          writeJson(res, 400, { ok: false, error: 'empty_body' }, cors);
+          return;
+        }
+        ensureDir(STATIC_PROJECTS_ROOT);
+        const dest = path.join(STATIC_PROJECTS_ROOT, name);
+        if (fs.existsSync(dest)) {
+          fs.rmSync(dest, { recursive: true, force: true });
+        }
+        ensureDir(dest);
+        if (kind === 'zip') {
+          safeExtractZipToDir(buf, dest);
+        } else {
+          fs.writeFileSync(path.join(dest, 'index.html'), buf);
+        }
+        const projects = listStaticProjects();
+        const stateModel = state.runtime.getModel(EDITOR_STATE_MODEL_ID);
+        state.runtime.addLabel(stateModel, 0, 0, 0, { k: 'static_projects_json', t: 'json', v: projects });
+        state.runtime.addLabel(stateModel, 0, 0, 0, { k: 'static_status', t: 'str', v: `uploaded: ${name}` });
+        broadcastSnapshot();
+        writeJson(res, 200, { ok: true, message: `uploaded: ${name}`, projects }, cors);
+      } catch (err) {
+        const msg = err && err.message ? err.message : String(err);
+        const code = msg === 'file_too_large' ? 413 : 500;
+        writeJson(res, code, { ok: false, error: msg }, cors);
+      }
+      return;
+    }
+
     // ── Auth guard ───────────────────────────────────────────────────────
     function isPublicPath(method, pathname) {
       if (pathname === '/auth/login' || pathname === '/auth/me') return true;
       if (method === 'GET' && pathname === '/auth/homeservers') return true;
       if (method === 'GET' && (pathname === '/' || pathname === '/index.html'
-          || pathname.startsWith('/assets/'))) return true;
+          || pathname.startsWith('/assets/')
+          || pathname.startsWith('/p/'))) return true;
       if (method === 'OPTIONS') return true;
       return false;
     }

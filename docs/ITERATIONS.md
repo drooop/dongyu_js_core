@@ -10,22 +10,6 @@
 
 | ID    | Date       | Theme | Steps | Branch     | Status      | Entry |
 |-------|------------|-------|-------|------------|-------------|-------|
-| 1216  | 2025-12-16 |       |       | dev_1216   | Planned     | ./iterations/1216/ |
-| 1216-ui | 2025-12-16 | UI 规范化细则（ChatGPT 风格）与 IA/导航规则（方案） | 7 | dev_1216-ui | Completed | ./docs/iterations/1216-ui/ |
-| 1217-home-ui | 2025-12-17 | Home/Store/System 可读性（浅底浅字）与 Worker Base 全屏规范化（方案） | 5 | dev_1217-home-ui | Approved | ./docs/iterations/1217-home-ui/ |
-| 1217-sliding-ui-package | 2025-12-17 | Sliding UI 包规范 + Matrix<->MBR<->MQTT 交互契约 + Asset Tree/安装流程（方案） | 6 | dev_1217-sliding-ui-package | Planned | ./docs/iterations/1217-sliding-ui-package/ |
-| 1217-platform-stability | 2025-12-17 | 吸收 win 分支经验：跨平台（Windows/macOS/Linux）一致性与稳定性交付（方案） | 6 | dev_1217-platform-stability | Planned | ./docs/iterations/1217-platform-stability/ |
-| 1218-platform-stability | 2025-12-18 | 吸收 Windows build 经验（dev_1217-home-ui + win）：跨平台长期方案与规范沉淀（Phase 1） | 7 | dev_1218-platform-stability | Planned | ./docs/iterations/1218-platform-stability/ |
-| win-dev-persistent-path | 2025-12-22 | Windows yhl.db 持久化路径统一 | 4 | win-dev-persistent-path | Completed | ./docs/iterations/win-dev-persistent-path/ |
-| ui-redesign-system | 2026-01-15 | UI redesign system 初始化 |  | dev_ui-redesign-system | Planned | ./docs/iterations/ui-redesign-system/ |
-| dy-ui-redesign-brief | 2026-01-15 | UI redesign brief for Stitch | 2 | dev_dy-ui-redesign-brief | Planned | ./docs/iterations/dy-ui-redesign-brief/ |
-| dy-ui-stitch-import | 2026-01-15 | Stitch tokens + page specs import | 3 | dev_dy-ui-stitch-import | Planned | ./docs/iterations/dy-ui-stitch-import/ |
-| dy-ui-redesign-contract | 2026-01-15 | UI redesign contract from Stitch v1 (Phase1 complete; awaiting review) | 2 | dev_dy-ui-redesign-contract | Planned | ./docs/iterations/dy-ui-redesign-contract/ |
-| dy-ui-redesign-implementation | 2026-01-15 | UI redesign implementation (Phase3 complete) | 6 | dev | Completed | ./docs/iterations/dy-ui-redesign-implementation/ |
-| dy-workerbase-elysia-rewrite | 2026-01-16 | Worker Base runtime + UI rewrite (Elysia/Vue3) | 7 | dy-workerbase-elysia-rewrite | Completed | ./docs/iterations/dy-workerbase-elysia-rewrite/ |
-| dy-workerbase-ui-feature-parity | 2026-01-16 | Worker Base UI feature parity (Code/Model tab + submt) | 4 | dy-workerbase-ui-feature-parity | Planned | ./docs/iterations/dy-workerbase-ui-feature-parity/ |
-| dy-workerbase-pin-task-mqtt | 2026-01-16 | Worker Base runtime pin/task/mqtt parity | 4 | dy-workerbase-pin-task-mqtt | Completed | ./docs/iterations/dy-workerbase-pin-task-mqtt/ |
-| dy-workerbase-mqtt-config-page-ssot | 2026-01-16 | MQTT config page SSOT (page0) | 3 | dy-workerbase-mqtt-config-page-ssot | Completed | ./docs/iterations/dy-workerbase-mqtt-config-page-ssot/ |
 | 0122-pictest-evidence | 2026-01-22 | PICtest Evidence Extraction | 2 | dev_0122-pictest-evidence | Completed | ./docs/iterations/0122-pictest-evidence/ |
 | 0122-oracle-harness-plan | 2026-01-22 | Oracle Test Harness Plan | 2 | dev_0122-oracle-harness-plan | Completed | ./docs/iterations/0122-oracle-harness-plan/ |
 | 0123-modeltable-runtime-v0 | 2026-01-23 | ModelTable Runtime v0 | 2 | dev_0123-modeltable-runtime-v0 | Completed | ./docs/iterations/0123-modeltable-runtime-v0/ |
@@ -39,6 +23,31 @@
 | 0128-ui-line-demo-frontend | 2026-01-27 | UI model demo frontend (Stage 3.3) | 4 | dev_0128-ui-line-demo-frontend | Completed | ./docs/iterations/0128-ui-line-demo-frontend/ |
 | 0129-modeltable-editor-v0 | 2026-01-27 | ModelTable editor UI (UI model) v0 | 5 | dev_0129-modeltable-editor-v0 | Completed | ./docs/iterations/0129-modeltable-editor-v0/ |
 | 0130-modeltable-editor-v1 | 2026-01-28 | ModelTable editor UI (UI model) v1 (complete-ish editor + UI AST support) | 4 | dev_0130-modeltable-editor-v1 | Completed | ./docs/iterations/0130-modeltable-editor-v1/ |
-| 0131-server-connected-editor-sse | 2026-01-28 | Server-connected ModelTable editor demo (SSE + HTTP; backend self-sliding; renderer-only frontend) | 4 | dev_0131-server-connected-editor-sse | Planned | ./docs/iterations/0131-server-connected-editor-sse/ |
-| 0132-dual-bus-contract-harness-v0 | 2026-01-28 | Dual Bus (Stage 4) contract + harness v0 (no real Matrix creds) | 6 | dev_0132-dual-bus-contract-harness-v0 | Planned | ./docs/iterations/0132-dual-bus-contract-harness-v0/ |
+| 0131-server-connected-editor-sse | 2026-01-28 | Server-connected ModelTable editor demo (SSE + HTTP; backend self-sliding; renderer-only frontend) | 4 | dev_0131-server-connected-editor-sse | Completed | ./docs/iterations/0131-server-connected-editor-sse/ |
+| 0132-dual-bus-contract-harness-v0 | 2026-01-28 | Dual Bus (Stage 4) contract + harness v0 (no real Matrix creds) | 6 | dev_0132-dual-bus-contract-harness-v0 | Completed | ./docs/iterations/0132-dual-bus-contract-harness-v0/ |
 | 0133-ui-component-gallery-v0 | 2026-01-31 | UI component Gallery (Element Plus subset) + virtual routing + props/events coverage + submodel composition | 7 | dev_gallery_ui_component_gallery_v0 | Completed | ./docs/iterations/0133-ui-component-gallery-v0/ |
+
+---
+
+## Historical (Pre-rewrite)
+
+以下迭代属于 JS 重写之前的阶段，当前仓库中无对应迭代目录，仅作历史记录保留。
+
+| ID    | Date       | Theme | Status |
+|-------|------------|-------|--------|
+| 1216  | 2025-12-16 | (unnamed) | Planned |
+| 1216-ui | 2025-12-16 | UI 规范化细则（ChatGPT 风格）与 IA/导航规则 | Completed |
+| 1217-home-ui | 2025-12-17 | Home/Store/System 可读性与 Worker Base 全屏规范化 | Approved |
+| 1217-sliding-ui-package | 2025-12-17 | Sliding UI 包规范 + Matrix/MBR/MQTT 交互契约 | Planned |
+| 1217-platform-stability | 2025-12-17 | 跨平台一致性与稳定性交付 | Planned |
+| 1218-platform-stability | 2025-12-18 | Windows build 经验沉淀（Phase 1） | Planned |
+| win-dev-persistent-path | 2025-12-22 | Windows yhl.db 持久化路径统一 | Completed |
+| ui-redesign-system | 2026-01-15 | UI redesign system 初始化 | Planned |
+| dy-ui-redesign-brief | 2026-01-15 | UI redesign brief for Stitch | Planned |
+| dy-ui-stitch-import | 2026-01-15 | Stitch tokens + page specs import | Planned |
+| dy-ui-redesign-contract | 2026-01-15 | UI redesign contract from Stitch v1 | Planned |
+| dy-ui-redesign-implementation | 2026-01-15 | UI redesign implementation | Completed |
+| dy-workerbase-elysia-rewrite | 2026-01-16 | Worker Base runtime + UI rewrite (Elysia/Vue3) | Completed |
+| dy-workerbase-ui-feature-parity | 2026-01-16 | Worker Base UI feature parity | Planned |
+| dy-workerbase-pin-task-mqtt | 2026-01-16 | Worker Base runtime pin/task/mqtt parity | Completed |
+| dy-workerbase-mqtt-config-page-ssot | 2026-01-16 | MQTT config page SSOT (page0) | Completed |

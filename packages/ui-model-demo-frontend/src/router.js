@@ -1,8 +1,6 @@
 export const ROUTE_HOME = '/';
 export const ROUTE_GALLERY = '/gallery';
 export const ROUTE_MODEL100 = '/model100';
-export const ROUTE_TEST = '/test';
-export const ROUTE_PIN = '/pin';
 export const ROUTE_DOCS = '/docs';
 export const ROUTE_STATIC = '/static';
 export const ROUTE_WORKSPACE = '/workspace';
@@ -47,14 +45,6 @@ export function isHomePath(path) {
 
 export function isGalleryPath(path) {
   return normalizeHashPath(path) === ROUTE_GALLERY;
-}
-
-export function isTestPath(path) {
-  return normalizeHashPath(path) === ROUTE_TEST;
-}
-
-export function isPinPath(path) {
-  return normalizeHashPath(path) === ROUTE_PIN;
 }
 
 export function isDocsPath(path) {
