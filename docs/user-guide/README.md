@@ -10,6 +10,8 @@
   - UI 事件到 Matrix/MQTT 的配置步骤。
 - `dual_worker_slide_e2e_v0.md`
   - 双工人链路的可执行 E2E 验收方法。
+- `color_generator_e2e_runbook.md`
+  - Model 100 颜色生成器双总线复现实操（含 patch-only 模式、Playwright 终验与排障）。
 
 ## UI 文档
 

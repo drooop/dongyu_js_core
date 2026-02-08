@@ -623,27 +623,32 @@ class ProgramModelEngine {
       }
       
       console.log('[handleDyBusEvent] Received snapshot_delta, patch op_id:', patch.op_id);
-      
-      // Check if any record targets Model 100
-      const hasModel100 = patch.records.some(r => r.model_id === 100);
-      
-      if (hasModel100) {
-        // Write to Model 100 PIN_IN (patch_in) at Cell (0,1,1) with type 'IN'
-        // This will trigger on_model100_patch_in function via processEventsSnapshot
-        const model100 = this.runtime.getModel(100);
-        if (model100) {
-          console.log('[handleDyBusEvent] Writing patch to Model 100 PIN_IN (patch_in)');
-          this.runtime.addLabel(model100, 0, 1, 1, { k: 'patch_in', t: 'IN', v: patch });
-          this.tick().then(() => {
-            console.log('[handleDyBusEvent] tick() completed for Model 100 patch, broadcasting snapshot');
-            this.onSnapshotChanged?.();
-          }).catch(() => {});
-        } else {
-          console.log('[handleDyBusEvent] Model 100 not found, cannot write PIN_IN');
-        }
+
+      // Find all dual-bus models targeted by this patch
+      const targetModelIds = new Set(patch.records.map(r => r.model_id).filter(Number.isInteger));
+      let routed = false;
+
+      for (const modelId of targetModelIds) {
+        const targetModel = this.runtime.getModel(modelId);
+        if (!targetModel) continue;
+        const dbLabel = this.runtime.getCell(targetModel, 0, 0, 0).labels.get('dual_bus_model');
+        if (!dbLabel || !dbLabel.v || typeof dbLabel.v !== 'object') continue;
+
+        // This is a dual-bus model — write to its PIN_IN mailbox
+        const pinName = dbLabel.v.patch_in_pin || 'patch';
+        console.log(`[handleDyBusEvent] Writing patch to Model ${modelId} PIN_IN (${pinName})`);
+        this.runtime.addLabel(targetModel, 0, 1, 1, { k: pinName, t: 'IN', v: patch });
+        routed = true;
+      }
+
+      if (routed) {
+        this.tick().then(() => {
+          console.log('[handleDyBusEvent] tick() completed for dual-bus patch, broadcasting snapshot');
+          this.onSnapshotChanged?.();
+        }).catch(() => {});
       } else {
-        // General patch - apply directly or route to appropriate handler
-        console.log('[handleDyBusEvent] General patch (not Model 100), applying directly');
+        // General patch — no dual-bus model found, apply directly
+        console.log('[handleDyBusEvent] General patch, applying directly');
         try {
           this.runtime.applyPatch(patch, { allowCreateModel: false });
           this.tick().then(() => {
@@ -658,10 +663,17 @@ class ProgramModelEngine {
     
     if (content.type === 'mbr_ready') {
       console.log('[handleDyBusEvent] Received mbr_ready signal from MBR');
-      const model100 = this.runtime.getModel(100);
-      if (model100) {
-        this.runtime.addLabel(model100, 0, 0, 0, { k: 'system_ready', t: 'bool', v: true });
-        console.log('[handleDyBusEvent] Set system_ready=true on Model 100');
+      // Set system_ready=true on all dual-bus models
+      let changed = false;
+      for (const [, model] of this.runtime.models) {
+        if (model.id <= 0) continue;
+        const dbLabel = this.runtime.getCell(model, 0, 0, 0).labels.get('dual_bus_model');
+        if (!dbLabel || !dbLabel.v) continue;
+        this.runtime.addLabel(model, 0, 0, 0, { k: 'system_ready', t: 'bool', v: true });
+        console.log(`[handleDyBusEvent] Set system_ready=true on Model ${model.id}`);
+        changed = true;
+      }
+      if (changed) {
         this.tick().then(() => {
           this.onSnapshotChanged?.();
         }).catch(() => {});
@@ -835,34 +847,51 @@ class ProgramModelEngine {
         continue;
       }
 
-      // Model 100 ui_event -> trigger forward_model100_events function
-      // This forwards UI events from Model 100 to K8s via dual-bus
-      if (event.cell && event.cell.model_id === 100 && 
+      // Generic dual-bus model: ui_event at Cell(model_id, 0, 0, 2) → trigger forward function
+      // Driven by `dual_bus_model` label on the model's Cell(0,0,0)
+      if (event.cell && event.cell.model_id > 0 &&
           event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 2 &&
           event.label && event.label.k === 'ui_event' && event.label.v) {
-        console.log('[processEventsSnapshot] Model 100 ui_event detected, triggering forward_model100_events');
-        const sys = firstSystemModel(this.runtime);
-        if (sys && sys.hasFunction('forward_model100_events')) {
-          this.runtime.intercepts.record('run_func', { func: 'forward_model100_events' });
-        } else {
-          console.log('[processEventsSnapshot] WARNING: forward_model100_events function NOT found');
+        const targetModel = this.runtime.getModel(event.cell.model_id);
+        if (targetModel) {
+          const dbLabel = this.runtime.getCell(targetModel, 0, 0, 0).labels.get('dual_bus_model');
+          if (dbLabel && dbLabel.v && typeof dbLabel.v === 'object' && dbLabel.v.ui_event_func) {
+            const funcName = dbLabel.v.ui_event_func;
+            console.log(`[processEventsSnapshot] Model ${event.cell.model_id} ui_event detected, triggering ${funcName}`);
+            const sys = firstSystemModel(this.runtime);
+            if (sys && sys.hasFunction(funcName)) {
+              this.runtime.intercepts.record('run_func', { func: funcName });
+            } else {
+              console.log(`[processEventsSnapshot] WARNING: ${funcName} function NOT found`);
+            }
+            continue;
+          }
         }
-        continue;
       }
 
-      // Model 100 PIN_IN (patch_in) -> trigger on_model100_patch_in function
-      // This handles return patches from K8s worker via dual-bus
-      if (event.cell && event.cell.model_id === 100 && 
+      // Generic dual-bus model: PIN_IN at Cell(model_id, 0, 1, 1) → trigger patch-in function
+      // Driven by `dual_bus_model` label on the model's Cell(0,0,0)
+      if (event.cell && event.cell.model_id > 0 &&
           event.cell.p === 0 && event.cell.r === 1 && event.cell.c === 1 &&
-          event.label && event.label.t === 'IN' && event.label.k === 'patch_in') {
-        console.log('[processEventsSnapshot] Model 100 patch_in detected, triggering on_model100_patch_in');
-        const sys = firstSystemModel(this.runtime);
-        if (sys && sys.hasFunction('on_model100_patch_in')) {
-          this.runtime.intercepts.record('run_func', { func: 'on_model100_patch_in' });
-        } else {
-          console.log('[processEventsSnapshot] WARNING: on_model100_patch_in function NOT found');
+          event.label && event.label.t === 'IN') {
+        const targetModel = this.runtime.getModel(event.cell.model_id);
+        if (targetModel) {
+          const dbLabel = this.runtime.getCell(targetModel, 0, 0, 0).labels.get('dual_bus_model');
+          if (dbLabel && dbLabel.v && typeof dbLabel.v === 'object' && dbLabel.v.patch_in_func) {
+            const pinName = dbLabel.v.patch_in_pin || 'patch';
+            if (event.label.k === pinName) {
+              const funcName = dbLabel.v.patch_in_func;
+              console.log(`[processEventsSnapshot] Model ${event.cell.model_id} ${pinName} detected, triggering ${funcName}`);
+              const sys = firstSystemModel(this.runtime);
+              if (sys && sys.hasFunction(funcName)) {
+                this.runtime.intercepts.record('run_func', { func: funcName });
+              } else {
+                console.log(`[processEventsSnapshot] WARNING: ${funcName} function NOT found`);
+              }
+              continue;
+            }
+          }
         }
-        continue;
       }
 
       // User intent -> enqueue a system job + trigger system dispatcher.
@@ -983,7 +1012,15 @@ function loadSystemModelPatches(runtime, dirPath) {
     const parsed = JSON.parse(raw);
     const patches = Array.isArray(parsed) ? parsed : [parsed];
     for (const patch of patches) {
-      runtime.applyPatch(patch, { allowCreateModel: true });
+      if (!patch || !Array.isArray(patch.records)) continue;
+      const negativeOnlyPatch = {
+        ...patch,
+        records: patch.records.filter((record) => (
+          record && Number.isInteger(record.model_id) && record.model_id < 0
+        )),
+      };
+      if (negativeOnlyPatch.records.length === 0) continue;
+      runtime.applyPatch(negativeOnlyPatch, { allowCreateModel: true });
     }
   }
 }
@@ -1046,13 +1083,7 @@ function createServerState(options) {
     runtime.applyPatch(envPatch, { allowCreateModel: true });
   }
 
-  // Ensure the default user model exists.
-  // The UI defaults to selected_model_id=1; without a model 1 the renderer will show an empty/missing state.
-  if (!runtime.getModel(1)) {
-    runtime.createModel({ id: 1, name: 'M1', type: 'main' });
-  }
-
-  ensureStateLabel(runtime, 'selected_model_id', 'str', '1');
+  ensureStateLabel(runtime, 'selected_model_id', 'str', '0');
   ensureStateLabel(runtime, 'draft_p', 'str', '0');
   ensureStateLabel(runtime, 'draft_r', 'str', '0');
   ensureStateLabel(runtime, 'draft_c', 'str', '0');
@@ -1109,6 +1140,7 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'ws_app_selected', 'int', 0);
   ensureStateLabel(runtime, 'ws_app_next_id', 'int', 1001);
 
+  const SEED_POSITIVE_MODELS_ON_BOOT = process.env.SEED_POSITIVE_MODELS_ON_BOOT === '1';
   const MOCK_SLIDING_APPS = [
     {
       model_id: 100, name: 'E2E 颜色生成器', source: 'k8s-worker',
@@ -1206,20 +1238,22 @@ function createServerState(options) {
   ];
 
   const wsRegistry = [];
-  for (const app of MOCK_SLIDING_APPS) {
-    if (!runtime.getModel(app.model_id)) {
-      runtime.createModel({ id: app.model_id, name: app.name, type: 'sliding_ui' });
+  if (SEED_POSITIVE_MODELS_ON_BOOT) {
+    for (const app of MOCK_SLIDING_APPS) {
+      if (!runtime.getModel(app.model_id)) {
+        runtime.createModel({ id: app.model_id, name: app.name, type: 'sliding_ui' });
+      }
+      const m = runtime.getModel(app.model_id);
+      for (const label of app.data) {
+        runtime.addLabel(m, 0, 0, 0, label);
+      }
+      for (const label of app.schema) {
+        runtime.addLabel(m, 1, 0, 0, label);
+      }
+      runtime.addLabel(m, 0, 0, 0, { k: 'app_name', t: 'str', v: app.name });
+      runtime.addLabel(m, 0, 0, 0, { k: 'source_worker', t: 'str', v: app.source });
+      wsRegistry.push({ model_id: app.model_id, name: app.name, source: app.source });
     }
-    const m = runtime.getModel(app.model_id);
-    for (const label of app.data) {
-      runtime.addLabel(m, 0, 0, 0, label);
-    }
-    for (const label of app.schema) {
-      runtime.addLabel(m, 1, 0, 0, label);
-    }
-    runtime.addLabel(m, 0, 0, 0, { k: 'app_name', t: 'str', v: app.name });
-    runtime.addLabel(m, 0, 0, 0, { k: 'source_worker', t: 'str', v: app.source });
-    wsRegistry.push({ model_id: app.model_id, name: app.name, source: app.source });
   }
   const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
   // ---------------------------------------------------------------------------
@@ -1560,8 +1594,6 @@ function createServerState(options) {
   });
   runtime.addMailboxTrigger(traceModel, 0, 0, 2, 'clear_trace');
 
-  // Add trace model to workspace registry
-  wsRegistry.push({ model_id: TRACE_MODEL_ID, name: 'Bus Trace', source: 'system' });
   runtime.addLabel(stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: wsRegistry });
 
   // Gallery model defaults (so the models are non-empty and discoverable).
@@ -2071,10 +2103,30 @@ function createServerState(options) {
   setMailboxEnvelope(runtime, null);
   updateDerived();
 
+  async function applyModelTablePatch(patchOrPatches, options = {}) {
+    const patches = Array.isArray(patchOrPatches) ? patchOrPatches : [patchOrPatches];
+    const allowCreateModel = options.allowCreateModel !== false;
+    let applied = 0;
+    let rejected = 0;
+    for (const patch of patches) {
+      if (!patch || !Array.isArray(patch.records)) {
+        rejected += 1;
+        continue;
+      }
+      const result = runtime.applyPatch(patch, { allowCreateModel });
+      applied += Number(result && Number.isFinite(result.applied) ? result.applied : 0);
+      rejected += Number(result && Number.isFinite(result.rejected) ? result.rejected : 0);
+    }
+    updateDerived();
+    await programEngine.tick();
+    return { applied, rejected };
+  }
+
   return {
     runtime,
     snapshot,
     submitEnvelope,
+    applyModelTablePatch,
     getLastOpId: () => getLastOpId(runtime),
     getEventError: () => getEventError(runtime),
     programEngine,
@@ -2418,6 +2470,28 @@ function startServer(options) {
         );
       } catch (err) {
         writeJson(res, 400, { ok: false, error: 'bad_request', detail: String(err && err.message ? err.message : err) }, cors);
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/modeltable/patch') {
+      try {
+        const body = await readJsonBody(req);
+        const patch = body && body.patch ? body.patch : body;
+        const allowCreateModel = !(body && body.allowCreateModel === false);
+        const applyResult = await state.applyModelTablePatch(patch, { allowCreateModel });
+        broadcastSnapshot();
+        writeJson(res, 200, {
+          ok: true,
+          apply_result: applyResult,
+          snapshot: state.snapshot(),
+        }, cors);
+      } catch (err) {
+        writeJson(res, 400, {
+          ok: false,
+          error: 'bad_patch',
+          detail: String(err && err.message ? err.message : err),
+        }, cors);
       }
       return;
     }

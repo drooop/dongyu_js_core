@@ -1,0 +1,42 @@
+# Patch Loading Evidence
+
+## server.mjs: load system patches + env patch
+1003:function loadSystemModelPatches(runtime, dirPath) {
+1015:      runtime.applyPatch(patch, { allowCreateModel: true });
+1022:  const raw = process.env.MODELTABLE_PATCH_JSON;
+1070:  const systemModelsDir = new URL('../worker-base/system-models/', import.meta.url).pathname;
+1071:  loadSystemModelPatches(runtime, systemModelsDir);
+
+## worker_engine_v0.mjs: loadSystemPatch (system_models.json)
+186:export function loadSystemPatch(runtime) {
+187:  const patch = require('../packages/worker-base/system-models/system_models.json');
+188:  runtime.applyPatch(patch, { allowCreateModel: true });
+
+## run_remote_worker_k8s_v2.mjs: load Model 100 patch after startup
+42:const mqttResult = rt.startMqttLoop({
+51:console.log('[k8s-worker-v2] MQTT startMqttLoop result:', JSON.stringify(mqttResult));
+54:const model100Path = path.join(process.cwd(), 'packages/worker-base/system-models/test_model_100_full.json');
+57:  const applyResult = rt.applyPatch(patch, { allowCreateModel: true });
+
+## system_models.json contains negative model seed
+3:  "op_id": "system_models_seed_v0",
+7:      "model_id": 0,
+17:      "model_id": 0,
+27:      "model_id": 0,
+37:      "model_id": 0,
+47:      "model_id": 0,
+57:      "model_id": 0,
+67:      "model_id": 0,
+77:      "model_id": 0,
+87:      "model_id": -10,
+97:      "model_id": -10,
+107:      "model_id": -10,
+117:      "model_id": -10,
+127:      "model_id": -10,
+137:      "model_id": -10,
+147:      "model_id": -10,
+157:      "model_id": -10,
+167:      "model_id": -10,
+177:      "model_id": -10,
+187:      "model_id": -10,
+197:      "model_id": -10,

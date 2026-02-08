@@ -24,6 +24,96 @@
     },
     {
       "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_topic_ns",
+      "t": "str",
+      "v": "UIPUT"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_topic_ws",
+      "t": "str",
+      "v": "ws"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_topic_dam",
+      "t": "str",
+      "v": "dam"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_topic_pic",
+      "t": "str",
+      "v": "pic"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_topic_de",
+      "t": "str",
+      "v": "de"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_topic_sw",
+      "t": "str",
+      "v": "sw"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_route_100",
+      "t": "json",
+      "v": { "pin": "event", "type": "ui_event" }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_route_default",
+      "t": "json",
+      "v": { "pin": "patch", "type": "all" }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_default_model_id",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
       "model_id": -10,
       "p": 0,
       "r": 0,

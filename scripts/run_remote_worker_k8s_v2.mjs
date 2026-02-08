@@ -81,10 +81,10 @@ const timer = setInterval(() => {
     const e = events[eventCursor];
     if (!e || e.op !== 'add_label') continue;
     
-    // 检测 Model 100 的 event_in PIN_IN
+    // 检测 Model 100 的 event PIN_IN
     if (e.cell && e.cell.model_id === 100 && e.cell.p === 0 && e.cell.r === 1 && e.cell.c === 1) {
-      if (e.label && e.label.t === 'IN' && e.label.k === 'event_in') {
-        console.log('[k8s-worker-v2] Detected event_in, triggering on_model100_event_in');
+      if (e.label && e.label.t === 'IN' && e.label.k === 'event') {
+        console.log('[k8s-worker-v2] Detected event, triggering on_model100_event_in');
         rt.addLabel(rt.getModel(-10), 0, 0, 0, { k: 'run_on_model100_event_in', t: 'str', v: '1' });
       }
     }
