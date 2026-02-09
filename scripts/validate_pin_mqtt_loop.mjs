@@ -211,11 +211,64 @@ function caseMmDeclaredBeforeStart() {
   return { key: 'mm_declared_before_start', status: 'PASS' };
 }
 
+function caseCellOwnedPinIn() {
+  const rt = new ModelTableRuntime();
+  const cfg = argsConfig();
+  writeConfigToPage0(rt, cfg);
+  writeMmTopicConfig(rt, 'UIPUT/ws/dam/pic/de/sw');
+  rt.createModel({ id: 2, name: 'M2', type: 'data' });
+  const m2 = rt.getModel(2);
+
+  // Cell-owned: PIN_IN declaration routes inbound payload to a declared target cell.
+  rt.addLabel(m2, 0, 0, 1, {
+    k: 'patch',
+    t: 'PIN_IN',
+    v: { model_id: 2, p: 2, r: 0, c: 0, k: 'patch_in' },
+  });
+
+  rt.startMqttLoop();
+  assertStatus(rt, 'running');
+  const route = rt.resolvePinInRoute(2, 'patch');
+  assert(route.route_mode === 'binding', 'cell-owned route should be binding');
+  assert(route.target.model_id === 2 && route.target.p === 2 && route.target.r === 0 && route.target.c === 0, 'cell-owned target mismatch');
+  assert(route.target.k === 'patch_in', 'cell-owned target key mismatch');
+
+  const topic = 'UIPUT/ws/dam/pic/de/sw/2/patch';
+  const inbound = rt.mqttIncoming(topic, { t: 'IN', payload: { value: 42 } });
+  assert(inbound, 'cell-owned mqttIncoming should be handled');
+
+  const events = rt.eventLog.list();
+  const targetEvent = events.find((e) => (
+    e.cell.model_id === 2 &&
+    e.cell.p === 2 &&
+    e.cell.r === 0 &&
+    e.cell.c === 0 &&
+    e.label.k === 'patch_in' &&
+    e.label.t === 'IN'
+  ));
+  assert(targetEvent, 'cell-owned inbound should write to declared target cell');
+
+  const legacyEvent = events.find((e) => (
+    e.cell.model_id === 2 &&
+    e.cell.p === 0 &&
+    e.cell.r === 1 &&
+    e.cell.c === 1 &&
+    e.label.k === 'patch' &&
+    e.label.t === 'IN'
+  ));
+  assert(!legacyEvent, 'cell-owned route should not write to legacy mailbox');
+
+  const matches = rt.findPinInBindingsForDelivery({ model_id: 2, p: 2, r: 0, c: 0 }, 'patch_in');
+  assert(matches.length === 1, 'findPinInBindingsForDelivery should match declared route');
+  return { key: 'cell_owned_pin_in', status: 'PASS' };
+}
+
 function runAll() {
   const results = [];
   results.push(caseArgsOverride());
   results.push(caseReadPage0());
   results.push(caseMissingConfig());
+  results.push(caseCellOwnedPinIn());
   return results;
 }
 
@@ -239,6 +292,8 @@ try {
     results = [caseMmUiputInOut()];
   } else if (which === 'mm_declared_before_start') {
     results = [caseMmDeclaredBeforeStart()];
+  } else if (which === 'cell_owned_pin_in') {
+    results = [caseCellOwnedPinIn()];
   } else {
     results = runAll();
   }

@@ -169,7 +169,8 @@ PIN_IN 不享有任何“特殊通道”。
 
 - PIN_IN：
   - MQTT 入站 payload 必须是 ModelTablePatch。
-  - 运行时应用 patch 到目标 Cell（目标由程序模型/注册表决定）。
+  - 当 `Label.v` 为 TargetRef（Cell-owned）时，运行时写入 TargetRef 指向 Cell。
+  - 当 `Label.v` 不可解析为 TargetRef 时，回退到 pin mailbox（legacy 兼容）。
 
 ---
 
@@ -181,7 +182,8 @@ PIN_IN 不享有任何“特殊通道”。
 - MUST：直达 path 只替换传输层，不得绕过 add_label/rm_label 触发入口。
 - MUST：EventLog / mqttTrace / intercepts 的可观测结果与 MQTT path 等价。
 - MUST NOT：UI 直连总线；UI 仍只能写 mailbox。
-- MUST：pin mailbox 的 IN/OUT 写入规则保持不变（IN 由 mqttIncoming 写入，OUT 由 mailbox t="OUT" 发布）。
+- MUST：PIN_OUT 继续由 mailbox `t="OUT"` 触发 publish（兼容既有模型）。
+- MUST：PIN_IN 入站写入目标遵循声明优先（Cell-owned TargetRef）与 legacy mailbox fallback。
 - MUST NOT：引入隐式副作用或跳过 ModelTable（与本规范 2.1/8.x 一致）。
 
 最小验证用例（现有脚本）：
@@ -191,6 +193,8 @@ PIN_IN 不享有任何“特殊通道”。
 
 等价性断言（最小）：
 - IN：`mqttIncoming(topic, payload)` → pin mailbox add_label(`t="IN"`).
+- IN（Cell-owned）：`mqttIncoming(topic, payload)` → TargetRef add_label(`t="IN"`).
+- IN（legacy fallback）：`mqttIncoming(topic, payload)` → pin mailbox add_label(`t="IN"`).
 - OUT：pin mailbox add_label(`t="OUT"`) → publish + mqttTrace 记录。
 - 上述断言在 in-proc 与 MQTT transport 下均成立。
 

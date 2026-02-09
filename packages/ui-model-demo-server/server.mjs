@@ -747,10 +747,13 @@ class ProgramModelEngine {
         const dbLabel = this.runtime.getCell(targetModel, 0, 0, 0).labels.get('dual_bus_model');
         if (!dbLabel || !dbLabel.v || typeof dbLabel.v !== 'object') continue;
 
-        // This is a dual-bus model — write to its PIN_IN mailbox
+        // This is a dual-bus model — route to declared PIN_IN delivery cell
         const pinName = dbLabel.v.patch_in_pin || 'patch';
-        console.log(`[handleDyBusEvent] Writing patch to Model ${modelId} PIN_IN (${pinName})`);
-        this.runtime.addLabel(targetModel, 0, 1, 1, { k: pinName, t: 'IN', v: patch });
+        const route = this.runtime.resolvePinInRoute(modelId, pinName);
+        const deliveryModel = this.runtime.getModel(route.target.model_id);
+        if (!deliveryModel) continue;
+        console.log(`[handleDyBusEvent] Writing patch to Model ${modelId} PIN_IN (${pinName}) at cell(${route.target.model_id},${route.target.p},${route.target.r},${route.target.c})`);
+        this.runtime.addLabel(deliveryModel, route.target.p, route.target.r, route.target.c, { k: route.target.k, t: 'IN', v: patch });
         routed = true;
       }
 
@@ -982,29 +985,59 @@ class ProgramModelEngine {
         }
       }
 
-      // Generic dual-bus model: PIN_IN at Cell(model_id, 0, 1, 1) → trigger patch-in function
-      // Driven by `dual_bus_model` label on the model's Cell(0,0,0)
-      if (event.cell && event.cell.model_id > 0 &&
-          event.cell.p === 0 && event.cell.r === 1 && event.cell.c === 1 &&
-          event.label && event.label.t === 'IN') {
-        const targetModel = this.runtime.getModel(event.cell.model_id);
-        if (targetModel) {
-          const dbLabel = this.runtime.getCell(targetModel, 0, 0, 0).labels.get('dual_bus_model');
-          if (dbLabel && dbLabel.v && typeof dbLabel.v === 'object' && dbLabel.v.patch_in_func) {
-            const pinName = dbLabel.v.patch_in_pin || 'patch';
-            if (event.label.k === pinName) {
-              const funcName = dbLabel.v.patch_in_func;
-              console.log(`[processEventsSnapshot] Model ${event.cell.model_id} ${pinName} detected, triggering ${funcName}`);
+      // Generic dual-bus model: PIN_IN delivery (Cell-owned route) -> trigger patch-in function.
+      // Route matching is resolved by runtime declarations (PIN_IN + optional binding target).
+      if (event.cell && event.cell.model_id > 0 && event.label && event.label.t === 'IN') {
+        const matches = this.runtime.findPinInBindingsForDelivery(event.cell, event.label.k);
+        let routedByPinIn = false;
+        for (const match of matches) {
+          // Priority 1: explicit trigger in PIN binding
+          const binding = match.binding && typeof match.binding === 'object' ? match.binding : null;
+          const bindingFuncs = binding && Array.isArray(binding.trigger_funcs) ? binding.trigger_funcs : [];
+          if (bindingFuncs.length > 0) {
+            for (const funcName of bindingFuncs) {
+              if (typeof funcName !== 'string' || !funcName) continue;
+              const triggerModelId = binding && Number.isInteger(binding.trigger_model_id) ? binding.trigger_model_id : null;
+              if (Number.isInteger(triggerModelId)) {
+                const triggerModel = this.runtime.getModel(triggerModelId);
+                if (triggerModel && triggerModel.hasFunction(funcName)) {
+                  console.log(`[processEventsSnapshot] PIN binding trigger: ${funcName} on model ${triggerModelId}`);
+                  this.runtime.intercepts.record('run_func', { model_id: triggerModelId, func: funcName, trigger_label: { k: event.label.k, t: event.label.t } });
+                  routedByPinIn = true;
+                  continue;
+                }
+              }
               const sys = firstSystemModel(this.runtime);
               if (sys && sys.hasFunction(funcName)) {
-                this.runtime.intercepts.record('run_func', { func: funcName });
+                console.log(`[processEventsSnapshot] PIN binding trigger: ${funcName} on system model`);
+                this.runtime.intercepts.record('run_func', { func: funcName, trigger_label: { k: event.label.k, t: event.label.t } });
+                routedByPinIn = true;
               } else {
                 console.log(`[processEventsSnapshot] WARNING: ${funcName} function NOT found`);
               }
-              continue;
             }
+            if (routedByPinIn) break;
           }
+
+          // Priority 2: fallback to dual_bus_model patch_in_func mapping
+          const pinModel = this.runtime.getModel(match.pin_model_id);
+          if (!pinModel) continue;
+          const dbLabel = this.runtime.getCell(pinModel, 0, 0, 0).labels.get('dual_bus_model');
+          if (!dbLabel || !dbLabel.v || typeof dbLabel.v !== 'object' || !dbLabel.v.patch_in_func) continue;
+          const pinName = dbLabel.v.patch_in_pin || 'patch';
+          if (match.pin_k !== pinName) continue;
+          const funcName = dbLabel.v.patch_in_func;
+          console.log(`[processEventsSnapshot] Model ${match.pin_model_id} ${pinName} detected, triggering ${funcName}`);
+          const sys = firstSystemModel(this.runtime);
+          if (sys && sys.hasFunction(funcName)) {
+            this.runtime.intercepts.record('run_func', { func: funcName, trigger_label: { k: event.label.k, t: event.label.t } });
+            routedByPinIn = true;
+          } else {
+            console.log(`[processEventsSnapshot] WARNING: ${funcName} function NOT found`);
+          }
+          if (routedByPinIn) break;
         }
+        if (routedByPinIn) continue;
       }
 
       // User intent -> enqueue a system job + trigger system dispatcher.

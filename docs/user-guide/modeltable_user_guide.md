@@ -57,8 +57,8 @@ Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。
 ### 5.1 用户填写方式
 用户模型里：
 
-- PIN_IN：`k=<pin_name>, t=PIN_IN, v=<TargetRef>`
-- PIN_OUT：`k=<pin_name>, t=PIN_OUT, v=<ModelTablePatch>`
+- PIN_IN：`k=<pin_name>, t=PIN_IN, v=<TargetRef | legacy-string>`
+- PIN_OUT：`k=<pin_name>, t=PIN_OUT, v=<legacy-string>`
 
 TargetRef 结构：
 ```json
@@ -66,13 +66,17 @@ TargetRef 结构：
 ```
 
 ### 5.2 行为
-- PIN_IN：MQTT 入站 payload 是 ModelTablePatch，运行时把 patch 应用到 TargetRef。
-- PIN_OUT：用户写入 ModelTablePatch，运行时将 patch 作为 MQTT payload 发送。
+- PIN_IN：
+  - 当 `v` 是 TargetRef（Cell-owned）时，MQTT 入站写入 TargetRef 指向的 Cell/Label。
+  - 当 `v` 是 legacy-string（或无效对象）时，回退到 legacy mailbox（`p=0,r=1,c=1`）写入 `t=IN`。
+- PIN_OUT：
+  - 当前仍走 legacy mailbox：写入 `t=OUT` 到 pin mailbox 后由 runtime publish。
+  - payload 为 ModelTablePatch 时按 patch 直发；否则按 legacy envelope 发送。
 
 ### 5.3 示例（A/B/C）
 - A 页面订阅 pinA：
   - `k=pinA, t=PIN_IN, v={ model_id:1,p:2,r:3,c:4,k:"pageA.textA1" }`
-- 远端发送 pinA：payload = ModelTablePatch，textA1 更新。
+- 远端发送 pinA：payload 到达后写入 `model_id=1,p=2,r=3,c=4,k=pageA.textA1`。
 
 ## 6. MGMT (Management Bus, MBR Format v0)
 

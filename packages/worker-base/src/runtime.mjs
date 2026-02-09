@@ -267,6 +267,7 @@ class ModelTableRuntime {
     // Stored as "<model_id>:<pin_k>" to support multi-model topic routing.
     this.pinInSet = new Set();
     this.pinOutSet = new Set();
+    this.pinInBindings = new Map();
     this.runLoopActive = true;
     this.persistence = null;
 
@@ -520,6 +521,92 @@ class ModelTableRuntime {
     return { modelId, pinK };
   }
 
+  _normalizeTargetRef(defaultModelId, raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    if (!Number.isInteger(raw.p) || !Number.isInteger(raw.r) || !Number.isInteger(raw.c)) return null;
+    const modelId = Number.isInteger(raw.model_id) ? raw.model_id : defaultModelId;
+    if (!Number.isInteger(modelId)) return null;
+    const ref = { model_id: modelId, p: raw.p, r: raw.r, c: raw.c };
+    if (typeof raw.k === 'string' && raw.k) {
+      ref.k = raw.k;
+    }
+    return ref;
+  }
+
+  _parsePinInBinding(modelId, label) {
+    const raw = label ? label.v : null;
+    let target = this._normalizeTargetRef(modelId, raw);
+    if (!target && raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      target = this._normalizeTargetRef(
+        modelId,
+        raw.target_ref || raw.target || raw.owner_ref || raw.owner || raw.cell_ref,
+      );
+    }
+    if (!target) return null;
+    const binding = { target };
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      const funcs = [];
+      if (typeof raw.trigger_func === 'string' && raw.trigger_func) funcs.push(raw.trigger_func);
+      if (Array.isArray(raw.trigger_funcs)) {
+        for (const name of raw.trigger_funcs) {
+          if (typeof name === 'string' && name) funcs.push(name);
+        }
+      }
+      if (funcs.length > 0) binding.trigger_funcs = [...new Set(funcs)];
+      if (Number.isInteger(raw.trigger_model_id)) binding.trigger_model_id = raw.trigger_model_id;
+    }
+    return binding;
+  }
+
+  _resolvePinInRouteForMode(modelId, pinK, topicMode) {
+    const pinKey = this._pinKey(modelId, pinK);
+    const binding = this.pinInBindings.get(pinKey) || null;
+    if (binding && binding.target) {
+      const target = {
+        model_id: binding.target.model_id,
+        p: binding.target.p,
+        r: binding.target.r,
+        c: binding.target.c,
+        k: binding.target.k || pinK,
+      };
+      return { pin_model_id: modelId, pin_k: pinK, target, binding, route_mode: 'binding' };
+    }
+    const mailbox = this._pinMailboxCellFor(modelId, topicMode);
+    const target = { model_id: mailbox.model_id, p: mailbox.p, r: mailbox.r, c: mailbox.c, k: pinK };
+    return { pin_model_id: modelId, pin_k: pinK, target, binding: null, route_mode: 'legacy_mailbox' };
+  }
+
+  resolvePinInRoute(modelId, pinK) {
+    const config = this._getConfigFromPage0();
+    const topicMode = this._topicMode(config);
+    return this._resolvePinInRouteForMode(modelId, pinK, topicMode);
+  }
+
+  findPinInBindingsForDelivery(cellRef, labelKey) {
+    if (!cellRef || !Number.isInteger(cellRef.model_id)) return [];
+    if (!Number.isInteger(cellRef.p) || !Number.isInteger(cellRef.r) || !Number.isInteger(cellRef.c)) return [];
+    if (typeof labelKey !== 'string' || !labelKey) return [];
+    const config = this._getConfigFromPage0();
+    const topicMode = this._topicMode(config);
+    const matches = [];
+    for (const key of this.pinInSet) {
+      const parsed = this._parsePinKey(key);
+      if (!parsed) continue;
+      const route = this._resolvePinInRouteForMode(parsed.modelId, parsed.pinK, topicMode);
+      const target = route.target;
+      if (
+        target.model_id === cellRef.model_id &&
+        target.p === cellRef.p &&
+        target.r === cellRef.r &&
+        target.c === cellRef.c &&
+        target.k === labelKey
+      ) {
+        matches.push(route);
+      }
+    }
+    return matches;
+  }
+
   _topicMode(config) {
     const mode = config && typeof config.topic_mode === 'string' ? config.topic_mode : null;
     if (mode === 'uiput_9layer_v2') return 'uiput_9layer_v2';
@@ -684,7 +771,7 @@ class ModelTableRuntime {
     }
 
     this._applyBuiltins(model, p, r, c, label, prevLabel);
-    this._applyPinDeclarations(model, p, r, c, label);
+    this._applyPinDeclarations(model, p, r, c, label, prevLabel);
     this._applyLabelTypes(model, p, r, c, label);
     this._applyMailboxTriggers(model, p, r, c, label);
     return { applied: true };
@@ -762,22 +849,42 @@ class ModelTableRuntime {
     }
   }
 
-  _applyPinDeclarations(model, p, r, c, label) {
+  _applyPinDeclarations(model, p, r, c, label, prevLabel = null) {
     const config = this._getConfigFromPage0();
     const mode = this._topicMode(config);
     const payloadMode = this._payloadMode(config);
     const reg = this._pinRegistryCellFor(model.id, mode);
     const mailbox = this._pinMailboxCellFor(model.id, mode);
     if (model.id === reg.model_id && p === reg.p && r === reg.r && c === reg.c) {
+      const pinKey = this._pinKey(model.id, label.k);
+      if (prevLabel && prevLabel.k === label.k) {
+        if (prevLabel.t === 'PIN_IN' && label.t !== 'PIN_IN' && label.t !== 'PIN_OUT') {
+          this.pinInSet.delete(pinKey);
+          this.pinInBindings.delete(pinKey);
+          if (this.mqttClient) {
+            const oldTopic = this._topicFor(model.id, prevLabel.k, 'in');
+            if (oldTopic) this.mqttClient.unsubscribe(oldTopic);
+          }
+        }
+        if (prevLabel.t === 'PIN_OUT' && label.t !== 'PIN_OUT' && label.t !== 'PIN_IN') {
+          this.pinOutSet.delete(pinKey);
+        }
+        if (prevLabel.t === 'MQTT_WILDCARD_SUB' && label.t !== 'MQTT_WILDCARD_SUB' && typeof prevLabel.v === 'string' && prevLabel.v && this.mqttClient) {
+          this.mqttClient.unsubscribe(prevLabel.v);
+        }
+      }
       if (label.t === 'PIN_IN') {
-        this.pinInSet.add(this._pinKey(model.id, label.k));
+        this.pinInSet.add(pinKey);
+        const binding = this._parsePinInBinding(model.id, label);
+        if (binding) this.pinInBindings.set(pinKey, binding);
+        else this.pinInBindings.delete(pinKey);
         if (this.mqttClient) {
           const topic = this._topicFor(model.id, label.k, 'in');
           if (topic) this.mqttClient.subscribe(topic);
         }
       }
       if (label.t === 'PIN_OUT') {
-        this.pinOutSet.add(this._pinKey(model.id, label.k));
+        this.pinOutSet.add(pinKey);
       }
       // Handle MQTT_WILDCARD_SUB labels (subscribe to wildcard topics)
       if (label.t === 'MQTT_WILDCARD_SUB' && typeof label.v === 'string' && label.v && this.mqttClient) {
@@ -804,7 +911,9 @@ class ModelTableRuntime {
     const reg = this._pinRegistryCellFor(model.id, mode);
     if (model.id === reg.model_id && p === reg.p && r === reg.r && c === reg.c) {
       if (prevLabel.t === 'PIN_IN') {
-        this.pinInSet.delete(this._pinKey(model.id, prevLabel.k));
+        const pinKey = this._pinKey(model.id, prevLabel.k);
+        this.pinInSet.delete(pinKey);
+        this.pinInBindings.delete(pinKey);
         if (this.mqttClient) {
           const topic = this._topicFor(model.id, prevLabel.k, 'in');
           if (topic) this.mqttClient.unsubscribe(topic);
@@ -884,8 +993,10 @@ class ModelTableRuntime {
       if (!model) {
         return false;
       }
-      const mailbox = this._pinMailboxCellFor(modelId, mode);
-      this.addLabel(model, mailbox.p, mailbox.r, mailbox.c, { k: pinName, t: 'IN', v: payload });
+      const route = this._resolvePinInRouteForMode(modelId, pinName, mode);
+      const targetModel = this.getModel(route.target.model_id);
+      if (!targetModel) return false;
+      this.addLabel(targetModel, route.target.p, route.target.r, route.target.c, { k: route.target.k, t: 'IN', v: payload });
       this.mqttTrace.record('inbound', { topic, payload });
       return true;
     }
@@ -914,8 +1025,10 @@ class ModelTableRuntime {
       if (!model) {
         return false;
       }
-      const mailbox = this._pinMailboxCellFor(modelId, mode);
-      this.addLabel(model, mailbox.p, mailbox.r, mailbox.c, { k: pinName, t: 'IN', v: payload });
+      const route = this._resolvePinInRouteForMode(modelId, pinName, mode);
+      const targetModel = this.getModel(route.target.model_id);
+      if (!targetModel) return false;
+      this.addLabel(targetModel, route.target.p, route.target.r, route.target.c, { k: route.target.k, t: 'IN', v: payload });
       this.mqttTrace.record('inbound', { topic, payload });
       return true;
     }
