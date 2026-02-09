@@ -58,6 +58,15 @@ Review Gate Record
 
 ---
 
+### Step 2b — Function migration to ctx.getLabel (FACTS)
+- Commands executed:
+  - `node --input-type=module -` (inline validation snippet)
+- Key outputs (snippets):
+  - `PASS: model100 records-only -> trigger -> function -> OUT`
+- Result: PASS
+
+---
+
 ## Step 3 — Worker-side validation
 - Start time:
 - End time:
