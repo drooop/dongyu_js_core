@@ -47,7 +47,15 @@
       "p": 0, "r": 0, "c": 1,
       "k": "event",
       "t": "PIN_IN",
-      "v": "event"
+      "v": {
+        "model_id": 100,
+        "p": 0,
+        "r": 1,
+        "c": 1,
+        "k": "event",
+        "trigger_funcs": ["on_model100_event_in"],
+        "trigger_model_id": -10
+      }
     },
     {
       "op": "add_label",

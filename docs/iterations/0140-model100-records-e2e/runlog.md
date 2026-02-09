@@ -48,6 +48,16 @@ Review Gate Record
 
 ---
 
+### Step 2a — PIN_IN binding upgrade (FACTS)
+- Commands executed:
+  - `node scripts/validate_pin_mqtt_loop.mjs`
+- Key outputs (snippets):
+  - `records_only_patch: PASS`
+  - `cell_owned_pin_trigger_intercept: PASS`
+- Result: PASS
+
+---
+
 ## Step 3 — Worker-side validation
 - Start time:
 - End time:
