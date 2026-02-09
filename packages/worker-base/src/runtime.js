@@ -956,15 +956,76 @@ class ModelTableRuntime {
     }
   }
 
+  _resolveTriggerModelId(funcName, preferredIds = []) {
+    if (typeof funcName !== 'string' || !funcName) return null;
+    const seen = new Set();
+    const preferred = Array.isArray(preferredIds) ? preferredIds : [];
+    for (const modelId of preferred) {
+      if (!Number.isInteger(modelId) || seen.has(modelId)) continue;
+      seen.add(modelId);
+      const model = this.getModel(modelId);
+      if (model && model.hasFunction(funcName)) {
+        return modelId;
+      }
+    }
+    const allIds = [...this.models.keys()].sort((a, b) => a - b);
+    for (const modelId of allIds) {
+      if (seen.has(modelId)) continue;
+      const model = this.getModel(modelId);
+      if (model && model.hasFunction(funcName)) {
+        return modelId;
+      }
+    }
+    return null;
+  }
+
   _applyMailboxTriggers(model, p, r, c, label) {
     if (!this.runLoopActive) return;
+    const queued = new Set();
+    const enqueueRunFunc = (funcName, modelId, extraPayload = null) => {
+      if (typeof funcName !== 'string' || !funcName) return;
+      const queueKey = `${Number.isInteger(modelId) ? modelId : 'na'}:${funcName}`;
+      if (queued.has(queueKey)) return;
+      queued.add(queueKey);
+      const payload = {
+        func: funcName,
+        trigger_label: { k: label.k, t: label.t },
+      };
+      if (Number.isInteger(modelId)) {
+        payload.model_id = modelId;
+      }
+      if (extraPayload && typeof extraPayload === 'object') {
+        Object.assign(payload, extraPayload);
+      }
+      this.intercepts.record('run_func', payload);
+    };
+
     const triggers = model.getMailboxTriggers(p, r, c);
     for (const funcName of triggers) {
       if (model.hasFunction(funcName)) {
-        this.intercepts.record('run_func', {
-          model_id: model.id,
-          func: funcName,
-          trigger_label: { k: label.k, t: label.t },
+        enqueueRunFunc(funcName, model.id);
+      }
+    }
+
+    if (label.t !== 'IN') return;
+    const matches = this.findPinInBindingsForDelivery({ model_id: model.id, p, r, c }, label.k);
+    for (const match of matches) {
+      const binding = match.binding && typeof match.binding === 'object' ? match.binding : null;
+      const bindingFuncs = binding && Array.isArray(binding.trigger_funcs) ? binding.trigger_funcs : [];
+      if (bindingFuncs.length === 0) continue;
+      const preferredIds = [];
+      if (binding && Number.isInteger(binding.trigger_model_id)) preferredIds.push(binding.trigger_model_id);
+      if (Number.isInteger(match.pin_model_id)) preferredIds.push(match.pin_model_id);
+      preferredIds.push(model.id);
+      for (const funcName of bindingFuncs) {
+        if (typeof funcName !== 'string' || !funcName) continue;
+        const resolvedModelId = this._resolveTriggerModelId(funcName, preferredIds);
+        enqueueRunFunc(funcName, resolvedModelId, {
+          pin_binding: {
+            pin_model_id: match.pin_model_id,
+            pin_k: match.pin_k,
+            route_mode: match.route_mode,
+          },
         });
       }
     }

@@ -263,12 +263,49 @@ function caseCellOwnedPinIn() {
   return { key: 'cell_owned_pin_in', status: 'PASS' };
 }
 
+function caseCellOwnedPinTriggerIntercept() {
+  const rt = new ModelTableRuntime();
+  const cfg = argsConfig();
+  writeConfigToPage0(rt, cfg);
+  writeMmTopicConfig(rt, 'UIPUT/ws/dam/pic/de/sw');
+
+  const targetModel = rt.createModel({ id: 2, name: 'M2', type: 'data' });
+  const triggerModel = rt.createModel({ id: -10, name: 'SYS', type: 'system' });
+  rt.registerFunction(triggerModel, 'on_patch_in', () => {});
+
+  rt.addLabel(targetModel, 0, 0, 1, {
+    k: 'patch',
+    t: 'PIN_IN',
+    v: {
+      model_id: 2,
+      p: 2,
+      r: 0,
+      c: 0,
+      k: 'patch_in',
+      trigger_funcs: ['on_patch_in'],
+      trigger_model_id: -10,
+    },
+  });
+
+  rt.startMqttLoop();
+  assertStatus(rt, 'running');
+  const inbound = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/2/patch', { t: 'IN', payload: { value: 7 } });
+  assert(inbound, 'cell-owned trigger mqttIncoming should be handled');
+
+  const runItems = rt.intercepts.list().filter((item) => item.type === 'run_func' && item.payload && item.payload.func === 'on_patch_in');
+  assert(runItems.length === 1, 'runtime should enqueue exactly one run_func for trigger_funcs');
+  assert(runItems[0].payload.model_id === -10, 'trigger_model_id should be respected');
+  assert(runItems[0].payload.pin_binding && runItems[0].payload.pin_binding.pin_model_id === 2, 'pin_binding metadata missing');
+  return { key: 'cell_owned_pin_trigger_intercept', status: 'PASS' };
+}
+
 function runAll() {
   const results = [];
   results.push(caseArgsOverride());
   results.push(caseReadPage0());
   results.push(caseMissingConfig());
   results.push(caseCellOwnedPinIn());
+  results.push(caseCellOwnedPinTriggerIntercept());
   return results;
 }
 
@@ -294,6 +331,8 @@ try {
     results = [caseMmDeclaredBeforeStart()];
   } else if (which === 'cell_owned_pin_in') {
     results = [caseCellOwnedPinIn()];
+  } else if (which === 'cell_owned_pin_trigger_intercept') {
+    results = [caseCellOwnedPinTriggerIntercept()];
   } else {
     results = runAll();
   }

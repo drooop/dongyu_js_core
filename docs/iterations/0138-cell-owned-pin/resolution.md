@@ -15,6 +15,7 @@
 | 2 | Implement runtime binding route | mqttIncoming/addLabel 支持按 binding 路由 | packages/worker-base/src/runtime.js, packages/worker-base/src/runtime.mjs | `node --check packages/worker-base/src/runtime.js && node --check packages/worker-base/src/runtime.mjs` | 新语义可用且旧语义未破坏 | Revert runtime changes |
 | 3 | Reduce server hard-coded PIN trigger | 将可通用触发从 server 下沉 runtime | packages/ui-model-demo-server/server.mjs | `node --check packages/ui-model-demo-server/server.mjs` | server 不再依赖固定 PIN 触发分支（至少核心路径） | Revert server changes |
 | 4 | Add/extend validation scripts | 新旧语义双轨验证并记录结果 | scripts/validate_pin_mqtt_loop.mjs, docs/iterations/0138-cell-owned-pin/runlog.md | `node scripts/validate_pin_mqtt_loop.mjs` | 新旧 case 全部 PASS | Revert script changes |
+| 5 | Converge trigger_func consumption to runtime | binding.trigger_funcs 在 runtime 产出 run_func intercept；server 不再消费该字段 | packages/worker-base/src/runtime.js, packages/worker-base/src/runtime.mjs, packages/ui-model-demo-server/server.mjs, scripts/validate_pin_mqtt_loop.mjs | `node scripts/validate_pin_mqtt_loop.mjs --case cell_owned_pin_trigger_intercept` | trigger_func 触发路径在 runtime 可验证；server 仅保留 fallback | Revert runtime/server trigger convergence changes |
 
 ## 2. Step Details
 
@@ -133,5 +134,39 @@
 
 **Rollback Strategy**
 - 回退脚本与 runlog 记录。
+
+---
+
+### Step 5 — Converge trigger_func consumption to runtime
+**Goal**
+- 把 `PIN_IN` binding 中 `trigger_funcs` 的消费从 server 下沉到 runtime。
+
+**Scope**
+- runtime 在目标 Cell 收到 `t=IN` 时，匹配 pin binding 并写入 `run_func` intercept。
+- server 不再直接消费 `binding.trigger_funcs`，只保留 `dual_bus_model.patch_in_func` fallback。
+
+**Files**
+- Create/Update:
+  - packages/worker-base/src/runtime.js
+  - packages/worker-base/src/runtime.mjs
+  - packages/ui-model-demo-server/server.mjs
+  - scripts/validate_pin_mqtt_loop.mjs
+- Must NOT touch:
+  - transport 协议定义
+
+**Validation (Executable)**
+- Commands:
+  - `node scripts/validate_pin_mqtt_loop.mjs --case cell_owned_pin_trigger_intercept`
+  - `node scripts/validate_pin_mqtt_loop.mjs`
+- Expected signals:
+  - 出现 `cell_owned_pin_trigger_intercept: PASS`。
+  - 旧 case 保持 PASS。
+
+**Acceptance Criteria**
+- `trigger_funcs` 消费路径不再依赖 `processEventsSnapshot`。
+- runtime 能产生携带 trigger metadata 的 `run_func` intercept。
+
+**Rollback Strategy**
+- 回退 Step 5 涉及的 runtime/server/script 改动。
 
 > 禁止在本文件记录 PASS/FAIL、命令输出、commit hash。

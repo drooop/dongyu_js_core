@@ -60,14 +60,24 @@ Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。
 - PIN_IN：`k=<pin_name>, t=PIN_IN, v=<TargetRef | legacy-string>`
 - PIN_OUT：`k=<pin_name>, t=PIN_OUT, v=<legacy-string>`
 
-TargetRef 结构：
+TargetRef 结构（Cell-owned）：
 ```json
 { "model_id": 1, "p": 2, "r": 3, "c": 4, "k": "pageA.textA1" }
+```
+
+可选触发字段（与 TargetRef 同级）：
+```json
+{
+  "model_id": 1, "p": 2, "r": 3, "c": 4, "k": "pageA.textA1",
+  "trigger_funcs": ["on_patch_in"],
+  "trigger_model_id": -10
+}
 ```
 
 ### 5.2 行为
 - PIN_IN：
   - 当 `v` 是 TargetRef（Cell-owned）时，MQTT 入站写入 TargetRef 指向的 Cell/Label。
+  - 若同时声明 `trigger_funcs`，runtime 会在该次入站写入后产出 `run_func` intercept（由 engine 执行）。
   - 当 `v` 是 legacy-string（或无效对象）时，回退到 legacy mailbox（`p=0,r=1,c=1`）写入 `t=IN`。
 - PIN_OUT：
   - 当前仍走 legacy mailbox：写入 `t=OUT` 到 pin mailbox 后由 runtime publish。

@@ -170,6 +170,7 @@ PIN_IN 不享有任何“特殊通道”。
 - PIN_IN：
   - MQTT 入站 payload 必须是 ModelTablePatch。
   - 当 `Label.v` 为 TargetRef（Cell-owned）时，运行时写入 TargetRef 指向 Cell。
+  - 当 TargetRef 同时声明 `trigger_funcs`（可选 `trigger_model_id`）时，运行时必须产出 `run_func` intercept。
   - 当 `Label.v` 不可解析为 TargetRef 时，回退到 pin mailbox（legacy 兼容）。
 
 ---

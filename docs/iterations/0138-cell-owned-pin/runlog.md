@@ -115,3 +115,40 @@ Review Gate Record
     - `node scripts/validate_pin_mqtt_loop.mjs`
     - `node scripts/validate_pin_mqtt_loop.mjs --case mm_uiput_in_out`
   - Final result: PASS
+
+---
+
+## Step 5 — Converge trigger_func consumption to runtime
+- Start time: 2026-02-09 16:43:30 +0800
+- End time: 2026-02-09 16:47:49 +0800
+- Branch: dropx/dev_0138-cell-owned-pin
+- Commits:
+  - N/A
+- Commands executed:
+  - `apply_patch packages/worker-base/src/runtime.js`
+  - `apply_patch packages/worker-base/src/runtime.mjs`
+  - `apply_patch packages/ui-model-demo-server/server.mjs`
+  - `apply_patch scripts/validate_pin_mqtt_loop.mjs`
+  - `apply_patch docs/iterations/0138-cell-owned-pin/resolution.md`
+  - `apply_patch docs/iterations/0138-cell-owned-pin/plan.md`
+  - `apply_patch docs/user-guide/modeltable_user_guide.md`
+  - `apply_patch docs/ssot/runtime_semantics_modeltable_driven.md`
+  - `node --check packages/worker-base/src/runtime.js`
+  - `node --check packages/worker-base/src/runtime.mjs`
+  - `node --check packages/ui-model-demo-server/server.mjs`
+  - `node --check scripts/validate_pin_mqtt_loop.mjs`
+  - `node scripts/validate_pin_mqtt_loop.mjs`
+  - `node scripts/validate_pin_mqtt_loop.mjs --case cell_owned_pin_trigger_intercept`
+  - `node scripts/validate_pin_mqtt_loop.mjs --case mm_uiput_in_out`
+  - `node scripts/validate_pin_mqtt_loop.mjs --case mm_declared_before_start`
+- Key outputs (snippets):
+  - `VALIDATION RESULTS args_override/read_page0/missing_config/cell_owned_pin_in/cell_owned_pin_trigger_intercept: PASS`
+  - `VALIDATION RESULTS cell_owned_pin_trigger_intercept: PASS`
+  - `VALIDATION RESULTS mm_uiput_in_out: PASS`
+  - `VALIDATION RESULTS mm_declared_before_start: PASS`
+- Result: PASS
+- If FAIL:
+  - Cause: N/A
+  - Fix commits: N/A
+  - Re-run commands: N/A
+  - Final result: N/A

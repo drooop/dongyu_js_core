@@ -40,6 +40,7 @@
 2. 旧声明格式继续工作，`validate_pin_mqtt_loop` 旧用例保持 PASS。
 3. 新增至少一组“新语义 + 兼容语义”验证用例并在 runlog 记录 PASS。
 4. `docs/user-guide/modeltable_user_guide.md` 与 `docs/ssot/runtime_semantics_modeltable_driven.md` 完成同步更新。
+5. `binding.trigger_funcs` 的消费从 server 收敛到 runtime，并有脚本验证 PASS。
 
 ## 7. Risks & Mitigations
 - Risk: 触发时序变化导致重复触发或漏触发。

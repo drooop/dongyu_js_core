@@ -991,35 +991,13 @@ class ProgramModelEngine {
         const matches = this.runtime.findPinInBindingsForDelivery(event.cell, event.label.k);
         let routedByPinIn = false;
         for (const match of matches) {
-          // Priority 1: explicit trigger in PIN binding
+          // Explicit binding trigger_funcs are now consumed by runtime._applyMailboxTriggers.
+          // Server only keeps fallback for legacy dual_bus_model patch_in_func.
           const binding = match.binding && typeof match.binding === 'object' ? match.binding : null;
           const bindingFuncs = binding && Array.isArray(binding.trigger_funcs) ? binding.trigger_funcs : [];
-          if (bindingFuncs.length > 0) {
-            for (const funcName of bindingFuncs) {
-              if (typeof funcName !== 'string' || !funcName) continue;
-              const triggerModelId = binding && Number.isInteger(binding.trigger_model_id) ? binding.trigger_model_id : null;
-              if (Number.isInteger(triggerModelId)) {
-                const triggerModel = this.runtime.getModel(triggerModelId);
-                if (triggerModel && triggerModel.hasFunction(funcName)) {
-                  console.log(`[processEventsSnapshot] PIN binding trigger: ${funcName} on model ${triggerModelId}`);
-                  this.runtime.intercepts.record('run_func', { model_id: triggerModelId, func: funcName, trigger_label: { k: event.label.k, t: event.label.t } });
-                  routedByPinIn = true;
-                  continue;
-                }
-              }
-              const sys = firstSystemModel(this.runtime);
-              if (sys && sys.hasFunction(funcName)) {
-                console.log(`[processEventsSnapshot] PIN binding trigger: ${funcName} on system model`);
-                this.runtime.intercepts.record('run_func', { func: funcName, trigger_label: { k: event.label.k, t: event.label.t } });
-                routedByPinIn = true;
-              } else {
-                console.log(`[processEventsSnapshot] WARNING: ${funcName} function NOT found`);
-              }
-            }
-            if (routedByPinIn) break;
-          }
+          if (bindingFuncs.length > 0) continue;
 
-          // Priority 2: fallback to dual_bus_model patch_in_func mapping
+          // Fallback: dual_bus_model patch_in_func mapping
           const pinModel = this.runtime.getModel(match.pin_model_id);
           if (!pinModel) continue;
           const dbLabel = this.runtime.getCell(pinModel, 0, 0, 0).labels.get('dual_bus_model');
