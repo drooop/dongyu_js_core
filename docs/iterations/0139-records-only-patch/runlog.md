@@ -25,33 +25,39 @@ Review Gate Record
 ## Step 1 — Register + docs sync
 - Start time:
 - End time:
-- Branch:
+- Branch: dev_0139-records-only-patch
 - Commits:
+  - `91ef76e` - docs: add iteration 0139 records-only patch docs
 - Commands executed:
 - Key outputs (snippets):
-- Result: PASS / FAIL
+  - (verification covered in Step 4)
+- Result: PASS
 
 ---
 
 ## Step 2 — Runtime mqttIncoming three-path
 - Start time:
 - End time:
-- Branch:
+- Branch: dev_0139-records-only-patch
 - Commits:
+  - `0eace05` - feat(runtime): apply mt.v0 records patches on mqttIncoming
 - Commands executed:
 - Key outputs (snippets):
-- Result: PASS / FAIL
+  - (verification covered in Step 4)
+- Result: PASS
 
 ---
 
 ## Step 3 — Validation case
 - Start time:
 - End time:
-- Branch:
+- Branch: dev_0139-records-only-patch
 - Commits:
+  - `0eace05` - feat(runtime): apply mt.v0 records patches on mqttIncoming
 - Commands executed:
 - Key outputs (snippets):
-- Result: PASS / FAIL
+  - (verification covered in Step 4)
+- Result: PASS
 
 ---
 
