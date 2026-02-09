@@ -31,6 +31,7 @@
 | 0136-runtime-baseline-k8s-default | 2026-02-09 | Runtime baseline fixed to Docker+K8s; local MBR archived | 4 | dev_0136-runtime-baseline-k8s-default | Completed | ./docs/iterations/0136-runtime-baseline-k8s-default/ |
 | 0137-planA-layered-pressure-test | 2026-02-09 | Plan A layered test and pressure profiling for patch-only import workflow | 5 | dev_0137-planA-layered-pressure-test | In Progress | ./docs/iterations/0137-planA-layered-pressure-test/ |
 | 0138-cell-owned-pin | 2026-02-09 | Cell-owned PIN semantics with compatibility fallback | 4 | dropx/dev_0138-cell-owned-pin | In Progress | ./docs/iterations/0138-cell-owned-pin/ |
+| 0139-records-only-patch | 2026-02-09 | Records-only mt.v0 patch delivery (mqttIncoming three-path) | 4 | dev_0139-records-only-patch | In Progress | ./docs/iterations/0139-records-only-patch/ |
 
 ---
 
