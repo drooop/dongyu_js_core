@@ -1,0 +1,18 @@
+{
+  "base_url": "http://127.0.0.1:19000",
+  "pre_import_workspace": {
+    "workspace_empty_text": true,
+    "has_color_app": false,
+    "has_generate_button": false,
+    "url": "http://127.0.0.1:19000/#/workspace"
+  },
+  "post_import_workspace": {
+    "workspace_empty_text": false,
+    "has_color_app": true,
+    "has_generate_button": true,
+    "color": "#fc8974",
+    "status": "color_updated_#fc8974",
+    "url": "http://127.0.0.1:19000/#/workspace"
+  },
+  "action": "clicked Generate Color once after runtime import"
+}

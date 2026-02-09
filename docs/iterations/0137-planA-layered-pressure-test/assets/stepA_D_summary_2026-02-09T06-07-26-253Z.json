@@ -1,0 +1,42 @@
+{
+  "pass": false,
+  "baseUrl": "http://127.0.0.1:9000",
+  "patchPath": "/Users/drop/codebase/cowork/dongyuapp_elysia_based/packages/worker-base/system-models/workspace_positive_models.json",
+  "importRounds": 5,
+  "uiRounds": 10,
+  "uiTimeoutMs": 30000,
+  "requiredModels": [
+    1,
+    2,
+    100,
+    1001,
+    1002
+  ],
+  "startedAt": "2026-02-09T06:07:26.253Z",
+  "step2": {
+    "before_all_model_ids": [
+      -102,
+      -101,
+      -100,
+      -10,
+      -2,
+      -1,
+      0,
+      1,
+      2,
+      100,
+      1001,
+      1002
+    ],
+    "before_positive_model_ids": [
+      1,
+      2,
+      100,
+      1001,
+      1002
+    ],
+    "before_positive_count": 5,
+    "before_ws_registry_len": 5
+  },
+  "error": "expected_before_positive_count=0 actual=5"
+}
