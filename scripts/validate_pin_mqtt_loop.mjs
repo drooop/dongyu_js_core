@@ -299,6 +299,194 @@ function caseCellOwnedPinTriggerIntercept() {
   return { key: 'cell_owned_pin_trigger_intercept', status: 'PASS' };
 }
 
+function caseRecordsOnlyPatch() {
+  const rt = new ModelTableRuntime();
+  const cfg = argsConfig();
+  writeConfigToPage0(rt, cfg);
+  writeMmTopicConfig(rt, 'UIPUT/ws/dam/pic/de/sw');
+  // Enable mt.v0 payload mode (records envelope)
+  rt.addLabel(rt.getModel(0), 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'mt_v0' });
+
+  const targetModel = rt.createModel({ id: 2, name: 'M2', type: 'data' });
+  const triggerModel = rt.createModel({ id: -10, name: 'SYS', type: 'system' });
+  rt.registerFunction(triggerModel, 'on_patch_in', () => {});
+
+  // Cell-owned + trigger_funcs: records applied first, then runtime emits an IN trigger label.
+  rt.addLabel(targetModel, 0, 0, 1, {
+    k: 'patch',
+    t: 'PIN_IN',
+    v: {
+      model_id: 2,
+      p: 2,
+      r: 0,
+      c: 0,
+      k: 'patch_in',
+      trigger_funcs: ['on_patch_in'],
+      trigger_model_id: -10,
+    },
+  });
+
+  rt.startMqttLoop();
+  assertStatus(rt, 'running');
+
+  const patch = {
+    version: 'mt.v0',
+    op_id: 'it0139_records_only_patch',
+    records: [
+      { op: 'add_label', model_id: 2, p: 9, r: 0, c: 0, k: 'x', t: 'str', v: 'y' },
+    ],
+  };
+  const inbound = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/2/patch', patch);
+  assert(inbound, 'records_only_patch mqttIncoming should be handled');
+
+  const events = rt.eventLog.list();
+  const recordApplied = events.find((e) => (
+    e.op === 'add_label' &&
+    e.cell.model_id === 2 &&
+    e.cell.p === 9 &&
+    e.cell.r === 0 &&
+    e.cell.c === 0 &&
+    e.label.k === 'x' &&
+    e.label.t === 'str' &&
+    e.label.v === 'y'
+  ));
+  assert(recordApplied, 'records_only_patch should apply records via applyPatch');
+
+  const triggerLabelApplied = events.find((e) => (
+    e.op === 'add_label' &&
+    e.cell.model_id === 2 &&
+    e.cell.p === 2 &&
+    e.cell.r === 0 &&
+    e.cell.c === 0 &&
+    e.label.k === 'patch_in' &&
+    e.label.t === 'IN'
+  ));
+  assert(triggerLabelApplied, 'records_only_patch should emit an explicit IN trigger label when trigger_funcs configured');
+
+  const runItems = rt.intercepts.list().filter((item) => item.type === 'run_func' && item.payload && item.payload.func === 'on_patch_in');
+  assert(runItems.length === 1, 'records_only_patch should enqueue exactly one run_func for trigger_funcs');
+  assert(runItems[0].payload.model_id === -10, 'records_only_patch should respect trigger_model_id');
+  return { key: 'records_only_patch', status: 'PASS' };
+}
+
+function caseRecordsOnlyNoTriggerFuncs() {
+  const rt = new ModelTableRuntime();
+  const cfg = argsConfig();
+  writeConfigToPage0(rt, cfg);
+  writeMmTopicConfig(rt, 'UIPUT/ws/dam/pic/de/sw');
+  rt.addLabel(rt.getModel(0), 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'mt_v0' });
+
+  const targetModel = rt.createModel({ id: 2, name: 'M2', type: 'data' });
+  // Cell-owned route but no trigger_funcs.
+  rt.addLabel(targetModel, 0, 0, 1, {
+    k: 'patch',
+    t: 'PIN_IN',
+    v: {
+      model_id: 2,
+      p: 2,
+      r: 0,
+      c: 0,
+      k: 'patch_in',
+    },
+  });
+
+  rt.startMqttLoop();
+  assertStatus(rt, 'running');
+
+  const patch = {
+    version: 'mt.v0',
+    op_id: 'it0139_records_only_no_trigger_funcs',
+    records: [
+      { op: 'add_label', model_id: 2, p: 9, r: 0, c: 0, k: 'x2', t: 'str', v: 'y2' },
+    ],
+  };
+  const inbound = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/2/patch', patch);
+  assert(inbound, 'records_only_no_trigger_funcs mqttIncoming should be handled');
+
+  const events = rt.eventLog.list();
+  const recordApplied = events.find((e) => (
+    e.op === 'add_label' &&
+    e.cell.model_id === 2 &&
+    e.cell.p === 9 &&
+    e.cell.r === 0 &&
+    e.cell.c === 0 &&
+    e.label.k === 'x2' &&
+    e.label.t === 'str' &&
+    e.label.v === 'y2'
+  ));
+  assert(recordApplied, 'records_only_no_trigger_funcs should apply records via applyPatch');
+
+  const triggerLabelApplied = events.find((e) => (
+    e.op === 'add_label' &&
+    e.cell.model_id === 2 &&
+    e.cell.p === 2 &&
+    e.cell.r === 0 &&
+    e.cell.c === 0 &&
+    e.label.k === 'patch_in' &&
+    e.label.t === 'IN'
+  ));
+  assert(!triggerLabelApplied, 'records_only_no_trigger_funcs should NOT emit trigger IN label');
+
+  const runItems = rt.intercepts.list().filter((item) => item.type === 'run_func');
+  assert(runItems.length === 0, 'records_only_no_trigger_funcs should not enqueue run_func');
+  return { key: 'records_only_no_trigger_funcs', status: 'PASS' };
+}
+
+function caseMtV0EmptyRecordsFallback() {
+  const rt = new ModelTableRuntime();
+  const cfg = argsConfig();
+  writeConfigToPage0(rt, cfg);
+  writeMmTopicConfig(rt, 'UIPUT/ws/dam/pic/de/sw');
+  rt.addLabel(rt.getModel(0), 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'mt_v0' });
+
+  const targetModel = rt.createModel({ id: 2, name: 'M2', type: 'data' });
+  const triggerModel = rt.createModel({ id: -10, name: 'SYS', type: 'system' });
+  rt.registerFunction(triggerModel, 'on_patch_in', () => {});
+
+  rt.addLabel(targetModel, 0, 0, 1, {
+    k: 'patch',
+    t: 'PIN_IN',
+    v: {
+      model_id: 2,
+      p: 2,
+      r: 0,
+      c: 0,
+      k: 'patch_in',
+      trigger_funcs: ['on_patch_in'],
+      trigger_model_id: -10,
+    },
+  });
+
+  rt.startMqttLoop();
+  assertStatus(rt, 'running');
+
+  const patch = {
+    version: 'mt.v0',
+    op_id: 'it0139_mt_v0_empty_records_fallback',
+    records: [],
+  };
+  const inbound = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/2/patch', patch);
+  assert(inbound, 'mt_v0_empty_records_fallback mqttIncoming should be handled');
+
+  const events = rt.eventLog.list();
+  const legacyIn = events.find((e) => (
+    e.op === 'add_label' &&
+    e.cell.model_id === 2 &&
+    e.cell.p === 2 &&
+    e.cell.r === 0 &&
+    e.cell.c === 0 &&
+    e.label.k === 'patch_in' &&
+    e.label.t === 'IN' &&
+    e.label.v &&
+    e.label.v.op_id === patch.op_id
+  ));
+  assert(legacyIn, 'mt_v0_empty_records_fallback should write legacy IN label with payload');
+
+  const runItems = rt.intercepts.list().filter((item) => item.type === 'run_func' && item.payload && item.payload.func === 'on_patch_in');
+  assert(runItems.length === 1, 'mt_v0_empty_records_fallback should enqueue run_func via legacy IN write');
+  return { key: 'mt_v0_empty_records_fallback', status: 'PASS' };
+}
+
 function runAll() {
   const results = [];
   results.push(caseArgsOverride());
@@ -306,6 +494,9 @@ function runAll() {
   results.push(caseMissingConfig());
   results.push(caseCellOwnedPinIn());
   results.push(caseCellOwnedPinTriggerIntercept());
+  results.push(caseRecordsOnlyPatch());
+  results.push(caseRecordsOnlyNoTriggerFuncs());
+  results.push(caseMtV0EmptyRecordsFallback());
   return results;
 }
 
@@ -333,6 +524,12 @@ try {
     results = [caseCellOwnedPinIn()];
   } else if (which === 'cell_owned_pin_trigger_intercept') {
     results = [caseCellOwnedPinTriggerIntercept()];
+  } else if (which === 'records_only_patch') {
+    results = [caseRecordsOnlyPatch()];
+  } else if (which === 'records_only_no_trigger_funcs') {
+    results = [caseRecordsOnlyNoTriggerFuncs()];
+  } else if (which === 'mt_v0_empty_records_fallback') {
+    results = [caseMtV0EmptyRecordsFallback()];
   } else {
     results = runAll();
   }

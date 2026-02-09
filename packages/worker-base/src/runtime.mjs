@@ -1057,8 +1057,28 @@ class ModelTableRuntime {
       const route = this._resolvePinInRouteForMode(modelId, pinName, mode);
       const targetModel = this.getModel(route.target.model_id);
       if (!targetModel) return false;
+
+      if (payloadMode === 'mt_v0' && payload && Array.isArray(payload.records) && payload.records.length > 0) {
+        const result = this.applyPatch(payload, { allowCreateModel: false });
+        this.mqttTrace.record('inbound', { topic, payload, mode: 'records', applied: result.applied, rejected: result.rejected });
+
+        const binding = this.pinInBindings.get(this._pinKey(modelId, pinName));
+        const triggerFuncs = binding && Array.isArray(binding.trigger_funcs) ? binding.trigger_funcs : [];
+        if (triggerFuncs.length > 0) {
+          // Emit an explicit IN trigger label to drive PIN_IN binding triggers.
+          // Note: PIN_IN binding triggers are gated by label.t === 'IN'.
+          this.addLabel(targetModel, route.target.p, route.target.r, route.target.c, {
+            k: route.target.k,
+            t: 'IN',
+            v: { op_id: typeof payload.op_id === 'string' ? payload.op_id : '' },
+          });
+        }
+        return true;
+      }
+
+      // fallback: legacy behavior (records empty or non-mt.v0 mode)
       this.addLabel(targetModel, route.target.p, route.target.r, route.target.c, { k: route.target.k, t: 'IN', v: payload });
-      this.mqttTrace.record('inbound', { topic, payload });
+      this.mqttTrace.record('inbound', { topic, payload, mode: 'legacy_in' });
       return true;
     }
 
@@ -1089,8 +1109,25 @@ class ModelTableRuntime {
       const route = this._resolvePinInRouteForMode(modelId, pinName, mode);
       const targetModel = this.getModel(route.target.model_id);
       if (!targetModel) return false;
+
+      if (payloadMode === 'mt_v0' && payload && Array.isArray(payload.records) && payload.records.length > 0) {
+        const result = this.applyPatch(payload, { allowCreateModel: false });
+        this.mqttTrace.record('inbound', { topic, payload, mode: 'records', applied: result.applied, rejected: result.rejected });
+
+        const binding = this.pinInBindings.get(this._pinKey(modelId, pinName));
+        const triggerFuncs = binding && Array.isArray(binding.trigger_funcs) ? binding.trigger_funcs : [];
+        if (triggerFuncs.length > 0) {
+          this.addLabel(targetModel, route.target.p, route.target.r, route.target.c, {
+            k: route.target.k,
+            t: 'IN',
+            v: { op_id: typeof payload.op_id === 'string' ? payload.op_id : '' },
+          });
+        }
+        return true;
+      }
+
       this.addLabel(targetModel, route.target.p, route.target.r, route.target.c, { k: route.target.k, t: 'IN', v: payload });
-      this.mqttTrace.record('inbound', { topic, payload });
+      this.mqttTrace.record('inbound', { topic, payload, mode: 'legacy_in' });
       return true;
     }
 
@@ -1107,8 +1144,25 @@ class ModelTableRuntime {
     }
     const mailbox = this._pinMailboxCellFor(0, mode);
     const model = this.getModel(mailbox.model_id);
+
+    if (payloadMode === 'mt_v0' && payload && Array.isArray(payload.records) && payload.records.length > 0) {
+      const result = this.applyPatch(payload, { allowCreateModel: false });
+      this.mqttTrace.record('inbound', { topic, payload, mode: 'records', applied: result.applied, rejected: result.rejected });
+
+      const binding = this.pinInBindings.get(this._pinKey(0, pinName));
+      const triggerFuncs = binding && Array.isArray(binding.trigger_funcs) ? binding.trigger_funcs : [];
+      if (triggerFuncs.length > 0) {
+        this.addLabel(model, mailbox.p, mailbox.r, mailbox.c, {
+          k: pinName,
+          t: 'IN',
+          v: { op_id: typeof payload.op_id === 'string' ? payload.op_id : '' },
+        });
+      }
+      return true;
+    }
+
     this.addLabel(model, mailbox.p, mailbox.r, mailbox.c, { k: pinName, t: 'IN', v: payload });
-    this.mqttTrace.record('inbound', { topic, payload });
+    this.mqttTrace.record('inbound', { topic, payload, mode: 'legacy_in' });
     return true;
   }
 
