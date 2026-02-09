@@ -75,6 +75,19 @@ function emitTrace(runtime, { hop, direction, op_id, model_id, summary, payload,
   });
 }
 
+function readIntEnv(name, fallback, minValue = 0) {
+  const raw = process.env[name];
+  if (raw == null || raw === '') return fallback;
+  const parsed = Number.parseInt(String(raw), 10);
+  if (!Number.isFinite(parsed) || parsed < minValue) return fallback;
+  return parsed;
+}
+
+function sleepMs(ms) {
+  if (!ms || ms <= 0) return Promise.resolve();
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const AdmZip = AdmZipPkg && AdmZipPkg.default ? AdmZipPkg.default : AdmZipPkg;
 
 function readJsonBody(req) {
@@ -466,6 +479,16 @@ class ProgramModelEngine {
     // Callback invoked when snapshot changes due to Matrix/external events.
     // Set by server to trigger SSE broadcast.
     this.onSnapshotChanged = null;
+
+    // Matrix outbound flow control.
+    // Keep Matrix sends serialized to avoid burst-triggered 429.
+    this.matrixSendQueue = Promise.resolve();
+    this.matrixSendQueueDepth = 0;
+    this.matrixSendNextAtMs = 0;
+    this.matrixMinSendIntervalMs = readIntEnv('DY_MATRIX_SEND_MIN_INTERVAL_MS', 550, 0);
+    this.matrixRetryMaxAttempts = readIntEnv('DY_MATRIX_SEND_RETRY_MAX_ATTEMPTS', 5, 1);
+    this.matrixRetryFallbackMs = readIntEnv('DY_MATRIX_SEND_RETRY_FALLBACK_MS', 1200, 1);
+    this.matrixRetryMaxBackoffMs = readIntEnv('DY_MATRIX_SEND_RETRY_MAX_BACKOFF_MS', 10000, 1);
   }
 
   async init() {
@@ -519,6 +542,78 @@ class ProgramModelEngine {
     return null;
   }
 
+  isMatrixRateLimited(err) {
+    if (!err || typeof err !== 'object') return false;
+    const code = err.errcode
+      || (err.data && err.data.errcode)
+      || (err.body && err.body.errcode)
+      || '';
+    const status = Number(err.httpStatus || err.statusCode || err.status || 0);
+    return code === 'M_LIMIT_EXCEEDED' || status === 429;
+  }
+
+  matrixRetryAfterMs(err) {
+    if (!err || typeof err !== 'object') return null;
+    const raw = (err.data && err.data.retry_after_ms)
+      || (err.body && err.body.retry_after_ms)
+      || err.retryAfterMs
+      || null;
+    if (raw == null) return null;
+    const parsed = Number.parseInt(String(raw), 10);
+    if (!Number.isFinite(parsed) || parsed < 0) return null;
+    return parsed;
+  }
+
+  async waitMatrixSendSlot() {
+    const now = Date.now();
+    if (this.matrixSendNextAtMs > now) {
+      await sleepMs(this.matrixSendNextAtMs - now);
+    }
+    const base = Math.max(Date.now(), this.matrixSendNextAtMs);
+    this.matrixSendNextAtMs = base + this.matrixMinSendIntervalMs;
+  }
+
+  enqueueMatrixSend(payload) {
+    this.matrixSendQueueDepth += 1;
+    const run = async () => {
+      try {
+        let attempt = 0;
+        while (attempt < this.matrixRetryMaxAttempts) {
+          attempt += 1;
+          await this.waitMatrixSendSlot();
+          try {
+            console.log(
+              `[sendMatrix] Sending to Matrix room=${this.matrixRoomId} attempt=${attempt}/${this.matrixRetryMaxAttempts} queue_depth=${this.matrixSendQueueDepth}`,
+            );
+            await this.matrixClient.sendEvent(this.matrixRoomId, 'dy.bus.v0', payload);
+            console.log(`[sendMatrix] SUCCESS: Message sent to Matrix (dy.bus.v0), attempt=${attempt}`);
+            return;
+          } catch (err) {
+            if (this.isMatrixRateLimited(err) && attempt < this.matrixRetryMaxAttempts) {
+              const retryFromServer = this.matrixRetryAfterMs(err);
+              const backoffMs = Math.min(
+                this.matrixRetryMaxBackoffMs,
+                Math.max(this.matrixRetryFallbackMs, retryFromServer || this.matrixRetryFallbackMs),
+              );
+              this.matrixSendNextAtMs = Math.max(this.matrixSendNextAtMs, Date.now() + backoffMs);
+              console.warn(
+                `[sendMatrix] RATE_LIMIT: retry attempt=${attempt} backoff_ms=${backoffMs} retry_after_ms=${retryFromServer == null ? 'n/a' : retryFromServer}`,
+              );
+              continue;
+            }
+            throw err;
+          }
+        }
+        throw new Error('matrix_send_retry_exhausted');
+      } finally {
+        this.matrixSendQueueDepth = Math.max(0, this.matrixSendQueueDepth - 1);
+      }
+    };
+    const task = this.matrixSendQueue.then(run, run);
+    this.matrixSendQueue = task.catch(() => {});
+    return task;
+  }
+
   async sendMatrix(payload) {
     console.log('[sendMatrix] CALLED with payload:', JSON.stringify(payload));
     emitTrace(this.runtime, {
@@ -536,10 +631,7 @@ class ProgramModelEngine {
       console.log('[sendMatrix] ERROR: matrix_dm_peer_user_id_required');
       throw new Error('matrix_dm_peer_user_id_required');
     }
-    console.log('[sendMatrix] Sending to Matrix room:', this.matrixRoomId);
-    // Use dy.bus.v0 event type for MBR worker compatibility
-    await this.matrixClient.sendEvent(this.matrixRoomId, 'dy.bus.v0', payload);
-    console.log('[sendMatrix] SUCCESS: Message sent to Matrix (dy.bus.v0)');
+    await this.enqueueMatrixSend(payload);
   }
 
   startMatrixListener() {

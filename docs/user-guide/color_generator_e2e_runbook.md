@@ -67,6 +67,42 @@ UI_SERVER_URL=http://127.0.0.1:19000 bun scripts/import_positive_models_patch.mj
 - 导入脚本输出 `PASS imported_models=1,2,100,1001,1002 ...`
 - Workspace 页面导入前无 worker apps，导入后出现应用并可进入模型 schema 渲染页面。
 
+## 2.3 方案A分层压测（0137）
+
+目标：在 2.2 的 patch-only 模式上，按固定顺序一次性验证：
+空态 -> 动态导入 -> 幂等导入 -> `ui_event` 压力 -> Playwright 终验。
+
+执行方式：
+1. 启动空 workspace UI Server（同 2.2，端口可用 `19000`）。
+2. 运行分层脚本：
+```bash
+cd /Users/drop/codebase/cowork/dongyuapp_elysia_based
+UI_SERVER_URL=http://127.0.0.1:19000 bun scripts/test_planA_layered_pressure.mjs
+```
+3. 脚本输出证据目录：
+- `docs/iterations/0137-planA-layered-pressure-test/assets/`
+- 关键文件：`step2_before_*.json`、`step3_import_*.json`、`step4_pressure_summary.json`、`stepA_D_summary_*.json`
+
+判定口径：
+1. Step2：`before_positive_count=0` 且 `before_ws_registry_len=0`
+2. Step3：导入后存在 `1/2/100/1001/1002`，且 `idempotency_failures=0`
+3. Step4：`error_count=0` 且 `p95_ms < 3000`
+4. Step5（Playwright）：导入前 Workspace 空，导入后出现 `E2E 颜色生成器`，点击后颜色变化
+
+0137 已知实测现象（用于排障）：
+1. Step2/Step3/Step5 均 PASS。
+2. Step4 出现固定节奏失败：30 轮中 round `11`、`22` 超时。
+3. 超时轮次中 `/ui_event` 仍返回 `200` 且 `ui_event_last_op_id` 正常，说明请求已被 server 接收。
+4. `remote-worker` 的 `planA_*` 日志缺失 round `11`、`22`；`mbr-worker` 可见 round `22` 入站并 publish，链路存在“节奏性丢轮”迹象。
+
+建议排查命令：
+```bash
+cd /Users/drop/codebase/cowork/dongyuapp_elysia_based
+kubectl logs deploy/remote-worker --tail=2000 | rg 'planA_'
+kubectl logs deploy/mbr-worker --tail=3000 | rg 'planA_'
+jq '.step4.errors' docs/iterations/0137-planA-layered-pressure-test/assets/stepA_D_summary_*.json
+```
+
 ## 3. 启动顺序（推荐隔离端口）
 
 1. 创建独立 Matrix room：
@@ -244,3 +280,7 @@ PASS 判定：`bg_color` 在 30 秒内发生变化。
 - `docs/iterations/0135-color-generator-patch-only-repro/assets/step2_api_repro_0135.log`
 - `docs/iterations/0135-color-generator-patch-only-repro/assets/playwright_verify_result_0135.json`
 - `docs/iterations/0135-color-generator-patch-only-repro/assets/runtime_env_0135.txt`
+- `docs/iterations/0137-planA-layered-pressure-test/assets/step1_baseline_check.txt`
+- `docs/iterations/0137-planA-layered-pressure-test/assets/stepA_D_summary_*.json`
+- `docs/iterations/0137-planA-layered-pressure-test/assets/step4_pressure_summary.json`
+- `docs/iterations/0137-planA-layered-pressure-test/assets/playwright_step5.json`
