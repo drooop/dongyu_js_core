@@ -209,9 +209,19 @@ process.stdout.write('\n=== Test Group 6: mbr_mgmt_to_mqtt (Model 100) ===\n');
   rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_mgmt_to_mqtt', t: 'str', v: '1' });
   engine.tick();
 
-  assert(publishedTopic === 'UIPUT/ws/dam/pic/de/sw/100/event_in', `Model 100 topic=${publishedTopic}`);
-  assert(publishedPayload && publishedPayload.records && publishedPayload.records.length === 0, 'Model 100 records empty (pass-through)');
-  assert(publishedPayload && publishedPayload.action === 'some_action', 'Model 100 action preserved');
+  assert(publishedTopic === 'UIPUT/ws/dam/pic/de/sw/100/event', `Model 100 topic=${publishedTopic}`);
+  assert(publishedPayload && publishedPayload.version === 'mt.v0', 'Model 100 payload is mt.v0');
+  assert(publishedPayload && publishedPayload.op_id === 'test_m100_001', 'Model 100 payload has correct op_id');
+  assert(publishedPayload && Array.isArray(publishedPayload.records) && publishedPayload.records.length === 3, 'Model 100 payload is records-only (3 records)');
+  assert(publishedPayload && !('action' in publishedPayload) && !('data' in publishedPayload), 'Model 100 payload does not use legacy action/data fields');
+  if (publishedPayload && Array.isArray(publishedPayload.records)) {
+    const actionRec = publishedPayload.records.find((r) => r && r.op === 'add_label' && r.k === 'action');
+    const dataRec = publishedPayload.records.find((r) => r && r.op === 'add_label' && r.k === 'data');
+    const tsRec = publishedPayload.records.find((r) => r && r.op === 'add_label' && r.k === 'timestamp');
+    assert(actionRec && actionRec.model_id === 100 && actionRec.p === 1 && actionRec.r === 0 && actionRec.c === 0 && actionRec.t === 'str' && actionRec.v === 'some_action', 'Model 100 action record written to request cell');
+    assert(dataRec && dataRec.model_id === 100 && dataRec.p === 1 && dataRec.r === 0 && dataRec.c === 0 && dataRec.t === 'json' && dataRec.v && dataRec.v.foo === 'bar', 'Model 100 data record written to request cell');
+    assert(tsRec && tsRec.model_id === 100 && tsRec.p === 1 && tsRec.r === 0 && tsRec.c === 0 && tsRec.t === 'int' && typeof tsRec.v === 'number', 'Model 100 timestamp record written to request cell');
+  }
 }
 
 // ── Test 7: mbr_mgmt_to_mqtt — dedup ───────────────────────────────────────

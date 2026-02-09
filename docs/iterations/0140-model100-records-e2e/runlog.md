@@ -28,8 +28,12 @@ Review Gate Record
 - Branch: dev_0140-model100-records-e2e
 - Commits:
 - Commands executed:
+  - `node scripts/validate_mbr_patch_v0.mjs`
 - Key outputs (snippets):
-- Result: PASS / FAIL
+  - `TOTAL: 93  PASS: 93  FAIL: 0`
+  - Model 100 publish topic asserted as `.../100/event`
+  - Model 100 payload asserted as records-only (3 records at `p=1,r=0,c=0` keys: action/data/timestamp)
+- Result: PASS
 
 ---
 
