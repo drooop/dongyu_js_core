@@ -76,6 +76,13 @@ Review Gate Record
 - Key outputs (snippets):
 - Result: PASS / FAIL
 
+### Step 3 — Worker-side validation (FACTS)
+- Commands executed:
+  - `node scripts/validate_model100_records_e2e_v0.mjs`
+- Key outputs (snippets):
+  - `PASS: model100 records-only E2E (MBR -> mqttIncoming -> trigger_funcs -> function)`
+- Result: PASS
+
 ---
 
 ## Step 4 — Docs + iteration closure
