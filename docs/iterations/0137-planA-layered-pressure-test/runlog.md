@@ -127,6 +127,21 @@
 - Result: PASS（本轮 Step A-E 全量回归通过）
 - Commit: N/A
 
+### Step 8（UI 防多击增强：A1 -> A2）
+
+- Command:
+- `WORKER_BASE_WORKSPACE=ws_a1a2 bun scripts/reset_workspace_db_v0.mjs`
+- `WORKER_BASE_WORKSPACE=ws_a1a2 bun packages/ui-model-demo-server/server.mjs`
+- `UI_SERVER_URL=http://127.0.0.1:9000 bun scripts/import_positive_models_patch.mjs`
+- `npm -C packages/ui-model-demo-frontend run build`
+- Playwright（Workspace -> `Generate Color` 20 次 DOM burst）：
+- A1（前端硬编码 submit props）验证：`burstDelta=1`, `drainDelta=1`, `changed=true`
+- A2（schema `submit__props` 驱动）复验：`burstDelta=1`, `drainDelta=1`, `changed=true`
+- Key output:
+- A2 证据：`playwright_a2_schema_singleflight_verify.txt` 中 `{"ok":true,"burstDelta":1,"drainDelta":1,"changed":true,...}`
+- Result: PASS（A1 有效，A2 等效替代并通过）
+- Commit: N/A
+
 ## Docs Updated
 
 - [x] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
@@ -152,6 +167,8 @@
 - `docs/iterations/0137-planA-layered-pressure-test/assets/step3_import_2026-02-09T06-19-22-791Z.json`
 - `docs/iterations/0137-planA-layered-pressure-test/assets/step4_pressure_summary.json`
 - `docs/iterations/0137-planA-layered-pressure-test/assets/playwright_stepE_gate_result.json`
+- [x] 本轮 A1/A2 防多击证据：
+- `docs/iterations/0137-planA-layered-pressure-test/assets/playwright_a2_schema_singleflight_verify.txt`
 
 ## Current Decision
 

@@ -339,6 +339,27 @@ function setMailboxEnvelope(runtime, envelopeOrNull) {
   runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v: envelopeOrNull });
 }
 
+function isModel100SubmitPayload(payload) {
+  if (!payload || payload.action !== 'label_add') return false;
+  const target = payload.target || null;
+  if (!target || target.model_id !== 100 || target.p !== 0 || target.r !== 0 || target.c !== 2 || target.k !== 'ui_event') {
+    return false;
+  }
+  const value = payload.value || null;
+  const event = value && typeof value === 'object' && value.v && typeof value.v === 'object' ? value.v : null;
+  return Boolean(event && event.action === 'submit');
+}
+
+function setModel100SubmitState(runtime, options = {}) {
+  const model = runtime.getModel(100);
+  if (!model) return;
+  const inflight = options.inflight === true;
+  runtime.addLabel(model, 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: inflight });
+  if (typeof options.status === 'string' && options.status.length > 0) {
+    runtime.addLabel(model, 0, 0, 0, { k: 'status', t: 'str', v: options.status });
+  }
+}
+
 function buildSafeSnapshotJson(runtime) {
   const snap = runtime.snapshot();
   const safeModels = {};
@@ -1254,7 +1275,18 @@ function createServerState(options) {
         { k: 'input_value__props', t: 'json', v: { placeholder: 'Enter any text (optional)' } },
         { k: 'submit', t: 'str', v: 'Button' },
         { k: 'submit__label', t: 'str', v: '' },
-        { k: 'submit__props', t: 'json', v: { label: 'Generate Color', type: 'primary', size: 'large' } },
+        { k: 'submit__props', t: 'json', v: {
+          label: 'Generate Color',
+          type: 'primary',
+          size: 'large',
+          disabled: { $label: { model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight' } },
+          loading: { $label: { model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight' } },
+          singleFlight: {
+            key: 'model100_submit',
+            releaseRef: { model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight' },
+            releaseWhen: false,
+          },
+        } },
         { k: 'submit__no_wrap', t: 'bool', v: true },
         { k: 'submit__bind', t: 'json', v: {
           write: {
@@ -1780,6 +1812,13 @@ function createServerState(options) {
   }
 
   async function submitEnvelope(envelopeOrNull) {
+    const envelope = envelopeOrNull;
+    const payload = envelope && envelope.payload ? envelope.payload : null;
+    const action = payload && typeof payload.action === 'string' ? payload.action : '';
+    const meta = payload && payload.meta ? payload.meta : null;
+    const opId = meta && typeof meta.op_id === 'string' ? meta.op_id : '';
+    const isModel100Submit = isModel100SubmitPayload(payload);
+
     if (envelopeOrNull) {
       const ep = envelopeOrNull.payload || envelopeOrNull;
       emitTrace(runtime, {
@@ -1790,6 +1829,21 @@ function createServerState(options) {
         payload: ep,
       });
     }
+
+    if (isModel100Submit) {
+      const model100 = runtime.getModel(100);
+      const inflight = model100 ? runtime.getLabelValue(model100, 0, 0, 0, 'submit_inflight') === true : false;
+      if (inflight) {
+        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
+        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: { op_id: opId, code: 'busy', detail: 'model100_submit_inflight' } });
+        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+        updateDerived();
+        await programEngine.tick();
+        return { consumed: true, result: 'error', code: 'busy', detail: 'model100_submit_inflight' };
+      }
+      setModel100SubmitState(runtime, { inflight: true, status: 'loading' });
+    }
+
     setMailboxEnvelope(runtime, envelopeOrNull);
     
     // Trigger forward_ui_events BEFORE any action processing clears the mailbox
@@ -1798,10 +1852,6 @@ function createServerState(options) {
       await programEngine.tick();
     }
     
-    const envelope = envelopeOrNull;
-    const payload = envelope && envelope.payload ? envelope.payload : null;
-    const action = payload && typeof payload.action === 'string' ? payload.action : '';
-
     try {
 
     if (action.startsWith('docs_') || action.startsWith('static_') || action.startsWith('ws_')) {
@@ -2176,10 +2226,9 @@ function createServerState(options) {
     await programEngine.tick();
     return result;
     } catch (err) {
-      const opId = (() => {
-        const meta = payload && payload.meta ? payload.meta : null;
-        return meta && typeof meta.op_id === 'string' ? meta.op_id : '';
-      })();
+      if (isModel100Submit) {
+        setModel100SubmitState(runtime, { inflight: false, status: 'send_failed' });
+      }
       runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, {
         k: 'ui_event_error',
         t: 'json',

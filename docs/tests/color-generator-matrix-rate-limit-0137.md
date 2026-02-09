@@ -79,3 +79,16 @@
 3. 压力：`success_count=30`, `error_count=0`, `p95_ms=1286`
 - Playwright Step E：PASS（快速点击后颜色继续变化）
 - 证据：`docs/iterations/0137-planA-layered-pressure-test/assets/playwright_stepE_gate_result.json`
+
+## 8. UI 防多击增强验证（A1 -> A2）
+
+- 目标：在保留方案A（Matrix 出站限速+重试）的基础上，降低 UI 侧重复点击造成的无效请求与可感知延时。
+- A1（前端临时硬编码）：
+1. 在 Model 100 submit 按钮注入 `disabled/loading/singleFlight`（由 `submit_inflight` 驱动）。
+2. 在 renderer 增加本地 single-flight 锁，首击即本地锁定，直到 `submit_inflight=false` 才释放。
+3. Playwright 20 次 DOM burst 结果：`burstDelta=1`，`drainDelta=1`，`changed=true`（通过）。
+- A2（模型驱动落地）：
+1. 移除前端硬编码，改为在 Model 100 schema `submit__props` 中声明 `disabled/loading/singleFlight`。
+2. Playwright 复测结果与 A1 一致：`burstDelta=1`，`drainDelta=1`，`changed=true`（通过）。
+- 证据：
+1. `docs/iterations/0137-planA-layered-pressure-test/assets/playwright_a2_schema_singleflight_verify.txt`

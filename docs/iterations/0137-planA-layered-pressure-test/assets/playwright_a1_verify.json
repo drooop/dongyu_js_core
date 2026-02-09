@@ -1,0 +1,12 @@
+### Result
+{"ok":true,"initialStatus":"ready","reqAfterBurst":12,"disabledDuring":true,"loadingDuring":true,"changed":true,"disabledAfter":false,"loadingAfter":false,"reqAfterSecondClick":13}
+### Ran Playwright code
+```js
+await (async (page) => { const user = "@drop:localhost"; const pass = "TQcps@123"; let uiEventReq = 0; page.on('request', (req) => { if (req.url().includes('/ui_event')) uiEventReq += 1; }); const loginBtn = page.getByRole('button', { name: 'Login with Matrix' }); if (await loginBtn.count()) { await page.getByRole('textbox', { name: '@user:localhost' }).fill(user); await page.getByRole('textbox', { name: 'Password' }).fill(pass); await loginBtn.click(); await page.waitForTimeout(1000); } await page.getByRole('button', { name: 'Workspace' }).click(); await page.waitForTimeout(1000); const btn = page.getByRole('button', { name: 'Generate Color' }); if (!(await btn.count())) return { ok:false, reason:'button_missing' }; const bodyText = async () => await page.textContent('body'); const readStatus = async () => { const txt = await bodyText(); const m = txt && txt.match(/color_updated_#[0-9a-fA-F]{6}|loading|ready|send_failed/g); return m ? m[m.length - 1] : null; }; const initialStatus = await readStatus(); for (let i = 0; i < 10; i += 1) { await btn.click({ trial:false }); await page.waitForTimeout(50); } const reqAfterBurst = uiEventReq; const disabledDuring = await btn.isDisabled(); const loadingDuring = await btn.first().evaluate((el) => el.classList.contains('is-loading')); const start = Date.now(); let changed = false; while (Date.now() - start < 30000) { const s = await readStatus(); if (s && s !== initialStatus && s.startsWith('color_updated_')) { changed = true; break; } await page.waitForTimeout(250); } const disabledAfter = await btn.isDisabled(); const loadingAfter = await btn.first().evaluate((el) => el.classList.contains('is-loading')); await btn.click(); await page.waitForTimeout(200); const reqAfterSecondClick = uiEventReq; return { ok:true, initialStatus, reqAfterBurst, disabledDuring, loadingDuring, changed, disabledAfter, loadingAfter, reqAfterSecondClick }; })(page);
+```
+### Page
+- Page URL: http://127.0.0.1:9000/#/workspace
+- Page Title: UI Model Demo
+- Console: 3 errors, 0 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-02-09T07-10-15-300Z.log#L3

@@ -88,6 +88,24 @@ function resolveRefsDeep(value, ctx, snapshot) {
   return value;
 }
 
+function ensureSingleFlightStore(host) {
+  if (!host) return null;
+  if (!host.__dySingleFlightStore || !(host.__dySingleFlightStore instanceof Map)) {
+    host.__dySingleFlightStore = new Map();
+  }
+  return host.__dySingleFlightStore;
+}
+
+function singleFlightValueKey(value) {
+  if (value === null || value === undefined) return '__nil__';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch (_) {
+    return String(value);
+  }
+}
+
 function nextEventId() {
   eventCounter += 1;
   return `evt_${Date.now()}_${eventCounter}`;
@@ -585,7 +603,67 @@ function buildVueNode(node, snapshot, vue, host) {
       }
     }
     const directUpload = node.props && node.props.directUpload;
-    props.onClick = () => {
+    const singleFlight = node.props && node.props.singleFlight;
+    const singleFlightEnabled = Boolean(singleFlight);
+    const singleFlightStore = singleFlightEnabled ? ensureSingleFlightStore(host) : null;
+    const singleFlightKey = singleFlightEnabled
+      ? (singleFlight.key || node.id || `${node.type}`)
+      : null;
+    const releaseRef = singleFlightEnabled ? (singleFlight.releaseRef || singleFlight.release_ref || null) : null;
+    const releaseVal = releaseRef ? getLabelValue(snapshot, releaseRef) : null;
+    const releaseKey = singleFlightValueKey(releaseVal);
+    const releaseWhenValue = singleFlightEnabled && Object.prototype.hasOwnProperty.call(singleFlight, 'releaseWhen')
+      ? singleFlight.releaseWhen
+      : undefined;
+    const releaseWhenKey = singleFlightEnabled && releaseWhenValue !== undefined
+      ? singleFlightValueKey(releaseWhenValue)
+      : null;
+
+    let flightState = singleFlightEnabled && singleFlightStore ? singleFlightStore.get(singleFlightKey) : null;
+    if (singleFlightEnabled && !flightState) {
+      flightState = { pending: false, releaseKey };
+      singleFlightStore.set(singleFlightKey, flightState);
+    }
+    if (singleFlightEnabled && flightState && flightState.pending && releaseRef) {
+      const shouldRelease = releaseWhenKey !== null
+        ? releaseKey === releaseWhenKey
+        : releaseKey !== flightState.releaseKey;
+      if (shouldRelease) {
+        flightState.pending = false;
+        flightState.releaseKey = releaseKey;
+        singleFlightStore.set(singleFlightKey, flightState);
+      }
+    }
+    const pendingLocal = Boolean(singleFlightEnabled && flightState && flightState.pending);
+    if (pendingLocal) {
+      props.disabled = true;
+      props.loading = true;
+    }
+
+    props.onClick = (evt) => {
+      if (singleFlightEnabled && flightState && flightState.pending) {
+        return;
+      }
+
+      const clickEl = evt && evt.currentTarget && typeof evt.currentTarget === 'object'
+        ? evt.currentTarget
+        : null;
+
+      if (singleFlightEnabled && singleFlightStore) {
+        const nextState = {
+          pending: true,
+          releaseKey,
+        };
+        flightState = nextState;
+        singleFlightStore.set(singleFlightKey, nextState);
+        if (clickEl && Object.prototype.hasOwnProperty.call(clickEl, 'disabled')) {
+          clickEl.disabled = true;
+        }
+        if (clickEl && clickEl.classList && typeof clickEl.classList.add === 'function') {
+          clickEl.classList.add('is-loading');
+        }
+      }
+
       // Direct upload mode: POST file binary to server, bypass Cell system
       if (directUpload) {
         const fileKey = directUpload.fileKey;
@@ -617,7 +695,21 @@ function buildVueNode(node, snapshot, vue, host) {
       }
       const target = node.bind && node.bind.write;
       if (!target) return;
-      dispatchEvent(node, target, { click: true }, host, undefined, ctx);
+      const result = dispatchEvent(node, target, { click: true }, host, undefined, ctx);
+      if (singleFlightEnabled && singleFlightStore && result && result.skipped) {
+        const recoverState = {
+          pending: false,
+          releaseKey,
+        };
+        flightState = recoverState;
+        singleFlightStore.set(singleFlightKey, recoverState);
+        if (clickEl && Object.prototype.hasOwnProperty.call(clickEl, 'disabled')) {
+          clickEl.disabled = false;
+        }
+        if (clickEl && clickEl.classList && typeof clickEl.classList.remove === 'function') {
+          clickEl.classList.remove('is-loading');
+        }
+      }
     };
 
     // Variant support: pill (capsule button), text, link
@@ -642,6 +734,7 @@ function buildVueNode(node, snapshot, vue, host) {
     delete buttonProps.icon;
     delete buttonProps.iconPosition;
     delete buttonProps.label;
+    delete buttonProps.singleFlight;
 
     // Icon mapping (simple emoji/symbol icons for now)
     const iconMap = {
