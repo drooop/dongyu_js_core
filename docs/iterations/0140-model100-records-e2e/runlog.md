@@ -93,3 +93,12 @@ Review Gate Record
 - Commands executed:
 - Key outputs (snippets):
 - Result: PASS / FAIL
+
+### Step 4 — Docs + iteration closure (FACTS)
+- Commands executed:
+  - `node scripts/validate_mbr_patch_v0.mjs`
+  - `node scripts/validate_pin_mqtt_loop.mjs`
+  - `node scripts/validate_model100_records_e2e_v0.mjs`
+- Key outputs (snippets):
+  - PASS: closure validations
+- Result: PASS

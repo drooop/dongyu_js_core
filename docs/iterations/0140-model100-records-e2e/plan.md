@@ -55,13 +55,13 @@
 ## 7. Risks & Mitigations
 - Risk: MBR / Worker topic mode 与 pinName 不一致（如 `event` vs `event_in`）。
   - Impact: 入站不被 runtime 接受（pin 未声明）。
-  - Mitigation: 明确本 iteration 以当前 MBR mm_v1 口径为准（`.../100/event_in`），并在验证脚本断言 topic。
+  - Mitigation: 本 iteration 明确统一为 `pinName = "event"`（topic 末段为 `event`），并在验证脚本断言 topic。
 - Risk: 触发 label key 与参数 labels key 冲突（覆盖 action 等）。
   - Impact: 参数丢失或重复触发。
-  - Mitigation: 触发 label 使用 pinName（如 `event_in`），参数使用独立 keys（`action`, `data`, `timestamp`）。
+  - Mitigation: 触发 label 使用 pinName（`event`），参数使用独立 keys（`action`, `data`, `timestamp`）。
 
 ## 8. Open Questions
-- None（本 iteration 选择：请求 Cell 固定为 `Cell(100, 1, 0, 0)`，参数 keys 为 `action`/`data`/`timestamp`；触发 key 为 `event_in`）。
+- None（本 iteration 选择：请求 Cell 固定为 `Cell(100, 1, 0, 0)`，参数 keys 为 `action`/`data`/`timestamp`；触发 key 为 `event`）。
 
 ## 9. Compliance Checklists
 

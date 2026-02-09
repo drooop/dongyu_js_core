@@ -32,7 +32,7 @@
 | 0137-planA-layered-pressure-test | 2026-02-09 | Plan A layered test and pressure profiling for patch-only import workflow | 5 | dev_0137-planA-layered-pressure-test | In Progress | ./docs/iterations/0137-planA-layered-pressure-test/ |
 | 0138-cell-owned-pin | 2026-02-09 | Cell-owned PIN semantics with compatibility fallback | 4 | dropx/dev_0138-cell-owned-pin | In Progress | ./docs/iterations/0138-cell-owned-pin/ |
 | 0139-records-only-patch | 2026-02-09 | Records-only mt.v0 patch delivery (mqttIncoming three-path) | 4 | dev_0139-records-only-patch | Completed | ./docs/iterations/0139-records-only-patch/ |
-| 0140-model100-records-e2e | 2026-02-09 | Model 100 records-only E2E (MBR + program model migration) | 4 | dev_0140-model100-records-e2e | Planned | ./docs/iterations/0140-model100-records-e2e/ |
+| 0140-model100-records-e2e | 2026-02-09 | Model 100 records-only E2E (MBR + program model migration) | 4 | dev_0140-model100-records-e2e | Completed | ./docs/iterations/0140-model100-records-e2e/ |
 
 ---
 
