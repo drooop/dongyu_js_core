@@ -57,9 +57,9 @@ if (fs.existsSync(model100Path)) {
   const applyResult = rt.applyPatch(patch, { allowCreateModel: true });
   console.log('[k8s-worker-v2] Model 100 loaded, apply result:', JSON.stringify(applyResult));
   
-  // 打印 PIN 注册状态
-  console.log('[k8s-worker-v2] PIN_IN set:', [...rt.pinInSet]);
-  console.log('[k8s-worker-v2] PIN_OUT set:', [...rt.pinOutSet]);
+  // 打印连接注册状态
+  console.log('[k8s-worker-v2] BUS_IN ports:', [...rt.busInPorts.keys()]);
+  console.log('[k8s-worker-v2] BUS_OUT ports:', [...rt.busOutPorts.keys()]);
   
   // 打印订阅状态
   if (rt.mqttClient) {
@@ -73,22 +73,9 @@ if (fs.existsSync(model100Path)) {
 // 创建 Worker Engine
 const engine = new WorkerEngineV0({ runtime: rt, mgmtAdapter: null, mqttPublish: null });
 
-// 事件监听：检测 PIN_IN 并触发程序模型
-let eventCursor = 0;
+// Engine tick loop — CELL_CONNECT handles function execution automatically via wiring.
+// No manual event detection needed; mqttIncoming → IN label → cell_connection → CELL_CONNECT.
 const timer = setInterval(() => {
-  const events = rt.eventLog.list();
-  for (; eventCursor < events.length; eventCursor += 1) {
-    const e = events[eventCursor];
-    if (!e || e.op !== 'add_label') continue;
-    
-    // 检测 Model 100 的 event PIN_IN
-    if (e.cell && e.cell.model_id === 100 && e.cell.p === 0 && e.cell.r === 1 && e.cell.c === 1) {
-      if (e.label && e.label.t === 'IN' && e.label.k === 'event') {
-        console.log('[k8s-worker-v2] Detected event, triggering on_model100_event_in');
-        rt.addLabel(rt.getModel(-10), 0, 0, 0, { k: 'run_on_model100_event_in', t: 'str', v: '1' });
-      }
-    }
-  }
   engine.tick();
 }, 50);
 timer.unref();

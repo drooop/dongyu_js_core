@@ -1,7 +1,8 @@
-'use strict';
+import { createRequire } from 'node:module';
+import assert from 'node:assert';
 
+const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
-const assert = require('assert');
 
 function test_route_from_to() {
   const rt = new ModelTableRuntime();

@@ -1,7 +1,8 @@
-'use strict';
+import { createRequire } from 'node:module';
+import assert from 'node:assert';
 
+const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
-const assert = require('assert');
 
 function test_bus_in_register() {
   const rt = new ModelTableRuntime();
@@ -83,12 +84,9 @@ function test_bus_in_shortcircuit_mqtt() {
   const model0 = rt.getModel(0);
   // Setup BUS_IN on (0,0,0)
   rt.addLabel(model0, 0, 0, 0, { k: 'bus_event', t: 'BUS_IN', v: null });
-  // Setup legacy PIN_IN on registry cell (0,0,1)
-  rt.addLabel(model0, 0, 0, 1, { k: 'pin_event', t: 'PIN_IN', v: null });
-  // BUS_IN should be checked before PIN_IN in mqttIncoming
+  // BUS_IN should be registered and take priority in mqttIncoming
   assert(rt.busInPorts.has('bus_event'), 'should have BUS_IN registered');
-  assert(rt.pinInSet.has(rt._pinKey(0, 'pin_event')), 'should have PIN_IN registered');
-  assert(!rt.busInPorts.has('pin_event'), 'pin_event should NOT be in busInPorts');
+  assert(!rt.busInPorts.has('other_event'), 'other_event should NOT be in busInPorts');
   return { key: 'bus_in_shortcircuit_mqtt', status: 'PASS' };
 }
 

@@ -1,7 +1,7 @@
-'use strict';
-
+import { createRequire } from 'node:module';
+import assert from 'node:assert';
+const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
-const assert = require('assert');
 
 async function test_func_execution() {
   const rt = new ModelTableRuntime();
@@ -154,3 +154,4 @@ const tests = [
   console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
   process.exit(failed > 0 ? 1 : 0);
 })();
+

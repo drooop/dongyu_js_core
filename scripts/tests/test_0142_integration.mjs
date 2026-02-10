@@ -1,9 +1,11 @@
-'use strict';
-
+import { createRequire } from 'node:module';
+import assert from 'node:assert';
+const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
-const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+import { fileURLToPath } from 'node:url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * 0142 Integration Test
@@ -140,3 +142,4 @@ const tests = [
   console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
   process.exit(failed > 0 ? 1 : 0);
 })();
+

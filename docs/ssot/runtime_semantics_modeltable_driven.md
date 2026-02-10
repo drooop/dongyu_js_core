@@ -103,8 +103,9 @@
 → 必须触发对应的逆向副作用
 
 例如：
-- 删除 PIN_IN → unsubscribe
-- 删除 CONNECT → disconnect
+- 删除 BUS_IN → 移除 busInPorts 注册
+- 删除 CELL_CONNECT → 移除 cellConnectGraph 接线
+- 删除 MQTT_WILDCARD_SUB → unsubscribe
 - 删除 run_<func> → 取消可触发入口（若适用）
 
 ---
@@ -129,26 +130,31 @@
 
 ---
 
-## 5. PIN_IN / PIN_OUT 只是实例，不是特例
+## 5. 连接与路由声明
 
-### 5.1 PIN_IN 的语义归类
+### 5.1 Legacy PIN_IN / PIN_OUT（DEPRECATED since 0143）
 
-Label(k=<topic>, t="PIN_IN") 属于：
-- 声明式外部输入通道（Declarative External Input Channel）
+> **状态**：已废弃。0143 删除了运行时中所有 PIN_IN/PIN_OUT 处理代码。
+> 替代方案：BUS_IN/BUS_OUT（系统边界）+ cell_connection（跨 Cell 路由）+ CELL_CONNECT（Cell 内接线）。
 
-其副作用：
-- 订阅 topic
-- 将外部消息写回 ModelTable
+原语义：Label(k=<topic>, t="PIN_IN") 声明式外部输入通道。
+已删除的运行时符号：pinInSet, pinOutSet, pinInBindings, _pinKey, _parsePinKey,
+resolvePinInRoute, findPinInBindingsForDelivery, _pinRegistryCellFor, _pinMailboxCellFor,
+_applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerModelId, trigger_funcs。
+已删除的约定 Cell 位置：PIN registry cell (0,0,1), PIN mailbox cell (0,1,1)。
 
-### 5.2 其他同类声明（示例）
+### 5.2 当前结构性声明（完整列表）
 
-以下声明都服从本规范：
-- CONNECT_*：声明连接关系
-- run_<func>：声明可运行入口
+以下声明服从本规范，由 `_applyBuiltins` 统一分发：
+- BUS_IN / BUS_OUT：系统边界端口（仅 Model 0）
+- CELL_CONNECT：Cell 内接线图
+- cell_connection：跨 Cell 路由
+- MODEL_IN / MODEL_OUT：模型边界端口
+- subModel：子模型声明
+- IN：触发 cell_connection 路由 + CELL_CONNECT 传播
+- MQTT_WILDCARD_SUB：MQTT 通配符订阅声明
+- run_<func>：声明可运行入口（由 worker_engine_v0 tick 处理）
 - mqtt_target_*：声明运行时配置
-- v1n_id / data_type：声明系统级约束
-
-PIN_IN 不享有任何"特殊通道"。
 
 ### 5.2b CELL_CONNECT / cell_connection（0141）
 
@@ -158,7 +164,7 @@ PIN_IN 不享有任何"特殊通道"。
 |---|---|---|
 | `CELL_CONNECT` | `_parseCellConnectLabel` → 构建 `cellConnectGraph` | 任意 Cell |
 | `cell_connection` | `_parseCellConnectionLabel` → 构建 `cellConnectionRoutes` | 仅 (0,0,0) |
-| `IN` | 若 Cell 有 `cellConnectGraph` 条目 → `_propagateCellConnect` (async) | 任意 Cell |
+| `IN` | `_routeViaCellConnection` (同步) + 若 Cell 有 `cellConnectGraph` 条目 → `_propagateCellConnect` (async) | 任意 Cell |
 
 **CELL_CONNECT 端点格式**：`(prefix, port)`
 - prefix = `self` | `func` | `<numericModelId>`
@@ -182,7 +188,7 @@ PIN_IN 不享有任何"特殊通道"。
 
 - BUS_IN 写入 v 时 → 触发 cell_connection 路由（单一路由入口在 `_applyBuiltins`）
 - BUS_OUT 写入 v 时 → 如有 mqttClient → `_topicFor(0, k, 'out')` 发布
-- `mqttIncoming` 9layer 模式下 BUS_IN 短路：`busInPorts.has(pinName) && modelId === 0` → `_handleBusInMessage` → 不进入 legacy PIN_IN 路由
+- `mqttIncoming` BUS_IN 短路：`busInPorts.has(pinName) && modelId === 0` → `_handleBusInMessage` → 直接路由，不进入通用 IN 路径
 - `_subscribeDeclaredPinsOnStart` 追加 BUS_IN 端口 MQTT 订阅
 - `_handleBusInMessage` 仅写 `addLabel(model0, 0,0,0, {k, t:'BUS_IN', v})`，路由由 `_applyBuiltins` 触发
 
@@ -212,9 +218,9 @@ PIN_IN 不享有任何"特殊通道"。
 
 ---
 
-### 5.3 PIN Patch Payload（ModelTablePatch v0）
+### 5.3 MQTT Payload 格式（ModelTablePatch v0）
 
-为保证可审计与可回放，PIN_IN / PIN_OUT 的消息体必须为“纯 ModelTable patch”。
+MQTT 消息体统一为 ModelTablePatch：
 
 - Patch 结构（最小集合）：
   - `version`: `"mt.v0"`
@@ -223,41 +229,29 @@ PIN_IN 不享有任何"特殊通道"。
     - record: `{ op, model_id, p, r, c, k, t?, v? }`
     - `op` in `{ "add_label", "rm_label" }`
 
-- PIN_OUT：
-  - 用户模型的 `Label.t = "PIN_OUT"` 时，其 `Label.v` 必须是 ModelTablePatch。
-  - 运行时将 Patch 作为 payload 发送（MQTT）。
+- 入站流程（`mqttIncoming`）：
+  1. 解析 topic → 提取 modelId, cellK
+  2. BUS_IN 短路检查（仅 Model 0）
+  3. mt_v0 模式：先 `applyPatch(records)`，再写 `IN` label 到目标模型 (0,0,0)
+  4. IN label 触发 cell_connection 路由 + CELL_CONNECT 函数执行（异步）
 
-- PIN_IN：
-  - MQTT 入站 payload 必须是 ModelTablePatch。
-  - 当 `Label.v` 为 TargetRef（Cell-owned）时，运行时写入 TargetRef 指向 Cell。
-  - 当 TargetRef 同时声明 `trigger_funcs`（可选 `trigger_model_id`）时，运行时必须产出 `run_func` intercept。
-  - 当 `Label.v` 不可解析为 TargetRef 时，回退到 pin mailbox（legacy 兼容）。
+- 出站：BUS_OUT label 写入 v 时，自动发布到对应 topic
 
----
+### 5.4 消息路由全链路（0143 最终架构）
 
-### 5.4 Direct-Path Semantics（In-proc Transport）
+```
+MQTT → mqttIncoming → BUS_IN 短路 / 写 IN 到 model(0,0,0)
+  → cell_connection 路由到 processing cell
+  → CELL_CONNECT wiring 触发函数 (AsyncFunction, 30s timeout)
+  → 函数输出 → CELL_CONNECT (func:out → self:patch)
+  → cell_connection 路由回 (0,0,0)
+  → BUS_OUT / MQTT 发布
+```
 
-本节定义“直达 path”的语义边界：仅替换传输层，不改变 ModelTable 驱动的副作用语义。
-
-语义差异清单（MUST/MUST NOT）：
-- MUST：直达 path 只替换传输层，不得绕过 add_label/rm_label 触发入口。
-- MUST：EventLog / mqttTrace / intercepts 的可观测结果与 MQTT path 等价。
-- MUST NOT：UI 直连总线；UI 仍只能写 mailbox。
-- MUST：PIN_OUT 继续由 mailbox `t="OUT"` 触发 publish（兼容既有模型）。
-- MUST：PIN_IN 入站写入目标遵循声明优先（Cell-owned TargetRef）与 legacy mailbox fallback。
-- MUST NOT：引入隐式副作用或跳过 ModelTable（与本规范 2.1/8.x 一致）。
-
-最小验证用例（现有脚本）：
-- `node scripts/validate_pin_mqtt_loop.mjs --case args_override`
-- `node scripts/validate_dual_bus_harness_v0.mjs --case e2e`
-- `node scripts/validate_iteration_guard.mjs --case stage4`
-
-等价性断言（最小）：
-- IN：`mqttIncoming(topic, payload)` → pin mailbox add_label(`t="IN"`).
-- IN（Cell-owned）：`mqttIncoming(topic, payload)` → TargetRef add_label(`t="IN"`).
-- IN（legacy fallback）：`mqttIncoming(topic, payload)` → pin mailbox add_label(`t="IN"`).
-- OUT：pin mailbox add_label(`t="OUT"`) → publish + mqttTrace 记录。
-- 上述断言在 in-proc 与 MQTT transport 下均成立。
+验证脚本：
+- `node scripts/tests/test_0143_e2e.mjs` — 全链路集成测试
+- `node scripts/validate_model100_records_e2e_v0.mjs` — Model 100 records-only E2E
+- `node scripts/tests/test_bus_in_out.mjs` — BUS_IN/OUT 单元测试
 
 ---
 
@@ -269,7 +263,7 @@ PIN_IN 不享有任何"特殊通道"。
 - 仅允许在系统自带的负数 model_id 模型中声明：
   - `Label.t = "MGMT_OUT"`：`Label.v` 为 ModelTablePatch
   - `Label.t = "MGMT_IN"`：`Label.v` 为 TargetRef（仅目标信息）
-- 用户模型不使用 MGMT_*，用户侧入口保持为 PIN_IN / PIN_OUT。
+- 用户模型不使用 MGMT_*，用户侧入口通过 BUS_IN/BUS_OUT + cell_connection + CELL_CONNECT。
 
 TargetRef 结构：
 ```

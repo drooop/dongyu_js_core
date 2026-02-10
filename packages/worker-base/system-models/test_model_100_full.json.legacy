@@ -1,0 +1,77 @@
+{
+  "version": "mt.v0",
+  "op_id": "test_model_100_full_v0",
+  "description": "Model 100 完整定义 - K8s 侧使用，包含 UI 模型 + 程序模型 + PIN",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 100,
+      "name": "test_color_form",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "ui_type",
+      "t": "str",
+      "v": "color_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "input_value",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "bg_color",
+      "t": "str",
+      "v": "#FFFFFF"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "status",
+      "t": "str",
+      "v": "ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 1,
+      "k": "event",
+      "t": "PIN_IN",
+      "v": {
+        "model_id": 100,
+        "p": 0,
+        "r": 1,
+        "c": 1,
+        "k": "event",
+        "trigger_funcs": ["on_model100_event_in"],
+        "trigger_model_id": -10
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 1,
+      "k": "patch",
+      "t": "PIN_OUT",
+      "v": "patch"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0, "r": 0, "c": 0,
+      "k": "on_model100_event_in",
+      "t": "function",
+      "v": "const model = ctx.runtime.getModel(100);\nif (!model) return;\nconst mailbox = ctx.runtime.getCell(model, 0, 1, 1);\nconst inLabel = mailbox.labels.get('event');\nif (!inLabel || inLabel.t !== 'IN') return;\nconst trigger = inLabel.v;\n\nlet action = '';\nlet data = null;\nlet timestamp = null;\n\n// Legacy mode: the full payload is delivered in IN.v (with action/data fields).\nif (trigger && typeof trigger === 'object' && typeof trigger.action === 'string') {\n  action = trigger.action || '';\n  data = trigger.data || null;\n  timestamp = trigger.timestamp || null;\n} else {\n  // Records-only mode: MBR wrote request parameters into the request cell (p=1,r=0,c=0).\n  const a = ctx.getLabel({ model_id: 100, p: 1, r: 0, c: 0, k: 'action' });\n  action = typeof a === 'string' ? a : '';\n  data = ctx.getLabel({ model_id: 100, p: 1, r: 0, c: 0, k: 'data' });\n  timestamp = ctx.getLabel({ model_id: 100, p: 1, r: 0, c: 0, k: 'timestamp' });\n}\n\ntry {\n  console.log('[on_model100_event_in] action:', action, 'op_id:', trigger && typeof trigger === 'object' ? (trigger.op_id || '') : '');\n} catch (_) {}\n\nif (action === 'submit') {\n  const color = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');\n  console.log('[on_model100_event_in] Generated color:', color);\n  const patch = {\n    version: 'mt.v0',\n    op_id: 'color_response_' + Date.now(),\n    records: [{\n      op: 'add_label',\n      model_id: 100,\n      p: 0, r: 0, c: 0,\n      k: 'bg_color',\n      t: 'str',\n      v: color\n    }, {\n      op: 'add_label',\n      model_id: 100,\n      p: 0, r: 0, c: 0,\n      k: 'status',\n      t: 'str',\n      v: 'color_updated_' + color\n    }]\n  };\n  ctx.runtime.addLabel(model, 0, 0, 0, { k: 'bg_color', t: 'str', v: color });\n  ctx.runtime.addLabel(model, 0, 0, 0, { k: 'status', t: 'str', v: 'processed' });\n  ctx.writeLabel({ model_id: 100, p: 0, r: 1, c: 1, k: 'patch' }, 'OUT', patch);\n  console.log('[on_model100_event_in] Sent patch');\n}\n\nctx.runtime.rmLabel(model, 0, 1, 1, 'event');\nctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_on_model100_event_in' });"
+    }
+  ]
+}

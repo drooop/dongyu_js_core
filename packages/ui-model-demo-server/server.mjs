@@ -747,13 +747,10 @@ class ProgramModelEngine {
         const dbLabel = this.runtime.getCell(targetModel, 0, 0, 0).labels.get('dual_bus_model');
         if (!dbLabel || !dbLabel.v || typeof dbLabel.v !== 'object') continue;
 
-        // This is a dual-bus model — route to declared PIN_IN delivery cell
+        // Write patch as IN label to model's root cell — CELL_CONNECT / cell_connection handles routing
         const pinName = dbLabel.v.patch_in_pin || 'patch';
-        const route = this.runtime.resolvePinInRoute(modelId, pinName);
-        const deliveryModel = this.runtime.getModel(route.target.model_id);
-        if (!deliveryModel) continue;
-        console.log(`[handleDyBusEvent] Writing patch to Model ${modelId} PIN_IN (${pinName}) at cell(${route.target.model_id},${route.target.p},${route.target.r},${route.target.c})`);
-        this.runtime.addLabel(deliveryModel, route.target.p, route.target.r, route.target.c, { k: route.target.k, t: 'IN', v: patch });
+        console.log(`[handleDyBusEvent] Writing patch to Model ${modelId} (${pinName}) at cell(${modelId},0,0,0)`);
+        this.runtime.addLabel(targetModel, 0, 0, 0, { k: pinName, t: 'IN', v: patch });
         routed = true;
       }
 
@@ -985,38 +982,8 @@ class ProgramModelEngine {
         }
       }
 
-      // Generic dual-bus model: PIN_IN delivery (Cell-owned route) -> trigger patch-in function.
-      // Route matching is resolved by runtime declarations (PIN_IN + optional binding target).
-      if (event.cell && event.cell.model_id > 0 && event.label && event.label.t === 'IN') {
-        const matches = this.runtime.findPinInBindingsForDelivery(event.cell, event.label.k);
-        let routedByPinIn = false;
-        for (const match of matches) {
-          // Explicit binding trigger_funcs are now consumed by runtime._applyMailboxTriggers.
-          // Server only keeps fallback for legacy dual_bus_model patch_in_func.
-          const binding = match.binding && typeof match.binding === 'object' ? match.binding : null;
-          const bindingFuncs = binding && Array.isArray(binding.trigger_funcs) ? binding.trigger_funcs : [];
-          if (bindingFuncs.length > 0) continue;
-
-          // Fallback: dual_bus_model patch_in_func mapping
-          const pinModel = this.runtime.getModel(match.pin_model_id);
-          if (!pinModel) continue;
-          const dbLabel = this.runtime.getCell(pinModel, 0, 0, 0).labels.get('dual_bus_model');
-          if (!dbLabel || !dbLabel.v || typeof dbLabel.v !== 'object' || !dbLabel.v.patch_in_func) continue;
-          const pinName = dbLabel.v.patch_in_pin || 'patch';
-          if (match.pin_k !== pinName) continue;
-          const funcName = dbLabel.v.patch_in_func;
-          console.log(`[processEventsSnapshot] Model ${match.pin_model_id} ${pinName} detected, triggering ${funcName}`);
-          const sys = firstSystemModel(this.runtime);
-          if (sys && sys.hasFunction(funcName)) {
-            this.runtime.intercepts.record('run_func', { func: funcName, trigger_label: { k: event.label.k, t: event.label.t } });
-            routedByPinIn = true;
-          } else {
-            console.log(`[processEventsSnapshot] WARNING: ${funcName} function NOT found`);
-          }
-          if (routedByPinIn) break;
-        }
-        if (routedByPinIn) continue;
-      }
+      // Legacy PIN_IN binding routing removed in 0143.
+      // Function triggers are now handled by CELL_CONNECT propagation in runtime._applyBuiltins.
 
       // User intent -> enqueue a system job + trigger system dispatcher.
       if (event.cell && event.cell.model_id > 0 && event.label && event.label.k === 'intent.v0') {

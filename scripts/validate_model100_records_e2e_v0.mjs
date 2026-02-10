@@ -80,7 +80,7 @@ async function main() {
   assert(Array.isArray(publishedPayload.records) && publishedPayload.records.length > 0, 'published payload must be records-only');
   assert(!('action' in publishedPayload) && !('data' in publishedPayload), 'published payload must not use legacy action/data');
 
-  // --- Worker side: consume mqttIncoming(records) -> trigger -> function -> OUT ---
+  // --- Worker side: consume mqttIncoming(records) -> CELL_CONNECT -> function -> OUT ---
   const wRt = new ModelTableRuntime();
   loadSystemPatch(wRt);
   if (!wRt.getModel(-10)) wRt.createModel({ id: -10, name: 'system', type: 'system' });
@@ -90,22 +90,27 @@ async function main() {
   const handled = wRt.mqttIncoming(publishedTopic, publishedPayload);
   assert(handled, 'worker mqttIncoming must handle payload');
 
-  // Ensure trigger label does NOT carry action (forces request-cell reads).
-  const trig = getLabel(wRt, 100, 0, 1, 1, 'event');
-  assert(trig && trig.t === 'IN', 'worker should write trigger IN label to event mailbox');
-  assert(trig.v && typeof trig.v === 'object' && !('action' in trig.v), 'trigger label must not carry action');
+  // Check IN label written to root cell (0,0,0)
+  const rootEvent = getLabel(wRt, 100, 0, 0, 0, 'event');
+  assert(rootEvent && rootEvent.t === 'IN', 'worker should write IN label to root cell(0,0,0) key=event');
+  assert(rootEvent.v && typeof rootEvent.v === 'object' && !('action' in rootEvent.v), 'IN value must not carry action (records-only)');
 
-  const wEngine = new WorkerEngineV0({ runtime: wRt, mgmtAdapter: null, mqttPublish: null });
-  wEngine.tick();
+  // Check IN routed to processing cell (1,0,0) via cell_connection
+  const routedEvent = getLabel(wRt, 100, 1, 0, 0, 'event');
+  assert(routedEvent && routedEvent.t === 'IN', 'cell_connection should route event IN to cell(1,0,0)');
 
-  const out = getLabel(wRt, 100, 0, 1, 1, 'patch');
-  assert(out && out.t === 'OUT', 'worker should write OUT patch');
-  assert(out.v && out.v.version === 'mt.v0' && Array.isArray(out.v.records), 'OUT payload must be mt.v0 patch');
+  // CELL_CONNECT function execution is async — wait for completion
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  // Check function output at processing cell (1,0,0) as OUT
+  const patchOut = getLabel(wRt, 100, 1, 0, 0, 'patch');
+  assert(patchOut && patchOut.t === 'OUT', 'CELL_CONNECT should write OUT patch to cell(1,0,0)');
+  assert(patchOut.v && patchOut.v.version === 'mt.v0' && Array.isArray(patchOut.v.records), 'OUT payload must be mt.v0 patch');
 
   const bg = getLabel(wRt, 100, 0, 0, 0, 'bg_color');
   assert(bg && typeof bg.v === 'string' && /^#[0-9a-fA-F]{6}$/.test(bg.v), 'bg_color must be updated');
 
-  process.stdout.write('PASS: model100 records-only E2E (MBR -> mqttIncoming -> trigger_funcs -> function)\n');
+  process.stdout.write('PASS: model100 records-only E2E (MBR -> mqttIncoming -> cell_connection -> CELL_CONNECT -> function)\n');
 }
 
 main().catch((err) => {
