@@ -164,7 +164,7 @@ PIN_IN 不享有任何"特殊通道"。
 - prefix = `self` | `func` | `<numericModelId>`
 - self 目标：写 label(t='OUT') + 递归传播
 - func 目标：`:in` 后缀 → `_executeFuncViaCellConnect`，`:out` 后缀 → 继续传播
-- numeric 目标：预留 0142
+- numeric 目标：路由到子模型 MODEL_IN（0142 实现）
 
 **cell_connection 路由格式**：`[{from: [p,r,c,k], to: [[p,r,c,k], ...]}]`
 - 同 Model 内跨 Cell 路由，写入目标 Cell 的 label(t='IN')
@@ -172,6 +172,43 @@ PIN_IN 不享有任何"特殊通道"。
 **AsyncFunction 隔离**：`_executeFuncViaCellConnect` 使用 `AsyncFunction` 构造器，完全独立于 `worker_engine_v0.mjs` 的同步 `executeFunction`。支持 30s 超时，错误写入 `__error_<funcName>` label。
 
 **循环检测**：`_propagateCellConnect` 携带 `visited` Set，重复端点写入 eventLog(reason='cycle_detected') 后跳过。
+
+### 5.2c BUS_IN/BUS_OUT 系统边界（0142）
+
+| label.t | 位置约束 | 语义 |
+|---|---|---|
+| `BUS_IN` | 仅 Model 0 (0,0,0) | 注册外部输入端口 → `busInPorts` Map |
+| `BUS_OUT` | 仅 Model 0 (0,0,0) | 注册外部输出端口 → `busOutPorts` Map |
+
+- BUS_IN 写入 v 时 → 触发 cell_connection 路由（单一路由入口在 `_applyBuiltins`）
+- BUS_OUT 写入 v 时 → 如有 mqttClient → `_topicFor(0, k, 'out')` 发布
+- `mqttIncoming` 9layer 模式下 BUS_IN 短路：`busInPorts.has(pinName) && modelId === 0` → `_handleBusInMessage` → 不进入 legacy PIN_IN 路由
+- `_subscribeDeclaredPinsOnStart` 追加 BUS_IN 端口 MQTT 订阅
+- `_handleBusInMessage` 仅写 `addLabel(model0, 0,0,0, {k, t:'BUS_IN', v})`，路由由 `_applyBuiltins` 触发
+
+### 5.2d MODEL_IN/MODEL_OUT 模型边界（0142）
+
+| label.t | 位置约束 | 语义 |
+|---|---|---|
+| `MODEL_IN` | 仅 (0,0,0) | 注册模型输入端口 → `modelInPorts` Map |
+| `MODEL_OUT` | 仅 (0,0,0) | 注册模型输出端口 → `modelOutPorts` Map |
+
+- MODEL_IN 写入 v 时 → 子模型内 cell_connection 路由 + CELL_CONNECT 传播
+- MODEL_OUT 写入 v 时 → 查 `parentChildMap` → 在父模型 hosting cell 上以 `(childModelId, portName)` 为源端口触发 CELL_CONNECT
+
+### 5.2e subModel 声明与 parentChildMap（0142）
+
+- `label.t === 'subModel'`, `label.k` = 子模型 ID（整数字符串）
+- 注册到 `parentChildMap`: key=childModelId → {parentModelId, hostingCell:{p,r,c}}
+- 如果子模型不存在 → 自动 `createModel({id, name: alias, type: 'sub'})`
+- CELL_CONNECT 数字前缀路由：`(numericId, port)` → 查 parentChildMap → 写子模型 MODEL_IN
+
+### 5.2f Bootstrap 加载顺序（0142）
+
+1. `model_0_framework.json` → 创建 Model 0 结构（BUS_IN/OUT、subModel、CELL_CONNECT、cell_connection）
+2. `system_models.json` → 填充 Model -10 等系统子模型
+3. 应用模型 patch → 填充业务模型
+4. `startMqttLoop()` → 此时 `_getConfigFromPage0()` 可读取 Model 0 MQTT 配置
 
 ---
 

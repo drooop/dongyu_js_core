@@ -34,7 +34,7 @@
 | 0139-records-only-patch | 2026-02-09 | Records-only mt.v0 patch delivery (mqttIncoming three-path) | 4 | dev_0139-records-only-patch | Completed | ./docs/iterations/0139-records-only-patch/ |
 | 0140-model100-records-e2e | 2026-02-09 | Model 100 records-only E2E (MBR + program model migration) | 4 | dev_0140-model100-records-e2e | Completed | ./docs/iterations/0140-model100-records-e2e/ |
 | 0141-cell-connect-engine | 2026-02-11 | CELL_CONNECT parser + cell_connection router + AsyncFunction engine | 5 | dev_0141-cell-connect-engine | Completed | ./docs/iterations/0141-cell-connect-engine/ |
-| 0142-bus-model-boundary | 2026-02-11 | BUS_IN/OUT system boundary + MODEL_IN/OUT + subModel lifecycle | 4 | dev_0142-bus-model-boundary | Planned | ./docs/iterations/0142-bus-model-boundary/ |
+| 0142-bus-model-boundary | 2026-02-11 | BUS_IN/OUT system boundary + MODEL_IN/OUT + subModel lifecycle | 4 | dev_0142-bus-model-boundary | Completed | ./docs/iterations/0142-bus-model-boundary/ |
 | 0143-pin-isolation-migration | 2026-02-11 | Legacy PIN cleanup + system-models migration + E2E validation | 5 | dev_0143-pin-isolation-migration | Planned | ./docs/iterations/0143-pin-isolation-migration/ |
 
 ---

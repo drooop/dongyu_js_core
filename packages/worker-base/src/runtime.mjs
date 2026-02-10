@@ -276,6 +276,16 @@ class ModelTableRuntime {
     // key: "${modelId}|${p}|${r}|${c}|${k}" (pipe-separated)
     // value: [{model_id, p, r, c, k}]
     this.cellConnectionRoutes = new Map();
+    // 0142: BUS_IN/BUS_OUT port registries (Model 0 only)
+    this.busInPorts = new Map();
+    this.busOutPorts = new Map();
+    // 0142: parent-child model map
+    // key: childModelId → value: { parentModelId, hostingCell: {p, r, c} }
+    this.parentChildMap = new Map();
+    // 0142: MODEL_IN/MODEL_OUT port registries
+    // key: "${modelId}:${label.k}" → value: true
+    this.modelInPorts = new Map();
+    this.modelOutPorts = new Map();
     this.runLoopActive = true;
     this.persistence = null;
 
@@ -845,6 +855,11 @@ class ModelTableRuntime {
       if (!topic) continue;
       this.mqttClient.subscribe(topic);
     }
+    // 0142: Subscribe BUS_IN ports
+    for (const [portName] of this.busInPorts) {
+      const topic = this._topicFor(0, portName, 'in');
+      if (topic) this.mqttClient.subscribe(topic);
+    }
     // Subscribe wildcard topics declared via MQTT_WILDCARD_SUB labels
     for (const [, model] of this.models) {
       for (const [, cell] of model.cells) {
@@ -1054,6 +1069,11 @@ class ModelTableRuntime {
       const pinName = parts[7] || '';
       if (!Number.isInteger(modelId) || !pinName) {
         return false;
+      }
+      // 0142: BUS_IN short-circuit (before legacy PIN_IN)
+      if (this.busInPorts.has(pinName) && modelId === 0) {
+        this._handleBusInMessage(pinName, payload);
+        return true;
       }
       if (!this.pinInSet.has(this._pinKey(modelId, pinName))) {
         return false;
@@ -1362,7 +1382,24 @@ class ModelTableRuntime {
           return this._propagateCellConnect(modelId, p, r, c, 'func', t.port, value, visited);
         }
       }
-      // Numeric ID prefix: placeholder for 0142
+      // 0142: Numeric ID prefix → route to child model MODEL_IN
+      if (!isNaN(Number(t.prefix))) {
+        const childModelId = Number(t.prefix);
+        if (!this.parentChildMap.has(childModelId)) {
+          this.eventLog.record({
+            op: 'cell_connect_error',
+            cell: { model_id: modelId, p, r, c },
+            label: { k: `${t.prefix}:${t.port}` },
+            result: 'failed',
+            reason: 'submodel_not_registered',
+          });
+          return Promise.resolve();
+        }
+        const childModel = this.getModel(childModelId);
+        if (!childModel) return Promise.resolve();
+        this.addLabel(childModel, 0, 0, 0, { k: t.port, t: 'MODEL_IN', v: value });
+        return Promise.resolve();
+      }
       return Promise.resolve();
     });
     await Promise.all(tasks);
@@ -1440,6 +1477,17 @@ class ModelTableRuntime {
 
   // --- end 0141 ---
 
+  // --- 0142: BUS_IN message handler ---
+
+  _handleBusInMessage(portName, payload) {
+    const model0 = this.getModel(0);
+    if (!model0) return;
+    this.addLabel(model0, 0, 0, 0, { k: portName, t: 'BUS_IN', v: payload });
+    this.mqttTrace.record('bus_inbound', { port: portName, payload });
+  }
+
+  // --- end 0142 ---
+
   _applyBuiltins(model, p, r, c, label, prevLabel) {
     // 0141: label.t dispatch (independent from label.k connectKeys)
     if (label.t === 'CELL_CONNECT') {
@@ -1458,6 +1506,89 @@ class ModelTableRuntime {
             this._recordError(model, p, r, c, label, 'cell_connect_propagation_error');
           });
       }
+    }
+    // 0142: BUS_IN label dispatch
+    if (label.t === 'BUS_IN') {
+      if (model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
+        this._recordError(model, p, r, c, label, 'bus_in_wrong_position');
+        return;
+      }
+      this.busInPorts.set(label.k, true);
+      if (label.v !== null && label.v !== undefined) {
+        this._routeViaCellConnection(0, 0, 0, 0, label.k, label.v);
+      }
+      return;
+    }
+    // 0142: BUS_OUT label dispatch
+    if (label.t === 'BUS_OUT') {
+      if (model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
+        this._recordError(model, p, r, c, label, 'bus_out_wrong_position');
+        return;
+      }
+      this.busOutPorts.set(label.k, true);
+      if (label.v !== null && label.v !== undefined && this.mqttClient) {
+        const topic = this._topicFor(0, label.k, 'out');
+        if (topic) this.mqttClient.publish(topic, label.v);
+      }
+      return;
+    }
+    // 0142: subModel declaration
+    if (label.t === 'subModel') {
+      const childModelId = parseInt(label.k, 10);
+      if (!Number.isInteger(childModelId)) {
+        this._recordError(model, p, r, c, label, 'submodel_invalid_id');
+        return;
+      }
+      this.parentChildMap.set(childModelId, {
+        parentModelId: model.id,
+        hostingCell: { p, r, c },
+      });
+      if (!this.getModel(childModelId)) {
+        this.createModel({
+          id: childModelId,
+          name: (label.v && label.v.alias) || String(childModelId),
+          type: 'sub',
+        });
+      }
+      return;
+    }
+    // 0142: MODEL_IN label dispatch
+    if (label.t === 'MODEL_IN') {
+      if (p !== 0 || r !== 0 || c !== 0) {
+        this._recordError(model, p, r, c, label, 'model_in_wrong_position');
+        return;
+      }
+      this.modelInPorts.set(`${model.id}:${label.k}`, true);
+      if (label.v !== null && label.v !== undefined) {
+        this._routeViaCellConnection(model.id, 0, 0, 0, label.k, label.v);
+        const cellKey = `${model.id}|0|0|0`;
+        if (this.cellConnectGraph.has(cellKey)) {
+          this._propagateCellConnect(model.id, 0, 0, 0, 'self', label.k, label.v)
+            .catch((err) => {
+              this._recordError(model, p, r, c, label, 'model_in_propagation_error');
+            });
+        }
+      }
+      return;
+    }
+    // 0142: MODEL_OUT label dispatch
+    if (label.t === 'MODEL_OUT') {
+      if (p !== 0 || r !== 0 || c !== 0) {
+        this._recordError(model, p, r, c, label, 'model_out_wrong_position');
+        return;
+      }
+      this.modelOutPorts.set(`${model.id}:${label.k}`, true);
+      if (label.v !== null && label.v !== undefined) {
+        const childInfo = this.parentChildMap.get(model.id);
+        if (childInfo) {
+          const { parentModelId, hostingCell: { p: hp, r: hr, c: hc } } = childInfo;
+          this._propagateCellConnect(parentModelId, hp, hr, hc, String(model.id), label.k, label.v)
+            .catch((err) => {
+              this._recordError(model, p, r, c, label, 'model_out_propagation_error');
+            });
+        }
+      }
+      return;
     }
 
     const key = label.k;
