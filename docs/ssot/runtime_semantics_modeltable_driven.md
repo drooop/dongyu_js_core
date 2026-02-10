@@ -148,7 +148,30 @@ Label(k=<topic>, t="PIN_IN") 属于：
 - mqtt_target_*：声明运行时配置
 - v1n_id / data_type：声明系统级约束
 
-PIN_IN 不享有任何“特殊通道”。
+PIN_IN 不享有任何"特殊通道"。
+
+### 5.2b CELL_CONNECT / cell_connection（0141）
+
+**label.t 分发**：`_applyBuiltins` 首先按 `label.t` 分发，独立于 `label.k` connectKeys 检查。
+
+| label.t | 触发 | 位置约束 |
+|---|---|---|
+| `CELL_CONNECT` | `_parseCellConnectLabel` → 构建 `cellConnectGraph` | 任意 Cell |
+| `cell_connection` | `_parseCellConnectionLabel` → 构建 `cellConnectionRoutes` | 仅 (0,0,0) |
+| `IN` | 若 Cell 有 `cellConnectGraph` 条目 → `_propagateCellConnect` (async) | 任意 Cell |
+
+**CELL_CONNECT 端点格式**：`(prefix, port)`
+- prefix = `self` | `func` | `<numericModelId>`
+- self 目标：写 label(t='OUT') + 递归传播
+- func 目标：`:in` 后缀 → `_executeFuncViaCellConnect`，`:out` 后缀 → 继续传播
+- numeric 目标：预留 0142
+
+**cell_connection 路由格式**：`[{from: [p,r,c,k], to: [[p,r,c,k], ...]}]`
+- 同 Model 内跨 Cell 路由，写入目标 Cell 的 label(t='IN')
+
+**AsyncFunction 隔离**：`_executeFuncViaCellConnect` 使用 `AsyncFunction` 构造器，完全独立于 `worker_engine_v0.mjs` 的同步 `executeFunction`。支持 30s 超时，错误写入 `__error_<funcName>` label。
+
+**循环检测**：`_propagateCellConnect` 携带 `visited` Set，重复端点写入 eventLog(reason='cycle_detected') 后跳过。
 
 ---
 

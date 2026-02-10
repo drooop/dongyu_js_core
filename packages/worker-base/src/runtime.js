@@ -282,6 +282,14 @@ class ModelTableRuntime {
     this.pinInSet = new Set();
     this.pinOutSet = new Set();
     this.pinInBindings = new Map();
+    // 0141: CELL_CONNECT graph (two-level Map)
+    // outer key: "${modelId}|${p}|${r}|${c}" (pipe-separated)
+    // inner: Map<"${prefix}:${port}", [{prefix, port}]>
+    this.cellConnectGraph = new Map();
+    // 0141: cell_connection routing table
+    // key: "${modelId}|${p}|${r}|${c}|${k}" (pipe-separated)
+    // value: [{model_id, p, r, c, k}]
+    this.cellConnectionRoutes = new Map();
     this.runLoopActive = true;
     this.persistence = null;
 
@@ -1232,7 +1240,248 @@ class ModelTableRuntime {
     return topicParts.length === patternParts.length;
   }
 
+  // --- 0141: CELL_CONNECT / cell_connection parsing and routing ---
+
+  _parseCellConnectEndpoint(str) {
+    if (typeof str !== 'string') return null;
+    const trimmed = str.trim();
+    if (!trimmed.startsWith('(') || !trimmed.endsWith(')')) return null;
+    const inner = trimmed.slice(1, -1);
+    const parts = inner.includes(', ') ? inner.split(', ') : inner.split(',');
+    if (parts.length !== 2) return null;
+    const prefix = parts[0].trim();
+    const port = parts[1].trim();
+    if (!prefix || !port) return null;
+    if (prefix !== 'self' && prefix !== 'func') {
+      const num = parseInt(prefix, 10);
+      if (!Number.isInteger(num)) return null;
+    }
+    return { prefix, port };
+  }
+
+  _parseCellConnectLabel(model, p, r, c, label) {
+    const v = label.v;
+    if (!v || typeof v !== 'object' || Array.isArray(v)) {
+      this._recordError(model, p, r, c, label, 'cell_connect_invalid_value');
+      return;
+    }
+    const cellKey = `${model.id}|${p}|${r}|${c}`;
+    if (!this.cellConnectGraph.has(cellKey)) {
+      this.cellConnectGraph.set(cellKey, new Map());
+    }
+    const cellGraph = this.cellConnectGraph.get(cellKey);
+    for (const [sourceStr, targetArr] of Object.entries(v)) {
+      const source = this._parseCellConnectEndpoint(sourceStr);
+      if (!source) {
+        this._recordError(model, p, r, c, label, 'cell_connect_bad_source');
+        continue;
+      }
+      if (!Array.isArray(targetArr)) {
+        this._recordError(model, p, r, c, label, 'cell_connect_bad_targets');
+        continue;
+      }
+      const targets = [];
+      for (const tStr of targetArr) {
+        const t = this._parseCellConnectEndpoint(tStr);
+        if (!t) {
+          this._recordError(model, p, r, c, label, 'cell_connect_bad_target');
+          continue;
+        }
+        targets.push(t);
+      }
+      if (targets.length > 0) {
+        const endpointKey = `${source.prefix}:${source.port}`;
+        cellGraph.set(endpointKey, targets);
+      }
+    }
+  }
+
+  _parseCellConnectionLabel(model, p, r, c, label) {
+    if (p !== 0 || r !== 0 || c !== 0) {
+      this._recordError(model, p, r, c, label, 'cell_connection_wrong_position');
+      return;
+    }
+    const v = label.v;
+    if (!Array.isArray(v)) {
+      this._recordError(model, p, r, c, label, 'cell_connection_invalid_value');
+      return;
+    }
+    for (const entry of v) {
+      if (!entry || typeof entry !== 'object') continue;
+      const from = entry.from;
+      const to = entry.to;
+      if (!Array.isArray(from) || from.length !== 4) {
+        this._recordError(model, p, r, c, label, 'cell_connection_bad_from');
+        continue;
+      }
+      if (!Array.isArray(to)) {
+        this._recordError(model, p, r, c, label, 'cell_connection_bad_to');
+        continue;
+      }
+      const routeKey = `${model.id}|${from[0]}|${from[1]}|${from[2]}|${from[3]}`;
+      const targets = [];
+      for (const dest of to) {
+        if (!Array.isArray(dest) || dest.length !== 4) {
+          this._recordError(model, p, r, c, label, 'cell_connection_bad_dest');
+          continue;
+        }
+        targets.push({ model_id: model.id, p: dest[0], r: dest[1], c: dest[2], k: dest[3] });
+      }
+      if (targets.length > 0) {
+        const existing = this.cellConnectionRoutes.get(routeKey) || [];
+        this.cellConnectionRoutes.set(routeKey, existing.concat(targets));
+      }
+    }
+  }
+
+  _routeViaCellConnection(modelId, p, r, c, k, value) {
+    const key = `${modelId}|${p}|${r}|${c}|${k}`;
+    const targets = this.cellConnectionRoutes.get(key);
+    if (!targets) return;
+    for (const t of targets) {
+      const targetModel = this.getModel(t.model_id);
+      if (!targetModel) continue;
+      this.addLabel(targetModel, t.p, t.r, t.c, { k: t.k, t: 'IN', v: value });
+    }
+  }
+
+  async _propagateCellConnect(modelId, p, r, c, prefix, port, value, visited = new Set()) {
+    const cellKey = `${modelId}|${p}|${r}|${c}`;
+    const endpointKey = `${prefix}:${port}`;
+    const visitKey = `${cellKey}|${endpointKey}`;
+
+    if (visited.has(visitKey)) {
+      this.eventLog.record({
+        op: 'cell_connect_cycle',
+        cell: { model_id: modelId, p, r, c },
+        label: { k: endpointKey },
+        result: 'skipped',
+        reason: 'cycle_detected',
+      });
+      return;
+    }
+    visited.add(visitKey);
+
+    const cellGraph = this.cellConnectGraph.get(cellKey);
+    if (!cellGraph) return;
+    const targets = cellGraph.get(endpointKey);
+    if (!targets) return;
+
+    const tasks = targets.map((t) => {
+      if (t.prefix === 'self') {
+        const targetModel = this.getModel(modelId);
+        if (!targetModel) return Promise.resolve();
+        this.addLabel(targetModel, p, r, c, { k: t.port, t: 'OUT', v: value });
+        this._routeViaCellConnection(modelId, p, r, c, t.port, value);
+        return this._propagateCellConnect(modelId, p, r, c, 'self', t.port, value, visited);
+      }
+      if (t.prefix === 'func') {
+        if (t.port.endsWith(':in')) {
+          const funcName = t.port.slice(0, -3);
+          return this._executeFuncViaCellConnect(modelId, p, r, c, funcName, value, visited);
+        }
+        if (t.port.endsWith(':out')) {
+          return this._propagateCellConnect(modelId, p, r, c, 'func', t.port, value, visited);
+        }
+      }
+      // Numeric ID prefix: placeholder for 0142
+      return Promise.resolve();
+    });
+    await Promise.all(tasks);
+  }
+
+  async _executeFuncViaCellConnect(modelId, p, r, c, funcName, inputValue, visited) {
+    const model = this.getModel(modelId);
+    if (!model) return;
+    const cell = this.getCell(model, p, r, c);
+    let funcLabel = null;
+    for (const [, lbl] of cell.labels) {
+      if (lbl.k === funcName && lbl.t === 'function') {
+        funcLabel = lbl;
+        break;
+      }
+    }
+    if (!funcLabel) {
+      const sysModel = this.getModel(-10);
+      if (sysModel) {
+        const sysCell = this.getCell(sysModel, 0, 0, 0);
+        const sysLabel = sysCell.labels.get(funcName);
+        if (sysLabel && sysLabel.t === 'function') funcLabel = sysLabel;
+      }
+    }
+    if (!funcLabel || typeof funcLabel.v !== 'string') return;
+
+    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+    const fn = new AsyncFunction('ctx', 'label', funcLabel.v);
+
+    const runtime = this;
+    const ctx = {
+      runtime,
+      getLabel(ref) {
+        if (!ref || !Number.isInteger(ref.model_id)) return undefined;
+        const m = runtime.getModel(ref.model_id);
+        if (!m) return undefined;
+        const cl = runtime.getCell(m, ref.p || 0, ref.r || 0, ref.c || 0);
+        if (!cl) return undefined;
+        const l = cl.labels.get(ref.k);
+        return l ? l.v : undefined;
+      },
+      writeLabel(ref, t, v) {
+        if (!ref || !Number.isInteger(ref.model_id)) return;
+        const m = runtime.getModel(ref.model_id);
+        if (!m) return;
+        runtime.addLabel(m, ref.p || 0, ref.r || 0, ref.c || 0, { k: ref.k, t, v });
+      },
+      rmLabel(ref) {
+        if (!ref || !Number.isInteger(ref.model_id)) return;
+        const m = runtime.getModel(ref.model_id);
+        if (!m) return;
+        runtime.rmLabel(m, ref.p || 0, ref.r || 0, ref.c || 0, ref.k);
+      },
+    };
+
+    const FUNC_TIMEOUT_MS = 30000;
+    try {
+      const result = await Promise.race([
+        fn(ctx, { k: funcName, t: 'IN', v: inputValue }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Function ${funcName} timeout after ${FUNC_TIMEOUT_MS}ms`)), FUNC_TIMEOUT_MS),
+        ),
+      ]);
+      if (result !== undefined) {
+        await this._propagateCellConnect(modelId, p, r, c, 'func', `${funcName}:out`, result, visited);
+      }
+    } catch (err) {
+      this.addLabel(model, p, r, c, {
+        k: `__error_${funcName}`,
+        t: 'json',
+        v: { error: err.message, ts: Date.now() },
+      });
+    }
+  }
+
+  // --- end 0141 ---
+
   _applyBuiltins(model, p, r, c, label, prevLabel) {
+    // 0141: label.t dispatch (independent from label.k connectKeys)
+    if (label.t === 'CELL_CONNECT') {
+      this._parseCellConnectLabel(model, p, r, c, label);
+      return;
+    }
+    if (label.t === 'cell_connection') {
+      this._parseCellConnectionLabel(model, p, r, c, label);
+      return;
+    }
+    if (label.t === 'IN') {
+      const cellKey = `${model.id}|${p}|${r}|${c}`;
+      if (this.cellConnectGraph.has(cellKey)) {
+        this._propagateCellConnect(model.id, p, r, c, 'self', label.k, label.v)
+          .catch((err) => {
+            this._recordError(model, p, r, c, label, 'cell_connect_propagation_error');
+          });
+      }
+    }
+
     const key = label.k;
 
     if (key === 'local_mqtt' && model.id === 0 && p === 0 && r === 0 && c === 0) {
