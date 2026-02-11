@@ -1,0 +1,31 @@
+{
+  "version": "mt.v0",
+  "op_id": "remote_worker_config_v1",
+  "description": "Remote worker MQTT config + subscription declarations (0144)",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0, "r": 0, "c": 0,
+      "k": "mqtt_payload_mode",
+      "t": "str",
+      "v": "mt_v0"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0, "r": 0, "c": 0,
+      "k": "sub_model100_event",
+      "t": "MQTT_WILDCARD_SUB",
+      "v": "UIPUT/ws/dam/pic/de/sw/100/event"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0, "r": 0, "c": 0,
+      "k": "sub_model100_patch",
+      "t": "MQTT_WILDCARD_SUB",
+      "v": "UIPUT/ws/dam/pic/de/sw/100/patch"
+    }
+  ]
+}

@@ -20,7 +20,7 @@ spec:
         - "matrix.localhost"
       containers:
       - name: mbr
-        image: dy-mbr-worker:v0
+        image: dy-mbr-worker:v1
         imagePullPolicy: Never
         envFrom:
         - configMapRef:

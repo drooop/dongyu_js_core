@@ -26,6 +26,13 @@
     { "op": "add_label", "model_id": -10, "p": 0, "r": 0, "c": 0,
       "k": "mbr_heartbeat_interval_ms", "t": "int", "v": 30000 },
 
+    { "op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0,
+      "k": "sub_model2_patch_out", "t": "MQTT_WILDCARD_SUB",
+      "v": "UIPUT/ws/dam/pic/de/sw/2/patch_out" },
+    { "op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0,
+      "k": "sub_model100_patch_out", "t": "MQTT_WILDCARD_SUB",
+      "v": "UIPUT/ws/dam/pic/de/sw/100/patch_out" },
+
     { "op": "add_label", "model_id": -10, "p": 0, "r": 0, "c": 0,
       "k": "mbr_matrix_event_filter", "t": "str", "v": "ui_event" },
     { "op": "add_label", "model_id": -10, "p": 0, "r": 0, "c": 0,

@@ -1,0 +1,75 @@
+{
+  "version": "mt.v0",
+  "op_id": "test_model_100_full_v0",
+  "description": "Model 100 (0143 migrated) - MODEL_IN/CELL_CONNECT architecture",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 100,
+      "name": "test_color_form",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "ui_type",
+      "t": "str",
+      "v": "color_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "input_value",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "bg_color",
+      "t": "str",
+      "v": "#FFFFFF"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "status",
+      "t": "str",
+      "v": "ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0, "r": 0, "c": 0,
+      "k": "routing",
+      "t": "cell_connection",
+      "v": [
+        {"from": [0,0,0,"event"], "to": [[1,0,0,"event"]]},
+        {"from": [1,0,0,"patch"], "to": [[0,0,0,"patch"]]}
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1, "r": 0, "c": 0,
+      "k": "wiring",
+      "t": "CELL_CONNECT",
+      "v": {
+        "(self, event)": ["(func, on_model100_event_in:in)"],
+        "(func, on_model100_event_in:out)": ["(self, patch)"]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0, "r": 0, "c": 0,
+      "k": "on_model100_event_in",
+      "t": "function",
+      "v": "const trigger = label.v;\nlet action = '';\nlet data = null;\nlet timestamp = null;\n\nif (trigger && typeof trigger === 'object' && typeof trigger.action === 'string') {\n  action = trigger.action || '';\n  data = trigger.data || null;\n  timestamp = trigger.timestamp || null;\n} else {\n  const a = ctx.getLabel({ model_id: 100, p: 1, r: 0, c: 0, k: 'action' });\n  action = typeof a === 'string' ? a : '';\n  data = ctx.getLabel({ model_id: 100, p: 1, r: 0, c: 0, k: 'data' });\n  timestamp = ctx.getLabel({ model_id: 100, p: 1, r: 0, c: 0, k: 'timestamp' });\n}\n\nif (action === 'submit') {\n  const color = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');\n  const patch = {\n    version: 'mt.v0',\n    op_id: 'color_response_' + Date.now(),\n    records: [{\n      op: 'add_label', model_id: 100, p: 0, r: 0, c: 0,\n      k: 'bg_color', t: 'str', v: color\n    }, {\n      op: 'add_label', model_id: 100, p: 0, r: 0, c: 0,\n      k: 'status', t: 'str', v: 'color_updated_' + color\n    }]\n  };\n  ctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'bg_color' }, 'str', color);\n  ctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'status' }, 'str', 'processed');\n  return patch;\n}"
+    }
+  ]
+}

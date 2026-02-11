@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: worker
-        image: dy-remote-worker:v2
+        image: dy-remote-worker:v3
         imagePullPolicy: Never
         envFrom:
         - configMapRef:
