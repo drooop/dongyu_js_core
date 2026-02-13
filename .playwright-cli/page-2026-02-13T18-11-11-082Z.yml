@@ -1,0 +1,39 @@
+- generic [ref=e3]:
+  - generic [ref=e5]:
+    - button "首页" [ref=e7] [cursor=pointer]:
+      - generic [ref=e8]: 首页
+    - button "Gallery" [ref=e10] [cursor=pointer]:
+      - generic [ref=e11]: Gallery
+    - button "Docs" [ref=e13] [cursor=pointer]:
+      - generic [ref=e14]: Docs
+    - button "Static" [ref=e16] [cursor=pointer]:
+      - generic [ref=e17]: Static
+    - button "Workspace" [ref=e19] [cursor=pointer]:
+      - generic [ref=e20]: Workspace
+  - generic [ref=e23]:
+    - generic [ref=e24]:
+      - generic [ref=e25]: 资产树 ASSET TREE
+      - generic [ref=e482]: 暂无可用应用
+    - generic [ref=e483]:
+      - generic [ref=e484]: App 100
+      - generic [ref=e486]:
+        - generic [ref=e487]: Model 100 - 双总线 E2E 测试
+        - generic [ref=e488]: Local UI -> Matrix -> MBR -> MQTT -> K8s Worker -> MQTT -> MBR -> Matrix -> Local UI
+        - generic [ref=e489]:
+          - group "当前颜色" [ref=e490]:
+            - generic [ref=e491]: 当前颜色
+          - group "颜色值" [ref=e494]:
+            - generic [ref=e495]: 颜色值
+            - generic [ref=e497]: "#9d4a35"
+          - generic [ref=e498]:
+            - generic [ref=e499]: 输入文本
+            - textbox "输入文本" [ref=e503]:
+              - /placeholder: Enter any text (optional)
+          - group "MBR Ready" [ref=e504]:
+            - generic [ref=e505]: MBR Ready
+            - generic [ref=e507]: "true"
+          - group "颜色状态" [ref=e508]:
+            - generic [ref=e509]: 颜色状态
+            - generic [ref=e511]: processed
+        - button "Generate Color" [active] [ref=e512] [cursor=pointer]:
+          - generic [ref=e513]: Generate Color

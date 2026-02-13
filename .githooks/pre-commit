@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$REPO_ROOT"
+
+if ! command -v node >/dev/null 2>&1; then
+  exit 0
+fi
+
+# Branch-level auto mode: only enable Fill-Table-Only on branches that include "-ft-".
+# This avoids requiring users to run on/off commands and prevents cross-branch pollution.
+BRANCH="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+if [ -z "${BRANCH:-}" ]; then
+  exit 0
+fi
+
+if ! printf '%s' "$BRANCH" | grep -Eq '(^|-)ft(-|$)'; then
+  # Not an ft branch: do nothing and stay silent.
+  exit 0
+fi
+
+node scripts/validate_fill_table_only_mode.mjs --mode fill-table-only --staged

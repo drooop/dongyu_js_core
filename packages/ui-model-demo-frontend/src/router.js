@@ -4,6 +4,7 @@ export const ROUTE_MODEL100 = '/model100';
 export const ROUTE_DOCS = '/docs';
 export const ROUTE_STATIC = '/static';
 export const ROUTE_WORKSPACE = '/workspace';
+export const ROUTE_GAME = '/game';
 
 export function normalizeHashPath(value) {
   let s = value === undefined || value === null ? '' : String(value);
@@ -61,6 +62,10 @@ export function isModel100Path(path) {
 
 export function isWorkspacePath(path) {
   return normalizeHashPath(path) === ROUTE_WORKSPACE;
+}
+
+export function isGamePath(path) {
+  return normalizeHashPath(path) === ROUTE_GAME;
 }
 
 export function subscribeHashPath(onChange) {

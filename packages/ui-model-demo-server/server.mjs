@@ -176,8 +176,8 @@ function ensureDir(p) {
 function isAllowedDocRelPath(relPath) {
   const rel = String(relPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
   if (!rel.endsWith('.md')) return false;
-  // Docs UI MUST only expose docs/user-guide/**
-  return rel.startsWith('user-guide/');
+  // Docs UI MUST only expose this exact file.
+  return rel === 'user-guide/ui_binding_conversational.md';
 }
 
 function listMarkdownFiles(rootDir, allowFn) {
@@ -1465,6 +1465,35 @@ function createServerState(options) {
       wsRegistry.push({ model_id: app.model_id, name: app.name, source: app.source });
     }
   }
+  // When seed is disabled (K8s default), derive workspace registry from existing
+  // positive models loaded from DB/patches so sidebar and right panel stay consistent.
+  if (wsRegistry.length === 0) {
+    const snap = runtime.snapshot();
+    const models = snap && snap.models ? snap.models : {};
+    const derived = [];
+    for (const [idText, modelSnap] of Object.entries(models)) {
+      const modelId = Number(idText);
+      if (!Number.isInteger(modelId) || modelId <= 0) continue;
+      const rootLabels = modelSnap && modelSnap.cells && modelSnap.cells['0,0,0'] && modelSnap.cells['0,0,0'].labels
+        ? modelSnap.cells['0,0,0'].labels
+        : {};
+      const hasAppSignals = Boolean(
+        rootLabels.app_name || rootLabels.dual_bus_model || (modelSnap && modelSnap.cells && modelSnap.cells['1,0,0']),
+      );
+      if (!hasAppSignals) continue;
+      const name = rootLabels.app_name && typeof rootLabels.app_name.v === 'string' && rootLabels.app_name.v.trim()
+        ? rootLabels.app_name.v
+        : (modelSnap && typeof modelSnap.name === 'string' && modelSnap.name.trim()
+          ? modelSnap.name
+          : `App ${modelId}`);
+      const source = rootLabels.source_worker && typeof rootLabels.source_worker.v === 'string'
+        ? rootLabels.source_worker.v
+        : '';
+      derived.push({ model_id: modelId, name, source });
+    }
+    derived.sort((a, b) => a.model_id - b.model_id);
+    wsRegistry.push(...derived);
+  }
   const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
   // ---------------------------------------------------------------------------
   // Bus Trace model (CircularBuffer data model, model_id = TRACE_MODEL_ID)
@@ -1934,11 +1963,8 @@ function createServerState(options) {
         return { consumed: true, result: 'error', code: 'busy', detail: 'model100_submit_inflight' };
       }
       setModel100SubmitState(runtime, { inflight: true, status: 'loading' });
-      // Write ui_event to dual-bus model cell(100,0,0,2) for forward_model100_events
-      if (model100) {
-        const eventValue = payload.value && payload.value.v ? payload.value.v : { action: 'submit', data: payload };
-        runtime.addLabel(model100, 0, 0, 2, { k: 'ui_event', t: 'event', v: eventValue });
-      }
+      // Do not write ui_event directly here. The adapter consumes mailbox and writes
+      // target labels once; writing again would duplicate forward_model100_events.
     }
 
     setMailboxEnvelope(runtime, envelopeOrNull);

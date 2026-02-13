@@ -82,6 +82,11 @@ test_files/
 # Infrastructure secrets
 k8s/*-secret.yaml
 
+# Deploy env files (secrets)
+deploy/env/*.env
+deploy/env/*.generated.env
+!deploy/env/*.env.example
+
 # Server test databases (only default/ is tracked)
 packages/ui-model-demo-server/data/*/
 !packages/ui-model-demo-server/data/default/

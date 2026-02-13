@@ -78,7 +78,7 @@ spec:
       initContainers:
       - name: init-config
         image: ghcr.io/element-hq/synapse:latest
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
         command: ["/bin/sh", "-c"]
         args:
           - |
@@ -96,7 +96,7 @@ spec:
       containers:
       - name: synapse
         image: ghcr.io/element-hq/synapse:latest
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8008
         volumeMounts:

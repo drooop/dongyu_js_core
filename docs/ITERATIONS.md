@@ -38,6 +38,10 @@
 | 0143-pin-isolation-migration | 2026-02-11 | Legacy PIN cleanup + system-models migration + E2E validation | 6 | dev_0143-pin-isolation-migration | Completed | ./docs/iterations/0143-pin-isolation-migration/ |
 | 0144-worker-fill-table-migration | 2026-02-11 | Worker fill-table migration (remote-worker + MBR patches + K8s deploy) | 9 | dev | Completed | ./docs/iterations/0144-worker-fill-table-migration/ |
 | 0145-login-modeltable-k8s-local | 2026-02-13 | Login ModelTable化 + 本地全量 K8s 化 | 6 | dev | In Progress | ./docs/iterations/0145-login-modeltable-k8s-local/ |
+| 0146-fill-table-only-mode | 2026-02-14 | Fill-Table-Only 显式强制模式（禁止 runtime 旁路实现） | 3 | dev_0146-fill-table-only-mode | Completed | ./docs/iterations/0146-fill-table-only-mode/ |
+| 0147-fill-table-only-auto-gate | 2026-02-14 | Fill-Table-Only 自动门禁（pre-commit + 模式开关） | 4 | dev_0147-fill-table-only-auto-gate | Completed | ./docs/iterations/0147-fill-table-only-auto-gate/ |
+| 0148-ft-skill-branch-gate | 2026-02-14 | ft skill + 分支级自动 Fill-Table-Only 门禁 | 4 | dev_0148-ft-skill-branch-gate | Completed | ./docs/iterations/0148-ft-skill-branch-gate/ |
+| 0149-cloud-deploy-sync-ui-server | 2026-02-14 | Cloud 部署同步（ui-server 修复发布 + e2e 验证） | 5 | dev_0149-cloud-deploy-sync-ui-server | In Progress | ./docs/iterations/0149-cloud-deploy-sync-ui-server/ |
 
 ---
 

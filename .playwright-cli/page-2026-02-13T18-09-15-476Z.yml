@@ -1,0 +1,400 @@
+- generic [ref=e3]:
+  - generic [ref=e5]:
+    - button "首页" [ref=e7] [cursor=pointer]:
+      - generic [ref=e8]: 首页
+    - button "Gallery" [ref=e10] [cursor=pointer]:
+      - generic [ref=e11]: Gallery
+    - button "Docs" [ref=e13] [cursor=pointer]:
+      - generic [ref=e14]: Docs
+    - button "Static" [ref=e16] [cursor=pointer]:
+      - generic [ref=e17]: Static
+    - button "Workspace" [ref=e19] [cursor=pointer]:
+      - generic [ref=e20]: Workspace
+  - separator [ref=e21]
+  - generic [ref=e24]:
+    - generic [ref=e25]: DataTable
+    - generic [ref=e26]:
+      - generic [ref=e59]:
+        - group "Model" [ref=e60]:
+          - generic [ref=e61]: Model
+          - generic [ref=e63]:
+            - textbox "id or name contains..." [ref=e66]
+            - generic [ref=e68] [cursor=pointer]:
+              - generic:
+                - combobox [ref=e70]
+                - generic [ref=e71]: "1"
+              - img [ref=e74]
+            - button "Refresh" [ref=e76] [cursor=pointer]:
+              - generic [ref=e77]: Refresh
+        - group "Filter" [ref=e78]:
+          - generic [ref=e79]: Filter
+          - generic [ref=e81]:
+            - textbox "p" [ref=e84]
+            - textbox "r" [ref=e87]
+            - textbox "c" [ref=e90]
+            - textbox "k|t|v substring..." [ref=e93]
+      - generic [ref=e95]:
+        - table [ref=e97]:
+          - rowgroup [ref=e106]:
+            - row "p r c k t v Actions" [ref=e107]:
+              - columnheader "p" [ref=e108]:
+                - generic [ref=e109]: p
+              - columnheader "r" [ref=e110]:
+                - generic [ref=e111]: r
+              - columnheader "c" [ref=e112]:
+                - generic [ref=e113]: c
+              - columnheader "k" [ref=e114]:
+                - generic [ref=e115]: k
+              - columnheader "t" [ref=e116]:
+                - generic [ref=e117]: t
+              - columnheader "v" [ref=e118]:
+                - generic [ref=e119]: v
+              - columnheader "Actions" [ref=e120]:
+                - generic [ref=e121]: Actions
+        - table [ref=e126]:
+          - rowgroup [ref=e135]:
+            - row "0 0 0 app_name str Model 1 Use Edit View Remove" [ref=e136]:
+              - cell "0" [ref=e137]:
+                - generic [ref=e138]: "0"
+              - cell "0" [ref=e139]:
+                - generic [ref=e140]: "0"
+              - cell "0" [ref=e141]:
+                - generic [ref=e142]: "0"
+              - cell "app_name" [ref=e143]:
+                - generic [ref=e144]: app_name
+              - cell "str" [ref=e145]:
+                - generic [ref=e146]: str
+              - cell "Model 1" [ref=e147]:
+                - generic [ref=e148]: Model 1
+              - cell "Use Edit View Remove" [ref=e149]:
+                - generic [ref=e150]:
+                  - button "Use" [ref=e151] [cursor=pointer]:
+                    - generic [ref=e152]: Use
+                  - button "Edit" [ref=e153] [cursor=pointer]:
+                    - generic [ref=e154]: Edit
+                  - button "View" [ref=e155] [cursor=pointer]:
+                    - generic [ref=e156]: View
+                  - button "Remove" [ref=e157] [cursor=pointer]:
+                    - generic [ref=e158]: Remove
+            - row "0 0 0 model_type str main Use Edit View Remove" [ref=e159]:
+              - cell "0" [ref=e160]:
+                - generic [ref=e161]: "0"
+              - cell "0" [ref=e162]:
+                - generic [ref=e163]: "0"
+              - cell "0" [ref=e164]:
+                - generic [ref=e165]: "0"
+              - cell "model_type" [ref=e166]:
+                - generic [ref=e167]: model_type
+              - cell "str" [ref=e168]:
+                - generic [ref=e169]: str
+              - cell "main" [ref=e170]:
+                - generic [ref=e171]: main
+              - cell "Use Edit View Remove" [ref=e172]:
+                - generic [ref=e173]:
+                  - button "Use" [ref=e174] [cursor=pointer]:
+                    - generic [ref=e175]: Use
+                  - button "Edit" [ref=e176] [cursor=pointer]:
+                    - generic [ref=e177]: Edit
+                  - button "View" [ref=e178] [cursor=pointer]:
+                    - generic [ref=e179]: View
+                  - button "Remove" [ref=e180] [cursor=pointer]:
+                    - generic [ref=e181]: Remove
+            - row "0 0 0 source_worker str local Use Edit View Remove" [ref=e182]:
+              - cell "0" [ref=e183]:
+                - generic [ref=e184]: "0"
+              - cell "0" [ref=e185]:
+                - generic [ref=e186]: "0"
+              - cell "0" [ref=e187]:
+                - generic [ref=e188]: "0"
+              - cell "source_worker" [ref=e189]:
+                - generic [ref=e190]: source_worker
+              - cell "str" [ref=e191]:
+                - generic [ref=e192]: str
+              - cell "local" [ref=e193]:
+                - generic [ref=e194]: local
+              - cell "Use Edit View Remove" [ref=e195]:
+                - generic [ref=e196]:
+                  - button "Use" [ref=e197] [cursor=pointer]:
+                    - generic [ref=e198]: Use
+                  - button "Edit" [ref=e199] [cursor=pointer]:
+                    - generic [ref=e200]: Edit
+                  - button "View" [ref=e201] [cursor=pointer]:
+                    - generic [ref=e202]: View
+                  - button "Remove" [ref=e203] [cursor=pointer]:
+                    - generic [ref=e204]: Remove
+            - row "0 0 0 title str Workspace Model 1 Use Edit View Remove" [ref=e205]:
+              - cell "0" [ref=e206]:
+                - generic [ref=e207]: "0"
+              - cell "0" [ref=e208]:
+                - generic [ref=e209]: "0"
+              - cell "0" [ref=e210]:
+                - generic [ref=e211]: "0"
+              - cell "title" [ref=e212]:
+                - generic [ref=e213]: title
+              - cell "str" [ref=e214]:
+                - generic [ref=e215]: str
+              - cell "Workspace Model 1" [ref=e216]:
+                - generic [ref=e217]: Workspace Model 1
+              - cell "Use Edit View Remove" [ref=e218]:
+                - generic [ref=e219]:
+                  - button "Use" [ref=e220] [cursor=pointer]:
+                    - generic [ref=e221]: Use
+                  - button "Edit" [ref=e222] [cursor=pointer]:
+                    - generic [ref=e223]: Edit
+                  - button "View" [ref=e224] [cursor=pointer]:
+                    - generic [ref=e225]: View
+                  - button "Remove" [ref=e226] [cursor=pointer]:
+                    - generic [ref=e227]: Remove
+            - row "0 0 1 demo PIN_OUT demo Use Edit View Remove" [ref=e228]:
+              - cell "0" [ref=e229]:
+                - generic [ref=e230]: "0"
+              - cell "0" [ref=e231]:
+                - generic [ref=e232]: "0"
+              - cell "1" [ref=e233]:
+                - generic [ref=e234]: "1"
+              - cell "demo" [ref=e235]:
+                - generic [ref=e236]: demo
+              - cell "PIN_OUT" [ref=e237]:
+                - generic [ref=e238]: PIN_OUT
+              - cell "demo" [ref=e239]:
+                - generic [ref=e240]: demo
+              - cell "Use Edit View Remove" [ref=e241]:
+                - generic [ref=e242]:
+                  - button "Use" [ref=e243] [cursor=pointer]:
+                    - generic [ref=e244]: Use
+                  - button "Edit" [ref=e245] [cursor=pointer]:
+                    - generic [ref=e246]: Edit
+                  - button "View" [ref=e247] [cursor=pointer]:
+                    - generic [ref=e248]: View
+                  - button "Remove" [ref=e249] [cursor=pointer]:
+                    - generic [ref=e250]: Remove
+            - 'row "0 1 1 demo OUT {\"value\":2} Use Edit View Remove" [ref=e251]':
+              - cell "0" [ref=e252]:
+                - generic [ref=e253]: "0"
+              - cell "1" [ref=e254]:
+                - generic [ref=e255]: "1"
+              - cell "1" [ref=e256]:
+                - generic [ref=e257]: "1"
+              - cell "demo" [ref=e258]:
+                - generic [ref=e259]: demo
+              - cell "OUT" [ref=e260]:
+                - generic [ref=e261]: OUT
+              - 'cell "{\"value\":2}" [ref=e262]':
+                - generic [ref=e263]: "{\"value\":2}"
+              - cell "Use Edit View Remove" [ref=e264]:
+                - generic [ref=e265]:
+                  - button "Use" [ref=e266] [cursor=pointer]:
+                    - generic [ref=e267]: Use
+                  - button "Edit" [ref=e268] [cursor=pointer]:
+                    - generic [ref=e269]: Edit
+                  - button "View" [ref=e270] [cursor=pointer]:
+                    - generic [ref=e271]: View
+                  - button "Remove" [ref=e272] [cursor=pointer]:
+                    - generic [ref=e273]: Remove
+            - row "1 0 0 _field_order json [\"title\"] Use Edit View Remove" [ref=e274]:
+              - cell "1" [ref=e275]:
+                - generic [ref=e276]: "1"
+              - cell "0" [ref=e277]:
+                - generic [ref=e278]: "0"
+              - cell "0" [ref=e279]:
+                - generic [ref=e280]: "0"
+              - cell "_field_order" [ref=e281]:
+                - generic [ref=e282]: _field_order
+              - cell "json" [ref=e283]:
+                - generic [ref=e284]: json
+              - cell "[\"title\"]" [ref=e285]:
+                - generic [ref=e286]: "[\"title\"]"
+              - cell "Use Edit View Remove" [ref=e287]:
+                - generic [ref=e288]:
+                  - button "Use" [ref=e289] [cursor=pointer]:
+                    - generic [ref=e290]: Use
+                  - button "Edit" [ref=e291] [cursor=pointer]:
+                    - generic [ref=e292]: Edit
+                  - button "View" [ref=e293] [cursor=pointer]:
+                    - generic [ref=e294]: View
+                  - button "Remove" [ref=e295] [cursor=pointer]:
+                    - generic [ref=e296]: Remove
+            - row "1 0 0 _title str Model 1 Use Edit View Remove" [ref=e297]:
+              - cell "1" [ref=e298]:
+                - generic [ref=e299]: "1"
+              - cell "0" [ref=e300]:
+                - generic [ref=e301]: "0"
+              - cell "0" [ref=e302]:
+                - generic [ref=e303]: "0"
+              - cell "_title" [ref=e304]:
+                - generic [ref=e305]: _title
+              - cell "str" [ref=e306]:
+                - generic [ref=e307]: str
+              - cell "Model 1" [ref=e308]:
+                - generic [ref=e309]: Model 1
+              - cell "Use Edit View Remove" [ref=e310]:
+                - generic [ref=e311]:
+                  - button "Use" [ref=e312] [cursor=pointer]:
+                    - generic [ref=e313]: Use
+                  - button "Edit" [ref=e314] [cursor=pointer]:
+                    - generic [ref=e315]: Edit
+                  - button "View" [ref=e316] [cursor=pointer]:
+                    - generic [ref=e317]: View
+                  - button "Remove" [ref=e318] [cursor=pointer]:
+                    - generic [ref=e319]: Remove
+            - row "1 0 0 title str Text Use Edit View Remove" [ref=e320]:
+              - cell "1" [ref=e321]:
+                - generic [ref=e322]: "1"
+              - cell "0" [ref=e323]:
+                - generic [ref=e324]: "0"
+              - cell "0" [ref=e325]:
+                - generic [ref=e326]: "0"
+              - cell "title" [ref=e327]:
+                - generic [ref=e328]: title
+              - cell "str" [ref=e329]:
+                - generic [ref=e330]: str
+              - cell "Text" [ref=e331]:
+                - generic [ref=e332]: Text
+              - cell "Use Edit View Remove" [ref=e333]:
+                - generic [ref=e334]:
+                  - button "Use" [ref=e335] [cursor=pointer]:
+                    - generic [ref=e336]: Use
+                  - button "Edit" [ref=e337] [cursor=pointer]:
+                    - generic [ref=e338]: Edit
+                  - button "View" [ref=e339] [cursor=pointer]:
+                    - generic [ref=e340]: View
+                  - button "Remove" [ref=e341] [cursor=pointer]:
+                    - generic [ref=e342]: Remove
+            - 'row "1 0 0 title__bind json {\"read\":{\"model_id\":1,\"p\":0,\"r\":0,\"c\":0,\"k\":\"title\"}} Use Edit View Remove" [ref=e343]':
+              - cell "1" [ref=e344]:
+                - generic [ref=e345]: "1"
+              - cell "0" [ref=e346]:
+                - generic [ref=e347]: "0"
+              - cell "0" [ref=e348]:
+                - generic [ref=e349]: "0"
+              - cell "title__bind" [ref=e350]:
+                - generic [ref=e351]: title__bind
+              - cell "json" [ref=e352]:
+                - generic [ref=e353]: json
+              - 'cell "{\"read\":{\"model_id\":1,\"p\":0,\"r\":0,\"c\":0,\"k\":\"title\"}}" [ref=e354]':
+                - generic [ref=e355]: "{\"read\":{\"model_id\":1,\"p\":0,\"r\":0,\"c\":0,\"k\":\"title\"}}"
+              - cell "Use Edit View Remove" [ref=e356]:
+                - generic [ref=e357]:
+                  - button "Use" [ref=e358] [cursor=pointer]:
+                    - generic [ref=e359]: Use
+                  - button "Edit" [ref=e360] [cursor=pointer]:
+                    - generic [ref=e361]: Edit
+                  - button "View" [ref=e362] [cursor=pointer]:
+                    - generic [ref=e363]: View
+                  - button "Remove" [ref=e364] [cursor=pointer]:
+                    - generic [ref=e365]: Remove
+            - row "1 0 0 title__label str 标题 Use Edit View Remove" [ref=e366]:
+              - cell "1" [ref=e367]:
+                - generic [ref=e368]: "1"
+              - cell "0" [ref=e369]:
+                - generic [ref=e370]: "0"
+              - cell "0" [ref=e371]:
+                - generic [ref=e372]: "0"
+              - cell "title__label" [ref=e373]:
+                - generic [ref=e374]: title__label
+              - cell "str" [ref=e375]:
+                - generic [ref=e376]: str
+              - cell "标题" [ref=e377]:
+                - generic [ref=e378]: 标题
+              - cell "Use Edit View Remove" [ref=e379]:
+                - generic [ref=e380]:
+                  - button "Use" [ref=e381] [cursor=pointer]:
+                    - generic [ref=e382]: Use
+                  - button "Edit" [ref=e383] [cursor=pointer]:
+                    - generic [ref=e384]: Edit
+                  - button "View" [ref=e385] [cursor=pointer]:
+                    - generic [ref=e386]: View
+                  - button "Remove" [ref=e387] [cursor=pointer]:
+                    - generic [ref=e388]: Remove
+            - 'row "1 1 1 intent_result json {\"op_id\":\"op_5\",\"result\":\"ok\",\"action\":\"mgmt_put_mbr_v0\",\"channel\":\"pageA.submitA1\",\"topic\":\"UIPUT/ws/dam/pic/de/sw/1/p… Use Edit View Remove" [ref=e389]':
+              - cell "1" [ref=e390]:
+                - generic [ref=e391]: "1"
+              - cell "1" [ref=e392]:
+                - generic [ref=e393]: "1"
+              - cell "1" [ref=e394]:
+                - generic [ref=e395]: "1"
+              - cell "intent_result" [ref=e396]:
+                - generic [ref=e397]: intent_result
+              - cell "json" [ref=e398]:
+                - generic [ref=e399]: json
+              - 'cell "{\"op_id\":\"op_5\",\"result\":\"ok\",\"action\":\"mgmt_put_mbr_v0\",\"channel\":\"pageA.submitA1\",\"topic\":\"UIPUT/ws/dam/pic/de/sw/1/p…" [ref=e400]':
+                - generic [ref=e401]: "{\"op_id\":\"op_5\",\"result\":\"ok\",\"action\":\"mgmt_put_mbr_v0\",\"channel\":\"pageA.submitA1\",\"topic\":\"UIPUT/ws/dam/pic/de/sw/1/p…"
+              - cell "Use Edit View Remove" [ref=e402]:
+                - generic [ref=e403]:
+                  - button "Use" [ref=e404] [cursor=pointer]:
+                    - generic [ref=e405]: Use
+                  - button "Edit" [ref=e406] [cursor=pointer]:
+                    - generic [ref=e407]: Edit
+                  - button "View" [ref=e408] [cursor=pointer]:
+                    - generic [ref=e409]: View
+                  - button "Remove" [ref=e410] [cursor=pointer]:
+                    - generic [ref=e411]: Remove
+            - 'row "1 1 1 intent.v0 json {\"op_id\":\"op_5\",\"action\":\"mgmt_put_mbr_v0\",\"cell_k\":\"pageA.submitA1\",\"t\":\"json\",\"v\":{\"hello\":1}} Use Edit View Remove" [ref=e412]':
+              - cell "1" [ref=e413]:
+                - generic [ref=e414]: "1"
+              - cell "1" [ref=e415]:
+                - generic [ref=e416]: "1"
+              - cell "1" [ref=e417]:
+                - generic [ref=e418]: "1"
+              - cell "intent.v0" [ref=e419]:
+                - generic [ref=e420]: intent.v0
+              - cell "json" [ref=e421]:
+                - generic [ref=e422]: json
+              - 'cell "{\"op_id\":\"op_5\",\"action\":\"mgmt_put_mbr_v0\",\"cell_k\":\"pageA.submitA1\",\"t\":\"json\",\"v\":{\"hello\":1}}" [ref=e423]':
+                - generic [ref=e424]: "{\"op_id\":\"op_5\",\"action\":\"mgmt_put_mbr_v0\",\"cell_k\":\"pageA.submitA1\",\"t\":\"json\",\"v\":{\"hello\":1}}"
+              - cell "Use Edit View Remove" [ref=e425]:
+                - generic [ref=e426]:
+                  - button "Use" [ref=e427] [cursor=pointer]:
+                    - generic [ref=e428]: Use
+                  - button "Edit" [ref=e429] [cursor=pointer]:
+                    - generic [ref=e430]: Edit
+                  - button "View" [ref=e431] [cursor=pointer]:
+                    - generic [ref=e432]: View
+                  - button "Remove" [ref=e433] [cursor=pointer]:
+                    - generic [ref=e434]: Remove
+            - 'row "3 3 3 intent_result json {\"op_id\":\"op_62\",\"result\":\"ok\",\"action\":\"mgmt_bind_in\",\"channel\":\"pageA.textA1\"} Use Edit View Remove" [ref=e435]':
+              - cell "3" [ref=e436]:
+                - generic [ref=e437]: "3"
+              - cell "3" [ref=e438]:
+                - generic [ref=e439]: "3"
+              - cell "3" [ref=e440]:
+                - generic [ref=e441]: "3"
+              - cell "intent_result" [ref=e442]:
+                - generic [ref=e443]: intent_result
+              - cell "json" [ref=e444]:
+                - generic [ref=e445]: json
+              - 'cell "{\"op_id\":\"op_62\",\"result\":\"ok\",\"action\":\"mgmt_bind_in\",\"channel\":\"pageA.textA1\"}" [ref=e446]':
+                - generic [ref=e447]: "{\"op_id\":\"op_62\",\"result\":\"ok\",\"action\":\"mgmt_bind_in\",\"channel\":\"pageA.textA1\"}"
+              - cell "Use Edit View Remove" [ref=e448]:
+                - generic [ref=e449]:
+                  - button "Use" [ref=e450] [cursor=pointer]:
+                    - generic [ref=e451]: Use
+                  - button "Edit" [ref=e452] [cursor=pointer]:
+                    - generic [ref=e453]: Edit
+                  - button "View" [ref=e454] [cursor=pointer]:
+                    - generic [ref=e455]: View
+                  - button "Remove" [ref=e456] [cursor=pointer]:
+                    - generic [ref=e457]: Remove
+            - 'row "3 3 3 intent.v0 json {\"op_id\":\"op_62\",\"action\":\"mgmt_bind_in\",\"channel\":\"pageA.textA1\",\"target_ref\":{\"model_id\":1,\"p\":3,\"r\":3,\"c\":3,\"k\":\"pag… Use Edit View Remove" [ref=e458]':
+              - cell "3" [ref=e459]:
+                - generic [ref=e460]: "3"
+              - cell "3" [ref=e461]:
+                - generic [ref=e462]: "3"
+              - cell "3" [ref=e463]:
+                - generic [ref=e464]: "3"
+              - cell "intent.v0" [ref=e465]:
+                - generic [ref=e466]: intent.v0
+              - cell "json" [ref=e467]:
+                - generic [ref=e468]: json
+              - 'cell "{\"op_id\":\"op_62\",\"action\":\"mgmt_bind_in\",\"channel\":\"pageA.textA1\",\"target_ref\":{\"model_id\":1,\"p\":3,\"r\":3,\"c\":3,\"k\":\"pag…" [ref=e469]':
+                - generic [ref=e470]: "{\"op_id\":\"op_62\",\"action\":\"mgmt_bind_in\",\"channel\":\"pageA.textA1\",\"target_ref\":{\"model_id\":1,\"p\":3,\"r\":3,\"c\":3,\"k\":\"pag…"
+              - cell "Use Edit View Remove" [ref=e471]:
+                - generic [ref=e472]:
+                  - button "Use" [ref=e473] [cursor=pointer]:
+                    - generic [ref=e474]: Use
+                  - button "Edit" [ref=e475] [cursor=pointer]:
+                    - generic [ref=e476]: Edit
+                  - button "View" [ref=e477] [cursor=pointer]:
+                    - generic [ref=e478]: View
+                  - button "Remove" [ref=e479] [cursor=pointer]:
+                    - generic [ref=e480]: Remove

@@ -18,6 +18,7 @@
 ## 3. 规范文档（SSOT / Spec）
 
 - `docs/ssot/`：运行时语义、patch 操作、host ctx API 等规范
+- `docs/ssot/fill_table_only_mode.md`：显式填表强制模式（执行治理）
 - `docs/concepts/`：PICtest 证据化理解文档
 
 ## 4. 路线图与计划
