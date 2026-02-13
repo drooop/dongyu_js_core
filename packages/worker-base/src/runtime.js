@@ -178,7 +178,8 @@ class MqttClientReal {
     if (!this._client) return;
     this.trace.record('publish', { topic, payload });
     try {
-      this._client.publish(topic, JSON.stringify(payload));
+      const msg = typeof payload === 'string' ? payload : JSON.stringify(payload);
+      this._client.publish(topic, msg);
     } catch (_) {
       // ignore
     }
@@ -1153,6 +1154,10 @@ class ModelTableRuntime {
         const m = runtime.getModel(ref.model_id);
         if (!m) return;
         runtime.rmLabel(m, ref.p || 0, ref.r || 0, ref.c || 0, ref.k);
+      },
+      publishMqtt(topic, payload) {
+        if (!runtime.mqttClient) return;
+        runtime.mqttClient.publish(topic, payload);
       },
     };
 

@@ -16,7 +16,7 @@ import rehypeStringify from 'rehype-stringify';
 
 import { ModelTableRuntime } from '../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from '../ui-model-demo-frontend/src/local_bus_adapter.js';
-import { buildEditorAstV1 } from '../ui-model-demo-frontend/src/demo_modeltable.js';
+import { buildEditorAstV1, buildAstFromSchema } from '../ui-model-demo-frontend/src/demo_modeltable.js';
 import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from '../ui-model-demo-frontend/src/model_ids.js';
 import {
   getSession, isAuthenticated, loginWithMatrix, logout,
@@ -33,6 +33,7 @@ const sdk = require('matrix-js-sdk');
 
 const EDITOR_MODEL_ID = -1;
 const EDITOR_STATE_MODEL_ID = -2;
+const LOGIN_MODEL_ID = -3;
 const TRACE_MODEL_ID = -100;
 
 // Monotonic sequence counter for trace events (module-level, survives across calls).
@@ -372,6 +373,58 @@ function buildSafeSnapshotJson(runtime) {
   return JSON.stringify({ models: safeModels, v1nConfig: snap ? snap.v1nConfig : undefined }, null, 2);
 }
 
+// Lightweight snapshot for SSE/client: excludes internal-only labels that bloat payload.
+// Filters: snapshot_json (1.5MB recursive), event_log, trace entry cells, function code.
+const INTERNAL_LABEL_TYPES = new Set(['function', 'CELL_CONNECT', 'cell_connection', 'IN', 'BUS_IN', 'BUS_OUT', 'MODEL_IN', 'MODEL_OUT', 'subModel', 'MQTT_WILDCARD_SUB']);
+const EXCLUDED_LABEL_KEYS = new Set(['snapshot_json', 'event_log']);
+
+function buildClientSnapshot(runtime) {
+  const snap = runtime.snapshot();
+  if (!snap || !snap.models) return snap;
+  const models = {};
+  for (const [id, model] of Object.entries(snap.models)) {
+    const modelId = Number(id);
+    // Trace model: only include summary cell (0,0,0), skip trace entry cells
+    if (modelId === TRACE_MODEL_ID) {
+      const filteredCells = {};
+      const rootCell = model.cells && model.cells['0,0,0'];
+      if (rootCell) filteredCells['0,0,0'] = rootCell;
+      models[id] = { ...model, cells: filteredCells };
+      continue;
+    }
+    // System function model: exclude function code labels
+    if (modelId === -10) {
+      const filteredCells = {};
+      for (const [ck, cell] of Object.entries(model.cells || {})) {
+        const filteredLabels = {};
+        for (const [lk, lv] of Object.entries(cell.labels || {})) {
+          if (INTERNAL_LABEL_TYPES.has(lv.t)) continue;
+          filteredLabels[lk] = lv;
+        }
+        filteredCells[ck] = { ...cell, labels: filteredLabels };
+      }
+      models[id] = { ...model, cells: filteredCells };
+      continue;
+    }
+    // Editor model (-1): exclude snapshot_json and event_log
+    if (modelId === EDITOR_MODEL_ID) {
+      const filteredCells = {};
+      for (const [ck, cell] of Object.entries(model.cells || {})) {
+        const filteredLabels = {};
+        for (const [lk, lv] of Object.entries(cell.labels || {})) {
+          if (EXCLUDED_LABEL_KEYS.has(lk)) continue;
+          filteredLabels[lk] = lv;
+        }
+        filteredCells[ck] = { ...cell, labels: filteredLabels };
+      }
+      models[id] = { ...model, cells: filteredCells };
+      continue;
+    }
+    models[id] = model;
+  }
+  return { models, v1nConfig: snap.v1nConfig };
+}
+
 function resolveDbPath() {
   const workspace = process.env.WORKER_BASE_WORKSPACE || 'default';
   const configuredRoot = process.env.WORKER_BASE_DATA_ROOT;
@@ -515,9 +568,9 @@ class ProgramModelEngine {
   async init() {
     this.refreshFunctionRegistry();
     const roomLabel = findSystemLabel(this.runtime, 'matrix_room_id');
-    this.matrixRoomId = roomLabel ? String(roomLabel.label.v || '') : '';
+    this.matrixRoomId = process.env.DY_MATRIX_ROOM_ID || (roomLabel ? String(roomLabel.label.v || '') : '');
     const peerLabel = findSystemLabel(this.runtime, 'matrix_dm_peer_user_id');
-    this.matrixDmPeerUserId = peerLabel ? String(peerLabel.label.v || '') : '';
+    this.matrixDmPeerUserId = process.env.DY_MATRIX_DM_PEER_USER_ID || (peerLabel ? String(peerLabel.label.v || '') : '');
     if (this.matrixRoomId) {
       try {
         this.matrixClient = await createMatrixClient();
@@ -645,12 +698,12 @@ class ProgramModelEngine {
       payload,
     });
     if (!this.matrixClient || !this.matrixRoomId) {
-      console.log('[sendMatrix] ERROR: matrix_not_ready');
-      throw new Error('matrix_not_ready');
+      console.log('[sendMatrix] WARN: matrix_not_ready, skipping send');
+      return null;
     }
     if (!this.matrixDmPeerUserId) {
-      console.log('[sendMatrix] ERROR: matrix_dm_peer_user_id_required');
-      throw new Error('matrix_dm_peer_user_id_required');
+      console.log('[sendMatrix] WARN: matrix_dm_peer_user_id_required, skipping send');
+      return null;
     }
     await this.enqueueMatrixSend(payload);
   }
@@ -752,6 +805,24 @@ class ProgramModelEngine {
         console.log(`[handleDyBusEvent] Writing patch to Model ${modelId} (${pinName}) at cell(${modelId},0,0,0)`);
         this.runtime.addLabel(targetModel, 0, 0, 0, { k: pinName, t: 'IN', v: patch });
         routed = true;
+      }
+
+      // Always apply patch records directly so labels (bg_color, status, etc.) are updated
+      // in the server model state. The IN label write above is for routing/tracing only;
+      // the server engine doesn't have the worker's _routeViaCellConnection machinery.
+      try {
+        const applyResult = this.runtime.applyPatch(patch, { allowCreateModel: false });
+        console.log('[handleDyBusEvent] applyPatch result:', JSON.stringify(applyResult));
+        // Verify: read back key labels to confirm they were set
+        const m100 = this.runtime.getModel(100);
+        if (m100) {
+          const bgLabel = this.runtime.getCell(m100, 0, 0, 0).labels.get('bg_color');
+          const statusLabel = this.runtime.getCell(m100, 0, 0, 0).labels.get('status');
+          const inflightLabel = this.runtime.getCell(m100, 0, 0, 0).labels.get('submit_inflight');
+          console.log('[handleDyBusEvent] Post-apply check: bg_color=', bgLabel?.v, 'status=', statusLabel?.v, 'submit_inflight=', inflightLabel?.v);
+        }
+      } catch (err) {
+        console.error('[handleDyBusEvent] Failed to apply patch records:', err.message);
       }
 
       if (routed) {
@@ -893,7 +964,12 @@ class ProgramModelEngine {
       },
       mqttIncoming: (topic, payload) => this.runtime.mqttIncoming(topic, payload),
       startMqttLoop: () => this.runtime.startMqttLoop(),
-      sendMatrix: (payload) => this.sendMatrix(payload),
+      sendMatrix: (payload) => {
+        if (!this.matrixClient || !this.matrixRoomId || !this.matrixDmPeerUserId) {
+          return null;
+        }
+        return this.sendMatrix(payload);
+      },
     };
     try {
       const fn = new Function('ctx', code);
@@ -1165,6 +1241,38 @@ function createServerState(options) {
   if (!runtime.getModel(GALLERY_STATE_MODEL_ID)) {
     runtime.createModel({ id: GALLERY_STATE_MODEL_ID, name: 'gallery_state', type: 'ui' });
   }
+
+  // ── Model -3: Login Form (p=0 data, p=1 schema) ──────────────────────────
+  if (!runtime.getModel(LOGIN_MODEL_ID)) {
+    runtime.createModel({ id: LOGIN_MODEL_ID, name: 'login_form', type: 'ui' });
+  }
+  const loginModel = runtime.getModel(LOGIN_MODEL_ID);
+  // p=0 cell(0,0,0) — data layer
+  runtime.addLabel(loginModel, 0, 0, 0, { k: 'login_username', t: 'str', v: '' });
+  runtime.addLabel(loginModel, 0, 0, 0, { k: 'login_password', t: 'str', v: '' });
+  runtime.addLabel(loginModel, 0, 0, 0, { k: 'login_error', t: 'str', v: '' });
+  runtime.addLabel(loginModel, 0, 0, 0, { k: 'login_loading', t: 'str', v: 'false' });
+  // p=1 cell(1,0,0) — schema layer
+  runtime.addLabel(loginModel, 1, 0, 0, { k: '_title', t: 'str', v: '洞宇 DongYu' });
+  runtime.addLabel(loginModel, 1, 0, 0, { k: '_subtitle', t: 'str', v: 'Matrix Account Login' });
+  runtime.addLabel(loginModel, 1, 0, 0, { k: '_field_order', t: 'json', v: ['login_username', 'login_password', 'login_submit'] });
+  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_username', t: 'str', v: 'Input' });
+  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_username__label', t: 'str', v: 'Username' });
+  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_username__props', t: 'json', v: { placeholder: '@user:server' } });
+  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_password', t: 'str', v: 'Input' });
+  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_password__label', t: 'str', v: 'Password' });
+  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_password__props', t: 'json', v: { type: 'password', showPassword: true } });
+  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit', t: 'str', v: 'Button' });
+  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit__label', t: 'str', v: '' });
+  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit__no_wrap', t: 'bool', v: true });
+  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit__props', t: 'json', v: { label: 'Login with Matrix', type: 'primary', style: { width: '100%' } } });
+  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit__bind', t: 'json', v: {
+    write: {
+      action: 'label_add',
+      target_ref: { model_id: LOGIN_MODEL_ID, p: 0, r: 0, c: 1, k: 'login_event' },
+      value_ref: { t: 'json', v: { action: 'login_submit' } },
+    },
+  } });
 
   const systemModelsDir = new URL('../worker-base/system-models/', import.meta.url).pathname;
   loadSystemModelPatches(runtime, systemModelsDir);
@@ -1778,15 +1886,21 @@ function createServerState(options) {
 
   function updateDerived() {
     const uiAst = buildEditorAstV1(runtime.snapshot());
+    // snapshot_json and event_log are excluded from client snapshot (too large).
+    // Skip expensive computation — saves ~2 full snapshot traversals per event.
     adapter.updateUiDerived({
       uiAst,
-      snapshotJson: buildSafeSnapshotJson(runtime),
-      eventLogJson: JSON.stringify(editorEventLog, null, 2),
+      snapshotJson: '',
+      eventLogJson: '',
     });
   }
 
   function snapshot() {
     return runtime.snapshot();
+  }
+
+  function clientSnap() {
+    return buildClientSnapshot(runtime);
   }
 
   async function submitEnvelope(envelopeOrNull) {
@@ -1820,6 +1934,11 @@ function createServerState(options) {
         return { consumed: true, result: 'error', code: 'busy', detail: 'model100_submit_inflight' };
       }
       setModel100SubmitState(runtime, { inflight: true, status: 'loading' });
+      // Write ui_event to dual-bus model cell(100,0,0,2) for forward_model100_events
+      if (model100) {
+        const eventValue = payload.value && payload.value.v ? payload.value.v : { action: 'submit', data: payload };
+        runtime.addLabel(model100, 0, 0, 2, { k: 'ui_event', t: 'event', v: eventValue });
+      }
     }
 
     setMailboxEnvelope(runtime, envelopeOrNull);
@@ -2244,6 +2363,7 @@ function createServerState(options) {
   return {
     runtime,
     snapshot,
+    clientSnap,
     submitEnvelope,
     applyModelTablePatch,
     getLastOpId: () => getLastOpId(runtime),
@@ -2262,13 +2382,31 @@ function startServer(options) {
   const state = createServerState({ dbPath: resolveDbPath() });
   const clients = new Set();
 
+  // SSE sends filtered client snapshot (excludes snapshot_json, trace entries, function code)
+  let _cachedClientSnap = null;
+  let _cachedClientSnapJson = null;
+
+  function getClientSnapJson() {
+    const snap = state.clientSnap();
+    if (snap === _cachedClientSnap && _cachedClientSnapJson) return _cachedClientSnapJson;
+    _cachedClientSnap = snap;
+    _cachedClientSnapJson = JSON.stringify({ snapshot: snap });
+    return _cachedClientSnapJson;
+  }
+
+  function invalidateClientSnapCache() {
+    _cachedClientSnap = null;
+    _cachedClientSnapJson = null;
+  }
+
   function sendSnapshot(res) {
-    const data = JSON.stringify({ snapshot: state.snapshot() });
+    const data = getClientSnapJson();
     res.write(`event: snapshot\n`);
     res.write(`data: ${data}\n\n`);
   }
 
   function broadcastSnapshot() {
+    invalidateClientSnapCache();
     for (const res of clients) {
       try {
         sendSnapshot(res);
@@ -2300,11 +2438,12 @@ function startServer(options) {
       }
       try {
         const body = await readJsonBody(req);
-        if (!body || !body.username || !body.password || !body.homeserverUrl) {
+        const hsUrl = process.env.MATRIX_HOMESERVER_URL || (body && body.homeserverUrl);
+        if (!body || !body.username || !body.password || !hsUrl) {
           writeJson(res, 400, { ok: false, error: 'missing_fields' }, cors);
           return;
         }
-        const session = await loginWithMatrix(body.homeserverUrl, body.username, body.password);
+        const session = await loginWithMatrix(hsUrl, body.username, body.password);
         res.writeHead(200, {
           ...cors,
           'content-type': 'application/json; charset=utf-8',
@@ -2351,6 +2490,18 @@ function startServer(options) {
 
     if (req.method === 'GET' && url.pathname === '/auth/homeservers') {
       writeJson(res, 200, { homeservers: loadHomeservers() }, cors);
+      return;
+    }
+
+    // ── Login model endpoint (public, no auth) ──────────────────────────
+    if (req.method === 'GET' && url.pathname === '/auth/login-model') {
+      const fullSnap = state.snapshot();
+      const loginModelSnap = fullSnap && fullSnap.models
+        ? (fullSnap.models[LOGIN_MODEL_ID] || fullSnap.models[String(LOGIN_MODEL_ID)] || null)
+        : null;
+      const miniSnap = { models: { [String(LOGIN_MODEL_ID)]: loginModelSnap } };
+      const ast = buildAstFromSchema(miniSnap, LOGIN_MODEL_ID);
+      writeJson(res, 200, { snapshot: miniSnap, ast }, cors);
       return;
     }
 
@@ -2432,9 +2583,13 @@ function startServer(options) {
     }
 
     // ── Auth guard ───────────────────────────────────────────────────────
+    const AUTH_ENABLED = process.env.DY_AUTH !== '0';
+
     function isPublicPath(method, pathname) {
+      if (!AUTH_ENABLED) return true;
       if (pathname === '/auth/login' || pathname === '/auth/me') return true;
       if (method === 'GET' && pathname === '/auth/homeservers') return true;
+      if (method === 'GET' && pathname === '/auth/login-model') return true;
       if (method === 'GET' && (pathname === '/' || pathname === '/index.html'
           || pathname.startsWith('/assets/')
           || pathname.startsWith('/p/'))) return true;
@@ -2541,7 +2696,7 @@ function startServer(options) {
     }
 
     if (req.method === 'GET' && url.pathname === '/snapshot') {
-      writeJson(res, 200, { snapshot: state.snapshot() }, cors);
+      writeJson(res, 200, { snapshot: state.clientSnap() }, cors);
       return;
     }
 
@@ -2574,6 +2729,8 @@ function startServer(options) {
         const envelope = body && body.payload && body.type ? body : (body && body.envelope ? body.envelope : body);
         const consumeResult = await state.submitEnvelope(envelope);
         broadcastSnapshot();
+        // Snapshot omitted from response — SSE broadcastSnapshot() delivers it.
+        // This halves bandwidth per ui_event (was sending 2MB snapshot twice).
         writeJson(
           res,
           200,
@@ -2583,7 +2740,6 @@ function startServer(options) {
             result: consumeResult && consumeResult.result ? consumeResult.result : undefined,
             ui_event_last_op_id: state.getLastOpId(),
             ui_event_error: state.getEventError(),
-            snapshot: state.snapshot(),
           },
           cors,
         );
@@ -2603,7 +2759,6 @@ function startServer(options) {
         writeJson(res, 200, {
           ok: true,
           apply_result: applyResult,
-          snapshot: state.snapshot(),
         }, cors);
       } catch (err) {
         writeJson(res, 400, {
@@ -2618,8 +2773,9 @@ function startServer(options) {
     writeJson(res, 404, { ok: false, error: 'not_found' }, cors);
   });
 
-  server.listen(port, '127.0.0.1', () => {
-    process.stdout.write(`ui-model-demo-server listening on http://127.0.0.1:${port}\n`);
+  const host = process.env.HOST || '127.0.0.1';
+  server.listen(port, host, () => {
+    process.stdout.write(`ui-model-demo-server listening on http://${host}:${port}\n`);
   });
 
   return server;

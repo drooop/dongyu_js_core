@@ -152,7 +152,7 @@ export function buildEditorAstV0() {
  * Returns an AST subtree (Container > Title + Form > FormItems) or null if
  * the model has no p=1 schema.
  */
-function buildAstFromSchema(snapshot, modelId) {
+export function buildAstFromSchema(snapshot, modelId) {
   const model = getSnapshotModel(snapshot, modelId);
   if (!model || !model.cells) return null;
 
@@ -934,8 +934,10 @@ export function buildEditorAstV1(snapshot) {
                   id: 'html_docs',
                   type: 'Html',
                   props: {
-                    html: docsHtml,
                     style: { maxWidth: '800px' },
+                  },
+                  bind: {
+                    read: { model_id: -2, p: 0, r: 0, c: 0, k: 'docs_render_html' },
                   },
                 },
               ],

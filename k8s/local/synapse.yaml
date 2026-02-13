@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: synapse-config
+  namespace: dongyu
+data:
+  homeserver.yaml: |
+    server_name: "localhost"
+    pid_file: /data/homeserver.pid
+    listeners:
+      - port: 8008
+        tls: false
+        type: http
+        x_forwarded: true
+        resources:
+          - names: [client, federation]
+            compress: false
+    database:
+      name: sqlite3
+      args:
+        database: /data/homeserver.db
+    log_config: "/data/log.config"
+    media_store_path: /data/media_store
+    registration_shared_secret: "dongyu-synapse-secret-2026"
+    report_stats: false
+    macaroon_secret_key: "dongyu-macaroon-key-2026"
+    form_secret: "dongyu-form-secret-2026"
+    signing_key_path: "/data/signing.key"
+    enable_registration: false
+    enable_registration_without_verification: false
+  log.config: |
+    version: 1
+    formatters:
+      precise:
+        format: '%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(request)s - %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: precise
+    loggers:
+      synapse.storage.SQL:
+        level: WARN
+    root:
+      level: WARN
+      handlers: [console]
+    disable_existing_loggers: false
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: synapse-data
+  namespace: dongyu
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: hostpath
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: synapse
+  namespace: dongyu
+  labels:
+    app: synapse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: synapse
+  template:
+    metadata:
+      labels:
+        app: synapse
+    spec:
+      initContainers:
+      - name: init-config
+        image: ghcr.io/element-hq/synapse:latest
+        imagePullPolicy: Never
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            cp /config/homeserver.yaml /data/homeserver.yaml
+            cp /config/log.config /data/log.config
+            if [ ! -f /data/signing.key ]; then
+              python -m synapse.app.homeserver --config-path /data/homeserver.yaml --generate-keys
+            fi
+            chown -R 991:991 /data
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: data
+          mountPath: /data
+      containers:
+      - name: synapse
+        image: ghcr.io/element-hq/synapse:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8008
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        env:
+        - name: SYNAPSE_CONFIG_PATH
+          value: "/data/homeserver.yaml"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: config
+        configMap:
+          name: synapse-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: synapse-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: synapse
+  namespace: dongyu
+spec:
+  selector:
+    app: synapse
+  ports:
+  - port: 8008
+    targetPort: 8008

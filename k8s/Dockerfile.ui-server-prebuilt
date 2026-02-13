@@ -1,0 +1,18 @@
+FROM oven/bun:latest
+
+WORKDIR /app
+
+# Copy all packages (frontend already pre-built with dist/)
+COPY packages/worker-base/ ./packages/worker-base/
+COPY packages/ui-renderer/ ./packages/ui-renderer/
+COPY packages/ui-model-demo-server/ ./packages/ui-model-demo-server/
+COPY packages/ui-model-demo-frontend/ ./packages/ui-model-demo-frontend/
+COPY docs/ ./docs/
+
+# Root/server deps
+COPY package.json package-lock.json* ./
+RUN bun install
+
+EXPOSE 9000
+
+CMD ["bun", "packages/ui-model-demo-server/server.mjs", "--port", "9000"]

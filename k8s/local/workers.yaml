@@ -1,0 +1,159 @@
+---
+# Remote Worker ConfigMap (local)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: remote-worker-config
+  namespace: dongyu
+data:
+  MQTT_HOST: "mosquitto.dongyu.svc.cluster.local"
+  MQTT_PORT: "1883"
+  MQTT_USER: ""
+  MQTT_PASS: ""
+  WORKER_ID: "2"
+---
+# Remote Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remote-worker
+  namespace: dongyu
+  labels:
+    app: remote-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: remote-worker
+  template:
+    metadata:
+      labels:
+        app: remote-worker
+    spec:
+      containers:
+      - name: worker
+        image: dy-remote-worker:v3
+        imagePullPolicy: Never
+        envFrom:
+        - configMapRef:
+            name: remote-worker-config
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+---
+# MBR Worker ConfigMap (local)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mbr-worker-config
+  namespace: dongyu
+data:
+  MATRIX_HOMESERVER_URL: "http://synapse.dongyu.svc.cluster.local:8008"
+  MATRIX_MBR_BOT_USER: "@mbr:localhost"
+  DY_MATRIX_ROOM_ID: ""
+  DY_MQTT_HOST: "mosquitto.dongyu.svc.cluster.local"
+  DY_MQTT_PORT: "1883"
+  DY_MQTT_USER: ""
+  DY_MQTT_PASS: ""
+  NODE_TLS_REJECT_UNAUTHORIZED: "0"
+---
+# MBR Worker Secret (local)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mbr-worker-secret
+  namespace: dongyu
+type: Opaque
+stringData:
+  MATRIX_MBR_BOT_ACCESS_TOKEN: "placeholder-will-update-after-synapse-setup"
+---
+# MBR Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mbr-worker
+  namespace: dongyu
+  labels:
+    app: mbr-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mbr-worker
+  template:
+    metadata:
+      labels:
+        app: mbr-worker
+    spec:
+      containers:
+      - name: mbr
+        image: dy-mbr-worker:v2
+        imagePullPolicy: Never
+        envFrom:
+        - configMapRef:
+            name: mbr-worker-config
+        - secretRef:
+            name: mbr-worker-secret
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+---
+# UI Server Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ui-server
+  namespace: dongyu
+  labels:
+    app: ui-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ui-server
+  template:
+    metadata:
+      labels:
+        app: ui-server
+    spec:
+      containers:
+      - name: server
+        image: dy-ui-server:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 9000
+        env:
+        - name: HOST
+          value: "0.0.0.0"
+        - name: MATRIX_HOMESERVER_URL
+          value: "http://synapse.dongyu.svc.cluster.local:8008"
+        - name: DY_AUTH
+          value: "0"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+# UI Server Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ui-server
+  namespace: dongyu
+spec:
+  selector:
+    app: ui-server
+  ports:
+  - port: 9000
+    targetPort: 9000

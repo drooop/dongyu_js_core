@@ -37,6 +37,7 @@
 | 0142-bus-model-boundary | 2026-02-11 | BUS_IN/OUT system boundary + MODEL_IN/OUT + subModel lifecycle | 4 | dev_0142-bus-model-boundary | Completed | ./docs/iterations/0142-bus-model-boundary/ |
 | 0143-pin-isolation-migration | 2026-02-11 | Legacy PIN cleanup + system-models migration + E2E validation | 6 | dev_0143-pin-isolation-migration | Completed | ./docs/iterations/0143-pin-isolation-migration/ |
 | 0144-worker-fill-table-migration | 2026-02-11 | Worker fill-table migration (remote-worker + MBR patches + K8s deploy) | 9 | dev | Completed | ./docs/iterations/0144-worker-fill-table-migration/ |
+| 0145-login-modeltable-k8s-local | 2026-02-13 | Login ModelTable化 + 本地全量 K8s 化 | 6 | dev | In Progress | ./docs/iterations/0145-login-modeltable-k8s-local/ |
 
 ---
 

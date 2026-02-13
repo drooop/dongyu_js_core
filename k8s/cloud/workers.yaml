@@ -1,0 +1,238 @@
+---
+# Remote Worker ConfigMap (cloud)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: remote-worker-config
+  namespace: dongyu
+data:
+  MQTT_HOST: "emqx-emqx-enterprise.emqx.svc.cluster.local"
+  MQTT_PORT: "1883"
+  MQTT_USER: ""
+  MQTT_PASS: ""
+  WORKER_ID: "2"
+---
+# Remote Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remote-worker
+  namespace: dongyu
+  labels:
+    app: remote-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: remote-worker
+  template:
+    metadata:
+      labels:
+        app: remote-worker
+    spec:
+      terminationGracePeriodSeconds: 15
+      containers:
+      - name: worker
+        image: dy-remote-worker:v3
+        imagePullPolicy: Never
+        envFrom:
+        - configMapRef:
+            name: remote-worker-config
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+---
+# MBR Worker ConfigMap (cloud)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mbr-worker-config
+  namespace: dongyu
+data:
+  MATRIX_HOMESERVER_URL: "http://synapse.dongyu.svc.cluster.local:8008"
+  MATRIX_MBR_BOT_USER: "@mbr:dongyu.local"
+  DY_MATRIX_ROOM_ID: ""
+  DY_MQTT_HOST: "emqx-emqx-enterprise.emqx.svc.cluster.local"
+  DY_MQTT_PORT: "1883"
+  DY_MQTT_USER: ""
+  DY_MQTT_PASS: ""
+  NODE_TLS_REJECT_UNAUTHORIZED: "0"
+---
+# MBR Worker Secret (cloud)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mbr-worker-secret
+  namespace: dongyu
+type: Opaque
+stringData:
+  MATRIX_MBR_BOT_ACCESS_TOKEN: "placeholder-will-update-after-synapse-setup"
+---
+# MBR Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mbr-worker
+  namespace: dongyu
+  labels:
+    app: mbr-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mbr-worker
+  template:
+    metadata:
+      labels:
+        app: mbr-worker
+    spec:
+      terminationGracePeriodSeconds: 15
+      containers:
+      - name: mbr
+        image: dy-mbr-worker:v2
+        imagePullPolicy: Never
+        envFrom:
+        - configMapRef:
+            name: mbr-worker-config
+        - secretRef:
+            name: mbr-worker-secret
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+---
+# UI Server Secret (Matrix credentials for server bot)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ui-server-secret
+  namespace: dongyu
+type: Opaque
+stringData:
+  MATRIX_MBR_PASSWORD: "placeholder-password-update-after-synapse-setup"
+---
+# UI Server Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ui-server
+  namespace: dongyu
+  labels:
+    app: ui-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ui-server
+  template:
+    metadata:
+      labels:
+        app: ui-server
+    spec:
+      terminationGracePeriodSeconds: 15
+      containers:
+      - name: server
+        image: dy-ui-server:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 9000
+        env:
+        - name: HOST
+          value: "0.0.0.0"
+        - name: MATRIX_HOMESERVER_URL
+          value: "http://synapse.dongyu.svc.cluster.local:8008"
+        - name: MATRIX_MBR_USER
+          value: "@drop:dongyu.local"
+        - name: MATRIX_MBR_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: MATRIX_MBR_PASSWORD
+        - name: DY_MATRIX_ROOM_ID
+          value: "placeholder-roomid-update-after-synapse-setup"
+        - name: DY_MATRIX_DM_PEER_USER_ID
+          value: "@mbr:dongyu.local"
+        - name: SEED_POSITIVE_MODELS_ON_BOOT
+          value: "1"
+        - name: DY_AUTH
+          value: "0"
+        - name: NODE_TLS_REJECT_UNAUTHORIZED
+          value: "0"
+        volumeMounts:
+        - name: static-data
+          mountPath: /app/.dy_static_projects
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: static-data
+        persistentVolumeClaim:
+          claimName: ui-server-static-pvc
+---
+# UI Server PVC for static projects
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ui-server-static-pvc
+  namespace: dongyu
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: local-path
+---
+# UI Server Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ui-server
+  namespace: dongyu
+spec:
+  selector:
+    app: ui-server
+  ports:
+  - port: 9000
+    targetPort: 9000
+---
+# UI Server Ingress with TLS
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ui-server
+  namespace: dongyu
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - app.dongyudigital.com
+    secretName: ui-server-tls
+  rules:
+  - host: app.dongyudigital.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ui-server
+            port:
+              number: 9000
