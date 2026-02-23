@@ -55,6 +55,41 @@
           "key": "json_value"
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_filltable_prompt_template",
+      "t": "str",
+      "v": "You are a strict ModelTable patch planner. Return JSON only. No markdown fences.\\nUser prompt: {{prompt_text}}\\nPolicy JSON: {{policy_json}}\\nAllowed output schema JSON: {{output_schema_json}}\\nAvailable positive model ids JSON: {{available_model_ids_json}}\\nRules:\\n- Output must be {\\\"records\\\":[...],\\\"confidence\\\":0..1,\\\"reasoning\\\":\\\"...\\\"}\\n- records only support op=add_label/rm_label\\n- add_label requires model_id,p,r,c,k,t,v\\n- rm_label requires model_id,p,r,c,k\\n- Never output explanation text outside JSON"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_filltable_output_schema",
+      "t": "json",
+      "v": {
+        "records": [
+          {
+            "op": "add_label|rm_label",
+            "model_id": "int",
+            "p": "int",
+            "r": "int",
+            "c": "int",
+            "k": "string",
+            "t": "string(add_label only)",
+            "v": "json_value(add_label only)"
+          }
+        ],
+        "confidence": "number(0..1)",
+        "reasoning": "string"
+      }
     }
   ]
 }

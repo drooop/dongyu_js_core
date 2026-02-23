@@ -33,6 +33,35 @@ function writeJson(res, status, data) {
 
 function inferIntent(promptText) {
   const prompt = String(promptText || '');
+  if (/strict ModelTable patch planner/i.test(prompt)) {
+    return {
+      response: JSON.stringify({
+        records: [
+          {
+            op: 'add_label',
+            model_id: 100,
+            p: 0,
+            r: 0,
+            c: 0,
+            k: 'title',
+            t: 'str',
+            v: 'Prompt FillTable Demo',
+          },
+          {
+            op: 'rm_label',
+            model_id: 100,
+            p: 0,
+            r: 0,
+            c: 0,
+            k: 'obsolete_key',
+          },
+        ],
+        confidence: 0.91,
+        reasoning: 'mock filltable planner',
+      }),
+    };
+  }
+
   if (/scene context updater/i.test(prompt)) {
     return {
       response: JSON.stringify({

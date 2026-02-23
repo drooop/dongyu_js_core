@@ -20,7 +20,9 @@
         "ws_app_add": "handle_ws_app_add",
         "ws_app_delete": "handle_ws_app_delete",
         "ws_select_app": "handle_ws_select_app",
-        "ws_app_select": "handle_ws_select_app"
+        "ws_app_select": "handle_ws_select_app",
+        "llm_filltable_preview": "handle_llm_filltable_preview",
+        "llm_filltable_apply": "handle_llm_filltable_apply"
       }
     },
     {

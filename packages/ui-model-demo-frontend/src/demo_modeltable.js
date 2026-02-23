@@ -284,6 +284,33 @@ export function buildEditorAstV1(snapshot) {
   const staticStatus = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_status' }) ?? '').trim();
   const staticProjects = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_projects_json' });
 
+  const llmPromptText = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_text' }) ?? '');
+  const llmPromptStatus = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_status' }) ?? '').trim();
+  const llmPromptPreview = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_preview_json' });
+  const llmPromptPreviewId = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_preview_id' }) ?? '').trim();
+  const llmPromptPreviewDigest = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_preview_digest' }) ?? '').trim();
+  const llmPromptApplyPreviewId = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_preview_id' }) ?? '').trim();
+  const llmPromptApplyResult = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_result_json' });
+  const llmPromptLastAppliedPreviewId = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_last_applied_preview_id' }) ?? '').trim();
+  const llmPreviewAcceptedCount = (() => {
+    if (llmPromptPreview && typeof llmPromptPreview === 'object' && llmPromptPreview.stats && Number.isInteger(llmPromptPreview.stats.accepted)) {
+      return llmPromptPreview.stats.accepted;
+    }
+    if (llmPromptPreview && typeof llmPromptPreview === 'object' && Array.isArray(llmPromptPreview.accepted_records)) {
+      return llmPromptPreview.accepted_records.length;
+    }
+    return 0;
+  })();
+  const llmPreviewRejectedCount = (() => {
+    if (llmPromptPreview && typeof llmPromptPreview === 'object' && llmPromptPreview.stats && Number.isInteger(llmPromptPreview.stats.rejected)) {
+      return llmPromptPreview.stats.rejected;
+    }
+    if (llmPromptPreview && typeof llmPromptPreview === 'object' && Array.isArray(llmPromptPreview.rejected_records)) {
+      return llmPromptPreview.rejected_records.length;
+    }
+    return 0;
+  })();
+
   const draftP = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_p' })) ?? 0;
   const draftR = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_r' })) ?? 0;
   const draftC = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_c' })) ?? 0;
@@ -1084,6 +1111,175 @@ export function buildEditorAstV1(snapshot) {
                     },
                     { id: 'col_static_updated', type: 'TableColumn', props: { label: 'updated', prop: 'updated_at', minWidth: 180 } },
                   ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  if (uiPage === 'prompt') {
+    return {
+      id: 'root_prompt_filltable',
+      type: 'Root',
+      children: [
+        {
+          id: 'layout_prompt',
+          type: 'Container',
+          props: { layout: 'column', gap: 12 },
+          children: [
+            {
+              id: 'card_prompt_input',
+              type: 'Card',
+              props: { title: 'Prompt FillTable' },
+              children: [
+                {
+                  id: 'txt_prompt_desc',
+                  type: 'Text',
+                  props: {
+                    type: 'info',
+                    text: '输入自然语言，先 Preview（仅校验不落库），再 Apply（执行 accepted 记录）。默认仅允许正数 model_id。',
+                  },
+                },
+                {
+                  id: 'form_prompt',
+                  type: 'Form',
+                  children: [
+                    {
+                      id: 'fi_prompt_text',
+                      type: 'FormItem',
+                      props: { label: 'Prompt' },
+                      children: [
+                        {
+                          id: 'input_prompt_text',
+                          type: 'Input',
+                          props: {
+                            type: 'textarea',
+                            rows: 6,
+                            placeholder: '例如：把 Model 100 的 title 设为 Blue Team，并删除 obsolete_key',
+                          },
+                          bind: {
+                            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_text' },
+                            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_text' } },
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      id: 'fi_prompt_actions',
+                      type: 'FormItem',
+                      props: { label: 'Actions' },
+                      children: [
+                        {
+                          id: 'btn_prompt_preview',
+                          type: 'Button',
+                          props: {
+                            type: 'primary',
+                            label: 'Preview',
+                            disabled: llmPromptText.trim().length === 0,
+                            singleFlight: {
+                              key: 'llm_filltable_preview',
+                              releaseRef: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_preview_id' },
+                            },
+                          },
+                          bind: {
+                            write: {
+                              action: 'llm_filltable_preview',
+                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_text' },
+                              meta_ref: { local_only: true },
+                            },
+                          },
+                        },
+                        {
+                          id: 'btn_prompt_use_latest_preview_id',
+                          type: 'Button',
+                          props: { label: 'Use Latest Preview ID', disabled: llmPromptPreviewId.length === 0 },
+                          bind: {
+                            write: {
+                              action: 'label_update',
+                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_preview_id' },
+                              value_ref: { t: 'str', v: llmPromptPreviewId },
+                            },
+                          },
+                        },
+                        {
+                          id: 'btn_prompt_apply',
+                          type: 'Button',
+                          props: {
+                            type: 'success',
+                            label: 'Apply',
+                            disabled: llmPromptApplyPreviewId.length === 0 || llmPreviewAcceptedCount === 0,
+                            singleFlight: {
+                              key: 'llm_filltable_apply',
+                              releaseRef: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_last_applied_preview_id' },
+                            },
+                          },
+                          bind: {
+                            write: {
+                              action: 'llm_filltable_apply',
+                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_preview_id' },
+                              meta_ref: { local_only: true },
+                            },
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      id: 'fi_prompt_preview_id',
+                      type: 'FormItem',
+                      props: { label: 'Apply Preview ID' },
+                      children: [
+                        {
+                          id: 'input_prompt_apply_preview_id',
+                          type: 'Input',
+                          props: { placeholder: 'preview id from latest preview' },
+                          bind: {
+                            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_preview_id' },
+                            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_preview_id' } },
+                          },
+                        },
+                      ],
+                    },
+                    llmPromptStatus
+                      ? { id: 'txt_prompt_status', type: 'Text', props: { type: 'info', text: llmPromptStatus } }
+                      : null,
+                    {
+                      id: 'txt_prompt_meta',
+                      type: 'Text',
+                      props: {
+                        type: 'info',
+                        text: `preview_id=${llmPromptPreviewId || '(none)'} | digest=${llmPromptPreviewDigest || '(none)'} | last_applied=${llmPromptLastAppliedPreviewId || '(none)'} | accepted=${llmPreviewAcceptedCount} | rejected=${llmPreviewRejectedCount}`,
+                      },
+                    },
+                  ].filter(Boolean),
+                },
+              ],
+            },
+            {
+              id: 'card_prompt_preview_json',
+              type: 'Card',
+              props: { title: 'Preview JSON' },
+              children: [
+                {
+                  id: 'code_prompt_preview',
+                  type: 'CodeBlock',
+                  props: { style: { maxHeight: '320px', overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' } },
+                  bind: { read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_preview_json' } },
+                },
+              ],
+            },
+            {
+              id: 'card_prompt_apply_json',
+              type: 'Card',
+              props: { title: 'Apply Result JSON' },
+              children: [
+                {
+                  id: 'code_prompt_apply_result',
+                  type: 'CodeBlock',
+                  props: { style: { maxHeight: '320px', overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' } },
+                  bind: { read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_result_json' } },
                 },
               ],
             },
@@ -1931,6 +2127,16 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: 0 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: 1001 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: [] });
+
+  // Prompt FillTable page state.
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_preview_json', t: 'json', v: {} });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_preview_id', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_preview_digest', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_apply_preview_id', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_apply_result_json', t: 'json', v: {} });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_status', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_last_applied_preview_id', t: 'str', v: '' });
 
   const snapshot = reactive(runtime.snapshot());
   const eventLog = [];

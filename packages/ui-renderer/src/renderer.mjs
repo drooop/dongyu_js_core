@@ -49,6 +49,17 @@ function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function stringifyForCodeBlock(value) {
+  if (value === undefined) return '';
+  if (value === null) return 'null';
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch (_) {
+    return String(value);
+  }
+}
+
 function resolveRefValue(ref, ctx) {
   if (!ctx || typeof ref !== 'string') return undefined;
   if (ref === '$index') return ctx.$index;
@@ -207,7 +218,7 @@ function renderTreeNode(node, snapshot) {
   if (node.type === 'CodeBlock') {
     const bind = node.bind && node.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
-    base.text = value !== undefined ? String(value) : (node.props && node.props.text) || '';
+    base.text = value !== undefined ? stringifyForCodeBlock(value) : (node.props && node.props.text) || '';
     return base;
   }
 
@@ -353,7 +364,7 @@ function buildVueNode(node, snapshot, vue, host) {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
     const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
-    const text = value !== undefined ? String(value) : (props && Object.prototype.hasOwnProperty.call(props, 'text') ? props.text : '');
+    const text = value !== undefined ? stringifyForCodeBlock(value) : (props && Object.prototype.hasOwnProperty.call(props, 'text') ? props.text : '');
     return h('pre', props, text);
   }
 
@@ -1330,7 +1341,19 @@ function dispatchEvent(node, target, payload, host, overrideType) {
       out.value = resolveRefsDeep(target.value_ref, ctx, snapshot);
     }
 
+    if (target.meta_ref !== undefined) {
+      out.meta = resolveRefsDeep(target.meta_ref, ctx, snapshot);
+    } else if (target.meta !== undefined) {
+      out.meta = resolveRefsDeep(target.meta, ctx, snapshot);
+    }
+
     const envelope = normalizeEditorEvent(out);
+    if (out.meta && typeof out.meta === 'object' && !Array.isArray(out.meta)) {
+      envelope.payload.meta = {
+        ...(envelope.payload.meta && typeof envelope.payload.meta === 'object' ? envelope.payload.meta : {}),
+        ...out.meta,
+      };
+    }
     const label = buildMailboxEventLabel(envelope);
     host.dispatchAddLabel(label);
     return label;

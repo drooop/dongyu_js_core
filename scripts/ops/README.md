@@ -72,3 +72,36 @@ PASS 判定：
 - `start_local_ui_server_with_ollama.sh`：注入 LLM 环境启动本地 UI server。
 - `verify_llm_dispatch_roundtrip.sh`：执行 4 条验收用例并严格判定 PASS/FAIL。
 - `run_0154_llm_dispatch_local.sh`：一键串联启动和验证（支持 `--real-ollama`）。
+
+---
+
+## 0155 Prompt FillTable Roundtrip（一键）
+
+用途：
+- 验证 `0155` Prompt FillTable 闭环：`Preview -> Apply -> Replay Guard -> Policy Reject`。
+- 默认使用本地 mock ollama，确保无真实模型时也可复跑；可切换真实 Ollama。
+
+命令（推荐，默认 mock）：
+```bash
+bash scripts/ops/run_0155_prompt_filltable_local.sh
+```
+
+命令（真实 Ollama）：
+```bash
+bash scripts/ops/run_0155_prompt_filltable_local.sh --real-ollama
+```
+
+命令（真实 Ollama + 指定模型标签）：
+```bash
+bash scripts/ops/run_0155_prompt_filltable_local.sh --real-ollama --llm-model qwen2.5:14b
+```
+
+PASS 判定：
+- `llm_filltable_preview` 返回 `result=ok`，并生成非空 `llm_prompt_preview_id`
+- `llm_filltable_apply` 返回 `result=ok`，且 `Model 100 title == "Prompt FillTable Demo"`
+- 重复 apply 同一 `preview_id` 返回 `code=preview_replay`
+- 负数模型记录在 apply 阶段被拒绝，返回 `code=apply_failed`
+
+脚本说明：
+- `verify_0155_prompt_filltable.sh`：执行 Preview/Apply/Replay/Reject 四段验收并严格判定 PASS/FAIL。
+- `run_0155_prompt_filltable_local.sh`：一键串联 mock ollama + 本地 server 启动 + 0155 验证。

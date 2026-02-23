@@ -24,6 +24,12 @@ import {
   loadHomeservers, addHomeserver, removeHomeserver,
   checkLoginRateLimit,
 } from './auth.mjs';
+import {
+  normalizeFilltablePolicy,
+  validateFilltableRecords,
+  buildFilltableDigest,
+  evaluateApplyPreviewGuard,
+} from './filltable_policy.mjs';
 
 const require = createRequire(import.meta.url);
 const { loadProgramModelFromSqlite } = require('../worker-base/src/program_model_loader.js');
@@ -161,6 +167,21 @@ const DEFAULT_LLM_SCENE_PROMPT_TEMPLATE = [
   '  "flow_step": <int or null>,',
   '  "session_vars_patch": { "key": "value" }',
   '}',
+].join('\n');
+
+const DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE = [
+  'You are a strict ModelTable patch planner.',
+  'Return JSON only. No markdown fences.',
+  'User prompt: {{prompt_text}}',
+  'Policy JSON: {{policy_json}}',
+  'Allowed output schema JSON: {{output_schema_json}}',
+  'Available positive model ids JSON: {{available_model_ids_json}}',
+  'Rules:',
+  '- Output must be {"records":[...],"confidence":0..1,"reasoning":"..."}',
+  '- records only support op=add_label/rm_label',
+  '- add_label requires model_id,p,r,c,k,t,v',
+  '- rm_label requires model_id,p,r,c,k',
+  '- Never output explanation text outside JSON',
 ].join('\n');
 
 function toFiniteNumber(value, fallback) {
@@ -351,6 +372,59 @@ function parseLlmIntentResult(rawText, allowedActions, maxCandidates) {
     reasoning: reasoning.slice(0, 600),
     candidates: candidates.slice(0, Math.max(1, maxCandidates)),
   };
+}
+
+function parseLlmFilltableResult(rawText) {
+  const parsed = extractFirstJsonObject(rawText);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, code: 'llm_parse_failed', detail: 'filltable_json_parse_failed' };
+  }
+  const records = Array.isArray(parsed.records) ? parsed.records : [];
+  const reasoning = typeof parsed.reasoning === 'string' ? parsed.reasoning.trim().slice(0, 1200) : '';
+  const confidence = toUnitInterval(parsed.confidence, 0);
+  return {
+    ok: true,
+    records,
+    reasoning,
+    confidence,
+  };
+}
+
+function createFilltablePreviewId() {
+  const nonce = Math.random().toString(16).slice(2, 10);
+  return `pf_${Date.now()}_${nonce}`;
+}
+
+function readFilltablePolicy(runtime) {
+  const model0 = runtime.getModel(0);
+  const raw = model0 ? runtime.getLabelValue(model0, 0, 0, 0, 'llm_filltable_policy') : null;
+  return normalizeFilltablePolicy(raw);
+}
+
+function listPositiveModelIds(runtime, maxCount = 256) {
+  const ids = [];
+  const snap = runtime.snapshot();
+  const models = snap && snap.models ? snap.models : {};
+  for (const idText of Object.keys(models)) {
+    const mid = Number(idText);
+    if (!Number.isInteger(mid) || mid <= 0) continue;
+    ids.push(mid);
+    if (ids.length >= maxCount) break;
+  }
+  ids.sort((a, b) => a - b);
+  return ids;
+}
+
+function parseJsonObjectOrNull(value) {
+  if (!value) return null;
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string') return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 function mergeSceneContext(baseValue, patchValue) {
@@ -1580,6 +1654,159 @@ class ProgramModelEngine {
             };
           }
         },
+        llmFilltablePreview: async (input) => {
+          const inObj = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+          const promptText = typeof inObj.prompt === 'string' ? inObj.prompt.trim() : '';
+          if (!promptText) {
+            return { ok: false, code: 'invalid_target', detail: 'empty_prompt' };
+          }
+
+          const llmCfg = readLlmDispatchConfig(this.runtime);
+          if (!llmCfg.enabled) {
+            return { ok: false, code: 'llm_disabled', detail: 'llm_dispatch_disabled' };
+          }
+          if (llmCfg.provider !== 'ollama') {
+            return { ok: false, code: 'llm_unavailable', detail: `unsupported_provider:${llmCfg.provider}` };
+          }
+
+          const policy = readFilltablePolicy(this.runtime);
+          const schemaModel = firstSystemModel(this.runtime);
+          const outputSchema = schemaModel
+            ? this.runtime.getLabelValue(schemaModel, 0, 0, 0, 'llm_filltable_output_schema')
+            : null;
+          const promptTemplate = readSystemPromptTemplate(this.runtime, 'llm_filltable_prompt_template', DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE);
+          const llmPrompt = renderPromptTemplate(promptTemplate, {
+            prompt_text: promptText,
+            policy_json: safeJsonStringify(policy, '{}'),
+            output_schema_json: safeJsonStringify(outputSchema, '{}'),
+            available_model_ids_json: safeJsonStringify(listPositiveModelIds(this.runtime), '[]'),
+          });
+          const llmResult = await this.llmInfer({
+            baseUrl: llmCfg.base_url,
+            model: llmCfg.model,
+            prompt: llmPrompt,
+            timeoutMs: llmCfg.timeout_ms,
+            temperature: llmCfg.temperature,
+            maxTokens: llmCfg.max_tokens,
+          });
+          if (!llmResult || llmResult.ok !== true) {
+            return llmResult || { ok: false, code: 'llm_unavailable', detail: 'llm_unavailable' };
+          }
+
+          const parsed = parseLlmFilltableResult(llmResult.data && llmResult.data.response ? llmResult.data.response : '');
+          if (!parsed.ok) return parsed;
+
+          const validation = validateFilltableRecords(parsed.records, policy);
+          const previewId = createFilltablePreviewId();
+          const previewDigest = buildFilltableDigest(validation.accepted_records);
+
+          return {
+            ok: true,
+            data: {
+              preview_id: previewId,
+              preview_digest: previewDigest,
+              prompt: promptText,
+              accepted_records: validation.accepted_records,
+              rejected_records: validation.rejected_records,
+              stats: validation.stats,
+              confidence: parsed.confidence,
+              reasoning: parsed.reasoning,
+              llm_used: true,
+              llm_model: llmResult.data && llmResult.data.model ? llmResult.data.model : llmCfg.model,
+              created_at: Date.now(),
+              policy,
+            },
+          };
+        },
+        llmFilltableApply: async (input) => {
+          const inObj = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+          const requestedPreviewId = typeof inObj.requested_preview_id === 'string'
+            ? inObj.requested_preview_id.trim()
+            : '';
+          const latestPreviewId = typeof inObj.latest_preview_id === 'string'
+            ? inObj.latest_preview_id.trim()
+            : '';
+          const lastAppliedPreviewId = typeof inObj.last_applied_preview_id === 'string'
+            ? inObj.last_applied_preview_id.trim()
+            : '';
+          const guard = evaluateApplyPreviewGuard({
+            requested_preview_id: requestedPreviewId,
+            latest_preview_id: latestPreviewId,
+            last_applied_preview_id: lastAppliedPreviewId,
+          });
+          if (!guard.ok) {
+            return { ok: false, code: guard.code, detail: guard.detail };
+          }
+
+          const previewPayload = parseJsonObjectOrNull(inObj.preview_payload) || {};
+          const acceptedFromPreview = Array.isArray(previewPayload.accepted_records) ? previewPayload.accepted_records : [];
+          if (acceptedFromPreview.length === 0) {
+            return { ok: false, code: 'nothing_to_apply', detail: 'no_accepted_records' };
+          }
+
+          const policy = readFilltablePolicy(this.runtime);
+          const validation = validateFilltableRecords(acceptedFromPreview, policy);
+          const applyRejected = validation.rejected_records.slice();
+          const appliedRecords = [];
+
+          for (let i = 0; i < validation.accepted_records.length; i += 1) {
+            const record = validation.accepted_records[i];
+            const model = this.runtime.getModel(record.model_id);
+            if (!model) {
+              applyRejected.push({ index: i, code: 'model_not_found', detail: String(record.model_id), record });
+              continue;
+            }
+            try {
+              if (record.op === 'add_label') {
+                this.runtime.addLabel(model, record.p, record.r, record.c, {
+                  k: record.k,
+                  t: record.t,
+                  v: record.v,
+                });
+                appliedRecords.push(record);
+              } else if (record.op === 'rm_label') {
+                this.runtime.rmLabel(model, record.p, record.r, record.c, record.k);
+                appliedRecords.push(record);
+              }
+            } catch (err) {
+              applyRejected.push({
+                index: i,
+                code: 'runtime_error',
+                detail: String(err && err.message ? err.message : err),
+                record,
+              });
+            }
+          }
+
+          if (appliedRecords.length === 0) {
+            return {
+              ok: false,
+              code: 'apply_failed',
+              detail: 'no_record_applied',
+              data: {
+                requested_preview_id: requestedPreviewId,
+                preview_digest: buildFilltableDigest(validation.accepted_records),
+                applied_count: 0,
+                rejected_count: applyRejected.length,
+                rejected_records: applyRejected,
+                applied_at: Date.now(),
+              },
+            };
+          }
+
+          return {
+            ok: true,
+            data: {
+              requested_preview_id: requestedPreviewId,
+              preview_digest: buildFilltableDigest(validation.accepted_records),
+              applied_count: appliedRecords.length,
+              rejected_count: applyRejected.length,
+              applied_records: appliedRecords,
+              rejected_records: applyRejected,
+              applied_at: Date.now(),
+            },
+          };
+        },
         llmInfer: async (prompt, options) => {
           const dispatchCfg = readLlmDispatchConfig(this.runtime);
           const opts = options && typeof options === 'object' ? options : {};
@@ -2024,6 +2251,16 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'ws_delete_app_id', 'int', 0);
   ensureStateLabel(runtime, 'ws_status', 'str', '');
 
+  // Prompt FillTable page state.
+  ensureStateLabel(runtime, 'llm_prompt_text', 'str', '');
+  ensureStateLabel(runtime, 'llm_prompt_preview_json', 'json', {});
+  ensureStateLabel(runtime, 'llm_prompt_preview_id', 'str', '');
+  ensureStateLabel(runtime, 'llm_prompt_preview_digest', 'str', '');
+  ensureStateLabel(runtime, 'llm_prompt_apply_preview_id', 'str', '');
+  ensureStateLabel(runtime, 'llm_prompt_apply_result_json', 'json', {});
+  ensureStateLabel(runtime, 'llm_prompt_status', 'str', '');
+  ensureStateLabel(runtime, 'llm_prompt_last_applied_preview_id', 'str', '');
+
   const deriveWorkspaceRegistry = () => {
     const derived = [];
     const seen = new Set();
@@ -2118,6 +2355,14 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'ws_new_app_name', 'str', '');
     overwriteStateLabel(runtime, 'ws_delete_app_id', 'int', 0);
     overwriteStateLabel(runtime, 'ws_status', 'str', '');
+    overwriteStateLabel(runtime, 'llm_prompt_text', 'str', '');
+    overwriteStateLabel(runtime, 'llm_prompt_preview_json', 'json', {});
+    overwriteStateLabel(runtime, 'llm_prompt_preview_id', 'str', '');
+    overwriteStateLabel(runtime, 'llm_prompt_preview_digest', 'str', '');
+    overwriteStateLabel(runtime, 'llm_prompt_apply_preview_id', 'str', '');
+    overwriteStateLabel(runtime, 'llm_prompt_apply_result_json', 'json', {});
+    overwriteStateLabel(runtime, 'llm_prompt_status', 'str', '');
+    overwriteStateLabel(runtime, 'llm_prompt_last_applied_preview_id', 'str', '');
     overwriteStateLabel(runtime, 'static_upload_kind', 'str', 'zip');
     overwriteStateLabel(runtime, 'static_zip_b64', 'str', '');
     overwriteStateLabel(runtime, 'static_html_b64', 'str', '');
