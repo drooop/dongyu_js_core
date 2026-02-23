@@ -1,6 +1,0 @@
-[DEPRECATED] scripts/run_worker_mbr_v0.mjs is archived and disabled by default.
-Use K8s runtime baseline instead:
-  kubectl scale deploy/mbr-worker deploy/remote-worker -n default --replicas=1
-Legacy fallback (temporary only):
-  ALLOW_LEGACY_MBR=1 node scripts/run_worker_mbr_v0.mjs
-Archived source: archive/scripts/legacy/run_worker_mbr_v0.legacy.mjs

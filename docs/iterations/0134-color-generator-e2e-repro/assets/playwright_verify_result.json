@@ -1,7 +1,0 @@
-{
-  "post": { "status": 200, "ok": true, "consumed": true, "result": "ok" },
-  "initial": "#b02f31",
-  "updated": "#129833",
-  "elapsedMs": 571,
-  "pass": true
-}
