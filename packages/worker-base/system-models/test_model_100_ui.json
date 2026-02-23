@@ -1,7 +1,7 @@
 {
   "version": "mt.v0",
   "op_id": "test_model_100_ui_v0",
-  "description": "Model 100 UI 部分 - 本地侧使用，只有 UI 模型 + PIN_IN（接收返回）+ 事件转发",
+  "description": "Model 100 UI 部分 - 本地侧使用，只有 UI 模型 + PIN_IN（接收返回）+ 事件转发 + submit guard",
   "records": [
     {
       "op": "create_model",
@@ -65,6 +65,26 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "submit_inflight",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_inflight_started_at",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "dual_bus_model",
       "t": "json",
       "v": {
@@ -72,6 +92,36 @@
         "patch_in_func": "on_model100_patch_in",
         "patch_in_pin": "patch"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 1,
+      "k": "ui_event",
+      "t": "event",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 1,
+      "k": "ui_event_last_op_id",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 1,
+      "k": "ui_event_error",
+      "t": "json",
+      "v": null
     },
     {
       "op": "add_label",
@@ -91,7 +141,7 @@
       "c": 0,
       "k": "on_model100_patch_in",
       "t": "function",
-      "v": "const cell = ctx.runtime.getCell(ctx.runtime.getModel(100), 0, 1, 1);\nconst inLabel = cell.labels.get('patch');\nif (!inLabel || inLabel.t !== 'IN') return;\nconst patch = inLabel.v;\nconsole.log('[on_model100_patch_in] Received patch:', JSON.stringify(patch));\nif (patch && patch.version === 'mt.v0' && Array.isArray(patch.records)) {\n  ctx.runtime.applyPatch(patch, { allowCreateModel: false });\n  console.log('[on_model100_patch_in] Patch applied successfully');\n}\nctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: false });\nctx.runtime.rmLabel(ctx.runtime.getModel(100), 0, 1, 1, 'patch');\nctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_on_model100_patch_in' });"
+      "v": "const cell = ctx.runtime.getCell(ctx.runtime.getModel(100), 0, 1, 1);\nconst inLabel = cell.labels.get('patch');\nif (!inLabel || inLabel.t !== 'IN') return;\nconst patch = inLabel.v;\nconsole.log('[on_model100_patch_in] Received patch:', JSON.stringify(patch));\nif (patch && patch.version === 'mt.v0' && Array.isArray(patch.records)) {\n  ctx.runtime.applyPatch(patch, { allowCreateModel: false });\n  console.log('[on_model100_patch_in] Patch applied successfully');\n}\nctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: false });\nctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'submit_inflight_started_at', t: 'int', v: 0 });\nctx.runtime.rmLabel(ctx.runtime.getModel(100), 0, 1, 1, 'patch');\nctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_on_model100_patch_in' });"
     },
     {
       "op": "add_label",
@@ -101,7 +151,7 @@
       "c": 0,
       "k": "forward_model100_events",
       "t": "function",
-      "v": "const cell = ctx.runtime.getCell(ctx.runtime.getModel(100), 0, 0, 2);\nconst eventLabel = cell.labels.get('ui_event');\nif (!eventLabel || !eventLabel.v) return;\nconst event = eventLabel.v;\nconsole.log('[forward_model100_events] Event:', JSON.stringify(event));\nctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: true });\nctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'status', t: 'str', v: 'loading' });\nconst action = event.action || 'unknown';\nconst opId = 'm100_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);\nconst p = ctx.sendMatrix({\n  version: 'v0',\n  type: 'ui_event',\n  op_id: opId,\n  source_model_id: 100,\n  action: action,\n  data: event,\n  timestamp: Date.now()\n});\nif (p && typeof p.then === 'function') {\n  p.then(function() { console.log('[forward_model100_events] Matrix send OK, op_id:', opId); })\n   .catch(function(err) {\n     console.warn('[forward_model100_events] Matrix send failed (non-fatal):', err.message);\n     ctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: false });\n     ctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'status', t: 'str', v: 'send_failed' });\n   });\n} else if (!p) {\n  console.warn('[forward_model100_events] Matrix not available, cannot forward event');\n  ctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: false });\n  ctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'status', t: 'str', v: 'matrix_unavailable' });\n}\nctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 2, { k: 'ui_event', t: 'event', v: null });\nctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_forward_model100_events' });"
+      "v": "const cell = ctx.runtime.getCell(ctx.runtime.getModel(100), 0, 0, 2);\nconst eventLabel = cell.labels.get('ui_event');\nif (!eventLabel || !eventLabel.v) return;\nconst event = eventLabel.v;\nconsole.log('[forward_model100_events] Event:', JSON.stringify(event));\nconst m100 = ctx.runtime.getModel(100);\nconst inflight = ctx.runtime.getLabelValue(m100, 0, 0, 0, 'submit_inflight');\nconst startedAt = Number(ctx.runtime.getLabelValue(m100, 0, 0, 0, 'submit_inflight_started_at') || 0);\nconst TIMEOUT_MS = 30000;\nconst now = Date.now();\nif (inflight === true) {\n  const stale = !Number.isFinite(startedAt) || (now - startedAt > TIMEOUT_MS);\n  if (stale) {\n    ctx.runtime.addLabel(m100, 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: false });\n    ctx.runtime.addLabel(m100, 0, 0, 0, { k: 'submit_inflight_started_at', t: 'int', v: 0 });\n    ctx.runtime.addLabel(m100, 0, 0, 0, { k: 'status', t: 'str', v: 'ready' });\n  } else {\n    ctx.runtime.addLabel(ctx.runtime.getModel(-1), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: { code: 'busy', detail: 'model100_submit_inflight' } });\n    ctx.runtime.addLabel(ctx.runtime.getModel(-1), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: '' });\n    ctx.runtime.addLabel(m100, 0, 0, 2, { k: 'ui_event', t: 'event', v: null });\n    return;\n  }\n}\nctx.runtime.addLabel(m100, 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: true });\nctx.runtime.addLabel(m100, 0, 0, 0, { k: 'submit_inflight_started_at', t: 'int', v: now });\nctx.runtime.addLabel(m100, 0, 0, 0, { k: 'status', t: 'str', v: 'loading' });\nconst action = event.action || 'unknown';\nconst opId = 'm100_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);\nconst p = ctx.sendMatrix({\n  version: 'v0',\n  type: 'ui_event',\n  op_id: opId,\n  source_model_id: 100,\n  action: action,\n  data: event,\n  timestamp: Date.now()\n});\nif (p && typeof p.then === 'function') {\n  p.then(function() { console.log('[forward_model100_events] Matrix send OK, op_id:', opId); })\n   .catch(function(err) {\n     console.warn('[forward_model100_events] Matrix send failed (non-fatal):', err.message);\n     ctx.runtime.addLabel(m100, 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: false });\n     ctx.runtime.addLabel(m100, 0, 0, 0, { k: 'submit_inflight_started_at', t: 'int', v: 0 });\n     ctx.runtime.addLabel(m100, 0, 0, 0, { k: 'status', t: 'str', v: 'send_failed' });\n   });\n} else if (!p) {\n  console.warn('[forward_model100_events] Matrix not available, cannot forward event');\n  ctx.runtime.addLabel(m100, 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: false });\n  ctx.runtime.addLabel(m100, 0, 0, 0, { k: 'submit_inflight_started_at', t: 'int', v: 0 });\n  ctx.runtime.addLabel(m100, 0, 0, 0, { k: 'status', t: 'str', v: 'matrix_unavailable' });\n}\nctx.runtime.addLabel(m100, 0, 0, 2, { k: 'ui_event', t: 'event', v: null });\nctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_forward_model100_events' });"
     }
   ]
 }
