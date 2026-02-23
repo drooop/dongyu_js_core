@@ -105,3 +105,50 @@ PASS 判定：
 脚本说明：
 - `verify_0155_prompt_filltable.sh`：执行 Preview/Apply/Replay/Reject 四段验收并严格判定 PASS/FAIL。
 - `run_0155_prompt_filltable_local.sh`：一键串联 mock ollama + 本地 server 启动 + 0155 验证。
+
+---
+
+## Obsidian Docs Migration（一键）
+
+用途：
+- 将 `docs/`（Obsidian vault）批量规范为 Obsidian 友好格式：
+  - 补齐 frontmatter（`title/doc_type/status/updated/source`）
+  - 内部 `.md` 链接尽量转换为 wikilink（跳过外链、图片、代码块）
+
+命令（先审计）：
+```bash
+node scripts/ops/obsidian_docs_audit.mjs --root docs
+```
+
+命令（共享知识库审计）：
+```bash
+node scripts/ops/obsidian_docs_audit.mjs --root docs-shared
+```
+
+命令（先 dry-run，再 apply）：
+```bash
+node scripts/ops/obsidian_docs_migrate.mjs --root docs --phase all
+node scripts/ops/obsidian_docs_migrate.mjs --root docs --phase all --apply
+```
+
+命令（共享知识库迁移，自动补 `project`）：
+```bash
+node scripts/ops/obsidian_docs_migrate.mjs --root docs-shared --project dongyuapp --apply
+```
+
+命令（分批执行，推荐）：
+```bash
+# Phase A
+node scripts/ops/obsidian_docs_migrate.mjs --root docs --phase A --apply
+# Phase B
+node scripts/ops/obsidian_docs_migrate.mjs --root docs --phase B --apply
+```
+
+完成后复检：
+```bash
+node scripts/ops/obsidian_docs_audit.mjs --root docs
+```
+
+脚本说明：
+- `obsidian_docs_migrate.mjs`：迁移脚本（默认 dry-run，`--apply` 才写文件）。
+- `obsidian_docs_audit.mjs`：审计脚本（frontmatter 完整度 + wikilink/残留 md 链接统计）。
