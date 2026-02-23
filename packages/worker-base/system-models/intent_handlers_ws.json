@@ -1,0 +1,36 @@
+{
+  "version": "mt.v0",
+  "op_id": "intent_handlers_ws_v0",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_ws_select_app",
+      "t": "function",
+      "v": "var mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' });\nvar payload = mailbox && mailbox.payload ? mailbox.payload : {};\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar selected = ctx.getState('ws_app_selected');\nvar result = ctx.hostApi.wsSelectApp(selected);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'ws_select_failed';\n  ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: code, detail: detail });\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar selectedId = result.data && result.data.selected;\nif (typeof selectedId === 'string' && /^-?\\d+$/.test(selectedId.trim())) {\n  selectedId = Number(selectedId.trim());\n}\nif (!Number.isInteger(selectedId)) {\n  selectedId = 0;\n}\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' }, 'int', selectedId);\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ws_select: ' + selectedId);"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_ws_app_add",
+      "t": "function",
+      "v": "var mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' });\nvar payload = mailbox && mailbox.payload ? mailbox.payload : {};\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar name = String(ctx.getState('ws_new_app_name') != null ? ctx.getState('ws_new_app_name') : '').trim();\nvar result = ctx.hostApi.wsAddApp(name);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'ws_app_add_failed';\n  ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: code, detail: detail });\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar refreshResult = ctx.hostApi.wsRefreshCatalog();\nif (!refreshResult || refreshResult.ok !== true) {\n  var rCode = refreshResult && refreshResult.code ? refreshResult.code : 'exception';\n  var rDetail = refreshResult && refreshResult.detail ? refreshResult.detail : 'ws_refresh_failed';\n  ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: rCode, detail: rDetail });\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ERR ' + String(rCode) + ': ' + String(rDetail));\n  return;\n}\nvar modelId = result.data && result.data.model_id;\nif (!Number.isInteger(modelId)) {\n  modelId = 0;\n}\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_new_app_name' }, 'str', '');\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' }, 'int', modelId);\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ws_add: ' + modelId);"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_ws_app_delete",
+      "t": "function",
+      "v": "var mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' });\nvar payload = mailbox && mailbox.payload ? mailbox.payload : {};\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar targetId = ctx.getState('ws_delete_app_id');\nvar result = ctx.hostApi.wsDeleteApp(targetId);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'ws_app_delete_failed';\n  ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: code, detail: detail });\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar refreshResult = ctx.hostApi.wsRefreshCatalog();\nif (!refreshResult || refreshResult.ok !== true) {\n  var rCode = refreshResult && refreshResult.code ? refreshResult.code : 'exception';\n  var rDetail = refreshResult && refreshResult.detail ? refreshResult.detail : 'ws_refresh_failed';\n  ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: rCode, detail: rDetail });\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ERR ' + String(rCode) + ': ' + String(rDetail));\n  return;\n}\nvar deletedId = result.data && result.data.model_id;\nif (!Number.isInteger(deletedId)) {\n  deletedId = 0;\n}\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_delete_app_id' }, 'int', 0);\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ws_delete: ' + deletedId);"
+    }
+  ]
+}

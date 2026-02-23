@@ -42,6 +42,11 @@
 | 0147-fill-table-only-auto-gate | 2026-02-14 | Fill-Table-Only 自动门禁（pre-commit + 模式开关） | 4 | dev_0147-fill-table-only-auto-gate | Completed | ./docs/iterations/0147-fill-table-only-auto-gate/ |
 | 0148-ft-skill-branch-gate | 2026-02-14 | ft skill + 分支级自动 Fill-Table-Only 门禁 | 4 | dev_0148-ft-skill-branch-gate | Completed | ./docs/iterations/0148-ft-skill-branch-gate/ |
 | 0149-cloud-deploy-sync-ui-server | 2026-02-14 | Cloud 部署同步（ui-server 修复发布 + e2e 验证） | 5 | dev_0149-cloud-deploy-sync-ui-server | In Progress | ./docs/iterations/0149-cloud-deploy-sync-ui-server/ |
+| 0150-matrix-adapter-into-worker-base | 2026-02-14 | Matrix adapter 基座化（删除 bus-mgmt，全量统一） | 6 | dev_0150-matrix-adapter-into-worker-base | In Progress | ./docs/iterations/0150-matrix-adapter-into-worker-base/ |
+| 0151-server-model100-decouple | 2026-02-21 | Server 去 Model 100 特判 + MOCK_SLIDING_APPS 外移 | 6 | dev_0151-server-model100-decouple | Completed | ./docs/iterations/0151-server-model100-decouple/ |
+| 0152-server-intent-dispatch | 2026-02-21 | Server 通用 Intent Dispatch + Forward 触发映射模型化 | 10 | dev_0152-server-intent-dispatch | Completed | ./docs/iterations/0152-server-intent-dispatch/ |
+| 0153-cognition-feedback-loop | 2026-02-23 | 认知环节显式化 + 动作状态反馈回路（四环智控模型落地） | 10 | dev_0153-cognition-feedback-loop | Planned | ./docs/iterations/0153-cognition-feedback-loop/ |
+| 0154-llm-cognition-ollama | 2026-02-23 | LLM 认知层接入（Ollama Qwen 32B 本地部署） | 8 | dev_0154-llm-cognition-ollama | Planned | ./docs/iterations/0154-llm-cognition-ollama/ |
 
 ---
 

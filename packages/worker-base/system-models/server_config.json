@@ -1,0 +1,43 @@
+{
+  "version": "mt.v0",
+  "op_id": "server_config_v0",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "snapshot_filter_config",
+      "t": "json",
+      "v": {
+        "exclude_label_types": [
+          "function",
+          "CELL_CONNECT",
+          "cell_connection",
+          "IN",
+          "BUS_IN",
+          "BUS_OUT",
+          "MODEL_IN",
+          "MODEL_OUT",
+          "subModel",
+          "MQTT_WILDCARD_SUB"
+        ],
+        "exclude_label_keys": [
+          "snapshot_json",
+          "event_log"
+        ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "workspace_default_app",
+      "t": "int",
+      "v": 100
+    }
+  ]
+}
