@@ -1181,7 +1181,7 @@ export function buildEditorAstV1(snapshot) {
                             disabled: llmPromptText.trim().length === 0,
                             singleFlight: {
                               key: 'llm_filltable_preview',
-                              releaseRef: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_preview_id' },
+                              releaseRef: { model_id: EDITOR_MODEL_ID, p: 0, r: 0, c: 1, k: 'ui_event_last_op_id' },
                             },
                           },
                           bind: {
@@ -1213,7 +1213,7 @@ export function buildEditorAstV1(snapshot) {
                             disabled: llmPromptApplyPreviewId.length === 0 || llmPreviewAcceptedCount === 0,
                             singleFlight: {
                               key: 'llm_filltable_apply',
-                              releaseRef: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_last_applied_preview_id' },
+                              releaseRef: { model_id: EDITOR_MODEL_ID, p: 0, r: 0, c: 1, k: 'ui_event_last_op_id' },
                             },
                           },
                           bind: {

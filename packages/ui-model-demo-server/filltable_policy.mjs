@@ -5,6 +5,7 @@ const DEFAULT_PROTECTED_LABEL_KEYS = [
   'ui_event',
   'ui_event_error',
   'ui_event_last_op_id',
+  'intent.v0',
   'snapshot_json',
   'event_log',
   'dual_bus_model',

@@ -16,6 +16,8 @@ function test_normalize_policy_defaults() {
   assert.strictEqual(out.max_records_per_apply, DEFAULT_FILLTABLE_POLICY.max_records_per_apply);
   assert(Array.isArray(out.allowed_label_types));
   assert(out.allowed_label_types.includes('str'));
+  assert(Array.isArray(out.protected_label_keys));
+  assert(out.protected_label_keys.includes('intent.v0'));
   return { key: 'normalize_policy_defaults', status: 'PASS' };
 }
 
