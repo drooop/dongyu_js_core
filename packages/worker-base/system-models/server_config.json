@@ -38,6 +38,43 @@
       "k": "workspace_default_app",
       "t": "int",
       "v": 100
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_dispatch_config",
+      "t": "json",
+      "v": {
+        "enabled": true,
+        "provider": "ollama",
+        "base_url": "http://127.0.0.1:11434",
+        "model": "qwen2.5:32b",
+        "fallback_model": "qwen2.5:14b",
+        "timeout_ms": 10000,
+        "confidence_threshold": 0.78,
+        "max_candidates": 3,
+        "temperature": 0.1,
+        "max_tokens": 220
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_scene_config",
+      "t": "json",
+      "v": {
+        "enabled": true,
+        "timeout_ms": 8000,
+        "max_recent_intents": 20,
+        "temperature": 0.1,
+        "max_tokens": 260
+      }
     }
   ]
 }

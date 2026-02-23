@@ -42,3 +42,33 @@ bash scripts/ops/check_runtime_baseline.sh \
 - `start_local_ui_server_k8s_matrix.sh`：读取 k8s `mbr-worker-config/secret` 并启动本地 server。
 - `verify_model100_submit_roundtrip.sh`：执行一次 submit 并轮询闭环状态。
 - `run_model100_submit_roundtrip_local.sh`：一键串联上述流程。
+
+---
+
+## 0154 LLM Dispatch Roundtrip（一键）
+
+用途：
+- 验证 `0154` 的 LLM 增强路由闭环（规则命中 / LLM 高置信 / 低置信拒绝 / LLM 不可用降级）。
+- 默认使用本地 mock ollama，确保示例命令可稳定复跑；可切换真实 Ollama。
+
+命令（推荐，默认 mock）：
+```bash
+bash scripts/ops/run_0154_llm_dispatch_local.sh
+```
+
+命令（真实 Ollama）：
+```bash
+bash scripts/ops/run_0154_llm_dispatch_local.sh --real-ollama
+```
+
+PASS 判定：
+- `docs_refresh_tree` 返回 `routed_by=rule`
+- 未注册自然语言 action 返回 `routed_by=llm`
+- 低置信度返回 `code=low_confidence` 且包含 `candidates`
+- LLM 路由禁用/不可用时降级为 `unknown_action`
+
+脚本说明：
+- `mock_ollama_server.mjs`：确定性 mock（`/api/generate` / `/api/tags`）。
+- `start_local_ui_server_with_ollama.sh`：注入 LLM 环境启动本地 UI server。
+- `verify_llm_dispatch_roundtrip.sh`：执行 4 条验收用例并严格判定 PASS/FAIL。
+- `run_0154_llm_dispatch_local.sh`：一键串联启动和验证（支持 `--real-ollama`）。

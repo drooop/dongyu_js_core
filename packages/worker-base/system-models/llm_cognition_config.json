@@ -1,0 +1,60 @@
+{
+  "version": "mt.v0",
+  "op_id": "llm_cognition_config_v0",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_intent_prompt_template",
+      "t": "str",
+      "v": "You are an intent router for a ModelTable system. Return JSON only. No markdown fences.\\nInput action: {{action}}\\nAllowed actions (must choose from this list): {{available_actions}}\\nCurrent scene context JSON: {{scene_context_json}}\\nMailbox payload JSON: {{mailbox_payload_json}}\\nOutput schema:\\n{\\n  \\\"matched_action\\\": \\\"<string or empty>\\\",\\n  \\\"confidence\\\": <0..1 number>,\\n  \\\"reasoning\\\": \\\"<short string>\\\",\\n  \\\"candidates\\\": [\\\"<string>\\\", \\\"<string>\\\"]\\n}"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_scene_prompt_template",
+      "t": "str",
+      "v": "You are a scene context updater. Return JSON only. No markdown fences.\\nCurrent scene context JSON: {{scene_context_json}}\\nCurrent action lifecycle JSON: {{action_lifecycle_json}}\\nCurrent action: {{action}}\\nOutput schema:\\n{\\n  \\\"current_app\\\": <int or null>,\\n  \\\"active_flow\\\": \\\"<string or null>\\\",\\n  \\\"flow_step\\\": <int or null>,\\n  \\\"session_vars_patch\\\": { \\\"key\\\": \\\"value\\\" }\\n}"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_intent_output_schema",
+      "t": "json",
+      "v": {
+        "matched_action": "string",
+        "confidence": "number(0..1)",
+        "reasoning": "string",
+        "candidates": [
+          "string"
+        ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_scene_output_schema",
+      "t": "json",
+      "v": {
+        "current_app": "int|null",
+        "active_flow": "string|null",
+        "flow_step": "int|null",
+        "session_vars_patch": {
+          "key": "json_value"
+        }
+      }
+    }
+  ]
+}

@@ -111,6 +111,285 @@ function readPathEnv(name, fallback) {
   return path.resolve(String(raw));
 }
 
+const DEFAULT_LLM_DISPATCH_CONFIG = Object.freeze({
+  enabled: true,
+  provider: 'ollama',
+  base_url: 'http://127.0.0.1:11434',
+  model: 'qwen2.5:32b',
+  fallback_model: 'qwen2.5:14b',
+  timeout_ms: 10000,
+  confidence_threshold: 0.78,
+  max_candidates: 3,
+  temperature: 0.1,
+  max_tokens: 220,
+});
+
+const DEFAULT_LLM_SCENE_CONFIG = Object.freeze({
+  enabled: true,
+  timeout_ms: 8000,
+  max_recent_intents: 20,
+  temperature: 0.1,
+  max_tokens: 260,
+});
+
+const DEFAULT_LLM_INTENT_PROMPT_TEMPLATE = [
+  'You are an intent router for a ModelTable system.',
+  'Return JSON only. No markdown fences.',
+  'Input action: {{action}}',
+  'Allowed actions (must choose from this list): {{available_actions}}',
+  'Current scene context JSON: {{scene_context_json}}',
+  'Mailbox payload JSON: {{mailbox_payload_json}}',
+  'Output schema:',
+  '{',
+  '  "matched_action": "<string or empty>",',
+  '  "confidence": <0..1 number>,',
+  '  "reasoning": "<short string>",',
+  '  "candidates": ["<string>", "<string>"]',
+  '}',
+].join('\n');
+
+const DEFAULT_LLM_SCENE_PROMPT_TEMPLATE = [
+  'You are a scene context updater.',
+  'Return JSON only. No markdown fences.',
+  'Current scene context JSON: {{scene_context_json}}',
+  'Current action lifecycle JSON: {{action_lifecycle_json}}',
+  'Current action: {{action}}',
+  'Output schema:',
+  '{',
+  '  "current_app": <int or null>,',
+  '  "active_flow": "<string or null>",',
+  '  "flow_step": <int or null>,',
+  '  "session_vars_patch": { "key": "value" }',
+  '}',
+].join('\n');
+
+function toFiniteNumber(value, fallback) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value.trim());
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function toIntInRange(value, fallback, minValue, maxValue) {
+  const num = Math.trunc(toFiniteNumber(value, fallback));
+  if (!Number.isFinite(num)) return fallback;
+  return Math.min(maxValue, Math.max(minValue, num));
+}
+
+function toUnitInterval(value, fallback) {
+  let num = toFiniteNumber(value, fallback);
+  if (!Number.isFinite(num)) return fallback;
+  if (num > 1 && num <= 100) {
+    num = num / 100;
+  }
+  if (num < 0) num = 0;
+  if (num > 1) num = 1;
+  return num;
+}
+
+function normalizeLlmDispatchConfig(value) {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const out = { ...DEFAULT_LLM_DISPATCH_CONFIG };
+  if (typeof raw.enabled === 'boolean') out.enabled = raw.enabled;
+  if (typeof raw.provider === 'string' && raw.provider.trim()) out.provider = raw.provider.trim();
+  if (typeof raw.base_url === 'string' && raw.base_url.trim()) out.base_url = raw.base_url.trim();
+  if (typeof raw.model === 'string' && raw.model.trim()) out.model = raw.model.trim();
+  if (typeof raw.fallback_model === 'string' && raw.fallback_model.trim()) out.fallback_model = raw.fallback_model.trim();
+  out.timeout_ms = toIntInRange(raw.timeout_ms, out.timeout_ms, 1000, 60000);
+  out.confidence_threshold = toUnitInterval(raw.confidence_threshold, out.confidence_threshold);
+  out.max_candidates = toIntInRange(raw.max_candidates, out.max_candidates, 1, 8);
+  out.temperature = toFiniteNumber(raw.temperature, out.temperature);
+  out.max_tokens = toIntInRange(raw.max_tokens, out.max_tokens, 32, 2048);
+  return out;
+}
+
+function normalizeLlmSceneConfig(value) {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const out = { ...DEFAULT_LLM_SCENE_CONFIG };
+  if (typeof raw.enabled === 'boolean') out.enabled = raw.enabled;
+  out.timeout_ms = toIntInRange(raw.timeout_ms, out.timeout_ms, 1000, 30000);
+  out.max_recent_intents = toIntInRange(raw.max_recent_intents, out.max_recent_intents, 1, 50);
+  out.temperature = toFiniteNumber(raw.temperature, out.temperature);
+  out.max_tokens = toIntInRange(raw.max_tokens, out.max_tokens, 32, 2048);
+  return out;
+}
+
+function readLlmDispatchConfig(runtime) {
+  const model0 = runtime.getModel(0);
+  const labelValue = model0 ? runtime.getLabelValue(model0, 0, 0, 0, 'llm_dispatch_config') : null;
+  const cfg = normalizeLlmDispatchConfig(labelValue);
+  if (readAuthString(process.env.DY_LLM_BASE_URL)) cfg.base_url = readAuthString(process.env.DY_LLM_BASE_URL);
+  if (readAuthString(process.env.DY_LLM_MODEL)) cfg.model = readAuthString(process.env.DY_LLM_MODEL);
+  if (readAuthString(process.env.DY_LLM_FALLBACK_MODEL)) cfg.fallback_model = readAuthString(process.env.DY_LLM_FALLBACK_MODEL);
+  if (readAuthString(process.env.DY_LLM_ENABLED)) {
+    cfg.enabled = readAuthString(process.env.DY_LLM_ENABLED) === '1' || readAuthString(process.env.DY_LLM_ENABLED).toLowerCase() === 'true';
+  }
+  if (readAuthString(process.env.DY_LLM_TIMEOUT_MS)) {
+    cfg.timeout_ms = toIntInRange(process.env.DY_LLM_TIMEOUT_MS, cfg.timeout_ms, 1000, 60000);
+  }
+  if (readAuthString(process.env.DY_LLM_CONFIDENCE_THRESHOLD)) {
+    cfg.confidence_threshold = toUnitInterval(process.env.DY_LLM_CONFIDENCE_THRESHOLD, cfg.confidence_threshold);
+  }
+  return cfg;
+}
+
+function readLlmSceneConfig(runtime) {
+  const model0 = runtime.getModel(0);
+  const labelValue = model0 ? runtime.getLabelValue(model0, 0, 0, 0, 'llm_scene_config') : null;
+  return normalizeLlmSceneConfig(labelValue);
+}
+
+function readSystemPromptTemplate(runtime, key, fallback) {
+  const sys = firstSystemModel(runtime);
+  if (!sys) return fallback;
+  const value = runtime.getLabelValue(sys, 0, 0, 0, key);
+  if (typeof value === 'string' && value.trim().length > 0) return value;
+  return fallback;
+}
+
+function safeJsonStringify(value, fallback = '{}') {
+  try {
+    return JSON.stringify(value == null ? {} : value);
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function renderPromptTemplate(template, vars) {
+  const source = typeof template === 'string' && template.length > 0 ? template : '';
+  return source.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_, key) => {
+    if (!Object.prototype.hasOwnProperty.call(vars, key)) return '';
+    const v = vars[key];
+    return v == null ? '' : String(v);
+  });
+}
+
+function extractFirstJsonObject(rawText) {
+  if (typeof rawText !== 'string') return null;
+  const text = rawText.trim();
+  if (!text) return null;
+
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const content = fenced && fenced[1] ? fenced[1].trim() : text;
+
+  try {
+    return JSON.parse(content);
+  } catch (_) {
+    // continue
+  }
+
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < content.length; i += 1) {
+    const ch = content[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === '{') {
+      if (depth === 0) start = i;
+      depth += 1;
+    } else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        const candidate = content.slice(start, i + 1);
+        try {
+          return JSON.parse(candidate);
+        } catch (_) {
+          // keep scanning
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function normalizeCandidateList(input, allowedSet, maxCount) {
+  const arr = Array.isArray(input) ? input : [];
+  const out = [];
+  for (const item of arr) {
+    if (typeof item !== 'string') continue;
+    const action = item.trim();
+    if (!action || !allowedSet.has(action)) continue;
+    if (!out.includes(action)) out.push(action);
+    if (out.length >= maxCount) break;
+  }
+  return out;
+}
+
+function parseLlmIntentResult(rawText, allowedActions, maxCandidates) {
+  const allowedSet = new Set(Array.isArray(allowedActions) ? allowedActions : []);
+  const parsed = extractFirstJsonObject(rawText);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, code: 'llm_parse_failed', detail: 'intent_json_parse_failed' };
+  }
+
+  const matchedRaw = typeof parsed.matched_action === 'string' ? parsed.matched_action.trim() : '';
+  const matched = matchedRaw && allowedSet.has(matchedRaw) ? matchedRaw : '';
+  const confidence = toUnitInterval(parsed.confidence, 0);
+  const reasoning = typeof parsed.reasoning === 'string' ? parsed.reasoning.trim() : '';
+  const candidates = normalizeCandidateList(parsed.candidates, allowedSet, Math.max(1, maxCandidates));
+  if (matched && !candidates.includes(matched)) candidates.unshift(matched);
+
+  return {
+    ok: true,
+    matched_action: matched,
+    confidence,
+    reasoning: reasoning.slice(0, 600),
+    candidates: candidates.slice(0, Math.max(1, maxCandidates)),
+  };
+}
+
+function mergeSceneContext(baseValue, patchValue) {
+  const base = baseValue && typeof baseValue === 'object' && !Array.isArray(baseValue) ? baseValue : {};
+  const patch = patchValue && typeof patchValue === 'object' && !Array.isArray(patchValue) ? patchValue : {};
+  const merged = {
+    current_app: Number.isInteger(base.current_app) ? base.current_app : 100,
+    active_flow: typeof base.active_flow === 'string' ? base.active_flow : null,
+    flow_step: Number.isInteger(base.flow_step) ? base.flow_step : 0,
+    recent_intents: Array.isArray(base.recent_intents) ? base.recent_intents : [],
+    last_action_result: base.last_action_result || null,
+    session_vars: base.session_vars && typeof base.session_vars === 'object' && !Array.isArray(base.session_vars)
+      ? { ...base.session_vars }
+      : {},
+  };
+
+  if (Number.isInteger(patch.current_app) && patch.current_app > 0) {
+    merged.current_app = patch.current_app;
+  }
+  if (typeof patch.active_flow === 'string') {
+    merged.active_flow = patch.active_flow.slice(0, 120);
+  } else if (patch.active_flow === null) {
+    merged.active_flow = null;
+  }
+  if (Number.isInteger(patch.flow_step) && patch.flow_step >= 0) {
+    merged.flow_step = patch.flow_step;
+  }
+  const patchVars = patch.session_vars_patch && typeof patch.session_vars_patch === 'object' && !Array.isArray(patch.session_vars_patch)
+    ? patch.session_vars_patch
+    : null;
+  if (patchVars) {
+    for (const [k, v] of Object.entries(patchVars)) {
+      if (typeof k !== 'string' || !k.trim()) continue;
+      merged.session_vars[k] = v;
+    }
+  }
+  return merged;
+}
+
 function sleepMs(ms) {
   if (!ms || ms <= 0) return Promise.resolve();
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -404,6 +683,9 @@ function writeActionLifecycle(runtime, nextPatch) {
     completed_at: null,
     result: null,
     confidence: 1,
+    llm_used: false,
+    llm_model: null,
+    llm_reasoning: null,
   };
   const nextValue = {
     ...base,
@@ -411,6 +693,45 @@ function writeActionLifecycle(runtime, nextPatch) {
     ...(nextPatch && typeof nextPatch === 'object' ? nextPatch : {}),
   };
   runtime.addLabel(model, 0, 0, 1, { k: 'action_lifecycle', t: 'json', v: nextValue });
+}
+
+async function maybeEnhanceSceneContextWithLlm(runtime, programEngine, options) {
+  const opts = options && typeof options === 'object' ? options : {};
+  const sceneCfg = readLlmSceneConfig(runtime);
+  if (!sceneCfg.enabled) return null;
+  if (!opts.llmUsed) return null;
+
+  const sceneModel = runtime.getModel(-12);
+  if (!sceneModel) return null;
+  const currentScene = runtime.getLabelValue(sceneModel, 0, 0, 0, 'scene_context');
+  if (!currentScene || typeof currentScene !== 'object' || Array.isArray(currentScene)) return null;
+
+  const lifecycle = getActionLifecycle(runtime) || {};
+  const promptTemplate = readSystemPromptTemplate(runtime, 'llm_scene_prompt_template', DEFAULT_LLM_SCENE_PROMPT_TEMPLATE);
+  const prompt = renderPromptTemplate(promptTemplate, {
+    scene_context_json: safeJsonStringify(currentScene),
+    action_lifecycle_json: safeJsonStringify(lifecycle),
+    action: typeof opts.action === 'string' ? opts.action : '',
+  });
+
+  const dispatchCfg = readLlmDispatchConfig(runtime);
+  const llmResult = await programEngine.llmInfer({
+    baseUrl: dispatchCfg.base_url,
+    model: dispatchCfg.model,
+    prompt,
+    timeoutMs: sceneCfg.timeout_ms,
+    temperature: sceneCfg.temperature,
+    maxTokens: sceneCfg.max_tokens,
+  });
+  if (!llmResult || llmResult.ok !== true) return llmResult || null;
+
+  const parsed = extractFirstJsonObject(llmResult.data && llmResult.data.response);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, code: 'llm_parse_failed', detail: 'scene_json_parse_failed' };
+  }
+  const merged = mergeSceneContext(currentScene, parsed);
+  runtime.addLabel(sceneModel, 0, 0, 0, { k: 'scene_context', t: 'json', v: merged });
+  return { ok: true, data: { model: llmResult.data && llmResult.data.model ? llmResult.data.model : dispatchCfg.model } };
 }
 
 function setMailboxEnvelope(runtime, envelopeOrNull) {
@@ -741,6 +1062,94 @@ class ProgramModelEngine {
       return null;
     }
     await this.matrixAdapter.publish(payload);
+  }
+
+  async llmInfer(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const baseUrlRaw = typeof opts.baseUrl === 'string' ? opts.baseUrl.trim() : '';
+    const modelRaw = typeof opts.model === 'string' ? opts.model.trim() : '';
+    const prompt = typeof opts.prompt === 'string' ? opts.prompt : '';
+    const systemPrompt = typeof opts.systemPrompt === 'string' ? opts.systemPrompt : '';
+    const timeoutMs = toIntInRange(opts.timeoutMs, 10000, 1000, 60000);
+    const temperature = toFiniteNumber(opts.temperature, 0.1);
+    const maxTokens = toIntInRange(opts.maxTokens, 220, 32, 4096);
+
+    if (!baseUrlRaw) {
+      return { ok: false, code: 'llm_unavailable', detail: 'missing_llm_base_url' };
+    }
+    if (!modelRaw) {
+      return { ok: false, code: 'llm_unavailable', detail: 'missing_llm_model' };
+    }
+    if (!prompt.trim()) {
+      return { ok: false, code: 'invalid_target', detail: 'empty_prompt' };
+    }
+
+    const endpoint = `${baseUrlRaw.replace(/\/+$/, '')}/api/generate`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(new Error('llm_timeout')), timeoutMs);
+    try {
+      const body = {
+        model: modelRaw,
+        prompt,
+        stream: false,
+        options: {
+          temperature,
+          num_predict: maxTokens,
+        },
+      };
+      if (systemPrompt.trim()) {
+        body.system = systemPrompt;
+      }
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        return {
+          ok: false,
+          code: 'llm_http_error',
+          detail: `status=${response.status}${text ? ` body=${text.slice(0, 300)}` : ''}`,
+        };
+      }
+      const text = await response.text();
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch (_) {
+        return { ok: false, code: 'llm_bad_response', detail: 'llm_response_not_json' };
+      }
+      const model = typeof parsed.model === 'string' && parsed.model.trim() ? parsed.model.trim() : modelRaw;
+      const responseText = typeof parsed.response === 'string'
+        ? parsed.response
+        : (parsed && parsed.message && typeof parsed.message.content === 'string' ? parsed.message.content : '');
+      if (!responseText.trim()) {
+        return { ok: false, code: 'llm_bad_response', detail: 'llm_empty_response' };
+      }
+      return {
+        ok: true,
+        data: {
+          model,
+          response: responseText,
+          eval_duration: Number.isFinite(parsed.eval_duration) ? parsed.eval_duration : null,
+          total_duration: Number.isFinite(parsed.total_duration) ? parsed.total_duration : null,
+        },
+      };
+    } catch (err) {
+      const name = err && typeof err === 'object' && typeof err.name === 'string' ? err.name : '';
+      if (name === 'AbortError') {
+        return { ok: false, code: 'llm_timeout', detail: `timeout_ms=${timeoutMs}` };
+      }
+      return {
+        ok: false,
+        code: 'llm_unavailable',
+        detail: String(err && err.message ? err.message : err),
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   handleDyBusEvent(content) {
@@ -1170,6 +1579,22 @@ class ProgramModelEngine {
               detail: String(err && err.message ? err.message : err),
             };
           }
+        },
+        llmInfer: async (prompt, options) => {
+          const dispatchCfg = readLlmDispatchConfig(this.runtime);
+          const opts = options && typeof options === 'object' ? options : {};
+          const systemPrompt = typeof opts.system_prompt === 'string'
+            ? opts.system_prompt
+            : (typeof opts.systemPrompt === 'string' ? opts.systemPrompt : '');
+          return this.llmInfer({
+            baseUrl: typeof opts.base_url === 'string' ? opts.base_url : dispatchCfg.base_url,
+            model: typeof opts.model === 'string' ? opts.model : dispatchCfg.model,
+            prompt: typeof prompt === 'string' ? prompt : String(prompt ?? ''),
+            systemPrompt,
+            timeoutMs: Number.isInteger(opts.timeout_ms) ? opts.timeout_ms : dispatchCfg.timeout_ms,
+            temperature: Number.isFinite(opts.temperature) ? opts.temperature : dispatchCfg.temperature,
+            maxTokens: Number.isInteger(opts.max_tokens) ? opts.max_tokens : dispatchCfg.max_tokens,
+          });
         },
       },
     };
@@ -2246,29 +2671,140 @@ function createServerState(options) {
       const dispatchTable = sysModel
         ? runtime.getLabelValue(sysModel, 0, 0, 0, 'intent_dispatch_table')
         : null;
-      const dispatchFunc = dispatchTable && typeof dispatchTable === 'object'
-        ? dispatchTable[action]
-        : null;
+      const dispatchEntries = [];
+      if (dispatchTable && typeof dispatchTable === 'object' && sysModel) {
+        for (const [actionName, funcName] of Object.entries(dispatchTable)) {
+          if (typeof actionName !== 'string' || !actionName.trim()) continue;
+          if (typeof funcName !== 'string' || !funcName.trim()) continue;
+          if (!sysModel.hasFunction(funcName)) continue;
+          dispatchEntries.push([actionName, funcName]);
+        }
+      }
+      const dispatchFuncByAction = new Map(dispatchEntries);
+
+      let resolvedAction = action;
+      let resolvedFunc = dispatchFuncByAction.get(action) || '';
+      const opId = payload && payload.meta && typeof payload.meta.op_id === 'string'
+        ? payload.meta.op_id
+        : '';
+
+      const llmDispatch = {
+        used: false,
+        model: null,
+        confidence: 1,
+        reasoning: '',
+        candidates: [],
+      };
+
+      if (!resolvedFunc && action && dispatchEntries.length > 0 && sysModel) {
+        const llmCfg = readLlmDispatchConfig(runtime);
+        if (llmCfg.enabled && llmCfg.provider === 'ollama') {
+          const sceneModel = runtime.getModel(-12);
+          const sceneContext = sceneModel ? runtime.getLabelValue(sceneModel, 0, 0, 0, 'scene_context') : null;
+          const promptTemplate = readSystemPromptTemplate(runtime, 'llm_intent_prompt_template', DEFAULT_LLM_INTENT_PROMPT_TEMPLATE);
+          const prompt = renderPromptTemplate(promptTemplate, {
+            action,
+            available_actions: safeJsonStringify(dispatchEntries.map(([name]) => name), '[]'),
+            scene_context_json: safeJsonStringify(sceneContext, '{}'),
+            mailbox_payload_json: safeJsonStringify(payload, '{}'),
+          });
+          const llmResult = await programEngine.llmInfer({
+            baseUrl: llmCfg.base_url,
+            model: llmCfg.model,
+            prompt,
+            timeoutMs: llmCfg.timeout_ms,
+            temperature: llmCfg.temperature,
+            maxTokens: llmCfg.max_tokens,
+          });
+          if (llmResult && llmResult.ok === true) {
+            const parsed = parseLlmIntentResult(
+              llmResult.data && llmResult.data.response ? llmResult.data.response : '',
+              dispatchEntries.map(([name]) => name),
+              llmCfg.max_candidates,
+            );
+            if (parsed && parsed.ok === true) {
+              llmDispatch.used = true;
+              llmDispatch.model = llmResult.data && llmResult.data.model ? llmResult.data.model : llmCfg.model;
+              llmDispatch.confidence = parsed.confidence;
+              llmDispatch.reasoning = parsed.reasoning;
+              llmDispatch.candidates = parsed.candidates;
+              if (parsed.matched_action && parsed.confidence >= llmCfg.confidence_threshold) {
+                resolvedAction = parsed.matched_action;
+                resolvedFunc = dispatchFuncByAction.get(parsed.matched_action) || '';
+              } else {
+                const detail = parsed.matched_action
+                  ? `matched=${parsed.matched_action} confidence=${parsed.confidence.toFixed(3)} threshold=${llmCfg.confidence_threshold.toFixed(3)}`
+                  : 'no_confident_match';
+                runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, {
+                  k: 'ui_event_error',
+                  t: 'json',
+                  v: {
+                    op_id: opId,
+                    code: 'low_confidence',
+                    detail,
+                    candidates: llmDispatch.candidates,
+                  },
+                });
+                runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
+                runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+                updateDerived();
+                await programEngine.tick();
+                writeActionLifecycle(runtime, {
+                  op_id: opId,
+                  action,
+                  status: 'failed',
+                  started_at: Date.now(),
+                  completed_at: Date.now(),
+                  result: { code: 'low_confidence', detail },
+                  confidence: llmDispatch.confidence,
+                  llm_used: true,
+                  llm_model: llmDispatch.model,
+                  llm_reasoning: llmDispatch.reasoning || null,
+                });
+                return {
+                  consumed: true,
+                  result: 'error',
+                  code: 'low_confidence',
+                  detail,
+                  routed_by: 'llm',
+                  confidence: llmDispatch.confidence,
+                  candidates: llmDispatch.candidates,
+                };
+              }
+            }
+          }
+        }
+      }
 
       // Step 3 dual-track: dispatch table first, legacy action-prefix as fallback.
-      if (typeof dispatchFunc === 'string' && dispatchFunc.trim().length > 0 &&
-          sysModel && sysModel.hasFunction(dispatchFunc)) {
-        const opId = payload && payload.meta && typeof payload.meta.op_id === 'string'
-          ? payload.meta.op_id
-          : '';
+      if (typeof resolvedFunc === 'string' && resolvedFunc.trim().length > 0 &&
+          sysModel && sysModel.hasFunction(resolvedFunc)) {
         const startedAt = Date.now();
         writeActionLifecycle(runtime, {
           op_id: opId,
-          action,
+          action: resolvedAction,
           status: 'executing',
           started_at: startedAt,
           completed_at: null,
           result: null,
-          confidence: 1,
+          confidence: llmDispatch.used ? llmDispatch.confidence : 1,
+          llm_used: llmDispatch.used,
+          llm_model: llmDispatch.used ? (llmDispatch.model || null) : null,
+          llm_reasoning: llmDispatch.used ? (llmDispatch.reasoning || null) : null,
         });
         runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
         runtime.addLabel(sysModel, 0, 0, 0, { k: 'mgmt_func_error', t: 'str', v: '' });
-        runtime.intercepts.record('run_func', { func: dispatchFunc, payload });
+        const dispatchPayload = payload && typeof payload === 'object'
+          ? {
+              ...payload,
+              action: resolvedAction,
+              meta: {
+                ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+                llm_routed_from: llmDispatch.used ? action : '',
+              },
+            }
+          : payload;
+        runtime.intercepts.record('run_func', { func: resolvedFunc, payload: dispatchPayload });
         await programEngine.tick();
         const funcErr = runtime.getLabelValue(sysModel, 0, 0, 0, 'mgmt_func_error');
         if (typeof funcErr === 'string' && funcErr.trim().length > 0) {
@@ -2292,31 +2828,53 @@ function createServerState(options) {
           const errDetail = typeof errValue.detail === 'string' ? errValue.detail : '';
           writeActionLifecycle(runtime, {
             op_id: opId,
-            action,
+            action: resolvedAction,
             status: 'failed',
             completed_at: Date.now(),
             result: {
               code: errCode,
               detail: errDetail,
             },
-            confidence: 1,
+            confidence: llmDispatch.used ? llmDispatch.confidence : 1,
+            llm_used: llmDispatch.used,
+            llm_model: llmDispatch.used ? (llmDispatch.model || null) : null,
+            llm_reasoning: llmDispatch.used ? (llmDispatch.reasoning || null) : null,
           });
           return {
             consumed: true,
             result: 'error',
             code: errCode,
             detail: errDetail,
+            routed_by: llmDispatch.used ? 'llm' : 'rule',
+            confidence: llmDispatch.used ? llmDispatch.confidence : 1,
+            candidates: llmDispatch.used ? llmDispatch.candidates : undefined,
           };
         }
+
+        await maybeEnhanceSceneContextWithLlm(runtime, programEngine, {
+          llmUsed: llmDispatch.used,
+          action: resolvedAction,
+          opId,
+        });
+
         writeActionLifecycle(runtime, {
           op_id: opId,
-          action,
+          action: resolvedAction,
           status: 'completed',
           completed_at: Date.now(),
           result: { ok: true },
-          confidence: 1,
+          confidence: llmDispatch.used ? llmDispatch.confidence : 1,
+          llm_used: llmDispatch.used,
+          llm_model: llmDispatch.used ? (llmDispatch.model || null) : null,
+          llm_reasoning: llmDispatch.used ? (llmDispatch.reasoning || null) : null,
         });
-        return { consumed: true, result: 'ok' };
+        return {
+          consumed: true,
+          result: 'ok',
+          routed_by: llmDispatch.used ? 'llm' : 'rule',
+          confidence: llmDispatch.used ? llmDispatch.confidence : 1,
+          candidates: llmDispatch.used ? llmDispatch.candidates : undefined,
+        };
       }
 
     if (action.startsWith('cellab_')) {
@@ -2948,6 +3506,11 @@ function startServer(options) {
             ok: true,
             consumed: Boolean(consumeResult && consumeResult.consumed),
             result: consumeResult && consumeResult.result ? consumeResult.result : undefined,
+            code: consumeResult && consumeResult.code ? consumeResult.code : undefined,
+            detail: consumeResult && consumeResult.detail ? consumeResult.detail : undefined,
+            routed_by: consumeResult && consumeResult.routed_by ? consumeResult.routed_by : undefined,
+            confidence: consumeResult && Number.isFinite(consumeResult.confidence) ? consumeResult.confidence : undefined,
+            candidates: consumeResult && Array.isArray(consumeResult.candidates) ? consumeResult.candidates : undefined,
             ui_event_last_op_id: state.getLastOpId(),
             ui_event_error: state.getEventError(),
           },

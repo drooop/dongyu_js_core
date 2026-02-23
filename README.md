@@ -11,3 +11,9 @@
 ```bash
 bash scripts/ops/run_model100_submit_roundtrip_local.sh --port 9011 --stop-after
 ```
+
+## 0154 LLM 路由一键命令
+
+```bash
+bash scripts/ops/run_0154_llm_dispatch_local.sh
+```
