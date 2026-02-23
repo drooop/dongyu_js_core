@@ -403,3 +403,53 @@
   - snapshot/default-selection config moved to Model 0 labels
   - `/api/static/upload` and mailbox upload share the same core write path
   - ws add/delete supports API-only flow with monotonic model id
+
+---
+
+## Post-Review Fix (P1/P2) — startup seed overwrite + static_status clobber
+- Date: 2026-02-23
+- Source: reviewer findings after `006693e`
+
+### Fix A (P1): avoid overwriting persisted positive-model state on startup
+- File:
+  - `packages/ui-model-demo-server/server.mjs`
+- Change:
+  - add helper: `countPositiveModels(runtime)`
+  - `loadFullModelPatches(...)` split into:
+    - always: `server_config.json`
+    - conditional: `workspace_positive_models.json`, `test_model_100_ui.json` only when positive model count is 0
+  - when skipped, emit log:
+    - `[createServerState] skip positive seed patches (existing_positive_models=...)`
+
+### Fix B (P2): keep static init failure observable
+- File:
+  - `packages/ui-model-demo-server/server.mjs`
+- Change:
+  - remove unconditional `overwriteStateLabel(runtime, 'static_status', 'str', '')` after successful `refreshWorkspaceStateCatalog()` in `clearAndRefreshAfterRuntimeBoot()`
+
+### Targeted verification
+- Syntax:
+  - `node --check packages/ui-model-demo-server/server.mjs` → PASS
+
+- P1 (restart persistence semantics):
+  1) boot workspace `tmp_review_fix_p1`, write model 100 custom values via `/api/modeltable/patch`:
+     - `bg_color=#123456`, `status=persisted_custom`
+  2) restart same workspace
+  3) snapshot after restart:
+     - `bg_color=#123456`
+     - `status=persisted_custom`
+  4) startup log contains seed-skip marker
+  - Result: PASS
+
+- P1b (fresh workspace still seeded):
+  - boot workspace `tmp_review_fix_p1_fresh`
+  - snapshot registry contains `100`, `1001`, `1002`
+  - Result: PASS
+
+- P2 (static error visibility):
+  - set `STATIC_PROJECTS_ROOT` to file path (non-directory)
+  - boot workspace `tmp_review_fix_p2`
+  - snapshot:
+    - `static_status = "static list failed"`
+    - `ws_apps_registry` still refreshed (len=6)
+  - Result: PASS

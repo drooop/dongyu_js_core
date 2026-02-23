@@ -1419,6 +1419,14 @@ function currentTopic(runtime, pinName) {
   return pinName;
 }
 
+function countPositiveModels(runtime) {
+  let count = 0;
+  for (const id of runtime.models.keys()) {
+    if (Number.isInteger(id) && id > 0) count += 1;
+  }
+  return count;
+}
+
 function createServerState(options) {
   const dbPath = options && options.dbPath ? String(options.dbPath) : null;
   const runtime = new ModelTableRuntime();
@@ -1485,11 +1493,16 @@ function createServerState(options) {
 
   const systemModelsDir = new URL('../worker-base/system-models/', import.meta.url).pathname;
   loadSystemModelPatches(runtime, systemModelsDir);
-  loadFullModelPatches(runtime, systemModelsDir, [
-    'server_config.json',
-    'workspace_positive_models.json',
-    'test_model_100_ui.json',
-  ]);
+  loadFullModelPatches(runtime, systemModelsDir, ['server_config.json']);
+  const positiveModelCountBeforeSeed = countPositiveModels(runtime);
+  if (positiveModelCountBeforeSeed === 0) {
+    loadFullModelPatches(runtime, systemModelsDir, [
+      'workspace_positive_models.json',
+      'test_model_100_ui.json',
+    ]);
+  } else {
+    console.log(`[createServerState] skip positive seed patches (existing_positive_models=${positiveModelCountBeforeSeed})`);
+  }
 
   const envPatch = readModelTablePatchFromEnv();
   if (envPatch) {
@@ -2137,7 +2150,6 @@ function createServerState(options) {
     }
     try {
       refreshWorkspaceStateCatalog();
-      overwriteStateLabel(runtime, 'static_status', 'str', '');
     } catch (_) {
       overwriteStateLabel(runtime, 'static_status', 'str', 'workspace catalog refresh failed');
     }
