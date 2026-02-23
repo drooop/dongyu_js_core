@@ -36,6 +36,18 @@ function inferIntent(promptText) {
   if (/strict ModelTable patch planner/i.test(prompt)) {
     return {
       response: JSON.stringify({
+        proposal: {
+          summary: 'Plan label changes and wait for confirmation before apply.',
+          operations: [
+            { summary: 'Set Model 100 title to "Prompt FillTable Demo"', op: 'add_label', model_id: 100, p: 0, r: 0, c: 0, k: 'title', t: 'str' },
+            { summary: 'Remove obsolete_key from Model 100', op: 'rm_label', model_id: 100, p: 0, r: 0, c: 0, k: 'obsolete_key' },
+          ],
+          queries: [
+            { summary: 'Check current status label on Model 100', target: 'model 100 status' },
+          ],
+          requires_confirmation: true,
+          confirmation_question: 'Please confirm apply for these label operations.',
+        },
         records: [
           {
             op: 'add_label',
@@ -118,13 +130,13 @@ const port = Number.parseInt(process.argv[2] || process.env.MOCK_OLLAMA_PORT || 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
   if (req.method === 'GET' && url.pathname === '/api/tags') {
-    writeJson(res, 200, { models: [{ name: 'qwen2.5:32b' }, { name: 'qwen2.5:14b' }] });
+    writeJson(res, 200, { models: [{ name: 'mt-label' }] });
     return;
   }
   if (req.method === 'POST' && url.pathname === '/api/generate') {
     try {
       const body = await readJsonBody(req);
-      const model = typeof body.model === 'string' && body.model.trim() ? body.model.trim() : 'mock:qwen';
+      const model = typeof body.model === 'string' && body.model.trim() ? body.model.trim() : 'mt-label';
       const { response } = inferIntent(body.prompt);
       writeJson(res, 200, {
         model,

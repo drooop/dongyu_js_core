@@ -18,7 +18,7 @@ const DEFAULT_PROTECTED_LABEL_KEYS = [
 export const DEFAULT_FILLTABLE_POLICY = Object.freeze({
   allow_positive_model_ids: true,
   allow_negative_model_ids: false,
-  max_records_per_apply: 32,
+  max_records_per_apply: 10,
   max_value_bytes: 64 * 1024,
   max_total_bytes: 256 * 1024,
   allowed_label_types: DEFAULT_ALLOWED_LABEL_TYPES,

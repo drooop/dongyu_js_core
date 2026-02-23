@@ -74,7 +74,7 @@ MOCK_PID=""
 MOCK_LOG="/tmp/dongyu-mock-ollama-${LLM_PORT}.log"
 SERVER_PID_FILE="/tmp/dongyu-ui-server-llm-${PORT}.pid"
 LLM_BASE_URL="http://127.0.0.1:${LLM_PORT}"
-LLM_MODEL="qwen2.5:32b"
+LLM_MODEL="mt-label"
 
 cleanup() {
   if [ "$STOP_AFTER" -eq 1 ]; then

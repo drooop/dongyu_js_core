@@ -51,13 +51,13 @@
         "enabled": true,
         "provider": "ollama",
         "base_url": "http://127.0.0.1:11434",
-        "model": "qwen2.5:32b",
-        "fallback_model": "qwen2.5:14b",
-        "timeout_ms": 10000,
+        "model": "mt-label",
+        "fallback_model": "mt-label",
+        "timeout_ms": 120000,
         "confidence_threshold": 0.78,
         "max_candidates": 3,
         "temperature": 0.1,
-        "max_tokens": 220
+        "max_tokens": 512
       }
     },
     {
@@ -87,7 +87,7 @@
       "v": {
         "allow_positive_model_ids": true,
         "allow_negative_model_ids": false,
-        "max_records_per_apply": 32,
+        "max_records_per_apply": 10,
         "max_value_bytes": 65536,
         "max_total_bytes": 262144,
         "allowed_label_types": [

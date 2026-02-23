@@ -18,7 +18,7 @@ Usage:
 Options:
   --port <port>         UI server port (default: 9013)
   --llm-port <port>     Mock ollama port (default: 11436)
-  --llm-model <name>    LLM model name (default: qwen2.5:32b)
+  --llm-model <name>    LLM model name (default: mt-label)
   --real-ollama         Use real Ollama at http://127.0.0.1:11434 (skip mock)
   --keep-running        Keep local services running after verify
   --no-force-kill       Do not kill existing listener on target port
@@ -80,7 +80,7 @@ MOCK_PID=""
 MOCK_LOG="/tmp/dongyu-mock-ollama-${LLM_PORT}.log"
 SERVER_PID_FILE="/tmp/dongyu-ui-server-llm-${PORT}.pid"
 LLM_BASE_URL="http://127.0.0.1:${LLM_PORT}"
-LLM_MODEL="${LLM_MODEL:-qwen2.5:32b}"
+LLM_MODEL="${LLM_MODEL:-mt-label}"
 
 cleanup() {
   if [ "$STOP_AFTER" -eq 1 ]; then

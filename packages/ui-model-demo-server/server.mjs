@@ -121,13 +121,13 @@ const DEFAULT_LLM_DISPATCH_CONFIG = Object.freeze({
   enabled: true,
   provider: 'ollama',
   base_url: 'http://127.0.0.1:11434',
-  model: 'qwen2.5:32b',
-  fallback_model: 'qwen2.5:14b',
-  timeout_ms: 10000,
+  model: 'mt-label',
+  fallback_model: 'mt-label',
+  timeout_ms: 120000,
   confidence_threshold: 0.78,
   max_candidates: 3,
   temperature: 0.1,
-  max_tokens: 220,
+  max_tokens: 512,
 });
 
 const DEFAULT_LLM_SCENE_CONFIG = Object.freeze({
@@ -170,17 +170,22 @@ const DEFAULT_LLM_SCENE_PROMPT_TEMPLATE = [
 ].join('\n');
 
 const DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE = [
-  'You are a strict ModelTable patch planner.',
+  'You are a strict ModelTable patch planner with a two-step confirmation workflow.',
   'Return JSON only. No markdown fences.',
   'User prompt: {{prompt_text}}',
   'Policy JSON: {{policy_json}}',
   'Allowed output schema JSON: {{output_schema_json}}',
   'Available positive model ids JSON: {{available_model_ids_json}}',
   'Rules:',
-  '- Output must be {"records":[...],"confidence":0..1,"reasoning":"..."}',
+  '- Output must be {"proposal":{...},"records":[...],"confidence":0..1,"reasoning":"..."}',
+  '- proposal must contain summary, operations, queries, requires_confirmation=true, confirmation_question',
+  '- operations are human-readable planned write actions',
+  '- queries are read/check requests and MUST NOT be converted into records',
   '- records only support op=add_label/rm_label',
   '- add_label requires model_id,p,r,c,k,t,v',
   '- rm_label requires model_id,p,r,c,k',
+  '- max records is 10',
+  '- for query-only requests output records: [] and describe them in proposal.queries',
   '- Never output explanation text outside JSON',
 ].join('\n');
 
@@ -218,7 +223,7 @@ function normalizeLlmDispatchConfig(value) {
   if (typeof raw.base_url === 'string' && raw.base_url.trim()) out.base_url = raw.base_url.trim();
   if (typeof raw.model === 'string' && raw.model.trim()) out.model = raw.model.trim();
   if (typeof raw.fallback_model === 'string' && raw.fallback_model.trim()) out.fallback_model = raw.fallback_model.trim();
-  out.timeout_ms = toIntInRange(raw.timeout_ms, out.timeout_ms, 1000, 60000);
+  out.timeout_ms = toIntInRange(raw.timeout_ms, out.timeout_ms, 1000, 180000);
   out.confidence_threshold = toUnitInterval(raw.confidence_threshold, out.confidence_threshold);
   out.max_candidates = toIntInRange(raw.max_candidates, out.max_candidates, 1, 8);
   out.temperature = toFiniteNumber(raw.temperature, out.temperature);
@@ -248,10 +253,16 @@ function readLlmDispatchConfig(runtime) {
     cfg.enabled = readAuthString(process.env.DY_LLM_ENABLED) === '1' || readAuthString(process.env.DY_LLM_ENABLED).toLowerCase() === 'true';
   }
   if (readAuthString(process.env.DY_LLM_TIMEOUT_MS)) {
-    cfg.timeout_ms = toIntInRange(process.env.DY_LLM_TIMEOUT_MS, cfg.timeout_ms, 1000, 60000);
+    cfg.timeout_ms = toIntInRange(process.env.DY_LLM_TIMEOUT_MS, cfg.timeout_ms, 1000, 180000);
   }
   if (readAuthString(process.env.DY_LLM_CONFIDENCE_THRESHOLD)) {
     cfg.confidence_threshold = toUnitInterval(process.env.DY_LLM_CONFIDENCE_THRESHOLD, cfg.confidence_threshold);
+  }
+  if (readAuthString(process.env.DY_LLM_MAX_TOKENS)) {
+    cfg.max_tokens = toIntInRange(process.env.DY_LLM_MAX_TOKENS, cfg.max_tokens, 32, 2048);
+  }
+  if (readAuthString(process.env.DY_LLM_TEMPERATURE)) {
+    cfg.temperature = toFiniteNumber(process.env.DY_LLM_TEMPERATURE, cfg.temperature);
   }
   return cfg;
 }
@@ -382,11 +393,24 @@ function parseLlmFilltableResult(rawText) {
   const records = Array.isArray(parsed.records) ? parsed.records : [];
   const reasoning = typeof parsed.reasoning === 'string' ? parsed.reasoning.trim().slice(0, 1200) : '';
   const confidence = toUnitInterval(parsed.confidence, 0);
+  const proposalRaw = parsed.proposal && typeof parsed.proposal === 'object' && !Array.isArray(parsed.proposal)
+    ? parsed.proposal
+    : {};
+  const proposal = {
+    summary: typeof proposalRaw.summary === 'string' ? proposalRaw.summary.trim().slice(0, 600) : '',
+    operations: Array.isArray(proposalRaw.operations) ? proposalRaw.operations.slice(0, 20) : [],
+    queries: Array.isArray(proposalRaw.queries) ? proposalRaw.queries.slice(0, 20) : [],
+    requires_confirmation: typeof proposalRaw.requires_confirmation === 'boolean' ? proposalRaw.requires_confirmation : true,
+    confirmation_question: typeof proposalRaw.confirmation_question === 'string'
+      ? proposalRaw.confirmation_question.trim().slice(0, 280)
+      : '',
+  };
   return {
     ok: true,
     records,
     reasoning,
     confidence,
+    proposal,
   };
 }
 
@@ -413,6 +437,105 @@ function listPositiveModelIds(runtime, maxCount = 256) {
   }
   ids.sort((a, b) => a - b);
   return ids;
+}
+
+function summarizeRecordForProposal(record) {
+  if (!record || typeof record !== 'object') return '';
+  const op = String(record.op || '').trim();
+  const modelId = Number.isInteger(record.model_id) ? record.model_id : '?';
+  const p = Number.isInteger(record.p) ? record.p : 0;
+  const r = Number.isInteger(record.r) ? record.r : 0;
+  const c = Number.isInteger(record.c) ? record.c : 0;
+  const key = typeof record.k === 'string' ? record.k : '';
+  if (op === 'add_label') {
+    const type = typeof record.t === 'string' ? record.t : '?';
+    return `add ${key}(${type}) to model ${modelId} cell(${p},${r},${c})`;
+  }
+  if (op === 'rm_label') {
+    return `remove ${key} from model ${modelId} cell(${p},${r},${c})`;
+  }
+  return `${op || 'unknown'} on model ${modelId} cell(${p},${r},${c})`;
+}
+
+function normalizeFilltableProposal(rawProposal, acceptedRecords, rejectedRecords) {
+  const proposal = rawProposal && typeof rawProposal === 'object' && !Array.isArray(rawProposal)
+    ? rawProposal
+    : {};
+  const accepted = Array.isArray(acceptedRecords) ? acceptedRecords : [];
+  const rejected = Array.isArray(rejectedRecords) ? rejectedRecords : [];
+  const operations = [];
+  const rawOperations = Array.isArray(proposal.operations) ? proposal.operations : [];
+  for (const item of rawOperations) {
+    if (operations.length >= 20) break;
+    if (typeof item === 'string' && item.trim()) {
+      operations.push({ summary: item.trim().slice(0, 280) });
+      continue;
+    }
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const summary = typeof item.summary === 'string' ? item.summary.trim().slice(0, 280) : '';
+    if (!summary) continue;
+    operations.push({
+      summary,
+      op: typeof item.op === 'string' ? item.op.trim() : undefined,
+      model_id: Number.isInteger(item.model_id) ? item.model_id : undefined,
+      p: Number.isInteger(item.p) ? item.p : undefined,
+      r: Number.isInteger(item.r) ? item.r : undefined,
+      c: Number.isInteger(item.c) ? item.c : undefined,
+      k: typeof item.k === 'string' ? item.k : undefined,
+      t: typeof item.t === 'string' ? item.t : undefined,
+    });
+  }
+  if (operations.length === 0) {
+    for (const record of accepted.slice(0, 10)) {
+      const summary = summarizeRecordForProposal(record);
+      if (!summary) continue;
+      operations.push({
+        summary,
+        op: record.op,
+        model_id: record.model_id,
+        p: record.p,
+        r: record.r,
+        c: record.c,
+        k: record.k,
+        t: record.t,
+      });
+    }
+  }
+
+  const queries = [];
+  const rawQueries = Array.isArray(proposal.queries) ? proposal.queries : [];
+  for (const item of rawQueries) {
+    if (queries.length >= 20) break;
+    if (typeof item === 'string' && item.trim()) {
+      queries.push({ summary: item.trim().slice(0, 280) });
+      continue;
+    }
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const summary = typeof item.summary === 'string' ? item.summary.trim().slice(0, 280) : '';
+    if (!summary) continue;
+    queries.push({
+      summary,
+      target: typeof item.target === 'string' ? item.target.trim().slice(0, 180) : undefined,
+    });
+  }
+
+  const acceptedCount = accepted.length;
+  const rejectedCount = rejected.length;
+  const defaultSummary = `planned writes=${acceptedCount}, rejected=${rejectedCount}, queries=${queries.length}`;
+  const summary = typeof proposal.summary === 'string' && proposal.summary.trim()
+    ? proposal.summary.trim().slice(0, 600)
+    : defaultSummary;
+  const confirmationQuestion = typeof proposal.confirmation_question === 'string' && proposal.confirmation_question.trim()
+    ? proposal.confirmation_question.trim().slice(0, 280)
+    : 'Please confirm apply for these label operations.';
+
+  return {
+    summary,
+    operations,
+    queries,
+    requires_confirmation: true,
+    confirmation_question: confirmationQuestion,
+  };
 }
 
 function parseJsonObjectOrNull(value) {
@@ -1144,7 +1267,7 @@ class ProgramModelEngine {
     const modelRaw = typeof opts.model === 'string' ? opts.model.trim() : '';
     const prompt = typeof opts.prompt === 'string' ? opts.prompt : '';
     const systemPrompt = typeof opts.systemPrompt === 'string' ? opts.systemPrompt : '';
-    const timeoutMs = toIntInRange(opts.timeoutMs, 10000, 1000, 60000);
+    const timeoutMs = toIntInRange(opts.timeoutMs, 10000, 1000, 180000);
     const temperature = toFiniteNumber(opts.temperature, 0.1);
     const maxTokens = toIntInRange(opts.maxTokens, 220, 32, 4096);
 
@@ -1171,6 +1294,12 @@ class ProgramModelEngine {
           num_predict: maxTokens,
         },
       };
+      const thinkRaw = readAuthString(process.env.DY_LLM_THINK).toLowerCase();
+      if (!thinkRaw || thinkRaw === 'false' || thinkRaw === '0' || thinkRaw === 'off') {
+        body.think = false;
+      } else if (thinkRaw === 'true' || thinkRaw === '1' || thinkRaw === 'on') {
+        body.think = true;
+      }
       if (systemPrompt.trim()) {
         body.system = systemPrompt;
       }
@@ -1695,10 +1824,22 @@ class ProgramModelEngine {
 
           const parsed = parseLlmFilltableResult(llmResult.data && llmResult.data.response ? llmResult.data.response : '');
           if (!parsed.ok) return parsed;
+          if (parsed.records.length > policy.max_records_per_apply) {
+            return {
+              ok: false,
+              code: 'too_many_records',
+              detail: `max_records_per_apply=${policy.max_records_per_apply}`,
+            };
+          }
 
           const validation = validateFilltableRecords(parsed.records, policy);
           const previewId = createFilltablePreviewId();
           const previewDigest = buildFilltableDigest(validation.accepted_records);
+          const proposal = normalizeFilltableProposal(
+            parsed.proposal,
+            validation.accepted_records,
+            validation.rejected_records,
+          );
 
           return {
             ok: true,
@@ -1706,6 +1847,7 @@ class ProgramModelEngine {
               preview_id: previewId,
               preview_digest: previewDigest,
               prompt: promptText,
+              proposal,
               accepted_records: validation.accepted_records,
               rejected_records: validation.rejected_records,
               stats: validation.stats,
@@ -1745,6 +1887,13 @@ class ProgramModelEngine {
           }
 
           const policy = readFilltablePolicy(this.runtime);
+          if (acceptedFromPreview.length > policy.max_records_per_apply) {
+            return {
+              ok: false,
+              code: 'too_many_records',
+              detail: `max_records_per_apply=${policy.max_records_per_apply}`,
+            };
+          }
           const validation = validateFilltableRecords(acceptedFromPreview, policy);
           const applyRejected = validation.rejected_records.slice();
           const appliedRecords = [];

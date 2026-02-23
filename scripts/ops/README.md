@@ -93,7 +93,7 @@ bash scripts/ops/run_0155_prompt_filltable_local.sh --real-ollama
 
 命令（真实 Ollama + 指定模型标签）：
 ```bash
-bash scripts/ops/run_0155_prompt_filltable_local.sh --real-ollama --llm-model qwen2.5:14b
+bash scripts/ops/run_0155_prompt_filltable_local.sh --real-ollama --llm-model mt-label
 ```
 
 PASS 判定：

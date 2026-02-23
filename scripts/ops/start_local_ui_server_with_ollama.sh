@@ -11,7 +11,9 @@ FOREGROUND=0
 LOG_FILE=""
 PID_FILE=""
 LLM_BASE_URL="${LLM_BASE_URL:-http://127.0.0.1:11434}"
-LLM_MODEL="${LLM_MODEL:-qwen2.5:32b}"
+LLM_MODEL="${LLM_MODEL:-mt-label}"
+LLM_TIMEOUT_MS="${LLM_TIMEOUT_MS:-120000}"
+LLM_MAX_TOKENS="${LLM_MAX_TOKENS:-512}"
 WORKER_BASE_WORKSPACE="${WORKER_BASE_WORKSPACE:-ws_llm_dispatch_0154}"
 WORKER_BASE_DATA_ROOT="${WORKER_BASE_DATA_ROOT:-}"
 
@@ -23,7 +25,9 @@ Usage:
 Options:
   --port <port>             Server port (default: 9012)
   --llm-base-url <url>      LLM endpoint base URL (default: http://127.0.0.1:11434)
-  --llm-model <name>        LLM model name (default: qwen2.5:32b)
+  --llm-model <name>        LLM model name (default: mt-label)
+  --llm-timeout-ms <ms>     LLM timeout in ms (default: 120000)
+  --llm-max-tokens <n>      LLM num_predict upper bound (default: 512)
   --run-baseline            Run scripts/ops/check_runtime_baseline.sh before start
   --force-kill-port         Kill existing listener on target port
   --foreground              Run in foreground
@@ -54,6 +58,14 @@ while [ $# -gt 0 ]; do
       ;;
     --llm-model)
       LLM_MODEL="${2:?missing value for --llm-model}"
+      shift 2
+      ;;
+    --llm-timeout-ms)
+      LLM_TIMEOUT_MS="${2:?missing value for --llm-timeout-ms}"
+      shift 2
+      ;;
+    --llm-max-tokens)
+      LLM_MAX_TOKENS="${2:?missing value for --llm-max-tokens}"
       shift 2
       ;;
     --run-baseline)
@@ -132,6 +144,8 @@ COMMON_ENV=(
   "DY_LLM_ENABLED=1"
   "DY_LLM_BASE_URL=$LLM_BASE_URL"
   "DY_LLM_MODEL=$LLM_MODEL"
+  "DY_LLM_TIMEOUT_MS=$LLM_TIMEOUT_MS"
+  "DY_LLM_MAX_TOKENS=$LLM_MAX_TOKENS"
   "NO_PROXY=*"
   "no_proxy=*"
 )
@@ -143,7 +157,7 @@ if [ -n "$WORKER_BASE_DATA_ROOT" ]; then
   COMMON_ENV+=("WORKER_BASE_DATA_ROOT=$WORKER_BASE_DATA_ROOT")
 fi
 
-echo "[start-llm] port=$PORT llm_base_url=$LLM_BASE_URL llm_model=$LLM_MODEL"
+echo "[start-llm] port=$PORT llm_base_url=$LLM_BASE_URL llm_model=$LLM_MODEL llm_timeout_ms=$LLM_TIMEOUT_MS llm_max_tokens=$LLM_MAX_TOKENS"
 
 cd "$ROOT_DIR"
 if [ "$FOREGROUND" -eq 1 ]; then
