@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { createMatrixLiveAdapter } = require('../packages/bus-mgmt/src/matrix_live.js');
+const { createMatrixLiveAdapter } = require('../packages/worker-base/src/matrix_live.js');
 const sdk = require('matrix-js-sdk');
 
 function requireEnv(keys) {

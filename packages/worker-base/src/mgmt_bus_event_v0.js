@@ -1,3 +1,5 @@
+'use strict';
+
 function isMgmtBusEventV0(event) {
   if (!event || typeof event !== 'object') return false;
   if (event.version !== 'v0') return false;
@@ -17,3 +19,4 @@ module.exports = {
   isMgmtBusEventV0,
   assertMgmtBusEventV0,
 };
+

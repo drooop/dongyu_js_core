@@ -4,7 +4,7 @@ import { WorkerEngineV0, loadSystemPatch } from './worker_engine_v0.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
-const { createMatrixLiveAdapter } = require('../packages/bus-mgmt/src/matrix_live.js');
+const { createMatrixLiveAdapter } = require('../packages/worker-base/src/matrix_live.js');
 
 function env(name, fallback = '') {
   return process.env[name] ? String(process.env[name]) : fallback;

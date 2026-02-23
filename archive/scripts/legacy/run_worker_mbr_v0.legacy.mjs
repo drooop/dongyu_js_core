@@ -11,7 +11,7 @@ if (process.env.MATRIX_MBR_BOT_USER && process.env.MATRIX_MBR_BOT_ACCESS_TOKEN) 
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
-const { createMatrixLiveAdapter } = require('../packages/bus-mgmt/src/matrix_live.js');
+const { createMatrixLiveAdapter } = require('../packages/worker-base/src/matrix_live.js');
 const mqtt = require('mqtt');
 
 function env(name, fallback = '') {

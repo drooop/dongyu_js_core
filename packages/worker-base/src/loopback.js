@@ -1,4 +1,6 @@
-const { assertMgmtBusEventV0 } = require('./adapter.js');
+'use strict';
+
+const { assertMgmtBusEventV0 } = require('./mgmt_bus_event_v0.js');
 
 function createLoopbackAdapter() {
   const listeners = new Set();
@@ -36,3 +38,4 @@ function createLoopbackAdapter() {
 module.exports = {
   createLoopbackAdapter,
 };
+
