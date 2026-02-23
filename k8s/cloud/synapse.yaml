@@ -28,6 +28,11 @@ data:
     signing_key_path: "/data/signing.key"
     enable_registration: false
     enable_registration_without_verification: false
+    # Default Synapse rate-limits are too strict for our dy.bus.v0 burst patterns
+    # (ui_event + snapshot_delta roundtrips). Tune up to avoid 429 drops/delays.
+    rc_message:
+      per_second: 10
+      burst_count: 50
   log.config: |
     version: 1
     formatters:

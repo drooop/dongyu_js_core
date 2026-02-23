@@ -127,9 +127,9 @@ patch_manifest "$REPO_DIR/k8s/cloud/workers.yaml" "$ROOM_ID" "$SERVER_PASSWORD"
 # Also patch mbr-update.yaml if it exists
 if [ -f "$REPO_DIR/k8s/cloud/mbr-update.yaml" ]; then
   local_tmp=$(mktemp)
-  sed -e "s|!fzuRnQYaDvsMJzwLMA:dongyu.local|$ROOM_ID|g" \
-      -e "s|syt_bWJy_ZNQdUjBCnGAwrrpOSYzs_2S0abU|$MBR_TOKEN|g" \
-      "$REPO_DIR/k8s/cloud/mbr-update.yaml" > "$local_tmp"
+	  sed -e "s|placeholder-roomid-update-after-synapse-setup|$ROOM_ID|g" \
+	      -e "s|placeholder-will-update-after-synapse-setup|$MBR_TOKEN|g" \
+	      "$REPO_DIR/k8s/cloud/mbr-update.yaml" > "$local_tmp"
   kubectl apply -f "$local_tmp"
   rm -f "$local_tmp"
 fi

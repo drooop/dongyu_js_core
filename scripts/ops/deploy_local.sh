@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy full stack to local Docker Desktop K8s cluster.
+# Deploy full stack to local K8s cluster (OrbStack / Docker Desktop).
 # Usage: bash scripts/ops/deploy_local.sh
 # Requires: deploy/env/local.env (copy from local.env.example)
 set -euo pipefail
@@ -22,16 +22,46 @@ echo ""
 # ── Pre-flight checks ────────────────────────────────────
 echo "=== Step 1: Pre-flight checks ==="
 
-if ! kubectl config use-context "${K8S_CONTEXT:-docker-desktop}" >/dev/null 2>&1; then
-  echo "ERROR: cannot switch to context ${K8S_CONTEXT:-docker-desktop}" >&2
-  exit 1
-fi
-echo "  kubectl context: ${K8S_CONTEXT:-docker-desktop}"
+CURRENT_CONTEXT="$(kubectl config current-context 2>/dev/null || true)"
+TARGET_CONTEXT="${K8S_CONTEXT:-${CURRENT_CONTEXT:-}}"
 
-if ! kubectl get nodes >/dev/null 2>&1; then
-  echo "ERROR: kubectl cannot reach cluster." >&2
+declare -a CONTEXT_CANDIDATES=()
+append_context_candidate() {
+  local candidate="$1"
+  [ -z "${candidate:-}" ] && return 0
+  for existing in "${CONTEXT_CANDIDATES[@]-}"; do
+    if [ "$existing" = "$candidate" ]; then
+      return 0
+    fi
+  done
+  CONTEXT_CANDIDATES+=("$candidate")
+}
+
+append_context_candidate "${K8S_CONTEXT:-}"
+append_context_candidate "$CURRENT_CONTEXT"
+while IFS= read -r ctx; do
+  append_context_candidate "$ctx"
+done < <(kubectl config get-contexts -o name 2>/dev/null || true)
+
+if [ "${#CONTEXT_CANDIDATES[@]}" -eq 0 ]; then
+  echo "ERROR: cannot determine kubectl context. Set K8S_CONTEXT or configure kubectl contexts." >&2
   exit 1
 fi
+
+TARGET_CONTEXT=""
+for ctx in "${CONTEXT_CANDIDATES[@]}"; do
+  if kubectl config use-context "$ctx" >/dev/null 2>&1 && kubectl get nodes >/dev/null 2>&1; then
+    TARGET_CONTEXT="$ctx"
+    break
+  fi
+done
+
+if [ -z "$TARGET_CONTEXT" ]; then
+  echo "ERROR: no reachable kubectl context found from candidates: ${CONTEXT_CANDIDATES[*]}" >&2
+  exit 1
+fi
+
+echo "  kubectl context: $TARGET_CONTEXT"
 echo "  kubectl: OK"
 
 if ! docker info >/dev/null 2>&1; then

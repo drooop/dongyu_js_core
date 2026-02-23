@@ -7,7 +7,7 @@ metadata:
 data:
   MATRIX_HOMESERVER_URL: "http://synapse.dongyu.svc.cluster.local:8008"
   MATRIX_MBR_BOT_USER: "@mbr:dongyu.local"
-  DY_MATRIX_ROOM_ID: "!fzuRnQYaDvsMJzwLMA:dongyu.local"
+  DY_MATRIX_ROOM_ID: "placeholder-roomid-update-after-synapse-setup"
   DY_MQTT_HOST: "emqx-emqx-enterprise.emqx.svc.cluster.local"
   DY_MQTT_PORT: "1883"
   DY_MQTT_USER: ""
@@ -21,4 +21,4 @@ metadata:
   namespace: dongyu
 type: Opaque
 stringData:
-  MATRIX_MBR_BOT_ACCESS_TOKEN: "syt_bWJy_ZNQdUjBCnGAwrrpOSYzs_2S0abU"
+  MATRIX_MBR_BOT_ACCESS_TOKEN: "placeholder-will-update-after-synapse-setup"
