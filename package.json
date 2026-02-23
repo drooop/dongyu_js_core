@@ -22,6 +22,7 @@
   "homepage": "https://github.com/drooop/dongyu_js_core#readme",
   "dependencies": {
     "adm-zip": "^0.5.16",
+    "ccusage": "^18.0.5",
     "dotenv": "^16.6.1",
     "katex": "^0.16.22",
     "matrix-js-sdk": "^37.6.0",
