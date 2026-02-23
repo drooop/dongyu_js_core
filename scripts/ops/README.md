@@ -152,3 +152,28 @@ node scripts/ops/obsidian_docs_audit.mjs --root docs
 脚本说明：
 - `obsidian_docs_migrate.mjs`：迁移脚本（默认 dry-run，`--apply` 才写文件）。
 - `obsidian_docs_audit.mjs`：审计脚本（frontmatter 完整度 + wikilink/残留 md 链接统计）。
+
+---
+
+## Obsidian Docs Pre-commit Gate（只审计）
+
+用途：
+- 在 commit 前阻断不合规文档进入仓库（只审计，不自动改写文件）。
+- 检查 `docs/` 与 `docs-shared/` 的 frontmatter 完整性与残留 `.md` 链接问题。
+
+默认行为：
+- `.githooks/pre-commit` 每次提交都会执行：
+```bash
+node scripts/ops/validate_obsidian_docs_gate.mjs
+```
+- `ft` 分支仍会继续执行 Fill-Table-Only staged 校验（原逻辑不变）。
+
+本地手动执行：
+```bash
+node scripts/ops/validate_obsidian_docs_gate.mjs
+```
+
+临时跳过（仅当前命令）：
+```bash
+SKIP_OBSIDIAN_DOCS_AUDIT=1 git commit -m "..."
+```
