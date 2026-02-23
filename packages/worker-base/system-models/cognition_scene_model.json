@@ -1,0 +1,29 @@
+{
+  "version": "mt.v0",
+  "op_id": "cognition_scene_model_v0",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": -12,
+      "name": "cognition_scene",
+      "type": "system"
+    },
+    {
+      "op": "add_label",
+      "model_id": -12,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "scene_context",
+      "t": "json",
+      "v": {
+        "current_app": 100,
+        "active_flow": null,
+        "flow_step": 0,
+        "recent_intents": [],
+        "last_action_result": null,
+        "session_vars": {}
+      }
+    }
+  ]
+}

@@ -383,6 +383,36 @@ function getEventError(runtime) {
   return label ? label.v : null;
 }
 
+function getActionLifecycle(runtime) {
+  const cell = getMailboxCell(runtime);
+  const label = cell.labels.get('action_lifecycle');
+  if (!label || label.t !== 'json' || !label.v || typeof label.v !== 'object' || Array.isArray(label.v)) {
+    return null;
+  }
+  return label.v;
+}
+
+function writeActionLifecycle(runtime, nextPatch) {
+  const model = runtime.getModel(EDITOR_MODEL_ID);
+  if (!model) return;
+  const current = getActionLifecycle(runtime);
+  const base = {
+    op_id: '',
+    action: '',
+    status: 'idle',
+    started_at: 0,
+    completed_at: null,
+    result: null,
+    confidence: 1,
+  };
+  const nextValue = {
+    ...base,
+    ...(current && typeof current === 'object' ? current : {}),
+    ...(nextPatch && typeof nextPatch === 'object' ? nextPatch : {}),
+  };
+  runtime.addLabel(model, 0, 0, 1, { k: 'action_lifecycle', t: 'json', v: nextValue });
+}
+
 function setMailboxEnvelope(runtime, envelopeOrNull) {
   const model = runtime.getModel(EDITOR_MODEL_ID);
   runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v: envelopeOrNull });
@@ -2226,6 +2256,16 @@ function createServerState(options) {
         const opId = payload && payload.meta && typeof payload.meta.op_id === 'string'
           ? payload.meta.op_id
           : '';
+        const startedAt = Date.now();
+        writeActionLifecycle(runtime, {
+          op_id: opId,
+          action,
+          status: 'executing',
+          started_at: startedAt,
+          completed_at: null,
+          result: null,
+          confidence: 1,
+        });
         runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
         runtime.addLabel(sysModel, 0, 0, 0, { k: 'mgmt_func_error', t: 'str', v: '' });
         runtime.intercepts.record('run_func', { func: dispatchFunc, payload });
@@ -2248,13 +2288,34 @@ function createServerState(options) {
         await programEngine.tick();
         const errValue = getEventError(runtime);
         if (errValue && typeof errValue === 'object') {
+          const errCode = typeof errValue.code === 'string' ? errValue.code : 'dispatch_error';
+          const errDetail = typeof errValue.detail === 'string' ? errValue.detail : '';
+          writeActionLifecycle(runtime, {
+            op_id: opId,
+            action,
+            status: 'failed',
+            completed_at: Date.now(),
+            result: {
+              code: errCode,
+              detail: errDetail,
+            },
+            confidence: 1,
+          });
           return {
             consumed: true,
             result: 'error',
-            code: String(errValue.code || 'dispatch_error'),
-            detail: String(errValue.detail || ''),
+            code: errCode,
+            detail: errDetail,
           };
         }
+        writeActionLifecycle(runtime, {
+          op_id: opId,
+          action,
+          status: 'completed',
+          completed_at: Date.now(),
+          result: { ok: true },
+          confidence: 1,
+        });
         return { consumed: true, result: 'ok' };
       }
 

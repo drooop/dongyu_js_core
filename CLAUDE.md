@@ -190,11 +190,18 @@ allocation rules (authoritative):
 
   Model -1       UI event mailbox. Cell(0,0,1) receives ui_event envelopes.
 
+  Model -3       login ui model. auth login form state/schema projection.
+                 reserved for login flow; do not reuse for cognition/system routing.
+
   Model -10      system functions. infrastructure logic expressed as function labels:
                  mgmt_send, mgmt_receive, intent_dispatch, mbr_route_*, mqtt config helpers.
                  all MBR/MGMT/intent capabilities live here as "filled table" entries.
 
-  Model -11..-99 reserved for future system services (monitoring, auth, workspace mgmt).
+  Model -12      cognition context model. scene_context and feedback-loop state carrier
+                 (0153: perception→cognition→decision→action→feedback).
+
+  Model -11..-99 reserved for future system services (monitoring, auth, workspace mgmt),
+                 except allocated ids above.
                  do not allocate without iteration.
 
   Model 1..99    reserved for framework/platform apps (settings, diagnostics, store).

@@ -1,0 +1,24 @@
+{
+  "version": "mt.v0",
+  "op_id": "cognition_lifecycle_model_v0",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": -1,
+      "p": 0,
+      "r": 0,
+      "c": 1,
+      "k": "action_lifecycle",
+      "t": "json",
+      "v": {
+        "op_id": "",
+        "action": "",
+        "status": "idle",
+        "started_at": 0,
+        "completed_at": null,
+        "result": null,
+        "confidence": 1
+      }
+    }
+  ]
+}
