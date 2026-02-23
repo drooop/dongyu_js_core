@@ -177,3 +177,18 @@ node scripts/ops/validate_obsidian_docs_gate.mjs
 ```bash
 SKIP_OBSIDIAN_DOCS_AUDIT=1 git commit -m "..."
 ```
+
+---
+
+## Obsidian Docs CI Gate（只审计）
+
+用途：
+- 在 CI 侧复用同一套审计规则，形成与 pre-commit 一致的双保险。
+
+工作流：
+- `.github/workflows/obsidian-docs-audit.yml`
+- 触发：`pull_request`，以及推送到 `dev/main`
+- 执行命令：
+```bash
+node scripts/ops/validate_obsidian_docs_gate.mjs
+```

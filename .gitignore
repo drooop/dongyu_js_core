@@ -63,6 +63,11 @@ AGENTS.md
 .sisyphus/
 .playwright-mcp/
 .github/
+!.github/
+.github/*
+!.github/workflows/
+!.github/workflows/*.yml
+!.github/workflows/*.yaml
 skills/
 
 # ── Project-specific ignores ──
