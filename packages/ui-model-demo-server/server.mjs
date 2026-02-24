@@ -550,6 +550,29 @@ function parseJsonObjectOrNull(value) {
   }
 }
 
+const LOCAL_EDITOR_ACTIONS = new Set([
+  'label_add',
+  'label_update',
+  'label_remove',
+  'cell_clear',
+  'submodel_create',
+  'datatable_refresh',
+  'datatable_select_row',
+  'datatable_edit_row',
+  'datatable_view_detail',
+  'datatable_remove_label',
+  'cellab_add_cellA',
+  'cellab_add_cellB',
+]);
+
+function shouldAttemptLlmIntentRouting(action) {
+  if (typeof action !== 'string' || !action.trim()) return false;
+  if (LOCAL_EDITOR_ACTIONS.has(action)) return false;
+  if (action.startsWith('datatable_')) return false;
+  if (action.startsWith('cellab_')) return false;
+  return true;
+}
+
 function mergeSceneContext(baseValue, patchValue) {
   const base = baseValue && typeof baseValue === 'object' && !Array.isArray(baseValue) ? baseValue : {};
   const patch = patchValue && typeof patchValue === 'object' && !Array.isArray(patchValue) ? patchValue : {};
@@ -3090,7 +3113,7 @@ function createServerState(options) {
         candidates: [],
       };
 
-      if (!resolvedFunc && action && dispatchEntries.length > 0 && sysModel) {
+      if (!resolvedFunc && action && dispatchEntries.length > 0 && sysModel && shouldAttemptLlmIntentRouting(action)) {
         const llmCfg = readLlmDispatchConfig(runtime);
         if (llmCfg.enabled && llmCfg.provider === 'ollama') {
           const sceneModel = runtime.getModel(-12);
