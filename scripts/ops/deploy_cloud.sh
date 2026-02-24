@@ -89,8 +89,26 @@ detect_source_revision() {
     printf '%s' "$DEPLOY_SOURCE_REV"
     return 0
   fi
+  if [ -n "$UI_IMAGE_TAR" ] && [ -f "$UI_IMAGE_TAR" ]; then
+    local tar_base tar_rev
+    tar_base="$(basename "$UI_IMAGE_TAR")"
+    if [[ "$tar_base" =~ ^dy-ui-server-([A-Za-z0-9._-]+)\.tar$ ]]; then
+      tar_rev="${BASH_REMATCH[1]}"
+    elif [[ "$tar_base" =~ ^(.+)\.tar$ ]]; then
+      tar_rev="${BASH_REMATCH[1]}"
+    else
+      tar_rev="$tar_base"
+    fi
+    tar_rev="$(printf '%s' "$tar_rev" | tr -c 'A-Za-z0-9._-' '-')"
+    tar_rev="${tar_rev#-}"
+    tar_rev="${tar_rev%-}"
+    if [ -n "$tar_rev" ]; then
+      printf '%s' "$tar_rev"
+      return 0
+    fi
+  fi
   echo "ERROR: cannot detect source revision (.git missing)." >&2
-  echo "Set DEPLOY_SOURCE_REV to an explicit source identifier." >&2
+  echo "Set DEPLOY_SOURCE_REV to an explicit source identifier or provide --image-tar." >&2
   return 1
 }
 
@@ -269,7 +287,14 @@ MBR_TOKEN=$(get_matrix_token "$MBR_USER" "$MBR_PASSWORD")
 echo "  MBR token: ${MBR_TOKEN:0:10}..."
 
 echo "  Creating DM room..."
-ROOM_ID=$(create_matrix_room_and_join "$SERVER_TOKEN" "$MBR_TOKEN")
+ROOM_ID_RAW="$(create_matrix_room_and_join "$SERVER_TOKEN" "$MBR_TOKEN")"
+ROOM_ID="$(extract_matrix_room_id "$ROOM_ID_RAW")"
+if ! is_valid_matrix_room_id "$ROOM_ID"; then
+  echo "ERROR: failed to parse valid room id from create_matrix_room_and_join output." >&2
+  echo "Raw output:" >&2
+  printf '%s\n' "$ROOM_ID_RAW" >&2
+  exit 1
+fi
 echo "  Room: $ROOM_ID"
 echo ""
 
@@ -314,10 +339,12 @@ patch_manifest "$REPO_DIR/k8s/cloud/workers.yaml" "$ROOM_ID" "$SERVER_PASSWORD"
 
 # Also patch mbr-update.yaml if it exists
 if [ -f "$REPO_DIR/k8s/cloud/mbr-update.yaml" ]; then
+  ROOM_ID_ESCAPED="$(escape_sed_replacement "$ROOM_ID")"
+  MBR_TOKEN_ESCAPED="$(escape_sed_replacement "$MBR_TOKEN")"
   local_tmp=$(mktemp)
-	  sed -e "s|placeholder-roomid-update-after-synapse-setup|$ROOM_ID|g" \
-	      -e "s|placeholder-will-update-after-synapse-setup|$MBR_TOKEN|g" \
-	      "$REPO_DIR/k8s/cloud/mbr-update.yaml" > "$local_tmp"
+  sed -e "s|placeholder-roomid-update-after-synapse-setup|$ROOM_ID_ESCAPED|g" \
+      -e "s|placeholder-will-update-after-synapse-setup|$MBR_TOKEN_ESCAPED|g" \
+      "$REPO_DIR/k8s/cloud/mbr-update.yaml" > "$local_tmp"
   kubectl apply -f "$local_tmp"
   rm -f "$local_tmp"
 fi

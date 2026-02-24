@@ -108,7 +108,14 @@ MBR_TOKEN=$(get_matrix_token "$MBR_USER" "$MBR_PASSWORD")
 echo "  MBR token: ${MBR_TOKEN:0:10}..."
 
 echo "  Creating DM room..."
-ROOM_ID=$(create_matrix_room_and_join "$SERVER_TOKEN" "$MBR_TOKEN")
+ROOM_ID_RAW="$(create_matrix_room_and_join "$SERVER_TOKEN" "$MBR_TOKEN")"
+ROOM_ID="$(extract_matrix_room_id "$ROOM_ID_RAW")"
+if ! is_valid_matrix_room_id "$ROOM_ID"; then
+  echo "ERROR: failed to parse valid room id from create_matrix_room_and_join output." >&2
+  echo "Raw output:" >&2
+  printf '%s\n' "$ROOM_ID_RAW" >&2
+  exit 1
+fi
 echo "  Room: $ROOM_ID"
 echo ""
 

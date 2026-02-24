@@ -142,9 +142,34 @@ try:
     print('joined', file=__import__('sys').stderr)
 except Exception as e:
     print('may already be joined:', e, file=__import__('sys').stderr)
-" 2>&1 >/dev/null || echo "  (may already be joined)" >&2
+" >/dev/null 2>&1 || echo "  (may already be joined)" >&2
 
   echo "$room_id"
+}
+
+# ── extract_matrix_room_id ───────────────────────────────
+# Usage: ROOM_ID=$(extract_matrix_room_id "$raw_output")
+extract_matrix_room_id() {
+  local raw="${1:-}"
+  printf '%s\n' "$raw" | grep -Eo '![^[:space:]]+:[^[:space:]]+' | tail -n 1
+}
+
+# ── is_valid_matrix_room_id ──────────────────────────────
+# Usage: is_valid_matrix_room_id "$room_id"
+is_valid_matrix_room_id() {
+  local room_id="${1:-}"
+  [[ "$room_id" =~ ^![^[:space:]]+:[^[:space:]]+$ ]]
+}
+
+# ── escape_sed_replacement ───────────────────────────────
+# Escapes a string for use as sed replacement with delimiter '|'.
+escape_sed_replacement() {
+  local value="${1:-}"
+  if [[ "$value" == *$'\n'* ]] || [[ "$value" == *$'\r'* ]]; then
+    echo "ERROR: multi-line value is not allowed in sed replacement." >&2
+    return 1
+  fi
+  printf '%s' "$value" | sed -e 's/[\\|&]/\\&/g'
 }
 
 # ── update_k8s_secrets ────────────────────────────────────
@@ -169,10 +194,17 @@ update_k8s_secrets() {
 # Replaces placeholder tokens and applies the manifest.
 patch_manifest() {
   local src="$1" room_id="$2" password="${3:-}"
+  if ! is_valid_matrix_room_id "$room_id"; then
+    echo "ERROR: invalid matrix room id for patching: $room_id" >&2
+    return 1
+  fi
+  local room_id_escaped password_escaped
+  room_id_escaped="$(escape_sed_replacement "$room_id")"
+  password_escaped="$(escape_sed_replacement "$password")"
   local tmp
   tmp=$(mktemp)
-  sed -e "s|placeholder-roomid-update-after-synapse-setup|$room_id|g" \
-      -e "s|placeholder-password-update-after-synapse-setup|${password}|g" \
+  sed -e "s|placeholder-roomid-update-after-synapse-setup|$room_id_escaped|g" \
+      -e "s|placeholder-password-update-after-synapse-setup|${password_escaped}|g" \
       "$src" > "$tmp"
   kubectl apply -f "$tmp"
   rm -f "$tmp"

@@ -93,6 +93,7 @@ echo ""
 
 cd "$REPO_DIR"
 docker build --no-cache \
+  --platform linux/amd64 \
   -f k8s/Dockerfile.ui-server \
   --label "org.opencontainers.image.revision=$SOURCE_REV" \
   -t "$IMAGE_TAG" .
@@ -121,7 +122,7 @@ fi
 
 echo "=== Trigger Remote Deploy ==="
 ssh -t "${SSH_USER}@${SSH_HOST}" \
-  "sudo bash ${REMOTE_REPO}/scripts/ops/deploy_cloud.sh --image-tar ${REMOTE_TAR}"
+  "sudo DEPLOY_SOURCE_REV=${SOURCE_REV} bash ${REMOTE_REPO}/scripts/ops/deploy_cloud.sh --image-tar ${REMOTE_TAR}"
 
 echo ""
 echo "=== Done ==="

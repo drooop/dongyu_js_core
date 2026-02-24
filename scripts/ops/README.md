@@ -61,6 +61,10 @@ sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud.sh
 sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud.sh --image-tar /tmp/dy-ui-server.tar
 ```
 
+说明：
+- 若远端工作目录不是 git clone（无 `.git`），脚本会优先从 `--image-tar` 文件名推断 `source revision`。
+- 若 tar 文件名不含 revision，可显式传入：`sudo DEPLOY_SOURCE_REV=<rev> bash ...`。
+
 ---
 
 ## Cloud Local-Build + Remote-Import（推荐）
@@ -78,7 +82,7 @@ bash scripts/ops/deploy_cloud_ui_server_from_local.sh \
 ```
 
 说明：
-- 脚本会本地 build/save，scp tar 到远端，并通过 `sudo deploy_cloud.sh --image-tar ...` 触发部署。
+- 脚本会本地 build/save，scp tar 到远端，并通过 `sudo DEPLOY_SOURCE_REV=<local_git_rev> deploy_cloud.sh --image-tar ...` 触发部署。
 - 默认会同步 gate 所需关键文件（deploy scripts + `k8s/cloud/workers.yaml` + `k8s/Dockerfile.ui-server` + `server.mjs` + `demo_modeltable.js` + `local_bus_adapter.js`），并对齐 shadow `workers.yaml`/`Dockerfile.ui-server`。
 
 PASS 判定：
