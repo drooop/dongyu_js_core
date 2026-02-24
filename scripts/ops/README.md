@@ -32,6 +32,61 @@ PASS 判定：
 
 ---
 
+## Cloud Deploy Source Integrity Gate（强制）
+
+用途：
+- 防止“远端部署成功但镜像仍含旧前端/旧服务代码”。
+- 将 cloud deploy 的构建源固定为 canonical 路径，并在 rollout 后校验容器内源码哈希。
+
+已接入脚本：
+- `scripts/ops/deploy_cloud.sh`
+
+Gate 内容：
+1. 单一构建源校验：`k8s/Dockerfile.ui-server` 为唯一基准。若存在 `Dockerfile.ui-server` 且哈希不一致，直接失败。
+2. Shadow manifest 漂移校验：若存在仓库根 `workers.yaml` 且与 `k8s/cloud/workers.yaml` 不一致，直接失败。
+3. 源码指纹采集：部署前记录以下文件 SHA256：
+   - `packages/ui-model-demo-server/server.mjs`
+   - `packages/ui-model-demo-frontend/src/demo_modeltable.js`
+   - `packages/ui-model-demo-frontend/src/local_bus_adapter.js`
+4. rollout 后容器源码验收：比较 pod 内同路径文件 SHA256，任一不一致即失败。
+5. Prompt UI Guard 验收：检查 pod 内前端代码存在 `llmPromptAvailable` 与 `txt_prompt_unavailable` marker。
+
+命令（远端 root）：
+```bash
+sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud.sh
+```
+
+命令（远端 root，使用预构建 tar）：
+```bash
+sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud.sh --image-tar /tmp/dy-ui-server.tar
+```
+
+---
+
+## Cloud Local-Build + Remote-Import（推荐）
+
+用途：
+- 本地构建镜像，远端只导入 tar + rollout，降低远端脏目录/旧文件影响。
+- 与 `deploy_cloud.sh --image-tar` 配合使用。
+
+命令：
+```bash
+bash scripts/ops/deploy_cloud_ui_server_from_local.sh \
+  --ssh-user wwpic \
+  --ssh-host 124.71.43.80 \
+  --remote-repo /home/wwpic/dongyuapp
+```
+
+说明：
+- 脚本会本地 build/save，scp tar 到远端，并通过 `sudo deploy_cloud.sh --image-tar ...` 触发部署。
+- 默认会同步 gate 所需关键文件（deploy scripts + `k8s/cloud/workers.yaml` + `k8s/Dockerfile.ui-server` + `server.mjs` + `demo_modeltable.js` + `local_bus_adapter.js`），并对齐 shadow `workers.yaml`/`Dockerfile.ui-server`。
+
+PASS 判定：
+- 远端 `ui-server` rollout 成功；
+- `deploy_cloud.sh` 的源码哈希 gate 与 Prompt UI guard gate 全部通过。
+
+---
+
 ## Model 100 Submit Roundtrip（一键）
 
 用途：
