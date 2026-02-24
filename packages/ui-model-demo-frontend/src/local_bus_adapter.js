@@ -339,7 +339,7 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       return fail(op_id, 'unsupported', 'docs_remote_only');
     }
 
-    if (action === 'static_project_list' || action === 'static_project_upload') {
+    if (action === 'static_project_list' || action === 'static_project_upload' || action === 'static_project_delete') {
       return fail(op_id, 'unsupported', 'static_remote_only');
     }
 

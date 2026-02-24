@@ -621,6 +621,8 @@ function dispatchEvent(node, target, payload, host, overrideType) {
       }
     } else if (action === 'submodel_create') {
       out.value = resolveRefsDeep(target.value_ref, snapshot);
+    } else if (target.value_ref !== undefined) {
+      out.value = resolveRefsDeep(target.value_ref, snapshot);
     }
 
     const envelope = normalizeEditorEvent(out);

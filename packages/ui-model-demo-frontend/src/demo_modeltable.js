@@ -286,6 +286,8 @@ export function buildEditorAstV1(snapshot) {
 
   const llmPromptText = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_text' }) ?? '');
   const llmPromptStatus = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_status' }) ?? '').trim();
+  const llmPromptAvailable = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_available' }) === true;
+  const llmPromptNotice = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_notice' }) ?? '').trim();
   const llmPromptPreview = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_preview_json' });
   const llmPromptPreviewId = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_preview_id' }) ?? '').trim();
   const llmPromptPreviewDigest = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_preview_digest' }) ?? '').trim();
@@ -1110,6 +1112,25 @@ export function buildEditorAstV1(snapshot) {
                       ],
                     },
                     { id: 'col_static_updated', type: 'TableColumn', props: { label: 'updated', prop: 'updated_at', minWidth: 180 } },
+                    {
+                      id: 'col_static_actions',
+                      type: 'TableColumn',
+                      props: { label: 'Actions', width: 120, fixed: 'right' },
+                      children: [
+                        {
+                          id: 'btn_static_delete_row',
+                          type: 'Button',
+                          props: { label: 'Delete', type: 'danger', link: true },
+                          bind: {
+                            write: {
+                              action: 'static_project_delete',
+                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_project_name' },
+                              value_ref: { t: 'str', v: { $ref: 'row.name' } },
+                            },
+                          },
+                        },
+                      ],
+                    },
                   ],
                 },
               ],
@@ -1143,6 +1164,13 @@ export function buildEditorAstV1(snapshot) {
                     text: '输入自然语言，先 Preview（仅校验不落库），再 Apply（执行 accepted 记录）。默认仅允许正数 model_id。',
                   },
                 },
+                (!llmPromptAvailable && llmPromptNotice)
+                  ? {
+                      id: 'txt_prompt_unavailable',
+                      type: 'Text',
+                      props: { type: 'warning', text: llmPromptNotice },
+                    }
+                  : null,
                 {
                   id: 'form_prompt',
                   type: 'Form',
@@ -1178,7 +1206,7 @@ export function buildEditorAstV1(snapshot) {
                           props: {
                             type: 'primary',
                             label: 'Preview',
-                            disabled: llmPromptText.trim().length === 0,
+                            disabled: !llmPromptAvailable || llmPromptText.trim().length === 0,
                             singleFlight: {
                               key: 'llm_filltable_preview',
                               releaseRef: { model_id: EDITOR_MODEL_ID, p: 0, r: 0, c: 1, k: 'ui_event_last_op_id' },
@@ -1195,7 +1223,7 @@ export function buildEditorAstV1(snapshot) {
                         {
                           id: 'btn_prompt_use_latest_preview_id',
                           type: 'Button',
-                          props: { label: 'Use Latest Preview ID', disabled: llmPromptPreviewId.length === 0 },
+                          props: { label: 'Use Latest Preview ID', disabled: !llmPromptAvailable || llmPromptPreviewId.length === 0 },
                           bind: {
                             write: {
                               action: 'label_update',
@@ -1210,7 +1238,7 @@ export function buildEditorAstV1(snapshot) {
                           props: {
                             type: 'success',
                             label: 'Apply',
-                            disabled: llmPromptApplyPreviewId.length === 0 || llmPreviewAcceptedCount === 0,
+                            disabled: !llmPromptAvailable || llmPromptApplyPreviewId.length === 0 || llmPreviewAcceptedCount === 0,
                             singleFlight: {
                               key: 'llm_filltable_apply',
                               releaseRef: { model_id: EDITOR_MODEL_ID, p: 0, r: 0, c: 1, k: 'ui_event_last_op_id' },
@@ -1255,7 +1283,7 @@ export function buildEditorAstV1(snapshot) {
                     },
                   ].filter(Boolean),
                 },
-              ],
+              ].filter(Boolean),
             },
             {
               id: 'card_prompt_preview_json',
@@ -2137,6 +2165,8 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_apply_result_json', t: 'json', v: {} });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_status', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_last_applied_preview_id', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_available', t: 'bool', v: false });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_notice', t: 'str', v: '当前暂不可用：仅远端模式支持 LLM。' });
 
   const snapshot = reactive(runtime.snapshot());
   const eventLog = [];

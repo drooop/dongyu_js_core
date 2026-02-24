@@ -273,6 +273,107 @@ function readLlmSceneConfig(runtime) {
   return normalizeLlmSceneConfig(labelValue);
 }
 
+function buildLlmUnavailableNotice(code, detail) {
+  const safeDetail = readAuthString(detail);
+  if (code === 'llm_disabled') {
+    return '当前暂不可用：LLM 功能已禁用。';
+  }
+  if (code === 'invalid_target' && safeDetail === 'empty_prompt') {
+    return '请输入 Prompt 后再执行。';
+  }
+  if (code === 'llm_unavailable') {
+    return '当前暂不可用：未连接到 LLM 服务。';
+  }
+  if (code === 'llm_timeout') {
+    return '当前暂不可用：LLM 请求超时。';
+  }
+  if (code === 'llm_http_error') {
+    return '当前暂不可用：LLM 服务返回异常。';
+  }
+  if (safeDetail) {
+    return `当前暂不可用：${safeDetail}`;
+  }
+  return '当前暂不可用：LLM 服务不可用。';
+}
+
+async function probeLlmPromptAvailability(runtime, options = {}) {
+  const timeoutMs = toIntInRange(options.timeoutMs, 2500, 500, 15000);
+  const cfg = readLlmDispatchConfig(runtime);
+  if (!cfg.enabled) {
+    return { available: false, code: 'llm_disabled', detail: 'llm_dispatch_disabled', cfg };
+  }
+  if (cfg.provider !== 'ollama') {
+    return { available: false, code: 'llm_unavailable', detail: `unsupported_provider:${cfg.provider}`, cfg };
+  }
+  const baseUrlRaw = readAuthString(cfg.base_url);
+  const modelRaw = readAuthString(cfg.model);
+  if (!baseUrlRaw) {
+    return { available: false, code: 'llm_unavailable', detail: 'missing_llm_base_url', cfg };
+  }
+  if (!modelRaw) {
+    return { available: false, code: 'llm_unavailable', detail: 'missing_llm_model', cfg };
+  }
+
+  const endpoint = `${baseUrlRaw.replace(/\/+$/, '')}/api/tags`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(new Error('llm_timeout')), timeoutMs);
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: { accept: 'application/json' },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      return { available: false, code: 'llm_http_error', detail: `status=${response.status}`, cfg };
+    }
+    let parsed = null;
+    try {
+      parsed = await response.json();
+    } catch (_) {
+      return { available: false, code: 'llm_bad_response', detail: 'llm_tags_not_json', cfg };
+    }
+    if (parsed && Array.isArray(parsed.models) && parsed.models.length > 0) {
+      const modelNames = parsed.models
+        .map((item) => {
+          if (!item || typeof item !== 'object') return '';
+          if (typeof item.model === 'string' && item.model.trim()) return item.model.trim();
+          if (typeof item.name === 'string' && item.name.trim()) return item.name.trim();
+          return '';
+        })
+        .filter(Boolean);
+      if (modelNames.length > 0) {
+        const exact = modelNames.some((name) => name === modelRaw);
+        const prefix = modelNames.some((name) => name.startsWith(`${modelRaw}:`));
+        if (!exact && !prefix) {
+          return { available: false, code: 'llm_unavailable', detail: `model_not_found:${modelRaw}`, cfg };
+        }
+      }
+    }
+    return { available: true, code: 'ok', detail: '', cfg };
+  } catch (err) {
+    const name = err && typeof err === 'object' && typeof err.name === 'string' ? err.name : '';
+    if (name === 'AbortError') {
+      return { available: false, code: 'llm_timeout', detail: `timeout_ms=${timeoutMs}`, cfg };
+    }
+    return {
+      available: false,
+      code: 'llm_unavailable',
+      detail: String(err && err.message ? err.message : err),
+      cfg,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function overwriteLlmPromptAvailabilityState(runtime, availability) {
+  const available = Boolean(availability && availability.available);
+  const code = availability && typeof availability.code === 'string' ? availability.code : 'llm_unavailable';
+  const detail = availability && typeof availability.detail === 'string' ? availability.detail : '';
+  overwriteStateLabel(runtime, 'llm_prompt_available', 'bool', available);
+  overwriteStateLabel(runtime, 'llm_prompt_notice', 'str', available ? '' : buildLlmUnavailableNotice(code, detail));
+}
+
 function readSystemPromptTemplate(runtime, key, fallback) {
   const sys = firstSystemModel(runtime);
   if (!sys) return fallback;
@@ -1312,17 +1413,12 @@ class ProgramModelEngine {
         model: modelRaw,
         prompt,
         stream: false,
+        think: false,
         options: {
           temperature,
           num_predict: maxTokens,
         },
       };
-      const thinkRaw = readAuthString(process.env.DY_LLM_THINK).toLowerCase();
-      if (!thinkRaw || thinkRaw === 'false' || thinkRaw === '0' || thinkRaw === 'off') {
-        body.think = false;
-      } else if (thinkRaw === 'true' || thinkRaw === '1' || thinkRaw === 'on') {
-        body.think = true;
-      }
       if (systemPrompt.trim()) {
         body.system = systemPrompt;
       }
@@ -1813,13 +1909,12 @@ class ProgramModelEngine {
             return { ok: false, code: 'invalid_target', detail: 'empty_prompt' };
           }
 
-          const llmCfg = readLlmDispatchConfig(this.runtime);
-          if (!llmCfg.enabled) {
-            return { ok: false, code: 'llm_disabled', detail: 'llm_dispatch_disabled' };
+          const availability = await probeLlmPromptAvailability(this.runtime);
+          overwriteLlmPromptAvailabilityState(this.runtime, availability);
+          if (!availability.available) {
+            return { ok: false, code: availability.code, detail: availability.detail };
           }
-          if (llmCfg.provider !== 'ollama') {
-            return { ok: false, code: 'llm_unavailable', detail: `unsupported_provider:${llmCfg.provider}` };
-          }
+          const llmCfg = availability.cfg;
 
           const policy = readFilltablePolicy(this.runtime);
           const schemaModel = firstSystemModel(this.runtime);
@@ -2432,6 +2527,8 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'llm_prompt_apply_result_json', 'json', {});
   ensureStateLabel(runtime, 'llm_prompt_status', 'str', '');
   ensureStateLabel(runtime, 'llm_prompt_last_applied_preview_id', 'str', '');
+  ensureStateLabel(runtime, 'llm_prompt_available', 'bool', false);
+  ensureStateLabel(runtime, 'llm_prompt_notice', 'str', '正在检测 LLM 服务...');
 
   const deriveWorkspaceRegistry = () => {
     const derived = [];
@@ -2535,6 +2632,8 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'llm_prompt_apply_result_json', 'json', {});
     overwriteStateLabel(runtime, 'llm_prompt_status', 'str', '');
     overwriteStateLabel(runtime, 'llm_prompt_last_applied_preview_id', 'str', '');
+    overwriteStateLabel(runtime, 'llm_prompt_available', 'bool', false);
+    overwriteStateLabel(runtime, 'llm_prompt_notice', 'str', '正在检测 LLM 服务...');
     overwriteStateLabel(runtime, 'static_upload_kind', 'str', 'zip');
     overwriteStateLabel(runtime, 'static_zip_b64', 'str', '');
     overwriteStateLabel(runtime, 'static_html_b64', 'str', '');
@@ -3025,7 +3124,14 @@ function createServerState(options) {
     } catch (_) {
       overwriteStateLabel(runtime, 'static_status', 'str', 'workspace catalog refresh failed');
     }
-  }
+    try {
+      const availability = await probeLlmPromptAvailability(runtime);
+      overwriteLlmPromptAvailabilityState(runtime, availability);
+    } catch (_) {
+      overwriteStateLabel(runtime, 'llm_prompt_available', 'bool', false);
+      overwriteStateLabel(runtime, 'llm_prompt_notice', 'str', '当前暂不可用：LLM 服务检测失败。');
+    }
+  };
 
   const editorEventLog = [];
   const adapter = createLocalBusAdapter({ runtime, eventLog: editorEventLog, mode: 'v1' });
@@ -3046,6 +3152,13 @@ function createServerState(options) {
       eventLogJson: '',
     });
   }
+
+  programEngineReady.then(() => {
+    updateDerived();
+    if (typeof programEngine.onSnapshotChanged === 'function') {
+      programEngine.onSnapshotChanged();
+    }
+  }).catch(() => {});
 
   function snapshot() {
     return runtime.snapshot();
