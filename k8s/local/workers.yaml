@@ -169,6 +169,8 @@ spec:
           value: "0"
         - name: NODE_TLS_REJECT_UNAUTHORIZED
           value: "0"
+        - name: DY_LLM_BASE_URL
+          value: "http://host.docker.internal:11434"
         - name: DY_PERSIST_ROOT
           value: /app/.dy_persist
         volumeMounts:
