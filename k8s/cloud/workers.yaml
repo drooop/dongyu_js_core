@@ -172,6 +172,8 @@ spec:
           value: "0"
         - name: NODE_TLS_REJECT_UNAUTHORIZED
           value: "0"
+        - name: DY_LLM_ENABLED
+          value: "0"
         - name: DY_PERSIST_ROOT
           value: /app/.dy_persist
         volumeMounts:
