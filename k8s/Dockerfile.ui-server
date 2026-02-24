@@ -7,7 +7,6 @@ COPY packages/worker-base/ ./packages/worker-base/
 COPY packages/ui-renderer/ ./packages/ui-renderer/
 COPY packages/ui-model-demo-server/ ./packages/ui-model-demo-server/
 COPY packages/ui-model-demo-frontend/ ./packages/ui-model-demo-frontend/
-COPY docs/ ./docs/
 
 # Frontend: install deps + build (isolated in subdirectory)
 RUN cd packages/ui-model-demo-frontend && bun install && bun run build
