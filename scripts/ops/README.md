@@ -9,6 +9,29 @@
 
 ---
 
+## Cloud Remote RKE2 Gate（强制前置）
+
+用途：
+- 在远端部署前强制校验目标环境仍是 `rke2`，避免误入 `k3s`/错误 socket/权限不满足场景。
+- 该 Gate 已接入 `scripts/ops/deploy_cloud.sh`，未通过时会直接中断部署。
+
+命令（手动预检）：
+```bash
+bash scripts/ops/remote_preflight_guard.sh
+```
+
+命令（只输出检测到的 containerd socket）：
+```bash
+bash scripts/ops/remote_preflight_guard.sh --print-socket
+```
+
+PASS 判定：
+- `kubectl get nodes` 可达且节点版本含 `+rke2`
+- `k3s` service 非 active
+- `ctr --address <socket> -n k8s.io version` 可连通
+
+---
+
 ## Model 100 Submit Roundtrip（一键）
 
 用途：

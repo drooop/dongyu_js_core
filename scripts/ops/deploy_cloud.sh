@@ -23,8 +23,8 @@ echo "=== Step 0: Load env ==="
 load_env "$REPO_DIR/deploy/env/cloud.env"
 export KUBECONFIG="${KUBECONFIG:-/etc/rancher/rke2/rke2.yaml}"
 CTR="${CTR:-/usr/local/bin/ctr}"
-CONTAINERD_SOCK="${CONTAINERD_SOCK:-/run/k3s/containerd/containerd.sock}"
 echo "  KUBECONFIG=$KUBECONFIG"
+echo "  CTR=$CTR"
 echo ""
 
 # ── Pre-flight checks ────────────────────────────────────
@@ -40,11 +40,14 @@ if [ ! -r "$KUBECONFIG" ]; then
   exit 1
 fi
 
-if [ ! -S "$CONTAINERD_SOCK" ]; then
-  echo "ERROR: containerd socket not found: $CONTAINERD_SOCK" >&2
-  echo "Is rke2 running? Check: systemctl status rke2-server" >&2
-  exit 1
+export CTR
+if [ -n "${CONTAINERD_SOCK:-}" ]; then
+  "$SCRIPT_DIR/remote_preflight_guard.sh" --expect-socket "$CONTAINERD_SOCK"
+else
+  CONTAINERD_SOCK="$("$SCRIPT_DIR/remote_preflight_guard.sh" --print-socket)"
 fi
+export CONTAINERD_SOCK
+echo "  containerd socket: $CONTAINERD_SOCK"
 
 if ! kubectl get nodes >/dev/null 2>&1; then
   echo "ERROR: kubectl cannot reach cluster." >&2
