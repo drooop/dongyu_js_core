@@ -1,0 +1,36 @@
+{
+  "version": "mt.v0",
+  "op_id": "intent_handlers_static_v0",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_static_project_list",
+      "t": "function",
+      "v": "var mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' });\nvar payload = mailbox && mailbox.payload ? mailbox.payload : {};\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar result = ctx.hostApi.staticListProjects();\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'static_project_list_failed';\n  ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: code, detail: detail });\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'static_status' }, 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar projects = result.data && Array.isArray(result.data.projects) ? result.data.projects : [];\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'static_projects_json' }, 'json', projects);\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'static_status' }, 'str', 'projects: ' + projects.length);"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_static_project_upload",
+      "t": "function",
+      "v": "var mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' });\nvar payload = mailbox && mailbox.payload ? mailbox.payload : {};\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar name = String(ctx.getState('static_project_name') != null ? ctx.getState('static_project_name') : '').trim();\nvar kind = String(ctx.getState('static_upload_kind') != null ? ctx.getState('static_upload_kind') : 'zip').trim();\nif (kind !== 'zip' && kind !== 'html') {\n  kind = 'zip';\n}\nvar zipB64 = String(ctx.getState('static_zip_b64') != null ? ctx.getState('static_zip_b64') : '').trim();\nvar htmlB64 = String(ctx.getState('static_html_b64') != null ? ctx.getState('static_html_b64') : '').trim();\nvar payloadB64 = kind === 'html' ? htmlB64 : zipB64;\nvar result = ctx.hostApi.staticUploadProject(name, kind, payloadB64);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'static_project_upload_failed';\n  ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: code, detail: detail });\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'static_status' }, 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nif (kind === 'zip') {\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'static_zip_b64' }, 'str', '');\n} else {\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'static_html_b64' }, 'str', '');\n}\nvar projects = result.data && Array.isArray(result.data.projects) ? result.data.projects : [];\nvar uploaded = result.data && typeof result.data.uploaded === 'string' ? result.data.uploaded : name;\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'static_projects_json' }, 'json', projects);\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'static_status' }, 'str', 'uploaded: ' + uploaded);"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_static_project_delete",
+      "t": "function",
+      "v": "var mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' });\nvar payload = mailbox && mailbox.payload ? mailbox.payload : {};\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar name = String(ctx.getState('static_project_name') != null ? ctx.getState('static_project_name') : '').trim();\nvar result = ctx.hostApi.staticDeleteProject(name);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'static_project_delete_failed';\n  ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: code, detail: detail });\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'static_status' }, 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar projects = result.data && Array.isArray(result.data.projects) ? result.data.projects : [];\nvar deleted = result.data && typeof result.data.deleted === 'string' ? result.data.deleted : name;\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'static_projects_json' }, 'json', projects);\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'static_status' }, 'str', 'deleted: ' + deleted);"
+    }
+  ]
+}

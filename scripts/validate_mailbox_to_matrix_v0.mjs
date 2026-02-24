@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
-const { createMatrixLiveAdapter } = require('../packages/bus-mgmt/src/matrix_live.js');
+const { createMatrixLiveAdapter } = require('../packages/worker-base/src/matrix_live.js');
 
 function assert(condition, message) {
   if (!condition) {

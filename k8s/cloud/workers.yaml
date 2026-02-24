@@ -53,14 +53,14 @@ metadata:
   name: mbr-worker-config
   namespace: dongyu
 data:
-  MATRIX_HOMESERVER_URL: "http://synapse.dongyu.svc.cluster.local:8008"
-  MATRIX_MBR_BOT_USER: "@mbr:dongyu.local"
-  DY_MATRIX_ROOM_ID: ""
-  DY_MQTT_HOST: "emqx-emqx-enterprise.emqx.svc.cluster.local"
-  DY_MQTT_PORT: "1883"
-  DY_MQTT_USER: ""
-  DY_MQTT_PASS: ""
-  NODE_TLS_REJECT_UNAUTHORIZED: "0"
+    MATRIX_HOMESERVER_URL: "http://synapse.dongyu.svc.cluster.local:8008"
+    MATRIX_MBR_BOT_USER: "@mbr:dongyu.local"
+    DY_MATRIX_ROOM_ID: "placeholder-roomid-update-after-synapse-setup"
+    DY_MQTT_HOST: "emqx-emqx-enterprise.emqx.svc.cluster.local"
+    DY_MQTT_PORT: "1883"
+    DY_MQTT_USER: ""
+    DY_MQTT_PASS: ""
+    NODE_TLS_REJECT_UNAUTHORIZED: "0"
 ---
 # MBR Worker Secret (cloud)
 apiVersion: v1
@@ -150,6 +150,8 @@ spec:
           value: "http://synapse.dongyu.svc.cluster.local:8008"
         - name: MATRIX_MBR_USER
           value: "@drop:dongyu.local"
+        - name: MATRIX_MBR_BOT_USER
+          value: "@mbr:dongyu.local"
         - name: MATRIX_MBR_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -159,15 +161,26 @@ spec:
           value: "placeholder-roomid-update-after-synapse-setup"
         - name: DY_MATRIX_DM_PEER_USER_ID
           value: "@mbr:dongyu.local"
+        - name: MATRIX_MBR_BOT_ACCESS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: mbr-worker-secret
+              key: MATRIX_MBR_BOT_ACCESS_TOKEN
         - name: SEED_POSITIVE_MODELS_ON_BOOT
-          value: "1"
+          value: "0"
         - name: DY_AUTH
           value: "0"
         - name: NODE_TLS_REJECT_UNAUTHORIZED
           value: "0"
+        - name: DOCS_ROOT
+          value: /app/.dy_docs
+        - name: STATIC_PROJECTS_ROOT
+          value: /app/.dy_static_projects
         volumeMounts:
         - name: static-data
           mountPath: /app/.dy_static_projects
+        - name: docs-data
+          mountPath: /app/.dy_docs
         resources:
           requests:
             memory: "256Mi"
@@ -177,22 +190,13 @@ spec:
             cpu: "500m"
       volumes:
       - name: static-data
-        persistentVolumeClaim:
-          claimName: ui-server-static-pvc
----
-# UI Server PVC for static projects
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: ui-server-static-pvc
-  namespace: dongyu
-spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
-  storageClassName: local-path
+        hostPath:
+          path: /home/wwpic/dongyu/volume/statics/static_projects
+          type: DirectoryOrCreate
+      - name: docs-data
+        hostPath:
+          path: /home/wwpic/dongyu/volume/statics/docs
+          type: DirectoryOrCreate
 ---
 # UI Server Service
 apiVersion: v1

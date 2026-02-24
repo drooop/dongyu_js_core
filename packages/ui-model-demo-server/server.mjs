@@ -24,18 +24,23 @@ import {
   loadHomeservers, addHomeserver, removeHomeserver,
   checkLoginRateLimit,
 } from './auth.mjs';
+import {
+  normalizeFilltablePolicy,
+  validateFilltableRecords,
+  buildFilltableDigest,
+  evaluateApplyPreviewGuard,
+} from './filltable_policy.mjs';
 
 const require = createRequire(import.meta.url);
 const { loadProgramModelFromSqlite } = require('../worker-base/src/program_model_loader.js');
 const { createSqlitePersister } = require('../worker-base/src/modeltable_persistence_sqlite.js');
 const { initDataModel } = require('../worker-base/src/data_models.js');
-const sdk = require('matrix-js-sdk');
+const { createMatrixLiveAdapter } = require('../worker-base/src/matrix_live.js');
 
 const EDITOR_MODEL_ID = -1;
 const EDITOR_STATE_MODEL_ID = -2;
 const LOGIN_MODEL_ID = -3;
 const TRACE_MODEL_ID = -100;
-
 // Monotonic sequence counter for trace events (module-level, survives across calls).
 let _traceSeq = 0;
 
@@ -82,6 +87,527 @@ function readIntEnv(name, fallback, minValue = 0) {
   const parsed = Number.parseInt(String(raw), 10);
   if (!Number.isFinite(parsed) || parsed < minValue) return fallback;
   return parsed;
+}
+
+function readAuthString(value) {
+  if (value === undefined || value === null) return '';
+  return String(value).trim();
+}
+
+function isPlaceholderValue(value) {
+  const v = readAuthString(value).toLowerCase();
+  if (!v) return true;
+  if (v.startsWith('placeholder')) return true;
+  return v.includes('placeholder-') || v.includes('will-update-after-synapse-setup');
+}
+
+function firstValidValue(...values) {
+  for (const value of values) {
+    const normalized = readAuthString(value);
+    if (!normalized) continue;
+    if (isPlaceholderValue(normalized)) continue;
+    return normalized;
+  }
+  return '';
+}
+
+function readPathEnv(name, fallback) {
+  const raw = process.env[name];
+  if (!raw) return path.resolve(fallback);
+  return path.resolve(String(raw));
+}
+
+const DEFAULT_LLM_DISPATCH_CONFIG = Object.freeze({
+  enabled: true,
+  provider: 'ollama',
+  base_url: 'http://127.0.0.1:11434',
+  model: 'mt-label',
+  fallback_model: 'mt-label',
+  timeout_ms: 120000,
+  confidence_threshold: 0.78,
+  max_candidates: 3,
+  temperature: 0.1,
+  max_tokens: 512,
+});
+
+const DEFAULT_LLM_SCENE_CONFIG = Object.freeze({
+  enabled: true,
+  timeout_ms: 8000,
+  max_recent_intents: 20,
+  temperature: 0.1,
+  max_tokens: 260,
+});
+
+const DEFAULT_LLM_INTENT_PROMPT_TEMPLATE = [
+  'You are an intent router for a ModelTable system.',
+  'Return JSON only. No markdown fences.',
+  'Input action: {{action}}',
+  'Allowed actions (must choose from this list): {{available_actions}}',
+  'Current scene context JSON: {{scene_context_json}}',
+  'Mailbox payload JSON: {{mailbox_payload_json}}',
+  'Output schema:',
+  '{',
+  '  "matched_action": "<string or empty>",',
+  '  "confidence": <0..1 number>,',
+  '  "reasoning": "<short string>",',
+  '  "candidates": ["<string>", "<string>"]',
+  '}',
+].join('\n');
+
+const DEFAULT_LLM_SCENE_PROMPT_TEMPLATE = [
+  'You are a scene context updater.',
+  'Return JSON only. No markdown fences.',
+  'Current scene context JSON: {{scene_context_json}}',
+  'Current action lifecycle JSON: {{action_lifecycle_json}}',
+  'Current action: {{action}}',
+  'Output schema:',
+  '{',
+  '  "current_app": <int or null>,',
+  '  "active_flow": "<string or null>",',
+  '  "flow_step": <int or null>,',
+  '  "session_vars_patch": { "key": "value" }',
+  '}',
+].join('\n');
+
+const DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE = [
+  'You are a strict ModelTable patch planner with a two-step confirmation workflow.',
+  'Return JSON only. No markdown fences.',
+  'User prompt: {{prompt_text}}',
+  'Policy JSON: {{policy_json}}',
+  'Allowed output schema JSON: {{output_schema_json}}',
+  'Available positive model ids JSON: {{available_model_ids_json}}',
+  'Rules:',
+  '- Output must be {"proposal":{...},"records":[...],"confidence":0..1,"reasoning":"..."}',
+  '- proposal must contain summary, operations, queries, requires_confirmation=true, confirmation_question',
+  '- operations are human-readable planned write actions',
+  '- queries are read/check requests and MUST NOT be converted into records',
+  '- records only support op=add_label/rm_label',
+  '- add_label requires model_id,p,r,c,k,t,v',
+  '- rm_label requires model_id,p,r,c,k',
+  '- max records is 10',
+  '- for query-only requests output records: [] and describe them in proposal.queries',
+  '- Never output explanation text outside JSON',
+].join('\n');
+
+function toFiniteNumber(value, fallback) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value.trim());
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function toIntInRange(value, fallback, minValue, maxValue) {
+  const num = Math.trunc(toFiniteNumber(value, fallback));
+  if (!Number.isFinite(num)) return fallback;
+  return Math.min(maxValue, Math.max(minValue, num));
+}
+
+function toUnitInterval(value, fallback) {
+  let num = toFiniteNumber(value, fallback);
+  if (!Number.isFinite(num)) return fallback;
+  if (num > 1 && num <= 100) {
+    num = num / 100;
+  }
+  if (num < 0) num = 0;
+  if (num > 1) num = 1;
+  return num;
+}
+
+function normalizeLlmDispatchConfig(value) {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const out = { ...DEFAULT_LLM_DISPATCH_CONFIG };
+  if (typeof raw.enabled === 'boolean') out.enabled = raw.enabled;
+  if (typeof raw.provider === 'string' && raw.provider.trim()) out.provider = raw.provider.trim();
+  if (typeof raw.base_url === 'string' && raw.base_url.trim()) out.base_url = raw.base_url.trim();
+  if (typeof raw.model === 'string' && raw.model.trim()) out.model = raw.model.trim();
+  if (typeof raw.fallback_model === 'string' && raw.fallback_model.trim()) out.fallback_model = raw.fallback_model.trim();
+  out.timeout_ms = toIntInRange(raw.timeout_ms, out.timeout_ms, 1000, 180000);
+  out.confidence_threshold = toUnitInterval(raw.confidence_threshold, out.confidence_threshold);
+  out.max_candidates = toIntInRange(raw.max_candidates, out.max_candidates, 1, 8);
+  out.temperature = toFiniteNumber(raw.temperature, out.temperature);
+  out.max_tokens = toIntInRange(raw.max_tokens, out.max_tokens, 32, 2048);
+  return out;
+}
+
+function normalizeLlmSceneConfig(value) {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const out = { ...DEFAULT_LLM_SCENE_CONFIG };
+  if (typeof raw.enabled === 'boolean') out.enabled = raw.enabled;
+  out.timeout_ms = toIntInRange(raw.timeout_ms, out.timeout_ms, 1000, 30000);
+  out.max_recent_intents = toIntInRange(raw.max_recent_intents, out.max_recent_intents, 1, 50);
+  out.temperature = toFiniteNumber(raw.temperature, out.temperature);
+  out.max_tokens = toIntInRange(raw.max_tokens, out.max_tokens, 32, 2048);
+  return out;
+}
+
+function readLlmDispatchConfig(runtime) {
+  const model0 = runtime.getModel(0);
+  const labelValue = model0 ? runtime.getLabelValue(model0, 0, 0, 0, 'llm_dispatch_config') : null;
+  const cfg = normalizeLlmDispatchConfig(labelValue);
+  if (readAuthString(process.env.DY_LLM_BASE_URL)) cfg.base_url = readAuthString(process.env.DY_LLM_BASE_URL);
+  if (readAuthString(process.env.DY_LLM_MODEL)) cfg.model = readAuthString(process.env.DY_LLM_MODEL);
+  if (readAuthString(process.env.DY_LLM_FALLBACK_MODEL)) cfg.fallback_model = readAuthString(process.env.DY_LLM_FALLBACK_MODEL);
+  if (readAuthString(process.env.DY_LLM_ENABLED)) {
+    cfg.enabled = readAuthString(process.env.DY_LLM_ENABLED) === '1' || readAuthString(process.env.DY_LLM_ENABLED).toLowerCase() === 'true';
+  }
+  if (readAuthString(process.env.DY_LLM_TIMEOUT_MS)) {
+    cfg.timeout_ms = toIntInRange(process.env.DY_LLM_TIMEOUT_MS, cfg.timeout_ms, 1000, 180000);
+  }
+  if (readAuthString(process.env.DY_LLM_CONFIDENCE_THRESHOLD)) {
+    cfg.confidence_threshold = toUnitInterval(process.env.DY_LLM_CONFIDENCE_THRESHOLD, cfg.confidence_threshold);
+  }
+  if (readAuthString(process.env.DY_LLM_MAX_TOKENS)) {
+    cfg.max_tokens = toIntInRange(process.env.DY_LLM_MAX_TOKENS, cfg.max_tokens, 32, 2048);
+  }
+  if (readAuthString(process.env.DY_LLM_TEMPERATURE)) {
+    cfg.temperature = toFiniteNumber(process.env.DY_LLM_TEMPERATURE, cfg.temperature);
+  }
+  return cfg;
+}
+
+function readLlmSceneConfig(runtime) {
+  const model0 = runtime.getModel(0);
+  const labelValue = model0 ? runtime.getLabelValue(model0, 0, 0, 0, 'llm_scene_config') : null;
+  return normalizeLlmSceneConfig(labelValue);
+}
+
+function readSystemPromptTemplate(runtime, key, fallback) {
+  const sys = firstSystemModel(runtime);
+  if (!sys) return fallback;
+  const value = runtime.getLabelValue(sys, 0, 0, 0, key);
+  if (typeof value === 'string' && value.trim().length > 0) return value;
+  return fallback;
+}
+
+function safeJsonStringify(value, fallback = '{}') {
+  try {
+    return JSON.stringify(value == null ? {} : value);
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function renderPromptTemplate(template, vars) {
+  const source = typeof template === 'string' && template.length > 0 ? template : '';
+  return source.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_, key) => {
+    if (!Object.prototype.hasOwnProperty.call(vars, key)) return '';
+    const v = vars[key];
+    return v == null ? '' : String(v);
+  });
+}
+
+function extractFirstJsonObject(rawText) {
+  if (typeof rawText !== 'string') return null;
+  const text = rawText.trim();
+  if (!text) return null;
+
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const content = fenced && fenced[1] ? fenced[1].trim() : text;
+
+  try {
+    return JSON.parse(content);
+  } catch (_) {
+    // continue
+  }
+
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < content.length; i += 1) {
+    const ch = content[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === '{') {
+      if (depth === 0) start = i;
+      depth += 1;
+    } else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        const candidate = content.slice(start, i + 1);
+        try {
+          return JSON.parse(candidate);
+        } catch (_) {
+          // keep scanning
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function normalizeCandidateList(input, allowedSet, maxCount) {
+  const arr = Array.isArray(input) ? input : [];
+  const out = [];
+  for (const item of arr) {
+    if (typeof item !== 'string') continue;
+    const action = item.trim();
+    if (!action || !allowedSet.has(action)) continue;
+    if (!out.includes(action)) out.push(action);
+    if (out.length >= maxCount) break;
+  }
+  return out;
+}
+
+function parseLlmIntentResult(rawText, allowedActions, maxCandidates) {
+  const allowedSet = new Set(Array.isArray(allowedActions) ? allowedActions : []);
+  const parsed = extractFirstJsonObject(rawText);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, code: 'llm_parse_failed', detail: 'intent_json_parse_failed' };
+  }
+
+  const matchedRaw = typeof parsed.matched_action === 'string' ? parsed.matched_action.trim() : '';
+  const matched = matchedRaw && allowedSet.has(matchedRaw) ? matchedRaw : '';
+  const confidence = toUnitInterval(parsed.confidence, 0);
+  const reasoning = typeof parsed.reasoning === 'string' ? parsed.reasoning.trim() : '';
+  const candidates = normalizeCandidateList(parsed.candidates, allowedSet, Math.max(1, maxCandidates));
+  if (matched && !candidates.includes(matched)) candidates.unshift(matched);
+
+  return {
+    ok: true,
+    matched_action: matched,
+    confidence,
+    reasoning: reasoning.slice(0, 600),
+    candidates: candidates.slice(0, Math.max(1, maxCandidates)),
+  };
+}
+
+function parseLlmFilltableResult(rawText) {
+  const parsed = extractFirstJsonObject(rawText);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, code: 'llm_parse_failed', detail: 'filltable_json_parse_failed' };
+  }
+  const records = Array.isArray(parsed.records) ? parsed.records : [];
+  const reasoning = typeof parsed.reasoning === 'string' ? parsed.reasoning.trim().slice(0, 1200) : '';
+  const confidence = toUnitInterval(parsed.confidence, 0);
+  const proposalRaw = parsed.proposal && typeof parsed.proposal === 'object' && !Array.isArray(parsed.proposal)
+    ? parsed.proposal
+    : {};
+  const proposal = {
+    summary: typeof proposalRaw.summary === 'string' ? proposalRaw.summary.trim().slice(0, 600) : '',
+    operations: Array.isArray(proposalRaw.operations) ? proposalRaw.operations.slice(0, 20) : [],
+    queries: Array.isArray(proposalRaw.queries) ? proposalRaw.queries.slice(0, 20) : [],
+    requires_confirmation: typeof proposalRaw.requires_confirmation === 'boolean' ? proposalRaw.requires_confirmation : true,
+    confirmation_question: typeof proposalRaw.confirmation_question === 'string'
+      ? proposalRaw.confirmation_question.trim().slice(0, 280)
+      : '',
+  };
+  return {
+    ok: true,
+    records,
+    reasoning,
+    confidence,
+    proposal,
+  };
+}
+
+function createFilltablePreviewId() {
+  const nonce = Math.random().toString(16).slice(2, 10);
+  return `pf_${Date.now()}_${nonce}`;
+}
+
+function readFilltablePolicy(runtime) {
+  const model0 = runtime.getModel(0);
+  const raw = model0 ? runtime.getLabelValue(model0, 0, 0, 0, 'llm_filltable_policy') : null;
+  return normalizeFilltablePolicy(raw);
+}
+
+function listPositiveModelIds(runtime, maxCount = 256) {
+  const ids = [];
+  const snap = runtime.snapshot();
+  const models = snap && snap.models ? snap.models : {};
+  for (const idText of Object.keys(models)) {
+    const mid = Number(idText);
+    if (!Number.isInteger(mid) || mid <= 0) continue;
+    ids.push(mid);
+    if (ids.length >= maxCount) break;
+  }
+  ids.sort((a, b) => a - b);
+  return ids;
+}
+
+function summarizeRecordForProposal(record) {
+  if (!record || typeof record !== 'object') return '';
+  const op = String(record.op || '').trim();
+  const modelId = Number.isInteger(record.model_id) ? record.model_id : '?';
+  const p = Number.isInteger(record.p) ? record.p : 0;
+  const r = Number.isInteger(record.r) ? record.r : 0;
+  const c = Number.isInteger(record.c) ? record.c : 0;
+  const key = typeof record.k === 'string' ? record.k : '';
+  if (op === 'add_label') {
+    const type = typeof record.t === 'string' ? record.t : '?';
+    return `add ${key}(${type}) to model ${modelId} cell(${p},${r},${c})`;
+  }
+  if (op === 'rm_label') {
+    return `remove ${key} from model ${modelId} cell(${p},${r},${c})`;
+  }
+  return `${op || 'unknown'} on model ${modelId} cell(${p},${r},${c})`;
+}
+
+function normalizeFilltableProposal(rawProposal, acceptedRecords, rejectedRecords) {
+  const proposal = rawProposal && typeof rawProposal === 'object' && !Array.isArray(rawProposal)
+    ? rawProposal
+    : {};
+  const accepted = Array.isArray(acceptedRecords) ? acceptedRecords : [];
+  const rejected = Array.isArray(rejectedRecords) ? rejectedRecords : [];
+  const operations = [];
+  const rawOperations = Array.isArray(proposal.operations) ? proposal.operations : [];
+  for (const item of rawOperations) {
+    if (operations.length >= 20) break;
+    if (typeof item === 'string' && item.trim()) {
+      operations.push({ summary: item.trim().slice(0, 280) });
+      continue;
+    }
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const summary = typeof item.summary === 'string' ? item.summary.trim().slice(0, 280) : '';
+    if (!summary) continue;
+    operations.push({
+      summary,
+      op: typeof item.op === 'string' ? item.op.trim() : undefined,
+      model_id: Number.isInteger(item.model_id) ? item.model_id : undefined,
+      p: Number.isInteger(item.p) ? item.p : undefined,
+      r: Number.isInteger(item.r) ? item.r : undefined,
+      c: Number.isInteger(item.c) ? item.c : undefined,
+      k: typeof item.k === 'string' ? item.k : undefined,
+      t: typeof item.t === 'string' ? item.t : undefined,
+    });
+  }
+  if (operations.length === 0) {
+    for (const record of accepted.slice(0, 10)) {
+      const summary = summarizeRecordForProposal(record);
+      if (!summary) continue;
+      operations.push({
+        summary,
+        op: record.op,
+        model_id: record.model_id,
+        p: record.p,
+        r: record.r,
+        c: record.c,
+        k: record.k,
+        t: record.t,
+      });
+    }
+  }
+
+  const queries = [];
+  const rawQueries = Array.isArray(proposal.queries) ? proposal.queries : [];
+  for (const item of rawQueries) {
+    if (queries.length >= 20) break;
+    if (typeof item === 'string' && item.trim()) {
+      queries.push({ summary: item.trim().slice(0, 280) });
+      continue;
+    }
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const summary = typeof item.summary === 'string' ? item.summary.trim().slice(0, 280) : '';
+    if (!summary) continue;
+    queries.push({
+      summary,
+      target: typeof item.target === 'string' ? item.target.trim().slice(0, 180) : undefined,
+    });
+  }
+
+  const acceptedCount = accepted.length;
+  const rejectedCount = rejected.length;
+  const defaultSummary = `planned writes=${acceptedCount}, rejected=${rejectedCount}, queries=${queries.length}`;
+  const summary = typeof proposal.summary === 'string' && proposal.summary.trim()
+    ? proposal.summary.trim().slice(0, 600)
+    : defaultSummary;
+  const confirmationQuestion = typeof proposal.confirmation_question === 'string' && proposal.confirmation_question.trim()
+    ? proposal.confirmation_question.trim().slice(0, 280)
+    : 'Please confirm apply for these label operations.';
+
+  return {
+    summary,
+    operations,
+    queries,
+    requires_confirmation: true,
+    confirmation_question: confirmationQuestion,
+  };
+}
+
+function parseJsonObjectOrNull(value) {
+  if (!value) return null;
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string') return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+const LOCAL_EDITOR_ACTIONS = new Set([
+  'label_add',
+  'label_update',
+  'label_remove',
+  'cell_clear',
+  'submodel_create',
+  'datatable_refresh',
+  'datatable_select_row',
+  'datatable_edit_row',
+  'datatable_view_detail',
+  'datatable_remove_label',
+  'cellab_add_cellA',
+  'cellab_add_cellB',
+]);
+
+function shouldAttemptLlmIntentRouting(action) {
+  if (typeof action !== 'string' || !action.trim()) return false;
+  if (LOCAL_EDITOR_ACTIONS.has(action)) return false;
+  if (action.startsWith('datatable_')) return false;
+  if (action.startsWith('cellab_')) return false;
+  return true;
+}
+
+function mergeSceneContext(baseValue, patchValue) {
+  const base = baseValue && typeof baseValue === 'object' && !Array.isArray(baseValue) ? baseValue : {};
+  const patch = patchValue && typeof patchValue === 'object' && !Array.isArray(patchValue) ? patchValue : {};
+  const merged = {
+    current_app: Number.isInteger(base.current_app) ? base.current_app : 100,
+    active_flow: typeof base.active_flow === 'string' ? base.active_flow : null,
+    flow_step: Number.isInteger(base.flow_step) ? base.flow_step : 0,
+    recent_intents: Array.isArray(base.recent_intents) ? base.recent_intents : [],
+    last_action_result: base.last_action_result || null,
+    session_vars: base.session_vars && typeof base.session_vars === 'object' && !Array.isArray(base.session_vars)
+      ? { ...base.session_vars }
+      : {},
+  };
+
+  if (Number.isInteger(patch.current_app) && patch.current_app > 0) {
+    merged.current_app = patch.current_app;
+  }
+  if (typeof patch.active_flow === 'string') {
+    merged.active_flow = patch.active_flow.slice(0, 120);
+  } else if (patch.active_flow === null) {
+    merged.active_flow = null;
+  }
+  if (Number.isInteger(patch.flow_step) && patch.flow_step >= 0) {
+    merged.flow_step = patch.flow_step;
+  }
+  const patchVars = patch.session_vars_patch && typeof patch.session_vars_patch === 'object' && !Array.isArray(patch.session_vars_patch)
+    ? patch.session_vars_patch
+    : null;
+  if (patchVars) {
+    for (const [k, v] of Object.entries(patchVars)) {
+      if (typeof k !== 'string' || !k.trim()) continue;
+      merged.session_vars[k] = v;
+    }
+  }
+  return merged;
 }
 
 function sleepMs(ms) {
@@ -164,8 +690,9 @@ function maybeEnsureFrontendBuild(distDir) {
   return { ok: fs.existsSync(indexPath), built: true };
 }
 
-const DOCS_ROOT = path.resolve(new URL('../../docs/', import.meta.url).pathname);
-const STATIC_PROJECTS_ROOT = path.resolve(process.cwd(), '.dy_static_projects');
+const DOCS_ROOT = readPathEnv('DOCS_ROOT', new URL('../../docs/', import.meta.url).pathname);
+const STATIC_PROJECTS_ROOT = readPathEnv('STATIC_PROJECTS_ROOT', path.resolve(process.cwd(), '.dy_static_projects'));
+const AUTH_ENABLED = process.env.DY_AUTH !== '0';
 
 function ensureDir(p) {
   if (!fs.existsSync(p)) {
@@ -176,11 +703,16 @@ function ensureDir(p) {
 function isAllowedDocRelPath(relPath) {
   const rel = String(relPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
   if (!rel.endsWith('.md')) return false;
-  // Docs UI MUST only expose this exact file.
-  return rel === 'user-guide/ui_binding_conversational.md';
+  return true;
 }
 
 function listMarkdownFiles(rootDir, allowFn) {
+  if (!rootDir || !fs.existsSync(rootDir)) return [];
+  try {
+    if (!fs.statSync(rootDir).isDirectory()) return [];
+  } catch (_) {
+    return [];
+  }
   const out = [];
   function walk(dirAbs, prefix) {
     const entries = fs.readdirSync(dirAbs, { withFileTypes: true });
@@ -303,6 +835,21 @@ function safeExtractZipToDir(zipBuffer, destDir) {
   }
 }
 
+function staticUploadCore(name, kind, buf) {
+  ensureDir(STATIC_PROJECTS_ROOT);
+  const dest = path.join(STATIC_PROJECTS_ROOT, name);
+  if (fs.existsSync(dest)) {
+    fs.rmSync(dest, { recursive: true, force: true });
+  }
+  ensureDir(dest);
+  if (kind === 'zip') {
+    safeExtractZipToDir(buf, dest);
+  } else {
+    fs.writeFileSync(path.join(dest, 'index.html'), buf);
+  }
+  return listStaticProjects();
+}
+
 function corsHeaders(req, originOverride) {
   if (!originOverride) {
     // Default: do NOT enable cross-origin reads/writes.
@@ -335,30 +882,81 @@ function getEventError(runtime) {
   return label ? label.v : null;
 }
 
+function getActionLifecycle(runtime) {
+  const cell = getMailboxCell(runtime);
+  const label = cell.labels.get('action_lifecycle');
+  if (!label || label.t !== 'json' || !label.v || typeof label.v !== 'object' || Array.isArray(label.v)) {
+    return null;
+  }
+  return label.v;
+}
+
+function writeActionLifecycle(runtime, nextPatch) {
+  const model = runtime.getModel(EDITOR_MODEL_ID);
+  if (!model) return;
+  const current = getActionLifecycle(runtime);
+  const base = {
+    op_id: '',
+    action: '',
+    status: 'idle',
+    started_at: 0,
+    completed_at: null,
+    result: null,
+    confidence: 1,
+    llm_used: false,
+    llm_model: null,
+    llm_reasoning: null,
+  };
+  const nextValue = {
+    ...base,
+    ...(current && typeof current === 'object' ? current : {}),
+    ...(nextPatch && typeof nextPatch === 'object' ? nextPatch : {}),
+  };
+  runtime.addLabel(model, 0, 0, 1, { k: 'action_lifecycle', t: 'json', v: nextValue });
+}
+
+async function maybeEnhanceSceneContextWithLlm(runtime, programEngine, options) {
+  const opts = options && typeof options === 'object' ? options : {};
+  const sceneCfg = readLlmSceneConfig(runtime);
+  if (!sceneCfg.enabled) return null;
+  if (!opts.llmUsed) return null;
+
+  const sceneModel = runtime.getModel(-12);
+  if (!sceneModel) return null;
+  const currentScene = runtime.getLabelValue(sceneModel, 0, 0, 0, 'scene_context');
+  if (!currentScene || typeof currentScene !== 'object' || Array.isArray(currentScene)) return null;
+
+  const lifecycle = getActionLifecycle(runtime) || {};
+  const promptTemplate = readSystemPromptTemplate(runtime, 'llm_scene_prompt_template', DEFAULT_LLM_SCENE_PROMPT_TEMPLATE);
+  const prompt = renderPromptTemplate(promptTemplate, {
+    scene_context_json: safeJsonStringify(currentScene),
+    action_lifecycle_json: safeJsonStringify(lifecycle),
+    action: typeof opts.action === 'string' ? opts.action : '',
+  });
+
+  const dispatchCfg = readLlmDispatchConfig(runtime);
+  const llmResult = await programEngine.llmInfer({
+    baseUrl: dispatchCfg.base_url,
+    model: dispatchCfg.model,
+    prompt,
+    timeoutMs: sceneCfg.timeout_ms,
+    temperature: sceneCfg.temperature,
+    maxTokens: sceneCfg.max_tokens,
+  });
+  if (!llmResult || llmResult.ok !== true) return llmResult || null;
+
+  const parsed = extractFirstJsonObject(llmResult.data && llmResult.data.response);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, code: 'llm_parse_failed', detail: 'scene_json_parse_failed' };
+  }
+  const merged = mergeSceneContext(currentScene, parsed);
+  runtime.addLabel(sceneModel, 0, 0, 0, { k: 'scene_context', t: 'json', v: merged });
+  return { ok: true, data: { model: llmResult.data && llmResult.data.model ? llmResult.data.model : dispatchCfg.model } };
+}
+
 function setMailboxEnvelope(runtime, envelopeOrNull) {
   const model = runtime.getModel(EDITOR_MODEL_ID);
   runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v: envelopeOrNull });
-}
-
-function isModel100SubmitPayload(payload) {
-  if (!payload || payload.action !== 'label_add') return false;
-  const target = payload.target || null;
-  if (!target || target.model_id !== 100 || target.p !== 0 || target.r !== 0 || target.c !== 2 || target.k !== 'ui_event') {
-    return false;
-  }
-  const value = payload.value || null;
-  const event = value && typeof value === 'object' && value.v && typeof value.v === 'object' ? value.v : null;
-  return Boolean(event && event.action === 'submit');
-}
-
-function setModel100SubmitState(runtime, options = {}) {
-  const model = runtime.getModel(100);
-  if (!model) return;
-  const inflight = options.inflight === true;
-  runtime.addLabel(model, 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: inflight });
-  if (typeof options.status === 'string' && options.status.length > 0) {
-    runtime.addLabel(model, 0, 0, 0, { k: 'status', t: 'str', v: options.status });
-  }
 }
 
 function buildSafeSnapshotJson(runtime) {
@@ -381,6 +979,16 @@ const EXCLUDED_LABEL_KEYS = new Set(['snapshot_json', 'event_log']);
 function buildClientSnapshot(runtime) {
   const snap = runtime.snapshot();
   if (!snap || !snap.models) return snap;
+  const model0 = runtime.getModel(0);
+  const filterConfig = model0
+    ? runtime.getLabelValue(model0, 0, 0, 0, 'snapshot_filter_config')
+    : null;
+  const excludeTypes = filterConfig && Array.isArray(filterConfig.exclude_label_types)
+    ? new Set(filterConfig.exclude_label_types)
+    : INTERNAL_LABEL_TYPES;
+  const excludeKeys = filterConfig && Array.isArray(filterConfig.exclude_label_keys)
+    ? new Set(filterConfig.exclude_label_keys)
+    : EXCLUDED_LABEL_KEYS;
   const models = {};
   for (const [id, model] of Object.entries(snap.models)) {
     const modelId = Number(id);
@@ -398,7 +1006,7 @@ function buildClientSnapshot(runtime) {
       for (const [ck, cell] of Object.entries(model.cells || {})) {
         const filteredLabels = {};
         for (const [lk, lv] of Object.entries(cell.labels || {})) {
-          if (INTERNAL_LABEL_TYPES.has(lv.t)) continue;
+          if (excludeTypes.has(lv.t)) continue;
           filteredLabels[lk] = lv;
         }
         filteredCells[ck] = { ...cell, labels: filteredLabels };
@@ -412,7 +1020,7 @@ function buildClientSnapshot(runtime) {
       for (const [ck, cell] of Object.entries(model.cells || {})) {
         const filteredLabels = {};
         for (const [lk, lv] of Object.entries(cell.labels || {})) {
-          if (EXCLUDED_LABEL_KEYS.has(lk)) continue;
+          if (excludeKeys.has(lk)) continue;
           filteredLabels[lk] = lv;
         }
         filteredCells[ck] = { ...cell, labels: filteredLabels };
@@ -443,6 +1051,59 @@ function ensureStateLabel(runtime, key, t, v) {
   }
 }
 
+function overwriteStateLabel(runtime, key, t, v) {
+  const model = runtime.getModel(EDITOR_STATE_MODEL_ID);
+  const cell = runtime.getCell(model, 0, 0, 0);
+  if (cell.labels.has(key)) {
+    runtime.rmLabel(model, 0, 0, 0, key);
+  }
+  runtime.addLabel(model, 0, 0, 0, { k: key, t, v });
+}
+
+function getMaxPositiveModelId(runtime) {
+  const snap = runtime.snapshot();
+  const models = snap && snap.models ? snap.models : {};
+  let maxModelId = 0;
+  for (const idText of Object.keys(models)) {
+    const mid = Number(idText);
+    if (Number.isInteger(mid) && mid > maxModelId) {
+      maxModelId = mid;
+    }
+  }
+  return maxModelId;
+}
+
+function resolveNextWorkspaceModelId(runtime) {
+  return Math.max(1001, getMaxPositiveModelId(runtime) + 1);
+}
+
+function resolveDefaultAppId(runtime, apps) {
+  const model0 = runtime.getModel(0);
+  const configDefault = model0
+    ? runtime.getLabelValue(model0, 0, 0, 0, 'workspace_default_app')
+    : null;
+  let preferred = 100;
+  if (Number.isInteger(configDefault)) {
+    preferred = configDefault;
+  } else {
+    const parsed = Number.parseInt(String(readAuthString(configDefault)), 10);
+    if (Number.isInteger(parsed)) preferred = parsed;
+  }
+  if (apps.some((app) => app && app.model_id === preferred)) return preferred;
+  const firstPositive = apps.find((app) => app && Number.isInteger(app.model_id) && app.model_id > 0);
+  return firstPositive ? firstPositive.model_id : (apps.length > 0 ? apps[0].model_id : 0);
+}
+
+function overwriteRuntimeLabel(runtime, modelId, p, r, c, key, t, v) {
+  const model = runtime.getModel(modelId);
+  if (!model) return;
+  const cell = runtime.getCell(model, p, r, c);
+  if (cell.labels.has(key)) {
+    runtime.rmLabel(model, p, r, c, key);
+  }
+  runtime.addLabel(model, p, r, c, { k: key, t, v });
+}
+
 function parseJsonMaybe(value) {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
@@ -469,38 +1130,6 @@ function loadEnvOnce() {
     // dotenv optional
   }
   envLoaded = true;
-}
-
-// Custom fetch that skips TLS certificate verification (for self-signed certs).
-// Bun supports `tls: { rejectUnauthorized: false }` as a fetch option.
-function insecureFetch(url, opts) {
-  return fetch(url, { ...opts, tls: { rejectUnauthorized: false } });
-}
-
-async function createMatrixClient() {
-  loadEnvOnce();
-  const homeserverUrl = process.env.MATRIX_HOMESERVER_URL;
-  if (!homeserverUrl) {
-    throw new Error('missing_matrix_homeserver_url');
-  }
-  const skipTls = homeserverUrl.startsWith('https:');
-  const fetchFn = skipTls ? insecureFetch : undefined;
-  const token = process.env.MATRIX_MBR_ACCESS_TOKEN;
-  if (token) {
-    const userId = process.env.MATRIX_MBR_USER || null;
-    return sdk.createClient({ baseUrl: homeserverUrl, accessToken: token, userId, fetchFn });
-  }
-  const user = process.env.MATRIX_MBR_USER;
-  const password = process.env.MATRIX_MBR_PASSWORD;
-  if (!user || !password) {
-    throw new Error('missing_matrix_credentials');
-  }
-  const tmp = sdk.createClient({ baseUrl: homeserverUrl, fetchFn });
-  const res = await tmp.login('m.login.password', {
-    identifier: { type: 'm.id.user', user },
-    password,
-  });
-  return sdk.createClient({ baseUrl: homeserverUrl, accessToken: res.access_token, userId: res.user_id, fetchFn });
 }
 
 function listSystemLabels(runtime, predicate) {
@@ -538,7 +1167,8 @@ class ProgramModelEngine {
     this.functions = new Map();
     this.interceptCursor = 0;
     this.eventCursor = 0;
-    this.matrixClient = null;
+    this.matrixAdapter = null;
+    this.matrixAdapterUnsub = null;
     this.matrixRoomId = null;
     this.matrixDmPeerUserId = null;
     this.started = false;
@@ -553,33 +1183,51 @@ class ProgramModelEngine {
     // Callback invoked when snapshot changes due to Matrix/external events.
     // Set by server to trigger SSE broadcast.
     this.onSnapshotChanged = null;
-
-    // Matrix outbound flow control.
-    // Keep Matrix sends serialized to avoid burst-triggered 429.
-    this.matrixSendQueue = Promise.resolve();
-    this.matrixSendQueueDepth = 0;
-    this.matrixSendNextAtMs = 0;
-    this.matrixMinSendIntervalMs = readIntEnv('DY_MATRIX_SEND_MIN_INTERVAL_MS', 550, 0);
-    this.matrixRetryMaxAttempts = readIntEnv('DY_MATRIX_SEND_RETRY_MAX_ATTEMPTS', 5, 1);
-    this.matrixRetryFallbackMs = readIntEnv('DY_MATRIX_SEND_RETRY_FALLBACK_MS', 1200, 1);
-    this.matrixRetryMaxBackoffMs = readIntEnv('DY_MATRIX_SEND_RETRY_MAX_BACKOFF_MS', 10000, 1);
   }
 
   async init() {
     this.refreshFunctionRegistry();
     const roomLabel = findSystemLabel(this.runtime, 'matrix_room_id');
-    this.matrixRoomId = process.env.DY_MATRIX_ROOM_ID || (roomLabel ? String(roomLabel.label.v || '') : '');
+    const configuredRoom = firstValidValue(
+      process.env.DY_MATRIX_ROOM_ID,
+      process.env.MATRIX_ROOM_ID,
+      roomLabel ? roomLabel.label.v : null,
+    );
+    this.matrixRoomId = configuredRoom;
     const peerLabel = findSystemLabel(this.runtime, 'matrix_dm_peer_user_id');
-    this.matrixDmPeerUserId = process.env.DY_MATRIX_DM_PEER_USER_ID || (peerLabel ? String(peerLabel.label.v || '') : '');
+    const configuredPeerUser = firstValidValue(
+      process.env.DY_MATRIX_DM_PEER_USER_ID,
+      process.env.MATRIX_DM_PEER_USER_ID,
+      peerLabel ? peerLabel.label.v : null,
+    );
+    this.matrixDmPeerUserId = configuredPeerUser;
     if (this.matrixRoomId) {
+      if (isPlaceholderValue(this.matrixDmPeerUserId)) {
+        console.warn('[ProgramModelEngine] DY_MATRIX_DM_PEER_USER_ID is placeholder, Matrix messages may be skipped.');
+      }
       try {
-        this.matrixClient = await createMatrixClient();
-        this.startMatrixListener();
-        console.log('[ProgramModelEngine] Matrix client connected, room:', this.matrixRoomId);
+        const syncTimeoutMs = readIntEnv('DY_MATRIX_SYNC_TIMEOUT_MS', 20000, 1000);
+        this.matrixAdapter = await createMatrixLiveAdapter({
+          roomId: this.matrixRoomId,
+          peerUserId: this.matrixDmPeerUserId || undefined,
+          syncTimeoutMs,
+        });
+        if (this.matrixAdapterUnsub) {
+          this.matrixAdapterUnsub();
+          this.matrixAdapterUnsub = null;
+        }
+        this.matrixAdapterUnsub = this.matrixAdapter.subscribe((content) => {
+          try {
+            this.handleDyBusEvent(content);
+          } catch (err) {
+            console.warn('[ProgramModelEngine] handleDyBusEvent failed:', err && err.message ? err.message : err);
+          }
+        });
+        console.log('[ProgramModelEngine] Matrix adapter connected, room:', this.matrixRoomId);
       } catch (err) {
         console.warn('[ProgramModelEngine] Matrix init failed (non-fatal):', err.message || err);
         console.warn('[ProgramModelEngine] Program engine will run without Matrix. UI events won\'t reach MBR/MQTT.');
-        this.matrixClient = null;
+        this.matrixAdapter = null;
       }
     } else {
       console.log('[ProgramModelEngine] No matrix_room_id configured, running without Matrix.');
@@ -616,78 +1264,6 @@ class ProgramModelEngine {
     return null;
   }
 
-  isMatrixRateLimited(err) {
-    if (!err || typeof err !== 'object') return false;
-    const code = err.errcode
-      || (err.data && err.data.errcode)
-      || (err.body && err.body.errcode)
-      || '';
-    const status = Number(err.httpStatus || err.statusCode || err.status || 0);
-    return code === 'M_LIMIT_EXCEEDED' || status === 429;
-  }
-
-  matrixRetryAfterMs(err) {
-    if (!err || typeof err !== 'object') return null;
-    const raw = (err.data && err.data.retry_after_ms)
-      || (err.body && err.body.retry_after_ms)
-      || err.retryAfterMs
-      || null;
-    if (raw == null) return null;
-    const parsed = Number.parseInt(String(raw), 10);
-    if (!Number.isFinite(parsed) || parsed < 0) return null;
-    return parsed;
-  }
-
-  async waitMatrixSendSlot() {
-    const now = Date.now();
-    if (this.matrixSendNextAtMs > now) {
-      await sleepMs(this.matrixSendNextAtMs - now);
-    }
-    const base = Math.max(Date.now(), this.matrixSendNextAtMs);
-    this.matrixSendNextAtMs = base + this.matrixMinSendIntervalMs;
-  }
-
-  enqueueMatrixSend(payload) {
-    this.matrixSendQueueDepth += 1;
-    const run = async () => {
-      try {
-        let attempt = 0;
-        while (attempt < this.matrixRetryMaxAttempts) {
-          attempt += 1;
-          await this.waitMatrixSendSlot();
-          try {
-            console.log(
-              `[sendMatrix] Sending to Matrix room=${this.matrixRoomId} attempt=${attempt}/${this.matrixRetryMaxAttempts} queue_depth=${this.matrixSendQueueDepth}`,
-            );
-            await this.matrixClient.sendEvent(this.matrixRoomId, 'dy.bus.v0', payload);
-            console.log(`[sendMatrix] SUCCESS: Message sent to Matrix (dy.bus.v0), attempt=${attempt}`);
-            return;
-          } catch (err) {
-            if (this.isMatrixRateLimited(err) && attempt < this.matrixRetryMaxAttempts) {
-              const retryFromServer = this.matrixRetryAfterMs(err);
-              const backoffMs = Math.min(
-                this.matrixRetryMaxBackoffMs,
-                Math.max(this.matrixRetryFallbackMs, retryFromServer || this.matrixRetryFallbackMs),
-              );
-              this.matrixSendNextAtMs = Math.max(this.matrixSendNextAtMs, Date.now() + backoffMs);
-              console.warn(
-                `[sendMatrix] RATE_LIMIT: retry attempt=${attempt} backoff_ms=${backoffMs} retry_after_ms=${retryFromServer == null ? 'n/a' : retryFromServer}`,
-              );
-              continue;
-            }
-            throw err;
-          }
-        }
-        throw new Error('matrix_send_retry_exhausted');
-      } finally {
-        this.matrixSendQueueDepth = Math.max(0, this.matrixSendQueueDepth - 1);
-      }
-    };
-    const task = this.matrixSendQueue.then(run, run);
-    this.matrixSendQueue = task.catch(() => {});
-    return task;
-  }
-
   async sendMatrix(payload) {
     console.log('[sendMatrix] CALLED with payload:', JSON.stringify(payload));
     emitTrace(this.runtime, {
@@ -697,7 +1273,7 @@ class ProgramModelEngine {
       summary: `type=${payload && payload.type ? payload.type : '?'}`,
       payload,
     });
-    if (!this.matrixClient || !this.matrixRoomId) {
+    if (!this.matrixAdapter || !this.matrixRoomId) {
       console.log('[sendMatrix] WARN: matrix_not_ready, skipping send');
       return null;
     }
@@ -705,57 +1281,101 @@ class ProgramModelEngine {
       console.log('[sendMatrix] WARN: matrix_dm_peer_user_id_required, skipping send');
       return null;
     }
-    await this.enqueueMatrixSend(payload);
+    await this.matrixAdapter.publish(payload);
   }
 
-  startMatrixListener() {
-    const client = this.matrixClient;
-    const roomId = this.matrixRoomId;
-    const peerUserId = this.matrixDmPeerUserId;
-    if (!client || !roomId) return;
-    client.on('Room.timeline', (event, room, toStartOfTimeline) => {
-      if (toStartOfTimeline) return;
-      if (!room || room.roomId !== roomId) return;
-      
-      const eventType = event.getType ? event.getType() : null;
-      
-      // DM-only: accept only messages from the configured peer.
-      if (peerUserId) {
-        const sender = event.getSender ? event.getSender() : null;
-        if (!sender || sender !== peerUserId) return;
-      }
+  async llmInfer(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const baseUrlRaw = typeof opts.baseUrl === 'string' ? opts.baseUrl.trim() : '';
+    const modelRaw = typeof opts.model === 'string' ? opts.model.trim() : '';
+    const prompt = typeof opts.prompt === 'string' ? opts.prompt : '';
+    const systemPrompt = typeof opts.systemPrompt === 'string' ? opts.systemPrompt : '';
+    const timeoutMs = toIntInRange(opts.timeoutMs, 10000, 1000, 180000);
+    const temperature = toFiniteNumber(opts.temperature, 0.1);
+    const maxTokens = toIntInRange(opts.maxTokens, 220, 32, 4096);
 
-      const content = event.getContent ? event.getContent() : null;
-      
-      // Handle dy.bus.v0 events (from MBR)
-      if (eventType === 'dy.bus.v0') {
-        if (!content || typeof content !== 'object') return;
-        console.log('[startMatrixListener] Received dy.bus.v0 event:', JSON.stringify(content).substring(0, 200));
-        this.handleDyBusEvent(content);
-        return;
+    if (!baseUrlRaw) {
+      return { ok: false, code: 'llm_unavailable', detail: 'missing_llm_base_url' };
+    }
+    if (!modelRaw) {
+      return { ok: false, code: 'llm_unavailable', detail: 'missing_llm_model' };
+    }
+    if (!prompt.trim()) {
+      return { ok: false, code: 'invalid_target', detail: 'empty_prompt' };
+    }
+
+    const endpoint = `${baseUrlRaw.replace(/\/+$/, '')}/api/generate`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(new Error('llm_timeout')), timeoutMs);
+    try {
+      const body = {
+        model: modelRaw,
+        prompt,
+        stream: false,
+        options: {
+          temperature,
+          num_predict: maxTokens,
+        },
+      };
+      const thinkRaw = readAuthString(process.env.DY_LLM_THINK).toLowerCase();
+      if (!thinkRaw || thinkRaw === 'false' || thinkRaw === '0' || thinkRaw === 'off') {
+        body.think = false;
+      } else if (thinkRaw === 'true' || thinkRaw === '1' || thinkRaw === 'on') {
+        body.think = true;
       }
-      
-      // Handle m.room.message events (legacy)
-      if (eventType !== 'm.room.message') return;
-      if (!content || typeof content.body !== 'string') return;
-      let payload = null;
+      if (systemPrompt.trim()) {
+        body.system = systemPrompt;
+      }
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        return {
+          ok: false,
+          code: 'llm_http_error',
+          detail: `status=${response.status}${text ? ` body=${text.slice(0, 300)}` : ''}`,
+        };
+      }
+      const text = await response.text();
+      let parsed;
       try {
-        payload = JSON.parse(content.body);
+        parsed = JSON.parse(text);
       } catch (_) {
-        return;
+        return { ok: false, code: 'llm_bad_response', detail: 'llm_response_not_json' };
       }
-      if (!payload || typeof payload.k !== 'string') return;
-      this.handleMgmtIncoming(payload);
-    });
-    client.startClient({ initialSyncLimit: 1 });
-  }
-
-  handleMgmtIncoming(payload) {
-    const model = firstSystemModel(this.runtime);
-    if (!model) return;
-    this.runtime.addLabel(model, 0, 0, 0, { k: 'mgmt_inbox', t: 'json', v: payload });
-    this.runtime.addLabel(model, 0, 0, 0, { k: 'run_mgmt_receive', t: 'str', v: '1' });
-    this.tick().catch(() => {});
+      const model = typeof parsed.model === 'string' && parsed.model.trim() ? parsed.model.trim() : modelRaw;
+      const responseText = typeof parsed.response === 'string'
+        ? parsed.response
+        : (parsed && parsed.message && typeof parsed.message.content === 'string' ? parsed.message.content : '');
+      if (!responseText.trim()) {
+        return { ok: false, code: 'llm_bad_response', detail: 'llm_empty_response' };
+      }
+      return {
+        ok: true,
+        data: {
+          model,
+          response: responseText,
+          eval_duration: Number.isFinite(parsed.eval_duration) ? parsed.eval_duration : null,
+          total_duration: Number.isFinite(parsed.total_duration) ? parsed.total_duration : null,
+        },
+      };
+    } catch (err) {
+      const name = err && typeof err === 'object' && typeof err.name === 'string' ? err.name : '';
+      if (name === 'AbortError') {
+        return { ok: false, code: 'llm_timeout', detail: `timeout_ms=${timeoutMs}` };
+      }
+      return {
+        ok: false,
+        code: 'llm_unavailable',
+        detail: String(err && err.message ? err.message : err),
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   handleDyBusEvent(content) {
@@ -864,6 +1484,11 @@ class ProgramModelEngine {
       }
       return;
     }
+
+    if (content.type === 'ui_event') {
+      // Echo of our own Matrix send — ignore in server return path.
+      return;
+    }
     
     console.log('[handleDyBusEvent] Unhandled event type:', content.type);
   }
@@ -965,19 +1590,420 @@ class ProgramModelEngine {
       mqttIncoming: (topic, payload) => this.runtime.mqttIncoming(topic, payload),
       startMqttLoop: () => this.runtime.startMqttLoop(),
       sendMatrix: (payload) => {
-        if (!this.matrixClient || !this.matrixRoomId || !this.matrixDmPeerUserId) {
+        if (!this.matrixAdapter || !this.matrixRoomId || !this.matrixDmPeerUserId) {
           return null;
         }
         return this.sendMatrix(payload);
+      },
+      hostApi: {
+        docsRefreshTree: () => {
+          const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
+          const tree = buildDocsTree(files);
+          return { ok: true, data: { tree, fileCount: files.length } };
+        },
+        docsSearch: (query, limit) => {
+          const maxResults = Number.isInteger(limit) && limit > 0 ? limit : 50;
+          const q = String(query ?? '').trim().toLowerCase();
+          if (!q) return { ok: true, data: { results: [] } };
+          const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
+          const results = [];
+          for (const f of files) {
+            if (results.length >= maxResults) break;
+            if (f.relPath.toLowerCase().includes(q)) {
+              results.push({ path: f.relPath, hit: 'name', snippet: '' });
+              continue;
+            }
+            let text = '';
+            try {
+              text = fs.readFileSync(f.absPath, 'utf8');
+            } catch (_) {
+              continue;
+            }
+            const idx = text.toLowerCase().indexOf(q);
+            if (idx >= 0) {
+              const start = Math.max(0, idx - 40);
+              const end = Math.min(text.length, idx + q.length + 60);
+              results.push({
+                path: f.relPath,
+                hit: 'content',
+                snippet: text.slice(start, end).replace(/\s+/g, ' ').trim(),
+              });
+            }
+          }
+          return { ok: true, data: { results } };
+        },
+        docsOpenDoc: (relPath) => {
+          const rel = String(relPath ?? '').replace(/\\/g, '/').replace(/^\/+/, '');
+          if (!isAllowedDocRelPath(rel)) {
+            return { ok: false, code: 'invalid_target', detail: 'doc_path_not_allowed' };
+          }
+          const abs = safeJoin(DOCS_ROOT, rel);
+          if (!abs) {
+            return { ok: false, code: 'invalid_target', detail: 'doc_path_invalid' };
+          }
+          if (!fs.existsSync(abs)) {
+            return { ok: false, code: 'invalid_target', detail: 'doc_not_found' };
+          }
+          try {
+            const md = fs.readFileSync(abs, 'utf8');
+            const html = String(getMarkdownProcessor().processSync(md));
+            return { ok: true, data: { html } };
+          } catch (err) {
+            return {
+              ok: false,
+              code: 'exception',
+              detail: String(err && err.message ? err.message : err),
+            };
+          }
+        },
+        staticListProjects: () => {
+          try {
+            const projects = listStaticProjects();
+            return { ok: true, data: { projects } };
+          } catch (err) {
+            return {
+              ok: false,
+              code: 'exception',
+              detail: String(err && err.message ? err.message : err),
+            };
+          }
+        },
+        staticUploadProject: (name, kind, b64data) => {
+          const projectName = String(name ?? '').trim();
+          if (!/^[a-zA-Z0-9._-]+$/.test(projectName)) {
+            return { ok: false, code: 'invalid_target', detail: 'invalid_project_name' };
+          }
+          const uploadKind = String(kind ?? 'zip').trim();
+          if (uploadKind !== 'zip' && uploadKind !== 'html') {
+            return { ok: false, code: 'invalid_target', detail: 'invalid_upload_kind' };
+          }
+          const rawB64 = String(b64data ?? '').trim();
+          if (uploadKind === 'zip') {
+            if (!rawB64) return { ok: false, code: 'invalid_target', detail: 'missing_zip_b64' };
+            if (rawB64.length > 8 * 1024 * 1024) {
+              return { ok: false, code: 'invalid_target', detail: 'zip_too_large' };
+            }
+          } else {
+            if (!rawB64) return { ok: false, code: 'invalid_target', detail: 'missing_html_b64' };
+            if (rawB64.length > 2 * 1024 * 1024) {
+              return { ok: false, code: 'invalid_target', detail: 'html_too_large' };
+            }
+          }
+          let buf;
+          try {
+            buf = Buffer.from(rawB64, 'base64');
+          } catch (_) {
+            return { ok: false, code: 'invalid_target', detail: 'invalid_base64' };
+          }
+          try {
+            const projects = staticUploadCore(projectName, uploadKind, buf);
+            return { ok: true, data: { projects, uploaded: projectName } };
+          } catch (err) {
+            return {
+              ok: false,
+              code: 'exception',
+              detail: String(err && err.message ? err.message : err),
+            };
+          }
+        },
+        staticDeleteProject: (name) => {
+          const projectName = String(name ?? '').trim();
+          if (!/^[a-zA-Z0-9._-]+$/.test(projectName)) {
+            return { ok: false, code: 'invalid_target', detail: 'invalid_project_name' };
+          }
+          const projectRoot = safeJoin(STATIC_PROJECTS_ROOT, projectName);
+          if (!projectRoot) {
+            return { ok: false, code: 'invalid_target', detail: 'invalid_project_name' };
+          }
+          if (!fs.existsSync(projectRoot) || !fs.statSync(projectRoot).isDirectory()) {
+            return { ok: false, code: 'invalid_target', detail: 'project_not_found' };
+          }
+          try {
+            fs.rmSync(projectRoot, { recursive: true, force: true });
+            const projects = listStaticProjects();
+            return { ok: true, data: { projects, deleted: projectName } };
+          } catch (err) {
+            return {
+              ok: false,
+              code: 'exception',
+              detail: String(err && err.message ? err.message : err),
+            };
+          }
+        },
+        wsSelectApp: (modelId) => {
+          let selected = null;
+          if (Number.isInteger(modelId)) {
+            selected = modelId;
+          } else if (typeof modelId === 'string' && /^-?\d+$/.test(modelId.trim())) {
+            selected = Number(modelId.trim());
+          }
+          if (!Number.isInteger(selected)) {
+            return { ok: false, code: 'invalid_target', detail: 'ws_app_selected must be int' };
+          }
+          return { ok: true, data: { selected } };
+        },
+        wsAddApp: (name) => {
+          const appName = String(name ?? '').trim();
+          if (!appName) {
+            return { ok: false, code: 'invalid_target', detail: 'empty_app_name' };
+          }
+          try {
+            const nextId = resolveNextWorkspaceModelId(this.runtime);
+            const model = this.runtime.createModel({ id: nextId, name: appName, type: 'sliding_ui' });
+            this.runtime.addLabel(model, 0, 0, 0, { k: 'app_name', t: 'str', v: appName });
+            this.runtime.addLabel(model, 0, 0, 0, { k: 'ws_deleted', t: 'bool', v: false });
+            return { ok: true, data: { model_id: nextId, name: appName } };
+          } catch (err) {
+            return {
+              ok: false,
+              code: 'exception',
+              detail: String(err && err.message ? err.message : err),
+            };
+          }
+        },
+        wsDeleteApp: (modelId) => {
+          let targetId = null;
+          if (Number.isInteger(modelId)) {
+            targetId = modelId;
+          } else if (typeof modelId === 'string' && /^-?\d+$/.test(modelId.trim())) {
+            targetId = Number(modelId.trim());
+          }
+          if (!Number.isInteger(targetId)) {
+            return { ok: false, code: 'invalid_target', detail: 'invalid_model_id' };
+          }
+          if (targetId < 100) {
+            return { ok: false, code: 'protected_model', detail: 'protected_model' };
+          }
+          const targetModel = this.runtime.getModel(targetId);
+          if (!targetModel) {
+            return { ok: false, code: 'invalid_target', detail: 'model_not_found' };
+          }
+          try {
+            this.runtime.rmLabel(targetModel, 0, 0, 0, 'app_name');
+            this.runtime.rmLabel(targetModel, 0, 0, 0, 'dual_bus_model');
+            this.runtime.addLabel(targetModel, 0, 0, 0, { k: 'ws_deleted', t: 'bool', v: true });
+            return { ok: true, data: { model_id: targetId } };
+          } catch (err) {
+            return {
+              ok: false,
+              code: 'exception',
+              detail: String(err && err.message ? err.message : err),
+            };
+          }
+        },
+        wsRefreshCatalog: () => {
+          if (typeof this._wsRefreshCatalog !== 'function') {
+            return { ok: false, code: 'invalid_target', detail: 'workspace_refresh_unavailable' };
+          }
+          try {
+            this._wsRefreshCatalog();
+            return { ok: true, data: { refreshed: true } };
+          } catch (err) {
+            return {
+              ok: false,
+              code: 'exception',
+              detail: String(err && err.message ? err.message : err),
+            };
+          }
+        },
+        llmFilltablePreview: async (input) => {
+          const inObj = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+          const promptText = typeof inObj.prompt === 'string' ? inObj.prompt.trim() : '';
+          if (!promptText) {
+            return { ok: false, code: 'invalid_target', detail: 'empty_prompt' };
+          }
+
+          const llmCfg = readLlmDispatchConfig(this.runtime);
+          if (!llmCfg.enabled) {
+            return { ok: false, code: 'llm_disabled', detail: 'llm_dispatch_disabled' };
+          }
+          if (llmCfg.provider !== 'ollama') {
+            return { ok: false, code: 'llm_unavailable', detail: `unsupported_provider:${llmCfg.provider}` };
+          }
+
+          const policy = readFilltablePolicy(this.runtime);
+          const schemaModel = firstSystemModel(this.runtime);
+          const outputSchema = schemaModel
+            ? this.runtime.getLabelValue(schemaModel, 0, 0, 0, 'llm_filltable_output_schema')
+            : null;
+          const promptTemplate = readSystemPromptTemplate(this.runtime, 'llm_filltable_prompt_template', DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE);
+          const llmPrompt = renderPromptTemplate(promptTemplate, {
+            prompt_text: promptText,
+            policy_json: safeJsonStringify(policy, '{}'),
+            output_schema_json: safeJsonStringify(outputSchema, '{}'),
+            available_model_ids_json: safeJsonStringify(listPositiveModelIds(this.runtime), '[]'),
+          });
+          const llmResult = await this.llmInfer({
+            baseUrl: llmCfg.base_url,
+            model: llmCfg.model,
+            prompt: llmPrompt,
+            timeoutMs: llmCfg.timeout_ms,
+            temperature: llmCfg.temperature,
+            maxTokens: llmCfg.max_tokens,
+          });
+          if (!llmResult || llmResult.ok !== true) {
+            return llmResult || { ok: false, code: 'llm_unavailable', detail: 'llm_unavailable' };
+          }
+
+          const parsed = parseLlmFilltableResult(llmResult.data && llmResult.data.response ? llmResult.data.response : '');
+          if (!parsed.ok) return parsed;
+          if (parsed.records.length > policy.max_records_per_apply) {
+            return {
+              ok: false,
+              code: 'too_many_records',
+              detail: `max_records_per_apply=${policy.max_records_per_apply}`,
+            };
+          }
+
+          const validation = validateFilltableRecords(parsed.records, policy);
+          const previewId = createFilltablePreviewId();
+          const previewDigest = buildFilltableDigest(validation.accepted_records);
+          const proposal = normalizeFilltableProposal(
+            parsed.proposal,
+            validation.accepted_records,
+            validation.rejected_records,
+          );
+
+          return {
+            ok: true,
+            data: {
+              preview_id: previewId,
+              preview_digest: previewDigest,
+              prompt: promptText,
+              proposal,
+              accepted_records: validation.accepted_records,
+              rejected_records: validation.rejected_records,
+              stats: validation.stats,
+              confidence: parsed.confidence,
+              reasoning: parsed.reasoning,
+              llm_used: true,
+              llm_model: llmResult.data && llmResult.data.model ? llmResult.data.model : llmCfg.model,
+              created_at: Date.now(),
+              policy,
+            },
+          };
+        },
+        llmFilltableApply: async (input) => {
+          const inObj = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+          const requestedPreviewId = typeof inObj.requested_preview_id === 'string'
+            ? inObj.requested_preview_id.trim()
+            : '';
+          const latestPreviewId = typeof inObj.latest_preview_id === 'string'
+            ? inObj.latest_preview_id.trim()
+            : '';
+          const lastAppliedPreviewId = typeof inObj.last_applied_preview_id === 'string'
+            ? inObj.last_applied_preview_id.trim()
+            : '';
+          const guard = evaluateApplyPreviewGuard({
+            requested_preview_id: requestedPreviewId,
+            latest_preview_id: latestPreviewId,
+            last_applied_preview_id: lastAppliedPreviewId,
+          });
+          if (!guard.ok) {
+            return { ok: false, code: guard.code, detail: guard.detail };
+          }
+
+          const previewPayload = parseJsonObjectOrNull(inObj.preview_payload) || {};
+          const acceptedFromPreview = Array.isArray(previewPayload.accepted_records) ? previewPayload.accepted_records : [];
+          if (acceptedFromPreview.length === 0) {
+            return { ok: false, code: 'nothing_to_apply', detail: 'no_accepted_records' };
+          }
+
+          const policy = readFilltablePolicy(this.runtime);
+          if (acceptedFromPreview.length > policy.max_records_per_apply) {
+            return {
+              ok: false,
+              code: 'too_many_records',
+              detail: `max_records_per_apply=${policy.max_records_per_apply}`,
+            };
+          }
+          const validation = validateFilltableRecords(acceptedFromPreview, policy);
+          const applyRejected = validation.rejected_records.slice();
+          const appliedRecords = [];
+
+          for (let i = 0; i < validation.accepted_records.length; i += 1) {
+            const record = validation.accepted_records[i];
+            const model = this.runtime.getModel(record.model_id);
+            if (!model) {
+              applyRejected.push({ index: i, code: 'model_not_found', detail: String(record.model_id), record });
+              continue;
+            }
+            try {
+              if (record.op === 'add_label') {
+                this.runtime.addLabel(model, record.p, record.r, record.c, {
+                  k: record.k,
+                  t: record.t,
+                  v: record.v,
+                });
+                appliedRecords.push(record);
+              } else if (record.op === 'rm_label') {
+                this.runtime.rmLabel(model, record.p, record.r, record.c, record.k);
+                appliedRecords.push(record);
+              }
+            } catch (err) {
+              applyRejected.push({
+                index: i,
+                code: 'runtime_error',
+                detail: String(err && err.message ? err.message : err),
+                record,
+              });
+            }
+          }
+
+          if (appliedRecords.length === 0) {
+            return {
+              ok: false,
+              code: 'apply_failed',
+              detail: 'no_record_applied',
+              data: {
+                requested_preview_id: requestedPreviewId,
+                preview_digest: buildFilltableDigest(validation.accepted_records),
+                applied_count: 0,
+                rejected_count: applyRejected.length,
+                rejected_records: applyRejected,
+                applied_at: Date.now(),
+              },
+            };
+          }
+
+          return {
+            ok: true,
+            data: {
+              requested_preview_id: requestedPreviewId,
+              preview_digest: buildFilltableDigest(validation.accepted_records),
+              applied_count: appliedRecords.length,
+              rejected_count: applyRejected.length,
+              applied_records: appliedRecords,
+              rejected_records: applyRejected,
+              applied_at: Date.now(),
+            },
+          };
+        },
+        llmInfer: async (prompt, options) => {
+          const dispatchCfg = readLlmDispatchConfig(this.runtime);
+          const opts = options && typeof options === 'object' ? options : {};
+          const systemPrompt = typeof opts.system_prompt === 'string'
+            ? opts.system_prompt
+            : (typeof opts.systemPrompt === 'string' ? opts.systemPrompt : '');
+          return this.llmInfer({
+            baseUrl: typeof opts.base_url === 'string' ? opts.base_url : dispatchCfg.base_url,
+            model: typeof opts.model === 'string' ? opts.model : dispatchCfg.model,
+            prompt: typeof prompt === 'string' ? prompt : String(prompt ?? ''),
+            systemPrompt,
+            timeoutMs: Number.isInteger(opts.timeout_ms) ? opts.timeout_ms : dispatchCfg.timeout_ms,
+            temperature: Number.isFinite(opts.temperature) ? opts.temperature : dispatchCfg.temperature,
+            maxTokens: Number.isInteger(opts.max_tokens) ? opts.max_tokens : dispatchCfg.max_tokens,
+          });
+        },
       },
     };
     try {
       const fn = new Function('ctx', code);
       return fn(ctx);
     } catch (err) {
-      const sys = listSystemLabels(this.runtime)[0];
+      const sys = firstSystemModel(this.runtime);
       if (sys) {
-        this.runtime.addLabel(sys.model, sys.cell.p, sys.cell.r, sys.cell.c, {
+        this.runtime.addLabel(sys, 0, 0, 0, {
           k: 'mgmt_func_error',
           t: 'str',
           v: String(err && err.message ? err.message : err),
@@ -1010,7 +2036,7 @@ class ProgramModelEngine {
       const event = events[this.eventCursor];
       if (event.op !== 'add_label') continue;
 
-      // UI event in mailbox -> trigger forward_ui_events function
+      // UI event in mailbox -> trigger mapped forward function(s)
       // Debug: log all ui_event labels being processed
       if (event.cell && event.label && event.label.k === 'ui_event') {
         console.log('[processEventsSnapshot] ui_event detected:', {
@@ -1024,14 +2050,36 @@ class ProgramModelEngine {
       if (event.cell && event.cell.model_id === EDITOR_MODEL_ID && 
           event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 1 &&
           event.label && event.label.k === 'ui_event' && event.label.v) {
-        // Check if forward_ui_events function exists
-        console.log('[processEventsSnapshot] ui_event MATCHED! Triggering forward_ui_events...');
+        console.log('[processEventsSnapshot] ui_event MATCHED! Resolving event_trigger_map...');
         const sys = firstSystemModel(this.runtime);
-        if (sys && sys.hasFunction('forward_ui_events')) {
-          console.log('[processEventsSnapshot] forward_ui_events function exists, recording intercept');
-          this.runtime.intercepts.record('run_func', { func: 'forward_ui_events' });
-        } else {
-          console.log('[processEventsSnapshot] WARNING: forward_ui_events function NOT found, sys=', !!sys);
+        const triggerMap = sys
+          ? this.runtime.getLabelValue(sys, 0, 0, 0, 'event_trigger_map')
+          : null;
+        const triggerCandidates = triggerMap && typeof triggerMap === 'object'
+          ? triggerMap[event.label.k]
+          : null;
+        const triggers = Array.isArray(triggerCandidates)
+          ? triggerCandidates.filter((name) => typeof name === 'string' && name.trim().length > 0)
+          : [];
+
+        let triggered = 0;
+        if (triggers.length > 0) {
+          for (const funcName of triggers) {
+            if (sys && sys.hasFunction(funcName)) {
+              this.runtime.intercepts.record('run_func', { func: funcName });
+              triggered += 1;
+            }
+          }
+        }
+
+        // Step 4 dual-track fallback: keep legacy trigger until Step 5-7 migration completes.
+        if (triggered === 0) {
+          if (sys && sys.hasFunction('forward_ui_events')) {
+            console.log('[processEventsSnapshot] event_trigger_map missing/empty, fallback to forward_ui_events');
+            this.runtime.intercepts.record('run_func', { func: 'forward_ui_events' });
+          } else {
+            console.log('[processEventsSnapshot] WARNING: no available ui_event trigger, sys=', !!sys);
+          }
         }
         continue;
       }
@@ -1192,6 +2240,21 @@ function loadSystemModelPatches(runtime, dirPath) {
   }
 }
 
+function loadFullModelPatches(runtime, dirPath, fileNames) {
+  if (!dirPath) return;
+  for (const fileName of fileNames) {
+    const filePath = path.join(dirPath, fileName);
+    if (!fs.existsSync(filePath)) continue;
+    const raw = fs.readFileSync(filePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    const patches = Array.isArray(parsed) ? parsed : [parsed];
+    for (const patch of patches) {
+      if (!patch || !Array.isArray(patch.records)) continue;
+      runtime.applyPatch(patch, { allowCreateModel: true });
+    }
+  }
+}
+
 function readModelTablePatchFromEnv() {
   loadEnvOnce();
   const raw = process.env.MODELTABLE_PATCH_JSON;
@@ -1208,6 +2271,14 @@ function currentTopic(runtime, pinName) {
   const prefix = config.topic_prefix || '';
   if (prefix) return `${prefix}/${pinName}`;
   return pinName;
+}
+
+function countPositiveModels(runtime) {
+  let count = 0;
+  for (const id of runtime.models.keys()) {
+    if (Number.isInteger(id) && id > 0) count += 1;
+  }
+  return count;
 }
 
 function createServerState(options) {
@@ -1276,6 +2347,16 @@ function createServerState(options) {
 
   const systemModelsDir = new URL('../worker-base/system-models/', import.meta.url).pathname;
   loadSystemModelPatches(runtime, systemModelsDir);
+  loadFullModelPatches(runtime, systemModelsDir, ['server_config.json']);
+  const positiveModelCountBeforeSeed = countPositiveModels(runtime);
+  if (positiveModelCountBeforeSeed === 0) {
+    loadFullModelPatches(runtime, systemModelsDir, [
+      'workspace_positive_models.json',
+      'test_model_100_ui.json',
+    ]);
+  } else {
+    console.log(`[createServerState] skip positive seed patches (existing_positive_models=${positiveModelCountBeforeSeed})`);
+  }
 
   const envPatch = readModelTablePatchFromEnv();
   if (envPatch) {
@@ -1338,148 +2419,61 @@ function createServerState(options) {
   // Workspace (sliding UI) state.
   ensureStateLabel(runtime, 'ws_app_selected', 'int', 0);
   ensureStateLabel(runtime, 'ws_app_next_id', 'int', 1001);
+  ensureStateLabel(runtime, 'ws_new_app_name', 'str', '');
+  ensureStateLabel(runtime, 'ws_delete_app_id', 'int', 0);
+  ensureStateLabel(runtime, 'ws_status', 'str', '');
 
-  const SEED_POSITIVE_MODELS_ON_BOOT = process.env.SEED_POSITIVE_MODELS_ON_BOOT === '1';
-  const MOCK_SLIDING_APPS = [
-    {
-      model_id: 100, name: 'E2E 颜色生成器', source: 'k8s-worker',
-      data: [],
-      schema: [
-        { k: '_title', t: 'str', v: 'Model 100 - 双总线 E2E 测试' },
-        { k: '_subtitle', t: 'str', v: 'Local UI → Matrix → MBR → MQTT → K8s Worker → MQTT → MBR → Matrix → Local UI' },
-        { k: '_field_order', t: 'json', v: ['bg_color_box', 'bg_color_text', 'input_value', 'submit', 'system_ready_text', 'status_text'] },
-        { k: 'bg_color_box', t: 'str', v: 'ColorBox' },
-        { k: 'bg_color_box__label', t: 'str', v: '当前颜色' },
-        { k: 'bg_color_box__props', t: 'json', v: { width: '120px', height: '80px', borderRadius: '12px' } },
-        { k: 'bg_color_box__bind', t: 'json', v: { read: { model_id: 100, p: 0, r: 0, c: 0, k: 'bg_color' } } },
-        { k: 'bg_color_text', t: 'str', v: 'Text' },
-        { k: 'bg_color_text__label', t: 'str', v: '颜色值' },
-        { k: 'bg_color_text__props', t: 'json', v: { style: { fontFamily: 'monospace', fontSize: '24px', fontWeight: 'bold' } } },
-        { k: 'bg_color_text__bind', t: 'json', v: { read: { model_id: 100, p: 0, r: 0, c: 0, k: 'bg_color' } } },
-        { k: 'input_value', t: 'str', v: 'Input' },
-        { k: 'input_value__label', t: 'str', v: '输入文本' },
-        { k: 'input_value__props', t: 'json', v: { placeholder: 'Enter any text (optional)' } },
-        { k: 'submit', t: 'str', v: 'Button' },
-        { k: 'submit__label', t: 'str', v: '' },
-        { k: 'submit__props', t: 'json', v: {
-          label: 'Generate Color',
-          type: 'primary',
-          size: 'large',
-          disabled: { $label: { model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight' } },
-          loading: { $label: { model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight' } },
-          singleFlight: {
-            key: 'model100_submit',
-            releaseRef: { model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight' },
-            releaseWhen: false,
-          },
-        } },
-        { k: 'submit__no_wrap', t: 'bool', v: true },
-        { k: 'submit__bind', t: 'json', v: {
-          write: {
-            action: 'label_add',
-            target_ref: { model_id: 100, p: 0, r: 0, c: 2, k: 'ui_event' },
-            value_ref: { t: 'json', v: { action: 'submit', input_value: '', meta: {} } },
-          },
-        } },
-        { k: 'system_ready_text', t: 'str', v: 'Text' },
-        { k: 'system_ready_text__label', t: 'str', v: 'MBR Ready' },
-        { k: 'system_ready_text__props', t: 'json', v: { style: { fontFamily: 'monospace', fontWeight: 'bold' } } },
-        { k: 'system_ready_text__bind', t: 'json', v: { read: { model_id: 100, p: 0, r: 0, c: 0, k: 'system_ready' } } },
-        { k: 'status_text', t: 'str', v: 'Text' },
-        { k: 'status_text__label', t: 'str', v: '颜色状态' },
-        { k: 'status_text__props', t: 'json', v: { style: { fontFamily: 'monospace' } } },
-        { k: 'status_text__bind', t: 'json', v: { read: { model_id: 100, p: 0, r: 0, c: 0, k: 'status' } } },
-      ],
-    },
-    {
-      model_id: 1001, name: '请假申请', source: 'worker-A',
-      data: [
-        { k: 'applicant', t: 'str', v: '' },
-        { k: 'leave_type', t: 'str', v: '' },
-        { k: 'days', t: 'int', v: 1 },
-        { k: 'reason', t: 'str', v: '' },
-      ],
-      schema: [
-        { k: '_title', t: 'str', v: '请假申请表' },
-        { k: '_field_order', t: 'json', v: ['applicant', 'leave_type', 'days', 'reason'] },
-        { k: 'applicant', t: 'str', v: 'Input' },
-        { k: 'applicant__label', t: 'str', v: '姓名' },
-        { k: 'applicant__props', t: 'json', v: { placeholder: '请输入姓名' } },
-        { k: 'leave_type', t: 'str', v: 'Select' },
-        { k: 'leave_type__label', t: 'str', v: '假别' },
-        { k: 'leave_type__opts', t: 'json', v: [
-          { label: '年假', value: 'annual' }, { label: '事假', value: 'personal' }, { label: '病假', value: 'sick' },
-        ] },
-        { k: 'days', t: 'str', v: 'NumberInput' },
-        { k: 'days__label', t: 'str', v: '天数' },
-        { k: 'days__props', t: 'json', v: { min: 1, max: 30 } },
-        { k: 'reason', t: 'str', v: 'Input' },
-        { k: 'reason__label', t: 'str', v: '事由' },
-        { k: 'reason__props', t: 'json', v: { type: 'textarea', rows: 3, placeholder: '请简要说明请假事由' } },
-      ],
-    },
-    {
-      model_id: 1002, name: '设备报修', source: 'worker-B',
-      data: [
-        { k: 'device_name', t: 'str', v: '' },
-        { k: 'location', t: 'str', v: '' },
-        { k: 'urgency', t: 'str', v: '' },
-        { k: 'description', t: 'str', v: '' },
-      ],
-      schema: [
-        { k: '_title', t: 'str', v: '设备报修单' },
-        { k: '_field_order', t: 'json', v: ['device_name', 'location', 'urgency', 'description'] },
-        { k: 'device_name', t: 'str', v: 'Input' },
-        { k: 'device_name__label', t: 'str', v: '设备名称' },
-        { k: 'device_name__props', t: 'json', v: { placeholder: '例：3号会议室投影仪' } },
-        { k: 'location', t: 'str', v: 'Input' },
-        { k: 'location__label', t: 'str', v: '位置' },
-        { k: 'location__props', t: 'json', v: { placeholder: '楼层/房间号' } },
-        { k: 'urgency', t: 'str', v: 'RadioGroup' },
-        { k: 'urgency__label', t: 'str', v: '紧急程度' },
-        { k: 'urgency__opts', t: 'json', v: [
-          { label: '低', value: 'low' }, { label: '中', value: 'medium' }, { label: '高', value: 'high' },
-        ] },
-        { k: 'description', t: 'str', v: 'Input' },
-        { k: 'description__label', t: 'str', v: '故障描述' },
-        { k: 'description__props', t: 'json', v: { type: 'textarea', rows: 4, placeholder: '请描述故障现象' } },
-      ],
-    },
-  ];
+  // Prompt FillTable page state.
+  ensureStateLabel(runtime, 'llm_prompt_text', 'str', '');
+  ensureStateLabel(runtime, 'llm_prompt_preview_json', 'json', {});
+  ensureStateLabel(runtime, 'llm_prompt_preview_id', 'str', '');
+  ensureStateLabel(runtime, 'llm_prompt_preview_digest', 'str', '');
+  ensureStateLabel(runtime, 'llm_prompt_apply_preview_id', 'str', '');
+  ensureStateLabel(runtime, 'llm_prompt_apply_result_json', 'json', {});
+  ensureStateLabel(runtime, 'llm_prompt_status', 'str', '');
+  ensureStateLabel(runtime, 'llm_prompt_last_applied_preview_id', 'str', '');
 
-  const wsRegistry = [];
-  if (SEED_POSITIVE_MODELS_ON_BOOT) {
-    for (const app of MOCK_SLIDING_APPS) {
-      if (!runtime.getModel(app.model_id)) {
-        runtime.createModel({ id: app.model_id, name: app.name, type: 'sliding_ui' });
+  const deriveWorkspaceRegistry = () => {
+    const derived = [];
+    const seen = new Set();
+    const excludedModelIds = new Set([
+      EDITOR_MODEL_ID,
+      EDITOR_STATE_MODEL_ID,
+      LOGIN_MODEL_ID,
+      -10, // system model (functions / mgmt), never a Workspace app
+      GALLERY_MAILBOX_MODEL_ID,
+      GALLERY_STATE_MODEL_ID,
+    ]);
+
+    const addOrReplace = (entry) => {
+      if (!entry || !Number.isInteger(entry.model_id)) return;
+      if (entry.model_id === 0) return;
+      if (excludedModelIds.has(entry.model_id)) return;
+      const existing = derived.find((item) => item.model_id === entry.model_id);
+      if (existing) {
+        Object.assign(existing, entry);
+        return;
       }
-      const m = runtime.getModel(app.model_id);
-      for (const label of app.data) {
-        runtime.addLabel(m, 0, 0, 0, label);
-      }
-      for (const label of app.schema) {
-        runtime.addLabel(m, 1, 0, 0, label);
-      }
-      runtime.addLabel(m, 0, 0, 0, { k: 'app_name', t: 'str', v: app.name });
-      runtime.addLabel(m, 0, 0, 0, { k: 'source_worker', t: 'str', v: app.source });
-      wsRegistry.push({ model_id: app.model_id, name: app.name, source: app.source });
-    }
-  }
-  // When seed is disabled (K8s default), derive workspace registry from existing
-  // positive models loaded from DB/patches so sidebar and right panel stay consistent.
-  if (wsRegistry.length === 0) {
+      derived.push(entry);
+      seen.add(entry.model_id);
+    };
+
     const snap = runtime.snapshot();
     const models = snap && snap.models ? snap.models : {};
-    const derived = [];
     for (const [idText, modelSnap] of Object.entries(models)) {
       const modelId = Number(idText);
-      if (!Number.isInteger(modelId) || modelId <= 0) continue;
+      if (!Number.isInteger(modelId) || modelId === 0) continue;
+      if (seen.has(modelId)) continue;
+      if (excludedModelIds.has(modelId)) continue;
       const rootLabels = modelSnap && modelSnap.cells && modelSnap.cells['0,0,0'] && modelSnap.cells['0,0,0'].labels
         ? modelSnap.cells['0,0,0'].labels
         : {};
-      const hasAppSignals = Boolean(
-        rootLabels.app_name || rootLabels.dual_bus_model || (modelSnap && modelSnap.cells && modelSnap.cells['1,0,0']),
-      );
+      if (rootLabels.ws_deleted && rootLabels.ws_deleted.v === true) continue;
+      // For positive models, accept either explicit app signals (app_name/dual_bus_model)
+      // or a schema cell (1,0,0). For negative models, only accept explicit app_name.
+      const hasAppSignals = modelId > 0
+        ? Boolean(rootLabels.app_name || rootLabels.dual_bus_model || (modelSnap && modelSnap.cells && modelSnap.cells['1,0,0']))
+        : Boolean(rootLabels.app_name);
       if (!hasAppSignals) continue;
       const name = rootLabels.app_name && typeof rootLabels.app_name.v === 'string' && rootLabels.app_name.v.trim()
         ? rootLabels.app_name.v
@@ -1489,11 +2483,109 @@ function createServerState(options) {
       const source = rootLabels.source_worker && typeof rootLabels.source_worker.v === 'string'
         ? rootLabels.source_worker.v
         : '';
-      derived.push({ model_id: modelId, name, source });
+      addOrReplace({ model_id: modelId, name, source });
     }
     derived.sort((a, b) => a.model_id - b.model_id);
-    wsRegistry.push(...derived);
-  }
+    return derived;
+  };
+
+  const normalizeIntState = (value, fallback) => {
+    if (Number.isInteger(value)) return value;
+    const str = readAuthString(value);
+    if (!str) return fallback;
+    const parsed = Number.parseInt(str, 10);
+    if (Number.isInteger(parsed)) return parsed;
+    return fallback;
+  };
+
+  const refreshWorkspaceStateCatalog = () => {
+    const apps = deriveWorkspaceRegistry();
+    const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+    overwriteStateLabel(runtime, 'ws_apps_registry', 'json', apps);
+
+    const defaultSelected = resolveDefaultAppId(runtime, apps);
+    const selected = normalizeIntState(runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'), defaultSelected);
+    const validSelected = apps.some((app) => app.model_id === selected) ? selected : defaultSelected;
+    overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validSelected));
+
+    overwriteStateLabel(runtime, 'ws_app_next_id', 'int', resolveNextWorkspaceModelId(runtime));
+  };
+
+  const sanitizeStartupCatalogState = () => {
+    overwriteStateLabel(runtime, 'docs_query', 'str', '');
+    overwriteStateLabel(runtime, 'docs_tree_json', 'json', []);
+    overwriteStateLabel(runtime, 'docs_search_results_json', 'json', []);
+    overwriteStateLabel(runtime, 'docs_selected_path', 'str', '');
+    overwriteStateLabel(runtime, 'docs_status', 'str', '');
+    overwriteStateLabel(runtime, 'docs_render_html', 'str', '');
+    overwriteStateLabel(runtime, 'static_project_name', 'str', '');
+    overwriteStateLabel(runtime, 'static_projects_json', 'json', []);
+    overwriteStateLabel(runtime, 'static_status', 'str', '');
+    overwriteStateLabel(runtime, 'ws_apps_registry', 'json', []);
+    overwriteStateLabel(runtime, 'ws_app_selected', 'int', 0);
+    overwriteStateLabel(runtime, 'ws_app_next_id', 'int', resolveNextWorkspaceModelId(runtime));
+    overwriteStateLabel(runtime, 'ws_new_app_name', 'str', '');
+    overwriteStateLabel(runtime, 'ws_delete_app_id', 'int', 0);
+    overwriteStateLabel(runtime, 'ws_status', 'str', '');
+    overwriteStateLabel(runtime, 'llm_prompt_text', 'str', '');
+    overwriteStateLabel(runtime, 'llm_prompt_preview_json', 'json', {});
+    overwriteStateLabel(runtime, 'llm_prompt_preview_id', 'str', '');
+    overwriteStateLabel(runtime, 'llm_prompt_preview_digest', 'str', '');
+    overwriteStateLabel(runtime, 'llm_prompt_apply_preview_id', 'str', '');
+    overwriteStateLabel(runtime, 'llm_prompt_apply_result_json', 'json', {});
+    overwriteStateLabel(runtime, 'llm_prompt_status', 'str', '');
+    overwriteStateLabel(runtime, 'llm_prompt_last_applied_preview_id', 'str', '');
+    overwriteStateLabel(runtime, 'static_upload_kind', 'str', 'zip');
+    overwriteStateLabel(runtime, 'static_zip_b64', 'str', '');
+    overwriteStateLabel(runtime, 'static_html_b64', 'str', '');
+    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 1, 'ui_event', 'event', null);
+    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 1, 'ui_event_last_op_id', 'str', '');
+    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 1, 'ui_event_error', 'json', null);
+    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 2, 'ui_event', 'event', null);
+
+    const snap = runtime.snapshot();
+    const models = snap && snap.models ? snap.models : {};
+    for (const idText of Object.keys(models)) {
+      const modelId = Number(idText);
+      if (!Number.isInteger(modelId) || modelId < 0) continue;
+      const model = runtime.getModel(modelId);
+      if (!model) continue;
+      overwriteRuntimeLabel(runtime, modelId, 0, 0, 2, 'ui_event', 'event', null);
+      overwriteRuntimeLabel(runtime, modelId, 0, 0, 2, 'ui_event_last_op_id', 'str', '');
+      overwriteRuntimeLabel(runtime, modelId, 0, 0, 2, 'ui_event_error', 'json', null);
+    }
+  };
+
+  const clearAndValidateWorkspaceSelection = () => {
+    const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+    if (!stateModel) return;
+    const apps = deriveWorkspaceRegistry();
+    const selected = runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected');
+    const fallbackModelId = resolveDefaultAppId(runtime, apps);
+    const selectedId = Number.isInteger(selected) ? selected : Number.parseInt(String(readAuthString(selected)), 10);
+    if (!apps.some((app) => app.model_id === Number(selectedId))) {
+      overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(fallbackModelId));
+    }
+    overwriteStateLabel(runtime, 'ws_app_next_id', 'int', resolveNextWorkspaceModelId(runtime));
+  };
+
+  const resetStaticCatalogStateFromFilesystem = () => {
+    overwriteStateLabel(runtime, 'static_status', 'str', '');
+    overwriteStateLabel(runtime, 'static_projects_json', 'json', []);
+    overwriteStateLabel(runtime, 'static_upload_kind', 'str', 'zip');
+    overwriteStateLabel(runtime, 'static_zip_b64', 'str', '');
+    overwriteStateLabel(runtime, 'static_html_b64', 'str', '');
+    overwriteStateLabel(runtime, 'ws_apps_registry', 'json', []);
+    overwriteStateLabel(runtime, 'ws_app_selected', 'int', 0);
+    overwriteStateLabel(runtime, 'ws_app_next_id', 'int', resolveNextWorkspaceModelId(runtime));
+    overwriteStateLabel(runtime, 'ws_status', 'str', '');
+    try {
+      overwriteStateLabel(runtime, 'static_projects_json', 'json', listStaticProjects());
+    } catch (_) {
+      overwriteStateLabel(runtime, 'static_status', 'str', 'static list failed');
+    }
+  };
+
   const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
   // ---------------------------------------------------------------------------
   // Bus Trace model (CircularBuffer data model, model_id = TRACE_MODEL_ID)
@@ -1833,8 +2925,6 @@ function createServerState(options) {
   });
   runtime.addMailboxTrigger(traceModel, 0, 0, 2, 'clear_trace');
 
-  runtime.addLabel(stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: wsRegistry });
-
   // Gallery model defaults (so the models are non-empty and discoverable).
   try {
     const galleryState = runtime.getModel(GALLERY_STATE_MODEL_ID);
@@ -1895,23 +2985,56 @@ function createServerState(options) {
   }
 
   // Preload docs index and static projects list for first paint.
-  try {
-    const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
-    runtime.addLabel(runtime.getModel(EDITOR_STATE_MODEL_ID), 0, 0, 0, { k: 'docs_tree_json', t: 'json', v: buildDocsTree(files) });
-    runtime.addLabel(runtime.getModel(EDITOR_STATE_MODEL_ID), 0, 0, 0, { k: 'docs_status', t: 'str', v: `docs indexed: ${files.length}` });
-  } catch (_) {
-    runtime.addLabel(runtime.getModel(EDITOR_STATE_MODEL_ID), 0, 0, 0, { k: 'docs_status', t: 'str', v: 'docs index failed' });
-  }
-  try {
-    runtime.addLabel(runtime.getModel(EDITOR_STATE_MODEL_ID), 0, 0, 0, { k: 'static_projects_json', t: 'json', v: listStaticProjects() });
-  } catch (_) {
-    runtime.addLabel(runtime.getModel(EDITOR_STATE_MODEL_ID), 0, 0, 0, { k: 'static_status', t: 'str', v: 'static list failed' });
+  const refreshStartupCatalogState = () => {
+    try {
+      const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
+      overwriteStateLabel(runtime, 'docs_tree_json', 'json', buildDocsTree(files));
+      overwriteStateLabel(runtime, 'docs_status', 'str', `docs indexed: ${files.length}`);
+    } catch (_) {
+      overwriteStateLabel(runtime, 'docs_status', 'str', 'docs index failed');
+    }
+    try {
+      overwriteStateLabel(runtime, 'static_projects_json', 'json', listStaticProjects());
+    } catch (_) {
+      overwriteStateLabel(runtime, 'static_status', 'str', 'static list failed');
+    }
+  };
+  sanitizeStartupCatalogState();
+  resetStaticCatalogStateFromFilesystem();
+  clearAndValidateWorkspaceSelection();
+  refreshWorkspaceStateCatalog();
+  refreshStartupCatalogState();
+
+  const clearAndRefreshAfterRuntimeBoot = async () => {
+    try {
+      const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+      if (stateModel) {
+        // Ensure file-backed catalogs are treated as "source of truth"
+        // even if runtime persistence contains legacy data.
+        const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
+        overwriteStateLabel(runtime, 'docs_tree_json', 'json', buildDocsTree(files));
+        overwriteStateLabel(runtime, 'docs_status', 'str', `docs indexed: ${files.length}`);
+        overwriteStateLabel(runtime, 'static_projects_json', 'json', listStaticProjects());
+        overwriteStateLabel(runtime, 'static_status', 'str', '');
+      }
+    } catch (_) {
+      overwriteStateLabel(runtime, 'static_status', 'str', 'static list failed');
+    }
+    try {
+      refreshWorkspaceStateCatalog();
+    } catch (_) {
+      overwriteStateLabel(runtime, 'static_status', 'str', 'workspace catalog refresh failed');
+    }
   }
 
   const editorEventLog = [];
   const adapter = createLocalBusAdapter({ runtime, eventLog: editorEventLog, mode: 'v1' });
   const programEngine = new ProgramModelEngine(runtime);
-  programEngine.init().then(() => programEngine.tick()).catch(() => {});
+  programEngine._wsRefreshCatalog = refreshWorkspaceStateCatalog;
+  const programEngineReady = programEngine.init()
+    .then(() => programEngine.tick())
+    .then(() => clearAndRefreshAfterRuntimeBoot())
+    .catch(() => {});
 
   function updateDerived() {
     const uiAst = buildEditorAstV1(runtime.snapshot());
@@ -1936,9 +3059,10 @@ function createServerState(options) {
     const envelope = envelopeOrNull;
     const payload = envelope && envelope.payload ? envelope.payload : null;
     const action = payload && typeof payload.action === 'string' ? payload.action : '';
-    const meta = payload && payload.meta ? payload.meta : null;
-    const opId = meta && typeof meta.op_id === 'string' ? meta.op_id : '';
-    const isModel100Submit = isModel100SubmitPayload(payload);
+
+    if (envelopeOrNull) {
+      await programEngineReady;
+    }
 
     if (envelopeOrNull) {
       const ep = envelopeOrNull.payload || envelopeOrNull;
@@ -1951,185 +3075,224 @@ function createServerState(options) {
       });
     }
 
-    if (isModel100Submit) {
-      const model100 = runtime.getModel(100);
-      const inflight = model100 ? runtime.getLabelValue(model100, 0, 0, 0, 'submit_inflight') === true : false;
-      if (inflight) {
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: { op_id: opId, code: 'busy', detail: 'model100_submit_inflight' } });
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
-        updateDerived();
-        await programEngine.tick();
-        return { consumed: true, result: 'error', code: 'busy', detail: 'model100_submit_inflight' };
-      }
-      setModel100SubmitState(runtime, { inflight: true, status: 'loading' });
-      // Do not write ui_event directly here. The adapter consumes mailbox and writes
-      // target labels once; writing again would duplicate forward_model100_events.
-    }
-
     setMailboxEnvelope(runtime, envelopeOrNull);
     
-    // Trigger forward_ui_events BEFORE any action processing clears the mailbox
+    // Trigger mapped forward function(s) BEFORE any action processing clears the mailbox
     // This gives the function a chance to forward the event to Matrix
     if (envelopeOrNull) {
       await programEngine.tick();
     }
     
     try {
+      const sysModel = firstSystemModel(runtime);
+      const dispatchTable = sysModel
+        ? runtime.getLabelValue(sysModel, 0, 0, 0, 'intent_dispatch_table')
+        : null;
+      const dispatchEntries = [];
+      if (dispatchTable && typeof dispatchTable === 'object' && sysModel) {
+        for (const [actionName, funcName] of Object.entries(dispatchTable)) {
+          if (typeof actionName !== 'string' || !actionName.trim()) continue;
+          if (typeof funcName !== 'string' || !funcName.trim()) continue;
+          if (!sysModel.hasFunction(funcName)) continue;
+          dispatchEntries.push([actionName, funcName]);
+        }
+      }
+      const dispatchFuncByAction = new Map(dispatchEntries);
 
-    if (action.startsWith('docs_') || action.startsWith('static_') || action.startsWith('ws_')) {
-      const meta = payload && payload.meta ? payload.meta : null;
-      const opId = meta && typeof meta.op_id === 'string' ? meta.op_id : '';
-      const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
-      const stateCell = runtime.getCell(stateModel, 0, 0, 0);
-      const getState = (key) => stateCell.labels.get(key)?.v ?? null;
+      let resolvedAction = action;
+      let resolvedFunc = dispatchFuncByAction.get(action) || '';
+      const opId = payload && payload.meta && typeof payload.meta.op_id === 'string'
+        ? payload.meta.op_id
+        : '';
 
-      async function succeed(note) {
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
-        runtime.addLabel(stateModel, 0, 0, 0, { k: action.startsWith('docs_') ? 'docs_status' : 'static_status', t: 'str', v: note || '' });
-        updateDerived();
-        await programEngine.tick();
-        return { consumed: true, result: 'ok', note };
+      const llmDispatch = {
+        used: false,
+        model: null,
+        confidence: 1,
+        reasoning: '',
+        candidates: [],
+      };
+
+      if (!resolvedFunc && action && dispatchEntries.length > 0 && sysModel && shouldAttemptLlmIntentRouting(action)) {
+        const llmCfg = readLlmDispatchConfig(runtime);
+        if (llmCfg.enabled && llmCfg.provider === 'ollama') {
+          const sceneModel = runtime.getModel(-12);
+          const sceneContext = sceneModel ? runtime.getLabelValue(sceneModel, 0, 0, 0, 'scene_context') : null;
+          const promptTemplate = readSystemPromptTemplate(runtime, 'llm_intent_prompt_template', DEFAULT_LLM_INTENT_PROMPT_TEMPLATE);
+          const prompt = renderPromptTemplate(promptTemplate, {
+            action,
+            available_actions: safeJsonStringify(dispatchEntries.map(([name]) => name), '[]'),
+            scene_context_json: safeJsonStringify(sceneContext, '{}'),
+            mailbox_payload_json: safeJsonStringify(payload, '{}'),
+          });
+          const llmResult = await programEngine.llmInfer({
+            baseUrl: llmCfg.base_url,
+            model: llmCfg.model,
+            prompt,
+            timeoutMs: llmCfg.timeout_ms,
+            temperature: llmCfg.temperature,
+            maxTokens: llmCfg.max_tokens,
+          });
+          if (llmResult && llmResult.ok === true) {
+            const parsed = parseLlmIntentResult(
+              llmResult.data && llmResult.data.response ? llmResult.data.response : '',
+              dispatchEntries.map(([name]) => name),
+              llmCfg.max_candidates,
+            );
+            if (parsed && parsed.ok === true) {
+              llmDispatch.used = true;
+              llmDispatch.model = llmResult.data && llmResult.data.model ? llmResult.data.model : llmCfg.model;
+              llmDispatch.confidence = parsed.confidence;
+              llmDispatch.reasoning = parsed.reasoning;
+              llmDispatch.candidates = parsed.candidates;
+              if (parsed.matched_action && parsed.confidence >= llmCfg.confidence_threshold) {
+                resolvedAction = parsed.matched_action;
+                resolvedFunc = dispatchFuncByAction.get(parsed.matched_action) || '';
+              } else {
+                const detail = parsed.matched_action
+                  ? `matched=${parsed.matched_action} confidence=${parsed.confidence.toFixed(3)} threshold=${llmCfg.confidence_threshold.toFixed(3)}`
+                  : 'no_confident_match';
+                runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, {
+                  k: 'ui_event_error',
+                  t: 'json',
+                  v: {
+                    op_id: opId,
+                    code: 'low_confidence',
+                    detail,
+                    candidates: llmDispatch.candidates,
+                  },
+                });
+                runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
+                runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+                updateDerived();
+                await programEngine.tick();
+                writeActionLifecycle(runtime, {
+                  op_id: opId,
+                  action,
+                  status: 'failed',
+                  started_at: Date.now(),
+                  completed_at: Date.now(),
+                  result: { code: 'low_confidence', detail },
+                  confidence: llmDispatch.confidence,
+                  llm_used: true,
+                  llm_model: llmDispatch.model,
+                  llm_reasoning: llmDispatch.reasoning || null,
+                });
+                return {
+                  consumed: true,
+                  result: 'error',
+                  code: 'low_confidence',
+                  detail,
+                  routed_by: 'llm',
+                  confidence: llmDispatch.confidence,
+                  candidates: llmDispatch.candidates,
+                };
+              }
+            }
+          }
+        }
       }
 
-      async function fail(code, detail) {
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: { op_id: opId, code, detail } });
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
-        runtime.addLabel(stateModel, 0, 0, 0, {
-          k: action.startsWith('docs_') ? 'docs_status' : 'static_status',
-          t: 'str',
-          v: `ERR ${String(code)}: ${String(detail)}`,
+      // Step 3 dual-track: dispatch table first, legacy action-prefix as fallback.
+      if (typeof resolvedFunc === 'string' && resolvedFunc.trim().length > 0 &&
+          sysModel && sysModel.hasFunction(resolvedFunc)) {
+        const startedAt = Date.now();
+        writeActionLifecycle(runtime, {
+          op_id: opId,
+          action: resolvedAction,
+          status: 'executing',
+          started_at: startedAt,
+          completed_at: null,
+          result: null,
+          confidence: llmDispatch.used ? llmDispatch.confidence : 1,
+          llm_used: llmDispatch.used,
+          llm_model: llmDispatch.used ? (llmDispatch.model || null) : null,
+          llm_reasoning: llmDispatch.used ? (llmDispatch.reasoning || null) : null,
         });
+        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
+        runtime.addLabel(sysModel, 0, 0, 0, { k: 'mgmt_func_error', t: 'str', v: '' });
+        const dispatchPayload = payload && typeof payload === 'object'
+          ? {
+              ...payload,
+              action: resolvedAction,
+              meta: {
+                ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+                llm_routed_from: llmDispatch.used ? action : '',
+              },
+            }
+          : payload;
+        runtime.intercepts.record('run_func', { func: resolvedFunc, payload: dispatchPayload });
+        await programEngine.tick();
+        const funcErr = runtime.getLabelValue(sysModel, 0, 0, 0, 'mgmt_func_error');
+        if (typeof funcErr === 'string' && funcErr.trim().length > 0) {
+          runtime.addLabel(sysModel, 0, 0, 0, { k: 'mgmt_func_error', t: 'str', v: '' });
+          runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, {
+            k: 'ui_event_error',
+            t: 'json',
+            v: { op_id: opId, code: 'func_exception', detail: String(funcErr) },
+          });
+        }
+        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
+        if (!getEventError(runtime)) {
+          runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
+        }
+        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
         updateDerived();
         await programEngine.tick();
-        return { consumed: true, result: 'error', code, detail };
+        const errValue = getEventError(runtime);
+        if (errValue && typeof errValue === 'object') {
+          const errCode = typeof errValue.code === 'string' ? errValue.code : 'dispatch_error';
+          const errDetail = typeof errValue.detail === 'string' ? errValue.detail : '';
+          writeActionLifecycle(runtime, {
+            op_id: opId,
+            action: resolvedAction,
+            status: 'failed',
+            completed_at: Date.now(),
+            result: {
+              code: errCode,
+              detail: errDetail,
+            },
+            confidence: llmDispatch.used ? llmDispatch.confidence : 1,
+            llm_used: llmDispatch.used,
+            llm_model: llmDispatch.used ? (llmDispatch.model || null) : null,
+            llm_reasoning: llmDispatch.used ? (llmDispatch.reasoning || null) : null,
+          });
+          return {
+            consumed: true,
+            result: 'error',
+            code: errCode,
+            detail: errDetail,
+            routed_by: llmDispatch.used ? 'llm' : 'rule',
+            confidence: llmDispatch.used ? llmDispatch.confidence : 1,
+            candidates: llmDispatch.used ? llmDispatch.candidates : undefined,
+          };
+        }
+
+        await maybeEnhanceSceneContextWithLlm(runtime, programEngine, {
+          llmUsed: llmDispatch.used,
+          action: resolvedAction,
+          opId,
+        });
+
+        writeActionLifecycle(runtime, {
+          op_id: opId,
+          action: resolvedAction,
+          status: 'completed',
+          completed_at: Date.now(),
+          result: { ok: true },
+          confidence: llmDispatch.used ? llmDispatch.confidence : 1,
+          llm_used: llmDispatch.used,
+          llm_model: llmDispatch.used ? (llmDispatch.model || null) : null,
+          llm_reasoning: llmDispatch.used ? (llmDispatch.reasoning || null) : null,
+        });
+        return {
+          consumed: true,
+          result: 'ok',
+          routed_by: llmDispatch.used ? 'llm' : 'rule',
+          confidence: llmDispatch.used ? llmDispatch.confidence : 1,
+          candidates: llmDispatch.used ? llmDispatch.candidates : undefined,
+        };
       }
-
-      if (action === 'docs_refresh_tree') {
-        const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
-        const tree = buildDocsTree(files);
-        runtime.addLabel(stateModel, 0, 0, 0, { k: 'docs_tree_json', t: 'json', v: tree });
-        return succeed(`docs indexed: ${files.length}`);
-      }
-
-      if (action === 'docs_search') {
-        const q = String(getState('docs_query') ?? '').trim().toLowerCase();
-        if (!q) {
-          runtime.addLabel(stateModel, 0, 0, 0, { k: 'docs_search_results_json', t: 'json', v: [] });
-          return succeed('docs search cleared');
-        }
-        const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
-        const results = [];
-        for (const f of files) {
-          if (results.length >= 50) break;
-          const nameHit = f.relPath.toLowerCase().includes(q);
-          if (nameHit) {
-            results.push({ path: f.relPath, hit: 'name', snippet: '' });
-            continue;
-          }
-          let text = '';
-          try {
-            text = fs.readFileSync(f.absPath, 'utf8');
-          } catch (_) {
-            continue;
-          }
-          const idx = text.toLowerCase().indexOf(q);
-          if (idx >= 0) {
-            const start = Math.max(0, idx - 40);
-            const end = Math.min(text.length, idx + q.length + 60);
-            const snippet = text.slice(start, end).replace(/\s+/g, ' ').trim();
-            results.push({ path: f.relPath, hit: 'content', snippet });
-          }
-        }
-        runtime.addLabel(stateModel, 0, 0, 0, { k: 'docs_search_results_json', t: 'json', v: results });
-        return succeed(`docs search results: ${results.length}`);
-      }
-
-      if (action === 'docs_open_doc') {
-        const rel = String(getState('docs_selected_path') ?? '').replace(/\\/g, '/').replace(/^\/+/, '');
-        if (!isAllowedDocRelPath(rel)) {
-          return fail('invalid_target', 'doc_path_not_allowed');
-        }
-        const abs = safeJoin(DOCS_ROOT, rel);
-        if (!abs) return fail('invalid_target', 'doc_path_invalid');
-        if (!fs.existsSync(abs)) return fail('invalid_target', 'doc_not_found');
-        const md = fs.readFileSync(abs, 'utf8');
-        const html = await renderMarkdownToHtml(md);
-        runtime.addLabel(stateModel, 0, 0, 0, { k: 'docs_render_html', t: 'str', v: html });
-        return succeed(`opened: ${rel}`);
-      }
-
-      if (action === 'static_project_list') {
-        const projects = listStaticProjects();
-        runtime.addLabel(stateModel, 0, 0, 0, { k: 'static_projects_json', t: 'json', v: projects });
-        return succeed(`projects: ${projects.length}`);
-      }
-
-      if (action === 'static_project_upload') {
-        const name = String(getState('static_project_name') ?? '').trim();
-        if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
-          return fail('invalid_target', 'invalid_project_name');
-        }
-        const kind = String(getState('static_upload_kind') ?? 'zip').trim();
-        const zipB64 = String(getState('static_zip_b64') ?? '').trim();
-        const htmlB64 = String(getState('static_html_b64') ?? '').trim();
-        if (kind !== 'zip' && kind !== 'html') {
-          return fail('invalid_target', 'invalid_upload_kind');
-        }
-        if (kind === 'zip') {
-          if (!zipB64) return fail('invalid_target', 'missing_zip_b64');
-          if (zipB64.length > 8 * 1024 * 1024) return fail('invalid_target', 'zip_too_large');
-        }
-        if (kind === 'html') {
-          if (!htmlB64) return fail('invalid_target', 'missing_html_b64');
-          if (htmlB64.length > 2 * 1024 * 1024) return fail('invalid_target', 'html_too_large');
-        }
-
-        ensureDir(STATIC_PROJECTS_ROOT);
-        const dest = path.join(STATIC_PROJECTS_ROOT, name);
-        if (fs.existsSync(dest)) {
-          fs.rmSync(dest, { recursive: true, force: true });
-        }
-        ensureDir(dest);
-
-        if (kind === 'zip') {
-          let buf;
-          try {
-            buf = Buffer.from(zipB64, 'base64');
-          } catch (_) {
-            return fail('invalid_target', 'invalid_base64');
-          }
-          try {
-            safeExtractZipToDir(buf, dest);
-          } catch (err) {
-            return fail('exception', String(err && err.message ? err.message : err));
-          }
-          runtime.addLabel(stateModel, 0, 0, 0, { k: 'static_zip_b64', t: 'str', v: '' });
-        } else {
-          let buf;
-          try {
-            buf = Buffer.from(htmlB64, 'base64');
-          } catch (_) {
-            return fail('invalid_target', 'invalid_base64');
-          }
-          fs.writeFileSync(path.join(dest, 'index.html'), buf);
-          runtime.addLabel(stateModel, 0, 0, 0, { k: 'static_html_b64', t: 'str', v: '' });
-        }
-
-        const projects = listStaticProjects();
-        runtime.addLabel(stateModel, 0, 0, 0, { k: 'static_projects_json', t: 'json', v: projects });
-        return succeed(`uploaded: ${name}`);
-      }
-
-      if (action === 'ws_select_app') {
-        const selected = Number(getState('ws_app_selected'));
-        if (!Number.isInteger(selected)) return fail('invalid_target', 'ws_app_selected must be int');
-        return succeed(`ws_select: ${selected}`);
-      }
-    }
 
     if (action.startsWith('cellab_')) {
       const meta = payload && payload.meta ? payload.meta : null;
@@ -2349,13 +3512,12 @@ function createServerState(options) {
     await programEngine.tick();
     return result;
     } catch (err) {
-      if (isModel100Submit) {
-        setModel100SubmitState(runtime, { inflight: false, status: 'send_failed' });
-      }
+      const errMeta = payload && payload.meta ? payload.meta : null;
+      const errOpId = errMeta && typeof errMeta.op_id === 'string' ? errMeta.op_id : '';
       runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, {
         k: 'ui_event_error',
         t: 'json',
-        v: { op_id: opId, code: 'exception', detail: String(err && err.message ? err.message : err) },
+        v: { op_id: errOpId, code: 'exception', detail: String(err && err.message ? err.message : err) },
       });
       runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
       updateDerived();
@@ -2548,7 +3710,7 @@ function startServer(options) {
 
     // ── Direct file upload for static projects ──────────────────────────
     if (req.method === 'POST' && url.pathname === '/api/static/upload') {
-      if (!isAuthenticated(req)) {
+      if (AUTH_ENABLED && !isAuthenticated(req)) {
         writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
         return;
       }
@@ -2583,18 +3745,7 @@ function startServer(options) {
           writeJson(res, 400, { ok: false, error: 'empty_body' }, cors);
           return;
         }
-        ensureDir(STATIC_PROJECTS_ROOT);
-        const dest = path.join(STATIC_PROJECTS_ROOT, name);
-        if (fs.existsSync(dest)) {
-          fs.rmSync(dest, { recursive: true, force: true });
-        }
-        ensureDir(dest);
-        if (kind === 'zip') {
-          safeExtractZipToDir(buf, dest);
-        } else {
-          fs.writeFileSync(path.join(dest, 'index.html'), buf);
-        }
-        const projects = listStaticProjects();
+        const projects = staticUploadCore(name, kind, buf);
         const stateModel = state.runtime.getModel(EDITOR_STATE_MODEL_ID);
         state.runtime.addLabel(stateModel, 0, 0, 0, { k: 'static_projects_json', t: 'json', v: projects });
         state.runtime.addLabel(stateModel, 0, 0, 0, { k: 'static_status', t: 'str', v: `uploaded: ${name}` });
@@ -2609,8 +3760,6 @@ function startServer(options) {
     }
 
     // ── Auth guard ───────────────────────────────────────────────────────
-    const AUTH_ENABLED = process.env.DY_AUTH !== '0';
-
     function isPublicPath(method, pathname) {
       if (!AUTH_ENABLED) return true;
       if (pathname === '/auth/login' || pathname === '/auth/me') return true;
@@ -2752,7 +3901,17 @@ function startServer(options) {
     if (req.method === 'POST' && url.pathname === '/ui_event') {
       try {
         const body = await readJsonBody(req);
-        const envelope = body && body.payload && body.type ? body : (body && body.envelope ? body.envelope : body);
+        let envelope = body;
+        if (body && body.payload && typeof body.payload === 'object') {
+          const action = typeof body.payload.action === 'string' ? body.payload.action : '';
+          envelope = { ...body };
+          if (typeof envelope.type !== 'string' || !envelope.type) envelope.type = body.payload.type || action;
+          if (envelope.source === undefined) envelope.source = body.payload.source;
+          if (envelope.meta === undefined) envelope.meta = body.payload.meta;
+        }
+        if (body && body.envelope) {
+          envelope = body.envelope;
+        }
         const consumeResult = await state.submitEnvelope(envelope);
         broadcastSnapshot();
         // Snapshot omitted from response — SSE broadcastSnapshot() delivers it.
@@ -2764,6 +3923,11 @@ function startServer(options) {
             ok: true,
             consumed: Boolean(consumeResult && consumeResult.consumed),
             result: consumeResult && consumeResult.result ? consumeResult.result : undefined,
+            code: consumeResult && consumeResult.code ? consumeResult.code : undefined,
+            detail: consumeResult && consumeResult.detail ? consumeResult.detail : undefined,
+            routed_by: consumeResult && consumeResult.routed_by ? consumeResult.routed_by : undefined,
+            confidence: consumeResult && Number.isFinite(consumeResult.confidence) ? consumeResult.confidence : undefined,
+            candidates: consumeResult && Array.isArray(consumeResult.candidates) ? consumeResult.candidates : undefined,
             ui_event_last_op_id: state.getLastOpId(),
             ui_event_error: state.getEventError(),
           },

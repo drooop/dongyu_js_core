@@ -1,8 +1,0 @@
-[check] kubernetes context: docker-desktop
-[check] PASS deploy/mbr-worker readyReplicas=1
-[check] PASS deploy/remote-worker readyReplicas=1
-[check] PASS remote-worker-svc has endpoint
-[check] PASS mosquitto running
-[check] PASS element synapse running
-[check] PASS matrix versions endpoint reachable
-[check] baseline ready

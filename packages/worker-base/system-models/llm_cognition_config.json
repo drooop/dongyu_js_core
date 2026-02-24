@@ -1,0 +1,118 @@
+{
+  "version": "mt.v0",
+  "op_id": "llm_cognition_config_v0",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_intent_prompt_template",
+      "t": "str",
+      "v": "You are an intent router for a ModelTable system. Return JSON only. No markdown fences.\\nInput action: {{action}}\\nAllowed actions (must choose from this list): {{available_actions}}\\nCurrent scene context JSON: {{scene_context_json}}\\nMailbox payload JSON: {{mailbox_payload_json}}\\nOutput schema:\\n{\\n  \\\"matched_action\\\": \\\"<string or empty>\\\",\\n  \\\"confidence\\\": <0..1 number>,\\n  \\\"reasoning\\\": \\\"<short string>\\\",\\n  \\\"candidates\\\": [\\\"<string>\\\", \\\"<string>\\\"]\\n}"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_scene_prompt_template",
+      "t": "str",
+      "v": "You are a scene context updater. Return JSON only. No markdown fences.\\nCurrent scene context JSON: {{scene_context_json}}\\nCurrent action lifecycle JSON: {{action_lifecycle_json}}\\nCurrent action: {{action}}\\nOutput schema:\\n{\\n  \\\"current_app\\\": <int or null>,\\n  \\\"active_flow\\\": \\\"<string or null>\\\",\\n  \\\"flow_step\\\": <int or null>,\\n  \\\"session_vars_patch\\\": { \\\"key\\\": \\\"value\\\" }\\n}"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_intent_output_schema",
+      "t": "json",
+      "v": {
+        "matched_action": "string",
+        "confidence": "number(0..1)",
+        "reasoning": "string",
+        "candidates": [
+          "string"
+        ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_scene_output_schema",
+      "t": "json",
+      "v": {
+        "current_app": "int|null",
+        "active_flow": "string|null",
+        "flow_step": "int|null",
+        "session_vars_patch": {
+          "key": "json_value"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_filltable_prompt_template",
+      "t": "str",
+      "v": "You are a strict ModelTable patch planner with a two-step confirmation workflow. Return JSON only. No markdown fences.\\nUser prompt: {{prompt_text}}\\nPolicy JSON: {{policy_json}}\\nAllowed output schema JSON: {{output_schema_json}}\\nAvailable positive model ids JSON: {{available_model_ids_json}}\\nRules:\\n- Output must be {\\\"proposal\\\":{...},\\\"records\\\":[...],\\\"confidence\\\":0..1,\\\"reasoning\\\":\\\"...\\\"}\\n- proposal must contain summary, operations, queries, requires_confirmation=true, confirmation_question\\n- operations are human-readable planned write actions\\n- queries are read/check requests and MUST NOT be converted into records\\n- records only support op=add_label/rm_label\\n- add_label requires model_id,p,r,c,k,t,v\\n- rm_label requires model_id,p,r,c,k\\n- max records is 10\\n- for query-only requests output records: [] and describe them in proposal.queries\\n- Never output explanation text outside JSON"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_filltable_output_schema",
+      "t": "json",
+      "v": {
+        "proposal": {
+          "summary": "string",
+          "operations": [
+            {
+              "summary": "string",
+              "op": "add_label|rm_label",
+              "model_id": "int",
+              "p": "int",
+              "r": "int",
+              "c": "int",
+              "k": "string",
+              "t": "string(optional)"
+            }
+          ],
+          "queries": [
+            {
+              "summary": "string",
+              "target": "string(optional)"
+            }
+          ],
+          "requires_confirmation": "bool(true)",
+          "confirmation_question": "string"
+        },
+        "records": [
+          {
+            "op": "add_label|rm_label",
+            "model_id": "int",
+            "p": "int",
+            "r": "int",
+            "c": "int",
+            "k": "string",
+            "t": "string(add_label only)",
+            "v": "json_value(add_label only)"
+          }
+        ],
+        "confidence": "number(0..1)",
+        "reasoning": "string"
+      }
+    }
+  ]
+}

@@ -7,6 +7,7 @@ import {
   ROUTE_HOME,
   ROUTE_DOCS,
   ROUTE_MODEL100,
+  ROUTE_PROMPT,
   ROUTE_STATIC,
   ROUTE_WORKSPACE,
   getHashPath,
@@ -14,6 +15,7 @@ import {
   isGalleryPath,
   isHomePath,
   isModel100Path,
+  isPromptPath,
   isStaticPath,
   isWorkspacePath,
   setHashPath,
@@ -93,7 +95,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           selectWorkspaceModel(100);
           return;
         }
-        if (isHomePath(p) || isGalleryPath(p) || isDocsPath(p) || isStaticPath(p) || isWorkspacePath(p)) return;
+        if (isHomePath(p) || isGalleryPath(p) || isDocsPath(p) || isStaticPath(p) || isWorkspacePath(p) || isPromptPath(p)) return;
         setHashPath(ROUTE_HOME, { replace: true });
       }
 
@@ -115,13 +117,11 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       }
 
       function syncPageLabel(routePath) {
-        const page = isDocsPath(routePath)
-          ? 'docs'
-          : (isStaticPath(routePath)
-            ? 'static'
-            : (isWorkspacePath(routePath)
-              ? 'workspace'
-              : 'home'));
+        let page = 'home';
+        if (isDocsPath(routePath)) page = 'docs';
+        else if (isStaticPath(routePath)) page = 'static';
+        else if (isWorkspacePath(routePath)) page = 'workspace';
+        else if (isPromptPath(routePath)) page = 'prompt';
         try {
           if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
           const opId = `route_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -165,6 +165,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       const isDocs = computed(() => isDocsPath(path.value));
       const isStatic = computed(() => isStaticPath(path.value));
       const isWorkspace = computed(() => isWorkspacePath(path.value));
+      const isPrompt = computed(() => isPromptPath(path.value));
 
       function Header() {
         const navButtons = [
@@ -174,6 +175,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           h(ElButton, { type: isDocsPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_DOCS) }, { default: () => 'Docs' }),
           h(ElButton, { type: isStaticPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_STATIC) }, { default: () => 'Static' }),
           h(ElButton, { type: isWorkspacePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_WORKSPACE) }, { default: () => 'Workspace' }),
+          h(ElButton, { type: isPromptPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_PROMPT) }, { default: () => 'Prompt' }),
         ];
 
         const userSection = [];
@@ -210,7 +212,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           const isRemoteMode = !mainStore || !Object.prototype.hasOwnProperty.call(mainStore, 'runtime');
           return h('div', [h(Header), h(isRemoteMode ? GalleryRemoteRoot : GalleryRoot)]);
         }
-        if (isDocs.value || isStatic.value || isWorkspace.value) {
+        if (isDocs.value || isStatic.value || isWorkspace.value || isPrompt.value) {
           return h('div', [h(Header), h(HomeRoot)]);
         }
         return h('div', [

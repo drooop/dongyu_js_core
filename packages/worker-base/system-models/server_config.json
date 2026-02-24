@@ -1,0 +1,117 @@
+{
+  "version": "mt.v0",
+  "op_id": "server_config_v0",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "snapshot_filter_config",
+      "t": "json",
+      "v": {
+        "exclude_label_types": [
+          "function",
+          "CELL_CONNECT",
+          "cell_connection",
+          "IN",
+          "BUS_IN",
+          "BUS_OUT",
+          "MODEL_IN",
+          "MODEL_OUT",
+          "subModel",
+          "MQTT_WILDCARD_SUB"
+        ],
+        "exclude_label_keys": [
+          "snapshot_json",
+          "event_log"
+        ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "workspace_default_app",
+      "t": "int",
+      "v": 100
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_dispatch_config",
+      "t": "json",
+      "v": {
+        "enabled": true,
+        "provider": "ollama",
+        "base_url": "http://127.0.0.1:11434",
+        "model": "mt-label",
+        "fallback_model": "mt-label",
+        "timeout_ms": 120000,
+        "confidence_threshold": 0.78,
+        "max_candidates": 3,
+        "temperature": 0.1,
+        "max_tokens": 512
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_scene_config",
+      "t": "json",
+      "v": {
+        "enabled": true,
+        "timeout_ms": 8000,
+        "max_recent_intents": 20,
+        "temperature": 0.1,
+        "max_tokens": 260
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "llm_filltable_policy",
+      "t": "json",
+      "v": {
+        "allow_positive_model_ids": true,
+        "allow_negative_model_ids": false,
+        "max_records_per_apply": 10,
+        "max_value_bytes": 65536,
+        "max_total_bytes": 262144,
+        "allowed_label_types": [
+          "str",
+          "int",
+          "float",
+          "bool",
+          "json",
+          "event"
+        ],
+        "protected_label_keys": [
+          "ui_event",
+          "ui_event_error",
+          "ui_event_last_op_id",
+          "intent.v0",
+          "snapshot_json",
+          "event_log",
+          "dual_bus_model",
+          "run_mgmt_send",
+          "run_intent_dispatch",
+          "mgmt_inbox",
+          "mgmt_func_error"
+        ]
+      }
+    }
+  ]
+}

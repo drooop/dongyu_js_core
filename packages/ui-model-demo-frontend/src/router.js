@@ -4,6 +4,7 @@ export const ROUTE_MODEL100 = '/model100';
 export const ROUTE_DOCS = '/docs';
 export const ROUTE_STATIC = '/static';
 export const ROUTE_WORKSPACE = '/workspace';
+export const ROUTE_PROMPT = '/prompt';
 export const ROUTE_GAME = '/game';
 
 export function normalizeHashPath(value) {
@@ -62,6 +63,10 @@ export function isModel100Path(path) {
 
 export function isWorkspacePath(path) {
   return normalizeHashPath(path) === ROUTE_WORKSPACE;
+}
+
+export function isPromptPath(path) {
+  return normalizeHashPath(path) === ROUTE_PROMPT;
 }
 
 export function isGamePath(path) {

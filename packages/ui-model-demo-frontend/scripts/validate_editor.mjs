@@ -484,6 +484,34 @@ function run() {
   results.push('editor_v1_typed_json_invalid_json: PASS');
 
   sendMailbox(storeV1, mailboxEnvelope({
+    event_id: 507,
+    action: 'label_add',
+    op_id: 'op_507',
+    target: { model_id: 1, p: 0, r: 0, c: 0, k: 'event_payload' },
+    value: { t: 'event', v: { action: 'submit' } },
+  }));
+  storeV1.consumeOnce();
+  assert(
+    cell1.labels.get('event_payload')
+      && cell1.labels.get('event_payload').t === 'event'
+      && cell1.labels.get('event_payload').v
+      && cell1.labels.get('event_payload').v.action === 'submit',
+    'editor_v1_typed_event_ok'
+  );
+  results.push('editor_v1_typed_event_ok: PASS');
+
+  sendMailbox(storeV1, mailboxEnvelope({
+    event_id: 508,
+    action: 'label_add',
+    op_id: 'op_508',
+    target: { model_id: 1, p: 0, r: 0, c: 0, k: 'event_payload' },
+    value: { t: 'event', v: null },
+  }));
+  storeV1.consumeOnce();
+  assert(cell1.labels.get('event_payload') && cell1.labels.get('event_payload').v === null, 'editor_v1_typed_event_null_ok');
+  results.push('editor_v1_typed_event_null_ok: PASS');
+
+  sendMailbox(storeV1, mailboxEnvelope({
     event_id: 506,
     action: 'label_add',
     op_id: 'op_506',

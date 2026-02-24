@@ -1,8 +1,8 @@
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { createLoopbackAdapter } = require('../packages/bus-mgmt/src/loopback.js');
-const { createMatrixLiveAdapter } = require('../packages/bus-mgmt/src/matrix_live.js');
+const { createLoopbackAdapter } = require('../packages/worker-base/src/loopback.js');
+const { createMatrixLiveAdapter } = require('../packages/worker-base/src/matrix_live.js');
 const { createMbrBridge } = require('../packages/mbr/src/mbr_v0.js');
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
 

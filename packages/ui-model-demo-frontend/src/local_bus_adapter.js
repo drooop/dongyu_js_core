@@ -17,6 +17,16 @@ function matchForbiddenK(k) {
 const ALLOW_T = new Set(['str', 'int', 'bool', 'json', 'event']);
 const RESERVED_LABELS = new Set(['ui_event', 'ui_event_error', 'ui_event_last_op_id']);
 
+function isUiRendererSource(source) {
+  if (source === 'ui_renderer') return true;
+  if (!source || typeof source !== 'object') return false;
+  return (
+    (typeof source.node_type === 'string' && source.node_type.length > 0)
+    || (typeof source.node_id === 'string' && source.node_id.length > 0)
+    || (typeof source.node_id === 'number' && Number.isFinite(source.node_id))
+  );
+}
+
 function toErrorValue(op_id, code, detail) {
   return { op_id, code, detail };
 }
@@ -77,6 +87,9 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
         return { ok: false, code: 'invalid_target', detail: 'invalid_json' };
       }
     }
+    if (t === 'event') {
+      return { ok: true, value: v };
+    }
     return { ok: false, code: 'invalid_target', detail: 'invalid_value_t' };
   }
 
@@ -112,6 +125,11 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
     runtime.addLabel(model, 0, 0, 1, { k: 'ui_event_error', t: 'json', v: toErrorValue(op_id, code, detail) });
   }
 
+  function clearError() {
+    const model = runtime.getModel(mailboxModelId);
+    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
+  }
+
   function fail(op_id, code, detail) {
     setError(op_id, code, detail);
     setMailboxEnvelope(null);
@@ -123,6 +141,7 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
   function succeed(op_id, note) {
     setLastOpId(op_id);
+    clearError();
     setMailboxEnvelope(null);
     if (eventLog) {
       eventLog.push({ op_id, result: 'ok', note: note || '' });
@@ -216,12 +235,15 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       'static_project_upload',
       // Workspace actions (remote-only).
       'ws_select_app',
+      // Prompt FillTable actions (remote-only).
+      'llm_filltable_preview',
+      'llm_filltable_apply',
     ]);
     if (typeof action !== 'string' || !allowedActions.has(action)) {
       return fail(op_id, 'unknown_action', 'unknown_action');
     }
 
-    if (envelope.source !== 'ui_renderer') {
+    if (!isUiRendererSource(envelope.source)) {
       return fail(op_id, 'invalid_target', 'source_mismatch');
     }
     if (typeof envelope.type !== 'string' || envelope.type !== action) {
@@ -323,6 +345,10 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
     if (action === 'ws_select_app') {
       return fail(op_id, 'unsupported', 'ws_remote_only');
+    }
+
+    if (action === 'llm_filltable_preview' || action === 'llm_filltable_apply') {
+      return fail(op_id, 'unsupported', 'llm_filltable_remote_only');
     }
 
     if (action.startsWith('datatable_')) {
