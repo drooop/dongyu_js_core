@@ -169,15 +169,11 @@ spec:
           value: "0"
         - name: NODE_TLS_REJECT_UNAUTHORIZED
           value: "0"
-        - name: DOCS_ROOT
-          value: /app/.dy_docs
-        - name: STATIC_PROJECTS_ROOT
-          value: /app/.dy_static_projects
+        - name: DY_PERSIST_ROOT
+          value: /app/.dy_persist
         volumeMounts:
-        - name: static-data
-          mountPath: /app/.dy_static_projects
-        - name: docs-data
-          mountPath: /app/.dy_docs
+        - name: persist-data
+          mountPath: /app/.dy_persist
         resources:
           requests:
             memory: "256Mi"
@@ -186,13 +182,9 @@ spec:
             memory: "512Mi"
             cpu: "500m"
       volumes:
-      - name: static-data
+      - name: persist-data
         hostPath:
-          path: /Users/drop/dongyu/volume/statics/static_projects
-          type: DirectoryOrCreate
-      - name: docs-data
-        hostPath:
-          path: /Users/drop/dongyu/volume/statics/docs
+          path: /Users/drop/dongyu/volume/persist/ui-server
           type: DirectoryOrCreate
 ---
 # UI Server Service

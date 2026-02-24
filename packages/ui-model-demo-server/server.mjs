@@ -1,7 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { URL, fileURLToPath } from 'node:url';
+import { URL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 
@@ -791,8 +791,12 @@ function maybeEnsureFrontendBuild(distDir) {
   return { ok: fs.existsSync(indexPath), built: true };
 }
 
-const DOCS_ROOT = readPathEnv('DOCS_ROOT', new URL('../../docs/', import.meta.url).pathname);
-const STATIC_PROJECTS_ROOT = readPathEnv('STATIC_PROJECTS_ROOT', path.resolve(process.cwd(), '.dy_static_projects'));
+const DEFAULT_PERSIST_ROOT = readPathEnv(
+  'DY_PERSIST_ROOT',
+  path.resolve(process.env.HOME || process.cwd(), '.dongyuapp', 'persist'),
+);
+const DOCS_ROOT = readPathEnv('DOCS_ROOT', path.join(DEFAULT_PERSIST_ROOT, 'docs'));
+const STATIC_PROJECTS_ROOT = readPathEnv('STATIC_PROJECTS_ROOT', path.join(DEFAULT_PERSIST_ROOT, 'static_projects'));
 const AUTH_ENABLED = process.env.DY_AUTH !== '0';
 
 function ensureDir(p) {
@@ -1137,10 +1141,9 @@ function buildClientSnapshot(runtime) {
 function resolveDbPath() {
   const workspace = process.env.WORKER_BASE_WORKSPACE || 'default';
   const configuredRoot = process.env.WORKER_BASE_DATA_ROOT;
-  const serverDir = path.dirname(fileURLToPath(import.meta.url));
   const dataRoot = configuredRoot && configuredRoot.trim()
     ? (path.isAbsolute(configuredRoot) ? configuredRoot : path.resolve(process.cwd(), configuredRoot))
-    : path.resolve(serverDir, 'data');
+    : path.join(DEFAULT_PERSIST_ROOT, 'runtime');
   return path.resolve(dataRoot, workspace, 'yhl.db');
 }
 
@@ -2379,6 +2382,12 @@ function countPositiveModels(runtime) {
 function createServerState(options) {
   const dbPath = options && options.dbPath ? String(options.dbPath) : null;
   const runtime = new ModelTableRuntime();
+
+  ensureDir(DOCS_ROOT);
+  ensureDir(STATIC_PROJECTS_ROOT);
+  if (dbPath) {
+    ensureDir(path.dirname(dbPath));
+  }
 
   let persister = null;
   if (dbPath) {
