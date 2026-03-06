@@ -79,6 +79,10 @@ skills/
 /*.gif
 /*.mp4
 
+# Docs viewer build artifacts
+scripts/docs-viewer/vendor/
+scripts/docs-viewer/dist/
+
 # Repo-local test/data folders
 PICtest/
 test_files/

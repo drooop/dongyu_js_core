@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>云海流概念体系</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+      line-height: 1.8;
+      color: #1a1a1a;
+      background: #fafafa;
+    }
+
+    .layout { display: flex; min-height: 100vh; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: #fff;
+      border-right: 1px solid #e8e8e8;
+      padding: 24px 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .sidebar-title {
+      font-size: 16px;
+      font-weight: 600;
+      padding: 0 20px 16px;
+      color: #333;
+      border-bottom: 1px solid #e8e8e8;
+      margin-bottom: 8px;
+    }
+    .sidebar-nav { list-style: none; }
+    .sidebar-nav a {
+      display: block;
+      padding: 8px 20px;
+      color: #555;
+      text-decoration: none;
+      font-size: 14px;
+      border-left: 3px solid transparent;
+      transition: all 0.15s;
+    }
+    .sidebar-nav a:hover { background: #f5f5f5; color: #1a1a1a; }
+    .sidebar-nav a.active {
+      background: #f0f7ff;
+      color: #1677ff;
+      border-left-color: #1677ff;
+      font-weight: 500;
+    }
+
+    /* ── Content ── */
+    .content { flex: 1; max-width: 800px; margin: 0 auto; padding: 40px 48px; }
+
+    /* Typography */
+    .content h1 { font-size: 28px; font-weight: 700; margin: 0 0 24px; line-height: 1.3; }
+    .content h2 { font-size: 22px; font-weight: 600; margin: 40px 0 16px; line-height: 1.4; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+    .content h3 { font-size: 18px; font-weight: 600; margin: 32px 0 12px; line-height: 1.4; }
+    .content h4 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
+    .content p { margin: 0 0 16px; }
+    .content ul, .content ol { margin: 0 0 16px; padding-left: 24px; }
+    .content li { margin: 4px 0; }
+    .content li > ul, .content li > ol { margin: 4px 0 0; }
+    .content hr { border: none; border-top: 1px solid #e8e8e8; margin: 32px 0; }
+    .content strong { font-weight: 600; }
+    .content a { color: #1677ff; text-decoration: none; }
+    .content a:hover { text-decoration: underline; }
+
+    /* Blockquote (default) */
+    .content blockquote {
+      margin: 0 0 16px;
+      padding: 12px 16px;
+      border-left: 4px solid #ddd;
+      background: #f9f9f9;
+      color: #555;
+    }
+    .content blockquote > p:last-child { margin-bottom: 0; }
+
+    /* Tables */
+    .content table { width: 100%; border-collapse: collapse; margin: 0 0 16px; font-size: 14px; }
+    .content th, .content td { padding: 10px 12px; border: 1px solid #e8e8e8; text-align: left; }
+    .content th { background: #fafafa; font-weight: 600; }
+    .content tr:hover td { background: #fafafa; }
+
+    /* Code */
+    .content code {
+      background: #f0f0f0;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.9em;
+      font-family: "SF Mono", "Fira Code", "JetBrains Mono", Menlo, monospace;
+    }
+    .content pre {
+      margin: 0 0 16px;
+      background: #282c34;
+      color: #abb2bf;
+      padding: 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    .content pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+      font-size: 13px;
+    }
+
+    /* ── Callouts ── */
+    .callout { border-radius: 6px; border-left-width: 4px; }
+    .callout-title { display: block; margin-bottom: 4px; font-weight: 600; font-size: 14px; }
+    .callout-note, .callout-info { background: #f0f7ff; border-left-color: #1677ff; color: #1a1a1a; }
+    .callout-note .callout-title, .callout-info .callout-title { color: #1677ff; }
+    .callout-tip { background: #f0faf0; border-left-color: #52c41a; color: #1a1a1a; }
+    .callout-tip .callout-title { color: #389e0d; }
+    .callout-warning, .callout-caution { background: #fffbe6; border-left-color: #faad14; color: #1a1a1a; }
+    .callout-warning .callout-title, .callout-caution .callout-title { color: #d48806; }
+    .callout-important { background: #fff1f0; border-left-color: #ff4d4f; color: #1a1a1a; }
+    .callout-important .callout-title { color: #cf1322; }
+
+    /* Wikilink (internal hash links) */
+    a[href^="#/"] { border-bottom: 1px dashed #1677ff; }
+    a[href^="#/"]:hover { border-bottom-style: solid; }
+
+    /* ── Mobile ── */
+    .menu-toggle {
+      display: none;
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 1001;
+      width: 40px;
+      height: 40px;
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 8px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.3);
+      z-index: 999;
+    }
+    @media (max-width: 768px) {
+      .menu-toggle { display: flex; }
+      .sidebar {
+        position: fixed;
+        left: -280px;
+        top: 0;
+        z-index: 1000;
+        transition: left 0.2s;
+        box-shadow: 2px 0 12px rgba(0,0,0,0.1);
+      }
+      .sidebar.open { left: 0; }
+      .sidebar-overlay.open { display: block; }
+      .content { padding: 24px 16px; padding-top: 60px; }
+    }
+
+    .loading { text-align: center; padding: 60px 0; color: #999; }
+  </style>
+</head>
+<body>
+  <button class="menu-toggle" id="menuToggle">&#9776;</button>
+  <div class="sidebar-overlay" id="overlay"></div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-title" id="sidebarTitle">...</div>
+      <ul class="sidebar-nav" id="nav"></ul>
+    </aside>
+    <article class="content" id="content">
+      <div class="loading">...</div>
+    </article>
+  </div>
+
+  <script src="markdown-it.min.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    /* ── Wikilink preprocessor ──
+       Converts [[target|text]] → [text](#/target) before markdown-it parsing.
+       This avoids the pipe character conflicting with table cell delimiters. */
+    function preprocessWikilinks(text) {
+      return text.replace(/\[\[([^\]]+?)\]\]/g, function (_, content) {
+        var pipe = content.indexOf('|');
+        var target = (pipe !== -1 ? content.slice(0, pipe) : content).trim();
+        var label = (pipe !== -1 ? content.slice(pipe + 1) : content).trim();
+        return '[' + label + '](#/' + target + ')';
+      });
+    }
+
+    /* ── Init markdown-it ── */
+    var md = window.markdownit({ html: false, linkify: true, typographer: true });
+
+    /* ── Frontmatter strip ── */
+    function stripFrontmatter(text) {
+      if (!text.startsWith('---')) return text;
+      var end = text.indexOf('\n---', 3);
+      return end === -1 ? text : text.slice(end + 4).trimStart();
+    }
+
+    /* ── Callout post-processing ── */
+    var CALLOUT_RE = /^\[!(note|warning|tip|important|info|caution)\]\s*/i;
+
+    function processCallouts(container) {
+      container.querySelectorAll('blockquote').forEach(function (bq) {
+        var firstP = bq.querySelector('p');
+        if (!firstP) return;
+        var html = firstP.innerHTML;
+        var match = html.match(CALLOUT_RE);
+        if (!match) return;
+
+        var type = match[1].toLowerCase();
+        var after = html.slice(match[0].length);
+        var nl = after.indexOf('\n');
+        var title, body;
+        if (nl !== -1) {
+          title = after.slice(0, nl).trim();
+          body = after.slice(nl + 1);
+        } else {
+          title = after.trim();
+          body = '';
+        }
+        if (!title) title = type.charAt(0).toUpperCase() + type.slice(1);
+
+        bq.classList.add('callout', 'callout-' + type);
+        firstP.innerHTML = '<span class="callout-title">' + title + '</span>'
+          + (body ? '<br>' + body : '');
+      });
+    }
+
+    /* ── DOM refs ── */
+    var contentEl = document.getElementById('content');
+    var navEl = document.getElementById('nav');
+    var sidebarTitleEl = document.getElementById('sidebarTitle');
+    var sidebarEl = document.getElementById('sidebar');
+    var overlayEl = document.getElementById('overlay');
+    var menuToggleEl = document.getElementById('menuToggle');
+    var manifest = null;
+
+    /* ── Mobile menu ── */
+    menuToggleEl.addEventListener('click', function () {
+      sidebarEl.classList.toggle('open');
+      overlayEl.classList.toggle('open');
+    });
+    overlayEl.addEventListener('click', function () {
+      sidebarEl.classList.remove('open');
+      overlayEl.classList.remove('open');
+    });
+
+    /* ── Render nav ── */
+    function renderNav(slug) {
+      navEl.innerHTML = manifest.docs.map(function (d) {
+        var cls = d.slug === slug ? ' class="active"' : '';
+        return '<li><a href="#/' + d.slug + '"' + cls + '>'
+          + md.utils.escapeHtml(d.title) + '</a></li>';
+      }).join('');
+    }
+
+    /* ── Render document ── */
+    function renderDoc(slug) {
+      if (!slug && manifest.docs.length) slug = manifest.docs[0].slug;
+      renderNav(slug);
+      contentEl.innerHTML = '<div class="loading">...</div>';
+      fetch(slug + '.md')
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+        .then(function (text) {
+          contentEl.innerHTML = md.render(preprocessWikilinks(stripFrontmatter(text)));
+          processCallouts(contentEl);
+          window.scrollTo(0, 0);
+        })
+        .catch(function () {
+          contentEl.innerHTML = '<div class="loading">文档加载失败：' + slug + '</div>';
+        });
+      sidebarEl.classList.remove('open');
+      overlayEl.classList.remove('open');
+    }
+
+    /* ── Hash router ── */
+    function slugFromHash() {
+      var h = location.hash;
+      return h.startsWith('#/') ? h.slice(2) : '';
+    }
+
+    window.addEventListener('hashchange', function () { renderDoc(slugFromHash()); });
+
+    /* ── Boot ── */
+    fetch('manifest.json')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        manifest = data;
+        sidebarTitleEl.textContent = manifest.title || '文档';
+        document.title = manifest.title || '文档';
+        renderDoc(slugFromHash());
+      })
+      .catch(function () {
+        contentEl.innerHTML = '<div class="loading">manifest.json 加载失败</div>';
+      });
+  })();
+  </script>
+</body>
+</html>
