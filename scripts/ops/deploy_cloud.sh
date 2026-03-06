@@ -117,10 +117,38 @@ find_running_ui_server_pod() {
     | awk '$2 ~ /^1\/1$/ && $3 == "Running" {print $1; exit}'
 }
 
+LAST_RUNNING_UI_SERVER_POD=""
+
+exec_in_running_ui_server_pod() {
+  local command="$1"
+  local purpose="${2:-ui-server exec}"
+  local max_attempts="${3:-8}"
+  local attempt=1
+  local pod out
+
+  while [ $attempt -le $max_attempts ]; do
+    pod="$(find_running_ui_server_pod)"
+    if [ -n "$pod" ]; then
+      if out="$(kubectl -n "$NAMESPACE" exec "$pod" -- sh -lc "$command" 2>&1)"; then
+        LAST_RUNNING_UI_SERVER_POD="$pod"
+        printf '%s' "$out"
+        return 0
+      fi
+      echo "WARN: ${purpose} failed on pod ${pod} (attempt ${attempt}/${max_attempts}): ${out}" >&2
+    else
+      echo "WARN: cannot find running ui-server pod for ${purpose} (attempt ${attempt}/${max_attempts})" >&2
+    fi
+    attempt=$((attempt + 1))
+    sleep 2
+  done
+
+  echo "ERROR: ${purpose} failed after ${max_attempts} attempts." >&2
+  return 1
+}
+
 container_file_sha256() {
-  local pod="$1"
-  local in_container_path="$2"
-  kubectl -n "$NAMESPACE" exec "$pod" -- sh -lc \
+  local in_container_path="$1"
+  exec_in_running_ui_server_pod \
     "bun -e \"import { readFileSync } from 'node:fs'; import { createHash } from 'node:crypto'; const p='${in_container_path}'; process.stdout.write(createHash('sha256').update(readFileSync(p)).digest('hex'));\""
 }
 
@@ -128,19 +156,12 @@ verify_ui_server_runtime_source_hashes() {
   local expected_server="$1"
   local expected_demo="$2"
   local expected_adapter="$3"
-  local pod
-  pod="$(find_running_ui_server_pod)"
-  if [ -z "$pod" ]; then
-    echo "ERROR: cannot find running ui-server pod for source hash verification." >&2
-    return 1
-  fi
-
   local got_server got_demo got_adapter
-  got_server="$(container_file_sha256 "$pod" "/app/packages/ui-model-demo-server/server.mjs")"
-  got_demo="$(container_file_sha256 "$pod" "/app/packages/ui-model-demo-frontend/src/demo_modeltable.js")"
-  got_adapter="$(container_file_sha256 "$pod" "/app/packages/ui-model-demo-frontend/src/local_bus_adapter.js")"
+  got_server="$(container_file_sha256 "/app/packages/ui-model-demo-server/server.mjs")"
+  got_demo="$(container_file_sha256 "/app/packages/ui-model-demo-frontend/src/demo_modeltable.js")"
+  got_adapter="$(container_file_sha256 "/app/packages/ui-model-demo-frontend/src/local_bus_adapter.js")"
 
-  echo "  ui-server pod: $pod"
+  echo "  ui-server pod: ${LAST_RUNNING_UI_SERVER_POD:-unknown}"
   echo "  hash server.mjs local=$expected_server pod=$got_server"
   echo "  hash demo_modeltable.js local=$expected_demo pod=$got_demo"
   echo "  hash local_bus_adapter.js local=$expected_adapter pod=$got_adapter"
@@ -152,29 +173,20 @@ verify_ui_server_runtime_source_hashes() {
 }
 
 verify_ui_prompt_guard_markers() {
-  local pod
-  pod="$(find_running_ui_server_pod)"
-  if [ -z "$pod" ]; then
-    echo "ERROR: cannot find running ui-server pod for prompt guard verification." >&2
-    return 1
-  fi
-  kubectl -n "$NAMESPACE" exec "$pod" -- sh -lc \
-    "grep -q 'llmPromptAvailable' /app/packages/ui-model-demo-frontend/src/demo_modeltable.js"
-  kubectl -n "$NAMESPACE" exec "$pod" -- sh -lc \
-    "grep -q 'txt_prompt_unavailable' /app/packages/ui-model-demo-frontend/src/demo_modeltable.js"
+  exec_in_running_ui_server_pod \
+    "grep -q 'llmPromptAvailable' /app/packages/ui-model-demo-frontend/src/demo_modeltable.js" \
+    "prompt guard marker llmPromptAvailable" >/dev/null
+  exec_in_running_ui_server_pod \
+    "grep -q 'txt_prompt_unavailable' /app/packages/ui-model-demo-frontend/src/demo_modeltable.js" \
+    "prompt guard marker txt_prompt_unavailable" >/dev/null
   echo "  Prompt UI guard markers: OK"
 }
 
 verify_ui_server_snapshot_runtime() {
-  local pod
-  pod="$(find_running_ui_server_pod)"
-  if [ -z "$pod" ]; then
-    echo "ERROR: cannot find running ui-server pod for snapshot check." >&2
-    return 1
-  fi
   local out
-  out="$(kubectl -n "$NAMESPACE" exec "$pod" -- sh -lc \
-    "bun -e \"fetch('http://127.0.0.1:9000/snapshot').then(r=>r.json()).then(j=>{const s=j.snapshot.models['-2'].cells['0,0,0'].labels; console.log('llm_prompt_available='+s.llm_prompt_available.v+' llm_prompt_notice='+s.llm_prompt_notice.v);}).catch(e=>{console.error(String(e&&e.message?e.message:e)); process.exit(2);})\"")"
+  out="$(exec_in_running_ui_server_pod \
+    "bun -e \"fetch('http://127.0.0.1:9000/snapshot').then(r=>r.json()).then(j=>{const s=j.snapshot.models['-2'].cells['0,0,0'].labels; console.log('llm_prompt_available='+s.llm_prompt_available.v+' llm_prompt_notice='+s.llm_prompt_notice.v);}).catch(e=>{console.error(String(e&&e.message?e.message:e)); process.exit(2);})\"" \
+    "snapshot check")"
   echo "  snapshot runtime: $out"
 }
 
