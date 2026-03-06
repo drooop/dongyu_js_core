@@ -4,7 +4,7 @@ import assert from 'node:assert';
 import {
   DEFAULT_FILLTABLE_POLICY,
   normalizeFilltablePolicy,
-  validateFilltableRecords,
+  validateFilltableCandidateChanges,
   buildFilltableDigest,
   evaluateApplyPreviewGuard,
 } from '../../packages/ui-model-demo-server/filltable_policy.mjs';
@@ -13,7 +13,7 @@ function test_normalize_policy_defaults() {
   const out = normalizeFilltablePolicy(null);
   assert.strictEqual(out.allow_positive_model_ids, true);
   assert.strictEqual(out.allow_negative_model_ids, false);
-  assert.strictEqual(out.max_records_per_apply, DEFAULT_FILLTABLE_POLICY.max_records_per_apply);
+  assert.strictEqual(out.max_changes_per_apply, DEFAULT_FILLTABLE_POLICY.max_changes_per_apply);
   assert(Array.isArray(out.allowed_label_types));
   assert(out.allowed_label_types.includes('str'));
   assert(Array.isArray(out.protected_label_keys));
@@ -21,87 +21,67 @@ function test_normalize_policy_defaults() {
   return { key: 'normalize_policy_defaults', status: 'PASS' };
 }
 
-function test_validate_records_positive_and_negative_models() {
-  const records = [
+function test_validate_changes_positive_and_negative_models() {
+  const changes = [
     {
-      op: 'add_label',
-      model_id: 100,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'title',
-      t: 'str',
-      v: 'hello',
+      action: 'set_label',
+      target: { model_id: 100, p: 0, r: 0, c: 0, k: 'title' },
+      label: { t: 'str', v: 'hello' },
     },
     {
-      op: 'add_label',
-      model_id: -1,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'bad',
-      t: 'str',
-      v: 'x',
+      action: 'set_label',
+      target: { model_id: -1, p: 0, r: 0, c: 0, k: 'bad' },
+      label: { t: 'str', v: 'x' },
     },
   ];
-  const out = validateFilltableRecords(records, normalizeFilltablePolicy(null));
-  assert.strictEqual(out.accepted_records.length, 1);
-  assert.strictEqual(out.rejected_records.length, 1);
-  assert.strictEqual(out.rejected_records[0].code, 'model_id_not_allowed');
-  return { key: 'validate_records_positive_and_negative_models', status: 'PASS' };
+  const out = validateFilltableCandidateChanges(changes, normalizeFilltablePolicy(null));
+  assert.strictEqual(out.accepted_changes.length, 1);
+  assert.strictEqual(out.rejected_changes.length, 1);
+  assert.strictEqual(out.rejected_changes[0].code, 'model_id_not_allowed');
+  return { key: 'validate_changes_positive_and_negative_models', status: 'PASS' };
 }
 
-function test_validate_records_protected_key_rejected() {
-  const records = [
+function test_validate_changes_protected_key_rejected() {
+  const changes = [
     {
-      op: 'add_label',
-      model_id: 100,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'dual_bus_model',
-      t: 'json',
-      v: { a: 1 },
+      action: 'set_label',
+      target: { model_id: 100, p: 0, r: 0, c: 0, k: 'dual_bus_model' },
+      label: { t: 'json', v: { a: 1 } },
     },
   ];
-  const out = validateFilltableRecords(records, normalizeFilltablePolicy(null));
-  assert.strictEqual(out.accepted_records.length, 0);
-  assert.strictEqual(out.rejected_records.length, 1);
-  assert.strictEqual(out.rejected_records[0].code, 'protected_label_key');
-  return { key: 'validate_records_protected_key_rejected', status: 'PASS' };
+  const out = validateFilltableCandidateChanges(changes, normalizeFilltablePolicy(null));
+  assert.strictEqual(out.accepted_changes.length, 0);
+  assert.strictEqual(out.rejected_changes.length, 1);
+  assert.strictEqual(out.rejected_changes[0].code, 'protected_label_key');
+  return { key: 'validate_changes_protected_key_rejected', status: 'PASS' };
 }
 
-function test_validate_records_size_limit() {
+function test_validate_changes_size_limit() {
   const policy = normalizeFilltablePolicy({
     max_value_bytes: 256,
     max_total_bytes: 512,
   });
-  const records = [
+  const changes = [
     {
-      op: 'add_label',
-      model_id: 100,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'title',
-      t: 'str',
-      v: 'x'.repeat(300),
+      action: 'set_label',
+      target: { model_id: 100, p: 0, r: 0, c: 0, k: 'title' },
+      label: { t: 'str', v: 'x'.repeat(300) },
     },
   ];
-  const out = validateFilltableRecords(records, policy);
-  assert.strictEqual(out.accepted_records.length, 0);
-  assert.strictEqual(out.rejected_records.length, 1);
-  assert.strictEqual(out.rejected_records[0].code, 'value_too_large');
-  return { key: 'validate_records_size_limit', status: 'PASS' };
+  const out = validateFilltableCandidateChanges(changes, policy);
+  assert.strictEqual(out.accepted_changes.length, 0);
+  assert.strictEqual(out.rejected_changes.length, 1);
+  assert.strictEqual(out.rejected_changes[0].code, 'value_too_large');
+  return { key: 'validate_changes_size_limit', status: 'PASS' };
 }
 
 function test_digest_is_stable() {
-  const records = [
-    { op: 'rm_label', model_id: 100, p: 0, r: 0, c: 0, k: 'x' },
-    { op: 'add_label', model_id: 101, p: 1, r: 2, c: 3, k: 'y', t: 'int', v: 7 },
+  const changes = [
+    { action: 'remove_label', target: { model_id: 100, p: 0, r: 0, c: 0, k: 'x' } },
+    { action: 'set_label', target: { model_id: 101, p: 1, r: 2, c: 3, k: 'y' }, label: { t: 'int', v: 7 } },
   ];
-  const a = buildFilltableDigest(records);
-  const b = buildFilltableDigest(records);
+  const a = buildFilltableDigest(changes);
+  const b = buildFilltableDigest(changes);
   assert.strictEqual(a, b);
   assert.strictEqual(typeof a, 'string');
   assert(a.length >= 16);
@@ -143,177 +123,149 @@ function test_apply_guard_states() {
 }
 
 function test_structural_type_default_denied() {
-  const records = [
+  const changes = [
     {
-      op: 'add_label',
-      model_id: 100,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'cmd',
-      t: 'pin.table.in',
-      v: null,
+      action: 'set_label',
+      target: { model_id: 100, p: 0, r: 0, c: 0, k: 'cmd' },
+      label: { t: 'pin.table.in', v: null },
     },
     {
-      op: 'add_label',
-      model_id: 100,
-      p: 0,
-      r: 0,
-      c: 1,
-      k: 'sig',
-      t: 'pin.single.in',
-      v: 'port_in',
+      action: 'set_label',
+      target: { model_id: 100, p: 0, r: 0, c: 1, k: 'sig' },
+      label: { t: 'pin.single.in', v: 'port_in' },
     },
     {
-      op: 'add_label',
-      model_id: 0,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'bus_evt',
-      t: 'pin.bus.in',
-      v: null,
+      action: 'set_label',
+      target: { model_id: 100, p: 0, r: 0, c: 2, k: 'handler' },
+      label: { t: 'func.js', v: { code: 'return 1;' } },
     },
     {
-      op: 'add_label',
-      model_id: 100,
-      p: 0,
-      r: 0,
-      c: 2,
-      k: 'handler',
-      t: 'func.js',
-      v: { code: 'return 1;' },
+      action: 'set_label',
+      target: { model_id: 100, p: 0, r: 0, c: 3, k: 'connect' },
+      label: { t: 'pin.connect.label', v: [{ from: 'in', to: ['out'] }] },
     },
   ];
-  const out = validateFilltableRecords(records, normalizeFilltablePolicy(null));
-  assert.strictEqual(out.accepted_records.length, 0);
-  assert.strictEqual(out.rejected_records.length, 4);
-  assert(out.rejected_records.every((item) => item.code === 'structural_label_type_forbidden'));
+  const out = validateFilltableCandidateChanges(changes, normalizeFilltablePolicy(null));
+  assert.strictEqual(out.accepted_changes.length, 0);
+  assert.strictEqual(out.rejected_changes.length, 4);
+  assert(out.rejected_changes.every((item) => item.code === 'structural_label_type_forbidden'));
   return { key: 'structural_type_default_denied', status: 'PASS' };
 }
 
 function test_structural_type_allowed_by_flag() {
-  const records = [
+  const changes = [
     {
-      op: 'add_label',
-      model_id: 100,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'handler',
-      t: 'func.js',
-      v: { code: 'return 1;', modelName: 'demo' },
+      action: 'set_label',
+      target: { model_id: 100, p: 0, r: 0, c: 0, k: 'handler' },
+      label: { t: 'func.js', v: { code: 'return 1;', modelName: 'demo' } },
     },
     {
-      op: 'add_label',
-      model_id: 100,
-      p: 0,
-      r: 0,
-      c: 1,
-      k: 'connect',
-      t: 'pin.connect.label',
-      v: [{ from: 'in', to: ['out'] }],
+      action: 'set_label',
+      target: { model_id: 100, p: 0, r: 0, c: 1, k: 'connect' },
+      label: { t: 'pin.connect.label', v: [{ from: 'in', to: ['out'] }] },
     },
     {
-      op: 'add_label',
-      model_id: 100,
-      p: 0,
-      r: 0,
-      c: 2,
-      k: 'cmd',
-      t: 'pin.table.in',
-      v: null,
+      action: 'set_label',
+      target: { model_id: 100, p: 0, r: 0, c: 2, k: 'cmd' },
+      label: { t: 'pin.table.in', v: null },
     },
     {
-      op: 'add_label',
-      model_id: 101,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'signal',
-      t: 'pin.single.out',
-      v: 'done',
+      action: 'set_label',
+      target: { model_id: 101, p: 0, r: 0, c: 0, k: 'signal' },
+      label: { t: 'pin.single.out', v: 'done' },
     },
     {
-      op: 'add_label',
-      model_id: 0,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'bus_evt',
-      t: 'pin.bus.in',
-      v: { op: 'ping' },
+      action: 'set_label',
+      target: { model_id: 102, p: 0, r: 0, c: 0, k: 'shape' },
+      label: { t: 'model.single', v: 'demo.single' },
     },
   ];
-  const out = validateFilltableRecords(records, normalizeFilltablePolicy({
+  const out = validateFilltableCandidateChanges(changes, normalizeFilltablePolicy({
     allow_structural_types: true,
   }));
-  assert.strictEqual(out.accepted_records.length, 5);
-  assert.strictEqual(out.rejected_records.length, 0);
+  assert.strictEqual(out.accepted_changes.length, 5);
+  assert.strictEqual(out.rejected_changes.length, 0);
   return { key: 'structural_type_allowed_by_flag', status: 'PASS' };
 }
 
 function test_structural_values_must_match_type_contract() {
-  const invalidFunc = validateFilltableRecords([
+  const invalidFunc = validateFilltableCandidateChanges([
     {
-      op: 'add_label',
-      model_id: 100,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'bad_func',
-      t: 'func.js',
-      v: 'return 1;',
+      action: 'set_label',
+      target: { model_id: 100, p: 0, r: 0, c: 0, k: 'handler' },
+      label: { t: 'func.js', v: { modelName: 'demo' } },
     },
-  ], normalizeFilltablePolicy({
-    allow_structural_types: true,
-  }));
-  assert.strictEqual(invalidFunc.accepted_records.length, 0);
-  assert.strictEqual(invalidFunc.rejected_records[0].code, 'invalid_func_value');
+  ], normalizeFilltablePolicy({ allow_structural_types: true }));
+  assert.strictEqual(invalidFunc.accepted_changes.length, 0);
+  assert.strictEqual(invalidFunc.rejected_changes[0].code, 'invalid_func_value');
 
-  const invalidConnect = validateFilltableRecords([
+  const invalidConnect = validateFilltableCandidateChanges([
     {
-      op: 'add_label',
-      model_id: 100,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'bad_connect',
-      t: 'pin.connect.label',
-      v: { from: 'in', to: ['out'] },
+      action: 'set_label',
+      target: { model_id: 100, p: 0, r: 0, c: 0, k: 'connect' },
+      label: { t: 'pin.connect.label', v: { from: 'in', to: ['out'] } },
     },
-  ], normalizeFilltablePolicy({
-    allow_structural_types: true,
-  }));
-  assert.strictEqual(invalidConnect.accepted_records.length, 0);
-  assert.strictEqual(invalidConnect.rejected_records[0].code, 'invalid_connect_value');
-
+  ], normalizeFilltablePolicy({ allow_structural_types: true }));
+  assert.strictEqual(invalidConnect.accepted_changes.length, 0);
+  assert.strictEqual(invalidConnect.rejected_changes[0].code, 'invalid_connect_value');
   return { key: 'structural_values_must_match_type_contract', status: 'PASS' };
+}
+
+function test_remove_label_requires_no_label_payload() {
+  const out = validateFilltableCandidateChanges([
+    {
+      action: 'remove_label',
+      target: { model_id: 100, p: 0, r: 0, c: 0, k: 'obsolete_key' },
+    },
+  ], normalizeFilltablePolicy(null));
+  assert.strictEqual(out.accepted_changes.length, 1);
+  assert.strictEqual(out.rejected_changes.length, 0);
+  assert.strictEqual(out.accepted_changes[0].action, 'remove_label');
+  return { key: 'remove_label_requires_no_label_payload', status: 'PASS' };
+}
+
+function test_model_zero_is_forbidden_in_owner_chain() {
+  const out = validateFilltableCandidateChanges([
+    {
+      action: 'set_label',
+      target: { model_id: 0, p: 0, r: 0, c: 0, k: 'bus_evt' },
+      label: { t: 'pin.bus.in', v: null },
+    },
+  ], normalizeFilltablePolicy({ allow_structural_types: true }));
+  assert.strictEqual(out.accepted_changes.length, 0);
+  assert.strictEqual(out.rejected_changes.length, 1);
+  assert.strictEqual(out.rejected_changes[0].code, 'model_id_not_allowed');
+  return { key: 'model_zero_is_forbidden_in_owner_chain', status: 'PASS' };
 }
 
 const tests = [
   test_normalize_policy_defaults,
-  test_validate_records_positive_and_negative_models,
-  test_validate_records_protected_key_rejected,
-  test_validate_records_size_limit,
+  test_validate_changes_positive_and_negative_models,
+  test_validate_changes_protected_key_rejected,
+  test_validate_changes_size_limit,
   test_digest_is_stable,
   test_apply_guard_states,
   test_structural_type_default_denied,
   test_structural_type_allowed_by_flag,
   test_structural_values_must_match_type_contract,
+  test_remove_label_requires_no_label_payload,
+  test_model_zero_is_forbidden_in_owner_chain,
 ];
 
-let passed = 0;
 let failed = 0;
-for (const t of tests) {
+for (const testFn of tests) {
   try {
-    const r = t();
-    console.log(`[${r.status}] ${r.key}`);
-    passed += 1;
+    const result = testFn();
+    console.log(`[${result.status}] ${result.key}`);
   } catch (err) {
-    console.log(`[FAIL] ${t.name}: ${err.message}`);
     failed += 1;
+    console.error(`[FAIL] ${testFn.name}:`, err.message);
   }
 }
-console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
-process.exit(failed > 0 ? 1 : 0);
+
+if (failed > 0) {
+  console.error(`test_0155_prompt_filltable_policy: ${failed} failed`);
+  process.exit(1);
+}
+
+console.log('test_0155_prompt_filltable_policy: PASS');

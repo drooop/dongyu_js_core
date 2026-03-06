@@ -89,7 +89,6 @@
       "v": {
         "allow_positive_model_ids": true,
         "allow_negative_model_ids": false,
-        "max_records_per_apply": 10,
         "max_value_bytes": 65536,
         "max_total_bytes": 262144,
         "allowed_label_types": [
@@ -112,7 +111,8 @@
           "run_intent_dispatch",
           "mgmt_inbox",
           "mgmt_func_error"
-        ]
+        ],
+        "max_changes_per_apply": 10
       }
     }
   ]

@@ -299,8 +299,8 @@ export function buildEditorAstV1(snapshot) {
     if (llmPromptPreview && typeof llmPromptPreview === 'object' && llmPromptPreview.stats && Number.isInteger(llmPromptPreview.stats.accepted)) {
       return llmPromptPreview.stats.accepted;
     }
-    if (llmPromptPreview && typeof llmPromptPreview === 'object' && Array.isArray(llmPromptPreview.accepted_records)) {
-      return llmPromptPreview.accepted_records.length;
+    if (llmPromptPreview && typeof llmPromptPreview === 'object' && Array.isArray(llmPromptPreview.accepted_changes)) {
+      return llmPromptPreview.accepted_changes.length;
     }
     return 0;
   })();
@@ -308,8 +308,8 @@ export function buildEditorAstV1(snapshot) {
     if (llmPromptPreview && typeof llmPromptPreview === 'object' && llmPromptPreview.stats && Number.isInteger(llmPromptPreview.stats.rejected)) {
       return llmPromptPreview.stats.rejected;
     }
-    if (llmPromptPreview && typeof llmPromptPreview === 'object' && Array.isArray(llmPromptPreview.rejected_records)) {
-      return llmPromptPreview.rejected_records.length;
+    if (llmPromptPreview && typeof llmPromptPreview === 'object' && Array.isArray(llmPromptPreview.rejected_changes)) {
+      return llmPromptPreview.rejected_changes.length;
     }
     return 0;
   })();
@@ -1158,7 +1158,7 @@ export function buildEditorAstV1(snapshot) {
                   type: 'Text',
                   props: {
                     type: 'info',
-                    text: '输入自然语言，先 Preview（仅校验不落库），再 Apply（执行 accepted 记录）。默认仅允许正数 model_id。',
+                    text: '输入自然语言，先 Preview（生成 owner-chain 预览，不落库），再 Apply（执行 owner 已确认的 accepted changes）。默认仅允许正数 model_id。',
                   },
                 },
                 (!llmPromptAvailable && llmPromptNotice)

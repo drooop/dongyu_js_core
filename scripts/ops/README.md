@@ -209,8 +209,8 @@ PASS 判定：
   - `preview_response ... result:"ok"`
   - `apply_response ... result:"ok"`
   - `replay_response ... code:"preview_replay"`
-  - `negative_response ... code:"apply_failed"`
-  - `too_many_records_response ... code:"too_many_records"`
+  - `legacy_response ... code:"legacy_preview_contract"`
+  - `too_many_changes_response ... code:"too_many_changes"`
   - `[verify-0155] PASS`
 
 实测经验：
@@ -224,8 +224,10 @@ PASS 判定：
 - 该现象说明链路可用，但推理不是“稳定秒回”。
 
 边界说明：
-- 当前 server 仍使用 `accepted_records` / `applied_records` compatibility bridge。
-- 这条命令适合做本地能力验证，不代表新版规约下 LLM 的最终 owner-chain 合同。
+- 当前 preview/apply 已切到 owner-chain 公共合同：
+  - preview 产出 `accepted_changes` / `rejected_changes`
+  - apply 回写 `applied_changes`
+- `add_label` / `rm_label` 仅作为 owner 内部 materialization 细节，不再直接暴露给 LLM。
 
 ---
 
