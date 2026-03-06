@@ -16,9 +16,9 @@ const deployCommon = read('scripts/ops/_deploy_common.sh');
 const cloudWorkers = read('k8s/cloud/workers.yaml');
 const localWorkers = read('k8s/local/workers.yaml');
 
-assert.match(
-  deployCommon,
-  /--from-literal="MATRIX_MBR_ACCESS_TOKEN=\$[A-Za-z_][A-Za-z0-9_]*"/,
+assert.ok(
+  /--from-literal="MATRIX_MBR_ACCESS_TOKEN=\$[A-Za-z_][A-Za-z0-9_]*"/.test(deployCommon)
+    || /MATRIX_MBR_ACCESS_TOKEN:\s*"\$\{server_token\}"/.test(deployCommon),
   'ui-server-secret must include drop user access token so ui-server can avoid password login rate limits',
 );
 

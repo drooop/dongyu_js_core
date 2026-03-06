@@ -178,15 +178,36 @@ update_k8s_secrets() {
   local server_token="$1"
   local mbr_token="$2"
   local ns="${NAMESPACE:?}"
+  local tmp_ui tmp_mbr
+  tmp_ui=$(mktemp)
+  tmp_mbr=$(mktemp)
 
-  kubectl -n "$ns" create secret generic ui-server-secret \
-    --from-literal="MATRIX_MBR_PASSWORD=$SERVER_PASSWORD" \
-    --from-literal="MATRIX_MBR_ACCESS_TOKEN=$server_token" \
-    --dry-run=client -o yaml | kubectl apply -f -
+  cat > "$tmp_ui" <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ui-server-secret
+  namespace: ${ns}
+type: Opaque
+stringData:
+  MATRIX_MBR_PASSWORD: "${SERVER_PASSWORD}"
+  MATRIX_MBR_ACCESS_TOKEN: "${server_token}"
+EOF
+  kubectl apply -f "$tmp_ui"
 
-  kubectl -n "$ns" create secret generic mbr-worker-secret \
-    --from-literal="MATRIX_MBR_BOT_ACCESS_TOKEN=$mbr_token" \
-    --dry-run=client -o yaml | kubectl apply -f -
+  cat > "$tmp_mbr" <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mbr-worker-secret
+  namespace: ${ns}
+type: Opaque
+stringData:
+  MATRIX_MBR_BOT_ACCESS_TOKEN: "${mbr_token}"
+EOF
+  kubectl apply -f "$tmp_mbr"
+
+  rm -f "$tmp_ui" "$tmp_mbr"
 
   echo "  Secrets updated."
 }
