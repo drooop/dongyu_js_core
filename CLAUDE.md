@@ -154,6 +154,64 @@ report per code change:
   7 alternatives (≥2: pros / cons / cost / when)
 
 
+RESPONSE_EFFORT_GUIDANCE
+
+- every assistant reply MUST include one explicit effort suggestion:
+    `effort_suggestion: medium|high|xhigh — <short reason>`
+- applies to both intermediary updates and final answers.
+- default = `medium` when the task is scoped, local, and low-ambiguity.
+- use `high` when the task has notable ambiguity, cross-file / cross-system coupling,
+  historical recovery, or elevated verification burden.
+- use `xhigh` only for unusually broad, architecture-shaping, or high-blast-radius work.
+- the suggestion is guidance for how much reasoning / care to spend next,
+  not a claim that the task is inherently difficult.
+
+
+DROPMODE_PROTOCOL
+
+- `dropmode` = session migration protocol for upgrade/downgrade handoff. this is developer workflow only.
+- when the `$dropmode` skill is triggered, run this protocol.
+- maintain session-local state:
+    `dropmode_enabled = true|false`
+    `dropmode_pending = none|upgrade|downgrade`
+    `dropmode_session_mode = unknown|regular|large`
+- repo default may set `dropmode_enabled=true`; if repo-local rules say so, follow them.
+- infer `dropmode_session_mode` using best-effort evidence in this order:
+    1. current-session `/status` output, when available to the assistant
+    2. codex config/profile hints (for example context-window or large-profile settings)
+    3. prior migration packet / compact_handoff `Session Mode`
+    4. explicit user statement such as `1M`, `large`, `大窗`, `常规`, `非1M`
+- treat config/profile evidence as heuristic, not proof.
+- toggle behavior:
+    flip `dropmode_enabled`
+    clear `dropmode_pending`
+    reply with exactly one line and nothing else:
+      `dropmode 已开启：后续回复将执行升级/降级迁移判断。`
+      or
+      `dropmode 已关闭：后续回复不再主动给出升级/降级迁移建议。`
+- exception to RESPONSE_EFFORT_GUIDANCE:
+    the exact toggle acknowledgement above MUST NOT append `effort_suggestion`
+    and MUST NOT append migration prompts or any extra explanation.
+- when `dropmode_enabled=true`, silently evaluate each normal reply:
+    first refresh `dropmode_session_mode` from available evidence
+    if `dropmode_session_mode=large` and the task does not justify large context, append the downgrade line and set `dropmode_pending=downgrade`
+    if `dropmode_session_mode=regular` or `dropmode_session_mode=unknown` and the task does justify large context, append the upgrade line and set `dropmode_pending=upgrade`
+    upgrade line:
+      `本方案建议升级到 1M 新会话后继续。若确认升级，请明确回复：升级后继续。`
+    downgrade line:
+      `接下来的任务建议降级并在新会话继续。若确认降级，请明确回复：降级后继续。`
+- confirmation behavior:
+    if user message is exactly `升级后继续` and `dropmode_pending=upgrade`,
+    output the migration packet (`compact_handoff`, new-session launch, first prompt template)
+    with target session mode = `large`
+    and then clear `dropmode_pending`.
+    if user message is exactly `降级后继续` and `dropmode_pending=downgrade`,
+    output the same migration packet for downgrade with target session mode = `regular`
+    and then clear `dropmode_pending`.
+- if there is no matching pending migration, DO NOT fabricate a migration packet.
+- never claim live hot-switch of the current session's real context window.
+
+
 ARCH_INVARIANTS
 
 - model-driven: ModelTable = SSOT, code = runtime + extension

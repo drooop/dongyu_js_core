@@ -63,6 +63,7 @@ AGENTS.md
 .sisyphus/
 .playwright-mcp/
 .github/
+!/AGENTS.md
 !.github/
 .github/*
 !.github/workflows/
