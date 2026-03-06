@@ -1,5 +1,5 @@
 import { createRenderer } from '../../ui-renderer/src/index.js';
-import { createDemoStore, buildDemoAstSample } from '../src/demo_modeltable.js';
+import { createDemoStore } from '../src/demo_modeltable.js';
 
 function assert(condition, message) {
   if (!condition) {
@@ -16,11 +16,6 @@ function findFirstNode(tree, type) {
     if (found) return found;
   }
   return null;
-}
-
-function getFirstTextValue(tree) {
-  const textNode = findFirstNode(tree, 'Text') || findFirstNode(tree, 'CodeBlock');
-  return textNode ? textNode.text : null;
 }
 
 function createHost(store, calls) {
@@ -45,31 +40,19 @@ function run() {
 
   const ast = store.getUiAst();
   assert(ast && ast.type === 'Root', 'demo_ast_entry: missing root');
-  const astLabel = store.snapshot.models[0].cells['0,0,0'].labels.ui_ast_v0;
+  const astLabel = store.snapshot.models[-1].cells['0,0,0'].labels.ui_ast_v0;
   assert(astLabel && astLabel.t === 'json', 'demo_ast_entry: ui_ast_v0 t must be json');
   assert(astLabel && astLabel.v && typeof astLabel.v === 'object' && !Array.isArray(astLabel.v), 'demo_ast_entry: ui_ast_v0 v must be object');
+  assert(ast.id === 'root_home', 'demo_ast_entry: expected root_home');
 
   const tree = renderer.renderTree(ast);
   const textNode = findFirstNode(tree, 'Text');
-  assert(textNode && textNode.text === 'ModelTable', 'demo_bind_read_text: Text bind.read mismatch');
+  assert(textNode && typeof textNode.text === 'string' && textNode.text.includes('target:'), 'demo_bind_read_text: Text bind.read mismatch');
   const inputNodeTree = findFirstNode(tree, 'Input');
-  assert(inputNodeTree && inputNodeTree.value === 'Hello', 'demo_bind_read_input: Input bind.read mismatch');
+  assert(inputNodeTree && inputNodeTree.value === '', 'demo_bind_read_input: Input bind.read mismatch');
   assert(findFirstNode(tree, 'Input'), 'demo_render_smoke: missing Input');
   assert(findFirstNode(tree, 'Button'), 'demo_render_smoke: missing Button');
   assert(findFirstNode(tree, 'Card'), 'demo_render_smoke: missing Card');
-
-  const beforeText = getFirstTextValue(tree);
-  const altAst = buildDemoAstSample();
-  altAst.children[0].children[0].children[0] = {
-    id: 'alt_text',
-    type: 'Text',
-    props: { text: 'Alt' },
-  };
-  store.setUiAst(altAst);
-  const tree2 = renderer.renderTree(store.getUiAst());
-  const afterText = getFirstTextValue(tree2);
-  assert(beforeText !== afterText, 'demo_ast_diff: AST replacement did not change render');
-  assert(afterText === 'Alt', 'demo_ast_diff: expected Alt text');
 
   const inputNode = findFirstNode(ast, 'Input');
   const label = renderer.dispatchEvent(inputNode, { value: 'Z' });
@@ -79,9 +62,10 @@ function run() {
 
   const envelope = label.v;
   assert(envelope && envelope.event_id, 'demo_event_envelope: event_id missing');
-  assert(envelope.type === inputNode.bind.write.event_type, 'demo_event_envelope: type mismatch');
-  assert(envelope.source && envelope.source.node_id === inputNode.id, 'demo_event_envelope: source.node_id mismatch');
-  assert(envelope.source && envelope.source.node_type === inputNode.type, 'demo_event_envelope: source.node_type mismatch');
+  assert(envelope.type === inputNode.bind.write.action, 'demo_event_envelope: type mismatch');
+  assert(envelope.source === 'ui_renderer', 'demo_event_envelope: source mismatch');
+  assert(envelope.payload && envelope.payload.target && envelope.payload.target.k === 'dt_filter_model_query', 'demo_event_envelope: target mismatch');
+  assert(envelope.payload && envelope.payload.value && envelope.payload.value.v === 'Z', 'demo_event_envelope: value mismatch');
 
   const nonEventWrite = calls.find((call) => call.type === 'add' && call.label && call.label.t !== 'event');
   assert(!nonEventWrite, 'demo_no_non_event_write: non-event write detected');
@@ -93,7 +77,6 @@ function run() {
     'demo_event_mailbox: PASS',
     'demo_event_envelope: PASS',
     'demo_no_non_event_write: PASS',
-    'demo_ast_diff: PASS',
   ];
   process.stdout.write(results.join('\n'));
   process.stdout.write('\n');

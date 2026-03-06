@@ -280,6 +280,7 @@ export function buildEditorAstV1(snapshot) {
   const docsHtml = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_render_html' }) ?? '');
 
   const staticProjectName = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_project_name' }) ?? '').trim();
+  const staticMediaUri = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_media_uri' }) ?? '').trim();
   const staticUploadKind = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_upload_kind' }) ?? 'zip').trim();
   const staticStatus = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_status' }) ?? '').trim();
   const staticProjects = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_projects_json' });
@@ -1022,17 +1023,16 @@ export function buildEditorAstV1(snapshot) {
                       props: { label: 'Upload file' },
                       children: [
                         {
-                          id: 'file_static_direct',
+                          id: 'file_static_upload',
                           type: 'FileInput',
                           props: {
                             accept: '.html,.htm,.zip',
-                            label: 'Select .html or .zip file (max 50MB, direct upload)',
-                            directUpload: { fileKey: 'static_file' },
+                            label: 'Select .html or .zip file (max 50MB)',
                           },
                           bind: {
                             write: {
                               action: 'label_update',
-                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_status' },
+                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_media_uri' },
                             },
                           },
                         },
@@ -1049,15 +1049,12 @@ export function buildEditorAstV1(snapshot) {
                           props: {
                             type: 'primary',
                             label: 'Upload',
-                            disabled: staticProjectName.length === 0,
-                            directUpload: {
-                              fileKey: 'static_file',
-                              url: '/api/static/upload',
-                              nameLabel: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_project_name' },
-                              statusTarget: {
-                                action: 'label_update',
-                                target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_status' },
-                              },
+                            disabled: staticProjectName.length === 0 || staticMediaUri.length === 0,
+                          },
+                          bind: {
+                            write: {
+                              action: 'static_project_upload',
+                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_project_name' },
                             },
                           },
                         },
@@ -2146,6 +2143,8 @@ export function createDemoStore() {
   // Static projects page state.
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'static_project_name', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'static_upload_kind', t: 'str', v: 'zip' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'static_media_uri', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'static_media_name', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'static_zip_b64', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'static_html_b64', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'static_status', t: 'str', v: '' });

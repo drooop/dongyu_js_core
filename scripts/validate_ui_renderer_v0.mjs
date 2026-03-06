@@ -244,6 +244,29 @@ function createHostAdapter(snapshot, calls) {
   };
 }
 
+function createHostAdapterWithUpload(snapshot, calls, uploads) {
+  return {
+    getSnapshot() {
+      return snapshot;
+    },
+    dispatchAddLabel(label) {
+      calls.push({ type: 'add', label });
+    },
+    dispatchRmLabel(labelRef) {
+      calls.push({ type: 'rm', labelRef });
+    },
+    async uploadMedia(input) {
+      uploads.push(input);
+      return {
+        uri: 'mxc://example.org/uploaded',
+        name: input && input.filename ? input.filename : 'file.bin',
+        size: 1,
+        mime: 'application/octet-stream',
+      };
+    },
+  };
+}
+
 function validateRenderMinimal(renderer, ast) {
   const tree = renderer.renderTree(ast);
   assert(tree.type === 'Root', 'Root node missing');
@@ -324,6 +347,87 @@ function validateEditorEventMailboxOnly(renderer, calls) {
   return { label };
 }
 
+async function validateRegistryUpload() {
+  const snapshot = buildSnapshot();
+  snapshot.models[-2] = {
+    id: -2,
+    cells: {
+      '0,0,0': {
+        p: 0,
+        r: 0,
+        c: 0,
+        labels: {
+          static_media_uri: { k: 'static_media_uri', t: 'str', v: '' },
+          static_status: { k: 'static_status', t: 'str', v: '' },
+        },
+      },
+    },
+  };
+
+  const calls = [];
+  const uploads = [];
+  const host = createHostAdapterWithUpload(snapshot, calls, uploads);
+  const registry = {
+    version: 'ui.component_registry.v1',
+    components: {
+      Root: { tree_kind: 'Root', vnode_kind: 'Root' },
+      FileInput: {
+        tree_kind: 'FileInput',
+        vnode_kind: 'FileInput',
+        events: {
+          change: [
+            {
+              action: 'upload_media',
+              result_to: { model_id: -2, p: 0, r: 0, c: 0, k: 'static_media_uri' },
+              status_to: { action: 'label_update', target_ref: { model_id: -2, p: 0, r: 0, c: 0, k: 'static_status' } },
+            },
+          ],
+        },
+      },
+    },
+  };
+  const renderer = createRenderer({ host, registry, vue: { h: (type, props, children) => ({ type, props, children }), resolveComponent: (n) => n } });
+  const ast = {
+    id: 'root',
+    type: 'Root',
+    children: [
+      {
+        id: 'file1',
+        type: 'FileInput',
+        props: {
+          accept: '.zip',
+          valueRef: { model_id: -2, p: 0, r: 0, c: 0, k: 'static_media_uri' },
+        },
+      },
+    ],
+  };
+
+  const vnode = renderer.renderVNode(ast);
+  const stack = [vnode];
+  let inputVNode = null;
+  while (stack.length > 0) {
+    const cur = stack.pop();
+    if (!cur || typeof cur !== 'object') continue;
+    if (cur.type === 'input' && cur.props && typeof cur.props.onChange === 'function') {
+      inputVNode = cur;
+      break;
+    }
+    const children = Array.isArray(cur.children) ? cur.children : (cur.children && typeof cur.children === 'object' ? Object.values(cur.children) : []);
+    for (const child of children) stack.push(child);
+  }
+  assert(inputVNode && inputVNode.props && typeof inputVNode.props.onChange === 'function', 'registry_upload:file_onChange_missing');
+
+  const fakeFile = { name: 'demo.zip', type: 'application/zip', size: 1 };
+  await inputVNode.props.onChange({ target: { files: [fakeFile] } });
+
+  assert(uploads.length === 1, 'registry_upload:upload_not_called');
+  const mailboxWrites = calls.filter((x) => x.type === 'add' && x.label && x.label.k === 'ui_event');
+  assert(mailboxWrites.length >= 1, 'registry_upload:no_mailbox_write');
+  const uriWrite = mailboxWrites.find((x) => x.label && x.label.v && x.label.v.payload && x.label.v.payload.target && x.label.v.payload.target.k === 'static_media_uri');
+  assert(Boolean(uriWrite), 'registry_upload:uri_target_missing');
+  assert(uriWrite.label.v.payload.value && uriWrite.label.v.payload.value.v === 'mxc://example.org/uploaded', 'registry_upload:mxc_uri_mismatch');
+}
+
 
 async function run() {
   const args = parseArgs(process.argv.slice(2));
@@ -340,7 +444,7 @@ async function run() {
   const renderer = createRenderer({ host });
 
   const results = [];
-  const cases = args.case === 'all' ? ['render_minimal', 'event_write', 'render_extension', 'editor'] : [args.case];
+  const cases = args.case === 'all' ? ['render_minimal', 'event_write', 'render_extension', 'editor', 'registry_upload'] : [args.case];
 
   for (const name of cases) {
     if (name === 'render_minimal') {
@@ -365,6 +469,9 @@ async function run() {
       results.push({ case: 'editor_form_render', status: 'PASS' });
       results.push({ case: 'editor_event_mailbox_only', status: 'PASS' });
       results.push({ case: 'editor_snapshot_hash', status: 'PASS' });
+    } else if (name === 'registry_upload') {
+      await validateRegistryUpload();
+      results.push({ case: name, status: 'PASS' });
     } else {
       throw new Error(`Unknown case: ${name}`);
     }

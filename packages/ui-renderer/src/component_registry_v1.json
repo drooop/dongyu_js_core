@@ -1,0 +1,56 @@
+{
+  "version": "ui.component_registry.v1",
+  "components": {
+    "Root": { "tree_kind": "Root", "vnode_kind": "Root" },
+    "Container": { "tree_kind": "Container", "vnode_kind": "Container" },
+    "Card": { "tree_kind": "Card", "vnode_kind": "Card" },
+    "Text": { "tree_kind": "Text", "vnode_kind": "Text" },
+    "CodeBlock": { "tree_kind": "CodeBlock", "vnode_kind": "CodeBlock" },
+    "Input": { "tree_kind": "Input", "vnode_kind": "Input" },
+    "DatePicker": { "tree_kind": "DatePicker", "vnode_kind": "DatePicker" },
+    "TimePicker": { "tree_kind": "TimePicker", "vnode_kind": "TimePicker" },
+    "Tabs": { "tree_kind": "Tabs", "vnode_kind": "Tabs" },
+    "TabPane": { "tree_kind": "TabPane", "vnode_kind": "TabPane" },
+    "Dialog": { "tree_kind": "Dialog", "vnode_kind": "Dialog" },
+    "Pagination": { "tree_kind": "Pagination", "vnode_kind": "Pagination" },
+    "Select": { "tree_kind": "Select", "vnode_kind": "Select" },
+    "NumberInput": { "tree_kind": "NumberInput", "vnode_kind": "NumberInput" },
+    "Switch": { "tree_kind": "Switch", "vnode_kind": "Switch" },
+    "Checkbox": { "tree_kind": "Checkbox", "vnode_kind": "Checkbox" },
+    "RadioGroup": { "tree_kind": "RadioGroup", "vnode_kind": "RadioGroup" },
+    "Radio": { "tree_kind": "Radio", "vnode_kind": "Radio" },
+    "Slider": { "tree_kind": "Slider", "vnode_kind": "Slider" },
+    "Button": { "tree_kind": "Button", "vnode_kind": "Button" },
+    "ProgressBar": { "tree_kind": "ProgressBar", "vnode_kind": "ProgressBar" },
+    "Divider": { "tree_kind": "Divider", "vnode_kind": "Divider" },
+    "Breadcrumb": { "tree_kind": "Breadcrumb", "vnode_kind": "Breadcrumb" },
+    "Include": { "tree_kind": "Include", "vnode_kind": "Include" },
+    "Table": { "tree_kind": "Table", "vnode_kind": "Table" },
+    "TableColumn": { "tree_kind": "TableColumn", "vnode_kind": "TableColumn" },
+    "Tree": { "tree_kind": "Tree", "vnode_kind": "Tree" },
+    "Html": { "tree_kind": "Html", "vnode_kind": "Html" },
+    "Link": { "tree_kind": "Link", "vnode_kind": "Link" },
+    "FileInput": {
+      "tree_kind": "FileInput",
+      "vnode_kind": "FileInput",
+      "events": {
+        "change": [
+          {
+            "action": "upload_media",
+            "result_to": "{{props.valueRef}}",
+            "status_to": "{{bind.write}}"
+          }
+        ]
+      }
+    },
+    "Form": { "tree_kind": "Form", "vnode_kind": "Form" },
+    "FormItem": { "tree_kind": "FormItem", "vnode_kind": "FormItem" },
+    "Box": { "tree_kind": "Box", "vnode_kind": "Box" },
+    "Icon": { "tree_kind": "Icon", "vnode_kind": "Icon" },
+    "StatCard": { "tree_kind": "StatCard", "vnode_kind": "StatCard" },
+    "StatusBadge": { "tree_kind": "StatusBadge", "vnode_kind": "StatusBadge" },
+    "Terminal": { "tree_kind": "Terminal", "vnode_kind": "Terminal" },
+    "ColorBox": { "tree_kind": "ColorBox", "vnode_kind": "ColorBox" },
+    "Drawer": { "tree_kind": "Drawer", "vnode_kind": "Drawer" }
+  }
+}

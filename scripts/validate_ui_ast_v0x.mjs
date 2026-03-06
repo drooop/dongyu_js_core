@@ -53,36 +53,20 @@ function scanBannedKeys(value, where) {
   }
 }
 
-const NODE_TYPES = new Set([
-  'Root',
-  'Container',
-  'Card',
-  'Text',
-  'CodeBlock',
-  'Input',
-  'Button',
-  'Table',
-  'TableColumn',
-  'Tree',
-  'Form',
-  'FormItem',
-  'Select',
-  'NumberInput',
-  'Switch',
-  'Checkbox',
-  'RadioGroup',
-  'Radio',
-  'Slider',
-  'DatePicker',
-  'TimePicker',
-  'Tabs',
-  'TabPane',
-  'Dialog',
-  'Pagination',
-  'Include',
-  'Html',
-  'FileInput',
-]);
+function loadNodeTypes() {
+  const registryPath = path.join(process.cwd(), 'packages', 'ui-renderer', 'src', 'component_registry_v1.json');
+  if (!fs.existsSync(registryPath)) {
+    throw new Error(`registry_missing:${registryPath}`);
+  }
+  const registry = readJson(registryPath);
+  const components = registry && typeof registry === 'object' ? registry.components : null;
+  if (!components || typeof components !== 'object') {
+    throw new Error('registry_invalid_components');
+  }
+  return new Set(Object.keys(components));
+}
+
+const NODE_TYPES = loadNodeTypes();
 
 function validateLabelRef(ref, where, { allowMissingModelId, allowMissingK }) {
   assert(isPlainObject(ref), `${where}:ref_not_object`);

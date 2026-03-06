@@ -1,5 +1,10 @@
+import registryRaw from './component_registry_v1.json';
+
 let eventCounter = 0;
 let editorEventCounter = 0;
+const DEFAULT_REGISTRY = registryRaw && registryRaw.components
+  ? registryRaw
+  : { version: 'ui.component_registry.v1', components: {} };
 
 function ensureHostAdapter(host) {
   if (!host || typeof host.getSnapshot !== 'function') {
@@ -133,14 +138,14 @@ function normalizeEvent(node, target, payload, overrideType) {
     event_id: nextEventId(),
     type,
     payload: payload === undefined ? null : payload,
-    source: { node_id: node.id, node_type: node.type },
+    source: { node_id: node.id, node_type: node.origin_type || node.type },
     ts: Date.now(),
   };
 }
 
 function normalizeEditorEvent(payload) {
   const event_id = nextEditorEventId();
-  const op_id = `op_${Date.now()}_${event_id}`;
+  const op_id = `op_${event_id}`;
   const body = { action: payload.action };
   if (payload.target !== undefined) {
     body.target = payload.target;
@@ -180,80 +185,106 @@ function buildMailboxEventLabel(envelope) {
   };
 }
 
-function renderTreeNode(node, snapshot) {
+function normalizeRegistry(registry) {
+  if (!registry || !isPlainObject(registry) || !isPlainObject(registry.components)) {
+    return DEFAULT_REGISTRY;
+  }
+  return registry;
+}
+
+function resolveComponentSpec(registry, type) {
+  const normalized = normalizeRegistry(registry);
+  const spec = normalized.components && normalized.components[type];
+  if (!spec || !isPlainObject(spec)) {
+    throw new Error(`Unknown component type: ${type}`);
+  }
+  return spec;
+}
+
+function adaptNodeType(node, kindField, spec) {
+  const kind = spec && typeof spec[kindField] === 'string' && spec[kindField].trim().length > 0
+    ? spec[kindField]
+    : node.type;
+  if (kind === node.type) return node;
+  return { ...node, type: kind, origin_type: node.type };
+}
+
+function renderTreeNode(node, snapshot, registry) {
+  const spec = resolveComponentSpec(registry, node.type);
+  const runtimeNode = adaptNodeType(node, 'tree_kind', spec);
   const base = {
-    id: node.id,
+    id: runtimeNode.id,
     type: node.type,
-    props: node.props || {},
+    props: runtimeNode.props || {},
     children: [],
   };
 
   if (
-    node.type === 'Root'
-    || node.type === 'Container'
-    || node.type === 'Table'
-    || node.type === 'TableColumn'
-    || node.type === 'Tree'
-    || node.type === 'Form'
-    || node.type === 'FormItem'
-    || node.type === 'TabPane'
+    runtimeNode.type === 'Root'
+    || runtimeNode.type === 'Container'
+    || runtimeNode.type === 'Table'
+    || runtimeNode.type === 'TableColumn'
+    || runtimeNode.type === 'Tree'
+    || runtimeNode.type === 'Form'
+    || runtimeNode.type === 'FormItem'
+    || runtimeNode.type === 'TabPane'
   ) {
-    base.children = (node.children || []).map((child) => renderTreeNode(child, snapshot));
+    base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
     return base;
   }
 
-  if (node.type === 'Card') {
-    base.title = (node.props && node.props.title) || '';
-    base.children = (node.children || []).map((child) => renderTreeNode(child, snapshot));
+  if (runtimeNode.type === 'Card') {
+    base.title = (runtimeNode.props && runtimeNode.props.title) || '';
+    base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
     return base;
   }
 
-  if (node.type === 'Text') {
-    const bind = node.bind && node.bind.read;
+  if (runtimeNode.type === 'Text') {
+    const bind = runtimeNode.bind && runtimeNode.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
-    base.text = value !== undefined ? String(value) : (node.props && node.props.text) || '';
+    base.text = value !== undefined ? String(value) : (runtimeNode.props && runtimeNode.props.text) || '';
     return base;
   }
 
-  if (node.type === 'CodeBlock') {
-    const bind = node.bind && node.bind.read;
+  if (runtimeNode.type === 'CodeBlock') {
+    const bind = runtimeNode.bind && runtimeNode.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
-    base.text = value !== undefined ? stringifyForCodeBlock(value) : (node.props && node.props.text) || '';
+    base.text = value !== undefined ? stringifyForCodeBlock(value) : (runtimeNode.props && runtimeNode.props.text) || '';
     return base;
   }
 
-  if (node.type === 'Input') {
-    const bind = node.bind && node.bind.read;
-    const value = bind ? getLabelValue(snapshot, bind) : undefined;
-    base.value = value !== undefined ? value : '';
-    return base;
-  }
-
-  if (node.type === 'DatePicker' || node.type === 'TimePicker') {
-    const bind = node.bind && node.bind.read;
+  if (runtimeNode.type === 'Input') {
+    const bind = runtimeNode.bind && runtimeNode.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
     base.value = value !== undefined ? value : '';
     return base;
   }
 
-  if (node.type === 'Tabs') {
-    const bind = node.bind && node.bind.read;
+  if (runtimeNode.type === 'DatePicker' || runtimeNode.type === 'TimePicker') {
+    const bind = runtimeNode.bind && runtimeNode.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
     base.value = value !== undefined ? value : '';
-    base.children = (node.children || []).map((child) => renderTreeNode(child, snapshot));
     return base;
   }
 
-  if (node.type === 'Dialog') {
-    const bind = node.bind && node.bind.read;
+  if (runtimeNode.type === 'Tabs') {
+    const bind = runtimeNode.bind && runtimeNode.bind.read;
+    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    base.value = value !== undefined ? value : '';
+    base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
+    return base;
+  }
+
+  if (runtimeNode.type === 'Dialog') {
+    const bind = runtimeNode.bind && runtimeNode.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
     base.value = value !== undefined ? Boolean(value) : false;
-    base.children = (node.children || []).map((child) => renderTreeNode(child, snapshot));
+    base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
     return base;
   }
 
-  if (node.type === 'Pagination') {
-    const models = node.bind && node.bind.models;
+  if (runtimeNode.type === 'Pagination') {
+    const models = runtimeNode.bind && runtimeNode.bind.models;
     const currentRead = models && models.currentPage && models.currentPage.read;
     const sizeRead = models && models.pageSize && models.pageSize.read;
     const currentValue = currentRead ? getLabelValue(snapshot, currentRead) : undefined;
@@ -264,44 +295,46 @@ function renderTreeNode(node, snapshot) {
   }
 
   if (
-    node.type === 'Select'
-    || node.type === 'NumberInput'
-    || node.type === 'Switch'
-    || node.type === 'Checkbox'
-    || node.type === 'RadioGroup'
-    || node.type === 'Radio'
-    || node.type === 'Slider'
+    runtimeNode.type === 'Select'
+    || runtimeNode.type === 'NumberInput'
+    || runtimeNode.type === 'Switch'
+    || runtimeNode.type === 'Checkbox'
+    || runtimeNode.type === 'RadioGroup'
+    || runtimeNode.type === 'Radio'
+    || runtimeNode.type === 'Slider'
   ) {
-    const bind = node.bind && node.bind.read;
+    const bind = runtimeNode.bind && runtimeNode.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
     base.value = value !== undefined ? value : '';
     return base;
   }
 
-  if (node.type === 'Button') {
-    base.label = (node.props && node.props.label) || '';
+  if (runtimeNode.type === 'Button') {
+    base.label = (runtimeNode.props && runtimeNode.props.label) || '';
     return base;
   }
 
-  if (node.type === 'ProgressBar') {
-    const bind = node.bind && node.bind.read;
+  if (runtimeNode.type === 'ProgressBar') {
+    const bind = runtimeNode.bind && runtimeNode.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
-    base.percentage = value !== undefined ? Number(value) : (node.props && node.props.percentage) || 0;
+    base.percentage = value !== undefined ? Number(value) : (runtimeNode.props && runtimeNode.props.percentage) || 0;
     return base;
   }
 
-  if (node.type === 'Divider' || node.type === 'Breadcrumb') {
+  if (runtimeNode.type === 'Divider' || runtimeNode.type === 'Breadcrumb') {
     return base;
   }
 
   return base;
 }
 
-function buildVueNode(node, snapshot, vue, host) {
-  const ctx = arguments.length > 4 ? arguments[4] : null;
+function buildVueNode(node, snapshot, vue, host, registry) {
+  const ctx = arguments.length > 5 ? arguments[5] : null;
+  const spec = resolveComponentSpec(registry, node.type);
+  node = adaptNodeType(node, 'vnode_kind', spec);
   const h = vue.h;
   const resolve = vue.resolveComponent || ((name) => name);
-  const children = (node.children || []).map((child) => buildVueNode(child, snapshot, vue, host, ctx));
+  const children = (node.children || []).map((child) => buildVueNode(child, snapshot, vue, host, registry, ctx));
   const props = resolveRefsDeep({ ...(node.props || {}) }, ctx, snapshot);
 
   if (node.type === 'Include') {
@@ -314,7 +347,7 @@ function buildVueNode(node, snapshot, vue, host) {
     if (!fragment || typeof fragment !== 'object') {
       return h('div', fallbackText);
     }
-    return buildVueNode(fragment, snapshot, vue, host, ctx);
+    return buildVueNode(fragment, snapshot, vue, host, registry, ctx);
   }
 
   if (node.type === 'Text') {
@@ -613,7 +646,6 @@ function buildVueNode(node, snapshot, vue, host) {
         props.disabled = false;
       }
     }
-    const directUpload = node.props && node.props.directUpload;
     const singleFlight = node.props && node.props.singleFlight;
     const singleFlightEnabled = Boolean(singleFlight);
     const singleFlightStore = singleFlightEnabled ? ensureSingleFlightStore(host) : null;
@@ -675,35 +707,6 @@ function buildVueNode(node, snapshot, vue, host) {
         }
       }
 
-      // Direct upload mode: POST file binary to server, bypass Cell system
-      if (directUpload) {
-        const fileKey = directUpload.fileKey;
-        const file = window.__dyPendingFiles && window.__dyPendingFiles[fileKey];
-        if (!file) return;
-        const snapshot = host.getSnapshot();
-        const nameVal = directUpload.nameLabel ? getLabelValue(snapshot, directUpload.nameLabel) : '';
-        const name = typeof nameVal === 'string' ? nameVal.trim() : '';
-        if (!name) return;
-        const kind = file.name.endsWith('.zip') ? 'zip' : 'html';
-        const uploadUrl = `${directUpload.url}?name=${encodeURIComponent(name)}&kind=${kind}`;
-        const statusTarget = directUpload.statusTarget;
-        const updateStatus = (msg) => {
-          if (statusTarget) {
-            dispatchEvent(node, statusTarget, { value: msg }, host, undefined, ctx);
-          }
-        };
-        updateStatus('uploading...');
-        fetch(uploadUrl, { method: 'POST', body: file, credentials: 'same-origin' })
-          .then((resp) => resp.json())
-          .then((result) => {
-            delete window.__dyPendingFiles[fileKey];
-            updateStatus(result.ok ? result.message : `error: ${result.error}`);
-          })
-          .catch((err) => {
-            updateStatus(`upload failed: ${err.message || err}`);
-          });
-        return;
-      }
       const target = node.bind && node.bind.write;
       if (!target) return;
       const result = dispatchEvent(node, target, { click: true }, host, undefined, ctx);
@@ -900,7 +903,7 @@ function buildVueNode(node, snapshot, vue, host) {
           row: scope && scope.row ? scope.row : undefined,
           $index: scope && Object.prototype.hasOwnProperty.call(scope, '$index') ? scope.$index : undefined,
         };
-        return (node.children || []).map((child) => buildVueNode(child, snapshot, vue, host, scopedCtx));
+        return (node.children || []).map((child) => buildVueNode(child, snapshot, vue, host, registry, scopedCtx));
       },
     });
   }
@@ -941,67 +944,47 @@ function buildVueNode(node, snapshot, vue, host) {
     const labelText = node.props && Object.prototype.hasOwnProperty.call(node.props, 'label') ? String(node.props.label) : '';
     const wrapStyle = node.props && node.props.style ? node.props.style : undefined;
     const multiAttr = multiple || directory;
-    const directUpload = node.props && node.props.directUpload;
-    const onChange = (e) => {
+    const onChange = async (e) => {
       const input = e && e.target ? e.target : null;
       const files = input && input.files ? input.files : null;
-      const target = node.bind && node.bind.write;
+      const target = (node.bind && node.bind.write) || (node.props && node.props.valueRef
+        ? { action: 'label_update', target_ref: node.props.valueRef }
+        : null);
       if (!files || files.length === 0) return;
-
-      // Direct upload mode: store raw File object, dispatch filename (not content)
-      if (directUpload) {
-        if (!window.__dyPendingFiles) window.__dyPendingFiles = {};
-        window.__dyPendingFiles[directUpload.fileKey || node.id] = files[0];
-        if (target) {
-          const sizeMB = (files[0].size / 1024 / 1024).toFixed(1);
-          dispatchEvent(node, target, { value: `selected: ${files[0].name} (${sizeMB}MB)` }, host, undefined, ctx);
-        }
-        return;
-      }
-
       if (!target) return;
-
-      const readOne = (file) => new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result;
-          if (!(result instanceof ArrayBuffer)) {
-            resolve(null);
-            return;
-          }
-          const bytes = new Uint8Array(result);
-          let binary = '';
-          for (let i = 0; i < bytes.length; i += 1) {
-            binary += String.fromCharCode(bytes[i]);
-          }
-          const b64 = btoa(binary);
-          resolve(b64);
-        };
-        reader.onerror = () => resolve(null);
-        reader.readAsArrayBuffer(file);
-      });
-
-      const shouldMulti = multiple || directory || files.length > 1;
-      if (!shouldMulti) {
-        const file = files[0];
-        void readOne(file).then((b64) => {
-          if (typeof b64 !== 'string' || b64.length === 0) return;
-          dispatchEvent(node, target, { value: b64 }, host, undefined, ctx);
-        });
+      if (typeof host.uploadMedia !== 'function') {
+        dispatchEvent(node, target, { value: '' }, host, undefined, ctx);
         return;
       }
-
-      const list = Array.from(files);
-      void (async () => {
-        const out = [];
-        for (const f of list) {
-          const b64 = await readOne(f);
-          if (typeof b64 !== 'string' || b64.length === 0) continue;
-          const relPath = String((f && Object.prototype.hasOwnProperty.call(f, 'webkitRelativePath') ? f.webkitRelativePath : '') || f.name || '').replace(/\\/g, '/');
-          out.push({ path: relPath, b64 });
+      try {
+        const list = Array.from(files);
+        const uploaded = [];
+        for (const file of list) {
+          const result = await host.uploadMedia({
+            file,
+            filename: file && file.name ? String(file.name) : 'upload.bin',
+            contentType: file && file.type ? String(file.type) : 'application/octet-stream',
+            meta: {
+              node_id: node.id,
+              node_type: node.origin_type || node.type,
+            },
+          });
+          const uri = result && typeof result.uri === 'string' ? result.uri : '';
+          if (!uri) continue;
+          uploaded.push({
+            uri,
+            name: result && typeof result.name === 'string' ? result.name : (file && file.name ? String(file.name) : ''),
+          });
         }
-        dispatchEvent(node, target, { value: out }, host, undefined, ctx);
-      })();
+        if (uploaded.length === 0) return;
+        if (multiple || directory || uploaded.length > 1) {
+          dispatchEvent(node, target, { value: uploaded }, host, undefined, ctx);
+          return;
+        }
+        dispatchEvent(node, target, { value: uploaded[0].uri }, host, undefined, ctx);
+      } catch (_) {
+        // upload error is surfaced by state handlers when target consumer validates empty value
+      }
     };
     return h('div', { style: wrapStyle }, [
       labelText ? h('div', { style: { marginBottom: '6px', fontSize: '12px', color: '#374151' } }, labelText) : null,
@@ -1380,19 +1363,20 @@ function dispatchEvent(node, target, payload, host, overrideType) {
 function createRenderer(options) {
   const host = options && options.host;
   const vue = options && options.vue;
+  const registry = normalizeRegistry(options && options.registry);
   ensureHostAdapter(host);
 
   return {
     renderTree(ast) {
       const snapshot = host.getSnapshot();
-      return renderTreeNode(ast, snapshot);
+      return renderTreeNode(ast, snapshot, registry);
     },
     renderVNode(ast) {
       if (!vue || typeof vue.h !== 'function') {
         throw new Error('Vue bridge not provided');
       }
       const snapshot = host.getSnapshot();
-      return buildVueNode(ast, snapshot, vue, host);
+      return buildVueNode(ast, snapshot, vue, host, registry);
     },
     dispatchEvent(node, payload, overrideType) {
       const target = node.bind && node.bind.write;

@@ -522,13 +522,28 @@ function run() {
   assert(getErrorCode(storeV1) === 'reserved_cell', 'editor_v1_typed_value_error_priority_preserved');
   results.push('editor_v1_typed_value_error_priority_preserved: PASS');
 
-  // PIN page branch exists.
+  // Static upload page branch exists and reflects upload prerequisites.
   const stateModelV1 = storeV1.runtime.getModel(-2);
-  storeV1.runtime.addLabel(stateModelV1, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'pin' });
+  storeV1.runtime.addLabel(stateModelV1, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'static' });
   storeV1.consumeOnce();
-  const astPin = storeV1.getUiAst();
-  assert(findNodeById(astPin, 'card_pin_demo'), 'editor_v1_pin_page_missing');
-  results.push('editor_v1_pin_page_present: PASS');
+  let astStatic = storeV1.getUiAst();
+  const cardStatic = findNodeById(astStatic, 'card_static_upload');
+  const fileStatic = findNodeById(astStatic, 'file_static_upload');
+  const btnStaticUpload = findNodeById(astStatic, 'btn_static_upload');
+  assert(cardStatic, 'editor_v1_static_page_missing');
+  assert(fileStatic, 'editor_v1_static_file_input_missing');
+  assert(btnStaticUpload, 'editor_v1_static_upload_button_missing');
+  assert(btnStaticUpload.props && btnStaticUpload.props.disabled === true, 'editor_v1_static_upload_disabled_without_media');
+
+  storeV1.runtime.addLabel(stateModelV1, 0, 0, 0, { k: 'static_project_name', t: 'str', v: 'demo-static' });
+  storeV1.runtime.addLabel(stateModelV1, 0, 0, 0, { k: 'static_media_uri', t: 'str', v: 'mxc://example.org/uploaded' });
+  storeV1.consumeOnce();
+  astStatic = storeV1.getUiAst();
+  const btnStaticUploadReady = findNodeById(astStatic, 'btn_static_upload');
+  assert(btnStaticUploadReady && btnStaticUploadReady.props && btnStaticUploadReady.props.disabled === false, 'editor_v1_static_upload_enabled_with_media');
+  results.push('editor_v1_static_page_present: PASS');
+  results.push('editor_v1_static_upload_disabled_without_media: PASS');
+  results.push('editor_v1_static_upload_enabled_with_media: PASS');
 
   results.push('editor_v1_v0_suite_still_passes: PASS');
   process.stdout.write(results.join('\n'));

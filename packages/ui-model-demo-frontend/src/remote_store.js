@@ -298,6 +298,36 @@ export function createRemoteStore(options) {
     return { consumed: false };
   }
 
+  async function uploadMedia(input) {
+    const file = input && Object.prototype.hasOwnProperty.call(input, 'file') ? input.file : null;
+    if (!file) {
+      throw new Error('missing_file');
+    }
+    const filename = input && typeof input.filename === 'string' && input.filename.trim().length > 0
+      ? input.filename.trim()
+      : 'upload.bin';
+    const contentType = input && typeof input.contentType === 'string' && input.contentType.trim().length > 0
+      ? input.contentType.trim()
+      : 'application/octet-stream';
+
+    const resp = await fetch(`${baseUrl}/api/media/upload?filename=${encodeURIComponent(filename)}`, {
+      method: 'POST',
+      body: file,
+      headers: { 'content-type': contentType },
+      credentials: 'same-origin',
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data || data.ok !== true || typeof data.uri !== 'string' || data.uri.length === 0) {
+      throw new Error(data && data.error ? String(data.error) : 'upload_media_failed');
+    }
+    return {
+      uri: data.uri,
+      name: data.name || filename,
+      size: Number.isInteger(data.size) ? data.size : null,
+      mime: data.mime || contentType,
+    };
+  }
+
   async function bootstrap() {
     try {
       const resp = await fetch(`${baseUrl}/snapshot`, { credentials: 'same-origin' });
@@ -342,5 +372,6 @@ export function createRemoteStore(options) {
     dispatchAddLabel,
     dispatchRmLabel,
     consumeOnce,
+    uploadMedia,
   };
 }

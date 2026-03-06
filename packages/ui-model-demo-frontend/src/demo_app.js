@@ -43,6 +43,12 @@ export function createDemoRoot(store) {
       store.dispatchRmLabel(labelRef);
       scheduleConsumeOnce();
     },
+    uploadMedia: async (input) => {
+      if (store && typeof store.uploadMedia === 'function') {
+        return store.uploadMedia(input);
+      }
+      throw new Error('upload_media_not_supported');
+    },
   };
   const renderer = createRenderer({ host, vue: { h, resolveComponent } });
 
