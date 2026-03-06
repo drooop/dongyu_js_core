@@ -192,10 +192,11 @@ DROPMODE_PROTOCOL
 - exception to RESPONSE_EFFORT_GUIDANCE:
     the exact toggle acknowledgement above MUST NOT append `effort_suggestion`
     and MUST NOT append migration prompts or any extra explanation.
-- when `dropmode_enabled=true`, silently evaluate each normal reply:
+- when `dropmode_enabled=true`, silently evaluate only the final answer:
     first refresh `dropmode_session_mode` from available evidence
     if `dropmode_session_mode=large` and the task does not justify large context, append the downgrade line and set `dropmode_pending=downgrade`
     if `dropmode_session_mode=regular` or `dropmode_session_mode=unknown` and the task does justify large context, append the upgrade line and set `dropmode_pending=upgrade`
+- do NOT run upgrade/downgrade suggestion logic in intermediary updates, commentary, progress notes, or other non-final output.
     upgrade line:
       `本方案建议升级到 1M 新会话后继续。若确认升级，请明确回复：升级后继续。`
     downgrade line:

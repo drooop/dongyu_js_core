@@ -23,6 +23,7 @@ function test_handoff_doc_contains_toggle_and_confirmations() {
   const text = readText(docPath);
   assert(text.includes('$dropmode'));
   assert(text.includes('正常 skill 触发机制'));
+  assert(text.includes('只在最终输出执行'));
   assert(text.includes('升级后继续'));
   assert(text.includes('降级后继续'));
   assert(text.includes('compact_handoff'));
@@ -47,6 +48,7 @@ function test_handoff_doc_requires_exact_toggle_and_pending_confirmation() {
   assert(text.includes('不得输出交接摘要'));
   assert(text.includes('当前没有匹配的 pending 建议'));
   assert(text.includes('target session mode'));
+  assert(text.includes('commentary'));
   return { key: 'handoff_doc_requires_exact_toggle_and_pending_confirmation', status: 'PASS' };
 }
 

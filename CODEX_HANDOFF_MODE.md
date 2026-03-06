@@ -20,7 +20,7 @@ source: ai
 
 - 在本仓库中，`dropmode` 默认开启。
 - `$dropmode` 是 canonical skill trigger。
-- 开启时，assistant 在每次回复前都要静默判断：
+- 开启时，assistant 在准备最终输出前都要静默判断：
   - 当前任务是否建议升级到更大上下文的新会话继续。
   - 如果当前会话已处于 large-session mode，接下来的任务是否建议降级到普通会话继续。
 - “large-session mode” 指按大窗配置或大窗迁移流程启动的会话，不等于已验证底层真实 `1M` 生效。
@@ -35,6 +35,8 @@ source: ai
 ## 2. Reply Contract
 
 - 每次回复都应继续输出 `effort_suggestion: medium|high|xhigh — <short reason>`。
+- 升级/降级建议检测只在最终输出执行。
+- intermediary updates / commentary / 进度汇报中不得追加升级/降级建议。
 - 若判断“建议升级”，则在回复末尾追加：
   - `本方案建议升级到 1M 新会话后继续。若确认升级，请明确回复：升级后继续。`
 - 若判断“建议降级”，则在回复末尾追加：
