@@ -208,22 +208,23 @@ const DEFAULT_LLM_SCENE_PROMPT_TEMPLATE = [
 ].join('\n');
 
 const DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE = [
-  'You are a strict ModelTable patch planner with a two-step confirmation workflow.',
-  'Return JSON only. No markdown fences.',
+  'You are a strict ModelTable patch planner.',
+  'Return exactly one JSON object and nothing else.',
   'User prompt: {{prompt_text}}',
   'Policy JSON: {{policy_json}}',
   'Allowed output schema JSON: {{output_schema_json}}',
   'Available positive model ids JSON: {{available_model_ids_json}}',
+  'Output shape:',
+  '{"proposal":{"summary":"...","operations":["..."],"queries":["..."],"requires_confirmation":true,"confirmation_question":"..."},"records":[{"op":"add_label","model_id":100,"p":0,"r":0,"c":0,"k":"title","t":"str","v":"Demo"}],"confidence":0.0,"reasoning":"..."}',
   'Rules:',
-  '- Output must be {"proposal":{...},"records":[...],"confidence":0..1,"reasoning":"..."}',
-  '- proposal must contain summary, operations, queries, requires_confirmation=true, confirmation_question',
-  '- operations are human-readable planned write actions',
-  '- queries are read/check requests and MUST NOT be converted into records',
+  '- JSON only, no markdown, no prose before or after JSON',
+  '- operations and queries may be arrays of strings',
   '- records only support op=add_label/rm_label',
   '- add_label requires model_id,p,r,c,k,t,v',
   '- rm_label requires model_id,p,r,c,k',
   '- max records is 10',
-  '- Must obey policy.allowed_label_types and policy.allow_structural_types',
+  '- query-only requests must use records: [] and put reads in proposal.queries',
+  '- obey policy.allowed_label_types and policy.allow_structural_types',
   '- Structural t (func.js/func.python/pin.connect.label/pin.connect.cell/pin.connect.model/pin.bus.in/pin.bus.out/pin.table.in/pin.table.out/pin.single.in/pin.single.out/model.single/model.matrix/model.table/submt) are forbidden unless policy.allow_structural_types=true',
   '- model_id=0 may only use boundary pin types pin.bus.in / pin.bus.out',
   '- model_id != 0 may use pin.table.in / pin.table.out for table-or-matrix models, and pin.single.in / pin.single.out for model.single',
@@ -231,8 +232,7 @@ const DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE = [
   '- For pin.connect.*, v must be an array',
   '- For pin.bus.* / pin.table.* / pin.single.*, v must be JSON-serializable; use null for declaration-only ports when appropriate',
   '- For model.single/model.matrix/model.table, v must be a non-empty string',
-  '- for query-only requests output records: [] and describe them in proposal.queries',
-  '- Never output explanation text outside JSON',
+  '- Keep summary and reasoning short',
 ].join('\n');
 
 function toFiniteNumber(value, fallback) {
@@ -695,6 +695,52 @@ function parseJsonObjectOrNull(value) {
   } catch (_) {
     return null;
   }
+}
+
+function parseOllamaGenerateResponseText(text, fallbackModel) {
+  const raw = typeof text === 'string' ? text.trim() : '';
+  if (!raw) {
+    return { ok: false, code: 'llm_bad_response', detail: 'llm_empty_response' };
+  }
+
+  const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const parsedLines = [];
+  for (const line of lines) {
+    try {
+      parsedLines.push(JSON.parse(line));
+    } catch (_) {
+      if (lines.length === 1) {
+        return { ok: false, code: 'llm_bad_response', detail: 'llm_response_not_json' };
+      }
+      return { ok: false, code: 'llm_bad_response', detail: 'llm_stream_chunk_not_json' };
+    }
+  }
+
+  let model = typeof fallbackModel === 'string' && fallbackModel.trim() ? fallbackModel.trim() : '';
+  let responseText = '';
+  let evalDuration = null;
+  let totalDuration = null;
+  for (const item of parsedLines) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    if (typeof item.model === 'string' && item.model.trim()) model = item.model.trim();
+    if (typeof item.response === 'string' && item.response.length > 0) responseText += item.response;
+    if (Number.isFinite(item.eval_duration)) evalDuration = item.eval_duration;
+    if (Number.isFinite(item.total_duration)) totalDuration = item.total_duration;
+  }
+
+  if (!responseText.trim()) {
+    return { ok: false, code: 'llm_bad_response', detail: 'llm_empty_response' };
+  }
+
+  return {
+    ok: true,
+    data: {
+      model,
+      response: responseText,
+      eval_duration: evalDuration,
+      total_duration: totalDuration,
+    },
+  };
 }
 
 const LOCAL_EDITOR_ACTIONS = new Set([
@@ -1490,7 +1536,7 @@ class ProgramModelEngine {
       const body = {
         model: modelRaw,
         prompt,
-        stream: false,
+        stream: true,
         think: false,
         options: {
           temperature,
@@ -1515,28 +1561,7 @@ class ProgramModelEngine {
         };
       }
       const text = await response.text();
-      let parsed;
-      try {
-        parsed = JSON.parse(text);
-      } catch (_) {
-        return { ok: false, code: 'llm_bad_response', detail: 'llm_response_not_json' };
-      }
-      const model = typeof parsed.model === 'string' && parsed.model.trim() ? parsed.model.trim() : modelRaw;
-      const responseText = typeof parsed.response === 'string'
-        ? parsed.response
-        : (parsed && parsed.message && typeof parsed.message.content === 'string' ? parsed.message.content : '');
-      if (!responseText.trim()) {
-        return { ok: false, code: 'llm_bad_response', detail: 'llm_empty_response' };
-      }
-      return {
-        ok: true,
-        data: {
-          model,
-          response: responseText,
-          eval_duration: Number.isFinite(parsed.eval_duration) ? parsed.eval_duration : null,
-          total_duration: Number.isFinite(parsed.total_duration) ? parsed.total_duration : null,
-        },
-      };
+      return parseOllamaGenerateResponseText(text, modelRaw);
     } catch (err) {
       const name = err && typeof err === 'object' && typeof err.name === 'string' ? err.name : '';
       if (name === 'AbortError') {

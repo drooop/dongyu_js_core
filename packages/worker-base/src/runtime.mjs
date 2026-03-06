@@ -96,12 +96,73 @@ class MqttClientMock {
 }
 
 let _mqttPkg = null;
+let _runtimeRequire = null;
+
+function normalizeRequireCandidate(candidate) {
+  if (typeof candidate === 'function') return candidate;
+  if (candidate && typeof candidate.require === 'function') {
+    return candidate.require.bind(candidate);
+  }
+  return null;
+}
+
+function lazyRuntimeRequire() {
+  if (_runtimeRequire) return _runtimeRequire;
+
+  const importMetaRequire = normalizeRequireCandidate(import.meta && import.meta.require);
+  if (importMetaRequire) {
+    _runtimeRequire = importMetaRequire;
+    return _runtimeRequire;
+  }
+
+  let directRequire = null;
+  try {
+    // Keep Node-only resolution lazy so browser bundles never touch
+    // `node:module` during static analysis.
+    // eslint-disable-next-line no-new-func
+    directRequire = (new Function('return (typeof require!=="undefined")?require:null;'))();
+  } catch (_) {
+    directRequire = null;
+  }
+  const normalizedDirect = normalizeRequireCandidate(directRequire);
+  if (normalizedDirect) {
+    _runtimeRequire = normalizedDirect;
+    return _runtimeRequire;
+  }
+
+  try {
+    const getBuiltinModule = typeof process !== 'undefined' && process && typeof process.getBuiltinModule === 'function'
+      ? process.getBuiltinModule.bind(process)
+      : null;
+    if (getBuiltinModule) {
+      const modulePkg = getBuiltinModule('module');
+      const createRequire = modulePkg && typeof modulePkg.createRequire === 'function'
+        ? modulePkg.createRequire
+        : null;
+      if (createRequire) {
+        const created = normalizeRequireCandidate(createRequire(import.meta.url));
+        if (created) {
+          _runtimeRequire = created;
+          return _runtimeRequire;
+        }
+      }
+    }
+  } catch (_) {
+    // noop
+  }
+
+  const moduleRequire = typeof module !== 'undefined' ? normalizeRequireCandidate(module) : null;
+  if (moduleRequire) {
+    _runtimeRequire = moduleRequire;
+    return _runtimeRequire;
+  }
+
+  return null;
+}
+
 function lazyMqtt() {
   if (_mqttPkg) return _mqttPkg;
-  // Keep Node-only resolution lazy so browser bundles never touch
-  // `node:module` during static analysis.
-  // eslint-disable-next-line no-new-func
-  const req = (new Function('return (typeof require!=="undefined")?require:null;'))();
+  const req = lazyRuntimeRequire();
   if (!req) {
     throw new Error('mqtt_package_unavailable');
   }

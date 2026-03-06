@@ -190,6 +190,45 @@ PASS 判定：
 
 ---
 
+## 0170 Local Orbstack + `mt-table` Prompt FillTable（实测）
+
+用途：
+- 在 Orbstack baseline 已就绪的前提下，直接验证本地 `ui-server` 通过本机 Ollama `mt-table` 跑通 `prompt filltable`。
+- 该路径对应 `0170-local-mt-table-orbstack` 的实测方法。
+
+命令：
+```bash
+bash scripts/ops/deploy_local.sh
+bash scripts/ops/check_runtime_baseline.sh
+bash scripts/ops/verify_0155_prompt_filltable.sh --base-url http://127.0.0.1:30900
+```
+
+PASS 判定：
+- `check_runtime_baseline.sh` 输出 5 个 deployment 全部 ready。
+- `verify_0155_prompt_filltable.sh` 输出：
+  - `preview_response ... result:"ok"`
+  - `apply_response ... result:"ok"`
+  - `replay_response ... code:"preview_replay"`
+  - `negative_response ... code:"apply_failed"`
+  - `too_many_records_response ... code:"too_many_records"`
+  - `[verify-0155] PASS`
+
+实测经验：
+- 本地 `ui-server` 默认值：
+  - `DY_LLM_MODEL=mt-table`
+  - `DY_LLM_MAX_TOKENS=512`
+  - `DY_LLM_TIMEOUT_MS=120000`
+- `mt-table` 首轮 full prompt 可能出现 warm-up 超时；`0170` 中观察到：
+  - 首轮 `verify_0155` 曾返回 `llm_timeout`
+  - 紧接着复跑同一命令即可 PASS
+- 该现象说明链路可用，但推理不是“稳定秒回”。
+
+边界说明：
+- 当前 server 仍使用 `accepted_records` / `applied_records` compatibility bridge。
+- 这条命令适合做本地能力验证，不代表新版规约下 LLM 的最终 owner-chain 合同。
+
+---
+
 ## Obsidian Docs Migration（一键）
 
 用途：

@@ -11,7 +11,7 @@ FOREGROUND=0
 LOG_FILE=""
 PID_FILE=""
 LLM_BASE_URL="${LLM_BASE_URL:-http://127.0.0.1:11434}"
-LLM_MODEL="${LLM_MODEL:-mt-label}"
+LLM_MODEL="${LLM_MODEL:-mt-table}"
 LLM_TIMEOUT_MS="${LLM_TIMEOUT_MS:-120000}"
 LLM_MAX_TOKENS="${LLM_MAX_TOKENS:-512}"
 WORKER_BASE_WORKSPACE="${WORKER_BASE_WORKSPACE:-ws_llm_dispatch_0154}"
@@ -25,7 +25,7 @@ Usage:
 Options:
   --port <port>             Server port (default: 9012)
   --llm-base-url <url>      LLM endpoint base URL (default: http://127.0.0.1:11434)
-  --llm-model <name>        LLM model name (default: mt-label)
+  --llm-model <name>        LLM model name (default: mt-table)
   --llm-timeout-ms <ms>     LLM timeout in ms (default: 120000)
   --llm-max-tokens <n>      LLM num_predict upper bound (default: 512)
   --run-baseline            Run scripts/ops/check_runtime_baseline.sh before start

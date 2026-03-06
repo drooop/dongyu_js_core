@@ -171,6 +171,14 @@ spec:
           value: "0"
         - name: DY_LLM_BASE_URL
           value: "http://host.docker.internal:11434"
+        - name: DY_LLM_MODEL
+          value: "mt-table"
+        - name: DY_LLM_FALLBACK_MODEL
+          value: "mt-table"
+        - name: DY_LLM_MAX_TOKENS
+          value: "512"
+        - name: DY_LLM_TIMEOUT_MS
+          value: "120000"
         - name: DY_PERSIST_ROOT
           value: /app/.dy_persist
         volumeMounts:
