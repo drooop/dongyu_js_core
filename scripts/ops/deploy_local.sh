@@ -121,7 +121,7 @@ echo ""
 
 # ── Update K8s secrets ────────────────────────────────────
 echo "=== Step 5: Update secrets ==="
-update_k8s_secrets "$SERVER_TOKEN" "$MBR_TOKEN"
+update_k8s_secrets "$SERVER_TOKEN" "$MBR_TOKEN" "$ROOM_ID"
 echo ""
 
 # ── Build Docker images ───────────────────────────────────

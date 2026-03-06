@@ -24,20 +24,20 @@ assert.match(
 
 assert.match(
   checkBaseline,
-  /mbr-worker-secret/,
-  'check_runtime_baseline.sh must validate mbr-worker-secret readiness, not only deployment replicas',
+  /MODELTABLE_PATCH_JSON/,
+  'check_runtime_baseline.sh must validate bootstrap patch readiness, not only deployment replicas',
 );
 
 assert.match(
   checkBaseline,
-  /MATRIX_MBR_BOT_ACCESS_TOKEN/,
-  'check_runtime_baseline.sh must inspect MATRIX_MBR_BOT_ACCESS_TOKEN for the local mbr-worker path',
+  /matrix_room_id/,
+  'check_runtime_baseline.sh must inspect matrix_room_id inside the bootstrap patch',
 );
 
 assert.match(
   checkBaseline,
   /placeholder-will-update-after-synapse-setup/,
-  'check_runtime_baseline.sh must reject placeholder Matrix token values as baseline-not-ready',
+  'check_runtime_baseline.sh must reject placeholder token values inside the bootstrap patch as baseline-not-ready',
 );
 
 assert.match(
@@ -48,14 +48,14 @@ assert.match(
 
 assert.match(
   deployCommon,
-  /placeholder-will-update-after-synapse-setup/,
-  '_deploy_common.sh must patch the mbr-worker placeholder token when applying local workers.yaml',
+  /mbr_worker_bootstrap_v0/,
+  '_deploy_common.sh must generate the mbr bootstrap patch into MODELTABLE_PATCH_JSON',
 );
 
 assert.match(
   deployLocal,
-  /patch_manifest "\$REPO_DIR\/k8s\/local\/workers\.yaml" "\$ROOM_ID" "\$SERVER_PASSWORD" "\$MBR_TOKEN"/,
-  'deploy_local.sh must pass MBR_TOKEN into patch_manifest so manifest apply does not overwrite mbr-worker-secret back to placeholder',
+  /update_k8s_secrets "\$SERVER_TOKEN" "\$MBR_TOKEN" "\$ROOM_ID"/,
+  'deploy_local.sh must pass ROOM_ID into update_k8s_secrets so generated bootstrap patch includes the actual Matrix room id',
 );
 
 console.log('PASS test_0175_local_baseline_matrix_contract');
