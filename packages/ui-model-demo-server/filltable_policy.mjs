@@ -7,6 +7,12 @@ const STRUCTURAL_LABEL_TYPES = new Set([
   'pin.connect.label',
   'pin.connect.cell',
   'pin.connect.model',
+  'pin.bus.in',
+  'pin.bus.out',
+  'pin.table.in',
+  'pin.table.out',
+  'pin.single.in',
+  'pin.single.out',
   'model.single',
   'model.matrix',
   'model.table',
@@ -101,6 +107,21 @@ function normalizeTypedValue(typeName, rawValue) {
       return { ok: false, code: 'invalid_connect_value' };
     }
     return { ok: true, value: rawValue };
+  }
+  if (
+    typeName === 'pin.bus.in'
+    || typeName === 'pin.bus.out'
+    || typeName === 'pin.table.in'
+    || typeName === 'pin.table.out'
+    || typeName === 'pin.single.in'
+    || typeName === 'pin.single.out'
+  ) {
+    try {
+      JSON.stringify(rawValue);
+      return { ok: true, value: rawValue };
+    } catch (_) {
+      return { ok: false, code: 'invalid_pin_value' };
+    }
   }
   if (typeName === 'model.single' || typeName === 'model.matrix' || typeName === 'model.table') {
     if (typeof rawValue !== 'string' || !rawValue.trim()) {
@@ -223,24 +244,23 @@ export function validateFilltableRecords(recordsInput, policyInput) {
       rejected_records.push({ index, code: base.code, detail: base.code, record: source });
       continue;
     }
-    if (base.model_id > 0 && !policy.allow_positive_model_ids) {
-      rejected_records.push({ index, code: 'model_id_not_allowed', detail: 'positive_model_id_forbidden', record: source });
-      continue;
-    }
-    if (base.model_id < 0 && !policy.allow_negative_model_ids) {
-      rejected_records.push({ index, code: 'model_id_not_allowed', detail: 'negative_model_id_forbidden', record: source });
-      continue;
-    }
-    if (base.model_id === 0) {
-      rejected_records.push({ index, code: 'model_id_not_allowed', detail: 'model_0_forbidden', record: source });
-      continue;
-    }
-    if (protectedKeySet.has(base.k)) {
-      rejected_records.push({ index, code: 'protected_label_key', detail: base.k, record: source });
-      continue;
-    }
-
     if (op === 'rm_label') {
+      if (base.model_id > 0 && !policy.allow_positive_model_ids) {
+        rejected_records.push({ index, code: 'model_id_not_allowed', detail: 'positive_model_id_forbidden', record: source });
+        continue;
+      }
+      if (base.model_id < 0 && !policy.allow_negative_model_ids) {
+        rejected_records.push({ index, code: 'model_id_not_allowed', detail: 'negative_model_id_forbidden', record: source });
+        continue;
+      }
+      if (base.model_id === 0) {
+        rejected_records.push({ index, code: 'model_id_not_allowed', detail: 'model_0_forbidden', record: source });
+        continue;
+      }
+      if (protectedKeySet.has(base.k)) {
+        rejected_records.push({ index, code: 'protected_label_key', detail: base.k, record: source });
+        continue;
+      }
       accepted_records.push({
         op: 'rm_label',
         model_id: base.model_id,
@@ -254,6 +274,22 @@ export function validateFilltableRecords(recordsInput, policyInput) {
 
     const t = typeof source.t === 'string' ? source.t.trim() : '';
     const isStructuralType = STRUCTURAL_LABEL_TYPES.has(t);
+    if (base.model_id > 0 && !policy.allow_positive_model_ids) {
+      rejected_records.push({ index, code: 'model_id_not_allowed', detail: 'positive_model_id_forbidden', record: source });
+      continue;
+    }
+    if (base.model_id < 0 && !policy.allow_negative_model_ids) {
+      rejected_records.push({ index, code: 'model_id_not_allowed', detail: 'negative_model_id_forbidden', record: source });
+      continue;
+    }
+    if (base.model_id === 0 && t !== 'pin.bus.in' && t !== 'pin.bus.out') {
+      rejected_records.push({ index, code: 'model_id_not_allowed', detail: 'model_0_forbidden', record: source });
+      continue;
+    }
+    if (protectedKeySet.has(base.k)) {
+      rejected_records.push({ index, code: 'protected_label_key', detail: base.k, record: source });
+      continue;
+    }
     if (isStructuralType && !policy.allow_structural_types) {
       rejected_records.push({ index, code: 'structural_label_type_forbidden', detail: t || 'missing_t', record: source });
       continue;

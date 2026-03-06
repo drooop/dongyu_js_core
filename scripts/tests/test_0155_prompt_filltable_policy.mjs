@@ -150,6 +150,36 @@ function test_structural_type_default_denied() {
       p: 0,
       r: 0,
       c: 0,
+      k: 'cmd',
+      t: 'pin.table.in',
+      v: null,
+    },
+    {
+      op: 'add_label',
+      model_id: 100,
+      p: 0,
+      r: 0,
+      c: 1,
+      k: 'sig',
+      t: 'pin.single.in',
+      v: 'port_in',
+    },
+    {
+      op: 'add_label',
+      model_id: 0,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'bus_evt',
+      t: 'pin.bus.in',
+      v: null,
+    },
+    {
+      op: 'add_label',
+      model_id: 100,
+      p: 0,
+      r: 0,
+      c: 2,
       k: 'handler',
       t: 'func.js',
       v: { code: 'return 1;' },
@@ -157,8 +187,8 @@ function test_structural_type_default_denied() {
   ];
   const out = validateFilltableRecords(records, normalizeFilltablePolicy(null));
   assert.strictEqual(out.accepted_records.length, 0);
-  assert.strictEqual(out.rejected_records.length, 1);
-  assert.strictEqual(out.rejected_records[0].code, 'structural_label_type_forbidden');
+  assert.strictEqual(out.rejected_records.length, 4);
+  assert(out.rejected_records.every((item) => item.code === 'structural_label_type_forbidden'));
   return { key: 'structural_type_default_denied', status: 'PASS' };
 }
 
@@ -184,11 +214,41 @@ function test_structural_type_allowed_by_flag() {
       t: 'pin.connect.label',
       v: [{ from: 'in', to: ['out'] }],
     },
+    {
+      op: 'add_label',
+      model_id: 100,
+      p: 0,
+      r: 0,
+      c: 2,
+      k: 'cmd',
+      t: 'pin.table.in',
+      v: null,
+    },
+    {
+      op: 'add_label',
+      model_id: 101,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'signal',
+      t: 'pin.single.out',
+      v: 'done',
+    },
+    {
+      op: 'add_label',
+      model_id: 0,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'bus_evt',
+      t: 'pin.bus.in',
+      v: { op: 'ping' },
+    },
   ];
   const out = validateFilltableRecords(records, normalizeFilltablePolicy({
     allow_structural_types: true,
   }));
-  assert.strictEqual(out.accepted_records.length, 2);
+  assert.strictEqual(out.accepted_records.length, 5);
   assert.strictEqual(out.rejected_records.length, 0);
   return { key: 'structural_type_allowed_by_flag', status: 'PASS' };
 }
