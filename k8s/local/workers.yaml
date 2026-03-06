@@ -149,6 +149,11 @@ spec:
           value: "@drop:localhost"
         - name: MATRIX_MBR_BOT_USER
           value: "@mbr:localhost"
+        - name: MATRIX_MBR_ACCESS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: MATRIX_MBR_ACCESS_TOKEN
         - name: MATRIX_MBR_PASSWORD
           valueFrom:
             secretKeyRef:

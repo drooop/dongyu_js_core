@@ -175,11 +175,13 @@ escape_sed_replacement() {
 # ── update_k8s_secrets ────────────────────────────────────
 # Creates/updates ui-server-secret and mbr-worker-secret.
 update_k8s_secrets() {
-  local mbr_token="$1"
+  local server_token="$1"
+  local mbr_token="$2"
   local ns="${NAMESPACE:?}"
 
   kubectl -n "$ns" create secret generic ui-server-secret \
     --from-literal="MATRIX_MBR_PASSWORD=$SERVER_PASSWORD" \
+    --from-literal="MATRIX_MBR_ACCESS_TOKEN=$server_token" \
     --dry-run=client -o yaml | kubectl apply -f -
 
   kubectl -n "$ns" create secret generic mbr-worker-secret \

@@ -300,7 +300,7 @@ echo ""
 
 # ── Update K8s secrets ────────────────────────────────────
 echo "=== Step 5: Update secrets ==="
-update_k8s_secrets "$MBR_TOKEN"
+update_k8s_secrets "$SERVER_TOKEN" "$MBR_TOKEN"
 echo ""
 
 # ── Build UI Server image ────────────────────────────────
