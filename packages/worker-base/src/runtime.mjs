@@ -1,7 +1,4 @@
 'use strict';
-import { createRequire } from 'node:module';
-
-const _esmRequire = createRequire(import.meta.url);
 
 class EventLog {
   constructor() {
@@ -101,10 +98,10 @@ class MqttClientMock {
 let _mqttPkg = null;
 function lazyMqtt() {
   if (_mqttPkg) return _mqttPkg;
-  // Prefer CommonJS require when available (Bun/CJS entry), otherwise
-  // fall back to Node ESM createRequire for .mjs module contexts.
+  // Keep Node-only resolution lazy so browser bundles never touch
+  // `node:module` during static analysis.
   // eslint-disable-next-line no-new-func
-  const req = (new Function('return (typeof require!=="undefined")?require:null;'))() || _esmRequire;
+  const req = (new Function('return (typeof require!=="undefined")?require:null;'))();
   if (!req) {
     throw new Error('mqtt_package_unavailable');
   }
