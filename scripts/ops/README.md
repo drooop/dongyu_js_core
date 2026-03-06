@@ -7,6 +7,15 @@
 2. 新增一键脚本时，必须在本文件追加“用途 + 命令 + PASS 判定”。
 3. `README.md` 中的一键命令应保持与本文件一致。
 
+## 导航入口
+
+若你先需要理解正式口径，再回来找命令：
+- Prompt FillTable 的 owner-chain 说明：`docs/user-guide/prompt_filltable_owner_chain_and_deploy.md`
+- ModelTable 用户口径：`docs/user-guide/modeltable_user_guide.md`
+- 本项目 LLM / `mt-table` 本地 runbook：`docs/user-guide/llm_cognition_ollama_runbook.md`
+
+若你已经明确要执行命令，本文件就是唯一 canonical 入口。
+
 ---
 
 ## Cloud Remote RKE2 Gate（强制前置）
