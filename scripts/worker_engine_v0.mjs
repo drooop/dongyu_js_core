@@ -24,6 +24,17 @@ function listSystemLabels(runtime, predicate) {
   return out;
 }
 
+function isExecutableJsFunctionLabel(label) {
+  if (!label || typeof label !== 'object') return false;
+  return label.t === 'func.js';
+}
+
+function extractFunctionCode(label) {
+  if (!label || typeof label !== 'object') return '';
+  if (label.v && typeof label.v === 'object' && typeof label.v.code === 'string') return label.v.code;
+  return '';
+}
+
 export class WorkerEngineV0 {
   constructor({ runtime, mgmtAdapter, mqttPublish }) {
     this.runtime = runtime;
@@ -37,8 +48,9 @@ export class WorkerEngineV0 {
     const sysCell = getSystemCell(this.runtime);
     if (!sysCell) return;
     const label = sysCell.labels.get(name);
-    if (!label || label.t !== 'function' || typeof label.v !== 'string') return;
-    const code = label.v;
+    if (!isExecutableJsFunctionLabel(label)) return;
+    const code = extractFunctionCode(label);
+    if (!code || !code.trim()) return;
 
     const ctx = {
       runtime: this.runtime,
@@ -144,7 +156,7 @@ export class WorkerEngineV0 {
     for (const triggerKey of triggers) {
       const funcName = triggerKey.slice(4); // Remove 'run_' prefix
       // Check if function exists
-      if (cell.labels.has(funcName) && cell.labels.get(funcName).t === 'function') {
+      if (cell.labels.has(funcName) && isExecutableJsFunctionLabel(cell.labels.get(funcName))) {
         this.executeFunction(funcName);
         executed = true;
         // Remove the trigger label after execution (if not already removed by the function)

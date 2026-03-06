@@ -142,6 +142,95 @@ function test_apply_guard_states() {
   return { key: 'apply_guard_states', status: 'PASS' };
 }
 
+function test_structural_type_default_denied() {
+  const records = [
+    {
+      op: 'add_label',
+      model_id: 100,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'handler',
+      t: 'func.js',
+      v: { code: 'return 1;' },
+    },
+  ];
+  const out = validateFilltableRecords(records, normalizeFilltablePolicy(null));
+  assert.strictEqual(out.accepted_records.length, 0);
+  assert.strictEqual(out.rejected_records.length, 1);
+  assert.strictEqual(out.rejected_records[0].code, 'structural_label_type_forbidden');
+  return { key: 'structural_type_default_denied', status: 'PASS' };
+}
+
+function test_structural_type_allowed_by_flag() {
+  const records = [
+    {
+      op: 'add_label',
+      model_id: 100,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'handler',
+      t: 'func.js',
+      v: { code: 'return 1;', modelName: 'demo' },
+    },
+    {
+      op: 'add_label',
+      model_id: 100,
+      p: 0,
+      r: 0,
+      c: 1,
+      k: 'connect',
+      t: 'pin.connect.label',
+      v: [{ from: 'in', to: ['out'] }],
+    },
+  ];
+  const out = validateFilltableRecords(records, normalizeFilltablePolicy({
+    allow_structural_types: true,
+  }));
+  assert.strictEqual(out.accepted_records.length, 2);
+  assert.strictEqual(out.rejected_records.length, 0);
+  return { key: 'structural_type_allowed_by_flag', status: 'PASS' };
+}
+
+function test_structural_values_must_match_type_contract() {
+  const invalidFunc = validateFilltableRecords([
+    {
+      op: 'add_label',
+      model_id: 100,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'bad_func',
+      t: 'func.js',
+      v: 'return 1;',
+    },
+  ], normalizeFilltablePolicy({
+    allow_structural_types: true,
+  }));
+  assert.strictEqual(invalidFunc.accepted_records.length, 0);
+  assert.strictEqual(invalidFunc.rejected_records[0].code, 'invalid_func_value');
+
+  const invalidConnect = validateFilltableRecords([
+    {
+      op: 'add_label',
+      model_id: 100,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'bad_connect',
+      t: 'pin.connect.label',
+      v: { from: 'in', to: ['out'] },
+    },
+  ], normalizeFilltablePolicy({
+    allow_structural_types: true,
+  }));
+  assert.strictEqual(invalidConnect.accepted_records.length, 0);
+  assert.strictEqual(invalidConnect.rejected_records[0].code, 'invalid_connect_value');
+
+  return { key: 'structural_values_must_match_type_contract', status: 'PASS' };
+}
+
 const tests = [
   test_normalize_policy_defaults,
   test_validate_records_positive_and_negative_models,
@@ -149,6 +238,9 @@ const tests = [
   test_validate_records_size_limit,
   test_digest_is_stable,
   test_apply_guard_states,
+  test_structural_type_default_denied,
+  test_structural_type_allowed_by_flag,
+  test_structural_values_must_match_type_contract,
 ];
 
 let passed = 0;

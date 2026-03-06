@@ -161,11 +161,6 @@ spec:
           value: "placeholder-roomid-update-after-synapse-setup"
         - name: DY_MATRIX_DM_PEER_USER_ID
           value: "@mbr:dongyu.local"
-        - name: MATRIX_MBR_BOT_ACCESS_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: mbr-worker-secret
-              key: MATRIX_MBR_BOT_ACCESS_TOKEN
         - name: SEED_POSITIVE_MODELS_ON_BOOT
           value: "0"
         - name: DY_AUTH

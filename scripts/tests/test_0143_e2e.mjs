@@ -95,17 +95,17 @@ function test_in_triggers_cell_connection() {
   const model = rt.createModel({ id: 50, name: 'test', type: 'test' });
   rt.addLabel(model, 0, 0, 0, {
     k: 'routing',
-    t: 'cell_connection',
+    t: 'pin.connect.cell',
     v: [{ from: [0, 0, 0, 'cmd'], to: [[1, 0, 0, 'input']] }],
   });
 
   // Write IN to (0,0,0) — should route to (1,0,0) via cell_connection
-  rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'IN', v: 'hello' });
+  rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: 'hello' });
 
   const target = rt.getCell(model, 1, 0, 0);
   const label = target.labels.get('input');
   assert(label, 'IN should route via cell_connection to target cell');
-  assert.strictEqual(label.t, 'IN');
+  assert.strictEqual(label.t, 'pin.in');
   assert.strictEqual(label.v, 'hello');
   return { key: 'in_triggers_cell_connection', status: 'PASS' };
 }
@@ -143,11 +143,11 @@ async function test_model100_full_flow() {
 
   // Verify IN at root cell
   const rootIn = getLabel(rt, 100, 0, 0, 0, 'event');
-  assert(rootIn && rootIn.t === 'IN', 'IN label should be at cell(0,0,0)');
+  assert(rootIn && rootIn.t === 'pin.in', 'IN label should be at cell(0,0,0)');
 
   // Verify cell_connection routed to (1,0,0)
   const routedIn = getLabel(rt, 100, 1, 0, 0, 'event');
-  assert(routedIn && routedIn.t === 'IN', 'IN should route to cell(1,0,0) via cell_connection');
+  assert(routedIn && routedIn.t === 'pin.in', 'IN should route to cell(1,0,0) via cell_connection');
 
   // Wait for async CELL_CONNECT function execution
   await new Promise(resolve => setTimeout(resolve, 500));
@@ -159,7 +159,7 @@ async function test_model100_full_flow() {
 
   // Verify cell_connection routed patch back to (0,0,0)
   const patchRouted = getLabel(rt, 100, 0, 0, 0, 'patch');
-  assert(patchRouted && patchRouted.t === 'IN', 'patch should route back to cell(0,0,0) as IN');
+  assert(patchRouted && patchRouted.t === 'pin.in', 'patch should route back to cell(0,0,0) as IN');
 
   // Verify bg_color updated
   const bg = getLabel(rt, 100, 0, 0, 0, 'bg_color');

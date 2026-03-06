@@ -24,7 +24,7 @@ function systemCell(rt) {
 
 function addFunction(rt, name, code) {
   const sys = rt.getModel(-10);
-  rt.addLabel(sys, 0, 0, 0, { k: name, t: 'function', v: code });
+  rt.addLabel(sys, 0, 0, 0, { k: name, t: 'func.js', v: { code, modelName: 'run_worker_ui_side_v0' } });
 }
 
 function setLabel(rt, ref, t, v) {

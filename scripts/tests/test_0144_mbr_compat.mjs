@@ -18,6 +18,13 @@ function loadSystemAndMbr() {
   return rt;
 }
 
+function getFunctionCode(label) {
+  if (!label) return '';
+  if (typeof label.v === 'string') return label.v;
+  if (label.v && typeof label.v === 'object' && typeof label.v.code === 'string') return label.v.code;
+  return '';
+}
+
 function test_mbr_patches_load() {
   const rt = loadSystemAndMbr();
   const sys = rt.getModel(-10);
@@ -27,15 +34,15 @@ function test_mbr_patches_load() {
   assert(cell.labels.has('mbr_mqtt_to_mgmt'), 'should have mbr_mqtt_to_mgmt function');
   assert(cell.labels.has('mbr_heartbeat'), 'should have mbr_heartbeat function');
   assert(cell.labels.has('mbr_ready'), 'should have mbr_ready function');
-  assert.strictEqual(cell.labels.get('mbr_mgmt_to_mqtt').t, 'function');
-  assert.strictEqual(cell.labels.get('mbr_mqtt_to_mgmt').t, 'function');
+  assert.strictEqual(cell.labels.get('mbr_mgmt_to_mqtt').t, 'func.js');
+  assert.strictEqual(cell.labels.get('mbr_mqtt_to_mgmt').t, 'func.js');
   return { key: 'mbr_patches_load', status: 'PASS' };
 }
 
 function test_mbr_mgmt_to_mqtt_compile() {
   const rt = loadSystemAndMbr();
   const sys = rt.getModel(-10);
-  const code = rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt').v;
+  const code = getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt'));
   assert(typeof code === 'string' && code.length > 0, 'function code must be non-empty string');
   // Compile without throwing
   const fn = new Function('ctx', 'label', code);
@@ -46,7 +53,7 @@ function test_mbr_mgmt_to_mqtt_compile() {
 function test_mbr_mqtt_to_mgmt_compile() {
   const rt = loadSystemAndMbr();
   const sys = rt.getModel(-10);
-  const code = rt.getCell(sys, 0, 0, 0).labels.get('mbr_mqtt_to_mgmt').v;
+  const code = getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mqtt_to_mgmt'));
   const fn = new Function('ctx', 'label', code);
   assert(typeof fn === 'function', 'must compile to function');
   return { key: 'mbr_mqtt_to_mgmt_compile', status: 'PASS' };
@@ -94,7 +101,7 @@ function test_mbr_mgmt_to_mqtt_execute_model100() {
     },
   };
 
-  const code = rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt').v;
+  const code = getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt'));
   const fn = new Function('ctx', code);
   fn(ctx);
 
@@ -150,7 +157,7 @@ function test_mbr_mqtt_to_mgmt_execute() {
     },
   };
 
-  const code = rt.getCell(sys, 0, 0, 0).labels.get('mbr_mqtt_to_mgmt').v;
+  const code = getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mqtt_to_mgmt'));
   const fn = new Function('ctx', code);
   fn(ctx);
 

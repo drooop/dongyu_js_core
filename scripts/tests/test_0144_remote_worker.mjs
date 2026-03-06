@@ -100,7 +100,7 @@ function test_mqtt_incoming_routes_to_model100() {
   const rootCell = rt.getCell(model100, 0, 0, 0);
   const eventLabel = rootCell.labels.get('event');
   assert(eventLabel, 'event IN label should be written to root cell');
-  assert.strictEqual(eventLabel.t, 'IN');
+  assert.strictEqual(eventLabel.t, 'pin.in');
 
   return { key: 'mqtt_incoming_routes_to_model100', status: 'PASS' };
 }
@@ -110,13 +110,13 @@ function test_cell_connection_propagates_to_processing_cell() {
 
   // Write IN label to Model 100 (0,0,0) with key='event'
   const model100 = rt.getModel(100);
-  rt.addLabel(model100, 0, 0, 0, { k: 'event', t: 'IN', v: { op_id: 'test_route_001' } });
+  rt.addLabel(model100, 0, 0, 0, { k: 'event', t: 'pin.in', v: { op_id: 'test_route_001' } });
 
   // Verify cell_connection routed to (1,0,0)
   const procCell = rt.getCell(model100, 1, 0, 0);
   const routedEvent = procCell.labels.get('event');
   assert(routedEvent, 'event should be routed to processing cell (1,0,0)');
-  assert.strictEqual(routedEvent.t, 'IN');
+  assert.strictEqual(routedEvent.t, 'pin.in');
 
   return { key: 'cell_connection_propagates_to_processing_cell', status: 'PASS' };
 }

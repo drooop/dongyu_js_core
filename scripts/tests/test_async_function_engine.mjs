@@ -8,16 +8,16 @@ async function test_func_execution() {
   const model = rt.createModel({ id: 999, name: 'test', type: 'test' });
   rt.addLabel(model, 1, 0, 0, {
     k: 'wiring',
-    t: 'CELL_CONNECT',
-    v: {
-      '(self, cmd)': ['(func, process:in)'],
-      '(func, process:out)': ['(self, result)'],
-    },
+    t: 'pin.connect.label',
+    v: [
+      { from: '(self, cmd)', to: ['(func, process:in)'] },
+      { from: '(func, process:out)', to: ['(self, result)'] },
+    ],
   });
   rt.addLabel(model, 1, 0, 0, {
     k: 'process',
-    t: 'function',
-    v: "return label.v + '_processed';",
+    t: 'func.js',
+    v: { code: "return label.v + '_processed';", modelName: 'test_async_function_engine' },
   });
 
   await rt._propagateCellConnect(999, 1, 0, 0, 'self', 'cmd', 'hello');
@@ -34,13 +34,13 @@ async function test_func_error_capture() {
   const model = rt.createModel({ id: 998, name: 'test', type: 'test' });
   rt.addLabel(model, 0, 0, 0, {
     k: 'wiring',
-    t: 'CELL_CONNECT',
-    v: { '(self, cmd)': ['(func, bad:in)'] },
+    t: 'pin.connect.label',
+    v: [{ from: '(self, cmd)', to: ['(func, bad:in)'] }],
   });
   rt.addLabel(model, 0, 0, 0, {
     k: 'bad',
-    t: 'function',
-    v: 'throw new Error("intentional error");',
+    t: 'func.js',
+    v: { code: 'throw new Error("intentional error");', modelName: 'test_async_function_engine' },
   });
 
   await rt._propagateCellConnect(998, 0, 0, 0, 'self', 'cmd', 'test');
@@ -58,11 +58,11 @@ async function test_cycle_detection() {
   // Create a cycle: self:a -> self:b, self:b -> self:a
   rt.addLabel(model, 0, 0, 0, {
     k: 'wiring',
-    t: 'CELL_CONNECT',
-    v: {
-      '(self, a)': ['(self, b)'],
-      '(self, b)': ['(self, a)'],
-    },
+    t: 'pin.connect.label',
+    v: [
+      { from: '(self, a)', to: ['(self, b)'] },
+      { from: '(self, b)', to: ['(self, a)'] },
+    ],
   });
 
   // Should not throw or infinite loop
@@ -79,16 +79,16 @@ async function test_func_fallback_to_model_minus10() {
   const sysModel = rt.createModel({ id: -10, name: 'system', type: 'system' });
   rt.addLabel(sysModel, 0, 0, 0, {
     k: 'shared_func',
-    t: 'function',
-    v: "return 'from_system';",
+    t: 'func.js',
+    v: { code: "return 'from_system';", modelName: 'test_async_function_engine' },
   });
   rt.addLabel(model, 0, 0, 0, {
     k: 'wiring',
-    t: 'CELL_CONNECT',
-    v: {
-      '(self, cmd)': ['(func, shared_func:in)'],
-      '(func, shared_func:out)': ['(self, out)'],
-    },
+    t: 'pin.connect.label',
+    v: [
+      { from: '(self, cmd)', to: ['(func, shared_func:in)'] },
+      { from: '(func, shared_func:out)', to: ['(self, out)'] },
+    ],
   });
 
   await rt._propagateCellConnect(996, 0, 0, 0, 'self', 'cmd', 'test');
@@ -105,10 +105,10 @@ async function test_multi_target_concurrent() {
   const model = rt.createModel({ id: 995, name: 'test', type: 'test' });
   rt.addLabel(model, 0, 0, 0, {
     k: 'wiring',
-    t: 'CELL_CONNECT',
-    v: {
-      '(self, cmd)': ['(self, out_a)', '(self, out_b)'],
-    },
+    t: 'pin.connect.label',
+    v: [
+      { from: '(self, cmd)', to: ['(self, out_a)', '(self, out_b)'] },
+    ],
   });
 
   await rt._propagateCellConnect(995, 0, 0, 0, 'self', 'cmd', 'data');
@@ -154,4 +154,3 @@ const tests = [
   console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
   process.exit(failed > 0 ? 1 : 0);
 })();
-

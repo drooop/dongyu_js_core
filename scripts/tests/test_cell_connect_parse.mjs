@@ -56,11 +56,11 @@ function test_cell_connect_label_parse() {
   const model = rt.createModel({ id: 999, name: 'test', type: 'test' });
   rt.addLabel(model, 1, 0, 0, {
     k: 'wiring',
-    t: 'CELL_CONNECT',
-    v: {
-      '(self, cmd)': ['(func, process:in)'],
-      '(func, process:out)': ['(self, result)'],
-    },
+    t: 'pin.connect.label',
+    v: [
+      { from: '(self, cmd)', to: ['(func, process:in)'] },
+      { from: '(func, process:out)', to: ['(self, result)'] },
+    ],
   });
   const cellKey = '999|1|0|0';
   assert(rt.cellConnectGraph.has(cellKey), 'cellConnectGraph should have key');
@@ -80,7 +80,7 @@ function test_cell_connect_label_parse() {
 function test_cell_connect_bad_value() {
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: 998, name: 'test', type: 'test' });
-  rt.addLabel(model, 0, 0, 0, { k: 'wiring', t: 'CELL_CONNECT', v: 'not_an_object' });
+  rt.addLabel(model, 0, 0, 0, { k: 'wiring', t: 'pin.connect.label', v: 'not_an_object' });
   const errors = rt.eventLog._events.filter((e) => e.reason === 'cell_connect_invalid_value');
   assert(errors.length >= 1, 'should record error for invalid value');
   return { key: 'cell_connect_bad_value', status: 'PASS' };
@@ -91,7 +91,7 @@ function test_cell_connection_parse() {
   const model = rt.createModel({ id: 999, name: 'test', type: 'test' });
   rt.addLabel(model, 0, 0, 0, {
     k: 'routing',
-    t: 'cell_connection',
+    t: 'pin.connect.cell',
     v: [
       { from: [0, 0, 0, 'input'], to: [[1, 0, 0, 'cmd']] },
       { from: [1, 0, 0, 'result'], to: [[0, 0, 0, 'output']] },
@@ -112,7 +112,7 @@ function test_cell_connection_parse() {
 function test_cell_connection_wrong_position() {
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: 997, name: 'test', type: 'test' });
-  rt.addLabel(model, 1, 0, 0, { k: 'routing', t: 'cell_connection', v: [] });
+  rt.addLabel(model, 1, 0, 0, { k: 'routing', t: 'pin.connect.cell', v: [] });
   const errors = rt.eventLog._events.filter((e) => e.reason === 'cell_connection_wrong_position');
   assert(errors.length >= 1, 'should record error for wrong position');
   return { key: 'cell_connection_wrong_position', status: 'PASS' };
@@ -123,10 +123,8 @@ function test_multi_target_fanout() {
   const model = rt.createModel({ id: 996, name: 'test', type: 'test' });
   rt.addLabel(model, 1, 0, 0, {
     k: 'wiring',
-    t: 'CELL_CONNECT',
-    v: {
-      '(self, cmd)': ['(func, a:in)', '(func, b:in)'],
-    },
+    t: 'pin.connect.label',
+    v: [{ from: '(self, cmd)', to: ['(func, a:in)', '(func, b:in)'] }],
   });
   const graph = rt.cellConnectGraph.get('996|1|0|0');
   const targets = graph.get('self:cmd');

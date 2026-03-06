@@ -3,16 +3,16 @@
   "records": [
     {"op": "create_model", "model_id": 999, "name": "test_connect", "type": "test"},
     {"op": "add_label", "model_id": 999, "p": 0, "r": 0, "c": 0,
-     "label": {"k": "routing", "t": "cell_connection", "v": [
+     "label": {"k": "routing", "t": "pin.connect.cell", "v": [
        {"from": [0,0,0,"input"], "to": [[1,0,0,"cmd"]]},
        {"from": [1,0,0,"result"], "to": [[0,0,0,"output"]]}
      ]}},
     {"op": "add_label", "model_id": 999, "p": 1, "r": 0, "c": 0,
-     "label": {"k": "wiring", "t": "CELL_CONNECT", "v": {
-       "(self, cmd)": ["(func, process:in)"],
-       "(func, process:out)": ["(self, result)"]
-     }}},
+     "label": {"k": "wiring", "t": "pin.connect.label", "v": [
+       {"from": "(self, cmd)", "to": ["(func, process:in)"]},
+       {"from": "(func, process:out)", "to": ["(self, result)"]}
+     ]}},
     {"op": "add_label", "model_id": 999, "p": 1, "r": 0, "c": 0,
-     "label": {"k": "process", "t": "function", "v": "return label.v + '_processed';"}}
+     "label": {"k": "process", "t": "func.js", "v": {"code": "return label.v + '_processed';", "modelName": "test_connect"}}}
   ]
 }

@@ -7,7 +7,7 @@ const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js
 function test_bus_in_register() {
   const rt = new ModelTableRuntime();
   const model0 = rt.getModel(0);
-  rt.addLabel(model0, 0, 0, 0, { k: 'event_in', t: 'BUS_IN', v: null });
+  rt.addLabel(model0, 0, 0, 0, { k: 'event_in', t: 'pin.bus.in', v: null });
   assert(rt.busInPorts.has('event_in'), 'should register BUS_IN port');
   return { key: 'bus_in_register', status: 'PASS' };
 }
@@ -15,7 +15,7 @@ function test_bus_in_register() {
 function test_bus_in_wrong_position() {
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: 5, name: 'test', type: 'test' });
-  rt.addLabel(model, 0, 0, 0, { k: 'bad', t: 'BUS_IN', v: null });
+  rt.addLabel(model, 0, 0, 0, { k: 'bad', t: 'pin.bus.in', v: null });
   assert(!rt.busInPorts.has('bad'), 'should NOT register on non-model-0');
   const errors = rt.eventLog._events.filter((e) => e.reason === 'bus_in_wrong_position');
   assert(errors.length >= 1, 'should record error');
@@ -28,17 +28,17 @@ function test_bus_in_routes_via_cell_connection() {
   // Set up cell_connection: (0,0,0) event_in → (1,0,0) cmd
   rt.addLabel(model0, 0, 0, 0, {
     k: 'routing',
-    t: 'cell_connection',
+    t: 'pin.connect.cell',
     v: [{ from: [0, 0, 0, 'event_in'], to: [[1, 0, 0, 'cmd']] }],
   });
   // Register BUS_IN with null (declaration only)
-  rt.addLabel(model0, 0, 0, 0, { k: 'event_in', t: 'BUS_IN', v: null });
+  rt.addLabel(model0, 0, 0, 0, { k: 'event_in', t: 'pin.bus.in', v: null });
   // Now write with a value → should trigger routing
-  rt.addLabel(model0, 0, 0, 0, { k: 'event_in', t: 'BUS_IN', v: 'hello' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'event_in', t: 'pin.bus.in', v: 'hello' });
   const cell1 = rt.getCell(model0, 1, 0, 0);
   const cmd = cell1.labels.get('cmd');
   assert(cmd, 'cell 1,0,0 should have cmd');
-  assert.strictEqual(cmd.t, 'IN');
+  assert.strictEqual(cmd.t, 'pin.in');
   assert.strictEqual(cmd.v, 'hello');
   return { key: 'bus_in_routes_via_cell_connection', status: 'PASS' };
 }
@@ -46,7 +46,7 @@ function test_bus_in_routes_via_cell_connection() {
 function test_bus_out_register() {
   const rt = new ModelTableRuntime();
   const model0 = rt.getModel(0);
-  rt.addLabel(model0, 0, 0, 0, { k: 'result_out', t: 'BUS_OUT', v: null });
+  rt.addLabel(model0, 0, 0, 0, { k: 'result_out', t: 'pin.bus.out', v: null });
   assert(rt.busOutPorts.has('result_out'), 'should register BUS_OUT port');
   return { key: 'bus_out_register', status: 'PASS' };
 }
@@ -54,7 +54,7 @@ function test_bus_out_register() {
 function test_bus_out_wrong_position() {
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: 6, name: 'test', type: 'test' });
-  rt.addLabel(model, 1, 0, 0, { k: 'bad', t: 'BUS_OUT', v: null });
+  rt.addLabel(model, 1, 0, 0, { k: 'bad', t: 'pin.bus.out', v: null });
   const errors = rt.eventLog._events.filter((e) => e.reason === 'bus_out_wrong_position');
   assert(errors.length >= 1, 'should record error');
   return { key: 'bus_out_wrong_position', status: 'PASS' };
@@ -66,10 +66,10 @@ function test_handle_bus_in_message() {
   // Setup routing
   rt.addLabel(model0, 0, 0, 0, {
     k: 'routing',
-    t: 'cell_connection',
+    t: 'pin.connect.cell',
     v: [{ from: [0, 0, 0, 'data_in'], to: [[1, 0, 0, 'input']] }],
   });
-  rt.addLabel(model0, 0, 0, 0, { k: 'data_in', t: 'BUS_IN', v: null });
+  rt.addLabel(model0, 0, 0, 0, { k: 'data_in', t: 'pin.bus.in', v: null });
   // Simulate incoming
   rt._handleBusInMessage('data_in', { test: 1 });
   const cell1 = rt.getCell(model0, 1, 0, 0);
@@ -83,7 +83,7 @@ function test_bus_in_shortcircuit_mqtt() {
   const rt = new ModelTableRuntime();
   const model0 = rt.getModel(0);
   // Setup BUS_IN on (0,0,0)
-  rt.addLabel(model0, 0, 0, 0, { k: 'bus_event', t: 'BUS_IN', v: null });
+  rt.addLabel(model0, 0, 0, 0, { k: 'bus_event', t: 'pin.bus.in', v: null });
   // BUS_IN should be registered and take priority in mqttIncoming
   assert(rt.busInPorts.has('bus_event'), 'should have BUS_IN registered');
   assert(!rt.busInPorts.has('other_event'), 'other_event should NOT be in busInPorts');

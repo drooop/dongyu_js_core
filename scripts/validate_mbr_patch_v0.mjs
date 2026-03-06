@@ -43,6 +43,12 @@ function getLabelEntry(rt, modelId, p, r, c, k) {
   return cell.labels.get(k) || null;
 }
 
+function extractFunctionCode(entry) {
+  if (!entry) return '';
+  if (entry.v && typeof entry.v === 'object' && typeof entry.v.code === 'string') return entry.v.code;
+  return '';
+}
+
 function createPatchedRuntime() {
   const rt = new ModelTableRuntime();
   loadSystemPatch(rt);
@@ -110,12 +116,13 @@ process.stdout.write('\n=== Test Group 4: Business Functions ===\n');
 const expectedFunctions = ['mbr_mgmt_to_mqtt', 'mbr_mqtt_to_mgmt', 'mbr_heartbeat', 'mbr_ready'];
 for (const name of expectedFunctions) {
   const entry = getLabelEntry(rt1, -10, 0, 0, 0, name);
-  assert(entry !== null && entry.t === 'function', `function ${name} exists`);
-  assert(typeof entry.v === 'string' && entry.v.length > 0, `function ${name} has code`);
+  assert(entry !== null && entry.t === 'func.js', `function ${name} exists`);
+  const code = extractFunctionCode(entry);
+  assert(typeof code === 'string' && code.length > 0, `function ${name} has code`);
   // Verify it compiles
   let compiles = false;
   try {
-    new Function('ctx', entry.v);
+    new Function('ctx', code);
     compiles = true;
   } catch (err) {
     process.stdout.write(`    compile error: ${err.message}\n`);

@@ -9,8 +9,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * 0142 Integration Test
- * Full round-trip: BUS_IN → cell_connection → CELL_CONNECT → subModel MODEL_IN
- *   → child processing → MODEL_OUT → parent CELL_CONNECT → cell_connection → BUS_OUT
+ * Full round-trip: BUS_IN → cell_connection → CELL_CONNECT → subModel boundary IN
+ *   → child processing → boundary OUT → parent CELL_CONNECT → cell_connection → BUS_OUT
  */
 
 async function test_full_e2e_model0_framework() {
@@ -36,7 +36,7 @@ async function test_full_e2e_model0_framework() {
   const child = rt.getModel(100);
   rt.addLabel(child, 0, 0, 0, {
     k: 'routing',
-    t: 'cell_connection',
+    t: 'pin.connect.cell',
     v: [
       { from: [0, 0, 0, 'cmd'], to: [[1, 0, 0, 'input']] },
       { from: [1, 0, 0, 'output'], to: [[0, 0, 0, 'result']] },
@@ -44,16 +44,16 @@ async function test_full_e2e_model0_framework() {
   });
   rt.addLabel(child, 1, 0, 0, {
     k: 'wiring',
-    t: 'CELL_CONNECT',
-    v: {
-      '(self, input)': ['(func, process:in)'],
-      '(func, process:out)': ['(self, output)'],
-    },
+    t: 'pin.connect.label',
+    v: [
+      { from: '(self, input)', to: ['(func, process:in)'] },
+      { from: '(func, process:out)', to: ['(self, output)'] },
+    ],
   });
   rt.addLabel(child, 1, 0, 0, {
     k: 'process',
-    t: 'function',
-    v: "return 'processed:' + label.v;",
+    t: 'func.js',
+    v: { code: "return 'processed:' + label.v;", modelName: 'test_0142_integration' },
   });
 
   // Trigger: BUS_IN arrival
@@ -65,11 +65,11 @@ async function test_full_e2e_model0_framework() {
   const cmd = hostCell.labels.get('cmd');
   assert(cmd, 'hosting cell should have cmd (from cell_connection)');
 
-  // Verify: child receives MODEL_IN
+  // Verify: child receives boundary IN
   const childCell0 = rt.getCell(child, 0, 0, 0);
   const modelIn = childCell0.labels.get('cmd');
-  assert(modelIn, 'child should have MODEL_IN cmd');
-  assert.strictEqual(modelIn.t, 'MODEL_IN');
+  assert(modelIn, 'child should have boundary IN cmd');
+  assert(['pin.table.in', 'pin.single.in'].includes(modelIn.t), 'child boundary IN type mismatch');
 
   // Verify: child function executes
   const childCell1 = rt.getCell(child, 1, 0, 0);
@@ -84,10 +84,10 @@ async function test_bus_in_priority_over_pin() {
   const rt = new ModelTableRuntime();
   const model0 = rt.getModel(0);
   // Register BUS_IN
-  rt.addLabel(model0, 0, 0, 0, { k: 'data', t: 'BUS_IN', v: null });
+  rt.addLabel(model0, 0, 0, 0, { k: 'data', t: 'pin.bus.in', v: null });
   rt.addLabel(model0, 0, 0, 0, {
     k: 'routing',
-    t: 'cell_connection',
+    t: 'pin.connect.cell',
     v: [{ from: [0, 0, 0, 'data'], to: [[1, 0, 0, 'received']] }],
   });
 
@@ -106,7 +106,7 @@ function test_submodel_lifecycle() {
   const rt = new ModelTableRuntime();
   const parent = rt.createModel({ id: 10, name: 'app', type: 'app' });
   // Register subModel
-  rt.addLabel(parent, 0, 0, 0, { k: '20', t: 'subModel', v: { alias: 'worker' } });
+  rt.addLabel(parent, 0, 0, 0, { k: '20', t: 'submt', v: { alias: 'worker' } });
   // Verify parentChildMap
   const info = rt.parentChildMap.get(20);
   assert(info, 'should have parentChildMap entry');
@@ -142,4 +142,3 @@ const tests = [
   console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
   process.exit(failed > 0 ? 1 : 0);
 })();
-

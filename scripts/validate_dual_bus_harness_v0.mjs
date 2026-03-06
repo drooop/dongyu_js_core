@@ -134,14 +134,21 @@ function createRuntimeMqttAdapter(rt, prefix) {
 
   function publish(topic, payload) {
     trace.push({ type: 'publish', topic, payload });
-    if (payload && payload.t === 'IN') {
-      rt.mqttIncoming(topic, payload);
+    if (payload && (payload.t === 'IN' || payload.t === 'pin.in')) {
+      const incoming = payload.t === 'pin.in' ? payload : { ...payload, t: 'pin.in' };
+      rt.mqttIncoming(topic, incoming);
     }
   }
 
   function subscribe(fn) {
     listeners.add(fn);
     return () => listeners.delete(fn);
+  }
+
+  function emitIncoming(topic, payload) {
+    for (const fn of listeners) {
+      fn({ topic, payload });
+    }
   }
 
   function emitOutboundFromRuntime() {
@@ -162,6 +169,7 @@ function createRuntimeMqttAdapter(rt, prefix) {
   return {
     publish,
     subscribe,
+    emitIncoming,
     emitOutboundFromRuntime,
     trace: { list },
     prefix,
@@ -180,8 +188,8 @@ function setupRuntime(prefix) {
     topic_prefix: prefix,
   });
   const model = rt.getModel(0);
-  rt.addLabel(model, 0, 0, 1, { k: 'demo', t: 'PIN_IN', v: 'demo' });
-  rt.addLabel(model, 0, 0, 1, { k: 'demo', t: 'PIN_OUT', v: 'demo' });
+  rt.addLabel(model, 0, 0, 0, { k: 'demo', t: 'pin.bus.in', v: null });
+  rt.addLabel(model, 0, 0, 0, { k: 'demo', t: 'pin.bus.out', v: null });
   return rt;
 }
 
@@ -221,6 +229,12 @@ async function runE2EWithMgmtAdapter(mgmtAdapter, label, args) {
   const rt = setupRuntime(prefix);
   const mqtt = createRuntimeMqttAdapter(rt, prefix);
   const bridge = createMbrBridge({ mgmtAdapter, mqttAdapter: mqtt, topicPrefix: prefix });
+  let receivedPinOut = null;
+  const unsubscribe = mgmtAdapter.subscribe((event) => {
+    if (event && event.type === 'pin_out') {
+      receivedPinOut = event;
+    }
+  });
 
   const opId = `op-${Date.now()}-${label}`;
   const uiEvent = {
@@ -237,19 +251,16 @@ async function runE2EWithMgmtAdapter(mgmtAdapter, label, args) {
   assert(okIn, 'e2e_pin_in_missing');
 
   const events = rt.eventLog.list();
-  const mailboxEvent = events.find((e) => e.label && e.label.t === 'IN' && e.label.k === 'demo');
+  const mailboxEvent = events.find((e) => e.label && e.label.t === 'pin.in' && e.label.k === 'demo');
   assert(mailboxEvent, 'e2e_mailbox_in_missing');
 
-  rt.addLabel(rt.getModel(0), 0, 1, 1, { k: 'demo', t: 'OUT', v: { payload: 2, op_id: opId } });
-  mqtt.emitOutboundFromRuntime();
-
-  const mgmtTrace = mgmtAdapter.trace?.list ? mgmtAdapter.trace.list() : [];
-  const pinOut = mgmtTrace.find((t) => {
-    const evt = t.event || t.content || null;
-    return evt && evt.type === 'pin_out' && evt.op_id === opId;
-  });
+  mqtt.emitIncoming(`${prefix}/demo`, { pin: 'demo', t: 'OUT', value: { payload: 2 }, op_id: opId });
+  const okOut = await waitForCondition(() => Boolean(receivedPinOut && receivedPinOut.op_id === opId), args.timeoutMs);
+  assert(okOut, 'e2e_pin_out_missing');
+  const pinOut = receivedPinOut;
   assert(pinOut, 'e2e_pin_out_missing');
 
+  if (typeof unsubscribe === 'function') unsubscribe();
   if (mgmtAdapter.close) mgmtAdapter.close();
   bridge.close();
   return { key: `e2e_${label}`, status: 'PASS' };

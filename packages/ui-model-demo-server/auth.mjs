@@ -9,7 +9,7 @@ const sdk = require('matrix-js-sdk');
 
 // ── Session Store (in-memory) ──────────────────────────────────────────────
 
-const sessions = new Map(); // token → { userId, homeserverUrl, displayName, createdAt }
+const sessions = new Map(); // token → { userId, homeserverUrl, displayName, accessToken, createdAt }
 const SESSION_MAX_AGE_S = 7 * 24 * 60 * 60; // 7 days
 const MAX_SESSIONS = 10000;
 
@@ -63,6 +63,25 @@ export function getSession(req) {
     return null;
   }
   return { userId: session.userId, homeserverUrl: session.homeserverUrl, displayName: session.displayName };
+}
+
+export function getSessionWithToken(req) {
+  const cookies = parseCookies(req.headers.cookie);
+  const token = cookies.get('dy_session');
+  if (!token) return null;
+  const session = sessions.get(token);
+  if (!session) return null;
+  const elapsed = (Date.now() - session.createdAt) / 1000;
+  if (elapsed > SESSION_MAX_AGE_S) {
+    sessions.delete(token);
+    return null;
+  }
+  return {
+    userId: session.userId,
+    homeserverUrl: session.homeserverUrl,
+    displayName: session.displayName,
+    accessToken: session.accessToken,
+  };
 }
 
 export function isAuthenticated(req) {
@@ -150,19 +169,6 @@ export async function loginWithMatrix(homeserverUrl, username, password) {
   const userId = loginRes.user_id || `@${username}`;
   const displayName = loginRes.display_name || userId;
 
-  // Invalidate the Matrix access_token we just obtained (best-effort).
-  try {
-    const tmpClient = sdk.createClient({
-      baseUrl: validatedOrigin,
-      accessToken: loginRes.access_token,
-      userId,
-      fetchFn,
-    });
-    await tmpClient.logout(true);
-  } catch (err) {
-    console.warn('[auth] Matrix token cleanup failed:', err && err.message ? err.message : err);
-  }
-
   // Evict oldest session if at capacity.
   if (sessions.size >= MAX_SESSIONS) {
     let oldestKey = null;
@@ -174,7 +180,13 @@ export async function loginWithMatrix(homeserverUrl, username, password) {
   }
 
   const token = crypto.randomBytes(32).toString('hex');
-  const session = { userId, homeserverUrl: validatedOrigin, displayName, createdAt: Date.now() };
+  const session = {
+    userId,
+    homeserverUrl: validatedOrigin,
+    displayName,
+    accessToken: loginRes.access_token,
+    createdAt: Date.now(),
+  };
   sessions.set(token, session);
 
   // Persist homeserver to history

@@ -19,7 +19,7 @@ import { createLocalBusAdapter } from '../ui-model-demo-frontend/src/local_bus_a
 import { buildEditorAstV1, buildAstFromSchema } from '../ui-model-demo-frontend/src/demo_modeltable.js';
 import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from '../ui-model-demo-frontend/src/model_ids.js';
 import {
-  getSession, isAuthenticated, loginWithMatrix, logout,
+  getSession, getSessionWithToken, isAuthenticated, loginWithMatrix, logout,
   makeSetCookieHeader, makeClearCookieHeader,
   loadHomeservers, addHomeserver, removeHomeserver,
   checkLoginRateLimit,
@@ -43,6 +43,8 @@ const LOGIN_MODEL_ID = -3;
 const TRACE_MODEL_ID = -100;
 // Monotonic sequence counter for trace events (module-level, survives across calls).
 let _traceSeq = 0;
+const MEDIA_CACHE_TTL_MS = 15 * 60 * 1000;
+const mediaUploadCache = new Map();
 
 /**
  * Emit a trace event into the Bus Trace model's mailbox.
@@ -109,6 +111,42 @@ function firstValidValue(...values) {
     return normalized;
   }
   return '';
+}
+
+function cacheUploadedMedia(uri, item) {
+  if (!uri || typeof uri !== 'string') return;
+  mediaUploadCache.set(uri, {
+    ...item,
+    createdAt: Date.now(),
+  });
+}
+
+function getCachedUploadedMedia(uri) {
+  if (!uri || typeof uri !== 'string') return null;
+  const item = mediaUploadCache.get(uri);
+  if (!item) return null;
+  if (Date.now() - item.createdAt > MEDIA_CACHE_TTL_MS) {
+    mediaUploadCache.delete(uri);
+    return null;
+  }
+  return item;
+}
+
+async function uploadMatrixMedia({ homeserverUrl, accessToken, filename, contentType, body }) {
+  const url = `${String(homeserverUrl).replace(/\/+$/, '')}/_matrix/media/v3/upload?filename=${encodeURIComponent(filename)}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': contentType || 'application/octet-stream',
+    },
+    body,
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok || !data || typeof data.content_uri !== 'string' || data.content_uri.length === 0) {
+    throw new Error(data && data.errcode ? String(data.errcode) : 'matrix_upload_failed');
+  }
+  return data.content_uri;
 }
 
 function readPathEnv(name, fallback) {
@@ -185,6 +223,11 @@ const DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE = [
   '- add_label requires model_id,p,r,c,k,t,v',
   '- rm_label requires model_id,p,r,c,k',
   '- max records is 10',
+  '- Must obey policy.allowed_label_types and policy.allow_structural_types',
+  '- Structural t (func.js/func.python/pin.connect.label/pin.connect.cell/pin.connect.model/model.single/model.matrix/model.table/submt) are forbidden unless policy.allow_structural_types=true',
+  '- For func.js/func.python, v must be object and include non-empty string field code',
+  '- For pin.connect.*, v must be an array',
+  '- For model.single/model.matrix/model.table, v must be a non-empty string',
   '- for query-only requests output records: [] and describe them in proposal.queries',
   '- Never output explanation text outside JSON',
 ].join('\n');
@@ -1078,7 +1121,23 @@ function buildSafeSnapshotJson(runtime) {
 
 // Lightweight snapshot for SSE/client: excludes internal-only labels that bloat payload.
 // Filters: snapshot_json (1.5MB recursive), event_log, trace entry cells, function code.
-const INTERNAL_LABEL_TYPES = new Set(['function', 'CELL_CONNECT', 'cell_connection', 'IN', 'BUS_IN', 'BUS_OUT', 'MODEL_IN', 'MODEL_OUT', 'subModel', 'MQTT_WILDCARD_SUB']);
+const INTERNAL_LABEL_TYPES = new Set([
+  'func.js',
+  'func.python',
+  'pin.connect.label',
+  'pin.connect.cell',
+  'pin.connect.model',
+  'pin.in',
+  'pin.out',
+  'pin.bus.in',
+  'pin.bus.out',
+  'pin.table.in',
+  'pin.table.out',
+  'pin.single.in',
+  'pin.single.out',
+  'submt',
+  'MQTT_WILDCARD_SUB',
+]);
 const EXCLUDED_LABEL_KEYS = new Set(['snapshot_json', 'event_log']);
 
 function buildClientSnapshot(runtime) {
@@ -1256,8 +1315,21 @@ function findSystemLabel(runtime, key) {
   return items.length > 0 ? items[0] : null;
 }
 
+function isFunctionLikeLabelType(typeName) {
+  return typeName === 'func.js' || typeName === 'func.python';
+}
+
+function isExecutableJsFunctionLabelType(typeName) {
+  return typeName === 'func.js';
+}
+
+function extractFunctionCode(value) {
+  if (value && typeof value === 'object' && typeof value.code === 'string') return value.code;
+  return '';
+}
+
 function firstSystemModel(runtime) {
-  const fnLabel = listSystemLabels(runtime, (label) => label.t === 'function')[0];
+  const fnLabel = listSystemLabels(runtime, (label) => isFunctionLikeLabelType(label.t))[0];
   if (fnLabel) return fnLabel.model;
   for (const [id, model] of runtime.models.entries()) {
     if (id < 0) return model;
@@ -1340,9 +1412,9 @@ class ProgramModelEngine {
   }
 
   refreshFunctionRegistry() {
-    const functionLabels = listSystemLabels(this.runtime, (label) => label.t === 'function');
+    const functionLabels = listSystemLabels(this.runtime, (label) => isExecutableJsFunctionLabelType(label.t));
     for (const item of functionLabels) {
-      const code = item.label.v;
+      const code = extractFunctionCode(item.label.v);
       if (typeof code === 'string' && code.trim().length > 0) {
         this.functions.set(item.label.k, code);
         item.model.registerFunction(item.label.k);
@@ -1767,7 +1839,7 @@ class ProgramModelEngine {
             };
           }
         },
-        staticUploadProject: (name, kind, b64data) => {
+        staticUploadProjectFromMxc: (name, kind, mediaUri) => {
           const projectName = String(name ?? '').trim();
           if (!/^[a-zA-Z0-9._-]+$/.test(projectName)) {
             return { ok: false, code: 'invalid_target', detail: 'invalid_project_name' };
@@ -1776,24 +1848,13 @@ class ProgramModelEngine {
           if (uploadKind !== 'zip' && uploadKind !== 'html') {
             return { ok: false, code: 'invalid_target', detail: 'invalid_upload_kind' };
           }
-          const rawB64 = String(b64data ?? '').trim();
-          if (uploadKind === 'zip') {
-            if (!rawB64) return { ok: false, code: 'invalid_target', detail: 'missing_zip_b64' };
-            if (rawB64.length > 8 * 1024 * 1024) {
-              return { ok: false, code: 'invalid_target', detail: 'zip_too_large' };
-            }
-          } else {
-            if (!rawB64) return { ok: false, code: 'invalid_target', detail: 'missing_html_b64' };
-            if (rawB64.length > 2 * 1024 * 1024) {
-              return { ok: false, code: 'invalid_target', detail: 'html_too_large' };
-            }
+          const uri = String(mediaUri ?? '').trim();
+          if (!uri) return { ok: false, code: 'invalid_target', detail: 'missing_media_uri' };
+          const cached = getCachedUploadedMedia(uri);
+          if (!cached || !cached.buffer || !Buffer.isBuffer(cached.buffer)) {
+            return { ok: false, code: 'invalid_target', detail: 'media_not_cached' };
           }
-          let buf;
-          try {
-            buf = Buffer.from(rawB64, 'base64');
-          } catch (_) {
-            return { ok: false, code: 'invalid_target', detail: 'invalid_base64' };
-          }
+          const buf = cached.buffer;
           try {
             const projects = staticUploadCore(projectName, uploadKind, buf);
             return { ok: true, data: { projects, uploaded: projectName } };
@@ -2513,6 +2574,8 @@ function createServerState(options) {
   // Upload-related labels are volatile (single-operation data); force-reset on startup
   // to prevent stale kind/b64 from a previous session causing wrong code path.
   ensureStateLabel(runtime, 'static_project_name', 'str', '');
+  ensureStateLabel(runtime, 'static_media_uri', 'str', '');
+  ensureStateLabel(runtime, 'static_media_name', 'str', '');
   const stateModelForReset = runtime.getModel(EDITOR_STATE_MODEL_ID);
   runtime.addLabel(stateModelForReset, 0, 0, 0, { k: 'static_upload_kind', t: 'str', v: 'zip' });
   runtime.addLabel(stateModelForReset, 0, 0, 0, { k: 'static_zip_b64', t: 'str', v: '' });
@@ -2625,6 +2688,8 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'docs_status', 'str', '');
     overwriteStateLabel(runtime, 'docs_render_html', 'str', '');
     overwriteStateLabel(runtime, 'static_project_name', 'str', '');
+    overwriteStateLabel(runtime, 'static_media_uri', 'str', '');
+    overwriteStateLabel(runtime, 'static_media_name', 'str', '');
     overwriteStateLabel(runtime, 'static_projects_json', 'json', []);
     overwriteStateLabel(runtime, 'static_status', 'str', '');
     overwriteStateLabel(runtime, 'ws_apps_registry', 'json', []);
@@ -2644,6 +2709,8 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'llm_prompt_available', 'bool', false);
     overwriteStateLabel(runtime, 'llm_prompt_notice', 'str', '正在检测 LLM 服务...');
     overwriteStateLabel(runtime, 'static_upload_kind', 'str', 'zip');
+    overwriteStateLabel(runtime, 'static_media_uri', 'str', '');
+    overwriteStateLabel(runtime, 'static_media_name', 'str', '');
     overwriteStateLabel(runtime, 'static_zip_b64', 'str', '');
     overwriteStateLabel(runtime, 'static_html_b64', 'str', '');
     overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 1, 'ui_event', 'event', null);
@@ -2681,6 +2748,8 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'static_status', 'str', '');
     overwriteStateLabel(runtime, 'static_projects_json', 'json', []);
     overwriteStateLabel(runtime, 'static_upload_kind', 'str', 'zip');
+    overwriteStateLabel(runtime, 'static_media_uri', 'str', '');
+    overwriteStateLabel(runtime, 'static_media_name', 'str', '');
     overwriteStateLabel(runtime, 'static_zip_b64', 'str', '');
     overwriteStateLabel(runtime, 'static_html_b64', 'str', '');
     overwriteStateLabel(runtime, 'ws_apps_registry', 'json', []);
@@ -3830,22 +3899,41 @@ function startServer(options) {
       return;
     }
 
-    // ── Direct file upload for static projects ──────────────────────────
-    if (req.method === 'POST' && url.pathname === '/api/static/upload') {
+    // ── Matrix media upload (UI upload_media primitive) ─────────────────
+    if (req.method === 'POST' && url.pathname === '/api/media/upload') {
       if (AUTH_ENABLED && !isAuthenticated(req)) {
         writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
         return;
       }
-      const name = (url.searchParams.get('name') || '').trim();
-      if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
-        writeJson(res, 400, { ok: false, error: 'invalid_project_name' }, cors);
+      const session = getSessionWithToken(req);
+      const uploadIdentity = (session && session.accessToken && session.homeserverUrl)
+        ? {
+          homeserverUrl: session.homeserverUrl,
+          accessToken: session.accessToken,
+          userId: session.userId || '',
+        }
+        : (!AUTH_ENABLED
+          ? {
+            homeserverUrl: firstValidValue(process.env.MATRIX_HOMESERVER_URL),
+            accessToken: firstValidValue(
+              process.env.MATRIX_MBR_BOT_ACCESS_TOKEN,
+              process.env.MATRIX_MBR_ACCESS_TOKEN,
+            ),
+            userId: firstValidValue(process.env.MATRIX_MBR_BOT_USER, process.env.MATRIX_MBR_USER),
+          }
+          : null);
+      if (!uploadIdentity || !uploadIdentity.accessToken || !uploadIdentity.homeserverUrl) {
+        writeJson(res, 401, { ok: false, error: 'matrix_session_missing' }, cors);
         return;
       }
-      const kind = url.searchParams.get('kind') || 'html';
-      if (kind !== 'html' && kind !== 'zip') {
-        writeJson(res, 400, { ok: false, error: 'invalid_kind' }, cors);
+      const filename = (url.searchParams.get('filename') || 'upload.bin').trim();
+      if (!filename) {
+        writeJson(res, 400, { ok: false, error: 'invalid_filename' }, cors);
         return;
       }
+      const contentType = typeof req.headers['content-type'] === 'string' && req.headers['content-type'].trim()
+        ? req.headers['content-type'].trim()
+        : 'application/octet-stream';
       const MAX_UPLOAD = 50 * 1024 * 1024;
       try {
         const chunks = [];
@@ -3867,12 +3955,26 @@ function startServer(options) {
           writeJson(res, 400, { ok: false, error: 'empty_body' }, cors);
           return;
         }
-        const projects = staticUploadCore(name, kind, buf);
-        const stateModel = state.runtime.getModel(EDITOR_STATE_MODEL_ID);
-        state.runtime.addLabel(stateModel, 0, 0, 0, { k: 'static_projects_json', t: 'json', v: projects });
-        state.runtime.addLabel(stateModel, 0, 0, 0, { k: 'static_status', t: 'str', v: `uploaded: ${name}` });
-        broadcastSnapshot();
-        writeJson(res, 200, { ok: true, message: `uploaded: ${name}`, projects }, cors);
+        const uri = await uploadMatrixMedia({
+          homeserverUrl: uploadIdentity.homeserverUrl,
+          accessToken: uploadIdentity.accessToken,
+          filename,
+          contentType,
+          body: buf,
+        });
+        cacheUploadedMedia(uri, {
+          buffer: buf,
+          contentType,
+          filename,
+          userId: uploadIdentity.userId || '',
+        });
+        writeJson(res, 200, {
+          ok: true,
+          uri,
+          name: filename,
+          size: buf.length,
+          mime: contentType,
+        }, cors);
       } catch (err) {
         const msg = err && err.message ? err.message : String(err);
         const code = msg === 'file_too_large' ? 413 : 500;

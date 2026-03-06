@@ -45,12 +45,12 @@ async function test_e2e_fixture() {
   // Trigger the flow: simulate input arriving at cell 0,0,0
   rt._routeViaCellConnection(999, 0, 0, 0, 'input', 'hello_world');
 
-  // cell_connection should have routed to cell 1,0,0 with label 'cmd', t='IN'
+  // cell_connection should have routed to cell 1,0,0 with label 'cmd', t='pin.in'
   const model = rt.getModel(999);
   const cell1 = rt.getCell(model, 1, 0, 0);
   const cmdLabel = cell1.labels.get('cmd');
   assert(cmdLabel, 'cell 1,0,0 should have cmd label');
-  assert.strictEqual(cmdLabel.t, 'IN');
+  assert.strictEqual(cmdLabel.t, 'pin.in');
   assert.strictEqual(cmdLabel.v, 'hello_world');
 
   // The IN label write triggers _applyBuiltins → _propagateCellConnect
@@ -66,7 +66,7 @@ async function test_e2e_fixture() {
   const cell0 = rt.getCell(model, 0, 0, 0);
   const outputLabel = cell0.labels.get('output');
   assert(outputLabel, 'cell 0,0,0 should have output label');
-  assert.strictEqual(outputLabel.t, 'IN');
+  assert.strictEqual(outputLabel.t, 'pin.in');
   assert.strictEqual(outputLabel.v, 'hello_world_processed');
 
   return { key: 'e2e_fixture', status: 'PASS' };
@@ -86,16 +86,16 @@ async function test_no_regression_basic_addlabel() {
 }
 
 async function test_no_regression_connect_keys() {
-  // Verify that label.k='CELL_CONNECT' still triggers intercept via connectKeys
+  // Verify that label.k='pin.connect.label' still triggers intercept via connectKeys
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: 2, name: 'test', type: 'Data' });
   rt.addLabel(model, 0, 0, 0, { k: 'data_type', t: 'json', v: 'test' });
   rt.addLabel(model, 1, 0, 0, {
-    k: 'CELL_CONNECT',
-    t: 'CELL_CONNECT',
-    v: { '(self, a)': ['(self, b)'] },
+    k: 'pin.connect.label',
+    t: 'pin.connect.label',
+    v: [{ from: '(self, a)', to: ['(self, b)'] }],
   });
-  // label.t='CELL_CONNECT' should be parsed by _parseCellConnectLabel
+  // label.t='pin.connect.label' should be parsed by _parseCellConnectLabel
   const graph = rt.cellConnectGraph.get('2|1|0|0');
   assert(graph, 'should have graph from label.t dispatch');
   assert(graph.has('self:a'), 'should have self:a');
@@ -125,4 +125,3 @@ const tests = [
   console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
   process.exit(failed > 0 ? 1 : 0);
 })();
-

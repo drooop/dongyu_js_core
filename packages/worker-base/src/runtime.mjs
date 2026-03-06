@@ -1,4 +1,7 @@
 'use strict';
+import { createRequire } from 'node:module';
+
+const _esmRequire = createRequire(import.meta.url);
 
 class EventLog {
   constructor() {
@@ -98,10 +101,10 @@ class MqttClientMock {
 let _mqttPkg = null;
 function lazyMqtt() {
   if (_mqttPkg) return _mqttPkg;
-  // ESM-safe lazy import to avoid pulling mqtt in browser bundles.
-  // This file is used in Node/Bun runtime contexts.
+  // Prefer CommonJS require when available (Bun/CJS entry), otherwise
+  // fall back to Node ESM createRequire for .mjs module contexts.
   // eslint-disable-next-line no-new-func
-  const req = (new Function('return (typeof require!=="undefined")?require:null;'))();
+  const req = (new Function('return (typeof require!=="undefined")?require:null;'))() || _esmRequire;
   if (!req) {
     throw new Error('mqtt_package_unavailable');
   }
@@ -278,15 +281,22 @@ class ModelTableRuntime {
     // 0142: parent-child model map
     // key: childModelId → value: { parentModelId, hostingCell: {p, r, c} }
     this.parentChildMap = new Map();
-    // 0142: MODEL_IN/MODEL_OUT port registries
+    // 0142+: table/single model-boundary pin registries
     // key: "${modelId}:${label.k}" → value: true
     this.modelInPorts = new Map();
     this.modelOutPorts = new Map();
+    // 0158: pin.connect.model routing table
+    // key: "${fromModelId}|${fromPin}" -> value: [{ model_id, k }]
+    this.modelConnectionRoutes = new Map();
     this.runLoopActive = true;
     this.persistence = null;
 
     const root = new Model({ id: 0, name: 'MT', type: 'main' });
     this.models.set(root.id, root);
+  }
+
+  _resolveLabelType(labelType) {
+    return labelType;
   }
 
   createModel({ id, name, type }) {
@@ -330,6 +340,21 @@ class ModelTableRuntime {
     return model.getCell(p, r, c);
   }
 
+  _getModelForm(model) {
+    if (!model || !Number.isInteger(model.id) || model.id === 0) return 'table';
+    const origin = this.getCell(model, 0, 0, 0);
+    for (const [, lbl] of origin.labels) {
+      const t = this._resolveLabelType(lbl.t);
+      if (t === 'model.single') return 'single';
+      if (t === 'model.table' || t === 'model.matrix') return 'table';
+    }
+    return 'table';
+  }
+
+  _modelInputLabelType(model) {
+    return this._getModelForm(model) === 'single' ? 'pin.single.in' : 'pin.table.in';
+  }
+
   removeCell(model, p, r, c) {
     model.removeCell(p, r, c);
     if (this.persistence && typeof this.persistence.onCellRemoved === 'function') {
@@ -341,8 +366,8 @@ class ModelTableRuntime {
     model.registerFunction(name, handler);
     if (!handler) {
       const cell = this.getCell(model, 0, 0, 0);
-      if (!cell.labels.has(name) || cell.labels.get(name).t !== 'function') {
-        cell.labels.set(name, { k: name, t: 'function', v: null });
+      if (!cell.labels.has(name) || cell.labels.get(name).t !== 'func.js') {
+        cell.labels.set(name, { k: name, t: 'func.js', v: { code: '', modelName: model.name || String(model.id) } });
       }
     }
   }
@@ -747,7 +772,8 @@ class ModelTableRuntime {
   }
 
   _applyLabelTypes(model, p, r, c, label) {
-    if (label.t === 'function') {
+    const resolvedType = this._resolveLabelType(label.t);
+    if (resolvedType === 'func.js' || resolvedType === 'func.python') {
       model.registerFunction(label.k);
     }
   }
@@ -762,7 +788,7 @@ class ModelTableRuntime {
         return false;
       }
     } else {
-      if (payload.t !== 'IN') return false;
+      if (payload.t !== 'pin.in') return false;
     }
 
     if (mode === 'uiput_9layer_v2') {
@@ -804,13 +830,13 @@ class ModelTableRuntime {
         // Write IN label to trigger CELL_CONNECT / cell_connection routing
         this.addLabel(model, 0, 0, 0, {
           k: pinName,
-          t: 'IN',
+          t: 'pin.in',
           v: { op_id: typeof payload.op_id === 'string' ? payload.op_id : '' },
         });
         return true;
       }
 
-      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'IN', v: payload });
+      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
       this.mqttTrace.record('inbound', { topic, payload, mode: 'legacy_in' });
       return true;
     }
@@ -837,13 +863,13 @@ class ModelTableRuntime {
         this.mqttTrace.record('inbound', { topic, payload, mode: 'records', applied: result.applied, rejected: result.rejected });
         this.addLabel(model, 0, 0, 0, {
           k: pinName,
-          t: 'IN',
+          t: 'pin.in',
           v: { op_id: typeof payload.op_id === 'string' ? payload.op_id : '' },
         });
         return true;
       }
 
-      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'IN', v: payload });
+      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
       this.mqttTrace.record('inbound', { topic, payload, mode: 'legacy_in' });
       return true;
     }
@@ -864,13 +890,13 @@ class ModelTableRuntime {
       this.mqttTrace.record('inbound', { topic, payload, mode: 'records', applied: result.applied, rejected: result.rejected });
       this.addLabel(model, 0, 0, 0, {
         k: pinName,
-        t: 'IN',
+        t: 'pin.in',
         v: { op_id: typeof payload.op_id === 'string' ? payload.op_id : '' },
       });
       return true;
     }
 
-    this.addLabel(model, 0, 0, 0, { k: pinName, t: 'IN', v: payload });
+    this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
     this.mqttTrace.record('inbound', { topic, payload, mode: 'legacy_in' });
     return true;
   }
@@ -889,7 +915,7 @@ class ModelTableRuntime {
           // Write to the model's root cell for CELL_CONNECT routing
           this.addLabel(model, 0, 0, 0, {
             k: label.k,
-            t: 'IN',
+            t: 'pin.in',
             v: { topic, payload },
           });
           this.mqttTrace.record('wildcard_inbound', { topic, wildcard: label.v, model_id: model.id });
@@ -937,9 +963,19 @@ class ModelTableRuntime {
     return { prefix, port };
   }
 
+  _parseCellConnectRouteEndpoint(str) {
+    if (typeof str !== 'string') return null;
+    const trimmed = str.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
+      return this._parseCellConnectEndpoint(trimmed);
+    }
+    return { prefix: 'self', port: trimmed };
+  }
+
   _parseCellConnectLabel(model, p, r, c, label) {
     const v = label.v;
-    if (!v || typeof v !== 'object' || Array.isArray(v)) {
+    if (!v || typeof v !== 'object') {
       this._recordError(model, p, r, c, label, 'cell_connect_invalid_value');
       return;
     }
@@ -948,19 +984,19 @@ class ModelTableRuntime {
       this.cellConnectGraph.set(cellKey, new Map());
     }
     const cellGraph = this.cellConnectGraph.get(cellKey);
-    for (const [sourceStr, targetArr] of Object.entries(v)) {
-      const source = this._parseCellConnectEndpoint(sourceStr);
+    const addRoute = (sourceStr, targetArr) => {
+      const source = this._parseCellConnectRouteEndpoint(sourceStr);
       if (!source) {
         this._recordError(model, p, r, c, label, 'cell_connect_bad_source');
-        continue;
+        return;
       }
       if (!Array.isArray(targetArr)) {
         this._recordError(model, p, r, c, label, 'cell_connect_bad_targets');
-        continue;
+        return;
       }
       const targets = [];
       for (const tStr of targetArr) {
-        const t = this._parseCellConnectEndpoint(tStr);
+        const t = this._parseCellConnectRouteEndpoint(tStr);
         if (!t) {
           this._recordError(model, p, r, c, label, 'cell_connect_bad_target');
           continue;
@@ -969,8 +1005,18 @@ class ModelTableRuntime {
       }
       if (targets.length > 0) {
         const endpointKey = `${source.prefix}:${source.port}`;
-        cellGraph.set(endpointKey, targets);
+        const existing = cellGraph.get(endpointKey) || [];
+        cellGraph.set(endpointKey, existing.concat(targets));
       }
+    };
+
+    if (!Array.isArray(v)) {
+      this._recordError(model, p, r, c, label, 'cell_connect_invalid_value');
+      return;
+    }
+    for (const entry of v) {
+      if (!entry || typeof entry !== 'object') continue;
+      addRoute(entry.from, entry.to);
     }
   }
 
@@ -1012,6 +1058,56 @@ class ModelTableRuntime {
     }
   }
 
+  _parseModelConnectionLabel(model, p, r, c, label) {
+    if (model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
+      this._recordError(model, p, r, c, label, 'model_connection_wrong_position');
+      return;
+    }
+    const v = label.v;
+    if (!Array.isArray(v)) {
+      this._recordError(model, p, r, c, label, 'model_connection_invalid_value');
+      return;
+    }
+    for (const entry of v) {
+      if (!entry || typeof entry !== 'object') continue;
+      const from = entry.from;
+      const to = entry.to;
+      if (!Array.isArray(from) || from.length !== 2) {
+        this._recordError(model, p, r, c, label, 'model_connection_bad_from');
+        continue;
+      }
+      if (!Array.isArray(to)) {
+        this._recordError(model, p, r, c, label, 'model_connection_bad_to');
+        continue;
+      }
+      const fromModelId = Number(from[0]);
+      const fromPin = typeof from[1] === 'string' ? from[1] : '';
+      if (!Number.isInteger(fromModelId) || !fromPin) {
+        this._recordError(model, p, r, c, label, 'model_connection_bad_from');
+        continue;
+      }
+      const routeKey = `${fromModelId}|${fromPin}`;
+      const targets = [];
+      for (const dest of to) {
+        if (!Array.isArray(dest) || dest.length !== 2) {
+          this._recordError(model, p, r, c, label, 'model_connection_bad_dest');
+          continue;
+        }
+        const targetModelId = Number(dest[0]);
+        const targetPin = typeof dest[1] === 'string' ? dest[1] : '';
+        if (!Number.isInteger(targetModelId) || !targetPin) {
+          this._recordError(model, p, r, c, label, 'model_connection_bad_dest');
+          continue;
+        }
+        targets.push({ model_id: targetModelId, k: targetPin });
+      }
+      if (targets.length > 0) {
+        const existing = this.modelConnectionRoutes.get(routeKey) || [];
+        this.modelConnectionRoutes.set(routeKey, existing.concat(targets));
+      }
+    }
+  }
+
   _routeViaCellConnection(modelId, p, r, c, k, value) {
     const key = `${modelId}|${p}|${r}|${c}|${k}`;
     const targets = this.cellConnectionRoutes.get(key);
@@ -1019,7 +1115,22 @@ class ModelTableRuntime {
     for (const t of targets) {
       const targetModel = this.getModel(t.model_id);
       if (!targetModel) continue;
-      this.addLabel(targetModel, t.p, t.r, t.c, { k: t.k, t: 'IN', v: value });
+      this.addLabel(targetModel, t.p, t.r, t.c, { k: t.k, t: 'pin.in', v: value });
+    }
+  }
+
+  _routeViaModelConnection(modelId, pinName, value) {
+    const key = `${modelId}|${pinName}`;
+    const targets = this.modelConnectionRoutes.get(key);
+    if (!targets) return;
+    for (const t of targets) {
+      const targetModel = this.getModel(t.model_id);
+      if (!targetModel) continue;
+      if (targetModel.id === 0) {
+        this.addLabel(targetModel, 0, 0, 0, { k: t.k, t: 'pin.bus.in', v: value });
+        continue;
+      }
+      this.addLabel(targetModel, 0, 0, 0, { k: t.k, t: this._modelInputLabelType(targetModel), v: value });
     }
   }
 
@@ -1062,7 +1173,7 @@ class ModelTableRuntime {
           return this._propagateCellConnect(modelId, p, r, c, 'func', t.port, value, visited);
         }
       }
-      // 0142: Numeric ID prefix → route to child model MODEL_IN
+      // 0142+: Numeric ID prefix → route to child model-boundary pin.in
       if (!isNaN(Number(t.prefix))) {
         const childModelId = Number(t.prefix);
         if (!this.parentChildMap.has(childModelId)) {
@@ -1077,7 +1188,7 @@ class ModelTableRuntime {
         }
         const childModel = this.getModel(childModelId);
         if (!childModel) return Promise.resolve();
-        this.addLabel(childModel, 0, 0, 0, { k: t.port, t: 'MODEL_IN', v: value });
+        this.addLabel(childModel, 0, 0, 0, { k: t.port, t: this._modelInputLabelType(childModel), v: value });
         return Promise.resolve();
       }
       return Promise.resolve();
@@ -1091,7 +1202,8 @@ class ModelTableRuntime {
     const cell = this.getCell(model, p, r, c);
     let funcLabel = null;
     for (const [, lbl] of cell.labels) {
-      if (lbl.k === funcName && lbl.t === 'function') {
+      const resolvedType = this._resolveLabelType(lbl.t);
+      if (lbl.k === funcName && (resolvedType === 'func.js' || resolvedType === 'func.python')) {
         funcLabel = lbl;
         break;
       }
@@ -1101,13 +1213,32 @@ class ModelTableRuntime {
       if (sysModel) {
         const sysCell = this.getCell(sysModel, 0, 0, 0);
         const sysLabel = sysCell.labels.get(funcName);
-        if (sysLabel && sysLabel.t === 'function') funcLabel = sysLabel;
+        if (sysLabel) {
+          const resolvedType = this._resolveLabelType(sysLabel.t);
+          if (resolvedType === 'func.js' || resolvedType === 'func.python') {
+            funcLabel = sysLabel;
+          }
+        }
       }
     }
-    if (!funcLabel || typeof funcLabel.v !== 'string') return;
+    if (!funcLabel) return;
+
+    const funcType = this._resolveLabelType(funcLabel.t);
+    if (funcType === 'func.python') {
+      this.addLabel(model, p, r, c, {
+        k: `__error_${funcName}`,
+        t: 'json',
+        v: { error: 'python_worker_unavailable', ts: Date.now() },
+      });
+      return;
+    }
+
+    if (!funcLabel.v || typeof funcLabel.v !== 'object' || typeof funcLabel.v.code !== 'string') return;
+    const codeStr = funcLabel.v.code;
+    if (!codeStr.trim()) return;
 
     const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-    const fn = new AsyncFunction('ctx', 'label', funcLabel.v);
+    const fn = new AsyncFunction('ctx', 'label', codeStr);
 
     const runtime = this;
     const ctx = {
@@ -1142,7 +1273,7 @@ class ModelTableRuntime {
     const FUNC_TIMEOUT_MS = 30000;
     try {
       const result = await Promise.race([
-        fn(ctx, { k: funcName, t: 'IN', v: inputValue }),
+        fn(ctx, { k: funcName, t: 'pin.in', v: inputValue }),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error(`Function ${funcName} timeout after ${FUNC_TIMEOUT_MS}ms`)), FUNC_TIMEOUT_MS),
         ),
@@ -1166,16 +1297,18 @@ class ModelTableRuntime {
   _handleBusInMessage(portName, payload) {
     const model0 = this.getModel(0);
     if (!model0) return;
-    this.addLabel(model0, 0, 0, 0, { k: portName, t: 'BUS_IN', v: payload });
+    this.addLabel(model0, 0, 0, 0, { k: portName, t: 'pin.bus.in', v: payload });
     this.mqttTrace.record('bus_inbound', { port: portName, payload });
   }
 
   // --- end 0142 ---
 
   _applyBuiltins(model, p, r, c, label, prevLabel) {
+    const resolvedType = this._resolveLabelType(label.t);
     // 0143: MQTT_WILDCARD_SUB subscription management
-    if (label.t === 'MQTT_WILDCARD_SUB') {
-      if (prevLabel && prevLabel.t === 'MQTT_WILDCARD_SUB' && typeof prevLabel.v === 'string' && prevLabel.v && this.mqttClient) {
+    if (resolvedType === 'MQTT_WILDCARD_SUB') {
+      const prevResolved = prevLabel ? this._resolveLabelType(prevLabel.t) : null;
+      if (prevLabel && prevResolved === 'MQTT_WILDCARD_SUB' && typeof prevLabel.v === 'string' && prevLabel.v && this.mqttClient) {
         this.mqttClient.unsubscribe(prevLabel.v);
       }
       if (typeof label.v === 'string' && label.v && this.mqttClient) {
@@ -1184,15 +1317,19 @@ class ModelTableRuntime {
       return;
     }
     // 0141: label.t dispatch (independent from label.k connectKeys)
-    if (label.t === 'CELL_CONNECT') {
+    if (resolvedType === 'pin.connect.label') {
       this._parseCellConnectLabel(model, p, r, c, label);
       return;
     }
-    if (label.t === 'cell_connection') {
+    if (resolvedType === 'pin.connect.cell') {
       this._parseCellConnectionLabel(model, p, r, c, label);
       return;
     }
-    if (label.t === 'IN') {
+    if (resolvedType === 'pin.connect.model') {
+      this._parseModelConnectionLabel(model, p, r, c, label);
+      return;
+    }
+    if (resolvedType === 'pin.in' || resolvedType === 'pin.log.in') {
       // 0143: Route via cell_connection to propagate IN to target cells
       this._routeViaCellConnection(model.id, p, r, c, label.k, label.v);
       // Propagate via CELL_CONNECT if this cell has wiring
@@ -1205,7 +1342,7 @@ class ModelTableRuntime {
       }
     }
     // 0142: BUS_IN label dispatch
-    if (label.t === 'BUS_IN') {
+    if (resolvedType === 'pin.bus.in' || resolvedType === 'pin.log.bus.in') {
       if (model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
         this._recordError(model, p, r, c, label, 'bus_in_wrong_position');
         return;
@@ -1213,11 +1350,12 @@ class ModelTableRuntime {
       this.busInPorts.set(label.k, true);
       if (label.v !== null && label.v !== undefined) {
         this._routeViaCellConnection(0, 0, 0, 0, label.k, label.v);
+        this._routeViaModelConnection(0, label.k, label.v);
       }
       return;
     }
     // 0142: BUS_OUT label dispatch
-    if (label.t === 'BUS_OUT') {
+    if (resolvedType === 'pin.bus.out' || resolvedType === 'pin.log.bus.out') {
       if (model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
         this._recordError(model, p, r, c, label, 'bus_out_wrong_position');
         return;
@@ -1230,7 +1368,7 @@ class ModelTableRuntime {
       return;
     }
     // 0142: subModel declaration
-    if (label.t === 'subModel') {
+    if (resolvedType === 'submt') {
       const childModelId = parseInt(label.k, 10);
       if (!Number.isInteger(childModelId)) {
         this._recordError(model, p, r, c, label, 'submodel_invalid_id');
@@ -1249,10 +1387,18 @@ class ModelTableRuntime {
       }
       return;
     }
-    // 0142: MODEL_IN label dispatch
-    if (label.t === 'MODEL_IN') {
+    // 0142+: table model-boundary input
+    if (resolvedType === 'pin.table.in' || resolvedType === 'pin.log.table.in') {
       if (p !== 0 || r !== 0 || c !== 0) {
         this._recordError(model, p, r, c, label, 'model_in_wrong_position');
+        return;
+      }
+      if (model.id === 0) {
+        this._recordError(model, p, r, c, label, 'model_in_on_model0_forbidden');
+        return;
+      }
+      if (this._getModelForm(model) === 'single') {
+        this._recordError(model, p, r, c, label, 'table_in_on_single_model_forbidden');
         return;
       }
       this.modelInPorts.set(`${model.id}:${label.k}`, true);
@@ -1268,10 +1414,72 @@ class ModelTableRuntime {
       }
       return;
     }
-    // 0142: MODEL_OUT label dispatch
-    if (label.t === 'MODEL_OUT') {
+    // 0142+: table model-boundary output
+    if (resolvedType === 'pin.table.out' || resolvedType === 'pin.log.table.out') {
       if (p !== 0 || r !== 0 || c !== 0) {
         this._recordError(model, p, r, c, label, 'model_out_wrong_position');
+        return;
+      }
+      if (model.id === 0) {
+        this._recordError(model, p, r, c, label, 'model_out_on_model0_forbidden');
+        return;
+      }
+      if (this._getModelForm(model) === 'single') {
+        this._recordError(model, p, r, c, label, 'table_out_on_single_model_forbidden');
+        return;
+      }
+      this.modelOutPorts.set(`${model.id}:${label.k}`, true);
+      if (label.v !== null && label.v !== undefined) {
+        const childInfo = this.parentChildMap.get(model.id);
+        if (childInfo) {
+          const { parentModelId, hostingCell: { p: hp, r: hr, c: hc } } = childInfo;
+          this._propagateCellConnect(parentModelId, hp, hr, hc, String(model.id), label.k, label.v)
+            .catch((err) => {
+              this._recordError(model, p, r, c, label, 'model_out_propagation_error');
+            });
+        }
+      }
+      return;
+    }
+    // 0142+: single model-boundary input
+    if (resolvedType === 'pin.single.in' || resolvedType === 'pin.log.single.in') {
+      if (p !== 0 || r !== 0 || c !== 0) {
+        this._recordError(model, p, r, c, label, 'model_in_wrong_position');
+        return;
+      }
+      if (model.id === 0) {
+        this._recordError(model, p, r, c, label, 'model_in_on_model0_forbidden');
+        return;
+      }
+      if (this._getModelForm(model) !== 'single') {
+        this._recordError(model, p, r, c, label, 'single_in_on_non_single_model_forbidden');
+        return;
+      }
+      this.modelInPorts.set(`${model.id}:${label.k}`, true);
+      if (label.v !== null && label.v !== undefined) {
+        this._routeViaCellConnection(model.id, 0, 0, 0, label.k, label.v);
+        const cellKey = `${model.id}|0|0|0`;
+        if (this.cellConnectGraph.has(cellKey)) {
+          this._propagateCellConnect(model.id, 0, 0, 0, 'self', label.k, label.v)
+            .catch((err) => {
+              this._recordError(model, p, r, c, label, 'model_in_propagation_error');
+            });
+        }
+      }
+      return;
+    }
+    // 0142+: single model-boundary output
+    if (resolvedType === 'pin.single.out' || resolvedType === 'pin.log.single.out') {
+      if (p !== 0 || r !== 0 || c !== 0) {
+        this._recordError(model, p, r, c, label, 'model_out_wrong_position');
+        return;
+      }
+      if (model.id === 0) {
+        this._recordError(model, p, r, c, label, 'model_out_on_model0_forbidden');
+        return;
+      }
+      if (this._getModelForm(model) !== 'single') {
+        this._recordError(model, p, r, c, label, 'single_out_on_non_single_model_forbidden');
         return;
       }
       this.modelOutPorts.set(`${model.id}:${label.k}`, true);

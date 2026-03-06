@@ -1,6 +1,17 @@
 import { createHash } from 'node:crypto';
 
 const DEFAULT_ALLOWED_LABEL_TYPES = ['str', 'int', 'float', 'bool', 'json', 'event'];
+const STRUCTURAL_LABEL_TYPES = new Set([
+  'func.js',
+  'func.python',
+  'pin.connect.label',
+  'pin.connect.cell',
+  'pin.connect.model',
+  'model.single',
+  'model.matrix',
+  'model.table',
+  'submt',
+]);
 const DEFAULT_PROTECTED_LABEL_KEYS = [
   'ui_event',
   'ui_event_error',
@@ -18,6 +29,7 @@ const DEFAULT_PROTECTED_LABEL_KEYS = [
 export const DEFAULT_FILLTABLE_POLICY = Object.freeze({
   allow_positive_model_ids: true,
   allow_negative_model_ids: false,
+  allow_structural_types: false,
   max_records_per_apply: 10,
   max_value_bytes: 64 * 1024,
   max_total_bytes: 256 * 1024,
@@ -68,6 +80,42 @@ function byteSize(value) {
 }
 
 function normalizeTypedValue(typeName, rawValue) {
+  if (typeName === 'func.js' || typeName === 'func.python') {
+    if (!rawValue || typeof rawValue !== 'object' || Array.isArray(rawValue)) {
+      return { ok: false, code: 'invalid_func_value' };
+    }
+    const code = typeof rawValue.code === 'string' ? rawValue.code : '';
+    if (!code.trim()) {
+      return { ok: false, code: 'invalid_func_value' };
+    }
+    const normalized = { ...rawValue, code };
+    try {
+      JSON.stringify(normalized);
+      return { ok: true, value: normalized };
+    } catch (_) {
+      return { ok: false, code: 'invalid_func_value' };
+    }
+  }
+  if (typeName === 'pin.connect.label' || typeName === 'pin.connect.cell' || typeName === 'pin.connect.model') {
+    if (!Array.isArray(rawValue)) {
+      return { ok: false, code: 'invalid_connect_value' };
+    }
+    return { ok: true, value: rawValue };
+  }
+  if (typeName === 'model.single' || typeName === 'model.matrix' || typeName === 'model.table') {
+    if (typeof rawValue !== 'string' || !rawValue.trim()) {
+      return { ok: false, code: 'invalid_model_form_value' };
+    }
+    return { ok: true, value: rawValue.trim() };
+  }
+  if (typeName === 'submt') {
+    try {
+      JSON.stringify(rawValue);
+      return { ok: true, value: rawValue };
+    } catch (_) {
+      return { ok: false, code: 'invalid_submt_value' };
+    }
+  }
   if (typeName === 'str') {
     return { ok: true, value: String(rawValue ?? '') };
   }
@@ -134,6 +182,7 @@ export function normalizeFilltablePolicy(rawValue) {
   return {
     allow_positive_model_ids: raw.allow_positive_model_ids !== false,
     allow_negative_model_ids: raw.allow_negative_model_ids === true,
+    allow_structural_types: raw.allow_structural_types === true,
     max_records_per_apply: Math.max(1, Math.min(256, readInt(raw.max_records_per_apply, DEFAULT_FILLTABLE_POLICY.max_records_per_apply))),
     max_value_bytes: Math.max(256, Math.min(4 * 1024 * 1024, readInt(raw.max_value_bytes, DEFAULT_FILLTABLE_POLICY.max_value_bytes))),
     max_total_bytes: Math.max(1024, Math.min(16 * 1024 * 1024, readInt(raw.max_total_bytes, DEFAULT_FILLTABLE_POLICY.max_total_bytes))),
@@ -204,7 +253,12 @@ export function validateFilltableRecords(recordsInput, policyInput) {
     }
 
     const t = typeof source.t === 'string' ? source.t.trim() : '';
-    if (!allowedTypeSet.has(t)) {
+    const isStructuralType = STRUCTURAL_LABEL_TYPES.has(t);
+    if (isStructuralType && !policy.allow_structural_types) {
+      rejected_records.push({ index, code: 'structural_label_type_forbidden', detail: t || 'missing_t', record: source });
+      continue;
+    }
+    if (!isStructuralType && !allowedTypeSet.has(t)) {
       rejected_records.push({ index, code: 'label_type_not_allowed', detail: t || 'missing_t', record: source });
       continue;
     }

@@ -3,11 +3,12 @@ DOC_PRIORITY  high → low
 1  CLAUDE.md
 2  docs/architecture_mantanet_and_workers.md          (system SSOT)
 3  docs/ssot/runtime_semantics_modeltable_driven.md   (runtime semantics)
-4  docs/charters/*.md                                 (project charters)
-5  docs/WORKFLOW.md                                   (iteration workflow)
-6  docs/ITERATIONS.md                                 (iteration registry)
-7  docs/ssot/execution_governance_ultrawork_doit.md   (governance)
-8  docs/ssot/*.md  docs/roadmaps/*.md  docs/user-guide/*.md
+4  docs/ssot/label_type_registry.md                   (label type reference)
+5  docs/charters/*.md                                 (project charters)
+6  docs/WORKFLOW.md                                   (iteration workflow)
+7  docs/ITERATIONS.md                                 (iteration registry)
+8  docs/ssot/execution_governance_ultrawork_doit.md   (governance)
+9  docs/ssot/*.md  docs/roadmaps/*.md  docs/user-guide/*.md
 
 lower doc MUST NOT override higher doc.
 
@@ -27,11 +28,39 @@ HARD_RULES
 - verification = deterministic PASS/FAIL. "looks ok" is not verification.
 - key decisions persist to iteration docs or SSOT. chat-only = lost.
 - living docs review mandatory on changes to:
-    mailbox contract, PIN topic/payload, MGMT patch/routing, reserved model_ids/cells,
-    BUS_IN/OUT declarations, cell_connection routing, CELL_CONNECT wiring, MODEL_IN/OUT boundaries.
+    PIN declarations, PIN routing, pin.connect.* wiring,
+    reserved model_ids/cells, model_type registry,
+    flow.* contract, data model pin interface.
     target: docs/ssot/runtime_semantics_modeltable_driven.md
+            docs/ssot/label_type_registry.md
             docs/user-guide/modeltable_user_guide.md
             docs/handover/dam-worker-guide.md
+
+
+MODEL_FORMS
+
+three model forms. all three are Tier 1 definitions.
+model.single and model.table: implement now.
+model.matrix: defined but implementation deferred (no proven business need yet).
+
+  model.single   single Cell. programs operate on own Cell only.
+                  add_label(k,t,v) — no p,r,c params.
+                  structural sandbox: code in simple model cannot reach other Cells.
+                  hard rule: one Cell = one type. a Cell CANNOT hold both Code.Python and Code.JS.
+
+  model.matrix   fixed dimensions (min_p/r/c, max_p/r/c). (0,0,0) operates on all Cells.
+                  embedded in parent model occupying its own size in Cells.
+                  no overlap with sibling matrices (collision detection required).
+                  STATUS: defined, implementation deferred.
+
+  model.table    dynamic size, no dimension constraints. (0,0,0) operates on all Cells.
+                  embedded in parent model occupying one Cell position.
+                  has model_id. current primary runtime type.
+
+  model_type label encodes two dimensions:
+    label.t = form (model.single | model.matrix | model.table)
+    label.v = type (Code.JS | Data.Array | Flow | Doc.Markdown | ...)
+    invalid form×type combinations MUST be rejected at registration.
 
 
 REMOTE_OPS_SAFETY
@@ -79,8 +108,9 @@ FORBIDDEN
 - unregistered iteration work
 - side effects outside add_label / rm_label
 - UI direct bus connection (must go through mailbox)
-- external MQTT writing to arbitrary cells (must go through BUS_IN on Model 0)
+- external MQTT writing to arbitrary cells (must go through pin.bus.in on Model 0)
 - using legacy connection types: label_connection, trigger_funcs, function_PIN_IN/OUT (use CELL_CONNECT)
+- using DEPRECATED label types in new models (compatibility period allows old labels only in legacy paths)
 - silent failure (all failures must write to ModelTable)
 - implicit assumptions without declaring them
 - debug artifacts / temp scripts in repo root
@@ -128,6 +158,8 @@ ARCH_INVARIANTS
 
 - model-driven: ModelTable = SSOT, code = runtime + extension
 - app-as-OS: IA organized by apps/workstations, not single function
+- three model forms: simple (sandbox) / matrix (spatial, deferred) / table (dynamic)
+- PIN decoupling: 3-layer pin architecture (label/cell/model), type-based differentiation
 - bus decoupling: management bus (user-facing) + control bus (execution) + MBR bridge
 - workspace isolation: data separated, comms encrypted, trust revocable
 - capability detection: worker base must degrade gracefully, never crash silently
@@ -149,12 +181,17 @@ two tiers. clearly separated. do not mix.
 tier 1: runtime base (基座运行能力)
   = the interpreter. only changes via iteration + code review.
   what it provides:
+  - model form enforcement: model.single / model.matrix / model.table constraints
   - label type interpretation: _applyBuiltins dispatches on label.t
-    recognized types: CELL_CONNECT, cell_connection, IN, BUS_IN, BUS_OUT,
-    MODEL_IN, MODEL_OUT, subModel, MQTT_WILDCARD_SUB, function
+    recognized types:
+      pin.in, pin.out, pin.model.in, pin.model.out, pin.bus.in, pin.bus.out,
+      pin.log.in, pin.log.out, pin.log.model.in, pin.log.model.out, pin.log.bus.in, pin.log.bus.out,
+      pin.connect.label, pin.connect.cell, pin.connect.model, submt, func.js, func.python
+      (compatibility aliases, DEPRECATED): IN, BUS_IN, BUS_OUT, MODEL_IN, MODEL_OUT,
+      CELL_CONNECT, cell_connection, subModel, function, MQTT_WILDCARD_SUB
   - MQTT loop: startMqttLoop, mqttIncoming, topic routing
   - AsyncFunction executor: _executeFuncViaCellConnect (30s timeout, sandboxed ctx)
-  - graph management: cellConnectGraph, cellConnectionRoutes, busInPorts, busOutPorts
+  - graph management: pinConnectLabelGraph, pinConnectCellRoutes, busInPorts, busOutPorts
   - observability: eventLog, mqttTrace, intercepts
   files: packages/worker-base/src/runtime.js, runtime.mjs
 
@@ -162,9 +199,11 @@ tier 2: model definitions (填表能力)
   = capabilities built by "filling tables" — writing JSON patches that create models,
     add labels, declare routing, and define functions.
   what it provides:
-  - all business logic (via function labels on model cells)
-  - all routing topology (via cell_connection + CELL_CONNECT labels)
+  - all business logic (via func.js / func.python labels)
+  - all routing topology (via pin.connect.* labels)
   - all system infrastructure functions (via system model labels)
+  - data model subtypes (Data.Array, Data.Queue, Data.Stack, etc.) as JSON patch templates
+  - flow model (flow.* labels + flow manager function) as JSON patch templates
   - MBR routing rules (via mbr_route_* labels)
   - MGMT send/receive (via function labels)
   - intent dispatch (via function labels)
@@ -175,18 +214,20 @@ rule: if a capability can be expressed as a model definition, it MUST be.
       fixing interpreter bugs. never for business logic.
 
 examples:
-  - color picker behavior → tier 2 (function label on Model 100)
+  - Data.Array behavior → tier 2 (func.js template on data model)
+  - flow step scheduling → tier 2 (flow manager function)
   - MBR routing logic → tier 2 (function label on Model -10)
   - MQTT topic parsing → tier 1 (interpreter logic)
-  - new label type "STREAM_IN" → tier 1 (needs _applyBuiltins change)
+  - new label type "pin.stream.in" → tier 1 (needs _applyBuiltins change)
+  - model form enforcement → tier 1 (needs runtime constraint checks)
 
 
 MODEL_ID_REGISTRY
 
 allocation rules (authoritative):
 
-  Model 0        system root. BUS_IN/OUT, MQTT config, cell_connection to children.
-                 the only model with external bus ports. never holds business logic.
+  Model 0        system root. pin.bus.in/out, pin.connect.cell to children.
+                 the only model with system boundary ports. never holds business logic.
 
   Model -1       UI event mailbox. Cell(0,0,1) receives ui_event envelopes.
 
@@ -213,10 +254,85 @@ allocation rules (authoritative):
 violation: using an unregistered model_id range → must register in this section first.
 
 cell position conventions:
-  (0,0,0)  root cell. routing declarations (cell_connection), config labels, BUS_IN/OUT.
-  (1,0,0)  processing cell (typical). CELL_CONNECT wiring, function execution.
+  (0,0,0)  root cell. routing declarations, config labels, pin boundary ports.
+  (1,0,0)  processing cell (typical). pin.connect.label wiring, function execution.
   (0,0,1)  reserved: legacy PIN registry (DEPRECATED). UI mailbox (Model -1 only).
   (0,1,1)  reserved: legacy PIN mailbox (DEPRECATED). do not use.
+
+
+PIN_SYSTEM
+
+3-layer PIN architecture. type-based differentiation (NOT position-based).
+
+data channel:
+  pin.in            Cell level input port
+  pin.out           Cell level output port
+  pin.model.in      Model boundary input port (only on (0,0,0), model_id != 0)
+  pin.model.out     Model boundary output port (only on (0,0,0), model_id != 0)
+  pin.bus.in        System boundary input port (only on Model 0 (0,0,0))
+  pin.bus.out       System boundary output port (only on Model 0 (0,0,0))
+
+log channel (identical routing behavior, type-isolated from data channel):
+  pin.log.in            Cell level log input
+  pin.log.out           Cell level log output
+  pin.log.model.in      Model boundary log input (only on (0,0,0), model_id != 0)
+  pin.log.model.out     Model boundary log output (only on (0,0,0), model_id != 0)
+  pin.log.bus.in        System boundary log input (only on Model 0 (0,0,0))
+  pin.log.bus.out       System boundary log output (only on Model 0 (0,0,0))
+
+connection declarations:
+  pin.connect.label     Cell intra-wiring (endpoint = pin name string)
+  pin.connect.cell      Model intra-routing (endpoint = [p,r,c,pinName])
+  pin.connect.model     Inter-model routing (endpoint = [model_id,pinName])
+
+rules:
+  - pin.in only connects to pin.out. pin.log.in only connects to pin.log.out. no cross-channel.
+  - pin.model.* and pin.bus.* MUST be on (0,0,0) of their respective model.
+  - pin.model.* does not handle model_id=0. model_id=0 external entry is pin.bus.* only.
+  - sub-model external connections only through (0,0,0) boundary ports.
+  - log pins have NO special runtime behavior. no wiring = log discarded.
+  - each function has 3 pins: func:in / func:out / func:log.out.
+
+replaces (DEPRECATED):
+  BUS_IN / BUS_OUT → pin.bus.in / pin.bus.out
+  cell_connection → pin.connect.cell
+  CELL_CONNECT → pin.connect.label
+  MODEL_IN / MODEL_OUT → pin.model.in / pin.model.out
+
+
+FUNCTION_LABELS
+
+  type: func.js | func.python
+  value: {"code": "async (ctx) => { ... }", "modelName": "optional_scope_name"}
+  value SHOULD use structured object in new models.
+  compatibility period: string value is accepted only for legacy models.
+  each function has 3 pins: func:in, func:out, func:log.out.
+
+  func.js: compiled to AsyncFunction, executed in sandboxed ctx.
+  func.python: forwarded to Python worker. JS runtime writes error label if worker unavailable.
+
+
+MODEL_TYPE_REGISTRY
+
+  form (label.t): model.single | model.matrix | model.table
+  type (label.v): {Category}.{SubType} or {Category}
+
+  registered types (initial set):
+    Code.JS
+    Code.Python
+    Data
+    Data.Array
+    Data.Queue
+    Data.Stack
+    Data.CircularBuffer
+    Data.LinkedList
+    Data.FlowTicket
+    Flow
+    UI.*
+    Doc.Markdown
+    Doc.StaticWeb
+
+  violation: using unregistered model type → must register here first.
 
 
 RUNTIME_BASELINE

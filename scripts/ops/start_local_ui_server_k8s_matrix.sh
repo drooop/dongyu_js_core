@@ -128,7 +128,8 @@ fi
 ROOM_ID="$(kubectl get configmap -n "$K8S_NS" mbr-worker-config -o jsonpath='{.data.DY_MATRIX_ROOM_ID}' 2>/dev/null || true)"
 HOMESERVER_URL="$(kubectl get configmap -n "$K8S_NS" mbr-worker-config -o jsonpath='{.data.MATRIX_HOMESERVER_URL}' 2>/dev/null || true)"
 BOT_USER="$(kubectl get configmap -n "$K8S_NS" mbr-worker-config -o jsonpath='{.data.MATRIX_MBR_BOT_USER}' 2>/dev/null || true)"
-TOKEN_B64="$(kubectl get secret -n "$K8S_NS" mbr-worker-secret -o jsonpath='{.data.MATRIX_MBR_BOT_ACCESS_TOKEN}' 2>/dev/null || true)"
+DROP_USER="$(kubectl get deploy -n "$K8S_NS" ui-server -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name==\"MATRIX_MBR_USER\")].value}' 2>/dev/null || true)"
+DROP_PWD_B64="$(kubectl get secret -n "$K8S_NS" ui-server-secret -o jsonpath='{.data.MATRIX_MBR_PASSWORD}' 2>/dev/null || true)"
 
 if [ -z "$ROOM_ID" ]; then
   echo "[start] missing mbr-worker-config.data.DY_MATRIX_ROOM_ID in namespace=$K8S_NS" >&2
@@ -140,11 +141,14 @@ fi
 if [ -z "$BOT_USER" ]; then
   BOT_USER="@mbr:localhost"
 fi
-if [ -z "$TOKEN_B64" ]; then
-  echo "[start] missing mbr-worker-secret.data.MATRIX_MBR_BOT_ACCESS_TOKEN in namespace=$K8S_NS" >&2
+if [ -z "$DROP_USER" ]; then
+  DROP_USER="@drop:localhost"
+fi
+if [ -z "$DROP_PWD_B64" ]; then
+  echo "[start] missing ui-server-secret.data.MATRIX_MBR_PASSWORD in namespace=$K8S_NS" >&2
   exit 1
 fi
-BOT_TOKEN="$(printf '%s' "$TOKEN_B64" | decode_b64)"
+DROP_PASSWORD="$(printf '%s' "$DROP_PWD_B64" | decode_b64)"
 
 if lsof -iTCP:"$PORT" -sTCP:LISTEN -n -P >/dev/null 2>&1; then
   if [ "$FORCE_KILL_PORT" -eq 1 ]; then
@@ -171,7 +175,8 @@ COMMON_ENV=(
   "DY_MATRIX_DM_PEER_USER_ID=$BOT_USER"
   "MATRIX_HOMESERVER_URL=$HOMESERVER_URL"
   "MATRIX_MBR_BOT_USER=$BOT_USER"
-  "MATRIX_MBR_BOT_ACCESS_TOKEN=$BOT_TOKEN"
+  "MATRIX_MBR_USER=$DROP_USER"
+  "MATRIX_MBR_PASSWORD=$DROP_PASSWORD"
   "NO_PROXY=*"
   "no_proxy=*"
 )
@@ -187,6 +192,7 @@ echo "[start] context=$CURRENT_CONTEXT namespace=$K8S_NS port=$PORT"
 echo "[start] matrix_room=$ROOM_ID"
 echo "[start] matrix_hs=$HOMESERVER_URL"
 echo "[start] matrix_bot_user=$BOT_USER"
+echo "[start] matrix_ui_user=$DROP_USER"
 
 cd "$ROOT_DIR"
 

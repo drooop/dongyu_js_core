@@ -2,18 +2,18 @@
   "version": "mt.v0",
   "records": [
     {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0,
-     "label": {"k": "test_in", "t": "BUS_IN", "v": null}},
+     "label": {"k": "test_in", "t": "pin.bus.in", "v": null}},
     {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0,
-     "label": {"k": "test_out", "t": "BUS_OUT", "v": null}},
+     "label": {"k": "test_out", "t": "pin.bus.out", "v": null}},
     {"op": "add_label", "model_id": 0, "p": 1, "r": 0, "c": 0,
-     "label": {"k": "100", "t": "subModel", "v": {"alias": "color_gen"}}},
+     "label": {"k": "100", "t": "submt", "v": {"alias": "color_gen"}}},
     {"op": "add_label", "model_id": 0, "p": 1, "r": 0, "c": 0,
-     "label": {"k": "bridge", "t": "CELL_CONNECT", "v": {
-       "(self, cmd)": ["(100, cmd)"],
-       "(100, result)": ["(self, result_out)"]
-     }}},
+     "label": {"k": "bridge", "t": "pin.connect.label", "v": [
+       {"from": "(self, cmd)", "to": ["(100, cmd)"]},
+       {"from": "(100, result)", "to": ["(self, result_out)"]}
+     ]}},
     {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0,
-     "label": {"k": "routing", "t": "cell_connection", "v": [
+     "label": {"k": "routing", "t": "pin.connect.cell", "v": [
        {"from": [0,0,0,"test_in"], "to": [[1,0,0,"cmd"]]},
        {"from": [1,0,0,"result_out"], "to": [[0,0,0,"test_out"]]}
      ]}}

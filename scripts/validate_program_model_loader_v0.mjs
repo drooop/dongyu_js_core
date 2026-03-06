@@ -77,7 +77,7 @@ function invalidLabelCase() {
 function functionLabelCase() {
   const runtime = new ModelTableRuntime();
   const root = runtime.getModel(0);
-  runtime.addLabel(root, 0, 0, 0, { k: 'func1', t: 'function', v: null });
+  runtime.addLabel(root, 0, 0, 0, { k: 'func1', t: 'func.js', v: null });
   assert(root.hasFunction('func1'), 'function_label: func1 not registered');
   runtime.addLabel(root, 0, 0, 0, { k: 'run_func1', t: 'run', v: 'x' });
   const intercepts = runtime.intercepts.list();
@@ -98,19 +98,41 @@ function runMissingCase() {
 function connectAllowlistCase() {
   const runtime = new ModelTableRuntime();
   const root = runtime.getModel(0);
-  runtime.addLabel(root, 0, 0, 0, { k: 'CELL_CONNECT', t: 'connect', v: {} });
-  runtime.addLabel(root, 0, 0, 0, { k: 'MODEL_CONNECT', t: 'connect', v: {} });
-  runtime.addLabel(root, 0, 0, 0, { k: 'V1N_CONNECT', t: 'connect', v: {} });
-  runtime.addLabel(root, 0, 0, 0, { k: 'DE_CONNECT', t: 'connect', v: {} });
-  runtime.addLabel(root, 0, 0, 0, { k: 'DAM_CONNECT', t: 'connect', v: {} });
-  runtime.addLabel(root, 0, 0, 0, { k: 'PIC_CONNECT', t: 'connect', v: {} });
-  runtime.addLabel(root, 0, 0, 0, { k: 'WORKSPACE_CONNECT', t: 'connect', v: {} });
-  const intercepts = runtime.intercepts.list();
-  const scopes = intercepts.map((item) => item.payload.scope);
-  assert(scopes.includes('cell'), 'connect: missing cell scope');
-  assert(scopes.includes('model'), 'connect: missing model scope');
-  assert(scopes.includes('v1n'), 'connect: missing v1n scope');
-  assert(scopes.length === 3, 'connect: unexpected intercepts');
+  runtime.addLabel(root, 1, 0, 0, {
+    k: 'wiring',
+    t: 'pin.connect.label',
+    v: [{ from: 'event', to: ['func:handle:in', 'patch'] }],
+  });
+  runtime.addLabel(root, 0, 0, 0, {
+    k: 'routes_cell',
+    t: 'pin.connect.cell',
+    v: [{ from: [0, 0, 0, 'event'], to: [[1, 0, 0, 'cmd']] }],
+  });
+  runtime.addLabel(root, 0, 0, 0, {
+    k: 'routes_model',
+    t: 'pin.connect.model',
+    v: [{ from: [0, 'event_in'], to: [[1, 'input']] }],
+  });
+
+  const cellGraph = runtime.cellConnectGraph.get('0|1|0|0');
+  assert(cellGraph && cellGraph.has('self:event'), 'connect: missing pin.connect.label route');
+  const cellTargets = runtime.cellConnectionRoutes.get('0|0|0|0|event');
+  assert(Array.isArray(cellTargets) && cellTargets.length === 1, 'connect: missing pin.connect.cell route');
+  assert(
+    cellTargets[0].model_id === 0 &&
+      cellTargets[0].p === 1 &&
+      cellTargets[0].r === 0 &&
+      cellTargets[0].c === 0 &&
+      cellTargets[0].k === 'cmd',
+    'connect: pin.connect.cell route mismatch',
+  );
+  const modelTargets = runtime.modelConnectionRoutes.get('0|event_in');
+  assert(Array.isArray(modelTargets) && modelTargets.length === 1, 'connect: missing pin.connect.model route');
+  assert(modelTargets[0].model_id === 1 && modelTargets[0].k === 'input', 'connect: pin.connect.model route mismatch');
+
+  // Legacy generic "connect" should not create structured routes.
+  runtime.addLabel(root, 0, 0, 0, { k: 'LEGACY_CONNECT', t: 'connect', v: {} });
+  assert(!runtime.modelConnectionRoutes.has('0|LEGACY_CONNECT'), 'connect: legacy connect unexpectedly routed');
   return { key: 'connect_allowlist', status: 'PASS' };
 }
 

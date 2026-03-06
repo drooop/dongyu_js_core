@@ -12,15 +12,17 @@
       "t": "json",
       "v": {
         "exclude_label_types": [
-          "function",
-          "CELL_CONNECT",
-          "cell_connection",
-          "IN",
-          "BUS_IN",
-          "BUS_OUT",
-          "MODEL_IN",
-          "MODEL_OUT",
-          "subModel",
+          "func.js",
+          "pin.connect.label",
+          "pin.connect.cell",
+          "pin.in",
+          "pin.bus.in",
+          "pin.bus.out",
+          "pin.table.in",
+          "pin.table.out",
+          "pin.single.in",
+          "pin.single.out",
+          "submt",
           "MQTT_WILDCARD_SUB"
         ],
         "exclude_label_keys": [

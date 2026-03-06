@@ -9,14 +9,14 @@ function test_route_from_to() {
   const model = rt.createModel({ id: 999, name: 'test', type: 'test' });
   rt.addLabel(model, 0, 0, 0, {
     k: 'routing',
-    t: 'cell_connection',
+    t: 'pin.connect.cell',
     v: [{ from: [0, 0, 0, 'input'], to: [[1, 0, 0, 'cmd']] }],
   });
   rt._routeViaCellConnection(999, 0, 0, 0, 'input', 'hello');
   const cell = rt.getCell(model, 1, 0, 0);
   const label = cell.labels.get('cmd');
   assert(label, 'target cell should have cmd label');
-  assert.strictEqual(label.t, 'IN');
+  assert.strictEqual(label.t, 'pin.in');
   assert.strictEqual(label.v, 'hello');
   return { key: 'route_from_to', status: 'PASS' };
 }
@@ -26,7 +26,7 @@ function test_route_multi_target() {
   const model = rt.createModel({ id: 998, name: 'test', type: 'test' });
   rt.addLabel(model, 0, 0, 0, {
     k: 'routing',
-    t: 'cell_connection',
+    t: 'pin.connect.cell',
     v: [{ from: [0, 0, 0, 'input'], to: [[1, 0, 0, 'a'], [2, 0, 0, 'b']] }],
   });
   rt._routeViaCellConnection(998, 0, 0, 0, 'input', 'data');
@@ -54,12 +54,12 @@ function test_route_append_not_overwrite() {
   // Two separate cell_connection labels with overlapping from keys
   rt.addLabel(model, 0, 0, 0, {
     k: 'routing1',
-    t: 'cell_connection',
+    t: 'pin.connect.cell',
     v: [{ from: [0, 0, 0, 'input'], to: [[1, 0, 0, 'a']] }],
   });
   rt.addLabel(model, 0, 0, 0, {
     k: 'routing2',
-    t: 'cell_connection',
+    t: 'pin.connect.cell',
     v: [{ from: [0, 0, 0, 'input'], to: [[2, 0, 0, 'b']] }],
   });
   const targets = rt.cellConnectionRoutes.get('996|0|0|0|input');

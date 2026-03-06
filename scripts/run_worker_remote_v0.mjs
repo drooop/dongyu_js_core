@@ -42,13 +42,13 @@ function main() {
   const sys = rt.getModel(-10);
   rt.addLabel(sys, 0, 0, 0, {
     k: 'remote_apply_patch_in',
-    t: 'function',
-    v: [
+    t: 'func.js',
+    v: { code: [
       `const mid = ${remoteModelId};`,
       "const model = ctx.runtime.getModel(mid); if (!model) return;",
       "const cell = ctx.runtime.getCell(model, 0, 1, 1);",
       "const label = cell.labels.get('patch_in');",
-      "if (!label || label.t !== 'IN') return;",
+      "if (!label || label.t !== 'pin.in') return;",
       "const payload = label.v;",
       "const patch = payload && typeof payload === 'object' ? payload : null;",
       "if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) return;",
@@ -58,10 +58,10 @@ function main() {
       "const baseRecords = Array.isArray(patch.records) ? patch.records.slice() : [];",
       "baseRecords.push({ op: 'add_label', model_id: 1, p: 0, r: 0, c: 0, k: 'slide_demo_text', t: 'str', v: 'ACK:' + String(v) });",
       "const ack = { version: 'mt.v0', op_id: String(patch.op_id || '') + '#ack', records: baseRecords };",
-      "ctx.writeLabel({ model_id: mid, p: 0, r: 1, c: 1, k: 'patch_out' }, 'OUT', ack);",
+      "ctx.writeLabel({ model_id: mid, p: 0, r: 1, c: 1, k: 'patch_out' }, 'pin.out', ack);",
       "try { console.log('[remote-worker] applied patch and queued OUT', { in_op_id: String(patch.op_id || ''), out_op_id: String(ack.op_id || '') }); } catch (_) {}",
       "ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_remote_apply_patch_in' });",
-    ].join(' '),
+    ].join(' '), modelName: 'run_worker_remote_v0' },
   });
 
   // Ensure a visible label to mutate.
@@ -76,7 +76,7 @@ function main() {
       const e = events[eventCursor];
       if (!e || e.op !== 'add_label') continue;
       if (!e.cell || e.cell.model_id !== remoteModelId || e.cell.p !== 0 || e.cell.r !== 1 || e.cell.c !== 1) continue;
-      if (!e.label || e.label.t !== 'IN' || e.label.k !== 'patch_in') continue;
+      if (!e.label || e.label.t !== 'pin.in' || e.label.k !== 'patch_in') continue;
       rt.addLabel(sys, 0, 0, 0, { k: 'run_remote_apply_patch_in', t: 'str', v: '1' });
     }
     engine.tick();

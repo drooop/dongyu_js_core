@@ -6,7 +6,7 @@ const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js
 function test_model_in_register() {
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: 100, name: 'test', type: 'sub' });
-  rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'MODEL_IN', v: null });
+  rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'pin.table.in', v: null });
   assert(rt.modelInPorts.has('100:cmd'), 'should register MODEL_IN port');
   return { key: 'model_in_register', status: 'PASS' };
 }
@@ -14,7 +14,7 @@ function test_model_in_register() {
 function test_model_in_wrong_position() {
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: 101, name: 'test', type: 'sub' });
-  rt.addLabel(model, 1, 0, 0, { k: 'cmd', t: 'MODEL_IN', v: null });
+  rt.addLabel(model, 1, 0, 0, { k: 'cmd', t: 'pin.table.in', v: null });
   const errors = rt.eventLog._events.filter((e) => e.reason === 'model_in_wrong_position');
   assert(errors.length >= 1, 'should record error');
   return { key: 'model_in_wrong_position', status: 'PASS' };
@@ -25,10 +25,10 @@ function test_model_in_triggers_routing() {
   const model = rt.createModel({ id: 102, name: 'test', type: 'sub' });
   rt.addLabel(model, 0, 0, 0, {
     k: 'routing',
-    t: 'cell_connection',
+    t: 'pin.connect.cell',
     v: [{ from: [0, 0, 0, 'cmd'], to: [[1, 0, 0, 'process_in']] }],
   });
-  rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'MODEL_IN', v: 'test_data' });
+  rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'pin.table.in', v: 'test_data' });
   const cell1 = rt.getCell(model, 1, 0, 0);
   const pi = cell1.labels.get('process_in');
   assert(pi, 'should route to cell 1');
@@ -39,7 +39,7 @@ function test_model_in_triggers_routing() {
 function test_model_out_register() {
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: 103, name: 'test', type: 'sub' });
-  rt.addLabel(model, 0, 0, 0, { k: 'result', t: 'MODEL_OUT', v: null });
+  rt.addLabel(model, 0, 0, 0, { k: 'result', t: 'pin.table.out', v: null });
   assert(rt.modelOutPorts.has('103:result'), 'should register MODEL_OUT port');
   return { key: 'model_out_register', status: 'PASS' };
 }
@@ -47,7 +47,7 @@ function test_model_out_register() {
 function test_model_out_wrong_position() {
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: 104, name: 'test', type: 'sub' });
-  rt.addLabel(model, 2, 0, 0, { k: 'result', t: 'MODEL_OUT', v: null });
+  rt.addLabel(model, 2, 0, 0, { k: 'result', t: 'pin.table.out', v: null });
   const errors = rt.eventLog._events.filter((e) => e.reason === 'model_out_wrong_position');
   assert(errors.length >= 1, 'should record error');
   return { key: 'model_out_wrong_position', status: 'PASS' };
@@ -57,16 +57,16 @@ async function test_model_out_notifies_parent() {
   const rt = new ModelTableRuntime();
   const parent = rt.createModel({ id: 50, name: 'parent', type: 'app' });
   // Register child
-  rt.addLabel(parent, 1, 0, 0, { k: '60', t: 'subModel', v: { alias: 'child' } });
+  rt.addLabel(parent, 1, 0, 0, { k: '60', t: 'submt', v: { alias: 'child' } });
   // Parent CELL_CONNECT: (60, result) → (self, final_out)
   rt.addLabel(parent, 1, 0, 0, {
     k: 'bridge',
-    t: 'CELL_CONNECT',
-    v: { '(60, result)': ['(self, final_out)'] },
+    t: 'pin.connect.label',
+    v: [{ from: '(60, result)', to: ['(self, final_out)'] }],
   });
   const child = rt.getModel(60);
   // Write MODEL_OUT on child
-  rt.addLabel(child, 0, 0, 0, { k: 'result', t: 'MODEL_OUT', v: 'child_result' });
+  rt.addLabel(child, 0, 0, 0, { k: 'result', t: 'pin.table.out', v: 'child_result' });
   // Wait for async propagation
   await new Promise((resolve) => setTimeout(resolve, 100));
   // Parent cell 1,0,0 should have final_out
@@ -77,6 +77,31 @@ async function test_model_out_notifies_parent() {
   return { key: 'model_out_notifies_parent', status: 'PASS' };
 }
 
+function test_single_model_rejects_table_pin() {
+  const rt = new ModelTableRuntime();
+  const model = rt.createModel({ id: 106, name: 'single', type: 'sub' });
+  rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.single', v: 'Code.JS' });
+  rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'pin.table.in', v: 1 });
+  const hasErr = rt.eventLog._events.some((e) => e.reason === 'table_in_on_single_model_forbidden');
+  assert(hasErr, 'model.single should reject pin.table.in');
+  return { key: 'single_model_rejects_table_pin', status: 'PASS' };
+}
+
+function test_single_model_accepts_single_pin() {
+  const rt = new ModelTableRuntime();
+  const model = rt.createModel({ id: 107, name: 'single', type: 'sub' });
+  rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.single', v: 'Code.JS' });
+  rt.addLabel(model, 0, 0, 0, {
+    k: 'routing',
+    t: 'pin.connect.cell',
+    v: [{ from: [0, 0, 0, 'cmd'], to: [[1, 0, 0, 'next']] }],
+  });
+  rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'pin.single.in', v: 'ok' });
+  const next = rt.getCell(model, 1, 0, 0).labels.get('next');
+  assert(next && next.v === 'ok', 'model.single should route pin.single.in');
+  return { key: 'single_model_accepts_single_pin', status: 'PASS' };
+}
+
 // --- Run all tests ---
 const tests = [
   test_model_in_register,
@@ -85,6 +110,8 @@ const tests = [
   test_model_out_register,
   test_model_out_wrong_position,
   test_model_out_notifies_parent,
+  test_single_model_rejects_table_pin,
+  test_single_model_accepts_single_pin,
 ];
 
 (async () => {
@@ -103,4 +130,3 @@ const tests = [
   console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
   process.exit(failed > 0 ? 1 : 0);
 })();
-

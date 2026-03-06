@@ -90,14 +90,14 @@ async function main() {
   const handled = wRt.mqttIncoming(publishedTopic, publishedPayload);
   assert(handled, 'worker mqttIncoming must handle payload');
 
-  // Check IN label written to root cell (0,0,0)
+  // Check pin.in label written to root cell (0,0,0)
   const rootEvent = getLabel(wRt, 100, 0, 0, 0, 'event');
-  assert(rootEvent && rootEvent.t === 'IN', 'worker should write IN label to root cell(0,0,0) key=event');
-  assert(rootEvent.v && typeof rootEvent.v === 'object' && !('action' in rootEvent.v), 'IN value must not carry action (records-only)');
+  assert(rootEvent && rootEvent.t === 'pin.in', 'worker should write pin.in label to root cell(0,0,0) key=event');
+  assert(rootEvent.v && typeof rootEvent.v === 'object' && !('action' in rootEvent.v), 'pin.in value must not carry action (records-only)');
 
-  // Check IN routed to processing cell (1,0,0) via cell_connection
+  // Check pin.in routed to processing cell (1,0,0) via cell_connection
   const routedEvent = getLabel(wRt, 100, 1, 0, 0, 'event');
-  assert(routedEvent && routedEvent.t === 'IN', 'cell_connection should route event IN to cell(1,0,0)');
+  assert(routedEvent && routedEvent.t === 'pin.in', 'cell_connection should route event pin.in to cell(1,0,0)');
 
   // CELL_CONNECT function execution is async — wait for completion
   await new Promise(resolve => setTimeout(resolve, 500));

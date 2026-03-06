@@ -19,8 +19,6 @@ function writeBaseConfig(rt) {
   rt.addLabel(m0, 0, 0, 0, { k: 'mqtt_target_host', t: 'str', v: '127.0.0.1' });
   rt.addLabel(m0, 0, 0, 0, { k: 'mqtt_target_port', t: 'int', v: 1883 });
   rt.addLabel(m0, 0, 0, 0, { k: 'mqtt_target_client_id', t: 'str', v: 'intent-test' });
-
-  // Enable multi-model topic routing.
   rt.addLabel(m0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
   rt.addLabel(m0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
 }
@@ -30,8 +28,12 @@ function getFunctionCode(rt, name) {
   if (!sys) return null;
   const cell = rt.getCell(sys, 0, 0, 0);
   const label = cell.labels.get(name);
-  if (!label || label.t !== 'function' || typeof label.v !== 'string') return null;
-  return label.v;
+  if (!label) return null;
+  const t = typeof label.t === 'string' ? label.t : '';
+  if (t !== 'func.js' && t !== 'function') return null;
+  if (typeof label.v === 'string') return label.v;
+  if (label.v && typeof label.v === 'object' && typeof label.v.code === 'string') return label.v.code;
+  return null;
 }
 
 function makeCtx(rt) {
@@ -83,14 +85,47 @@ function runIntentDispatchOnce(rt) {
   fn(makeCtx(rt));
 }
 
-function casePinRegisterAndSend() {
+function caseMgmtPublish() {
   const rt = new ModelTableRuntime();
   rt.applyPatch(systemPatch, { allowCreateModel: true });
   writeBaseConfig(rt);
   rt.createModel({ id: 1, name: 'M1', type: 'data' });
 
-  // Start loop before declarations: should subscribe immediately on declare.
-  rt.startMqttLoop();
+  const payload = { version: 'v0', type: 'snapshot_delta', payload: { version: 'mt.v0', records: [] } };
+  const sys = rt.getModel(-10);
+  assert(sys, 'system_model_-10_missing');
+  rt.addLabel(sys, 0, 0, 0, {
+    k: 'intent_job_1',
+    t: 'json',
+    v: {
+      source: { model_id: 1, p: 0, r: 0, c: 0, k: 'intent.v0' },
+      intent: { op_id: 'op-1', action: 'mgmt_publish', channel: 'change_out', payload },
+    },
+  });
+
+  runIntentDispatchOnce(rt);
+
+  const outLabel = rt.getCell(sys, 0, 0, 2).labels.get('change_out');
+  assert(outLabel, 'mgmt_publish should write MGMT_OUT label');
+  assert(outLabel.t === 'MGMT_OUT', 'mgmt_publish output type should be MGMT_OUT');
+  assert(outLabel.v && outLabel.v.type === 'snapshot_delta', 'mgmt_publish output payload mismatch');
+
+  const srcModel = rt.getModel(1);
+  const resultLabel = rt.getCell(srcModel, 0, 0, 0).labels.get('intent_result');
+  assert(resultLabel && resultLabel.t === 'json', 'intent_result should be written back');
+  assert(
+    resultLabel.v && (resultLabel.v.result === 'ok' || resultLabel.v.ok === true),
+    'intent_result should mark success',
+  );
+
+  return { key: 'mgmt_publish_dispatch', status: 'PASS' };
+}
+
+function caseMgmtBindIn() {
+  const rt = new ModelTableRuntime();
+  rt.applyPatch(systemPatch, { allowCreateModel: true });
+  writeBaseConfig(rt);
+  rt.createModel({ id: 1, name: 'M1', type: 'data' });
 
   const sys = rt.getModel(-10);
   assert(sys, 'system_model_-10_missing');
@@ -99,38 +134,27 @@ function casePinRegisterAndSend() {
     t: 'json',
     v: {
       source: { model_id: 1, p: 0, r: 0, c: 0, k: 'intent.v0' },
-      intent: { op_id: 'op-1', action: 'pin_register', pin_k: 'demo' },
+      intent: {
+        op_id: 'op-2',
+        action: 'mgmt_bind_in',
+        channel: 'channel_alpha',
+        target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'inbox' },
+      },
     },
   });
+
   runIntentDispatchOnce(rt);
 
-  const t1 = 'UIPUT/ws/dam/pic/de/sw/1/demo';
-  const sub = rt.mqttTrace.list().find((t) => t.type === 'subscribe' && t.payload.topic === t1);
-  assert(sub, 'pin_register should subscribe model topic');
+  const inLabel = rt.getCell(sys, 0, 0, 1).labels.get('channel_alpha');
+  assert(inLabel, 'mgmt_bind_in should write MGMT_IN label');
+  assert(inLabel.t === 'MGMT_IN', 'mgmt_bind_in output type should be MGMT_IN');
+  assert(inLabel.v && inLabel.v.k === 'inbox', 'mgmt_bind_in target_ref mismatch');
 
-  rt.addLabel(sys, 0, 0, 0, {
-    k: 'intent_job_2',
-    t: 'json',
-    v: {
-      source: { model_id: 1, p: 0, r: 0, c: 0, k: 'intent.v0' },
-      intent: { op_id: 'op-2', action: 'pin_send_out', pin_k: 'demo', value: { payload: 7 } },
-    },
-  });
-  runIntentDispatchOnce(rt);
-
-  const pub = rt.mqttTrace.list().find((t) => t.type === 'publish' && t.payload.topic === t1);
-  assert(pub, 'pin_send_out should publish model topic');
-
-  const inboundOk = rt.mqttIncoming(t1, { t: 'IN', payload: 1 });
-  assert(inboundOk, 'mqttIncoming should route to model mailbox');
-  const wrote = rt.eventLog.list().some((e) => e.cell.model_id === 1 && e.label.k === 'demo' && e.label.t === 'IN');
-  assert(wrote, 'inbound should write IN label into model mailbox');
-
-  return { key: 'pin_register_send', status: 'PASS' };
+  return { key: 'mgmt_bind_in_dispatch', status: 'PASS' };
 }
 
 function runAll() {
-  return [casePinRegisterAndSend()];
+  return [caseMgmtPublish(), caseMgmtBindIn()];
 }
 
 function output(results) {
@@ -142,7 +166,7 @@ function output(results) {
 
 try {
   const which = parseArgs();
-  const results = which === 'pin_register_send' ? [casePinRegisterAndSend()] : runAll();
+  const results = which === 'mgmt_publish' ? [caseMgmtPublish()] : runAll();
   output(results);
   process.exit(0);
 } catch (err) {
