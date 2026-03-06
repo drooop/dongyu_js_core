@@ -1,8 +1,9 @@
 /**
  * Generic Worker Bootstrap v0
  *
- * Loads system patch + role patches from a directory, reads connection
- * parameters from ModelTable labels (env vars override), initializes
+ * Loads system patch + role patches from a directory, applies optional
+ * bootstrap patch from MODELTABLE_PATCH_JSON, reads connection
+ * parameters from Model 0, initializes
  * adapters (Matrix / MQTT), wires event handlers via label-defined
  * triggers, and runs the tick loop.
  *
@@ -15,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { WorkerEngineV0, loadSystemPatch } from './worker_engine_v0.mjs';
+import { readMatrixBootstrapConfig, readMqttBootstrapConfig } from '../packages/worker-base/src/bootstrap_config.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
@@ -31,24 +33,18 @@ function getLabel(rt, modelId, p, r, c, k) {
   return label ? label.v : null;
 }
 
-/** Label value with env-var override. Env wins when non-empty. */
-function labelOrEnv(rt, labelKey, envName, fallback) {
-  const envVal = process.env[envName];
-  if (envVal !== undefined && envVal !== '') return envVal;
-  const v = getLabel(rt, -10, 0, 0, 0, labelKey);
-  if (v !== null && v !== undefined && v !== '') return v;
-  return fallback !== undefined ? fallback : null;
-}
-
-function labelOrEnvInt(rt, labelKey, envName, fallback) {
-  const raw = labelOrEnv(rt, labelKey, envName, null);
-  if (raw === null) return fallback;
-  const n = Number(raw);
-  return Number.isInteger(n) ? n : fallback;
-}
-
 function log(msg) { process.stdout.write(`[worker] ${msg}\n`); }
 function logErr(msg) { process.stderr.write(`[worker] ${msg}\n`); }
+
+function readBootstrapPatchFromEnv() {
+  const raw = process.env.MODELTABLE_PATCH_JSON;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`invalid MODELTABLE_PATCH_JSON: ${err && err.message ? err.message : err}`);
+  }
+}
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
@@ -83,6 +79,12 @@ function main() {
     log(`loaded patch: ${f} (applied=${result.applied} rejected=${result.rejected})`);
   }
 
+  const bootstrapPatch = readBootstrapPatchFromEnv();
+  if (bootstrapPatch) {
+    const result = rt.applyPatch(bootstrapPatch, { allowCreateModel: true });
+    log(`loaded bootstrap patch from MODELTABLE_PATCH_JSON (applied=${result.applied} rejected=${result.rejected})`);
+  }
+
   const sys = rt.getModel(-10);
   if (!sys) {
     logErr('System model (-10) not found after loading patches');
@@ -90,20 +92,19 @@ function main() {
     return;
   }
 
-  // 4. Read connection parameters from labels (env override)
-
-  // Bot credentials support
-  if (process.env.MATRIX_MBR_BOT_USER && process.env.MATRIX_MBR_BOT_ACCESS_TOKEN) {
-    process.env.MATRIX_MBR_USER = process.env.MATRIX_MBR_BOT_USER;
-    process.env.MATRIX_MBR_ACCESS_TOKEN = process.env.MATRIX_MBR_BOT_ACCESS_TOKEN;
-    log(`Using BOT credentials: ${process.env.MATRIX_MBR_USER}`);
+  // 4. Read connection parameters from Model 0 bootstrap labels.
+  const matrixConfig = readMatrixBootstrapConfig(rt);
+  const mqttConfig = readMqttBootstrapConfig(rt);
+  const matrixRoomId = matrixConfig.roomId;
+  const mqttHost = mqttConfig.host;
+  const mqttPort = mqttConfig.port;
+  const mqttUser = '';
+  const mqttPass = '';
+  if (!mqttHost || !Number.isInteger(mqttPort)) {
+    logErr('missing mqtt.local.ip / mqtt.local.port on Model 0 (0,0,0)');
+    process.exitCode = 1;
+    return;
   }
-
-  const matrixRoomId = labelOrEnv(rt, 'mbr_matrix_room_id', 'DY_MATRIX_ROOM_ID', null);
-  const mqttHost = labelOrEnv(rt, 'mbr_mqtt_host', 'DY_MQTT_HOST', '127.0.0.1');
-  const mqttPort = labelOrEnvInt(rt, 'mbr_mqtt_port', 'DY_MQTT_PORT', 1883);
-  const mqttUser = labelOrEnv(rt, 'mbr_mqtt_user', 'DY_MQTT_USER', 'u');
-  const mqttPass = labelOrEnv(rt, 'mbr_mqtt_pass', 'DY_MQTT_PASS', 'p');
 
   // 5. Read wiring config from labels
   const matrixEventFilter = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_event_filter') || 'ui_event');
@@ -113,7 +114,8 @@ function main() {
   const mqttTrigger = String(getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_trigger') || 'run_mbr_mqtt_to_mgmt');
 
   const mqttModelIds = getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_model_ids');
-  const heartbeatMs = labelOrEnvInt(rt, 'mbr_heartbeat_interval_ms', 'DY_HEARTBEAT_MS', 30000);
+  const heartbeatRaw = getLabel(rt, -10, 0, 0, 0, 'mbr_heartbeat_interval_ms');
+  const heartbeatMs = Number.isInteger(heartbeatRaw) ? heartbeatRaw : 30000;
 
   // 6. MQTT topic base (from system patch, Model 0)
   const base = String(getLabel(rt, 0, 0, 0, 0, 'mqtt_topic_base') || '').trim();
@@ -153,7 +155,15 @@ function main() {
   if (matrixRoomId) {
     const filterTypes = matrixEventFilter.split(',').map(s => s.trim());
 
-    createMatrixLiveAdapter({ roomId: matrixRoomId, syncTimeoutMs: 20000 })
+    createMatrixLiveAdapter({
+      roomId: matrixRoomId,
+      syncTimeoutMs: 20000,
+      homeserverUrl: matrixConfig.homeserverUrl || undefined,
+      accessToken: matrixConfig.accessToken || undefined,
+      userId: matrixConfig.userId || undefined,
+      password: matrixConfig.password || undefined,
+      peerUserId: matrixConfig.peerUserId || undefined,
+    })
       .then((adapter) => {
         mgmtAdapter = adapter;
         engine.mgmtAdapter = adapter;

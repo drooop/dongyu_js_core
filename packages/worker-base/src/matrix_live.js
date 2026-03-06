@@ -148,15 +148,34 @@ async function createMatrixLiveAdapter(options = {}) {
     roomAlias,
     syncTimeoutMs = 20000,
     peerUserId,
+    homeserverUrl: homeserverUrlOpt,
+    accessToken: accessTokenOpt,
+    userId: userIdOpt,
+    password: passwordOpt,
   } = options;
   if (!roomId && !roomAlias) {
     throw new Error('missing_room_identifier');
   }
 
-  const homeserverUrl = requireEnv(['MATRIX_HOMESERVER_URL']).MATRIX_HOMESERVER_URL;
+  const homeserverUrl = firstValidValue(homeserverUrlOpt, process.env.MATRIX_HOMESERVER_URL);
+  if (!homeserverUrl) {
+    throw new Error('missing_env:MATRIX_HOMESERVER_URL');
+  }
   const skipTls = homeserverUrl.startsWith('https:');
   const fetchFn = skipTls ? insecureFetch : undefined;
   const candidates = [
+    {
+      kind: 'token',
+      source: 'options.accessToken',
+      accessToken: firstValidValue(accessTokenOpt),
+      userId: firstValidValue(userIdOpt),
+    },
+    {
+      kind: 'password',
+      source: 'options.password',
+      user: firstValidValue(userIdOpt),
+      password: firstValidValue(passwordOpt),
+    },
     {
       kind: 'token',
       source: 'MATRIX_MBR_BOT_ACCESS_TOKEN',
@@ -355,4 +374,3 @@ async function createMatrixLiveAdapter(options = {}) {
 module.exports = {
   createMatrixLiveAdapter,
 };
-

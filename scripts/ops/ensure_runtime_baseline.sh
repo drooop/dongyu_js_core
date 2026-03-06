@@ -77,27 +77,16 @@ fi
 
 echo "[baseline] use kubernetes context $TARGET_CONTEXT"
 
-# ── Smart detection: check if all 5 deployments are ready ─
-echo "[baseline] checking deployment readiness..."
-ALL_READY=true
-for deploy in "${DEPLOYMENTS[@]}"; do
-  ready=$(kubectl get deploy "$deploy" -n "$K8S_NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
-  if [ "$ready" != "1" ]; then
-    echo "[baseline] deploy/$deploy not ready (readyReplicas=$ready)"
-    ALL_READY=false
-  else
-    echo "[baseline] deploy/$deploy ready"
-  fi
-done
-
-if [ "$ALL_READY" = true ]; then
-  echo "[baseline] all deployments ready — nothing to do"
+# ── Canonical baseline gate: deployment readiness + Matrix contract ─
+echo "[baseline] running canonical baseline gate..."
+if bash "$SCRIPT_DIR/check_runtime_baseline.sh"; then
+  echo "[baseline] baseline already healthy — nothing to do"
   exit 0
 fi
 
 # ── Not all ready: check if deploy_local.sh can be used ──
 echo ""
-echo "[baseline] some deployments missing or not ready"
+echo "[baseline] baseline unhealthy; attempting local deploy repair"
 
 if [ -f "$SCRIPT_DIR/deploy_local.sh" ] && [ -f "$(cd "$SCRIPT_DIR/../.." && pwd)/deploy/env/local.env" ]; then
   echo "[baseline] auto-invoking deploy_local.sh ..."

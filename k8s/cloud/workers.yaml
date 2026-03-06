@@ -53,24 +53,7 @@ metadata:
   name: mbr-worker-config
   namespace: dongyu
 data:
-    MATRIX_HOMESERVER_URL: "http://synapse.dongyu.svc.cluster.local:8008"
-    MATRIX_MBR_BOT_USER: "@mbr:dongyu.local"
-    DY_MATRIX_ROOM_ID: "placeholder-roomid-update-after-synapse-setup"
-    DY_MQTT_HOST: "emqx-emqx-enterprise.emqx.svc.cluster.local"
-    DY_MQTT_PORT: "1883"
-    DY_MQTT_USER: ""
-    DY_MQTT_PASS: ""
     NODE_TLS_REJECT_UNAUTHORIZED: "0"
----
-# MBR Worker Secret (cloud)
-apiVersion: v1
-kind: Secret
-metadata:
-  name: mbr-worker-secret
-  namespace: dongyu
-type: Opaque
-stringData:
-  MATRIX_MBR_BOT_ACCESS_TOKEN: "placeholder-will-update-after-synapse-setup"
 ---
 # MBR Worker Deployment
 apiVersion: apps/v1
@@ -107,17 +90,6 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "500m"
----
-# UI Server Secret (Matrix credentials for server bot)
-apiVersion: v1
-kind: Secret
-metadata:
-  name: ui-server-secret
-  namespace: dongyu
-type: Opaque
-stringData:
-  MATRIX_MBR_PASSWORD: "placeholder-password-update-after-synapse-setup"
----
 # UI Server Deployment
 apiVersion: apps/v1
 kind: Deployment
@@ -146,26 +118,11 @@ spec:
         env:
         - name: HOST
           value: "0.0.0.0"
-        - name: MATRIX_HOMESERVER_URL
-          value: "http://synapse.dongyu.svc.cluster.local:8008"
-        - name: MATRIX_MBR_USER
-          value: "@drop:dongyu.local"
-        - name: MATRIX_MBR_BOT_USER
-          value: "@mbr:dongyu.local"
-        - name: MATRIX_MBR_ACCESS_TOKEN
+        - name: MODELTABLE_PATCH_JSON
           valueFrom:
             secretKeyRef:
               name: ui-server-secret
-              key: MATRIX_MBR_ACCESS_TOKEN
-        - name: MATRIX_MBR_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: ui-server-secret
-              key: MATRIX_MBR_PASSWORD
-        - name: DY_MATRIX_ROOM_ID
-          value: "placeholder-roomid-update-after-synapse-setup"
-        - name: DY_MATRIX_DM_PEER_USER_ID
-          value: "@mbr:dongyu.local"
+              key: MODELTABLE_PATCH_JSON
         - name: SEED_POSITIVE_MODELS_ON_BOOT
           value: "0"
         - name: DY_AUTH

@@ -15,6 +15,7 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 
 import { ModelTableRuntime } from '../worker-base/src/index.mjs';
+import { readMatrixBootstrapConfig } from '../worker-base/src/bootstrap_config.mjs';
 import { createLocalBusAdapter } from '../ui-model-demo-frontend/src/local_bus_adapter.js';
 import { buildEditorAstV1, buildAstFromSchema } from '../ui-model-demo-frontend/src/demo_modeltable.js';
 import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from '../ui-model-demo-frontend/src/model_ids.js';
@@ -1521,23 +1522,12 @@ class ProgramModelEngine {
 
   async init() {
     this.refreshFunctionRegistry();
-    const roomLabel = findSystemLabel(this.runtime, 'matrix_room_id');
-    const configuredRoom = firstValidValue(
-      process.env.DY_MATRIX_ROOM_ID,
-      process.env.MATRIX_ROOM_ID,
-      roomLabel ? roomLabel.label.v : null,
-    );
-    this.matrixRoomId = configuredRoom;
-    const peerLabel = findSystemLabel(this.runtime, 'matrix_dm_peer_user_id');
-    const configuredPeerUser = firstValidValue(
-      process.env.DY_MATRIX_DM_PEER_USER_ID,
-      process.env.MATRIX_DM_PEER_USER_ID,
-      peerLabel ? peerLabel.label.v : null,
-    );
-    this.matrixDmPeerUserId = configuredPeerUser;
+    const matrixConfig = readMatrixBootstrapConfig(this.runtime);
+    this.matrixRoomId = firstValidValue(matrixConfig.roomId);
+    this.matrixDmPeerUserId = firstValidValue(matrixConfig.peerUserId);
     if (this.matrixRoomId) {
       if (isPlaceholderValue(this.matrixDmPeerUserId)) {
-        console.warn('[ProgramModelEngine] DY_MATRIX_DM_PEER_USER_ID is placeholder, Matrix messages may be skipped.');
+        console.warn('[ProgramModelEngine] matrix_contuser is placeholder, Matrix messages may be skipped.');
       }
       try {
         const syncTimeoutMs = readIntEnv('DY_MATRIX_SYNC_TIMEOUT_MS', 20000, 1000);
@@ -1545,6 +1535,10 @@ class ProgramModelEngine {
           roomId: this.matrixRoomId,
           peerUserId: this.matrixDmPeerUserId || undefined,
           syncTimeoutMs,
+          homeserverUrl: matrixConfig.homeserverUrl || undefined,
+          accessToken: matrixConfig.accessToken || undefined,
+          userId: matrixConfig.userId || undefined,
+          password: matrixConfig.password || undefined,
         });
         if (this.matrixAdapterUnsub) {
           this.matrixAdapterUnsub();
@@ -1564,7 +1558,7 @@ class ProgramModelEngine {
         this.matrixAdapter = null;
       }
     } else {
-      console.log('[ProgramModelEngine] No matrix_room_id configured, running without Matrix.');
+      console.log('[ProgramModelEngine] No matrix_room_id configured on Model 0, running without Matrix.');
     }
     this.started = true;
   }

@@ -100,20 +100,20 @@ PASS 判定：
 
 ---
 
-## Model 100 Submit Roundtrip（一键）
+## Model 100 Submit Roundtrip（OrbStack pod，推荐）
 
 用途：
-- 在本地 UI Server 复现实例闭环：`Generate Color` 从 submit 到回包。
-- 自动对齐 k8s（OrbStack）中的 Matrix room/token，避免 room mismatch。
+- 以 OrbStack pod 部署路径验证 `Generate Color` 从 submit 到回包。
+- 当前 `0175` 的 canonical 验证口径是 `http://127.0.0.1:30900`，不是 host-side `9011` 临时 server。
 
 命令：
 ```bash
-bash scripts/ops/run_model100_submit_roundtrip_local.sh --port 9011 --stop-after
+bash scripts/ops/ensure_runtime_baseline.sh \
+&& bash scripts/ops/verify_model100_submit_roundtrip.sh --base-url http://127.0.0.1:30900
 ```
 
 PASS 判定：
 - baseline 5 个 deployment ready
-- 本地 server Matrix connected（对齐 k8s room）
 - 验证输出包含：
   - submit response `result=ok`
   - `loading/inflight=true -> processed/inflight=false`
@@ -121,10 +121,14 @@ PASS 判定：
 
 ---
 
-## 拆分执行（调试用）
+## Host-side 9011 路径（调试用，非 canonical）
+
+用途：
+- 在主机侧临时启动 `ui-server`，复用 `MODELTABLE_PATCH_JSON` 进行 debug。
+- 该路径依赖 host 到 Matrix plane 的可达性，不作为 `0175` 的完成口径。
 
 ```bash
-bash scripts/ops/check_runtime_baseline.sh \
+bash scripts/ops/ensure_runtime_baseline.sh \
 && bash scripts/ops/start_local_ui_server_k8s_matrix.sh --port 9011 --force-kill-port \
 && bash scripts/ops/verify_model100_submit_roundtrip.sh --base-url http://127.0.0.1:9011
 ```
