@@ -87,6 +87,8 @@ scripts/docs-viewer/dist/
 PICtest/
 test_files/
 .dy_static_projects/
+.playwright-cli/
+output/
 
 # Infrastructure secrets
 k8s/*-secret.yaml
