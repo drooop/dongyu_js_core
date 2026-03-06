@@ -61,8 +61,8 @@ done
 
 cd "$ROOT_DIR"
 
-echo "[run] step1 check baseline"
-bash "$SCRIPT_DIR/check_runtime_baseline.sh"
+echo "[run] step1 ensure baseline"
+bash "$SCRIPT_DIR/ensure_runtime_baseline.sh"
 
 echo "[run] step2 start local ui-server with k8s matrix config"
 START_ARGS=(

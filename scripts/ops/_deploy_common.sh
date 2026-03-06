@@ -213,21 +213,23 @@ EOF
 }
 
 # ── patch_manifest ────────────────────────────────────────
-# Usage: patch_manifest <src_yaml> <room_id> [<password>]
+# Usage: patch_manifest <src_yaml> <room_id> [<password>] [<mbr_token>]
 # Replaces placeholder tokens and applies the manifest.
 patch_manifest() {
-  local src="$1" room_id="$2" password="${3:-}"
+  local src="$1" room_id="$2" password="${3:-}" mbr_token="${4:-}"
   if ! is_valid_matrix_room_id "$room_id"; then
     echo "ERROR: invalid matrix room id for patching: $room_id" >&2
     return 1
   fi
-  local room_id_escaped password_escaped
+  local room_id_escaped password_escaped mbr_token_escaped
   room_id_escaped="$(escape_sed_replacement "$room_id")"
   password_escaped="$(escape_sed_replacement "$password")"
+  mbr_token_escaped="$(escape_sed_replacement "$mbr_token")"
   local tmp
   tmp=$(mktemp)
   sed -e "s|placeholder-roomid-update-after-synapse-setup|$room_id_escaped|g" \
       -e "s|placeholder-password-update-after-synapse-setup|${password_escaped}|g" \
+      -e "s|placeholder-will-update-after-synapse-setup|${mbr_token_escaped}|g" \
       "$src" > "$tmp"
   kubectl apply -f "$tmp"
   rm -f "$tmp"

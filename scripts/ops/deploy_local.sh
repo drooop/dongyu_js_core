@@ -139,7 +139,7 @@ echo ""
 
 # ── Apply worker manifests (with placeholder replacement) ─
 echo "=== Step 7: Apply manifests ==="
-patch_manifest "$REPO_DIR/k8s/local/workers.yaml" "$ROOM_ID" "$SERVER_PASSWORD"
+patch_manifest "$REPO_DIR/k8s/local/workers.yaml" "$ROOM_ID" "$SERVER_PASSWORD" "$MBR_TOKEN"
 kubectl apply -f "$REPO_DIR/k8s/local/ui-server-nodeport.yaml"
 echo ""
 
