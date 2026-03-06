@@ -1591,10 +1591,13 @@ class ProgramModelEngine {
         const dbLabel = this.runtime.getCell(targetModel, 0, 0, 0).labels.get('dual_bus_model');
         if (!dbLabel || !dbLabel.v || typeof dbLabel.v !== 'object') continue;
 
-        // Write patch as IN label to model's root cell — CELL_CONNECT / cell_connection handles routing
+        // Write patch to the model's root input label using the current model form semantics.
         const pinName = dbLabel.v.patch_in_pin || 'patch';
+        const rootPinType = typeof this.runtime._modelInputLabelType === 'function'
+          ? this.runtime._modelInputLabelType(targetModel)
+          : 'pin.table.in';
         console.log(`[handleDyBusEvent] Writing patch to Model ${modelId} (${pinName}) at cell(${modelId},0,0,0)`);
-        this.runtime.addLabel(targetModel, 0, 0, 0, { k: pinName, t: 'IN', v: patch });
+        this.runtime.addLabel(targetModel, 0, 0, 0, { k: pinName, t: rootPinType, v: patch });
         routed = true;
       }
 

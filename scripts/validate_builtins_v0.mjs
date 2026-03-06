@@ -84,34 +84,48 @@ function runValidation() {
     results.push({ key: 'v1n_id', status: 'PASS' });
   }
 
-  // CELL_CONNECT
+  // pin.connect.label
   {
     const rt = new ModelTableRuntime();
-    const root = rt.getModel(0);
-    rt.addLabel(root, 0, 0, 0, { k: 'CELL_CONNECT', t: 'connect', v: {} });
-    const intercepts = rt.intercepts.list();
-    assert(intercepts.length === 1 && intercepts[0].payload.scope === 'cell', 'CELL_CONNECT: intercept');
-    results.push({ key: 'CELL_CONNECT', status: 'PASS' });
+    const model = rt.createModel({ id: 100, name: 'ConnectLabel', type: 'ui' });
+    rt.addLabel(model, 1, 0, 0, {
+      k: 'wiring',
+      t: 'pin.connect.label',
+      v: [{ from: '(self, cmd)', to: ['(func, demo:in)'] }],
+    });
+    const cellKey = '100|1|0|0';
+    assert(rt.cellConnectGraph.has(cellKey), 'pin.connect.label: graph should be registered');
+    const graph = rt.cellConnectGraph.get(cellKey);
+    assert(graph.has('self:cmd'), 'pin.connect.label: self:cmd route missing');
+    results.push({ key: 'pin.connect.label', status: 'PASS' });
   }
 
-  // MODEL_CONNECT
+  // pin.connect.cell
   {
     const rt = new ModelTableRuntime();
-    const root = rt.getModel(0);
-    rt.addLabel(root, 0, 0, 0, { k: 'MODEL_CONNECT', t: 'connect', v: {} });
-    const intercepts = rt.intercepts.list();
-    assert(intercepts.length === 1 && intercepts[0].payload.scope === 'model', 'MODEL_CONNECT: intercept');
-    results.push({ key: 'MODEL_CONNECT', status: 'PASS' });
+    const model = rt.createModel({ id: 101, name: 'ConnectCell', type: 'ui' });
+    rt.addLabel(model, 0, 0, 0, {
+      k: 'routing',
+      t: 'pin.connect.cell',
+      v: [{ from: [0, 0, 0, 'event'], to: [[1, 0, 0, 'event']] }],
+    });
+    const routeKey = '101|0|0|0|event';
+    assert(rt.cellConnectionRoutes.has(routeKey), 'pin.connect.cell: route should be registered');
+    results.push({ key: 'pin.connect.cell', status: 'PASS' });
   }
 
-  // V1N_CONNECT
+  // pin.connect.model
   {
     const rt = new ModelTableRuntime();
     const root = rt.getModel(0);
-    rt.addLabel(root, 0, 0, 0, { k: 'V1N_CONNECT', t: 'connect', v: {} });
-    const intercepts = rt.intercepts.list();
-    assert(intercepts.length === 1 && intercepts[0].payload.scope === 'v1n', 'V1N_CONNECT: intercept');
-    results.push({ key: 'V1N_CONNECT', status: 'PASS' });
+    rt.addLabel(root, 0, 0, 0, {
+      k: 'bus_to_model',
+      t: 'pin.connect.model',
+      v: [{ from: [0, 'event'], to: [[200, 'input']] }],
+    });
+    const routeKey = '0|event';
+    assert(rt.modelConnectionRoutes.has(routeKey), 'pin.connect.model: route should be registered');
+    results.push({ key: 'pin.connect.model', status: 'PASS' });
   }
 
   // run_<func> registered

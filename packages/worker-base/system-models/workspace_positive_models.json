@@ -282,8 +282,8 @@
       "r": 1,
       "c": 1,
       "k": "patch",
-      "t": "PIN_IN",
-      "v": "patch"
+      "t": "pin.in",
+      "v": null
     },
     {
       "op": "add_label",

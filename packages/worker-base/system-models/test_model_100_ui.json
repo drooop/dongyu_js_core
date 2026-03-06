@@ -1,7 +1,7 @@
 {
   "version": "mt.v0",
   "op_id": "test_model_100_ui_v0",
-  "description": "Model 100 UI 部分 - 本地侧使用，只有 UI 模型 + PIN_IN（接收返回）+ 事件转发 + submit guard",
+  "description": "Model 100 UI 部分 - 本地侧使用，只有 UI 模型 + patch inbox + 事件转发 + submit guard",
   "records": [
     {
       "op": "create_model",
@@ -130,8 +130,8 @@
       "r": 1,
       "c": 1,
       "k": "patch",
-      "t": "PIN_IN",
-      "v": "patch"
+      "t": "pin.in",
+      "v": null
     },
     {
       "op": "add_label",
@@ -142,7 +142,7 @@
       "k": "on_model100_patch_in",
       "t": "func.js",
       "v": {
-        "code": "const cell = ctx.runtime.getCell(ctx.runtime.getModel(100), 0, 1, 1);\nconst inLabel = cell.labels.get('patch');\nif (!inLabel || inLabel.t !== 'IN') return;\nconst patch = inLabel.v;\nconsole.log('[on_model100_patch_in] Received patch:', JSON.stringify(patch));\nif (patch && patch.version === 'mt.v0' && Array.isArray(patch.records)) {\n  ctx.runtime.applyPatch(patch, { allowCreateModel: false });\n  console.log('[on_model100_patch_in] Patch applied successfully');\n}\nctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: false });\nctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'submit_inflight_started_at', t: 'int', v: 0 });\nctx.runtime.rmLabel(ctx.runtime.getModel(100), 0, 1, 1, 'patch');\nctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_on_model100_patch_in' });",
+        "code": "const cell = ctx.runtime.getCell(ctx.runtime.getModel(100), 0, 1, 1);\nconst inLabel = cell.labels.get('patch');\nif (!inLabel || inLabel.t !== 'pin.in') return;\nconst patch = inLabel.v;\nconsole.log('[on_model100_patch_in] Received patch:', JSON.stringify(patch));\nif (patch && patch.version === 'mt.v0' && Array.isArray(patch.records)) {\n  ctx.runtime.applyPatch(patch, { allowCreateModel: false });\n  console.log('[on_model100_patch_in] Patch applied successfully');\n}\nctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: false });\nctx.runtime.addLabel(ctx.runtime.getModel(100), 0, 0, 0, { k: 'submit_inflight_started_at', t: 'int', v: 0 });\nctx.runtime.rmLabel(ctx.runtime.getModel(100), 0, 1, 1, 'patch');\nctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_on_model100_patch_in' });",
         "modelName": "test_model_100_ui"
       }
     },

@@ -35,8 +35,8 @@ function main() {
 
   // Declare pins in uiput_mm_v1 mode (system patch sets mqtt_topic_mode/topic_base).
   const m = rt.getModel(remoteModelId);
-  rt.addLabel(m, 0, 0, 1, { k: 'patch_in', t: 'PIN_IN', v: 'patch_in' });
-  rt.addLabel(m, 0, 0, 1, { k: 'patch_out', t: 'PIN_OUT', v: 'patch_out' });
+  rt.addLabel(m, 0, 1, 1, { k: 'patch_in', t: 'pin.in', v: null });
+  rt.addLabel(m, 0, 1, 1, { k: 'patch_out', t: 'pin.out', v: null });
 
   // Remote worker function: consume IN(patch_in), apply patch, emit OUT(patch_out).
   const sys = rt.getModel(-10);
