@@ -23,6 +23,10 @@ HARD_RULES
 - UI is projection of ModelTable. never truth source.
 - UI events write mailbox only (model_id=-1, cell 0,0,1).
 - init and runtime use identical interpretation rules.
+- hidden platform/policy/helper capabilities default to negative model_id system models.
+- do not place non-user-facing helper workers into positive models just to avoid tier1 work.
+- every implementation and verification MUST explicitly check:
+    tier placement, model placement, data ownership, data flow, and data chain.
 - conclusions based on repo facts: code, scripts, git history, docs.
 - commands must be reproducible with explicit cwd.
 - verification = deterministic PASS/FAIL. "looks ok" is not verification.
@@ -268,9 +272,24 @@ tier 2: model definitions (填表能力)
   - intent dispatch (via function labels)
   files: packages/worker-base/system-models/*.json, deploy/sys-v1ns/**/*.json
 
+placement rule:
+  - tier 2 capabilities may live in positive or negative models.
+  - if a capability is not meant to be directly user-visible or user-owned,
+    it MUST default to negative model_id system models.
+  - positive models are the default surface for user business models, not for hidden platform helpers.
+
 rule: if a capability can be expressed as a model definition, it MUST be.
       runtime code changes are only for adding new label.t interpretation or
       fixing interpreter bugs. never for business logic.
+
+conformance review:
+  - every feature/test review MUST consult docs/ssot/tier_boundary_and_conformance_testing.md
+    and record whether the feature respects:
+      1. tier 1 vs tier 2 boundary
+      2. negative vs positive model placement
+      3. data ownership
+      4. data flow direction
+      5. allowed data chain / routing path
 
 examples:
   - Data.Array behavior → tier 2 (func.js template on data model)
