@@ -1298,6 +1298,21 @@ const INTERNAL_LABEL_TYPES = new Set([
   'MQTT_WILDCARD_SUB',
 ]);
 const EXCLUDED_LABEL_KEYS = new Set(['snapshot_json', 'event_log']);
+const CLIENT_SECRET_LABEL_KEYS = new Set([
+  'matrix_token',
+  'matrix_passwd',
+]);
+const CLIENT_SECRET_LABEL_TYPES = new Set([
+  'matrix.token',
+  'matrix.passwd',
+]);
+
+function isClientSecretLabel(labelKey, labelValue) {
+  if (CLIENT_SECRET_LABEL_KEYS.has(labelKey)) return true;
+  if (labelValue && CLIENT_SECRET_LABEL_TYPES.has(labelValue.t)) return true;
+  if (typeof labelKey === 'string' && /(?:^|_)(token|passwd|password|secret)$/.test(labelKey)) return true;
+  return false;
+}
 
 function buildClientSnapshot(runtime) {
   const snap = runtime.snapshot();
@@ -1330,6 +1345,7 @@ function buildClientSnapshot(runtime) {
         const filteredLabels = {};
         for (const [lk, lv] of Object.entries(cell.labels || {})) {
           if (excludeTypes.has(lv.t)) continue;
+          if (isClientSecretLabel(lk, lv)) continue;
           filteredLabels[lk] = lv;
         }
         filteredCells[ck] = { ...cell, labels: filteredLabels };
@@ -1344,6 +1360,7 @@ function buildClientSnapshot(runtime) {
         const filteredLabels = {};
         for (const [lk, lv] of Object.entries(cell.labels || {})) {
           if (excludeKeys.has(lk)) continue;
+          if (isClientSecretLabel(lk, lv)) continue;
           filteredLabels[lk] = lv;
         }
         filteredCells[ck] = { ...cell, labels: filteredLabels };
@@ -1351,7 +1368,16 @@ function buildClientSnapshot(runtime) {
       models[id] = { ...model, cells: filteredCells };
       continue;
     }
-    models[id] = model;
+    const filteredCells = {};
+    for (const [ck, cell] of Object.entries(model.cells || {})) {
+      const filteredLabels = {};
+      for (const [lk, lv] of Object.entries(cell.labels || {})) {
+        if (isClientSecretLabel(lk, lv)) continue;
+        filteredLabels[lk] = lv;
+      }
+      filteredCells[ck] = { ...cell, labels: filteredLabels };
+    }
+    models[id] = { ...model, cells: filteredCells };
   }
   return { models, v1nConfig: snap.v1nConfig };
 }
@@ -1520,47 +1546,67 @@ class ProgramModelEngine {
     this.onSnapshotChanged = null;
   }
 
-  async init() {
-    this.refreshFunctionRegistry();
+  refreshMatrixBootstrapConfig() {
     const matrixConfig = readMatrixBootstrapConfig(this.runtime);
     this.matrixRoomId = firstValidValue(matrixConfig.roomId);
     this.matrixDmPeerUserId = firstValidValue(matrixConfig.peerUserId);
-    if (this.matrixRoomId) {
-      if (isPlaceholderValue(this.matrixDmPeerUserId)) {
-        console.warn('[ProgramModelEngine] matrix_contuser is placeholder, Matrix messages may be skipped.');
-      }
-      try {
-        const syncTimeoutMs = readIntEnv('DY_MATRIX_SYNC_TIMEOUT_MS', 20000, 1000);
-        this.matrixAdapter = await createMatrixLiveAdapter({
-          roomId: this.matrixRoomId,
-          peerUserId: this.matrixDmPeerUserId || undefined,
-          syncTimeoutMs,
-          homeserverUrl: matrixConfig.homeserverUrl || undefined,
-          accessToken: matrixConfig.accessToken || undefined,
-          userId: matrixConfig.userId || undefined,
-          password: matrixConfig.password || undefined,
-        });
-        if (this.matrixAdapterUnsub) {
-          this.matrixAdapterUnsub();
-          this.matrixAdapterUnsub = null;
-        }
-        this.matrixAdapterUnsub = this.matrixAdapter.subscribe((content) => {
-          try {
-            this.handleDyBusEvent(content);
-          } catch (err) {
-            console.warn('[ProgramModelEngine] handleDyBusEvent failed:', err && err.message ? err.message : err);
-          }
-        });
-        console.log('[ProgramModelEngine] Matrix adapter connected, room:', this.matrixRoomId);
-      } catch (err) {
-        console.warn('[ProgramModelEngine] Matrix init failed (non-fatal):', err.message || err);
-        console.warn('[ProgramModelEngine] Program engine will run without Matrix. UI events won\'t reach MBR/MQTT.');
-        this.matrixAdapter = null;
-      }
-    } else {
+    return matrixConfig;
+  }
+
+  async ensureMatrixAdapter() {
+    if (typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive()) {
+      return;
+    }
+    if (this.matrixAdapter) return;
+    const matrixConfig = this.refreshMatrixBootstrapConfig();
+    if (!this.matrixRoomId) {
       console.log('[ProgramModelEngine] No matrix_room_id configured on Model 0, running without Matrix.');
+      return;
+    }
+    if (isPlaceholderValue(this.matrixDmPeerUserId)) {
+      console.warn('[ProgramModelEngine] matrix_contuser is placeholder, Matrix messages may be skipped.');
+    }
+    try {
+      const syncTimeoutMs = readIntEnv('DY_MATRIX_SYNC_TIMEOUT_MS', 20000, 1000);
+      this.matrixAdapter = await createMatrixLiveAdapter({
+        roomId: this.matrixRoomId,
+        peerUserId: this.matrixDmPeerUserId || undefined,
+        syncTimeoutMs,
+        homeserverUrl: matrixConfig.homeserverUrl || undefined,
+        accessToken: matrixConfig.accessToken || undefined,
+        userId: matrixConfig.userId || undefined,
+        password: matrixConfig.password || undefined,
+      });
+      if (this.matrixAdapterUnsub) {
+        this.matrixAdapterUnsub();
+        this.matrixAdapterUnsub = null;
+      }
+      this.matrixAdapterUnsub = this.matrixAdapter.subscribe((content) => {
+        try {
+          this.handleDyBusEvent(content);
+        } catch (err) {
+          console.warn('[ProgramModelEngine] handleDyBusEvent failed:', err && err.message ? err.message : err);
+        }
+      });
+      console.log('[ProgramModelEngine] Matrix adapter connected, room:', this.matrixRoomId);
+    } catch (err) {
+      console.warn('[ProgramModelEngine] Matrix init failed (non-fatal):', err.message || err);
+      console.warn('[ProgramModelEngine] Program engine will run without Matrix. UI events won\'t reach MBR/MQTT.');
+      this.matrixAdapter = null;
+    }
+  }
+
+  async init() {
+    this.refreshFunctionRegistry();
+    this.refreshMatrixBootstrapConfig();
+    if (typeof this.runtime.isRunLoopActive === 'function' && this.runtime.isRunLoopActive()) {
+      await this.ensureMatrixAdapter();
     }
     this.started = true;
+  }
+
+  async activateRunning() {
+    await this.ensureMatrixAdapter();
   }
 
   refreshFunctionRegistry() {
@@ -1601,7 +1647,8 @@ class ProgramModelEngine {
       summary: `type=${payload && payload.type ? payload.type : '?'}`,
       payload,
     });
-    if (!this.matrixAdapter || !this.matrixRoomId) {
+    if ((typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive())
+      || !this.matrixAdapter || !this.matrixRoomId) {
       console.log('[sendMatrix] WARN: matrix_not_ready, skipping send');
       return null;
     }
@@ -2495,6 +2542,9 @@ class ProgramModelEngine {
 
   tick() {
     if (!this.started) return Promise.resolve();
+    if (typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive()) {
+      return Promise.resolve();
+    }
 
     // If a tick is already running, remember that another tick was requested
     // and return the in-flight promise so awaiters don't return early.
@@ -2552,7 +2602,7 @@ function loadSystemModelPatches(runtime, dirPath) {
         )),
       };
       if (negativeOnlyPatch.records.length === 0) continue;
-      runtime.applyPatch(negativeOnlyPatch, { allowCreateModel: true });
+      runtime.applyPatch(negativeOnlyPatch, { allowCreateModel: true, trustedBootstrap: true });
     }
   }
 }
@@ -2567,7 +2617,7 @@ function loadFullModelPatches(runtime, dirPath, fileNames) {
     const patches = Array.isArray(parsed) ? parsed : [parsed];
     for (const patch of patches) {
       if (!patch || !Array.isArray(patch.records)) continue;
-      runtime.applyPatch(patch, { allowCreateModel: true });
+      runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
     }
   }
 }
@@ -2596,6 +2646,25 @@ function countPositiveModels(runtime) {
     if (Number.isInteger(id) && id > 0) count += 1;
   }
   return count;
+}
+
+const DIRECT_MODEL_MUTATION_ACTIONS = new Set([
+  'label_add',
+  'label_update',
+  'label_remove',
+  'cell_clear',
+  'submodel_create',
+  'datatable_remove_label',
+]);
+
+function isDirectModelMutationAction(action) {
+  return typeof action === 'string' && DIRECT_MODEL_MUTATION_ACTIONS.has(action);
+}
+
+function isUiLocalMutableModelId(modelId) {
+  return modelId === EDITOR_STATE_MODEL_ID
+    || modelId === LOGIN_MODEL_ID
+    || modelId === GALLERY_STATE_MODEL_ID;
 }
 
 function createServerState(options) {
@@ -2683,8 +2752,9 @@ function createServerState(options) {
 
   const envPatch = readModelTablePatchFromEnv();
   if (envPatch) {
-    runtime.applyPatch(envPatch, { allowCreateModel: true });
+    runtime.applyPatch(envPatch, { allowCreateModel: true, trustedBootstrap: true });
   }
+  runtime.setRuntimeMode('edit');
 
   ensureStateLabel(runtime, 'selected_model_id', 'str', '0');
   ensureStateLabel(runtime, 'draft_p', 'str', '0');
@@ -3283,6 +3353,7 @@ function createServerState(options) {
       ensureGallery(0, 8, 1, { k: 'wave_b_pagination_pageSize', t: 'int', v: 10 });
 
       ensureGallery(0, 9, 0, { k: 'wave_c_shared_text', t: 'str', v: 'shared fragment text' });
+      ensureGallery(0, 9, 3, { k: 'wave_c_dynamic_text', t: 'str', v: 'hello from deferred fragment' });
       ensureGallery(0, 9, 1, {
         k: 'wave_c_fragment_static',
         t: 'json',
@@ -3339,6 +3410,7 @@ function createServerState(options) {
   clearAndValidateWorkspaceSelection();
   refreshWorkspaceStateCatalog();
   refreshStartupCatalogState();
+  runtime.setRuntimeMode('edit');
 
   const clearAndRefreshAfterRuntimeBoot = async () => {
     try {
@@ -3379,7 +3451,9 @@ function createServerState(options) {
     .catch(() => {});
 
   function updateDerived() {
-    const uiAst = buildEditorAstV1(runtime.snapshot());
+    // Client-visible AST must be derived from the same filtered snapshot surface
+    // that /snapshot and SSE expose, otherwise raw labels can leak via ui_ast_v0.
+    const uiAst = buildEditorAstV1(buildClientSnapshot(runtime));
     // snapshot_json and event_log are excluded from client snapshot (too large).
     // Skip expensive computation — saves ~2 full snapshot traversals per event.
     adapter.updateUiDerived({
@@ -3408,6 +3482,8 @@ function createServerState(options) {
     const envelope = envelopeOrNull;
     const payload = envelope && envelope.payload ? envelope.payload : null;
     const action = payload && typeof payload.action === 'string' ? payload.action : '';
+    const meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : null;
+    const opId = meta && typeof meta.op_id === 'string' ? meta.op_id : '';
 
     if (envelopeOrNull) {
       await programEngineReady;
@@ -3425,6 +3501,72 @@ function createServerState(options) {
     }
 
     setMailboxEnvelope(runtime, envelopeOrNull);
+
+    const finishOk = async () => {
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+      updateDerived();
+      await programEngine.tick();
+      return { consumed: true, result: 'ok' };
+    };
+
+    const finishError = async (code, detail) => {
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, {
+        k: 'ui_event_error',
+        t: 'json',
+        v: { op_id: opId, code, detail },
+      });
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+      updateDerived();
+      return { consumed: true, result: 'error', code, detail };
+    };
+
+    const businessTargetModelId = meta && Number.isInteger(meta.model_id) ? meta.model_id : null;
+    const directMutationTarget = payload && payload.target && typeof payload.target === 'object' && Number.isInteger(payload.target.model_id)
+      ? payload.target.model_id
+      : null;
+    const allowUiLocalMutation = isUiLocalMutableModelId(directMutationTarget);
+    if (envelopeOrNull && isDirectModelMutationAction(action) && !(action !== 'submodel_create' && allowUiLocalMutation)) {
+      return finishError('direct_model_mutation_disabled', action);
+    }
+    if (envelopeOrNull && allowUiLocalMutation && directMutationTarget !== null && directMutationTarget !== EDITOR_STATE_MODEL_ID) {
+      const uiLocalAdapter = createLocalBusAdapter({
+        runtime,
+        eventLog: editorEventLog,
+        mode: 'v1',
+        mailboxModelId: EDITOR_MODEL_ID,
+        editorStateModelId: directMutationTarget,
+      });
+      const result = uiLocalAdapter.consumeOnce();
+      updateDerived();
+      await programEngine.tick();
+      return result;
+    }
+    if (envelopeOrNull && businessTargetModelId && businessTargetModelId > 0) {
+      if (!runtime.isRunLoopActive()) {
+        return finishError('runtime_not_running', `model_id=${businessTargetModelId}`);
+      }
+      const targetModel = runtime.getModel(businessTargetModelId);
+      if (!targetModel) {
+        return finishError('invalid_target', 'missing_model');
+      }
+      const rootCell = runtime.getCell(targetModel, 0, 0, 0);
+      if (!rootCell.labels.has('dual_bus_model')) {
+        return finishError('invalid_target', 'model_not_dual_bus');
+      }
+      const eventValue = payload && payload.value && payload.value.t === 'event'
+        ? payload.value.v
+        : (payload && payload.value && payload.value.t === 'json' ? payload.value.v : null);
+      const normalizedEvent = eventValue && typeof eventValue === 'object'
+        ? { ...eventValue }
+        : {};
+      if (!normalizedEvent.action) normalizedEvent.action = action;
+      if (!normalizedEvent.meta) normalizedEvent.meta = meta || {};
+      runtime.addLabel(targetModel, 0, 0, 2, { k: 'ui_event', t: 'event', v: normalizedEvent });
+      return finishOk();
+    }
     
     // Trigger mapped forward function(s) BEFORE any action processing clears the mailbox
     // This gives the function a chance to forward the event to Matrix
@@ -3450,10 +3592,6 @@ function createServerState(options) {
 
       let resolvedAction = action;
       let resolvedFunc = dispatchFuncByAction.get(action) || '';
-      const opId = payload && payload.meta && typeof payload.meta.op_id === 'string'
-        ? payload.meta.op_id
-        : '';
-
       const llmDispatch = {
         used: false,
         model: null,
@@ -3881,6 +4019,7 @@ function createServerState(options) {
   async function applyModelTablePatch(patchOrPatches, options = {}) {
     const patches = Array.isArray(patchOrPatches) ? patchOrPatches : [patchOrPatches];
     const allowCreateModel = options.allowCreateModel !== false;
+    const trustedBootstrap = options.trustedBootstrap === true;
     let applied = 0;
     let rejected = 0;
     for (const patch of patches) {
@@ -3888,7 +4027,7 @@ function createServerState(options) {
         rejected += 1;
         continue;
       }
-      const result = runtime.applyPatch(patch, { allowCreateModel });
+      const result = runtime.applyPatch(patch, { allowCreateModel, trustedBootstrap });
       applied += Number(result && Number.isFinite(result.applied) ? result.applied : 0);
       rejected += Number(result && Number.isFinite(result.rejected) ? result.rejected : 0);
     }
@@ -3897,12 +4036,25 @@ function createServerState(options) {
     return { applied, rejected };
   }
 
+  async function activateRuntimeMode(mode) {
+    runtime.setRuntimeMode(mode);
+    if (mode === 'running') {
+      await programEngineReady;
+      await programEngine.activateRunning();
+      await programEngine.tick();
+    }
+    updateDerived();
+    return { mode: runtime.getRuntimeMode() };
+  }
+
   return {
     runtime,
     snapshot,
     clientSnap,
     submitEnvelope,
     applyModelTablePatch,
+    activateRuntimeMode,
+    getRuntimeMode: () => runtime.getRuntimeMode(),
     getLastOpId: () => getLastOpId(runtime),
     getEventError: () => getEventError(runtime),
     programEngine,
@@ -4321,24 +4473,30 @@ function startServer(options) {
       return;
     }
 
-    if (req.method === 'POST' && url.pathname === '/api/modeltable/patch') {
+    if (req.method === 'POST' && url.pathname === '/api/runtime/mode') {
       try {
         const body = await readJsonBody(req);
-        const patch = body && body.patch ? body.patch : body;
-        const allowCreateModel = !(body && body.allowCreateModel === false);
-        const applyResult = await state.applyModelTablePatch(patch, { allowCreateModel });
+        const nextMode = body && typeof body.mode === 'string' ? body.mode : '';
+        if (nextMode !== 'running') {
+          writeJson(res, 400, { ok: false, error: 'invalid_mode_transition' }, cors);
+          return;
+        }
+        const result = await state.activateRuntimeMode(nextMode);
         broadcastSnapshot();
-        writeJson(res, 200, {
-          ok: true,
-          apply_result: applyResult,
-        }, cors);
+        writeJson(res, 200, { ok: true, mode: result.mode }, cors);
       } catch (err) {
-        writeJson(res, 400, {
-          ok: false,
-          error: 'bad_patch',
-          detail: String(err && err.message ? err.message : err),
-        }, cors);
+        const code = err && err.message === 'invalid_mode_transition' ? 409 : 400;
+        const error = err && err.message === 'invalid_mode_transition' ? 'invalid_mode_transition' : 'bad_request';
+        writeJson(res, code, { ok: false, error, detail: String(err && err.message ? err.message : err) }, cors);
       }
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/modeltable/patch') {
+      writeJson(res, 400, {
+        ok: false,
+        error: 'direct_patch_api_disabled',
+      }, cors);
       return;
     }
 

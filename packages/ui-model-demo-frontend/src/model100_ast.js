@@ -129,10 +129,10 @@ export function buildModel100Ast() {
                           style: { flex: 1 },
                         },
                         bind: {
-                          read: { model_id: MODEL_100_ID, p: 0, r: 0, c: 0, k: 'input_value' },
+                          read: { model_id: -2, p: 0, r: 0, c: 0, k: 'model100_input_draft' },
                           write: {
                             action: 'label_update',
-                            target_ref: { model_id: MODEL_100_ID, p: 0, r: 0, c: 0, k: 'input_value' },
+                            target_ref: { model_id: -2, p: 0, r: 0, c: 0, k: 'model100_input_draft' },
                           },
                         },
                       },
@@ -142,11 +142,16 @@ export function buildModel100Ast() {
                         props: { label: 'Generate Color', type: 'primary', size: 'large' },
                         bind: {
                           write: {
-                            action: 'label_add',
-                            target_ref: { model_id: MODEL_100_ID, p: 0, r: 0, c: 2, k: 'ui_event' },
+                            action: 'submit',
+                            meta: { model_id: MODEL_100_ID },
                             value_ref: {
-                              t: 'json',
-                              v: { action: 'submit', input_value: '', meta: {} },
+                              t: 'event',
+                              v: {
+                                action: 'submit',
+                                input_value: {
+                                  $label: { model_id: -2, p: 0, r: 0, c: 0, k: 'model100_input_draft' },
+                                },
+                              },
                             },
                           },
                         },

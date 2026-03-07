@@ -346,11 +346,13 @@ class ModelTableRuntime {
     // 0158: pin.connect.model routing table
     // key: "${fromModelId}|${fromPin}" -> value: [{ model_id, k }]
     this.modelConnectionRoutes = new Map();
-    this.runLoopActive = true;
+    this.runtimeMode = 'boot';
+    this.runLoopActive = false;
     this.persistence = null;
 
     const root = new Model({ id: 0, name: 'MT', type: 'main' });
     this.models.set(root.id, root);
+    this.addLabel(root, 0, 0, 0, { k: 'runtime_mode', t: 'str', v: this.runtimeMode });
   }
 
   _resolveLabelType(labelType) {
@@ -380,6 +382,46 @@ class ModelTableRuntime {
 
   getModel(id) {
     return this.models.get(id);
+  }
+
+  getRuntimeMode() {
+    return this.runtimeMode;
+  }
+
+  isRuntimeRunning() {
+    return this.runtimeMode === 'running';
+  }
+
+  setRuntimeMode(nextMode) {
+    const mode = typeof nextMode === 'string' ? nextMode.trim() : '';
+    const current = this.runtimeMode;
+    if (!mode || !new Set(['boot', 'edit', 'running']).has(mode)) {
+      throw new Error('invalid_runtime_mode');
+    }
+    const allowed = (
+      (current === 'boot' && (mode === 'boot' || mode === 'edit'))
+      || (current === 'edit' && (mode === 'edit' || mode === 'running'))
+      || (current === 'running' && mode === 'running')
+    );
+    if (!allowed) {
+      throw new Error('invalid_mode_transition');
+    }
+    this.runtimeMode = mode;
+    this.setRunLoopActive(mode === 'running');
+    const model0 = this.getModel(0);
+    if (model0) {
+      const cell = this.getCell(model0, 0, 0, 0);
+      cell.labels.set('runtime_mode', { k: 'runtime_mode', t: 'str', v: mode });
+      if (this.persistence && typeof this.persistence.onLabelAdded === 'function') {
+        this.persistence.onLabelAdded({
+          model: model0,
+          p: 0,
+          r: 0,
+          c: 0,
+          label: { k: 'runtime_mode', t: 'str', v: mode },
+        });
+      }
+    }
   }
 
   setRunLoopActive(active) {
@@ -463,12 +505,33 @@ class ModelTableRuntime {
     return null;
   }
 
+  _validatePlacement(model, p, r, c, label) {
+    return null;
+  }
+
+  _isPinLikeResolvedType(typeName) {
+    return typeof typeName === 'string' && (
+      typeName.startsWith('pin.')
+      || typeName.startsWith('pin.log.')
+    );
+  }
+
+  _findSubmodelLabel(cell, excludeKey = null) {
+    if (!cell || !cell.labels) return null;
+    for (const [key, label] of cell.labels.entries()) {
+      if (!label || typeof label !== 'object') continue;
+      if (excludeKey && key === excludeKey) continue;
+      if (this._resolveLabelType(label.t) === 'submt') return label;
+    }
+    return null;
+  }
+
   applyPatch(patch, options = {}) {
     const records = patch && Array.isArray(patch.records) ? patch.records : null;
     if (!records) {
       return { applied: 0, rejected: 0, reason: 'invalid_patch' };
     }
-    const allowCreateModel = Boolean(options.allowCreateModel);
+    const allowCreateModel = Boolean(options.allowCreateModel) && Boolean(options.trustedBootstrap);
 
     const RESERVED_CLEAR_LABELS = new Set(['ui_event', 'ui_event_error', 'ui_event_last_op_id']);
     const CLEAR_ALLOW_T = new Set(['str', 'int', 'bool', 'json']);
@@ -726,9 +789,36 @@ class ModelTableRuntime {
       this._recordError(model, p, r, c, label, validationError);
       return { applied: false };
     }
+    const placementError = this._validatePlacement(model, p, r, c, label);
+    if (placementError) {
+      this._recordError(model, p, r, c, label, placementError);
+      return { applied: false };
+    }
 
     const cell = this.getCell(model, p, r, c);
     const prevLabel = cell.labels.get(label.k) || null;
+    const resolvedType = this._resolveLabelType(label.t);
+    const existingSubmodel = this._findSubmodelLabel(cell, label.k);
+
+    if (resolvedType === 'submt') {
+      if (existingSubmodel) {
+        this._recordError(model, p, r, c, label, 'submodel_host_cell_already_bound');
+        return { applied: false };
+      }
+      const purgeKeys = [];
+      for (const [key, existingLabel] of cell.labels.entries()) {
+        if (key === label.k) continue;
+        const existingResolvedType = this._resolveLabelType(existingLabel.t);
+        if (this._isPinLikeResolvedType(existingResolvedType)) continue;
+        purgeKeys.push(key);
+      }
+      for (const key of purgeKeys) {
+        this.rmLabel(model, p, r, c, key);
+      }
+    } else if (this._findSubmodelLabel(cell) && !this._isPinLikeResolvedType(resolvedType)) {
+      this._recordError(model, p, r, c, label, 'submodel_host_cell_forbidden_label');
+      return { applied: false };
+    }
 
     if (label.k === 'v1n_id' && model.id === 0 && p === 0 && r === 0 && c === 0 && prevLabel) {
       this.eventLog.record({
@@ -837,6 +927,7 @@ class ModelTableRuntime {
   }
 
   mqttIncoming(topic, payload) {
+    if (!this.isRuntimeRunning()) return false;
     const config = this._getConfigFromPage0();
     const mode = this._topicMode(config);
     const payloadMode = this._payloadMode(config);
@@ -1255,6 +1346,7 @@ class ModelTableRuntime {
   }
 
   async _executeFuncViaCellConnect(modelId, p, r, c, funcName, inputValue, visited) {
+    if (!this.isRuntimeRunning()) return;
     const model = this.getModel(modelId);
     if (!model) return;
     const cell = this.getCell(model, p, r, c);
@@ -1323,6 +1415,7 @@ class ModelTableRuntime {
         runtime.rmLabel(m, ref.p || 0, ref.r || 0, ref.c || 0, ref.k);
       },
       publishMqtt(topic, payload) {
+        if (!runtime.isRuntimeRunning()) return;
         if (!runtime.mqttClient) return;
         runtime.mqttClient.publish(topic, payload);
       },
@@ -1365,6 +1458,7 @@ class ModelTableRuntime {
     const resolvedType = this._resolveLabelType(label.t);
     // 0143: MQTT_WILDCARD_SUB subscription management
     if (resolvedType === 'MQTT_WILDCARD_SUB') {
+      if (!this.isRuntimeRunning()) return;
       const prevResolved = prevLabel ? this._resolveLabelType(prevLabel.t) : null;
       if (prevLabel && prevResolved === 'MQTT_WILDCARD_SUB' && typeof prevLabel.v === 'string' && prevLabel.v && this.mqttClient) {
         this.mqttClient.unsubscribe(prevLabel.v);
@@ -1419,7 +1513,7 @@ class ModelTableRuntime {
         return;
       }
       this.busOutPorts.set(label.k, true);
-      if (label.v !== null && label.v !== undefined && this.mqttClient) {
+      if (label.v !== null && label.v !== undefined && this.mqttClient && this.isRuntimeRunning()) {
         const topic = this._topicFor(0, label.k, 'out');
         if (topic) this.mqttClient.publish(topic, label.v);
       }
@@ -1603,7 +1697,7 @@ class ModelTableRuntime {
     }
 
     if (key.startsWith('run_')) {
-      if (!this.runLoopActive) {
+      if (!this.runLoopActive || !this.isRuntimeRunning()) {
         return;
       }
       const funcName = key.slice('run_'.length);

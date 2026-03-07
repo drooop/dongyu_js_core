@@ -15,15 +15,17 @@ function loadPatches(rt, patchDir) {
   const files = fs.readdirSync(patchDir).filter(f => f.endsWith('.json')).sort();
   for (const file of files) {
     const patch = JSON.parse(fs.readFileSync(path.join(patchDir, file), 'utf8'));
-    rt.applyPatch(patch, { allowCreateModel: true });
+    rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
   }
 }
 
 function createConfiguredRuntime() {
   const rt = new ModelTableRuntime();
   const sysPatch = JSON.parse(fs.readFileSync('packages/worker-base/system-models/system_models.json', 'utf8'));
-  rt.applyPatch(sysPatch, { allowCreateModel: true });
+  rt.applyPatch(sysPatch, { allowCreateModel: true, trustedBootstrap: true });
   loadPatches(rt, 'deploy/sys-v1ns/remote-worker/patches');
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
   return rt;
 }
 

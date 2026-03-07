@@ -116,7 +116,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
               action: 'label_update',
               meta: { op_id: opId },
               target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
-              value: modelId,
+              value: { t: 'int', v: modelId },
             },
           },
         });

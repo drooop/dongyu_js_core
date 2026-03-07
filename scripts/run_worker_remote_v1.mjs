@@ -55,9 +55,11 @@ const patchFiles = fs.readdirSync(patchDirAbs)
 for (const file of patchFiles) {
   const filePath = path.join(patchDirAbs, file);
   const patch = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  const result = rt.applyPatch(patch, { allowCreateModel: true });
+  const result = rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
   process.stdout.write(`[remote-worker-v1] Loaded ${file}: applied=${result.applied}, rejected=${result.rejected}\n`);
 }
+rt.setRuntimeMode('edit');
+process.stdout.write(`[remote-worker-v1] runtime_mode=${rt.getRuntimeMode()}\n`);
 
 // --- 3. Start MQTT loop (runtime handles everything) ---
 const mqttResult = rt.startMqttLoop({
@@ -75,6 +77,8 @@ if (mqttResult.status !== 'running') {
   process.stderr.write(`[remote-worker-v1] MQTT failed to start: ${JSON.stringify(mqttResult)}\n`);
   process.exit(1);
 }
+rt.setRuntimeMode('running');
+process.stdout.write(`[remote-worker-v1] runtime_mode=${rt.getRuntimeMode()}\n`);
 
 // --- 4. Report subscriptions ---
 process.stdout.write(`[remote-worker-v1] BUS_IN ports: [${[...rt.busInPorts.keys()].join(', ')}]\n`);

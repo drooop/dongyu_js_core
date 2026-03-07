@@ -3,7 +3,7 @@ set -euo pipefail
 
 BASE_URL="http://127.0.0.1:9011"
 TIMEOUT_SEC=35
-READY_TIMEOUT_SEC=20
+READY_TIMEOUT_SEC=40
 POLL_INTERVAL_SEC=1
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
 Options:
   --base-url <url>          Server base URL (default: http://127.0.0.1:9011)
   --timeout-sec <n>         Poll timeout in seconds (default: 35)
-  --ready-timeout-sec <n>   Wait timeout for system_ready=true (default: 20)
+  --ready-timeout-sec <n>   Wait timeout for system_ready=true (default: 40)
   --poll-interval-sec <n>   Poll interval seconds (default: 1)
   -h, --help                Show help
 EOF
@@ -83,6 +83,9 @@ for _ in $(seq 1 30); do
 done
 curl -fsS "$BASE_URL/snapshot" >/dev/null
 
+ACTIVATE_RESP="$(curl -fsS -X POST "$BASE_URL/api/runtime/mode" -H 'content-type: application/json' -d '{"mode":"running"}')"
+echo "[verify] runtime_mode_response=$ACTIVATE_RESP"
+
 # Wait for MBR ready signal.
 READY_OK=0
 for i in $(seq 1 "$READY_TIMEOUT_SEC"); do
@@ -106,18 +109,16 @@ INITIAL_BG="$(echo "$INITIAL_STATE" | jq -r '.bg')"
 INITIAL_INFLIGHT="$(echo "$INITIAL_STATE" | jq -r '.inflight')"
 INITIAL_STATUS="$(echo "$INITIAL_STATE" | jq -r '.status')"
 
-# Recover from stale loading state when previous run crashed.
+# 0177 removed the direct patch reset bypass. A stale loading state now means
+# the runtime was not cleanly reset between runs and should be re-deployed.
 if [ "$INITIAL_INFLIGHT" = "true" ] || [ "$INITIAL_STATUS" = "loading" ]; then
-  RESET_PATCH='{"patch":{"version":"mt.v0","op_id":"verify_reset_inflight","records":[{"op":"add_label","model_id":100,"p":0,"r":0,"c":0,"k":"submit_inflight","t":"bool","v":false},{"op":"add_label","model_id":100,"p":0,"r":0,"c":0,"k":"submit_inflight_started_at","t":"int","v":0},{"op":"add_label","model_id":100,"p":0,"r":0,"c":0,"k":"status","t":"str","v":"ready"}]}}'
-  RESET_RESP="$(curl -fsS -X POST "$BASE_URL/api/modeltable/patch" -H 'content-type: application/json' -d "$RESET_PATCH")"
-  echo "[verify] reset_response=$RESET_RESP"
-  INITIAL_STATE="$(snapshot_state)"
-  INITIAL_BG="$(echo "$INITIAL_STATE" | jq -r '.bg')"
+  echo "[verify] FAIL: stale loading state requires a clean redeploy under 0177 (no direct patch reset bypass)" >&2
+  exit 2
 fi
 
 OP_ID="verify_model100_$(date +%s)"
 REQUEST="$(cat <<EOF
-{"payload":{"action":"label_add","source":"ui_renderer","meta":{"op_id":"$OP_ID"},"target":{"model_id":100,"p":0,"r":0,"c":2,"k":"ui_event"},"value":{"t":"json","v":{"action":"submit","input_value":"","meta":{"op_id":"$OP_ID"}}}}}
+{"payload":{"action":"submit","source":"ui_renderer","meta":{"op_id":"$OP_ID","model_id":100},"value":{"t":"event","v":{"action":"submit","input_value":"","meta":{"op_id":"$OP_ID","model_id":100}}}}}
 EOF
 )"
 
