@@ -466,6 +466,34 @@
       "p": 1,
       "r": 0,
       "c": 0,
+      "k": "input_value__bind",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "model100_input_draft"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "model100_input_draft"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
       "k": "submit",
       "t": "str",
       "v": "Button"
@@ -543,20 +571,23 @@
       "t": "json",
       "v": {
         "write": {
-          "action": "label_add",
-          "target_ref": {
-            "model_id": 100,
-            "p": 0,
-            "r": 0,
-            "c": 2,
-            "k": "ui_event"
+          "action": "submit",
+          "meta": {
+            "model_id": 100
           },
           "value_ref": {
-            "t": "json",
+            "t": "event",
             "v": {
               "action": "submit",
-              "input_value": "",
-              "meta": {}
+              "input_value": {
+                "$label": {
+                  "model_id": -2,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "model100_input_draft"
+                }
+              }
             }
           }
         }
