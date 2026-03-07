@@ -12,9 +12,9 @@ function loadJson(p) {
 function loadSystemAndMbr() {
   const rt = new ModelTableRuntime();
   const sysPatch = loadJson('packages/worker-base/system-models/system_models.json');
-  rt.applyPatch(sysPatch, { allowCreateModel: true });
+  rt.applyPatch(sysPatch, { allowCreateModel: true, trustedBootstrap: true });
   const mbrPatch = loadJson('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json');
-  rt.applyPatch(mbrPatch, { allowCreateModel: true });
+  rt.applyPatch(mbrPatch, { allowCreateModel: true, trustedBootstrap: true });
   return rt;
 }
 

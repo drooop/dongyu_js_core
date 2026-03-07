@@ -75,13 +75,13 @@ function main() {
   for (const f of patchFiles) {
     const fullPath = path.join(resolvedDir, f);
     const patch = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
-    const result = rt.applyPatch(patch, { allowCreateModel: true });
+    const result = rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
     log(`loaded patch: ${f} (applied=${result.applied} rejected=${result.rejected})`);
   }
 
   const bootstrapPatch = readBootstrapPatchFromEnv();
   if (bootstrapPatch) {
-    const result = rt.applyPatch(bootstrapPatch, { allowCreateModel: true });
+    const result = rt.applyPatch(bootstrapPatch, { allowCreateModel: true, trustedBootstrap: true });
     log(`loaded bootstrap patch from MODELTABLE_PATCH_JSON (applied=${result.applied} rejected=${result.rejected})`);
   }
 
@@ -91,6 +91,8 @@ function main() {
     process.exitCode = 1;
     return;
   }
+  rt.setRuntimeMode('edit');
+  log(`runtime_mode=${rt.getRuntimeMode()}`);
 
   // 4. Read connection parameters from Model 0 bootstrap labels.
   const matrixConfig = readMatrixBootstrapConfig(rt);
@@ -150,6 +152,22 @@ function main() {
   // 8. Create engine
   const engine = new WorkerEngineV0({ runtime: rt, mgmtAdapter: null, mqttPublish });
 
+  let mqttReady = false;
+  let matrixReady = !matrixRoomId;
+  let runtimeActivated = false;
+  const maybeActivateRunning = () => {
+    if (runtimeActivated || !mqttReady || !matrixReady) return;
+    rt.setRuntimeMode('running');
+    runtimeActivated = true;
+    log(`runtime_mode=${rt.getRuntimeMode()}`);
+    rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_ready', t: 'str', v: '1' });
+    engine.tick();
+    setInterval(() => {
+      rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_heartbeat', t: 'str', v: '1' });
+      engine.tick();
+    }, heartbeatMs);
+  };
+
   // 9. Matrix adapter (if room ID configured)
   let mgmtAdapter = null;
   if (matrixRoomId) {
@@ -178,16 +196,8 @@ function main() {
         });
 
         log(`mgmt READY room_id=${adapter.room_id}`);
-
-        // Fire mbr_ready via program model trigger
-        rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_ready', t: 'str', v: '1' });
-        engine.tick();
-
-        // Heartbeat timer via program model trigger
-        setInterval(() => {
-          rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_heartbeat', t: 'str', v: '1' });
-          engine.tick();
-        }, heartbeatMs);
+        matrixReady = true;
+        maybeActivateRunning();
       })
       .catch((err) => {
         logErr(`matrix adapter init failed: ${err && err.stack ? err.stack : err}`);
@@ -203,6 +213,8 @@ function main() {
       mqttClient.subscribe(topic);
     }
     log(`mqtt READY subscribed=${subscribeTopics.join(', ')}`);
+    mqttReady = true;
+    maybeActivateRunning();
     log('READY');
   });
 

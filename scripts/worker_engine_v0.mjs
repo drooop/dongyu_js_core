@@ -170,6 +170,12 @@ export class WorkerEngineV0 {
   }
 
   tick() {
+    if (typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive()) {
+      return;
+    }
+    if (typeof this.runtime.isRuntimeRunning === 'function' && !this.runtime.isRuntimeRunning()) {
+      return;
+    }
     // Drain work until stable (MGMT_OUT may be produced by a function).
     let rounds = 0;
     // eslint-disable-next-line no-constant-condition
@@ -197,5 +203,5 @@ export class WorkerEngineV0 {
 
 export function loadSystemPatch(runtime) {
   const patch = require('../packages/worker-base/system-models/system_models.json');
-  runtime.applyPatch(patch, { allowCreateModel: true });
+  runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
 }

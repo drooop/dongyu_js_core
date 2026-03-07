@@ -157,9 +157,9 @@ async function createMatrixLiveAdapter(options = {}) {
     throw new Error('missing_room_identifier');
   }
 
-  const homeserverUrl = firstValidValue(homeserverUrlOpt, process.env.MATRIX_HOMESERVER_URL);
+  const homeserverUrl = firstValidValue(homeserverUrlOpt);
   if (!homeserverUrl) {
-    throw new Error('missing_env:MATRIX_HOMESERVER_URL');
+    throw new Error('missing_matrix_homeserver');
   }
   const skipTls = homeserverUrl.startsWith('https:');
   const fetchFn = skipTls ? insecureFetch : undefined;
@@ -175,30 +175,6 @@ async function createMatrixLiveAdapter(options = {}) {
       source: 'options.password',
       user: firstValidValue(userIdOpt),
       password: firstValidValue(passwordOpt),
-    },
-    {
-      kind: 'token',
-      source: 'MATRIX_MBR_BOT_ACCESS_TOKEN',
-      accessToken: firstValidValue(process.env.MATRIX_MBR_BOT_ACCESS_TOKEN),
-      userId: firstValidValue(process.env.MATRIX_MBR_BOT_USER),
-    },
-    {
-      kind: 'token',
-      source: 'MATRIX_MBR_ACCESS_TOKEN',
-      accessToken: firstValidValue(process.env.MATRIX_MBR_ACCESS_TOKEN),
-      userId: firstValidValue(process.env.MATRIX_MBR_USER),
-    },
-    {
-      kind: 'password',
-      source: 'MATRIX_MBR_BOT_PASSWORD',
-      user: firstValidValue(process.env.MATRIX_MBR_BOT_USER),
-      password: firstValidValue(process.env.MATRIX_MBR_BOT_PASSWORD),
-    },
-    {
-      kind: 'password',
-      source: 'MATRIX_MBR_PASSWORD',
-      user: firstValidValue(process.env.MATRIX_MBR_USER),
-      password: firstValidValue(process.env.MATRIX_MBR_PASSWORD),
     },
   ].filter((candidate) => {
     if (candidate.kind === 'token') return Boolean(candidate.accessToken);
