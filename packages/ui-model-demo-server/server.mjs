@@ -3353,6 +3353,7 @@ function createServerState(options) {
       ensureGallery(0, 8, 1, { k: 'wave_b_pagination_pageSize', t: 'int', v: 10 });
 
       ensureGallery(0, 9, 0, { k: 'wave_c_shared_text', t: 'str', v: 'shared fragment text' });
+      ensureGallery(0, 9, 3, { k: 'wave_c_dynamic_text', t: 'str', v: 'hello from deferred fragment' });
       ensureGallery(0, 9, 1, {
         k: 'wave_c_fragment_static',
         t: 'json',
@@ -3529,6 +3530,19 @@ function createServerState(options) {
     const allowUiLocalMutation = isUiLocalMutableModelId(directMutationTarget);
     if (envelopeOrNull && isDirectModelMutationAction(action) && !(action !== 'submodel_create' && allowUiLocalMutation)) {
       return finishError('direct_model_mutation_disabled', action);
+    }
+    if (envelopeOrNull && allowUiLocalMutation && directMutationTarget !== null && directMutationTarget !== EDITOR_STATE_MODEL_ID) {
+      const uiLocalAdapter = createLocalBusAdapter({
+        runtime,
+        eventLog: editorEventLog,
+        mode: 'v1',
+        mailboxModelId: EDITOR_MODEL_ID,
+        editorStateModelId: directMutationTarget,
+      });
+      const result = uiLocalAdapter.consumeOnce();
+      updateDerived();
+      await programEngine.tick();
+      return result;
     }
     if (envelopeOrNull && businessTargetModelId && businessTargetModelId > 0) {
       if (!runtime.isRunLoopActive()) {

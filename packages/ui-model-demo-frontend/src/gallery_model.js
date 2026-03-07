@@ -582,7 +582,7 @@ export function buildGalleryAst() {
               {
                 id: 'wave_c_desc',
                 type: 'Text',
-                props: { type: 'info', text: 'Include renders an AST fragment stored in ModelTable labels. Submodel instance is created via submodel_create.' },
+                props: { type: 'info', text: 'Include renders an AST fragment stored in ModelTable labels. Dynamic fragment materialization now uses normal label_update on gallery state.' },
               },
               {
                 id: 'wave_c_row',
@@ -621,28 +621,61 @@ export function buildGalleryAst() {
                     ],
                   },
                   {
-                    id: 'wave_c_submodel_group',
+                    id: 'wave_c_dynamic_group',
                     type: 'Container',
                     props: { layout: 'column', gap: 8, style: { minWidth: '320px' } },
                     children: [
-                      { id: 'wave_c_submodel_title', type: 'Text', props: { text: 'Submodel instance', tag: 'h3' } },
+                      { id: 'wave_c_dynamic_title', type: 'Text', props: { text: 'Deferred fragment', tag: 'h3' } },
                       {
-                        id: 'wave_c_submodel_create',
+                        id: 'wave_c_materialize_fragment',
                         type: 'Button',
-                        props: { type: 'primary', label: 'Create submodel instance (2001)' },
+                        props: { type: 'primary', label: 'Materialize deferred fragment' },
                         bind: {
                           write: {
-                            action: 'submodel_create',
-                            value_ref: { t: 'json', v: { id: 2001, name: 'gallery_submodel_2001', type: 'ui' } },
+                            action: 'label_update',
+                            target_ref: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 2, k: 'wave_c_fragment_dynamic' },
+                            value_ref: {
+                              t: 'json',
+                              v: {
+                                id: 'wave_c_dynamic_fragment',
+                                type: 'Card',
+                                props: { title: 'Deferred Fragment (state-backed)' },
+                                children: [
+                                  {
+                                    id: 'wave_c_dynamic_desc',
+                                    type: 'Text',
+                                    props: { type: 'info', text: 'This fragment is materialized by a normal label_update on gallery state.' },
+                                  },
+                                  {
+                                    id: 'wave_c_dynamic_input',
+                                    type: 'Input',
+                                    props: { placeholder: 'Edit deferred fragment text' },
+                                    bind: {
+                                      read: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 3, k: 'wave_c_dynamic_text' },
+                                      write: {
+                                        action: 'label_update',
+                                        target_ref: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 3, k: 'wave_c_dynamic_text' },
+                                      },
+                                    },
+                                  },
+                                  {
+                                    id: 'wave_c_dynamic_value',
+                                    type: 'Text',
+                                    props: { type: 'info', text: '' },
+                                    bind: { read: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 3, k: 'wave_c_dynamic_text' } },
+                                  },
+                                ],
+                              },
+                            },
                           },
                         },
                       },
                       {
-                        id: 'wave_c_include_submodel',
+                        id: 'wave_c_include_dynamic',
                         type: 'Include',
                         props: {
-                          ref: { model_id: 2001, p: 0, r: 0, c: 0, k: 'ui_fragment_v0' },
-                          fallbackText: 'Submodel 2001 not created (click button)',
+                          ref: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 2, k: 'wave_c_fragment_dynamic' },
+                          fallbackText: 'Deferred fragment not materialized (click button)',
                         },
                       },
                     ],

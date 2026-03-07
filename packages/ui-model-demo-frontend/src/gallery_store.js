@@ -2,7 +2,7 @@ import { reactive } from 'vue';
 import { ModelTableRuntime } from '../../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from './local_bus_adapter.js';
 import { buildGalleryAst } from './gallery_model.js';
-import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID, WAVE_C_SUBMODEL_ID } from './model_ids.js';
+import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from './model_ids.js';
 import { setHashPath } from './router.js';
 
 function ensureModel(runtime, { id, name, type }) {
@@ -90,53 +90,6 @@ export function createGalleryStore(options) {
   function consumeOnce() {
     const result = adapter.consumeOnce();
 
-    // Wave C: if a submodel was created via `submodel_create`, seed its fragment + state.
-    {
-      const model = runtime.getModel(WAVE_C_SUBMODEL_ID);
-      if (model) {
-        const fragCell = runtime.getCell(model, 0, 0, 0);
-        const hasFrag = fragCell.labels.has('ui_fragment_v0');
-        if (!hasFrag) {
-          // Seed a simple fragment that binds to submodel-local state labels.
-          ensureLabel(runtime, model, 0, 1, 0, { k: 'instance_text', t: 'str', v: `hello from submodel ${WAVE_C_SUBMODEL_ID}` });
-          ensureLabel(runtime, model, 0, 0, 0, {
-            k: 'ui_fragment_v0',
-            t: 'json',
-            v: {
-              id: 'submodel_fragment_root',
-              type: 'Card',
-              props: { title: `Submodel Instance (${WAVE_C_SUBMODEL_ID})` },
-              children: [
-                {
-                  id: 'submodel_fragment_desc',
-                  type: 'Text',
-                  props: { type: 'info', text: `This fragment lives in model ${WAVE_C_SUBMODEL_ID}.` },
-                },
-                {
-                  id: 'submodel_fragment_input',
-                  type: 'Input',
-                  props: { placeholder: 'Edit submodel-local text' },
-                  bind: {
-                    read: { model_id: WAVE_C_SUBMODEL_ID, p: 0, r: 1, c: 0, k: 'instance_text' },
-                    write: {
-                      action: 'label_update',
-                      target_ref: { model_id: WAVE_C_SUBMODEL_ID, p: 0, r: 1, c: 0, k: 'instance_text' },
-                    },
-                  },
-                },
-                {
-                  id: 'submodel_fragment_value',
-                  type: 'Text',
-                  props: { type: 'info', text: '' },
-                  bind: { read: { model_id: WAVE_C_SUBMODEL_ID, p: 0, r: 1, c: 0, k: 'instance_text' } },
-                },
-              ],
-            },
-          });
-        }
-      }
-    }
-
     const navTo = readRuntimeLabelValue(runtime, { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'nav_to' });
     if (typeof navTo === 'string' && navTo.trim().length > 0) {
       setHashPath(navTo);
@@ -165,6 +118,7 @@ export function createGalleryStore(options) {
 
   // Wave C defaults.
   ensureLabel(runtime, stateModel, 0, 9, 0, { k: 'wave_c_shared_text', t: 'str', v: 'shared fragment text' });
+  ensureLabel(runtime, stateModel, 0, 9, 3, { k: 'wave_c_dynamic_text', t: 'str', v: 'hello from deferred fragment' });
   ensureLabel(runtime, stateModel, 0, 9, 1, {
     k: 'wave_c_fragment_static',
     t: 'json',

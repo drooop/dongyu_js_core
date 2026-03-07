@@ -116,6 +116,8 @@ async function getJson(baseUrl, pathname) {
 }
 
 function buildUiEventEnvelope(action, extra = {}) {
+  const extraMeta = extra && extra.meta && typeof extra.meta === 'object' ? extra.meta : null;
+  const { meta: _ignoredMeta, ...rest } = extra || {};
   return {
     event_id: Date.now(),
     type: action,
@@ -123,8 +125,8 @@ function buildUiEventEnvelope(action, extra = {}) {
     ts: 0,
     payload: {
       action,
-      meta: { op_id: `op_${action}` },
-      ...extra,
+      meta: { op_id: `op_${action}_${Date.now()}_${Math.random().toString(16).slice(2)}`, ...(extraMeta || {}) },
+      ...rest,
     },
   };
 }
@@ -202,6 +204,17 @@ async function test_ui_server_allows_editor_state_label_updates_but_still_blocks
     const snapshotAfterRoute = await getJson(handle.baseUrl, '/snapshot');
     const uiPage = snapshotAfterRoute.json?.snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels?.ui_page?.v;
     assert.equal(uiPage, 'workspace', 'editor-state ui_page must be updated through standard label_update');
+
+    const galleryStateResp = await postJson(handle.baseUrl, '/ui_event', buildUiEventEnvelope('label_update', {
+      target: { model_id: -102, p: 0, r: 9, c: 2, k: 'wave_c_fragment_dynamic' },
+      value: { t: 'json', v: { hello: 'gallery' } },
+    }));
+    assert.equal(galleryStateResp.status, 200, 'gallery-state label_update must be accepted');
+    assert.equal(galleryStateResp.json?.result, 'ok', 'gallery-state label_update must succeed');
+
+    const snapshotAfterGallery = await getJson(handle.baseUrl, '/snapshot');
+    const galleryFragment = snapshotAfterGallery.json?.snapshot?.models?.['-102']?.cells?.['0,9,2']?.labels?.wave_c_fragment_dynamic?.v;
+    assert.deepEqual(galleryFragment, { hello: 'gallery' }, 'gallery-state label_update must write the requested json payload');
 
     const blockedResp = await postJson(handle.baseUrl, '/ui_event', buildUiEventEnvelope('label_update', {
       target: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' },
