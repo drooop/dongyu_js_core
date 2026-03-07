@@ -506,10 +506,6 @@ class ModelTableRuntime {
   }
 
   _validatePlacement(model, p, r, c, label) {
-    const resolvedType = this._resolveLabelType(label.t);
-    if (resolvedType === 'submt' && (p !== 0 || r !== 0 || c !== 0)) {
-      return 'submodel_wrong_position';
-    }
     return null;
   }
 

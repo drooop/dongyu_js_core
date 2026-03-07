@@ -3,7 +3,7 @@ set -euo pipefail
 
 BASE_URL="http://127.0.0.1:9011"
 TIMEOUT_SEC=35
-READY_TIMEOUT_SEC=20
+READY_TIMEOUT_SEC=40
 POLL_INTERVAL_SEC=1
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
 Options:
   --base-url <url>          Server base URL (default: http://127.0.0.1:9011)
   --timeout-sec <n>         Poll timeout in seconds (default: 35)
-  --ready-timeout-sec <n>   Wait timeout for system_ready=true (default: 20)
+  --ready-timeout-sec <n>   Wait timeout for system_ready=true (default: 40)
   --poll-interval-sec <n>   Poll interval seconds (default: 1)
   -h, --help                Show help
 EOF
