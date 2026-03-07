@@ -1298,6 +1298,21 @@ const INTERNAL_LABEL_TYPES = new Set([
   'MQTT_WILDCARD_SUB',
 ]);
 const EXCLUDED_LABEL_KEYS = new Set(['snapshot_json', 'event_log']);
+const CLIENT_SECRET_LABEL_KEYS = new Set([
+  'matrix_token',
+  'matrix_passwd',
+]);
+const CLIENT_SECRET_LABEL_TYPES = new Set([
+  'matrix.token',
+  'matrix.passwd',
+]);
+
+function isClientSecretLabel(labelKey, labelValue) {
+  if (CLIENT_SECRET_LABEL_KEYS.has(labelKey)) return true;
+  if (labelValue && CLIENT_SECRET_LABEL_TYPES.has(labelValue.t)) return true;
+  if (typeof labelKey === 'string' && /(?:^|_)(token|passwd|password|secret)$/.test(labelKey)) return true;
+  return false;
+}
 
 function buildClientSnapshot(runtime) {
   const snap = runtime.snapshot();
@@ -1330,6 +1345,7 @@ function buildClientSnapshot(runtime) {
         const filteredLabels = {};
         for (const [lk, lv] of Object.entries(cell.labels || {})) {
           if (excludeTypes.has(lv.t)) continue;
+          if (isClientSecretLabel(lk, lv)) continue;
           filteredLabels[lk] = lv;
         }
         filteredCells[ck] = { ...cell, labels: filteredLabels };
@@ -1344,6 +1360,7 @@ function buildClientSnapshot(runtime) {
         const filteredLabels = {};
         for (const [lk, lv] of Object.entries(cell.labels || {})) {
           if (excludeKeys.has(lk)) continue;
+          if (isClientSecretLabel(lk, lv)) continue;
           filteredLabels[lk] = lv;
         }
         filteredCells[ck] = { ...cell, labels: filteredLabels };
@@ -1351,7 +1368,16 @@ function buildClientSnapshot(runtime) {
       models[id] = { ...model, cells: filteredCells };
       continue;
     }
-    models[id] = model;
+    const filteredCells = {};
+    for (const [ck, cell] of Object.entries(model.cells || {})) {
+      const filteredLabels = {};
+      for (const [lk, lv] of Object.entries(cell.labels || {})) {
+        if (isClientSecretLabel(lk, lv)) continue;
+        filteredLabels[lk] = lv;
+      }
+      filteredCells[ck] = { ...cell, labels: filteredLabels };
+    }
+    models[id] = { ...model, cells: filteredCells };
   }
   return { models, v1nConfig: snap.v1nConfig };
 }
@@ -3424,7 +3450,9 @@ function createServerState(options) {
     .catch(() => {});
 
   function updateDerived() {
-    const uiAst = buildEditorAstV1(runtime.snapshot());
+    // Client-visible AST must be derived from the same filtered snapshot surface
+    // that /snapshot and SSE expose, otherwise raw labels can leak via ui_ast_v0.
+    const uiAst = buildEditorAstV1(buildClientSnapshot(runtime));
     // snapshot_json and event_log are excluded from client snapshot (too large).
     // Skip expensive computation — saves ~2 full snapshot traversals per event.
     adapter.updateUiDerived({
@@ -3498,7 +3526,7 @@ function createServerState(options) {
     const directMutationTarget = payload && payload.target && typeof payload.target === 'object' && Number.isInteger(payload.target.model_id)
       ? payload.target.model_id
       : null;
-    const allowUiLocalMutation = meta && meta.local_only === true && isUiLocalMutableModelId(directMutationTarget);
+    const allowUiLocalMutation = isUiLocalMutableModelId(directMutationTarget);
     if (envelopeOrNull && isDirectModelMutationAction(action) && !(action !== 'submodel_create' && allowUiLocalMutation)) {
       return finishError('direct_model_mutation_disabled', action);
     }

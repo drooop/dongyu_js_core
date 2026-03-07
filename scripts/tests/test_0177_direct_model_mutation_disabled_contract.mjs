@@ -115,6 +115,20 @@ async function getJson(baseUrl, pathname) {
   return { status: resp.status, json: await resp.json() };
 }
 
+function buildUiEventEnvelope(action, extra = {}) {
+  return {
+    event_id: Date.now(),
+    type: action,
+    source: { node_type: 'Button', node_id: `${action}_btn` },
+    ts: 0,
+    payload: {
+      action,
+      meta: { op_id: `op_${action}` },
+      ...extra,
+    },
+  };
+}
+
 function test_local_bus_adapter_mutations_are_disabled() {
   const runtime = buildRuntimeForAdapter();
   const adapter = createLocalBusAdapter({
@@ -174,9 +188,37 @@ async function test_ui_server_patch_api_disabled_and_runtime_mode_endpoint() {
   }
 }
 
+async function test_ui_server_allows_editor_state_label_updates_but_still_blocks_business_mutation() {
+  const handle = await startServerForContractTest();
+  try {
+    const routeResp = await postJson(handle.baseUrl, '/ui_event', buildUiEventEnvelope('label_update', {
+      target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ui_page' },
+      value: { t: 'str', v: 'workspace' },
+    }));
+    assert.equal(routeResp.status, 200, 'ui_event endpoint must accept editor-state navigation writes');
+    assert.equal(routeResp.json?.result, 'ok', 'editor-state label_update must succeed');
+    assert.equal(routeResp.json?.code, undefined, 'successful editor-state label_update must not return error code');
+
+    const snapshotAfterRoute = await getJson(handle.baseUrl, '/snapshot');
+    const uiPage = snapshotAfterRoute.json?.snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels?.ui_page?.v;
+    assert.equal(uiPage, 'workspace', 'editor-state ui_page must be updated through standard label_update');
+
+    const blockedResp = await postJson(handle.baseUrl, '/ui_event', buildUiEventEnvelope('label_update', {
+      target: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' },
+      value: { t: 'str', v: 'forbidden-direct-write' },
+    }));
+    assert.equal(blockedResp.status, 200, 'ui_event endpoint wraps business mutation rejection in 200 response');
+    assert.equal(blockedResp.json?.result, 'error', 'business model direct label_update must remain rejected');
+    assert.equal(blockedResp.json?.code, 'direct_model_mutation_disabled', 'business model direct label_update must keep 0177 boundary');
+  } finally {
+    await stopServer(handle);
+  }
+}
+
 const tests = [
   test_local_bus_adapter_mutations_are_disabled,
   test_ui_server_patch_api_disabled_and_runtime_mode_endpoint,
+  test_ui_server_allows_editor_state_label_updates_but_still_blocks_business_mutation,
 ];
 
 let passed = 0;
