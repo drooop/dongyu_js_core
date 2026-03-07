@@ -46,6 +46,17 @@ function readBootstrapPatchFromEnv() {
   }
 }
 
+function runtimeBridgeActive(runtime) {
+  if (!runtime) return false;
+  if (typeof runtime.isRuntimeRunning === 'function') {
+    return runtime.isRuntimeRunning();
+  }
+  if (typeof runtime.isRunLoopActive === 'function') {
+    return runtime.isRunLoopActive();
+  }
+  return false;
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 function main() {
@@ -189,6 +200,10 @@ function main() {
         adapter.subscribe((event) => {
           if (!event || event.version !== 'v0') return;
           if (!filterTypes.includes(event.type)) return;
+          if (!rt.isRuntimeRunning()) {
+            log(`drop pre-running mgmt ${event.type} op_id=${event.op_id || ''}`);
+            return;
+          }
           log(`recv mgmt ${event.type} op_id=${event.op_id}`);
           rt.addLabel(sys, 0, 0, 0, { k: matrixInboxLabel, t: 'json', v: event });
           rt.addLabel(sys, 0, 0, 0, { k: matrixTrigger, t: 'str', v: '1' });
@@ -227,6 +242,10 @@ function main() {
       return;
     }
     if (!payload || typeof payload !== 'object' || payload.version !== 'mt.v0') return;
+    if (!rt.isRuntimeRunning()) {
+      log(`drop pre-running mqtt topic=${topic} op_id=${payload.op_id || ''}`);
+      return;
+    }
     log(`recv mqtt topic=${topic} op_id=${payload.op_id || ''}`);
     rt.addLabel(sys, 0, 0, 0, { k: mqttInboxLabel, t: 'json', v: { topic, payload } });
     rt.addLabel(sys, 0, 0, 0, { k: mqttTrigger, t: 'str', v: '1' });

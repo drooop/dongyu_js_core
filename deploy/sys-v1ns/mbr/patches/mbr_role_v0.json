@@ -14,66 +14,6 @@
       "p": 0,
       "r": 0,
       "c": 0,
-      "k": "mbr_matrix_room_id",
-      "t": "str",
-      "v": ""
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_mqtt_host",
-      "t": "str",
-      "v": "127.0.0.1"
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_mqtt_port",
-      "t": "int",
-      "v": 1883
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_mqtt_user",
-      "t": "str",
-      "v": "u"
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_mqtt_pass",
-      "t": "str",
-      "v": "p"
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_remote_model_id",
-      "t": "int",
-      "v": 2
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
       "k": "mbr_mqtt_model_ids",
       "t": "json",
       "v": [
@@ -170,7 +110,7 @@
       "k": "mbr_mgmt_to_mqtt",
       "t": "func.js",
       "v": {
-        "code": "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_inbox' }); if (!inbox || typeof inbox !== 'object') return; let opId = String(inbox.op_id || ''); const reject = (detail) => { ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_error' }, 'json', { op_id: opId, code: 'direct_model_mutation_disabled', detail }); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_inbox' }); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_mbr_mgmt_to_mqtt' }); }; if (inbox.version !== 'v0' || inbox.type !== 'ui_event') { reject('unsupported_bridge_message'); return; } const sourceModelId = Number(inbox.source_model_id); if (sourceModelId !== 100) { reject('unsupported_source_model'); return; } const data = inbox.data && typeof inbox.data === 'object' ? inbox.data : {}; const action = String(inbox.action || data.action || 'unknown'); if (!opId) opId = (data.meta && data.meta.op_id) || ('ui_' + Date.now()); if (!opId) return; const seenKey = 'mbr_seen_' + opId; if (ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey })) { ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_inbox' }); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_mbr_mgmt_to_mqtt' }); return; } ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey }, 'str', '1'); const ts = (typeof inbox.timestamp === 'number' && Number.isFinite(inbox.timestamp)) ? inbox.timestamp : Date.now(); const patch = { version: 'mt.v0', op_id: opId, records: [{ op: 'add_label', model_id: 100, p: 1, r: 0, c: 0, k: 'action', t: 'str', v: action }, { op: 'add_label', model_id: 100, p: 1, r: 0, c: 0, k: 'data', t: 'json', v: data }, { op: 'add_label', model_id: 100, p: 1, r: 0, c: 0, k: 'timestamp', t: 'int', v: ts }] }; const base = String(ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'mqtt_topic_base' }) || ''); const topic = base ? (base + '/100/event') : ''; if (!topic) { reject('missing_mqtt_topic_base'); return; } ctx.publishMqtt(topic, patch); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_inbox' }); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_mbr_mgmt_to_mqtt' });",
+        "code": "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_inbox' }); if (!inbox || typeof inbox !== 'object') return; let opId = String(inbox.op_id || ''); const cleanup = () => { ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_inbox' }); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_mbr_mgmt_to_mqtt' }); }; const reject = (detail) => { ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_error' }, 'json', { op_id: opId, code: 'direct_model_mutation_disabled', detail }); cleanup(); }; if (inbox.version !== 'v0' || inbox.type !== 'ui_event') { reject('unsupported_bridge_message'); return; } const sourceModelId = Number(inbox.source_model_id); if (!Number.isInteger(sourceModelId) || sourceModelId <= 0) { reject('unsupported_source_model'); return; } const route = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_route_' + sourceModelId }); if (!route || typeof route !== 'object') { reject('missing_route'); return; } const routePin = String(route.pin || '').trim(); const routeType = String(route.type || '').trim(); if (!routePin) { reject('missing_route_pin'); return; } if (routeType && routeType !== 'all' && routeType !== inbox.type) { reject('unsupported_route_type'); return; } const data = inbox.data && typeof inbox.data === 'object' ? inbox.data : {}; const action = String(inbox.action || data.action || 'unknown'); if (!opId) opId = (data.meta && data.meta.op_id) || ('ui_' + Date.now()); if (!opId) { reject('missing_op_id'); return; } const seenKey = 'mbr_seen_' + opId; if (ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey })) { cleanup(); return; } ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey }, 'str', '1'); const ts = (typeof inbox.timestamp === 'number' && Number.isFinite(inbox.timestamp)) ? inbox.timestamp : Date.now(); const patch = { version: 'mt.v0', op_id: opId, records: [{ op: 'add_label', model_id: sourceModelId, p: 1, r: 0, c: 0, k: 'action', t: 'str', v: action }, { op: 'add_label', model_id: sourceModelId, p: 1, r: 0, c: 0, k: 'data', t: 'json', v: data }, { op: 'add_label', model_id: sourceModelId, p: 1, r: 0, c: 0, k: 'timestamp', t: 'int', v: ts }] }; const base = String(ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'mqtt_topic_base' }) || ''); const topic = base ? (base + '/' + sourceModelId + '/' + routePin) : ''; if (!topic) { reject('missing_mqtt_topic_base'); return; } ctx.publishMqtt(topic, patch); cleanup();",
         "modelName": "mbr_role_v0"
       }
     },
