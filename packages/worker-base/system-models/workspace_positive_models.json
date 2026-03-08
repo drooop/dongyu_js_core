@@ -270,10 +270,20 @@
       "k": "dual_bus_model",
       "t": "json",
       "v": {
-        "ui_event_func": "forward_model100_events",
+        "ui_event_func": "prepare_model100_submit",
         "patch_in_func": "on_model100_patch_in",
         "patch_in_pin": "patch"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit",
+      "t": "pin.table.out",
+      "v": null
     },
     {
       "op": "add_label",

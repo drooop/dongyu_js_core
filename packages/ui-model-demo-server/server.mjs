@@ -2470,6 +2470,27 @@ class ProgramModelEngine {
         }
       }
 
+      // Model 0 local egress point: color-generator submit has already been
+      // normalized and relayed upward through existing model-boundary wiring.
+      if (event.cell && event.cell.model_id === 0 &&
+          event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
+          event.label && event.label.k === 'model100_submit_out' && event.label.v) {
+        const payload = event.label.v;
+        if (!payload || payload.source_model_id !== 100) {
+          console.log('[processEventsSnapshot] WARNING: model100_submit_out missing source_model_id=100');
+          continue;
+        }
+        const sys = firstSystemModel(this.runtime);
+        const funcName = 'forward_model100_submit_from_model0';
+        console.log('[processEventsSnapshot] Model 0 egress detected, triggering forward_model100_submit_from_model0');
+        if (sys && sys.hasFunction(funcName)) {
+          this.runtime.intercepts.record('run_func', { func: funcName, payload });
+        } else {
+          console.log(`[processEventsSnapshot] WARNING: ${funcName} function NOT found`);
+        }
+        continue;
+      }
+
       // Legacy PIN_IN binding routing removed in 0143.
       // Function triggers are now handled by CELL_CONNECT propagation in runtime._applyBuiltins.
 
@@ -2906,6 +2927,20 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validSelected));
 
     overwriteStateLabel(runtime, 'ws_app_next_id', 'int', resolveNextWorkspaceModelId(runtime));
+  };
+
+  const reconcileWorkspaceSelectionState = () => {
+    const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+    if (!stateModel) return;
+    const uiPage = readAuthString(runtime.getLabelValue(stateModel, 0, 0, 0, 'ui_page')).toLowerCase();
+    if (uiPage !== 'workspace') return;
+    const appsRaw = runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_apps_registry');
+    const apps = Array.isArray(appsRaw) ? appsRaw : deriveWorkspaceRegistry();
+    const defaultSelected = resolveDefaultAppId(runtime, apps);
+    const selected = normalizeIntState(runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'), defaultSelected);
+    const validSelected = apps.some((app) => app.model_id === selected) ? selected : defaultSelected;
+    overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validSelected));
+    overwriteStateLabel(runtime, 'selected_model_id', 'str', String(validSelected));
   };
 
   const sanitizeStartupCatalogState = () => {
@@ -3409,6 +3444,7 @@ function createServerState(options) {
   resetStaticCatalogStateFromFilesystem();
   clearAndValidateWorkspaceSelection();
   refreshWorkspaceStateCatalog();
+  reconcileWorkspaceSelectionState();
   refreshStartupCatalogState();
   runtime.setRuntimeMode('edit');
 
@@ -3429,6 +3465,7 @@ function createServerState(options) {
     }
     try {
       refreshWorkspaceStateCatalog();
+      reconcileWorkspaceSelectionState();
     } catch (_) {
       overwriteStateLabel(runtime, 'static_status', 'str', 'workspace catalog refresh failed');
     }
@@ -3995,6 +4032,7 @@ function createServerState(options) {
     }
 
     const result = adapter.consumeOnce();
+    reconcileWorkspaceSelectionState();
     updateDerived();
     await programEngine.tick();
     return result;
