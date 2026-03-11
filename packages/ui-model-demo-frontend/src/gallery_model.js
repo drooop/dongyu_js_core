@@ -230,6 +230,7 @@ export function buildGalleryAst() {
                           write: {
                             action: 'label_update',
                             target_ref: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 3, c: 0, k: 'slider_demo' },
+                            commit_policy: 'on_change',
                           },
                           change: {
                             action: 'label_update',

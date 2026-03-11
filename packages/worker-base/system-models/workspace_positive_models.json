@@ -494,7 +494,8 @@
             "r": 0,
             "c": 0,
             "k": "model100_input_draft"
-          }
+          },
+          "commit_policy": "on_submit"
         }
       }
     },
