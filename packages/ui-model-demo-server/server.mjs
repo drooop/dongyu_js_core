@@ -2436,14 +2436,8 @@ class ProgramModelEngine {
           }
         }
 
-        // Step 4 dual-track fallback: keep legacy trigger until Step 5-7 migration completes.
         if (triggered === 0) {
-          if (sys && sys.hasFunction('forward_ui_events')) {
-            console.log('[processEventsSnapshot] event_trigger_map missing/empty, fallback to forward_ui_events');
-            this.runtime.intercepts.record('run_func', { func: 'forward_ui_events' });
-          } else {
-            console.log('[processEventsSnapshot] WARNING: no available ui_event trigger, sys=', !!sys);
-          }
+          console.log('[processEventsSnapshot] WARNING: no available ui_event trigger, sys=', !!sys);
         }
         continue;
       }
