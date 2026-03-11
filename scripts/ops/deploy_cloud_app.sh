@@ -57,8 +57,16 @@ sha256_of_file() {
 }
 
 detect_source_revision() {
+  if [ -n "$EXPECTED_REVISION" ]; then
+    printf '%s' "$EXPECTED_REVISION"
+    return 0
+  fi
   if [ -d "$REPO_DIR/.git" ] && git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git -C "$REPO_DIR" rev-parse --short HEAD
+    return 0
+  fi
+  if [ -f "$REPO_DIR/.deploy-source-revision" ]; then
+    tr -d '\r\n' < "$REPO_DIR/.deploy-source-revision"
     return 0
   fi
   if [ -n "${DEPLOY_SOURCE_REV:-}" ]; then
