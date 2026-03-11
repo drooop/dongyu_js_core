@@ -145,6 +145,7 @@ load_target_spec() {
         "scripts/run_worker_v0.mjs:/app/scripts/run_worker_v0.mjs"
         "deploy/sys-v1ns/mbr/patches/mbr_role_v0.json:/app/deploy/sys-v1ns/mbr/patches/mbr_role_v0.json"
         "packages/worker-base/src/runtime.js:/app/packages/worker-base/src/runtime.js"
+        "packages/worker-base/src/runtime.mjs:/app/packages/worker-base/src/runtime.mjs"
       )
       ;;
     remote-worker)
@@ -157,6 +158,7 @@ load_target_spec() {
         "deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json:/app/deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json"
         "deploy/sys-v1ns/remote-worker/patches/10_model100.json:/app/deploy/sys-v1ns/remote-worker/patches/10_model100.json"
         "packages/worker-base/src/runtime.js:/app/packages/worker-base/src/runtime.js"
+        "packages/worker-base/src/runtime.mjs:/app/packages/worker-base/src/runtime.mjs"
       )
       ;;
     *)
