@@ -197,10 +197,9 @@ export KUBECONFIG="${KUBECONFIG:-/etc/rancher/rke2/rke2.yaml}"
 CTR="${CTR:-/usr/local/bin/ctr}"
 export CTR
 if [ -n "${CONTAINERD_SOCK:-}" ]; then
-  "$SCRIPT_DIR/remote_preflight_guard.sh" --expect-socket "$CONTAINERD_SOCK"
-else
-  CONTAINERD_SOCK="$("$SCRIPT_DIR/remote_preflight_guard.sh" --print-socket)"
+  "$SCRIPT_DIR/remote_preflight_guard.sh" --expect-socket "$CONTAINERD_SOCK" >/dev/null
 fi
+CONTAINERD_SOCK="$("$SCRIPT_DIR/remote_preflight_guard.sh" --print-socket)"
 export CONTAINERD_SOCK
 
 if [ "$(id -u)" -ne 0 ]; then

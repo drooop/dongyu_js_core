@@ -239,10 +239,9 @@ fi
 
 export CTR
 if [ -n "${CONTAINERD_SOCK:-}" ]; then
-  "$SCRIPT_DIR/remote_preflight_guard.sh" --expect-socket "$CONTAINERD_SOCK"
-else
-  CONTAINERD_SOCK="$("$SCRIPT_DIR/remote_preflight_guard.sh" --print-socket)"
+  "$SCRIPT_DIR/remote_preflight_guard.sh" --expect-socket "$CONTAINERD_SOCK" >/dev/null
 fi
+CONTAINERD_SOCK="$("$SCRIPT_DIR/remote_preflight_guard.sh" --print-socket)"
 export CONTAINERD_SOCK
 echo "  containerd socket: $CONTAINERD_SOCK"
 
