@@ -105,12 +105,18 @@ sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-serv
 
 PASS 判定：
 - `remote_preflight_guard.sh` PASS
+- 远端 `rke2` 集群中的 MQTT broker 已就绪
 - 目标 deployment rollout 成功
 - source hash gate 通过
 - 目标环境验收命令 PASS
 
 说明：
 - 如果仍通过受限 sudo wrapper 远程触发部署，需要同步更新远端 wrapper / sudoers 白名单，使其允许新入口脚本。
+- 本地 OrbStack baseline 与 cloud baseline 的 MQTT 拓扑不同：
+  - 本地 `k8s/local/workers.yaml` 使用 `mosquitto.dongyu.svc.cluster.local`
+  - 远端 `k8s/cloud/workers.yaml` 使用 `emqx-emqx-enterprise.emqx.svc.cluster.local`
+  - 远端 `EMQX` 位于 `emqx` namespace，不在 `dongyu` namespace
+  - `deploy_cloud_full.sh` / `deploy_cloud_app.sh` 默认假定远端 EMQX 已存在，不负责创建 broker
 
 ---
 

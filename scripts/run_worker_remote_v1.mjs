@@ -46,6 +46,25 @@ process.stdout.write(`[remote-worker-v1] Patch dir: ${patchDirAbs}\n`);
 // --- 1. Create runtime + load system patches ---
 const rt = new ModelTableRuntime();
 loadSystemPatch(rt);
+let mqttTraceCursor = 0;
+
+function mqttRuntimeStatus() {
+  const model0 = rt.getModel(0);
+  if (!model0) return 'missing_model0';
+  const root = rt.getCell(model0, 0, 0, 0);
+  return String(root.labels.get('mqtt_runtime_status')?.v || 'unknown');
+}
+
+function emitMqttDiagnostics(reason) {
+  const connected = Boolean(rt.mqttClient && rt.mqttClient.connected);
+  const subscriptions = rt.mqttClient ? [...rt.mqttClient.subscriptions].sort() : [];
+  const trace = rt.mqttTrace.list();
+  const delta = trace.slice(mqttTraceCursor);
+  mqttTraceCursor = trace.length;
+  process.stdout.write(`[remote-worker-v1] MQTT connected: ${connected} status=${mqttRuntimeStatus()} reason=${reason}\n`);
+  process.stdout.write(`[remote-worker-v1] MQTT subscriptions: ${JSON.stringify(subscriptions)}\n`);
+  process.stdout.write(`[remote-worker-v1] MQTT trace delta: ${JSON.stringify(delta.slice(-20))}\n`);
+}
 
 // --- 2. Load role patches (alphabetical order) ---
 const patchFiles = fs.readdirSync(patchDirAbs)
@@ -94,8 +113,14 @@ for (const [, model] of rt.models) {
   }
 }
 process.stdout.write(`[remote-worker-v1] MQTT_WILDCARD_SUB labels: ${subCount}\n`);
+emitMqttDiagnostics('after_start');
 
 // --- 5. Heartbeat (optional diagnostic logging) ---
+const mqttDiagTimer = setInterval(() => {
+  emitMqttDiagnostics('interval');
+}, 10000);
+mqttDiagTimer.unref();
+
 const heartbeatTimer = setInterval(() => {
   const model100 = rt.getModel(100);
   if (model100) {

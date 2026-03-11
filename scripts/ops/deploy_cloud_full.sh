@@ -303,7 +303,7 @@ echo "=== Step 2: Ensure namespace ==="
 ensure_namespace
 echo ""
 
-# ── Deploy Synapse ────────────────────────────────────────
+# ── Deploy infrastructure ────────────────────────────────
 echo "=== Step 3: Deploy Synapse ==="
 kubectl apply -f "$REPO_DIR/k8s/cloud/synapse.yaml"
 echo "  Waiting for Synapse rollout..."
