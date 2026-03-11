@@ -92,9 +92,19 @@ export function createRemoteStore(options) {
     }
   }
 
-  function patchEditorStateLabel(target, value) {
+  function isNegativeLocalStateTarget(target) {
     const modelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
-    if (modelId !== EDITOR_STATE_MODEL_ID) return;
+    if (modelId === null) return false;
+    return modelId < 0 && modelId !== EDITOR_MODEL_ID;
+  }
+
+  function localStateKey(target) {
+    return `${target.model_id}:${target.p}:${target.r}:${target.c}:${target.k}`;
+  }
+
+  function patchNegativeLocalStateLabel(target, value) {
+    const modelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
+    if (!isNegativeLocalStateTarget(target)) return;
     if (!target || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c) || typeof target.k !== 'string') {
       return;
     }
@@ -102,11 +112,22 @@ export function createRemoteStore(options) {
       return;
     }
 
-    const model = getSnapshotModel(snapshot, EDITOR_STATE_MODEL_ID);
-    if (!model || !model.cells) return;
+    let model = getSnapshotModel(snapshot, modelId);
+    if (!model) {
+      snapshot.models[String(modelId)] = { cells: {} };
+      model = snapshot.models[String(modelId)];
+    }
+    if (!model.cells) {
+      model.cells = {};
+    }
     const cellKey = `${target.p},${target.r},${target.c}`;
+    if (!model.cells[cellKey]) {
+      model.cells[cellKey] = { labels: {} };
+    }
     const cell = model.cells[cellKey];
-    if (!cell || !cell.labels) return;
+    if (!cell.labels) {
+      cell.labels = {};
+    }
     cell.labels[target.k] = { k: target.k, t: value.t, v: value.v };
   }
 
@@ -300,12 +321,13 @@ export function createRemoteStore(options) {
     const rawTarget = rawPayload && rawPayload.target ? rawPayload.target : null;
 
     // Remote mode UX mitigation:
-    // - Draft edits live in editor_state (model -2). Apply optimistically for input responsiveness.
-    // - Coalesce draft writes to reduce per-keystroke network chatter.
-    if (rawAction === 'label_update' && rawTarget && rawTarget.model_id === EDITOR_STATE_MODEL_ID) {
-      patchEditorStateLabel(rawTarget, rawPayload.value);
+    // - Negative UI-local state should update immediately in the browser.
+    // - Still sync to server in the background to keep remote runtime state aligned.
+    // - Coalesce per-target writes to reduce per-keystroke/per-drag network chatter.
+    if (rawAction === 'label_update' && rawTarget && isNegativeLocalStateTarget(rawTarget)) {
+      patchNegativeLocalStateLabel(rawTarget, rawPayload.value);
       if (rawTarget && typeof rawTarget.k === 'string') {
-        pendingDraftByKey.set(rawTarget.k, rawEnvelope);
+        pendingDraftByKey.set(localStateKey(rawTarget), rawEnvelope);
       }
       scheduleDraftFlush();
       return;
