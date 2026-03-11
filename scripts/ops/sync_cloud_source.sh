@@ -64,7 +64,16 @@ ssh "$TARGET" "mkdir -p '$REMOTE_REPO'"
 if ssh "$TARGET" "test -d '$REMOTE_REPO/.git'"; then
   ssh "$TARGET" "
     set -euo pipefail
-    if [ \"\$(stat -c '%U' '$REMOTE_REPO')\" = '$REMOTE_REPO_OWNER' ] && command -v sudo >/dev/null 2>&1; then
+    current_user=\"\$(id -un)\"
+    repo_owner=\"\$(stat -c '%U' '$REMOTE_REPO')\"
+    if [ \"\$current_user\" = '$REMOTE_REPO_OWNER' ] || [ \"\$current_user\" = \"\$repo_owner\" ]; then
+      git -C '$REMOTE_REPO' config --global --add safe.directory '$REMOTE_REPO' >/dev/null 2>&1 || true
+      git -C '$REMOTE_REPO' fetch --all --tags
+      git -C '$REMOTE_REPO' checkout --force '$REVISION'
+      git -C '$REMOTE_REPO' reset --hard '$REVISION'
+      git -C '$REMOTE_REPO' clean -fd
+      git -C '$REMOTE_REPO' rev-parse --short HEAD
+    elif [ \"\$repo_owner\" = '$REMOTE_REPO_OWNER' ] && command -v sudo >/dev/null 2>&1; then
       sudo -u '$REMOTE_REPO_OWNER' git -C '$REMOTE_REPO' config --global --add safe.directory '$REMOTE_REPO' >/dev/null 2>&1 || true
       sudo -u '$REMOTE_REPO_OWNER' git -C '$REMOTE_REPO' fetch --all --tags
       sudo -u '$REMOTE_REPO_OWNER' git -C '$REMOTE_REPO' checkout --force '$REVISION'
