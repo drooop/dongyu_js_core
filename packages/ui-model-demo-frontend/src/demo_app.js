@@ -1,6 +1,7 @@
 import { computed, h, onBeforeUnmount, onMounted, ref, resolveComponent } from 'vue';
 import { createRenderer } from '@ui-renderer/index.mjs';
 import { buildGalleryAst } from './gallery_model.js';
+import { readAppShellRouteSyncState } from './app_shell_route_sync.js';
 
 import {
   ROUTE_GALLERY,
@@ -98,11 +99,23 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       function normalizeIfUnknown(p) {
         if (isModel100Path(p)) {
           setHashPath(ROUTE_WORKSPACE, { replace: true });
-          selectWorkspaceModel(100);
+          path.value = ROUTE_WORKSPACE;
           return;
         }
         if (isHomePath(p) || isGalleryPath(p) || isDocsPath(p) || isStaticPath(p) || isWorkspacePath(p) || isPromptPath(p)) return;
         setHashPath(ROUTE_HOME, { replace: true });
+        path.value = ROUTE_HOME;
+      }
+
+      function resolveWorkspaceModelId() {
+        const labels = mainStore?.snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels ?? {};
+        const raw = labels.ws_app_selected?.v;
+        if (typeof raw === 'number' && Number.isInteger(raw) && raw !== 0) return raw;
+        if (typeof raw === 'string' && /^-?\d+$/.test(raw.trim())) {
+          const parsed = Number.parseInt(raw.trim(), 10);
+          if (Number.isInteger(parsed) && parsed !== 0) return parsed;
+        }
+        return 100;
       }
 
       function selectWorkspaceModel(modelId) {
@@ -152,13 +165,22 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         }
       }
 
+      function syncWorkspaceSelection(routePath) {
+        if (!isWorkspacePath(routePath)) return;
+        queueMicrotask(() => {
+          selectWorkspaceModel(resolveWorkspaceModelId());
+        });
+      }
+
       onMounted(() => {
         normalizeIfUnknown(path.value);
         syncPageLabel(path.value);
+        syncWorkspaceSelection(path.value);
         unsubscribe = subscribeHashPath((next) => {
           path.value = next;
           normalizeIfUnknown(next);
           syncPageLabel(next);
+          syncWorkspaceSelection(next);
         });
       });
 
@@ -172,6 +194,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       const isStatic = computed(() => isStaticPath(path.value));
       const isWorkspace = computed(() => isWorkspacePath(path.value));
       const isPrompt = computed(() => isPromptPath(path.value));
+      const routeSyncState = computed(() => readAppShellRouteSyncState(mainStore?.snapshot ?? {}, path.value));
 
       function Header() {
         const navButtons = [
@@ -217,6 +240,31 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         if (isGallery.value) {
           const isRemoteMode = !mainStore || !Object.prototype.hasOwnProperty.call(mainStore, 'runtime');
           return h('div', [h(Header), h(isRemoteMode ? GalleryRemoteRoot : GalleryRoot)]);
+        }
+        if (routeSyncState.value.pending) {
+          return h('div', [
+            h(Header),
+            h('div', {
+              style: {
+                padding: '24px 16px',
+              },
+            }, [
+              h('div', {
+                style: {
+                  maxWidth: '960px',
+                  margin: '0 auto',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '12px',
+                  padding: '24px',
+                  background: '#fff',
+                  boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)',
+                },
+              }, [
+                h('div', { style: { fontSize: '18px', fontWeight: '600', color: '#0f172a', marginBottom: '8px' } }, '页面同步中'),
+                h('div', { style: { color: '#475569', lineHeight: '1.6' } }, `正在切换到 ${routeSyncState.value.targetPage}，等待本地表状态完成同步。`),
+              ]),
+            ]),
+          ]);
         }
         if (isDocs.value || isStatic.value || isWorkspace.value || isPrompt.value) {
           return h('div', [h(Header), h(HomeRoot)]);

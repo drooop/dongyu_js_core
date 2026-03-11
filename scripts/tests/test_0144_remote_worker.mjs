@@ -86,12 +86,13 @@ function test_mqtt_incoming_routes_to_model100() {
   // Simulate MQTT message arriving on Model 100 event topic
   const topic = 'UIPUT/ws/dam/pic/de/sw/100/event';
   const payload = {
-    version: 'mt.v0',
+    version: 'v0',
+    type: 'ui_event',
     op_id: 'test_0144_mqtt_001',
-    records: [{
-      op: 'add_label', model_id: 100, p: 1, r: 0, c: 0,
-      k: 'action', t: 'str', v: 'submit'
-    }]
+    action: 'submit',
+    source_model_id: 100,
+    data: { input_value: 'hello' },
+    timestamp: Date.now(),
   };
 
   const handled = rt.mqttIncoming(topic, payload);
@@ -129,18 +130,13 @@ async function test_full_chain_async() {
   // Simulate MQTT incoming → full chain
   const topic = 'UIPUT/ws/dam/pic/de/sw/100/event';
   const payload = {
-    version: 'mt.v0',
+    version: 'v0',
+    type: 'ui_event',
     op_id: 'test_0144_full_001',
-    records: [{
-      op: 'add_label', model_id: 100, p: 1, r: 0, c: 0,
-      k: 'action', t: 'str', v: 'submit'
-    }, {
-      op: 'add_label', model_id: 100, p: 1, r: 0, c: 0,
-      k: 'data', t: 'json', v: { meta: { op_id: 'test_0144_full_001' } }
-    }, {
-      op: 'add_label', model_id: 100, p: 1, r: 0, c: 0,
-      k: 'timestamp', t: 'int', v: Date.now()
-    }]
+    action: 'submit',
+    source_model_id: 100,
+    data: { meta: { op_id: 'test_0144_full_001' }, input_value: 'hello' },
+    timestamp: Date.now(),
   };
 
   const handled = rt.mqttIncoming(topic, payload);

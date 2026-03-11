@@ -40,6 +40,7 @@ export function createRemoteStore(options) {
 
   let pauseSse = false;
   let pendingSseSnapshot = null;
+  let runtimeActivationPromise = null;
 
   function computePauseSse(next) {
     const v = getSnapshotLabelValue(next, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_pause_sse' });
@@ -91,9 +92,19 @@ export function createRemoteStore(options) {
     }
   }
 
-  function patchEditorStateLabel(target, value) {
+  function isNegativeLocalStateTarget(target) {
     const modelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
-    if (modelId !== EDITOR_STATE_MODEL_ID) return;
+    if (modelId === null) return false;
+    return modelId < 0 && modelId !== EDITOR_MODEL_ID;
+  }
+
+  function localStateKey(target) {
+    return `${target.model_id}:${target.p}:${target.r}:${target.c}:${target.k}`;
+  }
+
+  function patchNegativeLocalStateLabel(target, value) {
+    const modelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
+    if (!isNegativeLocalStateTarget(target)) return;
     if (!target || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c) || typeof target.k !== 'string') {
       return;
     }
@@ -101,11 +112,22 @@ export function createRemoteStore(options) {
       return;
     }
 
-    const model = getSnapshotModel(snapshot, EDITOR_STATE_MODEL_ID);
-    if (!model || !model.cells) return;
+    let model = getSnapshotModel(snapshot, modelId);
+    if (!model) {
+      snapshot.models[String(modelId)] = { cells: {} };
+      model = snapshot.models[String(modelId)];
+    }
+    if (!model.cells) {
+      model.cells = {};
+    }
     const cellKey = `${target.p},${target.r},${target.c}`;
+    if (!model.cells[cellKey]) {
+      model.cells[cellKey] = { labels: {} };
+    }
     const cell = model.cells[cellKey];
-    if (!cell || !cell.labels) return;
+    if (!cell.labels) {
+      cell.labels = {};
+    }
     cell.labels[target.k] = { k: target.k, t: value.t, v: value.v };
   }
 
@@ -184,7 +206,36 @@ export function createRemoteStore(options) {
     }
   }
 
-  async function postEnvelope(envelope) {
+  async function ensureRuntimeRunning() {
+    if (runtimeActivationPromise) return runtimeActivationPromise;
+    runtimeActivationPromise = (async () => {
+      try {
+        const resp = await fetch(`${baseUrl}/api/runtime/mode`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ mode: 'running' }),
+          credentials: 'same-origin',
+        });
+        if (!resp.ok) {
+          let detail = '';
+          try {
+            detail = await resp.text();
+          } catch (_) {
+            // ignore
+          }
+          console.error('runtime activation failed', { status: resp.status, statusText: resp.statusText, detail });
+        }
+      } catch (err) {
+        console.error('runtime activation fetch error', { err });
+      }
+      await fetchSnapshotAndApply('runtime activation');
+    })().finally(() => {
+      runtimeActivationPromise = null;
+    });
+    return runtimeActivationPromise;
+  }
+
+  async function postEnvelope(envelope, options = {}) {
     let resp;
     try {
       resp = await fetch(`${baseUrl}/ui_event`, {
@@ -227,6 +278,10 @@ export function createRemoteStore(options) {
       await fetchSnapshotAndApply('ui_event response json parse error');
       return null;
     }
+    if (data && data.code === 'runtime_not_running' && options.retried !== true) {
+      await ensureRuntimeRunning();
+      return postEnvelope(envelope, { retried: true });
+    }
     if (data && data.snapshot) applySnapshot(data.snapshot);
     return data;
   }
@@ -266,12 +321,13 @@ export function createRemoteStore(options) {
     const rawTarget = rawPayload && rawPayload.target ? rawPayload.target : null;
 
     // Remote mode UX mitigation:
-    // - Draft edits live in editor_state (model -2). Apply optimistically for input responsiveness.
-    // - Coalesce draft writes to reduce per-keystroke network chatter.
-    if (rawAction === 'label_update' && rawTarget && rawTarget.model_id === EDITOR_STATE_MODEL_ID) {
-      patchEditorStateLabel(rawTarget, rawPayload.value);
+    // - Negative UI-local state should update immediately in the browser.
+    // - Still sync to server in the background to keep remote runtime state aligned.
+    // - Coalesce per-target writes to reduce per-keystroke/per-drag network chatter.
+    if (rawAction === 'label_update' && rawTarget && isNegativeLocalStateTarget(rawTarget)) {
+      patchNegativeLocalStateLabel(rawTarget, rawPayload.value);
       if (rawTarget && typeof rawTarget.k === 'string') {
-        pendingDraftByKey.set(rawTarget.k, rawEnvelope);
+        pendingDraftByKey.set(localStateKey(rawTarget), rawEnvelope);
       }
       scheduleDraftFlush();
       return;
@@ -336,6 +392,8 @@ export function createRemoteStore(options) {
     } catch (_) {
       // allow SSE to recover later
     }
+
+    await ensureRuntimeRunning();
 
     try {
       const es = new EventSource(`${baseUrl}/stream`, { withCredentials: true });

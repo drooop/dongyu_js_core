@@ -932,8 +932,13 @@ class ModelTableRuntime {
     const mode = this._topicMode(config);
     const payloadMode = this._payloadMode(config);
     if (!payload) return false;
+    const directEventV0 = typeof payload === 'object'
+      && payload !== null
+      && payload.version === 'v0'
+      && typeof payload.type === 'string'
+      && typeof payload.action === 'string';
     if (payloadMode === 'mt_v0') {
-      if (!(typeof payload === 'object' && payload.version === 'mt.v0' && Array.isArray(payload.records))) {
+      if (!(directEventV0 || (typeof payload === 'object' && payload.version === 'mt.v0' && Array.isArray(payload.records)))) {
         return false;
       }
     } else {
@@ -985,6 +990,12 @@ class ModelTableRuntime {
         return true;
       }
 
+      if (payloadMode === 'mt_v0' && directEventV0) {
+        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
+        this.mqttTrace.record('inbound', { topic, payload, mode: 'event_v0' });
+        return true;
+      }
+
       this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
       this.mqttTrace.record('inbound', { topic, payload, mode: 'legacy_in' });
       return true;
@@ -1018,6 +1029,12 @@ class ModelTableRuntime {
         return true;
       }
 
+      if (payloadMode === 'mt_v0' && directEventV0) {
+        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
+        this.mqttTrace.record('inbound', { topic, payload, mode: 'event_v0' });
+        return true;
+      }
+
       this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
       this.mqttTrace.record('inbound', { topic, payload, mode: 'legacy_in' });
       return true;
@@ -1042,6 +1059,12 @@ class ModelTableRuntime {
         t: 'pin.in',
         v: { op_id: typeof payload.op_id === 'string' ? payload.op_id : '' },
       });
+      return true;
+    }
+
+    if (payloadMode === 'mt_v0' && directEventV0) {
+      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
+      this.mqttTrace.record('inbound', { topic, payload, mode: 'event_v0' });
       return true;
     }
 

@@ -149,8 +149,11 @@ process.stdout.write('\n=== Test Group 4: Model 100 Bridge ===\n');
   });
   assert(published !== null, 'model100 ui_event published');
   assert(published.topic === 'UIPUT/ws/dam/pic/de/sw/100/event', 'model100 topic uses /100/event');
-  assert(published.payload && published.payload.version === 'mt.v0', 'model100 payload is mt.v0');
-  assert(Array.isArray(published.payload?.records) && published.payload.records.length === 3, 'model100 payload is records-only');
+  assert(published.payload && published.payload.version === 'v0', 'model100 payload is direct event v0');
+  assert(published.payload?.type === 'ui_event', 'model100 payload preserves ui_event type');
+  assert(published.payload?.action === 'submit', 'model100 payload preserves action');
+  assert(published.payload?.source_model_id === 100, 'model100 payload preserves source_model_id');
+  assert(!Array.isArray(published.payload?.records), 'model100 payload does not emit records patch');
 }
 
 process.stdout.write('\n=== Test Group 5: Route-Driven Source Model ===\n');
@@ -184,8 +187,9 @@ process.stdout.write('\n=== Test Group 5: Route-Driven Source Model ===\n');
   });
   assert(published !== null, 'route-driven ui_event published');
   assert(published.topic === 'UIPUT/ws/dam/pic/de/sw/101/task', 'route-driven topic uses mbr_route_<modelId>.pin');
-  const modelIds = (published.payload?.records || []).map((record) => record.model_id);
-  assert(JSON.stringify(modelIds) === JSON.stringify([101, 101, 101]), 'route-driven payload targets source model id');
+  assert(published.payload?.version === 'v0', 'route-driven payload uses direct event v0');
+  assert(published.payload?.source_model_id === 101, 'route-driven payload targets source model id');
+  assert(!Array.isArray(published.payload?.records), 'route-driven payload does not emit records patch');
 }
 
 process.stdout.write('\n=== Test Group 6: Generic CRUD Rejected ===\n');
