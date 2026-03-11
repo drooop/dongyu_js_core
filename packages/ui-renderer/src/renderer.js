@@ -678,19 +678,16 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       }
     }
     const pendingLocal = Boolean(singleFlightEnabled && flightState && flightState.pending);
+    const schemaLoading = Object.prototype.hasOwnProperty.call(props, 'loading') ? Boolean(props.loading) : false;
+    props.loading = pendingLocal || schemaLoading;
     if (pendingLocal) {
       props.disabled = true;
-      props.loading = true;
     }
 
     props.onClick = (evt) => {
       if (singleFlightEnabled && flightState && flightState.pending) {
         return;
       }
-
-      const clickEl = evt && evt.currentTarget && typeof evt.currentTarget === 'object'
-        ? evt.currentTarget
-        : null;
 
       if (singleFlightEnabled && singleFlightStore) {
         const nextState = {
@@ -699,12 +696,6 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         };
         flightState = nextState;
         singleFlightStore.set(singleFlightKey, nextState);
-        if (clickEl && Object.prototype.hasOwnProperty.call(clickEl, 'disabled')) {
-          clickEl.disabled = true;
-        }
-        if (clickEl && clickEl.classList && typeof clickEl.classList.add === 'function') {
-          clickEl.classList.add('is-loading');
-        }
       }
 
       const target = node.bind && node.bind.write;
@@ -717,12 +708,6 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         };
         flightState = recoverState;
         singleFlightStore.set(singleFlightKey, recoverState);
-        if (clickEl && Object.prototype.hasOwnProperty.call(clickEl, 'disabled')) {
-          clickEl.disabled = false;
-        }
-        if (clickEl && clickEl.classList && typeof clickEl.classList.remove === 'function') {
-          clickEl.classList.remove('is-loading');
-        }
       }
     };
 

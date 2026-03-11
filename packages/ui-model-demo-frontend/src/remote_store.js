@@ -40,6 +40,7 @@ export function createRemoteStore(options) {
 
   let pauseSse = false;
   let pendingSseSnapshot = null;
+  let runtimeActivationPromise = null;
 
   function computePauseSse(next) {
     const v = getSnapshotLabelValue(next, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_pause_sse' });
@@ -184,7 +185,36 @@ export function createRemoteStore(options) {
     }
   }
 
-  async function postEnvelope(envelope) {
+  async function ensureRuntimeRunning() {
+    if (runtimeActivationPromise) return runtimeActivationPromise;
+    runtimeActivationPromise = (async () => {
+      try {
+        const resp = await fetch(`${baseUrl}/api/runtime/mode`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ mode: 'running' }),
+          credentials: 'same-origin',
+        });
+        if (!resp.ok) {
+          let detail = '';
+          try {
+            detail = await resp.text();
+          } catch (_) {
+            // ignore
+          }
+          console.error('runtime activation failed', { status: resp.status, statusText: resp.statusText, detail });
+        }
+      } catch (err) {
+        console.error('runtime activation fetch error', { err });
+      }
+      await fetchSnapshotAndApply('runtime activation');
+    })().finally(() => {
+      runtimeActivationPromise = null;
+    });
+    return runtimeActivationPromise;
+  }
+
+  async function postEnvelope(envelope, options = {}) {
     let resp;
     try {
       resp = await fetch(`${baseUrl}/ui_event`, {
@@ -226,6 +256,10 @@ export function createRemoteStore(options) {
       console.error('ui_event response json parse error', { err });
       await fetchSnapshotAndApply('ui_event response json parse error');
       return null;
+    }
+    if (data && data.code === 'runtime_not_running' && options.retried !== true) {
+      await ensureRuntimeRunning();
+      return postEnvelope(envelope, { retried: true });
     }
     if (data && data.snapshot) applySnapshot(data.snapshot);
     return data;
@@ -336,6 +370,8 @@ export function createRemoteStore(options) {
     } catch (_) {
       // allow SSE to recover later
     }
+
+    await ensureRuntimeRunning();
 
     try {
       const es = new EventSource(`${baseUrl}/stream`, { withCredentials: true });
