@@ -36,21 +36,15 @@ const sys = rt.getModel(-10);
 assert(sys, 'system model must exist');
 
 rt.addLabel(sys, 0, 0, 0, {
-  k: 'mbr_route_101',
-  t: 'json',
-  v: { pin: 'task', type: 'ui_event' },
-});
-
-rt.addLabel(sys, 0, 0, 0, {
   k: 'mbr_mgmt_inbox',
   t: 'json',
   v: {
     version: 'v0',
     type: 'ui_event',
-    op_id: 'route_101_001',
+    op_id: 'mbr_submit_001',
     action: 'submit',
-    source_model_id: 101,
-    data: { meta: { op_id: 'route_101_001' }, input_value: 'hello' },
+    source_model_id: 100,
+    data: { meta: { op_id: 'mbr_submit_001' }, input_value: 'hello' },
     timestamp: 1700000000000,
   },
 });
@@ -82,13 +76,12 @@ const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.g
 fn(ctx);
 
 assert.ok(published, 'route-driven ui_event must publish to MQTT');
-assert.equal(published.topic, 'UIPUT/ws/dam/pic/de/sw/101/task', 'route-driven bridge must use mbr_route_<modelId>.pin');
-assert.equal(published.payload?.version, 'v0', 'route-driven bridge payload must now be direct event payload');
-assert.equal(published.payload?.type, 'ui_event', 'route-driven bridge must preserve ui_event type');
-assert.equal(published.payload?.action, 'submit', 'route-driven bridge must preserve action');
-assert.equal(published.payload?.op_id, 'route_101_001', 'route-driven bridge must preserve op_id');
-assert.equal(published.payload?.source_model_id, 101, 'route-driven bridge must preserve source model id');
-assert.equal(published.payload?.data?.input_value, 'hello', 'route-driven bridge must preserve data payload');
-assert.ok(!Array.isArray(published.payload?.records), 'route-driven bridge must not emit records patch');
+assert.equal(published.topic, 'UIPUT/ws/dam/pic/de/sw/100/event', 'Model 100 submit must publish to /100/event');
+assert.equal(published.payload?.version, 'v0', 'MBR bridge must publish direct event payload instead of mt.v0 records patch');
+assert.equal(published.payload?.type, 'ui_event', 'MBR bridge must preserve event type');
+assert.equal(published.payload?.action, 'submit', 'MBR bridge must preserve action');
+assert.equal(published.payload?.source_model_id, 100, 'MBR bridge must preserve source_model_id');
+assert.deepEqual(published.payload?.data?.input_value, 'hello', 'MBR bridge must preserve data payload');
+assert.ok(!Array.isArray(published.payload?.records), 'MBR bridge must not emit records patch to worker business cells');
 
-console.log('PASS test_0179_mbr_route_contract');
+console.log('PASS test_0184_mbr_direct_event_bridge_contract');
