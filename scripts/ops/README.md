@@ -48,7 +48,8 @@ PASS 判定：
 - 将 cloud deploy 的构建源固定为 canonical 路径，并在 rollout 后校验容器内源码哈希。
 
 已接入脚本：
-- `scripts/ops/deploy_cloud.sh`
+- `scripts/ops/deploy_cloud_full.sh`
+- `scripts/ops/deploy_cloud_app.sh`
 
 Gate 内容：
 1. 单一构建源校验：`k8s/Dockerfile.ui-server` 为唯一基准。若存在 `Dockerfile.ui-server` 且哈希不一致，直接失败。
@@ -60,27 +61,64 @@ Gate 内容：
 4. rollout 后容器源码验收：比较 pod 内同路径文件 SHA256，任一不一致即失败。
 5. Prompt UI Guard 验收：检查 pod 内前端代码存在 `llmPromptAvailable` 与 `txt_prompt_unavailable` marker。
 
-命令（远端 root）：
+命令（远端 root，full deploy）：
 ```bash
-sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud.sh
+sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_full.sh
 ```
 
-命令（远端 root，使用预构建 tar）：
+命令（远端 root，app fast deploy）：
 ```bash
-sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud.sh --image-tar /tmp/dy-ui-server.tar
+sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-server
 ```
 
 说明：
-- 若远端工作目录不是 git clone（无 `.git`），脚本会优先从 `--image-tar` 文件名推断 `source revision`。
-- 若 tar 文件名不含 revision，可显式传入：`sudo DEPLOY_SOURCE_REV=<rev> bash ...`。
+- `deploy_cloud.sh` 现仅作为兼容 wrapper，内部委托给 `deploy_cloud_full.sh`。
+- `deploy_cloud_app.sh` 只允许目标集：`ui-server | mbr-worker | remote-worker`。
 
 ---
 
-## Cloud Local-Build + Remote-Import（推荐）
+## Cloud Remote Build（推荐）
 
 用途：
-- 本地构建镜像，远端只导入 tar + rollout，降低远端脏目录/旧文件影响。
-- 与 `deploy_cloud.sh --image-tar` 配合使用。
+- 当前无私有镜像仓库时的 canonical cloud deploy 路径。
+- 先同步目标 revision 到远端，再由远端本机 `docker build`，最后本机 `docker save | ctr import -` 导入 `rke2`。
+- 避免继续走 `scp` 大 tar 主路径。
+
+命令（先同步源码）：
+```bash
+bash scripts/ops/sync_cloud_source.sh \
+  --ssh-user drop \
+  --ssh-host 124.71.43.80 \
+  --remote-repo /home/wwpic/dongyuapp \
+  --revision "$(git rev-parse --short HEAD)"
+```
+
+命令（在远端主机上执行 full deploy）：
+```bash
+sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_full.sh --rebuild
+```
+
+命令（在远端主机上执行 app fast deploy）：
+```bash
+sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-server --revision "$(git rev-parse --short HEAD)"
+```
+
+PASS 判定：
+- `remote_preflight_guard.sh` PASS
+- 目标 deployment rollout 成功
+- source hash gate 通过
+- 目标环境验收命令 PASS
+
+说明：
+- 如果仍通过受限 sudo wrapper 远程触发部署，需要同步更新远端 wrapper / sudoers 白名单，使其允许新入口脚本。
+
+---
+
+## Cloud Local-Build + Remote-Import（fallback only）
+
+用途：
+- 仅用于远端无法 build、wrapper 仍只允许旧入口、或离线构件交付等 fallback 场景。
+- 不再是推荐主路径。
 
 命令：
 ```bash

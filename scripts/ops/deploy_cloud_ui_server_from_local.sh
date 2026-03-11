@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Build ui-server image locally, copy tar to cloud host, and trigger remote deploy script.
+# Fallback-only helper: build ui-server image locally, copy tar to cloud host, and trigger remote deploy.
 # Usage:
 #   bash scripts/ops/deploy_cloud_ui_server_from_local.sh
 #   bash scripts/ops/deploy_cloud_ui_server_from_local.sh --ssh-user wwpic --ssh-host 124.71.43.80
 # Notes:
-# - Remote side still runs scripts/ops/deploy_cloud.sh (requires sudo on remote host).
-# - This script avoids remote source drift by making local build artifact the deployment source.
+# - This is NOT the canonical cloud deploy path after 0183.
+# - Canonical path is: sync_cloud_source.sh -> deploy_cloud_full.sh / deploy_cloud_app.sh on the remote host.
+# - Keep this helper only for offline or wrapper-constrained fallback scenarios.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -83,6 +84,7 @@ LOCAL_TAR="/tmp/dy-ui-server-${SOURCE_REV}.tar"
 REMOTE_TAR="/tmp/dy-ui-server-${SOURCE_REV}.tar"
 
 echo "=== Local Build ==="
+echo "MODE=fallback-only"
 echo "REPO_DIR=$REPO_DIR"
 echo "SOURCE_REV=$SOURCE_REV"
 echo "IMAGE_TAG=$IMAGE_TAG"
@@ -126,4 +128,4 @@ ssh -t "${SSH_USER}@${SSH_HOST}" \
 
 echo ""
 echo "=== Done ==="
-echo "Remote deploy script executed with local-built image tar."
+echo "Fallback remote deploy executed with local-built image tar."
