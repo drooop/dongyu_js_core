@@ -61,36 +61,7 @@ echo "REVISION=$REVISION"
 
 ssh "$TARGET" "mkdir -p '$REMOTE_REPO'"
 
-if ssh "$TARGET" "test -d '$REMOTE_REPO/.git'"; then
-  ssh "$TARGET" "
-    set -euo pipefail
-    current_user=\"\$(id -un)\"
-    repo_owner=\"\$(stat -c '%U' '$REMOTE_REPO')\"
-    if [ \"\$current_user\" = '$REMOTE_REPO_OWNER' ] || [ \"\$current_user\" = \"\$repo_owner\" ]; then
-      git -C '$REMOTE_REPO' config --global --add safe.directory '$REMOTE_REPO' >/dev/null 2>&1 || true
-      git -C '$REMOTE_REPO' fetch --all --tags
-      git -C '$REMOTE_REPO' checkout --force '$REVISION'
-      git -C '$REMOTE_REPO' reset --hard '$REVISION'
-      git -C '$REMOTE_REPO' clean -fd
-      git -C '$REMOTE_REPO' rev-parse --short HEAD
-    elif [ \"\$repo_owner\" = '$REMOTE_REPO_OWNER' ] && command -v sudo >/dev/null 2>&1; then
-      sudo -u '$REMOTE_REPO_OWNER' git -C '$REMOTE_REPO' config --global --add safe.directory '$REMOTE_REPO' >/dev/null 2>&1 || true
-      sudo -u '$REMOTE_REPO_OWNER' git -C '$REMOTE_REPO' fetch --all --tags
-      sudo -u '$REMOTE_REPO_OWNER' git -C '$REMOTE_REPO' checkout --force '$REVISION'
-      sudo -u '$REMOTE_REPO_OWNER' git -C '$REMOTE_REPO' reset --hard '$REVISION'
-      sudo -u '$REMOTE_REPO_OWNER' git -C '$REMOTE_REPO' clean -fd
-      sudo -u '$REMOTE_REPO_OWNER' git -C '$REMOTE_REPO' rev-parse --short HEAD
-    else
-      git -C '$REMOTE_REPO' config --global --add safe.directory '$REMOTE_REPO' >/dev/null 2>&1 || true
-      git -C '$REMOTE_REPO' fetch --all --tags
-      git -C '$REMOTE_REPO' checkout --force '$REVISION'
-      git -C '$REMOTE_REPO' reset --hard '$REVISION'
-      git -C '$REMOTE_REPO' clean -fd
-      git -C '$REMOTE_REPO' rev-parse --short HEAD
-    fi
-  "
-else
-  echo "WARN: remote repo is not a git worktree; using git archive fallback"
+git_archive_fallback() {
   git -C "$REPO_DIR" rev-parse --verify "$REVISION" >/dev/null 2>&1
   git -C "$REPO_DIR" archive "$REVISION" | ssh "$TARGET" "
     set -euo pipefail
@@ -100,4 +71,33 @@ else
     printf '%s\n' '$REVISION' > '$REMOTE_REPO/.deploy-source-revision'
     cat '$REMOTE_REPO/.deploy-source-revision'
   "
+}
+
+if ssh "$TARGET" "test -d '$REMOTE_REPO/.git'"; then
+  if ! ssh "$TARGET" "
+    set -euo pipefail
+    current_user=\"\$(id -un)\"
+    repo_owner=\"\$(stat -c '%U' '$REMOTE_REPO')\"
+    run_git() {
+      if [ \"\$current_user\" = '$REMOTE_REPO_OWNER' ] || [ \"\$current_user\" = \"\$repo_owner\" ]; then
+        git -C '$REMOTE_REPO' \"\$@\"
+      elif [ \"\$repo_owner\" = '$REMOTE_REPO_OWNER' ] && command -v sudo >/dev/null 2>&1; then
+        sudo -u '$REMOTE_REPO_OWNER' git -C '$REMOTE_REPO' \"\$@\"
+      else
+        git -C '$REMOTE_REPO' \"\$@\"
+      fi
+    }
+    run_git config --global --add safe.directory '$REMOTE_REPO' >/dev/null 2>&1 || true
+    run_git fetch --all --tags || true
+    run_git checkout --force '$REVISION'
+    run_git reset --hard '$REVISION'
+    run_git clean -fd
+    run_git rev-parse --short HEAD
+  "; then
+    echo "WARN: remote git checkout failed; falling back to git archive sync"
+    git_archive_fallback
+  fi
+else
+  echo "WARN: remote repo is not a git worktree; using git archive fallback"
+  git_archive_fallback
 fi
