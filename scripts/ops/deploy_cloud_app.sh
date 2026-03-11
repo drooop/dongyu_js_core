@@ -179,7 +179,12 @@ echo "=== Cloud App Deploy ==="
 echo "TARGET=$TARGET"
 echo "REPO_DIR=$REPO_DIR"
 
-load_env "$REPO_DIR/deploy/env/cloud.env"
+if [ -f "$REPO_DIR/deploy/env/cloud.env" ]; then
+  load_env "$REPO_DIR/deploy/env/cloud.env"
+else
+  echo "WARN: cloud.env not found; using app-deploy defaults only"
+  export NAMESPACE="${NAMESPACE:-dongyu}"
+fi
 export KUBECONFIG="${KUBECONFIG:-/etc/rancher/rke2/rke2.yaml}"
 CTR="${CTR:-/usr/local/bin/ctr}"
 export CTR

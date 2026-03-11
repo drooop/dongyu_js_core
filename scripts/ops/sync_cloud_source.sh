@@ -66,8 +66,13 @@ git_archive_fallback() {
   git -C "$REPO_DIR" archive "$REVISION" | ssh "$TARGET" "
     set -euo pipefail
     mkdir -p '$REMOTE_REPO'
-    find '$REMOTE_REPO' -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-    tar -xf - -C '$REMOTE_REPO'
+    archive_tmp=\"\$(mktemp -d)\"
+    trap 'rm -rf \"\$archive_tmp\"' EXIT
+    tar -xf - -C \"\$archive_tmp\"
+    find '$REMOTE_REPO' -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'deploy' -exec rm -rf {} +
+    find '$REMOTE_REPO/deploy' -mindepth 1 -maxdepth 1 ! -name 'env' -exec rm -rf {} + 2>/dev/null || true
+    cp -a \"\$archive_tmp\"/. '$REMOTE_REPO'/
+    rm -rf '$REMOTE_REPO/deploy/env'/.gitkeep 2>/dev/null || true
     printf '%s\n' '$REVISION' > '$REMOTE_REPO/.deploy-source-revision'
     cat '$REMOTE_REPO/.deploy-source-revision'
   "
