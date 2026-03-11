@@ -551,13 +551,12 @@
         "singleFlight": {
           "key": "model100_submit",
           "releaseRef": {
-            "model_id": 100,
+            "model_id": -1,
             "p": 0,
             "r": 0,
-            "c": 0,
-            "k": "submit_inflight"
-          },
-          "releaseWhen": false
+            "c": 1,
+            "k": "ui_event_last_op_id"
+          }
         }
       }
     },
