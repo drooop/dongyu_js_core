@@ -111,6 +111,7 @@ if [ "$SKIP_REMOTE_SYNC" -eq 0 ]; then
   ssh "${SSH_USER}@${SSH_HOST}" \
     "mkdir -p ${REMOTE_REPO}/scripts/ops ${REMOTE_REPO}/k8s/cloud ${REMOTE_REPO}/packages/ui-model-demo-server ${REMOTE_REPO}/packages/ui-model-demo-frontend/src"
   scp "$REPO_DIR/scripts/ops/deploy_cloud.sh" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/scripts/ops/deploy_cloud.sh"
+  scp "$REPO_DIR/scripts/ops/deploy_cloud_full.sh" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/scripts/ops/deploy_cloud_full.sh"
   scp "$REPO_DIR/scripts/ops/remote_preflight_guard.sh" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/scripts/ops/remote_preflight_guard.sh"
   scp "$REPO_DIR/k8s/cloud/workers.yaml" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/k8s/cloud/workers.yaml"
   scp "$REPO_DIR/k8s/Dockerfile.ui-server" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/k8s/Dockerfile.ui-server"

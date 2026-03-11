@@ -27,6 +27,9 @@ assert.match(appText, /ui-server|mbr-worker|remote-worker/, 'app deploy must res
 assert.doesNotMatch(appText, /register_synapse_users/, 'app deploy must not bootstrap synapse');
 assert.doesNotMatch(appText, /update_k8s_secrets/, 'app deploy must not recreate secrets');
 assert.doesNotMatch(appText, /create_matrix_room_and_join/, 'app deploy must not recreate matrix room');
+assert.match(appText, /remote_store\.js/, 'ui-server app deploy source gate must include remote_store.js');
+assert.match(appText, /renderer\.mjs/, 'ui-server app deploy source gate must include renderer.mjs');
+assert.match(appText, /renderer\.js/, 'ui-server app deploy source gate must include renderer.js');
 
 const wrapperText = read('scripts/ops/deploy_cloud.sh');
 assert.match(
@@ -34,5 +37,10 @@ assert.match(
   /deploy_cloud_full\.sh/,
   'deploy_cloud.sh must become a wrapper that delegates to deploy_cloud_full.sh',
 );
+
+const fullTextWithUiGate = read('scripts/ops/deploy_cloud_full.sh');
+assert.match(fullTextWithUiGate, /remote_store\.js/, 'full deploy ui source gate must include remote_store.js');
+assert.match(fullTextWithUiGate, /renderer\.mjs/, 'full deploy ui source gate must include renderer.mjs');
+assert.match(fullTextWithUiGate, /renderer\.js/, 'full deploy ui source gate must include renderer.js');
 
 console.log('PASS test_0183_cloud_split_deploy_contract');

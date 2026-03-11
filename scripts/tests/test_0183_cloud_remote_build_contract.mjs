@@ -36,5 +36,10 @@ assert.match(
   /fallback|后备|非 canonical|not the canonical/i,
   'local tar helper must be explicitly demoted to fallback-only',
 );
+assert.match(
+  localHelperText,
+  /deploy_cloud_full\.sh/,
+  'fallback helper must still sync or reference deploy_cloud_full.sh so the compatibility wrapper works on the remote host',
+);
 
 console.log('PASS test_0183_cloud_remote_build_contract');

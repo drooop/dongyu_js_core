@@ -163,17 +163,26 @@ verify_ui_server_runtime_source_hashes() {
   local expected_server="$1"
   local expected_demo="$2"
   local expected_adapter="$3"
-  local got_server got_demo got_adapter
+  local expected_remote_store="$4"
+  local expected_renderer_mjs="$5"
+  local expected_renderer_js="$6"
+  local got_server got_demo got_adapter got_remote_store got_renderer_mjs got_renderer_js
   got_server="$(container_file_sha256 "/app/packages/ui-model-demo-server/server.mjs")"
   got_demo="$(container_file_sha256 "/app/packages/ui-model-demo-frontend/src/demo_modeltable.js")"
   got_adapter="$(container_file_sha256 "/app/packages/ui-model-demo-frontend/src/local_bus_adapter.js")"
+  got_remote_store="$(container_file_sha256 "/app/packages/ui-model-demo-frontend/src/remote_store.js")"
+  got_renderer_mjs="$(container_file_sha256 "/app/packages/ui-renderer/src/renderer.mjs")"
+  got_renderer_js="$(container_file_sha256 "/app/packages/ui-renderer/src/renderer.js")"
 
   echo "  ui-server pod: ${LAST_RUNNING_UI_SERVER_POD:-unknown}"
   echo "  hash server.mjs local=$expected_server pod=$got_server"
   echo "  hash demo_modeltable.js local=$expected_demo pod=$got_demo"
   echo "  hash local_bus_adapter.js local=$expected_adapter pod=$got_adapter"
+  echo "  hash remote_store.js local=$expected_remote_store pod=$got_remote_store"
+  echo "  hash renderer.mjs local=$expected_renderer_mjs pod=$got_renderer_mjs"
+  echo "  hash renderer.js local=$expected_renderer_js pod=$got_renderer_js"
 
-  if [ "$expected_server" != "$got_server" ] || [ "$expected_demo" != "$got_demo" ] || [ "$expected_adapter" != "$got_adapter" ]; then
+  if [ "$expected_server" != "$got_server" ] || [ "$expected_demo" != "$got_demo" ] || [ "$expected_adapter" != "$got_adapter" ] || [ "$expected_remote_store" != "$got_remote_store" ] || [ "$expected_renderer_mjs" != "$got_renderer_mjs" ] || [ "$expected_renderer_js" != "$got_renderer_js" ]; then
     echo "ERROR: ui-server runtime source hash mismatch (stale image or stale build context)." >&2
     return 1
   fi
@@ -271,12 +280,21 @@ echo "  source revision: $SOURCE_REV"
 UI_SRC_SERVER="$REPO_DIR/packages/ui-model-demo-server/server.mjs"
 UI_SRC_DEMO="$REPO_DIR/packages/ui-model-demo-frontend/src/demo_modeltable.js"
 UI_SRC_ADAPTER="$REPO_DIR/packages/ui-model-demo-frontend/src/local_bus_adapter.js"
+UI_SRC_REMOTE_STORE="$REPO_DIR/packages/ui-model-demo-frontend/src/remote_store.js"
+UI_SRC_RENDERER_MJS="$REPO_DIR/packages/ui-renderer/src/renderer.mjs"
+UI_SRC_RENDERER_JS="$REPO_DIR/packages/ui-renderer/src/renderer.js"
 UI_SRC_HASH_SERVER="$(sha256_of_file "$UI_SRC_SERVER")"
 UI_SRC_HASH_DEMO="$(sha256_of_file "$UI_SRC_DEMO")"
 UI_SRC_HASH_ADAPTER="$(sha256_of_file "$UI_SRC_ADAPTER")"
+UI_SRC_HASH_REMOTE_STORE="$(sha256_of_file "$UI_SRC_REMOTE_STORE")"
+UI_SRC_HASH_RENDERER_MJS="$(sha256_of_file "$UI_SRC_RENDERER_MJS")"
+UI_SRC_HASH_RENDERER_JS="$(sha256_of_file "$UI_SRC_RENDERER_JS")"
 echo "  source hash server.mjs:         $UI_SRC_HASH_SERVER"
 echo "  source hash demo_modeltable.js: $UI_SRC_HASH_DEMO"
 echo "  source hash local_bus_adapter:  $UI_SRC_HASH_ADAPTER"
+echo "  source hash remote_store.js:    $UI_SRC_HASH_REMOTE_STORE"
+echo "  source hash renderer.mjs:       $UI_SRC_HASH_RENDERER_MJS"
+echo "  source hash renderer.js:        $UI_SRC_HASH_RENDERER_JS"
 
 echo "All pre-flight checks passed."
 echo ""
@@ -412,7 +430,7 @@ echo ""
 echo "=== Step 12: Verify ==="
 verify_pods
 echo "--- UI runtime source gate ---"
-verify_ui_server_runtime_source_hashes "$UI_SRC_HASH_SERVER" "$UI_SRC_HASH_DEMO" "$UI_SRC_HASH_ADAPTER"
+verify_ui_server_runtime_source_hashes "$UI_SRC_HASH_SERVER" "$UI_SRC_HASH_DEMO" "$UI_SRC_HASH_ADAPTER" "$UI_SRC_HASH_REMOTE_STORE" "$UI_SRC_HASH_RENDERER_MJS" "$UI_SRC_HASH_RENDERER_JS"
 verify_ui_prompt_guard_markers
 verify_ui_server_snapshot_runtime
 echo ""

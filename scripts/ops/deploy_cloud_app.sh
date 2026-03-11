@@ -123,6 +123,9 @@ load_target_spec() {
         "packages/ui-model-demo-server/server.mjs:/app/packages/ui-model-demo-server/server.mjs"
         "packages/ui-model-demo-frontend/src/demo_modeltable.js:/app/packages/ui-model-demo-frontend/src/demo_modeltable.js"
         "packages/ui-model-demo-frontend/src/local_bus_adapter.js:/app/packages/ui-model-demo-frontend/src/local_bus_adapter.js"
+        "packages/ui-model-demo-frontend/src/remote_store.js:/app/packages/ui-model-demo-frontend/src/remote_store.js"
+        "packages/ui-renderer/src/renderer.mjs:/app/packages/ui-renderer/src/renderer.mjs"
+        "packages/ui-renderer/src/renderer.js:/app/packages/ui-renderer/src/renderer.js"
       )
       ;;
     mbr-worker)
