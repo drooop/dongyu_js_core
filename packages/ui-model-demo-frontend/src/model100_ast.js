@@ -133,6 +133,7 @@ export function buildModel100Ast() {
                           write: {
                             action: 'label_update',
                             target_ref: { model_id: -2, p: 0, r: 0, c: 0, k: 'model100_input_draft' },
+                            commit_policy: 'on_submit',
                           },
                         },
                       },

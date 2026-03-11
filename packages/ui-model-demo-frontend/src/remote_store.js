@@ -34,6 +34,7 @@ export function createRemoteStore(options) {
   const defaultBaseUrl = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'http://127.0.0.1:9000';
   const baseUrl = options && options.baseUrl ? String(options.baseUrl).replace(/\/$/, '') : defaultBaseUrl;
   const snapshot = reactive({ models: {}, v1nConfig: { local_mqtt: null, global_mqtt: null } });
+  const overlayStore = reactive(new Map());
 
   const EDITOR_MODEL_ID = -1;
   const EDITOR_STATE_MODEL_ID = -2;
@@ -41,6 +42,108 @@ export function createRemoteStore(options) {
   let pauseSse = false;
   let pendingSseSnapshot = null;
   let runtimeActivationPromise = null;
+
+  function labelRefKey(ref) {
+    if (!ref || !Number.isInteger(ref.model_id) || !Number.isInteger(ref.p) || !Number.isInteger(ref.r) || !Number.isInteger(ref.c) || typeof ref.k !== 'string') {
+      return '';
+    }
+    return `${ref.model_id}:${ref.p}:${ref.r}:${ref.c}:${ref.k}`;
+  }
+
+  function stableValueKey(value) {
+    if (value === null || value === undefined) return '__nil__';
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+    try {
+      return JSON.stringify(value);
+    } catch (_) {
+      return String(value);
+    }
+  }
+
+  function normalizeCommitPolicy(writeTarget) {
+    const raw = writeTarget && typeof writeTarget.commit_policy === 'string'
+      ? writeTarget.commit_policy.trim()
+      : '';
+    if (raw === 'on_change' || raw === 'on_blur' || raw === 'on_submit' || raw === 'immediate') {
+      return raw;
+    }
+    return 'immediate';
+  }
+
+  function inferInteractionMode(writeTarget) {
+    const explicit = writeTarget && typeof writeTarget.interaction_mode === 'string'
+      ? writeTarget.interaction_mode.trim()
+      : '';
+    if (explicit === 'overlay_then_commit' || explicit === 'committed_direct') return explicit;
+    const policy = normalizeCommitPolicy(writeTarget);
+    return policy === 'immediate' ? 'committed_direct' : 'overlay_then_commit';
+  }
+
+  function inferTypedValue(raw) {
+    if (typeof raw === 'boolean') return { t: 'bool', v: raw };
+    if (typeof raw === 'number' && Number.isSafeInteger(raw)) return { t: 'int', v: raw };
+    if (typeof raw === 'string') return { t: 'str', v: raw };
+    return { t: 'json', v: raw };
+  }
+
+  function getCommitTargetRef(ref, writeTarget) {
+    const explicit = writeTarget && writeTarget.commit_target_ref && typeof writeTarget.commit_target_ref === 'object'
+      ? writeTarget.commit_target_ref
+      : null;
+    if (explicit && labelRefKey(explicit)) return explicit;
+    const targetRef = writeTarget && writeTarget.target_ref && typeof writeTarget.target_ref === 'object'
+      ? writeTarget.target_ref
+      : null;
+    if (targetRef && labelRefKey(targetRef)) return targetRef;
+    return ref && labelRefKey(ref) ? ref : null;
+  }
+
+  function getOverlayEntry(ref) {
+    const key = labelRefKey(ref);
+    if (!key) return null;
+    return overlayStore.get(key) || null;
+  }
+
+  function clearOverlayEntry(ref) {
+    const key = labelRefKey(ref);
+    if (!key) return;
+    overlayStore.delete(key);
+  }
+
+  function getEffectiveLabelValue(ref) {
+    const key = labelRefKey(ref);
+    if (key && overlayStore.has(key)) {
+      return overlayStore.get(key).value;
+    }
+    return getSnapshotLabelValue(snapshot, ref);
+  }
+
+  function stageOverlayValue({ ref, value, writeTarget }) {
+    if (!ref || !labelRefKey(ref)) return;
+    if (!Number.isInteger(ref.model_id) || ref.model_id === 0 || ref.model_id === EDITOR_MODEL_ID) return;
+    if (inferInteractionMode(writeTarget) !== 'overlay_then_commit') return;
+    overlayStore.set(labelRefKey(ref), {
+      ref,
+      value,
+      commitPolicy: normalizeCommitPolicy(writeTarget),
+      writeTarget: writeTarget || null,
+      commitTargetRef: getCommitTargetRef(ref, writeTarget),
+      pending: false,
+      error: null,
+      committedValueKey: null,
+      updatedAt: Date.now(),
+    });
+  }
+
+  function reconcileOverlayStore() {
+    for (const [key, entry] of overlayStore.entries()) {
+      if (!entry || !entry.pending || !entry.commitTargetRef) continue;
+      const committedValue = getSnapshotLabelValue(snapshot, entry.commitTargetRef);
+      if (stableValueKey(committedValue) === entry.committedValueKey) {
+        overlayStore.delete(key);
+      }
+    }
+  }
 
   function computePauseSse(next) {
     const v = getSnapshotLabelValue(next, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_pause_sse' });
@@ -57,6 +160,7 @@ export function createRemoteStore(options) {
     if (!next || !next.models) return;
     snapshot.models = next.models;
     snapshot.v1nConfig = next.v1nConfig;
+    reconcileOverlayStore();
     pauseSse = computePauseSse(next);
     if (!pauseSse) {
       const pending = pendingSseSnapshot;
@@ -129,6 +233,98 @@ export function createRemoteStore(options) {
       cell.labels = {};
     }
     cell.labels[target.k] = { k: target.k, t: value.t, v: value.v };
+  }
+
+  function buildOverlayCommitEnvelope(entry, explicitValue) {
+    if (!entry || !entry.commitTargetRef) return null;
+    const writeTarget = entry.writeTarget || {};
+    const action = typeof writeTarget.action === 'string' && writeTarget.action.trim()
+      ? writeTarget.action.trim()
+      : 'label_update';
+    if (action !== 'label_update' && action !== 'label_add') return null;
+    const opId = `overlay_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    const typedValue = inferTypedValue(explicitValue !== undefined ? explicitValue : entry.value);
+    const payload = {
+      action,
+      meta: {
+        op_id: opId,
+        overlay_commit: true,
+        model_id: entry.commitTargetRef.model_id,
+      },
+      target: entry.commitTargetRef,
+      value: typedValue,
+    };
+    return {
+      event_id: Date.now(),
+      type: action,
+      source: 'ui_renderer',
+      ts: 0,
+      payload,
+    };
+  }
+
+  async function commitOverlayValue({ ref, writeTarget, value }) {
+    const key = labelRefKey(ref);
+    if (!key) return null;
+    const entry = overlayStore.get(key);
+    if (!entry) return null;
+    const effectiveWriteTarget = writeTarget || entry.writeTarget;
+    const envelope = buildOverlayCommitEnvelope({ ...entry, writeTarget: effectiveWriteTarget }, value);
+    if (!envelope) return null;
+    entry.pending = true;
+    entry.error = null;
+    entry.writeTarget = effectiveWriteTarget || null;
+    entry.commitTargetRef = getCommitTargetRef(ref, effectiveWriteTarget);
+    entry.committedValueKey = stableValueKey(inferTypedValue(value !== undefined ? value : entry.value).v);
+    overlayStore.set(key, entry);
+    sendQueue = sendQueue.then(() => postEnvelope(envelope)).then((data) => {
+      if (!data || data.result === 'error') {
+        const current = overlayStore.get(key);
+        if (current) {
+          current.pending = false;
+          current.error = data && data.code ? data.code : 'commit_failed';
+          overlayStore.set(key, current);
+        }
+      } else {
+        reconcileOverlayStore();
+      }
+      return data;
+    }).catch((err) => {
+      const current = overlayStore.get(key);
+      if (current) {
+        current.pending = false;
+        current.error = String(err && err.message ? err.message : err);
+        overlayStore.set(key, current);
+      }
+      return null;
+    });
+    return sendQueue;
+  }
+
+  async function flushSubmitOverlaysForEnvelope(rawEnvelope) {
+    const payload = rawEnvelope && rawEnvelope.payload ? rawEnvelope.payload : null;
+    if (!payload || typeof payload.action !== 'string') return;
+    const action = payload.action;
+    if (action === 'label_update' || action === 'label_add') return;
+    for (const [key, entry] of overlayStore.entries()) {
+      if (!entry || entry.pending) continue;
+      if (entry.commitPolicy !== 'on_submit') continue;
+      if (!entry.commitTargetRef) continue;
+      const envelope = buildOverlayCommitEnvelope(entry);
+      if (!envelope) continue;
+      entry.pending = true;
+      entry.error = null;
+      entry.committedValueKey = stableValueKey(inferTypedValue(entry.value).v);
+      overlayStore.set(key, entry);
+      const data = await postEnvelope(envelope);
+      if (!data || data.result === 'error') {
+        entry.pending = false;
+        entry.error = data && data.code ? data.code : 'commit_failed';
+        overlayStore.set(key, entry);
+      } else {
+        reconcileOverlayStore();
+      }
+    }
   }
 
   function getEditorState() {
@@ -340,7 +536,10 @@ export function createRemoteStore(options) {
 
     const envelope = rewriteEditorActionEnvelope(rawEnvelope);
 
-    sendQueue = sendQueue.then(() => postEnvelope(envelope)).catch(() => {
+    sendQueue = sendQueue.then(async () => {
+      await flushSubmitOverlaysForEnvelope(rawEnvelope);
+      return postEnvelope(envelope);
+    }).catch(() => {
       // keep queue alive
     });
     return sendQueue;
@@ -427,6 +626,9 @@ export function createRemoteStore(options) {
   return {
     snapshot,
     getUiAst,
+    getEffectiveLabelValue,
+    stageOverlayValue,
+    commitOverlayValue,
     dispatchAddLabel,
     dispatchRmLabel,
     consumeOnce,

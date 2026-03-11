@@ -36,6 +36,24 @@ export function createDemoRoot(store) {
 
   const host = {
     getSnapshot: () => store.snapshot,
+    getEffectiveLabelValue: (ref) => {
+      if (store && typeof store.getEffectiveLabelValue === 'function') {
+        return store.getEffectiveLabelValue(ref);
+      }
+      return undefined;
+    },
+    stageOverlayValue: (payload) => {
+      if (store && typeof store.stageOverlayValue === 'function') {
+        return store.stageOverlayValue(payload);
+      }
+      return undefined;
+    },
+    commitOverlayValue: (payload) => {
+      if (store && typeof store.commitOverlayValue === 'function') {
+        return store.commitOverlayValue(payload);
+      }
+      return undefined;
+    },
     dispatchAddLabel: (label) => {
       store.dispatchAddLabel(label);
       scheduleConsumeOnce();
