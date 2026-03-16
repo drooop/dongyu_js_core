@@ -73,12 +73,18 @@ skills/
 
 # ── Project-specific ignores ──
 
-# Root-level debris prevention
+# Root-level debris prevention (screenshots, media, temp files)
 /*.png
 /*.jpg
 /*.jpeg
 /*.gif
+/*.svg
+/*.webp
+/*.bmp
+/*.tiff
 /*.mp4
+/*.mp3
+/*.wav
 
 # Docs viewer build artifacts
 scripts/docs-viewer/vendor/
