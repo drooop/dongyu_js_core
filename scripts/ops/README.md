@@ -277,6 +277,18 @@ bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label
 bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label-35b
 ```
 
+35B 预热说明：
+- `mt-label-35b` 在本地 Ollama 下首轮 cold load 可能明显慢于 `mt-label`，症状通常是 runner 长时间停在第一个 preview 前。
+- 若需要更稳定地执行 35B 验证，先手动把模型挂上，再跑 matrix：
+```bash
+ollama run mt-label-35b "{}"
+```
+- 看到一次最小响应后，再执行：
+```bash
+bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label-35b --tag forms
+```
+- 2026-03-17 本地实测：先挂载后，请假/报修两个 forms 场景 `passed=2 failed=0`。
+
 命令（按 tag 子集）：
 ```bash
 bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label --tag forms
