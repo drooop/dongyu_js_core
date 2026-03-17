@@ -25,6 +25,10 @@ function test_package_manager_is_bun() {
 function test_server_default_prompt_mentions_new_pin_types() {
   const text = readText('packages/ui-model-demo-server/server.mjs');
   assert.match(text, /candidate_changes/, 'server template must require candidate_changes');
+  assert.match(text, /Model inventory JSON/, 'server template must include model inventory context');
+  assert.match(text, /prefer those exact keys over inventing new keys/, 'server template must prefer existing schema keys');
+  assert.match(text, /Do not invent synonym keys/, 'server template must forbid synonym key invention');
+  assert.match(text, /never emit tool calls/, 'server template must explicitly forbid tool-call style output');
   assert.match(text, /pin\.bus\.in/, 'server template must mention pin.bus.in');
   assert.match(text, /pin\.bus\.out/, 'server template must mention pin.bus.out');
   assert.match(text, /pin\.table\.in/, 'server template must mention pin.table.in');
@@ -42,6 +46,10 @@ function test_system_prompt_template_mentions_new_pin_types() {
   assert(record && typeof record.v === 'string', 'llm_filltable_prompt_template record missing');
   const text = record.v;
   assert.match(text, /candidate_changes/, 'system prompt must require candidate_changes');
+  assert.match(text, /Model inventory JSON/, 'system prompt must include model inventory context');
+  assert.match(text, /prefer those exact keys over inventing new keys/, 'system prompt must prefer existing schema keys');
+  assert.match(text, /Do not invent synonym keys/, 'system prompt must forbid synonym key invention');
+  assert.match(text, /never emit tool calls/, 'system prompt must explicitly forbid tool-call style output');
   assert.match(text, /pin\.bus\.in/, 'system prompt must mention pin.bus.in');
   assert.match(text, /pin\.bus\.out/, 'system prompt must mention pin.bus.out');
   assert.match(text, /pin\.table\.in/, 'system prompt must mention pin.table.in');

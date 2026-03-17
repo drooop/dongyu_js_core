@@ -55,11 +55,11 @@
         "base_url": "http://127.0.0.1:11434",
         "model": "mt-label",
         "fallback_model": "mt-label",
-        "timeout_ms": 120000,
+        "timeout_ms": 180000,
         "confidence_threshold": 0.78,
         "max_candidates": 3,
         "temperature": 0.1,
-        "max_tokens": 512
+        "max_tokens": 1024
       }
     },
     {

@@ -31,6 +31,7 @@ import {
   buildFilltableDigest,
   evaluateApplyPreviewGuard,
 } from './filltable_policy.mjs';
+import { buildFilltableModelInventoryFromSnapshot } from './filltable_prompt_context.mjs';
 
 const require = createRequire(import.meta.url);
 const { loadProgramModelFromSqlite } = require('../worker-base/src/program_model_loader.js');
@@ -215,10 +216,12 @@ const DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE = [
   'Policy JSON: {{policy_json}}',
   'Allowed output schema JSON: {{output_schema_json}}',
   'Available positive model ids JSON: {{available_model_ids_json}}',
+  'Model inventory JSON: {{model_inventory_json}}',
   'Output shape:',
   '{"proposal":{"summary":"...","operations":["..."],"queries":["..."],"requires_confirmation":true,"confirmation_question":"..."},"candidate_changes":[{"action":"set_label","target":{"model_id":100,"p":0,"r":0,"c":0,"k":"title"},"label":{"t":"str","v":"Demo"},"owner_hint":"modeltable_local_owner"}],"confidence":0.0,"reasoning":"..."}',
   'Rules:',
   '- JSON only, no markdown, no prose before or after JSON',
+  '- never emit tool calls, XML tags, <think> blocks, or analysis outside the JSON object',
   '- operations and queries may be arrays of strings',
   '- candidate_changes only support action=set_label/remove_label',
   '- set_label requires target.model_id,target.p,target.r,target.c,target.k and label.t,label.v',
@@ -227,6 +230,13 @@ const DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE = [
   '- query-only requests must use candidate_changes: [] and put reads in proposal.queries',
   '- target.model_id must be one of available positive model ids',
   '- do not target model_id=0 or any negative model_id in candidate_changes',
+  '- If model_inventory_json shows schema_fields for a target model, prefer those exact keys over inventing new keys',
+  '- Map user phrases using schema_fields.key, ui_label, placeholder, and option labels/values before considering a new key',
+  '- For enumerated fields with options, write the canonical option.value when it clearly matches the user request',
+  '- Do not invent synonym keys like applicant_name when schema already has applicant',
+  '- Only create a new non-schema key when the user explicitly names that new key and it is allowed by policy',
+  '- If a field is ambiguous or no schema key matches confidently, omit that field from candidate_changes and ask one concise clarification question in proposal.confirmation_question',
+  '- If the request needs structural changes or child-model creation that policy forbids, keep candidate_changes: [] and explain the block briefly in proposal.summary/confirmation_question',
   '- obey policy.allowed_label_types and policy.allow_structural_types',
   '- Structural t (func.js/func.python/pin.connect.label/pin.connect.cell/pin.connect.model/pin.bus.in/pin.bus.out/pin.table.in/pin.table.out/pin.single.in/pin.single.out/model.single/model.matrix/model.table/submt) are forbidden unless policy.allow_structural_types=true',
   '- pin.table.in / pin.table.out are for table-or-matrix models, and pin.single.in / pin.single.out are for model.single',
@@ -2172,6 +2182,7 @@ class ProgramModelEngine {
             policy_json: safeJsonStringify(policy, '{}'),
             output_schema_json: safeJsonStringify(outputSchema, '{}'),
             available_model_ids_json: safeJsonStringify(listPositiveModelIds(this.runtime), '[]'),
+            model_inventory_json: safeJsonStringify(buildFilltableModelInventoryFromSnapshot(this.runtime.snapshot(), 128), '[]'),
           });
           const llmResult = await this.llmInfer({
             baseUrl: llmCfg.base_url,

@@ -88,6 +88,7 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "500m"
+---
 # UI Server Deployment
 apiVersion: apps/v1
 kind: Deployment
@@ -129,13 +130,13 @@ spec:
         - name: DY_LLM_BASE_URL
           value: "http://host.docker.internal:11434"
         - name: DY_LLM_MODEL
-          value: "mt-table"
+          value: "mt-label"
         - name: DY_LLM_FALLBACK_MODEL
-          value: "mt-table"
+          value: "mt-label"
         - name: DY_LLM_MAX_TOKENS
-          value: "512"
+          value: "1024"
         - name: DY_LLM_TIMEOUT_MS
-          value: "120000"
+          value: "180000"
         - name: DY_PERSIST_ROOT
           value: /app/.dy_persist
         volumeMounts:
