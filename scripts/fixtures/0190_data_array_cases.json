@@ -44,6 +44,71 @@
           "value": "B"
         }
       }
+    },
+    {
+      "name": "add_missing_value_field",
+      "steps": [
+        { "pin": "add_data_in", "payload": { "foo": 1 } }
+      ],
+      "expected_error": {
+        "label": "__error_array_add",
+        "contains": "invalid_add_payload"
+      }
+    },
+    {
+      "name": "delete_index_zero_invalid",
+      "steps": [
+        { "pin": "delete_data_in", "payload": { "index": 0 } }
+      ],
+      "expected_error": {
+        "label": "__error_array_delete",
+        "contains": "invalid_delete_payload"
+      }
+    },
+    {
+      "name": "delete_out_of_range",
+      "steps": [
+        { "pin": "add_data_in", "payload": { "value": "A" } },
+        { "pin": "add_data_in", "payload": { "value": "B" } },
+        { "pin": "delete_data_in", "payload": { "index": 5 } }
+      ],
+      "expected_error": {
+        "label": "__error_array_delete",
+        "contains": "delete_index_out_of_range"
+      }
+    },
+    {
+      "name": "delete_on_empty_array",
+      "steps": [
+        { "pin": "delete_data_in", "payload": { "index": 1 } }
+      ],
+      "expected_error": {
+        "label": "__error_array_delete",
+        "contains": "delete_index_out_of_range"
+      }
+    },
+    {
+      "name": "get_out_of_range_returns_not_found",
+      "steps": [
+        { "pin": "get_data_in", "payload": { "index": 99 } }
+      ],
+      "expected": {
+        "get_data_out": {
+          "index": 99,
+          "found": false,
+          "value": null
+        }
+      }
+    },
+    {
+      "name": "get_all_requires_null_payload",
+      "steps": [
+        { "pin": "get_all_data_in", "payload": { "filter": "x" } }
+      ],
+      "expected_error": {
+        "label": "__error_array_get_all",
+        "contains": "get_all_payload_must_be_null"
+      }
     }
   ]
 }
