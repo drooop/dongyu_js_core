@@ -32,15 +32,24 @@ async function buildRuntimeFromTemplate() {
   return { runtime, model };
 }
 
-async function test_add_get_size_and_get_all_contract() {
-  const { runtime, model } = await buildRuntimeFromTemplate();
-  const fixture = loadJson(fixturePath).cases.find((item) => item.name === 'add_two_items_and_read_size_and_all');
-  assert.ok(fixture, 'missing fixture case add_two_items_and_read_size_and_all');
-
-  for (const step of fixture.steps) {
+async function applySteps(model, runtime, steps) {
+  for (const step of steps) {
     runtime.addLabel(model, 0, 0, 0, { k: step.pin, t: 'pin.in', v: step.payload });
   }
   await settle();
+}
+
+function findCase(name) {
+  const fixture = loadJson(fixturePath).cases.find((item) => item.name === name);
+  assert.ok(fixture, `missing fixture case ${name}`);
+  return fixture;
+}
+
+async function test_add_get_size_and_get_all_contract() {
+  const { runtime, model } = await buildRuntimeFromTemplate();
+  const fixture = findCase('add_two_items_and_read_size_and_all');
+
+  await applySteps(model, runtime, fixture.steps);
 
   assert.equal(runtime.getLabelValue(model, 0, 0, 0, 'size_now'), fixture.expected.size_now);
   assert.equal(runtime.getLabelValue(model, 0, 0, 0, 'next_index'), fixture.expected.next_index);
@@ -52,13 +61,9 @@ async function test_add_get_size_and_get_all_contract() {
 
 async function test_get_by_index_and_delete_compacts_array() {
   const { runtime, model } = await buildRuntimeFromTemplate();
-  const fixture = loadJson(fixturePath).cases.find((item) => item.name === 'get_by_index_and_delete_with_compact');
-  assert.ok(fixture, 'missing fixture case get_by_index_and_delete_with_compact');
+  const fixture = findCase('get_by_index_and_delete_with_compact');
 
-  for (const step of fixture.steps) {
-    runtime.addLabel(model, 0, 0, 0, { k: step.pin, t: 'pin.in', v: step.payload });
-  }
-  await settle();
+  await applySteps(model, runtime, fixture.steps);
 
   assert.deepEqual(runtime.getLabelValue(model, 0, 0, 0, 'get_data_out'), fixture.expected.get_data_out);
   assert.equal(runtime.getLabelValue(model, 0, 0, 0, 'size_now'), fixture.expected.size_now, 'delete must decrement size');
@@ -68,9 +73,67 @@ async function test_get_by_index_and_delete_compacts_array() {
   assert.equal(runtime.getLabelValue(model, 0, 3, 0, 'value'), undefined, 'delete must not leave tail value behind');
 }
 
+async function test_add_missing_value_field_raises_error() {
+  const { runtime, model } = await buildRuntimeFromTemplate();
+  const fixture = findCase('add_missing_value_field');
+  await applySteps(model, runtime, fixture.steps);
+  const err = runtime.getLabelValue(model, 0, 0, 0, fixture.expected_error.label);
+  assert.ok(err && typeof err.error === 'string', 'add invalid payload must surface error label');
+  assert.match(err.error, new RegExp(fixture.expected_error.contains));
+}
+
+async function test_delete_index_zero_raises_error() {
+  const { runtime, model } = await buildRuntimeFromTemplate();
+  const fixture = findCase('delete_index_zero_invalid');
+  await applySteps(model, runtime, fixture.steps);
+  const err = runtime.getLabelValue(model, 0, 0, 0, fixture.expected_error.label);
+  assert.ok(err && typeof err.error === 'string', 'delete index=0 must surface error label');
+  assert.match(err.error, new RegExp(fixture.expected_error.contains));
+}
+
+async function test_delete_out_of_range_raises_error() {
+  const { runtime, model } = await buildRuntimeFromTemplate();
+  const fixture = findCase('delete_out_of_range');
+  await applySteps(model, runtime, fixture.steps);
+  const err = runtime.getLabelValue(model, 0, 0, 0, fixture.expected_error.label);
+  assert.ok(err && typeof err.error === 'string', 'delete out of range must surface error label');
+  assert.match(err.error, new RegExp(fixture.expected_error.contains));
+}
+
+async function test_delete_on_empty_array_raises_error() {
+  const { runtime, model } = await buildRuntimeFromTemplate();
+  const fixture = findCase('delete_on_empty_array');
+  await applySteps(model, runtime, fixture.steps);
+  const err = runtime.getLabelValue(model, 0, 0, 0, fixture.expected_error.label);
+  assert.ok(err && typeof err.error === 'string', 'delete empty array must surface error label');
+  assert.match(err.error, new RegExp(fixture.expected_error.contains));
+}
+
+async function test_get_out_of_range_returns_not_found() {
+  const { runtime, model } = await buildRuntimeFromTemplate();
+  const fixture = findCase('get_out_of_range_returns_not_found');
+  await applySteps(model, runtime, fixture.steps);
+  assert.deepEqual(runtime.getLabelValue(model, 0, 0, 0, 'get_data_out'), fixture.expected.get_data_out);
+}
+
+async function test_get_all_requires_null_payload() {
+  const { runtime, model } = await buildRuntimeFromTemplate();
+  const fixture = findCase('get_all_requires_null_payload');
+  await applySteps(model, runtime, fixture.steps);
+  const err = runtime.getLabelValue(model, 0, 0, 0, fixture.expected_error.label);
+  assert.ok(err && typeof err.error === 'string', 'get_all payload must surface error label');
+  assert.match(err.error, new RegExp(fixture.expected_error.contains));
+}
+
 const tests = [
   test_add_get_size_and_get_all_contract,
   test_get_by_index_and_delete_compacts_array,
+  test_add_missing_value_field_raises_error,
+  test_delete_index_zero_raises_error,
+  test_delete_out_of_range_raises_error,
+  test_delete_on_empty_array_raises_error,
+  test_get_out_of_range_returns_not_found,
+  test_get_all_requires_null_payload,
 ];
 
 let passed = 0;
