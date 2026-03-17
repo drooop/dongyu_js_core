@@ -30,6 +30,8 @@ Branch: dev
 | Dropmode 会话迁移协议 | `CODEX_HANDOFF_MODE.md` | developer workflow only; unrelated to fill-table/runtime semantics |
 | 迭代流程与闸门 | `docs/WORKFLOW.md`, `docs/ITERATIONS.md` | iteration must be registered before work |
 | 运行时语义/边界 | `docs/ssot/runtime_semantics_modeltable_driven.md` | mailbox, BUS_IN/OUT, CELL_CONNECT invariants |
+| 标签注册表 | `docs/ssot/label_type_registry.md` | authoritative label.t registry + placement rules |
+| 宿主能力边界 | `docs/ssot/host_ctx_api.md` | negative-model ctx API rules |
 | Runtime 内核实现 | `packages/worker-base/src/runtime.js`, `packages/worker-base/src/runtime.mjs` | dual CJS/ESM must stay behavior-aligned |
 | UI 渲染契约 | `packages/ui-renderer/src/renderer.mjs` | host adapter contract, event normalization |
 | 前端入口 | `packages/ui-model-demo-frontend/src/main.js` | local/remote mode bootstrap |
@@ -39,8 +41,10 @@ Branch: dev
 
 ## CONVENTIONS
 - Authority: `CLAUDE.md` > docs SSOT/charter/workflow > other docs.
+- `docs/handover/**`, `docs/roadmaps/**`, `docs/logs/**` are non-normative unless explicitly promoted; do not use them to override `CLAUDE.md` or `docs/ssot/**`.
 - Planning gate: no plan -> no code change; no Approved -> no execution.
 - Iteration gate: register in `docs/ITERATIONS.md` before implementation.
+- Single-developer workflow: default is local verification + local merge into `dev` + push; do not open a PR unless the user explicitly asks.
 - Codex developer workflow supplements live in `CODEX_HANDOFF_MODE.md`; they govern chat/session migration only, not product/runtime behavior. Canonical trigger skill is `$dropmode`.
 - Model discipline: ModelTable is SSOT, UI is projection only.
 - Side effects: only via `add_label` / `rm_label`.
@@ -50,6 +54,7 @@ Branch: dev
 ## ANTI-PATTERNS (THIS PROJECT)
 - Remote ops forbidden set in `CLAUDE.md` (k3s/systemctl/rancher/CNI/firewall/network mutations).
 - Direct commits to `dev` (except merge commits).
+- Routine PR creation in single-developer flow when the user did not ask for a PR.
 - UI direct bus side effects or direct business-state writes.
 - Side effects outside mailbox contract or outside `add_label` / `rm_label`.
 - Silent failure (must write failure to ModelTable).

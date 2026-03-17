@@ -219,6 +219,8 @@ PASS 判定：
 用途：
 - 验证 `0155` Prompt FillTable 闭环：`Preview -> Apply -> Replay Guard -> Policy Reject`。
 - 默认使用本地 mock ollama，确保无真实模型时也可复跑；可切换真实 Ollama。
+- `0188` 起，推荐真实本地模型为 `mt-label`，其底座由 `qwen3.5:9b` 构建。
+- `0188` 起，schema-aware prompt 已要求优先命中现有字段，并在不确定时先提问。
 
 命令（推荐，默认 mock）：
 ```bash
@@ -230,9 +232,19 @@ bash scripts/ops/run_0155_prompt_filltable_local.sh
 bash scripts/ops/run_0155_prompt_filltable_local.sh --real-ollama
 ```
 
+命令（先创建本地 `mt-label`）：
+```bash
+bash scripts/ops/create_mt_label_qwen35.sh
+```
+
 命令（真实 Ollama + 指定模型标签）：
 ```bash
 bash scripts/ops/run_0155_prompt_filltable_local.sh --real-ollama --llm-model mt-label
+```
+
+命令（真实 Ollama + 35B 变体）：
+```bash
+bash scripts/ops/run_0155_prompt_filltable_local.sh --real-ollama --llm-model mt-label-35b
 ```
 
 PASS 判定：
@@ -244,6 +256,49 @@ PASS 判定：
 脚本说明：
 - `verify_0155_prompt_filltable.sh`：执行 Preview/Apply/Replay/Reject 四段验收并严格判定 PASS/FAIL。
 - `run_0155_prompt_filltable_local.sh`：一键串联 mock ollama + 本地 server 启动 + 0155 验证。
+- `create_mt_label_qwen35.sh`：用 `qwen3.5:9b` + 结构化输出参数创建本地 `mt-label`。
+
+---
+
+## 0188 FillTable Capability Matrix（一键）
+
+用途：
+- 按固定能力表回归自然语言填表，而不是只跑单一 `0155` 用例。
+- 支持全量执行，也支持按 capability subset / scenario id 执行。
+- 覆盖：基础写入、表单字段映射、query-only、父子模型负例、需要澄清时先提问。
+
+命令（全量，9B）：
+```bash
+bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label
+```
+
+命令（全量，35B）：
+```bash
+bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label-35b
+```
+
+命令（按 tag 子集）：
+```bash
+bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label --tag forms
+bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label --tag structure
+```
+
+命令（按 scenario id）：
+```bash
+bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label --scenario leave_form_model1001_exact_mapping
+```
+
+PASS 判定：
+- runner JSON summary 中 `failed=0`
+- `leave_form_model1001_exact_mapping` 必须命中 `applicant/leave_type/days/reason`
+- `repair_form_model1002_exact_mapping` 必须命中 `device_name/location/urgency/description`
+- `parent_child_submodel_model11_blocked` 在当前 policy 下必须 blocked，不能创建 `Model11`
+
+脚本说明：
+- `filltable_capability_cases.mjs`：能力矩阵、标签、prompt 与断言的单一事实源。
+- `run_filltable_capability_matrix.mjs`：对已有 server 执行 scenario 并产出 JSON report。
+- `run_filltable_capability_matrix_local.sh`：本地启动 server、warm up 模型、执行矩阵并自动回收进程。
+- `docs/user-guide/filltable_capability_matrix.md`：人类可读版能力表与选择方式。
 
 ---
 
@@ -273,8 +328,8 @@ PASS 判定：
 实测经验：
 - 本地 `ui-server` 默认值：
   - `DY_LLM_MODEL=mt-table`
-  - `DY_LLM_MAX_TOKENS=512`
-  - `DY_LLM_TIMEOUT_MS=120000`
+  - `DY_LLM_MAX_TOKENS=1024`
+  - `DY_LLM_TIMEOUT_MS=180000`
 - `mt-table` 首轮 full prompt 可能出现 warm-up 超时；`0170` 中观察到：
   - 首轮 `verify_0155` 曾返回 `llm_timeout`
   - 紧接着复跑同一命令即可 PASS

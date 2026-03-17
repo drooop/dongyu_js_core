@@ -80,6 +80,10 @@ need_cmd date
 echo "[verify-0155] base_url=$BASE_URL"
 curl -fsS "$BASE_URL/snapshot" >/dev/null
 
+ACTIVATE_RESP="$(curl -fsS -X POST "$BASE_URL/api/runtime/mode" -H 'content-type: application/json' -d '{"mode":"running"}')"
+echo "[verify-0155] runtime_mode_response=$ACTIVATE_RESP"
+echo "$ACTIVATE_RESP" | jq -e '.ok == true and .mode == "running"' >/dev/null
+
 write_local_state "llm_prompt_text" "str" '"Set model 100 title to prompt demo, remove obsolete_key, then check model 100 status"' "verify_0155_set_prompt"
 
 OP1="pf_preview_$(date +%s)_1"
