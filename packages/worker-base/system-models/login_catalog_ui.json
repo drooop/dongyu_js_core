@@ -1,0 +1,40 @@
+{
+  "version": "mt.v0",
+  "op_id": "login_catalog_ui_v0",
+  "description": "Login model schema/data seeded from patch instead of server code",
+  "records": [
+    { "op": "add_label", "model_id": -3, "p": 0, "r": 0, "c": 0, "k": "login_username", "t": "str", "v": "" },
+    { "op": "add_label", "model_id": -3, "p": 0, "r": 0, "c": 0, "k": "login_password", "t": "str", "v": "" },
+    { "op": "add_label", "model_id": -3, "p": 0, "r": 0, "c": 0, "k": "login_error", "t": "str", "v": "" },
+    { "op": "add_label", "model_id": -3, "p": 0, "r": 0, "c": 0, "k": "login_loading", "t": "str", "v": "false" },
+    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "_title", "t": "str", "v": "洞宇 DongYu" },
+    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "_subtitle", "t": "str", "v": "Matrix Account Login" },
+    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "_field_order", "t": "json", "v": ["login_username", "login_password", "login_submit"] },
+    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_username", "t": "str", "v": "Input" },
+    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_username__label", "t": "str", "v": "Username" },
+    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_username__props", "t": "json", "v": { "placeholder": "@user:server" } },
+    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_password", "t": "str", "v": "Input" },
+    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_password__label", "t": "str", "v": "Password" },
+    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_password__props", "t": "json", "v": { "type": "password", "showPassword": true } },
+    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_submit", "t": "str", "v": "Button" },
+    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_submit__label", "t": "str", "v": "" },
+    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_submit__no_wrap", "t": "bool", "v": true },
+    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_submit__props", "t": "json", "v": { "label": "Login with Matrix", "type": "primary", "style": { "width": "100%" } } },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "login_submit__bind",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_add",
+          "target_ref": { "model_id": -3, "p": 0, "r": 0, "c": 1, "k": "login_event" },
+          "value_ref": { "t": "json", "v": { "action": "login_submit" } }
+        }
+      }
+    }
+  ]
+}

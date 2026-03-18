@@ -1,23 +1,14 @@
 import { computed, h, onBeforeUnmount, onMounted, ref, resolveComponent } from 'vue';
 import { createRenderer } from '@ui-renderer/index.mjs';
 import { readAppShellRouteSyncState } from './app_shell_route_sync.js';
+import { findPageEntryByPath, readPageCatalog } from './page_asset_resolver.js';
 
 import {
-  ROUTE_GALLERY,
   ROUTE_HOME,
-  ROUTE_DOCS,
   ROUTE_MODEL100,
-  ROUTE_PROMPT,
-  ROUTE_STATIC,
   ROUTE_WORKSPACE,
   getHashPath,
-  isDocsPath,
-  isGalleryPath,
-  isHomePath,
   isModel100Path,
-  isPromptPath,
-  isStaticPath,
-  isWorkspacePath,
   setHashPath,
   subscribeHashPath,
 } from './router.js';
@@ -109,13 +100,21 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       const path = ref(getHashPath());
       let unsubscribe = null;
 
+      function readCatalog() {
+        return readPageCatalog(mainStore?.snapshot ?? {});
+      }
+
+      function findRouteEntry(routePath) {
+        return findPageEntryByPath(mainStore?.snapshot ?? {}, routePath);
+      }
+
       function normalizeIfUnknown(p) {
         if (isModel100Path(p)) {
           setHashPath(ROUTE_WORKSPACE, { replace: true });
           path.value = ROUTE_WORKSPACE;
           return;
         }
-        if (isHomePath(p) || isGalleryPath(p) || isDocsPath(p) || isStaticPath(p) || isWorkspacePath(p) || isPromptPath(p)) return;
+        if (findRouteEntry(p)) return;
         setHashPath(ROUTE_HOME, { replace: true });
         path.value = ROUTE_HOME;
       }
@@ -149,11 +148,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       }
 
       function syncPageLabel(routePath) {
-        let page = 'home';
-        if (isDocsPath(routePath)) page = 'docs';
-        else if (isStaticPath(routePath)) page = 'static';
-        else if (isWorkspacePath(routePath)) page = 'workspace';
-        else if (isPromptPath(routePath)) page = 'prompt';
+        const page = findRouteEntry(routePath)?.page || 'home';
         try {
           if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
           const opId = `route_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -179,7 +174,8 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       }
 
       function syncWorkspaceSelection(routePath) {
-        if (!isWorkspacePath(routePath)) return;
+        const page = findRouteEntry(routePath)?.page || 'home';
+        if (page !== 'workspace') return;
         queueMicrotask(() => {
           selectWorkspaceModel(resolveWorkspaceModelId());
         });
@@ -201,24 +197,19 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         if (unsubscribe) unsubscribe();
       });
 
-      const isGallery = computed(() => isGalleryPath(path.value));
-
-      const isDocs = computed(() => isDocsPath(path.value));
-      const isStatic = computed(() => isStaticPath(path.value));
-      const isWorkspace = computed(() => isWorkspacePath(path.value));
-      const isPrompt = computed(() => isPromptPath(path.value));
+      const currentRouteEntry = computed(() => findRouteEntry(path.value));
       const routeSyncState = computed(() => readAppShellRouteSyncState(mainStore?.snapshot ?? {}, path.value));
 
       function Header() {
-        const navButtons = [
-          h(ElButton, { type: isHomePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_HOME) }, { default: () => '首页' }),
-          h('span', { style: { display: 'inline-block', width: '24px' } }, ''),
-          h(ElButton, { type: isGalleryPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_GALLERY) }, { default: () => 'Gallery' }),
-          h(ElButton, { type: isDocsPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_DOCS) }, { default: () => 'Docs' }),
-          h(ElButton, { type: isStaticPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_STATIC) }, { default: () => 'Static' }),
-          h(ElButton, { type: isWorkspacePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_WORKSPACE) }, { default: () => 'Workspace' }),
-          h(ElButton, { type: isPromptPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_PROMPT) }, { default: () => 'Prompt' }),
-        ];
+        const catalog = readCatalog().filter((entry) => entry && entry.nav_visible === true && typeof entry.path === 'string');
+        const navButtons = catalog.map((entry) => h(
+          ElButton,
+          {
+            type: currentRouteEntry.value?.page === entry.page ? 'primary' : 'default',
+            onClick: () => setHashPath(entry.path),
+          },
+          { default: () => entry.label || entry.page || entry.path },
+        ));
 
         const userSection = [];
         if (authStore && authStore.state && authStore.state.authenticated) {
@@ -250,7 +241,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       }
 
       return () => {
-        if (isGallery.value) {
+        if (currentRouteEntry.value?.page === 'gallery') {
           return h('div', [h(Header), h(GalleryRoot)]);
         }
         if (routeSyncState.value.pending) {
@@ -278,7 +269,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
             ]),
           ]);
         }
-        if (isDocs.value || isStatic.value || isWorkspace.value || isPrompt.value) {
+        if (currentRouteEntry.value && currentRouteEntry.value.page !== 'gallery') {
           return h('div', [h(Header), h(HomeRoot)]);
         }
         return h('div', [

@@ -6,6 +6,7 @@ export const EDITOR_STATE_MODEL_ID = -2;
 
 // System/internal (currently used for pin demo actions).
 export const SYSTEM_MODEL_ID = -10;
+export const PROMPT_CATALOG_MODEL_ID = -21;
 
 // Gallery models (kept separate from editor mailbox/state).
 export const GALLERY_MAILBOX_MODEL_ID = -101;

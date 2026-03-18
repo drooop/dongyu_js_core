@@ -2733,37 +2733,10 @@ function createServerState(options) {
     runtime.createModel({ id: GALLERY_STATE_MODEL_ID, name: 'gallery_state', type: 'ui' });
   }
 
-  // ── Model -3: Login Form (p=0 data, p=1 schema) ──────────────────────────
+  // ── Model -3: Login Form (schema/data now seeded from login_catalog_ui.json) ──────────────────────────
   if (!runtime.getModel(LOGIN_MODEL_ID)) {
     runtime.createModel({ id: LOGIN_MODEL_ID, name: 'login_form', type: 'ui' });
   }
-  const loginModel = runtime.getModel(LOGIN_MODEL_ID);
-  // p=0 cell(0,0,0) — data layer
-  runtime.addLabel(loginModel, 0, 0, 0, { k: 'login_username', t: 'str', v: '' });
-  runtime.addLabel(loginModel, 0, 0, 0, { k: 'login_password', t: 'str', v: '' });
-  runtime.addLabel(loginModel, 0, 0, 0, { k: 'login_error', t: 'str', v: '' });
-  runtime.addLabel(loginModel, 0, 0, 0, { k: 'login_loading', t: 'str', v: 'false' });
-  // p=1 cell(1,0,0) — schema layer
-  runtime.addLabel(loginModel, 1, 0, 0, { k: '_title', t: 'str', v: '洞宇 DongYu' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: '_subtitle', t: 'str', v: 'Matrix Account Login' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: '_field_order', t: 'json', v: ['login_username', 'login_password', 'login_submit'] });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_username', t: 'str', v: 'Input' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_username__label', t: 'str', v: 'Username' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_username__props', t: 'json', v: { placeholder: '@user:server' } });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_password', t: 'str', v: 'Input' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_password__label', t: 'str', v: 'Password' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_password__props', t: 'json', v: { type: 'password', showPassword: true } });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit', t: 'str', v: 'Button' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit__label', t: 'str', v: '' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit__no_wrap', t: 'bool', v: true });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit__props', t: 'json', v: { label: 'Login with Matrix', type: 'primary', style: { width: '100%' } } });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit__bind', t: 'json', v: {
-    write: {
-      action: 'label_add',
-      target_ref: { model_id: LOGIN_MODEL_ID, p: 0, r: 0, c: 1, k: 'login_event' },
-      value_ref: { t: 'json', v: { action: 'login_submit' } },
-    },
-  } });
 
   const systemModelsDir = new URL('../worker-base/system-models/', import.meta.url).pathname;
   loadSystemModelPatches(runtime, systemModelsDir);
@@ -2845,18 +2818,6 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'ws_new_app_name', 'str', '');
   ensureStateLabel(runtime, 'ws_delete_app_id', 'int', 0);
   ensureStateLabel(runtime, 'ws_status', 'str', '');
-
-  // Prompt FillTable page state.
-  ensureStateLabel(runtime, 'llm_prompt_text', 'str', '');
-  ensureStateLabel(runtime, 'llm_prompt_preview_json', 'json', {});
-  ensureStateLabel(runtime, 'llm_prompt_preview_id', 'str', '');
-  ensureStateLabel(runtime, 'llm_prompt_preview_digest', 'str', '');
-  ensureStateLabel(runtime, 'llm_prompt_apply_preview_id', 'str', '');
-  ensureStateLabel(runtime, 'llm_prompt_apply_result_json', 'json', {});
-  ensureStateLabel(runtime, 'llm_prompt_status', 'str', '');
-  ensureStateLabel(runtime, 'llm_prompt_last_applied_preview_id', 'str', '');
-  ensureStateLabel(runtime, 'llm_prompt_available', 'bool', false);
-  ensureStateLabel(runtime, 'llm_prompt_notice', 'str', '正在检测 LLM 服务...');
 
   const deriveWorkspaceRegistry = () => {
     const derived = [];
