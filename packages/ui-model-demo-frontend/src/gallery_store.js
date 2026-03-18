@@ -2,7 +2,7 @@ import { reactive } from 'vue';
 import { ModelTableRuntime } from '../../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from './local_bus_adapter.js';
 import galleryCatalogPatch from '../../worker-base/system-models/gallery_catalog_ui.json' with { type: 'json' };
-import { GALLERY_CATALOG_MODEL_ID, GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from './model_ids.js';
+import { EDITOR_STATE_MODEL_ID, GALLERY_CATALOG_MODEL_ID, GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from './model_ids.js';
 import { setHashPath } from './router.js';
 
 function ensureModel(runtime, { id, name, type }) {
@@ -34,7 +34,7 @@ function ensureGalleryAssets(runtime) {
 }
 
 function ensureWorkspaceGalleryEntry(runtime) {
-  const stateModel = runtime.getModel(-2);
+  const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
   if (!stateModel) return;
   const cell = runtime.getCell(stateModel, 0, 0, 0);
   const current = cell.labels.get('ws_apps_registry');

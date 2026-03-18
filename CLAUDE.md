@@ -332,9 +332,22 @@ allocation rules (authoritative):
   Model -12      system capability layer: cognition context model. scene_context and feedback-loop state carrier
                   (0153: perception→cognition→decision→action→feedback).
 
+  Model -101     system capability layer: Gallery mailbox model.
+                 reserved for local/remote Gallery ui_event inbox only.
+
+  Model -102     system capability layer: Gallery state model.
+                 reserved for Gallery demo state and fragment data; do not reuse for unrelated system UI.
+
+  Model -103     system capability layer: Gallery catalog model.
+                 reserved for Workspace-visible Gallery entry and its ui_ast_v0 page asset.
+
   Model -11..-99 reserved for future system capability layers (monitoring, auth, workspace mgmt),
                   except allocated ids above.
                   do not allocate without iteration.
+
+  Model -100..-199 reserved for system-visible UI catalogs, demo entries, and their companion mailbox/state models,
+                  except allocated ids above.
+                  allocate only via iteration and register each concrete id in this section.
 
   Model >0       user-created model space.
                  do not infer framework/platform vs business solely from positive-id numeric ranges.
