@@ -2,6 +2,8 @@ import { reactive } from 'vue';
 import { ModelTableRuntime } from '../../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from './local_bus_adapter.js';
 import { createLocalStoragePersister } from './local_persistence.js';
+import navCatalogPatch from '../../worker-base/system-models/nav_catalog_ui.json' with { type: 'json' };
+import promptCatalogPatch from '../../worker-base/system-models/prompt_catalog_ui.json' with { type: 'json' };
 import { buildAstFromSchema } from './ui_schema_projection.js';
 import { resolvePageAsset } from './page_asset_resolver.js';
 
@@ -9,6 +11,7 @@ import {
   EDITOR_MAILBOX_MODEL_ID as EDITOR_MODEL_ID,
   EDITOR_STATE_MODEL_ID,
   GALLERY_MAILBOX_MODEL_ID,
+  PROMPT_CATALOG_MODEL_ID,
   SYSTEM_MODEL_ID,
 } from './model_ids.js';
 
@@ -22,6 +25,13 @@ function ensureLabel(runtime, model, p, r, c, label) {
   const cell = runtime.getCell(model, p, r, c);
   if (cell.labels.has(label.k)) return;
   runtime.addLabel(model, p, r, c, label);
+}
+
+function applyUiPatch(runtime, patch) {
+  const result = runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
+  if (result && result.rejected > 0) {
+    // bootstrap patches may re-run on persisted runtimes; keep applied records and ignore duplicate rejects
+  }
 }
 
 function getSnapshotModel(snapshot, modelId) {
@@ -1983,6 +1993,14 @@ export function createDemoStore() {
   ensureModel(runtime, { id: SYSTEM_MODEL_ID, name: 'system', type: 'system' });
   ensureModel(runtime, { id: 1, name: 'M1', type: 'main' });
 
+  const stateRoot = runtime.getCell(stateModel, 0, 0, 0);
+  if (!stateRoot.labels.has('ui_page_catalog_json')) {
+    applyUiPatch(runtime, navCatalogPatch);
+  }
+  if (!runtime.getModel(PROMPT_CATALOG_MODEL_ID)) {
+    applyUiPatch(runtime, promptCatalogPatch);
+  }
+
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: '1' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'home' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_p', t: 'str', v: '0' });
@@ -2041,18 +2059,6 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: 0 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: 1001 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: [] });
-
-  // Prompt FillTable page state.
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_text', t: 'str', v: '' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_preview_json', t: 'json', v: {} });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_preview_id', t: 'str', v: '' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_preview_digest', t: 'str', v: '' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_apply_preview_id', t: 'str', v: '' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_apply_result_json', t: 'json', v: {} });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_status', t: 'str', v: '' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_last_applied_preview_id', t: 'str', v: '' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_available', t: 'bool', v: false });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_notice', t: 'str', v: '当前暂不可用：仅远端模式支持 LLM。' });
 
   const snapshot = reactive(runtime.snapshot());
   const eventLog = [];

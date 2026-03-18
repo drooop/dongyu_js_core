@@ -340,6 +340,9 @@ allocation rules (authoritative):
   Model -12      system capability layer: cognition context model. scene_context and feedback-loop state carrier
                   (0153: perception→cognition→decision→action→feedback).
 
+  Model -21      system capability layer: Prompt page asset model.
+                 reserved for Prompt FillTable ui_ast_v0 page asset.
+
   Model -101     system capability layer: Gallery mailbox model.
                  reserved for local/remote Gallery ui_event inbox only.
 

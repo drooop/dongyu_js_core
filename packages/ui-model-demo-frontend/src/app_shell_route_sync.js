@@ -1,10 +1,7 @@
 import {
-  isDocsPath,
-  isHomePath,
-  isPromptPath,
-  isStaticPath,
-  isWorkspacePath,
+  normalizeHashPath,
 } from './router.js';
+import { findPageEntryByPath } from './page_asset_resolver.js';
 
 function getStateLabels(snapshot) {
   return snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels ?? {};
@@ -21,17 +18,16 @@ function normalizeInt(value) {
   return null;
 }
 
-function routePage(routePath) {
-  if (isWorkspacePath(routePath)) return 'workspace';
-  if (isDocsPath(routePath)) return 'docs';
-  if (isStaticPath(routePath)) return 'static';
-  if (isPromptPath(routePath)) return 'prompt';
-  if (isHomePath(routePath)) return 'home';
-  return 'home';
+function routePage(snapshot, routePath) {
+  const entry = findPageEntryByPath(snapshot, routePath);
+  if (entry && typeof entry.page === 'string' && entry.page.trim().length > 0) {
+    return entry.page;
+  }
+  return normalizeHashPath(routePath) === '/' ? 'home' : 'home';
 }
 
 export function readAppShellRouteSyncState(snapshot, routePath) {
-  const targetPage = routePage(routePath);
+  const targetPage = routePage(snapshot, routePath);
   if (targetPage === 'home') return { pending: false, targetPage };
 
   const labels = getStateLabels(snapshot);
