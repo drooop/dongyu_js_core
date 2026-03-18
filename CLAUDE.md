@@ -27,6 +27,10 @@ HARD_RULES
 - do not place non-user-facing helper workers into positive models just to avoid tier1 work.
 - every implementation and verification MUST explicitly check:
     tier placement, model placement, data ownership, data flow, and data chain.
+- fail fast on non-conformance: if an implementation bypasses a required spec path
+    (tier boundary, model placement, data flow, connection layer) and still "works",
+    it is NOT acceptable. stop immediately and report the violation.
+    a working but non-conformant implementation has zero delivery value.
 - conclusions based on repo facts: code, scripts, git history, docs.
 - commands must be reproducible with explicit cwd.
 - verification = deterministic PASS/FAIL. "looks ok" is not verification.
@@ -121,6 +125,10 @@ FORBIDDEN
 - using DEPRECATED / historical label types in new models
 - adding or preserving compatibility code/compatibility aliases without explicit user approval
 - silent failure (all failures must write to ModelTable)
+- graceful degradation that bypasses a required spec path
+  (for example falling back to legacy code when the conformant path should be used,
+  or swallowing a tier-boundary violation to keep the UI functional).
+  if the conformant path fails, the failure must be visible, not hidden behind a fallback.
 - implicit assumptions without declaring them
 - debug artifacts / temp scripts / screenshots / media files in repo root
   (screenshots → output/playwright/, other artifacts → test_files/ or archive/)
