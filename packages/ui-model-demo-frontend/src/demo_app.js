@@ -1,6 +1,5 @@
 import { computed, h, onBeforeUnmount, onMounted, ref, resolveComponent } from 'vue';
 import { createRenderer } from '@ui-renderer/index.mjs';
-import { buildGalleryAst } from './gallery_model.js';
 import { readAppShellRouteSyncState } from './app_shell_route_sync.js';
 
 import {
@@ -100,10 +99,6 @@ export function createDemoRoot(store) {
 export function createAppShell({ mainStore, galleryStore, authStore }) {
   const HomeRoot = createDemoRoot(mainStore);
   const GalleryRoot = createDemoRoot(galleryStore);
-  const GalleryRemoteRoot = createDemoRoot({
-    ...mainStore,
-    getUiAst: () => buildGalleryAst(),
-  });
 
   return {
     name: 'AppShell',
@@ -256,8 +251,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
 
       return () => {
         if (isGallery.value) {
-          const isRemoteMode = !mainStore || !Object.prototype.hasOwnProperty.call(mainStore, 'runtime');
-          return h('div', [h(Header), h(isRemoteMode ? GalleryRemoteRoot : GalleryRoot)]);
+          return h('div', [h(Header), h(GalleryRoot)]);
         }
         if (routeSyncState.value.pending) {
           return h('div', [

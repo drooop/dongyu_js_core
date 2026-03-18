@@ -208,20 +208,35 @@ try {
     assert(getLabelValue(store.runtime, { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 8, c: 1, k: 'wave_b_pagination_pageSize' }) === 50, 'wave_b_pagination_pageSize_not_updated');
   }
 
-  // 11) submodel_create creates model 2001 and gallery store seeds fragment.
+  // 11) Deferred fragment materialization writes fragment JSON into gallery state.
   {
     const event_id = 11;
     const op_id = 'op_11';
     const env = mailboxEnvelope({
       event_id,
-      action: 'submodel_create',
+      action: 'label_update',
       op_id,
-      value: { t: 'json', v: { id: 2001, name: 'gallery_submodel_2001', type: 'ui' } },
+      target: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 2, k: 'wave_c_fragment_dynamic' },
+      value: {
+        t: 'json',
+        v: {
+          id: 'wave_c_dynamic_fragment',
+          type: 'Card',
+          props: { title: 'Deferred Fragment (state-backed)' },
+          children: [
+            {
+              id: 'wave_c_dynamic_desc',
+              type: 'Text',
+              props: { type: 'info', text: 'This fragment is materialized by a normal label_update on gallery state.' },
+            },
+          ],
+        },
+      },
     });
     sendMailbox(store, env);
     store.consumeOnce();
-    assert(store.runtime.getModel(2001), 'submodel_2001_not_created');
-    assert(hasLabel(store.runtime, { model_id: 2001, p: 0, r: 0, c: 0, k: 'ui_fragment_v0' }), 'submodel_fragment_not_seeded');
+    const fragment = getLabelValue(store.runtime, { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 2, k: 'wave_c_fragment_dynamic' });
+    assert(fragment && fragment.id === 'wave_c_dynamic_fragment', 'wave_c_fragment_dynamic_not_materialized');
   }
 
   console.log('validate_gallery_events: PASS');

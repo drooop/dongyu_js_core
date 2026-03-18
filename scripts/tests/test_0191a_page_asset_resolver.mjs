@@ -132,10 +132,21 @@ function test_falls_back_to_legacy_ast_when_page_asset_missing() {
   assert.equal(result.ast?.id, 'legacy_prompt');
 }
 
+function test_returns_none_when_no_asset_and_no_legacy_builder() {
+  const snapshot = makeSnapshotWithState({}, {});
+  const result = resolvePageAsset(snapshot, {
+    pageName: 'prompt',
+    projectSchemaModel: buildAstFromSchema,
+  });
+  assert.equal(result.source, 'none');
+  assert.equal(result.ast, null);
+}
+
 const tests = [
   test_prefers_schema_model_asset_over_legacy_ast,
   test_prefers_ui_ast_model_asset_over_legacy_ast,
   test_falls_back_to_legacy_ast_when_page_asset_missing,
+  test_returns_none_when_no_asset_and_no_legacy_builder,
 ];
 
 let passed = 0;
