@@ -1,8 +1,8 @@
 import { reactive } from 'vue';
 import { ModelTableRuntime } from '../../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from './local_bus_adapter.js';
-import { buildGalleryAst } from './gallery_model.js';
-import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from './model_ids.js';
+import galleryCatalogPatch from '../../worker-base/system-models/gallery_catalog_ui.json' with { type: 'json' };
+import { GALLERY_CATALOG_MODEL_ID, GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from './model_ids.js';
 import { setHashPath } from './router.js';
 
 function ensureModel(runtime, { id, name, type }) {
@@ -24,6 +24,28 @@ function readRuntimeLabelValue(runtime, ref) {
   return label ? label.v : undefined;
 }
 
+function ensureGalleryAssets(runtime) {
+  if (!runtime.getModel(GALLERY_CATALOG_MODEL_ID) || !runtime.getModel(GALLERY_STATE_MODEL_ID)) {
+    const result = runtime.applyPatch(galleryCatalogPatch, { allowCreateModel: true, trustedBootstrap: true });
+    if (result && result.rejected > 0) {
+      throw new Error('gallery_asset_patch_rejected');
+    }
+  }
+}
+
+function ensureWorkspaceGalleryEntry(runtime) {
+  const stateModel = runtime.getModel(-2);
+  if (!stateModel) return;
+  const cell = runtime.getCell(stateModel, 0, 0, 0);
+  const current = cell.labels.get('ws_apps_registry');
+  const list = current && Array.isArray(current.v) ? [...current.v] : [];
+  if (!list.some((entry) => entry && entry.model_id === GALLERY_CATALOG_MODEL_ID)) {
+    list.push({ model_id: GALLERY_CATALOG_MODEL_ID, name: 'Gallery', source: 'system' });
+    list.sort((a, b) => (a.model_id || 0) - (b.model_id || 0));
+    runtime.addLabel(stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: list });
+  }
+}
+
 export function createGalleryStore(options) {
   const runtime = options && options.runtime ? options.runtime : new ModelTableRuntime();
   const snapshot = options && options.snapshot ? options.snapshot : reactive(runtime.snapshot());
@@ -36,7 +58,8 @@ export function createGalleryStore(options) {
     };
 
   ensureModel(runtime, { id: GALLERY_MAILBOX_MODEL_ID, name: 'gallery_mailbox', type: 'ui' });
-  const stateModel = ensureModel(runtime, { id: GALLERY_STATE_MODEL_ID, name: 'gallery_state', type: 'ui' });
+  ensureGalleryAssets(runtime);
+  const stateModel = runtime.getModel(GALLERY_STATE_MODEL_ID);
 
   const adapter = createLocalBusAdapter({ runtime, eventLog: null, mode: 'v1', mailboxModelId: GALLERY_MAILBOX_MODEL_ID, editorStateModelId: GALLERY_STATE_MODEL_ID });
 
@@ -45,16 +68,8 @@ export function createGalleryStore(options) {
     runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v: envelopeOrNull });
   }
 
-  function updateDerived() {
-    adapter.updateUiDerived({
-      uiAst: buildGalleryAst(),
-      snapshotJson: '',
-      eventLogJson: '',
-    });
-  }
-
   function getUiAst() {
-    const model = runtime.getModel(GALLERY_MAILBOX_MODEL_ID);
+    const model = runtime.getModel(GALLERY_CATALOG_MODEL_ID);
     const cell = runtime.getCell(model, 0, 0, 0);
     const label = cell.labels.get('ui_ast_v0');
     return label ? label.v : null;
@@ -96,62 +111,13 @@ export function createGalleryStore(options) {
       runtime.rmLabel(stateModel, 0, 0, 0, 'nav_to');
     }
 
-    updateDerived();
+    ensureWorkspaceGalleryEntry(runtime);
     refreshSnapshot();
     return result;
   }
 
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'nav_to', t: 'str', v: '' });
-
-  // Wave A defaults (first render should be populated).
-  ensureLabel(runtime, stateModel, 0, 1, 0, { k: 'checkbox_demo', t: 'bool', v: false });
-  ensureLabel(runtime, stateModel, 0, 2, 0, { k: 'radio_demo', t: 'str', v: 'alpha' });
-  ensureLabel(runtime, stateModel, 0, 3, 0, { k: 'slider_demo', t: 'int', v: 42 });
-
-  // Wave B defaults.
-  ensureLabel(runtime, stateModel, 0, 4, 0, { k: 'wave_b_datepicker', t: 'str', v: '2026-01-31' });
-  ensureLabel(runtime, stateModel, 0, 5, 0, { k: 'wave_b_timepicker', t: 'str', v: '09:30' });
-  ensureLabel(runtime, stateModel, 0, 6, 0, { k: 'wave_b_tabs', t: 'str', v: 'alpha' });
-  ensureLabel(runtime, stateModel, 0, 7, 0, { k: 'dialog_open', t: 'bool', v: false });
-  ensureLabel(runtime, stateModel, 0, 8, 0, { k: 'wave_b_pagination_currentPage', t: 'int', v: 1 });
-  ensureLabel(runtime, stateModel, 0, 8, 1, { k: 'wave_b_pagination_pageSize', t: 'int', v: 10 });
-
-  // Wave C defaults.
-  ensureLabel(runtime, stateModel, 0, 9, 0, { k: 'wave_c_shared_text', t: 'str', v: 'shared fragment text' });
-  ensureLabel(runtime, stateModel, 0, 9, 3, { k: 'wave_c_dynamic_text', t: 'str', v: 'hello from deferred fragment' });
-  ensureLabel(runtime, stateModel, 0, 9, 1, {
-    k: 'wave_c_fragment_static',
-    t: 'json',
-    v: {
-      id: 'wave_c_static_fragment',
-      type: 'Card',
-      props: { title: 'Static Fragment (shared)' },
-      children: [
-        { id: 'wave_c_static_desc', type: 'Text', props: { type: 'info', text: 'Two Includes reference the same fragment label.' } },
-        {
-          id: 'wave_c_static_input',
-          type: 'Input',
-          props: { placeholder: 'Edit shared text' },
-          bind: {
-            read: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 0, k: 'wave_c_shared_text' },
-            write: {
-              action: 'label_update',
-              target_ref: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 0, k: 'wave_c_shared_text' },
-            },
-          },
-        },
-        {
-          id: 'wave_c_static_value',
-          type: 'Text',
-          props: { type: 'info', text: '' },
-          bind: { read: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 0, k: 'wave_c_shared_text' } },
-        },
-      ],
-    },
-  });
-
   setMailboxValue(null);
-  updateDerived();
+  ensureWorkspaceGalleryEntry(runtime);
   refreshSnapshot();
 
   return {

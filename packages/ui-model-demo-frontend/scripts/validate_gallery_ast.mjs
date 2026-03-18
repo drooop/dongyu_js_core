@@ -1,4 +1,5 @@
 import { createGalleryStore } from '../src/gallery_store.js';
+import { GALLERY_CATALOG_MODEL_ID } from '../src/model_ids.js';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -33,9 +34,11 @@ function collectTypes(ast) {
 try {
   const store = createGalleryStore();
   const ast = store.getUiAst();
+  const catalogModel = store.runtime.getModel(GALLERY_CATALOG_MODEL_ID);
 
   assert(ast && typeof ast === 'object', 'gallery_ast_missing');
   assert(ast.type === 'Root', 'gallery_ast_root_type');
+  assert(catalogModel, 'gallery_catalog_model_missing');
 
   const title = findNodeById(ast, 'title');
   assert(title && title.type === 'Text', 'gallery_title_node_missing');
@@ -58,8 +61,8 @@ try {
   // Wave C composition.
   assert(findNodeById(ast, 'wave_c_include_static_a')?.type === 'Include', 'wave_c_include_static_a_missing');
   assert(findNodeById(ast, 'wave_c_include_static_b')?.type === 'Include', 'wave_c_include_static_b_missing');
-  assert(findNodeById(ast, 'wave_c_submodel_create')?.type === 'Button', 'wave_c_submodel_create_missing');
-  assert(findNodeById(ast, 'wave_c_include_submodel')?.type === 'Include', 'wave_c_include_submodel_missing');
+  assert(findNodeById(ast, 'wave_c_materialize_fragment')?.type === 'Button', 'wave_c_materialize_fragment_missing');
+  assert(findNodeById(ast, 'wave_c_include_dynamic')?.type === 'Include', 'wave_c_include_dynamic_missing');
 
   const types = collectTypes(ast);
   for (const required of ['Container', 'Card', 'Text', 'Button', 'Checkbox', 'RadioGroup', 'Slider', 'DatePicker', 'TimePicker', 'Tabs', 'Dialog', 'Pagination', 'Include']) {
