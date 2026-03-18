@@ -17,7 +17,9 @@ import rehypeStringify from 'rehype-stringify';
 import { ModelTableRuntime } from '../worker-base/src/index.mjs';
 import { readMatrixBootstrapConfig } from '../worker-base/src/bootstrap_config.mjs';
 import { createLocalBusAdapter } from '../ui-model-demo-frontend/src/local_bus_adapter.js';
-import { buildEditorAstV1, buildAstFromSchema } from '../ui-model-demo-frontend/src/demo_modeltable.js';
+import { buildEditorAstV1 } from '../ui-model-demo-frontend/src/demo_modeltable.js';
+import { buildAstFromSchema } from '../ui-model-demo-frontend/src/ui_schema_projection.js';
+import { resolvePageAsset } from '../ui-model-demo-frontend/src/page_asset_resolver.js';
 import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from '../ui-model-demo-frontend/src/model_ids.js';
 import {
   getSession, getSessionWithToken, isAuthenticated, loginWithMatrix, logout,
@@ -3495,7 +3497,10 @@ function createServerState(options) {
   function updateDerived() {
     // Client-visible AST must be derived from the same filtered snapshot surface
     // that /snapshot and SSE expose, otherwise raw labels can leak via ui_ast_v0.
-    const uiAst = buildEditorAstV1(buildClientSnapshot(runtime));
+    const uiAst = resolvePageAsset(buildClientSnapshot(runtime), {
+      projectSchemaModel: buildAstFromSchema,
+      legacyBuilder: buildEditorAstV1,
+    }).ast;
     // snapshot_json and event_log are excluded from client snapshot (too large).
     // Skip expensive computation — saves ~2 full snapshot traversals per event.
     adapter.updateUiDerived({
