@@ -32,6 +32,7 @@ Branch: dev
 | 运行时语义/边界 | `docs/ssot/runtime_semantics_modeltable_driven.md` | mailbox, BUS_IN/OUT, CELL_CONNECT invariants |
 | 标签注册表 | `docs/ssot/label_type_registry.md` | authoritative label.t registry + placement rules |
 | 宿主能力边界 | `docs/ssot/host_ctx_api.md` | negative-model ctx API rules |
+| Feishu 对齐裁决与协作文档组 | `docs/ssot/feishu_alignment_decisions_v0.md` | contains the 4 maintained Feishu docs, their URLs, purposes, and maintenance chain |
 | Runtime 内核实现 | `packages/worker-base/src/runtime.js`, `packages/worker-base/src/runtime.mjs` | dual CJS/ESM must stay behavior-aligned |
 | UI 渲染契约 | `packages/ui-renderer/src/renderer.mjs` | host adapter contract, event normalization |
 | 前端入口 | `packages/ui-model-demo-frontend/src/main.js` | local/remote mode bootstrap |
