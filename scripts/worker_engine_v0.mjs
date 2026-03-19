@@ -183,7 +183,7 @@ export class WorkerEngineV0 {
       rounds += 1;
       if (rounds > 50) break;
       
-      // Process run_* trigger labels first (e.g., run_mbr_mgmt_to_mqtt, run_mbr_mqtt_to_mgmt)
+      // Process generic run_* trigger labels first for roles that still use trigger-based dispatch.
       const ranTriggers = this._processRunTriggers();
       
       const eventEnd = this.runtime.eventLog.list().length;

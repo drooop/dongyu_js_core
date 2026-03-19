@@ -3,9 +3,9 @@
  *
  * Loads system patch + role patches from a directory, applies optional
  * bootstrap patch from MODELTABLE_PATCH_JSON, reads connection
- * parameters from Model 0, initializes
- * adapters (Matrix / MQTT), wires event handlers via label-defined
- * triggers, and runs the tick loop.
+ * parameters from Model 0, initializes adapters (Matrix / MQTT),
+ * routes inbound events into configured inbox labels, executes
+ * configured role functions by name, and runs the engine tick loop.
  *
  * Usage:
  *   bun scripts/run_worker_v0.mjs <patch_dir>
