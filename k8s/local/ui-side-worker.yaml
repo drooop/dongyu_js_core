@@ -36,8 +36,19 @@ spec:
             secretKeyRef:
               name: ui-server-secret
               key: MODELTABLE_PATCH_JSON
+        - name: DY_PERSISTED_ASSET_ROOT
+          value: /app/persisted-assets
+        volumeMounts:
+        - name: persisted-assets
+          mountPath: /app/persisted-assets
+          readOnly: true
         ports:
         - containerPort: 9101
+      volumes:
+      - name: persisted-assets
+        hostPath:
+          path: /Users/drop/dongyu/volume/persist/assets
+          type: DirectoryOrCreate
 ---
 apiVersion: v1
 kind: Service

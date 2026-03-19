@@ -114,11 +114,12 @@ function test_ui_side_worker_deploy_assets_exist() {
   const cloudManifest = read('k8s/cloud/ui-side-worker.yaml');
 
   assert.match(dockerfile, /run_worker_ui_side_v0\.mjs/, 'ui-side worker Dockerfile must run the ui-side worker script');
-  assert.match(dockerfile, /deploy\/sys-v1ns\/ui-side-worker\/patches/, 'ui-side worker Dockerfile must copy patch dir');
+  assert.doesNotMatch(dockerfile, /deploy\/sys-v1ns\/ui-side-worker\/patches/, 'ui-side worker Dockerfile must not bake role patch dir after 0200b');
   assert.match(localManifest, /ui-side-worker/, 'local manifest must define ui-side-worker deployment');
   assert.match(cloudManifest, /ui-side-worker/, 'cloud manifest must define ui-side-worker deployment');
   assert.match(localManifest, /MODELTABLE_PATCH_JSON/, 'local manifest must wire MODELTABLE_PATCH_JSON');
   assert.match(cloudManifest, /MODELTABLE_PATCH_JSON/, 'cloud manifest must wire MODELTABLE_PATCH_JSON');
+  assert.match(localManifest, /DY_PERSISTED_ASSET_ROOT/, 'local manifest must pass persisted asset root');
 }
 
 const tests = [

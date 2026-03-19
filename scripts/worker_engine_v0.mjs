@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { applyPersistedAssetEntries, resolvePersistedAssetRoot } from '../packages/worker-base/src/persisted_asset_loader.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -201,7 +202,24 @@ export class WorkerEngineV0 {
   }
 }
 
-export function loadSystemPatch(runtime) {
+export function loadSystemPatch(runtime, options = {}) {
+  const assetRoot = resolvePersistedAssetRoot(options.assetRoot);
+  if (assetRoot) {
+    return applyPersistedAssetEntries(runtime, {
+      assetRoot,
+      scope: options.scope || 'ui-server',
+      authority: 'authoritative',
+      kind: 'patch',
+      phases: ['00-system-base'],
+      applyOptions: { allowCreateModel: true, trustedBootstrap: true },
+    });
+  }
   const patch = require('../packages/worker-base/system-models/system_models.json');
   runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
+  return {
+    assetRoot: null,
+    entriesApplied: 1,
+    patchObjectsApplied: 1,
+    recordCount: Array.isArray(patch.records) ? patch.records.length : 0,
+  };
 }

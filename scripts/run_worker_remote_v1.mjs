@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { loadSystemPatch } from './worker_engine_v0.mjs';
+import { applyPersistedAssetEntries, resolvePersistedAssetRoot } from '../packages/worker-base/src/persisted_asset_loader.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
@@ -26,26 +27,31 @@ const MQTT_USER = process.env.DY_MQTT_USER || process.env.MQTT_USER || 'u';
 const MQTT_PASS = process.env.DY_MQTT_PASS || process.env.MQTT_PASS || 'p';
 const WORKER_ID = process.env.WORKER_ID || '2';
 const PATCH_DIR = process.argv[2] || process.env.DY_ROLE_PATCH_DIR || '';
+const ASSET_ROOT = resolvePersistedAssetRoot();
 
-if (!PATCH_DIR) {
+if (!ASSET_ROOT && !PATCH_DIR) {
   process.stderr.write('Usage: bun scripts/run_worker_remote_v1.mjs <patch_dir>\n');
   process.stderr.write('  or: DY_ROLE_PATCH_DIR=... bun scripts/run_worker_remote_v1.mjs\n');
   process.exit(1);
 }
 
-const patchDirAbs = path.resolve(PATCH_DIR);
-if (!fs.existsSync(patchDirAbs)) {
+const patchDirAbs = PATCH_DIR ? path.resolve(PATCH_DIR) : '';
+if (!ASSET_ROOT && !fs.existsSync(patchDirAbs)) {
   process.stderr.write(`Patch directory not found: ${patchDirAbs}\n`);
   process.exit(1);
 }
 
 process.stdout.write(`[remote-worker-v1] Starting (fill-table architecture)\n`);
 process.stdout.write(`[remote-worker-v1] MQTT: ${MQTT_HOST}:${MQTT_PORT}\n`);
-process.stdout.write(`[remote-worker-v1] Patch dir: ${patchDirAbs}\n`);
+if (ASSET_ROOT) {
+  process.stdout.write(`[remote-worker-v1] Persisted asset root: ${ASSET_ROOT}\n`);
+} else {
+  process.stdout.write(`[remote-worker-v1] Patch dir: ${patchDirAbs}\n`);
+}
 
 // --- 1. Create runtime + load system patches ---
 const rt = new ModelTableRuntime();
-loadSystemPatch(rt);
+loadSystemPatch(rt, { assetRoot: ASSET_ROOT, scope: 'remote-worker' });
 let mqttTraceCursor = 0;
 
 function mqttRuntimeStatus() {
@@ -67,15 +73,27 @@ function emitMqttDiagnostics(reason) {
 }
 
 // --- 2. Load role patches (alphabetical order) ---
-const patchFiles = fs.readdirSync(patchDirAbs)
-  .filter(f => f.endsWith('.json'))
-  .sort();
+if (ASSET_ROOT) {
+  const result = applyPersistedAssetEntries(rt, {
+    assetRoot: ASSET_ROOT,
+    scope: 'remote-worker',
+    authority: 'authoritative',
+    kind: 'patch',
+    phases: ['20-role-negative', '40-role-positive'],
+    applyOptions: { allowCreateModel: true, trustedBootstrap: true },
+  });
+  process.stdout.write(`[remote-worker-v1] Loaded persisted assets: entries=${result.entriesApplied}, patches=${result.patchObjectsApplied}\n`);
+} else {
+  const patchFiles = fs.readdirSync(patchDirAbs)
+    .filter(f => f.endsWith('.json'))
+    .sort();
 
-for (const file of patchFiles) {
-  const filePath = path.join(patchDirAbs, file);
-  const patch = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  const result = rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
-  process.stdout.write(`[remote-worker-v1] Loaded ${file}: applied=${result.applied}, rejected=${result.rejected}\n`);
+  for (const file of patchFiles) {
+    const filePath = path.join(patchDirAbs, file);
+    const patch = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    const result = rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
+    process.stdout.write(`[remote-worker-v1] Loaded ${file}: applied=${result.applied}, rejected=${result.rejected}\n`);
+  }
 }
 rt.setRuntimeMode('edit');
 process.stdout.write(`[remote-worker-v1] runtime_mode=${rt.getRuntimeMode()}\n`);
