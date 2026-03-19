@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { WorkerEngineV0, loadSystemPatch } from './worker_engine_v0.mjs';
 import { readMatrixBootstrapConfig } from '../packages/worker-base/src/bootstrap_config.mjs';
+import { applyPersistedAssetEntries, resolvePersistedAssetRoot } from '../packages/worker-base/src/persisted_asset_loader.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
@@ -54,17 +55,30 @@ function loadRolePatches(rt, patchDirAbs) {
 }
 
 async function main() {
+  const assetRoot = resolvePersistedAssetRoot();
   const patchDir = process.argv[2] || env('DY_ROLE_PATCH_DIR', 'deploy/sys-v1ns/ui-side-worker/patches');
   const patchDirAbs = path.resolve(patchDir);
-  if (!fs.existsSync(patchDirAbs)) {
+  if (!assetRoot && !fs.existsSync(patchDirAbs)) {
     throw new Error(`missing_patch_dir:${patchDirAbs}`);
   }
 
   const httpPort = parseIntEnv('DY_UI_WORKER_HTTP_PORT', 9101);
 
   const rt = new ModelTableRuntime();
-  loadSystemPatch(rt);
-  loadRolePatches(rt, patchDirAbs);
+  loadSystemPatch(rt, { assetRoot, scope: 'ui-side-worker' });
+  if (assetRoot) {
+    const result = applyPersistedAssetEntries(rt, {
+      assetRoot,
+      scope: 'ui-side-worker',
+      authority: 'authoritative',
+      kind: 'patch',
+      phases: ['20-role-negative', '40-role-positive'],
+      applyOptions: { allowCreateModel: true, trustedBootstrap: true },
+    });
+    process.stdout.write(`[ui-worker] loaded persisted assets: entries=${result.entriesApplied} patches=${result.patchObjectsApplied}\n`);
+  } else {
+    loadRolePatches(rt, patchDirAbs);
+  }
 
   const bootstrapPatch = readBootstrapPatchFromEnv();
   if (bootstrapPatch) {
