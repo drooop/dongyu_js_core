@@ -1,0 +1,146 @@
+{
+  "version": "mt.v0",
+  "op_id": "editor_test_catalog_ui_v0",
+  "description": "Editor test page asset",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": -26,
+      "name": "editor_test_catalog",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": -26,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_ast_v0",
+      "t": "json",
+      "v": {
+        "id": "root_v1",
+        "type": "Root",
+        "children": [
+          {
+            "id": "layout",
+            "type": "Container",
+            "props": { "layout": "column", "gap": 12 },
+            "children": [
+              {
+                "id": "card_editor_test",
+                "type": "Card",
+                "props": { "title": "Editor Test Controls" },
+                "children": [
+                  {
+                    "id": "form_editor_test",
+                    "type": "Form",
+                    "children": [
+                      {
+                        "id": "fi_model",
+                        "type": "FormItem",
+                        "props": { "label": "Target model" },
+                        "children": [
+                          {
+                            "id": "sel_target_model",
+                            "type": "Select",
+                            "props": {
+                              "options": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "editor_model_options_json" } },
+                              "placeholder": "Select model"
+                            },
+                            "bind": {
+                              "read": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "selected_model_id" },
+                              "write": { "action": "label_update", "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "selected_model_id" } }
+                            }
+                          },
+                          {
+                            "id": "btn_create_next_model",
+                            "type": "Button",
+                            "props": { "label": "Create model 2" },
+                            "bind": {
+                              "write": {
+                                "action": "submodel_create",
+                                "value_ref": { "t": "json", "v": { "id": 2, "name": "M2", "type": "main" } }
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "fi_value",
+                        "type": "FormItem",
+                        "props": { "label": "Value" },
+                        "children": [
+                          {
+                            "id": "input_v_text",
+                            "type": "Input",
+                            "bind": {
+                              "read": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "draft_v_text" },
+                              "write": { "action": "label_update", "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "draft_v_text" } }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "fi_actions",
+                        "type": "FormItem",
+                        "props": { "label": "Actions" },
+                        "children": [
+                          {
+                            "id": "btn_apply_add",
+                            "type": "Button",
+                            "props": { "label": "Add title", "type": "primary" },
+                            "bind": {
+                              "write": {
+                                "action": "label_add",
+                                "target_ref": { "model_id": 1, "p": 0, "r": 0, "c": 0, "k": "title" },
+                                "value_ref": { "t": "str", "v": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "draft_v_text" } } }
+                              }
+                            }
+                          },
+                          {
+                            "id": "btn_apply_update",
+                            "type": "Button",
+                            "props": { "label": "Update title" },
+                            "bind": {
+                              "write": {
+                                "action": "label_update",
+                                "target_ref": { "model_id": 1, "p": 0, "r": 0, "c": 0, "k": "title" },
+                                "value_ref": { "t": "str", "v": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "draft_v_text" } } }
+                              }
+                            }
+                          },
+                          {
+                            "id": "btn_apply_remove",
+                            "type": "Button",
+                            "props": { "label": "Remove title" },
+                            "bind": {
+                              "write": {
+                                "action": "label_remove",
+                                "target_ref": { "model_id": 1, "p": 0, "r": 0, "c": 0, "k": "title" }
+                              }
+                            }
+                          },
+                          {
+                            "id": "btn_apply_clear",
+                            "type": "Button",
+                            "props": { "label": "Clear cell" },
+                            "bind": {
+                              "write": {
+                                "action": "cell_clear",
+                                "target_ref": { "model_id": 1, "p": 0, "r": 0, "c": 0 }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

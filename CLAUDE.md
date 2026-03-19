@@ -343,6 +343,21 @@ allocation rules (authoritative):
   Model -21      system capability layer: Prompt page asset model.
                  reserved for Prompt FillTable ui_ast_v0 page asset.
 
+  Model -22      system capability layer: Home page asset model.
+                 reserved for root_home ui_ast_v0 page asset.
+
+  Model -23      system capability layer: Docs page asset model.
+                 reserved for root_docs ui_ast_v0 page asset.
+
+  Model -24      system capability layer: Static page asset model.
+                 reserved for root_static ui_ast_v0 page asset.
+
+  Model -25      system capability layer: Workspace page asset model.
+                 reserved for root_workspace ui_ast_v0 page asset.
+
+  Model -26      system capability layer: editor test page asset model.
+                 reserved for non-nav internal editor test UI asset.
+
   Model -101     system capability layer: Gallery mailbox model.
                  reserved for local/remote Gallery ui_event inbox only.
 

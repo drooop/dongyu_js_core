@@ -45,9 +45,6 @@ export function resolvePageAsset(snapshot, options = {}) {
   const projectSchemaModel = typeof options.projectSchemaModel === 'function'
     ? options.projectSchemaModel
     : null;
-  const legacyBuilder = typeof options.legacyBuilder === 'function'
-    ? options.legacyBuilder
-    : null;
 
   const pageEntry = findPageEntry(snapshot, pageName);
   if (pageEntry && Number.isInteger(pageEntry.model_id)) {
@@ -67,13 +64,6 @@ export function resolvePageAsset(snapshot, options = {}) {
 
   if (pageEntry && pageEntry.legacy_fallback === false) {
     return { source: 'none', assetType: null, pageName, modelId: null, ast: null };
-  }
-
-  if (legacyBuilder) {
-    const ast = legacyBuilder(snapshot);
-    if (ast) {
-      return { source: 'legacy_ast', assetType: 'legacy_ast', pageName, modelId: null, ast };
-    }
   }
 
   return { source: 'none', assetType: null, pageName, modelId: null, ast: null };
