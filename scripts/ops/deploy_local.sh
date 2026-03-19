@@ -135,11 +135,15 @@ docker build --no-cache -f k8s/Dockerfile.remote-worker -t dy-remote-worker:v3 .
 
 echo "  Building dy-mbr-worker:v2 ..."
 docker build --no-cache -f k8s/Dockerfile.mbr-worker -t dy-mbr-worker:v2 .
+
+echo "  Building dy-ui-side-worker:v1 ..."
+docker build --no-cache -f k8s/Dockerfile.ui-side-worker -t dy-ui-side-worker:v1 .
 echo ""
 
 # ── Apply worker manifests (with placeholder replacement) ─
 echo "=== Step 7: Apply manifests ==="
 patch_manifest "$REPO_DIR/k8s/local/workers.yaml" "$ROOM_ID" "$SERVER_PASSWORD" "$MBR_TOKEN"
+kubectl apply -f "$REPO_DIR/k8s/local/ui-side-worker.yaml"
 kubectl apply -f "$REPO_DIR/k8s/local/ui-server-nodeport.yaml"
 echo ""
 
@@ -148,11 +152,12 @@ echo "=== Step 8: Rollout restart ==="
 kubectl -n "$NAMESPACE" rollout restart deployment/ui-server
 kubectl -n "$NAMESPACE" rollout restart deployment/mbr-worker
 kubectl -n "$NAMESPACE" rollout restart deployment/remote-worker
+kubectl -n "$NAMESPACE" rollout restart deployment/ui-side-worker
 echo ""
 
 # ── Wait for rollout ─────────────────────────────────────
 echo "=== Step 9: Wait for rollout ==="
-wait_for_rollout mosquitto synapse remote-worker mbr-worker ui-server
+wait_for_rollout mosquitto synapse remote-worker mbr-worker ui-server ui-side-worker
 echo ""
 
 # ── Verify ────────────────────────────────────────────────
