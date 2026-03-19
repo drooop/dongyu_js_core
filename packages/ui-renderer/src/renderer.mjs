@@ -272,7 +272,10 @@ function renderTreeNode(node, snapshot, registry) {
   }
 
   if (runtimeNode.type === 'Card') {
-    base.title = (runtimeNode.props && runtimeNode.props.title) || '';
+    const title = runtimeNode.props && Object.prototype.hasOwnProperty.call(runtimeNode.props, 'title')
+      ? resolveRefsDeep(runtimeNode.props.title, null, snapshot)
+      : '';
+    base.title = title === undefined ? '' : title;
     base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
     return base;
   }
@@ -902,7 +905,9 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   }
 
   if (node.type === 'Card') {
-    const title = (node.props && node.props.title) || '';
+    const title = props && Object.prototype.hasOwnProperty.call(props, 'title')
+      ? props.title
+      : '';
     const cardProps = { ...props };
     delete cardProps.title;
     return h(resolve('ElCard'), cardProps, {
