@@ -6,7 +6,7 @@
     { "op": "add_label", "model_id": -3, "p": 0, "r": 0, "c": 0, "k": "login_username", "t": "str", "v": "" },
     { "op": "add_label", "model_id": -3, "p": 0, "r": 0, "c": 0, "k": "login_password", "t": "str", "v": "" },
     { "op": "add_label", "model_id": -3, "p": 0, "r": 0, "c": 0, "k": "login_error", "t": "str", "v": "" },
-    { "op": "add_label", "model_id": -3, "p": 0, "r": 0, "c": 0, "k": "login_loading", "t": "str", "v": "false" },
+    { "op": "add_label", "model_id": -3, "p": 0, "r": 0, "c": 0, "k": "login_loading", "t": "bool", "v": false },
     { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "_title", "t": "str", "v": "洞宇 DongYu" },
     { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "_subtitle", "t": "str", "v": "Matrix Account Login" },
     { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "_field_order", "t": "json", "v": ["login_username", "login_password", "login_submit"] },
