@@ -1,7 +1,7 @@
 {
   "version": "mt.v0",
   "op_id": "test_model_100_full_v0",
-  "description": "Model 100 (0143 migrated) - MODEL_IN/CELL_CONNECT architecture",
+  "description": "Model 100 (0143 migrated) - pin.table.in/pin.connect.* architecture",
   "records": [
     {
       "op": "create_model",
