@@ -15,6 +15,16 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "UI.WorkspaceCatalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "ui_ast_v0",
       "t": "json",
       "v": {
