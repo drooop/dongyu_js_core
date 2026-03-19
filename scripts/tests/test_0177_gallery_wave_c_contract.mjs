@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { buildGalleryAst, GALLERY_STATE_MODEL_ID } from '../../packages/ui-model-demo-frontend/src/gallery_model.js';
+import { createGalleryStore } from '../../packages/ui-model-demo-frontend/src/gallery_store.js';
+import { GALLERY_STATE_MODEL_ID } from '../../packages/ui-model-demo-frontend/src/model_ids.js';
 
 function findNodeById(node, id) {
   if (!node || typeof node !== 'object') return null;
@@ -14,7 +15,7 @@ function findNodeById(node, id) {
   return null;
 }
 
-const ast = buildGalleryAst();
+const ast = createGalleryStore().getUiAst();
 
 const waveDesc = findNodeById(ast, 'wave_c_desc');
 assert.ok(waveDesc, 'wave_c_desc must exist');

@@ -14,7 +14,7 @@ function readText(relPath) {
 }
 
 const workspacePositiveModels = readText('packages/worker-base/system-models/workspace_positive_models.json');
-const galleryModel = readText('packages/ui-model-demo-frontend/src/gallery_model.js');
+const galleryCatalog = readText('packages/worker-base/system-models/gallery_catalog_ui.json');
 
 assert.match(
   workspacePositiveModels,
@@ -23,8 +23,8 @@ assert.match(
 );
 
 assert.match(
-  galleryModel,
-  /commit_policy:\s*'on_change'/,
+  galleryCatalog,
+  /"commit_policy"\s*:\s*"on_change"/,
   'gallery slider binding must opt in to commit_policy=on_change',
 );
 

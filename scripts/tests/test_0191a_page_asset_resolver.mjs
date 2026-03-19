@@ -84,7 +84,6 @@ function test_prefers_schema_model_asset_over_legacy_ast() {
 
   const result = resolvePageAsset(snapshot, {
     projectSchemaModel: buildAstFromSchema,
-    legacyBuilder: () => ({ id: 'legacy_prompt', type: 'Root', children: [] }),
   });
 
   assert.equal(result.source, 'model_asset');
@@ -105,7 +104,6 @@ function test_prefers_ui_ast_model_asset_over_legacy_ast() {
 
   const result = resolvePageAsset(snapshot, {
     projectSchemaModel: buildAstFromSchema,
-    legacyBuilder: () => ({ id: 'legacy_prompt', type: 'Root', children: [] }),
   });
 
   assert.equal(result.source, 'model_asset');
@@ -113,7 +111,7 @@ function test_prefers_ui_ast_model_asset_over_legacy_ast() {
   assert.equal(result.ast?.id, 'ui_ast_4102');
 }
 
-function test_falls_back_to_legacy_ast_when_page_asset_missing() {
+function test_returns_none_when_page_asset_missing() {
   const snapshot = makeSnapshotWithState(
     {
       ui_page_catalog_json: [
@@ -125,11 +123,10 @@ function test_falls_back_to_legacy_ast_when_page_asset_missing() {
 
   const result = resolvePageAsset(snapshot, {
     projectSchemaModel: buildAstFromSchema,
-    legacyBuilder: () => ({ id: 'legacy_prompt', type: 'Root', children: [] }),
   });
 
-  assert.equal(result.source, 'legacy_ast');
-  assert.equal(result.ast?.id, 'legacy_prompt');
+  assert.equal(result.source, 'none');
+  assert.equal(result.ast, null);
 }
 
 function test_returns_none_when_no_asset_and_no_legacy_builder() {
@@ -145,7 +142,7 @@ function test_returns_none_when_no_asset_and_no_legacy_builder() {
 const tests = [
   test_prefers_schema_model_asset_over_legacy_ast,
   test_prefers_ui_ast_model_asset_over_legacy_ast,
-  test_falls_back_to_legacy_ast_when_page_asset_missing,
+  test_returns_none_when_page_asset_missing,
   test_returns_none_when_no_asset_and_no_legacy_builder,
 ];
 

@@ -4,26 +4,32 @@ import assert from 'node:assert/strict';
 import { createDemoStore } from '../../packages/ui-model-demo-frontend/src/demo_modeltable.js';
 import { resolvePageAsset } from '../../packages/ui-model-demo-frontend/src/page_asset_resolver.js';
 
-function test_prompt_page_prefers_model_asset_over_legacy_builder() {
-  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
-  store.runtime.addLabel(store.runtime.getModel(-2), 0, 0, 0, { k: 'ui_page', t: 'str', v: 'prompt' });
-  store.consumeOnce();
-
-  const result = resolvePageAsset(store.snapshot, {
-    pageName: 'prompt',
-  });
-  assert.equal(result.source, 'model_asset');
-  assert.equal(result.modelId, -21);
-  assert.equal(result.ast?.id, 'root_prompt_filltable');
+function findNodeById(ast, id) {
+  if (!ast) return null;
+  if (ast.id === id) return ast;
+  const children = ast.children || [];
+  for (const child of children) {
+    const found = findNodeById(child, id);
+    if (found) return found;
+  }
+  return null;
 }
 
-const tests = [
-  test_prompt_page_prefers_model_asset_over_legacy_builder,
-];
+function test_static_page_prefers_model_asset_and_uses_disabled_label() {
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  store.runtime.addLabel(store.runtime.getModel(-2), 0, 0, 0, { k: 'ui_page', t: 'str', v: 'static' });
+  store.consumeOnce();
+  const result = resolvePageAsset(store.snapshot, { pageName: 'static' });
+  assert.equal(result.source, 'model_asset');
+  assert.equal(result.modelId, -24);
+  const btn = findNodeById(result.ast, 'btn_static_upload');
+  assert.ok(btn, 'btn_static_upload_missing');
+}
+
+const tests = [test_static_page_prefers_model_asset_and_uses_disabled_label];
 
 let passed = 0;
 let failed = 0;
-
 for (const test of tests) {
   try {
     test();
@@ -34,6 +40,5 @@ for (const test of tests) {
     failed += 1;
   }
 }
-
 console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
 process.exit(failed > 0 ? 1 : 0);

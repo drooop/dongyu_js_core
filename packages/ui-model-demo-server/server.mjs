@@ -17,9 +17,15 @@ import rehypeStringify from 'rehype-stringify';
 import { ModelTableRuntime } from '../worker-base/src/index.mjs';
 import { readMatrixBootstrapConfig } from '../worker-base/src/bootstrap_config.mjs';
 import { createLocalBusAdapter } from '../ui-model-demo-frontend/src/local_bus_adapter.js';
-import { buildEditorAstV1 } from '../ui-model-demo-frontend/src/demo_modeltable.js';
 import { buildAstFromSchema } from '../ui-model-demo-frontend/src/ui_schema_projection.js';
 import { resolvePageAsset } from '../ui-model-demo-frontend/src/page_asset_resolver.js';
+import {
+  deriveEditorModelOptions,
+  deriveHomeMissingModelText,
+  deriveHomeTableRows,
+  deriveStaticUploadReady,
+  deriveWorkspaceSelected,
+} from '../ui-model-demo-frontend/src/editor_page_state_derivers.js';
 import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from '../ui-model-demo-frontend/src/model_ids.js';
 import {
   getSession, getSessionWithToken, isAuthenticated, loginWithMatrix, logout,
@@ -2884,6 +2890,17 @@ function createServerState(options) {
     return fallback;
   };
 
+  const syncDerivedPageState = () => {
+    const snap = runtime.snapshot();
+    overwriteStateLabel(runtime, 'editor_model_options_json', 'json', deriveEditorModelOptions(snap, EDITOR_STATE_MODEL_ID));
+    overwriteStateLabel(runtime, 'home_table_rows_json', 'json', deriveHomeTableRows(snap, EDITOR_STATE_MODEL_ID));
+    overwriteStateLabel(runtime, 'home_missing_model_text', 'str', deriveHomeMissingModelText(snap, EDITOR_STATE_MODEL_ID));
+    overwriteStateLabel(runtime, 'static_upload_disabled', 'bool', !deriveStaticUploadReady(snap, EDITOR_STATE_MODEL_ID));
+    const workspace = deriveWorkspaceSelected(snap, EDITOR_STATE_MODEL_ID, buildAstFromSchema);
+    overwriteStateLabel(runtime, 'ws_selected_title', 'str', workspace.title);
+    overwriteStateLabel(runtime, 'ws_selected_ast', 'json', workspace.ast);
+  };
+
   const refreshWorkspaceStateCatalog = () => {
     const apps = deriveWorkspaceRegistry();
     const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
@@ -3413,6 +3430,7 @@ function createServerState(options) {
   clearAndValidateWorkspaceSelection();
   refreshWorkspaceStateCatalog();
   reconcileWorkspaceSelectionState();
+  syncDerivedPageState();
   refreshStartupCatalogState();
   runtime.setRuntimeMode('edit');
 
@@ -3434,6 +3452,7 @@ function createServerState(options) {
     try {
       refreshWorkspaceStateCatalog();
       reconcileWorkspaceSelectionState();
+      syncDerivedPageState();
     } catch (_) {
       overwriteStateLabel(runtime, 'static_status', 'str', 'workspace catalog refresh failed');
     }
@@ -3456,11 +3475,11 @@ function createServerState(options) {
     .catch(() => {});
 
   function updateDerived() {
+    syncDerivedPageState();
     // Client-visible AST must be derived from the same filtered snapshot surface
     // that /snapshot and SSE expose, otherwise raw labels can leak via ui_ast_v0.
     const uiAst = resolvePageAsset(buildClientSnapshot(runtime), {
       projectSchemaModel: buildAstFromSchema,
-      legacyBuilder: buildEditorAstV1,
     }).ast;
     // snapshot_json and event_log are excluded from client snapshot (too large).
     // Skip expensive computation — saves ~2 full snapshot traversals per event.
