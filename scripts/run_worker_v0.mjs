@@ -122,13 +122,26 @@ function main() {
   // 5. Read wiring config from labels
   const matrixEventFilter = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_event_filter') || 'ui_event');
   const matrixInboxLabel = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_inbox_label') || 'mbr_mgmt_inbox');
-  const matrixTrigger = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_trigger') || 'run_mbr_mgmt_to_mqtt');
+  const matrixFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_func') || '').trim();
   const mqttInboxLabel = String(getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_inbox_label') || 'mbr_mqtt_inbox');
-  const mqttTrigger = String(getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_trigger') || 'run_mbr_mqtt_to_mgmt');
+  const mqttFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_func') || '').trim();
+  const readyFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_ready_func') || '').trim();
+  const heartbeatFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_heartbeat_func') || '').trim();
 
   const mqttModelIds = getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_model_ids');
   const heartbeatRaw = getLabel(rt, -10, 0, 0, 0, 'mbr_heartbeat_interval_ms');
   const heartbeatMs = Number.isInteger(heartbeatRaw) ? heartbeatRaw : 30000;
+
+  if (!mqttInboxLabel || !mqttFunc || !readyFunc || !heartbeatFunc) {
+    logErr('missing MBR function/inbox config labels');
+    process.exitCode = 1;
+    return;
+  }
+  if (matrixRoomId && (!matrixInboxLabel || !matrixFunc)) {
+    logErr('missing mbr_matrix_inbox_label / mbr_matrix_func config labels');
+    process.exitCode = 1;
+    return;
+  }
 
   // 6. MQTT topic base (from system patch, Model 0)
   const base = String(getLabel(rt, 0, 0, 0, 0, 'mqtt_topic_base') || '').trim();
@@ -171,10 +184,10 @@ function main() {
     rt.setRuntimeMode('running');
     runtimeActivated = true;
     log(`runtime_mode=${rt.getRuntimeMode()}`);
-    rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_ready', t: 'str', v: '1' });
+    engine.executeFunction(readyFunc);
     engine.tick();
     setInterval(() => {
-      rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_heartbeat', t: 'str', v: '1' });
+      engine.executeFunction(heartbeatFunc);
       engine.tick();
     }, heartbeatMs);
   };
@@ -206,7 +219,7 @@ function main() {
           }
           log(`recv mgmt ${event.type} op_id=${event.op_id}`);
           rt.addLabel(sys, 0, 0, 0, { k: matrixInboxLabel, t: 'json', v: event });
-          rt.addLabel(sys, 0, 0, 0, { k: matrixTrigger, t: 'str', v: '1' });
+          engine.executeFunction(matrixFunc);
           engine.tick();
         });
 
@@ -248,7 +261,7 @@ function main() {
     }
     log(`recv mqtt topic=${topic} op_id=${payload.op_id || ''}`);
     rt.addLabel(sys, 0, 0, 0, { k: mqttInboxLabel, t: 'json', v: { topic, payload } });
-    rt.addLabel(sys, 0, 0, 0, { k: mqttTrigger, t: 'str', v: '1' });
+    engine.executeFunction(mqttFunc);
     engine.tick();
   });
 
