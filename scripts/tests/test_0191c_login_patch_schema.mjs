@@ -15,6 +15,9 @@ function test_login_patch_seeds_schema_and_builds_ast() {
   assert.equal(result.rejected, 0, 'login_patch_apply_rejected');
 
   const snapshot = runtime.snapshot();
+  const loginLoading = snapshot.models['-3'].cells['0,0,0'].labels.login_loading;
+  assert.equal(loginLoading?.t, 'bool', 'login_loading_type_must_be_bool');
+  assert.equal(loginLoading?.v, false, 'login_loading_default_must_be_false');
   const ast = buildAstFromSchema(snapshot, -3);
   assert.ok(ast && ast.type === 'Container', 'login_ast_missing');
   assert.equal(ast.id, 'schema_root_-3');
