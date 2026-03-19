@@ -1,6 +1,9 @@
+import fs from 'node:fs';
 import http from 'node:http';
+import path from 'node:path';
 import { createRequire } from 'node:module';
 import { WorkerEngineV0, loadSystemPatch } from './worker_engine_v0.mjs';
+import { readMatrixBootstrapConfig } from '../packages/worker-base/src/bootstrap_config.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
@@ -17,63 +20,92 @@ function parseIntEnv(name, fallback) {
   return Number.isInteger(n) ? n : fallback;
 }
 
-function systemCell(rt) {
-  const sys = rt.getModel(-10);
-  return rt.getCell(sys, 0, 0, 0);
-}
-
-function addFunction(rt, name, code) {
-  const sys = rt.getModel(-10);
-  rt.addLabel(sys, 0, 0, 0, { k: name, t: 'func.js', v: { code, modelName: 'run_worker_ui_side_v0' } });
-}
-
-function setLabel(rt, ref, t, v) {
-  const model = rt.getModel(ref.model_id);
-  rt.addLabel(model, ref.p, ref.r, ref.c, { k: ref.k, t, v });
-}
-
 function parseSafeInt(value) {
   const n = Number(value);
   return Number.isInteger(n) ? n : null;
 }
 
+function readBootstrapPatchFromEnv() {
+  const raw = process.env.MODELTABLE_PATCH_JSON;
+  if (!raw) return null;
+  return JSON.parse(raw);
+}
+
+function getLabel(rt, modelId, p, r, c, k) {
+  const model = rt.getModel(modelId);
+  if (!model) return null;
+  const cell = rt.getCell(model, p, r, c);
+  const label = cell.labels.get(k);
+  return label ? label.v : null;
+}
+
+function loadRolePatches(rt, patchDirAbs) {
+  const patchFiles = fs.readdirSync(patchDirAbs).filter((file) => file.endsWith('.json')).sort();
+  for (const file of patchFiles) {
+    const fullPath = path.join(patchDirAbs, file);
+    const patch = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+    rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
+    process.stdout.write(`[ui-worker] loaded patch: ${file}\n`);
+  }
+}
+
 async function main() {
-  const roomId = env('DY_MATRIX_ROOM_ID', '');
-  if (!roomId) {
-    throw new Error('missing_env:DY_MATRIX_ROOM_ID');
+  const patchDir = process.argv[2] || env('DY_ROLE_PATCH_DIR', 'deploy/sys-v1ns/ui-side-worker/patches');
+  const patchDirAbs = path.resolve(patchDir);
+  if (!fs.existsSync(patchDirAbs)) {
+    throw new Error(`missing_patch_dir:${patchDirAbs}`);
   }
 
   const httpPort = parseIntEnv('DY_UI_WORKER_HTTP_PORT', 9101);
 
   const rt = new ModelTableRuntime();
   loadSystemPatch(rt);
-  if (!rt.getModel(-10)) rt.createModel({ id: -10, name: 'system', type: 'system' });
-  if (!rt.getModel(1)) rt.createModel({ id: 1, name: 'UI', type: 'data' });
+  loadRolePatches(rt, patchDirAbs);
 
-  // Function: apply snapshot_delta patch from mgmt inbox.
-  addFunction(rt, 'ui_apply_snapshot_delta', [
-    "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' });",
-    "if (!inbox || typeof inbox !== 'object') return;",
-    "const patch = inbox.payload;",
-    "if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) return;",
-    "ctx.runtime.applyPatch(patch, { allowCreateModel: true });",
-    "ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' });",
-    "ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_ui_apply_snapshot_delta' });",
-  ].join(' '));
+  const bootstrapPatch = readBootstrapPatchFromEnv();
+  if (bootstrapPatch) {
+    rt.applyPatch(bootstrapPatch, { allowCreateModel: true, trustedBootstrap: true });
+    process.stdout.write('[ui-worker] loaded MODELTABLE_PATCH_JSON bootstrap\n');
+  }
 
-  // Ensure target label exists for visibility.
-  setLabel(rt, { model_id: 1, p: 0, r: 0, c: 0, k: 'slide_demo_text' }, 'str', '');
+  rt.setRuntimeMode('edit');
 
-  const adapter = await createMatrixLiveAdapter({ roomId, syncTimeoutMs: 20000 });
+  const matrixConfig = readMatrixBootstrapConfig(rt);
+  const roomId = matrixConfig.roomId || env('DY_MATRIX_ROOM_ID', '');
+  if (!roomId) {
+    throw new Error('missing_matrix_room_id');
+  }
+
+  const inboxLabel = String(getLabel(rt, -10, 0, 0, 0, 'ui_mgmt_inbox_label') || 'ui_mgmt_inbox').trim();
+  const matrixFunc = String(getLabel(rt, -10, 0, 0, 0, 'ui_matrix_func') || 'ui_apply_snapshot_delta').trim();
+  const matrixEventFilter = String(getLabel(rt, -10, 0, 0, 0, 'ui_matrix_event_filter') || 'snapshot_delta').trim();
+  const debugValueModelId = Number.isInteger(getLabel(rt, -10, 0, 0, 0, 'ui_debug_value_model_id'))
+    ? getLabel(rt, -10, 0, 0, 0, 'ui_debug_value_model_id')
+    : 1;
+  const debugValueKey = String(getLabel(rt, -10, 0, 0, 0, 'ui_debug_value_k') || 'slide_demo_text').trim();
+
+  const adapter = await createMatrixLiveAdapter({
+    roomId,
+    syncTimeoutMs: 20000,
+    homeserverUrl: matrixConfig.homeserverUrl || undefined,
+    accessToken: matrixConfig.accessToken || undefined,
+    userId: matrixConfig.userId || undefined,
+    password: matrixConfig.password || undefined,
+    peerUserId: matrixConfig.peerUserId || undefined,
+  });
   const engine = new WorkerEngineV0({ runtime: rt, mgmtAdapter: adapter, mqttPublish: null });
+
+  rt.setRuntimeMode('running');
+  process.stdout.write(`[ui-worker] runtime_mode=${rt.getRuntimeMode()}\n`);
 
   adapter.subscribe((event) => {
     if (!event || event.version !== 'v0') return;
-    if (event.type !== 'snapshot_delta') return;
-    process.stdout.write(`[ui-worker] recv snapshot_delta op_id=${event.op_id}\n`);
+    if (event.type !== matrixEventFilter) return;
+    if (!rt.isRuntimeRunning()) return;
+    process.stdout.write(`[ui-worker] recv ${event.type} op_id=${event.op_id || ''}\n`);
     const sys = rt.getModel(-10);
-    rt.addLabel(sys, 0, 0, 0, { k: 'ui_mgmt_inbox', t: 'json', v: event });
-    rt.addLabel(sys, 0, 0, 0, { k: 'run_ui_apply_snapshot_delta', t: 'str', v: '1' });
+    rt.addLabel(sys, 0, 0, 0, { k: inboxLabel, t: 'json', v: event });
+    engine.executeFunction(matrixFunc);
     engine.tick();
   });
 
@@ -83,13 +115,14 @@ async function main() {
       res.end('bad request');
       return;
     }
+
     const url = new URL(req.url, `http://127.0.0.1:${httpPort}`);
     if (req.url.startsWith('/value')) {
-      const m = rt.getModel(1);
-      const cell = rt.getCell(m, 0, 0, 0);
-      const v = cell.labels.get('slide_demo_text')?.v ?? '';
+      const model = rt.getModel(debugValueModelId);
+      const cell = model ? rt.getCell(model, 0, 0, 0) : null;
+      const value = cell ? cell.labels.get(debugValueKey)?.v ?? '' : '';
       res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify({ slide_demo_text: v }));
+      res.end(JSON.stringify({ [debugValueKey]: value }));
       return;
     }
 
@@ -100,9 +133,9 @@ async function main() {
         res.end('bad model_id');
         return;
       }
-      const m = rt.getModel(modelId);
+      const model = rt.getModel(modelId);
       res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify({ exists: Boolean(m), model: m ? { id: m.id, name: m.name, type: m.type } : null }));
+      res.end(JSON.stringify({ exists: Boolean(model), model: model ? { id: model.id, name: model.name, type: model.type } : null }));
       return;
     }
 
@@ -117,18 +150,19 @@ async function main() {
         res.end('bad query');
         return;
       }
-      const m = rt.getModel(modelId);
-      if (!m) {
+      const model = rt.getModel(modelId);
+      if (!model) {
         res.setHeader('content-type', 'application/json');
         res.end(JSON.stringify({ exists: false, t: null, v: null }));
         return;
       }
-      const cell = rt.getCell(m, p, r, c);
-      const lv = cell.labels.get(k);
+      const cell = rt.getCell(model, p, r, c);
+      const label = cell.labels.get(k);
       res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify({ exists: Boolean(lv), t: lv ? lv.t : null, v: lv ? lv.v : null }));
+      res.end(JSON.stringify({ exists: Boolean(label), t: label ? label.t : null, v: label ? label.v : null }));
       return;
     }
+
     res.statusCode = 200;
     res.setHeader('content-type', 'text/plain');
     res.end('ok');
