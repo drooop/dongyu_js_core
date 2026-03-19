@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ensure runtime baseline: if all 5 deployments are ready, exit early.
+# Ensure runtime baseline: if all required deployments are ready, exit early.
 # Otherwise, auto-invoke deploy_local.sh to bring up the stack.
 # Context resolution:
 # 1) explicit env K8S_CONTEXT
@@ -11,7 +11,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 K8S_NS="dongyu"
-DEPLOYMENTS=(mosquitto synapse remote-worker mbr-worker ui-server)
+DEPLOYMENTS=(mosquitto synapse remote-worker mbr-worker ui-server ui-side-worker)
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
