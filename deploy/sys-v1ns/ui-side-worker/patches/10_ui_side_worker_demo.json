@@ -48,7 +48,7 @@
       "k": "ui_apply_snapshot_delta",
       "t": "func.js",
       "v": {
-        "code": "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' }); if (!inbox || typeof inbox !== 'object') return; const patch = inbox.payload; if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) return; ctx.runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true }); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' });",
+        "code": "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' }); if (!inbox || typeof inbox !== 'object' || inbox.version !== 'v0') return; const patch = inbox.payload; if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) return; ctx.runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true }); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' });",
         "modelName": "ui_side_worker"
       }
     }

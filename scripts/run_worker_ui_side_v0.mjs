@@ -28,7 +28,11 @@ function parseSafeInt(value) {
 function readBootstrapPatchFromEnv() {
   const raw = process.env.MODELTABLE_PATCH_JSON;
   if (!raw) return null;
-  return JSON.parse(raw);
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`MODELTABLE_PATCH_JSON_PARSE_FAILED: ${err && err.message ? err.message : err}`);
+  }
 }
 
 function getLabel(rt, modelId, p, r, c, k) {
