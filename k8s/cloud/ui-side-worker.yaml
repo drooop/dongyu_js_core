@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ui-side-worker-config
+  namespace: dongyu
+data:
+  DY_UI_WORKER_HTTP_PORT: "9101"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ui-side-worker
+  namespace: dongyu
+  labels:
+    app: ui-side-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ui-side-worker
+  template:
+    metadata:
+      labels:
+        app: ui-side-worker
+    spec:
+      terminationGracePeriodSeconds: 15
+      containers:
+      - name: worker
+        image: dy-ui-side-worker:v1
+        imagePullPolicy: Never
+        envFrom:
+        - configMapRef:
+            name: ui-side-worker-config
+        env:
+        - name: MODELTABLE_PATCH_JSON
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: MODELTABLE_PATCH_JSON
+        ports:
+        - containerPort: 9101
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ui-side-worker
+  namespace: dongyu
+spec:
+  selector:
+    app: ui-side-worker
+  ports:
+  - port: 9101
+    targetPort: 9101
