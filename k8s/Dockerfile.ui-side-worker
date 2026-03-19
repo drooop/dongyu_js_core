@@ -5,11 +5,9 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev
 
-COPY packages/worker-base/ ./packages/worker-base/
+COPY packages/worker-base/src/ ./packages/worker-base/src/
 
 COPY scripts/run_worker_ui_side_v0.mjs ./scripts/
 COPY scripts/worker_engine_v0.mjs ./scripts/
 
-COPY deploy/sys-v1ns/ui-side-worker/patches/ ./deploy/sys-v1ns/ui-side-worker/patches/
-
-CMD ["node", "scripts/run_worker_ui_side_v0.mjs", "deploy/sys-v1ns/ui-side-worker/patches"]
+CMD ["node", "scripts/run_worker_ui_side_v0.mjs"]

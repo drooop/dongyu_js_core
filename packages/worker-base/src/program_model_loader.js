@@ -47,7 +47,12 @@ function hasRowId(db) {
   return !sql.includes('WITHOUT ROWID');
 }
 
-function loadProgramModelFromSqlite({ runtime, dbPath }) {
+function loadProgramModelFromSqlite({
+  runtime,
+  dbPath,
+  includeModelId = () => true,
+  includeRecord = () => true,
+}) {
   ensureSqlite();
   if (!runtime) {
     throw new Error('runtime is required');
@@ -55,6 +60,7 @@ function loadProgramModelFromSqlite({ runtime, dbPath }) {
   if (!dbPath) {
     throw new Error('dbPath is required');
   }
+
   if (!fs.existsSync(dbPath)) {
     throw new Error(`db not found: ${dbPath}`);
   }
@@ -73,6 +79,7 @@ function loadProgramModelFromSqlite({ runtime, dbPath }) {
   const modelRows = db.query('select distinct mt_id from mt_data order by mt_id').all();
   for (const row of modelRows) {
     const modelId = row.mt_id;
+    if (!includeModelId(modelId)) continue;
     const name = modelId === 0 ? 'MT' : `MT_${modelId}`;
     const type = modelTypes.get(modelId) || (modelId === 0 ? 'main' : 'generic');
     runtime.createModel({ id: modelId, name, type });
@@ -92,6 +99,15 @@ function loadProgramModelFromSqlite({ runtime, dbPath }) {
     .all();
 
   for (const row of rows) {
+    if (!includeModelId(row.mt_id)) continue;
+    if (!includeRecord({
+      modelId: row.mt_id,
+      p: normalizeInt(row.p),
+      r: normalizeInt(row.r),
+      c: normalizeInt(row.c),
+      k: row.k,
+      t: row.t,
+    })) continue;
     const model = runtime.getModel(row.mt_id) || runtime.createModel({
       id: row.mt_id,
       name: row.mt_id === 0 ? 'MT' : `MT_${row.mt_id}`,

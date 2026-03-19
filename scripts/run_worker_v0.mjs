@@ -17,6 +17,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { WorkerEngineV0, loadSystemPatch } from './worker_engine_v0.mjs';
 import { readMatrixBootstrapConfig, readMqttBootstrapConfig } from '../packages/worker-base/src/bootstrap_config.mjs';
+import { applyPersistedAssetEntries, resolvePersistedAssetRoot } from '../packages/worker-base/src/persisted_asset_loader.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
@@ -60,15 +61,16 @@ function runtimeBridgeActive(runtime) {
 // ── Main ────────────────────────────────────────────────────────────────────
 
 function main() {
+  const assetRoot = resolvePersistedAssetRoot();
   // 1. Determine patch directory
   const patchDir = process.argv[2] || process.env.DY_ROLE_PATCH_DIR || '';
-  if (!patchDir) {
+  if (!assetRoot && !patchDir) {
     logErr('Usage: run_worker_v0.mjs <patch_dir>  or set DY_ROLE_PATCH_DIR');
     process.exitCode = 1;
     return;
   }
-  const resolvedDir = path.resolve(patchDir);
-  if (!fs.existsSync(resolvedDir)) {
+  const resolvedDir = patchDir ? path.resolve(patchDir) : '';
+  if (!assetRoot && !fs.existsSync(resolvedDir)) {
     logErr(`Patch directory not found: ${resolvedDir}`);
     process.exitCode = 1;
     return;
@@ -76,18 +78,30 @@ function main() {
 
   // 2. Create runtime + load system patch
   const rt = new ModelTableRuntime();
-  loadSystemPatch(rt);
+  loadSystemPatch(rt, { assetRoot, scope: 'mbr-worker' });
   if (!rt.getModel(-10)) rt.createModel({ id: -10, name: 'system', type: 'system' });
 
-  // 3. Load role patches (alphabetical order)
-  const patchFiles = fs.readdirSync(resolvedDir)
-    .filter(f => f.endsWith('.json'))
-    .sort();
-  for (const f of patchFiles) {
-    const fullPath = path.join(resolvedDir, f);
-    const patch = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
-    const result = rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
-    log(`loaded patch: ${f} (applied=${result.applied} rejected=${result.rejected})`);
+  // 3. Load role patches
+  if (assetRoot) {
+    const result = applyPersistedAssetEntries(rt, {
+      assetRoot,
+      scope: 'mbr-worker',
+      authority: 'authoritative',
+      kind: 'patch',
+      phases: ['20-role-negative', '40-role-positive'],
+      applyOptions: { allowCreateModel: true, trustedBootstrap: true },
+    });
+    log(`loaded persisted assets for mbr-worker (entries=${result.entriesApplied} patches=${result.patchObjectsApplied})`);
+  } else {
+    const patchFiles = fs.readdirSync(resolvedDir)
+      .filter(f => f.endsWith('.json'))
+      .sort();
+    for (const f of patchFiles) {
+      const fullPath = path.join(resolvedDir, f);
+      const patch = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
+      const result = rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
+      log(`loaded patch: ${f} (applied=${result.applied} rejected=${result.rejected})`);
+    }
   }
 
   const bootstrapPatch = readBootstrapPatchFromEnv();

@@ -16,6 +16,7 @@ import rehypeStringify from 'rehype-stringify';
 
 import { ModelTableRuntime } from '../worker-base/src/index.mjs';
 import { readMatrixBootstrapConfig } from '../worker-base/src/bootstrap_config.mjs';
+import { applyPersistedAssetEntries, resolvePersistedAssetRoot } from '../worker-base/src/persisted_asset_loader.mjs';
 import { createLocalBusAdapter } from '../ui-model-demo-frontend/src/local_bus_adapter.js';
 import { buildAstFromSchema } from '../ui-model-demo-frontend/src/ui_schema_projection.js';
 import { resolvePageAsset } from '../ui-model-demo-frontend/src/page_asset_resolver.js';
@@ -2704,6 +2705,15 @@ function isUiLocalMutableModelId(modelId) {
 function createServerState(options) {
   const dbPath = options && options.dbPath ? String(options.dbPath) : null;
   const runtime = new ModelTableRuntime();
+  const assetRoot = resolvePersistedAssetRoot();
+  const bootstrapGeneratedKeys = new Set([
+    'matrix_room_id',
+    'matrix_server',
+    'matrix_user',
+    'matrix_passwd',
+    'matrix_token',
+    'matrix_contuser',
+  ]);
 
   ensureDir(DOCS_ROOT);
   ensureDir(STATIC_PROJECTS_ROOT);
@@ -2717,11 +2727,7 @@ function createServerState(options) {
     runtime.setPersistence(persister);
   }
 
-  if (dbPath && fs.existsSync(dbPath)) {
-    if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(false);
-    loadProgramModelFromSqlite({ runtime, dbPath });
-    if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(true);
-  }
+  if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(false);
 
   if (!runtime.getModel(EDITOR_MODEL_ID)) {
     runtime.createModel({ id: EDITOR_MODEL_ID, name: 'editor_mailbox', type: 'ui' });
@@ -2744,23 +2750,44 @@ function createServerState(options) {
     runtime.createModel({ id: LOGIN_MODEL_ID, name: 'login_form', type: 'ui' });
   }
 
-  const systemModelsDir = new URL('../worker-base/system-models/', import.meta.url).pathname;
-  loadSystemModelPatches(runtime, systemModelsDir);
-  loadFullModelPatches(runtime, systemModelsDir, ['server_config.json']);
-  const positiveModelCountBeforeSeed = countPositiveModels(runtime);
-  if (positiveModelCountBeforeSeed === 0) {
-    loadFullModelPatches(runtime, systemModelsDir, [
-      'workspace_positive_models.json',
-      'test_model_100_ui.json',
-    ]);
+  if (assetRoot) {
+    applyPersistedAssetEntries(runtime, {
+      assetRoot,
+      scope: 'ui-server',
+      authority: 'authoritative',
+      kind: 'patch',
+      phases: ['00-system-base', '10-system-negative', '30-system-positive'],
+      applyOptions: { allowCreateModel: true, trustedBootstrap: true },
+    });
   } else {
-    console.log(`[createServerState] skip positive seed patches (existing_positive_models=${positiveModelCountBeforeSeed})`);
+    const systemModelsDir = new URL('../worker-base/system-models/', import.meta.url).pathname;
+    loadSystemModelPatches(runtime, systemModelsDir);
+    loadFullModelPatches(runtime, systemModelsDir, ['server_config.json']);
+    const positiveModelCountBeforeSeed = countPositiveModels(runtime);
+    if (positiveModelCountBeforeSeed === 0) {
+      loadFullModelPatches(runtime, systemModelsDir, [
+        'workspace_positive_models.json',
+        'test_model_100_ui.json',
+      ]);
+    } else {
+      console.log(`[createServerState] skip positive seed patches (existing_positive_models=${positiveModelCountBeforeSeed})`);
+    }
   }
 
   const envPatch = readModelTablePatchFromEnv();
   if (envPatch) {
     runtime.applyPatch(envPatch, { allowCreateModel: true, trustedBootstrap: true });
   }
+
+  if (dbPath && fs.existsSync(dbPath)) {
+    loadProgramModelFromSqlite({
+      runtime,
+      dbPath,
+      includeModelId: (modelId) => Number.isInteger(modelId) && modelId >= 0,
+      includeRecord: ({ modelId, k }) => !(modelId === 0 && bootstrapGeneratedKeys.has(String(k || ''))),
+    });
+  }
+  if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(true);
   runtime.setRuntimeMode('edit');
 
   ensureStateLabel(runtime, 'selected_model_id', 'str', '0');
