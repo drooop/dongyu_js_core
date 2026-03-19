@@ -37,21 +37,19 @@ function test_patches_load_successfully() {
   return { key: 'patches_load_successfully', status: 'PASS' };
 }
 
-function test_mqtt_wildcard_sub_registered() {
+function test_remote_subscription_config_registered() {
   const rt = createConfiguredRuntime();
-  const model0 = rt.getModel(0);
-  const cell = rt.getCell(model0, 0, 0, 0);
+  const sys = rt.getModel(-10);
+  const cell = rt.getCell(sys, 0, 0, 0);
 
-  const subEvent = cell.labels.get('sub_model100_event');
-  assert(subEvent, 'sub_model100_event label should exist');
-  assert.strictEqual(subEvent.t, 'MQTT_WILDCARD_SUB');
-  assert(subEvent.v.includes('100/event'), 'should subscribe to model 100 event topic');
+  const subs = cell.labels.get('remote_subscriptions');
+  assert(subs, 'remote_subscriptions label should exist');
+  assert.strictEqual(subs.t, 'json');
+  assert(Array.isArray(subs.v), 'remote_subscriptions must be an array');
+  assert(subs.v.some((topic) => String(topic).includes('100/event')), 'remote_subscriptions must include model 100 event topic');
+  assert(subs.v.some((topic) => String(topic).includes('100/patch')), 'remote_subscriptions must include model 100 patch topic');
 
-  const subPatch = cell.labels.get('sub_model100_patch');
-  assert(subPatch, 'sub_model100_patch label should exist');
-  assert.strictEqual(subPatch.t, 'MQTT_WILDCARD_SUB');
-
-  return { key: 'mqtt_wildcard_sub_registered', status: 'PASS' };
+  return { key: 'remote_subscription_config_registered', status: 'PASS' };
 }
 
 function test_cell_connection_routing_declared() {
@@ -162,7 +160,7 @@ async function test_full_chain_async() {
 // --- Run all tests ---
 const syncTests = [
   test_patches_load_successfully,
-  test_mqtt_wildcard_sub_registered,
+  test_remote_subscription_config_registered,
   test_cell_connection_routing_declared,
   test_cell_connect_wiring_declared,
   test_mqtt_incoming_routes_to_model100,
