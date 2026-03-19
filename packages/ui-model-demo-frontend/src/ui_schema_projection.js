@@ -1,7 +1,4 @@
-function getSnapshotModel(snapshot, modelId) {
-  if (!snapshot || !snapshot.models) return null;
-  return snapshot.models[modelId] || snapshot.models[String(modelId)] || null;
-}
+import { getSnapshotModel } from './snapshot_utils.js';
 
 export function buildAstFromSchema(snapshot, modelId) {
   const model = getSnapshotModel(snapshot, modelId);

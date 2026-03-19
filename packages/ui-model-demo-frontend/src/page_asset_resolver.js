@@ -1,9 +1,5 @@
 import { normalizeHashPath } from './router.js';
-
-function getSnapshotModel(snapshot, modelId) {
-  if (!snapshot || !snapshot.models) return null;
-  return snapshot.models[modelId] || snapshot.models[String(modelId)] || null;
-}
+import { getSnapshotModel } from './snapshot_utils.js';
 
 function getStateLabels(snapshot) {
   return snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels ?? {};

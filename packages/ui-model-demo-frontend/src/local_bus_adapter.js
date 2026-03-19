@@ -1,3 +1,5 @@
+import { parseSafeInt } from './snapshot_utils.js';
+
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -157,19 +159,6 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
   function editorStateModel() {
     return runtime.getModel(editorStateModelId);
-  }
-
-  function parseSafeInt(value) {
-    if (typeof value === 'number' && Number.isSafeInteger(value)) return value;
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (!trimmed) return null;
-      if (!/^-?\d+$/.test(trimmed)) return null;
-      const parsed = Number(trimmed);
-      if (!Number.isSafeInteger(parsed)) return null;
-      return parsed;
-    }
-    return null;
   }
 
   function stringify(value) {
