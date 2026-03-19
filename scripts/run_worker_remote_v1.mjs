@@ -1,8 +1,8 @@
 /**
  * Remote Worker v1 — Fill-Table Architecture (0144)
  *
- * Minimal bootstrap: load patches → startMqttLoop → runtime handles everything.
- * No WorkerEngineV0. No manual MQTT subscription. No manual event routing.
+ * Minimal bootstrap: load patches → startMqttLoop → apply patch-configured subscriptions.
+ * No WorkerEngineV0. No manual business dispatch logic. Subscription topics remain patch-driven.
  *
  * Chain: startMqttLoop → mqttIncoming → IN label → cell_connection → CELL_CONNECT → AsyncFunction
  *
@@ -80,6 +80,12 @@ for (const file of patchFiles) {
 rt.setRuntimeMode('edit');
 process.stdout.write(`[remote-worker-v1] runtime_mode=${rt.getRuntimeMode()}\n`);
 
+const sysModel = rt.getModel(-10);
+const remoteSubConfig = sysModel ? rt.getLabelValue(sysModel, 0, 0, 0, 'remote_subscriptions') : null;
+const remoteSubscriptions = Array.isArray(remoteSubConfig)
+  ? remoteSubConfig.filter((topic) => typeof topic === 'string' && topic.trim())
+  : [];
+
 // --- 3. Start MQTT loop (runtime handles everything) ---
 const mqttResult = rt.startMqttLoop({
   transport: 'real',
@@ -100,19 +106,12 @@ rt.setRuntimeMode('running');
 process.stdout.write(`[remote-worker-v1] runtime_mode=${rt.getRuntimeMode()}\n`);
 
 // --- 4. Report subscriptions ---
+for (const topic of remoteSubscriptions) {
+  rt.mqttClient.subscribe(topic);
+}
 process.stdout.write(`[remote-worker-v1] BUS_IN ports: [${[...rt.busInPorts.keys()].join(', ')}]\n`);
 process.stdout.write(`[remote-worker-v1] BUS_OUT ports: [${[...rt.busOutPorts.keys()].join(', ')}]\n`);
-
-// Count MQTT_WILDCARD_SUB labels
-let subCount = 0;
-for (const [, model] of rt.models) {
-  for (const [, cell] of model.cells) {
-    for (const [, label] of cell.labels) {
-      if (label.t === 'MQTT_WILDCARD_SUB') subCount++;
-    }
-  }
-}
-process.stdout.write(`[remote-worker-v1] MQTT_WILDCARD_SUB labels: ${subCount}\n`);
+process.stdout.write(`[remote-worker-v1] patch subscriptions: ${JSON.stringify(remoteSubscriptions)}\n`);
 emitMqttDiagnostics('after_start');
 
 // --- 5. Heartbeat (optional diagnostic logging) ---
