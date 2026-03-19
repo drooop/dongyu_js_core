@@ -63,14 +63,11 @@
                             }
                           },
                           {
-                            "id": "btn_create_next_model",
-                            "type": "Button",
-                            "props": { "label": "Create model 2" },
-                            "bind": {
-                              "write": {
-                                "action": "submodel_create",
-                                "value_ref": { "t": "json", "v": { "id": 2, "name": "M2", "type": "main" } }
-                              }
+                            "id": "txt_direct_mutation_blocked",
+                            "type": "Text",
+                            "props": {
+                              "type": "warning",
+                              "text": "Business-model direct mutation is blocked. This page only tests local editor state mutation."
                             }
                           }
                         ]
@@ -98,11 +95,11 @@
                           {
                             "id": "btn_apply_add",
                             "type": "Button",
-                            "props": { "label": "Add title", "type": "primary" },
+                            "props": { "label": "Add local probe", "type": "primary" },
                             "bind": {
                               "write": {
                                 "action": "label_add",
-                                "target_ref": { "model_id": 1, "p": 0, "r": 0, "c": 0, "k": "title" },
+                                "target_ref": { "model_id": -2, "p": 9, "r": 9, "c": 9, "k": "probe" },
                                 "value_ref": { "t": "str", "v": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "draft_v_text" } } }
                               }
                             }
@@ -110,11 +107,11 @@
                           {
                             "id": "btn_apply_update",
                             "type": "Button",
-                            "props": { "label": "Update title" },
+                            "props": { "label": "Update local probe" },
                             "bind": {
                               "write": {
                                 "action": "label_update",
-                                "target_ref": { "model_id": 1, "p": 0, "r": 0, "c": 0, "k": "title" },
+                                "target_ref": { "model_id": -2, "p": 9, "r": 9, "c": 9, "k": "probe" },
                                 "value_ref": { "t": "str", "v": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "draft_v_text" } } }
                               }
                             }
@@ -122,22 +119,22 @@
                           {
                             "id": "btn_apply_remove",
                             "type": "Button",
-                            "props": { "label": "Remove title" },
+                            "props": { "label": "Remove local probe" },
                             "bind": {
                               "write": {
                                 "action": "label_remove",
-                                "target_ref": { "model_id": 1, "p": 0, "r": 0, "c": 0, "k": "title" }
+                                "target_ref": { "model_id": -2, "p": 9, "r": 9, "c": 9, "k": "probe" }
                               }
                             }
                           },
                           {
                             "id": "btn_apply_clear",
                             "type": "Button",
-                            "props": { "label": "Clear cell" },
+                            "props": { "label": "Clear local probe cell" },
                             "bind": {
                               "write": {
                                 "action": "cell_clear",
-                                "target_ref": { "model_id": 1, "p": 0, "r": 0, "c": 0 }
+                                "target_ref": { "model_id": -2, "p": 9, "r": 9, "c": 9 }
                               }
                             }
                           }
