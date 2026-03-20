@@ -2,7 +2,7 @@
 # Fallback-only helper: build ui-server image locally, copy tar to cloud host, and trigger remote deploy.
 # Usage:
 #   bash scripts/ops/deploy_cloud_ui_server_from_local.sh
-#   bash scripts/ops/deploy_cloud_ui_server_from_local.sh --ssh-user wwpic --ssh-host 124.71.43.80
+#   bash scripts/ops/deploy_cloud_ui_server_from_local.sh --ssh-user drop --ssh-host 124.71.43.80
 # Notes:
 # - This is NOT the canonical cloud deploy path after 0183.
 # - Canonical path is: sync_cloud_source.sh -> deploy_cloud_full.sh / deploy_cloud_app.sh on the remote host.
@@ -15,6 +15,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SSH_USER="${SSH_USER:-}"
 SSH_HOST="${SSH_HOST:-}"
 REMOTE_REPO="${REMOTE_REPO:-/home/wwpic/dongyuapp}"
+REMOTE_REPO_OWNER="${REMOTE_REPO_OWNER:-wwpic}"
 IMAGE_TAG="${IMAGE_TAG:-dy-ui-server:v1}"
 SKIP_REMOTE_SYNC=0
 
@@ -30,6 +31,10 @@ while [ $# -gt 0 ]; do
       ;;
     --remote-repo)
       REMOTE_REPO="${2:?missing value for --remote-repo}"
+      shift 2
+      ;;
+    --remote-repo-owner)
+      REMOTE_REPO_OWNER="${2:?missing value for --remote-repo-owner}"
       shift 2
       ;;
     --image-tag)
@@ -91,6 +96,8 @@ echo "IMAGE_TAG=$IMAGE_TAG"
 echo "LOCAL_TAR=$LOCAL_TAR"
 echo "REMOTE_TAR=$REMOTE_TAR"
 echo "TARGET=${SSH_USER}@${SSH_HOST}"
+echo "REMOTE_REPO=$REMOTE_REPO"
+echo "REMOTE_REPO_OWNER=$REMOTE_REPO_OWNER"
 echo ""
 
 cd "$REPO_DIR"
@@ -108,19 +115,12 @@ scp "$LOCAL_TAR" "${SSH_USER}@${SSH_HOST}:${REMOTE_TAR}"
 
 if [ "$SKIP_REMOTE_SYNC" -eq 0 ]; then
   echo "=== Sync Canonical Deploy Files ==="
-  ssh "${SSH_USER}@${SSH_HOST}" \
-    "mkdir -p ${REMOTE_REPO}/scripts/ops ${REMOTE_REPO}/k8s/cloud ${REMOTE_REPO}/packages/ui-model-demo-server ${REMOTE_REPO}/packages/ui-model-demo-frontend/src"
-  scp "$REPO_DIR/scripts/ops/deploy_cloud.sh" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/scripts/ops/deploy_cloud.sh"
-  scp "$REPO_DIR/scripts/ops/deploy_cloud_full.sh" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/scripts/ops/deploy_cloud_full.sh"
-  scp "$REPO_DIR/scripts/ops/remote_preflight_guard.sh" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/scripts/ops/remote_preflight_guard.sh"
-  scp "$REPO_DIR/k8s/cloud/workers.yaml" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/k8s/cloud/workers.yaml"
-  scp "$REPO_DIR/k8s/Dockerfile.ui-server" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/k8s/Dockerfile.ui-server"
-  scp "$REPO_DIR/packages/ui-model-demo-server/server.mjs" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/packages/ui-model-demo-server/server.mjs"
-  scp "$REPO_DIR/packages/ui-model-demo-frontend/src/demo_modeltable.js" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/packages/ui-model-demo-frontend/src/demo_modeltable.js"
-  scp "$REPO_DIR/packages/ui-model-demo-frontend/src/local_bus_adapter.js" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/packages/ui-model-demo-frontend/src/local_bus_adapter.js"
-  # Keep legacy shadow copies aligned to satisfy drift gate when they exist.
-  scp "$REPO_DIR/k8s/Dockerfile.ui-server" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/Dockerfile.ui-server"
-  scp "$REPO_DIR/k8s/cloud/workers.yaml" "${SSH_USER}@${SSH_HOST}:${REMOTE_REPO}/workers.yaml"
+  bash "$REPO_DIR/scripts/ops/sync_cloud_source.sh" \
+    --ssh-user "$SSH_USER" \
+    --ssh-host "$SSH_HOST" \
+    --remote-repo "$REMOTE_REPO" \
+    --remote-repo-owner "$REMOTE_REPO_OWNER" \
+    --revision "$SOURCE_REV"
 fi
 
 echo "=== Trigger Remote Deploy ==="

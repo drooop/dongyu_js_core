@@ -41,6 +41,14 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+if [ -z "$SSH_USER" ] || [ -z "$SSH_HOST" ]; then
+  CLOUD_ENV="$REPO_DIR/deploy/env/cloud.env"
+  if [ -f "$CLOUD_ENV" ]; then
+    # shellcheck disable=SC1090
+    source "$CLOUD_ENV"
+  fi
+fi
+
 if [ -z "$SSH_USER" ] || [ -z "$SSH_HOST" ] || [ -z "$REVISION" ]; then
   echo "Usage: sync_cloud_source.sh --ssh-user <user> --ssh-host <host> --remote-repo <path> --revision <git-rev> [--remote-repo-owner <user>]" >&2
   exit 1
@@ -53,17 +61,28 @@ fi
 
 TARGET="${SSH_USER}@${SSH_HOST}"
 
+run_remote_repo_command() {
+  local script="$1"
+  local quoted
+  quoted="$(printf '%q' "$script")"
+  if [ "$SSH_USER" = "$REMOTE_REPO_OWNER" ]; then
+    ssh "$TARGET" "bash -lc $quoted"
+  else
+    ssh "$TARGET" "sudo -n -u '$REMOTE_REPO_OWNER' bash -lc $quoted"
+  fi
+}
+
 echo "=== Cloud Source Sync ==="
 echo "TARGET=$TARGET"
 echo "REMOTE_REPO=$REMOTE_REPO"
 echo "REMOTE_REPO_OWNER=$REMOTE_REPO_OWNER"
 echo "REVISION=$REVISION"
 
-ssh "$TARGET" "mkdir -p '$REMOTE_REPO'"
+run_remote_repo_command "mkdir -p '$REMOTE_REPO'"
 
 git_archive_fallback() {
   git -C "$REPO_DIR" rev-parse --verify "$REVISION" >/dev/null 2>&1
-  git -C "$REPO_DIR" archive "$REVISION" | ssh "$TARGET" "
+  git -C "$REPO_DIR" archive "$REVISION" | run_remote_repo_command "
     set -euo pipefail
     mkdir -p '$REMOTE_REPO'
     archive_tmp=\"\$(mktemp -d)\"
@@ -78,26 +97,15 @@ git_archive_fallback() {
   "
 }
 
-if ssh "$TARGET" "test -d '$REMOTE_REPO/.git'"; then
-  if ! ssh "$TARGET" "
+if run_remote_repo_command "test -d '$REMOTE_REPO/.git'"; then
+  if ! run_remote_repo_command "
     set -euo pipefail
-    current_user=\"\$(id -un)\"
-    repo_owner=\"\$(stat -c '%U' '$REMOTE_REPO')\"
-    run_git() {
-      if [ \"\$current_user\" = '$REMOTE_REPO_OWNER' ] || [ \"\$current_user\" = \"\$repo_owner\" ]; then
-        git -C '$REMOTE_REPO' \"\$@\"
-      elif [ \"\$repo_owner\" = '$REMOTE_REPO_OWNER' ] && command -v sudo >/dev/null 2>&1; then
-        sudo -u '$REMOTE_REPO_OWNER' git -C '$REMOTE_REPO' \"\$@\"
-      else
-        git -C '$REMOTE_REPO' \"\$@\"
-      fi
-    }
-    run_git config --global --add safe.directory '$REMOTE_REPO' >/dev/null 2>&1 || true
-    run_git fetch --all --tags || true
-    run_git checkout --force '$REVISION'
-    run_git reset --hard '$REVISION'
-    run_git clean -fd
-    run_git rev-parse --short HEAD
+    git -C '$REMOTE_REPO' config --global --add safe.directory '$REMOTE_REPO' >/dev/null 2>&1 || true
+    git -C '$REMOTE_REPO' fetch --all --tags || true
+    git -C '$REMOTE_REPO' checkout --force '$REVISION'
+    git -C '$REMOTE_REPO' reset --hard '$REVISION'
+    git -C '$REMOTE_REPO' clean -fd
+    git -C '$REMOTE_REPO' rev-parse --short HEAD
   "; then
     echo "WARN: remote git checkout failed; falling back to git archive sync"
     git_archive_fallback
