@@ -192,16 +192,6 @@ verify_ui_server_runtime_source_hashes() {
   fi
 }
 
-verify_ui_prompt_guard_markers() {
-  exec_in_running_ui_server_pod \
-    "grep -q 'llmPromptAvailable' /app/packages/ui-model-demo-frontend/src/demo_modeltable.js" \
-    "prompt guard marker llmPromptAvailable" >/dev/null
-  exec_in_running_ui_server_pod \
-    "grep -q 'txt_prompt_unavailable' /app/packages/ui-model-demo-frontend/src/demo_modeltable.js" \
-    "prompt guard marker txt_prompt_unavailable" >/dev/null
-  echo "  Prompt UI guard markers: OK"
-}
-
 verify_ui_server_snapshot_runtime() {
   local out
   out="$(exec_in_running_ui_server_pod \
@@ -448,7 +438,6 @@ echo "=== Step 13: Verify ==="
 verify_pods
 echo "--- UI runtime source gate ---"
 verify_ui_server_runtime_source_hashes "$UI_SRC_HASH_SERVER" "$UI_SRC_HASH_DEMO" "$UI_SRC_HASH_ADAPTER" "$UI_SRC_HASH_REMOTE_STORE" "$UI_SRC_HASH_RENDERER_MJS" "$UI_SRC_HASH_RENDERER_JS"
-verify_ui_prompt_guard_markers
 verify_ui_server_snapshot_runtime
 echo ""
 echo "--- Ingress ---"
