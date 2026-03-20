@@ -34,7 +34,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$TARGET" ]; then
-  echo "ERROR: --target is required (ui-server|mbr-worker|remote-worker)" >&2
+  echo "ERROR: --target is required (ui-server|mbr-worker|remote-worker|ui-side-worker)" >&2
   exit 1
 fi
 
@@ -143,9 +143,9 @@ load_target_spec() {
       APP_LABEL="mbr-worker"
       LOCAL_FILES=(
         "scripts/run_worker_v0.mjs:/app/scripts/run_worker_v0.mjs"
-        "deploy/sys-v1ns/mbr/patches/mbr_role_v0.json:/app/deploy/sys-v1ns/mbr/patches/mbr_role_v0.json"
         "packages/worker-base/src/runtime.js:/app/packages/worker-base/src/runtime.js"
         "packages/worker-base/src/runtime.mjs:/app/packages/worker-base/src/runtime.mjs"
+        "packages/worker-base/src/persisted_asset_loader.mjs:/app/packages/worker-base/src/persisted_asset_loader.mjs"
       )
       ;;
     remote-worker)
@@ -155,14 +155,25 @@ load_target_spec() {
       APP_LABEL="remote-worker"
       LOCAL_FILES=(
         "scripts/run_worker_remote_v1.mjs:/app/scripts/run_worker_remote_v1.mjs"
-        "deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json:/app/deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json"
-        "deploy/sys-v1ns/remote-worker/patches/10_model100.json:/app/deploy/sys-v1ns/remote-worker/patches/10_model100.json"
         "packages/worker-base/src/runtime.js:/app/packages/worker-base/src/runtime.js"
         "packages/worker-base/src/runtime.mjs:/app/packages/worker-base/src/runtime.mjs"
+        "packages/worker-base/src/persisted_asset_loader.mjs:/app/packages/worker-base/src/persisted_asset_loader.mjs"
+      )
+      ;;
+    ui-side-worker)
+      IMAGE_TAG="dy-ui-side-worker:v1"
+      DOCKERFILE="k8s/Dockerfile.ui-side-worker"
+      DEPLOYMENT="ui-side-worker"
+      APP_LABEL="ui-side-worker"
+      LOCAL_FILES=(
+        "scripts/run_worker_ui_side_v0.mjs:/app/scripts/run_worker_ui_side_v0.mjs"
+        "packages/worker-base/src/runtime.js:/app/packages/worker-base/src/runtime.js"
+        "packages/worker-base/src/runtime.mjs:/app/packages/worker-base/src/runtime.mjs"
+        "packages/worker-base/src/persisted_asset_loader.mjs:/app/packages/worker-base/src/persisted_asset_loader.mjs"
       )
       ;;
     *)
-      echo "ERROR: unsupported target '$TARGET' (expected ui-server|mbr-worker|remote-worker)" >&2
+      echo "ERROR: unsupported target '$TARGET' (expected ui-server|mbr-worker|remote-worker|ui-side-worker)" >&2
       exit 1
       ;;
   esac
