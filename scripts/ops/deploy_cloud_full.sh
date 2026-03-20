@@ -92,6 +92,10 @@ detect_source_revision() {
     git -C "$REPO_DIR" rev-parse --short HEAD
     return 0
   fi
+  if [ -f "$REPO_DIR/.deploy-source-revision" ]; then
+    tr -d '\r\n' < "$REPO_DIR/.deploy-source-revision"
+    return 0
+  fi
   if [ -n "${DEPLOY_SOURCE_REV:-}" ]; then
     printf '%s' "$DEPLOY_SOURCE_REV"
     return 0
