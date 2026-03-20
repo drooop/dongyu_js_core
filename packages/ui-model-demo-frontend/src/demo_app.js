@@ -1,6 +1,6 @@
 import { computed, h, onBeforeUnmount, onMounted, ref, resolveComponent } from 'vue';
 import { createRenderer } from '@ui-renderer/index.mjs';
-import { readAppShellRouteSyncState } from './app_shell_route_sync.js';
+import { readAppShellRouteSyncState, resolveNavigableRoutePath } from './app_shell_route_sync.js';
 import { findPageEntryByPath, readPageCatalog } from './page_asset_resolver.js';
 
 import {
@@ -100,6 +100,10 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       const path = ref(getHashPath());
       let unsubscribe = null;
 
+      if (mainStore && typeof mainStore.setRoutePath === 'function') {
+        mainStore.setRoutePath(path.value);
+      }
+
       function readCatalog() {
         return readPageCatalog(mainStore?.snapshot ?? {});
       }
@@ -109,14 +113,13 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       }
 
       function normalizeIfUnknown(p) {
-        if (isModel100Path(p)) {
-          setHashPath(ROUTE_WORKSPACE, { replace: true });
-          path.value = ROUTE_WORKSPACE;
-          return;
+        const nextPath = resolveNavigableRoutePath(mainStore?.snapshot ?? {}, p);
+        if (nextPath === p) return;
+        setHashPath(nextPath, { replace: true });
+        path.value = nextPath;
+        if (mainStore && typeof mainStore.setRoutePath === 'function') {
+          mainStore.setRoutePath(path.value);
         }
-        if (findRouteEntry(p)) return;
-        setHashPath(ROUTE_HOME, { replace: true });
-        path.value = ROUTE_HOME;
       }
 
       function resolveWorkspaceModelId() {
@@ -183,11 +186,17 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
 
       onMounted(() => {
         normalizeIfUnknown(path.value);
+        if (mainStore && typeof mainStore.setRoutePath === 'function') {
+          mainStore.setRoutePath(path.value);
+        }
         syncPageLabel(path.value);
         syncWorkspaceSelection(path.value);
         unsubscribe = subscribeHashPath((next) => {
           path.value = next;
           normalizeIfUnknown(next);
+          if (mainStore && typeof mainStore.setRoutePath === 'function') {
+            mainStore.setRoutePath(path.value);
+          }
           syncPageLabel(next);
           syncWorkspaceSelection(next);
         });

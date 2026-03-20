@@ -5,6 +5,15 @@ import { readAppShellRouteSyncState } from '../../packages/ui-model-demo-fronten
 
 function makeSnapshot(labels = {}) {
   const rootLabels = {};
+  rootLabels.ui_page_catalog_json = {
+    v: [
+      { page: 'home', path: '/' },
+      { page: 'workspace', path: '/workspace' },
+      { page: 'docs', path: '/docs' },
+      { page: 'prompt', path: '/prompt' },
+      { page: 'static', path: '/static' },
+    ],
+  };
   for (const [k, value] of Object.entries(labels)) {
     rootLabels[k] = { v: value };
   }
@@ -22,8 +31,8 @@ function makeSnapshot(labels = {}) {
 }
 
 {
-  const state = readAppShellRouteSyncState(makeSnapshot({ ui_page: 'home' }), '/workspace');
-  assert.equal(state.pending, true, 'workspace route must stay pending until snapshot ui_page catches up');
+  const state = readAppShellRouteSyncState(makeSnapshot({ ui_page: 'home', ws_app_selected: 100, selected_model_id: '0' }), '/workspace');
+  assert.equal(state.pending, false, 'workspace route must not be blocked by a different shared ui_page once ws_app_selected is resolved');
 }
 
 {
@@ -31,7 +40,7 @@ function makeSnapshot(labels = {}) {
     makeSnapshot({ ui_page: 'workspace', ws_app_selected: 100, selected_model_id: '0' }),
     '/workspace',
   );
-  assert.equal(state.pending, true, 'workspace route must stay pending until selected_model_id matches ws_app_selected');
+  assert.equal(state.pending, false, 'workspace route must not be blocked by shared selected_model_id drift');
 }
 
 {
@@ -43,8 +52,16 @@ function makeSnapshot(labels = {}) {
 }
 
 {
+  const state = readAppShellRouteSyncState(
+    makeSnapshot({ ui_page: 'home', ws_app_selected: 0, selected_model_id: '0' }),
+    '/workspace',
+  );
+  assert.equal(state.pending, true, 'workspace route must remain pending until a valid ws_app_selected exists');
+}
+
+{
   const state = readAppShellRouteSyncState(makeSnapshot({ ui_page: 'home' }), '/docs');
-  assert.equal(state.pending, true, 'docs route must stay pending until snapshot ui_page switches to docs');
+  assert.equal(state.pending, false, 'non-workspace routes must not be blocked by shared ui_page drift');
 }
 
 {

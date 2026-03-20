@@ -17,7 +17,7 @@ function test_route_sync_uses_catalog_for_prompt_path() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
   const state = readAppShellRouteSyncState(store.snapshot, '/prompt');
   assert.equal(state.targetPage, 'prompt');
-  assert.equal(state.pending, true);
+  assert.equal(state.pending, false);
 }
 
 const tests = [
