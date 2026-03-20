@@ -38,6 +38,12 @@ spec:
         envFrom:
         - configMapRef:
             name: remote-worker-config
+        env:
+        - name: DY_PERSISTED_ASSET_ROOT
+          value: /app/persisted-assets
+        volumeMounts:
+        - name: persisted-assets
+          mountPath: /app/persisted-assets
         resources:
           requests:
             memory: "128Mi"
@@ -45,6 +51,11 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "500m"
+      volumes:
+      - name: persisted-assets
+        hostPath:
+          path: /home/wwpic/dongyu/volume/persist/assets
+          type: DirectoryOrCreate
 ---
 # MBR Worker ConfigMap (cloud)
 apiVersion: v1
@@ -83,6 +94,12 @@ spec:
             name: mbr-worker-config
         - secretRef:
             name: mbr-worker-secret
+        env:
+        - name: DY_PERSISTED_ASSET_ROOT
+          value: /app/persisted-assets
+        volumeMounts:
+        - name: persisted-assets
+          mountPath: /app/persisted-assets
         resources:
           requests:
             memory: "128Mi"
@@ -90,6 +107,12 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "500m"
+      volumes:
+      - name: persisted-assets
+        hostPath:
+          path: /home/wwpic/dongyu/volume/persist/assets
+          type: DirectoryOrCreate
+---
 # UI Server Deployment
 apiVersion: apps/v1
 kind: Deployment
@@ -133,9 +156,13 @@ spec:
           value: "0"
         - name: DY_PERSIST_ROOT
           value: /app/.dy_persist
+        - name: DY_PERSISTED_ASSET_ROOT
+          value: /app/persisted-assets
         volumeMounts:
         - name: persist-data
           mountPath: /app/.dy_persist
+        - name: persisted-assets
+          mountPath: /app/persisted-assets
         resources:
           requests:
             memory: "256Mi"
@@ -147,6 +174,10 @@ spec:
       - name: persist-data
         hostPath:
           path: /home/wwpic/dongyu/volume/persist/ui-server
+          type: DirectoryOrCreate
+      - name: persisted-assets
+        hostPath:
+          path: /home/wwpic/dongyu/volume/persist/assets
           type: DirectoryOrCreate
 ---
 # UI Server Service

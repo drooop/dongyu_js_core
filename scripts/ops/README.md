@@ -90,6 +90,7 @@ bash scripts/ops/sync_cloud_source.sh \
   --ssh-user drop \
   --ssh-host 124.71.43.80 \
   --remote-repo /home/wwpic/dongyuapp \
+  --remote-repo-owner wwpic \
   --revision "$(git rev-parse --short HEAD)"
 ```
 
@@ -111,6 +112,8 @@ PASS 判定：
 - 目标环境验收命令 PASS
 
 说明：
+- canonical SSH deploy user 是 `drop`，不是 `wwpic`。
+- canonical remote repo 路径保持 `/home/wwpic/dongyuapp`，source sync 通过 `drop + sudo -u wwpic` 代持写入。
 - 如果仍通过受限 sudo wrapper 远程触发部署，需要同步更新远端 wrapper / sudoers 白名单，使其允许新入口脚本。
 - 本地 OrbStack baseline 与 cloud baseline 的 MQTT 拓扑不同：
   - 本地 `k8s/local/workers.yaml` 使用 `mosquitto.dongyu.svc.cluster.local`
@@ -129,14 +132,15 @@ PASS 判定：
 命令：
 ```bash
 bash scripts/ops/deploy_cloud_ui_server_from_local.sh \
-  --ssh-user wwpic \
+  --ssh-user drop \
   --ssh-host 124.71.43.80 \
-  --remote-repo /home/wwpic/dongyuapp
+  --remote-repo /home/wwpic/dongyuapp \
+  --remote-repo-owner wwpic
 ```
 
 说明：
 - 脚本会本地 build/save，scp tar 到远端，并通过 `sudo DEPLOY_SOURCE_REV=<local_git_rev> deploy_cloud.sh --image-tar ...` 触发部署。
-- 默认会同步 gate 所需关键文件（deploy scripts + `k8s/cloud/workers.yaml` + `k8s/Dockerfile.ui-server` + `server.mjs` + `demo_modeltable.js` + `local_bus_adapter.js`），并对齐 shadow `workers.yaml`/`Dockerfile.ui-server`。
+- 远端源码同步已统一委托给 `sync_cloud_source.sh`，因此同样遵循 `drop` 登录、`/home/wwpic/dongyuapp` 路径、`sudo -u wwpic` 代持写入。
 
 PASS 判定：
 - 远端 `ui-server` rollout 成功；

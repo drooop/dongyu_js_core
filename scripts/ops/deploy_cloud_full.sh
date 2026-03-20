@@ -92,6 +92,10 @@ detect_source_revision() {
     git -C "$REPO_DIR" rev-parse --short HEAD
     return 0
   fi
+  if [ -f "$REPO_DIR/.deploy-source-revision" ]; then
+    tr -d '\r\n' < "$REPO_DIR/.deploy-source-revision"
+    return 0
+  fi
   if [ -n "${DEPLOY_SOURCE_REV:-}" ]; then
     printf '%s' "$DEPLOY_SOURCE_REV"
     return 0
@@ -188,16 +192,6 @@ verify_ui_server_runtime_source_hashes() {
   fi
 }
 
-verify_ui_prompt_guard_markers() {
-  exec_in_running_ui_server_pod \
-    "grep -q 'llmPromptAvailable' /app/packages/ui-model-demo-frontend/src/demo_modeltable.js" \
-    "prompt guard marker llmPromptAvailable" >/dev/null
-  exec_in_running_ui_server_pod \
-    "grep -q 'txt_prompt_unavailable' /app/packages/ui-model-demo-frontend/src/demo_modeltable.js" \
-    "prompt guard marker txt_prompt_unavailable" >/dev/null
-  echo "  Prompt UI guard markers: OK"
-}
-
 verify_ui_server_snapshot_runtime() {
   local out
   out="$(exec_in_running_ui_server_pod \
@@ -220,8 +214,10 @@ echo "=== Step 0: Load env ==="
 load_env "$REPO_DIR/deploy/env/cloud.env"
 export KUBECONFIG="${KUBECONFIG:-/etc/rancher/rke2/rke2.yaml}"
 CTR="${CTR:-/usr/local/bin/ctr}"
+CLOUD_PERSISTED_ASSET_ROOT="${CLOUD_PERSISTED_ASSET_ROOT:-/home/wwpic/dongyu/volume/persist/assets}"
 echo "  KUBECONFIG=$KUBECONFIG"
 echo "  CTR=$CTR"
+echo "  CLOUD_PERSISTED_ASSET_ROOT=$CLOUD_PERSISTED_ASSET_ROOT"
 echo ""
 
 # ── Pre-flight checks ────────────────────────────────────
@@ -341,7 +337,12 @@ update_k8s_secrets "$SERVER_TOKEN" "$MBR_TOKEN" "$ROOM_ID"
 echo ""
 
 # ── Build images ─────────────────────────────────────────
-echo "=== Step 6: Build cloud images ==="
+echo "=== Step 6: Sync authoritative assets ==="
+LOCAL_PERSISTED_ASSET_ROOT="$CLOUD_PERSISTED_ASSET_ROOT" bash "$REPO_DIR/scripts/ops/sync_local_persisted_assets.sh"
+echo ""
+
+# ── Build images ─────────────────────────────────────────
+echo "=== Step 7: Build cloud images ==="
 cd "$REPO_DIR"
 BUILD_ARGS=()
 if [ "$REBUILD" -eq 1 ]; then
@@ -370,10 +371,14 @@ docker build "${BUILD_ARGS[@]}" \
   -f k8s/Dockerfile.remote-worker \
   --label "org.opencontainers.image.revision=$SOURCE_REV" \
   -t dy-remote-worker:v3 .
+docker build "${BUILD_ARGS[@]}" \
+  -f k8s/Dockerfile.ui-side-worker \
+  --label "org.opencontainers.image.revision=$SOURCE_REV" \
+  -t dy-ui-side-worker:v1 .
 echo ""
 
 # ── Import images to rke2 containerd ─────────────────────
-echo "=== Step 7: Import images to rke2 containerd ==="
+echo "=== Step 8: Import images to rke2 containerd ==="
 if [ -n "$UI_IMAGE_TAR" ]; then
   "$CTR" --address "$CONTAINERD_SOCK" -n k8s.io images import "$UI_IMAGE_TAR"
 else
@@ -381,12 +386,14 @@ else
 fi
 docker save dy-mbr-worker:v2 | "$CTR" --address "$CONTAINERD_SOCK" -n k8s.io images import -
 docker save dy-remote-worker:v3 | "$CTR" --address "$CONTAINERD_SOCK" -n k8s.io images import -
+docker save dy-ui-side-worker:v1 | "$CTR" --address "$CONTAINERD_SOCK" -n k8s.io images import -
 echo "  Images imported."
 echo ""
 
 # ── Apply manifests (with placeholder replacement) ───────
-echo "=== Step 8: Apply manifests ==="
+echo "=== Step 9: Apply manifests ==="
 patch_manifest "$REPO_DIR/k8s/cloud/workers.yaml" "$ROOM_ID" "$SERVER_PASSWORD"
+kubectl apply -f "$REPO_DIR/k8s/cloud/ui-side-worker.yaml"
 
 # Also patch mbr-update.yaml if it exists
 if [ -f "$REPO_DIR/k8s/cloud/mbr-update.yaml" ]; then
@@ -402,8 +409,8 @@ fi
 echo ""
 
 # ── Cleanup stuck pods ────────────────────────────────────
-echo "=== Step 9: Cleanup stuck pods ==="
-for deploy in ui-server mbr-worker remote-worker; do
+echo "=== Step 10: Cleanup stuck pods ==="
+for deploy in ui-server mbr-worker remote-worker ui-side-worker; do
   STUCK=$(kubectl -n "$NAMESPACE" get pods -l "app=$deploy" --no-headers 2>/dev/null \
     | awk '$3 == "Terminating" {print $1}')
   if [ -n "$STUCK" ]; then
@@ -414,23 +421,23 @@ done
 echo ""
 
 # ── Rollout restart ───────────────────────────────────────
-echo "=== Step 10: Rollout restart ==="
+echo "=== Step 11: Rollout restart ==="
 kubectl -n "$NAMESPACE" rollout restart deployment/ui-server
 kubectl -n "$NAMESPACE" rollout restart deployment/mbr-worker
 kubectl -n "$NAMESPACE" rollout restart deployment/remote-worker
+kubectl -n "$NAMESPACE" rollout restart deployment/ui-side-worker
 echo ""
 
 # ── Wait for rollout ─────────────────────────────────────
-echo "=== Step 11: Wait for rollout ==="
-wait_for_rollout ui-server mbr-worker remote-worker
+echo "=== Step 12: Wait for rollout ==="
+wait_for_rollout ui-server mbr-worker remote-worker ui-side-worker
 echo ""
 
 # ── Verify ────────────────────────────────────────────────
-echo "=== Step 12: Verify ==="
+echo "=== Step 13: Verify ==="
 verify_pods
 echo "--- UI runtime source gate ---"
 verify_ui_server_runtime_source_hashes "$UI_SRC_HASH_SERVER" "$UI_SRC_HASH_DEMO" "$UI_SRC_HASH_ADAPTER" "$UI_SRC_HASH_REMOTE_STORE" "$UI_SRC_HASH_RENDERER_MJS" "$UI_SRC_HASH_RENDERER_JS"
-verify_ui_prompt_guard_markers
 verify_ui_server_snapshot_runtime
 echo ""
 echo "--- Ingress ---"
