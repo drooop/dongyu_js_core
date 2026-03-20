@@ -20,6 +20,7 @@ function test_cloud_manifests_mount_persisted_asset_root_for_all_roles() {
   assert.match(uiSide, /mountPath:\s*\/app\/persisted-assets/, 'cloud ui-side worker manifest must mount persisted asset root into container');
   assert.match(workers, /path:\s*\/home\/wwpic\/dongyu\/volume\/persist\/assets/, 'cloud workers manifest must mount canonical cloud persisted asset hostPath');
   assert.match(uiSide, /path:\s*\/home\/wwpic\/dongyu\/volume\/persist\/assets/, 'cloud ui-side worker manifest must mount canonical cloud persisted asset hostPath');
+  assert.match(workers, /type:\s*DirectoryOrCreate\n---\n# UI Server Deployment/s, 'cloud workers manifest must keep mbr-worker and ui-server as separate YAML documents');
 }
 
 function test_cloud_full_deploy_syncs_assets_and_rolls_out_ui_side_worker() {

@@ -112,6 +112,7 @@ spec:
         hostPath:
           path: /home/wwpic/dongyu/volume/persist/assets
           type: DirectoryOrCreate
+---
 # UI Server Deployment
 apiVersion: apps/v1
 kind: Deployment
