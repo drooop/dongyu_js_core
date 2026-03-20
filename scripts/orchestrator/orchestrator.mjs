@@ -222,10 +222,15 @@ async function main() {
 async function decompose(userPrompt) {
   process.stderr.write('Phase -1: Decomposing requirements...\n')
 
+  // Decompose needs broader Bash access than review (ls, find, cat for codebase analysis)
   const result = claudeReview('_decompose', '_decompose', buildDecomposePrompt(userPrompt), {
     phase: 'decompose',
     model: 'opus',
-    maxTurns: 8,
+    maxTurns: 12,
+    allowedTools: [
+      'Read', 'Grep', 'Glob', 'Bash',  // Full Bash for codebase analysis
+      'Agent', 'Skill',
+    ],
   })
 
   if (!result.ok) {
@@ -233,21 +238,30 @@ async function decompose(userPrompt) {
     return null
   }
 
-  // Parse decomposition result
-  const parsed = parseVerdict(result.result_text)
-  if (!parsed.ok) {
-    // Try to find JSON with "iterations" field
-    const match = result.result_text.match(/```json\s*\n?([\s\S]*?)\n?\s*```/)
-    if (match) {
-      try {
-        return JSON.parse(match[1])
-      } catch { /* fall through */ }
-    }
-    console.error('Could not parse decomposition result')
-    return null
+  // Parse decomposition result — look for JSON with "iterations" field
+  const text = result.result_text || ''
+
+  // Try fenced json block first
+  const fencedMatch = text.match(/```json\s*\n?([\s\S]*?)\n?\s*```/)
+  if (fencedMatch) {
+    try {
+      const obj = JSON.parse(fencedMatch[1])
+      if (obj.iterations) return obj
+    } catch { /* fall through */ }
   }
 
-  return parsed.verdict
+  // Try raw JSON object with iterations
+  const rawMatch = text.match(/(\{[\s\S]*?"iterations"\s*:\s*\[[\s\S]*?\][\s\S]*?\})/)
+  if (rawMatch) {
+    try {
+      const obj = JSON.parse(rawMatch[1])
+      if (obj.iterations) return obj
+    } catch { /* fall through */ }
+  }
+
+  console.error('Could not parse decomposition result')
+  console.error('Result text (last 500 chars):', text.slice(-500))
+  return null
 }
 
 // ── Confirm gate ────────────────────────────────────────

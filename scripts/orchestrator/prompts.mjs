@@ -31,16 +31,20 @@ ${userPrompt}
 5. 估算每个 iteration 的规模（small / medium / large）
 6. 为每个 iteration 定义预期的验证方式
 
-### 输出格式
-在最终回复中，严格输出以下 JSON（在 \`\`\`json 代码块内）：
+### 输出格式（严格要求）
+
+重要：不要创建文件。不要写入磁盘。你的最终回复文本必须直接包含以下 JSON。
+这是 CLI 管道调用，只有你回复文本中的内容会被解析。
+
+在你的最终回复中，输出且仅输出以下格式的 JSON（包裹在 \`\`\`json 代码块内）：
 
 \`\`\`json
 {
   "analysis": "对需求的整体理解和分解思路",
   "iterations": [
     {
-      "title": "简短标题（kebab-case 用于 id）",
-      "requirement": "详细需求描述（自包含，无上下文读者可理解）",
+      "title": "简短 kebab-case 标题",
+      "requirement": "详细需求描述（自包含）",
       "scope": "small | medium | large",
       "depends_on": [],
       "resolves_goals": [0],
@@ -51,6 +55,8 @@ ${userPrompt}
   "risks": ["可能导致 spawn 新 iteration 的风险点"]
 }
 \`\`\`
+
+你可以先用工具读取文件分析 codebase，但最终回复必须包含上述 JSON 结构。
 `
 }
 

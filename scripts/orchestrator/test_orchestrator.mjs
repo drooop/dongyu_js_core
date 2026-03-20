@@ -26,7 +26,7 @@ import {
 } from './events.mjs'
 import { refreshStatus } from './monitor.mjs'
 import { pickNext, acceptSpawn, setOnHold, syncOnHoldDocs, canResume } from './scheduler.mjs'
-import { parseVerdict, parseFinalVerdict, parseExecOutput } from './drivers.mjs'
+import { parseVerdict, parseFinalVerdict, parseExecOutput, extractClaudeResultText } from './drivers.mjs'
 
 let passed = 0
 let failed = 0
@@ -177,6 +177,31 @@ function test_parsers() {
   const nc = parseVerdict(needsChanges)
   assert(nc.ok === true, 'parseVerdict NEEDS_CHANGES')
   assert(nc.verdict.revision_type === 'major', 'revision_type = major')
+
+  // Real Claude Code output can be plain prose, not JSON
+  const proseApproved = '评审完成。Verdict: **APPROVED**，无阻塞问题，两条非阻塞建议已列出。'
+  const prose = parseVerdict(proseApproved)
+  assert(prose.ok === true, 'parseVerdict accepts prose Verdict: APPROVED')
+  assert(prose.verdict.verdict === 'APPROVED', 'prose verdict = APPROVED')
+
+  // Claude Code may put the useful review payload into permission_denials[].tool_input.plan
+  // when ExitPlanMode is denied. We must extract that fallback text.
+  const outerClaudeJson = {
+    result: '',
+    permission_denials: [
+      {
+        tool_name: 'ExitPlanMode',
+        tool_input: {
+          plan: '## Verdict: APPROVED\n\n```json\n{"verdict":"APPROVED","blocking_issues":[],"summary":"ok from fallback"}\n```',
+        },
+      },
+    ],
+  }
+  const extracted = extractClaudeResultText(outerClaudeJson)
+  assert(extracted.includes('"verdict":"APPROVED"'), 'extractClaudeResultText falls back to permission_denials plan')
+  const fallbackVerdict = parseVerdict(extracted)
+  assert(fallbackVerdict.ok === true, 'parseVerdict works on extracted fallback text')
+  assert(fallbackVerdict.verdict.summary === 'ok from fallback', 'fallback summary preserved')
 
   // Final verdict (different schema)
   const finalText = '```json\n{"all_goals_met":true,"goal_results":[{"goal_index":0,"status":"met","evidence":"test passes"}]}\n```'

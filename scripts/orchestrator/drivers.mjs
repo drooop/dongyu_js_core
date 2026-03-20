@@ -94,12 +94,14 @@ export function claudeReview(batchId, iterationId, prompt, opts = {}) {
   )
   writeFileSync(promptFile, prompt)
 
-  // §13.1: review = read-only + can run tests, no edits
-  const allowedTools = [
-    'Read', 'Grep', 'Glob',
-    'Bash(git:*)', 'Bash(node:*)', 'Bash(bun:*)',
+  // §13.1: review = read-only + can run tests, no edits.
+  // Bash is fully allowed for read-only commands (ls, find, cat, git, node, bun).
+  // Edit/Write are excluded to enforce read-only review.
+  const defaultTools = [
+    'Read', 'Grep', 'Glob', 'Bash',
     'Agent', 'Skill',
-  ].join(',')
+  ]
+  const allowedTools = (opts.allowedTools || defaultTools).join(',')
 
   const continueFlag = continueSession ? '-c' : ''
 
@@ -139,8 +141,10 @@ export function claudeReview(batchId, iterationId, prompt, opts = {}) {
     // Extract session_id for Auto-Approval audit (§5.3)
     const sessionId = parsed.session_id || null
 
-    // Extract the result text
-    const resultText = parsed.result || ''
+    // Extract the result text. Claude Code sometimes returns the useful
+    // review payload in permission_denials[*].tool_input.plan (for example
+    // when ExitPlanMode is denied), or as plain prose in result.
+    const resultText = extractClaudeResultText(parsed)
 
     return {
       ok: true,
@@ -160,6 +164,28 @@ export function claudeReview(batchId, iterationId, prompt, opts = {}) {
       session_id: null,
     }
   }
+}
+
+// ── Extract review text from Claude Code outer JSON ─────
+
+export function extractClaudeResultText(parsed) {
+  const parts = []
+
+  if (typeof parsed?.result === 'string' && parsed.result.trim()) {
+    parts.push(parsed.result.trim())
+  }
+
+  if (Array.isArray(parsed?.permission_denials)) {
+    for (const denial of parsed.permission_denials) {
+      const plan = denial?.tool_input?.plan
+      if (typeof plan === 'string' && plan.trim()) {
+        parts.push(plan.trim())
+      }
+    }
+  }
+
+  // Deduplicate identical segments while preserving order.
+  return [...new Set(parts)].join('\n\n')
 }
 
 // ── Parse verdict from Claude Code result text ─────────
@@ -185,6 +211,39 @@ export function parseVerdict(resultText) {
       } catch {
         continue
       }
+    }
+  }
+
+  // Fallback: Claude Code often returns a prose summary such as:
+  // "评审完成。Verdict: **APPROVED** ..."
+  const verdictMatch = resultText.match(
+    /\bverdict\b\s*[:=]\s*(?:\*{1,2}\s*)?(APPROVED|NEEDS_CHANGES)(?:\s*\*{1,2})?/i
+  )
+  if (verdictMatch) {
+    const verdict = verdictMatch[1].toUpperCase()
+    const revisionTypeMatch = resultText.match(
+      /\brevision_type\b\s*[:=]\s*(?:\*{1,2}\s*)?(major|minor|ambiguous)(?:\s*\*{1,2})?/i
+    )
+    const summary =
+      resultText
+        .split('\n')
+        .map(line => line.trim())
+        .find(Boolean) ||
+      resultText.slice(0, 200)
+
+    return {
+      ok: true,
+      verdict: {
+        verdict,
+        revision_type: revisionTypeMatch
+          ? revisionTypeMatch[1].toLowerCase()
+          : verdict === 'NEEDS_CHANGES'
+            ? 'ambiguous'
+            : undefined,
+        blocking_issues: [],
+        suggestions: [],
+        summary,
+      },
     }
   }
 
