@@ -1,5 +1,7 @@
 import { reactive } from 'vue';
 import { getSnapshotModel, getSnapshotLabelValue, parseSafeInt } from './snapshot_utils.js';
+import { buildAstFromSchema } from './ui_schema_projection.js';
+import { resolveRouteUiAst } from './route_ui_projection.js';
 
 export function createRemoteStore(options) {
   const defaultBaseUrl = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'http://127.0.0.1:9000';
@@ -13,6 +15,7 @@ export function createRemoteStore(options) {
   let pauseSse = false;
   let pendingSseSnapshot = null;
   let runtimeActivationPromise = null;
+  const routeState = reactive({ path: '/' });
 
   function labelRefKey(ref) {
     if (!ref || !Number.isInteger(ref.model_id) || !Number.isInteger(ref.p) || !Number.isInteger(ref.r) || !Number.isInteger(ref.c) || typeof ref.k !== 'string') {
@@ -141,6 +144,10 @@ export function createRemoteStore(options) {
   }
 
   function getUiAst() {
+    const resolved = resolveRouteUiAst(snapshot, routeState.path, { projectSchemaModel: buildAstFromSchema });
+    if (resolved && resolved.ast && typeof resolved.ast === 'object') {
+      return resolved.ast;
+    }
     const raw = getSnapshotLabelValue(snapshot, { model_id: EDITOR_MODEL_ID, p: 0, r: 0, c: 0, k: 'ui_ast_v0' });
     if (!raw) return null;
     // Defensive: some producers may store json-typed values as strings.
@@ -153,6 +160,10 @@ export function createRemoteStore(options) {
       }
     }
     return raw;
+  }
+
+  function setRoutePath(routePath) {
+    routeState.path = typeof routePath === 'string' && routePath.trim().length > 0 ? routePath : '/';
   }
 
   function assertMailboxWriteLabel(label) {
@@ -597,6 +608,7 @@ export function createRemoteStore(options) {
   return {
     snapshot,
     getUiAst,
+    setRoutePath,
     getEffectiveLabelValue,
     stageOverlayValue,
     commitOverlayValue,

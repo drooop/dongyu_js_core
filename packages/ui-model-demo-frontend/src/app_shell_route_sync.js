@@ -1,5 +1,7 @@
 import {
   normalizeHashPath,
+  ROUTE_HOME,
+  ROUTE_WORKSPACE,
 } from './router.js';
 import { findPageEntryByPath } from './page_asset_resolver.js';
 
@@ -26,15 +28,31 @@ function routePage(snapshot, routePath) {
   return normalizeHashPath(routePath) === '/' ? 'home' : 'home';
 }
 
+export function resolveNavigableRoutePath(snapshot, routePath) {
+  const normalized = normalizeHashPath(routePath);
+  const labels = getStateLabels(snapshot);
+  const catalog = Array.isArray(readLabelValue(labels, 'ui_page_catalog_json'))
+    ? readLabelValue(labels, 'ui_page_catalog_json')
+    : [];
+
+  if (normalized === '/model100') {
+    return ROUTE_WORKSPACE;
+  }
+  if (catalog.length === 0) {
+    return normalized;
+  }
+  if (findPageEntryByPath(snapshot, normalized)) {
+    return normalized;
+  }
+  return ROUTE_HOME;
+}
+
 export function readAppShellRouteSyncState(snapshot, routePath) {
   const targetPage = routePage(snapshot, routePath);
   if (targetPage === 'home') return { pending: false, targetPage };
 
   const labels = getStateLabels(snapshot);
   const currentPage = String(readLabelValue(labels, 'ui_page') ?? '').trim().toLowerCase();
-  if (currentPage !== targetPage) {
-    return { pending: true, targetPage, currentPage };
-  }
 
   if (targetPage !== 'workspace') {
     return { pending: false, targetPage, currentPage };
@@ -43,9 +61,6 @@ export function readAppShellRouteSyncState(snapshot, routePath) {
   const wsSelected = normalizeInt(readLabelValue(labels, 'ws_app_selected'));
   const selectedModelId = normalizeInt(readLabelValue(labels, 'selected_model_id'));
   if (!Number.isInteger(wsSelected) || wsSelected === 0) {
-    return { pending: true, targetPage, currentPage, wsSelected, selectedModelId };
-  }
-  if (selectedModelId !== wsSelected) {
     return { pending: true, targetPage, currentPage, wsSelected, selectedModelId };
   }
   return { pending: false, targetPage, currentPage, wsSelected, selectedModelId };

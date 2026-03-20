@@ -11,6 +11,7 @@ import editorTestCatalogPatch from '../../worker-base/system-models/editor_test_
 import promptCatalogPatch from '../../worker-base/system-models/prompt_catalog_ui.json' with { type: 'json' };
 import { buildAstFromSchema } from './ui_schema_projection.js';
 import { resolvePageAsset } from './page_asset_resolver.js';
+import { resolveRouteUiAst } from './route_ui_projection.js';
 import {
   deriveEditorModelOptions,
   deriveHomeMissingModelText,
@@ -148,6 +149,7 @@ export function createDemoStore() {
 
   const snapshot = reactive(runtime.snapshot());
   const eventLog = [];
+  const routeState = reactive({ path: '/' });
   const adapter = createLocalBusAdapter({ runtime, eventLog, mode: adapterMode, mailboxModelId: EDITOR_MODEL_ID, editorStateModelId: EDITOR_STATE_MODEL_ID });
 
   function refreshSnapshot() {
@@ -183,10 +185,18 @@ export function createDemoStore() {
   }
 
   function getUiAst() {
+    const resolved = resolveRouteUiAst(snapshot, routeState.path, { projectSchemaModel: buildAstFromSchema });
+    if (resolved && resolved.ast && typeof resolved.ast === 'object') {
+      return resolved.ast;
+    }
     const model = runtime.getModel(EDITOR_MODEL_ID);
     const cell = runtime.getCell(model, 0, 0, 0);
     const label = cell.labels.get('ui_ast_v0');
     return label ? label.v : null;
+  }
+
+  function setRoutePath(routePath) {
+    routeState.path = typeof routePath === 'string' && routePath.trim().length > 0 ? routePath : '/';
   }
 
   function dispatchAddLabel(label) {
@@ -232,6 +242,7 @@ export function createDemoStore() {
     snapshot,
     refreshSnapshot,
     getUiAst,
+    setRoutePath,
     dispatchAddLabel,
     dispatchRmLabel,
     consumeOnce,
