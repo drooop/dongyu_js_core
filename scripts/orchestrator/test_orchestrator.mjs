@@ -631,11 +631,21 @@ function test_docs_sync_for_escalation_rules() {
   assert(ssot.includes('oscillation'), 'SSOT mentions oscillation')
   assert(ssot.includes('warn_and_continue'), 'SSOT mentions warn_and_continue action')
   assert(ssot.includes('0204') && ssot.includes('0205'), 'SSOT mentions 0204/0205 boundary')
+  assert(ssot.includes('batch_summary'), 'SSOT mentions batch_summary')
+  assert(ssot.includes('terminal_outcome'), 'SSOT mentions terminal_outcome')
+  assert(ssot.includes('Batch Lifecycle') && ssot.includes('Batch Outcome'),
+    'SSOT mentions terminal status.txt fields')
 
   assert(runbook.includes('state_doc_inconsistency'), 'runbook mentions state_doc_inconsistency')
   assert(runbook.includes('oscillation'), 'runbook mentions oscillation')
   assert(runbook.includes('human_decision_required'), 'runbook mentions human_decision_required')
   assert(runbook.includes('warn_and_continue'), 'runbook mentions warn_and_continue')
+  assert(runbook.includes('batch_summary'), 'runbook mentions batch_summary')
+  assert(runbook.includes('Batch Lifecycle') && runbook.includes('Batch Outcome'),
+    'runbook mentions terminal status fields')
+  assert(runbook.includes('[batch:passed]'), 'runbook mentions structured batch event label')
+  assert(runbook.includes('completed event') && runbook.includes('status'),
+    'runbook explains how to diagnose completed event vs status mismatch')
 }
 
 // ── Test 2: Events + orphan detection ───────────────────
