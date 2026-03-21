@@ -52,6 +52,7 @@ function parseArgs() {
   const opts = {
     prompt: null,
     promptFile: null,
+    iteration: null,     // --iteration <id>: execute existing iteration directly
     resume: false,
     monitor: false,
     batchId: null,
@@ -62,6 +63,7 @@ function parseArgs() {
     switch (args[i]) {
       case '--prompt': opts.prompt = args[++i]; break
       case '--prompt-file': opts.promptFile = args[++i]; break
+      case '--iteration': opts.iteration = args[++i]; break
       case '--resume': opts.resume = true; break
       case '--monitor': opts.monitor = true; break
       case '--batch-id': opts.batchId = args[++i]; break
@@ -118,13 +120,19 @@ async function main() {
     return
   }
 
+  // --iteration mode: execute existing iteration directly (skip decompose)
+  if (opts.iteration) {
+    await runExistingIteration(opts.iteration, opts.prompt || '')
+    return
+  }
+
   // Normal mode: need prompt
   let userPrompt = opts.prompt
   if (opts.promptFile) {
     userPrompt = readFileSync(opts.promptFile, 'utf-8')
   }
   if (!userPrompt) {
-    console.error('Usage: orchestrator.mjs --prompt "..." or --prompt-file <file>')
+    console.error('Usage: orchestrator.mjs --prompt "..." or --prompt-file <file> or --iteration <id>')
     process.exit(1)
   }
 
@@ -213,6 +221,98 @@ async function main() {
       syncOnHoldDocs(state, iter.id, 'Registration failed during batch initialization')
     }
   }
+
+  await runMainLoop(state)
+}
+
+// ── Phase -1: Decompose ─────────────────────────────────
+
+// ── --iteration mode: execute existing iteration ────────
+//
+// Skips decompose entirely. Reads existing plan/resolution to determine
+// the iteration's current phase and continues from there.
+// Use for iterations that are already Planned/Approved and have
+// plan.md + resolution.md ready.
+
+async function runExistingIteration(iterationId, extraContext) {
+  process.stderr.write(`\nExecuting existing iteration: ${iterationId}\n`)
+
+  // Verify iteration directory exists
+  const iterDir = join(process.cwd(), 'docs', 'iterations', iterationId)
+  if (!existsSync(iterDir)) {
+    console.error(`Iteration directory not found: ${iterDir}`)
+    process.exit(1)
+  }
+
+  // Read plan to get title/requirement
+  let title = iterationId
+  let requirement = ''
+  const planPath = join(iterDir, 'plan.md')
+  if (existsSync(planPath)) {
+    const planContent = readFileSync(planPath, 'utf-8')
+    // Extract title from first heading
+    const titleMatch = planContent.match(/^#\s+(.+)$/m)
+    if (titleMatch) title = titleMatch[1]
+    // Use WHAT section as requirement
+    const whatMatch = planContent.match(/##\s+WHAT\s*\n([\s\S]*?)(?=\n##|$)/)
+    if (whatMatch) requirement = whatMatch[1].trim()
+  }
+
+  // Determine starting phase based on ITERATIONS.md status
+  const iterStatus = (() => {
+    try {
+      const content = readFileSync(join(process.cwd(), 'docs', 'ITERATIONS.md'), 'utf-8')
+      const escaped = iterationId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const match = content.match(new RegExp(`\\|\\s*${escaped}\\s*\\|[^|]*\\|[^|]*\\|[^|]*\\|[^|]*\\|\\s*([^|]+?)\\s*\\|`))
+      return match ? match[1].trim() : 'Planned'
+    } catch { return 'Planned' }
+  })()
+
+  // Map ITERATIONS status to starting phase
+  const startPhase = {
+    'Planned': 'PLANNING',
+    'Approved': 'EXECUTION',
+    'In Progress': 'EXECUTION',
+  }[iterStatus] || 'PLANNING'
+
+  process.stderr.write(`  ITERATIONS.md status: ${iterStatus} → starting at ${startPhase}\n`)
+
+  // Create batch with single iteration
+  const batchId = randomUUID()
+  const state = createState(batchId, `Execute existing iteration ${iterationId}. ${extraContext}`, [requirement || title])
+
+  addIteration(state, {
+    id: iterationId,
+    type: 'primary',
+    title,
+    requirement: requirement || title,
+    resolves_goals: [0],
+    expected_branch: `dropx/dev_${iterationId}`,
+  })
+
+  // Mark as already registered (it's an existing iteration)
+  updateIteration(state, iterationId, {
+    registered_in_iterations_md: true,
+    phase: startPhase,
+  })
+
+  // Set iteration docs references
+  const iter = findIteration(state, iterationId)
+  iter.evidence.plan_md = `docs/iterations/${iterationId}/plan.md`
+  iter.evidence.resolution_md = `docs/iterations/${iterationId}/resolution.md`
+  iter.evidence.runlog_md = `docs/iterations/${iterationId}/runlog.md`
+
+  // Update traceability
+  if (state.traceability[0]) {
+    state.traceability[0].decomposed_requirement = requirement || title
+    state.traceability[0].iteration_ids.push(iterationId)
+  }
+
+  commitState(state)
+  emitEvent(state, {
+    event_type: 'transition',
+    message: `Batch ${batchId.slice(0, 8)} initialized for existing iteration ${iterationId} (starting at ${startPhase})`,
+  })
 
   await runMainLoop(state)
 }
