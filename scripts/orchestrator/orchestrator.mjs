@@ -258,14 +258,22 @@ async function runExistingIteration(iterationId, extraContext) {
     if (whatMatch) requirement = whatMatch[1].trim()
   }
 
-  // Determine starting phase based on ITERATIONS.md status
-  const iterStatus = (() => {
+  // Determine starting phase and branch from ITERATIONS.md
+  const { iterStatus, iterBranch } = (() => {
     try {
       const content = readFileSync(join(process.cwd(), 'docs', 'ITERATIONS.md'), 'utf-8')
       const escaped = iterationId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const match = content.match(new RegExp(`\\|\\s*${escaped}\\s*\\|[^|]*\\|[^|]*\\|[^|]*\\|[^|]*\\|\\s*([^|]+?)\\s*\\|`))
-      return match ? match[1].trim() : 'Planned'
-    } catch { return 'Planned' }
+      // Capture branch (field 5) and status (field 6)
+      const match = content.match(new RegExp(
+        `\\|\\s*${escaped}\\s*\\|[^|]*\\|[^|]*\\|[^|]*\\|\\s*([^|]+?)\\s*\\|\\s*([^|]+?)\\s*\\|`
+      ))
+      return {
+        iterStatus: match ? match[2].trim() : 'Planned',
+        iterBranch: match ? match[1].trim() : `dropx/dev_${iterationId}`,
+      }
+    } catch {
+      return { iterStatus: 'Planned', iterBranch: `dropx/dev_${iterationId}` }
+    }
   })()
 
   // Map ITERATIONS status to starting phase
@@ -275,7 +283,7 @@ async function runExistingIteration(iterationId, extraContext) {
     'In Progress': 'EXECUTION',
   }[iterStatus] || 'PLANNING'
 
-  process.stderr.write(`  ITERATIONS.md status: ${iterStatus} → starting at ${startPhase}\n`)
+  process.stderr.write(`  ITERATIONS.md status: ${iterStatus}, branch: ${iterBranch} → starting at ${startPhase}\n`)
 
   // Create batch with single iteration
   const batchId = randomUUID()
@@ -287,7 +295,7 @@ async function runExistingIteration(iterationId, extraContext) {
     title,
     requirement: requirement || title,
     resolves_goals: [0],
-    expected_branch: `dropx/dev_${iterationId}`,
+    expected_branch: iterBranch,
   })
 
   // Mark as already registered (it's an existing iteration)
