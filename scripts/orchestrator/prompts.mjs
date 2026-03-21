@@ -149,9 +149,10 @@ Verdict: APPROVED 或 Verdict: NEEDS_CHANGES
 }
 \`\`\`
 
-verdict 为 NEEDS_CHANGES 时，revision_type 必须明确是 major 还是 minor。
-major = 影响 scope / 契约 / 验证口径。minor = 措辞/格式。
-如果无法判定，标记 ambiguous。
+revision_type 判定规则：
+- **major**：scope 不合理、验证命令缺失或不可执行、关键约束遗漏
+- **minor**：格式/措辞问题，plan/resolution 基本正确但有小瑕疵
+- **ambiguous**：仅当你无法判断问题是否影响交付完整性时才使用，绝大多数情况应能明确判定 major 或 minor
 `
 }
 
@@ -281,6 +282,11 @@ Verdict: APPROVED 或 Verdict: NEEDS_CHANGES
   "summary": "一句话总结"
 }
 \`\`\`
+
+revision_type 判定规则：
+- **major**：Step 未完成、交付文件缺失、内容与 resolution 不符、验证命令失败
+- **minor**：格式/措辞/排版问题，内容基本正确但有小瑕疵
+- **ambiguous**：仅当你无法判断问题是否影响交付完整性时才使用，绝大多数情况应能明确判定 major 或 minor
 `
 }
 
