@@ -670,6 +670,80 @@ async function test_events() {
   cleanBatch(batchId)
 }
 
+// ── Test 2b: Completion payload + notify summary ───────
+
+async function test_completion_payload_and_notify_summary() {
+  process.stderr.write('\n== Test 2b: Completion payload + notify summary ==\n')
+
+  const notifyModule = await import('./notify.mjs')
+  assert(typeof notifyModule.buildBatchCompleteDetail === 'function',
+    'buildBatchCompleteDetail exported')
+
+  const batchId = `test-${randomUUID().slice(0, 8)}`
+  const state = createState(batchId, 'test', ['goal'])
+  addIteration(state, { id: 'iter-done', type: 'primary', title: 'Done', requirement: 'R' })
+  state.iterations[0].status = 'completed'
+  state.iterations[0].phase = 'COMPLETE'
+  state.current_iteration = null
+  state.final_verification = 'passed'
+  commitState(state)
+
+  const expectedRevision = state.state_revision + 1
+  emitCompleted(state, 'iter-done', {
+    scope: 'iteration',
+    terminal_outcome: 'completed',
+    state_revision: expectedRevision,
+    terminal_summary: state.batch_summary,
+  })
+  emitCompleted(state, null, {
+    scope: 'batch',
+    message: 'Batch complete',
+    terminal_outcome: state.batch_summary?.terminal_outcome,
+    state_revision: expectedRevision,
+    terminal_summary: state.batch_summary,
+  })
+
+  const events = readEvents(batchId)
+  const iterationCompleted = events.find(event =>
+    event.event_type === 'completed' && event.iteration_id === 'iter-done'
+  )
+  const batchCompleted = events.find(event =>
+    event.event_type === 'completed' && event.iteration_id === null && event.message === 'Batch complete'
+  )
+
+  assert(iterationCompleted?.data?.scope === 'iteration',
+    'iteration completed event exposes scope = iteration')
+  assert(iterationCompleted?.data?.terminal_outcome === 'completed',
+    'iteration completed event exposes terminal_outcome = completed')
+  assert(iterationCompleted?.state_revision === expectedRevision,
+    'iteration completed event uses target state_revision')
+
+  assert(batchCompleted?.data?.scope === 'batch',
+    'batch completed event exposes scope = batch')
+  assert(batchCompleted?.data?.terminal_outcome === 'passed',
+    'batch completed event exposes final terminal_outcome')
+  assert(batchCompleted?.data?.terminal_summary?.lifecycle === 'completed',
+    'batch completed event carries terminal_summary payload')
+  assert(batchCompleted?.state_revision === expectedRevision,
+    'batch completed event uses target state_revision')
+
+  if (typeof notifyModule.buildBatchCompleteDetail === 'function') {
+    const detail = notifyModule.buildBatchCompleteDetail({
+      iterations: [{ status: 'completed' }],
+      batch_summary: {
+        lifecycle: 'completed',
+        terminal_outcome: 'failed',
+        final_verification: 'failed',
+        counts: { completed: 2, total: 2 },
+      },
+    })
+    assert(detail.includes('2/2'), 'batch completion detail uses authoritative summary counts')
+    assert(detail.includes('failed'), 'batch completion detail includes terminal outcome from summary')
+  }
+
+  cleanBatch(batchId)
+}
+
 // ── Test 3: Scheduler + spawn ───────────────────────────
 
 function test_scheduler() {
@@ -1029,6 +1103,7 @@ async function main() {
   await test_resume_history_and_prompt_escalation_wiring()
   test_docs_sync_for_escalation_rules()
   await test_events()
+  await test_completion_payload_and_notify_summary()
   test_scheduler()
   test_parsers()
   test_review_record_summary()

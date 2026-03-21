@@ -21,7 +21,9 @@ export function emitEvent(state, event) {
     schema_version: SCHEMA_VERSION,
     batch_id: state.batch_id,
     event_id: randomUUID(),
-    state_revision: state.state_revision,
+    state_revision: typeof event.state_revision === 'number'
+      ? event.state_revision
+      : state.state_revision,
     timestamp: new Date().toISOString(),
     iteration_id: event.iteration_id || null,
     parent_iteration: event.parent_iteration || null,
@@ -156,12 +158,22 @@ export function emitOnHold(state, iterationId, reason) {
   })
 }
 
-export function emitCompleted(state, iterationId) {
+export function emitCompleted(state, iterationId, details = {}) {
+  const scope = details.scope || (iterationId ? 'iteration' : 'batch')
+  const message = details.message || (scope === 'batch' ? 'Batch complete' : 'Completed')
   return emitEvent(state, {
     iteration_id: iterationId,
+    state_revision: details.state_revision,
     event_type: 'completed',
     severity: 'info',
-    message: `Completed`,
+    message,
+    data: {
+      scope,
+      terminal_outcome: details.terminal_outcome || null,
+      terminal_summary: details.terminal_summary || null,
+      state_revision: details.state_revision ?? state.state_revision,
+      ...(details.data || {}),
+    },
   })
 }
 
