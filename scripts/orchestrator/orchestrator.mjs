@@ -423,7 +423,7 @@ function commitOnHold(state, iterationId, reason) {
 async function runIteration(state, iterationId) {
   const iter = findIteration(state, iterationId)
 
-  while (iter.phase !== 'COMPLETE' && iter.status === 'active') {
+  while (iter.status === 'active') {
 
     switch (iter.phase) {
 
