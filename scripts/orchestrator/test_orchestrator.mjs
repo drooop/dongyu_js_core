@@ -174,7 +174,8 @@ async function test_tri_state_entry_routing_and_planning_modes() {
   assert(draftIteration.start_phase === 'PLANNING',
     'draft_iteration starts at PLANNING')
 
-  const executableIteration = classifyEntryRoute({
+  // In Progress requires --resume, not fresh execution
+  const inProgressIteration = classifyEntryRoute({
     entry_source: 'iteration',
     iteration_status: 'In Progress',
     has_plan: true,
@@ -182,8 +183,36 @@ async function test_tri_state_entry_routing_and_planning_modes() {
     plan_is_scaffold: false,
     resolution_is_scaffold: false,
   })
+  assert(inProgressIteration.is_blocked === true,
+    'In Progress blocks fresh --iteration (requires --resume)')
+  assert(inProgressIteration.reason.includes('requires_resume'),
+    'In Progress reason indicates resume required')
+
+  // On Hold also requires --resume after human decision
+  const onHoldIteration = classifyEntryRoute({
+    entry_source: 'iteration',
+    iteration_status: 'On Hold',
+    has_plan: true,
+    has_resolution: true,
+    plan_is_scaffold: false,
+    resolution_is_scaffold: false,
+  })
+  assert(onHoldIteration.is_blocked === true,
+    'On Hold blocks fresh --iteration (requires human decision + --resume)')
+
+  // Approved = executable
+  const executableIteration = classifyEntryRoute({
+    entry_source: 'iteration',
+    iteration_status: 'Approved',
+    has_plan: true,
+    has_resolution: true,
+    plan_is_scaffold: false,
+    resolution_is_scaffold: false,
+  })
   assert(executableIteration.start_phase === 'EXECUTION',
-    'executable_iteration starts at EXECUTION')
+    'Approved starts at EXECUTION')
+  assert(executableIteration.route_kind === 'executable_iteration',
+    'Approved route = executable_iteration')
 
   const completedIteration = classifyEntryRoute({
     entry_source: 'iteration',

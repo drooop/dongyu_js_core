@@ -298,9 +298,16 @@ async function runExistingIteration(iterationId, extraContext) {
   })
 
   if (route.is_blocked) {
-    const blockMessage = route.reason === 'missing_contract_files'
-      ? 'plan.md / resolution.md 缺失，禁止隐式 fallback 到 planning 或 execution'
-      : `iteration status ${iterStatus} 不允许继续执行`
+    let blockMessage
+    if (route.reason === 'missing_contract_files') {
+      blockMessage = 'plan.md / resolution.md 缺失，禁止隐式 fallback'
+    } else if (route.reason?.startsWith('requires_resume:')) {
+      blockMessage = `${route.hint || `Status ${iterStatus} requires --resume`}`
+    } else if (route.reason?.startsWith('terminal_iteration_status:')) {
+      blockMessage = `Iteration is ${iterStatus} — cannot re-execute`
+    } else {
+      blockMessage = `Blocked: ${route.reason}`
+    }
     process.stderr.write(`[BLOCKED] ${iterationId}: ${blockMessage}\n`)
     process.exit(1)
   }

@@ -6,13 +6,18 @@ const ROUTE_KINDS = Object.freeze([
 
 const TERMINAL_ITERATION_STATUSES = new Set([
   'Completed',
-  'On Hold',
   'Cancelled',
+])
+
+// In Progress requires --resume with existing batch context.
+// On Hold requires human decision first, then --resume.
+const REQUIRES_RESUME_STATUSES = new Set([
+  'In Progress',
+  'On Hold',
 ])
 
 const EXECUTABLE_ITERATION_STATUSES = new Set([
   'Approved',
-  'In Progress',
 ])
 
 const SCAFFOLD_PATTERNS = [
@@ -53,6 +58,20 @@ export function classifyEntryRoute(input = {}) {
       start_phase: null,
       is_blocked: true,
       reason: `terminal_iteration_status:${iterationStatus}`,
+    }
+  }
+
+  if (REQUIRES_RESUME_STATUSES.has(iterationStatus)) {
+    const hint = iterationStatus === 'On Hold'
+      ? 'Human decision required first, then --resume --batch-id <id>'
+      : 'Use --resume --batch-id <id> to continue existing execution context'
+    return {
+      entry_source: entrySource,
+      route_kind: null,
+      start_phase: null,
+      is_blocked: true,
+      reason: `requires_resume:${iterationStatus}`,
+      hint,
     }
   }
 
@@ -97,6 +116,7 @@ export function classifyEntryRoute(input = {}) {
 
 export {
   EXECUTABLE_ITERATION_STATUSES,
+  REQUIRES_RESUME_STATUSES,
   ROUTE_KINDS,
   TERMINAL_ITERATION_STATUSES,
 }
