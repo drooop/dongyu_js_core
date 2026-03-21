@@ -948,6 +948,12 @@ function test_monitor() {
   state.iterations[0].phase = 'REVIEW_PLAN'
   state.iterations[0].review_round = 2
   state.iterations[0].major_revision_count = 1
+  state.iterations[0].review_policy = {
+    approval_count: 3,
+    major_revision_limit: 5,
+    cli_failure_threshold: 2,
+    risk_profile: 'standard',
+  }
   state.current_iteration = 'iter-mon'
   commitState(state)
 
@@ -955,6 +961,42 @@ function test_monitor() {
   assert(status.includes('iter-mon'), 'status contains iteration id')
   assert(status.includes('REVIEW_PLAN'), 'status contains phase')
   assert(status.includes('Monitor Test'), 'status contains title')
+  assert(status.includes('major 1/5'), 'status phase uses review_policy major revision limit instead of hard-coded /3')
+
+  cleanBatch(batchId)
+}
+
+// ── Test 8a: Monitor terminal surface ──────────────────
+
+function test_monitor_terminal_surface() {
+  process.stderr.write('\n== Test 8a: Monitor terminal surface ==\n')
+
+  const batchId = `test-${randomUUID().slice(0, 8)}`
+  const state = createState(batchId, 'test', ['goal'])
+  addIteration(state, { id: 'iter-term', type: 'primary', title: 'Terminal Test', requirement: 'R' })
+  state.iterations[0].status = 'completed'
+  state.iterations[0].phase = 'COMPLETE'
+  state.current_iteration = null
+  state.final_verification = 'passed'
+  commitState(state)
+
+  emitCompleted(state, null, {
+    scope: 'batch',
+    message: 'Batch complete',
+    terminal_outcome: 'passed',
+    state_revision: state.state_revision + 1,
+    terminal_summary: state.batch_summary,
+  })
+
+  const status = refreshStatus(state)
+  assert(status.includes('Batch Lifecycle: completed'),
+    'status terminal surface shows batch lifecycle explicitly')
+  assert(status.includes('Batch Outcome: passed'),
+    'status terminal surface shows batch outcome explicitly')
+  assert(status.includes('Phase: terminal'),
+    'status terminal surface marks terminal phase instead of review placeholder')
+  assert(status.includes('[batch:passed] Batch complete'),
+    'recent terminal events use structured batch scope/outcome label')
 
   cleanBatch(batchId)
 }
@@ -1110,6 +1152,7 @@ async function main() {
   test_crash_recovery()
   test_on_hold_stall()
   test_monitor()
+  test_monitor_terminal_surface()
   test_terminal_closure_contract()
   test_auto_approval_logic()
   test_major_revision_limit()

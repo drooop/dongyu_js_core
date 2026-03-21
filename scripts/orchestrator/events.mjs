@@ -13,6 +13,16 @@ import { randomUUID } from 'crypto'
 import { batchDir } from './state.mjs'
 
 const SCHEMA_VERSION = 1
+const EVENT_ICONS = {
+  transition: '→',
+  review: '⟳',
+  spawn: '+',
+  blocked: '⊘',
+  on_hold: '⊘',
+  completed: '✓',
+  error: '✗',
+  notify: '◆',
+}
 
 // ── Emit ────────────────────────────────────────────────
 
@@ -40,16 +50,7 @@ export function emitEvent(state, event) {
   appendFileSync(eventsFile, JSON.stringify(entry) + '\n')
 
   // 2. stderr real-time output
-  const icon = {
-    transition: '→',
-    review: '⟳',
-    spawn: '+',
-    blocked: '⊘',
-    on_hold: '⊘',
-    completed: '✓',
-    error: '✗',
-    notify: '◆',
-  }[entry.event_type] || '·'
+  const icon = eventIcon(entry.event_type)
 
   const ts = entry.timestamp.slice(11, 19)
   const iterId = entry.iteration_id ? `[${entry.iteration_id}]` : '[batch]'
@@ -184,6 +185,25 @@ export function emitError(state, iterationId, error) {
     severity: 'error',
     message: `Error: ${error}`,
   })
+}
+
+export function eventIcon(eventType) {
+  return EVENT_ICONS[eventType] || '·'
+}
+
+export function eventScopeLabel(event) {
+  const scope = event?.data?.scope
+  const terminalOutcome = event?.data?.terminal_outcome
+
+  if (scope && terminalOutcome) {
+    return `[${scope}:${terminalOutcome}]`
+  }
+
+  if (event?.iteration_id) {
+    return `[${event.iteration_id}]`
+  }
+
+  return '[batch]'
 }
 
 // ── Path ────────────────────────────────────────────────

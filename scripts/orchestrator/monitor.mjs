@@ -9,11 +9,17 @@
 import { writeFileSync, readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { batchDir } from './state.mjs'
-import { readEvents } from './events.mjs'
+import { readEvents, eventIcon, eventScopeLabel } from './events.mjs'
 
 // ── Refresh status.txt ─────────────────────────────────
 
 export function refreshStatus(state) {
+  const batchSummary = state.batch_summary || {
+    lifecycle: 'running',
+    terminal_outcome: null,
+    final_verification: state.final_verification,
+    counts: {},
+  }
   const completed = state.iterations.filter(i => i.status === 'completed').length
   const active = state.iterations.filter(i => i.status === 'active').length
   const pending = state.iterations.filter(i => i.status === 'pending').length
@@ -21,13 +27,21 @@ export function refreshStatus(state) {
   const primary = state.iterations.filter(i => i.type === 'primary').length
   const spawned = state.iterations.filter(i => i.type === 'spawned').length
   const current = state.iterations.find(i => i.status === 'active')
+  const majorRevisionLimit = current?.review_policy?.major_revision_limit
+    || state.review_policy?.major_revision_limit
+    || 3
+  const phaseLine = current
+    ? `${current.phase} (review round ${current.review_round}, major ${current.major_revision_count}/${majorRevisionLimit})`
+    : batchSummary.lifecycle === 'completed'
+      ? 'terminal'
+      : batchSummary.lifecycle
+  const batchOutcome = batchSummary.terminal_outcome || '-'
 
   const recentEvents = readEvents(state.batch_id, { tail: 8 })
   const recentLines = recentEvents
     .map(e => {
       const ts = e.timestamp.slice(11, 19)
-      const icon = { transition: '→', review: '⟳', spawn: '+', blocked: '⊘', on_hold: '⊘', completed: '✓', error: '✗' }[e.event_type] || '·'
-      return `  ${ts} ${icon} ${e.message}`
+      return `  ${ts} ${eventIcon(e.event_type)} ${eventScopeLabel(e)} ${e.message}`
     })
     .join('\n')
 
@@ -38,9 +52,11 @@ export function refreshStatus(state) {
     `Batch: ${state.batch_id.slice(0, 8)}`,
     `Total: ${state.iterations.length} (${primary} primary + ${spawned} spawned)`,
     `Done: ${completed}  Active: ${active}  Pending: ${pending}  On Hold: ${onHold}`,
+    `Batch Lifecycle: ${batchSummary.lifecycle}`,
+    `Batch Outcome: ${batchOutcome}`,
     ``,
     `Current: ${current ? `[${current.id}] ${current.spec.title}` : 'none'}`,
-    `Phase: ${current ? `${current.phase} (review round ${current.review_round}, major ${current.major_revision_count}/3)` : '-'}`,
+    `Phase: ${phaseLine}`,
     `Elapsed: ${elapsed}`,
     ``,
     `Recent:`,
@@ -81,7 +97,7 @@ export async function runMonitor(batchId) {
       process.stdout.write('\n-- Latest Events --\n')
       for (const e of events) {
         const ts = e.timestamp.slice(11, 19)
-        process.stdout.write(`  ${ts} [${e.iteration_id || 'batch'}] ${e.message}\n`)
+        process.stdout.write(`  ${ts} ${eventIcon(e.event_type)} ${eventScopeLabel(e)} ${e.message}\n`)
       }
     }
 
