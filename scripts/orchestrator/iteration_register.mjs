@@ -40,7 +40,9 @@ export function formatId(num, desc) {
 
 export function isRegistered(iterationId) {
   const content = readFileSync(ITERATIONS_FILE, 'utf-8')
-  return content.includes(`| ${iterationId} `)
+  // Match with or without surrounding spaces (updateIterationStatus may strip them)
+  const escaped = iterationId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`\\|\\s*${escaped}\\s*\\|`).test(content)
 }
 
 // ── Register iteration (idempotent §2.4) ────────────────
@@ -75,12 +77,16 @@ export function updateIterationStatus(iterationId, newStatus) {
   const content = readFileSync(ITERATIONS_FILE, 'utf-8')
   const lines = content.split('\n')
 
-  const updated = lines.map(line => {
-    if (!line.includes(`| ${iterationId} `)) return line
+  const escaped = iterationId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const linePattern = new RegExp(`\\|\\s*${escaped}\\s*\\|`)
 
-    // Replace status field (6th column, 0-indexed as field 5)
-    const parts = line.split('|').map(p => p.trim())
-    // parts: ['', id, date, theme, steps, branch, status, entry, '']
+  const updated = lines.map(line => {
+    if (!linePattern.test(line)) return line
+
+    // Replace status field (6th column) while preserving table formatting.
+    // Split on |, update the status column, rejoin with original spacing.
+    const parts = line.split('|')
+    // parts: ['', ' id ', ' date ', ' theme ', ' steps ', ' branch ', ' status ', ' entry ', '']
     if (parts.length >= 8) {
       parts[6] = ` ${newStatus} `
       return parts.join('|')
