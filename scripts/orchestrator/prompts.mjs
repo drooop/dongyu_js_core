@@ -119,18 +119,24 @@ ${context}
 4. 检查 resolution.md 每个 Step 是否有可执行验证命令
 5. 评估 scope 是否合理
 
-### 输出格式
-在最终回复中输出以下 JSON（在 \`\`\`json 代码块内）：
+### 重要约束
+- 不要使用 /code-review skill（会导致超时）
+- 只审查 plan.md 和 resolution.md 两个文件，不要审查仓库其他代码
+- 保持审查聚焦、简洁
+
+### 输出格式（严格要求）
+
+重要：你的最终回复文本必须直接包含以下 JSON。不要只输出文字总结。
+
+Verdict: APPROVED 或 Verdict: NEEDS_CHANGES
 
 \`\`\`json
 {
   "verdict": "APPROVED 或 NEEDS_CHANGES",
   "revision_type": "major 或 minor 或 ambiguous",
   "revision_type_rationale": "为什么判定为此类型",
-  "blocking_issues": [
-    {"severity": "critical 或 major", "description": "...", "location": "..."}
-  ],
-  "suggestions": ["非阻塞性建议..."],
+  "blocking_issues": [],
+  "suggestions": [],
   "conformance_check": {
     "tier_boundary": "pass 或 fail 或 n/a",
     "model_placement": "pass 或 fail 或 n/a",
@@ -143,11 +149,9 @@ ${context}
 }
 \`\`\`
 
-重要：
-- verdict 为 NEEDS_CHANGES 时，revision_type 必须明确是 major 还是 minor。
-- major = 影响 scope / 契约 / 验证口径。minor = 措辞/格式。
-- 如果无法判定，标记 ambiguous。
-- 如果不需要改动，verdict = APPROVED，revision_type 可省略。
+verdict 为 NEEDS_CHANGES 时，revision_type 必须明确是 major 还是 minor。
+major = 影响 scope / 契约 / 验证口径。minor = 措辞/格式。
+如果无法判定，标记 ambiguous。
 `
 }
 
@@ -228,29 +232,37 @@ export function buildExecReviewPrompt(iterationId, isFollowUp) {
 
 ${context}
 
-### 步骤
-1. 读取 docs/iterations/${iterationId}/resolution.md 了解预期步骤
-2. 读取 docs/iterations/${iterationId}/runlog.md 了解执行记录
-3. 运行 git diff dev...HEAD 查看实际代码变更
-4. 对变更代码执行 /code-review
-5. 运行相关测试验证功能正确性
-6. 检查 CLAUDE.md 合规性：
-   - Tier 1 / Tier 2 边界
-   - 负数系统模型 / 正数业务模型放置
-   - 数据所有权、数据流向、数据链路
+### 审查范围（严格限定）
 
-### 输出格式
-在最终回复中输出以下 JSON（在 \`\`\`json 代码块内）：
+只审查本 iteration 的交付物。不要审查仓库中其他未相关的代码。
+
+### 步骤
+1. 读取 docs/iterations/${iterationId}/resolution.md 了解预期步骤和验收标准
+2. 读取 docs/iterations/${iterationId}/runlog.md 了解已有执行记录
+3. 列出本 iteration 实际变更的文件（读取 runlog 或运行 git log 查看本分支 commits）
+4. 逐文件检查变更内容是否符合 resolution 中的 Step 要求
+5. 如果 resolution 中有验证命令，运行它们
+6. 评估是否符合 CLAUDE.md 合规要求（tier boundary / model placement / data flow）
+
+### 重要约束
+- 不要使用 /code-review skill（会导致超时）
+- 不要审查 orchestrator 实现代码本身（除非本 iteration 的 scope 就是修改 orchestrator）
+- 只关注本 iteration 的 resolution steps 是否被正确完成
+- 保持审查聚焦、简洁
+
+### 输出格式（严格要求）
+
+重要：你的最终回复文本必须直接包含以下 JSON。不要只输出文字总结。
+
+Verdict: APPROVED 或 Verdict: NEEDS_CHANGES
 
 \`\`\`json
 {
   "verdict": "APPROVED 或 NEEDS_CHANGES",
   "revision_type": "major 或 minor 或 ambiguous",
-  "revision_type_rationale": "...",
-  "blocking_issues": [
-    {"severity": "critical 或 major", "description": "...", "location": "..."}
-  ],
-  "suggestions": ["..."],
+  "revision_type_rationale": "为什么判定为此类型",
+  "blocking_issues": [],
+  "suggestions": [],
   "conformance_check": {
     "tier_boundary": "pass 或 fail 或 n/a",
     "model_placement": "pass 或 fail 或 n/a",

@@ -78,7 +78,7 @@ export function codexExec(batchId, iterationId, prompt, opts = {}) {
 export function claudeReview(batchId, iterationId, prompt, opts = {}) {
   ensureTranscriptDir(batchId)
   const model = opts.model || 'opus'
-  const maxTurns = opts.maxTurns || 10
+  const maxTurns = opts.maxTurns || 6   // Lower default: read files + produce verdict
   const phase = opts.phase || 'review'
   const round = opts.round || 0
   const continueSession = opts.continueSession || false
@@ -95,11 +95,10 @@ export function claudeReview(batchId, iterationId, prompt, opts = {}) {
   writeFileSync(promptFile, prompt)
 
   // §13.1: review = read-only + can run tests, no edits.
-  // Bash is fully allowed for read-only commands (ls, find, cat, git, node, bun).
-  // Edit/Write are excluded to enforce read-only review.
+  // Agent/Skill removed — they trigger plan-heavy behavior and ExitPlanMode loops
+  // that exhaust max-turns without producing parseable output.
   const defaultTools = [
     'Read', 'Grep', 'Glob', 'Bash',
-    'Agent', 'Skill',
   ]
   const allowedTools = (opts.allowedTools || defaultTools).join(',')
 
@@ -140,6 +139,20 @@ export function claudeReview(batchId, iterationId, prompt, opts = {}) {
 
     // Extract session_id for Auto-Approval audit (§5.3)
     const sessionId = parsed.session_id || null
+
+    // Detect error_max_turns — Claude ran out of turns without finishing.
+    // This is a distinct failure mode from parse errors.
+    const stopReason = parsed.stop_reason || ''
+    if (stopReason === 'tool_use' || stopReason === 'error_max_turns') {
+      // Claude exhausted turns doing tool calls without producing a final text response
+      return {
+        ok: false,
+        error: `Claude exhausted turns (stop_reason=${stopReason}, turns=${parsed.num_turns || '?'})`,
+        error_type: 'max_turns',
+        transcript_file: transcriptFile,
+        session_id: sessionId,
+      }
+    }
 
     // Extract the result text. Claude Code sometimes returns the useful
     // review payload in permission_denials[*].tool_input.plan (for example
