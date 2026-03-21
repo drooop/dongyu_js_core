@@ -12,6 +12,7 @@ import { execSync } from 'child_process'
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { transcriptsDir } from './state.mjs'
+import { normalizeFailureSignal } from './escalation_engine.mjs'
 
 // Ensure transcript directory exists before writing (needed for decompose
 // which runs before any state/batch is created).
@@ -19,6 +20,21 @@ function ensureTranscriptDir(batchId) {
   const dir = transcriptsDir(batchId)
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true })
+  }
+}
+
+function buildCliFailureResult(raw = {}) {
+  const failureSignal = normalizeFailureSignal(raw)
+  return {
+    ok: false,
+    error: raw.error || failureSignal.message,
+    error_type: failureSignal.kind,
+    failure_signal: failureSignal,
+    stdout: raw.stdout || '',
+    stderr: raw.stderr || '',
+    transcript_file: raw.transcript_file || null,
+    session_id: raw.session_id || null,
+    raw: raw.raw || undefined,
   }
 }
 
@@ -63,13 +79,16 @@ export function codexExec(batchId, iterationId, prompt, opts = {}) {
       transcript_file: transcriptFile,
     }
   } catch (err) {
-    return {
-      ok: false,
+    return buildCliFailureResult({
+      source: 'codex_exec',
+      operation: 'codexExec',
+      phase: opts.phase || 'exec',
       error: err.message,
       stdout: err.stdout || '',
       stderr: err.stderr || '',
+      code: err.code || null,
       transcript_file: transcriptFile,
-    }
+    })
   }
 }
 
@@ -128,13 +147,15 @@ export function claudeReview(batchId, iterationId, prompt, opts = {}) {
     try {
       parsed = JSON.parse(result)
     } catch {
-      return {
-        ok: false,
+      return buildCliFailureResult({
+        source: 'claude_review',
+        operation: 'claudeReview',
+        phase,
+        stage: 'json_parse',
         error: 'Failed to parse Claude Code JSON output',
         raw: result,
         transcript_file: transcriptFile,
-        session_id: null,
-      }
+      })
     }
 
     // Extract session_id for Auto-Approval audit (§5.3)
@@ -145,13 +166,17 @@ export function claudeReview(batchId, iterationId, prompt, opts = {}) {
     const stopReason = parsed.stop_reason || ''
     if (stopReason === 'tool_use' || stopReason === 'error_max_turns') {
       // Claude exhausted turns doing tool calls without producing a final text response
-      return {
-        ok: false,
-        error: `Claude exhausted turns (stop_reason=${stopReason}, turns=${parsed.num_turns || '?'})`,
+      return buildCliFailureResult({
+        source: 'claude_review',
+        operation: 'claudeReview',
+        phase,
         error_type: 'max_turns',
+        stop_reason: stopReason,
+        num_turns: parsed.num_turns || null,
+        error: `Claude exhausted turns (stop_reason=${stopReason}, turns=${parsed.num_turns || '?'})`,
         transcript_file: transcriptFile,
         session_id: sessionId,
-      }
+      })
     }
 
     // Extract the result text. Claude Code sometimes returns the useful
@@ -168,14 +193,16 @@ export function claudeReview(batchId, iterationId, prompt, opts = {}) {
       raw_parsed: parsed,
     }
   } catch (err) {
-    return {
-      ok: false,
+    return buildCliFailureResult({
+      source: 'claude_review',
+      operation: 'claudeReview',
+      phase,
       error: err.message,
       stdout: err.stdout || '',
       stderr: err.stderr || '',
+      code: err.code || null,
       transcript_file: transcriptFile,
-      session_id: null,
-    }
+    })
   }
 }
 

@@ -283,6 +283,114 @@ async function test_review_policy_prompt_wiring() {
   assert(execReviewPrompt.includes('escalation_policy'), 'exec review prompt includes escalation_policy')
 }
 
+// ── Test 1e: Failure normalization + evidence persistence ─
+
+async function test_failure_normalization_and_state_evidence() {
+  process.stderr.write('\n== Test 1e: Failure normalization + state evidence ==\n')
+
+  let escalationEngine = null
+  try {
+    escalationEngine = await import('./escalation_engine.mjs')
+  } catch {
+    escalationEngine = null
+  }
+
+  assert(escalationEngine !== null, 'escalation_engine module exists')
+  assert(typeof escalationEngine?.normalizeFailureSignal === 'function',
+    'normalizeFailureSignal exported')
+
+  if (typeof escalationEngine?.normalizeFailureSignal === 'function') {
+    const maxTurns = escalationEngine.normalizeFailureSignal({
+      source: 'claude_review',
+      operation: 'claudeReview',
+      phase: 'REVIEW_PLAN',
+      error_type: 'max_turns',
+      error: 'Claude exhausted turns (stop_reason=error_max_turns, turns=8)',
+    })
+    assert(maxTurns.kind === 'max_turns', 'max_turns failure normalized')
+
+    const timeout = escalationEngine.normalizeFailureSignal({
+      source: 'claude_review',
+      operation: 'claudeReview',
+      phase: 'REVIEW_PLAN',
+      code: 'ETIMEDOUT',
+      error: 'spawnSync /bin/sh ETIMEDOUT',
+    })
+    assert(timeout.kind === 'timeout', 'timeout failure normalized')
+
+    const processError = escalationEngine.normalizeFailureSignal({
+      source: 'claude_review',
+      operation: 'claudeReview',
+      phase: 'REVIEW_PLAN',
+      error: 'Command failed: claude -p --output-format json',
+      stderr: 'spawn EPIPE',
+    })
+    assert(processError.kind === 'process_error', 'process failure normalized')
+
+    const jsonParse = escalationEngine.normalizeFailureSignal({
+      source: 'claude_review',
+      operation: 'claudeReview',
+      phase: 'REVIEW_PLAN',
+      stage: 'json_parse',
+      error: 'Failed to parse Claude Code JSON output',
+      raw: '{"unterminated": true',
+    })
+    assert(jsonParse.kind === 'json_parse_error', 'json parse failure normalized')
+  }
+
+  const stateModule = await import('./state.mjs')
+  assert(typeof stateModule.recordFailureEvidence === 'function',
+    'recordFailureEvidence exported')
+  assert(typeof stateModule.recordEscalationEvidence === 'function',
+    'recordEscalationEvidence exported')
+  assert(typeof stateModule.recordOscillationEvidence === 'function',
+    'recordOscillationEvidence exported')
+
+  if (
+    typeof stateModule.recordFailureEvidence === 'function' &&
+    typeof stateModule.recordEscalationEvidence === 'function' &&
+    typeof stateModule.recordOscillationEvidence === 'function' &&
+    typeof escalationEngine?.normalizeFailureSignal === 'function'
+  ) {
+    const batchId = `test-${randomUUID().slice(0, 8)}`
+    const state = createState(batchId, 'test', ['goal'])
+    addIteration(state, { id: 'iter-failure', type: 'primary', title: 'T', requirement: 'R' })
+
+    stateModule.recordFailureEvidence(state, 'iter-failure', escalationEngine.normalizeFailureSignal({
+      source: 'claude_review',
+      operation: 'claudeReview',
+      phase: 'REVIEW_PLAN',
+      code: 'ETIMEDOUT',
+      error: 'spawnSync /bin/sh ETIMEDOUT',
+    }))
+    stateModule.recordEscalationEvidence(state, 'iter-failure', {
+      phase: 'REVIEW_PLAN',
+      action: 'warn_and_continue',
+      reason: 'threshold not reached',
+    })
+    stateModule.recordOscillationEvidence(state, 'iter-failure', {
+      phase: 'REVIEW_PLAN',
+      pattern: ['APPROVED', 'NEEDS_CHANGES', 'APPROVED'],
+      threshold: 1,
+      detected: true,
+    })
+
+    commitState(state)
+
+    const loaded = loadState(batchId)
+    const loadedIter = findIteration(loaded, 'iter-failure')
+    assert(Array.isArray(loadedIter?.evidence?.failures), 'failure evidence persisted after reload')
+    assert(loadedIter?.evidence?.failures?.[0]?.kind === 'timeout',
+      'persisted failure evidence preserves kind')
+    assert(loadedIter?.evidence?.escalations?.[0]?.action === 'warn_and_continue',
+      'persisted escalation evidence preserves action')
+    assert(loadedIter?.evidence?.oscillations?.[0]?.detected === true,
+      'persisted oscillation evidence preserves detection result')
+
+    cleanBatch(batchId)
+  }
+}
+
 // ── Test 2: Events + orphan detection ───────────────────
 
 async function test_events() {
@@ -607,6 +715,7 @@ async function main() {
   await test_entry_route_and_review_policy_models()
   await test_tri_state_entry_routing_and_planning_modes()
   await test_review_policy_prompt_wiring()
+  await test_failure_normalization_and_state_evidence()
   await test_events()
   test_scheduler()
   test_parsers()

@@ -13,6 +13,44 @@ import { execSync } from 'child_process'
 
 const SCHEMA_VERSION = 1
 
+function ensureIterationEvidence(iter) {
+  if (!iter.evidence) {
+    iter.evidence = {}
+  }
+
+  iter.evidence.review_records ||= []
+  iter.evidence.validation_commands ||= []
+  iter.evidence.failures ||= []
+  iter.evidence.escalations ||= []
+  iter.evidence.oscillations ||= []
+  iter.evidence.final_commit ||= null
+  iter.evidence.branch ||= iter.expected_branch || `dropx/dev_${iter.id}`
+
+  return iter
+}
+
+function normalizeStateShape(state) {
+  if (!Array.isArray(state?.iterations)) {
+    return state
+  }
+
+  for (const iter of state.iterations) {
+    ensureIterationEvidence(iter)
+  }
+
+  return state
+}
+
+function recordEvidence(iter, bucket, entry) {
+  ensureIterationEvidence(iter)
+  const evidenceEntry = {
+    timestamp: entry?.timestamp || new Date().toISOString(),
+    ...entry,
+  }
+  iter.evidence[bucket].push(evidenceEntry)
+  return evidenceEntry
+}
+
 // ── Create ──────────────────────────────────────────────
 
 export function createState(batchId, userPrompt, primaryGoals) {
@@ -82,7 +120,7 @@ export function loadState(batchId) {
       if (tmpState.schema_version === SCHEMA_VERSION && typeof tmpState.state_revision === 'number') {
         // Valid tmp — complete the interrupted rename
         renameSync(tmp, main)
-        return tmpState
+        return normalizeStateShape(tmpState)
       }
     } catch {
       // Corrupted tmp — discard
@@ -95,12 +133,14 @@ export function loadState(batchId) {
     return null
   }
 
-  return JSON.parse(readFileSync(main, 'utf-8'))
+  return normalizeStateShape(JSON.parse(readFileSync(main, 'utf-8')))
 }
 
 // ── Commit (atomic write §2.3, revision bump) ──────────
 
 export function commitState(state) {
+  normalizeStateShape(state)
+
   const dir = batchDir(state.batch_id)
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true })
@@ -128,7 +168,7 @@ export function commitState(state) {
 // ── Iteration helpers ───────────────────────────────────
 
 export function addIteration(state, iter) {
-  state.iterations.push({
+  state.iterations.push(ensureIterationEvidence({
     id: iter.id,
     type: iter.type || 'primary',
     status: 'pending',
@@ -154,10 +194,13 @@ export function addIteration(state, iter) {
       runlog_md: null,
       review_records: [],
       validation_commands: [],
+      failures: [],
+      escalations: [],
+      oscillations: [],
       final_commit: null,
       branch: iter.expected_branch || `dropx/dev_${iter.id}`,
     },
-  })
+  }))
   return state
 }
 
@@ -188,6 +231,7 @@ export function addReviewRecord(state, iterationId, record) {
   const iter = findIteration(state, iterationId)
   if (!iter) throw new Error(`Iteration ${iterationId} not found`)
 
+  ensureIterationEvidence(iter)
   iter.evidence.review_records.push({
     round: record.round,
     phase: record.phase,
@@ -200,6 +244,24 @@ export function addReviewRecord(state, iterationId, record) {
   })
 
   return state
+}
+
+export function recordFailureEvidence(state, iterationId, failure) {
+  const iter = findIteration(state, iterationId)
+  if (!iter) throw new Error(`Iteration ${iterationId} not found`)
+  return recordEvidence(iter, 'failures', failure)
+}
+
+export function recordEscalationEvidence(state, iterationId, escalation) {
+  const iter = findIteration(state, iterationId)
+  if (!iter) throw new Error(`Iteration ${iterationId} not found`)
+  return recordEvidence(iter, 'escalations', escalation)
+}
+
+export function recordOscillationEvidence(state, iterationId, oscillation) {
+  const iter = findIteration(state, iterationId)
+  if (!iter) throw new Error(`Iteration ${iterationId} not found`)
+  return recordEvidence(iter, 'oscillations', oscillation)
 }
 
 // ── Branch guard (§6.5) ────────────────────────────────
