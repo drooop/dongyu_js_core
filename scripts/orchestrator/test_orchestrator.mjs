@@ -611,6 +611,29 @@ async function test_resume_history_and_prompt_escalation_wiring() {
   }
 }
 
+// ── Test 1h: Docs sync for escalation rules ─────────────
+
+function test_docs_sync_for_escalation_rules() {
+  process.stderr.write('\n== Test 1h: Docs sync for escalation rules ==\n')
+
+  const ssotPath = join(process.cwd(), 'docs', 'ssot', 'orchestrator_hard_rules.md')
+  const runbookPath = join(process.cwd(), 'docs', 'user-guide', 'orchestrator_local_smoke.md')
+
+  const ssot = readFileSync(ssotPath, 'utf-8')
+  const runbook = readFileSync(runbookPath, 'utf-8')
+
+  assert(ssot.includes('failure matrix'), 'SSOT mentions failure matrix')
+  assert(ssot.includes('state_doc_inconsistency'), 'SSOT mentions state_doc_inconsistency')
+  assert(ssot.includes('oscillation'), 'SSOT mentions oscillation')
+  assert(ssot.includes('warn_and_continue'), 'SSOT mentions warn_and_continue action')
+  assert(ssot.includes('0204') && ssot.includes('0205'), 'SSOT mentions 0204/0205 boundary')
+
+  assert(runbook.includes('state_doc_inconsistency'), 'runbook mentions state_doc_inconsistency')
+  assert(runbook.includes('oscillation'), 'runbook mentions oscillation')
+  assert(runbook.includes('human_decision_required'), 'runbook mentions human_decision_required')
+  assert(runbook.includes('warn_and_continue'), 'runbook mentions warn_and_continue')
+}
+
 // ── Test 2: Events + orphan detection ───────────────────
 
 async function test_events() {
@@ -938,6 +961,7 @@ async function main() {
   await test_failure_normalization_and_state_evidence()
   await test_failure_matrix_and_oscillation_rules()
   await test_resume_history_and_prompt_escalation_wiring()
+  test_docs_sync_for_escalation_rules()
   await test_events()
   test_scheduler()
   test_parsers()
