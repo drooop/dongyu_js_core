@@ -19,6 +19,8 @@ import {
   createState, loadState, commitState, batchDir,
   addIteration, findIteration, updateIteration, transition,
   addReviewRecord, checkBranchGuard, findLatestBatch,
+  recordFailureEvidence, recordEscalationEvidence, recordOscillationEvidence,
+  getFailureEvidence, getReviewVerdictHistory,
 } from './state.mjs'
 import {
   emitEvent, emitTransition, emitReview, emitCompleted, emitError,
@@ -37,7 +39,8 @@ import {
   buildFixPrompt, buildFinalVerifyPrompt,
 } from './prompts.mjs'
 import { classifyEntryRoute, hasScaffoldPlaceholder } from './entry_route.mjs'
-import { buildReviewPolicy, resolveReviewPolicy, resolveEscalationAction } from './review_policy.mjs'
+import { buildReviewPolicy, resolveReviewPolicy } from './review_policy.mjs'
+import { resolveEscalationDecision } from './escalation_engine.mjs'
 import { pickNext, acceptSpawn, pauseForBlockingSpawn, canResume, setOnHold, syncOnHoldDocs, isBlocked } from './scheduler.mjs'
 import {
   getNextId, formatId, registerIteration, updateIterationStatus,
@@ -106,6 +109,33 @@ async function main() {
     // Step 2: THEN verify consistency (reconcile may have fixed recoverable gaps)
     const inconsistencies = checkStateIterationsConsistency(state)
     if (inconsistencies.length > 0) {
+      const recordedIterations = new Set()
+      for (const issue of inconsistencies) {
+        const iterationId = issue.split(':', 1)[0]?.trim()
+        const iter = iterationId ? findIteration(state, iterationId) : null
+        if (!iter || recordedIterations.has(iterationId)) {
+          continue
+        }
+
+        const reviewPolicy = ensureIterationReviewPolicy(state, iter)
+        const issueGroup = inconsistencies.filter(entry => entry.startsWith(`${iterationId}:`))
+        const decision = evaluateEscalation(state, iterationId, {
+          phase: iter.phase || 'EXECUTION',
+          failure: {
+            kind: 'state_doc_inconsistency',
+            message: issueGroup.join(' | '),
+            reason: 'state_doc_inconsistency',
+          },
+          reviewPolicy,
+        })
+        emitError(state, iterationId, `Resume blocked: ${issueGroup.join(' | ')}`)
+        if (decision.action === 'on_hold') {
+          setOnHold(state, iterationId, buildEscalationReason(decision, issueGroup.join(' | ')))
+        }
+        recordedIterations.add(iterationId)
+      }
+      commitState(state)
+
       process.stderr.write(`\n[BLOCKED] state.json and docs/ITERATIONS.md are inconsistent after reconciliation:\n`)
       for (const inc of inconsistencies) {
         process.stderr.write(`  - ${inc}\n`)
@@ -587,6 +617,85 @@ function ensureIterationReviewPolicy(state, iter) {
   return reviewPolicy
 }
 
+function getRecentPhaseFailureHistory(state, iterationId, phase) {
+  const failures = getFailureEvidence(state, iterationId, phase ? { phase } : {})
+  const iter = findIteration(state, iterationId)
+  const reviewRecords = (iter?.evidence?.review_records || [])
+    .filter(record => !phase || record.phase === phase)
+  const latestReviewRecord = reviewRecords[reviewRecords.length - 1]
+
+  if (!latestReviewRecord?.timestamp) {
+    return failures
+  }
+
+  const cutoff = Date.parse(latestReviewRecord.timestamp)
+  if (!Number.isFinite(cutoff)) {
+    return failures
+  }
+
+  return failures.filter(entry => {
+    const ts = Date.parse(entry.timestamp || '')
+    return !Number.isFinite(ts) || ts > cutoff
+  })
+}
+
+function evaluateEscalation(state, iterationId, { phase, failure, reviewPolicy, reviewHistory } = {}) {
+  const iter = findIteration(state, iterationId)
+  if (!iter) {
+    throw new Error(`Iteration ${iterationId} not found`)
+  }
+
+  const effectiveReviewPolicy = reviewPolicy || ensureIterationReviewPolicy(state, iter)
+  const normalizedFailure = typeof failure === 'string' ? { kind: failure } : (failure || {})
+  const recentFailureHistory = getRecentPhaseFailureHistory(state, iterationId, phase)
+  const recentReviewHistory = reviewHistory || getReviewVerdictHistory(state, iterationId, phase)
+
+  const decision = resolveEscalationDecision({
+    phase,
+    failure: normalizedFailure,
+    recent_failure_history: recentFailureHistory,
+    recent_review_history: recentReviewHistory,
+    risk_profile: iter.risk_profile || state.risk_profile,
+    review_policy: effectiveReviewPolicy,
+  })
+
+  if (normalizedFailure.kind) {
+    recordFailureEvidence(state, iterationId, {
+      ...normalizedFailure,
+      kind: normalizedFailure.kind,
+      normalized_failure_kind: decision.normalized_failure_kind,
+      phase,
+      action: decision.action,
+    })
+  }
+
+  recordEscalationEvidence(state, iterationId, {
+    phase,
+    failure_kind: decision.normalized_failure_kind,
+    action: decision.action,
+    reason: decision.trigger_reason,
+    threshold_reached: decision.threshold_reached,
+    threshold: decision.threshold,
+    failure_count: decision.failure_count,
+  })
+
+  if (decision.normalized_failure_kind === 'oscillation') {
+    recordOscillationEvidence(state, iterationId, {
+      phase,
+      pattern: decision.trigger_reason?.replace(/^oscillation:/, '') || null,
+      threshold: decision.threshold,
+      detected: decision.threshold_reached,
+    })
+  }
+
+  return decision
+}
+
+function buildEscalationReason(decision, fallback) {
+  const reason = fallback || decision.trigger_reason || decision.normalized_failure_kind
+  return `${decision.normalized_failure_kind}: ${reason}`
+}
+
 // ── Run single iteration ────────────────────────────────
 
 async function runIteration(state, iterationId) {
@@ -679,13 +788,19 @@ async function runIteration(state, iterationId) {
         )
 
         if (!result.ok) {
-          iter.cli_failure_count = (iter.cli_failure_count || 0) + 1
           emitError(state, iterationId, `Review failed: ${result.error}`)
-          if (
-            iter.cli_failure_count >= reviewPolicy.cli_failure_threshold &&
-            resolveEscalationAction(reviewPolicy, 'cli_failure') === 'on_hold_after_threshold'
-          ) {
-            commitOnHold(state, iterationId, `Review CLI failure (${reviewPolicy.cli_failure_threshold} consecutive)`)
+          const decision = evaluateEscalation(state, iterationId, {
+            phase: 'REVIEW_PLAN',
+            failure: result.failure_signal || {
+              kind: result.error_type || 'process_error',
+              message: result.error,
+            },
+            reviewPolicy,
+          })
+          iter.cli_failure_count = decision.failure_count
+
+          if (decision.action === 'on_hold' || decision.action === 'human_decision_required') {
+            commitOnHold(state, iterationId, buildEscalationReason(decision, result.error))
             return
           }
           commitState(state)
@@ -696,13 +811,20 @@ async function runIteration(state, iterationId) {
 
         const parsed = parseVerdict(result.result_text)
         if (!parsed.ok) {
-          iter.cli_failure_count = (iter.cli_failure_count || 0) + 1
           emitError(state, iterationId, 'Cannot parse review verdict')
-          if (
-            iter.cli_failure_count >= reviewPolicy.cli_failure_threshold &&
-            resolveEscalationAction(reviewPolicy, 'cli_failure') === 'on_hold_after_threshold'
-          ) {
-            commitOnHold(state, iterationId, `Review parse failure (${reviewPolicy.cli_failure_threshold} consecutive)`)
+          const decision = evaluateEscalation(state, iterationId, {
+            phase: 'REVIEW_PLAN',
+            failure: {
+              kind: 'json_parse_error',
+              message: parsed.error || 'Cannot parse review verdict',
+              reason: 'parse_failure',
+            },
+            reviewPolicy,
+          })
+          iter.cli_failure_count = decision.failure_count
+
+          if (decision.action === 'on_hold' || decision.action === 'human_decision_required') {
+            commitOnHold(state, iterationId, buildEscalationReason(decision, parsed.error))
             return
           }
           commitState(state)
@@ -736,6 +858,19 @@ async function runIteration(state, iterationId) {
         // Preserve review_round for syncDerivedDocs BEFORE any reset
         const reviewRoundForDocs = iter.review_round
 
+        const reviewHistory = getReviewVerdictHistory(state, iterationId, 'REVIEW_PLAN')
+        const oscillationDecision = evaluateEscalation(state, iterationId, {
+          phase: 'REVIEW_PLAN',
+          failure: { kind: 'oscillation' },
+          reviewPolicy,
+          reviewHistory,
+        })
+
+        if (oscillationDecision.threshold_reached) {
+          commitOnHold(state, iterationId, buildEscalationReason(oscillationDecision, 'review oscillation detected'))
+          return
+        }
+
         if (verdict.verdict === 'APPROVED') {
           // §5.3: session_id missing → doesn't count for Auto-Approval
           if (result.session_id && result.session_id !== 'missing') {
@@ -755,11 +890,17 @@ async function runIteration(state, iterationId) {
           iter.consecutive_approvals = 0
 
           // §4.2: major revision counting
-          if (
-            verdict.revision_type === 'ambiguous' &&
-            resolveEscalationAction(reviewPolicy, 'ambiguous_revision') === 'human_decision_required'
-          ) {
-            commitOnHold(state, iterationId, 'Ambiguous revision type — human decision required')
+          if (verdict.revision_type === 'ambiguous') {
+            const decision = evaluateEscalation(state, iterationId, {
+              phase: 'REVIEW_PLAN',
+              failure: {
+                kind: 'ambiguous_revision',
+                message: verdict.summary || 'Ambiguous revision type',
+              },
+              reviewPolicy,
+              reviewHistory,
+            })
+            commitOnHold(state, iterationId, buildEscalationReason(decision, 'Ambiguous revision type — human decision required'))
             return
           }
           if (verdict.revision_type === 'major') {
@@ -768,7 +909,16 @@ async function runIteration(state, iterationId) {
 
           // §4.1: check limit
           if (iter.major_revision_count >= reviewPolicy.major_revision_limit) {
-            commitOnHold(state, iterationId, `Major revision limit reached (${reviewPolicy.major_revision_limit})`)
+            const decision = evaluateEscalation(state, iterationId, {
+              phase: 'REVIEW_PLAN',
+              failure: {
+                kind: 'major_revision_limit',
+                message: `Major revision limit reached (${reviewPolicy.major_revision_limit})`,
+              },
+              reviewPolicy,
+              reviewHistory,
+            })
+            commitOnHold(state, iterationId, buildEscalationReason(decision, `Major revision limit reached (${reviewPolicy.major_revision_limit})`))
             return
           }
 
@@ -854,13 +1004,19 @@ async function runIteration(state, iterationId) {
         )
 
         if (!result.ok) {
-          iter.cli_failure_count = (iter.cli_failure_count || 0) + 1
           emitError(state, iterationId, `Exec review failed: ${result.error}`)
-          if (
-            iter.cli_failure_count >= reviewPolicy.cli_failure_threshold &&
-            resolveEscalationAction(reviewPolicy, 'cli_failure') === 'on_hold_after_threshold'
-          ) {
-            commitOnHold(state, iterationId, `Exec review CLI failure (${reviewPolicy.cli_failure_threshold} consecutive)`)
+          const decision = evaluateEscalation(state, iterationId, {
+            phase: 'REVIEW_EXEC',
+            failure: result.failure_signal || {
+              kind: result.error_type || 'process_error',
+              message: result.error,
+            },
+            reviewPolicy,
+          })
+          iter.cli_failure_count = decision.failure_count
+
+          if (decision.action === 'on_hold' || decision.action === 'human_decision_required') {
+            commitOnHold(state, iterationId, buildEscalationReason(decision, result.error))
             return
           }
           commitState(state)
@@ -871,13 +1027,20 @@ async function runIteration(state, iterationId) {
 
         const parsed = parseVerdict(result.result_text)
         if (!parsed.ok) {
-          iter.cli_failure_count = (iter.cli_failure_count || 0) + 1
           emitError(state, iterationId, 'Cannot parse exec review verdict')
-          if (
-            iter.cli_failure_count >= reviewPolicy.cli_failure_threshold &&
-            resolveEscalationAction(reviewPolicy, 'cli_failure') === 'on_hold_after_threshold'
-          ) {
-            commitOnHold(state, iterationId, `Exec review parse failure (${reviewPolicy.cli_failure_threshold} consecutive)`)
+          const decision = evaluateEscalation(state, iterationId, {
+            phase: 'REVIEW_EXEC',
+            failure: {
+              kind: 'json_parse_error',
+              message: parsed.error || 'Cannot parse exec review verdict',
+              reason: 'parse_failure',
+            },
+            reviewPolicy,
+          })
+          iter.cli_failure_count = decision.failure_count
+
+          if (decision.action === 'on_hold' || decision.action === 'human_decision_required') {
+            commitOnHold(state, iterationId, buildEscalationReason(decision, parsed.error))
             return
           }
           commitState(state)
@@ -910,6 +1073,19 @@ async function runIteration(state, iterationId) {
         // Preserve review_round before any reset
         const execReviewRoundForDocs = iter.review_round
 
+        const reviewHistory = getReviewVerdictHistory(state, iterationId, 'REVIEW_EXEC')
+        const oscillationDecision = evaluateEscalation(state, iterationId, {
+          phase: 'REVIEW_EXEC',
+          failure: { kind: 'oscillation' },
+          reviewPolicy,
+          reviewHistory,
+        })
+
+        if (oscillationDecision.threshold_reached) {
+          commitOnHold(state, iterationId, buildEscalationReason(oscillationDecision, 'review oscillation detected'))
+          return
+        }
+
         if (verdict.verdict === 'APPROVED') {
           if (result.session_id && result.session_id !== 'missing') {
             iter.consecutive_approvals++
@@ -922,18 +1098,33 @@ async function runIteration(state, iterationId) {
         } else {
           iter.consecutive_approvals = 0
 
-          if (
-            verdict.revision_type === 'ambiguous' &&
-            resolveEscalationAction(reviewPolicy, 'ambiguous_revision') === 'human_decision_required'
-          ) {
-            commitOnHold(state, iterationId, 'Ambiguous revision type — human decision required')
+          if (verdict.revision_type === 'ambiguous') {
+            const decision = evaluateEscalation(state, iterationId, {
+              phase: 'REVIEW_EXEC',
+              failure: {
+                kind: 'ambiguous_revision',
+                message: verdict.summary || 'Ambiguous revision type',
+              },
+              reviewPolicy,
+              reviewHistory,
+            })
+            commitOnHold(state, iterationId, buildEscalationReason(decision, 'Ambiguous revision type — human decision required'))
             return
           }
           if (verdict.revision_type === 'major') {
             iter.major_revision_count++
           }
           if (iter.major_revision_count >= reviewPolicy.major_revision_limit) {
-            commitOnHold(state, iterationId, `Major revision limit reached (${reviewPolicy.major_revision_limit})`)
+            const decision = evaluateEscalation(state, iterationId, {
+              phase: 'REVIEW_EXEC',
+              failure: {
+                kind: 'major_revision_limit',
+                message: `Major revision limit reached (${reviewPolicy.major_revision_limit})`,
+              },
+              reviewPolicy,
+              reviewHistory,
+            })
+            commitOnHold(state, iterationId, buildEscalationReason(decision, `Major revision limit reached (${reviewPolicy.major_revision_limit})`))
             return
           }
 

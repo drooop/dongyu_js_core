@@ -264,6 +264,27 @@ export function recordOscillationEvidence(state, iterationId, oscillation) {
   return recordEvidence(iter, 'oscillations', oscillation)
 }
 
+export function getFailureEvidence(state, iterationId, options = {}) {
+  const iter = findIteration(state, iterationId)
+  if (!iter) throw new Error(`Iteration ${iterationId} not found`)
+  ensureIterationEvidence(iter)
+
+  return iter.evidence.failures.filter(entry => {
+    if (!options.phase) return true
+    return entry.phase === options.phase
+  })
+}
+
+export function getReviewVerdictHistory(state, iterationId, phase = null) {
+  const iter = findIteration(state, iterationId)
+  if (!iter) throw new Error(`Iteration ${iterationId} not found`)
+  ensureIterationEvidence(iter)
+
+  return iter.evidence.review_records
+    .filter(entry => !phase || entry.phase === phase)
+    .map(entry => entry.verdict)
+}
+
 // ── Branch guard (§6.5) ────────────────────────────────
 
 export function checkBranchGuard(state, iterationId) {

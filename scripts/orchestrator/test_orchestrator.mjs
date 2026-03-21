@@ -509,6 +509,108 @@ async function test_failure_matrix_and_oscillation_rules() {
   }
 }
 
+// ── Test 1g: Resume path history + prompt escalation wiring ─
+
+async function test_resume_history_and_prompt_escalation_wiring() {
+  process.stderr.write('\n== Test 1g: Resume history + prompt escalation wiring ==\n')
+
+  const stateModule = await import('./state.mjs')
+  const escalationEngine = await import('./escalation_engine.mjs')
+  const { buildReviewPolicy } = await import('./review_policy.mjs')
+  const { buildPlanReviewPrompt, buildExecReviewPrompt } = await import('./prompts.mjs')
+
+  assert(typeof stateModule.getFailureEvidence === 'function', 'getFailureEvidence exported')
+  assert(typeof stateModule.getReviewVerdictHistory === 'function', 'getReviewVerdictHistory exported')
+
+  const reviewPolicy = buildReviewPolicy({ entry_route: 'executable_iteration' })
+  const planPrompt = buildPlanReviewPrompt('0204-escalation-rules-engine', false, {
+    review_policy: reviewPolicy,
+    risk_profile: reviewPolicy.risk_profile,
+  })
+  assert(planPrompt.includes('Failure matrix'), 'plan review prompt includes failure matrix guidance')
+
+  const execPrompt = buildExecReviewPrompt('0204-escalation-rules-engine', false, {
+    review_policy: reviewPolicy,
+    risk_profile: reviewPolicy.risk_profile,
+  })
+  assert(execPrompt.includes('Oscillation boundary'),
+    'exec review prompt includes oscillation boundary guidance')
+
+  if (
+    typeof stateModule.getFailureEvidence === 'function' &&
+    typeof stateModule.getReviewVerdictHistory === 'function'
+  ) {
+    const batchId = `test-${randomUUID().slice(0, 8)}`
+    const state = createState(batchId, 'test', ['goal'])
+    addIteration(state, {
+      id: 'iter-resume',
+      type: 'primary',
+      title: 'Resume',
+      requirement: 'Persist review failure history',
+      review_policy: reviewPolicy,
+      risk_profile: reviewPolicy.risk_profile,
+    })
+
+    stateModule.recordFailureEvidence(state, 'iter-resume', {
+      kind: 'max_turns',
+      phase: 'REVIEW_EXEC',
+      message: 'first max_turns',
+    })
+    addReviewRecord(state, 'iter-resume', {
+      round: 1,
+      phase: 'REVIEW_EXEC',
+      verdict: 'APPROVED',
+      summary: 'ok',
+      session_id: 'sess-1',
+    })
+    addReviewRecord(state, 'iter-resume', {
+      round: 2,
+      phase: 'REVIEW_EXEC',
+      verdict: 'NEEDS_CHANGES',
+      summary: 'needs work',
+      session_id: 'sess-2',
+    })
+    addReviewRecord(state, 'iter-resume', {
+      round: 3,
+      phase: 'REVIEW_EXEC',
+      verdict: 'APPROVED',
+      summary: 'ok again',
+      session_id: 'sess-3',
+    })
+    commitState(state)
+
+    const loaded = loadState(batchId)
+    const failureHistory = stateModule.getFailureEvidence(loaded, 'iter-resume')
+    const repeatedFailureDecision = escalationEngine.resolveEscalationDecision({
+      phase: 'REVIEW_EXEC',
+      failure: { kind: 'max_turns' },
+      recent_failure_history: failureHistory,
+      recent_review_history: [],
+      risk_profile: reviewPolicy.risk_profile,
+      review_policy: reviewPolicy,
+    })
+    assert(repeatedFailureDecision.action === 'on_hold',
+      'reloaded repeated max_turns history still reaches on_hold')
+
+    const reviewHistory = stateModule.getReviewVerdictHistory(loaded, 'iter-resume', 'REVIEW_EXEC')
+    assert(reviewHistory.join('>') === 'APPROVED>NEEDS_CHANGES>APPROVED',
+      'review verdict history preserved after reload')
+
+    const oscillationDecision = escalationEngine.resolveEscalationDecision({
+      phase: 'REVIEW_EXEC',
+      failure: { kind: 'oscillation' },
+      recent_failure_history: [],
+      recent_review_history: reviewHistory,
+      risk_profile: reviewPolicy.risk_profile,
+      review_policy: reviewPolicy,
+    })
+    assert(oscillationDecision.action === 'human_decision_required',
+      'reloaded oscillation history still requires human decision')
+
+    cleanBatch(batchId)
+  }
+}
+
 // ── Test 2: Events + orphan detection ───────────────────
 
 async function test_events() {
@@ -835,6 +937,7 @@ async function main() {
   await test_review_policy_prompt_wiring()
   await test_failure_normalization_and_state_evidence()
   await test_failure_matrix_and_oscillation_rules()
+  await test_resume_history_and_prompt_escalation_wiring()
   await test_events()
   test_scheduler()
   test_parsers()

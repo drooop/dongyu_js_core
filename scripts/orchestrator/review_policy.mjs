@@ -25,6 +25,9 @@ const DEFAULT_ESCALATION_POLICY = Object.freeze({
   state_doc_inconsistency: Object.freeze({
     action: 'human_decision_required',
   }),
+  major_revision_limit: Object.freeze({
+    action: 'on_hold',
+  }),
   oscillation: Object.freeze({
     action: 'human_decision_required',
     threshold: 1,
