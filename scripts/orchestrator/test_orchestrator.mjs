@@ -64,6 +64,8 @@ function test_state_lifecycle() {
   assert(state.entry_route === null, 'state entry_route defaults to null')
   assert(state.review_policy === null, 'state review_policy defaults to null')
   assert(state.risk_profile === null, 'state risk_profile defaults to null')
+  assert(state.batch_summary?.lifecycle === 'running', 'state batch_summary lifecycle defaults to running')
+  assert(state.batch_summary?.final_verification === 'pending', 'state batch_summary mirrors pending final_verification')
 
   // Add iteration
   addIteration(state, {
@@ -103,6 +105,8 @@ function test_state_lifecycle() {
   assert(loaded.iterations[0].entry_route === 'draft_iteration', 'loaded iteration entry_route preserved')
   assert(loaded.iterations[0].review_policy?.major_revision_limit === 3, 'loaded iteration review_policy preserved')
   assert(loaded.iterations[0].risk_profile === 'standard', 'loaded iteration risk_profile preserved')
+  assert(loaded.batch_summary?.counts?.total === 1, 'loaded batch_summary total count preserved')
+  assert(loaded.batch_summary?.counts?.pending === 1, 'loaded batch_summary pending count preserved')
 
   // Cleanup
   cleanBatch(batchId)
@@ -881,6 +885,68 @@ function test_monitor() {
   cleanBatch(batchId)
 }
 
+// ── Test 8b: Terminal closure contract ─────────────────
+
+function test_terminal_closure_contract() {
+  process.stderr.write('\n== Test 8b: Terminal closure contract ==\n')
+
+  const batchId = `test-${randomUUID().slice(0, 8)}`
+  const state = createState(batchId, 'test', ['goal'])
+  addIteration(state, { id: 'iter-a', type: 'primary', title: 'A', requirement: 'R1' })
+  addIteration(state, { id: 'iter-b', type: 'primary', title: 'B', requirement: 'R2' })
+
+  for (const iter of state.iterations) {
+    iter.status = 'completed'
+    iter.phase = 'COMPLETE'
+  }
+  state.current_iteration = null
+
+  commitState(state)
+  let loaded = loadState(batchId)
+  assert(loaded.batch_summary?.lifecycle === 'awaiting_final_verification',
+    'all iterations done with pending final verification becomes awaiting_final_verification')
+  assert(loaded.batch_summary?.current_iteration === null,
+    'batch_summary persists current_iteration = null after iteration completion')
+
+  let status = refreshStatus(loaded)
+  assert(status.includes('Current: none'), 'status.txt terminal snapshot clears current iteration')
+  assert(status.includes('Final Verification: pending'), 'status.txt terminal snapshot shows pending final verification')
+
+  emitCompleted(loaded, 'iter-a')
+  emitCompleted(loaded, 'iter-b')
+  emitEvent(loaded, { event_type: 'completed', message: 'Batch complete' })
+  const pendingEvents = readEvents(batchId)
+  assert(
+    pendingEvents.some(event => event.event_type === 'completed' && event.iteration_id === 'iter-a'),
+    'events.jsonl contains iteration completed event in terminal path'
+  )
+  assert(
+    pendingEvents.some(event => event.event_type === 'completed' && event.iteration_id === null && event.message === 'Batch complete'),
+    'events.jsonl contains batch completed event in terminal path'
+  )
+
+  loaded.final_verification = 'passed'
+  commitState(loaded)
+  loaded = loadState(batchId)
+  assert(loaded.batch_summary?.lifecycle === 'completed',
+    'passed final verification persists completed batch lifecycle')
+  assert(loaded.batch_summary?.terminal_outcome === 'passed',
+    'passed final verification persists terminal_outcome = passed')
+
+  status = refreshStatus(loaded)
+  assert(status.includes('Final Verification: passed'), 'status.txt terminal snapshot shows passed final verification')
+
+  loaded.final_verification = 'failed'
+  commitState(loaded)
+  loaded = loadState(batchId)
+  assert(loaded.batch_summary?.lifecycle === 'completed',
+    'failed final verification still persists completed batch lifecycle')
+  assert(loaded.batch_summary?.terminal_outcome === 'failed',
+    'failed final verification persists terminal_outcome = failed')
+
+  cleanBatch(batchId)
+}
+
 // ── Test 9: Auto-Approval consecutive count ─────────────
 
 function test_auto_approval_logic() {
@@ -969,6 +1035,7 @@ async function main() {
   test_crash_recovery()
   test_on_hold_stall()
   test_monitor()
+  test_terminal_closure_contract()
   test_auto_approval_logic()
   test_major_revision_limit()
 
