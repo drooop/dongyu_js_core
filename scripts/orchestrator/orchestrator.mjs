@@ -36,6 +36,7 @@ import {
   buildRevisionPrompt, buildExecutionPrompt, buildExecReviewPrompt,
   buildFixPrompt, buildFinalVerifyPrompt,
 } from './prompts.mjs'
+import { classifyEntryRoute, hasScaffoldPlaceholder } from './entry_route.mjs'
 import { pickNext, acceptSpawn, pauseForBlockingSpawn, canResume, setOnHold, syncOnHoldDocs, isBlocked } from './scheduler.mjs'
 import {
   getNextId, formatId, registerIteration, updateIterationStatus,
@@ -150,6 +151,8 @@ async function main() {
   const batchId = randomUUID()
   const primaryGoals = decomposition.iterations.map(it => it.requirement)
   const state = createState(batchId, userPrompt, primaryGoals)
+  state.entry_source = opts.promptFile ? 'prompt_file' : 'prompt'
+  state.entry_route = 'new_requirement'
 
   // Register primary iterations in ITERATIONS.md (§3.1)
   let nextNum = getNextId()
@@ -165,6 +168,8 @@ async function main() {
       requirement: iter.requirement,
       resolves_goals: iter.resolves_goals || [idx],
       expected_branch: `dropx/dev_${id}`,
+      entry_source: state.entry_source,
+      entry_route: state.entry_route,
     })
     // registered_in_iterations_md stays false until actual registration succeeds
 
@@ -248,8 +253,13 @@ async function runExistingIteration(iterationId, extraContext) {
   let title = iterationId
   let requirement = ''
   const planPath = join(iterDir, 'plan.md')
-  if (existsSync(planPath)) {
-    const planContent = readFileSync(planPath, 'utf-8')
+  const resolutionPath = join(iterDir, 'resolution.md')
+  const hasPlan = existsSync(planPath)
+  const hasResolution = existsSync(resolutionPath)
+  const planContent = hasPlan ? readFileSync(planPath, 'utf-8') : ''
+  const resolutionContent = hasResolution ? readFileSync(resolutionPath, 'utf-8') : ''
+
+  if (hasPlan) {
     // Extract title from first heading
     const titleMatch = planContent.match(/^#\s+(.+)$/m)
     if (titleMatch) title = titleMatch[1]
@@ -276,18 +286,34 @@ async function runExistingIteration(iterationId, extraContext) {
     }
   })()
 
-  // Map ITERATIONS status to starting phase
-  const startPhase = {
-    'Planned': 'PLANNING',
-    'Approved': 'EXECUTION',
-    'In Progress': 'EXECUTION',
-  }[iterStatus] || 'PLANNING'
+  const route = classifyEntryRoute({
+    entry_source: 'iteration',
+    iteration_status: iterStatus,
+    has_plan: hasPlan,
+    has_resolution: hasResolution,
+    plan_is_scaffold: hasScaffoldPlaceholder(planContent),
+    resolution_is_scaffold: hasScaffoldPlaceholder(resolutionContent),
+  })
 
-  process.stderr.write(`  ITERATIONS.md status: ${iterStatus}, branch: ${iterBranch} → starting at ${startPhase}\n`)
+  if (route.is_blocked) {
+    const blockMessage = route.reason === 'missing_contract_files'
+      ? 'plan.md / resolution.md 缺失，禁止隐式 fallback 到 planning 或 execution'
+      : `iteration status ${iterStatus} 不允许继续执行`
+    process.stderr.write(`[BLOCKED] ${iterationId}: ${blockMessage}\n`)
+    process.exit(1)
+  }
+
+  const startPhase = route.start_phase
+
+  process.stderr.write(
+    `  ITERATIONS.md status: ${iterStatus}, branch: ${iterBranch} → route ${route.route_kind} → starting at ${startPhase}\n`
+  )
 
   // Create batch with single iteration
   const batchId = randomUUID()
   const state = createState(batchId, `Execute existing iteration ${iterationId}. ${extraContext}`, [requirement || title])
+  state.entry_source = 'iteration'
+  state.entry_route = route.route_kind
 
   addIteration(state, {
     id: iterationId,
@@ -296,6 +322,8 @@ async function runExistingIteration(iterationId, extraContext) {
     requirement: requirement || title,
     resolves_goals: [0],
     expected_branch: iterBranch,
+    entry_source: 'iteration',
+    entry_route: route.route_kind,
   })
 
   // Mark as already registered (it's an existing iteration)
@@ -579,7 +607,9 @@ async function runIteration(state, iterationId) {
         }
 
         const result = codexExec(state.batch_id, iterationId,
-          buildPlanningPrompt(iterationId, iter.spec),
+          buildPlanningPrompt(iterationId, iter.spec, {
+            mode: iter.entry_route === 'draft_iteration' ? 'refine' : 'create',
+          }),
           { phase: 'planning', sandbox: 'workspace-write' }
         )
 

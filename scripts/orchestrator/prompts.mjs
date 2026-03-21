@@ -62,7 +62,12 @@ ${userPrompt}
 
 // ── Phase 1: Planning (Codex) ───────────────────────────
 
-export function buildPlanningPrompt(iterationId, spec) {
+export function buildPlanningPrompt(iterationId, spec, options = {}) {
+  const mode = options.mode === 'refine' ? 'refine' : 'create'
+  const modeDescription = mode === 'refine'
+    ? '基于既有草稿补完/重写合同'
+    : '新建合同'
+
   return `## Iteration ${iterationId} — 生成计划
 
 请为以下需求创建 iteration 计划。
@@ -71,11 +76,18 @@ export function buildPlanningPrompt(iterationId, spec) {
 标题：${spec.title}
 描述：${spec.requirement}
 
+### Planning 模式
+- 当前模式：${mode}
+- 模式说明：${modeDescription}
+
 ### 任务
 1. 分析 codebase 确定影响范围
-2. 生成 docs/iterations/${iterationId}/plan.md（WHAT/WHY，无步骤）
-3. 生成 docs/iterations/${iterationId}/resolution.md（HOW，含 Step 编号、文件清单、验证命令、回滚方案）
-4. plan.md 和 resolution.md 必须自包含，无上下文读者可理解
+2. ${mode === 'refine'
+    ? `先读取现有 docs/iterations/${iterationId}/plan.md 与 resolution.md，识别 scaffold 和缺口`
+    : `从空白 iteration 合同开始撰写 docs/iterations/${iterationId}/plan.md 与 resolution.md`}
+3. 生成 docs/iterations/${iterationId}/plan.md（WHAT/WHY，无步骤）
+4. 生成 docs/iterations/${iterationId}/resolution.md（HOW，含 Step 编号、文件清单、验证命令、回滚方案）
+5. plan.md 和 resolution.md 必须自包含，无上下文读者可理解
 
 ### 约束
 - 遵循 CLAUDE.md 的 HARD_RULES、CAPABILITY_TIERS、WORKFLOW

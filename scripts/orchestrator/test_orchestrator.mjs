@@ -155,6 +155,74 @@ async function test_entry_route_and_review_policy_models() {
     'default review_policy risk_profile present')
 }
 
+// ── Test 1c: Tri-state routing start phase + planning mode ─
+
+async function test_tri_state_entry_routing_and_planning_modes() {
+  process.stderr.write('\n== Test 1c: Tri-state routing + planning mode ==\n')
+
+  const { classifyEntryRoute } = await import('./entry_route.mjs')
+  const { buildPlanningPrompt } = await import('./prompts.mjs')
+
+  const draftIteration = classifyEntryRoute({
+    entry_source: 'iteration',
+    iteration_status: 'Planned',
+    has_plan: true,
+    has_resolution: true,
+    plan_is_scaffold: true,
+    resolution_is_scaffold: false,
+  })
+  assert(draftIteration.start_phase === 'PLANNING',
+    'draft_iteration starts at PLANNING')
+
+  const executableIteration = classifyEntryRoute({
+    entry_source: 'iteration',
+    iteration_status: 'In Progress',
+    has_plan: true,
+    has_resolution: true,
+    plan_is_scaffold: false,
+    resolution_is_scaffold: false,
+  })
+  assert(executableIteration.start_phase === 'EXECUTION',
+    'executable_iteration starts at EXECUTION')
+
+  const completedIteration = classifyEntryRoute({
+    entry_source: 'iteration',
+    iteration_status: 'Completed',
+    has_plan: true,
+    has_resolution: true,
+    plan_is_scaffold: false,
+    resolution_is_scaffold: false,
+  })
+  assert(completedIteration.is_blocked === true, 'Completed iteration is blocked')
+  assert(completedIteration.reason === 'terminal_iteration_status:Completed',
+    'Completed iteration exposes explicit block reason')
+
+  const missingContractIteration = classifyEntryRoute({
+    entry_source: 'iteration',
+    iteration_status: 'Approved',
+    has_plan: true,
+    has_resolution: false,
+    plan_is_scaffold: false,
+    resolution_is_scaffold: false,
+  })
+  assert(missingContractIteration.is_blocked === true, 'missing contract iteration is blocked')
+  assert(missingContractIteration.reason === 'missing_contract_files',
+    'missing contract exposes explicit block reason')
+
+  const createPrompt = buildPlanningPrompt('0203-three-state-routing-review-policy', {
+    title: 'tri-state routing',
+    requirement: 'create planning contract',
+  }, { mode: 'create' })
+  assert(createPrompt.includes('新建合同'), 'create planning prompt declares create mode')
+
+  const refinePrompt = buildPlanningPrompt('0203-three-state-routing-review-policy', {
+    title: 'tri-state routing',
+    requirement: 'refine planning contract',
+  }, { mode: 'refine' })
+  assert(refinePrompt.includes('基于既有草稿补完/重写合同'),
+    'refine planning prompt declares refine mode')
+}
+
 // ── Test 2: Events + orphan detection ───────────────────
 
 async function test_events() {
@@ -477,6 +545,7 @@ async function main() {
 
   test_state_lifecycle()
   await test_entry_route_and_review_policy_models()
+  await test_tri_state_entry_routing_and_planning_modes()
   await test_events()
   test_scheduler()
   test_parsers()

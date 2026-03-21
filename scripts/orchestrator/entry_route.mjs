@@ -10,6 +10,11 @@ const TERMINAL_ITERATION_STATUSES = new Set([
   'Cancelled',
 ])
 
+const EXECUTABLE_ITERATION_STATUSES = new Set([
+  'Approved',
+  'In Progress',
+])
+
 const SCAFFOLD_PATTERNS = [
   /\(to be filled by Codex during PLANNING phase\)/i,
   /\(to be filled during execution\)/i,
@@ -29,6 +34,7 @@ export function classifyEntryRoute(input = {}) {
     return {
       entry_source: entrySource,
       route_kind: 'new_requirement',
+      start_phase: 'PLANNING',
       is_blocked: false,
       reason: 'cli_prompt_entry',
     }
@@ -44,29 +50,53 @@ export function classifyEntryRoute(input = {}) {
     return {
       entry_source: entrySource,
       route_kind: null,
+      start_phase: null,
       is_blocked: true,
       reason: `terminal_iteration_status:${iterationStatus}`,
     }
   }
 
-  if (!hasPlan || !hasResolution || planIsScaffold || resolutionIsScaffold) {
+  if (!hasPlan || !hasResolution) {
+    return {
+      entry_source: entrySource,
+      route_kind: null,
+      start_phase: null,
+      is_blocked: true,
+      reason: 'missing_contract_files',
+    }
+  }
+
+  if (planIsScaffold || resolutionIsScaffold) {
     return {
       entry_source: entrySource,
       route_kind: 'draft_iteration',
+      start_phase: 'PLANNING',
       is_blocked: false,
-      reason: 'contract_missing_or_scaffold',
+      reason: 'scaffold_contract',
+    }
+  }
+
+  if (!EXECUTABLE_ITERATION_STATUSES.has(iterationStatus)) {
+    return {
+      entry_source: entrySource,
+      route_kind: 'draft_iteration',
+      start_phase: 'PLANNING',
+      is_blocked: false,
+      reason: 'awaiting_review_gate',
     }
   }
 
   return {
     entry_source: entrySource,
     route_kind: 'executable_iteration',
+    start_phase: 'EXECUTION',
     is_blocked: false,
     reason: 'contracts_ready_for_execution',
   }
 }
 
 export {
+  EXECUTABLE_ITERATION_STATUSES,
   ROUTE_KINDS,
   TERMINAL_ITERATION_STATUSES,
 }
