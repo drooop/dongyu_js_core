@@ -525,7 +525,6 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
   function updateUiDerived({ uiAst, snapshotJson, eventLogJson }) {
     const model = runtime.getModel(mailboxModelId);
-    runtime.addLabel(model, 0, 0, 0, { k: 'ui_ast_v0', t: 'json', v: uiAst });
     runtime.addLabel(model, 0, 1, 0, { k: 'snapshot_json', t: 'str', v: snapshotJson });
     runtime.addLabel(model, 0, 1, 1, { k: 'event_log', t: 'str', v: eventLogJson });
   }

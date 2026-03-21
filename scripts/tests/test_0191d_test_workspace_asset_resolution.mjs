@@ -10,6 +10,7 @@ function test_test_page_prefers_model_asset() {
   store.consumeOnce();
   const result = resolvePageAsset(store.snapshot, { pageName: 'test' });
   assert.equal(result.source, 'model_asset');
+  assert.equal(result.assetType, 'model_label');
   assert.equal(result.modelId, -26);
 }
 
@@ -19,7 +20,10 @@ function test_workspace_page_prefers_model_asset() {
   store.consumeOnce();
   const result = resolvePageAsset(store.snapshot, { pageName: 'workspace' });
   assert.equal(result.source, 'model_asset');
+  assert.equal(result.assetType, 'model_label');
   assert.equal(result.modelId, -25);
+  const root = store.snapshot.models['-25']?.cells?.['0,0,0']?.labels ?? {};
+  assert.equal(root.ui_ast_v0, undefined, 'workspace_root_ui_ast_v0_must_be_removed');
 }
 
 const tests = [

@@ -82,9 +82,15 @@
           "label": "Workspace",
           "nav_visible": true,
           "view": "main",
-          "asset_type": "ui_ast_model",
+          "asset_type": "model_label",
           "model_id": -25,
-          "legacy_fallback": false
+          "legacy_fallback": false,
+          "asset_ref": {
+            "p": 0,
+            "r": 1,
+            "c": 0,
+            "k": "page_asset_v0"
+          }
         },
         {
           "page": "prompt",
