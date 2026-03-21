@@ -37,14 +37,12 @@ import {
   buildFixPrompt, buildFinalVerifyPrompt,
 } from './prompts.mjs'
 import { classifyEntryRoute, hasScaffoldPlaceholder } from './entry_route.mjs'
+import { buildReviewPolicy, resolveReviewPolicy, resolveEscalationAction } from './review_policy.mjs'
 import { pickNext, acceptSpawn, pauseForBlockingSpawn, canResume, setOnHold, syncOnHoldDocs, isBlocked } from './scheduler.mjs'
 import {
   getNextId, formatId, registerIteration, updateIterationStatus,
   createIterationSkeleton, appendReviewGateRecord, isRegistered,
 } from './iteration_register.mjs'
-
-const MAJOR_REVISION_LIMIT = 3  // §4.1
-const AUTO_APPROVAL_REQUIRED = 3  // §5.3
 
 // ── CLI argument parsing ────────────────────────────────
 
@@ -153,6 +151,8 @@ async function main() {
   const state = createState(batchId, userPrompt, primaryGoals)
   state.entry_source = opts.promptFile ? 'prompt_file' : 'prompt'
   state.entry_route = 'new_requirement'
+  state.review_policy = buildReviewPolicy({ entry_route: state.entry_route })
+  state.risk_profile = state.review_policy.risk_profile
 
   // Register primary iterations in ITERATIONS.md (§3.1)
   let nextNum = getNextId()
@@ -170,6 +170,8 @@ async function main() {
       expected_branch: `dropx/dev_${id}`,
       entry_source: state.entry_source,
       entry_route: state.entry_route,
+      review_policy: state.review_policy,
+      risk_profile: state.risk_profile,
     })
     // registered_in_iterations_md stays false until actual registration succeeds
 
@@ -314,6 +316,8 @@ async function runExistingIteration(iterationId, extraContext) {
   const state = createState(batchId, `Execute existing iteration ${iterationId}. ${extraContext}`, [requirement || title])
   state.entry_source = 'iteration'
   state.entry_route = route.route_kind
+  state.review_policy = buildReviewPolicy({ entry_route: route.route_kind })
+  state.risk_profile = state.review_policy.risk_profile
 
   addIteration(state, {
     id: iterationId,
@@ -324,6 +328,8 @@ async function runExistingIteration(iterationId, extraContext) {
     expected_branch: iterBranch,
     entry_source: 'iteration',
     entry_route: route.route_kind,
+    review_policy: state.review_policy,
+    risk_profile: state.risk_profile,
   })
 
   // Mark as already registered (it's an existing iteration)
@@ -554,6 +560,26 @@ function commitOnHold(state, iterationId, reason) {
   syncOnHoldDocs(state, iterationId, reason)  // derived docs + notify
 }
 
+function ensureIterationReviewPolicy(state, iter) {
+  const reviewPolicy = resolveReviewPolicy({
+    entry_route: iter.entry_route || state.entry_route,
+    review_policy: iter.review_policy || state.review_policy,
+    risk_profile: iter.risk_profile || state.risk_profile,
+  })
+
+  iter.review_policy = reviewPolicy
+  iter.risk_profile = reviewPolicy.risk_profile
+
+  if (!state.review_policy) {
+    state.review_policy = reviewPolicy
+  }
+  if (!state.risk_profile) {
+    state.risk_profile = reviewPolicy.risk_profile
+  }
+
+  return reviewPolicy
+}
+
 // ── Run single iteration ────────────────────────────────
 
 async function runIteration(state, iterationId) {
@@ -633,19 +659,26 @@ async function runIteration(state, iterationId) {
       }
 
       case 'REVIEW_PLAN': {
+        const reviewPolicy = ensureIterationReviewPolicy(state, iter)
         const isFollowUp = iter.review_round > 0
         iter.review_round++
 
         const result = claudeReview(state.batch_id, iterationId,
-          buildPlanReviewPrompt(iterationId, isFollowUp),
+          buildPlanReviewPrompt(iterationId, isFollowUp, {
+            review_policy: reviewPolicy,
+            risk_profile: iter.risk_profile,
+          }),
           { phase: 'review_plan', round: iter.review_round, model: 'opus', maxTurns: 8 }
         )
 
         if (!result.ok) {
           iter.cli_failure_count = (iter.cli_failure_count || 0) + 1
           emitError(state, iterationId, `Review failed: ${result.error}`)
-          if (iter.cli_failure_count >= 2) {
-            commitOnHold(state, iterationId, 'Review CLI failure (2 consecutive)')
+          if (
+            iter.cli_failure_count >= reviewPolicy.cli_failure_threshold &&
+            resolveEscalationAction(reviewPolicy, 'cli_failure') === 'on_hold_after_threshold'
+          ) {
+            commitOnHold(state, iterationId, `Review CLI failure (${reviewPolicy.cli_failure_threshold} consecutive)`)
             return
           }
           commitState(state)
@@ -658,8 +691,11 @@ async function runIteration(state, iterationId) {
         if (!parsed.ok) {
           iter.cli_failure_count = (iter.cli_failure_count || 0) + 1
           emitError(state, iterationId, 'Cannot parse review verdict')
-          if (iter.cli_failure_count >= 2) {
-            commitOnHold(state, iterationId, 'Review parse failure (2 consecutive)')
+          if (
+            iter.cli_failure_count >= reviewPolicy.cli_failure_threshold &&
+            resolveEscalationAction(reviewPolicy, 'cli_failure') === 'on_hold_after_threshold'
+          ) {
+            commitOnHold(state, iterationId, `Review parse failure (${reviewPolicy.cli_failure_threshold} consecutive)`)
             return
           }
           commitState(state)
@@ -699,7 +735,7 @@ async function runIteration(state, iterationId) {
             iter.consecutive_approvals++
           }
 
-          if (iter.consecutive_approvals >= AUTO_APPROVAL_REQUIRED) {
+          if (iter.consecutive_approvals >= reviewPolicy.approval_count) {
             transition(state, iterationId, 'EXECUTION')
             emitTransition(state, iterationId, 'REVIEW_PLAN', 'EXECUTION')
             iter.review_round = 0
@@ -712,7 +748,10 @@ async function runIteration(state, iterationId) {
           iter.consecutive_approvals = 0
 
           // §4.2: major revision counting
-          if (verdict.revision_type === 'ambiguous') {
+          if (
+            verdict.revision_type === 'ambiguous' &&
+            resolveEscalationAction(reviewPolicy, 'ambiguous_revision') === 'human_decision_required'
+          ) {
             commitOnHold(state, iterationId, 'Ambiguous revision type — human decision required')
             return
           }
@@ -721,8 +760,8 @@ async function runIteration(state, iterationId) {
           }
 
           // §4.1: check limit
-          if (iter.major_revision_count >= MAJOR_REVISION_LIMIT) {
-            commitOnHold(state, iterationId, `Major revision limit reached (${MAJOR_REVISION_LIMIT})`)
+          if (iter.major_revision_count >= reviewPolicy.major_revision_limit) {
+            commitOnHold(state, iterationId, `Major revision limit reached (${reviewPolicy.major_revision_limit})`)
             return
           }
 
@@ -795,19 +834,26 @@ async function runIteration(state, iterationId) {
       }
 
       case 'REVIEW_EXEC': {
+        const reviewPolicy = ensureIterationReviewPolicy(state, iter)
         const isFollowUp = iter.review_round > 0
         iter.review_round++
 
         const result = claudeReview(state.batch_id, iterationId,
-          buildExecReviewPrompt(iterationId, isFollowUp),
+          buildExecReviewPrompt(iterationId, isFollowUp, {
+            review_policy: reviewPolicy,
+            risk_profile: iter.risk_profile,
+          }),
           { phase: 'review_exec', round: iter.review_round, model: 'opus', maxTurns: 12 }
         )
 
         if (!result.ok) {
           iter.cli_failure_count = (iter.cli_failure_count || 0) + 1
           emitError(state, iterationId, `Exec review failed: ${result.error}`)
-          if (iter.cli_failure_count >= 2) {
-            commitOnHold(state, iterationId, 'Exec review CLI failure (2 consecutive)')
+          if (
+            iter.cli_failure_count >= reviewPolicy.cli_failure_threshold &&
+            resolveEscalationAction(reviewPolicy, 'cli_failure') === 'on_hold_after_threshold'
+          ) {
+            commitOnHold(state, iterationId, `Exec review CLI failure (${reviewPolicy.cli_failure_threshold} consecutive)`)
             return
           }
           commitState(state)
@@ -820,8 +866,11 @@ async function runIteration(state, iterationId) {
         if (!parsed.ok) {
           iter.cli_failure_count = (iter.cli_failure_count || 0) + 1
           emitError(state, iterationId, 'Cannot parse exec review verdict')
-          if (iter.cli_failure_count >= 2) {
-            commitOnHold(state, iterationId, 'Exec review parse failure (2 consecutive)')
+          if (
+            iter.cli_failure_count >= reviewPolicy.cli_failure_threshold &&
+            resolveEscalationAction(reviewPolicy, 'cli_failure') === 'on_hold_after_threshold'
+          ) {
+            commitOnHold(state, iterationId, `Exec review parse failure (${reviewPolicy.cli_failure_threshold} consecutive)`)
             return
           }
           commitState(state)
@@ -859,22 +908,25 @@ async function runIteration(state, iterationId) {
             iter.consecutive_approvals++
           }
 
-          if (iter.consecutive_approvals >= AUTO_APPROVAL_REQUIRED) {
+          if (iter.consecutive_approvals >= reviewPolicy.approval_count) {
             transition(state, iterationId, 'COMPLETE')
             emitTransition(state, iterationId, 'REVIEW_EXEC', 'COMPLETE')
           }
         } else {
           iter.consecutive_approvals = 0
 
-          if (verdict.revision_type === 'ambiguous') {
+          if (
+            verdict.revision_type === 'ambiguous' &&
+            resolveEscalationAction(reviewPolicy, 'ambiguous_revision') === 'human_decision_required'
+          ) {
             commitOnHold(state, iterationId, 'Ambiguous revision type — human decision required')
             return
           }
           if (verdict.revision_type === 'major') {
             iter.major_revision_count++
           }
-          if (iter.major_revision_count >= MAJOR_REVISION_LIMIT) {
-            commitOnHold(state, iterationId, `Major revision limit reached (${MAJOR_REVISION_LIMIT})`)
+          if (iter.major_revision_count >= reviewPolicy.major_revision_limit) {
+            commitOnHold(state, iterationId, `Major revision limit reached (${reviewPolicy.major_revision_limit})`)
             return
           }
 

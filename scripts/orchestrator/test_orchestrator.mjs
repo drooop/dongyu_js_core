@@ -223,6 +223,37 @@ async function test_tri_state_entry_routing_and_planning_modes() {
     'refine planning prompt declares refine mode')
 }
 
+// ── Test 1d: review_policy prompt wiring + escalation ───
+
+async function test_review_policy_prompt_wiring() {
+  process.stderr.write('\n== Test 1d: review policy prompt wiring ==\n')
+
+  const { buildReviewPolicy, resolveEscalationAction } = await import('./review_policy.mjs')
+  const { buildPlanReviewPrompt, buildExecReviewPrompt } = await import('./prompts.mjs')
+
+  const reviewPolicy = buildReviewPolicy({ entry_route: 'draft_iteration' })
+  assert(resolveEscalationAction(reviewPolicy, 'ambiguous_revision') === 'human_decision_required',
+    'ambiguous escalation action comes from review_policy')
+  assert(resolveEscalationAction(reviewPolicy, 'cli_failure') === 'on_hold_after_threshold',
+    'cli failure escalation action comes from review_policy')
+
+  const planReviewPrompt = buildPlanReviewPrompt('0203-three-state-routing-review-policy', false, {
+    review_policy: reviewPolicy,
+    risk_profile: reviewPolicy.risk_profile,
+  })
+  assert(planReviewPrompt.includes('approval_count'), 'plan review prompt includes approval_count')
+  assert(planReviewPrompt.includes('major_revision_limit'), 'plan review prompt includes major_revision_limit')
+  assert(planReviewPrompt.includes('cli_failure_threshold'), 'plan review prompt includes cli_failure_threshold')
+  assert(planReviewPrompt.includes(reviewPolicy.risk_profile), 'plan review prompt includes risk_profile')
+
+  const execReviewPrompt = buildExecReviewPrompt('0203-three-state-routing-review-policy', false, {
+    review_policy: reviewPolicy,
+    risk_profile: reviewPolicy.risk_profile,
+  })
+  assert(execReviewPrompt.includes('approval_count'), 'exec review prompt includes approval_count')
+  assert(execReviewPrompt.includes('escalation_policy'), 'exec review prompt includes escalation_policy')
+}
+
 // ── Test 2: Events + orphan detection ───────────────────
 
 async function test_events() {
@@ -546,6 +577,7 @@ async function main() {
   test_state_lifecycle()
   await test_entry_route_and_review_policy_models()
   await test_tri_state_entry_routing_and_planning_modes()
+  await test_review_policy_prompt_wiring()
   await test_events()
   test_scheduler()
   test_parsers()

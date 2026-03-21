@@ -13,6 +13,25 @@
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 
+function formatReviewPolicyContext(reviewPolicy, riskProfile) {
+  if (!reviewPolicy) {
+    return ''
+  }
+
+  return `
+### Current review_policy
+\`\`\`json
+${JSON.stringify({
+  approval_count: reviewPolicy.approval_count,
+  major_revision_limit: reviewPolicy.major_revision_limit,
+  cli_failure_threshold: reviewPolicy.cli_failure_threshold,
+  risk_profile: riskProfile || reviewPolicy.risk_profile || null,
+  escalation_policy: reviewPolicy.escalation_policy || {},
+}, null, 2)}
+\`\`\`
+`
+}
+
 // ── Phase -1: Decompose ─────────────────────────────────
 
 export function buildDecomposePrompt(userPrompt) {
@@ -110,14 +129,17 @@ export function buildPlanningPrompt(iterationId, spec, options = {}) {
 
 // ── Phase 2: Review Plan (Claude Code) ──────────────────
 
-export function buildPlanReviewPrompt(iterationId, isFollowUp) {
+export function buildPlanReviewPrompt(iterationId, isFollowUp, options = {}) {
   const context = isFollowUp
     ? `Codex 已根据你之前的意见修改了计划。请重新评审。`
     : `请对 iteration ${iterationId} 的计划进行首次评审。`
+  const policyContext = formatReviewPolicyContext(options.review_policy, options.risk_profile)
 
   return `## Iteration ${iterationId} — Plan Review
 
 ${context}
+
+${policyContext}
 
 ### 步骤
 1. 读取 docs/iterations/${iterationId}/plan.md
@@ -236,14 +258,17 @@ export function buildExecutionPrompt(iterationId) {
 
 // ── Phase 3 Review: Exec Review (Claude Code) ───────────
 
-export function buildExecReviewPrompt(iterationId, isFollowUp) {
+export function buildExecReviewPrompt(iterationId, isFollowUp, options = {}) {
   const context = isFollowUp
     ? `Codex 已根据你之前的意见进行了修复。请重新审查。`
     : `请对 iteration ${iterationId} 的执行结果进行审查。`
+  const policyContext = formatReviewPolicyContext(options.review_policy, options.risk_profile)
 
   return `## Iteration ${iterationId} — Execution Review
 
 ${context}
+
+${policyContext}
 
 ### 审查范围（严格限定）
 

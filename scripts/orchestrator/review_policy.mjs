@@ -41,6 +41,25 @@ export function buildReviewPolicy({ entry_route, overrides = {} } = {}) {
   }
 }
 
+export function resolveReviewPolicy({ entry_route, review_policy, risk_profile } = {}) {
+  const merged = buildReviewPolicy({
+    entry_route,
+    overrides: review_policy || {},
+  })
+
+  if (risk_profile && !review_policy?.risk_profile) {
+    merged.risk_profile = risk_profile
+  }
+
+  return merged
+}
+
+export function resolveEscalationAction(reviewPolicy, key) {
+  return reviewPolicy?.escalation_policy?.[key]
+    ?? DEFAULT_ESCALATION_POLICY[key]
+    ?? null
+}
+
 export {
   DEFAULT_ESCALATION_POLICY,
   ROUTE_DEFAULTS,
