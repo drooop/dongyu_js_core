@@ -10,6 +10,7 @@
 
 import { execSync } from 'child_process'
 import { emitEvent } from './events.mjs'
+import { refreshBatchSummary } from './state.mjs'
 
 // ── Main notify ─────────────────────────────────────────
 
@@ -85,8 +86,7 @@ export function notifySpawn(state, spawnId, spawnType) {
 }
 
 export function notifyBatchComplete(state) {
-  const done = state.iterations.filter(i => i.status === 'completed').length
-  notify(state, 'batch_complete', `${done}/${state.iterations.length} iterations completed`)
+  notify(state, 'batch_complete', buildBatchCompleteDetail(state))
 }
 
 export function notifyFinalVerification(state, allMet) {
@@ -95,4 +95,13 @@ export function notifyFinalVerification(state, allMet) {
 
 export function notifyScopeExpansion(state, spawnTitle) {
   notify(state, 'scope_expansion_proposed', `Proposed: ${spawnTitle}. Confirm to proceed.`)
+}
+
+export function buildBatchCompleteDetail(state) {
+  const summary = state.batch_summary || refreshBatchSummary(state)
+  const counts = summary?.counts || {}
+  const completed = counts.completed ?? 0
+  const total = counts.total ?? state.iterations?.length ?? 0
+  const terminalOutcome = summary?.terminal_outcome || summary?.final_verification || 'unknown'
+  return `${completed}/${total} iterations completed (${terminalOutcome})`
 }

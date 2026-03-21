@@ -64,6 +64,8 @@ function test_state_lifecycle() {
   assert(state.entry_route === null, 'state entry_route defaults to null')
   assert(state.review_policy === null, 'state review_policy defaults to null')
   assert(state.risk_profile === null, 'state risk_profile defaults to null')
+  assert(state.batch_summary?.lifecycle === 'running', 'state batch_summary lifecycle defaults to running')
+  assert(state.batch_summary?.final_verification === 'pending', 'state batch_summary mirrors pending final_verification')
 
   // Add iteration
   addIteration(state, {
@@ -103,6 +105,8 @@ function test_state_lifecycle() {
   assert(loaded.iterations[0].entry_route === 'draft_iteration', 'loaded iteration entry_route preserved')
   assert(loaded.iterations[0].review_policy?.major_revision_limit === 3, 'loaded iteration review_policy preserved')
   assert(loaded.iterations[0].risk_profile === 'standard', 'loaded iteration risk_profile preserved')
+  assert(loaded.batch_summary?.counts?.total === 1, 'loaded batch_summary total count preserved')
+  assert(loaded.batch_summary?.counts?.pending === 1, 'loaded batch_summary pending count preserved')
 
   // Cleanup
   cleanBatch(batchId)
@@ -627,11 +631,21 @@ function test_docs_sync_for_escalation_rules() {
   assert(ssot.includes('oscillation'), 'SSOT mentions oscillation')
   assert(ssot.includes('warn_and_continue'), 'SSOT mentions warn_and_continue action')
   assert(ssot.includes('0204') && ssot.includes('0205'), 'SSOT mentions 0204/0205 boundary')
+  assert(ssot.includes('batch_summary'), 'SSOT mentions batch_summary')
+  assert(ssot.includes('terminal_outcome'), 'SSOT mentions terminal_outcome')
+  assert(ssot.includes('Batch Lifecycle') && ssot.includes('Batch Outcome'),
+    'SSOT mentions terminal status.txt fields')
 
   assert(runbook.includes('state_doc_inconsistency'), 'runbook mentions state_doc_inconsistency')
   assert(runbook.includes('oscillation'), 'runbook mentions oscillation')
   assert(runbook.includes('human_decision_required'), 'runbook mentions human_decision_required')
   assert(runbook.includes('warn_and_continue'), 'runbook mentions warn_and_continue')
+  assert(runbook.includes('batch_summary'), 'runbook mentions batch_summary')
+  assert(runbook.includes('Batch Lifecycle') && runbook.includes('Batch Outcome'),
+    'runbook mentions terminal status fields')
+  assert(runbook.includes('[batch:passed]'), 'runbook mentions structured batch event label')
+  assert(runbook.includes('completed event') && runbook.includes('status'),
+    'runbook explains how to diagnose completed event vs status mismatch')
 }
 
 // ── Test 2: Events + orphan detection ───────────────────
@@ -662,6 +676,80 @@ async function test_events() {
   const orphans = detectOrphanedEvents(state)
   assert(orphans.length === 1, '1 orphaned event detected')
   assert(orphans[0].state_revision === 999, 'orphan has revision 999')
+
+  cleanBatch(batchId)
+}
+
+// ── Test 2b: Completion payload + notify summary ───────
+
+async function test_completion_payload_and_notify_summary() {
+  process.stderr.write('\n== Test 2b: Completion payload + notify summary ==\n')
+
+  const notifyModule = await import('./notify.mjs')
+  assert(typeof notifyModule.buildBatchCompleteDetail === 'function',
+    'buildBatchCompleteDetail exported')
+
+  const batchId = `test-${randomUUID().slice(0, 8)}`
+  const state = createState(batchId, 'test', ['goal'])
+  addIteration(state, { id: 'iter-done', type: 'primary', title: 'Done', requirement: 'R' })
+  state.iterations[0].status = 'completed'
+  state.iterations[0].phase = 'COMPLETE'
+  state.current_iteration = null
+  state.final_verification = 'passed'
+  commitState(state)
+
+  const expectedRevision = state.state_revision + 1
+  emitCompleted(state, 'iter-done', {
+    scope: 'iteration',
+    terminal_outcome: 'completed',
+    state_revision: expectedRevision,
+    terminal_summary: state.batch_summary,
+  })
+  emitCompleted(state, null, {
+    scope: 'batch',
+    message: 'Batch complete',
+    terminal_outcome: state.batch_summary?.terminal_outcome,
+    state_revision: expectedRevision,
+    terminal_summary: state.batch_summary,
+  })
+
+  const events = readEvents(batchId)
+  const iterationCompleted = events.find(event =>
+    event.event_type === 'completed' && event.iteration_id === 'iter-done'
+  )
+  const batchCompleted = events.find(event =>
+    event.event_type === 'completed' && event.iteration_id === null && event.message === 'Batch complete'
+  )
+
+  assert(iterationCompleted?.data?.scope === 'iteration',
+    'iteration completed event exposes scope = iteration')
+  assert(iterationCompleted?.data?.terminal_outcome === 'completed',
+    'iteration completed event exposes terminal_outcome = completed')
+  assert(iterationCompleted?.state_revision === expectedRevision,
+    'iteration completed event uses target state_revision')
+
+  assert(batchCompleted?.data?.scope === 'batch',
+    'batch completed event exposes scope = batch')
+  assert(batchCompleted?.data?.terminal_outcome === 'passed',
+    'batch completed event exposes final terminal_outcome')
+  assert(batchCompleted?.data?.terminal_summary?.lifecycle === 'completed',
+    'batch completed event carries terminal_summary payload')
+  assert(batchCompleted?.state_revision === expectedRevision,
+    'batch completed event uses target state_revision')
+
+  if (typeof notifyModule.buildBatchCompleteDetail === 'function') {
+    const detail = notifyModule.buildBatchCompleteDetail({
+      iterations: [{ status: 'completed' }],
+      batch_summary: {
+        lifecycle: 'completed',
+        terminal_outcome: 'failed',
+        final_verification: 'failed',
+        counts: { completed: 2, total: 2 },
+      },
+    })
+    assert(detail.includes('2/2'), 'batch completion detail uses authoritative summary counts')
+    assert(detail.includes('failed'), 'batch completion detail includes terminal outcome from summary')
+  }
 
   cleanBatch(batchId)
 }
@@ -870,6 +958,12 @@ function test_monitor() {
   state.iterations[0].phase = 'REVIEW_PLAN'
   state.iterations[0].review_round = 2
   state.iterations[0].major_revision_count = 1
+  state.iterations[0].review_policy = {
+    approval_count: 3,
+    major_revision_limit: 5,
+    cli_failure_threshold: 2,
+    risk_profile: 'standard',
+  }
   state.current_iteration = 'iter-mon'
   commitState(state)
 
@@ -877,6 +971,104 @@ function test_monitor() {
   assert(status.includes('iter-mon'), 'status contains iteration id')
   assert(status.includes('REVIEW_PLAN'), 'status contains phase')
   assert(status.includes('Monitor Test'), 'status contains title')
+  assert(status.includes('major 1/5'), 'status phase uses review_policy major revision limit instead of hard-coded /3')
+
+  cleanBatch(batchId)
+}
+
+// ── Test 8a: Monitor terminal surface ──────────────────
+
+function test_monitor_terminal_surface() {
+  process.stderr.write('\n== Test 8a: Monitor terminal surface ==\n')
+
+  const batchId = `test-${randomUUID().slice(0, 8)}`
+  const state = createState(batchId, 'test', ['goal'])
+  addIteration(state, { id: 'iter-term', type: 'primary', title: 'Terminal Test', requirement: 'R' })
+  state.iterations[0].status = 'completed'
+  state.iterations[0].phase = 'COMPLETE'
+  state.current_iteration = null
+  state.final_verification = 'passed'
+  commitState(state)
+
+  emitCompleted(state, null, {
+    scope: 'batch',
+    message: 'Batch complete',
+    terminal_outcome: 'passed',
+    state_revision: state.state_revision + 1,
+    terminal_summary: state.batch_summary,
+  })
+
+  const status = refreshStatus(state)
+  assert(status.includes('Batch Lifecycle: completed'),
+    'status terminal surface shows batch lifecycle explicitly')
+  assert(status.includes('Batch Outcome: passed'),
+    'status terminal surface shows batch outcome explicitly')
+  assert(status.includes('Phase: terminal'),
+    'status terminal surface marks terminal phase instead of review placeholder')
+  assert(status.includes('[batch:passed] Batch complete'),
+    'recent terminal events use structured batch scope/outcome label')
+
+  cleanBatch(batchId)
+}
+
+// ── Test 8b: Terminal closure contract ─────────────────
+
+function test_terminal_closure_contract() {
+  process.stderr.write('\n== Test 8b: Terminal closure contract ==\n')
+
+  const batchId = `test-${randomUUID().slice(0, 8)}`
+  const state = createState(batchId, 'test', ['goal'])
+  addIteration(state, { id: 'iter-a', type: 'primary', title: 'A', requirement: 'R1' })
+  addIteration(state, { id: 'iter-b', type: 'primary', title: 'B', requirement: 'R2' })
+
+  for (const iter of state.iterations) {
+    iter.status = 'completed'
+    iter.phase = 'COMPLETE'
+  }
+  state.current_iteration = null
+
+  commitState(state)
+  let loaded = loadState(batchId)
+  assert(loaded.batch_summary?.lifecycle === 'awaiting_final_verification',
+    'all iterations done with pending final verification becomes awaiting_final_verification')
+  assert(loaded.batch_summary?.current_iteration === null,
+    'batch_summary persists current_iteration = null after iteration completion')
+
+  let status = refreshStatus(loaded)
+  assert(status.includes('Current: none'), 'status.txt terminal snapshot clears current iteration')
+  assert(status.includes('Final Verification: pending'), 'status.txt terminal snapshot shows pending final verification')
+
+  emitCompleted(loaded, 'iter-a')
+  emitCompleted(loaded, 'iter-b')
+  emitEvent(loaded, { event_type: 'completed', message: 'Batch complete' })
+  const pendingEvents = readEvents(batchId)
+  assert(
+    pendingEvents.some(event => event.event_type === 'completed' && event.iteration_id === 'iter-a'),
+    'events.jsonl contains iteration completed event in terminal path'
+  )
+  assert(
+    pendingEvents.some(event => event.event_type === 'completed' && event.iteration_id === null && event.message === 'Batch complete'),
+    'events.jsonl contains batch completed event in terminal path'
+  )
+
+  loaded.final_verification = 'passed'
+  commitState(loaded)
+  loaded = loadState(batchId)
+  assert(loaded.batch_summary?.lifecycle === 'completed',
+    'passed final verification persists completed batch lifecycle')
+  assert(loaded.batch_summary?.terminal_outcome === 'passed',
+    'passed final verification persists terminal_outcome = passed')
+
+  status = refreshStatus(loaded)
+  assert(status.includes('Final Verification: passed'), 'status.txt terminal snapshot shows passed final verification')
+
+  loaded.final_verification = 'failed'
+  commitState(loaded)
+  loaded = loadState(batchId)
+  assert(loaded.batch_summary?.lifecycle === 'completed',
+    'failed final verification still persists completed batch lifecycle')
+  assert(loaded.batch_summary?.terminal_outcome === 'failed',
+    'failed final verification persists terminal_outcome = failed')
 
   cleanBatch(batchId)
 }
@@ -963,12 +1155,15 @@ async function main() {
   await test_resume_history_and_prompt_escalation_wiring()
   test_docs_sync_for_escalation_rules()
   await test_events()
+  await test_completion_payload_and_notify_summary()
   test_scheduler()
   test_parsers()
   test_review_record_summary()
   test_crash_recovery()
   test_on_hold_stall()
   test_monitor()
+  test_monitor_terminal_surface()
+  test_terminal_closure_contract()
   test_auto_approval_logic()
   test_major_revision_limit()
 

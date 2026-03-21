@@ -20,7 +20,7 @@ import {
   addIteration, findIteration, updateIteration, transition,
   addReviewRecord, checkBranchGuard, findLatestBatch,
   recordFailureEvidence, recordEscalationEvidence, recordOscillationEvidence,
-  getFailureEvidence, getReviewVerdictHistory,
+  getFailureEvidence, getReviewVerdictHistory, refreshBatchSummary,
 } from './state.mjs'
 import {
   emitEvent, emitTransition, emitReview, emitCompleted, emitError,
@@ -538,14 +538,32 @@ async function runMainLoop(state) {
   }
 
   // Final Verification Gate (§7.3) — only reached if all iterations completed
-  await runFinalVerification(state)
-
   state.current_iteration = null
-  commitState(state)
-  refreshStatus(state)
+  const finalVerification = await runFinalVerification(state)
 
-  notifyBatchComplete(state)
-  emitEvent(state, { event_type: 'completed', message: 'Batch complete' })
+  commitTerminalSequence(
+    state,
+    [
+      finalVerification.terminalEvent,
+      {
+        type: 'completed',
+        scope: 'batch',
+        message: 'Batch complete',
+        terminal_outcome: state.batch_summary?.terminal_outcome,
+      },
+    ],
+    {
+      notifyFns: [
+        currentState => notifyFinalVerification(currentState, finalVerification.allGoalsMet),
+        currentState => notifyBatchComplete(currentState),
+      ],
+    }
+  )
+
+  if (finalVerification.requiresHumanDecision) {
+    process.stderr.write('\n[!] Some goals not met. Check .orchestrator/runs/<batch>/status.txt for details.\n')
+    process.stderr.write('[!] Human decision required: manual fix / authorize remediation / accept.\n')
+  }
 
   process.stderr.write(`\nBatch ${state.batch_id.slice(0, 8)} complete.\n`)
   process.stderr.write(`Status: ${batchDir(state.batch_id)}/status.txt\n`)
@@ -595,6 +613,54 @@ function commitOnHold(state, iterationId, reason) {
   setOnHold(state, iterationId, reason)   // memory + event
   commitState(state)                       // authoritative state
   syncOnHoldDocs(state, iterationId, reason)  // derived docs + notify
+}
+
+function commitTerminalSequence(state, terminalEvents, options = {}) {
+  refreshBatchSummary(state)
+  const nextRevision = state.state_revision + 1
+  const terminalSummary = state.batch_summary
+
+  for (const terminalEvent of terminalEvents) {
+    if (terminalEvent.type === 'completed') {
+      emitCompleted(state, terminalEvent.iteration_id || null, {
+        scope: terminalEvent.scope,
+        message: terminalEvent.message,
+        terminal_outcome: terminalEvent.terminal_outcome,
+        terminal_summary: terminalEvent.terminal_summary || terminalSummary,
+        state_revision: nextRevision,
+        data: terminalEvent.data,
+      })
+      continue
+    }
+
+    emitEvent(state, {
+      ...terminalEvent.event,
+      state_revision: nextRevision,
+      data: {
+        ...(terminalEvent.event?.data || {}),
+        state_revision: nextRevision,
+        terminal_summary: terminalEvent.event?.data?.terminal_summary || terminalSummary,
+      },
+    })
+  }
+
+  commitState(state)
+  refreshStatus(state)
+
+  if (typeof options.afterCommit === 'function') {
+    options.afterCommit()
+  }
+
+  for (const notifyFn of options.notifyFns || []) {
+    if (typeof notifyFn === 'function') {
+      notifyFn(state)
+    }
+  }
+
+  return {
+    state_revision: state.state_revision,
+    terminal_summary: state.batch_summary,
+  }
 }
 
 function ensureIterationReviewPolicy(state, iter) {
@@ -702,6 +768,7 @@ async function runIteration(state, iterationId) {
   const iter = findIteration(state, iterationId)
 
   while (iter.status === 'active') {
+    let statusRefreshed = false
 
     switch (iter.phase) {
 
@@ -1168,15 +1235,23 @@ async function runIteration(state, iterationId) {
           // Non-fatal — user can merge manually
         }
 
-        emitCompleted(state, iterationId)
-
-        // §2.4: state commit first, then derived docs + notify
-        commitState(state)
-
-        try { updateIterationStatus(iterationId, 'Completed') }
-        catch (err) { process.stderr.write(`[warn] Failed to update ITERATIONS.md: ${err.message}\n`) }
-
-        notifyIterationComplete(state, iterationId)
+        commitTerminalSequence(
+          state,
+          [{
+            type: 'completed',
+            iteration_id: iterationId,
+            scope: 'iteration',
+            terminal_outcome: 'completed',
+          }],
+          {
+            afterCommit: () => {
+              try { updateIterationStatus(iterationId, 'Completed') }
+              catch (err) { process.stderr.write(`[warn] Failed to update ITERATIONS.md: ${err.message}\n`) }
+            },
+            notifyFns: [currentState => notifyIterationComplete(currentState, iterationId)],
+          }
+        )
+        statusRefreshed = true
         break
       }
 
@@ -1186,7 +1261,9 @@ async function runIteration(state, iterationId) {
         return
     }
 
-    refreshStatus(state)
+    if (!statusRefreshed) {
+      refreshStatus(state)
+    }
   }
 }
 
@@ -1211,17 +1288,43 @@ async function runFinalVerification(state) {
 
   if (!result.ok) {
     state.final_verification = 'failed'
-    emitError(state, null, `Final verification failed: ${result.error}`)
-    commitState(state)
-    return
+    refreshBatchSummary(state)
+    return {
+      allGoalsMet: false,
+      requiresHumanDecision: true,
+      terminalEvent: {
+        event: {
+          event_type: 'error',
+          severity: 'error',
+          message: `Final verification failed: ${result.error}`,
+          data: {
+            scope: 'batch',
+            terminal_outcome: 'failed',
+          },
+        },
+      },
+    }
   }
 
   const parsed = parseFinalVerdict(result.result_text)
   if (!parsed.ok) {
     state.final_verification = 'failed'
-    emitError(state, null, `Cannot parse final verification result: ${parsed.error}`)
-    commitState(state)
-    return
+    refreshBatchSummary(state)
+    return {
+      allGoalsMet: false,
+      requiresHumanDecision: true,
+      terminalEvent: {
+        event: {
+          event_type: 'error',
+          severity: 'error',
+          message: `Cannot parse final verification result: ${parsed.error}`,
+          data: {
+            scope: 'batch',
+            terminal_outcome: 'failed',
+          },
+        },
+      },
+    }
   }
 
   const finalResult = parsed.result
@@ -1241,21 +1344,23 @@ async function runFinalVerification(state) {
   }
 
   state.final_verification = finalResult.all_goals_met ? 'passed' : 'failed'
+  refreshBatchSummary(state)
 
-  emitEvent(state, {
-    event_type: 'review',
-    severity: finalResult.all_goals_met ? 'info' : 'error',
-    message: `Final Verification: ${finalResult.all_goals_met ? 'ALL GOALS MET' : 'SOME GOALS NOT MET'}`,
-    data: finalResult,
-  })
-
-  // §2.4: event (done above) → state commit → notify (best-effort)
-  commitState(state)
-  notifyFinalVerification(state, finalResult.all_goals_met)
-
-  if (!finalResult.all_goals_met) {
-    process.stderr.write('\n[!] Some goals not met. Check .orchestrator/runs/<batch>/status.txt for details.\n')
-    process.stderr.write('[!] Human decision required: manual fix / authorize remediation / accept.\n')
+  return {
+    allGoalsMet: finalResult.all_goals_met,
+    requiresHumanDecision: !finalResult.all_goals_met,
+    terminalEvent: {
+      event: {
+        event_type: 'review',
+        severity: finalResult.all_goals_met ? 'info' : 'error',
+        message: `Final Verification: ${finalResult.all_goals_met ? 'ALL GOALS MET' : 'SOME GOALS NOT MET'}`,
+        data: {
+          ...finalResult,
+          scope: 'batch',
+          terminal_outcome: state.batch_summary?.terminal_outcome,
+        },
+      },
+    },
   }
 }
 

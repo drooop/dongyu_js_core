@@ -13,6 +13,65 @@ import { execSync } from 'child_process'
 
 const SCHEMA_VERSION = 1
 
+function summarizeBatchState(state) {
+  const counts = {
+    total: Array.isArray(state?.iterations) ? state.iterations.length : 0,
+    completed: 0,
+    active: 0,
+    pending: 0,
+    on_hold: 0,
+    blocked_by_spawn: 0,
+    proposed: 0,
+  }
+
+  for (const iter of state?.iterations || []) {
+    if (Object.prototype.hasOwnProperty.call(counts, iter.status)) {
+      counts[iter.status]++
+    }
+  }
+
+  let lifecycle = 'running'
+  let terminalOutcome = null
+
+  const allIterationsClosed =
+    counts.total > 0 &&
+    counts.pending === 0 &&
+    counts.active === 0 &&
+    counts.on_hold === 0 &&
+    counts.blocked_by_spawn === 0 &&
+    counts.completed + counts.proposed === counts.total
+
+  if (allIterationsClosed) {
+    lifecycle = state.final_verification === 'pending'
+      ? 'awaiting_final_verification'
+      : 'completed'
+    terminalOutcome = state.final_verification === 'pending'
+      ? null
+      : state.final_verification
+  } else if (
+    counts.total > 0 &&
+    counts.pending === 0 &&
+    counts.active === 0 &&
+    (counts.on_hold > 0 || counts.blocked_by_spawn > 0)
+  ) {
+    lifecycle = 'stalled'
+    terminalOutcome = counts.on_hold > 0 ? 'on_hold' : 'blocked_by_spawn'
+  }
+
+  return {
+    lifecycle,
+    terminal_outcome: terminalOutcome,
+    final_verification: state.final_verification || 'pending',
+    current_iteration: state.current_iteration || null,
+    counts,
+  }
+}
+
+export function refreshBatchSummary(state) {
+  state.batch_summary = summarizeBatchState(state)
+  return state.batch_summary
+}
+
 function ensureIterationEvidence(iter) {
   if (!iter.evidence) {
     iter.evidence = {}
@@ -38,6 +97,8 @@ function normalizeStateShape(state) {
     ensureIterationEvidence(iter)
   }
 
+  refreshBatchSummary(state)
+
   return state
 }
 
@@ -56,7 +117,7 @@ function recordEvidence(iter, bucket, entry) {
 export function createState(batchId, userPrompt, primaryGoals) {
   const promptHash = createHash('sha256').update(userPrompt).digest('hex')
 
-  return {
+  return normalizeStateShape({
     schema_version: SCHEMA_VERSION,
     state_revision: 0,
     batch_id: batchId,
@@ -76,6 +137,7 @@ export function createState(batchId, userPrompt, primaryGoals) {
     iterations: [],
     current_iteration: null,
     final_verification: 'pending',
+    batch_summary: null,
     traceability: primaryGoals.map((g, i) => ({
       goal_index: i,
       goal_description: g,
@@ -85,7 +147,7 @@ export function createState(batchId, userPrompt, primaryGoals) {
       validation_results: [],
       status: 'pending',
     })),
-  }
+  })
 }
 
 // ── Paths ───────────────────────────────────────────────
