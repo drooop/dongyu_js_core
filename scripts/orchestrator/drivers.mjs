@@ -228,14 +228,24 @@ export function parseVerdict(resultText) {
   }
 
   // Fallback: Claude Code often returns a prose summary such as:
-  // "评审完成。Verdict: **APPROVED** ..."
+  // "Verdict: **APPROVED**" or "NEEDS_CHANGES (major)"
   const verdictMatch = resultText.match(
     /\bverdict\b\s*[:=]\s*(?:\*{1,2}\s*)?(APPROVED|NEEDS_CHANGES)(?:\s*\*{1,2})?/i
+  ) || resultText.match(
+    /\b(APPROVED|NEEDS_CHANGES)\b/
   )
   if (verdictMatch) {
     const verdict = verdictMatch[1].toUpperCase()
+    // Try multiple patterns for revision_type:
+    // 1. "revision_type: major"
+    // 2. "NEEDS_CHANGES (major)" — inline parentheses
+    // 3. "(major)" anywhere near the verdict
     const revisionTypeMatch = resultText.match(
       /\brevision_type\b\s*[:=]\s*(?:\*{1,2}\s*)?(major|minor|ambiguous)(?:\s*\*{1,2})?/i
+    ) || resultText.match(
+      /\bNEEDS_CHANGES\s*\(\s*(major|minor|ambiguous)\s*\)/i
+    ) || resultText.match(
+      /\(\s*(major|minor)\s*\)/i
     )
     const summary =
       resultText

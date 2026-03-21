@@ -184,6 +184,13 @@ function test_parsers() {
   assert(prose.ok === true, 'parseVerdict accepts prose Verdict: APPROVED')
   assert(prose.verdict.verdict === 'APPROVED', 'prose verdict = APPROVED')
 
+  // Prose "NEEDS_CHANGES (major)" — inline parentheses format
+  const proseNeedsMajor = '审查结论：NEEDS_CHANGES (major)。Step 2/3 未完成。'
+  const pnm = parseVerdict(proseNeedsMajor)
+  assert(pnm.ok === true, 'parseVerdict accepts prose NEEDS_CHANGES (major)')
+  assert(pnm.verdict.verdict === 'NEEDS_CHANGES', 'prose needs_changes verdict')
+  assert(pnm.verdict.revision_type === 'major', 'prose (major) extracted')
+
   // Claude Code may put the useful review payload into permission_denials[].tool_input.plan
   // when ExitPlanMode is denied. We must extract that fallback text.
   const outerClaudeJson = {
