@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Codex Execution Output",
+  "description": "Structured output from Codex exec (doit role) during PLANNING and EXECUTION phases.",
+  "type": "object",
+  "properties": {
+    "execution_summary": {
+      "type": "string",
+      "description": "Summary of what was done"
+    },
+    "steps_completed": {
+      "type": "array",
+      "description": "List of resolution steps completed",
+      "items": {
+        "type": "object",
+        "properties": {
+          "step": { "type": "integer" },
+          "description": { "type": "string" },
+          "status": { "enum": ["pass", "fail", "skip"] },
+          "evidence": { "type": "string" },
+          "commit": { "type": "string" }
+        },
+        "required": ["step", "status"]
+      }
+    },
+    "files_changed": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "validation_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "string" },
+          "result": { "enum": ["pass", "fail"] },
+          "output_snippet": { "type": "string" }
+        },
+        "required": ["command", "result"]
+      }
+    },
+    "spawned_iterations": {
+      "type": "array",
+      "description": "New iterations proposed during execution",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "reason": { "type": "string" },
+          "spawn_type": { "enum": ["derived_dependency", "scope_expansion"] },
+          "blocks_current": { "type": "boolean" },
+          "scope_justification": { "type": "string" }
+        },
+        "required": ["title", "reason", "spawn_type", "blocks_current"]
+      }
+    }
+  },
+  "required": ["execution_summary"]
+}

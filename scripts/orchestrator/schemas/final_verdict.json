@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Final Verification Verdict",
+  "description": "Output from Final Verification Gate — validates each primary goal against current codebase state.",
+  "type": "object",
+  "properties": {
+    "all_goals_met": {
+      "type": "boolean",
+      "description": "True only if every primary goal status is 'met'"
+    },
+    "goal_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "goal_index": { "type": "integer" },
+          "goal_description": { "type": "string" },
+          "status": {
+            "enum": ["met", "partially_met", "not_met", "regressed"],
+            "description": "met=fully satisfied, partially_met=some aspects done, not_met=not addressed, regressed=was working but broken"
+          },
+          "evidence": {
+            "type": "string",
+            "description": "Concrete evidence (test results, code references, git diff excerpts)"
+          },
+          "validation_commands_run": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "command": { "type": "string" },
+                "result": { "enum": ["pass", "fail", "error"] },
+                "output_snippet": { "type": "string" }
+              },
+              "required": ["command", "result"]
+            }
+          },
+          "remediation": {
+            "type": "string",
+            "description": "Suggested fix if status is not 'met' (for human decision)"
+          }
+        },
+        "required": ["goal_index", "status", "evidence"]
+      }
+    },
+    "new_issues": {
+      "type": "array",
+      "description": "Issues discovered during verification that were not part of original goals",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["all_goals_met", "goal_results"]
+}

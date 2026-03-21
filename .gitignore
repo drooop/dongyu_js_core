@@ -1,3 +1,6 @@
+# Orchestrator runtime (batch runs, transcripts, state)
+.orchestrator/
+
 # Dependencies
 node_modules/
 .pnp/

@@ -1,0 +1,108 @@
+/**
+ * monitor.mjs — Three-layer monitoring (§15)
+ *
+ * Layer 1: stderr real-time stream (handled by events.mjs emitEvent)
+ * Layer 2: status.txt dashboard (refreshStatus)
+ * Layer 3: events.jsonl audit log (handled by events.mjs)
+ */
+
+import { writeFileSync, readFileSync, existsSync } from 'fs'
+import { join } from 'path'
+import { batchDir } from './state.mjs'
+import { readEvents } from './events.mjs'
+
+// ── Refresh status.txt ─────────────────────────────────
+
+export function refreshStatus(state) {
+  const completed = state.iterations.filter(i => i.status === 'completed').length
+  const active = state.iterations.filter(i => i.status === 'active').length
+  const pending = state.iterations.filter(i => i.status === 'pending').length
+  const onHold = state.iterations.filter(i => i.status === 'on_hold').length
+  const primary = state.iterations.filter(i => i.type === 'primary').length
+  const spawned = state.iterations.filter(i => i.type === 'spawned').length
+  const current = state.iterations.find(i => i.status === 'active')
+
+  const recentEvents = readEvents(state.batch_id, { tail: 8 })
+  const recentLines = recentEvents
+    .map(e => {
+      const ts = e.timestamp.slice(11, 19)
+      const icon = { transition: '→', review: '⟳', spawn: '+', blocked: '⊘', on_hold: '⊘', completed: '✓', error: '✗' }[e.event_type] || '·'
+      return `  ${ts} ${icon} ${e.message}`
+    })
+    .join('\n')
+
+  const elapsed = formatDuration(state.created_at)
+
+  const status = [
+    `== Orchestrator Status ==`,
+    `Batch: ${state.batch_id.slice(0, 8)}`,
+    `Total: ${state.iterations.length} (${primary} primary + ${spawned} spawned)`,
+    `Done: ${completed}  Active: ${active}  Pending: ${pending}  On Hold: ${onHold}`,
+    ``,
+    `Current: ${current ? `[${current.id}] ${current.spec.title}` : 'none'}`,
+    `Phase: ${current ? `${current.phase} (review round ${current.review_round}, major ${current.major_revision_count}/3)` : '-'}`,
+    `Elapsed: ${elapsed}`,
+    ``,
+    `Recent:`,
+    recentLines || '  (no events yet)',
+    ``,
+    `Final Verification: ${state.final_verification}`,
+    `State Revision: ${state.state_revision}`,
+  ].join('\n')
+
+  const statusFile = join(batchDir(state.batch_id), 'status.txt')
+  writeFileSync(statusFile, status)
+
+  return status
+}
+
+// ── --monitor subcommand ────────────────────────────────
+
+export async function runMonitor(batchId) {
+  const dir = batchDir(batchId)
+  const statusFile = join(dir, 'status.txt')
+
+  process.stderr.write(`Monitoring batch ${batchId}... (Ctrl+C to stop)\n\n`)
+
+  while (true) {
+    // Clear screen without depending on `watch`
+    process.stdout.write('\x1B[2J\x1B[0;0H')
+
+    if (existsSync(statusFile)) {
+      const content = readFileSync(statusFile, 'utf-8')
+      process.stdout.write(content + '\n')
+    } else {
+      process.stdout.write(`Waiting for batch ${batchId} to start...\n`)
+    }
+
+    // Tail last 5 events
+    const events = readEvents(batchId, { tail: 5 })
+    if (events.length > 0) {
+      process.stdout.write('\n-- Latest Events --\n')
+      for (const e of events) {
+        const ts = e.timestamp.slice(11, 19)
+        process.stdout.write(`  ${ts} [${e.iteration_id || 'batch'}] ${e.message}\n`)
+      }
+    }
+
+    await sleep(2000)
+  }
+}
+
+// ── Helpers ─────────────────────────────────────────────
+
+function formatDuration(startIso) {
+  const start = new Date(startIso)
+  const now = new Date()
+  const diff = Math.floor((now - start) / 1000)
+  const h = Math.floor(diff / 3600)
+  const m = Math.floor((diff % 3600) / 60)
+  const s = diff % 60
+  if (h > 0) return `${h}h ${m}m ${s}s`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
