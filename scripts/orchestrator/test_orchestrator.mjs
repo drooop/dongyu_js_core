@@ -283,6 +283,357 @@ async function test_review_policy_prompt_wiring() {
   assert(execReviewPrompt.includes('escalation_policy'), 'exec review prompt includes escalation_policy')
 }
 
+// ── Test 1e: Failure normalization + evidence persistence ─
+
+async function test_failure_normalization_and_state_evidence() {
+  process.stderr.write('\n== Test 1e: Failure normalization + state evidence ==\n')
+
+  let escalationEngine = null
+  try {
+    escalationEngine = await import('./escalation_engine.mjs')
+  } catch {
+    escalationEngine = null
+  }
+
+  assert(escalationEngine !== null, 'escalation_engine module exists')
+  assert(typeof escalationEngine?.normalizeFailureSignal === 'function',
+    'normalizeFailureSignal exported')
+
+  if (typeof escalationEngine?.normalizeFailureSignal === 'function') {
+    const maxTurns = escalationEngine.normalizeFailureSignal({
+      source: 'claude_review',
+      operation: 'claudeReview',
+      phase: 'REVIEW_PLAN',
+      error_type: 'max_turns',
+      error: 'Claude exhausted turns (stop_reason=error_max_turns, turns=8)',
+    })
+    assert(maxTurns.kind === 'max_turns', 'max_turns failure normalized')
+
+    const timeout = escalationEngine.normalizeFailureSignal({
+      source: 'claude_review',
+      operation: 'claudeReview',
+      phase: 'REVIEW_PLAN',
+      code: 'ETIMEDOUT',
+      error: 'spawnSync /bin/sh ETIMEDOUT',
+    })
+    assert(timeout.kind === 'timeout', 'timeout failure normalized')
+
+    const processError = escalationEngine.normalizeFailureSignal({
+      source: 'claude_review',
+      operation: 'claudeReview',
+      phase: 'REVIEW_PLAN',
+      error: 'Command failed: claude -p --output-format json',
+      stderr: 'spawn EPIPE',
+    })
+    assert(processError.kind === 'process_error', 'process failure normalized')
+
+    const jsonParse = escalationEngine.normalizeFailureSignal({
+      source: 'claude_review',
+      operation: 'claudeReview',
+      phase: 'REVIEW_PLAN',
+      stage: 'json_parse',
+      error: 'Failed to parse Claude Code JSON output',
+      raw: '{"unterminated": true',
+    })
+    assert(jsonParse.kind === 'json_parse_error', 'json parse failure normalized')
+  }
+
+  const stateModule = await import('./state.mjs')
+  assert(typeof stateModule.recordFailureEvidence === 'function',
+    'recordFailureEvidence exported')
+  assert(typeof stateModule.recordEscalationEvidence === 'function',
+    'recordEscalationEvidence exported')
+  assert(typeof stateModule.recordOscillationEvidence === 'function',
+    'recordOscillationEvidence exported')
+
+  if (
+    typeof stateModule.recordFailureEvidence === 'function' &&
+    typeof stateModule.recordEscalationEvidence === 'function' &&
+    typeof stateModule.recordOscillationEvidence === 'function' &&
+    typeof escalationEngine?.normalizeFailureSignal === 'function'
+  ) {
+    const batchId = `test-${randomUUID().slice(0, 8)}`
+    const state = createState(batchId, 'test', ['goal'])
+    addIteration(state, { id: 'iter-failure', type: 'primary', title: 'T', requirement: 'R' })
+
+    stateModule.recordFailureEvidence(state, 'iter-failure', escalationEngine.normalizeFailureSignal({
+      source: 'claude_review',
+      operation: 'claudeReview',
+      phase: 'REVIEW_PLAN',
+      code: 'ETIMEDOUT',
+      error: 'spawnSync /bin/sh ETIMEDOUT',
+    }))
+    stateModule.recordEscalationEvidence(state, 'iter-failure', {
+      phase: 'REVIEW_PLAN',
+      action: 'warn_and_continue',
+      reason: 'threshold not reached',
+    })
+    stateModule.recordOscillationEvidence(state, 'iter-failure', {
+      phase: 'REVIEW_PLAN',
+      pattern: ['APPROVED', 'NEEDS_CHANGES', 'APPROVED'],
+      threshold: 1,
+      detected: true,
+    })
+
+    commitState(state)
+
+    const loaded = loadState(batchId)
+    const loadedIter = findIteration(loaded, 'iter-failure')
+    assert(Array.isArray(loadedIter?.evidence?.failures), 'failure evidence persisted after reload')
+    assert(loadedIter?.evidence?.failures?.[0]?.kind === 'timeout',
+      'persisted failure evidence preserves kind')
+    assert(loadedIter?.evidence?.escalations?.[0]?.action === 'warn_and_continue',
+      'persisted escalation evidence preserves action')
+    assert(loadedIter?.evidence?.oscillations?.[0]?.detected === true,
+      'persisted oscillation evidence preserves detection result')
+
+    cleanBatch(batchId)
+  }
+}
+
+// ── Test 1f: Failure matrix + oscillation rules ────────
+
+async function test_failure_matrix_and_oscillation_rules() {
+  process.stderr.write('\n== Test 1f: Failure matrix + oscillation rules ==\n')
+
+  const { buildReviewPolicy } = await import('./review_policy.mjs')
+  const escalationEngine = await import('./escalation_engine.mjs')
+
+  assert(typeof escalationEngine.resolveEscalationDecision === 'function',
+    'resolveEscalationDecision exported')
+  assert(typeof escalationEngine.detectReviewOscillation === 'function',
+    'detectReviewOscillation exported')
+
+  const defaultPolicy = buildReviewPolicy({ entry_route: 'executable_iteration' })
+  assert(typeof defaultPolicy.escalation_policy.parse_failure === 'object',
+    'parse_failure policy modeled explicitly')
+  assert(typeof defaultPolicy.escalation_policy.max_turns === 'object',
+    'max_turns policy modeled explicitly')
+  assert(typeof defaultPolicy.escalation_policy.timeout === 'object',
+    'timeout policy modeled explicitly')
+  assert(typeof defaultPolicy.escalation_policy.state_doc_inconsistency === 'object',
+    'state_doc_inconsistency policy modeled explicitly')
+  assert(typeof defaultPolicy.escalation_policy.oscillation === 'object',
+    'oscillation policy modeled explicitly')
+
+  if (
+    typeof escalationEngine.resolveEscalationDecision === 'function' &&
+    typeof escalationEngine.detectReviewOscillation === 'function'
+  ) {
+    const parseFailureDecision = escalationEngine.resolveEscalationDecision({
+      phase: 'REVIEW_PLAN',
+      failure: { kind: 'json_parse_error' },
+      recent_failure_history: [{ kind: 'json_parse_error' }],
+      recent_review_history: [],
+      risk_profile: defaultPolicy.risk_profile,
+      review_policy: defaultPolicy,
+    })
+    assert(parseFailureDecision.normalized_failure_kind === 'parse_failure',
+      'json_parse_error normalized to parse_failure policy key')
+    assert(parseFailureDecision.action === 'on_hold',
+      'parse_failure reaches default on_hold action at threshold')
+    assert(parseFailureDecision.threshold_reached === true,
+      'parse_failure threshold detected')
+
+    const maxTurnsDecision = escalationEngine.resolveEscalationDecision({
+      phase: 'REVIEW_EXEC',
+      failure: { kind: 'max_turns' },
+      recent_failure_history: [],
+      recent_review_history: [],
+      risk_profile: defaultPolicy.risk_profile,
+      review_policy: defaultPolicy,
+    })
+    assert(maxTurnsDecision.action === 'retry',
+      'max_turns defaults to retry before threshold')
+    assert(maxTurnsDecision.threshold_reached === false,
+      'max_turns below threshold does not trigger on_hold')
+
+    const stateMismatchDecision = escalationEngine.resolveEscalationDecision({
+      phase: 'EXECUTION',
+      failure: { kind: 'state_doc_inconsistency' },
+      recent_failure_history: [],
+      recent_review_history: [],
+      risk_profile: defaultPolicy.risk_profile,
+      review_policy: defaultPolicy,
+    })
+    assert(stateMismatchDecision.action === 'human_decision_required',
+      'state_doc_inconsistency escalates to human decision')
+
+    const oscillation = escalationEngine.detectReviewOscillation(
+      ['APPROVED', 'NEEDS_CHANGES', 'APPROVED'],
+      defaultPolicy,
+    )
+    assert(oscillation.detected === true, 'APPROVED -> NEEDS_CHANGES -> APPROVED is oscillation')
+
+    const inverseOscillation = escalationEngine.detectReviewOscillation(
+      ['NEEDS_CHANGES', 'APPROVED', 'NEEDS_CHANGES'],
+      defaultPolicy,
+    )
+    assert(inverseOscillation.detected === true,
+      'NEEDS_CHANGES -> APPROVED -> NEEDS_CHANGES is oscillation')
+
+    const oscillationDecision = escalationEngine.resolveEscalationDecision({
+      phase: 'REVIEW_EXEC',
+      failure: { kind: 'oscillation' },
+      recent_failure_history: [],
+      recent_review_history: ['APPROVED', 'NEEDS_CHANGES', 'APPROVED'],
+      risk_profile: defaultPolicy.risk_profile,
+      review_policy: defaultPolicy,
+    })
+    assert(oscillationDecision.action === 'human_decision_required',
+      'oscillation resolves to human_decision_required')
+    assert(oscillationDecision.threshold_reached === true,
+      'oscillation decision reports threshold reached')
+
+    const warningPolicy = buildReviewPolicy({
+      entry_route: 'draft_iteration',
+      overrides: {
+        escalation_policy: {
+          parse_failure: {
+            action: 'warn_and_continue',
+            threshold: 1,
+          },
+        },
+      },
+    })
+    const parseWarning = escalationEngine.resolveEscalationDecision({
+      phase: 'REVIEW_PLAN',
+      failure: { kind: 'json_parse_error' },
+      recent_failure_history: [],
+      recent_review_history: [],
+      risk_profile: warningPolicy.risk_profile,
+      review_policy: warningPolicy,
+    })
+    assert(parseWarning.action === 'warn_and_continue',
+      'policy override can resolve parse_failure to warn_and_continue')
+  }
+}
+
+// ── Test 1g: Resume path history + prompt escalation wiring ─
+
+async function test_resume_history_and_prompt_escalation_wiring() {
+  process.stderr.write('\n== Test 1g: Resume history + prompt escalation wiring ==\n')
+
+  const stateModule = await import('./state.mjs')
+  const escalationEngine = await import('./escalation_engine.mjs')
+  const { buildReviewPolicy } = await import('./review_policy.mjs')
+  const { buildPlanReviewPrompt, buildExecReviewPrompt } = await import('./prompts.mjs')
+
+  assert(typeof stateModule.getFailureEvidence === 'function', 'getFailureEvidence exported')
+  assert(typeof stateModule.getReviewVerdictHistory === 'function', 'getReviewVerdictHistory exported')
+
+  const reviewPolicy = buildReviewPolicy({ entry_route: 'executable_iteration' })
+  const planPrompt = buildPlanReviewPrompt('0204-escalation-rules-engine', false, {
+    review_policy: reviewPolicy,
+    risk_profile: reviewPolicy.risk_profile,
+  })
+  assert(planPrompt.includes('Failure matrix'), 'plan review prompt includes failure matrix guidance')
+
+  const execPrompt = buildExecReviewPrompt('0204-escalation-rules-engine', false, {
+    review_policy: reviewPolicy,
+    risk_profile: reviewPolicy.risk_profile,
+  })
+  assert(execPrompt.includes('Oscillation boundary'),
+    'exec review prompt includes oscillation boundary guidance')
+
+  if (
+    typeof stateModule.getFailureEvidence === 'function' &&
+    typeof stateModule.getReviewVerdictHistory === 'function'
+  ) {
+    const batchId = `test-${randomUUID().slice(0, 8)}`
+    const state = createState(batchId, 'test', ['goal'])
+    addIteration(state, {
+      id: 'iter-resume',
+      type: 'primary',
+      title: 'Resume',
+      requirement: 'Persist review failure history',
+      review_policy: reviewPolicy,
+      risk_profile: reviewPolicy.risk_profile,
+    })
+
+    stateModule.recordFailureEvidence(state, 'iter-resume', {
+      kind: 'max_turns',
+      phase: 'REVIEW_EXEC',
+      message: 'first max_turns',
+    })
+    addReviewRecord(state, 'iter-resume', {
+      round: 1,
+      phase: 'REVIEW_EXEC',
+      verdict: 'APPROVED',
+      summary: 'ok',
+      session_id: 'sess-1',
+    })
+    addReviewRecord(state, 'iter-resume', {
+      round: 2,
+      phase: 'REVIEW_EXEC',
+      verdict: 'NEEDS_CHANGES',
+      summary: 'needs work',
+      session_id: 'sess-2',
+    })
+    addReviewRecord(state, 'iter-resume', {
+      round: 3,
+      phase: 'REVIEW_EXEC',
+      verdict: 'APPROVED',
+      summary: 'ok again',
+      session_id: 'sess-3',
+    })
+    commitState(state)
+
+    const loaded = loadState(batchId)
+    const failureHistory = stateModule.getFailureEvidence(loaded, 'iter-resume')
+    const repeatedFailureDecision = escalationEngine.resolveEscalationDecision({
+      phase: 'REVIEW_EXEC',
+      failure: { kind: 'max_turns' },
+      recent_failure_history: failureHistory,
+      recent_review_history: [],
+      risk_profile: reviewPolicy.risk_profile,
+      review_policy: reviewPolicy,
+    })
+    assert(repeatedFailureDecision.action === 'on_hold',
+      'reloaded repeated max_turns history still reaches on_hold')
+
+    const reviewHistory = stateModule.getReviewVerdictHistory(loaded, 'iter-resume', 'REVIEW_EXEC')
+    assert(reviewHistory.join('>') === 'APPROVED>NEEDS_CHANGES>APPROVED',
+      'review verdict history preserved after reload')
+
+    const oscillationDecision = escalationEngine.resolveEscalationDecision({
+      phase: 'REVIEW_EXEC',
+      failure: { kind: 'oscillation' },
+      recent_failure_history: [],
+      recent_review_history: reviewHistory,
+      risk_profile: reviewPolicy.risk_profile,
+      review_policy: reviewPolicy,
+    })
+    assert(oscillationDecision.action === 'human_decision_required',
+      'reloaded oscillation history still requires human decision')
+
+    cleanBatch(batchId)
+  }
+}
+
+// ── Test 1h: Docs sync for escalation rules ─────────────
+
+function test_docs_sync_for_escalation_rules() {
+  process.stderr.write('\n== Test 1h: Docs sync for escalation rules ==\n')
+
+  const ssotPath = join(process.cwd(), 'docs', 'ssot', 'orchestrator_hard_rules.md')
+  const runbookPath = join(process.cwd(), 'docs', 'user-guide', 'orchestrator_local_smoke.md')
+
+  const ssot = readFileSync(ssotPath, 'utf-8')
+  const runbook = readFileSync(runbookPath, 'utf-8')
+
+  assert(ssot.includes('failure matrix'), 'SSOT mentions failure matrix')
+  assert(ssot.includes('state_doc_inconsistency'), 'SSOT mentions state_doc_inconsistency')
+  assert(ssot.includes('oscillation'), 'SSOT mentions oscillation')
+  assert(ssot.includes('warn_and_continue'), 'SSOT mentions warn_and_continue action')
+  assert(ssot.includes('0204') && ssot.includes('0205'), 'SSOT mentions 0204/0205 boundary')
+
+  assert(runbook.includes('state_doc_inconsistency'), 'runbook mentions state_doc_inconsistency')
+  assert(runbook.includes('oscillation'), 'runbook mentions oscillation')
+  assert(runbook.includes('human_decision_required'), 'runbook mentions human_decision_required')
+  assert(runbook.includes('warn_and_continue'), 'runbook mentions warn_and_continue')
+}
+
 // ── Test 2: Events + orphan detection ───────────────────
 
 async function test_events() {
@@ -607,6 +958,10 @@ async function main() {
   await test_entry_route_and_review_policy_models()
   await test_tri_state_entry_routing_and_planning_modes()
   await test_review_policy_prompt_wiring()
+  await test_failure_normalization_and_state_evidence()
+  await test_failure_matrix_and_oscillation_rules()
+  await test_resume_history_and_prompt_escalation_wiring()
+  test_docs_sync_for_escalation_rules()
   await test_events()
   test_scheduler()
   test_parsers()

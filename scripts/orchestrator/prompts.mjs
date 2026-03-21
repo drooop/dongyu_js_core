@@ -32,6 +32,25 @@ ${JSON.stringify({
 `
 }
 
+function formatEscalationBoundaryContext(reviewPolicy) {
+  if (!reviewPolicy?.escalation_policy) {
+    return ''
+  }
+
+  const policy = reviewPolicy.escalation_policy
+  return `
+### Failure matrix
+- parse_failure / max_turns / timeout / process_error: follow \`review_policy.escalation_policy\` exactly; do not invent extra fallback rules
+- state_doc_inconsistency: treat as an explicit failure kind, not as a generic warning
+- ambiguous_revision: if you truly cannot classify major/minor, say so explicitly
+
+### Oscillation boundary
+- Oscillation patterns are defined in \`review_policy.escalation_policy.oscillation.patterns\`
+- Oscillation threshold comes from \`review_policy.escalation_policy.oscillation.threshold\`
+- Do not let Auto-Approval consecutive counts hide oscillation evidence
+`
+}
+
 // ── Phase -1: Decompose ─────────────────────────────────
 
 export function buildDecomposePrompt(userPrompt) {
@@ -134,12 +153,15 @@ export function buildPlanReviewPrompt(iterationId, isFollowUp, options = {}) {
     ? `Codex 已根据你之前的意见修改了计划。请重新评审。`
     : `请对 iteration ${iterationId} 的计划进行首次评审。`
   const policyContext = formatReviewPolicyContext(options.review_policy, options.risk_profile)
+  const escalationBoundaryContext = formatEscalationBoundaryContext(options.review_policy)
 
   return `## Iteration ${iterationId} — Plan Review
 
 ${context}
 
 ${policyContext}
+
+${escalationBoundaryContext}
 
 ### 步骤
 1. 读取 docs/iterations/${iterationId}/plan.md
@@ -263,12 +285,15 @@ export function buildExecReviewPrompt(iterationId, isFollowUp, options = {}) {
     ? `Codex 已根据你之前的意见进行了修复。请重新审查。`
     : `请对 iteration ${iterationId} 的执行结果进行审查。`
   const policyContext = formatReviewPolicyContext(options.review_policy, options.risk_profile)
+  const escalationBoundaryContext = formatEscalationBoundaryContext(options.review_policy)
 
   return `## Iteration ${iterationId} — Execution Review
 
 ${context}
 
 ${policyContext}
+
+${escalationBoundaryContext}
 
 ### 审查范围（严格限定）
 
