@@ -352,6 +352,7 @@ async function runMainLoop(state) {
 
     state.current_iteration = next.id
     next.status = 'active'
+    next.cli_failure_count = 0  // Reset on (re)activation — prevents stale count from prior On Hold
     commitState(state)
 
     await runIteration(state, next.id)

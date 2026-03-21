@@ -236,11 +236,18 @@ ${context}
 
 只审查本 iteration 的交付物。不要审查仓库中其他未相关的代码。
 
+### Turn 预算
+你有约 10 次工具调用机会。请严格控制：
+- 读取 resolution.md + runlog.md（2 次）
+- 检查 1-3 个关键交付文件（1-3 次）
+- 运行最多 1 个验证命令（1 次）
+- 最后一轮必须输出 verdict JSON（不使用工具）
+不要逐行审查每个文件。聚焦于"resolution 里的 Step 是否完成"。
+
 ### 步骤
 1. 读取 docs/iterations/${iterationId}/resolution.md 了解预期步骤和验收标准
 2. 读取 docs/iterations/${iterationId}/runlog.md 了解已有执行记录
-3. 列出本 iteration 实际变更的文件（读取 runlog 或运行 git log 查看本分支 commits）
-4. 逐文件检查变更内容是否符合 resolution 中的 Step 要求
+3. 检查关键交付文件是否存在且内容合理（不需要逐行审查）
 5. 如果 resolution 中有验证命令，运行它们
 6. 评估是否符合 CLAUDE.md 合规要求（tier boundary / model placement / data flow）
 
