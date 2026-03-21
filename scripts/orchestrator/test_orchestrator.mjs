@@ -60,6 +60,10 @@ function test_state_lifecycle() {
   assert(state.state_revision === 0, 'initial revision = 0')
   assert(state.primary_goals.length === 2, '2 primary goals')
   assert(state.traceability.length === 2, '2 traceability entries')
+  assert(state.entry_source === null, 'state entry_source defaults to null')
+  assert(state.entry_route === null, 'state entry_route defaults to null')
+  assert(state.review_policy === null, 'state review_policy defaults to null')
+  assert(state.risk_profile === null, 'state risk_profile defaults to null')
 
   // Add iteration
   addIteration(state, {
@@ -68,9 +72,22 @@ function test_state_lifecycle() {
     title: 'Test iteration',
     requirement: 'Test requirement',
     resolves_goals: [0],
+    entry_source: 'iteration',
+    entry_route: 'draft_iteration',
+    review_policy: {
+      approval_count: 3,
+      major_revision_limit: 3,
+      cli_failure_threshold: 2,
+      risk_profile: 'standard',
+    },
+    risk_profile: 'standard',
   })
   assert(state.iterations.length === 1, '1 iteration added')
   assert(state.iterations[0].cli_failure_count === 0, 'cli_failure_count initialized')
+  assert(state.iterations[0].entry_source === 'iteration', 'iteration entry_source persisted in memory')
+  assert(state.iterations[0].entry_route === 'draft_iteration', 'iteration entry_route persisted in memory')
+  assert(state.iterations[0].review_policy?.approval_count === 3, 'iteration review_policy approval_count persisted in memory')
+  assert(state.iterations[0].risk_profile === 'standard', 'iteration risk_profile persisted in memory')
 
   // Commit
   commitState(state)
@@ -82,9 +99,60 @@ function test_state_lifecycle() {
   assert(loaded !== null, 'state loaded')
   assert(loaded.state_revision === 1, 'loaded revision = 1')
   assert(loaded.iterations.length === 1, 'loaded 1 iteration')
+  assert(loaded.entry_source === null, 'loaded state entry_source defaults to null')
+  assert(loaded.iterations[0].entry_route === 'draft_iteration', 'loaded iteration entry_route preserved')
+  assert(loaded.iterations[0].review_policy?.major_revision_limit === 3, 'loaded iteration review_policy preserved')
+  assert(loaded.iterations[0].risk_profile === 'standard', 'loaded iteration risk_profile preserved')
 
   // Cleanup
   cleanBatch(batchId)
+}
+
+// ── Test 1b: Route classification + default review policy ─
+
+async function test_entry_route_and_review_policy_models() {
+  process.stderr.write('\n== Test 1b: Entry route + review policy models ==\n')
+
+  const { classifyEntryRoute, hasScaffoldPlaceholder } = await import('./entry_route.mjs')
+  const { buildReviewPolicy } = await import('./review_policy.mjs')
+
+  assert(hasScaffoldPlaceholder('(to be filled by Codex during PLANNING phase)') === true,
+    'scaffold placeholder detected')
+  assert(hasScaffoldPlaceholder('# Real contract\n\nImplementation details.') === false,
+    'non-scaffold contract not flagged')
+
+  const newRequirement = classifyEntryRoute({
+    entry_source: 'prompt',
+  })
+  assert(newRequirement.route_kind === 'new_requirement', '--prompt classified as new_requirement')
+
+  const draftIteration = classifyEntryRoute({
+    entry_source: 'iteration',
+    iteration_status: 'Planned',
+    has_plan: true,
+    has_resolution: true,
+    plan_is_scaffold: true,
+    resolution_is_scaffold: false,
+  })
+  assert(draftIteration.route_kind === 'draft_iteration', 'scaffold iteration classified as draft_iteration')
+
+  const executableIteration = classifyEntryRoute({
+    entry_source: 'iteration',
+    iteration_status: 'Approved',
+    has_plan: true,
+    has_resolution: true,
+    plan_is_scaffold: false,
+    resolution_is_scaffold: false,
+  })
+  assert(executableIteration.route_kind === 'executable_iteration',
+    'approved complete contract classified as executable_iteration')
+
+  const policy = buildReviewPolicy({ entry_route: executableIteration.route_kind })
+  assert(policy.approval_count === 3, 'default review_policy approval_count = 3')
+  assert(policy.major_revision_limit === 3, 'default review_policy major_revision_limit = 3')
+  assert(policy.cli_failure_threshold === 2, 'default review_policy cli_failure_threshold = 2')
+  assert(typeof policy.risk_profile === 'string' && policy.risk_profile.length > 0,
+    'default review_policy risk_profile present')
 }
 
 // ── Test 2: Events + orphan detection ───────────────────
@@ -408,6 +476,7 @@ async function main() {
   process.stderr.write('== Orchestrator State Machine Tests ==\n')
 
   test_state_lifecycle()
+  await test_entry_route_and_review_policy_models()
   await test_events()
   test_scheduler()
   test_parsers()
