@@ -186,13 +186,7 @@ export function createDemoStore() {
 
   function getUiAst() {
     const resolved = resolveRouteUiAst(snapshot, routeState.path, { projectSchemaModel: buildAstFromSchema });
-    if (resolved && resolved.ast && typeof resolved.ast === 'object') {
-      return resolved.ast;
-    }
-    const model = runtime.getModel(EDITOR_MODEL_ID);
-    const cell = runtime.getCell(model, 0, 0, 0);
-    const label = cell.labels.get('ui_ast_v0');
-    return label ? label.v : null;
+    return resolved && resolved.ast && typeof resolved.ast === 'object' ? resolved.ast : null;
   }
 
   function setRoutePath(routePath) {

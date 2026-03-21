@@ -23,9 +23,9 @@
       "op": "add_label",
       "model_id": -26,
       "p": 0,
-      "r": 0,
+      "r": 1,
       "c": 0,
-      "k": "ui_ast_v0",
+      "k": "page_asset_v0",
       "t": "json",
       "v": {
         "id": "root_v1",
@@ -34,12 +34,17 @@
           {
             "id": "layout",
             "type": "Container",
-            "props": { "layout": "column", "gap": 12 },
+            "props": {
+              "layout": "column",
+              "gap": 12
+            },
             "children": [
               {
                 "id": "card_editor_test",
                 "type": "Card",
-                "props": { "title": "Editor Test Controls" },
+                "props": {
+                  "title": "Editor Test Controls"
+                },
                 "children": [
                   {
                     "id": "form_editor_test",
@@ -48,18 +53,43 @@
                       {
                         "id": "fi_model",
                         "type": "FormItem",
-                        "props": { "label": "Target model" },
+                        "props": {
+                          "label": "Target model"
+                        },
                         "children": [
                           {
                             "id": "sel_target_model",
                             "type": "Select",
                             "props": {
-                              "options": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "editor_model_options_json" } },
+                              "options": {
+                                "$label": {
+                                  "model_id": -2,
+                                  "p": 0,
+                                  "r": 0,
+                                  "c": 0,
+                                  "k": "editor_model_options_json"
+                                }
+                              },
                               "placeholder": "Select model"
                             },
                             "bind": {
-                              "read": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "selected_model_id" },
-                              "write": { "action": "label_update", "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "selected_model_id" } }
+                              "read": {
+                                "model_id": -2,
+                                "p": 0,
+                                "r": 0,
+                                "c": 0,
+                                "k": "selected_model_id"
+                              },
+                              "write": {
+                                "action": "label_update",
+                                "target_ref": {
+                                  "model_id": -2,
+                                  "p": 0,
+                                  "r": 0,
+                                  "c": 0,
+                                  "k": "selected_model_id"
+                                }
+                              }
                             }
                           },
                           {
@@ -75,14 +105,31 @@
                       {
                         "id": "fi_value",
                         "type": "FormItem",
-                        "props": { "label": "Value" },
+                        "props": {
+                          "label": "Value"
+                        },
                         "children": [
                           {
                             "id": "input_v_text",
                             "type": "Input",
                             "bind": {
-                              "read": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "draft_v_text" },
-                              "write": { "action": "label_update", "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "draft_v_text" } }
+                              "read": {
+                                "model_id": -2,
+                                "p": 0,
+                                "r": 0,
+                                "c": 0,
+                                "k": "draft_v_text"
+                              },
+                              "write": {
+                                "action": "label_update",
+                                "target_ref": {
+                                  "model_id": -2,
+                                  "p": 0,
+                                  "r": 0,
+                                  "c": 0,
+                                  "k": "draft_v_text"
+                                }
+                              }
                             }
                           }
                         ]
@@ -90,51 +137,107 @@
                       {
                         "id": "fi_actions",
                         "type": "FormItem",
-                        "props": { "label": "Actions" },
+                        "props": {
+                          "label": "Actions"
+                        },
                         "children": [
                           {
                             "id": "btn_apply_add",
                             "type": "Button",
-                            "props": { "label": "Add local probe", "type": "primary" },
+                            "props": {
+                              "label": "Add local probe",
+                              "type": "primary"
+                            },
                             "bind": {
                               "write": {
                                 "action": "label_add",
-                                "target_ref": { "model_id": -2, "p": 9, "r": 9, "c": 9, "k": "probe" },
-                                "value_ref": { "t": "str", "v": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "draft_v_text" } } }
+                                "target_ref": {
+                                  "model_id": -2,
+                                  "p": 9,
+                                  "r": 9,
+                                  "c": 9,
+                                  "k": "probe"
+                                },
+                                "value_ref": {
+                                  "t": "str",
+                                  "v": {
+                                    "$label": {
+                                      "model_id": -2,
+                                      "p": 0,
+                                      "r": 0,
+                                      "c": 0,
+                                      "k": "draft_v_text"
+                                    }
+                                  }
+                                }
                               }
                             }
                           },
                           {
                             "id": "btn_apply_update",
                             "type": "Button",
-                            "props": { "label": "Update local probe" },
+                            "props": {
+                              "label": "Update local probe"
+                            },
                             "bind": {
                               "write": {
                                 "action": "label_update",
-                                "target_ref": { "model_id": -2, "p": 9, "r": 9, "c": 9, "k": "probe" },
-                                "value_ref": { "t": "str", "v": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "draft_v_text" } } }
+                                "target_ref": {
+                                  "model_id": -2,
+                                  "p": 9,
+                                  "r": 9,
+                                  "c": 9,
+                                  "k": "probe"
+                                },
+                                "value_ref": {
+                                  "t": "str",
+                                  "v": {
+                                    "$label": {
+                                      "model_id": -2,
+                                      "p": 0,
+                                      "r": 0,
+                                      "c": 0,
+                                      "k": "draft_v_text"
+                                    }
+                                  }
+                                }
                               }
                             }
                           },
                           {
                             "id": "btn_apply_remove",
                             "type": "Button",
-                            "props": { "label": "Remove local probe" },
+                            "props": {
+                              "label": "Remove local probe"
+                            },
                             "bind": {
                               "write": {
                                 "action": "label_remove",
-                                "target_ref": { "model_id": -2, "p": 9, "r": 9, "c": 9, "k": "probe" }
+                                "target_ref": {
+                                  "model_id": -2,
+                                  "p": 9,
+                                  "r": 9,
+                                  "c": 9,
+                                  "k": "probe"
+                                }
                               }
                             }
                           },
                           {
                             "id": "btn_apply_clear",
                             "type": "Button",
-                            "props": { "label": "Clear local probe cell" },
+                            "props": {
+                              "label": "Clear local probe cell"
+                            },
                             "bind": {
                               "write": {
                                 "action": "cell_clear",
-                                "target_ref": { "model_id": -2, "p": 9, "r": 9, "c": 9 }
+                                "target_ref": {
+                                  "model_id": -2,
+                                  "p": 9,
+                                  "r": 9,
+                                  "c": 9
+                                }
                               }
                             }
                           }

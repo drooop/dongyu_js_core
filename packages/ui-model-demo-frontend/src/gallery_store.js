@@ -1,9 +1,12 @@
 import { reactive } from 'vue';
 import { ModelTableRuntime } from '../../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from './local_bus_adapter.js';
+import { getSnapshotLabelValue } from './snapshot_utils.js';
 import galleryCatalogPatch from '../../worker-base/system-models/gallery_catalog_ui.json' with { type: 'json' };
 import { EDITOR_STATE_MODEL_ID, GALLERY_CATALOG_MODEL_ID, GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from './model_ids.js';
 import { setHashPath } from './router.js';
+
+const GALLERY_PAGE_ASSET_REF = { model_id: GALLERY_CATALOG_MODEL_ID, p: 0, r: 1, c: 0, k: 'page_asset_v0' };
 
 function ensureModel(runtime, { id, name, type }) {
   if (runtime.getModel(id)) return runtime.getModel(id);
@@ -69,10 +72,8 @@ export function createGalleryStore(options) {
   }
 
   function getUiAst() {
-    const model = runtime.getModel(GALLERY_CATALOG_MODEL_ID);
-    const cell = runtime.getCell(model, 0, 0, 0);
-    const label = cell.labels.get('ui_ast_v0');
-    return label ? label.v : null;
+    const raw = getSnapshotLabelValue(snapshot, GALLERY_PAGE_ASSET_REF);
+    return raw && typeof raw === 'object' ? raw : null;
   }
 
   function dispatchAddLabel(label) {

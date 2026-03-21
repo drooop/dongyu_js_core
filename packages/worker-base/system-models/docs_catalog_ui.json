@@ -23,9 +23,9 @@
       "op": "add_label",
       "model_id": -23,
       "p": 0,
-      "r": 0,
+      "r": 1,
       "c": 0,
-      "k": "ui_ast_v0",
+      "k": "page_asset_v0",
       "t": "json",
       "v": {
         "id": "root_docs",
@@ -34,12 +34,20 @@
           {
             "id": "layout_docs",
             "type": "Container",
-            "props": { "layout": "row", "gap": 12, "style": { "alignItems": "flex-start" } },
+            "props": {
+              "layout": "row",
+              "gap": 12,
+              "style": {
+                "alignItems": "flex-start"
+              }
+            },
             "children": [
               {
                 "id": "card_docs_left",
                 "type": "Card",
-                "props": { "title": "Docs" },
+                "props": {
+                  "title": "Docs"
+                },
                 "children": [
                   {
                     "id": "form_docs_controls",
@@ -48,36 +56,72 @@
                       {
                         "id": "fi_docs_query",
                         "type": "FormItem",
-                        "props": { "label": "Search" },
+                        "props": {
+                          "label": "Search"
+                        },
                         "children": [
                           {
                             "id": "input_docs_query",
                             "type": "Input",
-                            "props": { "placeholder": "name | content substring..." },
+                            "props": {
+                              "placeholder": "name | content substring..."
+                            },
                             "bind": {
-                              "read": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "docs_query" },
-                              "write": { "action": "label_update", "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "docs_query" } }
+                              "read": {
+                                "model_id": -2,
+                                "p": 0,
+                                "r": 0,
+                                "c": 0,
+                                "k": "docs_query"
+                              },
+                              "write": {
+                                "action": "label_update",
+                                "target_ref": {
+                                  "model_id": -2,
+                                  "p": 0,
+                                  "r": 0,
+                                  "c": 0,
+                                  "k": "docs_query"
+                                }
+                              }
                             }
                           },
                           {
                             "id": "btn_docs_search",
                             "type": "Button",
-                            "props": { "type": "primary", "label": "Search" },
+                            "props": {
+                              "type": "primary",
+                              "label": "Search"
+                            },
                             "bind": {
                               "write": {
                                 "action": "docs_search",
-                                "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "docs_query" }
+                                "target_ref": {
+                                  "model_id": -2,
+                                  "p": 0,
+                                  "r": 0,
+                                  "c": 0,
+                                  "k": "docs_query"
+                                }
                               }
                             }
                           },
                           {
                             "id": "btn_docs_refresh",
                             "type": "Button",
-                            "props": { "label": "Refresh index" },
+                            "props": {
+                              "label": "Refresh index"
+                            },
                             "bind": {
                               "write": {
                                 "action": "docs_refresh_tree",
-                                "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "docs_tree_json" }
+                                "target_ref": {
+                                  "model_id": -2,
+                                  "p": 0,
+                                  "r": 0,
+                                  "c": 0,
+                                  "k": "docs_tree_json"
+                                }
                               }
                             }
                           }
@@ -86,22 +130,44 @@
                       {
                         "id": "fi_docs_selected",
                         "type": "FormItem",
-                        "props": { "label": "Selected" },
+                        "props": {
+                          "label": "Selected"
+                        },
                         "children": [
                           {
                             "id": "txt_docs_selected",
                             "type": "Text",
-                            "props": { "type": "info", "text": "" },
-                            "bind": { "read": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "docs_selected_path" } }
+                            "props": {
+                              "type": "info",
+                              "text": ""
+                            },
+                            "bind": {
+                              "read": {
+                                "model_id": -2,
+                                "p": 0,
+                                "r": 0,
+                                "c": 0,
+                                "k": "docs_selected_path"
+                              }
+                            }
                           },
                           {
                             "id": "btn_docs_open",
                             "type": "Button",
-                            "props": { "type": "primary", "label": "Open" },
+                            "props": {
+                              "type": "primary",
+                              "label": "Open"
+                            },
                             "bind": {
                               "write": {
                                 "action": "docs_open_doc",
-                                "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "docs_selected_path" }
+                                "target_ref": {
+                                  "model_id": -2,
+                                  "p": 0,
+                                  "r": 0,
+                                  "c": 0,
+                                  "k": "docs_selected_path"
+                                }
                               }
                             }
                           }
@@ -110,25 +176,48 @@
                       {
                         "id": "fi_docs_tree",
                         "type": "FormItem",
-                        "props": { "label": "Index" },
+                        "props": {
+                          "label": "Index"
+                        },
                         "children": [
                           {
                             "id": "tree_docs",
                             "type": "Tree",
                             "props": {
-                              "data": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "docs_tree_json" } },
+                              "data": {
+                                "$label": {
+                                  "model_id": -2,
+                                  "p": 0,
+                                  "r": 0,
+                                  "c": 0,
+                                  "k": "docs_tree_json"
+                                }
+                              },
                               "nodeKey": "path",
-                              "props": { "label": "label", "children": "children" },
+                              "props": {
+                                "label": "label",
+                                "children": "children"
+                              },
                               "highlightCurrent": true,
                               "defaultExpandAll": true,
                               "expandOnClickNode": true,
                               "emptyText": "(empty)",
-                              "style": { "width": "360px", "maxHeight": "520px", "overflow": "auto" }
+                              "style": {
+                                "width": "360px",
+                                "maxHeight": "520px",
+                                "overflow": "auto"
+                              }
                             },
                             "bind": {
                               "change": {
                                 "action": "label_update",
-                                "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "docs_selected_path" }
+                                "target_ref": {
+                                  "model_id": -2,
+                                  "p": 0,
+                                  "r": 0,
+                                  "c": 0,
+                                  "k": "docs_selected_path"
+                                }
                               }
                             }
                           }
@@ -137,16 +226,57 @@
                       {
                         "id": "fi_docs_results",
                         "type": "FormItem",
-                        "props": { "label": "Results" },
+                        "props": {
+                          "label": "Results"
+                        },
                         "children": [
                           {
                             "id": "tbl_docs_results",
                             "type": "Table",
-                            "props": { "data": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "docs_search_results_json" } }, "border": true, "stripe": true, "size": "small", "height": 240, "rowKey": "path" },
+                            "props": {
+                              "data": {
+                                "$label": {
+                                  "model_id": -2,
+                                  "p": 0,
+                                  "r": 0,
+                                  "c": 0,
+                                  "k": "docs_search_results_json"
+                                }
+                              },
+                              "border": true,
+                              "stripe": true,
+                              "size": "small",
+                              "height": 240,
+                              "rowKey": "path"
+                            },
                             "children": [
-                              { "id": "col_docs_path", "type": "TableColumn", "props": { "label": "path", "prop": "path", "minWidth": 220 } },
-                              { "id": "col_docs_hit", "type": "TableColumn", "props": { "label": "hit", "prop": "hit", "minWidth": 140 } },
-                              { "id": "col_docs_snip", "type": "TableColumn", "props": { "label": "snippet", "prop": "snippet", "minWidth": 240 } }
+                              {
+                                "id": "col_docs_path",
+                                "type": "TableColumn",
+                                "props": {
+                                  "label": "path",
+                                  "prop": "path",
+                                  "minWidth": 220
+                                }
+                              },
+                              {
+                                "id": "col_docs_hit",
+                                "type": "TableColumn",
+                                "props": {
+                                  "label": "hit",
+                                  "prop": "hit",
+                                  "minWidth": 140
+                                }
+                              },
+                              {
+                                "id": "col_docs_snip",
+                                "type": "TableColumn",
+                                "props": {
+                                  "label": "snippet",
+                                  "prop": "snippet",
+                                  "minWidth": 240
+                                }
+                              }
                             ]
                           }
                         ]
@@ -154,8 +284,19 @@
                       {
                         "id": "txt_docs_status",
                         "type": "Text",
-                        "props": { "type": "info", "text": "" },
-                        "bind": { "read": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "docs_status" } }
+                        "props": {
+                          "type": "info",
+                          "text": ""
+                        },
+                        "bind": {
+                          "read": {
+                            "model_id": -2,
+                            "p": 0,
+                            "r": 0,
+                            "c": 0,
+                            "k": "docs_status"
+                          }
+                        }
                       }
                     ]
                   }
@@ -164,13 +305,27 @@
               {
                 "id": "card_docs_right",
                 "type": "Card",
-                "props": { "title": "Content" },
+                "props": {
+                  "title": "Content"
+                },
                 "children": [
                   {
                     "id": "html_docs",
                     "type": "Html",
-                    "props": { "style": { "maxWidth": "800px" } },
-                    "bind": { "read": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "docs_render_html" } }
+                    "props": {
+                      "style": {
+                        "maxWidth": "800px"
+                      }
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "docs_render_html"
+                      }
+                    }
                   }
                 ]
               }
