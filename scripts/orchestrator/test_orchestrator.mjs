@@ -1141,6 +1141,102 @@ function test_major_revision_limit() {
   cleanBatch(batchId)
 }
 
+// ── Test 11: Wave launcher routing/outcome ─────────────
+
+async function test_wave_launcher_contract() {
+  process.stderr.write('\n== Test 11: Wave launcher contract ==\n')
+
+  const {
+    parseIterationList,
+    discoverLedgerFollowUps,
+    insertIterationsAfterCurrent,
+    inspectWaveBatchExtras,
+    getIterationLedgerEntry,
+    classifyWaveIterationAction,
+    classifyWaveBatchOutcome,
+  } = await import('./wave_launcher_lib.mjs')
+
+  const parsed = parseIterationList('0210-a, 0211-b\n0212-c')
+  assert(parsed.length === 3, 'wave launcher parses comma/newline separated ids')
+  assert(parsed[2] === '0212-c', 'wave launcher preserves iteration order')
+
+  const ledger = [
+    '| 0210-a | 2026-03-22 | A | 4 | dropx/dev_0210-a | Planned | ./docs/iterations/0210-a/ |',
+    '| 0211-b | 2026-03-22 | B | 4 | dropx/dev_0211-b | Completed | ./docs/iterations/0211-b/ |',
+    '| 0212-c | 2026-03-22 | C | 4 | dropx/dev_0212-c | On Hold | ./docs/iterations/0212-c/ |',
+  ].join('\n')
+
+  const entry = getIterationLedgerEntry(ledger, '0210-a')
+  assert(entry?.status === 'Planned', 'wave launcher reads ITERATIONS planned status')
+  assert(entry?.branch === 'dropx/dev_0210-a', 'wave launcher reads ITERATIONS branch')
+
+  const runAction = classifyWaveIterationAction(entry)
+  assert(runAction.action === 'run', 'Planned iteration is runnable in wave launcher')
+
+  const skipAction = classifyWaveIterationAction(getIterationLedgerEntry(ledger, '0211-b'))
+  assert(skipAction.action === 'skip', 'Completed iteration is skipped in wave launcher')
+
+  const stopAction = classifyWaveIterationAction(getIterationLedgerEntry(ledger, '0212-c'))
+  assert(stopAction.action === 'stop', 'On Hold iteration blocks wave launcher')
+
+  const continueOutcome = classifyWaveBatchOutcome({
+    final_verification: 'passed',
+    batch_summary: { lifecycle: 'completed', terminal_outcome: 'passed' },
+    iterations: [{ id: '0210-a', status: 'completed' }],
+  }, '0210-a')
+  assert(continueOutcome.action === 'continue', 'completed iteration with passed final verification continues wave')
+
+  const failedOutcome = classifyWaveBatchOutcome({
+    final_verification: 'failed',
+    batch_summary: { lifecycle: 'completed', terminal_outcome: 'failed' },
+    iterations: [{ id: '0210-a', status: 'completed' }],
+  }, '0210-a')
+  assert(failedOutcome.action === 'stop', 'failed final verification stops wave')
+
+  const onHoldOutcome = classifyWaveBatchOutcome({
+    final_verification: 'pending',
+    batch_summary: { lifecycle: 'stalled', terminal_outcome: 'on_hold' },
+    iterations: [{ id: '0210-a', status: 'on_hold' }],
+  }, '0210-a')
+  assert(onHoldOutcome.action === 'stop', 'on_hold iteration stops wave')
+
+  const beforeLedger = [
+    '| 0210-ui-cellwise-contract-freeze | 2026-03-22 | A | 4 | dropx/dev_0210-ui-cellwise-contract-freeze | Completed | ./docs/iterations/0210-ui-cellwise-contract-freeze/ |',
+    '| 0211-ui-bootstrap-and-submodel-migration | 2026-03-22 | B | 4 | dropx/dev_0211-ui-bootstrap-and-submodel-migration | Planned | ./docs/iterations/0211-ui-bootstrap-and-submodel-migration/ |',
+  ].join('\n')
+  const afterLedger = [
+    beforeLedger,
+    '| 0210b-ui-cellwise-contract-freeze | 2026-03-22 | Follow-up B | 2 | dropx/dev_0210b-ui-cellwise-contract-freeze | Planned | ./docs/iterations/0210b-ui-cellwise-contract-freeze/ |',
+    '| 0210c-ui-cellwise-contract-freeze | 2026-03-22 | Follow-up C | 2 | dropx/dev_0210c-ui-cellwise-contract-freeze | Approved | ./docs/iterations/0210c-ui-cellwise-contract-freeze/ |',
+  ].join('\n')
+  const followUps = discoverLedgerFollowUps(
+    beforeLedger,
+    afterLedger,
+    '0210-ui-cellwise-contract-freeze',
+    ['0210-ui-cellwise-contract-freeze', '0211-ui-bootstrap-and-submodel-migration'],
+  )
+  assert(followUps.length === 2, 'wave launcher discovers newly registered follow-up iterations')
+  assert(followUps[0] === '0210b-ui-cellwise-contract-freeze', 'wave launcher preserves ledger order for follow-ups')
+
+  const queue = insertIterationsAfterCurrent(
+    ['0210-ui-cellwise-contract-freeze', '0211-ui-bootstrap-and-submodel-migration'],
+    0,
+    followUps,
+  )
+  assert(queue[1] === '0210b-ui-cellwise-contract-freeze', 'follow-up inserted immediately after current iteration')
+  assert(queue[2] === '0210c-ui-cellwise-contract-freeze', 'multiple follow-ups preserve relative order')
+
+  const extraInspection = inspectWaveBatchExtras({
+    iterations: [
+      { id: '0210-ui-cellwise-contract-freeze', status: 'completed' },
+      { id: '0210s-extra', status: 'proposed' },
+    ],
+  }, '0210-ui-cellwise-contract-freeze', ['0210-ui-cellwise-contract-freeze'])
+  assert(extraInspection.action === 'stop', 'unresolved extra iteration stops wave launcher')
+  assert(extraInspection.reason === 'unresolved_extra_iteration:0210s-extra:proposed',
+    'extra iteration stop reason is explicit')
+}
+
 // ── Run all ─────────────────────────────────────────────
 
 async function main() {
@@ -1166,6 +1262,7 @@ async function main() {
   test_terminal_closure_contract()
   test_auto_approval_logic()
   test_major_revision_limit()
+  await test_wave_launcher_contract()
 
   process.stderr.write(`\n== Results: ${passed} passed, ${failed} failed ==\n`)
   process.exit(failed > 0 ? 1 : 0)
