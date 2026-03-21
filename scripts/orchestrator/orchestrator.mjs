@@ -499,7 +499,7 @@ async function runIteration(state, iterationId) {
 
         const result = claudeReview(state.batch_id, iterationId,
           buildPlanReviewPrompt(iterationId, isFollowUp),
-          { phase: 'review_plan', round: iter.review_round, model: 'opus' }
+          { phase: 'review_plan', round: iter.review_round, model: 'opus', maxTurns: 8 }
         )
 
         if (!result.ok) {
@@ -661,7 +661,7 @@ async function runIteration(state, iterationId) {
 
         const result = claudeReview(state.batch_id, iterationId,
           buildExecReviewPrompt(iterationId, isFollowUp),
-          { phase: 'review_exec', round: iter.review_round, model: 'opus' }
+          { phase: 'review_exec', round: iter.review_round, model: 'opus', maxTurns: 12 }
         )
 
         if (!result.ok) {
