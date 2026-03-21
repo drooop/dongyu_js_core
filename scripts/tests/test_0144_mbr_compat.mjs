@@ -12,9 +12,9 @@ function loadJson(p) {
 function loadSystemAndMbr() {
   const rt = new ModelTableRuntime();
   const sysPatch = loadJson('packages/worker-base/system-models/system_models.json');
-  rt.applyPatch(sysPatch, { allowCreateModel: true });
+  rt.applyPatch(sysPatch, { allowCreateModel: true, trustedBootstrap: true });
   const mbrPatch = loadJson('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json');
-  rt.applyPatch(mbrPatch, { allowCreateModel: true });
+  rt.applyPatch(mbrPatch, { allowCreateModel: true, trustedBootstrap: true });
   return rt;
 }
 
@@ -107,8 +107,11 @@ function test_mbr_mgmt_to_mqtt_execute_model100() {
 
   assert(publishedTopic, 'should publish to MQTT');
   assert(publishedTopic.endsWith('/100/event'), `topic should end with /100/event, got ${publishedTopic}`);
-  assert(publishedPayload && publishedPayload.version === 'mt.v0', 'payload must be mt.v0');
-  assert(Array.isArray(publishedPayload.records), 'payload must have records');
+  assert(publishedPayload && publishedPayload.version === 'v0', 'payload must be direct event v0');
+  assert.strictEqual(publishedPayload.type, 'ui_event', 'payload type must stay ui_event');
+  assert.strictEqual(publishedPayload.action, 'submit', 'payload action must stay submit');
+  assert.strictEqual(publishedPayload.source_model_id, 100, 'payload must preserve source_model_id');
+  assert(!Array.isArray(publishedPayload.records), 'payload must not have records');
 
   // Verify inbox cleaned up
   assert(!rt.getCell(sys, 0, 0, 0).labels.has('mbr_mgmt_inbox'), 'inbox should be cleaned');

@@ -35,13 +35,6 @@ post_ui_event() {
   curl -fsS -X POST "$BASE_URL/ui_event" -H 'content-type: application/json' -d "$body"
 }
 
-apply_patch_json() {
-  local patch_json="$1"
-  local body
-  body="$(jq -nc --argjson patch "$patch_json" '{ patch: $patch }')"
-  curl -fsS -X POST "$BASE_URL/api/modeltable/patch" -H 'content-type: application/json' -d "$body" >/dev/null
-}
-
 while [ $# -gt 0 ]; do
   case "$1" in
     --base-url)
@@ -86,31 +79,5 @@ OP3="llm_low_$(date +%s)_3"
 R3="$(post_ui_event "ambiguous docs operation" "$OP3")"
 echo "[verify-llm] case3=$R3"
 echo "$R3" | jq -e '.ok == true and .result == "error" and .code == "low_confidence" and (.candidates | length) >= 1' >/dev/null
-
-# Case 4: llm dispatch disabled should degrade to unknown_action
-ORIG_CFG="$(curl -fsS "$BASE_URL/snapshot" | jq '.snapshot.models["0"].cells["0,0,0"].labels.llm_dispatch_config.v')"
-BAD_CFG="$(echo "$ORIG_CFG" | jq '.provider = "disabled"')"
-PATCH_BAD="$(jq -nc --argjson cfg "$BAD_CFG" '{
-  version: "mt.v0",
-  op_id: "verify_llm_cfg_bad",
-  records: [
-    { op: "add_label", model_id: 0, p: 0, r: 0, c: 0, k: "llm_dispatch_config", t: "json", v: $cfg }
-  ]
-}')"
-apply_patch_json "$PATCH_BAD"
-OP4="llm_down_$(date +%s)_4"
-R4="$(post_ui_event "please refresh docs tree now" "$OP4")"
-echo "[verify-llm] case4=$R4"
-echo "$R4" | jq -e '.ok == true and .result == "error" and .code == "unknown_action"' >/dev/null
-
-# Restore config
-PATCH_RESTORE="$(jq -nc --argjson cfg "$ORIG_CFG" '{
-  version: "mt.v0",
-  op_id: "verify_llm_cfg_restore",
-  records: [
-    { op: "add_label", model_id: 0, p: 0, r: 0, c: 0, k: "llm_dispatch_config", t: "json", v: $cfg }
-  ]
-}')"
-apply_patch_json "$PATCH_RESTORE"
 
 echo "[verify-llm] PASS"

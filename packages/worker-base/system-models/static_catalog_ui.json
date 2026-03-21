@@ -1,0 +1,143 @@
+{
+  "version": "mt.v0",
+  "op_id": "static_catalog_ui_v0",
+  "description": "Static page asset",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": -24,
+      "name": "static_catalog",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "UI.StaticCatalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_ast_v0",
+      "t": "json",
+      "v": {
+        "id": "root_static",
+        "type": "Root",
+        "children": [
+          {
+            "id": "layout_static",
+            "type": "Container",
+            "props": { "layout": "column", "gap": 12 },
+            "children": [
+              {
+                "id": "card_static_upload",
+                "type": "Card",
+                "props": { "title": "Static Projects" },
+                "children": [
+                  {
+                    "id": "form_static",
+                    "type": "Form",
+                    "children": [
+                      {
+                        "id": "fi_static_name",
+                        "type": "FormItem",
+                        "props": { "label": "Project name" },
+                        "children": [
+                          {
+                            "id": "input_static_name",
+                            "type": "Input",
+                            "props": { "placeholder": "e.g. my-site" },
+                            "bind": {
+                              "read": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "static_project_name" },
+                              "write": { "action": "label_update", "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "static_project_name" } }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "fi_static_file",
+                        "type": "FormItem",
+                        "props": { "label": "Upload file" },
+                        "children": [
+                          {
+                            "id": "file_static_upload",
+                            "type": "FileInput",
+                            "props": { "accept": ".html,.htm,.zip", "label": "Select .html or .zip file (max 50MB)" },
+                            "bind": {
+                              "write": {
+                                "action": "label_update",
+                                "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "static_media_uri" }
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "fi_static_actions",
+                        "type": "FormItem",
+                        "props": { "label": "Actions" },
+                        "children": [
+                          {
+                            "id": "btn_static_upload",
+                            "type": "Button",
+                            "props": { "type": "primary", "label": "Upload", "disabled": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "static_upload_disabled" } } },
+                            "bind": {
+                              "write": {
+                                "action": "static_project_upload",
+                                "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "static_project_name" }
+                              }
+                            }
+                          },
+                          {
+                            "id": "btn_static_refresh",
+                            "type": "Button",
+                            "props": { "label": "Refresh list" },
+                            "bind": {
+                              "write": {
+                                "action": "static_project_list",
+                                "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "static_projects_json" }
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "txt_static_status",
+                        "type": "Text",
+                        "props": { "type": "info", "text": "" },
+                        "bind": { "read": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "static_status" } }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "card_static_list",
+                "type": "Card",
+                "props": { "title": "Projects" },
+                "children": [
+                  {
+                    "id": "tbl_static_projects",
+                    "type": "Table",
+                    "props": { "data": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "static_projects_json" } }, "border": true, "stripe": true, "size": "small", "height": 520, "rowKey": "name" },
+                    "children": [
+                      { "id": "col_static_name", "type": "TableColumn", "props": { "label": "name", "prop": "name", "minWidth": 180 } },
+                      { "id": "col_static_updated", "type": "TableColumn", "props": { "label": "updated", "prop": "updated_at", "minWidth": 180 } }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

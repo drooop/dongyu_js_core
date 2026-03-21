@@ -1,3 +1,5 @@
+import { parseSafeInt } from './snapshot_utils.js';
+
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -159,19 +161,6 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
     return runtime.getModel(editorStateModelId);
   }
 
-  function parseSafeInt(value) {
-    if (typeof value === 'number' && Number.isSafeInteger(value)) return value;
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (!trimmed) return null;
-      if (!/^-?\d+$/.test(trimmed)) return null;
-      const parsed = Number(trimmed);
-      if (!Number.isSafeInteger(parsed)) return null;
-      return parsed;
-    }
-    return null;
-  }
-
   function stringify(value) {
     if (value === undefined) return '';
     if (value === null) return 'null';
@@ -241,6 +230,20 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
     ]);
     if (typeof action !== 'string' || !allowedActions.has(action)) {
       return fail(op_id, 'unknown_action', 'unknown_action');
+    }
+    const target = payload && payload.target && typeof payload.target === 'object' ? payload.target : null;
+    const targetModelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
+    const isUiLocalStateMutation = targetModelId === editorStateModelId;
+    const isDirectModelMutation = action === 'submodel_create'
+      || (!isUiLocalStateMutation && (
+        action === 'label_add'
+        || action === 'label_update'
+        || action === 'label_remove'
+        || action === 'cell_clear'
+        || action === 'datatable_remove_label'
+      ));
+    if (isDirectModelMutation) {
+      return fail(op_id, 'direct_model_mutation_disabled', action);
     }
 
     if (!isUiRendererSource(envelope.source)) {
@@ -448,33 +451,33 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       return succeed(op_id, 'datatable_select_row');
     }
 
-    const target = payload.target;
-    if (!isPlainObject(target)) {
+    const genericTarget = payload.target;
+    if (!isPlainObject(genericTarget)) {
       return fail(op_id, 'invalid_target', 'missing_target');
     }
-    if (!Number.isInteger(target.model_id) || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c)) {
+    if (!Number.isInteger(genericTarget.model_id) || !Number.isInteger(genericTarget.p) || !Number.isInteger(genericTarget.r) || !Number.isInteger(genericTarget.c)) {
       return fail(op_id, 'invalid_target', 'missing_target_coords');
     }
-    if (isReservedTarget(target)) {
+    if (isReservedTarget(genericTarget)) {
       return fail(op_id, 'reserved_cell', 'reserved_model_id');
     }
 
-    const model = runtime.getModel(target.model_id);
+    const model = runtime.getModel(genericTarget.model_id);
     if (!model) {
       return fail(op_id, 'invalid_target', 'missing_model');
     }
 
     if (action === 'cell_clear') {
-      const cell = runtime.getCell(model, target.p, target.r, target.c);
+      const cell = runtime.getCell(model, genericTarget.p, genericTarget.r, genericTarget.c);
       for (const [k, lv] of cell.labels.entries()) {
         const label = { k: lv.k, t: lv.t, v: lv.v };
         if (!editableLabel(label)) continue;
-        runtime.rmLabel(model, target.p, target.r, target.c, k);
+        runtime.rmLabel(model, genericTarget.p, genericTarget.r, genericTarget.c, k);
       }
       return succeed(op_id, 'cell_clear');
     }
 
-    if (typeof target.k !== 'string' || target.k.length === 0) {
+    if (typeof genericTarget.k !== 'string' || genericTarget.k.length === 0) {
       return fail(op_id, 'invalid_target', 'missing_target_k');
     }
 
@@ -490,13 +493,13 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       }
     }
 
-    const allowRunForSystem = target.model_id < 0 && typeof target.k === 'string' && target.k.startsWith('run_');
-    if (matchForbiddenK(target.k) && !allowRunForSystem) {
+    const allowRunForSystem = genericTarget.model_id < 0 && typeof genericTarget.k === 'string' && genericTarget.k.startsWith('run_');
+    if (matchForbiddenK(genericTarget.k) && !allowRunForSystem) {
       return fail(op_id, 'forbidden_k', 'forbidden_k');
     }
 
     if (action === 'label_remove') {
-      runtime.rmLabel(model, target.p, target.r, target.c, target.k);
+      runtime.rmLabel(model, genericTarget.p, genericTarget.r, genericTarget.c, genericTarget.k);
       return succeed(op_id, 'label_remove');
     }
 
@@ -510,9 +513,9 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
         if (!normalized.ok) {
           return fail(op_id, normalized.code, normalized.detail);
         }
-        runtime.addLabel(model, target.p, target.r, target.c, { k: target.k, t: payload.value.t, v: normalized.value });
+        runtime.addLabel(model, genericTarget.p, genericTarget.r, genericTarget.c, { k: genericTarget.k, t: payload.value.t, v: normalized.value });
       } else {
-        runtime.addLabel(model, target.p, target.r, target.c, { k: target.k, t: payload.value.t, v: payload.value.v });
+        runtime.addLabel(model, genericTarget.p, genericTarget.r, genericTarget.c, { k: genericTarget.k, t: payload.value.t, v: payload.value.v });
       }
       return succeed(op_id, action);
     } catch (_) {

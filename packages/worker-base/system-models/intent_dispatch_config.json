@@ -35,8 +35,7 @@
       "t": "json",
       "v": {
         "ui_event": [
-          "update_scene_context",
-          "forward_ui_events"
+          "update_scene_context"
         ]
       }
     }

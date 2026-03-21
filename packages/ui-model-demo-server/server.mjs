@@ -15,8 +15,18 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 
 import { ModelTableRuntime } from '../worker-base/src/index.mjs';
+import { readMatrixBootstrapConfig } from '../worker-base/src/bootstrap_config.mjs';
+import { applyPersistedAssetEntries, resolvePersistedAssetRoot } from '../worker-base/src/persisted_asset_loader.mjs';
 import { createLocalBusAdapter } from '../ui-model-demo-frontend/src/local_bus_adapter.js';
-import { buildEditorAstV1, buildAstFromSchema } from '../ui-model-demo-frontend/src/demo_modeltable.js';
+import { buildAstFromSchema } from '../ui-model-demo-frontend/src/ui_schema_projection.js';
+import { resolvePageAsset } from '../ui-model-demo-frontend/src/page_asset_resolver.js';
+import {
+  deriveEditorModelOptions,
+  deriveHomeMissingModelText,
+  deriveHomeTableRows,
+  deriveStaticUploadReady,
+  deriveWorkspaceSelected,
+} from '../ui-model-demo-frontend/src/editor_page_state_derivers.js';
 import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from '../ui-model-demo-frontend/src/model_ids.js';
 import {
   getSession, getSessionWithToken, isAuthenticated, loginWithMatrix, logout,
@@ -26,10 +36,11 @@ import {
 } from './auth.mjs';
 import {
   normalizeFilltablePolicy,
-  validateFilltableRecords,
+  validateFilltableCandidateChanges,
   buildFilltableDigest,
   evaluateApplyPreviewGuard,
 } from './filltable_policy.mjs';
+import { buildFilltableModelInventoryFromSnapshot } from './filltable_prompt_context.mjs';
 
 const require = createRequire(import.meta.url);
 const { loadProgramModelFromSqlite } = require('../worker-base/src/program_model_loader.js');
@@ -208,31 +219,42 @@ const DEFAULT_LLM_SCENE_PROMPT_TEMPLATE = [
 ].join('\n');
 
 const DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE = [
-  'You are a strict ModelTable patch planner with a two-step confirmation workflow.',
-  'Return JSON only. No markdown fences.',
+  'You are a strict ModelTable patch planner.',
+  'Return exactly one JSON object and nothing else.',
   'User prompt: {{prompt_text}}',
   'Policy JSON: {{policy_json}}',
   'Allowed output schema JSON: {{output_schema_json}}',
   'Available positive model ids JSON: {{available_model_ids_json}}',
+  'Model inventory JSON: {{model_inventory_json}}',
+  'Output shape:',
+  '{"proposal":{"summary":"...","operations":["..."],"queries":["..."],"requires_confirmation":true,"confirmation_question":"..."},"candidate_changes":[{"action":"set_label","target":{"model_id":100,"p":0,"r":0,"c":0,"k":"title"},"label":{"t":"str","v":"Demo"},"owner_hint":"modeltable_local_owner"}],"confidence":0.0,"reasoning":"..."}',
   'Rules:',
-  '- Output must be {"proposal":{...},"records":[...],"confidence":0..1,"reasoning":"..."}',
-  '- proposal must contain summary, operations, queries, requires_confirmation=true, confirmation_question',
-  '- operations are human-readable planned write actions',
-  '- queries are read/check requests and MUST NOT be converted into records',
-  '- records only support op=add_label/rm_label',
-  '- add_label requires model_id,p,r,c,k,t,v',
-  '- rm_label requires model_id,p,r,c,k',
-  '- max records is 10',
-  '- Must obey policy.allowed_label_types and policy.allow_structural_types',
+  '- JSON only, no markdown, no prose before or after JSON',
+  '- never emit tool calls, XML tags, <think> blocks, or analysis outside the JSON object',
+  '- operations and queries may be arrays of strings',
+  '- candidate_changes only support action=set_label/remove_label',
+  '- set_label requires target.model_id,target.p,target.r,target.c,target.k and label.t,label.v',
+  '- remove_label requires target.model_id,target.p,target.r,target.c,target.k',
+  '- max changes is 10',
+  '- query-only requests must use candidate_changes: [] and put reads in proposal.queries',
+  '- target.model_id must be one of available positive model ids',
+  '- do not target model_id=0 or any negative model_id in candidate_changes',
+  '- If model_inventory_json shows schema_fields for a target model, prefer those exact keys over inventing new keys',
+  '- Map user phrases using schema_fields.key, ui_label, placeholder, and option labels/values before considering a new key',
+  '- For enumerated fields with options, write the canonical option.value when it clearly matches the user request',
+  '- Do not invent synonym keys like applicant_name when schema already has applicant',
+  '- Only create a new non-schema key when the user explicitly names that new key and it is allowed by policy',
+  '- If a field is ambiguous or no schema key matches confidently, omit that field from candidate_changes and ask one concise clarification question in proposal.confirmation_question',
+  '- If the request needs structural changes or child-model creation that policy forbids, keep candidate_changes: [] and explain the block briefly in proposal.summary/confirmation_question',
+  '- obey policy.allowed_label_types and policy.allow_structural_types',
   '- Structural t (func.js/func.python/pin.connect.label/pin.connect.cell/pin.connect.model/pin.bus.in/pin.bus.out/pin.table.in/pin.table.out/pin.single.in/pin.single.out/model.single/model.matrix/model.table/submt) are forbidden unless policy.allow_structural_types=true',
-  '- model_id=0 may only use boundary pin types pin.bus.in / pin.bus.out',
-  '- model_id != 0 may use pin.table.in / pin.table.out for table-or-matrix models, and pin.single.in / pin.single.out for model.single',
+  '- pin.table.in / pin.table.out are for table-or-matrix models, and pin.single.in / pin.single.out are for model.single',
   '- For func.js/func.python, v must be object and include non-empty string field code',
   '- For pin.connect.*, v must be an array',
   '- For pin.bus.* / pin.table.* / pin.single.*, v must be JSON-serializable; use null for declaration-only ports when appropriate',
   '- For model.single/model.matrix/model.table, v must be a non-empty string',
-  '- for query-only requests output records: [] and describe them in proposal.queries',
-  '- Never output explanation text outside JSON',
+  '- owner_hint is optional; if present, use modeltable_local_owner',
+  '- Keep summary and reasoning short',
 ].join('\n');
 
 function toFiniteNumber(value, fallback) {
@@ -537,7 +559,7 @@ function parseLlmFilltableResult(rawText) {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return { ok: false, code: 'llm_parse_failed', detail: 'filltable_json_parse_failed' };
   }
-  const records = Array.isArray(parsed.records) ? parsed.records : [];
+  const candidate_changes = Array.isArray(parsed.candidate_changes) ? parsed.candidate_changes : [];
   const reasoning = typeof parsed.reasoning === 'string' ? parsed.reasoning.trim().slice(0, 1200) : '';
   const confidence = toUnitInterval(parsed.confidence, 0);
   const proposalRaw = parsed.proposal && typeof parsed.proposal === 'object' && !Array.isArray(parsed.proposal)
@@ -554,7 +576,7 @@ function parseLlmFilltableResult(rawText) {
   };
   return {
     ok: true,
-    records,
+    candidate_changes,
     reasoning,
     confidence,
     proposal,
@@ -586,30 +608,35 @@ function listPositiveModelIds(runtime, maxCount = 256) {
   return ids;
 }
 
-function summarizeRecordForProposal(record) {
-  if (!record || typeof record !== 'object') return '';
-  const op = String(record.op || '').trim();
-  const modelId = Number.isInteger(record.model_id) ? record.model_id : '?';
-  const p = Number.isInteger(record.p) ? record.p : 0;
-  const r = Number.isInteger(record.r) ? record.r : 0;
-  const c = Number.isInteger(record.c) ? record.c : 0;
-  const key = typeof record.k === 'string' ? record.k : '';
-  if (op === 'add_label') {
-    const type = typeof record.t === 'string' ? record.t : '?';
-    return `add ${key}(${type}) to model ${modelId} cell(${p},${r},${c})`;
+function summarizeFilltableChangeForProposal(change) {
+  if (!change || typeof change !== 'object') return '';
+  const action = typeof change.action === 'string' ? change.action.trim() : '';
+  const target = change.target && typeof change.target === 'object' && !Array.isArray(change.target)
+    ? change.target
+    : {};
+  const modelId = Number.isInteger(target.model_id) ? target.model_id : '?';
+  const p = Number.isInteger(target.p) ? target.p : 0;
+  const r = Number.isInteger(target.r) ? target.r : 0;
+  const c = Number.isInteger(target.c) ? target.c : 0;
+  const key = typeof target.k === 'string' ? target.k : '';
+  if (action === 'set_label') {
+    const type = change.label && typeof change.label === 'object' && typeof change.label.t === 'string'
+      ? change.label.t
+      : '?';
+    return `set ${key}(${type}) on model ${modelId} cell(${p},${r},${c})`;
   }
-  if (op === 'rm_label') {
+  if (action === 'remove_label') {
     return `remove ${key} from model ${modelId} cell(${p},${r},${c})`;
   }
-  return `${op || 'unknown'} on model ${modelId} cell(${p},${r},${c})`;
+  return `${action || 'unknown'} on model ${modelId} cell(${p},${r},${c})`;
 }
 
-function normalizeFilltableProposal(rawProposal, acceptedRecords, rejectedRecords) {
+function normalizeFilltableProposal(rawProposal, acceptedChanges, rejectedChanges) {
   const proposal = rawProposal && typeof rawProposal === 'object' && !Array.isArray(rawProposal)
     ? rawProposal
     : {};
-  const accepted = Array.isArray(acceptedRecords) ? acceptedRecords : [];
-  const rejected = Array.isArray(rejectedRecords) ? rejectedRecords : [];
+  const accepted = Array.isArray(acceptedChanges) ? acceptedChanges : [];
+  const rejected = Array.isArray(rejectedChanges) ? rejectedChanges : [];
   const operations = [];
   const rawOperations = Array.isArray(proposal.operations) ? proposal.operations : [];
   for (const item of rawOperations) {
@@ -633,18 +660,14 @@ function normalizeFilltableProposal(rawProposal, acceptedRecords, rejectedRecord
     });
   }
   if (operations.length === 0) {
-    for (const record of accepted.slice(0, 10)) {
-      const summary = summarizeRecordForProposal(record);
+    for (const change of accepted.slice(0, 10)) {
+      const summary = summarizeFilltableChangeForProposal(change);
       if (!summary) continue;
       operations.push({
         summary,
-        op: record.op,
-        model_id: record.model_id,
-        p: record.p,
-        r: record.r,
-        c: record.c,
-        k: record.k,
-        t: record.t,
+        action: change.action,
+        target: change.target,
+        label_t: change.label && typeof change.label === 'object' ? change.label.t : undefined,
       });
     }
   }
@@ -685,6 +708,112 @@ function normalizeFilltableProposal(rawProposal, acceptedRecords, rejectedRecord
   };
 }
 
+function resolveFilltableOwner(change, runtime) {
+  const target = change && typeof change === 'object' && change.target && typeof change.target === 'object'
+    ? change.target
+    : null;
+  const modelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
+  if (!Number.isInteger(modelId) || modelId <= 0) {
+    return { ok: false, code: 'owner_not_supported', detail: 'positive_model_id_required' };
+  }
+  if (typeof change.owner_hint === 'string' && change.owner_hint.trim() && change.owner_hint.trim() !== 'modeltable_local_owner') {
+    return { ok: false, code: 'owner_not_supported', detail: 'owner_hint_not_supported' };
+  }
+  const model = runtime.getModel(modelId);
+  if (!model) {
+    return { ok: false, code: 'model_not_found', detail: String(modelId) };
+  }
+  return {
+    ok: true,
+    owner_id: `modeltable_local_owner:${modelId}`,
+    owner_kind: 'modeltable_local_owner',
+    model,
+  };
+}
+
+function previewCandidateChangesByOwner(candidateChanges, runtime, policy) {
+  const validation = validateFilltableCandidateChanges(candidateChanges, policy);
+  const accepted_changes = [];
+  const rejected_changes = validation.rejected_changes.slice();
+  const ownerCounts = new Map();
+
+  for (let i = 0; i < validation.accepted_changes.length; i += 1) {
+    const change = validation.accepted_changes[i];
+    const resolved = resolveFilltableOwner(change, runtime);
+    if (!resolved.ok) {
+      rejected_changes.push({ index: i, code: resolved.code, detail: resolved.detail, change });
+      continue;
+    }
+    const normalized = {
+      ...change,
+      owner_id: resolved.owner_id,
+      owner_kind: resolved.owner_kind,
+    };
+    accepted_changes.push(normalized);
+    ownerCounts.set(resolved.owner_id, (ownerCounts.get(resolved.owner_id) || 0) + 1);
+  }
+
+  return {
+    accepted_changes,
+    rejected_changes,
+    owner_plan: Array.from(ownerCounts.entries()).map(([owner_id, change_count]) => ({
+      owner_id,
+      owner_kind: 'modeltable_local_owner',
+      change_count,
+    })),
+    stats: {
+      ...validation.stats,
+      accepted: accepted_changes.length,
+      rejected: rejected_changes.length,
+    },
+    policy: validation.policy,
+  };
+}
+
+function materializeFilltableChange(change) {
+  const target = change && typeof change === 'object' && change.target && typeof change.target === 'object'
+    ? change.target
+    : null;
+  if (!target) {
+    return { ok: false, code: 'invalid_change', detail: 'missing_target' };
+  }
+  if (change.action === 'set_label') {
+    const label = change.label && typeof change.label === 'object' && !Array.isArray(change.label)
+      ? change.label
+      : null;
+    if (!label || typeof label.t !== 'string') {
+      return { ok: false, code: 'invalid_change', detail: 'missing_label' };
+    }
+    return {
+      ok: true,
+      operation: {
+        op: 'add_label',
+        model_id: target.model_id,
+        p: target.p,
+        r: target.r,
+        c: target.c,
+        k: target.k,
+        t: label.t,
+        v: label.v,
+      },
+    };
+  }
+  if (change.action === 'remove_label') {
+    return {
+      ok: true,
+      operation: {
+        op: 'rm_label',
+        model_id: target.model_id,
+        p: target.p,
+        r: target.r,
+        c: target.c,
+        k: target.k,
+      },
+    };
+  }
+  return { ok: false, code: 'invalid_change', detail: 'unsupported_action' };
+}
+
 function parseJsonObjectOrNull(value) {
   if (!value) return null;
   if (typeof value === 'object' && !Array.isArray(value)) return value;
@@ -695,6 +824,52 @@ function parseJsonObjectOrNull(value) {
   } catch (_) {
     return null;
   }
+}
+
+function parseOllamaGenerateResponseText(text, fallbackModel) {
+  const raw = typeof text === 'string' ? text.trim() : '';
+  if (!raw) {
+    return { ok: false, code: 'llm_bad_response', detail: 'llm_empty_response' };
+  }
+
+  const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const parsedLines = [];
+  for (const line of lines) {
+    try {
+      parsedLines.push(JSON.parse(line));
+    } catch (_) {
+      if (lines.length === 1) {
+        return { ok: false, code: 'llm_bad_response', detail: 'llm_response_not_json' };
+      }
+      return { ok: false, code: 'llm_bad_response', detail: 'llm_stream_chunk_not_json' };
+    }
+  }
+
+  let model = typeof fallbackModel === 'string' && fallbackModel.trim() ? fallbackModel.trim() : '';
+  let responseText = '';
+  let evalDuration = null;
+  let totalDuration = null;
+  for (const item of parsedLines) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    if (typeof item.model === 'string' && item.model.trim()) model = item.model.trim();
+    if (typeof item.response === 'string' && item.response.length > 0) responseText += item.response;
+    if (Number.isFinite(item.eval_duration)) evalDuration = item.eval_duration;
+    if (Number.isFinite(item.total_duration)) totalDuration = item.total_duration;
+  }
+
+  if (!responseText.trim()) {
+    return { ok: false, code: 'llm_bad_response', detail: 'llm_empty_response' };
+  }
+
+  return {
+    ok: true,
+    data: {
+      model,
+      response: responseText,
+      eval_duration: evalDuration,
+      total_duration: totalDuration,
+    },
+  };
 }
 
 const LOCAL_EDITOR_ACTIONS = new Set([
@@ -1142,6 +1317,21 @@ const INTERNAL_LABEL_TYPES = new Set([
   'MQTT_WILDCARD_SUB',
 ]);
 const EXCLUDED_LABEL_KEYS = new Set(['snapshot_json', 'event_log']);
+const CLIENT_SECRET_LABEL_KEYS = new Set([
+  'matrix_token',
+  'matrix_passwd',
+]);
+const CLIENT_SECRET_LABEL_TYPES = new Set([
+  'matrix.token',
+  'matrix.passwd',
+]);
+
+function isClientSecretLabel(labelKey, labelValue) {
+  if (CLIENT_SECRET_LABEL_KEYS.has(labelKey)) return true;
+  if (labelValue && CLIENT_SECRET_LABEL_TYPES.has(labelValue.t)) return true;
+  if (typeof labelKey === 'string' && /(?:^|_)(token|passwd|password|secret)$/.test(labelKey)) return true;
+  return false;
+}
 
 function buildClientSnapshot(runtime) {
   const snap = runtime.snapshot();
@@ -1174,6 +1364,7 @@ function buildClientSnapshot(runtime) {
         const filteredLabels = {};
         for (const [lk, lv] of Object.entries(cell.labels || {})) {
           if (excludeTypes.has(lv.t)) continue;
+          if (isClientSecretLabel(lk, lv)) continue;
           filteredLabels[lk] = lv;
         }
         filteredCells[ck] = { ...cell, labels: filteredLabels };
@@ -1188,6 +1379,7 @@ function buildClientSnapshot(runtime) {
         const filteredLabels = {};
         for (const [lk, lv] of Object.entries(cell.labels || {})) {
           if (excludeKeys.has(lk)) continue;
+          if (isClientSecretLabel(lk, lv)) continue;
           filteredLabels[lk] = lv;
         }
         filteredCells[ck] = { ...cell, labels: filteredLabels };
@@ -1195,7 +1387,16 @@ function buildClientSnapshot(runtime) {
       models[id] = { ...model, cells: filteredCells };
       continue;
     }
-    models[id] = model;
+    const filteredCells = {};
+    for (const [ck, cell] of Object.entries(model.cells || {})) {
+      const filteredLabels = {};
+      for (const [lk, lv] of Object.entries(cell.labels || {})) {
+        if (isClientSecretLabel(lk, lv)) continue;
+        filteredLabels[lk] = lv;
+      }
+      filteredCells[ck] = { ...cell, labels: filteredLabels };
+    }
+    models[id] = { ...model, cells: filteredCells };
   }
   return { models, v1nConfig: snap.v1nConfig };
 }
@@ -1364,54 +1565,67 @@ class ProgramModelEngine {
     this.onSnapshotChanged = null;
   }
 
+  refreshMatrixBootstrapConfig() {
+    const matrixConfig = readMatrixBootstrapConfig(this.runtime);
+    this.matrixRoomId = firstValidValue(matrixConfig.roomId);
+    this.matrixDmPeerUserId = firstValidValue(matrixConfig.peerUserId);
+    return matrixConfig;
+  }
+
+  async ensureMatrixAdapter() {
+    if (typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive()) {
+      return;
+    }
+    if (this.matrixAdapter) return;
+    const matrixConfig = this.refreshMatrixBootstrapConfig();
+    if (!this.matrixRoomId) {
+      console.log('[ProgramModelEngine] No matrix_room_id configured on Model 0, running without Matrix.');
+      return;
+    }
+    if (isPlaceholderValue(this.matrixDmPeerUserId)) {
+      console.warn('[ProgramModelEngine] matrix_contuser is placeholder, Matrix messages may be skipped.');
+    }
+    try {
+      const syncTimeoutMs = readIntEnv('DY_MATRIX_SYNC_TIMEOUT_MS', 20000, 1000);
+      this.matrixAdapter = await createMatrixLiveAdapter({
+        roomId: this.matrixRoomId,
+        peerUserId: this.matrixDmPeerUserId || undefined,
+        syncTimeoutMs,
+        homeserverUrl: matrixConfig.homeserverUrl || undefined,
+        accessToken: matrixConfig.accessToken || undefined,
+        userId: matrixConfig.userId || undefined,
+        password: matrixConfig.password || undefined,
+      });
+      if (this.matrixAdapterUnsub) {
+        this.matrixAdapterUnsub();
+        this.matrixAdapterUnsub = null;
+      }
+      this.matrixAdapterUnsub = this.matrixAdapter.subscribe((content) => {
+        try {
+          this.handleDyBusEvent(content);
+        } catch (err) {
+          console.warn('[ProgramModelEngine] handleDyBusEvent failed:', err && err.message ? err.message : err);
+        }
+      });
+      console.log('[ProgramModelEngine] Matrix adapter connected, room:', this.matrixRoomId);
+    } catch (err) {
+      console.warn('[ProgramModelEngine] Matrix init failed (non-fatal):', err.message || err);
+      console.warn('[ProgramModelEngine] Program engine will run without Matrix. UI events won\'t reach MBR/MQTT.');
+      this.matrixAdapter = null;
+    }
+  }
+
   async init() {
     this.refreshFunctionRegistry();
-    const roomLabel = findSystemLabel(this.runtime, 'matrix_room_id');
-    const configuredRoom = firstValidValue(
-      process.env.DY_MATRIX_ROOM_ID,
-      process.env.MATRIX_ROOM_ID,
-      roomLabel ? roomLabel.label.v : null,
-    );
-    this.matrixRoomId = configuredRoom;
-    const peerLabel = findSystemLabel(this.runtime, 'matrix_dm_peer_user_id');
-    const configuredPeerUser = firstValidValue(
-      process.env.DY_MATRIX_DM_PEER_USER_ID,
-      process.env.MATRIX_DM_PEER_USER_ID,
-      peerLabel ? peerLabel.label.v : null,
-    );
-    this.matrixDmPeerUserId = configuredPeerUser;
-    if (this.matrixRoomId) {
-      if (isPlaceholderValue(this.matrixDmPeerUserId)) {
-        console.warn('[ProgramModelEngine] DY_MATRIX_DM_PEER_USER_ID is placeholder, Matrix messages may be skipped.');
-      }
-      try {
-        const syncTimeoutMs = readIntEnv('DY_MATRIX_SYNC_TIMEOUT_MS', 20000, 1000);
-        this.matrixAdapter = await createMatrixLiveAdapter({
-          roomId: this.matrixRoomId,
-          peerUserId: this.matrixDmPeerUserId || undefined,
-          syncTimeoutMs,
-        });
-        if (this.matrixAdapterUnsub) {
-          this.matrixAdapterUnsub();
-          this.matrixAdapterUnsub = null;
-        }
-        this.matrixAdapterUnsub = this.matrixAdapter.subscribe((content) => {
-          try {
-            this.handleDyBusEvent(content);
-          } catch (err) {
-            console.warn('[ProgramModelEngine] handleDyBusEvent failed:', err && err.message ? err.message : err);
-          }
-        });
-        console.log('[ProgramModelEngine] Matrix adapter connected, room:', this.matrixRoomId);
-      } catch (err) {
-        console.warn('[ProgramModelEngine] Matrix init failed (non-fatal):', err.message || err);
-        console.warn('[ProgramModelEngine] Program engine will run without Matrix. UI events won\'t reach MBR/MQTT.');
-        this.matrixAdapter = null;
-      }
-    } else {
-      console.log('[ProgramModelEngine] No matrix_room_id configured, running without Matrix.');
+    this.refreshMatrixBootstrapConfig();
+    if (typeof this.runtime.isRunLoopActive === 'function' && this.runtime.isRunLoopActive()) {
+      await this.ensureMatrixAdapter();
     }
     this.started = true;
+  }
+
+  async activateRunning() {
+    await this.ensureMatrixAdapter();
   }
 
   refreshFunctionRegistry() {
@@ -1452,7 +1666,8 @@ class ProgramModelEngine {
       summary: `type=${payload && payload.type ? payload.type : '?'}`,
       payload,
     });
-    if (!this.matrixAdapter || !this.matrixRoomId) {
+    if ((typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive())
+      || !this.matrixAdapter || !this.matrixRoomId) {
       console.log('[sendMatrix] WARN: matrix_not_ready, skipping send');
       return null;
     }
@@ -1490,7 +1705,7 @@ class ProgramModelEngine {
       const body = {
         model: modelRaw,
         prompt,
-        stream: false,
+        stream: true,
         think: false,
         options: {
           temperature,
@@ -1515,28 +1730,7 @@ class ProgramModelEngine {
         };
       }
       const text = await response.text();
-      let parsed;
-      try {
-        parsed = JSON.parse(text);
-      } catch (_) {
-        return { ok: false, code: 'llm_bad_response', detail: 'llm_response_not_json' };
-      }
-      const model = typeof parsed.model === 'string' && parsed.model.trim() ? parsed.model.trim() : modelRaw;
-      const responseText = typeof parsed.response === 'string'
-        ? parsed.response
-        : (parsed && parsed.message && typeof parsed.message.content === 'string' ? parsed.message.content : '');
-      if (!responseText.trim()) {
-        return { ok: false, code: 'llm_bad_response', detail: 'llm_empty_response' };
-      }
-      return {
-        ok: true,
-        data: {
-          model,
-          response: responseText,
-          eval_duration: Number.isFinite(parsed.eval_duration) ? parsed.eval_duration : null,
-          total_duration: Number.isFinite(parsed.total_duration) ? parsed.total_duration : null,
-        },
-      };
+      return parseOllamaGenerateResponseText(text, modelRaw);
     } catch (err) {
       const name = err && typeof err === 'object' && typeof err.name === 'string' ? err.name : '';
       if (name === 'AbortError') {
@@ -1997,6 +2191,7 @@ class ProgramModelEngine {
             policy_json: safeJsonStringify(policy, '{}'),
             output_schema_json: safeJsonStringify(outputSchema, '{}'),
             available_model_ids_json: safeJsonStringify(listPositiveModelIds(this.runtime), '[]'),
+            model_inventory_json: safeJsonStringify(buildFilltableModelInventoryFromSnapshot(this.runtime.snapshot(), 128), '[]'),
           });
           const llmResult = await this.llmInfer({
             baseUrl: llmCfg.base_url,
@@ -2012,21 +2207,21 @@ class ProgramModelEngine {
 
           const parsed = parseLlmFilltableResult(llmResult.data && llmResult.data.response ? llmResult.data.response : '');
           if (!parsed.ok) return parsed;
-          if (parsed.records.length > policy.max_records_per_apply) {
+          if (parsed.candidate_changes.length > policy.max_changes_per_apply) {
             return {
               ok: false,
-              code: 'too_many_records',
-              detail: `max_records_per_apply=${policy.max_records_per_apply}`,
+              code: 'too_many_changes',
+              detail: `max_changes_per_apply=${policy.max_changes_per_apply}`,
             };
           }
 
-          const validation = validateFilltableRecords(parsed.records, policy);
+          const previewed = previewCandidateChangesByOwner(parsed.candidate_changes, this.runtime, policy);
           const previewId = createFilltablePreviewId();
-          const previewDigest = buildFilltableDigest(validation.accepted_records);
+          const previewDigest = buildFilltableDigest(previewed.accepted_changes);
           const proposal = normalizeFilltableProposal(
             parsed.proposal,
-            validation.accepted_records,
-            validation.rejected_records,
+            previewed.accepted_changes,
+            previewed.rejected_changes,
           );
 
           return {
@@ -2036,15 +2231,16 @@ class ProgramModelEngine {
               preview_digest: previewDigest,
               prompt: promptText,
               proposal,
-              accepted_records: validation.accepted_records,
-              rejected_records: validation.rejected_records,
-              stats: validation.stats,
+              accepted_changes: previewed.accepted_changes,
+              rejected_changes: previewed.rejected_changes,
+              owner_plan: previewed.owner_plan,
+              stats: previewed.stats,
               confidence: parsed.confidence,
               reasoning: parsed.reasoning,
               llm_used: true,
               llm_model: llmResult.data && llmResult.data.model ? llmResult.data.model : llmCfg.model,
               created_at: Date.now(),
-              policy,
+              policy: previewed.policy,
             },
           };
         },
@@ -2069,63 +2265,86 @@ class ProgramModelEngine {
           }
 
           const previewPayload = parseJsonObjectOrNull(inObj.preview_payload) || {};
-          const acceptedFromPreview = Array.isArray(previewPayload.accepted_records) ? previewPayload.accepted_records : [];
+          const legacyAcceptedKey = ['accepted', 'records'].join('_');
+          if (Object.prototype.hasOwnProperty.call(previewPayload, legacyAcceptedKey)) {
+            return { ok: false, code: 'legacy_preview_contract', detail: 'preview_requires_accepted_changes' };
+          }
+          const acceptedFromPreview = Array.isArray(previewPayload.accepted_changes) ? previewPayload.accepted_changes : [];
           if (acceptedFromPreview.length === 0) {
-            return { ok: false, code: 'nothing_to_apply', detail: 'no_accepted_records' };
+            return { ok: false, code: 'nothing_to_apply', detail: 'no_accepted_changes' };
           }
 
           const policy = readFilltablePolicy(this.runtime);
-          if (acceptedFromPreview.length > policy.max_records_per_apply) {
+          if (acceptedFromPreview.length > policy.max_changes_per_apply) {
             return {
               ok: false,
-              code: 'too_many_records',
-              detail: `max_records_per_apply=${policy.max_records_per_apply}`,
+              code: 'too_many_changes',
+              detail: `max_changes_per_apply=${policy.max_changes_per_apply}`,
             };
           }
-          const validation = validateFilltableRecords(acceptedFromPreview, policy);
-          const applyRejected = validation.rejected_records.slice();
-          const appliedRecords = [];
+          const validation = validateFilltableCandidateChanges(acceptedFromPreview, policy);
+          const applyRejected = validation.rejected_changes.slice();
+          const appliedChanges = [];
 
-          for (let i = 0; i < validation.accepted_records.length; i += 1) {
-            const record = validation.accepted_records[i];
-            const model = this.runtime.getModel(record.model_id);
-            if (!model) {
-              applyRejected.push({ index: i, code: 'model_not_found', detail: String(record.model_id), record });
+          for (let i = 0; i < validation.accepted_changes.length; i += 1) {
+            const change = validation.accepted_changes[i];
+            const resolved = resolveFilltableOwner(change, this.runtime);
+            if (!resolved.ok) {
+              applyRejected.push({ index: i, code: resolved.code, detail: resolved.detail, change });
+              continue;
+            }
+            const materialized = materializeFilltableChange(change);
+            if (!materialized.ok) {
+              applyRejected.push({ index: i, code: materialized.code, detail: materialized.detail, change });
               continue;
             }
             try {
-              if (record.op === 'add_label') {
-                this.runtime.addLabel(model, record.p, record.r, record.c, {
-                  k: record.k,
-                  t: record.t,
-                  v: record.v,
+              if (materialized.operation.op === 'add_label') {
+                this.runtime.addLabel(resolved.model, materialized.operation.p, materialized.operation.r, materialized.operation.c, {
+                  k: materialized.operation.k,
+                  t: materialized.operation.t,
+                  v: materialized.operation.v,
                 });
-                appliedRecords.push(record);
-              } else if (record.op === 'rm_label') {
-                this.runtime.rmLabel(model, record.p, record.r, record.c, record.k);
-                appliedRecords.push(record);
+                appliedChanges.push({
+                  ...change,
+                  owner_id: resolved.owner_id,
+                  owner_kind: resolved.owner_kind,
+                });
+              } else if (materialized.operation.op === 'rm_label') {
+                this.runtime.rmLabel(
+                  resolved.model,
+                  materialized.operation.p,
+                  materialized.operation.r,
+                  materialized.operation.c,
+                  materialized.operation.k,
+                );
+                appliedChanges.push({
+                  ...change,
+                  owner_id: resolved.owner_id,
+                  owner_kind: resolved.owner_kind,
+                });
               }
             } catch (err) {
               applyRejected.push({
                 index: i,
                 code: 'runtime_error',
                 detail: String(err && err.message ? err.message : err),
-                record,
+                change,
               });
             }
           }
 
-          if (appliedRecords.length === 0) {
+          if (appliedChanges.length === 0) {
             return {
               ok: false,
               code: 'apply_failed',
-              detail: 'no_record_applied',
+              detail: 'no_change_applied',
               data: {
                 requested_preview_id: requestedPreviewId,
-                preview_digest: buildFilltableDigest(validation.accepted_records),
+                preview_digest: buildFilltableDigest(validation.accepted_changes),
                 applied_count: 0,
                 rejected_count: applyRejected.length,
-                rejected_records: applyRejected,
+                rejected_changes: applyRejected,
                 applied_at: Date.now(),
               },
             };
@@ -2135,11 +2354,11 @@ class ProgramModelEngine {
             ok: true,
             data: {
               requested_preview_id: requestedPreviewId,
-              preview_digest: buildFilltableDigest(validation.accepted_records),
-              applied_count: appliedRecords.length,
+              preview_digest: buildFilltableDigest(validation.accepted_changes),
+              applied_count: appliedChanges.length,
               rejected_count: applyRejected.length,
-              applied_records: appliedRecords,
-              rejected_records: applyRejected,
+              applied_changes: appliedChanges,
+              rejected_changes: applyRejected,
               applied_at: Date.now(),
             },
           };
@@ -2237,14 +2456,8 @@ class ProgramModelEngine {
           }
         }
 
-        // Step 4 dual-track fallback: keep legacy trigger until Step 5-7 migration completes.
         if (triggered === 0) {
-          if (sys && sys.hasFunction('forward_ui_events')) {
-            console.log('[processEventsSnapshot] event_trigger_map missing/empty, fallback to forward_ui_events');
-            this.runtime.intercepts.record('run_func', { func: 'forward_ui_events' });
-          } else {
-            console.log('[processEventsSnapshot] WARNING: no available ui_event trigger, sys=', !!sys);
-          }
+          console.log('[processEventsSnapshot] WARNING: no available ui_event trigger, sys=', !!sys);
         }
         continue;
       }
@@ -2269,6 +2482,27 @@ class ProgramModelEngine {
             continue;
           }
         }
+      }
+
+      // Model 0 local egress point: color-generator submit has already been
+      // normalized and relayed upward through existing model-boundary wiring.
+      if (event.cell && event.cell.model_id === 0 &&
+          event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
+          event.label && event.label.k === 'model100_submit_out' && event.label.v) {
+        const payload = event.label.v;
+        if (!payload || payload.source_model_id !== 100) {
+          console.log('[processEventsSnapshot] WARNING: model100_submit_out missing source_model_id=100');
+          continue;
+        }
+        const sys = firstSystemModel(this.runtime);
+        const funcName = 'forward_model100_submit_from_model0';
+        console.log('[processEventsSnapshot] Model 0 egress detected, triggering forward_model100_submit_from_model0');
+        if (sys && sys.hasFunction(funcName)) {
+          this.runtime.intercepts.record('run_func', { func: funcName, payload });
+        } else {
+          console.log(`[processEventsSnapshot] WARNING: ${funcName} function NOT found`);
+        }
+        continue;
       }
 
       // Legacy PIN_IN binding routing removed in 0143.
@@ -2343,6 +2577,9 @@ class ProgramModelEngine {
 
   tick() {
     if (!this.started) return Promise.resolve();
+    if (typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive()) {
+      return Promise.resolve();
+    }
 
     // If a tick is already running, remember that another tick was requested
     // and return the in-flight promise so awaiters don't return early.
@@ -2400,7 +2637,7 @@ function loadSystemModelPatches(runtime, dirPath) {
         )),
       };
       if (negativeOnlyPatch.records.length === 0) continue;
-      runtime.applyPatch(negativeOnlyPatch, { allowCreateModel: true });
+      runtime.applyPatch(negativeOnlyPatch, { allowCreateModel: true, trustedBootstrap: true });
     }
   }
 }
@@ -2415,7 +2652,7 @@ function loadFullModelPatches(runtime, dirPath, fileNames) {
     const patches = Array.isArray(parsed) ? parsed : [parsed];
     for (const patch of patches) {
       if (!patch || !Array.isArray(patch.records)) continue;
-      runtime.applyPatch(patch, { allowCreateModel: true });
+      runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
     }
   }
 }
@@ -2446,9 +2683,37 @@ function countPositiveModels(runtime) {
   return count;
 }
 
+const DIRECT_MODEL_MUTATION_ACTIONS = new Set([
+  'label_add',
+  'label_update',
+  'label_remove',
+  'cell_clear',
+  'submodel_create',
+  'datatable_remove_label',
+]);
+
+function isDirectModelMutationAction(action) {
+  return typeof action === 'string' && DIRECT_MODEL_MUTATION_ACTIONS.has(action);
+}
+
+function isUiLocalMutableModelId(modelId) {
+  return modelId === EDITOR_STATE_MODEL_ID
+    || modelId === LOGIN_MODEL_ID
+    || modelId === GALLERY_STATE_MODEL_ID;
+}
+
 function createServerState(options) {
   const dbPath = options && options.dbPath ? String(options.dbPath) : null;
   const runtime = new ModelTableRuntime();
+  const assetRoot = resolvePersistedAssetRoot();
+  const bootstrapGeneratedKeys = new Set([
+    'matrix_room_id',
+    'matrix_server',
+    'matrix_user',
+    'matrix_passwd',
+    'matrix_token',
+    'matrix_contuser',
+  ]);
 
   ensureDir(DOCS_ROOT);
   ensureDir(STATIC_PROJECTS_ROOT);
@@ -2462,11 +2727,7 @@ function createServerState(options) {
     runtime.setPersistence(persister);
   }
 
-  if (dbPath && fs.existsSync(dbPath)) {
-    if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(false);
-    loadProgramModelFromSqlite({ runtime, dbPath });
-    if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(true);
-  }
+  if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(false);
 
   if (!runtime.getModel(EDITOR_MODEL_ID)) {
     runtime.createModel({ id: EDITOR_MODEL_ID, name: 'editor_mailbox', type: 'ui' });
@@ -2484,55 +2745,50 @@ function createServerState(options) {
     runtime.createModel({ id: GALLERY_STATE_MODEL_ID, name: 'gallery_state', type: 'ui' });
   }
 
-  // ── Model -3: Login Form (p=0 data, p=1 schema) ──────────────────────────
+  // ── Model -3: Login Form (schema/data now seeded from login_catalog_ui.json) ──────────────────────────
   if (!runtime.getModel(LOGIN_MODEL_ID)) {
     runtime.createModel({ id: LOGIN_MODEL_ID, name: 'login_form', type: 'ui' });
   }
-  const loginModel = runtime.getModel(LOGIN_MODEL_ID);
-  // p=0 cell(0,0,0) — data layer
-  runtime.addLabel(loginModel, 0, 0, 0, { k: 'login_username', t: 'str', v: '' });
-  runtime.addLabel(loginModel, 0, 0, 0, { k: 'login_password', t: 'str', v: '' });
-  runtime.addLabel(loginModel, 0, 0, 0, { k: 'login_error', t: 'str', v: '' });
-  runtime.addLabel(loginModel, 0, 0, 0, { k: 'login_loading', t: 'str', v: 'false' });
-  // p=1 cell(1,0,0) — schema layer
-  runtime.addLabel(loginModel, 1, 0, 0, { k: '_title', t: 'str', v: '洞宇 DongYu' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: '_subtitle', t: 'str', v: 'Matrix Account Login' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: '_field_order', t: 'json', v: ['login_username', 'login_password', 'login_submit'] });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_username', t: 'str', v: 'Input' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_username__label', t: 'str', v: 'Username' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_username__props', t: 'json', v: { placeholder: '@user:server' } });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_password', t: 'str', v: 'Input' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_password__label', t: 'str', v: 'Password' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_password__props', t: 'json', v: { type: 'password', showPassword: true } });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit', t: 'str', v: 'Button' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit__label', t: 'str', v: '' });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit__no_wrap', t: 'bool', v: true });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit__props', t: 'json', v: { label: 'Login with Matrix', type: 'primary', style: { width: '100%' } } });
-  runtime.addLabel(loginModel, 1, 0, 0, { k: 'login_submit__bind', t: 'json', v: {
-    write: {
-      action: 'label_add',
-      target_ref: { model_id: LOGIN_MODEL_ID, p: 0, r: 0, c: 1, k: 'login_event' },
-      value_ref: { t: 'json', v: { action: 'login_submit' } },
-    },
-  } });
 
-  const systemModelsDir = new URL('../worker-base/system-models/', import.meta.url).pathname;
-  loadSystemModelPatches(runtime, systemModelsDir);
-  loadFullModelPatches(runtime, systemModelsDir, ['server_config.json']);
-  const positiveModelCountBeforeSeed = countPositiveModels(runtime);
-  if (positiveModelCountBeforeSeed === 0) {
-    loadFullModelPatches(runtime, systemModelsDir, [
-      'workspace_positive_models.json',
-      'test_model_100_ui.json',
-    ]);
+  if (assetRoot) {
+    applyPersistedAssetEntries(runtime, {
+      assetRoot,
+      scope: 'ui-server',
+      authority: 'authoritative',
+      kind: 'patch',
+      phases: ['00-system-base', '10-system-negative', '30-system-positive'],
+      applyOptions: { allowCreateModel: true, trustedBootstrap: true },
+    });
   } else {
-    console.log(`[createServerState] skip positive seed patches (existing_positive_models=${positiveModelCountBeforeSeed})`);
+    const systemModelsDir = new URL('../worker-base/system-models/', import.meta.url).pathname;
+    loadSystemModelPatches(runtime, systemModelsDir);
+    loadFullModelPatches(runtime, systemModelsDir, ['server_config.json']);
+    const positiveModelCountBeforeSeed = countPositiveModels(runtime);
+    if (positiveModelCountBeforeSeed === 0) {
+      loadFullModelPatches(runtime, systemModelsDir, [
+        'workspace_positive_models.json',
+        'test_model_100_ui.json',
+      ]);
+    } else {
+      console.log(`[createServerState] skip positive seed patches (existing_positive_models=${positiveModelCountBeforeSeed})`);
+    }
   }
 
   const envPatch = readModelTablePatchFromEnv();
   if (envPatch) {
-    runtime.applyPatch(envPatch, { allowCreateModel: true });
+    runtime.applyPatch(envPatch, { allowCreateModel: true, trustedBootstrap: true });
   }
+
+  if (dbPath && fs.existsSync(dbPath)) {
+    loadProgramModelFromSqlite({
+      runtime,
+      dbPath,
+      includeModelId: (modelId) => Number.isInteger(modelId) && modelId >= 0,
+      includeRecord: ({ modelId, k }) => !(modelId === 0 && bootstrapGeneratedKeys.has(String(k || ''))),
+    });
+  }
+  if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(true);
+  runtime.setRuntimeMode('edit');
 
   ensureStateLabel(runtime, 'selected_model_id', 'str', '0');
   ensureStateLabel(runtime, 'draft_p', 'str', '0');
@@ -2595,18 +2851,6 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'ws_new_app_name', 'str', '');
   ensureStateLabel(runtime, 'ws_delete_app_id', 'int', 0);
   ensureStateLabel(runtime, 'ws_status', 'str', '');
-
-  // Prompt FillTable page state.
-  ensureStateLabel(runtime, 'llm_prompt_text', 'str', '');
-  ensureStateLabel(runtime, 'llm_prompt_preview_json', 'json', {});
-  ensureStateLabel(runtime, 'llm_prompt_preview_id', 'str', '');
-  ensureStateLabel(runtime, 'llm_prompt_preview_digest', 'str', '');
-  ensureStateLabel(runtime, 'llm_prompt_apply_preview_id', 'str', '');
-  ensureStateLabel(runtime, 'llm_prompt_apply_result_json', 'json', {});
-  ensureStateLabel(runtime, 'llm_prompt_status', 'str', '');
-  ensureStateLabel(runtime, 'llm_prompt_last_applied_preview_id', 'str', '');
-  ensureStateLabel(runtime, 'llm_prompt_available', 'bool', false);
-  ensureStateLabel(runtime, 'llm_prompt_notice', 'str', '正在检测 LLM 服务...');
 
   const deriveWorkspaceRegistry = () => {
     const derived = [];
@@ -2673,6 +2917,17 @@ function createServerState(options) {
     return fallback;
   };
 
+  const syncDerivedPageState = () => {
+    const snap = runtime.snapshot();
+    overwriteStateLabel(runtime, 'editor_model_options_json', 'json', deriveEditorModelOptions(snap, EDITOR_STATE_MODEL_ID));
+    overwriteStateLabel(runtime, 'home_table_rows_json', 'json', deriveHomeTableRows(snap, EDITOR_STATE_MODEL_ID));
+    overwriteStateLabel(runtime, 'home_missing_model_text', 'str', deriveHomeMissingModelText(snap, EDITOR_STATE_MODEL_ID));
+    overwriteStateLabel(runtime, 'static_upload_disabled', 'bool', !deriveStaticUploadReady(snap, EDITOR_STATE_MODEL_ID));
+    const workspace = deriveWorkspaceSelected(snap, EDITOR_STATE_MODEL_ID, buildAstFromSchema);
+    overwriteStateLabel(runtime, 'ws_selected_title', 'str', workspace.title);
+    overwriteStateLabel(runtime, 'ws_selected_ast', 'json', workspace.ast);
+  };
+
   const refreshWorkspaceStateCatalog = () => {
     const apps = deriveWorkspaceRegistry();
     const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
@@ -2684,6 +2939,20 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validSelected));
 
     overwriteStateLabel(runtime, 'ws_app_next_id', 'int', resolveNextWorkspaceModelId(runtime));
+  };
+
+  const reconcileWorkspaceSelectionState = () => {
+    const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+    if (!stateModel) return;
+    const uiPage = readAuthString(runtime.getLabelValue(stateModel, 0, 0, 0, 'ui_page')).toLowerCase();
+    if (uiPage !== 'workspace') return;
+    const appsRaw = runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_apps_registry');
+    const apps = Array.isArray(appsRaw) ? appsRaw : deriveWorkspaceRegistry();
+    const defaultSelected = resolveDefaultAppId(runtime, apps);
+    const selected = normalizeIntState(runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'), defaultSelected);
+    const validSelected = apps.some((app) => app.model_id === selected) ? selected : defaultSelected;
+    overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validSelected));
+    overwriteStateLabel(runtime, 'selected_model_id', 'str', String(validSelected));
   };
 
   const sanitizeStartupCatalogState = () => {
@@ -3131,6 +3400,7 @@ function createServerState(options) {
       ensureGallery(0, 8, 1, { k: 'wave_b_pagination_pageSize', t: 'int', v: 10 });
 
       ensureGallery(0, 9, 0, { k: 'wave_c_shared_text', t: 'str', v: 'shared fragment text' });
+      ensureGallery(0, 9, 3, { k: 'wave_c_dynamic_text', t: 'str', v: 'hello from deferred fragment' });
       ensureGallery(0, 9, 1, {
         k: 'wave_c_fragment_static',
         t: 'json',
@@ -3186,7 +3456,10 @@ function createServerState(options) {
   resetStaticCatalogStateFromFilesystem();
   clearAndValidateWorkspaceSelection();
   refreshWorkspaceStateCatalog();
+  reconcileWorkspaceSelectionState();
+  syncDerivedPageState();
   refreshStartupCatalogState();
+  runtime.setRuntimeMode('edit');
 
   const clearAndRefreshAfterRuntimeBoot = async () => {
     try {
@@ -3205,6 +3478,8 @@ function createServerState(options) {
     }
     try {
       refreshWorkspaceStateCatalog();
+      reconcileWorkspaceSelectionState();
+      syncDerivedPageState();
     } catch (_) {
       overwriteStateLabel(runtime, 'static_status', 'str', 'workspace catalog refresh failed');
     }
@@ -3227,7 +3502,12 @@ function createServerState(options) {
     .catch(() => {});
 
   function updateDerived() {
-    const uiAst = buildEditorAstV1(runtime.snapshot());
+    syncDerivedPageState();
+    // Client-visible AST must be derived from the same filtered snapshot surface
+    // that /snapshot and SSE expose, otherwise raw labels can leak via ui_ast_v0.
+    const uiAst = resolvePageAsset(buildClientSnapshot(runtime), {
+      projectSchemaModel: buildAstFromSchema,
+    }).ast;
     // snapshot_json and event_log are excluded from client snapshot (too large).
     // Skip expensive computation — saves ~2 full snapshot traversals per event.
     adapter.updateUiDerived({
@@ -3256,6 +3536,8 @@ function createServerState(options) {
     const envelope = envelopeOrNull;
     const payload = envelope && envelope.payload ? envelope.payload : null;
     const action = payload && typeof payload.action === 'string' ? payload.action : '';
+    const meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : null;
+    const opId = meta && typeof meta.op_id === 'string' ? meta.op_id : '';
 
     if (envelopeOrNull) {
       await programEngineReady;
@@ -3273,6 +3555,72 @@ function createServerState(options) {
     }
 
     setMailboxEnvelope(runtime, envelopeOrNull);
+
+    const finishOk = async () => {
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+      updateDerived();
+      await programEngine.tick();
+      return { consumed: true, result: 'ok' };
+    };
+
+    const finishError = async (code, detail) => {
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, {
+        k: 'ui_event_error',
+        t: 'json',
+        v: { op_id: opId, code, detail },
+      });
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+      updateDerived();
+      return { consumed: true, result: 'error', code, detail };
+    };
+
+    const businessTargetModelId = meta && Number.isInteger(meta.model_id) ? meta.model_id : null;
+    const directMutationTarget = payload && payload.target && typeof payload.target === 'object' && Number.isInteger(payload.target.model_id)
+      ? payload.target.model_id
+      : null;
+    const allowUiLocalMutation = isUiLocalMutableModelId(directMutationTarget);
+    if (envelopeOrNull && isDirectModelMutationAction(action) && !(action !== 'submodel_create' && allowUiLocalMutation)) {
+      return finishError('direct_model_mutation_disabled', action);
+    }
+    if (envelopeOrNull && allowUiLocalMutation && directMutationTarget !== null && directMutationTarget !== EDITOR_STATE_MODEL_ID) {
+      const uiLocalAdapter = createLocalBusAdapter({
+        runtime,
+        eventLog: editorEventLog,
+        mode: 'v1',
+        mailboxModelId: EDITOR_MODEL_ID,
+        editorStateModelId: directMutationTarget,
+      });
+      const result = uiLocalAdapter.consumeOnce();
+      updateDerived();
+      await programEngine.tick();
+      return result;
+    }
+    if (envelopeOrNull && businessTargetModelId && businessTargetModelId > 0) {
+      if (!runtime.isRunLoopActive()) {
+        return finishError('runtime_not_running', `model_id=${businessTargetModelId}`);
+      }
+      const targetModel = runtime.getModel(businessTargetModelId);
+      if (!targetModel) {
+        return finishError('invalid_target', 'missing_model');
+      }
+      const rootCell = runtime.getCell(targetModel, 0, 0, 0);
+      if (!rootCell.labels.has('dual_bus_model')) {
+        return finishError('invalid_target', 'model_not_dual_bus');
+      }
+      const eventValue = payload && payload.value && payload.value.t === 'event'
+        ? payload.value.v
+        : (payload && payload.value && payload.value.t === 'json' ? payload.value.v : null);
+      const normalizedEvent = eventValue && typeof eventValue === 'object'
+        ? { ...eventValue }
+        : {};
+      if (!normalizedEvent.action) normalizedEvent.action = action;
+      if (!normalizedEvent.meta) normalizedEvent.meta = meta || {};
+      runtime.addLabel(targetModel, 0, 0, 2, { k: 'ui_event', t: 'event', v: normalizedEvent });
+      return finishOk();
+    }
     
     // Trigger mapped forward function(s) BEFORE any action processing clears the mailbox
     // This gives the function a chance to forward the event to Matrix
@@ -3298,10 +3646,6 @@ function createServerState(options) {
 
       let resolvedAction = action;
       let resolvedFunc = dispatchFuncByAction.get(action) || '';
-      const opId = payload && payload.meta && typeof payload.meta.op_id === 'string'
-        ? payload.meta.op_id
-        : '';
-
       const llmDispatch = {
         used: false,
         model: null,
@@ -3705,6 +4049,7 @@ function createServerState(options) {
     }
 
     const result = adapter.consumeOnce();
+    reconcileWorkspaceSelectionState();
     updateDerived();
     await programEngine.tick();
     return result;
@@ -3729,6 +4074,7 @@ function createServerState(options) {
   async function applyModelTablePatch(patchOrPatches, options = {}) {
     const patches = Array.isArray(patchOrPatches) ? patchOrPatches : [patchOrPatches];
     const allowCreateModel = options.allowCreateModel !== false;
+    const trustedBootstrap = options.trustedBootstrap === true;
     let applied = 0;
     let rejected = 0;
     for (const patch of patches) {
@@ -3736,7 +4082,7 @@ function createServerState(options) {
         rejected += 1;
         continue;
       }
-      const result = runtime.applyPatch(patch, { allowCreateModel });
+      const result = runtime.applyPatch(patch, { allowCreateModel, trustedBootstrap });
       applied += Number(result && Number.isFinite(result.applied) ? result.applied : 0);
       rejected += Number(result && Number.isFinite(result.rejected) ? result.rejected : 0);
     }
@@ -3745,12 +4091,25 @@ function createServerState(options) {
     return { applied, rejected };
   }
 
+  async function activateRuntimeMode(mode) {
+    runtime.setRuntimeMode(mode);
+    if (mode === 'running') {
+      await programEngineReady;
+      await programEngine.activateRunning();
+      await programEngine.tick();
+    }
+    updateDerived();
+    return { mode: runtime.getRuntimeMode() };
+  }
+
   return {
     runtime,
     snapshot,
     clientSnap,
     submitEnvelope,
     applyModelTablePatch,
+    activateRuntimeMode,
+    getRuntimeMode: () => runtime.getRuntimeMode(),
     getLastOpId: () => getLastOpId(runtime),
     getEventError: () => getEventError(runtime),
     programEngine,
@@ -4169,24 +4528,30 @@ function startServer(options) {
       return;
     }
 
-    if (req.method === 'POST' && url.pathname === '/api/modeltable/patch') {
+    if (req.method === 'POST' && url.pathname === '/api/runtime/mode') {
       try {
         const body = await readJsonBody(req);
-        const patch = body && body.patch ? body.patch : body;
-        const allowCreateModel = !(body && body.allowCreateModel === false);
-        const applyResult = await state.applyModelTablePatch(patch, { allowCreateModel });
+        const nextMode = body && typeof body.mode === 'string' ? body.mode : '';
+        if (nextMode !== 'running') {
+          writeJson(res, 400, { ok: false, error: 'invalid_mode_transition' }, cors);
+          return;
+        }
+        const result = await state.activateRuntimeMode(nextMode);
         broadcastSnapshot();
-        writeJson(res, 200, {
-          ok: true,
-          apply_result: applyResult,
-        }, cors);
+        writeJson(res, 200, { ok: true, mode: result.mode }, cors);
       } catch (err) {
-        writeJson(res, 400, {
-          ok: false,
-          error: 'bad_patch',
-          detail: String(err && err.message ? err.message : err),
-        }, cors);
+        const code = err && err.message === 'invalid_mode_transition' ? 409 : 400;
+        const error = err && err.message === 'invalid_mode_transition' ? 'invalid_mode_transition' : 'bad_request';
+        writeJson(res, code, { ok: false, error, detail: String(err && err.message ? err.message : err) }, cors);
       }
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/modeltable/patch') {
+      writeJson(res, 400, {
+        ok: false,
+        error: 'direct_patch_api_disabled',
+      }, cors);
       return;
     }
 

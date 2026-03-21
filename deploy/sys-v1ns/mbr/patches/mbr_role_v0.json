@@ -14,66 +14,6 @@
       "p": 0,
       "r": 0,
       "c": 0,
-      "k": "mbr_matrix_room_id",
-      "t": "str",
-      "v": ""
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_mqtt_host",
-      "t": "str",
-      "v": "127.0.0.1"
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_mqtt_port",
-      "t": "int",
-      "v": 1883
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_mqtt_user",
-      "t": "str",
-      "v": "u"
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_mqtt_pass",
-      "t": "str",
-      "v": "p"
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_remote_model_id",
-      "t": "int",
-      "v": 2
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
       "k": "mbr_mqtt_model_ids",
       "t": "json",
       "v": [
@@ -90,26 +30,6 @@
       "k": "mbr_heartbeat_interval_ms",
       "t": "int",
       "v": 30000
-    },
-    {
-      "op": "add_label",
-      "model_id": 0,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "sub_model2_patch_out",
-      "t": "MQTT_WILDCARD_SUB",
-      "v": "UIPUT/ws/dam/pic/de/sw/2/patch_out"
-    },
-    {
-      "op": "add_label",
-      "model_id": 0,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "sub_model100_patch_out",
-      "t": "MQTT_WILDCARD_SUB",
-      "v": "UIPUT/ws/dam/pic/de/sw/100/patch_out"
     },
     {
       "op": "add_label",
@@ -137,9 +57,9 @@
       "p": 0,
       "r": 0,
       "c": 0,
-      "k": "mbr_matrix_trigger",
+      "k": "mbr_matrix_func",
       "t": "str",
-      "v": "run_mbr_mgmt_to_mqtt"
+      "v": "mbr_mgmt_to_mqtt"
     },
     {
       "op": "add_label",
@@ -157,9 +77,29 @@
       "p": 0,
       "r": 0,
       "c": 0,
-      "k": "mbr_mqtt_trigger",
+      "k": "mbr_mqtt_func",
       "t": "str",
-      "v": "run_mbr_mqtt_to_mgmt"
+      "v": "mbr_mqtt_to_mgmt"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_ready_func",
+      "t": "str",
+      "v": "mbr_ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_heartbeat_func",
+      "t": "str",
+      "v": "mbr_heartbeat"
     },
     {
       "op": "add_label",
@@ -170,7 +110,7 @@
       "k": "mbr_mgmt_to_mqtt",
       "t": "func.js",
       "v": {
-        "code": "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_inbox' }); if (!inbox || typeof inbox !== 'object') return; let patch = null; let opId = String(inbox.op_id || ''); const defaultModelId = Number(ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_remote_model_id' })) || 2; let targetModelId = defaultModelId; let pinName = 'patch_in'; if (inbox.version === 'v0' && inbox.type === 'ui_event') { const data = inbox.data || {}; const action = String(inbox.action || data.action || 'unknown'); const sourceModelId = inbox.source_model_id || null; if (!opId) opId = (data.meta && data.meta.op_id) || ('ui_' + Date.now()); if (sourceModelId === 100) { targetModelId = 100; pinName = 'event'; const ts = (typeof inbox.timestamp === 'number' && Number.isFinite(inbox.timestamp)) ? inbox.timestamp : Date.now(); patch = { version: 'mt.v0', op_id: opId, records: [{ op: 'add_label', model_id: targetModelId, p: 1, r: 0, c: 0, k: 'action', t: 'str', v: action }, { op: 'add_label', model_id: targetModelId, p: 1, r: 0, c: 0, k: 'data', t: 'json', v: data }, { op: 'add_label', model_id: targetModelId, p: 1, r: 0, c: 0, k: 'timestamp', t: 'int', v: ts }] }; } else { patch = { version: 'mt.v0', op_id: opId, records: [{ op: 'add_label', model_id: targetModelId, p: 0, r: 0, c: 0, k: 'ui_event', t: 'json', v: { action: action, data: data, timestamp: inbox.timestamp } }] }; } } else { const msg = inbox.payload; if (msg && typeof msg === 'object' && msg.version === 'mt.v0') { patch = msg; if (!opId) opId = String(patch.op_id || ''); } else if (msg && typeof msg === 'object' && msg.payload && typeof msg.payload === 'object') { const act = String(msg.payload.action || ''); const meta = msg.payload.meta && typeof msg.payload.meta === 'object' ? msg.payload.meta : null; if (!opId) opId = meta && typeof meta.op_id === 'string' ? meta.op_id : ''; const target = msg.payload.target && typeof msg.payload.target === 'object' ? msg.payload.target : null; const value = msg.payload.value && typeof msg.payload.value === 'object' ? msg.payload.value : null; if (act === 'label_add' || act === 'label_update') { if (!target || !Number.isInteger(target.model_id) || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c) || typeof target.k !== 'string') return; if (!value || typeof value.t !== 'string') return; patch = { version: 'mt.v0', op_id: opId, records: [{ op: 'add_label', model_id: target.model_id, p: target.p, r: target.r, c: target.c, k: target.k, t: value.t, v: value.v }] }; } else if (act === 'label_remove') { if (!target || !Number.isInteger(target.model_id) || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c) || typeof target.k !== 'string') return; patch = { version: 'mt.v0', op_id: opId, records: [{ op: 'rm_label', model_id: target.model_id, p: target.p, r: target.r, c: target.c, k: target.k }] }; } else if (act === 'cell_clear') { if (!target || !Number.isInteger(target.model_id) || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c)) return; patch = { version: 'mt.v0', op_id: opId, records: [{ op: 'cell_clear', model_id: target.model_id, p: target.p, r: target.r, c: target.c }] }; } else if (act === 'submodel_create') { if (!value || value.t !== 'json' || !value.v || typeof value.v !== 'object') return; const mid = value.v.id; const mname = value.v.name; const mtype = value.v.type; if (!Number.isInteger(mid) || mid === 0) return; if (typeof mname !== 'string' || mname.length === 0) return; if (typeof mtype !== 'string' || mtype.length === 0) return; patch = { version: 'mt.v0', op_id: opId, records: [{ op: 'create_model', model_id: mid, name: mname, type: mtype }] }; } else { return; } } else { return; } } if (!opId) return; const seenKey = 'mbr_seen_' + opId; if (ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey })) { ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_inbox' }); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_mbr_mgmt_to_mqtt' }); return; } ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey }, 'str', '1'); if (!patch) return; const base = String(ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'mqtt_topic_base' }) || ''); const topic = base ? (base + '/' + targetModelId + '/' + pinName) : ''; if (!topic) return; ctx.publishMqtt(topic, patch); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_inbox' }); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_mbr_mgmt_to_mqtt' });",
+        "code": "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_inbox' }); if (!inbox || typeof inbox !== 'object') return; let opId = String(inbox.op_id || ''); const cleanup = () => { ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_inbox' }); }; const reject = (detail) => { ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_error' }, 'json', { op_id: opId, code: 'direct_model_mutation_disabled', detail }); cleanup(); }; if (inbox.version !== 'v0' || inbox.type !== 'ui_event') { reject('unsupported_bridge_message'); return; } const sourceModelId = Number(inbox.source_model_id); if (!Number.isInteger(sourceModelId) || sourceModelId <= 0) { reject('unsupported_source_model'); return; } const route = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_route_' + sourceModelId }); if (!route || typeof route !== 'object') { reject('missing_route'); return; } const routePin = String(route.pin || '').trim(); const routeType = String(route.type || '').trim(); if (!routePin) { reject('missing_route_pin'); return; } if (routeType && routeType !== 'all' && routeType !== inbox.type) { reject('unsupported_route_type'); return; } const data = inbox.data && typeof inbox.data === 'object' ? inbox.data : {}; const action = String(inbox.action || data.action || 'unknown'); if (!opId) opId = (data.meta && data.meta.op_id) || ('ui_' + Date.now()); if (!opId) { reject('missing_op_id'); return; } const seenKey = 'mbr_seen_' + opId; if (ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey })) { cleanup(); return; } ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey }, 'str', '1'); const ts = (typeof inbox.timestamp === 'number' && Number.isFinite(inbox.timestamp)) ? inbox.timestamp : Date.now(); const event = { version: 'v0', type: inbox.type, op_id: opId, source_model_id: sourceModelId, action, data, timestamp: ts }; const base = String(ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'mqtt_topic_base' }) || ''); const topic = base ? (base + '/' + sourceModelId + '/' + routePin) : ''; if (!topic) { reject('missing_mqtt_topic_base'); return; } ctx.publishMqtt(topic, event); cleanup();",
         "modelName": "mbr_role_v0"
       }
     },
@@ -183,7 +123,7 @@
       "k": "mbr_mqtt_to_mgmt",
       "t": "func.js",
       "v": {
-        "code": "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mqtt_inbox' }); if (!inbox || typeof inbox !== 'object') return; const payload = inbox.payload; if (!payload || typeof payload !== 'object') return; const patch = payload; if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) return; const opId = String(patch.op_id || ''); if (!opId) return; const seenKey = 'mbr_seen_' + opId; if (!ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey })) { ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey }, 'str', '1'); } const mgmtEvent = { version: 'v0', type: 'snapshot_delta', op_id: opId, payload: patch }; ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'change_out' }, 'MGMT_OUT', mgmtEvent); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mqtt_inbox' }); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_mbr_mqtt_to_mgmt' });",
+        "code": "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mqtt_inbox' }); if (!inbox || typeof inbox !== 'object') return; const payload = inbox.payload; if (!payload || typeof payload !== 'object') return; const patch = payload; if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) return; const opId = String(patch.op_id || ''); if (!opId) return; const seenKey = 'mbr_seen_' + opId; if (!ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey })) { ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey }, 'str', '1'); } const mgmtEvent = { version: 'v0', type: 'snapshot_delta', op_id: opId, payload: patch }; ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'change_out' }, 'MGMT_OUT', mgmtEvent); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mqtt_inbox' });",
         "modelName": "mbr_role_v0"
       }
     },

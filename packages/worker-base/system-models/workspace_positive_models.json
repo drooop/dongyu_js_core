@@ -270,10 +270,20 @@
       "k": "dual_bus_model",
       "t": "json",
       "v": {
-        "ui_event_func": "forward_model100_events",
+        "ui_event_func": "prepare_model100_submit",
         "patch_in_func": "on_model100_patch_in",
         "patch_in_pin": "patch"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit",
+      "t": "pin.table.out",
+      "v": null
     },
     {
       "op": "add_label",
@@ -466,6 +476,35 @@
       "p": 1,
       "r": 0,
       "c": 0,
+      "k": "input_value__bind",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "model100_input_draft"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "model100_input_draft"
+          },
+          "commit_policy": "on_submit"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
       "k": "submit",
       "t": "str",
       "v": "Button"
@@ -513,13 +552,12 @@
         "singleFlight": {
           "key": "model100_submit",
           "releaseRef": {
-            "model_id": 100,
+            "model_id": -1,
             "p": 0,
             "r": 0,
-            "c": 0,
-            "k": "submit_inflight"
-          },
-          "releaseWhen": false
+            "c": 1,
+            "k": "ui_event_last_op_id"
+          }
         }
       }
     },
@@ -543,20 +581,23 @@
       "t": "json",
       "v": {
         "write": {
-          "action": "label_add",
-          "target_ref": {
-            "model_id": 100,
-            "p": 0,
-            "r": 0,
-            "c": 2,
-            "k": "ui_event"
+          "action": "submit",
+          "meta": {
+            "model_id": 100
           },
           "value_ref": {
-            "t": "json",
+            "t": "event",
             "v": {
               "action": "submit",
-              "input_value": "",
-              "meta": {}
+              "input_value": {
+                "$label": {
+                  "model_id": -2,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "model100_input_draft"
+                }
+              }
             }
           }
         }

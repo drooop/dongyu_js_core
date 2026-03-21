@@ -6,10 +6,11 @@
 - 运行与迭代文档：`docs/`（当前为 Obsidian vault symlink）
 - 运维一键命令（本次新增并要求持续维护）：`scripts/ops/README.md`
 
-## Model 100 一键闭环命令
+## Model 100 OrbStack pod 闭环命令
 
 ```bash
-bash scripts/ops/run_model100_submit_roundtrip_local.sh --port 9011 --stop-after
+bash scripts/ops/ensure_runtime_baseline.sh \
+&& bash scripts/ops/verify_model100_submit_roundtrip.sh --base-url http://127.0.0.1:30900
 ```
 
 ## 0154 LLM 路由一键命令

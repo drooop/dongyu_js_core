@@ -1,0 +1,56 @@
+{
+  "version": "mt.v0",
+  "op_id": "ui_side_worker_demo_v1",
+  "description": "UI-side worker demo state and patch-apply function",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 1,
+      "name": "ui_side_demo",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "UI.UiSideDemo"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_demo_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_apply_snapshot_delta",
+      "t": "func.js",
+      "v": {
+        "code": "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' }); if (!inbox || typeof inbox !== 'object' || inbox.version !== 'v0') return; const patch = inbox.payload; if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) return; ctx.runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true }); ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' });",
+        "modelName": "ui_side_worker"
+      }
+    }
+  ]
+}

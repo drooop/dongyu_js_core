@@ -23,6 +23,14 @@ HARD_RULES
 - UI is projection of ModelTable. never truth source.
 - UI events write mailbox only (model_id=-1, cell 0,0,1).
 - init and runtime use identical interpretation rules.
+- hidden platform/policy/helper capabilities default to negative model_id system models.
+- do not place non-user-facing helper workers into positive models just to avoid tier1 work.
+- every implementation and verification MUST explicitly check:
+    tier placement, model placement, data ownership, data flow, and data chain.
+- fail fast on non-conformance: if an implementation bypasses a required spec path
+    (tier boundary, model placement, data flow, connection layer) and still "works",
+    it is NOT acceptable. stop immediately and report the violation.
+    a working but non-conformant implementation has zero delivery value.
 - conclusions based on repo facts: code, scripts, git history, docs.
 - commands must be reproducible with explicit cwd.
 - verification = deterministic PASS/FAIL. "looks ok" is not verification.
@@ -40,26 +48,30 @@ HARD_RULES
 MODEL_FORMS
 
 three model forms. all three are Tier 1 definitions.
-model.single and model.table: implement now.
-model.matrix: defined but implementation deferred (no proven business need yet).
+cell model semantics are authoritative. every materialized Cell has exactly one effective model label.
+for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective model label defaults to model.single.
 
   model.single   single Cell. programs operate on own Cell only.
                   add_label(k,t,v) — no p,r,c params.
                   structural sandbox: code in simple model cannot reach other Cells.
                   hard rule: one Cell = one type. a Cell CANNOT hold both Code.Python and Code.JS.
 
-  model.matrix   fixed dimensions (min_p/r/c, max_p/r/c). (0,0,0) operates on all Cells.
-                  embedded in parent model occupying its own size in Cells.
-                  no overlap with sibling matrices (collision detection required).
-                  STATUS: defined, implementation deferred.
+  model.matrix   matrix root Cell. the matrix's relative (0,0,0) MUST be explicitly labeled model.matrix.
+                  other ordinary Cells inside the matrix default effectively to model.single unless explicitly overridden.
+                  matrix absolute origin may differ from global (0,0,0); spec must define relative→absolute mapping.
 
-  model.table    dynamic size, no dimension constraints. (0,0,0) operates on all Cells.
-                  embedded in parent model occupying one Cell position.
-                  has model_id. current primary runtime type.
+  model.table    table root Cell. the model root (0,0,0) MUST be explicitly labeled model.table.
+                  other ordinary Cells inside the table default effectively to model.single unless explicitly overridden.
+
+  model.submt    child-model hosting Cell. value = child model id.
+                  this Cell is the mounting/mapping point for a child model.
+                  only pin.* and pin.log.* labels may coexist on a model.submt Cell.
+                  model.submt is single-parent only: one child model may be mounted by only one parent hosting Cell at a time.
 
   model_type label encodes two dimensions:
-    label.t = form (model.single | model.matrix | model.table)
-    label.v = type (Code.JS | Data.Array | Flow | Doc.Markdown | ...)
+    label.t = form (model.single | model.matrix | model.table | model.submt)
+    label.v = type (Code.JS | Data.Array | Flow | Doc.Markdown | ...) for model.single/model.matrix/model.table
+              child model id for model.submt
     invalid form×type combinations MUST be rejected at registration.
 
 
@@ -110,12 +122,19 @@ FORBIDDEN
 - UI direct bus connection (must go through mailbox)
 - external MQTT writing to arbitrary cells (must go through pin.bus.in on Model 0)
 - using legacy connection types: label_connection, trigger_funcs, function_PIN_IN/OUT (use CELL_CONNECT)
-- using DEPRECATED label types in new models (compatibility period allows old labels only in legacy paths)
+- using DEPRECATED / historical label types in new models
+- adding or preserving compatibility code/compatibility aliases without explicit user approval
 - silent failure (all failures must write to ModelTable)
+- graceful degradation that bypasses a required spec path
+  (for example falling back to legacy code when the conformant path should be used,
+  or swallowing a tier-boundary violation to keep the UI functional).
+  if the conformant path fails, the failure must be visible, not hidden behind a fallback.
 - implicit assumptions without declaring them
-- debug artifacts / temp scripts in repo root
+- debug artifacts / temp scripts / screenshots / media files in repo root
+  (screenshots → output/playwright/, other artifacts → test_files/ or archive/)
 - test data in docs/ (use test_files/ or scripts/fixtures/)
 - logs/*.log committed (must be gitignored)
+- Playwright MCP output in repo root (env PLAYWRIGHT_MCP_OUTPUT_DIR=output/playwright enforced via ~/.claude/settings.json)
 
 
 WORKFLOW
@@ -125,6 +144,11 @@ branch enforcement: all code changes MUST start on dev_<id>-<desc> branch.
   direct commits to dev forbidden except merge commits.
   dev_<id> naming: <id> = iteration number, <desc> = short kebab-case description.
   example: dev_0145-local-k8s-deploy
+single-developer mode (authoritative):
+  this repo is operated as a single-developer project.
+  default completion path = verify locally on dev_<id>-<desc> → merge locally into dev → push dev.
+  GitHub pull requests are NOT required for routine iteration completion and MUST NOT be created unless the user explicitly asks.
+  pushing the iteration branch is optional; the required integration record is the merge commit on dev.
 
 iteration dir: docs/iterations/<id>/
   plan.md        contract (WHAT/WHY). no steps. no execution records.
@@ -154,6 +178,65 @@ report per code change:
   7 alternatives (≥2: pros / cons / cost / when)
 
 
+RESPONSE_EFFORT_GUIDANCE
+
+- every assistant reply MUST include one explicit effort suggestion:
+    `effort_suggestion: medium|high|xhigh — <short reason>`
+- applies to both intermediary updates and final answers.
+- default = `medium` when the task is scoped, local, and low-ambiguity.
+- use `high` when the task has notable ambiguity, cross-file / cross-system coupling,
+  historical recovery, or elevated verification burden.
+- use `xhigh` only for unusually broad, architecture-shaping, or high-blast-radius work.
+- the suggestion is guidance for how much reasoning / care to spend next,
+  not a claim that the task is inherently difficult.
+
+
+DROPMODE_PROTOCOL
+
+- `dropmode` = session migration protocol for upgrade/downgrade handoff. this is developer workflow only.
+- when the `$dropmode` skill is triggered, run this protocol.
+- maintain session-local state:
+    `dropmode_enabled = true|false`
+    `dropmode_pending = none|upgrade|downgrade`
+    `dropmode_session_mode = unknown|regular|large`
+- repo default may set `dropmode_enabled=true`; if repo-local rules say so, follow them.
+- infer `dropmode_session_mode` using best-effort evidence in this order:
+    1. current-session `/status` output, when available to the assistant
+    2. codex config/profile hints (for example context-window or large-profile settings)
+    3. prior migration packet / compact_handoff `Session Mode`
+    4. explicit user statement such as `1M`, `large`, `大窗`, `常规`, `非1M`
+- treat config/profile evidence as heuristic, not proof.
+- toggle behavior:
+    flip `dropmode_enabled`
+    clear `dropmode_pending`
+    reply with exactly one line and nothing else:
+      `dropmode 已开启：后续回复将执行升级/降级迁移判断。`
+      or
+      `dropmode 已关闭：后续回复不再主动给出升级/降级迁移建议。`
+- exception to RESPONSE_EFFORT_GUIDANCE:
+    the exact toggle acknowledgement above MUST NOT append `effort_suggestion`
+    and MUST NOT append migration prompts or any extra explanation.
+- when `dropmode_enabled=true`, silently evaluate only the final answer:
+    first refresh `dropmode_session_mode` from available evidence
+    if `dropmode_session_mode=large` and the task does not justify large context, append the downgrade line and set `dropmode_pending=downgrade`
+    if `dropmode_session_mode=regular` or `dropmode_session_mode=unknown` and the task does justify large context, append the upgrade line and set `dropmode_pending=upgrade`
+- do NOT run upgrade/downgrade suggestion logic in intermediary updates, commentary, progress notes, or other non-final output.
+    upgrade line:
+      `本方案建议升级到 1M 新会话后继续。若确认升级，请明确回复：升级后继续。`
+    downgrade line:
+      `接下来的任务建议降级并在新会话继续。若确认降级，请明确回复：降级后继续。`
+- confirmation behavior:
+    if user message is exactly `升级后继续` and `dropmode_pending=upgrade`,
+    output the migration packet (`compact_handoff`, new-session launch, first prompt template)
+    with target session mode = `large`
+    and then clear `dropmode_pending`.
+    if user message is exactly `降级后继续` and `dropmode_pending=downgrade`,
+    output the same migration packet for downgrade with target session mode = `regular`
+    and then clear `dropmode_pending`.
+- if there is no matching pending migration, DO NOT fabricate a migration packet.
+- never claim live hot-switch of the current session's real context window.
+
+
 ARCH_INVARIANTS
 
 - model-driven: ModelTable = SSOT, code = runtime + extension
@@ -163,8 +246,9 @@ ARCH_INVARIANTS
 - bus decoupling: management bus (user-facing) + control bus (execution) + MBR bridge
 - workspace isolation: data separated, comms encrypted, trust revocable
 - capability detection: worker base must degrade gracefully, never crash silently
-- application-layer = ModelTable models; system-level = negative model_id
-- Model 0 = system root. all models (positive + negative) mount as children of Model 0.
+- application-layer = positive model_id user-created models; system-level = negative model_id software-worker capability layers.
+- Model 0 = system root / intermediate layer. system boundary ports live here.
+- every model except Model 0 MUST be explicitly mounted into the hierarchy via model.submt, including bootstrap children such as -1 and 1.
 - single external entry: BUS_IN/BUS_OUT on Model 0 (0,0,0) = only MQTT interface. no direct cell writes from external.
 - 3-layer connection (no skip): BUS_IN/OUT (system boundary) → cell_connection (inter-cell routing) → CELL_CONNECT (intra-cell wiring)
 - CELL_CONNECT = unified connection table. replaces: label_connection, trigger_funcs, function_PIN_IN/OUT.
@@ -186,9 +270,7 @@ tier 1: runtime base (基座运行能力)
     recognized types:
       pin.in, pin.out, pin.model.in, pin.model.out, pin.bus.in, pin.bus.out,
       pin.log.in, pin.log.out, pin.log.model.in, pin.log.model.out, pin.log.bus.in, pin.log.bus.out,
-      pin.connect.label, pin.connect.cell, pin.connect.model, submt, func.js, func.python
-      (compatibility aliases, DEPRECATED): IN, BUS_IN, BUS_OUT, MODEL_IN, MODEL_OUT,
-      CELL_CONNECT, cell_connection, subModel, function, MQTT_WILDCARD_SUB
+      pin.connect.label, pin.connect.cell, pin.connect.model, model.submt, func.js, func.python
   - MQTT loop: startMqttLoop, mqttIncoming, topic routing
   - AsyncFunction executor: _executeFuncViaCellConnect (30s timeout, sandboxed ctx)
   - graph management: pinConnectLabelGraph, pinConnectCellRoutes, busInPorts, busOutPorts
@@ -209,9 +291,25 @@ tier 2: model definitions (填表能力)
   - intent dispatch (via function labels)
   files: packages/worker-base/system-models/*.json, deploy/sys-v1ns/**/*.json
 
+placement rule:
+  - tier 2 capabilities may live in positive or negative models.
+  - if a capability is not meant to be directly user-visible or user-owned,
+    it MUST default to negative model_id system models.
+  - negative models are still system capability layers even when they carry built-in system applications.
+  - as negative model_id absolute value grows, placement may move upward toward built-in system applications, but remains system-layer placement.
+
 rule: if a capability can be expressed as a model definition, it MUST be.
       runtime code changes are only for adding new label.t interpretation or
       fixing interpreter bugs. never for business logic.
+
+conformance review:
+  - every feature/test review MUST consult docs/ssot/tier_boundary_and_conformance_testing.md
+    and record whether the feature respects:
+      1. tier 1 vs tier 2 boundary
+      2. negative vs positive model placement
+      3. data ownership
+      4. data flow direction
+      5. allowed data chain / routing path
 
 examples:
   - Data.Array behavior → tier 2 (func.js template on data model)
@@ -226,30 +324,61 @@ MODEL_ID_REGISTRY
 
 allocation rules (authoritative):
 
-  Model 0        system root. pin.bus.in/out, pin.connect.cell to children.
-                 the only model with system boundary ports. never holds business logic.
+  Model 0        system root / intermediate layer. pin.bus.in/out and root-side routing live here.
+                 the only model with system boundary ports. never holds user business logic.
+                 Model 0 (0,0,0) MUST explicitly carry model.table.
 
-  Model -1       UI event mailbox. Cell(0,0,1) receives ui_event envelopes.
+  Model -1       system capability layer: UI event mailbox. Cell(0,0,1) receives ui_event envelopes.
 
-  Model -3       login ui model. auth login form state/schema projection.
-                 reserved for login flow; do not reuse for cognition/system routing.
+  Model -3       system capability layer: login ui model. auth login form state/schema projection.
+                  reserved for login flow; do not reuse for cognition/system routing.
 
-  Model -10      system functions. infrastructure logic expressed as function labels:
-                 mgmt_send, mgmt_receive, intent_dispatch, mbr_route_*, mqtt config helpers.
-                 all MBR/MGMT/intent capabilities live here as "filled table" entries.
+  Model -10      system capability layer: infrastructure logic expressed as function labels:
+                  mgmt_send, mgmt_receive, intent_dispatch, mbr_route_*, mqtt config helpers.
+                  all MBR/MGMT/intent capabilities live here as "filled table" entries.
 
-  Model -12      cognition context model. scene_context and feedback-loop state carrier
-                 (0153: perception→cognition→decision→action→feedback).
+  Model -12      system capability layer: cognition context model. scene_context and feedback-loop state carrier
+                  (0153: perception→cognition→decision→action→feedback).
 
-  Model -11..-99 reserved for future system services (monitoring, auth, workspace mgmt),
-                 except allocated ids above.
-                 do not allocate without iteration.
+  Model -21      system capability layer: Prompt page asset model.
+                 reserved for Prompt FillTable ui_ast_v0 page asset.
 
-  Model 1..99    reserved for framework/platform apps (settings, diagnostics, store).
-                 do not allocate without iteration.
+  Model -22      system capability layer: Home page asset model.
+                 reserved for root_home ui_ast_v0 page asset.
 
-  Model 100+     application models. user-defined business models.
-                 examples: color_form (100), future: task manager, data viewer, etc.
+  Model -23      system capability layer: Docs page asset model.
+                 reserved for root_docs ui_ast_v0 page asset.
+
+  Model -24      system capability layer: Static page asset model.
+                 reserved for root_static ui_ast_v0 page asset.
+
+  Model -25      system capability layer: Workspace page asset model.
+                 reserved for root_workspace ui_ast_v0 page asset.
+
+  Model -26      system capability layer: editor test page asset model.
+                 reserved for non-nav internal editor test UI asset.
+
+  Model -101     system capability layer: Gallery mailbox model.
+                 reserved for local/remote Gallery ui_event inbox only.
+
+  Model -102     system capability layer: Gallery state model.
+                 reserved for Gallery demo state and fragment data; do not reuse for unrelated system UI.
+
+  Model -103     system capability layer: Gallery catalog model.
+                 reserved for Workspace-visible Gallery entry and its ui_ast_v0 page asset.
+
+  Model -11..-99 reserved for future system capability layers (monitoring, auth, workspace mgmt),
+                  except allocated ids above.
+                  do not allocate without iteration.
+
+  Model -100..-199 reserved for system-visible UI catalogs, demo entries, and their companion mailbox/state models,
+                  except allocated ids above.
+                  allocate only via iteration and register each concrete id in this section.
+
+  Model >0       user-created model space.
+                 do not infer framework/platform vs business solely from positive-id numeric ranges.
+                 if future governance wants positive-id subranges, it MUST be documented as an explicit allocation policy,
+                 not inferred from stale historical ranges.
 
 violation: using an unregistered model_id range → must register in this section first.
 
@@ -293,19 +422,17 @@ rules:
   - log pins have NO special runtime behavior. no wiring = log discarded.
   - each function has 3 pins: func:in / func:out / func:log.out.
 
-replaces (DEPRECATED):
-  BUS_IN / BUS_OUT → pin.bus.in / pin.bus.out
-  cell_connection → pin.connect.cell
-  CELL_CONNECT → pin.connect.label
-  MODEL_IN / MODEL_OUT → pin.model.in / pin.model.out
+historical aliases (non-normative):
+  old docs/tests/code may still mention BUS_IN / BUS_OUT / cell_connection / CELL_CONNECT / MODEL_IN / MODEL_OUT.
+  they are migration debt, not approved surface area for new work.
 
 
 FUNCTION_LABELS
 
   type: func.js | func.python
   value: {"code": "async (ctx) => { ... }", "modelName": "optional_scope_name"}
-  value SHOULD use structured object in new models.
-  compatibility period: string value is accepted only for legacy models.
+  value MUST use structured object in new models.
+  compatibility retention is forbidden unless the user explicitly approves it.
   each function has 3 pins: func:in, func:out, func:log.out.
 
   func.js: compiled to AsyncFunction, executed in sandboxed ctx.
@@ -414,7 +541,7 @@ docs-shared/ is a symlink to ~/Documents/drip/Knowledge/ (cross-project shared k
 
 rules:
 - docs/ and docs-shared/ are the real files inside the Obsidian vault. edits here appear in Obsidian immediately.
-- use Obsidian Markdown format: wikilinks [[target]], frontmatter YAML, callouts.
+- use Obsidian Markdown format: wikilinks like [[docs/WORKFLOW]], frontmatter YAML, callouts.
 - when writing to docs-shared/ (shared knowledge), include frontmatter: source (ai|human), status (draft|reviewed|stable), project (origin project name).
 - AI-authored shared knowledge defaults to status: draft.
 - when unsure about classification (which folder, which subfolder), ask the user.

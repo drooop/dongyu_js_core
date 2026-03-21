@@ -1,0 +1,25 @@
+{
+  "version": "mt.v0",
+  "op_id": "nav_catalog_ui_v0",
+  "description": "App shell page catalog for top navigation",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": -2,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_page_catalog_json",
+      "t": "json",
+      "v": [
+        { "page": "home", "path": "/", "label": "首页", "nav_visible": true, "view": "main", "asset_type": "ui_ast_model", "model_id": -22, "legacy_fallback": false },
+        { "page": "gallery", "path": "/gallery", "label": "Gallery", "nav_visible": false, "view": "gallery", "asset_type": "ui_ast_model", "model_id": -103, "legacy_fallback": false },
+        { "page": "docs", "path": "/docs", "label": "Docs", "nav_visible": false, "view": "main", "asset_type": "ui_ast_model", "model_id": -23, "legacy_fallback": false },
+        { "page": "static", "path": "/static", "label": "Static", "nav_visible": false, "view": "main", "asset_type": "ui_ast_model", "model_id": -24, "legacy_fallback": false },
+        { "page": "workspace", "path": "/workspace", "label": "Workspace", "nav_visible": true, "view": "main", "asset_type": "ui_ast_model", "model_id": -25, "legacy_fallback": false },
+        { "page": "prompt", "path": "/prompt", "label": "Prompt", "nav_visible": true, "view": "main", "asset_type": "ui_ast_model", "model_id": -21, "legacy_fallback": false },
+        { "page": "test", "path": "/__test__", "label": "Test", "nav_visible": false, "view": "main", "asset_type": "ui_ast_model", "model_id": -26, "legacy_fallback": false }
+      ]
+    }
+  ]
+}

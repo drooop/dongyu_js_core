@@ -1,12 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { createDemoStore } from '../packages/ui-model-demo-frontend/src/demo_modeltable.js';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
 const { createSqlitePersister } = require('../packages/worker-base/src/modeltable_persistence_sqlite.js');
-const { createLocalBusAdapter } = require('../packages/ui-model-demo-frontend/src/local_bus_adapter.js');
-const { buildEditorAstV1 } = require('../packages/ui-model-demo-frontend/src/demo_modeltable.js');
 
 function resolveWorkspace() {
   return process.env.WORKER_BASE_WORKSPACE || 'default';
@@ -110,13 +109,12 @@ function main() {
   seedEditorState(runtime);
   seedMailbox(runtime);
 
-  const eventLog = [];
-  const adapter = createLocalBusAdapter({ runtime, eventLog, mode: 'v1' });
-  const snapshot = runtime.snapshot();
-  const uiAst = buildEditorAstV1(snapshot);
+  const store = createDemoStore({ runtime, uiMode: 'v1', adapterMode: 'v1' });
+  void store.getUiAst();
   const snapshotJson = buildSnapshotJson(runtime);
-  const eventLogJson = JSON.stringify(eventLog, null, 2);
-  adapter.updateUiDerived({ uiAst, snapshotJson, eventLogJson });
+  const mailbox = runtime.getModel(-1);
+  runtime.addLabel(mailbox, 0, 1, 0, { k: 'snapshot_json', t: 'str', v: snapshotJson });
+  runtime.addLabel(mailbox, 0, 1, 1, { k: 'event_log', t: 'str', v: '[]' });
 
   process.stdout.write(`reset_db: PASS ${dbPath}\n`);
 }

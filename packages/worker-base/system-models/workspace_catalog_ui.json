@@ -1,0 +1,101 @@
+{
+  "version": "mt.v0",
+  "op_id": "workspace_catalog_ui_v0",
+  "description": "Workspace page asset",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": -25,
+      "name": "workspace_catalog",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "UI.WorkspaceCatalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_ast_v0",
+      "t": "json",
+      "v": {
+        "id": "root_workspace",
+        "type": "Root",
+        "children": [
+          {
+            "id": "ws_layout",
+            "type": "Container",
+            "props": { "layout": "row", "gap": 16, "style": { "alignItems": "flex-start", "minHeight": "600px" } },
+            "children": [
+              {
+                "id": "ws_left_panel",
+                "type": "Card",
+                "props": { "title": "资产树 ASSET TREE", "style": { "width": "260px", "flexShrink": 0 } },
+                "children": [
+                  {
+                    "id": "tbl_workspace_apps",
+                    "type": "Table",
+                    "props": {
+                      "data": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "ws_apps_registry" } },
+                      "border": true,
+                      "stripe": true,
+                      "size": "small",
+                      "rowKey": "model_id"
+                    },
+                    "children": [
+                      { "id": "col_ws_name", "type": "TableColumn", "props": { "label": "name", "prop": "name", "minWidth": 140 } },
+                      { "id": "col_ws_source", "type": "TableColumn", "props": { "label": "source", "prop": "source", "minWidth": 100 } },
+                      {
+                        "id": "col_ws_actions",
+                        "type": "TableColumn",
+                        "props": { "label": "Actions", "width": 100, "fixed": "right" },
+                        "children": [
+                          {
+                            "id": "btn_ws_select",
+                            "type": "Button",
+                            "props": { "label": "Open", "type": "primary", "link": true },
+                            "bind": {
+                              "write": {
+                                "action": "label_update",
+                                "target_ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "ws_app_selected" },
+                                "value_ref": { "t": "int", "v": { "$ref": "row.model_id" } }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "ws_right_panel",
+                "type": "Card",
+                "props": { "title": { "$label": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "ws_selected_title" } }, "style": { "flex": 1, "minWidth": 0 } },
+                "children": [
+                  {
+                    "id": "ws_selected_include",
+                    "type": "Include",
+                    "props": {
+                      "ref": { "model_id": -2, "p": 0, "r": 0, "c": 0, "k": "ws_selected_ast" },
+                      "fallbackText": "请从左侧选择一个应用"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

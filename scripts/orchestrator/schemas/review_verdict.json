@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Review Verdict",
+  "description": "Structured output from Claude Code review (ultrawork role). Used for both REVIEW_PLAN and REVIEW_EXEC phases.",
+  "type": "object",
+  "properties": {
+    "verdict": {
+      "enum": ["APPROVED", "NEEDS_CHANGES"],
+      "description": "Overall review decision"
+    },
+    "revision_type": {
+      "enum": ["major", "minor", "ambiguous"],
+      "description": "Whether the required changes constitute a major revision (affects scope/contract/validation criteria), minor (wording/format), or ambiguous (cannot determine — escalate to human)"
+    },
+    "revision_type_rationale": {
+      "type": "string",
+      "description": "Why this revision type was assigned"
+    },
+    "blocking_issues": {
+      "type": "array",
+      "description": "Must-fix issues that block approval",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": { "enum": ["critical", "major"] },
+          "description": { "type": "string" },
+          "location": { "type": "string" }
+        },
+        "required": ["severity", "description"]
+      }
+    },
+    "suggestions": {
+      "type": "array",
+      "description": "Non-blocking improvements",
+      "items": { "type": "string" }
+    },
+    "conformance_check": {
+      "type": "object",
+      "description": "Conformance review results (WORKFLOW.md §Conformance Review)",
+      "properties": {
+        "tier_boundary": { "enum": ["pass", "fail", "n/a"] },
+        "model_placement": { "enum": ["pass", "fail", "n/a"] },
+        "data_ownership": { "enum": ["pass", "fail", "n/a"] },
+        "data_flow": { "enum": ["pass", "fail", "n/a"] },
+        "data_chain": { "enum": ["pass", "fail", "n/a"] }
+      }
+    },
+    "spawned_iterations": {
+      "type": "array",
+      "description": "New iterations proposed during review",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "reason": { "type": "string" },
+          "spawn_type": {
+            "enum": ["derived_dependency", "scope_expansion"],
+            "description": "derived_dependency = auto-register, scope_expansion = propose only"
+          },
+          "blocks_current": { "type": "boolean" },
+          "scope_justification": { "type": "string" }
+        },
+        "required": ["title", "reason", "spawn_type", "blocks_current"]
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "One-line summary of the review"
+    }
+  },
+  "required": ["verdict", "blocking_issues", "summary"]
+}

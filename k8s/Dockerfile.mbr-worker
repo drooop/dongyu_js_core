@@ -6,14 +6,11 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev
 
-# Copy worker-base runtime
-COPY packages/worker-base/ ./packages/worker-base/
+# Copy worker-base runtime code only
+COPY packages/worker-base/src/ ./packages/worker-base/src/
 
 # Copy generic worker bootstrap and engine
 COPY scripts/run_worker_v0.mjs ./scripts/
 COPY scripts/worker_engine_v0.mjs ./scripts/
 
-# Copy MBR role patches
-COPY deploy/sys-v1ns/mbr/patches/ ./deploy/sys-v1ns/mbr/patches/
-
-CMD ["node", "scripts/run_worker_v0.mjs", "deploy/sys-v1ns/mbr/patches"]
+CMD ["node", "scripts/run_worker_v0.mjs"]

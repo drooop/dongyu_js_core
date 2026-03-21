@@ -15,15 +15,17 @@ function loadPatches(rt, patchDir) {
   const files = fs.readdirSync(patchDir).filter(f => f.endsWith('.json')).sort();
   for (const file of files) {
     const patch = JSON.parse(fs.readFileSync(path.join(patchDir, file), 'utf8'));
-    rt.applyPatch(patch, { allowCreateModel: true });
+    rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
   }
 }
 
 function createConfiguredRuntime() {
   const rt = new ModelTableRuntime();
   const sysPatch = JSON.parse(fs.readFileSync('packages/worker-base/system-models/system_models.json', 'utf8'));
-  rt.applyPatch(sysPatch, { allowCreateModel: true });
+  rt.applyPatch(sysPatch, { allowCreateModel: true, trustedBootstrap: true });
   loadPatches(rt, 'deploy/sys-v1ns/remote-worker/patches');
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
   return rt;
 }
 
@@ -35,21 +37,19 @@ function test_patches_load_successfully() {
   return { key: 'patches_load_successfully', status: 'PASS' };
 }
 
-function test_mqtt_wildcard_sub_registered() {
+function test_remote_subscription_config_registered() {
   const rt = createConfiguredRuntime();
-  const model0 = rt.getModel(0);
-  const cell = rt.getCell(model0, 0, 0, 0);
+  const sys = rt.getModel(-10);
+  const cell = rt.getCell(sys, 0, 0, 0);
 
-  const subEvent = cell.labels.get('sub_model100_event');
-  assert(subEvent, 'sub_model100_event label should exist');
-  assert.strictEqual(subEvent.t, 'MQTT_WILDCARD_SUB');
-  assert(subEvent.v.includes('100/event'), 'should subscribe to model 100 event topic');
+  const subs = cell.labels.get('remote_subscriptions');
+  assert(subs, 'remote_subscriptions label should exist');
+  assert.strictEqual(subs.t, 'json');
+  assert(Array.isArray(subs.v), 'remote_subscriptions must be an array');
+  assert(subs.v.some((topic) => String(topic).includes('100/event')), 'remote_subscriptions must include model 100 event topic');
+  assert(subs.v.some((topic) => String(topic).includes('100/patch')), 'remote_subscriptions must include model 100 patch topic');
 
-  const subPatch = cell.labels.get('sub_model100_patch');
-  assert(subPatch, 'sub_model100_patch label should exist');
-  assert.strictEqual(subPatch.t, 'MQTT_WILDCARD_SUB');
-
-  return { key: 'mqtt_wildcard_sub_registered', status: 'PASS' };
+  return { key: 'remote_subscription_config_registered', status: 'PASS' };
 }
 
 function test_cell_connection_routing_declared() {
@@ -84,12 +84,13 @@ function test_mqtt_incoming_routes_to_model100() {
   // Simulate MQTT message arriving on Model 100 event topic
   const topic = 'UIPUT/ws/dam/pic/de/sw/100/event';
   const payload = {
-    version: 'mt.v0',
+    version: 'v0',
+    type: 'ui_event',
     op_id: 'test_0144_mqtt_001',
-    records: [{
-      op: 'add_label', model_id: 100, p: 1, r: 0, c: 0,
-      k: 'action', t: 'str', v: 'submit'
-    }]
+    action: 'submit',
+    source_model_id: 100,
+    data: { input_value: 'hello' },
+    timestamp: Date.now(),
   };
 
   const handled = rt.mqttIncoming(topic, payload);
@@ -127,18 +128,13 @@ async function test_full_chain_async() {
   // Simulate MQTT incoming → full chain
   const topic = 'UIPUT/ws/dam/pic/de/sw/100/event';
   const payload = {
-    version: 'mt.v0',
+    version: 'v0',
+    type: 'ui_event',
     op_id: 'test_0144_full_001',
-    records: [{
-      op: 'add_label', model_id: 100, p: 1, r: 0, c: 0,
-      k: 'action', t: 'str', v: 'submit'
-    }, {
-      op: 'add_label', model_id: 100, p: 1, r: 0, c: 0,
-      k: 'data', t: 'json', v: { meta: { op_id: 'test_0144_full_001' } }
-    }, {
-      op: 'add_label', model_id: 100, p: 1, r: 0, c: 0,
-      k: 'timestamp', t: 'int', v: Date.now()
-    }]
+    action: 'submit',
+    source_model_id: 100,
+    data: { meta: { op_id: 'test_0144_full_001' }, input_value: 'hello' },
+    timestamp: Date.now(),
   };
 
   const handled = rt.mqttIncoming(topic, payload);
@@ -164,7 +160,7 @@ async function test_full_chain_async() {
 // --- Run all tests ---
 const syncTests = [
   test_patches_load_successfully,
-  test_mqtt_wildcard_sub_registered,
+  test_remote_subscription_config_registered,
   test_cell_connection_routing_declared,
   test_cell_connect_wiring_declared,
   test_mqtt_incoming_routes_to_model100,

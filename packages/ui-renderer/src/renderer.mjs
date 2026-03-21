@@ -41,6 +41,14 @@ function getLabelValue(snapshot, ref) {
   return label.v;
 }
 
+function getEffectiveLabelValue(snapshot, ref, host) {
+  if (host && typeof host.getEffectiveLabelValue === 'function') {
+    const value = host.getEffectiveLabelValue(ref);
+    if (value !== undefined) return value;
+  }
+  return getLabelValue(snapshot, ref);
+}
+
 function getMailboxValue(snapshot) {
   const model = getModel(snapshot, -1);
   if (!model || !model.cells) return undefined;
@@ -192,6 +200,36 @@ function normalizeRegistry(registry) {
   return registry;
 }
 
+function normalizeCommitPolicy(target) {
+  const raw = target && typeof target.commit_policy === 'string'
+    ? target.commit_policy.trim()
+    : '';
+  if (raw === 'on_change' || raw === 'on_blur' || raw === 'on_submit' || raw === 'immediate') {
+    return raw;
+  }
+  return 'immediate';
+}
+
+function shouldUseOverlay(host, node, target) {
+  if (!host || typeof host.stageOverlayValue !== 'function') return false;
+  const readRef = node && node.bind && node.bind.read;
+  if (!readRef || !isPlainObject(readRef) || !Number.isInteger(readRef.model_id)) return false;
+  if (readRef.model_id === 0 || readRef.model_id === -1) return false;
+  return normalizeCommitPolicy(target) !== 'immediate';
+}
+
+function stageOverlay(node, target, value, host) {
+  if (!host || typeof host.stageOverlayValue !== 'function') return;
+  const readRef = node && node.bind && node.bind.read;
+  host.stageOverlayValue({ ref: readRef, value, writeTarget: target });
+}
+
+function commitOverlay(node, target, value, host) {
+  if (!host || typeof host.commitOverlayValue !== 'function') return;
+  const readRef = node && node.bind && node.bind.read;
+  host.commitOverlayValue({ ref: readRef, value, writeTarget: target });
+}
+
 function resolveComponentSpec(registry, type) {
   const normalized = normalizeRegistry(registry);
   const spec = normalized.components && normalized.components[type];
@@ -234,7 +272,10 @@ function renderTreeNode(node, snapshot, registry) {
   }
 
   if (runtimeNode.type === 'Card') {
-    base.title = (runtimeNode.props && runtimeNode.props.title) || '';
+    const title = runtimeNode.props && Object.prototype.hasOwnProperty.call(runtimeNode.props, 'title')
+      ? resolveRefsDeep(runtimeNode.props.title, null, snapshot)
+      : '';
+    base.title = title === undefined ? '' : title;
     base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
     return base;
   }
@@ -404,14 +445,33 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'Input') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host)) : undefined;
     props.modelValue = value !== undefined ? value : '';
     props['onUpdate:modelValue'] = (ev) => {
       const target = node.bind && node.bind.write;
       if (!target) return;
-      const payload = { value: ev && ev.target ? ev.target.value : ev };
+      const nextValue = ev && ev.target ? ev.target.value : ev;
+      if (shouldUseOverlay(host, node, target)) {
+        stageOverlay(node, target, nextValue, host);
+        return;
+      }
+      const payload = { value: nextValue };
       dispatchEvent(node, target, payload, host, undefined, ctx);
     };
+    const commitPolicy = normalizeCommitPolicy(node.bind && node.bind.write);
+    if (commitPolicy === 'on_blur') {
+      props.onBlur = () => {
+        const target = node.bind && node.bind.write;
+        if (!target) return;
+        commitOverlay(node, target, undefined, host);
+      };
+    } else if (commitPolicy === 'on_change') {
+      props.onChange = (v) => {
+        const target = node.bind && node.bind.write;
+        if (!target) return;
+        commitOverlay(node, target, v, host);
+      };
+    }
     return h(resolve('ElInput'), props);
   }
 
@@ -479,14 +539,25 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'NumberInput') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host)) : undefined;
     props.modelValue = value !== undefined ? value : null;
     const onValue = (v) => {
       const target = node.bind && node.bind.write;
       if (!target) return;
+      if (shouldUseOverlay(host, node, target)) {
+        stageOverlay(node, target, v, host);
+        return;
+      }
       dispatchEvent(node, target, { value: v }, host, undefined, ctx);
     };
     props['onUpdate:modelValue'] = onValue;
+    if (normalizeCommitPolicy(node.bind && node.bind.write) === 'on_change') {
+      props.onChange = (v) => {
+        const target = node.bind && node.bind.write;
+        if (!target) return;
+        commitOverlay(node, target, v, host);
+      };
+    }
     return h(resolve('ElInputNumber'), props);
   }
 
@@ -595,18 +666,32 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'Slider') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host)) : undefined;
     props.modelValue = value !== undefined ? value : 0;
     const onValue = (v) => {
       const target = node.bind && node.bind.write;
       if (!target) return;
+      if (shouldUseOverlay(host, node, target)) {
+        stageOverlay(node, target, v, host);
+        return;
+      }
       dispatchEvent(node, target, { value: v }, host, undefined, ctx);
     };
     props['onUpdate:modelValue'] = onValue;
     const changeTarget = node.bind && node.bind.change;
     if (changeTarget) {
       props.onChange = (v) => {
+        const target = node.bind && node.bind.write;
+        if (target && normalizeCommitPolicy(target) === 'on_change') {
+          commitOverlay(node, target, v, host);
+        }
         dispatchEvent(node, changeTarget, { value: v }, host, 'change', ctx);
+      };
+    } else if (normalizeCommitPolicy(node.bind && node.bind.write) === 'on_change') {
+      props.onChange = (v) => {
+        const target = node.bind && node.bind.write;
+        if (!target) return;
+        commitOverlay(node, target, v, host);
       };
     }
     return h(resolve('ElSlider'), props);
@@ -678,19 +763,16 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       }
     }
     const pendingLocal = Boolean(singleFlightEnabled && flightState && flightState.pending);
+    const schemaLoading = Object.prototype.hasOwnProperty.call(props, 'loading') ? Boolean(props.loading) : false;
+    props.loading = pendingLocal || schemaLoading;
     if (pendingLocal) {
       props.disabled = true;
-      props.loading = true;
     }
 
     props.onClick = (evt) => {
       if (singleFlightEnabled && flightState && flightState.pending) {
         return;
       }
-
-      const clickEl = evt && evt.currentTarget && typeof evt.currentTarget === 'object'
-        ? evt.currentTarget
-        : null;
 
       if (singleFlightEnabled && singleFlightStore) {
         const nextState = {
@@ -699,12 +781,6 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         };
         flightState = nextState;
         singleFlightStore.set(singleFlightKey, nextState);
-        if (clickEl && Object.prototype.hasOwnProperty.call(clickEl, 'disabled')) {
-          clickEl.disabled = true;
-        }
-        if (clickEl && clickEl.classList && typeof clickEl.classList.add === 'function') {
-          clickEl.classList.add('is-loading');
-        }
       }
 
       const target = node.bind && node.bind.write;
@@ -717,12 +793,6 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         };
         flightState = recoverState;
         singleFlightStore.set(singleFlightKey, recoverState);
-        if (clickEl && Object.prototype.hasOwnProperty.call(clickEl, 'disabled')) {
-          clickEl.disabled = false;
-        }
-        if (clickEl && clickEl.classList && typeof clickEl.classList.remove === 'function') {
-          clickEl.classList.remove('is-loading');
-        }
       }
     };
 
@@ -835,7 +905,9 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   }
 
   if (node.type === 'Card') {
-    const title = (node.props && node.props.title) || '';
+    const title = props && Object.prototype.hasOwnProperty.call(props, 'title')
+      ? props.title
+      : '';
     const cardProps = { ...props };
     delete cardProps.title;
     return h(resolve('ElCard'), cardProps, {

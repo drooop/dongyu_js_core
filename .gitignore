@@ -1,3 +1,6 @@
+# Orchestrator runtime (batch runs, transcripts, state)
+.orchestrator/
+
 # Dependencies
 node_modules/
 .pnp/
@@ -63,6 +66,7 @@ AGENTS.md
 .sisyphus/
 .playwright-mcp/
 .github/
+!/AGENTS.md
 !.github/
 .github/*
 !.github/workflows/
@@ -87,6 +91,8 @@ scripts/docs-viewer/dist/
 PICtest/
 test_files/
 .dy_static_projects/
+.playwright-cli/
+output/
 
 # Infrastructure secrets
 k8s/*-secret.yaml

@@ -1,45 +1,123 @@
 import { reactive } from 'vue';
-
-function getSnapshotModel(snapshot, modelId) {
-  if (!snapshot || !snapshot.models) return null;
-  return snapshot.models[modelId] || snapshot.models[String(modelId)] || null;
-}
-
-function getSnapshotLabelValue(snapshot, ref) {
-  const modelId = ref && typeof ref.model_id === 'number' ? ref.model_id : 0;
-  const model = getSnapshotModel(snapshot, modelId);
-  if (!model || !model.cells) return undefined;
-  const key = `${ref.p},${ref.r},${ref.c}`;
-  const cell = model.cells[key];
-  if (!cell || !cell.labels) return undefined;
-  const label = cell.labels[ref.k];
-  if (!label) return undefined;
-  return label.v;
-}
-
-function parseSafeInt(value) {
-  if (typeof value === 'number' && Number.isSafeInteger(value)) return value;
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (trimmed.length === 0) return null;
-    if (!/^-?\d+$/.test(trimmed)) return null;
-    const parsed = Number(trimmed);
-    if (!Number.isSafeInteger(parsed)) return null;
-    return parsed;
-  }
-  return null;
-}
+import { getSnapshotModel, getSnapshotLabelValue, parseSafeInt } from './snapshot_utils.js';
+import { buildAstFromSchema } from './ui_schema_projection.js';
+import { resolveRouteUiAst } from './route_ui_projection.js';
 
 export function createRemoteStore(options) {
   const defaultBaseUrl = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'http://127.0.0.1:9000';
   const baseUrl = options && options.baseUrl ? String(options.baseUrl).replace(/\/$/, '') : defaultBaseUrl;
   const snapshot = reactive({ models: {}, v1nConfig: { local_mqtt: null, global_mqtt: null } });
+  const overlayStore = reactive(new Map());
 
   const EDITOR_MODEL_ID = -1;
   const EDITOR_STATE_MODEL_ID = -2;
 
   let pauseSse = false;
   let pendingSseSnapshot = null;
+  let runtimeActivationPromise = null;
+  const routeState = reactive({ path: '/' });
+
+  function labelRefKey(ref) {
+    if (!ref || !Number.isInteger(ref.model_id) || !Number.isInteger(ref.p) || !Number.isInteger(ref.r) || !Number.isInteger(ref.c) || typeof ref.k !== 'string') {
+      return '';
+    }
+    return `${ref.model_id}:${ref.p}:${ref.r}:${ref.c}:${ref.k}`;
+  }
+
+  function stableValueKey(value) {
+    if (value === null || value === undefined) return '__nil__';
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+    try {
+      return JSON.stringify(value);
+    } catch (_) {
+      return String(value);
+    }
+  }
+
+  function normalizeCommitPolicy(writeTarget) {
+    const raw = writeTarget && typeof writeTarget.commit_policy === 'string'
+      ? writeTarget.commit_policy.trim()
+      : '';
+    if (raw === 'on_change' || raw === 'on_blur' || raw === 'on_submit' || raw === 'immediate') {
+      return raw;
+    }
+    return 'immediate';
+  }
+
+  function inferInteractionMode(writeTarget) {
+    const explicit = writeTarget && typeof writeTarget.interaction_mode === 'string'
+      ? writeTarget.interaction_mode.trim()
+      : '';
+    if (explicit === 'overlay_then_commit' || explicit === 'committed_direct') return explicit;
+    const policy = normalizeCommitPolicy(writeTarget);
+    return policy === 'immediate' ? 'committed_direct' : 'overlay_then_commit';
+  }
+
+  function inferTypedValue(raw) {
+    if (typeof raw === 'boolean') return { t: 'bool', v: raw };
+    if (typeof raw === 'number' && Number.isSafeInteger(raw)) return { t: 'int', v: raw };
+    if (typeof raw === 'string') return { t: 'str', v: raw };
+    return { t: 'json', v: raw };
+  }
+
+  function getCommitTargetRef(ref, writeTarget) {
+    const explicit = writeTarget && writeTarget.commit_target_ref && typeof writeTarget.commit_target_ref === 'object'
+      ? writeTarget.commit_target_ref
+      : null;
+    if (explicit && labelRefKey(explicit)) return explicit;
+    const targetRef = writeTarget && writeTarget.target_ref && typeof writeTarget.target_ref === 'object'
+      ? writeTarget.target_ref
+      : null;
+    if (targetRef && labelRefKey(targetRef)) return targetRef;
+    return ref && labelRefKey(ref) ? ref : null;
+  }
+
+  function getOverlayEntry(ref) {
+    const key = labelRefKey(ref);
+    if (!key) return null;
+    return overlayStore.get(key) || null;
+  }
+
+  function clearOverlayEntry(ref) {
+    const key = labelRefKey(ref);
+    if (!key) return;
+    overlayStore.delete(key);
+  }
+
+  function getEffectiveLabelValue(ref) {
+    const key = labelRefKey(ref);
+    if (key && overlayStore.has(key)) {
+      return overlayStore.get(key).value;
+    }
+    return getSnapshotLabelValue(snapshot, ref);
+  }
+
+  function stageOverlayValue({ ref, value, writeTarget }) {
+    if (!ref || !labelRefKey(ref)) return;
+    if (!Number.isInteger(ref.model_id) || ref.model_id === 0 || ref.model_id === EDITOR_MODEL_ID) return;
+    if (inferInteractionMode(writeTarget) !== 'overlay_then_commit') return;
+    overlayStore.set(labelRefKey(ref), {
+      ref,
+      value,
+      commitPolicy: normalizeCommitPolicy(writeTarget),
+      writeTarget: writeTarget || null,
+      commitTargetRef: getCommitTargetRef(ref, writeTarget),
+      pending: false,
+      error: null,
+      committedValueKey: null,
+      updatedAt: Date.now(),
+    });
+  }
+
+  function reconcileOverlayStore() {
+    for (const [key, entry] of overlayStore.entries()) {
+      if (!entry || !entry.pending || !entry.commitTargetRef) continue;
+      const committedValue = getSnapshotLabelValue(snapshot, entry.commitTargetRef);
+      if (stableValueKey(committedValue) === entry.committedValueKey) {
+        overlayStore.delete(key);
+      }
+    }
+  }
 
   function computePauseSse(next) {
     const v = getSnapshotLabelValue(next, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_pause_sse' });
@@ -56,6 +134,7 @@ export function createRemoteStore(options) {
     if (!next || !next.models) return;
     snapshot.models = next.models;
     snapshot.v1nConfig = next.v1nConfig;
+    reconcileOverlayStore();
     pauseSse = computePauseSse(next);
     if (!pauseSse) {
       const pending = pendingSseSnapshot;
@@ -65,6 +144,10 @@ export function createRemoteStore(options) {
   }
 
   function getUiAst() {
+    const resolved = resolveRouteUiAst(snapshot, routeState.path, { projectSchemaModel: buildAstFromSchema });
+    if (resolved && resolved.ast && typeof resolved.ast === 'object') {
+      return resolved.ast;
+    }
     const raw = getSnapshotLabelValue(snapshot, { model_id: EDITOR_MODEL_ID, p: 0, r: 0, c: 0, k: 'ui_ast_v0' });
     if (!raw) return null;
     // Defensive: some producers may store json-typed values as strings.
@@ -79,6 +162,10 @@ export function createRemoteStore(options) {
     return raw;
   }
 
+  function setRoutePath(routePath) {
+    routeState.path = typeof routePath === 'string' && routePath.trim().length > 0 ? routePath : '/';
+  }
+
   function assertMailboxWriteLabel(label) {
     if (!label || label.t !== 'event') {
       throw new Error('non_event_write');
@@ -91,9 +178,19 @@ export function createRemoteStore(options) {
     }
   }
 
-  function patchEditorStateLabel(target, value) {
+  function isNegativeLocalStateTarget(target) {
     const modelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
-    if (modelId !== EDITOR_STATE_MODEL_ID) return;
+    if (modelId === null) return false;
+    return modelId < 0 && modelId !== EDITOR_MODEL_ID;
+  }
+
+  function localStateKey(target) {
+    return `${target.model_id}:${target.p}:${target.r}:${target.c}:${target.k}`;
+  }
+
+  function patchNegativeLocalStateLabel(target, value) {
+    const modelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
+    if (!isNegativeLocalStateTarget(target)) return;
     if (!target || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c) || typeof target.k !== 'string') {
       return;
     }
@@ -101,12 +198,115 @@ export function createRemoteStore(options) {
       return;
     }
 
-    const model = getSnapshotModel(snapshot, EDITOR_STATE_MODEL_ID);
-    if (!model || !model.cells) return;
+    let model = getSnapshotModel(snapshot, modelId);
+    if (!model) {
+      snapshot.models[String(modelId)] = { cells: {} };
+      model = snapshot.models[String(modelId)];
+    }
+    if (!model.cells) {
+      model.cells = {};
+    }
     const cellKey = `${target.p},${target.r},${target.c}`;
+    if (!model.cells[cellKey]) {
+      model.cells[cellKey] = { labels: {} };
+    }
     const cell = model.cells[cellKey];
-    if (!cell || !cell.labels) return;
+    if (!cell.labels) {
+      cell.labels = {};
+    }
     cell.labels[target.k] = { k: target.k, t: value.t, v: value.v };
+  }
+
+  function buildOverlayCommitEnvelope(entry, explicitValue) {
+    if (!entry || !entry.commitTargetRef) return null;
+    const writeTarget = entry.writeTarget || {};
+    const action = typeof writeTarget.action === 'string' && writeTarget.action.trim()
+      ? writeTarget.action.trim()
+      : 'label_update';
+    if (action !== 'label_update' && action !== 'label_add') return null;
+    const opId = `overlay_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    const typedValue = inferTypedValue(explicitValue !== undefined ? explicitValue : entry.value);
+    const payload = {
+      action,
+      meta: {
+        op_id: opId,
+        overlay_commit: true,
+        model_id: entry.commitTargetRef.model_id,
+      },
+      target: entry.commitTargetRef,
+      value: typedValue,
+    };
+    return {
+      event_id: Date.now(),
+      type: action,
+      source: 'ui_renderer',
+      ts: 0,
+      payload,
+    };
+  }
+
+  async function commitOverlayValue({ ref, writeTarget, value }) {
+    const key = labelRefKey(ref);
+    if (!key) return null;
+    const entry = overlayStore.get(key);
+    if (!entry) return null;
+    const effectiveWriteTarget = writeTarget || entry.writeTarget;
+    const envelope = buildOverlayCommitEnvelope({ ...entry, writeTarget: effectiveWriteTarget }, value);
+    if (!envelope) return null;
+    entry.pending = true;
+    entry.error = null;
+    entry.writeTarget = effectiveWriteTarget || null;
+    entry.commitTargetRef = getCommitTargetRef(ref, effectiveWriteTarget);
+    entry.committedValueKey = stableValueKey(inferTypedValue(value !== undefined ? value : entry.value).v);
+    overlayStore.set(key, entry);
+    sendQueue = sendQueue.then(() => postEnvelope(envelope)).then((data) => {
+      if (!data || data.result === 'error') {
+        const current = overlayStore.get(key);
+        if (current) {
+          current.pending = false;
+          current.error = data && data.code ? data.code : 'commit_failed';
+          overlayStore.set(key, current);
+        }
+      } else {
+        reconcileOverlayStore();
+      }
+      return data;
+    }).catch((err) => {
+      const current = overlayStore.get(key);
+      if (current) {
+        current.pending = false;
+        current.error = String(err && err.message ? err.message : err);
+        overlayStore.set(key, current);
+      }
+      return null;
+    });
+    return sendQueue;
+  }
+
+  async function flushSubmitOverlaysForEnvelope(rawEnvelope) {
+    const payload = rawEnvelope && rawEnvelope.payload ? rawEnvelope.payload : null;
+    if (!payload || typeof payload.action !== 'string') return;
+    const action = payload.action;
+    if (action === 'label_update' || action === 'label_add') return;
+    for (const [key, entry] of overlayStore.entries()) {
+      if (!entry || entry.pending) continue;
+      if (entry.commitPolicy !== 'on_submit') continue;
+      if (!entry.commitTargetRef) continue;
+      const envelope = buildOverlayCommitEnvelope(entry);
+      if (!envelope) continue;
+      entry.pending = true;
+      entry.error = null;
+      entry.committedValueKey = stableValueKey(inferTypedValue(entry.value).v);
+      overlayStore.set(key, entry);
+      const data = await postEnvelope(envelope);
+      if (!data || data.result === 'error') {
+        entry.pending = false;
+        entry.error = data && data.code ? data.code : 'commit_failed';
+        overlayStore.set(key, entry);
+      } else {
+        reconcileOverlayStore();
+      }
+    }
   }
 
   function getEditorState() {
@@ -184,7 +384,36 @@ export function createRemoteStore(options) {
     }
   }
 
-  async function postEnvelope(envelope) {
+  async function ensureRuntimeRunning() {
+    if (runtimeActivationPromise) return runtimeActivationPromise;
+    runtimeActivationPromise = (async () => {
+      try {
+        const resp = await fetch(`${baseUrl}/api/runtime/mode`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ mode: 'running' }),
+          credentials: 'same-origin',
+        });
+        if (!resp.ok) {
+          let detail = '';
+          try {
+            detail = await resp.text();
+          } catch (_) {
+            // ignore
+          }
+          console.error('runtime activation failed', { status: resp.status, statusText: resp.statusText, detail });
+        }
+      } catch (err) {
+        console.error('runtime activation fetch error', { err });
+      }
+      await fetchSnapshotAndApply('runtime activation');
+    })().finally(() => {
+      runtimeActivationPromise = null;
+    });
+    return runtimeActivationPromise;
+  }
+
+  async function postEnvelope(envelope, options = {}) {
     let resp;
     try {
       resp = await fetch(`${baseUrl}/ui_event`, {
@@ -227,6 +456,10 @@ export function createRemoteStore(options) {
       await fetchSnapshotAndApply('ui_event response json parse error');
       return null;
     }
+    if (data && data.code === 'runtime_not_running' && options.retried !== true) {
+      await ensureRuntimeRunning();
+      return postEnvelope(envelope, { retried: true });
+    }
     if (data && data.snapshot) applySnapshot(data.snapshot);
     return data;
   }
@@ -266,12 +499,13 @@ export function createRemoteStore(options) {
     const rawTarget = rawPayload && rawPayload.target ? rawPayload.target : null;
 
     // Remote mode UX mitigation:
-    // - Draft edits live in editor_state (model -2). Apply optimistically for input responsiveness.
-    // - Coalesce draft writes to reduce per-keystroke network chatter.
-    if (rawAction === 'label_update' && rawTarget && rawTarget.model_id === EDITOR_STATE_MODEL_ID) {
-      patchEditorStateLabel(rawTarget, rawPayload.value);
+    // - Negative UI-local state should update immediately in the browser.
+    // - Still sync to server in the background to keep remote runtime state aligned.
+    // - Coalesce per-target writes to reduce per-keystroke/per-drag network chatter.
+    if (rawAction === 'label_update' && rawTarget && isNegativeLocalStateTarget(rawTarget)) {
+      patchNegativeLocalStateLabel(rawTarget, rawPayload.value);
       if (rawTarget && typeof rawTarget.k === 'string') {
-        pendingDraftByKey.set(rawTarget.k, rawEnvelope);
+        pendingDraftByKey.set(localStateKey(rawTarget), rawEnvelope);
       }
       scheduleDraftFlush();
       return;
@@ -284,7 +518,10 @@ export function createRemoteStore(options) {
 
     const envelope = rewriteEditorActionEnvelope(rawEnvelope);
 
-    sendQueue = sendQueue.then(() => postEnvelope(envelope)).catch(() => {
+    sendQueue = sendQueue.then(async () => {
+      await flushSubmitOverlaysForEnvelope(rawEnvelope);
+      return postEnvelope(envelope);
+    }).catch(() => {
       // keep queue alive
     });
     return sendQueue;
@@ -337,6 +574,8 @@ export function createRemoteStore(options) {
       // allow SSE to recover later
     }
 
+    await ensureRuntimeRunning();
+
     try {
       const es = new EventSource(`${baseUrl}/stream`, { withCredentials: true });
       es.addEventListener('snapshot', (evt) => {
@@ -369,6 +608,10 @@ export function createRemoteStore(options) {
   return {
     snapshot,
     getUiAst,
+    setRoutePath,
+    getEffectiveLabelValue,
+    stageOverlayValue,
+    commitOverlayValue,
     dispatchAddLabel,
     dispatchRmLabel,
     consumeOnce,
