@@ -13,12 +13,24 @@ function summary(result) {
   return result.map((row) => `${row.key}: ${row.status}`).join('\n');
 }
 
+function createIsolatedRuntime() {
+  const rt = new ModelTableRuntime();
+  rt.eventLog.reset();
+  rt.intercepts.reset();
+  return rt;
+}
+
+function activateRuntime(rt) {
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
+}
+
 function runValidation() {
   const results = [];
 
   // local_mqtt
   {
-    const rt = new ModelTableRuntime();
+    const rt = createIsolatedRuntime();
     const root = rt.getModel(0);
     rt.addLabel(root, 0, 0, 0, { k: 'local_mqtt', t: 'str', v: '127.0.0.1' });
     const events = rt.eventLog.list();
@@ -30,7 +42,7 @@ function runValidation() {
 
   // global_mqtt
   {
-    const rt = new ModelTableRuntime();
+    const rt = createIsolatedRuntime();
     const root = rt.getModel(0);
     rt.addLabel(root, 0, 0, 0, { k: 'global_mqtt', t: 'str', v: '10.0.0.1' });
     const events = rt.eventLog.list();
@@ -42,7 +54,7 @@ function runValidation() {
 
   // model_type
   {
-    const rt = new ModelTableRuntime();
+    const rt = createIsolatedRuntime();
     const root = rt.getModel(0);
     rt.addLabel(root, 0, 0, 0, { k: 'model_type', t: 'str', v: 'main' });
     const events = rt.eventLog.list();
@@ -55,7 +67,7 @@ function runValidation() {
 
   // data_type (first definition order)
   {
-    const rt = new ModelTableRuntime();
+    const rt = createIsolatedRuntime();
     const dataModel = rt.createModel({ id: 1, name: 'Data', type: 'Data' });
     rt.addLabel(dataModel, 0, 0, 0, { k: 'CELL_CONNECT', t: 'connect', v: {} });
     rt.eventLog.reset();
@@ -73,7 +85,7 @@ function runValidation() {
 
   // v1n_id lock
   {
-    const rt = new ModelTableRuntime();
+    const rt = createIsolatedRuntime();
     const root = rt.getModel(0);
     rt.addLabel(root, 0, 0, 0, { k: 'v1n_id', t: 'str', v: 'A' });
     rt.addLabel(root, 0, 0, 0, { k: 'v1n_id', t: 'str', v: 'B' });
@@ -86,7 +98,7 @@ function runValidation() {
 
   // pin.connect.label
   {
-    const rt = new ModelTableRuntime();
+    const rt = createIsolatedRuntime();
     const model = rt.createModel({ id: 100, name: 'ConnectLabel', type: 'ui' });
     rt.addLabel(model, 1, 0, 0, {
       k: 'wiring',
@@ -102,7 +114,7 @@ function runValidation() {
 
   // pin.connect.cell
   {
-    const rt = new ModelTableRuntime();
+    const rt = createIsolatedRuntime();
     const model = rt.createModel({ id: 101, name: 'ConnectCell', type: 'ui' });
     rt.addLabel(model, 0, 0, 0, {
       k: 'routing',
@@ -116,7 +128,7 @@ function runValidation() {
 
   // pin.connect.model
   {
-    const rt = new ModelTableRuntime();
+    const rt = createIsolatedRuntime();
     const root = rt.getModel(0);
     rt.addLabel(root, 0, 0, 0, {
       k: 'bus_to_model',
@@ -130,7 +142,8 @@ function runValidation() {
 
   // run_<func> registered
   {
-    const rt = new ModelTableRuntime();
+    const rt = createIsolatedRuntime();
+    activateRuntime(rt);
     const root = rt.getModel(0);
     root.registerFunction('func1');
     rt.addLabel(root, 0, 0, 0, { k: 'run_func1', t: 'run', v: 'x' });
@@ -141,7 +154,8 @@ function runValidation() {
 
   // run_<func> missing
   {
-    const rt = new ModelTableRuntime();
+    const rt = createIsolatedRuntime();
+    activateRuntime(rt);
     const root = rt.getModel(0);
     rt.addLabel(root, 0, 0, 0, { k: 'run_missing', t: 'run', v: 'x' });
     const events = rt.eventLog.list();
