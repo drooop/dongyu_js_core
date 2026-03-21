@@ -391,6 +391,124 @@ async function test_failure_normalization_and_state_evidence() {
   }
 }
 
+// ── Test 1f: Failure matrix + oscillation rules ────────
+
+async function test_failure_matrix_and_oscillation_rules() {
+  process.stderr.write('\n== Test 1f: Failure matrix + oscillation rules ==\n')
+
+  const { buildReviewPolicy } = await import('./review_policy.mjs')
+  const escalationEngine = await import('./escalation_engine.mjs')
+
+  assert(typeof escalationEngine.resolveEscalationDecision === 'function',
+    'resolveEscalationDecision exported')
+  assert(typeof escalationEngine.detectReviewOscillation === 'function',
+    'detectReviewOscillation exported')
+
+  const defaultPolicy = buildReviewPolicy({ entry_route: 'executable_iteration' })
+  assert(typeof defaultPolicy.escalation_policy.parse_failure === 'object',
+    'parse_failure policy modeled explicitly')
+  assert(typeof defaultPolicy.escalation_policy.max_turns === 'object',
+    'max_turns policy modeled explicitly')
+  assert(typeof defaultPolicy.escalation_policy.timeout === 'object',
+    'timeout policy modeled explicitly')
+  assert(typeof defaultPolicy.escalation_policy.state_doc_inconsistency === 'object',
+    'state_doc_inconsistency policy modeled explicitly')
+  assert(typeof defaultPolicy.escalation_policy.oscillation === 'object',
+    'oscillation policy modeled explicitly')
+
+  if (
+    typeof escalationEngine.resolveEscalationDecision === 'function' &&
+    typeof escalationEngine.detectReviewOscillation === 'function'
+  ) {
+    const parseFailureDecision = escalationEngine.resolveEscalationDecision({
+      phase: 'REVIEW_PLAN',
+      failure: { kind: 'json_parse_error' },
+      recent_failure_history: [{ kind: 'json_parse_error' }],
+      recent_review_history: [],
+      risk_profile: defaultPolicy.risk_profile,
+      review_policy: defaultPolicy,
+    })
+    assert(parseFailureDecision.normalized_failure_kind === 'parse_failure',
+      'json_parse_error normalized to parse_failure policy key')
+    assert(parseFailureDecision.action === 'on_hold',
+      'parse_failure reaches default on_hold action at threshold')
+    assert(parseFailureDecision.threshold_reached === true,
+      'parse_failure threshold detected')
+
+    const maxTurnsDecision = escalationEngine.resolveEscalationDecision({
+      phase: 'REVIEW_EXEC',
+      failure: { kind: 'max_turns' },
+      recent_failure_history: [],
+      recent_review_history: [],
+      risk_profile: defaultPolicy.risk_profile,
+      review_policy: defaultPolicy,
+    })
+    assert(maxTurnsDecision.action === 'retry',
+      'max_turns defaults to retry before threshold')
+    assert(maxTurnsDecision.threshold_reached === false,
+      'max_turns below threshold does not trigger on_hold')
+
+    const stateMismatchDecision = escalationEngine.resolveEscalationDecision({
+      phase: 'EXECUTION',
+      failure: { kind: 'state_doc_inconsistency' },
+      recent_failure_history: [],
+      recent_review_history: [],
+      risk_profile: defaultPolicy.risk_profile,
+      review_policy: defaultPolicy,
+    })
+    assert(stateMismatchDecision.action === 'human_decision_required',
+      'state_doc_inconsistency escalates to human decision')
+
+    const oscillation = escalationEngine.detectReviewOscillation(
+      ['APPROVED', 'NEEDS_CHANGES', 'APPROVED'],
+      defaultPolicy,
+    )
+    assert(oscillation.detected === true, 'APPROVED -> NEEDS_CHANGES -> APPROVED is oscillation')
+
+    const inverseOscillation = escalationEngine.detectReviewOscillation(
+      ['NEEDS_CHANGES', 'APPROVED', 'NEEDS_CHANGES'],
+      defaultPolicy,
+    )
+    assert(inverseOscillation.detected === true,
+      'NEEDS_CHANGES -> APPROVED -> NEEDS_CHANGES is oscillation')
+
+    const oscillationDecision = escalationEngine.resolveEscalationDecision({
+      phase: 'REVIEW_EXEC',
+      failure: { kind: 'oscillation' },
+      recent_failure_history: [],
+      recent_review_history: ['APPROVED', 'NEEDS_CHANGES', 'APPROVED'],
+      risk_profile: defaultPolicy.risk_profile,
+      review_policy: defaultPolicy,
+    })
+    assert(oscillationDecision.action === 'human_decision_required',
+      'oscillation resolves to human_decision_required')
+    assert(oscillationDecision.threshold_reached === true,
+      'oscillation decision reports threshold reached')
+
+    const warningPolicy = buildReviewPolicy({
+      entry_route: 'draft_iteration',
+      overrides: {
+        escalation_policy: {
+          parse_failure: {
+            action: 'warn_and_continue',
+            threshold: 1,
+          },
+        },
+      },
+    })
+    const parseWarning = escalationEngine.resolveEscalationDecision({
+      phase: 'REVIEW_PLAN',
+      failure: { kind: 'json_parse_error' },
+      recent_failure_history: [],
+      recent_review_history: [],
+      risk_profile: warningPolicy.risk_profile,
+      review_policy: warningPolicy,
+    })
+    assert(parseWarning.action === 'warn_and_continue',
+      'policy override can resolve parse_failure to warn_and_continue')
+  }
+}
+
 // ── Test 2: Events + orphan detection ───────────────────
 
 async function test_events() {
@@ -716,6 +834,7 @@ async function main() {
   await test_tri_state_entry_routing_and_planning_modes()
   await test_review_policy_prompt_wiring()
   await test_failure_normalization_and_state_evidence()
+  await test_failure_matrix_and_oscillation_rules()
   await test_events()
   test_scheduler()
   test_parsers()
