@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createDemoStore } from '../../packages/ui-model-demo-frontend/src/demo_modeltable.js';
+import { buildAstFromSchema } from '../../packages/ui-model-demo-frontend/src/ui_schema_projection.js';
+import { resolveRouteUiAst } from '../../packages/ui-model-demo-frontend/src/route_ui_projection.js';
 import {
   ACTION_LIFECYCLE_MODEL_ID,
   EDITOR_STATE_MODEL_ID,
@@ -33,6 +35,28 @@ function setRuntimeLabel(runtime, modelId, p, r, c, label) {
 
 function getSnapshotLabel(snapshot, modelId, cellKey, labelKey) {
   return snapshot?.models?.[String(modelId)]?.cells?.[cellKey]?.labels?.[labelKey] ?? null;
+}
+
+function findNodeById(ast, id) {
+  let found = null;
+  const visit = (node) => {
+    if (!node || typeof node !== 'object' || found) return;
+    if (node.id === id) {
+      found = node;
+      return;
+    }
+    const children = Array.isArray(node.children) ? node.children : [];
+    for (const child of children) visit(child);
+  };
+  visit(ast);
+  return found;
+}
+
+function walkAst(node, visit) {
+  if (!node || typeof node !== 'object') return;
+  visit(node);
+  const children = Array.isArray(node.children) ? node.children : [];
+  for (const child of children) walkAst(child, visit);
 }
 
 function test_flow_contract_model_ids_are_explicit() {
@@ -150,6 +174,52 @@ function test_model100_is_the_only_frozen_flow_capable_anchor_in_step1() {
   );
 }
 
+function test_workspace_route_wraps_model100_in_sliding_flow_shell_without_forbidden_writes() {
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  setRuntimeLabel(store.runtime, EDITOR_STATE_MODEL_ID, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: 100 });
+  setRuntimeLabel(store.runtime, EDITOR_STATE_MODEL_ID, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: '100' });
+  store.refreshSnapshot();
+
+  const resolved = resolveRouteUiAst(store.snapshot, '/workspace', { projectSchemaModel: buildAstFromSchema });
+  assert.equal(findNodeById(resolved.ast, 'sliding_flow_root')?.type, 'Container', 'workspace route must wrap Model 100 in sliding flow shell');
+  assert.equal(findNodeById(resolved.ast, 'sliding_flow_tabs')?.type, 'Tabs', 'flow shell must expose tab switcher');
+  assert.equal(findNodeById(resolved.ast, 'sliding_flow_process_table')?.type, 'Table', 'flow shell must expose process summary table');
+  assert.equal(findNodeById(resolved.ast, 'sliding_flow_debug_table')?.type, 'Table', 'flow shell must expose debug summary table');
+  assert.equal(findNodeById(resolved.ast, 'sliding_flow_progress')?.type, 'ProgressBar', 'flow shell must expose progress projection');
+  assert.equal(findNodeById(resolved.ast, 'schema_root_100')?.type, 'Container', 'flow shell must keep selected app AST');
+
+  const forbiddenWrites = [];
+  walkAst(resolved.ast, (node) => {
+    if (!node || typeof node.id !== 'string' || !node.id.startsWith('sliding_flow_')) return;
+    const targetRef = node.bind && node.bind.write && node.bind.write.target_ref && typeof node.bind.write.target_ref === 'object'
+      ? node.bind.write.target_ref
+      : null;
+    if (!targetRef || !Number.isInteger(targetRef.model_id)) return;
+    if (FLOW_SHELL_FORBIDDEN_WRITE_MODEL_IDS.includes(targetRef.model_id)) {
+      forbiddenWrites.push(`${node.id}:${targetRef.model_id}:${targetRef.k}`);
+    }
+  });
+  assert.deepEqual(forbiddenWrites, [], 'flow shell must not direct-write Model 0 / -12 / -100');
+
+  const tabNode = findNodeById(resolved.ast, 'sliding_flow_tabs');
+  assert.deepEqual(
+    tabNode?.bind?.write?.target_ref,
+    { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: FLOW_SHELL_TAB_LABEL },
+    'flow shell tab switch must write only to Model -2 flow_tab_selected',
+  );
+}
+
+function test_workspace_route_keeps_matrix_debug_standalone_surface() {
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  setRuntimeLabel(store.runtime, EDITOR_STATE_MODEL_ID, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: MATRIX_DEBUG_MODEL_ID });
+  setRuntimeLabel(store.runtime, EDITOR_STATE_MODEL_ID, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: String(MATRIX_DEBUG_MODEL_ID) });
+  store.refreshSnapshot();
+
+  const resolved = resolveRouteUiAst(store.snapshot, '/workspace', { projectSchemaModel: buildAstFromSchema });
+  assert.equal(findNodeById(resolved.ast, 'matrix_debug_header_card')?.type, 'Card', 'matrix debug workspace route must stay on 0213 standalone surface');
+  assert.equal(findNodeById(resolved.ast, 'sliding_flow_root'), null, 'matrix debug workspace route must not be wrapped by sliding flow shell');
+}
+
 async function test_server_state_matches_local_flow_ui_seed_boundary() {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0214-sliding-flow-'));
   process.env.DY_AUTH = '0';
@@ -191,6 +261,8 @@ const tests = [
   test_flow_contract_model_ids_are_explicit,
   test_local_demo_bootstraps_flow_truth_sources_and_ui_only_state,
   test_model100_is_the_only_frozen_flow_capable_anchor_in_step1,
+  test_workspace_route_wraps_model100_in_sliding_flow_shell_without_forbidden_writes,
+  test_workspace_route_keeps_matrix_debug_standalone_surface,
   test_server_state_matches_local_flow_ui_seed_boundary,
 ];
 
