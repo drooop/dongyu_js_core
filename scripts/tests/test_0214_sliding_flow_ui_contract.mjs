@@ -59,6 +59,22 @@ function walkAst(node, visit) {
   for (const child of children) walkAst(child, visit);
 }
 
+function mailboxEnvelope(action, options = {}) {
+  const payload = {
+    action,
+    meta: { op_id: options.opId || `${action}_${Date.now()}` },
+  };
+  if (options.target) payload.target = options.target;
+  if (options.value !== undefined) payload.value = options.value;
+  return {
+    event_id: Date.now(),
+    type: action,
+    payload,
+    source: 'ui_renderer',
+    ts: Date.now(),
+  };
+}
+
 function test_flow_contract_model_ids_are_explicit() {
   assert.equal(SCENE_CONTEXT_MODEL_ID, -12, 'scene_context must stay on Model -12');
   assert.equal(ACTION_LIFECYCLE_MODEL_ID, -1, 'action_lifecycle must stay on Model -1 mailbox model');
@@ -257,6 +273,81 @@ async function test_server_state_matches_local_flow_ui_seed_boundary() {
   }
 }
 
+async function test_server_snapshot_keeps_sliding_flow_shell_after_debug_safe_ops() {
+  const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0214-sliding-flow-server-'));
+  process.env.DY_AUTH = '0';
+  process.env.WORKER_BASE_WORKSPACE = `it0214_sliding_flow_server_${Date.now()}`;
+  process.env.WORKER_BASE_DATA_ROOT = join(tempRoot, 'runtime');
+  process.env.DOCS_ROOT = join(tempRoot, 'docs');
+  process.env.STATIC_PROJECTS_ROOT = join(tempRoot, 'static_projects');
+
+  const { createServerState } = await import(new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url));
+  const state = createServerState({ dbPath: null });
+
+  try {
+    state.runtime.addLabel(state.runtime.getModel(SCENE_CONTEXT_MODEL_ID), 0, 0, 0, {
+      k: 'scene_context',
+      t: 'json',
+      v: {
+        current_app: 100,
+        active_flow: 'submit_color_request',
+        flow_step: 2,
+        recent_intents: [{ action: 'submit', op_id: 'op_server', ts: 123, model_id: 100 }],
+        last_action_result: null,
+        session_vars: { mode: 'server-contract' },
+      },
+    });
+    state.runtime.addLabel(state.runtime.getModel(ACTION_LIFECYCLE_MODEL_ID), 0, 0, 1, {
+      k: 'action_lifecycle',
+      t: 'json',
+      v: {
+        op_id: 'op_server',
+        action: 'submit',
+        status: 'running',
+        started_at: 123,
+        completed_at: null,
+        result: null,
+        confidence: 0.9,
+      },
+    });
+
+    let result = await state.submitEnvelope(mailboxEnvelope('label_update', {
+      opId: 'flow_server_route_workspace',
+      target: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'ui_page' },
+      value: { t: 'str', v: 'workspace' },
+    }));
+    assert.equal(result.result, 'ok', 'server ui_page workspace label_update must succeed');
+
+    result = await state.submitEnvelope(mailboxEnvelope('label_update', {
+      opId: 'flow_server_select_model100',
+      target: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
+      value: { t: 'int', v: 100 },
+    }));
+    assert.equal(result.result, 'ok', 'server ws_app_selected model100 label_update must succeed');
+
+    let ast = resolveRouteUiAst(state.clientSnap(), '/workspace', { projectSchemaModel: buildAstFromSchema }).ast;
+    assert.equal(findNodeById(ast, 'sliding_flow_root')?.type, 'Container', 'server snapshot must derive sliding_flow_root');
+    assert.equal(findNodeById(ast, 'schema_root_100')?.type, 'Container', 'server snapshot must keep selected app AST');
+
+    await state.activateRuntimeMode('running');
+    result = await state.submitEnvelope(mailboxEnvelope('matrix_debug_refresh', {
+      opId: 'flow_server_debug_refresh',
+      target: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'matrix_debug_subject_selected' },
+    }));
+    assert.equal(result.result, 'ok', 'server matrix_debug_refresh must succeed');
+
+    ast = resolveRouteUiAst(state.clientSnap(), '/workspace', { projectSchemaModel: buildAstFromSchema }).ast;
+    assert.equal(findNodeById(ast, 'sliding_flow_root')?.type, 'Container', 'server shell must survive debug safe ops');
+    assert.equal(findNodeById(ast, 'sliding_flow_debug_table')?.type, 'Table', 'server shell must still expose debug summary table');
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+    delete process.env.WORKER_BASE_WORKSPACE;
+    delete process.env.WORKER_BASE_DATA_ROOT;
+    delete process.env.DOCS_ROOT;
+    delete process.env.STATIC_PROJECTS_ROOT;
+  }
+}
+
 const tests = [
   test_flow_contract_model_ids_are_explicit,
   test_local_demo_bootstraps_flow_truth_sources_and_ui_only_state,
@@ -264,6 +355,7 @@ const tests = [
   test_workspace_route_wraps_model100_in_sliding_flow_shell_without_forbidden_writes,
   test_workspace_route_keeps_matrix_debug_standalone_surface,
   test_server_state_matches_local_flow_ui_seed_boundary,
+  test_server_snapshot_keeps_sliding_flow_shell_after_debug_safe_ops,
 ];
 
 let passed = 0;
