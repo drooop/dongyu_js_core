@@ -145,21 +145,7 @@ export function createRemoteStore(options) {
 
   function getUiAst() {
     const resolved = resolveRouteUiAst(snapshot, routeState.path, { projectSchemaModel: buildAstFromSchema });
-    if (resolved && resolved.ast && typeof resolved.ast === 'object') {
-      return resolved.ast;
-    }
-    const raw = getSnapshotLabelValue(snapshot, { model_id: EDITOR_MODEL_ID, p: 0, r: 0, c: 0, k: 'ui_ast_v0' });
-    if (!raw) return null;
-    // Defensive: some producers may store json-typed values as strings.
-    if (typeof raw === 'string') {
-      try {
-        const parsed = JSON.parse(raw);
-        return parsed && typeof parsed === 'object' ? parsed : null;
-      } catch (_) {
-        return null;
-      }
-    }
-    return raw;
+    return resolved && resolved.ast && typeof resolved.ast === 'object' ? resolved.ast : null;
   }
 
   function setRoutePath(routePath) {

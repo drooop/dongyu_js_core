@@ -7,14 +7,21 @@ import docsCatalogPatch from '../../worker-base/system-models/docs_catalog_ui.js
 import staticCatalogPatch from '../../worker-base/system-models/static_catalog_ui.json' with { type: 'json' };
 import navCatalogPatch from '../../worker-base/system-models/nav_catalog_ui.json' with { type: 'json' };
 import workspaceCatalogPatch from '../../worker-base/system-models/workspace_catalog_ui.json' with { type: 'json' };
+import workspacePositiveModelsPatch from '../../worker-base/system-models/workspace_positive_models.json' with { type: 'json' };
 import editorTestCatalogPatch from '../../worker-base/system-models/editor_test_catalog_ui.json' with { type: 'json' };
 import promptCatalogPatch from '../../worker-base/system-models/prompt_catalog_ui.json' with { type: 'json' };
+import matrixDebugSurfacePatch from '../../worker-base/system-models/matrix_debug_surface.json' with { type: 'json' };
+import cognitionSceneModelPatch from '../../worker-base/system-models/cognition_scene_model.json' with { type: 'json' };
+import cognitionLifecycleModelPatch from '../../worker-base/system-models/cognition_lifecycle_model.json' with { type: 'json' };
 import { buildAstFromSchema } from './ui_schema_projection.js';
 import { resolvePageAsset } from './page_asset_resolver.js';
 import { resolveRouteUiAst } from './route_ui_projection.js';
 import {
   deriveEditorModelOptions,
+  deriveHomeEditDialogTitle,
   deriveHomeMissingModelText,
+  deriveHomeSelectedLabelText,
+  deriveMatrixDebugView,
   deriveHomeTableRows,
   deriveStaticUploadReady,
   deriveWorkspaceSelected,
@@ -23,7 +30,11 @@ import {
 import {
   EDITOR_MAILBOX_MODEL_ID as EDITOR_MODEL_ID,
   EDITOR_STATE_MODEL_ID,
+  FLOW_SHELL_DEFAULT_TAB,
+  FLOW_SHELL_TAB_LABEL,
   GALLERY_MAILBOX_MODEL_ID,
+  GALLERY_CATALOG_MODEL_ID,
+  MATRIX_DEBUG_MODEL_ID,
   PROMPT_CATALOG_MODEL_ID,
   SYSTEM_MODEL_ID,
 } from './model_ids.js';
@@ -40,6 +51,14 @@ function ensureLabel(runtime, model, p, r, c, label) {
   runtime.addLabel(model, p, r, c, label);
 }
 
+function overwriteLabel(runtime, model, p, r, c, label) {
+  const cell = runtime.getCell(model, p, r, c);
+  if (cell.labels.has(label.k)) {
+    runtime.rmLabel(model, p, r, c, label.k);
+  }
+  runtime.addLabel(model, p, r, c, label);
+}
+
 function applyUiPatch(runtime, patch) {
   const result = runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
   if (result && result.rejected > 0) {
@@ -53,6 +72,87 @@ function stringify(value) {
   } catch (_) {
     return String(value);
   }
+}
+
+function getMaxPositiveModelId(runtime) {
+  let maxModelId = 0;
+  for (const id of runtime.models.keys()) {
+    if (Number.isInteger(id) && id > maxModelId) {
+      maxModelId = id;
+    }
+  }
+  return maxModelId;
+}
+
+function resolveNextWorkspaceModelId(runtime) {
+  return Math.max(1001, getMaxPositiveModelId(runtime) + 1);
+}
+
+function normalizeIntValue(value, fallback) {
+  if (Number.isInteger(value)) return value;
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isInteger(parsed) ? parsed : fallback;
+}
+
+function deriveWorkspaceRegistry(runtime) {
+  const derived = [];
+  const seen = new Set();
+  const excludedModelIds = new Set([
+    EDITOR_MODEL_ID,
+    EDITOR_STATE_MODEL_ID,
+    SYSTEM_MODEL_ID,
+    GALLERY_MAILBOX_MODEL_ID,
+  ]);
+
+  const addOrReplace = (entry) => {
+    if (!entry || !Number.isInteger(entry.model_id)) return;
+    if (entry.model_id === 0 || excludedModelIds.has(entry.model_id)) return;
+    const existing = derived.find((item) => item.model_id === entry.model_id);
+    if (existing) {
+      Object.assign(existing, entry);
+      return;
+    }
+    derived.push(entry);
+    seen.add(entry.model_id);
+  };
+
+  const snap = runtime.snapshot();
+  const models = snap && snap.models ? snap.models : {};
+  for (const [idText, modelSnap] of Object.entries(models)) {
+    const modelId = Number(idText);
+    if (!Number.isInteger(modelId) || modelId === 0 || seen.has(modelId) || excludedModelIds.has(modelId)) continue;
+    const rootLabels = modelSnap && modelSnap.cells && modelSnap.cells['0,0,0'] && modelSnap.cells['0,0,0'].labels
+      ? modelSnap.cells['0,0,0'].labels
+      : {};
+    if (rootLabels.ws_deleted && rootLabels.ws_deleted.v === true) continue;
+    const hasAppSignals = modelId > 0
+      ? Boolean(rootLabels.app_name || rootLabels.dual_bus_model || (modelSnap && modelSnap.cells && modelSnap.cells['1,0,0']))
+      : Boolean(rootLabels.app_name);
+    if (!hasAppSignals) continue;
+    const name = rootLabels.app_name && typeof rootLabels.app_name.v === 'string' && rootLabels.app_name.v.trim()
+      ? rootLabels.app_name.v
+      : (modelSnap && typeof modelSnap.name === 'string' && modelSnap.name.trim()
+        ? modelSnap.name
+        : `App ${modelId}`);
+    const source = rootLabels.source_worker && typeof rootLabels.source_worker.v === 'string'
+      ? rootLabels.source_worker.v
+      : '';
+    addOrReplace({ model_id: modelId, name, source });
+  }
+  derived.sort((a, b) => a.model_id - b.model_id);
+  return derived;
+}
+
+function resolveDefaultWorkspaceAppId(apps) {
+  if (!Array.isArray(apps) || apps.length === 0) return 0;
+  if (apps.some((app) => app && app.model_id === MATRIX_DEBUG_MODEL_ID)) {
+    return MATRIX_DEBUG_MODEL_ID;
+  }
+  if (apps.some((app) => app && app.model_id === GALLERY_CATALOG_MODEL_ID)) {
+    return GALLERY_CATALOG_MODEL_ID;
+  }
+  const firstPositive = apps.find((app) => app && Number.isInteger(app.model_id) && app.model_id > 0);
+  return firstPositive ? firstPositive.model_id : apps[0].model_id;
 }
 
 export function createDemoStore() {
@@ -83,7 +183,11 @@ export function createDemoStore() {
   applyUiPatch(runtime, docsCatalogPatch);
   applyUiPatch(runtime, staticCatalogPatch);
   applyUiPatch(runtime, workspaceCatalogPatch);
+  applyUiPatch(runtime, workspacePositiveModelsPatch);
   applyUiPatch(runtime, editorTestCatalogPatch);
+  applyUiPatch(runtime, matrixDebugSurfacePatch);
+  applyUiPatch(runtime, cognitionSceneModelPatch);
+  applyUiPatch(runtime, cognitionLifecycleModelPatch);
   if (!runtime.getModel(PROMPT_CATALOG_MODEL_ID)) {
     applyUiPatch(runtime, promptCatalogPatch);
   }
@@ -105,6 +209,16 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_filter_c', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_filter_ktv', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_pause_sse', t: 'bool', v: false });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'editor_model_options_json', t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_table_rows_json', t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_missing_model_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_selected_label_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_status_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_form_mode', t: 'str', v: 'edit' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_edit_dialog_title', t: 'str', v: 'Edit Label' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_delete_confirm_open', t: 'bool', v: false });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_delete_confirm_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_delete_target_json', t: 'json', v: null });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_open', t: 'bool', v: false });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_title', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_text', t: 'str', v: '' });
@@ -146,6 +260,14 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: 0 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: 1001 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: FLOW_SHELL_TAB_LABEL, t: 'str', v: FLOW_SHELL_DEFAULT_TAB });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_subject_selected', t: 'str', v: 'trace' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_subjects_json', t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_readiness_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_subject_summary_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_trace_summary_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_summary_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_status_text', t: 'str', v: '' });
 
   const snapshot = reactive(runtime.snapshot());
   const eventLog = [];
@@ -165,34 +287,55 @@ export function createDemoStore() {
 
   function updateDerived() {
     const snap = runtime.snapshot();
+    const stateModelLive = runtime.getModel(EDITOR_STATE_MODEL_ID);
+    if (stateModelLive) {
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'editor_model_options_json', t: 'json', v: deriveEditorModelOptions(snap, EDITOR_STATE_MODEL_ID) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_table_rows_json', t: 'json', v: deriveHomeTableRows(snap, EDITOR_STATE_MODEL_ID) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_missing_model_text', t: 'str', v: deriveHomeMissingModelText(snap, EDITOR_STATE_MODEL_ID) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_selected_label_text', t: 'str', v: deriveHomeSelectedLabelText(snap, EDITOR_STATE_MODEL_ID) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_edit_dialog_title', t: 'str', v: deriveHomeEditDialogTitle(snap, EDITOR_STATE_MODEL_ID) });
+      const workspaceApps = deriveWorkspaceRegistry(runtime);
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: workspaceApps });
+      const selectedWorkspaceApp = normalizeIntValue(
+        runtime.getLabelValue(stateModelLive, 0, 0, 0, 'ws_app_selected'),
+        resolveDefaultWorkspaceAppId(workspaceApps),
+      );
+      const validWorkspaceApp = workspaceApps.some((app) => app && app.model_id === selectedWorkspaceApp)
+        ? selectedWorkspaceApp
+        : resolveDefaultWorkspaceAppId(workspaceApps);
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: Number(validWorkspaceApp) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: resolveNextWorkspaceModelId(runtime) });
+      const matrixDebug = deriveMatrixDebugView(snap, EDITOR_STATE_MODEL_ID);
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_subjects_json', t: 'json', v: matrixDebug.subjects });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_subject_selected', t: 'str', v: matrixDebug.selected });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_readiness_text', t: 'str', v: matrixDebug.readinessText });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_subject_summary_text', t: 'str', v: matrixDebug.subjectSummaryText });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_trace_summary_text', t: 'str', v: matrixDebug.traceSummaryText });
+    }
+
+    const nextSnap = runtime.snapshot();
     const safeModels = {};
-    const snapModels = snap && snap.models ? snap.models : {};
+    const snapModels = nextSnap && nextSnap.models ? nextSnap.models : {};
     for (const [id, model] of Object.entries(snapModels)) {
       if (String(id) === String(EDITOR_MODEL_ID)) continue;
       if (String(id) === String(EDITOR_STATE_MODEL_ID)) continue;
       safeModels[id] = model;
     }
 
-    const resolved = resolvePageAsset(snap, {
+    const resolved = resolvePageAsset(nextSnap, {
       projectSchemaModel: buildAstFromSchema,
     });
 
     adapter.updateUiDerived({
       uiAst: resolved.ast,
-      snapshotJson: JSON.stringify({ models: safeModels, v1nConfig: snap ? snap.v1nConfig : undefined }, null, 2),
+      snapshotJson: JSON.stringify({ models: safeModels, v1nConfig: nextSnap ? nextSnap.v1nConfig : undefined }, null, 2),
       eventLogJson: JSON.stringify(eventLog, null, 2),
     });
   }
 
   function getUiAst() {
     const resolved = resolveRouteUiAst(snapshot, routeState.path, { projectSchemaModel: buildAstFromSchema });
-    if (resolved && resolved.ast && typeof resolved.ast === 'object') {
-      return resolved.ast;
-    }
-    const model = runtime.getModel(EDITOR_MODEL_ID);
-    const cell = runtime.getCell(model, 0, 0, 0);
-    const label = cell.labels.get('ui_ast_v0');
-    return label ? label.v : null;
+    return resolved && resolved.ast && typeof resolved.ast === 'object' ? resolved.ast : null;
   }
 
   function setRoutePath(routePath) {

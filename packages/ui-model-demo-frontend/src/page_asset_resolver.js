@@ -1,5 +1,5 @@
 import { normalizeHashPath } from './router.js';
-import { getSnapshotModel } from './snapshot_utils.js';
+import { getSnapshotLabelValue } from './snapshot_utils.js';
 
 function getStateLabels(snapshot) {
   return snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels ?? {};
@@ -10,12 +10,37 @@ function readStateValue(snapshot, key) {
   return label && Object.prototype.hasOwnProperty.call(label, 'v') ? label.v : undefined;
 }
 
-function readUiAstFromModel(snapshot, modelId) {
-  const model = getSnapshotModel(snapshot, modelId);
-  const root = model && model.cells ? model.cells['0,0,0'] : null;
-  const labels = root && root.labels ? root.labels : null;
-  const label = labels && labels.ui_ast_v0 ? labels.ui_ast_v0 : null;
-  return label && typeof label.v === 'object' ? label.v : null;
+function normalizeAssetJson(rawValue) {
+  if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+    return rawValue;
+  }
+  if (typeof rawValue !== 'string') return null;
+  try {
+    const parsed = JSON.parse(rawValue);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function normalizeAssetRef(modelId, assetRef) {
+  if (!Number.isInteger(modelId) || !assetRef || typeof assetRef !== 'object') return null;
+  if (!Number.isInteger(assetRef.p) || !Number.isInteger(assetRef.r) || !Number.isInteger(assetRef.c) || typeof assetRef.k !== 'string') {
+    return null;
+  }
+  return {
+    model_id: modelId,
+    p: assetRef.p,
+    r: assetRef.r,
+    c: assetRef.c,
+    k: assetRef.k,
+  };
+}
+
+function readModelLabelAsset(snapshot, modelId, assetRef) {
+  const ref = normalizeAssetRef(modelId, assetRef);
+  if (!ref) return null;
+  return normalizeAssetJson(getSnapshotLabelValue(snapshot, ref));
 }
 
 export function readPageCatalog(snapshot) {
@@ -50,10 +75,10 @@ export function resolvePageAsset(snapshot, options = {}) {
         return { source: 'model_asset', assetType: 'schema_model', pageName, modelId: pageEntry.model_id, ast };
       }
     }
-    if (pageEntry.asset_type === 'ui_ast_model') {
-      const ast = readUiAstFromModel(snapshot, pageEntry.model_id);
+    if (pageEntry.asset_type === 'model_label') {
+      const ast = readModelLabelAsset(snapshot, pageEntry.model_id, pageEntry.asset_ref);
       if (ast) {
-        return { source: 'model_asset', assetType: 'ui_ast_model', pageName, modelId: pageEntry.model_id, ast };
+        return { source: 'model_asset', assetType: 'model_label', pageName, modelId: pageEntry.model_id, ast };
       }
     }
   }

@@ -54,9 +54,9 @@ function makeUiAstModel(modelId) {
   return {
     id: modelId,
     cells: {
-      '0,0,0': {
+      '0,1,0': {
         labels: {
-          ui_ast_v0: {
+          page_asset_v0: {
             t: 'json',
             v: {
               id: `ui_ast_${modelId}`,
@@ -92,11 +92,11 @@ function test_prefers_schema_model_asset_over_legacy_ast() {
   assert.equal(result.ast?.id, 'schema_root_4101');
 }
 
-function test_prefers_ui_ast_model_asset_over_legacy_ast() {
+function test_prefers_model_label_asset_over_legacy_root_ast() {
   const snapshot = makeSnapshotWithState(
     {
       ui_page_catalog_json: [
-        { page: 'prompt', asset_type: 'ui_ast_model', model_id: 4102 },
+        { page: 'prompt', asset_type: 'model_label', model_id: 4102, asset_ref: { p: 0, r: 1, c: 0, k: 'page_asset_v0' } },
       ],
     },
     { '4102': makeUiAstModel(4102) },
@@ -107,8 +107,26 @@ function test_prefers_ui_ast_model_asset_over_legacy_ast() {
   });
 
   assert.equal(result.source, 'model_asset');
-  assert.equal(result.assetType, 'ui_ast_model');
+  assert.equal(result.assetType, 'model_label');
   assert.equal(result.ast?.id, 'ui_ast_4102');
+}
+
+function test_returns_none_when_model_label_asset_missing() {
+  const snapshot = makeSnapshotWithState(
+    {
+      ui_page_catalog_json: [
+        { page: 'prompt', asset_type: 'model_label', model_id: 4998, asset_ref: { p: 0, r: 1, c: 0, k: 'page_asset_v0' } },
+      ],
+    },
+    {},
+  );
+
+  const result = resolvePageAsset(snapshot, {
+    projectSchemaModel: buildAstFromSchema,
+  });
+
+  assert.equal(result.source, 'none');
+  assert.equal(result.ast, null);
 }
 
 function test_returns_none_when_page_asset_missing() {
@@ -141,7 +159,8 @@ function test_returns_none_when_no_asset_and_no_legacy_builder() {
 
 const tests = [
   test_prefers_schema_model_asset_over_legacy_ast,
-  test_prefers_ui_ast_model_asset_over_legacy_ast,
+  test_prefers_model_label_asset_over_legacy_root_ast,
+  test_returns_none_when_model_label_asset_missing,
   test_returns_none_when_page_asset_missing,
   test_returns_none_when_no_asset_and_no_legacy_builder,
 ];

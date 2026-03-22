@@ -21,6 +21,9 @@
         "ws_app_delete": "handle_ws_app_delete",
         "ws_select_app": "handle_ws_select_app",
         "ws_app_select": "handle_ws_select_app",
+        "matrix_debug_refresh": "handle_matrix_debug_refresh",
+        "matrix_debug_clear_trace": "handle_matrix_debug_clear_trace",
+        "matrix_debug_summarize": "handle_matrix_debug_summarize",
         "llm_filltable_preview": "handle_llm_filltable_preview",
         "llm_filltable_apply": "handle_llm_filltable_apply"
       }

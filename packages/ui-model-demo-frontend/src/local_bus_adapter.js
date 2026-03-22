@@ -6,6 +6,7 @@ function isPlainObject(value) {
 
 function matchForbiddenK(k) {
   if (typeof k !== 'string') return false;
+  if (k.startsWith('matrix_debug_')) return false;
   if (k === 'pin_in' || k === 'pin_out') return true;
   if (k === 'v1n_id' || k === 'data_type') return true;
   if (k.startsWith('run_')) return true;
@@ -227,6 +228,10 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       // Prompt FillTable actions (remote-only).
       'llm_filltable_preview',
       'llm_filltable_apply',
+      // Matrix debug actions.
+      'matrix_debug_refresh',
+      'matrix_debug_clear_trace',
+      'matrix_debug_summarize',
     ]);
     if (typeof action !== 'string' || !allowedActions.has(action)) {
       return fail(op_id, 'unknown_action', 'unknown_action');
@@ -348,6 +353,36 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
     if (action === 'ws_select_app') {
       return fail(op_id, 'unsupported', 'ws_remote_only');
+    }
+
+    if (action === 'matrix_debug_refresh' || action === 'matrix_debug_clear_trace' || action === 'matrix_debug_summarize') {
+      const stateModel = editorStateModel();
+      const traceModel = runtime.getModel(-100);
+      if (!stateModel || !traceModel) {
+        return fail(op_id, 'invalid_target', 'matrix_debug_missing_model');
+      }
+      const stateCell = runtime.getCell(stateModel, 0, 0, 0);
+      const selected = String(stateCell.labels.get('matrix_debug_subject_selected')?.v ?? 'trace');
+
+      if (action === 'matrix_debug_clear_trace') {
+        runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_count', t: 'int', v: 0 });
+        runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_log_text', t: 'str', v: '(cleared)' });
+        runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_last_update', t: 'str', v: '--:--:--' });
+        runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_throughput', t: 'str', v: '0/s' });
+        runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_error_rate', t: 'str', v: '0%' });
+        runtime.addLabel(stateModel, 0, 0, 0, { k: 'matrix_debug_status_text', t: 'str', v: 'trace cleared' });
+        return succeed(op_id, 'matrix_debug_clear_trace');
+      }
+
+      if (action === 'matrix_debug_summarize') {
+        const summary = String(stateCell.labels.get('matrix_debug_subject_summary_text')?.v ?? '');
+        runtime.addLabel(stateModel, 0, 0, 0, { k: 'matrix_debug_summary_text', t: 'str', v: summary });
+        runtime.addLabel(stateModel, 0, 0, 0, { k: 'matrix_debug_status_text', t: 'str', v: `summary ready: ${selected}` });
+        return succeed(op_id, 'matrix_debug_summarize');
+      }
+
+      runtime.addLabel(stateModel, 0, 0, 0, { k: 'matrix_debug_status_text', t: 'str', v: `refresh: ${selected}` });
+      return succeed(op_id, 'matrix_debug_refresh');
     }
 
     if (action === 'llm_filltable_preview' || action === 'llm_filltable_apply') {
@@ -525,7 +560,6 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
   function updateUiDerived({ uiAst, snapshotJson, eventLogJson }) {
     const model = runtime.getModel(mailboxModelId);
-    runtime.addLabel(model, 0, 0, 0, { k: 'ui_ast_v0', t: 'json', v: uiAst });
     runtime.addLabel(model, 0, 1, 0, { k: 'snapshot_json', t: 'str', v: snapshotJson });
     runtime.addLabel(model, 0, 1, 1, { k: 'event_log', t: 'str', v: eventLogJson });
   }

@@ -22,6 +22,21 @@ function textPayload(ast) {
   return String(props.text ?? props.title ?? '');
 }
 
+function findNodeById(ast, id) {
+  let found = null;
+  const visit = (node) => {
+    if (!node || typeof node !== 'object' || found) return;
+    if (node.id === id) {
+      found = node;
+      return;
+    }
+    const children = Array.isArray(node.children) ? node.children : [];
+    for (const child of children) visit(child);
+  };
+  visit(ast);
+  return found;
+}
+
 function test_prompt_route_prefers_local_path_over_shared_ui_page() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
   setStateLabel(store, 'ws_apps_registry', 'json', [{ model_id: 100, name: 'Model 100', source: 'k8s-worker' }]);
@@ -48,6 +63,10 @@ function test_workspace_route_prefers_local_path_over_shared_ui_page() {
     '请从左侧选择一个应用',
     'workspace route must not fall back to the empty selection placeholder when ws_app_selected exists',
   );
+  assert.equal(findNodeById(resolved.ast, 'sliding_flow_root')?.type, 'Container', 'workspace route must wrap Model 100 in sliding flow shell');
+  assert.equal(findNodeById(resolved.ast, 'sliding_flow_process_table')?.type, 'Table', 'workspace route must expose process summary table');
+  assert.equal(findNodeById(resolved.ast, 'sliding_flow_debug_table')?.type, 'Table', 'workspace route must expose debug summary table');
+  assert.equal(findNodeById(resolved.ast, 'schema_root_100')?.type, 'Container', 'workspace route must keep the selected app AST inside the shell');
 }
 
 const tests = [

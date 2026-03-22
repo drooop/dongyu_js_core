@@ -93,6 +93,7 @@ function run() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
   const stateModel = store.runtime.getModel(-2);
   store.runtime.addLabel(stateModel, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'test' });
+  store.setRoutePath('/__test__');
   store.consumeOnce();
 
   const calls = [];
@@ -124,17 +125,22 @@ function run() {
   const businessCell = store.runtime.getCell(model1, 0, 0, 0);
   const localProbeCell = store.runtime.getCell(stateModel, 9, 9, 9);
   const stateRoot = store.runtime.getCell(stateModel, 0, 0, 0);
+  const businessTitleBefore = businessCell.labels.get('title')?.v;
+  const nextRejectedModelId = Math.max(
+    2000,
+    ...Array.from(store.runtime.models.keys()).filter((id) => Number.isInteger(id) && id > 0),
+  ) + 1;
 
   // direct mutation to business models must be rejected
-  assert(!store.runtime.getModel(2), 'editor_submodel_create_rejected_precondition');
+  assert(!store.runtime.getModel(nextRejectedModelId), 'editor_submodel_create_rejected_precondition');
   sendMailbox(store, mailboxEnvelope({
     event_id: 110,
     action: 'submodel_create',
     op_id: 'op_110',
-    value: { t: 'json', v: { id: 2, name: 'M2', type: 'main' } },
+    value: { t: 'json', v: { id: nextRejectedModelId, name: `M${nextRejectedModelId}`, type: 'main' } },
   }));
   store.consumeOnce();
-  assert(!store.runtime.getModel(2), 'editor_submodel_create_rejected_no_create');
+  assert(!store.runtime.getModel(nextRejectedModelId), 'editor_submodel_create_rejected_no_create');
   assert(getErrorCode(store) === 'direct_model_mutation_disabled', 'editor_submodel_create_rejected');
   assert(getErrorDetail(store) === 'submodel_create', 'editor_submodel_create_rejected_detail');
   results.push('editor_submodel_create_rejected: PASS');
@@ -143,22 +149,22 @@ function run() {
     {
       name: 'editor_label_add_business_rejected',
       envelope: mailboxEnvelope({ event_id: 111, action: 'label_add', op_id: 'op_111', target: businessTitleTarget, value: { t: 'str', v: 'Hello' } }),
-      verify: () => assert(!businessCell.labels.get('title'), 'editor_label_add_business_rejected_no_write'),
+      verify: () => assert(businessCell.labels.get('title')?.v === businessTitleBefore, 'editor_label_add_business_rejected_no_write'),
     },
     {
       name: 'editor_label_update_business_rejected',
       envelope: mailboxEnvelope({ event_id: 112, action: 'label_update', op_id: 'op_112', target: businessTitleTarget, value: { t: 'str', v: 'World' } }),
-      verify: () => assert(!businessCell.labels.get('title'), 'editor_label_update_business_rejected_no_write'),
+      verify: () => assert(businessCell.labels.get('title')?.v === businessTitleBefore, 'editor_label_update_business_rejected_no_write'),
     },
     {
       name: 'editor_label_remove_business_rejected',
       envelope: mailboxEnvelope({ event_id: 113, action: 'label_remove', op_id: 'op_113', target: businessTitleTarget }),
-      verify: () => assert(!businessCell.labels.get('title'), 'editor_label_remove_business_rejected_no_write'),
+      verify: () => assert(businessCell.labels.get('title')?.v === businessTitleBefore, 'editor_label_remove_business_rejected_no_write'),
     },
     {
       name: 'editor_cell_clear_business_rejected',
       envelope: mailboxEnvelope({ event_id: 114, action: 'cell_clear', op_id: 'op_114', target: businessClearTarget }),
-      verify: () => assert(!businessCell.labels.get('title'), 'editor_cell_clear_business_rejected_no_write'),
+      verify: () => assert(businessCell.labels.get('title')?.v === businessTitleBefore, 'editor_cell_clear_business_rejected_no_write'),
     },
   ];
   for (const testCase of directMutationCases) {
@@ -370,6 +376,7 @@ function run() {
   const storeV1 = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
   const stateModelV1 = storeV1.runtime.getModel(-2);
   storeV1.runtime.addLabel(stateModelV1, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'test' });
+  storeV1.setRoutePath('/__test__');
   storeV1.consumeOnce();
   const callsV1 = [];
   const hostV1 = createHost(storeV1, callsV1);
@@ -515,6 +522,7 @@ function run() {
 
   // Static upload page branch exists and reflects upload prerequisites.
   storeV1.runtime.addLabel(stateModelV1, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'static' });
+  storeV1.setRoutePath('/static');
   storeV1.consumeOnce();
   let astStatic = storeV1.getUiAst();
   const cardStatic = findNodeById(astStatic, 'card_static_upload');

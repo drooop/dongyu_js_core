@@ -767,6 +767,16 @@ function buildEscalationReason(decision, fallback) {
 async function runIteration(state, iterationId) {
   const iter = findIteration(state, iterationId)
 
+  // Execution timeout based on entry_route (§ codexExec timeout by task type):
+  // draft_iteration (large scope refine/migration): 30 min
+  // executable_iteration (approved contract): 10 min default
+  // Execution timeout by entry_route. Hard cap at 60 min.
+  // Beyond that, the iteration should be split into smaller steps
+  // or follow-up iterations, not given more time.
+  const execTimeout = iter.entry_route === 'draft_iteration'
+    ? 3_600_000  // 60 min (large scope migration/refine)
+    : 600_000    // 10 min (approved contract, scoped execution)
+
   while (iter.status === 'active') {
     let statusRefreshed = false
 
@@ -1020,7 +1030,7 @@ async function runIteration(state, iterationId) {
 
         const result = codexExec(state.batch_id, iterationId,
           buildExecutionPrompt(iterationId),
-          { phase: 'execution', sandbox: 'danger-full-access' }
+          { phase: 'execution', sandbox: 'danger-full-access', timeout: execTimeout }
         )
 
         if (!result.ok) {
@@ -1197,7 +1207,7 @@ async function runIteration(state, iterationId) {
 
           const fixResult = codexExec(state.batch_id, iterationId,
             buildFixPrompt(iterationId, verdict),
-            { phase: `fix_${iter.review_round}`, sandbox: 'danger-full-access' }
+            { phase: `fix_${iter.review_round}`, sandbox: 'danger-full-access', timeout: execTimeout }
           )
 
           if (!fixResult.ok) {

@@ -16,7 +16,7 @@ function getLabelValue(runtime, ref) {
   return label ? label.v : undefined;
 }
 
-function test_gallery_ui_ast_is_loaded_from_catalog_model() {
+function test_gallery_ui_ast_is_loaded_from_explicit_model_label_asset() {
   const store = createGalleryStore();
   const ast = store.getUiAst();
 
@@ -24,8 +24,13 @@ function test_gallery_ui_ast_is_loaded_from_catalog_model() {
   assert.ok(ast && ast.type === 'Root', 'gallery_ast_missing');
   assert.deepEqual(
     ast,
+    getLabelValue(store.runtime, { model_id: GALLERY_CATALOG_MODEL_ID, p: 0, r: 1, c: 0, k: 'page_asset_v0' }),
+    'gallery_ast_must_come_from_explicit_page_asset_label',
+  );
+  assert.equal(
     getLabelValue(store.runtime, { model_id: GALLERY_CATALOG_MODEL_ID, p: 0, r: 0, c: 0, k: 'ui_ast_v0' }),
-    'gallery_ast_must_come_from_catalog_model',
+    undefined,
+    'gallery_root_ui_ast_v0_must_be_removed',
   );
 }
 
@@ -45,7 +50,7 @@ function test_shared_runtime_registers_gallery_for_workspace() {
 }
 
 const tests = [
-  test_gallery_ui_ast_is_loaded_from_catalog_model,
+  test_gallery_ui_ast_is_loaded_from_explicit_model_label_asset,
   test_gallery_state_defaults_are_seeded_as_model_assets,
   test_shared_runtime_registers_gallery_for_workspace,
 ];
