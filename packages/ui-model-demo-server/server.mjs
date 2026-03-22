@@ -50,7 +50,7 @@ const { createMatrixLiveAdapter } = require('../worker-base/src/matrix_live.js')
 const EDITOR_MODEL_ID = -1;
 const EDITOR_STATE_MODEL_ID = -2;
 const LOGIN_MODEL_ID = -3;
-const TRACE_MODEL_ID = -100;
+const TRACE_MODEL_ID = -100; // Registered by 0213 as the Matrix debug / bus trace model id.
 // Monotonic sequence counter for trace events (module-level, survives across calls).
 let _traceSeq = 0;
 const MEDIA_CACHE_TTL_MS = 15 * 60 * 1000;
@@ -3036,7 +3036,11 @@ function createServerState(options) {
 
   const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
   // ---------------------------------------------------------------------------
-  // Bus Trace model (CircularBuffer data model, model_id = TRACE_MODEL_ID)
+  // Bus Trace / Matrix debug observable model (model_id = TRACE_MODEL_ID)
+  // 0213 contract freeze:
+  // - trace buffer / trace_append / minimal host glue may stay here
+  // - server_ui_ast_v0_is_legacy_debt_only until Step 2 migrates the formal
+  //   surface to model-defined page_asset_v0 + Workspace mount
   // ---------------------------------------------------------------------------
   if (!runtime.getModel(TRACE_MODEL_ID)) {
     runtime.createModel({ id: TRACE_MODEL_ID, name: 'bus_trace', type: 'Data' });
@@ -3134,6 +3138,7 @@ function createServerState(options) {
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_error_rate', t: 'str', v: '0%' });
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_uptime', t: 'int', v: 92 });
 
+  // 0213 contract freeze: server_ui_ast_v0_is_legacy_debt_only
   // TraceFlow Dashboard AST — matches Stitch Screen 3 design
   const runningApps = [
     { name: 'E2E Color Generator', source: 'k8s-worker', icon: '🎨', active: false },
