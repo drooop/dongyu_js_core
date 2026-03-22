@@ -12,6 +12,8 @@ function test_home_page_prefers_explicit_model_label_asset() {
   assert.equal(result.modelId, -22);
   assert.equal(result.ast?.id, 'root_home');
   const root = store.snapshot.models['-22']?.cells?.['0,0,0']?.labels ?? {};
+  assert.equal(root.model_type?.t, 'model.single');
+  assert.equal(root.model_type?.v, 'UI.HomeCatalog');
   assert.equal(root.ui_ast_v0, undefined, 'home_root_ui_ast_v0_must_be_removed');
 }
 

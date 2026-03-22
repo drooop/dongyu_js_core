@@ -69,6 +69,25 @@ function test_local_bus_adapter_mutations_are_disabled() {
   assert.equal(removeResult.code, 'direct_model_mutation_disabled', 'datatable_remove_label must be rejected');
 }
 
+function test_local_bus_adapter_allows_registered_editor_state_mutation_only() {
+  const runtime = buildRuntimeForAdapter();
+  const adapter = createLocalBusAdapter({
+    runtime,
+    eventLog: [],
+    mode: 'v1',
+    mailboxModelId: -1,
+    editorStateModelId: -2,
+  });
+
+  const result = submitToAdapter(adapter, runtime, mailboxEnvelope('label_update', {
+    target: { model_id: -2, p: 0, r: 0, c: 0, k: 'dt_filter_model_query' },
+    value: { t: 'str', v: 'home' },
+  }));
+  assert.equal(result.result, 'ok', 'editor_state label_update must succeed');
+  const stateCell = runtime.getCell(runtime.getModel(-2), 0, 0, 0);
+  assert.equal(stateCell.labels.get('dt_filter_model_query')?.v, 'home', 'editor_state label_update must land on model -2');
+}
+
 function test_ui_server_patch_api_disabled_and_runtime_mode_endpoint_contract() {
   assert.match(serverSource, /url\.pathname === '\/api\/runtime\/mode'/, 'runtime_mode_route_missing');
   assert.match(serverSource, /nextMode !== 'running'/, 'runtime_mode_transition_guard_missing');
@@ -87,6 +106,7 @@ function test_ui_server_allows_editor_state_label_updates_but_still_blocks_busin
 
 const tests = [
   test_local_bus_adapter_mutations_are_disabled,
+  test_local_bus_adapter_allows_registered_editor_state_mutation_only,
   test_ui_server_patch_api_disabled_and_runtime_mode_endpoint_contract,
   test_ui_server_allows_editor_state_label_updates_but_still_blocks_business_mutation_contract,
 ];
