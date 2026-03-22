@@ -1,4 +1,15 @@
 import { getSnapshotModel, getSnapshotLabelValue, parseSafeInt } from './snapshot_utils.js';
+import {
+  ACTION_LIFECYCLE_MODEL_ID,
+  EDITOR_STATE_MODEL_ID,
+  FLOW_SHELL_ANCHOR_MODEL_ID,
+  FLOW_SHELL_DEFAULT_TAB,
+  FLOW_SHELL_FORBIDDEN_WRITE_MODEL_IDS,
+  FLOW_SHELL_TAB_LABEL,
+  MATRIX_DEBUG_MODEL_ID,
+  SCENE_CONTEXT_MODEL_ID,
+  WORKSPACE_CATALOG_MODEL_ID,
+} from './model_ids.js';
 
 function stringifyOneLine(value) {
   if (value === undefined) return '';
@@ -40,7 +51,7 @@ function normalizeAssetJson(rawValue) {
 }
 
 function readWorkspaceMountedModelIds(snapshot) {
-  const workspaceModel = getSnapshotModel(snapshot, -25);
+  const workspaceModel = getSnapshotModel(snapshot, WORKSPACE_CATALOG_MODEL_ID);
   if (!workspaceModel || !workspaceModel.cells) return new Set();
   const mounted = new Set();
   for (const cell of Object.values(workspaceModel.cells)) {
@@ -50,6 +61,169 @@ function readWorkspaceMountedModelIds(snapshot) {
     mounted.add(modelType.v);
   }
   return mounted;
+}
+
+function getRootLabels(snapshot, modelId) {
+  const model = getSnapshotModel(snapshot, modelId);
+  if (!model || !model.cells) return {};
+  const rootCell = model.cells['0,0,0'];
+  return rootCell && rootCell.labels ? rootCell.labels : {};
+}
+
+function readObjectValue(snapshot, ref, fallback) {
+  const value = getSnapshotLabelValue(snapshot, ref);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return fallback;
+  return value;
+}
+
+function readFlowUiState(snapshot, editorStateModelId) {
+  const activeTab = String(getSnapshotLabelValue(snapshot, {
+    model_id: editorStateModelId,
+    p: 0,
+    r: 0,
+    c: 0,
+    k: FLOW_SHELL_TAB_LABEL,
+  }) ?? FLOW_SHELL_DEFAULT_TAB).trim().toLowerCase();
+  return {
+    activeTab: activeTab === 'debug' ? 'debug' : FLOW_SHELL_DEFAULT_TAB,
+  };
+}
+
+function readSelectedWorkspaceModelId(snapshot, editorStateModelId) {
+  const workspaceSelected = parseSafeInt(getSnapshotLabelValue(snapshot, {
+    model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'ws_app_selected',
+  }));
+  if (workspaceSelected !== null && workspaceSelected !== 0) return workspaceSelected;
+  return parseSafeInt(getSnapshotLabelValue(snapshot, {
+    model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'selected_model_id',
+  }));
+}
+
+function readFlowAppMeta(snapshot, modelId) {
+  if (!Number.isInteger(modelId) || modelId === 0) {
+    return {
+      modelId: null,
+      name: '',
+      source: '',
+      status: '',
+      inputValue: '',
+      systemReady: false,
+      submitInflight: false,
+      hasDualBusModel: false,
+    };
+  }
+  const model = getSnapshotModel(snapshot, modelId);
+  const rootLabels = getRootLabels(snapshot, modelId);
+  const modelName = rootLabels.app_name && typeof rootLabels.app_name.v === 'string' && rootLabels.app_name.v.trim()
+    ? rootLabels.app_name.v
+    : (model && typeof model.name === 'string' ? model.name : `App ${modelId}`);
+  return {
+    modelId,
+    name: modelName,
+    source: rootLabels.source_worker && typeof rootLabels.source_worker.v === 'string' ? rootLabels.source_worker.v : '',
+    status: rootLabels.status && typeof rootLabels.status.v === 'string' ? rootLabels.status.v : '',
+    inputValue: rootLabels.input_value && typeof rootLabels.input_value.v === 'string' ? rootLabels.input_value.v : '',
+    systemReady: rootLabels.system_ready ? rootLabels.system_ready.v === true : false,
+    submitInflight: rootLabels.submit_inflight ? rootLabels.submit_inflight.v === true : false,
+    hasDualBusModel: Boolean(rootLabels.dual_bus_model),
+  };
+}
+
+function normalizeSceneContext(snapshot) {
+  const scene = readObjectValue(snapshot, {
+    model_id: SCENE_CONTEXT_MODEL_ID, p: 0, r: 0, c: 0, k: 'scene_context',
+  }, {});
+  return {
+    current_app: Number.isInteger(scene.current_app) ? scene.current_app : FLOW_SHELL_ANCHOR_MODEL_ID,
+    active_flow: typeof scene.active_flow === 'string' ? scene.active_flow : null,
+    flow_step: Number.isInteger(scene.flow_step) ? scene.flow_step : 0,
+    recent_intents: Array.isArray(scene.recent_intents) ? scene.recent_intents : [],
+    last_action_result: scene.last_action_result ?? null,
+    session_vars: scene.session_vars && typeof scene.session_vars === 'object' && !Array.isArray(scene.session_vars)
+      ? scene.session_vars
+      : {},
+  };
+}
+
+function normalizeActionLifecycle(snapshot) {
+  const lifecycle = readObjectValue(snapshot, {
+    model_id: ACTION_LIFECYCLE_MODEL_ID, p: 0, r: 0, c: 1, k: 'action_lifecycle',
+  }, {});
+  return {
+    op_id: typeof lifecycle.op_id === 'string' ? lifecycle.op_id : '',
+    action: typeof lifecycle.action === 'string' ? lifecycle.action : '',
+    status: typeof lifecycle.status === 'string' ? lifecycle.status : 'idle',
+    started_at: Number.isInteger(lifecycle.started_at) ? lifecycle.started_at : 0,
+    completed_at: Number.isInteger(lifecycle.completed_at) ? lifecycle.completed_at : null,
+    result: lifecycle.result ?? null,
+    confidence: typeof lifecycle.confidence === 'number' ? lifecycle.confidence : 1,
+  };
+}
+
+function deriveFlowProgress(appMeta, sceneContext, actionLifecycle) {
+  if (actionLifecycle.status === 'completed') {
+    return { percentage: 100, variant: 'success' };
+  }
+  if (actionLifecycle.status === 'failed') {
+    return { percentage: 100, variant: 'error' };
+  }
+  if (appMeta.submitInflight || actionLifecycle.status === 'running') {
+    return { percentage: 72, variant: 'warning' };
+  }
+  if (sceneContext.active_flow) {
+    const percentage = Math.min(95, Math.max(20, (sceneContext.flow_step + 1) * 20));
+    return { percentage, variant: 'info' };
+  }
+  if (appMeta.systemReady) {
+    return { percentage: 24, variant: 'success' };
+  }
+  return { percentage: 8, variant: 'info' };
+}
+
+export function isFlowCapableWorkspaceApp(snapshot, modelId) {
+  if (!Number.isInteger(modelId) || modelId <= 0) return false;
+  if (modelId !== FLOW_SHELL_ANCHOR_MODEL_ID) return false;
+  const rootLabels = getRootLabels(snapshot, modelId);
+  return Boolean(rootLabels.dual_bus_model);
+}
+
+export function deriveSlidingFlowShellState(snapshot, editorStateModelId = EDITOR_STATE_MODEL_ID) {
+  const selectedModelId = readSelectedWorkspaceModelId(snapshot, editorStateModelId);
+  const selectedApp = readFlowAppMeta(snapshot, selectedModelId);
+  const flowCapable = isFlowCapableWorkspaceApp(snapshot, selectedModelId);
+  const sceneContext = normalizeSceneContext(snapshot);
+  const actionLifecycle = normalizeActionLifecycle(snapshot);
+  const matrixDebug = deriveMatrixDebugView(snapshot, editorStateModelId);
+  const uiState = readFlowUiState(snapshot, editorStateModelId);
+  const progress = deriveFlowProgress(selectedApp, sceneContext, actionLifecycle);
+
+  return {
+    anchorModelId: FLOW_SHELL_ANCHOR_MODEL_ID,
+    selectedModelId,
+    flowCapable,
+    selectedApp,
+    uiState,
+    sceneContext,
+    actionLifecycle,
+    matrixDebug,
+    progress,
+    writeBoundary: {
+      uiStateModelId: editorStateModelId,
+      forbiddenModelIds: [...FLOW_SHELL_FORBIDDEN_WRITE_MODEL_IDS],
+    },
+    processSummaryRows: [
+      { key: 'current_app', label: 'Current App', value: String(sceneContext.current_app ?? '') },
+      { key: 'active_flow', label: 'Active Flow', value: sceneContext.active_flow || '(none)' },
+      { key: 'flow_step', label: 'Flow Step', value: String(sceneContext.flow_step) },
+      { key: 'lifecycle_status', label: 'Lifecycle', value: actionLifecycle.status || 'idle' },
+    ],
+    debugSummaryRows: [
+      { key: 'debug_subject', label: 'Debug Subject', value: matrixDebug.selected },
+      { key: 'debug_readiness', label: 'Readiness', value: matrixDebug.readinessText },
+      { key: 'debug_subject_summary', label: 'Subject Summary', value: matrixDebug.subjectSummaryText },
+      { key: 'debug_trace_summary', label: 'Trace Summary', value: matrixDebug.traceSummaryText },
+    ],
+  };
 }
 
 export function deriveEditorModelOptions(snapshot, editorStateModelId) {
@@ -203,7 +377,7 @@ function readSnapshotString(snapshot, ref, fallback = '') {
 }
 
 export function deriveMatrixDebugView(snapshot, editorStateModelId) {
-  const traceModelId = -100;
+  const traceModelId = MATRIX_DEBUG_MODEL_ID;
   const selectedRaw = getSnapshotLabelValue(snapshot, {
     model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'matrix_debug_subject_selected',
   });

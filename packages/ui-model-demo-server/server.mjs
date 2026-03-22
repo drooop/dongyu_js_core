@@ -27,7 +27,12 @@ import {
   deriveMatrixDebugView,
   deriveStaticUploadReady,
 } from '../ui-model-demo-frontend/src/editor_page_state_derivers.js';
-import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from '../ui-model-demo-frontend/src/model_ids.js';
+import {
+  FLOW_SHELL_DEFAULT_TAB,
+  FLOW_SHELL_TAB_LABEL,
+  GALLERY_MAILBOX_MODEL_ID,
+  GALLERY_STATE_MODEL_ID,
+} from '../ui-model-demo-frontend/src/model_ids.js';
 import {
   getSession, getSessionWithToken, isAuthenticated, loginWithMatrix, logout,
   makeSetCookieHeader, makeClearCookieHeader,
@@ -2892,6 +2897,7 @@ function createServerState(options) {
   // Workspace (sliding UI) state.
   ensureStateLabel(runtime, 'ws_app_selected', 'int', 0);
   ensureStateLabel(runtime, 'ws_app_next_id', 'int', 1001);
+  ensureStateLabel(runtime, FLOW_SHELL_TAB_LABEL, 'str', FLOW_SHELL_DEFAULT_TAB);
   ensureStateLabel(runtime, 'ws_new_app_name', 'str', '');
   ensureStateLabel(runtime, 'ws_delete_app_id', 'int', 0);
   ensureStateLabel(runtime, 'ws_status', 'str', '');
