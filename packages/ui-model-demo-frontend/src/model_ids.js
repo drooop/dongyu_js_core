@@ -20,6 +20,13 @@ export const GALLERY_CATALOG_MODEL_ID = -103;
 // Wave C demo submodel.
 export const WAVE_C_SUBMODEL_ID = 2001;
 
+// 0215 canonical UI model examples.
+export const UI_EXAMPLE_SCHEMA_MODEL_ID = 1003;
+export const UI_EXAMPLE_PAGE_ASSET_MODEL_ID = 1004;
+export const UI_EXAMPLE_PARENT_MODEL_ID = 1005;
+export const UI_EXAMPLE_CHILD_MODEL_ID = 1006;
+export const UI_EXAMPLE_PROMOTE_CHILD_ACTION = 'ui_examples_promote_child_stage';
+
 // Model 100 - Dual-bus E2E test model.
 export const MODEL_100_ID = 100;
 export const FLOW_SHELL_ANCHOR_MODEL_ID = MODEL_100_ID;
