@@ -1,7 +1,7 @@
 {
   "version": "mt.v0",
   "op_id": "workspace_positive_models_v0",
-  "description": "Runtime-importable positive models for Workspace: 1/2/100/1001/1002",
+  "description": "Runtime-importable positive models for Workspace: 1/2/100/1001/1002/1003/1004/1005",
   "records": [
     {
       "op": "create_model",
@@ -1244,6 +1244,829 @@
       }
     },
     {
+      "op": "create_model",
+      "model_id": 1003,
+      "name": "tier2_schema_leaf",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.Tier2SchemaLeafExample"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "0215 Schema Leaf"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "workspace"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "authority_note",
+      "t": "str",
+      "v": "Business truth stays on Model 1003; no shared AST or helper model owns it."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ownership_rule",
+      "t": "str",
+      "v": "Use schema projection when one model can fully describe the read surface."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "surface_status",
+      "t": "str",
+      "v": "success"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "next_step_hint",
+      "t": "str",
+      "v": "Upgrade to page_asset_v0 only when layout, composition, or mounted fragments become meaningful."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "_title",
+      "t": "str",
+      "v": "Schema-Only Leaf Example"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "_subtitle",
+      "t": "str",
+      "v": "Single-model, read-only status surface driven entirely by cellwise labels."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "_field_order",
+      "t": "json",
+      "v": [
+        "authority_note",
+        "ownership_rule",
+        "surface_status",
+        "next_step_hint"
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "authority_note",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "authority_note__label",
+      "t": "str",
+      "v": "Authority"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "authority_note__props",
+      "t": "json",
+      "v": {
+        "type": "info"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "authority_note__no_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ownership_rule",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ownership_rule__label",
+      "t": "str",
+      "v": "Ownership"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ownership_rule__props",
+      "t": "json",
+      "v": {
+        "type": "info"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ownership_rule__no_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "surface_status",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "surface_status__label",
+      "t": "str",
+      "v": "Status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "surface_status__props",
+      "t": "json",
+      "v": {
+        "label": "SURFACE"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "surface_status__no_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "next_step_hint",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "next_step_hint__label",
+      "t": "str",
+      "v": "Next Step"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "next_step_hint__props",
+      "t": "json",
+      "v": {
+        "type": "info"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "next_step_hint__no_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "create_model",
+      "model_id": 1004,
+      "name": "tier2_page_asset",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.Tier2PageAssetExample"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "0215 Page Asset"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "workspace"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "composition_status",
+      "t": "str",
+      "v": "monitoring"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "requests_total",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "stale_cards",
+      "t": "int",
+      "v": 3
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "avg_latency",
+      "t": "int",
+      "v": 84
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "audit_log",
+      "t": "str",
+      "v": "page_asset_v0 composes Card/StatusBadge/StatCard/Terminal without moving truth ownership off Model 1004."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "page_asset_v0",
+      "t": "json",
+      "v": {
+        "id": "ui_examples_asset_root",
+        "type": "Container",
+        "props": {
+          "layout": "column",
+          "gap": 16
+        },
+        "children": [
+          {
+            "id": "ui_examples_asset_header",
+            "type": "Card",
+            "props": {
+              "title": "Page Asset Composition Example"
+            },
+            "children": [
+              {
+                "id": "ui_examples_asset_intro",
+                "type": "Text",
+                "props": {
+                  "type": "info",
+                  "text": "Use page_asset_v0 when layout, composition, or richer display components matter."
+                }
+              }
+            ]
+          },
+          {
+            "id": "ui_examples_asset_status",
+            "type": "StatusBadge",
+            "props": {
+              "label": "STATUS"
+            },
+            "bind": {
+              "read": {
+                "model_id": 1004,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "composition_status"
+              }
+            }
+          },
+          {
+            "id": "ui_examples_asset_stat_cards",
+            "type": "Container",
+            "props": {
+              "layout": "row",
+              "gap": 12,
+              "wrap": true
+            },
+            "children": [
+              {
+                "id": "ui_examples_asset_requests_stat",
+                "type": "StatCard",
+                "props": {
+                  "label": "Requests",
+                  "variant": "info",
+                  "style": {
+                    "flex": 1
+                  }
+                },
+                "bind": {
+                  "read": {
+                    "model_id": 1004,
+                    "p": 0,
+                    "r": 0,
+                    "c": 0,
+                    "k": "requests_total"
+                  }
+                }
+              },
+              {
+                "id": "ui_examples_asset_stale_stat",
+                "type": "StatCard",
+                "props": {
+                  "label": "Stale Cards",
+                  "variant": "warning",
+                  "style": {
+                    "flex": 1
+                  }
+                },
+                "bind": {
+                  "read": {
+                    "model_id": 1004,
+                    "p": 0,
+                    "r": 0,
+                    "c": 0,
+                    "k": "stale_cards"
+                  }
+                }
+              },
+              {
+                "id": "ui_examples_asset_latency_stat",
+                "type": "StatCard",
+                "props": {
+                  "label": "Latency",
+                  "unit": "ms",
+                  "variant": "success",
+                  "style": {
+                    "flex": 1
+                  }
+                },
+                "bind": {
+                  "read": {
+                    "model_id": 1004,
+                    "p": 0,
+                    "r": 0,
+                    "c": 0,
+                    "k": "avg_latency"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "ui_examples_asset_log_terminal",
+            "type": "Terminal",
+            "props": {
+              "title": "Authoritative Log",
+              "maxHeight": "220px"
+            },
+            "bind": {
+              "read": {
+                "model_id": 1004,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "audit_log"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "op": "create_model",
+      "model_id": 1005,
+      "name": "tier2_parent_mounted",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.Tier2ParentMountedExample"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "0215 Parent Mounted"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "workspace"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "data_path_status",
+      "t": "str",
+      "v": "Awaiting promote action."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "last_promote_op_id",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "page_asset_v0",
+      "t": "json",
+      "v": {
+        "id": "ui_examples_parent_root",
+        "type": "Container",
+        "props": {
+          "layout": "column",
+          "gap": 16
+        },
+        "children": [
+          {
+            "id": "ui_examples_parent_card",
+            "type": "Card",
+            "props": {
+              "title": "Parent-Mounted Data Path Example"
+            },
+            "children": [
+              {
+                "id": "ui_examples_parent_intro",
+                "type": "Text",
+                "props": {
+                  "type": "info",
+                  "text": "Parent orchestrates the action contract; mounted child keeps the detailed truth."
+                }
+              },
+              {
+                "id": "ui_examples_parent_status_text",
+                "type": "Text",
+                "props": {
+                  "type": "info",
+                  "text": ""
+                },
+                "bind": {
+                  "read": {
+                    "model_id": 1005,
+                    "p": 0,
+                    "r": 0,
+                    "c": 0,
+                    "k": "data_path_status"
+                  }
+                }
+              },
+              {
+                "id": "ui_examples_parent_promote_button",
+                "type": "Button",
+                "props": {
+                  "label": "Promote Child Stage",
+                  "type": "primary"
+                },
+                "bind": {
+                  "write": {
+                    "action": "ui_examples_promote_child_stage",
+                    "target_ref": {
+                      "model_id": 1006,
+                      "p": 0,
+                      "r": 0,
+                      "c": 0,
+                      "k": "review_stage"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "ui_examples_parent_include_child",
+            "type": "Include",
+            "props": {
+              "ref": {
+                "model_id": 1006,
+                "p": 0,
+                "r": 1,
+                "c": 0,
+                "k": "page_asset_v0"
+              },
+              "fallbackText": "Mounted child asset missing."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": 1006
+    },
+    {
+      "op": "create_model",
+      "model_id": 1006,
+      "name": "tier2_child_truth",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1006,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.Tier2ChildMountedExample"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1006,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "review_stage",
+      "t": "str",
+      "v": "draft"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1006,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "review_badge",
+      "t": "str",
+      "v": "idle"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1006,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "review_count",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1006,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "audit_log",
+      "t": "str",
+      "v": "No promote action yet."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1006,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "page_asset_v0",
+      "t": "json",
+      "v": {
+        "id": "ui_examples_child_root",
+        "type": "Card",
+        "props": {
+          "title": "Mounted Child Truth"
+        },
+        "children": [
+          {
+            "id": "ui_examples_child_intro",
+            "type": "Text",
+            "props": {
+              "type": "info",
+              "text": "Mounted child keeps authoritative detail and is updated only through the formal action path."
+            }
+          },
+          {
+            "id": "ui_examples_child_stage_badge",
+            "type": "StatusBadge",
+            "props": {
+              "label": "FLOW",
+              "text": "mounted child"
+            },
+            "bind": {
+              "read": {
+                "model_id": 1006,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "review_badge"
+              }
+            }
+          },
+          {
+            "id": "ui_examples_child_stage_text",
+            "type": "Text",
+            "props": {
+              "type": "info",
+              "text": ""
+            },
+            "bind": {
+              "read": {
+                "model_id": 1006,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "review_stage"
+              }
+            }
+          },
+          {
+            "id": "ui_examples_child_metrics_row",
+            "type": "Container",
+            "props": {
+              "layout": "row",
+              "gap": 12,
+              "wrap": true
+            },
+            "children": [
+              {
+                "id": "ui_examples_child_review_count_stat",
+                "type": "StatCard",
+                "props": {
+                  "label": "Transitions",
+                  "variant": "info",
+                  "style": {
+                    "flex": 1
+                  }
+                },
+                "bind": {
+                  "read": {
+                    "model_id": 1006,
+                    "p": 0,
+                    "r": 0,
+                    "c": 0,
+                    "k": "review_count"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "ui_examples_child_log_terminal",
+            "type": "Terminal",
+            "props": {
+              "title": "Child Audit Log",
+              "maxHeight": "200px"
+            },
+            "bind": {
+              "read": {
+                "model_id": 1006,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "audit_log"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
       "op": "add_label",
       "model_id": -2,
       "p": 0,
@@ -1276,6 +2099,21 @@
           "model_id": 1002,
           "name": "设备报修",
           "source": "worker-B"
+        },
+        {
+          "model_id": 1003,
+          "name": "0215 Schema Leaf",
+          "source": "workspace"
+        },
+        {
+          "model_id": 1004,
+          "name": "0215 Page Asset",
+          "source": "workspace"
+        },
+        {
+          "model_id": 1005,
+          "name": "0215 Parent Mounted",
+          "source": "workspace"
         }
       ]
     },
