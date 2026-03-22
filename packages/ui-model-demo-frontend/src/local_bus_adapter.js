@@ -1,4 +1,11 @@
-import { UI_EXAMPLE_PROMOTE_CHILD_ACTION } from './model_ids.js';
+import {
+  THREE_SCENE_CREATE_ENTITY_ACTION,
+  THREE_SCENE_DELETE_ENTITY_ACTION,
+  THREE_SCENE_REMOTE_ONLY_DETAIL,
+  THREE_SCENE_SELECT_ENTITY_ACTION,
+  THREE_SCENE_UPDATE_ENTITY_ACTION,
+  UI_EXAMPLE_PROMOTE_CHILD_ACTION,
+} from './model_ids.js';
 import { parseSafeInt } from './snapshot_utils.js';
 
 function isPlainObject(value) {
@@ -235,6 +242,11 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       'matrix_debug_summarize',
       // 0215 authoritative example action (remote-only in local mode).
       UI_EXAMPLE_PROMOTE_CHILD_ACTION,
+      // 0216 authoritative Three scene CRUD actions (remote-only in local mode).
+      THREE_SCENE_CREATE_ENTITY_ACTION,
+      THREE_SCENE_SELECT_ENTITY_ACTION,
+      THREE_SCENE_UPDATE_ENTITY_ACTION,
+      THREE_SCENE_DELETE_ENTITY_ACTION,
     ]);
     if (typeof action !== 'string' || !allowedActions.has(action)) {
       return fail(op_id, 'unknown_action', 'unknown_action');
@@ -360,6 +372,15 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
     if (action === UI_EXAMPLE_PROMOTE_CHILD_ACTION) {
       return fail(op_id, 'unsupported', 'ui_examples_remote_only');
+    }
+
+    if (
+      action === THREE_SCENE_CREATE_ENTITY_ACTION
+      || action === THREE_SCENE_SELECT_ENTITY_ACTION
+      || action === THREE_SCENE_UPDATE_ENTITY_ACTION
+      || action === THREE_SCENE_DELETE_ENTITY_ACTION
+    ) {
+      return fail(op_id, 'unsupported', THREE_SCENE_REMOTE_ONLY_DETAIL);
     }
 
     if (action === 'matrix_debug_refresh' || action === 'matrix_debug_clear_trace' || action === 'matrix_debug_summarize') {

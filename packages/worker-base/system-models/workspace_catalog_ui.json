@@ -262,6 +262,16 @@
       "k": "model_type",
       "t": "model.submt",
       "v": 1005
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 0,
+      "r": 2,
+      "c": 10,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": 1007
     }
   ]
 }
