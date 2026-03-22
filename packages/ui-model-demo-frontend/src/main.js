@@ -7,12 +7,18 @@ import { createDemoStore } from './demo_modeltable.js';
 import { createRemoteStore } from './remote_store.js';
 import { createAppShell } from './demo_app.js';
 import { createGalleryStore } from './gallery_store.js';
+import ThreeSceneHost from './components/ThreeSceneHost.js';
 
 const qs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
 const server = qs.get('server') || (typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:9000');
 const defaultMode = typeof window !== 'undefined' && window.location && window.location.port === '5173' ? 'local' : 'remote';
 const mode = qs.get('mode') || defaultMode;
 const persistLocal = qs.get('persist') !== '0';
+
+function registerGlobalComponents(app) {
+  app.component('ThreeSceneHost', ThreeSceneHost);
+  return app;
+}
 
 if (mode === 'local') {
   // Local mode: no authentication
@@ -46,7 +52,7 @@ if (mode === 'local') {
     console.info('[dy] debug helpers: window.dyPrintMailbox(), window.dyPrintSnapshot(), window.__DY_STORE, window.__DY_GALLERY_STORE');
   }
 
-  const app = createApp(createAppShell({ mainStore: store, galleryStore }));
+  const app = registerGlobalComponents(createApp(createAppShell({ mainStore: store, galleryStore })));
   app.use(ElementPlus);
   app.mount('#app');
 } else {
@@ -77,7 +83,7 @@ if (mode === 'local') {
     console.info('[dy] debug helpers: window.dyPrintMailbox(), window.dyPrintSnapshot(), window.__DY_STORE, window.__DY_GALLERY_STORE');
   }
 
-  const app = createApp(createAppShell({ mainStore: store, galleryStore }));
+  const app = registerGlobalComponents(createApp(createAppShell({ mainStore: store, galleryStore })));
   app.use(ElementPlus);
   app.mount('#app');
 }
