@@ -330,6 +330,10 @@ allocation rules (authoritative):
 
   Model -1       system capability layer: UI event mailbox. Cell(0,0,1) receives ui_event envelopes.
 
+  Model -2       system capability layer: editor/home UI state projection model.
+                 ui filters, draft fields, dialog/detail visibility, and page-local status live here.
+                 never use as business truth or hidden infrastructure routing.
+
   Model -3       system capability layer: login ui model. auth login form state/schema projection.
                   reserved for login flow; do not reuse for cognition/system routing.
 
