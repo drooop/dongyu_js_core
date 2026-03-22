@@ -17,6 +17,15 @@ function truncate(text, maxLen = 120) {
   return `${s.slice(0, Math.max(0, maxLen - 1))}…`;
 }
 
+function isFilteredClientLabel(key, type) {
+  const normalizedKey = typeof key === 'string' ? key.trim() : '';
+  const normalizedType = typeof type === 'string' ? type.trim() : '';
+  return normalizedKey === 'matrix_token'
+    || normalizedKey === 'matrix_passwd'
+    || normalizedType === 'matrix.token'
+    || normalizedType === 'matrix.passwd';
+}
+
 function normalizeAssetJson(rawValue) {
   if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
     return rawValue;
@@ -80,6 +89,7 @@ export function deriveHomeTableRows(snapshot, editorStateModelId) {
     const labels = cell && cell.labels ? cell.labels : {};
     for (const [k, lv] of Object.entries(labels)) {
       const t = lv && lv.t ? String(lv.t) : '';
+      if (isFilteredClientLabel(k, t)) continue;
       const vRaw = lv && Object.prototype.hasOwnProperty.call(lv, 'v') ? lv.v : undefined;
       const vText = stringifyOneLine(vRaw);
       if (tableFilterKtv) {
@@ -183,5 +193,58 @@ export function deriveWorkspaceSelected(snapshot, editorStateModelId, projectSch
       type: 'Text',
       props: { type: 'warning', text: `Model ${selectedId} has no UI schema or AST.` },
     },
+  };
+}
+
+function readSnapshotString(snapshot, ref, fallback = '') {
+  const value = getSnapshotLabelValue(snapshot, ref);
+  if (value === undefined || value === null) return fallback;
+  return String(value);
+}
+
+export function deriveMatrixDebugView(snapshot, editorStateModelId) {
+  const traceModelId = -100;
+  const selectedRaw = getSnapshotLabelValue(snapshot, {
+    model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'matrix_debug_subject_selected',
+  });
+  const subjects = [
+    { label: 'Trace Buffer', value: 'trace' },
+    { label: 'Runtime', value: 'runtime' },
+    { label: 'Matrix Adapter', value: 'matrix' },
+    { label: 'Bridge', value: 'bridge' },
+  ];
+  const selected = subjects.some((entry) => entry.value === selectedRaw) ? selectedRaw : 'trace';
+
+  const runtimeMode = readSnapshotString(snapshot, { model_id: 0, p: 0, r: 0, c: 0, k: 'runtime_mode' }, 'edit');
+  const traceStatus = readSnapshotString(snapshot, { model_id: traceModelId, p: 0, r: 0, c: 0, k: 'trace_status' }, 'monitoring');
+  const traceLastUpdate = readSnapshotString(snapshot, { model_id: traceModelId, p: 0, r: 0, c: 0, k: 'trace_last_update' }, '--:--:--');
+  const traceThroughput = readSnapshotString(snapshot, { model_id: traceModelId, p: 0, r: 0, c: 0, k: 'trace_throughput' }, '0/s');
+  const traceErrorRate = readSnapshotString(snapshot, { model_id: traceModelId, p: 0, r: 0, c: 0, k: 'trace_error_rate' }, '0%');
+  const traceCount = parseSafeInt(getSnapshotLabelValue(snapshot, {
+    model_id: traceModelId, p: 0, r: 0, c: 0, k: 'trace_count',
+  })) ?? 0;
+  const matrixStatus = readSnapshotString(snapshot, { model_id: traceModelId, p: 0, r: 0, c: 0, k: 'matrix_status' }, 'not_ready');
+  const bridgeStatus = readSnapshotString(snapshot, { model_id: traceModelId, p: 0, r: 0, c: 0, k: 'bridge_status' }, 'idle');
+
+  const readinessText = `runtime=${runtimeMode} | matrix=${matrixStatus} | bridge=${bridgeStatus}`;
+  const traceSummaryText = `events=${traceCount} | throughput=${traceThroughput} | error=${traceErrorRate} | updated=${traceLastUpdate}`;
+
+  let subjectSummaryText = '';
+  if (selected === 'runtime') {
+    subjectSummaryText = `Runtime mode is ${runtimeMode}. Trace surface status=${traceStatus}.`;
+  } else if (selected === 'matrix') {
+    subjectSummaryText = `Matrix adapter status=${matrixStatus}. Bridge status=${bridgeStatus}.`;
+  } else if (selected === 'bridge') {
+    subjectSummaryText = `Bridge status=${bridgeStatus}. Throughput=${traceThroughput}. Error rate=${traceErrorRate}.`;
+  } else {
+    subjectSummaryText = `Trace buffer status=${traceStatus}. ${traceSummaryText}.`;
+  }
+
+  return {
+    subjects,
+    selected,
+    readinessText,
+    subjectSummaryText,
+    traceSummaryText,
   };
 }

@@ -18,6 +18,7 @@ import {
   deriveHomeEditDialogTitle,
   deriveHomeMissingModelText,
   deriveHomeSelectedLabelText,
+  deriveMatrixDebugView,
   deriveHomeTableRows,
   deriveStaticUploadReady,
   deriveWorkspaceSelected,
@@ -251,6 +252,13 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: 0 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: 1001 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_subject_selected', t: 'str', v: 'trace' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_subjects_json', t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_readiness_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_subject_summary_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_trace_summary_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_summary_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_status_text', t: 'str', v: '' });
 
   const snapshot = reactive(runtime.snapshot());
   const eventLog = [];
@@ -288,6 +296,12 @@ export function createDemoStore() {
         : resolveDefaultWorkspaceAppId(workspaceApps);
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: Number(validWorkspaceApp) });
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: resolveNextWorkspaceModelId(runtime) });
+      const matrixDebug = deriveMatrixDebugView(snap, EDITOR_STATE_MODEL_ID);
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_subjects_json', t: 'json', v: matrixDebug.subjects });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_subject_selected', t: 'str', v: matrixDebug.selected });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_readiness_text', t: 'str', v: matrixDebug.readinessText });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_subject_summary_text', t: 'str', v: matrixDebug.subjectSummaryText });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_trace_summary_text', t: 'str', v: matrixDebug.traceSummaryText });
     }
 
     const nextSnap = runtime.snapshot();

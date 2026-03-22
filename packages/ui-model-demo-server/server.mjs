@@ -1,7 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { URL } from 'node:url';
+import { URL, fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 
@@ -24,6 +24,7 @@ import {
   deriveEditorModelOptions,
   deriveHomeMissingModelText,
   deriveHomeTableRows,
+  deriveMatrixDebugView,
   deriveStaticUploadReady,
 } from '../ui-model-demo-frontend/src/editor_page_state_derivers.js';
 import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from '../ui-model-demo-frontend/src/model_ids.js';
@@ -1353,6 +1354,8 @@ function buildClientSnapshot(runtime) {
       const filteredCells = {};
       const rootCell = model.cells && model.cells['0,0,0'];
       if (rootCell) filteredCells['0,0,0'] = rootCell;
+      const assetCell = model.cells && model.cells['0,1,0'];
+      if (assetCell) filteredCells['0,1,0'] = assetCell;
       models[id] = { ...model, cells: filteredCells };
       continue;
     }
@@ -2165,6 +2168,48 @@ class ProgramModelEngine {
             };
           }
         },
+        matrixDebugRefresh: (subjectId) => {
+          try {
+            if (typeof this._matrixDebugRefresh !== 'function') {
+              return { ok: false, code: 'invalid_target', detail: 'matrix_debug_refresh_unavailable' };
+            }
+            return this._matrixDebugRefresh(subjectId);
+          } catch (err) {
+            return {
+              ok: false,
+              code: 'exception',
+              detail: String(err && err.message ? err.message : err),
+            };
+          }
+        },
+        matrixDebugClearTrace: (subjectId) => {
+          try {
+            if (typeof this._matrixDebugClearTrace !== 'function') {
+              return { ok: false, code: 'invalid_target', detail: 'matrix_debug_clear_unavailable' };
+            }
+            return this._matrixDebugClearTrace(subjectId);
+          } catch (err) {
+            return {
+              ok: false,
+              code: 'exception',
+              detail: String(err && err.message ? err.message : err),
+            };
+          }
+        },
+        matrixDebugSummarize: (subjectId) => {
+          try {
+            if (typeof this._matrixDebugSummarize !== 'function') {
+              return { ok: false, code: 'invalid_target', detail: 'matrix_debug_summarize_unavailable' };
+            }
+            return this._matrixDebugSummarize(subjectId);
+          } catch (err) {
+            return {
+              ok: false,
+              code: 'exception',
+              detail: String(err && err.message ? err.message : err),
+            };
+          }
+        },
         llmFilltablePreview: async (input) => {
           const inObj = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
           const promptText = typeof inObj.prompt === 'string' ? inObj.prompt.trim() : '';
@@ -2850,6 +2895,15 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'ws_new_app_name', 'str', '');
   ensureStateLabel(runtime, 'ws_delete_app_id', 'int', 0);
   ensureStateLabel(runtime, 'ws_status', 'str', '');
+  ensureStateLabel(runtime, 'matrix_debug_subject_selected', 'str', 'trace');
+  ensureStateLabel(runtime, 'matrix_debug_subjects_json', 'json', []);
+  ensureStateLabel(runtime, 'matrix_debug_readiness_text', 'str', '');
+  ensureStateLabel(runtime, 'matrix_debug_subject_summary_text', 'str', '');
+  ensureStateLabel(runtime, 'matrix_debug_trace_summary_text', 'str', '');
+  ensureStateLabel(runtime, 'matrix_debug_summary_text', 'str', '');
+  ensureStateLabel(runtime, 'matrix_debug_status_text', 'str', '');
+
+  let programEngine = null;
 
   const deriveWorkspaceRegistry = () => {
     const derived = [];
@@ -2922,6 +2976,43 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'home_table_rows_json', 'json', deriveHomeTableRows(snap, EDITOR_STATE_MODEL_ID));
     overwriteStateLabel(runtime, 'home_missing_model_text', 'str', deriveHomeMissingModelText(snap, EDITOR_STATE_MODEL_ID));
     overwriteStateLabel(runtime, 'static_upload_disabled', 'bool', !deriveStaticUploadReady(snap, EDITOR_STATE_MODEL_ID));
+    syncMatrixDebugDerivedState();
+  };
+
+  const syncMatrixDebugHostLabels = () => {
+    const traceModel = runtime.getModel(TRACE_MODEL_ID);
+    if (!traceModel) return;
+    const model0 = runtime.getModel(0);
+    const runtimeMode = model0 ? readAuthString(runtime.getLabelValue(model0, 0, 0, 0, 'runtime_mode')) : 'edit';
+    const matrixConfigured = Boolean(programEngine && programEngine.matrixRoomId);
+    const matrixPeerReady = Boolean(programEngine && programEngine.matrixDmPeerUserId);
+    const matrixConnected = Boolean(programEngine && programEngine.matrixAdapter && matrixConfigured && matrixPeerReady);
+    const matrixStatus = !matrixConfigured
+      ? 'config_missing'
+      : !matrixPeerReady
+        ? 'peer_missing'
+        : matrixConnected
+          ? 'connected'
+          : 'not_ready';
+    const bridgeStatus = runtimeMode === 'running'
+      ? (matrixConnected ? 'relay_ready' : 'local_only')
+      : `runtime_${runtimeMode || 'edit'}`;
+    const traceEnabled = runtime.getLabelValue(traceModel, 0, 0, 0, 'trace_enabled') !== false;
+    overwriteRuntimeLabel(runtime, TRACE_MODEL_ID, 0, 0, 0, 'matrix_status', 'str', matrixStatus);
+    overwriteRuntimeLabel(runtime, TRACE_MODEL_ID, 0, 0, 0, 'bridge_status', 'str', bridgeStatus);
+    overwriteRuntimeLabel(runtime, TRACE_MODEL_ID, 0, 0, 0, 'matrix_ready', 'bool', matrixConnected);
+    overwriteRuntimeLabel(runtime, TRACE_MODEL_ID, 0, 0, 0, 'trace_status', 'str', traceEnabled ? 'monitoring' : 'paused');
+  };
+
+  const syncMatrixDebugDerivedState = () => {
+    syncMatrixDebugHostLabels();
+    const projection = deriveMatrixDebugView(buildClientSnapshot(runtime), EDITOR_STATE_MODEL_ID);
+    overwriteStateLabel(runtime, 'matrix_debug_subjects_json', 'json', projection.subjects);
+    overwriteStateLabel(runtime, 'matrix_debug_subject_selected', 'str', projection.selected);
+    overwriteStateLabel(runtime, 'matrix_debug_readiness_text', 'str', projection.readinessText);
+    overwriteStateLabel(runtime, 'matrix_debug_subject_summary_text', 'str', projection.subjectSummaryText);
+    overwriteStateLabel(runtime, 'matrix_debug_trace_summary_text', 'str', projection.traceSummaryText);
+    return projection;
   };
 
   const refreshWorkspaceStateCatalog = () => {
@@ -3146,8 +3237,11 @@ function createServerState(options) {
     if (typeof clearData === 'function') {
       clearData({ runtime, model: traceModel });
     }
-    runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_count', t: 'str', v: '0 events' });
+    runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_count', t: 'int', v: 0 });
     runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_log_text', t: 'str', v: '(cleared)' });
+    runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_last_update', t: 'str', v: '--:--:--' });
+    runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_throughput', t: 'str', v: '0/s' });
+    runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_error_rate', t: 'str', v: '0%' });
     _traceSeq = 0;
   });
   runtime.addMailboxTrigger(traceModel, 0, 0, 2, 'clear_trace');
@@ -3269,7 +3363,36 @@ function createServerState(options) {
 
   const editorEventLog = [];
   const adapter = createLocalBusAdapter({ runtime, eventLog: editorEventLog, mode: 'v1' });
-  const programEngine = new ProgramModelEngine(runtime);
+  programEngine = new ProgramModelEngine(runtime);
+  programEngine._matrixDebugRefresh = (subjectId) => {
+    const selected = String(subjectId ?? '').trim() || 'trace';
+    overwriteStateLabel(runtime, 'matrix_debug_subject_selected', 'str', selected);
+    const projection = syncMatrixDebugDerivedState();
+    return { ok: true, data: { projection } };
+  };
+  programEngine._matrixDebugClearTrace = (subjectId) => {
+    const selected = String(subjectId ?? '').trim() || 'trace';
+    const traceModel = runtime.getModel(TRACE_MODEL_ID);
+    if (!traceModel) {
+      return { ok: false, code: 'invalid_target', detail: 'matrix_debug_missing_model' };
+    }
+    overwriteStateLabel(runtime, 'matrix_debug_subject_selected', 'str', selected);
+    runtime.addLabel(traceModel, 0, 0, 2, { k: 'clear_cmd', t: 'str', v: String(Date.now()) });
+    const projection = syncMatrixDebugDerivedState();
+    return { ok: true, data: { projection } };
+  };
+  programEngine._matrixDebugSummarize = (subjectId) => {
+    const selected = String(subjectId ?? '').trim() || 'trace';
+    overwriteStateLabel(runtime, 'matrix_debug_subject_selected', 'str', selected);
+    const projection = syncMatrixDebugDerivedState();
+    return {
+      ok: true,
+      data: {
+        projection,
+        summary: projection.subjectSummaryText,
+      },
+    };
+  };
   programEngine._wsRefreshCatalog = refreshWorkspaceStateCatalog;
   const programEngineReady = programEngine.init()
     .then(() => programEngine.tick())
@@ -3512,6 +3635,9 @@ function createServerState(options) {
       // Step 3 dual-track: dispatch table first, legacy action-prefix as fallback.
       if (typeof resolvedFunc === 'string' && resolvedFunc.trim().length > 0 &&
           sysModel && sysModel.hasFunction(resolvedFunc)) {
+        if (!runtime.isRunLoopActive()) {
+          return finishError('runtime_not_running', resolvedAction || action || 'dispatch_action');
+        }
         const startedAt = Date.now();
         writeActionLifecycle(runtime, {
           op_id: opId,
@@ -4341,7 +4467,12 @@ function startServer(options) {
   return server;
 }
 
-startServer({
-  port: process.env.PORT ? Number(process.env.PORT) : 9000,
-  corsOrigin: process.env.CORS_ORIGIN || null,
-});
+export { buildClientSnapshot, createServerState, startServer };
+
+const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMainModule) {
+  startServer({
+    port: process.env.PORT ? Number(process.env.PORT) : 9000,
+    corsOrigin: process.env.CORS_ORIGIN || null,
+  });
+}

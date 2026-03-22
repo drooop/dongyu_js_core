@@ -145,6 +145,36 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "matrix_status",
+      "t": "str",
+      "v": "not_ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "bridge_status",
+      "t": "str",
+      "v": "idle"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "matrix_ready",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "trace_log_text",
       "t": "str",
       "v": "(no events yet)"
@@ -236,7 +266,16 @@
                     "type": "Text",
                     "props": {
                       "type": "info",
-                      "text": "Safe ops move to intent dispatch in Step 3. Step 2 only materializes the surface."
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "matrix_debug_readiness_text"
+                      }
                     }
                   }
                 ]
@@ -335,18 +374,122 @@
                 ]
               },
               {
+                "id": "matrix_debug_subject_card",
+                "type": "Card",
+                "props": {
+                  "title": "Subject"
+                },
+                "children": [
+                  {
+                    "id": "matrix_debug_subject_select",
+                    "type": "Select",
+                    "props": {
+                      "options": {
+                        "$label": {
+                          "model_id": -2,
+                          "p": 0,
+                          "r": 0,
+                          "c": 0,
+                          "k": "matrix_debug_subjects_json"
+                        }
+                      },
+                      "placeholder": "Select subject"
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "matrix_debug_subject_selected"
+                      },
+                      "write": {
+                        "action": "label_update",
+                        "target_ref": {
+                          "model_id": -2,
+                          "p": 0,
+                          "r": 0,
+                          "c": 0,
+                          "k": "matrix_debug_subject_selected"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "id": "matrix_debug_subject_summary",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "matrix_debug_subject_summary_text"
+                      }
+                    }
+                  },
+                  {
+                    "id": "matrix_debug_trace_summary",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "matrix_debug_trace_summary_text"
+                      }
+                    }
+                  },
+                  {
+                    "id": "matrix_debug_summary_text",
+                    "type": "Text",
+                    "props": {
+                      "type": "success",
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "matrix_debug_summary_text"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
                 "id": "matrix_debug_actions_card",
                 "type": "Card",
                 "props": {
-                  "title": "Planned Safe Ops"
+                  "title": "Safe Ops"
                 },
                 "children": [
                   {
                     "id": "matrix_debug_actions_text",
                     "type": "Text",
                     "props": {
-                      "type": "info",
-                      "text": "Refresh / clear / summarize bind through intent dispatch in Step 3."
+                        "type": "info",
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "matrix_debug_status_text"
+                      }
                     }
                   },
                   {
@@ -362,24 +505,60 @@
                         "id": "matrix_debug_refresh_button",
                         "type": "Button",
                         "props": {
-                          "label": "Refresh (Step 3)",
+                          "label": "Refresh",
                           "size": "small"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "matrix_debug_refresh",
+                            "target_ref": {
+                              "model_id": -2,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "matrix_debug_subject_selected"
+                            }
+                          }
                         }
                       },
                       {
                         "id": "matrix_debug_clear_button",
                         "type": "Button",
                         "props": {
-                          "label": "Clear Trace (Step 3)",
+                          "label": "Clear Trace",
                           "size": "small"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "matrix_debug_clear_trace",
+                            "target_ref": {
+                              "model_id": -2,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "matrix_debug_subject_selected"
+                            }
+                          }
                         }
                       },
                       {
-                        "id": "matrix_debug_export_button",
+                        "id": "matrix_debug_summarize_button",
                         "type": "Button",
                         "props": {
-                          "label": "Export (Step 3)",
+                          "label": "Summarize",
                           "size": "small"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "matrix_debug_summarize",
+                            "target_ref": {
+                              "model_id": -2,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "matrix_debug_subject_selected"
+                            }
+                          }
                         }
                       }
                     ]
