@@ -1,0 +1,602 @@
+{
+  "version": "mt.v0",
+  "op_id": "matrix_debug_surface_v0",
+  "description": "Matrix debug surface model asset and observable defaults",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": -100,
+      "name": "matrix_debug",
+      "type": "Data"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "UI.MatrixDebugSurface"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "Matrix Debug"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "system"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "data_type",
+      "t": "str",
+      "v": "CircularBuffer"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "size_max",
+      "t": "int",
+      "v": 2000
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "trace_enabled",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "trace_count",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "trace_status",
+      "t": "str",
+      "v": "monitoring"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "trace_avg_latency",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "trace_last_update",
+      "t": "str",
+      "v": "--:--:--"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "trace_throughput",
+      "t": "str",
+      "v": "0/s"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "trace_error_rate",
+      "t": "str",
+      "v": "0%"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "trace_uptime",
+      "t": "int",
+      "v": 92
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "matrix_status",
+      "t": "str",
+      "v": "not_ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "bridge_status",
+      "t": "str",
+      "v": "idle"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "matrix_ready",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "trace_log_text",
+      "t": "str",
+      "v": "(no events yet)"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "page_asset_v0",
+      "t": "json",
+      "v": {
+        "id": "matrix_debug_root",
+        "type": "Root",
+        "children": [
+          {
+            "id": "matrix_debug_layout",
+            "type": "Container",
+            "props": {
+              "layout": "column",
+              "gap": 16,
+              "style": {
+                "padding": "16px",
+                "maxWidth": "1180px",
+                "margin": "0 auto"
+              }
+            },
+            "children": [
+              {
+                "id": "matrix_debug_header_card",
+                "type": "Card",
+                "props": {
+                  "title": "Matrix Debug Surface"
+                },
+                "children": [
+                  {
+                    "id": "matrix_debug_breadcrumb",
+                    "type": "Breadcrumb",
+                    "props": {
+                      "items": [
+                        {
+                          "label": "Workspace"
+                        },
+                        {
+                          "label": "Matrix Debug"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "matrix_debug_intro",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": "Observable server/Matrix/bridge trace state projected from Model -100."
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "matrix_debug_status_row",
+                "type": "Container",
+                "props": {
+                  "layout": "row",
+                  "gap": 12,
+                  "wrap": true
+                },
+                "children": [
+                  {
+                    "id": "matrix_debug_status_badge",
+                    "type": "StatusBadge",
+                    "props": {
+                      "label": "STATUS",
+                      "text": "monitoring"
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -100,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "trace_status"
+                      }
+                    }
+                  },
+                  {
+                    "id": "matrix_debug_enabled_hint",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "matrix_debug_readiness_text"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "matrix_debug_metrics_row",
+                "type": "Container",
+                "props": {
+                  "layout": "row",
+                  "gap": 12,
+                  "wrap": true
+                },
+                "children": [
+                  {
+                    "id": "matrix_debug_stat_events",
+                    "type": "StatCard",
+                    "props": {
+                      "label": "Events",
+                      "unit": "total",
+                      "variant": "info",
+                      "style": {
+                        "flex": 1
+                      }
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -100,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "trace_count"
+                      }
+                    }
+                  },
+                  {
+                    "id": "matrix_debug_stat_latency",
+                    "type": "StatCard",
+                    "props": {
+                      "label": "Avg Latency",
+                      "unit": "ms",
+                      "variant": "info",
+                      "style": {
+                        "flex": 1
+                      }
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -100,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "trace_avg_latency"
+                      }
+                    }
+                  },
+                  {
+                    "id": "matrix_debug_stat_throughput",
+                    "type": "StatCard",
+                    "props": {
+                      "label": "Throughput",
+                      "variant": "info",
+                      "style": {
+                        "flex": 1
+                      }
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -100,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "trace_throughput"
+                      }
+                    }
+                  },
+                  {
+                    "id": "matrix_debug_stat_errors",
+                    "type": "StatCard",
+                    "props": {
+                      "label": "Error Rate",
+                      "variant": "success",
+                      "style": {
+                        "flex": 1
+                      }
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -100,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "trace_error_rate"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "matrix_debug_subject_card",
+                "type": "Card",
+                "props": {
+                  "title": "Subject"
+                },
+                "children": [
+                  {
+                    "id": "matrix_debug_subject_select",
+                    "type": "Select",
+                    "props": {
+                      "options": {
+                        "$label": {
+                          "model_id": -2,
+                          "p": 0,
+                          "r": 0,
+                          "c": 0,
+                          "k": "matrix_debug_subjects_json"
+                        }
+                      },
+                      "placeholder": "Select subject"
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "matrix_debug_subject_selected"
+                      },
+                      "write": {
+                        "action": "label_update",
+                        "target_ref": {
+                          "model_id": -2,
+                          "p": 0,
+                          "r": 0,
+                          "c": 0,
+                          "k": "matrix_debug_subject_selected"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "id": "matrix_debug_subject_summary",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "matrix_debug_subject_summary_text"
+                      }
+                    }
+                  },
+                  {
+                    "id": "matrix_debug_trace_summary",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "matrix_debug_trace_summary_text"
+                      }
+                    }
+                  },
+                  {
+                    "id": "matrix_debug_summary_text",
+                    "type": "Text",
+                    "props": {
+                      "type": "success",
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "matrix_debug_summary_text"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "matrix_debug_actions_card",
+                "type": "Card",
+                "props": {
+                  "title": "Safe Ops"
+                },
+                "children": [
+                  {
+                    "id": "matrix_debug_actions_text",
+                    "type": "Text",
+                    "props": {
+                        "type": "info",
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "matrix_debug_status_text"
+                      }
+                    }
+                  },
+                  {
+                    "id": "matrix_debug_actions_row",
+                    "type": "Container",
+                    "props": {
+                      "layout": "row",
+                      "gap": 8,
+                      "wrap": true
+                    },
+                    "children": [
+                      {
+                        "id": "matrix_debug_refresh_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Refresh",
+                          "size": "small"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "matrix_debug_refresh",
+                            "target_ref": {
+                              "model_id": -2,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "matrix_debug_subject_selected"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "matrix_debug_clear_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Clear Trace",
+                          "size": "small"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "matrix_debug_clear_trace",
+                            "target_ref": {
+                              "model_id": -2,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "matrix_debug_subject_selected"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "matrix_debug_summarize_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Summarize",
+                          "size": "small"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "matrix_debug_summarize",
+                            "target_ref": {
+                              "model_id": -2,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "matrix_debug_subject_selected"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "matrix_debug_log_card",
+                "type": "Card",
+                "props": {
+                  "title": "Recent Trace"
+                },
+                "children": [
+                  {
+                    "id": "matrix_debug_log_terminal",
+                    "type": "Terminal",
+                    "props": {
+                      "title": "trace.log",
+                      "showMacButtons": true,
+                      "showToolbar": true,
+                      "maxHeight": "420px"
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -100,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "trace_log_text"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

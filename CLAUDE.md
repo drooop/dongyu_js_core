@@ -362,6 +362,12 @@ allocation rules (authoritative):
   Model -26      system capability layer: editor test page asset model.
                  reserved for non-nav internal editor test UI asset.
 
+  Model -100     system capability layer: Matrix debug / bus trace model.
+                 registered by iteration 0213 as the observable debug state carrier for Matrix/server/bridge tracing.
+                 server-side trace buffer, trace_append, and other minimal host glue may remain temporary,
+                 but the formal debug UI surface MUST migrate to model-defined page_asset_v0 + Workspace mount.
+                 server-owned ui_ast_v0 on this model is legacy debt only, not a valid long-term surface contract.
+
   Model -101     system capability layer: Gallery mailbox model.
                  reserved for local/remote Gallery ui_event inbox only.
 
