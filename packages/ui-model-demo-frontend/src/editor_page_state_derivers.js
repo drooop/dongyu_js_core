@@ -17,6 +17,32 @@ function truncate(text, maxLen = 120) {
   return `${s.slice(0, Math.max(0, maxLen - 1))}…`;
 }
 
+function normalizeAssetJson(rawValue) {
+  if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+    return rawValue;
+  }
+  if (typeof rawValue !== 'string') return null;
+  try {
+    const parsed = JSON.parse(rawValue);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function readWorkspaceMountedModelIds(snapshot) {
+  const workspaceModel = getSnapshotModel(snapshot, -25);
+  if (!workspaceModel || !workspaceModel.cells) return new Set();
+  const mounted = new Set();
+  for (const cell of Object.values(workspaceModel.cells)) {
+    const labels = cell && cell.labels ? cell.labels : {};
+    const modelType = labels.model_type;
+    if (!modelType || modelType.t !== 'model.submt' || !Number.isInteger(modelType.v)) continue;
+    mounted.add(modelType.v);
+  }
+  return mounted;
+}
+
 export function deriveEditorModelOptions(snapshot, editorStateModelId) {
   const models = snapshot && snapshot.models ? snapshot.models : {};
   const query = String(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'dt_filter_model_query' }) ?? '').trim().toLowerCase();
@@ -111,15 +137,26 @@ export function deriveWorkspaceSelected(snapshot, editorStateModelId, projectSch
       },
     };
   }
+  const mountedIds = readWorkspaceMountedModelIds(snapshot);
+  if (!mountedIds.has(selectedId)) {
+    return {
+      title: selectedApp.name || `App ${selectedId}`,
+      ast: {
+        id: 'ws_not_mounted',
+        type: 'Text',
+        props: { type: 'warning', text: `Model ${selectedId} is not mounted into Workspace.` },
+      },
+    };
+  }
+  const modelLabelAst = normalizeAssetJson(
+    getSnapshotLabelValue(snapshot, { model_id: selectedId, p: 0, r: 1, c: 0, k: 'page_asset_v0' }),
+  );
+  if (modelLabelAst) {
+    return { title: selectedApp.name || `App ${selectedId}`, ast: modelLabelAst };
+  }
   const schemaAst = typeof projectSchemaModel === 'function' ? projectSchemaModel(snapshot, selectedId) : null;
   if (schemaAst) {
     return { title: selectedApp.name || `App ${selectedId}`, ast: schemaAst };
-  }
-  const selectedModel = getSnapshotModel(snapshot, selectedId);
-  const root = selectedModel && selectedModel.cells ? selectedModel.cells['0,0,0'] : null;
-  const uiAst = root && root.labels && root.labels.ui_ast_v0 ? root.labels.ui_ast_v0.v : null;
-  if (uiAst && typeof uiAst === 'object') {
-    return { title: selectedApp.name || `App ${selectedId}`, ast: uiAst };
   }
   return {
     title: selectedApp.name || `App ${selectedId}`,

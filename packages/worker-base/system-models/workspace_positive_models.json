@@ -15,6 +15,16 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.WorkspaceModel"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "app_name",
       "t": "str",
       "v": "Model 1"
@@ -111,6 +121,16 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.WorkspaceModel"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "app_name",
       "t": "str",
       "v": "Model 2"
@@ -200,6 +220,16 @@
       "model_id": 100,
       "name": "test_color_form",
       "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.ColorForm"
     },
     {
       "op": "add_label",
@@ -740,6 +770,16 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.LeaveRequest"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "applicant",
       "t": "str",
       "v": ""
@@ -966,6 +1006,16 @@
       "model_id": 1002,
       "name": "设备报修",
       "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.RepairRequest"
     },
     {
       "op": "add_label",

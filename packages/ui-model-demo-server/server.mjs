@@ -25,7 +25,6 @@ import {
   deriveHomeMissingModelText,
   deriveHomeTableRows,
   deriveStaticUploadReady,
-  deriveWorkspaceSelected,
 } from '../ui-model-demo-frontend/src/editor_page_state_derivers.js';
 import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID } from '../ui-model-demo-frontend/src/model_ids.js';
 import {
@@ -2923,9 +2922,6 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'home_table_rows_json', 'json', deriveHomeTableRows(snap, EDITOR_STATE_MODEL_ID));
     overwriteStateLabel(runtime, 'home_missing_model_text', 'str', deriveHomeMissingModelText(snap, EDITOR_STATE_MODEL_ID));
     overwriteStateLabel(runtime, 'static_upload_disabled', 'bool', !deriveStaticUploadReady(snap, EDITOR_STATE_MODEL_ID));
-    const workspace = deriveWorkspaceSelected(snap, EDITOR_STATE_MODEL_ID, buildAstFromSchema);
-    overwriteStateLabel(runtime, 'ws_selected_title', 'str', workspace.title);
-    overwriteStateLabel(runtime, 'ws_selected_ast', 'json', workspace.ast);
   };
 
   const refreshWorkspaceStateCatalog = () => {

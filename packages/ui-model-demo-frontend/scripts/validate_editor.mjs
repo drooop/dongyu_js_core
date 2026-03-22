@@ -93,6 +93,7 @@ function run() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
   const stateModel = store.runtime.getModel(-2);
   store.runtime.addLabel(stateModel, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'test' });
+  store.setRoutePath('/__test__');
   store.consumeOnce();
 
   const calls = [];
@@ -370,6 +371,7 @@ function run() {
   const storeV1 = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
   const stateModelV1 = storeV1.runtime.getModel(-2);
   storeV1.runtime.addLabel(stateModelV1, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'test' });
+  storeV1.setRoutePath('/__test__');
   storeV1.consumeOnce();
   const callsV1 = [];
   const hostV1 = createHost(storeV1, callsV1);
@@ -515,6 +517,7 @@ function run() {
 
   // Static upload page branch exists and reflects upload prerequisites.
   storeV1.runtime.addLabel(stateModelV1, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'static' });
+  storeV1.setRoutePath('/static');
   storeV1.consumeOnce();
   let astStatic = storeV1.getUiAst();
   const cardStatic = findNodeById(astStatic, 'card_static_upload');
