@@ -3037,10 +3037,9 @@ function createServerState(options) {
   const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
   // ---------------------------------------------------------------------------
   // Bus Trace / Matrix debug observable model (model_id = TRACE_MODEL_ID)
-  // 0213 contract freeze:
-  // - trace buffer / trace_append / minimal host glue may stay here
-  // - server_ui_ast_v0_is_legacy_debt_only until Step 2 migrates the formal
-  //   surface to model-defined page_asset_v0 + Workspace mount
+  // 0213 Step 2:
+  // - trace buffer / trace_append / minimal host glue stay in the server
+  // - formal UI surface is model-defined via matrix_debug_surface.json
   // ---------------------------------------------------------------------------
   if (!runtime.getModel(TRACE_MODEL_ID)) {
     runtime.createModel({ id: TRACE_MODEL_ID, name: 'bus_trace', type: 'Data' });
@@ -3049,7 +3048,7 @@ function createServerState(options) {
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'data_type', t: 'str', v: 'CircularBuffer' });
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'size_max', t: 'int', v: 2000 });
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_enabled', t: 'bool', v: true });
-  runtime.addLabel(traceModel, 0, 0, 0, { k: 'app_name', t: 'str', v: 'Bus Trace' });
+  runtime.addLabel(traceModel, 0, 0, 0, { k: 'app_name', t: 'str', v: 'Matrix Debug' });
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'source_worker', t: 'str', v: 'system' });
   initDataModel(runtime, traceModel);
 
@@ -3138,233 +3137,8 @@ function createServerState(options) {
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_error_rate', t: 'str', v: '0%' });
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_uptime', t: 'int', v: 92 });
 
-  // 0213 contract freeze: server_ui_ast_v0_is_legacy_debt_only
-  // TraceFlow Dashboard AST — matches Stitch Screen 3 design
-  const runningApps = [
-    { name: 'E2E Color Generator', source: 'k8s-worker', icon: '🎨', active: false },
-    { name: 'Leave Application', source: 'worker-A', icon: '📋', active: false },
-    { name: 'Device Repair', source: 'worker-B', icon: '🔧', active: false },
-    { name: 'Bus Trace', source: 'system', icon: '📊', active: true },
-  ];
-
-  const traceAst = {
-    id: 'trace_root',
-    type: 'Container',
-    props: { layout: 'column', gap: 0, style: { minHeight: '100%' } },
-    children: [
-      // ── Section 1: Running Applications ──
-      {
-        id: 'trace_apps_section',
-        type: 'Container',
-        props: { layout: 'column', gap: 12, style: { padding: '20px 24px', borderBottom: '1px solid #E2E8F0' } },
-        children: [
-          { id: 'trace_apps_label', type: 'Text', props: { text: 'Running Applications', size: 'sm', weight: 'semibold', color: 'secondary' } },
-          {
-            id: 'trace_apps_row',
-            type: 'Container',
-            props: { layout: 'row', gap: 12, wrap: true },
-            children: runningApps.map((app, i) => ({
-              id: `trace_app_card_${i}`,
-              type: 'Box',
-              props: {
-                style: {
-                  padding: '12px 16px', borderRadius: '8px',
-                  border: app.active ? '2px solid #3B82F6' : '1px solid #E2E8F0',
-                  backgroundColor: app.active ? '#EFF6FF' : '#FFFFFF',
-                  minWidth: '180px', flex: '1',
-                  display: 'flex', flexDirection: 'column', gap: '6px',
-                },
-              },
-              children: [
-                {
-                  id: `trace_app_head_${i}`,
-                  type: 'Container',
-                  props: { layout: 'row', gap: 8, align: 'center' },
-                  children: [
-                    { id: `trace_app_icon_${i}`, type: 'Text', props: { text: app.icon, style: { fontSize: '16px' } } },
-                    { id: `trace_app_name_${i}`, type: 'Text', props: { text: app.name, size: 'sm', weight: 'medium' } },
-                  ],
-                },
-                {
-                  id: `trace_app_meta_${i}`,
-                  type: 'Container',
-                  props: { layout: 'row', gap: 8, align: 'center' },
-                  children: [
-                    { id: `trace_app_src_${i}`, type: 'Text', props: { text: app.source, size: 'xs', color: 'muted' } },
-                    { id: `trace_app_dot_${i}`, type: 'Text', props: { text: '●', style: { fontSize: '8px', color: '#22C55E' } } },
-                  ],
-                },
-              ],
-            })),
-          },
-        ],
-      },
-
-      // ── Section 2: System Health ──
-      {
-        id: 'trace_health_section',
-        type: 'Container',
-        props: { layout: 'column', gap: 8, style: { padding: '16px 24px', borderBottom: '1px solid #E2E8F0' } },
-        children: [
-          {
-            id: 'trace_health_bar',
-            type: 'ProgressBar',
-            props: { label: 'System Health', variant: 'success', strokeWidth: 10 },
-            bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_uptime' } },
-          },
-          { id: 'trace_health_detail', type: 'Text', props: { text: 'Up-time across 14 nodes', size: 'xs', color: 'muted' } },
-        ],
-      },
-
-      // ── Section 3: Breadcrumb + Action Buttons ──
-      {
-        id: 'trace_nav_section',
-        type: 'Container',
-        props: { layout: 'row', justify: 'space-between', align: 'center', style: { padding: '12px 24px', borderBottom: '1px solid #E2E8F0' } },
-        children: [
-          { id: 'trace_breadcrumb', type: 'Breadcrumb', props: { items: [{ label: 'Applications' }, { label: 'Bus Trace' }] } },
-          {
-            id: 'trace_action_buttons',
-            type: 'Container',
-            props: { layout: 'row', gap: 8 },
-            children: [
-              { id: 'trace_btn_refresh', type: 'Button', props: { label: 'Refresh', icon: 'refresh', size: 'small' } },
-              { id: 'trace_btn_export', type: 'Button', props: { label: 'Export Logs', icon: 'download', size: 'small' } },
-            ],
-          },
-        ],
-      },
-
-      // ── Section 4: Title + Tracing Toggle ──
-      {
-        id: 'trace_main_section',
-        type: 'Container',
-        props: { layout: 'column', gap: 20, style: { padding: '20px 24px' } },
-        children: [
-          {
-            id: 'trace_title_row',
-            type: 'Container',
-            props: { layout: 'row', justify: 'space-between', align: 'center' },
-            children: [
-              {
-                id: 'trace_title_area',
-                type: 'Container',
-                props: { layout: 'column', gap: 4 },
-                children: [
-                  { id: 'trace_title', type: 'Text', props: { text: 'Bus Trace \u2014 Full Link Event Tracking', size: 'xxl', weight: 'semibold' } },
-                  {
-                    id: 'trace_subtitle_row',
-                    type: 'Container',
-                    props: { layout: 'row', gap: 6, align: 'center' },
-                    children: [
-                      { id: 'trace_clock_icon', type: 'Icon', props: { name: 'clock', size: 14, color: '#64748B' } },
-                      { id: 'trace_subtitle', type: 'Text', props: { text: 'UI \u2192 Server \u2192 Matrix \u2192 MBR \u2192 MQTT', color: 'secondary' } },
-                    ],
-                  },
-                ],
-              },
-              {
-                id: 'trace_controls',
-                type: 'Container',
-                props: { layout: 'row', gap: 12, align: 'center' },
-                children: [
-                  {
-                    id: 'trace_status_badge',
-                    type: 'StatusBadge',
-                    props: { label: 'STATUS', text: 'Monitoring' },
-                    bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_status' } },
-                  },
-                  { id: 'trace_switch_label', type: 'Text', props: { text: 'Tracing', color: 'secondary' } },
-                  {
-                    id: 'trace_switch',
-                    type: 'Switch',
-                    bind: {
-                      read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_enabled' },
-                      write: { action: 'label_update', target_ref: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_enabled' } },
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-
-          // ── Divider ──
-          { id: 'trace_divider_1', type: 'Divider', props: {} },
-
-          // ── Section 5: Metrics Row ──
-          {
-            id: 'trace_metrics_row',
-            type: 'Container',
-            props: { layout: 'row', gap: 16, wrap: true },
-            children: [
-              {
-                id: 'stat_events',
-                type: 'StatCard',
-                props: { label: 'Events', unit: 'total', variant: 'info', style: { flex: 1 } },
-                bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_count' } },
-              },
-              {
-                id: 'stat_latency',
-                type: 'StatCard',
-                props: { label: 'Avg Latency', unit: 'ms', variant: 'info', trend: '\u2193 12%', trendDirection: 'down', style: { flex: 1 } },
-                bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_avg_latency' } },
-              },
-              {
-                id: 'stat_throughput',
-                type: 'StatCard',
-                props: { label: 'Throughput', variant: 'info', trend: 'Stable', trendDirection: 'neutral', style: { flex: 1 } },
-                bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_throughput' } },
-              },
-              {
-                id: 'stat_error_rate',
-                type: 'StatCard',
-                props: { label: 'Error Rate', variant: 'success', trend: 'Optimal', trendDirection: 'neutral', style: { flex: 1 } },
-                bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_error_rate' } },
-              },
-            ],
-          },
-
-          // ── Divider ──
-          { id: 'trace_divider_2', type: 'Divider', props: {} },
-
-          // ── Section 6: Terminal ──
-          {
-            id: 'trace_terminal',
-            type: 'Terminal',
-            props: {
-              title: 'system_event_stream.log (50 recent entries)',
-              showMacButtons: true,
-              showToolbar: true,
-              maxHeight: '400px',
-            },
-            bind: { read: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 0, k: 'trace_log_text' } },
-          },
-
-          // ── Section 7: Clear Trace ──
-          {
-            id: 'trace_clear_btn',
-            type: 'Container',
-            props: { layout: 'row', justify: 'center', style: { marginTop: '8px' } },
-            children: [
-              {
-                id: 'trace_clear',
-                type: 'Button',
-                props: { label: 'Clear Trace', icon: 'trash', variant: 'pill' },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: TRACE_MODEL_ID, p: 0, r: 0, c: 2, k: 'clear_cmd' },
-                    value_ref: { t: 'str', v: '1' },
-                  },
-                },
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  };
-  runtime.addLabel(traceModel, 0, 0, 0, { k: 'ui_ast_v0', t: 'json', v: traceAst });
+  // 0213 Step 2: the formal Matrix debug surface now comes from
+  // packages/worker-base/system-models/matrix_debug_surface.json page_asset_v0.
 
   // Register clear handler — when clear_cmd is written to cell(0,0,2), clear the buffer
   runtime.registerFunction(traceModel, 'clear_trace', (ctx) => {

@@ -12,8 +12,15 @@ function readText(relPath) {
 
 const claude = readText('CLAUDE.md');
 const server = readText('packages/ui-model-demo-server/server.mjs');
+const matrixDebugPatch = JSON.parse(readText('packages/worker-base/system-models/matrix_debug_surface.json'));
+const workspacePatch = JSON.parse(readText('packages/worker-base/system-models/workspace_catalog_ui.json'));
+const demoStoreSource = readText('packages/ui-model-demo-frontend/src/demo_modeltable.js');
 const runtimeModeContract = readText('scripts/tests/test_0177_runtime_mode_contract.mjs');
 const model100Contract = readText('scripts/tests/test_0182_model100_submit_chain_contract.mjs');
+
+function hasRecord(patch, predicate) {
+  return Array.isArray(patch.records) && patch.records.some(predicate);
+}
 
 function test_model_id_registry_registers_trace_model() {
   assert.match(claude, /MODEL_ID_REGISTRY/, 'CLAUDE.md must keep MODEL_ID_REGISTRY');
@@ -29,17 +36,44 @@ function test_model_id_registry_registers_trace_model() {
   );
 }
 
-function test_server_marks_legacy_ui_ast_as_debt() {
+function test_matrix_debug_surface_is_model_defined_and_mounted() {
   assert.match(server, /const TRACE_MODEL_ID = -100;/, 'server must keep TRACE_MODEL_ID=-100');
-  assert.match(
-    server,
-    /server_ui_ast_v0_is_legacy_debt_only/,
-    'server must explicitly mark the trace model ui_ast_v0 as legacy debt',
+  assert.equal(
+    hasRecord(
+      matrixDebugPatch,
+      (record) => record
+        && record.op === 'add_label'
+        && record.model_id === -100
+        && record.p === 0
+        && record.r === 1
+        && record.c === 0
+        && record.k === 'page_asset_v0',
+    ),
+    true,
+    'matrix_debug_surface patch must define page_asset_v0 on Model -100',
   );
-  assert.match(
+  assert.equal(
+    hasRecord(
+      workspacePatch,
+      (record) => record
+        && record.op === 'add_label'
+        && record.model_id === -25
+        && record.k === 'model_type'
+        && record.t === 'model.submt'
+        && record.v === -100,
+    ),
+    true,
+    'workspace_catalog_ui must mount Model -100 via model.submt',
+  );
+  assert.doesNotMatch(
     server,
     /runtime\.addLabel\(traceModel,\s*0,\s*0,\s*0,\s*\{\s*k:\s*'ui_ast_v0'/,
-    'Step 1 must still document the current server-owned ui_ast_v0 debt before Step 2 removes it',
+    'server must stop owning the formal trace surface via ui_ast_v0 after Step 2',
+  );
+  assert.match(
+    demoStoreSource,
+    /matrix_debug_surface\.json/,
+    'local demo bootstrap must load matrix_debug_surface patch',
   );
 }
 
@@ -59,7 +93,7 @@ function test_matrix_debug_contract_depends_on_existing_guards() {
 
 const tests = [
   test_model_id_registry_registers_trace_model,
-  test_server_marks_legacy_ui_ast_as_debt,
+  test_matrix_debug_surface_is_model_defined_and_mounted,
   test_matrix_debug_contract_depends_on_existing_guards,
 ];
 
