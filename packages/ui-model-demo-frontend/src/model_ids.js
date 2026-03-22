@@ -27,6 +27,16 @@ export const UI_EXAMPLE_PARENT_MODEL_ID = 1005;
 export const UI_EXAMPLE_CHILD_MODEL_ID = 1006;
 export const UI_EXAMPLE_PROMOTE_CHILD_ACTION = 'ui_examples_promote_child_stage';
 
+// 0216 ThreeScene contract.
+export const THREE_SCENE_COMPONENT_TYPE = 'ThreeScene';
+export const THREE_SCENE_APP_MODEL_ID = 1007;
+export const THREE_SCENE_CHILD_MODEL_ID = 1008;
+export const THREE_SCENE_CREATE_ENTITY_ACTION = 'three_scene_create_entity';
+export const THREE_SCENE_SELECT_ENTITY_ACTION = 'three_scene_select_entity';
+export const THREE_SCENE_UPDATE_ENTITY_ACTION = 'three_scene_update_entity';
+export const THREE_SCENE_DELETE_ENTITY_ACTION = 'three_scene_delete_entity';
+export const THREE_SCENE_REMOTE_ONLY_DETAIL = 'three_scene_remote_only';
+
 // Model 100 - Dual-bus E2E test model.
 export const MODEL_100_ID = 100;
 export const FLOW_SHELL_ANCHOR_MODEL_ID = MODEL_100_ID;

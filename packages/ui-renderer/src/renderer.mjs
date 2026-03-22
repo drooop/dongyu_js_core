@@ -112,6 +112,52 @@ function resolveRefsDeep(value, ctx, snapshot) {
   return value;
 }
 
+function readPropValueFromSnapshot(snapshot, props, valueKey, refKey) {
+  if (!isPlainObject(props)) return undefined;
+  if (Object.prototype.hasOwnProperty.call(props, valueKey)) {
+    return props[valueKey];
+  }
+  const ref = props[refKey];
+  if (isPlainObject(ref)) {
+    return getLabelValue(snapshot, ref);
+  }
+  return undefined;
+}
+
+function inferThreeSceneModelId(props) {
+  if (!isPlainObject(props)) return null;
+  if (Number.isInteger(props.sceneModelId)) return props.sceneModelId;
+  const refKeys = ['sceneGraphRef', 'cameraStateRef', 'selectedEntityIdRef', 'sceneStatusRef', 'auditLogRef'];
+  for (const key of refKeys) {
+    const ref = props[key];
+    if (isPlainObject(ref) && Number.isInteger(ref.model_id)) {
+      return ref.model_id;
+    }
+  }
+  return null;
+}
+
+function normalizeThreeSceneHostProps(snapshot, props) {
+  const sceneGraph = readPropValueFromSnapshot(snapshot, props, 'sceneGraph', 'sceneGraphRef');
+  const cameraState = readPropValueFromSnapshot(snapshot, props, 'cameraState', 'cameraStateRef');
+  const selectedEntityId = readPropValueFromSnapshot(snapshot, props, 'selectedEntityId', 'selectedEntityIdRef');
+  const sceneStatus = readPropValueFromSnapshot(snapshot, props, 'sceneStatus', 'sceneStatusRef');
+  const auditLog = readPropValueFromSnapshot(snapshot, props, 'auditLog', 'auditLogRef');
+  const nextProps = {
+    ...props,
+    sceneModelId: inferThreeSceneModelId(props),
+    sceneGraph: isPlainObject(sceneGraph) ? sceneGraph : { entities: [] },
+    cameraState: isPlainObject(cameraState) ? cameraState : {},
+    selectedEntityId: selectedEntityId == null ? '' : String(selectedEntityId),
+    sceneStatus: sceneStatus == null ? '' : String(sceneStatus),
+    auditLog: auditLog == null ? '' : String(auditLog),
+  };
+  if (!isPlainObject(nextProps.actions)) {
+    nextProps.actions = {};
+  }
+  return nextProps;
+}
+
 function ensureSingleFlightStore(host) {
   if (!host) return null;
   if (!host.__dySingleFlightStore || !(host.__dySingleFlightStore instanceof Map)) {
@@ -352,6 +398,11 @@ function renderTreeNode(node, snapshot, registry) {
 
   if (runtimeNode.type === 'Button') {
     base.label = (runtimeNode.props && runtimeNode.props.label) || '';
+    return base;
+  }
+
+  if (runtimeNode.type === 'ThreeScene') {
+    base.props = normalizeThreeSceneHostProps(snapshot, runtimeNode.props || {});
     return base;
   }
 
@@ -999,6 +1050,10 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     delete divProps.html;
     divProps.innerHTML = html;
     return h('div', divProps);
+  }
+
+  if (node.type === 'ThreeSceneHost') {
+    return h(resolve('ThreeSceneHost'), normalizeThreeSceneHostProps(snapshot, props));
   }
 
   if (node.type === 'Link') {
