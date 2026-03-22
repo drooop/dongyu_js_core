@@ -115,6 +115,24 @@ export function deriveHomeMissingModelText(snapshot, editorStateModelId) {
   return targetModel ? '' : `Selected model ${selectedModelId} missing. Create it first.`;
 }
 
+export function deriveHomeSelectedLabelText(snapshot, editorStateModelId) {
+  const selectedModelId = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'selected_model_id' }));
+  if (selectedModelId === null) return 'Current target: no model selected.';
+
+  const p = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'draft_p' })) ?? 0;
+  const r = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'draft_r' })) ?? 0;
+  const c = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'draft_c' })) ?? 0;
+  const k = String(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'draft_k' }) ?? '').trim() || 'title';
+  const t = String(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'draft_t' }) ?? 'str').trim() || 'str';
+
+  return `Current target: model ${selectedModelId} (${p},${r},${c}) ${k} [${t}]`;
+}
+
+export function deriveHomeEditDialogTitle(snapshot, editorStateModelId) {
+  const mode = String(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'home_form_mode' }) ?? 'edit').trim().toLowerCase();
+  return mode === 'create' ? 'Create Label' : 'Edit Label';
+}
+
 export function deriveStaticUploadReady(snapshot, editorStateModelId) {
   const name = String(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'static_project_name' }) ?? '').trim();
   const uri = String(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'static_media_uri' }) ?? '').trim();

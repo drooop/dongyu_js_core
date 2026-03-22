@@ -770,9 +770,12 @@ async function runIteration(state, iterationId) {
   // Execution timeout based on entry_route (§ codexExec timeout by task type):
   // draft_iteration (large scope refine/migration): 30 min
   // executable_iteration (approved contract): 10 min default
+  // Execution timeout by entry_route. Hard cap at 60 min.
+  // Beyond that, the iteration should be split into smaller steps
+  // or follow-up iterations, not given more time.
   const execTimeout = iter.entry_route === 'draft_iteration'
-    ? 1_800_000  // 30 min
-    : 600_000    // 10 min
+    ? 3_600_000  // 60 min (large scope migration/refine)
+    : 600_000    // 10 min (approved contract, scoped execution)
 
   while (iter.status === 'active') {
     let statusRefreshed = false

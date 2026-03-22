@@ -14,7 +14,9 @@ import { resolvePageAsset } from './page_asset_resolver.js';
 import { resolveRouteUiAst } from './route_ui_projection.js';
 import {
   deriveEditorModelOptions,
+  deriveHomeEditDialogTitle,
   deriveHomeMissingModelText,
+  deriveHomeSelectedLabelText,
   deriveHomeTableRows,
   deriveStaticUploadReady,
   deriveWorkspaceSelected,
@@ -37,6 +39,14 @@ function ensureModel(runtime, { id, name, type }) {
 function ensureLabel(runtime, model, p, r, c, label) {
   const cell = runtime.getCell(model, p, r, c);
   if (cell.labels.has(label.k)) return;
+  runtime.addLabel(model, p, r, c, label);
+}
+
+function overwriteLabel(runtime, model, p, r, c, label) {
+  const cell = runtime.getCell(model, p, r, c);
+  if (cell.labels.has(label.k)) {
+    runtime.rmLabel(model, p, r, c, label.k);
+  }
   runtime.addLabel(model, p, r, c, label);
 }
 
@@ -105,6 +115,16 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_filter_c', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_filter_ktv', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_pause_sse', t: 'bool', v: false });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'editor_model_options_json', t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_table_rows_json', t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_missing_model_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_selected_label_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_status_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_form_mode', t: 'str', v: 'edit' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_edit_dialog_title', t: 'str', v: 'Edit Label' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_delete_confirm_open', t: 'bool', v: false });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_delete_confirm_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_delete_target_json', t: 'json', v: null });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_open', t: 'bool', v: false });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_title', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_text', t: 'str', v: '' });
@@ -165,21 +185,31 @@ export function createDemoStore() {
 
   function updateDerived() {
     const snap = runtime.snapshot();
+    const stateModelLive = runtime.getModel(EDITOR_STATE_MODEL_ID);
+    if (stateModelLive) {
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'editor_model_options_json', t: 'json', v: deriveEditorModelOptions(snap, EDITOR_STATE_MODEL_ID) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_table_rows_json', t: 'json', v: deriveHomeTableRows(snap, EDITOR_STATE_MODEL_ID) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_missing_model_text', t: 'str', v: deriveHomeMissingModelText(snap, EDITOR_STATE_MODEL_ID) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_selected_label_text', t: 'str', v: deriveHomeSelectedLabelText(snap, EDITOR_STATE_MODEL_ID) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_edit_dialog_title', t: 'str', v: deriveHomeEditDialogTitle(snap, EDITOR_STATE_MODEL_ID) });
+    }
+
+    const nextSnap = runtime.snapshot();
     const safeModels = {};
-    const snapModels = snap && snap.models ? snap.models : {};
+    const snapModels = nextSnap && nextSnap.models ? nextSnap.models : {};
     for (const [id, model] of Object.entries(snapModels)) {
       if (String(id) === String(EDITOR_MODEL_ID)) continue;
       if (String(id) === String(EDITOR_STATE_MODEL_ID)) continue;
       safeModels[id] = model;
     }
 
-    const resolved = resolvePageAsset(snap, {
+    const resolved = resolvePageAsset(nextSnap, {
       projectSchemaModel: buildAstFromSchema,
     });
 
     adapter.updateUiDerived({
       uiAst: resolved.ast,
-      snapshotJson: JSON.stringify({ models: safeModels, v1nConfig: snap ? snap.v1nConfig : undefined }, null, 2),
+      snapshotJson: JSON.stringify({ models: safeModels, v1nConfig: nextSnap ? nextSnap.v1nConfig : undefined }, null, 2),
       eventLogJson: JSON.stringify(eventLog, null, 2),
     });
   }
