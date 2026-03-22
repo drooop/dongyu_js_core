@@ -7,9 +7,12 @@ import docsCatalogPatch from '../../worker-base/system-models/docs_catalog_ui.js
 import staticCatalogPatch from '../../worker-base/system-models/static_catalog_ui.json' with { type: 'json' };
 import navCatalogPatch from '../../worker-base/system-models/nav_catalog_ui.json' with { type: 'json' };
 import workspaceCatalogPatch from '../../worker-base/system-models/workspace_catalog_ui.json' with { type: 'json' };
+import workspacePositiveModelsPatch from '../../worker-base/system-models/workspace_positive_models.json' with { type: 'json' };
 import editorTestCatalogPatch from '../../worker-base/system-models/editor_test_catalog_ui.json' with { type: 'json' };
 import promptCatalogPatch from '../../worker-base/system-models/prompt_catalog_ui.json' with { type: 'json' };
 import matrixDebugSurfacePatch from '../../worker-base/system-models/matrix_debug_surface.json' with { type: 'json' };
+import cognitionSceneModelPatch from '../../worker-base/system-models/cognition_scene_model.json' with { type: 'json' };
+import cognitionLifecycleModelPatch from '../../worker-base/system-models/cognition_lifecycle_model.json' with { type: 'json' };
 import { buildAstFromSchema } from './ui_schema_projection.js';
 import { resolvePageAsset } from './page_asset_resolver.js';
 import { resolveRouteUiAst } from './route_ui_projection.js';
@@ -27,6 +30,8 @@ import {
 import {
   EDITOR_MAILBOX_MODEL_ID as EDITOR_MODEL_ID,
   EDITOR_STATE_MODEL_ID,
+  FLOW_SHELL_DEFAULT_TAB,
+  FLOW_SHELL_TAB_LABEL,
   GALLERY_MAILBOX_MODEL_ID,
   GALLERY_CATALOG_MODEL_ID,
   MATRIX_DEBUG_MODEL_ID,
@@ -178,8 +183,11 @@ export function createDemoStore() {
   applyUiPatch(runtime, docsCatalogPatch);
   applyUiPatch(runtime, staticCatalogPatch);
   applyUiPatch(runtime, workspaceCatalogPatch);
+  applyUiPatch(runtime, workspacePositiveModelsPatch);
   applyUiPatch(runtime, editorTestCatalogPatch);
   applyUiPatch(runtime, matrixDebugSurfacePatch);
+  applyUiPatch(runtime, cognitionSceneModelPatch);
+  applyUiPatch(runtime, cognitionLifecycleModelPatch);
   if (!runtime.getModel(PROMPT_CATALOG_MODEL_ID)) {
     applyUiPatch(runtime, promptCatalogPatch);
   }
@@ -252,6 +260,7 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: 0 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: 1001 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: FLOW_SHELL_TAB_LABEL, t: 'str', v: FLOW_SHELL_DEFAULT_TAB });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_subject_selected', t: 'str', v: 'trace' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_subjects_json', t: 'json', v: [] });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_readiness_text', t: 'str', v: '' });
