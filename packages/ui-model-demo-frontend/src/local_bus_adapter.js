@@ -1,3 +1,4 @@
+import { UI_EXAMPLE_PROMOTE_CHILD_ACTION } from './model_ids.js';
 import { parseSafeInt } from './snapshot_utils.js';
 
 function isPlainObject(value) {
@@ -232,6 +233,8 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       'matrix_debug_refresh',
       'matrix_debug_clear_trace',
       'matrix_debug_summarize',
+      // 0215 authoritative example action (remote-only in local mode).
+      UI_EXAMPLE_PROMOTE_CHILD_ACTION,
     ]);
     if (typeof action !== 'string' || !allowedActions.has(action)) {
       return fail(op_id, 'unknown_action', 'unknown_action');
@@ -353,6 +356,10 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
     if (action === 'ws_select_app') {
       return fail(op_id, 'unsupported', 'ws_remote_only');
+    }
+
+    if (action === UI_EXAMPLE_PROMOTE_CHILD_ACTION) {
+      return fail(op_id, 'unsupported', 'ui_examples_remote_only');
     }
 
     if (action === 'matrix_debug_refresh' || action === 'matrix_debug_clear_trace' || action === 'matrix_debug_summarize') {

@@ -21,6 +21,7 @@
         "ws_app_delete": "handle_ws_app_delete",
         "ws_select_app": "handle_ws_select_app",
         "ws_app_select": "handle_ws_select_app",
+        "ui_examples_promote_child_stage": "handle_ui_examples_promote_child_stage",
         "matrix_debug_refresh": "handle_matrix_debug_refresh",
         "matrix_debug_clear_trace": "handle_matrix_debug_clear_trace",
         "matrix_debug_summarize": "handle_matrix_debug_summarize",
