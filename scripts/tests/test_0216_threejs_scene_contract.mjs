@@ -221,6 +221,50 @@ function test_three_scene_page_asset_and_truth_labels_are_frozen() {
     'three_scene_host_must_expose_delete_action',
   );
 
+  const createButton = findNode(appAsset, (node) => node?.id === 'three_scene_action_create');
+  assert.equal(createButton?.bind?.write?.action, modelIds.THREE_SCENE_CREATE_ENTITY_ACTION, 'three_scene_create_button_action_missing');
+  assert.deepEqual(
+    createButton?.bind?.write?.target_ref,
+    { model_id: modelIds.THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'scene_graph_v0' },
+    'three_scene_create_button_target_ref_invalid',
+  );
+  assert.equal(
+    createButton?.bind?.write?.value_ref?.t,
+    'json',
+    'three_scene_create_button_value_type_must_be_json',
+  );
+
+  const updateButton = findNode(appAsset, (node) => node?.id === 'three_scene_action_update');
+  assert.equal(updateButton?.bind?.write?.action, modelIds.THREE_SCENE_UPDATE_ENTITY_ACTION, 'three_scene_update_button_action_missing');
+  assert.deepEqual(
+    updateButton?.bind?.write?.target_ref,
+    { model_id: modelIds.THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'scene_graph_v0' },
+    'three_scene_update_button_target_ref_invalid',
+  );
+  assert.deepEqual(
+    updateButton?.bind?.write?.value_ref?.v?.id,
+    { $label: { model_id: modelIds.THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_entity_id' } },
+    'three_scene_update_button_must_resolve_selected_entity_id_from_label',
+  );
+
+  const deleteButton = findNode(appAsset, (node) => node?.id === 'three_scene_action_delete');
+  assert.equal(deleteButton?.bind?.write?.action, modelIds.THREE_SCENE_DELETE_ENTITY_ACTION, 'three_scene_delete_button_action_missing');
+  assert.deepEqual(
+    deleteButton?.bind?.write?.target_ref,
+    { model_id: modelIds.THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_entity_id' },
+    'three_scene_delete_button_target_ref_invalid',
+  );
+  assert.equal(
+    deleteButton?.bind?.write?.value_ref?.t,
+    'str',
+    'three_scene_delete_button_value_type_must_be_str',
+  );
+  assert.deepEqual(
+    deleteButton?.bind?.write?.value_ref?.v,
+    { $label: { model_id: modelIds.THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_entity_id' } },
+    'three_scene_delete_button_must_resolve_selected_entity_id_from_label',
+  );
+
   for (const labelKey of [
     'scene_graph_v0',
     'camera_state_v0',

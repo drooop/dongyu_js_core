@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { createRequire } from 'node:module';
+
 import { createDemoStore } from '../src/demo_modeltable.js';
 import {
   EDITOR_STATE_MODEL_ID,
@@ -12,6 +14,9 @@ import {
   THREE_SCENE_SELECT_ENTITY_ACTION,
   THREE_SCENE_UPDATE_ENTITY_ACTION,
 } from '../src/model_ids.js';
+
+const require = createRequire(import.meta.url);
+const { createRenderer } = require('../../ui-renderer/src/index.js');
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -58,6 +63,33 @@ function selectWorkspaceModel(store, modelId) {
   return store.getUiAst();
 }
 
+function createHostAdapter(snapshotProvider, calls) {
+  return {
+    getSnapshot() {
+      return snapshotProvider();
+    },
+    dispatchAddLabel(label) {
+      calls.push({ type: 'add', label });
+    },
+    dispatchRmLabel(labelRef) {
+      calls.push({ type: 'rm', labelRef });
+    },
+  };
+}
+
+function dispatchWorkspaceButton(store, ast, buttonId) {
+  const calls = [];
+  const renderer = createRenderer({
+    host: createHostAdapter(() => store.snapshot, calls),
+  });
+  const button = findNode(ast, (node) => node?.id === buttonId);
+  assert(button, `workspace_button_missing:${buttonId}`);
+  const label = renderer.dispatchEvent(button, { click: true });
+  assert(label?.t === 'event', `workspace_button_must_dispatch_event:${buttonId}`);
+  assert(calls.length === 1 && calls[0].type === 'add', `workspace_button_must_emit_mailbox_add:${buttonId}`);
+  return label;
+}
+
 try {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
   const workspaceRegistry = store.runtime.getLabelValue(store.runtime.getModel(EDITOR_STATE_MODEL_ID), 0, 0, 0, 'ws_apps_registry');
@@ -76,46 +108,40 @@ try {
   const initialSelected = store.runtime.getLabelValue(store.runtime.getModel(THREE_SCENE_CHILD_MODEL_ID), 0, 0, 0, 'selected_entity_id');
   const initialStatus = store.runtime.getLabelValue(store.runtime.getModel(THREE_SCENE_CHILD_MODEL_ID), 0, 0, 0, 'scene_status');
 
-  const targetGraph = { model_id: THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'scene_graph_v0' };
-  const targetSelected = { model_id: THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_entity_id' };
   const actionCases = [
-    {
-      action: THREE_SCENE_CREATE_ENTITY_ACTION,
-      target: targetGraph,
-      value: {
-        t: 'json',
-        v: { id: 'sphere-2', type: 'sphere', color: '#f97316', position: [-1.5, 0.75, 0] },
-      },
-    },
-    {
-      action: THREE_SCENE_SELECT_ENTITY_ACTION,
-      target: targetSelected,
-      value: { t: 'str', v: 'cube-1' },
-    },
-    {
-      action: THREE_SCENE_UPDATE_ENTITY_ACTION,
-      target: targetGraph,
-      value: { t: 'json', v: { id: 'cube-1', color: '#f97316', position: [2, 1, 0] } },
-    },
-    {
-      action: THREE_SCENE_DELETE_ENTITY_ACTION,
-      target: targetSelected,
-      value: { t: 'str', v: 'cube-1' },
-    },
+    { action: THREE_SCENE_CREATE_ENTITY_ACTION, buttonId: 'three_scene_action_create' },
+    { action: THREE_SCENE_SELECT_ENTITY_ACTION, buttonId: 'three_scene_action_select' },
+    { action: THREE_SCENE_UPDATE_ENTITY_ACTION, buttonId: 'three_scene_action_update' },
+    { action: THREE_SCENE_DELETE_ENTITY_ACTION, buttonId: 'three_scene_action_delete' },
   ];
 
   for (const [index, actionCase] of actionCases.entries()) {
+    const label = dispatchWorkspaceButton(store, ast, actionCase.buttonId);
+    if (actionCase.action === THREE_SCENE_UPDATE_ENTITY_ACTION) {
+      assert(
+        label?.v?.payload?.value?.v?.id === initialSelected,
+        'update_button_must_resolve_selected_entity_id_into_payload',
+      );
+    }
+    if (actionCase.action === THREE_SCENE_DELETE_ENTITY_ACTION) {
+      assert(
+        label?.v?.payload?.value?.v === initialSelected,
+        'delete_button_must_resolve_selected_entity_id_into_payload',
+      );
+    }
     store.dispatchAddLabel({
       p: 0,
       r: 0,
       c: 1,
       k: 'ui_event',
       t: 'event',
-      v: mailboxEnvelope(actionCase.action, {
-        opId: `three_scene_local_${index}`,
-        target: actionCase.target,
-        value: actionCase.value,
-      }),
+      v: {
+        ...label.v,
+        payload: {
+          ...label.v.payload,
+          meta: { ...(label.v.payload?.meta || {}), op_id: `three_scene_local_${index}` },
+        },
+      },
     });
     const result = store.consumeOnce();
     const eventError = store.runtime.getLabelValue(store.runtime.getModel(-1), 0, 0, 1, 'ui_event_error');
