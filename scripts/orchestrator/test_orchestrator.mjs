@@ -622,9 +622,11 @@ function test_docs_sync_for_escalation_rules() {
 
   const ssotPath = join(process.cwd(), 'docs', 'ssot', 'orchestrator_hard_rules.md')
   const runbookPath = join(process.cwd(), 'docs', 'user-guide', 'orchestrator_local_smoke.md')
+  const wavePromptPath = join(process.cwd(), 'docs', 'user-guide', 'orchestrator_wave_0218_0221_prompt.txt')
 
   const ssot = readFileSync(ssotPath, 'utf-8')
   const runbook = readFileSync(runbookPath, 'utf-8')
+  const wavePrompt = readFileSync(wavePromptPath, 'utf-8')
 
   assert(ssot.includes('failure matrix'), 'SSOT mentions failure matrix')
   assert(ssot.includes('state_doc_inconsistency'), 'SSOT mentions state_doc_inconsistency')
@@ -658,6 +660,28 @@ function test_docs_sync_for_escalation_rules() {
   assert(runbook.includes('[batch:passed]'), 'runbook mentions structured batch event label')
   assert(runbook.includes('completed event') && runbook.includes('status'),
     'runbook explains how to diagnose completed event vs status mismatch')
+  assert(runbook.includes('browser_task'), 'runbook mentions browser_task contract')
+  assert(runbook.includes('request.json') && runbook.includes('result.json'),
+    'runbook mentions request/result exchange files')
+  assert(runbook.includes('output/playwright'), 'runbook mentions output/playwright evidence path')
+  assert(runbook.includes('artifact_mismatch'), 'runbook mentions artifact_mismatch')
+  assert(runbook.includes('browser_bridge_not_proven'), 'runbook mentions browser_bridge_not_proven')
+  assert(runbook.includes('MCP unavailable') || runbook.includes('mcp_unavailable'),
+    'runbook mentions MCP unavailable stop condition')
+  assert(runbook.includes('Browser Task:') && runbook.includes('Browser Failure Kind:'),
+    'runbook mentions browser status fields')
+
+  assert(wavePrompt.includes('browser_task'), 'wave prompt mentions browser_task contract')
+  assert(wavePrompt.includes('.orchestrator/runs/<batch_id>/browser_tasks/<task_id>/request.json'),
+    'wave prompt mentions request exchange path')
+  assert(wavePrompt.includes('.orchestrator/runs/<batch_id>/browser_tasks/<task_id>/result.json'),
+    'wave prompt mentions result exchange path')
+  assert(wavePrompt.includes('output/playwright/<batch_id>/<task_id>/'),
+    'wave prompt mentions output/playwright task evidence path')
+  assert(wavePrompt.includes('artifact_mismatch'), 'wave prompt mentions artifact_mismatch stop rule')
+  assert(wavePrompt.includes('browser_bridge_not_proven'), 'wave prompt mentions browser_bridge_not_proven')
+  assert(wavePrompt.includes('MCP unavailable') || wavePrompt.includes('mcp_unavailable'),
+    'wave prompt mentions MCP unavailable stop rule')
 }
 
 // ── Test 2: Events + orphan detection ───────────────────
