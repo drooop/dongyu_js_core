@@ -261,6 +261,9 @@ export function buildExecutionPrompt(iterationId) {
 - 如需后续浏览器验证，必须在结构化 JSON 中显式填写 \`browser_tasks\`
 - 禁止只写 prose 形式的“请去浏览器验证一下”；orchestrator 只接受 machine-readable \`browser_task\` 元数据
 - \`browser_tasks[].required_artifacts\` 只填文件名与介质类型，canonical \`request.json\` 路径由 orchestrator 生成
+- 如需后续 shell / deploy / rollout / readiness 验证，必须在结构化 JSON 中显式填写 \`ops_tasks\`
+- 禁止只写 prose 形式的“请去远端执行脚本”或“跑一下 deploy”；orchestrator 只接受 machine-readable \`ops_task\` 元数据
+- \`ops_tasks[].required_artifacts\` 只填文件名与介质类型，canonical \`request.json\` / \`result.json\` / \`stdout.log\` / \`stderr.log\` / \`artifacts/\` 路径由 orchestrator 生成
 
 ### 完成后
 输出以下 JSON：
@@ -288,6 +291,26 @@ export function buildExecutionPrompt(iterationId) {
         {"artifact_kind": "json", "file_name": "report.json", "required": true, "media_type": "application/json"}
       ],
       "executor": {"mode": "mcp", "executor_id": "playwright-mcp"},
+      "timeout_ms": 45000
+    }
+  ],
+  "ops_tasks": [
+    {
+      "task_kind": "ops_task",
+      "task_id": "local-baseline",
+      "summary": "需要额外 shell 验证的目标",
+      "command": "bash scripts/ops/check_runtime_baseline.sh",
+      "shell": "bash",
+      "cwd": ".",
+      "target_env": "local",
+      "host_scope": "local_cluster",
+      "mutating": false,
+      "danger_level": "low",
+      "success_assertions": ["命令退出码为 0", "产出必需 artifacts"],
+      "required_artifacts": [
+        {"artifact_kind": "json", "file_name": "report.json", "required": true, "media_type": "application/json"}
+      ],
+      "executor": {"mode": "local_shell", "executor_id": "local-ops-executor"},
       "timeout_ms": 45000
     }
   ],

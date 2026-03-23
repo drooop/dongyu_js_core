@@ -51,9 +51,24 @@ const EXEC_BROWSER_TASK_ID_RE = /^[a-z0-9][a-z0-9._-]*$/
 const EXEC_BROWSER_ARTIFACT_FILE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const EXEC_BROWSER_ARTIFACT_KINDS = new Set(['screenshot', 'json', 'trace', 'console'])
 const EXEC_BROWSER_EXECUTOR_MODES = new Set(['mock', 'mcp'])
+const OPS_TASK_REQUEST_SCHEMA_VERSION = 'ops_task_request.v1'
+const OPS_TASK_KIND = 'ops_task'
+const OPS_TASK_BRIDGE_CHANNEL = 'ops_task_bridge'
+const OPS_TASK_EXECUTOR_CLASS = 'ops_capable'
+const EXEC_OPS_TASK_ID_RE = /^[a-z0-9][a-z0-9._-]*$/
+const EXEC_OPS_ARTIFACT_FILE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+const EXEC_OPS_ARTIFACT_KINDS = new Set(['file', 'json', 'log', 'archive'])
+const EXEC_OPS_EXECUTOR_MODES = new Set(['mock', 'local_shell', 'ssh'])
+const EXEC_OPS_TARGET_ENVS = new Set(['local', 'remote'])
+const EXEC_OPS_HOST_SCOPES = new Set(['repo', 'local_host', 'local_cluster', 'remote_host', 'remote_cluster'])
+const EXEC_OPS_DANGER_LEVELS = new Set(['low', 'medium', 'high', 'critical'])
 
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0
+}
+
+function isSafeRelativePath(value) {
+  return isNonEmptyString(value) && !value.startsWith('/') && !value.includes('..')
 }
 
 function validateExecBrowserTask(task, index, seenTaskIds = new Set()) {
@@ -131,6 +146,96 @@ function validateExecBrowserTask(task, index, seenTaskIds = new Set()) {
   return { ok: true }
 }
 
+function validateExecOpsTask(task, index, seenTaskIds = new Set()) {
+  const prefix = `ops_tasks[${index}]`
+
+  if (!task || typeof task !== 'object' || Array.isArray(task)) {
+    return { ok: false, error: `${prefix} must be an object` }
+  }
+  if (task.task_kind !== OPS_TASK_KIND) {
+    return { ok: false, error: `${prefix}.task_kind must be "${OPS_TASK_KIND}"` }
+  }
+  if (!EXEC_OPS_TASK_ID_RE.test(task.task_id || '')) {
+    return { ok: false, error: `${prefix}.task_id must be a stable kebab/id token` }
+  }
+  if (seenTaskIds.has(task.task_id)) {
+    return { ok: false, error: `${prefix}.task_id duplicates a previous ops task` }
+  }
+  seenTaskIds.add(task.task_id)
+
+  if (!isNonEmptyString(task.summary)) {
+    return { ok: false, error: `${prefix}.summary is required` }
+  }
+  if (!isNonEmptyString(task.command)) {
+    return { ok: false, error: `${prefix}.command is required` }
+  }
+  if (!isNonEmptyString(task.shell)) {
+    return { ok: false, error: `${prefix}.shell is required` }
+  }
+  if (!isSafeRelativePath(task.cwd)) {
+    return { ok: false, error: `${prefix}.cwd must be a repo-relative path` }
+  }
+  if (!EXEC_OPS_TARGET_ENVS.has(task.target_env)) {
+    return { ok: false, error: `${prefix}.target_env must be local|remote` }
+  }
+  if (!EXEC_OPS_HOST_SCOPES.has(task.host_scope)) {
+    return { ok: false, error: `${prefix}.host_scope is invalid` }
+  }
+  if (typeof task.mutating !== 'boolean') {
+    return { ok: false, error: `${prefix}.mutating must be boolean` }
+  }
+  if (!EXEC_OPS_DANGER_LEVELS.has(task.danger_level)) {
+    return { ok: false, error: `${prefix}.danger_level is invalid` }
+  }
+  if (
+    !Array.isArray(task.success_assertions) ||
+    task.success_assertions.length === 0 ||
+    !task.success_assertions.every(isNonEmptyString)
+  ) {
+    return { ok: false, error: `${prefix}.success_assertions must be a non-empty string array` }
+  }
+  if (!Number.isInteger(task.timeout_ms) || task.timeout_ms < 1) {
+    return { ok: false, error: `${prefix}.timeout_ms must be >= 1` }
+  }
+  if (
+    !task.executor ||
+    typeof task.executor !== 'object' ||
+    !EXEC_OPS_EXECUTOR_MODES.has(task.executor.mode) ||
+    !isNonEmptyString(task.executor.executor_id)
+  ) {
+    return { ok: false, error: `${prefix}.executor must define mode=mock|local_shell|ssh and executor_id` }
+  }
+  if (!Array.isArray(task.required_artifacts) || task.required_artifacts.length === 0) {
+    return { ok: false, error: `${prefix}.required_artifacts must be non-empty` }
+  }
+
+  const seenArtifactFiles = new Set()
+  for (const [artifactIndex, artifact] of task.required_artifacts.entries()) {
+    const artifactPrefix = `${prefix}.required_artifacts[${artifactIndex}]`
+    if (!artifact || typeof artifact !== 'object' || Array.isArray(artifact)) {
+      return { ok: false, error: `${artifactPrefix} must be an object` }
+    }
+    if (!EXEC_OPS_ARTIFACT_KINDS.has(artifact.artifact_kind)) {
+      return { ok: false, error: `${artifactPrefix}.artifact_kind is invalid` }
+    }
+    if (!EXEC_OPS_ARTIFACT_FILE_RE.test(artifact.file_name || '')) {
+      return { ok: false, error: `${artifactPrefix}.file_name must be a simple filename` }
+    }
+    if (seenArtifactFiles.has(artifact.file_name)) {
+      return { ok: false, error: `${artifactPrefix}.file_name duplicates a previous artifact` }
+    }
+    seenArtifactFiles.add(artifact.file_name)
+    if (typeof artifact.required !== 'boolean') {
+      return { ok: false, error: `${artifactPrefix}.required must be boolean` }
+    }
+    if (!isNonEmptyString(artifact.media_type)) {
+      return { ok: false, error: `${artifactPrefix}.media_type is required` }
+    }
+  }
+
+  return { ok: true }
+}
+
 function normalizeExecOutputObject(parsed) {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return { ok: false, error: 'Execution output JSON must be an object' }
@@ -150,6 +255,20 @@ function normalizeExecOutputObject(parsed) {
     }
   }
 
+  if (parsed.ops_tasks !== undefined) {
+    if (!Array.isArray(parsed.ops_tasks)) {
+      return { ok: false, error: 'ops_tasks must be an array when present' }
+    }
+
+    const seenTaskIds = new Set()
+    for (const [index, task] of parsed.ops_tasks.entries()) {
+      const validation = validateExecOpsTask(task, index, seenTaskIds)
+      if (!validation.ok) {
+        return validation
+      }
+    }
+  }
+
   return {
     ok: true,
     output: {
@@ -159,6 +278,7 @@ function normalizeExecOutputObject(parsed) {
       validation_results: Array.isArray(parsed.validation_results) ? parsed.validation_results : [],
       spawned_iterations: Array.isArray(parsed.spawned_iterations) ? parsed.spawned_iterations : [],
       browser_tasks: Array.isArray(parsed.browser_tasks) ? parsed.browser_tasks : [],
+      ops_tasks: Array.isArray(parsed.ops_tasks) ? parsed.ops_tasks : [],
     },
   }
 }
@@ -175,6 +295,121 @@ function writeJsonAtomic(filePath, payload) {
   const tmpPath = `${filePath}.tmp`
   writeFileSync(tmpPath, JSON.stringify(payload, null, 2))
   renameSync(tmpPath, filePath)
+}
+
+function deriveOpsTaskPaths(batchId, taskId, opts = {}) {
+  const rootDir = opts.rootDir || process.cwd()
+  const taskDirRelative = `.orchestrator/runs/${batchId}/ops_tasks/${taskId}`
+  const requestFileRelative = `${taskDirRelative}/request.json`
+  const resultFileRelative = `${taskDirRelative}/result.json`
+  const stdoutFileRelative = `${taskDirRelative}/stdout.log`
+  const stderrFileRelative = `${taskDirRelative}/stderr.log`
+  const artifactsDirRelative = `${taskDirRelative}/artifacts`
+
+  return {
+    batchId,
+    taskId,
+    rootDir,
+    taskDirRelative,
+    requestFileRelative,
+    resultFileRelative,
+    stdoutFileRelative,
+    stderrFileRelative,
+    artifactsDirRelative,
+    taskDir: join(rootDir, taskDirRelative),
+    requestFile: join(rootDir, requestFileRelative),
+    resultFile: join(rootDir, resultFileRelative),
+    stdoutFile: join(rootDir, stdoutFileRelative),
+    stderrFile: join(rootDir, stderrFileRelative),
+    artifactsDir: join(rootDir, artifactsDirRelative),
+  }
+}
+
+function validateMaterializedOpsTaskRequest(request, opts = {}) {
+  const rootDir = opts.rootDir || process.cwd()
+
+  if (!request || typeof request !== 'object' || Array.isArray(request)) {
+    return { ok: false, reason: 'ops request must be an object', failureKind: 'request_invalid' }
+  }
+  if (request.schema_version !== OPS_TASK_REQUEST_SCHEMA_VERSION) {
+    return { ok: false, reason: 'ops request schema_version mismatch', failureKind: 'request_invalid' }
+  }
+  if (request.task_kind !== OPS_TASK_KIND) {
+    return { ok: false, reason: 'ops request task_kind mismatch', failureKind: 'request_invalid' }
+  }
+  if (!isNonEmptyString(request.batch_id) || !isNonEmptyString(request.iteration_id) || !isNonEmptyString(request.task_id)) {
+    return { ok: false, reason: 'ops request identity is incomplete', failureKind: 'request_invalid' }
+  }
+  if (!Number.isInteger(request.attempt) || request.attempt < 1) {
+    return { ok: false, reason: 'ops request attempt must be >= 1', failureKind: 'request_invalid' }
+  }
+  if (!isNonEmptyString(request.created_at)) {
+    return { ok: false, reason: 'ops request created_at is required', failureKind: 'request_invalid' }
+  }
+  if (
+    !request.executor ||
+    request.executor.executor_class !== OPS_TASK_EXECUTOR_CLASS ||
+    request.executor.bridge_channel !== OPS_TASK_BRIDGE_CHANNEL ||
+    !EXEC_OPS_EXECUTOR_MODES.has(request.executor.mode) ||
+    !isNonEmptyString(request.executor.executor_id)
+  ) {
+    return { ok: false, reason: 'ops request executor must describe an ops_task bridge consumer', failureKind: 'request_invalid' }
+  }
+  if (!isNonEmptyString(request.command) || !isNonEmptyString(request.shell) || !isSafeRelativePath(request.cwd)) {
+    return { ok: false, reason: 'ops request execution boundary is incomplete', failureKind: 'request_invalid' }
+  }
+  if (!EXEC_OPS_TARGET_ENVS.has(request.target_env) || !EXEC_OPS_HOST_SCOPES.has(request.host_scope)) {
+    return { ok: false, reason: 'ops request target_env/host_scope is invalid', failureKind: 'request_invalid' }
+  }
+  if (typeof request.mutating !== 'boolean' || !EXEC_OPS_DANGER_LEVELS.has(request.danger_level)) {
+    return { ok: false, reason: 'ops request mutating/danger_level is invalid', failureKind: 'request_invalid' }
+  }
+  if (!Number.isInteger(request.timeout_ms) || request.timeout_ms < 1) {
+    return { ok: false, reason: 'ops request timeout_ms must be >= 1', failureKind: 'request_invalid' }
+  }
+  if (!Array.isArray(request.success_assertions) || request.success_assertions.length === 0 || !request.success_assertions.every(isNonEmptyString)) {
+    return { ok: false, reason: 'ops request success_assertions must be non-empty', failureKind: 'request_invalid' }
+  }
+  if (!Array.isArray(request.required_artifacts) || request.required_artifacts.length === 0) {
+    return { ok: false, reason: 'ops request required_artifacts must be non-empty', failureKind: 'request_invalid' }
+  }
+
+  const paths = deriveOpsTaskPaths(request.batch_id, request.task_id, { rootDir })
+  if (
+    request.exchange?.request_file !== paths.requestFileRelative ||
+    request.exchange?.result_file !== paths.resultFileRelative ||
+    request.exchange?.task_dir !== paths.taskDirRelative ||
+    request.exchange?.stdout_file !== paths.stdoutFileRelative ||
+    request.exchange?.stderr_file !== paths.stderrFileRelative ||
+    request.exchange?.artifacts_dir !== paths.artifactsDirRelative
+  ) {
+    return {
+      ok: false,
+      reason: 'ops request exchange paths do not match the canonical ops_tasks layout',
+      failureKind: 'request_invalid',
+    }
+  }
+
+  const artifactPrefix = `${paths.artifactsDirRelative}/`
+  for (const artifact of request.required_artifacts) {
+    if (
+      !artifact ||
+      typeof artifact !== 'object' ||
+      !EXEC_OPS_ARTIFACT_KINDS.has(artifact.artifact_kind) ||
+      !isNonEmptyString(artifact.media_type) ||
+      typeof artifact.required !== 'boolean' ||
+      !isNonEmptyString(artifact.relative_path) ||
+      !artifact.relative_path.startsWith(artifactPrefix)
+    ) {
+      return {
+        ok: false,
+        reason: 'ops request required_artifacts contain an invalid entry',
+        failureKind: 'request_invalid',
+      }
+    }
+  }
+
+  return { ok: true, paths }
 }
 
 function buildBrowserTaskRequest({ batchId, iterationId, task, rootDir = process.cwd() }) {
@@ -214,6 +449,59 @@ function buildBrowserTaskRequest({ batchId, iterationId, task, rootDir = process
   }
 
   const validation = validateBrowserTaskRequest(request, { rootDir })
+  if (!validation.ok) {
+    return {
+      ok: false,
+      error: validation.reason,
+      failure_kind: validation.failureKind || 'request_invalid',
+    }
+  }
+
+  return { ok: true, request, paths }
+}
+
+function buildOpsTaskRequest({ batchId, iterationId, task, rootDir = process.cwd() }) {
+  const paths = deriveOpsTaskPaths(batchId, task.task_id, { rootDir })
+  const request = {
+    schema_version: OPS_TASK_REQUEST_SCHEMA_VERSION,
+    task_kind: OPS_TASK_KIND,
+    batch_id: batchId,
+    iteration_id: iterationId,
+    task_id: task.task_id,
+    attempt: 1,
+    created_at: new Date().toISOString(),
+    executor: {
+      executor_class: OPS_TASK_EXECUTOR_CLASS,
+      bridge_channel: OPS_TASK_BRIDGE_CHANNEL,
+      executor_id: task.executor.executor_id,
+      mode: task.executor.mode,
+    },
+    exchange: {
+      request_file: paths.requestFileRelative,
+      result_file: paths.resultFileRelative,
+      task_dir: paths.taskDirRelative,
+      stdout_file: paths.stdoutFileRelative,
+      stderr_file: paths.stderrFileRelative,
+      artifacts_dir: paths.artifactsDirRelative,
+    },
+    command: task.command,
+    shell: task.shell,
+    cwd: task.cwd,
+    target_env: task.target_env,
+    host_scope: task.host_scope,
+    mutating: task.mutating,
+    danger_level: task.danger_level,
+    timeout_ms: task.timeout_ms,
+    success_assertions: [...task.success_assertions],
+    required_artifacts: task.required_artifacts.map(artifact => ({
+      artifact_kind: artifact.artifact_kind,
+      relative_path: `${paths.artifactsDirRelative}/${artifact.file_name}`,
+      required: artifact.required,
+      media_type: artifact.media_type,
+    })),
+  }
+
+  const validation = validateMaterializedOpsTaskRequest(request, { rootDir })
   if (!validation.ok) {
     return {
       ok: false,
@@ -273,6 +561,71 @@ export function materializeBrowserTaskRequests({
           ok: false,
           error: error.message || `Cannot load existing browser request for ${task.task_id}`,
           failure_kind: error.failureKind || 'request_invalid',
+        }
+      }
+    }
+
+    writeJsonAtomic(paths.requestFile, request)
+    materializedTasks.push({
+      status: 'written',
+      request,
+      paths,
+    })
+  }
+
+  return { ok: true, tasks: materializedTasks }
+}
+
+export function materializeOpsTaskRequests({
+  batchId,
+  iterationId,
+  opsTasks,
+  rootDir = process.cwd(),
+}) {
+  if (!Array.isArray(opsTasks)) {
+    return { ok: false, error: 'opsTasks must be an array', failure_kind: 'request_invalid' }
+  }
+
+  const seenTaskIds = new Set()
+  const materializedTasks = []
+
+  for (const [index, task] of opsTasks.entries()) {
+    const validation = validateExecOpsTask(task, index, seenTaskIds)
+    if (!validation.ok) {
+      return { ok: false, error: validation.error, failure_kind: 'request_invalid' }
+    }
+
+    const built = buildOpsTaskRequest({ batchId, iterationId, task, rootDir })
+    if (!built.ok) {
+      return built
+    }
+
+    const { paths, request } = built
+    mkdirSync(paths.taskDir, { recursive: true })
+    mkdirSync(paths.artifactsDir, { recursive: true })
+
+    if (existsSync(paths.requestFile)) {
+      try {
+        const existing = JSON.parse(readFileSync(paths.requestFile, 'utf8'))
+        if (normalizeRequestForComparison(existing) !== normalizeRequestForComparison(request)) {
+          return {
+            ok: false,
+            error: `Existing canonical request.json conflicts with ops_tasks[${index}]`,
+            failure_kind: 'request_invalid',
+          }
+        }
+
+        materializedTasks.push({
+          status: 'existing_request',
+          request: existing,
+          paths,
+        })
+        continue
+      } catch (error) {
+        return {
+          ok: false,
+          error: error.message || `Cannot load existing ops request for ${task.task_id}`,
+          failure_kind: 'request_invalid',
         }
       }
     }
@@ -625,6 +978,7 @@ export function parseExecOutput(outputText) {
       validation_results: [],
       spawned_iterations: [],
       browser_tasks: [],
+      ops_tasks: [],
     },
   }
 }

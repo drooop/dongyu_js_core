@@ -981,6 +981,86 @@ async function test_execution_browser_task_handshake() {
   }
 }
 
+// ── Test 4aa: Execution ops_task handshake ─────────────
+
+async function test_execution_ops_task_handshake() {
+  process.stderr.write('\n== Test 4aa: Execution ops_task handshake ==\n')
+
+  const { buildExecutionPrompt } = await import('./prompts.mjs')
+  const { materializeOpsTaskRequests } = await import('./drivers.mjs')
+
+  const iterationId = '0228-orchestrator-ops-phase-and-regression'
+  const prompt = buildExecutionPrompt(iterationId)
+  assert(prompt.includes('"ops_tasks"'), 'execution prompt exposes ops_tasks output field')
+  assert(prompt.includes('ops_task'), 'execution prompt names ops_task explicitly')
+  assert(prompt.includes('stdout.log'), 'execution prompt mentions stdout.log canonical output')
+  assert(prompt.includes('stderr.log'), 'execution prompt mentions stderr.log canonical output')
+  assert(prompt.includes('target_env'), 'execution prompt requires target_env in structured output')
+  assert(prompt.includes('host_scope'), 'execution prompt requires host_scope in structured output')
+  assert(prompt.includes('danger_level'), 'execution prompt requires danger_level in structured output')
+
+  const execText = `\`\`\`json
+{"execution_summary":"ops handshake done","steps_completed":[{"step":1,"status":"pass"}],"ops_tasks":[{"task_kind":"ops_task","task_id":"local-baseline","summary":"Run local baseline check","command":"bash scripts/ops/check_runtime_baseline.sh","shell":"bash","cwd":".","target_env":"local","host_scope":"local_cluster","mutating":false,"danger_level":"low","success_assertions":["command exits with code 0","report artifact is produced"],"required_artifacts":[{"artifact_kind":"json","file_name":"report.json","required":true,"media_type":"application/json"}],"executor":{"mode":"local_shell","executor_id":"local-ops-executor"},"timeout_ms":45000}]}
+\`\`\``
+  const parsed = parseExecOutput(execText)
+  assert(parsed.ok === true, 'parseExecOutput accepts structured ops_tasks payload')
+  assert(Array.isArray(parsed.output.ops_tasks), 'parseExecOutput preserves ops_tasks array')
+  assert(parsed.output.ops_tasks?.[0]?.task_id === 'local-baseline',
+    'parseExecOutput preserves ops_task task_id')
+
+  const invalid = parseExecOutput('```json\n{"execution_summary":"broken","ops_tasks":[{"task_kind":"ops_task","task_id":"broken-task"}]}\n```')
+  assert(invalid.ok === false, 'parseExecOutput rejects malformed ops_task payloads')
+
+  assert(typeof materializeOpsTaskRequests === 'function',
+    'drivers exports materializeOpsTaskRequests')
+  if (typeof materializeOpsTaskRequests !== 'function' || !parsed.ok) {
+    return
+  }
+
+  const batchId = `test-ops-handshake-${randomUUID().slice(0, 8)}`
+  cleanBatch(batchId)
+
+  const materialized = materializeOpsTaskRequests({
+    batchId,
+    iterationId,
+    opsTasks: parsed.output.ops_tasks,
+  })
+
+  assert(materialized.ok === true, 'materializeOpsTaskRequests succeeds')
+  assert(materialized.tasks?.length === 1, 'materializeOpsTaskRequests returns one canonical request')
+  assert(
+    materialized.tasks?.[0]?.paths?.requestFileRelative ===
+      `.orchestrator/runs/${batchId}/ops_tasks/local-baseline/request.json`,
+    'materialization uses canonical ops request.json exchange path'
+  )
+
+  const requestFile = join(
+    process.cwd(),
+    `.orchestrator/runs/${batchId}/ops_tasks/local-baseline/request.json`
+  )
+  assert(existsSync(requestFile), 'materialization writes canonical ops request.json to disk')
+  if (existsSync(requestFile)) {
+    const request = JSON.parse(readFileSync(requestFile, 'utf8'))
+    assert(
+      request.exchange?.stdout_file ===
+        `.orchestrator/runs/${batchId}/ops_tasks/local-baseline/stdout.log`,
+      'materialized request exchange points at canonical stdout.log'
+    )
+    assert(
+      request.exchange?.stderr_file ===
+        `.orchestrator/runs/${batchId}/ops_tasks/local-baseline/stderr.log`,
+      'materialized request exchange points at canonical stderr.log'
+    )
+    assert(
+      request.required_artifacts?.[0]?.relative_path ===
+        `.orchestrator/runs/${batchId}/ops_tasks/local-baseline/artifacts/report.json`,
+      'materialized request maps artifacts into canonical ops artifacts dir'
+    )
+  }
+
+  cleanBatch(batchId)
+}
+
 function sampleExecBrowserTask(taskId, mode = 'mcp') {
   return {
     task_kind: 'browser_task',
@@ -1878,6 +1958,7 @@ async function main() {
   test_scheduler()
   test_parsers()
   await test_execution_browser_task_handshake()
+  await test_execution_ops_task_handshake()
   await test_browser_task_ingest_audit_surface()
   await test_browser_task_ingest_failure_surface()
   await test_browser_task_resume_waiting_semantics()
