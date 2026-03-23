@@ -725,6 +725,49 @@ function test_ops_task_ssot_contract_freeze() {
     'SSOT freezes ops status.txt projection fields')
 }
 
+function test_ops_task_operator_docs_sync() {
+  process.stderr.write('\n== Test 1j: Ops task operator docs sync ==\n')
+
+  const runbookPath = join(process.cwd(), 'docs', 'user-guide', 'orchestrator_local_smoke.md')
+  const opsReadmePath = join(process.cwd(), 'scripts', 'ops', 'README.md')
+  const promptPath = join(process.cwd(), 'scripts', 'orchestrator', 'prompts.mjs')
+
+  const runbook = readFileSync(runbookPath, 'utf-8')
+  const opsReadme = readFileSync(opsReadmePath, 'utf-8')
+  const promptSource = readFileSync(promptPath, 'utf-8')
+
+  assert(runbook.includes('ops_task'), 'runbook mentions ops_task contract')
+  assert(runbook.includes('.orchestrator/runs/<batch_id>/ops_tasks/<task_id>/request.json'),
+    'runbook mentions ops request path')
+  assert(runbook.includes('stdout.log') && runbook.includes('stderr.log'),
+    'runbook mentions canonical stdout/stderr paths')
+  assert(runbook.includes('nonzero_exit'), 'runbook mentions nonzero_exit')
+  assert(runbook.includes('remote_guard_blocked'), 'runbook mentions remote_guard_blocked')
+  assert(runbook.includes('ops_bridge_not_proven'), 'runbook mentions ops_bridge_not_proven')
+  assert(runbook.includes('forbidden_remote_op'), 'runbook mentions forbidden_remote_op')
+  assert(runbook.includes('human_decision_required') || runbook.includes('On Hold'),
+    'runbook mentions human decision / On Hold boundary')
+
+  assert(opsReadme.includes('Ops Task Surface'), 'ops README contains ops task section')
+  assert(opsReadme.includes('check_runtime_baseline.sh'), 'ops README mentions local readonly command family')
+  assert(opsReadme.includes('ensure_runtime_baseline.sh'), 'ops README mentions local mutating ensure command')
+  assert(opsReadme.includes('deploy_local.sh'), 'ops README mentions local deploy command')
+  assert(opsReadme.includes('remote_preflight_guard.sh'), 'ops README mentions remote preflight guard')
+  assert(opsReadme.includes('sync_cloud_source.sh'), 'ops README mentions source sync command')
+  assert(opsReadme.includes('deploy_cloud_full.sh'), 'ops README mentions cloud full deploy command')
+  assert(opsReadme.includes('deploy_cloud_app.sh'), 'ops README mentions cloud app deploy command')
+  assert(opsReadme.includes('forbidden_remote_op'), 'ops README mentions forbidden_remote_op')
+  assert(opsReadme.includes('kubectl delete namespace'), 'ops README mentions kubectl delete namespace boundary')
+  assert(opsReadme.includes('helm uninstall'), 'ops README mentions helm uninstall boundary')
+
+  assert(promptSource.includes('ops_tasks'), 'prompt source mentions ops_tasks')
+  assert(promptSource.includes('stdout.log') && promptSource.includes('stderr.log'),
+    'prompt source mentions canonical stdout/stderr paths')
+  assert(promptSource.includes('forbidden_remote_op'), 'prompt source mentions forbidden_remote_op')
+  assert(promptSource.includes('human_decision_required') || promptSource.includes('On Hold'),
+    'prompt source mentions human_decision_required / On Hold boundary')
+}
+
 // ── Test 2: Events + orphan detection ───────────────────
 
 async function test_events() {
@@ -1990,6 +2033,7 @@ async function main() {
   await test_resume_history_and_prompt_escalation_wiring()
   test_docs_sync_for_escalation_rules()
   test_ops_task_ssot_contract_freeze()
+  test_ops_task_operator_docs_sync()
   await test_events()
   await test_completion_payload_and_notify_summary()
   test_scheduler()

@@ -264,6 +264,8 @@ export function buildExecutionPrompt(iterationId) {
 - 如需后续 shell / deploy / rollout / readiness 验证，必须在结构化 JSON 中显式填写 \`ops_tasks\`
 - 禁止只写 prose 形式的“请去远端执行脚本”或“跑一下 deploy”；orchestrator 只接受 machine-readable \`ops_task\` 元数据
 - \`ops_tasks[].required_artifacts\` 只填文件名与介质类型，canonical \`request.json\` / \`result.json\` / \`stdout.log\` / \`stderr.log\` / \`artifacts/\` 路径由 orchestrator 生成
+- 若 remote shell 请求命中 forbidden remote ops，不得包装成 \`ops_task\`；应显式说明 \`forbidden_remote_op\`
+- 若 remote shell 请求属于 \`kubectl delete namespace\` / \`helm uninstall\` / cluster-wide critical-risk 操作，不得擅自执行；应显式说明需要 \`human_decision_required\` / \`On Hold\`
 
 ### 完成后
 输出以下 JSON：
