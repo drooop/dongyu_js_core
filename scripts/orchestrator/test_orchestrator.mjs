@@ -670,6 +670,8 @@ function test_docs_sync_for_escalation_rules() {
     'runbook mentions MCP unavailable stop condition')
   assert(runbook.includes('Browser Task:') && runbook.includes('Browser Failure Kind:'),
     'runbook mentions browser status fields')
+  assert(runbook.includes('awaiting_result'), 'runbook mentions browser awaiting_result wait point')
+  assert(runbook.includes('artifact only'), 'runbook mentions artifact-only non-pass interpretation')
 
   assert(wavePrompt.includes('browser_task'), 'wave prompt mentions browser_task contract')
   assert(wavePrompt.includes('.orchestrator/runs/<batch_id>/browser_tasks/<task_id>/request.json'),
@@ -679,6 +681,9 @@ function test_docs_sync_for_escalation_rules() {
   assert(wavePrompt.includes('output/playwright/<batch_id>/<task_id>/'),
     'wave prompt mentions output/playwright task evidence path')
   assert(wavePrompt.includes('artifact_mismatch'), 'wave prompt mentions artifact_mismatch stop rule')
+  assert(wavePrompt.includes('duplicate_result'), 'wave prompt mentions duplicate_result stop rule')
+  assert(wavePrompt.includes('timeout'), 'wave prompt mentions timeout handling')
+  assert(wavePrompt.includes('awaiting_result'), 'wave prompt mentions awaiting_result browser wait point')
   assert(wavePrompt.includes('browser_bridge_not_proven'), 'wave prompt mentions browser_bridge_not_proven')
   assert(wavePrompt.includes('MCP unavailable') || wavePrompt.includes('mcp_unavailable'),
     'wave prompt mentions MCP unavailable stop rule')
@@ -1267,6 +1272,218 @@ async function test_browser_task_ingest_failure_surface() {
   }
 }
 
+// ── Test 4d: Browser resume waiting semantics ──────────
+
+async function test_browser_task_resume_waiting_semantics() {
+  process.stderr.write('\n== Test 4d: Browser resume waiting semantics ==\n')
+
+  const { materializeBrowserTaskRequests } = await import('./drivers.mjs')
+  const {
+    recordBrowserTaskRequest,
+    ingestBrowserTaskResult,
+  } = await import('./state.mjs')
+
+  assert(typeof recordBrowserTaskRequest === 'function',
+    'resume waiting uses recordBrowserTaskRequest export')
+  assert(typeof ingestBrowserTaskResult === 'function',
+    'resume waiting uses ingestBrowserTaskResult export')
+
+  if (
+    typeof recordBrowserTaskRequest !== 'function' ||
+    typeof ingestBrowserTaskResult !== 'function'
+  ) {
+    return
+  }
+
+  const batchId = `test-browser-wait-${randomUUID().slice(0, 8)}`
+  const iterationId = 'iter-browser-wait'
+  cleanBatch(batchId)
+
+  const state = createState(batchId, 'browser wait test', ['browser wait'])
+  addIteration(state, {
+    id: iterationId,
+    type: 'primary',
+    title: 'Browser wait',
+    requirement: 'Keep browser task pending until result arrives',
+  })
+  transition(state, iterationId, 'EXECUTION')
+  updateIteration(state, iterationId, { status: 'active' })
+  state.current_iteration = iterationId
+  commitState(state)
+
+  const materialized = materializeBrowserTaskRequests({
+    batchId,
+    iterationId,
+    browserTasks: [sampleExecBrowserTask('workspace-await', 'mcp')],
+  })
+  assert(materialized.ok === true, 'materialization succeeds for awaiting_result test')
+  if (!materialized.ok) {
+    cleanBatch(batchId)
+    return
+  }
+
+  recordBrowserTaskRequest(state, iterationId, {
+    task_id: materialized.tasks[0].request.task_id,
+    attempt: materialized.tasks[0].request.attempt,
+    request_file: materialized.tasks[0].paths.requestFileRelative,
+    result_file: materialized.tasks[0].paths.resultFileRelative,
+    artifact_paths: materialized.tasks[0].request.required_artifacts.map(artifact => artifact.relative_path),
+  })
+  commitState(state)
+
+  const awaiting = ingestBrowserTaskResult(state, iterationId)
+  assert(awaiting.ok === true, 'awaiting_result is not treated as an ingest failure')
+  assert(awaiting.status === 'awaiting_result', 'pending browser task stays in awaiting_result without result.json')
+
+  const reloaded = loadState(batchId)
+  const storedTask = reloaded.iterations[0].evidence?.browser_tasks?.[0]
+  assert(storedTask?.status === 'pending', 'authoritative state stays pending before browser result arrives')
+
+  cleanBatch(batchId)
+}
+
+// ── Test 4e: Browser result without state and orphan guard ─
+
+async function test_browser_task_resume_guardrails() {
+  process.stderr.write('\n== Test 4e: Browser resume guardrails ==\n')
+
+  const { materializeBrowserTaskRequests } = await import('./drivers.mjs')
+  const {
+    recordBrowserTaskRequest,
+    ingestBrowserTaskResult,
+  } = await import('./state.mjs')
+  const { emitBrowserTask } = await import('./events.mjs')
+  const bridge = await import('./browser_bridge.mjs')
+
+  assert(typeof recordBrowserTaskRequest === 'function',
+    'resume guardrails uses recordBrowserTaskRequest export')
+  assert(typeof ingestBrowserTaskResult === 'function',
+    'resume guardrails uses ingestBrowserTaskResult export')
+  assert(typeof emitBrowserTask === 'function',
+    'resume guardrails uses emitBrowserTask export')
+
+  if (
+    typeof recordBrowserTaskRequest !== 'function' ||
+    typeof ingestBrowserTaskResult !== 'function' ||
+    typeof emitBrowserTask !== 'function'
+  ) {
+    return
+  }
+
+  const batchId = `test-browser-guard-${randomUUID().slice(0, 8)}`
+  const iterationId = 'iter-browser-guard'
+  const outputDir = join(process.cwd(), 'output', 'playwright', batchId)
+  cleanBatch(batchId)
+  if (existsSync(outputDir)) {
+    rmSync(outputDir, { recursive: true, force: true })
+  }
+
+  const state = createState(batchId, 'browser guard test', ['browser guard'])
+  addIteration(state, {
+    id: iterationId,
+    type: 'primary',
+    title: 'Browser guard',
+    requirement: 'Keep resume authoritative and reject artifact mismatch/timeout',
+  })
+  transition(state, iterationId, 'EXECUTION')
+  updateIteration(state, iterationId, { status: 'active' })
+  state.current_iteration = iterationId
+  commitState(state)
+
+  const timeoutMaterialized = materializeBrowserTaskRequests({
+    batchId,
+    iterationId,
+    browserTasks: [sampleExecBrowserTask('workspace-timeout', 'mcp')],
+  })
+  assert(timeoutMaterialized.ok === true, 'timeout fixture materialization succeeds')
+  if (!timeoutMaterialized.ok) {
+    cleanBatch(batchId)
+    return
+  }
+
+  const timeoutRequest = timeoutMaterialized.tasks[0].request
+  const timeoutResult = bridge.createBrowserTaskFailureResult(
+    timeoutRequest,
+    'timeout',
+    'Browser task timed out before MCP result arrived.'
+  )
+  bridge.writeBrowserTaskResult({ request: timeoutRequest, result: timeoutResult })
+
+  const notIngested = ingestBrowserTaskResult(state, iterationId)
+  assert(notIngested.status === 'none',
+    'result.json on disk is ignored until authoritative state records a pending browser task')
+
+  const pendingTimeout = recordBrowserTaskRequest(state, iterationId, {
+    task_id: timeoutRequest.task_id,
+    attempt: timeoutRequest.attempt,
+    request_file: timeoutMaterialized.tasks[0].paths.requestFileRelative,
+    result_file: timeoutMaterialized.tasks[0].paths.resultFileRelative,
+    artifact_paths: timeoutRequest.required_artifacts.map(artifact => artifact.relative_path),
+  })
+  emitBrowserTask(state, iterationId, pendingTimeout)
+  commitState(state)
+
+  const timedOut = ingestBrowserTaskResult(state, iterationId)
+  assert(timedOut.ok === false, 'timeout browser result blocks orchestrator progress')
+  assert(timedOut.failure_kind === 'timeout', 'timeout failure kind is preserved during ingest')
+
+  const orphanEvent = emitEvent(state, {
+    iteration_id: iterationId,
+    event_type: 'browser_task',
+    severity: 'info',
+    state_revision: state.state_revision + 5,
+    message: 'Browser task workspace-timeout: pass',
+    data: {
+      task_id: timeoutRequest.task_id,
+      attempt: timeoutRequest.attempt,
+      status: 'pass',
+      failure_kind: 'none',
+      request_file: timeoutMaterialized.tasks[0].paths.requestFileRelative,
+      result_file: timeoutMaterialized.tasks[0].paths.resultFileRelative,
+    },
+  })
+  const orphans = detectOrphanedEvents(state)
+  assert(orphans.some(event => event.event_id === orphanEvent.event_id),
+    'browser_task orphan event is detected during resume diagnostics')
+
+  const mismatchMaterialized = materializeBrowserTaskRequests({
+    batchId,
+    iterationId,
+    browserTasks: [sampleExecBrowserTask('workspace-mismatch', 'mcp')],
+  })
+  assert(mismatchMaterialized.ok === true, 'artifact mismatch fixture materialization succeeds')
+  if (!mismatchMaterialized.ok) {
+    cleanBatch(batchId)
+    return
+  }
+
+  const mismatchPending = recordBrowserTaskRequest(state, iterationId, {
+    task_id: mismatchMaterialized.tasks[0].request.task_id,
+    attempt: mismatchMaterialized.tasks[0].request.attempt,
+    request_file: mismatchMaterialized.tasks[0].paths.requestFileRelative,
+    result_file: mismatchMaterialized.tasks[0].paths.resultFileRelative,
+    artifact_paths: mismatchMaterialized.tasks[0].request.required_artifacts.map(artifact => artifact.relative_path),
+  })
+  commitState(state)
+
+  writePassBrowserResult(bridge, mismatchMaterialized.tasks[0].request)
+  writeFileSync(
+    join(process.cwd(), mismatchMaterialized.tasks[0].request.required_artifacts[0].relative_path),
+    'corrupted-artifact'
+  )
+  const mismatch = ingestBrowserTaskResult(state, iterationId)
+  assert(mismatch.ok === false, 'artifact mismatch blocks orchestrator progress')
+  assert(mismatch.failure_kind === 'artifact_mismatch',
+    'artifact mismatch failure kind is preserved during ingest')
+  assert(mismatch.browser_task?.task_id === mismatchPending.task_id,
+    'artifact mismatch applies to the authoritative pending browser task')
+
+  cleanBatch(batchId)
+  if (existsSync(outputDir)) {
+    rmSync(outputDir, { recursive: true, force: true })
+  }
+}
+
 // ── Test 5: Review record with summary ──────────────────
 
 function test_review_record_summary() {
@@ -1663,6 +1880,8 @@ async function main() {
   await test_execution_browser_task_handshake()
   await test_browser_task_ingest_audit_surface()
   await test_browser_task_ingest_failure_surface()
+  await test_browser_task_resume_waiting_semantics()
+  await test_browser_task_resume_guardrails()
   test_review_record_summary()
   test_crash_recovery()
   test_on_hold_stall()
