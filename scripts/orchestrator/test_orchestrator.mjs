@@ -635,6 +635,18 @@ function test_docs_sync_for_escalation_rules() {
   assert(ssot.includes('terminal_outcome'), 'SSOT mentions terminal_outcome')
   assert(ssot.includes('Batch Lifecycle') && ssot.includes('Batch Outcome'),
     'SSOT mentions terminal status.txt fields')
+  assert(ssot.includes('browser_task'), 'SSOT mentions browser_task contract')
+  assert(ssot.includes('output/playwright'), 'SSOT mentions output/playwright evidence path')
+  assert(ssot.includes('artifact_missing'), 'SSOT mentions artifact_missing failure kind')
+  assert(ssot.includes('artifact_mismatch'), 'SSOT mentions artifact_mismatch failure kind')
+  assert(ssot.includes('stale_result'), 'SSOT mentions stale_result failure kind')
+  assert(ssot.includes('duplicate_result'), 'SSOT mentions duplicate_result failure kind')
+  assert(ssot.includes('ingest_failed'), 'SSOT mentions ingest_failed failure kind')
+  assert(ssot.includes('browser_bridge_not_proven'), 'SSOT mentions browser_bridge_not_proven failure kind')
+  assert(ssot.includes('Browser Task:') && ssot.includes('Browser Failure Kind:'),
+    'SSOT freezes browser status.txt fields')
+  assert(ssot.includes('runlog.md') && ssot.includes('request file') && ssot.includes('result file'),
+    'SSOT freezes runlog request/result evidence mapping')
 
   assert(runbook.includes('state_doc_inconsistency'), 'runbook mentions state_doc_inconsistency')
   assert(runbook.includes('oscillation'), 'runbook mentions oscillation')

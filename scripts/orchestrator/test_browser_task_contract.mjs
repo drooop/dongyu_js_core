@@ -138,6 +138,20 @@ function testSchemaShape() {
   const requestArtifactEnum = requestSchema.properties?.required_artifacts?.items?.properties?.artifact_kind?.enum || []
   const failureKindEnum = resultSchema.properties?.failure_kind?.enum || []
   const executorModeEnum = resultSchema.properties?.executor?.properties?.mode?.enum || []
+  const expectedFailureKinds = [
+    'request_invalid',
+    'executor_unavailable',
+    'mcp_unavailable',
+    'timeout',
+    'cancelled',
+    'result_invalid',
+    'artifact_missing',
+    'artifact_mismatch',
+    'stale_result',
+    'duplicate_result',
+    'ingest_failed',
+    'browser_bridge_not_proven',
+  ]
 
   check(requestRequired.includes('batch_id'), 'request schema requires batch_id')
   check(requestRequired.includes('iteration_id'), 'request schema requires iteration_id')
@@ -153,8 +167,9 @@ function testSchemaShape() {
   check(resultRequired.includes('status'), 'result schema requires status')
   check(resultRequired.includes('failure_kind'), 'result schema requires failure_kind')
   check(resultRequired.includes('artifacts'), 'result schema requires artifacts')
-  check(failureKindEnum.includes('artifact_missing'), 'result schema includes artifact_missing failure kind')
-  check(failureKindEnum.includes('browser_bridge_not_proven'), 'result schema includes browser_bridge_not_proven failure kind')
+  for (const failureKind of expectedFailureKinds) {
+    check(failureKindEnum.includes(failureKind), `result schema includes ${failureKind} failure kind`)
+  }
   check(executorModeEnum.includes('mock'), 'result executor mode includes mock')
   check(executorModeEnum.includes('mcp'), 'result executor mode includes mcp')
 }
@@ -380,8 +395,43 @@ function testNegativeSamples() {
     ],
   }
 
+  const validFailResult = {
+    schema_version: 'browser_task_result.v1',
+    task_kind: 'browser_task',
+    batch_id: 'batch-0218',
+    iteration_id: '0218-orchestrator-browser-task-contract-freeze',
+    task_id: 'browser-task-002',
+    attempt: 1,
+    status: 'fail',
+    failure_kind: 'artifact_missing',
+    summary: 'Executor returned a result but required screenshot was missing.',
+    executor: {
+      executor_class: 'browser_capable',
+      bridge_channel: 'browser_task_bridge',
+      executor_id: 'mock-browser-executor',
+      mode: 'mock',
+    },
+    started_at: '2026-03-23T05:10:01.000Z',
+    completed_at: '2026-03-23T05:10:05.000Z',
+    artifacts: [
+      {
+        artifact_kind: 'json',
+        relative_path: 'output/playwright/batch-0218/browser-task-002/report.json',
+        required: true,
+        media_type: 'application/json',
+        bytes: 512,
+        sha256: 'f'.repeat(64),
+        producer: {
+          actor: 'browser_executor',
+          executor_id: 'mock-browser-executor',
+        },
+      },
+    ],
+  }
+
   check(validateRequest(invalidRequest) === false, 'request missing identity / wrong artifact path is rejected')
   check(validateResult(invalidResult, validRequest) === false, 'pass result missing required screenshot is rejected')
+  check(validateResult(validFailResult, validRequest), 'fail result with artifact_missing is accepted')
 }
 
 function main() {
