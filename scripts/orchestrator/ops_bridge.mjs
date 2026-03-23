@@ -224,6 +224,7 @@ export function deriveOpsTaskPaths(batchId, taskId, opts = {}) {
   const taskDirRelative = `.orchestrator/runs/${batchId}/ops_tasks/${taskId}`
   const requestFileRelative = `${taskDirRelative}/request.json`
   const resultFileRelative = `${taskDirRelative}/result.json`
+  const claimFileRelative = `${taskDirRelative}/claim.json`
   const stdoutFileRelative = `${taskDirRelative}/stdout.log`
   const stderrFileRelative = `${taskDirRelative}/stderr.log`
   const artifactsDirRelative = `${taskDirRelative}/artifacts`
@@ -235,12 +236,14 @@ export function deriveOpsTaskPaths(batchId, taskId, opts = {}) {
     taskDirRelative,
     requestFileRelative,
     resultFileRelative,
+    claimFileRelative,
     stdoutFileRelative,
     stderrFileRelative,
     artifactsDirRelative,
     taskDir: join(rootDir, taskDirRelative),
     requestFile: join(rootDir, requestFileRelative),
     resultFile: join(rootDir, resultFileRelative),
+    claimFile: join(rootDir, claimFileRelative),
     stdoutFile: join(rootDir, stdoutFileRelative),
     stderrFile: join(rootDir, stderrFileRelative),
     artifactsDir: join(rootDir, artifactsDirRelative),
@@ -419,6 +422,45 @@ export function loadOpsTaskResult({ request, batchId, taskId, rootDir = process.
   }
 
   return { result, paths }
+}
+
+export function readOpsTaskClaim({ request, batchId, taskId, rootDir = process.cwd() }) {
+  const identity = request
+    ? { batchId: request.batch_id, taskId: request.task_id }
+    : { batchId, taskId }
+  const paths = deriveOpsTaskPaths(identity.batchId, identity.taskId, { rootDir })
+  if (!existsSync(paths.claimFile)) {
+    return null
+  }
+
+  return {
+    claim: readJsonFile(paths.claimFile, 'result_invalid', 'claim.json'),
+    paths,
+  }
+}
+
+export function writeOpsTaskClaim({ request, claim, rootDir = process.cwd() }) {
+  const requestValidation = validateOpsTaskRequest(request, { rootDir })
+  if (!requestValidation.ok) {
+    throw new OpsBridgeError(requestValidation.failureKind, requestValidation.reason, { request })
+  }
+
+  writeAtomicFile(requestValidation.paths.claimFile, JSON.stringify(claim, null, 2))
+  return {
+    claim,
+    paths: requestValidation.paths,
+  }
+}
+
+export function removeOpsTaskClaim({ request, batchId, taskId, rootDir = process.cwd() }) {
+  const identity = request
+    ? { batchId: request.batch_id, taskId: request.task_id }
+    : { batchId, taskId }
+  const paths = deriveOpsTaskPaths(identity.batchId, identity.taskId, { rootDir })
+  if (existsSync(paths.claimFile)) {
+    unlinkSync(paths.claimFile)
+  }
+  return paths
 }
 
 export function writeOpsTaskLog({ request, stream, content, rootDir = process.cwd() }) {

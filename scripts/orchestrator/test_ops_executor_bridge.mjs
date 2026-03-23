@@ -43,8 +43,8 @@ function clean(relativePath) {
   }
 }
 
-function sampleRequest(batchId, taskId) {
-  return {
+function sampleRequest(batchId, taskId, overrides = {}) {
+  const base = {
     schema_version: 'ops_task_request.v1',
     task_kind: 'ops_task',
     batch_id: batchId,
@@ -86,6 +86,21 @@ function sampleRequest(batchId, taskId) {
         media_type: 'application/json',
       },
     ],
+  }
+
+  return {
+    ...base,
+    ...overrides,
+    executor: {
+      ...base.executor,
+      ...(overrides.executor || {}),
+    },
+    exchange: {
+      ...base.exchange,
+      ...(overrides.exchange || {}),
+    },
+    success_assertions: overrides.success_assertions || base.success_assertions,
+    required_artifacts: overrides.required_artifacts || base.required_artifacts,
   }
 }
 
@@ -198,10 +213,226 @@ async function runExchangeCase() {
   clean(`.orchestrator/runs/${batchId}`)
 }
 
+async function runMockExecutorCase() {
+  process.stderr.write('\n== Ops Executor Bridge Test 2: mock executor ==\n')
+
+  const batchId = 'test-ops-bridge-step2-mock'
+  const taskId = 'ops-task-mock'
+  clean(`.orchestrator/runs/${batchId}`)
+
+  const bridge = await import('./ops_bridge.mjs')
+  const executor = await import('./ops_executor.mjs')
+  const request = sampleRequest(batchId, taskId, {
+    executor: {
+      executor_id: 'mock-ops-executor',
+      mode: 'mock',
+    },
+  })
+
+  mkdirSync(dirname(repoPath(request.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(request.exchange.request_file), JSON.stringify(request, null, 2))
+
+  const outcome = executor.consumeOneOpsTask({
+    batchId,
+    consumerId: 'mock-consumer-step2',
+  })
+
+  check(outcome.status === 'completed', 'consumeOneOpsTask completes one mock request')
+  check(outcome.result.status === 'pass', 'mock executor writes pass result')
+  check(outcome.result.failure_kind === 'none', 'mock executor keeps failure_kind=none on pass')
+  check(outcome.result.exit_code === 0, 'mock executor keeps exit_code=0 on pass')
+  check(existsSync(repoPath(request.exchange.stdout_file)), 'mock executor materializes stdout.log')
+  check(existsSync(repoPath(request.exchange.stderr_file)), 'mock executor materializes stderr.log')
+  check(existsSync(repoPath(request.required_artifacts[0].relative_path)), 'mock executor materializes required artifact')
+
+  const persisted = bridge.loadOpsTaskResult({ request })
+  check(Boolean(persisted), 'mock executor persists canonical result.json')
+  check(bridge.verifyOpsArtifactsOnDisk(persisted.result, request).ok, 'mock executor result manifest matches files on disk')
+
+  clean(`.orchestrator/runs/${batchId}`)
+}
+
+async function runLocalShellCase() {
+  process.stderr.write('\n== Ops Executor Bridge Test 3: local shell ==\n')
+
+  const bridge = await import('./ops_bridge.mjs')
+  const executor = await import('./ops_executor.mjs')
+
+  const passBatchId = 'test-ops-bridge-step2-local-pass'
+  const passTaskId = 'ops-task-local-pass'
+  clean(`.orchestrator/runs/${passBatchId}`)
+  const passRequest = sampleRequest(passBatchId, passTaskId, {
+    executor: {
+      executor_id: 'local-ops-executor',
+      mode: 'local_shell',
+    },
+    command: "printf 'local shell ok\\n'",
+  })
+  mkdirSync(dirname(repoPath(passRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(passRequest.exchange.request_file), JSON.stringify(passRequest, null, 2))
+
+  const passOutcome = executor.consumeOneOpsTask({
+    batchId: passBatchId,
+    consumerId: 'local-shell-consumer',
+  })
+  check(passOutcome.status === 'completed', 'local shell consumer completes safe local command')
+  check(passOutcome.result.status === 'pass', 'local shell consumer writes pass result')
+  check(passOutcome.result.failure_kind === 'none', 'local shell pass keeps failure_kind=none')
+  check(readFileSync(repoPath(passRequest.exchange.stdout_file), 'utf8').includes('local shell ok'),
+    'local shell consumer archives stdout content')
+  check(bridge.verifyOpsArtifactsOnDisk(passOutcome.result, passRequest).ok,
+    'local shell pass keeps artifact manifest aligned')
+
+  const assertionBatchId = 'test-ops-bridge-step2-local-assertion'
+  const assertionTaskId = 'ops-task-local-assertion'
+  clean(`.orchestrator/runs/${assertionBatchId}`)
+  const assertionRequest = sampleRequest(assertionBatchId, assertionTaskId, {
+    executor: {
+      executor_id: 'local-ops-executor',
+      mode: 'local_shell',
+    },
+    command: "printf 'assertion failure demo\\n'",
+  })
+  mkdirSync(dirname(repoPath(assertionRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(assertionRequest.exchange.request_file), JSON.stringify(assertionRequest, null, 2))
+
+  const assertionOutcome = executor.consumeOneOpsTask({
+    batchId: assertionBatchId,
+    consumerId: 'local-shell-assertion-consumer',
+    assertionEvaluator: () => ({
+      ok: false,
+      summary: 'executor could not prove all success assertions',
+    }),
+  })
+  check(assertionOutcome.status === 'completed', 'assertion failure path still completes with fail result')
+  check(assertionOutcome.result.status === 'fail', 'assertion failure path writes fail result')
+  check(assertionOutcome.result.failure_kind === 'assertion_failed', 'assertion failure path uses assertion_failed taxonomy')
+
+  clean(`.orchestrator/runs/${passBatchId}`)
+  clean(`.orchestrator/runs/${assertionBatchId}`)
+}
+
+async function runSshBoundaryCase() {
+  process.stderr.write('\n== Ops Executor Bridge Test 4: ssh boundary ==\n')
+
+  const executor = await import('./ops_executor.mjs')
+
+  const unavailableBatchId = 'test-ops-bridge-step2-ssh-unavailable'
+  const unavailableTaskId = 'ops-task-ssh-unavailable'
+  clean(`.orchestrator/runs/${unavailableBatchId}`)
+  const unavailableRequest = sampleRequest(unavailableBatchId, unavailableTaskId, {
+    executor: {
+      executor_id: 'ssh-ops-executor',
+      mode: 'ssh',
+    },
+    command: 'bash scripts/ops/remote_preflight_guard.sh',
+    target_env: 'remote',
+    host_scope: 'remote_host',
+  })
+  mkdirSync(dirname(repoPath(unavailableRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(unavailableRequest.exchange.request_file), JSON.stringify(unavailableRequest, null, 2))
+
+  const unavailableOutcome = executor.consumeOneOpsTask({
+    batchId: unavailableBatchId,
+    consumerId: 'ssh-boundary-consumer',
+  })
+  check(unavailableOutcome.status === 'completed', 'ssh boundary completes with explicit failure result when ssh executor is unavailable')
+  check(unavailableOutcome.result.status === 'fail', 'ssh unavailable path writes fail result')
+  check(unavailableOutcome.result.failure_kind === 'executor_unavailable', 'ssh unavailable path uses executor_unavailable taxonomy')
+
+  const unreachableBatchId = 'test-ops-bridge-step2-ssh-unreachable'
+  const unreachableTaskId = 'ops-task-ssh-unreachable'
+  clean(`.orchestrator/runs/${unreachableBatchId}`)
+  const unreachableRequest = sampleRequest(unreachableBatchId, unreachableTaskId, {
+    executor: {
+      executor_id: 'ssh-ops-executor',
+      mode: 'ssh',
+    },
+    command: 'kubectl get pods -n dongyu',
+    target_env: 'remote',
+    host_scope: 'remote_cluster',
+  })
+  mkdirSync(dirname(repoPath(unreachableRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(unreachableRequest.exchange.request_file), JSON.stringify(unreachableRequest, null, 2))
+
+  const unreachableOutcome = executor.consumeOneOpsTask({
+    batchId: unreachableBatchId,
+    consumerId: 'ssh-unreachable-consumer',
+    sshRunner: () => ({
+      ok: false,
+      failure_kind: 'target_unreachable',
+      summary: 'ssh transport could not reach target host',
+      stdout: '',
+      stderr: 'ssh: connect to host 124.71.43.80 port 22: Operation timed out',
+      exit_code: null,
+    }),
+  })
+  check(unreachableOutcome.result.failure_kind === 'target_unreachable', 'ssh transport failure uses target_unreachable taxonomy')
+
+  const guardBatchId = 'test-ops-bridge-step2-ssh-guard'
+  const guardTaskId = 'ops-task-ssh-guard'
+  clean(`.orchestrator/runs/${guardBatchId}`)
+  const guardRequest = sampleRequest(guardBatchId, guardTaskId, {
+    executor: {
+      executor_id: 'ssh-ops-executor',
+      mode: 'ssh',
+    },
+    command: 'bash scripts/ops/deploy_cloud_full.sh',
+    target_env: 'remote',
+    host_scope: 'remote_cluster',
+    mutating: true,
+    danger_level: 'high',
+  })
+  mkdirSync(dirname(repoPath(guardRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(guardRequest.exchange.request_file), JSON.stringify(guardRequest, null, 2))
+
+  const guardOutcome = executor.consumeOneOpsTask({
+    batchId: guardBatchId,
+    consumerId: 'ssh-guard-consumer',
+    remoteGuardRunner: () => ({
+      ok: false,
+      stdout: '',
+      stderr: 'REMOTE_RKE2_GATE: FAIL - kubectl cannot reach cluster',
+    }),
+  })
+  check(guardOutcome.result.failure_kind === 'remote_guard_blocked', 'remote guard failure uses remote_guard_blocked taxonomy')
+
+  const forbiddenBatchId = 'test-ops-bridge-step2-ssh-forbidden'
+  const forbiddenTaskId = 'ops-task-ssh-forbidden'
+  clean(`.orchestrator/runs/${forbiddenBatchId}`)
+  const forbiddenRequest = sampleRequest(forbiddenBatchId, forbiddenTaskId, {
+    executor: {
+      executor_id: 'ssh-ops-executor',
+      mode: 'ssh',
+    },
+    command: 'systemctl restart rke2',
+    target_env: 'remote',
+    host_scope: 'remote_host',
+    mutating: true,
+    danger_level: 'critical',
+  })
+  mkdirSync(dirname(repoPath(forbiddenRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(forbiddenRequest.exchange.request_file), JSON.stringify(forbiddenRequest, null, 2))
+
+  const forbiddenOutcome = executor.consumeOneOpsTask({
+    batchId: forbiddenBatchId,
+    consumerId: 'ssh-forbidden-consumer',
+  })
+  check(forbiddenOutcome.result.failure_kind === 'forbidden_remote_op', 'forbidden remote command uses forbidden_remote_op taxonomy')
+
+  clean(`.orchestrator/runs/${unavailableBatchId}`)
+  clean(`.orchestrator/runs/${unreachableBatchId}`)
+  clean(`.orchestrator/runs/${guardBatchId}`)
+  clean(`.orchestrator/runs/${forbiddenBatchId}`)
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   const runners = {
     exchange: runExchangeCase,
+    'mock-executor': runMockExecutorCase,
+    'local-shell': runLocalShellCase,
+    'ssh-boundary': runSshBoundaryCase,
   }
 
   const selected = args.case === 'all'
