@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ops_task_request.v1",
+  "title": "Ops Task Request v1",
+  "description": "Structured request envelope for an external ops executor. request/result/stdout/stderr/artifacts live under the canonical .orchestrator task directory so 0227 can bridge shell execution without inventing new paths.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "ops_task_request.v1",
+      "description": "Versioned ops_task request contract"
+    },
+    "task_kind": {
+      "const": "ops_task",
+      "description": "Explicitly distinguishes ops_task from browser_task and generic CLI execution"
+    },
+    "batch_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "iteration_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "executor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "executor_class": {
+          "const": "ops_capable",
+          "description": "Executor boundary is external shell/SSH capable, not an implicit Codex child process"
+        },
+        "bridge_channel": {
+          "const": "ops_task_bridge",
+          "description": "Structured bridge channel reserved for ops request/result exchange"
+        },
+        "executor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["mock", "local_shell", "ssh"],
+          "description": "mock is allowed for contract/regression; local_shell and ssh are the real executor modes"
+        }
+      },
+      "required": ["executor_class", "bridge_channel", "executor_id", "mode"]
+    },
+    "exchange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "request_file": {
+          "type": "string",
+          "pattern": "^\\.orchestrator/runs/[^/]+/ops_tasks/[^/]+/request\\.json$"
+        },
+        "result_file": {
+          "type": "string",
+          "pattern": "^\\.orchestrator/runs/[^/]+/ops_tasks/[^/]+/result\\.json$"
+        },
+        "task_dir": {
+          "type": "string",
+          "pattern": "^\\.orchestrator/runs/[^/]+/ops_tasks/[^/]+$"
+        },
+        "stdout_file": {
+          "type": "string",
+          "pattern": "^\\.orchestrator/runs/[^/]+/ops_tasks/[^/]+/stdout\\.log$"
+        },
+        "stderr_file": {
+          "type": "string",
+          "pattern": "^\\.orchestrator/runs/[^/]+/ops_tasks/[^/]+/stderr\\.log$"
+        },
+        "artifacts_dir": {
+          "type": "string",
+          "pattern": "^\\.orchestrator/runs/[^/]+/ops_tasks/[^/]+/artifacts$"
+        }
+      },
+      "required": ["request_file", "result_file", "task_dir", "stdout_file", "stderr_file", "artifacts_dir"]
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1
+    },
+    "shell": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cwd": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\.\\.)[^\\n]+$",
+      "description": "Repo-relative working directory; the bridge resolves environment-specific repo roots"
+    },
+    "target_env": {
+      "type": "string",
+      "enum": ["local", "remote"]
+    },
+    "host_scope": {
+      "type": "string",
+      "enum": ["repo", "local_host", "local_cluster", "remote_host", "remote_cluster"]
+    },
+    "mutating": {
+      "type": "boolean"
+    },
+    "danger_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "timeout_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "success_assertions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required_artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "artifact_kind": {
+            "type": "string",
+            "enum": ["file", "json", "log", "archive"]
+          },
+          "relative_path": {
+            "type": "string",
+            "pattern": "^\\.orchestrator/runs/[^/]+/ops_tasks/[^/]+/artifacts/.+"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["artifact_kind", "relative_path", "required", "media_type"]
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "task_kind",
+    "batch_id",
+    "iteration_id",
+    "task_id",
+    "attempt",
+    "created_at",
+    "executor",
+    "exchange",
+    "command",
+    "shell",
+    "cwd",
+    "target_env",
+    "host_scope",
+    "mutating",
+    "danger_level",
+    "timeout_ms",
+    "success_assertions",
+    "required_artifacts"
+  ]
+}

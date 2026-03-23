@@ -18,6 +18,52 @@
 
 ---
 
+## Ops Task Surface（0226 contract freeze）
+
+用途：
+- 作为 orchestrator `ops_task` 可引用的 canonical shell surface 知识库。
+- 为 `0227-0230` 提供统一术语：哪些脚本族允许进入 `ops_task`、何时必须先过 remote safety gate、哪些远端动作必须 stop。
+
+canonical command families：
+- local readonly baseline / readiness：
+  - `bash scripts/ops/check_runtime_baseline.sh`
+- local mutating deploy / ensure：
+  - `bash scripts/ops/ensure_runtime_baseline.sh`
+  - `bash scripts/ops/deploy_local.sh`
+- remote readonly preflight / source gate：
+  - `bash scripts/ops/remote_preflight_guard.sh`
+  - `bash scripts/ops/remote_preflight_guard.sh --print-socket`
+  - cloud deploy 内建 source integrity gate（`deploy_cloud_full.sh` / `deploy_cloud_app.sh`）
+- remote mutating whitelist rollout：
+  - `bash scripts/ops/sync_cloud_source.sh ...`
+  - `sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_full.sh --rebuild`
+  - `sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target <app> --revision <rev>`
+
+`ops_task` canonical path 读法：
+- orchestrator 只接收 machine-readable `ops_task`
+- `request.json` / `result.json` / `stdout.log` / `stderr.log` / `artifacts/` 的 canonical 路径统一在：
+  - `.orchestrator/runs/<batch_id>/ops_tasks/<task_id>/`
+- `ops_task.required_artifacts[]` 只声明文件名与 `media_type`；canonical 路径由 orchestrator materialize
+
+remote safety gate（强制）：
+- 任何 remote mutating `ops_task` 在执行前都必须先过 `remote_preflight_guard.sh`
+- 若 `remote_preflight_guard.sh` 失败、rke2 判定失败、containerd socket 不可达、root/权限不足，必须以 `remote_guard_blocked` 收口，不得继续执行 mutating op
+- `deploy_cloud_full.sh` / `deploy_cloud_app.sh` 额外自带 source integrity gate；若 source gate 失败，同样不能继续 rollout
+
+forbidden / critical-risk remote 边界：
+- `forbidden_remote_op`：
+  - `k3s`
+  - `systemctl start|stop|restart|enable|disable` on `rke2` / `k3s` / `containerd` / `docker` / `sshd` / `networking`
+  - 修改 `/etc/rancher/`
+  - 修改 CNI、防火墙、网络接口
+- `human_decision_required` / `On Hold`：
+  - `kubectl delete namespace`
+  - `helm uninstall`
+  - 任何会影响其他 namespace 或 cluster-wide resources 的操作
+- 这些 stop rules 来自 `CLAUDE.md` + `docs/ssot/orchestrator_hard_rules.md`；executor 不得自行把它们降级为 warning 或 `nonzero_exit`
+
+---
+
 ## Cloud Remote RKE2 Gate（强制前置）
 
 用途：
