@@ -32,7 +32,10 @@ import {
   notify, notifyIterationComplete, notifyOnHold,
   notifyBatchComplete, notifyFinalVerification,
 } from './notify.mjs'
-import { codexExec, claudeReview, parseVerdict, parseFinalVerdict, parseExecOutput } from './drivers.mjs'
+import {
+  codexExec, claudeReview, parseVerdict, parseFinalVerdict, parseExecOutput,
+  materializeBrowserTaskRequests,
+} from './drivers.mjs'
 import {
   buildDecomposePrompt, buildPlanningPrompt, buildPlanReviewPrompt,
   buildRevisionPrompt, buildExecutionPrompt, buildExecReviewPrompt,
@@ -1040,9 +1043,28 @@ async function runIteration(state, iterationId) {
         }
 
         const execOutput = parseExecOutput(result.output || result.stdout)
+        if (!execOutput.ok) {
+          emitError(state, iterationId, `Execution output parse failed: ${execOutput.error}`)
+          commitOnHold(state, iterationId, `Execution output parse failed: ${execOutput.error}`)
+          return
+        }
+
+        if (execOutput.output.browser_tasks.length > 0) {
+          const browserTasks = materializeBrowserTaskRequests({
+            batchId: state.batch_id,
+            iterationId,
+            browserTasks: execOutput.output.browser_tasks,
+          })
+
+          if (!browserTasks.ok) {
+            emitError(state, iterationId, `Browser request materialization failed: ${browserTasks.error}`)
+            commitOnHold(state, iterationId, `Browser request materialization failed: ${browserTasks.error}`)
+            return
+          }
+        }
 
         // Handle spawned iterations
-        if (execOutput.ok && execOutput.output.spawned_iterations?.length) {
+        if (execOutput.output.spawned_iterations?.length) {
           let hasBlocking = false
           for (const spawn of execOutput.output.spawned_iterations) {
             const spawnResult = acceptSpawn(state, iterationId, spawn)

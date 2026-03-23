@@ -897,6 +897,85 @@ function test_parsers() {
   assert(eo.ok === true, 'parseExecOutput succeeds')
 }
 
+// ── Test 4a: Execution browser_task handshake ──────────
+
+async function test_execution_browser_task_handshake() {
+  process.stderr.write('\n== Test 4a: Execution browser_task handshake ==\n')
+
+  const { buildExecutionPrompt } = await import('./prompts.mjs')
+  const { materializeBrowserTaskRequests } = await import('./drivers.mjs')
+
+  const iterationId = '0220-orchestrator-browser-phase-and-regression'
+  const prompt = buildExecutionPrompt(iterationId)
+  assert(prompt.includes('"browser_tasks"'), 'execution prompt exposes browser_tasks output field')
+  assert(prompt.includes('browser_task'), 'execution prompt names browser_task explicitly')
+  assert(prompt.includes('required_artifacts'), 'execution prompt requires required_artifacts in structured output')
+  assert(prompt.includes('success_assertions'), 'execution prompt requires success_assertions in structured output')
+
+  const execText = `\`\`\`json
+{"execution_summary":"handshake done","steps_completed":[{"step":1,"status":"pass"}],"browser_tasks":[{"task_kind":"browser_task","task_id":"workspace-smoke","summary":"Prove workspace browser evidence","start_url":"http://127.0.0.1:30900/","instructions":["Open workspace page","Capture final evidence"],"success_assertions":["workspace page renders","required artifacts are produced"],"required_artifacts":[{"artifact_kind":"screenshot","file_name":"final.png","required":true,"media_type":"image/png"},{"artifact_kind":"json","file_name":"report.json","required":true,"media_type":"application/json"}],"executor":{"mode":"mcp","executor_id":"playwright-mcp"},"timeout_ms":45000}]}
+\`\`\``
+  const parsed = parseExecOutput(execText)
+  assert(parsed.ok === true, 'parseExecOutput accepts structured browser_tasks payload')
+  assert(Array.isArray(parsed.output.browser_tasks), 'parseExecOutput preserves browser_tasks array')
+  assert(parsed.output.browser_tasks?.[0]?.task_id === 'workspace-smoke',
+    'parseExecOutput preserves browser_task task_id')
+
+  const invalid = parseExecOutput('```json\n{"execution_summary":"broken","browser_tasks":[{"task_kind":"browser_task","task_id":"broken-task"}]}\n```')
+  assert(invalid.ok === false, 'parseExecOutput rejects malformed browser_task payloads')
+
+  assert(typeof materializeBrowserTaskRequests === 'function',
+    'drivers exports materializeBrowserTaskRequests')
+  if (typeof materializeBrowserTaskRequests !== 'function' || !parsed.ok) {
+    return
+  }
+
+  const batchId = `test-browser-handshake-${randomUUID().slice(0, 8)}`
+  const outputDir = join(process.cwd(), 'output', 'playwright', batchId)
+  cleanBatch(batchId)
+  if (existsSync(outputDir)) {
+    rmSync(outputDir, { recursive: true, force: true })
+  }
+
+  const materialized = materializeBrowserTaskRequests({
+    batchId,
+    iterationId,
+    browserTasks: parsed.output.browser_tasks,
+  })
+
+  assert(materialized.ok === true, 'materializeBrowserTaskRequests succeeds')
+  assert(materialized.tasks?.length === 1, 'materializeBrowserTaskRequests returns one canonical request')
+  assert(
+    materialized.tasks?.[0]?.paths?.requestFileRelative ===
+      `.orchestrator/runs/${batchId}/browser_tasks/workspace-smoke/request.json`,
+    'materialization uses canonical request.json exchange path'
+  )
+
+  const requestFile = join(
+    process.cwd(),
+    `.orchestrator/runs/${batchId}/browser_tasks/workspace-smoke/request.json`
+  )
+  assert(existsSync(requestFile), 'materialization writes canonical request.json to disk')
+  if (existsSync(requestFile)) {
+    const request = JSON.parse(readFileSync(requestFile, 'utf8'))
+    assert(
+      request.exchange?.request_file ===
+        `.orchestrator/runs/${batchId}/browser_tasks/workspace-smoke/request.json`,
+      'materialized request exchange points at canonical request.json'
+    )
+    assert(
+      request.required_artifacts?.[0]?.relative_path ===
+        `output/playwright/${batchId}/workspace-smoke/final.png`,
+      'materialized request maps artifacts into canonical output/playwright dir'
+    )
+  }
+
+  cleanBatch(batchId)
+  if (existsSync(outputDir)) {
+    rmSync(outputDir, { recursive: true, force: true })
+  }
+}
+
 // ── Test 5: Review record with summary ──────────────────
 
 function test_review_record_summary() {
@@ -1290,6 +1369,7 @@ async function main() {
   await test_completion_payload_and_notify_summary()
   test_scheduler()
   test_parsers()
+  await test_execution_browser_task_handshake()
   test_review_record_summary()
   test_crash_recovery()
   test_on_hold_stall()

@@ -258,6 +258,9 @@ export function buildExecutionPrompt(iterationId) {
 - 副作用只通过 add_label / rm_label
 - UI 是投影，不是 truth source
 - fill-table-first: 能用模型定义解决的不改 runtime
+- 如需后续浏览器验证，必须在结构化 JSON 中显式填写 \`browser_tasks\`
+- 禁止只写 prose 形式的“请去浏览器验证一下”；orchestrator 只接受 machine-readable \`browser_task\` 元数据
+- \`browser_tasks[].required_artifacts\` 只填文件名与介质类型，canonical \`request.json\` 路径由 orchestrator 生成
 
 ### 完成后
 输出以下 JSON：
@@ -271,6 +274,22 @@ export function buildExecutionPrompt(iterationId) {
   "files_changed": ["..."],
   "validation_results": [
     {"command": "...", "result": "pass", "output_snippet": "..."}
+  ],
+  "browser_tasks": [
+    {
+      "task_kind": "browser_task",
+      "task_id": "workspace-smoke",
+      "summary": "需要额外浏览器验证的目标",
+      "start_url": "http://127.0.0.1:30900/",
+      "instructions": ["打开页面", "执行验证动作", "保存证据"],
+      "success_assertions": ["页面渲染正确", "产出必需 artifacts"],
+      "required_artifacts": [
+        {"artifact_kind": "screenshot", "file_name": "final.png", "required": true, "media_type": "image/png"},
+        {"artifact_kind": "json", "file_name": "report.json", "required": true, "media_type": "application/json"}
+      ],
+      "executor": {"mode": "mcp", "executor_id": "playwright-mcp"},
+      "timeout_ms": 45000
+    }
   ],
   "spawned_iterations": []
 }
