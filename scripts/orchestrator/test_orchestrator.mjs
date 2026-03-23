@@ -689,6 +689,42 @@ function test_docs_sync_for_escalation_rules() {
     'wave prompt mentions MCP unavailable stop rule')
 }
 
+function test_ops_task_ssot_contract_freeze() {
+  process.stderr.write('\n== Test 1i: Ops task SSOT contract freeze ==\n')
+
+  const ssotPath = join(process.cwd(), 'docs', 'ssot', 'orchestrator_hard_rules.md')
+  const ssot = readFileSync(ssotPath, 'utf-8')
+
+  assert(ssot.includes('ops_task'), 'SSOT mentions ops_task contract')
+  assert(ssot.includes('.orchestrator/runs/<batch_id>/ops_tasks/<task_id>/request.json'),
+    'SSOT freezes ops request exchange path')
+  assert(ssot.includes('.orchestrator/runs/<batch_id>/ops_tasks/<task_id>/result.json'),
+    'SSOT freezes ops result exchange path')
+  assert(ssot.includes('stdout.log') && ssot.includes('stderr.log'),
+    'SSOT freezes canonical stdout/stderr paths')
+  assert(ssot.includes('artifacts/'), 'SSOT freezes canonical ops artifacts dir')
+  assert(ssot.includes('request_invalid'), 'SSOT mentions ops request_invalid failure kind')
+  assert(ssot.includes('executor_unavailable'), 'SSOT mentions ops executor_unavailable failure kind')
+  assert(ssot.includes('target_unreachable'), 'SSOT mentions ops target_unreachable failure kind')
+  assert(ssot.includes('nonzero_exit'), 'SSOT mentions ops nonzero_exit failure kind')
+  assert(ssot.includes('assertion_failed'), 'SSOT mentions ops assertion_failed failure kind')
+  assert(ssot.includes('artifact_missing'), 'SSOT mentions ops artifact_missing failure kind')
+  assert(ssot.includes('artifact_mismatch'), 'SSOT mentions ops artifact_mismatch failure kind')
+  assert(ssot.includes('remote_guard_blocked'), 'SSOT mentions ops remote_guard_blocked failure kind')
+  assert(ssot.includes('forbidden_remote_op'), 'SSOT mentions ops forbidden_remote_op failure kind')
+  assert(ssot.includes('ops_bridge_not_proven'), 'SSOT mentions ops ops_bridge_not_proven failure kind')
+  assert(ssot.includes('human-decision-required') || ssot.includes('human_decision_required'),
+    'SSOT freezes human decision stop rule for critical remote ops')
+  assert(ssot.includes('On Hold'), 'SSOT freezes On Hold boundary for critical remote ops')
+  assert(ssot.includes('remote_preflight_guard.sh'), 'SSOT mentions remote_preflight_guard stop rule')
+  assert(ssot.includes('kubectl delete namespace'), 'SSOT mentions kubectl delete namespace as critical remote op')
+  assert(ssot.includes('helm uninstall'), 'SSOT mentions helm uninstall as critical remote op')
+  assert(ssot.includes('state.json') && ssot.includes('events.jsonl') && ssot.includes('status.txt') && ssot.includes('runlog.md'),
+    'SSOT freezes ops audit mapping surfaces')
+  assert(ssot.includes('Ops Task:') && ssot.includes('Ops Failure Kind:') && ssot.includes('Ops Exit Code:'),
+    'SSOT freezes ops status.txt projection fields')
+}
+
 // ── Test 2: Events + orphan detection ───────────────────
 
 async function test_events() {
@@ -1953,6 +1989,7 @@ async function main() {
   await test_failure_matrix_and_oscillation_rules()
   await test_resume_history_and_prompt_escalation_wiring()
   test_docs_sync_for_escalation_rules()
+  test_ops_task_ssot_contract_freeze()
   await test_events()
   await test_completion_payload_and_notify_summary()
   test_scheduler()
