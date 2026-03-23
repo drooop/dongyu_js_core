@@ -21,10 +21,11 @@ import {
   addReviewRecord, checkBranchGuard, findLatestBatch,
   recordFailureEvidence, recordEscalationEvidence, recordOscillationEvidence,
   getFailureEvidence, getReviewVerdictHistory, refreshBatchSummary,
+  recordBrowserTaskRequest, getPendingBrowserTaskRecord, ingestBrowserTaskResult,
 } from './state.mjs'
 import {
   emitEvent, emitTransition, emitReview, emitCompleted, emitError,
-  emitOnHold, detectOrphanedEvents, markOrphaned,
+  emitOnHold, detectOrphanedEvents, markOrphaned, emitBrowserTask,
 } from './events.mjs'
 import { refreshStatus } from './monitor.mjs'
 import { runMonitor } from './monitor.mjs'
@@ -47,7 +48,7 @@ import { resolveEscalationDecision } from './escalation_engine.mjs'
 import { pickNext, acceptSpawn, pauseForBlockingSpawn, canResume, setOnHold, syncOnHoldDocs, isBlocked } from './scheduler.mjs'
 import {
   getNextId, formatId, registerIteration, updateIterationStatus,
-  createIterationSkeleton, appendReviewGateRecord, isRegistered,
+  createIterationSkeleton, appendReviewGateRecord, appendBrowserTaskRunlogRecord, isRegistered,
 } from './iteration_register.mjs'
 
 // ── CLI argument parsing ────────────────────────────────
@@ -494,8 +495,18 @@ async function runMainLoop(state) {
       }
     }
 
-    // Pick next iteration
-    const next = pickNext(state)
+    // Resume the authoritative active iteration first (for example browser wait/resume),
+    // otherwise pick the next pending iteration from the scheduler.
+    let next = null
+    if (state.current_iteration) {
+      const currentIter = findIteration(state, state.current_iteration)
+      if (currentIter?.status === 'active') {
+        next = currentIter
+      }
+    }
+    if (!next) {
+      next = pickNext(state)
+    }
     if (!next) {
       // No pending tasks — but are we truly done, or just blocked?
       const allCompleted = state.iterations.every(
@@ -537,7 +548,10 @@ async function runMainLoop(state) {
     next.cli_failure_count = 0  // Reset on (re)activation — prevents stale count from prior On Hold
     commitState(state)
 
-    await runIteration(state, next.id)
+    const outcome = await runIteration(state, next.id)
+    if (outcome?.action === 'await_browser_result') {
+      return
+    }
   }
 
   // Final Verification Gate (§7.3) — only reached if all iterations completed
@@ -1031,6 +1045,44 @@ async function runIteration(state, iterationId) {
           return
         }
 
+        const pendingBrowserTask = getPendingBrowserTaskRecord(state, iterationId)
+        if (pendingBrowserTask) {
+          const browserIngest = ingestBrowserTaskResult(state, iterationId)
+
+          if (browserIngest.status === 'awaiting_result') {
+            refreshStatus(state)
+            return { action: 'await_browser_result' }
+          }
+
+          if (browserIngest.browser_task) {
+            emitBrowserTask(state, iterationId, browserIngest.browser_task)
+          }
+
+          if (!browserIngest.ok) {
+            commitOnHold(state, iterationId, `Browser task failed: ${browserIngest.failure_kind}`)
+            refreshStatus(state)
+            try {
+              appendBrowserTaskRunlogRecord(iterationId, browserIngest.browser_task)
+            } catch (error) {
+              process.stderr.write(`[warn] Failed to append browser task runlog for ${iterationId}: ${error.message}\n`)
+            }
+            return
+          }
+
+          transition(state, iterationId, 'REVIEW_EXEC')
+          emitTransition(state, iterationId, 'EXECUTION', 'REVIEW_EXEC')
+          iter.review_round = 0
+          iter.consecutive_approvals = 0
+          commitState(state)
+          refreshStatus(state)
+          try {
+            appendBrowserTaskRunlogRecord(iterationId, browserIngest.browser_task)
+          } catch (error) {
+            process.stderr.write(`[warn] Failed to append browser task runlog for ${iterationId}: ${error.message}\n`)
+          }
+          break
+        }
+
         const result = codexExec(state.batch_id, iterationId,
           buildExecutionPrompt(iterationId),
           { phase: 'execution', sandbox: 'danger-full-access', timeout: execTimeout }
@@ -1049,20 +1101,6 @@ async function runIteration(state, iterationId) {
           return
         }
 
-        if (execOutput.output.browser_tasks.length > 0) {
-          const browserTasks = materializeBrowserTaskRequests({
-            batchId: state.batch_id,
-            iterationId,
-            browserTasks: execOutput.output.browser_tasks,
-          })
-
-          if (!browserTasks.ok) {
-            emitError(state, iterationId, `Browser request materialization failed: ${browserTasks.error}`)
-            commitOnHold(state, iterationId, `Browser request materialization failed: ${browserTasks.error}`)
-            return
-          }
-        }
-
         // Handle spawned iterations
         if (execOutput.output.spawned_iterations?.length) {
           let hasBlocking = false
@@ -1079,6 +1117,35 @@ async function runIteration(state, iterationId) {
             commitState(state)
             return // Will be resumed by scheduler
           }
+        }
+
+        if (execOutput.output.browser_tasks.length > 0) {
+          const browserTasks = materializeBrowserTaskRequests({
+            batchId: state.batch_id,
+            iterationId,
+            browserTasks: execOutput.output.browser_tasks,
+          })
+
+          if (!browserTasks.ok) {
+            emitError(state, iterationId, `Browser request materialization failed: ${browserTasks.error}`)
+            commitOnHold(state, iterationId, `Browser request materialization failed: ${browserTasks.error}`)
+            return
+          }
+
+          for (const browserTask of browserTasks.tasks) {
+            const pendingRecord = recordBrowserTaskRequest(state, iterationId, {
+              task_id: browserTask.request.task_id,
+              attempt: browserTask.request.attempt,
+              request_file: browserTask.paths.requestFileRelative,
+              result_file: browserTask.paths.resultFileRelative,
+              artifact_paths: browserTask.request.required_artifacts.map(artifact => artifact.relative_path),
+            })
+            emitBrowserTask(state, iterationId, pendingRecord)
+          }
+
+          commitState(state)
+          refreshStatus(state)
+          return { action: 'await_browser_result' }
         }
 
         transition(state, iterationId, 'REVIEW_EXEC')

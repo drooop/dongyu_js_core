@@ -13,7 +13,7 @@
 
 import { randomUUID } from 'crypto'
 import { existsSync, readFileSync, mkdirSync, rmSync, writeFileSync, appendFileSync } from 'fs'
-import { join } from 'path'
+import { dirname, join } from 'path'
 
 import {
   createState, loadState, commitState, batchDir,
@@ -976,6 +976,297 @@ async function test_execution_browser_task_handshake() {
   }
 }
 
+function sampleExecBrowserTask(taskId, mode = 'mcp') {
+  return {
+    task_kind: 'browser_task',
+    task_id: taskId,
+    summary: `Prove browser ingest for ${taskId}`,
+    start_url: 'http://127.0.0.1:30900/',
+    instructions: [
+      'Open the workspace page.',
+      'Capture deterministic evidence.',
+    ],
+    success_assertions: [
+      'workspace page renders',
+      'required artifacts are produced',
+    ],
+    required_artifacts: [
+      {
+        artifact_kind: 'screenshot',
+        file_name: 'final.png',
+        required: true,
+        media_type: 'image/png',
+      },
+      {
+        artifact_kind: 'json',
+        file_name: 'report.json',
+        required: true,
+        media_type: 'application/json',
+      },
+    ],
+    executor: {
+      mode,
+      executor_id: mode === 'mcp' ? 'playwright-mcp' : 'mock-browser-agent',
+    },
+    timeout_ms: 45_000,
+  }
+}
+
+function writePassBrowserResult(bridge, request) {
+  const artifacts = request.required_artifacts.map(artifact => {
+    const absolutePath = join(process.cwd(), artifact.relative_path)
+    mkdirSync(dirname(absolutePath), { recursive: true })
+    writeFileSync(absolutePath, `artifact=${artifact.artifact_kind}\npath=${artifact.relative_path}\n`)
+    const digest = bridge.computeArtifactDigest(absolutePath)
+    return {
+      ...artifact,
+      ...digest,
+      producer: {
+        actor: 'browser_executor',
+        executor_id: request.executor.executor_id,
+      },
+    }
+  })
+
+  const result = {
+    schema_version: 'browser_task_result.v1',
+    task_kind: 'browser_task',
+    batch_id: request.batch_id,
+    iteration_id: request.iteration_id,
+    task_id: request.task_id,
+    attempt: request.attempt,
+    status: 'pass',
+    failure_kind: 'none',
+    summary: 'Browser task completed successfully.',
+    executor: { ...request.executor },
+    started_at: '2026-03-23T10:00:00.000Z',
+    completed_at: '2026-03-23T10:00:05.000Z',
+    artifacts,
+  }
+
+  bridge.writeBrowserTaskResult({ request, result })
+  return result
+}
+
+// ── Test 4b: Browser ingest audit surface ──────────────
+
+async function test_browser_task_ingest_audit_surface() {
+  process.stderr.write('\n== Test 4b: Browser ingest audit surface ==\n')
+
+  const { materializeBrowserTaskRequests } = await import('./drivers.mjs')
+  const {
+    recordBrowserTaskRequest,
+    ingestBrowserTaskResult,
+  } = await import('./state.mjs')
+  const { emitBrowserTask } = await import('./events.mjs')
+  const { appendBrowserTaskRunlogRecord } = await import('./iteration_register.mjs')
+  const bridge = await import('./browser_bridge.mjs')
+
+  assert(typeof recordBrowserTaskRequest === 'function',
+    'state exports recordBrowserTaskRequest')
+  assert(typeof ingestBrowserTaskResult === 'function',
+    'state exports ingestBrowserTaskResult')
+  assert(typeof emitBrowserTask === 'function',
+    'events exports emitBrowserTask')
+  assert(typeof appendBrowserTaskRunlogRecord === 'function',
+    'iteration_register exports appendBrowserTaskRunlogRecord')
+
+  if (
+    typeof recordBrowserTaskRequest !== 'function' ||
+    typeof ingestBrowserTaskResult !== 'function' ||
+    typeof emitBrowserTask !== 'function' ||
+    typeof appendBrowserTaskRunlogRecord !== 'function'
+  ) {
+    return
+  }
+
+  const batchId = `test-browser-ingest-${randomUUID().slice(0, 8)}`
+  const iterationId = 'iter-browser-ingest'
+  const outputDir = join(process.cwd(), 'output', 'playwright', batchId)
+  cleanBatch(batchId)
+  if (existsSync(outputDir)) {
+    rmSync(outputDir, { recursive: true, force: true })
+  }
+
+  const state = createState(batchId, 'browser ingest test', ['browser ingest'])
+  addIteration(state, {
+    id: iterationId,
+    type: 'primary',
+    title: 'Browser ingest',
+    requirement: 'Ingest browser result into authoritative audit surface',
+  })
+  transition(state, iterationId, 'EXECUTION')
+  updateIteration(state, iterationId, { status: 'active' })
+  state.current_iteration = iterationId
+  commitState(state)
+
+  const materialized = materializeBrowserTaskRequests({
+    batchId,
+    iterationId,
+    browserTasks: [sampleExecBrowserTask('workspace-proof', 'mcp')],
+  })
+  assert(materialized.ok === true, 'materialization succeeds for ingest audit test')
+  if (!materialized.ok) {
+    cleanBatch(batchId)
+    return
+  }
+
+  const pendingRecord = recordBrowserTaskRequest(state, iterationId, {
+    task_id: materialized.tasks[0].request.task_id,
+    attempt: materialized.tasks[0].request.attempt,
+    request_file: materialized.tasks[0].paths.requestFileRelative,
+    result_file: materialized.tasks[0].paths.resultFileRelative,
+    artifact_paths: materialized.tasks[0].request.required_artifacts.map(artifact => artifact.relative_path),
+  })
+  emitBrowserTask(state, iterationId, pendingRecord)
+  commitState(state)
+
+  writePassBrowserResult(bridge, materialized.tasks[0].request)
+  const ingested = ingestBrowserTaskResult(state, iterationId)
+  assert(ingested.ok === true, 'ingestBrowserTaskResult accepts contract-valid mcp pass result')
+  assert(ingested.browser_task?.status === 'pass', 'ingested browser task status is pass')
+  assert(ingested.browser_task?.result_file === materialized.tasks[0].paths.resultFileRelative,
+    'ingested browser task preserves canonical result_file')
+
+  emitBrowserTask(state, iterationId, ingested.browser_task)
+  commitState(state)
+
+  const reloaded = loadState(batchId)
+  const storedTask = reloaded.iterations[0].evidence?.browser_tasks?.[0]
+  assert(storedTask?.status === 'pass', 'state.json stores ingested browser task status')
+  assert(storedTask?.request_file === materialized.tasks[0].paths.requestFileRelative,
+    'state.json stores canonical request_file')
+  assert(storedTask?.artifact_paths?.length === 2, 'state.json stores artifact_paths')
+  assert(Boolean(storedTask?.ingested_at), 'state.json stores ingested_at timestamp')
+
+  const browserEvents = readEvents(batchId, { iterationId }).filter(event => event.event_type === 'browser_task')
+  assert(browserEvents.some(event => event.data.status === 'pending'),
+    'events.jsonl records pending browser lifecycle event')
+  const finalBrowserEvent = browserEvents[browserEvents.length - 1]
+  assert(finalBrowserEvent?.data?.request_file === materialized.tasks[0].paths.requestFileRelative,
+    'events.jsonl browser event carries request_file')
+  assert(finalBrowserEvent?.data?.result_file === materialized.tasks[0].paths.resultFileRelative,
+    'events.jsonl browser event carries result_file')
+
+  const status = refreshStatus(reloaded)
+  assert(status.includes('Browser Task: workspace-proof'), 'status.txt projects Browser Task field')
+  assert(status.includes('Browser Attempt: 1'), 'status.txt projects Browser Attempt field')
+  assert(status.includes('Browser Status: pass'), 'status.txt projects Browser Status field')
+  assert(status.includes('Browser Failure Kind: none'), 'status.txt projects Browser Failure Kind field')
+
+  const runlogPath = join(batchDir(batchId), 'browser-ingest-runlog.md')
+  writeFileSync(runlogPath, '# Browser ingest runlog\n')
+  appendBrowserTaskRunlogRecord(iterationId, storedTask, { runlogPath })
+  const runlog = readFileSync(runlogPath, 'utf8')
+  assert(runlog.includes(`Request File: ${storedTask.request_file}`),
+    'runlog append helper records request_file')
+  assert(runlog.includes(`Result File: ${storedTask.result_file}`),
+    'runlog append helper records result_file')
+  assert(runlog.includes('Result: PASS'),
+    'runlog append helper records PASS/FAIL outcome')
+
+  cleanBatch(batchId)
+  if (existsSync(outputDir)) {
+    rmSync(outputDir, { recursive: true, force: true })
+  }
+}
+
+// ── Test 4c: Browser ingest failure surface ────────────
+
+async function test_browser_task_ingest_failure_surface() {
+  process.stderr.write('\n== Test 4c: Browser ingest failure surface ==\n')
+
+  const { materializeBrowserTaskRequests } = await import('./drivers.mjs')
+  const {
+    recordBrowserTaskRequest,
+    ingestBrowserTaskResult,
+  } = await import('./state.mjs')
+  const { emitBrowserTask } = await import('./events.mjs')
+  const bridge = await import('./browser_bridge.mjs')
+
+  assert(typeof recordBrowserTaskRequest === 'function',
+    'failure surface uses recordBrowserTaskRequest export')
+  assert(typeof ingestBrowserTaskResult === 'function',
+    'failure surface uses ingestBrowserTaskResult export')
+  assert(typeof emitBrowserTask === 'function',
+    'failure surface uses emitBrowserTask export')
+
+  if (
+    typeof recordBrowserTaskRequest !== 'function' ||
+    typeof ingestBrowserTaskResult !== 'function' ||
+    typeof emitBrowserTask !== 'function'
+  ) {
+    return
+  }
+
+  const batchId = `test-browser-fail-${randomUUID().slice(0, 8)}`
+  const iterationId = 'iter-browser-fail'
+  const outputDir = join(process.cwd(), 'output', 'playwright', batchId)
+  cleanBatch(batchId)
+  if (existsSync(outputDir)) {
+    rmSync(outputDir, { recursive: true, force: true })
+  }
+
+  const state = createState(batchId, 'browser failure test', ['browser failure'])
+  addIteration(state, {
+    id: iterationId,
+    type: 'primary',
+    title: 'Browser failure',
+    requirement: 'Treat mock-only browser pass as browser_bridge_not_proven',
+  })
+  transition(state, iterationId, 'EXECUTION')
+  updateIteration(state, iterationId, { status: 'active' })
+  state.current_iteration = iterationId
+  commitState(state)
+
+  const materialized = materializeBrowserTaskRequests({
+    batchId,
+    iterationId,
+    browserTasks: [sampleExecBrowserTask('workspace-fail', 'mock')],
+  })
+  assert(materialized.ok === true, 'materialization succeeds for failure audit test')
+  if (!materialized.ok) {
+    cleanBatch(batchId)
+    return
+  }
+
+  const pendingRecord = recordBrowserTaskRequest(state, iterationId, {
+    task_id: materialized.tasks[0].request.task_id,
+    attempt: materialized.tasks[0].request.attempt,
+    request_file: materialized.tasks[0].paths.requestFileRelative,
+    result_file: materialized.tasks[0].paths.resultFileRelative,
+    artifact_paths: materialized.tasks[0].request.required_artifacts.map(artifact => artifact.relative_path),
+  })
+  emitBrowserTask(state, iterationId, pendingRecord)
+  commitState(state)
+
+  writePassBrowserResult(bridge, materialized.tasks[0].request)
+  const ingested = ingestBrowserTaskResult(state, iterationId)
+  assert(ingested.ok === false, 'mock-only browser pass does not count as orchestrator PASS')
+  assert(ingested.failure_kind === 'browser_bridge_not_proven',
+    'mock-only browser pass is downgraded to browser_bridge_not_proven')
+
+  emitBrowserTask(state, iterationId, ingested.browser_task)
+  commitState(state)
+
+  const reloaded = loadState(batchId)
+  const storedTask = reloaded.iterations[0].evidence?.browser_tasks?.[0]
+  assert(storedTask?.status === 'fail', 'state.json stores browser failure status')
+  assert(storedTask?.failure_kind === 'browser_bridge_not_proven',
+    'state.json stores browser_bridge_not_proven failure kind')
+
+  const status = refreshStatus(reloaded)
+  assert(status.includes('Browser Status: fail'),
+    'status.txt projects browser failure status')
+  assert(status.includes('Browser Failure Kind: browser_bridge_not_proven'),
+    'status.txt projects browser failure kind')
+
+  cleanBatch(batchId)
+  if (existsSync(outputDir)) {
+    rmSync(outputDir, { recursive: true, force: true })
+  }
+}
+
 // ── Test 5: Review record with summary ──────────────────
 
 function test_review_record_summary() {
@@ -1370,6 +1661,8 @@ async function main() {
   test_scheduler()
   test_parsers()
   await test_execution_browser_task_handshake()
+  await test_browser_task_ingest_audit_surface()
+  await test_browser_task_ingest_failure_surface()
   test_review_record_summary()
   test_crash_recovery()
   test_on_hold_stall()

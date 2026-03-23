@@ -190,3 +190,27 @@ export function appendReviewGateRecord(iterationId, record) {
 
   writeFileSync(runlogPath, content + entry)
 }
+
+export function appendBrowserTaskRunlogRecord(iterationId, browserTask, opts = {}) {
+  const runlogPath = opts.runlogPath || join(process.cwd(), 'docs', 'iterations', iterationId, 'runlog.md')
+  const content = readFileSync(runlogPath, 'utf-8')
+  const artifactLines = (browserTask.artifact_paths || []).map(path => `- Artifact: ${path}`)
+
+  const entry = [
+    '',
+    '### Browser Task Result',
+    '',
+    `- Task ID: ${browserTask.task_id}`,
+    `- Attempt: ${browserTask.attempt || 1}`,
+    `- Status: ${browserTask.status}`,
+    `- Failure Kind: ${browserTask.failure_kind || 'none'}`,
+    `- Request File: ${browserTask.request_file || '-'}`,
+    `- Result File: ${browserTask.result_file || '-'}`,
+    ...artifactLines,
+    `- Ingested At: ${browserTask.ingested_at || '-'}`,
+    `- Result: ${browserTask.status === 'pass' ? 'PASS' : 'FAIL'}`,
+    '',
+  ].join('\n')
+
+  writeFileSync(runlogPath, content + entry)
+}
