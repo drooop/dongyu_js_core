@@ -27,6 +27,9 @@ export function refreshStatus(state) {
   const primary = state.iterations.filter(i => i.type === 'primary').length
   const spawned = state.iterations.filter(i => i.type === 'spawned').length
   const current = state.iterations.find(i => i.status === 'active')
+  const browserTask = current?.evidence?.browser_tasks?.find(task => task.status === 'pending')
+    || current?.evidence?.browser_tasks?.[current?.evidence?.browser_tasks?.length - 1]
+    || null
   const majorRevisionLimit = current?.review_policy?.major_revision_limit
     || state.review_policy?.major_revision_limit
     || 3
@@ -57,6 +60,10 @@ export function refreshStatus(state) {
     ``,
     `Current: ${current ? `[${current.id}] ${current.spec.title}` : 'none'}`,
     `Phase: ${phaseLine}`,
+    `Browser Task: ${browserTask?.task_id || '-'}`,
+    `Browser Attempt: ${browserTask ? browserTask.attempt : '-'}`,
+    `Browser Status: ${browserTask?.status || '-'}`,
+    `Browser Failure Kind: ${browserTask?.failure_kind || '-'}`,
     `Elapsed: ${elapsed}`,
     ``,
     `Recent:`,

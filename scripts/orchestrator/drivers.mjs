@@ -9,10 +9,19 @@
  */
 
 import { execSync } from 'child_process'
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs'
-import { join } from 'path'
+import { writeFileSync, readFileSync, existsSync, mkdirSync, renameSync } from 'fs'
+import { dirname, join } from 'path'
 import { transcriptsDir } from './state.mjs'
 import { normalizeFailureSignal } from './escalation_engine.mjs'
+import {
+  BROWSER_TASK_REQUEST_SCHEMA_VERSION,
+  BROWSER_TASK_KIND,
+  BROWSER_TASK_BRIDGE_CHANNEL,
+  BROWSER_TASK_EXECUTOR_CLASS,
+  deriveBrowserTaskPaths,
+  loadBrowserTaskRequest,
+  validateBrowserTaskRequest,
+} from './browser_bridge.mjs'
 
 // Ensure transcript directory exists before writing (needed for decompose
 // which runs before any state/batch is created).
@@ -36,6 +45,247 @@ function buildCliFailureResult(raw = {}) {
     session_id: raw.session_id || null,
     raw: raw.raw || undefined,
   }
+}
+
+const EXEC_BROWSER_TASK_ID_RE = /^[a-z0-9][a-z0-9._-]*$/
+const EXEC_BROWSER_ARTIFACT_FILE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+const EXEC_BROWSER_ARTIFACT_KINDS = new Set(['screenshot', 'json', 'trace', 'console'])
+const EXEC_BROWSER_EXECUTOR_MODES = new Set(['mock', 'mcp'])
+
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function validateExecBrowserTask(task, index, seenTaskIds = new Set()) {
+  const prefix = `browser_tasks[${index}]`
+
+  if (!task || typeof task !== 'object' || Array.isArray(task)) {
+    return { ok: false, error: `${prefix} must be an object` }
+  }
+  if (task.task_kind !== BROWSER_TASK_KIND) {
+    return { ok: false, error: `${prefix}.task_kind must be "${BROWSER_TASK_KIND}"` }
+  }
+  if (!EXEC_BROWSER_TASK_ID_RE.test(task.task_id || '')) {
+    return { ok: false, error: `${prefix}.task_id must be a stable kebab/id token` }
+  }
+  if (seenTaskIds.has(task.task_id)) {
+    return { ok: false, error: `${prefix}.task_id duplicates a previous browser task` }
+  }
+  seenTaskIds.add(task.task_id)
+
+  if (!isNonEmptyString(task.summary)) {
+    return { ok: false, error: `${prefix}.summary is required` }
+  }
+  if (task.start_url !== undefined && !isNonEmptyString(task.start_url)) {
+    return { ok: false, error: `${prefix}.start_url must be a non-empty string when present` }
+  }
+  if (!Array.isArray(task.instructions) || task.instructions.length === 0 || !task.instructions.every(isNonEmptyString)) {
+    return { ok: false, error: `${prefix}.instructions must be a non-empty string array` }
+  }
+  if (
+    !Array.isArray(task.success_assertions) ||
+    task.success_assertions.length === 0 ||
+    !task.success_assertions.every(isNonEmptyString)
+  ) {
+    return { ok: false, error: `${prefix}.success_assertions must be a non-empty string array` }
+  }
+  if (!Number.isInteger(task.timeout_ms) || task.timeout_ms < 1) {
+    return { ok: false, error: `${prefix}.timeout_ms must be >= 1` }
+  }
+  if (
+    !task.executor ||
+    typeof task.executor !== 'object' ||
+    !EXEC_BROWSER_EXECUTOR_MODES.has(task.executor.mode) ||
+    !isNonEmptyString(task.executor.executor_id)
+  ) {
+    return { ok: false, error: `${prefix}.executor must define mode=mock|mcp and executor_id` }
+  }
+  if (!Array.isArray(task.required_artifacts) || task.required_artifacts.length === 0) {
+    return { ok: false, error: `${prefix}.required_artifacts must be non-empty` }
+  }
+
+  const seenArtifactFiles = new Set()
+  for (const [artifactIndex, artifact] of task.required_artifacts.entries()) {
+    const artifactPrefix = `${prefix}.required_artifacts[${artifactIndex}]`
+    if (!artifact || typeof artifact !== 'object' || Array.isArray(artifact)) {
+      return { ok: false, error: `${artifactPrefix} must be an object` }
+    }
+    if (!EXEC_BROWSER_ARTIFACT_KINDS.has(artifact.artifact_kind)) {
+      return { ok: false, error: `${artifactPrefix}.artifact_kind is invalid` }
+    }
+    if (!EXEC_BROWSER_ARTIFACT_FILE_RE.test(artifact.file_name || '')) {
+      return { ok: false, error: `${artifactPrefix}.file_name must be a simple filename` }
+    }
+    if (seenArtifactFiles.has(artifact.file_name)) {
+      return { ok: false, error: `${artifactPrefix}.file_name duplicates a previous artifact` }
+    }
+    seenArtifactFiles.add(artifact.file_name)
+    if (typeof artifact.required !== 'boolean') {
+      return { ok: false, error: `${artifactPrefix}.required must be boolean` }
+    }
+    if (!isNonEmptyString(artifact.media_type)) {
+      return { ok: false, error: `${artifactPrefix}.media_type is required` }
+    }
+  }
+
+  return { ok: true }
+}
+
+function normalizeExecOutputObject(parsed) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, error: 'Execution output JSON must be an object' }
+  }
+
+  if (parsed.browser_tasks !== undefined) {
+    if (!Array.isArray(parsed.browser_tasks)) {
+      return { ok: false, error: 'browser_tasks must be an array when present' }
+    }
+
+    const seenTaskIds = new Set()
+    for (const [index, task] of parsed.browser_tasks.entries()) {
+      const validation = validateExecBrowserTask(task, index, seenTaskIds)
+      if (!validation.ok) {
+        return validation
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    output: {
+      ...parsed,
+      steps_completed: Array.isArray(parsed.steps_completed) ? parsed.steps_completed : [],
+      files_changed: Array.isArray(parsed.files_changed) ? parsed.files_changed : [],
+      validation_results: Array.isArray(parsed.validation_results) ? parsed.validation_results : [],
+      spawned_iterations: Array.isArray(parsed.spawned_iterations) ? parsed.spawned_iterations : [],
+      browser_tasks: Array.isArray(parsed.browser_tasks) ? parsed.browser_tasks : [],
+    },
+  }
+}
+
+function normalizeRequestForComparison(request) {
+  return JSON.stringify({
+    ...request,
+    created_at: '<created_at>',
+  })
+}
+
+function writeJsonAtomic(filePath, payload) {
+  mkdirSync(dirname(filePath), { recursive: true })
+  const tmpPath = `${filePath}.tmp`
+  writeFileSync(tmpPath, JSON.stringify(payload, null, 2))
+  renameSync(tmpPath, filePath)
+}
+
+function buildBrowserTaskRequest({ batchId, iterationId, task, rootDir = process.cwd() }) {
+  const paths = deriveBrowserTaskPaths(batchId, task.task_id, { rootDir })
+  const request = {
+    schema_version: BROWSER_TASK_REQUEST_SCHEMA_VERSION,
+    task_kind: BROWSER_TASK_KIND,
+    batch_id: batchId,
+    iteration_id: iterationId,
+    task_id: task.task_id,
+    attempt: 1,
+    created_at: new Date().toISOString(),
+    executor: {
+      executor_class: BROWSER_TASK_EXECUTOR_CLASS,
+      bridge_channel: BROWSER_TASK_BRIDGE_CHANNEL,
+      executor_id: task.executor.executor_id,
+      mode: task.executor.mode,
+    },
+    exchange: {
+      request_file: paths.requestFileRelative,
+      result_file: paths.resultFileRelative,
+      task_dir: paths.taskDirRelative,
+    },
+    objective: {
+      summary: task.summary,
+      ...(task.start_url ? { start_url: task.start_url } : {}),
+      instructions: [...task.instructions],
+      success_assertions: [...task.success_assertions],
+    },
+    timeout_ms: task.timeout_ms,
+    required_artifacts: task.required_artifacts.map(artifact => ({
+      artifact_kind: artifact.artifact_kind,
+      relative_path: `${paths.artifactsDirRelative}/${artifact.file_name}`,
+      required: artifact.required,
+      media_type: artifact.media_type,
+    })),
+  }
+
+  const validation = validateBrowserTaskRequest(request, { rootDir })
+  if (!validation.ok) {
+    return {
+      ok: false,
+      error: validation.reason,
+      failure_kind: validation.failureKind || 'request_invalid',
+    }
+  }
+
+  return { ok: true, request, paths }
+}
+
+export function materializeBrowserTaskRequests({
+  batchId,
+  iterationId,
+  browserTasks,
+  rootDir = process.cwd(),
+}) {
+  if (!Array.isArray(browserTasks)) {
+    return { ok: false, error: 'browserTasks must be an array', failure_kind: 'request_invalid' }
+  }
+
+  const seenTaskIds = new Set()
+  const materializedTasks = []
+
+  for (const [index, task] of browserTasks.entries()) {
+    const validation = validateExecBrowserTask(task, index, seenTaskIds)
+    if (!validation.ok) {
+      return { ok: false, error: validation.error, failure_kind: 'request_invalid' }
+    }
+
+    const built = buildBrowserTaskRequest({ batchId, iterationId, task, rootDir })
+    if (!built.ok) {
+      return built
+    }
+
+    const { paths, request } = built
+
+    if (existsSync(paths.requestFile)) {
+      try {
+        const existing = loadBrowserTaskRequest({ batchId, taskId: task.task_id, rootDir })
+        if (normalizeRequestForComparison(existing.request) !== normalizeRequestForComparison(request)) {
+          return {
+            ok: false,
+            error: `Existing canonical request.json conflicts with browser_tasks[${index}]`,
+            failure_kind: 'request_invalid',
+          }
+        }
+
+        materializedTasks.push({
+          status: 'existing_request',
+          request: existing.request,
+          paths: existing.paths,
+        })
+        continue
+      } catch (error) {
+        return {
+          ok: false,
+          error: error.message || `Cannot load existing browser request for ${task.task_id}`,
+          failure_kind: error.failureKind || 'request_invalid',
+        }
+      }
+    }
+
+    writeJsonAtomic(paths.requestFile, request)
+    materializedTasks.push({
+      status: 'written',
+      request,
+      paths,
+    })
+  }
+
+  return { ok: true, tasks: materializedTasks }
 }
 
 // ── Codex exec (doit) ──────────────────────────────────
@@ -339,15 +589,29 @@ export function parseExecOutput(outputText) {
     /```json\s*\n?([\s\S]*?)\n?\s*```/,
     /(\{[\s\S]*?"execution_summary"[\s\S]*?\})\s*$/,
   ]
+  let matchedStructuredJson = false
+  let lastError = null
 
   for (const pattern of jsonPatterns) {
     const match = outputText.match(pattern)
     if (match) {
+      matchedStructuredJson = true
       try {
-        return { ok: true, output: JSON.parse(match[1] || match[0]) }
-      } catch {
-        continue
+        const normalized = normalizeExecOutputObject(JSON.parse(match[1] || match[0]))
+        if (normalized.ok) {
+          return normalized
+        }
+        lastError = normalized.error
+      } catch (error) {
+        lastError = error.message || 'Could not parse exec output JSON'
       }
+    }
+  }
+
+  if (matchedStructuredJson) {
+    return {
+      ok: false,
+      error: lastError || 'Could not parse structured execution output',
     }
   }
 
@@ -357,7 +621,10 @@ export function parseExecOutput(outputText) {
     output: {
       execution_summary: outputText.slice(-2000),
       steps_completed: [],
+      files_changed: [],
+      validation_results: [],
       spawned_iterations: [],
+      browser_tasks: [],
     },
   }
 }

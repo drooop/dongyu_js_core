@@ -22,6 +22,7 @@ const EVENT_ICONS = {
   completed: '✓',
   error: '✗',
   notify: '◆',
+  browser_task: 'B',
 }
 
 // ── Emit ────────────────────────────────────────────────
@@ -184,6 +185,29 @@ export function emitError(state, iterationId, error) {
     event_type: 'error',
     severity: 'error',
     message: `Error: ${error}`,
+  })
+}
+
+export function emitBrowserTask(state, iterationId, browserTask) {
+  const failureKind = browserTask.failure_kind || 'none'
+  const status = browserTask.status || 'pending'
+  const suffix = failureKind !== 'none' ? ` (${failureKind})` : ''
+
+  return emitEvent(state, {
+    iteration_id: iterationId,
+    phase: 'EXECUTION',
+    event_type: 'browser_task',
+    severity: status === 'fail' ? 'error' : 'info',
+    message: `Browser task ${browserTask.task_id}: ${status}${suffix}`,
+    data: {
+      task_id: browserTask.task_id,
+      attempt: browserTask.attempt || 1,
+      status,
+      failure_kind: failureKind,
+      request_file: browserTask.request_file || null,
+      result_file: browserTask.result_file || null,
+      ingested_at: browserTask.ingested_at || null,
+    },
   })
 }
 

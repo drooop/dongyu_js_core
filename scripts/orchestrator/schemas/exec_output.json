@@ -39,6 +39,83 @@
         "required": ["command", "result"]
       }
     },
+    "browser_tasks": {
+      "type": "array",
+      "description": "Structured browser_task handshake from execution output to canonical request.json materialization.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "task_kind": {
+            "const": "browser_task"
+          },
+          "task_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "start_url": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "success_assertions": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "required_artifacts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "artifact_kind": {
+                  "enum": ["screenshot", "json", "trace", "console"]
+                },
+                "file_name": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "media_type": {
+                  "type": "string"
+                }
+              },
+              "required": ["artifact_kind", "file_name", "required", "media_type"]
+            }
+          },
+          "executor": {
+            "type": "object",
+            "properties": {
+              "mode": { "enum": ["mock", "mcp"] },
+              "executor_id": { "type": "string" }
+            },
+            "required": ["mode", "executor_id"]
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "task_kind",
+          "task_id",
+          "summary",
+          "instructions",
+          "success_assertions",
+          "required_artifacts",
+          "executor",
+          "timeout_ms"
+        ]
+      }
+    },
     "spawned_iterations": {
       "type": "array",
       "description": "New iterations proposed during execution",

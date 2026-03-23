@@ -10,6 +10,7 @@ import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync, unlinkS
 import { join, dirname } from 'path'
 import { randomUUID, createHash } from 'crypto'
 import { execSync } from 'child_process'
+import { loadBrowserTaskRequest, loadBrowserTaskResult, verifyArtifactsOnDisk } from './browser_bridge.mjs'
 
 const SCHEMA_VERSION = 1
 
@@ -82,6 +83,7 @@ function ensureIterationEvidence(iter) {
   iter.evidence.failures ||= []
   iter.evidence.escalations ||= []
   iter.evidence.oscillations ||= []
+  iter.evidence.browser_tasks ||= []
   iter.evidence.final_commit ||= null
   iter.evidence.branch ||= iter.expected_branch || `dropx/dev_${iter.id}`
 
@@ -259,6 +261,7 @@ export function addIteration(state, iter) {
       failures: [],
       escalations: [],
       oscillations: [],
+      browser_tasks: [],
       final_commit: null,
       branch: iter.expected_branch || `dropx/dev_${iter.id}`,
     },
@@ -345,6 +348,167 @@ export function getReviewVerdictHistory(state, iterationId, phase = null) {
   return iter.evidence.review_records
     .filter(entry => !phase || entry.phase === phase)
     .map(entry => entry.verdict)
+}
+
+function upsertBrowserTaskRecord(iter, browserTask) {
+  ensureIterationEvidence(iter)
+
+  const nextRecord = {
+    task_id: browserTask.task_id,
+    attempt: browserTask.attempt || 1,
+    status: browserTask.status || 'pending',
+    failure_kind: browserTask.failure_kind || 'none',
+    request_file: browserTask.request_file || null,
+    result_file: browserTask.result_file || null,
+    artifact_paths: Array.isArray(browserTask.artifact_paths) ? browserTask.artifact_paths : [],
+    requested_at: browserTask.requested_at || null,
+    ingested_at: browserTask.ingested_at || null,
+  }
+
+  const index = iter.evidence.browser_tasks.findIndex(entry => entry.task_id === nextRecord.task_id)
+  if (index === -1) {
+    iter.evidence.browser_tasks.push(nextRecord)
+    return nextRecord
+  }
+
+  const merged = {
+    ...iter.evidence.browser_tasks[index],
+    ...nextRecord,
+    requested_at: iter.evidence.browser_tasks[index].requested_at || nextRecord.requested_at,
+  }
+  iter.evidence.browser_tasks[index] = merged
+  return merged
+}
+
+export function recordBrowserTaskRequest(state, iterationId, browserTask) {
+  const iter = findIteration(state, iterationId)
+  if (!iter) throw new Error(`Iteration ${iterationId} not found`)
+
+  return upsertBrowserTaskRecord(iter, {
+    ...browserTask,
+    status: 'pending',
+    failure_kind: browserTask.failure_kind || 'none',
+    requested_at: browserTask.requested_at || new Date().toISOString(),
+  })
+}
+
+export function getBrowserTaskRecord(state, iterationId, taskId = null) {
+  const iter = findIteration(state, iterationId)
+  if (!iter) throw new Error(`Iteration ${iterationId} not found`)
+  ensureIterationEvidence(iter)
+
+  if (taskId) {
+    return iter.evidence.browser_tasks.find(entry => entry.task_id === taskId) || null
+  }
+
+  return iter.evidence.browser_tasks.length > 0
+    ? iter.evidence.browser_tasks[iter.evidence.browser_tasks.length - 1]
+    : null
+}
+
+export function getPendingBrowserTaskRecord(state, iterationId) {
+  const iter = findIteration(state, iterationId)
+  if (!iter) throw new Error(`Iteration ${iterationId} not found`)
+  ensureIterationEvidence(iter)
+
+  return iter.evidence.browser_tasks.find(entry => entry.status === 'pending') || null
+}
+
+export function ingestBrowserTaskResult(state, iterationId, opts = {}) {
+  const iter = findIteration(state, iterationId)
+  if (!iter) throw new Error(`Iteration ${iterationId} not found`)
+  ensureIterationEvidence(iter)
+
+  const pending = getPendingBrowserTaskRecord(state, iterationId)
+  if (!pending) {
+    return { ok: true, status: 'none', browser_task: null }
+  }
+
+  const rootDir = opts.rootDir || process.cwd()
+  let request
+
+  try {
+    request = loadBrowserTaskRequest({
+      batchId: state.batch_id,
+      taskId: pending.task_id,
+      rootDir,
+    }).request
+  } catch (error) {
+    const browserTask = upsertBrowserTaskRecord(iter, {
+      ...pending,
+      status: 'fail',
+      failure_kind: error.failureKind || 'request_invalid',
+      ingested_at: new Date().toISOString(),
+    })
+    return {
+      ok: false,
+      status: 'fail',
+      failure_kind: browserTask.failure_kind,
+      browser_task: browserTask,
+      error: error.message,
+      request: null,
+      result: null,
+    }
+  }
+
+  let loadedResult
+  try {
+    loadedResult = loadBrowserTaskResult({ request, rootDir })
+  } catch (error) {
+    const browserTask = upsertBrowserTaskRecord(iter, {
+      ...pending,
+      status: 'fail',
+      failure_kind: error.failureKind || 'result_invalid',
+      ingested_at: new Date().toISOString(),
+    })
+    return {
+      ok: false,
+      status: 'fail',
+      failure_kind: browserTask.failure_kind,
+      browser_task: browserTask,
+      error: error.message,
+      request,
+      result: null,
+    }
+  }
+
+  if (!loadedResult) {
+    return { ok: true, status: 'awaiting_result', browser_task: pending, request, result: null }
+  }
+
+  let status = loadedResult.result.status
+  let failureKind = loadedResult.result.failure_kind
+
+  if (status === 'pass' && request.executor?.mode !== 'mcp') {
+    status = 'fail'
+    failureKind = 'browser_bridge_not_proven'
+  } else if (status === 'pass') {
+    const artifactValidation = verifyArtifactsOnDisk(loadedResult.result, request, { rootDir })
+    if (!artifactValidation.ok) {
+      status = 'fail'
+      failureKind = artifactValidation.failureKind
+    }
+  }
+
+  const browserTask = upsertBrowserTaskRecord(iter, {
+    ...pending,
+    attempt: request.attempt,
+    status,
+    failure_kind: status === 'pass' ? 'none' : (failureKind || 'ingest_failed'),
+    request_file: request.exchange.request_file,
+    result_file: request.exchange.result_file,
+    artifact_paths: (loadedResult.result.artifacts || []).map(artifact => artifact.relative_path),
+    ingested_at: new Date().toISOString(),
+  })
+
+  return {
+    ok: status === 'pass',
+    status,
+    failure_kind: browserTask.failure_kind,
+    browser_task: browserTask,
+    request,
+    result: loadedResult.result,
+  }
 }
 
 // ── Branch guard (§6.5) ────────────────────────────────
