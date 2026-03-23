@@ -199,6 +199,46 @@
       }
     },
     {
+      "op": "add_label",
+      "model_id": -102,
+      "p": 0,
+      "r": 10,
+      "c": 0,
+      "k": "wave_e_progress",
+      "t": "int",
+      "v": 67
+    },
+    {
+      "op": "add_label",
+      "model_id": -102,
+      "p": 0,
+      "r": 11,
+      "c": 0,
+      "k": "gallery_showcase_tab",
+      "t": "str",
+      "v": "matrix"
+    },
+    {
+      "op": "add_label",
+      "model_id": -102,
+      "p": 0,
+      "r": 11,
+      "c": 1,
+      "k": "gallery_examples_focus",
+      "t": "str",
+      "v": "parent"
+    },
+    {
+      "op": "add_label",
+      "model_id": -102,
+      "p": 0,
+      "r": 11,
+      "c": 2,
+      "k": "gallery_three_focus",
+      "t": "str",
+      "v": "viewer"
+    },
+    {
       "op": "create_model",
       "model_id": -103,
       "name": "gallery_catalog",
@@ -2046,6 +2086,994 @@
                         ]
                       }
                     ]
+                  }
+                ]
+              },
+              {
+                "id": "gallery_integration_showcase_card",
+                "type": "Card",
+                "props": {
+                  "title": "0217 Integration Showcase",
+                  "style": {
+                    "width": "100%"
+                  }
+                },
+                "children": [
+                  {
+                    "id": "gallery_integration_intro",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": "Gallery remains projection-only: Matrix debug truth stays on Model -100, canonical examples stay on Models 1003-1006, and Three scene truth stays on Models 1007/1008."
+                    }
+                  },
+                  {
+                    "id": "gallery_showcase_focus_row",
+                    "type": "Container",
+                    "props": {
+                      "layout": "row",
+                      "gap": 12,
+                      "wrap": true,
+                      "align": "center",
+                      "style": {
+                        "marginTop": "12px"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "gallery_focus_matrix_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Focus Matrix",
+                          "type": "primary"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "label_update",
+                            "target_ref": {
+                              "model_id": -102,
+                              "p": 0,
+                              "r": 11,
+                              "c": 0,
+                              "k": "gallery_showcase_tab"
+                            },
+                            "value_ref": {
+                              "t": "str",
+                              "v": "matrix"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_focus_examples_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Focus Examples"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "label_update",
+                            "target_ref": {
+                              "model_id": -102,
+                              "p": 0,
+                              "r": 11,
+                              "c": 0,
+                              "k": "gallery_showcase_tab"
+                            },
+                            "value_ref": {
+                              "t": "str",
+                              "v": "examples"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_focus_three_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Focus Three"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "label_update",
+                            "target_ref": {
+                              "model_id": -102,
+                              "p": 0,
+                              "r": 11,
+                              "c": 0,
+                              "k": "gallery_showcase_tab"
+                            },
+                            "value_ref": {
+                              "t": "str",
+                              "v": "three"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_showcase_focus_value",
+                        "type": "Text",
+                        "props": {
+                          "type": "info",
+                          "text": ""
+                        },
+                        "bind": {
+                          "read": {
+                            "model_id": -102,
+                            "p": 0,
+                            "r": 11,
+                            "c": 0,
+                            "k": "gallery_showcase_tab"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "gallery_matrix_showcase_card",
+                "type": "Card",
+                "props": {
+                  "title": "Matrix Debug Surface",
+                  "style": {
+                    "width": "100%"
+                  }
+                },
+                "children": [
+                  {
+                    "id": "gallery_matrix_intro",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": "Projection over the 0213 Matrix debug surface. Reads authoritative labels from Models -100 and -2; does not mirror trace truth into Gallery state."
+                    }
+                  },
+                  {
+                    "id": "gallery_matrix_status_row",
+                    "type": "Container",
+                    "props": {
+                      "layout": "row",
+                      "gap": 12,
+                      "wrap": true,
+                      "style": {
+                        "marginTop": "12px"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "gallery_matrix_status_badge",
+                        "type": "StatusBadge",
+                        "props": {
+                          "label": "TRACE"
+                        },
+                        "bind": {
+                          "read": {
+                            "model_id": -100,
+                            "p": 0,
+                            "r": 0,
+                            "c": 0,
+                            "k": "trace_status"
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_matrix_readiness_text",
+                        "type": "Text",
+                        "props": {
+                          "type": "info",
+                          "text": ""
+                        },
+                        "bind": {
+                          "read": {
+                            "model_id": -2,
+                            "p": 0,
+                            "r": 0,
+                            "c": 0,
+                            "k": "matrix_debug_readiness_text"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "gallery_matrix_metrics_row",
+                    "type": "Container",
+                    "props": {
+                      "layout": "row",
+                      "gap": 12,
+                      "wrap": true,
+                      "style": {
+                        "marginTop": "12px"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "gallery_matrix_events_stat",
+                        "type": "StatCard",
+                        "props": {
+                          "label": "Events",
+                          "unit": "total",
+                          "variant": "info",
+                          "style": {
+                            "flex": 1
+                          }
+                        },
+                        "bind": {
+                          "read": {
+                            "model_id": -100,
+                            "p": 0,
+                            "r": 0,
+                            "c": 0,
+                            "k": "trace_count"
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_matrix_latency_stat",
+                        "type": "StatCard",
+                        "props": {
+                          "label": "Latency",
+                          "unit": "ms",
+                          "variant": "info",
+                          "style": {
+                            "flex": 1
+                          }
+                        },
+                        "bind": {
+                          "read": {
+                            "model_id": -100,
+                            "p": 0,
+                            "r": 0,
+                            "c": 0,
+                            "k": "trace_avg_latency"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "gallery_matrix_summary_text",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "matrix_debug_subject_summary_text"
+                      }
+                    }
+                  },
+                  {
+                    "id": "gallery_matrix_action_row",
+                    "type": "Container",
+                    "props": {
+                      "layout": "row",
+                      "gap": 12,
+                      "wrap": true,
+                      "style": {
+                        "marginTop": "12px"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "gallery_matrix_refresh_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Refresh Matrix",
+                          "type": "primary"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "matrix_debug_refresh",
+                            "target_ref": {
+                              "model_id": -2,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "matrix_debug_subject_selected"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_matrix_summarize_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Summarize Matrix"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "matrix_debug_summarize",
+                            "target_ref": {
+                              "model_id": -2,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "matrix_debug_subject_selected"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_matrix_workspace_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Open Workspace"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "label_update",
+                            "target_ref": {
+                              "model_id": -102,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "nav_to"
+                            },
+                            "value_ref": {
+                              "t": "str",
+                              "v": "/workspace"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "gallery_matrix_trace_terminal",
+                    "type": "Terminal",
+                    "props": {
+                      "title": "Matrix Trace Log",
+                      "maxHeight": "220px"
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -100,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "trace_log_text"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "gallery_examples_showcase_card",
+                "type": "Card",
+                "props": {
+                  "title": "Canonical UI Model Examples",
+                  "style": {
+                    "width": "100%"
+                  }
+                },
+                "children": [
+                  {
+                    "id": "gallery_examples_intro",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": "Same-page summary of schema-only, page-asset, and parent-mounted examples without copying canonical truth into Gallery-owned models."
+                    }
+                  },
+                  {
+                    "id": "gallery_examples_focus_row",
+                    "type": "Container",
+                    "props": {
+                      "layout": "row",
+                      "gap": 12,
+                      "wrap": true,
+                      "align": "center",
+                      "style": {
+                        "marginTop": "12px"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "gallery_examples_focus_schema_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Schema Focus"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "label_update",
+                            "target_ref": {
+                              "model_id": -102,
+                              "p": 0,
+                              "r": 11,
+                              "c": 1,
+                              "k": "gallery_examples_focus"
+                            },
+                            "value_ref": {
+                              "t": "str",
+                              "v": "schema"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_examples_focus_page_asset_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Page Asset Focus"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "label_update",
+                            "target_ref": {
+                              "model_id": -102,
+                              "p": 0,
+                              "r": 11,
+                              "c": 1,
+                              "k": "gallery_examples_focus"
+                            },
+                            "value_ref": {
+                              "t": "str",
+                              "v": "page_asset"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_examples_focus_parent_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Parent Focus",
+                          "type": "primary"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "label_update",
+                            "target_ref": {
+                              "model_id": -102,
+                              "p": 0,
+                              "r": 11,
+                              "c": 1,
+                              "k": "gallery_examples_focus"
+                            },
+                            "value_ref": {
+                              "t": "str",
+                              "v": "parent"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_examples_focus_value",
+                        "type": "Text",
+                        "props": {
+                          "type": "info",
+                          "text": ""
+                        },
+                        "bind": {
+                          "read": {
+                            "model_id": -102,
+                            "p": 0,
+                            "r": 11,
+                            "c": 1,
+                            "k": "gallery_examples_focus"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "gallery_examples_inventory_row",
+                    "type": "Container",
+                    "props": {
+                      "layout": "row",
+                      "gap": 12,
+                      "wrap": true,
+                      "style": {
+                        "marginTop": "12px"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "gallery_examples_inventory_count",
+                        "type": "StatCard",
+                        "props": {
+                          "label": "Authoritative Models",
+                          "value": 4,
+                          "unit": "models",
+                          "variant": "info",
+                          "style": {
+                            "flex": 1
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_examples_page_asset_status",
+                        "type": "StatusBadge",
+                        "props": {
+                          "label": "1004"
+                        },
+                        "bind": {
+                          "read": {
+                            "model_id": 1004,
+                            "p": 0,
+                            "r": 0,
+                            "c": 0,
+                            "k": "composition_status"
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_examples_child_stage_badge",
+                        "type": "StatusBadge",
+                        "props": {
+                          "label": "1006"
+                        },
+                        "bind": {
+                          "read": {
+                            "model_id": 1006,
+                            "p": 0,
+                            "r": 0,
+                            "c": 0,
+                            "k": "review_stage"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "gallery_examples_schema_entry",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": "Model 1003 remains schema-only: `_field_order` defines the leaf contract without adding `page_asset_v0`."
+                    }
+                  },
+                  {
+                    "id": "gallery_examples_parent_status_text",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": 1005,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "data_path_status"
+                      }
+                    }
+                  },
+                  {
+                    "id": "gallery_examples_action_row",
+                    "type": "Container",
+                    "props": {
+                      "layout": "row",
+                      "gap": 12,
+                      "wrap": true,
+                      "style": {
+                        "marginTop": "12px"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "gallery_examples_promote_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Promote Child Stage",
+                          "type": "primary"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "ui_examples_promote_child_stage",
+                            "target_ref": {
+                              "model_id": 1006,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "review_stage"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_examples_workspace_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Open Workspace"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "label_update",
+                            "target_ref": {
+                              "model_id": -102,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "nav_to"
+                            },
+                            "value_ref": {
+                              "t": "str",
+                              "v": "/workspace"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "gallery_examples_audit_terminal",
+                    "type": "Terminal",
+                    "props": {
+                      "title": "Child Audit Log",
+                      "maxHeight": "220px"
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": 1006,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "audit_log"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "gallery_three_showcase_card",
+                "type": "Card",
+                "props": {
+                  "title": "Three Scene Integration",
+                  "style": {
+                    "width": "100%"
+                  }
+                },
+                "children": [
+                  {
+                    "id": "gallery_three_intro",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": "Gallery projects the 0216 parent-mounted ThreeScene surface and child audit log directly from Models 1007/1008."
+                    }
+                  },
+                  {
+                    "id": "gallery_three_focus_row",
+                    "type": "Container",
+                    "props": {
+                      "layout": "row",
+                      "gap": 12,
+                      "wrap": true,
+                      "align": "center",
+                      "style": {
+                        "marginTop": "12px"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "gallery_three_focus_viewer_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Viewer Focus",
+                          "type": "primary"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "label_update",
+                            "target_ref": {
+                              "model_id": -102,
+                              "p": 0,
+                              "r": 11,
+                              "c": 2,
+                              "k": "gallery_three_focus"
+                            },
+                            "value_ref": {
+                              "t": "str",
+                              "v": "viewer"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_three_focus_audit_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Audit Focus"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "label_update",
+                            "target_ref": {
+                              "model_id": -102,
+                              "p": 0,
+                              "r": 11,
+                              "c": 2,
+                              "k": "gallery_three_focus"
+                            },
+                            "value_ref": {
+                              "t": "str",
+                              "v": "audit"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_three_focus_value",
+                        "type": "Text",
+                        "props": {
+                          "type": "info",
+                          "text": ""
+                        },
+                        "bind": {
+                          "read": {
+                            "model_id": -102,
+                            "p": 0,
+                            "r": 11,
+                            "c": 2,
+                            "k": "gallery_three_focus"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "gallery_three_summary_text",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": 1007,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "scene_summary_text"
+                      }
+                    }
+                  },
+                  {
+                    "id": "gallery_three_status_text",
+                    "type": "Text",
+                    "props": {
+                      "type": "info",
+                      "text": ""
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": 1007,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "scene_status_text"
+                      }
+                    }
+                  },
+                  {
+                    "id": "gallery_three_action_row",
+                    "type": "Container",
+                    "props": {
+                      "layout": "row",
+                      "gap": 12,
+                      "wrap": true,
+                      "style": {
+                        "marginTop": "12px"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "gallery_three_create_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Create Sphere",
+                          "type": "primary"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "three_scene_create_entity",
+                            "target_ref": {
+                              "model_id": 1008,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "scene_graph_v0"
+                            },
+                            "value_ref": {
+                              "t": "json",
+                              "v": {
+                                "id": "sphere-2",
+                                "type": "sphere",
+                                "color": "#f97316",
+                                "position": [
+                                  -1.5,
+                                  0.75,
+                                  0
+                                ],
+                                "rotation": [
+                                  0,
+                                  0,
+                                  0
+                                ],
+                                "scale": [
+                                  0.75,
+                                  0.75,
+                                  0.75
+                                ],
+                                "visible": true
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_three_select_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Select Cube"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "three_scene_select_entity",
+                            "target_ref": {
+                              "model_id": 1008,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "selected_entity_id"
+                            },
+                            "value_ref": {
+                              "t": "str",
+                              "v": "cube-1"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_three_update_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Tint Selected",
+                          "type": "warning"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "three_scene_update_entity",
+                            "target_ref": {
+                              "model_id": 1008,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "scene_graph_v0"
+                            },
+                            "value_ref": {
+                              "t": "json",
+                              "v": {
+                                "id": {
+                                  "$label": {
+                                    "model_id": 1008,
+                                    "p": 0,
+                                    "r": 0,
+                                    "c": 0,
+                                    "k": "selected_entity_id"
+                                  }
+                                },
+                                "color": "#f97316",
+                                "position": [
+                                  2,
+                                  1,
+                                  0
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "id": "gallery_three_delete_button",
+                        "type": "Button",
+                        "props": {
+                          "label": "Delete Selected",
+                          "type": "danger"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "three_scene_delete_entity",
+                            "target_ref": {
+                              "model_id": 1008,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "selected_entity_id"
+                            },
+                            "value_ref": {
+                              "t": "str",
+                              "v": {
+                                "$label": {
+                                  "model_id": 1008,
+                                  "p": 0,
+                                  "r": 0,
+                                  "c": 0,
+                                  "k": "selected_entity_id"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "gallery_three_viewer",
+                    "type": "ThreeScene",
+                    "props": {
+                      "width": "100%",
+                      "height": 260,
+                      "background": "#020617",
+                      "sceneGraphRef": {
+                        "model_id": 1008,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "scene_graph_v0"
+                      },
+                      "cameraStateRef": {
+                        "model_id": 1008,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "camera_state_v0"
+                      },
+                      "selectedEntityIdRef": {
+                        "model_id": 1008,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "selected_entity_id"
+                      },
+                      "sceneStatusRef": {
+                        "model_id": 1008,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "scene_status"
+                      },
+                      "auditLogRef": {
+                        "model_id": 1008,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "scene_audit_log"
+                      },
+                      "actions": {
+                        "create": "three_scene_create_entity",
+                        "select": "three_scene_select_entity",
+                        "update": "three_scene_update_entity",
+                        "delete": "three_scene_delete_entity"
+                      }
+                    }
+                  },
+                  {
+                    "id": "gallery_three_audit_terminal",
+                    "type": "Terminal",
+                    "props": {
+                      "title": "Scene Audit Log",
+                      "maxHeight": "220px"
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": 1008,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "scene_audit_log"
+                      }
+                    }
                   }
                 ]
               }
