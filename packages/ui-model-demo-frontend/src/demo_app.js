@@ -184,11 +184,18 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         });
       }
 
+      function syncGalleryRoute(routePath) {
+        if (galleryStore && typeof galleryStore.setRoutePath === 'function') {
+          galleryStore.setRoutePath(routePath);
+        }
+      }
+
       onMounted(() => {
         normalizeIfUnknown(path.value);
         if (mainStore && typeof mainStore.setRoutePath === 'function') {
           mainStore.setRoutePath(path.value);
         }
+        syncGalleryRoute(path.value);
         syncPageLabel(path.value);
         syncWorkspaceSelection(path.value);
         unsubscribe = subscribeHashPath((next) => {
@@ -197,6 +204,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           if (mainStore && typeof mainStore.setRoutePath === 'function') {
             mainStore.setRoutePath(path.value);
           }
+          syncGalleryRoute(next);
           syncPageLabel(next);
           syncWorkspaceSelection(next);
         });

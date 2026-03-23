@@ -23,7 +23,7 @@ function registerGlobalComponents(app) {
 if (mode === 'local') {
   // Local mode: no authentication
   const store = createDemoStore({ persist: persistLocal, storageKey: 'dy_modeltable_local_v1' });
-  const galleryStore = createGalleryStore({ runtime: store.runtime, snapshot: store.snapshot, refreshSnapshot: store.refreshSnapshot });
+  const galleryStore = createGalleryStore({ sourceStore: store });
 
   if (store && typeof store.consumeOnce === 'function') {
     store.consumeOnce();
@@ -58,7 +58,7 @@ if (mode === 'local') {
 } else {
   // Remote mode: direct access (no auth gate)
   const store = createRemoteStore({ baseUrl: server });
-  const galleryStore = createGalleryStore();
+  const galleryStore = createGalleryStore({ sourceStore: store });
 
   if (typeof window !== 'undefined') {
     window.__DY_STORE = store;
