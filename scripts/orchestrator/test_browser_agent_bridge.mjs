@@ -153,8 +153,85 @@ async function runExchangeCase() {
   clean(`output/playwright/${batchId}`)
 }
 
+async function runMockExecutorCase() {
+  process.stderr.write('\n== Browser Agent Bridge Test 2: mock executor ==\n')
+
+  const batchId = 'test-browser-bridge-step2-mock'
+  const taskId = 'browser-task-mock'
+  clean(`.orchestrator/runs/${batchId}`)
+  clean(`output/playwright/${batchId}`)
+
+  const bridge = await import('./browser_bridge.mjs')
+  const agent = await import('./browser_agent.mjs')
+  const request = sampleRequest(batchId, taskId)
+
+  mkdirSync(dirname(repoPath(request.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(request.exchange.request_file), JSON.stringify(request, null, 2))
+
+  const outcome = agent.consumeOneBrowserTask({
+    batchId,
+    consumerId: 'mock-consumer-step2',
+  })
+
+  check(outcome.status === 'completed', 'consumeOneBrowserTask completes one mock request')
+  check(outcome.result.status === 'pass', 'mock executor writes pass result')
+  check(outcome.result.failure_kind === 'none', 'mock executor keeps failure_kind=none on pass')
+
+  for (const artifact of request.required_artifacts) {
+    check(existsSync(repoPath(artifact.relative_path)), `mock executor materializes ${artifact.relative_path}`)
+  }
+
+  const persisted = bridge.loadBrowserTaskResult({ request })
+  check(Boolean(persisted), 'mock executor persists canonical result.json')
+  check(bridge.verifyArtifactsOnDisk(persisted.result, request).ok, 'mock executor result manifest matches files on disk')
+
+  clean(`.orchestrator/runs/${batchId}`)
+  clean(`output/playwright/${batchId}`)
+}
+
+async function runConsumerBoundaryCase() {
+  process.stderr.write('\n== Browser Agent Bridge Test 3: consumer boundary ==\n')
+
+  const batchId = 'test-browser-bridge-step2-boundary'
+  const taskId = 'browser-task-mcp'
+  clean(`.orchestrator/runs/${batchId}`)
+  clean(`output/playwright/${batchId}`)
+
+  const bridge = await import('./browser_bridge.mjs')
+  const agent = await import('./browser_agent.mjs')
+  const request = sampleRequest(batchId, taskId)
+  request.executor.mode = 'mcp'
+  request.executor.executor_id = 'mcp-browser-agent'
+
+  mkdirSync(dirname(repoPath(request.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(request.exchange.request_file), JSON.stringify(request, null, 2))
+
+  const pending = agent.findPendingBrowserTask({ batchId })
+  check(pending?.request?.task_id === taskId, 'findPendingBrowserTask discovers one pending browser task')
+
+  const outcome = agent.consumeOneBrowserTask({
+    batchId,
+    consumerId: 'boundary-consumer-step2',
+  })
+
+  check(outcome.status === 'completed', 'consumer boundary completes with explicit failure result when mcp is unavailable')
+  check(outcome.result.status === 'fail', 'mcp mode does not silently degrade to pass')
+  check(outcome.result.failure_kind === 'mcp_unavailable', 'mcp mode reports mcp_unavailable explicitly')
+  check(existsSync(repoPath(request.exchange.result_file)), 'consumer boundary persists canonical fail result')
+  check(!existsSync(repoPath(`output/playwright/${batchId}/${taskId}`)),
+    'mcp unavailable path does not fabricate output/playwright artifacts')
+
+  const persisted = bridge.loadBrowserTaskResult({ request })
+  check(persisted.result.failure_kind === 'mcp_unavailable', 'persisted result keeps mcp_unavailable taxonomy')
+
+  clean(`.orchestrator/runs/${batchId}`)
+  clean(`output/playwright/${batchId}`)
+}
+
 const CASES = {
   exchange: runExchangeCase,
+  'mock-executor': runMockExecutorCase,
+  'consumer-boundary': runConsumerBoundaryCase,
 }
 
 async function main() {

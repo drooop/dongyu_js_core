@@ -162,6 +162,7 @@ export function deriveBrowserTaskPaths(batchId, taskId, opts = {}) {
   const taskDirRelative = `.orchestrator/runs/${batchId}/browser_tasks/${taskId}`
   const requestFileRelative = `${taskDirRelative}/request.json`
   const resultFileRelative = `${taskDirRelative}/result.json`
+  const claimFileRelative = `${taskDirRelative}/claim.json`
   const artifactsDirRelative = `output/playwright/${batchId}/${taskId}`
 
   return {
@@ -171,10 +172,12 @@ export function deriveBrowserTaskPaths(batchId, taskId, opts = {}) {
     taskDirRelative,
     requestFileRelative,
     resultFileRelative,
+    claimFileRelative,
     artifactsDirRelative,
     taskDir: join(rootDir, taskDirRelative),
     requestFile: join(rootDir, requestFileRelative),
     resultFile: join(rootDir, resultFileRelative),
+    claimFile: join(rootDir, claimFileRelative),
     artifactsDir: join(rootDir, artifactsDirRelative),
   }
 }
@@ -292,6 +295,45 @@ export function ensureBrowserTaskDirs(batchId, taskId, opts = {}) {
   const paths = deriveBrowserTaskPaths(batchId, taskId, opts)
   mkdirSync(paths.taskDir, { recursive: true })
   mkdirSync(paths.artifactsDir, { recursive: true })
+  return paths
+}
+
+export function readBrowserTaskClaim({ request, batchId, taskId, rootDir = process.cwd() }) {
+  const identity = request
+    ? { batchId: request.batch_id, taskId: request.task_id }
+    : { batchId, taskId }
+  const paths = deriveBrowserTaskPaths(identity.batchId, identity.taskId, { rootDir })
+  if (!existsSync(paths.claimFile)) {
+    return null
+  }
+
+  return {
+    claim: readJsonFile(paths.claimFile, 'result_invalid', 'claim.json'),
+    paths,
+  }
+}
+
+export function writeBrowserTaskClaim({ request, claim, rootDir = process.cwd() }) {
+  const requestValidation = validateBrowserTaskRequest(request, { rootDir })
+  if (!requestValidation.ok) {
+    throw new BrowserBridgeError(requestValidation.failureKind, requestValidation.reason, { request })
+  }
+
+  writeJsonAtomic(requestValidation.paths.claimFile, claim)
+  return {
+    claim,
+    paths: requestValidation.paths,
+  }
+}
+
+export function removeBrowserTaskClaim({ request, batchId, taskId, rootDir = process.cwd() }) {
+  const identity = request
+    ? { batchId: request.batch_id, taskId: request.task_id }
+    : { batchId, taskId }
+  const paths = deriveBrowserTaskPaths(identity.batchId, identity.taskId, { rootDir })
+  if (existsSync(paths.claimFile)) {
+    unlinkSync(paths.claimFile)
+  }
   return paths
 }
 
