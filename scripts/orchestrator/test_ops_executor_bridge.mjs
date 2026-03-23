@@ -426,6 +426,209 @@ async function runSshBoundaryCase() {
   clean(`.orchestrator/runs/${forbiddenBatchId}`)
 }
 
+async function runClaimRecoveryCase() {
+  process.stderr.write('\n== Ops Executor Bridge Test 5: claim recovery ==\n')
+
+  const bridge = await import('./ops_bridge.mjs')
+  const executor = await import('./ops_executor.mjs')
+
+  const staleBatchId = 'test-ops-bridge-step3-stale-claim'
+  const staleTaskId = 'ops-task-stale-claim'
+  clean(`.orchestrator/runs/${staleBatchId}`)
+  const staleRequest = sampleRequest(staleBatchId, staleTaskId, {
+    executor: {
+      executor_id: 'mock-ops-executor',
+      mode: 'mock',
+    },
+  })
+  const stalePaths = bridge.deriveOpsTaskPaths(staleBatchId, staleTaskId)
+  mkdirSync(dirname(repoPath(staleRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(staleRequest.exchange.request_file), JSON.stringify(staleRequest, null, 2))
+  writeFileSync(repoPath(stalePaths.claimFileRelative), JSON.stringify({
+    task_kind: 'ops_task',
+    batch_id: staleBatchId,
+    task_id: staleTaskId,
+    attempt: 1,
+    consumer_id: 'old-ops-consumer',
+    claimed_at: '2000-01-01T00:00:00.000Z',
+  }, null, 2))
+
+  const staleOutcome = executor.consumeOneOpsTask({
+    batchId: staleBatchId,
+    consumerId: 'stale-recovery-consumer',
+  })
+  check(staleOutcome.status === 'completed', 'stale claim is recovered and task completes')
+  check(staleOutcome.recovered_failure_kind === 'stale_result', 'stale claim recovery is reported as stale_result')
+  check(!existsSync(repoPath(stalePaths.claimFileRelative)), 'claim file is released after stale recovery completes')
+
+  const partialBatchId = 'test-ops-bridge-step3-partial-evidence'
+  const partialTaskId = 'ops-task-partial-evidence'
+  clean(`.orchestrator/runs/${partialBatchId}`)
+  const partialRequest = sampleRequest(partialBatchId, partialTaskId, {
+    executor: {
+      executor_id: 'local-ops-executor',
+      mode: 'local_shell',
+    },
+    command: "printf 'fresh local output\\n'",
+  })
+  mkdirSync(dirname(repoPath(partialRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(partialRequest.exchange.request_file), JSON.stringify(partialRequest, null, 2))
+  writeFileSync(repoPath(partialRequest.exchange.stdout_file), 'stale stdout\n')
+  writeFileSync(repoPath(partialRequest.exchange.stderr_file), 'stale stderr\n')
+  mkdirSync(repoPath(partialRequest.exchange.artifacts_dir), { recursive: true })
+  writeFileSync(repoPath(partialRequest.required_artifacts[0].relative_path), '{"stale":true}\n')
+
+  const partialOutcome = executor.consumeOneOpsTask({
+    batchId: partialBatchId,
+    consumerId: 'partial-recovery-consumer',
+  })
+  check(partialOutcome.status === 'completed', 'partial evidence without result is recovered into a completed execution')
+  check(partialOutcome.result.status === 'pass', 'partial evidence recovery still writes pass result')
+  check(readFileSync(repoPath(partialRequest.exchange.stdout_file), 'utf8').includes('fresh local output'),
+    'partial evidence recovery overwrites stale stdout with fresh execution output')
+
+  clean(`.orchestrator/runs/${staleBatchId}`)
+  clean(`.orchestrator/runs/${partialBatchId}`)
+}
+
+async function runDuplicateAndStaleCase() {
+  process.stderr.write('\n== Ops Executor Bridge Test 6: duplicate and stale conflicts ==\n')
+
+  const bridge = await import('./ops_bridge.mjs')
+  const executor = await import('./ops_executor.mjs')
+
+  const replayBatchId = 'test-ops-bridge-step3-replay'
+  const replayTaskId = 'ops-task-replay'
+  clean(`.orchestrator/runs/${replayBatchId}`)
+  const replayRequest = sampleRequest(replayBatchId, replayTaskId, {
+    executor: {
+      executor_id: 'mock-ops-executor',
+      mode: 'mock',
+    },
+  })
+  mkdirSync(dirname(repoPath(replayRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(replayRequest.exchange.request_file), JSON.stringify(replayRequest, null, 2))
+
+  const firstReplay = executor.consumeOneOpsTask({
+    batchId: replayBatchId,
+    consumerId: 'replay-first-consumer',
+  })
+  const secondReplay = executor.consumeOneOpsTask({
+    batchId: replayBatchId,
+    consumerId: 'replay-second-consumer',
+  })
+  check(firstReplay.result.status === 'pass', 'existing-result replay fixture starts from a successful result')
+  check(secondReplay.status === 'completed', 'existing result replay returns completed instead of rerunning task')
+  check(secondReplay.reused_existing_result === true, 'existing result replay reuses the first completed result')
+
+  const duplicateBatchId = 'test-ops-bridge-step3-duplicate'
+  const duplicateTaskId = 'ops-task-duplicate'
+  clean(`.orchestrator/runs/${duplicateBatchId}`)
+  const duplicateRequest = sampleRequest(duplicateBatchId, duplicateTaskId, {
+    executor: {
+      executor_id: 'mock-ops-executor',
+      mode: 'mock',
+    },
+  })
+  const duplicatePaths = bridge.deriveOpsTaskPaths(duplicateBatchId, duplicateTaskId)
+  mkdirSync(dirname(repoPath(duplicateRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(duplicateRequest.exchange.request_file), JSON.stringify(duplicateRequest, null, 2))
+  writeFileSync(repoPath(duplicatePaths.claimFileRelative), JSON.stringify({
+    task_kind: 'ops_task',
+    batch_id: duplicateBatchId,
+    task_id: duplicateTaskId,
+    attempt: 1,
+    consumer_id: 'active-ops-consumer',
+    claimed_at: new Date().toISOString(),
+  }, null, 2))
+
+  const duplicateOutcome = executor.consumeOneOpsTask({
+    batchId: duplicateBatchId,
+    consumerId: 'duplicate-consumer',
+  })
+  check(duplicateOutcome.status === 'claimed_elsewhere', 'fresh claim blocks duplicate consumer completion')
+  check(duplicateOutcome.failure_kind === 'duplicate_result', 'fresh claim path uses duplicate_result taxonomy')
+
+  clean(`.orchestrator/runs/${replayBatchId}`)
+  clean(`.orchestrator/runs/${duplicateBatchId}`)
+}
+
+async function runInvalidRequestCase() {
+  process.stderr.write('\n== Ops Executor Bridge Test 7: invalid request/result conflicts ==\n')
+
+  const bridge = await import('./ops_bridge.mjs')
+  const executor = await import('./ops_executor.mjs')
+
+  const invalidRequestBatchId = 'test-ops-bridge-step3-invalid-request'
+  const invalidRequestTaskId = 'ops-task-invalid-request'
+  clean(`.orchestrator/runs/${invalidRequestBatchId}`)
+  const invalidRequest = sampleRequest(invalidRequestBatchId, invalidRequestTaskId)
+  delete invalidRequest.task_id
+  mkdirSync(dirname(repoPath(`.orchestrator/runs/${invalidRequestBatchId}/ops_tasks/${invalidRequestTaskId}/request.json`)), { recursive: true })
+  writeFileSync(
+    repoPath(`.orchestrator/runs/${invalidRequestBatchId}/ops_tasks/${invalidRequestTaskId}/request.json`),
+    JSON.stringify(invalidRequest, null, 2)
+  )
+
+  const invalidRequestOutcome = executor.consumeOneOpsTask({
+    batchId: invalidRequestBatchId,
+    consumerId: 'invalid-request-consumer',
+  })
+  check(invalidRequestOutcome.failure_kind === 'request_invalid', 'invalid request path uses request_invalid taxonomy')
+
+  const invalidResultBatchId = 'test-ops-bridge-step3-invalid-result'
+  const invalidResultTaskId = 'ops-task-invalid-result'
+  clean(`.orchestrator/runs/${invalidResultBatchId}`)
+  const invalidResultRequest = sampleRequest(invalidResultBatchId, invalidResultTaskId, {
+    executor: {
+      executor_id: 'mock-ops-executor',
+      mode: 'mock',
+    },
+  })
+  mkdirSync(dirname(repoPath(invalidResultRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(invalidResultRequest.exchange.request_file), JSON.stringify(invalidResultRequest, null, 2))
+  writeFileSync(repoPath(invalidResultRequest.exchange.stdout_file), 'stdout\n')
+  writeFileSync(repoPath(invalidResultRequest.exchange.stderr_file), '')
+  const invalidPersistedResult = samplePassResult(invalidResultRequest)
+  invalidPersistedResult.status = 'fail'
+  invalidPersistedResult.failure_kind = 'none'
+  writeFileSync(repoPath(invalidResultRequest.exchange.result_file), JSON.stringify(invalidPersistedResult, null, 2))
+
+  const invalidResultOutcome = executor.consumeOneOpsTask({
+    batchId: invalidResultBatchId,
+    consumerId: 'invalid-result-consumer',
+  })
+  check(invalidResultOutcome.failure_kind === 'result_invalid', 'invalid persisted result uses result_invalid taxonomy')
+
+  const mismatchBatchId = 'test-ops-bridge-step3-mismatch'
+  const mismatchTaskId = 'ops-task-mismatch'
+  clean(`.orchestrator/runs/${mismatchBatchId}`)
+  const mismatchRequest = sampleRequest(mismatchBatchId, mismatchTaskId, {
+    executor: {
+      executor_id: 'mock-ops-executor',
+      mode: 'mock',
+    },
+  })
+  mkdirSync(dirname(repoPath(mismatchRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(mismatchRequest.exchange.request_file), JSON.stringify(mismatchRequest, null, 2))
+  const mismatchFirst = executor.consumeOneOpsTask({
+    batchId: mismatchBatchId,
+    consumerId: 'mismatch-first-consumer',
+  })
+  writeFileSync(repoPath(mismatchRequest.required_artifacts[0].relative_path), 'corrupted-artifact')
+
+  const mismatchReplay = executor.consumeOneOpsTask({
+    batchId: mismatchBatchId,
+    consumerId: 'mismatch-second-consumer',
+  })
+  check(mismatchFirst.result.status === 'pass', 'artifact mismatch fixture starts from an existing successful result')
+  check(mismatchReplay.failure_kind === 'artifact_mismatch', 'artifact manifest conflict uses artifact_mismatch taxonomy')
+
+  clean(`.orchestrator/runs/${invalidRequestBatchId}`)
+  clean(`.orchestrator/runs/${invalidResultBatchId}`)
+  clean(`.orchestrator/runs/${mismatchBatchId}`)
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   const runners = {
@@ -433,6 +636,9 @@ async function main() {
     'mock-executor': runMockExecutorCase,
     'local-shell': runLocalShellCase,
     'ssh-boundary': runSshBoundaryCase,
+    'claim-recovery': runClaimRecoveryCase,
+    'duplicate-and-stale': runDuplicateAndStaleCase,
+    'invalid-request': runInvalidRequestCase,
   }
 
   const selected = args.case === 'all'

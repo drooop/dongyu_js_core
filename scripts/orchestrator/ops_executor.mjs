@@ -97,6 +97,14 @@ function claimPayload(request, consumerId) {
   }
 }
 
+function isStaleClaim(claim, staleAfterMs = 300_000) {
+  const claimedAt = Date.parse(claim?.claimed_at || '')
+  if (Number.isNaN(claimedAt)) {
+    return true
+  }
+  return (Date.now() - claimedAt) > staleAfterMs
+}
+
 function writeExclusiveJson(file, payload) {
   const parentDir = dirname(file)
   mkdirSync(parentDir, { recursive: true })
@@ -469,15 +477,26 @@ export function claimOpsTask({ request, consumerId, rootDir = process.cwd() }) {
 
   const paths = validation.paths
   const payload = claimPayload(request, consumerId)
+  let recoveredFailureKind = null
 
-  const existingClaim = readOpsTaskClaim({ request, rootDir })
-  if (existingClaim?.claim) {
-    return {
-      status: 'claim_exists',
-      claim: existingClaim.claim,
-      failure_kind: 'duplicate_result',
-      paths,
+  try {
+    const existingClaim = readOpsTaskClaim({ request, rootDir })
+    if (existingClaim?.claim) {
+      if (isStaleClaim(existingClaim.claim)) {
+        removeOpsTaskClaim({ request, rootDir })
+        recoveredFailureKind = 'stale_result'
+      } else {
+        return {
+          status: 'claim_exists',
+          claim: existingClaim.claim,
+          failure_kind: 'duplicate_result',
+          paths,
+        }
+      }
     }
+  } catch {
+    removeOpsTaskClaim({ request, rootDir })
+    recoveredFailureKind = 'stale_result'
   }
 
   try {
@@ -485,6 +504,7 @@ export function claimOpsTask({ request, consumerId, rootDir = process.cwd() }) {
     return {
       status: 'claimed',
       claim: payload,
+      recovered_failure_kind: recoveredFailureKind,
       paths,
     }
   } catch (error) {
@@ -616,6 +636,7 @@ export function consumeOneOpsTask({
       result: execution.result,
       paths: execution.paths,
       reused_existing_result: execution.status === 'existing_result',
+      recovered_failure_kind: claimOutcome.recovered_failure_kind || null,
     }
   } finally {
     releaseOpsTaskClaim({ request: pending.request, rootDir })
