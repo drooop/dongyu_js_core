@@ -228,10 +228,165 @@ async function runConsumerBoundaryCase() {
   clean(`output/playwright/${batchId}`)
 }
 
+async function runIdempotentReplayCase() {
+  process.stderr.write('\n== Browser Agent Bridge Test 4: idempotent replay ==\n')
+
+  const batchId = 'test-browser-bridge-step3-replay'
+  const taskId = 'browser-task-replay'
+  clean(`.orchestrator/runs/${batchId}`)
+  clean(`output/playwright/${batchId}`)
+
+  const agent = await import('./browser_agent.mjs')
+  const request = sampleRequest(batchId, taskId)
+
+  mkdirSync(dirname(repoPath(request.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(request.exchange.request_file), JSON.stringify(request, null, 2))
+
+  const first = agent.consumeOneBrowserTask({
+    batchId,
+    consumerId: 'replay-consumer-first',
+  })
+  check(first.status === 'completed', 'first replay attempt completes the task')
+  check(first.result.status === 'pass', 'first replay attempt writes a pass result')
+
+  const second = agent.consumeOneBrowserTask({
+    batchId,
+    consumerId: 'replay-consumer-second',
+  })
+  check(second.status === 'completed', 'replay returns completed instead of creating a second task result')
+  check(second.reused_existing_result === true, 'replay reuses the existing completed result')
+  check(second.result.summary === first.result.summary, 'replay preserves the original successful result payload')
+
+  clean(`.orchestrator/runs/${batchId}`)
+  clean(`output/playwright/${batchId}`)
+}
+
+async function runDuplicateAndStaleCase() {
+  process.stderr.write('\n== Browser Agent Bridge Test 5: duplicate and stale conflicts ==\n')
+
+  const bridge = await import('./browser_bridge.mjs')
+  const agent = await import('./browser_agent.mjs')
+
+  const staleBatchId = 'test-browser-bridge-step3-stale'
+  const staleTaskId = 'browser-task-stale'
+  clean(`.orchestrator/runs/${staleBatchId}`)
+  clean(`output/playwright/${staleBatchId}`)
+  const staleRequest = sampleRequest(staleBatchId, staleTaskId)
+  const stalePaths = bridge.deriveBrowserTaskPaths(staleBatchId, staleTaskId)
+  mkdirSync(dirname(repoPath(staleRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(staleRequest.exchange.request_file), JSON.stringify(staleRequest, null, 2))
+  writeFileSync(repoPath(stalePaths.claimFileRelative), JSON.stringify({
+    task_kind: 'browser_task',
+    batch_id: staleBatchId,
+    task_id: staleTaskId,
+    attempt: 1,
+    consumer_id: 'old-consumer',
+    claimed_at: '2000-01-01T00:00:00.000Z',
+  }, null, 2))
+
+  const staleOutcome = agent.consumeOneBrowserTask({
+    batchId: staleBatchId,
+    consumerId: 'stale-recovery-consumer',
+  })
+  check(staleOutcome.status === 'completed', 'stale claim is recovered and task completes')
+  check(staleOutcome.recovered_failure_kind === 'stale_result', 'stale claim recovery is reported as stale_result')
+
+  const duplicateBatchId = 'test-browser-bridge-step3-duplicate'
+  const duplicateTaskId = 'browser-task-duplicate'
+  clean(`.orchestrator/runs/${duplicateBatchId}`)
+  clean(`output/playwright/${duplicateBatchId}`)
+  const duplicateRequest = sampleRequest(duplicateBatchId, duplicateTaskId)
+  const duplicatePaths = bridge.deriveBrowserTaskPaths(duplicateBatchId, duplicateTaskId)
+  mkdirSync(dirname(repoPath(duplicateRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(duplicateRequest.exchange.request_file), JSON.stringify(duplicateRequest, null, 2))
+  writeFileSync(repoPath(duplicatePaths.claimFileRelative), JSON.stringify({
+    task_kind: 'browser_task',
+    batch_id: duplicateBatchId,
+    task_id: duplicateTaskId,
+    attempt: 1,
+    consumer_id: 'active-consumer',
+    claimed_at: new Date().toISOString(),
+  }, null, 2))
+
+  const duplicateOutcome = agent.consumeOneBrowserTask({
+    batchId: duplicateBatchId,
+    consumerId: 'duplicate-consumer',
+  })
+  check(duplicateOutcome.status === 'claimed_elsewhere', 'fresh claim blocks duplicate consumer completion')
+  check(duplicateOutcome.failure_kind === 'duplicate_result', 'duplicate consumer path uses duplicate_result taxonomy')
+
+  const invalidRequestBatchId = 'test-browser-bridge-step3-invalid-request'
+  const invalidRequestTaskId = 'browser-task-invalid-request'
+  clean(`.orchestrator/runs/${invalidRequestBatchId}`)
+  clean(`output/playwright/${invalidRequestBatchId}`)
+  const invalidRequest = sampleRequest(invalidRequestBatchId, invalidRequestTaskId)
+  delete invalidRequest.task_id
+  mkdirSync(dirname(repoPath(`.orchestrator/runs/${invalidRequestBatchId}/browser_tasks/${invalidRequestTaskId}/request.json`)), { recursive: true })
+  writeFileSync(repoPath(`.orchestrator/runs/${invalidRequestBatchId}/browser_tasks/${invalidRequestTaskId}/request.json`),
+    JSON.stringify(invalidRequest, null, 2))
+
+  const invalidRequestOutcome = agent.consumeOneBrowserTask({
+    batchId: invalidRequestBatchId,
+    consumerId: 'invalid-request-consumer',
+  })
+  check(invalidRequestOutcome.failure_kind === 'request_invalid', 'invalid request path uses request_invalid taxonomy')
+
+  const invalidResultBatchId = 'test-browser-bridge-step3-invalid-result'
+  const invalidResultTaskId = 'browser-task-invalid-result'
+  clean(`.orchestrator/runs/${invalidResultBatchId}`)
+  clean(`output/playwright/${invalidResultBatchId}`)
+  const invalidResultRequest = sampleRequest(invalidResultBatchId, invalidResultTaskId)
+  mkdirSync(dirname(repoPath(invalidResultRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(invalidResultRequest.exchange.request_file), JSON.stringify(invalidResultRequest, null, 2))
+  const invalidPersistedResult = samplePassResult(invalidResultRequest)
+  invalidPersistedResult.status = 'fail'
+  invalidPersistedResult.failure_kind = 'none'
+  writeFileSync(repoPath(invalidResultRequest.exchange.result_file), JSON.stringify(invalidPersistedResult, null, 2))
+
+  const invalidResultOutcome = agent.consumeOneBrowserTask({
+    batchId: invalidResultBatchId,
+    consumerId: 'invalid-result-consumer',
+  })
+  check(invalidResultOutcome.failure_kind === 'result_invalid', 'invalid persisted result uses result_invalid taxonomy')
+
+  const mismatchBatchId = 'test-browser-bridge-step3-mismatch'
+  const mismatchTaskId = 'browser-task-mismatch'
+  clean(`.orchestrator/runs/${mismatchBatchId}`)
+  clean(`output/playwright/${mismatchBatchId}`)
+  const mismatchRequest = sampleRequest(mismatchBatchId, mismatchTaskId)
+  mkdirSync(dirname(repoPath(mismatchRequest.exchange.request_file)), { recursive: true })
+  writeFileSync(repoPath(mismatchRequest.exchange.request_file), JSON.stringify(mismatchRequest, null, 2))
+  const mismatchFirst = agent.consumeOneBrowserTask({
+    batchId: mismatchBatchId,
+    consumerId: 'mismatch-first-consumer',
+  })
+  writeFileSync(repoPath(mismatchRequest.required_artifacts[0].relative_path), 'corrupted-artifact')
+
+  const mismatchReplay = agent.consumeOneBrowserTask({
+    batchId: mismatchBatchId,
+    consumerId: 'mismatch-second-consumer',
+  })
+  check(mismatchFirst.result.status === 'pass', 'artifact mismatch fixture starts from an existing successful result')
+  check(mismatchReplay.failure_kind === 'artifact_mismatch', 'artifact manifest conflict uses artifact_mismatch taxonomy')
+
+  clean(`.orchestrator/runs/${staleBatchId}`)
+  clean(`output/playwright/${staleBatchId}`)
+  clean(`.orchestrator/runs/${duplicateBatchId}`)
+  clean(`output/playwright/${duplicateBatchId}`)
+  clean(`.orchestrator/runs/${invalidRequestBatchId}`)
+  clean(`output/playwright/${invalidRequestBatchId}`)
+  clean(`.orchestrator/runs/${invalidResultBatchId}`)
+  clean(`output/playwright/${invalidResultBatchId}`)
+  clean(`.orchestrator/runs/${mismatchBatchId}`)
+  clean(`output/playwright/${mismatchBatchId}`)
+}
+
 const CASES = {
   exchange: runExchangeCase,
   'mock-executor': runMockExecutorCase,
   'consumer-boundary': runConsumerBoundaryCase,
+  'idempotent-replay': runIdempotentReplayCase,
+  'duplicate-and-stale': runDuplicateAndStaleCase,
 }
 
 async function main() {

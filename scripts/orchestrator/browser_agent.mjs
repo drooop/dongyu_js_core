@@ -52,6 +52,49 @@ function listTaskIds(batchId, rootDir = process.cwd()) {
     .sort()
 }
 
+function isStaleClaim(claim, staleAfterMs = 300_000) {
+  const claimedAt = Date.parse(claim?.claimed_at || '')
+  if (Number.isNaN(claimedAt)) {
+    return true
+  }
+  return (Date.now() - claimedAt) > staleAfterMs
+}
+
+function inspectExistingResult(request, rootDir = process.cwd()) {
+  try {
+    const existing = loadBrowserTaskResult({ request, rootDir })
+    if (!existing) {
+      return null
+    }
+
+    if (existing.result.status === 'pass') {
+      const diskValidation = verifyArtifactsOnDisk(existing.result, request, { rootDir })
+      if (!diskValidation.ok) {
+        return {
+          status: 'conflict',
+          failure_kind: diskValidation.failureKind,
+          error: diskValidation.reason,
+          result: existing.result,
+          paths: existing.paths,
+        }
+      }
+    }
+
+    return {
+      status: 'existing_result',
+      result: existing.result,
+      paths: existing.paths,
+    }
+  } catch (error) {
+    return {
+      status: 'conflict',
+      failure_kind: error.failureKind || 'result_invalid',
+      error: error.message,
+      paths: deriveBrowserTaskPaths(request.batch_id, request.task_id, { rootDir }),
+    }
+  }
+}
+
 function claimPayload(request, consumerId) {
   return {
     task_kind: BROWSER_TASK_KIND,
@@ -114,29 +157,48 @@ export function claimBrowserTask({ request, consumerId, rootDir = process.cwd() 
     throw new BrowserBridgeError(validation.failureKind, validation.reason, { request })
   }
 
-  const existingResult = loadBrowserTaskResult({ request, rootDir })
+  const existingResult = inspectExistingResult(request, rootDir)
   if (existingResult) {
-    return {
-      status: 'existing_result',
-      result: existingResult.result,
-      paths: existingResult.paths,
-    }
+    return existingResult
   }
 
   const paths = validation.paths
   const payload = claimPayload(request, consumerId)
+  let recoveredFailureKind = null
+
+  try {
+    const existingClaim = readBrowserTaskClaim({ request, rootDir })
+    if (existingClaim?.claim) {
+      if (isStaleClaim(existingClaim.claim)) {
+        removeBrowserTaskClaim({ request, rootDir })
+        recoveredFailureKind = 'stale_result'
+      } else {
+        return {
+          status: 'claim_exists',
+          claim: existingClaim.claim,
+          failure_kind: 'duplicate_result',
+          paths,
+        }
+      }
+    }
+  } catch {
+    removeBrowserTaskClaim({ request, rootDir })
+    recoveredFailureKind = 'stale_result'
+  }
 
   try {
     writeExclusiveJson(paths.claimFile, payload)
     return {
       status: 'claimed',
       claim: payload,
+      recovered_failure_kind: recoveredFailureKind,
       paths,
     }
   } catch (error) {
     if (error?.code === 'EEXIST') {
       return {
         status: 'claim_exists',
+        failure_kind: 'duplicate_result',
         ...(readBrowserTaskClaim({ request, rootDir }) || { claim: null, paths }),
       }
     }
@@ -150,6 +212,7 @@ export function releaseBrowserTaskClaim({ request, batchId, taskId, rootDir = pr
 
 export function findPendingBrowserTask({ batchId, taskId = null, rootDir = process.cwd() }) {
   const candidateIds = taskId ? [taskId] : listTaskIds(batchId, rootDir)
+  let fallback = null
 
   for (const candidateTaskId of candidateIds) {
     const paths = deriveBrowserTaskPaths(batchId, candidateTaskId, { rootDir })
@@ -163,8 +226,13 @@ export function findPendingBrowserTask({ batchId, taskId = null, rootDir = proce
         taskId: candidateTaskId,
         rootDir,
       })
-      const existingResult = loadBrowserTaskResult({ request: loaded.request, rootDir })
+      const existingResult = inspectExistingResult(loaded.request, rootDir)
       if (existingResult) {
+        fallback ||= {
+          request: loaded.request,
+          paths: loaded.paths,
+          ...existingResult,
+        }
         continue
       }
 
@@ -178,7 +246,7 @@ export function findPendingBrowserTask({ batchId, taskId = null, rootDir = proce
     }
   }
 
-  return null
+  return fallback
 }
 
 export function runMockBrowserExecutor({ request, consumerId, rootDir = process.cwd() }) {
@@ -245,9 +313,26 @@ export function consumeOneBrowserTask({ batchId, taskId = null, consumerId = 'br
     return { status: 'idle' }
   }
 
+  if (pending.status === 'existing_result') {
+    return {
+      status: 'completed',
+      result: pending.result,
+      paths: pending.paths,
+      reused_existing_result: true,
+    }
+  }
+  if (pending.status === 'conflict') {
+    return {
+      status: 'bridge_conflict',
+      failure_kind: pending.failure_kind,
+      error: pending.error,
+      result: pending.result || null,
+      paths: pending.paths,
+    }
+  }
   if (pending.error) {
     return {
-      status: 'request_invalid',
+      status: 'bridge_conflict',
       failure_kind: pending.error.failureKind || 'request_invalid',
       error: pending.error.message,
       paths: pending.paths,
@@ -263,10 +348,20 @@ export function consumeOneBrowserTask({ batchId, taskId = null, consumerId = 'br
       reused_existing_result: true,
     }
   }
+  if (claimOutcome.status === 'conflict') {
+    return {
+      status: 'bridge_conflict',
+      failure_kind: claimOutcome.failure_kind,
+      error: claimOutcome.error,
+      result: claimOutcome.result || null,
+      paths: claimOutcome.paths,
+    }
+  }
   if (claimOutcome.status === 'claim_exists') {
     return {
       status: 'claimed_elsewhere',
       claim: claimOutcome.claim,
+      failure_kind: claimOutcome.failure_kind || 'duplicate_result',
       paths: claimOutcome.paths,
     }
   }
@@ -277,6 +372,8 @@ export function consumeOneBrowserTask({ batchId, taskId = null, consumerId = 'br
       status: 'completed',
       result: execution.result,
       paths: execution.paths,
+      reused_existing_result: execution.status === 'existing_result',
+      recovered_failure_kind: claimOutcome.recovered_failure_kind || null,
     }
   } finally {
     releaseBrowserTaskClaim({ request: pending.request, rootDir })
@@ -311,7 +408,7 @@ if (import.meta.main) {
   })
   cleanupForCli(outcome, args.rootDir)
   process.stdout.write(JSON.stringify(outcome, null, 2) + '\n')
-  if (outcome.status === 'request_invalid') {
+  if (outcome.status === 'bridge_conflict') {
     process.exit(1)
   }
 }
