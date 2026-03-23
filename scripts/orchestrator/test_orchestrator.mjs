@@ -700,6 +700,8 @@ function test_ops_task_ssot_contract_freeze() {
     'SSOT freezes ops request exchange path')
   assert(ssot.includes('.orchestrator/runs/<batch_id>/ops_tasks/<task_id>/result.json'),
     'SSOT freezes ops result exchange path')
+  assert(ssot.includes('.orchestrator/runs/<batch_id>/ops_tasks/<task_id>/claim.json'),
+    'SSOT freezes ops claim.json bridge-local path')
   assert(ssot.includes('stdout.log') && ssot.includes('stderr.log'),
     'SSOT freezes canonical stdout/stderr paths')
   assert(ssot.includes('artifacts/'), 'SSOT freezes canonical ops artifacts dir')
@@ -719,6 +721,10 @@ function test_ops_task_ssot_contract_freeze() {
   assert(ssot.includes('remote_preflight_guard.sh'), 'SSOT mentions remote_preflight_guard stop rule')
   assert(ssot.includes('kubectl delete namespace'), 'SSOT mentions kubectl delete namespace as critical remote op')
   assert(ssot.includes('helm uninstall'), 'SSOT mentions helm uninstall as critical remote op')
+  assert(ssot.includes('ops_bridge.mjs') && ssot.includes('ops_executor.mjs'),
+    'SSOT documents the 0227 bridge runtime surface')
+  assert(ssot.includes('bridge local evidence present'),
+    'SSOT freezes bridge local evidence present wording before 0228 ingest')
   assert(ssot.includes('state.json') && ssot.includes('events.jsonl') && ssot.includes('status.txt') && ssot.includes('runlog.md'),
     'SSOT freezes ops audit mapping surfaces')
   assert(ssot.includes('Ops Task:') && ssot.includes('Ops Failure Kind:') && ssot.includes('Ops Exit Code:'),
@@ -739,11 +745,16 @@ function test_ops_task_operator_docs_sync() {
   assert(runbook.includes('ops_task'), 'runbook mentions ops_task contract')
   assert(runbook.includes('.orchestrator/runs/<batch_id>/ops_tasks/<task_id>/request.json'),
     'runbook mentions ops request path')
+  assert(runbook.includes('.orchestrator/runs/<batch_id>/ops_tasks/<task_id>/claim.json'),
+    'runbook mentions ops claim.json bridge-local path')
   assert(runbook.includes('stdout.log') && runbook.includes('stderr.log'),
     'runbook mentions canonical stdout/stderr paths')
   assert(runbook.includes('nonzero_exit'), 'runbook mentions nonzero_exit')
   assert(runbook.includes('remote_guard_blocked'), 'runbook mentions remote_guard_blocked')
   assert(runbook.includes('ops_bridge_not_proven'), 'runbook mentions ops_bridge_not_proven')
+  assert(runbook.includes('0227 bridge live'), 'runbook documents 0227 bridge-live boundary')
+  assert(runbook.includes('bridge local evidence present'),
+    'runbook documents bridge local evidence present wording')
   assert(runbook.includes('forbidden_remote_op'), 'runbook mentions forbidden_remote_op')
   assert(runbook.includes('human_decision_required') || runbook.includes('On Hold'),
     'runbook mentions human decision / On Hold boundary')
