@@ -214,3 +214,30 @@ export function appendBrowserTaskRunlogRecord(iterationId, browserTask, opts = {
 
   writeFileSync(runlogPath, content + entry)
 }
+
+export function appendOpsTaskRunlogRecord(iterationId, opsTask, opts = {}) {
+  const runlogPath = opts.runlogPath || join(process.cwd(), 'docs', 'iterations', iterationId, 'runlog.md')
+  const content = readFileSync(runlogPath, 'utf-8')
+  const artifactLines = (opsTask.artifact_paths || []).map(path => `- Artifact: ${path}`)
+
+  const entry = [
+    '',
+    '### Ops Task Result',
+    '',
+    `- Task ID: ${opsTask.task_id}`,
+    `- Attempt: ${opsTask.attempt || 1}`,
+    `- Status: ${opsTask.status}`,
+    `- Failure Kind: ${opsTask.failure_kind || 'none'}`,
+    `- Request File: ${opsTask.request_file || '-'}`,
+    `- Result File: ${opsTask.result_file || '-'}`,
+    `- Stdout File: ${opsTask.stdout_file || '-'}`,
+    `- Stderr File: ${opsTask.stderr_file || '-'}`,
+    `- Exit Code: ${Number.isInteger(opsTask.exit_code) ? opsTask.exit_code : '-'}`,
+    ...artifactLines,
+    `- Ingested At: ${opsTask.ingested_at || '-'}`,
+    `- Result: ${opsTask.status === 'pass' ? 'PASS' : 'FAIL'}`,
+    '',
+  ].join('\n')
+
+  writeFileSync(runlogPath, content + entry)
+}

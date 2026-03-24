@@ -24,6 +24,11 @@
 - 作为 orchestrator `ops_task` 可引用的 canonical shell surface 知识库。
 - 为 `0227-0230` 提供统一术语：哪些脚本族允许进入 `ops_task`、何时必须先过 remote safety gate、哪些远端动作必须 stop。
 
+当前边界：
+- 0228 runtime 已接线：orchestrator 当前会把 `ops_task` authoritative ingest 到 `state.json` / `events.jsonl` / `status.txt` / `runlog.md`
+- 0229/0230 只负责真实 shell smoke，不再补 phase contract
+- 真实 shell smoke 仍尚未证明；当前 README 只说明已落地的 phase/runtime 能力边界，不把 0229/0230 的 smoke 结论提前写成已完成
+
 canonical command families：
 - local readonly baseline / readiness：
   - `bash scripts/ops/check_runtime_baseline.sh`
@@ -49,6 +54,7 @@ remote safety gate（强制）：
 - 任何 remote mutating `ops_task` 在执行前都必须先过 `remote_preflight_guard.sh`
 - 若 `remote_preflight_guard.sh` 失败、rke2 判定失败、containerd socket 不可达、root/权限不足，必须以 `remote_guard_blocked` 收口，不得继续执行 mutating op
 - `deploy_cloud_full.sh` / `deploy_cloud_app.sh` 额外自带 source integrity gate；若 source gate 失败，同样不能继续 rollout
+- 若 request 在 preflight 就命中 `kubectl delete namespace` / `helm uninstall`，orchestrator 必须进入 `human_decision_required` / `On Hold`，不得 materialize/execute 该 `ops_task`
 
 forbidden / critical-risk remote 边界：
 - `forbidden_remote_op`：

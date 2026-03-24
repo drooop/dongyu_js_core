@@ -23,6 +23,7 @@ const EVENT_ICONS = {
   error: '✗',
   notify: '◆',
   browser_task: 'B',
+  ops_task: 'O',
 }
 
 // ── Emit ────────────────────────────────────────────────
@@ -207,6 +208,32 @@ export function emitBrowserTask(state, iterationId, browserTask) {
       request_file: browserTask.request_file || null,
       result_file: browserTask.result_file || null,
       ingested_at: browserTask.ingested_at || null,
+    },
+  })
+}
+
+export function emitOpsTask(state, iterationId, opsTask) {
+  const failureKind = opsTask.failure_kind || 'none'
+  const status = opsTask.status || 'pending'
+  const suffix = failureKind !== 'none' ? ` (${failureKind})` : ''
+
+  return emitEvent(state, {
+    iteration_id: iterationId,
+    phase: 'EXECUTION',
+    event_type: 'ops_task',
+    severity: status === 'fail' ? 'error' : 'info',
+    message: `Ops task ${opsTask.task_id}: ${status}${suffix}`,
+    data: {
+      task_id: opsTask.task_id,
+      attempt: opsTask.attempt || 1,
+      status,
+      failure_kind: failureKind,
+      request_file: opsTask.request_file || null,
+      result_file: opsTask.result_file || null,
+      stdout_file: opsTask.stdout_file || null,
+      stderr_file: opsTask.stderr_file || null,
+      exit_code: Number.isInteger(opsTask.exit_code) ? opsTask.exit_code : null,
+      ingested_at: opsTask.ingested_at || null,
     },
   })
 }
