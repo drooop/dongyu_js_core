@@ -7,6 +7,17 @@ import {
 import { emitOpsTask, emitTransition } from './events.mjs'
 import { appendOpsTaskRunlogRecord } from './iteration_register.mjs'
 
+const CRITICAL_REMOTE_OPS = [
+  {
+    pattern: /\bkubectl\s+delete\s+namespace\b/i,
+    label: 'kubectl delete namespace',
+  },
+  {
+    pattern: /\bhelm\s+uninstall\b/i,
+    label: 'helm uninstall',
+  },
+]
+
 export function handleExecutionOpsTaskCycle({
   state,
   iterationId,
@@ -44,6 +55,7 @@ export function handleExecutionOpsTaskCycle({
         status: 'fail',
         failure_kind: ingest.failure_kind,
         ops_task: ingest.ops_task,
+        request: ingest.request || null,
       }
     }
 
@@ -75,6 +87,18 @@ export function handleExecutionOpsTaskCycle({
       action: 'external_task_conflict',
       error: 'Execution output cannot mix browser_tasks and ops_tasks in the same step',
       failure_kind: 'request_invalid',
+    }
+  }
+
+  for (const task of opsTasks) {
+    const preflight = inspectCriticalRemoteOpsTask(task)
+    if (!preflight.ok) {
+      return {
+        handled: true,
+        action: preflight.action,
+        error: preflight.reason,
+        failure_kind: preflight.failure_kind,
+      }
     }
   }
 
@@ -119,6 +143,47 @@ export function handleExecutionOpsTaskCycle({
       stderr_file: task.paths.stderrFileRelative,
     })),
   }
+}
+
+export function classifyOpsTaskFailureAction({ failure_kind, request = null } = {}) {
+  if (failure_kind === 'forbidden_remote_op') {
+    return {
+      action: 'on_hold',
+      reason: `forbidden_remote_op: ${request?.command || 'forbidden remote operation'}`,
+    }
+  }
+
+  if (failure_kind === 'remote_guard_blocked') {
+    return {
+      action: 'on_hold',
+      reason: `remote_guard_blocked: ${request?.command || 'remote guard blocked the requested operation'}`,
+    }
+  }
+
+  return {
+    action: 'on_hold',
+    reason: `ops_task failed: ${failure_kind || 'unknown_failure'}`,
+  }
+}
+
+export function inspectCriticalRemoteOpsTask(task) {
+  if (!task || task.target_env !== 'remote' || task.mutating !== true) {
+    return { ok: true }
+  }
+
+  const command = task.command || ''
+  for (const criticalOp of CRITICAL_REMOTE_OPS) {
+    if (criticalOp.pattern.test(command)) {
+      return {
+        ok: false,
+        action: 'human_decision_required',
+        failure_kind: 'human_decision_required',
+        reason: `critical remote op requires human_decision_required / On Hold: ${criticalOp.label}`,
+      }
+    }
+  }
+
+  return { ok: true }
 }
 
 function appendRunlogSafely(iterationId, opsTask, runlogPath) {

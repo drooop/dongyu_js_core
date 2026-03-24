@@ -729,6 +729,10 @@ function test_ops_task_ssot_contract_freeze() {
     'SSOT freezes ops audit mapping surfaces')
   assert(ssot.includes('Ops Task:') && ssot.includes('Ops Failure Kind:') && ssot.includes('Ops Exit Code:'),
     'SSOT freezes ops status.txt projection fields')
+  assert(ssot.includes('0228 runtime 已接线') || ssot.includes('0228 runtime has landed'),
+    'SSOT documents 0228 runtime as landed instead of pending')
+  assert(ssot.includes('0229/0230') && ssot.includes('只负责真实 shell smoke'),
+    'SSOT freezes 0229/0230 as smoke-only downstream boundary')
 }
 
 function test_ops_task_operator_docs_sync() {
@@ -758,6 +762,10 @@ function test_ops_task_operator_docs_sync() {
   assert(runbook.includes('forbidden_remote_op'), 'runbook mentions forbidden_remote_op')
   assert(runbook.includes('human_decision_required') || runbook.includes('On Hold'),
     'runbook mentions human decision / On Hold boundary')
+  assert(runbook.includes('0228 当前已生效') || runbook.includes('0228 runtime 已接线'),
+    'runbook documents 0228 runtime as already wired')
+  assert(runbook.includes('0229/0230') && runbook.includes('只负责真实 shell smoke'),
+    'runbook documents 0229/0230 as smoke-only downstream boundary')
 
   assert(opsReadme.includes('Ops Task Surface'), 'ops README contains ops task section')
   assert(opsReadme.includes('check_runtime_baseline.sh'), 'ops README mentions local readonly command family')
@@ -770,6 +778,10 @@ function test_ops_task_operator_docs_sync() {
   assert(opsReadme.includes('forbidden_remote_op'), 'ops README mentions forbidden_remote_op')
   assert(opsReadme.includes('kubectl delete namespace'), 'ops README mentions kubectl delete namespace boundary')
   assert(opsReadme.includes('helm uninstall'), 'ops README mentions helm uninstall boundary')
+  assert(opsReadme.includes('0228 runtime 已接线') || opsReadme.includes('0228 runtime has landed'),
+    'ops README documents 0228 runtime as landed')
+  assert(opsReadme.includes('0229/0230') && opsReadme.includes('只负责真实 shell smoke'),
+    'ops README documents 0229/0230 as smoke-only downstream boundary')
 
   assert(promptSource.includes('ops_tasks'), 'prompt source mentions ops_tasks')
   assert(promptSource.includes('stdout.log') && promptSource.includes('stderr.log'),
@@ -1599,6 +1611,338 @@ async function test_execution_ops_task_failure_stop() {
   cleanBatch(batchId)
 }
 
+// ── Test 4ag: Ops failure action mapping ───────────────
+
+async function test_ops_task_failure_action_mapping() {
+  process.stderr.write('\n== Test 4ag: Ops failure action mapping ==\n')
+
+  const executionOps = await import('./execution_ops.mjs')
+
+  assert(typeof executionOps.classifyOpsTaskFailureAction === 'function',
+    'execution_ops exports classifyOpsTaskFailureAction')
+
+  if (typeof executionOps.classifyOpsTaskFailureAction !== 'function') {
+    return
+  }
+
+  const normalFailure = executionOps.classifyOpsTaskFailureAction({
+    failure_kind: 'nonzero_exit',
+    request: {
+      command: 'bash scripts/ops/check_runtime_baseline.sh',
+      target_env: 'local',
+    },
+  })
+  assert(normalFailure.action === 'on_hold', 'nonzero_exit stays on_hold')
+
+  const guardBlocked = executionOps.classifyOpsTaskFailureAction({
+    failure_kind: 'remote_guard_blocked',
+    request: {
+      command: 'bash scripts/ops/remote_preflight_guard.sh',
+      target_env: 'remote',
+    },
+  })
+  assert(guardBlocked.action === 'on_hold', 'remote_guard_blocked stops in on_hold path')
+
+  const forbidden = executionOps.classifyOpsTaskFailureAction({
+    failure_kind: 'forbidden_remote_op',
+    request: {
+      command: 'systemctl restart rke2',
+      target_env: 'remote',
+    },
+  })
+  assert(forbidden.action === 'on_hold',
+    'forbidden_remote_op stays in explicit on_hold stop path')
+}
+
+// ── Test 4ah: Ops critical remote request guard ────────
+
+async function test_execution_ops_task_critical_remote_guard() {
+  process.stderr.write('\n== Test 4ah: Ops critical remote request guard ==\n')
+
+  const executionOps = await import('./execution_ops.mjs')
+
+  assert(typeof executionOps.handleExecutionOpsTaskCycle === 'function',
+    'critical remote guard uses handleExecutionOpsTaskCycle export')
+
+  if (typeof executionOps.handleExecutionOpsTaskCycle !== 'function') {
+    return
+  }
+
+  const batchId = `test-ops-critical-${randomUUID().slice(0, 8)}`
+  const iterationId = 'iter-ops-critical'
+  cleanBatch(batchId)
+
+  const state = createState(batchId, 'ops critical guard test', ['ops critical guard'])
+  addIteration(state, {
+    id: iterationId,
+    type: 'primary',
+    title: 'Ops critical guard',
+    requirement: 'Critical remote ops require human decision before materialization',
+  })
+  transition(state, iterationId, 'EXECUTION')
+  updateIteration(state, iterationId, { status: 'active' })
+  state.current_iteration = iterationId
+  commitState(state)
+
+  const outcome = executionOps.handleExecutionOpsTaskCycle({
+    state,
+    iterationId,
+    execOutput: {
+      ops_tasks: [
+        {
+          task_kind: 'ops_task',
+          task_id: 'destroy-namespace',
+          summary: 'Delete remote namespace',
+          command: 'kubectl delete namespace dongyu',
+          shell: 'bash',
+          cwd: '.',
+          target_env: 'remote',
+          host_scope: 'remote_cluster',
+          mutating: true,
+          danger_level: 'critical',
+          success_assertions: ['namespace deletion is approved and completed'],
+          required_artifacts: [
+            {
+              artifact_kind: 'json',
+              file_name: 'report.json',
+              required: true,
+              media_type: 'application/json',
+            },
+          ],
+          executor: {
+            mode: 'ssh',
+            executor_id: 'ssh-ops-executor',
+          },
+          timeout_ms: 45_000,
+        },
+      ],
+      browser_tasks: [],
+      spawned_iterations: [],
+    },
+  })
+
+  assert(outcome.action === 'human_decision_required',
+    'critical remote request returns human_decision_required before materialization')
+  assert(outcome.failure_kind === 'human_decision_required',
+    'critical remote request surfaces human_decision_required failure kind')
+  assert(
+    existsSync(join(process.cwd(), `.orchestrator/runs/${batchId}/ops_tasks/destroy-namespace/request.json`)) === false,
+    'critical remote request does not materialize canonical request.json before approval'
+  )
+
+  cleanBatch(batchId)
+}
+
+// ── Test 4ai: Ops resume waiting semantics ─────────────
+
+async function test_ops_task_resume_waiting_semantics() {
+  process.stderr.write('\n== Test 4ai: Ops resume waiting semantics ==\n')
+
+  const { materializeOpsTaskRequests } = await import('./drivers.mjs')
+  const {
+    recordOpsTaskRequest,
+    ingestOpsTaskResult,
+  } = await import('./state.mjs')
+
+  const batchId = `test-ops-wait-${randomUUID().slice(0, 8)}`
+  const iterationId = 'iter-ops-wait'
+  cleanBatch(batchId)
+
+  const state = createState(batchId, 'ops wait test', ['ops wait'])
+  addIteration(state, {
+    id: iterationId,
+    type: 'primary',
+    title: 'Ops wait',
+    requirement: 'Keep ops task pending until result arrives',
+  })
+  transition(state, iterationId, 'EXECUTION')
+  updateIteration(state, iterationId, { status: 'active' })
+  state.current_iteration = iterationId
+  commitState(state)
+
+  const materialized = materializeOpsTaskRequests({
+    batchId,
+    iterationId,
+    opsTasks: [sampleExecOpsTask('wait-baseline', 'local_shell')],
+  })
+  assert(materialized.ok === true, 'ops waiting fixture materialization succeeds')
+  if (!materialized.ok) {
+    cleanBatch(batchId)
+    return
+  }
+
+  recordOpsTaskRequest(state, iterationId, {
+    task_id: materialized.tasks[0].request.task_id,
+    attempt: materialized.tasks[0].request.attempt,
+    request_file: materialized.tasks[0].paths.requestFileRelative,
+    result_file: materialized.tasks[0].paths.resultFileRelative,
+    stdout_file: materialized.tasks[0].paths.stdoutFileRelative,
+    stderr_file: materialized.tasks[0].paths.stderrFileRelative,
+    artifact_paths: materialized.tasks[0].request.required_artifacts.map(artifact => artifact.relative_path),
+  })
+  commitState(state)
+
+  const awaiting = ingestOpsTaskResult(state, iterationId)
+  assert(awaiting.ok === true, 'await_ops_result is not treated as an ingest failure')
+  assert(awaiting.status === 'awaiting_result', 'pending ops task stays in awaiting_result without result.json')
+
+  const reloaded = loadState(batchId)
+  const storedTask = reloaded.iterations[0].evidence?.ops_tasks?.[0]
+  assert(storedTask?.status === 'pending', 'authoritative state stays pending before ops result arrives')
+
+  cleanBatch(batchId)
+}
+
+// ── Test 4aj: Ops resume guardrails ────────────────────
+
+async function test_ops_task_resume_guardrails() {
+  process.stderr.write('\n== Test 4aj: Ops resume guardrails ==\n')
+
+  const { materializeOpsTaskRequests } = await import('./drivers.mjs')
+  const {
+    recordOpsTaskRequest,
+    ingestOpsTaskResult,
+  } = await import('./state.mjs')
+  const bridge = await import('./ops_bridge.mjs')
+
+  const batchId = `test-ops-guard-${randomUUID().slice(0, 8)}`
+  const iterationId = 'iter-ops-guard'
+  cleanBatch(batchId)
+
+  const state = createState(batchId, 'ops guard test', ['ops guard'])
+  addIteration(state, {
+    id: iterationId,
+    type: 'primary',
+    title: 'Ops guard',
+    requirement: 'Keep resume authoritative and preserve ops failure taxonomy',
+  })
+  transition(state, iterationId, 'EXECUTION')
+  updateIteration(state, iterationId, { status: 'active' })
+  state.current_iteration = iterationId
+  commitState(state)
+
+  const remoteGuardMaterialized = materializeOpsTaskRequests({
+    batchId,
+    iterationId,
+    opsTasks: [sampleExecRemoteOpsTask('remote-guard', 'bash scripts/ops/remote_preflight_guard.sh')],
+  })
+  assert(remoteGuardMaterialized.ok === true, 'remote_guard_blocked fixture materialization succeeds')
+  if (!remoteGuardMaterialized.ok) {
+    cleanBatch(batchId)
+    return
+  }
+
+  writeFailOpsResult(bridge, remoteGuardMaterialized.tasks[0].request, 'remote_guard_blocked', 'Remote preflight guard blocked the operation.')
+  const notIngested = ingestOpsTaskResult(state, iterationId)
+  assert(notIngested.status === 'none',
+    'result.json on disk is ignored until authoritative state records a pending ops task')
+
+  const failureCases = [
+    {
+      taskId: 'nonzero-exit',
+      task: sampleExecOpsTask('nonzero-exit', 'local_shell'),
+      prepare(request) {
+        writeFailOpsResult(bridge, request, 'nonzero_exit', 'Command exited with code 7.', { exit_code: 7 })
+      },
+      expected: 'nonzero_exit',
+    },
+    {
+      taskId: 'assertion-fail',
+      task: sampleExecOpsTask('assertion-fail', 'local_shell'),
+      prepare(request) {
+        writeFailOpsResult(bridge, request, 'assertion_failed', 'Executor could not prove all success assertions.', { exit_code: 0 })
+      },
+      expected: 'assertion_failed',
+    },
+    {
+      taskId: 'ops-bridge-unproven',
+      task: sampleExecOpsTask('ops-bridge-unproven', 'mock'),
+      prepare(request) {
+        writePassOpsResult(bridge, request)
+      },
+      expected: 'ops_bridge_not_proven',
+    },
+    {
+      taskId: 'stale-result',
+      task: sampleExecOpsTask('stale-result', 'local_shell'),
+      prepare(request) {
+        writeFailOpsResult(bridge, request, 'stale_result', 'Result attempt is stale.')
+      },
+      expected: 'stale_result',
+    },
+    {
+      taskId: 'duplicate-result',
+      task: sampleExecOpsTask('duplicate-result', 'local_shell'),
+      prepare(request) {
+        writeFailOpsResult(bridge, request, 'duplicate_result', 'Result attempt is duplicated.')
+      },
+      expected: 'duplicate_result',
+    },
+    {
+      taskId: 'forbidden-remote-op',
+      task: sampleExecRemoteOpsTask('forbidden-remote-op', 'systemctl restart rke2'),
+      prepare(request) {
+        writeFailOpsResult(bridge, request, 'forbidden_remote_op', 'Remote command hits a forbidden REMOTE_OPS_SAFETY surface.')
+      },
+      expected: 'forbidden_remote_op',
+    },
+    {
+      taskId: 'result-invalid',
+      task: sampleExecOpsTask('result-invalid', 'local_shell'),
+      prepare(request) {
+        bridge.writeOpsTaskLog({ request, stream: 'stdout', content: 'stdout\n' })
+        bridge.writeOpsTaskLog({ request, stream: 'stderr', content: '' })
+        writeFileSync(
+          join(process.cwd(), request.exchange.result_file),
+          JSON.stringify({ broken: true }, null, 2)
+        )
+      },
+      expected: 'result_invalid',
+    },
+    {
+      taskId: 'artifact-mismatch',
+      task: sampleExecOpsTask('artifact-mismatch', 'local_shell'),
+      prepare(request) {
+        writePassOpsResult(bridge, request)
+        writeFileSync(
+          join(process.cwd(), request.required_artifacts[0].relative_path),
+          'corrupted-artifact'
+        )
+      },
+      expected: 'artifact_mismatch',
+    },
+  ]
+
+  for (const failureCase of failureCases) {
+    const materialized = materializeOpsTaskRequests({
+      batchId,
+      iterationId,
+      opsTasks: [failureCase.task],
+    })
+    assert(materialized.ok === true, `${failureCase.expected} fixture materialization succeeds`)
+    if (!materialized.ok) {
+      continue
+    }
+
+    recordOpsTaskRequest(state, iterationId, {
+      task_id: materialized.tasks[0].request.task_id,
+      attempt: materialized.tasks[0].request.attempt,
+      request_file: materialized.tasks[0].paths.requestFileRelative,
+      result_file: materialized.tasks[0].paths.resultFileRelative,
+      stdout_file: materialized.tasks[0].paths.stdoutFileRelative,
+      stderr_file: materialized.tasks[0].paths.stderrFileRelative,
+      artifact_paths: materialized.tasks[0].request.required_artifacts.map(artifact => artifact.relative_path),
+    })
+    failureCase.prepare(materialized.tasks[0].request)
+    const ingested = ingestOpsTaskResult(state, iterationId)
+    assert(ingested.ok === false, `${failureCase.expected} blocks orchestrator progress`)
+    assert(ingested.failure_kind === failureCase.expected,
+      `${failureCase.expected} failure kind is preserved during ingest`)
+  }
+
+  cleanBatch(batchId)
+}
+
 function sampleExecBrowserTask(taskId, mode = 'mcp') {
   return {
     task_kind: 'browser_task',
@@ -1705,6 +2049,38 @@ function sampleExecOpsTask(taskId, mode = 'local_shell') {
   }
 }
 
+function sampleExecRemoteOpsTask(taskId, command) {
+  return {
+    task_kind: 'ops_task',
+    task_id: taskId,
+    summary: `Remote ops task for ${taskId}`,
+    command,
+    shell: 'bash',
+    cwd: '.',
+    target_env: 'remote',
+    host_scope: 'remote_cluster',
+    mutating: true,
+    danger_level: 'critical',
+    success_assertions: [
+      'remote operation completes with explicit approval',
+      'required artifacts are produced',
+    ],
+    required_artifacts: [
+      {
+        artifact_kind: 'json',
+        file_name: 'report.json',
+        required: true,
+        media_type: 'application/json',
+      },
+    ],
+    executor: {
+      mode: 'ssh',
+      executor_id: 'ssh-ops-executor',
+    },
+    timeout_ms: 45_000,
+  }
+}
+
 function writePassOpsResult(bridge, request) {
   bridge.writeOpsTaskLog({
     request,
@@ -1747,6 +2123,29 @@ function writePassOpsResult(bridge, request) {
     stderr_file: request.exchange.stderr_file,
     artifacts: materialized.artifacts,
   }
+
+  bridge.writeOpsTaskResult({ request, result })
+  return result
+}
+
+function writeFailOpsResult(bridge, request, failureKind, summary, extra = {}) {
+  bridge.writeOpsTaskLog({
+    request,
+    stream: 'stdout',
+    content: extra.stdout || `task=${request.task_id}\nfailure_kind=${failureKind}\n`,
+  })
+  bridge.writeOpsTaskLog({
+    request,
+    stream: 'stderr',
+    content: extra.stderr || '',
+  })
+
+  const result = bridge.createOpsTaskFailureResult(request, failureKind, summary, {
+    exit_code: extra.exit_code ?? null,
+    artifacts: extra.artifacts || [],
+    started_at: extra.started_at || '2026-03-24T10:00:00.000Z',
+    completed_at: extra.completed_at || '2026-03-24T10:00:05.000Z',
+  })
 
   bridge.writeOpsTaskResult({ request, result })
   return result
@@ -2585,6 +2984,10 @@ async function main() {
   await test_execution_ops_task_materialize_and_wait()
   await test_execution_ops_task_ingest_transition()
   await test_execution_ops_task_failure_stop()
+  await test_ops_task_failure_action_mapping()
+  await test_execution_ops_task_critical_remote_guard()
+  await test_ops_task_resume_waiting_semantics()
+  await test_ops_task_resume_guardrails()
   await test_browser_task_ingest_audit_surface()
   await test_browser_task_ingest_failure_surface()
   await test_browser_task_resume_waiting_semantics()

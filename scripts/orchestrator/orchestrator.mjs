@@ -37,7 +37,7 @@ import {
   codexExec, claudeReview, parseVerdict, parseFinalVerdict, parseExecOutput,
   materializeBrowserTaskRequests,
 } from './drivers.mjs'
-import { handleExecutionOpsTaskCycle } from './execution_ops.mjs'
+import { classifyOpsTaskFailureAction, handleExecutionOpsTaskCycle } from './execution_ops.mjs'
 import {
   buildDecomposePrompt, buildPlanningPrompt, buildPlanReviewPrompt,
   buildRevisionPrompt, buildExecutionPrompt, buildExecReviewPrompt,
@@ -1104,7 +1104,11 @@ async function runIteration(state, iterationId) {
           }
 
           if (pendingOpsTaskOutcome.action === 'ops_task_failed') {
-            commitOnHold(state, iterationId, `ops_task failed: ${pendingOpsTaskOutcome.failure_kind}`)
+            const stopAction = classifyOpsTaskFailureAction({
+              failure_kind: pendingOpsTaskOutcome.failure_kind,
+              request: pendingOpsTaskOutcome.request,
+            })
+            commitOnHold(state, iterationId, stopAction.reason)
             refreshStatus(state)
             return
           }
@@ -1165,12 +1169,17 @@ async function runIteration(state, iterationId) {
           }
 
           if (executionOpsOutcome.action === 'ops_task_failed') {
-            commitOnHold(state, iterationId, `ops_task failed: ${executionOpsOutcome.failure_kind}`)
+            const stopAction = classifyOpsTaskFailureAction({
+              failure_kind: executionOpsOutcome.failure_kind,
+              request: executionOpsOutcome.request,
+            })
+            commitOnHold(state, iterationId, stopAction.reason)
             refreshStatus(state)
             return
           }
 
           if (
+            executionOpsOutcome.action === 'human_decision_required' ||
             executionOpsOutcome.action === 'ops_task_materialize_failed' ||
             executionOpsOutcome.action === 'external_task_conflict'
           ) {
