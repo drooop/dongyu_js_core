@@ -30,6 +30,9 @@ export function refreshStatus(state) {
   const browserTask = current?.evidence?.browser_tasks?.find(task => task.status === 'pending')
     || current?.evidence?.browser_tasks?.[current?.evidence?.browser_tasks?.length - 1]
     || null
+  const opsTask = current?.evidence?.ops_tasks?.find(task => task.status === 'pending')
+    || current?.evidence?.ops_tasks?.[current?.evidence?.ops_tasks?.length - 1]
+    || null
   const majorRevisionLimit = current?.review_policy?.major_revision_limit
     || state.review_policy?.major_revision_limit
     || 3
@@ -64,6 +67,11 @@ export function refreshStatus(state) {
     `Browser Attempt: ${browserTask ? browserTask.attempt : '-'}`,
     `Browser Status: ${browserTask?.status || '-'}`,
     `Browser Failure Kind: ${browserTask?.failure_kind || '-'}`,
+    `Ops Task: ${opsTask?.task_id || '-'}`,
+    `Ops Attempt: ${opsTask ? opsTask.attempt : '-'}`,
+    `Ops Status: ${opsTask?.status || '-'}`,
+    `Ops Failure Kind: ${opsTask?.failure_kind || '-'}`,
+    `Ops Exit Code: ${opsTask && Number.isInteger(opsTask.exit_code) ? opsTask.exit_code : '-'}`,
     `Elapsed: ${elapsed}`,
     ``,
     `Recent:`,

@@ -1151,6 +1151,235 @@ async function test_execution_ops_task_handshake() {
   cleanBatch(batchId)
 }
 
+// ── Test 4ab: Ops ingest audit surface ────────────────
+
+async function test_ops_task_ingest_audit_surface() {
+  process.stderr.write('\n== Test 4ab: Ops ingest audit surface ==\n')
+
+  const { materializeOpsTaskRequests } = await import('./drivers.mjs')
+  const {
+    recordOpsTaskRequest,
+    ingestOpsTaskResult,
+  } = await import('./state.mjs')
+  const { emitOpsTask } = await import('./events.mjs')
+  const { appendOpsTaskRunlogRecord } = await import('./iteration_register.mjs')
+  const bridge = await import('./ops_bridge.mjs')
+
+  assert(typeof recordOpsTaskRequest === 'function',
+    'state exports recordOpsTaskRequest')
+  assert(typeof ingestOpsTaskResult === 'function',
+    'state exports ingestOpsTaskResult')
+  assert(typeof emitOpsTask === 'function',
+    'events exports emitOpsTask')
+  assert(typeof appendOpsTaskRunlogRecord === 'function',
+    'iteration_register exports appendOpsTaskRunlogRecord')
+
+  if (
+    typeof recordOpsTaskRequest !== 'function' ||
+    typeof ingestOpsTaskResult !== 'function' ||
+    typeof emitOpsTask !== 'function' ||
+    typeof appendOpsTaskRunlogRecord !== 'function'
+  ) {
+    return
+  }
+
+  const batchId = `test-ops-ingest-${randomUUID().slice(0, 8)}`
+  const iterationId = 'iter-ops-ingest'
+  cleanBatch(batchId)
+
+  const state = createState(batchId, 'ops ingest test', ['ops ingest'])
+  addIteration(state, {
+    id: iterationId,
+    type: 'primary',
+    title: 'Ops ingest',
+    requirement: 'Ingest ops result into authoritative audit surface',
+  })
+  transition(state, iterationId, 'EXECUTION')
+  updateIteration(state, iterationId, { status: 'active' })
+  state.current_iteration = iterationId
+  commitState(state)
+
+  const materialized = materializeOpsTaskRequests({
+    batchId,
+    iterationId,
+    opsTasks: [sampleExecOpsTask('local-baseline', 'local_shell')],
+  })
+  assert(materialized.ok === true, 'materialization succeeds for ops ingest audit test')
+  if (!materialized.ok) {
+    cleanBatch(batchId)
+    return
+  }
+
+  const pendingRecord = recordOpsTaskRequest(state, iterationId, {
+    task_id: materialized.tasks[0].request.task_id,
+    attempt: materialized.tasks[0].request.attempt,
+    request_file: materialized.tasks[0].paths.requestFileRelative,
+    result_file: materialized.tasks[0].paths.resultFileRelative,
+    stdout_file: materialized.tasks[0].paths.stdoutFileRelative,
+    stderr_file: materialized.tasks[0].paths.stderrFileRelative,
+    artifact_paths: materialized.tasks[0].request.required_artifacts.map(artifact => artifact.relative_path),
+  })
+  emitOpsTask(state, iterationId, pendingRecord)
+  commitState(state)
+
+  writePassOpsResult(bridge, materialized.tasks[0].request)
+  const ingested = ingestOpsTaskResult(state, iterationId)
+  assert(ingested.ok === true, 'ingestOpsTaskResult accepts contract-valid ops pass result')
+  assert(ingested.ops_task?.status === 'pass', 'ingested ops task status is pass')
+  assert(ingested.ops_task?.result_file === materialized.tasks[0].paths.resultFileRelative,
+    'ingested ops task preserves canonical result_file')
+  assert(ingested.ops_task?.stdout_file === materialized.tasks[0].paths.stdoutFileRelative,
+    'ingested ops task preserves canonical stdout_file')
+  assert(ingested.ops_task?.stderr_file === materialized.tasks[0].paths.stderrFileRelative,
+    'ingested ops task preserves canonical stderr_file')
+  assert(ingested.ops_task?.exit_code === 0, 'ingested ops task preserves exit_code=0')
+
+  emitOpsTask(state, iterationId, ingested.ops_task)
+  commitState(state)
+
+  const reloaded = loadState(batchId)
+  const storedTask = reloaded.iterations[0].evidence?.ops_tasks?.[0]
+  assert(storedTask?.status === 'pass', 'state.json stores ingested ops task status')
+  assert(storedTask?.request_file === materialized.tasks[0].paths.requestFileRelative,
+    'state.json stores canonical ops request_file')
+  assert(storedTask?.stdout_file === materialized.tasks[0].paths.stdoutFileRelative,
+    'state.json stores canonical ops stdout_file')
+  assert(storedTask?.stderr_file === materialized.tasks[0].paths.stderrFileRelative,
+    'state.json stores canonical ops stderr_file')
+  assert(storedTask?.artifact_paths?.length === 1, 'state.json stores ops artifact_paths')
+  assert(Boolean(storedTask?.ingested_at), 'state.json stores ops ingested_at timestamp')
+
+  const opsEvents = readEvents(batchId, { iterationId }).filter(event => event.event_type === 'ops_task')
+  assert(opsEvents.some(event => event.data.status === 'pending'),
+    'events.jsonl records pending ops lifecycle event')
+  const finalOpsEvent = opsEvents[opsEvents.length - 1]
+  assert(finalOpsEvent?.data?.request_file === materialized.tasks[0].paths.requestFileRelative,
+    'events.jsonl ops event carries request_file')
+  assert(finalOpsEvent?.data?.result_file === materialized.tasks[0].paths.resultFileRelative,
+    'events.jsonl ops event carries result_file')
+  assert(finalOpsEvent?.data?.stdout_file === materialized.tasks[0].paths.stdoutFileRelative,
+    'events.jsonl ops event carries stdout_file')
+  assert(finalOpsEvent?.data?.stderr_file === materialized.tasks[0].paths.stderrFileRelative,
+    'events.jsonl ops event carries stderr_file')
+  assert(finalOpsEvent?.data?.exit_code === 0,
+    'events.jsonl ops event carries exit_code')
+
+  const status = refreshStatus(reloaded)
+  assert(status.includes('Ops Task: local-baseline'), 'status.txt projects Ops Task field')
+  assert(status.includes('Ops Attempt: 1'), 'status.txt projects Ops Attempt field')
+  assert(status.includes('Ops Status: pass'), 'status.txt projects Ops Status field')
+  assert(status.includes('Ops Failure Kind: none'), 'status.txt projects Ops Failure Kind field')
+  assert(status.includes('Ops Exit Code: 0'), 'status.txt projects Ops Exit Code field')
+
+  const runlogPath = join(batchDir(batchId), 'ops-ingest-runlog.md')
+  writeFileSync(runlogPath, '# Ops ingest runlog\n')
+  appendOpsTaskRunlogRecord(iterationId, storedTask, { runlogPath })
+  const runlog = readFileSync(runlogPath, 'utf8')
+  assert(runlog.includes(`Request File: ${storedTask.request_file}`),
+    'runlog append helper records ops request_file')
+  assert(runlog.includes(`Result File: ${storedTask.result_file}`),
+    'runlog append helper records ops result_file')
+  assert(runlog.includes(`Stdout File: ${storedTask.stdout_file}`),
+    'runlog append helper records stdout_file')
+  assert(runlog.includes(`Stderr File: ${storedTask.stderr_file}`),
+    'runlog append helper records stderr_file')
+  assert(runlog.includes('Result: PASS'),
+    'runlog append helper records ops PASS/FAIL outcome')
+
+  cleanBatch(batchId)
+}
+
+// ── Test 4ac: Ops ingest failure surface ──────────────
+
+async function test_ops_task_ingest_failure_surface() {
+  process.stderr.write('\n== Test 4ac: Ops ingest failure surface ==\n')
+
+  const { materializeOpsTaskRequests } = await import('./drivers.mjs')
+  const {
+    recordOpsTaskRequest,
+    ingestOpsTaskResult,
+  } = await import('./state.mjs')
+  const { emitOpsTask } = await import('./events.mjs')
+  const bridge = await import('./ops_bridge.mjs')
+
+  assert(typeof recordOpsTaskRequest === 'function',
+    'failure surface uses recordOpsTaskRequest export')
+  assert(typeof ingestOpsTaskResult === 'function',
+    'failure surface uses ingestOpsTaskResult export')
+  assert(typeof emitOpsTask === 'function',
+    'failure surface uses emitOpsTask export')
+
+  if (
+    typeof recordOpsTaskRequest !== 'function' ||
+    typeof ingestOpsTaskResult !== 'function' ||
+    typeof emitOpsTask !== 'function'
+  ) {
+    return
+  }
+
+  const batchId = `test-ops-fail-${randomUUID().slice(0, 8)}`
+  const iterationId = 'iter-ops-fail'
+  cleanBatch(batchId)
+
+  const state = createState(batchId, 'ops failure test', ['ops failure'])
+  addIteration(state, {
+    id: iterationId,
+    type: 'primary',
+    title: 'Ops failure',
+    requirement: 'Treat mock-only ops pass as ops_bridge_not_proven',
+  })
+  transition(state, iterationId, 'EXECUTION')
+  updateIteration(state, iterationId, { status: 'active' })
+  state.current_iteration = iterationId
+  commitState(state)
+
+  const materialized = materializeOpsTaskRequests({
+    batchId,
+    iterationId,
+    opsTasks: [sampleExecOpsTask('mock-baseline', 'mock')],
+  })
+  assert(materialized.ok === true, 'materialization succeeds for ops failure audit test')
+  if (!materialized.ok) {
+    cleanBatch(batchId)
+    return
+  }
+
+  const pendingRecord = recordOpsTaskRequest(state, iterationId, {
+    task_id: materialized.tasks[0].request.task_id,
+    attempt: materialized.tasks[0].request.attempt,
+    request_file: materialized.tasks[0].paths.requestFileRelative,
+    result_file: materialized.tasks[0].paths.resultFileRelative,
+    stdout_file: materialized.tasks[0].paths.stdoutFileRelative,
+    stderr_file: materialized.tasks[0].paths.stderrFileRelative,
+    artifact_paths: materialized.tasks[0].request.required_artifacts.map(artifact => artifact.relative_path),
+  })
+  emitOpsTask(state, iterationId, pendingRecord)
+  commitState(state)
+
+  writePassOpsResult(bridge, materialized.tasks[0].request)
+  const ingested = ingestOpsTaskResult(state, iterationId)
+  assert(ingested.ok === false, 'mock-only ops pass does not count as orchestrator PASS')
+  assert(ingested.failure_kind === 'ops_bridge_not_proven',
+    'mock-only ops pass is downgraded to ops_bridge_not_proven')
+
+  emitOpsTask(state, iterationId, ingested.ops_task)
+  commitState(state)
+
+  const reloaded = loadState(batchId)
+  const storedTask = reloaded.iterations[0].evidence?.ops_tasks?.[0]
+  assert(storedTask?.status === 'fail', 'state.json stores ops failure status')
+  assert(storedTask?.failure_kind === 'ops_bridge_not_proven',
+    'state.json stores ops_bridge_not_proven failure kind')
+
+  const status = refreshStatus(reloaded)
+  assert(status.includes('Ops Status: fail'),
+    'status.txt projects ops failure status')
+  assert(status.includes('Ops Failure Kind: ops_bridge_not_proven'),
+    'status.txt projects ops failure kind')
+
+  cleanBatch(batchId)
+}
+
 function sampleExecBrowserTask(taskId, mode = 'mcp') {
   return {
     task_kind: 'browser_task',
@@ -1220,6 +1449,87 @@ function writePassBrowserResult(bridge, request) {
   }
 
   bridge.writeBrowserTaskResult({ request, result })
+  return result
+}
+
+function sampleExecOpsTask(taskId, mode = 'local_shell') {
+  return {
+    task_kind: 'ops_task',
+    task_id: taskId,
+    summary: `Prove ops ingest for ${taskId}`,
+    command: mode === 'local_shell'
+      ? 'bash scripts/ops/check_runtime_baseline.sh'
+      : "printf 'mock ops bridge\\n'",
+    shell: 'bash',
+    cwd: '.',
+    target_env: 'local',
+    host_scope: 'local_cluster',
+    mutating: false,
+    danger_level: 'low',
+    success_assertions: [
+      'command exits with code 0',
+      'required artifacts are produced',
+    ],
+    required_artifacts: [
+      {
+        artifact_kind: 'json',
+        file_name: 'report.json',
+        required: true,
+        media_type: 'application/json',
+      },
+    ],
+    executor: {
+      mode,
+      executor_id: mode === 'local_shell' ? 'local-ops-executor' : 'mock-ops-executor',
+    },
+    timeout_ms: 45_000,
+  }
+}
+
+function writePassOpsResult(bridge, request) {
+  bridge.writeOpsTaskLog({
+    request,
+    stream: 'stdout',
+    content: `task=${request.task_id}\ncommand=${request.command}\n`,
+  })
+  bridge.writeOpsTaskLog({
+    request,
+    stream: 'stderr',
+    content: '',
+  })
+
+  const materialized = bridge.materializeOpsTaskArtifacts({
+    request,
+    artifacts: request.required_artifacts.map(artifact => ({
+      relative_path: artifact.relative_path,
+      content: JSON.stringify({
+        task_id: request.task_id,
+        command: request.command,
+        executor_id: request.executor.executor_id,
+      }, null, 2),
+    })),
+  })
+
+  const result = {
+    schema_version: 'ops_task_result.v1',
+    task_kind: 'ops_task',
+    batch_id: request.batch_id,
+    iteration_id: request.iteration_id,
+    task_id: request.task_id,
+    attempt: request.attempt,
+    status: 'pass',
+    failure_kind: 'none',
+    summary: 'Ops task completed successfully.',
+    exit_code: 0,
+    executor: { ...request.executor },
+    started_at: '2026-03-24T10:00:00.000Z',
+    completed_at: '2026-03-24T10:00:05.000Z',
+    stdout_file: request.exchange.stdout_file,
+    stderr_file: request.exchange.stderr_file,
+    artifacts: materialized.artifacts,
+  }
+
+  bridge.writeOpsTaskResult({ request, result })
   return result
 }
 
@@ -2051,6 +2361,8 @@ async function main() {
   test_parsers()
   await test_execution_browser_task_handshake()
   await test_execution_ops_task_handshake()
+  await test_ops_task_ingest_audit_surface()
+  await test_ops_task_ingest_failure_surface()
   await test_browser_task_ingest_audit_surface()
   await test_browser_task_ingest_failure_surface()
   await test_browser_task_resume_waiting_semantics()
