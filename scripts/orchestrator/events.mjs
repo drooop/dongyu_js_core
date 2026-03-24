@@ -132,6 +132,29 @@ export function emitReview(state, iterationId, phase, verdict, round) {
   })
 }
 
+export function emitManualFinalVerificationAccept(state, details = {}) {
+  return emitEvent(state, {
+    iteration_id: null,
+    state_revision: details.state_revision,
+    event_type: 'review',
+    severity: 'info',
+    message: details.message || 'Manual final verification accepted',
+    data: {
+      scope: 'batch',
+      override_kind: details.override_kind || 'manual_final_verification_accept',
+      previous_terminal_outcome: details.previous_terminal_outcome || null,
+      new_terminal_outcome: details.new_terminal_outcome || 'passed',
+      reason: details.reason || '',
+      previous_final_verification: details.previous_final_verification || null,
+      previous_top_level_final_verification: details.previous_top_level_final_verification || null,
+      had_top_level_summary_drift: details.had_top_level_summary_drift === true,
+      previous_terminal_summary: details.previous_terminal_summary || null,
+      terminal_outcome: details.new_terminal_outcome || 'passed',
+      terminal_summary: details.terminal_summary || null,
+    },
+  })
+}
+
 export function emitSpawn(state, parentId, spawnId, spawnType) {
   return emitEvent(state, {
     iteration_id: spawnId,
