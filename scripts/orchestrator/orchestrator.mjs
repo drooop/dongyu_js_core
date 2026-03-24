@@ -5,6 +5,7 @@
  * Usage:
  *   bun scripts/orchestrator/orchestrator.mjs --prompt "..."
  *   bun scripts/orchestrator/orchestrator.mjs --prompt-file requirements.md
+ *   bun scripts/orchestrator/orchestrator.mjs --accept-final-verification --batch-id <id> --reason "<text>"
  *   bun scripts/orchestrator/orchestrator.mjs --resume [--batch-id <id>]
  *   bun scripts/orchestrator/orchestrator.mjs --monitor [--batch-id <id>]
  */
@@ -21,11 +22,13 @@ import {
   addReviewRecord, checkBranchGuard, findLatestBatch,
   recordFailureEvidence, recordEscalationEvidence, recordOscillationEvidence,
   getFailureEvidence, getReviewVerdictHistory, refreshBatchSummary,
+  acceptManualFinalVerification,
   recordBrowserTaskRequest, getPendingBrowserTaskRecord, ingestBrowserTaskResult,
 } from './state.mjs'
 import {
   emitEvent, emitTransition, emitReview, emitCompleted, emitError,
   emitOnHold, detectOrphanedEvents, markOrphaned, emitBrowserTask,
+  emitManualFinalVerificationAccept,
 } from './events.mjs'
 import { refreshStatus } from './monitor.mjs'
 import { runMonitor } from './monitor.mjs'
@@ -60,6 +63,8 @@ function parseArgs() {
     prompt: null,
     promptFile: null,
     iteration: null,     // --iteration <id>: execute existing iteration directly
+    acceptFinalVerification: false,
+    reason: null,
     resume: false,
     monitor: false,
     batchId: null,
@@ -71,6 +76,8 @@ function parseArgs() {
       case '--prompt': opts.prompt = args[++i]; break
       case '--prompt-file': opts.promptFile = args[++i]; break
       case '--iteration': opts.iteration = args[++i]; break
+      case '--accept-final-verification': opts.acceptFinalVerification = true; break
+      case '--reason': opts.reason = args[++i]; break
       case '--resume': opts.resume = true; break
       case '--monitor': opts.monitor = true; break
       case '--batch-id': opts.batchId = args[++i]; break
@@ -85,6 +92,20 @@ function parseArgs() {
 
 async function main() {
   const opts = parseArgs()
+
+  if (opts.acceptFinalVerification) {
+    if (!opts.batchId) {
+      console.error('Manual final verification accept requires --batch-id')
+      process.exit(1)
+    }
+    try {
+      await runManualFinalVerificationAccept(opts.batchId, opts.reason)
+      return
+    } catch (error) {
+      console.error(`Manual final verification accept rejected: ${error.message}`)
+      process.exit(1)
+    }
+  }
 
   // --monitor mode
   if (opts.monitor) {
@@ -678,6 +699,34 @@ function commitTerminalSequence(state, terminalEvents, options = {}) {
   return {
     state_revision: state.state_revision,
     terminal_summary: state.batch_summary,
+  }
+}
+
+export async function runManualFinalVerificationAccept(batchId, reason) {
+  const state = loadState(batchId)
+  if (!state) {
+    throw new Error(`Cannot load state for ${batchId}`)
+  }
+
+  const override = acceptManualFinalVerification(state, reason)
+  const nextRevision = state.state_revision + 1
+
+  emitManualFinalVerificationAccept(state, {
+    ...override,
+    state_revision: nextRevision,
+  })
+  commitState(state)
+  refreshStatus(state)
+  notifyFinalVerification(state, true)
+  notifyBatchComplete(state)
+
+  process.stderr.write(`[manual-accept] Batch ${state.batch_id.slice(0, 8)} final verification accepted\n`)
+  process.stderr.write(`Status: ${batchDir(state.batch_id)}/status.txt\n`)
+
+  return {
+    batchId: state.batch_id,
+    state,
+    override,
   }
 }
 

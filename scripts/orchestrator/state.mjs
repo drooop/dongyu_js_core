@@ -96,7 +96,7 @@ function ensureIterationEvidence(iter) {
   return iter
 }
 
-function normalizeStateShape(state) {
+function normalizeStateShape(state, opts = {}) {
   if (!Array.isArray(state?.iterations)) {
     return state
   }
@@ -105,7 +105,9 @@ function normalizeStateShape(state) {
     ensureIterationEvidence(iter)
   }
 
-  refreshBatchSummary(state)
+  if (!opts.preserveBatchSummary || !state.batch_summary || typeof state.batch_summary !== 'object') {
+    refreshBatchSummary(state)
+  }
 
   return state
 }
@@ -155,7 +157,7 @@ export function createState(batchId, userPrompt, primaryGoals) {
       validation_results: [],
       status: 'pending',
     })),
-  })
+  }, { preserveBatchSummary: false })
 }
 
 // ── Paths ───────────────────────────────────────────────
@@ -190,7 +192,7 @@ export function loadState(batchId) {
       if (tmpState.schema_version === SCHEMA_VERSION && typeof tmpState.state_revision === 'number') {
         // Valid tmp — complete the interrupted rename
         renameSync(tmp, main)
-        return normalizeStateShape(tmpState)
+        return normalizeStateShape(tmpState, { preserveBatchSummary: true })
       }
     } catch {
       // Corrupted tmp — discard
@@ -203,13 +205,13 @@ export function loadState(batchId) {
     return null
   }
 
-  return normalizeStateShape(JSON.parse(readFileSync(main, 'utf-8')))
+  return normalizeStateShape(JSON.parse(readFileSync(main, 'utf-8')), { preserveBatchSummary: true })
 }
 
 // ── Commit (atomic write §2.3, revision bump) ──────────
 
 export function commitState(state) {
-  normalizeStateShape(state)
+  normalizeStateShape(state, { preserveBatchSummary: false })
 
   const dir = batchDir(state.batch_id)
   if (!existsSync(dir)) {
@@ -233,6 +235,76 @@ export function commitState(state) {
   renameSync(tmp, main)
 
   return state
+}
+
+function countIterationStatuses(state) {
+  const counts = {
+    active: 0,
+    pending: 0,
+    on_hold: 0,
+    blocked_by_spawn: 0,
+    completed: 0,
+    proposed: 0,
+  }
+
+  for (const iter of state?.iterations || []) {
+    if (Object.prototype.hasOwnProperty.call(counts, iter.status)) {
+      counts[iter.status]++
+    }
+  }
+
+  return counts
+}
+
+export function acceptManualFinalVerification(state, reason) {
+  const normalizedReason = String(reason || '').trim()
+  if (!normalizedReason) {
+    throw new Error('manual final verification accept requires non-empty reason')
+  }
+
+  const counts = countIterationStatuses(state)
+  if (counts.active > 0 || counts.pending > 0 || counts.on_hold > 0) {
+    throw new Error(
+      'manual final verification accept requires terminal batch; ' +
+      `found active=${counts.active} pending=${counts.pending} on_hold=${counts.on_hold}`
+    )
+  }
+
+  const currentSummary = state.batch_summary || refreshBatchSummary(state)
+  if (currentSummary.lifecycle !== 'completed') {
+    throw new Error(
+      'manual final verification accept requires batch_summary.lifecycle=completed; ' +
+      `got ${currentSummary.lifecycle || 'unknown'}`
+    )
+  }
+
+  if (currentSummary.terminal_outcome !== 'failed') {
+    throw new Error(
+      'manual final verification accept only applies to failed terminal outcome; ' +
+      `got ${currentSummary.terminal_outcome || 'unknown'}`
+    )
+  }
+
+  const previousTerminalSummary = JSON.parse(JSON.stringify(currentSummary))
+  const previousSummaryFinalVerification = currentSummary.final_verification || null
+  const previousTopLevelFinalVerification = state.final_verification || null
+
+  state.final_verification = 'passed'
+  state.current_iteration = null
+  refreshBatchSummary(state)
+
+  return {
+    scope: 'batch',
+    override_kind: 'manual_final_verification_accept',
+    previous_terminal_outcome: previousTerminalSummary.terminal_outcome,
+    new_terminal_outcome: state.batch_summary?.terminal_outcome || 'passed',
+    reason: normalizedReason,
+    previous_final_verification: previousSummaryFinalVerification,
+    previous_top_level_final_verification: previousTopLevelFinalVerification,
+    had_top_level_summary_drift: previousTopLevelFinalVerification !== previousSummaryFinalVerification,
+    previous_terminal_summary: previousTerminalSummary,
+    terminal_summary: state.batch_summary,
+  }
 }
 
 // ── Iteration helpers ───────────────────────────────────

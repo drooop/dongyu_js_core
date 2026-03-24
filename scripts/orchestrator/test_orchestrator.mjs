@@ -12,6 +12,7 @@
  */
 
 import { randomUUID } from 'crypto'
+import { execFileSync } from 'child_process'
 import { existsSync, readFileSync, mkdirSync, rmSync, writeFileSync, appendFileSync } from 'fs'
 import { dirname, join } from 'path'
 
@@ -45,6 +46,33 @@ function cleanBatch(batchId) {
   const dir = batchDir(batchId)
   if (existsSync(dir)) {
     rmSync(dir, { recursive: true })
+  }
+}
+
+function runOrchestratorCli(args) {
+  try {
+    const stdout = execFileSync(
+      'bun',
+      ['scripts/orchestrator/orchestrator.mjs', ...args],
+      {
+        cwd: process.cwd(),
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }
+    )
+    return {
+      ok: true,
+      status: 0,
+      stdout,
+      stderr: '',
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      status: error?.status ?? 1,
+      stdout: error?.stdout?.toString?.() || '',
+      stderr: error?.stderr?.toString?.() || error?.message || '',
+    }
   }
 }
 
@@ -687,6 +715,40 @@ function test_docs_sync_for_escalation_rules() {
   assert(wavePrompt.includes('browser_bridge_not_proven'), 'wave prompt mentions browser_bridge_not_proven')
   assert(wavePrompt.includes('MCP unavailable') || wavePrompt.includes('mcp_unavailable'),
     'wave prompt mentions MCP unavailable stop rule')
+}
+
+function test_manual_accept_docs_contract_sync() {
+  process.stderr.write('\n== Test 1ha: Manual accept docs contract sync ==\n')
+
+  const ssotPath = join(process.cwd(), 'docs', 'ssot', 'orchestrator_hard_rules.md')
+  const runbookPath = join(process.cwd(), 'docs', 'user-guide', 'orchestrator_local_smoke.md')
+
+  const ssot = readFileSync(ssotPath, 'utf-8')
+  const runbook = readFileSync(runbookPath, 'utf-8')
+
+  assert(ssot.includes('--accept-final-verification'), 'SSOT documents manual accept CLI entry')
+  assert(ssot.includes('--resume is not a manual accept path'),
+    'SSOT states that --resume is not a manual accept path')
+  assert(ssot.includes('do not edit state.json by hand'),
+    'SSOT states do not edit state.json by hand')
+  assert(ssot.includes('override evidence'), 'SSOT documents append-only override evidence')
+  assert(ssot.includes('manual_final_verification_accept'),
+    'SSOT documents manual_final_verification_accept override kind')
+  assert(ssot.includes('previous_terminal_outcome') && ssot.includes('new_terminal_outcome'),
+    'SSOT documents manual accept override payload fields')
+  assert(ssot.includes('terminal consumer') && ssot.includes('batch_summary'),
+    'SSOT states terminal consumer must prioritize batch_summary')
+
+  assert(runbook.includes('--accept-final-verification'), 'runbook documents manual accept CLI entry')
+  assert(runbook.includes('--resume is not a manual accept path'),
+    'runbook states that --resume is not a manual accept path')
+  assert(runbook.includes('do not edit state.json by hand'),
+    'runbook states do not edit state.json by hand')
+  assert(runbook.includes('override evidence'), 'runbook documents append-only override evidence')
+  assert(runbook.includes('manual_final_verification_accept'),
+    'runbook documents manual_final_verification_accept override kind')
+  assert(runbook.includes('state.json') && runbook.includes('status.txt') && runbook.includes('events.jsonl'),
+    'runbook documents post-accept verification targets')
 }
 
 function test_ops_task_ssot_contract_freeze() {
@@ -2837,6 +2899,131 @@ function test_terminal_closure_contract() {
   cleanBatch(batchId)
 }
 
+function test_manual_final_verification_accept_cli() {
+  process.stderr.write('\n== Test 8c: Manual final verification accept CLI ==\n')
+
+  const batchId = `test-${randomUUID().slice(0, 8)}`
+  const state = createState(batchId, 'test', ['goal'])
+  addIteration(state, { id: 'iter-manual-accept', type: 'primary', title: 'Manual Accept', requirement: 'R' })
+  state.iterations[0].status = 'completed'
+  state.iterations[0].phase = 'COMPLETE'
+  state.current_iteration = null
+  state.final_verification = 'failed'
+  commitState(state)
+  emitEvent(state, {
+    event_type: 'error',
+    severity: 'error',
+    message: 'Cannot parse final verification result: Could not parse final verification from review output',
+    data: {
+      scope: 'batch',
+      terminal_outcome: 'failed',
+    },
+  })
+  refreshStatus(state)
+
+  const stateFile = join(batchDir(batchId), 'state.json')
+  const drifted = JSON.parse(readFileSync(stateFile, 'utf-8'))
+  drifted.final_verification = 'passed'
+  writeFileSync(stateFile, JSON.stringify(drifted, null, 2))
+
+  const result = runOrchestratorCli([
+    '--accept-final-verification',
+    '--batch-id', batchId,
+    '--reason', 'manual accept after transcript review: parser false negative',
+  ])
+
+  assert(result.ok === true, 'manual accept CLI exits 0')
+
+  const repaired = JSON.parse(readFileSync(stateFile, 'utf-8'))
+  assert(repaired.final_verification === 'passed',
+    'manual accept CLI keeps top-level final_verification = passed')
+  assert(repaired.batch_summary?.final_verification === 'passed',
+    'manual accept CLI syncs batch_summary final_verification = passed')
+  assert(repaired.batch_summary?.terminal_outcome === 'passed',
+    'manual accept CLI syncs batch_summary terminal_outcome = passed')
+  assert(repaired.batch_summary?.lifecycle === 'completed',
+    'manual accept CLI keeps batch_summary lifecycle = completed')
+
+  const status = readFileSync(join(batchDir(batchId), 'status.txt'), 'utf-8')
+  assert(status.includes('Batch Outcome: passed'),
+    'manual accept CLI refreshes status.txt batch outcome = passed')
+  assert(status.includes('Final Verification: passed'),
+    'manual accept CLI refreshes status.txt final verification = passed')
+
+  const events = readEvents(batchId)
+  const originalFailure = events.find(event => (
+    event.event_type === 'error' &&
+    event.data?.scope === 'batch' &&
+    event.data?.terminal_outcome === 'failed'
+  ))
+  const override = events.find(event => event.data?.override_kind === 'manual_final_verification_accept')
+  assert(Boolean(originalFailure), 'manual accept CLI preserves original failed terminal event')
+  assert(Boolean(override), 'manual accept CLI appends structured override evidence')
+  assert(override?.data?.previous_terminal_outcome === 'failed',
+    'override evidence records previous_terminal_outcome = failed')
+  assert(override?.data?.new_terminal_outcome === 'passed',
+    'override evidence records new_terminal_outcome = passed')
+  assert(override?.data?.reason === 'manual accept after transcript review: parser false negative',
+    'override evidence records manual accept reason verbatim')
+
+  cleanBatch(batchId)
+}
+
+function test_manual_final_verification_accept_rejects_non_terminal_batch() {
+  process.stderr.write('\n== Test 8d: Manual final verification accept rejects non-terminal batch ==\n')
+
+  const batchId = `test-${randomUUID().slice(0, 8)}`
+  const state = createState(batchId, 'test', ['goal'])
+  addIteration(state, { id: 'iter-active', type: 'primary', title: 'Active', requirement: 'R' })
+  state.iterations[0].status = 'active'
+  state.iterations[0].phase = 'EXECUTION'
+  state.current_iteration = 'iter-active'
+  commitState(state)
+  refreshStatus(state)
+
+  const stateFile = join(batchDir(batchId), 'state.json')
+  const before = readFileSync(stateFile, 'utf-8')
+  const result = runOrchestratorCli([
+    '--accept-final-verification',
+    '--batch-id', batchId,
+    '--reason', 'manual accept should fail for active batch',
+  ])
+
+  assert(result.ok === false, 'manual accept CLI rejects active batch')
+  assert(readFileSync(stateFile, 'utf-8') === before,
+    'manual accept CLI rejection leaves state.json unchanged')
+
+  cleanBatch(batchId)
+}
+
+function test_load_state_preserves_authoritative_terminal_summary_drift() {
+  process.stderr.write('\n== Test 8e: loadState preserves authoritative terminal summary drift ==\n')
+
+  const batchId = `test-${randomUUID().slice(0, 8)}`
+  const state = createState(batchId, 'test', ['goal'])
+  addIteration(state, { id: 'iter-drift', type: 'primary', title: 'Drift', requirement: 'R' })
+  state.iterations[0].status = 'completed'
+  state.iterations[0].phase = 'COMPLETE'
+  state.current_iteration = null
+  state.final_verification = 'failed'
+  commitState(state)
+
+  const stateFile = join(batchDir(batchId), 'state.json')
+  const drifted = JSON.parse(readFileSync(stateFile, 'utf-8'))
+  drifted.final_verification = 'passed'
+  writeFileSync(stateFile, JSON.stringify(drifted, null, 2))
+
+  const loaded = loadState(batchId)
+  assert(loaded.final_verification === 'passed',
+    'loadState preserves top-level final_verification from disk')
+  assert(loaded.batch_summary?.final_verification === 'failed',
+    'loadState preserves authoritative batch_summary final_verification from disk')
+  assert(loaded.batch_summary?.terminal_outcome === 'failed',
+    'loadState preserves authoritative batch_summary terminal_outcome from disk')
+
+  cleanBatch(batchId)
+}
+
 // ── Test 9: Auto-Approval consecutive count ─────────────
 
 function test_auto_approval_logic() {
@@ -2957,6 +3144,19 @@ async function test_wave_launcher_contract() {
   }, '0210-a')
   assert(failedOutcome.action === 'stop', 'failed final verification stops wave')
 
+  const driftOutcome = classifyWaveBatchOutcome({
+    final_verification: 'passed',
+    batch_summary: {
+      lifecycle: 'completed',
+      terminal_outcome: 'failed',
+      final_verification: 'failed',
+    },
+    iterations: [{ id: '0210-a', status: 'completed' }],
+  }, '0210-a')
+  assert(driftOutcome.action === 'stop', 'top-level and batch_summary drift stops wave')
+  assert(driftOutcome.reason === 'final_verification_summary_drift:passed:failed',
+    'wave launcher exposes explicit final_verification drift reason')
+
   const onHoldOutcome = classifyWaveBatchOutcome({
     final_verification: 'pending',
     batch_summary: { lifecycle: 'stalled', terminal_outcome: 'on_hold' },
@@ -3014,6 +3214,7 @@ async function main() {
   await test_failure_matrix_and_oscillation_rules()
   await test_resume_history_and_prompt_escalation_wiring()
   test_docs_sync_for_escalation_rules()
+  test_manual_accept_docs_contract_sync()
   test_ops_task_ssot_contract_freeze()
   test_ops_task_operator_docs_sync()
   test_ops_task_final_boundary_docs()
@@ -3043,6 +3244,9 @@ async function main() {
   test_monitor()
   test_monitor_terminal_surface()
   test_terminal_closure_contract()
+  test_manual_final_verification_accept_cli()
+  test_manual_final_verification_accept_rejects_non_terminal_batch()
+  test_load_state_preserves_authoritative_terminal_summary_drift()
   test_auto_approval_logic()
   test_major_revision_limit()
   await test_wave_launcher_contract()
