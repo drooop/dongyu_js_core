@@ -37,6 +37,7 @@ import {
   codexExec, claudeReview, parseVerdict, parseFinalVerdict, parseExecOutput,
   materializeBrowserTaskRequests,
 } from './drivers.mjs'
+import { handleExecutionOpsTaskCycle } from './execution_ops.mjs'
 import {
   buildDecomposePrompt, buildPlanningPrompt, buildPlanReviewPrompt,
   buildRevisionPrompt, buildExecutionPrompt, buildExecReviewPrompt,
@@ -549,7 +550,7 @@ async function runMainLoop(state) {
     commitState(state)
 
     const outcome = await runIteration(state, next.id)
-    if (outcome?.action === 'await_browser_result') {
+    if (outcome?.action === 'await_browser_result' || outcome?.action === 'await_ops_result') {
       return
     }
   }
@@ -1083,6 +1084,32 @@ async function runIteration(state, iterationId) {
           break
         }
 
+        // ops execution helper delegates:
+        // materializeOpsTaskRequests -> recordOpsTaskRequest -> emitOpsTask
+        // and pending ingestOpsTaskResult -> appendOpsTaskRunlogRecord.
+        const pendingOpsTaskOutcome = handleExecutionOpsTaskCycle({
+          state,
+          iterationId,
+        })
+        if (pendingOpsTaskOutcome.handled) {
+          if (pendingOpsTaskOutcome.action === 'await_ops_result') {
+            refreshStatus(state)
+            return { action: 'await_ops_result' }
+          }
+
+          if (pendingOpsTaskOutcome.action === 'review_exec') {
+            commitState(state)
+            refreshStatus(state)
+            break
+          }
+
+          if (pendingOpsTaskOutcome.action === 'ops_task_failed') {
+            commitOnHold(state, iterationId, `ops_task failed: ${pendingOpsTaskOutcome.failure_kind}`)
+            refreshStatus(state)
+            return
+          }
+        }
+
         const result = codexExec(state.batch_id, iterationId,
           buildExecutionPrompt(iterationId),
           { phase: 'execution', sandbox: 'danger-full-access', timeout: execTimeout }
@@ -1116,6 +1143,41 @@ async function runIteration(state, iterationId) {
               execOutput.output.steps_completed || [])
             commitState(state)
             return // Will be resumed by scheduler
+          }
+        }
+
+        const executionOpsOutcome = handleExecutionOpsTaskCycle({
+          state,
+          iterationId,
+          execOutput: execOutput.output,
+        })
+        if (executionOpsOutcome.handled) {
+          if (executionOpsOutcome.action === 'await_ops_result') {
+            commitState(state)
+            refreshStatus(state)
+            return { action: 'await_ops_result' }
+          }
+
+          if (executionOpsOutcome.action === 'review_exec') {
+            commitState(state)
+            refreshStatus(state)
+            break
+          }
+
+          if (executionOpsOutcome.action === 'ops_task_failed') {
+            commitOnHold(state, iterationId, `ops_task failed: ${executionOpsOutcome.failure_kind}`)
+            refreshStatus(state)
+            return
+          }
+
+          if (
+            executionOpsOutcome.action === 'ops_task_materialize_failed' ||
+            executionOpsOutcome.action === 'external_task_conflict'
+          ) {
+            emitError(state, iterationId, executionOpsOutcome.error)
+            commitOnHold(state, iterationId, executionOpsOutcome.error)
+            refreshStatus(state)
+            return
           }
         }
 

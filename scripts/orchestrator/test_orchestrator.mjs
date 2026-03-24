@@ -1380,6 +1380,225 @@ async function test_ops_task_ingest_failure_surface() {
   cleanBatch(batchId)
 }
 
+// ── Test 4ad: Ops execution wiring materialize -> wait ─
+
+async function test_execution_ops_task_materialize_and_wait() {
+  process.stderr.write('\n== Test 4ad: Ops execution wiring materialize -> wait ==\n')
+
+  let executionOps = null
+  try {
+    executionOps = await import('./execution_ops.mjs')
+  } catch {
+    executionOps = null
+  }
+
+  assert(typeof executionOps?.handleExecutionOpsTaskCycle === 'function',
+    'execution_ops exports handleExecutionOpsTaskCycle')
+
+  if (typeof executionOps?.handleExecutionOpsTaskCycle !== 'function') {
+    return
+  }
+
+  const batchId = `test-ops-execwait-${randomUUID().slice(0, 8)}`
+  const iterationId = 'iter-ops-execwait'
+  cleanBatch(batchId)
+
+  const state = createState(batchId, 'ops execution wait test', ['ops execution wait'])
+  addIteration(state, {
+    id: iterationId,
+    type: 'primary',
+    title: 'Ops execution wait',
+    requirement: 'Materialize ops request and wait for result',
+  })
+  transition(state, iterationId, 'EXECUTION')
+  updateIteration(state, iterationId, { status: 'active' })
+  state.current_iteration = iterationId
+  commitState(state)
+
+  const runlogPath = join(batchDir(batchId), 'ops-execution-runlog.md')
+  writeFileSync(runlogPath, '# Ops execution wait runlog\n')
+
+  const outcome = executionOps.handleExecutionOpsTaskCycle({
+    state,
+    iterationId,
+    execOutput: {
+      ops_tasks: [sampleExecOpsTask('local-baseline', 'local_shell')],
+      browser_tasks: [],
+      spawned_iterations: [],
+    },
+    runlogPath,
+  })
+
+  assert(outcome.handled === true, 'ops execution helper handles execOutput ops_tasks payload')
+  assert(outcome.action === 'await_ops_result', 'ops execution helper returns await_ops_result after materialization')
+  assert(outcome.ops_tasks?.length === 1, 'ops execution helper exposes one pending task')
+
+  const pendingTask = state.iterations[0].evidence?.ops_tasks?.[0]
+  assert(pendingTask?.status === 'pending', 'ops execution helper records pending ops task in authoritative state')
+  assert(
+    existsSync(join(process.cwd(), `.orchestrator/runs/${batchId}/ops_tasks/local-baseline/request.json`)),
+    'ops execution helper materializes canonical request.json'
+  )
+
+  const opsEvents = readEvents(batchId, { iterationId }).filter(event => event.event_type === 'ops_task')
+  assert(opsEvents.some(event => event.data.status === 'pending'),
+    'ops execution helper emits pending ops_task event')
+
+  cleanBatch(batchId)
+}
+
+// ── Test 4ae: Ops execution wiring pass -> review_exec ─
+
+async function test_execution_ops_task_ingest_transition() {
+  process.stderr.write('\n== Test 4ae: Ops execution wiring pass -> review_exec ==\n')
+
+  let executionOps = null
+  try {
+    executionOps = await import('./execution_ops.mjs')
+  } catch {
+    executionOps = null
+  }
+  const bridge = await import('./ops_bridge.mjs')
+
+  assert(typeof executionOps?.handleExecutionOpsTaskCycle === 'function',
+    'ops execution pass path uses handleExecutionOpsTaskCycle export')
+
+  if (typeof executionOps?.handleExecutionOpsTaskCycle !== 'function') {
+    return
+  }
+
+  const batchId = `test-ops-execpass-${randomUUID().slice(0, 8)}`
+  const iterationId = 'iter-ops-execpass'
+  cleanBatch(batchId)
+
+  const state = createState(batchId, 'ops execution pass test', ['ops execution pass'])
+  addIteration(state, {
+    id: iterationId,
+    type: 'primary',
+    title: 'Ops execution pass',
+    requirement: 'Pending ops result promotes iteration to REVIEW_EXEC',
+  })
+  transition(state, iterationId, 'EXECUTION')
+  updateIteration(state, iterationId, { status: 'active' })
+  state.current_iteration = iterationId
+  commitState(state)
+
+  const runlogPath = join(batchDir(batchId), 'ops-execution-pass-runlog.md')
+  writeFileSync(runlogPath, '# Ops execution pass runlog\n')
+
+  executionOps.handleExecutionOpsTaskCycle({
+    state,
+    iterationId,
+    execOutput: {
+      ops_tasks: [sampleExecOpsTask('local-pass', 'local_shell')],
+      browser_tasks: [],
+      spawned_iterations: [],
+    },
+    runlogPath,
+  })
+
+  const request = JSON.parse(readFileSync(
+    join(process.cwd(), `.orchestrator/runs/${batchId}/ops_tasks/local-pass/request.json`),
+    'utf8'
+  ))
+  writePassOpsResult(bridge, request)
+
+  const outcome = executionOps.handleExecutionOpsTaskCycle({
+    state,
+    iterationId,
+    runlogPath,
+  })
+
+  assert(outcome.handled === true, 'ops execution helper handles pending ops result')
+  assert(outcome.action === 'review_exec', 'ops execution helper advances pass result to REVIEW_EXEC')
+  assert(state.iterations[0].phase === 'REVIEW_EXEC', 'ops execution helper updates iteration phase to REVIEW_EXEC')
+  assert(state.iterations[0].review_round === 0, 'ops execution helper resets review_round for REVIEW_EXEC')
+  assert(state.iterations[0].consecutive_approvals === 0,
+    'ops execution helper resets consecutive approvals for REVIEW_EXEC')
+
+  const runlog = readFileSync(runlogPath, 'utf8')
+  assert(runlog.includes('### Ops Task Result'), 'ops execution helper appends ops task runlog entry on pass')
+  assert(runlog.includes('Result: PASS'), 'ops execution helper writes PASS outcome to runlog')
+
+  cleanBatch(batchId)
+}
+
+// ── Test 4af: Ops execution wiring fail -> stop ────────
+
+async function test_execution_ops_task_failure_stop() {
+  process.stderr.write('\n== Test 4af: Ops execution wiring fail -> stop ==\n')
+
+  let executionOps = null
+  try {
+    executionOps = await import('./execution_ops.mjs')
+  } catch {
+    executionOps = null
+  }
+  const bridge = await import('./ops_bridge.mjs')
+
+  assert(typeof executionOps?.handleExecutionOpsTaskCycle === 'function',
+    'ops execution fail path uses handleExecutionOpsTaskCycle export')
+
+  if (typeof executionOps?.handleExecutionOpsTaskCycle !== 'function') {
+    return
+  }
+
+  const batchId = `test-ops-execfail-${randomUUID().slice(0, 8)}`
+  const iterationId = 'iter-ops-execfail'
+  cleanBatch(batchId)
+
+  const state = createState(batchId, 'ops execution fail test', ['ops execution fail'])
+  addIteration(state, {
+    id: iterationId,
+    type: 'primary',
+    title: 'Ops execution fail',
+    requirement: 'Pending ops failure returns explicit stop action',
+  })
+  transition(state, iterationId, 'EXECUTION')
+  updateIteration(state, iterationId, { status: 'active' })
+  state.current_iteration = iterationId
+  commitState(state)
+
+  const runlogPath = join(batchDir(batchId), 'ops-execution-fail-runlog.md')
+  writeFileSync(runlogPath, '# Ops execution fail runlog\n')
+
+  executionOps.handleExecutionOpsTaskCycle({
+    state,
+    iterationId,
+    execOutput: {
+      ops_tasks: [sampleExecOpsTask('mock-stop', 'mock')],
+      browser_tasks: [],
+      spawned_iterations: [],
+    },
+    runlogPath,
+  })
+
+  const request = JSON.parse(readFileSync(
+    join(process.cwd(), `.orchestrator/runs/${batchId}/ops_tasks/mock-stop/request.json`),
+    'utf8'
+  ))
+  writePassOpsResult(bridge, request)
+
+  const outcome = executionOps.handleExecutionOpsTaskCycle({
+    state,
+    iterationId,
+    runlogPath,
+  })
+
+  assert(outcome.handled === true, 'ops execution helper handles pending failure result')
+  assert(outcome.action === 'ops_task_failed', 'ops execution helper returns explicit failure stop action')
+  assert(outcome.failure_kind === 'ops_bridge_not_proven',
+    'ops execution helper preserves failure kind for stop path')
+  assert(state.iterations[0].phase === 'EXECUTION', 'ops execution helper keeps phase at EXECUTION on failure')
+
+  const runlog = readFileSync(runlogPath, 'utf8')
+  assert(runlog.includes('Result: FAIL'), 'ops execution helper writes FAIL outcome to runlog')
+  assert(runlog.includes('Failure Kind: ops_bridge_not_proven'),
+    'ops execution helper writes failure kind to runlog')
+
+  cleanBatch(batchId)
+}
+
 function sampleExecBrowserTask(taskId, mode = 'mcp') {
   return {
     task_kind: 'browser_task',
@@ -2363,6 +2582,9 @@ async function main() {
   await test_execution_ops_task_handshake()
   await test_ops_task_ingest_audit_surface()
   await test_ops_task_ingest_failure_surface()
+  await test_execution_ops_task_materialize_and_wait()
+  await test_execution_ops_task_ingest_transition()
+  await test_execution_ops_task_failure_stop()
   await test_browser_task_ingest_audit_surface()
   await test_browser_task_ingest_failure_surface()
   await test_browser_task_resume_waiting_semantics()
