@@ -782,6 +782,8 @@ function test_ops_task_operator_docs_sync() {
     'ops README documents 0228 runtime as landed')
   assert(opsReadme.includes('0229/0230') && opsReadme.includes('只负责真实 shell smoke'),
     'ops README documents 0229/0230 as smoke-only downstream boundary')
+  assert(opsReadme.includes('尚未证明') || opsReadme.includes('not yet proven'),
+    'ops README states that real shell smoke is still not yet proven')
 
   assert(promptSource.includes('ops_tasks'), 'prompt source mentions ops_tasks')
   assert(promptSource.includes('stdout.log') && promptSource.includes('stderr.log'),
@@ -789,6 +791,47 @@ function test_ops_task_operator_docs_sync() {
   assert(promptSource.includes('forbidden_remote_op'), 'prompt source mentions forbidden_remote_op')
   assert(promptSource.includes('human_decision_required') || promptSource.includes('On Hold'),
     'prompt source mentions human_decision_required / On Hold boundary')
+}
+
+function test_ops_task_final_boundary_docs() {
+  process.stderr.write('\n== Test 1k: Ops task final boundary docs ==\n')
+
+  const ssotPath = join(process.cwd(), 'docs', 'ssot', 'orchestrator_hard_rules.md')
+  const runbookPath = join(process.cwd(), 'docs', 'user-guide', 'orchestrator_local_smoke.md')
+  const opsReadmePath = join(process.cwd(), 'scripts', 'ops', 'README.md')
+
+  const ssot = readFileSync(ssotPath, 'utf-8')
+  const runbook = readFileSync(runbookPath, 'utf-8')
+  const opsReadme = readFileSync(opsReadmePath, 'utf-8')
+
+  assert(ssot.includes('尚未证明') || ssot.includes('not yet proven'),
+    'SSOT states what 0228 still has not yet proven')
+  assert(runbook.includes('尚未证明') || runbook.includes('not yet proven'),
+    'runbook states what 0228 still has not yet proven')
+  assert(opsReadme.includes('尚未证明') || opsReadme.includes('not yet proven'),
+    'ops README states what 0228 still has not yet proven')
+}
+
+function test_ops_task_runlog_template_sync() {
+  process.stderr.write('\n== Test 1l: Ops task runlog template sync ==\n')
+
+  const runlogPath = join(
+    process.cwd(),
+    'docs',
+    'iterations',
+    '0228-orchestrator-ops-phase-and-regression',
+    'runlog.md'
+  )
+  const runlog = readFileSync(runlogPath, 'utf-8')
+
+  assert(runlog.includes('Phase 3 Ops Task Evidence Template'),
+    '0228 runlog includes Phase 3 ops task evidence template heading')
+  assert(runlog.includes('Request File:') && runlog.includes('Result File:'),
+    '0228 runlog template includes request/result placeholders')
+  assert(runlog.includes('Stdout File:') && runlog.includes('Stderr File:'),
+    '0228 runlog template includes stdout/stderr placeholders')
+  assert(runlog.includes('Artifact:') && runlog.includes('Result: PASS|FAIL'),
+    '0228 runlog template includes artifact and PASS|FAIL placeholders')
 }
 
 // ── Test 2: Events + orphan detection ───────────────────
@@ -2973,6 +3016,8 @@ async function main() {
   test_docs_sync_for_escalation_rules()
   test_ops_task_ssot_contract_freeze()
   test_ops_task_operator_docs_sync()
+  test_ops_task_final_boundary_docs()
+  test_ops_task_runlog_template_sync()
   await test_events()
   await test_completion_payload_and_notify_summary()
   test_scheduler()

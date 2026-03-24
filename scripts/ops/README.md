@@ -27,6 +27,7 @@
 当前边界：
 - 0228 runtime 已接线：orchestrator 当前会把 `ops_task` authoritative ingest 到 `state.json` / `events.jsonl` / `status.txt` / `runlog.md`
 - 0229/0230 只负责真实 shell smoke，不再补 phase contract
+- 真实 shell smoke 仍尚未证明；当前 README 只说明已落地的 phase/runtime 能力边界，不把 0229/0230 的 smoke 结论提前写成已完成
 
 canonical command families：
 - local readonly baseline / readiness：
