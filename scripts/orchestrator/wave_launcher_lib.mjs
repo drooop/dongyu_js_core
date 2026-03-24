@@ -104,11 +104,36 @@ export function classifyWaveBatchOutcome(state, iterationId) {
     return { action: 'stop', reason: 'missing_iteration_in_batch' }
   }
 
-  if (iter.status === 'completed' && state.final_verification === 'passed') {
+  const batchSummary = state.batch_summary
+  if (!batchSummary || typeof batchSummary !== 'object') {
+    return { action: 'stop', reason: 'missing_batch_summary' }
+  }
+
+  const authoritativeFinalVerification = batchSummary.final_verification || null
+  if (
+    authoritativeFinalVerification &&
+    state.final_verification &&
+    authoritativeFinalVerification !== state.final_verification
+  ) {
+    return {
+      action: 'stop',
+      reason: `final_verification_summary_drift:${state.final_verification}:${authoritativeFinalVerification}`,
+    }
+  }
+
+  if (
+    iter.status === 'completed' &&
+    batchSummary.lifecycle === 'completed' &&
+    batchSummary.terminal_outcome === 'passed'
+  ) {
     return { action: 'continue', reason: 'completed_and_verified' }
   }
 
-  if (iter.status === 'completed' && state.final_verification === 'failed') {
+  if (
+    iter.status === 'completed' &&
+    batchSummary.lifecycle === 'completed' &&
+    batchSummary.terminal_outcome === 'failed'
+  ) {
     return { action: 'stop', reason: 'final_verification_failed' }
   }
 
@@ -116,13 +141,13 @@ export function classifyWaveBatchOutcome(state, iterationId) {
     return { action: 'stop', reason: 'iteration_on_hold' }
   }
 
-  if (state.batch_summary?.lifecycle === 'stalled') {
-    return { action: 'stop', reason: `batch_stalled:${state.batch_summary?.terminal_outcome || 'unknown'}` }
+  if (batchSummary.lifecycle === 'stalled') {
+    return { action: 'stop', reason: `batch_stalled:${batchSummary.terminal_outcome || 'unknown'}` }
   }
 
   return {
     action: 'stop',
-    reason: `unexpected_terminal_state:${iter.status}:${state.final_verification || 'pending'}`,
+    reason: `unexpected_terminal_state:${iter.status}:${batchSummary.lifecycle}:${batchSummary.terminal_outcome || authoritativeFinalVerification || 'pending'}`,
   }
 }
 

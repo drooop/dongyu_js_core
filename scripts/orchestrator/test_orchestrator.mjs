@@ -2962,6 +2962,34 @@ function test_manual_final_verification_accept_rejects_non_terminal_batch() {
   cleanBatch(batchId)
 }
 
+function test_load_state_preserves_authoritative_terminal_summary_drift() {
+  process.stderr.write('\n== Test 8e: loadState preserves authoritative terminal summary drift ==\n')
+
+  const batchId = `test-${randomUUID().slice(0, 8)}`
+  const state = createState(batchId, 'test', ['goal'])
+  addIteration(state, { id: 'iter-drift', type: 'primary', title: 'Drift', requirement: 'R' })
+  state.iterations[0].status = 'completed'
+  state.iterations[0].phase = 'COMPLETE'
+  state.current_iteration = null
+  state.final_verification = 'failed'
+  commitState(state)
+
+  const stateFile = join(batchDir(batchId), 'state.json')
+  const drifted = JSON.parse(readFileSync(stateFile, 'utf-8'))
+  drifted.final_verification = 'passed'
+  writeFileSync(stateFile, JSON.stringify(drifted, null, 2))
+
+  const loaded = loadState(batchId)
+  assert(loaded.final_verification === 'passed',
+    'loadState preserves top-level final_verification from disk')
+  assert(loaded.batch_summary?.final_verification === 'failed',
+    'loadState preserves authoritative batch_summary final_verification from disk')
+  assert(loaded.batch_summary?.terminal_outcome === 'failed',
+    'loadState preserves authoritative batch_summary terminal_outcome from disk')
+
+  cleanBatch(batchId)
+}
+
 // ── Test 9: Auto-Approval consecutive count ─────────────
 
 function test_auto_approval_logic() {
@@ -3082,6 +3110,19 @@ async function test_wave_launcher_contract() {
   }, '0210-a')
   assert(failedOutcome.action === 'stop', 'failed final verification stops wave')
 
+  const driftOutcome = classifyWaveBatchOutcome({
+    final_verification: 'passed',
+    batch_summary: {
+      lifecycle: 'completed',
+      terminal_outcome: 'failed',
+      final_verification: 'failed',
+    },
+    iterations: [{ id: '0210-a', status: 'completed' }],
+  }, '0210-a')
+  assert(driftOutcome.action === 'stop', 'top-level and batch_summary drift stops wave')
+  assert(driftOutcome.reason === 'final_verification_summary_drift:passed:failed',
+    'wave launcher exposes explicit final_verification drift reason')
+
   const onHoldOutcome = classifyWaveBatchOutcome({
     final_verification: 'pending',
     batch_summary: { lifecycle: 'stalled', terminal_outcome: 'on_hold' },
@@ -3170,6 +3211,7 @@ async function main() {
   test_terminal_closure_contract()
   test_manual_final_verification_accept_cli()
   test_manual_final_verification_accept_rejects_non_terminal_batch()
+  test_load_state_preserves_authoritative_terminal_summary_drift()
   test_auto_approval_logic()
   test_major_revision_limit()
   await test_wave_launcher_contract()
