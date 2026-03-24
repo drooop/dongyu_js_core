@@ -717,6 +717,40 @@ function test_docs_sync_for_escalation_rules() {
     'wave prompt mentions MCP unavailable stop rule')
 }
 
+function test_manual_accept_docs_contract_sync() {
+  process.stderr.write('\n== Test 1ha: Manual accept docs contract sync ==\n')
+
+  const ssotPath = join(process.cwd(), 'docs', 'ssot', 'orchestrator_hard_rules.md')
+  const runbookPath = join(process.cwd(), 'docs', 'user-guide', 'orchestrator_local_smoke.md')
+
+  const ssot = readFileSync(ssotPath, 'utf-8')
+  const runbook = readFileSync(runbookPath, 'utf-8')
+
+  assert(ssot.includes('--accept-final-verification'), 'SSOT documents manual accept CLI entry')
+  assert(ssot.includes('--resume is not a manual accept path'),
+    'SSOT states that --resume is not a manual accept path')
+  assert(ssot.includes('do not edit state.json by hand'),
+    'SSOT states do not edit state.json by hand')
+  assert(ssot.includes('override evidence'), 'SSOT documents append-only override evidence')
+  assert(ssot.includes('manual_final_verification_accept'),
+    'SSOT documents manual_final_verification_accept override kind')
+  assert(ssot.includes('previous_terminal_outcome') && ssot.includes('new_terminal_outcome'),
+    'SSOT documents manual accept override payload fields')
+  assert(ssot.includes('terminal consumer') && ssot.includes('batch_summary'),
+    'SSOT states terminal consumer must prioritize batch_summary')
+
+  assert(runbook.includes('--accept-final-verification'), 'runbook documents manual accept CLI entry')
+  assert(runbook.includes('--resume is not a manual accept path'),
+    'runbook states that --resume is not a manual accept path')
+  assert(runbook.includes('do not edit state.json by hand'),
+    'runbook states do not edit state.json by hand')
+  assert(runbook.includes('override evidence'), 'runbook documents append-only override evidence')
+  assert(runbook.includes('manual_final_verification_accept'),
+    'runbook documents manual_final_verification_accept override kind')
+  assert(runbook.includes('state.json') && runbook.includes('status.txt') && runbook.includes('events.jsonl'),
+    'runbook documents post-accept verification targets')
+}
+
 function test_ops_task_ssot_contract_freeze() {
   process.stderr.write('\n== Test 1i: Ops task SSOT contract freeze ==\n')
 
@@ -3180,6 +3214,7 @@ async function main() {
   await test_failure_matrix_and_oscillation_rules()
   await test_resume_history_and_prompt_escalation_wiring()
   test_docs_sync_for_escalation_rules()
+  test_manual_accept_docs_contract_sync()
   test_ops_task_ssot_contract_freeze()
   test_ops_task_operator_docs_sync()
   test_ops_task_final_boundary_docs()
