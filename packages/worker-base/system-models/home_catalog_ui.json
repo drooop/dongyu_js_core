@@ -40,18 +40,18 @@
             },
             "children": [
               {
-                "id": "txt_home_target",
+                "id": "txt_home_surface",
                 "type": "Text",
                 "props": {
                   "type": "info",
-                  "text": "target: home-datatable"
+                  "text": "surface: root_home"
                 }
               },
               {
-                "id": "card_home_datatable",
+                "id": "card_home_catalog",
                 "type": "Card",
                 "props": {
-                  "title": "DataTable"
+                  "title": "Home Catalog"
                 },
                 "children": [
                   {
