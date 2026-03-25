@@ -77,7 +77,7 @@ for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective 
 
 REMOTE_OPS_SAFETY
 
-target server: 124.71.43.80 (dy-cloud), cluster type: rke2 (NOT k3s).
+target server: dongyudigital.com (dy-cloud), cluster type: rke2 (NOT k3s).
 
 absolute prohibitions (no exception, no user override):
 - NEVER start/stop/restart k3s. k3s conflicts with rke2 on port 10010 and will crash the cluster.
