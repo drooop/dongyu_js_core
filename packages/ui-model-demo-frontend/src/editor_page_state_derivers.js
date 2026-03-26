@@ -37,6 +37,31 @@ function isFilteredClientLabel(key, type) {
     || normalizedType === 'matrix.passwd';
 }
 
+function isHomeInternalTableLabel(key, type) {
+  const normalizedKey = typeof key === 'string' ? key.trim() : '';
+  const normalizedType = typeof type === 'string' ? type.trim() : '';
+  if (!normalizedKey && !normalizedType) return false;
+  if (normalizedKey.startsWith('__error_')) return true;
+  if (normalizedKey === 'home_owner_request' || normalizedKey === 'home_owner_route') return true;
+  return normalizedType === 'func.js'
+    || normalizedType === 'func.python'
+    || normalizedType === 'pin.connect.label'
+    || normalizedType === 'pin.connect.cell'
+    || normalizedType === 'pin.connect.model'
+    || normalizedType === 'pin.in'
+    || normalizedType === 'pin.out'
+    || normalizedType === 'pin.bus.in'
+    || normalizedType === 'pin.bus.out'
+    || normalizedType === 'pin.table.in'
+    || normalizedType === 'pin.table.out'
+    || normalizedType === 'pin.single.in'
+    || normalizedType === 'pin.single.out'
+    || normalizedType === 'submt'
+    || normalizedType === 'model.single'
+    || normalizedType === 'model.matrix'
+    || normalizedType === 'model.table';
+}
+
 function normalizeAssetJson(rawValue) {
   if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
     return rawValue;
@@ -264,6 +289,7 @@ export function deriveHomeTableRows(snapshot, editorStateModelId) {
     for (const [k, lv] of Object.entries(labels)) {
       const t = lv && lv.t ? String(lv.t) : '';
       if (isFilteredClientLabel(k, t)) continue;
+      if (isHomeInternalTableLabel(k, t)) continue;
       const vRaw = lv && Object.prototype.hasOwnProperty.call(lv, 'v') ? lv.v : undefined;
       const vText = stringifyOneLine(vRaw);
       if (tableFilterKtv) {
