@@ -451,6 +451,121 @@ class ModelTableRuntime {
     return 'table';
   }
 
+  _getDeclaredFormAtCell(model, p, r, c) {
+    if (!model || !this._validateCell(p, r, c)) return null;
+    const key = model.cellKey(p, r, c);
+    const cell = model.cells.get(key);
+    if (!cell || !cell.labels) return null;
+    for (const [, lbl] of cell.labels) {
+      const t = this._resolveLabelType(lbl.t);
+      if (t === 'model.single' || t === 'model.table' || t === 'model.matrix' || t === 'model.submt') {
+        return t;
+      }
+    }
+    return null;
+  }
+
+  _readScopedIntLabel(model, p, r, c, key) {
+    if (!model || !this._validateCell(p, r, c) || typeof key !== 'string') return null;
+    const cellKey = model.cellKey(p, r, c);
+    const cell = model.cells.get(cellKey);
+    if (!cell || !cell.labels) return null;
+    const label = cell.labels.get(key);
+    if (!label) return null;
+    const raw = label.v;
+    if (Number.isInteger(raw)) return raw;
+    if (typeof raw === 'string' && /^-?\d+$/.test(raw.trim())) {
+      const parsed = Number(raw.trim());
+      return Number.isInteger(parsed) ? parsed : null;
+    }
+    return null;
+  }
+
+  _getMatrixScopeBounds(model, p, r, c) {
+    const min_p = this._readScopedIntLabel(model, p, r, c, 'scope_min_p');
+    const max_p = this._readScopedIntLabel(model, p, r, c, 'scope_max_p');
+    const min_r = this._readScopedIntLabel(model, p, r, c, 'scope_min_r');
+    const max_r = this._readScopedIntLabel(model, p, r, c, 'scope_max_r');
+    const min_c = this._readScopedIntLabel(model, p, r, c, 'scope_min_c');
+    const max_c = this._readScopedIntLabel(model, p, r, c, 'scope_max_c');
+    if (![min_p, max_p, min_r, max_r, min_c, max_c].every(Number.isInteger)) return null;
+    return { min_p, max_p, min_r, max_r, min_c, max_c };
+  }
+
+  _cellHasExplicitScopedPrivilege(model, p, r, c) {
+    if (!model || !this._validateCell(p, r, c)) return false;
+    const key = model.cellKey(p, r, c);
+    const cell = model.cells.get(key);
+    if (!cell || !cell.labels) return false;
+    const label = cell.labels.get('scope_privileged');
+    return Boolean(label && label.v === true);
+  }
+
+  _getScopedPrivilegeMode(model, p, r, c) {
+    if (!model || !this._validateCell(p, r, c)) return null;
+    const declaredAtCell = this._getDeclaredFormAtCell(model, p, r, c);
+    const rootDeclared = this._getDeclaredFormAtCell(model, 0, 0, 0);
+    const isRoot = p === 0 && r === 0 && c === 0;
+
+    if (isRoot) {
+      if (rootDeclared === 'model.table') return 'table';
+      if (rootDeclared === 'model.matrix') return 'matrix';
+    }
+
+    if (!this._cellHasExplicitScopedPrivilege(model, p, r, c)) return null;
+
+    if (declaredAtCell === 'model.matrix') return 'matrix';
+    if (rootDeclared === 'model.matrix') return 'matrix';
+    if (rootDeclared === 'model.table') return 'table';
+    return null;
+  }
+
+  _isWithinMatrixScope(bounds, p, r, c) {
+    if (!bounds) return false;
+    return p >= bounds.min_p && p <= bounds.max_p
+      && r >= bounds.min_r && r <= bounds.max_r
+      && c >= bounds.min_c && c <= bounds.max_c;
+  }
+
+  _assertScopedDirectAccess(sourceModel, p, r, c, ref) {
+    if (!sourceModel || !ref || !Number.isInteger(ref.model_id)) {
+      throw new Error('direct_access_invalid_target');
+    }
+    const tp = Number.isInteger(ref.p) ? ref.p : 0;
+    const tr = Number.isInteger(ref.r) ? ref.r : 0;
+    const tc = Number.isInteger(ref.c) ? ref.c : 0;
+
+    if (ref.model_id !== sourceModel.id) {
+      throw new Error('direct_access_cross_model_forbidden');
+    }
+
+    if (tp === p && tr === r && tc === c) {
+      return;
+    }
+
+    const mode = this._getScopedPrivilegeMode(sourceModel, p, r, c);
+    if (!mode) {
+      throw new Error('direct_access_privilege_required');
+    }
+
+    if (mode === 'table') {
+      return;
+    }
+
+    if (mode === 'matrix') {
+      const bounds = this._getMatrixScopeBounds(sourceModel, p, r, c);
+      if (!bounds) {
+        throw new Error('direct_access_matrix_scope_missing');
+      }
+      if (!this._isWithinMatrixScope(bounds, tp, tr, tc)) {
+        throw new Error('direct_access_out_of_matrix_scope');
+      }
+      return;
+    }
+
+    throw new Error('direct_access_privilege_required');
+  }
+
   _modelInputLabelType(model) {
     return this._getModelForm(model) === 'single' ? 'pin.single.in' : 'pin.table.in';
   }
@@ -1418,6 +1533,7 @@ class ModelTableRuntime {
       runtime,
       getLabel(ref) {
         if (!ref || !Number.isInteger(ref.model_id)) return undefined;
+        runtime._assertScopedDirectAccess(model, p, r, c, ref);
         const m = runtime.getModel(ref.model_id);
         if (!m) return undefined;
         const cl = runtime.getCell(m, ref.p || 0, ref.r || 0, ref.c || 0);
@@ -1427,12 +1543,14 @@ class ModelTableRuntime {
       },
       writeLabel(ref, t, v) {
         if (!ref || !Number.isInteger(ref.model_id)) return;
+        runtime._assertScopedDirectAccess(model, p, r, c, ref);
         const m = runtime.getModel(ref.model_id);
         if (!m) return;
         runtime.addLabel(m, ref.p || 0, ref.r || 0, ref.c || 0, { k: ref.k, t, v });
       },
       rmLabel(ref) {
         if (!ref || !Number.isInteger(ref.model_id)) return;
+        runtime._assertScopedDirectAccess(model, p, r, c, ref);
         const m = runtime.getModel(ref.model_id);
         if (!m) return;
         runtime.rmLabel(m, ref.p || 0, ref.r || 0, ref.c || 0, ref.k);
