@@ -1292,6 +1292,102 @@ function setMailboxEnvelope(runtime, envelopeOrNull) {
   runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v: envelopeOrNull });
 }
 
+const HOME_PIN_ACTIONS = new Set([
+  'home_refresh',
+  'home_select_row',
+  'home_open_create',
+  'home_open_edit',
+  'home_save_label',
+  'home_delete_label',
+  'home_view_detail',
+  'home_close_detail',
+  'home_close_edit',
+]);
+const HOME_OWNER_REQUEST_PIN = 'home_owner_request';
+const HOME_OWNER_ROUTE_LABEL = 'home_owner_route';
+const HOME_OWNER_FUNC = 'home_owner_materialize';
+const HOME_PIN_ERROR_LABEL = 'home_pin_error';
+
+function homeOwnerMaterializeCode(modelId) {
+  return [
+    `const SELF_MODEL_ID = ${JSON.stringify(modelId)};`,
+    "const req = label && label.v && typeof label.v === 'object' ? label.v : null;",
+    "if (!req) throw new Error('invalid_request_shape');",
+    "if (req.target_model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
+    "if (req.op === 'set_labels') {",
+    "  const labels = Array.isArray(req.labels) ? req.labels : [];",
+    "  for (const item of labels) {",
+    "    if (!item || typeof item.k !== 'string' || !item.k) throw new Error('invalid_request_shape');",
+    "    ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(item.p) ? item.p : 0, r: Number.isInteger(item.r) ? item.r : 0, c: Number.isInteger(item.c) ? item.c : 0, k: item.k }, typeof item.t === 'string' && item.t ? item.t : 'str', item.v);",
+    "  }",
+    "  return;",
+    "}",
+    "if (req.op === 'add_label') {",
+    "  const target = req.target_cell || {};",
+    "  const lv = req.label || {};",
+    "  if (typeof lv.k !== 'string' || !lv.k || typeof lv.t !== 'string' || !lv.t) throw new Error('invalid_request_shape');",
+    "  ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(target.p) ? target.p : 0, r: Number.isInteger(target.r) ? target.r : 0, c: Number.isInteger(target.c) ? target.c : 0, k: lv.k }, lv.t, lv.v);",
+    "  return;",
+    "}",
+    "if (req.op === 'rm_label') {",
+    "  const target = req.target_cell || {};",
+    "  const lv = req.label || {};",
+    "  if (typeof lv.k !== 'string' || !lv.k) throw new Error('invalid_request_shape');",
+    "  ctx.rmLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(target.p) ? target.p : 0, r: Number.isInteger(target.r) ? target.r : 0, c: Number.isInteger(target.c) ? target.c : 0, k: lv.k });",
+    "  return;",
+    "}",
+    "throw new Error('unsupported_op');",
+  ].join('\n');
+}
+
+function ensureHomeOwnerMaterializer(runtime, modelId) {
+  const model = runtime.getModel(modelId);
+  if (!model) return false;
+  const cell = runtime.getCell(model, 0, 0, 0);
+  const pinType = typeof runtime._modelInputLabelType === 'function'
+    ? runtime._modelInputLabelType(model)
+    : 'pin.table.in';
+  if (!cell.labels.has(HOME_OWNER_REQUEST_PIN)) {
+    runtime.addLabel(model, 0, 0, 0, { k: HOME_OWNER_REQUEST_PIN, t: pinType, v: null });
+  }
+  if (!cell.labels.has(HOME_OWNER_ROUTE_LABEL)) {
+    runtime.addLabel(model, 0, 0, 0, {
+      k: HOME_OWNER_ROUTE_LABEL,
+      t: 'pin.connect.label',
+      v: [{ from: `(self, ${HOME_OWNER_REQUEST_PIN})`, to: [`(func, ${HOME_OWNER_FUNC}:in)`] }],
+    });
+  }
+  if (!cell.labels.has(HOME_OWNER_FUNC)) {
+    runtime.addLabel(model, 0, 0, 0, {
+      k: HOME_OWNER_FUNC,
+      t: 'func.js',
+      v: { code: homeOwnerMaterializeCode(modelId), modelName: 'home_owner_materialize' },
+    });
+  }
+  return true;
+}
+
+function buildHomeSourceOutPin(targetModelId) {
+  return `home_owner_req_${String(targetModelId)}`;
+}
+
+function ensureHomeOwnerRoute(runtime, targetModelId) {
+  const model0 = runtime.getModel(0);
+  if (!model0) return false;
+  const sourcePin = buildHomeSourceOutPin(targetModelId);
+  const routeKey = `${-10}|${sourcePin}`;
+  const existing = runtime.modelConnectionRoutes.get(routeKey) || [];
+  if (existing.some((target) => target && target.model_id === targetModelId && target.k === HOME_OWNER_REQUEST_PIN)) {
+    return true;
+  }
+  runtime.addLabel(model0, 0, 0, 0, {
+    k: `${HOME_OWNER_ROUTE_LABEL}_${sourcePin}`,
+    t: 'pin.connect.model',
+    v: [{ from: [-10, sourcePin], to: [[targetModelId, HOME_OWNER_REQUEST_PIN]] }],
+  });
+  return true;
+}
+
 function buildSafeSnapshotJson(runtime) {
   const snap = runtime.snapshot();
   const safeModels = {};
@@ -3494,15 +3590,15 @@ function createServerState(options) {
       });
     }
 
-    setMailboxEnvelope(runtime, envelopeOrNull);
+    setMailboxEnvelope(runtime, HOME_PIN_ACTIONS.has(action) ? null : envelopeOrNull);
 
-    const finishOk = async () => {
+    const finishOk = async (extra = {}) => {
       runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
       runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
       runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
       updateDerived();
       await programEngine.tick();
-      return { consumed: true, result: 'ok' };
+      return { consumed: true, result: 'ok', ...extra };
     };
 
     const finishError = async (code, detail) => {
@@ -3517,10 +3613,299 @@ function createServerState(options) {
       return { consumed: true, result: 'error', code, detail };
     };
 
+    const readCellLabel = (modelId, p, r, c, k) => {
+      const model = runtime.getModel(modelId);
+      if (!model) return null;
+      const cell = runtime.getCell(model, p, r, c);
+      return cell.labels.get(k) || null;
+    };
+
+    const readStateValue = (key) => {
+      const label = readCellLabel(EDITOR_STATE_MODEL_ID, 0, 0, 0, key);
+      return label ? label.v : null;
+    };
+
+    const inferLabelType = (label) => {
+      if (!label) return 'str';
+      const value = label.v;
+      if (label.t === 'json' || (value !== null && typeof value === 'object')) return 'json';
+      if (typeof value === 'boolean') return 'bool';
+      if (Number.isInteger(value)) return 'int';
+      return typeof label.t === 'string' && label.t ? label.t : 'str';
+    };
+
+    const stringifyLabelValue = (typeName, value) => {
+      if (typeName === 'json') {
+        try {
+          return JSON.stringify(value, null, 2);
+        } catch (_) {
+          return String(value);
+        }
+      }
+      return value == null ? '' : String(value);
+    };
+
+    const buildHomeRequestOrigin = (sourceAction) => ({
+      model_id: -10,
+      cell: { p: 0, r: 0, c: 0 },
+      action: typeof sourceAction === 'string' && sourceAction ? sourceAction : action,
+    });
+
+    const buildStateSetRequest = (labels, sourceAction = action) => ({
+      op: 'set_labels',
+      target_model_id: EDITOR_STATE_MODEL_ID,
+      labels,
+      origin: buildHomeRequestOrigin(sourceAction),
+      request_id: opId || `home_req_${Date.now()}`,
+      ts: Date.now(),
+    });
+
+    const sendHomeOwnerRequestsViaSourcePin = async (requests) => {
+      const sysModel = runtime.getModel(-10);
+      if (!sysModel) return { ok: false, code: 'invalid_target', detail: 'missing_system_model' };
+      const normalized = Array.isArray(requests) ? requests : [];
+      if (normalized.length === 0) return { ok: true };
+      runtime.addLabel(sysModel, 0, 0, 0, { k: HOME_PIN_ERROR_LABEL, t: 'json', v: null });
+      for (const request of normalized) {
+        const targetModelId = Number.isInteger(request?.target_model_id) ? request.target_model_id : null;
+        if (!Number.isInteger(targetModelId)) {
+          return { ok: false, code: 'invalid_target', detail: 'missing_model_id' };
+        }
+        const targetModel = runtime.getModel(targetModelId);
+        if (!targetModel) return { ok: false, code: 'invalid_target', detail: 'missing_model' };
+        if (!ensureHomeOwnerMaterializer(runtime, targetModelId)) {
+          return { ok: false, code: 'target_owner_missing', detail: String(targetModelId) };
+        }
+        if (!ensureHomeOwnerRoute(runtime, targetModelId)) {
+          return { ok: false, code: 'route_missing', detail: String(targetModelId) };
+        }
+        runtime.rmLabel(targetModel, 0, 0, 0, `__error_${HOME_OWNER_FUNC}`);
+      }
+      runtime.addLabel(sysModel, 0, 0, 0, {
+        k: action,
+        t: 'pin.table.in',
+        v: {
+          requests: normalized.map((request) => ({
+            out_pin: buildHomeSourceOutPin(request.target_model_id),
+            body: request,
+          })),
+        },
+      });
+      await sleepMs(25);
+      await programEngine.tick();
+      const sourceErr = runtime.getLabelValue(sysModel, 0, 0, 0, HOME_PIN_ERROR_LABEL);
+      if (sourceErr && typeof sourceErr === 'object') {
+        return {
+          ok: false,
+          code: typeof sourceErr.code === 'string' ? sourceErr.code : 'source_pin_error',
+          detail: typeof sourceErr.detail === 'string' ? sourceErr.detail : 'unknown',
+        };
+      }
+      for (const request of normalized) {
+        const targetModel = runtime.getModel(request.target_model_id);
+        const errValue = runtime.getLabelValue(targetModel, 0, 0, 0, `__error_${HOME_OWNER_FUNC}`);
+        if (errValue && typeof errValue === 'object') {
+          return {
+            ok: false,
+            code: 'target_materialization_failed',
+            detail: typeof errValue.error === 'string' ? errValue.error : 'unknown',
+          };
+        }
+      }
+      return { ok: true };
+    };
+
+    const executeHomePinAction = async () => {
+      const target = payload && payload.target && typeof payload.target === 'object' ? payload.target : {};
+      const targetModelId = Number.isInteger(target.model_id) ? target.model_id : null;
+      const p = Number.isInteger(target.p) ? target.p : 0;
+      const r = Number.isInteger(target.r) ? target.r : 0;
+      const c = Number.isInteger(target.c) ? target.c : 0;
+      const key = typeof target.k === 'string' ? target.k : '';
+      const selectedModelId = Number.parseInt(String(readStateValue('selected_model_id') || ''), 10);
+
+      if (action === 'home_refresh') {
+        const sent = await sendHomeOwnerRequestsViaSourcePin([
+          buildStateSetRequest([{ p: 0, r: 0, c: 0, k: 'home_status_text', t: 'str', v: 'refreshed' }]),
+        ]);
+        return sent.ok ? finishOk({ routed_by: 'pin' }) : finishError(sent.code, sent.detail);
+      }
+
+      if (action === 'home_open_create') {
+        if (!(Number.isInteger(selectedModelId) && selectedModelId > 0)) {
+          return finishError('invalid_target', 'positive_model_required');
+        }
+        const sent = await sendHomeOwnerRequestsViaSourcePin([
+          buildStateSetRequest([
+            { p: 0, r: 0, c: 0, k: 'home_form_mode', t: 'str', v: 'create' },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_model_id', t: 'str', v: String(selectedModelId) },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_p', t: 'str', v: '0' },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_r', t: 'str', v: '0' },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_c', t: 'str', v: '0' },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_k', t: 'str', v: '' },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_t', t: 'str', v: 'str' },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_v_text', t: 'str', v: '' },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_v_int', t: 'int', v: 0 },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_v_bool', t: 'bool', v: false },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_open', t: 'bool', v: true },
+            { p: 0, r: 0, c: 0, k: 'home_status_text', t: 'str', v: `create label on model ${selectedModelId}` },
+          ]),
+        ]);
+        return sent.ok ? finishOk({ routed_by: 'pin' }) : finishError(sent.code, sent.detail);
+      }
+
+      if (action === 'home_close_edit') {
+        const sent = await sendHomeOwnerRequestsViaSourcePin([
+          buildStateSetRequest([
+            { p: 0, r: 0, c: 0, k: 'dt_edit_open', t: 'bool', v: false },
+            { p: 0, r: 0, c: 0, k: 'home_form_mode', t: 'str', v: 'edit' },
+            { p: 0, r: 0, c: 0, k: 'home_status_text', t: 'str', v: 'edit closed' },
+          ]),
+        ]);
+        return sent.ok ? finishOk({ routed_by: 'pin' }) : finishError(sent.code, sent.detail);
+      }
+
+      if (action === 'home_close_detail') {
+        const sent = await sendHomeOwnerRequestsViaSourcePin([
+          buildStateSetRequest([
+            { p: 0, r: 0, c: 0, k: 'dt_detail_open', t: 'bool', v: false },
+            { p: 0, r: 0, c: 0, k: 'dt_detail_title', t: 'str', v: '' },
+            { p: 0, r: 0, c: 0, k: 'dt_detail_text', t: 'str', v: '' },
+          ]),
+        ]);
+        return sent.ok ? finishOk({ routed_by: 'pin' }) : finishError(sent.code, sent.detail);
+      }
+
+      if (action === 'home_save_label') {
+        const modelId = Number.parseInt(String(readStateValue('dt_edit_model_id') || ''), 10);
+        const dp = Number.parseInt(String(readStateValue('dt_edit_p') || ''), 10);
+        const dr = Number.parseInt(String(readStateValue('dt_edit_r') || ''), 10);
+        const dc = Number.parseInt(String(readStateValue('dt_edit_c') || ''), 10);
+        const dk = String(readStateValue('dt_edit_k') || '').trim();
+        let dt = String(readStateValue('dt_edit_t') || 'str').trim() || 'str';
+        if (!(Number.isInteger(modelId) && modelId > 0 && Number.isInteger(dp) && Number.isInteger(dr) && Number.isInteger(dc) && dk)) {
+          return finishError('invalid_target', 'edit_state_invalid');
+        }
+        let value = null;
+        if (dt === 'int') {
+          const raw = readStateValue('dt_edit_v_int');
+          value = Number.isInteger(raw) ? raw : 0;
+        } else if (dt === 'bool') {
+          value = readStateValue('dt_edit_v_bool') === true;
+        } else if (dt === 'json') {
+          const raw = String(readStateValue('dt_edit_v_text') || '').trim();
+          if (!raw) return finishError('invalid_json', 'empty_json');
+          try {
+            value = JSON.parse(raw);
+          } catch (_) {
+            return finishError('invalid_json', 'parse_failed');
+          }
+        } else {
+          dt = 'str';
+          value = String(readStateValue('dt_edit_v_text') || '');
+        }
+        const sent = await sendHomeOwnerRequestsViaSourcePin([{
+          op: 'add_label',
+          target_model_id: modelId,
+          target_cell: { p: dp, r: dr, c: dc },
+          label: { k: dk, t: dt, v: value },
+          origin: buildHomeRequestOrigin(action),
+          request_id: opId || `home_save_${Date.now()}`,
+          ts: Date.now(),
+        }]);
+        if (!sent.ok) return finishError(sent.code, sent.detail);
+        const statusSent = await sendHomeOwnerRequestsViaSourcePin([
+          buildStateSetRequest([
+            { p: 0, r: 0, c: 0, k: 'selected_model_id', t: 'str', v: String(modelId) },
+            { p: 0, r: 0, c: 0, k: 'draft_p', t: 'str', v: String(dp) },
+            { p: 0, r: 0, c: 0, k: 'draft_r', t: 'str', v: String(dr) },
+            { p: 0, r: 0, c: 0, k: 'draft_c', t: 'str', v: String(dc) },
+            { p: 0, r: 0, c: 0, k: 'draft_k', t: 'str', v: dk },
+            { p: 0, r: 0, c: 0, k: 'draft_t', t: 'str', v: dt },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_open', t: 'bool', v: false },
+            { p: 0, r: 0, c: 0, k: 'home_form_mode', t: 'str', v: 'edit' },
+            { p: 0, r: 0, c: 0, k: 'home_status_text', t: 'str', v: `saved ${dk} on model ${modelId}` },
+          ]),
+        ]);
+        return statusSent.ok ? finishOk({ routed_by: 'pin' }) : finishError(statusSent.code, statusSent.detail);
+      }
+
+      if (!(Number.isInteger(targetModelId) && targetModelId > 0 && key)) {
+        return finishError('invalid_target', 'positive_row_required');
+      }
+
+      const currentLabel = readCellLabel(targetModelId, p, r, c, key);
+      const currentType = inferLabelType(currentLabel);
+      const currentValue = currentLabel ? currentLabel.v : null;
+
+      if (action === 'home_select_row' || action === 'home_open_edit') {
+        const labels = [
+          { p: 0, r: 0, c: 0, k: 'selected_model_id', t: 'str', v: String(targetModelId) },
+          { p: 0, r: 0, c: 0, k: 'draft_p', t: 'str', v: String(p) },
+          { p: 0, r: 0, c: 0, k: 'draft_r', t: 'str', v: String(r) },
+          { p: 0, r: 0, c: 0, k: 'draft_c', t: 'str', v: String(c) },
+          { p: 0, r: 0, c: 0, k: 'draft_k', t: 'str', v: key },
+          { p: 0, r: 0, c: 0, k: 'draft_t', t: 'str', v: currentType },
+          { p: 0, r: 0, c: 0, k: currentType === 'int' ? 'draft_v_int' : currentType === 'bool' ? 'draft_v_bool' : 'draft_v_text', t: currentType === 'int' ? 'int' : currentType === 'bool' ? 'bool' : 'str', v: currentType === 'int' ? (Number.isInteger(currentValue) ? currentValue : 0) : currentType === 'bool' ? (currentValue === true) : stringifyLabelValue(currentType, currentValue) },
+          { p: 0, r: 0, c: 0, k: 'home_status_text', t: 'str', v: `selected ${key} on model ${targetModelId}` },
+        ];
+        if (action === 'home_open_edit') {
+          labels.push(
+            { p: 0, r: 0, c: 0, k: 'home_form_mode', t: 'str', v: 'edit' },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_model_id', t: 'str', v: String(targetModelId) },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_p', t: 'str', v: String(p) },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_r', t: 'str', v: String(r) },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_c', t: 'str', v: String(c) },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_k', t: 'str', v: key },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_t', t: 'str', v: currentType },
+            { p: 0, r: 0, c: 0, k: currentType === 'int' ? 'dt_edit_v_int' : currentType === 'bool' ? 'dt_edit_v_bool' : 'dt_edit_v_text', t: currentType === 'int' ? 'int' : currentType === 'bool' ? 'bool' : 'str', v: currentType === 'int' ? (Number.isInteger(currentValue) ? currentValue : 0) : currentType === 'bool' ? (currentValue === true) : stringifyLabelValue(currentType, currentValue) },
+            { p: 0, r: 0, c: 0, k: 'dt_edit_open', t: 'bool', v: true },
+            { p: 0, r: 0, c: 0, k: 'home_status_text', t: 'str', v: `edit ${key} on model ${targetModelId}` },
+          );
+        }
+        const sent = await sendHomeOwnerRequestsViaSourcePin([buildStateSetRequest(labels)]);
+        return sent.ok ? finishOk({ routed_by: 'pin' }) : finishError(sent.code, sent.detail);
+      }
+
+      if (action === 'home_view_detail') {
+        const text = stringifyLabelValue(currentType, currentValue);
+        const sent = await sendHomeOwnerRequestsViaSourcePin([
+          buildStateSetRequest([
+            { p: 0, r: 0, c: 0, k: 'dt_detail_title', t: 'str', v: `model ${targetModelId} (${p},${r},${c}) ${key}` },
+            { p: 0, r: 0, c: 0, k: 'dt_detail_text', t: 'str', v: text },
+            { p: 0, r: 0, c: 0, k: 'dt_detail_open', t: 'bool', v: true },
+          ]),
+        ]);
+        return sent.ok ? finishOk({ routed_by: 'pin' }) : finishError(sent.code, sent.detail);
+      }
+
+      if (action === 'home_delete_label') {
+        const sent = await sendHomeOwnerRequestsViaSourcePin([{
+          op: 'rm_label',
+          target_model_id: targetModelId,
+          target_cell: { p, r, c },
+          label: { k: key },
+          origin: buildHomeRequestOrigin(action),
+          request_id: opId || `home_delete_${Date.now()}`,
+          ts: Date.now(),
+        }]);
+        if (!sent.ok) return finishError(sent.code, sent.detail);
+        const statusSent = await sendHomeOwnerRequestsViaSourcePin([
+          buildStateSetRequest([{ p: 0, r: 0, c: 0, k: 'home_status_text', t: 'str', v: `deleted ${key} on model ${targetModelId}` }]),
+        ]);
+        return statusSent.ok ? finishOk({ routed_by: 'pin' }) : finishError(statusSent.code, statusSent.detail);
+      }
+
+      return finishError('unknown_action', action);
+    };
+
     const businessTargetModelId = meta && Number.isInteger(meta.model_id) ? meta.model_id : null;
     const directMutationTarget = payload && payload.target && typeof payload.target === 'object' && Number.isInteger(payload.target.model_id)
       ? payload.target.model_id
       : null;
+    if (envelopeOrNull && HOME_PIN_ACTIONS.has(action)) {
+      return executeHomePinAction();
+    }
     const allowUiLocalMutation = isUiLocalMutableModelId(directMutationTarget);
     if (envelopeOrNull && isDirectModelMutationAction(action) && !(action !== 'submodel_create' && allowUiLocalMutation)) {
       return finishError('direct_model_mutation_disabled', action);
