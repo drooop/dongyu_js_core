@@ -94,6 +94,20 @@ function normalizeIntValue(value, fallback) {
   return Number.isInteger(parsed) ? parsed : fallback;
 }
 
+function shouldResetHomeSelectionFromEnvelope(envelope) {
+  const payload = envelope && typeof envelope === 'object' ? envelope.payload : null;
+  const target = payload && typeof payload === 'object' ? payload.target : null;
+  const value = payload && typeof payload === 'object' ? payload.value : null;
+  return payload && payload.action === 'label_update'
+    && target
+    && target.model_id === EDITOR_STATE_MODEL_ID
+    && target.p === 0
+    && target.r === 0
+    && target.c === 0
+    && target.k === 'ui_page'
+    && String(value && Object.prototype.hasOwnProperty.call(value, 'v') ? value.v : '').trim().toLowerCase() === 'home';
+}
+
 function deriveWorkspaceRegistry(runtime) {
   const derived = [];
   const seen = new Set();
@@ -192,7 +206,7 @@ export function createDemoStore() {
     applyUiPatch(runtime, promptCatalogPatch);
   }
 
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: '1' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: '0' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'home' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_p', t: 'str', v: '0' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_r', t: 'str', v: '0' });
@@ -273,6 +287,16 @@ export function createDemoStore() {
   const eventLog = [];
   const routeState = reactive({ path: '/' });
   const adapter = createLocalBusAdapter({ runtime, eventLog, mode: adapterMode, mailboxModelId: EDITOR_MODEL_ID, editorStateModelId: EDITOR_STATE_MODEL_ID });
+
+  function reconcileHomeSelectionState(force = false) {
+    const stateModelLive = runtime.getModel(EDITOR_STATE_MODEL_ID);
+    if (!stateModelLive) return;
+    const uiPage = String(runtime.getLabelValue(stateModelLive, 0, 0, 0, 'ui_page') ?? '').trim().toLowerCase();
+    if (uiPage !== 'home') return;
+    const selectedModelId = runtime.getLabelValue(stateModelLive, 0, 0, 0, 'selected_model_id');
+    if (!force && String(selectedModelId ?? '') === '0') return;
+    overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: '0' });
+  }
 
   function refreshSnapshot() {
     const next = runtime.snapshot();
@@ -370,13 +394,20 @@ export function createDemoStore() {
   }
 
   function consumeOnce() {
+    const mailboxModel = runtime.getModel(EDITOR_MODEL_ID);
+    const mailboxCell = runtime.getCell(mailboxModel, 0, 0, 1);
+    const pendingEnvelope = mailboxCell.labels.get('ui_event')?.v ?? null;
     const result = adapter.consumeOnce();
+    if (shouldResetHomeSelectionFromEnvelope(pendingEnvelope)) {
+      reconcileHomeSelectionState(true);
+    }
     updateDerived();
     refreshSnapshot();
     return result;
   }
 
   setMailboxValue(null);
+  reconcileHomeSelectionState(true);
   updateDerived();
   refreshSnapshot();
 
