@@ -140,7 +140,7 @@ sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-serv
 ```bash
 bash scripts/ops/sync_cloud_source.sh \
   --ssh-user drop \
-  --ssh-host 124.71.43.80 \
+  --ssh-host dongyudigital.com \
   --remote-repo /home/wwpic/dongyuapp \
   --remote-repo-owner wwpic \
   --revision "$(git rev-parse --short HEAD)"
@@ -185,7 +185,7 @@ PASS 判定：
 ```bash
 bash scripts/ops/deploy_cloud_ui_server_from_local.sh \
   --ssh-user drop \
-  --ssh-host 124.71.43.80 \
+  --ssh-host dongyudigital.com \
   --remote-repo /home/wwpic/dongyuapp \
   --remote-repo-owner wwpic
 ```

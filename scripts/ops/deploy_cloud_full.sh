@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy full stack to cloud rke2 cluster (124.71.43.80).
+# Deploy full stack to cloud rke2 cluster (dongyudigital.com).
 # Must be run as root (sudo) on the cloud server.
 # Usage:
 #   sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_full.sh

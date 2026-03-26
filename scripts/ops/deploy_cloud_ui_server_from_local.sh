@@ -2,7 +2,7 @@
 # Fallback-only helper: build ui-server image locally, copy tar to cloud host, and trigger remote deploy.
 # Usage:
 #   bash scripts/ops/deploy_cloud_ui_server_from_local.sh
-#   bash scripts/ops/deploy_cloud_ui_server_from_local.sh --ssh-user drop --ssh-host 124.71.43.80
+#   bash scripts/ops/deploy_cloud_ui_server_from_local.sh --ssh-user drop --ssh-host dongyudigital.com
 # Notes:
 # - This is NOT the canonical cloud deploy path after 0183.
 # - Canonical path is: sync_cloud_source.sh -> deploy_cloud_full.sh / deploy_cloud_app.sh on the remote host.
