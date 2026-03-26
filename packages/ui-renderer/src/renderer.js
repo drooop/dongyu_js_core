@@ -41,6 +41,23 @@ function getLabelValue(snapshot, ref) {
   return label.v;
 }
 
+function normalizeSelectModelValue(value, options) {
+  if (!Array.isArray(options) || options.length === 0 || value === undefined) return value;
+  if (options.some((opt) => opt && Object.prototype.hasOwnProperty.call(opt, 'value') && Object.is(opt.value, value))) {
+    return value;
+  }
+  if (typeof value !== 'string' && typeof value !== 'number') return value;
+  const normalizedValue = String(value);
+  for (const opt of options) {
+    if (!opt || !Object.prototype.hasOwnProperty.call(opt, 'value')) continue;
+    const optionValue = opt.value;
+    if ((typeof optionValue === 'string' || typeof optionValue === 'number') && String(optionValue) === normalizedValue) {
+      return optionValue;
+    }
+  }
+  return value;
+}
+
 function getEffectiveLabelValue(snapshot, ref, host) {
   if (host && typeof host.getEffectiveLabelValue === 'function') {
     const value = host.getEffectiveLabelValue(ref);
@@ -572,7 +589,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
     const options = Array.isArray(props.options) ? props.options : [];
     delete props.options;
-    props.modelValue = value !== undefined ? value : '';
+    props.modelValue = value !== undefined ? normalizeSelectModelValue(value, options) : '';
     const onValue = (v) => {
       const target = node.bind && node.bind.write;
       if (!target) return;

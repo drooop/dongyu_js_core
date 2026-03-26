@@ -3048,6 +3048,30 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'selected_model_id', 'str', String(validSelected));
   };
 
+  const reconcileHomeSelectionState = (force = false) => {
+    const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+    if (!stateModel) return;
+    const uiPage = readAuthString(runtime.getLabelValue(stateModel, 0, 0, 0, 'ui_page')).toLowerCase();
+    if (uiPage !== 'home') return;
+    const selectedModelId = runtime.getLabelValue(stateModel, 0, 0, 0, 'selected_model_id');
+    if (!force && String(selectedModelId ?? '') === '0') return;
+    overwriteStateLabel(runtime, 'selected_model_id', 'str', '0');
+  };
+
+  const shouldResetHomeSelectionFromEnvelope = (envelope) => {
+    const payload = envelope && typeof envelope === 'object' ? envelope.payload : null;
+    const target = payload && typeof payload === 'object' ? payload.target : null;
+    const value = payload && typeof payload === 'object' ? payload.value : null;
+    return payload && payload.action === 'label_update'
+      && target
+      && target.model_id === EDITOR_STATE_MODEL_ID
+      && target.p === 0
+      && target.r === 0
+      && target.c === 0
+      && target.k === 'ui_page'
+      && String(value && Object.prototype.hasOwnProperty.call(value, 'v') ? value.v : '').trim().toLowerCase() === 'home';
+  };
+
   const sanitizeStartupCatalogState = () => {
     overwriteStateLabel(runtime, 'docs_query', 'str', '');
     overwriteStateLabel(runtime, 'docs_tree_json', 'json', []);
@@ -3331,6 +3355,7 @@ function createServerState(options) {
   resetStaticCatalogStateFromFilesystem();
   clearAndValidateWorkspaceSelection();
   refreshWorkspaceStateCatalog();
+  reconcileHomeSelectionState(true);
   reconcileWorkspaceSelectionState();
   syncDerivedPageState();
   refreshStartupCatalogState();
@@ -3955,7 +3980,11 @@ function createServerState(options) {
       return fail('unknown_action', action);
     }
 
+    const forceHomeSelectionReset = shouldResetHomeSelectionFromEnvelope(envelope);
     const result = adapter.consumeOnce();
+    if (forceHomeSelectionReset) {
+      reconcileHomeSelectionState(true);
+    }
     reconcileWorkspaceSelectionState();
     updateDerived();
     await programEngine.tick();

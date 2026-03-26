@@ -231,7 +231,7 @@ export function deriveEditorModelOptions(snapshot, editorStateModelId) {
   const query = String(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'dt_filter_model_query' }) ?? '').trim().toLowerCase();
   const options = Object.values(models)
     .map((m) => ({ id: m && typeof m.id === 'number' ? m.id : parseSafeInt(m && m.id), name: m && m.name ? String(m.name) : '' }))
-    .filter((m) => Number.isInteger(m.id) && m.id !== 0)
+    .filter((m) => Number.isInteger(m.id))
     .sort((a, b) => a.id - b.id)
     .map((m) => ({ label: `${m.id}${m.name ? ` (${m.name})` : ''}`, value: m.id }));
   return query
