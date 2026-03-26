@@ -65,7 +65,8 @@ try {
   assert(workspaceRegistry.every((entry) => entry?.model_id !== UI_EXAMPLE_CHILD_MODEL_ID), 'workspace_registry_must_not_expose_child_example');
 
   let ast = selectWorkspaceModel(store, UI_EXAMPLE_SCHEMA_MODEL_ID);
-  assert(findNodeById(ast, `schema_root_${UI_EXAMPLE_SCHEMA_MODEL_ID}`)?.type === 'Container', 'schema_example_workspace_ast_missing');
+  assert(findNodeById(ast, 'ui_examples_cellwise_root')?.type === 'Container', 'cellwise_example_workspace_ast_missing');
+  assert(findNodeById(ast, 'ui_examples_cellwise_status')?.type === 'StatusBadge', 'cellwise_example_status_missing');
 
   ast = selectWorkspaceModel(store, UI_EXAMPLE_PAGE_ASSET_MODEL_ID);
   assert(findNodeById(ast, 'ui_examples_asset_root')?.type === 'Container', 'page_asset_example_root_missing');

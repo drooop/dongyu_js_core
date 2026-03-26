@@ -1322,6 +1322,426 @@
     {
       "op": "add_label",
       "model_id": 1003,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "ui_examples_cellwise_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_examples_cellwise_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_examples_cellwise_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ui_examples_cellwise_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "Cellwise Authoring Example"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_examples_cellwise_authority"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ui_examples_cellwise_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_read_model_id",
+      "t": "int",
+      "v": 1003
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_read_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_read_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_read_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_read_k",
+      "t": "str",
+      "v": "authority_note"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_examples_cellwise_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ui_examples_cellwise_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "SURFACE"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_read_model_id",
+      "t": "int",
+      "v": 1003
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_read_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_read_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_read_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_read_k",
+      "t": "str",
+      "v": "surface_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_examples_cellwise_hint"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ui_examples_cellwise_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_read_model_id",
+      "t": "int",
+      "v": 1003
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_read_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_read_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_read_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_read_k",
+      "t": "str",
+      "v": "next_step_hint"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1003,
       "p": 1,
       "r": 0,
       "c": 0,
