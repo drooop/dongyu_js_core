@@ -134,13 +134,13 @@
                             },
                             "bind": {
                               "write": {
-                                "action": "datatable_refresh",
+                                "action": "home_refresh",
                                 "target_ref": {
                                   "model_id": -2,
                                   "p": 0,
                                   "r": 0,
                                   "c": 0,
-                                  "k": "dt_filter_model_query"
+                                  "k": "selected_model_id"
                                 }
                               }
                             }
@@ -280,6 +280,73 @@
                     }
                   },
                   {
+                    "id": "layout_home_actions",
+                    "type": "Container",
+                    "props": {
+                      "layout": "row",
+                      "gap": 12,
+                      "wrap": true,
+                      "align": "center"
+                    },
+                    "children": [
+                      {
+                        "id": "txt_home_selected",
+                        "type": "Text",
+                        "props": {
+                          "type": "info",
+                          "text": ""
+                        },
+                        "bind": {
+                          "read": {
+                            "model_id": -2,
+                            "p": 0,
+                            "r": 0,
+                            "c": 0,
+                            "k": "home_selected_label_text"
+                          }
+                        }
+                      },
+                      {
+                        "id": "txt_home_status",
+                        "type": "Text",
+                        "props": {
+                          "type": "info",
+                          "text": ""
+                        },
+                        "bind": {
+                          "read": {
+                            "model_id": -2,
+                            "p": 0,
+                            "r": 0,
+                            "c": 0,
+                            "k": "home_status_text"
+                          }
+                        }
+                      },
+                      {
+                        "id": "btn_home_open_create",
+                        "type": "Button",
+                        "props": {
+                          "label": "Add Label",
+                          "type": "primary",
+                          "icon": "plus"
+                        },
+                        "bind": {
+                          "write": {
+                            "action": "home_open_create",
+                            "target_ref": {
+                              "model_id": -2,
+                              "p": 0,
+                              "r": 0,
+                              "c": 0,
+                              "k": "selected_model_id"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
                     "id": "tbl_home_cells",
                     "type": "Table",
                     "props": {
@@ -352,6 +419,649 @@
                           "prop": "v_preview",
                           "minWidth": 260
                         }
+                      },
+                      {
+                        "id": "col_home_actions",
+                        "type": "TableColumn",
+                        "props": {
+                          "label": "Actions",
+                          "minWidth": 280
+                        },
+                        "children": [
+                          {
+                            "id": "home_row_action_bar",
+                            "type": "Container",
+                            "props": {
+                              "layout": "row",
+                              "gap": 8,
+                              "wrap": true
+                            },
+                            "children": [
+                              {
+                                "id": "btn_home_select_row",
+                                "type": "Button",
+                                "props": {
+                                  "label": "Select",
+                                  "size": "small"
+                                },
+                                "bind": {
+                                  "write": {
+                                    "action": "home_select_row",
+                                    "target_ref": {
+                                      "model_id": {
+                                        "$ref": "row.model_id"
+                                      },
+                                      "p": {
+                                        "$ref": "row.p"
+                                      },
+                                      "r": {
+                                        "$ref": "row.r"
+                                      },
+                                      "c": {
+                                        "$ref": "row.c"
+                                      },
+                                      "k": {
+                                        "$ref": "row.k"
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "id": "btn_home_open_edit",
+                                "type": "Button",
+                                "props": {
+                                  "label": "Edit",
+                                  "size": "small",
+                                  "icon": "edit"
+                                },
+                                "bind": {
+                                  "write": {
+                                    "action": "home_open_edit",
+                                    "target_ref": {
+                                      "model_id": {
+                                        "$ref": "row.model_id"
+                                      },
+                                      "p": {
+                                        "$ref": "row.p"
+                                      },
+                                      "r": {
+                                        "$ref": "row.r"
+                                      },
+                                      "c": {
+                                        "$ref": "row.c"
+                                      },
+                                      "k": {
+                                        "$ref": "row.k"
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "id": "btn_home_view_detail",
+                                "type": "Button",
+                                "props": {
+                                  "label": "Detail",
+                                  "size": "small"
+                                },
+                                "bind": {
+                                  "write": {
+                                    "action": "home_view_detail",
+                                    "target_ref": {
+                                      "model_id": {
+                                        "$ref": "row.model_id"
+                                      },
+                                      "p": {
+                                        "$ref": "row.p"
+                                      },
+                                      "r": {
+                                        "$ref": "row.r"
+                                      },
+                                      "c": {
+                                        "$ref": "row.c"
+                                      },
+                                      "k": {
+                                        "$ref": "row.k"
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "id": "btn_home_delete_label",
+                                "type": "Button",
+                                "props": {
+                                  "label": "Delete",
+                                  "size": "small",
+                                  "type": "danger",
+                                  "icon": "trash"
+                                },
+                                "bind": {
+                                  "write": {
+                                    "action": "home_delete_label",
+                                    "target_ref": {
+                                      "model_id": {
+                                        "$ref": "row.model_id"
+                                      },
+                                      "p": {
+                                        "$ref": "row.p"
+                                      },
+                                      "r": {
+                                        "$ref": "row.r"
+                                      },
+                                      "c": {
+                                        "$ref": "row.c"
+                                      },
+                                      "k": {
+                                        "$ref": "row.k"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "dlg_home_edit",
+                    "type": "Dialog",
+                    "props": {
+                      "title": {
+                        "$label": {
+                          "model_id": -2,
+                          "p": 0,
+                          "r": 0,
+                          "c": 0,
+                          "k": "home_edit_dialog_title"
+                        }
+                      },
+                      "width": "680px",
+                      "closeOnClickModal": false
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "dt_edit_open"
+                      },
+                      "write": {
+                        "action": "home_close_edit",
+                        "target_ref": {
+                          "model_id": -2,
+                          "p": 0,
+                          "r": 0,
+                          "c": 0,
+                          "k": "dt_edit_open"
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "form_home_edit_dialog",
+                        "type": "Form",
+                        "children": [
+                          {
+                            "id": "fi_home_edit_model_id",
+                            "type": "FormItem",
+                            "props": {
+                              "label": "Model"
+                            },
+                            "children": [
+                              {
+                                "id": "input_home_edit_model_id",
+                                "type": "Input",
+                                "bind": {
+                                  "read": {
+                                    "model_id": -2,
+                                    "p": 0,
+                                    "r": 0,
+                                    "c": 0,
+                                    "k": "dt_edit_model_id"
+                                  },
+                                  "write": {
+                                    "action": "label_update",
+                                    "target_ref": {
+                                      "model_id": -2,
+                                      "p": 0,
+                                      "r": 0,
+                                      "c": 0,
+                                      "k": "dt_edit_model_id"
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "id": "layout_home_edit_coords",
+                            "type": "Container",
+                            "props": {
+                              "layout": "row",
+                              "gap": 12,
+                              "wrap": true
+                            },
+                            "children": [
+                              {
+                                "id": "fi_home_edit_p",
+                                "type": "FormItem",
+                                "props": {
+                                  "label": "p"
+                                },
+                                "children": [
+                                  {
+                                    "id": "num_home_edit_p",
+                                    "type": "NumberInput",
+                                    "bind": {
+                                      "read": {
+                                        "model_id": -2,
+                                        "p": 0,
+                                        "r": 0,
+                                        "c": 0,
+                                        "k": "dt_edit_p"
+                                      },
+                                      "write": {
+                                        "action": "label_update",
+                                        "target_ref": {
+                                          "model_id": -2,
+                                          "p": 0,
+                                          "r": 0,
+                                          "c": 0,
+                                          "k": "dt_edit_p"
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "fi_home_edit_r",
+                                "type": "FormItem",
+                                "props": {
+                                  "label": "r"
+                                },
+                                "children": [
+                                  {
+                                    "id": "num_home_edit_r",
+                                    "type": "NumberInput",
+                                    "bind": {
+                                      "read": {
+                                        "model_id": -2,
+                                        "p": 0,
+                                        "r": 0,
+                                        "c": 0,
+                                        "k": "dt_edit_r"
+                                      },
+                                      "write": {
+                                        "action": "label_update",
+                                        "target_ref": {
+                                          "model_id": -2,
+                                          "p": 0,
+                                          "r": 0,
+                                          "c": 0,
+                                          "k": "dt_edit_r"
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "fi_home_edit_c",
+                                "type": "FormItem",
+                                "props": {
+                                  "label": "c"
+                                },
+                                "children": [
+                                  {
+                                    "id": "num_home_edit_c",
+                                    "type": "NumberInput",
+                                    "bind": {
+                                      "read": {
+                                        "model_id": -2,
+                                        "p": 0,
+                                        "r": 0,
+                                        "c": 0,
+                                        "k": "dt_edit_c"
+                                      },
+                                      "write": {
+                                        "action": "label_update",
+                                        "target_ref": {
+                                          "model_id": -2,
+                                          "p": 0,
+                                          "r": 0,
+                                          "c": 0,
+                                          "k": "dt_edit_c"
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "id": "fi_home_edit_k",
+                            "type": "FormItem",
+                            "props": {
+                              "label": "k"
+                            },
+                            "children": [
+                              {
+                                "id": "input_home_edit_k",
+                                "type": "Input",
+                                "bind": {
+                                  "read": {
+                                    "model_id": -2,
+                                    "p": 0,
+                                    "r": 0,
+                                    "c": 0,
+                                    "k": "dt_edit_k"
+                                  },
+                                  "write": {
+                                    "action": "label_update",
+                                    "target_ref": {
+                                      "model_id": -2,
+                                      "p": 0,
+                                      "r": 0,
+                                      "c": 0,
+                                      "k": "dt_edit_k"
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "id": "fi_home_edit_t",
+                            "type": "FormItem",
+                            "props": {
+                              "label": "t"
+                            },
+                            "children": [
+                              {
+                                "id": "sel_home_edit_t",
+                                "type": "Select",
+                                "props": {
+                                  "options": [
+                                    { "label": "str", "value": "str" },
+                                    { "label": "int", "value": "int" },
+                                    { "label": "bool", "value": "bool" },
+                                    { "label": "json", "value": "json" }
+                                  ]
+                                },
+                                "bind": {
+                                  "read": {
+                                    "model_id": -2,
+                                    "p": 0,
+                                    "r": 0,
+                                    "c": 0,
+                                    "k": "dt_edit_t"
+                                  },
+                                  "write": {
+                                    "action": "label_update",
+                                    "target_ref": {
+                                      "model_id": -2,
+                                      "p": 0,
+                                      "r": 0,
+                                      "c": 0,
+                                      "k": "dt_edit_t"
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "id": "fi_home_edit_text",
+                            "type": "FormItem",
+                            "props": {
+                              "label": "Value (text/json)"
+                            },
+                            "children": [
+                              {
+                                "id": "input_home_edit_v_text",
+                                "type": "Input",
+                                "props": {
+                                  "type": "textarea",
+                                  "rows": 4
+                                },
+                                "bind": {
+                                  "read": {
+                                    "model_id": -2,
+                                    "p": 0,
+                                    "r": 0,
+                                    "c": 0,
+                                    "k": "dt_edit_v_text"
+                                  },
+                                  "write": {
+                                    "action": "label_update",
+                                    "target_ref": {
+                                      "model_id": -2,
+                                      "p": 0,
+                                      "r": 0,
+                                      "c": 0,
+                                      "k": "dt_edit_v_text"
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "id": "layout_home_edit_scalar",
+                            "type": "Container",
+                            "props": {
+                              "layout": "row",
+                              "gap": 12,
+                              "wrap": true
+                            },
+                            "children": [
+                              {
+                                "id": "fi_home_edit_v_int",
+                                "type": "FormItem",
+                                "props": {
+                                  "label": "Value (int)"
+                                },
+                                "children": [
+                                  {
+                                    "id": "num_home_edit_v_int",
+                                    "type": "NumberInput",
+                                    "bind": {
+                                      "read": {
+                                        "model_id": -2,
+                                        "p": 0,
+                                        "r": 0,
+                                        "c": 0,
+                                        "k": "dt_edit_v_int"
+                                      },
+                                      "write": {
+                                        "action": "label_update",
+                                        "target_ref": {
+                                          "model_id": -2,
+                                          "p": 0,
+                                          "r": 0,
+                                          "c": 0,
+                                          "k": "dt_edit_v_int"
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "fi_home_edit_v_bool",
+                                "type": "FormItem",
+                                "props": {
+                                  "label": "Value (bool)"
+                                },
+                                "children": [
+                                  {
+                                    "id": "switch_home_edit_v_bool",
+                                    "type": "Switch",
+                                    "bind": {
+                                      "read": {
+                                        "model_id": -2,
+                                        "p": 0,
+                                        "r": 0,
+                                        "c": 0,
+                                        "k": "dt_edit_v_bool"
+                                      },
+                                      "write": {
+                                        "action": "label_update",
+                                        "target_ref": {
+                                          "model_id": -2,
+                                          "p": 0,
+                                          "r": 0,
+                                          "c": 0,
+                                          "k": "dt_edit_v_bool"
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "id": "layout_home_edit_actions",
+                            "type": "Container",
+                            "props": {
+                              "layout": "row",
+                              "gap": 12,
+                              "justify": "flex-end"
+                            },
+                            "children": [
+                              {
+                                "id": "btn_home_save_label",
+                                "type": "Button",
+                                "props": {
+                                  "label": "Save",
+                                  "type": "primary",
+                                  "icon": "check"
+                                },
+                                "bind": {
+                                  "write": {
+                                    "action": "home_save_label",
+                                    "target_ref": {
+                                      "model_id": -2,
+                                      "p": 0,
+                                      "r": 0,
+                                      "c": 0,
+                                      "k": "dt_edit_model_id"
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "id": "btn_home_close_edit",
+                                "type": "Button",
+                                "props": {
+                                  "label": "Cancel",
+                                  "icon": "close"
+                                },
+                                "bind": {
+                                  "write": {
+                                    "action": "home_close_edit",
+                                    "target_ref": {
+                                      "model_id": -2,
+                                      "p": 0,
+                                      "r": 0,
+                                      "c": 0,
+                                      "k": "dt_edit_open"
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "dlg_home_detail",
+                    "type": "Dialog",
+                    "props": {
+                      "title": {
+                        "$label": {
+                          "model_id": -2,
+                          "p": 0,
+                          "r": 0,
+                          "c": 0,
+                          "k": "dt_detail_title"
+                        }
+                      },
+                      "width": "720px",
+                      "closeOnClickModal": false
+                    },
+                    "bind": {
+                      "read": {
+                        "model_id": -2,
+                        "p": 0,
+                        "r": 0,
+                        "c": 0,
+                        "k": "dt_detail_open"
+                      },
+                      "write": {
+                        "action": "home_close_detail",
+                        "target_ref": {
+                          "model_id": -2,
+                          "p": 0,
+                          "r": 0,
+                          "c": 0,
+                          "k": "dt_detail_open"
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "code_home_detail_text",
+                        "type": "CodeBlock",
+                        "bind": {
+                          "read": {
+                            "model_id": -2,
+                            "p": 0,
+                            "r": 0,
+                            "c": 0,
+                            "k": "dt_detail_text"
+                          }
+                        }
+                      },
+                      {
+                        "id": "layout_home_detail_actions",
+                        "type": "Container",
+                        "props": {
+                          "layout": "row",
+                          "justify": "flex-end"
+                        },
+                        "children": [
+                          {
+                            "id": "btn_home_close_detail",
+                            "type": "Button",
+                            "props": {
+                              "label": "Close",
+                              "icon": "close"
+                            },
+                            "bind": {
+                              "write": {
+                                "action": "home_close_detail",
+                                "target_ref": {
+                                  "model_id": -2,
+                                  "p": 0,
+                                  "r": 0,
+                                  "c": 0,
+                                  "k": "dt_detail_open"
+                                }
+                              }
+                            }
+                          }
+                        ]
                       }
                     ]
                   }

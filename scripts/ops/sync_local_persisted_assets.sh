@@ -42,6 +42,7 @@ system_negative_full = [
     'home_catalog_ui.json',
     'intent_dispatch_config.json',
     'intent_handlers_docs.json',
+    'intent_handlers_home.json',
     'intent_handlers_matrix_debug.json',
     'intent_handlers_prompt_filltable.json',
     'intent_handlers_static.json',
