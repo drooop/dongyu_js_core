@@ -25,6 +25,7 @@ function mailboxEnvelope(action, options = {}) {
 
 const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0243-home-crud-'));
 process.env.DY_AUTH = '0';
+process.env.DY_PERSISTED_ASSET_ROOT = '';
 process.env.WORKER_BASE_WORKSPACE = `it0243_home_crud_${Date.now()}`;
 process.env.WORKER_BASE_DATA_ROOT = join(tempRoot, 'runtime');
 process.env.DOCS_ROOT = join(tempRoot, 'docs');
@@ -142,4 +143,5 @@ try {
   delete process.env.WORKER_BASE_DATA_ROOT;
   delete process.env.DOCS_ROOT;
   delete process.env.STATIC_PROJECTS_ROOT;
+  delete process.env.DY_PERSISTED_ASSET_ROOT;
 }
