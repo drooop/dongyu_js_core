@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -21,6 +22,19 @@ function mkAssetRoot() {
 
 async function loadLoaderModule() {
   return import(path.join(repoRoot, 'packages/worker-base/src/persisted_asset_loader.mjs'));
+}
+
+function runSyncLocalPersistedAssets(assetRoot) {
+  const result = spawnSync('bash', ['scripts/ops/sync_local_persisted_assets.sh'], {
+    cwd: repoRoot,
+    env: { ...process.env, LOCAL_PERSISTED_ASSET_ROOT: assetRoot },
+    encoding: 'utf8',
+  });
+  assert.equal(
+    result.status,
+    0,
+    `sync_local_persisted_assets.sh must succeed for temp asset root: ${result.stderr || result.stdout}`,
+  );
 }
 
 function readLabel(rt, modelId, p, r, c, k) {
@@ -112,6 +126,60 @@ async function test_manifest_loader_orders_and_filters_by_scope_phase_and_filter
   assert.equal(readLabel(rt, 100, 0, 0, 0, 'remote_label'), 'remote');
 }
 
+async function test_repo_sync_externalizes_matrix_debug_surface_and_handlers_for_ui_server() {
+  const assetRoot = mkAssetRoot();
+  runSyncLocalPersistedAssets(assetRoot);
+
+  const matrixDebugSurfacePath = path.join(assetRoot, 'system/ui/matrix_debug_surface.json');
+  const intentHandlersPath = path.join(assetRoot, 'system/ui/intent_handlers_matrix_debug.json');
+  assert.equal(
+    fs.existsSync(matrixDebugSurfacePath),
+    true,
+    'matrix_debug_surface must be externalized into persisted assets for ui-server',
+  );
+  assert.equal(
+    fs.existsSync(intentHandlersPath),
+    true,
+    'intent_handlers_matrix_debug must be externalized into persisted assets for ui-server',
+  );
+
+  const { readPersistedAssetManifest, applyPersistedAssetEntries } = await loadLoaderModule();
+  const manifest = readPersistedAssetManifest(assetRoot);
+  const uiServerPaths = manifest.entries
+    .filter((entry) => Array.isArray(entry.scope) && entry.scope.includes('ui-server'))
+    .map((entry) => entry.path);
+
+  assert.equal(
+    uiServerPaths.includes('system/ui/matrix_debug_surface.json'),
+    true,
+    'manifest must include matrix_debug_surface for ui-server',
+  );
+  assert.equal(
+    uiServerPaths.includes('system/ui/intent_handlers_matrix_debug.json'),
+    true,
+    'manifest must include intent_handlers_matrix_debug for ui-server',
+  );
+
+  const rt = new ModelTableRuntime();
+  applyPersistedAssetEntries(rt, {
+    assetRoot,
+    scope: 'ui-server',
+    authority: 'authoritative',
+    kind: 'patch',
+    phases: ['00-system-base', '10-system-negative', '30-system-positive'],
+    applyOptions: { allowCreateModel: true, trustedBootstrap: true },
+  });
+
+  const pageAsset = readLabel(rt, -100, 0, 1, 0, 'page_asset_v0');
+  const refreshHandler = readLabel(rt, -10, 0, 0, 0, 'handle_matrix_debug_refresh');
+  assert.equal(pageAsset?.id, 'matrix_debug_root', 'persisted loader must materialize matrix_debug_root from synced assets');
+  assert.equal(
+    typeof refreshHandler?.code,
+    'string',
+    'persisted loader must materialize matrix debug refresh handler from synced assets',
+  );
+}
+
 function fail(name, err) {
   console.log(`[FAIL] ${name}: ${err.message}`);
 }
@@ -122,6 +190,7 @@ function pass(name) {
 
 const tests = [
   test_manifest_loader_orders_and_filters_by_scope_phase_and_filter,
+  test_repo_sync_externalizes_matrix_debug_surface_and_handlers_for_ui_server,
 ];
 
 let passed = 0;
