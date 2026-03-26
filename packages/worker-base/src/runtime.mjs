@@ -1723,6 +1723,7 @@ class ModelTableRuntime {
       }
       this.modelOutPorts.set(`${model.id}:${label.k}`, true);
       if (label.v !== null && label.v !== undefined) {
+        this._routeViaModelConnection(model.id, label.k, label.v);
         const childInfo = this.parentChildMap.get(model.id);
         if (childInfo) {
           const { parentModelId, hostingCell: { p: hp, r: hr, c: hc } } = childInfo;
@@ -1777,6 +1778,7 @@ class ModelTableRuntime {
       }
       this.modelOutPorts.set(`${model.id}:${label.k}`, true);
       if (label.v !== null && label.v !== undefined) {
+        this._routeViaModelConnection(model.id, label.k, label.v);
         const childInfo = this.parentChildMap.get(model.id);
         if (childInfo) {
           const { parentModelId, hostingCell: { p: hp, r: hr, c: hc } } = childInfo;
