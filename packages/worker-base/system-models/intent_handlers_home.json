@@ -1,0 +1,124 @@
+{
+  "version": "mt.v0",
+  "op_id": "intent_handlers_home_v0",
+  "description": "Home CRUD intent handlers",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_home_refresh",
+      "t": "func.js",
+      "v": {
+        "code": "ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'home_status_text' }, 'str', 'refreshed');",
+        "modelName": "intent_handlers_home"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_home_select_row",
+      "t": "func.js",
+      "v": {
+        "code": "var mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' }) || {}; var payload = mailbox.payload || {}; var meta = payload.meta || {}; var opId = typeof meta.op_id === 'string' ? meta.op_id : ''; var target = payload.target || {}; var modelId = Number.isInteger(target.model_id) ? target.model_id : null; var p = Number.isInteger(target.p) ? target.p : null; var r = Number.isInteger(target.r) ? target.r : null; var c = Number.isInteger(target.c) ? target.c : null; var k = typeof target.k === 'string' ? target.k : ''; if (!(Number.isInteger(modelId) && modelId > 0 && Number.isInteger(p) && Number.isInteger(r) && Number.isInteger(c) && k)) { ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: 'invalid_target', detail: 'positive_row_required' }); return; } var current = ctx.getLabel({ model_id: modelId, p: p, r: r, c: c, k: k }); var currentType = typeof current === 'boolean' ? 'bool' : (Number.isInteger(current) ? 'int' : 'str'); if (current !== null && typeof current === 'object') currentType = 'json'; ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'selected_model_id' }, 'str', String(modelId)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'draft_p' }, 'str', String(p)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'draft_r' }, 'str', String(r)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'draft_c' }, 'str', String(c)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'draft_k' }, 'str', k); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'draft_t' }, 'str', currentType); if (currentType === 'int') { ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'draft_v_int' }, 'int', Number.isInteger(current) ? current : 0); } else if (currentType === 'bool') { ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'draft_v_bool' }, 'bool', current === true); } else { var text = currentType === 'json' ? JSON.stringify(current, null, 2) : (current == null ? '' : String(current)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'draft_v_text' }, 'str', text); } ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'home_status_text' }, 'str', 'selected ' + k + ' on model ' + modelId);",
+        "modelName": "intent_handlers_home"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_home_open_create",
+      "t": "func.js",
+      "v": {
+        "code": "var selectedModelId = ctx.getStateInt('selected_model_id'); if (!(Number.isInteger(selectedModelId) && selectedModelId > 0)) { ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: '', code: 'invalid_target', detail: 'positive_model_required' }); return; } ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'home_form_mode' }, 'str', 'create'); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_model_id' }, 'str', String(selectedModelId)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_p' }, 'str', '0'); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_r' }, 'str', '0'); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_c' }, 'str', '0'); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_k' }, 'str', ''); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_t' }, 'str', 'str'); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_v_text' }, 'str', ''); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_v_int' }, 'int', 0); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_v_bool' }, 'bool', false); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_open' }, 'bool', true); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'home_status_text' }, 'str', 'create label on model ' + selectedModelId);",
+        "modelName": "intent_handlers_home"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_home_open_edit",
+      "t": "func.js",
+      "v": {
+        "code": "var mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' }) || {}; var payload = mailbox.payload || {}; var meta = payload.meta || {}; var opId = typeof meta.op_id === 'string' ? meta.op_id : ''; var target = payload.target || {}; var modelId = Number.isInteger(target.model_id) ? target.model_id : null; var p = Number.isInteger(target.p) ? target.p : null; var r = Number.isInteger(target.r) ? target.r : null; var c = Number.isInteger(target.c) ? target.c : null; var k = typeof target.k === 'string' ? target.k : ''; if (!(Number.isInteger(modelId) && modelId > 0 && Number.isInteger(p) && Number.isInteger(r) && Number.isInteger(c) && k)) { ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: 'invalid_target', detail: 'positive_row_required' }); return; } var current = ctx.getLabel({ model_id: modelId, p: p, r: r, c: c, k: k }); var currentType = typeof current === 'boolean' ? 'bool' : (Number.isInteger(current) ? 'int' : 'str'); if (current !== null && typeof current === 'object') currentType = 'json'; ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'home_form_mode' }, 'str', 'edit'); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_model_id' }, 'str', String(modelId)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_p' }, 'str', String(p)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_r' }, 'str', String(r)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_c' }, 'str', String(c)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_k' }, 'str', k); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_t' }, 'str', currentType); if (currentType === 'int') { ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_v_int' }, 'int', Number.isInteger(current) ? current : 0); } else if (currentType === 'bool') { ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_v_bool' }, 'bool', current === true); } else { var text = currentType === 'json' ? JSON.stringify(current, null, 2) : (current == null ? '' : String(current)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_v_text' }, 'str', text); } ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_open' }, 'bool', true); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'home_status_text' }, 'str', 'edit ' + k + ' on model ' + modelId);",
+        "modelName": "intent_handlers_home"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_home_save_label",
+      "t": "func.js",
+      "v": {
+        "code": "var modelId = ctx.getStateInt('dt_edit_model_id'); var p = ctx.getStateInt('dt_edit_p'); var r = ctx.getStateInt('dt_edit_r'); var c = ctx.getStateInt('dt_edit_c'); var k = String(ctx.getState('dt_edit_k') || '').trim(); var t = String(ctx.getState('dt_edit_t') || 'str').trim(); if (!(Number.isInteger(modelId) && modelId > 0 && Number.isInteger(p) && Number.isInteger(r) && Number.isInteger(c) && k)) { ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: '', code: 'invalid_target', detail: 'edit_state_invalid' }); return; } var value = null; if (t === 'int') { value = ctx.getStateInt('dt_edit_v_int'); if (!Number.isInteger(value)) value = 0; } else if (t === 'bool') { value = ctx.getState('dt_edit_v_bool') === true; } else if (t === 'json') { var raw = String(ctx.getState('dt_edit_v_text') || '').trim(); if (!raw) { ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: '', code: 'invalid_json', detail: 'empty_json' }); return; } value = ctx.parseJson(raw); if (value === null && raw !== 'null') { ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: '', code: 'invalid_json', detail: 'parse_failed' }); return; } } else { t = 'str'; value = String(ctx.getState('dt_edit_v_text') || ''); } ctx.writeLabel({ model_id: modelId, p: p, r: r, c: c, k: k }, t, value); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'selected_model_id' }, 'str', String(modelId)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'draft_p' }, 'str', String(p)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'draft_r' }, 'str', String(r)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'draft_c' }, 'str', String(c)); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'draft_k' }, 'str', k); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'draft_t' }, 'str', t); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_open' }, 'bool', false); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'home_form_mode' }, 'str', 'edit'); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'home_status_text' }, 'str', 'saved ' + k + ' on model ' + modelId);",
+        "modelName": "intent_handlers_home"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_home_delete_label",
+      "t": "func.js",
+      "v": {
+        "code": "var mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' }) || {}; var payload = mailbox.payload || {}; var meta = payload.meta || {}; var opId = typeof meta.op_id === 'string' ? meta.op_id : ''; var target = payload.target || {}; var modelId = Number.isInteger(target.model_id) ? target.model_id : null; var p = Number.isInteger(target.p) ? target.p : null; var r = Number.isInteger(target.r) ? target.r : null; var c = Number.isInteger(target.c) ? target.c : null; var k = typeof target.k === 'string' ? target.k : ''; if (!(Number.isInteger(modelId) && modelId > 0 && Number.isInteger(p) && Number.isInteger(r) && Number.isInteger(c) && k)) { ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: 'invalid_target', detail: 'positive_row_required' }); return; } ctx.rmLabel({ model_id: modelId, p: p, r: r, c: c, k: k }); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'home_status_text' }, 'str', 'deleted ' + k + ' on model ' + modelId);",
+        "modelName": "intent_handlers_home"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_home_view_detail",
+      "t": "func.js",
+      "v": {
+        "code": "var mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' }) || {}; var payload = mailbox.payload || {}; var meta = payload.meta || {}; var opId = typeof meta.op_id === 'string' ? meta.op_id : ''; var target = payload.target || {}; var modelId = Number.isInteger(target.model_id) ? target.model_id : null; var p = Number.isInteger(target.p) ? target.p : null; var r = Number.isInteger(target.r) ? target.r : null; var c = Number.isInteger(target.c) ? target.c : null; var k = typeof target.k === 'string' ? target.k : ''; if (!(Number.isInteger(modelId) && modelId > 0 && Number.isInteger(p) && Number.isInteger(r) && Number.isInteger(c) && k)) { ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: 'invalid_target', detail: 'positive_row_required' }); return; } var value = ctx.getLabel({ model_id: modelId, p: p, r: r, c: c, k: k }); var text = typeof value === 'string' ? value : JSON.stringify(value, null, 2); if (text == null) text = ''; ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_detail_title' }, 'str', 'model ' + modelId + ' (' + p + ',' + r + ',' + c + ') ' + k); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_detail_text' }, 'str', text); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_detail_open' }, 'bool', true);",
+        "modelName": "intent_handlers_home"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_home_close_detail",
+      "t": "func.js",
+      "v": {
+        "code": "ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_detail_open' }, 'bool', false); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_detail_title' }, 'str', ''); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_detail_text' }, 'str', '');",
+        "modelName": "intent_handlers_home"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_home_close_edit",
+      "t": "func.js",
+      "v": {
+        "code": "ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_open' }, 'bool', false); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'home_form_mode' }, 'str', 'edit'); ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'home_status_text' }, 'str', 'edit closed');",
+        "modelName": "intent_handlers_home"
+      }
+    }
+  ]
+}

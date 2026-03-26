@@ -22,7 +22,9 @@ import { buildAstFromSchema } from '../ui-model-demo-frontend/src/ui_schema_proj
 import { resolvePageAsset } from '../ui-model-demo-frontend/src/page_asset_resolver.js';
 import {
   deriveEditorModelOptions,
+  deriveHomeEditDialogTitle,
   deriveHomeMissingModelText,
+  deriveHomeSelectedLabelText,
   deriveHomeTableRows,
   deriveMatrixDebugView,
   deriveStaticUploadReady,
@@ -2857,6 +2859,13 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'dt_filter_ktv', 'str', '');
   ensureStateLabel(runtime, 'ui_page', 'str', 'home');
   ensureStateLabel(runtime, 'dt_pause_sse', 'bool', false);
+  ensureStateLabel(runtime, 'home_selected_label_text', 'str', '');
+  ensureStateLabel(runtime, 'home_status_text', 'str', '');
+  ensureStateLabel(runtime, 'home_form_mode', 'str', 'edit');
+  ensureStateLabel(runtime, 'home_edit_dialog_title', 'str', 'Edit Label');
+  ensureStateLabel(runtime, 'home_delete_confirm_open', 'bool', false);
+  ensureStateLabel(runtime, 'home_delete_confirm_text', 'str', '');
+  ensureStateLabel(runtime, 'home_delete_target_json', 'json', null);
   ensureStateLabel(runtime, 'dt_detail_open', 'bool', false);
   ensureStateLabel(runtime, 'dt_detail_title', 'str', '');
   ensureStateLabel(runtime, 'dt_detail_text', 'str', '');
@@ -2981,6 +2990,8 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'editor_model_options_json', 'json', deriveEditorModelOptions(snap, EDITOR_STATE_MODEL_ID));
     overwriteStateLabel(runtime, 'home_table_rows_json', 'json', deriveHomeTableRows(snap, EDITOR_STATE_MODEL_ID));
     overwriteStateLabel(runtime, 'home_missing_model_text', 'str', deriveHomeMissingModelText(snap, EDITOR_STATE_MODEL_ID));
+    overwriteStateLabel(runtime, 'home_selected_label_text', 'str', deriveHomeSelectedLabelText(snap, EDITOR_STATE_MODEL_ID));
+    overwriteStateLabel(runtime, 'home_edit_dialog_title', 'str', deriveHomeEditDialogTitle(snap, EDITOR_STATE_MODEL_ID));
     overwriteStateLabel(runtime, 'static_upload_disabled', 'bool', !deriveStaticUploadReady(snap, EDITOR_STATE_MODEL_ID));
     syncMatrixDebugDerivedState();
   };

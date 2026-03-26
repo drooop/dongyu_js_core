@@ -221,6 +221,15 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       'datatable_edit_row',
       'datatable_view_detail',
       'datatable_remove_label',
+      'home_refresh',
+      'home_select_row',
+      'home_open_create',
+      'home_open_edit',
+      'home_save_label',
+      'home_delete_label',
+      'home_view_detail',
+      'home_close_detail',
+      'home_close_edit',
       // Test actions.
       'cellab_add_cellA',
       'cellab_add_cellB',
@@ -360,6 +369,20 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
     if (action === 'docs_refresh_tree' || action === 'docs_search' || action === 'docs_open_doc') {
       return fail(op_id, 'unsupported', 'docs_remote_only');
+    }
+
+    if (
+      action === 'home_refresh'
+      || action === 'home_select_row'
+      || action === 'home_open_create'
+      || action === 'home_open_edit'
+      || action === 'home_save_label'
+      || action === 'home_delete_label'
+      || action === 'home_view_detail'
+      || action === 'home_close_detail'
+      || action === 'home_close_edit'
+    ) {
+      return fail(op_id, 'unsupported', 'home_remote_only');
     }
 
     if (action === 'static_project_list' || action === 'static_project_upload' || action === 'static_project_delete') {

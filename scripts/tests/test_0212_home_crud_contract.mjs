@@ -13,6 +13,10 @@ const repoRoot = resolve(import.meta.dirname, '..', '..');
 const claudeSource = fs.readFileSync(resolve(repoRoot, 'CLAUDE.md'), 'utf8');
 const homeCatalogPatch = JSON.parse(fs.readFileSync(resolve(repoRoot, 'packages/worker-base/system-models/home_catalog_ui.json'), 'utf8'));
 const intentDispatchPatch = JSON.parse(fs.readFileSync(resolve(repoRoot, 'packages/worker-base/system-models/intent_dispatch_config.json'), 'utf8'));
+const intentHandlersHomePatchPath = resolve(repoRoot, 'packages/worker-base/system-models/intent_handlers_home.json');
+const intentHandlersHomePatch = fs.existsSync(intentHandlersHomePatchPath)
+  ? JSON.parse(fs.readFileSync(intentHandlersHomePatchPath, 'utf8'))
+  : { records: [] };
 const localAdapterSource = fs.readFileSync(resolve(repoRoot, 'packages/ui-model-demo-frontend/src/local_bus_adapter.js'), 'utf8');
 const serverSource = fs.readFileSync(resolve(repoRoot, 'packages/ui-model-demo-server/server.mjs'), 'utf8');
 
@@ -94,15 +98,11 @@ function test_home_page_asset_contract_inventory_is_safe() {
   assert.equal(assetRecord.v?.id, 'root_home', 'home_page_asset_root_id_must_be_root_home');
 
   const actions = collectWriteActions(assetRecord.v);
-  assert(actions.includes('label_update'), 'home_asset_must_keep_label_update_for_ui_state_inputs');
-  assert(actions.includes('datatable_refresh'), 'home_asset_step2_baseline_must_still_show_refresh_shell');
-  const forbiddenDirectMutationActions = actions.filter((action) => (
-    action === 'label_add'
-    || action === 'label_remove'
-    || action === 'cell_clear'
-    || action === 'submodel_create'
-  ));
-  assert.equal(forbiddenDirectMutationActions.length, 0, 'home_asset_must_not_bind_generic_direct_mutation_actions');
+  for (const action of EXPECTED_HOME_CRUD_ACTIONS) {
+    assert(actions.includes(action), `home_asset_must_materialize_action:${action}`);
+  }
+  const legacyHomeActions = actions.filter((action) => action.startsWith('datatable_'));
+  assert.equal(legacyHomeActions.length, 0, 'home_asset_must_not_keep_legacy_datatable_actions');
 }
 
 function test_home_dispatch_boundary_contract_inventory_exists() {
@@ -113,6 +113,33 @@ function test_home_dispatch_boundary_contract_inventory_exists() {
   ));
   assert(dispatchTableRecord, 'intent_dispatch_table_record_missing');
   assert.equal(typeof dispatchTableRecord.v, 'object', 'intent_dispatch_table_must_be_json_object');
+  const dispatchTable = dispatchTableRecord.v;
+  for (const action of EXPECTED_HOME_CRUD_ACTIONS) {
+    assert.equal(
+      typeof dispatchTable[action],
+      'string',
+      `intent_dispatch_table_must_register_${action}`,
+    );
+  }
+  const homeHandlerRecords = getPatchRecords(intentHandlersHomePatch);
+  for (const action of EXPECTED_HOME_CRUD_ACTIONS) {
+    const funcName = dispatchTable[action];
+    assert(
+      getRecord(homeHandlerRecords, (record) => (
+        record?.model_id === HOME_EXECUTION_CONTRACT.hidden_helper_model_id
+        && record?.k === funcName
+        && record?.t === 'func.js'
+      )),
+      `intent_handlers_home_must_define_${funcName}`,
+    );
+  }
+  for (const action of EXPECTED_HOME_CRUD_ACTIONS) {
+    assert.match(
+      localAdapterSource,
+      new RegExp(action),
+      `local_adapter_must_explicitly_recognize_${action}`,
+    );
+  }
   assert.match(localAdapterSource, /direct_model_mutation_disabled/, 'local_adapter_direct_mutation_guard_missing');
   assert.match(serverSource, /finishError\('direct_model_mutation_disabled', action\)/, 'server_direct_mutation_guard_missing');
   assert.match(serverSource, /intent_dispatch_table/, 'server_intent_dispatch_lookup_missing');
