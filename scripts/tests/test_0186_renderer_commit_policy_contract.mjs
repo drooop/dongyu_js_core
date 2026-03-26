@@ -131,6 +131,68 @@ async function main() {
   inputVNode.props.onBlur();
   assert.equal(calls.at(-1).type, 'commit', 'input on_blur must commit overlay on blur');
 
+  calls.length = 0;
+  const immediateInputNode = {
+    id: 'input_immediate',
+    type: 'Input',
+    props: {},
+    bind: {
+      read: { model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_k' },
+      write: {
+        action: 'label_update',
+        target_ref: { model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_k' },
+      },
+    },
+  };
+
+  const immediateInputVNode = renderer.renderVNode(immediateInputNode);
+  assert.equal(typeof immediateInputVNode.props.onInput, 'function', 'immediate input must expose native onInput fallback');
+  immediateInputVNode.props.onInput({ target: { value: 'typed key' } });
+  assert.equal(calls.at(-1).type, 'dispatch', 'immediate input native typing must dispatch label_update');
+  assert.equal(calls.at(-1).label.v.payload.action, 'label_update', 'immediate input native typing must keep label_update action');
+  assert.deepEqual(
+    calls.at(-1).label.v.payload.target,
+    { model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_k' },
+    'immediate input native typing must target dt_edit_k',
+  );
+  assert.deepEqual(
+    calls.at(-1).label.v.payload.value,
+    { t: 'str', v: 'typed key' },
+    'immediate input native typing must forward typed string value',
+  );
+
+  const staleCalls = [];
+  const staleHost = {
+    getSnapshot: () => ({
+      models: {
+        '-1': {
+          cells: {
+            '0,0,1': {
+              labels: {
+                ui_event: { k: 'ui_event', t: 'event', v: { event_id: 'stale', payload: { action: 'label_update' } } },
+              },
+            },
+          },
+        },
+      },
+    }),
+    dispatchAddLabel: (label) => { staleCalls.push(label); },
+    dispatchRmLabel: () => {},
+  };
+  const staleRenderer = createRenderer({ host: staleHost, vue: { h: fakeH, resolveComponent: fakeResolve } });
+  const staleDispatchResult = staleRenderer.dispatchEvent({
+    id: 'btn_save_home',
+    type: 'Button',
+    bind: {
+      write: {
+        action: 'home_save_label',
+        target_ref: { model_id: -2, p: 0, r: 0, c: 0, k: 'dt_edit_model_id' },
+      },
+    },
+  }, { click: true });
+  assert.equal(staleCalls.length, 1, 'renderer must delegate mailbox gating to host instead of skipping on stale snapshot mailbox');
+  assert.equal(staleDispatchResult.k, 'ui_event', 'stale mailbox snapshot must still produce a ui_event label');
+
   console.log('PASS test_0186_renderer_commit_policy_contract');
 }
 

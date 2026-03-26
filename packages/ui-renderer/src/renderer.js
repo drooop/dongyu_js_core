@@ -66,15 +66,6 @@ function getEffectiveLabelValue(snapshot, ref, host) {
   return getLabelValue(snapshot, ref);
 }
 
-function getMailboxValue(snapshot) {
-  const model = getModel(snapshot, -1);
-  if (!model || !model.cells) return undefined;
-  const cell = model.cells['0,0,1'];
-  if (!cell || !cell.labels) return undefined;
-  const label = cell.labels.ui_event;
-  return label ? label.v : undefined;
-}
-
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -515,10 +506,13 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
     const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host)) : undefined;
     props.modelValue = value !== undefined ? value : '';
-    props['onUpdate:modelValue'] = (ev) => {
+    let lastEmittedValue = props.modelValue;
+    const emitValue = (ev) => {
       const target = node.bind && node.bind.write;
       if (!target) return;
       const nextValue = ev && ev.target ? ev.target.value : ev;
+      if (nextValue === lastEmittedValue) return;
+      lastEmittedValue = nextValue;
       if (shouldUseOverlay(host, node, target)) {
         stageOverlay(node, target, nextValue, host);
         return;
@@ -526,6 +520,8 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       const payload = { value: nextValue };
       dispatchEvent(node, target, payload, host, undefined, ctx);
     };
+    props['onUpdate:modelValue'] = emitValue;
+    props.onInput = emitValue;
     const commitPolicy = normalizeCommitPolicy(node.bind && node.bind.write);
     if (commitPolicy === 'on_blur') {
       props.onBlur = () => {
@@ -837,7 +833,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       props.disabled = true;
     }
 
-    props.onClick = (evt) => {
+    props.onClick = () => {
       if (singleFlightEnabled && flightState && flightState.pending) {
         return;
       }
@@ -1438,11 +1434,6 @@ function dispatchEvent(node, target, payload, host, overrideType) {
   const ctx = arguments.length > 5 ? arguments[5] : null;
   if (target && Object.prototype.hasOwnProperty.call(target, 'action')) {
     const snapshot = host.getSnapshot();
-    const mailboxValue = getMailboxValue(snapshot);
-    if (mailboxValue !== undefined && mailboxValue !== null) {
-      return { skipped: true, reason: 'mailbox_full' };
-    }
-
     const action = target.action;
     const out = { action };
     if (action !== 'submodel_create') {
