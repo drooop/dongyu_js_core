@@ -1307,6 +1307,10 @@ const HOME_OWNER_REQUEST_PIN = 'home_owner_request';
 const HOME_OWNER_ROUTE_LABEL = 'home_owner_route';
 const HOME_OWNER_FUNC = 'home_owner_materialize';
 const HOME_PIN_ERROR_LABEL = 'home_pin_error';
+const GENERIC_OWNER_REQUEST_PIN = 'owner_request';
+const GENERIC_OWNER_ROUTE_LABEL = 'owner_route';
+const GENERIC_OWNER_FUNC = 'owner_materialize';
+const GENERIC_PIN_ERROR_LABEL = 'owner_pin_error';
 
 function homeOwnerMaterializeCode(modelId) {
   return [
@@ -1322,6 +1326,32 @@ function homeOwnerMaterializeCode(modelId) {
     "  }",
     "  return;",
     "}",
+    "if (req.op === 'add_label') {",
+    "  const target = req.target_cell || {};",
+    "  const lv = req.label || {};",
+    "  if (typeof lv.k !== 'string' || !lv.k || typeof lv.t !== 'string' || !lv.t) throw new Error('invalid_request_shape');",
+    "  ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(target.p) ? target.p : 0, r: Number.isInteger(target.r) ? target.r : 0, c: Number.isInteger(target.c) ? target.c : 0, k: lv.k }, lv.t, lv.v);",
+    "  return;",
+    "}",
+    "if (req.op === 'rm_label') {",
+    "  const target = req.target_cell || {};",
+    "  const lv = req.label || {};",
+    "  if (typeof lv.k !== 'string' || !lv.k) throw new Error('invalid_request_shape');",
+    "  ctx.rmLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(target.p) ? target.p : 0, r: Number.isInteger(target.r) ? target.r : 0, c: Number.isInteger(target.c) ? target.c : 0, k: lv.k });",
+    "  return;",
+    "}",
+    "throw new Error('unsupported_op');",
+  ].join('\n');
+}
+
+function genericOwnerMaterializeCode(modelId) {
+  return [
+    `const SELF_MODEL_ID = ${JSON.stringify(modelId)};`,
+    "const req = label && label.v && typeof label.v === 'object' ? label.v : null;",
+    "if (!req) throw new Error('invalid_request_shape');",
+    "ctx.writeLabel({ model_id: SELF_MODEL_ID, p: 0, r: 0, c: 0, k: '__owner_last_request_id' }, 'str', typeof req.request_id === 'string' ? req.request_id : '');",
+    "ctx.writeLabel({ model_id: SELF_MODEL_ID, p: 0, r: 0, c: 0, k: '__owner_last_action' }, 'str', req && req.origin && typeof req.origin.action === 'string' ? req.origin.action : '');",
+    "if (req.target_model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
     "if (req.op === 'add_label') {",
     "  const target = req.target_cell || {};",
     "  const lv = req.label || {};",
@@ -1367,6 +1397,33 @@ function ensureHomeOwnerMaterializer(runtime, modelId) {
   return true;
 }
 
+function ensureGenericOwnerMaterializer(runtime, modelId) {
+  const model = runtime.getModel(modelId);
+  if (!model) return false;
+  const cell = runtime.getCell(model, 0, 0, 0);
+  const pinType = typeof runtime._modelInputLabelType === 'function'
+    ? runtime._modelInputLabelType(model)
+    : 'pin.table.in';
+  if (!cell.labels.has(GENERIC_OWNER_REQUEST_PIN)) {
+    runtime.addLabel(model, 0, 0, 0, { k: GENERIC_OWNER_REQUEST_PIN, t: pinType, v: null });
+  }
+  if (!cell.labels.has(GENERIC_OWNER_ROUTE_LABEL)) {
+    runtime.addLabel(model, 0, 0, 0, {
+      k: GENERIC_OWNER_ROUTE_LABEL,
+      t: 'pin.connect.label',
+      v: [{ from: `(self, ${GENERIC_OWNER_REQUEST_PIN})`, to: [`(func, ${GENERIC_OWNER_FUNC}:in)`] }],
+    });
+  }
+  if (!cell.labels.has(GENERIC_OWNER_FUNC)) {
+    runtime.addLabel(model, 0, 0, 0, {
+      k: GENERIC_OWNER_FUNC,
+      t: 'func.js',
+      v: { code: genericOwnerMaterializeCode(modelId), modelName: 'owner_materialize' },
+    });
+  }
+  return true;
+}
+
 function buildHomeSourceOutPin(targetModelId) {
   return `home_owner_req_${String(targetModelId)}`;
 }
@@ -1384,6 +1441,27 @@ function ensureHomeOwnerRoute(runtime, targetModelId) {
     k: `${HOME_OWNER_ROUTE_LABEL}_${sourcePin}`,
     t: 'pin.connect.model',
     v: [{ from: [-10, sourcePin], to: [[targetModelId, HOME_OWNER_REQUEST_PIN]] }],
+  });
+  return true;
+}
+
+function buildGenericSourceOutPin(targetModelId) {
+  return `owner_req_${String(targetModelId)}`;
+}
+
+function ensureGenericOwnerRoute(runtime, targetModelId) {
+  const model0 = runtime.getModel(0);
+  if (!model0) return false;
+  const sourcePin = buildGenericSourceOutPin(targetModelId);
+  const routeKey = `${-10}|${sourcePin}`;
+  const existing = runtime.modelConnectionRoutes.get(routeKey) || [];
+  if (existing.some((target) => target && target.model_id === targetModelId && target.k === GENERIC_OWNER_REQUEST_PIN)) {
+    return true;
+  }
+  runtime.addLabel(model0, 0, 0, 0, {
+    k: `${GENERIC_OWNER_ROUTE_LABEL}_${sourcePin}`,
+    t: 'pin.connect.model',
+    v: [{ from: [-10, sourcePin], to: [[targetModelId, GENERIC_OWNER_REQUEST_PIN]] }],
   });
   return true;
 }
@@ -3715,6 +3793,52 @@ function createServerState(options) {
       return { ok: true };
     };
 
+    const sendGenericOwnerRequestsViaSourcePin = async (requests) => {
+      const sysModel = runtime.getModel(-10);
+      if (!sysModel) return { ok: false, code: 'invalid_target', detail: 'missing_system_model' };
+      const normalized = Array.isArray(requests) ? requests : [];
+      if (normalized.length === 0) return { ok: true };
+      runtime.addLabel(sysModel, 0, 0, 0, { k: GENERIC_PIN_ERROR_LABEL, t: 'json', v: null });
+      for (const request of normalized) {
+        const targetModelId = Number.isInteger(request?.target_model_id) ? request.target_model_id : null;
+        if (!Number.isInteger(targetModelId)) return { ok: false, code: 'invalid_target', detail: 'missing_model_id' };
+        const targetModel = runtime.getModel(targetModelId);
+        if (!targetModel) return { ok: false, code: 'invalid_target', detail: 'missing_model' };
+        if (!ensureGenericOwnerMaterializer(runtime, targetModelId)) return { ok: false, code: 'target_owner_missing', detail: String(targetModelId) };
+        if (!ensureGenericOwnerRoute(runtime, targetModelId)) return { ok: false, code: 'route_missing', detail: String(targetModelId) };
+        runtime.rmLabel(targetModel, 0, 0, 0, `__error_${GENERIC_OWNER_FUNC}`);
+      }
+      for (const request of normalized) {
+        runtime.addLabel(sysModel, 0, 0, 0, {
+          k: buildGenericSourceOutPin(request.target_model_id),
+          t: 'pin.table.out',
+          v: request,
+        });
+      }
+      await sleepMs(25);
+      await programEngine.tick();
+      const sourceErr = runtime.getLabelValue(sysModel, 0, 0, 0, GENERIC_PIN_ERROR_LABEL);
+      if (sourceErr && typeof sourceErr === 'object') {
+        return {
+          ok: false,
+          code: typeof sourceErr.code === 'string' ? sourceErr.code : 'source_pin_error',
+          detail: typeof sourceErr.detail === 'string' ? sourceErr.detail : 'unknown',
+        };
+      }
+      for (const request of normalized) {
+        const targetModel = runtime.getModel(request.target_model_id);
+        const errValue = runtime.getLabelValue(targetModel, 0, 0, 0, `__error_${GENERIC_OWNER_FUNC}`);
+        if (errValue && typeof errValue === 'object') {
+          return {
+            ok: false,
+            code: 'target_materialization_failed',
+            detail: typeof errValue.error === 'string' ? errValue.error : 'unknown',
+          };
+        }
+      }
+      return { ok: true };
+    };
+
     const executeHomePinAction = async () => {
       const target = payload && payload.target && typeof payload.target === 'object' ? payload.target : {};
       const targetModelId = Number.isInteger(target.model_id) ? target.model_id : null;
@@ -3899,12 +4023,58 @@ function createServerState(options) {
       return finishError('unknown_action', action);
     };
 
+    const executeGenericOwnerAction = async () => {
+      const target = payload && payload.target && typeof payload.target === 'object' ? payload.target : {};
+      const targetModelId = Number.isInteger(target.model_id) ? target.model_id : null;
+      const p = Number.isInteger(target.p) ? target.p : 0;
+      const r = Number.isInteger(target.r) ? target.r : 0;
+      const c = Number.isInteger(target.c) ? target.c : 0;
+      const key = typeof target.k === 'string' ? target.k : '';
+      if (!runtime.isRunLoopActive()) {
+        return finishError('runtime_not_running', `model_id=${targetModelId ?? 'unknown'}`);
+      }
+      if (!(Number.isInteger(targetModelId) && targetModelId > 0 && key)) {
+        return finishError('invalid_target', 'positive_target_required');
+      }
+      if (action === 'ui_owner_label_update') {
+        if (!payload.value || typeof payload.value.t !== 'string' || !Object.prototype.hasOwnProperty.call(payload.value, 'v')) {
+          return finishError('invalid_target', 'missing_value');
+        }
+        const sent = await sendGenericOwnerRequestsViaSourcePin([{
+          op: 'add_label',
+          target_model_id: targetModelId,
+          target_cell: { p, r, c },
+          label: { k: key, t: payload.value.t, v: payload.value.v },
+          origin: { model_id: -10, cell: { p: 0, r: 0, c: 0 }, action },
+          request_id: opId || `ui_owner_set_${Date.now()}`,
+          ts: Date.now(),
+        }]);
+        return sent.ok ? finishOk({ routed_by: 'pin' }) : finishError(sent.code, sent.detail);
+      }
+      if (action === 'ui_owner_label_remove') {
+        const sent = await sendGenericOwnerRequestsViaSourcePin([{
+          op: 'rm_label',
+          target_model_id: targetModelId,
+          target_cell: { p, r, c },
+          label: { k: key },
+          origin: { model_id: -10, cell: { p: 0, r: 0, c: 0 }, action },
+          request_id: opId || `ui_owner_rm_${Date.now()}`,
+          ts: Date.now(),
+        }]);
+        return sent.ok ? finishOk({ routed_by: 'pin' }) : finishError(sent.code, sent.detail);
+      }
+      return finishError('unknown_action', action);
+    };
+
     const businessTargetModelId = meta && Number.isInteger(meta.model_id) ? meta.model_id : null;
     const directMutationTarget = payload && payload.target && typeof payload.target === 'object' && Number.isInteger(payload.target.model_id)
       ? payload.target.model_id
       : null;
     if (envelopeOrNull && HOME_PIN_ACTIONS.has(action)) {
       return executeHomePinAction();
+    }
+    if (envelopeOrNull && (action === 'ui_owner_label_update' || action === 'ui_owner_label_remove')) {
+      return executeGenericOwnerAction();
     }
     const allowUiLocalMutation = isUiLocalMutableModelId(directMutationTarget);
     if (envelopeOrNull && isDirectModelMutationAction(action) && !(action !== 'submodel_create' && allowUiLocalMutation)) {
