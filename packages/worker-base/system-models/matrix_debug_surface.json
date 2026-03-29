@@ -183,419 +183,1688 @@
       "op": "add_label",
       "model_id": -100,
       "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "matrix_debug_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
       "r": 1,
       "c": 0,
-      "k": "page_asset_v0",
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_layout"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
       "t": "json",
       "v": {
-        "id": "matrix_debug_root",
-        "type": "Root",
-        "children": [
+        "layout": "column",
+        "gap": 16,
+        "style": {
+          "padding": "16px",
+          "maxWidth": "1180px",
+          "margin": "0 auto"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_header_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_layout"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "Matrix Debug Surface"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_breadcrumb"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Breadcrumb"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_header_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "items": [
           {
-            "id": "matrix_debug_layout",
-            "type": "Container",
-            "props": {
-              "layout": "column",
-              "gap": 16,
-              "style": {
-                "padding": "16px",
-                "maxWidth": "1180px",
-                "margin": "0 auto"
-              }
-            },
-            "children": [
-              {
-                "id": "matrix_debug_header_card",
-                "type": "Card",
-                "props": {
-                  "title": "Matrix Debug Surface"
-                },
-                "children": [
-                  {
-                    "id": "matrix_debug_breadcrumb",
-                    "type": "Breadcrumb",
-                    "props": {
-                      "items": [
-                        {
-                          "label": "Workspace"
-                        },
-                        {
-                          "label": "Matrix Debug"
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    "id": "matrix_debug_intro",
-                    "type": "Text",
-                    "props": {
-                      "type": "info",
-                      "text": "Observable server/Matrix/bridge trace state projected from Model -100."
-                    }
-                  }
-                ]
-              },
-              {
-                "id": "matrix_debug_status_row",
-                "type": "Container",
-                "props": {
-                  "layout": "row",
-                  "gap": 12,
-                  "wrap": true
-                },
-                "children": [
-                  {
-                    "id": "matrix_debug_status_badge",
-                    "type": "StatusBadge",
-                    "props": {
-                      "label": "STATUS",
-                      "text": "monitoring"
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -100,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "trace_status"
-                      }
-                    }
-                  },
-                  {
-                    "id": "matrix_debug_enabled_hint",
-                    "type": "Text",
-                    "props": {
-                      "type": "info",
-                      "text": ""
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -2,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "matrix_debug_readiness_text"
-                      }
-                    }
-                  }
-                ]
-              },
-              {
-                "id": "matrix_debug_metrics_row",
-                "type": "Container",
-                "props": {
-                  "layout": "row",
-                  "gap": 12,
-                  "wrap": true
-                },
-                "children": [
-                  {
-                    "id": "matrix_debug_stat_events",
-                    "type": "StatCard",
-                    "props": {
-                      "label": "Events",
-                      "unit": "total",
-                      "variant": "info",
-                      "style": {
-                        "flex": 1
-                      }
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -100,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "trace_count"
-                      }
-                    }
-                  },
-                  {
-                    "id": "matrix_debug_stat_latency",
-                    "type": "StatCard",
-                    "props": {
-                      "label": "Avg Latency",
-                      "unit": "ms",
-                      "variant": "info",
-                      "style": {
-                        "flex": 1
-                      }
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -100,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "trace_avg_latency"
-                      }
-                    }
-                  },
-                  {
-                    "id": "matrix_debug_stat_throughput",
-                    "type": "StatCard",
-                    "props": {
-                      "label": "Throughput",
-                      "variant": "info",
-                      "style": {
-                        "flex": 1
-                      }
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -100,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "trace_throughput"
-                      }
-                    }
-                  },
-                  {
-                    "id": "matrix_debug_stat_errors",
-                    "type": "StatCard",
-                    "props": {
-                      "label": "Error Rate",
-                      "variant": "success",
-                      "style": {
-                        "flex": 1
-                      }
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -100,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "trace_error_rate"
-                      }
-                    }
-                  }
-                ]
-              },
-              {
-                "id": "matrix_debug_subject_card",
-                "type": "Card",
-                "props": {
-                  "title": "Subject"
-                },
-                "children": [
-                  {
-                    "id": "matrix_debug_subject_select",
-                    "type": "Select",
-                    "props": {
-                      "options": {
-                        "$label": {
-                          "model_id": -2,
-                          "p": 0,
-                          "r": 0,
-                          "c": 0,
-                          "k": "matrix_debug_subjects_json"
-                        }
-                      },
-                      "placeholder": "Select subject"
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -2,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "matrix_debug_subject_selected"
-                      },
-                      "write": {
-                        "action": "label_update",
-                        "target_ref": {
-                          "model_id": -2,
-                          "p": 0,
-                          "r": 0,
-                          "c": 0,
-                          "k": "matrix_debug_subject_selected"
-                        }
-                      }
-                    }
-                  },
-                  {
-                    "id": "matrix_debug_subject_summary",
-                    "type": "Text",
-                    "props": {
-                      "type": "info",
-                      "text": ""
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -2,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "matrix_debug_subject_summary_text"
-                      }
-                    }
-                  },
-                  {
-                    "id": "matrix_debug_trace_summary",
-                    "type": "Text",
-                    "props": {
-                      "type": "info",
-                      "text": ""
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -2,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "matrix_debug_trace_summary_text"
-                      }
-                    }
-                  },
-                  {
-                    "id": "matrix_debug_summary_text",
-                    "type": "Text",
-                    "props": {
-                      "type": "success",
-                      "text": ""
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -2,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "matrix_debug_summary_text"
-                      }
-                    }
-                  }
-                ]
-              },
-              {
-                "id": "matrix_debug_actions_card",
-                "type": "Card",
-                "props": {
-                  "title": "Safe Ops"
-                },
-                "children": [
-                  {
-                    "id": "matrix_debug_actions_text",
-                    "type": "Text",
-                    "props": {
-                        "type": "info",
-                      "text": ""
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -2,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "matrix_debug_status_text"
-                      }
-                    }
-                  },
-                  {
-                    "id": "matrix_debug_actions_row",
-                    "type": "Container",
-                    "props": {
-                      "layout": "row",
-                      "gap": 8,
-                      "wrap": true
-                    },
-                    "children": [
-                      {
-                        "id": "matrix_debug_refresh_button",
-                        "type": "Button",
-                        "props": {
-                          "label": "Refresh",
-                          "size": "small"
-                        },
-                        "bind": {
-                          "write": {
-                            "action": "matrix_debug_refresh",
-                            "target_ref": {
-                              "model_id": -2,
-                              "p": 0,
-                              "r": 0,
-                              "c": 0,
-                              "k": "matrix_debug_subject_selected"
-                            }
-                          }
-                        }
-                      },
-                      {
-                        "id": "matrix_debug_clear_button",
-                        "type": "Button",
-                        "props": {
-                          "label": "Clear Trace",
-                          "size": "small"
-                        },
-                        "bind": {
-                          "write": {
-                            "action": "matrix_debug_clear_trace",
-                            "target_ref": {
-                              "model_id": -2,
-                              "p": 0,
-                              "r": 0,
-                              "c": 0,
-                              "k": "matrix_debug_subject_selected"
-                            }
-                          }
-                        }
-                      },
-                      {
-                        "id": "matrix_debug_summarize_button",
-                        "type": "Button",
-                        "props": {
-                          "label": "Summarize",
-                          "size": "small"
-                        },
-                        "bind": {
-                          "write": {
-                            "action": "matrix_debug_summarize",
-                            "target_ref": {
-                              "model_id": -2,
-                              "p": 0,
-                              "r": 0,
-                              "c": 0,
-                              "k": "matrix_debug_subject_selected"
-                            }
-                          }
-                        }
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "id": "matrix_debug_log_card",
-                "type": "Card",
-                "props": {
-                  "title": "Recent Trace"
-                },
-                "children": [
-                  {
-                    "id": "matrix_debug_log_terminal",
-                    "type": "Terminal",
-                    "props": {
-                      "title": "trace.log",
-                      "showMacButtons": true,
-                      "showToolbar": true,
-                      "maxHeight": "420px"
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -100,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "trace_log_text"
-                      }
-                    }
-                  }
-                ]
-              }
-            ]
+            "label": "Workspace"
+          },
+          {
+            "label": "Matrix Debug"
           }
         ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_intro"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_header_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": "Observable server/Matrix/bridge trace state projected from Model -100."
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_status_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_layout"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "row",
+        "gap": 12,
+        "wrap": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_status_badge"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_status_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "STATUS",
+        "text": "monitoring"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -100,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "trace_status"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_enabled_hint"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_status_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "matrix_debug_readiness_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_metrics_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_layout"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "row",
+        "gap": 12,
+        "wrap": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_stat_events"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatCard"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_metrics_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Events",
+        "unit": "total",
+        "variant": "info",
+        "style": {
+          "flex": 1
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -100,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "trace_count"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_stat_latency"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatCard"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_metrics_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Avg Latency",
+        "unit": "ms",
+        "variant": "info",
+        "style": {
+          "flex": 1
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -100,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "trace_avg_latency"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_stat_throughput"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatCard"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_metrics_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Throughput",
+        "variant": "info",
+        "style": {
+          "flex": 1
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -100,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "trace_throughput"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_stat_errors"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatCard"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_metrics_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Error Rate",
+        "variant": "success",
+        "style": {
+          "flex": 1
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -100,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "trace_error_rate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_subject_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_layout"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "Subject"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_subject_select"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Select"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_subject_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "options": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "matrix_debug_subjects_json"
+          }
+        },
+        "placeholder": "Select subject"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "matrix_debug_subject_selected"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "matrix_debug_subject_selected"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_subject_summary"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_subject_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "matrix_debug_subject_summary_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_trace_summary"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_subject_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "matrix_debug_trace_summary_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_summary_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_subject_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "success",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "matrix_debug_summary_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_actions_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_layout"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "Safe Ops"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_actions_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_actions_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "matrix_debug_status_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_actions_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_actions_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "row",
+        "gap": 8,
+        "wrap": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_refresh_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_actions_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Refresh",
+        "size": "small"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "matrix_debug_refresh",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "matrix_debug_subject_selected"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_clear_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_actions_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Clear Trace",
+        "size": "small"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "matrix_debug_clear_trace",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "matrix_debug_subject_selected"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_summarize_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_actions_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Summarize",
+        "size": "small"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "matrix_debug_summarize",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "matrix_debug_subject_selected"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_log_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_layout"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 60
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "Recent Trace"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_debug_log_terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_debug_log_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "trace.log",
+        "showMacButtons": true,
+        "showToolbar": true,
+        "maxHeight": "420px"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -100,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "trace_log_text"
+        }
       }
     }
   ]

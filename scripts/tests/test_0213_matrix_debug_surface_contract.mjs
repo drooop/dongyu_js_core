@@ -24,6 +24,13 @@ function hasRecord(patch, predicate) {
   return Array.isArray(patch.records) && patch.records.some(predicate);
 }
 
+function rootLabelValue(patch, key) {
+  const record = Array.isArray(patch.records)
+    ? patch.records.find((item) => item && item.model_id === -100 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key)
+    : null;
+  return record ? record.v : undefined;
+}
+
 function walkAst(node, visit) {
   if (!node || typeof node !== 'object') return;
   visit(node);
@@ -48,18 +55,14 @@ function test_model_id_registry_registers_trace_model() {
 function test_matrix_debug_surface_is_model_defined_and_mounted() {
   assert.match(server, /const TRACE_MODEL_ID = -100;/, 'server must keep TRACE_MODEL_ID=-100');
   assert.equal(
-    hasRecord(
-      matrixDebugPatch,
-      (record) => record
-        && record.op === 'add_label'
-        && record.model_id === -100
-        && record.p === 0
-        && record.r === 1
-        && record.c === 0
-        && record.k === 'page_asset_v0',
-    ),
-    true,
-    'matrix_debug_surface patch must define page_asset_v0 on Model -100',
+    rootLabelValue(matrixDebugPatch, 'ui_authoring_version'),
+    'cellwise.ui.v1',
+    'matrix_debug_surface patch must define cellwise authoring on Model -100',
+  );
+  assert.equal(
+    rootLabelValue(matrixDebugPatch, 'ui_root_node_id'),
+    'matrix_debug_root',
+    'matrix_debug_surface root node id must stay stable',
   );
   assert.equal(
     hasRecord(
@@ -117,16 +120,14 @@ function test_matrix_debug_actions_use_dispatch_contract() {
     'matrix debug summarize handler must exist',
   );
   const assetRecord = matrixDebugPatch.records.find((record) =>
-    record && record.model_id === -100 && record.p === 0 && record.r === 1 && record.c === 0 && record.k === 'page_asset_v0'
+    record && record.model_id === -100 && record.k === 'ui_bind_json'
   );
   let writesToTraceModel = false;
-  walkAst(assetRecord && assetRecord.v, (node) => {
-    const write = node && node.bind && node.bind.write && typeof node.bind.write === 'object' ? node.bind.write : null;
+  for (const record of matrixDebugPatch.records || []) {
+    const write = record?.k === 'ui_bind_json' && record?.v && typeof record.v === 'object' ? record.v.write : null;
     const targetRef = write && write.target_ref && typeof write.target_ref === 'object' ? write.target_ref : null;
-    if (targetRef && targetRef.model_id === -100) {
-      writesToTraceModel = true;
-    }
-  });
+    if (targetRef && targetRef.model_id === -100) writesToTraceModel = true;
+  }
   assert.equal(writesToTraceModel, false, 'matrix debug surface must not direct-write Model -100 from the UI asset');
   assert.match(server, /matrixDebugRefresh:/, 'server hostApi must expose matrixDebugRefresh');
   assert.match(server, /matrixDebugClearTrace:/, 'server hostApi must expose matrixDebugClearTrace');

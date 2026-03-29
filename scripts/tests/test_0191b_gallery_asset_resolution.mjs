@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { createDemoStore } from '../../packages/ui-model-demo-frontend/src/demo_modeltable.js';
 import { createGalleryStore } from '../../packages/ui-model-demo-frontend/src/gallery_store.js';
+import { buildAstFromCellwiseModel } from '../../packages/ui-model-demo-frontend/src/ui_cellwise_projection.js';
 import {
   GALLERY_CATALOG_MODEL_ID,
   GALLERY_STATE_MODEL_ID,
@@ -21,11 +22,11 @@ function test_gallery_ui_ast_is_loaded_from_explicit_model_label_asset() {
   const ast = store.getUiAst();
 
   assert.ok(store.runtime.getModel(GALLERY_CATALOG_MODEL_ID), 'gallery_catalog_model_missing');
-  assert.ok(ast && ast.type === 'Root', 'gallery_ast_missing');
+  assert.ok(ast && typeof ast === 'object', 'gallery_ast_missing');
   assert.deepEqual(
     ast,
-    getLabelValue(store.runtime, { model_id: GALLERY_CATALOG_MODEL_ID, p: 0, r: 1, c: 0, k: 'page_asset_v0' }),
-    'gallery_ast_must_come_from_explicit_page_asset_label',
+    buildAstFromCellwiseModel(store.snapshot, GALLERY_CATALOG_MODEL_ID),
+    'gallery_ast_must_come_from_cellwise_model_source',
   );
   assert.equal(
     getLabelValue(store.runtime, { model_id: GALLERY_CATALOG_MODEL_ID, p: 0, r: 0, c: 0, k: 'ui_ast_v0' }),

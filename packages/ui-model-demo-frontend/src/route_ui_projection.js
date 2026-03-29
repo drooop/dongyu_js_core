@@ -1,6 +1,7 @@
 import { normalizeHashPath } from './router.js';
 import { deriveSlidingFlowShellState, deriveWorkspaceSelected } from './editor_page_state_derivers.js';
 import { findPageEntryByPath, resolvePageAsset } from './page_asset_resolver.js';
+import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
 import { EDITOR_STATE_MODEL_ID, FLOW_SHELL_TAB_LABEL } from './model_ids.js';
 
 function cloneAst(ast) {
@@ -301,6 +302,7 @@ export function resolveRouteUiAst(snapshot, routePath, options = {}) {
     const shell = resolvePageAsset(snapshot, {
       pageName,
       projectSchemaModel,
+      projectCellwiseModel: buildAstFromCellwiseModel,
     });
     const workspace = deriveWorkspaceSelected(snapshot, EDITOR_STATE_MODEL_ID, projectSchemaModel);
     const flowState = deriveSlidingFlowShellState(snapshot, EDITOR_STATE_MODEL_ID);
@@ -316,5 +318,6 @@ export function resolveRouteUiAst(snapshot, routePath, options = {}) {
   return resolvePageAsset(snapshot, {
     pageName,
     projectSchemaModel,
+    projectCellwiseModel: buildAstFromCellwiseModel,
   });
 }

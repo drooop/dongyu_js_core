@@ -228,11 +228,20 @@ function run() {
 
   const callsBeforeSkip = calls.length;
   sendMailbox(store, mailboxEnvelope({ event_id: 240, action: 'label_remove', op_id: 'op_240', target: localProbeTarget }));
-  const skipped = renderer.dispatchEvent(btnRemove, {});
-  assert(skipped && skipped.skipped === true, 'editor_renderer_skip_mailbox_full');
-  assert(calls.length === callsBeforeSkip, 'editor_renderer_skip_mailbox_full: must not dispatch');
+  let mailboxFullError = null;
+  try {
+    renderer.dispatchEvent(btnRemove, {});
+  } catch (error) {
+    mailboxFullError = error;
+  }
+  assert(mailboxFullError && mailboxFullError.message === 'event_mailbox_full', 'editor_renderer_mailbox_full_guard');
+  assert(calls.length === callsBeforeSkip + 1, 'editor_renderer_mailbox_full_guard: host call must be recorded once');
+  assert(
+    getMailboxCell(store).labels.get('ui_event')?.v?.payload?.meta?.op_id === 'op_240',
+    'editor_renderer_mailbox_full_guard: pending mailbox event must remain unchanged',
+  );
   store.consumeOnce();
-  results.push('editor_renderer_skip_mailbox_full: PASS');
+  results.push('editor_renderer_mailbox_full_guard: PASS');
 
   // generic mailbox / validation behavior
   store.dispatchAddLabel({ p: 0, r: 0, c: 1, k: 'ui_event', t: 'event', v: '' });

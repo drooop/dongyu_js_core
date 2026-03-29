@@ -10,6 +10,7 @@ import {
   SCENE_CONTEXT_MODEL_ID,
   WORKSPACE_CATALOG_MODEL_ID,
 } from './model_ids.js';
+import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
 
 function stringifyOneLine(value) {
   if (value === undefined) return '';
@@ -375,6 +376,10 @@ export function deriveWorkspaceSelected(snapshot, editorStateModelId, projectSch
         props: { type: 'warning', text: `Model ${selectedId} is not mounted into Workspace.` },
       },
     };
+  }
+  const cellwiseAst = buildAstFromCellwiseModel(snapshot, selectedId);
+  if (cellwiseAst) {
+    return { title: selectedApp.name || `App ${selectedId}`, ast: cellwiseAst };
   }
   const modelLabelAst = normalizeAssetJson(
     getSnapshotLabelValue(snapshot, { model_id: selectedId, p: 0, r: 1, c: 0, k: 'page_asset_v0' }),

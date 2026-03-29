@@ -19,6 +19,27 @@ SKIP_IMAGE_BUILD="${SKIP_IMAGE_BUILD:-0}"
 SKIP_MATRIX_BOOTSTRAP="${SKIP_MATRIX_BOOTSTRAP:-0}"
 GENERATED_ENV_FILE="$REPO_DIR/deploy/env/local.generated.env"
 
+docker_build_with_local_fallback() {
+  local tag="$1"
+  local dockerfile="$2"
+  local build_log
+  build_log="$(mktemp)"
+  if docker build --no-cache -f "$dockerfile" -t "$tag" . 2>&1 | tee "$build_log"; then
+    rm -f "$build_log"
+    return 0
+  fi
+
+  if grep -Eq 'registry-1\.docker\.io|failed to verify certificate|x509:' "$build_log"; then
+    echo "  BuildKit metadata fetch failed for $tag; retrying with classic builder..."
+    rm -f "$build_log"
+    DOCKER_BUILDKIT=0 docker build --no-cache -f "$dockerfile" -t "$tag" .
+    return 0
+  fi
+
+  rm -f "$build_log"
+  return 1
+}
+
 # ── Load env ──────────────────────────────────────────────
 echo "=== Step 0: Load env ==="
 load_env "$REPO_DIR/deploy/env/local.env"
@@ -165,16 +186,16 @@ if [ "$SKIP_IMAGE_BUILD" = "1" ]; then
   echo "  SKIP_IMAGE_BUILD=1 -> skipping docker build"
 else
   echo "  Building dy-ui-server:v1 ..."
-  docker build --no-cache -f k8s/Dockerfile.ui-server -t dy-ui-server:v1 .
+  docker_build_with_local_fallback dy-ui-server:v1 k8s/Dockerfile.ui-server
 
   echo "  Building dy-remote-worker:v3 ..."
-  docker build --no-cache -f k8s/Dockerfile.remote-worker -t dy-remote-worker:v3 .
+  docker_build_with_local_fallback dy-remote-worker:v3 k8s/Dockerfile.remote-worker
 
   echo "  Building dy-mbr-worker:v2 ..."
-  docker build --no-cache -f k8s/Dockerfile.mbr-worker -t dy-mbr-worker:v2 .
+  docker_build_with_local_fallback dy-mbr-worker:v2 k8s/Dockerfile.mbr-worker
 
   echo "  Building dy-ui-side-worker:v1 ..."
-  docker build --no-cache -f k8s/Dockerfile.ui-side-worker -t dy-ui-side-worker:v1 .
+  docker_build_with_local_fallback dy-ui-side-worker:v1 k8s/Dockerfile.ui-side-worker
 fi
 echo ""
 

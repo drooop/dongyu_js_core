@@ -65,7 +65,8 @@ try {
   assert(workspaceRegistry.every((entry) => entry?.model_id !== UI_EXAMPLE_CHILD_MODEL_ID), 'workspace_registry_must_not_expose_child_example');
 
   let ast = selectWorkspaceModel(store, UI_EXAMPLE_SCHEMA_MODEL_ID);
-  assert(findNodeById(ast, `schema_root_${UI_EXAMPLE_SCHEMA_MODEL_ID}`)?.type === 'Container', 'schema_example_workspace_ast_missing');
+  assert(findNodeById(ast, 'ui_examples_cellwise_root')?.type === 'Container', 'cellwise_example_workspace_ast_missing');
+  assert(findNodeById(ast, 'ui_examples_cellwise_status')?.type === 'StatusBadge', 'cellwise_example_status_missing');
 
   ast = selectWorkspaceModel(store, UI_EXAMPLE_PAGE_ASSET_MODEL_ID);
   assert(findNodeById(ast, 'ui_examples_asset_root')?.type === 'Container', 'page_asset_example_root_missing');
@@ -73,10 +74,10 @@ try {
   assert(findNodeById(ast, 'ui_examples_asset_log_terminal')?.type === 'Terminal', 'page_asset_example_terminal_missing');
 
   ast = selectWorkspaceModel(store, UI_EXAMPLE_PARENT_MODEL_ID);
-  const includeNode = findNodeById(ast, 'ui_examples_parent_include_child');
   assert(findNodeById(ast, 'ui_examples_parent_root')?.type === 'Container', 'parent_example_root_missing');
-  assert(includeNode?.type === 'Include', 'parent_example_include_missing');
-  assert(includeNode?.props?.ref?.model_id === UI_EXAMPLE_CHILD_MODEL_ID, 'parent_example_include_ref_invalid');
+  assert(findNodeById(ast, 'ui_examples_parent_include_child') == null, 'parent_example_include_must_be_removed');
+  assert(findNodeById(ast, 'ui_examples_parent_child_card')?.type === 'Card', 'parent_example_inline_child_card_missing');
+  assert(findNodeById(ast, 'ui_examples_parent_child_stage_badge')?.type === 'StatusBadge', 'parent_example_inline_child_badge_missing');
   assert(findNodeById(ast, 'ui_examples_parent_promote_button')?.bind?.write?.action === UI_EXAMPLE_PROMOTE_CHILD_ACTION, 'parent_example_action_missing');
 
   assert(

@@ -510,7 +510,16 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const emitValue = (ev) => {
       const target = node.bind && node.bind.write;
       if (!target) return;
-      const nextValue = ev && ev.target ? ev.target.value : ev;
+      let nextValue = ev && ev.target ? ev.target.value : ev;
+      if (typeof document !== 'undefined') {
+        const active = document.activeElement;
+        if (active && Object.prototype.hasOwnProperty.call(active, 'value')) {
+          const activeValue = active.value;
+          if (nextValue === undefined || (typeof activeValue === 'string' && typeof nextValue === 'string' && activeValue.length >= nextValue.length)) {
+            nextValue = activeValue;
+          }
+        }
+      }
       if (nextValue === lastEmittedValue) return;
       lastEmittedValue = nextValue;
       if (shouldUseOverlay(host, node, target)) {
@@ -1440,7 +1449,7 @@ function dispatchEvent(node, target, payload, host, overrideType) {
       out.target = resolveRefsDeep(target.target_ref, ctx, snapshot);
     }
 
-    if (action === 'label_add' || action === 'label_update') {
+    if (action === 'label_add' || action === 'label_update' || action === 'ui_owner_label_update') {
       if (target.value_ref !== undefined) {
         out.value = resolveRefsDeep(target.value_ref, ctx, snapshot);
       } else {

@@ -193,6 +193,29 @@ async function main() {
   assert.equal(staleCalls.length, 1, 'renderer must delegate mailbox gating to host instead of skipping on stale snapshot mailbox');
   assert.equal(staleDispatchResult.k, 'ui_event', 'stale mailbox snapshot must still produce a ui_event label');
 
+  calls.length = 0;
+  const ownerIntentInputNode = {
+    id: 'input_owner_intent',
+    type: 'Input',
+    props: {},
+    bind: {
+      read: { model_id: 200, p: 0, r: 0, c: 0, k: 'title' },
+      write: {
+        action: 'ui_owner_label_update',
+        target_ref: { model_id: 200, p: 0, r: 0, c: 0, k: 'title' },
+      },
+    },
+  };
+  const ownerIntentVNode = renderer.renderVNode(ownerIntentInputNode);
+  ownerIntentVNode.props.onInput({ target: { value: 'owner-intent-title' } });
+  assert.equal(calls.at(-1).type, 'dispatch', 'ui_owner_label_update typing must dispatch event');
+  assert.equal(calls.at(-1).label.v.payload.action, 'ui_owner_label_update', 'ui_owner action name must be preserved');
+  assert.deepEqual(
+    calls.at(-1).label.v.payload.value,
+    { t: 'str', v: 'owner-intent-title' },
+    'ui_owner_label_update must auto-carry typed value payload',
+  );
+
   console.log('PASS test_0186_renderer_commit_policy_contract');
 }
 

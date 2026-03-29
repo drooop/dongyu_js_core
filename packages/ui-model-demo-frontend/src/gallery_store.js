@@ -2,6 +2,7 @@ import { reactive } from 'vue';
 import { ModelTableRuntime } from '../../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from './local_bus_adapter.js';
 import { getSnapshotLabelValue } from './snapshot_utils.js';
+import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
 import galleryCatalogPatch from '../../worker-base/system-models/gallery_catalog_ui.json' with { type: 'json' };
 import {
   EDITOR_STATE_MODEL_ID,
@@ -195,6 +196,8 @@ export function createGalleryStore(options) {
   }
 
   function getUiAst() {
+    const cellwise = buildAstFromCellwiseModel(snapshot, GALLERY_CATALOG_MODEL_ID);
+    if (cellwise && typeof cellwise === 'object') return cellwise;
     const raw = getSnapshotLabelValue(snapshot, GALLERY_PAGE_ASSET_REF);
     return raw && typeof raw === 'object' ? raw : null;
   }

@@ -66,6 +66,9 @@ export function resolvePageAsset(snapshot, options = {}) {
   const projectSchemaModel = typeof options.projectSchemaModel === 'function'
     ? options.projectSchemaModel
     : null;
+  const projectCellwiseModel = typeof options.projectCellwiseModel === 'function'
+    ? options.projectCellwiseModel
+    : null;
 
   const pageEntry = findPageEntry(snapshot, pageName);
   if (pageEntry && Number.isInteger(pageEntry.model_id)) {
@@ -79,6 +82,12 @@ export function resolvePageAsset(snapshot, options = {}) {
       const ast = readModelLabelAsset(snapshot, pageEntry.model_id, pageEntry.asset_ref);
       if (ast) {
         return { source: 'model_asset', assetType: 'model_label', pageName, modelId: pageEntry.model_id, ast };
+      }
+      if (projectCellwiseModel) {
+        const cellwiseAst = projectCellwiseModel(snapshot, pageEntry.model_id);
+        if (cellwiseAst) {
+          return { source: 'model_asset', assetType: 'model_label', pageName, modelId: pageEntry.model_id, ast: cellwiseAst };
+        }
       }
     }
   }

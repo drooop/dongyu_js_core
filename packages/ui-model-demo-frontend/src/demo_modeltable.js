@@ -14,6 +14,7 @@ import matrixDebugSurfacePatch from '../../worker-base/system-models/matrix_debu
 import cognitionSceneModelPatch from '../../worker-base/system-models/cognition_scene_model.json' with { type: 'json' };
 import cognitionLifecycleModelPatch from '../../worker-base/system-models/cognition_lifecycle_model.json' with { type: 'json' };
 import { buildAstFromSchema } from './ui_schema_projection.js';
+import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
 import { resolvePageAsset } from './page_asset_resolver.js';
 import { resolveRouteUiAst } from './route_ui_projection.js';
 import {
@@ -348,6 +349,7 @@ export function createDemoStore() {
 
     const resolved = resolvePageAsset(nextSnap, {
       projectSchemaModel: buildAstFromSchema,
+      projectCellwiseModel: buildAstFromCellwiseModel,
     });
 
     adapter.updateUiDerived({

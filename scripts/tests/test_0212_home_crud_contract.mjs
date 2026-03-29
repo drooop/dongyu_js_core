@@ -61,6 +61,18 @@ function collectWriteActions(node, acc = []) {
   return acc;
 }
 
+function getRootLabel(records, key) {
+  const record = getRecord(records, (item) => (
+    item?.model_id === HOME_EXECUTION_CONTRACT.page_asset_model_id
+    && item?.op === 'add_label'
+    && item?.p === 0
+    && item?.r === 0
+    && item?.c === 0
+    && item?.k === key
+  ));
+  return record ? record.v : undefined;
+}
+
 function test_home_crud_action_contract_definition_is_explicit() {
   assert.deepEqual(EXPECTED_HOME_CRUD_ACTIONS, [
     'home_refresh',
@@ -87,22 +99,26 @@ function test_home_model_placement_contract_is_registered() {
 
 function test_home_page_asset_contract_inventory_is_safe() {
   const records = getPatchRecords(homeCatalogPatch);
-  const assetRecord = getRecord(records, (record) => (
-    record?.model_id === HOME_EXECUTION_CONTRACT.page_asset_model_id
-    && record?.p === 0
-    && record?.r === 1
-    && record?.c === 0
-    && record?.k === 'page_asset_v0'
-  ));
-  assert(assetRecord, 'home_page_asset_v0_record_missing');
-  assert.equal(assetRecord.v?.id, 'root_home', 'home_page_asset_root_id_must_be_root_home');
-
-  const actions = collectWriteActions(assetRecord.v);
+  assert.equal(getRootLabel(records, 'ui_authoring_version'), 'cellwise.ui.v1', 'home_must_declare_cellwise_authoring');
+  assert.equal(getRootLabel(records, 'ui_root_node_id'), 'root_home', 'home_root_node_id_must_be_root_home');
+  assert.equal(
+    Boolean(getRecord(records, (record) => (
+      record?.model_id === HOME_EXECUTION_CONTRACT.page_asset_model_id
+      && record?.k === 'page_asset_v0'
+    ))),
+    false,
+    'home_must_not_keep_page_asset_v0_source',
+  );
   for (const action of EXPECTED_HOME_CRUD_ACTIONS) {
-    assert(actions.includes(action), `home_asset_must_materialize_action:${action}`);
+    assert(
+      Boolean(getRecord(records, (record) => (
+        record?.model_id === HOME_EXECUTION_CONTRACT.page_asset_model_id
+        && record?.k === 'ui_bind_json'
+        && record?.v?.write?.action === action
+      ))),
+      `home_asset_must_materialize_action:${action}`,
+    );
   }
-  const legacyHomeActions = actions.filter((action) => action.startsWith('datatable_'));
-  assert.equal(legacyHomeActions.length, 0, 'home_asset_must_not_keep_legacy_datatable_actions');
 }
 
 function test_home_dispatch_boundary_contract_inventory_exists() {
