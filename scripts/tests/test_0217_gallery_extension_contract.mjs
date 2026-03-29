@@ -199,14 +199,7 @@ function test_app_shell_syncs_gallery_route_explicitly() {
 function test_gallery_patch_materializes_showcase_state_without_copying_upstream_truth() {
   const records = getPatchRecords(galleryPatch);
   const stateRecords = records.filter((record) => record?.model_id === -102 && record?.op === 'add_label');
-  const pageAsset = findRecord(records, (record) => (
-    record?.model_id === -103
-    && record?.op === 'add_label'
-    && record?.p === 0
-    && record?.r === 1
-    && record?.c === 0
-    && record?.k === 'page_asset_v0'
-  ))?.v;
+  const galleryUiRecords = records.filter((record) => record?.model_id === -103 && record?.op === 'add_label');
 
   for (const labelKey of ['gallery_showcase_tab', 'gallery_examples_focus', 'gallery_three_focus']) {
     assert.ok(
@@ -232,24 +225,38 @@ function test_gallery_patch_materializes_showcase_state_without_copying_upstream
     );
   }
 
-  assert.equal(findNodeById(pageAsset, 'gallery_matrix_showcase_card')?.type, 'Card', 'gallery_matrix_showcase_card_missing');
-  assert.equal(findNodeById(pageAsset, 'gallery_examples_showcase_card')?.type, 'Card', 'gallery_examples_showcase_card_missing');
-  assert.equal(findNodeById(pageAsset, 'gallery_three_showcase_card')?.type, 'Card', 'gallery_three_showcase_card_missing');
-  assert.equal(findNodeById(pageAsset, 'gallery_three_viewer')?.type, 'ThreeScene', 'gallery_three_viewer_missing');
-  assert.equal(findNodeById(pageAsset, 'gallery_examples_audit_terminal')?.type, 'Terminal', 'gallery_examples_audit_terminal_missing');
+  assert.equal(
+    findRecord(galleryUiRecords, (record) => record?.k === 'ui_authoring_version')?.v,
+    'cellwise.ui.v1',
+    'gallery_must_declare_cellwise_authoring',
+  );
+  assert.equal(
+    findRecord(galleryUiRecords, (record) => record?.k === 'ui_root_node_id')?.v,
+    'root',
+    'gallery_root_node_id_must_stay_stable',
+  );
+  for (const nodeId of [
+    'gallery_matrix_showcase_card',
+    'gallery_examples_showcase_card',
+    'gallery_three_showcase_card',
+    'gallery_three_viewer',
+    'gallery_examples_audit_terminal',
+  ]) {
+    assert.ok(
+      findRecord(galleryUiRecords, (record) => record?.k === 'ui_node_id' && record?.v === nodeId),
+      `gallery_ui_node_missing:${nodeId}`,
+    );
+  }
 
   const writeActions = new Set();
   const readModelIds = new Set();
-  walkAst(pageAsset, (node) => {
-    const read = node?.bind?.read;
-    if (read && Number.isInteger(read.model_id)) {
-      readModelIds.add(read.model_id);
-    }
-    const write = node?.bind?.write;
-    if (write && typeof write.action === 'string') {
-      writeActions.add(write.action);
-    }
-  });
+  for (const record of galleryUiRecords) {
+    const bind = record?.k === 'ui_bind_json' && record?.v && typeof record.v === 'object' ? record.v : null;
+    const read = bind?.read;
+    if (read && Number.isInteger(read.model_id)) readModelIds.add(read.model_id);
+    const write = bind?.write;
+    if (write && typeof write.action === 'string') writeActions.add(write.action);
+  }
 
   for (const requiredAction of [
     'label_update',

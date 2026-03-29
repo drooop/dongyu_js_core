@@ -57,6 +57,18 @@ function getPageAsset(records, modelId) {
   return record ? record.v : null;
 }
 
+function getRootLabel(records, modelId, key) {
+  const record = findRecord(records, (item) => (
+    item?.model_id === modelId
+    && item?.op === 'add_label'
+    && item?.p === 0
+    && item?.r === 0
+    && item?.c === 0
+    && item?.k === key
+  ));
+  return record ? record.v : undefined;
+}
+
 function walkAst(node, visit) {
   if (!node || typeof node !== 'object') return;
   visit(node);
@@ -141,22 +153,37 @@ function test_canonical_examples_exist_on_authoritative_surfaces() {
   );
 
   assert.ok(
-    getPageAsset(positiveRecords, UI_EXAMPLE_PAGE_ASSET_MODEL_ID),
-    'page_asset_example_must_define_page_asset_v0',
+    getRootLabel(positiveRecords, UI_EXAMPLE_PAGE_ASSET_MODEL_ID, 'ui_authoring_version') === 'cellwise.ui.v1',
+    'page_asset_example_must_define_cellwise_authoring_root',
   );
   assert.equal(
     hasSchemaSurface(positiveRecords, UI_EXAMPLE_PAGE_ASSET_MODEL_ID),
     false,
     'page_asset_example_must_not_fall_back_to_schema_surface',
   );
+  assert.equal(
+    getPageAsset(positiveRecords, UI_EXAMPLE_PAGE_ASSET_MODEL_ID),
+    null,
+    'page_asset_example_must_not_keep_page_asset_v0_source',
+  );
 
   assert.ok(
-    getPageAsset(positiveRecords, UI_EXAMPLE_PARENT_MODEL_ID),
-    'parent_example_must_define_parent_page_asset_v0',
+    getRootLabel(positiveRecords, UI_EXAMPLE_PARENT_MODEL_ID, 'ui_authoring_version') === 'cellwise.ui.v1',
+    'parent_example_must_define_cellwise_authoring_root',
   );
   assert.ok(
+    getRootLabel(positiveRecords, UI_EXAMPLE_CHILD_MODEL_ID, 'ui_authoring_version') === 'cellwise.ui.v1',
+    'child_example_must_define_child_cellwise_authoring_root',
+  );
+  assert.equal(
+    getPageAsset(positiveRecords, UI_EXAMPLE_PARENT_MODEL_ID),
+    null,
+    'parent_example_must_not_keep_parent_page_asset_v0_source',
+  );
+  assert.equal(
     getPageAsset(positiveRecords, UI_EXAMPLE_CHILD_MODEL_ID),
-    'child_example_must_define_child_page_asset_v0',
+    null,
+    'child_example_must_not_keep_child_page_asset_v0_source',
   );
   assert.equal(
     hasSchemaSurface(positiveRecords, UI_EXAMPLE_CHILD_MODEL_ID),
@@ -208,54 +235,59 @@ function test_canonical_examples_exist_on_authoritative_surfaces() {
 
 function test_page_asset_and_parent_mounted_patterns_use_expected_components() {
   const positiveRecords = getPatchRecords(workspacePositivePatch);
-  const pageAssetAst = getPageAsset(positiveRecords, UI_EXAMPLE_PAGE_ASSET_MODEL_ID);
-  const parentAssetAst = getPageAsset(positiveRecords, UI_EXAMPLE_PARENT_MODEL_ID);
-  const childAssetAst = getPageAsset(positiveRecords, UI_EXAMPLE_CHILD_MODEL_ID);
+  const pageAssetModelRecords = getModelRecords(positiveRecords, UI_EXAMPLE_PAGE_ASSET_MODEL_ID);
+  const parentModelRecords = getModelRecords(positiveRecords, UI_EXAMPLE_PARENT_MODEL_ID);
+  const childModelRecords = getModelRecords(positiveRecords, UI_EXAMPLE_CHILD_MODEL_ID);
 
-  assert.equal(pageAssetAst?.id, 'ui_examples_asset_root', 'page_asset_example_root_id_must_be_stable');
   assert.equal(
-    findNode(pageAssetAst, (node) => node?.id === 'ui_examples_asset_status' && node?.type === 'StatusBadge')?.type,
-    'StatusBadge',
-    'page_asset_example_must_include_status_badge',
+    getRootLabel(pageAssetModelRecords, UI_EXAMPLE_PAGE_ASSET_MODEL_ID, 'ui_root_node_id'),
+    'ui_examples_asset_root',
+    'page_asset_example_root_id_must_be_stable',
   );
-  assert.equal(
-    findNode(pageAssetAst, (node) => node?.id === 'ui_examples_asset_stat_cards' && node?.type === 'Container')?.type,
-    'Container',
-    'page_asset_example_must_include_stat_card_row',
+  assert.ok(
+    findRecord(pageAssetModelRecords, (record) => record?.k === 'ui_node_id' && record?.v === 'ui_examples_asset_status'),
+    'page_asset_example_must_include_status_badge_node',
   );
-  assert.equal(
-    findNode(pageAssetAst, (node) => node?.id === 'ui_examples_asset_log_terminal' && node?.type === 'Terminal')?.type,
-    'Terminal',
-    'page_asset_example_must_include_terminal_log',
+  assert.ok(
+    findRecord(pageAssetModelRecords, (record) => record?.k === 'ui_node_id' && record?.v === 'ui_examples_asset_stat_cards'),
+    'page_asset_example_must_include_stat_card_row_node',
+  );
+  assert.ok(
+    findRecord(pageAssetModelRecords, (record) => record?.k === 'ui_node_id' && record?.v === 'ui_examples_asset_log_terminal'),
+    'page_asset_example_must_include_terminal_node',
   );
 
-  assert.equal(parentAssetAst?.id, 'ui_examples_parent_root', 'parent_example_root_id_must_be_stable');
-  const includeNode = findNode(parentAssetAst, (node) => node?.id === 'ui_examples_parent_include_child');
-  assert.equal(includeNode?.type, 'Include', 'parent_example_must_include_child_asset');
-  assert.deepEqual(
-    includeNode?.props?.ref,
-    { model_id: UI_EXAMPLE_CHILD_MODEL_ID, p: 0, r: 1, c: 0, k: 'page_asset_v0' },
-    'parent_example_include_must_point_to_child_page_asset_v0',
+  assert.equal(
+    getRootLabel(parentModelRecords, UI_EXAMPLE_PARENT_MODEL_ID, 'ui_root_node_id'),
+    'ui_examples_parent_root',
+    'parent_example_root_id_must_be_stable',
   );
   assert.equal(
-    findNode(parentAssetAst, (node) => (
-      node?.id === 'ui_examples_parent_promote_button'
-      && node?.bind?.write?.action === UI_EXAMPLE_PROMOTE_CHILD_ACTION
-    ))?.type,
-    'Button',
+    Boolean(findRecord(parentModelRecords, (record) => record?.k === 'ui_node_id' && record?.v === 'ui_examples_parent_include_child')),
+    false,
+    'parent_example_must_not_keep_include_child_node',
+  );
+  assert.ok(
+    findRecord(parentModelRecords, (record) => record?.k === 'ui_node_id' && record?.v === 'ui_examples_parent_child_card'),
+    'parent_example_must_inline_child_projection',
+  );
+  assert.ok(
+    findRecord(parentModelRecords, (record) => record?.k === 'ui_node_id' && record?.v === 'ui_examples_parent_promote_button'),
     'parent_example_must_expose_formal_promote_action_button',
   );
 
-  assert.equal(childAssetAst?.id, 'ui_examples_child_root', 'child_example_root_id_must_be_stable');
   assert.equal(
-    findNode(childAssetAst, (node) => node?.id === 'ui_examples_child_stage_badge' && node?.type === 'StatusBadge')?.type,
-    'StatusBadge',
-    'child_example_must_include_status_badge',
+    getRootLabel(childModelRecords, UI_EXAMPLE_CHILD_MODEL_ID, 'ui_root_node_id'),
+    'ui_examples_child_root',
+    'child_example_root_id_must_be_stable',
   );
-  assert.equal(
-    findNode(childAssetAst, (node) => node?.id === 'ui_examples_child_log_terminal' && node?.type === 'Terminal')?.type,
-    'Terminal',
-    'child_example_must_include_terminal',
+  assert.ok(
+    findRecord(childModelRecords, (record) => record?.k === 'ui_node_id' && record?.v === 'ui_examples_child_stage_badge'),
+    'child_example_must_include_status_badge_node',
+  );
+  assert.ok(
+    findRecord(childModelRecords, (record) => record?.k === 'ui_node_id' && record?.v === 'ui_examples_child_log_terminal'),
+    'child_example_must_include_terminal_node',
   );
 }
 

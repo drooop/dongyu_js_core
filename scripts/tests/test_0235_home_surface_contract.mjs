@@ -18,33 +18,27 @@ function findHomeAsset(records) {
   return records.find((record) => (
     record?.model_id === -22 &&
     record?.p === 0 &&
-    record?.r === 1 &&
+    record?.r === 0 &&
     record?.c === 0 &&
-    record?.k === 'page_asset_v0'
+    record?.k === 'ui_root_node_id'
   )) || null;
 }
 
-function walk(node, fn) {
-  if (!node || typeof node !== 'object') return;
-  fn(node);
-  const children = Array.isArray(node.children) ? node.children : [];
-  for (const child of children) walk(child, fn);
+function collectValues(records, key) {
+  return records
+    .filter((record) => record?.model_id === -22 && record?.k === key)
+    .map((record) => record.v);
 }
 
 function test_home_surface_contract_removes_legacy_datatable_marker() {
   const records = getPatchRecords(homeCatalogPatch);
   const assetRecord = findHomeAsset(records);
-  assert(assetRecord, 'home_page_asset_v0_record_missing');
-  assert.equal(assetRecord.v?.id, 'root_home', 'home_page_asset_root_id_must_be_root_home');
+  assert(assetRecord, 'home_ui_root_node_id_missing');
+  assert.equal(assetRecord.v, 'root_home', 'home_page_asset_root_id_must_be_root_home');
 
-  const texts = [];
-  const titles = [];
-  const ids = [];
-  walk(assetRecord.v, (node) => {
-    if (typeof node.id === 'string') ids.push(node.id);
-    if (typeof node?.props?.text === 'string') texts.push(node.props.text);
-    if (typeof node?.props?.title === 'string') titles.push(node.props.title);
-  });
+  const texts = collectValues(records, 'ui_text');
+  const titles = collectValues(records, 'ui_title');
+  const ids = collectValues(records, 'ui_node_id');
 
   const joinedTexts = texts.join('\n');
   const joinedTitles = titles.join('\n');

@@ -209,7 +209,7 @@ export function createRemoteStore(options) {
     const action = typeof writeTarget.action === 'string' && writeTarget.action.trim()
       ? writeTarget.action.trim()
       : 'label_update';
-    if (action !== 'label_update' && action !== 'label_add') return null;
+    if (action !== 'label_update' && action !== 'label_add' && action !== 'ui_owner_label_update') return null;
     const opId = `overlay_${Date.now()}_${Math.random().toString(16).slice(2)}`;
     const typedValue = inferTypedValue(explicitValue !== undefined ? explicitValue : entry.value);
     const payload = {

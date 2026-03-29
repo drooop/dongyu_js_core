@@ -1530,13 +1530,15 @@ function buildClientSnapshot(runtime) {
   const models = {};
   for (const [id, model] of Object.entries(snap.models)) {
     const modelId = Number(id);
-    // Trace model: only include summary cell (0,0,0), skip trace entry cells
+    // Trace model: include summary root plus cellwise UI nodes, but still skip bulk trace entry cells.
     if (modelId === TRACE_MODEL_ID) {
       const filteredCells = {};
       const rootCell = model.cells && model.cells['0,0,0'];
       if (rootCell) filteredCells['0,0,0'] = rootCell;
-      const assetCell = model.cells && model.cells['0,1,0'];
-      if (assetCell) filteredCells['0,1,0'] = assetCell;
+      for (const [ck, cell] of Object.entries(model.cells || {})) {
+        if (!ck.startsWith('2,')) continue;
+        filteredCells[ck] = cell;
+      }
       models[id] = { ...model, cells: filteredCells };
       continue;
     }

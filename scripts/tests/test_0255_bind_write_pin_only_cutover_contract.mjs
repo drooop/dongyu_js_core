@@ -49,6 +49,7 @@ function test_positive_schema_model_write_is_intent_not_direct_label_update() {
   assert(inputNode?.bind?.write, 'schema_input_write_missing');
   assert.equal(inputNode.bind.write.action, 'ui_owner_label_update', 'positive_schema_write_must_cut_over_to_owner_intent');
   assert.equal(inputNode.bind.write.mode, 'intent', 'positive_schema_write_must_be_intent_mode');
+  assert.equal(inputNode.bind.write.commit_policy, 'on_blur', 'positive_input_default_commit_policy_must_be_on_blur');
   assert.deepEqual(
     inputNode.bind.write.target_ref,
     { model_id: 1001, p: 0, r: 0, c: 0, k: 'applicant' },

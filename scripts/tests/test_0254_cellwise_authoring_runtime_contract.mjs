@@ -116,9 +116,122 @@ function test_non_cellwise_model_returns_null() {
   return { key: 'non_cellwise_model_returns_null', status: 'PASS' };
 }
 
+function test_cellwise_model_compiles_extended_props_and_bind_json() {
+  const snapshot = makeSnapshot(9102, {
+    '0,0,0': {
+      ui_authoring_version: { t: 'str', v: 'cellwise.ui.v1' },
+      ui_root_node_id: { t: 'str', v: 'root' },
+    },
+    '1,0,0': {
+      ui_node_id: { t: 'str', v: 'root' },
+      ui_component: { t: 'str', v: 'Container' },
+      ui_layout: { t: 'str', v: 'column' },
+      ui_gap: { t: 'int', v: 16 },
+    },
+    '2,0,0': {
+      ui_node_id: { t: 'str', v: 'terminal' },
+      ui_component: { t: 'str', v: 'Terminal' },
+      ui_parent: { t: 'str', v: 'root' },
+      ui_order: { t: 'int', v: 10 },
+      ui_title: { t: 'str', v: 'Audit Log' },
+      ui_props_json: { t: 'json', v: { maxHeight: '220px', style: { flex: 1 } } },
+      ui_bind_read_json: { t: 'json', v: { model_id: 9102, p: 0, r: 0, c: 0, k: 'audit_log' } },
+    },
+    '3,0,0': {
+      ui_node_id: { t: 'str', v: 'button' },
+      ui_component: { t: 'str', v: 'Button' },
+      ui_parent: { t: 'str', v: 'root' },
+      ui_order: { t: 'int', v: 20 },
+      ui_label: { t: 'str', v: 'Promote' },
+      ui_props_json: { t: 'json', v: { type: 'primary' } },
+      ui_bind_write_json: {
+        t: 'json',
+        v: {
+          action: 'ui_examples_promote_child_stage',
+          target_ref: { model_id: 9103, p: 0, r: 0, c: 0, k: 'review_stage' },
+          value_ref: { t: 'str', v: 'approved' },
+        },
+      },
+    },
+  });
+
+  const ast = buildAstFromCellwiseModel(snapshot, 9102);
+  assert(ast, 'extended_cellwise_ast_missing');
+  assert.equal(ast.children[0].props.title, 'Audit Log', 'explicit_title_prop_must_be_preserved');
+  assert.equal(ast.children[0].props.maxHeight, '220px', 'props_json_max_height_must_compile');
+  assert.deepEqual(ast.children[0].props.style, { flex: 1 }, 'props_json_style_must_compile');
+  assert.deepEqual(
+    ast.children[0].bind.read,
+    { model_id: 9102, p: 0, r: 0, c: 0, k: 'audit_log' },
+    'bind_read_json_must_compile',
+  );
+  assert.equal(ast.children[1].props.type, 'primary', 'props_json_button_type_must_compile');
+  assert.deepEqual(
+    ast.children[1].bind.write,
+    {
+      action: 'ui_examples_promote_child_stage',
+      target_ref: { model_id: 9103, p: 0, r: 0, c: 0, k: 'review_stage' },
+      value_ref: { t: 'str', v: 'approved' },
+    },
+    'bind_write_json_must_compile',
+  );
+  return { key: 'cellwise_model_compiles_extended_props_and_bind_json', status: 'PASS' };
+}
+
+function test_cellwise_model_compiles_full_bind_json() {
+  const snapshot = makeSnapshot(9104, {
+    '0,0,0': {
+      ui_authoring_version: { t: 'str', v: 'cellwise.ui.v1' },
+      ui_root_node_id: { t: 'str', v: 'root' },
+    },
+    '1,0,0': {
+      ui_node_id: { t: 'str', v: 'root' },
+      ui_component: { t: 'str', v: 'Container' },
+      ui_layout: { t: 'str', v: 'column' },
+    },
+    '2,0,0': {
+      ui_node_id: { t: 'str', v: 'pager' },
+      ui_component: { t: 'str', v: 'Pagination' },
+      ui_parent: { t: 'str', v: 'root' },
+      ui_order: { t: 'int', v: 10 },
+      ui_props_json: { t: 'json', v: { layout: 'prev, pager, next' } },
+      ui_bind_json: {
+        t: 'json',
+        v: {
+          models: {
+            currentPage: {
+              read: { model_id: -2, p: 0, r: 0, c: 0, k: 'page' },
+              write: { action: 'label_update', target_ref: { model_id: -2, p: 0, r: 0, c: 0, k: 'page' } },
+            },
+          },
+          change: { action: 'home_refresh' },
+        },
+      },
+    },
+  });
+  const ast = buildAstFromCellwiseModel(snapshot, 9104);
+  assert(ast, 'full_bind_json_ast_missing');
+  assert.deepEqual(
+    ast.children[0].bind,
+    {
+      models: {
+        currentPage: {
+          read: { model_id: -2, p: 0, r: 0, c: 0, k: 'page' },
+          write: { action: 'label_update', target_ref: { model_id: -2, p: 0, r: 0, c: 0, k: 'page' } },
+        },
+      },
+      change: { action: 'home_refresh' },
+    },
+    'full_bind_json_must_compile_without_loss',
+  );
+  return { key: 'cellwise_model_compiles_full_bind_json', status: 'PASS' };
+}
+
 const tests = [
   test_cellwise_model_compiles_basic_tree,
   test_non_cellwise_model_returns_null,
+  test_cellwise_model_compiles_extended_props_and_bind_json,
+  test_cellwise_model_compiles_full_bind_json,
 ];
 
 let passed = 0;

@@ -71,11 +71,23 @@ function buildProps(def) {
   if (typeof label === 'string') props.label = label;
   if (typeof variant === 'string') props.type = variant;
   if (typeof placeholder === 'string') props.placeholder = placeholder;
+  const propsJson = readLabel(labels, 'ui_props_json');
+  if (propsJson && typeof propsJson === 'object' && !Array.isArray(propsJson)) {
+    Object.assign(props, propsJson);
+  }
   return props;
 }
 
 function buildReadBind(def) {
   const labels = def.labels;
+  const bindJson = readLabel(labels, 'ui_bind_json');
+  if (bindJson && typeof bindJson === 'object' && !Array.isArray(bindJson) && bindJson.read) {
+    return bindJson.read;
+  }
+  const readJson = readLabel(labels, 'ui_bind_read_json');
+  if (readJson && typeof readJson === 'object' && !Array.isArray(readJson)) {
+    return readJson;
+  }
   const model_id = readInt(labels, 'ui_read_model_id', null);
   const p = readInt(labels, 'ui_read_p', null);
   const r = readInt(labels, 'ui_read_r', null);
@@ -89,6 +101,14 @@ function buildReadBind(def) {
 
 function buildWriteBind(def) {
   const labels = def.labels;
+  const bindJson = readLabel(labels, 'ui_bind_json');
+  if (bindJson && typeof bindJson === 'object' && !Array.isArray(bindJson) && bindJson.write) {
+    return bindJson.write;
+  }
+  const writeJson = readLabel(labels, 'ui_bind_write_json');
+  if (writeJson && typeof writeJson === 'object' && !Array.isArray(writeJson)) {
+    return writeJson;
+  }
   const action = readString(labels, 'ui_write_action', '');
   if (!action) return null;
   const mode = readString(labels, 'ui_write_mode', '');
@@ -112,11 +132,15 @@ function buildWriteBind(def) {
 function buildNodeMap(defs) {
   const map = new Map();
   for (const def of defs) {
+    const bindJson = readLabel(def.labels, 'ui_bind_json');
     map.set(def.id, {
       id: def.id,
       type: def.type,
       props: buildProps(def),
       bind: (() => {
+        if (bindJson && typeof bindJson === 'object' && !Array.isArray(bindJson)) {
+          return bindJson;
+        }
         const read = buildReadBind(def);
         const write = buildWriteBind(def);
         if (!read && !write) return undefined;

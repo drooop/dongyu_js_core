@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { resolveRouteUiAst } from '../src/route_ui_projection.js';
+import { buildAstFromSchema } from '../src/ui_schema_projection.js';
 
 function mailboxEnvelope(action, options = {}) {
   const payload = {
@@ -35,11 +37,13 @@ const state = createServerState({ dbPath: null });
 try {
   let snapshot = state.clientSnap();
   const traceRoot = snapshot?.models?.['-100']?.cells?.['0,0,0']?.labels || {};
-  const traceAsset = snapshot?.models?.['-100']?.cells?.['0,1,0']?.labels || {};
   const stateRoot = snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels || {};
+  snapshot.models['-2'].cells['0,0,0'].labels.ui_page = { k: 'ui_page', t: 'str', v: 'workspace' };
+  snapshot.models['-2'].cells['0,0,0'].labels.ws_app_selected = { k: 'ws_app_selected', t: 'int', v: -100 };
+  const workspaceAst = resolveRouteUiAst(snapshot, '/workspace', { projectSchemaModel: buildAstFromSchema }).ast;
 
   assert(traceRoot.trace_status, 'matrix_debug_trace_status_missing');
-  assert(traceAsset.page_asset_v0, 'matrix_debug_page_asset_missing_from_client_snapshot');
+  assert(workspaceAst && typeof workspaceAst === 'object', 'matrix_debug_workspace_ast_missing_from_client_snapshot');
   assert(Array.isArray(stateRoot.matrix_debug_subjects_json?.v), 'matrix_debug_subjects_missing');
   assert.equal(typeof stateRoot.matrix_debug_readiness_text?.v, 'string', 'matrix_debug_readiness_text_missing');
   assert.equal(typeof stateRoot.matrix_debug_subject_summary_text?.v, 'string', 'matrix_debug_subject_summary_text_missing');

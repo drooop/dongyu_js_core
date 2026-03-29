@@ -23,1053 +23,3920 @@
       "op": "add_label",
       "model_id": -22,
       "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "root_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "root_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
       "r": 1,
       "c": 0,
-      "k": "page_asset_v0",
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "layout_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "root_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
       "t": "json",
       "v": {
-        "id": "root_home",
-        "type": "Root",
-        "children": [
-          {
-            "id": "layout_home",
-            "type": "Container",
-            "props": {
-              "layout": "column",
-              "gap": 12
+        "layout": "column",
+        "gap": 12
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "txt_home_surface"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": "surface: root_home"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "Home Catalog"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "form_home_filters"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Form"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_filters"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Model"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_model_query"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "placeholder": "id or name contains..."
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_filter_model_query"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_filter_model_query"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sel_home_target_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Select"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "options": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "editor_model_options_json"
+          }
+        },
+        "placeholder": "Select model"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "selected_model_id"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "selected_model_id"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_refresh"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Refresh"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_refresh",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "selected_model_id"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_filter_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_filters"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Filter"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_p"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_filter_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "placeholder": "p"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_filter_p"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_filter_p"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_r"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_filter_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "placeholder": "r"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_filter_r"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_filter_r"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_c"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_filter_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "placeholder": "c"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_filter_c"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_filter_c"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_ktv"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_filter_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "placeholder": "k|t|v substring..."
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_filter_ktv"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_filter_ktv"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "txt_home_missing_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "danger",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "home_missing_model_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "layout_home_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "row",
+        "gap": 12,
+        "wrap": true,
+        "align": "center"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "txt_home_selected"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "home_selected_label_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "txt_home_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "home_status_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_open_create"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Add Label",
+        "type": "primary",
+        "icon": "plus"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_open_create",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "selected_model_id"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Table"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "data": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "home_table_rows_json"
+          }
+        },
+        "border": true,
+        "stripe": true,
+        "size": "small",
+        "height": 520,
+        "rowKey": "row_id"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_p"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "p",
+        "prop": "p",
+        "width": 70
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_r"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "r",
+        "prop": "r",
+        "width": 70
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_c"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "c",
+        "prop": "c",
+        "width": 70
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_k"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "k",
+        "prop": "k",
+        "minWidth": 160
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_t"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "t",
+        "prop": "t",
+        "width": 90
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_v"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 60
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "v",
+        "prop": "v_preview",
+        "minWidth": 260
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 26,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 26,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 26,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 26,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 70
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 26,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Actions",
+        "minWidth": 280
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "home_row_action_bar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "col_home_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "row",
+        "gap": 8,
+        "wrap": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_select_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "home_row_action_bar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Select",
+        "size": "small"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_select_row",
+          "target_ref": {
+            "model_id": {
+              "$ref": "row.model_id"
             },
-            "children": [
-              {
-                "id": "txt_home_surface",
-                "type": "Text",
-                "props": {
-                  "type": "info",
-                  "text": "surface: root_home"
-                }
-              },
-              {
-                "id": "card_home_catalog",
-                "type": "Card",
-                "props": {
-                  "title": "Home Catalog"
-                },
-                "children": [
-                  {
-                    "id": "form_home_filters",
-                    "type": "Form",
-                    "children": [
-                      {
-                        "id": "fi_home_model",
-                        "type": "FormItem",
-                        "props": {
-                          "label": "Model"
-                        },
-                        "children": [
-                          {
-                            "id": "input_home_model_query",
-                            "type": "Input",
-                            "props": {
-                              "placeholder": "id or name contains..."
-                            },
-                            "bind": {
-                              "read": {
-                                "model_id": -2,
-                                "p": 0,
-                                "r": 0,
-                                "c": 0,
-                                "k": "dt_filter_model_query"
-                              },
-                              "write": {
-                                "action": "label_update",
-                                "target_ref": {
-                                  "model_id": -2,
-                                  "p": 0,
-                                  "r": 0,
-                                  "c": 0,
-                                  "k": "dt_filter_model_query"
-                                }
-                              }
-                            }
-                          },
-                          {
-                            "id": "sel_home_target_model",
-                            "type": "Select",
-                            "props": {
-                              "options": {
-                                "$label": {
-                                  "model_id": -2,
-                                  "p": 0,
-                                  "r": 0,
-                                  "c": 0,
-                                  "k": "editor_model_options_json"
-                                }
-                              },
-                              "placeholder": "Select model"
-                            },
-                            "bind": {
-                              "read": {
-                                "model_id": -2,
-                                "p": 0,
-                                "r": 0,
-                                "c": 0,
-                                "k": "selected_model_id"
-                              },
-                              "write": {
-                                "action": "label_update",
-                                "target_ref": {
-                                  "model_id": -2,
-                                  "p": 0,
-                                  "r": 0,
-                                  "c": 0,
-                                  "k": "selected_model_id"
-                                }
-                              }
-                            }
-                          },
-                          {
-                            "id": "btn_home_refresh",
-                            "type": "Button",
-                            "props": {
-                              "label": "Refresh"
-                            },
-                            "bind": {
-                              "write": {
-                                "action": "home_refresh",
-                                "target_ref": {
-                                  "model_id": -2,
-                                  "p": 0,
-                                  "r": 0,
-                                  "c": 0,
-                                  "k": "selected_model_id"
-                                }
-                              }
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "id": "fi_home_filter_coords",
-                        "type": "FormItem",
-                        "props": {
-                          "label": "Filter"
-                        },
-                        "children": [
-                          {
-                            "id": "input_home_p",
-                            "type": "Input",
-                            "props": {
-                              "placeholder": "p"
-                            },
-                            "bind": {
-                              "read": {
-                                "model_id": -2,
-                                "p": 0,
-                                "r": 0,
-                                "c": 0,
-                                "k": "dt_filter_p"
-                              },
-                              "write": {
-                                "action": "label_update",
-                                "target_ref": {
-                                  "model_id": -2,
-                                  "p": 0,
-                                  "r": 0,
-                                  "c": 0,
-                                  "k": "dt_filter_p"
-                                }
-                              }
-                            }
-                          },
-                          {
-                            "id": "input_home_r",
-                            "type": "Input",
-                            "props": {
-                              "placeholder": "r"
-                            },
-                            "bind": {
-                              "read": {
-                                "model_id": -2,
-                                "p": 0,
-                                "r": 0,
-                                "c": 0,
-                                "k": "dt_filter_r"
-                              },
-                              "write": {
-                                "action": "label_update",
-                                "target_ref": {
-                                  "model_id": -2,
-                                  "p": 0,
-                                  "r": 0,
-                                  "c": 0,
-                                  "k": "dt_filter_r"
-                                }
-                              }
-                            }
-                          },
-                          {
-                            "id": "input_home_c",
-                            "type": "Input",
-                            "props": {
-                              "placeholder": "c"
-                            },
-                            "bind": {
-                              "read": {
-                                "model_id": -2,
-                                "p": 0,
-                                "r": 0,
-                                "c": 0,
-                                "k": "dt_filter_c"
-                              },
-                              "write": {
-                                "action": "label_update",
-                                "target_ref": {
-                                  "model_id": -2,
-                                  "p": 0,
-                                  "r": 0,
-                                  "c": 0,
-                                  "k": "dt_filter_c"
-                                }
-                              }
-                            }
-                          },
-                          {
-                            "id": "input_home_ktv",
-                            "type": "Input",
-                            "props": {
-                              "placeholder": "k|t|v substring..."
-                            },
-                            "bind": {
-                              "read": {
-                                "model_id": -2,
-                                "p": 0,
-                                "r": 0,
-                                "c": 0,
-                                "k": "dt_filter_ktv"
-                              },
-                              "write": {
-                                "action": "label_update",
-                                "target_ref": {
-                                  "model_id": -2,
-                                  "p": 0,
-                                  "r": 0,
-                                  "c": 0,
-                                  "k": "dt_filter_ktv"
-                                }
-                              }
-                            }
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "id": "txt_home_missing_model",
-                    "type": "Text",
-                    "props": {
-                      "type": "danger",
-                      "text": ""
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -2,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "home_missing_model_text"
-                      }
-                    }
-                  },
-                  {
-                    "id": "layout_home_actions",
-                    "type": "Container",
-                    "props": {
-                      "layout": "row",
-                      "gap": 12,
-                      "wrap": true,
-                      "align": "center"
-                    },
-                    "children": [
-                      {
-                        "id": "txt_home_selected",
-                        "type": "Text",
-                        "props": {
-                          "type": "info",
-                          "text": ""
-                        },
-                        "bind": {
-                          "read": {
-                            "model_id": -2,
-                            "p": 0,
-                            "r": 0,
-                            "c": 0,
-                            "k": "home_selected_label_text"
-                          }
-                        }
-                      },
-                      {
-                        "id": "txt_home_status",
-                        "type": "Text",
-                        "props": {
-                          "type": "info",
-                          "text": ""
-                        },
-                        "bind": {
-                          "read": {
-                            "model_id": -2,
-                            "p": 0,
-                            "r": 0,
-                            "c": 0,
-                            "k": "home_status_text"
-                          }
-                        }
-                      },
-                      {
-                        "id": "btn_home_open_create",
-                        "type": "Button",
-                        "props": {
-                          "label": "Add Label",
-                          "type": "primary",
-                          "icon": "plus"
-                        },
-                        "bind": {
-                          "write": {
-                            "action": "home_open_create",
-                            "target_ref": {
-                              "model_id": -2,
-                              "p": 0,
-                              "r": 0,
-                              "c": 0,
-                              "k": "selected_model_id"
-                            }
-                          }
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "id": "tbl_home_cells",
-                    "type": "Table",
-                    "props": {
-                      "data": {
-                        "$label": {
-                          "model_id": -2,
-                          "p": 0,
-                          "r": 0,
-                          "c": 0,
-                          "k": "home_table_rows_json"
-                        }
-                      },
-                      "border": true,
-                      "stripe": true,
-                      "size": "small",
-                      "height": 520,
-                      "rowKey": "row_id"
-                    },
-                    "children": [
-                      {
-                        "id": "col_home_p",
-                        "type": "TableColumn",
-                        "props": {
-                          "label": "p",
-                          "prop": "p",
-                          "width": 70
-                        }
-                      },
-                      {
-                        "id": "col_home_r",
-                        "type": "TableColumn",
-                        "props": {
-                          "label": "r",
-                          "prop": "r",
-                          "width": 70
-                        }
-                      },
-                      {
-                        "id": "col_home_c",
-                        "type": "TableColumn",
-                        "props": {
-                          "label": "c",
-                          "prop": "c",
-                          "width": 70
-                        }
-                      },
-                      {
-                        "id": "col_home_k",
-                        "type": "TableColumn",
-                        "props": {
-                          "label": "k",
-                          "prop": "k",
-                          "minWidth": 160
-                        }
-                      },
-                      {
-                        "id": "col_home_t",
-                        "type": "TableColumn",
-                        "props": {
-                          "label": "t",
-                          "prop": "t",
-                          "width": 90
-                        }
-                      },
-                      {
-                        "id": "col_home_v",
-                        "type": "TableColumn",
-                        "props": {
-                          "label": "v",
-                          "prop": "v_preview",
-                          "minWidth": 260
-                        }
-                      },
-                      {
-                        "id": "col_home_actions",
-                        "type": "TableColumn",
-                        "props": {
-                          "label": "Actions",
-                          "minWidth": 280
-                        },
-                        "children": [
-                          {
-                            "id": "home_row_action_bar",
-                            "type": "Container",
-                            "props": {
-                              "layout": "row",
-                              "gap": 8,
-                              "wrap": true
-                            },
-                            "children": [
-                              {
-                                "id": "btn_home_select_row",
-                                "type": "Button",
-                                "props": {
-                                  "label": "Select",
-                                  "size": "small"
-                                },
-                                "bind": {
-                                  "write": {
-                                    "action": "home_select_row",
-                                    "target_ref": {
-                                      "model_id": {
-                                        "$ref": "row.model_id"
-                                      },
-                                      "p": {
-                                        "$ref": "row.p"
-                                      },
-                                      "r": {
-                                        "$ref": "row.r"
-                                      },
-                                      "c": {
-                                        "$ref": "row.c"
-                                      },
-                                      "k": {
-                                        "$ref": "row.k"
-                                      }
-                                    }
-                                  }
-                                }
-                              },
-                              {
-                                "id": "btn_home_open_edit",
-                                "type": "Button",
-                                "props": {
-                                  "label": "Edit",
-                                  "size": "small",
-                                  "icon": "edit"
-                                },
-                                "bind": {
-                                  "write": {
-                                    "action": "home_open_edit",
-                                    "target_ref": {
-                                      "model_id": {
-                                        "$ref": "row.model_id"
-                                      },
-                                      "p": {
-                                        "$ref": "row.p"
-                                      },
-                                      "r": {
-                                        "$ref": "row.r"
-                                      },
-                                      "c": {
-                                        "$ref": "row.c"
-                                      },
-                                      "k": {
-                                        "$ref": "row.k"
-                                      }
-                                    }
-                                  }
-                                }
-                              },
-                              {
-                                "id": "btn_home_view_detail",
-                                "type": "Button",
-                                "props": {
-                                  "label": "Detail",
-                                  "size": "small"
-                                },
-                                "bind": {
-                                  "write": {
-                                    "action": "home_view_detail",
-                                    "target_ref": {
-                                      "model_id": {
-                                        "$ref": "row.model_id"
-                                      },
-                                      "p": {
-                                        "$ref": "row.p"
-                                      },
-                                      "r": {
-                                        "$ref": "row.r"
-                                      },
-                                      "c": {
-                                        "$ref": "row.c"
-                                      },
-                                      "k": {
-                                        "$ref": "row.k"
-                                      }
-                                    }
-                                  }
-                                }
-                              },
-                              {
-                                "id": "btn_home_delete_label",
-                                "type": "Button",
-                                "props": {
-                                  "label": "Delete",
-                                  "size": "small",
-                                  "type": "danger",
-                                  "icon": "trash"
-                                },
-                                "bind": {
-                                  "write": {
-                                    "action": "home_delete_label",
-                                    "target_ref": {
-                                      "model_id": {
-                                        "$ref": "row.model_id"
-                                      },
-                                      "p": {
-                                        "$ref": "row.p"
-                                      },
-                                      "r": {
-                                        "$ref": "row.r"
-                                      },
-                                      "c": {
-                                        "$ref": "row.c"
-                                      },
-                                      "k": {
-                                        "$ref": "row.k"
-                                      }
-                                    }
-                                  }
-                                }
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "id": "dlg_home_edit",
-                    "type": "Dialog",
-                    "props": {
-                      "title": {
-                        "$label": {
-                          "model_id": -2,
-                          "p": 0,
-                          "r": 0,
-                          "c": 0,
-                          "k": "home_edit_dialog_title"
-                        }
-                      },
-                      "width": "680px",
-                      "closeOnClickModal": false
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -2,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "dt_edit_open"
-                      },
-                      "write": {
-                        "action": "home_close_edit",
-                        "target_ref": {
-                          "model_id": -2,
-                          "p": 0,
-                          "r": 0,
-                          "c": 0,
-                          "k": "dt_edit_open"
-                        }
-                      }
-                    },
-                    "children": [
-                      {
-                        "id": "form_home_edit_dialog",
-                        "type": "Form",
-                        "children": [
-                          {
-                            "id": "fi_home_edit_model_id",
-                            "type": "FormItem",
-                            "props": {
-                              "label": "Model"
-                            },
-                            "children": [
-                              {
-                                "id": "input_home_edit_model_id",
-                                "type": "Input",
-                                "bind": {
-                                  "read": {
-                                    "model_id": -2,
-                                    "p": 0,
-                                    "r": 0,
-                                    "c": 0,
-                                    "k": "dt_edit_model_id"
-                                  },
-                                  "write": {
-                                    "action": "label_update",
-                                    "target_ref": {
-                                      "model_id": -2,
-                                      "p": 0,
-                                      "r": 0,
-                                      "c": 0,
-                                      "k": "dt_edit_model_id"
-                                    }
-                                  }
-                                }
-                              }
-                            ]
-                          },
-                          {
-                            "id": "layout_home_edit_coords",
-                            "type": "Container",
-                            "props": {
-                              "layout": "row",
-                              "gap": 12,
-                              "wrap": true
-                            },
-                            "children": [
-                              {
-                                "id": "fi_home_edit_p",
-                                "type": "FormItem",
-                                "props": {
-                                  "label": "p"
-                                },
-                                "children": [
-                                  {
-                                    "id": "num_home_edit_p",
-                                    "type": "NumberInput",
-                                    "bind": {
-                                      "read": {
-                                        "model_id": -2,
-                                        "p": 0,
-                                        "r": 0,
-                                        "c": 0,
-                                        "k": "dt_edit_p"
-                                      },
-                                      "write": {
-                                        "action": "label_update",
-                                        "target_ref": {
-                                          "model_id": -2,
-                                          "p": 0,
-                                          "r": 0,
-                                          "c": 0,
-                                          "k": "dt_edit_p"
-                                        }
-                                      }
-                                    }
-                                  }
-                                ]
-                              },
-                              {
-                                "id": "fi_home_edit_r",
-                                "type": "FormItem",
-                                "props": {
-                                  "label": "r"
-                                },
-                                "children": [
-                                  {
-                                    "id": "num_home_edit_r",
-                                    "type": "NumberInput",
-                                    "bind": {
-                                      "read": {
-                                        "model_id": -2,
-                                        "p": 0,
-                                        "r": 0,
-                                        "c": 0,
-                                        "k": "dt_edit_r"
-                                      },
-                                      "write": {
-                                        "action": "label_update",
-                                        "target_ref": {
-                                          "model_id": -2,
-                                          "p": 0,
-                                          "r": 0,
-                                          "c": 0,
-                                          "k": "dt_edit_r"
-                                        }
-                                      }
-                                    }
-                                  }
-                                ]
-                              },
-                              {
-                                "id": "fi_home_edit_c",
-                                "type": "FormItem",
-                                "props": {
-                                  "label": "c"
-                                },
-                                "children": [
-                                  {
-                                    "id": "num_home_edit_c",
-                                    "type": "NumberInput",
-                                    "bind": {
-                                      "read": {
-                                        "model_id": -2,
-                                        "p": 0,
-                                        "r": 0,
-                                        "c": 0,
-                                        "k": "dt_edit_c"
-                                      },
-                                      "write": {
-                                        "action": "label_update",
-                                        "target_ref": {
-                                          "model_id": -2,
-                                          "p": 0,
-                                          "r": 0,
-                                          "c": 0,
-                                          "k": "dt_edit_c"
-                                        }
-                                      }
-                                    }
-                                  }
-                                ]
-                              }
-                            ]
-                          },
-                          {
-                            "id": "fi_home_edit_k",
-                            "type": "FormItem",
-                            "props": {
-                              "label": "k"
-                            },
-                            "children": [
-                              {
-                                "id": "input_home_edit_k",
-                                "type": "Input",
-                                "bind": {
-                                  "read": {
-                                    "model_id": -2,
-                                    "p": 0,
-                                    "r": 0,
-                                    "c": 0,
-                                    "k": "dt_edit_k"
-                                  },
-                                  "write": {
-                                    "action": "label_update",
-                                    "target_ref": {
-                                      "model_id": -2,
-                                      "p": 0,
-                                      "r": 0,
-                                      "c": 0,
-                                      "k": "dt_edit_k"
-                                    }
-                                  }
-                                }
-                              }
-                            ]
-                          },
-                          {
-                            "id": "fi_home_edit_t",
-                            "type": "FormItem",
-                            "props": {
-                              "label": "t"
-                            },
-                            "children": [
-                              {
-                                "id": "sel_home_edit_t",
-                                "type": "Select",
-                                "props": {
-                                  "options": [
-                                    { "label": "str", "value": "str" },
-                                    { "label": "int", "value": "int" },
-                                    { "label": "bool", "value": "bool" },
-                                    { "label": "json", "value": "json" }
-                                  ]
-                                },
-                                "bind": {
-                                  "read": {
-                                    "model_id": -2,
-                                    "p": 0,
-                                    "r": 0,
-                                    "c": 0,
-                                    "k": "dt_edit_t"
-                                  },
-                                  "write": {
-                                    "action": "label_update",
-                                    "target_ref": {
-                                      "model_id": -2,
-                                      "p": 0,
-                                      "r": 0,
-                                      "c": 0,
-                                      "k": "dt_edit_t"
-                                    }
-                                  }
-                                }
-                              }
-                            ]
-                          },
-                          {
-                            "id": "fi_home_edit_text",
-                            "type": "FormItem",
-                            "props": {
-                              "label": "Value (text/json)"
-                            },
-                            "children": [
-                              {
-                                "id": "input_home_edit_v_text",
-                                "type": "Input",
-                                "props": {
-                                  "type": "textarea",
-                                  "rows": 4
-                                },
-                                "bind": {
-                                  "read": {
-                                    "model_id": -2,
-                                    "p": 0,
-                                    "r": 0,
-                                    "c": 0,
-                                    "k": "dt_edit_v_text"
-                                  },
-                                  "write": {
-                                    "action": "label_update",
-                                    "target_ref": {
-                                      "model_id": -2,
-                                      "p": 0,
-                                      "r": 0,
-                                      "c": 0,
-                                      "k": "dt_edit_v_text"
-                                    }
-                                  }
-                                }
-                              }
-                            ]
-                          },
-                          {
-                            "id": "layout_home_edit_scalar",
-                            "type": "Container",
-                            "props": {
-                              "layout": "row",
-                              "gap": 12,
-                              "wrap": true
-                            },
-                            "children": [
-                              {
-                                "id": "fi_home_edit_v_int",
-                                "type": "FormItem",
-                                "props": {
-                                  "label": "Value (int)"
-                                },
-                                "children": [
-                                  {
-                                    "id": "num_home_edit_v_int",
-                                    "type": "NumberInput",
-                                    "bind": {
-                                      "read": {
-                                        "model_id": -2,
-                                        "p": 0,
-                                        "r": 0,
-                                        "c": 0,
-                                        "k": "dt_edit_v_int"
-                                      },
-                                      "write": {
-                                        "action": "label_update",
-                                        "target_ref": {
-                                          "model_id": -2,
-                                          "p": 0,
-                                          "r": 0,
-                                          "c": 0,
-                                          "k": "dt_edit_v_int"
-                                        }
-                                      }
-                                    }
-                                  }
-                                ]
-                              },
-                              {
-                                "id": "fi_home_edit_v_bool",
-                                "type": "FormItem",
-                                "props": {
-                                  "label": "Value (bool)"
-                                },
-                                "children": [
-                                  {
-                                    "id": "switch_home_edit_v_bool",
-                                    "type": "Switch",
-                                    "bind": {
-                                      "read": {
-                                        "model_id": -2,
-                                        "p": 0,
-                                        "r": 0,
-                                        "c": 0,
-                                        "k": "dt_edit_v_bool"
-                                      },
-                                      "write": {
-                                        "action": "label_update",
-                                        "target_ref": {
-                                          "model_id": -2,
-                                          "p": 0,
-                                          "r": 0,
-                                          "c": 0,
-                                          "k": "dt_edit_v_bool"
-                                        }
-                                      }
-                                    }
-                                  }
-                                ]
-                              }
-                            ]
-                          },
-                          {
-                            "id": "layout_home_edit_actions",
-                            "type": "Container",
-                            "props": {
-                              "layout": "row",
-                              "gap": 12,
-                              "justify": "flex-end"
-                            },
-                            "children": [
-                              {
-                                "id": "btn_home_save_label",
-                                "type": "Button",
-                                "props": {
-                                  "label": "Save",
-                                  "type": "primary",
-                                  "icon": "check"
-                                },
-                                "bind": {
-                                  "write": {
-                                    "action": "home_save_label",
-                                    "target_ref": {
-                                      "model_id": -2,
-                                      "p": 0,
-                                      "r": 0,
-                                      "c": 0,
-                                      "k": "dt_edit_model_id"
-                                    }
-                                  }
-                                }
-                              },
-                              {
-                                "id": "btn_home_close_edit",
-                                "type": "Button",
-                                "props": {
-                                  "label": "Cancel",
-                                  "icon": "close"
-                                },
-                                "bind": {
-                                  "write": {
-                                    "action": "home_close_edit",
-                                    "target_ref": {
-                                      "model_id": -2,
-                                      "p": 0,
-                                      "r": 0,
-                                      "c": 0,
-                                      "k": "dt_edit_open"
-                                    }
-                                  }
-                                }
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "id": "dlg_home_detail",
-                    "type": "Dialog",
-                    "props": {
-                      "title": {
-                        "$label": {
-                          "model_id": -2,
-                          "p": 0,
-                          "r": 0,
-                          "c": 0,
-                          "k": "dt_detail_title"
-                        }
-                      },
-                      "width": "720px",
-                      "closeOnClickModal": false
-                    },
-                    "bind": {
-                      "read": {
-                        "model_id": -2,
-                        "p": 0,
-                        "r": 0,
-                        "c": 0,
-                        "k": "dt_detail_open"
-                      },
-                      "write": {
-                        "action": "home_close_detail",
-                        "target_ref": {
-                          "model_id": -2,
-                          "p": 0,
-                          "r": 0,
-                          "c": 0,
-                          "k": "dt_detail_open"
-                        }
-                      }
-                    },
-                    "children": [
-                      {
-                        "id": "code_home_detail_text",
-                        "type": "CodeBlock",
-                        "bind": {
-                          "read": {
-                            "model_id": -2,
-                            "p": 0,
-                            "r": 0,
-                            "c": 0,
-                            "k": "dt_detail_text"
-                          }
-                        }
-                      },
-                      {
-                        "id": "layout_home_detail_actions",
-                        "type": "Container",
-                        "props": {
-                          "layout": "row",
-                          "justify": "flex-end"
-                        },
-                        "children": [
-                          {
-                            "id": "btn_home_close_detail",
-                            "type": "Button",
-                            "props": {
-                              "label": "Close",
-                              "icon": "close"
-                            },
-                            "bind": {
-                              "write": {
-                                "action": "home_close_detail",
-                                "target_ref": {
-                                  "model_id": -2,
-                                  "p": 0,
-                                  "r": 0,
-                                  "c": 0,
-                                  "k": "dt_detail_open"
-                                }
-                              }
-                            }
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
+            "p": {
+              "$ref": "row.p"
+            },
+            "r": {
+              "$ref": "row.r"
+            },
+            "c": {
+              "$ref": "row.c"
+            },
+            "k": {
+              "$ref": "row.k"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_open_edit"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "home_row_action_bar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Edit",
+        "size": "small",
+        "icon": "edit"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_open_edit",
+          "target_ref": {
+            "model_id": {
+              "$ref": "row.model_id"
+            },
+            "p": {
+              "$ref": "row.p"
+            },
+            "r": {
+              "$ref": "row.r"
+            },
+            "c": {
+              "$ref": "row.c"
+            },
+            "k": {
+              "$ref": "row.k"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_view_detail"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "home_row_action_bar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Detail",
+        "size": "small"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_view_detail",
+          "target_ref": {
+            "model_id": {
+              "$ref": "row.model_id"
+            },
+            "p": {
+              "$ref": "row.p"
+            },
+            "r": {
+              "$ref": "row.r"
+            },
+            "c": {
+              "$ref": "row.c"
+            },
+            "k": {
+              "$ref": "row.k"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_delete_label"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "home_row_action_bar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Delete",
+        "size": "small",
+        "type": "danger",
+        "icon": "trash"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_delete_label",
+          "target_ref": {
+            "model_id": {
+              "$ref": "row.model_id"
+            },
+            "p": {
+              "$ref": "row.p"
+            },
+            "r": {
+              "$ref": "row.r"
+            },
+            "c": {
+              "$ref": "row.c"
+            },
+            "k": {
+              "$ref": "row.k"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "dlg_home_edit"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "home_edit_dialog_title"
+          }
+        },
+        "width": "680px",
+        "closeOnClickModal": false
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_open"
+        },
+        "write": {
+          "action": "home_close_edit",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_open"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 33,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 33,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Form"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 33,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "dlg_home_edit"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 33,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 34,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_model_id"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 34,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 34,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 34,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 34,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Model"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 35,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_edit_model_id"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 35,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 35,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_model_id"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 35,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 35,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_model_id"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_model_id"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "layout_home_edit_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "row",
+        "gap": 12,
+        "wrap": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 37,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_p"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 37,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 37,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 37,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 37,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "p"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 38,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "num_home_edit_p"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 38,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "NumberInput"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 38,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_p"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 38,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 38,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_p"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_p"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 39,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_r"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 39,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 39,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 39,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 39,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "r"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 40,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "num_home_edit_r"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 40,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "NumberInput"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 40,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_r"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 40,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 40,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_r"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_r"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 41,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_c"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 41,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 41,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 41,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 41,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "c"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 42,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "num_home_edit_c"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 42,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "NumberInput"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 42,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_c"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 42,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 42,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_c"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_c"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 43,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_k"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 43,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 43,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 43,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 43,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "k"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 44,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_edit_k"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 44,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 44,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_k"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 44,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 44,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_k"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_k"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 45,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_t"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 45,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 45,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 45,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 45,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "t"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sel_home_edit_t"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Select"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_t"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "options": [
+          {
+            "label": "str",
+            "value": "str"
+          },
+          {
+            "label": "int",
+            "value": "int"
+          },
+          {
+            "label": "bool",
+            "value": "bool"
+          },
+          {
+            "label": "json",
+            "value": "json"
           }
         ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_t"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_t"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 47,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 47,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 47,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 47,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 47,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Value (text/json)"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_edit_v_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "textarea",
+        "rows": 4
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_v_text"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_v_text"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "layout_home_edit_scalar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 60
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "row",
+        "gap": 12,
+        "wrap": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 50,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_v_int"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 50,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 50,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_scalar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 50,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 50,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Value (int)"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 51,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "num_home_edit_v_int"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 51,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "NumberInput"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 51,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_v_int"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 51,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 51,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_v_int"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_v_int"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 52,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_v_bool"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 52,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 52,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_scalar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 52,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 52,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Value (bool)"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 53,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "switch_home_edit_v_bool"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 53,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Switch"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 53,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_v_bool"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 53,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 53,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_v_bool"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_v_bool"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "layout_home_edit_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 70
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "row",
+        "gap": 12,
+        "justify": "flex-end"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_save_label"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Save",
+        "type": "primary",
+        "icon": "check"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_save_label",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_model_id"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_close_edit"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Cancel",
+        "icon": "close"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_close_edit",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_open"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "dlg_home_detail"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 60
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_detail_title"
+          }
+        },
+        "width": "720px",
+        "closeOnClickModal": false
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_detail_open"
+        },
+        "write": {
+          "action": "home_close_detail",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_detail_open"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 58,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "code_home_detail_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 58,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "CodeBlock"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 58,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "dlg_home_detail"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 58,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 58,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_detail_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 59,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "layout_home_detail_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 59,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 59,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "dlg_home_detail"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 59,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 59,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "row",
+        "justify": "flex-end"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_close_detail"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_detail_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Close",
+        "icon": "close"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_close_detail",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_detail_open"
+          }
+        }
       }
     }
   ]

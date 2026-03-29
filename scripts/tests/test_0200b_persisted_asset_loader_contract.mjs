@@ -170,9 +170,11 @@ async function test_repo_sync_externalizes_matrix_debug_surface_and_handlers_for
     applyOptions: { allowCreateModel: true, trustedBootstrap: true },
   });
 
-  const pageAsset = readLabel(rt, -100, 0, 1, 0, 'page_asset_v0');
+  const authoringVersion = readLabel(rt, -100, 0, 0, 0, 'ui_authoring_version');
+  const rootNodeId = readLabel(rt, -100, 0, 0, 0, 'ui_root_node_id');
   const refreshHandler = readLabel(rt, -10, 0, 0, 0, 'handle_matrix_debug_refresh');
-  assert.equal(pageAsset?.id, 'matrix_debug_root', 'persisted loader must materialize matrix_debug_root from synced assets');
+  assert.equal(authoringVersion, 'cellwise.ui.v1', 'persisted loader must materialize cellwise authoring version from synced assets');
+  assert.equal(rootNodeId, 'matrix_debug_root', 'persisted loader must materialize matrix_debug_root from synced assets');
   assert.equal(
     typeof refreshHandler?.code,
     'string',

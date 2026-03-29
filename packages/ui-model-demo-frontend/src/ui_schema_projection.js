@@ -41,11 +41,14 @@ export function buildAstFromSchema(snapshot, modelId) {
     if (customBind && typeof customBind === 'object') {
       bind = customBind;
     } else {
+      const positiveModel = Number.isInteger(modelId) && modelId > 0;
+      const positiveCommitPolicy = componentType === 'Input' ? 'on_blur' : 'on_change';
       const write = Number.isInteger(modelId) && modelId > 0
         ? {
             action: 'ui_owner_label_update',
             mode: 'intent',
             target_ref: { model_id: modelId, p: 0, r: 0, c: 0, k: fieldName },
+            commit_policy: positiveCommitPolicy,
           }
         : {
             action: 'label_update',

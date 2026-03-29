@@ -82,7 +82,8 @@ try {
   snapshot = state.clientSnap();
   let ast = resolveRouteUiAst(snapshot, '/workspace', { projectSchemaModel: buildAstFromSchema }).ast;
   assert.equal(findNodeById(ast, 'ui_examples_parent_root')?.type, 'Container', 'server_parent_root_missing');
-  assert.equal(findNodeById(ast, 'ui_examples_parent_include_child')?.type, 'Include', 'server_parent_include_missing');
+  assert.equal(findNodeById(ast, 'ui_examples_parent_include_child'), null, 'server_parent_include_must_be_removed');
+  assert.equal(findNodeById(ast, 'ui_examples_parent_child_card')?.type, 'Card', 'server_parent_inline_child_card_missing');
   assert.equal(
     snapshot?.models?.[String(UI_EXAMPLE_CHILD_MODEL_ID)]?.cells?.['0,0,0']?.labels?.review_stage?.v,
     'draft',

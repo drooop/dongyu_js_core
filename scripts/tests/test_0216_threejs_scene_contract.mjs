@@ -36,6 +36,18 @@ function getPageAsset(records, modelId) {
   return record ? record.v : null;
 }
 
+function getRootLabel(records, modelId, key) {
+  const record = findRecord(records, (item) => (
+    item?.model_id === modelId
+    && item?.op === 'add_label'
+    && item?.p === 0
+    && item?.r === 0
+    && item?.c === 0
+    && item?.k === key
+  ));
+  return record ? record.v : undefined;
+}
+
 function walkAst(node, visit) {
   if (!node || typeof node !== 'object') return;
   visit(node);
@@ -193,74 +205,56 @@ function test_three_scene_authoritative_patches_and_workspace_mount_are_frozen()
 function test_three_scene_page_asset_and_truth_labels_are_frozen() {
   const workspacePositivePatch = readJson('packages/worker-base/system-models/workspace_positive_models.json');
   const positiveRecords = getPatchRecords(workspacePositivePatch);
-  const appAsset = getPageAsset(positiveRecords, modelIds.THREE_SCENE_APP_MODEL_ID);
+  const appRecords = positiveRecords.filter((record) => record?.model_id === modelIds.THREE_SCENE_APP_MODEL_ID);
 
-  assert.ok(appAsset, 'three_scene_app_must_define_page_asset_v0');
-  assert.equal(appAsset?.id, 'three_scene_app_root', 'three_scene_app_root_id_must_be_stable');
+  assert.equal(getRootLabel(positiveRecords, modelIds.THREE_SCENE_APP_MODEL_ID, 'ui_authoring_version'), 'cellwise.ui.v1', 'three_scene_app_must_define_cellwise_authoring');
+  assert.equal(getRootLabel(positiveRecords, modelIds.THREE_SCENE_APP_MODEL_ID, 'ui_root_node_id'), 'three_scene_app_root', 'three_scene_app_root_id_must_be_stable');
+  assert.equal(getPageAsset(positiveRecords, modelIds.THREE_SCENE_APP_MODEL_ID), null, 'three_scene_app_must_not_keep_page_asset_v0_source');
 
-  const hostNode = findNode(appAsset, (node) => node?.type === modelIds.THREE_SCENE_COMPONENT_TYPE);
-  assert.equal(hostNode?.type, modelIds.THREE_SCENE_COMPONENT_TYPE, 'three_scene_app_must_render_threescene_primitive');
+  const hostNodeProps = findRecord(appRecords, (record) => record?.k === 'ui_props_json' && record?.v?.actions?.create === modelIds.THREE_SCENE_CREATE_ENTITY_ACTION)?.v;
+  assert.ok(hostNodeProps, 'three_scene_host_props_missing');
   assert.deepEqual(
-    hostNode?.props?.sceneGraphRef,
+    hostNodeProps.sceneGraphRef,
     { model_id: modelIds.THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'scene_graph_v0' },
     'three_scene_host_must_bind_scene_graph_from_child_model',
   );
   assert.deepEqual(
-    hostNode?.props?.cameraStateRef,
+    hostNodeProps.cameraStateRef,
     { model_id: modelIds.THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'camera_state_v0' },
     'three_scene_host_must_bind_camera_state_from_child_model',
   );
-  assert.equal(
-    hostNode?.props?.actions?.create,
-    modelIds.THREE_SCENE_CREATE_ENTITY_ACTION,
-    'three_scene_host_must_expose_create_action',
-  );
-  assert.equal(
-    hostNode?.props?.actions?.delete,
-    modelIds.THREE_SCENE_DELETE_ENTITY_ACTION,
-    'three_scene_host_must_expose_delete_action',
-  );
+  assert.equal(hostNodeProps.actions?.create, modelIds.THREE_SCENE_CREATE_ENTITY_ACTION, 'three_scene_host_must_expose_create_action');
+  assert.equal(hostNodeProps.actions?.delete, modelIds.THREE_SCENE_DELETE_ENTITY_ACTION, 'three_scene_host_must_expose_delete_action');
 
-  const createButton = findNode(appAsset, (node) => node?.id === 'three_scene_action_create');
-  assert.equal(createButton?.bind?.write?.action, modelIds.THREE_SCENE_CREATE_ENTITY_ACTION, 'three_scene_create_button_action_missing');
+  const createButtonBind = findRecord(appRecords, (record) => record?.k === 'ui_bind_write_json' && record?.v?.action === modelIds.THREE_SCENE_CREATE_ENTITY_ACTION)?.v;
   assert.deepEqual(
-    createButton?.bind?.write?.target_ref,
+    createButtonBind?.target_ref,
     { model_id: modelIds.THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'scene_graph_v0' },
     'three_scene_create_button_target_ref_invalid',
   );
-  assert.equal(
-    createButton?.bind?.write?.value_ref?.t,
-    'json',
-    'three_scene_create_button_value_type_must_be_json',
-  );
+  assert.equal(createButtonBind?.value_ref?.t, 'json', 'three_scene_create_button_value_type_must_be_json');
 
-  const updateButton = findNode(appAsset, (node) => node?.id === 'three_scene_action_update');
-  assert.equal(updateButton?.bind?.write?.action, modelIds.THREE_SCENE_UPDATE_ENTITY_ACTION, 'three_scene_update_button_action_missing');
+  const updateButtonBind = findRecord(appRecords, (record) => record?.k === 'ui_bind_write_json' && record?.v?.action === modelIds.THREE_SCENE_UPDATE_ENTITY_ACTION)?.v;
   assert.deepEqual(
-    updateButton?.bind?.write?.target_ref,
+    updateButtonBind?.target_ref,
     { model_id: modelIds.THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'scene_graph_v0' },
     'three_scene_update_button_target_ref_invalid',
   );
   assert.deepEqual(
-    updateButton?.bind?.write?.value_ref?.v?.id,
+    updateButtonBind?.value_ref?.v?.id,
     { $label: { model_id: modelIds.THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_entity_id' } },
     'three_scene_update_button_must_resolve_selected_entity_id_from_label',
   );
 
-  const deleteButton = findNode(appAsset, (node) => node?.id === 'three_scene_action_delete');
-  assert.equal(deleteButton?.bind?.write?.action, modelIds.THREE_SCENE_DELETE_ENTITY_ACTION, 'three_scene_delete_button_action_missing');
+  const deleteButtonBind = findRecord(appRecords, (record) => record?.k === 'ui_bind_write_json' && record?.v?.action === modelIds.THREE_SCENE_DELETE_ENTITY_ACTION)?.v;
   assert.deepEqual(
-    deleteButton?.bind?.write?.target_ref,
+    deleteButtonBind?.target_ref,
     { model_id: modelIds.THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_entity_id' },
     'three_scene_delete_button_target_ref_invalid',
   );
-  assert.equal(
-    deleteButton?.bind?.write?.value_ref?.t,
-    'str',
-    'three_scene_delete_button_value_type_must_be_str',
-  );
+  assert.equal(deleteButtonBind?.value_ref?.t, 'str', 'three_scene_delete_button_value_type_must_be_str');
   assert.deepEqual(
-    deleteButton?.bind?.write?.value_ref?.v,
+    deleteButtonBind?.value_ref?.v,
     { $label: { model_id: modelIds.THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_entity_id' } },
     'three_scene_delete_button_must_resolve_selected_entity_id_from_label',
   );
