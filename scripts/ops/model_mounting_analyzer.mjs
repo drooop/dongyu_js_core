@@ -73,6 +73,9 @@ function classifySource(relPath) {
   if (base === 'workspace_catalog_ui.json') {
     return { scopeId: 'workspace-catalog', scopeLabel: 'workspace catalog', canonical: true };
   }
+  if (base === 'runtime_hierarchy_mounts.json') {
+    return { scopeId: 'ui-runtime-hierarchy', scopeLabel: 'ui runtime hierarchy', canonical: true };
+  }
   if (base === 'workspace_positive_models.json') {
     return { scopeId: 'workspace-positive-models', scopeLabel: 'workspace positive models', canonical: true };
   }
@@ -196,6 +199,18 @@ function buildAudit(models, mounts, predicate) {
   };
 }
 
+function buildProfile(id, label, models, mounts, modelPredicate, mountPredicate) {
+  const profileModels = models.filter(modelPredicate);
+  const profileMounts = mounts.filter(mountPredicate);
+  return {
+    id,
+    label,
+    models: profileModels,
+    mounts: profileMounts,
+    audit: buildAudit(profileModels, profileMounts, () => true),
+  };
+}
+
 function buildVizPayload(analysis) {
   const scopes = analysis.scopes.map((scope) => ({
     id: scope.scopeId,
@@ -210,6 +225,22 @@ function buildVizPayload(analysis) {
     mounts: analysis.mounts,
     scopes,
     audit: analysis.audit,
+    profiles: Object.fromEntries(Object.entries(analysis.profiles).map(([id, profile]) => [id, {
+      id,
+      label: profile.label,
+      modelCount: profile.models.length,
+      mountCount: profile.mounts.length,
+      modelIds: profile.models.map((model) => model.id),
+      mounts: profile.mounts,
+      audit: {
+        declaredModelCount: profile.audit.declaredModelCount,
+        mountCount: profile.audit.mountCount,
+        unmountedCount: profile.audit.unmountedCount,
+        duplicateCount: profile.audit.duplicateCount,
+        unmountedModels: profile.audit.unmountedModels,
+        duplicateChildren: profile.audit.duplicateChildren,
+      },
+    }])),
   };
 }
 
@@ -243,9 +274,12 @@ export async function analyzeModelMounting({ repoRoot = process.cwd() } = {}) {
       }
       const mountForm = normalizeForm(record.t);
       if (mountForm !== 'model.submt') continue;
+      const legacyChild = Number.parseInt(String(record.k ?? ''), 10);
       const child = Number.isInteger(record.v)
         ? record.v
-        : (record.v && Number.isInteger(record.v.id) ? record.v.id : null);
+        : (record.v && Number.isInteger(record.v.id)
+            ? record.v.id
+            : (Number.isInteger(legacyChild) ? legacyChild : null));
       if (!Number.isInteger(child)) continue;
       ensureModel(modelsMap, child);
       mounts.push({
@@ -302,6 +336,56 @@ export async function analyzeModelMounting({ repoRoot = process.cwd() } = {}) {
     all: buildAudit(analysis.models, analysis.mounts, () => true),
   };
 
+  const modelHasSource = (model, predicate) => model.sources.some(predicate);
+  const mountFrom = (predicate) => (mount) => predicate({ relPath: mount.relPath, scopeId: mount.scopeId, canonical: mount.canonical });
+
+  analysis.profiles = {
+    'ui-server': buildProfile(
+      'ui-server',
+      'ui-server',
+      analysis.models,
+      analysis.mounts,
+      (model) => model.canonical && (
+        modelHasSource(model, (source) => source.relPath === 'packages/ui-model-demo-server/server.mjs#bootstrap')
+        || modelHasSource(model, (source) => source.relPath.startsWith('packages/worker-base/system-models/') && !source.relPath.includes('.legacy'))
+      ),
+      mountFrom((source) => source.relPath.startsWith('packages/worker-base/system-models/') && !source.relPath.includes('.legacy')),
+    ),
+    'remote-worker': buildProfile(
+      'remote-worker',
+      'remote-worker',
+      analysis.models,
+      analysis.mounts,
+      (model) => modelHasSource(model, (source) => (
+        source.relPath === 'packages/worker-base/system-models/system_models.json'
+        || source.relPath.startsWith('deploy/sys-v1ns/remote-worker/')
+      )),
+      mountFrom((source) => source.relPath.startsWith('deploy/sys-v1ns/remote-worker/')),
+    ),
+    'ui-side-worker': buildProfile(
+      'ui-side-worker',
+      'ui-side-worker',
+      analysis.models,
+      analysis.mounts,
+      (model) => modelHasSource(model, (source) => (
+        source.relPath === 'packages/worker-base/system-models/system_models.json'
+        || source.relPath.startsWith('deploy/sys-v1ns/ui-side-worker/')
+      )),
+      mountFrom((source) => source.relPath.startsWith('deploy/sys-v1ns/ui-side-worker/')),
+    ),
+    'mbr-worker': buildProfile(
+      'mbr-worker',
+      'mbr-worker',
+      analysis.models,
+      analysis.mounts,
+      (model) => modelHasSource(model, (source) => (
+        source.relPath === 'packages/worker-base/system-models/system_models.json'
+        || source.relPath.startsWith('deploy/sys-v1ns/mbr/')
+      )),
+      mountFrom((source) => source.relPath.startsWith('deploy/sys-v1ns/mbr/')),
+    ),
+  };
+
   return analysis;
 }
 
@@ -337,6 +421,10 @@ async function main() {
   process.stdout.write(`canonical_mounts=${analysis.audit.canonical.mountCount}\n`);
   process.stdout.write(`canonical_unmounted=${analysis.audit.canonical.unmountedCount}\n`);
   process.stdout.write(`canonical_duplicates=${analysis.audit.canonical.duplicateCount}\n`);
+  for (const [id, profile] of Object.entries(analysis.profiles)) {
+    process.stdout.write(`${id}_unmounted=${profile.audit.unmountedCount}\n`);
+    process.stdout.write(`${id}_duplicates=${profile.audit.duplicateCount}\n`);
+  }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {

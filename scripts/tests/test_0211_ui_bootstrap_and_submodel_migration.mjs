@@ -67,9 +67,11 @@ function test_non_workspace_bootstrap_consumers_stop_reading_root_ui_ast() {
 
 function test_workspace_projection_stops_using_shared_ast_truth_sources() {
   const workspacePatch = readPatch('packages/worker-base/system-models/workspace_catalog_ui.json');
+  const hierarchyPatchText = readText('packages/worker-base/system-models/runtime_hierarchy_mounts.json');
   assert.equal(findRootLabelValue(workspacePatch, -25, 'ui_ast_v0'), undefined, 'legacy_workspace_root_ui_ast_v0');
   assert.doesNotMatch(readText('packages/worker-base/system-models/workspace_catalog_ui.json'), /"k":\s*"ws_selected_ast"/, 'legacy_workspace_ws_selected_ast_ref');
-  assert.match(readText('packages/worker-base/system-models/workspace_catalog_ui.json'), /"t":\s*"model\.submt"/, 'workspace_explicit_mounts_missing');
+  assert.doesNotMatch(readText('packages/worker-base/system-models/workspace_catalog_ui.json'), /"t":\s*"model\.submt"/, 'workspace_catalog_must_not_be_formal_mount_host');
+  assert.match(hierarchyPatchText, /"t":\s*"model\.submt"/, 'runtime_hierarchy_mounts_missing');
   assert.doesNotMatch(readText('packages/ui-model-demo-server/server.mjs'), /overwriteStateLabel\(runtime,\s*'ws_selected_ast'/, 'legacy_server_ws_selected_ast_write');
   assert.doesNotMatch(readText('packages/ui-model-demo-frontend/src/editor_page_state_derivers.js'), /root\.labels\.ui_ast_v0/, 'legacy_workspace_selected_root_ui_ast');
   assert.doesNotMatch(readText('packages/ui-model-demo-frontend/src/local_bus_adapter.js'), /k:\s*'ui_ast_v0'/, 'legacy_local_bus_shared_ui_ast_writeback');

@@ -8,6 +8,7 @@ import staticCatalogPatch from '../../worker-base/system-models/static_catalog_u
 import navCatalogPatch from '../../worker-base/system-models/nav_catalog_ui.json' with { type: 'json' };
 import workspaceCatalogPatch from '../../worker-base/system-models/workspace_catalog_ui.json' with { type: 'json' };
 import workspacePositiveModelsPatch from '../../worker-base/system-models/workspace_positive_models.json' with { type: 'json' };
+import runtimeHierarchyMountsPatch from '../../worker-base/system-models/runtime_hierarchy_mounts.json' with { type: 'json' };
 import editorTestCatalogPatch from '../../worker-base/system-models/editor_test_catalog_ui.json' with { type: 'json' };
 import promptCatalogPatch from '../../worker-base/system-models/prompt_catalog_ui.json' with { type: 'json' };
 import matrixDebugSurfacePatch from '../../worker-base/system-models/matrix_debug_surface.json' with { type: 'json' };
@@ -199,6 +200,7 @@ export function createDemoStore() {
   applyUiPatch(runtime, staticCatalogPatch);
   applyUiPatch(runtime, workspaceCatalogPatch);
   applyUiPatch(runtime, workspacePositiveModelsPatch);
+  applyUiPatch(runtime, runtimeHierarchyMountsPatch);
   applyUiPatch(runtime, editorTestCatalogPatch);
   applyUiPatch(runtime, matrixDebugSurfacePatch);
   applyUiPatch(runtime, cognitionSceneModelPatch);

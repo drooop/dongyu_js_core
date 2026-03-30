@@ -144,9 +144,9 @@ function test_three_scene_actions_are_frozen() {
 
 function test_three_scene_authoritative_patches_and_workspace_mount_are_frozen() {
   const workspacePositivePatch = readJson('packages/worker-base/system-models/workspace_positive_models.json');
-  const workspaceCatalogPatch = readJson('packages/worker-base/system-models/workspace_catalog_ui.json');
+  const runtimeHierarchyPatch = readJson('packages/worker-base/system-models/runtime_hierarchy_mounts.json');
   const positiveRecords = getPatchRecords(workspacePositivePatch);
-  const workspaceRecords = getPatchRecords(workspaceCatalogPatch);
+  const hierarchyRecords = getPatchRecords(runtimeHierarchyPatch);
 
   assert.ok(
     findRecord(positiveRecords, (record) => (
@@ -182,23 +182,21 @@ function test_three_scene_authoritative_patches_and_workspace_mount_are_frozen()
     'three_scene_app_must_mount_child_via_model_submt',
   );
   assert.ok(
-    findRecord(workspaceRecords, (record) => (
-      record?.model_id === -25
-      && record?.k === 'model_type'
+    findRecord(hierarchyRecords, (record) => (
+      record?.model_id === 0
       && record?.t === 'model.submt'
       && record?.v === modelIds.THREE_SCENE_APP_MODEL_ID
     )),
-    'workspace_catalog_must_mount_three_scene_app',
+    'runtime_hierarchy_must_mount_three_scene_app',
   );
   assert.equal(
-    Boolean(findRecord(workspaceRecords, (record) => (
-      record?.model_id === -25
-      && record?.k === 'model_type'
+    Boolean(findRecord(hierarchyRecords, (record) => (
+      record?.model_id === 0
       && record?.t === 'model.submt'
       && record?.v === modelIds.THREE_SCENE_CHILD_MODEL_ID
     ))),
     false,
-    'workspace_catalog_must_not_mount_three_scene_child_directly',
+    'runtime_hierarchy_must_not_mount_three_scene_child_directly',
   );
 }
 

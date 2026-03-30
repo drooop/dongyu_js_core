@@ -2999,6 +2999,7 @@ function createServerState(options) {
     } else {
       console.log(`[createServerState] skip positive seed patches (existing_positive_models=${positiveModelCountBeforeSeed})`);
     }
+    loadFullModelPatches(runtime, systemModelsDir, ['runtime_hierarchy_mounts.json']);
   }
 
   const envPatch = readModelTablePatchFromEnv();
