@@ -3761,6 +3761,13 @@ function createServerState(options) {
     };
 
     const finishError = async (code, detail) => {
+      if (typeof action === 'string' && action.startsWith('home_')) {
+        runtime.addLabel(runtime.getModel(EDITOR_STATE_MODEL_ID), 0, 0, 0, {
+          k: 'home_status_text',
+          t: 'str',
+          v: `ERR ${code}: ${detail}`,
+        });
+      }
       runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, {
         k: 'ui_event_error',
         t: 'json',
@@ -3837,6 +3844,49 @@ function createServerState(options) {
         return { ok: true, t: typeName, value: String(readStateValue('dt_edit_v_text') || '') };
       }
       return { ok: true, t: 'str', value: String(readStateValue('dt_edit_v_text') || '') };
+    };
+
+    const parseDebugLabelValueFromSource = (typeName, source = null) => {
+      const rawText = source && Object.prototype.hasOwnProperty.call(source, 'value_text')
+        ? String(source.value_text ?? '')
+        : String(readStateValue('dt_edit_v_text') || '');
+      const rawInt = source && Object.prototype.hasOwnProperty.call(source, 'value_int')
+        ? source.value_int
+        : readStateValue('dt_edit_v_int');
+      const rawBool = source && Object.prototype.hasOwnProperty.call(source, 'value_bool')
+        ? source.value_bool
+        : readStateValue('dt_edit_v_bool');
+
+      if (typeName === 'int') {
+        return { ok: true, t: 'int', value: Number.isInteger(rawInt) ? rawInt : 0 };
+      }
+      if (typeName === 'bool') {
+        return { ok: true, t: 'bool', value: rawBool === true };
+      }
+      if (typeName === 'model.submt' || typeName === 'submt') {
+        const parsed = Number.parseInt(String(rawText || '').trim(), 10);
+        if (!Number.isInteger(parsed)) return { ok: false, code: 'submt_child_model_required' };
+        return { ok: true, t: 'model.submt', value: parsed };
+      }
+      if (
+        typeName === 'json'
+        || typeName === 'event'
+        || typeName === 'func.js'
+        || typeName === 'func.python'
+        || typeName.startsWith('pin.')
+      ) {
+        const trimmed = String(rawText || '').trim();
+        if (!trimmed) return { ok: true, t: typeName, value: null };
+        try {
+          return { ok: true, t: typeName, value: JSON.parse(trimmed) };
+        } catch (_) {
+          return { ok: false, code: 'parse_failed' };
+        }
+      }
+      if (typeName === 'model.single' || typeName === 'model.table' || typeName === 'model.matrix' || typeName.startsWith('matrix.')) {
+        return { ok: true, t: typeName, value: rawText };
+      }
+      return { ok: true, t: 'str', value: rawText };
     };
 
     const applyDebugDirectLabelWrite = (targetModelId, p, r, c, k, t, value) => {
@@ -4031,16 +4081,17 @@ function createServerState(options) {
       }
 
       if (action === 'home_save_label') {
-        const modelId = Number.parseInt(String(readStateValue('dt_edit_model_id') || ''), 10);
-        const dp = Number.parseInt(String(readStateValue('dt_edit_p') || ''), 10);
-        const dr = Number.parseInt(String(readStateValue('dt_edit_r') || ''), 10);
-        const dc = Number.parseInt(String(readStateValue('dt_edit_c') || ''), 10);
-        const dk = String(readStateValue('dt_edit_k') || '').trim();
-        let dt = String(readStateValue('dt_edit_t') || 'str').trim() || 'str';
+        const draftOverride = payload && payload.value && typeof payload.value === 'object' ? payload.value : null;
+        const modelId = Number.parseInt(String((draftOverride && draftOverride.model_id) ?? readStateValue('dt_edit_model_id') ?? ''), 10);
+        const dp = Number.parseInt(String((draftOverride && draftOverride.p) ?? readStateValue('dt_edit_p') ?? ''), 10);
+        const dr = Number.parseInt(String((draftOverride && draftOverride.r) ?? readStateValue('dt_edit_r') ?? ''), 10);
+        const dc = Number.parseInt(String((draftOverride && draftOverride.c) ?? readStateValue('dt_edit_c') ?? ''), 10);
+        const dk = String((draftOverride && draftOverride.k) ?? readStateValue('dt_edit_k') ?? '').trim();
+        let dt = String((draftOverride && draftOverride.t) ?? readStateValue('dt_edit_t') ?? 'str').trim() || 'str';
         if (!(Number.isInteger(modelId) && Number.isInteger(dp) && Number.isInteger(dr) && Number.isInteger(dc) && dk)) {
           return finishError('invalid_target', 'edit_state_invalid');
         }
-        const parsed = parseDebugLabelValue(dt);
+        const parsed = parseDebugLabelValueFromSource(dt, draftOverride);
         if (!parsed.ok) return finishError(parsed.code === 'parse_failed' ? 'invalid_json' : 'invalid_target', parsed.code);
         dt = parsed.t;
         const value = parsed.value;
