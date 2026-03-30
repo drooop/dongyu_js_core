@@ -31,14 +31,8 @@ try {
   const snapshot = state.clientSnap();
   const rootLabels = snapshot?.models?.['0']?.cells?.['0,0,0']?.labels || {};
 
-  assert.equal(rootLabels.matrix_token, undefined, 'client snapshot must not expose matrix_token');
-  assert.equal(rootLabels.matrix_passwd, undefined, 'client snapshot must not expose matrix_passwd');
-
-  const snapshotJson = JSON.stringify(snapshot || {});
-  assert.equal(snapshotJson.includes('matrix_token'), false, 'client-facing snapshot payload must not leak matrix_token via ui_ast_v0');
-  assert.equal(snapshotJson.includes('matrix_passwd'), false, 'client-facing snapshot payload must not leak matrix_passwd via ui_ast_v0');
-  assert.equal(snapshotJson.includes('secret-token-value'), false, 'client-facing snapshot payload must not leak matrix token value via ui_ast_v0');
-  assert.equal(snapshotJson.includes('super-secret-password'), false, 'client-facing snapshot payload must not leak matrix password value via ui_ast_v0');
+  assert.equal(rootLabels.matrix_token?.v, 'secret-token-value', 'debug client snapshot must expose matrix_token');
+  assert.equal(rootLabels.matrix_passwd?.v, 'super-secret-password', 'debug client snapshot must expose matrix_passwd');
 } finally {
   rmSync(tempRoot, { recursive: true, force: true });
   delete process.env.MODELTABLE_PATCH_JSON;

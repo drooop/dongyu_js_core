@@ -2986,6 +2986,10 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
+        "filterable": true,
+        "allowCreate": true,
+        "defaultFirstOption": true,
+        "clearable": false,
         "options": [
           {
             "label": "str",
@@ -3002,6 +3006,78 @@
           {
             "label": "json",
             "value": "json"
+          },
+          {
+            "label": "event",
+            "value": "event"
+          },
+          {
+            "label": "func.js",
+            "value": "func.js"
+          },
+          {
+            "label": "func.python",
+            "value": "func.python"
+          },
+          {
+            "label": "pin.connect.label",
+            "value": "pin.connect.label"
+          },
+          {
+            "label": "pin.connect.cell",
+            "value": "pin.connect.cell"
+          },
+          {
+            "label": "pin.connect.model",
+            "value": "pin.connect.model"
+          },
+          {
+            "label": "pin.in",
+            "value": "pin.in"
+          },
+          {
+            "label": "pin.out",
+            "value": "pin.out"
+          },
+          {
+            "label": "pin.bus.in",
+            "value": "pin.bus.in"
+          },
+          {
+            "label": "pin.bus.out",
+            "value": "pin.bus.out"
+          },
+          {
+            "label": "pin.table.in",
+            "value": "pin.table.in"
+          },
+          {
+            "label": "pin.table.out",
+            "value": "pin.table.out"
+          },
+          {
+            "label": "pin.single.in",
+            "value": "pin.single.in"
+          },
+          {
+            "label": "pin.single.out",
+            "value": "pin.single.out"
+          },
+          {
+            "label": "model.single",
+            "value": "model.single"
+          },
+          {
+            "label": "model.table",
+            "value": "model.table"
+          },
+          {
+            "label": "model.matrix",
+            "value": "model.matrix"
+          },
+          {
+            "label": "model.submt",
+            "value": "model.submt"
           }
         ]
       }
@@ -3083,7 +3159,7 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Value (text/json)"
+        "label": "Value (text/json/structural)"
       }
     },
     {

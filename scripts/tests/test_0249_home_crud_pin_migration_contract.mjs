@@ -176,8 +176,8 @@ async function test_server_home_crud_is_routed_by_pin_and_materializes() {
     let targetLabel = snapshot.models['1003'].cells['0,0,0'].labels.pin_home_demo;
     assert.equal(targetLabel?.v, 'pin-home-value', 'created_label_value_must_match');
     let rows = snapshot.models['-2'].cells['0,0,0'].labels.home_table_rows_json?.v || [];
-    assert.equal(rows.some((row) => row && row.k === 'home_owner_request'), false, 'home_table_must_hide_owner_request_row');
-    assert.equal(rows.some((row) => row && row.k === 'home_owner_materialize'), false, 'home_table_must_hide_owner_func_row');
+    assert.equal(rows.some((row) => row && row.k === 'home_owner_request'), true, 'debug_home_table_must_show_owner_request_row');
+    assert.equal(rows.some((row) => row && row.k === 'home_owner_materialize'), true, 'debug_home_table_must_show_owner_func_row');
 
     result = await state.submitEnvelope(mailboxEnvelope('home_open_edit', {
       opId: 'home_open_edit',

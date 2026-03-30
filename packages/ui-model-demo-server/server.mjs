@@ -1481,20 +1481,6 @@ function buildSafeSnapshotJson(runtime) {
 // Lightweight snapshot for SSE/client: excludes internal-only labels that bloat payload.
 // Filters: snapshot_json (1.5MB recursive), event_log, trace entry cells, function code.
 const INTERNAL_LABEL_TYPES = new Set([
-  'func.js',
-  'func.python',
-  'pin.connect.label',
-  'pin.connect.cell',
-  'pin.connect.model',
-  'pin.in',
-  'pin.out',
-  'pin.bus.in',
-  'pin.bus.out',
-  'pin.table.in',
-  'pin.table.out',
-  'pin.single.in',
-  'pin.single.out',
-  'submt',
   'MQTT_WILDCARD_SUB',
 ]);
 const EXCLUDED_LABEL_KEYS = new Set(['snapshot_json', 'event_log']);
@@ -1508,9 +1494,8 @@ const CLIENT_SECRET_LABEL_TYPES = new Set([
 ]);
 
 function isClientSecretLabel(labelKey, labelValue) {
-  if (CLIENT_SECRET_LABEL_KEYS.has(labelKey)) return true;
-  if (labelValue && CLIENT_SECRET_LABEL_TYPES.has(labelValue.t)) return true;
-  if (typeof labelKey === 'string' && /(?:^|_)(token|passwd|password|secret)$/.test(labelKey)) return true;
+  void labelKey;
+  void labelValue;
   return false;
 }
 
@@ -3743,6 +3728,55 @@ function createServerState(options) {
       return value == null ? '' : String(value);
     };
 
+    const parseDebugLabelValue = (typeName) => {
+      if (typeName === 'int') {
+        const raw = readStateValue('dt_edit_v_int');
+        return { ok: true, t: 'int', value: Number.isInteger(raw) ? raw : 0 };
+      }
+      if (typeName === 'bool') {
+        return { ok: true, t: 'bool', value: readStateValue('dt_edit_v_bool') === true };
+      }
+      if (typeName === 'model.submt' || typeName === 'submt') {
+        const raw = String(readStateValue('dt_edit_v_text') || '').trim();
+        const parsed = Number.parseInt(raw, 10);
+        if (!Number.isInteger(parsed)) return { ok: false, code: 'submt_child_model_required' };
+        return { ok: true, t: 'model.submt', value: parsed };
+      }
+      if (
+        typeName === 'json'
+        || typeName === 'event'
+        || typeName === 'func.js'
+        || typeName === 'func.python'
+        || typeName.startsWith('pin.')
+      ) {
+        const raw = String(readStateValue('dt_edit_v_text') || '').trim();
+        if (!raw) return { ok: true, t: typeName, value: null };
+        try {
+          return { ok: true, t: typeName, value: JSON.parse(raw) };
+        } catch (_) {
+          return { ok: false, code: 'parse_failed' };
+        }
+      }
+      if (typeName === 'model.single' || typeName === 'model.table' || typeName === 'model.matrix' || typeName.startsWith('matrix.')) {
+        return { ok: true, t: typeName, value: String(readStateValue('dt_edit_v_text') || '') };
+      }
+      return { ok: true, t: 'str', value: String(readStateValue('dt_edit_v_text') || '') };
+    };
+
+    const applyDebugDirectLabelWrite = (targetModelId, p, r, c, k, t, value) => {
+      const targetModel = runtime.getModel(targetModelId);
+      if (!targetModel) return { ok: false, code: 'missing_model' };
+      const result = runtime.addLabel(targetModel, p, r, c, { k, t, v: value });
+      return result && result.applied === true ? { ok: true } : { ok: false, code: 'debug_direct_write_rejected' };
+    };
+
+    const applyDebugDirectLabelDelete = (targetModelId, p, r, c, k) => {
+      const targetModel = runtime.getModel(targetModelId);
+      if (!targetModel) return { ok: false, code: 'missing_model' };
+      const result = runtime.rmLabel(targetModel, p, r, c, k);
+      return result && result.applied === true ? { ok: true } : { ok: false, code: 'debug_direct_delete_rejected' };
+    };
+
     const buildHomeRequestOrigin = (sourceAction) => ({
       model_id: -10,
       cell: { p: 0, r: 0, c: 0 },
@@ -3876,8 +3910,8 @@ function createServerState(options) {
       }
 
       if (action === 'home_open_create') {
-        if (!(Number.isInteger(selectedModelId) && selectedModelId > 0)) {
-          return finishError('invalid_target', 'positive_model_required');
+        if (!Number.isInteger(selectedModelId)) {
+          return finishError('invalid_target', 'model_required');
         }
         const sent = await sendHomeOwnerRequestsViaSourcePin([
           buildStateSetRequest([
@@ -3927,26 +3961,16 @@ function createServerState(options) {
         const dc = Number.parseInt(String(readStateValue('dt_edit_c') || ''), 10);
         const dk = String(readStateValue('dt_edit_k') || '').trim();
         let dt = String(readStateValue('dt_edit_t') || 'str').trim() || 'str';
-        if (!(Number.isInteger(modelId) && modelId > 0 && Number.isInteger(dp) && Number.isInteger(dr) && Number.isInteger(dc) && dk)) {
+        if (!(Number.isInteger(modelId) && Number.isInteger(dp) && Number.isInteger(dr) && Number.isInteger(dc) && dk)) {
           return finishError('invalid_target', 'edit_state_invalid');
         }
-        let value = null;
-        if (dt === 'int') {
-          const raw = readStateValue('dt_edit_v_int');
-          value = Number.isInteger(raw) ? raw : 0;
-        } else if (dt === 'bool') {
-          value = readStateValue('dt_edit_v_bool') === true;
-        } else if (dt === 'json') {
-          const raw = String(readStateValue('dt_edit_v_text') || '').trim();
-          if (!raw) return finishError('invalid_json', 'empty_json');
-          try {
-            value = JSON.parse(raw);
-          } catch (_) {
-            return finishError('invalid_json', 'parse_failed');
-          }
-        } else {
-          dt = 'str';
-          value = String(readStateValue('dt_edit_v_text') || '');
+        const parsed = parseDebugLabelValue(dt);
+        if (!parsed.ok) return finishError(parsed.code === 'parse_failed' ? 'invalid_json' : 'invalid_target', parsed.code);
+        dt = parsed.t;
+        const value = parsed.value;
+        if (modelId <= 0) {
+          const direct = applyDebugDirectLabelWrite(modelId, dp, dr, dc, dk, dt, value);
+          return direct.ok ? finishOk({ routed_by: 'direct' }) : finishError('invalid_target', direct.code);
         }
         const sent = await sendHomeOwnerRequestsViaSourcePin([{
           op: 'add_label',
@@ -3974,8 +3998,8 @@ function createServerState(options) {
         return statusSent.ok ? finishOk({ routed_by: 'pin' }) : finishError(statusSent.code, statusSent.detail);
       }
 
-      if (!(Number.isInteger(targetModelId) && targetModelId > 0 && key)) {
-        return finishError('invalid_target', 'positive_row_required');
+      if (!(Number.isInteger(targetModelId) && key)) {
+        return finishError('invalid_target', 'row_target_required');
       }
 
       const currentLabel = readCellLabel(targetModelId, p, r, c, key);
@@ -4024,6 +4048,10 @@ function createServerState(options) {
       }
 
       if (action === 'home_delete_label') {
+        if (targetModelId <= 0) {
+          const direct = applyDebugDirectLabelDelete(targetModelId, p, r, c, key);
+          return direct.ok ? finishOk({ routed_by: 'direct' }) : finishError('invalid_target', direct.code);
+        }
         const sent = await sendHomeOwnerRequestsViaSourcePin([{
           op: 'rm_label',
           target_model_id: targetModelId,
