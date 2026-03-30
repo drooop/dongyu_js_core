@@ -90,7 +90,7 @@ const demoStoreSource = readText('packages/ui-model-demo-frontend/src/demo_model
 const serverSource = readText('packages/ui-model-demo-server/server.mjs');
 const localAdapterSource = readText('packages/ui-model-demo-frontend/src/local_bus_adapter.js');
 const workspacePositivePatch = readPatch('packages/worker-base/system-models/workspace_positive_models.json');
-const workspaceCatalogPatch = readPatch('packages/worker-base/system-models/workspace_catalog_ui.json');
+const hierarchyPatch = readPatch('packages/worker-base/system-models/runtime_hierarchy_mounts.json');
 const intentDispatchPatch = readPatch('packages/worker-base/system-models/intent_dispatch_config.json');
 const intentHandlersExamplesPatch = readPatch('packages/worker-base/system-models/intent_handlers_ui_examples.json');
 
@@ -119,7 +119,6 @@ function test_workspace_seed_authority_and_legacy_boundary_are_explicit() {
 
 function test_canonical_examples_exist_on_authoritative_surfaces() {
   const positiveRecords = getPatchRecords(workspacePositivePatch);
-  const workspaceRecords = getPatchRecords(workspaceCatalogPatch);
 
   for (const modelId of [
     UI_EXAMPLE_SCHEMA_MODEL_ID,
@@ -202,24 +201,22 @@ function test_canonical_examples_exist_on_authoritative_surfaces() {
     UI_EXAMPLE_PARENT_MODEL_ID,
   ]) {
     assert.ok(
-      findRecord(workspaceRecords, (record) => (
-        record?.model_id === -25
-        && record?.k === 'model_type'
+      findRecord(hierarchyPatch.records, (record) => (
+        record?.model_id === 0
         && record?.t === 'model.submt'
         && record?.v === modelId
       )),
-      `workspace_catalog_must_mount_model_${modelId}`,
+      `runtime_hierarchy_must_mount_model_${modelId}`,
     );
   }
   assert.equal(
-    Boolean(findRecord(workspaceRecords, (record) => (
-      record?.model_id === -25
-      && record?.k === 'model_type'
+    Boolean(findRecord(hierarchyPatch.records, (record) => (
+      record?.model_id === 0
       && record?.t === 'model.submt'
       && record?.v === UI_EXAMPLE_CHILD_MODEL_ID
     ))),
     false,
-    'workspace_catalog_must_not_mount_child_example_directly',
+    'runtime_hierarchy_must_not_mount_child_example_directly',
   );
 
   assert.ok(

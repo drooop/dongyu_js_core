@@ -76,15 +76,28 @@ function normalizeAssetJson(rawValue) {
   }
 }
 
-function readWorkspaceMountedModelIds(snapshot) {
-  const workspaceModel = getSnapshotModel(snapshot, WORKSPACE_CATALOG_MODEL_ID);
-  if (!workspaceModel || !workspaceModel.cells) return new Set();
+function extractMountedChildId(labelKey, label) {
+  if (!label || typeof label !== 'object') return null;
+  if (label.t === 'model.submt' && Number.isInteger(label.v)) return label.v;
+  if (label.t === 'submt') {
+    const parsed = parseSafeInt(labelKey);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function readHierarchyMountedModelIds(snapshot) {
   const mounted = new Set();
-  for (const cell of Object.values(workspaceModel.cells)) {
-    const labels = cell && cell.labels ? cell.labels : {};
-    const modelType = labels.model_type;
-    if (!modelType || modelType.t !== 'model.submt' || !Number.isInteger(modelType.v)) continue;
-    mounted.add(modelType.v);
+  const models = snapshot && snapshot.models ? Object.values(snapshot.models) : [];
+  for (const model of models) {
+    const cells = model && model.cells ? Object.values(model.cells) : [];
+    for (const cell of cells) {
+      const labels = cell && cell.labels ? cell.labels : {};
+      for (const [key, label] of Object.entries(labels)) {
+        const childId = extractMountedChildId(key, label);
+        if (childId !== null) mounted.add(childId);
+      }
+    }
   }
   return mounted;
 }
@@ -366,7 +379,7 @@ export function deriveWorkspaceSelected(snapshot, editorStateModelId, projectSch
       },
     };
   }
-  const mountedIds = readWorkspaceMountedModelIds(snapshot);
+  const mountedIds = readHierarchyMountedModelIds(snapshot);
   if (!mountedIds.has(selectedId)) {
     return {
       title: selectedApp.name || `App ${selectedId}`,

@@ -52,6 +52,16 @@
       "k": "ui_debug_value_k",
       "t": "str",
       "v": "slide_demo_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": -10
     }
   ]
 }

@@ -30,6 +30,7 @@ function getFunctionCode(label) {
 
 const workspacePatch = loadJson('packages/worker-base/system-models/workspace_positive_models.json');
 const model100Patch = loadJson('packages/worker-base/system-models/test_model_100_ui.json');
+const hierarchyPatch = loadJson('packages/worker-base/system-models/runtime_hierarchy_mounts.json');
 
 const dualBusRecord = getRecord(
   workspacePatch.records,
@@ -43,6 +44,7 @@ assert.equal(typeof uiEventFunc, 'string', 'model100 dual_bus_model.ui_event_fun
 const runtime = new ModelTableRuntime();
 runtime.applyPatch(workspacePatch, { allowCreateModel: true, trustedBootstrap: true });
 runtime.applyPatch(model100Patch, { allowCreateModel: true, trustedBootstrap: true });
+runtime.applyPatch(hierarchyPatch, { allowCreateModel: true, trustedBootstrap: true });
 
 const runtimeDualBus = runtime.getCell(runtime.getModel(100), 0, 0, 0).labels.get('dual_bus_model')?.v ?? null;
 assert.equal(
@@ -70,10 +72,10 @@ const submitOutRecord = getRecord(
 assert.ok(submitOutRecord, 'model100 root must declare pin.table.out submit');
 
 const model0MountRecord = getRecord(
-  model100Patch.records,
-  (record) => record && record.model_id === 0 && record.t === 'submt' && record.k === '100',
+  hierarchyPatch.records,
+  (record) => record && record.model_id === 0 && record.t === 'model.submt' && record.v === 100,
 );
-assert.ok(model0MountRecord, 'model100 must be mounted under model0 via submt to allow upward relay');
+assert.ok(model0MountRecord, 'model100 must be mounted under model0 via runtime hierarchy');
 
 const model0EgressRecord = getRecord(
   model100Patch.records,

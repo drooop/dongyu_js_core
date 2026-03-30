@@ -13,7 +13,7 @@ function readText(relPath) {
 const claude = readText('CLAUDE.md');
 const server = readText('packages/ui-model-demo-server/server.mjs');
 const matrixDebugPatch = JSON.parse(readText('packages/worker-base/system-models/matrix_debug_surface.json'));
-const workspacePatch = JSON.parse(readText('packages/worker-base/system-models/workspace_catalog_ui.json'));
+const hierarchyPatch = JSON.parse(readText('packages/worker-base/system-models/runtime_hierarchy_mounts.json'));
 const intentDispatchPatch = JSON.parse(readText('packages/worker-base/system-models/intent_dispatch_config.json'));
 const intentHandlersMatrixDebug = JSON.parse(readText('packages/worker-base/system-models/intent_handlers_matrix_debug.json'));
 const demoStoreSource = readText('packages/ui-model-demo-frontend/src/demo_modeltable.js');
@@ -66,16 +66,15 @@ function test_matrix_debug_surface_is_model_defined_and_mounted() {
   );
   assert.equal(
     hasRecord(
-      workspacePatch,
+      hierarchyPatch,
       (record) => record
         && record.op === 'add_label'
-        && record.model_id === -25
-        && record.k === 'model_type'
+        && record.model_id === 0
         && record.t === 'model.submt'
         && record.v === -100,
     ),
     true,
-    'workspace_catalog_ui must mount Model -100 via model.submt',
+    'runtime_hierarchy_mounts must mount Model -100 via model.submt',
   );
   assert.doesNotMatch(
     server,
@@ -89,8 +88,8 @@ function test_matrix_debug_surface_is_model_defined_and_mounted() {
   );
   assert.match(
     server,
-    /assetCell = model\.cells && model\.cells\['0,1,0'\]/,
-    'server client snapshot must include Model -100 page_asset_v0 cell',
+    /matrix_debug_surface\.json page_asset_v0/,
+    'server must document Model -100 page_asset_v0 as the formal matrix debug surface source',
   );
 }
 

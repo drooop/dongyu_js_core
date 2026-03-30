@@ -170,6 +170,7 @@ source: ai
 | 0260-model100-submit-roundtrip-hardening | 2026-03-29 | 让颜色生成器（Model 100）重新符合 hard-cut 主线：submit 去程/回程恢复、stale inflight 清理、浏览器按钮可用、truth 与 scene/lifecycle 一致 | 5 | dev_0260-model100-submit-roundtrip-hardening | Completed | ./docs/iterations/0260-model100-submit-roundtrip-hardening/ |
 | 0261-docs-source-flip | 2026-03-30 | 反转 docs 数据源：仓库内 docs 为权威源，vault 路径改为指向仓库 docs 的 symlink | 4 | dev_0261-docs-source-flip | Completed | ./docs/iterations/0261-docs-source-flip/ |
 | 0262-model-mounting-audit | 2026-03-30 | 以真实 repo/runtime 事实重建模型挂载可视化，并输出挂载合规审计 | 4 | dev_0262-model-mounting-audit | Completed | ./docs/iterations/0262-model-mounting-audit/ |
+| 0263-mounting-remediation | 2026-03-30 | 统一各 software worker 的模型层级：消除未挂载与多重挂载，按 profile 收口 hierarchy | 5 | dev_0263-mounting-remediation | Completed | ./docs/iterations/0263-mounting-remediation/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

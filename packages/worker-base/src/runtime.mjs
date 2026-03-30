@@ -356,6 +356,7 @@ class ModelTableRuntime {
   }
 
   _resolveLabelType(labelType) {
+    if (labelType === 'model.submt') return 'submt';
     return labelType;
   }
 
@@ -458,7 +459,7 @@ class ModelTableRuntime {
     if (!cell || !cell.labels) return null;
     for (const [, lbl] of cell.labels) {
       const t = this._resolveLabelType(lbl.t);
-      if (t === 'model.single' || t === 'model.table' || t === 'model.matrix' || t === 'model.submt') {
+      if (t === 'model.single' || t === 'model.table' || t === 'model.matrix' || t === 'submt') {
         return t;
       }
     }
@@ -639,6 +640,13 @@ class ModelTableRuntime {
       if (this._resolveLabelType(label.t) === 'submt') return label;
     }
     return null;
+  }
+
+  _getSubmodelChildId(label) {
+    if (!label || typeof label !== 'object') return null;
+    if (Number.isInteger(label.v)) return label.v;
+    const parsed = Number.parseInt(String(label.k ?? ''), 10);
+    return Number.isInteger(parsed) ? parsed : null;
   }
 
   applyPatch(patch, options = {}) {
@@ -981,6 +989,13 @@ class ModelTableRuntime {
     });
     if (this.persistence && typeof this.persistence.onLabelRemoved === 'function') {
       this.persistence.onLabelRemoved({ model, p, r, c, label: prevLabel });
+    }
+    if (this._resolveLabelType(prevLabel.t) === 'submt') {
+      const childModelId = this._getSubmodelChildId(prevLabel);
+      const current = Number.isInteger(childModelId) ? this.parentChildMap.get(childModelId) : null;
+      if (current && current.parentModelId === model.id && current.hostingCell.p === p && current.hostingCell.r === r && current.hostingCell.c === c) {
+        this.parentChildMap.delete(childModelId);
+      }
     }
     return { applied: true };
   }
@@ -1662,7 +1677,7 @@ class ModelTableRuntime {
     }
     // 0142: subModel declaration
     if (resolvedType === 'submt') {
-      const childModelId = parseInt(label.k, 10);
+      const childModelId = this._getSubmodelChildId(label);
       if (!Number.isInteger(childModelId)) {
         this._recordError(model, p, r, c, label, 'submodel_invalid_id');
         return;
@@ -1674,7 +1689,7 @@ class ModelTableRuntime {
       if (!this.getModel(childModelId)) {
         this.createModel({
           id: childModelId,
-          name: (label.v && label.v.alias) || String(childModelId),
+          name: (label.v && typeof label.v === 'object' && label.v.alias) || String(childModelId),
           type: 'sub',
         });
       }

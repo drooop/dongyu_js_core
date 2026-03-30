@@ -37,6 +37,14 @@
         "UIPUT/ws/dam/pic/de/sw/100/event",
         "UIPUT/ws/dam/pic/de/sw/100/patch"
       ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1, "r": 0, "c": 1,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": -10
     }
   ]
 }

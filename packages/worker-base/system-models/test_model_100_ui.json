@@ -52,18 +52,6 @@
       "p": 10,
       "r": 0,
       "c": 0,
-      "k": "100",
-      "t": "submt",
-      "v": {
-        "alias": "color_gen"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": 0,
-      "p": 10,
-      "r": 0,
-      "c": 0,
       "k": "submit_relay",
       "t": "pin.in",
       "v": null
