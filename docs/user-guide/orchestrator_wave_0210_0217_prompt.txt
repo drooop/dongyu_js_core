@@ -1,0 +1,75 @@
+Execute the existing UI iteration wave 0210-0217 as one serialized batch.
+
+This batch is not a new-requirement decomposition task. It is an execution wave over already-registered iterations.
+
+Primary rule:
+Reuse the existing iteration IDs and folders exactly as they already exist in docs/ITERATIONS.md and docs/iterations/.
+Do not create new primary iteration IDs.
+Do not renumber.
+Do not fork duplicate iterations that restate 0210-0217 under new IDs.
+
+Anchor:
+0201-route-sse-page-sync-fix is already completed and serves only as a completed prerequisite and regression anchor.
+Do not reopen 0201.
+
+Wave scope and order:
+1. 0210-ui-cellwise-contract-freeze
+2. 0211-ui-bootstrap-and-submodel-migration
+3. 0212-home-crud-proper-tier2
+4. 0213-matrix-debug-ui-surface
+5. 0214-sliding-flow-ui
+6. 0215-ui-model-tier2-examples-v1
+7. 0216-threejs-runtime-and-scene-crud
+8. 0217-gallery-extension-matrix-three
+
+Execution policy:
+- Single active iteration only. No parallel execution.
+- Respect existing dependencies and roadmap order above unless an already-written contract explicitly proves a safer narrower order.
+- Treat each iteration as an existing registered iteration, not as a blank new requirement.
+- For each iteration:
+  - If ITERATIONS status is Planned and the contract is still draft/scaffold, route as draft_iteration and start at PLANNING.
+  - If ITERATIONS status is Approved, route as executable_iteration and start at EXECUTION.
+  - If ITERATIONS status is Completed, skip it with an explicit runlog/event note and continue to the next one.
+  - If ITERATIONS status is In Progress or On Hold, require resume/human decision rather than silently restarting or skipping.
+- If the current orchestrator entry mode cannot honor existing iteration IDs without generating duplicates, stop and report the limitation instead of decomposing new primary iterations.
+
+Per-iteration intent:
+- 0210 freezes the UI cellwise/label/materialized-model contract and forbids large JSON initialization.
+- 0211 migrates existing bootstrap/submodel paths into the 0210 contract.
+- 0212 implements Home CRUD Tier 2 only on the new contract, never by reviving old ui_ast_v0 paths.
+- 0213 provides Matrix debug/ops UI surface as reusable infrastructure.
+- 0214 implements sliding-flow UI on top of the 0213 debug surface.
+- 0215 creates canonical Tier 2 examples that follow the new contract.
+- 0216 builds the minimal Three.js host/runtime + scene/model CRUD loop.
+- 0217 integrates Gallery with Matrix + Three.js examples into a demonstrable end-to-end surface.
+
+Hard constraints:
+- Follow CLAUDE.md, docs/WORKFLOW.md, docs/ITERATIONS.md, and docs/ssot/** as authoritative.
+- No remote deploy, k8s mutation, or cloud/system operations.
+- Do not reopen or rewrite completed orchestrator platform iterations 0202-0205.
+- Do not expand scope outside 0210-0217 unless a true derived dependency is required to complete an in-scope contract.
+- For a derived dependency outside this wave, stop and ask for human decision rather than silently spawning a new unrelated business iteration.
+
+Verification expectations:
+- Every iteration must leave deterministic PASS/FAIL evidence in its own runlog.md.
+- Contract/freeze iterations must finish with tests and docs aligned.
+- Functional iterations must finish with deterministic tests plus browser/local smoke when their plan or resolution requires it.
+- Do not mark an iteration Completed without updating its runlog evidence and final status.
+
+Batch stop rules:
+- On human_decision_required, ambiguous scope, unresolved branch guard, or repeated CLI failure threshold, stop the batch and report the exact blocking iteration.
+- Do not skip blocked iterations and continue to downstream items that depend on them.
+- Do not enter Final Verification for the whole wave until every in-scope iteration is either Completed or explicitly blocked by a human decision gate.
+
+Final output requirements:
+- Produce a batch summary covering 0210-0217.
+- For each iteration include:
+  - final status
+  - final branch
+  - final commit if any
+  - key verification commands
+  - blocker or dependency note if not completed
+- State clearly whether the whole wave reached:
+  - ALL GOALS MET
+  - PARTIALLY BLOCKED
+  - FAILED

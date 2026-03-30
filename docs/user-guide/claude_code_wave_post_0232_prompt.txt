@@ -1,0 +1,103 @@
+你现在要以 Supervisor + subagent 方式启动并看护一条新的 existing-iteration wave。
+
+工作目录：
+/Users/drop/codebase/cowork/dongyuapp_elysia_based
+
+权威 wave 合同：
+docs/user-guide/orchestrator_wave_post_0232_prompt.txt
+
+本次 wave 顺序固定为：
+1. 0233-local-matrix-debug-surface-materialization-fix
+2. 0234-local-browser-evidence-effective-rerun
+3. 0230-remote-ops-bridge-smoke
+4. 0224-remote-rollout-baseline
+5. 0225-remote-browser-evidence
+
+你的角色分工必须如下：
+
+1. 你自己是 Supervisor 主 agent
+- 负责 preflight
+- 负责启动和管理 subagents
+- 负责读取 wave 进度
+- 负责 stop/continue 的最终判断
+- 负责把关键事件汇报给用户
+
+2. 你必须至少创建两个 subagents
+- Subagent A: Wave Executor
+  - 负责实际运行：
+    `bun scripts/orchestrator/wave_launcher.mjs --iterations 0233-local-matrix-debug-surface-materialization-fix,0234-local-browser-evidence-effective-rerun,0230-remote-ops-bridge-smoke,0224-remote-rollout-baseline,0225-remote-browser-evidence --wave-prompt-file docs/user-guide/orchestrator_wave_post_0232_prompt.txt`
+  - 持续附着并跟随 launcher 输出
+- Subagent B: Evidence Observer
+  - 负责盯 authoritative state / status / runlog
+  - 特别关注：
+    - 0233 是否真正消除 `matrix_debug_page_asset=missing`
+    - 0234 是否把 local environment 判成 effective 或继续 not effective
+    - 0230 / 0224 是否遵守 remote safety
+    - 0225 是否真的使用 Playwright MCP capable browser execution
+
+如果当前环境无法使用 subagent，立即停止并报告；不允许偷偷退化成单 agent 模式。
+
+Preflight 必须先检查：
+1. 当前分支是 `dropx/dev_0232-local-baseline-surface-gate` 或 `dev`
+2. git 工作区干净
+3. 以下文件存在：
+   - `scripts/orchestrator/wave_launcher.mjs`
+   - `scripts/orchestrator/wave_launcher_lib.mjs`
+   - `docs/user-guide/orchestrator_wave_post_0232_prompt.txt`
+   - `docs/iterations/0233-local-matrix-debug-surface-materialization-fix/plan.md`
+   - `docs/iterations/0234-local-browser-evidence-effective-rerun/plan.md`
+   - `docs/iterations/0230-remote-ops-bridge-smoke/plan.md`
+   - `docs/iterations/0224-remote-rollout-baseline/plan.md`
+   - `docs/iterations/0225-remote-browser-evidence/plan.md`
+4. 如果任一检查失败，停止并只报告失败原因，不擅自修复
+
+执行规则：
+- 这是 existing-iteration wave，不允许 decompose 成新 primary iterations
+- 第一次运行前不要修改代码
+- 保持 wave launcher attached，不要提前退出
+- single active iteration only
+- 如果出现真实 derived follow-up iteration（例如 `0233b-*`），允许按 wave prompt 规则插到父 iteration 之后
+- 如果出现 unresolved proposed/on_hold extra iteration，必须停止并报告
+- 不要重开 0222、0223、0229、0232
+- 不要跳过 0234
+- 0230 不能替代 0224
+- 0225 必须是 Playwright MCP capable browser evidence，不能用 prose 或假 JSON 冒充
+
+Supervisor 汇报要求：
+每当出现关键进展，必须向用户汇报：
+- 当前 iteration id
+- batch id
+- 当前 phase
+- 当前结论：continue / blocked / completed
+- 若有 derived iteration，明确队列变化
+
+以下事件必须立即汇报：
+1. preflight 通过
+2. subagents 已创建
+3. wave launcher 启动成功
+4. 每个 iteration 进入新 batch
+5. REVIEW_PLAN 通过
+6. 进入 EXECUTION
+7. `matrix_debug_page_asset` blocker 被消除
+8. 0234 的 local browser verdict 已形成
+9. remote ops / browser task 出现 On Hold / human_decision_required / scope drift
+10. iteration 完成
+11. 整个 wave 完成或失败
+
+最终输出要求：
+如果 wave 完成，输出：
+- 每个 iteration 的最终状态
+- 每个 iteration 的 batch id
+- 若有 derived iteration，也列出
+- 整个 wave 的最终结论：
+  - `ALL GOALS MET`
+  - `PARTIALLY BLOCKED`
+  - `FAILED`
+- 明确说明：
+  - local environment 是否最终 effective
+  - remote environment 是否最终 effective
+
+重要边界：
+- 不要开 PR
+- 不要自动 merge 未经确认的远端高风险变更
+- 不要把 mock / local evidence 说成 real remote/browser proof

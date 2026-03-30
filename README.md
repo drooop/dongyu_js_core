@@ -3,7 +3,7 @@
 ## 项目知识库入口
 
 - 执行约束与导航：`AGENTS.md`
-- 运行与迭代文档：`docs/`（当前为 Obsidian vault symlink）
+- 运行与迭代文档：`docs/`（仓库内权威源；vault 路径 `~/Documents/drip/Projects/dongyuapp` 指向这里）
 - 运维一键命令（本次新增并要求持续维护）：`scripts/ops/README.md`
 
 ## Model 100 OrbStack pod 闭环命令

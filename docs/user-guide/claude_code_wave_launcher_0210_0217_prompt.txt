@@ -1,0 +1,18 @@
+在仓库根目录启动并持续看护 0210-0217 的 serialized wave launcher。
+
+先确认当前工作区干净，然后执行：
+
+`bun scripts/orchestrator/wave_launcher.mjs --iterations 0210-ui-cellwise-contract-freeze,0211-ui-bootstrap-and-submodel-migration,0212-home-crud-proper-tier2,0213-matrix-debug-ui-surface,0214-sliding-flow-ui,0215-ui-model-tier2-examples-v1,0216-threejs-runtime-and-scene-crud,0217-gallery-extension-matrix-three --wave-prompt-file docs/user-guide/orchestrator_wave_0210_0217_prompt.txt`
+
+要求：
+- 保持前台 attached，不要自行退出。
+- 这是动态队列 wave launcher：如果运行中出现新注册的 follow-up iteration（例如 `0210b-*`、`0210c-*`），launcher 会自动插入并继续串行执行；你需要在汇报中明确说明队列发生了什么变化。
+- 每当 launcher 停在某个 iteration 时，给出：
+  - iteration id
+  - 对应 batch id
+  - 当前 phase
+  - 最终 blocking reason 或 completed summary
+- 如果 wave 因新增 unresolved proposed/blocked extra iteration 而停止，明确写出该新 iteration id 与 status。
+- 如果 launcher 成功跑完整个 wave，输出最终 summary。
+- 不要在第一次运行前擅自修改代码；先按当前代码启动。
+- 如果 launcher 因可恢复问题停止，只报告事实，不擅自扩 scope 修复。
