@@ -254,55 +254,68 @@ export function deriveEditorModelOptions(snapshot, editorStateModelId) {
     .filter((m) => Number.isInteger(m.id))
     .sort((a, b) => a.id - b.id)
     .map((m) => ({ label: `${m.id}${m.name ? ` (${m.name})` : ''}`, value: m.id }));
-  return query
+  const allOption = { label: 'All models', value: '' };
+  const filtered = query
     ? options.filter((opt) => String(opt.label || '').toLowerCase().includes(query))
     : options;
+  if (!query || String(allOption.label).toLowerCase().includes(query)) {
+    return [allOption, ...filtered];
+  }
+  return filtered;
 }
 
 export function deriveHomeTableRows(snapshot, editorStateModelId) {
   const selectedModelRaw = getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'selected_model_id' });
+  const allModelsMode = String(selectedModelRaw ?? '').trim() === '';
   const selectedModelId = parseSafeInt(selectedModelRaw);
-  const targetModel = selectedModelId === null ? null : getSnapshotModel(snapshot, selectedModelId);
   const tableFilterP = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'dt_filter_p' }));
   const tableFilterR = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'dt_filter_r' }));
   const tableFilterC = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'dt_filter_c' }));
   const tableFilterKtv = String(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'dt_filter_ktv' }) ?? '').trim().toLowerCase();
   const rows = [];
-  if (!targetModel || !targetModel.cells) return rows;
+  const targetModels = allModelsMode
+    ? Object.values(snapshot && snapshot.models ? snapshot.models : {})
+        .filter((model) => model && Number.isInteger(model.id))
+    : (selectedModelId === null ? [] : [getSnapshotModel(snapshot, selectedModelId)].filter(Boolean));
+  if (targetModels.length === 0) return rows;
 
-  for (const [cellKey, cell] of Object.entries(targetModel.cells)) {
-    const parts = String(cellKey).split(',');
-    if (parts.length !== 3) continue;
-    const p = parseSafeInt(parts[0]);
-    const r = parseSafeInt(parts[1]);
-    const c = parseSafeInt(parts[2]);
-    if (!Number.isInteger(p) || !Number.isInteger(r) || !Number.isInteger(c)) continue;
-    if (tableFilterP !== null && p !== tableFilterP) continue;
-    if (tableFilterR !== null && r !== tableFilterR) continue;
-    if (tableFilterC !== null && c !== tableFilterC) continue;
-    const labels = cell && cell.labels ? cell.labels : {};
-    for (const [k, lv] of Object.entries(labels)) {
-      const t = lv && lv.t ? String(lv.t) : '';
-      if (isHomeInternalTableLabel(k, t)) continue;
-      const vRaw = lv && Object.prototype.hasOwnProperty.call(lv, 'v') ? lv.v : undefined;
-      const vText = stringifyOneLine(vRaw);
-      if (tableFilterKtv) {
-        const hay = `${String(k).toLowerCase()}|${t.toLowerCase()}|${String(vText).toLowerCase()}`;
-        if (!hay.includes(tableFilterKtv)) continue;
+  for (const targetModel of targetModels) {
+    if (!targetModel || !targetModel.cells) continue;
+    for (const [cellKey, cell] of Object.entries(targetModel.cells)) {
+      const parts = String(cellKey).split(',');
+      if (parts.length !== 3) continue;
+      const p = parseSafeInt(parts[0]);
+      const r = parseSafeInt(parts[1]);
+      const c = parseSafeInt(parts[2]);
+      if (!Number.isInteger(p) || !Number.isInteger(r) || !Number.isInteger(c)) continue;
+      if (tableFilterP !== null && p !== tableFilterP) continue;
+      if (tableFilterR !== null && r !== tableFilterR) continue;
+      if (tableFilterC !== null && c !== tableFilterC) continue;
+      const labels = cell && cell.labels ? cell.labels : {};
+      for (const [k, lv] of Object.entries(labels)) {
+        const t = lv && lv.t ? String(lv.t) : '';
+        if (isHomeInternalTableLabel(k, t)) continue;
+        const vRaw = lv && Object.prototype.hasOwnProperty.call(lv, 'v') ? lv.v : undefined;
+        const vText = stringifyOneLine(vRaw);
+        if (tableFilterKtv) {
+          const hay = `${String(k).toLowerCase()}|${t.toLowerCase()}|${String(vText).toLowerCase()}`;
+          if (!hay.includes(tableFilterKtv)) continue;
+        }
+        rows.push({
+          row_id: `${targetModel.id}:${p},${r},${c}:${k}`,
+          model_id: targetModel.id,
+          p,
+          r,
+          c,
+          k: String(k),
+          t,
+          v_preview: truncate(vText, 120),
+        });
       }
-      rows.push({
-        row_id: `${selectedModelId ?? ''}:${p},${r},${c}:${k}`,
-        model_id: selectedModelId ?? 0,
-        p,
-        r,
-        c,
-        k: String(k),
-        t,
-        v_preview: truncate(vText, 120),
-      });
     }
   }
   rows.sort((a, b) => {
+    if (a.model_id !== b.model_id) return a.model_id - b.model_id;
     if (a.p !== b.p) return a.p - b.p;
     if (a.r !== b.r) return a.r - b.r;
     if (a.c !== b.c) return a.c - b.c;
@@ -313,6 +326,7 @@ export function deriveHomeTableRows(snapshot, editorStateModelId) {
 
 export function deriveHomeMissingModelText(snapshot, editorStateModelId) {
   const selectedModelRaw = getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'selected_model_id' });
+  if (String(selectedModelRaw ?? '').trim() === '') return '';
   const selectedModelId = parseSafeInt(selectedModelRaw);
   if (selectedModelId === null) return '';
   const targetModel = getSnapshotModel(snapshot, selectedModelId);
@@ -320,7 +334,9 @@ export function deriveHomeMissingModelText(snapshot, editorStateModelId) {
 }
 
 export function deriveHomeSelectedLabelText(snapshot, editorStateModelId) {
-  const selectedModelId = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'selected_model_id' }));
+  const selectedModelRaw = getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'selected_model_id' });
+  if (String(selectedModelRaw ?? '').trim() === '') return 'Current target: all models';
+  const selectedModelId = parseSafeInt(selectedModelRaw);
   if (selectedModelId === null) return 'Current target: no model selected.';
 
   const p = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'draft_p' })) ?? 0;
