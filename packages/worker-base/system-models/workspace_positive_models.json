@@ -300,9 +300,7 @@
       "k": "dual_bus_model",
       "t": "json",
       "v": {
-        "ui_event_func": "prepare_model100_submit",
-        "patch_in_func": "on_model100_patch_in",
-        "patch_in_pin": "patch"
+        "ui_event_func": "prepare_model100_submit"
       }
     },
     {

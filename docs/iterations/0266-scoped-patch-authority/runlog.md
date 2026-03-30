@@ -6,7 +6,7 @@ updated: 2026-03-30
 source: ai
 iteration_id: 0266-scoped-patch-authority
 id: 0266-scoped-patch-authority
-phase: phase1
+phase: phase3
 ---
 
 # Iteration 0266-scoped-patch-authority Run Log
@@ -30,6 +30,15 @@ Review Gate Record
 - Review Index: 1
 - Decision: Change Requested
 - Notes: user approved scoped-patch + helper-cell design direction, and explicitly required that later implementation must audit and upgrade all affected fill-table code and JSON model patches, then redeploy before acceptance.
+
+Review Gate Record
+- Iteration ID: 0266-scoped-patch-authority
+- Review Date: 2026-03-30
+- Review Type: User
+- Reviewer: user
+- Review Index: 2
+- Decision: Approved
+- Notes: user replied "Approved，开始实现 0266".
 ```
 
 ## Phase 1 — Planning
@@ -56,4 +65,152 @@ Review Gate Record
     - reserved helper executor cell per model
     - user-authored program models must not get direct patch ability
     - implementation must upgrade all affected fill-table/runtime JSON patches and redeploy before acceptance
+- Result: PASS
+
+## Step 1 — Freeze SSOT contract
+- Start time: 2026-03-30 23:32:00 +0800
+- End time: 2026-03-30 23:45:00 +0800
+- Branch: `dev_0266-scoped-patch-authority`
+- Commits:
+  - `0b71db1` - `docs(runtime): add scoped patch authority plan [0266]`
+- Commands executed:
+  - `node scripts/tests/test_0266_scoped_patch_docs_contract.mjs`
+  - `apply_patch docs/ssot/runtime_semantics_modeltable_driven.md`
+  - `apply_patch docs/ssot/host_ctx_api.md`
+  - `apply_patch docs/ssot/label_type_registry.md`
+  - `apply_patch docs/user-guide/modeltable_user_guide.md`
+  - `node scripts/tests/test_0266_scoped_patch_docs_contract.mjs`
+- Key outputs (snippets):
+  - docs contract green:
+    - `runtime semantics` 明确 bootstrap-only `applyPatch`
+    - `host ctx api` 明确用户程序不得直接调用 `applyPatch` / `applyScopedPatch`
+    - `label registry` 明确 `model.submt` 只负责挂载
+    - `user guide` 明确 owner/helper materialization
+- Result: PASS
+
+## Step 2 — Gate runtime authority
+- Start time: 2026-03-30 23:46:00 +0800
+- End time: 2026-03-30 23:55:00 +0800
+- Branch: `dev_0266-scoped-patch-authority`
+- Commits:
+  - N/A
+- Commands executed:
+  - `apply_patch scripts/tests/test_0266_scoped_patch_runtime_contract.mjs`
+  - `node scripts/tests/test_0266_scoped_patch_runtime_contract.mjs`
+  - `apply_patch packages/worker-base/src/runtime.mjs`
+  - `node scripts/tests/test_0266_scoped_patch_runtime_contract.mjs`
+  - `node scripts/tests/test_0245_scoped_privilege_runtime_contract.mjs`
+- Key outputs (snippets):
+  - RED:
+    - `rt.applyScopedPatch is not a function`
+    - `program ctx must not mutate through runtime.applyPatch`
+- GREEN:
+    - `applyScopedPatch` same-model add_label PASS
+    - cross-model / create_model reject PASS
+    - runtime program ctx no longer exposes `applyPatch`
+    - `0245` scoped privilege baseline remained green
+- Result: PASS
+
+## Step 3 — Add helper scaffold
+- Start time: 2026-03-31 00:31:00 +0800
+- End time: 2026-03-31 00:31:00 +0800
+- Branch: `dev_0266-scoped-patch-authority`
+- Commits:
+  - N/A
+- Commands executed:
+  - `rg -n "owner_request|owner_materialize|ensureGenericOwnerMaterializer" packages/ui-model-demo-server/server.mjs packages/worker-base/system-models`
+- Key outputs (snippets):
+  - 当前 authoritative 路径已在 `Model 100` 和 `ui-side-worker demo` 上补入 helper / owner materialization
+  - `server.ensureGenericOwnerMaterializer()` 可按需为目标模型注入 generic owner helper
+  - 但“所有新建模型在创建时自动默认植入 helper”这一全局 scaffold 仍未实现
+- Result: PARTIAL
+- Notes:
+  - iteration 维持 `In Progress`，后续若继续 0266，应把 automatic helper seeding 作为剩余工作继续收口
+
+## Step 4 — Migrate dual-bus return path
+- Start time: 2026-03-30 23:56:00 +0800
+- End time: 2026-03-31 00:18:00 +0800
+- Branch: `dev_0266-scoped-patch-authority`
+- Commits:
+  - N/A
+- Commands executed:
+  - `apply_patch scripts/tests/test_0266_dual_bus_return_conformance.mjs`
+  - `node scripts/tests/test_0266_dual_bus_return_conformance.mjs`
+  - `apply_patch packages/ui-model-demo-server/server.mjs`
+  - `apply_patch packages/worker-base/system-models/test_model_100_ui.json`
+  - `apply_patch packages/worker-base/system-models/workspace_positive_models.json`
+  - `node scripts/tests/test_0266_dual_bus_return_conformance.mjs`
+  - `node scripts/tests/test_0182_model100_submit_chain_contract.mjs`
+  - `node scripts/validate_model100_records_e2e_v0.mjs`
+- Key outputs (snippets):
+  - RED:
+    - `snapshot_delta handler must not direct-apply return patch`
+    - `model100 return handler must not use ctx.runtime.applyPatch`
+  - migration:
+    - `server.handleDyBusEvent()` no longer direct-applies `snapshot_delta`; now routes through `routeSnapshotDeltaViaOwnerMaterialization()`
+    - `test_model_100_ui.json` now defines `owner_request` / `owner_route` / `owner_materialize`
+    - `prepare_model100_submit` / `forward_model100_submit_from_model0` no longer use `ctx.runtime.*`
+  - GREEN:
+    - `test_0266_dual_bus_return_conformance` PASS
+    - `test_0182_model100_submit_chain_contract` PASS
+    - `validate_model100_records_e2e_v0` PASS
+- Result: PASS
+
+## Step 5 — Upgrade repo patches
+- Start time: 2026-03-31 00:19:00 +0800
+- End time: 2026-03-31 00:31:00 +0800
+- Branch: `dev_0266-scoped-patch-authority`
+- Commits:
+  - N/A
+- Commands executed:
+  - `rg -n "ctx.runtime.applyPatch|ctx.runtime.addLabel|ctx.runtime.rmLabel" packages/worker-base/system-models deploy/sys-v1ns`
+  - `apply_patch scripts/tests/test_0266_json_patch_upgrade_audit.mjs`
+  - `node scripts/tests/test_0266_json_patch_upgrade_audit.mjs`
+  - `apply_patch deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json`
+  - `apply_patch scripts/tests/test_0198_ui_side_worker_patch_first_contract.mjs`
+  - `apply_patch scripts/tests/test_0198_ui_side_worker_followup_contract.mjs`
+  - `node scripts/tests/test_0198_ui_side_worker_patch_first_contract.mjs`
+  - `node scripts/tests/test_0198_ui_side_worker_followup_contract.mjs`
+  - `node scripts/tests/test_0266_json_patch_upgrade_audit.mjs`
+- Key outputs (snippets):
+  - audit RED:
+    - only remaining authoritative bypass was `deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json: ctx.runtime.applyPatch`
+  - migration:
+    - ui-side worker demo now routes `snapshot_delta` through `-10 pin.table.out -> Model 0 pin.connect.model -> Model 1 owner_request -> owner_materialize`
+  - test adjustment:
+    - `0198` patch-first test now sets runtime `running` before owner-route materialization
+  - GREEN:
+    - `test_0198_ui_side_worker_patch_first_contract` PASS
+    - `test_0198_ui_side_worker_followup_contract` PASS
+    - `test_0266_json_patch_upgrade_audit` PASS
+- Result: PASS
+
+## Step 6 — Redeploy and verify live
+- Start time: 2026-03-31 00:32:00 +0800
+- End time: 2026-03-31 00:52:00 +0800
+- Branch: `dev_0266-scoped-patch-authority`
+- Commits:
+  - N/A
+- Commands executed:
+  - `node scripts/tests/test_0144_remote_worker.mjs`
+  - `node scripts/tests/test_0215_ui_model_tier2_examples_contract.mjs`
+  - `node scripts/tests/test_0216_threejs_scene_contract.mjs`
+  - `bash scripts/ops/check_runtime_baseline.sh`
+  - `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
+  - `bash scripts/ops/check_runtime_baseline.sh`
+  - Playwright open `http://localhost:30900/#/workspace`
+  - Playwright click `Generate Color`
+- Key outputs (snippets):
+  - broader regression:
+    - `test_0144_remote_worker` PASS
+    - `test_0215_ui_model_tier2_examples_contract` PASS
+    - `test_0216_threejs_scene_contract` PASS
+  - baseline:
+    - `baseline ready` before and after redeploy
+  - deploy:
+    - `ui-server`, `remote-worker`, `mbr-worker`, `ui-side-worker` restarted and rolled out successfully
+  - browser live proof:
+    - `Generate Color` click after redeploy still changed visible color value
+    - before click visible color `#2e87eb`
+    - after click visible color `#6529cb`
 - Result: PASS

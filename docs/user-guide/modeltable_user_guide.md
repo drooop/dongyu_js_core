@@ -39,6 +39,7 @@ source: ai
 - `model.table`：模型根 `(0,0,0)` 的显式根声明
 - `model.matrix`：矩阵自身相对 `(0,0,0)` 的显式根声明
 - `model.submt`：子模型挂载/映射位；该 Cell 只允许 `pin.*` / `pin.log.*` 共存
+- `model.submt` 只建立父子挂载关系；不代表父模型可以 direct 修改子模型内部 label
 - 在 table/matrix 作用域内，未物化且未显式声明的普通 Cell，默认有效模型标签为 `model.single`
 - `model.name` 只允许写在模型自己的 `(0,0,0)`
 - 除 `model_id = 0` 外，每个模型都必须通过某个父模型 Cell 上的 `model.submt` 显式挂载进入层级
@@ -56,6 +57,7 @@ source: ai
 使用时只记三条：
 - `parent` 挂载：child model 必须通过父模型 hosting cell 上的 `model.submt` 进入层级，UI 读取 child 的真实 Cell/label。
 - `matrix` 挂载：matrix 根先声明 `model.matrix`，child 仍通过显式 `model.submt` hosting cell 进入矩阵层级，且坐标映射必须明确。
+- 需要正式写入 child 时，父模型只能通过 child 暴露出来的 pin/API 发送 request；最终 label 落盘必须由 child 自己的 owner materialize / helper 执行。
 - legacy UI AST 可以暂时被 inventory / resolver / docs 提及，但不能再被当作新页面或新挂载的正式输入面。
 
 ## 2.3 Workspace Parent-Mounted ThreeScene (0216)
@@ -342,6 +344,7 @@ MGMT_IN 仅在以下条件全部满足时写入：
 ## 7. Env vs ModelTable
 当前产品路径的唯一启动入口是 `MODELTABLE_PATCH_JSON`：
 - trusted bootstrap patch 可以在 `boot/edit` 期间直写 ModelTable
+- trusted bootstrap 之外，不得 direct applyPatch 深层目标模型；运行态正式写入必须通过 owner materialize / helper request pin 完成
 - Matrix / MQTT 所需的 `matrix.*` / `mqtt.local.*` 配置统一写到 Model 0 `(0,0,0)`
 - `ui-server` 默认停在 `runtime_mode=edit`，显式切到 `running` 后才执行软件工人副作用
 

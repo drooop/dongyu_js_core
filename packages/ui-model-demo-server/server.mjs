@@ -1916,6 +1916,92 @@ class ProgramModelEngine {
     }
   }
 
+  async routeSnapshotDeltaViaOwnerMaterialization(patch) {
+    const runtime = this.runtime;
+    const sysModel = runtime.getModel(-10);
+    if (!sysModel) return { ok: false, code: 'invalid_target', detail: 'missing_system_model' };
+
+    const requests = [];
+    const targetModelIds = new Set();
+    for (const record of patch.records) {
+      if (!record || typeof record !== 'object' || !Number.isInteger(record.model_id)) continue;
+      const targetModel = runtime.getModel(record.model_id);
+      if (!targetModel) continue;
+      const dbLabel = runtime.getCell(targetModel, 0, 0, 0).labels.get('dual_bus_model');
+      if (!dbLabel || !dbLabel.v || typeof dbLabel.v !== 'object') continue;
+
+      if (record.op !== 'add_label' && record.op !== 'rm_label') {
+        return { ok: false, code: 'unsupported_op', detail: String(record.op || 'unknown') };
+      }
+
+      requests.push({
+        op: 'apply_records',
+        target_model_id: record.model_id,
+        request_id: `${patch.op_id || 'snapshot_delta'}:${requests.length + 1}`,
+        ts: Date.now(),
+        origin: { model_id: 0, cell: { p: 0, r: 0, c: 0 }, action: 'snapshot_delta' },
+        records: [{
+          op: record.op,
+          model_id: record.model_id,
+          p: Number.isInteger(record.p) ? record.p : 0,
+          r: Number.isInteger(record.r) ? record.r : 0,
+          c: Number.isInteger(record.c) ? record.c : 0,
+          k: record.k,
+          t: record.t,
+          v: record.v,
+        }],
+      });
+      targetModelIds.add(record.model_id);
+    }
+
+    if (requests.length === 0) {
+      return { ok: false, code: 'no_dual_bus_target', detail: 'snapshot_delta_no_owner_route' };
+    }
+
+    runtime.addLabel(sysModel, 0, 0, 0, { k: GENERIC_PIN_ERROR_LABEL, t: 'json', v: null });
+    for (const modelId of targetModelIds) {
+      const targetModel = runtime.getModel(modelId);
+      if (!targetModel) return { ok: false, code: 'invalid_target', detail: String(modelId) };
+      if (!ensureGenericOwnerMaterializer(runtime, modelId)) return { ok: false, code: 'target_owner_missing', detail: String(modelId) };
+      if (!ensureGenericOwnerRoute(runtime, modelId)) return { ok: false, code: 'route_missing', detail: String(modelId) };
+      runtime.rmLabel(targetModel, 0, 0, 0, `__error_${GENERIC_OWNER_FUNC}`);
+    }
+
+    for (const request of requests) {
+      runtime.addLabel(sysModel, 0, 0, 0, {
+        k: buildGenericSourceOutPin(request.target_model_id),
+        t: 'pin.table.out',
+        v: request,
+      });
+    }
+
+    await sleepMs(25);
+    await this.tick();
+
+    const sourceErr = runtime.getLabelValue(sysModel, 0, 0, 0, GENERIC_PIN_ERROR_LABEL);
+    if (sourceErr && typeof sourceErr === 'object') {
+      return {
+        ok: false,
+        code: typeof sourceErr.code === 'string' ? sourceErr.code : 'source_pin_error',
+        detail: typeof sourceErr.detail === 'string' ? sourceErr.detail : 'unknown',
+      };
+    }
+
+    for (const modelId of targetModelIds) {
+      const targetModel = runtime.getModel(modelId);
+      const errValue = targetModel ? runtime.getLabelValue(targetModel, 0, 0, 0, `__error_${GENERIC_OWNER_FUNC}`) : null;
+      if (errValue && typeof errValue === 'object') {
+        return {
+          ok: false,
+          code: 'target_materialization_failed',
+          detail: typeof errValue.error === 'string' ? errValue.error : 'unknown',
+        };
+      }
+    }
+
+    return { ok: true, request_count: requests.length, target_models: [...targetModelIds] };
+  }
+
   handleDyBusEvent(content) {
     // Handle dy.bus.v0 events from MBR (return path: K8s -> MQTT -> MBR -> Matrix -> here)
     // Expected format: { version: 'v0', type: 'snapshot_delta', op_id, payload: { version: 'mt.v0', records: [...] } }
@@ -1939,70 +2025,28 @@ class ProgramModelEngine {
     }
     
     if (content.type === 'snapshot_delta') {
-      // This is a return patch from K8s worker via MBR
       const patch = content.payload;
       if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) {
         console.log('[handleDyBusEvent] Invalid patch format');
         return;
       }
-      
       console.log('[handleDyBusEvent] Received snapshot_delta, patch op_id:', patch.op_id);
-
-      // Find all dual-bus models targeted by this patch
-      const targetModelIds = new Set(patch.records.map(r => r.model_id).filter(Number.isInteger));
-      let routed = false;
-
-      for (const modelId of targetModelIds) {
-        const targetModel = this.runtime.getModel(modelId);
-        if (!targetModel) continue;
-        const dbLabel = this.runtime.getCell(targetModel, 0, 0, 0).labels.get('dual_bus_model');
-        if (!dbLabel || !dbLabel.v || typeof dbLabel.v !== 'object') continue;
-
-        // Write patch to the model's root input label using the current model form semantics.
-        const pinName = dbLabel.v.patch_in_pin || 'patch';
-        const rootPinType = typeof this.runtime._modelInputLabelType === 'function'
-          ? this.runtime._modelInputLabelType(targetModel)
-          : 'pin.table.in';
-        console.log(`[handleDyBusEvent] Writing patch to Model ${modelId} (${pinName}) at cell(${modelId},0,0,0)`);
-        this.runtime.addLabel(targetModel, 0, 0, 0, { k: pinName, t: rootPinType, v: patch });
-        routed = true;
-      }
-
-      // Always apply patch records directly so labels (bg_color, status, etc.) are updated
-      // in the server model state. The IN label write above is for routing/tracing only;
-      // the server engine doesn't have the worker's _routeViaCellConnection machinery.
-      try {
-        const applyResult = this.runtime.applyPatch(patch, { allowCreateModel: false });
-        console.log('[handleDyBusEvent] applyPatch result:', JSON.stringify(applyResult));
-        // Verify: read back key labels to confirm they were set
-        const m100 = this.runtime.getModel(100);
-        if (m100) {
-          const bgLabel = this.runtime.getCell(m100, 0, 0, 0).labels.get('bg_color');
-          const statusLabel = this.runtime.getCell(m100, 0, 0, 0).labels.get('status');
-          const inflightLabel = this.runtime.getCell(m100, 0, 0, 0).labels.get('submit_inflight');
-          console.log('[handleDyBusEvent] Post-apply check: bg_color=', bgLabel?.v, 'status=', statusLabel?.v, 'submit_inflight=', inflightLabel?.v);
-        }
-      } catch (err) {
-        console.error('[handleDyBusEvent] Failed to apply patch records:', err.message);
-      }
-
-      if (routed) {
-        this.tick().then(() => {
-          console.log('[handleDyBusEvent] tick() completed for dual-bus patch, broadcasting snapshot');
+      this.routeSnapshotDeltaViaOwnerMaterialization(patch)
+        .then((result) => {
+          if (!result || result.ok !== true) {
+            console.warn(
+              '[handleDyBusEvent] snapshot_delta owner route rejected:',
+              result && result.code ? result.code : 'unknown',
+              result && result.detail ? result.detail : '',
+            );
+            return;
+          }
+          console.log('[handleDyBusEvent] snapshot_delta routed via owner materialization:', JSON.stringify(result));
           this.onSnapshotChanged?.();
-        }).catch(() => {});
-      } else {
-        // General patch — no dual-bus model found, apply directly
-        console.log('[handleDyBusEvent] General patch, applying directly');
-        try {
-          this.runtime.applyPatch(patch, { allowCreateModel: false });
-          this.tick().then(() => {
-            this.onSnapshotChanged?.();
-          }).catch(() => {});
-        } catch (err) {
-          console.error('[handleDyBusEvent] Failed to apply patch:', err.message);
-        }
-      }
+        })
+        .catch((err) => {
+          console.error('[handleDyBusEvent] snapshot_delta owner route failed:', err && err.message ? err.message : err);
+        });
       return;
     }
     
@@ -2076,8 +2120,40 @@ class ProgramModelEngine {
       return;
     }
     console.log('[executeFunction] Found code, executing...');
+    const runtimeView = {
+      getModel: (modelId) => {
+        const model = this.runtime.getModel(modelId);
+        if (!model) return null;
+        return { id: model.id, name: model.name, type: model.type };
+      },
+      getCell: (modelRefOrId, p = 0, r = 0, c = 0) => {
+        const modelId = Number.isInteger(modelRefOrId)
+          ? modelRefOrId
+          : (modelRefOrId && Number.isInteger(modelRefOrId.id) ? modelRefOrId.id : null);
+        if (!Number.isInteger(modelId)) return null;
+        const model = this.runtime.getModel(modelId);
+        if (!model) return null;
+        const cell = this.runtime.getCell(model, p, r, c);
+        return {
+          model_id: modelId,
+          p,
+          r,
+          c,
+          labels: new Map(Array.from(cell.labels.entries()).map(([key, value]) => [key, { ...value }])),
+        };
+      },
+      getLabelValue: (modelRefOrId, p = 0, r = 0, c = 0, key) => {
+        const modelId = Number.isInteger(modelRefOrId)
+          ? modelRefOrId
+          : (modelRefOrId && Number.isInteger(modelRefOrId.id) ? modelRefOrId.id : null);
+        if (!Number.isInteger(modelId)) return undefined;
+        const model = this.runtime.getModel(modelId);
+        if (!model) return undefined;
+        return this.runtime.getLabelValue(model, p, r, c, key);
+      },
+    };
     const ctx = {
-      runtime: this.runtime,
+      runtime: runtimeView,
       getLabel: (ref) => {
         if (!ref || !Number.isInteger(ref.model_id)) return null;
         const model = this.runtime.getModel(ref.model_id);

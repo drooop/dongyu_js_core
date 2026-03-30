@@ -102,6 +102,9 @@ function test_ui_side_worker_patch_and_function_load() {
   });
 
   const fn = new Function('ctx', getFunctionCode(sysRoot.labels.get('ui_apply_snapshot_delta')));
+  assert.doesNotMatch(getFunctionCode(sysRoot.labels.get('ui_apply_snapshot_delta')), /ctx\.runtime\.applyPatch/, 'ui-side patch function must not use runtime.applyPatch bypass');
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
   fn(buildCtx(rt));
 
   assert.equal(root.labels.get('slide_demo_text')?.v, 'patched', 'ui-side patch function must apply snapshot_delta payload');

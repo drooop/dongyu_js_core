@@ -649,6 +649,42 @@ class ModelTableRuntime {
     return Number.isInteger(parsed) ? parsed : null;
   }
 
+  applyScopedPatch(currentModelId, patch) {
+    if (!Number.isInteger(currentModelId)) {
+      return { applied: 0, rejected: 0, reason: 'invalid_scope_model' };
+    }
+    const records = patch && Array.isArray(patch.records) ? patch.records : null;
+    if (!records) {
+      return { applied: 0, rejected: 0, reason: 'invalid_patch' };
+    }
+    const allowedRecords = [];
+    let rejected = 0;
+    for (const record of records) {
+      if (!record || typeof record !== 'object') {
+        rejected += 1;
+        continue;
+      }
+      if (record.op === 'create_model') {
+        rejected += 1;
+        continue;
+      }
+      if (!Number.isInteger(record.model_id) || record.model_id !== currentModelId) {
+        rejected += 1;
+        continue;
+      }
+      allowedRecords.push(record);
+    }
+    if (allowedRecords.length === 0) {
+      return { applied: 0, rejected, reason: rejected > 0 ? 'scoped_records_rejected' : 'empty_patch' };
+    }
+    const result = this.applyPatch({ ...patch, records: allowedRecords }, { allowCreateModel: false, trustedBootstrap: false });
+    return {
+      applied: result.applied,
+      rejected: rejected + result.rejected,
+      reason: result.reason,
+    };
+  }
+
   applyPatch(patch, options = {}) {
     const records = patch && Array.isArray(patch.records) ? patch.records : null;
     if (!records) {
@@ -1544,8 +1580,40 @@ class ModelTableRuntime {
     const fn = new AsyncFunction('ctx', 'label', codeStr);
 
     const runtime = this;
+    const runtimeView = {
+      getModel(modelId) {
+        const m = runtime.getModel(modelId);
+        if (!m) return null;
+        return { id: m.id, name: m.name, type: m.type };
+      },
+      getCell(modelRefOrId, cp = 0, cr = 0, cc = 0) {
+        const modelId = Number.isInteger(modelRefOrId)
+          ? modelRefOrId
+          : (modelRefOrId && Number.isInteger(modelRefOrId.id) ? modelRefOrId.id : null);
+        if (!Number.isInteger(modelId)) return null;
+        const m = runtime.getModel(modelId);
+        if (!m) return null;
+        const cell = runtime.getCell(m, cp, cr, cc);
+        return {
+          model_id: modelId,
+          p: cp,
+          r: cr,
+          c: cc,
+          labels: new Map(Array.from(cell.labels.entries()).map(([key, value]) => [key, { ...value }])),
+        };
+      },
+      getLabelValue(modelRefOrId, cp = 0, cr = 0, cc = 0, key) {
+        const modelId = Number.isInteger(modelRefOrId)
+          ? modelRefOrId
+          : (modelRefOrId && Number.isInteger(modelRefOrId.id) ? modelRefOrId.id : null);
+        if (!Number.isInteger(modelId)) return undefined;
+        const m = runtime.getModel(modelId);
+        if (!m) return undefined;
+        return runtime.getLabelValue(m, cp, cr, cc, key);
+      },
+    };
     const ctx = {
-      runtime,
+      runtime: runtimeView,
       getLabel(ref) {
         if (!ref || !Number.isInteger(ref.model_id)) return undefined;
         runtime._assertScopedDirectAccess(model, p, r, c, ref);
