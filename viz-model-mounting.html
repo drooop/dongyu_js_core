@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>模型挂载关系图</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="./viz-model-mounting-data.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #fafafa; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useMemo, useState } = React;
+const DATA = window.MODEL_MOUNTING_DATA;
+
+const colorMap = {
+  root:   { bg: "#fffbeb", border: "#f59e0b", text: "#92400e" },
+  system: { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a" },
+  page:   { bg: "#fef3c7", border: "#f59e0b", text: "#92400e" },
+  user:   { bg: "#ecfdf5", border: "#22c55e", text: "#166534" },
+};
+
+function sortIds(a, b) { return a - b; }
+
+function toneFor(model) {
+  if (!model) return colorMap.user;
+  if (model.id === 0) return colorMap.root;
+  return colorMap[model.kind] || colorMap.user;
+}
+
+function ScopeControls({ scopes, canonicalOnly, setCanonicalOnly, selectedScopes, toggleScope, selectAllCanonical }) {
+  return (
+    <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: "#334155" }}>
+          <input type="checkbox" checked={canonicalOnly} onChange={(e) => setCanonicalOnly(e.target.checked)} />
+          只看 canonical scope
+        </label>
+        <button onClick={selectAllCanonical} style={{
+          fontSize: 11, padding: "4px 10px", borderRadius: 4, border: "1px solid #cbd5e1",
+          background: "#fff", cursor: "pointer", color: "#475569"
+        }}>
+          重置为 canonical 默认选择
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {scopes.map((scope) => (
+          <label key={scope.id} style={{
+            display: "flex", gap: 6, alignItems: "center", fontSize: 11,
+            padding: "4px 8px", borderRadius: 16, border: "1px solid #cbd5e1",
+            background: selectedScopes.has(scope.id) ? "#e0f2fe" : "#fff",
+            color: "#334155"
+          }}>
+            <input
+              type="checkbox"
+              checked={selectedScopes.has(scope.id)}
+              onChange={() => toggleScope(scope.id)}
+            />
+            <span>{scope.label}</span>
+            <span style={{ color: scope.canonical ? "#2563eb" : "#9a3412" }}>
+              {scope.canonical ? "canonical" : "fixture"}
+            </span>
+            <span style={{ color: "#64748b" }}>{scope.modelCount} models / {scope.mountCount} mounts</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SummaryCards({ visibleModels, visibleMounts, unmountedModels, duplicateChildren }) {
+  const cards = [
+    { label: "已声明模型", value: visibleModels.length, color: "#111827" },
+    { label: "挂载声明", value: visibleMounts.length, color: "#111827" },
+    { label: "未挂载模型", value: unmountedModels.length, color: "#dc2626" },
+    { label: "多重挂载 child", value: duplicateChildren.length, color: "#ea580c" },
+  ];
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 18 }}>
+      {cards.map((card) => (
+        <div key={card.label} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 14 }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: card.color }}>{card.value}</div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>{card.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ModelCard({ model, selected, onSelect, dimmed }) {
+  const tone = toneFor(model);
+  return (
+    <div onClick={() => onSelect(model.id)} style={{
+      background: selected ? tone.border + "22" : tone.bg,
+      border: (selected ? "2px" : "1px") + " solid " + tone.border,
+      borderRadius: 8,
+      padding: "10px 12px",
+      minWidth: 210,
+      cursor: "pointer",
+      opacity: dimmed ? 0.35 : 1,
+    }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontFamily: "monospace", fontWeight: 700, color: tone.text }}>{model.id}</span>
+        <span style={{ fontSize: 10, borderRadius: 999, padding: "2px 6px", background: "#fff", color: tone.text, border: "1px solid " + tone.border }}>
+          {model.form || "unknown"}
+        </span>
+        <span style={{ fontSize: 10, color: "#64748b" }}>{model.runtimeType || model.kind}</span>
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a", marginTop: 4 }}>{model.title}</div>
+      <div style={{ fontSize: 11, color: "#475569", marginTop: 2, lineHeight: 1.45 }}>{model.desc || "无补充说明"}</div>
+      <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 6 }}>
+        scopes: {model.sourceScopes.join(", ") || "none"}
+      </div>
+    </div>
+  );
+}
+
+function TreeView({ roots, childrenOf, modelsById, selectedId, setSelectedId, relatedIds }) {
+  function renderNode(modelId, depth, pathKey) {
+    const children = childrenOf.get(modelId) || [];
+    const model = modelsById.get(modelId);
+    return (
+      <div key={pathKey} style={{ marginTop: depth === 0 ? 0 : 8, marginLeft: depth === 0 ? 0 : 24 }}>
+        <ModelCard
+          model={model}
+          selected={selectedId === modelId}
+          onSelect={setSelectedId}
+          dimmed={relatedIds ? !relatedIds.has(modelId) : false}
+        />
+        {children.length > 0 && (
+          <div style={{ borderLeft: "2px solid #e2e8f0", marginLeft: 12, paddingLeft: 12, marginTop: 6 }}>
+            {children.map((mount, index) => (
+              <div key={`${pathKey}:${mount.child}:${index}`} style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 10, color: "#64748b", marginBottom: 4 }}>
+                  {mount.cell} · {mount.scopeLabel} · {mount.relPath}
+                </div>
+                {renderNode(mount.child, depth + 1, `${pathKey}:${mount.child}:${index}`)}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      {roots.map((rootId) => renderNode(rootId, 0, `root:${rootId}`))}
+    </div>
+  );
+}
+
+function AuditView({ unmountedModels, duplicateChildren, modelsById }) {
+  return (
+    <div style={{ display: "grid", gap: 18 }}>
+      <section style={{ background: "#fff", border: "1px solid #fecaca", borderRadius: 8, padding: 14 }}>
+        <h3 style={{ fontSize: 14, color: "#991b1b", marginBottom: 8 }}>未挂载模型</h3>
+        <div style={{ display: "grid", gap: 8 }}>
+          {unmountedModels.map((model) => (
+            <div key={model.id} style={{ fontSize: 12, color: "#334155" }}>
+              <span style={{ fontFamily: "monospace", fontWeight: 700 }}>{model.id}</span>
+              <span style={{ marginLeft: 8 }}>{model.title}</span>
+              <span style={{ marginLeft: 8, color: "#64748b" }}>{model.sourceScopes.join(", ")}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section style={{ background: "#fff", border: "1px solid #fdba74", borderRadius: 8, padding: 14 }}>
+        <h3 style={{ fontSize: 14, color: "#9a3412", marginBottom: 8 }}>多重挂载 child</h3>
+        <div style={{ display: "grid", gap: 10 }}>
+          {duplicateChildren.map((item) => (
+            <div key={item.child} style={{ fontSize: 12, color: "#334155" }}>
+              <div style={{ fontFamily: "monospace", fontWeight: 700, marginBottom: 4 }}>
+                {item.child} · {modelsById.get(item.child)?.title || `Model ${item.child}`}
+              </div>
+              {item.entries.map((entry, index) => (
+                <div key={`${item.child}:${index}`} style={{ marginLeft: 12, color: "#64748b" }}>
+                  parent={entry.parent} · cell={entry.cell} · scope={entry.scopeLabel} · {entry.relPath}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function TableView({ visibleMounts, modelsById }) {
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, background: "#fff" }}>
+        <thead>
+          <tr style={{ background: "#f8fafc" }}>
+            {["parent", "cell", "child", "child title", "scope", "source"].map((h) => (
+              <th key={h} style={{ textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {visibleMounts.map((mount, index) => (
+            <tr key={`${mount.parent}:${mount.child}:${index}`} style={{ borderBottom: "1px solid #f1f5f9" }}>
+              <td style={{ padding: "6px 10px", fontFamily: "monospace" }}>{mount.parent}</td>
+              <td style={{ padding: "6px 10px", fontFamily: "monospace" }}>{mount.cell}</td>
+              <td style={{ padding: "6px 10px", fontFamily: "monospace" }}>{mount.child}</td>
+              <td style={{ padding: "6px 10px" }}>{modelsById.get(mount.child)?.title || `Model ${mount.child}`}</td>
+              <td style={{ padding: "6px 10px" }}>{mount.scopeLabel}</td>
+              <td style={{ padding: "6px 10px", fontFamily: "monospace", fontSize: 10 }}>{mount.relPath}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function App() {
+  if (!DATA) {
+    return <div style={{ padding: 24, color: "#991b1b" }}>缺少 `viz-model-mounting-data.js`。先运行 `node scripts/ops/model_mounting_analyzer.mjs --write-viz`。</div>;
+  }
+
+  const [tab, setTab] = useState("audit");
+  const [canonicalOnly, setCanonicalOnly] = useState(true);
+  const canonicalScopes = useMemo(() => DATA.scopes.filter((scope) => scope.canonical).map((scope) => scope.id), []);
+  const [selectedScopes, setSelectedScopes] = useState(new Set(canonicalScopes));
+  const [selectedId, setSelectedId] = useState(null);
+
+  const toggleScope = (scopeId) => {
+    setSelectedScopes((prev) => {
+      const next = new Set(prev);
+      if (next.has(scopeId)) next.delete(scopeId);
+      else next.add(scopeId);
+      return next;
+    });
+  };
+
+  const selectAllCanonical = () => {
+    setCanonicalOnly(true);
+    setSelectedScopes(new Set(canonicalScopes));
+  };
+
+  const visibleMounts = useMemo(() => DATA.mounts.filter((mount) => {
+    if (!selectedScopes.has(mount.scopeId)) return false;
+    if (canonicalOnly && !mount.canonical) return false;
+    return true;
+  }), [selectedScopes, canonicalOnly]);
+
+  const visibleModelIds = useMemo(() => {
+    const ids = new Set([0]);
+    visibleMounts.forEach((mount) => { ids.add(mount.parent); ids.add(mount.child); });
+    for (const model of DATA.models) {
+      const matches = model.sources.some((source) => selectedScopes.has(source.scopeId) && (!canonicalOnly || source.canonical));
+      if (matches) ids.add(model.id);
+    }
+    return ids;
+  }, [selectedScopes, canonicalOnly, visibleMounts]);
+
+  const visibleModels = useMemo(() => DATA.models.filter((model) => visibleModelIds.has(model.id)).sort((a, b) => a.id - b.id), [visibleModelIds]);
+  const modelsById = useMemo(() => new Map(visibleModels.map((model) => [model.id, model])), [visibleModels]);
+  const childSet = useMemo(() => new Set(visibleMounts.map((mount) => mount.child)), [visibleMounts]);
+  const parentSet = useMemo(() => new Set(visibleMounts.map((mount) => mount.parent)), [visibleMounts]);
+  const unmountedModels = useMemo(() => visibleModels.filter((model) => model.id !== 0 && !childSet.has(model.id)), [visibleModels, childSet]);
+  const duplicateChildren = useMemo(() => {
+    const grouped = new Map();
+    for (const mount of visibleMounts) {
+      if (!grouped.has(mount.child)) grouped.set(mount.child, []);
+      grouped.get(mount.child).push(mount);
+    }
+    return [...grouped.entries()].filter(([, entries]) => entries.length > 1).map(([child, entries]) => ({ child, entries })).sort((a, b) => a.child - b.child);
+  }, [visibleMounts]);
+  const roots = useMemo(() => visibleModels.filter((model) => model.id === 0 || !childSet.has(model.id)).map((model) => model.id).sort(sortIds), [visibleModels, childSet]);
+  const childrenOf = useMemo(() => {
+    const map = new Map();
+    for (const mount of visibleMounts) {
+      if (!map.has(mount.parent)) map.set(mount.parent, []);
+      map.get(mount.parent).push(mount);
+    }
+    for (const entries of map.values()) entries.sort((a, b) => a.child - b.child || a.relPath.localeCompare(b.relPath));
+    return map;
+  }, [visibleMounts]);
+  const relatedIds = useMemo(() => {
+    if (selectedId == null) return null;
+    const ids = new Set([selectedId]);
+    const queue = [selectedId];
+    while (queue.length) {
+      const current = queue.shift();
+      for (const mount of visibleMounts) {
+        if (mount.parent === current && !ids.has(mount.child)) { ids.add(mount.child); queue.push(mount.child); }
+        if (mount.child === current && !ids.has(mount.parent)) { ids.add(mount.parent); queue.push(mount.parent); }
+      }
+    }
+    return ids;
+  }, [selectedId, visibleMounts]);
+
+  const tabStyle = (key) => ({
+    padding: "10px 16px",
+    fontSize: 13,
+    border: "none",
+    background: "none",
+    cursor: "pointer",
+    color: tab === key ? "#111827" : "#64748b",
+    borderBottom: tab === key ? "2px solid #111827" : "2px solid transparent",
+    fontWeight: tab === key ? 700 : 500,
+  });
+
+  return (
+    <div style={{ maxWidth: 1180, margin: "0 auto", padding: "24px 16px 40px" }}>
+      <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>模型挂载关系图 (repo/runtime facts)</h1>
+      <p style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
+        数据来自 `scripts/ops/model_mounting_analyzer.mjs`，生成时间：{DATA.generatedAt}
+      </p>
+
+      <ScopeControls
+        scopes={DATA.scopes}
+        canonicalOnly={canonicalOnly}
+        setCanonicalOnly={setCanonicalOnly}
+        selectedScopes={selectedScopes}
+        toggleScope={toggleScope}
+        selectAllCanonical={selectAllCanonical}
+      />
+
+      <SummaryCards
+        visibleModels={visibleModels}
+        visibleMounts={visibleMounts}
+        unmountedModels={unmountedModels}
+        duplicateChildren={duplicateChildren}
+      />
+
+      <div style={{ display: "flex", gap: 0, marginBottom: 18, borderBottom: "1px solid #e2e8f0", flexWrap: "wrap" }}>
+        <button style={tabStyle("audit")} onClick={() => setTab("audit")}>审计视图</button>
+        <button style={tabStyle("tree")} onClick={() => setTab("tree")}>树形视图</button>
+        <button style={tabStyle("table")} onClick={() => setTab("table")}>挂载表</button>
+      </div>
+
+      {tab === "audit" && (
+        <AuditView
+          unmountedModels={unmountedModels}
+          duplicateChildren={duplicateChildren}
+          modelsById={modelsById}
+        />
+      )}
+      {tab === "tree" && (
+        <TreeView
+          roots={roots}
+          childrenOf={childrenOf}
+          modelsById={modelsById}
+          selectedId={selectedId}
+          setSelectedId={setSelectedId}
+          relatedIds={relatedIds}
+        />
+      )}
+      {tab === "table" && <TableView visibleMounts={visibleMounts} modelsById={modelsById} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

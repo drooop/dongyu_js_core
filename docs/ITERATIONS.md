@@ -168,7 +168,8 @@ source: ai
 | 0256-hard-cut-first-page-rebuild | 2026-03-27 | 选一个真实页面按新 cellwise authoring + pin-only write 体系完全重建并做本地页面级验证 | 4 | dev_0256-hard-cut-first-page-rebuild | Completed | ./docs/iterations/0256-hard-cut-first-page-rebuild/ |
 | 0257-hard-cut-legacy-path-deletion | 2026-03-27 | 删除旧手写 page_asset_v0 authoring 与 direct business bind.write 路径，完成 hard-cut 收尾 | 5 | dev_0257-hard-cut-legacy-path-deletion | Completed | ./docs/iterations/0257-hard-cut-legacy-path-deletion/ |
 | 0260-model100-submit-roundtrip-hardening | 2026-03-29 | 让颜色生成器（Model 100）重新符合 hard-cut 主线：submit 去程/回程恢复、stale inflight 清理、浏览器按钮可用、truth 与 scene/lifecycle 一致 | 5 | dev_0260-model100-submit-roundtrip-hardening | Completed | ./docs/iterations/0260-model100-submit-roundtrip-hardening/ |
-| 0261-docs-source-flip | 2026-03-30 | 反转 docs 数据源：仓库内 docs 为权威源，vault 路径改为指向仓库 docs 的 symlink | 4 | dev_0261-docs-source-flip | In Progress | ./docs/iterations/0261-docs-source-flip/ |
+| 0261-docs-source-flip | 2026-03-30 | 反转 docs 数据源：仓库内 docs 为权威源，vault 路径改为指向仓库 docs 的 symlink | 4 | dev_0261-docs-source-flip | Completed | ./docs/iterations/0261-docs-source-flip/ |
+| 0262-model-mounting-audit | 2026-03-30 | 以真实 repo/runtime 事实重建模型挂载可视化，并输出挂载合规审计 | 4 | dev_0262-model-mounting-audit | Completed | ./docs/iterations/0262-model-mounting-audit/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
