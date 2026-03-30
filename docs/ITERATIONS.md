@@ -173,6 +173,7 @@ source: ai
 | 0263-mounting-remediation | 2026-03-30 | 统一各 software worker 的模型层级：消除未挂载与多重挂载，按 profile 收口 hierarchy | 5 | dev_0263-mounting-remediation | Completed | ./docs/iterations/0263-mounting-remediation/ |
 | 0264-debug-crud-unhide-all | 2026-03-30 | 调试 ModelTable 增删改查界面取消结构标签隐藏，并支持直接操作任意模型/任意 label.t | 4 | dev_0264-debug-crud-unhide-all | Completed | ./docs/iterations/0264-debug-crud-unhide-all/ |
 | 0265-local-deploy-and-debug-policy | 2026-03-30 | 重新部署本地环境验证 debug CRUD 放开已生效，并把“开发后先部署再测试”提升为执行规约 | 3 | dev_0265-local-deploy-and-debug-policy | Completed | ./docs/iterations/0265-local-deploy-and-debug-policy/ |
+| 0266-scoped-patch-authority | 2026-03-30 | 冻结并实施“全局 patch 仅限 bootstrap、运行态修改必须经当前模型 helper 执行 scoped patch”的权限模型，并升级所有受影响 JSON patches 后再部署验收 | 6 | dev_0266-scoped-patch-authority | Planned | ./docs/iterations/0266-scoped-patch-authority/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
