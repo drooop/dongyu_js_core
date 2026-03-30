@@ -59,6 +59,9 @@ source: ai
 - `matrix` 挂载：matrix 根先声明 `model.matrix`，child 仍通过显式 `model.submt` hosting cell 进入矩阵层级，且坐标映射必须明确。
 - 需要正式写入 child 时，父模型只能通过 child 暴露出来的 pin/API 发送 request；最终 label 落盘必须由 child 自己的 owner materialize / helper 执行。
 - legacy UI AST 可以暂时被 inventory / resolver / docs 提及，但不能再被当作新页面或新挂载的正式输入面。
+- 当前默认 helper scaffold：
+  - 新建正数模型后，系统会在 `(0,1,0)` 预置一个 reserved helper cell
+  - 该 cell 负责 same-model owner materialization，不是业务展示位
 
 ## 2.3 Workspace Parent-Mounted ThreeScene (0216)
 

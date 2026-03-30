@@ -54,6 +54,12 @@ source: ai
 保留约定：
 - 每个需要正式 owner materialization 的模型，应保留一个 reserved helper executor cell。
 - 该 helper cell 的职责是接收当前模型 scoped request，并在当前模型内完成 owner materialize；不得跨模型写入。
+- 当前默认实现把该 helper cell 固定在 `(0,1,0)`，并保留以下 key：
+  - `helper_executor`
+  - `scope_privileged`
+  - `owner_apply`
+  - `owner_apply_route`
+  - `owner_materialize`
 
 ### 2.1 UI Bootstrap Boundary (0210 Freeze)
 

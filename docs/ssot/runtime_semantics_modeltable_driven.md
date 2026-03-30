@@ -301,6 +301,15 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
   - 所有 `records[*].model_id` 必须等于 `currentModelId`
   - 禁止 `create_model`
   - 禁止跨模型写入父/子/兄弟模型
+- 正数模型默认 helper scaffold：
+  - `createModel()` 创建正数模型时，默认保留 `(0,1,0)` 为 helper executor cell
+  - 该 cell 默认具备：
+    - `helper_executor=true`
+    - `scope_privileged=true`
+    - `owner_apply: pin.in`
+    - `owner_apply_route: pin.connect.label`
+    - `owner_materialize: func.js`
+  - 该 helper cell 允许作为 same-model privileged exception 执行 owner materialization，包括 `model.single` 场景
 - `boot/edit` 期间必须抑制：
   - `run_*` 入口
   - `_executeFuncViaCellConnect`

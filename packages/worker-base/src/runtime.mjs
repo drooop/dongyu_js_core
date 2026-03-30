@@ -360,6 +360,74 @@ class ModelTableRuntime {
     return labelType;
   }
 
+  _defaultOwnerMaterializeCode(modelId) {
+    return [
+      `const SELF_MODEL_ID = ${JSON.stringify(modelId)};`,
+      "const req = label && label.v && typeof label.v === 'object' ? label.v : null;",
+      "if (!req) return;",
+      "if (req.target_model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
+      "function applyRecord(record) {",
+      "  if (!record || typeof record !== 'object') return;",
+      "  if (record.model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
+      "  if (record.op === 'add_label') {",
+      "    ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k }, typeof record.t === 'string' && record.t ? record.t : 'str', record.v);",
+      "    return;",
+      "  }",
+      "  if (record.op === 'rm_label') {",
+      "    ctx.rmLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k });",
+      "    return;",
+      "  }",
+      "  throw new Error('unsupported_op');",
+      "}",
+      "if (req.op === 'apply_records') {",
+      "  const records = Array.isArray(req.records) ? req.records : [];",
+      "  for (const record of records) applyRecord(record);",
+      "  return;",
+      "}",
+      "if (req.op === 'set_labels') {",
+      "  const labels = Array.isArray(req.labels) ? req.labels : [];",
+      "  for (const item of labels) {",
+      "    if (!item || typeof item.k !== 'string' || !item.k) throw new Error('invalid_request_shape');",
+      "    ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(item.p) ? item.p : 0, r: Number.isInteger(item.r) ? item.r : 0, c: Number.isInteger(item.c) ? item.c : 0, k: item.k }, typeof item.t === 'string' && item.t ? item.t : 'str', item.v);",
+      "  }",
+      "  return;",
+      "}",
+      "if (req.op === 'add_label' || req.op === 'rm_label') {",
+      "  applyRecord(req);",
+      "  return;",
+      "}",
+      "throw new Error('unsupported_op');",
+    ].join('\n');
+  }
+
+  _seedDefaultHelperScaffold(model) {
+    if (!model || !Number.isInteger(model.id) || model.id <= 0) return;
+    const helperCell = this.getCell(model, 0, 1, 0);
+    if (!helperCell.labels.has('helper_executor')) {
+      this.addLabel(model, 0, 1, 0, { k: 'helper_executor', t: 'bool', v: true });
+    }
+    if (!helperCell.labels.has('scope_privileged')) {
+      this.addLabel(model, 0, 1, 0, { k: 'scope_privileged', t: 'bool', v: true });
+    }
+    if (!helperCell.labels.has('owner_apply')) {
+      this.addLabel(model, 0, 1, 0, { k: 'owner_apply', t: 'pin.in', v: null });
+    }
+    if (!helperCell.labels.has('owner_apply_route')) {
+      this.addLabel(model, 0, 1, 0, {
+        k: 'owner_apply_route',
+        t: 'pin.connect.label',
+        v: [{ from: '(self, owner_apply)', to: ['(func, owner_materialize:in)'] }],
+      });
+    }
+    if (!helperCell.labels.has('owner_materialize')) {
+      this.addLabel(model, 0, 1, 0, {
+        k: 'owner_materialize',
+        t: 'func.js',
+        v: { code: this._defaultOwnerMaterializeCode(model.id), modelName: `helper_owner_${model.id}` },
+      });
+    }
+  }
+
   createModel({ id, name, type }) {
     if (this.models.has(id)) {
       return this.models.get(id);
@@ -369,6 +437,7 @@ class ModelTableRuntime {
     if (this.persistence && typeof this.persistence.ensureModel === 'function') {
       this.persistence.ensureModel(model);
     }
+    this._seedDefaultHelperScaffold(model);
     return model;
   }
 
@@ -502,6 +571,15 @@ class ModelTableRuntime {
     return Boolean(label && label.v === true);
   }
 
+  _cellHasHelperExecutor(model, p, r, c) {
+    if (!model || !this._validateCell(p, r, c)) return false;
+    const key = model.cellKey(p, r, c);
+    const cell = model.cells.get(key);
+    if (!cell || !cell.labels) return false;
+    const label = cell.labels.get('helper_executor');
+    return Boolean(label && label.v === true);
+  }
+
   _getScopedPrivilegeMode(model, p, r, c) {
     if (!model || !this._validateCell(p, r, c)) return null;
     const declaredAtCell = this._getDeclaredFormAtCell(model, p, r, c);
@@ -514,6 +592,8 @@ class ModelTableRuntime {
     }
 
     if (!this._cellHasExplicitScopedPrivilege(model, p, r, c)) return null;
+
+    if (this._cellHasHelperExecutor(model, p, r, c)) return 'table';
 
     if (declaredAtCell === 'model.matrix') return 'matrix';
     if (rootDeclared === 'model.matrix') return 'matrix';

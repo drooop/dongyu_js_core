@@ -113,19 +113,34 @@ Review Gate Record
 
 ## Step 3 — Add helper scaffold
 - Start time: 2026-03-31 00:31:00 +0800
-- End time: 2026-03-31 00:31:00 +0800
+- End time: 2026-03-31 16:06:00 +0800
 - Branch: `dev_0266-scoped-patch-authority`
 - Commits:
   - N/A
 - Commands executed:
   - `rg -n "owner_request|owner_materialize|ensureGenericOwnerMaterializer" packages/ui-model-demo-server/server.mjs packages/worker-base/system-models`
+  - `apply_patch scripts/tests/test_0266_helper_cell_contract.mjs`
+  - `node scripts/tests/test_0266_helper_cell_contract.mjs`
+  - `apply_patch packages/worker-base/src/runtime.mjs`
+  - `node scripts/tests/test_0266_helper_cell_contract.mjs`
 - Key outputs (snippets):
-  - 当前 authoritative 路径已在 `Model 100` 和 `ui-side-worker demo` 上补入 helper / owner materialization
-  - `server.ensureGenericOwnerMaterializer()` 可按需为目标模型注入 generic owner helper
-  - 但“所有新建模型在创建时自动默认植入 helper”这一全局 scaffold 仍未实现
-- Result: PARTIAL
-- Notes:
-  - iteration 维持 `In Progress`，后续若继续 0266，应把 automatic helper seeding 作为剩余工作继续收口
+  - RED:
+    - `helper_executor flag must exist`
+    - `helper cell must materialize same-model record`
+  - root cause:
+    - helper code generator mistakenly emitted literal `\\n`, causing `AsyncFunction` syntax failure
+  - implementation:
+    - `runtime.createModel()` now auto-seeds positive models with helper cell `(0,1,0)`
+    - helper cell labels:
+      - `helper_executor=true`
+      - `scope_privileged=true`
+      - `owner_apply: pin.in`
+      - `owner_apply_route: pin.connect.label`
+      - `owner_materialize: func.js`
+    - helper executor gets same-model privileged exception, including `model.single`
+  - GREEN:
+    - `test_0266_helper_cell_contract` PASS (4/4)
+- Result: PASS
 
 ## Step 4 — Migrate dual-bus return path
 - Start time: 2026-03-30 23:56:00 +0800
@@ -187,7 +202,7 @@ Review Gate Record
 
 ## Step 6 — Redeploy and verify live
 - Start time: 2026-03-31 00:32:00 +0800
-- End time: 2026-03-31 00:52:00 +0800
+- End time: 2026-03-31 16:20:00 +0800
 - Branch: `dev_0266-scoped-patch-authority`
 - Commits:
   - N/A
@@ -200,6 +215,9 @@ Review Gate Record
   - `bash scripts/ops/check_runtime_baseline.sh`
   - Playwright open `http://localhost:30900/#/workspace`
   - Playwright click `Generate Color`
+  - Playwright open `http://localhost:30900/#/`
+  - Playwright switch Home target model to `100`
+  - Playwright filter `(p,r,c)=(0,1,0)`
 - Key outputs (snippets):
   - broader regression:
     - `test_0144_remote_worker` PASS
@@ -213,4 +231,11 @@ Review Gate Record
     - `Generate Color` click after redeploy still changed visible color value
     - before click visible color `#2e87eb`
     - after click visible color `#6529cb`
+  - helper scaffold live proof:
+    - Home debug table on live `30900` for `Model 100` at `(0,1,0)` shows:
+      - `helper_executor / bool / true`
+      - `owner_apply / pin.in / null`
+      - `owner_apply_route / pin.connect.label`
+      - `owner_materialize / func.js`
+      - `scope_privileged / bool / true`
 - Result: PASS
