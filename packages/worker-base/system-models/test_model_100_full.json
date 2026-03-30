@@ -117,6 +117,16 @@
     },
     {
       "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "scope_privileged",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
       "model_id": -10,
       "p": 0,
       "r": 0,

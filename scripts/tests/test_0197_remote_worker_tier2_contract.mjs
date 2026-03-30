@@ -56,6 +56,22 @@ function test_remote_worker_patch_uses_current_tier2_shape() {
   ));
   assert.ok(funcRecord, 'remote worker patch must place on_model100_event_in on model100 processing cell');
 
+  const privilegeRecord = modelRecords.find((record) => (
+    record && record.op === 'add_label' && record.model_id === 100
+    && record.p === 1 && record.r === 0 && record.c === 0
+    && record.k === 'scope_privileged' && record.t === 'bool'
+  ));
+  assert.ok(privilegeRecord, 'remote worker processing cell must declare scope_privileged');
+  assert.equal(privilegeRecord.v, true, 'remote worker processing cell scope_privileged must be true');
+
+  const patchOutTopicRecord = modelRecords.find((record) => (
+    record && record.op === 'add_label' && record.model_id === 100
+    && record.p === 0 && record.r === 0 && record.c === 0
+    && record.k === 'patch_out_topic' && record.t === 'str'
+  ));
+  assert.ok(patchOutTopicRecord, 'remote worker root must declare patch_out_topic');
+  assert.ok(String(patchOutTopicRecord.v).endsWith('/100/patch_out'), 'patch_out_topic must target model100 patch_out topic');
+
   const subConfig = configRecords.find((record) => (
     record && record.op === 'add_label' && record.model_id === -10
     && record.k === 'remote_subscriptions' && record.t === 'json'
