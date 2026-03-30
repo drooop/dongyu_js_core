@@ -3662,6 +3662,89 @@
             "r": 0,
             "c": 0,
             "k": "dt_edit_model_id"
+          },
+          "value_ref": {
+            "model_id": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_model_id"
+              }
+            },
+            "p": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_p"
+              }
+            },
+            "r": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_r"
+              }
+            },
+            "c": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_c"
+              }
+            },
+            "k": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_k"
+              }
+            },
+            "t": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_t"
+              }
+            },
+            "value_text": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_v_text"
+              }
+            },
+            "value_int": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_v_int"
+              }
+            },
+            "value_bool": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_v_bool"
+              }
+            }
           }
         }
       }
@@ -3674,7 +3757,7 @@
       "c": 0,
       "k": "ui_node_id",
       "t": "str",
-      "v": "btn_home_close_edit"
+      "v": "txt_home_edit_status"
     },
     {
       "op": "add_label",
@@ -3684,7 +3767,7 @@
       "c": 0,
       "k": "ui_component",
       "t": "str",
-      "v": "Button"
+      "v": "Text"
     },
     {
       "op": "add_label",
@@ -3694,7 +3777,7 @@
       "c": 0,
       "k": "ui_parent",
       "t": "str",
-      "v": "layout_home_edit_actions"
+      "v": "form_home_edit_dialog"
     },
     {
       "op": "add_label",
@@ -3704,13 +3787,88 @@
       "c": 0,
       "k": "ui_order",
       "t": "int",
-      "v": 20
+      "v": 65
     },
     {
       "op": "add_label",
       "model_id": -22,
       "p": 2,
       "r": 56,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": "",
+        "style": {
+          "color": "#b91c1c",
+          "fontWeight": 600
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "home_status_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_close_edit"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 57,
       "c": 0,
       "k": "ui_props_json",
       "t": "json",
@@ -3723,7 +3881,7 @@
       "op": "add_label",
       "model_id": -22,
       "p": 2,
-      "r": 56,
+      "r": 57,
       "c": 0,
       "k": "ui_bind_json",
       "t": "json",
@@ -3744,7 +3902,7 @@
       "op": "add_label",
       "model_id": -22,
       "p": 2,
-      "r": 57,
+      "r": 58,
       "c": 0,
       "k": "ui_node_id",
       "t": "str",
