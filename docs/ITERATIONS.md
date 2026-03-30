@@ -175,6 +175,7 @@ source: ai
 | 0265-local-deploy-and-debug-policy | 2026-03-30 | 重新部署本地环境验证 debug CRUD 放开已生效，并把“开发后先部署再测试”提升为执行规约 | 3 | dev_0265-local-deploy-and-debug-policy | Completed | ./docs/iterations/0265-local-deploy-and-debug-policy/ |
 | 0266-scoped-patch-authority | 2026-03-30 | 冻结并实施“全局 patch 仅限 bootstrap、运行态修改必须经当前模型 helper 执行 scoped patch”的权限模型，并升级所有受影响 JSON patches 后再部署验收 | 6 | dev_0266-scoped-patch-authority | Completed | ./docs/iterations/0266-scoped-patch-authority/ |
 | 0267-home-save-draft-sync | 2026-03-31 | 修复首页 ModelTable 编辑弹窗在 JSON 文本编辑后的保存竞态，并显式显示保存失败错误 | 3 | dev_0267-home-save-draft-sync | In Progress | ./docs/iterations/0267-home-save-draft-sync/ |
+| 0268-home-all-models-filter | 2026-03-31 | 首页模型选择器支持“不筛选/All models”，并在该模式下展示所有模型行且对不明确目标的创建动作保持显式阻断 | 3 | dev_0268-home-all-models-filter | Completed | ./docs/iterations/0268-home-all-models-filter/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
