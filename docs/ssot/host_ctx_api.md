@@ -13,7 +13,8 @@ source: ai
 约束：
 - ctx 只能调用 ModelTable 的结构性入口（add_label / rm_label）。
 - ctx 不得绕过 ModelTable 直接触发副作用。
-- ctx 只对系统负数模型函数可用（model_id < 0）。
+- ctx 不暴露全局 runtime 或 runtime-wide patch 能力。
+- 用户程序不得直接调用 `applyPatch` / `applyScopedPatch`；若要修改当前模型状态，必须通过当前模型既有 pin 或 helper request pin 触发 owner materialization。
 
 ## 1. 数据访问
 
@@ -63,7 +64,9 @@ source: ai
 
 ## 4. 约束与保留
 
-- ctx 只面向系统负数模型函数，用户模型不得直接调用。
+- ctx 允许出现在运行态函数执行面，但必须保持最小能力集；不得因为运行态拿到了 ctx 就获得 runtime-wide write authority。
+- 用户程序若需要修改当前模型的其它 Cell，应通过当前模型内的 helper request pin / owner_request 触发 helper materialization，而不是调用 patch API。
+- `helper request pin` / `owner_request` / `owner materialize` 是当前推荐的 formal materialization 路径。
 - ctx 不得直接持久化/访问 secrets（如需使用，必须经宿主配置与审计）。
 - 当前产品路径允许将 Matrix token / password 作为 trusted bootstrap patch 的一部分落到 Model 0，用于进程启动期读取；不允许再走独立 `MATRIX_*` env fallback。
 - 任何副作用都必须可追溯：EventLog / mqttTrace / intercepts。

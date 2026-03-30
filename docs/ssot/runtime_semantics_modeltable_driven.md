@@ -294,6 +294,22 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
   - SQLite 恢复
   - `MODELTABLE_PATCH_JSON`
 - `applyPatch(... allowCreateModel=true)` 不是公共能力；只有 `trustedBootstrap=true` 的 patch loader 才允许 `create_model` 或隐式补建模型
+- 除 bootstrap loader 外，运行态普通 handler / server 回程 / 用户程序模型都不得直接持有或调用 runtime-wide `applyPatch`。
+- 运行态正式 materialization 必须通过当前模型的 owner materialization / helper executor 完成。
+- `applyScopedPatch(currentModelId, patch)` 是运行态唯一允许的 patch 语义：
+  - 只允许 bootstrap loader 之外的内部 owner/helper 路径使用
+  - 所有 `records[*].model_id` 必须等于 `currentModelId`
+  - 禁止 `create_model`
+  - 禁止跨模型写入父/子/兄弟模型
+- 正数模型默认 helper scaffold：
+  - `createModel()` 创建正数模型时，默认保留 `(0,1,0)` 为 helper executor cell
+  - 该 cell 默认具备：
+    - `helper_executor=true`
+    - `scope_privileged=true`
+    - `owner_apply: pin.in`
+    - `owner_apply_route: pin.connect.label`
+    - `owner_materialize: func.js`
+  - 该 helper cell 允许作为 same-model privileged exception 执行 owner materialization，包括 `model.single` 场景
 - `boot/edit` 期间必须抑制：
   - `run_*` 入口
   - `_executeFuncViaCellConnect`
@@ -502,6 +518,13 @@ TargetRef 结构：
 - UI 动作若写入了模型边界 out pin，但该 pin 没有通过父子 hosting cell relay 一路接到 Model 0，则该动作仍视为本地动作。
 - 只有当动作写入的现有 out pin 经 `model.submt` hosting cell + `pin.connect.label` + `cell_connection` 逐层 relay，并最终接到 Model 0 `(0,0,0)` 的 `pin.bus.out`，该动作才允许外发。
 
+回程规则：
+- 外界返回结果先到 `Model 0`
+- `Model 0` 只能写本层 relay / input pin，不得 direct patch 深层子模型
+- 数据必须经父模型 hosting cell 暴露的 child pin 逐层下传
+- 到达目标模型后，只允许由该模型 owner materialization / helper executor 完成最终 label 落盘
+- `server` 或任意运行态 handler 若 direct `applyPatch` 目标子模型，应视为 direct patch bypass / 规约违规
+
 禁止：
 - 不得为“是否远端”再发明新的 pin 类型。
 - 不得要求所有 UI 动作先进入远端候选池，再由宿主特判是否转发。
@@ -534,6 +557,12 @@ TargetRef 结构：
 - 父模型 hosting cell 用 `pin.connect.label` 将 `(childModelId, submit)` 接到本 cell relay label
 - 父模型 root `(0,0,0)` 通过 `cell_connection` 收到 relay label，再写本层 `pin.table.out submit`
 - 该过程重复直到 Model 0
+
+回程 materialization：
+- `Model 0` 收到返回后只能继续写 relay / request pin
+- 目标模型 `(0,0,0)` 或 reserved helper executor cell 接收 owner request
+- owner materialization / helper executor 仅在当前 `model_id` 内执行 scoped writes
+- 不允许用“先写目标模型 input pin，再 direct `applyPatch(records)`”作为中转；这属于 direct patch bypass
 
 Model 0：
 - 只允许在 `(0,0,0)` 声明 `pin.bus.out submit`

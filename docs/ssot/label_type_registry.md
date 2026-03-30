@@ -46,8 +46,20 @@ source: ai
 
 补充约束：
 - `model.submt` 是 single-parent 挂载：同一个 child model 在任一时刻只能被一个父模型 hosting Cell 挂载。
+- `model.submt` 只负责父子挂载，不自动赋予父模型对子模型内部 label 的 direct write 权限。
+- child model 的正式输入/输出仍必须通过 hosting Cell 暴露出来的 pin relay 进入；最终落盘只能由 child owner materialize / reserved helper executor cell 完成。
 - 删除 `model.submt` 仅删除父子挂载关系，不自动删除 child model 数据；只有删除 child model 自己的 `(0,0,0)` 根声明后，才删除整个 child model。
 - 除 Model 0 外，每个模型都必须通过某个父模型 Cell 上的 `model.submt` 显式挂载进入模型层级。
+
+保留约定：
+- 每个需要正式 owner materialization 的模型，应保留一个 reserved helper executor cell。
+- 该 helper cell 的职责是接收当前模型 scoped request，并在当前模型内完成 owner materialize；不得跨模型写入。
+- 当前默认实现把该 helper cell 固定在 `(0,1,0)`，并保留以下 key：
+  - `helper_executor`
+  - `scope_privileged`
+  - `owner_apply`
+  - `owner_apply_route`
+  - `owner_materialize`
 
 ### 2.1 UI Bootstrap Boundary (0210 Freeze)
 

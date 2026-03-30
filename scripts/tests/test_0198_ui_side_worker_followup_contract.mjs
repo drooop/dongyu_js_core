@@ -25,6 +25,8 @@ function test_ui_side_worker_snapshot_delta_function_checks_envelope_version() {
   assert.ok(func, 'ui_apply_snapshot_delta func.js must exist');
   const code = func.v && typeof func.v === 'object' ? func.v.code : '';
   assert.match(code, /inbox\.version !== 'v0'/, 'ui_apply_snapshot_delta must reject inbox envelopes with non-v0 version');
+  assert.doesNotMatch(code, /ctx\.runtime\.applyPatch/, 'ui_apply_snapshot_delta must not use runtime-wide applyPatch');
+  assert.match(code, /ui_side_owner_req_1/, 'ui_apply_snapshot_delta must route snapshot_delta via owner request out pin');
 }
 
 const tests = [
