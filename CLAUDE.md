@@ -34,6 +34,7 @@ HARD_RULES
 - conclusions based on repo facts: code, scripts, git history, docs.
 - commands must be reproducible with explicit cwd.
 - verification = deterministic PASS/FAIL. "looks ok" is not verification.
+- if acceptance depends on local running ui/runtime/debug surfaces, you MUST redeploy or restart the affected local stack first, then run verification against the deployed environment before claiming completion.
 - key decisions persist to iteration docs or SSOT. chat-only = lost.
 - living docs review mandatory on changes to:
     PIN declarations, PIN routing, pin.connect.* wiring,
