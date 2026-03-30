@@ -154,6 +154,15 @@ async function test_full_chain_async() {
   assert(status, 'status label should exist');
   assert.strictEqual(status.v, 'processed', `status should be 'processed', got '${status.v}'`);
 
+  const procCell = rt.getCell(model100, 1, 0, 0);
+  const funcError = procCell.labels.get('__error_on_model100_event_in');
+  assert(!funcError, 'on_model100_event_in must not leave a cross-model access error');
+
+  const patchOut = procCell.labels.get('patch');
+  assert(patchOut, 'processing cell patch label should exist');
+  assert.ok(patchOut.v && patchOut.v.version === 'mt.v0', 'processing cell must emit mt.v0 patch payload');
+  assert.ok(Array.isArray(patchOut.v.records) && patchOut.v.records.length > 0, 'processing cell patch payload must contain records');
+
   return { key: 'full_chain_async', status: 'PASS' };
 }
 

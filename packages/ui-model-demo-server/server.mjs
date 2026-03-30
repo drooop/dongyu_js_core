@@ -3617,7 +3617,23 @@ function createServerState(options) {
     .then(() => clearAndRefreshAfterRuntimeBoot())
     .catch(() => {});
 
+  function recoverModel100StaleInflight() {
+    const model100 = runtime.getModel(100);
+    if (!model100) return;
+    const inflight = runtime.getLabelValue(model100, 0, 0, 0, 'submit_inflight');
+    if (inflight !== true) return;
+    const startedAt = Number(runtime.getLabelValue(model100, 0, 0, 0, 'submit_inflight_started_at') || 0);
+    const now = Date.now();
+    const timeoutMs = 30000;
+    const stale = !Number.isFinite(startedAt) || startedAt <= 0 || (now - startedAt > timeoutMs);
+    if (!stale) return;
+    runtime.addLabel(model100, 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: false });
+    runtime.addLabel(model100, 0, 0, 0, { k: 'submit_inflight_started_at', t: 'int', v: 0 });
+    runtime.addLabel(model100, 0, 0, 0, { k: 'status', t: 'str', v: 'ready' });
+  }
+
   function updateDerived() {
+    recoverModel100StaleInflight();
     syncDerivedPageState();
     // Client-visible AST must be derived from the same filtered snapshot surface
     // that /snapshot and SSE expose, otherwise raw labels can leak via ui_ast_v0.
@@ -3645,6 +3661,7 @@ function createServerState(options) {
   }
 
   function clientSnap() {
+    recoverModel100StaleInflight();
     return buildClientSnapshot(runtime);
   }
 

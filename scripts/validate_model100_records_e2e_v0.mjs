@@ -3,10 +3,10 @@
  *
  * Flow:
  * 1) Simulate Matrix ui_event arriving at MBR (mbr_role_v0 patch)
- * 2) Capture mqtt publish topic + payload (mt.v0 records-only)
- * 3) Deliver to a Worker runtime via mqttIncoming (mt_v0 records mode)
+ * 2) Capture mqtt publish topic + payload (direct ui_event on /event)
+ * 3) Deliver to a Worker runtime via mqttIncoming
  * 4) Consume run_func intercept and execute on_model100_event_in
- * 5) Assert OUT patch exists and bg_color updated
+ * 5) Assert returned OUT patch is mt.v0 and bg_color updated
  */
 
 import fs from 'node:fs';
@@ -25,6 +25,13 @@ function loadJson(p) {
   return JSON.parse(fs.readFileSync(p, 'utf8'));
 }
 
+function loadPatchDir(rt, patchDir) {
+  const files = fs.readdirSync(patchDir).filter((name) => name.endsWith('.json')).sort();
+  for (const file of files) {
+    rt.applyPatch(loadJson(path.join(patchDir, file)), { allowCreateModel: true, trustedBootstrap: true });
+  }
+}
+
 function setMmV1MtV0Config(rt, base) {
   const root = rt.getModel(0);
   rt.addLabel(root, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
@@ -41,7 +48,7 @@ function getLabel(rt, modelId, p, r, c, k) {
 async function main() {
   const base = 'UIPUT/ws/dam/pic/de/sw';
   const mbrPatchPath = path.resolve('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json');
-  const model100PatchPath = path.resolve('packages/worker-base/system-models/test_model_100_full.json');
+  const remoteWorkerPatchDir = path.resolve('deploy/sys-v1ns/remote-worker/patches');
 
   // --- MBR side: convert ui_event -> mqtt publish (records-only) ---
   const mbrRt = new ModelTableRuntime();
@@ -49,6 +56,8 @@ async function main() {
   if (!mbrRt.getModel(-10)) mbrRt.createModel({ id: -10, name: 'system', type: 'system' });
   setMmV1MtV0Config(mbrRt, base);
   mbrRt.applyPatch(loadJson(mbrPatchPath), { allowCreateModel: true });
+  mbrRt.setRuntimeMode('edit');
+  mbrRt.setRuntimeMode('running');
 
   let publishedTopic = null;
   let publishedPayload = null;
@@ -75,17 +84,19 @@ async function main() {
   mbrEngine.tick();
 
   assert(publishedTopic === `${base}/100/event`, `expected publish topic ${base}/100/event, got ${publishedTopic}`);
-  assert(publishedPayload && publishedPayload.version === 'mt.v0', 'published payload must be mt.v0');
+  assert(publishedPayload && publishedPayload.version === 'v0', 'published event payload must stay direct v0 ui_event');
+  assert(publishedPayload && publishedPayload.type === 'ui_event', 'published payload must preserve ui_event type');
   assert(publishedPayload && publishedPayload.op_id === uiEvent.op_id, 'published payload op_id mismatch');
-  assert(Array.isArray(publishedPayload.records) && publishedPayload.records.length > 0, 'published payload must be records-only');
-  assert(!('action' in publishedPayload) && !('data' in publishedPayload), 'published payload must not use legacy action/data');
+  assert(publishedPayload && publishedPayload.action === 'submit', 'published payload must preserve action');
+  assert(publishedPayload && publishedPayload.source_model_id === 100, 'published payload must preserve source_model_id');
+  assert(!Array.isArray(publishedPayload.records), 'published event payload must not be mt.v0 patch records');
 
-  // --- Worker side: consume mqttIncoming(records) -> CELL_CONNECT -> function -> OUT ---
+  // --- Worker side: consume mqttIncoming(ui_event) -> CELL_CONNECT -> function -> OUT ---
   const wRt = new ModelTableRuntime();
   loadSystemPatch(wRt);
-  if (!wRt.getModel(-10)) wRt.createModel({ id: -10, name: 'system', type: 'system' });
-  setMmV1MtV0Config(wRt, base);
-  wRt.applyPatch(loadJson(model100PatchPath), { allowCreateModel: true });
+  loadPatchDir(wRt, remoteWorkerPatchDir);
+  wRt.setRuntimeMode('edit');
+  wRt.setRuntimeMode('running');
 
   const handled = wRt.mqttIncoming(publishedTopic, publishedPayload);
   assert(handled, 'worker mqttIncoming must handle payload');
@@ -93,7 +104,7 @@ async function main() {
   // Check pin.in label written to root cell (0,0,0)
   const rootEvent = getLabel(wRt, 100, 0, 0, 0, 'event');
   assert(rootEvent && rootEvent.t === 'pin.in', 'worker should write pin.in label to root cell(0,0,0) key=event');
-  assert(rootEvent.v && typeof rootEvent.v === 'object' && !('action' in rootEvent.v), 'pin.in value must not carry action (records-only)');
+  assert(rootEvent.v && typeof rootEvent.v === 'object' && rootEvent.v.action === 'submit', 'pin.in value must preserve submit action');
 
   // Check pin.in routed to processing cell (1,0,0) via cell_connection
   const routedEvent = getLabel(wRt, 100, 1, 0, 0, 'event');
