@@ -64,6 +64,7 @@ system_negative_filtered.remove('server_config.json')
 system_positive_full = [
     'workspace_positive_models.json',
     'test_model_100_ui.json',
+    'runtime_hierarchy_mounts.json',
 ]
 registry_files = [
     ('packages/ui-renderer/src/component_registry_v1.json', 'registry/component_registry_v1.json'),
