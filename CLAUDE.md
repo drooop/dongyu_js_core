@@ -546,11 +546,13 @@ RESPONSE_STYLE
 
 KNOWLEDGE_VAULT
 
-docs/ is a symlink to ~/Documents/drip/Projects/dongyuapp/ (Obsidian vault).
+docs/ is the repo source of truth for project docs.
 docs-shared/ is a symlink to ~/Documents/drip/Knowledge/ (cross-project shared knowledge).
 
 rules:
-- docs/ and docs-shared/ are the real files inside the Obsidian vault. edits here appear in Obsidian immediately.
+- ~/Documents/drip/Projects/dongyuapp is a symlink to repo docs/ so Obsidian still opens the same path.
+- docs/ changes must be made through the repo worktree and committed from the repo, not treated as a separate vault-owned file surface.
+- docs-shared/ remains shared-knowledge content inside the Obsidian vault.
 - use Obsidian Markdown format: wikilinks like [[docs/WORKFLOW]], frontmatter YAML, callouts.
 - when writing to docs-shared/ (shared knowledge), include frontmatter: source (ai|human), status (draft|reviewed|stable), project (origin project name).
 - AI-authored shared knowledge defaults to status: draft.

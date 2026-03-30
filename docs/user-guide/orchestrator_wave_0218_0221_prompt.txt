@@ -1,0 +1,116 @@
+Execute the browser-bridge capability wave 0218-0221 as one serialized batch.
+
+This wave is not a new-requirement decomposition task. It is an execution wave over already-registered iterations.
+
+Primary rule:
+Reuse the existing iteration IDs and folders exactly as they already exist in docs/ITERATIONS.md and docs/iterations/.
+Do not create new primary iteration IDs.
+Do not renumber.
+Do not fork duplicate iterations that restate 0218-0221 under new IDs.
+
+Wave scope and order:
+1. 0218-orchestrator-browser-task-contract-freeze
+2. 0219-orchestrator-browser-agent-bridge
+3. 0220-orchestrator-browser-phase-and-regression
+4. 0221-playwright-mcp-local-smoke
+
+Execution policy:
+- Single active iteration only. No parallel execution.
+- Respect the exact order above.
+- Treat every item as an existing registered iteration, not as a blank new requirement.
+- If an iteration is `Planned`, route as `draft_iteration` and start at `PLANNING`.
+- If an iteration is `Approved`, route as `executable_iteration` and start at `EXECUTION`.
+- If an iteration is `Completed`, skip it with an explicit event/runlog note and continue.
+- If an iteration is `In Progress` or `On Hold`, require resume/human decision rather than silently restarting or skipping.
+- If the current entry mode cannot honor existing iteration IDs without generating duplicates, stop and report the limitation instead of decomposing new primary iterations.
+
+Capability intent by iteration:
+- 0218 freezes the browser_task protocol itself:
+  - request/result schema
+  - batch-local exchange paths:
+    - `.orchestrator/runs/<batch_id>/browser_tasks/<task_id>/request.json`
+    - `.orchestrator/runs/<batch_id>/browser_tasks/<task_id>/result.json`
+  - local evidence directory:
+    - `output/playwright/<batch_id>/<task_id>/...`
+  - browser failure taxonomy
+  - state/events/status/runlog evidence contract
+- 0219 implements the Browser Agent Bridge:
+  - request/result file exchange
+  - Browser Agent consumer boundary
+  - mock executor
+  - idempotent recovery
+- 0220 integrates browser_task into orchestrator:
+  - browser phase/subphase
+  - `awaiting_result` browser wait point
+  - resume/orphan/timeout handling
+  - regression coverage
+- 0221 proves the bridge against a real Playwright MCP capable agent on a narrow local smoke path.
+  - single task id: `workspace-smoke`
+  - single start URL: `http://127.0.0.1:30900/`
+  - single required artifacts: `final.png`, `report.json`
+  - minimal assertions only:
+    - workspace shell renders
+    - required artifacts land in canonical `output/playwright/<batch_id>/workspace-smoke/`
+  - handoff rule: generic `browser_agent.mjs` must keep `mode=mcp` on an explicit boundary and fail `mcp_unavailable` until a real Playwright MCP executor consumes the canonical request/result exchange
+
+Hard constraints:
+- Follow CLAUDE.md, docs/WORKFLOW.md, docs/ITERATIONS.md, and docs/ssot/** as authoritative.
+- Do not start 0222-0225 from inside this wave. They are downstream environment waves and must wait for 0221 completion.
+- Do not assume codex exec or claude -p child processes inherently have Playwright MCP access.
+- Browser MCP capability must be modeled explicitly through the bridge contract; do not fake success by replacing browser evidence with prose.
+- No remote deploy, cluster mutation, or cloud operations in 0218-0221.
+- No manual browser clicking as default DoD. Human browser action is fallback only and must be recorded as a coverage gap if used.
+
+Bridge-specific rules:
+- 0218-0220 are allowed to use mock or contract-driven browser-task verification where their plan/resolution says so.
+- 0221 must use a real Playwright MCP capable agent/executor for at least one actual browser_task.
+- If 0221 cannot obtain real MCP-backed execution, stop and report `browser_bridge_not_proven`, do not mark it completed.
+- Browser artifacts must land in repo-approved paths:
+  - `output/playwright/<batch_id>/<task_id>/...`
+- Request/result exchange files must land in:
+  - `.orchestrator/runs/<batch_id>/browser_tasks/<task_id>/request.json`
+  - `.orchestrator/runs/<batch_id>/browser_tasks/<task_id>/result.json`
+- A browser task is only considered passed if:
+  - structured result says pass
+  - required artifacts exist
+  - orchestrator ingests the result into state/events/status/runlog evidence
+- If a browser task is still `awaiting_result`, keep the iteration in browser wait state; do not skip to review or final verification.
+- If artifact path/type/producer/hash disagrees with the result manifest, report `artifact_mismatch`.
+- If the bridge reports `duplicate_result`, treat it as a deterministic stop signal until the authoritative state is reconciled.
+- If the required real MCP executor is unavailable during 0221, report `mcp_unavailable` / `MCP unavailable` and stop the wave.
+- Do not treat artifact-only evidence as PASS.
+
+Dynamic queue rules:
+- If true derived follow-up iterations appear (for example 0218b-*, 0219b-*), insert them immediately after their parent.
+- If any unresolved proposed/on_hold extra iteration appears, stop the wave and report:
+  - iteration id
+  - status
+  - why it blocks the capability chain
+- Do not silently continue to downstream iterations that depend on an unresolved bridge/blocker.
+
+Per-iteration completion requirements:
+- 0218 must leave a frozen protocol contract and deterministic regression tests.
+- 0219 must leave a working bridge and deterministic mock-executor evidence.
+- 0220 must leave orchestrator browser-phase integration plus resume/regression evidence.
+- 0221 must leave real MCP smoke evidence:
+  - browser task request/result
+  - screenshot/json (and trace/console if available)
+  - explicit PASS/FAIL verdict
+
+Batch stop rules:
+- On `human_decision_required`, unresolved bridge semantics, `artifact_mismatch`, `stale_result`, `duplicate_result`, repeated CLI failure threshold, or `mcp_unavailable` / `MCP unavailable` during 0221, stop the wave and report the exact blocking iteration.
+- Do not enter Final Verification for the whole wave until every in-scope iteration is either Completed or explicitly blocked by a human decision gate.
+
+Final output requirements:
+- Produce a wave summary covering 0218-0221.
+- For each iteration include:
+  - final status
+  - final branch
+  - final commit if any
+  - key verification commands
+  - browser-task evidence summary if applicable
+  - blocker note if not completed
+- State clearly whether the whole wave reached:
+  - ALL GOALS MET
+  - PARTIALLY BLOCKED
+  - FAILED

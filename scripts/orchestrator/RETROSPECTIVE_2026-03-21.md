@@ -114,12 +114,12 @@ source: ai
 
 ### P4. docs symlink / Git 集成边界澄清
 
-本轮运行还暴露了 `docs/` 为 symlink 时的 Git 集成边界。
+该问题现已通过 ownership flip 收口：`docs/` 回到 repo 内真实目录，vault 路径改为指向 repo `docs/` 的 symlink。
 
-要求：
+- 当前结论：
 
-- 明确 `docs` symlink 下文件是否作为 orchestrator 的可交付工作面
-- 若继续保留当前结构，需要把“文件存在于磁盘但不在 repo index”的情况写进限制说明
+- `docs/**` 现在是仓库内可交付工作面，可被 Git、hook、gate、orchestrator 正常消费。
+- `docs-shared/` 仍保持 shared-knowledge symlink，不在本次收口范围内。
 
 ## 5. 下一轮实战锚点
 
