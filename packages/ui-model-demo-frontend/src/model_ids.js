@@ -37,6 +37,12 @@ export const THREE_SCENE_UPDATE_ENTITY_ACTION = 'three_scene_update_entity';
 export const THREE_SCENE_DELETE_ENTITY_ACTION = 'three_scene_delete_entity';
 export const THREE_SCENE_REMOTE_ONLY_DETAIL = 'three_scene_remote_only';
 
+// 0270 Workspace fill-table example.
+export const WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID = 1009;
+export const WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID = 1010;
+export const WORKSPACE_FILLTABLE_EXAMPLE_REMOTE_ACTION = 'workspace_filltable_submit_remote';
+export const WORKSPACE_FILLTABLE_EXAMPLE_LOCAL_ACTION = 'workspace_filltable_submit_local';
+
 // Model 100 - Dual-bus E2E test model.
 export const MODEL_100_ID = 100;
 export const FLOW_SHELL_ANCHOR_MODEL_ID = MODEL_100_ID;

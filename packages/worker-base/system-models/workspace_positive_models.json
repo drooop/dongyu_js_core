@@ -300,7 +300,9 @@
       "k": "dual_bus_model",
       "t": "json",
       "v": {
-        "ui_event_func": "prepare_model100_submit"
+        "ui_event_func": "prepare_model100_submit",
+        "model0_egress_label": "model100_submit_out",
+        "model0_egress_func": "forward_model100_submit_from_model0"
       }
     },
     {
@@ -2337,6 +2339,872 @@
       "v": "seed ready"
     },
     {
+      "op": "create_model",
+      "model_id": 1009,
+      "name": "workspace_filltable_example_app",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.WorkspaceFilltableExampleApp"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "0270 Fill-Table Workspace UI"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "workspace"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "ws_filltable_example_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit",
+      "t": "pin.table.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_request_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, submit_request)",
+          "to": [
+            "(func, emit_submit:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "host_submit_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [
+            0,
+            2,
+            0,
+            "ws_filltable_child_submit_relay"
+          ],
+          "to": [
+            [
+              0,
+              0,
+              0,
+              "submit_request"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "emit_submit",
+      "t": "func.js",
+      "v": {
+        "code": "const payload = label && label.v && typeof label.v === 'object' ? label.v : null;\nif (!payload) return;\nctx.writeLabel({ model_id: 1009, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.table.out', payload);",
+        "modelName": "workspace_filltable_example"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": 1010
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "ws_filltable_child_submit_relay",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "ws_filltable_child_submit_bridge",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(1010, submit)",
+          "to": [
+            "(self, ws_filltable_child_submit_relay)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ws_filltable_example_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ws_filltable_example_controls"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ws_filltable_example_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "row",
+        "gap": 12,
+        "wrap": true,
+        "style": {
+          "flexDirection": {
+            "$label": {
+              "model_id": 1010,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "layout_direction"
+            }
+          },
+          "width": "100%",
+          "alignItems": "center"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ws_filltable_example_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ws_filltable_example_controls"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "placeholder": "Enter any text",
+        "style": {
+          "fontSize": {
+            "$label": {
+              "model_id": 1010,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "input_font_size"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1010,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "input_draft"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1010,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "input_draft"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ws_filltable_example_confirm"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ws_filltable_example_controls"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Confirm",
+        "type": {
+          "$label": {
+            "model_id": 1010,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "button_variant"
+          }
+        },
+        "style": {
+          "backgroundColor": {
+            "$label": {
+              "model_id": 1010,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "button_color"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "submit",
+          "meta": {
+            "model_id": 1010
+          },
+          "value_ref": {
+            "t": "event",
+            "v": {
+              "action": "submit",
+              "input_value": {
+                "$label": {
+                  "model_id": 1010,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "input_draft"
+                }
+              },
+              "route_mode": {
+                "$label": {
+                  "model_id": 1010,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "submit_route_mode"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ws_filltable_example_result"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ws_filltable_example_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": "Waiting for result",
+        "style": {
+          "fontFamily": "monospace",
+          "fontWeight": 700
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1010,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "generated_color_text"
+        }
+      }
+    },
+    {
+      "op": "create_model",
+      "model_id": 1010,
+      "name": "workspace_filltable_example_truth",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.WorkspaceFilltableExampleTruth"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "dual_bus_model",
+      "t": "json",
+      "v": {
+        "ui_event_func": "prepare_workspace_filltable_submit",
+        "model0_egress_label": "ws_filltable_submit_out",
+        "model0_egress_func": "forward_workspace_filltable_submit_from_model0"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "input_draft",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "generated_color_text",
+      "t": "str",
+      "v": "Waiting for result"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "result_status",
+      "t": "str",
+      "v": "idle"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_inflight",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_route_mode",
+      "t": "str",
+      "v": "remote"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "layout_direction",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "input_font_size",
+      "t": "str",
+      "v": "18px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "button_variant",
+      "t": "str",
+      "v": "primary"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "button_color",
+      "t": "str",
+      "v": "#2563EB"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 2,
+      "k": "ui_event",
+      "t": "event",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit",
+      "t": "pin.table.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "confirm",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "processor_routes",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, confirm)",
+          "to": [
+            "(func, dispatch_remote:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "scope_privileged",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "dispatch_remote",
+      "t": "func.js",
+      "v": {
+        "code": "const trigger = label && label.v && typeof label.v === 'object' ? label.v : null;\nif (!trigger) return;\nconst inputValue = String(ctx.getLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'input_draft' }) || '');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', true);\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status' }, 'str', 'loading');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_route_mode' }, 'str', 'remote');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.table.out', { version: 'v0', type: 'ui_event', op_id: 'ws_filltable_' + Date.now(), source_model_id: 1010, action: 'submit', data: { input_value: inputValue, route_mode: 'remote' }, timestamp: Date.now() });",
+        "modelName": "workspace_filltable_example"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "dispatch_local",
+      "t": "func.js",
+      "v": {
+        "code": "const inputValue = String(ctx.getLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'input_draft' }) || '');\nlet hash = 0;\nfor (const ch of inputValue) { hash = ((hash * 31) + ch.charCodeAt(0)) >>> 0; }\nconst color = '#' + (hash % 0xffffff).toString(16).padStart(6, '0');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_route_mode' }, 'str', 'local');\nctx.writeLabel({ model_id: 1010, p: 0, r: 1, c: 0, k: 'owner_apply' }, 'pin.in', { op: 'apply_records', target_model_id: 1010, records: [ { op: 'add_label', model_id: 1010, p: 0, r: 0, c: 0, k: 'generated_color_text', t: 'str', v: color }, { op: 'add_label', model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status', t: 'str', v: 'local_processed' }, { op: 'add_label', model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false } ] });",
+        "modelName": "workspace_filltable_example"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "prepare_workspace_filltable_submit",
+      "t": "func.js",
+      "v": {
+        "code": "const event = ctx.getLabel({ model_id: 1010, p: 0, r: 0, c: 2, k: 'ui_event' });\nif (!event || typeof event !== 'object') return;\nctx.writeLabel({ model_id: 1010, p: 1, r: 0, c: 0, k: 'confirm' }, 'pin.in', event);\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 2, k: 'ui_event' }, 'event', null);",
+        "modelName": "workspace_filltable_example"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 2,
+      "r": 0,
+      "c": 8,
+      "k": "ws_filltable_submit_relay",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 2,
+      "r": 0,
+      "c": 8,
+      "k": "ws_filltable_submit_bridge",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(1009, submit)",
+          "to": [
+            "(self, ws_filltable_submit_relay)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_filltable_submit_route",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [
+            2,
+            0,
+            8,
+            "ws_filltable_submit_relay"
+          ],
+          "to": [
+            [
+              0,
+              0,
+              0,
+              "ws_filltable_submit_out"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_filltable_submit_out",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_filltable_submit_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, ws_filltable_submit_out)",
+          "to": [
+            "(func, forward_workspace_filltable_submit_from_model0:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "forward_workspace_filltable_submit_from_model0",
+      "t": "func.js",
+      "v": {
+        "code": "const payload = ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'ws_filltable_submit_out' });\nif (!payload || typeof payload !== 'object') return;\nconst p = ctx.sendMatrix(payload);\nif (p && typeof p.then === 'function') {\n  p.catch(function() {\n    ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', false);\n    ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status' }, 'str', 'send_failed');\n  });\n} else if (!p) {\n  ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', false);\n  ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status' }, 'str', 'matrix_unavailable');\n}\nctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'ws_filltable_submit_out' }, 'pin.in', null);\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.table.out', null);",
+        "modelName": "workspace_filltable_example"
+      }
+    },
+    {
       "op": "add_label",
       "model_id": -2,
       "p": 0,
@@ -2388,6 +3256,11 @@
         {
           "model_id": 1007,
           "name": "0216 Three Scene",
+          "source": "workspace"
+        },
+        {
+          "model_id": 1009,
+          "name": "0270 Fill-Table Workspace UI",
           "source": "workspace"
         }
       ]

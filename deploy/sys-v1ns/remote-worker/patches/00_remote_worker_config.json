@@ -35,7 +35,9 @@
       "t": "json",
       "v": [
         "UIPUT/ws/dam/pic/de/sw/100/event",
-        "UIPUT/ws/dam/pic/de/sw/100/patch"
+        "UIPUT/ws/dam/pic/de/sw/100/patch",
+        "UIPUT/ws/dam/pic/de/sw/1010/event",
+        "UIPUT/ws/dam/pic/de/sw/1010/patch"
       ]
     },
     {

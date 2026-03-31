@@ -27,6 +27,7 @@
     { "op": "add_label", "model_id": 0, "p": 2, "r": 0, "c": 5, "k": "model_type", "t": "model.submt", "v": 1004 },
     { "op": "add_label", "model_id": 0, "p": 2, "r": 0, "c": 6, "k": "model_type", "t": "model.submt", "v": 1005 },
     { "op": "add_label", "model_id": 0, "p": 2, "r": 0, "c": 7, "k": "model_type", "t": "model.submt", "v": 1007 },
+    { "op": "add_label", "model_id": 0, "p": 2, "r": 0, "c": 8, "k": "model_type", "t": "model.submt", "v": 1009 },
     { "op": "add_label", "model_id": 0, "p": 10, "r": 0, "c": 0, "k": "model_type", "t": "model.submt", "v": 100 }
   ]
 }

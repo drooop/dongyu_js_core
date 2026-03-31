@@ -999,7 +999,11 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     // Build flexbox style
     const flexStyle = {
       display: 'flex',
-      flexDirection: layout === 'row' ? 'row' : 'column',
+      flexDirection: (
+        layout === 'row' || layout === 'row-reverse' || layout === 'column-reverse'
+          ? layout
+          : 'column'
+      ),
       ...(gap !== undefined && { gap: typeof gap === 'number' ? `${gap}px` : gap }),
       ...(justify && { justifyContent: justify }),
       ...(align && { alignItems: align }),
