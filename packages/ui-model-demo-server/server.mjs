@@ -1703,6 +1703,8 @@ function extractFunctionCode(value) {
 }
 
 function firstSystemModel(runtime) {
+  const canonical = runtime.getModel(-10);
+  if (canonical) return canonical;
   const fnLabel = listSystemLabels(runtime, (label) => isFunctionLikeLabelType(label.t))[0];
   if (fnLabel) return fnLabel.model;
   for (const [id, model] of runtime.models.entries()) {
