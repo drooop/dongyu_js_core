@@ -178,6 +178,7 @@ source: ai
 | 0268-home-all-models-filter | 2026-03-31 | 首页模型选择器支持“不筛选/All models”，并在该模式下展示所有模型行且对不明确目标的创建动作保持显式阻断 | 3 | dev_0268-home-all-models-filter | Completed | ./docs/iterations/0268-home-all-models-filter/ |
 | 0269-model100-live-submit-regression | 2026-03-31 | 修复 live 环境下颜色生成器点击后不出站的问题，恢复 `prepare_model100_submit` 注册与整条双总线样板链路 | 3 | dev_0269-model100-live-submit-regression | Completed | ./docs/iterations/0269-model100-live-submit-regression/ |
 | 0270-workspace-ui-filltable-example | 2026-03-31 | 新增一个预置 Workspace UI 模型示例：由 Input/Button/Label 组成，可通过改表切换远端双总线模式与本地程序模型模式，并形成删除后重建教程 | 7 | dev_0270-workspace-ui-filltable-example | Completed | ./docs/iterations/0270-workspace-ui-filltable-example/ |
+| 0271-cloud-deploy-current-state | 2026-04-01 | 将当前 dev 状态同步部署到远端 cloud rke2 环境，并验证远端入口、Workspace 示例与远端双总线链路 | 4 | dev_0271-cloud-deploy-current-state | Completed | ./docs/iterations/0271-cloud-deploy-current-state/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
