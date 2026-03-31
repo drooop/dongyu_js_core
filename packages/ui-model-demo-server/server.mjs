@@ -1352,6 +1352,25 @@ function genericOwnerMaterializeCode(modelId) {
     "ctx.writeLabel({ model_id: SELF_MODEL_ID, p: 0, r: 0, c: 0, k: '__owner_last_request_id' }, 'str', typeof req.request_id === 'string' ? req.request_id : '');",
     "ctx.writeLabel({ model_id: SELF_MODEL_ID, p: 0, r: 0, c: 0, k: '__owner_last_action' }, 'str', req && req.origin && typeof req.origin.action === 'string' ? req.origin.action : '');",
     "if (req.target_model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
+    "if (req.op === 'apply_records') {",
+    "  const records = Array.isArray(req.records) ? req.records : [];",
+    "  for (const record of records) {",
+    "    if (!record || typeof record !== 'object') throw new Error('invalid_request_shape');",
+    "    if (record.model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
+    "    if (record.op === 'add_label') {",
+    "      if (typeof record.k !== 'string' || !record.k || typeof record.t !== 'string' || !record.t) throw new Error('invalid_request_shape');",
+    "      ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k }, record.t, record.v);",
+    "      continue;",
+    "    }",
+    "    if (record.op === 'rm_label') {",
+    "      if (typeof record.k !== 'string' || !record.k) throw new Error('invalid_request_shape');",
+    "      ctx.rmLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k });",
+    "      continue;",
+    "    }",
+    "    throw new Error('unsupported_op');",
+    "  }",
+    "  return;",
+    "}",
     "if (req.op === 'add_label') {",
     "  const target = req.target_cell || {};",
     "  const lv = req.label || {};",
@@ -1711,6 +1730,14 @@ function firstSystemModel(runtime) {
     if (id < 0) return model;
   }
   return null;
+}
+
+function readDualBusConfig(runtime, modelId) {
+  if (!Number.isInteger(modelId) || modelId <= 0) return null;
+  const model = runtime.getModel(modelId);
+  if (!model) return null;
+  const value = runtime.getCell(model, 0, 0, 0).labels.get('dual_bus_model')?.v ?? null;
+  return value && typeof value === 'object' ? value : null;
 }
 
 class ProgramModelEngine {
@@ -2778,6 +2805,30 @@ class ProgramModelEngine {
       // normalized and relayed upward through existing model-boundary wiring.
       if (event.cell && event.cell.model_id === 0 &&
           event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
+          event.label && event.label.v && typeof event.label.v === 'object' &&
+          Number.isInteger(event.label.v.source_model_id) && event.label.v.source_model_id > 0) {
+        const sourceModelId = Number(event.label.v.source_model_id);
+        const dualBusConfig = readDualBusConfig(this.runtime, sourceModelId);
+        const egressLabel = dualBusConfig && typeof dualBusConfig.model0_egress_label === 'string'
+          ? dualBusConfig.model0_egress_label.trim()
+          : '';
+        const egressFunc = dualBusConfig && typeof dualBusConfig.model0_egress_func === 'string'
+          ? dualBusConfig.model0_egress_func.trim()
+          : '';
+        if (egressLabel && egressFunc && event.label.k === egressLabel) {
+          const sys = firstSystemModel(this.runtime);
+          console.log(`[processEventsSnapshot] Model 0 egress detected for model ${sourceModelId}, triggering ${egressFunc}`);
+          if (sys && sys.hasFunction(egressFunc)) {
+            this.runtime.intercepts.record('run_func', { func: egressFunc, payload: event.label.v });
+          } else {
+            console.log(`[processEventsSnapshot] WARNING: ${egressFunc} function NOT found`);
+          }
+          continue;
+        }
+      }
+
+      if (event.cell && event.cell.model_id === 0 &&
+          event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
           event.label && event.label.k === 'model100_submit_out' && event.label.v) {
         const payload = event.label.v;
         if (!payload || payload.source_model_id !== 100) {
@@ -3196,10 +3247,12 @@ function createServerState(options) {
         ? modelSnap.cells['0,0,0'].labels
         : {};
       if (rootLabels.ws_deleted && rootLabels.ws_deleted.v === true) continue;
-      // For positive models, accept either explicit app signals (app_name/dual_bus_model)
-      // or a schema cell (1,0,0). For negative models, only accept explicit app_name.
+      const parentInfo = modelId > 0 ? runtime.parentChildMap.get(modelId) : null;
+      // For positive models, only surface true top-level apps:
+      // explicit app metadata, or a direct Model 0 mount.
+      // Child truth models like 1010 must not appear as sidebar apps.
       const hasAppSignals = modelId > 0
-        ? Boolean(rootLabels.app_name || rootLabels.dual_bus_model || (modelSnap && modelSnap.cells && modelSnap.cells['1,0,0']))
+        ? Boolean(rootLabels.app_name || rootLabels.source_worker || (parentInfo && parentInfo.parentModelId === 0))
         : Boolean(rootLabels.app_name);
       if (!hasAppSignals) continue;
       const name = rootLabels.app_name && typeof rootLabels.app_name.v === 'string' && rootLabels.app_name.v.trim()
@@ -4097,6 +4150,21 @@ function createServerState(options) {
         if (!parsed.ok) return finishError(parsed.code === 'parse_failed' ? 'invalid_json' : 'invalid_target', parsed.code);
         dt = parsed.t;
         const value = parsed.value;
+        if (modelId > 0 && !runtime.getModel(modelId)) {
+          const isCreateRootModelType = (
+            dp === 0 && dr === 0 && dc === 0
+            && dk === 'model_type'
+            && (dt === 'model.table' || dt === 'model.single' || dt === 'model.matrix')
+          );
+          if (!isCreateRootModelType) {
+            return finishError('invalid_target', 'missing_model');
+          }
+          try {
+            runtime.createModel({ id: modelId, name: `model_${modelId}`, type: 'app' });
+          } catch (err) {
+            return finishError('exception', String(err && err.message ? err.message : err));
+          }
+        }
         if (modelId <= 0) {
           const direct = applyDebugDirectLabelWrite(modelId, dp, dr, dc, dk, dt, value);
           return direct.ok ? finishOk({ routed_by: 'direct' }) : finishError('invalid_target', direct.code);

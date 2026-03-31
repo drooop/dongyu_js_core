@@ -33,6 +33,8 @@ source: ai
   - UI “看似双向绑定”的运行机制解释。
 - `ui_model_filltable_workspace_example.md`
   - 当前界面真实可做的正例：在 Home 里逐条填写 label，修改已挂载正数 UI model 的显示结果。
+- `workspace_ui_filltable_example.md`
+  - 0270 正式案例：通过填表创建并挂载 `Input + Button + Label` Workspace 条目，并在远端双总线 / 本地程序模型两种链路之间切换。
 - `ui_components_v2.md`
   - 组件能力与 AST 用法。
 - `design_system_v2.md`

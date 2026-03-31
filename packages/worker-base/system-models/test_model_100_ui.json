@@ -152,7 +152,9 @@
       "k": "dual_bus_model",
       "t": "json",
       "v": {
-        "ui_event_func": "prepare_model100_submit"
+        "ui_event_func": "prepare_model100_submit",
+        "model0_egress_label": "model100_submit_out",
+        "model0_egress_func": "forward_model100_submit_from_model0"
       }
     },
     {

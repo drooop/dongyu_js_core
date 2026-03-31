@@ -1113,6 +1113,16 @@ class ModelTableRuntime {
         this.parentChildMap.delete(childModelId);
       }
     }
+    const prevResolvedType = this._resolveLabelType(prevLabel.t);
+    if (prevResolvedType === 'pin.connect.label') {
+      this._rebuildCellConnectForCell(model, p, r, c);
+    }
+    if (prevResolvedType === 'pin.connect.cell') {
+      this._rebuildCellConnectionForCell(model, p, r, c);
+    }
+    if (prevResolvedType === 'pin.connect.model') {
+      this._rebuildModelConnectionForCell(model, p, r, c);
+    }
     return { applied: true };
   }
 
@@ -1438,6 +1448,17 @@ class ModelTableRuntime {
     }
   }
 
+  _rebuildCellConnectForCell(model, p, r, c) {
+    const cellKey = `${model.id}|${p}|${r}|${c}`;
+    this.cellConnectGraph.delete(cellKey);
+    const cell = this.getCell(model, p, r, c);
+    for (const [, existingLabel] of cell.labels.entries()) {
+      if (this._resolveLabelType(existingLabel.t) === 'pin.connect.label') {
+        this._parseCellConnectLabel(model, p, r, c, existingLabel);
+      }
+    }
+  }
+
   _parseCellConnectionLabel(model, p, r, c, label) {
     if (p !== 0 || r !== 0 || c !== 0) {
       this._recordError(model, p, r, c, label, 'cell_connection_wrong_position');
@@ -1472,6 +1493,19 @@ class ModelTableRuntime {
       if (targets.length > 0) {
         const existing = this.cellConnectionRoutes.get(routeKey) || [];
         this.cellConnectionRoutes.set(routeKey, existing.concat(targets));
+      }
+    }
+  }
+
+  _rebuildCellConnectionForCell(model, p, r, c) {
+    const prefix = `${model.id}|`;
+    for (const key of Array.from(this.cellConnectionRoutes.keys())) {
+      if (key.startsWith(prefix)) this.cellConnectionRoutes.delete(key);
+    }
+    const cell = this.getCell(model, p, r, c);
+    for (const [, existingLabel] of cell.labels.entries()) {
+      if (this._resolveLabelType(existingLabel.t) === 'pin.connect.cell') {
+        this._parseCellConnectionLabel(model, p, r, c, existingLabel);
       }
     }
   }
@@ -1522,6 +1556,16 @@ class ModelTableRuntime {
       if (targets.length > 0) {
         const existing = this.modelConnectionRoutes.get(routeKey) || [];
         this.modelConnectionRoutes.set(routeKey, existing.concat(targets));
+      }
+    }
+  }
+
+  _rebuildModelConnectionForCell(model, p, r, c) {
+    this.modelConnectionRoutes.clear();
+    const cell = this.getCell(model, p, r, c);
+    for (const [, existingLabel] of cell.labels.entries()) {
+      if (this._resolveLabelType(existingLabel.t) === 'pin.connect.model') {
+        this._parseModelConnectionLabel(model, p, r, c, existingLabel);
       }
     }
   }
@@ -1774,15 +1818,27 @@ class ModelTableRuntime {
     }
     // 0141: label.t dispatch (independent from label.k connectKeys)
     if (resolvedType === 'pin.connect.label') {
-      this._parseCellConnectLabel(model, p, r, c, label);
+      if (prevLabel && this._resolveLabelType(prevLabel.t) === 'pin.connect.label') {
+        this._rebuildCellConnectForCell(model, p, r, c);
+      } else {
+        this._parseCellConnectLabel(model, p, r, c, label);
+      }
       return;
     }
     if (resolvedType === 'pin.connect.cell') {
-      this._parseCellConnectionLabel(model, p, r, c, label);
+      if (prevLabel && this._resolveLabelType(prevLabel.t) === 'pin.connect.cell') {
+        this._rebuildCellConnectionForCell(model, p, r, c);
+      } else {
+        this._parseCellConnectionLabel(model, p, r, c, label);
+      }
       return;
     }
     if (resolvedType === 'pin.connect.model') {
-      this._parseModelConnectionLabel(model, p, r, c, label);
+      if (prevLabel && this._resolveLabelType(prevLabel.t) === 'pin.connect.model') {
+        this._rebuildModelConnectionForCell(model, p, r, c);
+      } else {
+        this._parseModelConnectionLabel(model, p, r, c, label);
+      }
       return;
     }
     if (resolvedType === 'pin.in' || resolvedType === 'pin.log.in') {
