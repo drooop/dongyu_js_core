@@ -180,6 +180,7 @@ source: ai
 | 0270-workspace-ui-filltable-example | 2026-03-31 | 新增一个预置 Workspace UI 模型示例：由 Input/Button/Label 组成，可通过改表切换远端双总线模式与本地程序模型模式，并形成删除后重建教程 | 7 | dev_0270-workspace-ui-filltable-example | Completed | ./docs/iterations/0270-workspace-ui-filltable-example/ |
 | 0271-cloud-deploy-current-state | 2026-04-01 | 将当前 dev 状态同步部署到远端 cloud rke2 环境，并验证远端入口、Workspace 示例与远端双总线链路 | 4 | dev_0271-cloud-deploy-current-state | Completed | ./docs/iterations/0271-cloud-deploy-current-state/ |
 | 0272-static-workspace-rebuild | 2026-04-01 | 用新版 Workspace app + truth model 体系重建 Static 页面，保留 `/p/<projectName>/...` 访问规则，并完成真实上传验证 | 6 | dev_0272-static-workspace-rebuild | Completed | ./docs/iterations/0272-static-workspace-rebuild/ |
+| 0273-cloud-deploy-static-workspace | 2026-04-01 | 将 0272 Static Workspace 重建同步到远端 cloud 环境，并完成公网上传与 `/p/<projectName>/...` 访问验证 | 4 | dev_0273-cloud-deploy-static-workspace | Completed | ./docs/iterations/0273-cloud-deploy-static-workspace/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
