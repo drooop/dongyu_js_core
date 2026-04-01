@@ -18,6 +18,7 @@ import { ModelTableRuntime } from '../worker-base/src/index.mjs';
 import { readMatrixBootstrapConfig } from '../worker-base/src/bootstrap_config.mjs';
 import { applyPersistedAssetEntries, resolvePersistedAssetRoot } from '../worker-base/src/persisted_asset_loader.mjs';
 import { createLocalBusAdapter } from '../ui-model-demo-frontend/src/local_bus_adapter.js';
+import { buildAstFromCellwiseModel } from '../ui-model-demo-frontend/src/ui_cellwise_projection.js';
 import { buildAstFromSchema } from '../ui-model-demo-frontend/src/ui_schema_projection.js';
 import { resolvePageAsset } from '../ui-model-demo-frontend/src/page_asset_resolver.js';
 import {
@@ -30,6 +31,7 @@ import {
   deriveStaticUploadReady,
 } from '../ui-model-demo-frontend/src/editor_page_state_derivers.js';
 import {
+  DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID,
   FLOW_SHELL_DEFAULT_TAB,
   FLOW_SHELL_TAB_LABEL,
   GALLERY_MAILBOX_MODEL_ID,
@@ -3108,6 +3110,7 @@ function createServerState(options) {
     if (positiveModelCountBeforeSeed === 0) {
       loadFullModelPatches(runtime, systemModelsDir, [
         'workspace_positive_models.json',
+        'doc_page_filltable_example_minimal.json',
         'test_model_100_ui.json',
       ]);
     } else {
@@ -3286,6 +3289,16 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'home_selected_label_text', 'str', deriveHomeSelectedLabelText(snap, EDITOR_STATE_MODEL_ID));
     overwriteStateLabel(runtime, 'home_edit_dialog_title', 'str', deriveHomeEditDialogTitle(snap, EDITOR_STATE_MODEL_ID));
     overwriteStateLabel(runtime, 'static_upload_disabled', 'bool', !deriveStaticUploadReady(snap, EDITOR_STATE_MODEL_ID));
+    overwriteRuntimeLabel(
+      runtime,
+      GALLERY_STATE_MODEL_ID,
+      0,
+      0,
+      0,
+      'doc_page_example_ast',
+      'json',
+      buildAstFromCellwiseModel(snap, DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID),
+    );
     syncMatrixDebugDerivedState();
   };
 

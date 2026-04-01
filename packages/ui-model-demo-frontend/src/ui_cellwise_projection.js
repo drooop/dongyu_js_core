@@ -75,6 +75,22 @@ function buildProps(def) {
   if (propsJson && typeof propsJson === 'object' && !Array.isArray(propsJson)) {
     Object.assign(props, propsJson);
   }
+  const headingLevel = readInt(labels, 'ui_heading_level', null);
+  const listType = readString(labels, 'ui_list_type', '');
+  const calloutType = readString(labels, 'ui_callout_type', '');
+  const imageSrc = readString(labels, 'ui_image_src', '');
+  const imageAlt = readString(labels, 'ui_image_alt', '');
+  const mermaidCode = readString(labels, 'ui_mermaid_code', '');
+  const codeLanguage = readString(labels, 'ui_code_language', '');
+  const sectionNumber = readInt(labels, 'ui_section_number', null);
+  if (headingLevel !== null) props.level = headingLevel;
+  if (listType) props.listType = listType;
+  if (calloutType) props.calloutType = calloutType;
+  if (imageSrc) props.src = imageSrc;
+  if (imageAlt) props.alt = imageAlt;
+  if (mermaidCode) props.code = mermaidCode;
+  if (codeLanguage) props.language = codeLanguage;
+  if (sectionNumber !== null) props.sectionNumber = sectionNumber;
   return props;
 }
 

@@ -501,6 +501,150 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     return h('pre', props, text);
   }
 
+  if (node.type === 'Heading') {
+    const tag = `h${Math.min(4, Math.max(1, Number(props.level) || 1))}`;
+    const text = Object.prototype.hasOwnProperty.call(props, 'text') ? String(props.text) : '';
+    const headingProps = { ...props, style: { margin: '0', color: '#0f172a', ...(props.style || {}) } };
+    delete headingProps.level;
+    delete headingProps.text;
+    return h(tag, headingProps, text);
+  }
+
+  if (node.type === 'Paragraph') {
+    const text = Object.prototype.hasOwnProperty.call(props, 'text') ? String(props.text) : '';
+    const lines = text.split('\n');
+    const paragraphProps = { ...props, style: { margin: '0', color: '#334155', lineHeight: '1.7', ...(props.style || {}) } };
+    delete paragraphProps.text;
+    return h('p', paragraphProps, lines.flatMap((line, idx) => (
+      idx === 0 ? [line] : [h('br'), line]
+    )));
+  }
+
+  if (node.type === 'List') {
+    const listTag = props.listType === 'ordered' ? 'ol' : 'ul';
+    const listProps = { ...props, style: { margin: '0', paddingLeft: '1.25rem', color: '#334155', ...(props.style || {}) } };
+    delete listProps.listType;
+    return h(listTag, listProps, children);
+  }
+
+  if (node.type === 'ListItem') {
+    const text = Object.prototype.hasOwnProperty.call(props, 'text') ? String(props.text) : '';
+    const itemProps = { ...props, style: { margin: '0 0 4px 0', ...(props.style || {}) } };
+    delete itemProps.text;
+    return h('li', itemProps, children.length > 0 ? children : text);
+  }
+
+  if (node.type === 'Callout') {
+    const palette = {
+      tip: { border: '#16a34a', bg: '#f0fdf4', title: '#166534' },
+      info: { border: '#2563eb', bg: '#eff6ff', title: '#1d4ed8' },
+      warning: { border: '#d97706', bg: '#fef3c7', title: '#b45309' },
+      danger: { border: '#dc2626', bg: '#fef2f2', title: '#b91c1c' },
+    };
+    const calloutType = typeof props.calloutType === 'string' ? props.calloutType : 'info';
+    const colors = palette[calloutType] || palette.info;
+    const title = typeof props.title === 'string' ? props.title : '';
+    const text = Object.prototype.hasOwnProperty.call(props, 'text') ? String(props.text) : '';
+    const calloutProps = {
+      ...props,
+      style: {
+        borderLeft: `4px solid ${colors.border}`,
+        background: colors.bg,
+        borderRadius: '8px',
+        padding: '12px 14px',
+        color: '#334155',
+        ...(props.style || {}),
+      },
+    };
+    delete calloutProps.calloutType;
+    delete calloutProps.title;
+    delete calloutProps.text;
+    return h('div', calloutProps, [
+      title ? h('div', { style: { fontWeight: 600, color: colors.title, marginBottom: text || children.length > 0 ? '6px' : '0' } }, title) : null,
+      text ? h('div', text) : null,
+      ...children,
+    ].filter(Boolean));
+  }
+
+  if (node.type === 'Image') {
+    const imageProps = {
+      ...props,
+      src: typeof props.src === 'string' ? props.src : '',
+      alt: typeof props.alt === 'string' ? props.alt : '',
+      style: { maxWidth: '100%', height: 'auto', display: 'block', ...(props.style || {}) },
+    };
+    return h('img', imageProps);
+  }
+
+  if (node.type === 'MermaidDiagram') {
+    const code = Object.prototype.hasOwnProperty.call(props, 'code') ? String(props.code) : '';
+    const mermaidProps = {
+      ...props,
+      class: 'mermaid-placeholder',
+      style: {
+        background: '#f1f5f9',
+        padding: '12px',
+        borderRadius: '8px',
+        overflowX: 'auto',
+        color: '#334155',
+        margin: '0',
+        ...(props.style || {}),
+      },
+    };
+    delete mermaidProps.code;
+    return h('pre', mermaidProps, code);
+  }
+
+  if (node.type === 'Section') {
+    const title = typeof props.title === 'string' ? props.title : '';
+    const sectionNumber = Number.isFinite(props.sectionNumber) ? Number(props.sectionNumber) : null;
+    const variant = typeof props.variant === 'string'
+      ? props.variant
+      : (typeof props.type === 'string' ? props.type : 'default');
+    const isHero = variant === 'hero';
+    const sectionProps = {
+      ...props,
+      style: {
+        border: isHero ? 'none' : '1px solid #e2e8f0',
+        background: isHero ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' : '#ffffff',
+        color: isHero ? '#f8fafc' : '#0f172a',
+        borderRadius: '14px',
+        padding: '18px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        boxShadow: isHero ? '0 12px 32px rgba(15,23,42,0.18)' : '0 1px 2px rgba(15,23,42,0.06)',
+        ...(props.style || {}),
+      },
+    };
+    delete sectionProps.title;
+    delete sectionProps.sectionNumber;
+    delete sectionProps.variant;
+    delete sectionProps.type;
+    return h('section', sectionProps, [
+      title ? h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } }, [
+        sectionNumber !== null
+          ? h('span', {
+            style: {
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '28px',
+              height: '28px',
+              borderRadius: '999px',
+              background: isHero ? 'rgba(255,255,255,0.14)' : '#e2e8f0',
+              color: isHero ? '#f8fafc' : '#334155',
+              fontSize: '13px',
+              fontWeight: 700,
+            },
+          }, String(sectionNumber))
+          : null,
+        h('div', { style: { fontSize: isHero ? '20px' : '18px', fontWeight: 700 } }, title),
+      ].filter(Boolean)) : null,
+      ...children,
+    ].filter(Boolean));
+  }
+
   if (node.type === 'Input') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;

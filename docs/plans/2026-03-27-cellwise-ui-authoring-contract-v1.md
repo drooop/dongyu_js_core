@@ -69,6 +69,29 @@ source: ai
 - `ui_variant: str`
 - `ui_placeholder: str`
 
+### Document Page MVP Field Keys (0275)
+
+这些是 `label.k` 字段约定，不是新的 `label.t`。继续使用现有 `str / int`：
+
+- `ui_heading_level: int`
+  - Heading level，当前支持 `1-4`
+- `ui_list_type: str`
+  - `ordered | unordered`
+- `ui_callout_type: str`
+  - `tip | info | warning | danger`
+- `ui_image_src: str`
+  - Image 的 `src`
+- `ui_image_alt: str`
+  - Image 的 `alt`
+- `ui_mermaid_code: str`
+  - MermaidDiagram 的源文本。Phase A 只占位显示原文，不做真实渲染
+- `ui_code_language: str`
+  - 预留给 CodeBlock / 后续 richer doc component
+- `ui_section_number: int`
+  - Section 标题前的编号 badge
+
+这些字段进入 compiler 后，会映射到对应 node props；不需要修改 `docs/ssot/label_type_registry.md`。
+
 ## Read Binding Labels
 
 - `ui_read_model_id: int`
