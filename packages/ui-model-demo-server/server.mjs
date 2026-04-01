@@ -5018,6 +5018,7 @@ function startServer(options) {
         return;
       }
       const session = getSessionWithToken(req);
+      const runtimeMatrixConfig = readMatrixBootstrapConfig(state.runtime);
       const uploadIdentity = (session && session.accessToken && session.homeserverUrl)
         ? {
           homeserverUrl: session.homeserverUrl,
@@ -5026,12 +5027,20 @@ function startServer(options) {
         }
         : (!AUTH_ENABLED
           ? {
-            homeserverUrl: firstValidValue(process.env.MATRIX_HOMESERVER_URL),
+            homeserverUrl: firstValidValue(
+              runtimeMatrixConfig && runtimeMatrixConfig.homeserverUrl,
+              process.env.MATRIX_HOMESERVER_URL,
+            ),
             accessToken: firstValidValue(
+              runtimeMatrixConfig && runtimeMatrixConfig.accessToken,
               process.env.MATRIX_MBR_BOT_ACCESS_TOKEN,
               process.env.MATRIX_MBR_ACCESS_TOKEN,
             ),
-            userId: firstValidValue(process.env.MATRIX_MBR_BOT_USER, process.env.MATRIX_MBR_USER),
+            userId: firstValidValue(
+              runtimeMatrixConfig && runtimeMatrixConfig.userId,
+              process.env.MATRIX_MBR_BOT_USER,
+              process.env.MATRIX_MBR_USER,
+            ),
           }
           : null);
       if (!uploadIdentity || !uploadIdentity.accessToken || !uploadIdentity.homeserverUrl) {

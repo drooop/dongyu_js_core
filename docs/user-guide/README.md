@@ -35,6 +35,8 @@ source: ai
   - 当前界面真实可做的正例：在 Home 里逐条填写 label，修改已挂载正数 UI model 的显示结果。
 - `workspace_ui_filltable_example.md`
   - 0270 正式案例：通过填表创建并挂载 `Input + Button + Label` Workspace 条目，并在远端双总线 / 本地程序模型两种链路之间切换。
+- `static_workspace_rebuild.md`
+  - 0272 正式案例：通过 Workspace 中的 Static 页面上传单个 HTML 或 ZIP，并固定挂载到 `/p/<projectName>/...`。
 - `ui_components_v2.md`
   - 组件能力与 AST 用法。
 - `design_system_v2.md`
