@@ -63,6 +63,7 @@ system_negative_filtered = list(system_negative_full)
 system_negative_filtered.remove('server_config.json')
 system_positive_full = [
     'workspace_positive_models.json',
+    'doc_page_filltable_example_minimal.json',
     'test_model_100_ui.json',
     'runtime_hierarchy_mounts.json',
 ]

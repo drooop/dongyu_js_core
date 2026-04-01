@@ -240,6 +240,7 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       // Static projects actions (remote-only).
       'static_project_list',
       'static_project_upload',
+      'static_project_delete',
       // Workspace actions (remote-only).
       'ws_select_app',
       // Prompt FillTable actions (remote-only).

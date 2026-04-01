@@ -8,6 +8,7 @@ import staticCatalogPatch from '../../worker-base/system-models/static_catalog_u
 import navCatalogPatch from '../../worker-base/system-models/nav_catalog_ui.json' with { type: 'json' };
 import workspaceCatalogPatch from '../../worker-base/system-models/workspace_catalog_ui.json' with { type: 'json' };
 import workspacePositiveModelsPatch from '../../worker-base/system-models/workspace_positive_models.json' with { type: 'json' };
+import docPageFilltableExampleMinimalPatch from '../../worker-base/system-models/doc_page_filltable_example_minimal.json' with { type: 'json' };
 import runtimeHierarchyMountsPatch from '../../worker-base/system-models/runtime_hierarchy_mounts.json' with { type: 'json' };
 import editorTestCatalogPatch from '../../worker-base/system-models/editor_test_catalog_ui.json' with { type: 'json' };
 import promptCatalogPatch from '../../worker-base/system-models/prompt_catalog_ui.json' with { type: 'json' };
@@ -30,12 +31,14 @@ import {
 } from './editor_page_state_derivers.js';
 
 import {
+  DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID,
   EDITOR_MAILBOX_MODEL_ID as EDITOR_MODEL_ID,
   EDITOR_STATE_MODEL_ID,
   FLOW_SHELL_DEFAULT_TAB,
   FLOW_SHELL_TAB_LABEL,
   GALLERY_MAILBOX_MODEL_ID,
   GALLERY_CATALOG_MODEL_ID,
+  GALLERY_STATE_MODEL_ID,
   MATRIX_DEBUG_MODEL_ID,
   PROMPT_CATALOG_MODEL_ID,
   SYSTEM_MODEL_ID,
@@ -200,6 +203,7 @@ export function createDemoStore() {
   applyUiPatch(runtime, staticCatalogPatch);
   applyUiPatch(runtime, workspaceCatalogPatch);
   applyUiPatch(runtime, workspacePositiveModelsPatch);
+  applyUiPatch(runtime, docPageFilltableExampleMinimalPatch);
   applyUiPatch(runtime, runtimeHierarchyMountsPatch);
   applyUiPatch(runtime, editorTestCatalogPatch);
   applyUiPatch(runtime, matrixDebugSurfacePatch);
@@ -338,6 +342,14 @@ export function createDemoStore() {
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_readiness_text', t: 'str', v: matrixDebug.readinessText });
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_subject_summary_text', t: 'str', v: matrixDebug.subjectSummaryText });
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_trace_summary_text', t: 'str', v: matrixDebug.traceSummaryText });
+    }
+    const galleryStateModel = runtime.getModel(GALLERY_STATE_MODEL_ID);
+    if (galleryStateModel) {
+      overwriteLabel(runtime, galleryStateModel, 0, 0, 0, {
+        k: 'doc_page_example_ast',
+        t: 'json',
+        v: buildAstFromCellwiseModel(snap, DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID),
+      });
     }
 
     const nextSnap = runtime.snapshot();

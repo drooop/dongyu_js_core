@@ -4379,6 +4379,139 @@
       }
     },
     {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_static_workspace_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_static_workspace_projects"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Actions",
+        "minWidth": 120,
+        "align": "center"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_static_workspace_delete"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "col_static_workspace_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Delete",
+        "type": "danger",
+        "size": "small"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_bind_write_json",
+      "t": "json",
+      "v": {
+        "action": "static_project_delete",
+        "target_ref": {
+          "model_id": 1012,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "static_project_name"
+        },
+        "value_ref": {
+          "t": "str",
+          "v": {
+            "$ref": "row.name"
+          }
+        }
+      }
+    },
+    {
       "op": "create_model",
       "model_id": 1012,
       "name": "static_workspace_truth",

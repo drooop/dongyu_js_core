@@ -13766,6 +13766,170 @@
         "trend": "↑ 5%",
         "trendDirection": "up"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 225,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_page_preview_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 225,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 225,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 225,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 9990
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 225,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "0275 Doc Page MVP Preview"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 226,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_page_preview_intro"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 226,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 226,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_page_preview_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 226,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 226,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": "This preview is projected from temporary Model 1015. Change its labels in Home to verify renderer + compiler behavior."
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 227,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_page_preview_include"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 227,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Include"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 227,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_page_preview_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 227,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 227,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "ref": {
+          "model_id": -102,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "doc_page_example_ast"
+        },
+        "fallbackText": "Doc page example missing"
+      }
     }
   ]
 }
