@@ -43,6 +43,10 @@ export const WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID = 1010;
 export const WORKSPACE_FILLTABLE_EXAMPLE_REMOTE_ACTION = 'workspace_filltable_submit_remote';
 export const WORKSPACE_FILLTABLE_EXAMPLE_LOCAL_ACTION = 'workspace_filltable_submit_local';
 
+// 0272 Static Workspace rebuild.
+export const STATIC_WORKSPACE_APP_MODEL_ID = 1011;
+export const STATIC_WORKSPACE_TRUTH_MODEL_ID = 1012;
+
 // Model 100 - Dual-bus E2E test model.
 export const MODEL_100_ID = 100;
 export const FLOW_SHELL_ANCHOR_MODEL_ID = MODEL_100_ID;

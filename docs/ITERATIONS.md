@@ -179,6 +179,7 @@ source: ai
 | 0269-model100-live-submit-regression | 2026-03-31 | 修复 live 环境下颜色生成器点击后不出站的问题，恢复 `prepare_model100_submit` 注册与整条双总线样板链路 | 3 | dev_0269-model100-live-submit-regression | Completed | ./docs/iterations/0269-model100-live-submit-regression/ |
 | 0270-workspace-ui-filltable-example | 2026-03-31 | 新增一个预置 Workspace UI 模型示例：由 Input/Button/Label 组成，可通过改表切换远端双总线模式与本地程序模型模式，并形成删除后重建教程 | 7 | dev_0270-workspace-ui-filltable-example | Completed | ./docs/iterations/0270-workspace-ui-filltable-example/ |
 | 0271-cloud-deploy-current-state | 2026-04-01 | 将当前 dev 状态同步部署到远端 cloud rke2 环境，并验证远端入口、Workspace 示例与远端双总线链路 | 4 | dev_0271-cloud-deploy-current-state | Completed | ./docs/iterations/0271-cloud-deploy-current-state/ |
+| 0272-static-workspace-rebuild | 2026-04-01 | 用新版 Workspace app + truth model 体系重建 Static 页面，保留 `/p/<projectName>/...` 访问规则，并完成真实上传验证 | 6 | dev_0272-static-workspace-rebuild | Completed | ./docs/iterations/0272-static-workspace-rebuild/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
