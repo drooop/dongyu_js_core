@@ -186,6 +186,7 @@ source: ai
 | 0276-doc-workspace-example-and-static-fileinput | 2026-04-02 | 修复 Static 文件选择器交互，并新增一个正式 Workspace 文档页面示例，证明可完全通过填表组成接近 visualized HTML 的界面 | 6 | dev_0276-doc-workspace-example-and-static-fileinput | Completed | ./docs/iterations/0276-doc-workspace-example-and-static-fileinput/ |
 | 0277-non-three-fine-grain-audit | 2026-04-03 | 排除 Three.js 后，对 workspace_positive_models.json 做细粒度审查并产出收口优先级清单 | 3 | dev_0277-non-three-fine-grain-audit | Completed | ./docs/iterations/0277-non-three-fine-grain-audit/ |
 | 0278-non-three-fine-grain-remediation | 2026-04-03 | 先对 0270 / 0276 / Static 的页面 authoring 粗块做细粒度收口，不碰 Three.js 与大流程函数 | 5 | dev_0278-non-three-fine-grain-remediation | Completed | ./docs/iterations/0278-non-three-fine-grain-remediation/ |
+| 0279-visualized-doc-and-0276-align | 2026-04-03 | 先更新 visualized 文档到细粒度文档页面版本，再让 0276 的正式 Workspace 页面与之对齐 | 4 | dev_0279-visualized-doc-and-0276-align | Completed | ./docs/iterations/0279-visualized-doc-and-0276-align/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
