@@ -438,7 +438,9 @@
       "t": "json",
       "v": {
         "accept": ".html,.htm,.zip",
-        "label": "Select .html or .zip file (max 50MB)"
+        "label": "Select .html or .zip file (max 50MB)",
+        "buttonLabel": "选择文件",
+        "emptyText": "未选择任何文件"
       }
     },
     {

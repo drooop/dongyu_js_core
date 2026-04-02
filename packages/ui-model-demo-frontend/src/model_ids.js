@@ -47,6 +47,10 @@ export const WORKSPACE_FILLTABLE_EXAMPLE_LOCAL_ACTION = 'workspace_filltable_sub
 export const STATIC_WORKSPACE_APP_MODEL_ID = 1011;
 export const STATIC_WORKSPACE_TRUTH_MODEL_ID = 1012;
 
+// 0276 Workspace doc page example.
+export const DOC_WORKSPACE_EXAMPLE_APP_MODEL_ID = 1013;
+export const DOC_WORKSPACE_EXAMPLE_TRUTH_MODEL_ID = 1014;
+
 // 0275 Doc page fill-table MVP minimal example.
 export const DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID = 1015;
 

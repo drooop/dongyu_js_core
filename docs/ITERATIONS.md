@@ -183,6 +183,7 @@ source: ai
 | 0273-cloud-deploy-static-workspace | 2026-04-01 | 将 0272 Static Workspace 重建同步到远端 cloud 环境，并完成公网上传与 `/p/<projectName>/...` 访问验证 | 4 | dev_0273-cloud-deploy-static-workspace | Completed | ./docs/iterations/0273-cloud-deploy-static-workspace/ |
 | 0274-visualized-guide-publish | 2026-04-01 | 将 `workspace_ui_filltable_example` 的可视化 Markdown/HTML 版本正式纳入用户文档目录，并补索引与迭代记录 | 3 | dev_0274-visualized-guide-publish | Completed | ./docs/iterations/0274-visualized-guide-publish/ |
 | 0275-doc-page-filltable-extension | 2026-04-01 | 文档型页面填表能力 MVP 基础扩展：新增 8 个文档语义组件 + 8 个 UI authoring 字段约定 + Static 上传/删除修复 | 7 | dev_0275-doc-page-filltable-extension | Completed | ./docs/iterations/0275-doc-page-filltable-extension/ |
+| 0276-doc-workspace-example-and-static-fileinput | 2026-04-02 | 修复 Static 文件选择器交互，并新增一个正式 Workspace 文档页面示例，证明可完全通过填表组成接近 visualized HTML 的界面 | 6 | dev_0276-doc-workspace-example-and-static-fileinput | Completed | ./docs/iterations/0276-doc-workspace-example-and-static-fileinput/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
