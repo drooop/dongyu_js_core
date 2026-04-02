@@ -46,27 +46,52 @@ function submitToAdapter(adapter, runtime, envelope) {
 }
 
 function test_static_workspace_file_input_still_targets_truth_media_uri() {
-  const fileInputBind = findRecord((record) => (
+  const fileInputWriteTarget = findRecord((record) => (
     record?.model_id === STATIC_WORKSPACE_APP_MODEL_ID
-    && record?.k === 'ui_bind_json'
-    && record?.v?.write?.target_ref?.model_id === STATIC_WORKSPACE_TRUTH_MODEL_ID
-    && record?.v?.write?.target_ref?.k === 'static_media_uri'
+    && record?.k === 'ui_write_target_model_id'
+    && record?.v === STATIC_WORKSPACE_TRUTH_MODEL_ID
   ));
-  assert.ok(fileInputBind, 'static_workspace_file_input_bind_missing');
+  const fileInputWriteKey = findRecord((record) => (
+    record?.model_id === STATIC_WORKSPACE_APP_MODEL_ID
+    && record?.k === 'ui_write_target_k'
+    && record?.v === 'static_media_uri'
+  ));
+  assert.ok(fileInputWriteTarget, 'static_workspace_file_input_write_target_missing');
+  assert.ok(fileInputWriteKey, 'static_workspace_file_input_write_key_missing');
   return { key: 'static_workspace_file_input_still_targets_truth_media_uri', status: 'PASS' };
 }
 
 function test_static_workspace_has_delete_button_bound_to_delete_action() {
-  const deleteButtonBind = findRecord((record) => (
+  const deleteAction = findRecord((record) => (
     record?.model_id === STATIC_WORKSPACE_APP_MODEL_ID
-    && record?.k === 'ui_bind_write_json'
-    && record?.v?.action === 'static_project_delete'
-    && record?.v?.target_ref?.model_id === STATIC_WORKSPACE_TRUTH_MODEL_ID
-    && record?.v?.target_ref?.k === 'static_project_name'
-    && record?.v?.value_ref?.t === 'str'
-    && record?.v?.value_ref?.v?.$ref === 'row.name'
+    && record?.k === 'ui_write_action'
+    && record?.v === 'static_project_delete'
   ));
-  assert.ok(deleteButtonBind, 'static_workspace_delete_button_bind_missing');
+  const deleteTargetModel = findRecord((record) => (
+    record?.model_id === STATIC_WORKSPACE_APP_MODEL_ID
+    && record?.k === 'ui_write_target_model_id'
+    && record?.v === STATIC_WORKSPACE_TRUTH_MODEL_ID
+  ));
+  const deleteTargetKey = findRecord((record) => (
+    record?.model_id === STATIC_WORKSPACE_APP_MODEL_ID
+    && record?.k === 'ui_write_target_k'
+    && record?.v === 'static_project_name'
+  ));
+  const deleteValueType = findRecord((record) => (
+    record?.model_id === STATIC_WORKSPACE_APP_MODEL_ID
+    && record?.k === 'ui_write_value_t'
+    && record?.v === 'str'
+  ));
+  const deleteValueRef = findRecord((record) => (
+    record?.model_id === STATIC_WORKSPACE_APP_MODEL_ID
+    && record?.k === 'ui_write_value_ref'
+    && record?.v === 'row.name'
+  ));
+  assert.ok(deleteAction, 'static_workspace_delete_button_action_missing');
+  assert.ok(deleteTargetModel, 'static_workspace_delete_button_target_model_missing');
+  assert.ok(deleteTargetKey, 'static_workspace_delete_button_target_key_missing');
+  assert.ok(deleteValueType, 'static_workspace_delete_button_value_type_missing');
+  assert.ok(deleteValueRef, 'static_workspace_delete_button_value_ref_missing');
   return { key: 'static_workspace_has_delete_button_bound_to_delete_action', status: 'PASS' };
 }
 
