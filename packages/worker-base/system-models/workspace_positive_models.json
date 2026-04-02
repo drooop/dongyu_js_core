@@ -3804,7 +3804,23 @@
       "t": "json",
       "v": {
         "accept": ".html,.htm,.zip",
-        "label": "Select .html or .zip file (max 50MB)"
+        "label": "Select .html or .zip file (max 50MB)",
+        "buttonLabel": "选择文件",
+        "emptyText": "未选择任何文件",
+        "selectedTextRef": {
+          "model_id": 1012,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "static_media_name"
+        },
+        "nameTargetRef": {
+          "model_id": 1012,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "static_media_name"
+        }
       }
     },
     {
@@ -4598,6 +4614,1433 @@
       "v": "/p/"
     },
     {
+      "op": "create_model",
+      "model_id": 1013,
+      "name": "doc_workspace_example_app",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.DocWorkspaceExampleApp"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "0276 Doc Page Workspace Example"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "workspace"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "doc_workspace_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "column",
+        "gap": 20,
+        "style": {
+          "padding": "20px 24px 40px",
+          "maxWidth": "1120px",
+          "margin": "0 auto"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_hero"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Section"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "hero"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "doc_title" } },
+        "sectionNumber": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "doc_section_number" } }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_heading"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Heading"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_hero"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "hero_heading" } },
+        "level": 2
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_intro"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Paragraph"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_hero"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "hero_intro" } }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_summary_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 16
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_summary_left"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Section"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_summary_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "summary_left_title" } },
+        "style": { "flex": 1, "minWidth": "280px" }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_summary_left_paragraph"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Paragraph"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_summary_left"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "summary_left_text" } }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_summary_right"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Section"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_summary_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "summary_right_title" } },
+        "style": { "flex": 1, "minWidth": "280px" }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_summary_right_paragraph"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Paragraph"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_summary_right"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "summary_right_text" } }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_flow_section"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Section"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "flow_section_title" } },
+        "sectionNumber": 2
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_flow_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Paragraph"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_flow_section"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "flow_section_text" } }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_flow_diagram"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "MermaidDiagram"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_flow_section"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "code": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "flow_section_mermaid" } }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_layout_proof"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Section"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "layout_proof_title" } },
+        "sectionNumber": 3
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_layout_proof_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_layout_proof"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 14
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_layout_left"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Callout"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_layout_proof_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "左侧块",
+        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "layout_left_text" } },
+        "calloutType": "info",
+        "style": { "flex": 1, "minWidth": "240px" }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_layout_right"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Callout"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_layout_proof_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "右侧块",
+        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "layout_right_text" } },
+        "calloutType": "warning",
+        "style": { "flex": 1, "minWidth": "240px" }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_rebuild_section"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Section"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "rebuild_title" } },
+        "sectionNumber": 4
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_rebuild_list"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "List"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_rebuild_section"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_list_type",
+      "t": "str",
+      "v": "ordered"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_step_1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "ListItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_rebuild_list"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "rebuild_step_1" } }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_step_2"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "ListItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_rebuild_list"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "rebuild_step_2" } }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_workspace_step_3"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "ListItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_workspace_rebuild_list"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "rebuild_step_3" } }
+      }
+    },
+    {
+      "op": "create_model",
+      "model_id": 1014,
+      "name": "doc_workspace_example_truth",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.DocWorkspaceExampleTruth"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "doc_title",
+      "t": "str",
+      "v": "Fill-Table Document Surface"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "doc_section_number",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "hero_heading",
+      "t": "str",
+      "v": "通过填表组成接近 visualized HTML 的文档界面"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "hero_intro",
+      "t": "str",
+      "v": "这个页面本身就是正式 Workspace 条目。结构、顺序、布局和主要文本都由模型表里的 labels 定义。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "summary_left_title",
+      "t": "str",
+      "v": "组成方式"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "summary_left_text",
+      "t": "str",
+      "v": "Section、Heading、Paragraph、Callout、List 等节点分别占用独立 cell。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "summary_right_title",
+      "t": "str",
+      "v": "可验证点"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "summary_right_text",
+      "t": "str",
+      "v": "在 Home 修改文本标签会直接改页面内容；修改 host 的 ui_layout 会直接改布局。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "flow_section_title",
+      "t": "str",
+      "v": "结构与编译链"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "flow_section_text",
+      "t": "str",
+      "v": "ModelTable labels 先形成 cellwise 结构，再由 compiler 变成 AST，最后由 renderer 渲染成页面。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "flow_section_mermaid",
+      "t": "str",
+      "v": "graph TD; Labels-->Compiler; Compiler-->Renderer; Renderer-->WorkspacePage;"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "layout_proof_title",
+      "t": "str",
+      "v": "布局证明"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "layout_left_text",
+      "t": "str",
+      "v": "默认状态下，这个容器是 row 布局。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "layout_right_text",
+      "t": "str",
+      "v": "把 Model 1013 / (2,14,0) / ui_layout 改成 column，页面就会重新排布。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "rebuild_title",
+      "t": "str",
+      "v": "最短重建步骤"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "rebuild_step_1",
+      "t": "str",
+      "v": "创建 app host 1013 和 truth 1014，并把 1013 挂到 Workspace 层级。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "rebuild_step_2",
+      "t": "str",
+      "v": "在 1013 逐个填写 ui_node_id / ui_component / ui_parent / ui_order / ui_layout。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1014,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "rebuild_step_3",
+      "t": "str",
+      "v": "在 1014 填写标题、段落、说明文字，再通过绑定投射到 1013 的页面节点。"
+    },
+    {
       "op": "add_label",
       "model_id": -2,
       "p": 0,
@@ -4654,6 +6097,11 @@
         {
           "model_id": 1009,
           "name": "0270 Fill-Table Workspace UI",
+          "source": "workspace"
+        },
+        {
+          "model_id": 1013,
+          "name": "0276 Doc Page Workspace Example",
           "source": "workspace"
         },
         {

@@ -1240,7 +1240,32 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const directory = Boolean(node.props && Object.prototype.hasOwnProperty.call(node.props, 'directory') ? node.props.directory : false);
     const labelText = node.props && Object.prototype.hasOwnProperty.call(node.props, 'label') ? String(node.props.label) : '';
     const wrapStyle = node.props && node.props.style ? node.props.style : undefined;
+    const triggerLabel = node.props && Object.prototype.hasOwnProperty.call(node.props, 'buttonLabel')
+      ? String(node.props.buttonLabel)
+      : '选择文件';
+    const emptyText = node.props && Object.prototype.hasOwnProperty.call(node.props, 'emptyText')
+      ? String(node.props.emptyText)
+      : '未选择任何文件';
+    const selectedText = readPropValueFromSnapshot(snapshot, node.props || {}, 'selectedText', 'selectedTextRef');
     const multiAttr = multiple || directory;
+    let inputEl = null;
+    let selectedTextEl = null;
+    const setSelectedText = (value) => {
+      if (!selectedTextEl) return;
+      selectedTextEl.textContent = value && String(value).trim() ? String(value) : emptyText;
+    };
+    const syncInputRef = (el) => {
+      inputEl = el;
+    };
+    const syncSelectedTextRef = (el) => {
+      selectedTextEl = el;
+      setSelectedText(selectedText);
+    };
+    const openPicker = () => {
+      if (inputEl && typeof inputEl.click === 'function') {
+        inputEl.click();
+      }
+    };
     const onChange = async (e) => {
       const input = e && e.target ? e.target : null;
       const files = input && input.files ? input.files : null;
@@ -1249,6 +1274,8 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         : null);
       if (!files || files.length === 0) return;
       if (!target) return;
+      const chosenNames = Array.from(files).map((file) => (file && file.name ? String(file.name) : ''));
+      setSelectedText(chosenNames.filter(Boolean).join(', '));
       if (typeof host.uploadMedia !== 'function') {
         dispatchEvent(node, target, { value: '' }, host, undefined, ctx);
         return;
@@ -1274,6 +1301,12 @@ function buildVueNode(node, snapshot, vue, host, registry) {
           });
         }
         if (uploaded.length === 0) return;
+        const nameTargetRef = node.props && isPlainObject(node.props.nameTargetRef) ? node.props.nameTargetRef : null;
+        if (nameTargetRef) {
+          dispatchEvent(node, { action: 'ui_owner_label_update', target_ref: nameTargetRef }, {
+            value: uploaded.map((item) => item.name).filter(Boolean).join(', '),
+          }, host, undefined, ctx);
+        }
         if (multiple || directory || uploaded.length > 1) {
           dispatchEvent(node, target, { value: uploaded }, host, undefined, ctx);
           return;
@@ -1285,14 +1318,35 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     };
     return h('div', { style: wrapStyle }, [
       labelText ? h('div', { style: { marginBottom: '6px', fontSize: '12px', color: '#374151' } }, labelText) : null,
-      h('input', {
-        type: 'file',
-        accept,
-        multiple: multiAttr,
-        webkitdirectory: directory,
-        directory,
-        onChange,
-      }),
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' } }, [
+        h('button', {
+          type: 'button',
+          onClick: openPicker,
+          style: {
+            border: '1px solid #d0d7de',
+            background: '#ffffff',
+            color: '#111827',
+            borderRadius: '8px',
+            padding: '8px 14px',
+            cursor: 'pointer',
+            fontSize: '14px',
+          },
+        }, triggerLabel),
+        h('span', {
+          ref: syncSelectedTextRef,
+          style: { color: '#475569', fontSize: '14px' },
+        }, selectedText && String(selectedText).trim() ? String(selectedText) : emptyText),
+        h('input', {
+          type: 'file',
+          accept,
+          multiple: multiAttr,
+          webkitdirectory: directory,
+          directory,
+          onChange,
+          ref: syncInputRef,
+          style: { display: 'none' },
+        }),
+      ]),
     ].filter(Boolean));
   }
 
