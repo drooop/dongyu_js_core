@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Workspace UI 填表示例 — 可视化指南</title>
+<title>Workspace 文档页面填表示例 — 可视化指南</title>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <style>
   :root {
@@ -312,463 +312,211 @@
 <body>
 
 <div class="hero">
-  <h1>Workspace UI 填表示例 — 可视化指南</h1>
-  <p>用图解说明 <code style="background:rgba(255,255,255,0.15);color:white;">0270 Fill-Table Workspace UI</code> 的完整工作方式。看完即懂，无需前置知识。</p>
+  <h1>Workspace 文档页面填表示例 — 可视化指南</h1>
+  <p>这份可视化文档现在对齐的是 <code style="background:rgba(255,255,255,0.15);color:white;">0276 Doc Page Workspace Example</code>，目标是展示：接近文档页面的界面，也可以通过填表组合出来。</p>
 </div>
 
 <div class="container">
 
-<!-- ==================== 1. 总览 ==================== -->
 <div class="section">
-  <h2><span class="num">1</span> 总览：最终你会看到什么界面</h2>
-  <p class="subtitle">打开 Workspace 后你看到的东西</p>
+  <h2><span class="num">1</span> 总览：最终看到的页面</h2>
+  <p class="subtitle">这不再是旧的三组件例子，而是正式的文档型 Workspace 页面。</p>
 
   <div class="diagram-box">
     <pre class="mermaid">
-graph LR
-    subgraph sidebar["Workspace 侧边栏"]
-        entry["0270 Fill-Table\nWorkspace UI"]
-    end
+graph TD
+    sidebar["Workspace 侧边栏\n0276 Doc Page Workspace Example"]
+    page["右侧文档页面"]
 
-    entry -- "点击 Open →" --> page
+    sidebar --> page
 
-    subgraph page["右侧页面"]
+    subgraph doc["页面主体"]
         direction TB
-        subgraph row["上方控件区"]
-            direction LR
-            input["Input\n输入框"]
-            btn["Confirm\n按钮"]
-        end
-        label["Label\n显示结果文本"]
+        hero["Hero Section\n标题 + 导语"]
+        summary["Summary Row\n左右两块内容"]
+        flow["Flow Section\n说明 + Mermaid 占位"]
+        layout["Layout Proof\n左右布局证明"]
+        rebuild["Rebuild Steps\n重建步骤列表"]
     end
 
-    style entry fill:#e0f2fe,stroke:#0284c7
-    style input fill:#f0fdf4,stroke:#16a34a
-    style btn fill:#eff6ff,stroke:#2563eb
-    style label fill:#fefce8,stroke:#ca8a04
+    page --> doc
     </pre>
   </div>
 
   <div class="how-to-read">
-    <strong>怎么看：</strong> 侧边栏有一个条目，点 Open 后右侧出现一个输入框、一个确认按钮、一行结果文本。输入文字 → 点 Confirm → Label 显示返回的颜色字符串。结果文本始终读取 Model 1010 的 <code>generated_color_text</code>，不管走远端还是本地。
+    <strong>怎么看：</strong> 这是一个正式的 Workspace 条目。打开后，右侧是文档页面，不是表单页。它被拆成多个 section，每一块都来自模型表节点。
   </div>
 </div>
 
-<!-- ==================== 2. 模型关系 ==================== -->
 <div class="section">
-  <h2><span class="num">2</span> 模型关系：谁负责什么</h2>
-  <p class="subtitle">3 个模型的分工与挂载</p>
+  <h2><span class="num">2</span> 模型关系：谁负责结构，谁负责内容</h2>
+  <p class="subtitle">`1013` 负责结构，`1014` 负责文案和正文。</p>
 
   <div class="diagram-box">
     <pre class="mermaid">
 graph TD
     M0["Model 0\n系统根模型"]
-    M1009["Model 1009\nApp 宿主"]
-    M1010["Model 1010\n交互核心"]
-    WS["Workspace 侧边栏\n(Model -2 ws_apps_registry)"]
+    M1013["Model 1013\nDoc Page App Host"]
+    M1014["Model 1014\nDoc Page Truth"]
+    WS["Workspace 侧边栏"]
 
-    M0 -- "model.submt\n挂载" --> M1009
-    M1009 -- "model.submt\n(0,2,0) 挂载" --> M1010
-    WS -. "注册条目\n让侧边栏可见" .-> M1009
+    M0 -->|"model.submt"| M1013
+    M1013 -->|"model.submt (0,2,0)"| M1014
+    WS -. "注册 app 条目" .-> M1013
 
-    style M0 fill:#f3e8ff,stroke:#7c3aed
-    style M1009 fill:#e0f2fe,stroke:#0284c7
-    style M1010 fill:#fef3c7,stroke:#d97706
-    style WS fill:#f1f5f9,stroke:#64748b
-    </pre>
-  </div>
+    subgraph host["1013 负责"]
+      h1["Section / Paragraph / Callout / List 节点结构"]
+      h2["ui_parent / ui_order / ui_layout"]
+      h3["页面布局和显示顺序"]
+    end
 
-  <div class="two-col" style="margin-top:16px;">
-    <div class="card-mini" style="border-left: 4px solid #0284c7;">
-      <h4>Model 1009 — App 宿主</h4>
-      <p>负责页面 UI 节点（Input / Button / Text 长什么样）、Workspace 侧边栏展示、把子模型的 submit 往上中继。</p>
-    </div>
-    <div class="card-mini" style="border-left: 4px solid #d97706;">
-      <h4>Model 1010 — 交互核心</h4>
-      <p>存着输入草稿、返回的结果文本、链路模式（远端/本地）、所有布局参数和样式参数。真正干活的模型。</p>
-    </div>
-  </div>
-  <div class="card-mini" style="border-left: 4px solid #7c3aed; margin-top:12px;">
-    <h4>Model 0 — 系统根</h4>
-    <p>所有模型的根。远端模式下负责把 submit 接到双总线出口 <code>ws_filltable_submit_out</code>。</p>
-  </div>
-
-  <div class="how-to-read">
-    <strong>怎么看：</strong> 实线箭头 = 挂载关系（父 → 子）。虚线 = 注册关系。Model 0 挂 1009，1009 再挂 1010。Workspace 侧边栏通过 Model -2 的注册表知道有这个 app。
-  </div>
-</div>
-
-<!-- ==================== 3. 远端模式 ==================== -->
-<div class="section" id="section-remote">
-  <h2><span class="num">3</span> 远端模式链路 <span class="badge badge-default">默认</span></h2>
-  <p class="subtitle">点击 Confirm 后数据怎么走</p>
-
-  <div class="callout callout-blue">
-    <strong>默认状态就是远端模式</strong>，不需要做任何修改即可使用。关键配置：<code>processor_routes</code> 中 confirm 接到 <code>dispatch_remote</code>。
-  </div>
-
-  <div class="diagram-box">
-    <pre class="mermaid">
-%%{init: {'theme':'dark', 'themeVariables': {'actorBkg':'#dbeafe','actorTextColor':'#0f172a','actorBorder':'#60a5fa','noteBkgColor':'#fef9c3','noteTextColor':'#1e293b','noteBorderColor':'#fbbf24','signalTextColor':'#f1f5f9','signalColor':'#94a3b8','labelTextColor':'#f1f5f9'}}}%%
-sequenceDiagram
-    actor User as 用户
-    participant UI as 页面 UI
-    participant M1010 as Model 1010
-    participant M1009 as Model 1009
-    participant M0 as Model 0
-    participant BUS as 双总线 MBR
-    participant RW as remote-worker
-
-    User->>UI: 输入文字，点击 Confirm
-    UI->>M1010: 写入 ui_event
-    Note over M1010: prepare 把事件<br/>送到 (1,0,0) confirm
-    M1010->>M1010: processor_routes → dispatch_remote
-    Note over M1010: payload 写到 submit
-    M1010->>M1009: 子模型 submit 中继
-    M1009->>M0: 接到 ws_filltable_submit_out
-    M0->>BUS: 发到双总线
-    BUS->>RW: MBR 路由到 remote-worker
-    RW-->>BUS: 返回 patch
-    BUS-->>M1010: snapshot_delta 路由回来
-    Note over M1010: generated_color_text 更新
-    M1010-->>UI: 页面刷新结果
-    UI-->>User: Label 显示颜色字符串
+    subgraph truth["1014 负责"]
+      t1["doc_title / hero_heading / hero_intro"]
+      t2["summary_left_text / summary_right_text"]
+      t3["flow_section_text / rebuild_step_*"]
+    end
     </pre>
   </div>
 
   <div class="how-to-read">
-    <strong>怎么看：</strong> 从上往下读。左侧是"请求发出去"（实线箭头），右侧是"结果回来"（虚线箭头）。数据从 UI → Model 1010 → 1009 → Model 0 → 双总线 → remote-worker，处理完后原路返回更新 Label。共经过 5 个中转节点。
+    <strong>怎么看：</strong> `1013` 像页面骨架，决定有哪些块、顺序怎样排；`1014` 像正文来源，决定每一块写什么。
   </div>
 </div>
 
-<!-- ==================== 4. 本地模式 ==================== -->
 <div class="section">
-  <h2><span class="num">4</span> 本地模式链路 <span class="badge badge-switch">改表切换</span></h2>
-  <p class="subtitle">只改一个标签，数据走更短的路</p>
-
-  <div class="callout callout-green">
-    <strong>通过改表切到本地模式</strong>：把 <code>Model 1010 / (1,0,0) / processor_routes</code> 中的 <code>dispatch_remote</code> 改成 <code>dispatch_local</code>。不需要改页面结构。
-  </div>
-
-  <pre>[
-  {
-    "from": "(self, confirm)",
-    "to": ["(func, dispatch_local:in)"]
-  }
-]</pre>
-
-  <div class="diagram-box">
-    <pre class="mermaid">
-%%{init: {'theme':'dark', 'themeVariables': {'actorBkg':'#dbeafe','actorTextColor':'#0f172a','actorBorder':'#60a5fa','noteBkgColor':'#fef9c3','noteTextColor':'#1e293b','noteBorderColor':'#fbbf24','signalTextColor':'#f1f5f9','signalColor':'#94a3b8','labelTextColor':'#f1f5f9'}}}%%
-sequenceDiagram
-    actor User as 用户
-    participant UI as 页面 UI
-    participant M1010 as Model 1010
-    participant Helper as Helper Cell (0,1,0)
-
-    User->>UI: 输入文字，点击 Confirm
-    UI->>M1010: 写入 ui_event
-    Note over M1010: prepare 把事件<br/>送到 (1,0,0) confirm
-    M1010->>M1010: processor_routes → dispatch_local
-    Note over M1010: 在本模型内直接计算
-    M1010->>Helper: owner_apply → owner_materialize
-    Note over Helper: 更新 generated_color_text<br/>result_status / submit_inflight
-    Helper-->>UI: 页面刷新结果
-    UI-->>User: Label 显示颜色字符串
-    </pre>
-  </div>
-
-  <div class="how-to-read">
-    <strong>怎么看：</strong> 和远端模式对比，数据不再离开 Model 1010。没有 Model 1009、Model 0、也没有双总线。计算在本地完成后通过 Helper Cell 落表，直接反映到页面。路径大幅缩短。
-  </div>
-</div>
-
-<!-- ==================== 5. 改表影响 ==================== -->
-<div class="section">
-  <h2><span class="num">5</span> 改表影响：哪些标签控制什么</h2>
-  <p class="subtitle">所有可调标签都在 Model 1010 上</p>
+  <h2><span class="num">3</span> 页面组成：每一块都来自填表</h2>
+  <p class="subtitle">一个节点一个 cell，而不是整块页面一次性塞进去。</p>
 
   <div class="diagram-box">
     <pre class="mermaid">
 graph LR
-    subgraph style_labels["样式类（改外观，不影响链路）"]
-        ld["layout_direction\nrow / row-reverse"]
-        ifs["input_font_size\n如 18px / 24px"]
-        bc["button_color\n如 #2563EB / #DC2626"]
-    end
+    A["(2,2,0)\nSection hero"] --> B["(2,3,0)\nHeading"]
+    A --> C["(2,4,0)\nParagraph"]
 
-    subgraph route_labels["链路类（改数据走向）"]
-        pr["processor_routes\n路由表"]
-    end
+    D["(2,5,0)\nContainer summary row"] --> E["(2,6,0)\nSection left"]
+    D --> F["(2,8,0)\nSection right"]
+    E --> G["(2,7,0)\nParagraph"]
+    F --> H["(2,9,0)\nParagraph"]
 
-    ld --> eff1["Input 和 Button\n左右互换"]
-    ifs --> eff2["输入框字号\n变大/变小"]
-    bc --> eff3["按钮背景色\n变化"]
-    pr --> eff4["切换远端 ↔ 本地\n处理链路"]
+    I["(2,10,0)\nSection flow"] --> J["(2,11,0)\nParagraph"]
+    I --> K["(2,12,0)\nMermaidDiagram"]
 
-    style ld fill:#dbeafe,stroke:#3b82f6
-    style ifs fill:#dbeafe,stroke:#3b82f6
-    style bc fill:#dbeafe,stroke:#3b82f6
-    style pr fill:#fee2e2,stroke:#ef4444
-    style eff1 fill:#f0fdf4,stroke:#16a34a
-    style eff2 fill:#f0fdf4,stroke:#16a34a
-    style eff3 fill:#f0fdf4,stroke:#16a34a
-    style eff4 fill:#fef9c3,stroke:#ca8a04
+    L["(2,13,0)\nSection layout proof"] --> M["(2,14,0)\nContainer row"]
+    M --> N["(2,15,0)\nCallout left"]
+    M --> O["(2,16,0)\nCallout right"]
+
+    P["(2,17,0)\nSection rebuild"] --> Q["(2,18,0)\nList"]
+    Q --> R["(2,19,0)\nListItem 1"]
+    Q --> S["(2,20,0)\nListItem 2"]
+    Q --> T["(2,21,0)\nListItem 3"]
     </pre>
   </div>
 
-  <table>
-    <thead>
-      <tr><th>操作</th><th>标签位置</th><th>改什么</th><th>看到什么变化</th></tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>改 <code>layout_direction</code></td>
-        <td>Model 1010 (0,0,0)</td>
-        <td><code>row</code> → <code>row-reverse</code></td>
-        <td>Input 和 Button 左右互换</td>
-      </tr>
-      <tr>
-        <td>改 <code>input_font_size</code></td>
-        <td>Model 1010 (0,0,0)</td>
-        <td>如 <code>18px</code> → <code>24px</code></td>
-        <td>输入框文字变大</td>
-      </tr>
-      <tr>
-        <td>改 <code>button_color</code></td>
-        <td>Model 1010 (0,0,0)</td>
-        <td>如 <code>#2563EB</code> → <code>#DC2626</code></td>
-        <td>按钮从蓝变红</td>
-      </tr>
-      <tr>
-        <td>改 <code>processor_routes</code></td>
-        <td>Model 1010 (1,0,0)</td>
-        <td><code>dispatch_remote</code> → <code>dispatch_local</code></td>
-        <td>Confirm 走本地处理</td>
-      </tr>
-    </tbody>
-  </table>
-
   <div class="how-to-read">
-    <strong>怎么看：</strong> 蓝色 = 改了只影响外观，红色 = 改了影响数据走向。右边绿色是外观效果，黄色是链路效果。改样式标签不会影响链路，改路由标签不会影响样式，两者互不干扰。
+    <strong>怎么看：</strong> 这张图直接对应 `Model 1013` 的 cell。你可以把它理解成“页面树”被拆成一格一格来填。
   </div>
 </div>
 
-<!-- ==================== 6. 重建流程 ==================== -->
 <div class="section">
-  <h2><span class="num">6</span> 重建流程：从零做出这个案例</h2>
-  <p class="subtitle">通过 Home 页面 Add Label，按顺序填表</p>
+  <h2><span class="num">4</span> 布局为什么真的是由 label 决定</h2>
+  <p class="subtitle">不是换组件，也不是写死两套页面，只改一个标签就能变。</p>
+
+  <div class="callout callout-green">
+    关键例子是：<code>Model 1013 / (2,14,0) / ui_layout</code>
+  </div>
 
   <div class="diagram-box">
     <pre class="mermaid">
-flowchart TD
-    start(["开始重建"]):::startNode --> step1
-
-    subgraph step1["第一步：创建 Model 1010（交互核心）"]
-        s1a["Home → Add Label\n创建 model_id=1010\nmodel_type = model.table"]
-        s1b["补根格 (0,0,0) 标签：\ninput_draft / generated_color_text\nresult_status / submit_inflight\nsubmit_route_mode / layout_direction\ninput_font_size / button_color 等"]
-        s1c["补处理格 (1,0,0) 标签：\nconfirm / processor_routes\ndispatch_remote / dispatch_local"]
-        s1a --> s1b --> s1c
-    end
-
-    step1 --> step2
-
-    subgraph step2["第二步：创建 Model 1009（App 宿主）"]
-        s2a["创建 model_id=1009\n补 app_name / ui_root_node_id"]
-        s2b["挂载子模型：\n(0,2,0) model.submt → 1010"]
-        s2c["补 UI 节点标签：\n根容器 / 控件容器\nInput / Button / Text"]
-        s2a --> s2b --> s2c
-    end
-
-    step2 --> step3
-
-    subgraph step3["第三步：挂到 Workspace"]
-        s3a["Model 0 添加\nmodel.submt → 1009"]
-        s3b["Model -2 ws_apps_registry\n注册 app 条目"]
-        s3a --> s3b
-    end
-
-    step3 --> done(["刷新页面 → 侧边栏出现条目"]):::doneNode
-
-    classDef startNode fill:#e0f2fe,stroke:#0284c7
-    classDef doneNode fill:#f0fdf4,stroke:#16a34a
+graph LR
+    rowLabel["ui_layout = row"] --> rowView["左块 | 右块"]
+    colLabel["ui_layout = column"] --> colView["左块\n右块"]
     </pre>
   </div>
 
+  <div class="two-col">
+    <div class="card-mini">
+      <h4>默认值</h4>
+      <p><code>row</code>。页面中“左侧块 / 右侧块”横向排列。</p>
+    </div>
+    <div class="card-mini">
+      <h4>改表后</h4>
+      <p>改成 <code>column</code>，同一个容器会变成上下排列。</p>
+    </div>
+  </div>
+
   <div class="how-to-read">
-    <strong>怎么看：</strong> 从上往下按顺序做三步。先建交互核心（Model 1010），再建应用壳（Model 1009 + 挂载 1010），最后挂到 Workspace 让侧边栏可见。每一步都通过 Home 的 Add Label 填表完成。
+    <strong>怎么看：</strong> 同一个节点，不换组件，只改一个布局 label，页面排版就会改变。这就是“布局位置由 label 定义”的最直接证据。
   </div>
 </div>
 
-<!-- ==================== 7. 两种模式对比 ==================== -->
 <div class="section">
-  <h2><span class="num">7</span> 两种模式一图对比</h2>
-  <p class="subtitle">远端 vs 本地，以及如何切换</p>
+  <h2><span class="num">5</span> 内容为什么也是由 label 决定</h2>
+  <p class="subtitle">正文内容主要来自 `Model 1014 / (0,0,0)`。</p>
 
   <div class="diagram-box">
     <pre class="mermaid">
 graph TD
-    subgraph remote["远端模式 ✅ 默认"]
-        r1["UI → Model 1010"] --> r2["→ Model 1009"]
-        r2 --> r3["→ Model 0"]
-        r3 --> r4["→ 双总线 MBR"]
-        r4 --> r5["→ remote-worker"]
-        r5 --> r6["结果原路返回"]
-    end
-
-    subgraph local["本地模式（改表切换）"]
-        l1["UI → Model 1010"] --> l2["→ dispatch_local\n本地计算"]
-        l2 --> l3["→ Helper Cell\n落表更新"]
-    end
-
-    sw["切换方法：改 processor_routes\ndispatch_remote → dispatch_local"]
-
-    remote -.-> sw
-    sw -.-> local
-
-    style remote fill:#eff6ff,stroke:#2563eb
-    style local fill:#f0fdf4,stroke:#16a34a
-    style sw fill:#fef3c7,stroke:#d97706
+    title["doc_title"] --> hero["Hero Section 标题栏"]
+    heading["hero_heading"] --> heroH["Heading 节点"]
+    intro["hero_intro"] --> heroP["Paragraph 节点"]
+    leftText["summary_left_text"] --> leftP["左侧 Paragraph"]
+    rightText["summary_right_text"] --> rightP["右侧 Paragraph"]
+    flowText["flow_section_text"] --> flowP["Flow Paragraph"]
+    steps["rebuild_step_1/2/3"] --> list["Rebuild ListItem"]
     </pre>
   </div>
 
   <div class="how-to-read">
-    <strong>怎么看：</strong> 蓝色框是远端模式（默认，经过 5 个节点），绿色框是本地模式（3 个节点）。黄色框是切换方法 — 只需要改一个标签值。
+    <strong>怎么看：</strong> 这页不是把整段长文塞进 host model。多数正文都在 `1014`，再通过绑定投射到 `1013` 的页面节点上。
   </div>
 </div>
 
-<!-- ==================== 8. 最短操作路径 ==================== -->
 <div class="section">
-  <h2><span class="num">8</span> 用户最短操作路径</h2>
-  <p class="subtitle">从打开到跑通的最少步骤</p>
+  <h2><span class="num">6</span> 最短重建思路</h2>
+  <p class="subtitle">先有内容，再有结构，再有挂载。</p>
 
-  <h3 style="font-size:16px; margin: 16px 0 10px;">使用现成示例（5 步跑通）</h3>
+  <div class="diagram-box">
+    <pre class="mermaid">
+flowchart TD
+    S["开始"] --> A["创建 Model 1014\n填写内容 labels"]
+    A --> B["创建 Model 1013\n填写节点结构 labels"]
+    B --> C["在 1013 上挂 1014"]
+    C --> D["在 Model 0 下挂 1013"]
+    D --> E["写入 Workspace registry"]
+    E --> F["刷新页面并打开"]
+    </pre>
+  </div>
+
+  <div class="how-to-read">
+    <strong>怎么看：</strong> 顺序不能反。先有 truth 内容，再有 host 结构，最后才是侧边栏入口。
+  </div>
+</div>
+
+<div class="section">
+  <h2><span class="num">7</span> 你现在最该关注的点</h2>
+  <ul class="steps-list">
+    <li>这页已经不是旧的三组件示例，而是正式的文档页面样例。</li>
+    <li>结构主要在 `1013`，内容主要在 `1014`。</li>
+    <li><code>ui_layout / ui_order / ui_parent</code> 决定“摆在哪里”。</li>
+    <li><code>doc_title / hero_intro / rebuild_step_*</code> 决定“写什么”。</li>
+  </ul>
+</div>
+
+<div class="section">
+  <h2><span class="num">8</span> 最短验证步骤</h2>
   <ol class="steps-list">
-    <li>打开 <strong>Workspace</strong></li>
-    <li>在侧边栏找到 <strong>0270 Fill-Table Workspace UI</strong></li>
-    <li>点击 <strong>Open</strong>，右侧出现 Input + Button + Label</li>
-    <li>输入任意文字，点击 <strong>Confirm</strong></li>
-    <li>等 Label 显示颜色字符串 — 远端链路跑通</li>
+    <li>打开 Workspace。</li>
+    <li>找到 `0276 Doc Page Workspace Example`。</li>
+    <li>点击 `Open`，确认右侧出现文档页面。</li>
+    <li>去 Home，选择 `Model 1014`，修改 `doc_title` 或 `hero_heading`。</li>
+    <li>回 Workspace，确认标题或文案变化。</li>
+    <li>再去 Home，修改 `Model 1013 / (2,14,0) / ui_layout`。</li>
+    <li>回 Workspace，确认“左侧块 / 右侧块”从横排变成竖排，或反过来。</li>
   </ol>
-
-  <h3 style="font-size:16px; margin: 20px 0 10px;">切换到本地模式（+2 步）</h3>
-  <ol class="steps-list" style="counter-reset: step 5;">
-    <li>进 Home，找到 <code>Model 1010 / (1,0,0) / processor_routes</code>，把 <code>dispatch_remote</code> 改成 <code>dispatch_local</code></li>
-    <li>回到页面点 <strong>Confirm</strong>，Label 仍显示结果 — 本地链路跑通</li>
-  </ol>
-
-  <h3 style="font-size:16px; margin: 20px 0 10px;">改样式试试（任选一个）</h3>
-  <div class="two-col">
-    <div class="card-mini">
-      <h4><code>layout_direction</code> → <code>row-reverse</code></h4>
-      <p>Input 和 Button 左右位置互换</p>
-    </div>
-    <div class="card-mini">
-      <h4><code>input_font_size</code> → <code>24px</code></h4>
-      <p>输入框字号变大</p>
-    </div>
-    <div class="card-mini">
-      <h4><code>button_color</code> → <code>#DC2626</code></h4>
-      <p>按钮背景从蓝变红</p>
-    </div>
-    <div class="card-mini">
-      <h4><code>layout_direction</code> → <code>row</code></h4>
-      <p>恢复原始左右顺序</p>
-    </div>
-  </div>
-</div>
-
-<!-- ==================== 补充说明 ==================== -->
-<div class="section">
-  <h2><span class="num">9</span> 补充说明：原文未展开的细节</h2>
-  <p class="subtitle">以下信息来自代码和系统模型定义文件，已查实</p>
-
-  <h3 style="font-size:16px; margin: 20px 0 10px;">9.1 <code>submit_route_mode</code> 与 <code>processor_routes</code> 的关系</h3>
-
-  <div class="callout callout-green">
-    <strong>结论：切换模式只需要改 <code>processor_routes</code>，不需要手动改 <code>submit_route_mode</code>。</strong>
-  </div>
-  <p style="font-size:14px; margin-top:8px;">
-    <code>submit_route_mode</code> 是一个<strong>描述性标签</strong>，不参与路由决策。真正决定数据走远端还是本地的是 <code>processor_routes</code>。
-  </p>
-  <p style="font-size:14px; margin-top:8px;">
-    当 <code>dispatch_remote</code> 或 <code>dispatch_local</code> 函数执行时，会<strong>自动回写</strong> <code>submit_route_mode</code> 的值（分别写 <code>"remote"</code> 或 <code>"local"</code>）。所以这个标签始终反映最近一次实际走的链路，不需要你手动维护。
-  </p>
-
-  <h3 style="font-size:16px; margin: 20px 0 10px;">9.2 <code>dual_bus_model</code> 标签的具体内容</h3>
-  <p style="font-size:14px;">
-    这是一个 JSON 对象标签（<code>t = "json"</code>），存在 Model 1010 的根格 (0,0,0)，定义了双总线事件桥接的三个关键函数名：
-  </p>
-  <pre>{
-  "ui_event_func": "prepare_workspace_filltable_submit",
-  "model0_egress_label": "ws_filltable_submit_out",
-  "model0_egress_func": "forward_workspace_filltable_submit_from_model0"
-}</pre>
-  <table>
-    <thead>
-      <tr><th>字段</th><th>作用</th></tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><code>ui_event_func</code></td>
-        <td>UI 事件处理函数名 — 接收 <code>ui_event</code> 并把事件送到处理链</td>
-      </tr>
-      <tr>
-        <td><code>model0_egress_label</code></td>
-        <td>Model 0 上的出口标签名 — 远端模式下事件通过这个标签发到双总线</td>
-      </tr>
-      <tr>
-        <td><code>model0_egress_func</code></td>
-        <td>Model 0 上的转发函数名 — 负责把事件从 Model 0 转发到双总线</td>
-      </tr>
-    </tbody>
-  </table>
-  <p style="font-size:14px; margin-top:8px; color: var(--text-light);">
-    这个标签是<strong>受保护标签</strong>（protected_label_key），不能通过填表策略修改。普通用户不需要动它。
-  </p>
-
-  <h3 style="font-size:16px; margin: 20px 0 10px;">9.3 Helper Cell <code>(0,1,0)</code> 的工作方式</h3>
-  <p style="font-size:14px;">
-    Helper Cell (p=0, r=1, c=0) <strong>没有预置标签</strong>。它是一个动态接收器：<code>dispatch_local</code> 函数在运行时向它写入 <code>owner_apply</code> 标签（pin.in 类型），内容是一组变更记录（records）。
-  </p>
-  <p style="font-size:14px; margin-top:8px;">
-    写入格式示例：
-  </p>
-  <pre>{
-  "op": "apply_records",
-  "target_model_id": 1010,
-  "records": [
-    { "k": "generated_color_text", "t": "str", "v": "..." },
-    { "k": "result_status", "t": "str", "v": "ok" },
-    { "k": "submit_inflight", "t": "bool", "v": false }
-  ]
-}</pre>
-  <p style="font-size:14px; margin-top:8px;">
-    服务端收到 <code>owner_apply</code> 后执行 <code>owner_materialize</code>，把变更记录真正写入 Model 1010 的根格。用户不需要在这个 Cell 上预先放任何标签。
-  </p>
-
-  <h3 style="font-size:16px; margin: 20px 0 10px;">9.4 <code>button_variant</code> 的取值范围</h3>
-  <p style="font-size:14px;">
-    <code>button_variant</code> 是字符串类型标签，默认值为 <code>"primary"</code>。它映射到 Element Plus 的 ElButton 组件的 <code>type</code> 属性，同时支持几个额外的变体：
-  </p>
-  <table>
-    <thead>
-      <tr><th>值</th><th>效果</th></tr>
-    </thead>
-    <tbody>
-      <tr><td><code>primary</code></td><td>默认蓝色按钮（Element Plus 主题色）</td></tr>
-      <tr><td><code>pill</code></td><td>胶囊按钮 — 圆角 9999px，左右内边距 24px</td></tr>
-      <tr><td><code>text</code></td><td>纯文字按钮 — 无背景无边框</td></tr>
-      <tr><td><code>link</code></td><td>链接样式按钮 — 看起来像超链接</td></tr>
-      <tr><td>其他 Element Plus 值</td><td>如 <code>success</code>、<code>warning</code>、<code>danger</code>、<code>info</code></td></tr>
-    </tbody>
-  </table>
-</div>
-
 </div>
 
 <footer>
-  基于 <code>docs/user-guide/workspace_ui_filltable_example.md</code> 生成 · 2026-04-01
+  当前可视化文档已对齐 `0276 Doc Page Workspace Example`，不是旧版 `0270`。
 </footer>
 
 <script>

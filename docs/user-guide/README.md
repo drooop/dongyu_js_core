@@ -36,7 +36,7 @@ source: ai
 - `workspace_ui_filltable_example.md`
   - 0270 正式案例：通过填表创建并挂载 `Input + Button + Label` Workspace 条目，并在远端双总线 / 本地程序模型两种链路之间切换。
 - `workspace_ui_filltable_example_visualized.md`
-  - 0270 可视化版本：用图解方式展示模型关系、远端/本地链路、改表影响和重建流程。
+  - 当前可视化版本：已对齐到 `0276 Doc Page Workspace Example`，用图解方式展示文档页的模型关系、节点组成、布局 label 和重建顺序。
 - `static_workspace_rebuild.md`
   - 0272 正式案例：通过 Workspace 中的 Static 页面上传单个 HTML 或 ZIP，并固定挂载到 `/p/<projectName>/...`。
 - `doc_page_filltable_guide.md`
