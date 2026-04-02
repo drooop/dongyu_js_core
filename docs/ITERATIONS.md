@@ -185,6 +185,7 @@ source: ai
 | 0275-doc-page-filltable-extension | 2026-04-01 | 文档型页面填表能力 MVP 基础扩展：新增 8 个文档语义组件 + 8 个 UI authoring 字段约定 + Static 上传/删除修复 | 7 | dev_0275-doc-page-filltable-extension | Completed | ./docs/iterations/0275-doc-page-filltable-extension/ |
 | 0276-doc-workspace-example-and-static-fileinput | 2026-04-02 | 修复 Static 文件选择器交互，并新增一个正式 Workspace 文档页面示例，证明可完全通过填表组成接近 visualized HTML 的界面 | 6 | dev_0276-doc-workspace-example-and-static-fileinput | Completed | ./docs/iterations/0276-doc-workspace-example-and-static-fileinput/ |
 | 0277-non-three-fine-grain-audit | 2026-04-03 | 排除 Three.js 后，对 workspace_positive_models.json 做细粒度审查并产出收口优先级清单 | 3 | dev_0277-non-three-fine-grain-audit | Completed | ./docs/iterations/0277-non-three-fine-grain-audit/ |
+| 0278-non-three-fine-grain-remediation | 2026-04-03 | 先对 0270 / 0276 / Static 的页面 authoring 粗块做细粒度收口，不碰 Three.js 与大流程函数 | 5 | dev_0278-non-three-fine-grain-remediation | Completed | ./docs/iterations/0278-non-three-fine-grain-remediation/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

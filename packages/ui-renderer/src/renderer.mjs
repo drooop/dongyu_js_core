@@ -1235,24 +1235,33 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   }
 
   if (node.type === 'FileInput') {
-    const accept = node.props && Object.prototype.hasOwnProperty.call(node.props, 'accept') ? node.props.accept : undefined;
-    const multiple = Boolean(node.props && Object.prototype.hasOwnProperty.call(node.props, 'multiple') ? node.props.multiple : false);
-    const directory = Boolean(node.props && Object.prototype.hasOwnProperty.call(node.props, 'directory') ? node.props.directory : false);
-    const labelText = node.props && Object.prototype.hasOwnProperty.call(node.props, 'label') ? String(node.props.label) : '';
-    const wrapStyle = node.props && node.props.style ? node.props.style : undefined;
-    const triggerLabel = node.props && Object.prototype.hasOwnProperty.call(node.props, 'buttonLabel')
-      ? String(node.props.buttonLabel)
+    const accept = Object.prototype.hasOwnProperty.call(props, 'accept') ? props.accept : undefined;
+    const multiple = Boolean(Object.prototype.hasOwnProperty.call(props, 'multiple') ? props.multiple : false);
+    const directory = Boolean(Object.prototype.hasOwnProperty.call(props, 'directory') ? props.directory : false);
+    const labelText = Object.prototype.hasOwnProperty.call(props, 'label') ? String(props.label) : '';
+    const wrapStyle = props && props.style ? props.style : undefined;
+    const triggerLabel = Object.prototype.hasOwnProperty.call(props, 'buttonLabel')
+      ? String(props.buttonLabel)
       : '选择文件';
-    const emptyText = node.props && Object.prototype.hasOwnProperty.call(node.props, 'emptyText')
-      ? String(node.props.emptyText)
+    const emptyText = Object.prototype.hasOwnProperty.call(props, 'emptyText')
+      ? String(props.emptyText)
       : '未选择任何文件';
-    const selectedText = readPropValueFromSnapshot(snapshot, node.props || {}, 'selectedText', 'selectedTextRef');
+    const selectedText = Object.prototype.hasOwnProperty.call(props, 'selectedText') ? props.selectedText : '';
     const multiAttr = multiple || directory;
     let inputEl = null;
     let selectedTextEl = null;
     const setSelectedText = (value) => {
       if (!selectedTextEl) return;
-      selectedTextEl.textContent = value && String(value).trim() ? String(value) : emptyText;
+      if (typeof value === 'string') {
+        selectedTextEl.textContent = value.trim() ? value : emptyText;
+        return;
+      }
+      if (Array.isArray(value)) {
+        const merged = value.filter((item) => typeof item === 'string' && item.trim()).join(', ');
+        selectedTextEl.textContent = merged || emptyText;
+        return;
+      }
+      selectedTextEl.textContent = emptyText;
     };
     const syncInputRef = (el) => {
       inputEl = el;
@@ -1301,7 +1310,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
           });
         }
         if (uploaded.length === 0) return;
-        const nameTargetRef = node.props && isPlainObject(node.props.nameTargetRef) ? node.props.nameTargetRef : null;
+        const nameTargetRef = isPlainObject(props.nameTargetRef) ? props.nameTargetRef : null;
         if (nameTargetRef) {
           dispatchEvent(node, { action: 'ui_owner_label_update', target_ref: nameTargetRef }, {
             value: uploaded.map((item) => item.name).filter(Boolean).join(', '),

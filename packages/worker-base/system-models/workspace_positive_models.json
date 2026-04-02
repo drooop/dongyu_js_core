@@ -2594,26 +2594,99 @@
       "p": 2,
       "r": 1,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "row",
-        "gap": 12,
-        "wrap": true,
-        "style": {
-          "flexDirection": {
-            "$label": {
-              "model_id": 1010,
-              "p": 0,
-              "r": 0,
-              "c": 0,
-              "k": "layout_direction"
-            }
-          },
-          "width": "100%",
-          "alignItems": "center"
-        }
-      }
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_flex_direction_ref_model_id",
+      "t": "int",
+      "v": 1010
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_flex_direction_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_flex_direction_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_flex_direction_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_flex_direction_ref_k",
+      "t": "str",
+      "v": "layout_direction"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_width",
+      "t": "str",
+      "v": "100%"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_align_items",
+      "t": "str",
+      "v": "center"
     },
     {
       "op": "add_label",
@@ -2661,22 +2734,9 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "Enter any text",
-        "style": {
-          "fontSize": {
-            "$label": {
-              "model_id": 1010,
-              "p": 0,
-              "r": 0,
-              "c": 0,
-              "k": "input_font_size"
-            }
-          }
-        }
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Enter any text"
     },
     {
       "op": "add_label",
@@ -2684,27 +2744,159 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_bind_json",
-      "t": "json",
-      "v": {
-        "read": {
-          "model_id": 1010,
-          "p": 0,
-          "r": 0,
-          "c": 0,
-          "k": "input_draft"
-        },
-        "write": {
-          "action": "ui_owner_label_update",
-          "target_ref": {
-            "model_id": 1010,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "input_draft"
-          }
-        }
-      }
+      "k": "ui_style_font_size_ref_model_id",
+      "t": "int",
+      "v": 1010
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_style_font_size_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_style_font_size_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_style_font_size_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_style_font_size_ref_k",
+      "t": "str",
+      "v": "input_font_size"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_read_model_id",
+      "t": "int",
+      "v": 1010
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_read_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_read_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_read_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_read_k",
+      "t": "str",
+      "v": "input_draft"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_write_action",
+      "t": "str",
+      "v": "ui_owner_label_update"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_write_target_model_id",
+      "t": "int",
+      "v": 1010
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_write_target_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_write_target_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_write_target_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_write_target_k",
+      "t": "str",
+      "v": "input_draft"
     },
     {
       "op": "add_label",
@@ -2752,31 +2944,109 @@
       "p": 2,
       "r": 3,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Confirm",
-        "type": {
-          "$label": {
-            "model_id": 1010,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "button_variant"
-          }
-        },
-        "style": {
-          "backgroundColor": {
-            "$label": {
-              "model_id": 1010,
-              "p": 0,
-              "r": 0,
-              "c": 0,
-              "k": "button_color"
-            }
-          }
-        }
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Confirm"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_variant_ref_model_id",
+      "t": "int",
+      "v": 1010
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_variant_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_variant_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_variant_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_variant_ref_k",
+      "t": "str",
+      "v": "button_variant"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_style_background_color_ref_model_id",
+      "t": "int",
+      "v": 1010
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_style_background_color_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_style_background_color_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_style_background_color_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_style_background_color_ref_k",
+      "t": "str",
+      "v": "button_color"
     },
     {
       "op": "add_label",
@@ -2865,16 +3135,9 @@
       "p": 2,
       "r": 4,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": "Waiting for result",
-        "style": {
-          "fontFamily": "monospace",
-          "fontWeight": 700
-        }
-      }
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -2882,17 +3145,79 @@
       "p": 2,
       "r": 4,
       "c": 0,
-      "k": "ui_bind_json",
-      "t": "json",
-      "v": {
-        "read": {
-          "model_id": 1010,
-          "p": 0,
-          "r": 0,
-          "c": 0,
-          "k": "generated_color_text"
-        }
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": "Waiting for result"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_style_font_family",
+      "t": "str",
+      "v": "monospace"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_style_font_weight",
+      "t": "str",
+      "v": "700"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_read_model_id",
+      "t": "int",
+      "v": 1010
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_read_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_read_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_read_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1009,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_read_k",
+      "t": "str",
+      "v": "generated_color_text"
     },
     {
       "op": "create_model",
@@ -3613,11 +3938,9 @@
       "p": 2,
       "r": 6,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Upload kind"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Upload kind"
     },
     {
       "op": "add_label",
@@ -3665,14 +3988,12 @@
       "p": 2,
       "r": 7,
       "c": 0,
-      "k": "ui_props_json",
+      "k": "ui_options_json",
       "t": "json",
-      "v": {
-        "options": [
-          { "label": "HTML", "value": "html" },
-          { "label": "ZIP", "value": "zip" }
-        ]
-      }
+      "v": [
+        { "label": "HTML", "value": "html" },
+        { "label": "ZIP", "value": "zip" }
+      ]
     },
     {
       "op": "add_label",
@@ -3680,27 +4001,109 @@
       "p": 2,
       "r": 7,
       "c": 0,
-      "k": "ui_bind_json",
-      "t": "json",
-      "v": {
-        "read": {
-          "model_id": 1012,
-          "p": 0,
-          "r": 0,
-          "c": 0,
-          "k": "static_upload_kind"
-        },
-        "write": {
-          "action": "ui_owner_label_update",
-          "target_ref": {
-            "model_id": 1012,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "static_upload_kind"
-          }
-        }
-      }
+      "k": "ui_read_model_id",
+      "t": "int",
+      "v": 1012
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_read_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_read_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_read_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_read_k",
+      "t": "str",
+      "v": "static_upload_kind"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_write_action",
+      "t": "str",
+      "v": "ui_owner_label_update"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_write_target_model_id",
+      "t": "int",
+      "v": 1012
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_write_target_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_write_target_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_write_target_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_write_target_k",
+      "t": "str",
+      "v": "static_upload_kind"
     },
     {
       "op": "add_label",
@@ -3748,11 +4151,9 @@
       "p": 2,
       "r": 8,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Upload file"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Upload file"
     },
     {
       "op": "add_label",
@@ -3800,28 +4201,9 @@
       "p": 2,
       "r": 9,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "accept": ".html,.htm,.zip",
-        "label": "Select .html or .zip file (max 50MB)",
-        "buttonLabel": "选择文件",
-        "emptyText": "未选择任何文件",
-        "selectedTextRef": {
-          "model_id": 1012,
-          "p": 0,
-          "r": 0,
-          "c": 0,
-          "k": "static_media_name"
-        },
-        "nameTargetRef": {
-          "model_id": 1012,
-          "p": 0,
-          "r": 0,
-          "c": 0,
-          "k": "static_media_name"
-        }
-      }
+      "k": "ui_accept",
+      "t": "str",
+      "v": ".html,.htm,.zip"
     },
     {
       "op": "add_label",
@@ -3829,20 +4211,189 @@
       "p": 2,
       "r": 9,
       "c": 0,
-      "k": "ui_bind_json",
-      "t": "json",
-      "v": {
-        "write": {
-          "action": "ui_owner_label_update",
-          "target_ref": {
-            "model_id": 1012,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "static_media_uri"
-          }
-        }
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Select .html or .zip file (max 50MB)"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_button_label",
+      "t": "str",
+      "v": "选择文件"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_empty_text",
+      "t": "str",
+      "v": "未选择任何文件"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_selected_text_ref_model_id",
+      "t": "int",
+      "v": 1012
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_selected_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_selected_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_selected_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_selected_text_ref_k",
+      "t": "str",
+      "v": "static_media_name"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_name_target_model_id",
+      "t": "int",
+      "v": 1012
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_name_target_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_name_target_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_name_target_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_name_target_k",
+      "t": "str",
+      "v": "static_media_name"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_write_action",
+      "t": "str",
+      "v": "ui_owner_label_update"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_write_target_model_id",
+      "t": "int",
+      "v": 1012
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_write_target_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_write_target_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_write_target_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_write_target_k",
+      "t": "str",
+      "v": "static_media_uri"
     },
     {
       "op": "add_label",
@@ -3890,12 +4441,19 @@
       "p": 2,
       "r": 10,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "row",
-        "gap": 12
-      }
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
     },
     {
       "op": "add_label",
@@ -3943,12 +4501,9 @@
       "p": 2,
       "r": 11,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "primary",
-        "label": "Upload"
-      }
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
     },
     {
       "op": "add_label",
@@ -3956,20 +4511,69 @@
       "p": 2,
       "r": 11,
       "c": 0,
-      "k": "ui_bind_json",
-      "t": "json",
-      "v": {
-        "write": {
-          "action": "static_project_upload",
-          "target_ref": {
-            "model_id": 1012,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "static_project_name"
-          }
-        }
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Upload"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_write_action",
+      "t": "str",
+      "v": "static_project_upload"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_write_target_model_id",
+      "t": "int",
+      "v": 1012
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_write_target_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_write_target_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_write_target_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_write_target_k",
+      "t": "str",
+      "v": "static_project_name"
     },
     {
       "op": "add_label",
@@ -4017,11 +4621,9 @@
       "p": 2,
       "r": 12,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Refresh list"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Refresh list"
     },
     {
       "op": "add_label",
@@ -4029,20 +4631,59 @@
       "p": 2,
       "r": 12,
       "c": 0,
-      "k": "ui_bind_json",
-      "t": "json",
-      "v": {
-        "write": {
-          "action": "static_project_list",
-          "target_ref": {
-            "model_id": 1012,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "static_projects_json"
-          }
-        }
-      }
+      "k": "ui_write_action",
+      "t": "str",
+      "v": "static_project_list"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_write_target_model_id",
+      "t": "int",
+      "v": 1012
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_write_target_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_write_target_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_write_target_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_write_target_k",
+      "t": "str",
+      "v": "static_projects_json"
     },
     {
       "op": "add_label",
@@ -4108,12 +4749,9 @@
       "p": 2,
       "r": 13,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -4161,11 +4799,9 @@
       "p": 2,
       "r": 14,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": "Mounted Projects"
-      }
+      "k": "ui_title",
+      "t": "str",
+      "v": "Mounted Projects"
     },
     {
       "op": "add_label",
@@ -4213,24 +4849,99 @@
       "p": 2,
       "r": 15,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "data": {
-          "$label": {
-            "model_id": 1012,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "static_projects_json"
-          }
-        },
-        "border": true,
-        "stripe": true,
-        "size": "small",
-        "height": 520,
-        "rowKey": "name"
-      }
+      "k": "ui_data_ref_model_id",
+      "t": "int",
+      "v": 1012
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_data_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_data_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_data_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_data_ref_k",
+      "t": "str",
+      "v": "static_projects_json"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_border",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_stripe",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_height",
+      "t": "int",
+      "v": 520
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_row_key",
+      "t": "str",
+      "v": "name"
     },
     {
       "op": "add_label",
@@ -4278,13 +4989,29 @@
       "p": 2,
       "r": 16,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "name",
-        "prop": "name",
-        "minWidth": 180
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "name"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "name"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "180"
     },
     {
       "op": "add_label",
@@ -4332,13 +5059,29 @@
       "p": 2,
       "r": 17,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "url",
-        "prop": "url",
-        "minWidth": 220
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "url"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "url"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "220"
     },
     {
       "op": "add_label",
@@ -4386,13 +5129,29 @@
       "p": 2,
       "r": 18,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "updated",
-        "prop": "updated_at",
-        "minWidth": 180
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "updated"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "updated_at"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "180"
     },
     {
       "op": "add_label",
@@ -4440,13 +5199,29 @@
       "p": 2,
       "r": 19,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Actions",
-        "minWidth": 120,
-        "align": "center"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "120"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_align",
+      "t": "str",
+      "v": "center"
     },
     {
       "op": "add_label",
@@ -4494,13 +5269,9 @@
       "p": 2,
       "r": 20,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Delete",
-        "type": "danger",
-        "size": "small"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Delete"
     },
     {
       "op": "add_label",
@@ -4508,24 +5279,99 @@
       "p": 2,
       "r": 20,
       "c": 0,
-      "k": "ui_bind_write_json",
-      "t": "json",
-      "v": {
-        "action": "static_project_delete",
-        "target_ref": {
-          "model_id": 1012,
-          "p": 0,
-          "r": 0,
-          "c": 0,
-          "k": "static_project_name"
-        },
-        "value_ref": {
-          "t": "str",
-          "v": {
-            "$ref": "row.name"
-          }
-        }
-      }
+      "k": "ui_variant",
+      "t": "str",
+      "v": "danger"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_write_action",
+      "t": "str",
+      "v": "static_project_delete"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_write_target_model_id",
+      "t": "int",
+      "v": 1012
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_write_target_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_write_target_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_write_target_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_write_target_k",
+      "t": "str",
+      "v": "static_project_name"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_write_value_t",
+      "t": "str",
+      "v": "str"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_write_value_ref",
+      "t": "str",
+      "v": "row.name"
     },
     {
       "op": "create_model",
@@ -4745,17 +5591,49 @@
       "p": 2,
       "r": 1,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "column",
-        "gap": 20,
-        "style": {
-          "padding": "20px 24px 40px",
-          "maxWidth": "1120px",
-          "margin": "0 auto"
-        }
-      }
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_padding",
+      "t": "str",
+      "v": "20px 24px 40px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_max_width",
+      "t": "str",
+      "v": "1120px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_margin",
+      "t": "str",
+      "v": "0 auto"
     },
     {
       "op": "add_label",
@@ -4813,12 +5691,99 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "doc_title" } },
-        "sectionNumber": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "doc_section_number" } }
-      }
+      "k": "ui_title_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_title_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_title_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_title_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_title_ref_k",
+      "t": "str",
+      "v": "doc_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_section_number_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_section_number_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_section_number_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_section_number_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_section_number_ref_k",
+      "t": "str",
+      "v": "doc_section_number"
     },
     {
       "op": "add_label",
@@ -4866,12 +5831,59 @@
       "p": 2,
       "r": 3,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "hero_heading" } },
-        "level": 2
-      }
+      "k": "ui_heading_level",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "hero_heading"
     },
     {
       "op": "add_label",
@@ -4919,11 +5931,49 @@
       "p": 2,
       "r": 4,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "hero_intro" } }
-      }
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "hero_intro"
     },
     {
       "op": "add_label",
@@ -5041,12 +6091,69 @@
       "p": 2,
       "r": 6,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "summary_left_title" } },
-        "style": { "flex": 1, "minWidth": "280px" }
-      }
+      "k": "ui_title_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_title_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_title_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_title_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_title_ref_k",
+      "t": "str",
+      "v": "summary_left_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_style_flex",
+      "t": "str",
+      "v": "1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_style_min_width",
+      "t": "str",
+      "v": "280px"
     },
     {
       "op": "add_label",
@@ -5094,11 +6201,49 @@
       "p": 2,
       "r": 7,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "summary_left_text" } }
-      }
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "summary_left_text"
     },
     {
       "op": "add_label",
@@ -5146,12 +6291,69 @@
       "p": 2,
       "r": 8,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "summary_right_title" } },
-        "style": { "flex": 1, "minWidth": "280px" }
-      }
+      "k": "ui_title_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_title_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_title_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_title_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_title_ref_k",
+      "t": "str",
+      "v": "summary_right_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_style_flex",
+      "t": "str",
+      "v": "1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_style_min_width",
+      "t": "str",
+      "v": "280px"
     },
     {
       "op": "add_label",
@@ -5199,11 +6401,49 @@
       "p": 2,
       "r": 9,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "summary_right_text" } }
-      }
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "summary_right_text"
     },
     {
       "op": "add_label",
@@ -5251,12 +6491,59 @@
       "p": 2,
       "r": 10,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "flow_section_title" } },
-        "sectionNumber": 2
-      }
+      "k": "ui_title_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_title_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_title_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_title_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_title_ref_k",
+      "t": "str",
+      "v": "flow_section_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_section_number",
+      "t": "int",
+      "v": 2
     },
     {
       "op": "add_label",
@@ -5304,11 +6591,49 @@
       "p": 2,
       "r": 11,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "flow_section_text" } }
-      }
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "flow_section_text"
     },
     {
       "op": "add_label",
@@ -5356,11 +6681,49 @@
       "p": 2,
       "r": 12,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "code": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "flow_section_mermaid" } }
-      }
+      "k": "ui_mermaid_code_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_mermaid_code_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_mermaid_code_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_mermaid_code_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_mermaid_code_ref_k",
+      "t": "str",
+      "v": "flow_section_mermaid"
     },
     {
       "op": "add_label",
@@ -5408,12 +6771,59 @@
       "p": 2,
       "r": 13,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "layout_proof_title" } },
-        "sectionNumber": 3
-      }
+      "k": "ui_title_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_title_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_title_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_title_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_title_ref_k",
+      "t": "str",
+      "v": "layout_proof_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_section_number",
+      "t": "int",
+      "v": 3
     },
     {
       "op": "add_label",
@@ -5521,14 +6931,89 @@
       "p": 2,
       "r": 15,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": "左侧块",
-        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "layout_left_text" } },
-        "calloutType": "info",
-        "style": { "flex": 1, "minWidth": "240px" }
-      }
+      "k": "ui_title",
+      "t": "str",
+      "v": "左侧块"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_callout_type",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "layout_left_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_style_flex",
+      "t": "str",
+      "v": "1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_style_min_width",
+      "t": "str",
+      "v": "240px"
     },
     {
       "op": "add_label",
@@ -5576,14 +7061,89 @@
       "p": 2,
       "r": 16,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": "右侧块",
-        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "layout_right_text" } },
-        "calloutType": "warning",
-        "style": { "flex": 1, "minWidth": "240px" }
-      }
+      "k": "ui_title",
+      "t": "str",
+      "v": "右侧块"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_callout_type",
+      "t": "str",
+      "v": "warning"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "layout_right_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_style_flex",
+      "t": "str",
+      "v": "1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_style_min_width",
+      "t": "str",
+      "v": "240px"
     },
     {
       "op": "add_label",
@@ -5631,12 +7191,59 @@
       "p": 2,
       "r": 17,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "rebuild_title" } },
-        "sectionNumber": 4
-      }
+      "k": "ui_title_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_title_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_title_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_title_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_title_ref_k",
+      "t": "str",
+      "v": "rebuild_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_section_number",
+      "t": "int",
+      "v": 4
     },
     {
       "op": "add_label",
@@ -5734,11 +7341,49 @@
       "p": 2,
       "r": 19,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "rebuild_step_1" } }
-      }
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "rebuild_step_1"
     },
     {
       "op": "add_label",
@@ -5786,11 +7431,49 @@
       "p": 2,
       "r": 20,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "rebuild_step_2" } }
-      }
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "rebuild_step_2"
     },
     {
       "op": "add_label",
@@ -5838,11 +7521,49 @@
       "p": 2,
       "r": 21,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "text": { "$label": { "model_id": 1014, "p": 0, "r": 0, "c": 0, "k": "rebuild_step_3" } }
-      }
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": 1014
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1013,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "rebuild_step_3"
     },
     {
       "op": "create_model",

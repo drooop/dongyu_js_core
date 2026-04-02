@@ -68,6 +68,20 @@ source: ai
 - `ui_label: str`
 - `ui_variant: str`
 - `ui_placeholder: str`
+- `ui_accept: str`
+- `ui_button_label: str`
+- `ui_empty_text: str`
+- `ui_size: str`
+- `ui_row_key: str`
+- `ui_prop: str`
+- `ui_align: str`
+- `ui_width: str`
+- `ui_min_width: str`
+- `ui_max_width: str`
+- `ui_height: int`
+- `ui_border: bool`
+- `ui_stripe: bool`
+- `ui_options_json: json`
 
 ### Document Page MVP Field Keys (0275)
 
@@ -91,6 +105,68 @@ source: ai
   - Section 标题前的编号 badge
 
 这些字段进入 compiler 后，会映射到对应 node props；不需要修改 `docs/ssot/label_type_registry.md`。
+
+### Fine-Grain Ref Labels (0278)
+
+为避免把 `$label` ref 塞回大 `ui_props_json`，允许按下面的细粒度形式表达：
+
+- `<base>_ref_model_id`
+- `<base>_ref_p`
+- `<base>_ref_r`
+- `<base>_ref_c`
+- `<base>_ref_k`
+
+例如：
+
+- `ui_text_ref_*`
+- `ui_title_ref_*`
+- `ui_variant_ref_*`
+- `ui_section_number_ref_*`
+- `ui_style_flex_direction_ref_*`
+- `ui_style_background_color_ref_*`
+- `ui_style_font_size_ref_*`
+- `ui_selected_text_ref_*`
+- `ui_data_ref_*`
+
+compiler 会把它们转成 `$label` 引用，而不是要求作者再手写一个大 JSON。
+
+### Style Labels (0278)
+
+对于常见样式，允许直接使用细粒度 style labels：
+
+- `ui_style_width`
+- `ui_style_min_width`
+- `ui_style_max_width`
+- `ui_style_padding`
+- `ui_style_margin`
+- `ui_style_align_items`
+- `ui_style_justify_content`
+- `ui_style_background_color`
+- `ui_style_color`
+- `ui_style_font_size`
+- `ui_style_font_family`
+- `ui_style_font_weight`
+- `ui_style_flex`
+- `ui_style_flex_direction`
+- `ui_style_text_align`
+
+### Simple Write Value Ref (0278)
+
+对于像 `row.name` 这种简单值来源，允许：
+
+- `ui_write_value_t`
+- `ui_write_value_ref`
+
+用于生成：
+
+```json
+{
+  "value_ref": {
+    "t": "str",
+    "v": { "$ref": "row.name" }
+  }
+}
+```
 
 ## Read Binding Labels
 

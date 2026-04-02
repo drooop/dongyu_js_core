@@ -30,6 +30,18 @@ function readBool(labels, key, fallback = null) {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+function readRefSpec(labels, prefix) {
+  const model_id = readInt(labels, `${prefix}_model_id`, null);
+  const p = readInt(labels, `${prefix}_p`, null);
+  const r = readInt(labels, `${prefix}_r`, null);
+  const c = readInt(labels, `${prefix}_c`, null);
+  const k = readString(labels, `${prefix}_k`, '');
+  if (!Number.isInteger(model_id) || !Number.isInteger(p) || !Number.isInteger(r) || !Number.isInteger(c) || !k) {
+    return null;
+  }
+  return { $label: { model_id, p, r, c, k } };
+}
+
 function collectNodeDefs(model) {
   const defs = [];
   const cells = model && model.cells ? model.cells : {};
@@ -54,43 +66,109 @@ function collectNodeDefs(model) {
 function buildProps(def) {
   const labels = def.labels;
   const props = {};
+  const style = {};
+
+  const assignStringOrRef = (propName, directKey, refPrefix = `${directKey}_ref`) => {
+    const direct = readLabel(labels, directKey);
+    if (typeof direct === 'string' && direct.length > 0) {
+      props[propName] = direct;
+    }
+    const ref = readRefSpec(labels, refPrefix);
+    if (ref) props[propName] = ref;
+  };
+
+  const assignIntOrRef = (propName, directKey, refPrefix = `${directKey}_ref`) => {
+    const direct = readInt(labels, directKey, null);
+    if (direct !== null) props[propName] = direct;
+    const ref = readRefSpec(labels, refPrefix);
+    if (ref) props[propName] = ref;
+  };
+
+  const assignBool = (propName, directKey) => {
+    const direct = readBool(labels, directKey, null);
+    if (direct !== null) props[propName] = direct;
+  };
+
+  const assignStyleStringOrRef = (styleKey, directKey, refPrefix = `${directKey}_ref`) => {
+    const direct = readLabel(labels, directKey);
+    if ((typeof direct === 'string' && direct.length > 0) || typeof direct === 'number') {
+      style[styleKey] = direct;
+    }
+    const ref = readRefSpec(labels, refPrefix);
+    if (ref) style[styleKey] = ref;
+  };
+
   const layout = readString(labels, 'ui_layout', '');
   const gap = readInt(labels, 'ui_gap', null);
   const wrap = readBool(labels, 'ui_wrap', null);
-  const text = readLabel(labels, 'ui_text');
-  const title = readLabel(labels, 'ui_title');
-  const label = readLabel(labels, 'ui_label');
-  const variant = readLabel(labels, 'ui_variant');
-  const placeholder = readLabel(labels, 'ui_placeholder');
-
   if (layout) props.layout = layout;
   if (gap !== null) props.gap = gap;
   if (wrap !== null) props.wrap = wrap;
-  if (typeof text === 'string') props.text = text;
-  if (typeof title === 'string') props.title = title;
-  if (typeof label === 'string') props.label = label;
-  if (typeof variant === 'string') props.type = variant;
-  if (typeof placeholder === 'string') props.placeholder = placeholder;
+
+  assignStringOrRef('text', 'ui_text');
+  assignStringOrRef('title', 'ui_title');
+  assignStringOrRef('label', 'ui_label');
+  assignStringOrRef('type', 'ui_variant');
+  assignStringOrRef('placeholder', 'ui_placeholder');
+  assignStringOrRef('accept', 'ui_accept');
+  assignStringOrRef('buttonLabel', 'ui_button_label');
+  assignStringOrRef('emptyText', 'ui_empty_text');
+  assignStringOrRef('size', 'ui_size');
+  assignStringOrRef('rowKey', 'ui_row_key');
+  assignStringOrRef('prop', 'ui_prop');
+  assignStringOrRef('align', 'ui_align');
+  assignStringOrRef('layout', 'ui_layout');
+
+  assignIntOrRef('height', 'ui_height');
+  assignStringOrRef('width', 'ui_width');
+  assignStringOrRef('minWidth', 'ui_min_width');
+  assignStringOrRef('maxWidth', 'ui_max_width');
+  assignIntOrRef('level', 'ui_heading_level');
+  assignIntOrRef('sectionNumber', 'ui_section_number');
+  assignBool('border', 'ui_border');
+  assignBool('stripe', 'ui_stripe');
+
+  const optionsJson = readLabel(labels, 'ui_options_json');
+  if (Array.isArray(optionsJson)) props.options = optionsJson;
+  const dataRef = readRefSpec(labels, 'ui_data_ref');
+  if (dataRef) props.data = dataRef;
+  const nameTargetRef = readRefSpec(labels, 'ui_name_target');
+  if (nameTargetRef && nameTargetRef.$label) {
+    props.nameTargetRef = nameTargetRef.$label;
+  }
+
   const propsJson = readLabel(labels, 'ui_props_json');
   if (propsJson && typeof propsJson === 'object' && !Array.isArray(propsJson)) {
     Object.assign(props, propsJson);
   }
-  const headingLevel = readInt(labels, 'ui_heading_level', null);
-  const listType = readString(labels, 'ui_list_type', '');
-  const calloutType = readString(labels, 'ui_callout_type', '');
-  const imageSrc = readString(labels, 'ui_image_src', '');
-  const imageAlt = readString(labels, 'ui_image_alt', '');
-  const mermaidCode = readString(labels, 'ui_mermaid_code', '');
-  const codeLanguage = readString(labels, 'ui_code_language', '');
-  const sectionNumber = readInt(labels, 'ui_section_number', null);
-  if (headingLevel !== null) props.level = headingLevel;
-  if (listType) props.listType = listType;
-  if (calloutType) props.calloutType = calloutType;
-  if (imageSrc) props.src = imageSrc;
-  if (imageAlt) props.alt = imageAlt;
-  if (mermaidCode) props.code = mermaidCode;
-  if (codeLanguage) props.language = codeLanguage;
-  if (sectionNumber !== null) props.sectionNumber = sectionNumber;
+
+  assignStringOrRef('listType', 'ui_list_type');
+  assignStringOrRef('calloutType', 'ui_callout_type');
+  assignStringOrRef('src', 'ui_image_src');
+  assignStringOrRef('alt', 'ui_image_alt');
+  assignStringOrRef('code', 'ui_mermaid_code');
+  assignStringOrRef('language', 'ui_code_language');
+  assignStringOrRef('selectedText', 'ui_selected_text');
+
+  assignStyleStringOrRef('width', 'ui_style_width');
+  assignStyleStringOrRef('minWidth', 'ui_style_min_width');
+  assignStyleStringOrRef('maxWidth', 'ui_style_max_width');
+  assignStyleStringOrRef('padding', 'ui_style_padding');
+  assignStyleStringOrRef('margin', 'ui_style_margin');
+  assignStyleStringOrRef('alignItems', 'ui_style_align_items');
+  assignStyleStringOrRef('justifyContent', 'ui_style_justify_content');
+  assignStyleStringOrRef('backgroundColor', 'ui_style_background_color');
+  assignStyleStringOrRef('color', 'ui_style_color');
+  assignStyleStringOrRef('fontSize', 'ui_style_font_size');
+  assignStyleStringOrRef('fontFamily', 'ui_style_font_family');
+  assignStyleStringOrRef('fontWeight', 'ui_style_font_weight');
+  assignStyleStringOrRef('flex', 'ui_style_flex');
+  assignStyleStringOrRef('flexDirection', 'ui_style_flex_direction');
+  assignStyleStringOrRef('textAlign', 'ui_style_text_align');
+
+  if (Object.keys(style).length > 0) {
+    props.style = { ...(props.style && typeof props.style === 'object' && !Array.isArray(props.style) ? props.style : {}), ...style };
+  }
   return props;
 }
 
@@ -139,10 +217,16 @@ function buildWriteBind(def) {
   if (!Number.isInteger(model_id) || !Number.isInteger(p) || !Number.isInteger(r) || !Number.isInteger(c) || !k) {
     return { action };
   }
-  return {
+  const bind = {
     action,
     target_ref: { model_id, p, r, c, k },
   };
+  const valueRef = readString(labels, 'ui_write_value_ref', '');
+  const valueT = readString(labels, 'ui_write_value_t', '');
+  if (valueRef && valueT) {
+    bind.value_ref = { t: valueT, v: { $ref: valueRef } };
+  }
+  return bind;
 }
 
 function buildNodeMap(defs) {

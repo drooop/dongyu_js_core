@@ -97,13 +97,11 @@ function test_workspace_filltable_example_uses_truth_model_bindings_and_modes() 
   const appRecords = getModelRecords(positiveRecords, WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID);
   const truthRecords = getModelRecords(positiveRecords, WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID);
 
-  const inputBind = findRecord(appRecords, (record) => (
-    record?.k === 'ui_bind_json'
-    && record?.v?.write?.action === 'ui_owner_label_update'
-    && record?.v?.write?.target_ref?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
-    && record?.v?.write?.target_ref?.k === 'input_draft'
-  ));
-  assert.ok(inputBind, 'workspace_example_input_must_write_to_truth_input_draft');
+  assert.ok(findRecord(appRecords, (record) => record?.k === 'ui_read_model_id' && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID), 'workspace_example_input_must_read_truth_model');
+  assert.ok(findRecord(appRecords, (record) => record?.k === 'ui_read_k' && record?.v === 'input_draft'), 'workspace_example_input_must_read_truth_input_draft');
+  assert.ok(findRecord(appRecords, (record) => record?.k === 'ui_write_action' && record?.v === 'ui_owner_label_update'), 'workspace_example_input_must_write_via_owner_update');
+  assert.ok(findRecord(appRecords, (record) => record?.k === 'ui_write_target_model_id' && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID), 'workspace_example_input_must_target_truth_model');
+  assert.ok(findRecord(appRecords, (record) => record?.k === 'ui_write_target_k' && record?.v === 'input_draft'), 'workspace_example_input_must_write_to_truth_input_draft');
 
   const buttonBind = findRecord(appRecords, (record) => (
     record?.k === 'ui_bind_json'
@@ -112,12 +110,8 @@ function test_workspace_filltable_example_uses_truth_model_bindings_and_modes() 
   ));
   assert.ok(buttonBind, 'workspace_example_button_must_target_truth_model_submit');
 
-  const resultBind = findRecord(appRecords, (record) => (
-    record?.k === 'ui_bind_json'
-    && record?.v?.read?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
-    && record?.v?.read?.k === 'generated_color_text'
-  ));
-  assert.ok(resultBind, 'workspace_example_result_label_must_read_truth_generated_color_text');
+  assert.ok(findRecord(appRecords, (record) => record?.k === 'ui_read_model_id' && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID), 'workspace_example_result_label_must_read_truth_model');
+  assert.ok(findRecord(appRecords, (record) => record?.k === 'ui_read_k' && record?.v === 'generated_color_text'), 'workspace_example_result_label_must_read_truth_generated_color_text');
 
   assert.ok(findRecord(truthRecords, (record) => record?.k === 'submit_route_mode' && record?.v === 'remote'), 'truth_model_must_seed_remote_mode');
   assert.ok(findRecord(truthRecords, (record) => record?.k === 'processor_routes' && record?.t === 'pin.connect.label'), 'truth_model_must_define_processor_routes');

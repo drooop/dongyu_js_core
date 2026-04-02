@@ -26,32 +26,53 @@ function test_props_labels_exist_on_truth_model() {
 }
 
 function test_props_bindings_are_consumed_by_ui_nodes() {
-  const controlsProps = findRecord((record) => (
+  assert.ok(findRecord((record) => (
     record?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
-    && record?.k === 'ui_props_json'
-    && record?.v?.layout === 'row'
-    && record?.v?.style?.flexDirection?.$label?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
-    && record?.v?.style?.flexDirection?.$label?.k === 'layout_direction'
-  ));
-  assert.ok(controlsProps, 'controls_container_must_bind_layout_direction_into_flex_direction');
+    && record?.k === 'ui_layout'
+    && record?.v === 'row'
+  )), 'controls_container_must_keep_row_layout');
+  assert.ok(findRecord((record) => (
+    record?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
+    && record?.k === 'ui_style_flex_direction_ref_model_id'
+    && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
+  )), 'controls_container_must_bind_layout_direction_into_flex_direction');
+  assert.ok(findRecord((record) => (
+    record?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
+    && record?.k === 'ui_style_flex_direction_ref_k'
+    && record?.v === 'layout_direction'
+  )), 'controls_container_layout_direction_ref_key_missing');
 
-  const inputProps = findRecord((record) => (
+  assert.ok(findRecord((record) => (
     record?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
-    && record?.k === 'ui_props_json'
-    && record?.v?.style?.fontSize?.$label?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
-    && record?.v?.style?.fontSize?.$label?.k === 'input_font_size'
-  ));
-  assert.ok(inputProps, 'input_component_must_bind_input_font_size');
+    && record?.k === 'ui_style_font_size_ref_model_id'
+    && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
+  )), 'input_component_must_bind_input_font_size');
+  assert.ok(findRecord((record) => (
+    record?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
+    && record?.k === 'ui_style_font_size_ref_k'
+    && record?.v === 'input_font_size'
+  )), 'input_font_size_ref_key_missing');
 
-  const buttonProps = findRecord((record) => (
+  assert.ok(findRecord((record) => (
     record?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
-    && record?.k === 'ui_props_json'
-    && record?.v?.type?.$label?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
-    && record?.v?.type?.$label?.k === 'button_variant'
-    && record?.v?.style?.backgroundColor?.$label?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
-    && record?.v?.style?.backgroundColor?.$label?.k === 'button_color'
-  ));
-  assert.ok(buttonProps, 'button_component_must_bind_variant_and_color');
+    && record?.k === 'ui_variant_ref_model_id'
+    && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
+  )), 'button_component_must_bind_variant');
+  assert.ok(findRecord((record) => (
+    record?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
+    && record?.k === 'ui_variant_ref_k'
+    && record?.v === 'button_variant'
+  )), 'button_variant_ref_key_missing');
+  assert.ok(findRecord((record) => (
+    record?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
+    && record?.k === 'ui_style_background_color_ref_model_id'
+    && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
+  )), 'button_component_must_bind_color');
+  assert.ok(findRecord((record) => (
+    record?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
+    && record?.k === 'ui_style_background_color_ref_k'
+    && record?.v === 'button_color'
+  )), 'button_color_ref_key_missing');
   return { key: 'props_bindings_are_consumed_by_ui_nodes', status: 'PASS' };
 }
 
