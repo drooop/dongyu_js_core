@@ -187,6 +187,7 @@ source: ai
 | 0277-non-three-fine-grain-audit | 2026-04-03 | 排除 Three.js 后，对 workspace_positive_models.json 做细粒度审查并产出收口优先级清单 | 3 | dev_0277-non-three-fine-grain-audit | Completed | ./docs/iterations/0277-non-three-fine-grain-audit/ |
 | 0278-non-three-fine-grain-remediation | 2026-04-03 | 先对 0270 / 0276 / Static 的页面 authoring 粗块做细粒度收口，不碰 Three.js 与大流程函数 | 5 | dev_0278-non-three-fine-grain-remediation | Completed | ./docs/iterations/0278-non-three-fine-grain-remediation/ |
 | 0279-visualized-doc-and-0276-align | 2026-04-03 | 先更新 visualized 文档到细粒度文档页面版本，再让 0276 的正式 Workspace 页面与之对齐 | 4 | dev_0279-visualized-doc-and-0276-align | Completed | ./docs/iterations/0279-visualized-doc-and-0276-align/ |
+| 0280-cloud-deploy-current-dev | 2026-04-03 | 将当前 dev 状态部署到远端 cloud，并完成颜色生成器、0276、Static 的公网验证 | 4 | dev_0280-cloud-deploy-current-dev | Completed | ./docs/iterations/0280-cloud-deploy-current-dev/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
