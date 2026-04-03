@@ -191,6 +191,7 @@ source: ai
 | 0281-slide-matrix-three-baseline | 2026-04-03 | 盘清 Slide UI、Matrix 系统层与用户产品层、Three.js 场景 CRUD 的当前起点，作为后续重头规划的统一基线 | 2 | dev_0281-slide-matrix-three-baseline | Completed | ./docs/iterations/0281-slide-matrix-three-baseline/ |
 | 0282-baseline-doc-clarify | 2026-04-03 | 修正 0281 基线文档中的本地绝对路径，并补充后续 UI 模型能力合法扩展与沉淀约束 | 1 | dev_0282-baseline-doc-clarify | Completed | ./docs/iterations/0282-baseline-doc-clarify/ |
 | 0283-matrix-userline-phase1 | 2026-04-03 | Matrix 非加密第一阶段：冻结用户产品层模型设计、最小登录能力与经 MBR 双总线的一条消息闭环计划 | 2 | dev_0283-matrix-userline-phase1 | Planned | ./docs/iterations/0283-matrix-userline-phase1/ |
+| 0284-matrix-userline-phase2 | 2026-04-03 | Matrix 非加密第二阶段：规划私聊/群聊基础界面、房间列表、消息时间线、输入框与基础成员管理 | 2 | dev_0284-matrix-userline-phase2 | Planned | ./docs/iterations/0284-matrix-userline-phase2/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
