@@ -188,6 +188,7 @@ source: ai
 | 0278-non-three-fine-grain-remediation | 2026-04-03 | 先对 0270 / 0276 / Static 的页面 authoring 粗块做细粒度收口，不碰 Three.js 与大流程函数 | 5 | dev_0278-non-three-fine-grain-remediation | Completed | ./docs/iterations/0278-non-three-fine-grain-remediation/ |
 | 0279-visualized-doc-and-0276-align | 2026-04-03 | 先更新 visualized 文档到细粒度文档页面版本，再让 0276 的正式 Workspace 页面与之对齐 | 4 | dev_0279-visualized-doc-and-0276-align | Completed | ./docs/iterations/0279-visualized-doc-and-0276-align/ |
 | 0280-cloud-deploy-current-dev | 2026-04-03 | 将当前 dev 状态部署到远端 cloud，并完成颜色生成器、0276、Static 的公网验证 | 4 | dev_0280-cloud-deploy-current-dev | Completed | ./docs/iterations/0280-cloud-deploy-current-dev/ |
+| 0281-slide-matrix-three-baseline | 2026-04-03 | 盘清 Slide UI、Matrix 系统层与用户产品层、Three.js 场景 CRUD 的当前起点，作为后续重头规划的统一基线 | 2 | dev_0281-slide-matrix-three-baseline | Completed | ./docs/iterations/0281-slide-matrix-three-baseline/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
