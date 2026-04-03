@@ -47,6 +47,13 @@ phase: phase3
   - Gallery should keep serving as showcase and regression entry
   - usage documentation should gradually also be implemented with UI models
 
+### Step 3 — Final Consistency Sweep PASS
+
+- Updated:
+  - `docs/plans/2026-04-03-slide-matrix-three-current-baseline.md`
+- Result:
+  - fixed subsection numbering under section 6 to keep the baseline doc internally consistent
+
 ## Conclusion
 
 - 0281 baseline doc is now portable across environments
