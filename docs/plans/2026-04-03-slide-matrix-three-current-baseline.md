@@ -68,7 +68,7 @@ source: ai
 
 - 当前仓库里的 Matrix 主要是系统层能力，不是聊天产品。
 - 关键落点：
-  - [matrix_live.js](/Users/drop/codebase/cowork/dongyuapp_elysia_based/packages/worker-base/src/matrix_live.js)
+  - `packages/worker-base/src/matrix_live.js`
   - [[docs/ssot/ui_to_matrix_event_flow]]
 - 当前角色：
   - Management Bus Adapter
@@ -120,9 +120,9 @@ source: ai
   - [[docs/iterations/0217-gallery-extension-matrix-three/plan]]
   - [[docs/iterations/0217-gallery-extension-matrix-three/runlog]]
 - 冻结常量：
-  - [model_ids.js](/Users/drop/codebase/cowork/dongyuapp_elysia_based/packages/ui-model-demo-frontend/src/model_ids.js)
+  - `packages/ui-model-demo-frontend/src/model_ids.js`
 - 冻结合同测试：
-  - [test_0216_threejs_scene_contract.mjs](/Users/drop/codebase/cowork/dongyuapp_elysia_based/scripts/tests/test_0216_threejs_scene_contract.mjs)
+  - `scripts/tests/test_0216_threejs_scene_contract.mjs`
 
 ### 3.2 已完成到哪一步
 
@@ -184,7 +184,37 @@ source: ai
   - 远端 worker / bus 基础设施（部分场景）
 - 但它们不是同一条产品线的不同阶段。
 
-## 5. 后续正式规划前必须先回答的问题
+## 5. 跨线新增约束
+
+### 5.1 UI 模型能力扩展必须合法沉淀
+
+- 这三条线后续推进时，都可能需要扩展 UI 模型能力。
+- 这些扩展不能作为一次性页面特判存在，而应当按现有规约合法落进 UI 模型体系。
+- 新的 UI 能力应优先沉淀为：
+  - 可复用的 UI 组件能力
+  - 可复用的 authoring 字段约定
+  - 可验证的 contract / validator
+
+### 5.2 Gallery 应持续承担能力展示与回归入口
+
+- 新增 UI 模型能力应尽量逐步沉淀到 `Gallery`。
+- `Gallery` 继续作为：
+  - 组件能力展示面
+  - 集成能力展示面
+  - 后续回归验证入口
+- 不应把重要新能力只藏在单一业务页面里，而没有可复用的展示/验证落点。
+
+### 5.3 使用文档也应逐步进入 UI 模型主线
+
+- 后续新增 UI 模型能力时，应同步补使用说明文档。
+- 这些说明文档最好逐步也由 UI 模型来实现，而不是始终停留在独立 HTML/Markdown 手写版本。
+- 长期目标是：
+  - UI 组件库
+  - 对应使用说明
+  - 对应示例页面
+  共同构成“模型表语言范畴内”的可复用资产。
+
+## 6. 后续正式规划前必须先回答的问题
 
 ### 5.1 Slide UI
 
@@ -207,9 +237,10 @@ source: ai
   中的哪一批？
 - 是继续沿 `scene_graph_v0` 扩字段，还是拆成多个正式 truth label？
 
-## 6. Baseline Summary
+## 7. Baseline Summary
 
 - `Slide UI`：已有 `0214` 正式基础，不是空白概念。
 - Matrix：当前完成的是系统层 bus adapter；未来聊天/视频是新的用户产品线。
 - Three.js：已有 `0216/0217` 最小正式闭环；后续是扩对象体系，不是从零重做。
+- UI 模型能力扩展后，应同步合法沉淀到 Gallery 与使用文档，逐步形成可复用组件库和说明体系。
 - 后续任何大规划都应先基于这三条“当前起点”来拆，而不是把它们混成一条线。
