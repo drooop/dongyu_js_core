@@ -179,6 +179,22 @@ report per code change:
   7 alternatives (≥2: pros / cons / cost / when)
 
 
+SELF_VERIFICATION
+
+before reporting completion, verify the work using available tools.
+
+- do not assume work is done just because code is written.
+- if possible, run it and confirm it behaves as requested.
+- for visual output, inspect the page and click through the relevant flow.
+- for scripts, use real or representative input and check the result.
+- define done-criteria before starting and use it as the final checklist.
+- if something fails or looks wrong, fix and retest before reporting back.
+
+note:
+- this complements existing PASS/FAIL verification rules.
+- if a task depends on local runtime or UI surfaces, redeploy/restart first when required by existing hard rules.
+
+
 RESPONSE_EFFORT_GUIDANCE
 
 - every assistant reply MUST include one explicit effort suggestion:
@@ -511,8 +527,11 @@ DATA_SOURCES
 
 default external: Git / GitHub only.
 do not assume: Sentry, Linear, Notion, Figma (unless user confirms).
-info insufficient but can proceed → state assumptions + verification method.
-info insufficient and unreliable → declare gaps first, then give options.
+if information is missing but work can still proceed reliably →
+  state the assumption and how to validate it.
+if missing information would make the result unreliable →
+  state the missing boundary first, then give options.
+do not fabricate external facts; if uncertain, say so and provide a validation method.
 
 
 COMMIT_CONVENTION
@@ -539,10 +558,15 @@ template fields (mandatory):
 
 RESPONSE_STYLE
 
-- lang: simplified chinese. english for proper nouns, field names, paths.
-- conclusion first. short paragraphs. no nested lists.
-- no: pleasantries, emotional language, marketing speak, emoji.
-- max 3 clarifying questions when info is missing. each must reduce key uncertainty.
+- lang: simplified chinese. english for proper nouns, field names, paths, and ambiguous concepts.
+- first line: state the decision/status and the next action (if any).
+- short paragraphs. no nested lists.
+- reporting to the user should use plain accessible language.
+- avoid unnecessary jargon, internal implementation details, and code terminology in final responses.
+- no: pleasantries, emotional padding, tutorial tone, marketing speak, emoji.
+- max 3 clarifying questions when info is missing. each must directly reduce key uncertainty.
+  wait for answers before proceeding; do not guess on critical constraints
+  (tech stack, entry points, acceptance criteria, branch/commit/PR rules).
 
 
 KNOWLEDGE_VAULT
@@ -559,3 +583,15 @@ rules:
 - AI-authored shared knowledge defaults to status: draft.
 - when unsure about classification (which folder, which subfolder), ask the user.
 - conventions for vault structure are evolving. check ~/.claude/projects/-Users-drop-codebase-cowork/memory/vault-conventions.md for current conventions.
+
+
+CONVENTIONS_DISCOVERY
+
+for unfamiliar repos, read these entry points first if present:
+- AGENTS.md
+- README.md
+- docs/ssot/ (prioritize index / overview / manifest pages)
+- first-level docs/*.md (prioritize WORKFLOW / ARCHITECTURE / TERMS / CONTRIBUTING / ROADMAP / ITERATIONS)
+
+note: for this repo, DOC_PRIORITY at the top of this file is authoritative
+and takes precedence over generic discovery order.
