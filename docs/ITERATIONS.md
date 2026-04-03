@@ -193,6 +193,7 @@ source: ai
 | 0283-matrix-userline-phase1 | 2026-04-03 | Matrix 非加密第一阶段：冻结用户产品层模型设计、最小登录能力与经 MBR 双总线的一条消息闭环计划 | 2 | dev_0283-matrix-userline-phase1 | Planned | ./docs/iterations/0283-matrix-userline-phase1/ |
 | 0284-matrix-userline-phase2 | 2026-04-03 | Matrix 非加密第二阶段：规划私聊/群聊基础界面、房间列表、消息时间线、输入框与基础成员管理 | 2 | dev_0284-matrix-userline-phase2 | Planned | ./docs/iterations/0284-matrix-userline-phase2/ |
 | 0285-matrix-userline-phase3 | 2026-04-03 | Matrix 非加密第三阶段：规划完整用户管理，包括注册、资料编辑与在线状态展示 | 2 | dev_0285-matrix-userline-phase3 | Planned | ./docs/iterations/0285-matrix-userline-phase3/ |
+| 0286-matrix-userline-phase4 | 2026-04-03 | Matrix 非加密第四阶段：规划视频通话（含多人）的信令、媒体链路与最小产品范围 | 2 | dev_0286-matrix-userline-phase4 | Planned | ./docs/iterations/0286-matrix-userline-phase4/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
