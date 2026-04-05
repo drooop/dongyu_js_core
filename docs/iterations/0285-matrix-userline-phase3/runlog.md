@@ -39,3 +39,16 @@ phase: phase1
 - [x] `docs/iterations/0284-matrix-userline-phase2/plan.md` reviewed
 - [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
 - [ ] `docs/user-guide/modeltable_user_guide.md` reviewed
+
+## Review Gate Record
+
+### Review 1 — AI-assisted
+
+- Iteration ID: `0285-matrix-userline-phase3`
+- Review Date: `2026-04-05`
+- Review Type: `AI-assisted`
+- Review Index: `1`
+- Decision: **Approved**
+- Notes:
+  - 未发现阻塞项。
+  - 第三阶段和前两阶段、第四阶段边界清晰：只做注册、资料、在线状态，不触发聊天 UI 与视频范围回流。

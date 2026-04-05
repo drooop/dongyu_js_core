@@ -36,3 +36,16 @@ phase: phase1
 - [x] `docs/iterations/0283-matrix-userline-phase1/plan.md` reviewed
 - [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
 - [ ] `docs/user-guide/modeltable_user_guide.md` reviewed
+
+## Review Gate Record
+
+### Review 1 — AI-assisted
+
+- Iteration ID: `0284-matrix-userline-phase2`
+- Review Date: `2026-04-05`
+- Review Type: `AI-assisted`
+- Review Index: `1`
+- Decision: **Approved**
+- Notes:
+  - 未发现阻塞项。
+  - 第二阶段范围收敛正确：共享私聊/群聊骨架、基础成员管理，不带注册、视频和加密。
