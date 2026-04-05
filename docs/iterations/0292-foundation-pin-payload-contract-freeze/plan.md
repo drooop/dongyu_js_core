@@ -29,13 +29,16 @@ phase: phase1
 - 作为“基础 A”，先冻结后续所有业务线共同依赖的新底层合同，并完成影响盘点。
 - 本 iteration 只做 docs-only 交付，不做代码实现。
 - 交付物固定为：
-  - 把 Feishu 中“临时模型表”定义搬入 repo 的 `docs/ssot/`
+  - 把 Feishu 中“临时模型表”定义搬入 repo 的：
+    - [[docs/ssot/temporary_modeltable_payload_v1]]
   - 新合同 SSOT 文档，冻结三条：
     - 引脚归属程序模型
     - payload 为临时模型表
     - 不引入 `pin.table.*`
+    - [[docs/ssot/program_model_pin_and_payload_contract_vnext]]
   - 全仓影响清单
   - 基础 B 的迁移策略草案
+    - [[docs/plans/2026-04-06-pin-payload-impact-inventory-and-migration]]
 
 ## 2. Background
 
