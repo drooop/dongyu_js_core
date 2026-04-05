@@ -40,3 +40,16 @@ phase: phase1
 - [x] `docs/iterations/0290-slide-ui-phaseC-filltable-create-mount/plan.md` reviewed
 - [x] `docs/user-guide/README.md` reviewed
 - [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
+
+## Review Gate Record
+
+### Review 1 — AI-assisted
+
+- Iteration ID: `0291-slide-ui-phaseD-gallery-doc-evidence`
+- Review Date: `2026-04-06`
+- Review Type: `AI-assisted`
+- Review Index: `1`
+- Decision: **Approved**
+- Notes:
+  - 未发现阻塞项。
+  - Phase D 已把 Gallery 展示、使用文档结构、本地/远端证据清单和 UI 模型化评估范围切清楚，且没有重开前 3 个阶段的核心合同。

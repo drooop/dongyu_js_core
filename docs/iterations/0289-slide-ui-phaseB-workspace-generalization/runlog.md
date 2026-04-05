@@ -38,3 +38,16 @@ phase: phase1
 - [x] `docs/iterations/0214-sliding-flow-ui/plan.md` reviewed
 - [x] `docs/roadmaps/sliding-ui-workspace-plan.md` reviewed
 - [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
+
+## Review Gate Record
+
+### Review 1 — AI-assisted
+
+- Iteration ID: `0289-slide-ui-phaseB-workspace-generalization`
+- Review Date: `2026-04-06`
+- Review Type: `AI-assisted`
+- Review Index: `1`
+- Decision: **Approved**
+- Notes:
+  - 未发现阻塞项。
+  - Phase B 已把 slide-capable app 准入条件、Workspace metadata 最小集、registry / mount / selection / lifecycle 统一边界写清，同时没有越到用户创建阶段。
