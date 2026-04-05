@@ -195,6 +195,7 @@ source: ai
 | 0285-matrix-userline-phase3 | 2026-04-03 | Matrix 非加密第三阶段：规划完整用户管理，包括注册、资料编辑与在线状态展示 | 2 | dev_0285-matrix-userline-phase3 | Approved | ./docs/iterations/0285-matrix-userline-phase3/ |
 | 0286-matrix-userline-phase4 | 2026-04-03 | Matrix 非加密第四阶段：规划视频通话（含多人）的信令、媒体链路与最小产品范围 | 2 | dev_0286-matrix-userline-phase4 | Approved | ./docs/iterations/0286-matrix-userline-phase4/ |
 | 0287-slide-ui-mainline-split | 2026-04-05 | 基于 0214 与当前基线，正式拆分 Slide UI 主线后续阶段与依赖顺序 | 2 | dev_0287-slide-ui-mainline-split | Planned | ./docs/iterations/0287-slide-ui-mainline-split/ |
+| 0288-slide-ui-phaseA-topology-freeze | 2026-04-05 | Slide UI Phase A：冻结 ui-server / remote-worker / MBR 的双工人拓扑、权属边界与 Model 100 合同锚点 | 2 | dev_0288-slide-ui-phaseA-topology-freeze | Planned | ./docs/iterations/0288-slide-ui-phaseA-topology-freeze/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
