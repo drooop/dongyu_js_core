@@ -38,19 +38,22 @@ assert(sys, 'system model must exist');
 rt.addLabel(sys, 0, 0, 0, {
   k: 'mbr_route_101',
   t: 'json',
-  v: { pin: 'task', type: 'ui_event' },
+  v: { pin: 'task', type: 'pin_payload' },
 });
 
 rt.addLabel(sys, 0, 0, 0, {
   k: 'mbr_mgmt_inbox',
   t: 'json',
   v: {
-    version: 'v0',
-    type: 'ui_event',
+    version: 'v1',
+    type: 'pin_payload',
     op_id: 'route_101_001',
-    action: 'submit',
     source_model_id: 101,
-    data: { meta: { op_id: 'route_101_001' }, input_value: 'hello' },
+    pin: 'task',
+    payload: [
+      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
+    ],
     timestamp: 1700000000000,
   },
 });
@@ -81,14 +84,14 @@ const ctx = {
 const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt')));
 fn(ctx);
 
-assert.ok(published, 'route-driven ui_event must publish to MQTT');
+assert.ok(published, 'route-driven pin_payload must publish to MQTT');
 assert.equal(published.topic, 'UIPUT/ws/dam/pic/de/sw/101/task', 'route-driven bridge must use mbr_route_<modelId>.pin');
-assert.equal(published.payload?.version, 'v0', 'route-driven bridge payload must now be direct event payload');
-assert.equal(published.payload?.type, 'ui_event', 'route-driven bridge must preserve ui_event type');
-assert.equal(published.payload?.action, 'submit', 'route-driven bridge must preserve action');
+assert.equal(published.payload?.version, 'v1', 'route-driven bridge payload must now be pin_payload');
+assert.equal(published.payload?.type, 'pin_payload', 'route-driven bridge must preserve pin_payload type');
+assert.equal(published.payload?.pin, 'task', 'route-driven bridge must preserve pin name');
 assert.equal(published.payload?.op_id, 'route_101_001', 'route-driven bridge must preserve op_id');
 assert.equal(published.payload?.source_model_id, 101, 'route-driven bridge must preserve source model id');
-assert.equal(published.payload?.data?.input_value, 'hello', 'route-driven bridge must preserve data payload');
+assert.equal(published.payload?.payload?.[1]?.v, 'hello', 'route-driven bridge must preserve temporary-modeltable content');
 assert.ok(!Array.isArray(published.payload?.records), 'route-driven bridge must not emit records patch');
 
 console.log('PASS test_0179_mbr_route_contract');

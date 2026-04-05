@@ -91,8 +91,8 @@
       "k": "mbr_route_100",
       "t": "json",
       "v": {
-        "pin": "event",
-        "type": "ui_event"
+        "pin": "submit",
+        "type": "pin_payload"
       }
     },
     {
@@ -104,8 +104,8 @@
       "k": "mbr_route_1010",
       "t": "json",
       "v": {
-        "pin": "event",
-        "type": "ui_event"
+        "pin": "submit",
+        "type": "pin_payload"
       }
     },
     {
@@ -117,8 +117,8 @@
       "k": "mbr_route_default",
       "t": "json",
       "v": {
-        "pin": "patch",
-        "type": "all"
+        "pin": "result",
+        "type": "pin_payload"
       }
     },
     {

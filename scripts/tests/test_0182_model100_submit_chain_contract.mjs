@@ -67,9 +67,9 @@ assert.doesNotMatch(
 
 const submitOutRecord = getRecord(
   workspacePatch.records,
-  (record) => record && record.model_id === 100 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === 'submit' && record.t === 'pin.table.out',
+  (record) => record && record.model_id === 100 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === 'submit' && record.t === 'pin.out',
 );
-assert.ok(submitOutRecord, 'model100 root must declare pin.table.out submit');
+assert.ok(submitOutRecord, 'model100 root must declare pin.out submit');
 
 const model0MountRecord = getRecord(
   hierarchyPatch.records,
@@ -116,8 +116,8 @@ await new Promise((resolve) => setTimeout(resolve, 50));
 
 const model0 = runtime.getModel(0);
 const egressValue = runtime.getCell(model0, 0, 0, 0).labels.get('model100_submit_out')?.v ?? null;
-assert.ok(egressValue, 'preparing submit must relay payload to model0 local egress label');
-assert.equal(egressValue.action, 'submit', 'model0 egress label must carry submit action');
-assert.equal(egressValue.source_model_id, 100, 'model0 egress label must preserve source_model_id=100');
+assert.ok(Array.isArray(egressValue), 'preparing submit must relay temporary-modeltable payload array to model0 local egress label');
+assert.ok(egressValue.some((record) => record && record.k === 'input_value' && record.v === 'hello local-first'), 'model0 egress payload must preserve input_value');
+assert.ok(egressValue.every((record) => record && !Object.prototype.hasOwnProperty.call(record, 'action')), 'temporary-modeltable records must not carry action');
 
 console.log('PASS test_0182_model100_submit_chain_contract');

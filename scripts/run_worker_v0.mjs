@@ -134,7 +134,7 @@ function main() {
   }
 
   // 5. Read wiring config from labels
-  const matrixEventFilter = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_event_filter') || 'ui_event');
+  const matrixEventFilter = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_event_filter') || 'pin_payload');
   const matrixInboxLabel = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_inbox_label') || 'mbr_mgmt_inbox');
   const matrixFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_func') || '').trim();
   const mqttInboxLabel = String(getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_inbox_label') || 'mbr_mqtt_inbox');
@@ -169,7 +169,7 @@ function main() {
   const modelIds = Array.isArray(mqttModelIds) ? mqttModelIds : [2];
   const subscribeTopics = [];
   for (const mid of modelIds) {
-    subscribeTopics.push(`${base}/${mid}/patch_out`);
+    subscribeTopics.push(`${base}/${mid}/result`);
   }
 
   // 7. Create MQTT client
@@ -225,7 +225,7 @@ function main() {
         engine.mgmtAdapter = adapter;
 
         adapter.subscribe((event) => {
-          if (!event || event.version !== 'v0') return;
+          if (!event || (event.version !== 'v0' && event.version !== 'v1')) return;
           if (!filterTypes.includes(event.type)) return;
           if (!rt.isRuntimeRunning()) {
             log(`drop pre-running mgmt ${event.type} op_id=${event.op_id || ''}`);
@@ -268,7 +268,9 @@ function main() {
     } catch (_) {
       return;
     }
-    if (!payload || typeof payload !== 'object' || payload.version !== 'mt.v0') return;
+    const isMtPatch = payload && typeof payload === 'object' && payload.version === 'mt.v0';
+    const isPinPayload = payload && typeof payload === 'object' && payload.version === 'v1' && payload.type === 'pin_payload' && Array.isArray(payload.payload);
+    if (!isMtPatch && !isPinPayload) return;
     if (!rt.isRuntimeRunning()) {
       log(`drop pre-running mqtt topic=${topic} op_id=${payload.op_id || ''}`);
       return;

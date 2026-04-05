@@ -1294,6 +1294,32 @@ function setMailboxEnvelope(runtime, envelopeOrNull) {
   runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v: envelopeOrNull });
 }
 
+function temporaryPayloadToPatch(targetModelId, payload, opId) {
+  if (!Number.isInteger(targetModelId)) return null;
+  const records = [];
+  for (const record of Array.isArray(payload) ? payload : []) {
+    if (!record || typeof record !== 'object') continue;
+    if (typeof record.k !== 'string' || !record.k) continue;
+    if (typeof record.t !== 'string' || !record.t) continue;
+    records.push({
+      op: 'add_label',
+      model_id: targetModelId,
+      p: Number.isInteger(record.p) ? record.p : 0,
+      r: Number.isInteger(record.r) ? record.r : 0,
+      c: Number.isInteger(record.c) ? record.c : 0,
+      k: record.k,
+      t: record.t,
+      v: record.v,
+    });
+  }
+  if (records.length === 0) return null;
+  return {
+    version: 'mt.v0',
+    op_id: typeof opId === 'string' && opId ? opId : `pin_payload_${Date.now()}`,
+    records,
+  };
+}
+
 const HOME_PIN_ACTIONS = new Set([
   'home_refresh',
   'home_select_row',
@@ -1397,7 +1423,7 @@ function ensureHomeOwnerMaterializer(runtime, modelId) {
   const cell = runtime.getCell(model, 0, 0, 0);
   const pinType = typeof runtime._modelInputLabelType === 'function'
     ? runtime._modelInputLabelType(model)
-    : 'pin.table.in';
+    : 'pin.in';
   if (!cell.labels.has(HOME_OWNER_REQUEST_PIN)) {
     runtime.addLabel(model, 0, 0, 0, { k: HOME_OWNER_REQUEST_PIN, t: pinType, v: null });
   }
@@ -1424,7 +1450,7 @@ function ensureGenericOwnerMaterializer(runtime, modelId) {
   const cell = runtime.getCell(model, 0, 0, 0);
   const pinType = typeof runtime._modelInputLabelType === 'function'
     ? runtime._modelInputLabelType(model)
-    : 'pin.table.in';
+    : 'pin.in';
   if (!cell.labels.has(GENERIC_OWNER_REQUEST_PIN)) {
     runtime.addLabel(model, 0, 0, 0, { k: GENERIC_OWNER_REQUEST_PIN, t: pinType, v: null });
   }
@@ -2001,7 +2027,7 @@ class ProgramModelEngine {
     for (const request of requests) {
       runtime.addLabel(sysModel, 0, 0, 0, {
         k: buildGenericSourceOutPin(request.target_model_id),
-        t: 'pin.table.out',
+        t: 'pin.out',
         v: request,
       });
     }
@@ -2035,7 +2061,9 @@ class ProgramModelEngine {
 
   handleDyBusEvent(content) {
     // Handle dy.bus.v0 events from MBR (return path: K8s -> MQTT -> MBR -> Matrix -> here)
-    // Expected format: { version: 'v0', type: 'snapshot_delta', op_id, payload: { version: 'mt.v0', records: [...] } }
+    // Expected formats:
+    // - { version: 'v0', type: 'snapshot_delta', op_id, payload: { version: 'mt.v0', records: [...] } }
+    // - { version: 'v1', type: 'pin_payload', op_id, source_model_id, pin, payload: [...] }
     console.log('[handleDyBusEvent] Processing:', JSON.stringify(content).substring(0, 300));
     emitTrace(this.runtime, {
       hop: 'matrix\u2192server', direction: 'inbound',
@@ -2050,7 +2078,7 @@ class ProgramModelEngine {
       return;
     }
     
-    if (content.version !== 'v0') {
+    if (content.version !== 'v0' && content.version !== 'v1') {
       console.log('[handleDyBusEvent] Unknown version:', content.version);
       return;
     }
@@ -2077,6 +2105,39 @@ class ProgramModelEngine {
         })
         .catch((err) => {
           console.error('[handleDyBusEvent] snapshot_delta owner route failed:', err && err.message ? err.message : err);
+        });
+      return;
+    }
+
+    if (content.type === 'pin_payload') {
+      if (!Number.isInteger(content.source_model_id) || content.source_model_id <= 0) {
+        console.log('[handleDyBusEvent] Invalid pin_payload source_model_id');
+        return;
+      }
+      if (String(content.pin || '').trim() !== 'result') {
+        console.log('[handleDyBusEvent] Unhandled pin_payload pin:', content.pin);
+        return;
+      }
+      const patch = temporaryPayloadToPatch(content.source_model_id, content.payload, content.op_id);
+      if (!patch) {
+        console.log('[handleDyBusEvent] Invalid pin_payload payload format');
+        return;
+      }
+      this.routeSnapshotDeltaViaOwnerMaterialization(patch)
+        .then((result) => {
+          if (!result || result.ok !== true) {
+            console.warn(
+              '[handleDyBusEvent] pin_payload owner route rejected:',
+              result && result.code ? result.code : 'unknown',
+              result && result.detail ? result.detail : '',
+            );
+            return;
+          }
+          console.log('[handleDyBusEvent] pin_payload routed via owner materialization:', JSON.stringify(result));
+          this.onSnapshotChanged?.();
+        })
+        .catch((err) => {
+          console.error('[handleDyBusEvent] pin_payload owner route failed:', err && err.message ? err.message : err);
         });
       return;
     }
@@ -2803,30 +2864,32 @@ class ProgramModelEngine {
         }
       }
 
-      // Model 0 local egress point: color-generator submit has already been
+      // Model 0 local egress point: dual-bus submit payload has already been
       // normalized and relayed upward through existing model-boundary wiring.
       if (event.cell && event.cell.model_id === 0 &&
           event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
-          event.label && event.label.v && typeof event.label.v === 'object' &&
-          Number.isInteger(event.label.v.source_model_id) && event.label.v.source_model_id > 0) {
-        const sourceModelId = Number(event.label.v.source_model_id);
-        const dualBusConfig = readDualBusConfig(this.runtime, sourceModelId);
-        const egressLabel = dualBusConfig && typeof dualBusConfig.model0_egress_label === 'string'
-          ? dualBusConfig.model0_egress_label.trim()
-          : '';
-        const egressFunc = dualBusConfig && typeof dualBusConfig.model0_egress_func === 'string'
-          ? dualBusConfig.model0_egress_func.trim()
-          : '';
-        if (egressLabel && egressFunc && event.label.k === egressLabel) {
-          const sys = firstSystemModel(this.runtime);
-          console.log(`[processEventsSnapshot] Model 0 egress detected for model ${sourceModelId}, triggering ${egressFunc}`);
-          if (sys && sys.hasFunction(egressFunc)) {
-            this.runtime.intercepts.record('run_func', { func: egressFunc, payload: event.label.v });
-          } else {
-            console.log(`[processEventsSnapshot] WARNING: ${egressFunc} function NOT found`);
+          event.label && Array.isArray(event.label.v)) {
+        for (const [sourceModelId] of this.runtime.models) {
+          if (!Number.isInteger(sourceModelId) || sourceModelId <= 0) continue;
+          const dualBusConfig = readDualBusConfig(this.runtime, sourceModelId);
+          const egressLabel = dualBusConfig && typeof dualBusConfig.model0_egress_label === 'string'
+            ? dualBusConfig.model0_egress_label.trim()
+            : '';
+          const egressFunc = dualBusConfig && typeof dualBusConfig.model0_egress_func === 'string'
+            ? dualBusConfig.model0_egress_func.trim()
+            : '';
+          if (egressLabel && egressFunc && event.label.k === egressLabel) {
+            const sys = firstSystemModel(this.runtime);
+            console.log(`[processEventsSnapshot] Model 0 egress detected for model ${sourceModelId}, triggering ${egressFunc}`);
+            if (sys && sys.hasFunction(egressFunc)) {
+              this.runtime.intercepts.record('run_func', { func: egressFunc, payload: event.label.v });
+            } else {
+              console.log(`[processEventsSnapshot] WARNING: ${egressFunc} function NOT found`);
+            }
+            break;
           }
-          continue;
         }
+        continue;
       }
 
       if (event.cell && event.cell.model_id === 0 &&
@@ -4009,7 +4072,7 @@ function createServerState(options) {
       }
       runtime.addLabel(sysModel, 0, 0, 0, {
         k: action,
-        t: 'pin.table.in',
+        t: 'pin.in',
         v: {
           requests: normalized.map((request) => ({
             out_pin: buildHomeSourceOutPin(request.target_model_id),
@@ -4059,7 +4122,7 @@ function createServerState(options) {
       for (const request of normalized) {
         runtime.addLabel(sysModel, 0, 0, 0, {
           k: buildGenericSourceOutPin(request.target_model_id),
-          t: 'pin.table.out',
+          t: 'pin.out',
           v: request,
         });
       }

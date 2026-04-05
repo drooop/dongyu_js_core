@@ -2,11 +2,11 @@
  * Validate Model 100 records-only E2E (local simulation)
  *
  * Flow:
- * 1) Simulate Matrix ui_event arriving at MBR (mbr_role_v0 patch)
- * 2) Capture mqtt publish topic + payload (direct ui_event on /event)
+ * 1) Simulate Matrix pin_payload arriving at MBR (mbr_role_v0 patch)
+ * 2) Capture mqtt publish topic + payload (pin_payload on /submit)
  * 3) Deliver to a Worker runtime via mqttIncoming
- * 4) Consume run_func intercept and execute on_model100_event_in
- * 5) Assert returned OUT patch is mt.v0 and bg_color updated
+ * 4) Assert D0 function executes and emits temporary-modeltable result payload
+ * 5) Assert bg_color updated
  */
 
 import fs from 'node:fs';
@@ -36,7 +36,7 @@ function setMmV1MtV0Config(rt, base) {
   const root = rt.getModel(0);
   rt.addLabel(root, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
   rt.addLabel(root, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: base });
-  rt.addLabel(root, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'mt_v0' });
+  rt.addLabel(root, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
 }
 
 function getLabel(rt, modelId, p, r, c, k) {
@@ -50,7 +50,7 @@ async function main() {
   const mbrPatchPath = path.resolve('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json');
   const remoteWorkerPatchDir = path.resolve('deploy/sys-v1ns/remote-worker/patches');
 
-  // --- MBR side: convert ui_event -> mqtt publish (records-only) ---
+  // --- MBR side: convert pin_payload -> mqtt publish ---
   const mbrRt = new ModelTableRuntime();
   loadSystemPatch(mbrRt);
   if (!mbrRt.getModel(-10)) mbrRt.createModel({ id: -10, name: 'system', type: 'system' });
@@ -71,27 +71,30 @@ async function main() {
   });
 
   const uiEvent = {
-    version: 'v0',
-    type: 'ui_event',
+    version: 'v1',
+    type: 'pin_payload',
     op_id: 'it0140_m100_submit_001',
-    action: 'submit',
     source_model_id: 100,
-    data: { meta: { op_id: 'it0140_m100_submit_001' } },
+    pin: 'submit',
+    payload: [
+      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
+    ],
     timestamp: Date.now(),
   };
   mbrRt.addLabel(mbrRt.getModel(-10), 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: uiEvent });
   mbrRt.addLabel(mbrRt.getModel(-10), 0, 0, 0, { k: 'run_mbr_mgmt_to_mqtt', t: 'str', v: '1' });
   mbrEngine.tick();
 
-  assert(publishedTopic === `${base}/100/event`, `expected publish topic ${base}/100/event, got ${publishedTopic}`);
-  assert(publishedPayload && publishedPayload.version === 'v0', 'published event payload must stay direct v0 ui_event');
-  assert(publishedPayload && publishedPayload.type === 'ui_event', 'published payload must preserve ui_event type');
+  assert(publishedTopic === `${base}/100/submit`, `expected publish topic ${base}/100/submit, got ${publishedTopic}`);
+  assert(publishedPayload && publishedPayload.version === 'v1', 'published payload must be pin_payload v1');
+  assert(publishedPayload && publishedPayload.type === 'pin_payload', 'published payload must preserve pin_payload type');
   assert(publishedPayload && publishedPayload.op_id === uiEvent.op_id, 'published payload op_id mismatch');
-  assert(publishedPayload && publishedPayload.action === 'submit', 'published payload must preserve action');
+  assert(publishedPayload && publishedPayload.pin === 'submit', 'published payload must preserve submit pin');
   assert(publishedPayload && publishedPayload.source_model_id === 100, 'published payload must preserve source_model_id');
-  assert(!Array.isArray(publishedPayload.records), 'published event payload must not be mt.v0 patch records');
+  assert(Array.isArray(publishedPayload.payload), 'published payload must carry temporary-modeltable array');
 
-  // --- Worker side: consume mqttIncoming(ui_event) -> CELL_CONNECT -> function -> OUT ---
+  // --- Worker side: consume mqttIncoming(pin_payload) -> D0 function -> pin.out ---
   const wRt = new ModelTableRuntime();
   loadSystemPatch(wRt);
   loadPatchDir(wRt, remoteWorkerPatchDir);
@@ -101,27 +104,21 @@ async function main() {
   const handled = wRt.mqttIncoming(publishedTopic, publishedPayload);
   assert(handled, 'worker mqttIncoming must handle payload');
 
-  // Check pin.in label written to root cell (0,0,0)
-  const rootEvent = getLabel(wRt, 100, 0, 0, 0, 'event');
-  assert(rootEvent && rootEvent.t === 'pin.in', 'worker should write pin.in label to root cell(0,0,0) key=event');
-  assert(rootEvent.v && typeof rootEvent.v === 'object' && rootEvent.v.action === 'submit', 'pin.in value must preserve submit action');
-
-  // Check pin.in routed to processing cell (1,0,0) via cell_connection
-  const routedEvent = getLabel(wRt, 100, 1, 0, 0, 'event');
-  assert(routedEvent && routedEvent.t === 'pin.in', 'cell_connection should route event pin.in to cell(1,0,0)');
+  const rootEvent = getLabel(wRt, 100, 0, 0, 0, 'submit');
+  assert(rootEvent && rootEvent.t === 'pin.in', 'worker should write pin.in label to root cell(0,0,0) key=submit');
+  assert(Array.isArray(rootEvent.v), 'pin.in value must be temporary-modeltable array');
 
   // CELL_CONNECT function execution is async — wait for completion
   await new Promise(resolve => setTimeout(resolve, 500));
 
-  // Check function output at processing cell (1,0,0) as OUT
-  const patchOut = getLabel(wRt, 100, 1, 0, 0, 'patch');
-  assert(patchOut && patchOut.t === 'OUT', 'CELL_CONNECT should write OUT patch to cell(1,0,0)');
-  assert(patchOut.v && patchOut.v.version === 'mt.v0' && Array.isArray(patchOut.v.records), 'OUT payload must be mt.v0 patch');
+  const patchOut = getLabel(wRt, 100, 0, 0, 0, 'result');
+  assert(patchOut && patchOut.t === 'pin.out', 'D0 function should write pin.out result on root');
+  assert(Array.isArray(patchOut.v), 'result payload must be temporary-modeltable array');
 
   const bg = getLabel(wRt, 100, 0, 0, 0, 'bg_color');
   assert(bg && typeof bg.v === 'string' && /^#[0-9a-fA-F]{6}$/.test(bg.v), 'bg_color must be updated');
 
-  process.stdout.write('PASS: model100 records-only E2E (MBR -> mqttIncoming -> cell_connection -> CELL_CONNECT -> function)\n');
+  process.stdout.write('PASS: model100 temporary-modeltable E2E (MBR -> mqttIncoming -> D0 function)\n');
 }
 
 main().catch((err) => {

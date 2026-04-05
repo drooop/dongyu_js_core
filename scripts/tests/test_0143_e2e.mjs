@@ -69,22 +69,14 @@ function test_model100_new_format_load() {
   const rt = new ModelTableRuntime();
   const patchPath = path.resolve(__dirname, '../../packages/worker-base/system-models/test_model_100_full.json');
   const patch = loadJson(patchPath);
-  const result = rt.applyPatch(patch, { allowCreateModel: true });
+  const result = rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
   assert(result.applied > 0, 'patch should apply records');
 
-  // Check cell_connection parsed
-  const routeKey = '100|0|0|0|event';
-  assert(rt.cellConnectionRoutes.has(routeKey), 'cell_connection route for event must be registered');
-
-  // Check CELL_CONNECT parsed
-  const cellKey = '100|1|0|0';
-  assert(rt.cellConnectGraph.has(cellKey), 'CELL_CONNECT graph for cell(1,0,0) must be registered');
-
-  // Verify no legacy PIN registry cell usage
-  const model100 = rt.getModel(100);
-  const registryCell = rt.getCell(model100, 0, 0, 1);
-  const hasPin = [...registryCell.labels.values()].some(l => l.t === 'PIN_IN' || l.t === 'PIN_OUT');
-  assert(!hasPin, 'no PIN_IN/PIN_OUT labels should exist on registry cell');
+  const cellKey = '100|0|0|0';
+  assert(rt.cellConnectGraph.has(cellKey), 'CELL_CONNECT graph for root cell must be registered');
+  const graph = rt.cellConnectGraph.get(cellKey);
+  assert(graph.has('self:submit'), 'root graph must expose self:submit');
+  assert(graph.has('func:on_model100_submit_in:out'), 'root graph must expose function out endpoint');
 
   return { key: 'model100_new_format_load', status: 'PASS' };
 }
@@ -116,25 +108,28 @@ async function test_model100_full_flow() {
   const sysPatchPath = path.resolve(__dirname, '../../packages/worker-base/system-models/system_models.json');
   const modelPatchPath = path.resolve(__dirname, '../../packages/worker-base/system-models/test_model_100_full.json');
 
-  rt.applyPatch(loadJson(sysPatchPath), { allowCreateModel: true });
+  rt.applyPatch(loadJson(sysPatchPath), { allowCreateModel: true, trustedBootstrap: true });
   if (!rt.getModel(-10)) rt.createModel({ id: -10, name: 'system', type: 'system' });
-  rt.applyPatch(loadJson(modelPatchPath), { allowCreateModel: true });
+  rt.applyPatch(loadJson(modelPatchPath), { allowCreateModel: true, trustedBootstrap: true });
 
   // Configure MQTT topic mode
   const model0 = rt.getModel(0);
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'mt_v0' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
 
-  // Simulate mqtt payload with records-only format
-  const topic = 'UIPUT/ws/dam/pic/de/sw/100/event';
+  const topic = 'UIPUT/ws/dam/pic/de/sw/100/submit';
   const payload = {
-    version: 'mt.v0',
+    version: 'v1',
+    type: 'pin_payload',
     op_id: 'test_0143_submit_001',
-    records: [
-      { op: 'add_label', model_id: 100, p: 1, r: 0, c: 0, k: 'action', t: 'str', v: 'submit' },
-      { op: 'add_label', model_id: 100, p: 1, r: 0, c: 0, k: 'data', t: 'json', v: null },
-      { op: 'add_label', model_id: 100, p: 1, r: 0, c: 0, k: 'timestamp', t: 'str', v: String(Date.now()) },
+    source_model_id: 100,
+    pin: 'submit',
+    payload: [
+      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
     ],
   };
 
@@ -142,24 +137,15 @@ async function test_model100_full_flow() {
   assert(handled, 'mqttIncoming must handle the message');
 
   // Verify IN at root cell
-  const rootIn = getLabel(rt, 100, 0, 0, 0, 'event');
+  const rootIn = getLabel(rt, 100, 0, 0, 0, 'submit');
   assert(rootIn && rootIn.t === 'pin.in', 'IN label should be at cell(0,0,0)');
-
-  // Verify cell_connection routed to (1,0,0)
-  const routedIn = getLabel(rt, 100, 1, 0, 0, 'event');
-  assert(routedIn && routedIn.t === 'pin.in', 'IN should route to cell(1,0,0) via cell_connection');
 
   // Wait for async CELL_CONNECT function execution
   await new Promise(resolve => setTimeout(resolve, 500));
 
-  // Verify function executed: patch OUT at (1,0,0)
-  const patchOut = getLabel(rt, 100, 1, 0, 0, 'patch');
-  assert(patchOut && patchOut.t === 'OUT', 'function output should be at cell(1,0,0) as OUT');
-  assert(patchOut.v && patchOut.v.version === 'mt.v0', 'output must be mt.v0 patch');
-
-  // Verify cell_connection routed patch back to (0,0,0)
-  const patchRouted = getLabel(rt, 100, 0, 0, 0, 'patch');
-  assert(patchRouted && patchRouted.t === 'pin.in', 'patch should route back to cell(0,0,0) as IN');
+  const patchOut = getLabel(rt, 100, 0, 0, 0, 'result');
+  assert(patchOut && patchOut.t === 'pin.out', 'function output should be at root as pin.out');
+  assert(Array.isArray(patchOut.v), 'output must be temporary-modeltable payload');
 
   // Verify bg_color updated
   const bg = getLabel(rt, 100, 0, 0, 0, 'bg_color');
