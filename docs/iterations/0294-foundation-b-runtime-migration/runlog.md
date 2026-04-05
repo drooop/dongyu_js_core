@@ -45,3 +45,22 @@ phase: phase1
 - [x] `docs/ssot/program_model_pin_and_payload_contract_vnext.md` reviewed
 - [x] `docs/plans/2026-04-06-pin-payload-impact-inventory-and-migration.md` reviewed
 - [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
+
+## Review Gate Record
+
+### Review 1 — AI-assisted
+
+- Iteration ID: `0294-foundation-b-runtime-migration`
+- Review Date: `2026-04-06`
+- Review Type: `AI-assisted`
+- Review Index: `1`
+- Decision: **Approved**
+- Notes:
+  - 未发现阻塞项。
+  - 计划范围已明确限定在：
+    - runtime 合同切换
+    - patch 迁移
+    - host / adapter 迁移
+    - validator / contract test 迁移
+    - 已规划业务线最小复审
+  - 没有把范围扩成 `MBR` 重构、bus 拓扑重排或业务能力直接实现。
