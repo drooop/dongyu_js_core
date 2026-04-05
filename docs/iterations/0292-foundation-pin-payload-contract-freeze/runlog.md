@@ -40,15 +40,26 @@ phase: phase1
 
 - Feishu skill path reviewed:
   - `/Users/drop/.codex/skills/feishu-doc-sync/SKILL.md`
-- Feishu script probe:
+- Initial Feishu script probe:
   - `python3 /Users/drop/.codex/skills/feishu-doc-sync/scripts/feishu_doc_sync.py sync --source-url 'https://bob3y2gxxp.feishu.cn/wiki/SgPHwHGrwi5xT5kEIGQccBkcn7c' --target-title 'codex-feishu-read-probe'`
-- Result:
+- Initial result:
   - `Missing required env: FEISHU_APP_ID`
 - Direct HTTP probe:
   - `curl -I -L -s 'https://bob3y2gxxp.feishu.cn/wiki/SgPHwHGrwi5xT5kEIGQccBkcn7c'`
   - anonymous request returned `404`
-- Current blocker:
-  - Feishu source definition cannot be read via authorized API in the current environment because required app credentials are missing.
+- Credentialed read:
+  - 使用用户提供的 app credentials 调用 Feishu OpenAPI raw content
+  - raw content saved to `/tmp/0292_feishu_raw.md`
+- Credentialed result:
+  - token: `SgPHwHGrwi5xT5kEIGQccBkcn7c`
+  - raw content length: `5302`
+  - imported source is readable
+
+## Outputs
+
+- [[docs/ssot/temporary_modeltable_payload_v1]]
+- [[docs/ssot/program_model_pin_and_payload_contract_vnext]]
+- [[docs/plans/2026-04-06-pin-payload-impact-inventory-and-migration]]
 
 ## Docs Updated
 

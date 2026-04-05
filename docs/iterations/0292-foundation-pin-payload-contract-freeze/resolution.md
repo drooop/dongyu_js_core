@@ -26,7 +26,7 @@ phase: phase1
   - 通过 Feishu 访问能力获取“临时模型表”定义
   - 把该定义落盘到 repo SSOT
 - Files:
-  - `docs/ssot/*`（待定最终文件名）
+  - `docs/ssot/temporary_modeltable_payload_v1.md`
   - `docs/iterations/0292-foundation-pin-payload-contract-freeze/runlog.md`
 - Verification:
   - 必须记录来源链接
@@ -44,7 +44,7 @@ phase: phase1
     - payload = 临时模型表
     - 不引入 `pin.table.*`
 - Files:
-  - `docs/ssot/*`
+  - `docs/ssot/program_model_pin_and_payload_contract_vnext.md`
   - `docs/iterations/0292-foundation-pin-payload-contract-freeze/plan.md`
   - `docs/iterations/0292-foundation-pin-payload-contract-freeze/resolution.md`
 - Verification:
@@ -62,7 +62,7 @@ phase: phase1
 - Scope:
   - 盘点全仓影响面
 - Files:
-  - `docs/plans/*` 或 `docs/ssot/*`（待定最终文件名）
+  - `docs/plans/2026-04-06-pin-payload-impact-inventory-and-migration.md`
   - `docs/iterations/0292-foundation-pin-payload-contract-freeze/runlog.md`
 - Verification:
   - 至少覆盖：
@@ -83,7 +83,7 @@ phase: phase1
 - Scope:
   - 形成基础 B 的迁移策略草案
 - Files:
-  - `docs/plans/*`（待定最终文件名）
+  - `docs/plans/2026-04-06-pin-payload-impact-inventory-and-migration.md`
   - `docs/iterations/0292-foundation-pin-payload-contract-freeze/runlog.md`
 - Verification:
   - 文档中必须说明：
