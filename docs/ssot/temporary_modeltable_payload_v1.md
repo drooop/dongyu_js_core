@@ -43,6 +43,9 @@ source: ai
   - 临时模型 id
   - 作用域只在当前 payload 内
   - 不是仓库运行时中的正式 `model_id`
+  - 同一 payload 中允许出现多个不同的 `id`
+  - 相同 `id` 表示同一个临时模型
+  - 不同 `id` 表示同一 payload 中携带多个临时模型
 - `p`
   - page / plane 索引
 - `r`

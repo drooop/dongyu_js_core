@@ -35,6 +35,7 @@ source: ai
 
 直接受影响：
 
+- `CLAUDE.md`
 - `docs/ssot/label_type_registry.md`
 - `docs/ssot/runtime_semantics_modeltable_driven.md`
 - `docs/ssot/ui_model_pin_routing_architecture.md`
@@ -43,6 +44,7 @@ source: ai
 
 原因：
 - 这些文档当前都还描述了：
+  - `pin.model.*`
   - `pin.table.*`
   - `pin.single.*`
   - `pin.log.table.*`
@@ -62,6 +64,7 @@ source: ai
 
 原因：
 - 当前这些 patch 里还存在：
+  - `pin.model.*` 兼容思维
   - `pin.table.in/out`
   - `pin.single.in/out`
   - `mt.v0` patch payload
@@ -122,7 +125,8 @@ source: ai
 
 - 在 runtime 中引入新的程序模型 pin 归属语义
 - 明确 implicit program model 的最小行为
-- 明确 `pin.in/out` 替代 `pin.table.*` / `pin.single.*` 的运行时解释
+- 明确 `pin.in/out` 替代 `pin.model.*` / `pin.table.*` / `pin.single.*` 的运行时解释
+- 明确 D0 / 非 D0 / 矩阵层级下的权限边界实现方式
 
 ### 2.2 Step B — System Patch Migration
 

@@ -43,6 +43,8 @@ phase: phase1
     - 引脚归属程序模型
     - payload = 临时模型表
     - 不引入 `pin.table.*`
+  - 明确 `pin.model.*` 去留
+  - 明确 D0 / 非 D0 / 矩阵权限边界
 - Files:
   - `docs/ssot/program_model_pin_and_payload_contract_vnext.md`
   - `docs/iterations/0292-foundation-pin-payload-contract-freeze/plan.md`
@@ -51,6 +53,8 @@ phase: phase1
   - 文档中必须明确：
     - 默认程序模型行为
     - 多引脚归属
+    - `pin.model.*` 去留
+    - D0 / 非 D0 / 矩阵权限
     - payload schema
 - Acceptance:
   - 三条合同冻结清晰

@@ -41,13 +41,17 @@ source: ai
 
 当一个 Cell 上声明多个 pin 时：
 
-- 每个 pin 名称对应一个独立的默认程序模型端点语义
-- 不要求用户为这些端点逐一写出显式程序模型 label
+- 该 Cell 可以同时承载多个默认程序模型端点
+- 每个 pin 名称对应一个默认程序模型端点
+- 这不是“一个 Cell 只能有一个默认程序模型”
+- 也不是“必须额外声明多个 `func.js` label”
+- 只要定义了多个 pin，就等于定义了多个默认程序模型端点
 
 ### 1.4 Explicit Program Model
 
 当用户显式声明自定义程序模型时：
 
+- 系统应自动为该程序模型建立 `In` / `Out` 端点语义
 - 仍然必须声明 pin label，才能把参数接进来、才能触发该程序
 - “无 pin label 的程序模型不可被外部合法触发”
 
@@ -55,7 +59,10 @@ source: ai
 
 默认程序模型的最小行为冻结如下：
 
-- 接收到 `pin.in` 数据后，默认程序模型可以把该输入视为“当前 Cell / 当前模型上下文中的输入值”
+- 当某个默认程序模型端点的 `In` 被触发时：
+  - 默认行为是把输入值原封不动写入对应 `In` label 的 `v`
+- 当目标 Cell 原本是空格子，但用户要把值接入该 Cell 时：
+  - 系统应自动在该 Cell 上创建对应的 `In` label
 - 真正的增删改查语义，不由 payload 内的 `action` 决定
 - 真正的动作语义由“接收到的 pin 名称 + 接收程序模型”决定
 
@@ -94,13 +101,18 @@ payload 中不再体现：
 
 本合同冻结：
 
+- 不保留 `pin.model.in`
+- 不保留 `pin.model.out`
 - 不引入 `pin.table.in`
 - 不引入 `pin.table.out`
+- 不引入 `pin.single.in`
+- 不引入 `pin.single.out`
 
 模型本地程序/数据入口统一收敛到：
 
 - `pin.in`
 - `pin.out`
+- `pin.bus.*` 继续仅保留为系统边界
 
 ### 4.2 Compatibility Note
 
@@ -112,15 +124,48 @@ payload 中不再体现：
 本合同当前只冻结模型本地程序/数据引脚。  
 `pin.bus.*` 是否继续保留为系统边界 family，不在本次 docs-only 冻结中展开重写。
 
-## 5. What This Changes
+## 5. D0 And Matrix Authority Rule
+
+### 5.1 D0 Definition
+
+本文中的 D0 指：
+
+- `p = 0`
+- `r = 0`
+- `c = 0`
+
+也就是某个 `model.table` 中坐标全为 0 的那个格子。
+
+### 5.2 model.table Authority
+
+- 如果程序模型位于 `model.table` 的 D0：
+  - 它可以读写该 table 下所有单元格的标签
+- 如果程序模型位于非 D0 单元格：
+  - 它只能修改自己所在单元格里的内容
+  - 不因为它属于这个 table，就天然拥有 table 其他格子的写权限
+
+### 5.3 Matrix Rule
+
+- 矩阵模型仍然处在同一个 `model.table` 内
+- 矩阵的 D0 可以管理该矩阵范围内的单元格（包括子矩阵）
+- 同时，所属 `model.table` 的 D0 也仍然可以管理这个矩阵区域
+- 这不视为越权，因为它们仍在同一个 `model.table` 内
+
+### 5.4 Child Model Rule
+
+- 子模型本质上是另一张模型表
+- 父子之间只能通过 pin 连接接入数据
+- 由于父子已通过不同 `model_id` 与 pin 连接天然分层，因此这里不再额外引入“子模型边界检查”概念
+
+## 6. What This Changes
 
 与当前仓库主线相比，这份合同的变化是：
 
-- pin 语义从“Cell 级 / table 级 / single 级分化”收敛到“程序模型端点”
+- pin 语义从“Cell 级 / model 级 / table 级 / single 级分化”收敛到“程序模型端点”
 - payload 从“动作 + 数据混合体”收敛到“纯临时模型表”
 - 增删改查由接收程序模型决定，而不是由 payload 决定
 
-## 6. What This Does Not Change
+## 7. What This Does Not Change
 
 本合同当前不直接定义：
 
