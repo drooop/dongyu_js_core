@@ -38,46 +38,38 @@ function test_remote_worker_patch_uses_current_tier2_shape() {
   const rootEventPin = modelRecords.find((record) => (
     record && record.op === 'add_label' && record.model_id === 100
     && record.p === 0 && record.r === 0 && record.c === 0
-    && record.t === 'pin.table.in' && record.k === 'event'
+    && record.t === 'pin.in' && record.k === 'submit'
   ));
-  assert.ok(rootEventPin, 'remote worker patch must declare root pin.table.in event');
+  assert.ok(rootEventPin, 'remote worker patch must declare root pin.in submit');
 
   const rootPatchPin = modelRecords.find((record) => (
     record && record.op === 'add_label' && record.model_id === 100
     && record.p === 0 && record.r === 0 && record.c === 0
-    && record.t === 'pin.table.out' && record.k === 'patch'
+    && record.t === 'pin.out' && record.k === 'result'
   ));
-  assert.ok(rootPatchPin, 'remote worker patch must declare root pin.table.out patch');
+  assert.ok(rootPatchPin, 'remote worker patch must declare root pin.out result');
 
   const funcRecord = modelRecords.find((record) => (
     record && record.op === 'add_label' && record.model_id === 100
-    && record.p === 1 && record.r === 0 && record.c === 0
-    && record.k === 'on_model100_event_in' && record.t === 'func.js'
+    && record.p === 0 && record.r === 0 && record.c === 0
+    && record.k === 'on_model100_submit_in' && record.t === 'func.js'
   ));
-  assert.ok(funcRecord, 'remote worker patch must place on_model100_event_in on model100 processing cell');
-
-  const privilegeRecord = modelRecords.find((record) => (
-    record && record.op === 'add_label' && record.model_id === 100
-    && record.p === 1 && record.r === 0 && record.c === 0
-    && record.k === 'scope_privileged' && record.t === 'bool'
-  ));
-  assert.ok(privilegeRecord, 'remote worker processing cell must declare scope_privileged');
-  assert.equal(privilegeRecord.v, true, 'remote worker processing cell scope_privileged must be true');
+  assert.ok(funcRecord, 'remote worker patch must place on_model100_submit_in on model100 D0');
 
   const patchOutTopicRecord = modelRecords.find((record) => (
     record && record.op === 'add_label' && record.model_id === 100
     && record.p === 0 && record.r === 0 && record.c === 0
-    && record.k === 'patch_out_topic' && record.t === 'str'
+    && record.k === 'result_out_topic' && record.t === 'str'
   ));
-  assert.ok(patchOutTopicRecord, 'remote worker root must declare patch_out_topic');
-  assert.ok(String(patchOutTopicRecord.v).endsWith('/100/patch_out'), 'patch_out_topic must target model100 patch_out topic');
+  assert.ok(patchOutTopicRecord, 'remote worker root must declare result_out_topic');
+  assert.ok(String(patchOutTopicRecord.v).endsWith('/100/result'), 'result_out_topic must target model100 result topic');
 
   const subConfig = configRecords.find((record) => (
     record && record.op === 'add_label' && record.model_id === -10
     && record.k === 'remote_subscriptions' && record.t === 'json'
   ));
   assert.ok(subConfig, 'remote worker config patch must declare remote_subscriptions');
-  assert.ok(Array.isArray(subConfig.v) && subConfig.v.some((s) => String(s).endsWith('/100/event')) && subConfig.v.some((s) => String(s).endsWith('/100/patch')), 'remote_subscriptions must include event and patch topics');
+  assert.ok(Array.isArray(subConfig.v) && subConfig.v.some((s) => String(s).endsWith('/100/submit')) && subConfig.v.some((s) => String(s).endsWith('/100/result')), 'remote_subscriptions must include submit and result topics');
 }
 
 function test_remote_runner_reads_subscription_config() {

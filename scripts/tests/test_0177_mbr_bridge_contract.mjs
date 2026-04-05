@@ -55,7 +55,14 @@ function buildCtx(rt, publishSpy) {
   };
 }
 
-function test_model100_ui_event_still_publishes() {
+function buildSubmitPayload(text = 'hello') {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: text },
+  ];
+}
+
+function test_model100_pin_payload_still_publishes() {
   const rt = loadRuntime();
   const sys = rt.getModel(-10);
   const published = [];
@@ -64,12 +71,12 @@ function test_model100_ui_event_still_publishes() {
     k: 'mbr_mgmt_inbox',
     t: 'json',
     v: {
-      version: 'v0',
-      type: 'ui_event',
+      version: 'v1',
+      type: 'pin_payload',
       op_id: 'mbr_ok_001',
-      action: 'submit',
       source_model_id: 100,
-      data: { meta: { op_id: 'mbr_ok_001' } },
+      pin: 'submit',
+      payload: buildSubmitPayload(),
       timestamp: Date.now(),
     },
   });
@@ -77,8 +84,12 @@ function test_model100_ui_event_still_publishes() {
   const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt')));
   fn(buildCtx(rt, published));
 
-  assert.equal(published.length, 1, 'standard Model 100 ui_event must still publish to MQTT');
-  assert.match(published[0].topic, /\/100\/event$/, 'standard Model 100 ui_event must publish to /100/event');
+  assert.equal(published.length, 1, 'standard Model 100 pin_payload must still publish to MQTT');
+  assert.match(published[0].topic, /\/100\/submit$/, 'standard Model 100 submit pin must publish to /100/submit');
+  assert.equal(published[0].payload?.type, 'pin_payload', 'MBR must preserve pin_payload transport type');
+  assert.equal(published[0].payload?.pin, 'submit', 'MBR must preserve pin name');
+  assert.ok(Array.isArray(published[0].payload?.payload), 'MBR must publish temporary-modeltable payload arrays');
+  assert.equal(published[0].payload?.payload?.[1]?.v, 'hello', 'MBR must preserve temporary-modeltable content');
 }
 
 function test_generic_crud_events_are_rejected() {
@@ -112,7 +123,7 @@ function test_generic_crud_events_are_rejected() {
 }
 
 const tests = [
-  test_model100_ui_event_still_publishes,
+  test_model100_pin_payload_still_publishes,
   test_generic_crud_events_are_rejected,
 ];
 

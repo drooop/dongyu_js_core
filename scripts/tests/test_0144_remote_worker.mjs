@@ -46,50 +46,53 @@ function test_remote_subscription_config_registered() {
   assert(subs, 'remote_subscriptions label should exist');
   assert.strictEqual(subs.t, 'json');
   assert(Array.isArray(subs.v), 'remote_subscriptions must be an array');
-  assert(subs.v.some((topic) => String(topic).includes('100/event')), 'remote_subscriptions must include model 100 event topic');
-  assert(subs.v.some((topic) => String(topic).includes('100/patch')), 'remote_subscriptions must include model 100 patch topic');
+  assert(subs.v.some((topic) => String(topic).includes('100/submit')), 'remote_subscriptions must include model 100 submit topic');
+  assert(subs.v.some((topic) => String(topic).includes('100/result')), 'remote_subscriptions must include model 100 result topic');
 
   return { key: 'remote_subscription_config_registered', status: 'PASS' };
 }
 
-function test_cell_connection_routing_declared() {
+function test_root_submit_wiring_declared() {
   const rt = createConfiguredRuntime();
-  // Model 100 should have cell_connection: [0,0,0,"event"] → [1,0,0,"event"]
-  const routeKey = '100|0|0|0|event';
-  assert(rt.cellConnectionRoutes.has(routeKey), 'cell_connection route for event should be registered');
-  const targets = rt.cellConnectionRoutes.get(routeKey);
+  const cellKey = '100|0|0|0';
+  assert(rt.cellConnectGraph.has(cellKey), 'CELL_CONNECT graph should have model100 root cell');
+  const graph = rt.cellConnectGraph.get(cellKey);
+  assert(graph.has('self:submit'), 'root graph should have self:submit endpoint');
+  const targets = graph.get('self:submit');
   assert(targets.length >= 1, 'should have at least one target');
-  assert.strictEqual(targets[0].p, 1);
-  assert.strictEqual(targets[0].k, 'event');
-  return { key: 'cell_connection_routing_declared', status: 'PASS' };
+  assert.strictEqual(targets[0].prefix, 'func');
+  assert(targets[0].port.includes('on_model100_submit_in'), 'root submit must wire to on_model100_submit_in');
+  return { key: 'root_submit_wiring_declared', status: 'PASS' };
 }
 
-function test_cell_connect_wiring_declared() {
+function test_root_result_wiring_declared() {
   const rt = createConfiguredRuntime();
-  // Model 100, cell (1,0,0) should have CELL_CONNECT wiring
-  const cellKey = '100|1|0|0';
-  assert(rt.cellConnectGraph.has(cellKey), 'CELL_CONNECT graph should have model100 cell(1,0,0)');
+  const cellKey = '100|0|0|0';
+  assert(rt.cellConnectGraph.has(cellKey), 'CELL_CONNECT graph should have model100 root cell');
   const graph = rt.cellConnectGraph.get(cellKey);
-  assert(graph.has('self:event'), 'should have self:event endpoint');
-  const targets = graph.get('self:event');
+  assert(graph.has('func:on_model100_submit_in:out'), 'root graph should expose function out endpoint');
+  const targets = graph.get('func:on_model100_submit_in:out');
   assert(targets.length >= 1);
-  assert.strictEqual(targets[0].prefix, 'func');
-  assert(targets[0].port.includes('on_model100_event_in'), 'should wire to on_model100_event_in');
-  return { key: 'cell_connect_wiring_declared', status: 'PASS' };
+  assert.strictEqual(targets[0].prefix, 'self');
+  assert.strictEqual(targets[0].port, 'result');
+  return { key: 'root_result_wiring_declared', status: 'PASS' };
 }
 
 function test_mqtt_incoming_routes_to_model100() {
   const rt = createConfiguredRuntime();
 
   // Simulate MQTT message arriving on Model 100 event topic
-  const topic = 'UIPUT/ws/dam/pic/de/sw/100/event';
+  const topic = 'UIPUT/ws/dam/pic/de/sw/100/submit';
   const payload = {
-    version: 'v0',
-    type: 'ui_event',
+    version: 'v1',
+    type: 'pin_payload',
     op_id: 'test_0144_mqtt_001',
-    action: 'submit',
     source_model_id: 100,
-    data: { input_value: 'hello' },
+    pin: 'submit',
+    payload: [
+      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
+    ],
     timestamp: Date.now(),
   };
 
@@ -99,41 +102,44 @@ function test_mqtt_incoming_routes_to_model100() {
   // Verify IN label written to Model 100 root cell
   const model100 = rt.getModel(100);
   const rootCell = rt.getCell(model100, 0, 0, 0);
-  const eventLabel = rootCell.labels.get('event');
-  assert(eventLabel, 'event IN label should be written to root cell');
+  const eventLabel = rootCell.labels.get('submit');
+  assert(eventLabel, 'submit IN label should be written to root cell');
   assert.strictEqual(eventLabel.t, 'pin.in');
+  assert.ok(Array.isArray(eventLabel.v), 'submit pin must carry temporary-modeltable payload array');
 
   return { key: 'mqtt_incoming_routes_to_model100', status: 'PASS' };
 }
 
-function test_cell_connection_propagates_to_processing_cell() {
+function test_root_submit_triggers_processing() {
   const rt = createConfiguredRuntime();
 
-  // Write IN label to Model 100 (0,0,0) with key='event'
+  // Write IN label to Model 100 (0,0,0) with key='submit'
   const model100 = rt.getModel(100);
-  rt.addLabel(model100, 0, 0, 0, { k: 'event', t: 'pin.in', v: { op_id: 'test_route_001' } });
+  rt.addLabel(model100, 0, 0, 0, { k: 'submit', t: 'pin.in', v: [{ id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' }] });
 
-  // Verify cell_connection routed to (1,0,0)
-  const procCell = rt.getCell(model100, 1, 0, 0);
-  const routedEvent = procCell.labels.get('event');
-  assert(routedEvent, 'event should be routed to processing cell (1,0,0)');
-  assert.strictEqual(routedEvent.t, 'pin.in');
+  const rootCell = rt.getCell(model100, 0, 0, 0);
+  const routedResult = rootCell.labels.get('result');
+  assert(routedResult, 'submit should trigger root result wiring');
+  assert.strictEqual(routedResult.t, 'pin.out');
 
-  return { key: 'cell_connection_propagates_to_processing_cell', status: 'PASS' };
+  return { key: 'root_submit_triggers_processing', status: 'PASS' };
 }
 
 async function test_full_chain_async() {
   const rt = createConfiguredRuntime();
 
   // Simulate MQTT incoming → full chain
-  const topic = 'UIPUT/ws/dam/pic/de/sw/100/event';
+  const topic = 'UIPUT/ws/dam/pic/de/sw/100/submit';
   const payload = {
-    version: 'v0',
-    type: 'ui_event',
+    version: 'v1',
+    type: 'pin_payload',
     op_id: 'test_0144_full_001',
-    action: 'submit',
     source_model_id: 100,
-    data: { meta: { op_id: 'test_0144_full_001' }, input_value: 'hello' },
+    pin: 'submit',
+    payload: [
+      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
+    ],
     timestamp: Date.now(),
   };
 
@@ -154,14 +160,14 @@ async function test_full_chain_async() {
   assert(status, 'status label should exist');
   assert.strictEqual(status.v, 'processed', `status should be 'processed', got '${status.v}'`);
 
-  const procCell = rt.getCell(model100, 1, 0, 0);
-  const funcError = procCell.labels.get('__error_on_model100_event_in');
+  const procCell = rt.getCell(model100, 0, 0, 0);
+  const funcError = procCell.labels.get('__error_on_model100_submit_in');
   assert(!funcError, 'on_model100_event_in must not leave a cross-model access error');
 
-  const patchOut = procCell.labels.get('patch');
-  assert(patchOut, 'processing cell patch label should exist');
-  assert.ok(patchOut.v && patchOut.v.version === 'mt.v0', 'processing cell must emit mt.v0 patch payload');
-  assert.ok(Array.isArray(patchOut.v.records) && patchOut.v.records.length > 0, 'processing cell patch payload must contain records');
+  const patchOut = procCell.labels.get('result');
+  assert(patchOut, 'processing cell result label should exist');
+  assert.ok(Array.isArray(patchOut.v), 'processing cell must emit temporary-modeltable payload array');
+  assert.ok(patchOut.v.some((record) => record && record.k === 'bg_color'), 'processing cell result payload must contain bg_color');
 
   return { key: 'full_chain_async', status: 'PASS' };
 }
@@ -170,10 +176,10 @@ async function test_full_chain_async() {
 const syncTests = [
   test_patches_load_successfully,
   test_remote_subscription_config_registered,
-  test_cell_connection_routing_declared,
-  test_cell_connect_wiring_declared,
+  test_root_submit_wiring_declared,
+  test_root_result_wiring_declared,
   test_mqtt_incoming_routes_to_model100,
-  test_cell_connection_propagates_to_processing_cell,
+  test_root_submit_triggers_processing,
 ];
 
 const asyncTests = [

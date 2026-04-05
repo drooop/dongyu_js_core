@@ -312,7 +312,7 @@
       "r": 0,
       "c": 0,
       "k": "submit",
-      "t": "pin.table.out",
+      "t": "pin.out",
       "v": null
     },
     {
@@ -2401,7 +2401,7 @@
       "r": 0,
       "c": 0,
       "k": "submit",
-      "t": "pin.table.out",
+      "t": "pin.out",
       "v": null
     },
     {
@@ -2467,7 +2467,7 @@
       "k": "emit_submit",
       "t": "func.js",
       "v": {
-        "code": "const payload = label && label.v && typeof label.v === 'object' ? label.v : null;\nif (!payload) return;\nctx.writeLabel({ model_id: 1009, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.table.out', payload);",
+        "code": "const payload = Array.isArray(label && label.v) ? label.v : [];\nif (payload.length === 0) return;\nctx.writeLabel({ model_id: 1009, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.out', payload);",
         "modelName": "workspace_filltable_example"
       }
     },
@@ -3356,7 +3356,7 @@
       "r": 0,
       "c": 0,
       "k": "submit",
-      "t": "pin.table.out",
+      "t": "pin.out",
       "v": null
     },
     {
@@ -3405,7 +3405,7 @@
       "k": "dispatch_remote",
       "t": "func.js",
       "v": {
-        "code": "const trigger = label && label.v && typeof label.v === 'object' ? label.v : null;\nif (!trigger) return;\nconst inputValue = String(ctx.getLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'input_draft' }) || '');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', true);\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status' }, 'str', 'loading');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_route_mode' }, 'str', 'remote');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.table.out', { version: 'v0', type: 'ui_event', op_id: 'ws_filltable_' + Date.now(), source_model_id: 1010, action: 'submit', data: { input_value: inputValue, route_mode: 'remote' }, timestamp: Date.now() });",
+        "code": "const trigger = label && label.v && typeof label.v === 'object' ? label.v : null;\nif (!trigger) return;\nconst inputValue = String(ctx.getLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'input_draft' }) || '');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', true);\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status' }, 'str', 'loading');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_route_mode' }, 'str', 'remote');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.out', [ { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' }, { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: inputValue }, { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: 'remote' } ]);",
         "modelName": "workspace_filltable_example"
       }
     },
@@ -3418,7 +3418,7 @@
       "k": "dispatch_local",
       "t": "func.js",
       "v": {
-        "code": "const inputValue = String(ctx.getLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'input_draft' }) || '');\nlet hash = 0;\nfor (const ch of inputValue) { hash = ((hash * 31) + ch.charCodeAt(0)) >>> 0; }\nconst color = '#' + (hash % 0xffffff).toString(16).padStart(6, '0');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_route_mode' }, 'str', 'local');\nctx.writeLabel({ model_id: 1010, p: 0, r: 1, c: 0, k: 'owner_apply' }, 'pin.in', { op: 'apply_records', target_model_id: 1010, records: [ { op: 'add_label', model_id: 1010, p: 0, r: 0, c: 0, k: 'generated_color_text', t: 'str', v: color }, { op: 'add_label', model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status', t: 'str', v: 'local_processed' }, { op: 'add_label', model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false } ] });",
+        "code": "const inputValue = String(ctx.getLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'input_draft' }) || '');\nlet hash = 0;\nfor (const ch of inputValue) { hash = ((hash * 31) + ch.charCodeAt(0)) >>> 0; }\nconst color = '#' + (hash % 0xffffff).toString(16).padStart(6, '0');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_route_mode' }, 'str', 'local');\nctx.writeLabel({ model_id: 1010, p: 0, r: 1, c: 0, k: 'owner_apply' }, 'pin.in', [ { id: 0, p: 0, r: 0, c: 0, k: 'generated_color_text', t: 'str', v: color }, { id: 0, p: 0, r: 0, c: 0, k: 'result_status', t: 'str', v: 'local_processed' }, { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false } ]);",
         "modelName": "workspace_filltable_example"
       }
     },
@@ -3525,7 +3525,7 @@
       "k": "forward_workspace_filltable_submit_from_model0",
       "t": "func.js",
       "v": {
-        "code": "const payload = ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'ws_filltable_submit_out' });\nif (!payload || typeof payload !== 'object') return;\nconst p = ctx.sendMatrix(payload);\nif (p && typeof p.then === 'function') {\n  p.catch(function() {\n    ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', false);\n    ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status' }, 'str', 'send_failed');\n  });\n} else if (!p) {\n  ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', false);\n  ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status' }, 'str', 'matrix_unavailable');\n}\nctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'ws_filltable_submit_out' }, 'pin.in', null);\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.table.out', null);",
+        "code": "const payload = ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'ws_filltable_submit_out' });\nif (!Array.isArray(payload) || payload.length === 0) return;\nconst packet = { version: 'v1', type: 'pin_payload', op_id: 'ws_filltable_' + Date.now(), source_model_id: 1010, pin: 'submit', payload, timestamp: Date.now() };\nconst p = ctx.sendMatrix(packet);\nif (p && typeof p.then === 'function') {\n  p.catch(function() {\n    ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', false);\n    ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status' }, 'str', 'send_failed');\n  });\n} else if (!p) {\n  ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', false);\n  ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status' }, 'str', 'matrix_unavailable');\n}\nctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'ws_filltable_submit_out' }, 'pin.in', null);\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.out', null);",
         "modelName": "workspace_filltable_example"
       }
     },

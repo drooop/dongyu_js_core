@@ -363,27 +363,37 @@ class ModelTableRuntime {
   _defaultOwnerMaterializeCode(modelId) {
     return [
       `const SELF_MODEL_ID = ${JSON.stringify(modelId)};`,
-      "const req = label && label.v && typeof label.v === 'object' ? label.v : null;",
-      "if (!req) return;",
-      "if (req.target_model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
       "function applyRecord(record) {",
       "  if (!record || typeof record !== 'object') return;",
-      "  if (record.model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
-      "  if (record.op === 'add_label') {",
-      "    ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k }, typeof record.t === 'string' && record.t ? record.t : 'str', record.v);",
-      "    return;",
-      "  }",
-      "  if (record.op === 'rm_label') {",
-      "    ctx.rmLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k });",
-      "    return;",
-      "  }",
-      "  throw new Error('unsupported_op');",
+      "  if (typeof record.k !== 'string' || !record.k) throw new Error('invalid_request_shape');",
+      "  if (typeof record.t !== 'string' || !record.t) throw new Error('invalid_request_shape');",
+      "  ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k }, record.t, record.v);",
       "}",
-      "if (req.op === 'apply_records') {",
-      "  const records = Array.isArray(req.records) ? req.records : [];",
-      "  for (const record of records) applyRecord(record);",
+      "const raw = label && Object.prototype.hasOwnProperty.call(label, 'v') ? label.v : null;",
+      "if (Array.isArray(raw)) {",
+      "  for (const record of raw) applyRecord(record);",
       "  return;",
       "}",
+      "const req = raw && typeof raw === 'object' ? raw : null;",
+      "if (!req) return;",
+      "if (req.target_model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
+      "if (req.op === 'apply_records') {",
+      "  const records = Array.isArray(req.records) ? req.records : [];",
+      "  for (const record of records) {",
+      "    if (!record || typeof record !== 'object') return;",
+      "    if (record.model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
+      "    if (record.op === 'add_label') {",
+      "      applyRecord(record);",
+      "      continue;",
+      "    }",
+      "    if (record.op === 'rm_label') {",
+      "      ctx.rmLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k });",
+      "      continue;",
+      "    }",
+      "    throw new Error('unsupported_op');",
+      "  }",
+      "    return;",
+      "  }",
       "if (req.op === 'set_labels') {",
       "  const labels = Array.isArray(req.labels) ? req.labels : [];",
       "  for (const item of labels) {",
@@ -648,7 +658,44 @@ class ModelTableRuntime {
   }
 
   _modelInputLabelType(model) {
-    return this._getModelForm(model) === 'single' ? 'pin.single.in' : 'pin.table.in';
+    return 'pin.in';
+  }
+
+  _isRootCell(p, r, c) {
+    return p === 0 && r === 0 && c === 0;
+  }
+
+  _isNonSystemModelRoot(model, p, r, c) {
+    return Boolean(model && Number.isInteger(model.id) && model.id !== 0 && this._isRootCell(p, r, c));
+  }
+
+  _registerRootBoundaryInput(model, p, r, c, label) {
+    this.modelInPorts.set(`${model.id}:${label.k}`, true);
+    if (label.v !== null && label.v !== undefined) {
+      this._routeViaCellConnection(model.id, 0, 0, 0, label.k, label.v);
+      const cellKey = `${model.id}|0|0|0`;
+      if (this.cellConnectGraph.has(cellKey)) {
+        this._propagateCellConnect(model.id, 0, 0, 0, 'self', label.k, label.v)
+          .catch(() => {
+            this._recordError(model, p, r, c, label, 'model_in_propagation_error');
+          });
+      }
+    }
+  }
+
+  _registerRootBoundaryOutput(model, p, r, c, label) {
+    this.modelOutPorts.set(`${model.id}:${label.k}`, true);
+    if (label.v !== null && label.v !== undefined) {
+      this._routeViaModelConnection(model.id, label.k, label.v);
+      const childInfo = this.parentChildMap.get(model.id);
+      if (childInfo) {
+        const { parentModelId, hostingCell: { p: hp, r: hr, c: hc } } = childInfo;
+        this._propagateCellConnect(parentModelId, hp, hr, hc, String(model.id), label.k, label.v)
+          .catch(() => {
+            this._recordError(model, p, r, c, label, 'model_out_propagation_error');
+          });
+      }
+    }
   }
 
   removeCell(model, p, r, c) {
@@ -917,6 +964,7 @@ class ModelTableRuntime {
   _payloadMode(config) {
     const mode = config && typeof config.payload_mode === 'string' ? config.payload_mode : null;
     if (mode === 'mt_v0') return 'mt_v0';
+    if (mode === 'pin_payload_v1') return 'pin_payload_v1';
     return 'legacy';
   }
 
@@ -1188,6 +1236,12 @@ class ModelTableRuntime {
     const mode = this._topicMode(config);
     const payloadMode = this._payloadMode(config);
     if (!payload) return false;
+    const pinPayloadV1 = typeof payload === 'object'
+      && payload !== null
+      && payload.version === 'v1'
+      && payload.type === 'pin_payload'
+      && typeof payload.pin === 'string'
+      && Array.isArray(payload.payload);
     const directEventV0 = typeof payload === 'object'
       && payload !== null
       && payload.version === 'v0'
@@ -1197,6 +1251,8 @@ class ModelTableRuntime {
       if (!(directEventV0 || (typeof payload === 'object' && payload.version === 'mt.v0' && Array.isArray(payload.records)))) {
         return false;
       }
+    } else if (payloadMode === 'pin_payload_v1') {
+      if (!pinPayloadV1) return false;
     } else {
       if (payload.t !== 'pin.in') return false;
     }
@@ -1252,6 +1308,13 @@ class ModelTableRuntime {
         return true;
       }
 
+      if (payloadMode === 'pin_payload_v1' && pinPayloadV1) {
+        if (payload.pin !== pinName) return false;
+        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload.payload });
+        this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1' });
+        return true;
+      }
+
       this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
       this.mqttTrace.record('inbound', { topic, payload, mode: 'legacy_in' });
       return true;
@@ -1291,6 +1354,13 @@ class ModelTableRuntime {
         return true;
       }
 
+      if (payloadMode === 'pin_payload_v1' && pinPayloadV1) {
+        if (payload.pin !== pinName) return false;
+        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload.payload });
+        this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1' });
+        return true;
+      }
+
       this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
       this.mqttTrace.record('inbound', { topic, payload, mode: 'legacy_in' });
       return true;
@@ -1321,6 +1391,13 @@ class ModelTableRuntime {
     if (payloadMode === 'mt_v0' && directEventV0) {
       this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
       this.mqttTrace.record('inbound', { topic, payload, mode: 'event_v0' });
+      return true;
+    }
+
+    if (payloadMode === 'pin_payload_v1' && pinPayloadV1) {
+      if (payload.pin !== pinName) return false;
+      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload.payload });
+      this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1' });
       return true;
     }
 
@@ -1592,7 +1669,7 @@ class ModelTableRuntime {
         this.addLabel(targetModel, 0, 0, 0, { k: t.k, t: 'pin.bus.in', v: value });
         continue;
       }
-      this.addLabel(targetModel, 0, 0, 0, { k: t.k, t: this._modelInputLabelType(targetModel), v: value });
+      this.addLabel(targetModel, 0, 0, 0, { k: t.k, t: 'pin.in', v: value });
     }
   }
 
@@ -1622,7 +1699,7 @@ class ModelTableRuntime {
       if (t.prefix === 'self') {
         const targetModel = this.getModel(modelId);
         if (!targetModel) return Promise.resolve();
-        this.addLabel(targetModel, p, r, c, { k: t.port, t: 'OUT', v: value });
+        this.addLabel(targetModel, p, r, c, { k: t.port, t: 'pin.out', v: value });
         this._routeViaCellConnection(modelId, p, r, c, t.port, value);
         return this._propagateCellConnect(modelId, p, r, c, 'self', t.port, value, visited);
       }
@@ -1638,7 +1715,7 @@ class ModelTableRuntime {
       // 0142+: Numeric ID prefix → route to child model-boundary pin.in
       if (!isNaN(Number(t.prefix))) {
         const childModelId = Number(t.prefix);
-        if (!this.parentChildMap.has(childModelId)) {
+      if (!this.parentChildMap.has(childModelId)) {
           this.eventLog.record({
             op: 'cell_connect_error',
             cell: { model_id: modelId, p, r, c },
@@ -1650,7 +1727,7 @@ class ModelTableRuntime {
         }
         const childModel = this.getModel(childModelId);
         if (!childModel) return Promise.resolve();
-        this.addLabel(childModel, 0, 0, 0, { k: t.port, t: this._modelInputLabelType(childModel), v: value });
+        this.addLabel(childModel, 0, 0, 0, { k: t.port, t: 'pin.in', v: value });
         return Promise.resolve();
       }
       return Promise.resolve();
@@ -1841,6 +1918,10 @@ class ModelTableRuntime {
       }
       return;
     }
+    if ((resolvedType === 'pin.in' || resolvedType === 'pin.log.in') && this._isNonSystemModelRoot(model, p, r, c)) {
+      this._registerRootBoundaryInput(model, p, r, c, label);
+      return;
+    }
     if (resolvedType === 'pin.in' || resolvedType === 'pin.log.in') {
       // 0143: Route via cell_connection to propagate IN to target cells
       this._routeViaCellConnection(model.id, p, r, c, label.k, label.v);
@@ -1863,6 +1944,21 @@ class ModelTableRuntime {
       if (label.v !== null && label.v !== undefined) {
         this._routeViaCellConnection(0, 0, 0, 0, label.k, label.v);
         this._routeViaModelConnection(0, label.k, label.v);
+      }
+      return;
+    }
+    if ((resolvedType === 'pin.out' || resolvedType === 'pin.log.out') && this._isNonSystemModelRoot(model, p, r, c)) {
+      this._registerRootBoundaryOutput(model, p, r, c, label);
+      return;
+    }
+    if (resolvedType === 'pin.out' || resolvedType === 'pin.log.out') {
+      this._routeViaCellConnection(model.id, p, r, c, label.k, label.v);
+      const cellKey = `${model.id}|${p}|${r}|${c}`;
+      if (this.cellConnectGraph.has(cellKey)) {
+        this._propagateCellConnect(model.id, p, r, c, 'self', label.k, label.v)
+          .catch(() => {
+            this._recordError(model, p, r, c, label, 'cell_connect_propagation_error');
+          });
       }
       return;
     }
@@ -1913,17 +2009,7 @@ class ModelTableRuntime {
         this._recordError(model, p, r, c, label, 'table_in_on_single_model_forbidden');
         return;
       }
-      this.modelInPorts.set(`${model.id}:${label.k}`, true);
-      if (label.v !== null && label.v !== undefined) {
-        this._routeViaCellConnection(model.id, 0, 0, 0, label.k, label.v);
-        const cellKey = `${model.id}|0|0|0`;
-        if (this.cellConnectGraph.has(cellKey)) {
-          this._propagateCellConnect(model.id, 0, 0, 0, 'self', label.k, label.v)
-            .catch((err) => {
-              this._recordError(model, p, r, c, label, 'model_in_propagation_error');
-            });
-        }
-      }
+      this._registerRootBoundaryInput(model, p, r, c, label);
       return;
     }
     // 0142+: table model-boundary output
@@ -1940,18 +2026,7 @@ class ModelTableRuntime {
         this._recordError(model, p, r, c, label, 'table_out_on_single_model_forbidden');
         return;
       }
-      this.modelOutPorts.set(`${model.id}:${label.k}`, true);
-      if (label.v !== null && label.v !== undefined) {
-        this._routeViaModelConnection(model.id, label.k, label.v);
-        const childInfo = this.parentChildMap.get(model.id);
-        if (childInfo) {
-          const { parentModelId, hostingCell: { p: hp, r: hr, c: hc } } = childInfo;
-          this._propagateCellConnect(parentModelId, hp, hr, hc, String(model.id), label.k, label.v)
-            .catch((err) => {
-              this._recordError(model, p, r, c, label, 'model_out_propagation_error');
-            });
-        }
-      }
+      this._registerRootBoundaryOutput(model, p, r, c, label);
       return;
     }
     // 0142+: single model-boundary input
@@ -1968,17 +2043,7 @@ class ModelTableRuntime {
         this._recordError(model, p, r, c, label, 'single_in_on_non_single_model_forbidden');
         return;
       }
-      this.modelInPorts.set(`${model.id}:${label.k}`, true);
-      if (label.v !== null && label.v !== undefined) {
-        this._routeViaCellConnection(model.id, 0, 0, 0, label.k, label.v);
-        const cellKey = `${model.id}|0|0|0`;
-        if (this.cellConnectGraph.has(cellKey)) {
-          this._propagateCellConnect(model.id, 0, 0, 0, 'self', label.k, label.v)
-            .catch((err) => {
-              this._recordError(model, p, r, c, label, 'model_in_propagation_error');
-            });
-        }
-      }
+      this._registerRootBoundaryInput(model, p, r, c, label);
       return;
     }
     // 0142+: single model-boundary output
@@ -1995,18 +2060,7 @@ class ModelTableRuntime {
         this._recordError(model, p, r, c, label, 'single_out_on_non_single_model_forbidden');
         return;
       }
-      this.modelOutPorts.set(`${model.id}:${label.k}`, true);
-      if (label.v !== null && label.v !== undefined) {
-        this._routeViaModelConnection(model.id, label.k, label.v);
-        const childInfo = this.parentChildMap.get(model.id);
-        if (childInfo) {
-          const { parentModelId, hostingCell: { p: hp, r: hr, c: hc } } = childInfo;
-          this._propagateCellConnect(parentModelId, hp, hr, hc, String(model.id), label.k, label.v)
-            .catch((err) => {
-              this._recordError(model, p, r, c, label, 'model_out_propagation_error');
-            });
-        }
-      }
+      this._registerRootBoundaryOutput(model, p, r, c, label);
       return;
     }
 

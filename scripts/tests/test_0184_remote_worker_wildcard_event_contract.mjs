@@ -24,17 +24,20 @@ loadPatches(rt, path.join(repoRoot, 'deploy/sys-v1ns/remote-worker/patches'));
 rt.setRuntimeMode('edit');
 rt.setRuntimeMode('running');
 
-const handled = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/100/event', {
-  version: 'v0',
-  type: 'ui_event',
+const handled = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/100/submit', {
+  version: 'v1',
+  type: 'pin_payload',
   op_id: 'wildcard_direct_001',
   source_model_id: 100,
-  action: 'submit',
-  data: { input_value: 'hello' },
+  pin: 'submit',
+  payload: [
+    { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
+  ],
   timestamp: Date.now(),
 });
 
-assert.equal(handled, true, 'runtime mqttIncoming must accept direct v0 ui_event on wildcard topic');
+assert.equal(handled, true, 'runtime mqttIncoming must accept direct v1 pin_payload on wildcard topic');
 await new Promise((resolve) => setTimeout(resolve, 1000));
 
 const model100 = rt.getModel(100);
