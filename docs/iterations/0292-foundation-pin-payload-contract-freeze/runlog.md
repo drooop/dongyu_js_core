@@ -61,6 +61,26 @@ phase: phase1
 - [[docs/ssot/program_model_pin_and_payload_contract_vnext]]
 - [[docs/plans/2026-04-06-pin-payload-impact-inventory-and-migration]]
 
+## Review Revision Record
+
+### Review 1 — User Change Requested
+
+- Review Date: `2026-04-06`
+- Notes:
+  - 需要明确 `pin.model.*` 去留
+  - 需要明确多默认程序模型端点语义
+  - 影响清单需纳入 `CLAUDE.md`
+  - payload 文档可补多 `id` 语义
+
+### Revision Applied
+
+- Applied updates:
+  - 明确不保留 `pin.model.in/out`
+  - 明确一个 Cell 可有多个默认程序模型端点
+  - 明确 D0 / 非 D0 / 矩阵权限边界
+  - 影响清单补入 `CLAUDE.md`
+  - payload 文档补入多 `id` 语义
+
 ## Docs Updated
 
 - [x] `docs/plans/2026-04-03-slide-matrix-three-current-baseline.md` reviewed
