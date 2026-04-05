@@ -87,3 +87,22 @@ phase: phase1
 - [x] `docs/iterations/0283-matrix-userline-phase1/plan.md` reviewed
 - [x] `docs/iterations/0288-slide-ui-phaseA-topology-freeze/plan.md` reviewed
 - [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
+
+## Review Gate Record
+
+### Review 2 — AI-assisted
+
+- Iteration ID: `0292-foundation-pin-payload-contract-freeze`
+- Review Date: `2026-04-06`
+- Review Type: `AI-assisted`
+- Review Index: `2`
+- Decision: **Approved**
+- Notes:
+  - 未发现新的阻塞项。
+  - 已明确：
+    - `pin.model.*` 不保留
+    - 一个 Cell 可承载多个默认程序模型端点
+    - D0（即 `p/r/c = 0/0/0` 的第 0 格）与非 D0 的权限边界
+    - 矩阵仍处于同一 `model.table` 内的权限关系
+    - payload 可包含多个临时模型 `id`
+  - 影响清单已纳入 `CLAUDE.md`。
