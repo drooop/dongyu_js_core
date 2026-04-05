@@ -38,3 +38,16 @@ phase: phase1
 - [x] `docs/iterations/0289-slide-ui-phaseB-workspace-generalization/plan.md` reviewed
 - [x] `docs/user-guide/workspace_ui_filltable_example.md` reviewed
 - [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
+
+## Review Gate Record
+
+### Review 1 — AI-assisted
+
+- Iteration ID: `0290-slide-ui-phaseC-filltable-create-mount`
+- Review Date: `2026-04-06`
+- Review Type: `AI-assisted`
+- Review Index: `1`
+- Decision: **Approved**
+- Notes:
+  - 未发现阻塞项。
+  - Phase C 已把用户通过填表创建 host/truth、填写 metadata、声明 registry/mount 和验证挂载成功的路径收口清楚，且没有提前进入 Gallery/文档收口。
