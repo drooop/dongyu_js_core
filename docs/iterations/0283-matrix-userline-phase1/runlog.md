@@ -38,3 +38,16 @@ phase: phase1
 - [x] `docs/WORKFLOW.md` reviewed
 - [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
 - [ ] `docs/user-guide/modeltable_user_guide.md` reviewed
+
+## Review Gate Record
+
+### Review 1 — AI-assisted
+
+- Iteration ID: `0283-matrix-userline-phase1`
+- Review Date: `2026-04-05`
+- Review Type: `AI-assisted`
+- Review Index: `1`
+- Decision: **Approved**
+- Notes:
+  - 未发现阻塞项。
+  - 第一阶段已清楚冻结最小登录前置、方案 A 固定、聊天消息与 `mt.v0` patch 区分、以及加密后置。

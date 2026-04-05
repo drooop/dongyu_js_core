@@ -40,3 +40,16 @@ phase: phase1
 - [x] `docs/iterations/0285-matrix-userline-phase3/plan.md` reviewed
 - [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
 - [ ] `docs/user-guide/modeltable_user_guide.md` reviewed
+
+## Review Gate Record
+
+### Review 1 — AI-assisted
+
+- Iteration ID: `0286-matrix-userline-phase4`
+- Review Date: `2026-04-05`
+- Review Type: `AI-assisted`
+- Review Index: `1`
+- Decision: **Approved**
+- Notes:
+  - 未发现阻塞项。
+  - 第四阶段正确冻结了信令经 `MBR`、媒体经 `WebRTC`、小房间多人 baseline，以及加密/录制/屏幕共享后置。
