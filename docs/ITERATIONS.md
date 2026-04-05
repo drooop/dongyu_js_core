@@ -197,6 +197,7 @@ source: ai
 | 0287-slide-ui-mainline-split | 2026-04-05 | 基于 0214 与当前基线，正式拆分 Slide UI 主线后续阶段与依赖顺序 | 2 | dev_0287-slide-ui-mainline-split | Planned | ./docs/iterations/0287-slide-ui-mainline-split/ |
 | 0288-slide-ui-phaseA-topology-freeze | 2026-04-05 | Slide UI Phase A：冻结 ui-server / remote-worker / MBR 的双工人拓扑、权属边界与 Model 100 合同锚点 | 2 | dev_0288-slide-ui-phaseA-topology-freeze | Planned | ./docs/iterations/0288-slide-ui-phaseA-topology-freeze/ |
 | 0289-slide-ui-phaseB-workspace-generalization | 2026-04-06 | Slide UI Phase B：将当前围绕 Model 100 的单点 Slide UI 壳推广为 Workspace 中多个 slide-capable app 的通用主线 | 2 | dev_0289-slide-ui-phaseB-workspace-generalization | Planned | ./docs/iterations/0289-slide-ui-phaseB-workspace-generalization/ |
+| 0290-slide-ui-phaseC-filltable-create-mount | 2026-04-06 | Slide UI Phase C：规划用户通过填表创建 slide app、声明 metadata，并挂载到 Workspace 主线 | 2 | dev_0290-slide-ui-phaseC-filltable-create-mount | Planned | ./docs/iterations/0290-slide-ui-phaseC-filltable-create-mount/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
