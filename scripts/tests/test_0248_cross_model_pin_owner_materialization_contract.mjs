@@ -54,7 +54,7 @@ async function test_table_out_routes_to_target_owner_table_in_and_materializes_a
     `
       ctx.writeLabel(
         { model_id: 4101, p: 0, r: 0, c: 0, k: 'write_req' },
-        'pin.table.out',
+        'pin.out',
         {
           op: 'add_label',
           target_model_id: 4102,
@@ -129,7 +129,7 @@ async function test_single_out_routes_to_target_owner_single_in_and_materializes
     `
       ctx.writeLabel(
         { model_id: 4201, p: 0, r: 0, c: 0, k: 'remove_req' },
-        'pin.single.out',
+        'pin.out',
         {
           op: 'rm_label',
           target_model_id: 4202,

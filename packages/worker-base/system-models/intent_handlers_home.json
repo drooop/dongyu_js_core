@@ -10,7 +10,7 @@
       "r": 0,
       "c": 0,
       "k": "home_refresh",
-      "t": "pin.table.in",
+      "t": "pin.in",
       "v": null
     },
     {
@@ -20,7 +20,7 @@
       "r": 0,
       "c": 0,
       "k": "home_select_row",
-      "t": "pin.table.in",
+      "t": "pin.in",
       "v": null
     },
     {
@@ -30,7 +30,7 @@
       "r": 0,
       "c": 0,
       "k": "home_open_create",
-      "t": "pin.table.in",
+      "t": "pin.in",
       "v": null
     },
     {
@@ -40,7 +40,7 @@
       "r": 0,
       "c": 0,
       "k": "home_open_edit",
-      "t": "pin.table.in",
+      "t": "pin.in",
       "v": null
     },
     {
@@ -50,7 +50,7 @@
       "r": 0,
       "c": 0,
       "k": "home_save_label",
-      "t": "pin.table.in",
+      "t": "pin.in",
       "v": null
     },
     {
@@ -60,7 +60,7 @@
       "r": 0,
       "c": 0,
       "k": "home_delete_label",
-      "t": "pin.table.in",
+      "t": "pin.in",
       "v": null
     },
     {
@@ -70,7 +70,7 @@
       "r": 0,
       "c": 0,
       "k": "home_view_detail",
-      "t": "pin.table.in",
+      "t": "pin.in",
       "v": null
     },
     {
@@ -80,7 +80,7 @@
       "r": 0,
       "c": 0,
       "k": "home_close_detail",
-      "t": "pin.table.in",
+      "t": "pin.in",
       "v": null
     },
     {
@@ -90,7 +90,7 @@
       "r": 0,
       "c": 0,
       "k": "home_close_edit",
-      "t": "pin.table.in",
+      "t": "pin.in",
       "v": null
     },
     {
@@ -122,7 +122,7 @@
       "k": "handle_home_emit_owner_requests",
       "t": "func.js",
       "v": {
-        "code": "const payload = label && label.v && typeof label.v === 'object' ? label.v : {}; const requests = Array.isArray(payload.requests) ? payload.requests : []; ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'home_pin_error' }, 'json', null); for (const req of requests) { if (!req || typeof req.out_pin !== 'string' || !req.out_pin || !req.body || typeof req.body !== 'object') { ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'home_pin_error' }, 'json', { code: 'invalid_request_shape', detail: 'requests[] item invalid' }); return; } ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: req.out_pin }, 'pin.table.out', req.body); }",
+        "code": "const payload = label && label.v && typeof label.v === 'object' ? label.v : {}; const requests = Array.isArray(payload.requests) ? payload.requests : []; ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'home_pin_error' }, 'json', null); for (const req of requests) { if (!req || typeof req.out_pin !== 'string' || !req.out_pin || !req.body || typeof req.body !== 'object') { ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'home_pin_error' }, 'json', { code: 'invalid_request_shape', detail: 'requests[] item invalid' }); return; } ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: req.out_pin }, 'pin.out', req.body); }",
         "modelName": "intent_handlers_home"
       }
     },

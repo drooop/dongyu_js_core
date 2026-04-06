@@ -29,12 +29,10 @@ function test_server_default_prompt_mentions_new_pin_types() {
   assert.match(text, /prefer those exact keys over inventing new keys/, 'server template must prefer existing schema keys');
   assert.match(text, /Do not invent synonym keys/, 'server template must forbid synonym key invention');
   assert.match(text, /never emit tool calls/, 'server template must explicitly forbid tool-call style output');
+  assert.match(text, /pin\.in/, 'server template must mention pin.in');
+  assert.match(text, /pin\.out/, 'server template must mention pin.out');
   assert.match(text, /pin\.bus\.in/, 'server template must mention pin.bus.in');
   assert.match(text, /pin\.bus\.out/, 'server template must mention pin.bus.out');
-  assert.match(text, /pin\.table\.in/, 'server template must mention pin.table.in');
-  assert.match(text, /pin\.table\.out/, 'server template must mention pin.table.out');
-  assert.match(text, /pin\.single\.in/, 'server template must mention pin.single.in');
-  assert.match(text, /pin\.single\.out/, 'server template must mention pin.single.out');
   assert.match(text, /positive model ids/, 'server template must constrain candidate_changes to positive model ids');
   assert.match(text, /do not target model_id=0 or any negative model_id/, 'server template must forbid model 0 and negative model ids in owner-chain preview');
   return { key: 'server_default_prompt_mentions_new_pin_types', status: 'PASS' };
@@ -50,12 +48,11 @@ function test_system_prompt_template_mentions_new_pin_types() {
   assert.match(text, /prefer those exact keys over inventing new keys/, 'system prompt must prefer existing schema keys');
   assert.match(text, /Do not invent synonym keys/, 'system prompt must forbid synonym key invention');
   assert.match(text, /never emit tool calls/, 'system prompt must explicitly forbid tool-call style output');
+  assert.match(text, /pin\.in/, 'system prompt must mention pin.in');
+  assert.match(text, /pin\.out/, 'system prompt must mention pin.out');
   assert.match(text, /pin\.bus\.in/, 'system prompt must mention pin.bus.in');
   assert.match(text, /pin\.bus\.out/, 'system prompt must mention pin.bus.out');
-  assert.match(text, /pin\.table\.in/, 'system prompt must mention pin.table.in');
-  assert.match(text, /pin\.table\.out/, 'system prompt must mention pin.table.out');
-  assert.match(text, /pin\.single\.in/, 'system prompt must mention pin.single.in');
-  assert.match(text, /pin\.single\.out/, 'system prompt must mention pin.single.out');
+  assert.doesNotMatch(text, /pin\.table\.in|pin\.table\.out|pin\.single\.in|pin\.single\.out|pin\.model\.in|pin\.model\.out/, 'system prompt must not mention deprecated local pin families');
   assert.match(text, /do not target model_id=0 or any negative model_id/, 'system prompt must forbid non-owner-chain model ids');
   return { key: 'system_prompt_template_mentions_new_pin_types', status: 'PASS' };
 }

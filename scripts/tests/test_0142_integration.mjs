@@ -27,6 +27,8 @@ async function test_full_e2e_model0_framework() {
       rt.addLabel(model, rec.p, rec.r, rec.c, rec.label);
     }
   }
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
 
   // Verify subModel registered
   assert(rt.parentChildMap.has(100), 'child 100 should be registered');
@@ -69,7 +71,7 @@ async function test_full_e2e_model0_framework() {
   const childCell0 = rt.getCell(child, 0, 0, 0);
   const modelIn = childCell0.labels.get('cmd');
   assert(modelIn, 'child should have boundary IN cmd');
-  assert(['pin.table.in', 'pin.single.in'].includes(modelIn.t), 'child boundary IN type mismatch');
+  assert.equal(modelIn.t, 'pin.in', 'child boundary IN type mismatch');
 
   // Verify: child function executes
   const childCell1 = rt.getCell(child, 1, 0, 0);
