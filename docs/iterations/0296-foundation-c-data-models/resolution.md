@@ -23,6 +23,215 @@ phase: phase1
   - deterministic tests 正确
   - 最小用户文档正确
 
+## Data Model Shared Contract
+
+### 1. Layout Rule
+
+- 三者统一采用同一组基础布局：
+  - D0，也就是 `(0,0,0)`，负责：
+    - `model_type`
+    - 元信息（如 `size_now` / `next_index`）
+    - 所有 boundary pins
+    - 所有 `func.js`
+    - 所有 `pin.connect.label`
+  - 数据元素默认放在：
+    - `(0,r,0)`，其中 `r >= 1`
+  - `c > 0`、`p > 0` 在本 iteration 不进入正式合同
+- `Array / Queue / Stack` 的差别不靠不同布局表达，而靠：
+  - 不同 pin 名称
+  - 不同函数行为
+
+### 2. Pin Naming Rule
+
+#### Data.Array
+
+- mutation pins:
+  - `add_data_in`
+  - `delete_data_in`
+- query pins:
+  - `get_data_in`
+  - `get_all_data_in`
+  - `get_size_in`
+- output pins:
+  - `get_data_out`
+  - `get_all_data_out`
+  - `get_size_out`
+
+#### Data.Queue
+
+- mutation pins:
+  - `enqueue_data_in`
+  - `dequeue_data_in`
+- query pins:
+  - `peek_data_in`
+  - `get_all_data_in`
+  - `get_size_in`
+- output pins:
+  - `dequeue_data_out`
+  - `peek_data_out`
+  - `get_all_data_out`
+  - `get_size_out`
+
+#### Data.Stack
+
+- mutation pins:
+  - `push_data_in`
+  - `pop_data_in`
+- query pins:
+  - `peek_data_in`
+  - `get_all_data_in`
+  - `get_size_in`
+- output pins:
+  - `pop_data_out`
+  - `peek_data_out`
+  - `get_all_data_out`
+  - `get_size_out`
+
+### 3. Input Payload Rule
+
+- 所有输入 payload 一律使用临时模型表数组，不再使用裸 object / `null`。
+
+#### Single-value mutation payload
+
+适用于：
+- `add_data_in`
+- `enqueue_data_in`
+- `push_data_in`
+
+示例：
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": { "foo": "bar" } }
+]
+```
+
+#### Index payload
+
+适用于：
+- `delete_data_in`
+- `get_data_in`
+
+示例：
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "index", "t": "int", "v": 2 }
+]
+```
+
+#### Zero-arg query payload
+
+适用于：
+- `get_all_data_in`
+- `get_size_in`
+- `peek_data_in`
+- `dequeue_data_in`
+- `pop_data_in`
+
+示例：
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" }
+]
+```
+
+### 4. Output Payload Rule
+
+#### Single-item result
+
+适用于：
+- `get_data_out`
+- `peek_data_out`
+- `dequeue_data_out`
+- `pop_data_out`
+
+示例：
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "found", "t": "bool", "v": true },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": { "foo": "bar" } }
+]
+```
+
+`get_data_out` 在需要时可额外带：
+
+```json
+{ "k": "index", "t": "int", "v": 2 }
+```
+
+#### Collection result
+
+适用于：
+- `get_all_data_out`
+
+示例：
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.table", "v": "Data.ArrayResult" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "size", "t": "int", "v": 2 },
+  { "id": 0, "p": 1, "r": 0, "c": 0, "k": "value", "t": "json", "v": "A" },
+  { "id": 0, "p": 2, "r": 0, "c": 0, "k": "value", "t": "json", "v": "B" }
+]
+```
+
+#### Size result
+
+适用于：
+- `get_size_out`
+
+示例：
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "size", "t": "int", "v": 2 }
+]
+```
+
+### 5. Ack Strategy
+
+- 本 iteration 不新增通用 `ack` pin。
+- 对纯 mutation：
+  - `add`
+  - `delete`
+  - `enqueue`
+  - `push`
+  成功语义以 committed state 改变为准。
+- 对既修改状态又返回值的操作：
+  - `dequeue`
+  - `pop`
+  通过各自的 output pin 返回结果，不再额外设计独立 ack。
+
+### 6. Canonical Template File Rule
+
+- checked-in 的 canonical template 文件，在 `0296` 中仍允许继续使用 repo authoritative patch wrapper：
+  - `version: "mt.v0"`
+  - `records: [...]`
+- 原因：
+  - 这描述的是“仓库中的模板落盘格式”
+  - 不是“pin 上传输的数据格式”
+- 所以本 iteration 必须显式区分：
+  - template file format = authoritative patch
+  - runtime payload format = temporary modeltable array
+
+### 7. Existing Array Template Migration Points
+
+- `packages/worker-base/system-models/templates/data_array_v0.json` 当前至少有两处必须迁移：
+  1. payload 约定仍停留在旧 object/null 风格，需要改成临时模型表数组
+  2. `func.js` 内把 `model_id: 2001` 写死
+
+- Foundation C 的迁移策略冻结为：
+  - 顶层 canonical template 仍可保留 example model id `2001` 作为 deterministic test anchor
+  - 但 function bodies 不允许继续手写死 `2001`
+  - 后续执行必须采用“模板 materialization 时注入 SELF_MODEL_ID”的方式，保证实例化到任意正数模型时可复用
+
 ## Step 1
 
 - Scope:
@@ -39,6 +248,7 @@ phase: phase1
   - 旧 `Data.Array` 模板必须明确迁到：
     - `pin.in / pin.out`
     - 临时模型表 payload
+    - 无 function-body `model_id=2001` 硬编码
   - 必须有红灯测试先证明旧模板口径不够
 - Acceptance:
   - `Data.Array` 在新合同下成为 canonical baseline
