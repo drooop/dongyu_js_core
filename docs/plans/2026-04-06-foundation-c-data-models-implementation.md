@@ -19,6 +19,17 @@ source: ai
 3. 再补 `Data.Stack`
 4. 最后补文档与展示面
 
+## Shared Contract To Freeze Before Code
+
+- root/data cell layout
+- `Array / Queue / Stack` pin naming table
+- temporary modeltable payload examples
+- output payload examples
+- mutation ack policy
+- `Data.Array` 旧模板的两类迁移点：
+  - authoritative patch wrapper 与 runtime payload 的区分
+  - function-body `model_id=2001` 硬编码移除
+
 ## Key Files
 
 - `packages/worker-base/system-models/templates/data_array_v0.json`

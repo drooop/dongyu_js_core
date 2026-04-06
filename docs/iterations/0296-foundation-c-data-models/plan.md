@@ -28,10 +28,19 @@ phase: phase1
 - 历史上已有：
   - `0190` 完成了旧合同下的 `Data.Array` 首版模板
   - 但它仍建立在旧 payload/旧 helper 假设之上，不能直接视为新合同下的最终完成态
+  - 它当前还有两个必须被显式迁移的问题：
+    - 模板文件本身仍是 repo authoritative patch 形式（`version: "mt.v0"` + `records`）
+    - `func.js` 内部把 `model_id: 2001` 写死在代码里，不能直接复用到别的实例
 - 用户已明确：
   - 数据模型先实现
   - Flow 模型后置
   - Three.js 暂不纳入本 iteration
+
+说明：
+- 本 iteration 必须明确区分两层格式：
+  - repo 内 authoritative template 文件格式
+  - pin 上传输的运行时 payload 格式
+- 前者短期内允许继续是 patch 文件；后者必须是临时模型表数组。
 
 ## Scope
 
@@ -118,6 +127,8 @@ phase: phase1
   - 为什么 `Data.Array` 需要迁旧模板
   - 为什么 `Queue / Stack` 现在值得一并做
   - 为什么 `Flow` 后置
+  - authoritative template 文件格式与运行时 payload 格式如何区分
+  - 旧 `2001` 硬编码要如何迁移
 - resolution 给出可执行的 Step 级路径、验证和回滚口径。
 
 ## Risks & Mitigations

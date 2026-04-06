@@ -57,6 +57,23 @@ phase: phase1
   - `0296` 本身不吸收这些 cleanup 任务
   - 只把它们记录为后续独立 iteration 的明确边界
 
+## Review Gate Record
+
+### Review 1 — User
+
+- Iteration ID: `0296-foundation-c-data-models`
+- Review Date: `2026-04-06`
+- Review Type: `User`
+- Review Index: `1`
+- Decision: **Change Requested**
+- Notes:
+  - 当前文档没有兑现 plan §5 中“执行者不需要再猜”的设计细节
+  - 要补齐：
+    - shared contract
+    - payload 示例
+    - ack 策略
+    - `0190` 旧模板的具体迁移点
+
 ## Docs Updated
 
 - [x] `docs/plans/2026-04-03-slide-matrix-three-current-baseline.md` reviewed
