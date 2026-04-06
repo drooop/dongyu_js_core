@@ -13,115 +13,132 @@ phase: phase1
 
 ## Execution Strategy
 
-- 本 iteration 仍是 docs-only 计划冻结，不做代码实现。
-- 目标是把第一阶段的实现边界拆到可执行粒度，为后续 Phase 3 提供正式施工图。
+- 本 iteration 进入 Phase 3，按已批准的第一阶段合同做最小实现。
+- 实现目标只覆盖：
+  - `1016-1019` 正数模型块落地
+  - 最小登录/session 真值落地
+  - 方案 A 下“一发一收”闭环落地
+  - Workspace 可见入口 + 最小页面可用
+- 不扩成完整聊天产品，不提前进入 `0284-0286`。
 - 实施顺序固定为：
-  1. 冻结模型拓扑与 ID block
-  2. 冻结最小登录/session 路径
-  3. 冻结方案 A 的聊天 envelope 与 MBR 分流边界
-  4. 冻结最小 UI 闭环与验证矩阵
-  5. 记录风险、回滚与后续阶段边界
+  1. 落地 `1016-1019` 模型块与 Workspace 挂载
+  2. 落地 `1017` 最小登录/session 路径
+  3. 落地 `1018/1019` 单会话消息闭环与 MBR/remote-worker 路由
+  4. 补齐测试与文档
+  5. 本地 deploy + 浏览器验收
 
 ## Step 1
 
 - Scope:
-  - 定义 Matrix 用户产品层第一阶段的正数模型拓扑
-  - 冻结推荐 `model_id` block
-  - 明确 host / truth / session / room / active conversation 的分层
+  - 在正式 patch 中创建 `1016-1019`
+  - 将 `1016` 挂到 Workspace
+  - 将 `1017/1018/1019` 作为 `1016` 的 child truth block 固定下来
 - Files:
-  - `docs/iterations/0283-matrix-userline-phase1/plan.md`
-  - `docs/iterations/0283-matrix-userline-phase1/resolution.md`
+  - `packages/ui-model-demo-frontend/src/model_ids.js`
+  - `packages/worker-base/system-models/workspace_positive_models.json`
+  - `packages/worker-base/system-models/runtime_hierarchy_mounts.json`
+  - `scripts/tests/test_0283_matrix_userline_phase1_contract.mjs`
 - Verification:
-  - 文档中必须明确：
-    - 哪些模型承载用户真值
-    - 哪些仍是系统层
-    - 不把聊天 truth 放入负数模型
-    - `1016-1019` 的建议分工
+  - `1016` 出现在 Workspace registry / mount 链上
+  - `1017/1018/1019` 不作为独立 sidebar app 暴露
+  - `1016` 页面 AST 能从 cellwise patch 生成
 - Acceptance:
-  - 无上下文读者能看懂第一阶段的产品层模型放置
+  - 产品层模型放置与父子关系已在运行态固定
 - Rollback:
-  - 回退本 iteration 文档
+  - 回退上述 patch / test
 
 ## Step 2
 
 - Scope:
-  - 定义最小登录能力的边界
-  - 明确它为什么前置于聊天 UI
-  - 区分最小登录与完整用户管理
-  - 说明第一阶段不引入前端独立 Matrix sync client
+  - 在 `1017` 落地最小登录真值：
+    - homeserver / username / password draft
+    - authenticated / session_user_id / session_display_name / session_homeserver_url
+    - session_status / login_error
+  - 增加一个受控 host capability，用于产品层登录验证
 - Files:
-  - `docs/iterations/0283-matrix-userline-phase1/plan.md`
-  - `docs/iterations/0283-matrix-userline-phase1/resolution.md`
+  - `packages/ui-model-demo-server/server.mjs`
+  - `packages/worker-base/system-models/workspace_positive_models.json`
+  - `scripts/tests/test_0283_matrix_userline_login_contract.mjs`
 - Verification:
-  - 文档中必须出现：
-    - 用户身份认证
-    - session 获取/维持
-    - 不含注册/资料/在线状态
-    - 不滑向方案 B
+  - 失败测试先证明当前缺少 `1017` 登录闭环
+  - 通过注入 login stub，可验证：
+    - 登录成功后 `1017` 写入 session truth
+    - 登录失败时写入错误状态
+    - 不依赖前端独立 Matrix client
 - Acceptance:
-  - 第一阶段对“最小登录”和“完整用户管理”的分界清晰
+  - `1017` 已能独立承载最小登录/session 结果
 - Rollback:
-  - 回退本 iteration 文档
+  - 回退 host capability、truth patch 与测试
 
 ## Step 3
 
 - Scope:
-  - 固定聊天消息走方案 A
-  - 规划 `dy.bus.v0` 下的聊天 envelope 与现有 `mt.v0` patch 区分方式
-  - 记录方案 A 的已知风险与未来迁移到方案 B 的成本
+  - 在 `1018/1019` 落地最小单会话 truth
+  - 将 `1019` 接入方案 A：
+    - `submit` 通过 MBR / `dy.bus.v0`
+    - remote-worker 返回 `result`
+  - 增加最小 remote echo handler
 - Files:
-  - `docs/iterations/0283-matrix-userline-phase1/plan.md`
-  - `docs/iterations/0283-matrix-userline-phase1/resolution.md`
+  - `packages/worker-base/system-models/workspace_positive_models.json`
+  - `packages/worker-base/system-models/system_models.json`
+  - `deploy/sys-v1ns/mbr/patches/mbr_role_v0.json`
+  - `deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json`
+  - `deploy/sys-v1ns/remote-worker/patches/12_model1019.json`
+  - `scripts/tests/test_0283_matrix_userline_send_receive_contract.mjs`
 - Verification:
-  - 文档中必须显式写出：
-    - 不走方案 B
-    - 聊天消息不等于 patch 消息
-    - `MBR` 风险和未来迁移成本
-    - 区分字段至少有一条明确建议
+  - 失败测试先证明 `1019` 还未进入 MBR / remote-worker 主链
+  - 通过后必须能证明：
+    - 发送 payload 走 `pin_payload`
+    - `source_model_id=1019`
+    - 返回 payload 通过 `result` 物化到 `1019`
 - Acceptance:
-  - 消息通道约束不再存在歧义
+  - “发一条、收一条”闭环成立
 - Rollback:
-  - 回退本 iteration 文档
+  - 回退上述 patch / route / test
 
 ## Step 4
 
 - Scope:
-  - 定义最小 UI 闭环：
-    - 登录
-    - 进入最小会话
-    - 发一条
-    - 收一条
-  - 只冻结最小证明路径，不扩成完整聊天产品
+  - 让 `1016` Workspace 页面可见、可操作
+  - 补齐最小 contract docs / user guide
+  - 补齐 `0283` runlog 与 docs 更新评估
 - Files:
-  - `docs/iterations/0283-matrix-userline-phase1/plan.md`
-  - `docs/iterations/0283-matrix-userline-phase1/resolution.md`
+  - `packages/worker-base/system-models/workspace_positive_models.json`
+  - `docs/iterations/0283-matrix-userline-phase1/runlog.md`
+  - `docs/ITERATIONS.md`
+  - `docs/user-guide/README.md`
+  - `docs/user-guide/matrix_userline_phase1.md`
 - Verification:
-  - 文档中必须明确：
-    - 最小 UI 元素
-    - 最小链路验证
-    - 不含房间列表/群聊全量能力
+  - Workspace 中能打开 `1016`
+  - 用户文档能说明：
+    - Phase 1 做了什么
+    - 不做什么
+    - 如何验证最小登录和单消息闭环
 - Acceptance:
-  - 第一阶段完成态清晰，不与第二阶段混淆
+  - 第一阶段实现与文档边界一致
 - Rollback:
-  - 回退本 iteration 文档
+  - 回退页面 patch 与文档
 
 ## Step 5
 
 - Scope:
-  - 固定后续 Phase 2/3/4 的边界：
-    - 第二阶段：私聊/群聊基础界面
-    - 第三阶段：完整用户管理
-    - 第四阶段：视频通话（不加密）
-  - 在第一阶段文档中显式写入“加密后置”
+  - 本地 redeploy
+  - 浏览器验证：
+    - Workspace 入口可见
+    - 登录成功
+    - 单条消息发送与回显成功
+  - 回归：
+    - 颜色生成器
+    - `0270`
+    - `Static`
 - Files:
-  - `docs/iterations/0283-matrix-userline-phase1/plan.md`
   - `docs/iterations/0283-matrix-userline-phase1/runlog.md`
 - Verification:
-  - 文档中必须显式写出：
-    - 聊天 E2E 后置
-    - 加密视频后置
-    - 后续阶段顺序
+  - `bash scripts/ops/ensure_runtime_baseline.sh`
+  - `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
+  - `bash scripts/ops/check_runtime_baseline.sh`
+  - 浏览器逐项验证最小 Matrix 页和现有主路径
 - Acceptance:
-  - 后续 Matrix 非加密路线具备清晰顺序，不再反复争论范围
+  - 第一阶段最小产品线本地可运行，且未带坏既有主路径
 - Rollback:
-  - 回退本 iteration 文档
+  - 回退功能代码与 patch，重新 deploy 本地基线

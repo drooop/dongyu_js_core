@@ -54,6 +54,12 @@ export const DOC_WORKSPACE_EXAMPLE_TRUTH_MODEL_ID = 1014;
 // 0275 Doc page fill-table MVP minimal example.
 export const DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID = 1015;
 
+// 0283 Matrix user product line phase 1.
+export const MATRIX_WORKSPACE_APP_MODEL_ID = 1016;
+export const MATRIX_SESSION_MODEL_ID = 1017;
+export const MATRIX_ROOM_DIRECTORY_MODEL_ID = 1018;
+export const MATRIX_ACTIVE_CONVERSATION_MODEL_ID = 1019;
+
 // Model 100 - Dual-bus E2E test model.
 export const MODEL_100_ID = 100;
 export const FLOW_SHELL_ANCHOR_MODEL_ID = MODEL_100_ID;

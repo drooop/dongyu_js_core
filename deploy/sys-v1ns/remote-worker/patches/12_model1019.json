@@ -1,0 +1,142 @@
+{
+  "version": "mt.v0",
+  "op_id": "matrix_userline_phase1_remote_truth_v0",
+  "description": "Model 1019 remote truth for matrix userline phase 1",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 1019,
+      "name": "matrix_userline_phase1_conversation_truth",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.MatrixActiveConversationTruth"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "result_out_topic",
+      "t": "str",
+      "v": "UIPUT/ws/dam/pic/de/sw/1019/result"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "root_routes",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, submit)",
+          "to": [
+            "(func, on_matrix_phase1_remote_submit_in:in)"
+          ]
+        },
+        {
+          "from": "(func, on_matrix_phase1_remote_submit_in:out)",
+          "to": [
+            "(self, result)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "submit",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "processor_routes",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, submit)",
+          "to": [
+            "(func, on_matrix_phase1_remote_submit_in:in)"
+          ]
+        },
+        {
+          "from": "(func, on_matrix_phase1_remote_submit_in:out)",
+          "to": [
+            "(self, result)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "scope_privileged",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "on_matrix_phase1_remote_submit_in",
+      "t": "func.js",
+      "v": {
+        "code": "const payload=Array.isArray(label&&label.v)?label.v:[];const textRecord=payload.find((record)=>record&&record.k==='message_text');const senderRecord=payload.find((record)=>record&&record.k==='sender_user_id');const roomRecord=payload.find((record)=>record&&record.k==='room_id');const text=String(textRecord&&textRecord.v!=null?textRecord.v:'').trim();const sender=String(senderRecord&&senderRecord.v!=null?senderRecord.v:'').trim()||'unknown';const roomId=String(roomRecord&&roomRecord.v!=null?roomRecord.v:'').trim()||'phase1-room';const reply='echo: '+text;const resultPayload=[{id:0,p:0,r:0,c:0,k:'last_remote_text',t:'str',v:reply},{id:0,p:0,r:0,c:0,k:'last_remote_sender',t:'str',v:'@mbr:localhost'},{id:0,p:0,r:0,c:0,k:'last_message_room_id',t:'str',v:roomId},{id:0,p:0,r:0,c:0,k:'last_sender_user_id',t:'str',v:sender},{id:0,p:0,r:0,c:0,k:'conversation_status',t:'str',v:'remote_processed'},{id:0,p:0,r:0,c:0,k:'submit_inflight',t:'bool',v:false}];ctx.writeLabel({model_id:1019,p:0,r:0,c:0,k:'last_remote_text'},'str',reply);ctx.writeLabel({model_id:1019,p:0,r:0,c:0,k:'last_remote_sender'},'str','@mbr:localhost');ctx.writeLabel({model_id:1019,p:0,r:0,c:0,k:'last_message_room_id'},'str',roomId);ctx.writeLabel({model_id:1019,p:0,r:0,c:0,k:'last_sender_user_id'},'str',sender);ctx.writeLabel({model_id:1019,p:0,r:0,c:0,k:'conversation_status'},'str','remote_processed');ctx.writeLabel({model_id:1019,p:0,r:0,c:0,k:'submit_inflight'},'bool',false);const topic=String(ctx.getLabel({model_id:1019,p:0,r:0,c:0,k:'result_out_topic'})||'').trim();if(topic)ctx.publishMqtt(topic,{version:'v1',type:'pin_payload',op_id:'matrix_userline_phase1_'+Date.now(),source_model_id:1019,pin:'result',payload:resultPayload,timestamp:Date.now()});return resultPayload;",
+        "modelName": "matrix_userline_phase1_conversation_truth"
+      }
+    }
+  ]
+}
