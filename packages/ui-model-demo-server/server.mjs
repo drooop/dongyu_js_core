@@ -1778,6 +1778,7 @@ class ProgramModelEngine {
     this.matrixAdapterUnsub = null;
     this.matrixRoomId = null;
     this.matrixDmPeerUserId = null;
+    this.matrixUserLoginImpl = null;
     this.started = false;
 
     // Tick scheduler state.
@@ -2361,6 +2362,54 @@ class ProgramModelEngine {
             return {
               ok: false,
               code: 'exception',
+              detail: String(err && err.message ? err.message : err),
+            };
+          }
+        },
+        matrixUserLogin: async (homeserverUrl, username, password) => {
+          try {
+            const runtimeMatrixConfig = readMatrixBootstrapConfig(this.runtime);
+            const rawHomeserver = typeof homeserverUrl === 'string' ? homeserverUrl.trim() : '';
+            const envHomeserver = readAuthString(process.env.MATRIX_HOMESERVER_URL);
+            const internalHomeserver = readAuthString(process.env.MATRIX_HOMESERVER_INTERNAL_URL) || 'http://synapse.dongyu.svc.cluster.local:8008';
+            const effectiveHomeserver = !rawHomeserver
+              ? (runtimeMatrixConfig.homeserverUrl || envHomeserver || internalHomeserver || '')
+              : (rawHomeserver.includes('matrix.localhost')
+                ? internalHomeserver
+                : (envHomeserver && rawHomeserver === envHomeserver && runtimeMatrixConfig.homeserverUrl
+                  ? runtimeMatrixConfig.homeserverUrl
+                  : rawHomeserver));
+            const impl = this.matrixUserLoginImpl
+              ? this.matrixUserLoginImpl
+              : async (nextHomeserverUrl, nextUsername, nextPassword) => {
+                  const session = await loginWithMatrix(nextHomeserverUrl, nextUsername, nextPassword);
+                  return {
+                    ok: true,
+                    userId: session.userId,
+                    displayName: session.displayName,
+                    homeserverUrl: session.homeserverUrl,
+                  };
+                };
+            const result = await impl(effectiveHomeserver, username, password);
+            if (!result || result.ok === false) {
+              return {
+                ok: false,
+                code: result && typeof result.code === 'string' ? result.code : 'login_failed',
+                detail: result && typeof result.detail === 'string' ? result.detail : 'login_failed',
+              };
+            }
+            return {
+              ok: true,
+              data: {
+                userId: typeof result.userId === 'string' ? result.userId : '',
+                displayName: typeof result.displayName === 'string' ? result.displayName : '',
+                homeserverUrl: typeof result.homeserverUrl === 'string' ? result.homeserverUrl : '',
+              },
+            };
+          } catch (err) {
+            return {
+              ok: false,
+              code: 'login_failed',
               detail: String(err && err.message ? err.message : err),
             };
           }
@@ -3110,6 +3159,9 @@ function isUiLocalMutableModelId(modelId) {
 
 function createServerState(options) {
   const dbPath = options && options.dbPath ? String(options.dbPath) : null;
+  const matrixUserLoginImpl = options && typeof options.matrixUserLoginImpl === 'function'
+    ? options.matrixUserLoginImpl
+    : null;
   const runtime = new ModelTableRuntime();
   const assetRoot = resolvePersistedAssetRoot();
   const bootstrapGeneratedKeys = new Set([
@@ -3775,6 +3827,7 @@ function createServerState(options) {
   const editorEventLog = [];
   const adapter = createLocalBusAdapter({ runtime, eventLog: editorEventLog, mode: 'v1' });
   programEngine = new ProgramModelEngine(runtime);
+  programEngine.matrixUserLoginImpl = matrixUserLoginImpl;
   programEngine._matrixDebugRefresh = (subjectId) => {
     const selected = String(subjectId ?? '').trim() || 'trace';
     overwriteStateLabel(runtime, 'matrix_debug_subject_selected', 'str', selected);

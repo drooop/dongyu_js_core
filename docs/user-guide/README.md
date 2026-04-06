@@ -45,6 +45,8 @@ source: ai
   - 0276 正式案例：一个挂到 Workspace 侧边栏的文档页面示例，证明结构、布局位置和主要内容都可以通过填表定义。
 - `data_models_filltable_guide.md`
   - 0296 数据模型入口：说明 `Data.Array / Data.Queue / Data.Stack` 在新 pin/payload 合同下的填表结构、pin 名称与 payload 形状。
+- `matrix_userline_phase1.md`
+  - 0283 最小 Matrix 用户产品线：说明 `1016-1019` 的分工、最小登录、单会话消息闭环，以及本地 Synapse 测试用户的注册与验证方式。
 - `ui_components_v2.md`
   - 组件能力与 AST 用法。
 - `design_system_v2.md`
