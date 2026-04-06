@@ -6,7 +6,7 @@ updated: 2026-04-06
 source: ai
 iteration_id: 0298-pin-contract-cleanup
 id: 0298-pin-contract-cleanup
-phase: phase0
+phase: phase1
 ---
 
 # 0298 — pin-contract-cleanup Runlog
@@ -16,7 +16,7 @@ phase: phase0
 - Date: `2026-04-06`
 - Working directory: `/Users/drop/codebase/cowork/dongyuapp_elysia_based`
 - Branch: `dev_0298-pin-contract-cleanup`
-- Runtime: intake only
+- Runtime: planning only
 
 ## Intake Record
 
@@ -34,7 +34,31 @@ phase: phase0
 - Result:
   - 采用空闲编号 `0298`
   - 已创建 skeleton
-  - 等待进入 Phase 1 planning
+
+## Planning Record
+
+### Record 2
+
+- Context scan:
+  - `runtime.mjs` 当前仍保留 4 处 compat handler：
+    - `pin.table.in`
+    - `pin.table.out`
+    - `pin.single.in`
+    - `pin.single.out`
+  - `intent_handlers_home.json` 当前仍有 9 个 `pin.table.in`，以及 1 个 `pin.table.out`
+  - `home_catalog_ui.json` 当前下拉仍暴露：
+    - `pin.table.in`
+    - `pin.table.out`
+    - `pin.single.in`
+    - `pin.single.out`
+  - `10_ui_side_worker_demo.json` 当前仍有：
+    - `pin.single.in`
+    - `pin.table.out`
+  - `llm_cognition_config.json` 当前 prompt 仍把旧 pin family 写给 LLM
+  - `CLAUDE.md` 当前 `PIN_SYSTEM` 仍列出 `pin.model.*`
+- Planning conclusion:
+  - `0298` 适合做 scoped cleanup
+  - 不需要重新设计 pin 合同
 
 ## Docs Updated
 
