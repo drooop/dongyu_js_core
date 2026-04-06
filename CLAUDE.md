@@ -285,8 +285,8 @@ tier 1: runtime base (基座运行能力)
   - model form enforcement: model.single / model.matrix / model.table constraints
   - label type interpretation: _applyBuiltins dispatches on label.t
     recognized types:
-      pin.in, pin.out, pin.model.in, pin.model.out, pin.bus.in, pin.bus.out,
-      pin.log.in, pin.log.out, pin.log.model.in, pin.log.model.out, pin.log.bus.in, pin.log.bus.out,
+      pin.in, pin.out, pin.bus.in, pin.bus.out,
+      pin.log.in, pin.log.out, pin.log.bus.in, pin.log.bus.out,
       pin.connect.label, pin.connect.cell, pin.connect.model, model.submt, func.js, func.python
   - MQTT loop: startMqttLoop, mqttIncoming, topic routing
   - AsyncFunction executor: _executeFuncViaCellConnect (30s timeout, sandboxed ctx)
@@ -418,23 +418,19 @@ cell position conventions:
 
 PIN_SYSTEM
 
-3-layer PIN architecture. type-based differentiation (NOT position-based).
+2-family PIN architecture. type-based differentiation (NOT position-based).
 
 data channel:
-  pin.in            Cell level input port
-  pin.out           Cell level output port
-  pin.model.in      Model boundary input port (only on (0,0,0), model_id != 0)
-  pin.model.out     Model boundary output port (only on (0,0,0), model_id != 0)
+  pin.in            Local model/program input port
+  pin.out           Local model/program output port
   pin.bus.in        System boundary input port (only on Model 0 (0,0,0))
   pin.bus.out       System boundary output port (only on Model 0 (0,0,0))
 
 log channel (identical routing behavior, type-isolated from data channel):
-  pin.log.in            Cell level log input
-  pin.log.out           Cell level log output
-  pin.log.model.in      Model boundary log input (only on (0,0,0), model_id != 0)
-  pin.log.model.out     Model boundary log output (only on (0,0,0), model_id != 0)
-  pin.log.bus.in        System boundary log input (only on Model 0 (0,0,0))
-  pin.log.bus.out       System boundary log output (only on Model 0 (0,0,0))
+  pin.log.in        Local log input
+  pin.log.out       Local log output
+  pin.log.bus.in    System boundary log input (only on Model 0 (0,0,0))
+  pin.log.bus.out   System boundary log output (only on Model 0 (0,0,0))
 
 connection declarations:
   pin.connect.label     Cell intra-wiring (endpoint = pin name string)
@@ -443,9 +439,9 @@ connection declarations:
 
 rules:
   - pin.in only connects to pin.out. pin.log.in only connects to pin.log.out. no cross-channel.
-  - pin.model.* and pin.bus.* MUST be on (0,0,0) of their respective model.
-  - pin.model.* does not handle model_id=0. model_id=0 external entry is pin.bus.* only.
-  - sub-model external connections only through (0,0,0) boundary ports.
+  - Local model/program pins use pin.in / pin.out only. pin.bus.* remains system boundary only.
+  - model_id=0 external entry is pin.bus.* only.
+  - sub-model external connections are routed through declared pins, not through a separate pin.model.* family.
   - log pins have NO special runtime behavior. no wiring = log discarded.
   - each function has 3 pins: func:in / func:out / func:log.out.
 

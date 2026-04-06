@@ -63,7 +63,7 @@ function test_home_pin_source_contract_is_declared() {
         && record?.r === 0
         && record?.c === 0
         && record?.k === action
-        && record?.t === 'pin.table.in'
+        && record?.t === 'pin.in'
       )),
       `home_pin_input_missing:${action}`,
     );

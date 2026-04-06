@@ -46,7 +46,7 @@
       "r": 0,
       "c": 0,
       "k": "owner_request",
-      "t": "pin.single.in",
+      "t": "pin.in",
       "v": null
     },
     {
@@ -111,7 +111,7 @@
       "k": "ui_apply_snapshot_delta",
       "t": "func.js",
       "v": {
-        "code": "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' }); if (!inbox || typeof inbox !== 'object' || inbox.version !== 'v0') return; const patch = inbox.payload; if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) return; const records = patch.records.filter((record) => record && (record.op === 'add_label' || record.op === 'rm_label') && record.model_id === 1); if (records.length > 0) { ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_side_owner_req_1' }, 'pin.table.out', { op: 'apply_records', target_model_id: 1, request_id: patch.op_id || 'ui_side_snapshot_delta', ts: Date.now(), records }); } ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' });",
+        "code": "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' }); if (!inbox || typeof inbox !== 'object' || inbox.version !== 'v0') return; const patch = inbox.payload; if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) return; const records = patch.records.filter((record) => record && (record.op === 'add_label' || record.op === 'rm_label') && record.model_id === 1); if (records.length > 0) { ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_side_owner_req_1' }, 'pin.out', { op: 'apply_records', target_model_id: 1, request_id: patch.op_id || 'ui_side_snapshot_delta', ts: Date.now(), records }); } ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' });",
         "modelName": "ui_side_worker"
       }
     }

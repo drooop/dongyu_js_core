@@ -3048,22 +3048,6 @@
             "value": "pin.bus.out"
           },
           {
-            "label": "pin.table.in",
-            "value": "pin.table.in"
-          },
-          {
-            "label": "pin.table.out",
-            "value": "pin.table.out"
-          },
-          {
-            "label": "pin.single.in",
-            "value": "pin.single.in"
-          },
-          {
-            "label": "pin.single.out",
-            "value": "pin.single.out"
-          },
-          {
             "label": "model.single",
             "value": "model.single"
           },

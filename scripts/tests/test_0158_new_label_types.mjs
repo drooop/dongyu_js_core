@@ -26,21 +26,34 @@ async function test_pin_connect_model_routes_bus_to_submodel() {
   return { key: 'pin_connect_model_routes_bus_to_submodel', status: 'PASS' };
 }
 
-function test_pin_table_in_rejects_model0() {
+function test_legacy_pin_table_in_has_no_runtime_semantics() {
   const rt = new ModelTableRuntime();
-  rt.addLabel(rt.getModel(0), 0, 0, 0, { k: 'bad', t: 'pin.table.in', v: 1 });
-  const hasErr = rt.eventLog.list().some((e) => e.reason === 'model_in_on_model0_forbidden');
-  assert(hasErr, 'model_id=0 should reject pin.table.in');
-  return { key: 'pin_table_in_rejects_model0', status: 'PASS' };
+  const model = rt.createModel({ id: 301, name: 'legacy_table', type: 'app' });
+  rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Flow' });
+  rt.addLabel(model, 0, 0, 0, {
+    k: 'routes',
+    t: 'pin.connect.cell',
+    v: [{ from: [0, 0, 0, 'bad'], to: [[1, 0, 0, 'next']] }],
+  });
+  rt.addLabel(model, 0, 0, 0, { k: 'bad', t: 'pin.table.in', v: 'legacy' });
+  assert.equal(rt.modelInPorts.has('301:bad'), false, 'legacy pin.table.in must not register model boundary semantics');
+  assert.equal(rt.getCell(model, 1, 0, 0).labels.get('next'), undefined, 'legacy pin.table.in must not route');
+  return { key: 'legacy_pin_table_in_has_no_runtime_semantics', status: 'PASS' };
 }
 
-function test_pin_single_in_requires_single_model() {
+function test_legacy_pin_single_in_has_no_runtime_semantics() {
   const rt = new ModelTableRuntime();
-  const m = rt.createModel({ id: 201, name: 'non_single', type: 'app' });
+  const m = rt.createModel({ id: 201, name: 'legacy_single', type: 'app' });
+  rt.addLabel(m, 0, 0, 0, { k: 'model_type', t: 'model.single', v: 'Code.JS' });
+  rt.addLabel(m, 0, 0, 0, {
+    k: 'routes',
+    t: 'pin.connect.cell',
+    v: [{ from: [0, 0, 0, 'bad'], to: [[1, 0, 0, 'next']] }],
+  });
   rt.addLabel(m, 0, 0, 0, { k: 'bad', t: 'pin.single.in', v: 1 });
-  const hasErr = rt.eventLog.list().some((e) => e.reason === 'single_in_on_non_single_model_forbidden');
-  assert(hasErr, 'non-single model should reject pin.single.in');
-  return { key: 'pin_single_in_requires_single_model', status: 'PASS' };
+  assert.equal(rt.modelInPorts.has('201:bad'), false, 'legacy pin.single.in must not register model boundary semantics');
+  assert.equal(rt.getCell(m, 1, 0, 0).labels.get('next'), undefined, 'legacy pin.single.in must not route');
+  return { key: 'legacy_pin_single_in_has_no_runtime_semantics', status: 'PASS' };
 }
 
 async function test_pin_connect_cell_and_pin_in_route() {
@@ -61,8 +74,8 @@ async function test_pin_connect_cell_and_pin_in_route() {
 }
 
 const tests = [
-  test_pin_table_in_rejects_model0,
-  test_pin_single_in_requires_single_model,
+  test_legacy_pin_table_in_has_no_runtime_semantics,
+  test_legacy_pin_single_in_has_no_runtime_semantics,
   test_pin_connect_model_routes_bus_to_submodel,
   test_pin_connect_cell_and_pin_in_route,
 ];
