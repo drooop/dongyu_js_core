@@ -60,6 +60,23 @@ phase: phase1
   - `0298` 适合做 scoped cleanup
   - 不需要重新设计 pin 合同
 
+## Review Gate Record
+
+### Review 1 — AI-assisted
+
+- Iteration ID: `0298-pin-contract-cleanup`
+- Review Date: `2026-04-06`
+- Review Type: `AI-assisted`
+- Review Index: `1`
+- Decision: **Approved**
+- Notes:
+  - 范围已经被用户提前锁死，且 planning 文档没有再向外膨胀
+  - plan / resolution 已明确：
+    - runtime compat handler 退场
+    - Home / ui-side-worker / LLM prompt / `CLAUDE.md` 各自的 cleanup 责任
+    - deterministic tests 与本地浏览器回归要求
+  - 未发现阻塞项，可进入 Phase 3
+
 ## Docs Updated
 
 - [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
