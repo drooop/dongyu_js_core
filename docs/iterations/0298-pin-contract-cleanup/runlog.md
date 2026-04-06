@@ -171,6 +171,22 @@ phase: phase1
   - cleanup 只动了锁定范围，没有扩到其它残留
   - `0294` 主链和页面回归均保持可用
 
+### Review 3 — User-side Verification
+
+- Iteration ID: `0298-pin-contract-cleanup`
+- Review Date: `2026-04-06`
+- Review Type: `User-side`
+- Review Index: `3`
+- Decision: **Approved**
+- Notes:
+  - 锁定范围内的旧 pin family 已全部清除
+  - 规范文档已同步
+  - 主路径与页面回归无退化
+  - 一个非阻塞观察：
+    - `runtime.mjs` 仍有 historical aliases 注释块
+    - `CLAUDE.md` 448-449 一带仍提到旧名（如 `BUS_IN/BUS_OUT/cell_connection/CELL_CONNECT/MODEL_IN/MODEL_OUT` 这样的历史术语）
+    - 这些不在 `0298` 锁定范围内，可留给后续更小的 docs cleanup
+
 ## Docs Updated
 
 - [x] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed (no change)
