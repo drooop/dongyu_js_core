@@ -1814,6 +1814,7 @@ class ModelTableRuntime {
       },
     };
     const ctx = {
+      self: Object.freeze({ model_id: model.id, p, r, c }),
       runtime: runtimeView,
       getLabel(ref) {
         if (!ref || !Number.isInteger(ref.model_id)) return undefined;

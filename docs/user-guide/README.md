@@ -43,6 +43,8 @@ source: ai
   - 0275 MVP：如何通过 `Model 1015` 的细粒度填表，做出最小可工作的文档型页面。
 - `doc_workspace_filltable_example.md`
   - 0276 正式案例：一个挂到 Workspace 侧边栏的文档页面示例，证明结构、布局位置和主要内容都可以通过填表定义。
+- `data_models_filltable_guide.md`
+  - 0296 数据模型入口：说明 `Data.Array / Data.Queue / Data.Stack` 在新 pin/payload 合同下的填表结构、pin 名称与 payload 形状。
 - `ui_components_v2.md`
   - 组件能力与 AST 用法。
 - `design_system_v2.md`

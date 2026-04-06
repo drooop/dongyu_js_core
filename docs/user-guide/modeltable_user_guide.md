@@ -18,6 +18,10 @@ source: ai
 ## 0. Who This Is For
 本指南面向需要“直接填写模型表单元格”的开发/集成/测试人员。
 
+数据模型专项指南：
+- `docs/user-guide/data_models_filltable_guide.md`
+  - 说明 `Data.Array / Data.Queue / Data.Stack` 的新合同下使用方式。
+
 ## 1. Mental Model (SSOT-aligned)
 - ModelTable 是唯一真值；UI 只是投影。
 - 所有副作用必须由 add_label / rm_label 触发。
