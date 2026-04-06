@@ -54,9 +54,21 @@ function test_template_declares_unified_pins_and_functions() {
   assert.equal(wiring.t, 'pin.connect.label');
 }
 
+function test_template_functions_do_not_hardcode_example_model_id() {
+  const patch = loadJson(templatePath);
+  for (const key of ['array_add', 'array_delete', 'array_get', 'array_get_all', 'array_get_size']) {
+    const label = findAddLabel(patch.records, key);
+    assert.ok(label, `template must declare function ${key}`);
+    const code = String(label?.v?.code || '');
+    assert.doesNotMatch(code, /\bmodel_id\s*:\s*2001\b/, `${key} must not hardcode model_id=2001`);
+    assert.match(code, /ctx\.self|SELF_MODEL_ID/, `${key} must use runtime-provided self model identity`);
+  }
+}
+
 const tests = [
   test_template_exists_and_declares_data_array_root,
   test_template_declares_unified_pins_and_functions,
+  test_template_functions_do_not_hardcode_example_model_id,
 ];
 
 let passed = 0;

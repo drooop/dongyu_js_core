@@ -201,7 +201,7 @@ source: ai
 | 0291-slide-ui-phaseD-gallery-doc-evidence | 2026-04-06 | Slide UI Phase D：规划 Gallery 展示、使用文档与浏览器/远端取证的正式收口资产 | 2 | dev_0291-slide-ui-phaseD-gallery-doc-evidence | Approved | ./docs/iterations/0291-slide-ui-phaseD-gallery-doc-evidence/ |
 | 0292-foundation-pin-payload-contract-freeze | 2026-04-06 | 基础 A：冻结新引脚/数据合同并完成全仓影响盘点，作为后续 Matrix、Slide UI、3D 与数据模型工作的共同前置 | 2 | dev_0292-foundation-pin-payload-contract-freeze | Approved | ./docs/iterations/0292-foundation-pin-payload-contract-freeze/ |
 | 0294-foundation-b-runtime-migration | 2026-04-06 | 基础 B：实现新引脚/数据合同并完成 runtime、system-models 与验证脚本的正式迁移 | 3 | dev_0294-foundation-b-runtime-migration | Completed | ./docs/iterations/0294-foundation-b-runtime-migration/ |
-| 0296-foundation-c-data-models | 2026-04-06 | 基础 C：以新 pin/payload 合同为前提，迁移 Data.Array 并补齐 Data.Queue / Data.Stack 第一批正式数据模型族 | 1 | dev_0296-foundation-c-data-models | Planned | ./docs/iterations/0296-foundation-c-data-models/ |
+| 0296-foundation-c-data-models | 2026-04-06 | 基础 C：以新 pin/payload 合同为前提，迁移 Data.Array 并补齐 Data.Queue / Data.Stack 第一批正式数据模型族 | 3 | dev_0296-foundation-c-data-models | Completed | ./docs/iterations/0296-foundation-c-data-models/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

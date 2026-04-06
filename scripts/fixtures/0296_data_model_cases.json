@@ -1,0 +1,106 @@
+{
+  "queue": {
+    "enqueue_dequeue_fifo": {
+      "steps": [
+        { "pin": "enqueue_data_in", "payload": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": "A" }
+        ] },
+        { "pin": "enqueue_data_in", "payload": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": "B" }
+        ] },
+        { "pin": "peek_data_in", "payload": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" }
+        ] },
+        { "pin": "dequeue_data_in", "payload": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" }
+        ] },
+        { "pin": "get_all_data_in", "payload": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" }
+        ] },
+        { "pin": "get_size_in", "payload": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" }
+        ] }
+      ],
+      "expected": {
+        "size_now": 1,
+        "next_index": 2,
+        "rows": {
+          "1": "B"
+        },
+        "peek_data_out": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "found", "t": "bool", "v": true },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": "A" }
+        ],
+        "dequeue_data_out": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "found", "t": "bool", "v": true },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": "A" }
+        ],
+        "get_all_data_out": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.table", "v": "Data.QueueResult" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "size", "t": "int", "v": 1 },
+          { "id": 0, "p": 1, "r": 0, "c": 0, "k": "value", "t": "json", "v": "B" }
+        ],
+        "get_size_out": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "size", "t": "int", "v": 1 }
+        ]
+      }
+    }
+  },
+  "stack": {
+    "push_pop_lifo": {
+      "steps": [
+        { "pin": "push_data_in", "payload": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": "A" }
+        ] },
+        { "pin": "push_data_in", "payload": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": "B" }
+        ] },
+        { "pin": "peek_data_in", "payload": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" }
+        ] },
+        { "pin": "pop_data_in", "payload": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" }
+        ] },
+        { "pin": "get_all_data_in", "payload": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" }
+        ] },
+        { "pin": "get_size_in", "payload": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" }
+        ] }
+      ],
+      "expected": {
+        "size_now": 1,
+        "next_index": 2,
+        "rows": {
+          "1": "A"
+        },
+        "peek_data_out": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "found", "t": "bool", "v": true },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": "B" }
+        ],
+        "pop_data_out": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "found", "t": "bool", "v": true },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": "B" }
+        ],
+        "get_all_data_out": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.table", "v": "Data.StackResult" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "size", "t": "int", "v": 1 },
+          { "id": 0, "p": 1, "r": 0, "c": 0, "k": "value", "t": "json", "v": "A" }
+        ],
+        "get_size_out": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "size", "t": "int", "v": 1 }
+        ]
+      }
+    }
+  }
+}

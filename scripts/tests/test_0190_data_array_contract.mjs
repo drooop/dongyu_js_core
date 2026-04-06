@@ -32,6 +32,26 @@ async function buildRuntimeFromTemplate() {
   return { runtime, model };
 }
 
+function remapPatchModelId(patch, fromId, toId) {
+  const cloned = JSON.parse(JSON.stringify(patch));
+  for (const record of cloned.records || []) {
+    if (record && record.model_id === fromId) record.model_id = toId;
+  }
+  return cloned;
+}
+
+async function buildRuntimeFromRemappedTemplate(modelId) {
+  const runtime = new ModelTableRuntime();
+  const patch = remapPatchModelId(loadJson(templatePath), 2001, modelId);
+  const result = runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
+  assert.equal(result.rejected, 0, 'remapped template patch should apply without rejections');
+  runtime.setRuntimeMode('edit');
+  runtime.setRuntimeMode('running');
+  const model = runtime.getModel(modelId);
+  assert.ok(model, `Data.Array remapped template must create model ${modelId}`);
+  return { runtime, model };
+}
+
 async function applySteps(model, runtime, steps) {
   for (const step of steps) {
     runtime.addLabel(model, 0, 0, 0, { k: step.pin, t: 'pin.in', v: step.payload });
@@ -125,6 +145,21 @@ async function test_get_all_requires_null_payload() {
   assert.match(err.error, new RegExp(fixture.expected_error.contains));
 }
 
+async function test_template_can_materialize_to_non_2001_model_id() {
+  const { runtime, model } = await buildRuntimeFromRemappedTemplate(29061);
+  runtime.addLabel(model, 0, 0, 0, {
+    k: 'add_data_in',
+    t: 'pin.in',
+    v: [
+      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.Single' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'value', t: 'json', v: 'X' },
+    ],
+  });
+  await settle();
+  assert.equal(runtime.getLabelValue(model, 0, 1, 0, 'value'), 'X', 'remapped template must still write into remapped model');
+  assert.equal(runtime.getLabelValue(model, 0, 0, 0, 'size_now'), 1, 'remapped template must update size_now on remapped model');
+}
+
 const tests = [
   test_add_get_size_and_get_all_contract,
   test_get_by_index_and_delete_compacts_array,
@@ -134,6 +169,7 @@ const tests = [
   test_delete_on_empty_array_raises_error,
   test_get_out_of_range_returns_not_found,
   test_get_all_requires_null_payload,
+  test_template_can_materialize_to_non_2001_model_id,
 ];
 
 let passed = 0;
