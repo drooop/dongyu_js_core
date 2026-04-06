@@ -146,6 +146,20 @@ phase: phase1
   - runtime 只做了最小 `ctx.self` 支撑，没有扩成新的 Tier1 能力面
   - 本轮没有顺手扩到 Flow / Matrix / Slide UI / Three.js
 
+### Review 4 — User-Side Verification
+
+- Iteration ID: `0296-foundation-c-data-models`
+- Review Date: `2026-04-06`
+- Review Type: `User-side`
+- Review Index: `4`
+- Decision: **Approved**
+- Notes:
+  - `Data.Array` 已迁到新合同，payload 格式、`model_id` 注入和 remap 测试都已验证
+  - `Data.Queue`（FIFO）与 `Data.Stack`（LIFO）pin 命名和合同一致
+  - 三者都已改为使用 `ctx.self.model_id`，不再硬编码
+  - 用户文档已覆盖 pin 名称和 payload 示例
+  - 后续可补 `Queue / Stack` 的错误路径测试，但这不阻塞本轮完成
+
 ## Docs Updated
 
 - [x] `docs/plans/2026-04-03-slide-matrix-three-current-baseline.md` reviewed
