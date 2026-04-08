@@ -2,7 +2,7 @@
 title: "Iterations Index"
 doc_type: governance
 status: active
-updated: 2026-03-27
+updated: 2026-04-08
 source: ai
 ---
 
@@ -191,7 +191,7 @@ source: ai
 | 0281-slide-matrix-three-baseline | 2026-04-03 | 盘清 Slide UI、Matrix 系统层与用户产品层、Three.js 场景 CRUD 的当前起点，作为后续重头规划的统一基线 | 2 | dev_0281-slide-matrix-three-baseline | Completed | ./docs/iterations/0281-slide-matrix-three-baseline/ |
 | 0282-baseline-doc-clarify | 2026-04-03 | 修正 0281 基线文档中的本地绝对路径，并补充后续 UI 模型能力合法扩展与沉淀约束 | 1 | dev_0282-baseline-doc-clarify | Completed | ./docs/iterations/0282-baseline-doc-clarify/ |
 | 0283-matrix-userline-phase1 | 2026-04-03 | Matrix 非加密第一阶段：落地 `1016-1019` 正数模型块、最小登录/session 真值，以及经 MBR 双总线的一发一收最小闭环 | 3 | dev_0283-matrix-userline-phase1 | Completed | ./docs/iterations/0283-matrix-userline-phase1/ |
-| 0284-matrix-userline-phase2 | 2026-04-03 | Matrix 非加密第二阶段：规划私聊/群聊基础界面、房间列表、消息时间线、输入框与基础成员管理 | 2 | dev_0284-matrix-userline-phase2 | Approved | ./docs/iterations/0284-matrix-userline-phase2/ |
+| 0284-matrix-userline-phase2 | 2026-04-03 | Matrix 非加密第二阶段：规划私聊/群聊基础界面、房间列表、消息时间线、输入框与基础成员管理 | 2 | dev_0284-matrix-userline-phase2 | Completed | ./docs/iterations/0284-matrix-userline-phase2/ |
 | 0285-matrix-userline-phase3 | 2026-04-03 | Matrix 非加密第三阶段：规划完整用户管理，包括注册、资料编辑与在线状态展示 | 2 | dev_0285-matrix-userline-phase3 | Approved | ./docs/iterations/0285-matrix-userline-phase3/ |
 | 0286-matrix-userline-phase4 | 2026-04-03 | Matrix 非加密第四阶段：规划视频通话（含多人）的信令、媒体链路与最小产品范围 | 2 | dev_0286-matrix-userline-phase4 | Approved | ./docs/iterations/0286-matrix-userline-phase4/ |
 | 0287-slide-ui-mainline-split | 2026-04-05 | 基于 0214 与当前基线，正式拆分 Slide UI 主线后续阶段与依赖顺序 | 2 | dev_0287-slide-ui-mainline-split | Planned | ./docs/iterations/0287-slide-ui-mainline-split/ |
@@ -199,7 +199,7 @@ source: ai
 | 0289-slide-ui-phaseB-workspace-generalization | 2026-04-06 | Slide UI Phase B：将当前围绕 Model 100 的单点 Slide UI 壳推广为 Workspace 中多个 slide-capable app 的通用主线 | 2 | dev_0289-slide-ui-phaseB-workspace-generalization | Approved | ./docs/iterations/0289-slide-ui-phaseB-workspace-generalization/ |
 | 0290-slide-ui-phaseC-filltable-create-mount | 2026-04-06 | Slide UI Phase C：规划用户通过填表创建 slide app、声明 metadata，并挂载到 Workspace 主线 | 2 | dev_0290-slide-ui-phaseC-filltable-create-mount | Approved | ./docs/iterations/0290-slide-ui-phaseC-filltable-create-mount/ |
 | 0291-slide-ui-phaseD-gallery-doc-evidence | 2026-04-06 | Slide UI Phase D：规划 Gallery 展示、使用文档与浏览器/远端取证的正式收口资产 | 2 | dev_0291-slide-ui-phaseD-gallery-doc-evidence | Approved | ./docs/iterations/0291-slide-ui-phaseD-gallery-doc-evidence/ |
-| 0292-foundation-pin-payload-contract-freeze | 2026-04-06 | 基础 A：冻结新引脚/数据合同并完成全仓影响盘点，作为后续 Matrix、Slide UI、3D 与数据模型工作的共同前置 | 2 | dev_0292-foundation-pin-payload-contract-freeze | Approved | ./docs/iterations/0292-foundation-pin-payload-contract-freeze/ |
+| 0292-foundation-pin-payload-contract-freeze | 2026-04-06 | 基础 A：冻结新引脚/数据合同并完成全仓影响盘点，作为后续 Matrix、Slide UI、3D 与数据模型工作的共同前置 | 2 | dev_0292-foundation-pin-payload-contract-freeze | Completed | ./docs/iterations/0292-foundation-pin-payload-contract-freeze/ |
 | 0294-foundation-b-runtime-migration | 2026-04-06 | 基础 B：实现新引脚/数据合同并完成 runtime、system-models 与验证脚本的正式迁移 | 3 | dev_0294-foundation-b-runtime-migration | Completed | ./docs/iterations/0294-foundation-b-runtime-migration/ |
 | 0296-foundation-c-data-models | 2026-04-06 | 基础 C：以新 pin/payload 合同为前提，迁移 Data.Array 并补齐 Data.Queue / Data.Stack 第一批正式数据模型族 | 3 | dev_0296-foundation-c-data-models | Completed | ./docs/iterations/0296-foundation-c-data-models/ |
 | 0298-pin-contract-cleanup | 2026-04-06 | cleanup：清理非主路径上的 pin.table./pin.single./pin.model.* 历史残留，并同步更新规范文档 | 3 | dev_0298-pin-contract-cleanup | Completed | ./docs/iterations/0298-pin-contract-cleanup/ |

@@ -1,12 +1,12 @@
 ---
 title: "0292 — foundation-pin-payload-contract-freeze Runlog"
 doc_type: iteration-runlog
-status: active
-updated: 2026-04-06
+status: completed
+updated: 2026-04-08
 source: ai
 iteration_id: 0292-foundation-pin-payload-contract-freeze
 id: 0292-foundation-pin-payload-contract-freeze
-phase: phase1
+phase: phase4
 ---
 
 # 0292 — foundation-pin-payload-contract-freeze Runlog
@@ -106,3 +106,17 @@ phase: phase1
     - 矩阵仍处于同一 `model.table` 内的权限关系
     - payload 可包含多个临时模型 `id`
   - 影响清单已纳入 `CLAUDE.md`。
+
+## Completion Record
+
+### 2026-04-08 — Phase 4 Closure
+
+- Completion rationale:
+  - `0292` 的 docs-only 输出已在本 iteration 中落盘完成：
+    - [[docs/ssot/temporary_modeltable_payload_v1]]
+    - [[docs/ssot/program_model_pin_and_payload_contract_vnext]]
+    - [[docs/plans/2026-04-06-pin-payload-impact-inventory-and-migration]]
+  - 后续 `0294` / `0296` / `0298` 已按该合同完成实现、验证和收口，证明 `0292` 冻结的口径已进入当前主线。
+- Result:
+  - `docs/ITERATIONS.md` 状态更新为 `Completed`
+  - 本 runlog 收口为 completed
