@@ -51,6 +51,8 @@ source: ai
   - 0284 基础聊天界面：说明 `1016-1021` 的分工、房间切换、时间线、输入框、成员面板，以及当前房间的一发一收验证方式。
 - `slide_app_zip_import_v1.md`
   - 0302 Slide app 导入：说明 zip 包格式、导入字段、安装/卸载规则，以及最短导入验证步骤。
+- `slide_workspace_generalization.md`
+  - 0289 Phase B：说明什么算 slide-capable app、Workspace 统一 registry 字段、默认选择与删除规则。
 - `ui_components_v2.md`
   - 组件能力与 AST 用法。
 - `design_system_v2.md`

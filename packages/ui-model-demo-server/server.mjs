@@ -1911,16 +1911,32 @@ function resolveDefaultAppId(runtime, apps) {
   const configDefault = model0
     ? runtime.getLabelValue(model0, 0, 0, 0, 'workspace_default_app')
     : null;
-  let preferred = 100;
+  let preferred = null;
   if (Number.isInteger(configDefault)) {
     preferred = configDefault;
   } else {
     const parsed = Number.parseInt(String(readAuthString(configDefault)), 10);
     if (Number.isInteger(parsed)) preferred = parsed;
   }
-  if (apps.some((app) => app && app.model_id === preferred)) return preferred;
+  if (Number.isInteger(preferred) && apps.some((app) => app && app.model_id === preferred)) return preferred;
+  const firstSlideCapable = apps.find((app) => app && app.slide_capable === true && Number.isInteger(app.model_id) && app.model_id > 0);
+  if (firstSlideCapable) return firstSlideCapable.model_id;
   const firstPositive = apps.find((app) => app && Number.isInteger(app.model_id) && app.model_id > 0);
   return firstPositive ? firstPositive.model_id : (apps.length > 0 ? apps[0].model_id : 0);
+}
+
+function resolveWorkspaceSelection(apps, selectedValue, defaultSelected) {
+  let selected = null;
+  if (Number.isInteger(selectedValue)) {
+    selected = selectedValue;
+  } else {
+    const parsed = Number.parseInt(String(readAuthString(selectedValue)), 10);
+    if (Number.isInteger(parsed)) selected = parsed;
+  }
+  if (apps.some((app) => app && app.model_id === selected)) {
+    return selected;
+  }
+  return defaultSelected;
 }
 
 function overwriteRuntimeLabel(runtime, modelId, p, r, c, key, t, v) {
@@ -3773,8 +3789,11 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'ws_apps_registry', 'json', apps);
 
     const defaultSelected = resolveDefaultAppId(runtime, apps);
-    const selected = normalizeIntState(runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'), defaultSelected);
-    const validSelected = apps.some((app) => app.model_id === selected) ? selected : defaultSelected;
+    const validSelected = resolveWorkspaceSelection(
+      apps,
+      runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'),
+      defaultSelected,
+    );
     overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validSelected));
 
     overwriteStateLabel(runtime, 'ws_app_next_id', 'int', resolveNextWorkspaceModelId(runtime));
@@ -3788,8 +3807,11 @@ function createServerState(options) {
     const appsRaw = runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_apps_registry');
     const apps = Array.isArray(appsRaw) ? appsRaw : deriveWorkspaceRegistry();
     const defaultSelected = resolveDefaultAppId(runtime, apps);
-    const selected = normalizeIntState(runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'), defaultSelected);
-    const validSelected = apps.some((app) => app.model_id === selected) ? selected : defaultSelected;
+    const validSelected = resolveWorkspaceSelection(
+      apps,
+      runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'),
+      defaultSelected,
+    );
     overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validSelected));
     overwriteStateLabel(runtime, 'selected_model_id', 'str', String(validSelected));
   };

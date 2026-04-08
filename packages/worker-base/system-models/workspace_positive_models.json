@@ -14435,6 +14435,96 @@
       "k": "slide_import_last_meta_text",
       "t": "str",
       "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_capable",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "flow.shell"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "deletable",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "installed_at",
+      "t": "str",
+      "v": "builtin"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_capable",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "workspace.importer"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "installed_at",
+      "t": "str",
+      "v": "builtin"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "from_user",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "to_user",
+      "t": "str",
+      "v": ""
     }
   ]
 }

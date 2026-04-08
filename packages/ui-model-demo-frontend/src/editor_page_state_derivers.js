@@ -202,9 +202,12 @@ function deriveFlowProgress(appMeta, sceneContext, actionLifecycle) {
 
 export function isFlowCapableWorkspaceApp(snapshot, modelId) {
   if (!Number.isInteger(modelId) || modelId <= 0) return false;
-  if (modelId !== FLOW_SHELL_ANCHOR_MODEL_ID) return false;
   const rootLabels = getRootLabels(snapshot, modelId);
-  return Boolean(rootLabels.dual_bus_model);
+  const slideCapable = rootLabels.slide_capable ? rootLabels.slide_capable.v === true : false;
+  const slideSurfaceType = rootLabels.slide_surface_type && typeof rootLabels.slide_surface_type.v === 'string'
+    ? rootLabels.slide_surface_type.v
+    : '';
+  return slideCapable === true && slideSurfaceType === 'flow.shell' && Boolean(rootLabels.dual_bus_model);
 }
 
 export function deriveSlidingFlowShellState(snapshot, editorStateModelId = EDITOR_STATE_MODEL_ID) {
