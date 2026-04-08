@@ -156,7 +156,20 @@ function deriveWorkspaceRegistry(runtime) {
     const source = rootLabels.source_worker && typeof rootLabels.source_worker.v === 'string'
       ? rootLabels.source_worker.v
       : '';
-    addOrReplace({ model_id: modelId, name, source });
+    const deletable = rootLabels.deletable ? rootLabels.deletable.v === true : false;
+    const slideCapable = rootLabels.slide_capable ? rootLabels.slide_capable.v === true : false;
+    const slideSurfaceType = rootLabels.slide_surface_type && typeof rootLabels.slide_surface_type.v === 'string'
+      ? rootLabels.slide_surface_type.v
+      : '';
+    addOrReplace({
+      model_id: modelId,
+      name,
+      source,
+      deletable,
+      delete_disabled: !deletable,
+      slide_capable: slideCapable,
+      slide_surface_type: slideSurfaceType,
+    });
   }
   derived.sort((a, b) => a.model_id - b.model_id);
   return derived;
