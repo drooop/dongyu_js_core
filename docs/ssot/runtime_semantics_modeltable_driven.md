@@ -618,6 +618,46 @@ label / bind 侧允许声明：
 - `committedValue` 来自 `snapshot.models`
 - `overlayValue` 来自 client-local overlayStore
 
+### 7.6 Workspace Slide App Admission / Surface Enum（0289 / 0290 / 0302）
+
+本节冻结当前 Workspace slide 主线对正数 app 的准入与 surface value 口径。
+
+slide-capable app 的最小根标签：
+
+- `app_name`
+- `slide_capable = true`
+- `slide_surface_type`
+- `ui_authoring_version`
+- `ui_root_node_id`
+
+补充要求：
+
+- 若 app 需要 child truth，必须继续通过显式 `model.submt` 挂载。
+- `deletable` / `installed_at` / `from_user` / `to_user` 属于 Workspace registry / lifecycle metadata，可选但推荐显式写出。
+- 不满足最小根标签的 Workspace app，不得进入 slide-capable 主线集合。
+
+当前 `slide_surface_type` 正式枚举仅允许：
+
+- `flow.shell`
+  - app 在 Workspace 中通过 flow shell 投影显示
+- `workspace.importer`
+  - app 本身是 zip 导入工作页面
+- `workspace.page`
+  - app 本身是直接在 Workspace 右侧显示的页面型 slide app
+
+当前内置落点：
+
+- `Model 100` → `flow.shell`
+- `Model 1030` → `workspace.importer`
+- `Model 1034` → `workspace.page`
+
+新增枚举值或改变既有语义时：
+
+- 必须先更新本节
+- 必须同步更新现行用户文档
+- 不允许在单个 iteration 中私自发明新值后再补文档
+
+
 未声明 `overlay_then_commit` 的 label，仍按 committed snapshot 直接读取。
 
 #### 7.5c 生命周期

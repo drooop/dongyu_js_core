@@ -1395,6 +1395,48 @@ function materializeSlideImportPayload(runtime, payload, validation) {
   };
 }
 
+function buildFilltableCreatedSlidePayload(spec) {
+  const appName = String(spec && spec.appName ? spec.appName : '').trim();
+  const sourceWorker = String(spec && spec.sourceWorker ? spec.sourceWorker : '').trim();
+  const slideSurfaceType = String(spec && spec.slideSurfaceType ? spec.slideSurfaceType : 'workspace.page').trim() || 'workspace.page';
+  const headline = String(spec && spec.headline ? spec.headline : '').trim();
+  const bodyText = String(spec && spec.bodyText ? spec.bodyText : '').trim();
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.FilltableCreatedSlideApp' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'app_name', t: 'str', v: appName },
+    { id: 0, p: 0, r: 0, c: 0, k: 'source_worker', t: 'str', v: sourceWorker },
+    { id: 0, p: 0, r: 0, c: 0, k: 'slide_capable', t: 'bool', v: true },
+    { id: 0, p: 0, r: 0, c: 0, k: 'slide_surface_type', t: 'str', v: slideSurfaceType },
+    { id: 0, p: 0, r: 0, c: 0, k: 'from_user', t: 'str', v: 'local_filltable' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'to_user', t: 'str', v: 'workspace_local' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'ui_authoring_version', t: 'str', v: 'cellwise.ui.v1' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'ui_root_node_id', t: 'str', v: 'created_slide_root' },
+    { id: 0, p: 0, r: 2, c: 0, k: 'model_type', t: 'model.submt', v: 1 },
+    { id: 0, p: 2, r: 0, c: 0, k: 'ui_node_id', t: 'str', v: 'created_slide_root' },
+    { id: 0, p: 2, r: 0, c: 0, k: 'ui_component', t: 'str', v: 'Container' },
+    { id: 0, p: 2, r: 0, c: 0, k: 'ui_layout', t: 'str', v: 'column' },
+    { id: 0, p: 2, r: 0, c: 0, k: 'ui_gap', t: 'int', v: 12 },
+    { id: 0, p: 2, r: 1, c: 0, k: 'ui_node_id', t: 'str', v: 'created_slide_title' },
+    { id: 0, p: 2, r: 1, c: 0, k: 'ui_component', t: 'str', v: 'Text' },
+    { id: 0, p: 2, r: 1, c: 0, k: 'ui_parent', t: 'str', v: 'created_slide_root' },
+    { id: 0, p: 2, r: 1, c: 0, k: 'ui_bind_json', t: 'json', v: { read: { model_id: 1, p: 0, r: 0, c: 0, k: 'headline' } } },
+    { id: 0, p: 2, r: 3, c: 0, k: 'ui_node_id', t: 'str', v: 'created_slide_body_input' },
+    { id: 0, p: 2, r: 3, c: 0, k: 'ui_component', t: 'str', v: 'Input' },
+    { id: 0, p: 2, r: 3, c: 0, k: 'ui_parent', t: 'str', v: 'created_slide_root' },
+    { id: 0, p: 2, r: 3, c: 0, k: 'ui_bind_json', t: 'json', v: {
+      read: { model_id: 1, p: 0, r: 0, c: 0, k: 'body_text' },
+      write: { action: 'ui_owner_label_update', target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'body_text' } },
+    } },
+    { id: 0, p: 2, r: 4, c: 0, k: 'ui_node_id', t: 'str', v: 'created_slide_body_preview' },
+    { id: 0, p: 2, r: 4, c: 0, k: 'ui_component', t: 'str', v: 'Text' },
+    { id: 0, p: 2, r: 4, c: 0, k: 'ui_parent', t: 'str', v: 'created_slide_root' },
+    { id: 0, p: 2, r: 4, c: 0, k: 'ui_bind_json', t: 'json', v: { read: { model_id: 1, p: 0, r: 0, c: 0, k: 'body_text' } } },
+    { id: 1, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.FilltableCreatedSlideTruth' },
+    { id: 1, p: 0, r: 0, c: 0, k: 'headline', t: 'str', v: headline },
+    { id: 1, p: 0, r: 0, c: 0, k: 'body_text', t: 'str', v: bodyText },
+  ];
+}
+
 function removeImportedBundleFromRuntime(runtime, rootModelId) {
   const rootModel = runtime.getModel(rootModelId);
   if (!rootModel) {
@@ -2760,6 +2802,55 @@ class ProgramModelEngine {
                 from_user: validation.metadata.fromUser,
                 to_user: validation.metadata.toUser,
                 model_ids: imported.modelIds,
+              },
+            };
+          } catch (err) {
+            return {
+              ok: false,
+              code: 'exception',
+              detail: String(err && err.message ? err.message : err),
+            };
+          }
+        },
+        slideCreateAppFromState: (stateModelId) => {
+          const targetStateModelId = Number.isInteger(stateModelId) ? stateModelId : 1035;
+          const stateModel = this.runtime.getModel(targetStateModelId);
+          if (!stateModel) {
+            return { ok: false, code: 'invalid_target', detail: 'creator_state_missing' };
+          }
+          const readStr = (key, fallback = '') => {
+            const value = this.runtime.getLabelValue(stateModel, 0, 0, 0, key);
+            const text = value == null ? '' : String(value).trim();
+            return text || fallback;
+          };
+          const appName = readStr('create_app_name');
+          const sourceWorker = readStr('create_source_worker', 'filltable-create');
+          const slideSurfaceType = readStr('create_slide_surface_type', 'workspace.page');
+          const headline = readStr('create_headline', 'Created by Filltable');
+          const bodyText = readStr('create_body_text', '');
+          if (!appName) {
+            return { ok: false, code: 'invalid_target', detail: 'missing_app_name' };
+          }
+          if (slideSurfaceType !== 'workspace.page') {
+            return { ok: false, code: 'invalid_target', detail: 'unsupported_slide_surface_type' };
+          }
+          try {
+            const payload = buildFilltableCreatedSlidePayload({
+              appName,
+              sourceWorker,
+              slideSurfaceType,
+              headline,
+              bodyText,
+            });
+            const validation = validateSlideImportPayload(payload);
+            if (!validation.ok) return validation;
+            const created = materializeSlideImportPayload(this.runtime, payload, validation);
+            return {
+              ok: true,
+              data: {
+                model_id: created.rootModelId,
+                truth_model_id: created.rootModelId + 1,
+                app_name: appName,
               },
             };
           } catch (err) {

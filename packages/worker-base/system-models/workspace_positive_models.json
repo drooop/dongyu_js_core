@@ -14525,6 +14525,1012 @@
       "k": "to_user",
       "t": "str",
       "v": ""
+    },
+    {
+      "op": "create_model",
+      "model_id": 1034,
+      "name": "slide_filltable_creator_app",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.SlideFilltableCreatorApp"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "滑动 APP 创建"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "filltable-create"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_capable",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "workspace.page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "deletable",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "installed_at",
+      "t": "str",
+      "v": "builtin"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "from_user",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "to_user",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "slide_creator_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": 1035
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_creator_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 14
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "padding": "24px",
+          "maxWidth": "920px",
+          "margin": "0 auto"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_creator_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_creator_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "滑动 APP 创建"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "fontSize": "26px",
+          "fontWeight": "700"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_creator_intro"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_creator_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "通过填表直接创建一个新的 slide app，并自动挂到 Workspace。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_creator_app_name"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_creator_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "placeholder": "App name"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1035,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "create_app_name"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1035,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "create_app_name"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_creator_source_worker"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_creator_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "placeholder": "Source worker"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1035,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "create_source_worker"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1035,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "create_source_worker"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_creator_surface_type"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Select"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_creator_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "placeholder": "Surface type",
+        "options": [
+          {
+            "label": "workspace.page",
+            "value": "workspace.page"
+          }
+        ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1035,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "create_slide_surface_type"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1035,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "create_slide_surface_type"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_creator_headline"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_creator_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 60
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "placeholder": "Headline"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1035,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "create_headline"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1035,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "create_headline"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_creator_body_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_creator_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 70
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "placeholder": "Body text"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1035,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "create_body_text"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1035,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "create_body_text"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_creator_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_creator_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 80
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "创建 Slide App"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "slide_app_create",
+          "target_ref": {
+            "model_id": 1035,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "create_app_name"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_creator_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_creator_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 90
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1035,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "create_status"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_creator_last_app"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_creator_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 100
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1035,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "create_last_app_name"
+        }
+      }
+    },
+    {
+      "op": "create_model",
+      "model_id": 1035,
+      "name": "slide_filltable_creator_truth",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1035,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.SlideFilltableCreatorTruth"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1035,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "create_app_name",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1035,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "create_source_worker",
+      "t": "str",
+      "v": "filltable-create"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1035,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "create_slide_surface_type",
+      "t": "str",
+      "v": "workspace.page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1035,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "create_headline",
+      "t": "str",
+      "v": "Created by Filltable"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1035,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "create_body_text",
+      "t": "str",
+      "v": "This app came from the creator form."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1035,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "create_status",
+      "t": "str",
+      "v": "填写字段后创建 Slide App"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1035,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "create_last_app_id",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1035,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "create_last_app_name",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1035,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "create_last_truth_id",
+      "t": "int",
+      "v": 0
     }
   ]
 }
