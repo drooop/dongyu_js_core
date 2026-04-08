@@ -1,12 +1,12 @@
 ---
 title: "0303 — cloud-worker-sync-and-color-proxy-import Resolution"
 doc_type: iteration-resolution
-status: planned
+status: completed
 updated: 2026-04-09
 source: ai
 iteration_id: 0303-cloud-worker-sync-and-color-proxy-import
 id: 0303-cloud-worker-sync-and-color-proxy-import
-phase: phase1
+phase: phase4
 ---
 
 # 0303 — cloud-worker-sync-and-color-proxy-import Resolution
@@ -22,6 +22,9 @@ phase: phase1
   3. 本地导入验证
   4. cloud worker rollout 与公网颜色生成器验证
   5. 公网导入验证与 closure
+- 执行中允许的最小兼容修复：
+  - 若公网持久化状态保留旧版 `Model 100 dual_bus_model`，允许在 `ui-server` 内补 canonical `model0_egress_*` 字段
+  - 该修复只恢复既有合同，不扩导入协议，不改颜色生成器业务语义
 
 ## Step 1
 
