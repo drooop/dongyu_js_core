@@ -45,6 +45,7 @@ system_negative_full = [
     'intent_handlers_home.json',
     'intent_handlers_matrix_debug.json',
     'intent_handlers_prompt_filltable.json',
+    'intent_handlers_slide_import.json',
     'intent_handlers_static.json',
     'intent_handlers_ws.json',
     'llm_cognition_config.json',

@@ -1185,6 +1185,251 @@ function staticUploadCore(name, kind, buf) {
   return listStaticProjects();
 }
 
+const SLIDE_IMPORT_ALLOWED_UI_AUTHORING_VERSION = 'cellwise.ui.v1';
+const SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES = new Set([
+  'func.js',
+  'func.python',
+  'pin.connect.model',
+  'pin.bus.in',
+  'pin.bus.out',
+]);
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseSlideImportPayloadFromZipBuffer(zipBuffer) {
+  const zip = new AdmZip(zipBuffer);
+  const entries = zip.getEntries().filter((entry) => {
+    if (!entry || entry.isDirectory) return false;
+    const name = String(entry.entryName || '').replace(/\\/g, '/');
+    if (!name || name.startsWith('/') || name.includes('..')) return false;
+    return name.toLowerCase().endsWith('.json');
+  });
+  if (entries.length !== 1) {
+    throw new Error('zip_must_contain_exactly_one_json_payload');
+  }
+  const raw = entries[0].getData().toString('utf8');
+  const payload = JSON.parse(raw);
+  if (!Array.isArray(payload)) {
+    throw new Error('slide_import_payload_must_be_array');
+  }
+  return payload;
+}
+
+function groupTemporaryPayloadRecords(payload) {
+  const groups = new Map();
+  for (const record of payload) {
+    if (!groups.has(record.id)) {
+      groups.set(record.id, []);
+    }
+    groups.get(record.id).push(record);
+  }
+  return groups;
+}
+
+function findRootPayloadLabel(records, key) {
+  return records.find((record) => (
+    record
+    && record.p === 0
+    && record.r === 0
+    && record.c === 0
+    && record.k === key
+  )) || null;
+}
+
+function readRootPayloadString(records, key) {
+  const record = findRootPayloadLabel(records, key);
+  return record && record.v != null ? String(record.v).trim() : '';
+}
+
+function readRootPayloadBool(records, key) {
+  const record = findRootPayloadLabel(records, key);
+  return record ? record.v === true : false;
+}
+
+function validateSlideImportPayload(payload) {
+  if (!Array.isArray(payload) || payload.length === 0) {
+    return { ok: false, code: 'invalid_target', detail: 'empty_payload' };
+  }
+  const tempIds = new Set();
+  for (const record of payload) {
+    if (!record || !Number.isInteger(record.id) || record.id < 0) {
+      return { ok: false, code: 'invalid_target', detail: 'invalid_temp_model_id' };
+    }
+    if (!Number.isInteger(record.p) || !Number.isInteger(record.r) || !Number.isInteger(record.c)) {
+      return { ok: false, code: 'invalid_target', detail: 'invalid_prc' };
+    }
+    if (typeof record.k !== 'string' || !record.k.trim() || typeof record.t !== 'string' || !record.t.trim()) {
+      return { ok: false, code: 'invalid_target', detail: 'invalid_label_shape' };
+    }
+    if (SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES.has(record.t)) {
+      return { ok: false, code: 'invalid_target', detail: `forbidden_label_type:${record.t}` };
+    }
+    tempIds.add(record.id);
+  }
+
+  const groups = groupTemporaryPayloadRecords(payload);
+  const rootCandidates = [];
+  for (const [tempId, records] of groups.entries()) {
+    if (readRootPayloadBool(records, 'slide_capable') !== true) continue;
+    const modelType = findRootPayloadLabel(records, 'model_type');
+    if (!modelType || modelType.t !== 'model.table') {
+      return { ok: false, code: 'invalid_target', detail: 'slide_root_must_be_model_table' };
+    }
+    const appName = readRootPayloadString(records, 'app_name');
+    const sourceWorker = readRootPayloadString(records, 'source_worker');
+    const slideSurfaceType = readRootPayloadString(records, 'slide_surface_type');
+    const fromUser = readRootPayloadString(records, 'from_user');
+    const toUser = readRootPayloadString(records, 'to_user');
+    const authoringVersion = readRootPayloadString(records, 'ui_authoring_version');
+    const rootNodeId = readRootPayloadString(records, 'ui_root_node_id');
+    if (!appName || !sourceWorker || !slideSurfaceType || !fromUser || !toUser || !rootNodeId) {
+      return { ok: false, code: 'invalid_target', detail: 'missing_slide_root_metadata' };
+    }
+    if (authoringVersion !== SLIDE_IMPORT_ALLOWED_UI_AUTHORING_VERSION) {
+      return { ok: false, code: 'invalid_target', detail: 'unsupported_ui_authoring_version' };
+    }
+    rootCandidates.push({
+      tempId,
+      appName,
+      sourceWorker,
+      slideSurfaceType,
+      fromUser,
+      toUser,
+    });
+  }
+
+  if (rootCandidates.length !== 1) {
+    return { ok: false, code: 'invalid_target', detail: 'must_have_exactly_one_slide_root' };
+  }
+
+  return {
+    ok: true,
+    rootTempId: rootCandidates[0].tempId,
+    tempIds: [...tempIds].sort((a, b) => a - b),
+    metadata: rootCandidates[0],
+  };
+}
+
+function remapImportedValue(value, idMap) {
+  if (Array.isArray(value)) {
+    return value.map((item) => remapImportedValue(item, idMap));
+  }
+  if (!isPlainObject(value)) return value;
+  const out = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (
+      (key === 'model_id' || key.endsWith('_model_id'))
+      && Number.isInteger(child)
+      && idMap.has(child)
+    ) {
+      out[key] = idMap.get(child);
+      continue;
+    }
+    out[key] = remapImportedValue(child, idMap);
+  }
+  return out;
+}
+
+function resolveNextWorkspaceMountCell(runtime) {
+  const model0 = runtime.getModel(0);
+  if (!model0) return { p: 2, r: 0, c: 0 };
+  let maxC = -1;
+  for (const cell of model0.cells.values()) {
+    if (cell.p !== 2 || cell.r !== 0) continue;
+    for (const label of cell.labels.values()) {
+      if (label && label.t === 'model.submt') {
+        maxC = Math.max(maxC, cell.c);
+      }
+    }
+  }
+  return { p: 2, r: 0, c: maxC + 1 };
+}
+
+function materializeSlideImportPayload(runtime, payload, validation) {
+  const idMap = new Map();
+  const startModelId = resolveNextWorkspaceModelId(runtime);
+  validation.tempIds.forEach((tempId, index) => {
+    idMap.set(tempId, startModelId + index);
+  });
+
+  for (const tempId of validation.tempIds) {
+    const actualId = idMap.get(tempId);
+    const name = tempId === validation.rootTempId
+      ? validation.metadata.appName
+      : `${validation.metadata.appName}#${tempId}`;
+    runtime.createModel({ id: actualId, name, type: 'sliding_ui' });
+  }
+
+  for (const record of payload) {
+    const actualModelId = idMap.get(record.id);
+    const model = runtime.getModel(actualModelId);
+    let nextValue = record.v;
+    if (record.t === 'model.submt' && Number.isInteger(record.v) && idMap.has(record.v)) {
+      nextValue = idMap.get(record.v);
+    } else if (isPlainObject(record.v) || Array.isArray(record.v)) {
+      nextValue = remapImportedValue(record.v, idMap);
+    }
+    runtime.addLabel(model, record.p, record.r, record.c, { k: record.k, t: record.t, v: nextValue });
+  }
+
+  const rootModelId = idMap.get(validation.rootTempId);
+  const rootModel = runtime.getModel(rootModelId);
+  const installedAt = new Date().toISOString();
+  runtime.addLabel(rootModel, 0, 0, 0, { k: 'deletable', t: 'bool', v: true });
+  runtime.addLabel(rootModel, 0, 0, 0, { k: 'installed_at', t: 'str', v: installedAt });
+  runtime.addLabel(rootModel, 0, 0, 0, { k: 'imported_bundle_model_ids', t: 'json', v: [...idMap.values()] });
+  runtime.addLabel(rootModel, 0, 0, 0, { k: 'import_root_temp_id', t: 'int', v: validation.rootTempId });
+  runtime.addLabel(rootModel, 0, 0, 0, { k: 'from_user', t: 'str', v: validation.metadata.fromUser });
+  runtime.addLabel(rootModel, 0, 0, 0, { k: 'to_user', t: 'str', v: validation.metadata.toUser });
+
+  const mountCell = resolveNextWorkspaceMountCell(runtime);
+  const model0 = runtime.getModel(0);
+  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'model_type', t: 'model.submt', v: rootModelId });
+
+  return {
+    rootModelId,
+    modelIds: [...idMap.values()],
+    mountCell,
+  };
+}
+
+function removeImportedBundleFromRuntime(runtime, rootModelId) {
+  const rootModel = runtime.getModel(rootModelId);
+  if (!rootModel) {
+    return { ok: false, code: 'model_not_found' };
+  }
+  const rootCell = rootModel.getCell(0, 0, 0);
+  const importedIdsRaw = rootCell.labels.get('imported_bundle_model_ids');
+  const modelIds = Array.isArray(importedIdsRaw && importedIdsRaw.v)
+    ? importedIdsRaw.v.filter((item) => Number.isInteger(item))
+    : [rootModelId];
+  const targetIds = new Set(modelIds);
+
+  for (const model of runtime.models.values()) {
+    for (const cell of model.cells.values()) {
+      for (const [key, label] of [...cell.labels.entries()]) {
+        if (label && label.t === 'model.submt' && targetIds.has(label.v)) {
+          runtime.rmLabel(model, cell.p, cell.r, cell.c, key);
+        }
+      }
+    }
+  }
+
+  for (const [childId, parentInfo] of [...runtime.parentChildMap.entries()]) {
+    if (targetIds.has(childId) || (parentInfo && targetIds.has(parentInfo.parentModelId))) {
+      runtime.parentChildMap.delete(childId);
+    }
+  }
+
+  for (const modelId of modelIds) {
+    runtime.models.delete(modelId);
+  }
+
+  return { ok: true, modelIds };
+}
+
 function corsHeaders(req, originOverride) {
   if (!originOverride) {
     // Default: do NOT enable cross-origin reads/writes.
@@ -2477,6 +2722,38 @@ class ProgramModelEngine {
             };
           }
         },
+        slideImportAppFromMxc: (mediaUri) => {
+          const uri = String(mediaUri ?? '').trim();
+          if (!uri) {
+            return { ok: false, code: 'invalid_target', detail: 'missing_media_uri' };
+          }
+          const cached = getCachedUploadedMedia(uri);
+          if (!cached || !cached.buffer || !Buffer.isBuffer(cached.buffer)) {
+            return { ok: false, code: 'invalid_target', detail: 'media_not_cached' };
+          }
+          try {
+            const payload = parseSlideImportPayloadFromZipBuffer(cached.buffer);
+            const validation = validateSlideImportPayload(payload);
+            if (!validation.ok) return validation;
+            const imported = materializeSlideImportPayload(this.runtime, payload, validation);
+            return {
+              ok: true,
+              data: {
+                model_id: imported.rootModelId,
+                app_name: validation.metadata.appName,
+                from_user: validation.metadata.fromUser,
+                to_user: validation.metadata.toUser,
+                model_ids: imported.modelIds,
+              },
+            };
+          } catch (err) {
+            return {
+              ok: false,
+              code: 'exception',
+              detail: String(err && err.message ? err.message : err),
+            };
+          }
+        },
         wsSelectApp: (modelId) => {
           let selected = null;
           if (Number.isInteger(modelId)) {
@@ -2525,11 +2802,23 @@ class ProgramModelEngine {
           if (!targetModel) {
             return { ok: false, code: 'invalid_target', detail: 'model_not_found' };
           }
+          const deletable = targetModel.getCell(0, 0, 0).labels.get('deletable');
+          if (!deletable || deletable.v !== true) {
+            return { ok: false, code: 'protected_model', detail: 'protected_model' };
+          }
           try {
-            this.runtime.rmLabel(targetModel, 0, 0, 0, 'app_name');
-            this.runtime.rmLabel(targetModel, 0, 0, 0, 'dual_bus_model');
-            this.runtime.addLabel(targetModel, 0, 0, 0, { k: 'ws_deleted', t: 'bool', v: true });
-            return { ok: true, data: { model_id: targetId } };
+            const removed = removeImportedBundleFromRuntime(this.runtime, targetId);
+            if (!removed.ok) {
+              return { ok: false, code: 'invalid_target', detail: removed.code };
+            }
+            const runtimePersister = this.runtime && this.runtime.persistence ? this.runtime.persistence : null;
+            if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
+              const stmt = runtimePersister.db.prepare('delete from mt_data where mt_id = ?');
+              for (const modelIdToDelete of removed.modelIds) {
+                stmt.run(modelIdToDelete);
+              }
+            }
+            return { ok: true, data: { model_id: targetId, removed_model_ids: removed.modelIds } };
           } catch (err) {
             return {
               ok: false,
@@ -3381,7 +3670,32 @@ function createServerState(options) {
       const source = rootLabels.source_worker && typeof rootLabels.source_worker.v === 'string'
         ? rootLabels.source_worker.v
         : '';
-      addOrReplace({ model_id: modelId, name, source });
+      const deletable = rootLabels.deletable ? rootLabels.deletable.v === true : false;
+      const slideCapable = rootLabels.slide_capable ? rootLabels.slide_capable.v === true : false;
+      const slideSurfaceType = rootLabels.slide_surface_type && typeof rootLabels.slide_surface_type.v === 'string'
+        ? rootLabels.slide_surface_type.v
+        : '';
+      const installedAt = rootLabels.installed_at && typeof rootLabels.installed_at.v === 'string'
+        ? rootLabels.installed_at.v
+        : '';
+      const fromUser = rootLabels.from_user && typeof rootLabels.from_user.v === 'string'
+        ? rootLabels.from_user.v
+        : '';
+      const toUser = rootLabels.to_user && typeof rootLabels.to_user.v === 'string'
+        ? rootLabels.to_user.v
+        : '';
+      addOrReplace({
+        model_id: modelId,
+        name,
+        source,
+        deletable,
+        delete_disabled: !deletable,
+        slide_capable: slideCapable,
+        slide_surface_type: slideSurfaceType,
+        installed_at: installedAt,
+        from_user: fromUser,
+        to_user: toUser,
+      });
     }
     derived.sort((a, b) => a.model_id - b.model_id);
     return derived;
@@ -4988,6 +5302,7 @@ function createServerState(options) {
     getRuntimeMode: () => runtime.getRuntimeMode(),
     getLastOpId: () => getLastOpId(runtime),
     getEventError: () => getEventError(runtime),
+    cacheUploadedMediaForTest: (uri, item) => cacheUploadedMedia(uri, item),
     programEngine,
   };
 }

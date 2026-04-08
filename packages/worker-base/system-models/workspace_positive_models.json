@@ -13754,6 +13754,687 @@
       "k": "timeline_text",
       "t": "str",
       "v": "@phase1-bot:localhost: Welcome back to the Echo DM.\n@mbr:localhost: Phase 1 loop is ready."
+    },
+    {
+      "op": "create_model",
+      "model_id": 1030,
+      "name": "slide_zip_importer_app",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.SlideZipImporterApp"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "滑动 APP 导入"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "zip-import"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "deletable",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "slide_import_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": 1031
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_import_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 14
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "padding": "24px",
+          "maxWidth": "860px",
+          "margin": "0 auto"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_import_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_import_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "滑动 APP 导入"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "fontSize": "26px",
+          "fontWeight": "700"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_import_intro"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_import_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "上传一个 zip。zip 中只允许一个 JSON 文件，内容必须是临时模型表数组。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_import_file"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FileInput"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_import_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "导入 zip",
+        "buttonLabel": "选择 zip",
+        "emptyText": "未选择任何 zip",
+        "accept": ".zip",
+        "nameTargetRef": {
+          "model_id": 1031,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "slide_import_media_name"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1031,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "slide_import_media_uri"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_import_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_import_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "导入 Slide App"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "slide_app_import",
+          "target_ref": {
+            "model_id": 1031,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "slide_import_media_uri"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_import_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_import_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1031,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "slide_import_status"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_import_last_app"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_import_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 60
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1031,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "slide_import_last_app_name"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "slide_import_last_meta"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "slide_import_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 70
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1031,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "slide_import_last_meta_text"
+        }
+      }
+    },
+    {
+      "op": "create_model",
+      "model_id": 1031,
+      "name": "slide_zip_importer_truth",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1031,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.SlideZipImporterTruth"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1031,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_import_media_uri",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1031,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_import_media_name",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1031,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_import_status",
+      "t": "str",
+      "v": "请选择一个 zip 再导入"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1031,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_import_last_app_id",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1031,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_import_last_app_name",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1031,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_import_last_from_user",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1031,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_import_last_to_user",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1031,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_import_last_meta_text",
+      "t": "str",
+      "v": ""
     }
   ]
 }

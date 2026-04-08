@@ -203,6 +203,7 @@ source: ai
 | 0294-foundation-b-runtime-migration | 2026-04-06 | 基础 B：实现新引脚/数据合同并完成 runtime、system-models 与验证脚本的正式迁移 | 3 | dev_0294-foundation-b-runtime-migration | Completed | ./docs/iterations/0294-foundation-b-runtime-migration/ |
 | 0296-foundation-c-data-models | 2026-04-06 | 基础 C：以新 pin/payload 合同为前提，迁移 Data.Array 并补齐 Data.Queue / Data.Stack 第一批正式数据模型族 | 3 | dev_0296-foundation-c-data-models | Completed | ./docs/iterations/0296-foundation-c-data-models/ |
 | 0298-pin-contract-cleanup | 2026-04-06 | cleanup：清理非主路径上的 pin.table./pin.single./pin.model.* 历史残留，并同步更新规范文档 | 3 | dev_0298-pin-contract-cleanup | Completed | ./docs/iterations/0298-pin-contract-cleanup/ |
+| 0302-slide-app-zip-import-v1 | 2026-04-08 | Slide app zip 导入 v1：用临时模型表压缩包完成导入、挂载、打开与卸载最小闭环 | 5 | dev_0302-slide-app-zip-import-v1 | Completed | ./docs/iterations/0302-slide-app-zip-import-v1/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

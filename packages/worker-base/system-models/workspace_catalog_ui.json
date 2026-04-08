@@ -394,7 +394,7 @@
       "t": "json",
       "v": {
         "label": "Actions",
-        "width": 100,
+        "width": 180,
         "fixed": "right"
       }
     },
@@ -590,6 +590,100 @@
           "minHeight": "120px"
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_ws_delete"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "col_ws_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Delete",
+        "type": "danger",
+        "link": true,
+        "disabled": {
+          "$ref": "row.delete_disabled"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "ws_app_delete",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "ws_delete_app_id"
+          },
+          "value_ref": {
+            "t": "int",
+            "v": {
+              "$ref": "row.model_id"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Delete"
     }
   ]
 }
