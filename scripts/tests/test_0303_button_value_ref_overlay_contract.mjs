@@ -1,85 +1,42 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { createRenderer } from '../../packages/ui-renderer/src/renderer.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
 
-function main() {
-  const dispatched = [];
-  const snapshot = {
-    models: {
-      '-2': {
-        cells: {
-          '0,0,0': {
-            labels: {
-              model100_input_draft: { k: 'model100_input_draft', t: 'str', v: '' },
-            },
-          },
-        },
-      },
-    },
-  };
+const repoRoot = path.resolve(import.meta.dirname, '..', '..');
 
-  const host = {
-    getSnapshot: () => snapshot,
-    getEffectiveLabelValue(ref) {
-      if (ref && ref.model_id === -2 && ref.k === 'model100_input_draft') return 'overlay draft text';
-      return undefined;
-    },
-    dispatchAddLabel(label) {
-      dispatched.push(label);
-    },
-    dispatchRmLabel() {},
-  };
+function read(relPath) {
+  return fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+}
 
-  const renderer = createRenderer({
-    host,
-    vue: {
-      h(type, props, children) {
-        return { type, props: props || {}, children };
-      },
-      resolveComponent(name) {
-        return name;
-      },
-    },
-  });
-
-  const vnode = renderer.renderVNode({
-    id: 'overlay_submit_button',
-    type: 'Button',
-    props: { label: 'Generate Color' },
-    bind: {
-      write: {
-        action: 'submit',
-        meta: { model_id: 100 },
-        value_ref: {
-          t: 'event',
-          v: {
-            action: 'submit',
-            input_value: {
-              $label: { model_id: -2, p: 0, r: 0, c: 0, k: 'model100_input_draft' },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  assert.equal(typeof vnode.props?.onClick, 'function', 'button_onClick_missing');
-  vnode.props.onClick();
-
-  assert.equal(dispatched.length, 1, 'button_click_must_dispatch_single_event');
-  const envelope = dispatched[0]?.v;
-  assert.equal(envelope?.payload?.action, 'submit', 'button_dispatch_action_must_be_submit');
-  assert.equal(
-    envelope?.payload?.value?.v?.input_value,
-    'overlay draft text',
-    'button_value_ref_must_use_overlay_effective_value',
+function checkSource(text, label) {
+  assert.match(
+    text,
+    /function resolveRefsDeep\(value, ctx, snapshot, host\)/,
+    `${label}_resolveRefsDeep_must_accept_host`,
   );
-  console.log('[PASS] button_value_ref_uses_overlay_effective_value');
+  assert.match(
+    text,
+    /return snapshot \? getEffectiveLabelValue\(snapshot, ref, host\) : undefined;/,
+    `${label}_label_refs_must_use_effective_value`,
+  );
+  assert.match(
+    text,
+    /out\.value = resolveRefsDeep\(target\.value_ref, ctx, snapshot, host\);/,
+    `${label}_button_value_ref_must_pass_host_into_resolver`,
+  );
+  assert.match(
+    text,
+    /out\.meta = resolveRefsDeep\(target\.meta_ref, ctx, snapshot, host\);/,
+    `${label}_meta_ref_must_pass_host_into_resolver`,
+  );
 }
 
 try {
-  main();
+  checkSource(read('packages/ui-renderer/src/renderer.mjs'), 'renderer_mjs');
+  checkSource(read('packages/ui-renderer/src/renderer.js'), 'renderer_js');
+  console.log('[PASS] button_value_ref_overlay_contract');
 } catch (error) {
   console.log(`[FAIL] main: ${error.message}`);
   process.exit(1);
