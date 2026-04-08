@@ -177,14 +177,18 @@ function deriveWorkspaceRegistry(runtime) {
 
 function resolveDefaultWorkspaceAppId(apps) {
   if (!Array.isArray(apps) || apps.length === 0) return 0;
-  if (apps.some((app) => app && app.model_id === MATRIX_DEBUG_MODEL_ID)) {
-    return MATRIX_DEBUG_MODEL_ID;
-  }
-  if (apps.some((app) => app && app.model_id === GALLERY_CATALOG_MODEL_ID)) {
-    return GALLERY_CATALOG_MODEL_ID;
-  }
+  const firstSlideCapable = apps.find((app) => app && app.slide_capable === true && Number.isInteger(app.model_id) && app.model_id > 0);
+  if (firstSlideCapable) return firstSlideCapable.model_id;
   const firstPositive = apps.find((app) => app && Number.isInteger(app.model_id) && app.model_id > 0);
   return firstPositive ? firstPositive.model_id : apps[0].model_id;
+}
+
+function resolveWorkspaceSelection(apps, selectedValue, defaultSelected) {
+  const selected = Number.isInteger(selectedValue) ? selectedValue : parseSafeInt(selectedValue);
+  if (Number.isInteger(selected) && Array.isArray(apps) && apps.some((app) => app && app.model_id === selected)) {
+    return selected;
+  }
+  return defaultSelected;
 }
 
 export function createDemoStore() {
@@ -340,13 +344,11 @@ export function createDemoStore() {
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_edit_dialog_title', t: 'str', v: deriveHomeEditDialogTitle(snap, EDITOR_STATE_MODEL_ID) });
       const workspaceApps = deriveWorkspaceRegistry(runtime);
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: workspaceApps });
-      const selectedWorkspaceApp = normalizeIntValue(
+      const validWorkspaceApp = resolveWorkspaceSelection(
+        workspaceApps,
         runtime.getLabelValue(stateModelLive, 0, 0, 0, 'ws_app_selected'),
         resolveDefaultWorkspaceAppId(workspaceApps),
       );
-      const validWorkspaceApp = workspaceApps.some((app) => app && app.model_id === selectedWorkspaceApp)
-        ? selectedWorkspaceApp
-        : resolveDefaultWorkspaceAppId(workspaceApps);
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: Number(validWorkspaceApp) });
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: resolveNextWorkspaceModelId(runtime) });
       const matrixDebug = deriveMatrixDebugView(snap, EDITOR_STATE_MODEL_ID);
