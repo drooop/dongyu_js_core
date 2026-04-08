@@ -97,23 +97,23 @@ function resolveRefValue(ref, ctx) {
   return undefined;
 }
 
-function resolveRefsDeep(value, ctx, snapshot) {
+function resolveRefsDeep(value, ctx, snapshot, host) {
   if (!value) return value;
   if (isPlainObject(value) && Object.keys(value).length === 1 && Object.prototype.hasOwnProperty.call(value, '$label')) {
-    const ref = resolveRefsDeep(value.$label, ctx, snapshot);
-    return snapshot ? getLabelValue(snapshot, ref) : undefined;
+    const ref = resolveRefsDeep(value.$label, ctx, snapshot, host);
+    return snapshot ? getEffectiveLabelValue(snapshot, ref, host) : undefined;
   }
   if (isPlainObject(value) && typeof value.$ref === 'string' && Object.keys(value).length === 1) {
     if (!ctx) return value;
     return resolveRefValue(value.$ref, ctx);
   }
   if (Array.isArray(value)) {
-    return value.map((v) => resolveRefsDeep(v, ctx, snapshot));
+    return value.map((v) => resolveRefsDeep(v, ctx, snapshot, host));
   }
   if (isPlainObject(value)) {
     const out = {};
     for (const [k, v] of Object.entries(value)) {
-      out[k] = resolveRefsDeep(v, ctx, snapshot);
+      out[k] = resolveRefsDeep(v, ctx, snapshot, host);
     }
     return out;
   }
@@ -1662,7 +1662,7 @@ function dispatchEvent(node, target, payload, host, overrideType) {
 
     if (action === 'label_add' || action === 'label_update' || action === 'ui_owner_label_update') {
       if (target.value_ref !== undefined) {
-        out.value = resolveRefsDeep(target.value_ref, ctx, snapshot);
+        out.value = resolveRefsDeep(target.value_ref, ctx, snapshot, host);
       } else {
         const raw = payload && payload.value !== undefined ? payload.value : '';
         let t = 'str';
@@ -1676,15 +1676,15 @@ function dispatchEvent(node, target, payload, host, overrideType) {
         out.value = { t, v: raw };
       }
     } else if (action === 'submodel_create') {
-      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot);
+      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot, host);
     } else if (target.value_ref !== undefined) {
-      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot);
+      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot, host);
     }
 
     if (target.meta_ref !== undefined) {
-      out.meta = resolveRefsDeep(target.meta_ref, ctx, snapshot);
+      out.meta = resolveRefsDeep(target.meta_ref, ctx, snapshot, host);
     } else if (target.meta !== undefined) {
-      out.meta = resolveRefsDeep(target.meta, ctx, snapshot);
+      out.meta = resolveRefsDeep(target.meta, ctx, snapshot, host);
     }
 
     const envelope = normalizeEditorEvent(out);
