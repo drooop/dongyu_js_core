@@ -3242,6 +3242,7 @@ class ProgramModelEngine {
   processEventsSnapshot(eventEndExclusive) {
     const events = this.runtime.eventLog.list();
     const end = Math.min(Number.isInteger(eventEndExclusive) ? eventEndExclusive : events.length, events.length);
+    const scheduledModel0Egress = new Set();
     for (; this.eventCursor < end; this.eventCursor += 1) {
       const event = events[this.eventCursor];
       if (event.op !== 'add_label') continue;
@@ -3328,6 +3329,7 @@ class ProgramModelEngine {
             const sys = firstSystemModel(this.runtime);
             console.log(`[processEventsSnapshot] Model 0 egress detected for model ${sourceModelId}, triggering ${egressFunc}`);
             if (sys && sys.hasFunction(egressFunc)) {
+              scheduledModel0Egress.add(egressLabel);
               this.runtime.intercepts.record('run_func', { func: egressFunc, payload: event.label.v });
             } else {
               console.log(`[processEventsSnapshot] WARNING: ${egressFunc} function NOT found`);
@@ -3350,6 +3352,7 @@ class ProgramModelEngine {
         const funcName = 'forward_model100_submit_from_model0';
         console.log('[processEventsSnapshot] Model 0 egress detected, triggering forward_model100_submit_from_model0');
         if (sys && sys.hasFunction(funcName)) {
+          scheduledModel0Egress.add('model100_submit_out');
           this.runtime.intercepts.record('run_func', { func: funcName, payload });
         } else {
           console.log(`[processEventsSnapshot] WARNING: ${funcName} function NOT found`);
@@ -3395,6 +3398,33 @@ class ProgramModelEngine {
         t: 'event',
         v: { op_id: event.trace_id || '' },
       });
+    }
+    this.schedulePendingModel0Egress(scheduledModel0Egress);
+  }
+
+  schedulePendingModel0Egress(alreadyScheduled = new Set()) {
+    const model0 = this.runtime.getModel(0);
+    if (!model0) return;
+    const sys = firstSystemModel(this.runtime);
+    for (const [sourceModelId] of this.runtime.models) {
+      if (!Number.isInteger(sourceModelId) || sourceModelId <= 0) continue;
+      const dualBusConfig = readDualBusConfig(this.runtime, sourceModelId);
+      const egressLabel = dualBusConfig && typeof dualBusConfig.model0_egress_label === 'string'
+        ? dualBusConfig.model0_egress_label.trim()
+        : '';
+      const egressFunc = dualBusConfig && typeof dualBusConfig.model0_egress_func === 'string'
+        ? dualBusConfig.model0_egress_func.trim()
+        : '';
+      if (!egressLabel || !egressFunc || alreadyScheduled.has(egressLabel)) continue;
+      const payload = this.runtime.getLabelValue(model0, 0, 0, 0, egressLabel);
+      if (!Array.isArray(payload) || payload.length === 0) continue;
+      console.log(`[processEventsSnapshot] Recovering pending Model 0 egress for model ${sourceModelId}, triggering ${egressFunc}`);
+      if (sys && sys.hasFunction(egressFunc)) {
+        alreadyScheduled.add(egressLabel);
+        this.runtime.intercepts.record('run_func', { func: egressFunc, payload });
+      } else {
+        console.log(`[processEventsSnapshot] WARNING: ${egressFunc} function NOT found during pending egress recovery`);
+      }
     }
   }
 
