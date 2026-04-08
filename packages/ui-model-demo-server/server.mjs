@@ -4946,9 +4946,14 @@ function createServerState(options) {
       if (!rootCell.labels.has('dual_bus_model')) {
         return finishError('invalid_target', 'model_not_dual_bus');
       }
-      const eventValue = payload && payload.value && payload.value.t === 'event'
-        ? payload.value.v
-        : (payload && payload.value && payload.value.t === 'json' ? payload.value.v : null);
+      const rawBusinessValue = payload && payload.value;
+      const eventValue = rawBusinessValue && rawBusinessValue.t === 'event'
+        ? rawBusinessValue.v
+        : (rawBusinessValue && rawBusinessValue.t === 'json'
+          ? rawBusinessValue.v
+          : (rawBusinessValue && typeof rawBusinessValue === 'object' && !Array.isArray(rawBusinessValue)
+            ? rawBusinessValue
+            : null));
       const normalizedEvent = eventValue && typeof eventValue === 'object'
         ? { ...eventValue }
         : {};

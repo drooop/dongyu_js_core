@@ -67,8 +67,46 @@ async function test_stale_model0_egress_payload_gets_forwarded_on_next_tick() {
   });
 }
 
+function mailboxEnvelope(action, options = {}) {
+  const payload = {
+    action,
+    meta: { op_id: options.opId || `${action}_${Date.now()}` },
+  };
+  if (options.value !== undefined) payload.value = options.value;
+  if (options.target !== undefined) payload.target = options.target;
+  if (Number.isInteger(options.modelId)) payload.meta.model_id = options.modelId;
+  return {
+    event_id: Date.now(),
+    type: action,
+    payload,
+    source: 'ui_renderer',
+    ts: Date.now(),
+  };
+}
+
+async function test_plain_object_submit_value_is_forwarded_as_event_payload() {
+  return withServerState(async (state) => {
+    const result = await state.submitEnvelope(mailboxEnvelope('submit', {
+      modelId: 100,
+      value: {
+        action: 'submit',
+        input_value: 'plain object submit',
+      },
+    }));
+    assert.equal(result.result, 'ok', 'plain_object_submit_must_be_accepted');
+    await wait();
+
+    const rootLabels = state.clientSnap().models?.['100']?.cells?.['0,0,0']?.labels || {};
+    assert.equal(rootLabels.status?.v, 'matrix_unavailable', 'plain_object_submit_must_still_run_forward_path');
+    const model0Root = state.clientSnap().models?.['0']?.cells?.['0,0,0']?.labels || {};
+    assert.equal(model0Root.model100_submit_out?.v ?? null, null, 'plain_object_submit_must_clear_model0_egress_after_forward');
+    return { key: 'plain_object_submit_value_is_forwarded_as_event_payload', status: 'PASS' };
+  });
+}
+
 const tests = [
   test_stale_model0_egress_payload_gets_forwarded_on_next_tick,
+  test_plain_object_submit_value_is_forwarded_as_event_payload,
 ];
 
 (async () => {
