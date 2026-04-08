@@ -55,6 +55,10 @@ source: ai
   - 0289 Phase B：说明什么算 slide-capable app、Workspace 统一 registry 字段、默认选择与删除规则。
 - `slide_app_filltable_create_v1.md`
   - 0290 Slide app 填表创建：说明 creator app 填哪些字段、创建后如何自动挂载，以及它与 0302 zip 导入共用的 payload 合同。
+- `slide_ui_mainline_guide.md`
+  - 0291 主文档：把 Slide UI 当前主线入口、Gallery 展示面、Workspace 入口和细分说明页收成统一导航。
+- `slide_ui_evidence_runbook.md`
+  - 0291 证据 runbook：定义本地和远端两条最小取证路径，以及 cloud deploy 后的验证步骤。
 - `ui_components_v2.md`
   - 组件能力与 AST 用法。
 - `design_system_v2.md`

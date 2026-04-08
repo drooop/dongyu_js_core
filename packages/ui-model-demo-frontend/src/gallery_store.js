@@ -10,6 +10,11 @@ import {
   GALLERY_MAILBOX_MODEL_ID,
   GALLERY_STATE_MODEL_ID,
   MATRIX_DEBUG_MODEL_ID,
+  MODEL_100_ID,
+  SLIDE_CREATOR_APP_MODEL_ID,
+  SLIDE_CREATOR_TRUTH_MODEL_ID,
+  SLIDE_IMPORTER_APP_MODEL_ID,
+  SLIDE_IMPORTER_TRUTH_MODEL_ID,
   THREE_SCENE_APP_MODEL_ID,
   THREE_SCENE_CHILD_MODEL_ID,
   THREE_SCENE_CREATE_ENTITY_ACTION,
@@ -75,6 +80,16 @@ export const GALLERY_INTEGRATION_CONTRACT = freezeObject({
   matrixDebug: freezeObject({
     model_id: MATRIX_DEBUG_MODEL_ID,
     actions: MATRIX_DEBUG_ACTIONS,
+  }),
+  slideMainline: freezeObject({
+    model_ids: [
+      MODEL_100_ID,
+      SLIDE_IMPORTER_APP_MODEL_ID,
+      SLIDE_IMPORTER_TRUTH_MODEL_ID,
+      SLIDE_CREATOR_APP_MODEL_ID,
+      SLIDE_CREATOR_TRUTH_MODEL_ID,
+    ],
+    actions: freezeArray(['slide_app_import', 'slide_app_create']),
   }),
   canonicalExamples: freezeObject({
     model_ids: CANONICAL_EXAMPLE_MODEL_IDS,

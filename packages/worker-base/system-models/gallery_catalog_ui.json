@@ -13930,6 +13930,1216 @@
         },
         "fallbackText": "Doc page example missing"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -102,
+      "p": 0,
+      "r": 12,
+      "c": 0,
+      "k": "gallery_slide_focus",
+      "t": "str",
+      "v": "topology"
+    },
+    {
+      "op": "add_label",
+      "model_id": -102,
+      "p": 0,
+      "r": 13,
+      "c": 0,
+      "k": "gallery_slide_summary_text",
+      "t": "str",
+      "v": "Slide UI showcase summary pending runtime sync."
+    },
+    {
+      "op": "add_label",
+      "model_id": -102,
+      "p": 0,
+      "r": 14,
+      "c": 0,
+      "k": "gallery_slide_registry_count_text",
+      "t": "str",
+      "v": "slide apps=0 | builtin=0 | deletable=0"
+    },
+    {
+      "op": "add_label",
+      "model_id": -102,
+      "p": 0,
+      "r": 15,
+      "c": 0,
+      "k": "gallery_slide_models_text",
+      "t": "str",
+      "v": "No slide apps registered."
+    },
+    {
+      "op": "add_label",
+      "model_id": -102,
+      "p": 0,
+      "r": 16,
+      "c": 0,
+      "k": "gallery_slide_creator_status_text",
+      "t": "str",
+      "v": "填写字段后创建 Slide App"
+    },
+    {
+      "op": "add_label",
+      "model_id": -102,
+      "p": 0,
+      "r": 17,
+      "c": 0,
+      "k": "gallery_slide_last_created_text",
+      "t": "str",
+      "v": "No slide app created from the filltable creator yet."
+    },
+    {
+      "op": "add_label",
+      "model_id": -102,
+      "p": 0,
+      "r": 18,
+      "c": 0,
+      "k": "gallery_slide_docs_text",
+      "t": "str",
+      "v": "Slide UI docs pending runtime sync."
+    },
+    {
+      "op": "add_label",
+      "model_id": -102,
+      "p": 0,
+      "r": 19,
+      "c": 0,
+      "k": "gallery_slide_evidence_local_text",
+      "t": "str",
+      "v": "Local slide evidence pending runtime sync."
+    },
+    {
+      "op": "add_label",
+      "model_id": -102,
+      "p": 0,
+      "r": 20,
+      "c": 0,
+      "k": "gallery_slide_evidence_remote_text",
+      "t": "str",
+      "v": "Remote slide evidence pending runtime sync."
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 228,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_showcase_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 228,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 228,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 228,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 9985
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 228,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "0291 Slide UI Mainline Showcase",
+        "style": {
+          "width": "100%"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 229,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_intro"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 229,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 229,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_showcase_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 229,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 229,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": "Projects the current Slide UI mainline from Workspace registry, importer state, creator state, and Phase D evidence runbooks."
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 230,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_focus_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 230,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 230,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_showcase_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 230,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 230,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "row",
+        "gap": 12,
+        "wrap": true,
+        "align": "center",
+        "style": {
+          "marginTop": "12px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 231,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_focus_topology_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 231,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 231,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_focus_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 231,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 231,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Focus Topology",
+        "type": "primary"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 231,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -102,
+            "p": 0,
+            "r": 12,
+            "c": 0,
+            "k": "gallery_slide_focus"
+          },
+          "value_ref": {
+            "t": "str",
+            "v": "topology"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 232,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_focus_workspace_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 232,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 232,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_focus_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 232,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 232,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Focus Workspace"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 232,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -102,
+            "p": 0,
+            "r": 12,
+            "c": 0,
+            "k": "gallery_slide_focus"
+          },
+          "value_ref": {
+            "t": "str",
+            "v": "workspace"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 233,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_focus_create_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 233,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 233,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_focus_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 233,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 233,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Focus Create"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 233,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -102,
+            "p": 0,
+            "r": 12,
+            "c": 0,
+            "k": "gallery_slide_focus"
+          },
+          "value_ref": {
+            "t": "str",
+            "v": "create"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 234,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_focus_evidence_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 234,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 234,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_focus_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 234,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 234,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Focus Evidence"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 234,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -102,
+            "p": 0,
+            "r": 12,
+            "c": 0,
+            "k": "gallery_slide_focus"
+          },
+          "value_ref": {
+            "t": "str",
+            "v": "evidence"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 235,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_workspace_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 235,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 235,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_focus_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 235,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 235,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Open Workspace"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 235,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -102,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "nav_to"
+          },
+          "value_ref": {
+            "t": "str",
+            "v": "/workspace"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 236,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_summary_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 236,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 236,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_showcase_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 236,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 236,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 236,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -102,
+          "p": 0,
+          "r": 13,
+          "c": 0,
+          "k": "gallery_slide_summary_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 237,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_registry_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 237,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 237,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_showcase_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 237,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 237,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "success",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 237,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -102,
+          "p": 0,
+          "r": 14,
+          "c": 0,
+          "k": "gallery_slide_registry_count_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 238,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_models_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 238,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 238,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_showcase_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 238,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 238,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 238,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -102,
+          "p": 0,
+          "r": 15,
+          "c": 0,
+          "k": "gallery_slide_models_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 239,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_creator_status_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 239,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 239,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_showcase_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 239,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 60
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 239,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 239,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -102,
+          "p": 0,
+          "r": 16,
+          "c": 0,
+          "k": "gallery_slide_creator_status_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 240,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_last_created_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 240,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 240,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_showcase_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 240,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 70
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 240,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 240,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -102,
+          "p": 0,
+          "r": 17,
+          "c": 0,
+          "k": "gallery_slide_last_created_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 241,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_docs_terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 241,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 241,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_showcase_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 241,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 80
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 241,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "Slide UI Docs",
+        "maxHeight": "180px"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 241,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -102,
+          "p": 0,
+          "r": 18,
+          "c": 0,
+          "k": "gallery_slide_docs_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 242,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_evidence_local_terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 242,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 242,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_showcase_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 242,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 90
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 242,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "Local Evidence",
+        "maxHeight": "180px"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 242,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -102,
+          "p": 0,
+          "r": 19,
+          "c": 0,
+          "k": "gallery_slide_evidence_local_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 243,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "gallery_slide_evidence_remote_terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 243,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 243,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "gallery_slide_showcase_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 243,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 100
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 243,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "Remote Evidence",
+        "maxHeight": "180px"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -103,
+      "p": 2,
+      "r": 243,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -102,
+          "p": 0,
+          "r": 20,
+          "c": 0,
+          "k": "gallery_slide_evidence_remote_text"
+        }
+      }
     }
   ]
 }

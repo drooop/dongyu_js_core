@@ -1,4 +1,4 @@
-import { computed, h, onBeforeUnmount, onMounted, ref, resolveComponent } from 'vue';
+import { computed, h, onBeforeUnmount, onMounted, ref, resolveComponent, watch } from 'vue';
 import { createRenderer } from '@ui-renderer/index.mjs';
 import { readAppShellRouteSyncState, resolveNavigableRoutePath } from './app_shell_route_sync.js';
 import { findPageEntryByPath, readPageCatalog } from './page_asset_resolver.js';
@@ -190,6 +190,27 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         }
       }
 
+      function clearGalleryNavTarget() {
+        if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
+        const opId = `gallery_nav_clear_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        const envelope = {
+          event_id: Date.now(),
+          type: 'label_update',
+          source: 'ui_renderer',
+          ts: 0,
+          payload: {
+            action: 'label_update',
+            meta: { op_id: opId },
+            target: { model_id: -102, p: 0, r: 0, c: 0, k: 'nav_to' },
+            value: { t: 'str', v: '' },
+          },
+        };
+        mainStore.dispatchAddLabel({ p: 0, r: 0, c: 1, k: 'ui_event', t: 'event', v: envelope });
+        if (typeof mainStore.consumeOnce === 'function') {
+          queueMicrotask(() => mainStore.consumeOnce());
+        }
+      }
+
       onMounted(() => {
         normalizeIfUnknown(path.value);
         if (mainStore && typeof mainStore.setRoutePath === 'function') {
@@ -216,6 +237,24 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
 
       const currentRouteEntry = computed(() => findRouteEntry(path.value));
       const routeSyncState = computed(() => readAppShellRouteSyncState(mainStore?.snapshot ?? {}, path.value));
+      const galleryNavTarget = computed(() => {
+        const labels = mainStore?.snapshot?.models?.['-102']?.cells?.['0,0,0']?.labels ?? {};
+        const raw = labels.nav_to?.v;
+        return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : '';
+      });
+
+      watch(galleryNavTarget, (next) => {
+        if (!next) return;
+        setHashPath(next);
+        path.value = next;
+        if (mainStore && typeof mainStore.setRoutePath === 'function') {
+          mainStore.setRoutePath(path.value);
+        }
+        syncGalleryRoute(path.value);
+        syncPageLabel(path.value);
+        syncWorkspaceSelection(path.value);
+        clearGalleryNavTarget();
+      });
 
       function Header() {
         const catalog = readCatalog().filter((entry) => entry && entry.nav_visible === true && typeof entry.path === 'string');

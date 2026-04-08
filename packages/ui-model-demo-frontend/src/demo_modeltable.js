@@ -24,6 +24,7 @@ import {
   deriveHomeEditDialogTitle,
   deriveHomeMissingModelText,
   deriveHomeSelectedLabelText,
+  deriveSlideGalleryView,
   deriveMatrixDebugView,
   deriveHomeTableRows,
   deriveStaticUploadReady,
@@ -360,11 +361,20 @@ export function createDemoStore() {
     }
     const galleryStateModel = runtime.getModel(GALLERY_STATE_MODEL_ID);
     if (galleryStateModel) {
+      const slideGallery = deriveSlideGalleryView(snap, GALLERY_STATE_MODEL_ID);
       overwriteLabel(runtime, galleryStateModel, 0, 0, 0, {
         k: 'doc_page_example_ast',
         t: 'json',
         v: buildAstFromCellwiseModel(snap, DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID),
       });
+      overwriteLabel(runtime, galleryStateModel, 0, 13, 0, { k: 'gallery_slide_summary_text', t: 'str', v: slideGallery.summaryText });
+      overwriteLabel(runtime, galleryStateModel, 0, 14, 0, { k: 'gallery_slide_registry_count_text', t: 'str', v: slideGallery.registryCountText });
+      overwriteLabel(runtime, galleryStateModel, 0, 15, 0, { k: 'gallery_slide_models_text', t: 'str', v: slideGallery.modelsText });
+      overwriteLabel(runtime, galleryStateModel, 0, 16, 0, { k: 'gallery_slide_creator_status_text', t: 'str', v: slideGallery.creatorStatusText });
+      overwriteLabel(runtime, galleryStateModel, 0, 17, 0, { k: 'gallery_slide_last_created_text', t: 'str', v: slideGallery.lastCreatedText });
+      overwriteLabel(runtime, galleryStateModel, 0, 18, 0, { k: 'gallery_slide_docs_text', t: 'str', v: slideGallery.docsText });
+      overwriteLabel(runtime, galleryStateModel, 0, 19, 0, { k: 'gallery_slide_evidence_local_text', t: 'str', v: slideGallery.localEvidenceText });
+      overwriteLabel(runtime, galleryStateModel, 0, 20, 0, { k: 'gallery_slide_evidence_remote_text', t: 'str', v: slideGallery.remoteEvidenceText });
     }
 
     const nextSnap = runtime.snapshot();

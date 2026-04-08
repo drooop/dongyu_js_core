@@ -8,6 +8,11 @@ import { createDemoStore } from '../../packages/ui-model-demo-frontend/src/demo_
 import * as galleryStoreModule from '../../packages/ui-model-demo-frontend/src/gallery_store.js';
 import {
   MATRIX_DEBUG_MODEL_ID,
+  MODEL_100_ID,
+  SLIDE_CREATOR_APP_MODEL_ID,
+  SLIDE_CREATOR_TRUTH_MODEL_ID,
+  SLIDE_IMPORTER_APP_MODEL_ID,
+  SLIDE_IMPORTER_TRUTH_MODEL_ID,
   THREE_SCENE_APP_MODEL_ID,
   THREE_SCENE_CHILD_MODEL_ID,
   THREE_SCENE_CREATE_ENTITY_ACTION,
@@ -99,6 +104,16 @@ function test_gallery_store_exports_frozen_mode_alignment_and_upstream_contract(
       matrixDebug: {
         model_id: MATRIX_DEBUG_MODEL_ID,
         actions: ['matrix_debug_refresh', 'matrix_debug_clear_trace', 'matrix_debug_summarize'],
+      },
+      slideMainline: {
+        model_ids: [
+          MODEL_100_ID,
+          SLIDE_IMPORTER_APP_MODEL_ID,
+          SLIDE_IMPORTER_TRUTH_MODEL_ID,
+          SLIDE_CREATOR_APP_MODEL_ID,
+          SLIDE_CREATOR_TRUTH_MODEL_ID,
+        ],
+        actions: ['slide_app_import', 'slide_app_create'],
       },
       canonicalExamples: {
         model_ids: [
