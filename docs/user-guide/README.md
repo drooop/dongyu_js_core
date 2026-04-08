@@ -2,7 +2,7 @@
 title: "User Guide Index"
 doc_type: user-guide
 status: active
-updated: 2026-03-27
+updated: 2026-04-08
 source: ai
 ---
 
@@ -47,6 +47,8 @@ source: ai
   - 0296 数据模型入口：说明 `Data.Array / Data.Queue / Data.Stack` 在新 pin/payload 合同下的填表结构、pin 名称与 payload 形状。
 - `matrix_userline_phase1.md`
   - 0283 最小 Matrix 用户产品线：说明 `1016-1019` 的分工、最小登录、单会话消息闭环，以及本地 Synapse 测试用户的注册与验证方式。
+- `matrix_userline_phase2.md`
+  - 0284 基础聊天界面：说明 `1016-1021` 的分工、房间切换、时间线、输入框、成员面板，以及当前房间的一发一收验证方式。
 - `ui_components_v2.md`
   - 组件能力与 AST 用法。
 - `design_system_v2.md`
