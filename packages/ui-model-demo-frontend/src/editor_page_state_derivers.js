@@ -6,8 +6,14 @@ import {
   FLOW_SHELL_DEFAULT_TAB,
   FLOW_SHELL_FORBIDDEN_WRITE_MODEL_IDS,
   FLOW_SHELL_TAB_LABEL,
+  GALLERY_STATE_MODEL_ID,
   MATRIX_DEBUG_MODEL_ID,
+  MODEL_100_ID,
   SCENE_CONTEXT_MODEL_ID,
+  SLIDE_CREATOR_APP_MODEL_ID,
+  SLIDE_CREATOR_TRUTH_MODEL_ID,
+  SLIDE_IMPORTER_APP_MODEL_ID,
+  SLIDE_IMPORTER_TRUTH_MODEL_ID,
   WORKSPACE_CATALOG_MODEL_ID,
 } from './model_ids.js';
 import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
@@ -417,6 +423,120 @@ function readSnapshotString(snapshot, ref, fallback = '') {
   const value = getSnapshotLabelValue(snapshot, ref);
   if (value === undefined || value === null) return fallback;
   return String(value);
+}
+
+function readSlideGalleryFocus(snapshot, galleryStateModelId) {
+  const focus = readSnapshotString(snapshot, {
+    model_id: galleryStateModelId,
+    p: 0,
+    r: 12,
+    c: 0,
+    k: 'gallery_slide_focus',
+  }, 'topology').trim().toLowerCase();
+  if (focus === 'workspace' || focus === 'create' || focus === 'evidence') return focus;
+  return 'topology';
+}
+
+function summarizeSlideApps(snapshot) {
+  const registry = getSnapshotLabelValue(snapshot, {
+    model_id: EDITOR_STATE_MODEL_ID,
+    p: 0,
+    r: 0,
+    c: 0,
+    k: 'ws_apps_registry',
+  });
+  const apps = Array.isArray(registry) ? registry.filter((entry) => entry && entry.slide_capable === true) : [];
+  const builtinCount = apps.filter((entry) => entry && entry.installed_at === 'builtin').length;
+  const deletableCount = apps.filter((entry) => entry && entry.deletable === true).length;
+  const modelsText = apps.length > 0
+    ? apps.map((entry) => `${entry.model_id}:${entry.slide_surface_type || 'unknown'}:${entry.name || 'unnamed'}`).join(' | ')
+    : 'No slide apps registered.';
+  return {
+    apps,
+    registryCountText: `slide apps=${apps.length} | builtin=${builtinCount} | deletable=${deletableCount}`,
+    modelsText,
+  };
+}
+
+function buildSlideSummaryText(focus) {
+  if (focus === 'workspace') {
+    return 'Workspace 主线现在统一承载 flow shell、zip 导入器、填表创建器和导入/创建出来的 slide app；差异由 metadata 决定，不再靠单点特判。';
+  }
+  if (focus === 'create') {
+    return '填表创建走 1034/1035，并复用 0302 的 payload 校验和 materialize 路径；创建后会自动挂载、自动选中、可继续编辑和删除。';
+  }
+  if (focus === 'evidence') {
+    return '0291 的收口资产由 Gallery slide showcase、本地主文档和本地/远端证据 runbook 组成，用来证明 0288-0290 的主线已经稳定成立。';
+  }
+  return '拓扑层仍保持 0288 冻结的 ui-server / remote-worker / MBR 边界；0291 只展示和取证，不重开这些系统合同。';
+}
+
+export function deriveSlideGalleryView(snapshot, galleryStateModelId = GALLERY_STATE_MODEL_ID) {
+  const focus = readSlideGalleryFocus(snapshot, galleryStateModelId);
+  const slideApps = summarizeSlideApps(snapshot);
+  const creatorStatus = readSnapshotString(snapshot, {
+    model_id: SLIDE_CREATOR_TRUTH_MODEL_ID,
+    p: 0,
+    r: 0,
+    c: 0,
+    k: 'create_status',
+  }, '填写字段后创建 Slide App');
+  const creatorLastName = readSnapshotString(snapshot, {
+    model_id: SLIDE_CREATOR_TRUTH_MODEL_ID,
+    p: 0,
+    r: 0,
+    c: 0,
+    k: 'create_last_app_name',
+  }, '');
+  const creatorLastId = getSnapshotLabelValue(snapshot, {
+    model_id: SLIDE_CREATOR_TRUTH_MODEL_ID,
+    p: 0,
+    r: 0,
+    c: 0,
+    k: 'create_last_app_id',
+  });
+  const creatorLastTruthId = getSnapshotLabelValue(snapshot, {
+    model_id: SLIDE_CREATOR_TRUTH_MODEL_ID,
+    p: 0,
+    r: 0,
+    c: 0,
+    k: 'create_last_truth_id',
+  });
+  const lastCreatedText = creatorLastName
+    ? `last app=${creatorLastName} | host=${creatorLastId || 0} | truth=${creatorLastTruthId || 0}`
+    : 'No slide app created from the filltable creator yet.';
+  return {
+    focus,
+    summaryText: buildSlideSummaryText(focus),
+    registryCountText: slideApps.registryCountText,
+    modelsText: slideApps.modelsText,
+    creatorStatusText: creatorStatus,
+    lastCreatedText,
+    docsText: [
+      '主文档: docs/user-guide/slide_ui_mainline_guide.md',
+      '证据 runbook: docs/user-guide/slide_ui_evidence_runbook.md',
+      '细节页: slide_workspace_generalization.md / slide_app_zip_import_v1.md / slide_app_filltable_create_v1.md',
+    ].join('\n'),
+    localEvidenceText: [
+      'Local browser evidence',
+      '- Open http://127.0.0.1:30900/#/gallery and confirm the Slide UI showcase card is visible.',
+      '- Open http://127.0.0.1:30900/#/workspace and confirm importer + creator coexist with existing slide apps.',
+      '- Use creator to make a temporary slide app, open it, edit it, then delete it.',
+    ].join('\n'),
+    remoteEvidenceText: [
+      'Remote browser evidence',
+      '- Open https://app.dongyudigital.com/#/gallery and confirm the Slide UI showcase card is visible.',
+      '- Open https://app.dongyudigital.com/#/workspace and confirm importer + creator entrypoints are present.',
+      '- Create one temporary slide app from the creator, verify it opens, then delete it.',
+    ].join('\n'),
+    modelIds: [
+      MODEL_100_ID,
+      SLIDE_IMPORTER_APP_MODEL_ID,
+      SLIDE_IMPORTER_TRUTH_MODEL_ID,
+      SLIDE_CREATOR_APP_MODEL_ID,
+      SLIDE_CREATOR_TRUTH_MODEL_ID,
+    ],
+  };
 }
 
 export function deriveMatrixDebugView(snapshot, editorStateModelId) {

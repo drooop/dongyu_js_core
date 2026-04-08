@@ -28,6 +28,7 @@ import {
   deriveHomeSelectedLabelText,
   deriveHomeTableRows,
   deriveMatrixDebugView,
+  deriveSlideGalleryView,
   deriveStaticUploadReady,
 } from '../ui-model-demo-frontend/src/editor_page_state_derivers.js';
 import {
@@ -3835,6 +3836,15 @@ function createServerState(options) {
       'json',
       buildAstFromCellwiseModel(snap, DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID),
     );
+    const slideGallery = deriveSlideGalleryView(snap, GALLERY_STATE_MODEL_ID);
+    overwriteRuntimeLabel(runtime, GALLERY_STATE_MODEL_ID, 0, 13, 0, 'gallery_slide_summary_text', 'str', slideGallery.summaryText);
+    overwriteRuntimeLabel(runtime, GALLERY_STATE_MODEL_ID, 0, 14, 0, 'gallery_slide_registry_count_text', 'str', slideGallery.registryCountText);
+    overwriteRuntimeLabel(runtime, GALLERY_STATE_MODEL_ID, 0, 15, 0, 'gallery_slide_models_text', 'str', slideGallery.modelsText);
+    overwriteRuntimeLabel(runtime, GALLERY_STATE_MODEL_ID, 0, 16, 0, 'gallery_slide_creator_status_text', 'str', slideGallery.creatorStatusText);
+    overwriteRuntimeLabel(runtime, GALLERY_STATE_MODEL_ID, 0, 17, 0, 'gallery_slide_last_created_text', 'str', slideGallery.lastCreatedText);
+    overwriteRuntimeLabel(runtime, GALLERY_STATE_MODEL_ID, 0, 18, 0, 'gallery_slide_docs_text', 'str', slideGallery.docsText);
+    overwriteRuntimeLabel(runtime, GALLERY_STATE_MODEL_ID, 0, 19, 0, 'gallery_slide_evidence_local_text', 'str', slideGallery.localEvidenceText);
+    overwriteRuntimeLabel(runtime, GALLERY_STATE_MODEL_ID, 0, 20, 0, 'gallery_slide_evidence_remote_text', 'str', slideGallery.remoteEvidenceText);
     syncMatrixDebugDerivedState();
   };
 
