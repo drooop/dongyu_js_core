@@ -104,9 +104,54 @@ async function test_plain_object_submit_value_is_forwarded_as_event_payload() {
   });
 }
 
+async function test_stale_dual_bus_config_is_repaired_before_submit_forward() {
+  return withServerState(async (state) => {
+    const runtime = state.runtime;
+    const model100 = runtime.getModel(100);
+    assert.ok(model100, 'model100_missing');
+
+    runtime.rmLabel(model100, 0, 0, 0, 'dual_bus_model');
+    runtime.addLabel(model100, 0, 0, 0, {
+      k: 'dual_bus_model',
+      t: 'json',
+      v: {
+        ui_event_func: 'prepare_model100_submit',
+        patch_in_func: 'on_model100_patch_in',
+        patch_in_pin: 'patch',
+      },
+    });
+
+    const result = await state.submitEnvelope(mailboxEnvelope('submit', {
+      modelId: 100,
+      value: {
+        t: 'event',
+        v: {
+          action: 'submit',
+          input_value: 'stale dual bus repair',
+        },
+      },
+    }));
+    assert.equal(result.result, 'ok', 'typed_event_submit_must_be_accepted');
+    await wait();
+
+    const snap = state.clientSnap();
+    const root100 = snap.models?.['100']?.cells?.['0,0,0']?.labels || {};
+    const model0Root = snap.models?.['0']?.cells?.['0,0,0']?.labels || {};
+    const dualBusConfig = root100.dual_bus_model?.v || null;
+
+    assert.equal(dualBusConfig?.model0_egress_label, 'model100_submit_out', 'stale_dual_bus_config_must_restore_model0_egress_label');
+    assert.equal(dualBusConfig?.model0_egress_func, 'forward_model100_submit_from_model0', 'stale_dual_bus_config_must_restore_model0_egress_func');
+    assert.equal(root100.status?.v, 'matrix_unavailable', 'repaired_dual_bus_submit_must_still_run_forward_path');
+    assert.equal(root100.submit_inflight?.v, false, 'repaired_dual_bus_submit_must_release_inflight');
+    assert.equal(model0Root.model100_submit_out?.v ?? null, null, 'repaired_dual_bus_submit_must_clear_model0_egress');
+    return { key: 'stale_dual_bus_config_is_repaired_before_submit_forward', status: 'PASS' };
+  });
+}
+
 const tests = [
   test_stale_model0_egress_payload_gets_forwarded_on_next_tick,
   test_plain_object_submit_value_is_forwarded_as_event_payload,
+  test_stale_dual_bus_config_is_repaired_before_submit_forward,
 ];
 
 (async () => {

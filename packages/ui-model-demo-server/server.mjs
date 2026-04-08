@@ -2072,6 +2072,38 @@ function readDualBusConfig(runtime, modelId) {
   return value && typeof value === 'object' ? value : null;
 }
 
+const MODEL100_DUAL_BUS_CANONICAL = Object.freeze({
+  ui_event_func: 'prepare_model100_submit',
+  model0_egress_label: 'model100_submit_out',
+  model0_egress_func: 'forward_model100_submit_from_model0',
+});
+
+function repairModel100DualBusConfig(runtime) {
+  const model = runtime.getModel(100);
+  if (!model) return false;
+  const cell = runtime.getCell(model, 0, 0, 0);
+  const currentLabel = cell.labels.get('dual_bus_model') || null;
+  const currentValue = currentLabel && currentLabel.v && typeof currentLabel.v === 'object'
+    ? currentLabel.v
+    : {};
+  const nextValue = {
+    ...currentValue,
+    ...MODEL100_DUAL_BUS_CANONICAL,
+  };
+  const changed = Object.entries(MODEL100_DUAL_BUS_CANONICAL)
+    .some(([key, value]) => currentValue[key] !== value);
+  if (!changed) return false;
+  if (currentLabel) {
+    runtime.rmLabel(model, 0, 0, 0, 'dual_bus_model');
+  }
+  runtime.addLabel(model, 0, 0, 0, {
+    k: 'dual_bus_model',
+    t: currentLabel && typeof currentLabel.t === 'string' && currentLabel.t ? currentLabel.t : 'json',
+    v: nextValue,
+  });
+  return true;
+}
+
 class ProgramModelEngine {
   constructor(runtime) {
     this.runtime = runtime;
@@ -4346,6 +4378,7 @@ function createServerState(options) {
   }
 
   function updateDerived() {
+    repairModel100DualBusConfig(runtime);
     recoverModel100StaleInflight();
     syncDerivedPageState();
     // Client-visible AST must be derived from the same filtered snapshot surface
