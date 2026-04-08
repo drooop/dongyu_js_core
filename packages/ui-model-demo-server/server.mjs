@@ -2072,6 +2072,38 @@ function readDualBusConfig(runtime, modelId) {
   return value && typeof value === 'object' ? value : null;
 }
 
+const MODEL100_DUAL_BUS_CANONICAL = Object.freeze({
+  ui_event_func: 'prepare_model100_submit',
+  model0_egress_label: 'model100_submit_out',
+  model0_egress_func: 'forward_model100_submit_from_model0',
+});
+
+function repairModel100DualBusConfig(runtime) {
+  const model = runtime.getModel(100);
+  if (!model) return false;
+  const cell = runtime.getCell(model, 0, 0, 0);
+  const currentLabel = cell.labels.get('dual_bus_model') || null;
+  const currentValue = currentLabel && currentLabel.v && typeof currentLabel.v === 'object'
+    ? currentLabel.v
+    : {};
+  const nextValue = {
+    ...currentValue,
+    ...MODEL100_DUAL_BUS_CANONICAL,
+  };
+  const changed = Object.entries(MODEL100_DUAL_BUS_CANONICAL)
+    .some(([key, value]) => currentValue[key] !== value);
+  if (!changed) return false;
+  if (currentLabel) {
+    runtime.rmLabel(model, 0, 0, 0, 'dual_bus_model');
+  }
+  runtime.addLabel(model, 0, 0, 0, {
+    k: 'dual_bus_model',
+    t: currentLabel && typeof currentLabel.t === 'string' && currentLabel.t ? currentLabel.t : 'json',
+    v: nextValue,
+  });
+  return true;
+}
+
 class ProgramModelEngine {
   constructor(runtime) {
     this.runtime = runtime;
@@ -3242,6 +3274,7 @@ class ProgramModelEngine {
   processEventsSnapshot(eventEndExclusive) {
     const events = this.runtime.eventLog.list();
     const end = Math.min(Number.isInteger(eventEndExclusive) ? eventEndExclusive : events.length, events.length);
+    const scheduledModel0Egress = new Set();
     for (; this.eventCursor < end; this.eventCursor += 1) {
       const event = events[this.eventCursor];
       if (event.op !== 'add_label') continue;
@@ -3328,6 +3361,7 @@ class ProgramModelEngine {
             const sys = firstSystemModel(this.runtime);
             console.log(`[processEventsSnapshot] Model 0 egress detected for model ${sourceModelId}, triggering ${egressFunc}`);
             if (sys && sys.hasFunction(egressFunc)) {
+              scheduledModel0Egress.add(egressLabel);
               this.runtime.intercepts.record('run_func', { func: egressFunc, payload: event.label.v });
             } else {
               console.log(`[processEventsSnapshot] WARNING: ${egressFunc} function NOT found`);
@@ -3350,6 +3384,7 @@ class ProgramModelEngine {
         const funcName = 'forward_model100_submit_from_model0';
         console.log('[processEventsSnapshot] Model 0 egress detected, triggering forward_model100_submit_from_model0');
         if (sys && sys.hasFunction(funcName)) {
+          scheduledModel0Egress.add('model100_submit_out');
           this.runtime.intercepts.record('run_func', { func: funcName, payload });
         } else {
           console.log(`[processEventsSnapshot] WARNING: ${funcName} function NOT found`);
@@ -3395,6 +3430,33 @@ class ProgramModelEngine {
         t: 'event',
         v: { op_id: event.trace_id || '' },
       });
+    }
+    this.schedulePendingModel0Egress(scheduledModel0Egress);
+  }
+
+  schedulePendingModel0Egress(alreadyScheduled = new Set()) {
+    const model0 = this.runtime.getModel(0);
+    if (!model0) return;
+    const sys = firstSystemModel(this.runtime);
+    for (const [sourceModelId] of this.runtime.models) {
+      if (!Number.isInteger(sourceModelId) || sourceModelId <= 0) continue;
+      const dualBusConfig = readDualBusConfig(this.runtime, sourceModelId);
+      const egressLabel = dualBusConfig && typeof dualBusConfig.model0_egress_label === 'string'
+        ? dualBusConfig.model0_egress_label.trim()
+        : '';
+      const egressFunc = dualBusConfig && typeof dualBusConfig.model0_egress_func === 'string'
+        ? dualBusConfig.model0_egress_func.trim()
+        : '';
+      if (!egressLabel || !egressFunc || alreadyScheduled.has(egressLabel)) continue;
+      const payload = this.runtime.getLabelValue(model0, 0, 0, 0, egressLabel);
+      if (!Array.isArray(payload) || payload.length === 0) continue;
+      console.log(`[processEventsSnapshot] Recovering pending Model 0 egress for model ${sourceModelId}, triggering ${egressFunc}`);
+      if (sys && sys.hasFunction(egressFunc)) {
+        alreadyScheduled.add(egressLabel);
+        this.runtime.intercepts.record('run_func', { func: egressFunc, payload });
+      } else {
+        console.log(`[processEventsSnapshot] WARNING: ${egressFunc} function NOT found during pending egress recovery`);
+      }
     }
   }
 
@@ -4316,6 +4378,7 @@ function createServerState(options) {
   }
 
   function updateDerived() {
+    repairModel100DualBusConfig(runtime);
     recoverModel100StaleInflight();
     syncDerivedPageState();
     // Client-visible AST must be derived from the same filtered snapshot surface
@@ -4916,9 +4979,14 @@ function createServerState(options) {
       if (!rootCell.labels.has('dual_bus_model')) {
         return finishError('invalid_target', 'model_not_dual_bus');
       }
-      const eventValue = payload && payload.value && payload.value.t === 'event'
-        ? payload.value.v
-        : (payload && payload.value && payload.value.t === 'json' ? payload.value.v : null);
+      const rawBusinessValue = payload && payload.value;
+      const eventValue = rawBusinessValue && rawBusinessValue.t === 'event'
+        ? rawBusinessValue.v
+        : (rawBusinessValue && rawBusinessValue.t === 'json'
+          ? rawBusinessValue.v
+          : (rawBusinessValue && typeof rawBusinessValue === 'object' && !Array.isArray(rawBusinessValue)
+            ? rawBusinessValue
+            : null));
       const normalizedEvent = eventValue && typeof eventValue === 'object'
         ? { ...eventValue }
         : {};

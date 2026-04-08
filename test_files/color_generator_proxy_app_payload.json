@@ -1,0 +1,681 @@
+[
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "model_type",
+    "t": "model.table",
+    "v": "UI.ColorGeneratorProxyImport"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "app_name",
+    "t": "str",
+    "v": "Imported Color Generator"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "source_worker",
+    "t": "str",
+    "v": "model100-proxy"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "slide_capable",
+    "t": "bool",
+    "v": true
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "slide_surface_type",
+    "t": "str",
+    "v": "workspace.page"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "from_user",
+    "t": "str",
+    "v": "@test-user:localhost"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "to_user",
+    "t": "str",
+    "v": "@drop:localhost"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "ui_authoring_version",
+    "t": "str",
+    "v": "cellwise.ui.v1"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "ui_root_node_id",
+    "t": "str",
+    "v": "color_proxy_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "color_proxy_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Container"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_layout",
+    "t": "str",
+    "v": "column"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_gap",
+    "t": "int",
+    "v": 14
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "style": {
+        "padding": "24px",
+        "maxWidth": "920px",
+        "margin": "0 auto"
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "color_proxy_title"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Text"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "color_proxy_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 10
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "text": "Imported Color Generator",
+      "style": {
+        "fontSize": "26px",
+        "fontWeight": "700"
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "color_proxy_box"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "ColorBox"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "color_proxy_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 20
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "width": "120px",
+      "height": "80px",
+      "borderRadius": "12px"
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "read": {
+        "model_id": 100,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "bg_color"
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "color_proxy_value"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Text"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "color_proxy_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 30
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "type": "info",
+      "style": {
+        "fontFamily": "monospace",
+        "fontSize": "24px",
+        "fontWeight": "bold"
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "read": {
+        "model_id": 100,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "bg_color"
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 4,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "color_proxy_intro"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 4,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Text"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 4,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "color_proxy_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 4,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 40
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 4,
+    "c": 0,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "type": "info",
+      "text": "Proxy app over the current Model 100 color generator. Same truth, same worker chain, new Workspace entrypoint."
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 6,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "color_proxy_input"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 6,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Input"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 6,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "color_proxy_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 6,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 60
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 6,
+    "c": 0,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "placeholder": "Enter any text (optional)"
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 6,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "read": {
+        "model_id": -2,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "model100_input_draft"
+      },
+      "write": {
+        "action": "label_update",
+        "target_ref": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "model100_input_draft"
+        },
+        "commit_policy": "on_submit"
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "color_proxy_system_ready"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Text"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "color_proxy_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 70
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 0,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "type": "info",
+      "label": "MBR Ready"
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "read": {
+        "model_id": 100,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "system_ready"
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 8,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "color_proxy_status"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 8,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Text"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 8,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "color_proxy_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 8,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 80
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 8,
+    "c": 0,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "type": "info",
+      "label": "颜色状态"
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 8,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "read": {
+        "model_id": 100,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "status"
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "color_proxy_submit"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Button"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "color_proxy_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 90
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 0,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "label": "Generate Color",
+      "type": "primary",
+      "size": "large",
+      "disabled": {
+        "$label": {
+          "model_id": 100,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "submit_inflight"
+        }
+      },
+      "loading": {
+        "$label": {
+          "model_id": 100,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "submit_inflight"
+        }
+      },
+      "singleFlight": {
+        "key": "model100_submit",
+        "releaseRef": {
+          "model_id": -1,
+          "p": 0,
+          "r": 0,
+          "c": 1,
+          "k": "ui_event_last_op_id"
+        }
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "write": {
+        "action": "submit",
+        "meta": {
+          "model_id": 100
+        },
+        "value_ref": {
+          "t": "event",
+          "v": {
+            "action": "submit",
+            "input_value": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "model100_input_draft"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+]
