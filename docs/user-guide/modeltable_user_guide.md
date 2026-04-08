@@ -83,6 +83,40 @@ source: ai
 - CRUD 真正写表时，必须走 `ui_event -> intent_dispatch_table -> handle_three_scene_* -> Model 1008/1007 labels`。
 - local mode 必须明确返回 `unsupported / three_scene_remote_only`，不能偷偷复制第二套本地 CRUD 逻辑。
 
+## 2.4 Workspace Slide App Built-ins (0289 / 0290 / 0302)
+
+当前 Workspace slide 主线额外保留这组正数模型：
+
+- `Model 100`
+  - 内置 flow-shell slide app（`E2E 颜色生成器`）
+- `Model 1030`
+  - `滑动 APP 导入` host
+- `Model 1031`
+  - zip 导入器 truth
+- `Model 1034`
+  - `滑动 APP 创建` host
+- `Model 1035`
+  - 填表创建器 truth
+
+当前 `slide_surface_type` 正式枚举：
+
+- `flow.shell`
+  - 表示 app 进入 Workspace 的 flow shell 投影
+- `workspace.importer`
+  - 表示 zip 导入器自己的工作页面
+- `workspace.page`
+  - 表示直接在 Workspace 右侧打开的页面型 slide app
+
+补充规则：
+
+- 一个 Workspace app 进入 slide-capable 主线，至少要在 `(0,0,0)` 明确带上：
+  - `app_name`
+  - `slide_capable = true`
+  - `slide_surface_type`
+  - `ui_authoring_version`
+  - `ui_root_node_id`
+- 新增 `slide_surface_type` 枚举值时，必须先更新现行规约，再进入实现。
+
 ## 3. User Input (Mailbox)
 UI 只能写 event mailbox：`model_id=-1 Cell(0,0,1) k=ui_event t=event`。
 Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。

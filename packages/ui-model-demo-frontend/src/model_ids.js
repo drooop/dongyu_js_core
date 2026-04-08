@@ -58,6 +58,10 @@ export const DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID = 1015;
 export const SLIDE_IMPORTER_APP_MODEL_ID = 1030;
 export const SLIDE_IMPORTER_TRUTH_MODEL_ID = 1031;
 
+// 0290 Slide app filltable create v1.
+export const SLIDE_CREATOR_APP_MODEL_ID = 1034;
+export const SLIDE_CREATOR_TRUTH_MODEL_ID = 1035;
+
 // 0283 Matrix user product line phase 1.
 export const MATRIX_WORKSPACE_APP_MODEL_ID = 1016;
 export const MATRIX_SESSION_MODEL_ID = 1017;

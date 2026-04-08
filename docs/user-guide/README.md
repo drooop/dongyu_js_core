@@ -53,6 +53,8 @@ source: ai
   - 0302 Slide app 导入：说明 zip 包格式、导入字段、安装/卸载规则，以及最短导入验证步骤。
 - `slide_workspace_generalization.md`
   - 0289 Phase B：说明什么算 slide-capable app、Workspace 统一 registry 字段、默认选择与删除规则。
+- `slide_app_filltable_create_v1.md`
+  - 0290 Slide app 填表创建：说明 creator app 填哪些字段、创建后如何自动挂载，以及它与 0302 zip 导入共用的 payload 合同。
 - `ui_components_v2.md`
   - 组件能力与 AST 用法。
 - `design_system_v2.md`

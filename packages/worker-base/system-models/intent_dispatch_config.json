@@ -40,7 +40,8 @@
         "matrix_debug_summarize": "handle_matrix_debug_summarize",
         "llm_filltable_preview": "handle_llm_filltable_preview",
         "llm_filltable_apply": "handle_llm_filltable_apply",
-        "slide_app_import": "handle_slide_app_import"
+        "slide_app_import": "handle_slide_app_import",
+        "slide_app_create": "handle_slide_app_create"
       }
     },
     {
