@@ -59,12 +59,19 @@ source: ai
 
 先决条件：
 
-- 当前 ui-server 必须具备可用的 Matrix 上传身份，二选一即可：
-  - 用户已经登录，当前会话带有 Matrix access token
-  - server 本身已经配置好可用的 MBR / bot 凭据
+- 要先看当前环境是否开启了页面鉴权：
+  - 如果开启了鉴权：
+    - 浏览器这一侧必须先登录
+    - 没登录会先直接返回 `not_authenticated`
+    - 这时就算 server 自己已经配置了 MBR / bot 凭据，也不能替代页面登录
+  - 如果没有开启鉴权：
+    - 当前 ui-server 仍然需要有可用的 Matrix 上传身份，二选一即可：
+      - 当前请求已经带有可用的 Matrix session
+      - server 本身已经配置好可用的 MBR / bot 凭据
 
 如果这一步不成立，页面上传会在 `/api/media/upload` 直接失败，返回：
 
+- `not_authenticated`
 - `matrix_session_missing`
 
 1. 准备一个符合要求的 slide app zip。
