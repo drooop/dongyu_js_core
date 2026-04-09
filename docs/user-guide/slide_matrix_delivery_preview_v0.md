@@ -1,8 +1,8 @@
 ---
 title: "Slide Matrix Delivery Preview v0"
 doc_type: user-guide
-status: active
-updated: 2026-04-09
+status: archived
+updated: 2026-04-10
 source: ai
 ---
 
@@ -10,8 +10,8 @@ source: ai
 
 > 说明：
 > - 这是 `0304` 产出的接口预告，不是最终协议文档。
-> - 目的是让协作者先按同一方向准备 slide app 包和投递方式。
-> - 最终正式版会在后续迭代中补齐。
+> - 它已被 `slide_matrix_delivery_v1.md` 取代。
+> - 保留此页仅用于回看当时的预告边界。
 
 ## 这份预告现在能确认什么
 

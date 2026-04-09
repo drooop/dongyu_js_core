@@ -2,7 +2,7 @@
 title: "User Guide Index"
 doc_type: user-guide
 status: active
-updated: 2026-04-09
+updated: 2026-04-10
 source: ai
 ---
 
@@ -59,8 +59,10 @@ source: ai
   - 0291 主文档：把 Slide UI 当前主线入口、Gallery 展示面、Workspace 入口和细分说明页收成统一导航。
 - `slide_ui_evidence_runbook.md`
   - 0291 证据 runbook：定义本地和远端两条最小取证路径，以及 cloud deploy 后的验证步骤。
+- `slide_matrix_delivery_v1.md`
+  - 0309 正式版：说明 slide app 当前怎么经 Matrix media + importer pin-chain 交付、包结构和最短验证。
 - `slide_matrix_delivery_preview_v0.md`
-  - 0304 接口预告：先给协作者说明 zip 包结构、Matrix 投递方向、以及后续会冻结但尚未最终定稿的部分。
+  - 0304 历史预告：已被 `slide_matrix_delivery_v1.md` 取代，仅保留当时的冻结前背景。
 - `ui_components_v2.md`
   - 组件能力与 AST 用法。
 - `design_system_v2.md`
