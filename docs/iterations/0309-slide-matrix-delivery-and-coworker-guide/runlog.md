@@ -256,6 +256,23 @@ phase: phase4
   - 为 `路径 B` 明确写入 `/api/media/upload` 与 cache priming 步骤
   - 显式警告“别处上传得到的 `mxc://...` 不能直接复用”
 
+### 2026-04-10 — Post-completion Review Follow-up 2
+
+**Input**
+- 用户追加 review：
+  - `路径 A` 把“已登录”和“server 有凭据”写成了无条件二选一，和当前实现不符
+
+**Observed**
+- `/api/media/upload` 的实际顺序是：
+  - 若开启页面鉴权，先检查是否已登录
+  - 未登录直接返回 `not_authenticated`
+  - 只有在未开启鉴权时，server 侧 Matrix 凭据分支才可能兜底
+
+**Action**
+- 再次更新 `docs/user-guide/slide_matrix_delivery_v1.md`
+  - 把 `路径 A` 的前提改成按“鉴权开启 / 未开启”分开写
+  - 明确写入 `not_authenticated`
+
 ## Docs Updated
 
 - [x] `docs/iterations/0309-slide-matrix-delivery-and-coworker-guide/resolution.md` updated
