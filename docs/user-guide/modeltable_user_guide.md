@@ -139,6 +139,17 @@ Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。
   - `target.r`
   - `target.c`
 - 兼容期可继续保留 `meta.model_id`，但它不再是唯一目标来源。
+- 当前 built-in submit 已启用 target-based ingress：
+  - runtime 会把 `submit + target` 映射为 `Model 0` 上的一个 ingress key
+  - 然后再按 `pin.connect.model` 进入目标模型
+- 当前 slide/workspace 系统动作也已启用同一方向的 runtime ingress：
+  - `slide_app_import`
+  - `slide_app_create`
+  - `ws_app_add`
+  - `ws_app_delete`
+  - `ws_select_app` / `ws_app_select`
+- 对以上已迁移动作，若对应 ingress route 不存在，系统会直接报 `route_missing`，不再偷偷回退到旧分发。
+- 仍未迁移的其它动作，可能还保留 legacy shortcut；它们会在后续迭代继续收口。
 
 参考合同：`docs/iterations/0129-modeltable-editor-v0/contract_event_mailbox.md`
 

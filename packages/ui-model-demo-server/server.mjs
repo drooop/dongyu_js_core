@@ -2104,6 +2104,80 @@ function repairModel100DualBusConfig(runtime) {
   return true;
 }
 
+function buildUiEventIngressPort(action, target) {
+  const actionText = typeof action === 'string' ? action.trim() : '';
+  if (actionText === 'submit') {
+    if (!target || !Number.isInteger(target.model_id) || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c)) {
+      return '';
+    }
+    return `ui_event_${actionText}_${target.model_id}_${target.p}_${target.r}_${target.c}`;
+  }
+  if (actionText === 'slide_app_import' || actionText === 'slide_app_create' || actionText === 'ws_app_add' || actionText === 'ws_app_delete' || actionText === 'ws_select_app' || actionText === 'ws_app_select') {
+    return `ui_event_${actionText}`;
+  }
+  return '';
+}
+
+const RUNTIME_PIN_SYSTEM_ACTION_SPECS = [
+  { action: 'slide_app_import', targetModelId: -10, targetPin: 'slide_app_import_request', funcName: 'handle_slide_app_import' },
+  { action: 'slide_app_create', targetModelId: -10, targetPin: 'slide_app_create_request', funcName: 'handle_slide_app_create' },
+  { action: 'ws_app_add', targetModelId: -10, targetPin: 'ws_app_add_request', funcName: 'handle_ws_app_add' },
+  { action: 'ws_app_delete', targetModelId: -10, targetPin: 'ws_app_delete_request', funcName: 'handle_ws_app_delete' },
+  { action: 'ws_select_app', targetModelId: -10, targetPin: 'ws_select_app_request', funcName: 'handle_ws_select_app' },
+  { action: 'ws_app_select', targetModelId: -10, targetPin: 'ws_select_app_request', funcName: 'handle_ws_select_app' },
+];
+
+function isRuntimePinOnlyAction(action, targetModelId) {
+  if (action === 'submit') {
+    return targetModelId === 100;
+  }
+  return RUNTIME_PIN_SYSTEM_ACTION_SPECS.some((spec) => spec.action === action);
+}
+
+function ensureRuntimePinSystemActionBuildout(runtime) {
+  const model0 = runtime.getModel(0);
+  const systemModel = runtime.getModel(-10);
+  if (!model0 || !systemModel) return false;
+  const model0Root = runtime.getCell(model0, 0, 0, 0);
+  const systemRoot = runtime.getCell(systemModel, 0, 0, 0);
+  const pinType = typeof runtime._modelInputLabelType === 'function'
+    ? runtime._modelInputLabelType(systemModel)
+    : 'pin.in';
+
+  for (const spec of RUNTIME_PIN_SYSTEM_ACTION_SPECS) {
+    const ingressPort = buildUiEventIngressPort(spec.action, null);
+    if (!ingressPort) continue;
+
+    if (!systemRoot.labels.has(spec.targetPin)) {
+      runtime.addLabel(systemModel, 0, 0, 0, { k: spec.targetPin, t: pinType, v: null });
+    }
+    const wiringKey = `${spec.targetPin}_wiring`;
+    if (!systemRoot.labels.has(wiringKey)) {
+      runtime.addLabel(systemModel, 0, 0, 0, {
+        k: wiringKey,
+        t: 'pin.connect.label',
+        v: [{ from: `(self, ${spec.targetPin})`, to: [`(func, ${spec.funcName}:in)`] }],
+      });
+    }
+
+    const routeKey = `0|${ingressPort}`;
+    const targets = runtime.modelConnectionRoutes.get(routeKey) || [];
+    if (targets.some((target) => target && target.model_id === spec.targetModelId && target.k === spec.targetPin)) {
+      continue;
+    }
+    const labelKey = `runtime_ingress_${spec.action}`;
+    if (model0Root.labels.has(labelKey)) {
+      runtime.rmLabel(model0, 0, 0, 0, labelKey);
+    }
+    runtime.addLabel(model0, 0, 0, 0, {
+      k: labelKey,
+      t: 'pin.connect.model',
+      v: [{ from: [0, ingressPort], to: [[spec.targetModelId, spec.targetPin]] }],
+    });
+  }
+  return true;
+}
+
 class ProgramModelEngine {
   constructor(runtime) {
     this.runtime = runtime;
@@ -3706,6 +3780,7 @@ function createServerState(options) {
       includeRecord: ({ modelId, k }) => !(modelId === 0 && bootstrapGeneratedKeys.has(String(k || ''))),
     });
   }
+  ensureRuntimePinSystemActionBuildout(runtime);
   if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(true);
   runtime.setRuntimeMode('edit');
 
@@ -4357,6 +4432,148 @@ function createServerState(options) {
     };
   };
   programEngine._wsRefreshCatalog = refreshWorkspaceStateCatalog;
+  runtime.hostApi = {
+    slideImportAppFromMxc: (mediaUri) => {
+      const uri = String(mediaUri ?? '').trim();
+      if (!uri) {
+        return { ok: false, code: 'invalid_target', detail: 'missing_media_uri' };
+      }
+      const cached = getCachedUploadedMedia(uri);
+      if (!cached || !cached.buffer || !Buffer.isBuffer(cached.buffer)) {
+        return { ok: false, code: 'invalid_target', detail: 'media_not_cached' };
+      }
+      try {
+        const payload = parseSlideImportPayloadFromZipBuffer(cached.buffer);
+        const validation = validateSlideImportPayload(payload);
+        if (!validation.ok) return validation;
+        const imported = materializeSlideImportPayload(runtime, payload, validation);
+        return {
+          ok: true,
+          data: {
+            model_id: imported.rootModelId,
+            app_name: validation.metadata.appName,
+            from_user: validation.metadata.fromUser,
+            to_user: validation.metadata.toUser,
+            model_ids: imported.modelIds,
+          },
+        };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+    slideCreateAppFromState: (stateModelId) => {
+      const targetStateModelId = Number.isInteger(stateModelId) ? stateModelId : 1035;
+      const stateModel = runtime.getModel(targetStateModelId);
+      if (!stateModel) {
+        return { ok: false, code: 'invalid_target', detail: 'creator_state_missing' };
+      }
+      const readStr = (key, fallback = '') => {
+        const value = runtime.getLabelValue(stateModel, 0, 0, 0, key);
+        const text = value == null ? '' : String(value).trim();
+        return text || fallback;
+      };
+      const appName = readStr('create_app_name');
+      const sourceWorker = readStr('create_source_worker', 'filltable-create');
+      const slideSurfaceType = readStr('create_slide_surface_type', 'workspace.page');
+      const headline = readStr('create_headline', 'Created by Filltable');
+      const bodyText = readStr('create_body_text', '');
+      if (!appName) {
+        return { ok: false, code: 'invalid_target', detail: 'missing_app_name' };
+      }
+      if (slideSurfaceType !== 'workspace.page') {
+        return { ok: false, code: 'invalid_target', detail: 'unsupported_slide_surface_type' };
+      }
+      try {
+        const payload = buildFilltableCreatedSlidePayload({ appName, sourceWorker, slideSurfaceType, headline, bodyText });
+        const validation = validateSlideImportPayload(payload);
+        if (!validation.ok) return validation;
+        const created = materializeSlideImportPayload(runtime, payload, validation);
+        return {
+          ok: true,
+          data: {
+            model_id: created.rootModelId,
+            truth_model_id: created.rootModelId + 1,
+            app_name: appName,
+          },
+        };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+    wsSelectApp: (modelId) => {
+      let selected = null;
+      if (Number.isInteger(modelId)) {
+        selected = modelId;
+      } else if (typeof modelId === 'string' && /^-?\d+$/.test(modelId.trim())) {
+        selected = Number(modelId.trim());
+      }
+      if (!Number.isInteger(selected)) {
+        return { ok: false, code: 'invalid_target', detail: 'ws_app_selected must be int' };
+      }
+      return { ok: true, data: { selected } };
+    },
+    wsAddApp: (name) => {
+      const appName = String(name ?? '').trim();
+      if (!appName) {
+        return { ok: false, code: 'invalid_target', detail: 'empty_app_name' };
+      }
+      try {
+        const nextId = resolveNextWorkspaceModelId(runtime);
+        const model = runtime.createModel({ id: nextId, name: appName, type: 'sliding_ui' });
+        runtime.addLabel(model, 0, 0, 0, { k: 'app_name', t: 'str', v: appName });
+        runtime.addLabel(model, 0, 0, 0, { k: 'ws_deleted', t: 'bool', v: false });
+        return { ok: true, data: { model_id: nextId, name: appName } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+    wsDeleteApp: (modelId) => {
+      let targetId = null;
+      if (Number.isInteger(modelId)) {
+        targetId = modelId;
+      } else if (typeof modelId === 'string' && /^-?\d+$/.test(modelId.trim())) {
+        targetId = Number(modelId.trim());
+      }
+      if (!Number.isInteger(targetId)) {
+        return { ok: false, code: 'invalid_target', detail: 'invalid_model_id' };
+      }
+      if (targetId < 100) {
+        return { ok: false, code: 'protected_model', detail: 'protected_model' };
+      }
+      const targetModel = runtime.getModel(targetId);
+      if (!targetModel) {
+        return { ok: false, code: 'invalid_target', detail: 'model_not_found' };
+      }
+      const deletable = targetModel.getCell(0, 0, 0).labels.get('deletable');
+      if (!deletable || deletable.v !== true) {
+        return { ok: false, code: 'protected_model', detail: 'protected_model' };
+      }
+      try {
+        const removed = removeImportedBundleFromRuntime(runtime, targetId);
+        if (!removed.ok) {
+          return { ok: false, code: 'invalid_target', detail: removed.code };
+        }
+        const runtimePersister = runtime && runtime.persistence ? runtime.persistence : null;
+        if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
+          const stmt = runtimePersister.db.prepare('delete from mt_data where mt_id = ?');
+          for (const modelIdToDelete of removed.modelIds) {
+            stmt.run(modelIdToDelete);
+          }
+        }
+        return { ok: true, data: { model_id: targetId, removed_model_ids: removed.modelIds } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+    wsRefreshCatalog: () => {
+      try {
+        refreshWorkspaceStateCatalog();
+        return { ok: true, data: { refreshed: true } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+  };
   const programEngineReady = programEngine.init()
     .then(() => programEngine.tick())
     .then(() => clearAndRefreshAfterRuntimeBoot())
@@ -4946,6 +5163,11 @@ function createServerState(options) {
       ? meta.model_id
       : (action === 'submit' ? targetModelId : null);
     const directMutationTarget = targetModelId;
+    const runtimeIngressPort = buildUiEventIngressPort(action, target);
+    const hasRuntimeIngressRoute = runtimeIngressPort
+      ? runtime.modelConnectionRoutes.has(`0|${runtimeIngressPort}`)
+      : false;
+    const mustUseRuntimeIngress = isRuntimePinOnlyAction(action, targetModelId);
     if (target && !(Number.isInteger(target.model_id) && Number.isInteger(target.p) && Number.isInteger(target.r) && Number.isInteger(target.c))) {
       return finishError('invalid_target', 'missing_target_coords');
     }
@@ -4971,6 +5193,12 @@ function createServerState(options) {
       updateDerived();
       await programEngine.tick();
       return result;
+    }
+    if (envelopeOrNull && hasRuntimeIngressRoute) {
+      return finishOk({ routed_by: 'runtime_pin' });
+    }
+    if (envelopeOrNull && mustUseRuntimeIngress) {
+      return finishError('route_missing', runtimeIngressPort || action || 'runtime_ingress');
     }
     if (envelopeOrNull && businessTargetModelId && businessTargetModelId > 0) {
       if (!runtime.isRunLoopActive()) {

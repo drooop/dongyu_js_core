@@ -1813,12 +1813,31 @@ class ModelTableRuntime {
         return runtime.getLabelValue(m, cp, cr, cc, key);
       },
     };
+    const hasHostPrivileges = Number.isInteger(model.id) && model.id < 0;
     const ctx = {
       self: Object.freeze({ model_id: model.id, p, r, c }),
       runtime: runtimeView,
+      hostApi: hasHostPrivileges && runtime.hostApi ? runtime.hostApi : null,
+      getState(key) {
+        const stateModel = runtime.getModel(-2);
+        if (!stateModel) return null;
+        const stateCell = runtime.getCell(stateModel, 0, 0, 0);
+        return stateCell.labels.get(key)?.v ?? null;
+      },
+      getStateInt(key) {
+        const value = ctx.getState(key);
+        if (Number.isInteger(value)) return value;
+        if (typeof value === 'string' && /^-?\d+$/.test(value.trim())) {
+          const parsed = Number(value.trim());
+          return Number.isInteger(parsed) ? parsed : null;
+        }
+        return null;
+      },
       getLabel(ref) {
         if (!ref || !Number.isInteger(ref.model_id)) return undefined;
-        runtime._assertScopedDirectAccess(model, p, r, c, ref);
+        if (!hasHostPrivileges) {
+          runtime._assertScopedDirectAccess(model, p, r, c, ref);
+        }
         const m = runtime.getModel(ref.model_id);
         if (!m) return undefined;
         const cl = runtime.getCell(m, ref.p || 0, ref.r || 0, ref.c || 0);
@@ -1828,14 +1847,18 @@ class ModelTableRuntime {
       },
       writeLabel(ref, t, v) {
         if (!ref || !Number.isInteger(ref.model_id)) return;
-        runtime._assertScopedDirectAccess(model, p, r, c, ref);
+        if (!hasHostPrivileges) {
+          runtime._assertScopedDirectAccess(model, p, r, c, ref);
+        }
         const m = runtime.getModel(ref.model_id);
         if (!m) return;
         runtime.addLabel(m, ref.p || 0, ref.r || 0, ref.c || 0, { k: ref.k, t, v });
       },
       rmLabel(ref) {
         if (!ref || !Number.isInteger(ref.model_id)) return;
-        runtime._assertScopedDirectAccess(model, p, r, c, ref);
+        if (!hasHostPrivileges) {
+          runtime._assertScopedDirectAccess(model, p, r, c, ref);
+        }
         const m = runtime.getModel(ref.model_id);
         if (!m) return;
         runtime.rmLabel(m, ref.p || 0, ref.r || 0, ref.c || 0, ref.k);
@@ -1878,10 +1901,59 @@ class ModelTableRuntime {
     this.mqttTrace.record('bus_inbound', { port: portName, payload });
   }
 
+  _buildUiEventIngressPort(envelope) {
+    const payload = envelope && typeof envelope === 'object' && envelope.payload && typeof envelope.payload === 'object'
+      ? envelope.payload
+      : null;
+    const action = typeof (payload && payload.action) === 'string' ? payload.action.trim() : '';
+    const target = payload && typeof payload.target === 'object' ? payload.target : null;
+    if (action === 'submit') {
+      if (!target) return '';
+      if (!Number.isInteger(target.model_id) || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c)) {
+        return '';
+      }
+      return `ui_event_${action}_${target.model_id}_${target.p}_${target.r}_${target.c}`;
+    }
+    if (action === 'slide_app_import' || action === 'slide_app_create' || action === 'ws_app_add' || action === 'ws_app_delete' || action === 'ws_select_app' || action === 'ws_app_select') {
+      return `ui_event_${action}`;
+    }
+    return '';
+  }
+
+  _normalizeUiEventIngressPayload(envelope) {
+    const payload = envelope && typeof envelope === 'object' && envelope.payload && typeof envelope.payload === 'object'
+      ? envelope.payload
+      : null;
+    if (!payload) return null;
+    const rawValue = payload.value;
+    const eventValue = rawValue && rawValue.t === 'event'
+      ? rawValue.v
+      : (rawValue && rawValue.t === 'json' ? rawValue.v : rawValue);
+    const normalized = eventValue && typeof eventValue === 'object' && !Array.isArray(eventValue)
+      ? { ...eventValue }
+      : {};
+    if (!normalized.action && typeof payload.action === 'string') normalized.action = payload.action;
+    if (!normalized.meta && payload.meta && typeof payload.meta === 'object') normalized.meta = payload.meta;
+    if (!normalized.target && payload.target && typeof payload.target === 'object') normalized.target = payload.target;
+    if (!Object.prototype.hasOwnProperty.call(normalized, 'value') && rawValue !== undefined) normalized.value = rawValue;
+    return normalized;
+  }
+
   // --- end 0142 ---
 
   _applyBuiltins(model, p, r, c, label, prevLabel) {
     const resolvedType = this._resolveLabelType(label.t);
+    if (resolvedType === 'event' && model.id === -1 && p === 0 && r === 0 && c === 1 && label.k === 'ui_event' && label.v) {
+      const ingressPort = this._buildUiEventIngressPort(label.v);
+      const ingressPayload = ingressPort ? this._normalizeUiEventIngressPayload(label.v) : null;
+      if (ingressPort && ingressPayload) {
+        const model0 = this.getModel(0);
+        if (model0) {
+          this.addLabel(model0, 0, 0, 0, { k: ingressPort, t: 'pin.bus.in', v: ingressPayload });
+        }
+      }
+      return;
+    }
     // 0143: MQTT_WILDCARD_SUB subscription management
     if (resolvedType === 'MQTT_WILDCARD_SUB') {
       if (!this.isRuntimeRunning()) return;
