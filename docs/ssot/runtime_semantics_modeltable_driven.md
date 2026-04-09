@@ -2,7 +2,7 @@
 title: "定位说明（必须写在文件开头）"
 doc_type: ssot
 status: active
-updated: 2026-03-21
+updated: 2026-04-09
 source: ai
 ---
 
@@ -81,10 +81,10 @@ source: ai
 - 非用户可见的 platform helper / policy worker / guard / filter 默认应放在系统负数模型，而不是正数用户模型。
 - `model_id > 0` 统一视为用户创建模型空间；不要再用历史的正数号段去推断 framework/business 归属。
 
-### 1.4 Effective Cell Model Label（Cell 有效模型标签）
+### 1.4 Effective Cell Model Label 与 Scope Discoverability（Cell 有效模型标签与层级发现）
 
-- 每个 materialized Cell 必须且只能有一个有效模型标签（effective model label）。
-- 有效模型标签集合为：`model.single` / `model.matrix` / `model.table` / `model.submt`。
+- 每个 materialized Cell 仍然必须且只能有一个有效模型标签（effective model label）。
+- 有效模型标签是该 Cell 的主归属 / 主执行形态，集合为：`model.single` / `model.matrix` / `model.table` / `model.submt`。
 - `model.table`：模型根 `(0,0,0)` 的显式根声明。
 - `model.matrix`：矩阵自身相对 `(0,0,0)` 的显式根声明。
 - `model.submt`：子模型映射/挂载 Cell 的显式声明。
@@ -92,6 +92,19 @@ source: ai
 - 在 table/matrix 作用域内，如果某个普通 Cell 尚未物化或未显式声明模型标签，则其有效模型标签默认视为 `model.single`。
 - `model.name` 只允许出现在模型自己的 `(0,0,0)`。
 - 每个非 0 模型都必须通过某个父模型 Cell 上的 `model.submt` 显式挂载进入层级；包括 bootstrap children（例如 `-1` 与 `1`）也不例外。
+
+补充：Cell 的“有效模型标签唯一”与“可被多个上层 scope 发现”是两件不同的事。
+
+- 一个 Cell 可以被多个上层 model scope 同时发现，但不需要显式声明多份归属。
+- 这种 scope discoverability 是运行时派生语义，至少包括两类：
+  - 父子挂载层级发现：
+    - 父模型可看到直接 child model 的索引
+    - child model 再可看到自己的 descendants
+  - 矩阵范围发现：
+    - `model.matrix` 可看到其范围内的 `model.single`
+    - 也可看到范围内更小的 `model.matrix`
+- `model.submt` 仍保持 single-parent 挂载约束；多重 discoverability 不等于允许一个 child model 被多处显式挂载。
+- 执行时，Cell 不依赖“当前被哪些 scope 看见”来选择逻辑分支；真正决定执行路径的是已经建立好的 pin 链与目标坐标。
 
 ### 1.5 UI Projection Contract (0210 Freeze)
 
@@ -189,11 +202,9 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 ### 5.2 当前结构性声明（完整列表）
 
 以下声明服从本规范，由 `_applyBuiltins` 统一分发：
-- pin.in / pin.out：Cell 级端口（新）
-- pin.table.in / pin.table.out：模型边界端口（Table，model_id != 0）
-- pin.single.in / pin.single.out：模型边界端口（Single，model_id != 0, form=model.single）
+- pin.in / pin.out：Cell 级端口；写在非系统模型 root `(0,0,0)` 时同时承担模型边界端口语义
 - pin.bus.in / pin.bus.out：系统边界端口（新，仅 Model 0）
-- pin.log.*：日志通道端口（新）
+- pin.log.*：日志通道端口；写在非系统模型 root `(0,0,0)` 时同时承担模型边界日志端口语义
 - pin.connect.label：Cell 内接线图（新）
 - pin.connect.cell：跨 Cell 路由（新）
 - pin.connect.model：跨 Model 路由（新）
@@ -213,6 +224,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 历史别名说明（non-normative）：
 - repo 内可能仍能搜索到 `BUS_IN` / `BUS_OUT` / `CELL_CONNECT` / `cell_connection` / `MODEL_IN` / `MODEL_OUT` / `IN` / `function` / `subModel` / `submt` 等旧名。
+- repo 内也可能仍能搜索到 `pin.table.*` / `pin.single.*` / `pin.log.table.*` / `pin.log.single.*`。
 - 这些旧名属于迁移债务，不构成当前允许的新工作输入面。
 - 若确需保留/新增兼容逻辑，必须得到用户显式批准。
 
@@ -230,7 +242,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - prefix = `self` | `func` | `<numericModelId>`
 - self 目标：写 label(t='OUT') + 递归传播
 - func 目标：`:in` 后缀 → `_executeFuncViaCellConnect`，`:out` 后缀 → 继续传播
-- numeric 目标：路由到子模型模型边界输入（`pin.table.in` 或 `pin.single.in`）
+- numeric 目标：路由到子模型 root `(0,0,0)` 的 `pin.in`
 
 **cell_connection 路由格式**：`[{from: [p,r,c,k], to: [[p,r,c,k], ...]}]`
 - 同 Model 内跨 Cell 路由，写入目标 Cell 的 label(t='IN')
@@ -252,15 +264,16 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - `_subscribeDeclaredPinsOnStart` 追加 BUS_IN 端口 MQTT 订阅
 - `_handleBusInMessage` 仅写 `addLabel(model0, 0,0,0, {k, t:'BUS_IN', v})`，路由由 `_applyBuiltins` 触发
 
-### 5.2d 模型边界端口（0142+）
+### 5.2d 模型根边界端口（0142+）
 
 | label.t | 位置约束 | 语义 |
 |---|---|---|
-| `pin.table.in` / `pin.single.in` | 仅 (0,0,0), model_id != 0 | 注册模型输入端口 → `modelInPorts` Map |
-| `pin.table.out` / `pin.single.out` | 仅 (0,0,0), model_id != 0 | 注册模型输出端口 → `modelOutPorts` Map |
+| `pin.in` / `pin.log.in` | 非系统模型 `(0,0,0)` | 注册模型输入端口 → `modelInPorts` Map |
+| `pin.out` / `pin.log.out` | 非系统模型 `(0,0,0)` | 注册模型输出端口 → `modelOutPorts` Map |
 
-- `pin.table.in` / `pin.single.in` 写入 v 时 → 子模型内 cell_connection 路由 + CELL_CONNECT 传播
-- `pin.table.out` / `pin.single.out` 写入 v 时 → 查 `parentChildMap` → 在父模型 hosting cell 上以 `(childModelId, portName)` 为源端口触发 CELL_CONNECT
+- 非系统模型 root `(0,0,0)` 上的 `pin.in` 写入 v 时 → 子模型内 cell_connection 路由 + CELL_CONNECT 传播
+- 非系统模型 root `(0,0,0)` 上的 `pin.out` 写入 v 时 → 查 `parentChildMap` → 在父模型 hosting cell 上以 `(childModelId, portName)` 为源端口触发 CELL_CONNECT，并同时进入 `pin.connect.model`
+- `pin.table.* / pin.single.*` 不再是当前运行时主路径；若文档或历史测试仍提及它们，只能视为迁移债务或历史记录。
 
 ### 5.2e subModel 声明与 parentChildMap（0142）
 
@@ -445,6 +458,16 @@ TargetRef 结构：
 - Mailbox 位置：`model_id=-1 Cell(0,0,1)`
 - Label: `ui_event` / `ui_event_error` / `ui_event_last_op_id`
 - 事件 envelope 必须带 `op_id`（审计/去重必需）
+- Mailbox 只是事件入口，不是长期业务分发语义本身。
+
+事件入口的 Tier 归属冻结如下：
+
+- “event mailbox -> 合法 pin ingress / routing” 的解释属于 Tier 1 runtime 语义。
+- `server` / `frontend` 只负责：
+  - envelope 适配
+  - mailbox write
+  - snapshot / transport
+- `server` 层若保留 mailbox / `dual_bus_model` 快捷触发，只能视为迁移债务，不是长期规范。
 
 > 详见 `docs/iterations/0129-modeltable-editor-v0/contract_event_mailbox.md`。
 
@@ -506,10 +529,12 @@ TargetRef 结构：
 约束：
 - 不新增 pin type、label.t 或额外 runtime 解释语义。
 - 只能沿用现有：
-  - `pin.table.out` / `pin.single.out`
+  - `pin.out`
   - `pin.bus.out`
+  - `pin.in`
   - `pin.connect.label`
-  - `cell_connection`
+  - `pin.connect.cell`
+  - `pin.connect.model`
   - `model.submt`
 - “是否外发”的 authority 落在接线路径事实本身，不落在新的辅助字段。
 
@@ -547,15 +572,15 @@ TargetRef 结构：
 - `Generate Color`：
   - 先在本地函数中写 `submit_inflight=true`
   - 本地组装 payload
-  - 然后写入 `Model 112 (0,0,0)` 的现有 `pin.table.out submit`
+  - 然后写入 `Model 112 (0,0,0)` 的现有 `pin.out submit`
   - 该 `submit` 端口经父层 hosting cell relay 逐级上送至 `Model 0 pin.bus.out submit`
   - 因此只有 `submit` 会外发
 
 每一级父模型只做 relay：
-- 子模型 `(0,0,0).submit` 写入 `pin.table.out`
+- 子模型 `(0,0,0).submit` 写入 `pin.out`
 - runtime 将其投递到父模型 hosting cell 的 `(childModelId, submit)` 源端口
 - 父模型 hosting cell 用 `pin.connect.label` 将 `(childModelId, submit)` 接到本 cell relay label
-- 父模型 root `(0,0,0)` 通过 `cell_connection` 收到 relay label，再写本层 `pin.table.out submit`
+- 父模型 root `(0,0,0)` 通过 `pin.connect.cell` 收到 relay label，再写本层 `pin.out submit`
 - 该过程重复直到 Model 0
 
 回程 materialization：

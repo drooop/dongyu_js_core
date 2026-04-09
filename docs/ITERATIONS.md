@@ -2,7 +2,7 @@
 title: "Iterations Index"
 doc_type: governance
 status: active
-updated: 2026-04-08
+updated: 2026-04-09
 source: ai
 ---
 
@@ -205,6 +205,12 @@ source: ai
 | 0298-pin-contract-cleanup | 2026-04-06 | cleanup：清理非主路径上的 pin.table./pin.single./pin.model.* 历史残留，并同步更新规范文档 | 3 | dev_0298-pin-contract-cleanup | Completed | ./docs/iterations/0298-pin-contract-cleanup/ |
 | 0302-slide-app-zip-import-v1 | 2026-04-08 | Slide app zip 导入 v1：用临时模型表压缩包完成导入、挂载、打开与卸载最小闭环 | 5 | dev_0302-slide-app-zip-import-v1 | Completed | ./docs/iterations/0302-slide-app-zip-import-v1/ |
 | 0303-cloud-worker-sync-and-color-proxy-import | 2026-04-09 | 同步 cloud 的 mbr-worker / remote-worker 以恢复公网颜色生成器，并产出一个可导入的颜色生成器代理 slide app zip 示例 | 3 | dev_0303-cloud-worker-sync-and-color-proxy-import | Completed | ./docs/iterations/0303-cloud-worker-sync-and-color-proxy-import/ |
+| 0304-slide-runtime-scope-semantics-freeze | 2026-04-09 | 冻结 Slide Runtime 新语义：分离 pin.table/pin.single 遗留清理与多重模型归属语义，并明确后续 IT 拆分 | 4 | dev_0304-slide-runtime-scope-semantics-freeze | Completed | ./docs/iterations/0304-slide-runtime-scope-semantics-freeze/ |
+| 0305-slide-event-target-and-deferred-input-sync | 2026-04-09 | 前端事件目标合同升级为“当前模型 + 当前单元格”，并恢复正数模型 Input 的延后同步 | 3 | dev_0305-slide-event-target-and-deferred-input-sync | Planned | ./docs/iterations/0305-slide-event-target-and-deferred-input-sync/ |
+| 0306-slide-pin-chain-routing-buildout | 2026-04-09 | 只建设新的合法 pin-chain 路由：前端事件经 Model 0 进入并到达目标单元格程序模型 IN | 3 | dev_0306-slide-pin-chain-routing-buildout | Planned | ./docs/iterations/0306-slide-pin-chain-routing-buildout/ |
+| 0307-slide-executable-app-import-v1 | 2026-04-09 | 执行型 slide app 导入 v1：支持 js 代码片段 / 特定事件两类前端业务，并先冻结安全策略 | 4 | dev_0307-slide-executable-app-import-v1 | Planned | ./docs/iterations/0307-slide-executable-app-import-v1/ |
+| 0308-slide-legacy-shortcut-retirement | 2026-04-09 | 在新合法链路稳定后，退役 ui-server 中现有的快捷事件路由并统一收口 | 3 | dev_0308-slide-legacy-shortcut-retirement | Planned | ./docs/iterations/0308-slide-legacy-shortcut-retirement/ |
+| 0309-slide-matrix-delivery-and-coworker-guide | 2026-04-09 | 输出滑动 APP 的 Matrix 投递协议、接口预告与同事说明文档 | 3 | dev_0309-slide-matrix-delivery-and-coworker-guide | Planned | ./docs/iterations/0309-slide-matrix-delivery-and-coworker-guide/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

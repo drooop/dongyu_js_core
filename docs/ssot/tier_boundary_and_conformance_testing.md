@@ -2,7 +2,7 @@
 title: "Tier Boundary And Conformance Testing"
 doc_type: ssot
 status: active
-updated: 2026-03-21
+updated: 2026-04-09
 source: ai
 ---
 
@@ -55,6 +55,7 @@ source: ai
 - 新的运行时解释语义
 - 新的 `label.t` 解释
 - 模型形态约束
+- mailbox 事件入口到合法 pin ingress 的解释与传播
 - runtime/host 边界与解释器 bugfix
 
 ### 2.2 Tier 2
@@ -112,6 +113,7 @@ source: ai
 - 从 UI 直接写业务真值
 - 从外部直接写任意 cell
 - 用 Tier 1 代码偷实现 Tier 2 能力
+- 让 server 层长期持有独立于 runtime 的正式事件分发语义
 
 ### 4.4 Approved Temporary Exceptions
 

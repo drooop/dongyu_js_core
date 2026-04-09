@@ -2,7 +2,7 @@
 title: "Label Type Registry"
 doc_type: ssot
 status: active
-updated: 2026-03-21
+updated: 2026-04-09
 source: ai
 ---
 
@@ -34,8 +34,13 @@ source: ai
 
 规则：
 - 每个 materialized Cell 必须且只能有一个有效模型标签（effective model label）。
+- 有效模型标签是 Cell 的主归属 / 主执行形态，不等于它只能被一个上层 scope 发现。
 - 在 table/matrix 作用域内，尚未物化且未显式声明的普通 Cell，其有效模型标签默认为 `model.single`。
 - `model.name` 只允许写在模型自己的 `(0,0,0)`。
+- Cell 的 scope discoverability 是派生语义：
+  - 父模型可经 `model.submt` 逐层看到 descendants
+  - `model.matrix` 可看到其范围内的 `model.single` 与更小矩阵
+- 执行时不按“当前属于哪些 scope”分支，而按 pin 链与目标坐标传播。
 
 | label.t | 说明 | key | value | 位置约束 |
 |---|---|---|---|---|
@@ -78,12 +83,8 @@ source: ai
 
 | label.t | 说明 | key | value | 位置约束 |
 |---|---|---|---|---|
-| `pin.in` | Cell 级输入端口 | 端口名 | 传递的模型数据 | 任意 Cell |
-| `pin.out` | Cell 级输出端口 | 端口名 | 传递的模型数据 | 任意 Cell |
-| `pin.table.in` | Model(Table) 边界输入端口 | 端口名 | 传递的模型数据 | 仅 (0,0,0), model_id != 0 |
-| `pin.table.out` | Model(Table) 边界输出端口 | 端口名 | 传递的模型数据 | 仅 (0,0,0), model_id != 0 |
-| `pin.single.in` | Model(Single) 边界输入端口 | 端口名 | 传递的模型数据 | 仅 (0,0,0), model_id != 0, form=model.single |
-| `pin.single.out` | Model(Single) 边界输出端口 | 端口名 | 传递的模型数据 | 仅 (0,0,0), model_id != 0, form=model.single |
+| `pin.in` | Cell 级输入端口；写在非系统模型 root `(0,0,0)` 时也承担模型根边界输入 | 端口名 | 传递的模型数据 | 任意 Cell |
+| `pin.out` | Cell 级输出端口；写在非系统模型 root `(0,0,0)` 时也承担模型根边界输出 | 端口名 | 传递的模型数据 | 任意 Cell |
 | `pin.bus.in` | 系统边界输入端口 | 端口名 | 传递的模型数据 | 仅 Model 0 (0,0,0) |
 | `pin.bus.out` | 系统边界输出端口 | 端口名 | 传递的模型数据 | 仅 Model 0 (0,0,0) |
 
@@ -95,12 +96,8 @@ source: ai
 
 | label.t | 说明 | key | value | 位置约束 |
 |---|---|---|---|---|
-| `pin.log.in` | Cell 级日志输入 | 端口名 | 日志数据 | 任意 Cell |
-| `pin.log.out` | Cell 级日志输出 | 端口名 | 日志数据 | 任意 Cell |
-| `pin.log.table.in` | Model(Table) 边界日志输入 | 端口名 | 日志数据 | 仅 (0,0,0), model_id != 0 |
-| `pin.log.table.out` | Model(Table) 边界日志输出 | 端口名 | 日志数据 | 仅 (0,0,0), model_id != 0 |
-| `pin.log.single.in` | Model(Single) 边界日志输入 | 端口名 | 日志数据 | 仅 (0,0,0), model_id != 0, form=model.single |
-| `pin.log.single.out` | Model(Single) 边界日志输出 | 端口名 | 日志数据 | 仅 (0,0,0), model_id != 0, form=model.single |
+| `pin.log.in` | Cell 级日志输入；写在非系统模型 root `(0,0,0)` 时也承担模型根边界日志输入 | 端口名 | 日志数据 | 任意 Cell |
+| `pin.log.out` | Cell 级日志输出；写在非系统模型 root `(0,0,0)` 时也承担模型根边界日志输出 | 端口名 | 日志数据 | 任意 Cell |
 | `pin.log.bus.in` | 系统边界日志输入 | 端口名 | 日志数据 | 仅 Model 0 (0,0,0) |
 | `pin.log.bus.out` | 系统边界日志输出 | 端口名 | 日志数据 | 仅 Model 0 (0,0,0) |
 
@@ -192,8 +189,16 @@ value 字段说明：
 | `BUS_OUT` | `pin.bus.out` |
 | `CELL_CONNECT` | `pin.connect.label` |
 | `cell_connection` | `pin.connect.cell` |
-| `MODEL_IN` | `pin.table.in` |
-| `MODEL_OUT` | `pin.table.out` |
+| `MODEL_IN` | 非系统模型 root `(0,0,0)` 上的 `pin.in` |
+| `MODEL_OUT` | 非系统模型 root `(0,0,0)` 上的 `pin.out` |
+| `pin.table.in` | 非系统模型 root `(0,0,0)` 上的 `pin.in` |
+| `pin.table.out` | 非系统模型 root `(0,0,0)` 上的 `pin.out` |
+| `pin.single.in` | 非系统模型 root `(0,0,0)` 上的 `pin.in` |
+| `pin.single.out` | 非系统模型 root `(0,0,0)` 上的 `pin.out` |
+| `pin.log.table.in` | 非系统模型 root `(0,0,0)` 上的 `pin.log.in` |
+| `pin.log.table.out` | 非系统模型 root `(0,0,0)` 上的 `pin.log.out` |
+| `pin.log.single.in` | 非系统模型 root `(0,0,0)` 上的 `pin.log.in` |
+| `pin.log.single.out` | 非系统模型 root `(0,0,0)` 上的 `pin.log.out` |
 | `IN` | `pin.in` |
 | `function` | `func.js` |
 | `subModel` | `model.submt` |

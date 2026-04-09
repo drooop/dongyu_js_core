@@ -2,7 +2,7 @@
 title: "ModelTable User Guide (Living Doc)"
 doc_type: user-guide
 status: active
-updated: 2026-03-23
+updated: 2026-04-09
 source: ai
 ---
 
@@ -38,7 +38,7 @@ source: ai
 
 ## 2.1 Cell Model Labels (Current Normative View)
 
-- 每个 materialized Cell 必须且只能有一个有效模型标签。
+- 每个 materialized Cell 必须且只能有一个有效模型标签（主归属 / 主执行形态）。
 - 有效模型标签集合：`model.single` / `model.matrix` / `model.table` / `model.submt`
 - `model.table`：模型根 `(0,0,0)` 的显式根声明
 - `model.matrix`：矩阵自身相对 `(0,0,0)` 的显式根声明
@@ -47,6 +47,13 @@ source: ai
 - 在 table/matrix 作用域内，未物化且未显式声明的普通 Cell，默认有效模型标签为 `model.single`
 - `model.name` 只允许写在模型自己的 `(0,0,0)`
 - 除 `model_id = 0` 外，每个模型都必须通过某个父模型 Cell 上的 `model.submt` 显式挂载进入层级
+
+补充理解：
+
+- 一个 Cell 可以被多个上层 model scope 派生发现，但不需要显式声明多份归属。
+- 父模型可沿 `model.submt` ancestry 逐层看到 descendants。
+- `model.matrix` 可看到其范围内的 `model.single` 与更小矩阵。
+- 执行时不按“当前属于哪些 scope”做分支判断，而按 pin 链和目标坐标传播。
 
 ## 2.2 UI Cellwise Contract (0210 Freeze)
 
@@ -121,6 +128,12 @@ source: ai
 UI 只能写 event mailbox：`model_id=-1 Cell(0,0,1) k=ui_event t=event`。
 Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。
 
+补充：
+
+- mailbox 只是前端事件入口，不是长期业务路由本体。
+- mailbox 之后的“事件 -> 合法 pin ingress / routing”解释属于 Tier 1 runtime。
+- `server` 只负责 envelope 适配、mailbox 写入与 snapshot / transport；不应长期持有独立正式事件语义。
+
 参考合同：`docs/iterations/0129-modeltable-editor-v0/contract_event_mailbox.md`
 
 ### 3.1 Prompt FillTable（0155）
@@ -179,12 +192,12 @@ owner-chain 的正式链路固定为：
 颜色生成器建议写法：
 - 输入框：
   - 只写 `model_id=-2` 的 `model100_input_draft`
-  - 不写任何 `pin.table.out`
+  - 不写任何 `pin.out`
 - `Generate Color`：
   - 本地函数先写 `submit_inflight=true`
   - 读取 `model100_input_draft`
   - 组装 payload
-  - 最后写到当前子模型 `(0,0,0)` 的现有 `pin.table.out submit`
+  - 最后写到当前子模型 `(0,0,0)` 的现有 `pin.out submit`
 
 relay 规则：
 - 深层子模型的 `submit` 只能先到父模型 hosting cell
