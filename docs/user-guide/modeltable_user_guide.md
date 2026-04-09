@@ -202,6 +202,37 @@ Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。
 - `ws_app_select` 当前复用 `ws_select_app` 的同一按钮入口
 - `ws_app_add` 新增了一个最小输入框与按钮组合
 
+## 2.5 Executable Imported Slide Apps（0307）
+
+`0307` 之后，导入 app 不再只允许“纯展示”。
+
+当前 v1 已允许：
+
+- 正数模型内的 `func.js`
+- `pin.in`
+- `pin.out`
+- `pin.connect.label`
+- `pin.connect.cell`
+
+当前 v1 仍禁止：
+
+- `func.python`
+- `pin.connect.model`
+- `pin.bus.in`
+- `pin.bus.out`
+- helper / privilege 覆盖标签：
+  - `scope_privileged`
+  - `helper_executor`
+  - `owner_apply`
+  - `owner_apply_route`
+  - `owner_materialize`
+  - 任意 `run_*`
+
+说明：
+
+- 当前 v1 的 `js` 代码片段，指 runtime 中执行的 `func.js`
+- 不指浏览器侧任意 `eval`
+
 参考合同：`docs/iterations/0129-modeltable-editor-v0/contract_event_mailbox.md`
 
 ### 3.1 Prompt FillTable（0155）
