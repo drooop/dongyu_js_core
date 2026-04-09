@@ -32,7 +32,7 @@ async function withServerState(fn) {
   }
 }
 
-async function test_submit_rejects_when_runtime_ingress_route_missing_for_migrated_slide_action() {
+async function test_legacy_submit_protocol_is_rejected_after_model0_ingress_materialization() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
     state.runtime.rmLabel(model0, 0, 0, 0, 'model100_submit_ingress_route');
@@ -55,28 +55,28 @@ async function test_submit_rejects_when_runtime_ingress_route_missing_for_migrat
       source: 'ui_renderer',
       ts: Date.now(),
     });
-    assert.equal(result.result, 'error', 'migrated_submit_must_reject_when_runtime_ingress_route_missing');
-    assert.equal(result.code, 'route_missing', 'migrated_submit_must_report_route_missing');
+    assert.equal(result.result, 'error', 'legacy_submit_must_be_rejected_after_0308');
+    assert.equal(result.code, 'legacy_action_protocol_retired', 'legacy_submit_must_report_retired_protocol_code');
 
     const events = state.runtime.eventLog.list();
     assert.ok(
       events.some((event) => event.op === 'add_label' && event.cell?.model_id === 0 && event.cell?.p === 0 && event.cell?.r === 0 && event.cell?.c === 0 && event.label?.k === 'ui_event_submit_100_0_0_0' && event.label?.t === 'pin.bus.in'),
-      'migrated_submit_must_still_materialize_model0_ingress_label_before_route_check',
+      'legacy_submit_must_still_materialize_model0_ingress_before_protocol_rejection',
     );
     assert.ok(
       !events.some((event) => event.op === 'add_label' && event.cell?.model_id === 100 && event.cell?.p === 0 && event.cell?.r === 0 && event.cell?.c === 2 && event.label?.k === 'ui_event' && event.label?.v),
-      'migrated_submit_must_not_fall_back_to_direct_model_ui_event_path_when_route_missing',
+      'legacy_submit_must_not_fall_back_to_direct_model_ui_event_path',
     );
     assert.ok(
       !events.some((event) => event.op === 'add_label' && event.cell?.model_id === 100 && event.cell?.p === 0 && event.cell?.r === 0 && event.cell?.c === 0 && event.label?.k === 'submit_request' && event.label?.t === 'pin.in' && event.label?.v),
-      'migrated_submit_must_not_reach_model100_submit_request_when_route_missing',
+      'legacy_submit_must_not_reach_model100_submit_request',
     );
-    return { key: 'submit_rejects_when_runtime_ingress_route_missing_for_migrated_slide_action', status: 'PASS' };
+    return { key: 'legacy_submit_protocol_is_rejected_after_model0_ingress_materialization', status: 'PASS' };
   });
 }
 
 const tests = [
-  test_submit_rejects_when_runtime_ingress_route_missing_for_migrated_slide_action,
+  test_legacy_submit_protocol_is_rejected_after_model0_ingress_materialization,
 ];
 
 (async () => {

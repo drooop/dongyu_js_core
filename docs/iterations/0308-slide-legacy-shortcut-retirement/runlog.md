@@ -170,6 +170,7 @@ phase: phase4
 **Observation (non-blocking)**
 - 浏览器自动化会话里导入页的“已选择 zip”文本没有稳定刷新出来，但同一套 zip 导入链在 `0302/0303/0307` 的 deterministic server-flow 中全部继续 PASS。
 - 当前未把该 Playwright 现象判定为产品回归。
+- 仍需 `hostApi` 的函数尚未在本 IT 内改成纯 `pin.out` 路由；建议在 `0309` 或后续小 cleanup 中补一份函数清单，作为后续收窄参考。
 
 ### Review 2 — AI Self-Verification
 
