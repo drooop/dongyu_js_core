@@ -237,6 +237,25 @@ phase: phase4
   - deterministic PASS 证据
 - 可以进入本地 merge 回 `dev`
 
+### 2026-04-10 — Post-completion Review Follow-up
+
+**Inputs**
+- 用户补充的 review comments：
+  - `路径 B` 没写清当前唯一受支持的 cache priming 入口
+  - `路径 A` 没写明 Matrix 上传鉴权前提
+
+**Observed**
+- `/api/media/upload` 若既没有用户 Matrix session，也没有 server 侧 Matrix 凭据，会返回：
+  - `matrix_session_missing`
+- `slideImportAppFromMxc()` 若读取到的 `mxc://...` 未经过当前 ui-server cache priming，会返回：
+  - `media_not_cached`
+
+**Action**
+- 更新 `docs/user-guide/slide_matrix_delivery_v1.md`
+  - 为 `路径 A` 补充上传前提
+  - 为 `路径 B` 明确写入 `/api/media/upload` 与 cache priming 步骤
+  - 显式警告“别处上传得到的 `mxc://...` 不能直接复用”
+
 ## Docs Updated
 
 - [x] `docs/iterations/0309-slide-matrix-delivery-and-coworker-guide/resolution.md` updated
