@@ -319,6 +319,33 @@
       "op": "add_label",
       "model_id": 100,
       "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_request_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, submit_request)",
+          "to": [
+            "(func, prepare_model100_submit_from_pin:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
       "r": 1,
       "c": 1,
       "k": "patch",

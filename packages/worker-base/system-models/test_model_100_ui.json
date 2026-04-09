@@ -15,6 +15,29 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "model100_submit_ingress_route",
+      "t": "pin.connect.model",
+      "v": [
+        {
+          "from": [
+            0,
+            "ui_event_submit_100_0_0_0"
+          ],
+          "to": [
+            [
+              100,
+              "submit_request"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "model100_submit_route",
       "t": "pin.connect.cell",
       "v": [
@@ -226,6 +249,19 @@
       "k": "ui_event_error",
       "t": "json",
       "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "prepare_model100_submit_from_pin",
+      "t": "func.js",
+      "v": {
+        "code": "const event = label && label.v && typeof label.v === 'object' ? label.v : null;\nif (!event) return;\nconsole.log('[prepare_model100_submit_from_pin] Event:', JSON.stringify(event));\nconst inflight = ctx.getLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight' });\nconst startedAt = Number(ctx.getLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight_started_at' }) || 0);\nconst TIMEOUT_MS = 30000;\nconst now = Date.now();\nif (inflight === true) {\n  const stale = !Number.isFinite(startedAt) || (now - startedAt > TIMEOUT_MS);\n  if (stale) {\n    ctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', false);\n    ctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight_started_at' }, 'int', 0);\n    ctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'status' }, 'str', 'ready');\n  } else {\n    ctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { code: 'busy', detail: 'model100_submit_inflight' });\n    ctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 1, k: 'ui_event_last_op_id' }, 'str', '');\n    return;\n  }\n}\nctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', true);\nctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight_started_at' }, 'int', now);\nctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'status' }, 'str', 'loading');\nconst inputValue = String(event.input_value != null ? event.input_value : '');\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: inputValue },\n  { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: 'remote' }\n];\nctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.out', payload);",
+        "modelName": "test_model_100_ui"
+      }
     },
     {
       "op": "add_label",

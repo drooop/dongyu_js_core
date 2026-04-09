@@ -88,6 +88,20 @@ source: ai
 - mailbox 之后的事件入口解释属于 runtime
 - 合法链路从 `Model 0` 开始，经 pin/connect/父子传递，到达目标单元格程序模型的 `IN`
 
+当前 built-in 现状补充：
+
+- `Model 100` 的 submit 已开始使用这一方向的内置链路：
+  - mailbox submit
+  - runtime 派生 `Model 0` ingress key
+  - `pin.connect.model` 路由到 `Model 100` 的 pin 输入
+- Slide / Workspace 系统动作也已经开始使用同一方向的 runtime ingress：
+  - `slide_app_import`
+  - `slide_app_create`
+  - `ws_app_add`
+  - `ws_app_delete`
+  - `ws_select_app` / `ws_app_select`
+- 导入 app 的执行型链路还没开放，那会留到后续迭代。
+
 所以协作者在准备 slide app 时，可以先按这个原则理解：
 
 - UI 负责描述和触发事件

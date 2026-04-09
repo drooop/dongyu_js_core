@@ -74,9 +74,16 @@ source: ai
   - 前端事件进入 `Model 0`
   - 经引脚 / 父子模型传递
   - 到达目标单元格程序模型 `IN`
+  - 当前先迁：
+    - `Model 100 submit`
+    - `slide_app_import`
+    - `slide_app_create`
+    - `ws_app_add`
+    - `ws_app_delete`
+    - `ws_select_app` / `ws_app_select`
 - 注意：
-  - 本 IT 只“建新路由”，不拆旧路由
-  - 默认使用内置 `Model 100` 做验收，不依赖导入 app
+  - 对已迁移动作，缺 route 直接报错，不再走旧 direct fallback
+  - 仍未迁移的非 slide 动作暂时保留 legacy shortcut，留到后续收口
 
 ### 0307 — executable-app-import-v1
 

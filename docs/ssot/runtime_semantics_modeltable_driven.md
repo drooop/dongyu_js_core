@@ -469,6 +469,34 @@ TargetRef 结构：
   - snapshot / transport
 - `server` 层若保留 mailbox / `dual_bus_model` 快捷触发，只能视为迁移债务，不是长期规范。
 
+当前 `0306` 的正式内置实现分两类：
+
+- target 型事件：
+  - `payload.action = "submit"`
+  - `payload.target` 必须带完整 `model_id / p / r / c`
+  - runtime 派生 ingress key：`ui_event_<action>_<model_id>_<p>_<r>_<c>`
+  - 当前 built-in `Model 100` 的 key 为：
+    - `ui_event_submit_100_0_0_0`
+- system action 型事件：
+  - 当前已迁移：
+    - `slide_app_import`
+    - `slide_app_create`
+    - `ws_app_add`
+    - `ws_app_delete`
+    - `ws_select_app`
+    - `ws_app_select`
+  - runtime 派生 ingress key：`ui_event_<action>`
+
+统一规则：
+
+- runtime 会把标准化后的事件值写到：
+  - `Model 0 (0,0,0) k=<derived-key> t=pin.bus.in`
+- 若 `Model 0` 上存在对应的 `pin.connect.model` 路由，该事件即进入合法 pin-chain。
+- 对 `0306` 已迁移的 slide/workspace 动作：
+  - 缺少对应 route 时，必须报 `route_missing`
+  - 不再允许回退到 server 的 direct `run_func` / direct positive-model `ui_event`
+- 其他未迁移动作仍可能保留 legacy shortcut；它们属于后续收口债务，不构成新的正式规范。
+
 > 详见 `docs/iterations/0129-modeltable-editor-v0/contract_event_mailbox.md`。
 
 ### 7.1 认知层（scene_context, 0153）
