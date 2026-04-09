@@ -138,6 +138,10 @@ Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。
   - `target.p`
   - `target.r`
   - `target.c`
+- `0310` 冻结后的正式方向是：
+  - `target = cell`
+  - `pin = port`
+- 也就是说，前端最终不再用 `action` 表达“要做什么”，而是直接表达“把值送到这个 cell 的哪个 pin”
 - 兼容期可继续保留 `meta.model_id`，但它不再是唯一目标来源。
 - 当前 built-in submit 已启用 target-based ingress：
   - runtime 会把 `submit + target` 映射为 `Model 0` 上的一个 ingress key
@@ -150,6 +154,39 @@ Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。
   - `ws_select_app` / `ws_app_select`
 - 对以上已迁移动作，若对应 ingress route 不存在，系统会直接报 `route_missing`，不再偷偷回退到旧分发。
 - 仍未迁移的其它动作，可能还保留 legacy shortcut；它们会在后续迭代继续收口。
+
+### 3.0.1 Projection Pin Metadata（0310 Freeze）
+
+当一个 AST 节点需要走正式 pin 直寻址协议时，投影应显式给出：
+
+- `cell_ref`
+- `writable_pins`
+
+`writable_pins` 的冻结结构：
+
+```json
+[
+  {
+    "name": "submit_request",
+    "direction": "in",
+    "trigger": "click",
+    "value_t": "event",
+    "commit_policy": "immediate",
+    "primary": true
+  }
+]
+```
+
+补充规则：
+
+- `name` 表示 pin 名
+- `direction` 目前正式只允许 `in`
+- `trigger` 表示 UI 侧哪个交互会写这个 pin
+- `value_t` 表示建议值类型
+- `commit_policy` 与延后同步口径保持一致
+- `primary=true` 表示这是该节点默认使用的写入口
+
+如果节点没有这组字段，则说明它仍在旧协议或只读投影路径上。
 
 参考合同：`docs/iterations/0129-modeltable-editor-v0/contract_event_mailbox.md`
 
