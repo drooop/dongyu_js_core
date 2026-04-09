@@ -57,6 +57,16 @@ source: ai
 
 这是当前最短、最稳的做法。
 
+先决条件：
+
+- 当前 ui-server 必须具备可用的 Matrix 上传身份，二选一即可：
+  - 用户已经登录，当前会话带有 Matrix access token
+  - server 本身已经配置好可用的 MBR / bot 凭据
+
+如果这一步不成立，页面上传会在 `/api/media/upload` 直接失败，返回：
+
+- `matrix_session_missing`
+
 1. 准备一个符合要求的 slide app zip。
 2. 在 Workspace 打开 `滑动 APP 导入`。
 3. 上传 zip。
@@ -74,16 +84,26 @@ source: ai
 
 如果不是走页面，而是做程序接入，当前也必须遵守同一条正式主线：
 
-1. 先让 zip 进入 Matrix media，得到 `mxc://...`
-2. 保证这个 `mxc://...` 已被当前 ui-server 缓存
-3. 把这个 URI 交给 importer 真值模型
-4. 触发 importer host 上的 `click` pin
+1. 先把 zip 发给当前 ui-server 的 `/api/media/upload?filename=<your-zip-name>.zip`
+2. 让这个请求由当前登录会话或 server 自身 Matrix 凭据完成上传
+3. 从上传返回里拿到 `mxc://...`
+4. 这一步同时完成当前 ui-server 的 media cache priming
+5. 把这个 URI 写入 importer 真值模型的 `slide_import_media_uri`
+6. 再触发 importer host 上的 `click` pin
 
 不要做这些事：
 
 - 不要再发 `action=slide_app_import`
 - 不要把 room message 自定义成另一套正式业务协议
 - 不要绕开 importer，直接把 zip 交给 runtime
+- 不要只把文件上传到别的 Matrix 客户端或别的 server，再把那个 `mxc://...` 直接拿来用
+
+原因是当前 live code 的限制很明确：
+
+- `slideImportAppFromMxc()` 只接受“当前 ui-server 已缓存”的 `mxc://...`
+- 如果没有先经过当前 ui-server 的 `/api/media/upload` 完成 cache priming
+- 后续导入会直接返回：
+  - `media_not_cached`
 
 ## 包结构
 
@@ -204,7 +224,8 @@ zip 内当前只放一个 JSON 文件，建议叫：
 配套前提是：
 
 - importer 真值模型 `1031` 已经持有 `slide_import_media_uri = mxc://...`
-- 这个 `mxc://...` 对当前 ui-server 来说是可读的已缓存媒体
+- 这个 `mxc://...` 对当前 ui-server 来说是已缓存媒体
+- 最稳的做法就是先经过当前 ui-server 的 `/api/media/upload`
 
 对接时要记住：
 
