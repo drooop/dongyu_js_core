@@ -142,6 +142,12 @@ phase: phase4
 - 将后续 3 次 AI review 改写为不同视角的连续 `Approved`
 - 后续 commit / merge 证据补入本 runlog
 
+**Branch commit**
+- `git switch -c dev_0309-slide-matrix-delivery-and-coworker-guide` → PASS
+- `git commit -m "docs: finalize 0309 slide matrix delivery guide"` → PASS
+- branch tip commit:
+  - `07a3ff4 docs: finalize 0309 slide matrix delivery guide`
+
 ### 2026-04-10 — Step 1 Live Protocol Alignment
 
 **Reviewed**
@@ -212,6 +218,24 @@ phase: phase4
 - 旧 slide action 退役口径与正式文档一致
 - importer / workspace 的 pin 主线仍成立
 - 新正式文档已进入导航入口，preview 也已降级
+
+### 2026-04-10 — Step 4 Branch-local Re-Verification After Commit
+
+**Commit under test**
+- `07a3ff4 docs: finalize 0309 slide matrix delivery guide`
+
+**Tests**
+- `node scripts/tests/test_0308_slide_legacy_action_retirement_server_flow.mjs` → PASS
+- `node scripts/tests/test_0311_workspace_pin_addressing_server_flow.mjs` → PASS
+- `node scripts/ops/obsidian_docs_audit.mjs --root docs` → PASS
+- `rg -n "slide_matrix_delivery_v1|slide_matrix_delivery_preview_v0" docs/user-guide/README.md docs/user-guide/slide_ui_mainline_guide.md docs/user-guide/slide_matrix_delivery_preview_v0.md` → PASS
+
+**Result**
+- 分支内提交已具备：
+  - 正式文档
+  - gate 修正
+  - deterministic PASS 证据
+- 可以进入本地 merge 回 `dev`
 
 ## Docs Updated
 
