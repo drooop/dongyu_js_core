@@ -76,3 +76,14 @@ phase: phase1
     - `0306` 默认用内置模型验收
     - `0307` 不应阻塞主线
     - `0309` 需要紧跟 `0308`
+
+### Review 3 — User
+
+- Iteration ID: `0304-slide-runtime-scope-semantics-freeze`
+- Review Date: `2026-04-09`
+- Review Type: `User`
+- Review Index: `3`
+- Decision: **Approved**
+- Notes:
+  - `0304` plan 通过，可进入 Phase 2 gate
+  - 非阻塞修正：`plan.md` §7 的“4 项”已改为“5 项”
