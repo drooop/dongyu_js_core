@@ -1,12 +1,12 @@
 ---
 title: "0312 — slide-upload-auth-and-cache-contract Runlog"
 doc_type: iteration-runlog
-status: active
+status: completed
 updated: 2026-04-10
 source: ai
 iteration_id: 0312-slide-upload-auth-and-cache-contract
 id: 0312-slide-upload-auth-and-cache-contract
-phase: phase1
+phase: phase4
 ---
 
 # 0312 — slide-upload-auth-and-cache-contract Runlog
@@ -106,6 +106,27 @@ phase: phase1
 - 上传路由的鉴权顺序和 fallback 边界已被自动化固定
 - slide 导入对 cache priming 的依赖已被自动化固定
 - 正式合同页和入口链接已存在
+
+### 2026-04-10 — Step 4 Branch-local Verification After Commit
+
+**Commit under test**
+- `1ed8d17 docs: freeze slide upload auth and cache contract`
+
+**Commands**
+- `node scripts/tests/test_0312_slide_upload_auth_contract.mjs` → PASS
+- `node scripts/tests/test_0312_slide_import_cache_contract.mjs` → PASS
+- `node scripts/tests/test_0272_static_upload_identity_contract.mjs` → PASS
+- `node scripts/tests/test_0311_workspace_pin_addressing_server_flow.mjs` → PASS
+- `node scripts/ops/obsidian_docs_audit.mjs --root docs` → PASS
+
+**Result**
+- 新合同页和 2 个新增测试成立
+- 既有上传 fallback 合同未回归
+- 既有 workspace pin 导入主线未回归
+
+## Commits
+
+- `1ed8d17 docs: freeze slide upload auth and cache contract`
 
 ## Docs Updated
 

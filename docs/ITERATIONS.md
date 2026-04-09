@@ -213,7 +213,7 @@ source: ai
 | 0309-slide-matrix-delivery-and-coworker-guide | 2026-04-09 | 输出滑动 APP 的 Matrix 投递协议、接口预告与同事说明文档 | 3 | dev_0309-slide-matrix-delivery-and-coworker-guide | Completed | ./docs/iterations/0309-slide-matrix-delivery-and-coworker-guide/ |
 | 0310-slide-frontend-pin-addressing-freeze | 2026-04-09 | 冻结前端 pin 直寻址协议：前端事件不再以 action 为正式语义，并明确投影如何下发可写 pin 信息 | 4 | dev_0310-slide-frontend-pin-addressing-freeze | Completed | ./docs/iterations/0310-slide-frontend-pin-addressing-freeze/ |
 | 0311-slide-page-asset-pinification-buildout | 2026-04-09 | 将内置页面与系统动作按钮改成 cell pin 投影，前端直接写目标 pin，不再依赖 action->ingress 翻译层 | 5 | dev_0311-slide-page-asset-pinification-buildout | Completed | ./docs/iterations/0311-slide-page-asset-pinification-buildout/ |
-| 0312-slide-upload-auth-and-cache-contract | 2026-04-10 | 冻结 slide 导入上传鉴权与 media cache-priming 合同，补正式说明与自动化测试 | 3 | dev_0312-slide-upload-auth-and-cache-contract | Planned | ./docs/iterations/0312-slide-upload-auth-and-cache-contract/ |
+| 0312-slide-upload-auth-and-cache-contract | 2026-04-10 | 冻结 slide 导入上传鉴权与 media cache-priming 合同，补正式说明与自动化测试 | 3 | dev_0312-slide-upload-auth-and-cache-contract | Completed | ./docs/iterations/0312-slide-upload-auth-and-cache-contract/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
