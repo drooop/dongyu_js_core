@@ -12,9 +12,11 @@ const mainlinePath = path.join(repoRoot, 'docs/user-guide/slide_ui_mainline_guid
 const deliveryGuidePath = path.join(repoRoot, 'docs/user-guide/slide_matrix_delivery_v1.md');
 
 function getUploadSection() {
-  const start = serverText.indexOf("if (req.method === 'POST' && url.pathname === '/api/media/upload') {");
-  const end = serverText.indexOf("if (req.method === 'GET' && url.pathname === '/media/')", start);
-  return start >= 0 && end > start ? serverText.slice(start, end) : serverText;
+  const start = serverText.indexOf('async function handleMediaUploadRequest(');
+  const end = serverText.indexOf('function readPathEnv(', start);
+  assert(start >= 0, 'upload_handler_start_not_found');
+  assert(end > start, 'upload_handler_end_not_found');
+  return serverText.slice(start, end);
 }
 
 function test_upload_route_must_guard_auth_before_runtime_fallback() {

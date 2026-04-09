@@ -170,6 +170,99 @@ async function uploadMatrixMedia({ homeserverUrl, accessToken, filename, content
   return data.content_uri;
 }
 
+async function handleMediaUploadRequest(req, res, state, corsOrigin = null) {
+  const url = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
+  const cors = corsHeaders(req, corsOrigin);
+  if (AUTH_ENABLED && !isAuthenticated(req)) {
+    writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
+    return;
+  }
+  const session = getSessionWithToken(req);
+  const runtimeMatrixConfig = readMatrixBootstrapConfig(state.runtime);
+  const uploadIdentity = (session && session.accessToken && session.homeserverUrl)
+    ? {
+      homeserverUrl: session.homeserverUrl,
+      accessToken: session.accessToken,
+      userId: session.userId || '',
+    }
+    : (!AUTH_ENABLED
+      ? {
+        homeserverUrl: firstValidValue(
+          runtimeMatrixConfig && runtimeMatrixConfig.homeserverUrl,
+          process.env.MATRIX_HOMESERVER_URL,
+        ),
+        accessToken: firstValidValue(
+          runtimeMatrixConfig && runtimeMatrixConfig.accessToken,
+          process.env.MATRIX_MBR_BOT_ACCESS_TOKEN,
+          process.env.MATRIX_MBR_ACCESS_TOKEN,
+        ),
+        userId: firstValidValue(
+          runtimeMatrixConfig && runtimeMatrixConfig.userId,
+          process.env.MATRIX_MBR_BOT_USER,
+          process.env.MATRIX_MBR_USER,
+        ),
+      }
+      : null);
+  if (!uploadIdentity || !uploadIdentity.accessToken || !uploadIdentity.homeserverUrl) {
+    writeJson(res, 401, { ok: false, error: 'matrix_session_missing' }, cors);
+    return;
+  }
+  const filename = (url.searchParams.get('filename') || 'upload.bin').trim();
+  if (!filename) {
+    writeJson(res, 400, { ok: false, error: 'invalid_filename' }, cors);
+    return;
+  }
+  const contentType = typeof req.headers['content-type'] === 'string' && req.headers['content-type'].trim()
+    ? req.headers['content-type'].trim()
+    : 'application/octet-stream';
+  const MAX_UPLOAD = 50 * 1024 * 1024;
+  try {
+    const chunks = [];
+    let totalSize = 0;
+    await new Promise((resolve, reject) => {
+      req.on('data', (chunk) => {
+        totalSize += chunk.length;
+        if (totalSize > MAX_UPLOAD) {
+          reject(new Error('file_too_large'));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      req.on('end', resolve);
+      req.on('error', reject);
+    });
+    const buf = Buffer.concat(chunks);
+    if (buf.length === 0) {
+      writeJson(res, 400, { ok: false, error: 'empty_body' }, cors);
+      return;
+    }
+    const uri = await uploadMatrixMedia({
+      homeserverUrl: uploadIdentity.homeserverUrl,
+      accessToken: uploadIdentity.accessToken,
+      filename,
+      contentType,
+      body: buf,
+    });
+    cacheUploadedMedia(uri, {
+      buffer: buf,
+      contentType,
+      filename,
+      userId: uploadIdentity.userId || '',
+    });
+    writeJson(res, 200, {
+      ok: true,
+      uri,
+      name: filename,
+      size: buf.length,
+      mime: contentType,
+    }, cors);
+  } catch (err) {
+    const msg = err && err.message ? err.message : String(err);
+    const code = msg === 'file_too_large' ? 413 : 500;
+    writeJson(res, code, { ok: false, error: msg }, cors);
+  }
+}
+
 function readPathEnv(name, fallback) {
   const raw = process.env[name];
   if (!raw) return path.resolve(fallback);
@@ -5869,94 +5962,7 @@ function startServer(options) {
 
     // ── Matrix media upload (UI upload_media primitive) ─────────────────
     if (req.method === 'POST' && url.pathname === '/api/media/upload') {
-      if (AUTH_ENABLED && !isAuthenticated(req)) {
-        writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
-        return;
-      }
-      const session = getSessionWithToken(req);
-      const runtimeMatrixConfig = readMatrixBootstrapConfig(state.runtime);
-      const uploadIdentity = (session && session.accessToken && session.homeserverUrl)
-        ? {
-          homeserverUrl: session.homeserverUrl,
-          accessToken: session.accessToken,
-          userId: session.userId || '',
-        }
-        : (!AUTH_ENABLED
-          ? {
-            homeserverUrl: firstValidValue(
-              runtimeMatrixConfig && runtimeMatrixConfig.homeserverUrl,
-              process.env.MATRIX_HOMESERVER_URL,
-            ),
-            accessToken: firstValidValue(
-              runtimeMatrixConfig && runtimeMatrixConfig.accessToken,
-              process.env.MATRIX_MBR_BOT_ACCESS_TOKEN,
-              process.env.MATRIX_MBR_ACCESS_TOKEN,
-            ),
-            userId: firstValidValue(
-              runtimeMatrixConfig && runtimeMatrixConfig.userId,
-              process.env.MATRIX_MBR_BOT_USER,
-              process.env.MATRIX_MBR_USER,
-            ),
-          }
-          : null);
-      if (!uploadIdentity || !uploadIdentity.accessToken || !uploadIdentity.homeserverUrl) {
-        writeJson(res, 401, { ok: false, error: 'matrix_session_missing' }, cors);
-        return;
-      }
-      const filename = (url.searchParams.get('filename') || 'upload.bin').trim();
-      if (!filename) {
-        writeJson(res, 400, { ok: false, error: 'invalid_filename' }, cors);
-        return;
-      }
-      const contentType = typeof req.headers['content-type'] === 'string' && req.headers['content-type'].trim()
-        ? req.headers['content-type'].trim()
-        : 'application/octet-stream';
-      const MAX_UPLOAD = 50 * 1024 * 1024;
-      try {
-        const chunks = [];
-        let totalSize = 0;
-        await new Promise((resolve, reject) => {
-          req.on('data', (chunk) => {
-            totalSize += chunk.length;
-            if (totalSize > MAX_UPLOAD) {
-              reject(new Error('file_too_large'));
-              return;
-            }
-            chunks.push(chunk);
-          });
-          req.on('end', resolve);
-          req.on('error', reject);
-        });
-        const buf = Buffer.concat(chunks);
-        if (buf.length === 0) {
-          writeJson(res, 400, { ok: false, error: 'empty_body' }, cors);
-          return;
-        }
-        const uri = await uploadMatrixMedia({
-          homeserverUrl: uploadIdentity.homeserverUrl,
-          accessToken: uploadIdentity.accessToken,
-          filename,
-          contentType,
-          body: buf,
-        });
-        cacheUploadedMedia(uri, {
-          buffer: buf,
-          contentType,
-          filename,
-          userId: uploadIdentity.userId || '',
-        });
-        writeJson(res, 200, {
-          ok: true,
-          uri,
-          name: filename,
-          size: buf.length,
-          mime: contentType,
-        }, cors);
-      } catch (err) {
-        const msg = err && err.message ? err.message : String(err);
-        const code = msg === 'file_too_large' ? 413 : 500;
-        writeJson(res, code, { ok: false, error: msg }, cors);
-      }
+      await handleMediaUploadRequest(req, res, state, corsOrigin);
       return;
     }
 
@@ -6178,7 +6184,7 @@ function startServer(options) {
   return server;
 }
 
-export { buildClientSnapshot, createServerState, startServer };
+export { buildClientSnapshot, createServerState, handleMediaUploadRequest, startServer };
 
 const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMainModule) {

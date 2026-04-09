@@ -124,6 +124,34 @@ phase: phase4
 - 既有上传 fallback 合同未回归
 - 既有 workspace pin 导入主线未回归
 
+### 2026-04-10 — Post-review Test Hardening
+
+**Input**
+- review 指出两点：
+  - 上传鉴权测试错误地切到了过宽的源码范围
+  - cache 合同测试错误地依赖了 `cacheUploadedMediaForTest`
+
+**Action**
+- `test_0312_slide_upload_auth_contract.mjs`
+  - 改为只检查 `handleMediaUploadRequest()` 这一真实上传 handler
+- `test_0312_slide_import_cache_contract.mjs`
+  - 改为：
+    - 真实调用 `/api/media/upload`
+    - mock Matrix upload 外部请求
+    - 再在同一 `state` 上调用导入
+  - 不再使用 `cacheUploadedMediaForTest`
+- `packages/ui-model-demo-server/server.mjs`
+  - 新增导出 `handleMediaUploadRequest`
+  - `startServer()` 复用同一 helper
+  - 逻辑不变，只提升可测试性
+
+**Verification**
+- `node scripts/tests/test_0312_slide_upload_auth_contract.mjs` → PASS
+- `node scripts/tests/test_0312_slide_import_cache_contract.mjs` → PASS
+- `node scripts/tests/test_0272_static_upload_identity_contract.mjs` → PASS
+- `node scripts/tests/test_0311_workspace_pin_addressing_server_flow.mjs` → PASS
+- `node scripts/ops/obsidian_docs_audit.mjs --root docs` → PASS
+
 ## Commits
 
 - `1ed8d17 docs: freeze slide upload auth and cache contract`
