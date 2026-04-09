@@ -225,6 +225,26 @@ function normalizeEditorEvent(payload) {
   };
 }
 
+function normalizeEditorPinEvent(payload) {
+  const event_id = nextEditorEventId();
+  const op_id = `op_${event_id}`;
+  const body = {
+    target: payload.target,
+    pin: payload.pin,
+    meta: { op_id },
+  };
+  if (payload.value !== undefined) {
+    body.value = payload.value;
+  }
+  return {
+    event_id,
+    type: payload.pin,
+    payload: body,
+    source: 'ui_renderer',
+    ts: 0,
+  };
+}
+
 function buildEventLabel(target, envelope) {
   return {
     p: target.target.p,
@@ -1652,6 +1672,38 @@ function buildVueNode(node, snapshot, vue, host, registry) {
 
 function dispatchEvent(node, target, payload, host, overrideType) {
   const ctx = arguments.length > 5 ? arguments[5] : null;
+  if (target && Object.prototype.hasOwnProperty.call(target, 'pin')) {
+    const snapshot = host.getSnapshot();
+    const out = { pin: target.pin };
+    const resolvedTarget = resolveRefsDeep(target.target_ref, ctx, snapshot);
+    if (resolvedTarget !== undefined) {
+      out.target = resolvedTarget;
+    } else if (node.cell_ref && Number.isInteger(node.cell_ref.model_id)) {
+      out.target = { model_id: node.cell_ref.model_id, p: node.cell_ref.p, r: node.cell_ref.r, c: node.cell_ref.c };
+    }
+    if (target.value_ref !== undefined) {
+      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot, host);
+    } else if (payload && Object.prototype.hasOwnProperty.call(payload, 'value')) {
+      out.value = payload.value;
+    } else if (payload !== undefined) {
+      out.value = payload;
+    }
+    if (target.meta_ref !== undefined) {
+      out.meta = resolveRefsDeep(target.meta_ref, ctx, snapshot, host);
+    } else if (target.meta !== undefined) {
+      out.meta = resolveRefsDeep(target.meta, ctx, snapshot, host);
+    }
+    const envelope = normalizeEditorPinEvent(out);
+    if (out.meta && typeof out.meta === 'object' && !Array.isArray(out.meta)) {
+      envelope.payload.meta = {
+        ...(envelope.payload.meta && typeof envelope.payload.meta === 'object' ? envelope.payload.meta : {}),
+        ...out.meta,
+      };
+    }
+    const label = buildMailboxEventLabel(envelope);
+    host.dispatchAddLabel(label);
+    return label;
+  }
   if (target && Object.prototype.hasOwnProperty.call(target, 'action')) {
     const snapshot = host.getSnapshot();
     const action = target.action;

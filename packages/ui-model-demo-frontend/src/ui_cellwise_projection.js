@@ -71,6 +71,31 @@ function parseCellCoord(coord) {
   return { p, r, c };
 }
 
+function inferWriteTrigger(componentType, commitPolicy = 'immediate') {
+  if (componentType === 'Button') return 'click';
+  if (commitPolicy === 'on_blur') return 'blur';
+  if (commitPolicy === 'on_submit') return 'submit';
+  return 'change';
+}
+
+function buildWritablePins(componentType, writeBind) {
+  if (!writeBind || typeof writeBind !== 'object' || typeof writeBind.pin !== 'string' || !writeBind.pin.trim()) {
+    return undefined;
+  }
+  const rawValueRef = writeBind.value_ref;
+  const value_t = rawValueRef && typeof rawValueRef === 'object' && typeof rawValueRef.t === 'string'
+    ? rawValueRef.t
+    : (typeof writeBind.value_t === 'string' ? writeBind.value_t : undefined);
+  return [{
+    name: writeBind.pin.trim(),
+    direction: 'in',
+    trigger: inferWriteTrigger(componentType, typeof writeBind.commit_policy === 'string' ? writeBind.commit_policy : 'immediate'),
+    ...(value_t ? { value_t } : {}),
+    ...(typeof writeBind.commit_policy === 'string' ? { commit_policy: writeBind.commit_policy } : {}),
+    primary: true,
+  }];
+}
+
 function buildProps(def) {
   const labels = def.labels;
   const props = {};
@@ -242,22 +267,23 @@ function buildNodeMap(defs, modelId) {
   for (const def of defs) {
     const bindJson = readLabel(def.labels, 'ui_bind_json');
     const cellCoord = parseCellCoord(def.coord);
+    const bind = (() => {
+      if (bindJson && typeof bindJson === 'object' && !Array.isArray(bindJson)) {
+        return bindJson;
+      }
+      const read = buildReadBind(def);
+      const write = buildWriteBind(def);
+      if (!read && !write) return undefined;
+      const nextBind = {};
+      if (read) nextBind.read = read;
+      if (write) nextBind.write = write;
+      return nextBind;
+    })();
     map.set(def.id, {
       id: def.id,
       type: def.type,
       props: buildProps(def),
-      bind: (() => {
-        if (bindJson && typeof bindJson === 'object' && !Array.isArray(bindJson)) {
-          return bindJson;
-        }
-        const read = buildReadBind(def);
-        const write = buildWriteBind(def);
-        if (!read && !write) return undefined;
-        const bind = {};
-        if (read) bind.read = read;
-        if (write) bind.write = write;
-        return bind;
-      })(),
+      bind,
       __parent: def.parent,
       __slot: def.slot,
       __order: def.order,
@@ -269,6 +295,7 @@ function buildNodeMap(defs, modelId) {
           c: cellCoord.c,
         },
       } : {}),
+      ...(bind && bind.write ? { writable_pins: buildWritablePins(def.type, bind.write) } : {}),
       children: [],
     });
   }
@@ -283,6 +310,7 @@ function stripMeta(node) {
   if (node.props && Object.keys(node.props).length > 0) out.props = node.props;
   if (node.bind) out.bind = node.bind;
   if (node.cell_ref) out.cell_ref = node.cell_ref;
+  if (Array.isArray(node.writable_pins) && node.writable_pins.length > 0) out.writable_pins = node.writable_pins;
   if (Array.isArray(node.children) && node.children.length > 0) {
     out.children = node.children.map(stripMeta);
   }

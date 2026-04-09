@@ -197,6 +197,7 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
     }
 
     const payload = envelope.payload;
+    const pin = payload && typeof payload.pin === 'string' ? payload.pin.trim() : '';
     const meta = payload.meta;
     if (!isPlainObject(meta) || typeof meta.op_id !== 'string') {
       return fail('', 'invalid_target', 'missing_or_non_string_op_id');
@@ -206,6 +207,36 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
     const last = getLastOpId();
     if (op_id && last && op_id === last) {
       return fail(op_id, 'op_id_replay', 'op_id_replay');
+    }
+
+    if (pin) {
+      const target = payload && payload.target && typeof payload.target === 'object' ? payload.target : null;
+      if (!target || !Number.isInteger(target.model_id) || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c)) {
+        return fail(op_id, 'invalid_target', 'missing_target_coords');
+      }
+      const model = runtime.getModel(target.model_id);
+      if (!model) {
+        return fail(op_id, 'invalid_target', 'missing_model');
+      }
+      let nextValue = payload.value;
+      if (nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)
+          && typeof nextValue.t === 'string' && Object.prototype.hasOwnProperty.call(nextValue, 'v')) {
+        nextValue = nextValue.v;
+      }
+      if (nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)) {
+        nextValue = {
+          ...nextValue,
+          ...(nextValue.meta ? {} : { meta }),
+          ...(nextValue.target ? {} : { target }),
+          ...(nextValue.pin ? {} : { pin }),
+        };
+      }
+      runtime.addLabel(model, target.p, target.r, target.c, {
+        k: pin,
+        t: target.model_id === 0 ? 'pin.bus.in' : 'pin.in',
+        v: nextValue,
+      });
+      return succeed(op_id, 'pin_write');
     }
 
     const action = payload.action;

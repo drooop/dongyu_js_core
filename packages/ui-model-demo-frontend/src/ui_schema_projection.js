@@ -1,5 +1,30 @@
 import { getSnapshotModel } from './snapshot_utils.js';
 
+function inferWriteTrigger(componentType, commitPolicy = 'immediate') {
+  if (componentType === 'Button') return 'click';
+  if (commitPolicy === 'on_blur') return 'blur';
+  if (commitPolicy === 'on_submit') return 'submit';
+  return 'change';
+}
+
+function buildWritablePins(componentType, writeBind) {
+  if (!writeBind || typeof writeBind !== 'object' || typeof writeBind.pin !== 'string' || !writeBind.pin.trim()) {
+    return undefined;
+  }
+  const rawValueRef = writeBind.value_ref;
+  const value_t = rawValueRef && typeof rawValueRef === 'object' && typeof rawValueRef.t === 'string'
+    ? rawValueRef.t
+    : (typeof writeBind.value_t === 'string' ? writeBind.value_t : undefined);
+  return [{
+    name: writeBind.pin.trim(),
+    direction: 'in',
+    trigger: inferWriteTrigger(componentType, typeof writeBind.commit_policy === 'string' ? writeBind.commit_policy : 'immediate'),
+    ...(value_t ? { value_t } : {}),
+    ...(typeof writeBind.commit_policy === 'string' ? { commit_policy: writeBind.commit_policy } : {}),
+    primary: true,
+  }];
+}
+
 export function buildAstFromSchema(snapshot, modelId) {
   const model = getSnapshotModel(snapshot, modelId);
   if (!model || !model.cells) return null;
@@ -65,6 +90,8 @@ export function buildAstFromSchema(snapshot, modelId) {
       type: componentType,
       props: componentProps,
       bind,
+      cell_ref: { model_id: modelId, p: 1, r: 0, c: 0 },
+      ...(bind && bind.write ? { writable_pins: buildWritablePins(componentType, bind.write) } : {}),
     };
 
     if (noWrap) {

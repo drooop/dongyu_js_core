@@ -188,6 +188,20 @@ Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。
 
 如果节点没有这组字段，则说明它仍在旧协议或只读投影路径上。
 
+当前 `0311` 首批已落地的 pin 化节点：
+
+- `Model 100 submit`
+- `slide_app_import`
+- `slide_app_create`
+- `ws_select_app`
+- `ws_app_delete`
+- `ws_app_add`
+
+其中：
+
+- `ws_app_select` 当前复用 `ws_select_app` 的同一按钮入口
+- `ws_app_add` 新增了一个最小输入框与按钮组合
+
 参考合同：`docs/iterations/0129-modeltable-editor-v0/contract_event_mailbox.md`
 
 ### 3.1 Prompt FillTable（0155）

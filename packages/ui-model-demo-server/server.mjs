@@ -2118,6 +2118,22 @@ function buildUiEventIngressPort(action, target) {
   return '';
 }
 
+function normalizeDirectPinValue(rawValue, meta, target, pin) {
+  let nextValue = rawValue;
+  if (nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)
+      && typeof nextValue.t === 'string' && Object.prototype.hasOwnProperty.call(nextValue, 'v')) {
+    nextValue = nextValue.v;
+  }
+  if (nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)) {
+    const out = { ...nextValue };
+    if (meta && !out.meta) out.meta = meta;
+    if (target && !out.target) out.target = target;
+    if (pin && !out.pin) out.pin = pin;
+    return out;
+  }
+  return nextValue;
+}
+
 const RUNTIME_PIN_SYSTEM_ACTION_SPECS = [
   { action: 'slide_app_import', targetModelId: -10, targetPin: 'slide_app_import_request', funcName: 'handle_slide_app_import' },
   { action: 'slide_app_create', targetModelId: -10, targetPin: 'slide_app_create_request', funcName: 'handle_slide_app_create' },
@@ -4632,6 +4648,7 @@ function createServerState(options) {
     const envelope = envelopeOrNull;
     const payload = envelope && envelope.payload ? envelope.payload : null;
     const action = payload && typeof payload.action === 'string' ? payload.action : '';
+    const pin = payload && typeof payload.pin === 'string' ? payload.pin.trim() : '';
     const meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : null;
     const opId = meta && typeof meta.op_id === 'string' ? meta.op_id : '';
 
@@ -5159,6 +5176,30 @@ function createServerState(options) {
 
     const target = payload && payload.target && typeof payload.target === 'object' ? payload.target : null;
     const targetModelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
+    if (envelopeOrNull && pin) {
+      if (!(target && Number.isInteger(target.model_id) && Number.isInteger(target.p) && Number.isInteger(target.r) && Number.isInteger(target.c))) {
+        return finishError('invalid_target', 'missing_target_coords');
+      }
+      if (!runtime.isRunLoopActive()) {
+        return finishError('runtime_not_running', `model_id=${target.model_id}`);
+      }
+      const targetModel = runtime.getModel(target.model_id);
+      if (!targetModel) {
+        return finishError('invalid_target', 'missing_model');
+      }
+      runtime.addLabel(
+        targetModel,
+        target.p,
+        target.r,
+        target.c,
+        {
+          k: pin,
+          t: target.model_id === 0 ? 'pin.bus.in' : 'pin.in',
+          v: normalizeDirectPinValue(payload.value, meta, target, pin),
+        },
+      );
+      return finishOk({ routed_by: 'direct_pin' });
+    }
     const businessTargetModelId = meta && Number.isInteger(meta.model_id)
       ? meta.model_id
       : (action === 'submit' ? targetModelId : null);

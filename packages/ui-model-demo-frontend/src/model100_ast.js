@@ -143,13 +143,10 @@ export function buildModel100Ast() {
                         props: { label: 'Generate Color', type: 'primary', size: 'large' },
                         bind: {
                           write: {
-                            action: 'submit',
-                            target_ref: { model_id: MODEL_100_ID, p: 0, r: 0, c: 0 },
-                            meta: { model_id: MODEL_100_ID },
+                            pin: 'click',
                             value_ref: {
                               t: 'event',
                               v: {
-                                action: 'submit',
                                 input_value: {
                                   $label: { model_id: -2, p: 0, r: 0, c: 0, k: 'model100_input_draft' },
                                 },

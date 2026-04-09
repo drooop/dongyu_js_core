@@ -638,20 +638,10 @@
       "t": "json",
       "v": {
         "write": {
-          "action": "submit",
-          "target_ref": {
-            "model_id": 100,
-            "p": 0,
-            "r": 0,
-            "c": 0
-          },
-          "meta": {
-            "model_id": 100
-          },
+          "pin": "click",
           "value_ref": {
             "t": "event",
             "v": {
-              "action": "submit",
               "input_value": {
                 "$label": {
                   "model_id": -2,
@@ -664,6 +654,56 @@
             }
           }
         }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "scope_privileged",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "click",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "click_route",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, click)",
+          "to": [
+            "(func, handle_submit_click:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "handle_submit_click",
+      "t": "func.js",
+      "v": {
+        "code": "const event = label && label.v && typeof label.v === 'object' ? label.v : {};\nctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit_request' }, 'pin.in', event);",
+        "modelName": "model100_submit_button"
       }
     },
     {
@@ -13867,6 +13907,39 @@
     {
       "op": "add_label",
       "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_import_request",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_import_request_route",
+      "t": "pin.connect.model",
+      "v": [
+        {
+          "from": [
+            1030,
+            "slide_import_request"
+          ],
+          "to": [
+            [
+              -10,
+              "slide_app_import_request"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
       "p": 2,
       "r": 0,
       "c": 0,
@@ -14188,15 +14261,58 @@
       "t": "json",
       "v": {
         "write": {
-          "action": "slide_app_import",
-          "target_ref": {
-            "model_id": 1031,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "slide_import_media_uri"
-          }
+          "pin": "click"
         }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "scope_privileged",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "click",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "click_route",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, click)",
+          "to": [
+            "(func, handle_slide_import_click:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "handle_slide_import_click",
+      "t": "func.js",
+      "v": {
+        "code": "const event = label && label.v && typeof label.v === 'object' ? label.v : {};\nctx.writeLabel({ model_id: 1030, p: 0, r: 0, c: 0, k: 'slide_import_request' }, 'pin.out', { meta: event.meta || {}, target: { model_id: 1031, p: 0, r: 0, c: 0 } });",
+        "modelName": "slide_import_button"
       }
     },
     {
@@ -14684,6 +14800,39 @@
       "k": "model_type",
       "t": "model.submt",
       "v": 1035
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_create_request",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_create_request_route",
+      "t": "pin.connect.model",
+      "v": [
+        {
+          "from": [
+            1034,
+            "slide_create_request"
+          ],
+          "to": [
+            [
+              -10,
+              "slide_app_create_request"
+            ]
+          ]
+        }
+      ]
     },
     {
       "op": "add_label",
@@ -15332,15 +15481,58 @@
       "t": "json",
       "v": {
         "write": {
-          "action": "slide_app_create",
-          "target_ref": {
-            "model_id": 1035,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "create_app_name"
-          }
+          "pin": "click"
         }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "scope_privileged",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "click",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "click_route",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, click)",
+          "to": [
+            "(func, handle_slide_create_click:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "handle_slide_create_click",
+      "t": "func.js",
+      "v": {
+        "code": "const event = label && label.v && typeof label.v === 'object' ? label.v : {};\nctx.writeLabel({ model_id: 1034, p: 0, r: 0, c: 0, k: 'slide_create_request' }, 'pin.out', { meta: event.meta || {}, target: { model_id: 1035, p: 0, r: 0, c: 0 } });",
+        "modelName": "slide_creator_button"
       }
     },
     {
