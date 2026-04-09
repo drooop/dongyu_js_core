@@ -80,6 +80,11 @@ source: ai
 当前冻结的方向是：
 
 - 前端事件会指向“当前模型 + 当前单元格”
+- 事件 envelope 中至少带：
+  - `target.model_id`
+  - `target.p`
+  - `target.r`
+  - `target.c`
 - mailbox 之后的事件入口解释属于 runtime
 - 合法链路从 `Model 0` 开始，经 pin/connect/父子传递，到达目标单元格程序模型的 `IN`
 

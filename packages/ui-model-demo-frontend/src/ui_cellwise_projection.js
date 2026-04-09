@@ -63,6 +63,14 @@ function collectNodeDefs(model) {
   return defs;
 }
 
+function parseCellCoord(coord) {
+  const parts = String(coord || '').split(',');
+  if (parts.length !== 3) return null;
+  const [p, r, c] = parts.map((part) => Number.parseInt(part, 10));
+  if (!Number.isInteger(p) || !Number.isInteger(r) || !Number.isInteger(c)) return null;
+  return { p, r, c };
+}
+
 function buildProps(def) {
   const labels = def.labels;
   const props = {};
@@ -229,10 +237,11 @@ function buildWriteBind(def) {
   return bind;
 }
 
-function buildNodeMap(defs) {
+function buildNodeMap(defs, modelId) {
   const map = new Map();
   for (const def of defs) {
     const bindJson = readLabel(def.labels, 'ui_bind_json');
+    const cellCoord = parseCellCoord(def.coord);
     map.set(def.id, {
       id: def.id,
       type: def.type,
@@ -252,6 +261,14 @@ function buildNodeMap(defs) {
       __parent: def.parent,
       __slot: def.slot,
       __order: def.order,
+      ...(cellCoord ? {
+        cell_ref: {
+          model_id: modelId,
+          p: cellCoord.p,
+          r: cellCoord.r,
+          c: cellCoord.c,
+        },
+      } : {}),
       children: [],
     });
   }
@@ -265,6 +282,7 @@ function stripMeta(node) {
   };
   if (node.props && Object.keys(node.props).length > 0) out.props = node.props;
   if (node.bind) out.bind = node.bind;
+  if (node.cell_ref) out.cell_ref = node.cell_ref;
   if (Array.isArray(node.children) && node.children.length > 0) {
     out.children = node.children.map(stripMeta);
   }
@@ -281,7 +299,7 @@ export function buildAstFromCellwiseModel(snapshot, modelId) {
 
   const defs = collectNodeDefs(model);
   if (defs.length === 0) return null;
-  const nodes = buildNodeMap(defs);
+  const nodes = buildNodeMap(defs, modelId);
   const root = nodes.get(rootNodeId);
   if (!root) return null;
 

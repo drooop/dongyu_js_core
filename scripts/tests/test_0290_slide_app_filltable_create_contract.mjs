@@ -117,11 +117,22 @@ function test_creator_ui_and_action_route_exist() {
   return { key: 'creator_ui_and_action_route_exist', status: 'PASS' };
 }
 
+function test_created_slide_input_uses_deferred_positive_commit_policy() {
+  const serverText = fs.readFileSync(path.join(repoRoot, 'packages/ui-model-demo-server/server.mjs'), 'utf8');
+  assert.match(
+    serverText,
+    /action: 'ui_owner_label_update', target_ref: \{ model_id: 1, p: 0, r: 0, c: 0, k: 'body_text' \}, commit_policy: 'on_blur'/,
+    'filltable_created_slide_input_must_default_to_on_blur',
+  );
+  return { key: 'created_slide_input_uses_deferred_positive_commit_policy', status: 'PASS' };
+}
+
 const tests = [
   test_model_ids_export_slide_creator_constants,
   test_creator_reserved_ids_do_not_overlap_first_zip_import_range,
   test_workspace_patch_defines_slide_creator_models,
   test_creator_ui_and_action_route_exist,
+  test_created_slide_input_uses_deferred_positive_commit_policy,
 ];
 
 (async () => {

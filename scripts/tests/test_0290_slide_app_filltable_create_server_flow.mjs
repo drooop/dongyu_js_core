@@ -92,6 +92,7 @@ async function test_filltable_create_materializes_workspace_app_and_delete_clean
     const createdBind = snapAfterCreate.models[String(createdModelId)]?.cells?.['2,3,0']?.labels?.ui_bind_json?.v;
     assert.equal(createdBind?.read?.model_id, createdTruthId, 'created_app_bind_read_model_id_must_point_to_created_truth');
     assert.equal(createdBind?.write?.target_ref?.model_id, createdTruthId, 'created_app_bind_write_model_id_must_point_to_created_truth');
+    assert.equal(createdBind?.write?.commit_policy, 'on_blur', 'created_app_positive_input_must_use_on_blur_commit_policy');
 
     assert.equal(
       snapAfterCreate.models['-2']?.cells?.['0,0,0']?.labels?.ws_app_selected?.v,

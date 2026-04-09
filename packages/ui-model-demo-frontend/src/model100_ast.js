@@ -144,6 +144,7 @@ export function buildModel100Ast() {
                         bind: {
                           write: {
                             action: 'submit',
+                            target_ref: { model_id: MODEL_100_ID, p: 0, r: 0, c: 0 },
                             meta: { model_id: MODEL_100_ID },
                             value_ref: {
                               t: 'event',

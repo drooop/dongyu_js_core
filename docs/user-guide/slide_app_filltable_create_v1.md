@@ -2,7 +2,7 @@
 title: "Slide App Filltable Create v1"
 doc_type: user-guide
 status: active
-updated: 2026-04-08
+updated: 2026-04-09
 source: ai
 ---
 
@@ -115,6 +115,15 @@ source: ai
 6. 确认它会自动被打开。
 7. 在新 app 里继续改输入内容，确认页面文字同步变化。
 8. 点击 `Delete`，确认它从侧边栏消失。
+
+### 当前输入同步策略
+
+- 创建出来的正数模型 slide 输入，当前推荐使用延后同步，不再默认逐键写回。
+- 当前 v1 的正文输入采用：
+  - `commit_policy = on_blur`
+- 也就是说：
+  - 输入时先保留本地草稿
+  - 离开输入框时再提交到后端
 
 ## 当前 v1 不做什么
 
