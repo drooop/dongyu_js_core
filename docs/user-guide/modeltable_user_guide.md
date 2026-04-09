@@ -152,8 +152,10 @@ Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。
   - `ws_app_add`
   - `ws_app_delete`
   - `ws_select_app` / `ws_app_select`
-- 对以上已迁移动作，若对应 ingress route 不存在，系统会直接报 `route_missing`，不再偷偷回退到旧分发。
-- 仍未迁移的其它动作，可能还保留 legacy shortcut；它们会在后续迭代继续收口。
+- `0308` 之后，对以上 slide/workspace 主线路径，legacy `action` envelope 已正式退役：
+  - 会显式返回 `legacy_action_protocol_retired`
+  - 不再通过 server 侧 action → ingress 兼容映射偷偷放行
+- 仍未迁移的非 slide 动作，可能还保留 legacy shortcut；它们会在后续迭代继续收口。
 
 ### 3.0.1 Projection Pin Metadata（0310 Freeze）
 

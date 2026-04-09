@@ -28,6 +28,21 @@ function mailboxEnvelope(action, options = {}) {
   };
 }
 
+function pinEnvelope(target, pin, value = undefined) {
+  return {
+    event_id: Date.now(),
+    type: pin,
+    payload: {
+      meta: { op_id: `${pin}_${Date.now()}` },
+      target,
+      pin,
+      ...(value !== undefined ? { value } : {}),
+    },
+    source: 'ui_renderer',
+    ts: Date.now(),
+  };
+}
+
 function buildImportZipBuffer() {
   const payload = [
     { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.SlideZipImportedApp' },
@@ -95,10 +110,12 @@ async function test_builtin_and_imported_apps_share_workspace_contract() {
     const importerTruth = state.runtime.getModel(1031);
     state.runtime.addLabel(importerTruth, 0, 0, 0, { k: 'slide_import_media_uri', t: 'str', v: 'mxc://localhost/test-slide-import' });
 
-    const importResult = await state.submitEnvelope(mailboxEnvelope('slide_app_import', {
-      target: { model_id: 1031, p: 0, r: 0, c: 0, k: 'slide_import_media_uri' },
-    }));
-    assert.equal(importResult.result, 'ok', 'slide_app_import_must_succeed');
+    const importResult = await state.submitEnvelope(pinEnvelope(
+      { model_id: 1030, p: 2, r: 4, c: 0 },
+      'click',
+      { click: true },
+    ));
+    assert.equal(importResult.result, 'ok', 'slide_app_import_pin_must_succeed');
     await wait();
 
     const afterImportRegistry = state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
@@ -110,10 +127,12 @@ async function test_builtin_and_imported_apps_share_workspace_contract() {
     assert.equal(importedEntry.from_user, '@test-user:localhost', 'imported_zip_app_must_publish_from_user');
     assert.equal(importedEntry.to_user, '@drop:localhost', 'imported_zip_app_must_publish_to_user');
 
-    const selectImported = await state.submitEnvelope(mailboxEnvelope('ws_app_select', {
-      value: { t: 'int', v: importedEntry.model_id },
-    }));
-    assert.equal(selectImported.result, 'ok', 'ws_app_select_imported_must_succeed');
+    const selectImported = await state.submitEnvelope(pinEnvelope(
+      { model_id: -25, p: 2, r: 7, c: 0 },
+      'click',
+      importedEntry.model_id,
+    ));
+    assert.equal(selectImported.result, 'ok', 'ws_app_select_imported_pin_must_succeed');
     await wait();
     assert.equal(
       state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_app_selected?.v,
@@ -121,10 +140,12 @@ async function test_builtin_and_imported_apps_share_workspace_contract() {
       'workspace_selection_must_accept_imported_app',
     );
 
-    const selectBuiltin = await state.submitEnvelope(mailboxEnvelope('ws_app_select', {
-      value: { t: 'int', v: 100 },
-    }));
-    assert.equal(selectBuiltin.result, 'ok', 'ws_app_select_builtin_must_succeed');
+    const selectBuiltin = await state.submitEnvelope(pinEnvelope(
+      { model_id: -25, p: 2, r: 7, c: 0 },
+      'click',
+      100,
+    ));
+    assert.equal(selectBuiltin.result, 'ok', 'ws_app_select_builtin_pin_must_succeed');
     await wait();
     assert.equal(
       state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_app_selected?.v,
@@ -132,10 +153,12 @@ async function test_builtin_and_imported_apps_share_workspace_contract() {
       'workspace_selection_must_accept_builtin_slide_app',
     );
 
-    const deleteImported = await state.submitEnvelope(mailboxEnvelope('ws_app_delete', {
-      value: { t: 'int', v: importedEntry.model_id },
-    }));
-    assert.equal(deleteImported.result, 'ok', 'delete_imported_slide_app_must_succeed');
+    const deleteImported = await state.submitEnvelope(pinEnvelope(
+      { model_id: -25, p: 2, r: 7, c: 1 },
+      'click',
+      importedEntry.model_id,
+    ));
+    assert.equal(deleteImported.result, 'ok', 'delete_imported_slide_app_pin_must_succeed');
     await wait();
     const afterDeleteRegistry = state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
     assert.ok(!afterDeleteRegistry.some((entry) => entry && entry.model_id === importedEntry.model_id), 'deleted_imported_app_must_leave_registry');

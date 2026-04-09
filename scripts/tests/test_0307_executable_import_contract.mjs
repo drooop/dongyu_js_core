@@ -23,6 +23,21 @@ function mailboxEnvelope(action, options = {}) {
   };
 }
 
+function pinEnvelope(target, pin, value = undefined) {
+  return {
+    event_id: Date.now(),
+    type: pin,
+    payload: {
+      meta: { op_id: `${pin}_${Date.now()}` },
+      target,
+      pin,
+      ...(value !== undefined ? { value } : {}),
+    },
+    source: 'ui_renderer',
+    ts: Date.now(),
+  };
+}
+
 function buildZipBuffer(payload) {
   const zip = new AdmZip();
   zip.addFile('app_payload.json', Buffer.from(JSON.stringify(payload, null, 2), 'utf8'));
@@ -108,10 +123,12 @@ async function test_executable_import_allows_func_js_within_positive_models() {
       userId: '@drop:localhost',
     });
     state.runtime.addLabel(state.runtime.getModel(1031), 0, 0, 0, { k: 'slide_import_media_uri', t: 'str', v: 'mxc://localhost/0307-contract-pass' });
-    const result = await state.submitEnvelope(mailboxEnvelope('slide_app_import', {
-      target: { model_id: 1031, p: 0, r: 0, c: 0, k: 'slide_import_media_uri' },
-    }));
-    assert.equal(result.result, 'ok', 'executable_import_request_must_be_accepted');
+    const result = await state.submitEnvelope(pinEnvelope(
+      { model_id: 1030, p: 2, r: 4, c: 0 },
+      'click',
+      { click: true },
+    ));
+    assert.equal(result.result, 'ok', 'executable_import_pin_request_must_be_accepted');
     await new Promise((resolveWait) => setTimeout(resolveWait, 150));
     const registry = state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
     assert.ok(
@@ -134,10 +151,12 @@ async function test_executable_import_rejects_helper_override_and_system_boundar
       userId: '@drop:localhost',
     });
     state.runtime.addLabel(state.runtime.getModel(1031), 0, 0, 0, { k: 'slide_import_media_uri', t: 'str', v: 'mxc://localhost/0307-contract-fail' });
-    const result = await state.submitEnvelope(mailboxEnvelope('slide_app_import', {
-      target: { model_id: 1031, p: 0, r: 0, c: 0, k: 'slide_import_media_uri' },
-    }));
-    assert.equal(result.result, 'ok', 'forbidden_executable_import_request_still_enters_runtime_ingress');
+    const result = await state.submitEnvelope(pinEnvelope(
+      { model_id: 1030, p: 2, r: 4, c: 0 },
+      'click',
+      { click: true },
+    ));
+    assert.equal(result.result, 'ok', 'forbidden_executable_import_pin_request_still_enters_runtime_ingress');
     await new Promise((resolveWait) => setTimeout(resolveWait, 150));
     const statusText = state.clientSnap().models?.['1031']?.cells?.['0,0,0']?.labels?.slide_import_status?.v || '';
     assert.match(String(statusText), /forbidden_label_key:scope_privileged/, 'helper_override_rejection_reason_must_be_explicit');

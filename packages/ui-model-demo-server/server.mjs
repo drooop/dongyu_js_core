@@ -2118,20 +2118,6 @@ function repairModel100DualBusConfig(runtime) {
   return true;
 }
 
-function buildUiEventIngressPort(action, target) {
-  const actionText = typeof action === 'string' ? action.trim() : '';
-  if (actionText === 'submit') {
-    if (!target || !Number.isInteger(target.model_id) || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c)) {
-      return '';
-    }
-    return `ui_event_${actionText}_${target.model_id}_${target.p}_${target.r}_${target.c}`;
-  }
-  if (actionText === 'slide_app_import' || actionText === 'slide_app_create' || actionText === 'ws_app_add' || actionText === 'ws_app_delete' || actionText === 'ws_select_app' || actionText === 'ws_app_select') {
-    return `ui_event_${actionText}`;
-  }
-  return '';
-}
-
 function normalizeDirectPinValue(rawValue, meta, target, pin) {
   let nextValue = rawValue;
   if (nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)
@@ -2148,64 +2134,19 @@ function normalizeDirectPinValue(rawValue, meta, target, pin) {
   return nextValue;
 }
 
-const RUNTIME_PIN_SYSTEM_ACTION_SPECS = [
-  { action: 'slide_app_import', targetModelId: -10, targetPin: 'slide_app_import_request', funcName: 'handle_slide_app_import' },
-  { action: 'slide_app_create', targetModelId: -10, targetPin: 'slide_app_create_request', funcName: 'handle_slide_app_create' },
-  { action: 'ws_app_add', targetModelId: -10, targetPin: 'ws_app_add_request', funcName: 'handle_ws_app_add' },
-  { action: 'ws_app_delete', targetModelId: -10, targetPin: 'ws_app_delete_request', funcName: 'handle_ws_app_delete' },
-  { action: 'ws_select_app', targetModelId: -10, targetPin: 'ws_select_app_request', funcName: 'handle_ws_select_app' },
-  { action: 'ws_app_select', targetModelId: -10, targetPin: 'ws_select_app_request', funcName: 'handle_ws_select_app' },
-];
+const RETIRED_SLIDE_ACTIONS = new Set([
+  'slide_app_import',
+  'slide_app_create',
+  'ws_app_add',
+  'ws_app_delete',
+  'ws_select_app',
+  'ws_app_select',
+]);
 
-function isRuntimePinOnlyAction(action, targetModelId) {
-  if (action === 'submit') {
-    return targetModelId === 100;
-  }
-  return RUNTIME_PIN_SYSTEM_ACTION_SPECS.some((spec) => spec.action === action);
-}
-
-function ensureRuntimePinSystemActionBuildout(runtime) {
-  const model0 = runtime.getModel(0);
-  const systemModel = runtime.getModel(-10);
-  if (!model0 || !systemModel) return false;
-  const model0Root = runtime.getCell(model0, 0, 0, 0);
-  const systemRoot = runtime.getCell(systemModel, 0, 0, 0);
-  const pinType = typeof runtime._modelInputLabelType === 'function'
-    ? runtime._modelInputLabelType(systemModel)
-    : 'pin.in';
-
-  for (const spec of RUNTIME_PIN_SYSTEM_ACTION_SPECS) {
-    const ingressPort = buildUiEventIngressPort(spec.action, null);
-    if (!ingressPort) continue;
-
-    if (!systemRoot.labels.has(spec.targetPin)) {
-      runtime.addLabel(systemModel, 0, 0, 0, { k: spec.targetPin, t: pinType, v: null });
-    }
-    const wiringKey = `${spec.targetPin}_wiring`;
-    if (!systemRoot.labels.has(wiringKey)) {
-      runtime.addLabel(systemModel, 0, 0, 0, {
-        k: wiringKey,
-        t: 'pin.connect.label',
-        v: [{ from: `(self, ${spec.targetPin})`, to: [`(func, ${spec.funcName}:in)`] }],
-      });
-    }
-
-    const routeKey = `0|${ingressPort}`;
-    const targets = runtime.modelConnectionRoutes.get(routeKey) || [];
-    if (targets.some((target) => target && target.model_id === spec.targetModelId && target.k === spec.targetPin)) {
-      continue;
-    }
-    const labelKey = `runtime_ingress_${spec.action}`;
-    if (model0Root.labels.has(labelKey)) {
-      runtime.rmLabel(model0, 0, 0, 0, labelKey);
-    }
-    runtime.addLabel(model0, 0, 0, 0, {
-      k: labelKey,
-      t: 'pin.connect.model',
-      v: [{ from: [0, ingressPort], to: [[spec.targetModelId, spec.targetPin]] }],
-    });
-  }
-  return true;
+function isRetiredSlideAction(action, targetModelId) {
+  if (typeof action !== 'string' || !action.trim()) return false;
+  if (action === 'submit') return targetModelId === 100;
+  return RETIRED_SLIDE_ACTIONS.has(action);
 }
 
 class ProgramModelEngine {
@@ -3810,7 +3751,6 @@ function createServerState(options) {
       includeRecord: ({ modelId, k }) => !(modelId === 0 && bootstrapGeneratedKeys.has(String(k || ''))),
     });
   }
-  ensureRuntimePinSystemActionBuildout(runtime);
   if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(true);
   runtime.setRuntimeMode('edit');
 
@@ -5214,15 +5154,13 @@ function createServerState(options) {
       );
       return finishOk({ routed_by: 'direct_pin' });
     }
+    if (envelopeOrNull && isRetiredSlideAction(action, targetModelId)) {
+      return finishError('legacy_action_protocol_retired', action);
+    }
     const businessTargetModelId = meta && Number.isInteger(meta.model_id)
       ? meta.model_id
       : (action === 'submit' ? targetModelId : null);
     const directMutationTarget = targetModelId;
-    const runtimeIngressPort = buildUiEventIngressPort(action, target);
-    const hasRuntimeIngressRoute = runtimeIngressPort
-      ? runtime.modelConnectionRoutes.has(`0|${runtimeIngressPort}`)
-      : false;
-    const mustUseRuntimeIngress = isRuntimePinOnlyAction(action, targetModelId);
     if (target && !(Number.isInteger(target.model_id) && Number.isInteger(target.p) && Number.isInteger(target.r) && Number.isInteger(target.c))) {
       return finishError('invalid_target', 'missing_target_coords');
     }
@@ -5248,12 +5186,6 @@ function createServerState(options) {
       updateDerived();
       await programEngine.tick();
       return result;
-    }
-    if (envelopeOrNull && hasRuntimeIngressRoute) {
-      return finishOk({ routed_by: 'runtime_pin' });
-    }
-    if (envelopeOrNull && mustUseRuntimeIngress) {
-      return finishError('route_missing', runtimeIngressPort || action || 'runtime_ingress');
     }
     if (envelopeOrNull && businessTargetModelId && businessTargetModelId > 0) {
       if (!runtime.isRunLoopActive()) {

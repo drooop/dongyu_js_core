@@ -4,23 +4,14 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import AdmZipPkg from 'adm-zip';
-
-const AdmZip = AdmZipPkg && AdmZipPkg.default ? AdmZipPkg.default : AdmZipPkg;
-const SLIDE_IMPORTER_TRUTH_MODEL_ID = 1031;
-const SLIDE_CREATOR_TRUTH_MODEL_ID = 1035;
-
-function wait(ms = 120) {
-  return new Promise((resolveWait) => setTimeout(resolveWait, ms));
-}
 
 function mailboxEnvelope(action, options = {}) {
   const payload = {
     action,
     meta: { op_id: options.opId || `${action}_${Date.now()}` },
   };
-  if (options.value !== undefined) payload.value = options.value;
   if (options.target !== undefined) payload.target = options.target;
+  if (options.value !== undefined) payload.value = options.value;
   return {
     event_id: Date.now(),
     type: action,
@@ -30,31 +21,11 @@ function mailboxEnvelope(action, options = {}) {
   };
 }
 
-function buildImportZipBuffer() {
-  const payload = [
-    { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.SlideZipImportedApp' },
-    { id: 0, p: 0, r: 0, c: 0, k: 'app_name', t: 'str', v: '0306 Imported Zip App' },
-    { id: 0, p: 0, r: 0, c: 0, k: 'source_worker', t: 'str', v: 'zip-import' },
-    { id: 0, p: 0, r: 0, c: 0, k: 'slide_capable', t: 'bool', v: true },
-    { id: 0, p: 0, r: 0, c: 0, k: 'slide_surface_type', t: 'str', v: 'workspace.page' },
-    { id: 0, p: 0, r: 0, c: 0, k: 'from_user', t: 'str', v: '@test-user:localhost' },
-    { id: 0, p: 0, r: 0, c: 0, k: 'to_user', t: 'str', v: '@drop:localhost' },
-    { id: 0, p: 0, r: 0, c: 0, k: 'ui_authoring_version', t: 'str', v: 'cellwise.ui.v1' },
-    { id: 0, p: 0, r: 0, c: 0, k: 'ui_root_node_id', t: 'str', v: 'zip_root' },
-    { id: 1, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.SlideZipImportedTruth' },
-    { id: 0, p: 0, r: 2, c: 0, k: 'model_type', t: 'model.submt', v: 1 },
-    { id: 1, p: 0, r: 0, c: 0, k: 'headline', t: 'str', v: 'Imported by runtime pin chain' },
-  ];
-  const zip = new AdmZip();
-  zip.addFile('app_payload.json', Buffer.from(JSON.stringify(payload, null, 2), 'utf8'));
-  return zip.toBuffer();
-}
-
 async function withServerState(fn) {
-  const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0306-system-flow-'));
+  const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0308-retire-'));
   process.env.DY_AUTH = '0';
   process.env.DY_PERSISTED_ASSET_ROOT = '';
-  process.env.WORKER_BASE_WORKSPACE = `it0306_system_flow_${Date.now()}`;
+  process.env.WORKER_BASE_WORKSPACE = `it0308_retire_${Date.now()}`;
   process.env.WORKER_BASE_DATA_ROOT = join(tempRoot, 'runtime');
   process.env.DOCS_ROOT = join(tempRoot, 'docs');
   process.env.STATIC_PROJECTS_ROOT = join(tempRoot, 'static');
@@ -73,26 +44,35 @@ async function withServerState(fn) {
   }
 }
 
-async function test_legacy_workspace_slide_actions_are_retired() {
+async function test_slide_legacy_actions_are_rejected() {
   return withServerState(async (state) => {
     const cases = [
+      mailboxEnvelope('submit', {
+        target: { model_id: 100, p: 0, r: 0, c: 0 },
+        value: { t: 'event', v: { action: 'submit', input_value: 'legacy' } },
+      }),
+      mailboxEnvelope('slide_app_import', {
+        target: { model_id: 1031, p: 0, r: 0, c: 0, k: 'slide_import_media_uri' },
+      }),
+      mailboxEnvelope('slide_app_create', {
+        target: { model_id: 1035, p: 0, r: 0, c: 0, k: 'create_app_name' },
+      }),
       mailboxEnvelope('ws_app_add'),
-      mailboxEnvelope('slide_app_create', { target: { model_id: SLIDE_CREATOR_TRUTH_MODEL_ID, p: 0, r: 0, c: 0, k: 'create_app_name' } }),
-      mailboxEnvelope('slide_app_import', { target: { model_id: SLIDE_IMPORTER_TRUTH_MODEL_ID, p: 0, r: 0, c: 0, k: 'slide_import_media_uri' } }),
       mailboxEnvelope('ws_app_select', { value: { t: 'int', v: 100 } }),
       mailboxEnvelope('ws_app_delete', { value: { t: 'int', v: 100 } }),
     ];
+
     for (const envelope of cases) {
       const result = await state.submitEnvelope(envelope);
       assert.equal(result.result, 'error', `legacy_action_${envelope.payload.action}_must_be_rejected`);
       assert.equal(result.code, 'legacy_action_protocol_retired', `legacy_action_${envelope.payload.action}_must_report_retired_code`);
     }
-    return { key: 'legacy_workspace_slide_actions_are_retired', status: 'PASS' };
+    return { key: 'slide_legacy_actions_are_rejected', status: 'PASS' };
   });
 }
 
 const tests = [
-  test_legacy_workspace_slide_actions_are_retired,
+  test_slide_legacy_actions_are_rejected,
 ];
 
 (async () => {

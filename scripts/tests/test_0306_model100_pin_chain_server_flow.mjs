@@ -32,7 +32,7 @@ async function withServerState(fn) {
   }
 }
 
-async function test_model100_submit_uses_runtime_pin_chain_when_ingress_route_exists() {
+async function test_legacy_model100_action_submit_is_retired() {
   return withServerState(async (state) => {
     const result = await state.submitEnvelope({
       event_id: Date.now(),
@@ -52,35 +52,14 @@ async function test_model100_submit_uses_runtime_pin_chain_when_ingress_route_ex
       source: 'ui_renderer',
       ts: Date.now(),
     });
-    assert.equal(result.result, 'ok', 'model100_pin_chain_submit_must_be_accepted');
-    await wait();
-
-    const events = state.runtime.eventLog.list();
-    assert.ok(
-      events.some((event) => event.op === 'add_label' && event.cell?.model_id === 0 && event.cell?.p === 0 && event.cell?.r === 0 && event.cell?.c === 0 && event.label?.k === 'ui_event_submit_100_0_0_0' && event.label?.t === 'pin.bus.in'),
-      'runtime_pin_chain_must_write_model0_ingress_label',
-    );
-    assert.ok(
-      events.some((event) => event.op === 'add_label' && event.cell?.model_id === 100 && event.cell?.p === 0 && event.cell?.r === 0 && event.cell?.c === 0 && event.label?.k === 'submit_request' && event.label?.t === 'pin.in'),
-      'runtime_pin_chain_must_route_to_model100_submit_request',
-    );
-    assert.ok(
-      !events.some((event) => event.op === 'add_label' && event.cell?.model_id === 100 && event.cell?.p === 0 && event.cell?.r === 0 && event.cell?.c === 2 && event.label?.k === 'ui_event' && event.label?.v),
-      'runtime_pin_chain_must_not_require_direct_model100_ui_event_write_when_route_exists',
-    );
-
-    const rootLabels = state.clientSnap().models?.['100']?.cells?.['0,0,0']?.labels || {};
-    const model0Labels = state.clientSnap().models?.['0']?.cells?.['0,0,0']?.labels || {};
-    assert.equal(rootLabels.status?.v, 'matrix_unavailable', 'runtime_pin_chain_submit_must_still_run_forward_path');
-    assert.equal(rootLabels.submit_inflight?.v, false, 'runtime_pin_chain_submit_must_release_inflight');
-    assert.equal(model0Labels.model100_submit_out?.v ?? null, null, 'runtime_pin_chain_submit_must_clear_model0_egress');
-
-    return { key: 'model100_submit_uses_runtime_pin_chain_when_ingress_route_exists', status: 'PASS' };
+    assert.equal(result.result, 'error', 'legacy_model100_action_submit_must_be_rejected');
+    assert.equal(result.code, 'legacy_action_protocol_retired', 'legacy_model100_action_submit_must_report_retired_code');
+    return { key: 'legacy_model100_action_submit_is_retired', status: 'PASS' };
   });
 }
 
 const tests = [
-  test_model100_submit_uses_runtime_pin_chain_when_ingress_route_exists,
+  test_legacy_model100_action_submit_is_retired,
 ];
 
 (async () => {

@@ -30,6 +30,21 @@ function mailboxEnvelope(action, options = {}) {
   };
 }
 
+function pinEnvelope(target, pin, value = undefined) {
+  return {
+    event_id: Date.now(),
+    type: pin,
+    payload: {
+      meta: { op_id: `${pin}_${Date.now()}` },
+      target,
+      pin,
+      ...(value !== undefined ? { value } : {}),
+    },
+    source: 'ui_renderer',
+    ts: Date.now(),
+  };
+}
+
 async function withServerState(fn) {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0303-color-proxy-'));
   process.env.DY_AUTH = '0';
@@ -69,10 +84,12 @@ async function test_proxy_zip_import_reuses_model100_behaviour_contract() {
     runtime.addLabel(importerTruth, 0, 0, 0, { k: 'slide_import_media_uri', t: 'str', v: uri });
     runtime.addLabel(importerTruth, 0, 0, 0, { k: 'slide_import_media_name', t: 'str', v: 'color-generator-proxy.zip' });
 
-    const importResult = await state.submitEnvelope(mailboxEnvelope('slide_app_import', {
-      target: { model_id: SLIDE_IMPORTER_TRUTH_MODEL_ID, p: 0, r: 0, c: 0, k: 'slide_import_media_uri' },
-    }));
-    assert.equal(importResult.result, 'ok', 'slide_app_import_must_be_accepted');
+    const importResult = await state.submitEnvelope(pinEnvelope(
+      { model_id: 1030, p: 2, r: 4, c: 0 },
+      'click',
+      { click: true },
+    ));
+    assert.equal(importResult.result, 'ok', 'slide_app_import_pin_must_be_accepted');
     await wait();
 
     const snapAfterImport = state.clientSnap();
@@ -96,13 +113,14 @@ async function test_proxy_zip_import_reuses_model100_behaviour_contract() {
     assert.equal(inputBind?.write?.target_ref?.k, 'model100_input_draft', 'imported_color_proxy_input_must_target_model100_input_draft');
 
     const submitBind = importedModel.cells?.['2,9,0']?.labels?.ui_bind_json?.v;
-    assert.equal(submitBind?.write?.action, 'submit', 'imported_color_proxy_button_must_still_submit');
-    assert.equal(submitBind?.write?.meta?.model_id, 100, 'imported_color_proxy_button_must_target_model100');
+    assert.equal(submitBind?.write?.pin, 'click', 'imported_color_proxy_button_must_now_use_pin_write');
 
-    const deleteResult = await state.submitEnvelope(mailboxEnvelope('ws_app_delete', {
-      value: { t: 'int', v: importedModelId },
-    }));
-    assert.equal(deleteResult.result, 'ok', 'proxy_imported_app_delete_must_succeed');
+    const deleteResult = await state.submitEnvelope(pinEnvelope(
+      { model_id: -25, p: 2, r: 7, c: 1 },
+      'click',
+      importedModelId,
+    ));
+    assert.equal(deleteResult.result, 'ok', 'proxy_imported_app_delete_pin_must_succeed');
     await wait();
 
     const snapAfterDelete = state.clientSnap();

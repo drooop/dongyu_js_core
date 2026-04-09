@@ -27,6 +27,21 @@ function mailboxEnvelope(action, options = {}) {
   };
 }
 
+function pinEnvelope(target, pin, value = undefined) {
+  return {
+    event_id: Date.now(),
+    type: pin,
+    payload: {
+      meta: { op_id: `${pin}_${Date.now()}` },
+      target,
+      pin,
+      ...(value !== undefined ? { value } : {}),
+    },
+    source: 'ui_renderer',
+    ts: Date.now(),
+  };
+}
+
 async function withServerState(fn) {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0290-filltable-'));
   process.env.DY_AUTH = '0';
@@ -62,10 +77,12 @@ async function test_filltable_create_materializes_workspace_app_and_delete_clean
     runtime.addLabel(creatorTruth, 0, 0, 0, { k: 'create_headline', t: 'str', v: 'Created by Filltable' });
     runtime.addLabel(creatorTruth, 0, 0, 0, { k: 'create_body_text', t: 'str', v: 'This app came from the creator form.' });
 
-    const createResult = await state.submitEnvelope(mailboxEnvelope('slide_app_create', {
-      target: { model_id: SLIDE_CREATOR_TRUTH_MODEL_ID, p: 0, r: 0, c: 0, k: 'create_app_name' },
-    }));
-    assert.equal(createResult.result, 'ok', 'slide_app_create_must_be_accepted');
+    const createResult = await state.submitEnvelope(pinEnvelope(
+      { model_id: 1034, p: 2, r: 8, c: 0 },
+      'click',
+      { click: true },
+    ));
+    assert.equal(createResult.result, 'ok', 'slide_app_create_pin_must_be_accepted');
     await wait();
 
     const snapAfterCreate = state.clientSnap();
@@ -100,10 +117,12 @@ async function test_filltable_create_materializes_workspace_app_and_delete_clean
       'creator_flow_must_select_new_app_after_create',
     );
 
-    const deleteResult = await state.submitEnvelope(mailboxEnvelope('ws_app_delete', {
-      value: { t: 'int', v: createdModelId },
-    }));
-    assert.equal(deleteResult.result, 'ok', 'delete_created_filltable_app_must_succeed');
+    const deleteResult = await state.submitEnvelope(pinEnvelope(
+      { model_id: -25, p: 2, r: 7, c: 1 },
+      'click',
+      createdModelId,
+    ));
+    assert.equal(deleteResult.result, 'ok', 'delete_created_filltable_app_pin_must_succeed');
     await wait();
 
     const snapAfterDelete = state.clientSnap();

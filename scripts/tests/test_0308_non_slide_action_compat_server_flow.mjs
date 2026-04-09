@@ -5,15 +5,31 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
+function mailboxEnvelope(action, options = {}) {
+  const payload = {
+    action,
+    meta: { op_id: options.opId || `${action}_${Date.now()}` },
+  };
+  if (options.target !== undefined) payload.target = options.target;
+  if (options.value !== undefined) payload.value = options.value;
+  return {
+    event_id: Date.now(),
+    type: action,
+    payload,
+    source: 'ui_renderer',
+    ts: Date.now(),
+  };
+}
+
 function wait(ms = 120) {
   return new Promise((resolveWait) => setTimeout(resolveWait, ms));
 }
 
 async function withServerState(fn) {
-  const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0305-submit-target-'));
+  const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0308-nonslide-'));
   process.env.DY_AUTH = '0';
   process.env.DY_PERSISTED_ASSET_ROOT = '';
-  process.env.WORKER_BASE_WORKSPACE = `it0305_submit_target_${Date.now()}`;
+  process.env.WORKER_BASE_WORKSPACE = `it0308_nonslide_${Date.now()}`;
   process.env.WORKER_BASE_DATA_ROOT = join(tempRoot, 'runtime');
   process.env.DOCS_ROOT = join(tempRoot, 'docs');
   process.env.STATIC_PROJECTS_ROOT = join(tempRoot, 'static');
@@ -32,35 +48,19 @@ async function withServerState(fn) {
   }
 }
 
-async function test_legacy_model100_submit_action_is_retired() {
+async function test_non_slide_action_remains_accepted() {
   return withServerState(async (state) => {
-    const result = await state.submitEnvelope({
-      event_id: Date.now(),
-      type: 'submit',
-      payload: {
-        action: 'submit',
-        meta: { op_id: `submit_target_${Date.now()}` },
-        target: { model_id: 100, p: 0, r: 0, c: 0 },
-        value: {
-          t: 'event',
-          v: {
-            action: 'submit',
-            input_value: 'target only submit',
-          },
-        },
-      },
-      source: 'ui_renderer',
-      ts: Date.now(),
-    });
-
-    assert.equal(result.result, 'error', 'legacy_model100_submit_action_must_be_rejected');
-    assert.equal(result.code, 'legacy_action_protocol_retired', 'legacy_model100_submit_action_must_report_retired_code');
-    return { key: 'legacy_model100_submit_action_is_retired', status: 'PASS' };
+    const result = await state.submitEnvelope(mailboxEnvelope('static_project_list'));
+    assert.equal(result.result, 'ok', 'non_slide_static_project_list_must_still_be_accepted');
+    await wait();
+    const status = state.clientSnap().models?.['-2']?.cells?.['0,0,0']?.labels?.static_status?.v ?? '';
+    assert.equal(typeof status, 'string', 'non_slide_static_project_list_must_still_materialize_state');
+    return { key: 'non_slide_action_remains_accepted', status: 'PASS' };
   });
 }
 
 const tests = [
-  test_legacy_model100_submit_action_is_retired,
+  test_non_slide_action_remains_accepted,
 ];
 
 (async () => {

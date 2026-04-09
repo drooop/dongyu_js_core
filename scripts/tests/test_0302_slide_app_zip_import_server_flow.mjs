@@ -31,6 +31,21 @@ function mailboxEnvelope(action, options = {}) {
   };
 }
 
+function pinEnvelope(target, pin, value = undefined) {
+  return {
+    event_id: Date.now(),
+    type: pin,
+    payload: {
+      meta: { op_id: `${pin}_${Date.now()}` },
+      target,
+      pin,
+      ...(value !== undefined ? { value } : {}),
+    },
+    source: 'ui_renderer',
+    ts: Date.now(),
+  };
+}
+
 function buildImportZipBuffer() {
   const payload = [
     { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.SlideZipImportedApp' },
@@ -112,10 +127,12 @@ async function test_zip_import_materializes_workspace_app_and_delete_cleans_up()
     runtime.addLabel(importerTruth, 0, 0, 0, { k: 'slide_import_media_uri', t: 'str', v: uri });
     runtime.addLabel(importerTruth, 0, 0, 0, { k: 'slide_import_media_name', t: 'str', v: 'slide-import.zip' });
 
-    const importResult = await state.submitEnvelope(mailboxEnvelope('slide_app_import', {
-      target: { model_id: SLIDE_IMPORTER_TRUTH_MODEL_ID, p: 0, r: 0, c: 0, k: 'slide_import_media_uri' },
-    }));
-    assert.equal(importResult.result, 'ok', 'slide_app_import_must_be_accepted');
+    const importResult = await state.submitEnvelope(pinEnvelope(
+      { model_id: 1030, p: 2, r: 4, c: 0 },
+      'click',
+      { click: true },
+    ));
+    assert.equal(importResult.result, 'ok', 'slide_app_import_pin_must_be_accepted');
     await wait();
 
     const snapAfterImport = state.clientSnap();
@@ -144,10 +161,12 @@ async function test_zip_import_materializes_workspace_app_and_delete_cleans_up()
     const importedTruth = snapAfterImport.models[String(importedTruthId)]?.cells?.['0,0,0']?.labels || {};
     assert.equal(importedTruth.headline?.v, 'Imported Zip Headline', 'imported_truth_headline_missing');
 
-    const deleteResult = await state.submitEnvelope(mailboxEnvelope('ws_app_delete', {
-      value: { t: 'int', v: importedModelId },
-    }));
-    assert.equal(deleteResult.result, 'ok', 'ws_app_delete_must_be_accepted');
+    const deleteResult = await state.submitEnvelope(pinEnvelope(
+      { model_id: -25, p: 2, r: 7, c: 1 },
+      'click',
+      importedModelId,
+    ));
+    assert.equal(deleteResult.result, 'ok', 'ws_app_delete_pin_must_be_accepted');
     await wait();
 
     const snapAfterDelete = state.clientSnap();

@@ -8,6 +8,33 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "slide_app_import_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_app_import_request_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, slide_app_import_request)",
+          "to": [
+            "(func, handle_slide_app_import:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "handle_slide_app_import",
       "t": "func.js",
       "v": {

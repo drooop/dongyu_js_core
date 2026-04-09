@@ -8,6 +8,87 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "ws_select_app_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_select_app_request_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, ws_select_app_request)",
+          "to": [
+            "(func, handle_ws_select_app:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_app_add_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_app_add_request_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, ws_app_add_request)",
+          "to": [
+            "(func, handle_ws_app_add:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_app_delete_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_app_delete_request_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, ws_app_delete_request)",
+          "to": [
+            "(func, handle_ws_app_delete:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "handle_ws_select_app",
       "t": "func.js",
       "v": {

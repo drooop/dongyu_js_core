@@ -656,14 +656,10 @@
     "t": "json",
     "v": {
       "write": {
-        "action": "submit",
-        "meta": {
-          "model_id": 100
-        },
+        "pin": "click",
         "value_ref": {
           "t": "event",
           "v": {
-            "action": "submit",
             "input_value": {
               "$label": {
                 "model_id": -2,

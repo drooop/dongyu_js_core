@@ -126,10 +126,12 @@ async function test_executable_import_runs_local_and_chain_paths() {
       userId: '@drop:localhost',
     });
     state.runtime.addLabel(state.runtime.getModel(1031), 0, 0, 0, { k: 'slide_import_media_uri', t: 'str', v: 'mxc://localhost/0307-exec' });
-    const importResult = await state.submitEnvelope(mailboxEnvelope('slide_app_import', {
-      target: { model_id: 1031, p: 0, r: 0, c: 0, k: 'slide_import_media_uri' },
-    }));
-    assert.equal(importResult.result, 'ok', 'executable_import_must_be_accepted');
+    const importResult = await state.submitEnvelope(pinEnvelope(
+      { model_id: 1030, p: 2, r: 4, c: 0 },
+      'click',
+      { click: true },
+    ));
+    assert.equal(importResult.result, 'ok', 'executable_import_pin_must_be_accepted');
     await wait();
 
     const registry = state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
