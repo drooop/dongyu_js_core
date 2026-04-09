@@ -2,7 +2,7 @@
 title: "Slide UI Mainline Guide"
 doc_type: user-guide
 status: active
-updated: 2026-04-09
+updated: 2026-04-10
 source: ai
 ---
 
@@ -74,6 +74,8 @@ source: ai
   - 解释 Workspace 统一主线合同
 - `slide_app_zip_import_v1.md`
   - 解释 zip 导入格式、安装和卸载
+- `slide_matrix_delivery_v1.md`
+  - 解释同事如何用当前正式协议交付 slide app
 - `slide_app_filltable_create_v1.md`
   - 解释填表创建路径
 - `slide_ui_evidence_runbook.md`
