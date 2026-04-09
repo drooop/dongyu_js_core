@@ -273,6 +273,22 @@ phase: phase4
   - 把 `路径 A` 的前提改成按“鉴权开启 / 未开启”分开写
   - 明确写入 `not_authenticated`
 
+### 2026-04-10 — Post-completion Review Follow-up 3
+
+**Input**
+- 用户再追加 review：
+  - `路径 B` 第 2 步仍把“当前登录会话”和“server 自身 Matrix 凭据”写成了无条件二选一
+
+**Observed**
+- `路径 B` 的上传入口仍然是同一个 `/api/media/upload`
+- 所以它和 `路径 A` 一样，先受页面鉴权逻辑约束：
+  - 开启鉴权时，未登录直接 `not_authenticated`
+  - 只有未开启鉴权时，server 侧 Matrix 凭据才可能参与兜底
+
+**Action**
+- 第三次更新 `docs/user-guide/slide_matrix_delivery_v1.md`
+  - 把 `路径 B` 第 2 步也改成按“鉴权开启 / 未开启”分开写
+
 ## Docs Updated
 
 - [x] `docs/iterations/0309-slide-matrix-delivery-and-coworker-guide/resolution.md` updated

@@ -92,7 +92,13 @@ source: ai
 如果不是走页面，而是做程序接入，当前也必须遵守同一条正式主线：
 
 1. 先把 zip 发给当前 ui-server 的 `/api/media/upload?filename=<your-zip-name>.zip`
-2. 让这个请求由当前登录会话或 server 自身 Matrix 凭据完成上传
+2. 这一上传步骤也要先看当前环境是否开启了页面鉴权：
+   - 如果开启了鉴权：
+     - 发起这个上传的页面侧必须先登录
+     - 没登录会先直接返回 `not_authenticated`
+     - 这时不能指望 server 自身 Matrix 凭据替代页面登录
+   - 如果没有开启鉴权：
+     - 才可以由当前请求自带 Matrix session 或 server 自身 Matrix 凭据来完成上传
 3. 从上传返回里拿到 `mxc://...`
 4. 这一步同时完成当前 ui-server 的 media cache priming
 5. 把这个 URI 写入 importer 真值模型的 `slide_import_media_uri`
