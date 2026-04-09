@@ -1188,11 +1188,17 @@ function staticUploadCore(name, kind, buf) {
 
 const SLIDE_IMPORT_ALLOWED_UI_AUTHORING_VERSION = 'cellwise.ui.v1';
 const SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES = new Set([
-  'func.js',
   'func.python',
   'pin.connect.model',
   'pin.bus.in',
   'pin.bus.out',
+]);
+const SLIDE_IMPORT_FORBIDDEN_LABEL_KEYS = new Set([
+  'scope_privileged',
+  'helper_executor',
+  'owner_apply',
+  'owner_apply_route',
+  'owner_materialize',
 ]);
 
 function isPlainObject(value) {
@@ -1264,8 +1270,16 @@ function validateSlideImportPayload(payload) {
     if (typeof record.k !== 'string' || !record.k.trim() || typeof record.t !== 'string' || !record.t.trim()) {
       return { ok: false, code: 'invalid_target', detail: 'invalid_label_shape' };
     }
+    if (SLIDE_IMPORT_FORBIDDEN_LABEL_KEYS.has(record.k) || String(record.k).startsWith('run_')) {
+      return { ok: false, code: 'invalid_target', detail: `forbidden_label_key:${record.k}` };
+    }
     if (SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES.has(record.t)) {
       return { ok: false, code: 'invalid_target', detail: `forbidden_label_type:${record.t}` };
+    }
+    if (record.t === 'func.js') {
+      if (!record.v || typeof record.v !== 'object' || Array.isArray(record.v) || typeof record.v.code !== 'string' || !record.v.code.trim()) {
+        return { ok: false, code: 'invalid_target', detail: 'invalid_func_js_shape' };
+      }
     }
     tempIds.add(record.id);
   }

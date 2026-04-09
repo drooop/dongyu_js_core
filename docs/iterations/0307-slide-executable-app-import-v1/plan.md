@@ -15,16 +15,17 @@ phase: phase1
 
 - 让导入的 slide app 不再只是“可渲染”，而是“可带程序模型并执行”。
 - 落地 requirement 4 的两类前端业务：
-  - `func.js` 代码片段
-  - 发送特定事件，由后端写入后继续走数据链路
+  - 导入 app 自带 runtime `func.js`
+  - 前端发送特定 pin 事件，由后端继续走数据链路
 
 ## Scope
 
 - In scope:
   - 导入协议支持执行型 app
-  - `func.js` 前端业务
-  - 特定事件型前端业务
+  - runtime `func.js` 导入与执行
+  - 特定事件型前端业务（基于 `0310/0311` 的 pin 直寻址协议）
 - Out of scope:
+  - 不开放浏览器侧任意 `eval` / 任意 JS 片段执行
   - 不在本 IT 拆旧快捷路由
   - 不在本 IT 输出最终同事说明文档
 
@@ -35,7 +36,15 @@ phase: phase1
 - 导入包继续禁止：
   - `pin.bus.in`
   - `pin.bus.out`
+  - `pin.connect.model`
   - 直接跨系统边界的隐式能力
+- 导入包额外禁止覆盖系统生成的 helper / privilege 标签：
+  - `scope_privileged`
+  - `helper_executor`
+  - `owner_apply`
+  - `owner_apply_route`
+  - `owner_materialize`
+  - 任意 `run_*`
 - `func.js` 运行边界必须锁在受控 ctx API 内：
   - 允许：读写当前合法模型链上的 label、走 pin 链、写日志
   - 不允许：直接文件系统、系统命令、任意网络、任意宿主能力
@@ -45,13 +54,15 @@ phase: phase1
 
 - requirement 4 的安全策略必须先冻结，再实现
 - 执行型导入不能破坏 `0302` 的可删除、可 remap、可持久化
-- 本 IT 是独立能力线，不应阻塞：
-  - `0306 -> 0308 -> 0309`
+- 本 IT 建立在 `0310/0311` 已冻结并实现的 pin 直寻址协议之上
+- 当前 v1 的“js 代码片段”指 runtime `func.js`，不是浏览器侧任意脚本执行
 
 ## Success Criteria
 
 1. 导入包可携带执行型程序模型
-2. 两类前端业务都能端到端成立
+2. 两类前端业务都能端到端成立：
+   - 同 cell `func.js`
+   - 通过 root / helper pin 继续走链
 3. 安全策略有明确白名单和边界
 
 ## Inputs
