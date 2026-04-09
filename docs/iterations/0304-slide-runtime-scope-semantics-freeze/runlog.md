@@ -61,3 +61,18 @@ phase: phase1
 - Decision: **Approved**
 - Notes:
   - 用户已要求在开始 `0304` 之前先补齐后续 IT 落位、拆分 `0306` 风险，并把需求 3/4 明确落到后续 IT。
+
+### Review 2 — User
+
+- Iteration ID: `0304-slide-runtime-scope-semantics-freeze`
+- Review Date: `2026-04-09`
+- Review Type: `User`
+- Review Index: `2`
+- Decision: **Approved**
+- Notes:
+  - 用户确认 7-IT 方案可以启动 `0304`
+  - 同时要求在 `0304` plan 中显式承认并记录：
+    - `0305` 可能拆分为事件合同与 Input 延后同步两条节奏
+    - `0306` 默认用内置模型验收
+    - `0307` 不应阻塞主线
+    - `0309` 需要紧跟 `0308`
