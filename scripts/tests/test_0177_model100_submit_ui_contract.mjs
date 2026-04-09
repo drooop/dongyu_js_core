@@ -24,10 +24,10 @@ function findNodeById(node, id) {
 function assertModel100SubmitWriteContract(write, label) {
   assert.ok(write && typeof write === 'object', `${label}: submit write binding must exist`);
   assert.equal(write.action, 'submit', `${label}: submit button must use business action submit`);
-  assert.equal(
-    Object.prototype.hasOwnProperty.call(write, 'target_ref'),
-    false,
-    `${label}: submit button must not direct-write model100 ui_event label`,
+  assert.deepEqual(
+    write.target_ref,
+    { model_id: MODEL_100_ID, p: 0, r: 0, c: 0 },
+    `${label}: submit button must declare current model/current cell target coordinates`,
   );
   assert.deepEqual(
     write.meta,

@@ -133,6 +133,12 @@ Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。
 - mailbox 只是前端事件入口，不是长期业务路由本体。
 - mailbox 之后的“事件 -> 合法 pin ingress / routing”解释属于 Tier 1 runtime。
 - `server` 只负责 envelope 适配、mailbox 写入与 snapshot / transport；不应长期持有独立正式事件语义。
+- 对需要落到“当前模型 / 当前单元格”的业务动作，前端事件 envelope 应显式携带：
+  - `target.model_id`
+  - `target.p`
+  - `target.r`
+  - `target.c`
+- 兼容期可继续保留 `meta.model_id`，但它不再是唯一目标来源。
 
 参考合同：`docs/iterations/0129-modeltable-editor-v0/contract_event_mailbox.md`
 
@@ -231,6 +237,13 @@ relay 规则：
 - `on_submit`
   - 输入过程中只改 overlay
   - 显式 submit/action 前先 commit
+
+补充：
+
+- 这套延后同步不仅适用于负数本地状态，也适用于正数模型的 owner/intention 写入。
+- 当前 slide 主线里，正数模型输入的推荐默认值是：
+  - `Input` → `on_blur`
+  - 高频选择类控件 → `on_change`
 
 关键边界：
 - overlay 只影响当前前端显示，不自动变成系统事实。

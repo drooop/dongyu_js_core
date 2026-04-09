@@ -1426,7 +1426,7 @@ function buildFilltableCreatedSlidePayload(spec) {
     { id: 0, p: 2, r: 3, c: 0, k: 'ui_parent', t: 'str', v: 'created_slide_root' },
     { id: 0, p: 2, r: 3, c: 0, k: 'ui_bind_json', t: 'json', v: {
       read: { model_id: 1, p: 0, r: 0, c: 0, k: 'body_text' },
-      write: { action: 'ui_owner_label_update', target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'body_text' } },
+      write: { action: 'ui_owner_label_update', target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'body_text' }, commit_policy: 'on_blur' },
     } },
     { id: 0, p: 2, r: 4, c: 0, k: 'ui_node_id', t: 'str', v: 'created_slide_body_preview' },
     { id: 0, p: 2, r: 4, c: 0, k: 'ui_component', t: 'str', v: 'Text' },
@@ -4940,10 +4940,15 @@ function createServerState(options) {
       return finishError('unknown_action', action);
     };
 
-    const businessTargetModelId = meta && Number.isInteger(meta.model_id) ? meta.model_id : null;
-    const directMutationTarget = payload && payload.target && typeof payload.target === 'object' && Number.isInteger(payload.target.model_id)
-      ? payload.target.model_id
-      : null;
+    const target = payload && payload.target && typeof payload.target === 'object' ? payload.target : null;
+    const targetModelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
+    const businessTargetModelId = meta && Number.isInteger(meta.model_id)
+      ? meta.model_id
+      : (action === 'submit' ? targetModelId : null);
+    const directMutationTarget = targetModelId;
+    if (target && !(Number.isInteger(target.model_id) && Number.isInteger(target.p) && Number.isInteger(target.r) && Number.isInteger(target.c))) {
+      return finishError('invalid_target', 'missing_target_coords');
+    }
     if (envelopeOrNull && HOME_PIN_ACTIONS.has(action)) {
       return executeHomePinAction();
     }
@@ -4992,6 +4997,7 @@ function createServerState(options) {
         : {};
       if (!normalizedEvent.action) normalizedEvent.action = action;
       if (!normalizedEvent.meta) normalizedEvent.meta = meta || {};
+      if (target && !normalizedEvent.target) normalizedEvent.target = target;
       runtime.addLabel(targetModel, 0, 0, 2, { k: 'ui_event', t: 'event', v: normalizedEvent });
       return finishOk();
     }

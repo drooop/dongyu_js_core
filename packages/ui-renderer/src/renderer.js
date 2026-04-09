@@ -1657,7 +1657,12 @@ function dispatchEvent(node, target, payload, host, overrideType) {
     const action = target.action;
     const out = { action };
     if (action !== 'submodel_create') {
-      out.target = resolveRefsDeep(target.target_ref, ctx, snapshot);
+      const resolvedTarget = resolveRefsDeep(target.target_ref, ctx, snapshot);
+      if (resolvedTarget !== undefined) {
+        out.target = resolvedTarget;
+      } else if (node.cell_ref && Number.isInteger(node.cell_ref.model_id)) {
+        out.target = { model_id: node.cell_ref.model_id, p: node.cell_ref.p, r: node.cell_ref.r, c: node.cell_ref.c };
+      }
     }
 
     if (action === 'label_add' || action === 'label_update' || action === 'ui_owner_label_update') {
