@@ -2,7 +2,7 @@
 title: "UI 事件到 Matrix 的完整流转机制"
 doc_type: ssot
 status: active
-updated: 2026-03-21
+updated: 2026-04-09
 source: ai
 ---
 
@@ -23,9 +23,10 @@ source: ai
 - 自 0187 起，UI 侧已不再存在 legacy `mailbox -> forward_ui_events -> ctx.sendMatrix(...)` 默认旁路。
 - 当前 canonical app-level 外发路径是：
  - UI 写 mailbox / 模型内本地状态
-  - 模型内函数或 relay 写 `pin.table.out`
+  - 模型内函数或 relay 写 root `pin.out`
   - 逐层 relay 到 Model 0
   - 仅 Model 0 `pin.bus.out` / 等价宿主观察点触发 `ctx.sendMatrix(payload)`
+- mailbox 之后的“事件 -> pin ingress / routing”解释属于 Tier 1 runtime；`server` 只负责 transport / adapter。
 
 0213 Matrix debug 补充：
 - `matrix_debug_refresh` / `matrix_debug_clear_trace` / `matrix_debug_summarize` 属于 debug surface safe ops。

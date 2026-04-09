@@ -45,6 +45,8 @@ phase: phase1
 
 - requirement 4 的安全策略必须先冻结，再实现
 - 执行型导入不能破坏 `0302` 的可删除、可 remap、可持久化
+- 本 IT 是独立能力线，不应阻塞：
+  - `0306 -> 0308 -> 0309`
 
 ## Success Criteria
 
@@ -56,4 +58,3 @@ phase: phase1
 
 - Created at: 2026-04-09
 - Iteration ID: `0307-slide-executable-app-import-v1`
-

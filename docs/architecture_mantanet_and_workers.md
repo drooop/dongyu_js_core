@@ -2,7 +2,7 @@
 title: "云海流核心概念与架构边界（SSOT）"
 doc_type: note
 status: active
-updated: 2026-03-21
+updated: 2026-04-09
 source: ai
 ---
 
@@ -151,6 +151,13 @@ source: ai
 - label.v = 类型（Code.JS | Data.Array | Flow | Doc.Markdown | ...），但 `model.submt` 的 value 为 child model id
 - 无效的形态×类型组合必须在注册时被拒绝。
 
+补充：
+- materialized Cell 仍只有一个 effective model label（主归属 / 主执行形态）。
+- 但一个 Cell 可以被多个上层 model scope 派生发现：
+  - 父模型可沿 `model.submt` ancestry 逐层看到 descendants
+  - `model.matrix` 可看到其范围内的 `model.single` 与更小矩阵
+- 执行时不按“当前处于哪些 scope”分支，而按 pin 链与目标坐标传播。
+
 ---
 
 ## 4. 滑动 UI（Sliding UI）
@@ -160,6 +167,7 @@ source: ai
   - UI 变更优先通过模型表与 token/规范完成，而不是散落硬编码。
   - UI 事件必须可追踪到模型表的某个 Cell 或某条执行路径（可解释性）。
   - UI 事件只写 mailbox（model_id=-1, Cell(0,0,1)），不直接操作总线。
+  - mailbox 之后的“事件 -> 引脚 ingress / routing”解释属于 Tier 1 runtime，不属于 server 独有语义。
 
 ---
 
@@ -221,7 +229,7 @@ PIN 端口按**类型**区分层级（不是按位置硬编码）：
 | 层级 | 数据通道 | 日志通道 | 作用域 |
 |---|---|---|---|
 | Cell 级 | pin.in / pin.out | pin.log.in / pin.log.out | 任意 Cell |
-| Model 边界 | pin.table.in / pin.table.out；pin.single.in / pin.single.out | pin.log.table.in / pin.log.table.out；pin.log.single.in / pin.log.single.out | 仅 (0,0,0), model_id != 0 |
+| Model 根边界 | pin.in / pin.out | pin.log.in / pin.log.out | 非系统模型 `(0,0,0)` |
 | 系统边界 | pin.bus.in / pin.bus.out | pin.log.bus.in / pin.log.bus.out | 仅 Model 0 (0,0,0) |
 
 ### 6.2 三层连接声明
@@ -252,6 +260,7 @@ PIN 端口按**类型**区分层级（不是按位置硬编码）：
 
 - 模型形态执行：model.single / model.matrix / model.table 约束校验。
 - 标签类型解释：`_applyBuiltins` 按 label.t 分发。
+- mailbox 事件入口到合法 pin ingress 的解释与传播。
 - MQTT 循环、AsyncFunction 执行器、PIN 路由图管理、可观测性。
 
 ### 7.2 Tier 2：模型定义（填表能力）

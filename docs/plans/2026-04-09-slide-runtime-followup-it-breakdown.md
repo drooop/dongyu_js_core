@@ -23,6 +23,7 @@ source: ai
   - SSOT 仍假设“每个 materialized Cell 只有一个有效模型归属”
   - 前端 `submit` 仍主要依赖 `meta.model_id` 目标，而不是“当前模型 / 当前单元格”
   - `ui-server` 当前仍保留 mailbox / `dual_bus_model` 快捷触发路径
+  - “mailbox -> pin ingress / routing” 目前主要还在 server 层显式分发，尚未正式收回 Tier 1 runtime
   - 导入协议当前默认禁止 `func.js`
   - 同事侧尚无正式的 Matrix 投递说明
 
@@ -69,6 +70,7 @@ source: ai
 - 性质：实现
 - 解决：
   - 新建合法链路
+  - 把 mailbox 之后的 ingress 解释正式收回 Tier 1 runtime
   - 前端事件进入 `Model 0`
   - 经引脚 / 父子模型传递
   - 到达目标单元格程序模型 `IN`
