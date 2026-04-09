@@ -34,8 +34,10 @@ source: ai
    - `0304` 完成后先给出一份接口预告（preview），不等 `0309`
 
 2. 前端事件如何触发“当前单元格的程序模型 IN”
-   - 事件目标合同：`0305-slide-event-target-and-deferred-input-sync`
-   - 合法 pin-chain 执行：`0306-slide-pin-chain-routing-buildout`
+   - 过渡合同：`0305-slide-event-target-and-deferred-input-sync`
+   - 过渡 pin-chain：`0306-slide-pin-chain-routing-buildout`
+   - 正式 pin 直寻址协议：`0310-slide-frontend-pin-addressing-freeze`
+   - 内置页面 pin 化：`0311-slide-page-asset-pinification-buildout`
 
 3. 恢复类似 `Input` 的延后触发
    - 落位：`0305-slide-event-target-and-deferred-input-sync`
@@ -97,14 +99,15 @@ source: ai
     - `func.js` 白名单
     - 沙箱边界
     - 禁止能力清单
-  - 这是独立能力线，不应阻塞 `0306 -> 0308 -> 0309` 主线
+  - 依赖 `0310/0311` 完成后的 pin 直寻址协议
 
 ### 0308 — legacy-shortcut-retirement
 
 - 性质：实现 / cleanup
 - 解决：
-  - 在 `0306/0307` 证明新链路稳定后，逐步移除 `ui-server` 里的旧快捷事件路由
+  - 在 `0311/0307` 证明新链路稳定后，逐步移除 `ui-server` 里的旧快捷事件路由
   - 统一收口到合法 pin-chain
+  - 列出仍需 `hasHostPrivileges` 的函数，并逐个评估是否可改成 pin.out 路由替代
 
 ### 0309 — matrix-delivery-and-coworker-guide
 
@@ -116,6 +119,48 @@ source: ai
 - 备注：
   - `0309` 需要紧跟 `0308`
   - 不应让新旧路由长期并存而无限后延
+
+### 0310 — frontend-pin-addressing-freeze
+
+- 性质：docs-only / 协议冻结
+- 解决：
+  - 前端事件从 `action` 语义切到 pin 直寻址语义
+  - 冻结新的 envelope 形状：
+    - `target.model_id / p / r / c`
+    - `pin`
+    - `value`
+    - `meta.op_id`
+  - 冻结投影协议扩展：
+    - AST 节点如何携带 `writable_pins` 或等价 pin 入口信息
+  - 冻结系统动作按钮的 cell 化原则
+  - 先做内置页面现状审计：
+    - 哪些按钮已有 cell
+    - 哪些按钮还没有 cell
+
+### 0311 — page-asset-pinification-buildout
+
+- 性质：实现
+- 解决：
+  - 把内置页面与系统动作按钮全部改成“按钮 = cell pin 投影”
+  - 至少覆盖：
+    - `Model 100 submit`
+    - `slide_app_import`
+    - `slide_app_create`
+    - `ws_app_add`
+    - `ws_app_delete`
+    - `ws_select_app / ws_app_select`
+  - 前端改为直接写目标 cell 的 pin，不再依赖 `action -> ingress` 翻译层
+- `0310` 审计输入（当前已确认）：
+  - 已有独立 cell：
+    - `Model 100 submit`
+    - `slide_app_import`
+    - `slide_app_create`
+    - `ws_select_app`
+    - `ws_app_delete`
+  - 动作别名共用同一按钮：
+    - `ws_app_select` 复用 `ws_select_app` 的现有按钮 cell
+  - 当前未发现现成按钮 cell：
+    - `ws_app_add`
 
 ## 0304 Preview Deliverable
 

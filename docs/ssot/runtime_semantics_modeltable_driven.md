@@ -497,6 +497,37 @@ TargetRef 结构：
   - 不再允许回退到 server 的 direct `run_func` / direct positive-model `ui_event`
 - 其他未迁移动作仍可能保留 legacy shortcut；它们属于后续收口债务，不构成新的正式规范。
 
+前端协议的后续正式冻结（`0310`）如下：
+
+- 前端正式业务事件不再以 `action` 作为长期语义。
+- 前端正式业务事件应改为：
+  - `target = cell`
+  - `pin = port`
+- 也就是：
+  - `target.model_id / p / r / c` 只负责指向“哪个 Cell”
+  - `pin` 只负责指向“这个 Cell 的哪个可写入口”
+- `pin` 不进入 `target`，两者必须保持分离。
+- `action` 在兼容层中可暂留到 `0308`，但不再是新的正式协议字段。
+
+投影协议的后续正式冻结（`0310`）如下：
+
+- cellwise AST 节点除 `cell_ref` 外，还应显式携带可写 pin 信息。
+- 当前冻结字段名为：
+  - `writable_pins`
+- `writable_pins` 的结构固定为数组：
+  - `[{ name, direction, trigger, value_t?, commit_policy?, primary? }]`
+- 字段约束：
+  - `name: string`
+  - `direction: "in" | "out"`
+  - `trigger: "click" | "change" | "blur" | "submit"`
+  - `value_t: optional string`
+  - `commit_policy: optional "immediate" | "on_change" | "on_blur" | "on_submit"`
+  - `primary: optional bool`
+- `0310/0311` 范围内，前端可写 pin 仅允许使用：
+  - `direction = "in"`
+- 每个节点内，同一个 `trigger + direction` 组合只允许出现一次。
+- 若节点没有 `writable_pins`，则说明该节点不具备正式 pin 直寻址写入口。
+
 > 详见 `docs/iterations/0129-modeltable-editor-v0/contract_event_mailbox.md`。
 
 ### 7.1 认知层（scene_context, 0153）

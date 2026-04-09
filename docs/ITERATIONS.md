@@ -211,6 +211,8 @@ source: ai
 | 0307-slide-executable-app-import-v1 | 2026-04-09 | 执行型 slide app 导入 v1：支持 js 代码片段 / 特定事件两类前端业务，并先冻结安全策略 | 4 | dev_0307-slide-executable-app-import-v1 | Planned | ./docs/iterations/0307-slide-executable-app-import-v1/ |
 | 0308-slide-legacy-shortcut-retirement | 2026-04-09 | 在新合法链路稳定后，退役 ui-server 中现有的快捷事件路由并统一收口 | 3 | dev_0308-slide-legacy-shortcut-retirement | Planned | ./docs/iterations/0308-slide-legacy-shortcut-retirement/ |
 | 0309-slide-matrix-delivery-and-coworker-guide | 2026-04-09 | 输出滑动 APP 的 Matrix 投递协议、接口预告与同事说明文档 | 3 | dev_0309-slide-matrix-delivery-and-coworker-guide | Planned | ./docs/iterations/0309-slide-matrix-delivery-and-coworker-guide/ |
+| 0310-slide-frontend-pin-addressing-freeze | 2026-04-09 | 冻结前端 pin 直寻址协议：前端事件不再以 action 为正式语义，并明确投影如何下发可写 pin 信息 | 4 | dev_0310-slide-frontend-pin-addressing-freeze | Completed | ./docs/iterations/0310-slide-frontend-pin-addressing-freeze/ |
+| 0311-slide-page-asset-pinification-buildout | 2026-04-09 | 将内置页面与系统动作按钮改成 cell pin 投影，前端直接写目标 pin，不再依赖 action->ingress 翻译层 | 4 | dev_0311-slide-page-asset-pinification-buildout | Planned | ./docs/iterations/0311-slide-page-asset-pinification-buildout/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
