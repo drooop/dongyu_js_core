@@ -1,12 +1,12 @@
 ---
 title: "0313 — slide-delivery-and-runtime-overview Runlog"
 doc_type: iteration-runlog
-status: active
+status: completed
 updated: 2026-04-10
 source: ai
 iteration_id: 0313-slide-delivery-and-runtime-overview
 id: 0313-slide-delivery-and-runtime-overview
-phase: phase1
+phase: phase4
 ---
 
 # 0313 — slide-delivery-and-runtime-overview Runlog
@@ -55,6 +55,55 @@ phase: phase1
 
 ## Docs Updated
 
-- [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
-- [ ] `docs/user-guide/modeltable_user_guide.md` reviewed
-- [ ] `docs/ssot/execution_governance_ultrawork_doit.md` reviewed
+- [x] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
+- [x] `docs/user-guide/modeltable_user_guide.md` reviewed
+- [x] `docs/ssot/execution_governance_ultrawork_doit.md` reviewed
+
+## Execution Record
+
+### 2026-04-10 — Step 1 Overview Page Delivery
+
+**Created**
+- `docs/user-guide/slide_delivery_and_runtime_overview_v1.md`
+
+**Updated**
+- `docs/user-guide/README.md`
+- `docs/user-guide/slide_ui_mainline_guide.md`
+
+**Delivered**
+- 新页按已冻结 4 节目录收口：
+  - 安装交付
+  - app 结构
+  - 运行时触发
+  - Matrix 关系
+- 明确把两条链并排区分：
+  - 安装时上传/导入链
+  - 导入后运行链
+- 明确：
+  - 不重讲 `0312` 上传鉴权与 cache 细节
+  - 不发明新的 Matrix room message 协议
+
+### 2026-04-10 — Step 2 Deterministic Verification
+
+**Commands**
+- `node scripts/tests/test_0305_event_target_contract.mjs` → PASS
+- `node scripts/tests/test_0305_positive_input_deferred_contract.mjs` → PASS
+- `node scripts/tests/test_0311_pin_projection_contract.mjs` → PASS
+- `node scripts/tests/test_0311_model100_pin_addressing_server_flow.mjs` → PASS
+- `node scripts/tests/test_0307_executable_import_contract.mjs` → PASS
+- `node scripts/tests/test_0307_executable_import_server_flow.mjs` → PASS
+- `node scripts/ops/obsidian_docs_audit.mjs --root docs` → PASS
+
+**Meaning**
+- “安装交付”口径与当前导入主线一致
+- “运行时触发”口径与当前 pin 直寻址和执行型导入行为一致
+- 文档格式和 frontmatter 正常
+
+## Living Docs Review
+
+- `docs/ssot/runtime_semantics_modeltable_driven.md`
+  - reviewed, no change needed
+- `docs/user-guide/modeltable_user_guide.md`
+  - reviewed, no change needed
+- `docs/ssot/execution_governance_ultrawork_doit.md`
+  - reviewed, no change needed

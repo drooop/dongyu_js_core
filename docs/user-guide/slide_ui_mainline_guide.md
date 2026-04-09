@@ -76,6 +76,8 @@ source: ai
   - 解释 zip 导入格式、安装和卸载
 - `slide_matrix_delivery_v1.md`
   - 解释同事如何用当前正式协议交付 slide app
+- `slide_delivery_and_runtime_overview_v1.md`
+  - 把安装交付链与导入后运行链并排讲清楚
 - `slide_upload_auth_and_cache_contract_v1.md`
   - 解释上传鉴权和 cache-priming 的正式前提
 - `slide_app_filltable_create_v1.md`
