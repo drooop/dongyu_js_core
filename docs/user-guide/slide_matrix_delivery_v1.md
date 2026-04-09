@@ -14,6 +14,10 @@ source: ai
 
 它只写当前已经稳定的做法，不再混入已经退役的旧入口，也不提前定义还没落地的新房间消息协议。
 
+上传鉴权和 cache-priming 的精确边界，继续看：
+
+- `slide_upload_auth_and_cache_contract_v1.md`
+
 ## 先说结论
 
 当前 slide app 的正式交付分成两段：
