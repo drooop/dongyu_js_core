@@ -216,6 +216,7 @@ source: ai
 | 0312-slide-upload-auth-and-cache-contract | 2026-04-10 | 冻结 slide 导入上传鉴权与 media cache-priming 合同，补正式说明与自动化测试 | 3 | dev_0312-slide-upload-auth-and-cache-contract | Completed | ./docs/iterations/0312-slide-upload-auth-and-cache-contract/ |
 | 0313-slide-delivery-and-runtime-overview | 2026-04-10 | 收口一页同事总说明，并排解释 slide app 的安装交付链与导入后运行链 | 2 | dev_0313-slide-delivery-and-runtime-overview | Completed | ./docs/iterations/0313-slide-delivery-and-runtime-overview/ |
 | 0314-agents-collaboration-guidance-sync | 2026-04-13 | 将 AGENTS.md 中的 repo-local collaboration 补充正式提交并同步到 dev | 1 | dev_0314-agents-collaboration-guidance-sync | Completed | ./docs/iterations/0314-agents-collaboration-guidance-sync/ |
+| 0315-workspace-sidebar-name-width | 2026-04-13 | 调整 Workspace 左侧 app 列表的列宽分配，在不加宽侧栏前提下给 app 名称更多显示空间 | 2 | dev_0315-workspace-sidebar-name-width | Completed | ./docs/iterations/0315-workspace-sidebar-name-width/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
