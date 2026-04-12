@@ -15,7 +15,7 @@ phase: phase4
 
 - Date: `2026-04-13`
 - Branch: `dev_0316-slide-python-install-client-example`
-- Runtime: planning
+- Runtime: docs + script execution + local real import verification
 
 ## Review Gate Record
 
@@ -82,14 +82,36 @@ phase: phase4
 
 **Observed**
 - upload uri:
-  - `mxc://localhost/IsFYUgBmnqDeprYIjwTsjqSR`
+  - `mxc://localhost/iTmWZYraqnuIPIkbXMuSPIyq`
 - imported app:
   - `Executable Import App`
 - imported model id:
-  - `1042`
+  - `1046`
 - Workspace registry 命中：
-  - `model_id=1042`
+  - `model_id=1046`
   - `slide_surface_type=workspace.page`
+
+### 2026-04-13 — Post-verify Script Hardening
+
+**Observed**
+- 首轮真验时，脚本在两个地方不够稳：
+  - 未先切 `runtime_mode=running`
+  - 遇到同名 app 时，可能先匹配到旧 registry 条目
+
+**Action**
+- `slide_app_install_client.py`
+  - 增加 `POST /api/runtime/mode`
+  - 改成优先按 `last_app_id` 匹配 Workspace registry
+  - 对 registry 刷新增加短轮询
+
+**Re-Verification**
+- `node scripts/tests/test_0316_slide_python_install_client_contract.mjs` → PASS
+- `python3 -m py_compile scripts/examples/slide_app_install_client.py` → PASS
+- `python3 scripts/examples/slide_app_install_client.py --base-url http://127.0.0.1:30900 --zip test_files/executable_import_app.zip` → PASS
+
+**Stable result**
+- `last_app_id = 1046`
+- `registry_match.model_id = 1046`
 
 ## Living Docs Review
 

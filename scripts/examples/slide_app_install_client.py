@@ -171,21 +171,42 @@ def extract_result(snapshot: dict, expected_app_name: str):
     last_id = labels.get("slide_import_last_app_id", {}).get("v", 0)
     matched = None
     if isinstance(registry, list):
-        for entry in registry:
-            if not isinstance(entry, dict):
-                continue
-            if expected_app_name and entry.get("name") == expected_app_name:
-                matched = entry
-                break
-            if last_name and entry.get("name") == last_name:
-                matched = entry
-                break
+        if isinstance(last_id, int) and last_id > 0:
+            for entry in registry:
+                if isinstance(entry, dict) and entry.get("model_id") == last_id:
+                    matched = entry
+                    break
+        if matched is None:
+            for entry in registry:
+                if not isinstance(entry, dict):
+                    continue
+                if expected_app_name and entry.get("name") == expected_app_name:
+                    matched = entry
+                    break
+                if last_name and entry.get("name") == last_name:
+                    matched = entry
+                    break
     return {
         "status": status,
         "last_app_name": last_name,
         "last_app_id": last_id,
         "registry_match": matched,
     }
+
+
+def wait_for_final_result(client: SlideInstallClient, expected_app_name: str, timeout_seconds: float = 8.0):
+    deadline = time.time() + timeout_seconds
+    last_result = None
+    while time.time() < deadline:
+        snapshot = client.snapshot()
+        current = extract_result(snapshot, expected_app_name)
+        last_result = current
+        registry_match = current.get("registry_match")
+        last_app_id = current.get("last_app_id")
+        if registry_match and isinstance(last_app_id, int) and last_app_id > 0 and registry_match.get("model_id") == last_app_id:
+            return current
+        time.sleep(0.25)
+    return last_result
 
 
 def build_parser():
@@ -236,12 +257,12 @@ def main():
     result["write_media_uri"] = client.write_import_media_uri(upload["uri"])
     result["trigger_import"] = client.trigger_import_click()
 
-    snapshot = client.snapshot()
-    final_result = extract_result(snapshot, expected_app_name)
+    final_result = wait_for_final_result(client, expected_app_name)
     result["final"] = final_result
 
     registry_match = final_result.get("registry_match")
-    if not registry_match:
+    last_app_id = final_result.get("last_app_id")
+    if not registry_match or not isinstance(last_app_id, int) or registry_match.get("model_id") != last_app_id:
         raise SystemExit(f"install_not_visible_in_workspace: {json.dumps(result, ensure_ascii=False)}")
 
     print(json.dumps(result, ensure_ascii=False, indent=2))
