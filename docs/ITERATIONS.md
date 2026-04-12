@@ -218,6 +218,7 @@ source: ai
 | 0314-agents-collaboration-guidance-sync | 2026-04-13 | 将 AGENTS.md 中的 repo-local collaboration 补充正式提交并同步到 dev | 1 | dev_0314-agents-collaboration-guidance-sync | Completed | ./docs/iterations/0314-agents-collaboration-guidance-sync/ |
 | 0315-workspace-sidebar-name-width | 2026-04-13 | 调整 Workspace 左侧 app 列表的列宽分配，在不加宽侧栏前提下给 app 名称更多显示空间 | 2 | dev_0315-workspace-sidebar-name-width | Completed | ./docs/iterations/0315-workspace-sidebar-name-width/ |
 | 0316-slide-python-install-client-example | 2026-04-13 | 提供一个 Python 安装客户端示例，让同事拿着 slide app zip 能按当前正式主线向项目部署 slide app | 3 | dev_0316-slide-python-install-client-example | Completed | ./docs/iterations/0316-slide-python-install-client-example/ |
+| 0317-time-static-root-zip | 2026-04-13 | 将 `time.zip` 重组为根目录带 `index.html` 的静态包，并用现有 Static 主线上传到 `/p/<projectName>/` | 2 | dev_0317-time-static-root-zip | Completed | ./docs/iterations/0317-time-static-root-zip/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
