@@ -287,7 +287,7 @@
       "v": {
         "label": "name",
         "prop": "name",
-        "minWidth": 140
+        "minWidth": 180
       }
     },
     {
@@ -341,7 +341,7 @@
       "v": {
         "label": "source",
         "prop": "source",
-        "minWidth": 100
+        "width": 72
       }
     },
     {
@@ -394,7 +394,7 @@
       "t": "json",
       "v": {
         "label": "Actions",
-        "width": 180,
+        "width": 124,
         "fixed": "right"
       }
     },
