@@ -1082,6 +1082,7 @@ function contentTypeFor(filePath) {
   if (ext === '.js' || ext === '.mjs') return 'text/javascript; charset=utf-8';
   if (ext === '.css') return 'text/css; charset=utf-8';
   if (ext === '.json') return 'application/json; charset=utf-8';
+  if (ext === '.wasm') return 'application/wasm';
   if (ext === '.svg') return 'image/svg+xml';
   if (ext === '.ico') return 'image/x-icon';
   if (ext === '.png') return 'image/png';
