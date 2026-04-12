@@ -63,6 +63,8 @@ source: ai
   - 0309 正式版：说明 slide app 当前怎么经 Matrix media + importer pin-chain 交付、包结构和最短验证。
 - `slide_delivery_and_runtime_overview_v1.md`
   - 0313 总览页：并排解释 slide app 的安装交付链和导入后运行链。
+- `slide_python_install_client_v1.md`
+  - 0316 Python 示例：给同事一个可直接运行的 slide app 安装客户端。
 - `slide_upload_auth_and_cache_contract_v1.md`
   - 0312 正式合同：冻结上传鉴权模式、`/api/media/upload`、cache-priming 与 `media_not_cached` 边界。
 - `slide_matrix_delivery_preview_v0.md`
