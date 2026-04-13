@@ -221,6 +221,7 @@ source: ai
 | 0317-time-static-root-zip | 2026-04-13 | 将 `time.zip` 重组为根目录带 `index.html` 的静态包，并用现有 Static 主线上传到 `/p/<projectName>/` | 2 | dev_0317-time-static-root-zip | Completed | ./docs/iterations/0317-time-static-root-zip/ |
 | 0318-static-wasm-mime-fix | 2026-04-13 | 修复 Static 发布路径对 `.wasm` 的 MIME 类型，确保浏览器能真正执行 wasm 页面 | 2 | dev_0318-static-wasm-mime-fix | Completed | ./docs/iterations/0318-static-wasm-mime-fix/ |
 | 0320-imported-slide-app-host-ingress-semantics-freeze | 2026-04-14 | docs-only 冻结 imported slide app 的宿主接入语义，裁决正式业务 ingress、宿主 adapter 和边界 pin 要求 | 3 | dev_0320-imported-slide-app-host-ingress-semantics-freeze | Completed | ./docs/iterations/0320-imported-slide-app-host-ingress-semantics-freeze/ |
+| 0321-imported-slide-app-host-ingress-implementation | 2026-04-14 | 按 0320 的 v1 规约落第一批宿主 ingress 实现：导入期声明 boundary pin，安装时自动补 Model 0 host adapter | 4 | dev_0321-imported-slide-app-host-ingress-implementation | Approved | ./docs/iterations/0321-imported-slide-app-host-ingress-implementation/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
