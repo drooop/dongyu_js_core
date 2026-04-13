@@ -1,12 +1,12 @@
 ---
 title: "0320 — imported-slide-app-host-ingress-semantics-freeze Resolution"
 doc_type: iteration-resolution
-status: planned
+status: completed
 updated: 2026-04-14
 source: ai
 iteration_id: 0320-imported-slide-app-host-ingress-semantics-freeze
 id: 0320-imported-slide-app-host-ingress-semantics-freeze
-phase: phase1
+phase: phase4
 ---
 
 # 0320 — imported-slide-app-host-ingress-semantics-freeze Resolution
@@ -43,7 +43,7 @@ phase: phase1
 - Files:
   - `docs/iterations/0320-imported-slide-app-host-ingress-semantics-freeze/plan.md`
   - `docs/iterations/0320-imported-slide-app-host-ingress-semantics-freeze/runlog.md`
-  - 后续正式规约页路径待本迭代内决定
+  - `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md`
 - Verification:
   - 文本审查
 - Acceptance:
@@ -59,7 +59,7 @@ phase: phase1
 - Scope:
   - 评估对现有文档和后续实现的影响
 - Files:
-  - `docs/user-guide/slide_delivery_and_runtime_overview_v1.md`
+  - `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md`
   - `docs/iterations/0320-imported-slide-app-host-ingress-semantics-freeze/runlog.md`
 - Verification:
   - `node scripts/ops/obsidian_docs_audit.mjs --root docs`
