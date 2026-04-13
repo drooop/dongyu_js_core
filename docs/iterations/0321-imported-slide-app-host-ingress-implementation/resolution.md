@@ -38,7 +38,7 @@ phase: phase2
 ## Step 2
 
 - Scope:
-  - 实现导入期 boundary pin 校验与宿主 route 生成
+  - 实现导入期 boundary pin 校验、宿主 route 生成与删除清理
 - Files:
   - `packages/ui-model-demo-server/server.mjs`
   - `packages/worker-base/src/runtime.mjs`（如需最小辅助）
@@ -47,15 +47,18 @@ phase: phase2
   - 新测试 PASS
 - Acceptance:
   - MVP 以 `submit` semantic 成立
+  - imported app 删除后，不遗留宿主自动生成的 ingress port / `pin.connect.model` route
 - Rollback:
   - 回退实现改动
 
 ## Step 3
 
 - Scope:
-  - 文档和回归
+  - 文档、回归与 authoritative SSOT 同步
 - Files:
   - `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md`
+  - `docs/ssot/runtime_semantics_modeltable_driven.md`
+  - `docs/ssot/label_type_registry.md`
   - `docs/iterations/0321-imported-slide-app-host-ingress-implementation/runlog.md`
   - 视需要补一页用户/同事说明
 - Verification:
@@ -63,5 +66,6 @@ phase: phase2
   - 相关导入回归 PASS
 - Acceptance:
   - 文档与实现口径一致
+  - authoritative SSOT 对新的 boundary pin 声明与宿主 route 生成有同步更新
 - Rollback:
   - 回退文档改动

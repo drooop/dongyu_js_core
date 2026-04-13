@@ -68,12 +68,15 @@ source: ai
 **Step 1:** during import, after model id remap, compute imported boundary target cell  
 **Step 2:** create one host-owned Model 0 ingress port and `pin.connect.model` route to the imported boundary pin  
 **Step 3:** name route deterministically from imported model id + semantic  
-**Step 4:** rerun server-flow test until PASS
+**Step 4:** extend uninstall cleanup so wsDeleteApp/removeImportedBundleFromRuntime also remove host-owned ingress labels and routes  
+**Step 5:** rerun server-flow test until PASS
 
 ### Task 5: Regression And Docs Alignment
 
 **Files:**
 - Modify: `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md`
+- Modify: `docs/ssot/runtime_semantics_modeltable_driven.md`
+- Modify: `docs/ssot/label_type_registry.md`
 - Modify: `docs/iterations/0321-imported-slide-app-host-ingress-implementation/runlog.md`
 
 **Step 1:** run:
@@ -85,4 +88,7 @@ source: ai
 - `node scripts/ops/obsidian_docs_audit.mjs --root docs`
 
 **Step 2:** record PASS/FAIL and commit hashes in runlog  
-**Step 3:** if any public-facing semantics changed, update the SSOT wording to match the actual implementation
+**Step 3:** update authoritative SSOT wording for:
+- imported boundary pin declaration
+- host-generated Model 0 ingress route
+- uninstall cleanup of host-owned adapter labels
