@@ -1,12 +1,12 @@
 ---
 title: "0320 — imported-slide-app-host-ingress-semantics-freeze Runlog"
 doc_type: iteration-runlog
-status: active
+status: completed
 updated: 2026-04-14
 source: ai
 iteration_id: 0320-imported-slide-app-host-ingress-semantics-freeze
 id: 0320-imported-slide-app-host-ingress-semantics-freeze
-phase: phase1
+phase: phase4
 ---
 
 # 0320 — imported-slide-app-host-ingress-semantics-freeze Runlog
@@ -44,6 +44,57 @@ phase: phase1
 
 ## Docs Updated
 
-- [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
-- [ ] `docs/user-guide/modeltable_user_guide.md` reviewed
-- [ ] `docs/ssot/execution_governance_ultrawork_doit.md` reviewed
+- [x] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
+- [x] `docs/user-guide/modeltable_user_guide.md` reviewed
+- [x] `docs/ssot/execution_governance_ultrawork_doit.md` reviewed
+
+## Execution Record
+
+### 2026-04-14 — Step 1 Current Fact Inventory
+
+**Reviewed**
+- `docs/iterations/0305-slide-event-target-and-deferred-input-sync/resolution.md`
+- `docs/iterations/0306-slide-pin-chain-routing-buildout/resolution.md`
+- `docs/iterations/0310-slide-frontend-pin-addressing-freeze/resolution.md`
+- `docs/iterations/0311-slide-page-asset-pinification-buildout/resolution.md`
+- `docs/ssot/runtime_semantics_modeltable_driven.md`
+- `docs/user-guide/modeltable_user_guide.md`
+- `packages/ui-model-demo-server/server.mjs`
+- `packages/ui-model-demo-frontend/src/local_bus_adapter.js`
+
+**Locked current facts**
+- 当前前端 pin 事件仍可直达目标 cell 的目标 pin
+- 并不是所有正式事件都已经统一先进 `Model 0`
+- 输入草稿 / 延后同步已经成立
+- cell 的有效模型标签唯一，但可被多层 scope 发现
+
+### 2026-04-14 — Step 2 Candidate Architecture Freeze
+
+**Created**
+- `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md`
+
+**Frozen**
+- 本规约是候选正式架构，不是当前 live code 事实
+- 3 个裁决被明确写出：
+  - 哪些事件属于宿主正式 ingress
+  - 宿主自动补哪些 adapter
+  - imported app 最少暴露哪些边界 pin
+- 本地 UI 草稿态明确留在统一 ingress 之外
+
+### 2026-04-14 — Step 3 Verification
+
+**Command**
+- `node scripts/ops/obsidian_docs_audit.mjs --root docs` → PASS
+
+**Result**
+- 0320 已形成独立规约页
+- 当前事实与候选架构已明确分开
+
+## Living Docs Review
+
+- `docs/ssot/runtime_semantics_modeltable_driven.md`
+  - reviewed, no change needed
+- `docs/user-guide/modeltable_user_guide.md`
+  - reviewed, no change needed
+- `docs/ssot/execution_governance_ultrawork_doit.md`
+  - reviewed, no change needed

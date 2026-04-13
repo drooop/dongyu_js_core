@@ -220,7 +220,7 @@ source: ai
 | 0316-slide-python-install-client-example | 2026-04-13 | 提供一个 Python 安装客户端示例，让同事拿着 slide app zip 能按当前正式主线向项目部署 slide app | 3 | dev_0316-slide-python-install-client-example | Completed | ./docs/iterations/0316-slide-python-install-client-example/ |
 | 0317-time-static-root-zip | 2026-04-13 | 将 `time.zip` 重组为根目录带 `index.html` 的静态包，并用现有 Static 主线上传到 `/p/<projectName>/` | 2 | dev_0317-time-static-root-zip | Completed | ./docs/iterations/0317-time-static-root-zip/ |
 | 0318-static-wasm-mime-fix | 2026-04-13 | 修复 Static 发布路径对 `.wasm` 的 MIME 类型，确保浏览器能真正执行 wasm 页面 | 2 | dev_0318-static-wasm-mime-fix | Completed | ./docs/iterations/0318-static-wasm-mime-fix/ |
-| 0320-imported-slide-app-host-ingress-semantics-freeze | 2026-04-14 | docs-only 冻结 imported slide app 的宿主接入语义，裁决正式业务 ingress、宿主 adapter 和边界 pin 要求 | 3 | dev_0320-imported-slide-app-host-ingress-semantics-freeze | Planned | ./docs/iterations/0320-imported-slide-app-host-ingress-semantics-freeze/ |
+| 0320-imported-slide-app-host-ingress-semantics-freeze | 2026-04-14 | docs-only 冻结 imported slide app 的宿主接入语义，裁决正式业务 ingress、宿主 adapter 和边界 pin 要求 | 3 | dev_0320-imported-slide-app-host-ingress-semantics-freeze | Completed | ./docs/iterations/0320-imported-slide-app-host-ingress-semantics-freeze/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
