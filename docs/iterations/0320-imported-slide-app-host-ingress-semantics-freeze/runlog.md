@@ -105,6 +105,22 @@ phase: phase4
 - Decision 3 现在不仅要求 imported app 声明边界 pin 的语义
 - 也要求 imported app 提供足以让宿主唯一定位接线目标的稳定定位信息
 
+### 2026-04-14 — Post-review Fix 2
+
+**Input**
+- review 继续指出：如果 v1 允许多种 locator form，但只要求宿主“支持其中一种”，仍然会出现双方都合规却无法互通的兼容洞。
+
+**Action**
+- 再次更新 `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md`
+  - 将 v1 收紧为一个强制 locator form
+  - 明确：
+    - v1 imported app 必须提供 root-relative cell locator
+    - v1 宿主必须支持 root-relative cell locator
+
+**Result**
+- v1 不再允许“多种 locator form 各取其一”的互操作空洞
+- Decision 3 现在能支撑下一步自动 wiring 的唯一定位前提
+
 ## Living Docs Review
 
 - `docs/ssot/runtime_semantics_modeltable_driven.md`
