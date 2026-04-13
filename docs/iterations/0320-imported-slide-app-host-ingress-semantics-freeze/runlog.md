@@ -90,6 +90,21 @@ phase: phase4
 - 0320 已形成独立规约页
 - 当前事实与候选架构已明确分开
 
+### 2026-04-14 — Post-review Fix
+
+**Input**
+- review 指出：Decision 3 只冻结了 pin 名称、类型和语义，但没有补“宿主如何稳定定位边界 pin”的规则，后续自动 wiring 仍无法唯一接线。
+
+**Action**
+- 更新 `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md`
+  - 补充边界 pin 的稳定定位要求
+  - 补充可接受的定位方式
+  - 补充多入口时必须声明 primary 的规则
+
+**Result**
+- Decision 3 现在不仅要求 imported app 声明边界 pin 的语义
+- 也要求 imported app 提供足以让宿主唯一定位接线目标的稳定定位信息
+
 ## Living Docs Review
 
 - `docs/ssot/runtime_semantics_modeltable_driven.md`
