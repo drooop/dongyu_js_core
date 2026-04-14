@@ -1171,6 +1171,10 @@ class ModelTableRuntime {
     if (prevResolvedType === 'pin.connect.model') {
       this._rebuildModelConnectionForCell(model, p, r, c);
     }
+    if ((prevResolvedType === 'pin.bus.in' || prevResolvedType === 'pin.log.bus.in') && model.id === 0 && p === 0 && r === 0 && c === 0) {
+      this.busInPorts.delete(key);
+      this._syncBusInSubscription(key, false);
+    }
     return { applied: true };
   }
 
@@ -1221,6 +1225,17 @@ class ModelTableRuntime {
         }
       }
     }
+  }
+
+  _syncBusInSubscription(portName, shouldSubscribe) {
+    if (!this.mqttClient || typeof portName !== 'string' || !portName) return;
+    const topic = this._topicFor(0, portName, 'in');
+    if (!topic) return;
+    if (shouldSubscribe) {
+      this.mqttClient.subscribe(topic);
+      return;
+    }
+    this.mqttClient.unsubscribe(topic);
   }
 
   _applyLabelTypes(model, p, r, c, label) {
@@ -2014,6 +2029,7 @@ class ModelTableRuntime {
         return;
       }
       this.busInPorts.set(label.k, true);
+      this._syncBusInSubscription(label.k, true);
       if (label.v !== null && label.v !== undefined) {
         this._routeViaCellConnection(0, 0, 0, 0, label.k, label.v);
         this._routeViaModelConnection(0, label.k, label.v);
