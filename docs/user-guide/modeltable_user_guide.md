@@ -152,6 +152,12 @@ Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。
   - `ws_app_add`
   - `ws_app_delete`
   - `ws_select_app` / `ws_app_select`
+- `0321` 新增 imported slide app 的宿主 ingress MVP：
+  - imported app 若在 root `(0,0,0)` 声明 `host_ingress_v1`
+  - 宿主安装时会自动生成一条 `Model 0 -> imported app boundary pin` 路由
+  - 当前 MVP 只支持：
+    - `submit`
+    - `root_relative_cell`
 - `0308` 之后，对以上 slide/workspace 主线路径，legacy `action` envelope 已正式退役：
   - 会显式返回 `legacy_action_protocol_retired`
   - 不再通过 server 侧 action → ingress 兼容映射偷偷放行

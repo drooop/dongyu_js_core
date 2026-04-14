@@ -1,12 +1,12 @@
 ---
 title: "0321 — imported-slide-app-host-ingress-implementation Runlog"
 doc_type: iteration-runlog
-status: active
+status: completed
 updated: 2026-04-14
 source: ai
 iteration_id: 0321-imported-slide-app-host-ingress-implementation
 id: 0321-imported-slide-app-host-ingress-implementation
-phase: phase2
+phase: phase4
 ---
 
 # 0321 — imported-slide-app-host-ingress-implementation Runlog
@@ -15,7 +15,7 @@ phase: phase2
 
 - Date: `2026-04-14`
 - Branch: `dev_0321-imported-slide-app-host-ingress-implementation`
-- Runtime: planning
+- Runtime: implementation + deterministic verification
 
 ## Planning Record
 
@@ -46,9 +46,71 @@ phase: phase2
 
 ## Docs Updated
 
-- [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
-- [ ] `docs/user-guide/modeltable_user_guide.md` reviewed
-- [ ] `docs/ssot/execution_governance_ultrawork_doit.md` reviewed
+- [x] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
+- [x] `docs/user-guide/modeltable_user_guide.md` reviewed
+- [x] `docs/ssot/execution_governance_ultrawork_doit.md` reviewed
+
+## Execution Record
+
+### 2026-04-14 — Step 1 TDD Red
+
+**Tests added**
+- `scripts/tests/test_0321_imported_host_ingress_contract.mjs`
+- `scripts/tests/test_0321_imported_host_ingress_server_flow.mjs`
+
+**Initial result**
+- 两个测试在当前实现下均 FAIL：
+  - boundary pin schema 尚未校验
+  - 宿主自动 route 尚未生成
+
+### 2026-04-14 — Step 2 Implementation
+
+**Updated**
+- `packages/ui-model-demo-server/server.mjs`
+
+**Implemented**
+- 新增 imported app root 声明：
+  - `host_ingress_v1`
+- 导入校验：
+  - 只接受 `root_relative_cell`
+  - 只接受一个 primary `submit` boundary
+  - 目标 cell 上必须存在对应 `pin.in`
+- 安装期自动补：
+  - `Model 0` host ingress `pin.bus.in`
+  - `Model 0` `pin.connect.model`
+  - imported root relay `pin.in`
+  - imported root relay `pin.connect.cell`
+- 删除 imported app 时：
+  - 一并清理宿主自动生成的 `Model 0` ingress labels / routes
+
+### 2026-04-14 — Step 3 Deterministic Verification
+
+**Commands**
+- `node scripts/tests/test_0321_imported_host_ingress_contract.mjs` → PASS
+- `node scripts/tests/test_0321_imported_host_ingress_server_flow.mjs` → PASS
+- `node scripts/tests/test_0307_executable_import_contract.mjs` → PASS
+- `node scripts/tests/test_0307_executable_import_server_flow.mjs` → PASS
+- `node scripts/tests/test_0306_runtime_mailbox_ingress_contract.mjs` → PASS
+- `node scripts/ops/obsidian_docs_audit.mjs --root docs` → PASS
+
+**Meaning**
+- 非法 locator / boundary 声明会被拒绝
+- 合法 imported app 安装后会生成 `Model 0` host ingress route
+- host ingress 可以驱动 imported app 的 boundary pin
+- 删除 imported app 会清掉自动生成的 `Model 0` labels / routes
+
+## Living Docs Review
+
+- `docs/ssot/runtime_semantics_modeltable_driven.md`
+  - reviewed and updated
+- `docs/ssot/label_type_registry.md`
+  - reviewed and updated
+- `docs/user-guide/modeltable_user_guide.md`
+  - reviewed and updated
+- `docs/handover/dam-worker-guide.md`
+  - reviewed and updated
+- `docs/ssot/execution_governance_ultrawork_doit.md`
+  - reviewed, no change needed
 
 ## Planning Follow-up
 
