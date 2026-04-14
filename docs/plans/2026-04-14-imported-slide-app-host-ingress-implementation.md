@@ -69,7 +69,8 @@ source: ai
 **Step 2:** create one host-owned Model 0 ingress port and `pin.connect.model` route to the imported boundary pin  
 **Step 3:** name route deterministically from imported model id + semantic  
 **Step 4:** extend uninstall cleanup so wsDeleteApp/removeImportedBundleFromRuntime also remove host-owned ingress labels and routes  
-**Step 5:** rerun server-flow test until PASS
+**Step 5:** add delete-flow verification that imports one app, deletes it, and proves host-owned Model 0 labels/routes are gone  
+**Step 6:** rerun server-flow test until PASS
 
 ### Task 5: Regression And Docs Alignment
 
@@ -77,6 +78,8 @@ source: ai
 - Modify: `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md`
 - Modify: `docs/ssot/runtime_semantics_modeltable_driven.md`
 - Modify: `docs/ssot/label_type_registry.md`
+- Modify: `docs/user-guide/modeltable_user_guide.md`
+- Modify: `docs/handover/dam-worker-guide.md`
 - Modify: `docs/iterations/0321-imported-slide-app-host-ingress-implementation/runlog.md`
 
 **Step 1:** run:
@@ -92,3 +95,6 @@ source: ai
 - imported boundary pin declaration
 - host-generated Model 0 ingress route
 - uninstall cleanup of host-owned adapter labels
+**Step 4:** update living docs for:
+- `docs/user-guide/modeltable_user_guide.md`
+- `docs/handover/dam-worker-guide.md`
