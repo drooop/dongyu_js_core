@@ -497,6 +497,36 @@ TargetRef 结构：
   - 不再允许回退到 server 的 direct `run_func` / direct positive-model `ui_event`
 - 其他未迁移动作仍可能保留 legacy shortcut；它们属于后续收口债务，不构成新的正式规范。
 
+### 3.0.2 Imported Slide App Host Ingress (0321 MVP)
+
+对 imported slide app，当前新增一条宿主自动生成的 host ingress 能力。
+
+触发条件：
+
+- imported app root `(0,0,0)` 显式带：
+  - `k = host_ingress_v1`
+  - `t = json`
+- 且当前 v1 只接受：
+  - 一个 primary `submit` boundary
+  - `locator_kind = root_relative_cell`
+
+安装时，宿主会自动补：
+
+- `Model 0` 上的 host ingress `pin.bus.in`
+- `Model 0` 上对应的 `pin.connect.model`
+- imported model root 上的 relay `pin.in`
+- imported model root 上对应的 `pin.connect.cell`
+
+因此，当前 v1 的正式宿主 ingress 路径是：
+
+1. 宿主把正式业务输入写到：
+   - `Model 0 (0,0,0) k=imported_host_submit_<model_id> t=pin.bus.in`
+2. `Model 0` 的 `pin.connect.model` 把它路由到 imported model root relay pin
+3. imported model root 的 `pin.connect.cell` 再把它 relay 到声明的 boundary pin
+4. imported app 内部后续链路继续由 app 自己定义
+
+删除 imported app 时，宿主必须同时清理这条自动生成的 `Model 0` ingress route。
+
 前端协议的后续正式冻结（`0310`）如下：
 
 - 前端正式业务事件不再以 `action` 作为长期语义。

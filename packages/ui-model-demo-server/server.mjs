@@ -1281,6 +1281,10 @@ function staticUploadCore(name, kind, buf) {
 }
 
 const SLIDE_IMPORT_ALLOWED_UI_AUTHORING_VERSION = 'cellwise.ui.v1';
+const SLIDE_IMPORT_HOST_INGRESS_LABEL = 'host_ingress_v1';
+const SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_SEMANTIC = 'submit';
+const SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_LOCATOR = 'root_relative_cell';
+const SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_VALUE_T = 'event';
 const SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES = new Set([
   'func.python',
   'pin.connect.model',
@@ -1349,6 +1353,68 @@ function readRootPayloadBool(records, key) {
   return record ? record.v === true : false;
 }
 
+function validateSlideImportHostIngress(records) {
+  const declaration = findRootPayloadLabel(records, SLIDE_IMPORT_HOST_INGRESS_LABEL);
+  if (!declaration) {
+    return { ok: true, hostIngress: null };
+  }
+  if (declaration.t !== 'json' || !isPlainObject(declaration.v)) {
+    return { ok: false, code: 'invalid_target', detail: 'invalid_host_ingress_shape' };
+  }
+  const boundaries = declaration.v.boundaries;
+  if (!Array.isArray(boundaries) || boundaries.length === 0) {
+    return { ok: false, code: 'invalid_target', detail: 'invalid_host_ingress_shape' };
+  }
+  const primaryBoundaries = boundaries.filter((entry) => isPlainObject(entry) && entry.primary === true);
+  if (primaryBoundaries.length !== 1 || boundaries.length !== 1) {
+    return { ok: false, code: 'invalid_target', detail: 'must_have_exactly_one_primary_host_ingress_boundary' };
+  }
+  const boundary = primaryBoundaries[0];
+  const semantic = typeof boundary.semantic === 'string' ? boundary.semantic.trim() : '';
+  const pinName = typeof boundary.pin_name === 'string' ? boundary.pin_name.trim() : '';
+  const valueT = typeof boundary.value_t === 'string' ? boundary.value_t.trim() : '';
+  if (semantic !== SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_SEMANTIC) {
+    return { ok: false, code: 'invalid_target', detail: 'unsupported_host_ingress_semantic' };
+  }
+  if (boundary.locator_kind !== SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_LOCATOR) {
+    return { ok: false, code: 'invalid_target', detail: 'unsupported_host_ingress_locator_kind' };
+  }
+  if (valueT !== SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_VALUE_T) {
+    return { ok: false, code: 'invalid_target', detail: 'unsupported_host_ingress_value_t' };
+  }
+  if (!pinName) {
+    return { ok: false, code: 'invalid_target', detail: 'missing_host_ingress_pin_name' };
+  }
+  const locator = boundary.locator_value;
+  if (!isPlainObject(locator) || !Number.isInteger(locator.p) || !Number.isInteger(locator.r) || !Number.isInteger(locator.c)) {
+    return { ok: false, code: 'invalid_target', detail: 'invalid_host_ingress_locator_value' };
+  }
+  const targetPin = records.find((record) => (
+    record
+    && record.p === locator.p
+    && record.r === locator.r
+    && record.c === locator.c
+    && record.k === pinName
+  ));
+  if (!targetPin || targetPin.t !== 'pin.in') {
+    return { ok: false, code: 'invalid_target', detail: 'host_ingress_target_pin_missing' };
+  }
+  return {
+    ok: true,
+    hostIngress: {
+      semantic,
+      pinName,
+      valueT,
+      locator: {
+        p: locator.p,
+        r: locator.r,
+        c: locator.c,
+      },
+      declaration: declaration.v,
+    },
+  };
+}
+
 function validateSlideImportPayload(payload) {
   if (!Array.isArray(payload) || payload.length === 0) {
     return { ok: false, code: 'invalid_target', detail: 'empty_payload' };
@@ -1399,6 +1465,10 @@ function validateSlideImportPayload(payload) {
     if (authoringVersion !== SLIDE_IMPORT_ALLOWED_UI_AUTHORING_VERSION) {
       return { ok: false, code: 'invalid_target', detail: 'unsupported_ui_authoring_version' };
     }
+    const hostIngressValidation = validateSlideImportHostIngress(records);
+    if (!hostIngressValidation.ok) {
+      return hostIngressValidation;
+    }
     rootCandidates.push({
       tempId,
       appName,
@@ -1406,6 +1476,7 @@ function validateSlideImportPayload(payload) {
       slideSurfaceType,
       fromUser,
       toUser,
+      hostIngress: hostIngressValidation.hostIngress,
     });
   }
 
@@ -1418,6 +1489,7 @@ function validateSlideImportPayload(payload) {
     rootTempId: rootCandidates[0].tempId,
     tempIds: [...tempIds].sort((a, b) => a - b),
     metadata: rootCandidates[0],
+    hostIngress: rootCandidates[0].hostIngress,
   };
 }
 
@@ -1456,6 +1528,42 @@ function resolveNextWorkspaceMountCell(runtime) {
   return { p: 2, r: 0, c: maxC + 1 };
 }
 
+function buildImportedHostIngressKeys(rootModelId, semantic) {
+  const base = `imported_host_${semantic}_${rootModelId}`;
+  return {
+    ingressKey: base,
+    routeKey: `${base}_route`,
+    relayPin: `__host_ingress_${semantic}`,
+    relayRouteKey: `__host_ingress_${semantic}_route`,
+  };
+}
+
+function materializeImportedHostIngressAdapter(runtime, rootModelId, hostIngress) {
+  if (!hostIngress) return null;
+  const rootModel = runtime.getModel(rootModelId);
+  const model0 = runtime.getModel(0);
+  if (!rootModel || !model0) return null;
+  const keys = buildImportedHostIngressKeys(rootModelId, hostIngress.semantic);
+  runtime.addLabel(rootModel, 0, 0, 0, { k: keys.relayPin, t: 'pin.in', v: null });
+  runtime.addLabel(rootModel, 0, 0, 0, {
+    k: keys.relayRouteKey,
+    t: 'pin.connect.cell',
+    v: [{
+      from: [0, 0, 0, keys.relayPin],
+      to: [[hostIngress.locator.p, hostIngress.locator.r, hostIngress.locator.c, hostIngress.pinName]],
+    }],
+  });
+  runtime.addLabel(model0, 0, 0, 0, { k: keys.ingressKey, t: 'pin.bus.in', v: null });
+  runtime.addLabel(model0, 0, 0, 0, {
+    k: keys.routeKey,
+    t: 'pin.connect.model',
+    v: [{ from: [0, keys.ingressKey], to: [[rootModelId, keys.relayPin]] }],
+  });
+  runtime.addLabel(rootModel, 0, 0, 0, { k: 'host_ingress_generated_model0_labels', t: 'json', v: [keys.ingressKey, keys.routeKey] });
+  runtime.addLabel(rootModel, 0, 0, 0, { k: 'host_ingress_generated_root_labels', t: 'json', v: [keys.relayPin, keys.relayRouteKey] });
+  return keys;
+}
+
 function materializeSlideImportPayload(runtime, payload, validation) {
   const idMap = new Map();
   const startModelId = resolveNextWorkspaceModelId(runtime);
@@ -1492,15 +1600,20 @@ function materializeSlideImportPayload(runtime, payload, validation) {
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'import_root_temp_id', t: 'int', v: validation.rootTempId });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'from_user', t: 'str', v: validation.metadata.fromUser });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'to_user', t: 'str', v: validation.metadata.toUser });
+  if (validation.hostIngress) {
+    runtime.addLabel(rootModel, 0, 0, 0, { k: SLIDE_IMPORT_HOST_INGRESS_LABEL, t: 'json', v: validation.hostIngress.declaration });
+  }
 
   const mountCell = resolveNextWorkspaceMountCell(runtime);
   const model0 = runtime.getModel(0);
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'model_type', t: 'model.submt', v: rootModelId });
+  const hostIngressKeys = materializeImportedHostIngressAdapter(runtime, rootModelId, validation.hostIngress);
 
   return {
     rootModelId,
     modelIds: [...idMap.values()],
     mountCell,
+    hostIngressKeys,
   };
 }
 
@@ -1552,11 +1665,23 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
     return { ok: false, code: 'model_not_found' };
   }
   const rootCell = rootModel.getCell(0, 0, 0);
+  const generatedModel0Labels = Array.isArray(rootCell.labels.get('host_ingress_generated_model0_labels')?.v)
+    ? rootCell.labels.get('host_ingress_generated_model0_labels').v.filter((item) => typeof item === 'string' && item)
+    : [];
   const importedIdsRaw = rootCell.labels.get('imported_bundle_model_ids');
   const modelIds = Array.isArray(importedIdsRaw && importedIdsRaw.v)
     ? importedIdsRaw.v.filter((item) => Number.isInteger(item))
     : [rootModelId];
   const targetIds = new Set(modelIds);
+
+  if (generatedModel0Labels.length > 0) {
+    const model0 = runtime.getModel(0);
+    if (model0) {
+      for (const key of generatedModel0Labels) {
+        runtime.rmLabel(model0, 0, 0, 0, key);
+      }
+    }
+  }
 
   for (const model of runtime.models.values()) {
     for (const cell of model.cells.values()) {

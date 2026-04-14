@@ -207,3 +207,34 @@ value 字段说明：
 | `label_connection` | `pin.connect.label` |
 | `trigger_funcs` | `pin.connect.label` |
 | `function_PIN_IN` / `function_PIN_OUT` | （已废弃） |
+
+## 9. Imported App Host Ingress Declaration（0321 MVP）
+
+除 label.t 之外，当前仓库新增一条 v1 root label 声明，用于 imported slide app 的宿主接入：
+
+- Cell:
+  - imported app root `(0,0,0)`
+- Label:
+  - `k = host_ingress_v1`
+  - `t = json`
+
+v1 当前只允许：
+
+- 一个 primary boundary
+- `semantic = submit`
+- `locator_kind = root_relative_cell`
+- `locator_value = { p, r, c }`
+- `pin_name` 对应的目标 label 必须是 `pin.in`
+
+它不是新的 label.t，而是 imported app root 上的正式声明 key。
+
+宿主安装后自动生成的接入 labels 当前包括：
+
+- `Model 0`:
+  - `pin.bus.in`
+  - `pin.connect.model`
+- imported model root:
+  - `pin.in`
+  - `pin.connect.cell`
+
+删除 imported app 时，宿主必须清理安装时自动补上的 `Model 0` labels。

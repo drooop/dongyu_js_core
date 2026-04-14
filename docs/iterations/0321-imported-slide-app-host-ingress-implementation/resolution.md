@@ -1,12 +1,12 @@
 ---
 title: "0321 — imported-slide-app-host-ingress-implementation Resolution"
 doc_type: iteration-resolution
-status: approved
+status: completed
 updated: 2026-04-14
 source: ai
 iteration_id: 0321-imported-slide-app-host-ingress-implementation
 id: 0321-imported-slide-app-host-ingress-implementation
-phase: phase2
+phase: phase4
 ---
 
 # 0321 — imported-slide-app-host-ingress-implementation Resolution

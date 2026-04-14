@@ -64,6 +64,9 @@ Model 0 (系统根 — 不是用户直接操作的模型)
 - MQTT 消息**只能**通过 Model 0 的 BUS_IN 进入系统，不能直接写任意 Cell
 - 用户操作的是应用子模型，不直接操作 Model 0
 - 正数/负数模型使用同一套父子机制
+- 对 imported slide app，当前也开始采用宿主自动生成的 `Model 0` ingress route：
+  - 先进入宿主 `Model 0`
+  - 再由宿主生成的 route relay 到 imported app 边界 pin
 
 ---
 
