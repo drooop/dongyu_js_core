@@ -131,6 +131,13 @@ async function test_import_requires_one_primary_boundary_pin_declaration() {
 
 async function test_import_generates_model0_host_route_for_valid_boundary_pin() {
   return withServerState(async (state) => {
+    state.runtime.startMqttLoop({
+      host: 'localhost',
+      port: 1883,
+      client_id: '0321-contract',
+      topic_prefix: 'it0321',
+      transport: 'mock',
+    });
     const payload = basePayload(
       [hostIngressLabel([validBoundary()])],
       [
@@ -145,6 +152,8 @@ async function test_import_generates_model0_host_route_for_valid_boundary_pin() 
     const model0Labels = state.runtime.getCell(state.runtime.getModel(0), 0, 0, 0).labels;
     assert.ok(model0Labels.has(`imported_host_submit_${importedId}`), 'model0_host_ingress_port_must_be_generated');
     assert.ok(model0Labels.has(`imported_host_submit_${importedId}_route`), 'model0_host_ingress_route_must_be_generated');
+    assert.equal(state.runtime.busInPorts.has(`imported_host_submit_${importedId}`), true, 'dynamic_bus_in_registration_must_happen_after_import');
+    assert.equal(state.runtime.mqttClient.subscriptions.has(`it0321/imported_host_submit_${importedId}`), true, 'running_mqtt_loop_must_subscribe_new_host_ingress_topic');
     return { key: 'import_generates_model0_host_route_for_valid_boundary_pin', status: 'PASS' };
   });
 }

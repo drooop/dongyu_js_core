@@ -93,6 +93,13 @@ async function withServerState(fn) {
 
 async function test_host_ingress_route_reaches_imported_boundary_and_cleans_up_on_delete() {
   return withServerState(async (state) => {
+    state.runtime.startMqttLoop({
+      host: 'localhost',
+      port: 1883,
+      client_id: '0321-flow',
+      topic_prefix: 'it0321flow',
+      transport: 'mock',
+    });
     state.cacheUploadedMediaForTest('mxc://localhost/0321-flow', {
       buffer: buildZipBuffer(payloadWithHostIngress()),
       contentType: 'application/zip',
@@ -117,6 +124,8 @@ async function test_host_ingress_route_reaches_imported_boundary_and_cleans_up_o
     const model0 = state.runtime.getModel(0);
     assert.ok(model0.getCell(0, 0, 0).labels.get(ingressKey), 'model0_ingress_port_must_exist');
     assert.ok(model0.getCell(0, 0, 0).labels.get(routeKey), 'model0_route_label_must_exist');
+    assert.equal(state.runtime.busInPorts.has(ingressKey), true, 'imported_host_ingress_must_register_bus_in_port');
+    assert.equal(state.runtime.mqttClient.subscriptions.has(`it0321flow/${ingressKey}`), true, 'imported_host_ingress_must_subscribe_runtime_topic');
 
     const hostIngressResult = await state.submitEnvelope(pinEnvelope(
       { model_id: 0, p: 0, r: 0, c: 0 },
@@ -134,6 +143,8 @@ async function test_host_ingress_route_reaches_imported_boundary_and_cleans_up_o
     const model0AfterDelete = state.runtime.getModel(0);
     assert.ok(!model0AfterDelete.getCell(0, 0, 0).labels.get(ingressKey), 'delete_must_remove_model0_ingress_port');
     assert.ok(!model0AfterDelete.getCell(0, 0, 0).labels.get(routeKey), 'delete_must_remove_model0_route_label');
+    assert.equal(state.runtime.busInPorts.has(ingressKey), false, 'delete_must_unregister_bus_in_port');
+    assert.equal(state.runtime.mqttClient.subscriptions.has(`it0321flow/${ingressKey}`), false, 'delete_must_unsubscribe_runtime_topic');
     return { key: 'host_ingress_route_reaches_imported_boundary_and_cleans_up_on_delete', status: 'PASS' };
   });
 }
