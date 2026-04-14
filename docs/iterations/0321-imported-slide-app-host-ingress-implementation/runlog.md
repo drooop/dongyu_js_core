@@ -47,7 +47,9 @@ phase: phase4
 ## Docs Updated
 
 - [x] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
+- [x] `docs/ssot/label_type_registry.md` reviewed
 - [x] `docs/user-guide/modeltable_user_guide.md` reviewed
+- [x] `docs/handover/dam-worker-guide.md` reviewed
 - [x] `docs/ssot/execution_governance_ultrawork_doit.md` reviewed
 
 ## Execution Record
@@ -82,6 +84,9 @@ phase: phase4
   - imported root relay `pin.connect.cell`
 - 删除 imported app 时：
   - 一并清理宿主自动生成的 `Model 0` ingress labels / routes
+- 运行中生命周期补充：
+  - runtime 若已 running，新增 `pin.bus.in` 会立即注册并订阅对应 topic
+  - 删除 imported app 时，会同步撤销 `busInPorts` 与 MQTT 订阅
 
 ### 2026-04-14 — Step 3 Deterministic Verification
 
@@ -98,6 +103,8 @@ phase: phase4
 - 合法 imported app 安装后会生成 `Model 0` host ingress route
 - host ingress 可以驱动 imported app 的 boundary pin
 - 删除 imported app 会清掉自动生成的 `Model 0` labels / routes
+- 新增 ingress 在当前 runtime 中无需重启即可接收外部 bus 输入
+- 删除后的 ingress 在当前 runtime 中也会立即失效
 
 ## Living Docs Review
 
