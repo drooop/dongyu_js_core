@@ -139,6 +139,8 @@ source: ai
 **模型表（model.table）**
 - 动态大小，无维度约束，模型根 `(0,0,0)` 必须显式声明 `model.table`。
 - 拥有独立 model_id，是当前主要运行时模型形态。
+- **(0323) (0,0,0) 默认三程序**：每个 model.table 的 (0,0,0) 必须包含三个 `func.js` 默认程序（`mt_write` / `mt_bus_receive` / `mt_bus_send`），作为模型的控制面入口。详见 `docs/ssot/runtime_semantics_modeltable_driven.md` §5.3。
+- **(0323) 权限模型**：用户程序仅可写自身 Cell（V1N.addLabel）、读当前模型内任意 Cell（V1N.readLabel）；跨 Cell 写入经 (0,0,0) mt_write，跨模型通信经 pin 链路。详见 `docs/ssot/host_ctx_api.md`。
 
 **子模型映射位（model.submt）**
 - 某个 Cell 的 `model_type` 若声明为 `model.submt`，则该 Cell 是 child model 的挂载/映射位。
@@ -249,6 +251,13 @@ PIN 端口按**类型**区分层级（不是按位置硬编码）：
   - `{funcName}:in`
   - `{funcName}:out`
   - `{funcName}:log.out`
+
+### 6.4 权限模型与 PIN 路由（0323）
+
+- 用户程序写权限仅限自身 Cell；跨 Cell 写入必须通过 pin 路由到 (0,0,0) 的 `mt_write:in`。
+- 跨模型通信必须通过 pin 链路：子模型挂载路径或 Model 0 中转路径。
+- 禁止任何绕过 pin 的直接跨模型读写。
+- 详细权限规则见 `docs/ssot/host_ctx_api.md`，运行时语义见 `docs/ssot/runtime_semantics_modeltable_driven.md` §5.3b。
 
 ---
 

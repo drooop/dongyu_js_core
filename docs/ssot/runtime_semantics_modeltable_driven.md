@@ -90,6 +90,7 @@ source: ai
 - `model.submt`：子模型映射/挂载 Cell 的显式声明。
 - `model.single`：普通 Cell 的有效默认形态。
 - 在 table/matrix 作用域内，如果某个普通 Cell 尚未物化或未显式声明模型标签，则其有效模型标签默认视为 `model.single`。
+- **(0323) model.single 沙箱边界澄清**：model.single 的"结构性沙箱"约束仅作用于**写**（`V1N.addLabel`/`V1N.removeLabel` 仅限自身 Cell），**不作用于读**。嵌套在 model.table 作用域内的 model.single Cell 可通过 `V1N.readLabel(p, r, c, k)` 读取所在 model.table 内任意 Cell。独立（非嵌套）的 model.single 无跨 Cell 读路径。这是对 §5.3 model.single 原"programs operate on own Cell only"描述的权限模型精化。
 - `model.name` 只允许出现在模型自己的 `(0,0,0)`。
 - 每个非 0 模型都必须通过某个父模型 Cell 上的 `model.submt` 显式挂载进入层级；包括 bootstrap children（例如 `-1` 与 `1`）也不例外。
 
@@ -315,7 +316,8 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
   - 禁止 `create_model`
   - 禁止跨模型写入父/子/兄弟模型
 - 正数模型默认 helper scaffold：
-  - `createModel()` 创建正数模型时，默认保留 `(0,1,0)` 为 helper executor cell
+  - **(0323) 裁决**：本节描述的 (0,1,0) helper executor 模式已被 §5.3 规定的 (0,0,0) 默认三程序（mt_write / mt_bus_receive / mt_bus_send）替代，仅对 `model.single` 场景仍适用（因为 model.single 不具备独立的 (0,0,0) 根 Cell 承载三程序）。对 `model.table`，createModel 不再保留 (0,1,0) helper，而是自动植入 (0,0,0) 三程序——详见 §5.2g。
+  - `createModel()` 创建正数模型时，默认保留 `(0,1,0)` 为 helper executor cell（**仅 model.single 适用**）
   - 该 cell 默认具备：
     - `helper_executor=true`
     - `scope_privileged=true`
@@ -340,7 +342,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
   - observer 不得抛出未捕获异常；record 已做本地 catch，但 tier 2 代码仍应自己保证幂等。
 - 与 `_executeFuncViaCellConnect` ctx 的区别：ctx 只暴露 `publishMqtt`，不含 `sendMatrix`。Matrix 发送、intercept dispatch、跨 tick 调度属 tier 2 `programEngine.executeFunction` ctx 的职责；任何需要 Matrix 的函数必须通过 programEngine 路径触发（例如 imported app host egress 的 `forward_imported_*_from_model0_*`），不得在 runtime pin.connect.label 直接触发的 func 里使用 `ctx.sendMatrix`。
 
-### 5.2g Bootstrap 加载顺序（0142/0177）
+### 5.2g Bootstrap 加载顺序（0142/0177，0323 增补）
 
 1. `model_0_framework.json` → 创建 Model 0 结构（BUS_IN/OUT、subModel、CELL_CONNECT、cell_connection）
 2. `system_models.json` → 填充 Model -10 等系统子模型
@@ -349,6 +351,21 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 5. `ui-server` 进入 `edit`；headless worker 在连接就绪前保持 `edit`
 6. 显式或自动切换到 `running`
 7. `startMqttLoop()` / Matrix adapter 在 `running` 后才允许生效
+
+**(0323) (0,0,0) 默认三程序的注入时机：**
+
+- 三程序（`mt_write` / `mt_bus_receive` / `mt_bus_send`）由 `createModel()` **在 model.table 创建时自动植入 (0,0,0)**，不占用 bootstrap patch 步骤。
+- 注入发生在步骤 1–3 中：任何通过 `createModel({type: 'table'})` 产生的 model.table，其 (0,0,0) 在创建返回时已包含三个 func.js 标签。
+- JSON patches（步骤 1–3）可以覆盖三程序的 code 实现（用于升级或定制），但不得删除这三个 key。删除尝试必须被 rejected 并写入 `eventLog(reason='default_program_removal_forbidden')`。
+- Model 0（系统根）作为特殊情况：其 (0,0,0) 承载 pin.bus.* 和 pin.connect.model，不强制植入三程序；跨模型路由由 Model 0 的既有系统函数承担。
+- 负数系统模型（如 Model -10）保留现有实现路径：是否植入三程序由各系统模型独立裁决，迁移计划见 0323+2。
+
+**(0323) 三程序 code 的 Tier 归属裁决：**
+
+- 三程序的 func.js `code` 字符串内容属于 **Tier 2（填表能力）**：它们是业务级路由与权限逻辑，必须可通过 JSON patch 表达和覆盖。
+- 三程序的植入机制（即"createModel 自动把默认 code 写入 (0,0,0)"）属于 **Tier 1（基座运行能力）**：这是基座对 model.table 形态的结构性保证，类似 (0,0,0) 必须声明 `model.table` 的基座强制。
+- 默认 code 的来源必须是 Tier 2 的系统级 JSON patch 文件（推荐位置：`packages/worker-base/system-models/default_table_programs.json`，由 0323+1 冻结），**不得**将 code 字符串硬编码在 `createModel()` 的 JS 源码内。运行时代码仅负责"从 Tier 2 来源读取 code → 写入 (0,0,0)"的装配动作。
+- 这一裁决保持 fill-table-first 硬约束：三程序的行为定义是填表的，只是其存在性由基座保证。覆盖路径：后续 JSON patches 可通过 addLabel 覆盖 (0,0,0) 的三个 func.js key，以定制或升级默认行为。
 
 ---
 
@@ -359,10 +376,57 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - `model.single`：单 Cell 沙箱；代码只允许操作自身 Cell；`add_label` 形态为 `(k, t, v)`。
 - `model.matrix`：固定维度（min/max p/r/c）；必须进行边界和碰撞检测（定义保留，按需落地）。
 - `model.table`：动态大小；`add_label` 形态为 `(p, r, c, k, t, v)`。
+  - **(0323) (0,0,0) 默认基础设施**：每个 model.table 的 (0,0,0) Cell 必须包含以下三个 `func.js` 标签作为默认基础设施程序：
+
+    | func.js key | 引脚 | 职责 | 权限 |
+    |---|---|---|---|
+    | `mt_write` | `mt_write:in` / `mt_write:out` | 接收写入请求，对当前 model.table 内任意 Cell 执行 addLabel/rmLabel | 模型内特权 |
+    | `mt_bus_receive` | `mt_bus_receive:in` / `mt_bus_receive:out` | 接收从父模型路由下来的消息，分发到模型内目标 Cell | 模型内特权 |
+    | `mt_bus_send` | `mt_bus_send:in` / `mt_bus_send:out` | 汇集模型内 Cell 的外发消息，上行到父模型边界 | 模型内特权 |
+
+  - 这三个程序替代原 (0,1,0) helper executor 模式（**仅 model.table 场景废弃**；model.single 场景保留，详见 §5.2f 裁决）。
+  - 用户程序不得覆盖或删除这三个 func.js 标签。
+
 - `model_type` 二维编码：
   - `label.t` = 形态（model.single | model.matrix | model.table）
   - `label.v` = 类型（Code.JS | Data.Array | Flow | Doc.Markdown | ...）
 - 无效的形态×类型组合必须拒绝并写入错误标签（不得 silent fail）。
+
+### 5.3b 运行时权限模型（0323）
+
+**权限分层：**
+
+| 层级 | 适用范围 | 写权限 | 读权限 |
+|---|---|---|---|
+| 模型内特权 | (0,0,0) 默认三程序（mt_write / mt_bus_receive / mt_bus_send） | 当前模型内任意 Cell | 当前模型内任意 Cell |
+| 沙箱 | 用户自定义程序（非 (0,0,0) 默认程序） | 仅自身 Cell | 当前模型内任意 Cell |
+
+**V1N API 面（暴露给用户程序）：**
+
+- `V1N.addLabel(k, t, v)` — 写入当前 Cell 的 label（无坐标参数）
+- `V1N.removeLabel(k)` — 删除当前 Cell 的 label（无坐标参数）
+- `V1N.readLabel(p, r, c, k)` — 读取当前模型内任意 Cell 的 label（只读）
+
+**跨 Cell 写入路径：**
+
+用户程序 pin.out → pin.connect.label/cell → (0,0,0) mt_write:in → mt_write 执行写入 → mt_write:out
+
+**跨模型通信路径（两种合法方式）：**
+
+1. 子模型挂载路径：model.submt hosting cell → 引脚接出/接入
+2. Model 0 中转路径：Cell pin.out → (0,0,0) mt_bus_send:in → 模型边界 pin.out → Model 0 pin.connect.model → 目标模型
+
+**禁止：**
+
+- 用户程序直接读写其他模型的 Cell
+- 用户程序绕过 pin 链路的任何直接跨模型操作
+
+**Deprecated（兼容期）：**
+
+- `ctx.writeLabel` / `ctx.getLabel` / `ctx.rmLabel` → 替代为 V1N API + pin 路由
+- (0,1,0) helper executor → 替代为 (0,0,0) 默认三程序（**仅 model.table 场景**；model.single 场景保留 helper scaffold，详见 §5.2f）
+
+详细 API 定义见 `docs/ssot/host_ctx_api.md`。
 
 ### 5.4 MQTT Payload 格式（ModelTablePatch v0）
 

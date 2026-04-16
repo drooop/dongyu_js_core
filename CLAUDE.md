@@ -54,7 +54,11 @@ for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective 
 
   model.single   single Cell. programs operate on own Cell only.
                   add_label(k,t,v) — no p,r,c params.
-                  structural sandbox: code in simple model cannot reach other Cells.
+                  structural sandbox: write is restricted to own Cell; code cannot write to other Cells.
+                  (0323) read extension: when a model.single Cell appears inside a model.table scope
+                  (default effective type for unmaterialized Cells), V1N.readLabel(p,r,c,k) may read
+                  any Cell within the enclosing model.table. sandbox boundary applies to WRITES only,
+                  not READS. standalone model.single (not enclosed) has no cross-Cell read path.
                   hard rule: one Cell = one type. a Cell CANNOT hold both Code.Python and Code.JS.
 
   model.matrix   matrix root Cell. the matrix's relative (0,0,0) MUST be explicitly labeled model.matrix.
@@ -63,6 +67,14 @@ for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective 
 
   model.table    table root Cell. the model root (0,0,0) MUST be explicitly labeled model.table.
                   other ordinary Cells inside the table default effectively to model.single unless explicitly overridden.
+                  (0323) (0,0,0) MUST contain 3 default func.js infrastructure programs:
+                    mt_write         — accepts write requests, executes addLabel/rmLabel on any Cell within this model.table
+                    mt_bus_receive   — receives messages routed from parent model, distributes to target Cells
+                    mt_bus_send      — collects outgoing messages from Cells, relays up to parent model boundary
+                  these 3 programs are model-privileged (can read/write any Cell in current model).
+                  user programs MUST NOT override or delete these func.js labels.
+                  replaces (0,1,0) helper executor for model.table only (DEPRECATED here);
+                  model.single scenario retains helper scaffold — see runtime_semantics §5.2f.
 
   model.submt    child-model hosting Cell. value = child model id.
                   this Cell is the mounting/mapping point for a child model.
@@ -269,7 +281,7 @@ ARCH_INVARIANTS
 - single external entry: BUS_IN/BUS_OUT on Model 0 (0,0,0) = only MQTT interface. no direct cell writes from external.
 - 3-layer connection (no skip): BUS_IN/OUT (system boundary) → cell_connection (inter-cell routing) → CELL_CONNECT (intra-cell wiring)
 - CELL_CONNECT = unified connection table. replaces: label_connection, trigger_funcs, function_PIN_IN/OUT.
-- program model: function label, v = JS code string, compiled to AsyncFunction at init. ctx = sandboxed API.
+- program model: function label, v = JS code string, compiled to AsyncFunction at init. ctx = runtime execution context (system-level); user program API face = V1N namespace (0323).
 - fill-table-first: new capabilities MUST be implemented by filling models (JSON patches) before considering runtime code changes.
 - terminology: use §9 of docs/architecture_mantanet_and_workers.md
 - pin isolation design: docs/plans/2026-02-11-pin-isolation-and-model-hierarchy-design.md (Design Approved)
@@ -460,6 +472,32 @@ FUNCTION_LABELS
 
   func.js: compiled to AsyncFunction, executed in sandboxed ctx.
   func.python: forwarded to Python worker. JS runtime writes error label if worker unavailable.
+
+  (0323) reserved func.js keys on (0,0,0) of every model.table:
+    mt_write, mt_bus_receive, mt_bus_send
+    these are system-provided infrastructure. user programs MUST NOT override.
+
+
+PERMISSION_MODEL
+
+  (0323) two-level permission hierarchy:
+
+  model-privileged   (0,0,0) default 3 programs (mt_write / mt_bus_receive / mt_bus_send)
+                     can read/write any Cell within current model.
+
+  sandbox            user-defined programs (all non-default programs)
+                     write: own Cell only (V1N.addLabel(k,t,v), V1N.removeLabel(k))
+                     read: any Cell within current model (V1N.readLabel(p,r,c,k))
+
+  cross-cell write:  MUST route via pin to (0,0,0) mt_write:in
+  cross-model comm:  MUST use pin chain (submodel mount path OR Model 0 relay path)
+  cross-model read:  MUST use pin request-response pattern
+
+  DEPRECATED (compatibility period until migration complete):
+    ctx.writeLabel / ctx.getLabel / ctx.rmLabel → replaced by V1N API + pin routing
+    (0,1,0) helper executor → replaced by (0,0,0) default 3 programs (model.table only; model.single retains helper scaffold, see runtime_semantics §5.2f)
+
+  detail: docs/ssot/host_ctx_api.md
 
 
 MODEL_TYPE_REGISTRY
