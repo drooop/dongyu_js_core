@@ -1175,6 +1175,9 @@ class ModelTableRuntime {
       this.busInPorts.delete(key);
       this._syncBusInSubscription(key, false);
     }
+    if ((prevResolvedType === 'pin.bus.out' || prevResolvedType === 'pin.log.bus.out') && model.id === 0 && p === 0 && r === 0 && c === 0) {
+      this.busOutPorts.delete(key);
+    }
     return { applied: true };
   }
 

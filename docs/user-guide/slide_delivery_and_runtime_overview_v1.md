@@ -96,6 +96,36 @@ source: ai
      - 同 cell `func.js`
      - root / helper pin 链
 
+按“同事实际要准备什么”再拆一次，可以更直接：
+
+### 必须有的部分
+
+- 一个 zip
+- zip 内一个 `app_payload.json`
+- 一个 root model
+- root `(0,0,0)` 的最小 metadata
+- 至少一套可被前端正常打开的 UI 投影信息
+
+### 可选但常见的部分
+
+- 可写 pin 定义
+- `writable_pins`
+- 同 cell `func.js`
+- root / helper relay
+- 运行中需要外发时的 Matrix transport relay
+
+### 不要混成一回事的部分
+
+- “这个 app 能不能被安装进来”
+  - 看 zip、`mxc://...`、importer
+- “这个 app 装进来以后能不能工作”
+  - 看 UI 投影、pin、程序模型、后续 relay
+
+也就是说：
+
+- 安装成功，不等于运行链已经完整
+- 运行链完整，也不等于可以跳过正式安装主线
+
 换句话说，一个 app 不只是“一个页面”。
 
 它至少同时包含：
@@ -139,6 +169,25 @@ source: ai
 4. 如果这个 app 定义了后续 pin 链，再继续往 root / helper / 其他 relay 走
 5. 最终由目标程序模型完成业务写入或外发
 
+换成“导入 app 以后真正发生了什么”的说法就是：
+
+1. 导入完成后，ui-server 会给这个 app 分配新的正数 `model_id`
+2. 这个 app 自己随包带来的 UI 定义和程序模型，都会落到这个新模型空间里
+3. 前端收到新的 snapshot 后，负责：
+   - 按当前投影渲染页面
+   - 读取最新值
+   - 在用户交互时把事件发回后端
+4. 当用户点击 `submit` / `click` 这类节点时，前端发回的是：
+   - 当前模型
+   - 当前单元格
+   - 当前 pin
+5. 后端把这个 pin 写进目标 cell 后，剩下的事情就交给这个 app 自己定义的 pin 链继续推进
+
+所以当前项目里，“后端支持导入 app 自带程序模型”这句话已经成立，但成立的方式不是 server 替 app 猜业务，而是：
+
+- server 负责把事件准确送到目标 cell / target pin
+- app 自己负责定义后续怎么从这个 pin 继续走
+
 这也是为什么这页只说“先到当前模型当前单元格当前 pin”，不说“所有事件都必须先经过 Model 0 IN”。
 
 当前真实语义是：
@@ -152,6 +201,15 @@ source: ai
 
 - 常见是 `on_blur`
 - 或按提交时机再真正发出去
+
+当前可以把输入提交时机理解成 3 类：
+
+- `immediate`
+  - 需要马上提交的交互
+- `on_blur`
+  - 输入结束、离开输入框时再提交
+- `on_submit`
+  - 先保留本地草稿，等真正触发提交动作时再一起送出
 
 所以“用户正在打字”和“后端已经收到业务提交”也不是一回事。
 
@@ -193,6 +251,40 @@ source: ai
 - 或从外部 transport 回来，再继续进入模型链路
 
 它不是安装导入协议，也不要求同事为安装去手写一条新的 room message。
+
+如果同事这一侧真要接运行中的业务发包，当前应该对接的也不是自定义 slide room message，而是现有 `pin_payload v1`。
+
+最小形状可以理解成：
+
+```json
+{
+  "version": "v1",
+  "type": "pin_payload",
+  "op_id": "example_1712709000000",
+  "source_model_id": 1201,
+  "pin": "submit",
+  "payload": [
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.RemoteSubmit" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "input_value", "t": "str", "v": "hello" }
+  ],
+  "timestamp": 1712709000000
+}
+```
+
+这条消息表达的不是“安装一个 slide app”，而是：
+
+- 某个已经装进来的 app
+- 在运行中
+- 把自己的业务 payload 从既有 pin 链外发出去
+
+什么时候才需要它：
+
+- 当这个 app 自己的运行链定义了“继续向外发 Matrix / MBR / remote-worker”
+
+什么时候不需要它：
+
+- 只是把 app 安装进来
+- 只是本地 cell 内或本地模型内就能完成的处理
 
 最短理解可以记成：
 
