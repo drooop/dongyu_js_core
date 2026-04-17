@@ -367,6 +367,17 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - 默认 code 的来源必须是 Tier 2 的系统级 JSON patch 文件（推荐位置：`packages/worker-base/system-models/default_table_programs.json`，由 0323+1 冻结），**不得**将 code 字符串硬编码在 `createModel()` 的 JS 源码内。运行时代码仅负责"从 Tier 2 来源读取 code → 写入 (0,0,0)"的装配动作。
 - 这一裁决保持 fill-table-first 硬约束：三程序的行为定义是填表的，只是其存在性由基座保证。覆盖路径：后续 JSON patches 可通过 addLabel 覆盖 (0,0,0) 的三个 func.js key，以定制或升级默认行为。
 
+**(0323) 本迭代（规约层）与 0323+1（实施层）的过渡期约定：**
+
+- 0323 是 docs-only 迭代：本节定义的"createModel 自动植入"是**规范合同**，运行时代码尚未实现植入机制。
+- 0323 期间现有 `createModel()` 行为**不变**（不自动植入三程序）；任何依赖三程序存在的调用必须等待 0323+1。
+- 0323+1 起始时的首要任务：
+  1. 创建 `packages/worker-base/system-models/default_table_programs.json`（Tier 2 JSON patch，含三个 func.js 的初版 code）
+  2. 修改 `createModel()` 实现：对 `type: 'table'` 的调用，读取该 JSON patch 并在创建返回前写入 (0,0,0) 的三个 func.js 标签
+  3. 对本条规约的"必须来自 Tier 2 系统级 JSON patch 文件"硬约束在此时实质生效
+- 在 0323+1 完成之前，任何试图依赖 (0,0,0) 三程序存在的业务模型或系统函数都不应被 bootstrap，否则行为 undefined。
+- 本过渡期约定仅适用于 0323 → 0323+1 的短暂窗口；0323+1 完成后本节恢复为正常的不变约束。
+
 ---
 
 ### 5.3 模型形态约束（Model Forms）

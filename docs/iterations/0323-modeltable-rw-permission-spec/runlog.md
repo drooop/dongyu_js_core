@@ -110,11 +110,33 @@ feature-dev:code-reviewer 子代理审查发现 4 项 HIGH 规约冲突，已全
 - 所有一致性验证通过
 - 用户授权实施完成
 
+## Step 8: 第三轮 post-commit 审查修复（2026-04-17） — PASS
+
+Post-commit（73b0998 后）两个并行 agent 审查结果：
+- Agent A（commit 范围/完整性验证）：**APPROVED** — 范围隔离清晰、内容完整、无 CRITICAL 安全问题
+- Agent B（final spec review）：**NEEDS_WORK** — 2 项 HIGH：payload 格式冻结状态矛盾、default_table_programs.json 过渡期 undefined
+
+**本轮修复（2 项 HIGH）：**
+
+| # | 位置 | 修复 | 状态 |
+|---|---|---|---|
+| H1 | host_ctx_api.md §2 | 移除"建议"措辞，改为"0323 冻结 v1"；补齐 payload 字段约束（op/target/label/k/t/v）、返回结果格式（含 status/error 结构化码）、向后兼容承诺 | PASS |
+| H2 | runtime_semantics §5.2g | 增加"本迭代与 0323+1 过渡期约定"段落：0323 期间 createModel 行为不变；0323+1 首要任务明确（创建 default_table_programs.json、修改 createModel 实现、硬约束生效时点）；过渡期 undefined 行为警示 | PASS |
+
+## 最终一致性验证（第三轮修复后）
+
+| 检查项 | 结果 |
+|---|---|
+| payload 格式冻结（可供 0323+1 实施依赖） | PASS |
+| Tier 归属 + 过渡期语义完整（无 undefined window） | PASS |
+| 规约"可冻结、可依赖"成熟度达标 | PASS |
+| 与 8d5ed83 commit 无冲突（独立文件修改） | PASS |
+
 ## 已知延后项（纳入后续迭代）
 
 | 项目 | 归属迭代 | 说明 |
 |---|---|---|
-| V1N.addLabel 写入请求 payload 格式冻结 | 0323+1 | host_ctx_api.md §2 目前为"建议"状态 |
+| mt_write payload 字段冻结 | ✓ 本迭代已冻结 | host_ctx_api.md §2 含完整字段约束 + 返回格式 |
 | mt_write / mt_bus_receive / mt_bus_send 运行时实现 + V1N API 面 | 0323+1 | 包括权限检查、AsyncFunction 执行 |
 | 三程序默认 code 的 JSON patch 文件落位（`default_table_programs.json`） | 0323+1 | Tier 2 来源文件 |
 | Model -10/-12 等系统函数从 ctx.writeLabel 到 pin 链路迁移 | 0323+2 | 大规模重构，评估是否植入三程序 |

@@ -56,7 +56,7 @@ source: ai
   → mt_write:out (返回结果)
 ```
 
-写入请求 payload 格式（建议，待后续实现迭代冻结）：
+写入请求 payload 格式（0323 冻结 v1）：
 ```json
 {
   "op": "add_label",
@@ -64,6 +64,29 @@ source: ai
   "label": { "k": "keyName", "t": "str", "v": "value" }
 }
 ```
+
+字段约束（规范层面冻结，实施由 0323+1 落地）：
+- `op`：`"add_label"` | `"rm_label"`（必填）
+- `target`：`{ p: int, r: int, c: int }`（必填；坐标必须位于当前 model.table 范围内，mt_write 拒绝越界）
+- `label`：add_label 时必填 `{ k, t, v }`；rm_label 时必填 `{ k }`（`t`/`v` 忽略）
+- `k`：非空字符串，且不得为 (0,0,0) 的保留 key（`mt_write` / `mt_bus_receive` / `mt_bus_send`），mt_write 拒绝覆盖保留 key
+- `t`：遵循 `docs/ssot/label_type_registry.md` 注册的 label.t
+- `v`：与 `t` 匹配的类型化 value
+
+返回结果（`mt_write:out`）payload 格式：
+```json
+{
+  "op": "add_label",
+  "target": { "p": 1, "r": 0, "c": 0 },
+  "k": "keyName",
+  "status": "ok",
+  "error": null
+}
+```
+- `status`：`"ok"` | `"rejected"`
+- `error`：status=`"rejected"` 时必填，结构化错误码（由 0323+1 列举完整 error code set，当前至少含 `out_of_scope`、`reserved_key`、`type_mismatch`、`unknown_op`）
+
+向后兼容承诺：字段的新增必须保持既有字段的 addLabel/rmLabel 行为不变；删除或重命名既有字段需要 iteration 审批。
 
 ## 3. 跨模型通信路径
 
