@@ -40,6 +40,7 @@ phase: phase1
 
 - 所有前端业务事件必须经 Model 0 `(0,0,0)` `pin.bus.in`：不允许 server 直接 addLabel 到子模型 cell
 - 数据链路：**Model 0 (0,0,0) pin.bus.in → pin.connect.model → 子模型 root pin.in → 子模型 `(0,0,0) mt_bus_receive:in` → mt_bus_receive 解包并分发**
+- **Egress 路径绑定 Option A**（resolution Step 4 之硬承诺）：mt_bus_send on Model 0 只写 `pin.bus.out`；Matrix publish 由 `processEventsSnapshot` 捕获 `pin.bus.out` 事件后调用 `programEngine.sendMatrix`。**不保留** Option B（0322 forward func 作为 Matrix publisher）作为 fallback；若 phase3 执行遇到 runtime bridge 限制必须走 B，需单独在 runlog 申诉并暂停 phase3 等 user 决策，不得自行回退
 - `mt_bus_receive` code 业务：
   - value 形态：`{ target_cell: {p, r, c}, target_pin: 'xxx', value: <任意> }`（pin_payload v1 已冻结 — 见 0323 host_ctx_api §2）
   - 执行：在模型内部发请求给 (0,0,0) `mt_write_req` 让 mt_write 把 value 写到 target_cell 的 target_pin
