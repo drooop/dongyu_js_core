@@ -137,10 +137,22 @@ Post-commit（73b0998 后）两个并行 agent 审查结果：
 | 项目 | 归属迭代 | 说明 |
 |---|---|---|
 | mt_write payload 字段冻结 | ✓ 本迭代已冻结 | host_ctx_api.md §2 含完整字段约束 + 返回格式 |
-| mt_write / mt_bus_receive / mt_bus_send 运行时实现 + V1N API 面 | 0323+1 | 包括权限检查、AsyncFunction 执行 |
-| 三程序默认 code 的 JSON patch 文件落位（`default_table_programs.json`） | 0323+1 | Tier 2 来源文件 |
-| Model -10/-12 等系统函数从 ctx.writeLabel 到 pin 链路迁移 | 0323+2 | 大规模重构，评估是否植入三程序 |
-| Model 0 mt_bus_send 上行后的外发机制明确（pin.bus.out 触发链） | 0323+1 | Agent B 发现的 MEDIUM 级实现细节 |
-| 移除 (0,1,0) helper executor scaffold（仅 model.table） | 0323+3 | 保留 model.single 场景 |
-| 更新所有 system-models JSON patches 适配新权限模型 | 0323+4 | 迁移期 |
-| 兼容期终止：移除 ctx.writeLabel / ctx.getLabel / ctx.rmLabel | 0323+5 | 宣告 host_ctx_api.md §7 兼容期结束 |
+| mt_write / mt_bus_receive / mt_bus_send 运行时实现 + V1N API 面 | 0324 + 0325 | 0324 runtime seed 骨架；0325 ctx→V1N 替换 |
+| 三程序默认 code 的 JSON patch 文件落位（`default_table_programs.json`） | 0324 | Tier 2 来源文件 |
+| Model -10/-12 等系统函数从 ctx.writeLabel 到 pin 链路迁移 | 0325 Step 3 | 大规模重构，同 PR 改所有调用方 |
+| Model 0 mt_bus_send 上行后的外发机制明确（pin.bus.out 触发链） | 0326 | 与 UI 事件 ingress 改造统一设计 |
+| 移除 (0,1,0) helper executor scaffold（仅 model.table） | 0324 | 用户 2026-04-21 决策"helper 完全废弃"覆盖本条；model.single 独立场景的 helper 是否保留由 0324 plan 明确裁决 |
+| 更新所有 system-models JSON patches 适配新权限模型 | 0325 Step 3 | 同 0325 代码迁移同 PR |
+| 兼容期终止：移除 ctx.writeLabel / ctx.getLabel / ctx.rmLabel | 0325 | 用户 2026-04-21 决策"不允许兼容"覆盖本条 0323 spec "兼容期直到后续实现迭代正式移除" 的字面表述 — 0325 直接移除 |
+
+## Phase 3 补执行（2026-04-21）— PASS
+
+原始 73b0998 + 5e7af6b commits 此前仅在 `dev_0323-modeltable-rw-permission-spec` 分支，未 merge 到 `dev`。2026-04-21 发现这一空缺（0322 收尾后对照 0323 规约的 review 过程中），补执行：
+
+- Action: `git rebase dev` on branch `dev_0323-modeltable-rw-permission-spec`
+- Conflicts resolved:
+  - `docs/ITERATIONS.md` — 保留 HEAD 的 0322 `Completed` 状态 + 保留 0323 行新增
+  - `docs/ssot/runtime_semantics_modeltable_driven.md` — 保留 HEAD 的 §5.2f.1 EventLog Observer（0322 所加）+ 保留 0323 的 §5.2g "0323 增补" 标题
+- Rebased HEADs: `7480e93` (0323 spec), `5580022` (0323 payload v1 freeze)
+- Next: 本分支在补充本 runlog 追加记录后 merge 到 `dev`（no-ff），让 baseline `dev` 含 V1N / mt_write / PERMISSION_MODEL
+- Downstream: 0324 / 0325 / 0326 / 0327 / 0319 的 phase1 docs 将基于 0323-merged dev 重写（memory `project_0323_implementation_roadmap.md` 已对齐正式命名）
