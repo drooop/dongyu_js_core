@@ -330,6 +330,16 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
   - `pin.bus.out` publish
   - `MQTT_WILDCARD_SUB` 生效
 
+### 5.2f.1 EventLog Observer（0322）
+
+- `ModelTableRuntime.eventLog` 暴露 `setObserver(callback)`；每次 `record(entry)` 会在入队后同步调用 observer（捕获并忽略 observer 自身的异常，不影响 record）。
+- Tier 1 契约：observer 是**纯可观测性 hook**，runtime 不因为 observer 存在而改变任何 label 处理语义。没有 observer 时所有既有路径行为与之前完全一致。
+- Tier 2 契约：`ui-model-demo-server` 的 `createServerState` 在 programEngine 创建后注册 observer，通过 microtask 调度 `programEngine.tick()`（仅当 `runtime_mode=running`）。这让 `eventLog → processEventsSnapshot → intercepts → executeFunction` 这条 host 驱动链在测试与非 HTTP 调用场景下也能自动跑起来。
+- 不允许的用法：
+  - observer 不得在回调里同步写 label（会造成重入记录）——必须延后到 microtask / tick。
+  - observer 不得抛出未捕获异常；record 已做本地 catch，但 tier 2 代码仍应自己保证幂等。
+- 与 `_executeFuncViaCellConnect` ctx 的区别：ctx 只暴露 `publishMqtt`，不含 `sendMatrix`。Matrix 发送、intercept dispatch、跨 tick 调度属 tier 2 `programEngine.executeFunction` ctx 的职责；任何需要 Matrix 的函数必须通过 programEngine 路径触发（例如 imported app host egress 的 `forward_imported_*_from_model0_*`），不得在 runtime pin.connect.label 直接触发的 func 里使用 `ctx.sendMatrix`。
+
 ### 5.2g Bootstrap 加载顺序（0142/0177）
 
 1. `model_0_framework.json` → 创建 Model 0 结构（BUS_IN/OUT、subModel、CELL_CONNECT、cell_connection）

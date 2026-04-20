@@ -1285,6 +1285,8 @@ const SLIDE_IMPORT_HOST_INGRESS_LABEL = 'host_ingress_v1';
 const SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_SEMANTIC = 'submit';
 const SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_LOCATOR = 'root_relative_cell';
 const SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_VALUE_T = 'event';
+const SLIDE_IMPORT_DUAL_BUS_LABEL = 'dual_bus_model';
+const SLIDE_IMPORT_HOST_EGRESS_SUPPORTED_SEMANTIC = 'submit';
 const SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES = new Set([
   'func.python',
   'pin.connect.model',
@@ -1415,6 +1417,34 @@ function validateSlideImportHostIngress(records) {
   };
 }
 
+function validateSlideImportHostEgress(records) {
+  const declaration = findRootPayloadLabel(records, SLIDE_IMPORT_DUAL_BUS_LABEL);
+  if (!declaration) {
+    return { ok: true, hostEgress: null };
+  }
+  if (declaration.t !== 'json' || !isPlainObject(declaration.v)) {
+    return { ok: false, code: 'invalid_target', detail: 'invalid_dual_bus_model_shape' };
+  }
+  const targetPin = records.find((record) => (
+    record
+    && record.p === 0
+    && record.r === 0
+    && record.c === 0
+    && record.k === SLIDE_IMPORT_HOST_EGRESS_SUPPORTED_SEMANTIC
+  ));
+  if (!targetPin || targetPin.t !== 'pin.out') {
+    return { ok: false, code: 'invalid_target', detail: 'host_egress_target_pin_missing' };
+  }
+  return {
+    ok: true,
+    hostEgress: {
+      semantic: SLIDE_IMPORT_HOST_EGRESS_SUPPORTED_SEMANTIC,
+      pinName: targetPin.k,
+      dualBusDeclaration: declaration.v,
+    },
+  };
+}
+
 function validateSlideImportPayload(payload) {
   if (!Array.isArray(payload) || payload.length === 0) {
     return { ok: false, code: 'invalid_target', detail: 'empty_payload' };
@@ -1469,6 +1499,10 @@ function validateSlideImportPayload(payload) {
     if (!hostIngressValidation.ok) {
       return hostIngressValidation;
     }
+    const hostEgressValidation = validateSlideImportHostEgress(records);
+    if (!hostEgressValidation.ok) {
+      return hostEgressValidation;
+    }
     rootCandidates.push({
       tempId,
       appName,
@@ -1477,6 +1511,7 @@ function validateSlideImportPayload(payload) {
       fromUser,
       toUser,
       hostIngress: hostIngressValidation.hostIngress,
+      hostEgress: hostEgressValidation.hostEgress,
     });
   }
 
@@ -1490,6 +1525,7 @@ function validateSlideImportPayload(payload) {
     tempIds: [...tempIds].sort((a, b) => a - b),
     metadata: rootCandidates[0],
     hostIngress: rootCandidates[0].hostIngress,
+    hostEgress: rootCandidates[0].hostEgress,
   };
 }
 
@@ -1538,6 +1574,41 @@ function buildImportedHostIngressKeys(rootModelId, semantic) {
   };
 }
 
+function buildImportedHostEgressKeys(rootModelId, semantic) {
+  const base = `imported_${semantic}_${rootModelId}`;
+  return {
+    egressLabel: `${base}_out`,
+    busOutKey: `${base}_bus`,
+    model0RouteKey: `${base}_route`,
+    mountRelayPin: `__host_egress_${semantic}_relay_${rootModelId}`,
+    mountBridgeKey: `__host_egress_${semantic}_bridge_${rootModelId}`,
+    forwardFunc: `forward_imported_${semantic}_from_model0_${rootModelId}`,
+  };
+}
+
+function buildImportedHostEgressForwardCode(rootModelId, keys) {
+  return [
+    `const payload = ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(keys.egressLabel)} });`,
+    "if (!Array.isArray(payload) || payload.length === 0) return;",
+    `const opId = 'imported_${rootModelId}_' + Date.now();`,
+    `const packet = { version: 'v1', type: 'pin_payload', op_id: opId, source_model_id: ${rootModelId}, pin: 'submit', payload, timestamp: Date.now() };`,
+    `ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(keys.busOutKey)} }, 'pin.bus.out', packet);`,
+    "const p = ctx.sendMatrix(packet);",
+    "if (p && typeof p.then === 'function') {",
+    "  p.catch(function(err) {",
+    "    const msg = err && err.message ? String(err.message) : String(err);",
+    `    ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(`${keys.forwardFunc}_last_error`)} }, 'json', { op_id: opId, reason: 'matrix_send_failed', error: msg, ts: Date.now() });`,
+    `    ctx.writeLabel({ model_id: ${rootModelId}, p: 0, r: 0, c: 0, k: 'status_text' }, 'str', 'send_failed');`,
+    "  });",
+    "} else if (!p) {",
+    `  ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(`${keys.forwardFunc}_last_error`)} }, 'json', { op_id: opId, reason: 'matrix_unavailable', ts: Date.now() });`,
+    `  ctx.writeLabel({ model_id: ${rootModelId}, p: 0, r: 0, c: 0, k: 'status_text' }, 'str', 'matrix_unavailable');`,
+    "}",
+    `ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(keys.egressLabel)} }, 'pin.in', null);`,
+    `ctx.writeLabel({ model_id: ${rootModelId}, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.out', null);`,
+  ].join('\n');
+}
+
 function materializeImportedHostIngressAdapter(runtime, rootModelId, hostIngress) {
   if (!hostIngress) return null;
   const rootModel = runtime.getModel(rootModelId);
@@ -1561,6 +1632,71 @@ function materializeImportedHostIngressAdapter(runtime, rootModelId, hostIngress
   });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'host_ingress_generated_model0_labels', t: 'json', v: [keys.ingressKey, keys.routeKey] });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'host_ingress_generated_root_labels', t: 'json', v: [keys.relayPin, keys.relayRouteKey] });
+  return keys;
+}
+
+function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, hostEgress) {
+  if (!hostEgress) return null;
+  const rootModel = runtime.getModel(rootModelId);
+  const model0 = runtime.getModel(0);
+  const sys = runtime.getModel(-10);
+  if (!rootModel || !model0 || !sys || !mountCell) return null;
+  const keys = buildImportedHostEgressKeys(rootModelId, hostEgress.semantic);
+  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: keys.mountRelayPin, t: 'pin.in', v: null });
+  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, {
+    k: keys.mountBridgeKey,
+    t: 'pin.connect.label',
+    v: [{
+      from: `(${rootModelId}, ${hostEgress.pinName})`,
+      to: [`(self, ${keys.mountRelayPin})`],
+    }],
+  });
+  runtime.addLabel(model0, 0, 0, 0, { k: keys.egressLabel, t: 'pin.in', v: null });
+  runtime.addLabel(model0, 0, 0, 0, { k: keys.busOutKey, t: 'pin.bus.out', v: null });
+  runtime.addLabel(model0, 0, 0, 0, {
+    k: keys.model0RouteKey,
+    t: 'pin.connect.cell',
+    v: [{
+      from: [mountCell.p, mountCell.r, mountCell.c, keys.mountRelayPin],
+      to: [[0, 0, 0, keys.egressLabel]],
+    }],
+  });
+  runtime.addLabel(sys, 0, 0, 0, {
+    k: keys.forwardFunc,
+    t: 'func.js',
+    v: { code: buildImportedHostEgressForwardCode(rootModelId, keys) },
+  });
+  const currentDualBus = rootModel.getCell(0, 0, 0).labels.get(SLIDE_IMPORT_DUAL_BUS_LABEL);
+  const currentValue = currentDualBus && isPlainObject(currentDualBus.v) ? currentDualBus.v : {};
+  runtime.addLabel(rootModel, 0, 0, 0, {
+    k: SLIDE_IMPORT_DUAL_BUS_LABEL,
+    t: 'json',
+    v: {
+      ...currentValue,
+      model0_egress_label: keys.egressLabel,
+      model0_egress_func: keys.forwardFunc,
+    },
+  });
+  runtime.addLabel(rootModel, 0, 0, 0, {
+    k: 'host_egress_generated_model0_labels',
+    t: 'json',
+    v: [keys.egressLabel, keys.busOutKey, keys.model0RouteKey, `${keys.forwardFunc}_last_error`],
+  });
+  runtime.addLabel(rootModel, 0, 0, 0, {
+    k: 'host_egress_generated_mount',
+    t: 'json',
+    v: {
+      p: mountCell.p,
+      r: mountCell.r,
+      c: mountCell.c,
+      keys: [keys.mountRelayPin, keys.mountBridgeKey],
+    },
+  });
+  runtime.addLabel(rootModel, 0, 0, 0, {
+    k: 'host_egress_generated_system_labels',
+    t: 'json',
+    v: [keys.forwardFunc],
+  });
   return keys;
 }
 
@@ -1608,12 +1744,14 @@ function materializeSlideImportPayload(runtime, payload, validation) {
   const model0 = runtime.getModel(0);
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'model_type', t: 'model.submt', v: rootModelId });
   const hostIngressKeys = materializeImportedHostIngressAdapter(runtime, rootModelId, validation.hostIngress);
+  const hostEgressKeys = materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, validation.hostEgress);
 
   return {
     rootModelId,
     modelIds: [...idMap.values()],
     mountCell,
     hostIngressKeys,
+    hostEgressKeys,
   };
 }
 
@@ -1668,6 +1806,15 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
   const generatedModel0Labels = Array.isArray(rootCell.labels.get('host_ingress_generated_model0_labels')?.v)
     ? rootCell.labels.get('host_ingress_generated_model0_labels').v.filter((item) => typeof item === 'string' && item)
     : [];
+  const generatedEgressModel0Labels = Array.isArray(rootCell.labels.get('host_egress_generated_model0_labels')?.v)
+    ? rootCell.labels.get('host_egress_generated_model0_labels').v.filter((item) => typeof item === 'string' && item)
+    : [];
+  const generatedEgressMount = isPlainObject(rootCell.labels.get('host_egress_generated_mount')?.v)
+    ? rootCell.labels.get('host_egress_generated_mount').v
+    : null;
+  const generatedEgressSystemLabels = Array.isArray(rootCell.labels.get('host_egress_generated_system_labels')?.v)
+    ? rootCell.labels.get('host_egress_generated_system_labels').v.filter((item) => typeof item === 'string' && item)
+    : [];
   const importedIdsRaw = rootCell.labels.get('imported_bundle_model_ids');
   const modelIds = Array.isArray(importedIdsRaw && importedIdsRaw.v)
     ? importedIdsRaw.v.filter((item) => Number.isInteger(item))
@@ -1679,6 +1826,31 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
     if (model0) {
       for (const key of generatedModel0Labels) {
         runtime.rmLabel(model0, 0, 0, 0, key);
+      }
+    }
+  }
+  if (generatedEgressModel0Labels.length > 0) {
+    const model0 = runtime.getModel(0);
+    if (model0) {
+      for (const key of generatedEgressModel0Labels) {
+        runtime.rmLabel(model0, 0, 0, 0, key);
+      }
+    }
+  }
+  if (generatedEgressMount && Number.isInteger(generatedEgressMount.p) && Number.isInteger(generatedEgressMount.r) && Number.isInteger(generatedEgressMount.c)) {
+    const model0 = runtime.getModel(0);
+    const mountKeys = Array.isArray(generatedEgressMount.keys) ? generatedEgressMount.keys.filter((item) => typeof item === 'string' && item) : [];
+    if (model0) {
+      for (const key of mountKeys) {
+        runtime.rmLabel(model0, generatedEgressMount.p, generatedEgressMount.r, generatedEgressMount.c, key);
+      }
+    }
+  }
+  if (generatedEgressSystemLabels.length > 0) {
+    const sys = runtime.getModel(-10);
+    if (sys) {
+      for (const key of generatedEgressSystemLabels) {
+        runtime.rmLabel(sys, 0, 0, 0, key);
       }
     }
   }
@@ -1703,7 +1875,7 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
     runtime.models.delete(modelId);
   }
 
-  return { ok: true, modelIds };
+  return { ok: true, modelIds, systemLabels: generatedEgressSystemLabels };
 }
 
 function corsHeaders(req, originOverride) {
@@ -3091,6 +3263,16 @@ class ProgramModelEngine {
             const validation = validateSlideImportPayload(payload);
             if (!validation.ok) return validation;
             const imported = materializeSlideImportPayload(this.runtime, payload, validation);
+            if (programEngine && imported.hostEgressKeys && imported.hostEgressKeys.forwardFunc) {
+              const sys = firstSystemModel(this.runtime);
+              const code = sys
+                ? extractFunctionCode(this.runtime.getCell(sys, 0, 0, 0).labels.get(imported.hostEgressKeys.forwardFunc)?.v)
+                : '';
+              if (sys && typeof code === 'string' && code.trim()) {
+                programEngine.functions.set(imported.hostEgressKeys.forwardFunc, code);
+                sys.registerFunction(imported.hostEgressKeys.forwardFunc);
+              }
+            }
             return {
               ok: true,
               data: {
@@ -3214,6 +3396,15 @@ class ProgramModelEngine {
             const removed = removeImportedBundleFromRuntime(this.runtime, targetId);
             if (!removed.ok) {
               return { ok: false, code: 'invalid_target', detail: removed.code };
+            }
+            if (programEngine && Array.isArray(removed.systemLabels)) {
+              const sys = firstSystemModel(this.runtime);
+              for (const key of removed.systemLabels) {
+                programEngine.functions.delete(key);
+                if (sys && sys.functions instanceof Map) {
+                  sys.functions.delete(key);
+                }
+              }
             }
             const runtimePersister = this.runtime && this.runtime.persistence ? this.runtime.persistence : null;
             if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
@@ -4590,6 +4781,12 @@ function createServerState(options) {
   const editorEventLog = [];
   const adapter = createLocalBusAdapter({ runtime, eventLog: editorEventLog, mode: 'v1' });
   programEngine = new ProgramModelEngine(runtime);
+  runtime.eventLog.setObserver(() => {
+    if (!programEngine || runtime.runtimeMode !== 'running') return;
+    Promise.resolve().then(() => {
+      try { programEngine.tick().catch(() => {}); } catch (_) { /* ignore */ }
+    });
+  });
   programEngine.matrixUserLoginImpl = matrixUserLoginImpl;
   programEngine._matrixDebugRefresh = (subjectId) => {
     const selected = String(subjectId ?? '').trim() || 'trace';
@@ -4636,6 +4833,16 @@ function createServerState(options) {
         const validation = validateSlideImportPayload(payload);
         if (!validation.ok) return validation;
         const imported = materializeSlideImportPayload(runtime, payload, validation);
+        if (programEngine && imported.hostEgressKeys && imported.hostEgressKeys.forwardFunc) {
+          const sys = firstSystemModel(runtime);
+          const code = sys
+            ? extractFunctionCode(runtime.getCell(sys, 0, 0, 0).labels.get(imported.hostEgressKeys.forwardFunc)?.v)
+            : '';
+          if (sys && typeof code === 'string' && code.trim()) {
+            programEngine.functions.set(imported.hostEgressKeys.forwardFunc, code);
+            sys.registerFunction(imported.hostEgressKeys.forwardFunc);
+          }
+        }
         return {
           ok: true,
           data: {
@@ -4741,6 +4948,15 @@ function createServerState(options) {
         const removed = removeImportedBundleFromRuntime(runtime, targetId);
         if (!removed.ok) {
           return { ok: false, code: 'invalid_target', detail: removed.code };
+        }
+        if (programEngine && Array.isArray(removed.systemLabels)) {
+          const sys = firstSystemModel(runtime);
+          for (const key of removed.systemLabels) {
+            programEngine.functions.delete(key);
+            if (sys && sys.functions instanceof Map) {
+              sys.functions.delete(key);
+            }
+          }
         }
         const runtimePersister = runtime && runtime.persistence ? runtime.persistence : null;
         if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
