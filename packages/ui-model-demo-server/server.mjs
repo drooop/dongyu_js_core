@@ -1640,7 +1640,19 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
   const rootModel = runtime.getModel(rootModelId);
   const model0 = runtime.getModel(0);
   const sys = runtime.getModel(-10);
-  if (!rootModel || !model0 || !sys || !mountCell) return null;
+  if (!rootModel || !model0 || !sys || !mountCell) {
+    runtime.eventLog.record({
+      op: 'host_egress_adapter_skipped',
+      cell: { model_id: rootModelId, p: 0, r: 0, c: 0 },
+      label: { k: 'host_egress_v1', t: 'json' },
+      result: 'skipped',
+      reason: !rootModel ? 'root_model_missing'
+        : !model0 ? 'model0_missing'
+        : !sys ? 'sys_model_missing'
+        : 'mount_cell_missing',
+    });
+    return null;
+  }
   const keys = buildImportedHostEgressKeys(rootModelId, hostEgress.semantic);
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: keys.mountRelayPin, t: 'pin.in', v: null });
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, {
@@ -1852,6 +1864,14 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
       for (const key of generatedEgressSystemLabels) {
         runtime.rmLabel(sys, 0, 0, 0, key);
       }
+    } else {
+      runtime.eventLog.record({
+        op: 'host_egress_cleanup_skipped',
+        cell: { model_id: rootModelId, p: 0, r: 0, c: 0 },
+        label: { k: 'host_egress_generated_system_labels', t: 'json' },
+        result: 'skipped',
+        reason: 'sys_model_missing',
+      });
     }
   }
 
