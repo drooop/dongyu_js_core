@@ -84,7 +84,7 @@ function payloadWithIngressAndEgress() {
       "];",
       "if (text) records.push({ op: 'add_label', model_id: ctx.self.model_id, p: 0, r: 0, c: 0, k: 'submit', t: 'pin.out', v: payload });",
       "return { target_model_id: ctx.self.model_id, op: 'apply_records', records };",
-    ].join('\\n') } },
+    ].join('\n') } },
     { id: 0, p: 2, r: 3, c: 0, k: 'click_chain', t: 'pin.in', v: null },
   ];
 }

@@ -114,9 +114,19 @@ source: ai
 
 | label.t | 说明 | key | value 格式 | 位置约束 |
 |---|---|---|---|---|
-| `pin.connect.label` | Cell 内接线 | 连接名 | `[{from: "pinName", to: ["pinName", ...]}, ...]` | 任意 Cell |
+| `pin.connect.label` | Cell 内接线 | 连接名 | `[{from: "(prefix, pinName)", to: ["(prefix, pinName)", ...]}, ...]` | 任意 Cell |
 | `pin.connect.cell` | Model 内跨 Cell 路由 | 连接名 | `[{from: [p,r,c,"pinName"], to: [[p,r,c,"pinName"], ...]}, ...]` | 仅 (0,0,0) |
 | `pin.connect.model` | 跨 Model 路由 | 连接名 | `[{from: [modelId,"pinName"], to: [[modelId,"pinName"], ...]}, ...]` | 仅 Model 0 (0,0,0) |
+
+`pin.connect.label` 的端点 `(prefix, pinName)` 语义：
+
+| prefix 形式 | 含义 | 触发方向 |
+|---|---|---|
+| `self` | 当前 cell 上的 label（pin.in/pin.out） | label 写入时传播 |
+| `func` | 当前 cell 上（或 Model -10 fallback）的 `func.*` label；`pinName` 形式必须是 `funcName:in` 或 `funcName:out` | 写 `:in` 触发函数执行；`:out` 是函数返回值 |
+| 数字（如 `1030`） | 宿主接入的子模型边界 pin — 表示子模型 id；`pinName` 是子模型 root (0,0,0) 的 `pin.in` / `pin.out` | 子模型 root pin.out 被写 → 通过 `parentChildMap` 传播到该 cell 对应的 child id 前缀规则；反向写 `pin.in` 用于向子模型注入 |
+
+数字前缀仅用于宿主 adapter 场景（例如导入 app 的 root pin.out 经 mount cell 的 pin.connect.label 桥接到宿主）。不是用户层模型的日常路由声明。
 
 ---
 

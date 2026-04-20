@@ -1590,14 +1590,18 @@ function buildImportedHostEgressForwardCode(rootModelId, keys) {
   return [
     `const payload = ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(keys.egressLabel)} });`,
     "if (!Array.isArray(payload) || payload.length === 0) return;",
-    `const packet = { version: 'v1', type: 'pin_payload', op_id: 'imported_${rootModelId}_' + Date.now(), source_model_id: ${rootModelId}, pin: 'submit', payload, timestamp: Date.now() };`,
+    `const opId = 'imported_${rootModelId}_' + Date.now();`,
+    `const packet = { version: 'v1', type: 'pin_payload', op_id: opId, source_model_id: ${rootModelId}, pin: 'submit', payload, timestamp: Date.now() };`,
     `ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(keys.busOutKey)} }, 'pin.bus.out', packet);`,
     "const p = ctx.sendMatrix(packet);",
     "if (p && typeof p.then === 'function') {",
-    "  p.catch(function() {",
+    "  p.catch(function(err) {",
+    "    const msg = err && err.message ? String(err.message) : String(err);",
+    `    ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(`${keys.forwardFunc}_last_error`)} }, 'json', { op_id: opId, reason: 'matrix_send_failed', error: msg, ts: Date.now() });`,
     `    ctx.writeLabel({ model_id: ${rootModelId}, p: 0, r: 0, c: 0, k: 'status_text' }, 'str', 'send_failed');`,
     "  });",
     "} else if (!p) {",
+    `  ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(`${keys.forwardFunc}_last_error`)} }, 'json', { op_id: opId, reason: 'matrix_unavailable', ts: Date.now() });`,
     `  ctx.writeLabel({ model_id: ${rootModelId}, p: 0, r: 0, c: 0, k: 'status_text' }, 'str', 'matrix_unavailable');`,
     "}",
     `ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(keys.egressLabel)} }, 'pin.in', null);`,
@@ -1666,7 +1670,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
   const currentValue = currentDualBus && isPlainObject(currentDualBus.v) ? currentDualBus.v : {};
   runtime.addLabel(rootModel, 0, 0, 0, {
     k: SLIDE_IMPORT_DUAL_BUS_LABEL,
-    t: currentDualBus && typeof currentDualBus.t === 'string' && currentDualBus.t ? currentDualBus.t : 'json',
+    t: 'json',
     v: {
       ...currentValue,
       model0_egress_label: keys.egressLabel,
@@ -1676,7 +1680,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
   runtime.addLabel(rootModel, 0, 0, 0, {
     k: 'host_egress_generated_model0_labels',
     t: 'json',
-    v: [keys.egressLabel, keys.busOutKey, keys.model0RouteKey],
+    v: [keys.egressLabel, keys.busOutKey, keys.model0RouteKey, `${keys.forwardFunc}_last_error`],
   });
   runtime.addLabel(rootModel, 0, 0, 0, {
     k: 'host_egress_generated_mount',
@@ -4777,6 +4781,12 @@ function createServerState(options) {
   const editorEventLog = [];
   const adapter = createLocalBusAdapter({ runtime, eventLog: editorEventLog, mode: 'v1' });
   programEngine = new ProgramModelEngine(runtime);
+  runtime.eventLog.setObserver(() => {
+    if (!programEngine || runtime.runtimeMode !== 'running') return;
+    Promise.resolve().then(() => {
+      try { programEngine.tick().catch(() => {}); } catch (_) { /* ignore */ }
+    });
+  });
   programEngine.matrixUserLoginImpl = matrixUserLoginImpl;
   programEngine._matrixDebugRefresh = (subjectId) => {
     const selected = String(subjectId ?? '').trim() || 'trace';

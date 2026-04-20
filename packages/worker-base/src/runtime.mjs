@@ -4,6 +4,7 @@ class EventLog {
   constructor() {
     this._events = [];
     this._nextId = 1;
+    this._observer = null;
   }
 
   record(event) {
@@ -19,7 +20,14 @@ class EventLog {
       trace_id: event.trace_id || null,
     };
     this._events.push(entry);
+    if (typeof this._observer === 'function') {
+      try { this._observer(entry); } catch (_) { /* observer errors must not break record */ }
+    }
     return entry;
+  }
+
+  setObserver(callback) {
+    this._observer = typeof callback === 'function' ? callback : null;
   }
 
   list() {
