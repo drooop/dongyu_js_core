@@ -222,7 +222,12 @@ source: ai
 | 0318-static-wasm-mime-fix | 2026-04-13 | 修复 Static 发布路径对 `.wasm` 的 MIME 类型，确保浏览器能真正执行 wasm 页面 | 2 | dev_0318-static-wasm-mime-fix | Completed | ./docs/iterations/0318-static-wasm-mime-fix/ |
 | 0320-imported-slide-app-host-ingress-semantics-freeze | 2026-04-14 | docs-only 冻结 imported slide app 的宿主接入语义，裁决正式业务 ingress、宿主 adapter 和边界 pin 要求 | 3 | dev_0320-imported-slide-app-host-ingress-semantics-freeze | Completed | ./docs/iterations/0320-imported-slide-app-host-ingress-semantics-freeze/ |
 | 0321-imported-slide-app-host-ingress-implementation | 2026-04-14 | 按 0320 的 v1 规约落第一批宿主 ingress 实现：导入期声明 boundary pin，安装时自动补 Model 0 host adapter | 4 | dev_0321-imported-slide-app-host-ingress-implementation | Completed | ./docs/iterations/0321-imported-slide-app-host-ingress-implementation/ |
+<<<<<<< HEAD
 | 0322-imported-slide-app-host-egress-test-app | 2026-04-16 | 补 imported slide app 的宿主 egress adapter，并产出一个可导入的测试 zip，验证宿主入口、内部整理与 `pin.bus.out / MQTT / Matrix` 外发链 | 3 | dev_0322-imported-slide-app-host-egress-test-app | Completed | ./docs/iterations/0322-imported-slide-app-host-egress-test-app/ |
+=======
+| 0322-imported-slide-app-host-egress-test-app | 2026-04-16 | 补 imported slide app 的宿主 egress adapter，并产出一个可导入的测试 zip，验证宿主入口、内部整理与 `pin.bus.out / MQTT / Matrix` 外发链 | 3 | dev_0322-imported-slide-app-host-egress-test-app | Approved | ./docs/iterations/0322-imported-slide-app-host-egress-test-app/ |
+| 0323-modeltable-rw-permission-spec | 2026-04-17 | 规约变更：model.table (0,0,0) 默认三程序基础设施、V1N API 读写权限收紧、跨模型通信强制走 pin（docs-only） | 2 | dev_0323-modeltable-rw-permission-spec | Completed | ./docs/iterations/0323-modeltable-rw-permission-spec/ |
+>>>>>>> 73b0998 (docs: freeze 0323 modeltable rw permission spec)
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
