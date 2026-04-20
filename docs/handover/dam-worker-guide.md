@@ -573,6 +573,44 @@ UI Server：bun packages/ui-model-demo-server/server.mjs --port 9000
 
 ---
 
+## Host Adapter 删除清理 Checklist（0322 补）
+
+当 host 删除一个 imported slide app 时，`removeImportedBundleFromRuntime` 必须依次核对下列清单。任何一条未清都算"残件泄漏"，会让下一次 imported app 安装到同 cell 时路由错位。
+
+### A. 从 imported root cell `(0,0,0)` 读取清单
+
+- `host_ingress_generated_model0_labels: json` — 0321 ingress adapter 在 Model 0 `(0,0,0)` 上留下的 key 数组
+- `host_ingress_generated_root_labels: json` — imported root `(0,0,0)` 上由 ingress adapter 添加的 key
+- `host_egress_generated_model0_labels: json` — 0322 egress 在 Model 0 `(0,0,0)` 留下的 key（含 `<forwardFunc>_last_error`）
+- `host_egress_generated_mount: json` — `{p, r, c, keys[]}`，mount cell 上 bridge + relay 的 key 列表
+- `host_egress_generated_system_labels: json` — 写在 Model -10 `(0,0,0)` 的 `forwardFunc` key 列表
+
+### B. 删除顺序
+
+1. Model 0 `(0,0,0)` 上全部 `host_ingress_generated_model0_labels` 条目 → `rm_label`
+2. Model 0 `(0,0,0)` 上全部 `host_egress_generated_model0_labels` 条目 → `rm_label`（包括 error label）
+3. Model 0 mount cell 上 `host_egress_generated_mount.keys` 全部条目 → `rm_label`
+4. Model -10 `(0,0,0)` 上 `host_egress_generated_system_labels` 全部条目 → `rm_label`；`programEngine.functions.delete(key)` 同步清除代码 Map，`sys.functions.delete(key)` 清除 Model 级别 registration
+5. Runtime model registry 中删除所有 `imported_bundle_model_ids`
+6. 对 Model 0 `(0,0,0)` 上全部 `model.submt` 指向被删 model id 的 label 做一次 final sweep
+
+### C. 系统模型解析原则
+
+- 不使用 `firstSystemModel` fallback；必须 `runtime.getModel(-10)`，失败则在该步停止 cleanup，防止 label 删到错误的负模型
+- 若需要 cleanup 之外的负模型枚举（如健康检查），另写 helper，不要复用 egress 路径的 sys 变量
+
+### D. 删除后的最小断言（测试契约）
+
+`scripts/tests/test_0322_imported_host_egress_server_flow.mjs` 的 delete 段已断言：
+
+- Model 0 root 不再有 ingressKey / egressLabel / busLabel
+- Model -10 root 不再有 forwardFunc
+- mount cell 上 relay + bridge 被清空
+
+其它 host-visible label 的残留需要在未来迭代扩展断言（见 0322 runlog Known Follow-ups MEDIUM #4）。
+
+---
+
 ## 附录：术语表
 
 > 飞书在线版：[术语表 — 洞宇 APP 软件工人开发](https://bob3y2gxxp.feishu.cn/wiki/JWGFw86ggivvUuk7Bx3cY0UQnfb)

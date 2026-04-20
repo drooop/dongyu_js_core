@@ -1639,7 +1639,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
   if (!hostEgress) return null;
   const rootModel = runtime.getModel(rootModelId);
   const model0 = runtime.getModel(0);
-  const sys = firstSystemModel(runtime);
+  const sys = runtime.getModel(-10);
   if (!rootModel || !model0 || !sys || !mountCell) return null;
   const keys = buildImportedHostEgressKeys(rootModelId, hostEgress.semantic);
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: keys.mountRelayPin, t: 'pin.in', v: null });
@@ -1847,7 +1847,7 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
     }
   }
   if (generatedEgressSystemLabels.length > 0) {
-    const sys = firstSystemModel(runtime);
+    const sys = runtime.getModel(-10);
     if (sys) {
       for (const key of generatedEgressSystemLabels) {
         runtime.rmLabel(sys, 0, 0, 0, key);

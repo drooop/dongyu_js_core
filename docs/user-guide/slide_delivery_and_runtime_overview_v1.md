@@ -213,6 +213,19 @@ source: ai
 
 所以“用户正在打字”和“后端已经收到业务提交”也不是一回事。
 
+## 3.1 运行时对外发送（0322 补）
+
+imported slide app 的业务结果要发到 MQTT / Matrix，走宿主补齐的出站 adapter，不是 app 自己发：
+
+1. imported app 内部程序模型把结果写到 root `(0,0,0)` 的 `pin.out submit`（由 `owner_materialize` 应用 `apply_records` 完成）。
+2. 宿主安装时生成的 `mountBridge` 把 `submit` value 写到 Model 0 mount cell 的 `__host_egress_submit_relay_<id>`。
+3. 宿主的 `model0_route` 把 value 再转到 Model 0 `(0,0,0)` 的 `imported_submit_<id>_out`。
+4. 这次写入被 EventLog observer 触发 `programEngine.tick()`，`processEventsSnapshot` 找到对应 `forward_imported_submit_from_model0_<id>` 函数并执行。
+5. forward 函数构造 `pin_payload v1` packet，写入 Model 0 `pin.bus.out` → MQTT publish，并 `ctx.sendMatrix(packet)` → Matrix publish；失败会落到 `<forwardFunc>_last_error` JSON label 上（op_id + reason + ts）。
+6. forward 收尾把 egress label 和 imported root `submit` reset 回 null，避免重放。
+
+卸载 imported app 时，这一整套 labels（ingress + egress + forwardFunc + error label）都按 `host_ingress_generated_*` / `host_egress_generated_*` 清单 rm_label 清理。
+
 ## 4. Matrix 关系
 
 这里最容易混淆，必须分开看。

@@ -371,3 +371,59 @@ v1 当前还要求：
 3. 哪些现有 direct-pin path 要继续保留，哪些 imported app path 要改成统一 ingress
 
 在这三件事未落地前，本页只作为 **候选正式架构冻结** 使用。
+
+---
+
+## 9. Egress 对称扩展（0322 实装）
+
+0320 ingress 冻结 + 0321 ingress 实装之后，0322 把同样的"声明 + 宿主补 adapter"模式扩展到出站。下列内容是 live code 事实，不再是候选。
+
+### 9.1 imported app 侧的 egress 声明
+
+imported app zip 必须：
+
+- 在 root (0,0,0) 上声明 `dual_bus_model: json`，说明自己期望对外发送业务包。
+- 在 root (0,0,0) 声明一个 `pin.out` 作为对外出口（约定名 `submit`；后续可通过 `dual_bus_model` 的 `egress_pin_name` 参数化，当前强制 `submit`）。
+- 不允许在 zip 内声明 `pin.bus.in` / `pin.bus.out` / `pin.connect.model` / `func.python`，这些由 `SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES` 拒绝，防止 imported app 自建第二个对外入口。
+
+### 9.2 宿主自动补齐的 egress adapter
+
+安装期 `materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, hostEgress)` 产出：
+
+| 位置 | label | 作用 |
+|---|---|---|
+| Model 0 `mountCell` | `__host_egress_<semantic>_relay_<id>` `pin.in` | 接收 imported root `pin.out` 经 `pin.connect.label` 数字前缀转发的 value |
+| Model 0 `mountCell` | `__host_egress_<semantic>_bridge_<id>` `pin.connect.label` | `(<rootModelId>, <pinName>) → (self, mountRelayPin)` — 把 imported root pin.out 桥到 mountCell |
+| Model 0 `(0,0,0)` | `imported_<semantic>_<id>_out` `pin.in` | 宿主 egress 暂存入口 |
+| Model 0 `(0,0,0)` | `imported_<semantic>_<id>_bus` `pin.bus.out` | MQTT 对外 publish 通道 |
+| Model 0 `(0,0,0)` | `imported_<semantic>_<id>_route` `pin.connect.cell` | `[mountCell,mountRelayPin] → [[0,0,0,egressLabel]]` |
+| Model -10 `(0,0,0)` | `forward_imported_<semantic>_from_model0_<id>` `func.js` | tier 2 forward 函数 |
+| imported root `(0,0,0)` | `dual_bus_model.model0_egress_label` / `.model0_egress_func` | 驱动 `processEventsSnapshot` 的触发映射 |
+| imported root `(0,0,0)` | `host_egress_generated_{model0_labels, mount, system_labels}` | 删除清理清单（记录所有自动生成 key） |
+
+### 9.3 forward 执行路径
+
+出站触发链：
+
+1. imported app root `pin.out submit` 被写入 payload（tier 2 `owner_materialize` 应用 `apply_records` 的结果）。
+2. root pin.out → `_registerRootBoundaryOutput` → `_propagateCellConnect(parentModelId=0, mountCell..., String(rootModelId), 'submit', payload)`。
+3. `mountBridgeKey` 接线把 value 写到 `(mountCell, mountRelayPin)`。
+4. `mountRelayPin` 的 `_routeViaCellConnection` 根据 `model0RouteKey` 把 value 写到 `(0,0,0, egressLabel)`。
+5. `egressLabel` 写入被 `EventLog` 记录 → observer 调度 `programEngine.tick()`。
+6. `processEventsSnapshot` 匹配 `dual_bus_model.model0_egress_label`，`intercepts.record('run_func', { func: forwardFunc, payload })`。
+7. `processInterceptsSnapshot` → `executeFunction(forwardFunc, payload)` → 读 egressLabel，构造 pin_payload packet，`writeLabel busOutKey pin.bus.out packet`（MQTT publish），`sendMatrix(packet)`（Matrix publish），错误记录到 `<forwardFunc>_last_error` JSON label；最后 reset egressLabel 与 imported root submit。
+
+### 9.4 删除契约
+
+卸载 imported app 时 `removeImportedBundleFromRuntime` 必须：
+
+- 删除 `host_ingress_generated_*` 与 `host_egress_generated_*` 清单里记录的全部 key。
+- 从 Model -10 `(0,0,0)` 删除 `forwardFunc`；从 `programEngine.functions` Map 删除同名 entry。
+- 禁止遗留 mount relay / mountBridge 让下一个 imported app 复用 cell 时污染路由。
+- `firstSystemModel` fallback 不再用于 egress 路径 —— 必须显式 `runtime.getModel(-10)`，失败时 cleanup 停在该步（不回落到任意负模型）。
+
+### 9.5 约束回顾
+
+- 单外部入口原则未变：只有 Model 0 `(0,0,0)` 的 `pin.bus.in / pin.bus.out` 是 MQTT 边界，imported app 不能自带。
+- Matrix 发送必须通过 `programEngine` ctx 的 `sendMatrix`；runtime `_executeFuncViaCellConnect` ctx 故意不提供 `sendMatrix`。
+- MQTT publish 由 `pin.bus.out` 写入 Model 0 (0,0,0) 自动触发，`ctx.publishMqtt` 仅作为显式辅助。

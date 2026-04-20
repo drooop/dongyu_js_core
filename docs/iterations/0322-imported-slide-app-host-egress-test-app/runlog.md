@@ -1,7 +1,7 @@
 ---
 title: "0322 — imported-slide-app-host-egress-test-app Runlog"
 doc_type: iteration-runlog
-status: in_progress
+status: completed
 updated: 2026-04-20
 source: ai
 ---
@@ -59,31 +59,29 @@ Additional hardening applied in this step:
 
 ### Step 3 — authoritative docs synchronisation
 
-Partial progress:
-- `docs/ssot/label_type_registry.md` updated: `pin.connect.label` endpoint `(prefix, pinName)` form documented; numeric-prefix usage (host adapter scenario) added as a dedicated table entry + note.
+Full pass completed this session:
+- `docs/ssot/label_type_registry.md` — `pin.connect.label` endpoint `(prefix, pinName)` form documented; numeric-prefix (host adapter) semantics added as a dedicated table row + note.
+- `docs/ssot/runtime_semantics_modeltable_driven.md` — new sub-section 5.2f.1 `EventLog Observer (0322)` covering `setObserver`, tier-1 purity of the hook, tier-2 programEngine tick callback, disallowed usage, and the `ctx.sendMatrix` tier-2-only constraint.
+- `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md` — section 9 `Egress 对称扩展（0322 实装）` added with imported-side declaration, host-side adapter table, forward execution path, deletion contract, and constraint recap.
+- `docs/user-guide/slide_delivery_and_runtime_overview_v1.md` — section 3.1 `运行时对外发送（0322 补）` added with the 6-step user-facing chain description.
+- `docs/handover/dam-worker-guide.md` — `Host Adapter 删除清理 Checklist (0322 补)` with clean-up read source, delete order, sys resolution rule, and minimum assertion reference.
+- MEDIUM #3 applied in code: `materializeImportedHostEgressAdapter` and deletion cleanup in `server.mjs` now call `runtime.getModel(-10)` directly instead of `firstSystemModel(runtime)` (eliminates the iteration-order fallback for the 0322 egress paths; other legacy paths left as-is).
 
-Still pending (open):
-- `docs/ssot/runtime_semantics_modeltable_driven.md` — describe the EventLog observer hook and the programEngine tick auto-drive contract
-- `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md` — add egress section (was only ingress in 0320/0321)
-- `docs/user-guide/modeltable_user_guide.md` — user-facing egress walkthrough
-- `docs/handover/dam-worker-guide.md` — host adapter deletion checklist
-- Run `node scripts/ops/obsidian_docs_audit.mjs --root docs`
-
-- Command: (Step 3 not completed in this run)
-- Result: PARTIAL
-- Commit: (label_type_registry.md in this session's commit; remaining docs as follow-up iteration)
+- Command: `node scripts/ops/obsidian_docs_audit.mjs --root docs`
+- Key output: `total: 758 | with_frontmatter: 758 | without_frontmatter: 0 | missing_required_frontmatter_docs: 0 | missing_by_field: {title:0,doc_type:0,status:0,updated:0,source:0}`
+- Result: PASS
+- Commit: (Step 3 commit in this session)
 
 ## Known Follow-ups (tracked, not blockers)
 
 - HIGH #3 (idempotency): forward func has no op_id dedup; two rapid payloads within one tick window could theoretically reorder. Current MQTT + Matrix publishes are one-to-one per egressLabel write, but no explicit lock.
-- MEDIUM #3: `firstSystemModel(runtime)` fallback vs explicit `runtime.getModel(-10)` — still uses fallback in egress adapter paths.
 - LOW: pre-existing `console.log` statements in server.mjs dispatch paths.
-- runtime.mjs `_executeFuncViaCellConnect` ctx lacks `sendMatrix` — external egress must go via `programEngine.executeFunction` path (by design); worth documenting in SSOT to avoid future `ctx.sendMatrix` mistakes in labels executed through pin.connect.label wiring.
+- MEDIUM #4 (deletion cleanup completeness): minimum assertions cover Model 0 root + Model -10 root + mount-cell bridge/relay; full enumeration of mount cell remaining labels is a future iteration assertion.
 
 ## Docs Updated
 
+- [x] `docs/ssot/runtime_semantics_modeltable_driven.md` — EventLog observer sub-section added
 - [x] `docs/ssot/label_type_registry.md` — numeric-prefix `pin.connect.label` semantics documented
-- [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
-- [ ] `docs/user-guide/modeltable_user_guide.md` reviewed
-- [ ] `docs/handover/dam-worker-guide.md` reviewed
-- [ ] `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md` reviewed
+- [x] `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md` — egress chapter added
+- [x] `docs/user-guide/slide_delivery_and_runtime_overview_v1.md` — egress walkthrough added
+- [x] `docs/handover/dam-worker-guide.md` — host adapter deletion checklist added
