@@ -5007,6 +5007,144 @@ function createServerState(options) {
     }
     runtime.hostApi[_name] = _crossModelMethods[_name];
   }
+  // 0325c Step 3.5 Stage 3 Batch 2: register docs* (per R17 按需补注册) for runtime-ctx Model -10 handlers.
+  // Impl mirrors programEngine ctx.hostApi.docs* (L3101-L3160) — reuses file-level DOCS_ROOT + helpers.
+  const _docsHostApiMethods = {
+    docsRefreshTree: () => {
+      try {
+        const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
+        const tree = buildDocsTree(files);
+        return { ok: true, data: { tree, fileCount: files.length } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+    docsSearch: (query, limit) => {
+      try {
+        const maxResults = Number.isInteger(limit) && limit > 0 ? limit : 50;
+        const q = String(query ?? '').trim().toLowerCase();
+        if (!q) return { ok: true, data: { results: [] } };
+        const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
+        const results = [];
+        for (const f of files) {
+          if (results.length >= maxResults) break;
+          if (f.relPath.toLowerCase().includes(q)) {
+            results.push({ path: f.relPath, hit: 'name', snippet: '' });
+            continue;
+          }
+          let text = '';
+          try { text = fs.readFileSync(f.absPath, 'utf8'); } catch (_) { continue; }
+          const idx = text.toLowerCase().indexOf(q);
+          if (idx >= 0) {
+            const start = Math.max(0, idx - 40);
+            const end = Math.min(text.length, idx + q.length + 60);
+            results.push({ path: f.relPath, hit: 'content', snippet: text.slice(start, end).replace(/\s+/g, ' ').trim() });
+          }
+        }
+        return { ok: true, data: { results } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+    docsOpenDoc: (relPath) => {
+      const rel = String(relPath ?? '').replace(/\\/g, '/').replace(/^\/+/, '');
+      if (!isAllowedDocRelPath(rel)) {
+        return { ok: false, code: 'invalid_target', detail: 'doc_path_not_allowed' };
+      }
+      const abs = safeJoin(DOCS_ROOT, rel);
+      if (!abs) return { ok: false, code: 'invalid_target', detail: 'doc_path_invalid' };
+      if (!fs.existsSync(abs)) return { ok: false, code: 'invalid_target', detail: 'doc_not_found' };
+      try {
+        const md = fs.readFileSync(abs, 'utf8');
+        const html = String(getMarkdownProcessor().processSync(md));
+        return { ok: true, data: { html } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+  };
+  for (const _name of Object.keys(_docsHostApiMethods)) {
+    if (typeof runtime.hostApi[_name] !== 'undefined') {
+      throw new Error(`hostApi_name_conflict: ${_name} already defined`);
+    }
+    runtime.hostApi[_name] = _docsHostApiMethods[_name];
+  }
+  // 0325c Step 3.5 Stage 3 Batch 2: register static* (per R17).
+  const _staticHostApiMethods = {
+    staticListProjects: () => {
+      try {
+        const projects = listStaticProjects();
+        return { ok: true, data: { projects } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+    staticUploadProjectFromMxc: (name, kind, mediaUri) => {
+      const projectName = String(name ?? '').trim();
+      if (!/^[a-zA-Z0-9._-]+$/.test(projectName)) {
+        return { ok: false, code: 'invalid_target', detail: 'invalid_project_name' };
+      }
+      const uploadKind = String(kind ?? 'zip').trim();
+      if (uploadKind !== 'zip' && uploadKind !== 'html') {
+        return { ok: false, code: 'invalid_target', detail: 'invalid_upload_kind' };
+      }
+      const uri = String(mediaUri ?? '').trim();
+      if (!uri) return { ok: false, code: 'invalid_target', detail: 'missing_media_uri' };
+      const cached = getCachedUploadedMedia(uri);
+      if (!cached || !cached.buffer || !Buffer.isBuffer(cached.buffer)) {
+        return { ok: false, code: 'invalid_target', detail: 'media_not_cached' };
+      }
+      try {
+        const projects = staticUploadCore(projectName, uploadKind, cached.buffer);
+        return { ok: true, data: { projects, uploaded: projectName } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+    staticDeleteProject: (name) => {
+      const projectName = String(name ?? '').trim();
+      if (!/^[a-zA-Z0-9._-]+$/.test(projectName)) {
+        return { ok: false, code: 'invalid_target', detail: 'invalid_project_name' };
+      }
+      const projectRoot = safeJoin(STATIC_PROJECTS_ROOT, projectName);
+      if (!projectRoot) return { ok: false, code: 'invalid_target', detail: 'invalid_project_name' };
+      if (!fs.existsSync(projectRoot) || !fs.statSync(projectRoot).isDirectory()) {
+        return { ok: false, code: 'invalid_target', detail: 'project_not_found' };
+      }
+      try {
+        fs.rmSync(projectRoot, { recursive: true, force: true });
+        const projects = listStaticProjects();
+        return { ok: true, data: { projects, deleted: projectName } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+  };
+  for (const _name of Object.keys(_staticHostApiMethods)) {
+    if (typeof runtime.hostApi[_name] !== 'undefined') {
+      throw new Error(`hostApi_name_conflict: ${_name} already defined`);
+    }
+    runtime.hostApi[_name] = _staticHostApiMethods[_name];
+  }
+  // 0325c Step 3.5 Stage 3 Batch 2/3: stubs for programEngine-only hostApi methods that runtime-ctx handlers may call.
+  // Matrix debug + LLM Filltable + matrixUserLogin depend on programEngine internal state (programEngine.this._matrixDebugRefresh, LLM backend config).
+  // In runtime ctx they return {ok:false, code:'handler_requires_program_engine'} so callers get well-shaped error and proceed gracefully.
+  // Real functional integration is 0325d scope (refactor programEngine hostApi methods to file-level or dual-register).
+  const _runtimeCtxStubs = {
+    matrixDebugRefresh: () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'matrixDebugRefresh not available in runtime ctx' }),
+    matrixDebugClearTrace: () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'matrixDebugClearTrace not available in runtime ctx' }),
+    matrixDebugSummarize: () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'matrixDebugSummarize not available in runtime ctx' }),
+    llmFilltablePreview: async () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'llmFilltablePreview not available in runtime ctx' }),
+    llmFilltableApply: async () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'llmFilltableApply not available in runtime ctx' }),
+    llmInfer: async () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'llmInfer not available in runtime ctx' }),
+    matrixUserLogin: async () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'matrixUserLogin not available in runtime ctx' }),
+  };
+  for (const _name of Object.keys(_runtimeCtxStubs)) {
+    if (typeof runtime.hostApi[_name] !== 'undefined') {
+      throw new Error(`hostApi_name_conflict: ${_name} already defined`);
+    }
+    runtime.hostApi[_name] = _runtimeCtxStubs[_name];
+  }
   const programEngineReady = programEngine.init()
     .then(() => programEngine.tick())
     .then(() => clearAndRefreshAfterRuntimeBoot())
