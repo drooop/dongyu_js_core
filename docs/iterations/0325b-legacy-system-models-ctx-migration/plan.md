@@ -13,13 +13,13 @@ phase: phase1
 
 ## Goal
 
-- 把 0325 runtime ctx V1N 化后留下的 **legacy system-models JSON 中 30+ 处 `ctx.writeLabel` / `ctx.getLabel` / `ctx.rmLabel` 调用** 全部迁移到 0323 正式路径，使得 0321/0322 server_flow 等依赖这些 handler 的测试恢复 PASS。
-- 合并 0324 review 发现的 M1：server.mjs 里 `ensureGenericOwnerMaterializer` / `ensureHomeOwnerMaterializer` 生成的 `apply_records` + `owner_materialize` 模式也在本迭代彻底清除（统一走 mt_write 请求路径）。
-- 0325 分支与 0325b 分支**作为一组整体 merge 到 dev**：dev baseline 始终无 ctx.* 遗留、0321/0322 回归始终保持绿。
+- 把 0325 runtime ctx V1N 化后留下的 **legacy system-models JSON + server.mjs 中 82 处 `ctx.writeLabel` / `ctx.getLabel` / `ctx.rmLabel` 调用（分布 19 个文件）** 全部按 0323 正式路径处理（迁移 / 删除 / 延后 0326），使得 0321/0322 server_flow 等依赖这些 handler 的测试恢复 PASS。
+- 合并 0324 review 发现的 M1：server.mjs `ensureGenericOwnerMaterializer`（行 2060-2184）+ `ensureHomeOwnerMaterializer`（行 2774-2803）+ forward func 代码模板（1591-1608）生成的 `apply_records` + `owner_materialize` 模式彻底清除（统一走 mt_write 请求路径）。
+- 0325 分支与 0325b 分支**作为一组整体 merge 到 dev**：dev baseline 始终无 ctx.* 遗留（除 D/F 延后清单）、0321/0322 回归始终保持绿。
 
 ## Scope
 
-本迭代是 0325 的**同批扩展**（依赖 0325 分支的 runtime ctx V1N 作为 base）。分离原因见 0325 runlog：plan 低估 scope，legacy system-models migration 涉及 14+ 个 JSON 文件 30+ 处 func.js 代码字符串修改 + 必要 pin wiring 重构。
+本迭代是 0325 的**同批扩展**（依赖 0325 分支的 runtime ctx V1N 作为 base）。分离原因见 0325 runlog：plan 低估 scope — 2026-04-21 sub-agent phase2 review 精确统计为 **82 处 ctx.* 跨 19 个文件**（原 plan 估 30+，低估 ~2.5×）。
 
 - In scope:
   - `packages/worker-base/system-models/workspace_positive_models.json` — 14 处 `ctx.*`（大多数是跨模型写）
@@ -39,24 +39,28 @@ phase: phase1
 ## Invariants / Constraints
 
 - 0325b 执行期间 0325 分支保持不 merge；0325 + 0325b 一起 merge 到 dev 以维持 "无兼容层 + 同 PR 整体达成"
+- **迁移单位 = func body，不是单次 ctx.* 调用**：许多 handler 在同一 code 字符串里混合 A/B/D/E/F 多 bucket，必须整个 func body 一次重写，不能只改一行
 - 迁移规则（每处 ctx.* 调用的目标形态）：
-  - **本 cell 写**：`V1N.addLabel(k, t, v)`
+  - **本 cell 写（A）**：`V1N.addLabel(k, t, v)`
   - **跨 cell 本模型写**：
-    - func 在 root → `V1N.table.addLabel(p, r, c, k, t, v)`
-    - func 非 root → 发请求到本模型 `(0,0,0)` `mt_write_in`：`V1N.addLabel('mt_write_req', 'pin.in', {op:'write', records:[{p, r, c, k, t, v}]})`（需要 fixture 同步加 pin.connect.cell 路由）
-  - **跨模型写**：0323 禁止 V1N 跨模型写；必须改为 `pin.connect.model` 跨模型路由 + 对端 `mt_bus_receive` 消化（后者 0326 才填业务，所以**跨模型写必须 0325b / 0326 协调**）
-  - **本模型读**：`V1N.readLabel(p, r, c, k)`
-  - **跨模型读**：0323 禁止；需要改为 pin 请求-响应模式（复杂）；本迭代把跨模型读归入"识别 + 缓存 label 到对端"的过渡实现
+    - func 在 root（B）→ `V1N.table.addLabel(p, r, c, k, t, v)`
+    - func 非 root（C）→ 发请求到本模型 `(0,0,0)` `mt_write_in`：`V1N.addLabel('mt_write_req', 'pin.in', {op:'write', records:[{p, r, c, k, t, v}]})` + 本模型 root 上补 `pin.connect.cell` 路由（**用单一共享 `root_routes` label 聚合所有 C-bucket 源 cell**，避免每处独立声明）
+  - **本模型读（E）**：`V1N.readLabel(p, r, c, k)`
+  - **跨模型写（D）** 与 **跨模型读（F）**：**全部延后 0326**。0326 填 `mt_bus_send` / `mt_bus_receive` 业务后这些 handler 统一改为 pin 链路。0325b phase3 在 runlog 维护 D/F 延后清单（每项引用 0326 prerequisite）。**本迭代不引入 V1N.system.bridgeWrite 或其他新 Tier 1 privileged 路径**（与本迭代"Tier 2 数据迁移"定位冲突；已被 phase2 review 明确拒绝）
+  - **Bucket G（mailbox ui_event handlers）**：跳过，由 0326 整体删除
 - 不允许兼容层：任何 migration 不得保留旧 API 的 shim
-- 对于跨模型 / 跨 cell 写的复杂 case，如果 target cell 在当前模型 root，可以经本模型 root 的 `mt_write_in` 完成；如果 target 在不同模型，需要改走 `mt_bus_send` → 目标模型 `mt_bus_receive`（0326 业务填充前 skeleton 只做 passthrough，可能需要 0326 同步协调）
+- 本迭代**纯 Tier 2 数据 + 生成代码迁移**，不修改 runtime.mjs
 
 ## Success Criteria
 
-1. `grep -rn "ctx\.writeLabel\|ctx\.getLabel\|ctx\.rmLabel" packages/ scripts/ deploy/` 返回 0 结果（除 iteration docs 历史引用与 `*.legacy.json`）
-2. 0321/0322 server_flow 回归 PASS（端到端链路恢复）
+1. `grep -rn "ctx\.writeLabel\|ctx\.getLabel\|ctx\.rmLabel" packages/ scripts/ deploy/` 返回 0 结果，**除去**：
+   - iteration docs 历史引用 + `*.legacy.json`
+   - runlog "D/F 延后清单"中每条已明确延后 0326（含 0326 prerequisite 引用）
+   - runlog "Bucket G mailbox 跳过清单"中每条由 0326 删除的 handler
+2. 0321/0322 server_flow 回归 PASS（端到端链路恢复到可运行状态；如依赖 D/F 延后 case，则需在 runlog 明确说明 PASS 是否降级为"部分 PASS")
 3. 0324 / 0325 已 PASS 的 21+ 测试仍 PASS
-4. 新增 / 已有 system-models JSON 的 func.js 代码全部使用 V1N 面；server.mjs 生成的 owner_materializer 代码也统一为 V1N / mt_write 请求
-5. 若某跨模型依赖无法按本迭代完成（需 0326 mt_bus_receive 业务），在 runlog 明确标注并生成对应 0326 prerequisite 条目
+4. 所有 bucket A/B/C/E hit 100% 迁移完；server.mjs M1（3 处代码生成器）彻底清 apply_records
+5. runlog 有完整 D/F + G 清单，每条含 `file:line` + 分类 + 0326 prerequisite ref
 6. `obsidian_docs_audit` PASS
 
 ## Inputs
