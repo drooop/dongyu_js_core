@@ -171,13 +171,166 @@ Rubric（9 条 canonical pattern）:
 - 不新增兼容层 —— 老 ctx.writeLabel/getLabel/rmLabel 在 runtime ctx 完全移除；hostApi 是正当系统桥
 - Tier 边界：Tier 1 runtime.mjs 不动；server.mjs 扩展 hostApi 属 Tier 2 基建
 
-Gate Stage 1: rubric 涵盖 9 种模式 + 每种有 canonical 替换规则 + 合规性论证；pending sub-agent review APPROVED。
+Gate Stage 1 (v1): **CHANGE_REQUESTED** 2026-04-21 per sub-agent aa643040b7d53b7c3。见下方 Revision 1。
 
-Commits: (Stage 1 仅文档，无 code)
+Commits v1: `f865bc7` (Stage 1 仅文档)
+
+#### Revision 1 (2026-04-21, per sub-agent review aa643040b7d53b7c3)
+
+原 Stage 0 inventory + Stage 1 rubric 吸收 13 条建议 (C1/C2/H1/H2/H3/H4/M1/M2/M3/M4/L1/L2/L3) 修订如下：
+
+##### R1 — P10 Dynamic modelId I/O（C1）
+
+场景：handler 的目标 modelId 来自 runtime 解析（`sourceRef.model_id / payload.target.model_id / stateModelId` 等），非 literal。
+
+API:
+- `ctx.hostApi.writeCrossModel(resolvedId, p, r, c, k, t, v)`
+- `ctx.hostApi.readCrossModel(resolvedId, p, r, c, k)`
+- `ctx.hostApi.rmCrossModel(resolvedId, p, r, c, k)`
+
+调用前**强制检查**：
+```js
+if (!Number.isInteger(resolvedId)) throw new Error('invalid_dynamic_target');
+if (resolvedId === ctx.self.model_id) {
+  // 退回 P1/P2：self cell 则 V1N.addLabel, 非 self cell 且 handler 在 (0,0,0) 则 V1N.table.addLabel
+}
+```
+
+已确认典型消费者：system_models.json:182 `intent_dispatch`、intent_handlers_slide_import.json:41、多个 handlers。
+
+##### R2 — P4/P5/P6 return shape 锁定（H1）
+
+- writeCrossModel / rmCrossModel → `{ok: boolean, code?: string, detail?: string}`
+- readCrossModel → `{ok: boolean, code?: string, detail?: string, data?: {t: string, v: any} | null}`
+- 与 pre-existing `slideImportAppFromMxc / slideCreateAppFromState` shape 对齐
+
+##### R3 — P4/P6 目标白名单（H3）
+
+writeCrossModel / rmCrossModel 只接受：
+- `modelId === -1 && (p, r, c) === (0, 0, 1)`（UI mailbox 特化）
+- `modelId === -2 && (p, r, c) === (0, 0, 0)`（State projection root 特化）
+- `modelId > 0` 任意 cell（正模型；hostApi 直写为绕过，内部 log 但放行）
+- 其他负模型：只允许 `(p, r, c) === (0, 0, 0)` root 写
+- 不符合 → `{ok:false, code:'invalid_target_white_list', detail:'modelId=... p=... r=... c=... forbidden'}`
+
+##### R4 — Tier 边界决策（H2）
+
+- 本迭代：3 新 methods 保持 Tier 2 (server.mjs 注入；与现 hostApi 共存)
+- 论证：runtime.mjs:1813 `ctx.hostApi = runtime.hostApi` 的 injection 点不约束 method 集合，属 Tier 1/2 边界
+- **未来 Tier 1 提升 trigger**：跨 worker (test harness/MBR worker) 也需要这 3 方法时 → 重开 iteration 把默认 impl 写进 runtime.mjs，server.mjs 可覆盖
+- 本决策**显式记录**，不可无论证改动
+
+##### R5 — 负模型不 seed default table programs（H4）
+
+- `runtime._seedDefaultRootScaffold` 限 `model.id >= 0` 保持不变
+- 论证：负模型是 system capability layer（CLAUDE.md MODEL_ID_REGISTRY），form 灵活不强制 model.table；3 默认程序是 user-visible 契约 (0323)
+- 跨负模型 I/O 由 hostApi 承担（P4-P6）
+- 不触 Tier 1
+
+##### R6 — 豁免口径统一（M1）
+
+确认 programEngine-only 豁免 = **3 条 forward** (不是 "2 + 不确定"):
+- `workspace_positive_models.json:3584` `forward_workspace_filltable_submit_from_model0`
+- `workspace_positive_models.json:12848` `forward_matrix_phase1_send_from_model0`
+- `test_model_100_ui.json:288` `forward_model100_submit_from_model0`
+
+净迁 = **47 (active)** − 3 (Step 3/4 已处理: owner_materialize+2 handle_slide_*_click) − 3 (豁免) = **41 处**
+
+##### R7 — Pattern annotation 惯例（M4）
+
+每个迁移后的 func.js code 顶端注释 `/* rubric: Pa+Pb+... */` 列出所用 patterns；sub-agent code-review 必须核对注释 vs 实际 API 使用，不一致即 CHANGE_REQUESTED。例：
+
+```js
+/* rubric: P1+P4+P8 */
+const event = label && label.v || {};
+V1N.addLabel('local_status', 'str', 'processing');
+ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'ui_event', 'event', payload);
+```
+
+##### R8 — Batch 粒度（L3）
+
+单 batch = 1 文件 **或** ≤ 5 调用点（取较小）。每 batch 独立 commit + checkpoint sha 记录于 runlog + sub-agent review。
+
+##### R9 — 替换规则（表格，L1）
+
+| 原 ctx 调用 | 判定 | Rubric |
+| --- | --- | --- |
+| `writeLabel({model_id: SELF, p=self_p, r=self_r, c=self_c, k}, t, v)` | literal SELF, same cell | P1 `V1N.addLabel(k, t, v)` |
+| `writeLabel({model_id: SELF, (p,r,c)≠self, k}, t, v)` | literal SELF, other cell | P2 (root only) `V1N.table.addLabel(p,r,c,k,t,v)`；handler 非 root → Bucket C (P4a via mt_write_req) |
+| `writeLabel({model_id: OTHER, ...}, t, v)` | literal OTHER | P4 `ctx.hostApi.writeCrossModel(OTHER, p, r, c, k, t, v)` |
+| `writeLabel({model_id: <expr>, ...}, t, v)` | dynamic | P10-write (先做 integer check + self check) |
+| `getLabel({model_id: SELF, ...})` | literal SELF | P3 `V1N.readLabel(p,r,c,k)?.v` (null guard) |
+| `getLabel({model_id: OTHER, ...})` | literal OTHER | P5 `ctx.hostApi.readCrossModel(...)` |
+| `getLabel({model_id: <expr>, ...})` | dynamic | P10-read |
+| `rmLabel({model_id: SELF, ...})` | literal SELF | P1/P2 removeLabel |
+| `rmLabel({model_id: OTHER, ...})` | literal OTHER | P6 `ctx.hostApi.rmCrossModel(...)` |
+| `rmLabel({model_id: <expr>, ...})` | dynamic | P10-remove |
+
+##### R10 — pre-existing runtime.hostApi methods 枚举（L2）
+
+server.mjs `runtime.hostApi = {...}` 起始 L4841。已知 methods (partial, Stage 2 动手前再完整 grep)：
+- `slideImportAppFromMxc(mediaUri)`
+- `slideCreateAppFromState(stateModelId)`
+- `matrixUserLogin(hs, username, password)`（`workspace_positive_models.json:12486` 使用）
+- 其他待 Stage 2 枚举
+
+##### R11 — 3 高风险文件 per-line 细明（C2）
+
+**system_models.json** (3 处):
+
+| Line | Handler | Self Model/Cell | 调用 | target modelId | Rubric |
+| --- | --- | --- | --- | --- | --- |
+| 169 | mgmt_receive | M-10 (0,0,0) | writeLabel(target, ...) | 动态 (`ctx.getMgmtInTarget(inbox.k)`) | P10-write |
+| 182 | intent_dispatch | M-10 (0,0,0) | 多 writeLabel/getLabel/rmLabel；sourceRef 动态 + M-10 SELF 静态混合 | 动态 + SELF | P1 + P10 |
+| 195 | pin_demo_set_mqtt_config | M-10 (0,0,0) | writeLabel({model_id:0, (0,0,0)}, ...) × 3 | literal OTHER=0 (Model 0 bus config) | **特殊评估**: Model 0 不在 P4 白名单默认集，bus config 属 system bridge 类似性质 → 建议 P4 扩展白名单加 `modelId === 0 && (0,0,0)`，或走 pre-existing hostApi method（待 Stage 2 裁决） |
+
+**test_model_100_full.json** (1 处):
+
+| Line | Handler | Self Model/Cell | 调用 | Rubric |
+| --- | --- | --- | --- | --- |
+| 104 | on_model100_submit_in | M100 (0,0,0) | writeLabel × 2 to own (0,0,0) | P1 self-cell |
+
+**workspace_positive_models.json** 净 8 处 (原 12 - 2 豁免 Step 3 - 2 已处理 Step 4):
+
+| Line | Handler | Self Model/Cell | Rubric |
+| --- | --- | --- | --- |
+| 705 | handle_submit_click | M100 (1,0,0) → M100 (0,0,0) | Bucket C (P4a via mt_write_req + bucket_c_cell_routes) |
+| 2543 | emit_submit | M1009 (0,0,0) self | P1 |
+| 3481 | dispatch_remote | M1010 (1,0,0) → M1010 (0,0,0) | Bucket C |
+| 3494 | dispatch_local | M1010 (1,0,0) → M1010 multi cells | Bucket C |
+| 3507 | prepare_workspace_filltable_submit | M-10 (0,0,0) → M1010 | P4 + P5 |
+| 10793 | emit_submit | M1016 (0,0,0) self | P1 |
+| 12486 | dispatch_matrix_phase1_login | M1017 (1,0,0) → M1017 root multi | Bucket C |
+| 12745/12758/12771 | matrix_userline handlers | TBD (Stage 3 展开) | TBD (likely Bucket C or P1) |
+
+##### R12 — Stage 2 Ref Impl 可行性确认（M2）
+
+intent_handlers_slide_import.json:41 `handle_slide_app_import` 映射到 P1 + P8 (mailbox) + P9 (state) + P10 (dynamic stateModelId) 组合；当前含：
+- 6 处 writeLabel(-1, 0, 0, 1, ...) → P8
+- 5 处 writeLabel(stateModelId, ...) → P10-write
+- 1 处 writeLabel(-2, 0, 0, 0, ...) → P9
+- 1 处 getLabel(stateModelId, ...) → P10-read
+- hostApi.slideImportAppFromMxc 保留 (P7)
+
+Stage 2 TDD 契约 `scripts/tests/test_0325c_cross_model_hostapi.mjs` (M3):
+- writeCrossModel (a) 正模型 OK; (b) M-1 (0,0,1) ui_event OK; (c) M-2 (0,0,0) state OK; (d) 无效 modelId → `{ok:false, code:'invalid_target'}`; (e) 不存在 model → 同 d; (f) 超白名单 → `{ok:false, code:'invalid_target_white_list'}`
+- readCrossModel (a) 存在 → `{ok:true, data:{t,v}}`; (b) 不存在 → `{ok:true, data:null}`; (c) 无效 modelId → `{ok:false}`
+- rmCrossModel 对称
+- P10 动态：resolvedId === self → fallback OR throw by flag
+- 功能保真：0321 server_flow PASS (目标 `imported_app_must_appear_in_registry` 恢复)
+- 回归：0324 / 0325 / 0325c / 0143_e2e / slide_e2e 三套保 PASS
+
+##### R13 — Gate 修订后
+
+- Gate Stage 0 (Rev 1): 表完成 + 总数 47 对账 + 3 高风险文件 per-line + 豁免口径统一 ✓
+- Gate Stage 1 (Rev 1): 10 patterns + return shape + 白名单 + Tier 决策 + 负模型决策 + pre-existing 枚举 + 替换规则表 + pattern annotation + batch 粒度 ✓
+- pending sub-agent Rev 1 review
+
+Commits (Rev 1 pending): 本提交后的 docs commit
 
 #### Stage 2 — Reference Impl intent_handlers_slide_import
 
-pending
+pending (Rev 1 review 通过后启动)
 
 #### Stage 3 — Batch Migration
 
