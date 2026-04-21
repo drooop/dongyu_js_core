@@ -324,9 +324,90 @@ Stage 2 TDD 契约 `scripts/tests/test_0325c_cross_model_hostapi.mjs` (M3):
 
 - Gate Stage 0 (Rev 1): 表完成 + 总数 47 对账 + 3 高风险文件 per-line + 豁免口径统一 ✓
 - Gate Stage 1 (Rev 1): 10 patterns + return shape + 白名单 + Tier 决策 + 负模型决策 + pre-existing 枚举 + 替换规则表 + pattern annotation + batch 粒度 ✓
-- pending sub-agent Rev 1 review
 
-Commits (Rev 1 pending): 本提交后的 docs commit
+Commits v1+Rev1: `0649d07`
+
+#### Revision 2 (2026-04-21, per sub-agent review pass 3 aa643040b7d53b7c3)
+
+Rev 1 经 sub-agent 复审 CHANGE_REQUESTED (轻度)。N1/N2/N3/L2 + 新发现的正模型 hostApi 限制问题补完如下。
+
+##### R14 — N1 Model 0 bus config 裁决（pin_demo_set_mqtt_config）
+
+system_models.json:195 `pin_demo_set_mqtt_config` 写 Model 0 (0,0,0) 三 label（`mqtt_target_host` / `mqtt_target_port` / `mqtt_target_client_id`）。
+
+裁决（方案 B）：**新增 pre-existing hostApi bridge `ctx.hostApi.setMqttTargetConfig(host, port, clientId)`**。理由：
+- Model 0 (0,0,0) bus config 写属 system bridge 语义（对 MQTT boundary 的配置）
+- 与已有 hostApi (matrixUserLogin / wsAddApp / docsRefreshTree) 同级
+- 避开 P4 白名单泛化（`modelId === 0` 会让泛白名单扩得太大）
+- handler 迁移后：`ctx.hostApi.setMqttTargetConfig(host, port, clientId)` 返回 `{ok, code?, detail?}`
+
+Stage 2 实装清单 +1: server.mjs runtime.hostApi 追加 setMqttTargetConfig method (Tier 2 扩展)
+
+##### R15 — N2 workspace_positive_models.json L12745/12758/12771 per-line 展开
+
+| Line | Handler | Self Model/Cell | 调用 | Rubric |
+| --- | --- | --- | --- | --- |
+| 12745 | dispatch_matrix_phase1_send | M1019 (1,0,0) 正模型 handler | getLabel M1017 session / M1021 ui / M1019 convo; writeLabel M1019 multi + M1021 composer_draft; sendMatrix | **out-of-scope** 0325d - 正模型 handler 跨模型 I/O (Bucket D/F) + sendMatrix |
+| 12758 | prepare_matrix_phase1_login | M-10 (0,0,0) | getLabel M1017 × 3 + writeLabel M1017 multi + hostApi.matrixUserLogin | P4 (M1017) + P5 (M1017 reads) + P7 (pre-existing matrixUserLogin) |
+| 12771 | prepare_matrix_phase1_send | M-10 (0,0,0) | getLabel M1017/1018/1019/1020/1021 + writeLabel M1019/1020/1021 + sendMatrix | P4 × 多 + P5 × 多 + sendMatrix (P7) |
+
+##### R16 — 正模型 handler scope 裁决 (L12486 + L12745 out-of-scope)
+
+**新发现**: workspace_positive_models.json 里 **正模型 (model.id > 0) handler** 调用 `ctx.hostApi.matrixUserLogin(...)` 会 throw —— runtime.mjs:1809 `hasHostPrivileges = model.id < 0` 使正模型 handler `ctx.hostApi === null`。
+
+影响：
+- L12486 `dispatch_matrix_phase1_login` @ M1017 (1,0,0)：调用 `ctx.hostApi.matrixUserLogin` + 多 writeLabel same-model — **已 broken in post-0325**
+- L12745 `dispatch_matrix_phase1_send` @ M1019 (1,0,0)：跨模型 reads/writes (M1017/1021) + `ctx.sendMatrix` 在正模型 ctx 无（runtime ctx 只含 `publishMqtt`）— **Bucket D/F + 同样 broken**
+
+裁决：**L12486 + L12745 完整 out-of-scope 延后 0325d**。理由：
+- 两者已在 post-0325 broken；0325c 不迁不让情况变差
+- 修复需引入"正模型 cross-model I/O 路径"（新 pin.connect.model 基建 或 让 hostApi 对正模型开放 subset），超出 0325c "纯 Tier 2 迁移"约束
+- 保持 0325c scope focus 在 Model -10 handler + 正模型 Bucket C same-model
+
+0325c Step 3.5 净迁 update = 41 (Rev 1) − 2 (L12486 + L12745 out-of-scope) = **39 处**
+
+0325d scope 备忘：L12486 + L12745 重构，需设计 "正模型跨模型 I/O pattern"（pin.connect.model via mt_write_req 或 hostApi 权限扩展或 handler 迁 Model -10）
+
+##### R17 — L2 runtime.hostApi 完整方法枚举
+
+server.mjs 确认 runtime.hostApi 实际含 6 methods (L4841-L5xxx block):
+- `slideImportAppFromMxc(mediaUri)` → `{ok, data: {model_id, app_name, ...}}`
+- `slideCreateAppFromState(stateModelId)` → 同
+- `wsAddApp(name)` → 待查
+- `wsDeleteApp(modelId)` → 待查
+- `wsRefreshCatalog()` → 待查
+- `wsSelectApp(modelId)` → 待查
+
+**不在 runtime.hostApi 的** (仅 programEngine ctx.hostApi 有，无法给 Model -10 runtime handler 用):
+- `matrixUserLogin` / `matrixDebugRefresh/ClearTrace/Summarize`
+- `llmFilltablePreview/Apply` / `llmInfer`
+- `docsRefreshTree/Search/OpenDoc`
+- `staticListProjects/UploadProjectFromMxc/DeleteProject`
+
+**决策**：Stage 2 动手时若 Model -10 handler 需调用 programEngine-only method (如 matrixUserLogin / docsRefreshTree / llmInfer)，需在 runtime.hostApi 里同步注册同名方法 (复用 programEngine 的 impl)。本迭代**按需补注册**，不做 "全量 shallow-copy"；每次补注册记 runlog Stage 2/3 batch。
+
+##### R18 — N3 error code 枚举表
+
+P4/P5/P6 / P10 return 的 `code` 字段限定枚举：
+
+| code | 场景 |
+| --- | --- |
+| `invalid_target` | modelId 非 integer / 目标 model 不存在 |
+| `invalid_target_white_list` | modelId + cell 超白名单 |
+| `invalid_dynamic_target` | P10 resolvedId 非 integer |
+| `model_not_found` | `runtime.getModel(modelId)` 返 null |
+| `invalid_label_key` | k 非 string 或空 |
+| `invalid_label_type` | t 非 string 或空 (writeCrossModel only) |
+
+readCrossModel `data` 字段：存在 → `{t, v}`；不存在 (但 cell/modelId 合法) → `null`
+
+##### R19 — Gate Rev 2
+
+- Gate Stage 0 (Rev 2): ✓ (N1/N2 展开 + L12486/L12745 out-of-scope + 净迁 39)
+- Gate Stage 1 (Rev 2): ✓ (error code 枚举 + hostApi 完整枚举 + setMqttTargetConfig 新增 method 锁定 + matrixUserLogin 注册按需)
+- 待 sub-agent Rev 2 review
+
+Commits v1+Rev1+Rev2: `0649d07` + 本提交
 
 #### Stage 2 — Reference Impl intent_handlers_slide_import
 
