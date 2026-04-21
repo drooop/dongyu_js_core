@@ -77,8 +77,8 @@ function test_owner_materialize_generator_uses_v1n_table() {
   return { key: 'owner_materialize_generator_uses_v1n_table', status: 'PASS' };
 }
 
-// Per Step 3 decision (runlog 登记): 3 forward funcs 均降级为 programEngine-only;
-// forward body 保留 ctx.*（programEngine ctx 专属；plan SC #7 exception 自然涵盖 programEngine-only 代码）;
+// Per Step 3 decision (runlog Step 3 补录 SC #7 豁免清单): 3 forward funcs 均降级为 programEngine-only;
+// forward body 保留 ctx.*（programEngine ctx shape server.mjs:3040-3080；runtime 入口已断，等价 programEngine-only 代码，按 runlog Step 3 SC #7 豁免清单补录纳入豁免范围）;
 // 契约转为「不存在 runtime pin.connect.label 入口指向 (func, forward_*:in)」
 function test_legacy_forward_funcs_no_runtime_pin_wiring() {
   const doc = JSON.parse(readFileSync(WORKSPACE_JSON, 'utf8'));

@@ -63,10 +63,24 @@ phase: phase1
 
 ### Step 3 — 迁移 workspace_positive_models.json legacy forward funcs
 
+- Decision pre-step（触发路径裁决 + scope 扩展）:
+  - `forward_workspace_filltable_submit_from_model0`: runtime entry = `ws_filltable_submit_wiring` pin.connect.label (workspace_positive_models.json 原 3576-3591); programEngine entry = `server.mjs:3840` 通用 egressFunc（Model 1010 dualBusConfig.model0_egress_func）→ **dual-route** → 降级 programEngine-only
+  - `forward_matrix_phase1_send_from_model0`: runtime = `matrix_phase1_submit_wiring` (workspace_positive_models.json 原 12857-12872); programEngine = server.mjs:3840（Model 1020 dualBusConfig）→ **dual-route** → 降级 programEngine-only
+  - `forward_model100_submit_from_model0`: runtime grep `(func, forward_model100_submit_from_model0:in)` 0 命中; programEngine = server.mjs:3840 + 3863 → **programEngine-only** → 不动
+  - **Scope 扩展说明（per sub-agent MEDIUM 建议）**：Bucket B Model 100 `owner_materialize` (test_model_100_ui.json，runtime pin.connect.label `owner_route` 触发) 一并迁移到 V1N.table.addLabel/removeLabel；越界合理，因该函数若保留 ctx.* 在 post-0325 runtime ctx 会抛错，属已存在的 latent bug，顺手修复
+  - **SC #7 豁免清单补录（per sub-agent MEDIUM 建议）**：plan.md SC #7 原豁免仅列 `server.mjs:3042-3080` + `server.mjs:1589-1609`；Step 3 迁移后补录如下 programEngine-only 代码进入豁免范围（runtime 入口已断，仅 programEngine ctx 执行）：
+    - `packages/worker-base/system-models/workspace_positive_models.json` 里 k=`forward_workspace_filltable_submit_from_model0` 的 func.js body
+    - `packages/worker-base/system-models/workspace_positive_models.json` 里 k=`forward_matrix_phase1_send_from_model0` 的 func.js body
+    - `packages/worker-base/system-models/test_model_100_ui.json` 里 k=`forward_model100_submit_from_model0` 的 func.js body
 - Command:
+  - `node scripts/tests/test_0325c_generator_rewrite.mjs`
+  - `node scripts/tests/test_0324_root_scaffold.mjs`
+  - `node scripts/tests/test_0325_{v1n_api_shape,cross_model_read_denied,selfcell_write_guard}.mjs`
 - Key output:
-- Result: PASS/FAIL
-- Commit:
+  - `test_0325c_generator_rewrite.mjs`: 5/7 PASS（tests 4/5 Bucket C 留 Step 4）
+  - 0324/0325 regression 全 PASS
+- Result: PASS（Step 3 目标达成；Step 4 待实施）
+- Commit: `12c0df9`
 
 ### Step 4 — Bucket C handler 实装（mt_write_req + shared bucket_c_cell_routes）
 
