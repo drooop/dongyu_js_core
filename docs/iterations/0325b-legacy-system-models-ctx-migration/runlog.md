@@ -156,6 +156,35 @@ phase: phase1
 - Result: SCOPE_REVISED (推迟到 0326 或独立 iteration)
 - Commit: 随 runlog 更新
 
+### Step 5 — **二次 sub-agent REJECT 纠正（2026-04-21）**
+
+上述 Step 5 的"programEngine-scoped 不需改"裁决被第二次 sub-agent review 驳回。修正事实：
+
+**误判 1**：server.mjs 17 ctx.* 全部走 programEngine 路径 → INCORRECT
+- `buildImportedHostEgressForwardCode` (1589-1609) — 0322 egress forwardFunc 通过 `intercepts.record('run_func')` 路径走 programEngine ctx，这条**单独**成立
+- **但** `ensureGenericOwnerMaterializer` (2160-2184) / `ensureHomeOwnerMaterializer` (2133-2158) 生成 code 通过 `runtime.addLabel(model, 0, 0, 0, {t:'func.js', v:{code}})` 种到 target (0,0,0) + pin.connect.label `(self, owner_request) → (func, owner_materialize:in)` 接线。触发 = runtime CELL_CONNECT → `_executeFuncViaCellConnect` → **0325 tightened ctx**（无 ctx.writeLabel），throw
+- 同样 workspace_positive_models.json legacy forward funcs（`forward_workspace_filltable_submit_from_model0` @ 3587 等）有 pin.connect.label 在 Model 0 (0,0,0)，runtime CELL_CONNECT 触发，tightened ctx，broken
+
+**误判 2**：`handle_slide_import_click` @ workspace_positive_models.json:14311 → Bucket D 跨模型写 → INCORRECT
+- 实际写 `model_id: 1030`（self model），从 (2,4,0) 写 (0,0,0) — **Bucket C non-root self-model cross-cell**
+- V1N.table 仅 root 可用，需 Step 3 规定的 shared root_routes pin.connect.cell 聚合 wiring
+
+**误判 3**：算术错误 — 应为 50 non-server hits + 17 server = 67 remaining（不是 52）
+
+### Option B 实施清单（本会话未执行，留给下一专项会话）
+
+按"无兼容层 + 同 PR 同步改完"要求，剩余必须做的（估计 1-2h 专项会话）：
+
+1. 重写 server.mjs 3 个 generator（约 80-120 行）:
+   - `ensureGenericOwnerMaterializer` (2160-2184) → V1N.table.addLabel 版本
+   - `ensureHomeOwnerMaterializer` (2133-2158) → 同上
+   - `buildImportedHostEgressForwardCode` (1589-1609) → programEngine 路径 OK，但需考虑未来 dual-route 防御
+2. 迁移 workspace_positive_models.json legacy forward funcs（3 处）在 Model 0 (0,0,0) — V1N.table 可用
+3. Bucket C 路径实装：handle_slide_import_click / handle_slide_create_click 等非 root handler — `V1N.addLabel('mt_write_req', 'pin.in', {...})` + 本模型 root 加 shared root_routes pin.connect.cell 聚合
+4. 跑全量回归确认 0321/0322 server_flow 恢复 PASS
+
+Result: **PARTIAL — Option B 清单明确待下一会话执行；本阶段是"scope 纠错"价值产出**
+
 ### Step 6 — 回归 + grep + audit
 
 - Command:
