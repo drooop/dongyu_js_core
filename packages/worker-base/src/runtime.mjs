@@ -1,5 +1,10 @@
 'use strict';
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const DEFAULT_TABLE_PROGRAMS_URL = new URL('../system-models/default_table_programs.json', import.meta.url);
+
 class EventLog {
   constructor() {
     this._events = [];
@@ -361,6 +366,7 @@ class ModelTableRuntime {
     const root = new Model({ id: 0, name: 'MT', type: 'main' });
     this.models.set(root.id, root);
     this.addLabel(root, 0, 0, 0, { k: 'runtime_mode', t: 'str', v: this.runtimeMode });
+    this._seedDefaultRootScaffold(root);
   }
 
   _resolveLabelType(labelType) {
@@ -368,81 +374,42 @@ class ModelTableRuntime {
     return labelType;
   }
 
-  _defaultOwnerMaterializeCode(modelId) {
-    return [
-      `const SELF_MODEL_ID = ${JSON.stringify(modelId)};`,
-      "function applyRecord(record) {",
-      "  if (!record || typeof record !== 'object') return;",
-      "  if (typeof record.k !== 'string' || !record.k) throw new Error('invalid_request_shape');",
-      "  if (typeof record.t !== 'string' || !record.t) throw new Error('invalid_request_shape');",
-      "  ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k }, record.t, record.v);",
-      "}",
-      "const raw = label && Object.prototype.hasOwnProperty.call(label, 'v') ? label.v : null;",
-      "if (Array.isArray(raw)) {",
-      "  for (const record of raw) applyRecord(record);",
-      "  return;",
-      "}",
-      "const req = raw && typeof raw === 'object' ? raw : null;",
-      "if (!req) return;",
-      "if (req.target_model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
-      "if (req.op === 'apply_records') {",
-      "  const records = Array.isArray(req.records) ? req.records : [];",
-      "  for (const record of records) {",
-      "    if (!record || typeof record !== 'object') return;",
-      "    if (record.model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
-      "    if (record.op === 'add_label') {",
-      "      applyRecord(record);",
-      "      continue;",
-      "    }",
-      "    if (record.op === 'rm_label') {",
-      "      ctx.rmLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k });",
-      "      continue;",
-      "    }",
-      "    throw new Error('unsupported_op');",
-      "  }",
-      "    return;",
-      "  }",
-      "if (req.op === 'set_labels') {",
-      "  const labels = Array.isArray(req.labels) ? req.labels : [];",
-      "  for (const item of labels) {",
-      "    if (!item || typeof item.k !== 'string' || !item.k) throw new Error('invalid_request_shape');",
-      "    ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(item.p) ? item.p : 0, r: Number.isInteger(item.r) ? item.r : 0, c: Number.isInteger(item.c) ? item.c : 0, k: item.k }, typeof item.t === 'string' && item.t ? item.t : 'str', item.v);",
-      "  }",
-      "  return;",
-      "}",
-      "if (req.op === 'add_label' || req.op === 'rm_label') {",
-      "  applyRecord(req);",
-      "  return;",
-      "}",
-      "throw new Error('unsupported_op');",
-    ].join('\n');
+  _loadDefaultTableProgramsJson() {
+    if (this._defaultTablePrograms !== undefined) return this._defaultTablePrograms;
+    try {
+      const jsonPath = fileURLToPath(DEFAULT_TABLE_PROGRAMS_URL);
+      const raw = readFileSync(jsonPath, 'utf8');
+      const parsed = JSON.parse(raw);
+      this._defaultTablePrograms = parsed && Array.isArray(parsed.records) ? parsed : null;
+    } catch (err) {
+      this.eventLog.record({
+        op: 'default_table_programs_load_failed',
+        cell: { model_id: 0, p: 0, r: 0, c: 0 },
+        label: { k: 'default_table_programs', t: 'json' },
+        result: 'failed',
+        reason: err && err.message ? String(err.message) : String(err),
+      });
+      this._defaultTablePrograms = null;
+    }
+    return this._defaultTablePrograms;
   }
 
-  _seedDefaultHelperScaffold(model) {
-    if (!model || !Number.isInteger(model.id) || model.id <= 0) return;
-    const helperCell = this.getCell(model, 0, 1, 0);
-    if (!helperCell.labels.has('helper_executor')) {
-      this.addLabel(model, 0, 1, 0, { k: 'helper_executor', t: 'bool', v: true });
-    }
-    if (!helperCell.labels.has('scope_privileged')) {
-      this.addLabel(model, 0, 1, 0, { k: 'scope_privileged', t: 'bool', v: true });
-    }
-    if (!helperCell.labels.has('owner_apply')) {
-      this.addLabel(model, 0, 1, 0, { k: 'owner_apply', t: 'pin.in', v: null });
-    }
-    if (!helperCell.labels.has('owner_apply_route')) {
-      this.addLabel(model, 0, 1, 0, {
-        k: 'owner_apply_route',
-        t: 'pin.connect.label',
-        v: [{ from: '(self, owner_apply)', to: ['(func, owner_materialize:in)'] }],
-      });
-    }
-    if (!helperCell.labels.has('owner_materialize')) {
-      this.addLabel(model, 0, 1, 0, {
-        k: 'owner_materialize',
-        t: 'func.js',
-        v: { code: this._defaultOwnerMaterializeCode(model.id), modelName: `helper_owner_${model.id}` },
-      });
+  _seedDefaultRootScaffold(model) {
+    if (!model || !Number.isInteger(model.id)) return;
+    if (model.id < 0) return;
+    const payload = this._loadDefaultTableProgramsJson();
+    if (!payload || !Array.isArray(payload.records)) return;
+    for (const rec of payload.records) {
+      if (!rec || typeof rec !== 'object') continue;
+      if (rec.op !== 'add_label') continue;
+      if (typeof rec.k !== 'string' || !rec.k) continue;
+      if (typeof rec.t !== 'string' || !rec.t) continue;
+      const p = Number.isInteger(rec.p) ? rec.p : 0;
+      const r = Number.isInteger(rec.r) ? rec.r : 0;
+      const c = Number.isInteger(rec.c) ? rec.c : 0;
+      const cell = this.getCell(model, p, r, c);
+      if (cell.labels.has(rec.k)) continue;
+      this.addLabel(model, p, r, c, { k: rec.k, t: rec.t, v: rec.v });
     }
   }
 
@@ -455,7 +422,7 @@ class ModelTableRuntime {
     if (this.persistence && typeof this.persistence.ensureModel === 'function') {
       this.persistence.ensureModel(model);
     }
-    this._seedDefaultHelperScaffold(model);
+    this._seedDefaultRootScaffold(model);
     return model;
   }
 

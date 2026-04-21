@@ -59,12 +59,12 @@ function payloadWithHostIngress() {
     { id: 0, p: 2, r: 1, c: 0, k: 'ui_parent', t: 'str', v: 'host_flow_root' },
     { id: 0, p: 2, r: 1, c: 0, k: 'ui_bind_json', t: 'json', v: { read: { model_id: 0, p: 0, r: 0, c: 0, k: 'status_text' } } },
     { id: 0, p: 0, r: 0, c: 0, k: 'root_routes', t: 'pin.connect.cell', v: [
-      { from: [2, 2, 0, 'submit_owner_req'], to: [[0, 1, 0, 'owner_apply']] },
+      { from: [2, 2, 0, 'mt_write_req'], to: [[0, 0, 0, 'mt_write_in']] },
     ] },
     { id: 0, p: 2, r: 2, c: 0, k: 'submit_request', t: 'pin.in', v: null },
     { id: 0, p: 2, r: 2, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: '(self, submit_request)', to: ['(func, handle_submit:in)'] }] },
-    { id: 0, p: 2, r: 2, c: 0, k: 'submit_owner_route', t: 'pin.connect.label', v: [{ from: '(func, handle_submit:out)', to: ['submit_owner_req'] }] },
-    { id: 0, p: 2, r: 2, c: 0, k: 'handle_submit', t: 'func.js', v: { code: "return [{ p: 0, r: 0, c: 0, k: 'status_text', t: 'str', v: 'host_route_ok' }];" } },
+    { id: 0, p: 2, r: 2, c: 0, k: 'mt_write_dispatch_route', t: 'pin.connect.label', v: [{ from: '(func, handle_submit:out)', to: ['mt_write_req'] }] },
+    { id: 0, p: 2, r: 2, c: 0, k: 'handle_submit', t: 'func.js', v: { code: "return { op: 'write', records: [{ p: 0, r: 0, c: 0, k: 'status_text', t: 'str', v: 'host_route_ok' }] };" } },
   ];
 }
 
