@@ -82,6 +82,74 @@ phase: phase1
 - Result: PASS（Step 3 目标达成；Step 4 待实施）
 - Commit: `12c0df9`
 
+### Step 3.5 — Model -10 intent handlers mass migration（phase3 scope 扩展）
+
+Scope 发现源：sub-agent review Step 4 时追踪 0321/0322 server_flow FAIL 根因 → `intent_handlers_slide_import.json:41` `handle_slide_app_import` 仍用 `ctx.getLabel` 抛错 → imported model 未创建 → registry 空。phase1 plan.md 只识别 3 类 migration target（generator / forward / Bucket C handler），遗漏第 4 类"Model -10 intent handlers"。user 2026-04-21 决定采 A 扩展 scope（non-compat 整体达成），要求更可靠执行流程。
+
+#### 执行流程（5 阶段 gate）
+
+- Stage 0 Full Inventory（research, 不改代码）
+- Stage 1 Cross-Model I/O Pattern Design Rubric（research）
+- Stage 2 Reference Impl `intent_handlers_slide_import.json` + TDD + 0321 绿（code）
+- Stage 3 Batch Migration（code，每 batch 独立 commit + sub-agent review + grep count 监控）
+- Stage 4 Final Aggregate Gate（grep 清零 + 全量回归 + final review）
+
+Safeguards：每 batch 前 checkpoint sha；每 batch FAIL 立即 `git reset` 回 checkpoint + 停；scope drift detection = 每次动代码前重 grep 对 inventory 校验。
+
+#### Stage 0 — Full Inventory（2026-04-21）
+
+Command: `Grep ctx\.writeLabel|ctx\.getLabel|ctx\.rmLabel packages/worker-base/system-models/` (exclude `.legacy`)
+
+File-level count（active，不含 .legacy 归档）:
+
+| 文件 | 命中 | 主要 Model | 迁移属性预判 |
+| --- | --- | --- | --- |
+| intent_handlers_slide_import.json | 1 | Model -10 handler → Model 1036+ | cross-model write via mt_write_req + pin.connect.model |
+| intent_handlers_slide_create.json | 1 | Model -10 handler → Model 1036+ | 同上 |
+| intent_handlers_ws.json | 3 | Model -10 → Model -2 / Model 0 | cross-model write + mailbox state |
+| intent_handlers_home.json | 2 | Model -10 → Model -2 / 正模型 | 同上 |
+| intent_handlers_docs.json | 3 | Model -10 → Model -2 | state projection write |
+| intent_handlers_static.json | 3 | Model -10 → Model -2 / 正模型 | 同上 |
+| intent_handlers_three_scene.json | 4 | Model -10 → scene models | cross-model write |
+| intent_handlers_prompt_filltable.json | 2 | Model -10 → Prompt 相关 | 同上 |
+| intent_handlers_matrix_debug.json | 3 | Model -10 → Model -100 Matrix debug | 同上 |
+| intent_handlers_ui_examples.json | 1 | Model -10 → ui examples | 同上 |
+| cognition_handlers.json | 1 | Model -10 → Model -12 | 同上 |
+| workspace_catalog_ui.json | 4 | Model -10 → Model -25 Workspace state | 同上 |
+| system_models.json | 3 | 待 Stage 0 细查 | - |
+| test_model_100_ui.json | 3 | owner_materialize Step 3 已迁 ✓；2 × `prepare_model100_*` (Model -10 → Model 100) + 1 × `forward_model100_submit_from_model0` (programEngine-only，已豁免) | 需迁 2（prepare_*） |
+| test_model_100_full.json | 1 | 待细查 | - |
+| workspace_positive_models.json | 12 | 含 Model 1001/1009/1010/1016/1020 的 handlers + 2-3 prepare/forward | 混合：部分 programEngine-only 豁免，部分需迁 |
+| **Total active** | **47** | - | - |
+
+Excluded (`.legacy` 归档，永不迁)：remote_worker_model.legacy.json (1) + system_models.json.legacy (7) + test_model_100_full.json.legacy (1) = 9。
+
+Step 3 已处理（不含在 47 里）：test_model_100_ui.json Model 100 owner_materialize Bucket B 迁移（1 处）+ workspace_positive_models.json 2 handle_slide_*_click Bucket C 迁移（2 处）+ 3 forward funcs programEngine-only 豁免（3 处）。
+
+净需在 Step 3.5 内处理：**~45 处**（47 − 2 已豁免 forward_model100 类 = 45，若细查发现更多 programEngine-only 豁免再折减）。
+
+Gate Stage 0: 表完成 ✓；总数 47 对账 ✓；legacy 排除清单清晰 ✓。pending Stage 0 sub-agent review 确认 inventory 可操作。
+
+Commits: (Stage 0 无 code 变更)
+
+#### Stage 1 — Cross-Model I/O Pattern Design Rubric
+
+pending
+
+#### Stage 2 — Reference Impl intent_handlers_slide_import
+
+pending
+
+#### Stage 3 — Batch Migration
+
+pending
+
+#### Stage 4 — Final Aggregate Gate
+
+pending
+
+---
+
 ### Step 4 — Bucket C handler 实装（mt_write_req + shared bucket_c_cell_routes）
 
 - Command:
