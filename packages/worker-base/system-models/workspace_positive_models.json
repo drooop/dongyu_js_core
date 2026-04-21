@@ -3574,23 +3574,6 @@
     },
     {
       "op": "add_label",
-      "model_id": 0,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "ws_filltable_submit_wiring",
-      "t": "pin.connect.label",
-      "v": [
-        {
-          "from": "(self, ws_filltable_submit_out)",
-          "to": [
-            "(func, forward_workspace_filltable_submit_from_model0:in)"
-          ]
-        }
-      ]
-    },
-    {
-      "op": "add_label",
       "model_id": -10,
       "p": 0,
       "r": 0,
@@ -12852,23 +12835,6 @@
       "k": "matrix_phase1_submit_out",
       "t": "pin.in",
       "v": null
-    },
-    {
-      "op": "add_label",
-      "model_id": 0,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "matrix_phase1_submit_wiring",
-      "t": "pin.connect.label",
-      "v": [
-        {
-          "from": "(self, matrix_phase1_submit_out)",
-          "to": [
-            "(func, forward_matrix_phase1_send_from_model0:in)"
-          ]
-        }
-      ]
     },
     {
       "op": "add_label",

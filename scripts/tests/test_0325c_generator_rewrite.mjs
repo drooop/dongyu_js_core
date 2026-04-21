@@ -51,10 +51,6 @@ function findAddLabel(records, { model_id, p = 0, r = 0, c = 0, k }) {
     (rec.p || 0) === p && (rec.r || 0) === r && (rec.c || 0) === c && rec.k === k);
 }
 
-function filterAddLabelsByK(records, k) {
-  return records.filter((rec) => rec && rec.op === 'add_label' && rec.k === k);
-}
-
 // ─── 静态契约（Static contracts）─────────────────────────────────────
 
 function test_owner_materialize_generator_no_ctx_api() {
@@ -81,28 +77,48 @@ function test_owner_materialize_generator_uses_v1n_table() {
   return { key: 'owner_materialize_generator_uses_v1n_table', status: 'PASS' };
 }
 
-function test_legacy_forward_funcs_no_ctx_writeLabel() {
+// Per Step 3 decision (runlog 登记): 3 forward funcs 均降级为 programEngine-only;
+// forward body 保留 ctx.*（programEngine ctx 专属；plan SC #7 exception 自然涵盖 programEngine-only 代码）;
+// 契约转为「不存在 runtime pin.connect.label 入口指向 (func, forward_*:in)」
+function test_legacy_forward_funcs_no_runtime_pin_wiring() {
   const doc = JSON.parse(readFileSync(WORKSPACE_JSON, 'utf8'));
   const recs = Array.isArray(doc.records) ? doc.records : [];
-  for (const fwdName of [
+  const pinConnectLabels = recs.filter((r) => r && r.op === 'add_label' && r.t === 'pin.connect.label');
+  const FORWARD_NAMES = [
     'forward_workspace_filltable_submit_from_model0',
     'forward_matrix_phase1_send_from_model0',
     'forward_model100_submit_from_model0',
-  ]) {
-    const labels = filterAddLabelsByK(recs, fwdName).filter((l) => l.t === 'func.js');
-    assert.ok(labels.length > 0, `forward func ${fwdName} must be declared in workspace_positive_models.json`);
-    for (const lbl of labels) {
-      const code = lbl.v && lbl.v.code;
-      assert.ok(typeof code === 'string', `${fwdName} code must be string`);
-      assert.ok(!/ctx\.writeLabel/.test(code),
-        `${fwdName} code must not use ctx.writeLabel`);
-      assert.ok(!/ctx\.getLabel/.test(code),
-        `${fwdName} code must not use ctx.getLabel`);
-      assert.ok(!/ctx\.rmLabel/.test(code),
-        `${fwdName} code must not use ctx.rmLabel`);
-    }
+  ];
+  for (const fwdName of FORWARD_NAMES) {
+    const funcTarget = `(func, ${fwdName}:in)`;
+    const hits = pinConnectLabels.filter((lbl) => {
+      const entries = Array.isArray(lbl.v) ? lbl.v : [];
+      return entries.some((entry) => Array.isArray(entry && entry.to) && entry.to.includes(funcTarget));
+    });
+    assert.equal(hits.length, 0,
+      `${fwdName} must have no runtime pin.connect.label entry (programEngine-only). Found ${hits.length} hit(s).`);
   }
-  return { key: 'legacy_forward_funcs_no_ctx_writeLabel', status: 'PASS' };
+  return { key: 'legacy_forward_funcs_no_runtime_pin_wiring', status: 'PASS' };
+}
+
+// Bucket B Model 100 owner_materialize 在 test_model_100_ui.json (0,0,0) root,
+// 通过 pin.connect.label (owner_route) runtime 触发 → 必须迁 V1N.table（post-0325 runtime ctx 无 ctx.*）
+function test_model100_owner_materialize_uses_v1n_table() {
+  const testModel100Json = path.join(repoRoot, 'packages/worker-base/system-models/test_model_100_ui.json');
+  const doc = JSON.parse(readFileSync(testModel100Json, 'utf8'));
+  const recs = Array.isArray(doc.records) ? doc.records : [];
+  const handler = recs.find((r) =>
+    r && r.op === 'add_label' && r.model_id === 100 && r.k === 'owner_materialize' && r.t === 'func.js');
+  assert.ok(handler, 'Model 100 owner_materialize must be declared in test_model_100_ui.json');
+  const code = handler.v && handler.v.code;
+  assert.ok(typeof code === 'string', 'owner_materialize code must be string');
+  assert.ok(!/ctx\.writeLabel/.test(code),
+    'Model 100 owner_materialize must not use ctx.writeLabel (runtime-triggered Bucket B, needs V1N.table)');
+  assert.ok(!/ctx\.rmLabel/.test(code),
+    'Model 100 owner_materialize must not use ctx.rmLabel');
+  assert.ok(/V1N\.table\.addLabel/.test(code),
+    'Model 100 owner_materialize must use V1N.table.addLabel (root-privileged cross-cell write)');
+  return { key: 'model100_owner_materialize_uses_v1n_table', status: 'PASS' };
 }
 
 function test_bucket_c_handler_uses_mt_write_req() {
@@ -192,7 +208,8 @@ async function test_owner_materialize_cross_cell_write_via_v1n_table() {
 const tests = [
   test_owner_materialize_generator_no_ctx_api,
   test_owner_materialize_generator_uses_v1n_table,
-  test_legacy_forward_funcs_no_ctx_writeLabel,
+  test_legacy_forward_funcs_no_runtime_pin_wiring,
+  test_model100_owner_materialize_uses_v1n_table,
   test_bucket_c_handler_uses_mt_write_req,
   test_bucket_c_cell_routes_label_present,
   test_owner_materialize_cross_cell_write_via_v1n_table,
