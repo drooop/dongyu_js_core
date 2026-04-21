@@ -23,6 +23,10 @@ function extractFnSrc(src, fnName) {
   return m[0];
 }
 
+// Sandboxed eval of a static function from server.mjs. Safe because:
+// (1) targets are known pure string-builder functions (no side effects, no I/O)
+// (2) vm context exposes only JSON (required by fn body) — no fs/net/process
+// (3) only used by test harness, never production
 function evalCodeGenerator(serverSrc, fnName, modelId) {
   const fnSrc = extractFnSrc(serverSrc, fnName);
   const ctx = { JSON };
@@ -30,6 +34,15 @@ function evalCodeGenerator(serverSrc, fnName, modelId) {
   const anonSrc = fnSrc.replace(`function ${fnName}`, 'function');
   vm.runInContext(`globalThis._fn = (${anonSrc});`, ctx);
   return vm.runInContext(`globalThis._fn(${JSON.stringify(modelId)});`, ctx);
+}
+
+async function pollUntil(predicate, { attempts = 20, intervalMs = 50 } = {}) {
+  for (let i = 0; i < attempts; i += 1) {
+    const v = predicate();
+    if (v) return v;
+    await wait(intervalMs);
+  }
+  return predicate();
 }
 
 function findAddLabel(records, { model_id, p = 0, r = 0, c = 0, k }) {
@@ -162,10 +175,11 @@ async function test_owner_materialize_cross_cell_write_via_v1n_table() {
     }],
   };
   rt.addLabel(model, 0, 0, 0, { k: 'owner_materialize_req', t: 'pin.in', v: reqPayload });
-  await wait();
 
-  const targetCell = rt.getCell(model, 2, 3, 0);
-  const targetLabel = targetCell && targetCell.labels ? targetCell.labels.get('target_k') : null;
+  const targetLabel = await pollUntil(() => {
+    const cell = rt.getCell(model, 2, 3, 0);
+    return cell && cell.labels ? cell.labels.get('target_k') : null;
+  });
   assert.ok(targetLabel,
     'target (2,3,0) target_k must be written by generated owner_materialize via V1N.table.addLabel');
   assert.equal(targetLabel.v, 'from_owner_materialize',
