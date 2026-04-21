@@ -159,15 +159,16 @@ async function test_import_generates_host_egress_adapter_for_valid_dual_bus_impo
     const model0 = state.runtime.getModel(0);
     const rootLabels = state.runtime.getCell(model0, 0, 0, 0).labels;
     const importedRoot = state.runtime.getCell(state.runtime.getModel(importedId), 0, 0, 0).labels;
-    const egressLabel = `imported_submit_${importedId}_out`;
     const busLabel = `imported_submit_${importedId}_bus`;
-    const forwardFunc = `forward_imported_submit_from_model0_${importedId}`;
-    assert.ok(rootLabels.has(egressLabel), 'model0_egress_label_must_be_generated');
+    const bridgeIn = `__host_egress_submit_bridge_in_${importedId}`;
+    const bridgeFunc = `bridge_imported_submit_to_mt_bus_send_${importedId}`;
     assert.ok(rootLabels.has(busLabel), 'model0_bus_out_label_must_be_generated');
-    assert.ok(importedRoot.get('dual_bus_model')?.v?.model0_egress_label === egressLabel, 'dual_bus_model_must_be_patched_with_generated_model0_egress_label');
-    assert.ok(importedRoot.get('dual_bus_model')?.v?.model0_egress_func === forwardFunc, 'dual_bus_model_must_be_patched_with_generated_forward_func');
+    assert.ok(rootLabels.has(bridgeIn), 'model0_bridge_input_must_be_generated');
+    assert.ok(rootLabels.has(bridgeFunc), 'model0_bridge_function_must_be_generated');
+    assert.equal(Object.prototype.hasOwnProperty.call(importedRoot.get('dual_bus_model')?.v || {}, 'model0_egress_label'), false, 'dual_bus_model_must_not_keep_legacy_model0_egress_label');
+    assert.equal(Object.prototype.hasOwnProperty.call(importedRoot.get('dual_bus_model')?.v || {}, 'model0_egress_func'), false, 'dual_bus_model_must_not_keep_legacy_model0_egress_func');
     const sys = state.runtime.getModel(-10);
-    assert.ok(state.runtime.getCell(sys, 0, 0, 0).labels.has(forwardFunc), 'system_forward_function_must_be_generated');
+    assert.ok(!state.runtime.getCell(sys, 0, 0, 0).labels.has(`forward_imported_submit_from_model0_${importedId}`), 'legacy_system_forward_function_must_not_be_generated');
     return { key: 'import_generates_host_egress_adapter_for_valid_dual_bus_import', status: 'PASS' };
   });
 }

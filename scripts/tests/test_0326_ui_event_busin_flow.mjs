@@ -66,7 +66,7 @@ function seedBusInHarness(state) {
 
 function v2Envelope(overrides = {}) {
   return {
-    type: 'ui_event_v2',
+    type: 'bus_event_v2',
     bus_in_key: 'ui_submit',
     value: {
       target_cell: { p: 2, r: 0, c: 0 },
@@ -92,7 +92,7 @@ async function test_legacy_ui_event_shape_rejected() {
       },
     });
     assert.equal(result?.result, 'error', 'legacy ui_event shape must be rejected');
-    assert.equal(result?.code, 'legacy_ui_event_shape', 'legacy ui_event shape must fail with legacy_ui_event_shape');
+    assert.equal(result?.code, 'legacy_event_shape', 'legacy ui_event shape must fail with legacy_event_shape');
     return { key: 'legacy_ui_event_shape_rejected', status: 'PASS' };
   });
 }

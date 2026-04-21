@@ -53,7 +53,7 @@
       "k": "event_trigger_map",
       "t": "json",
       "v": {
-        "ui_event": [
+        "bus_event": [
           "update_scene_context"
         ]
       }

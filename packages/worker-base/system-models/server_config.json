@@ -89,9 +89,9 @@
           "event"
         ],
         "protected_label_keys": [
-          "ui_event",
-          "ui_event_error",
-          "ui_event_last_op_id",
+          "bus_event",
+          "bus_event_error",
+          "bus_event_last_op_id",
           "intent.v0",
           "snapshot_json",
           "event_log",

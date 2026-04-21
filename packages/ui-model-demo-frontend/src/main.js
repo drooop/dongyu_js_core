@@ -37,9 +37,9 @@ if (mode === 'local') {
       const model = snap && snap.models ? (snap.models[-1] || snap.models['-1']) : null;
       const cell = model && model.cells ? model.cells['0,0,1'] : null;
       const labels = cell && cell.labels ? cell.labels : null;
-      const lastOp = labels && labels.ui_event_last_op_id ? labels.ui_event_last_op_id.v : '';
-      const err = labels && labels.ui_event_error ? labels.ui_event_error.v : null;
-      console.log('[dy mailbox]', { ui_event_last_op_id: lastOp, ui_event_error: err });
+      const lastOp = labels && labels.bus_event_last_op_id ? labels.bus_event_last_op_id.v : '';
+      const err = labels && labels.bus_event_error ? labels.bus_event_error.v : null;
+      console.log('[dy mailbox]', { bus_event_last_op_id: lastOp, bus_event_error: err });
     };
     window.dyPrintSnapshot = () => {
       const snap = store && store.snapshot ? store.snapshot : null;
@@ -68,9 +68,9 @@ if (mode === 'local') {
       const model = snap && snap.models ? (snap.models[-1] || snap.models['-1']) : null;
       const cell = model && model.cells ? model.cells['0,0,1'] : null;
       const labels = cell && cell.labels ? cell.labels : null;
-      const lastOp = labels && labels.ui_event_last_op_id ? labels.ui_event_last_op_id.v : '';
-      const err = labels && labels.ui_event_error ? labels.ui_event_error.v : null;
-      console.log('[dy mailbox]', { ui_event_last_op_id: lastOp, ui_event_error: err });
+      const lastOp = labels && labels.bus_event_last_op_id ? labels.bus_event_last_op_id.v : '';
+      const err = labels && labels.bus_event_error ? labels.bus_event_error.v : null;
+      console.log('[dy mailbox]', { bus_event_last_op_id: lastOp, bus_event_error: err });
     };
     window.dyPrintSnapshot = () => {
       const snap = store && store.snapshot ? store.snapshot : null;

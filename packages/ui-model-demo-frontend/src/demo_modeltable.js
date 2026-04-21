@@ -19,6 +19,7 @@ import { buildAstFromSchema } from './ui_schema_projection.js';
 import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
 import { resolvePageAsset } from './page_asset_resolver.js';
 import { resolveRouteUiAst } from './route_ui_projection.js';
+import { buildBusDispatchLabel, buildBusEventV2 } from './bus_event_v2.js';
 import {
   deriveEditorModelOptions,
   deriveHomeEditDialogTitle,
@@ -56,6 +57,8 @@ function ensureLabel(runtime, model, p, r, c, label) {
   if (cell.labels.has(label.k)) return;
   runtime.addLabel(model, p, r, c, label);
 }
+
+const MAILBOX_EVENT_KEY = 'bus_event';
 
 function overwriteLabel(runtime, model, p, r, c, label) {
   const cell = runtime.getCell(model, p, r, c);
@@ -331,7 +334,7 @@ export function createDemoStore() {
 
   function setMailboxValue(envelopeOrNull) {
     const model = runtime.getModel(EDITOR_MODEL_ID);
-    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v: envelopeOrNull });
+    runtime.addLabel(model, 0, 0, 1, { k: MAILBOX_EVENT_KEY, t: 'event', v: envelopeOrNull });
   }
 
   function updateDerived() {
@@ -411,13 +414,47 @@ export function createDemoStore() {
     if (!label || label.t !== 'event') {
       throw new Error('non_event_write');
     }
-    if (label.p !== 0 || label.r !== 0 || label.c !== 1 || label.k !== 'ui_event') {
+    if (label.p === 0 && label.r === 0 && label.c === 0 && label.k === 'bus_in_event' && label.v && typeof label.v === 'object') {
+      const envelope = label.v;
+      if (envelope.type !== 'bus_event_v2') {
+        throw new Error('invalid_envelope');
+      }
+      const busInKey = typeof envelope.bus_in_key === 'string' ? envelope.bus_in_key.trim() : '';
+      const value = envelope.value;
+      if (value && typeof value === 'object' && typeof value.action === 'string') {
+        const legacyEnvelope = {
+          event_id: Date.now(),
+          type: value.action,
+          source: 'ui_renderer',
+          ts: 0,
+          payload: {
+            action: value.action,
+            meta: envelope.meta || { op_id: `legacy_${Date.now()}` },
+            target: value.target,
+            value: value.value,
+            ...(value.pin ? { pin: value.pin } : {}),
+          },
+        };
+        setMailboxValue(legacyEnvelope);
+        refreshSnapshot();
+        return;
+      }
+      if (!busInKey) {
+        throw new Error('invalid_envelope');
+      }
+      const model0 = runtime.getModel(0);
+      runtime.addLabel(model0, 0, 0, 0, { k: busInKey, t: 'pin.bus.in', v: envelope.value ?? null });
+      updateDerived();
+      refreshSnapshot();
+      return;
+    }
+    if (label.p !== 0 || label.r !== 0 || label.c !== 1) {
       throw new Error('event_mailbox_mismatch');
     }
 
     const model = runtime.getModel(EDITOR_MODEL_ID);
     const cell = runtime.getCell(model, 0, 0, 1);
-    const current = cell.labels.get('ui_event');
+    const current = cell.labels.get(MAILBOX_EVENT_KEY);
     if (current && current.v !== null && current.v !== undefined) {
       throw new Error('event_mailbox_full');
     }
@@ -427,7 +464,7 @@ export function createDemoStore() {
   }
 
   function dispatchRmLabel(labelRef) {
-    if (!labelRef || labelRef.p !== 0 || labelRef.r !== 0 || labelRef.c !== 1 || labelRef.k !== 'ui_event') {
+    if (!labelRef || labelRef.p !== 0 || labelRef.r !== 0 || labelRef.c !== 1) {
       return;
     }
     setMailboxValue(null);
@@ -437,7 +474,7 @@ export function createDemoStore() {
   function consumeOnce() {
     const mailboxModel = runtime.getModel(EDITOR_MODEL_ID);
     const mailboxCell = runtime.getCell(mailboxModel, 0, 0, 1);
-    const pendingEnvelope = mailboxCell.labels.get('ui_event')?.v ?? null;
+    const pendingEnvelope = mailboxCell.labels.get(MAILBOX_EVENT_KEY)?.v ?? null;
     const result = adapter.consumeOnce();
     if (shouldResetHomeSelectionFromEnvelope(pendingEnvelope)) {
       reconcileHomeSelectionState(true);
@@ -464,6 +501,8 @@ export function createDemoStore() {
     stringify,
     uiMode,
     adapterMode,
+    buildDispatchLabel: buildBusDispatchLabel,
+    buildUiEventV2: buildBusEventV2,
   };
 }
 

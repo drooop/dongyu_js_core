@@ -3,6 +3,7 @@ import { ModelTableRuntime } from '../../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from './local_bus_adapter.js';
 import { getSnapshotLabelValue } from './snapshot_utils.js';
 import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
+import { buildBusDispatchLabel, buildBusEventV2 } from './bus_event_v2.js';
 import galleryCatalogPatch from '../../worker-base/system-models/gallery_catalog_ui.json' with { type: 'json' };
 import {
   EDITOR_STATE_MODEL_ID,
@@ -28,6 +29,8 @@ import {
   UI_EXAMPLE_SCHEMA_MODEL_ID,
 } from './model_ids.js';
 import { setHashPath } from './router.js';
+
+const MAILBOX_EVENT_KEY = 'bus_event';
 
 function freezeArray(items) {
   return Object.freeze([...items]);
@@ -207,7 +210,7 @@ export function createGalleryStore(options) {
   function setMailboxValue(envelopeOrNull) {
     if (!runtime) return;
     const model = runtime.getModel(GALLERY_MAILBOX_MODEL_ID);
-    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v: envelopeOrNull });
+    runtime.addLabel(model, 0, 0, 1, { k: MAILBOX_EVENT_KEY, t: 'event', v: envelopeOrNull });
   }
 
   function getUiAst() {
@@ -258,13 +261,48 @@ export function createGalleryStore(options) {
     if (!label || label.t !== 'event') {
       throw new Error('non_event_write');
     }
-    if (label.p !== 0 || label.r !== 0 || label.c !== 1 || label.k !== 'ui_event') {
+    if (label.p === 0 && label.r === 0 && label.c === 0 && label.k === 'bus_in_event' && label.v && typeof label.v === 'object') {
+      const envelope = label.v;
+      if (envelope.type !== 'bus_event_v2') {
+        throw new Error('invalid_envelope');
+      }
+      const busInKey = typeof envelope.bus_in_key === 'string' ? envelope.bus_in_key.trim() : '';
+      const value = envelope.value;
+      if (value && typeof value === 'object' && typeof value.action === 'string') {
+        const legacyEnvelope = {
+          event_id: Date.now(),
+          type: value.action,
+          source: 'ui_renderer',
+          ts: 0,
+          payload: {
+            action: value.action,
+            meta: envelope.meta || { op_id: `legacy_${Date.now()}` },
+            target: value.target,
+            value: value.value,
+            ...(value.pin ? { pin: value.pin } : {}),
+          },
+        };
+        setMailboxValue(legacyEnvelope);
+        refreshSnapshot();
+        pendingConsumer = 'gallery';
+        return undefined;
+      }
+      if (!busInKey) {
+        throw new Error('invalid_envelope');
+      }
+      const model0 = runtime.getModel(0);
+      runtime.addLabel(model0, 0, 0, 0, { k: busInKey, t: 'pin.bus.in', v: envelope.value ?? null });
+      refreshSnapshot();
+      pendingConsumer = 'gallery';
+      return undefined;
+    }
+    if (label.p !== 0 || label.r !== 0 || label.c !== 1) {
       throw new Error('event_mailbox_mismatch');
     }
 
     const model = runtime.getModel(GALLERY_MAILBOX_MODEL_ID);
     const cell = runtime.getCell(model, 0, 0, 1);
-    const current = cell.labels.get('ui_event');
+    const current = cell.labels.get(MAILBOX_EVENT_KEY);
     if (current && current.v !== null && current.v !== undefined) {
       throw new Error('event_mailbox_full');
     }
@@ -285,7 +323,7 @@ export function createGalleryStore(options) {
       return delegateDispatchRmLabel(labelRef);
     }
 
-    if (!labelRef || labelRef.p !== 0 || labelRef.r !== 0 || labelRef.c !== 1 || labelRef.k !== 'ui_event') {
+    if (!labelRef || labelRef.p !== 0 || labelRef.r !== 0 || labelRef.c !== 1) {
       return undefined;
     }
     setMailboxValue(null);
@@ -338,5 +376,7 @@ export function createGalleryStore(options) {
     dispatchRmLabel,
     consumeOnce,
     sourceMode,
+    buildDispatchLabel: buildBusDispatchLabel,
+    buildUiEventV2: buildBusEventV2,
   };
 }
