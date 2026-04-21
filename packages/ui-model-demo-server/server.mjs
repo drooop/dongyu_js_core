@@ -3714,6 +3714,9 @@ class ProgramModelEngine {
         },
       },
     };
+    if (this.runtime && this.runtime.hostApi) {
+      ctx.hostApi = Object.assign({}, this.runtime.hostApi, ctx.hostApi);
+    }
     try {
       const fn = new Function('ctx', code);
       return fn(ctx);
