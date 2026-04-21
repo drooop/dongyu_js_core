@@ -26,7 +26,7 @@ phase: phase1
   - `packages/worker-base/system-models/intent_handlers_*.json`（9 个文件，约 20 处 `ctx.*`）
   - `packages/worker-base/system-models/cognition_handlers.json`
   - `packages/worker-base/system-models/test_model_100_ui.json` / `test_model_100_full.json`
-  - `packages/worker-base/system-models/templates/*.json`（data_array_v0 / data_queue_v0 / data_stack_v0）
+  - `packages/worker-base/system-models/templates/data_{array,queue,stack}_v0.json` — 15 处（每文件 5），**全部 bucket A/E 本模型内**，first-pass 最简单
   - `packages/ui-model-demo-server/server.mjs`:
     - `ensureGenericOwnerMaterializer`（M1 from 0324 review）
     - `ensureHomeOwnerMaterializer`（同上）

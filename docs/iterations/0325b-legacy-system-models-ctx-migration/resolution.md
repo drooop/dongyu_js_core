@@ -76,21 +76,6 @@ phase: phase1
 - Verification: 清单完整；G 类 handler 在本迭代**不 touch**
 - Acceptance: 0325b 不浪费精力 V1N 化这批 handler
 
-## Step 4 — 按 bucket 迁移 D / F（跨模型）
-
-- Scope: 跨模型写/读 — 最复杂
-- Analysis: 现有 handler 里 `model_id: 100` / `model_id: 1010` 等跨模型 case
-- Strategy options:
-  - D1: handler 所在模型 root 的 `mt_bus_send` 发到 Model 0 → Model 0 mt_bus_send 转发到目标模型 `mt_bus_receive:in` → mt_bus_receive 分发（0326 尚未填业务，**本迭代可能阻塞**）
-  - D2: 临时保留一个 **privileged `V1N.system.bridgeWrite(target_model_id, p, r, c, k, t, v)`** 仅 model.id ≤ 0 可见，作为**系统级** privileged path，直到 0326 mt_bus_receive 填完业务后收回
-- Recommendation: 若跨模型写 case 仅出现在 Model -10 / 0 / -X 之间（系统内部），用 D2（简单）；若出现在正数模型 → 正数模型，必须 D1（等 0326）
-- Classify 每个 D/F case，决定本迭代 vs 0326
-- Files:
-  - system-models JSON 各 handler
-  - 可能 runtime.mjs 新增 V1N.system 子 namespace（仅负模型可见）
-- Verification: 每个 case 按选项对应验证
-- Acceptance: D/F 100% 迁移，或明确标注"延后 0326"
-
 ## Step 5 — M1 server.mjs ensureGenericOwnerMaterializer / ensureHomeOwnerMaterializer
 
 - Scope: server.mjs 生成的 owner_materializer 代码也统一为 V1N / mt_write 请求
