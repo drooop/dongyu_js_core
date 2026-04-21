@@ -148,7 +148,7 @@
       "t": "func.js",
       "v": {
         "modelName": "data_array_v0",
-        "code": "const SELF_MODEL_ID=ctx.self.model_id;const root={model_id:SELF_MODEL_ID,p:0,r:0,c:0};const payload=Array.isArray(label&&label.v)?label.v:[];const valueRecord=payload.find((record)=>record&&record.k==='value');if(!valueRecord||typeof valueRecord.t!=='string') throw new Error('invalid_add_payload');const size=Number(ctx.getLabel({...root,k:'size_now'})||0);const next=Number(ctx.getLabel({...root,k:'next_index'})||1);ctx.writeLabel({model_id:SELF_MODEL_ID,p:0,r:next,c:0,k:'value'},valueRecord.t||'json',valueRecord.v);ctx.writeLabel({...root,k:'size_now'},'int',size+1);ctx.writeLabel({...root,k:'next_index'},'int',next+1);"
+        "code": "const payload=Array.isArray(label&&label.v)?label.v:[];const valueRecord=payload.find((record)=>record&&record.k==='value');if(!valueRecord||typeof valueRecord.t!=='string') throw new Error('invalid_add_payload');const sizeLbl=V1N.readLabel(0,0,0,'size_now');const nextLbl=V1N.readLabel(0,0,0,'next_index');const size=Number(sizeLbl?sizeLbl.v:0);const next=Number(nextLbl?nextLbl.v:1);V1N.table.addLabel(0,next,0,'value',valueRecord.t||'json',valueRecord.v);V1N.addLabel('size_now','int',size+1);V1N.addLabel('next_index','int',next+1);"
       }
     },
     {
@@ -161,7 +161,7 @@
       "t": "func.js",
       "v": {
         "modelName": "data_array_v0",
-        "code": "const SELF_MODEL_ID=ctx.self.model_id;const root={model_id:SELF_MODEL_ID,p:0,r:0,c:0};const payload=Array.isArray(label&&label.v)?label.v:[];const indexRecord=payload.find((record)=>record&&record.k==='index');const idx=Number(indexRecord&&indexRecord.v);if(!Number.isInteger(idx)||idx<1) throw new Error('invalid_delete_payload');const size=Number(ctx.getLabel({...root,k:'size_now'})||0);if(idx>size) throw new Error('delete_index_out_of_range');for(let i=idx+1;i<=size;i++){const moved=ctx.getLabel({model_id:SELF_MODEL_ID,p:0,r:i,c:0,k:'value'});ctx.writeLabel({model_id:SELF_MODEL_ID,p:0,r:i-1,c:0,k:'value'},'json',moved);}ctx.rmLabel({model_id:SELF_MODEL_ID,p:0,r:size,c:0,k:'value'});ctx.writeLabel({...root,k:'size_now'},'int',size-1);ctx.writeLabel({...root,k:'next_index'},'int',size);"
+        "code": "const payload=Array.isArray(label&&label.v)?label.v:[];const indexRecord=payload.find((record)=>record&&record.k==='index');const idx=Number(indexRecord&&indexRecord.v);if(!Number.isInteger(idx)||idx<1) throw new Error('invalid_delete_payload');const sizeLbl=V1N.readLabel(0,0,0,'size_now');const size=Number(sizeLbl?sizeLbl.v:0);if(idx>size) throw new Error('delete_index_out_of_range');for(let i=idx+1;i<=size;i++){const movedLbl=V1N.readLabel(0,i,0,'value');const moved=movedLbl?movedLbl.v:null;V1N.table.addLabel(0,i-1,0,'value','json',moved);}V1N.table.removeLabel(0,size,0,'value');V1N.addLabel('size_now','int',size-1);V1N.addLabel('next_index','int',size);"
       }
     },
     {
@@ -174,7 +174,7 @@
       "t": "func.js",
       "v": {
         "modelName": "data_array_v0",
-        "code": "const SELF_MODEL_ID=ctx.self.model_id;const root={model_id:SELF_MODEL_ID,p:0,r:0,c:0};const payload=Array.isArray(label&&label.v)?label.v:[];const indexRecord=payload.find((record)=>record&&record.k==='index');const idx=Number(indexRecord&&indexRecord.v);if(!Number.isInteger(idx)||idx<1) throw new Error('invalid_get_payload');const size=Number(ctx.getLabel({...root,k:'size_now'})||0);const found=idx<=size;const value=found?ctx.getLabel({model_id:SELF_MODEL_ID,p:0,r:idx,c:0,k:'value'}):null;return[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.Single'},{id:0,p:0,r:0,c:0,k:'found',t:'bool',v:found},{id:0,p:0,r:0,c:0,k:'value',t:'json',v:found?value:null},{id:0,p:0,r:0,c:0,k:'index',t:'int',v:idx}];"
+        "code": "const payload=Array.isArray(label&&label.v)?label.v:[];const indexRecord=payload.find((record)=>record&&record.k==='index');const idx=Number(indexRecord&&indexRecord.v);if(!Number.isInteger(idx)||idx<1) throw new Error('invalid_get_payload');const sizeLbl=V1N.readLabel(0,0,0,'size_now');const size=Number(sizeLbl?sizeLbl.v:0);const found=idx<=size;let value=null;if(found){const valLbl=V1N.readLabel(0,idx,0,'value');value=valLbl?valLbl.v:null;}return[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.Single'},{id:0,p:0,r:0,c:0,k:'found',t:'bool',v:found},{id:0,p:0,r:0,c:0,k:'value',t:'json',v:found?value:null},{id:0,p:0,r:0,c:0,k:'index',t:'int',v:idx}];"
       }
     },
     {
@@ -187,7 +187,7 @@
       "t": "func.js",
       "v": {
         "modelName": "data_array_v0",
-        "code": "const SELF_MODEL_ID=ctx.self.model_id;const root={model_id:SELF_MODEL_ID,p:0,r:0,c:0};const payload=Array.isArray(label&&label.v)?label.v:[];if(payload.some((record)=>record&&record.k!=='model_type')) throw new Error('get_all_payload_must_be_null');const size=Number(ctx.getLabel({...root,k:'size_now'})||0);const out=[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.table',v:'Data.ArrayResult'},{id:0,p:0,r:0,c:0,k:'size',t:'int',v:size}];for(let i=1;i<=size;i++){out.push({id:0,p:i,r:0,c:0,k:'value',t:'json',v:ctx.getLabel({model_id:SELF_MODEL_ID,p:0,r:i,c:0,k:'value'})});}return out;"
+        "code": "const payload=Array.isArray(label&&label.v)?label.v:[];if(payload.some((record)=>record&&record.k!=='model_type')) throw new Error('get_all_payload_must_be_null');const sizeLbl=V1N.readLabel(0,0,0,'size_now');const size=Number(sizeLbl?sizeLbl.v:0);const out=[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.table',v:'Data.ArrayResult'},{id:0,p:0,r:0,c:0,k:'size',t:'int',v:size}];for(let i=1;i<=size;i++){const valLbl=V1N.readLabel(0,i,0,'value');out.push({id:0,p:i,r:0,c:0,k:'value',t:'json',v:valLbl?valLbl.v:null});}return out;"
       }
     },
     {
@@ -200,7 +200,7 @@
       "t": "func.js",
       "v": {
         "modelName": "data_array_v0",
-        "code": "const SELF_MODEL_ID=ctx.self.model_id;const payload=Array.isArray(label&&label.v)?label.v:[];if(payload.some((record)=>record&&record.k!=='model_type')) throw new Error('get_size_payload_must_be_null');const size=Number(ctx.getLabel({model_id:SELF_MODEL_ID,p:0,r:0,c:0,k:'size_now'})||0);return[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.Single'},{id:0,p:0,r:0,c:0,k:'size',t:'int',v:size}];"
+        "code": "const payload=Array.isArray(label&&label.v)?label.v:[];if(payload.some((record)=>record&&record.k!=='model_type')) throw new Error('get_size_payload_must_be_null');const sizeLbl=V1N.readLabel(0,0,0,'size_now');const size=Number(sizeLbl?sizeLbl.v:0);return[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.Single'},{id:0,p:0,r:0,c:0,k:'size',t:'int',v:size}];"
       }
     }
   ]
