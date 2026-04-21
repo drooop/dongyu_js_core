@@ -6700,12 +6700,13 @@ function startServer(options) {
 // Error codes per R18 (Stage 2 subset): invalid_target | invalid_target_white_list
 //                      | model_not_found | invalid_label_key | invalid_label_type | exception.
 // Note: invalid_dynamic_target reserved for P10 handler-side check, not emitted by these methods.
-// Whitelist per R3:
+// Whitelist per R3 (Batch 3b CRITICAL-1 expansion):
 //   - modelId === -1 && (p,r,c) === (0,0,1) (UI mailbox)
 //   - modelId === -2 && (p,r,c) === (0,0,0) (State projection root)
 //   - modelId === 0  && (p,r,c) === (0,0,0) (System bus config root; P7 bridge semantic)
 //   - modelId >  0   (positive models: any cell)
-//   - modelId < -2   (other negative system models: only (0,0,0) root)
+//   - modelId <  -2  (other negative system capability layer: any cell — MGMT channels on M-10 (0,0,1)/(0,0,2), cognition on M-12, etc.)
+// Security: hasHostPrivileges = model.id<0 gates caller side; positive-model handlers have ctx.hostApi=null so can't abuse.
 // Signature errors (R22): return {ok:false}, never throw.
 function crossModelTargetCheck(modelId, p, r, c) {
   if (!Number.isInteger(modelId)) return { ok: false, code: 'invalid_target', detail: 'modelId must be integer' };
@@ -6725,9 +6726,8 @@ function crossModelTargetCheck(modelId, p, r, c) {
     return { ok: false, code: 'invalid_target_white_list', detail: 'Model 0 only (0,0,0) root' };
   }
   if (modelId > 0) return { ok: true };
-  // other negative models: only root
-  if (p === 0 && r === 0 && c === 0) return { ok: true };
-  return { ok: false, code: 'invalid_target_white_list', detail: `Model ${modelId} only (0,0,0) root` };
+  // Other negative (<-2): system capability layer — any cell allowed.
+  return { ok: true };
 }
 
 export function buildCrossModelHostApiMethods(runtime) {

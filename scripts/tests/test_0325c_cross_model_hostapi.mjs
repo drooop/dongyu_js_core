@@ -86,10 +86,18 @@ function test_writeCrossModel_model_not_found_returns_false() {
 function test_writeCrossModel_whitelist_reject() {
   const rt = makeRuntime();
   const api = buildApi(rt);
-  // Model -10 (1,0,0) is NOT in whitelist (negative model non-root cell)
-  const r = api.writeCrossModel(-10, 1, 0, 0, 'k', 'str', 'v');
-  assert.ok(r.ok === false && r.code === 'invalid_target_white_list',
-    `expected whitelist reject, got ${JSON.stringify(r)}`);
+  // Per R3 expanded: M<-2 any cell allowed (system capability layer).
+  // Reject cases now: M-1 non-mailbox (0,0,0) and M-2 non-root.
+  const r1 = api.writeCrossModel(-1, 0, 0, 0, 'k', 'str', 'v');
+  assert.ok(r1.ok === false && r1.code === 'invalid_target_white_list',
+    `M-1 (0,0,0) should reject (only (0,0,1) mailbox), got ${JSON.stringify(r1)}`);
+  const r2 = api.writeCrossModel(-2, 1, 0, 0, 'k', 'str', 'v');
+  assert.ok(r2.ok === false && r2.code === 'invalid_target_white_list',
+    `M-2 non-root should reject, got ${JSON.stringify(r2)}`);
+  // M-10 (1,0,0) now allowed (system capability layer, any cell)
+  const r3 = api.writeCrossModel(-10, 1, 0, 0, 'k', 'str', 'v');
+  assert.ok(r3.ok === true,
+    `M-10 (1,0,0) should now be allowed (system capability any cell), got ${JSON.stringify(r3)}`);
   return { key: 'writeCrossModel_whitelist_reject', status: 'PASS' };
 }
 
