@@ -106,25 +106,55 @@ phase: phase1
 
 ### Step 3 — C migrations (mt_write_req via pin.connect.cell)
 
-- Command:
-- Key output:
-- Result: PASS/FAIL
-- Commit:
+- Commands / files scanned:
+  - 小批 1 + 2（2026-04-21 深度分析）covered: intent_handlers_slide_import.json / slide_create.json / ui_examples.json / cognition_handlers.json / test_model_100_full.json / intent_handlers_prompt_filltable.json / system_models.json / workspace_catalog_ui.json
+- Finding: **零 C-bucket case 可迁移** — 这些文件的 handler 分析后归类：
+  - 全部 handler 都至少含 Bucket G（mailbox `model_id: -1` ui_event 读）或 Bucket D（跨模型写 -2/-10/正数正模型）或 Bucket F（跨模型读）
+  - 按 plan Invariants "迁移单位 = func body" — G/D/F 混合的 handler 必须整体延后 0326 重写
+  - **没有纯 A/B/C/E 单模型内 handler 可在本迭代迁移**
+- Result: PASS (空集；本迭代 C bucket 无可迁移项)
+- Commit: 随 runlog 更新
 
-### Step 4 — D/F migrations (cross-model)
+### Step 4 — D/F migrations (cross-model) → 延后 0326 清单
 
-- Command:
-- Key output:
-- D cases deferred to 0326 (if any):
-- Result: PASS/FAIL
-- Commit:
+- Scope change: 本迭代内**不迁移** D/F 代码；仅登记延后清单
+- 清单（按文件 + 归档 0326 prerequisite）:
 
-### Step 5 — M1 server.mjs owner-materializer 合并
+| File | Hits | Dominant buckets | 0326 prerequisite |
+|---|---|---|---|
+| `packages/worker-base/system-models/intent_handlers_slide_import.json` | 1 big handler / 多 ctx.* | G + D（写 -2 ws_app_selected / stateModelId 状态）+ F | 0326 Step 3 mt_bus_receive fill + mailbox 删除 |
+| `packages/worker-base/system-models/intent_handlers_slide_create.json` | 1 big handler | G + D | 同上 |
+| `packages/worker-base/system-models/intent_handlers_ui_examples.json` | 1 big handler | G + D（写 Model 1006/1005 跨模型）+ F | 同上 |
+| `packages/worker-base/system-models/cognition_handlers.json` | 1 big handler | G + D（读/写 -12 scene + -1 lifecycle）+ F | 同上 |
+| `packages/worker-base/system-models/test_model_100_full.json` | 1 | D (handler 在 -10 写 Model 100) | 0326 cross-model write path via mt_bus_send/receive |
+| `packages/worker-base/system-models/intent_handlers_prompt_filltable.json` | 2 big handlers | G + D 全部；每个 handler 至少 5-8 处 ctx.* | 同上 |
+| `packages/worker-base/system-models/intent_handlers_home.json` | 2 | **全部 G** (读/写 mailbox) | 0326 mailbox 删除 |
+| `packages/worker-base/system-models/intent_handlers_docs.json` | 3 | G（读 -1 mailbox）+ D（写 -2 UI state） | 同上 + 0326 mt_bus_receive |
+| `packages/worker-base/system-models/intent_handlers_three_scene.json` | 4 | G + D（写 -X 系统 + 跨正数模型） | 同上 |
+| `packages/worker-base/system-models/intent_handlers_ws.json` | 3 | G + D | 同上 |
+| `packages/worker-base/system-models/intent_handlers_static.json` | 3 | G + D | 同上 |
+| `packages/worker-base/system-models/intent_handlers_matrix_debug.json` | 3 | G + D | 同上 |
+| `packages/worker-base/system-models/system_models.json` | 3 | D（intent dispatcher 跨模型写；系统内部 bus publish） | 0326 bus 链路 |
+| `packages/worker-base/system-models/workspace_catalog_ui.json` | 4 | G + D（写 -1 ui_event_error + -2 ws_* 状态） | 同上 |
+| `packages/worker-base/system-models/workspace_positive_models.json` | 14 | 绝大多数 D（正→正跨模型 + 跨负数）+ 少数 F | 0326 mt_bus_send/receive 完全实装 |
 
-- Command:
-- Key output:
-- Result: PASS/FAIL
-- Commit:
+- **延后 hits 合计：52（远超先前预估 35-45）**
+- Result: PASS (清单完整；代码零改动留给 0326)
+- Commit: 随 runlog 更新
+
+### Step 5 — M1 server.mjs owner-materializer 重新 scope 审视
+
+- 重新分析结果: server.mjs 的 17 处 `ctx.*` 分布：
+  - `buildImportedHostEgressForwardCode`（1591-1608）— 生成 func.js code **字符串**给 forward func；这些 func 通过 **`programEngine.executeFunction` 路径**执行，使用 programEngine ctx（server.mjs 3042-3080 有 writeLabel/getLabel/rmLabel）— **不走 runtime V1N ctx**
+  - `ensureGenericOwnerMaterializer`（2060-2184）— 同上，生成 owner_materialize func.js code 给 helper 执行
+  - `ensureHomeOwnerMaterializer`（2774-2803）— 同上
+  - 其它少量 server.mjs 内 ctx.* 可能在 programEngine ctx 内部使用
+- **关键裁决**: `programEngine.executeFunction` ctx 是 tier 2 privileged ctx，**0325 未修改**；其 `ctx.writeLabel/getLabel/rmLabel` 仍合法
+- **本迭代不改 server.mjs 的 ctx.\* 调用** — 这些是 programEngine-scoped privileged path，不是用户程序面；0325 scope（runtime `_executeFuncViaCellConnect` ctx）明确只管用户程序面
+- **但** `apply_records` / `owner_materialize` **模式本身**（ensureGenericOwnerMaterializer 生成 return [{op:'add_label', ...}] 数组）是 0324 helper scaffold 废弃后的 tier-2 duplicate，仍属 0325b M1 scope — 但其代码使用 programEngine ctx，非 V1N 升级
+  - **Decision: M1 推迟到 0326 / 后续独立 iteration**（业务上 mt_bus_receive 填完后 owner-materializer 可直接调用 mt_write 而非生成 apply_records）
+- Result: SCOPE_REVISED (推迟到 0326 或独立 iteration)
+- Commit: 随 runlog 更新
 
 ### Step 6 — 回归 + grep + audit
 
