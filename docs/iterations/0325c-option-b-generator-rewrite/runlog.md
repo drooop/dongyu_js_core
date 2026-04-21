@@ -31,7 +31,7 @@ phase: phase1
 - Locked conclusions:
   - 纯 Tier 2 迁移，不改 runtime.mjs
   - 3 类目标：owner_materializer 生成器 / legacy forward funcs / Bucket C handler
-  - 每类配合 shared root_routes + V1N.table 规则
+  - 每类配合 shared bucket_c_cell_routes + V1N.table 规则
   - 0325 + 0325b + 0325c 三分支 triple-merge 到 dev
 
 ## Review Gate Record
@@ -68,7 +68,7 @@ phase: phase1
 - Result: PASS/FAIL
 - Commit:
 
-### Step 4 — Bucket C handler 实装（mt_write_req + shared root_routes）
+### Step 4 — Bucket C handler 实装（mt_write_req + shared bucket_c_cell_routes）
 
 - Command:
 - Key output:

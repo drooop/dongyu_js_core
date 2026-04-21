@@ -16,7 +16,7 @@ phase: phase1
 1. 先写失败测试锁定三类迁移契约（owner_materialize / legacy forward / Bucket C handler）
 2. 重写 server.mjs 两个 owner-materializer 生成器为 V1N.table 版本
 3. 迁移 workspace_positive_models.json 的 legacy forward funcs（3 处）
-4. 实装 Bucket C handler 的 mt_write_req 路径 + 本模型 root shared root_routes
+4. 实装 Bucket C handler 的 mt_write_req 路径 + 本模型 root shared bucket_c_cell_routes
 5. 全量回归 + 确认 0321/0322 server_flow 恢复 PASS + grep 清零
 6. 文档同步 + runlog + Step 7 三分支 merge 到 dev
 
@@ -120,7 +120,7 @@ phase: phase1
   - `node scripts/tests/test_0324_root_scaffold.mjs`
   - `node scripts/tests/test_0325_{v1n_api_shape,cross_model_read_denied,selfcell_write_guard}.mjs`
   - `node scripts/tests/test_bus_in_out.mjs`
-  - `grep -rn "ctx\.writeLabel\|ctx\.getLabel\|ctx\.rmLabel" packages/worker-base/system-models/ packages/ui-model-demo-server/server.mjs` — 除 programEngine 专属（server.mjs:3042-3080 + 1591-1608 忽略）其余 0
+  - `grep -rn "ctx\.writeLabel\|ctx\.getLabel\|ctx\.rmLabel" packages/worker-base/system-models/ packages/ui-model-demo-server/server.mjs` — 除 programEngine 专属行段（`server.mjs:3042-3080` + `server.mjs:1589-1609`）其余 0
 - Verification: 所有测试 PASS + grep 结果合规
 - Acceptance: 回归全绿；0321/0322 server_flow 恢复 PASS
 
