@@ -4999,6 +4999,14 @@ function createServerState(options) {
       }
     },
   };
+  // 0325c Step 3.5 Rev 2 NN2: conflict-checked extension for cross-model I/O methods.
+  const _crossModelMethods = buildCrossModelHostApiMethods(runtime);
+  for (const _name of Object.keys(_crossModelMethods)) {
+    if (typeof runtime.hostApi[_name] !== 'undefined') {
+      throw new Error(`hostApi_name_conflict: ${_name} already defined`);
+    }
+    runtime.hostApi[_name] = _crossModelMethods[_name];
+  }
   const programEngineReady = programEngine.init()
     .then(() => programEngine.tick())
     .then(() => clearAndRefreshAfterRuntimeBoot())
@@ -6544,6 +6552,106 @@ function startServer(options) {
   });
 
   return server;
+}
+
+// 0325c Step 3.5 Stage 2: rubric P4/P5/P6 (cross-model I/O) + R14 setMqttTargetConfig.
+// Return shape per R2: {ok: boolean, code?: string, detail?: string, data?: any}.
+// Error codes per R18: invalid_target | invalid_target_white_list | invalid_dynamic_target
+//                      | model_not_found | invalid_label_key | invalid_label_type.
+// Whitelist per R3:
+//   - modelId === -1 && (p,r,c) === (0,0,1) (UI mailbox)
+//   - modelId === -2 && (p,r,c) === (0,0,0) (State projection root)
+//   - modelId === 0  && (p,r,c) === (0,0,0) (System bus config root; P7 bridge semantic)
+//   - modelId >  0   (positive models: any cell)
+//   - modelId < -2   (other negative system models: only (0,0,0) root)
+// Signature errors (R22): return {ok:false}, never throw.
+function crossModelTargetCheck(modelId, p, r, c) {
+  if (!Number.isInteger(modelId)) return { ok: false, code: 'invalid_target', detail: 'modelId must be integer' };
+  if (!Number.isInteger(p) || !Number.isInteger(r) || !Number.isInteger(c)) {
+    return { ok: false, code: 'invalid_target', detail: 'p/r/c must be integer' };
+  }
+  if (modelId === -1) {
+    if (p === 0 && r === 0 && c === 1) return { ok: true };
+    return { ok: false, code: 'invalid_target_white_list', detail: 'Model -1 only (0,0,1) mailbox' };
+  }
+  if (modelId === -2) {
+    if (p === 0 && r === 0 && c === 0) return { ok: true };
+    return { ok: false, code: 'invalid_target_white_list', detail: 'Model -2 only (0,0,0) root' };
+  }
+  if (modelId === 0) {
+    if (p === 0 && r === 0 && c === 0) return { ok: true };
+    return { ok: false, code: 'invalid_target_white_list', detail: 'Model 0 only (0,0,0) root' };
+  }
+  if (modelId > 0) return { ok: true };
+  // other negative models: only root
+  if (p === 0 && r === 0 && c === 0) return { ok: true };
+  return { ok: false, code: 'invalid_target_white_list', detail: `Model ${modelId} only (0,0,0) root` };
+}
+
+export function buildCrossModelHostApiMethods(runtime) {
+  const writeCrossModel = (modelId, p, r, c, k, t, v) => {
+    const gate = crossModelTargetCheck(modelId, p, r, c);
+    if (!gate.ok) return gate;
+    if (typeof k !== 'string' || !k) return { ok: false, code: 'invalid_label_key', detail: 'k must be non-empty string' };
+    if (typeof t !== 'string' || !t) return { ok: false, code: 'invalid_label_type', detail: 't must be non-empty string' };
+    const model = runtime.getModel(modelId);
+    if (!model) return { ok: false, code: 'model_not_found', detail: `modelId=${modelId}` };
+    try {
+      runtime.addLabel(model, p, r, c, { k, t, v });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+    }
+  };
+
+  const readCrossModel = (modelId, p, r, c, k) => {
+    const gate = crossModelTargetCheck(modelId, p, r, c);
+    if (!gate.ok) return gate;
+    if (typeof k !== 'string' || !k) return { ok: false, code: 'invalid_label_key', detail: 'k must be non-empty string' };
+    const model = runtime.getModel(modelId);
+    if (!model) return { ok: false, code: 'model_not_found', detail: `modelId=${modelId}` };
+    const cell = runtime.getCell(model, p, r, c);
+    const lbl = cell && cell.labels ? cell.labels.get(k) : null;
+    return { ok: true, data: lbl ? { t: lbl.t, v: lbl.v } : null };
+  };
+
+  const rmCrossModel = (modelId, p, r, c, k) => {
+    const gate = crossModelTargetCheck(modelId, p, r, c);
+    if (!gate.ok) return gate;
+    if (typeof k !== 'string' || !k) return { ok: false, code: 'invalid_label_key', detail: 'k must be non-empty string' };
+    const model = runtime.getModel(modelId);
+    if (!model) return { ok: false, code: 'model_not_found', detail: `modelId=${modelId}` };
+    try {
+      runtime.rmLabel(model, p, r, c, k);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+    }
+  };
+
+  const setMqttTargetConfig = (host, port, clientId) => {
+    if (typeof host !== 'string' || !host.trim()) {
+      return { ok: false, code: 'invalid_target', detail: 'host must be non-empty string' };
+    }
+    if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+      return { ok: false, code: 'invalid_target', detail: 'port must be integer 1-65535' };
+    }
+    if (typeof clientId !== 'string' || !clientId.trim()) {
+      return { ok: false, code: 'invalid_target', detail: 'clientId must be non-empty string' };
+    }
+    const model0 = runtime.getModel(0);
+    if (!model0) return { ok: false, code: 'model_not_found', detail: 'Model 0 not initialized' };
+    try {
+      runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_target_host', t: 'str', v: host.trim() });
+      runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_target_port', t: 'int', v: port });
+      runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_target_client_id', t: 'str', v: clientId.trim() });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+    }
+  };
+
+  return { writeCrossModel, readCrossModel, rmCrossModel, setMqttTargetConfig };
 }
 
 export { buildClientSnapshot, createServerState, handleMediaUploadRequest, startServer };
