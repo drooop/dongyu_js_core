@@ -13846,6 +13846,21 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "bucket_c_cell_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [2, 4, 0, "mt_write_req"],
+          "to": [[0, 0, 0, "mt_write_in"]]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "ui_authoring_version",
       "t": "str",
       "v": "cellwise.ui.v1"
@@ -14277,7 +14292,7 @@
       "k": "handle_slide_import_click",
       "t": "func.js",
       "v": {
-        "code": "const event = label && label.v && typeof label.v === 'object' ? label.v : {};\nctx.writeLabel({ model_id: 1030, p: 0, r: 0, c: 0, k: 'slide_import_request' }, 'pin.out', { meta: event.meta || {}, target: { model_id: 1031, p: 0, r: 0, c: 0 } });",
+        "code": "const event = label && label.v && typeof label.v === 'object' ? label.v : {};\nV1N.addLabel('mt_write_req', 'pin.in', { op: 'write', records: [{ p: 0, r: 0, c: 0, k: 'slide_import_request', t: 'pin.out', v: { meta: event.meta || {}, target: { model_id: 1031, p: 0, r: 0, c: 0 } } }] });",
         "modelName": "slide_import_button"
       }
     },
@@ -14676,6 +14691,21 @@
       "k": "source_worker",
       "t": "str",
       "v": "filltable-create"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "bucket_c_cell_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [2, 8, 0, "mt_write_req"],
+          "to": [[0, 0, 0, "mt_write_in"]]
+        }
+      ]
     },
     {
       "op": "add_label",
@@ -15497,7 +15527,7 @@
       "k": "handle_slide_create_click",
       "t": "func.js",
       "v": {
-        "code": "const event = label && label.v && typeof label.v === 'object' ? label.v : {};\nctx.writeLabel({ model_id: 1034, p: 0, r: 0, c: 0, k: 'slide_create_request' }, 'pin.out', { meta: event.meta || {}, target: { model_id: 1035, p: 0, r: 0, c: 0 } });",
+        "code": "const event = label && label.v && typeof label.v === 'object' ? label.v : {};\nV1N.addLabel('mt_write_req', 'pin.in', { op: 'write', records: [{ p: 0, r: 0, c: 0, k: 'slide_create_request', t: 'pin.out', v: { meta: event.meta || {}, target: { model_id: 1035, p: 0, r: 0, c: 0 } } }] });",
         "modelName": "slide_creator_button"
       }
     },
