@@ -1577,36 +1577,14 @@ function buildImportedHostIngressKeys(rootModelId, semantic) {
 function buildImportedHostEgressKeys(rootModelId, semantic) {
   const base = `imported_${semantic}_${rootModelId}`;
   return {
-    egressLabel: `${base}_out`,
     busOutKey: `${base}_bus`,
-    model0RouteKey: `${base}_route`,
     mountRelayPin: `__host_egress_${semantic}_relay_${rootModelId}`,
     mountBridgeKey: `__host_egress_${semantic}_bridge_${rootModelId}`,
-    forwardFunc: `forward_imported_${semantic}_from_model0_${rootModelId}`,
+    model0BridgeIn: `__host_egress_${semantic}_bridge_in_${rootModelId}`,
+    model0BridgeRouteKey: `${base}_route`,
+    model0BridgeWiringKey: `${base}_bridge_wiring`,
+    bridgeFunc: `bridge_imported_${semantic}_to_mt_bus_send_${rootModelId}`,
   };
-}
-
-function buildImportedHostEgressForwardCode(rootModelId, keys) {
-  return [
-    `const payload = ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(keys.egressLabel)} });`,
-    "if (!Array.isArray(payload) || payload.length === 0) return;",
-    `const opId = 'imported_${rootModelId}_' + Date.now();`,
-    `const packet = { version: 'v1', type: 'pin_payload', op_id: opId, source_model_id: ${rootModelId}, pin: 'submit', payload, timestamp: Date.now() };`,
-    `ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(keys.busOutKey)} }, 'pin.bus.out', packet);`,
-    "const p = ctx.sendMatrix(packet);",
-    "if (p && typeof p.then === 'function') {",
-    "  p.catch(function(err) {",
-    "    const msg = err && err.message ? String(err.message) : String(err);",
-    `    ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(`${keys.forwardFunc}_last_error`)} }, 'json', { op_id: opId, reason: 'matrix_send_failed', error: msg, ts: Date.now() });`,
-    `    ctx.writeLabel({ model_id: ${rootModelId}, p: 0, r: 0, c: 0, k: 'status_text' }, 'str', 'send_failed');`,
-    "  });",
-    "} else if (!p) {",
-    `  ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(`${keys.forwardFunc}_last_error`)} }, 'json', { op_id: opId, reason: 'matrix_unavailable', ts: Date.now() });`,
-    `  ctx.writeLabel({ model_id: ${rootModelId}, p: 0, r: 0, c: 0, k: 'status_text' }, 'str', 'matrix_unavailable');`,
-    "}",
-    `ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(keys.egressLabel)} }, 'pin.in', null);`,
-    `ctx.writeLabel({ model_id: ${rootModelId}, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.out', null);`,
-  ].join('\n');
 }
 
 function materializeImportedHostIngressAdapter(runtime, rootModelId, hostIngress) {
@@ -1639,8 +1617,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
   if (!hostEgress) return null;
   const rootModel = runtime.getModel(rootModelId);
   const model0 = runtime.getModel(0);
-  const sys = runtime.getModel(-10);
-  if (!rootModel || !model0 || !sys || !mountCell) {
+  if (!rootModel || !model0 || !mountCell) {
     runtime.eventLog.record({
       op: 'host_egress_adapter_skipped',
       cell: { model_id: rootModelId, p: 0, r: 0, c: 0 },
@@ -1648,7 +1625,6 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
       result: 'skipped',
       reason: !rootModel ? 'root_model_missing'
         : !model0 ? 'model0_missing'
-        : !sys ? 'sys_model_missing'
         : 'mount_cell_missing',
     });
     return null;
@@ -1663,36 +1639,39 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
       to: [`(self, ${keys.mountRelayPin})`],
     }],
   });
-  runtime.addLabel(model0, 0, 0, 0, { k: keys.egressLabel, t: 'pin.in', v: null });
   runtime.addLabel(model0, 0, 0, 0, { k: keys.busOutKey, t: 'pin.bus.out', v: null });
+  runtime.addLabel(model0, 0, 0, 0, { k: keys.model0BridgeIn, t: 'pin.in', v: null });
   runtime.addLabel(model0, 0, 0, 0, {
-    k: keys.model0RouteKey,
+    k: keys.bridgeFunc,
+    t: 'func.js',
+    v: {
+      code: [
+        `const opId = 'imported_${rootModelId}_' + Date.now();`,
+        `V1N.addLabel('mt_bus_send_in', 'pin.in', { source_model_id: ${rootModelId}, pin: ${JSON.stringify(hostEgress.pinName)}, payload: label && label.v ? label.v : null, bus_out_key: ${JSON.stringify(keys.busOutKey)}, op_id: opId });`,
+        'return;',
+      ].join('\n'),
+    },
+  });
+  runtime.addLabel(model0, 0, 0, 0, {
+    k: keys.model0BridgeWiringKey,
+    t: 'pin.connect.label',
+    v: [{
+      from: `(self, ${keys.model0BridgeIn})`,
+      to: [`(func, ${keys.bridgeFunc}:in)`],
+    }],
+  });
+  runtime.addLabel(model0, 0, 0, 0, {
+    k: keys.model0BridgeRouteKey,
     t: 'pin.connect.cell',
     v: [{
       from: [mountCell.p, mountCell.r, mountCell.c, keys.mountRelayPin],
-      to: [[0, 0, 0, keys.egressLabel]],
+      to: [[0, 0, 0, keys.model0BridgeIn]],
     }],
-  });
-  runtime.addLabel(sys, 0, 0, 0, {
-    k: keys.forwardFunc,
-    t: 'func.js',
-    v: { code: buildImportedHostEgressForwardCode(rootModelId, keys) },
-  });
-  const currentDualBus = rootModel.getCell(0, 0, 0).labels.get(SLIDE_IMPORT_DUAL_BUS_LABEL);
-  const currentValue = currentDualBus && isPlainObject(currentDualBus.v) ? currentDualBus.v : {};
-  runtime.addLabel(rootModel, 0, 0, 0, {
-    k: SLIDE_IMPORT_DUAL_BUS_LABEL,
-    t: 'json',
-    v: {
-      ...currentValue,
-      model0_egress_label: keys.egressLabel,
-      model0_egress_func: keys.forwardFunc,
-    },
   });
   runtime.addLabel(rootModel, 0, 0, 0, {
     k: 'host_egress_generated_model0_labels',
     t: 'json',
-    v: [keys.egressLabel, keys.busOutKey, keys.model0RouteKey, `${keys.forwardFunc}_last_error`],
+    v: [keys.busOutKey, keys.model0BridgeIn, keys.model0BridgeWiringKey, keys.model0BridgeRouteKey, keys.bridgeFunc],
   });
   runtime.addLabel(rootModel, 0, 0, 0, {
     k: 'host_egress_generated_mount',
@@ -1703,11 +1682,6 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
       c: mountCell.c,
       keys: [keys.mountRelayPin, keys.mountBridgeKey],
     },
-  });
-  runtime.addLabel(rootModel, 0, 0, 0, {
-    k: 'host_egress_generated_system_labels',
-    t: 'json',
-    v: [keys.forwardFunc],
   });
   return keys;
 }
@@ -2583,6 +2557,7 @@ class ProgramModelEngine {
     // Callback invoked when snapshot changes due to Matrix/external events.
     // Set by server to trigger SSE broadcast.
     this.onSnapshotChanged = null;
+    this.bridgedBusOutPorts = new Map();
   }
 
   refreshMatrixBootstrapConfig() {
@@ -3916,6 +3891,26 @@ class ProgramModelEngine {
     const model0 = this.runtime.getModel(0);
     if (!model0) return;
     const sys = firstSystemModel(this.runtime);
+    const rootCell = this.runtime.getCell(model0, 0, 0, 0);
+    for (const [key, label] of rootCell.labels.entries()) {
+      if (!label || label.t !== 'pin.bus.out' || !label.v || typeof label.v !== 'object' || label.v.type !== 'pin_payload') {
+        continue;
+      }
+      const opIdentity = String(label.v.op_id || `${label.v.source_model_id || ''}:${label.v.pin || ''}`);
+      const bridgeKey = `pin.bus.out:${key}:${opIdentity}`;
+      if (alreadyScheduled.has(bridgeKey)) continue;
+      if (this.bridgedBusOutPorts.get(key) === opIdentity) continue;
+      alreadyScheduled.add(bridgeKey);
+      this.bridgedBusOutPorts.set(key, opIdentity);
+      const maybePromise = this.sendMatrix(label.v);
+      if (maybePromise && typeof maybePromise.then === 'function') {
+        maybePromise.catch((err) => {
+          console.log('[processEventsSnapshot] WARNING: pending pin.bus.out matrix bridge failed', {
+            error: err && err.message ? err.message : String(err),
+          });
+        });
+      }
+    }
     for (const [sourceModelId] of this.runtime.models) {
       if (!Number.isInteger(sourceModelId) || sourceModelId <= 0) continue;
       const dualBusConfig = readDualBusConfig(this.runtime, sourceModelId);
@@ -3947,6 +3942,8 @@ class ProgramModelEngine {
       if (!name) continue;
       await this.executeFunction(name, item.payload);
     }
+    await sleepMs(0);
+    this.schedulePendingModel0Egress(new Set());
   }
 
   async processInterceptsSnapshot(interceptEndExclusive) {

@@ -105,7 +105,7 @@
       "k": "mt_bus_send",
       "t": "func.js",
       "v": {
-        "code": "return;",
+        "code": "const req = label && label.v;\nif (!req || typeof req !== 'object') return { status: 'error', reason: 'invalid_request' };\nconst sourceModelId = Number.isInteger(req.source_model_id) ? req.source_model_id : null;\nconst pin = typeof req.pin === 'string' ? req.pin.trim() : '';\nif (!sourceModelId || !pin) return { status: 'error', reason: 'missing_source' };\nconst busOutKey = typeof req.bus_out_key === 'string' && req.bus_out_key.trim() ? req.bus_out_key.trim() : pin;\nconst opId = typeof req.op_id === 'string' && req.op_id ? req.op_id : ('mt_bus_send_' + Date.now());\nV1N.addLabel(busOutKey, 'pin.bus.out', {\n  version: 'v1',\n  type: 'pin_payload',\n  op_id: opId,\n  source_model_id: sourceModelId,\n  pin,\n  payload: req.payload ?? null,\n  timestamp: Date.now()\n});\nreturn { status: 'ok', bus_out_key: busOutKey };",
         "modelName": "default_table_mt_bus_send_skeleton"
       }
     },
