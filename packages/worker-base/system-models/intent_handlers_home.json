@@ -122,7 +122,7 @@
       "k": "handle_home_emit_owner_requests",
       "t": "func.js",
       "v": {
-        "code": "const payload = label && label.v && typeof label.v === 'object' ? label.v : {}; const requests = Array.isArray(payload.requests) ? payload.requests : []; ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'home_pin_error' }, 'json', null); for (const req of requests) { if (!req || typeof req.out_pin !== 'string' || !req.out_pin || !req.body || typeof req.body !== 'object') { ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'home_pin_error' }, 'json', { code: 'invalid_request_shape', detail: 'requests[] item invalid' }); return; } ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: req.out_pin }, 'pin.out', req.body); }",
+        "code": "/* rubric: P1 */ const payload = label && label.v && typeof label.v === 'object' ? label.v : {}; const requests = Array.isArray(payload.requests) ? payload.requests : []; V1N.addLabel('home_pin_error', 'json', null); for (const req of requests) { if (!req || typeof req.out_pin !== 'string' || !req.out_pin || !req.body || typeof req.body !== 'object') { V1N.addLabel('home_pin_error', 'json', { code: 'invalid_request_shape', detail: 'requests[] item invalid' }); return; } V1N.addLabel(req.out_pin, 'pin.out', req.body); }",
         "modelName": "intent_handlers_home"
       }
     },
@@ -135,7 +135,7 @@
       "k": "handle_home_pin_only_dispatch_blocked",
       "t": "func.js",
       "v": {
-        "code": "const payload = (ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' }) || {}).payload || {}; const action = typeof payload.action === 'string' ? payload.action : 'home_unknown'; const opId = payload.meta && typeof payload.meta.op_id === 'string' ? payload.meta.op_id : ''; ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: 'home_dispatch_blocked', detail: action + ':authoritative_via_server_pin_only' });",
+        "code": "/* rubric: P5+P8 */ const mailboxRead = ctx.hostApi.readCrossModel(-1, 0, 0, 1, 'ui_event'); const mailbox = mailboxRead && mailboxRead.ok && mailboxRead.data ? mailboxRead.data.v : null; const payload = (mailbox || {}).payload || {}; const action = typeof payload.action === 'string' ? payload.action : 'home_unknown'; const opId = payload.meta && typeof payload.meta.op_id === 'string' ? payload.meta.op_id : ''; ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'ui_event_error', 'json', { op_id: opId, code: 'home_dispatch_blocked', detail: action + ':authoritative_via_server_pin_only' });",
         "modelName": "intent_handlers_home"
       }
     }
