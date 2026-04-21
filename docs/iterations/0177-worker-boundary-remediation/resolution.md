@@ -2,7 +2,7 @@
 title: "0177 — Resolution (HOW)"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0177-worker-boundary-remediation
 id: 0177-worker-boundary-remediation

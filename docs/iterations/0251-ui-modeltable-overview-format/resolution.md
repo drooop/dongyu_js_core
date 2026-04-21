@@ -1,8 +1,8 @@
 ---
 title: "0251 — ui-modeltable-overview-format Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-03-27
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0251-ui-modeltable-overview-format
 id: 0251-ui-modeltable-overview-format

@@ -1,12 +1,12 @@
 ---
 title: "0317 — time-static-root-zip Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-04-13
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0317-time-static-root-zip
 id: 0317-time-static-root-zip
-phase: phase4
+phase: phase1
 ---
 
 # 0317 — time-static-root-zip Resolution

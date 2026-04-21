@@ -1,8 +1,8 @@
 ---
 title: "0233 — local-matrix-debug-surface-materialization-fix Runlog"
 doc_type: iteration-runlog
-status: planned
-updated: 2026-03-25
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0233-local-matrix-debug-surface-materialization-fix
 id: 0233-local-matrix-debug-surface-materialization-fix

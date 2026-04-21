@@ -1,8 +1,8 @@
 ---
 title: "文档型页面填表能力 MVP 基础扩展 — 实施文档"
-doc_type: implementation
-status: draft
-updated: 2026-04-02
+doc_type: note
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0275-doc-page-filltable-extension
 ---

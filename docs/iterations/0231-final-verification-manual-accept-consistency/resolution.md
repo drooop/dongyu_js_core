@@ -2,7 +2,7 @@
 title: "0231 — final-verification-manual-accept-consistency Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-25
+updated: 2026-04-21
 source: ai
 iteration_id: 0231-final-verification-manual-accept-consistency
 id: 0231-final-verification-manual-accept-consistency

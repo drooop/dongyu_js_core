@@ -2,7 +2,7 @@
 title: "Iteration 0127-doit-auto-docs-refresh Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0127-doit-auto-docs-refresh
 id: 0127-doit-auto-docs-refresh

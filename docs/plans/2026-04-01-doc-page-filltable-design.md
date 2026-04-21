@@ -1,8 +1,8 @@
 ---
 title: "文档型页面填表能力扩展 — 设计文档"
-doc_type: design
-status: draft
-updated: 2026-04-01
+doc_type: note
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0275-doc-page-filltable-extension
 ---

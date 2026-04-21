@@ -1,12 +1,12 @@
 ---
 title: "0325c — option-b-generator-rewrite Runlog"
 doc_type: iteration-runlog
-status: planned
+status: active
 updated: 2026-04-21
 source: ai
 iteration_id: 0325c-option-b-generator-rewrite
 id: 0325c-option-b-generator-rewrite
-phase: phase1
+phase: phase3
 ---
 
 # 0325c — option-b-generator-rewrite Runlog
@@ -491,10 +491,49 @@ pending
 
 ### Step 5 — 全量回归 + grep 清零
 
-- Command:
-- Key output:
-- Result: PASS/FAIL
-- Commit:
+- Commands:
+  - `node scripts/tests/test_0325c_cross_model_hostapi.mjs` → 18/18 PASS
+  - `node scripts/tests/test_0325c_generator_rewrite.mjs` → 7/7 PASS
+  - `node scripts/tests/test_0321_imported_host_ingress_{contract,server_flow}.mjs` → 4/4 PASS
+  - `node scripts/tests/test_0322_imported_host_egress_{contract,server_flow}.mjs` → 3/3 PASS
+  - `node scripts/tests/test_0322_runtime_bus_out_cleanup.mjs` → 3/3 PASS
+  - `node scripts/tests/test_0324_root_scaffold.mjs` → 4/4 PASS
+  - `node scripts/tests/test_0325_{v1n_api_shape,cross_model_read_denied,selfcell_write_guard}.mjs` → 7/7 PASS
+  - `node scripts/tests/test_0306_model100_pin_chain_contract.mjs` → 3/3 PASS
+  - `rg -c "ctx\\.writeLabel|ctx\\.getLabel|ctx\\.rmLabel" packages/worker-base/system-models/ -g '!*.legacy*'` → **4 处**（test_model_100_full.json:1 + test_model_100_ui.json:3，均 Batch 3a revert 延 0325d scope；符合 SC #7 豁免 final list）
+- Result: PASS（回归全绿 + grep 残留符合豁免清单）
+- Commits: 全迭代 commit 链 `defbc99 ... 602b5f4`（21 commits 覆盖 phase1 docs + Step 1-4 + Step 3.5 Stage 0-4 + Final review fixes C1/H1）
+
+### Step 6 — docs + runlog
+
+- Files:
+  - `docs/iterations/0325c-option-b-generator-rewrite/runlog.md` — 本次填实
+  - `docs/iterations/0325c-option-b-generator-rewrite/plan.md` SC #7 final exemption list:
+    - server.mjs:3042-3080 programEngine ctx 构造
+    - server.mjs:1589-1609 buildImportedHostEgressForwardCode（programEngine-only）
+    - `packages/worker-base/system-models/test_model_100_full.json` (1 处 on_model100_submit_in, 正模型 Bucket B 需 V1N.addLabel 重构) → 0325d scope
+    - `packages/worker-base/system-models/test_model_100_ui.json` (3 处 prepare_model100_* + forward_model100_submit) → 0325d scope
+  - `docs/ITERATIONS.md` — 0325c 登记 Completed
+  - `docs/ssot/host_ctx_api.md` §7 — 0325c 最终 rubric (10 patterns + R14)
+
+- 0325d scope 备忘 (per R23 + Final review C1/H2/H3):
+  - test_model_100_full.json + test_model_100_ui.json (4 处 ctx.*) 迁移（正模型 Bucket B 需 V1N.addLabel self-cell / 或 pin wiring 重构到 M-10 ctx）
+  - workspace_positive_models.json L12486 / L12745 正模型 matrix handlers 跨模型 I/O 重构（已 silent broken since 0325）
+  - H2 intent_dispatch + 正模型 handler e2e test 套件
+  - H3 programEngine-only hostApi (matrixDebug*/llm*/matrixUserLogin) 真 impl dual-register (现为 stub)
+  - 0311 / 0215 若依赖上述 handler 的 regression 恢复
+  - 评估 runtime.hostApi 提到 Tier 1 ([[ssot/host_ctx_api]] 同步)
+
+- Verification: `obsidian_docs_audit` pending
+
+### Step 7 — Merge 0325 + 0325b + 0325c 到 dev
+
+- 按 resolution.md Step 7 atomic batch 语义执行
+- Pre-batch gate:
+  - 三分支独立 HEAD sha 登记（待执行）
+  - 每分支 full regression PASS（待 executed）
+  - grep `ctx.* packages/worker-base/ packages/ui-model-demo-server/server.mjs` 除 SC #7 exemption list 外返回 0（当前 HEAD 符合；仅含 test_model_100_{full,ui} 延后）
+- Commit: triple-merge commits（待执行）
 
 ### Step 6 — docs + runlog
 

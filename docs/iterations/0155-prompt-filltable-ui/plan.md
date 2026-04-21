@@ -2,7 +2,7 @@
 title: "0155 — Prompt 填表固定界面（多格多 Label）"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0155-prompt-filltable-ui
 id: 0155-prompt-filltable-ui

@@ -2,7 +2,7 @@
 title: "V1N / PICtest 软件工人基座：概念与实现理解"
 doc_type: note
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

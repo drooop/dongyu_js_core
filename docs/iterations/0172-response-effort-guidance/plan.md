@@ -2,7 +2,7 @@
 title: "0172 — 回复复杂度建议规约化"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0172-response-effort-guidance
 id: 0172-response-effort-guidance

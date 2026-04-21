@@ -1,8 +1,8 @@
 ---
 title: "0237 — local-browser-surface-regressions-fix Runlog"
 doc_type: iteration-runlog
-status: on_hold
-updated: 2026-03-26
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0237-local-browser-surface-regressions-fix
 id: 0237-local-browser-surface-regressions-fix

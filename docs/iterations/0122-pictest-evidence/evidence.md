@@ -2,7 +2,7 @@
 title: "PICtest 行为证据表（built-in k / PIN / trigger）"
 doc_type: iteration-note
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0122-pictest-evidence
 id: 0122-pictest-evidence

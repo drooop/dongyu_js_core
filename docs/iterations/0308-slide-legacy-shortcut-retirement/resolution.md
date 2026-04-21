@@ -1,12 +1,12 @@
 ---
 title: "0308 — slide-legacy-shortcut-retirement Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-04-10
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0308-slide-legacy-shortcut-retirement
 id: 0308-slide-legacy-shortcut-retirement
-phase: phase4
+phase: phase1
 ---
 
 # 0308 — slide-legacy-shortcut-retirement Resolution

@@ -1,10 +1,13 @@
 ---
 title: "0323 — Runlog"
 doc_type: iteration-runlog
-status: completed
+status: active
 created: 2026-04-17
-updated: 2026-04-17
+updated: 2026-04-21
 source: ai
+iteration_id: 0323-modeltable-rw-permission-spec
+id: 0323-modeltable-rw-permission-spec
+phase: phase3
 ---
 
 # 0323 — Runlog

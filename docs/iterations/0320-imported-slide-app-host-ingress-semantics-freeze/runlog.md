@@ -1,12 +1,12 @@
 ---
 title: "0320 — imported-slide-app-host-ingress-semantics-freeze Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-04-14
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0320-imported-slide-app-host-ingress-semantics-freeze
 id: 0320-imported-slide-app-host-ingress-semantics-freeze
-phase: phase4
+phase: phase3
 ---
 
 # 0320 — imported-slide-app-host-ingress-semantics-freeze Runlog

@@ -2,7 +2,7 @@
 title: "0176 — Resolution (HOW)"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0176-worker-spec-audit
 id: 0176-worker-spec-audit

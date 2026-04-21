@@ -1,8 +1,8 @@
 ---
 title: "Model100 Submit Roundtrip Hardening Implementation Plan"
-doc_type: plan
+doc_type: note
 status: active
-updated: 2026-03-29
+updated: 2026-04-21
 source: ai
 ---
 

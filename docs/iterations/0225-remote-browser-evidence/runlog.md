@@ -1,8 +1,8 @@
 ---
 title: "0225 — remote-browser-evidence Runlog"
 doc_type: iteration-runlog
-status: on_hold
-updated: 2026-03-26
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0225-remote-browser-evidence
 id: 0225-remote-browser-evidence

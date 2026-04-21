@@ -1,8 +1,8 @@
 ---
-title: "Architecture Review 2026-04"
-doc_type: review
+title: "架构评审报告：dongyu_js_core (dongyuapp_elysia_based)"
+doc_type: note
 status: active
-updated: 2026-04-10
+updated: 2026-04-21
 source: ai
 ---
 

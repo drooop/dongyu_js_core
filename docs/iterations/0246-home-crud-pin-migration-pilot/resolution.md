@@ -2,7 +2,7 @@
 title: "0246 — home-crud-pin-migration-pilot Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-26
+updated: 2026-04-21
 source: ai
 iteration_id: 0246-home-crud-pin-migration-pilot
 id: 0246-home-crud-pin-migration-pilot

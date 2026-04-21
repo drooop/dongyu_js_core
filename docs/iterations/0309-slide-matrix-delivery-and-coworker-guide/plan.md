@@ -2,7 +2,7 @@
 title: "0309 — slide-matrix-delivery-and-coworker-guide Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-04-09
+updated: 2026-04-21
 source: ai
 iteration_id: 0309-slide-matrix-delivery-and-coworker-guide
 id: 0309-slide-matrix-delivery-and-coworker-guide

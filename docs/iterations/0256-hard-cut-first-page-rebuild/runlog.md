@@ -1,8 +1,8 @@
 ---
 title: "0256 — hard-cut-first-page-rebuild Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-03-29
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0256-hard-cut-first-page-rebuild
 id: 0256-hard-cut-first-page-rebuild

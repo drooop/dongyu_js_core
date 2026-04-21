@@ -2,7 +2,7 @@
 title: "0139 — Records-Only Patch: 全量 records 化代码改进"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0139-records-only-patch
 id: 0139-records-only-patch

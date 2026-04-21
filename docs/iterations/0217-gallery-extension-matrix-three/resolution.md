@@ -2,7 +2,7 @@
 title: "0217 — gallery-extension-matrix-three Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-23
+updated: 2026-04-21
 source: ai
 iteration_id: 0217-gallery-extension-matrix-three
 id: 0217-gallery-extension-matrix-three

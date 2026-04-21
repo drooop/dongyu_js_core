@@ -2,7 +2,7 @@
 title: "0205 — Resolution (HOW)"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-22
+updated: 2026-04-21
 source: ai
 iteration_id: 0205-orchestrator-observability-cleanup
 id: 0205-orchestrator-observability-cleanup

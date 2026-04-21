@@ -2,7 +2,7 @@
 title: "0312 — slide-upload-auth-and-cache-contract Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-04-10
+updated: 2026-04-21
 source: ai
 iteration_id: 0312-slide-upload-auth-and-cache-contract
 id: 0312-slide-upload-auth-and-cache-contract

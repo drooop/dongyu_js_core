@@ -1,8 +1,8 @@
 ---
 title: "0246 — home-crud-pin-migration-pilot Runlog"
 doc_type: iteration-runlog
-status: cancelled
-updated: 2026-03-27
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0246-home-crud-pin-migration-pilot
 id: 0246-home-crud-pin-migration-pilot

@@ -2,7 +2,7 @@
 title: "Imported Slide App Host Ingress Semantics v1"
 doc_type: ssot
 status: active
-updated: 2026-04-14
+updated: 2026-04-21
 source: ai
 ---
 
@@ -396,7 +396,7 @@ imported app zip 必须：
 | Model 0 `mountCell` | `__host_egress_<semantic>_bridge_<id>` `pin.connect.label` | `(<rootModelId>, <pinName>) → (self, mountRelayPin)` — 把 imported root pin.out 桥到 mountCell |
 | Model 0 `(0,0,0)` | `imported_<semantic>_<id>_out` `pin.in` | 宿主 egress 暂存入口 |
 | Model 0 `(0,0,0)` | `imported_<semantic>_<id>_bus` `pin.bus.out` | MQTT 对外 publish 通道 |
-| Model 0 `(0,0,0)` | `imported_<semantic>_<id>_route` `pin.connect.cell` | `[mountCell,mountRelayPin] → [[0,0,0,egressLabel]]` |
+| Model 0 `(0,0,0)` | `imported_<semantic>_<id>_route` `pin.connect.cell` | `[mountCell,mountRelayPin] → __DY_PROTECTED_WL_0__` |
 | Model -10 `(0,0,0)` | `forward_imported_<semantic>_from_model0_<id>` `func.js` | tier 2 forward 函数 |
 | imported root `(0,0,0)` | `dual_bus_model.model0_egress_label` / `.model0_egress_func` | 驱动 `processEventsSnapshot` 的触发映射 |
 | imported root `(0,0,0)` | `host_egress_generated_{model0_labels, mount, system_labels}` | 删除清理清单（记录所有自动生成 key） |

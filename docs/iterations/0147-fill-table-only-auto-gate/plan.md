@@ -2,7 +2,7 @@
 title: "0147 — Fill-Table-Only 自动门禁（pre-commit + 模式开关）"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0147-fill-table-only-auto-gate
 id: 0147-fill-table-only-auto-gate

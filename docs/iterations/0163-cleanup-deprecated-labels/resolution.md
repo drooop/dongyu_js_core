@@ -2,7 +2,7 @@
 title: "0163 — Resolution (HOW)"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0163-cleanup-deprecated-labels
 id: 0163-cleanup-deprecated-labels

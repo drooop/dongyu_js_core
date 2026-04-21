@@ -1,8 +1,8 @@
 ---
 title: "Static Workspace Rebuild Implementation Plan"
-doc_type: implementation-plan
+doc_type: note
 status: active
-updated: 2026-04-01
+updated: 2026-04-21
 source: ai
 ---
 

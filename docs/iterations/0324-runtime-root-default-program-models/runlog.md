@@ -1,12 +1,12 @@
 ---
 title: "0324 — runtime-root-default-program-models Runlog"
 doc_type: iteration-runlog
-status: completed
+status: active
 updated: 2026-04-21
 source: ai
 iteration_id: 0324-runtime-root-default-program-models
 id: 0324-runtime-root-default-program-models
-phase: phase4
+phase: phase3
 ---
 
 # 0324 — runtime-root-default-program-models Runlog
@@ -86,7 +86,7 @@ phase: phase4
 - Files:
   - `scripts/tests/test_0322_imported_host_egress_server_flow.mjs` — handle_submit 从 `return {op:'apply_records', records:[...]}` 改为直接本 cell `ctx.writeLabel` (handle_submit 本身在 root，所有目标也在 root，等价)
   - `scripts/tests/test_0322_imported_host_egress_contract.mjs` — 同上
-  - `scripts/tests/test_0321_imported_host_ingress_server_flow.mjs` — handle_submit 在 (2,2,0) 改为 `return { op: 'write', records: [...] }`；fixture 的 `submit_owner_route` 改名为 `mt_write_dispatch_route` 并改 wiring 把 handle_submit:out 路由到 (2,2,0) `mt_write_req` (pin.out)；`root_routes` 改为 `[2,2,0, mt_write_req] → [[0,0,0, mt_write_in]]`（正式 0323 §5.3b "用户程序 pin.out → pin.connect.cell → (0,0,0) mt_write:in" 路径）
+  - `scripts/tests/test_0321_imported_host_ingress_server_flow.mjs` — handle_submit 在 (2,2,0) 改为 `return { op: 'write', records: [...] }`；fixture 的 `submit_owner_route` 改名为 `mt_write_dispatch_route` 并改 wiring 把 handle_submit:out 路由到 (2,2,0) `mt_write_req` (pin.out)；`root_routes` 改为 `[2,2,0, mt_write_req] → __DY_PROTECTED_WL_0__`（正式 0323 §5.3b "用户程序 pin.out → pin.connect.cell → (0,0,0) mt_write:in" 路径）
 - Verification: 0321/0322 contract + server_flow 全绿
 - Result: PASS
 - Commit: 随 Step 5 合入

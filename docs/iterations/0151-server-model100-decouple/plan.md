@@ -2,7 +2,7 @@
 title: "0151 — Server 去 Model 100 特判 + MOCK_SLIDING_APPS 外移"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0151-server-model100-decouple
 id: 0151-server-model100-decouple

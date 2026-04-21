@@ -1,12 +1,12 @@
 ---
 title: "0305 — slide-event-target-and-deferred-input-sync Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-04-09
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0305-slide-event-target-and-deferred-input-sync
 id: 0305-slide-event-target-and-deferred-input-sync
-phase: phase4
+phase: phase1
 ---
 
 # 0305 — slide-event-target-and-deferred-input-sync Resolution

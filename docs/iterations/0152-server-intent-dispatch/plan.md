@@ -2,7 +2,7 @@
 title: "0152 — Server 通用 Intent Dispatch + Forward 触发映射模型化"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0152-server-intent-dispatch
 id: 0152-server-intent-dispatch

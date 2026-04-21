@@ -2,7 +2,7 @@
 title: "0154 — LLM 认知层接入（Ollama Qwen 32B）"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0154-llm-cognition-ollama
 id: 0154-llm-cognition-ollama

@@ -2,7 +2,7 @@
 title: "Dongyu App Next Runtime Execution Charter (2026)"
 doc_type: charter
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

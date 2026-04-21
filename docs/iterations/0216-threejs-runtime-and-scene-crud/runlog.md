@@ -1,8 +1,8 @@
 ---
 title: "0216 — threejs-runtime-and-scene-crud Runlog"
 doc_type: iteration-runlog
-status: planned
-updated: 2026-03-23
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0216-threejs-runtime-and-scene-crud
 id: 0216-threejs-runtime-and-scene-crud

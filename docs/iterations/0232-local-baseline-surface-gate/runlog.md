@@ -1,12 +1,12 @@
 ---
 title: "0232 — local-baseline-surface-gate Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-03-25
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0232-local-baseline-surface-gate
 id: 0232-local-baseline-surface-gate
-phase: phase4
+phase: phase3
 ---
 
 # 0232 — local-baseline-surface-gate Runlog

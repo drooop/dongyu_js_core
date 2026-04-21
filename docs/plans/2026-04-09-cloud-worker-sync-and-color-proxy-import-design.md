@@ -1,8 +1,8 @@
 ---
 title: "Cloud Worker Sync And Color Proxy Import Design"
-doc_type: plan
+doc_type: note
 status: active
-updated: 2026-04-09
+updated: 2026-04-21
 source: ai
 ---
 

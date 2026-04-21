@@ -1,12 +1,12 @@
 ---
 title: "0314 — agents-collaboration-guidance-sync Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-04-13
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0314-agents-collaboration-guidance-sync
 id: 0314-agents-collaboration-guidance-sync
-phase: phase4
+phase: phase1
 ---
 
 # 0314 — agents-collaboration-guidance-sync Resolution

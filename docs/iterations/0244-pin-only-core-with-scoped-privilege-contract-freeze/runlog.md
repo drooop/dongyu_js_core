@@ -1,8 +1,8 @@
 ---
 title: "0244 — pin-only-core-with-scoped-privilege-contract-freeze Runlog"
 doc_type: iteration-runlog
-status: planned
-updated: 2026-03-26
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0244-pin-only-core-with-scoped-privilege-contract-freeze
 id: 0244-pin-only-core-with-scoped-privilege-contract-freeze

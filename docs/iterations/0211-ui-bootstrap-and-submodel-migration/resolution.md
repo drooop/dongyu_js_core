@@ -2,7 +2,7 @@
 title: "0211 — ui-bootstrap-and-submodel-migration Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-22
+updated: 2026-04-21
 source: ai
 iteration_id: 0211-ui-bootstrap-and-submodel-migration
 id: 0211-ui-bootstrap-and-submodel-migration

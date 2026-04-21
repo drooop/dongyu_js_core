@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0276-doc-workspace-example-and-static-fileinput Resolution"
 doc_type: iteration-resolution
-status: active
-updated: 2026-04-02
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0276-doc-workspace-example-and-static-fileinput
 id: 0276-doc-workspace-example-and-static-fileinput
-phase: phase3
+phase: phase1
 ---
 
 # Iteration 0276-doc-workspace-example-and-static-fileinput Resolution

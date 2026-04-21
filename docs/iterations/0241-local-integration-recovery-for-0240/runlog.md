@@ -1,8 +1,8 @@
 ---
 title: "0241 — local-integration-recovery-for-0240 Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-03-26
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0241-local-integration-recovery-for-0240
 id: 0241-local-integration-recovery-for-0240

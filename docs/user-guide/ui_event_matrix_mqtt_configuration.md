@@ -2,7 +2,7 @@
 title: "UI 事件通过 Matrix/MQTT 到达设备的配置指南"
 doc_type: user-guide
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

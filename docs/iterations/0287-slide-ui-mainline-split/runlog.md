@@ -2,11 +2,11 @@
 title: "0287 — slide-ui-mainline-split Runlog"
 doc_type: iteration-runlog
 status: active
-updated: 2026-04-05
+updated: 2026-04-21
 source: ai
 iteration_id: 0287-slide-ui-mainline-split
 id: 0287-slide-ui-mainline-split
-phase: phase1
+phase: phase3
 ---
 
 # 0287 — slide-ui-mainline-split Runlog

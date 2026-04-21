@@ -1,12 +1,12 @@
 ---
 title: "0308 — slide-legacy-shortcut-retirement Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-04-10
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0308-slide-legacy-shortcut-retirement
 id: 0308-slide-legacy-shortcut-retirement
-phase: phase4
+phase: phase3
 ---
 
 # 0308 — slide-legacy-shortcut-retirement Runlog

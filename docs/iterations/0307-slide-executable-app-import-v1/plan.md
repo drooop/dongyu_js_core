@@ -2,7 +2,7 @@
 title: "0307 — slide-executable-app-import-v1 Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-04-09
+updated: 2026-04-21
 source: ai
 iteration_id: 0307-slide-executable-app-import-v1
 id: 0307-slide-executable-app-import-v1

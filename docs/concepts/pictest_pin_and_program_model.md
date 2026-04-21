@@ -2,7 +2,7 @@
 title: "PICtest PIN_IN/PIN_OUT 与程序模型触发机制（理解记录）"
 doc_type: note
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

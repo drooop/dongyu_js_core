@@ -2,7 +2,7 @@
 title: "0289 — slide-ui-phaseB-workspace-generalization Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-04-06
+updated: 2026-04-21
 source: ai
 iteration_id: 0289-slide-ui-phaseB-workspace-generalization
 id: 0289-slide-ui-phaseB-workspace-generalization

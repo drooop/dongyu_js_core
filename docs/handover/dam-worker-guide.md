@@ -2,7 +2,7 @@
 title: "DAM Worker 开发指南：软件工人与总线交互架构"
 doc_type: handover
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

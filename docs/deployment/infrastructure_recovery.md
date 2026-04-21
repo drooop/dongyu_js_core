@@ -2,7 +2,7 @@
 title: "基础设施部署恢复指南"
 doc_type: deployment
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

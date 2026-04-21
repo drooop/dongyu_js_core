@@ -1,8 +1,8 @@
 ---
 title: "0210 — ui-cellwise-contract-freeze Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-03-22
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0210-ui-cellwise-contract-freeze
 id: 0210-ui-cellwise-contract-freeze

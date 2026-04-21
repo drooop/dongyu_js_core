@@ -2,7 +2,7 @@
 title: "0161 — Resolution (HOW)"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0161-server-workers-adapt
 id: 0161-server-workers-adapt

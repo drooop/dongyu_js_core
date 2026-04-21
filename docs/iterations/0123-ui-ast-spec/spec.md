@@ -2,7 +2,7 @@
 title: "UI AST Spec v0 (Stage 3.1, documents-only)"
 doc_type: iteration-note
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0123-ui-ast-spec
 id: 0123-ui-ast-spec

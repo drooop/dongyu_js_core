@@ -2,7 +2,7 @@
 title: "0320 — imported-slide-app-host-ingress-semantics-freeze Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-04-14
+updated: 2026-04-21
 source: ai
 iteration_id: 0320-imported-slide-app-host-ingress-semantics-freeze
 id: 0320-imported-slide-app-host-ingress-semantics-freeze

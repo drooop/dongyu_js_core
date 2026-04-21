@@ -2,7 +2,7 @@
 title: "0238 — local-matrix-debug-materialization-regression-fix Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-26
+updated: 2026-04-21
 source: ai
 iteration_id: 0238-local-matrix-debug-materialization-regression-fix
 id: 0238-local-matrix-debug-materialization-regression-fix

@@ -1,12 +1,12 @@
 ---
 title: "0289 — slide-ui-phaseB-workspace-generalization Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-04-08
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0289-slide-ui-phaseB-workspace-generalization
 id: 0289-slide-ui-phaseB-workspace-generalization
-phase: phase4
+phase: phase1
 ---
 
 # 0289 — slide-ui-phaseB-workspace-generalization Resolution

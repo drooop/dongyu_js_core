@@ -1,8 +1,8 @@
 ---
 title: "0248 — cross-model-pin-owner-materialization-runtime-and-regression Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-03-26
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0248-cross-model-pin-owner-materialization-runtime-and-regression
 id: 0248-cross-model-pin-owner-materialization-runtime-and-regression

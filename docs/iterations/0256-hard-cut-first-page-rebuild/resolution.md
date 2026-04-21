@@ -1,8 +1,8 @@
 ---
 title: "0256 — hard-cut-first-page-rebuild Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-03-27
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0256-hard-cut-first-page-rebuild
 id: 0256-hard-cut-first-page-rebuild

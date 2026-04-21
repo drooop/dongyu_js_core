@@ -1,12 +1,12 @@
 ---
 title: "0252 — home-legacy-handler-cleanup Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-03-27
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0252-home-legacy-handler-cleanup
 id: 0252-home-legacy-handler-cleanup
-phase: phase1
+phase: phase3
 ---
 
 # 0252 — home-legacy-handler-cleanup Runlog

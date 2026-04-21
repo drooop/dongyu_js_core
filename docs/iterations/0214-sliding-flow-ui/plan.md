@@ -2,7 +2,7 @@
 title: "0214 — sliding-flow-ui Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-23
+updated: 2026-04-21
 source: ai
 iteration_id: 0214-sliding-flow-ui
 id: 0214-sliding-flow-ui

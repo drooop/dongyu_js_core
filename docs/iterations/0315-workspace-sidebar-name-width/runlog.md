@@ -1,12 +1,12 @@
 ---
 title: "0315 — workspace-sidebar-name-width Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-04-13
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0315-workspace-sidebar-name-width
 id: 0315-workspace-sidebar-name-width
-phase: phase4
+phase: phase3
 ---
 
 # 0315 — workspace-sidebar-name-width Runlog

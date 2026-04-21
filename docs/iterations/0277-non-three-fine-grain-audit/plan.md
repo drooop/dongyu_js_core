@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0277-non-three-fine-grain-audit Plan"
 doc_type: iteration-plan
-status: active
-updated: 2026-04-03
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0277-non-three-fine-grain-audit
 id: 0277-non-three-fine-grain-audit
-phase: phase3
+phase: phase1
 ---
 
 # Iteration 0277-non-three-fine-grain-audit Plan

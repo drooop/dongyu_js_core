@@ -2,7 +2,7 @@
 title: "执行治理规范：ultrawork / doit / doit-auto"
 doc_type: ssot
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

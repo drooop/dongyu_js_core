@@ -2,7 +2,7 @@
 title: "Workspace UI Fill-Table Example"
 doc_type: user-guide
 status: active
-updated: 2026-03-31
+updated: 2026-04-21
 source: ai
 ---
 

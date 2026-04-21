@@ -2,7 +2,7 @@
 title: "0294 — foundation-b-runtime-migration Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-04-06
+updated: 2026-04-21
 source: ai
 iteration_id: 0294-foundation-b-runtime-migration
 id: 0294-foundation-b-runtime-migration

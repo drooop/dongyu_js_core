@@ -1,8 +1,8 @@
 ---
 title: "Iteration 0267-home-save-draft-sync Resolution"
 doc_type: iteration-resolution
-status: active
-updated: 2026-03-31
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0267-home-save-draft-sync
 id: 0267-home-save-draft-sync

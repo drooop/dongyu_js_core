@@ -2,11 +2,11 @@
 title: "0308 — slide-legacy-shortcut-retirement Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-04-10
+updated: 2026-04-21
 source: ai
 iteration_id: 0308-slide-legacy-shortcut-retirement
 id: 0308-slide-legacy-shortcut-retirement
-phase: phase3
+phase: phase1
 ---
 
 # 0308 — slide-legacy-shortcut-retirement Plan

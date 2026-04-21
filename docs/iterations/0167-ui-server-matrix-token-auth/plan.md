@@ -2,7 +2,7 @@
 title: "Iteration 0167-ui-server-matrix-token-auth Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0167-ui-server-matrix-token-auth
 id: 0167-ui-server-matrix-token-auth

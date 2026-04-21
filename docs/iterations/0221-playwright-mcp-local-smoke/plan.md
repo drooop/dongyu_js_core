@@ -2,7 +2,7 @@
 title: "0221 — playwright-mcp-local-smoke Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-23
+updated: 2026-04-21
 source: ai
 iteration_id: 0221-playwright-mcp-local-smoke
 id: 0221-playwright-mcp-local-smoke

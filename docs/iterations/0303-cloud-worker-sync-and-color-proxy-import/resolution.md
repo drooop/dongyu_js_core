@@ -1,12 +1,12 @@
 ---
 title: "0303 — cloud-worker-sync-and-color-proxy-import Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-04-09
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0303-cloud-worker-sync-and-color-proxy-import
 id: 0303-cloud-worker-sync-and-color-proxy-import
-phase: phase4
+phase: phase1
 ---
 
 # 0303 — cloud-worker-sync-and-color-proxy-import Resolution

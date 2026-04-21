@@ -2,7 +2,7 @@
 title: "Iteration 0123-pin-mqtt-loop Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0123-pin-mqtt-loop
 id: 0123-pin-mqtt-loop

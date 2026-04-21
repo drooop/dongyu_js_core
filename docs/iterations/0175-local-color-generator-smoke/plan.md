@@ -2,7 +2,7 @@
 title: "0175 — 本地颜色生成器运行冒烟验证"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0175-local-color-generator-smoke
 id: 0175-local-color-generator-smoke

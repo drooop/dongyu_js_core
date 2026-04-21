@@ -1,8 +1,8 @@
 ---
 title: "0255 — hard-cut-bind-write-pin-only-cutover Plan"
 doc_type: iteration-plan
-status: completed
-updated: 2026-03-27
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0255-hard-cut-bind-write-pin-only-cutover
 id: 0255-hard-cut-bind-write-pin-only-cutover

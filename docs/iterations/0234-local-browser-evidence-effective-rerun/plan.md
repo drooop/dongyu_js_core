@@ -2,7 +2,7 @@
 title: "0234 — local-browser-evidence-effective-rerun Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-25
+updated: 2026-04-21
 source: ai
 iteration_id: 0234-local-browser-evidence-effective-rerun
 id: 0234-local-browser-evidence-effective-rerun

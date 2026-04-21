@@ -1,8 +1,8 @@
 ---
 title: "Iteration 0281-slide-matrix-three-baseline Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-04-03
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0281-slide-matrix-three-baseline
 id: 0281-slide-matrix-three-baseline

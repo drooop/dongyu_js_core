@@ -2,7 +2,7 @@
 title: "云海流核心概念与架构边界（SSOT）"
 doc_type: note
 status: active
-updated: 2026-04-09
+updated: 2026-04-21
 source: ai
 ---
 

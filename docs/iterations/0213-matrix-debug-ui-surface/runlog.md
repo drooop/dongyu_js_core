@@ -1,8 +1,8 @@
 ---
 title: "0213 — matrix-debug-ui-surface Runlog"
 doc_type: iteration-runlog
-status: planned
-updated: 2026-03-22
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0213-matrix-debug-ui-surface
 id: 0213-matrix-debug-ui-surface

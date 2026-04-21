@@ -1,12 +1,12 @@
 ---
 title: "0217 — gallery-extension-matrix-three Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-03-23
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0217-gallery-extension-matrix-three
 id: 0217-gallery-extension-matrix-three
-phase: phase4
+phase: phase3
 ---
 
 # 0217 — gallery-extension-matrix-three Runlog

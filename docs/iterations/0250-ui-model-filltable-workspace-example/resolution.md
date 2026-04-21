@@ -1,8 +1,8 @@
 ---
 title: "0250 — ui-model-filltable-workspace-example Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-03-27
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0250-ui-model-filltable-workspace-example
 id: 0250-ui-model-filltable-workspace-example

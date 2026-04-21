@@ -1,12 +1,12 @@
 ---
 title: "0304 — slide-runtime-scope-semantics-freeze Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-04-09
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0304-slide-runtime-scope-semantics-freeze
 id: 0304-slide-runtime-scope-semantics-freeze
-phase: phase4
+phase: phase3
 ---
 
 # 0304 — slide-runtime-scope-semantics-freeze Runlog

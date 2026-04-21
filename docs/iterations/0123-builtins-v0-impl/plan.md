@@ -2,7 +2,7 @@
 title: "Iteration 0123-builtins-v0-impl Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0123-builtins-v0-impl
 id: 0123-builtins-v0-impl

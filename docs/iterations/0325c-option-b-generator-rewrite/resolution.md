@@ -103,7 +103,7 @@ phase: phase1
     V1N.addLabel('mt_write_req', 'pin.in', { op: 'write', records: [{p, r, c, k, t, v}] });
     ```
   - 在本模型 (0,0,0) root 加或合并到 shared `bucket_c_cell_routes` pin.connect.cell label：
-    - 若本模型 root 已有同名 `bucket_c_cell_routes`（同一模型的多 Bucket C handler 聚合复用），追加 entry `{from: [handlerP, handlerR, handlerC, 'mt_write_req'], to: [[0,0,0, 'mt_write_in']]}`
+    - 若本模型 root 已有同名 `bucket_c_cell_routes`（同一模型的多 Bucket C handler 聚合复用），追加 entry `{from: [handlerP, handlerR, handlerC, 'mt_write_req'], to: __DY_PROTECTED_WL_0__}`
     - 若无，新增一个 `bucket_c_cell_routes` label，含所有 Bucket C handler 源 cell 的 entry
   - 命名冲突校验：迁移完后 grep 同模型同 cell 是否同时存在 `root_routes`.t=`pin.connect.label` 与 `bucket_c_cell_routes`.t=`pin.connect.cell`；若存在，在 runlog 登记共存关系
 - Verification: Step 1 `handle_slide_import_click_uses_mt_write_req` + `shared_bucket_c_cell_routes_label_exists_per_model` PASS

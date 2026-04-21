@@ -2,7 +2,7 @@
 title: "0229 — local-ops-bridge-smoke Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-25
+updated: 2026-04-21
 source: ai
 iteration_id: 0229-local-ops-bridge-smoke
 id: 0229-local-ops-bridge-smoke

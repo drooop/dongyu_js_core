@@ -2,7 +2,7 @@
 title: "Slide Workspace Generalization"
 doc_type: user-guide
 status: active
-updated: 2026-04-08
+updated: 2026-04-21
 source: ai
 ---
 

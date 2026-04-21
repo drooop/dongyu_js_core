@@ -1,12 +1,12 @@
 ---
 title: "0325 — ctx-api-tightening-static-selfcell Runlog"
 doc_type: iteration-runlog
-status: planned
+status: active
 updated: 2026-04-21
 source: ai
 iteration_id: 0325-ctx-api-tightening-static-selfcell
 id: 0325-ctx-api-tightening-static-selfcell
-phase: phase1
+phase: phase3
 ---
 
 # 0325 — ctx-api-tightening-static-selfcell Runlog

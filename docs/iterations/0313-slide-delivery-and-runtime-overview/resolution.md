@@ -1,12 +1,12 @@
 ---
 title: "0313 — slide-delivery-and-runtime-overview Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-04-10
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0313-slide-delivery-and-runtime-overview
 id: 0313-slide-delivery-and-runtime-overview
-phase: phase4
+phase: phase1
 ---
 
 # 0313 — slide-delivery-and-runtime-overview Resolution

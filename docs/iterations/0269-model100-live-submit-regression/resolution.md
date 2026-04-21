@@ -1,8 +1,8 @@
 ---
 title: "Iteration 0269-model100-live-submit-regression Resolution"
 doc_type: iteration-resolution
-status: active
-updated: 2026-03-31
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0269-model100-live-submit-regression
 id: 0269-model100-live-submit-regression

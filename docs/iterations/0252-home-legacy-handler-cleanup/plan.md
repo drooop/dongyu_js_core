@@ -1,8 +1,8 @@
 ---
 title: "0252 — home-legacy-handler-cleanup Plan"
 doc_type: iteration-plan
-status: completed
-updated: 2026-03-27
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0252-home-legacy-handler-cleanup
 id: 0252-home-legacy-handler-cleanup

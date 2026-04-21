@@ -1,12 +1,12 @@
 ---
 title: "0325b — legacy-system-models-ctx-migration Runlog"
 doc_type: iteration-runlog
-status: planned
+status: active
 updated: 2026-04-21
 source: ai
 iteration_id: 0325b-legacy-system-models-ctx-migration
 id: 0325b-legacy-system-models-ctx-migration
-phase: phase1
+phase: phase3
 ---
 
 # 0325b — legacy-system-models-ctx-migration Runlog

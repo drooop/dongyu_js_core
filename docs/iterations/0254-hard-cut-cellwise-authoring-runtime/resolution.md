@@ -1,8 +1,8 @@
 ---
 title: "0254 — hard-cut-cellwise-authoring-runtime Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-03-27
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0254-hard-cut-cellwise-authoring-runtime
 id: 0254-hard-cut-cellwise-authoring-runtime

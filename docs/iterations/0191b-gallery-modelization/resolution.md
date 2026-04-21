@@ -2,7 +2,7 @@
 title: "Iteration 0191b-gallery-modelization Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0191b-gallery-modelization
 id: 0191b-gallery-modelization
