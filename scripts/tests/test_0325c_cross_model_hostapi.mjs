@@ -192,15 +192,51 @@ function test_setMqttTargetConfig_invalid_port() {
   return { key: 'setMqttTargetConfig_invalid_port', status: 'PASS' };
 }
 
+function test_writeCrossModel_model0_root_ok() {
+  const rt = makeRuntime();
+  const m0 = rt.createModel({ id: 0, name: 'root', type: 'root' });
+  rt.addLabel(m0, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Root' });
+  const api = buildApi(rt);
+  const r = api.writeCrossModel(0, 0, 0, 0, 'test_bus_label', 'str', 'ok');
+  assert.ok(r.ok === true, `M0 root write should ok, got ${JSON.stringify(r)}`);
+  return { key: 'writeCrossModel_model0_root_ok', status: 'PASS' };
+}
+
+function test_writeCrossModel_model0_nonroot_rejected() {
+  const rt = makeRuntime();
+  const m0 = rt.createModel({ id: 0, name: 'root', type: 'root' });
+  rt.addLabel(m0, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Root' });
+  const api = buildApi(rt);
+  const r = api.writeCrossModel(0, 1, 0, 0, 'k', 'str', 'v');
+  assert.ok(r.ok === false && r.code === 'invalid_target_white_list',
+    `M0 non-root should whitelist reject, got ${JSON.stringify(r)}`);
+  return { key: 'writeCrossModel_model0_nonroot_rejected', status: 'PASS' };
+}
+
+function test_writeCrossModel_addLabel_throws_caught() {
+  const rt = makeRuntime();
+  const api = buildApi(rt);
+  const origAdd = rt.addLabel.bind(rt);
+  rt.addLabel = () => { throw new Error('synthetic_failure'); };
+  const r = api.writeCrossModel(100, 0, 0, 0, 'k', 'str', 'v');
+  rt.addLabel = origAdd;
+  assert.ok(r.ok === false && r.code === 'exception' && /synthetic_failure/.test(r.detail),
+    `addLabel throw should return ok:false exception, got ${JSON.stringify(r)}`);
+  return { key: 'writeCrossModel_addLabel_throws_caught', status: 'PASS' };
+}
+
 const tests = [
   test_writeCrossModel_positive_model_ok,
   test_writeCrossModel_ui_mailbox_ok,
   test_writeCrossModel_state_projection_ok,
+  test_writeCrossModel_model0_root_ok,
+  test_writeCrossModel_model0_nonroot_rejected,
   test_writeCrossModel_invalid_target_nonint_returns_false,
   test_writeCrossModel_model_not_found_returns_false,
   test_writeCrossModel_whitelist_reject,
   test_writeCrossModel_invalid_label_key_returns_false,
   test_writeCrossModel_invalid_label_type_returns_false,
+  test_writeCrossModel_addLabel_throws_caught,
   test_readCrossModel_existing_returns_data,
   test_readCrossModel_missing_returns_null_data,
   test_readCrossModel_invalid_target,

@@ -6556,8 +6556,9 @@ function startServer(options) {
 
 // 0325c Step 3.5 Stage 2: rubric P4/P5/P6 (cross-model I/O) + R14 setMqttTargetConfig.
 // Return shape per R2: {ok: boolean, code?: string, detail?: string, data?: any}.
-// Error codes per R18: invalid_target | invalid_target_white_list | invalid_dynamic_target
-//                      | model_not_found | invalid_label_key | invalid_label_type.
+// Error codes per R18 (Stage 2 subset): invalid_target | invalid_target_white_list
+//                      | model_not_found | invalid_label_key | invalid_label_type | exception.
+// Note: invalid_dynamic_target reserved for P10 handler-side check, not emitted by these methods.
 // Whitelist per R3:
 //   - modelId === -1 && (p,r,c) === (0,0,1) (UI mailbox)
 //   - modelId === -2 && (p,r,c) === (0,0,0) (State projection root)
@@ -6610,9 +6611,13 @@ export function buildCrossModelHostApiMethods(runtime) {
     if (typeof k !== 'string' || !k) return { ok: false, code: 'invalid_label_key', detail: 'k must be non-empty string' };
     const model = runtime.getModel(modelId);
     if (!model) return { ok: false, code: 'model_not_found', detail: `modelId=${modelId}` };
-    const cell = runtime.getCell(model, p, r, c);
-    const lbl = cell && cell.labels ? cell.labels.get(k) : null;
-    return { ok: true, data: lbl ? { t: lbl.t, v: lbl.v } : null };
+    try {
+      const cell = runtime.getCell(model, p, r, c);
+      const lbl = cell && cell.labels ? cell.labels.get(k) : null;
+      return { ok: true, data: lbl ? { t: lbl.t, v: lbl.v } : null };
+    } catch (err) {
+      return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+    }
   };
 
   const rmCrossModel = (modelId, p, r, c, k) => {
@@ -6641,12 +6646,33 @@ export function buildCrossModelHostApiMethods(runtime) {
     }
     const model0 = runtime.getModel(0);
     if (!model0) return { ok: false, code: 'model_not_found', detail: 'Model 0 not initialized' };
+    // M1: atomic apply — build triple, then write all or none (rollback on partial failure).
+    const prepared = [
+      { k: 'mqtt_target_host', t: 'str', v: host.trim() },
+      { k: 'mqtt_target_port', t: 'int', v: port },
+      { k: 'mqtt_target_client_id', t: 'str', v: clientId.trim() },
+    ];
+    const priorValues = prepared.map((entry) => {
+      const cell = runtime.getCell(model0, 0, 0, 0);
+      const prior = cell && cell.labels ? cell.labels.get(entry.k) : null;
+      return prior ? { k: entry.k, t: prior.t, v: prior.v } : null;
+    });
+    let writtenCount = 0;
     try {
-      runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_target_host', t: 'str', v: host.trim() });
-      runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_target_port', t: 'int', v: port });
-      runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_target_client_id', t: 'str', v: clientId.trim() });
+      for (const entry of prepared) {
+        runtime.addLabel(model0, 0, 0, 0, entry);
+        writtenCount += 1;
+      }
       return { ok: true };
     } catch (err) {
+      for (let i = 0; i < writtenCount; i += 1) {
+        const prior = priorValues[i];
+        if (prior) {
+          runtime.addLabel(model0, 0, 0, 0, prior);
+        } else {
+          runtime.rmLabel(model0, 0, 0, 0, prepared[i].k);
+        }
+      }
       return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
     }
   };
