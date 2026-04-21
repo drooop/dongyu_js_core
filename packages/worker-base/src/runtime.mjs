@@ -1771,7 +1771,7 @@ class ModelTableRuntime {
     if (!codeStr.trim()) return;
 
     const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-    const fn = new AsyncFunction('ctx', 'label', codeStr);
+    const fn = new AsyncFunction('ctx', 'label', 'V1N', codeStr);
 
     const runtime = this;
     const runtimeView = {
@@ -1826,36 +1826,6 @@ class ModelTableRuntime {
         }
         return null;
       },
-      getLabel(ref) {
-        if (!ref || !Number.isInteger(ref.model_id)) return undefined;
-        if (!hasHostPrivileges) {
-          runtime._assertScopedDirectAccess(model, p, r, c, ref);
-        }
-        const m = runtime.getModel(ref.model_id);
-        if (!m) return undefined;
-        const cl = runtime.getCell(m, ref.p || 0, ref.r || 0, ref.c || 0);
-        if (!cl) return undefined;
-        const l = cl.labels.get(ref.k);
-        return l ? l.v : undefined;
-      },
-      writeLabel(ref, t, v) {
-        if (!ref || !Number.isInteger(ref.model_id)) return;
-        if (!hasHostPrivileges) {
-          runtime._assertScopedDirectAccess(model, p, r, c, ref);
-        }
-        const m = runtime.getModel(ref.model_id);
-        if (!m) return;
-        runtime.addLabel(m, ref.p || 0, ref.r || 0, ref.c || 0, { k: ref.k, t, v });
-      },
-      rmLabel(ref) {
-        if (!ref || !Number.isInteger(ref.model_id)) return;
-        if (!hasHostPrivileges) {
-          runtime._assertScopedDirectAccess(model, p, r, c, ref);
-        }
-        const m = runtime.getModel(ref.model_id);
-        if (!m) return;
-        runtime.rmLabel(m, ref.p || 0, ref.r || 0, ref.c || 0, ref.k);
-      },
       publishMqtt(topic, payload) {
         if (!runtime.isRuntimeRunning()) return;
         if (!runtime.mqttClient) return;
@@ -1863,10 +1833,56 @@ class ModelTableRuntime {
       },
     };
 
+    const V1N = {
+      addLabel(k, t, v) {
+        if (typeof k !== 'string' || !k) throw new Error('invalid_v1n_api_signature');
+        if (typeof t !== 'string' || !t) throw new Error('invalid_v1n_api_signature');
+        if (arguments.length !== 3) throw new Error('invalid_v1n_api_signature');
+        runtime.addLabel(model, p, r, c, { k, t, v });
+      },
+      removeLabel(k) {
+        if (typeof k !== 'string' || !k) throw new Error('invalid_v1n_api_signature');
+        if (arguments.length !== 1) throw new Error('invalid_v1n_api_signature');
+        runtime.rmLabel(model, p, r, c, k);
+      },
+      readLabel(tp, tr, tc, tk) {
+        if (arguments.length !== 4) throw new Error('invalid_v1n_api_signature');
+        if (!Number.isInteger(tp) || !Number.isInteger(tr) || !Number.isInteger(tc)) {
+          throw new Error('cross_model_read_denied');
+        }
+        if (typeof tk !== 'string' || !tk) throw new Error('invalid_v1n_api_signature');
+        const cl = runtime.getCell(model, tp, tr, tc);
+        if (!cl) return null;
+        const lbl = cl.labels.get(tk);
+        return lbl ? { t: lbl.t, v: lbl.v } : null;
+      },
+    };
+    if (p === 0 && r === 0 && c === 0) {
+      V1N.table = {
+        addLabel(tp, tr, tc, k, t, v) {
+          if (arguments.length !== 6) throw new Error('invalid_v1n_table_api_signature');
+          if (!Number.isInteger(tp) || !Number.isInteger(tr) || !Number.isInteger(tc)) {
+            throw new Error('invalid_v1n_table_api_signature');
+          }
+          if (typeof k !== 'string' || !k) throw new Error('invalid_v1n_table_api_signature');
+          if (typeof t !== 'string' || !t) throw new Error('invalid_v1n_table_api_signature');
+          runtime.addLabel(model, tp, tr, tc, { k, t, v });
+        },
+        removeLabel(tp, tr, tc, k) {
+          if (arguments.length !== 4) throw new Error('invalid_v1n_table_api_signature');
+          if (!Number.isInteger(tp) || !Number.isInteger(tr) || !Number.isInteger(tc)) {
+            throw new Error('invalid_v1n_table_api_signature');
+          }
+          if (typeof k !== 'string' || !k) throw new Error('invalid_v1n_table_api_signature');
+          runtime.rmLabel(model, tp, tr, tc, k);
+        },
+      };
+    }
+
     const FUNC_TIMEOUT_MS = 30000;
     try {
       const result = await Promise.race([
-        fn(ctx, { k: funcName, t: 'pin.in', v: inputValue }),
+        fn(ctx, { k: funcName, t: 'pin.in', v: inputValue }, V1N),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error(`Function ${funcName} timeout after ${FUNC_TIMEOUT_MS}ms`)), FUNC_TIMEOUT_MS),
         ),
