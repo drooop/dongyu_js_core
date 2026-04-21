@@ -29,7 +29,7 @@ phase: phase1
   - `owner_materialize_generated_uses_v1n_table`: 调 `ensureGenericOwnerMaterializer(runtime, someModelId)` → 生成的 (0,0,0) `owner_materialize` func.js code 字符串不含 `ctx.writeLabel/getLabel/rmLabel`，含 `V1N.table.addLabel` 或 `V1N.table.removeLabel`
   - `owner_materialize_executes_cross_cell_write_via_v1n_table`: seed owner_materialize + 通过 pin.in 触发 → 观察 target cell 实际被 V1N.table 写入
   - `legacy_forward_func_uses_v1n_table`: workspace_positive_models.json 加载后 grep `forward_workspace_filltable_submit_from_model0` code 不含 `ctx.writeLabel`，含 `V1N.table.addLabel`（sendMatrix 允许保留因走 programEngine）
-  - `handle_slide_import_click_uses_mt_write_req`: 触发 Model 1030 (2,4,0) click → 观察 Model 1030 (0,0,0) `slide_import_request` 被 mt_write 写入（经 shared root_routes 聚合）
+  - `handle_slide_import_click_uses_mt_write_req`: 触发 Model 1030 (2,4,0) click → 观察 Model 1030 (0,0,0) `slide_import_request` 被 mt_write 写入（经 shared bucket_c_cell_routes 聚合）
   - `shared_bucket_c_cell_routes_label_exists_per_model`: 每个含 Bucket C handler 的模型 (0,0,0) 有且仅有一个 `bucket_c_cell_routes` pin.connect.cell label 聚合所有 C-bucket 源（与同名 `root_routes`.t=`pin.connect.label` 不冲突）
 - Verification: 所有 test 初始 FAIL
 - Acceptance: 契约明确
