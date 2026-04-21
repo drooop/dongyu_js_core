@@ -405,9 +405,68 @@ readCrossModel `data` 字段：存在 → `{t, v}`；不存在 (但 cell/modelId
 
 - Gate Stage 0 (Rev 2): ✓ (N1/N2 展开 + L12486/L12745 out-of-scope + 净迁 39)
 - Gate Stage 1 (Rev 2): ✓ (error code 枚举 + hostApi 完整枚举 + setMqttTargetConfig 新增 method 锁定 + matrixUserLogin 注册按需)
-- 待 sub-agent Rev 2 review
+- Rev 2 sub-agent review: **APPROVED**（aa643040b7d53b7c3, pass 4）；附 3 条 Stage 2 实施期守则 (NN1-NN3) + 1 条 0325d 立项提示 (NN4)
 
-Commits v1+Rev1+Rev2: `0649d07` + 本提交
+Commits v1+Rev1+Rev2: `0649d07` + `c0cfda9`
+
+##### R20 — NN1 ws* 4 methods shape 锁定（Stage 2 pre-req）
+
+grep server.mjs L4900-5000 确认：
+
+| method | return shape |
+| --- | --- |
+| `wsSelectApp(modelId)` | `{ok:true, data:{selected:int}}` 或 `{ok:false, code:'invalid_target', detail}` |
+| `wsAddApp(name)` | `{ok:true, data:{model_id, name}}` 或 `{ok:false, code:'invalid_target'\|'exception', detail}` |
+| `wsDeleteApp(modelId)` | `{ok:true, data:{model_id, removed_model_ids}}` 或 `{ok:false, code:'invalid_target'\|'protected_model'\|'exception', detail}` |
+| `wsRefreshCatalog()` | `{ok:true, data:{refreshed:true}}` 或 `{ok:false, code:'exception', detail}` |
+
+统一 shape: `{ok:boolean, data?, code?, detail?}`。与 slide*/新增 *CrossModel/setMqttTargetConfig 一致。code 常量新增 `protected_model`（ws-specific）。
+
+##### R21 — NN2 hostApi 命名冲突检测（Stage 2 实装守则）
+
+Stage 2 server.mjs 扩展 runtime.hostApi 时必须：
+
+```js
+const EXTENDED_METHODS = ['writeCrossModel', 'readCrossModel', 'rmCrossModel', 'setMqttTargetConfig'];
+for (const name of EXTENDED_METHODS) {
+  if (typeof runtime.hostApi[name] !== 'undefined') {
+    throw new Error(`hostApi_name_conflict: ${name} already defined`);
+  }
+}
+// then assign
+```
+
+按需补注册 programEngine-only method（如 matrixUserLogin）同样冲突检测：若 `runtime.hostApi[name]` 已存在且非本次注册 → throw，不允许覆盖。
+
+##### R22 — NN3 hostApi 签名错误统一 return ok:false
+
+与 V1N.addLabel 的 `throw new Error('invalid_v1n_api_signature')` 风格不同，hostApi.*CrossModel / setMqttTargetConfig **对签名错误统一 return `{ok:false, code:'invalid_*'}`，不 throw**。理由：
+- 让 handler 代码可安全 `if (!result.ok) { ... }` 判空而不需 try/catch
+- 与 pre-existing slideImport/wsAddApp 风格一致
+- 只在**参数完全缺失 / 非对象**等"代码 bug 级别"错误 throw；对用户输入类错误统一 ok:false
+
+Stage 2 TDD case 覆盖：
+- writeCrossModel(null, ...) → `{ok:false, code:'invalid_target', detail:'null_modelId'}`（不 throw）
+- writeCrossModel(-2, 0, 0, 0, '', 't', 'v') → `{ok:false, code:'invalid_label_key'}`
+- writeCrossModel(-2, 0, 0, 0, 'k', '', 'v') → `{ok:false, code:'invalid_label_type'}`
+
+##### R23 — NN4 0325d 立项预案
+
+0325d scope 预留：
+- L12486 dispatch_matrix_phase1_login + L12745 dispatch_matrix_phase1_send 正模型 handler 跨模型 I/O
+- 评估方案（3 候选）:
+  - A. 把 handler 迁到 Model -10 (负模型) → 自动获得 hostApi
+  - B. 扩展 hasHostPrivileges 到正模型 subset（破原 0325 invariant，不推荐）
+  - C. 引入正模型跨模型写的 pin.connect.model + mt_write 基建（需新 wiring 设计）
+- 评估表入 0325d plan.md
+
+##### R24 — Gate Rev 2 + NN 最终
+
+- Gate Stage 0: ✓ (Rev 2 APPROVED + NN1 完整 shape 锁定)
+- Gate Stage 1: ✓ (Rev 2 APPROVED + NN1/NN2/NN3 守则入库)
+- **Stage 2 启动批准**
+
+Commits: `0649d07` + `c0cfda9` + 本 NN 提交
 
 #### Stage 2 — Reference Impl intent_handlers_slide_import
 
