@@ -2,7 +2,7 @@
 title: "0179 — Plan (WHAT/WHY)"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0179-mbr-conformance-closure
 id: 0179-mbr-conformance-closure

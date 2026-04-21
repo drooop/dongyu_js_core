@@ -2,7 +2,7 @@
 title: "0285 — matrix-userline-phase3 Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-04-03
+updated: 2026-04-21
 source: ai
 iteration_id: 0285-matrix-userline-phase3
 id: 0285-matrix-userline-phase3

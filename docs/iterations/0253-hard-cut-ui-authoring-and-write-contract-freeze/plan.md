@@ -1,8 +1,8 @@
 ---
 title: "0253 — hard-cut-ui-authoring-and-write-contract-freeze Plan"
 doc_type: iteration-plan
-status: completed
-updated: 2026-03-27
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0253-hard-cut-ui-authoring-and-write-contract-freeze
 id: 0253-hard-cut-ui-authoring-and-write-contract-freeze

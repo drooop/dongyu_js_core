@@ -2,7 +2,7 @@
 title: "Iteration 0123-modeltable-runtime-v0 Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0123-modeltable-runtime-v0
 id: 0123-modeltable-runtime-v0

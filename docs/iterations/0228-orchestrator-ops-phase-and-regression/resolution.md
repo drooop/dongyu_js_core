@@ -2,7 +2,7 @@
 title: "0228 — orchestrator-ops-phase-and-regression Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-24
+updated: 2026-04-21
 source: ai
 iteration_id: 0228-orchestrator-ops-phase-and-regression
 id: 0228-orchestrator-ops-phase-and-regression

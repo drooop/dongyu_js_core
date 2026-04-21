@@ -2,7 +2,7 @@
 title: "0244 — pin-only-core-with-scoped-privilege-contract-freeze Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-26
+updated: 2026-04-21
 source: ai
 iteration_id: 0244-pin-only-core-with-scoped-privilege-contract-freeze
 id: 0244-pin-only-core-with-scoped-privilege-contract-freeze

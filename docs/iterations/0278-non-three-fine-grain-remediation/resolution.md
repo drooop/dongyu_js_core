@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0278-non-three-fine-grain-remediation Resolution"
 doc_type: iteration-resolution
-status: active
-updated: 2026-04-03
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0278-non-three-fine-grain-remediation
 id: 0278-non-three-fine-grain-remediation
-phase: phase3
+phase: phase1
 ---
 
 # Iteration 0278-non-three-fine-grain-remediation Resolution

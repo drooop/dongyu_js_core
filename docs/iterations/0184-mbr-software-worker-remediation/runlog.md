@@ -2,7 +2,7 @@
 title: "Iteration 0184-mbr-software-worker-remediation Runlog"
 doc_type: iteration-runlog
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0184-mbr-software-worker-remediation
 id: 0184-mbr-software-worker-remediation

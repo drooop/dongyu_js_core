@@ -2,7 +2,7 @@
 title: "0149 — Cloud 部署同步（ui-server 修复发布 + e2e 验证）"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0149-cloud-deploy-sync-ui-server
 id: 0149-cloud-deploy-sync-ui-server

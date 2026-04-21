@@ -2,7 +2,7 @@
 title: "UI 事件到 Matrix 的完整流转机制"
 doc_type: ssot
 status: active
-updated: 2026-04-09
+updated: 2026-04-21
 source: ai
 ---
 

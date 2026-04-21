@@ -1,8 +1,8 @@
 ---
 title: "Iteration 0266-scoped-patch-authority Plan"
 doc_type: iteration-plan
-status: active
-updated: 2026-03-30
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0266-scoped-patch-authority
 id: 0266-scoped-patch-authority

@@ -53,7 +53,7 @@ phase: phase1
 - Strategy: 发请求给本模型 `(0,0,0) mt_write_in`
   - func code: `V1N.addLabel('mt_write_req', 'pin.in', {op:'write', records:[{p,r,c,k,t,v}]})` (本 cell 写 mt_write_req pin.out)
   - 因 V1N 只能写本 cell，mt_write_req 是本 cell 写；再由 pin.connect.cell 把本 cell mt_write_req 路由到 (0,0,0) mt_write_in
-- **Pin wiring 决策（phase1 锁定）**：使用**单一共享 `root_routes` label**（label.t = `pin.connect.cell`）在本模型 `(0,0,0)` 聚合所有 C-bucket 源 cell 到 `mt_write_in` 的路由。每个模型**只有一个** `root_routes` label，其 value 是 `[{from:[p,r,c,'mt_write_req'], to:[[0,0,0,'mt_write_in']]}, ...]` 列表聚合。**不采用**"每个 func 独立声明 pin.connect.cell"方案（会爆炸到 30+ 独立声明）
+- **Pin wiring 决策（phase1 锁定）**：使用**单一共享 `root_routes` label**（label.t = `pin.connect.cell`）在本模型 `(0,0,0)` 聚合所有 C-bucket 源 cell 到 `mt_write_in` 的路由。每个模型**只有一个** `root_routes` label，其 value 是 `[{from:[p,r,c,'mt_write_req'], to:__DY_PROTECTED_WL_0__}, ...]` 列表聚合。**不采用**"每个 func 独立声明 pin.connect.cell"方案（会爆炸到 30+ 独立声明）
 - Acceptance: C bucket 100% 迁移完；每个受影响模型的 (0,0,0) 有且仅有一个 `root_routes` label 聚合所有 C 来源
 
 ## Step 4 — D/F 全部延后 0326（本迭代不处理）

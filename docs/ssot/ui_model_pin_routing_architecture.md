@@ -1,8 +1,8 @@
 ---
 title: "UI 模型 Pin 路由架构"
 doc_type: ssot
-status: draft
-updated: 2026-03-23
+status: active
+updated: 2026-04-21
 source: ai
 tags:
   - pin-routing

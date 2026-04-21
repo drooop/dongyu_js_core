@@ -1,8 +1,8 @@
 ---
 title: "Iteration 0261-docs-source-flip Resolution"
 doc_type: iteration-resolution
-status: active
-updated: 2026-03-30
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0261-docs-source-flip
 id: 0261-docs-source-flip

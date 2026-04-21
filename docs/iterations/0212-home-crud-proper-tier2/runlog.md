@@ -1,8 +1,8 @@
 ---
 title: "0212 — home-crud-proper-tier2 Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-03-22
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0212-home-crud-proper-tier2
 id: 0212-home-crud-proper-tier2

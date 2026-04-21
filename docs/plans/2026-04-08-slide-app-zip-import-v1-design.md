@@ -1,8 +1,8 @@
 ---
 title: "Slide App Zip Import v1 Design"
-doc_type: design
+doc_type: note
 status: active
-updated: 2026-04-08
+updated: 2026-04-21
 source: ai
 ---
 

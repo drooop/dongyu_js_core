@@ -2063,7 +2063,7 @@ function homeOwnerMaterializeCode(modelId) {
     "  const labels = Array.isArray(req.labels) ? req.labels : [];",
     "  for (const item of labels) {",
     "    if (!item || typeof item.k !== 'string' || !item.k) throw new Error('invalid_request_shape');",
-    "    ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(item.p) ? item.p : 0, r: Number.isInteger(item.r) ? item.r : 0, c: Number.isInteger(item.c) ? item.c : 0, k: item.k }, typeof item.t === 'string' && item.t ? item.t : 'str', item.v);",
+    "    V1N.table.addLabel(Number.isInteger(item.p) ? item.p : 0, Number.isInteger(item.r) ? item.r : 0, Number.isInteger(item.c) ? item.c : 0, item.k, typeof item.t === 'string' && item.t ? item.t : 'str', item.v);",
     "  }",
     "  return;",
     "}",
@@ -2071,14 +2071,14 @@ function homeOwnerMaterializeCode(modelId) {
     "  const target = req.target_cell || {};",
     "  const lv = req.label || {};",
     "  if (typeof lv.k !== 'string' || !lv.k || typeof lv.t !== 'string' || !lv.t) throw new Error('invalid_request_shape');",
-    "  ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(target.p) ? target.p : 0, r: Number.isInteger(target.r) ? target.r : 0, c: Number.isInteger(target.c) ? target.c : 0, k: lv.k }, lv.t, lv.v);",
+    "  V1N.table.addLabel(Number.isInteger(target.p) ? target.p : 0, Number.isInteger(target.r) ? target.r : 0, Number.isInteger(target.c) ? target.c : 0, lv.k, lv.t, lv.v);",
     "  return;",
     "}",
     "if (req.op === 'rm_label') {",
     "  const target = req.target_cell || {};",
     "  const lv = req.label || {};",
     "  if (typeof lv.k !== 'string' || !lv.k) throw new Error('invalid_request_shape');",
-    "  ctx.rmLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(target.p) ? target.p : 0, r: Number.isInteger(target.r) ? target.r : 0, c: Number.isInteger(target.c) ? target.c : 0, k: lv.k });",
+    "  V1N.table.removeLabel(Number.isInteger(target.p) ? target.p : 0, Number.isInteger(target.r) ? target.r : 0, Number.isInteger(target.c) ? target.c : 0, lv.k);",
     "  return;",
     "}",
     "throw new Error('unsupported_op');",
@@ -2090,8 +2090,8 @@ function genericOwnerMaterializeCode(modelId) {
     `const SELF_MODEL_ID = ${JSON.stringify(modelId)};`,
     "const req = label && label.v && typeof label.v === 'object' ? label.v : null;",
     "if (!req) throw new Error('invalid_request_shape');",
-    "ctx.writeLabel({ model_id: SELF_MODEL_ID, p: 0, r: 0, c: 0, k: '__owner_last_request_id' }, 'str', typeof req.request_id === 'string' ? req.request_id : '');",
-    "ctx.writeLabel({ model_id: SELF_MODEL_ID, p: 0, r: 0, c: 0, k: '__owner_last_action' }, 'str', req && req.origin && typeof req.origin.action === 'string' ? req.origin.action : '');",
+    "V1N.table.addLabel(0, 0, 0, '__owner_last_request_id', 'str', typeof req.request_id === 'string' ? req.request_id : '');",
+    "V1N.table.addLabel(0, 0, 0, '__owner_last_action', 'str', req && req.origin && typeof req.origin.action === 'string' ? req.origin.action : '');",
     "if (req.target_model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
     "if (req.op === 'apply_records') {",
     "  const records = Array.isArray(req.records) ? req.records : [];",
@@ -2100,12 +2100,12 @@ function genericOwnerMaterializeCode(modelId) {
     "    if (record.model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
     "    if (record.op === 'add_label') {",
     "      if (typeof record.k !== 'string' || !record.k || typeof record.t !== 'string' || !record.t) throw new Error('invalid_request_shape');",
-    "      ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k }, record.t, record.v);",
+    "      V1N.table.addLabel(Number.isInteger(record.p) ? record.p : 0, Number.isInteger(record.r) ? record.r : 0, Number.isInteger(record.c) ? record.c : 0, record.k, record.t, record.v);",
     "      continue;",
     "    }",
     "    if (record.op === 'rm_label') {",
     "      if (typeof record.k !== 'string' || !record.k) throw new Error('invalid_request_shape');",
-    "      ctx.rmLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k });",
+    "      V1N.table.removeLabel(Number.isInteger(record.p) ? record.p : 0, Number.isInteger(record.r) ? record.r : 0, Number.isInteger(record.c) ? record.c : 0, record.k);",
     "      continue;",
     "    }",
     "    throw new Error('unsupported_op');",
@@ -2116,14 +2116,14 @@ function genericOwnerMaterializeCode(modelId) {
     "  const target = req.target_cell || {};",
     "  const lv = req.label || {};",
     "  if (typeof lv.k !== 'string' || !lv.k || typeof lv.t !== 'string' || !lv.t) throw new Error('invalid_request_shape');",
-    "  ctx.writeLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(target.p) ? target.p : 0, r: Number.isInteger(target.r) ? target.r : 0, c: Number.isInteger(target.c) ? target.c : 0, k: lv.k }, lv.t, lv.v);",
+    "  V1N.table.addLabel(Number.isInteger(target.p) ? target.p : 0, Number.isInteger(target.r) ? target.r : 0, Number.isInteger(target.c) ? target.c : 0, lv.k, lv.t, lv.v);",
     "  return;",
     "}",
     "if (req.op === 'rm_label') {",
     "  const target = req.target_cell || {};",
     "  const lv = req.label || {};",
     "  if (typeof lv.k !== 'string' || !lv.k) throw new Error('invalid_request_shape');",
-    "  ctx.rmLabel({ model_id: SELF_MODEL_ID, p: Number.isInteger(target.p) ? target.p : 0, r: Number.isInteger(target.r) ? target.r : 0, c: Number.isInteger(target.c) ? target.c : 0, k: lv.k });",
+    "  V1N.table.removeLabel(Number.isInteger(target.p) ? target.p : 0, Number.isInteger(target.r) ? target.r : 0, Number.isInteger(target.c) ? target.c : 0, lv.k);",
     "  return;",
     "}",
     "throw new Error('unsupported_op');",
@@ -3714,6 +3714,9 @@ class ProgramModelEngine {
         },
       },
     };
+    if (this.runtime && this.runtime.hostApi) {
+      ctx.hostApi = Object.assign({}, this.runtime.hostApi, ctx.hostApi);
+    }
     try {
       const fn = new Function('ctx', code);
       return fn(ctx);
@@ -4999,6 +5002,152 @@ function createServerState(options) {
       }
     },
   };
+  // 0325c Step 3.5 Rev 2 NN2: conflict-checked extension for cross-model I/O methods.
+  const _crossModelMethods = buildCrossModelHostApiMethods(runtime);
+  for (const _name of Object.keys(_crossModelMethods)) {
+    if (typeof runtime.hostApi[_name] !== 'undefined') {
+      throw new Error(`hostApi_name_conflict: ${_name} already defined`);
+    }
+    runtime.hostApi[_name] = _crossModelMethods[_name];
+  }
+  // 0325c Step 3.5 Stage 3 Batch 2: register docs* (per R17 按需补注册) for runtime-ctx Model -10 handlers.
+  // Impl mirrors programEngine ctx.hostApi.docs* (L3101-L3160) — reuses file-level DOCS_ROOT + helpers.
+  const _docsHostApiMethods = {
+    docsRefreshTree: () => {
+      try {
+        const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
+        const tree = buildDocsTree(files);
+        return { ok: true, data: { tree, fileCount: files.length } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+    docsSearch: (query, limit) => {
+      try {
+        const maxResults = Number.isInteger(limit) && limit > 0 ? limit : 50;
+        const q = String(query ?? '').trim().toLowerCase();
+        if (!q) return { ok: true, data: { results: [] } };
+        const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
+        const results = [];
+        for (const f of files) {
+          if (results.length >= maxResults) break;
+          if (f.relPath.toLowerCase().includes(q)) {
+            results.push({ path: f.relPath, hit: 'name', snippet: '' });
+            continue;
+          }
+          let text = '';
+          try { text = fs.readFileSync(f.absPath, 'utf8'); } catch (_) { continue; }
+          const idx = text.toLowerCase().indexOf(q);
+          if (idx >= 0) {
+            const start = Math.max(0, idx - 40);
+            const end = Math.min(text.length, idx + q.length + 60);
+            results.push({ path: f.relPath, hit: 'content', snippet: text.slice(start, end).replace(/\s+/g, ' ').trim() });
+          }
+        }
+        return { ok: true, data: { results } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+    docsOpenDoc: (relPath) => {
+      const rel = String(relPath ?? '').replace(/\\/g, '/').replace(/^\/+/, '');
+      if (!isAllowedDocRelPath(rel)) {
+        return { ok: false, code: 'invalid_target', detail: 'doc_path_not_allowed' };
+      }
+      const abs = safeJoin(DOCS_ROOT, rel);
+      if (!abs) return { ok: false, code: 'invalid_target', detail: 'doc_path_invalid' };
+      if (!fs.existsSync(abs)) return { ok: false, code: 'invalid_target', detail: 'doc_not_found' };
+      try {
+        const md = fs.readFileSync(abs, 'utf8');
+        const html = String(getMarkdownProcessor().processSync(md));
+        return { ok: true, data: { html } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+  };
+  for (const _name of Object.keys(_docsHostApiMethods)) {
+    if (typeof runtime.hostApi[_name] !== 'undefined') {
+      throw new Error(`hostApi_name_conflict: ${_name} already defined`);
+    }
+    runtime.hostApi[_name] = _docsHostApiMethods[_name];
+  }
+  // 0325c Step 3.5 Stage 3 Batch 2: register static* (per R17).
+  const _staticHostApiMethods = {
+    staticListProjects: () => {
+      try {
+        const projects = listStaticProjects();
+        return { ok: true, data: { projects } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+    staticUploadProjectFromMxc: (name, kind, mediaUri) => {
+      const projectName = String(name ?? '').trim();
+      if (!/^[a-zA-Z0-9._-]+$/.test(projectName)) {
+        return { ok: false, code: 'invalid_target', detail: 'invalid_project_name' };
+      }
+      const uploadKind = String(kind ?? 'zip').trim();
+      if (uploadKind !== 'zip' && uploadKind !== 'html') {
+        return { ok: false, code: 'invalid_target', detail: 'invalid_upload_kind' };
+      }
+      const uri = String(mediaUri ?? '').trim();
+      if (!uri) return { ok: false, code: 'invalid_target', detail: 'missing_media_uri' };
+      const cached = getCachedUploadedMedia(uri);
+      if (!cached || !cached.buffer || !Buffer.isBuffer(cached.buffer)) {
+        return { ok: false, code: 'invalid_target', detail: 'media_not_cached' };
+      }
+      try {
+        const projects = staticUploadCore(projectName, uploadKind, cached.buffer);
+        return { ok: true, data: { projects, uploaded: projectName } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+    staticDeleteProject: (name) => {
+      const projectName = String(name ?? '').trim();
+      if (!/^[a-zA-Z0-9._-]+$/.test(projectName)) {
+        return { ok: false, code: 'invalid_target', detail: 'invalid_project_name' };
+      }
+      const projectRoot = safeJoin(STATIC_PROJECTS_ROOT, projectName);
+      if (!projectRoot) return { ok: false, code: 'invalid_target', detail: 'invalid_project_name' };
+      if (!fs.existsSync(projectRoot) || !fs.statSync(projectRoot).isDirectory()) {
+        return { ok: false, code: 'invalid_target', detail: 'project_not_found' };
+      }
+      try {
+        fs.rmSync(projectRoot, { recursive: true, force: true });
+        const projects = listStaticProjects();
+        return { ok: true, data: { projects, deleted: projectName } };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    },
+  };
+  for (const _name of Object.keys(_staticHostApiMethods)) {
+    if (typeof runtime.hostApi[_name] !== 'undefined') {
+      throw new Error(`hostApi_name_conflict: ${_name} already defined`);
+    }
+    runtime.hostApi[_name] = _staticHostApiMethods[_name];
+  }
+  // 0325c Step 3.5 Stage 3 Batch 2/3: stubs for programEngine-only hostApi methods that runtime-ctx handlers may call.
+  // Matrix debug + LLM Filltable + matrixUserLogin depend on programEngine internal state (programEngine.this._matrixDebugRefresh, LLM backend config).
+  // In runtime ctx they return {ok:false, code:'handler_requires_program_engine'} so callers get well-shaped error and proceed gracefully.
+  // Real functional integration is 0325d scope (refactor programEngine hostApi methods to file-level or dual-register).
+  const _runtimeCtxStubs = {
+    matrixDebugRefresh: () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'matrixDebugRefresh not available in runtime ctx' }),
+    matrixDebugClearTrace: () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'matrixDebugClearTrace not available in runtime ctx' }),
+    matrixDebugSummarize: () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'matrixDebugSummarize not available in runtime ctx' }),
+    llmFilltablePreview: async () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'llmFilltablePreview not available in runtime ctx' }),
+    llmFilltableApply: async () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'llmFilltableApply not available in runtime ctx' }),
+    llmInfer: async () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'llmInfer not available in runtime ctx' }),
+    matrixUserLogin: async () => ({ ok: false, code: 'handler_requires_program_engine', detail: 'matrixUserLogin not available in runtime ctx' }),
+  };
+  for (const _name of Object.keys(_runtimeCtxStubs)) {
+    if (typeof runtime.hostApi[_name] !== 'undefined') {
+      throw new Error(`hostApi_name_conflict: ${_name} already defined`);
+    }
+    runtime.hostApi[_name] = _runtimeCtxStubs[_name];
+  }
   const programEngineReady = programEngine.init()
     .then(() => programEngine.tick())
     .then(() => clearAndRefreshAfterRuntimeBoot())
@@ -6544,6 +6693,132 @@ function startServer(options) {
   });
 
   return server;
+}
+
+// 0325c Step 3.5 Stage 2: rubric P4/P5/P6 (cross-model I/O) + R14 setMqttTargetConfig.
+// Return shape per R2: {ok: boolean, code?: string, detail?: string, data?: any}.
+// Error codes per R18 (Stage 2 subset): invalid_target | invalid_target_white_list
+//                      | model_not_found | invalid_label_key | invalid_label_type | exception.
+// Note: invalid_dynamic_target reserved for P10 handler-side check, not emitted by these methods.
+// Whitelist per R3 (Batch 3b CRITICAL-1 expansion):
+//   - modelId === -1 && (p,r,c) === (0,0,1) (UI mailbox)
+//   - modelId === -2 && (p,r,c) === (0,0,0) (State projection root)
+//   - modelId === 0  && (p,r,c) === (0,0,0) (System bus config root; P7 bridge semantic)
+//   - modelId >  0   (positive models: any cell)
+//   - modelId <  -2  (other negative system capability layer: any cell — MGMT channels on M-10 (0,0,1)/(0,0,2), cognition on M-12, etc.)
+// Security: hasHostPrivileges = model.id<0 gates caller side; positive-model handlers have ctx.hostApi=null so can't abuse.
+// Signature errors (R22): return {ok:false}, never throw.
+function crossModelTargetCheck(modelId, p, r, c) {
+  if (!Number.isInteger(modelId)) return { ok: false, code: 'invalid_target', detail: 'modelId must be integer' };
+  if (!Number.isInteger(p) || !Number.isInteger(r) || !Number.isInteger(c)) {
+    return { ok: false, code: 'invalid_target', detail: 'p/r/c must be integer' };
+  }
+  if (modelId === -1) {
+    if (p === 0 && r === 0 && c === 1) return { ok: true };
+    return { ok: false, code: 'invalid_target_white_list', detail: 'Model -1 only (0,0,1) mailbox' };
+  }
+  if (modelId === -2) {
+    if (p === 0 && r === 0 && c === 0) return { ok: true };
+    return { ok: false, code: 'invalid_target_white_list', detail: 'Model -2 only (0,0,0) root' };
+  }
+  if (modelId === 0) {
+    if (p === 0 && r === 0 && c === 0) return { ok: true };
+    return { ok: false, code: 'invalid_target_white_list', detail: 'Model 0 only (0,0,0) root' };
+  }
+  if (modelId > 0) return { ok: true };
+  // Other negative (<-2): system capability layer — any cell allowed.
+  return { ok: true };
+}
+
+export function buildCrossModelHostApiMethods(runtime) {
+  const writeCrossModel = (modelId, p, r, c, k, t, v) => {
+    const gate = crossModelTargetCheck(modelId, p, r, c);
+    if (!gate.ok) return gate;
+    if (typeof k !== 'string' || !k) return { ok: false, code: 'invalid_label_key', detail: 'k must be non-empty string' };
+    if (typeof t !== 'string' || !t) return { ok: false, code: 'invalid_label_type', detail: 't must be non-empty string' };
+    const model = runtime.getModel(modelId);
+    if (!model) return { ok: false, code: 'model_not_found', detail: `modelId=${modelId}` };
+    try {
+      runtime.addLabel(model, p, r, c, { k, t, v });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+    }
+  };
+
+  const readCrossModel = (modelId, p, r, c, k) => {
+    const gate = crossModelTargetCheck(modelId, p, r, c);
+    if (!gate.ok) return gate;
+    if (typeof k !== 'string' || !k) return { ok: false, code: 'invalid_label_key', detail: 'k must be non-empty string' };
+    const model = runtime.getModel(modelId);
+    if (!model) return { ok: false, code: 'model_not_found', detail: `modelId=${modelId}` };
+    try {
+      const cell = runtime.getCell(model, p, r, c);
+      const lbl = cell && cell.labels ? cell.labels.get(k) : null;
+      return { ok: true, data: lbl ? { t: lbl.t, v: lbl.v } : null };
+    } catch (err) {
+      return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+    }
+  };
+
+  const rmCrossModel = (modelId, p, r, c, k) => {
+    const gate = crossModelTargetCheck(modelId, p, r, c);
+    if (!gate.ok) return gate;
+    if (typeof k !== 'string' || !k) return { ok: false, code: 'invalid_label_key', detail: 'k must be non-empty string' };
+    const model = runtime.getModel(modelId);
+    if (!model) return { ok: false, code: 'model_not_found', detail: `modelId=${modelId}` };
+    try {
+      runtime.rmLabel(model, p, r, c, k);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+    }
+  };
+
+  const setMqttTargetConfig = (host, port, clientId) => {
+    if (typeof host !== 'string' || !host.trim()) {
+      return { ok: false, code: 'invalid_target', detail: 'host must be non-empty string' };
+    }
+    if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+      return { ok: false, code: 'invalid_target', detail: 'port must be integer 1-65535' };
+    }
+    if (typeof clientId !== 'string' || !clientId.trim()) {
+      return { ok: false, code: 'invalid_target', detail: 'clientId must be non-empty string' };
+    }
+    const model0 = runtime.getModel(0);
+    if (!model0) return { ok: false, code: 'model_not_found', detail: 'Model 0 not initialized' };
+    // M1: atomic apply — build triple, then write all or none (rollback on partial failure).
+    const prepared = [
+      { k: 'mqtt_target_host', t: 'str', v: host.trim() },
+      { k: 'mqtt_target_port', t: 'int', v: port },
+      { k: 'mqtt_target_client_id', t: 'str', v: clientId.trim() },
+    ];
+    const priorValues = prepared.map((entry) => {
+      const cell = runtime.getCell(model0, 0, 0, 0);
+      const prior = cell && cell.labels ? cell.labels.get(entry.k) : null;
+      return prior ? { k: entry.k, t: prior.t, v: prior.v } : null;
+    });
+    let writtenCount = 0;
+    try {
+      for (const entry of prepared) {
+        runtime.addLabel(model0, 0, 0, 0, entry);
+        writtenCount += 1;
+      }
+      return { ok: true };
+    } catch (err) {
+      for (let i = 0; i < writtenCount; i += 1) {
+        const prior = priorValues[i];
+        if (prior) {
+          runtime.addLabel(model0, 0, 0, 0, prior);
+        } else {
+          runtime.rmLabel(model0, 0, 0, 0, prepared[i].k);
+        }
+      }
+      return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+    }
+  };
+
+  return { writeCrossModel, readCrossModel, rmCrossModel, setMqttTargetConfig };
 }
 
 export { buildClientSnapshot, createServerState, handleMediaUploadRequest, startServer };

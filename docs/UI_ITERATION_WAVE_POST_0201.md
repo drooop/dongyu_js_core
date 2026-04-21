@@ -1,8 +1,8 @@
 ---
 title: "UI Iteration Wave Post-0201"
-doc_type: roadmap
-status: planned
-updated: 2026-03-22
+doc_type: note
+status: active
+updated: 2026-04-21
 source: ai
 ---
 

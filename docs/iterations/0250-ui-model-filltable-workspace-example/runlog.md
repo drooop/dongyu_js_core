@@ -1,8 +1,8 @@
 ---
 title: "0250 — ui-model-filltable-workspace-example Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-03-27
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0250-ui-model-filltable-workspace-example
 id: 0250-ui-model-filltable-workspace-example

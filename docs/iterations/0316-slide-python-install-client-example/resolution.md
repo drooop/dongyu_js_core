@@ -1,12 +1,12 @@
 ---
 title: "0316 — slide-python-install-client-example Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-04-13
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0316-slide-python-install-client-example
 id: 0316-slide-python-install-client-example
-phase: phase4
+phase: phase1
 ---
 
 # 0316 — slide-python-install-client-example Resolution

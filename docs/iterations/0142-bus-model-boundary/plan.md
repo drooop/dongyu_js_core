@@ -2,7 +2,7 @@
 title: "0142 — BUS_IN/OUT System Boundary + MODEL_IN/OUT + subModel Lifecycle"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0142-bus-model-boundary
 id: 0142-bus-model-boundary

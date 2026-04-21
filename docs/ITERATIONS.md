@@ -2,7 +2,7 @@
 title: "Iterations Index"
 doc_type: governance
 status: active
-updated: 2026-04-10
+updated: 2026-04-21
 source: ai
 ---
 
@@ -225,8 +225,9 @@ source: ai
 | 0322-imported-slide-app-host-egress-test-app | 2026-04-16 | 补 imported slide app 的宿主 egress adapter，并产出一个可导入的测试 zip，验证宿主入口、内部整理与 `pin.bus.out / MQTT / Matrix` 外发链 | 3 | dev_0322-imported-slide-app-host-egress-test-app | Completed | ./docs/iterations/0322-imported-slide-app-host-egress-test-app/ |
 | 0323-modeltable-rw-permission-spec | 2026-04-17 | 规约变更：model.table (0,0,0) 默认三程序基础设施、V1N API 读写权限收紧、跨模型通信强制走 pin（docs-only） | 2 | dev_0323-modeltable-rw-permission-spec | Completed | ./docs/iterations/0323-modeltable-rw-permission-spec/ |
 | 0324-runtime-root-default-program-models | 2026-04-21 | runtime 在每个 model.table (0,0,0) seed 三程序（mt_write / mt_bus_receive / mt_bus_send）；Tier 2 source 为 default_table_programs.json；彻底删除 (0,1,0) helper scaffold（覆盖 0323 spec "model.single 保留" 条款） | 5 | dev_0324-runtime-root-default-program-models | Completed | ./docs/iterations/0324-runtime-root-default-program-models/ |
-| 0325-ctx-api-tightening-static-selfcell | 2026-04-21 | ctx API 替换为 V1N 命名空间（addLabel / removeLabel / readLabel 单签名）；静态本 cell 守卫；跨模型读禁止；覆盖 0323 兼容期条款同 PR 迁移所有调用方无兼容层 | 5 | dev_0325-ctx-api-tightening-static-selfcell | Planned | ./docs/iterations/0325-ctx-api-tightening-static-selfcell/ |
-| 0325b-legacy-system-models-ctx-migration | 2026-04-21 | 0325 延伸：迁移 system-models JSON 里 30+ 处 legacy ctx.* 到 V1N / mt_write 请求路径；合并 server.mjs ensureGenericOwnerMaterializer (M1)；与 0325 作为一组整体 merge 到 dev，保持"无兼容层" | 7 | dev_0325b-legacy-system-models-ctx-migration | Planned | ./docs/iterations/0325b-legacy-system-models-ctx-migration/ |
+| 0325-ctx-api-tightening-static-selfcell | 2026-04-21 | ctx API 替换为 V1N 命名空间（addLabel / removeLabel / readLabel 单签名）；静态本 cell 守卫；跨模型读禁止；覆盖 0323 兼容期条款同 PR 迁移所有调用方无兼容层 | 5 | dev_0325-ctx-api-tightening-static-selfcell | Completed | ./docs/iterations/0325-ctx-api-tightening-static-selfcell/ |
+| 0325b-legacy-system-models-ctx-migration | 2026-04-21 | 0325 延伸：迁移 system-models JSON 里 30+ 处 legacy ctx.* 到 V1N / mt_write 请求路径；合并 server.mjs ensureGenericOwnerMaterializer (M1)；与 0325 作为一组整体 merge 到 dev，保持"无兼容层" | 7 | dev_0325b-legacy-system-models-ctx-migration | Completed | ./docs/iterations/0325b-legacy-system-models-ctx-migration/ |
+| 0325c-option-b-generator-rewrite | 2026-04-21 | 0325b 二次 sub-agent REJECT 后拆分：实装 Option B — 重写 server.mjs owner-materializer 生成器为 V1N.table 版本；迁移 system-models JSON 47 处 ctx.* 经 Step 3.5 Stage 0-4 5-阶段 gate（inventory/rubric/ref impl slide_import/batch migration/final gate）→ 最终 grep 清零至 4 处（test_model_100_{full,ui} 延 0325d）；runtime.hostApi 扩展 4 methods + docs/static 真 impl + matrixDebug/llm/matrixUserLogin stubs；programEngine ctx.hostApi merge runtime.hostApi；Bucket C handlers 走 mt_write_req + bucket_c_cell_routes | 7 | dev_0325c-option-b-generator-rewrite | Completed | ./docs/iterations/0325c-option-b-generator-rewrite/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

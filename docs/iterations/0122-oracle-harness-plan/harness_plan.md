@@ -2,7 +2,7 @@
 title: "Oracle Test Harness Plan (Stage 1.2)"
 doc_type: iteration-note
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0122-oracle-harness-plan
 id: 0122-oracle-harness-plan

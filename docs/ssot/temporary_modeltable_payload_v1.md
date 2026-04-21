@@ -2,7 +2,7 @@
 title: "Temporary ModelTable Payload v1"
 doc_type: ssot
 status: active
-updated: 2026-04-06
+updated: 2026-04-21
 source: ai
 ---
 

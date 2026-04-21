@@ -2,7 +2,7 @@
 title: "0232 — local-baseline-surface-gate Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-25
+updated: 2026-04-21
 source: ai
 iteration_id: 0232-local-baseline-surface-gate
 id: 0232-local-baseline-surface-gate

@@ -2,7 +2,7 @@
 title: "编排器硬规则：doit-auto orchestrator"
 doc_type: ssot
 status: active
-updated: 2026-03-25
+updated: 2026-04-21
 source: ai
 depends_on:
   - execution_governance_ultrawork_doit.md

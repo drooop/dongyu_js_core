@@ -2,7 +2,7 @@
 title: "Worker Tier2 Audit And Rollout Plan"
 doc_type: note
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

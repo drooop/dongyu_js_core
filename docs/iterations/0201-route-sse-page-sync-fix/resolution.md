@@ -2,7 +2,7 @@
 title: "Iteration 0201-route-sse-page-sync-fix Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0201-route-sse-page-sync-fix
 id: 0201-route-sse-page-sync-fix

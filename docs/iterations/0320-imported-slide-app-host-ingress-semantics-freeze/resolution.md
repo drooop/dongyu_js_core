@@ -1,12 +1,12 @@
 ---
 title: "0320 — imported-slide-app-host-ingress-semantics-freeze Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-04-14
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0320-imported-slide-app-host-ingress-semantics-freeze
 id: 0320-imported-slide-app-host-ingress-semantics-freeze
-phase: phase4
+phase: phase1
 ---
 
 # 0320 — imported-slide-app-host-ingress-semantics-freeze Resolution

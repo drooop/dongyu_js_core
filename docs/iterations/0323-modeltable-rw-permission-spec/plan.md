@@ -1,10 +1,13 @@
 ---
 title: "0323 — ModelTable 读写权限与默认基础设施规约变更"
 doc_type: iteration-plan
-status: completed
+status: planned
 created: 2026-04-17
-updated: 2026-04-17
-source: human+ai
+updated: 2026-04-21
+source: ai
+iteration_id: 0323-modeltable-rw-permission-spec
+id: 0323-modeltable-rw-permission-spec
+phase: phase1
 ---
 
 # 0323 — ModelTable 读写权限与默认基础设施规约变更

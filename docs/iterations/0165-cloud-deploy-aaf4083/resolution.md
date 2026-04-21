@@ -2,7 +2,7 @@
 title: "0165 — Resolution (HOW)"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0165-cloud-deploy-aaf4083
 id: 0165-cloud-deploy-aaf4083

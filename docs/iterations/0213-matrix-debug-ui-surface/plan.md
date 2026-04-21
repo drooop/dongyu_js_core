@@ -2,7 +2,7 @@
 title: "0213 — matrix-debug-ui-surface Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-22
+updated: 2026-04-21
 source: ai
 iteration_id: 0213-matrix-debug-ui-surface
 id: 0213-matrix-debug-ui-surface

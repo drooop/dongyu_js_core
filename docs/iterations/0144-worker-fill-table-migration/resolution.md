@@ -2,7 +2,7 @@
 title: "0144: Resolution — Worker Fill-Table Migration"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0144-worker-fill-table-migration
 id: 0144-worker-fill-table-migration

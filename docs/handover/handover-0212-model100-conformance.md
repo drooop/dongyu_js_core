@@ -2,7 +2,7 @@
 title: "Handover: Model 100 subModel Conformance + Management Bus Integration"
 doc_type: handover
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

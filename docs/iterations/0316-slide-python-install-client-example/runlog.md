@@ -1,12 +1,12 @@
 ---
 title: "0316 — slide-python-install-client-example Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-04-13
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0316-slide-python-install-client-example
 id: 0316-slide-python-install-client-example
-phase: phase4
+phase: phase3
 ---
 
 # 0316 — slide-python-install-client-example Runlog

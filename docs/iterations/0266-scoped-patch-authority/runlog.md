@@ -2,7 +2,7 @@
 title: "Iteration 0266-scoped-patch-authority Run Log"
 doc_type: iteration-runlog
 status: active
-updated: 2026-03-30
+updated: 2026-04-21
 source: ai
 iteration_id: 0266-scoped-patch-authority
 id: 0266-scoped-patch-authority

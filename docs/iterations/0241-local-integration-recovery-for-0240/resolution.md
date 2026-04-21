@@ -2,7 +2,7 @@
 title: "0241 — local-integration-recovery-for-0240 Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-26
+updated: 2026-04-21
 source: ai
 iteration_id: 0241-local-integration-recovery-for-0240
 id: 0241-local-integration-recovery-for-0240

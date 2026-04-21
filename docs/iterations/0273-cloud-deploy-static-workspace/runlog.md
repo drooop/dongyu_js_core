@@ -2,7 +2,7 @@
 title: "Iteration 0273-cloud-deploy-static-workspace Run Log"
 doc_type: iteration-runlog
 status: active
-updated: 2026-04-01
+updated: 2026-04-21
 source: ai
 iteration_id: 0273-cloud-deploy-static-workspace
 id: 0273-cloud-deploy-static-workspace

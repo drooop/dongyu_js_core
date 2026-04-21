@@ -2,7 +2,7 @@
 title: "Roadmap: ModelTable Editor v1 (Sliding UI / UI Model)"
 doc_type: roadmap
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

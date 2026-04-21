@@ -2,7 +2,7 @@
 title: "Tier Boundary And Conformance Testing"
 doc_type: ssot
 status: active
-updated: 2026-04-09
+updated: 2026-04-21
 source: ai
 ---
 

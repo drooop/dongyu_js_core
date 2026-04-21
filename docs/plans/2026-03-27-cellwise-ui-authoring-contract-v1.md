@@ -2,7 +2,7 @@
 title: "Cellwise UI Authoring Contract V1"
 doc_type: note
 status: active
-updated: 2026-03-27
+updated: 2026-04-21
 source: ai
 ---
 

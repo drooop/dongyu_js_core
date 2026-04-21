@@ -3,7 +3,7 @@ id: 0153-cognition-feedback-loop
 doc_type: iteration-plan
 status: planned
 source: ai
-updated: 2026-03-21
+updated: 2026-04-21
 title: "0153 — 认知环节显式化 + 动作状态反馈回路（Plan v2）"
 iteration_id: 0153-cognition-feedback-loop
 phase: phase1

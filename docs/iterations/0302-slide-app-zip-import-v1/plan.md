@@ -1,8 +1,8 @@
 ---
 title: "0302 — slide-app-zip-import-v1 Plan"
 doc_type: iteration-plan
-status: active
-updated: 2026-04-08
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0302-slide-app-zip-import-v1
 id: 0302-slide-app-zip-import-v1

@@ -2,7 +2,7 @@
 title: "0215 — ui-model-tier2-examples-v1 Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-23
+updated: 2026-04-21
 source: ai
 iteration_id: 0215-ui-model-tier2-examples-v1
 id: 0215-ui-model-tier2-examples-v1

@@ -2,7 +2,7 @@
 title: "0298 — pin-contract-cleanup Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-04-06
+updated: 2026-04-21
 source: ai
 iteration_id: 0298-pin-contract-cleanup
 id: 0298-pin-contract-cleanup

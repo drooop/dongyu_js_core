@@ -2,11 +2,11 @@
 title: "Iteration 0272-static-workspace-rebuild Run Log"
 doc_type: iteration-runlog
 status: active
-updated: 2026-04-01
+updated: 2026-04-21
 source: ai
 iteration_id: 0272-static-workspace-rebuild
 id: 0272-static-workspace-rebuild
-phase: phase1
+phase: phase3
 ---
 
 # Iteration 0272-static-workspace-rebuild Run Log

@@ -2,7 +2,7 @@
 title: "0235 — local-home-surface-materialization-fix Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-26
+updated: 2026-04-21
 source: ai
 iteration_id: 0235-local-home-surface-materialization-fix
 id: 0235-local-home-surface-materialization-fix

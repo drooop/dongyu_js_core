@@ -2,7 +2,7 @@
 title: "0157a — 规约 Diff 合并 + SSOT 正式切换"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0157a-spec-migration-gate
 id: 0157a-spec-migration-gate

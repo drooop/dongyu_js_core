@@ -1,8 +1,8 @@
 ---
 title: "Slide Matrix Delivery Preview v0"
 doc_type: user-guide
-status: archived
-updated: 2026-04-10
+status: active
+updated: 2026-04-21
 source: ai
 ---
 

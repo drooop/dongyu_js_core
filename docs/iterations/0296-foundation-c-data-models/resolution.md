@@ -2,7 +2,7 @@
 title: "0296 — foundation-c-data-models Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-04-06
+updated: 2026-04-21
 source: ai
 iteration_id: 0296-foundation-c-data-models
 id: 0296-foundation-c-data-models

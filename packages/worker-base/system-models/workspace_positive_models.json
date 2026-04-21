@@ -237,6 +237,18 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "bucket_c_cell_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        { "from": [1, 0, 0, "mt_write_req"], "to": [[0, 0, 0, "mt_write_in"]] }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "ui_type",
       "t": "str",
       "v": "color_form"
@@ -702,7 +714,7 @@
       "k": "handle_submit_click",
       "t": "func.js",
       "v": {
-        "code": "const event = label && label.v && typeof label.v === 'object' ? label.v : {};\nctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit_request' }, 'pin.in', event);",
+        "code": "/* rubric: BucketC via mt_write_req + bucket_c_cell_routes */\nconst event = label && label.v && typeof label.v === 'object' ? label.v : {};\nV1N.addLabel('mt_write_req', 'pin.in', { op: 'write', records: [{ p: 0, r: 0, c: 0, k: 'submit_request', t: 'pin.in', v: event }] });",
         "modelName": "model100_submit_button"
       }
     },
@@ -2540,7 +2552,7 @@
       "k": "emit_submit",
       "t": "func.js",
       "v": {
-        "code": "const payload = Array.isArray(label && label.v) ? label.v : [];\nif (payload.length === 0) return;\nctx.writeLabel({ model_id: 1009, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.out', payload);",
+        "code": "/* rubric: P1 self-cell */ const payload = Array.isArray(label && label.v) ? label.v : [];\nif (payload.length === 0) return;\nV1N.addLabel('submit', 'pin.out', payload);",
         "modelName": "workspace_filltable_example"
       }
     },
@@ -3314,6 +3326,18 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "bucket_c_cell_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        { "from": [1, 0, 0, "mt_write_req"], "to": [[0, 0, 0, "mt_write_in"]] }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "dual_bus_model",
       "t": "json",
       "v": {
@@ -3478,7 +3502,7 @@
       "k": "dispatch_remote",
       "t": "func.js",
       "v": {
-        "code": "const trigger = label && label.v && typeof label.v === 'object' ? label.v : null;\nif (!trigger) return;\nconst inputValue = String(ctx.getLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'input_draft' }) || '');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', true);\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status' }, 'str', 'loading');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_route_mode' }, 'str', 'remote');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.out', [ { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' }, { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: inputValue }, { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: 'remote' } ]);",
+        "code": "/* rubric: P3 V1N.readLabel + BucketC via mt_write_req */\nconst trigger = label && label.v && typeof label.v === 'object' ? label.v : null;\nif (!trigger) return;\nconst _draftRead = V1N.readLabel(0, 0, 0, 'input_draft');\nconst inputValue = String(_draftRead ? _draftRead.v : '');\nV1N.addLabel('mt_write_req', 'pin.in', { op: 'write', records: [\n  { p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: true },\n  { p: 0, r: 0, c: 0, k: 'result_status', t: 'str', v: 'loading' },\n  { p: 0, r: 0, c: 0, k: 'submit_route_mode', t: 'str', v: 'remote' },\n  { p: 0, r: 0, c: 0, k: 'submit', t: 'pin.out', v: [ { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' }, { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: inputValue }, { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: 'remote' } ] }\n] });",
         "modelName": "workspace_filltable_example"
       }
     },
@@ -3491,7 +3515,7 @@
       "k": "dispatch_local",
       "t": "func.js",
       "v": {
-        "code": "const inputValue = String(ctx.getLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'input_draft' }) || '');\nlet hash = 0;\nfor (const ch of inputValue) { hash = ((hash * 31) + ch.charCodeAt(0)) >>> 0; }\nconst color = '#' + (hash % 0xffffff).toString(16).padStart(6, '0');\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_route_mode' }, 'str', 'local');\nctx.writeLabel({ model_id: 1010, p: 0, r: 1, c: 0, k: 'owner_apply' }, 'pin.in', [ { id: 0, p: 0, r: 0, c: 0, k: 'generated_color_text', t: 'str', v: color }, { id: 0, p: 0, r: 0, c: 0, k: 'result_status', t: 'str', v: 'local_processed' }, { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false } ]);",
+        "code": "/* rubric: P3 V1N.readLabel + BucketC via mt_write_req (multi-cell records) */\nconst _draftRead = V1N.readLabel(0, 0, 0, 'input_draft');\nconst inputValue = String(_draftRead ? _draftRead.v : '');\nlet hash = 0;\nfor (const ch of inputValue) { hash = ((hash * 31) + ch.charCodeAt(0)) >>> 0; }\nconst color = '#' + (hash % 0xffffff).toString(16).padStart(6, '0');\nV1N.addLabel('mt_write_req', 'pin.in', { op: 'write', records: [\n  { p: 0, r: 0, c: 0, k: 'submit_route_mode', t: 'str', v: 'local' },\n  { p: 0, r: 1, c: 0, k: 'owner_apply', t: 'pin.in', v: [ { id: 0, p: 0, r: 0, c: 0, k: 'generated_color_text', t: 'str', v: color }, { id: 0, p: 0, r: 0, c: 0, k: 'result_status', t: 'str', v: 'local_processed' }, { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false } ] }\n] });",
         "modelName": "workspace_filltable_example"
       }
     },
@@ -3504,7 +3528,7 @@
       "k": "prepare_workspace_filltable_submit",
       "t": "func.js",
       "v": {
-        "code": "const event = ctx.getLabel({ model_id: 1010, p: 0, r: 0, c: 2, k: 'ui_event' });\nif (!event || typeof event !== 'object') return;\nctx.writeLabel({ model_id: 1010, p: 1, r: 0, c: 0, k: 'confirm' }, 'pin.in', event);\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 2, k: 'ui_event' }, 'event', null);",
+        "code": "/* rubric: P4+P9+P10+P5 */ const event = ((ctx.hostApi.readCrossModel(1010, 0, 0, 2, 'ui_event') || {}).data || {}).v;\nif (!event || typeof event !== 'object') return;\nctx.hostApi.writeCrossModel(1010, 1, 0, 0, 'confirm', 'pin.in', event);\nctx.hostApi.writeCrossModel(1010, 0, 0, 2, 'ui_event', 'event', null);",
         "modelName": "workspace_filltable_example"
       }
     },
@@ -3574,23 +3598,6 @@
     },
     {
       "op": "add_label",
-      "model_id": 0,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "ws_filltable_submit_wiring",
-      "t": "pin.connect.label",
-      "v": [
-        {
-          "from": "(self, ws_filltable_submit_out)",
-          "to": [
-            "(func, forward_workspace_filltable_submit_from_model0:in)"
-          ]
-        }
-      ]
-    },
-    {
-      "op": "add_label",
       "model_id": -10,
       "p": 0,
       "r": 0,
@@ -3598,7 +3605,7 @@
       "k": "forward_workspace_filltable_submit_from_model0",
       "t": "func.js",
       "v": {
-        "code": "const payload = ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'ws_filltable_submit_out' });\nif (!Array.isArray(payload) || payload.length === 0) return;\nconst packet = { version: 'v1', type: 'pin_payload', op_id: 'ws_filltable_' + Date.now(), source_model_id: 1010, pin: 'submit', payload, timestamp: Date.now() };\nconst p = ctx.sendMatrix(packet);\nif (p && typeof p.then === 'function') {\n  p.catch(function() {\n    ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', false);\n    ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status' }, 'str', 'send_failed');\n  });\n} else if (!p) {\n  ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', false);\n  ctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'result_status' }, 'str', 'matrix_unavailable');\n}\nctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'ws_filltable_submit_out' }, 'pin.in', null);\nctx.writeLabel({ model_id: 1010, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.out', null);",
+        "code": "/* rubric: P4+P9+P10+P5 */ const payload = ((ctx.hostApi.readCrossModel(0, 0, 0, 0, 'ws_filltable_submit_out') || {}).data || {}).v;\nif (!Array.isArray(payload) || payload.length === 0) return;\nconst packet = { version: 'v1', type: 'pin_payload', op_id: 'ws_filltable_' + Date.now(), source_model_id: 1010, pin: 'submit', payload, timestamp: Date.now() };\nconst p = ctx.sendMatrix(packet);\nif (p && typeof p.then === 'function') {\n  p.catch(function() {\n    ctx.hostApi.writeCrossModel(1010, 0, 0, 0, 'submit_inflight', 'bool', false);\n    ctx.hostApi.writeCrossModel(1010, 0, 0, 0, 'result_status', 'str', 'send_failed');\n  });\n} else if (!p) {\n  ctx.hostApi.writeCrossModel(1010, 0, 0, 0, 'submit_inflight', 'bool', false);\n  ctx.hostApi.writeCrossModel(1010, 0, 0, 0, 'result_status', 'str', 'matrix_unavailable');\n}\nctx.hostApi.writeCrossModel(0, 0, 0, 0, 'ws_filltable_submit_out', 'pin.in', null);\nctx.hostApi.writeCrossModel(1010, 0, 0, 0, 'submit', 'pin.out', null);",
         "modelName": "workspace_filltable_example"
       }
     },
@@ -10807,7 +10814,7 @@
       "k": "emit_submit",
       "t": "func.js",
       "v": {
-        "code": "const payload=Array.isArray(label&&label.v)?label.v:[];if(payload.length===0)return;ctx.writeLabel({model_id:1016,p:0,r:0,c:0,k:'submit'},'pin.out',payload);",
+        "code": "/* rubric: P1 self-cell */ const payload=Array.isArray(label&&label.v)?label.v:[];if(payload.length===0)return;V1N.addLabel('submit','pin.out',payload);",
         "modelName": "matrix_userline_phase1_app"
       }
     },
@@ -12500,7 +12507,7 @@
       "k": "dispatch_matrix_phase1_login",
       "t": "func.js",
       "v": {
-        "code": "const SELF_MODEL_ID=ctx.self.model_id;const root={model_id:SELF_MODEL_ID,p:0,r:0,c:0};const hs=String(ctx.getLabel({...root,k:'homeserver_url_draft'})||'').trim();const username=String(ctx.getLabel({...root,k:'username_draft'})||'').trim();const password=String(ctx.getLabel({...root,k:'password_draft'})||'');ctx.writeLabel({...root,k:'session_status'},'str','authenticating');ctx.writeLabel({...root,k:'login_error'},'str','');return Promise.resolve(ctx.hostApi.matrixUserLogin(hs,username,password)).then(function(result){if(!result||result.ok!==true){const code=result&&result.code?String(result.code):'login_failed';ctx.writeLabel({...root,k:'session_authenticated'},'bool',false);ctx.writeLabel({...root,k:'session_status'},'str',code);ctx.writeLabel({...root,k:'login_error'},'str',code);return;}const data=result.data&&typeof result.data==='object'?result.data:{};ctx.writeLabel({...root,k:'session_authenticated'},'bool',true);ctx.writeLabel({...root,k:'session_user_id'},'str',String(data.userId||''));ctx.writeLabel({...root,k:'session_display_name'},'str',String(data.displayName||''));ctx.writeLabel({...root,k:'session_homeserver_url'},'str',String(data.homeserverUrl||hs));ctx.writeLabel({...root,k:'session_status'},'str','authenticated');ctx.writeLabel({...root,k:'login_error'},'str','');ctx.writeLabel({...root,k:'password_draft'},'str','');}).catch(function(err){const detail=String(err&&err.message?err.message:err);ctx.writeLabel({...root,k:'session_authenticated'},'bool',false);ctx.writeLabel({...root,k:'session_status'},'str','login_failed');ctx.writeLabel({...root,k:'login_error'},'str',detail);});",
+        "code": "/* rubric: P4+P9+P10+P5+P7 */ const SELF_MODEL_ID=ctx.self.model_id;const root={model_id:SELF_MODEL_ID,p:0,r:0,c:0};const hs=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'homeserver_url_draft') || {}).data || {}).v||'').trim();const username=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'username_draft') || {}).data || {}).v||'').trim();const password=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'password_draft') || {}).data || {}).v||'');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', 'authenticating');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', '');return Promise.resolve(ctx.hostApi.matrixUserLogin(hs,username,password)).then(function(result){if(!result||result.ok!==true){const code=result&&result.code?String(result.code):'login_failed';ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_authenticated', 'bool', false);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', code);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', code);return;}const data=result.data&&typeof result.data==='object'?result.data:{};ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_authenticated', 'bool', true);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_user_id', 'str', String(data.userId||''));ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_display_name', 'str', String(data.displayName||''));ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_homeserver_url', 'str', String(data.homeserverUrl||hs));ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', 'authenticated');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', '');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'password_draft', 'str', '');}).catch(function(err){const detail=String(err&&err.message?err.message:err);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_authenticated', 'bool', false);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', 'login_failed');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', detail);});",
         "modelName": "matrix_userline_phase1_session_truth"
       }
     },
@@ -12759,7 +12766,7 @@
       "k": "dispatch_matrix_phase1_send",
       "t": "func.js",
       "v": {
-        "code": "const SELF_MODEL_ID=ctx.self.model_id;const root={model_id:SELF_MODEL_ID,p:0,r:0,c:0};const sessionRoot={model_id:1017,p:0,r:0,c:0};const uiRoot={model_id:1021,p:0,r:0,c:0};const authenticated=ctx.getLabel({...sessionRoot,k:'session_authenticated'})===true;const text=String(ctx.getLabel({...uiRoot,k:'composer_draft'})||ctx.getLabel({...root,k:'message_draft'})||'').trim();if(!authenticated){ctx.writeLabel({...root,k:'conversation_status'},'str','login_required');return;}if(!text){ctx.writeLabel({...root,k:'conversation_status'},'str','empty_message');return;}const sender=String(ctx.getLabel({...sessionRoot,k:'session_user_id'})||'').trim();const roomId=String(ctx.getLabel({...root,k:'active_room_id'})||'').trim()||'!phase1-echo:localhost';const roomName=String(ctx.getLabel({...root,k:'active_room_name'})||roomId);const roomKind=String(ctx.getLabel({...root,k:'active_room_kind'})||'dm');ctx.writeLabel({...root,k:'last_sent_text'},'str',text);ctx.writeLabel({...root,k:'submit_inflight'},'bool',true);ctx.writeLabel({...root,k:'conversation_status'},'str','loading');ctx.writeLabel({...uiRoot,k:'composer_draft'},'str','');ctx.writeLabel({...root,k:'message_draft'},'str','');ctx.writeLabel({...root,k:'submit'},'pin.out',[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.MatrixChatMessage'},{id:0,p:0,r:0,c:0,k:'room_id',t:'str',v:roomId},{id:0,p:0,r:0,c:0,k:'room_name',t:'str',v:roomName},{id:0,p:0,r:0,c:0,k:'room_kind',t:'str',v:roomKind},{id:0,p:0,r:0,c:0,k:'sender_user_id',t:'str',v:sender},{id:0,p:0,r:0,c:0,k:'message_text',t:'str',v:text}]);",
+        "code": "/* rubric: P4+P9+P10+P5 */ const SELF_MODEL_ID=ctx.self.model_id;const root={model_id:SELF_MODEL_ID,p:0,r:0,c:0};const sessionRoot={model_id:1017,p:0,r:0,c:0};const uiRoot={model_id:1021,p:0,r:0,c:0};const authenticated=((ctx.hostApi.readCrossModel(1017, 0, 0, 0, 'session_authenticated') || {}).data || {}).v===true;const text=String(((ctx.hostApi.readCrossModel(1021, 0, 0, 0, 'composer_draft') || {}).data || {}).v||((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'message_draft') || {}).data || {}).v||'').trim();if(!authenticated){ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'conversation_status', 'str', 'login_required');return;}if(!text){ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'conversation_status', 'str', 'empty_message');return;}const sender=String(((ctx.hostApi.readCrossModel(1017, 0, 0, 0, 'session_user_id') || {}).data || {}).v||'').trim();const roomId=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'active_room_id') || {}).data || {}).v||'').trim()||'!phase1-echo:localhost';const roomName=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'active_room_name') || {}).data || {}).v||roomId);const roomKind=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'active_room_kind') || {}).data || {}).v||'dm');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'last_sent_text', 'str', text);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'submit_inflight', 'bool', true);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'conversation_status', 'str', 'loading');ctx.hostApi.writeCrossModel(1021, 0, 0, 0, 'composer_draft', 'str', '');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'message_draft', 'str', '');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'submit', 'pin.out', [{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.MatrixChatMessage'},{id:0,p:0,r:0,c:0,k:'room_id',t:'str',v:roomId},{id:0,p:0,r:0,c:0,k:'room_name',t:'str',v:roomName},{id:0,p:0,r:0,c:0,k:'room_kind',t:'str',v:roomKind},{id:0,p:0,r:0,c:0,k:'sender_user_id',t:'str',v:sender},{id:0,p:0,r:0,c:0,k:'message_text',t:'str',v:text}]);",
         "modelName": "matrix_userline_phase2_active_conversation_truth"
       }
     },
@@ -12772,7 +12779,7 @@
       "k": "prepare_matrix_phase1_login",
       "t": "func.js",
       "v": {
-        "code": "const root={model_id:1017,p:0,r:0,c:0};const event=ctx.getLabel({model_id:1017,p:0,r:0,c:2,k:'ui_event'});if(!event||typeof event!=='object')return;ctx.writeLabel({model_id:1017,p:1,r:0,c:0,k:'login'},'pin.in',event);ctx.writeLabel({model_id:1017,p:0,r:0,c:2,k:'ui_event'},'event',null);const hs=String(ctx.getLabel({...root,k:'homeserver_url_draft'})||'').trim();const username=String(ctx.getLabel({...root,k:'username_draft'})||'').trim();const password=String(ctx.getLabel({...root,k:'password_draft'})||'');ctx.writeLabel({...root,k:'session_status'},'str','authenticating');ctx.writeLabel({...root,k:'login_error'},'str','');return Promise.resolve(ctx.hostApi.matrixUserLogin(hs,username,password)).then(function(result){if(!result||result.ok!==true){const code=result&&result.code?String(result.code):'login_failed';ctx.writeLabel({...root,k:'session_authenticated'},'bool',false);ctx.writeLabel({...root,k:'session_status'},'str',code);ctx.writeLabel({...root,k:'login_error'},'str',code);return;}const data=result.data&&typeof result.data==='object'?result.data:{};ctx.writeLabel({...root,k:'session_authenticated'},'bool',true);ctx.writeLabel({...root,k:'session_user_id'},'str',String(data.userId||''));ctx.writeLabel({...root,k:'session_display_name'},'str',String(data.displayName||''));ctx.writeLabel({...root,k:'session_homeserver_url'},'str',String(data.homeserverUrl||hs));ctx.writeLabel({...root,k:'session_status'},'str','authenticated');ctx.writeLabel({...root,k:'login_error'},'str','');ctx.writeLabel({...root,k:'password_draft'},'str','');}).catch(function(err){const detail=String(err&&err.message?err.message:err);ctx.writeLabel({...root,k:'session_authenticated'},'bool',false);ctx.writeLabel({...root,k:'session_status'},'str','login_failed');ctx.writeLabel({...root,k:'login_error'},'str',detail);});",
+        "code": "/* rubric: P4+P9+P10+P5+P7 */ const root={model_id:1017,p:0,r:0,c:0};const event=((ctx.hostApi.readCrossModel(1017, 0, 0, 2, 'ui_event') || {}).data || {}).v;if(!event||typeof event!=='object')return;ctx.hostApi.writeCrossModel(1017, 1, 0, 0, 'login', 'pin.in', event);ctx.hostApi.writeCrossModel(1017, 0, 0, 2, 'ui_event', 'event', null);const hs=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'homeserver_url_draft') || {}).data || {}).v||'').trim();const username=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'username_draft') || {}).data || {}).v||'').trim();const password=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'password_draft') || {}).data || {}).v||'');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', 'authenticating');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', '');return Promise.resolve(ctx.hostApi.matrixUserLogin(hs,username,password)).then(function(result){if(!result||result.ok!==true){const code=result&&result.code?String(result.code):'login_failed';ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_authenticated', 'bool', false);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', code);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', code);return;}const data=result.data&&typeof result.data==='object'?result.data:{};ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_authenticated', 'bool', true);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_user_id', 'str', String(data.userId||''));ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_display_name', 'str', String(data.displayName||''));ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_homeserver_url', 'str', String(data.homeserverUrl||hs));ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', 'authenticated');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', '');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'password_draft', 'str', '');}).catch(function(err){const detail=String(err&&err.message?err.message:err);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_authenticated', 'bool', false);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', 'login_failed');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', detail);});",
         "modelName": "matrix_userline_phase1"
       }
     },
@@ -12785,7 +12792,7 @@
       "k": "prepare_matrix_phase1_send",
       "t": "func.js",
       "v": {
-        "code": "const convoRoot={model_id:1019,p:0,r:0,c:0};const membersRoot={model_id:1020,p:0,r:0,c:0};const uiRoot={model_id:1021,p:0,r:0,c:0};const roomRoot={model_id:1018,p:0,r:0,c:0};const sessionRoot={model_id:1017,p:0,r:0,c:0};const event=ctx.getLabel({model_id:1019,p:0,r:0,c:2,k:'ui_event'});if(!event||typeof event!=='object')return;const rooms=ctx.getLabel({...roomRoot,k:'rooms_json'});const roomMembers=ctx.getLabel({...membersRoot,k:'room_members_json'});const roomTimelines=ctx.getLabel({...convoRoot,k:'room_timelines_json'});const roomList=Array.isArray(rooms)?rooms:[];const memberMap=roomMembers&&typeof roomMembers==='object'&&!Array.isArray(roomMembers)?roomMembers:{};const timelineMap=roomTimelines&&typeof roomTimelines==='object'&&!Array.isArray(roomTimelines)?roomTimelines:{};const toTimelineText=(items)=>Array.isArray(items)&&items.length>0?items.map((item)=>{const sender=String(item&&item.sender?item.sender:'system');const text=String(item&&item.text?item.text:'');return sender+': '+text;}).join('\\n'):'No messages yet';const toMemberSummary=(items)=>Array.isArray(items)&&items.length>0?items.map((item)=>{const name=String(item&&item.display_name?item.display_name:(item&&item.user_id?item.user_id:'unknown'));const userId=String(item&&item.user_id?item.user_id:'unknown');const presence=String(item&&item.presence?item.presence:'unknown');return name+' <'+userId+'> ('+presence+')';}).join('\\n'):'No members';const applyRoom=(roomId)=>{const fallbackRoom=roomId?{room_id:roomId,name:roomId,kind:'dm'}:(roomList[0]||{room_id:'!phase1-echo:localhost',name:'Phase 1 Echo Room',kind:'dm'});const room=roomList.find((item)=>item&&item.room_id===roomId)||fallbackRoom;const chosenId=String(room.room_id||roomId||'!phase1-echo:localhost');const chosenName=String(room.name||chosenId);const chosenKind=String(room.kind||'dm');const timeline=Array.isArray(timelineMap[chosenId])?timelineMap[chosenId]:[];const members=Array.isArray(memberMap[chosenId])?memberMap[chosenId]:[];ctx.writeLabel({...convoRoot,k:'active_room_id'},'str',chosenId);ctx.writeLabel({...convoRoot,k:'active_room_name'},'str',chosenName);ctx.writeLabel({...convoRoot,k:'active_room_kind'},'str',chosenKind);ctx.writeLabel({...convoRoot,k:'timeline_json'},'json',timeline);ctx.writeLabel({...convoRoot,k:'timeline_text'},'str',toTimelineText(timeline));ctx.writeLabel({...membersRoot,k:'active_room_id'},'str',chosenId);ctx.writeLabel({...membersRoot,k:'active_room_name'},'str',chosenName);ctx.writeLabel({...membersRoot,k:'active_room_kind'},'str',chosenKind);ctx.writeLabel({...membersRoot,k:'active_members_json'},'json',members);ctx.writeLabel({...membersRoot,k:'active_members_summary'},'str',toMemberSummary(members));ctx.writeLabel({...uiRoot,k:'selected_room_id'},'str',chosenId);ctx.writeLabel({...uiRoot,k:'selected_room_kind'},'str',chosenKind);return {roomId:chosenId,roomName:chosenName,roomKind:chosenKind};};const action=String(event.action||'submit');if(action==='select_room'){applyRoom(String(event.room_id||''));ctx.writeLabel({model_id:1019,p:0,r:0,c:2,k:'ui_event'},'event',null);return;}if(action!=='submit'){ctx.writeLabel({model_id:1019,p:0,r:0,c:2,k:'ui_event'},'event',null);return;}const authenticated=ctx.getLabel({...sessionRoot,k:'session_authenticated'})===true;const text=String(ctx.getLabel({...uiRoot,k:'composer_draft'})||ctx.getLabel({...convoRoot,k:'message_draft'})||'').trim();if(!authenticated){ctx.writeLabel({...convoRoot,k:'conversation_status'},'str','login_required');ctx.writeLabel({model_id:1019,p:0,r:0,c:2,k:'ui_event'},'event',null);return;}if(!text){ctx.writeLabel({...convoRoot,k:'conversation_status'},'str','empty_message');ctx.writeLabel({model_id:1019,p:0,r:0,c:2,k:'ui_event'},'event',null);return;}const currentRoom=applyRoom(String(ctx.getLabel({...convoRoot,k:'active_room_id'})||''));const sender=String(ctx.getLabel({...sessionRoot,k:'session_user_id'})||'').trim();const submitPayload=[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.MatrixChatMessage'},{id:0,p:0,r:0,c:0,k:'room_id',t:'str',v:currentRoom.roomId},{id:0,p:0,r:0,c:0,k:'room_name',t:'str',v:currentRoom.roomName},{id:0,p:0,r:0,c:0,k:'room_kind',t:'str',v:currentRoom.roomKind},{id:0,p:0,r:0,c:0,k:'sender_user_id',t:'str',v:sender},{id:0,p:0,r:0,c:0,k:'message_text',t:'str',v:text}];ctx.writeLabel({...convoRoot,k:'last_sent_text'},'str',text);ctx.writeLabel({...convoRoot,k:'submit_inflight'},'bool',true);ctx.writeLabel({...convoRoot,k:'conversation_status'},'str','loading');ctx.writeLabel({...uiRoot,k:'composer_draft'},'str','');ctx.writeLabel({...convoRoot,k:'message_draft'},'str','');const packet={version:'v1',type:'pin_payload',op_id:'matrix_phase2_'+Date.now(),source_model_id:1019,pin:'submit',payload:submitPayload,timestamp:Date.now()};const p=ctx.sendMatrix(packet);if(p&&typeof p.then==='function'){p.catch(function(){ctx.writeLabel({...convoRoot,k:'submit_inflight'},'bool',false);ctx.writeLabel({...convoRoot,k:'conversation_status'},'str','send_failed');});}else if(!p){ctx.writeLabel({...convoRoot,k:'submit_inflight'},'bool',false);ctx.writeLabel({...convoRoot,k:'conversation_status'},'str','matrix_unavailable');}ctx.writeLabel({model_id:1019,p:0,r:0,c:2,k:'ui_event'},'event',null);",
+        "code": "/* rubric: P4+P9+P10+P5 */ const convoRoot={model_id:1019,p:0,r:0,c:0};const membersRoot={model_id:1020,p:0,r:0,c:0};const uiRoot={model_id:1021,p:0,r:0,c:0};const roomRoot={model_id:1018,p:0,r:0,c:0};const sessionRoot={model_id:1017,p:0,r:0,c:0};const event=((ctx.hostApi.readCrossModel(1019, 0, 0, 2, 'ui_event') || {}).data || {}).v;if(!event||typeof event!=='object')return;const rooms=((ctx.hostApi.readCrossModel(1018, 0, 0, 0, 'rooms_json') || {}).data || {}).v;const roomMembers=((ctx.hostApi.readCrossModel(1020, 0, 0, 0, 'room_members_json') || {}).data || {}).v;const roomTimelines=((ctx.hostApi.readCrossModel(1019, 0, 0, 0, 'room_timelines_json') || {}).data || {}).v;const roomList=Array.isArray(rooms)?rooms:[];const memberMap=roomMembers&&typeof roomMembers==='object'&&!Array.isArray(roomMembers)?roomMembers:{};const timelineMap=roomTimelines&&typeof roomTimelines==='object'&&!Array.isArray(roomTimelines)?roomTimelines:{};const toTimelineText=(items)=>Array.isArray(items)&&items.length>0?items.map((item)=>{const sender=String(item&&item.sender?item.sender:'system');const text=String(item&&item.text?item.text:'');return sender+': '+text;}).join('\\n'):'No messages yet';const toMemberSummary=(items)=>Array.isArray(items)&&items.length>0?items.map((item)=>{const name=String(item&&item.display_name?item.display_name:(item&&item.user_id?item.user_id:'unknown'));const userId=String(item&&item.user_id?item.user_id:'unknown');const presence=String(item&&item.presence?item.presence:'unknown');return name+' <'+userId+'> ('+presence+')';}).join('\\n'):'No members';const applyRoom=(roomId)=>{const fallbackRoom=roomId?{room_id:roomId,name:roomId,kind:'dm'}:(roomList[0]||{room_id:'!phase1-echo:localhost',name:'Phase 1 Echo Room',kind:'dm'});const room=roomList.find((item)=>item&&item.room_id===roomId)||fallbackRoom;const chosenId=String(room.room_id||roomId||'!phase1-echo:localhost');const chosenName=String(room.name||chosenId);const chosenKind=String(room.kind||'dm');const timeline=Array.isArray(timelineMap[chosenId])?timelineMap[chosenId]:[];const members=Array.isArray(memberMap[chosenId])?memberMap[chosenId]:[];ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'active_room_id', 'str', chosenId);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'active_room_name', 'str', chosenName);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'active_room_kind', 'str', chosenKind);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'timeline_json', 'json', timeline);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'timeline_text', 'str', toTimelineText(timeline));ctx.hostApi.writeCrossModel(1020, 0, 0, 0, 'active_room_id', 'str', chosenId);ctx.hostApi.writeCrossModel(1020, 0, 0, 0, 'active_room_name', 'str', chosenName);ctx.hostApi.writeCrossModel(1020, 0, 0, 0, 'active_room_kind', 'str', chosenKind);ctx.hostApi.writeCrossModel(1020, 0, 0, 0, 'active_members_json', 'json', members);ctx.hostApi.writeCrossModel(1020, 0, 0, 0, 'active_members_summary', 'str', toMemberSummary(members));ctx.hostApi.writeCrossModel(1021, 0, 0, 0, 'selected_room_id', 'str', chosenId);ctx.hostApi.writeCrossModel(1021, 0, 0, 0, 'selected_room_kind', 'str', chosenKind);return {roomId:chosenId,roomName:chosenName,roomKind:chosenKind};};const action=String(event.action||'submit');if(action==='select_room'){applyRoom(String(event.room_id||''));ctx.hostApi.writeCrossModel(1019, 0, 0, 2, 'ui_event', 'event', null);return;}if(action!=='submit'){ctx.hostApi.writeCrossModel(1019, 0, 0, 2, 'ui_event', 'event', null);return;}const authenticated=((ctx.hostApi.readCrossModel(1017, 0, 0, 0, 'session_authenticated') || {}).data || {}).v===true;const text=String(((ctx.hostApi.readCrossModel(1021, 0, 0, 0, 'composer_draft') || {}).data || {}).v||((ctx.hostApi.readCrossModel(1019, 0, 0, 0, 'message_draft') || {}).data || {}).v||'').trim();if(!authenticated){ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'login_required');ctx.hostApi.writeCrossModel(1019, 0, 0, 2, 'ui_event', 'event', null);return;}if(!text){ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'empty_message');ctx.hostApi.writeCrossModel(1019, 0, 0, 2, 'ui_event', 'event', null);return;}const currentRoom=applyRoom(String(((ctx.hostApi.readCrossModel(1019, 0, 0, 0, 'active_room_id') || {}).data || {}).v||''));const sender=String(((ctx.hostApi.readCrossModel(1017, 0, 0, 0, 'session_user_id') || {}).data || {}).v||'').trim();const submitPayload=[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.MatrixChatMessage'},{id:0,p:0,r:0,c:0,k:'room_id',t:'str',v:currentRoom.roomId},{id:0,p:0,r:0,c:0,k:'room_name',t:'str',v:currentRoom.roomName},{id:0,p:0,r:0,c:0,k:'room_kind',t:'str',v:currentRoom.roomKind},{id:0,p:0,r:0,c:0,k:'sender_user_id',t:'str',v:sender},{id:0,p:0,r:0,c:0,k:'message_text',t:'str',v:text}];ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'last_sent_text', 'str', text);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'submit_inflight', 'bool', true);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'loading');ctx.hostApi.writeCrossModel(1021, 0, 0, 0, 'composer_draft', 'str', '');ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'message_draft', 'str', '');const packet={version:'v1',type:'pin_payload',op_id:'matrix_phase2_'+Date.now(),source_model_id:1019,pin:'submit',payload:submitPayload,timestamp:Date.now()};const p=ctx.sendMatrix(packet);if(p&&typeof p.then==='function'){p.catch(function(){ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'submit_inflight', 'bool', false);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'send_failed');});}else if(!p){ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'submit_inflight', 'bool', false);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'matrix_unavailable');}ctx.hostApi.writeCrossModel(1019, 0, 0, 2, 'ui_event', 'event', null);",
         "modelName": "matrix_userline_phase2"
       }
     },
@@ -12855,23 +12862,6 @@
     },
     {
       "op": "add_label",
-      "model_id": 0,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "matrix_phase1_submit_wiring",
-      "t": "pin.connect.label",
-      "v": [
-        {
-          "from": "(self, matrix_phase1_submit_out)",
-          "to": [
-            "(func, forward_matrix_phase1_send_from_model0:in)"
-          ]
-        }
-      ]
-    },
-    {
-      "op": "add_label",
       "model_id": -10,
       "p": 0,
       "r": 0,
@@ -12879,7 +12869,7 @@
       "k": "forward_matrix_phase1_send_from_model0",
       "t": "func.js",
       "v": {
-        "code": "const payload=ctx.getLabel({model_id:0,p:0,r:0,c:0,k:'matrix_phase1_submit_out'});if(!Array.isArray(payload)||payload.length===0)return;const packet={version:'v1',type:'pin_payload',op_id:'matrix_phase1_'+Date.now(),source_model_id:1019,pin:'submit',payload,timestamp:Date.now()};const p=ctx.sendMatrix(packet);if(p&&typeof p.then==='function'){p.catch(function(){ctx.writeLabel({model_id:1019,p:0,r:0,c:0,k:'submit_inflight'},'bool',false);ctx.writeLabel({model_id:1019,p:0,r:0,c:0,k:'conversation_status'},'str','send_failed');});}else if(!p){ctx.writeLabel({model_id:1019,p:0,r:0,c:0,k:'submit_inflight'},'bool',false);ctx.writeLabel({model_id:1019,p:0,r:0,c:0,k:'conversation_status'},'str','matrix_unavailable');}ctx.writeLabel({model_id:0,p:0,r:0,c:0,k:'matrix_phase1_submit_out'},'pin.in',null);ctx.writeLabel({model_id:1019,p:0,r:0,c:0,k:'submit'},'pin.out',null);",
+        "code": "/* rubric: P4+P9+P10+P5 */ const payload=((ctx.hostApi.readCrossModel(0, 0, 0, 0, 'matrix_phase1_submit_out') || {}).data || {}).v;if(!Array.isArray(payload)||payload.length===0)return;const packet={version:'v1',type:'pin_payload',op_id:'matrix_phase1_'+Date.now(),source_model_id:1019,pin:'submit',payload,timestamp:Date.now()};const p=ctx.sendMatrix(packet);if(p&&typeof p.then==='function'){p.catch(function(){ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'submit_inflight', 'bool', false);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'send_failed');});}else if(!p){ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'submit_inflight', 'bool', false);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'matrix_unavailable');}ctx.hostApi.writeCrossModel(0, 0, 0, 0, 'matrix_phase1_submit_out', 'pin.in', null);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'submit', 'pin.out', null);",
         "modelName": "matrix_userline_phase1"
       }
     },
@@ -13880,6 +13870,21 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "bucket_c_cell_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [2, 4, 0, "mt_write_req"],
+          "to": [[0, 0, 0, "mt_write_in"]]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "ui_authoring_version",
       "t": "str",
       "v": "cellwise.ui.v1"
@@ -14311,7 +14316,7 @@
       "k": "handle_slide_import_click",
       "t": "func.js",
       "v": {
-        "code": "const event = label && label.v && typeof label.v === 'object' ? label.v : {};\nctx.writeLabel({ model_id: 1030, p: 0, r: 0, c: 0, k: 'slide_import_request' }, 'pin.out', { meta: event.meta || {}, target: { model_id: 1031, p: 0, r: 0, c: 0 } });",
+        "code": "/* rubric: P1 */ const event = label && label.v && typeof label.v === 'object' ? label.v : {};\nV1N.addLabel('mt_write_req', 'pin.in', { op: 'write', records: [{ p: 0, r: 0, c: 0, k: 'slide_import_request', t: 'pin.out', v: { meta: event.meta || {}, target: { model_id: 1031, p: 0, r: 0, c: 0 } } }] });",
         "modelName": "slide_import_button"
       }
     },
@@ -14710,6 +14715,21 @@
       "k": "source_worker",
       "t": "str",
       "v": "filltable-create"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "bucket_c_cell_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [2, 8, 0, "mt_write_req"],
+          "to": [[0, 0, 0, "mt_write_in"]]
+        }
+      ]
     },
     {
       "op": "add_label",
@@ -15531,7 +15551,7 @@
       "k": "handle_slide_create_click",
       "t": "func.js",
       "v": {
-        "code": "const event = label && label.v && typeof label.v === 'object' ? label.v : {};\nctx.writeLabel({ model_id: 1034, p: 0, r: 0, c: 0, k: 'slide_create_request' }, 'pin.out', { meta: event.meta || {}, target: { model_id: 1035, p: 0, r: 0, c: 0 } });",
+        "code": "/* rubric: P1 */ const event = label && label.v && typeof label.v === 'object' ? label.v : {};\nV1N.addLabel('mt_write_req', 'pin.in', { op: 'write', records: [{ p: 0, r: 0, c: 0, k: 'slide_create_request', t: 'pin.out', v: { meta: event.meta || {}, target: { model_id: 1035, p: 0, r: 0, c: 0 } } }] });",
         "modelName": "slide_creator_button"
       }
     },

@@ -2,7 +2,7 @@
 title: "0205 — orchestrator v1.1 Phase 3：完成态收口 + observability 清理"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-22
+updated: 2026-04-21
 source: ai
 iteration_id: 0205-orchestrator-observability-cleanup
 id: 0205-orchestrator-observability-cleanup

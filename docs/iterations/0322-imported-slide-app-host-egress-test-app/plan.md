@@ -1,12 +1,12 @@
 ---
 title: "0322 — imported-slide-app-host-egress-test-app Plan"
 doc_type: iteration-plan
-status: approved
-updated: 2026-04-16
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0322-imported-slide-app-host-egress-test-app
 id: 0322-imported-slide-app-host-egress-test-app
-phase: phase2
+phase: phase1
 ---
 
 # 0322 — imported-slide-app-host-egress-test-app Plan

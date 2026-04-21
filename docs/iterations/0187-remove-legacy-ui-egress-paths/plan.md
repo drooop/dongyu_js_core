@@ -2,7 +2,7 @@
 title: "0187 — Remove Legacy UI Egress Paths"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0187-remove-legacy-ui-egress-paths
 id: 0187-remove-legacy-ui-egress-paths

@@ -1,9 +1,12 @@
 ---
 title: "0322 — imported-slide-app-host-egress-test-app Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-04-20
+status: active
+updated: 2026-04-21
 source: ai
+iteration_id: 0322-imported-slide-app-host-egress-test-app
+id: 0322-imported-slide-app-host-egress-test-app
+phase: phase3
 ---
 
 # 0322 — imported-slide-app-host-egress-test-app Runlog

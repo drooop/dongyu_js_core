@@ -1,12 +1,12 @@
 ---
 title: "0304 — slide-runtime-scope-semantics-freeze Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-04-09
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0304-slide-runtime-scope-semantics-freeze
 id: 0304-slide-runtime-scope-semantics-freeze
-phase: phase4
+phase: phase1
 ---
 
 # 0304 — slide-runtime-scope-semantics-freeze Resolution

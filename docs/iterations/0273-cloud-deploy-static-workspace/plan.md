@@ -1,8 +1,8 @@
 ---
 title: "Iteration 0273-cloud-deploy-static-workspace Plan"
 doc_type: iteration-plan
-status: active
-updated: 2026-04-01
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0273-cloud-deploy-static-workspace
 id: 0273-cloud-deploy-static-workspace

@@ -1,12 +1,12 @@
 ---
 title: "0302 — slide-app-zip-import-v1 Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-04-08
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0302-slide-app-zip-import-v1
 id: 0302-slide-app-zip-import-v1
-phase: phase4
+phase: phase1
 ---
 
 # 0302 — slide-app-zip-import-v1 Resolution

@@ -1,8 +1,8 @@
 ---
 title: "Pin/Payload Contract Impact Inventory And Migration Draft"
-doc_type: plan
+doc_type: note
 status: active
-updated: 2026-04-06
+updated: 2026-04-21
 source: ai
 ---
 

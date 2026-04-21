@@ -1,12 +1,12 @@
 ---
 title: "0321 — imported-slide-app-host-ingress-implementation Plan"
 doc_type: iteration-plan
-status: approved
-updated: 2026-04-14
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0321-imported-slide-app-host-ingress-implementation
 id: 0321-imported-slide-app-host-ingress-implementation
-phase: phase2
+phase: phase1
 ---
 
 # 0321 — imported-slide-app-host-ingress-implementation Plan

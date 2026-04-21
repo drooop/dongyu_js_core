@@ -2,7 +2,7 @@
 title: "0306 — slide-pin-chain-routing-buildout Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-04-09
+updated: 2026-04-21
 source: ai
 iteration_id: 0306-slide-pin-chain-routing-buildout
 id: 0306-slide-pin-chain-routing-buildout

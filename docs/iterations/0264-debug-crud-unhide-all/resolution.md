@@ -1,8 +1,8 @@
 ---
 title: "Iteration 0264-debug-crud-unhide-all Resolution"
 doc_type: iteration-resolution
-status: active
-updated: 2026-03-30
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0264-debug-crud-unhide-all
 id: 0264-debug-crud-unhide-all

@@ -1,12 +1,12 @@
 ---
 title: "0315 — workspace-sidebar-name-width Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-04-13
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0315-workspace-sidebar-name-width
 id: 0315-workspace-sidebar-name-width
-phase: phase4
+phase: phase1
 ---
 
 # 0315 — workspace-sidebar-name-width Resolution

@@ -1,12 +1,12 @@
 ---
 title: "0307 — slide-executable-app-import-v1 Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-04-10
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0307-slide-executable-app-import-v1
 id: 0307-slide-executable-app-import-v1
-phase: phase4
+phase: phase3
 ---
 
 # 0307 — slide-executable-app-import-v1 Runlog

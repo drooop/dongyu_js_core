@@ -2,7 +2,7 @@
 title: "Color Generator Matrix 限流排查与最小改动验证（0137）"
 doc_type: note
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

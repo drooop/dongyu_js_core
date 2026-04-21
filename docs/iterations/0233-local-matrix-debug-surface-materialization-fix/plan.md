@@ -2,7 +2,7 @@
 title: "0233 — local-matrix-debug-surface-materialization-fix Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-25
+updated: 2026-04-21
 source: ai
 iteration_id: 0233-local-matrix-debug-surface-materialization-fix
 id: 0233-local-matrix-debug-surface-materialization-fix

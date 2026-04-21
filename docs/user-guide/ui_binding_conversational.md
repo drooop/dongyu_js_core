@@ -2,7 +2,7 @@
 title: "“数据双向绑定效果”是怎么来的：现状、边界与通往真实滑动 UI 的路"
 doc_type: user-guide
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

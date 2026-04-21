@@ -2,7 +2,7 @@
 title: "新版规约条文草案 v0.1：模型分层与 Cell 模型标签"
 doc_type: ssot
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

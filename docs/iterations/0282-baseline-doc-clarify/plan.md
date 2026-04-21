@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0282-baseline-doc-clarify Plan"
 doc_type: iteration-plan
-status: completed
-updated: 2026-04-03
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0282-baseline-doc-clarify
 id: 0282-baseline-doc-clarify
-phase: phase3
+phase: phase1
 ---
 
 # Iteration 0282-baseline-doc-clarify Plan

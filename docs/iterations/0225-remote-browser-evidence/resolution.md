@@ -2,7 +2,7 @@
 title: "0225 — remote-browser-evidence Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-24
+updated: 2026-04-21
 source: ai
 iteration_id: 0225-remote-browser-evidence
 id: 0225-remote-browser-evidence

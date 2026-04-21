@@ -1,12 +1,12 @@
 ---
 title: "0318 — static-wasm-mime-fix Resolution"
 doc_type: iteration-resolution
-status: completed
-updated: 2026-04-13
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0318-static-wasm-mime-fix
 id: 0318-static-wasm-mime-fix
-phase: phase4
+phase: phase1
 ---
 
 # 0318 — static-wasm-mime-fix Resolution

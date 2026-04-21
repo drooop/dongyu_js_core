@@ -1,8 +1,8 @@
 ---
 title: "Iteration 0265-local-deploy-and-debug-policy Resolution"
 doc_type: iteration-resolution
-status: active
-updated: 2026-03-30
+status: planned
+updated: 2026-04-21
 source: ai
 iteration_id: 0265-local-deploy-and-debug-policy
 id: 0265-local-deploy-and-debug-policy

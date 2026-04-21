@@ -1,8 +1,8 @@
 ---
 title: "0245 — scoped-privilege-runtime-and-regression Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-03-26
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0245-scoped-privilege-runtime-and-regression
 id: 0245-scoped-privilege-runtime-and-regression

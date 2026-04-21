@@ -2,7 +2,7 @@
 title: "0227 — orchestrator-ops-executor-bridge Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-24
+updated: 2026-04-21
 source: ai
 iteration_id: 0227-orchestrator-ops-executor-bridge
 id: 0227-orchestrator-ops-executor-bridge

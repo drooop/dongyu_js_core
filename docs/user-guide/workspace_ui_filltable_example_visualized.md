@@ -1,8 +1,8 @@
 ---
-title: "Workspace Doc Page Fill-Table Example — 可视化版"
+title: "Workspace 文档页面填表示例 — 可视化指南"
 doc_type: user-guide
 status: active
-updated: 2026-04-03
+updated: 2026-04-21
 source: ai
 based_on: docs/user-guide/doc_workspace_filltable_example.md
 ---

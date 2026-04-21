@@ -2,7 +2,7 @@
 title: "Fill-Table-Only Mode（显式强制模式）"
 doc_type: ssot
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

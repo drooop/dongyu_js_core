@@ -2,7 +2,7 @@
 title: "FillTable Capability Matrix"
 doc_type: user-guide
 status: active
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 ---
 

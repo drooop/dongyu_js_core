@@ -2,7 +2,7 @@
 title: "0245 — scoped-privilege-runtime-and-regression Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-26
+updated: 2026-04-21
 source: ai
 iteration_id: 0245-scoped-privilege-runtime-and-regression
 id: 0245-scoped-privilege-runtime-and-regression

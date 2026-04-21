@@ -2,7 +2,7 @@
 title: "0284 — matrix-userline-phase2 Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-04-08
+updated: 2026-04-21
 source: ai
 iteration_id: 0284-matrix-userline-phase2
 id: 0284-matrix-userline-phase2

@@ -2,7 +2,7 @@
 title: "Iteration 0198-ui-side-worker-tier2-rebase Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0198-ui-side-worker-tier2-rebase
 id: 0198-ui-side-worker-tier2-rebase

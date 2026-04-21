@@ -2,7 +2,7 @@
 title: "0310 — slide-frontend-pin-addressing-freeze Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-04-09
+updated: 2026-04-21
 source: ai
 iteration_id: 0310-slide-frontend-pin-addressing-freeze
 id: 0310-slide-frontend-pin-addressing-freeze

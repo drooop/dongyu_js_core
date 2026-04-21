@@ -2,7 +2,7 @@
 title: "0257 — hard-cut-legacy-path-deletion Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-27
+updated: 2026-04-21
 source: ai
 iteration_id: 0257-hard-cut-legacy-path-deletion
 id: 0257-hard-cut-legacy-path-deletion

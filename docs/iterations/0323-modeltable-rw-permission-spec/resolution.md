@@ -1,10 +1,13 @@
 ---
-title: "0323 — Resolution: 文档修改步骤"
+title: "0323 — Resolution"
 doc_type: iteration-resolution
-status: completed
+status: planned
 created: 2026-04-17
-updated: 2026-04-17
+updated: 2026-04-21
 source: ai
+iteration_id: 0323-modeltable-rw-permission-spec
+id: 0323-modeltable-rw-permission-spec
+phase: phase1
 ---
 
 # 0323 — Resolution

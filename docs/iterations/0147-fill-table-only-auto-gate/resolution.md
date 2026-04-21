@@ -2,7 +2,7 @@
 title: "0147 — Resolution (HOW)"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0147-fill-table-only-auto-gate
 id: 0147-fill-table-only-auto-gate

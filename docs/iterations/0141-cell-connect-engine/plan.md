@@ -2,7 +2,7 @@
 title: "0141 — CELL_CONNECT Parser + cell_connection Router + AsyncFunction Engine"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0141-cell-connect-engine
 id: 0141-cell-connect-engine

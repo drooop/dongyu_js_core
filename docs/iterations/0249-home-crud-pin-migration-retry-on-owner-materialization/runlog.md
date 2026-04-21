@@ -1,8 +1,8 @@
 ---
 title: "0249 — home-crud-pin-migration-retry-on-owner-materialization Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-03-27
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0249-home-crud-pin-migration-retry-on-owner-materialization
 id: 0249-home-crud-pin-migration-retry-on-owner-materialization

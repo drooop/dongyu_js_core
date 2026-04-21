@@ -2,7 +2,7 @@
 title: "0210 — ui-cellwise-contract-freeze Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-22
+updated: 2026-04-21
 source: ai
 iteration_id: 0210-ui-cellwise-contract-freeze
 id: 0210-ui-cellwise-contract-freeze

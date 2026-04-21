@@ -2,7 +2,7 @@
 title: "0204 — Resolution (HOW)"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-22
+updated: 2026-04-21
 source: ai
 iteration_id: 0204-escalation-rules-engine
 id: 0204-escalation-rules-engine

@@ -1,8 +1,8 @@
 ---
 title: "Imported Slide App Host Ingress Implementation Plan"
-doc_type: plan
+doc_type: note
 status: active
-updated: 2026-04-14
+updated: 2026-04-21
 source: ai
 ---
 

@@ -2,7 +2,7 @@
 title: "0288 — slide-ui-phaseA-topology-freeze Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-04-05
+updated: 2026-04-21
 source: ai
 iteration_id: 0288-slide-ui-phaseA-topology-freeze
 id: 0288-slide-ui-phaseA-topology-freeze

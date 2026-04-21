@@ -2,7 +2,7 @@
 title: "0239 — local-home-selector-model0-fix Plan"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-26
+updated: 2026-04-21
 source: ai
 iteration_id: 0239-local-home-selector-model0-fix
 id: 0239-local-home-selector-model0-fix

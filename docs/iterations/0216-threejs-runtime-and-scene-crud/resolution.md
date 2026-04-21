@@ -2,7 +2,7 @@
 title: "0216 — threejs-runtime-and-scene-crud Resolution"
 doc_type: iteration-resolution
 status: planned
-updated: 2026-03-23
+updated: 2026-04-21
 source: ai
 iteration_id: 0216-threejs-runtime-and-scene-crud
 id: 0216-threejs-runtime-and-scene-crud

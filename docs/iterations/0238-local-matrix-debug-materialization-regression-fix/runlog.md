@@ -1,8 +1,8 @@
 ---
 title: "0238 — local-matrix-debug-materialization-regression-fix Runlog"
 doc_type: iteration-runlog
-status: completed
-updated: 2026-03-26
+status: active
+updated: 2026-04-21
 source: ai
 iteration_id: 0238-local-matrix-debug-materialization-regression-fix
 id: 0238-local-matrix-debug-materialization-regression-fix

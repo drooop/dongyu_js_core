@@ -2,7 +2,7 @@
 title: "0174 — 本地 / 远端项目地址记录"
 doc_type: iteration-plan
 status: planned
-updated: 2026-03-21
+updated: 2026-04-21
 source: ai
 iteration_id: 0174-project-address-record
 id: 0174-project-address-record
