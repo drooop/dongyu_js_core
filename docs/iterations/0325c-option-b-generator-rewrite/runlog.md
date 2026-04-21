@@ -43,7 +43,7 @@ phase: phase1
 - Review Type: User + Sub-agent
 - Review Index: 1
 - Decision: pending
-- Notes: 本迭代作为 0325 / 0325b 的完成补齐；phase2 gate 由 sub-agent review 确认 phase1 docs 合规后即可进 phase3
+- Notes: 本迭代作为 0325 / 0325b 的完成补齐；phase1 docs 经 sub-agent review 给出意见，phase2 Approve 与否由 user 最终裁决
 
 ## Execution Records
 

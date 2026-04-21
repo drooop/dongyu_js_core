@@ -17,7 +17,7 @@ phase: phase1
 - 范围聚焦于**两类 runtime-ctx 消费者**：
   - **server.mjs 代码生成器产物**：`ensureGenericOwnerMaterializer` / `ensureHomeOwnerMaterializer` 生成的 owner_materialize func.js code（在 target model (0,0,0) root）
   - **system-models JSON 种的 legacy forward funcs**：`forward_workspace_filltable_submit_from_model0` / `forward_matrix_phase1_send_from_model0` / `forward_model100_submit_from_model0` 等在 Model 0 (0,0,0) root
-- **Bucket C 路径实装**：`handle_slide_import_click` / `handle_slide_create_click` 等非 root self-model cross-cell handler 通过 `V1N.addLabel('mt_write_req', 'pin.in', ...)` + 本模型 root 加 shared `root_routes` pin.connect.cell 聚合 wiring
+- **Bucket C 路径实装**：`handle_slide_import_click` / `handle_slide_create_click` 等非 root self-model cross-cell handler 通过 `V1N.addLabel('mt_write_req', 'pin.in', ...)` + 本模型 root 加 shared `bucket_c_cell_routes` pin.connect.cell 聚合 wiring（label name 避开与 `deploy/sys-v1ns/remote-worker/patches/*.json` 既有 `root_routes`.t=`pin.connect.label` 冲突）
 - 目标：恢复 0321/0322 server_flow 回归 PASS，使 0325 + 0325b + 0325c 可作为一组整体 merge 到 dev，维持"无兼容层 + 同 PR 整体达成"原则。
 
 ## Scope
@@ -29,7 +29,7 @@ phase: phase1
     - `buildImportedHostEgressForwardCode` (行 1589-1609) — **确认**仅 programEngine 路径触发（0322 design）；本迭代不改，但 runlog 记录 dual-route 防御为 future follow-up
   - `packages/worker-base/system-models/workspace_positive_models.json`:
     - legacy forward funcs 3 处（在 Model 0 (0,0,0) root）→ V1N.table 版本
-    - `handle_slide_import_click` + `handle_slide_create_click` + 其他 Bucket C 非 root handler → V1N.addLabel('mt_write_req', ...) + root 级 shared `root_routes` 聚合
+    - `handle_slide_import_click` + `handle_slide_create_click` + 其他 Bucket C 非 root handler → V1N.addLabel('mt_write_req', ...) + root 级 shared `bucket_c_cell_routes` 聚合
   - 新增 `scripts/tests/test_0325c_generator_rewrite.mjs` 契约 + 回归测试
 - Out of scope:
   - Bucket D/F/G handler 大规模迁移（保持 0325b Step 4 延后 0326 的裁决；本迭代不改这批）
@@ -43,24 +43,32 @@ phase: phase1
   - V1N API 形状保持 (k, t, v) / (k) / (p, r, c, k) 单签名不变
   - 迁移单位 = func body（不做 per-call 局部替换）
 - **纯 Tier 2 数据 + 生成代码迁移**：runtime.mjs **不触碰**
-- **handle_slide_import_click 等 Bucket C handler**：移至 `V1N.addLabel('mt_write_req', ...)` 路径；同时在本模型 root 统一加**一个** `root_routes` pin.connect.cell label（若已存在则追加 entry，不声明独立 label）
+- **handle_slide_import_click 等 Bucket C handler**：移至 `V1N.addLabel('mt_write_req', ...)` 路径；同时在本模型 root 统一加**一个** `bucket_c_cell_routes` pin.connect.cell label（label name 选定为 `bucket_c_cell_routes` 避免与 remote-worker patches 既有 `root_routes`.t=`pin.connect.label` 重名；若本模型 root 已存在同名 `bucket_c_cell_routes` 则追加 entry，不声明独立 label）
 - **owner_materialize 生成 code**：因 runs at target (0,0,0) root，直接用 `V1N.table.addLabel(p, r, c, k, t, v)` 版本；**不使用 V1N.addLabel**（owner_materialize 业务就是跨 cell 写）
-- **Legacy forward funcs** `forward_*` 在 Model 0 (0,0,0) root：
-  - 需要 `ctx.sendMatrix` — 只在 programEngine ctx 可用；**需评估其触发路径**
-  - 若仍被 runtime pin.connect.label 触发（dual-route）且同时走 programEngine，则保持 code 兼容两侧（即用 ctx.writeLabel 的版本也用 V1N.table 等价替代；Matrix 发送通过单独路径或延后 0326）
+- **Legacy forward funcs** `forward_*` 在 Model 0 (0,0,0) root 的 `ctx.sendMatrix` 迁移策略（committed；phase3 不得再调整）：
+  - **不允许扩展 V1N API**（纯 Tier 2 约束，runtime.mjs 不触）
+  - phase3 Step 3 对每个 forward 按触发路径 grep 分类并落一票到下述三种之一：
+    1. **runtime-only**：该 forward 仅被 `pin.connect.label` 触发，从未进 programEngine → code 迁至 V1N.addLabel/V1N.table.addLabel，**删除 `ctx.sendMatrix` 调用**（该路径下本就无消费者），不留兼容
+    2. **programEngine-only**：该 forward 仅被 programEngine tick 触发 → code 保留原样（包含 `ctx.sendMatrix`），**本迭代不 touch**；若其所在 cell 仍挂有 runtime pin.connect.label 触发，**移除该 trigger 以断掉 runtime 入口**
+    3. **dual-route**（runtime + programEngine 并存）→ **拆成两个 func.js label**：
+       - runtime body (`forward_*_rt`)：V1N 写 + mt_bus_send_req（如 Matrix publish 必须）排入本 cell，后续 0326 mt_bus_send 处理
+       - programEngine body (`forward_*_pe`)：保留 `ctx.sendMatrix`
+       - 原 label 名根据当前触发方归一；不为兼容保留旧 code，直接重写
 - **完成门**：0321/0322 server_flow 回归 PASS；全量 ctx.* grep 在 packages/worker-base/ + packages/ui-model-demo-server/ （除 legacy.json）返回 0（只允许 programEngine 专属路径里的 ctx.*）
 
 ## Success Criteria
 
 1. `ensureGenericOwnerMaterializer` + `ensureHomeOwnerMaterializer` 生成的 code 不含 `ctx.writeLabel/getLabel/rmLabel`；使用 V1N.table.addLabel/removeLabel + V1N.readLabel
 2. workspace_positive_models.json 的 3 个 legacy forward funcs（`forward_workspace_filltable_submit_from_model0` / `forward_matrix_phase1_send_from_model0` / `forward_model100_submit_from_model0`）在 pin.connect.label runtime 触发路径下无 throw（code 迁移到 V1N.table 或同时提供 Matrix send 新路径）
-3. `handle_slide_import_click` 和至少 1 个类似 Bucket C handler 已迁移到 mt_write_req 路径；对应模型 root 存在聚合 `root_routes` pin.connect.cell label
+3. `handle_slide_import_click` 和至少 1 个类似 Bucket C handler 已迁移到 mt_write_req 路径；对应模型 root 存在聚合 `bucket_c_cell_routes` pin.connect.cell label（label name 与 remote-worker patches 里既有 `root_routes`.t=`pin.connect.label` 不冲突）
 4. 新 `test_0325c_generator_rewrite.mjs` 覆盖：
    - owner_materialize 生成 code 实际 seed 并可执行（使用 V1N.table）
    - handle_slide_import_click 新路径触发 → 观察 (0,0,0) `slide_import_request` 被 mt_write 写入
 5. 0321/0322 server_flow 回归 PASS（原 FAIL 由本迭代修复）
 6. 0324 / 0325 已 PASS 的 21+ 测试仍 PASS
-7. `grep -rn "ctx\.writeLabel\|ctx\.getLabel\|ctx\.rmLabel" packages/worker-base/system-models/ packages/ui-model-demo-server/server.mjs` 除 programEngine 专属代码（server.mjs:3042-3080 的 programEngine ctx 构造 + buildImportedHostEgressForwardCode 因 programEngine-only 保留）外返回 0
+7. `grep -rn "ctx\.writeLabel\|ctx\.getLabel\|ctx\.rmLabel" packages/worker-base/system-models/ packages/ui-model-demo-server/server.mjs` 除以下两处 programEngine 专属代码外返回 0：
+   - `packages/ui-model-demo-server/server.mjs:3042-3080`（programEngine ctx 构造，programEngine 注入点）
+   - `packages/ui-model-demo-server/server.mjs:1589-1609`（`buildImportedHostEgressForwardCode`，只被 programEngine 路径装载的 forward 生成函数体）
 8. `obsidian_docs_audit` PASS
 
 ## Inputs
