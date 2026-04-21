@@ -5207,7 +5207,9 @@ function createServerState(options) {
     const payload = envelope && envelope.payload ? envelope.payload : null;
     const action = payload && typeof payload.action === 'string' ? payload.action : '';
     const pin = payload && typeof payload.pin === 'string' ? payload.pin.trim() : '';
-    const meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : null;
+    const meta = payload && payload.meta && typeof payload.meta === 'object'
+      ? payload.meta
+      : (envelope && envelope.meta && typeof envelope.meta === 'object' ? envelope.meta : null);
     const opId = meta && typeof meta.op_id === 'string' ? meta.op_id : '';
 
     if (envelopeOrNull) {
@@ -5224,8 +5226,6 @@ function createServerState(options) {
         payload: ep,
       });
     }
-
-    setMailboxEnvelope(runtime, HOME_PIN_ACTIONS.has(action) ? null : envelopeOrNull);
 
     const finishOk = async (extra = {}) => {
       runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
@@ -5254,6 +5254,45 @@ function createServerState(options) {
       updateDerived();
       return { consumed: true, result: 'error', code, detail };
     };
+
+    const isLegacyUiEventShape = Boolean(
+      envelopeOrNull
+      && envelopeOrNull.type === 'ui_event'
+      && payload
+      && typeof payload === 'object'
+    );
+    const isUiEventV2 = Boolean(
+      envelopeOrNull
+      && envelopeOrNull.type === 'ui_event_v2'
+      && typeof envelopeOrNull.bus_in_key === 'string'
+    );
+
+    if (isLegacyUiEventShape) {
+      return finishError('legacy_ui_event_shape', 'payload_envelope_retired');
+    }
+
+    if (isUiEventV2) {
+      const busInKey = String(envelopeOrNull.bus_in_key || '').trim();
+      const allowedBusInKeys = new Set(['ui_submit', 'ui_click', 'ui_input', 'ui_edit']);
+      if (!allowedBusInKeys.has(busInKey)) {
+        return finishError('invalid_bus_in_key', busInKey || 'missing_bus_in_key');
+      }
+      if (!runtime.isRunLoopActive()) {
+        return finishError('runtime_not_running', 'model_id=0');
+      }
+      const model0 = runtime.getModel(0);
+      if (!model0) {
+        return finishError('invalid_target', 'missing_model0');
+      }
+      runtime.addLabel(model0, 0, 0, 0, {
+        k: busInKey,
+        t: 'pin.bus.in',
+        v: envelopeOrNull.value ?? null,
+      });
+      return finishOk({ routed_by: 'model0_busin' });
+    }
+
+    setMailboxEnvelope(runtime, HOME_PIN_ACTIONS.has(action) ? null : envelopeOrNull);
 
     const readCellLabel = (modelId, p, r, c, k) => {
       const model = runtime.getModel(modelId);
