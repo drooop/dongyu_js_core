@@ -22,7 +22,7 @@ source: ai
 ```
 ┌──────────┐      HTTP         ┌──────────────┐     Matrix (dy.bus.v0)    ┌────────────┐
 │  滑动 UI  │ ──────────────→  │  UI Server    │ ←─────────────────────→  │ MBR Worker │
-│ (Vue3)   │  POST /ui_event  │  (Bun)        │   管理总线：事件转发      │ (Node.js)  │
+│ (Vue3)   │ POST /bus_event  │  (Bun)        │   管理总线：事件转发      │ (Node.js)  │
 └──────────┘  GET  /snapshot   └──────────────┘   心跳、snapshot_delta    └─────┬──────┘
                                                                                │
                                                                          MQTT (mt.v0)
@@ -50,18 +50,18 @@ source: ai
 ```
 Model 0 (系统根 — 不是用户直接操作的模型)
 ├── 系统子模型（负数 ID）
-│   ├── Model -1   editor_mailbox
+│   ├── Model -1   compat/status mailbox
 │   ├── Model -2   editor_state
 │   └── Model -10  运行时配置（MQTT topic 等）
 ├── 应用子模型（正数 ID）
 │   ├── Model 100  test_color_form（颜色生成器示例）
 │   ├── Model 1010 DAM Worker（你的资产管理模型）
 │   └── ...
-└── BUS_IN / BUS_OUT — MQTT 的唯一外部入口/出口
+└── pin.bus.in / pin.bus.out — MQTT 的唯一外部入口/出口
 ```
 
 关键点：
-- MQTT 消息**只能**通过 Model 0 的 BUS_IN 进入系统，不能直接写任意 Cell
+- MQTT 消息**只能**通过 Model 0 的 `pin.bus.in` 进入系统，不能直接写任意 Cell
 - 用户操作的是应用子模型，不直接操作 Model 0
 - 正数/负数模型使用同一套父子机制
 - 对 imported slide app，当前也开始采用宿主自动生成的 `Model 0` ingress route：
@@ -88,8 +88,8 @@ Model 0 (系统根 — 不是用户直接操作的模型)
 
 | 层级 | Type | 用途 | 位置限制 |
 |------|------|------|----------|
-| 系统边界 | `BUS_IN` | MQTT 入站端口（全系统唯一入口） | 仅 Model 0 的 (0,0,0) |
-| 系统边界 | `BUS_OUT` | MQTT 出站端口（全系统唯一出口） | 仅 Model 0 的 (0,0,0) |
+| 系统边界 | `pin.bus.in` | MQTT 入站端口（全系统唯一入口） | 仅 Model 0 的 (0,0,0) |
+| 系统边界 | `pin.bus.out` | MQTT 出站端口（全系统唯一出口） | 仅 Model 0 的 (0,0,0) |
 | 模型边界 | `MODEL_IN` | 从父模型接收数据 | 子模型的 (0,0,0) |
 | 模型边界 | `MODEL_OUT` | 向父模型回传数据 | 子模型的 (0,0,0) |
 | 模型路由 | `cell_connection` | Cell 间路由表 | 各模型的 (0,0,0) |
@@ -129,7 +129,7 @@ Model 0 (系统根 — 不是用户直接操作的模型)
 | 范围 | 用途 |
 |------|------|
 | `< 0` | 软件工人系统级能力层（含 mailbox/state/support 与内置系统级应用） |
-| `0` | 系统根/中间层模型（BUS_IN/OUT、root routing、bootstrap config） |
+| `0` | 系统根/中间层模型（`pin.bus.in/out`、root routing、bootstrap config） |
 | `> 0` | 用户创建模型 |
 
 ---
@@ -169,20 +169,20 @@ Model 0 (系统根 — 不是用户直接操作的模型)
 
 这是 DAM Worker 开发中最重要的概念。数据从外部 MQTT 到达你的程序模型，经过三层显式声明的路由。
 
-### 4.1 Layer 1: 系统边界 — BUS_IN / BUS_OUT
+### 4.1 Layer 1: 系统边界 — pin.bus.in / pin.bus.out
 
 MQTT 与系统内部的唯一接口，位于 Model 0 的 (0,0,0)。
 
 ```json
 // Model 0 (0,0,0) 上的 label
-{ "k": "dam_register", "t": "BUS_IN", "v": null }
-{ "k": "dam_result",   "t": "BUS_OUT", "v": null }
+{ "k": "dam_register", "t": "pin.bus.in", "v": null }
+{ "k": "dam_result",   "t": "pin.bus.out", "v": null }
 ```
 
-- `BUS_IN.k` = 本地端口名（如 `dam_register`），运行时从 Model -10 读配置，拼接完整 MQTT topic
-- MQTT 消息到达时，运行时写入 `BUS_IN.v`
-- 写入 `BUS_OUT.v` 时，运行时自动拼接 topic 后发布到 MQTT
-- **你不需要手动处理 MQTT topic 构造**，只需声明 BUS_IN/OUT 端口名
+- `pin.bus.in.k` = 本地端口名（如 `dam_register`），运行时从 Model -10 读配置，拼接完整 MQTT topic
+- MQTT 消息到达时，运行时写入 `pin.bus.in.v`
+- 写入 `pin.bus.out.v` 时，运行时自动拼接 topic 后发布到 MQTT
+- **你不需要手动处理 MQTT topic 构造**，只需声明 `pin.bus.in` / `pin.bus.out` 端口名
 
 ### 4.2 Layer 2: 模型内路由 — cell_connection
 
@@ -240,7 +240,7 @@ MQTT 与系统内部的唯一接口，位于 Model 0 的 (0,0,0)。
 ### 4.5 数据流全路径
 
 ```
-MQTT 消息 → BUS_IN → cell_connection → PIN_IN → CELL_CONNECT → function → CELL_CONNECT → PIN_OUT → cell_connection → BUS_OUT → MQTT
+MQTT 消息 → `pin.bus.in` → cell_connection → PIN_IN → CELL_CONNECT → function → CELL_CONNECT → PIN_OUT → cell_connection → `pin.bus.out` → MQTT
 ```
 
 每一跳都有显式声明，可在 ModelTable 中追踪完整路径。
@@ -264,7 +264,7 @@ UIPUT/{dir}/{ws}/{dam}/{pic}/{de}/{sw}/{model}/{pin}
 | ⑧ | model | 模型 ID |
 | ⑨ | pin | PIN 名称（不含方向后缀） |
 
-**你不需要手动构造 topic。** 运行时从 Model -10 的配置中读取 ws/dam/pic/de/sw 各层值，加上 BUS_IN/OUT 的端口名，自动拼接完整 topic。
+**你不需要手动构造 topic。** 运行时从 Model -10 的配置中读取 ws/dam/pic/de/sw 各层值，加上 `pin.bus.in/out` 的端口名，自动拼接完整 topic。
 
 ### 5.2 通配符
 
@@ -281,7 +281,7 @@ UIPUT/{dir}/{ws}/{dam}/{pic}/{de}/{sw}/{model}/{pin}
 ① 前端上传文件到 Matrix → 获得 mxc:// URI
 
 ② 前端通过 UI 触发注册命令
-   POST /ui_event → Server → Matrix Room → MBR Worker
+   POST /bus_event（legacy `/ui_event` alias）→ Server → Matrix Room → MBR Worker
 
 ③ MBR 构造 mt.v0 patch:
    records = [
@@ -293,7 +293,7 @@ UIPUT/{dir}/{ws}/{dam}/{pic}/{de}/{sw}/{model}/{pin}
    ]
 
 ④ MBR 发布到 MQTT → topic 由运行时配置决定
-   → 到达 Model 0 的 BUS_IN(k="dam_register")
+   → 到达 Model 0 的 `pin.bus.in(k="dam_register")`
 
 ⑤ Model 0 的 cell_connection 路由:
    (0,0,0,"dam_register") → (2,0,0,"register_cmd")
@@ -309,7 +309,7 @@ UIPUT/{dir}/{ws}/{dam}/{pic}/{de}/{sw}/{model}/{pin}
 ⑦ CELL_CONNECT 路由函数输出:
    (func, handle_register:out) → (self, register_result)
 
-⑧ cell_connection 路由到 BUS_OUT:
+⑧ cell_connection 路由到 `pin.bus.out`:
    (2,0,0,"register_result") → (0,0,0,"dam_result")
    运行时发布到 MQTT
 
@@ -393,7 +393,7 @@ DAM 只关心: mxc://server/mediaId（文件的稳定引用地址）
 **注册资产：**
 
 ```json
-// MBR 通过 BUS_IN 发送到系统，records 写入请求 Cell (1010, 1, 0, 0)
+// MBR 通过 `pin.bus.in` 发送到系统，records 写入请求 Cell (1010, 1, 0, 0)
 {
   "version": "mt.v0",
   "op_id": "reg_1770535046849",
@@ -415,7 +415,7 @@ DAM 只关心: mxc://server/mediaId（文件的稳定引用地址）
 **DAM 响应：**
 
 ```json
-// 通过 BUS_OUT 回传到 MQTT
+// 通过 `pin.bus.out` 回传到 MQTT
 {
   "version": "mt.v0",
   "op_id": "reg_ack_1770535046850",
@@ -458,7 +458,7 @@ if (!rt.getModel(-10)) {
 }
 
 // 4. 启动 MQTT 连接
-//    运行时自动根据 BUS_IN/OUT 声明订阅/发布对应 topic
+//    运行时自动根据 `pin.bus.in/out` 声明订阅/发布对应 topic
 rt.startMqttLoop({
   transport: 'real',
   host: 'host.docker.internal',
@@ -471,7 +471,7 @@ rt.startMqttLoop({
 
 // 5. 加载 DAM 模型定义
 //    - create_model
-//    - BUS_IN/OUT 声明 → 自动订阅 MQTT
+//    - `pin.bus.in/out` 声明 → 自动订阅 MQTT
 //    - cell_connection 路由
 //    - CELL_CONNECT 连线
 //    - function 编译
@@ -479,7 +479,7 @@ const patch = JSON.parse(fs.readFileSync('path/to/dam_model.json', 'utf8'));
 rt.applyPatch(patch, { allowCreateModel: true });
 
 // 6. 运行时自动处理：
-//    MQTT 入站 → BUS_IN → cell_connection → CELL_CONNECT → function → ... → BUS_OUT → MQTT 出站
+//    MQTT 入站 → `pin.bus.in` → cell_connection → CELL_CONNECT → function → ... → `pin.bus.out` → MQTT 出站
 ```
 
 ---
@@ -508,13 +508,13 @@ MBR Worker（`scripts/run_worker_mbr_v0.mjs`）负责 Matrix ↔ MQTT 桥接：
 
 1. **选定 Model ID**（1000~1999 段，如 `1010`）
 
-2. **在 Model 0 声明 BUS_IN/OUT**
+2. **在 Model 0 声明 `pin.bus.in` / `pin.bus.out`**
    - 为 DAM 的每个外部接口声明入站/出站端口
-   - 如：`BUS_IN(k="dam_register")`、`BUS_OUT(k="dam_result")`
+   - 如：`pin.bus.in(k="dam_register")`、`pin.bus.out(k="dam_result")`
 
 3. **编写 Model 0 的 cell_connection**
-   - 路由 BUS_IN 端口到 DAM 的 hosting cell
-   - 路由 DAM 的输出端口到 BUS_OUT
+   - 路由 `pin.bus.in` 端口到 DAM 的 hosting cell
+   - 路由 DAM 的输出端口到 `pin.bus.out`
 
 4. **编写 DAM 模型 JSON**
    - `create_model`（model_id = 1010）

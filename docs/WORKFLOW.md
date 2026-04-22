@@ -112,6 +112,14 @@ Review Gate Record
 - `docs/ITERATIONS.md` 状态更新为 Completed（并填写最终分支/commit）。
 - 关键资产（截图/性能数据）如有必须归档在 `assets/`。
 
+### Superseded 状态
+
+- `Superseded` / `Superseded-by-<id>` 表示该 iteration 的历史记录仍保留，但 current truth 已由后续 iteration 接管。
+- 与 `Completed` 的区别：
+  - `Completed`：该 iteration 的交付仍然是当前有效结果。
+  - `Superseded-by-<id>`：该 iteration 的交付已被 `<id>` 覆盖；保留它只是为了审计链路。
+- `docs/ITERATIONS.md` 可直接使用 `Superseded` 或 `Superseded-by-<id>` 作为状态展示值。
+
 ---
 
 ## Documentation Maintenance（必须执行）

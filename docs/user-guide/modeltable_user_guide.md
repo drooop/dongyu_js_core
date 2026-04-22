@@ -29,7 +29,7 @@ source: ai
 
 ## 2. Reserved Models (System)
 - `model_id = 0`：root / intermediate layer / system boundary；当前规范要求 `Model 0 (0,0,0)` 显式持有 `model.table`
-- `model_id = -1`：editor_mailbox（UI event mailbox）
+- `model_id = -1`：legacy/compat bus-event mailbox + status surface（不是 current frontend/server first ingress）
 - `model_id = -2`：editor_state（UI 控件状态）
 - `model_id = -100`：Matrix debug / bus trace observable state + Workspace debug surface；只允许承载调试投影、trace 摘要与安全操作结果，不得作为 business truth
 - 其他负数 model_id 为软件工人系统级能力层；其绝对值越大，越偏向内置系统级应用层；用户不得创建/写入
@@ -68,11 +68,11 @@ source: ai
 使用时只记三条：
 - `parent` 挂载：child model 必须通过父模型 hosting cell 上的 `model.submt` 进入层级，UI 读取 child 的真实 Cell/label。
 - `matrix` 挂载：matrix 根先声明 `model.matrix`，child 仍通过显式 `model.submt` hosting cell 进入矩阵层级，且坐标映射必须明确。
-- 需要正式写入 child 时，父模型只能通过 child 暴露出来的 pin/API 发送 request；最终 label 落盘必须由 child 自己的 owner materialize / helper 执行。
+- 需要正式写入 child 时，父模型只能通过 child 暴露出来的 pin/API 发送 request；最终 label 落盘必须由 child 自己的 owner materialize / 默认三程序执行。
 - legacy UI AST 可以暂时被 inventory / resolver / docs 提及，但不能再被当作新页面或新挂载的正式输入面。
-- 当前默认 helper scaffold：
-  - 新建正数模型后，系统会在 `(0,1,0)` 预置一个 reserved helper cell
-  - 该 cell 负责 same-model owner materialization，不是业务展示位
+- 当前默认 root scaffold：
+  - 新建 `model.table` 后，系统会在 `(0,0,0)` seed `mt_write` / `mt_bus_receive` / `mt_bus_send`
+  - `(0,1,0)` helper scaffold 对 `model.table` 已退役；仅历史 `model.single` 场景仍可能见到
 
 ## 2.3 Workspace Parent-Mounted ThreeScene (0216)
 
@@ -87,7 +87,7 @@ source: ai
 
 - `ThreeScene` 只读 snapshot / label refs，把 child truth 投影成浏览器 3D scene。
 - 浏览器端 mesh / camera / renderer 只是 host cache，不是 business truth。
-- CRUD 真正写表时，必须走 `ui_event -> intent_dispatch_table -> handle_three_scene_* -> Model 1008/1007 labels`。
+- CRUD 真正写表时，必须走 `bus_event_v2 -> Model 0 pin.bus.in -> intent_dispatch_table / pin-chain -> handle_three_scene_* -> Model 1008/1007 labels`。
 - local mode 必须明确返回 `unsupported / three_scene_remote_only`，不能偷偷复制第二套本地 CRUD 逻辑。
 
 ## 2.4 Workspace Slide App Built-ins (0289 / 0290 / 0302)
@@ -124,15 +124,15 @@ source: ai
   - `ui_root_node_id`
 - 新增 `slide_surface_type` 枚举值时，必须先更新现行规约，再进入实现。
 
-## 3. User Input (Mailbox)
-UI 只能写 event mailbox：`model_id=-1 Cell(0,0,1) k=ui_event t=event`。
-Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。
+## 3. User Input (Bus Event)
+frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0 (0,0,0)` 的 `pin.bus.in`。
+事件 envelope 仍必须包含 `op_id`（用于审计/去重）。
 
 补充：
 
-- mailbox 只是前端事件入口，不是长期业务路由本体。
-- mailbox 之后的“事件 -> 合法 pin ingress / routing”解释属于 Tier 1 runtime。
-- `server` 只负责 envelope 适配、mailbox 写入与 snapshot / transport；不应长期持有独立正式事件语义。
+- `Model -1 (0,0,1)` mailbox 只保留 compat/status 角色，不再是 current frontend/server 第一落点。
+- `Model 0 pin.bus.in -> pin.connect.model -> child mt_bus_receive` 的解释属于 Tier 1 runtime。
+- `server` 只负责 envelope 适配、bus-event transport 与 snapshot / transport；不应长期持有独立正式事件语义。
 - 对需要落到“当前模型 / 当前单元格”的业务动作，前端事件 envelope 应显式携带：
   - `target.model_id`
   - `target.p`
@@ -144,7 +144,7 @@ Mailbox 的 envelope 必须包含 `op_id`（用于审计/去重）。
 - 也就是说，前端最终不再用 `action` 表达“要做什么”，而是直接表达“把值送到这个 cell 的哪个 pin”
 - 兼容期可继续保留 `meta.model_id`，但它不再是唯一目标来源。
 - 当前 built-in submit 已启用 target-based ingress：
-  - runtime 会把 `submit + target` 映射为 `Model 0` 上的一个 ingress key
+  - runtime 会把 `submit + target` 映射为 `Model 0 pin.bus.in` 上的一个 ingress key
   - 然后再按 `pin.connect.model` 进入目标模型
 - 当前 slide/workspace 系统动作也已启用同一方向的 runtime ingress：
   - `slide_app_import`
@@ -426,7 +426,7 @@ TargetRef 结构（Cell-owned）：
   - 若同时声明 `trigger_funcs`，runtime 会在该次入站写入后产出 `run_func` intercept（由 engine 执行）。
   - 当 `v` 是 legacy-string（或无效对象）时，回退到 legacy mailbox（`p=0,r=1,c=1`）写入 `t=IN`。
 - PIN_OUT：
-  - 当前仍走 legacy mailbox：写入 `t=OUT` 到 pin mailbox 后由 runtime publish。
+  - 当前 current path 走 `pin.bus.out`；旧 mailbox publish 只保留历史兼容说明。
   - payload 为 ModelTablePatch 时按 patch 直发；否则按 legacy envelope 发送。
 
 ### 5.3 示例（A/B/C）
