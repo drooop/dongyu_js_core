@@ -13,6 +13,7 @@ RUN bun install
 
 # Copy worker-base runtime code only
 COPY packages/worker-base/src/ ./packages/worker-base/src/
+COPY packages/worker-base/system-models/ ./packages/worker-base/system-models/
 
 # Copy fill-table bootstrap script + engine (loadSystemPatch dependency)
 COPY scripts/run_worker_remote_v1.mjs ./scripts/
