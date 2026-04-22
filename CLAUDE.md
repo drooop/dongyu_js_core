@@ -21,7 +21,7 @@ HARD_RULES
 - iteration must exist in docs/ITERATIONS.md before any work starts.
 - all side effects via add_label / rm_label only. no bypass.
 - UI is projection of ModelTable. never truth source.
-- UI events write mailbox only (model_id=-1, cell 0,0,1).
+- UI business events enter via Model 0 (0,0,0) pin.bus.in.
 - init and runtime use identical interpretation rules.
 - hidden platform/policy/helper capabilities default to negative model_id system models.
 - do not place non-user-facing helper workers into positive models just to avoid tier1 work.
@@ -132,7 +132,7 @@ FORBIDDEN
 - phase3 without Approved gate
 - unregistered iteration work
 - side effects outside add_label / rm_label
-- UI direct bus connection (must go through mailbox)
+- UI direct bus connection (must go through Model 0 pin.bus.in)
 - external MQTT writing to arbitrary cells (must go through pin.bus.in on Model 0)
 - using legacy connection types: label_connection, trigger_funcs, function_PIN_IN/OUT (use CELL_CONNECT)
 - using DEPRECATED / historical label types in new models
@@ -278,8 +278,8 @@ ARCH_INVARIANTS
 - application-layer = positive model_id user-created models; system-level = negative model_id software-worker capability layers.
 - Model 0 = system root / intermediate layer. system boundary ports live here.
 - every model except Model 0 MUST be explicitly mounted into the hierarchy via model.submt, including bootstrap children such as -1 and 1.
-- single external entry: BUS_IN/BUS_OUT on Model 0 (0,0,0) = only MQTT interface. no direct cell writes from external.
-- 3-layer connection (no skip): BUS_IN/OUT (system boundary) → cell_connection (inter-cell routing) → CELL_CONNECT (intra-cell wiring)
+- single external entry: pin.bus.in/pin.bus.out on Model 0 (0,0,0) = only MQTT interface. no direct cell writes from external.
+- 3-layer connection (no skip): pin.bus.in/out (system boundary) → cell_connection (inter-cell routing) → CELL_CONNECT (intra-cell wiring)
 - CELL_CONNECT = unified connection table. replaces: label_connection, trigger_funcs, function_PIN_IN/OUT.
 - program model: function label, v = JS code string, compiled to AsyncFunction at init. ctx = runtime execution context (system-level); user program API face = V1N namespace (0323).
 - fill-table-first: new capabilities MUST be implemented by filling models (JSON patches) before considering runtime code changes.
@@ -357,7 +357,8 @@ allocation rules (authoritative):
                  the only model with system boundary ports. never holds user business logic.
                  Model 0 (0,0,0) MUST explicitly carry model.table.
 
-  Model -1       system capability layer: UI event mailbox. Cell(0,0,1) receives ui_event envelopes.
+  Model -1       system capability layer: legacy/compat bus-event mailbox + status surface.
+                 Cell(0,0,1) remains reserved for compat/status observation only; it is NOT the current frontend/server first ingress.
 
   Model -2       system capability layer: editor/home UI state projection model.
                  ui filters, draft fields, dialog/detail visibility, and page-local status live here.
@@ -424,8 +425,8 @@ violation: using an unregistered model_id range → must register in this sectio
 cell position conventions:
   (0,0,0)  root cell. routing declarations, config labels, pin boundary ports.
   (1,0,0)  processing cell (typical). pin.connect.label wiring, function execution.
-  (0,0,1)  reserved: legacy PIN registry (DEPRECATED). UI mailbox (Model -1 only).
-  (0,1,1)  reserved: legacy PIN mailbox (DEPRECATED). do not use.
+  (0,0,1)  reserved: legacy PIN registry / compat mailbox slot (DEPRECATED). only Model -1 may still use it for compat/status.
+  (0,1,1)  reserved: legacy PIN mailbox (DEPRECATED). historical only; do not use.
 
 
 PIN_SYSTEM
