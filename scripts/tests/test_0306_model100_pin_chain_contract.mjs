@@ -39,8 +39,8 @@ function test_model0_declares_model100_submit_ingress_route() {
   assert.ok(route, 'model100_submit_ingress_route_missing');
   assert.deepEqual(
     route.v,
-    [{ from: [0, 'ui_event_submit_100_0_0_0'], to: [[100, 'submit_request']] }],
-    'model100_submit_ingress_route_must_bind_model0_submit_event_to_model100_submit_request',
+    [{ from: [0, 'bus_event_submit_100_0_0_0'], to: [[100, 'submit_request']] }],
+    'model100_submit_ingress_route_must_bind_model0_bus_event_submit_to_model100_submit_request',
   );
   return { key: 'model0_declares_model100_submit_ingress_route', status: 'PASS' };
 }
@@ -51,7 +51,9 @@ function test_system_model_declares_prepare_model100_submit_from_pin() {
   const fn = findRecord(records, (record) => record?.model_id === -10 && record?.k === 'prepare_model100_submit_from_pin' && record?.t === 'func.js');
   assert.ok(fn, 'prepare_model100_submit_from_pin_missing');
   assert.match(String(fn.v?.code || ''), /label\.v/, 'prepare_model100_submit_from_pin_must_read_from_pin_label_payload');
-  assert.match(String(fn.v?.code || ''), /ctx\.writeLabel\(\{ model_id: 100, p: 0, r: 0, c: 0, k: 'submit' \}/, 'prepare_model100_submit_from_pin_must_write_model100_submit_pin_out');
+  assert.doesNotMatch(String(fn.v?.code || ''), /ctx\.getLabel|ctx\.writeLabel/, 'prepare_model100_submit_from_pin_must_not_use_legacy_ctx_label_api');
+  assert.match(String(fn.v?.code || ''), /V1N\.readLabel\(/, 'prepare_model100_submit_from_pin_must_read_submit_state_via_v1n');
+  assert.match(String(fn.v?.code || ''), /writeRoot\('submit',\s*'pin\.out'/, 'prepare_model100_submit_from_pin_must_write_model100_submit_pin_out_via_v1n_table');
   return { key: 'system_model_declares_prepare_model100_submit_from_pin', status: 'PASS' };
 }
 
