@@ -470,7 +470,12 @@ function validateEditorEventMailboxOnly(renderer, calls) {
   assert(Number.isInteger(label.v.event_id), 'Editor event_id must be integer');
   assert(label.v.event_id === 1, 'Editor event_id must start at 1 in test run');
   assert(label.v.payload && label.v.payload.action === 'label_add', 'Editor payload.action mismatch');
-  assert(label.v.payload.meta && label.v.payload.meta.op_id === 'op_1', 'Editor payload.meta.op_id mismatch');
+  assert(
+    label.v.payload.meta
+      && typeof label.v.payload.meta.op_id === 'string'
+      && /^op_\d+_\d+_[0-9a-f]+$/.test(label.v.payload.meta.op_id),
+    'Editor payload.meta.op_id mismatch',
+  );
   assert(label.v.payload.target && label.v.payload.target.model_id === 1, 'Editor payload.target missing');
 
   assert(calls.length === 1, 'Editor expected add only');

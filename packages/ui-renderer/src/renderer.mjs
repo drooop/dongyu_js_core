@@ -2,6 +2,7 @@ import registryRaw from './component_registry_v1.json';
 
 let eventCounter = 0;
 let editorEventCounter = 0;
+let editorOpNonce = 0;
 const DEFAULT_REGISTRY = registryRaw && registryRaw.components
   ? registryRaw
   : { version: 'ui.component_registry.v1', components: {} };
@@ -194,6 +195,11 @@ function nextEditorEventId() {
   return editorEventCounter;
 }
 
+function nextEditorOpId() {
+  editorOpNonce += 1;
+  return `op_${Date.now()}_${editorOpNonce}_${Math.random().toString(16).slice(2, 8)}`;
+}
+
 function normalizeEvent(node, target, payload, overrideType) {
   const type = overrideType || target.event_type || 'event';
   return {
@@ -207,7 +213,7 @@ function normalizeEvent(node, target, payload, overrideType) {
 
 function normalizeEditorEvent(payload) {
   const event_id = nextEditorEventId();
-  const op_id = `op_${event_id}`;
+  const op_id = nextEditorOpId();
   const body = { action: payload.action };
   if (payload.target !== undefined) {
     body.target = payload.target;
@@ -227,7 +233,7 @@ function normalizeEditorEvent(payload) {
 
 function normalizeEditorPinEvent(payload) {
   const event_id = nextEditorEventId();
-  const op_id = `op_${event_id}`;
+  const op_id = nextEditorOpId();
   const body = {
     target: payload.target,
     pin: payload.pin,

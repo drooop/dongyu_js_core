@@ -5209,6 +5209,7 @@ function createServerState(options) {
 
   function setLastBusEventOpId(next) {
     lastBusEventOpId = typeof next === 'string' ? next : '';
+    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 1, BUS_EVENT_LAST_OP_KEY, 'str', lastBusEventOpId);
   }
 
   function getLastBusEventOpId() {
@@ -5217,6 +5218,7 @@ function createServerState(options) {
 
   function setBusEventErrorValue(next) {
     busEventErrorValue = next ?? null;
+    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 1, BUS_EVENT_ERROR_KEY, 'json', busEventErrorValue);
   }
 
   function getBusEventErrorValue() {
