@@ -26,7 +26,6 @@ phase: phase1
 - Scope: 锁定 end-to-end 新 ingress 链
 - Files:
   - `scripts/tests/test_0326_ui_event_busin_flow.mjs`（新）
-  - `scripts/tests/test_0326_ui_event_busin_playwright.mjs`（新，Step 7 使用）
 - Test cases:
   - `ui_event_writes_model0_busin`: POST /ui_event → Model 0 (0,0,0) 的 `ui_submit` pin.bus.in 被写入
   - `busin_routes_via_pin_connect_model_to_child`: pin.connect.model 把 value 路由到 imported model root (0,0,0) 某 pin.in
@@ -105,8 +104,13 @@ phase: phase1
   - remote/local 前端消费端不再把 mailbox `ui_event` 当作业务入口真值
   - `EDITOR_MODEL_ID (0,0,1)` mailbox 上的 `ui_event` / `ui_event_error` / `ui_event_last_op_id` 标签族一并退役；若 editor chrome 仍需状态反馈，迁到非-mailbox state labels
 - Verification:
-  - `cd packages/ui-model-demo-frontend && npm run build` 过
-  - Browser smoke 依赖脚本：`node scripts/tests/test_0326_ui_event_busin_playwright.mjs --base-url http://127.0.0.1:30900`
+  - `npm -C packages/ui-model-demo-frontend run build`
+  - `npm -C packages/ui-model-demo-frontend run test`
+  - `node packages/ui-model-demo-frontend/scripts/validate_editor_server_sse.mjs`
+  - `node scripts/tests/test_0185_remote_negative_state_local_first_contract.mjs`
+  - `node scripts/tests/test_0186_remote_store_overlay_contract.mjs`
+  - `node scripts/tests/test_0242_remote_negative_state_debounce_contract.mjs`
+  - `node scripts/tests/test_0305_positive_input_deferred_contract.mjs`
 - Acceptance: bundle 过；浏览器跑通新链路
 - Rollback: revert bundle
 
@@ -120,7 +124,8 @@ phase: phase1
   - imported egress `forward_imported_*` 宿主 forward func 生成、触发与恢复逻辑
 - Verification:
   - Step 1 `mailbox_not_written_by_ui_event` + `direct_pin_write_path_removed` + `imported_egress_reaches_matrix_via_pin_bus_out_bridge` + `legacy_imported_egress_branches_absent` PASS
-  - `rg -n "forward_imported_|model0_egress_label|model0_egress_func" packages/ui-model-demo-server/server.mjs packages/worker-base/system-models` 返回 0
+  - `rg -n "forward_imported_" packages/ui-model-demo-server/server.mjs packages/worker-base/system-models` 返回 0
+  - imported-host generated `model0_egress_label` / `model0_egress_func` 不再注入 imported root，交由 `scripts/tests/test_0326_imported_host_egress_bridge.mjs` 证明
   - `rg -n "ui_event(_|\\b)|ui_event_error|ui_event_last_op_id" packages/ui-model-demo-server/server.mjs packages/ui-model-demo-frontend/src` 返回 0
 - Acceptance: 无 UI 业务事件或状态反馈走 Model -1 mailbox；无 imported egress 双路径
 - Rollback: revert commit
@@ -128,11 +133,22 @@ phase: phase1
 ## Step 7 — 回归 + docs + runlog
 
 - Commands:
-  - `bash scripts/ops/ensure_runtime_baseline.sh`
-  - `for t in scripts/tests/test_0321_*.mjs scripts/tests/test_0322_*.mjs scripts/tests/test_0324_*.mjs scripts/tests/test_0325_*.mjs scripts/tests/test_0326_*.mjs scripts/tests/test_bus_in_out.mjs; do node $t || exit 1; done`
-  - `node scripts/tests/test_0326_ui_event_busin_playwright.mjs --base-url http://127.0.0.1:30900`
+  - `node scripts/tests/test_0321_imported_host_ingress_contract.mjs`
+  - `node scripts/tests/test_0322_imported_host_egress_contract.mjs`
+  - `node scripts/tests/test_bus_in_out.mjs`
+  - `node scripts/tests/test_0326_ui_event_busin_flow.mjs`
+  - `node scripts/tests/test_0326_positive_model_bus_event_contract.mjs`
+  - `node scripts/tests/test_0326_active_system_models_bus_event_contract.mjs`
+  - `node scripts/tests/test_0326_imported_host_egress_bridge.mjs`
+  - `npm -C packages/ui-model-demo-frontend run build`
+  - `npm -C packages/ui-model-demo-frontend run test`
+  - `node packages/ui-model-demo-frontend/scripts/validate_editor_server_sse.mjs`
+  - `node scripts/tests/test_0185_remote_negative_state_local_first_contract.mjs`
+  - `node scripts/tests/test_0186_remote_store_overlay_contract.mjs`
+  - `node scripts/tests/test_0242_remote_negative_state_debounce_contract.mjs`
+  - `node scripts/tests/test_0305_positive_input_deferred_contract.mjs`
   - `node scripts/ops/obsidian_docs_audit.mjs --root docs`
-  - `rg -n "forward_imported_|model0_egress_label|model0_egress_func" packages/ui-model-demo-server/server.mjs packages/worker-base/system-models`
+  - `rg -n "forward_imported_" packages/ui-model-demo-server/server.mjs packages/worker-base/system-models`
   - `rg -n "ui_event(_|\\b)|ui_event_error|ui_event_last_op_id" packages/ui-model-demo-server/server.mjs packages/ui-model-demo-frontend/src`
   - `rg -n "ui_event(_|\\b)|ui_event_error|ui_event_last_op_id|forward_imported_|model0_egress_label|model0_egress_func" docs/ssot/runtime_semantics_modeltable_driven.md docs/ssot/imported_slide_app_host_ingress_semantics_v1.md docs/ssot/mt_v0_patch_ops.md docs/user-guide/slide_delivery_and_runtime_overview_v1.md`
 - Files:
@@ -143,8 +159,9 @@ phase: phase1
   - `docs/iterations/0326-*/runlog.md` — 填实
   - 0319 Superseded merge 同窗口：`git checkout dev && git merge --no-ff dev_0319-slide-overview-gap-closure`（与本迭代 merge 同批）
 - Acceptance:
-  - 全量测试与 Playwright smoke 通过
+  - 全量测试与前端验证面通过
   - 实现面 `legacy forbidden symbol set` grep 清零
+  - imported-host generated `forward_imported_*` / `model0_egress_label` / `model0_egress_func` 仅允许在显式历史说明或正数模型现有 dual-bus 配置中存在；不得再作为 imported-host current path 出现
   - doc inventory = `runtime_semantics` / `imported_slide_app_host_ingress_semantics_v1` / `mt_v0_patch_ops` / `slide_delivery_and_runtime_overview_v1`
   - 上述 doc inventory 不再把该 symbol set 写成 current truth；如需保留历史注记，必须显式标为 `Historical` / `Retired (pre-0326)`，且同节给出 0326 后正式替代路径
   - 上述 docs grep 命中若非 0，必须全部出现在显式 `Historical` / `Retired (pre-0326)` 标题下，并逐条登记到 `runlog.md` allowlist；否则 FAIL

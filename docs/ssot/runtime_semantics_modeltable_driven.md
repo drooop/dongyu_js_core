@@ -340,7 +340,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - 不允许的用法：
   - observer 不得在回调里同步写 label（会造成重入记录）——必须延后到 microtask / tick。
   - observer 不得抛出未捕获异常；record 已做本地 catch，但 tier 2 代码仍应自己保证幂等。
-- 与 `_executeFuncViaCellConnect` ctx 的区别：ctx 只暴露 `publishMqtt`，不含 `sendMatrix`。Matrix 发送、intercept dispatch、跨 tick 调度属 tier 2 `programEngine.executeFunction` ctx 的职责；任何需要 Matrix 的函数必须通过 programEngine 路径触发（例如 imported app host egress 的 `forward_imported_*_from_model0_*`），不得在 runtime pin.connect.label 直接触发的 func 里使用 `ctx.sendMatrix`。
+- 与 `_executeFuncViaCellConnect` ctx 的区别：ctx 只暴露 `publishMqtt`，不含 `sendMatrix`。Matrix 发送、intercept dispatch、跨 tick 调度属 tier 2 `ProgramModelEngine` 的职责；任何需要 Matrix 的路径必须经 `pin.bus.out` + programEngine bridge，不得在 runtime pin.connect.label 直接触发的 func 里使用 `ctx.sendMatrix`。
 
 ### 5.2g Bootstrap 加载顺序（0142/0177，0323 增补）
 
@@ -537,50 +537,47 @@ TargetRef 结构：
 
 ---
 
-## 9. 用户输入（Mailbox）
+## 9. 用户输入（Bus Event, 0326）
 
-用户输入通过 event mailbox 进入运行时（派生规范，详见合同）：
-- Mailbox 位置：`model_id=-1 Cell(0,0,1)`
-- Label: `ui_event` / `ui_event_error` / `ui_event_last_op_id`
-- 事件 envelope 必须带 `op_id`（审计/去重必需）
-- Mailbox 只是事件入口，不是长期业务分发语义本身。
+0326 之后，前端 / server 的正式业务事件 current truth 为：
 
-事件入口的 Tier 归属冻结如下：
+- 浏览器 / server current path 只提交 `type = bus_event_v2`
+- `/bus_event` 是正式入口；`/ui_event` 仍可作为显式兼容 URL alias 接受同一份 `bus_event_v2` body，但不构成独立协议
+- `Model 0 (0,0,0)` 是唯一正式 ingress
+- 事件值写入 `k=<bus_in_key> t=pin.bus.in`
+- `pin.connect.model` 把事件送到目标子模型 root `pin.in`
+- 子模型 `(0,0,0)` 的 `mt_bus_receive` 再把 payload 分发到目标 cell / target pin
 
-- “event mailbox -> 合法 pin ingress / routing” 的解释属于 Tier 1 runtime 语义。
+冻结点：
+
+- 合法 `bus_in_key` 仅：
+  - `ui_submit`
+  - `ui_click`
+  - `ui_input`
+  - `ui_edit`
+- unknown key 必须拒绝，返回结构化错误
+- legacy `type = ui_event` envelope 在当前 server ingress 会被显式拒绝，不再是 current truth
+
+Tier 归属：
+
+- `Model 0 pin.bus.in -> pin.connect.model -> child mt_bus_receive` 属于 Tier 1 runtime 语义
 - `server` / `frontend` 只负责：
-  - envelope 适配
-  - mailbox write
-  - snapshot / transport
-- `server` 层若保留 mailbox / `dual_bus_model` 快捷触发，只能视为迁移债务，不是长期规范。
+  - `bus_event_v2` envelope 适配
+  - HTTP transport / snapshot
+  - 不得再把业务事件 first landing 到 `model_id=-1`
 
-当前 `0306` 的正式内置实现分两类：
+Historical / Retired (pre-0326):
 
-- target 型事件：
-  - `payload.action = "submit"`
-  - `payload.target` 必须带完整 `model_id / p / r / c`
-  - runtime 派生 ingress key：`ui_event_<action>_<model_id>_<p>_<r>_<c>`
-  - 当前 built-in `Model 100` 的 key 为：
-    - `ui_event_submit_100_0_0_0`
-- system action 型事件：
-  - 当前已迁移：
-    - `slide_app_import`
-    - `slide_app_create`
-    - `ws_app_add`
-    - `ws_app_delete`
-    - `ws_select_app`
-    - `ws_app_select`
-  - runtime 派生 ingress key：`ui_event_<action>`
+- `model_id=-1 Cell(0,0,1)` mailbox `ui_event / ui_event_error / ui_event_last_op_id`
+- `ui_event_<action>` 派生 ingress key
+- direct positive-model `(0,0,2) ui_event`
+- direct server `run_func` / direct positive-model `ui_event` fallback
 
-统一规则：
+Compatibility note:
 
-- runtime 会把标准化后的事件值写到：
-  - `Model 0 (0,0,0) k=<derived-key> t=pin.bus.in`
-- 若 `Model 0` 上存在对应的 `pin.connect.model` 路由，该事件即进入合法 pin-chain。
-- 对 `0306` 已迁移的 slide/workspace 动作：
-  - 缺少对应 route 时，必须报 `route_missing`
-  - 不再允许回退到 server 的 direct `run_func` / direct positive-model `ui_event`
-- 其他未迁移动作仍可能保留 legacy shortcut；它们属于后续收口债务，不构成新的正式规范。
+- runtime / legacy positive-model flows 中仍可能保留 `ui_event` 相关内部兼容点；它们不是 0326 frontend/server current path，后续收口须以具体 flow/entrypoint 为单位处理
+
+这些旧路径仅可作为历史说明出现，不再构成正式规范。
 
 ### 3.0.2 Imported Slide App Host Ingress (0321 MVP)
 
@@ -657,7 +654,7 @@ TargetRef 结构：
   - `session_vars: object`
 
 语义规则：
-- 认知更新通过系统函数 `update_scene_context` 执行，触发来源为 `event_trigger_map.ui_event`。
+- 认知更新通过系统函数 `update_scene_context` 执行，触发来源为 `event_trigger_map.bus_event`。
 - `scene_context` 属于系统上下文，不承载业务主数据，不替代业务模型真值。
 - 认知函数失败不应阻断后续 forward/dispatch；失败须写可观测错误（如 `mgmt_func_error`）。
 
@@ -693,7 +690,7 @@ TargetRef 结构：
 
 0187 补充：
 - legacy `mailbox -> forward_ui_events -> ctx.sendMatrix(...)` 通路已退役。
-- `ui_event` 从 mailbox 出发时，不再存在“默认 direct Matrix forward” 兜底。
+- `bus_event` 从 mailbox/compat 层出发时，不再存在“默认 direct Matrix forward” 兜底。
 - 当前 UI 外发 authority 只允许通过显式接线最终到达 Model 0 `pin.bus.out` 的路径。
 
 ### 7.4 Local-First Egress Authority（0181, approved target contract）

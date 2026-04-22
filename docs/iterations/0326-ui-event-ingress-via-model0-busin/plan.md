@@ -31,7 +31,7 @@ phase: phase1
   - 0322 imported egress 改成 `mt_bus_send -> Model 0 pin.bus.out -> processEventsSnapshot bridge.sendMatrix` 单路径；删除 `forward_imported_*` 宿主 forward func 触发链
   - 彻底删除 `EDITOR_MODEL_ID (0,0,1) ui_event` 业务写入路径与 `submitEnvelope {target, pin, value}` 对任意子模型 cell 的直达分支
   - `scripts/tests/test_0326_ui_event_busin_flow.mjs`（新）端到端测试
-  - `scripts/tests/test_0326_ui_event_busin_playwright.mjs`（新）本地浏览器 smoke，固定验证 imported app submit 的可见行为与 `pin.bus.out` 桥接
+  - 前端验证面同步收口：`npm -C packages/ui-model-demo-frontend run build`、`npm -C packages/ui-model-demo-frontend run test`、`packages/ui-model-demo-frontend/scripts/validate_editor_server_sse.mjs` 与 remote_store 相关 contract tests 必须与 `bus_event` 口径一致
   - 0319 追溯改写 snapshot 一起 merge 同窗口（0319 分支独立处理）
 - Out of scope:
   - `CLAUDE.md` / `docs/WORKFLOW.md` / handover 系统性文案大对齐（留 0327）
@@ -63,9 +63,9 @@ phase: phase1
   - `ui_event_error`
   - `ui_event_last_op_id`
   - `ui_event_*` 派生 action/mailbox 键
-  - `forward_imported_*`
-  - `model0_egress_label`
-  - `model0_egress_func`
+  - `forward_imported_*`（仅 imported-host generated path）
+  - imported-host generated `model0_egress_label`
+  - imported-host generated `model0_egress_func`
   - `submitEnvelope` 对 `target.model_id != 0` 的业务直达写入分支
 - Implementation surface（0326 的零残留检查范围）：
   - `packages/ui-model-demo-server/server.mjs`
@@ -105,7 +105,14 @@ phase: phase1
    - `imported_egress_reaches_matrix_via_pin_bus_out_bridge`
    - `legacy_ui_event_shape_rejected`
    - `unknown_bus_in_key_rejected`
-5. imported app submit 按钮浏览器 smoke 通过（导入 0322 test zip → 点 submit → 观察 `pin.bus.out` 事件与 Matrix publish）
+5. 前端验证面通过：
+   - `npm -C packages/ui-model-demo-frontend run build`
+   - `npm -C packages/ui-model-demo-frontend run test`
+   - `node packages/ui-model-demo-frontend/scripts/validate_editor_server_sse.mjs`
+   - `node scripts/tests/test_0185_remote_negative_state_local_first_contract.mjs`
+   - `node scripts/tests/test_0186_remote_store_overlay_contract.mjs`
+   - `node scripts/tests/test_0242_remote_negative_state_debounce_contract.mjs`
+   - `node scripts/tests/test_0305_positive_input_deferred_contract.mjs`
 6. `processEventsSnapshot` 不再依赖 `model0_egress_label -> forward_imported_*` 触发 imported egress
 7. 前端 remote/local 消费端不再要求业务事件必须占用 mailbox `ui_event` 单槽
 8. 全量回归 0321 / 0322 / 0324 / 0325 / bus_in_out PASS

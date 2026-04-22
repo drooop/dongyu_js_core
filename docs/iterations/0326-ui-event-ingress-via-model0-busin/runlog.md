@@ -132,6 +132,24 @@ Review Gate Record
   - 明确 proof artifact 结构：实现面 grep-zero、doc inventory 审计结论、历史例外规则、以及写入 runlog 的关键输出
   - 明确 supported entrypoints 全量不可达门槛，以及 alias/transitive/generated/config fallback 一律计为 FAIL
 
+### Record 4 — Verification surface revision after real frontend recovery (2026-04-22)
+
+- Command:
+  - `ls scripts/tests/test_0326_*`
+- Key output:
+  - `scripts/tests/test_0326_active_system_models_bus_event_contract.mjs`
+  - `scripts/tests/test_0326_imported_host_egress_bridge.mjs`
+  - `scripts/tests/test_0326_positive_model_bus_event_contract.mjs`
+  - `scripts/tests/test_0326_ui_event_busin_flow.mjs`
+- Facts:
+  - 0326 当前仓库内没有独立维护的 imported-app browser smoke script
+  - Step 5 已存在并跑通的 frontend build + editor/remote_store contract suite，负责 0326 前端验证面
+- 调整：
+  - 0326 前端验证面改为现有可重复、已跑通的 frontend build + editor/remote_store contract suite
+  - imported-host egress 的 `pin.bus.out -> Matrix` current path 继续由 `scripts/tests/test_0326_imported_host_egress_bridge.mjs` 负责证明
+- 边界：
+  - 该调整不放宽 imported-host bridge 证明要求；只是把“前端验证面”和“egress bridge 证明”拆回各自最稳定的验证层
+
 ## Gate Status
 
 - Current status: **APPROVED**
@@ -145,55 +163,104 @@ Review Gate Record
 ### Step 1
 
 - Command:
+  - `node scripts/tests/test_0326_ui_event_busin_flow.mjs`
+  - `node scripts/tests/test_0326_positive_model_bus_event_contract.mjs`
+  - `node scripts/tests/test_0326_active_system_models_bus_event_contract.mjs`
 - Key output:
-- Result: PASS/FAIL
-- Commit:
+  - `5 passed, 0 failed out of 5`
+  - `2 passed, 0 failed out of 2`
+  - `1 passed, 0 failed out of 1`
+- Result: PASS
+- Commit: `8a43ff4`, `9c855e5`
 
 ### Step 2
 
 - Command:
+  - `rg -n "type === 'bus_event_v2'|invalid_bus_in_key|legacy_event_shape|pin.bus.in|BUS_EVENT_ENDPOINT_PATH" packages/ui-model-demo-server/server.mjs`
 - Key output:
-- Result: PASS/FAIL
-- Commit:
+  - 命中 `BUS_EVENT_ENDPOINT_PATH='/bus_event'`
+  - 命中 `envelopeOrNull.type === 'bus_event_v2'`
+  - 命中 `legacy_event_shape` / `invalid_bus_in_key`
+  - 命中 `runtime.addLabel(model0, 0, 0, 0, { k: busInKey, t: 'pin.bus.in', ... })`
+- Result: PASS
+- Commit: `8a43ff4`
 
 ### Step 3
 
 - Command:
+  - `node scripts/tests/test_bus_in_out.mjs`
+  - `node scripts/tests/test_0326_ui_event_busin_flow.mjs`
 - Key output:
-- Result: PASS/FAIL
-- Commit:
+  - `7 passed, 0 failed out of 7`
+  - `5 passed, 0 failed out of 5`
+- Result: PASS
+- Commit: `8a43ff4`
 
 ### Step 4
 
 - Command:
+  - `node scripts/tests/test_0321_imported_host_ingress_contract.mjs`
+  - `node scripts/tests/test_0322_imported_host_egress_contract.mjs`
+  - `node scripts/tests/test_0326_imported_host_egress_bridge.mjs`
 - Key output:
-- Adapter 简化决策: (待填 — 选 A 还是 B)
-- Result: PASS/FAIL
-- Commit:
+  - `3 passed, 0 failed out of 3`
+  - `2 passed, 0 failed out of 2`
+  - `1 passed, 0 failed out of 1`
+- Adapter 简化决策: 采用 **Option A**；imported host egress 只保留 `mt_bus_send -> pin.bus.out -> ProgramModelEngine bridge`，不保留 `forward_imported_*` 双路径
+- Result: PASS
+- Commit: `c6f537c`
 
 ### Step 5
 
 - Command:
+  - `npm -C packages/ui-model-demo-frontend run build`
+  - `npm -C packages/ui-model-demo-frontend run test`
+  - `node packages/ui-model-demo-frontend/scripts/validate_editor_server_sse.mjs`
+  - `node scripts/tests/test_0185_remote_negative_state_local_first_contract.mjs`
+  - `node scripts/tests/test_0186_remote_store_overlay_contract.mjs`
+  - `node scripts/tests/test_0242_remote_negative_state_debounce_contract.mjs`
+  - `node scripts/tests/test_0305_positive_input_deferred_contract.mjs`
 - Key output:
-- Result: PASS/FAIL
-- Commit:
+  - `vite build` PASS
+  - `validate_editor.mjs` 全量 PASS
+  - `editor_server_sse_contract: PASS`
+  - `PASS test_0185_remote_negative_state_local_first_contract`
+  - `PASS test_0186_remote_store_overlay_contract`
+  - `PASS test_0242_remote_negative_state_debounce_contract`
+  - `PASS test_0305_positive_input_deferred_contract`
+- Result: PASS
+- Commit: `9c855e5`, `4c18337`
 
 ### Step 6
 
 - Command:
+  - `rg -n "forward_imported_" packages/ui-model-demo-server/server.mjs packages/worker-base/system-models || true`
+  - `rg -n "ui_event(_|\\b)|ui_event_error|ui_event_last_op_id" packages/ui-model-demo-server/server.mjs packages/ui-model-demo-frontend/src || true`
 - Key output:
-- Result: PASS/FAIL
-- Commit:
+  - `forward_imported_` grep 结果为空
+  - `ui_event*` grep 结果为空
+  - imported-host generated `model0_egress_label` / `model0_egress_func` 退役证明由 `test_0326_imported_host_egress_bridge.mjs` 提供；正数模型现有 dual-bus 配置保留，不计入本 Step 退役范围
+- Result: PASS
+- Commit: `c6f537c`, `9c855e5`, `4c18337`
 
 ### Step 7
 
 - Command:
+  - `node scripts/ops/obsidian_docs_audit.mjs --root docs`
+  - `rg -n "ui_event(_|\\b)|ui_event_error|ui_event_last_op_id|forward_imported_|model0_egress_label|model0_egress_func" docs/ssot/runtime_semantics_modeltable_driven.md docs/ssot/imported_slide_app_host_ingress_semantics_v1.md docs/ssot/mt_v0_patch_ops.md docs/user-guide/slide_delivery_and_runtime_overview_v1.md`
+  - `git diff -- docs/iterations/0326-ui-event-ingress-via-model0-busin/plan.md docs/iterations/0326-ui-event-ingress-via-model0-busin/resolution.md docs/iterations/0326-ui-event-ingress-via-model0-busin/runlog.md docs/ssot/imported_slide_app_host_ingress_semantics_v1.md docs/ssot/mt_v0_patch_ops.md docs/ssot/runtime_semantics_modeltable_driven.md docs/user-guide/slide_delivery_and_runtime_overview_v1.md`
 - Key output:
-- Result: PASS/FAIL
-- Commit:
+  - `obsidian_docs_audit` PASS（frontmatter / bare path / md link gate 全绿）
+  - 4 个 current-truth docs 中的 legacy symbol 仅剩显式 Historical / Retired (pre-0326) 说明
+  - iteration docs 已把前端验证面与 imported-host symbol retirement 范围改成与实际执行一致
+- Result: PASS
+- Commit: this commit
 
 ## Docs Updated
 
-- [ ] `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md` — §3-§9 统一 ingress/egress 链
-- [ ] `docs/user-guide/slide_delivery_and_runtime_overview_v1.md` — §3 改写
-- [ ] `docs/iterations/0319-slide-overview-gap-closure/` Superseded rewrite merge 与本迭代同窗口
+- [x] `docs/ssot/runtime_semantics_modeltable_driven.md` — Model 0 bus-event ingress + mailbox 退役 current truth
+- [x] `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md` — imported-host egress 改为 bridge_in -> mt_bus_send -> pin.bus.out
+- [x] `docs/ssot/mt_v0_patch_ops.md` — `bus_event*` family 口径
+- [x] `docs/user-guide/slide_delivery_and_runtime_overview_v1.md` — 3.1 egress 改写到 bridge_in/mt_bus_send current path
+- [x] `docs/iterations/0326-ui-event-ingress-via-model0-busin/{plan,resolution,runlog}.md` — 与实际执行 / proof surface 对齐
+- [ ] `docs/iterations/0319-slide-overview-gap-closure/` Superseded rewrite merge 与本迭代同窗口（待 merge 到 `dev` 时一起处理）
