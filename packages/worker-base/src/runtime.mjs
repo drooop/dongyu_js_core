@@ -1,9 +1,6 @@
 'use strict';
 
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-
-const DEFAULT_TABLE_PROGRAMS_URL = new URL('../system-models/default_table_programs.json', import.meta.url);
+import defaultTableProgramsJson from '../system-models/default_table_programs.json' with { type: 'json' };
 
 class EventLog {
   constructor() {
@@ -377,9 +374,7 @@ class ModelTableRuntime {
   _loadDefaultTableProgramsJson() {
     if (this._defaultTablePrograms !== undefined) return this._defaultTablePrograms;
     try {
-      const jsonPath = fileURLToPath(DEFAULT_TABLE_PROGRAMS_URL);
-      const raw = readFileSync(jsonPath, 'utf8');
-      const parsed = JSON.parse(raw);
+      const parsed = defaultTableProgramsJson;
       this._defaultTablePrograms = parsed && Array.isArray(parsed.records) ? parsed : null;
     } catch (err) {
       this.eventLog.record({

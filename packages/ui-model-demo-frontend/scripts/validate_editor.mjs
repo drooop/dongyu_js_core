@@ -1,6 +1,10 @@
 import { createRenderer } from '../../ui-renderer/src/index.js';
 import { createDemoStore } from '../src/demo_modeltable.js';
 
+const MAILBOX_EVENT_KEY = 'bus_event';
+const MAILBOX_ERROR_KEY = 'bus_event_error';
+const MAILBOX_LAST_OP_KEY = 'bus_event_last_op_id';
+
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
@@ -55,7 +59,7 @@ function mailboxEnvelope({ event_id, action, op_id, target, value }) {
 }
 
 function sendMailbox(store, envelope) {
-  store.dispatchAddLabel({ p: 0, r: 0, c: 1, k: 'ui_event', t: 'event', v: envelope });
+  store.dispatchAddLabel({ p: 0, r: 0, c: 1, k: MAILBOX_EVENT_KEY, t: 'event', v: envelope });
 }
 
 function getMailboxCell(store) {
@@ -65,25 +69,25 @@ function getMailboxCell(store) {
 
 function getErrorCode(store) {
   const cell = getMailboxCell(store);
-  const err = cell.labels.get('ui_event_error');
+  const err = cell.labels.get(MAILBOX_ERROR_KEY);
   return err && err.v ? err.v.code : null;
 }
 
 function getErrorOpId(store) {
   const cell = getMailboxCell(store);
-  const err = cell.labels.get('ui_event_error');
+  const err = cell.labels.get(MAILBOX_ERROR_KEY);
   return err && err.v ? err.v.op_id : null;
 }
 
 function getErrorDetail(store) {
   const cell = getMailboxCell(store);
-  const err = cell.labels.get('ui_event_error');
+  const err = cell.labels.get(MAILBOX_ERROR_KEY);
   return err && err.v ? err.v.detail : null;
 }
 
 function getLastOpId(store) {
   const cell = getMailboxCell(store);
-  const last = cell.labels.get('ui_event_last_op_id');
+  const last = cell.labels.get(MAILBOX_LAST_OP_KEY);
   return last ? String(last.v || '') : '';
 }
 
@@ -222,7 +226,7 @@ function run() {
   results.push('editor_event_payload_shape: PASS');
 
   const mailboxCell = getMailboxCell(store);
-  const uiEvent = mailboxCell.labels.get('ui_event');
+  const uiEvent = mailboxCell.labels.get(MAILBOX_EVENT_KEY);
   assert(uiEvent && uiEvent.v === null, 'editor_event_consumed_once: ui_event not cleared');
   results.push('editor_event_consumed_once: PASS');
 
@@ -237,17 +241,17 @@ function run() {
   assert(mailboxFullError && mailboxFullError.message === 'event_mailbox_full', 'editor_renderer_mailbox_full_guard');
   assert(calls.length === callsBeforeSkip + 1, 'editor_renderer_mailbox_full_guard: host call must be recorded once');
   assert(
-    getMailboxCell(store).labels.get('ui_event')?.v?.payload?.meta?.op_id === 'op_240',
+    getMailboxCell(store).labels.get(MAILBOX_EVENT_KEY)?.v?.payload?.meta?.op_id === 'op_240',
     'editor_renderer_mailbox_full_guard: pending mailbox event must remain unchanged',
   );
   store.consumeOnce();
   results.push('editor_renderer_mailbox_full_guard: PASS');
 
   // generic mailbox / validation behavior
-  store.dispatchAddLabel({ p: 0, r: 0, c: 1, k: 'ui_event', t: 'event', v: '' });
+  store.dispatchAddLabel({ p: 0, r: 0, c: 1, k: MAILBOX_EVENT_KEY, t: 'event', v: '' });
   store.consumeOnce();
   assert(getErrorCode(store) === 'invalid_target', 'editor_invalid_target_falsy_envelope');
-  assert(getMailboxCell(store).labels.get('ui_event').v === null, 'editor_invalid_target_falsy_envelope: mailbox not cleared');
+  assert(getMailboxCell(store).labels.get(MAILBOX_EVENT_KEY).v === null, 'editor_invalid_target_falsy_envelope: mailbox not cleared');
   results.push('editor_invalid_target_falsy_envelope: PASS');
 
   sendMailbox(store, {

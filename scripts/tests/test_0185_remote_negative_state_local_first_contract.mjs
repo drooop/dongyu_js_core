@@ -80,7 +80,7 @@ global.fetch = async (url, options = {}) => {
       json: async () => ({ ok: true }),
     };
   }
-  if (String(url).endsWith('/ui_event')) {
+  if (String(url).endsWith('/bus_event')) {
     return {
       ok: true,
       status: 200,
@@ -120,7 +120,7 @@ assert.equal(
   'negative non-editor-state UI labels must materialize and patch local snapshot immediately',
 );
 
-const uiEventCallsBeforeFlush = fetchCalls.filter((call) => String(call.url).endsWith('/ui_event')).length;
+const uiEventCallsBeforeFlush = fetchCalls.filter((call) => String(call.url).endsWith('/bus_event')).length;
 assert.equal(uiEventCallsBeforeFlush, 0, 'local-first negative-state writes must not need immediate ui_event roundtrip to update UI');
 
 console.log('PASS test_0185_remote_negative_state_local_first_contract');
