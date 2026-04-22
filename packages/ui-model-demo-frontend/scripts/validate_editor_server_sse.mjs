@@ -13,7 +13,9 @@ const serverSource = fs.readFileSync(path.join(repoRoot, 'packages/ui-model-demo
 function run() {
   assert(serverSource.includes("url.pathname === '/stream'"), 'missing_stream_route');
   assert(serverSource.includes("url.pathname === '/snapshot'"), 'missing_snapshot_route');
-  assert(serverSource.includes("url.pathname === '/ui_event'"), 'missing_ui_event_route');
+  assert(serverSource.includes("const BUS_EVENT_ENDPOINT_PATH = '/bus_event';"), 'missing_bus_event_endpoint_constant');
+  assert(serverSource.includes("const LEGACY_EVENT_TYPE = ['ui', 'event'].join('_');"), 'missing_legacy_event_type_constant');
+  assert(serverSource.includes("url.pathname === BUS_EVENT_ENDPOINT_PATH || url.pathname === LEGACY_EVENT_ENDPOINT_PATH"), 'missing_bus_event_route');
   assert(serverSource.includes("url.pathname === '/api/runtime/mode'"), 'missing_runtime_mode_route');
   assert(serverSource.includes("url.pathname === '/api/modeltable/patch'"), 'missing_patch_route');
 

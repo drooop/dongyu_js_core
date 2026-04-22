@@ -26,7 +26,10 @@ function matchForbiddenK(k) {
 }
 
 const ALLOW_T = new Set(['str', 'int', 'bool', 'json', 'event']);
-const RESERVED_LABELS = new Set(['ui_event', 'ui_event_error', 'ui_event_last_op_id']);
+const MAILBOX_EVENT_KEY = 'bus_event';
+const MAILBOX_ERROR_KEY = 'bus_event_error';
+const MAILBOX_LAST_OP_KEY = 'bus_event_last_op_id';
+const RESERVED_LABELS = new Set([MAILBOX_EVENT_KEY, MAILBOX_ERROR_KEY, MAILBOX_LAST_OP_KEY]);
 
 function isUiRendererSource(source) {
   if (source === 'ui_renderer') return true;
@@ -111,34 +114,34 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
   function getMailboxEnvelope() {
     const cell = mailboxCell();
-    const label = cell.labels.get('ui_event');
+    const label = cell.labels.get(MAILBOX_EVENT_KEY);
     return label ? label.v : null;
   }
 
   function setMailboxEnvelope(v) {
     const model = runtime.getModel(mailboxModelId);
-    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v });
+    runtime.addLabel(model, 0, 0, 1, { k: MAILBOX_EVENT_KEY, t: 'event', v });
   }
 
   function setLastOpId(op_id) {
     const model = runtime.getModel(mailboxModelId);
-    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: op_id });
+    runtime.addLabel(model, 0, 0, 1, { k: MAILBOX_LAST_OP_KEY, t: 'str', v: op_id });
   }
 
   function getLastOpId() {
     const cell = mailboxCell();
-    const label = cell.labels.get('ui_event_last_op_id');
+    const label = cell.labels.get(MAILBOX_LAST_OP_KEY);
     return label ? String(label.v || '') : '';
   }
 
   function setError(op_id, code, detail) {
     const model = runtime.getModel(mailboxModelId);
-    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event_error', t: 'json', v: toErrorValue(op_id, code, detail) });
+    runtime.addLabel(model, 0, 0, 1, { k: MAILBOX_ERROR_KEY, t: 'json', v: toErrorValue(op_id, code, detail) });
   }
 
   function clearError() {
     const model = runtime.getModel(mailboxModelId);
-    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
+    runtime.addLabel(model, 0, 0, 1, { k: MAILBOX_ERROR_KEY, t: 'json', v: null });
   }
 
   function fail(op_id, code, detail) {

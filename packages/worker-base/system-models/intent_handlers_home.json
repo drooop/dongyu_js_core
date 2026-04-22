@@ -135,7 +135,7 @@
       "k": "handle_home_pin_only_dispatch_blocked",
       "t": "func.js",
       "v": {
-        "code": "/* rubric: P5+P8 */ const mailboxRead = ctx.hostApi.readCrossModel(-1, 0, 0, 1, 'ui_event'); const mailbox = mailboxRead && mailboxRead.ok && mailboxRead.data ? mailboxRead.data.v : null; const payload = (mailbox || {}).payload || {}; const action = typeof payload.action === 'string' ? payload.action : 'home_unknown'; const opId = payload.meta && typeof payload.meta.op_id === 'string' ? payload.meta.op_id : ''; ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'ui_event_error', 'json', { op_id: opId, code: 'home_dispatch_blocked', detail: action + ':authoritative_via_server_pin_only' });",
+        "code": "/* rubric: P5+P8 */ const mailboxRead = ctx.hostApi.readCrossModel(-1, 0, 0, 1, 'bus_event'); const mailbox = mailboxRead && mailboxRead.ok && mailboxRead.data ? mailboxRead.data.v : null; const payload = (mailbox || {}).payload || {}; const action = typeof payload.action === 'string' ? payload.action : 'home_unknown'; const opId = payload.meta && typeof payload.meta.op_id === 'string' ? payload.meta.op_id : ''; ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', { op_id: opId, code: 'home_dispatch_blocked', detail: action + ':authoritative_via_server_pin_only' });",
         "modelName": "intent_handlers_home"
       }
     }

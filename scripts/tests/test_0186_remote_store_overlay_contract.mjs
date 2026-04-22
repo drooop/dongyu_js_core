@@ -45,7 +45,7 @@ async function main() {
     fetchCalls.push({ url: String(url), options });
     if (String(url).endsWith('/snapshot')) return makeResponse({ snapshot: { models: {}, v1nConfig: {} } });
     if (String(url).endsWith('/api/runtime/mode')) return makeResponse({ ok: true, mode: 'running' });
-    if (String(url).endsWith('/ui_event')) {
+    if (String(url).endsWith('/bus_event')) {
       return makeResponse({ ok: true, result: 'ok', snapshot: { models: {}, v1nConfig: {} } });
     }
     throw new Error(`unexpected fetch ${url}`);
@@ -70,9 +70,9 @@ async function main() {
     cells: {
       '0,0,1': {
         labels: {
-          ui_event: { k: 'ui_event', t: 'event', v: null },
-          ui_event_last_op_id: { k: 'ui_event_last_op_id', t: 'str', v: '' },
-          ui_event_error: { k: 'ui_event_error', t: 'json', v: null },
+          bus_event: { k: 'bus_event', t: 'event', v: null },
+          bus_event_last_op_id: { k: 'bus_event_last_op_id', t: 'str', v: '' },
+          bus_event_error: { k: 'bus_event_error', t: 'json', v: null },
         },
       },
     },
@@ -125,7 +125,7 @@ async function main() {
   }));
 
   const uiEventBodies = fetchCalls
-    .filter((call) => call.url.endsWith('/ui_event'))
+    .filter((call) => call.url.endsWith('/bus_event'))
     .map((call) => JSON.parse(call.options.body));
 
   assert.equal(uiEventBodies.length, 2, 'on_submit overlay must flush one label_update before the triggering action');

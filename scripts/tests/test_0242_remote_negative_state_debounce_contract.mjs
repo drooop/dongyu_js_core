@@ -64,7 +64,7 @@ function readValue(snapshot, ref) {
 }
 
 function countUiEventCalls(fetchCalls) {
-  return fetchCalls.filter((call) => String(call.url).endsWith('/ui_event'));
+  return fetchCalls.filter((call) => String(call.url).endsWith('/bus_event'));
 }
 
 const snapshotPayload = makeSnapshot();
@@ -89,7 +89,7 @@ global.fetch = async (url, options = {}) => {
       json: async () => ({ ok: true }),
     };
   }
-  if (String(url).endsWith('/ui_event')) {
+  if (String(url).endsWith('/bus_event')) {
     return {
       ok: true,
       status: 200,

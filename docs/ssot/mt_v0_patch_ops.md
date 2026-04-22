@@ -27,7 +27,7 @@ source: ai
 本规范定义 mt.v0 版本的 Patch 结构和支持的操作类型。
 
 Patch 是 ModelTable 状态变更的批量载体，用于：
-- 管理总线 → 控制总线的指令传递（MBR 翻译 ui_event → patch）
+- 管理总线 → 控制总线的指令传递（MBR 翻译 bus event → patch）
 - 控制总线上的状态同步（Remote Worker 应用 patch 并回传 ACK）
 - 跨组件的 ModelTable 状态复制
 
@@ -178,9 +178,9 @@ Patch 是 ModelTable 状态变更的批量载体，用于：
 
 | k | 用途 |
 |---|------|
-| `ui_event` | UI 事件 mailbox |
-| `ui_event_error` | UI 事件错误 |
-| `ui_event_last_op_id` | 最后处理的 op_id（去重用） |
+| `bus_event` | 兼容期内的本地 bus-event mailbox 占位 |
+| `bus_event_error` | bus event 错误态 |
+| `bus_event_last_op_id` | 最后处理的 op_id（去重用） |
 
 ### 3.3 禁止模式（matchForbiddenK）
 
@@ -240,7 +240,7 @@ const result = runtime.applyPatch(patch, options);
 
 ## 6. 使用示例
 
-### 6.1 MBR 翻译 ui_event → patch
+### 6.1 MBR 翻译 bus event → patch
 
 ```javascript
 // submodel_create action
@@ -297,6 +297,6 @@ runtime.applyPatch(patch, { allowCreateModel: true });
 |------|------|
 | `packages/worker-base/src/runtime.js` | `applyPatch()` 实现 |
 | `packages/worker-base/src/runtime.mjs` | ESM 版本 |
-| `scripts/run_worker_mbr_v0.mjs` | MBR 翻译 ui_event → patch |
+| `scripts/run_worker_mbr_v0.mjs` | MBR 翻译 bus event → patch |
 | `scripts/run_worker_remote_v0.mjs` | Remote Worker 应用 patch |
 | `scripts/validate_dual_worker_slide_e2e_mailbox_ops_v0.mjs` | 端到端验证 |

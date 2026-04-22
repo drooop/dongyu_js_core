@@ -2,12 +2,14 @@ import { reactive } from 'vue';
 import { getSnapshotModel, getSnapshotLabelValue, parseSafeInt } from './snapshot_utils.js';
 import { buildAstFromSchema } from './ui_schema_projection.js';
 import { resolveRouteUiAst } from './route_ui_projection.js';
+import { buildBusDispatchLabel, buildBusEventV2 } from './bus_event_v2.js';
 
 export function createRemoteStore(options) {
   const defaultBaseUrl = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'http://127.0.0.1:9000';
   const baseUrl = options && options.baseUrl ? String(options.baseUrl).replace(/\/$/, '') : defaultBaseUrl;
   const snapshot = reactive({ models: {}, v1nConfig: { local_mqtt: null, global_mqtt: null } });
-  const overlayStore = reactive(new Map());
+const overlayStore = reactive(new Map());
+const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
 
   const EDITOR_MODEL_ID = -1;
   const EDITOR_STATE_MODEL_ID = -2;
@@ -152,12 +154,14 @@ export function createRemoteStore(options) {
     routeState.path = typeof routePath === 'string' && routePath.trim().length > 0 ? routePath : '/';
   }
 
-  function assertMailboxWriteLabel(label) {
+  function assertDispatchLabel(label) {
     if (!label || label.t !== 'event') {
       throw new Error('non_event_write');
     }
-    if (label.p !== 0 || label.r !== 0 || label.c !== 1 || label.k !== 'ui_event') {
-      throw new Error('event_mailbox_mismatch');
+    const isLegacyMailbox = label.p === 0 && label.r === 0 && label.c === 1;
+    const isV2Dispatch = label.p === 0 && label.r === 0 && label.c === 0 && label.k === 'bus_in_event';
+    if (!isLegacyMailbox && !isV2Dispatch) {
+      throw new Error('event_dispatch_mismatch');
     }
     if (!label.v || typeof label.v !== 'object') {
       throw new Error('invalid_envelope');
@@ -402,15 +406,15 @@ export function createRemoteStore(options) {
   async function postEnvelope(envelope, options = {}) {
     let resp;
     try {
-      resp = await fetch(`${baseUrl}/ui_event`, {
+      resp = await fetch(`${baseUrl}${BUS_EVENT_ENDPOINT_PATH}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(envelope),
         credentials: 'same-origin',
       });
     } catch (err) {
-      console.error('ui_event fetch error', { err });
-      await fetchSnapshotAndApply('ui_event fetch error');
+      console.error('bus event fetch error', { err });
+      await fetchSnapshotAndApply('bus event fetch error');
       return null;
     }
 
@@ -422,15 +426,15 @@ export function createRemoteStore(options) {
       } catch (_) {
         // ignore
       }
-      console.error('ui_event response not ok', { status: resp.status, statusText: resp.statusText, detail });
-      await fetchSnapshotAndApply('ui_event response not ok');
+      console.error('bus event response not ok', { status: resp.status, statusText: resp.statusText, detail });
+      await fetchSnapshotAndApply('bus event response not ok');
       return null;
     }
 
     const contentType = resp.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
-      console.error('ui_event response not json', { contentType });
-      await fetchSnapshotAndApply('ui_event response not json');
+      console.error('bus event response not json', { contentType });
+      await fetchSnapshotAndApply('bus event response not json');
       return null;
     }
 
@@ -438,8 +442,8 @@ export function createRemoteStore(options) {
     try {
       data = await resp.json();
     } catch (err) {
-      console.error('ui_event response json parse error', { err });
-      await fetchSnapshotAndApply('ui_event response json parse error');
+      console.error('bus event response json parse error', { err });
+      await fetchSnapshotAndApply('bus event response json parse error');
       return null;
     }
     if (data && data.code === 'runtime_not_running' && options.retried !== true) {
@@ -477,9 +481,15 @@ export function createRemoteStore(options) {
   }
 
   function dispatchAddLabel(label) {
-    assertMailboxWriteLabel(label);
+    assertDispatchLabel(label);
 
     const rawEnvelope = label.v;
+    if (rawEnvelope && rawEnvelope.type === 'bus_event_v2') {
+      sendQueue = sendQueue.then(() => postEnvelope(rawEnvelope)).catch(() => {
+        // keep queue alive
+      });
+      return sendQueue;
+    }
     const rawPayload = rawEnvelope && rawEnvelope.payload ? rawEnvelope.payload : null;
     const rawAction = rawPayload && typeof rawPayload.action === 'string' ? rawPayload.action : '';
     const rawTarget = rawPayload && rawPayload.target ? rawPayload.target : null;
@@ -602,5 +612,7 @@ export function createRemoteStore(options) {
     dispatchRmLabel,
     consumeOnce,
     uploadMedia,
+    buildDispatchLabel: buildBusDispatchLabel,
+    buildUiEventV2: buildBusEventV2,
   };
 }

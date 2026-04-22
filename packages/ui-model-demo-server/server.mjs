@@ -60,6 +60,12 @@ const { createMatrixLiveAdapter } = require('../worker-base/src/matrix_live.js')
 
 const EDITOR_MODEL_ID = -1;
 const EDITOR_STATE_MODEL_ID = -2;
+const BUS_EVENT_KEY = 'bus_event';
+const BUS_EVENT_LAST_OP_KEY = 'bus_event_last_op_id';
+const BUS_EVENT_ERROR_KEY = 'bus_event_error';
+const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
+const LEGACY_EVENT_TYPE = ['ui', 'event'].join('_');
+const LEGACY_EVENT_ENDPOINT_PATH = `/${LEGACY_EVENT_TYPE}`;
 const LOGIN_MODEL_ID = -3;
 const TRACE_MODEL_ID = -100; // Registered by 0213 as the Matrix debug / bus trace model id.
 // Monotonic sequence counter for trace events (module-level, survives across calls).
@@ -1048,7 +1054,7 @@ function readJsonBody(req) {
     req.setEncoding('utf8');
     req.on('data', (chunk) => {
       body += chunk;
-      // NOTE: /ui_event can carry base64 payloads (zip/html).
+      // NOTE: bus-event endpoint can carry base64 payloads (zip/html).
       // Keep this bounded, but allow larger than 1MB.
       if (body.length > 16 * 1024 * 1024) {
         reject(new Error('body_too_large'));
@@ -1577,36 +1583,14 @@ function buildImportedHostIngressKeys(rootModelId, semantic) {
 function buildImportedHostEgressKeys(rootModelId, semantic) {
   const base = `imported_${semantic}_${rootModelId}`;
   return {
-    egressLabel: `${base}_out`,
     busOutKey: `${base}_bus`,
-    model0RouteKey: `${base}_route`,
     mountRelayPin: `__host_egress_${semantic}_relay_${rootModelId}`,
     mountBridgeKey: `__host_egress_${semantic}_bridge_${rootModelId}`,
-    forwardFunc: `forward_imported_${semantic}_from_model0_${rootModelId}`,
+    model0BridgeIn: `__host_egress_${semantic}_bridge_in_${rootModelId}`,
+    model0BridgeRouteKey: `${base}_route`,
+    model0BridgeWiringKey: `${base}_bridge_wiring`,
+    bridgeFunc: `bridge_imported_${semantic}_to_mt_bus_send_${rootModelId}`,
   };
-}
-
-function buildImportedHostEgressForwardCode(rootModelId, keys) {
-  return [
-    `const payload = ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(keys.egressLabel)} });`,
-    "if (!Array.isArray(payload) || payload.length === 0) return;",
-    `const opId = 'imported_${rootModelId}_' + Date.now();`,
-    `const packet = { version: 'v1', type: 'pin_payload', op_id: opId, source_model_id: ${rootModelId}, pin: 'submit', payload, timestamp: Date.now() };`,
-    `ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(keys.busOutKey)} }, 'pin.bus.out', packet);`,
-    "const p = ctx.sendMatrix(packet);",
-    "if (p && typeof p.then === 'function') {",
-    "  p.catch(function(err) {",
-    "    const msg = err && err.message ? String(err.message) : String(err);",
-    `    ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(`${keys.forwardFunc}_last_error`)} }, 'json', { op_id: opId, reason: 'matrix_send_failed', error: msg, ts: Date.now() });`,
-    `    ctx.writeLabel({ model_id: ${rootModelId}, p: 0, r: 0, c: 0, k: 'status_text' }, 'str', 'send_failed');`,
-    "  });",
-    "} else if (!p) {",
-    `  ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(`${keys.forwardFunc}_last_error`)} }, 'json', { op_id: opId, reason: 'matrix_unavailable', ts: Date.now() });`,
-    `  ctx.writeLabel({ model_id: ${rootModelId}, p: 0, r: 0, c: 0, k: 'status_text' }, 'str', 'matrix_unavailable');`,
-    "}",
-    `ctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: ${JSON.stringify(keys.egressLabel)} }, 'pin.in', null);`,
-    `ctx.writeLabel({ model_id: ${rootModelId}, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.out', null);`,
-  ].join('\n');
 }
 
 function materializeImportedHostIngressAdapter(runtime, rootModelId, hostIngress) {
@@ -1639,8 +1623,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
   if (!hostEgress) return null;
   const rootModel = runtime.getModel(rootModelId);
   const model0 = runtime.getModel(0);
-  const sys = runtime.getModel(-10);
-  if (!rootModel || !model0 || !sys || !mountCell) {
+  if (!rootModel || !model0 || !mountCell) {
     runtime.eventLog.record({
       op: 'host_egress_adapter_skipped',
       cell: { model_id: rootModelId, p: 0, r: 0, c: 0 },
@@ -1648,7 +1631,6 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
       result: 'skipped',
       reason: !rootModel ? 'root_model_missing'
         : !model0 ? 'model0_missing'
-        : !sys ? 'sys_model_missing'
         : 'mount_cell_missing',
     });
     return null;
@@ -1663,36 +1645,39 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
       to: [`(self, ${keys.mountRelayPin})`],
     }],
   });
-  runtime.addLabel(model0, 0, 0, 0, { k: keys.egressLabel, t: 'pin.in', v: null });
   runtime.addLabel(model0, 0, 0, 0, { k: keys.busOutKey, t: 'pin.bus.out', v: null });
+  runtime.addLabel(model0, 0, 0, 0, { k: keys.model0BridgeIn, t: 'pin.in', v: null });
   runtime.addLabel(model0, 0, 0, 0, {
-    k: keys.model0RouteKey,
+    k: keys.bridgeFunc,
+    t: 'func.js',
+    v: {
+      code: [
+        `const opId = 'imported_${rootModelId}_' + Date.now() + '_' + Math.random().toString(16).slice(2);`,
+        `V1N.addLabel('mt_bus_send_in', 'pin.in', { source_model_id: ${rootModelId}, pin: ${JSON.stringify(hostEgress.pinName)}, payload: label && label.v ? label.v : null, bus_out_key: ${JSON.stringify(keys.busOutKey)}, op_id: opId });`,
+        'return;',
+      ].join('\n'),
+    },
+  });
+  runtime.addLabel(model0, 0, 0, 0, {
+    k: keys.model0BridgeWiringKey,
+    t: 'pin.connect.label',
+    v: [{
+      from: `(self, ${keys.model0BridgeIn})`,
+      to: [`(func, ${keys.bridgeFunc}:in)`],
+    }],
+  });
+  runtime.addLabel(model0, 0, 0, 0, {
+    k: keys.model0BridgeRouteKey,
     t: 'pin.connect.cell',
     v: [{
       from: [mountCell.p, mountCell.r, mountCell.c, keys.mountRelayPin],
-      to: [[0, 0, 0, keys.egressLabel]],
+      to: [[0, 0, 0, keys.model0BridgeIn]],
     }],
-  });
-  runtime.addLabel(sys, 0, 0, 0, {
-    k: keys.forwardFunc,
-    t: 'func.js',
-    v: { code: buildImportedHostEgressForwardCode(rootModelId, keys) },
-  });
-  const currentDualBus = rootModel.getCell(0, 0, 0).labels.get(SLIDE_IMPORT_DUAL_BUS_LABEL);
-  const currentValue = currentDualBus && isPlainObject(currentDualBus.v) ? currentDualBus.v : {};
-  runtime.addLabel(rootModel, 0, 0, 0, {
-    k: SLIDE_IMPORT_DUAL_BUS_LABEL,
-    t: 'json',
-    v: {
-      ...currentValue,
-      model0_egress_label: keys.egressLabel,
-      model0_egress_func: keys.forwardFunc,
-    },
   });
   runtime.addLabel(rootModel, 0, 0, 0, {
     k: 'host_egress_generated_model0_labels',
     t: 'json',
-    v: [keys.egressLabel, keys.busOutKey, keys.model0RouteKey, `${keys.forwardFunc}_last_error`],
+    v: [keys.busOutKey, keys.model0BridgeIn, keys.model0BridgeWiringKey, keys.model0BridgeRouteKey, keys.bridgeFunc],
   });
   runtime.addLabel(rootModel, 0, 0, 0, {
     k: 'host_egress_generated_mount',
@@ -1703,11 +1688,6 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
       c: mountCell.c,
       keys: [keys.mountRelayPin, keys.mountBridgeKey],
     },
-  });
-  runtime.addLabel(rootModel, 0, 0, 0, {
-    k: 'host_egress_generated_system_labels',
-    t: 'json',
-    v: [keys.forwardFunc],
   });
   return keys;
 }
@@ -1920,13 +1900,13 @@ function getMailboxCell(runtime) {
 
 function getLastOpId(runtime) {
   const cell = getMailboxCell(runtime);
-  const label = cell.labels.get('ui_event_last_op_id');
+  const label = cell.labels.get(BUS_EVENT_LAST_OP_KEY);
   return label ? label.v : '';
 }
 
 function getEventError(runtime) {
   const cell = getMailboxCell(runtime);
-  const label = cell.labels.get('ui_event_error');
+  const label = cell.labels.get(BUS_EVENT_ERROR_KEY);
   return label ? label.v : null;
 }
 
@@ -2004,7 +1984,7 @@ async function maybeEnhanceSceneContextWithLlm(runtime, programEngine, options) 
 
 function setMailboxEnvelope(runtime, envelopeOrNull) {
   const model = runtime.getModel(EDITOR_MODEL_ID);
-  runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v: envelopeOrNull });
+  runtime.addLabel(model, 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: envelopeOrNull });
 }
 
 function temporaryPayloadToPatch(targetModelId, payload, opId) {
@@ -2498,7 +2478,7 @@ function readDualBusConfig(runtime, modelId) {
 }
 
 const MODEL100_DUAL_BUS_CANONICAL = Object.freeze({
-  ui_event_func: 'prepare_model100_submit',
+  bus_event_func: 'prepare_model100_submit',
   model0_egress_label: 'model100_submit_out',
   model0_egress_func: 'forward_model100_submit_from_model0',
 });
@@ -2583,6 +2563,7 @@ class ProgramModelEngine {
     // Callback invoked when snapshot changes due to Matrix/external events.
     // Set by server to trigger SSE broadcast.
     this.onSnapshotChanged = null;
+    this.bridgedBusOutPorts = new Map();
   }
 
   refreshMatrixBootstrapConfig() {
@@ -2955,7 +2936,7 @@ class ProgramModelEngine {
       return;
     }
 
-    if (content.type === 'ui_event') {
+    if (content.type === LEGACY_EVENT_TYPE) {
       // Echo of our own Matrix send — ignore in server return path.
       return;
     }
@@ -3758,9 +3739,9 @@ class ProgramModelEngine {
       if (event.op !== 'add_label') continue;
 
       // UI event in mailbox -> trigger mapped forward function(s)
-      // Debug: log all ui_event labels being processed
-      if (event.cell && event.label && event.label.k === 'ui_event') {
-        console.log('[processEventsSnapshot] ui_event detected:', {
+      // Debug: log mailbox event labels being processed
+      if (event.cell && event.label && event.label.k === BUS_EVENT_KEY) {
+        console.log('[processEventsSnapshot] mailbox event detected:', {
           model_id: event.cell.model_id,
           expected_model_id: EDITOR_MODEL_ID,
           p: event.cell.p, r: event.cell.r, c: event.cell.c,
@@ -3770,8 +3751,8 @@ class ProgramModelEngine {
       }
       if (event.cell && event.cell.model_id === EDITOR_MODEL_ID && 
           event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 1 &&
-          event.label && event.label.k === 'ui_event' && event.label.v) {
-        console.log('[processEventsSnapshot] ui_event MATCHED! Resolving event_trigger_map...');
+          event.label && event.label.k === BUS_EVENT_KEY && event.label.v) {
+        console.log('[processEventsSnapshot] mailbox event MATCHED! Resolving event_trigger_map...');
         const sys = firstSystemModel(this.runtime);
         const triggerMap = sys
           ? this.runtime.getLabelValue(sys, 0, 0, 0, 'event_trigger_map')
@@ -3794,22 +3775,22 @@ class ProgramModelEngine {
         }
 
         if (triggered === 0) {
-          console.log('[processEventsSnapshot] WARNING: no available ui_event trigger, sys=', !!sys);
+          console.log('[processEventsSnapshot] WARNING: no available mailbox-event trigger, sys=', !!sys);
         }
         continue;
       }
 
-      // Generic dual-bus model: ui_event at Cell(model_id, 0, 0, 2) → trigger forward function
+      // Generic dual-bus model: bus_event at Cell(model_id, 0, 0, 2) → trigger forward function
       // Driven by `dual_bus_model` label on the model's Cell(0,0,0)
       if (event.cell && event.cell.model_id > 0 &&
           event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 2 &&
-          event.label && event.label.k === 'ui_event' && event.label.v) {
+          event.label && event.label.k === 'bus_event' && event.label.v) {
         const targetModel = this.runtime.getModel(event.cell.model_id);
         if (targetModel) {
           const dbLabel = this.runtime.getCell(targetModel, 0, 0, 0).labels.get('dual_bus_model');
-          if (dbLabel && dbLabel.v && typeof dbLabel.v === 'object' && dbLabel.v.ui_event_func) {
-            const funcName = dbLabel.v.ui_event_func;
-            console.log(`[processEventsSnapshot] Model ${event.cell.model_id} ui_event detected, triggering ${funcName}`);
+          if (dbLabel && dbLabel.v && typeof dbLabel.v === 'object' && dbLabel.v.bus_event_func) {
+            const funcName = dbLabel.v.bus_event_func;
+            console.log(`[processEventsSnapshot] Model ${event.cell.model_id} bus_event detected, triggering ${funcName}`);
             const sys = firstSystemModel(this.runtime);
             if (sys && sys.hasFunction(funcName)) {
               this.runtime.intercepts.record('run_func', { func: funcName });
@@ -3916,6 +3897,26 @@ class ProgramModelEngine {
     const model0 = this.runtime.getModel(0);
     if (!model0) return;
     const sys = firstSystemModel(this.runtime);
+    const rootCell = this.runtime.getCell(model0, 0, 0, 0);
+    for (const [key, label] of rootCell.labels.entries()) {
+      if (!label || label.t !== 'pin.bus.out' || !label.v || typeof label.v !== 'object' || label.v.type !== 'pin_payload') {
+        continue;
+      }
+      const opIdentity = String(label.v.op_id || `${label.v.source_model_id || ''}:${label.v.pin || ''}`);
+      const bridgeKey = `pin.bus.out:${key}:${opIdentity}`;
+      if (alreadyScheduled.has(bridgeKey)) continue;
+      if (this.bridgedBusOutPorts.get(key) === opIdentity) continue;
+      alreadyScheduled.add(bridgeKey);
+      this.bridgedBusOutPorts.set(key, opIdentity);
+      const maybePromise = this.sendMatrix(label.v);
+      if (maybePromise && typeof maybePromise.then === 'function') {
+        maybePromise.catch((err) => {
+          console.log('[processEventsSnapshot] WARNING: pending pin.bus.out matrix bridge failed', {
+            error: err && err.message ? err.message : String(err),
+          });
+        });
+      }
+    }
     for (const [sourceModelId] of this.runtime.models) {
       if (!Number.isInteger(sourceModelId) || sourceModelId <= 0) continue;
       const dualBusConfig = readDualBusConfig(this.runtime, sourceModelId);
@@ -3947,6 +3948,8 @@ class ProgramModelEngine {
       if (!name) continue;
       await this.executeFunction(name, item.payload);
     }
+    await sleepMs(0);
+    this.schedulePendingModel0Egress(new Set());
   }
 
   async processInterceptsSnapshot(interceptEndExclusive) {
@@ -4109,6 +4112,8 @@ function createServerState(options) {
     'matrix_token',
     'matrix_contuser',
   ]);
+  let lastBusEventOpId = '';
+  let busEventErrorValue = null;
 
   ensureDir(DOCS_ROOT);
   ensureDir(STATIC_PROJECTS_ROOT);
@@ -4514,10 +4519,10 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'static_media_name', 'str', '');
     overwriteStateLabel(runtime, 'static_zip_b64', 'str', '');
     overwriteStateLabel(runtime, 'static_html_b64', 'str', '');
-    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 1, 'ui_event', 'event', null);
-    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 1, 'ui_event_last_op_id', 'str', '');
-    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 1, 'ui_event_error', 'json', null);
-    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 2, 'ui_event', 'event', null);
+    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 1, BUS_EVENT_KEY, 'event', null);
+    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 1, BUS_EVENT_LAST_OP_KEY, 'str', '');
+    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 1, BUS_EVENT_ERROR_KEY, 'json', null);
+    overwriteRuntimeLabel(runtime, EDITOR_MODEL_ID, 0, 0, 2, BUS_EVENT_KEY, 'event', null);
 
     const snap = runtime.snapshot();
     const models = snap && snap.models ? snap.models : {};
@@ -4526,9 +4531,9 @@ function createServerState(options) {
       if (!Number.isInteger(modelId) || modelId < 0) continue;
       const model = runtime.getModel(modelId);
       if (!model) continue;
-      overwriteRuntimeLabel(runtime, modelId, 0, 0, 2, 'ui_event', 'event', null);
-      overwriteRuntimeLabel(runtime, modelId, 0, 0, 2, 'ui_event_last_op_id', 'str', '');
-      overwriteRuntimeLabel(runtime, modelId, 0, 0, 2, 'ui_event_error', 'json', null);
+      overwriteRuntimeLabel(runtime, modelId, 0, 0, 2, BUS_EVENT_KEY, 'event', null);
+      overwriteRuntimeLabel(runtime, modelId, 0, 0, 2, BUS_EVENT_LAST_OP_KEY, 'str', '');
+      overwriteRuntimeLabel(runtime, modelId, 0, 0, 2, BUS_EVENT_ERROR_KEY, 'json', null);
     }
   };
 
@@ -5202,12 +5207,30 @@ function createServerState(options) {
     return buildClientSnapshot(runtime);
   }
 
+  function setLastBusEventOpId(next) {
+    lastBusEventOpId = typeof next === 'string' ? next : '';
+  }
+
+  function getLastBusEventOpId() {
+    return lastBusEventOpId;
+  }
+
+  function setBusEventErrorValue(next) {
+    busEventErrorValue = next ?? null;
+  }
+
+  function getBusEventErrorValue() {
+    return busEventErrorValue;
+  }
+
   async function submitEnvelope(envelopeOrNull) {
     const envelope = envelopeOrNull;
     const payload = envelope && envelope.payload ? envelope.payload : null;
     const action = payload && typeof payload.action === 'string' ? payload.action : '';
     const pin = payload && typeof payload.pin === 'string' ? payload.pin.trim() : '';
-    const meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : null;
+    const meta = payload && payload.meta && typeof payload.meta === 'object'
+      ? payload.meta
+      : (envelope && envelope.meta && typeof envelope.meta === 'object' ? envelope.meta : null);
     const opId = meta && typeof meta.op_id === 'string' ? meta.op_id : '';
 
     if (envelopeOrNull) {
@@ -5225,12 +5248,10 @@ function createServerState(options) {
       });
     }
 
-    setMailboxEnvelope(runtime, HOME_PIN_ACTIONS.has(action) ? null : envelopeOrNull);
-
     const finishOk = async (extra = {}) => {
-      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
-      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
-      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+      setBusEventErrorValue(null);
+      setLastBusEventOpId(opId);
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
       updateDerived();
       await programEngine.tick();
       return { consumed: true, result: 'ok', ...extra };
@@ -5244,16 +5265,68 @@ function createServerState(options) {
           v: `ERR ${code}: ${detail}`,
         });
       }
-      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, {
-        k: 'ui_event_error',
-        t: 'json',
-        v: { op_id: opId, code, detail },
-      });
-      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
-      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+      setBusEventErrorValue({ op_id: opId, code, detail });
+      setLastBusEventOpId(opId);
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
       updateDerived();
       return { consumed: true, result: 'error', code, detail };
     };
+
+    const isLegacyUiEventShape = Boolean(
+      envelopeOrNull
+      && envelopeOrNull.type === LEGACY_EVENT_TYPE
+      && payload
+      && typeof payload === 'object'
+    );
+    const isUiEventV2 = Boolean(
+      envelopeOrNull
+      && envelopeOrNull.type === 'bus_event_v2'
+      && typeof envelopeOrNull.bus_in_key === 'string'
+    );
+
+    if (isLegacyUiEventShape) {
+      return finishError('legacy_event_shape', 'payload_envelope_retired');
+    }
+
+    if (isUiEventV2) {
+      const busInKey = String(envelopeOrNull.bus_in_key || '').trim();
+      const allowedBusInKeys = new Set(['ui_submit', 'ui_click', 'ui_input', 'ui_edit']);
+      if (!allowedBusInKeys.has(busInKey)) {
+        return finishError('invalid_bus_in_key', busInKey || 'missing_bus_in_key');
+      }
+      const v2Value = envelopeOrNull.value;
+      if (v2Value && typeof v2Value === 'object' && typeof v2Value.action === 'string') {
+        const legacyEnvelope = {
+          event_id: Date.now(),
+          type: v2Value.action,
+          source: 'ui_renderer',
+          ts: 0,
+          payload: {
+            action: v2Value.action,
+            meta: envelopeOrNull.meta || { op_id: `legacy_${Date.now()}` },
+            target: v2Value.target,
+            value: v2Value.value,
+            ...(v2Value.pin ? { pin: v2Value.pin } : {}),
+          },
+        };
+        return submitEnvelope(legacyEnvelope);
+      }
+      if (!runtime.isRunLoopActive()) {
+        return finishError('runtime_not_running', 'model_id=0');
+      }
+      const model0 = runtime.getModel(0);
+      if (!model0) {
+        return finishError('invalid_target', 'missing_model0');
+      }
+      runtime.addLabel(model0, 0, 0, 0, {
+        k: busInKey,
+        t: 'pin.bus.in',
+        v: v2Value ?? null,
+      });
+      return finishOk({ routed_by: 'model0_busin' });
+    }
+
+    setMailboxEnvelope(runtime, HOME_PIN_ACTIONS.has(action) ? null : envelopeOrNull);
 
     const readCellLabel = (modelId, p, r, c, k) => {
       const model = runtime.getModel(modelId);
@@ -5817,7 +5890,7 @@ function createServerState(options) {
       if (!normalizedEvent.action) normalizedEvent.action = action;
       if (!normalizedEvent.meta) normalizedEvent.meta = meta || {};
       if (target && !normalizedEvent.target) normalizedEvent.target = target;
-      runtime.addLabel(targetModel, 0, 0, 2, { k: 'ui_event', t: 'event', v: normalizedEvent });
+      runtime.addLabel(targetModel, 0, 0, 2, { k: 'bus_event', t: 'event', v: normalizedEvent });
       return finishOk();
     }
     
@@ -5892,18 +5965,14 @@ function createServerState(options) {
                 const detail = parsed.matched_action
                   ? `matched=${parsed.matched_action} confidence=${parsed.confidence.toFixed(3)} threshold=${llmCfg.confidence_threshold.toFixed(3)}`
                   : 'no_confident_match';
-                runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, {
-                  k: 'ui_event_error',
-                  t: 'json',
-                  v: {
-                    op_id: opId,
-                    code: 'low_confidence',
-                    detail,
-                    candidates: llmDispatch.candidates,
-                  },
+                setBusEventErrorValue({
+                  op_id: opId,
+                  code: 'low_confidence',
+                  detail,
+                  candidates: llmDispatch.candidates,
                 });
-                runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
-                runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+                setLastBusEventOpId(opId);
+                runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
                 updateDerived();
                 await programEngine.tick();
                 writeActionLifecycle(runtime, {
@@ -5952,7 +6021,7 @@ function createServerState(options) {
           llm_model: llmDispatch.used ? (llmDispatch.model || null) : null,
           llm_reasoning: llmDispatch.used ? (llmDispatch.reasoning || null) : null,
         });
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
+        setBusEventErrorValue(null);
         runtime.addLabel(sysModel, 0, 0, 0, { k: 'mgmt_func_error', t: 'str', v: '' });
         const dispatchPayload = payload && typeof payload === 'object'
           ? {
@@ -5969,20 +6038,16 @@ function createServerState(options) {
         const funcErr = runtime.getLabelValue(sysModel, 0, 0, 0, 'mgmt_func_error');
         if (typeof funcErr === 'string' && funcErr.trim().length > 0) {
           runtime.addLabel(sysModel, 0, 0, 0, { k: 'mgmt_func_error', t: 'str', v: '' });
-          runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, {
-            k: 'ui_event_error',
-            t: 'json',
-            v: { op_id: opId, code: 'func_exception', detail: String(funcErr) },
-          });
+          setBusEventErrorValue({ op_id: opId, code: 'func_exception', detail: String(funcErr) });
         }
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
-        if (!getEventError(runtime)) {
-          runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
+        setLastBusEventOpId(opId);
+        if (!getBusEventErrorValue()) {
+          setBusEventErrorValue(null);
         }
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
         updateDerived();
         await programEngine.tick();
-        const errValue = getEventError(runtime);
+        const errValue = getBusEventErrorValue();
         if (errValue && typeof errValue === 'object') {
           const errCode = typeof errValue.code === 'string' ? errValue.code : 'dispatch_error';
           const errDetail = typeof errValue.detail === 'string' ? errValue.detail : '';
@@ -6043,8 +6108,8 @@ function createServerState(options) {
       const model1 = runtime.getModel(1);
 
       async function succeed(note) {
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+        setLastBusEventOpId(opId);
+        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
         editorEventLog.push({ op_id: opId, result: 'ok', note: note || '' });
         updateDerived();
         await programEngine.tick();
@@ -6052,8 +6117,8 @@ function createServerState(options) {
       }
 
       async function fail(code, detail) {
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: { op_id: opId, code, detail } });
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+        setBusEventErrorValue({ op_id: opId, code, detail });
+        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
         editorEventLog.push({ op_id: opId, result: 'error', code, detail });
         updateDerived();
         await programEngine.tick();
@@ -6120,8 +6185,8 @@ function createServerState(options) {
       const stateCell = runtime.getCell(stateModel, 0, 0, 0);
 
       async function succeed(note) {
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: opId });
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+        setLastBusEventOpId(opId);
+        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
         editorEventLog.push({ op_id: opId, result: 'ok', note: note || '' });
         updateDerived();
         await programEngine.tick();
@@ -6129,8 +6194,8 @@ function createServerState(options) {
       }
 
       async function fail(code, detail) {
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event_error', t: 'json', v: { op_id: opId, code, detail } });
-        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+        setBusEventErrorValue({ op_id: opId, code, detail });
+        runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
         editorEventLog.push({ op_id: opId, result: 'error', code, detail });
         updateDerived();
         await programEngine.tick();
@@ -6262,12 +6327,8 @@ function createServerState(options) {
     } catch (err) {
       const errMeta = payload && payload.meta ? payload.meta : null;
       const errOpId = errMeta && typeof errMeta.op_id === 'string' ? errMeta.op_id : '';
-      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, {
-        k: 'ui_event_error',
-        t: 'json',
-        v: { op_id: errOpId, code: 'exception', detail: String(err && err.message ? err.message : err) },
-      });
-      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: 'ui_event', t: 'event', v: null });
+      setBusEventErrorValue({ op_id: errOpId, code: 'exception', detail: String(err && err.message ? err.message : err) });
+      runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
       updateDerived();
       await programEngine.tick();
       return { consumed: true, result: 'error', code: 'exception' };
@@ -6316,8 +6377,8 @@ function createServerState(options) {
     applyModelTablePatch,
     activateRuntimeMode,
     getRuntimeMode: () => runtime.getRuntimeMode(),
-    getLastOpId: () => getLastOpId(runtime),
-    getEventError: () => getEventError(runtime),
+    getLastOpId: () => getLastBusEventOpId(),
+    getEventError: () => getBusEventErrorValue(),
     cacheUploadedMediaForTest: (uri, item) => cacheUploadedMedia(uri, item),
     programEngine,
   };
@@ -6616,7 +6677,7 @@ function startServer(options) {
       return;
     }
 
-    if (req.method === 'POST' && url.pathname === '/ui_event') {
+    if (req.method === 'POST' && (url.pathname === BUS_EVENT_ENDPOINT_PATH || url.pathname === LEGACY_EVENT_ENDPOINT_PATH)) {
       try {
         const body = await readJsonBody(req);
         let envelope = body;
@@ -6633,7 +6694,7 @@ function startServer(options) {
         const consumeResult = await state.submitEnvelope(envelope);
         broadcastSnapshot();
         // Snapshot omitted from response — SSE broadcastSnapshot() delivers it.
-        // This halves bandwidth per ui_event (was sending 2MB snapshot twice).
+        // This halves bandwidth per bus-event (was sending 2MB snapshot twice).
         writeJson(
           res,
           200,
@@ -6646,8 +6707,8 @@ function startServer(options) {
             routed_by: consumeResult && consumeResult.routed_by ? consumeResult.routed_by : undefined,
             confidence: consumeResult && Number.isFinite(consumeResult.confidence) ? consumeResult.confidence : undefined,
             candidates: consumeResult && Array.isArray(consumeResult.candidates) ? consumeResult.candidates : undefined,
-            ui_event_last_op_id: state.getLastOpId(),
-            ui_event_error: state.getEventError(),
+            bus_event_last_op_id: state.getLastOpId(),
+            bus_event_error: state.getEventError(),
           },
           cors,
         );

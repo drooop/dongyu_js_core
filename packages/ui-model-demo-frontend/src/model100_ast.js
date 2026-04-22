@@ -235,7 +235,7 @@ export function buildModel100Ast() {
                 type: 'Container',
                 props: { layout: 'column', gap: 8 },
                 children: [
-                  { id: 'info1', type: 'Text', props: { text: '1. Click "Generate Color" to send a ui_event', type: 'info' } },
+                  { id: 'info1', type: 'Text', props: { text: '1. Click "Generate Color" to send a bus event', type: 'info' } },
                   { id: 'info2', type: 'Text', props: { text: '2. Event is forwarded via Matrix management bus to MBR', type: 'info' } },
                   { id: 'info3', type: 'Text', props: { text: '3. MBR routes to K8s Worker via MQTT control bus', type: 'info' } },
                   { id: 'info4', type: 'Text', props: { text: '4. K8s Worker generates random color and sends patch back', type: 'info' } },

@@ -12,6 +12,7 @@ import {
   setHashPath,
   subscribeHashPath,
 } from './router.js';
+import { buildBusDispatchLabel, buildBusEventV2 } from './bus_event_v2.js';
 
 export function createDemoRoot(store) {
   let consumeScheduled = false;
@@ -135,19 +136,14 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
 
       function selectWorkspaceModel(modelId) {
         if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
-        const opId = `ws_sel_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-        mainStore.dispatchAddLabel({
-          p: 0, r: 0, c: 1, k: 'ui_event', t: 'event',
-          v: {
-            event_id: Date.now(), type: 'label_update', source: 'ui_renderer', ts: 0,
-            payload: {
-              action: 'label_update',
-              meta: { op_id: opId },
-              target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
-              value: { t: 'int', v: modelId },
-            },
+        mainStore.dispatchAddLabel(buildBusDispatchLabel(buildBusEventV2({
+          busInKey: 'ui_edit',
+          value: {
+            action: 'label_update',
+            target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
+            value: { t: 'int', v: modelId },
           },
-        });
+        })));
       }
 
       function syncPageLabel(routePath) {
@@ -156,18 +152,16 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
           const opId = `route_${Date.now()}_${Math.random().toString(16).slice(2)}`;
           const envelope = {
-            event_id: Date.now(),
-            type: 'label_update',
-            source: 'ui_renderer',
-            ts: 0,
-            payload: {
-              action: 'label_update',
-              meta: { op_id: opId },
-              target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ui_page' },
-              value: { t: 'str', v: page },
-            },
+            action: 'label_update',
+            meta: { op_id: opId },
+            target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ui_page' },
+            value: { t: 'str', v: page },
           };
-          mainStore.dispatchAddLabel({ p: 0, r: 0, c: 1, k: 'ui_event', t: 'event', v: envelope });
+          mainStore.dispatchAddLabel(buildBusDispatchLabel(buildBusEventV2({
+            busInKey: 'ui_edit',
+            value: envelope,
+            opId,
+          })));
           if (typeof mainStore.consumeOnce === 'function') {
             queueMicrotask(() => mainStore.consumeOnce());
           }
@@ -194,18 +188,16 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
         const opId = `gallery_nav_clear_${Date.now()}_${Math.random().toString(16).slice(2)}`;
         const envelope = {
-          event_id: Date.now(),
-          type: 'label_update',
-          source: 'ui_renderer',
-          ts: 0,
-          payload: {
-            action: 'label_update',
-            meta: { op_id: opId },
-            target: { model_id: -102, p: 0, r: 0, c: 0, k: 'nav_to' },
-            value: { t: 'str', v: '' },
-          },
+          action: 'label_update',
+          meta: { op_id: opId },
+          target: { model_id: -102, p: 0, r: 0, c: 0, k: 'nav_to' },
+          value: { t: 'str', v: '' },
         };
-        mainStore.dispatchAddLabel({ p: 0, r: 0, c: 1, k: 'ui_event', t: 'event', v: envelope });
+        mainStore.dispatchAddLabel(buildBusDispatchLabel(buildBusEventV2({
+          busInKey: 'ui_edit',
+          value: envelope,
+          opId,
+        })));
         if (typeof mainStore.consumeOnce === 'function') {
           queueMicrotask(() => mainStore.consumeOnce());
         }
