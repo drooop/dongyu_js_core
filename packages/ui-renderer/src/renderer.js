@@ -279,6 +279,17 @@ function buildMailboxEventLabel(envelope) {
   };
 }
 
+function buildBusDispatchLabel(envelope) {
+  return {
+    p: 0,
+    r: 0,
+    c: 0,
+    k: 'bus_in_event',
+    t: 'event',
+    v: envelope,
+  };
+}
+
 function normalizeRegistry(registry) {
   if (!registry || !isPlainObject(registry) || !isPlainObject(registry.components)) {
     return DEFAULT_REGISTRY;
@@ -1684,6 +1695,29 @@ function buildVueNode(node, snapshot, vue, host, registry) {
 
 function dispatchEvent(node, target, payload, host, overrideType) {
   const ctx = arguments.length > 5 ? arguments[5] : null;
+  if (target && target.bus_event_v2 === true) {
+    const snapshot = host.getSnapshot();
+    const busInKey = typeof target.bus_in_key === 'string' ? target.bus_in_key.trim() : '';
+    const value = target.value_ref !== undefined
+      ? resolveRefsDeep(target.value_ref, ctx, snapshot, host)
+      : (payload && Object.prototype.hasOwnProperty.call(payload, 'value') ? payload.value : payload);
+    const meta = target.meta_ref !== undefined
+      ? resolveRefsDeep(target.meta_ref, ctx, snapshot, host)
+      : (target.meta !== undefined ? resolveRefsDeep(target.meta, ctx, snapshot, host) : {});
+    const envelope = {
+      type: 'bus_event_v2',
+      bus_in_key: busInKey,
+      value,
+      meta: {
+        op_id: nextEditorOpId(),
+        source: 'ui_renderer',
+        ...(meta && typeof meta === 'object' && !Array.isArray(meta) ? meta : {}),
+      },
+    };
+    const label = buildBusDispatchLabel(envelope);
+    host.dispatchAddLabel(label);
+    return label;
+  }
   if (target && Object.prototype.hasOwnProperty.call(target, 'pin')) {
     const snapshot = host.getSnapshot();
     const out = { pin: target.pin };
