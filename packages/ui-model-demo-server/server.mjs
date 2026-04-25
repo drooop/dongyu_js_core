@@ -1290,7 +1290,7 @@ const SLIDE_IMPORT_ALLOWED_UI_AUTHORING_VERSION = 'cellwise.ui.v1';
 const SLIDE_IMPORT_HOST_INGRESS_LABEL = 'host_ingress_v1';
 const SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_SEMANTIC = 'submit';
 const SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_LOCATOR = 'root_relative_cell';
-const SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_VALUE_T = 'event';
+const SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_VALUE_T = 'modeltable';
 const SLIDE_IMPORT_DUAL_BUS_LABEL = 'dual_bus_model';
 const SLIDE_IMPORT_HOST_EGRESS_SUPPORTED_SEMANTIC = 'submit';
 const SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES = new Set([
@@ -1653,7 +1653,16 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
     v: {
       code: [
         `const opId = 'imported_${rootModelId}_' + Date.now() + '_' + Math.random().toString(16).slice(2);`,
-        `V1N.addLabel('mt_bus_send_in', 'pin.in', { source_model_id: ${rootModelId}, pin: ${JSON.stringify(hostEgress.pinName)}, payload: label && label.v ? label.v : null, bus_out_key: ${JSON.stringify(keys.busOutKey)}, op_id: opId });`,
+        `const mt = (k, t, v) => ({ id: 0, p: 0, r: 0, c: 0, k, t, v });`,
+        `const payload = Array.isArray(label && label.v) ? label.v : [];`,
+        `V1N.addLabel('mt_bus_send_in', 'pin.in', [`,
+        `  mt('__mt_payload_kind', 'str', 'bus_send.v1'),`,
+        `  mt('__mt_request_id', 'str', opId),`,
+        `  mt('source_model_id', 'int', ${rootModelId}),`,
+        `  mt('pin', 'str', ${JSON.stringify(hostEgress.pinName)}),`,
+        `  mt('bus_out_key', 'str', ${JSON.stringify(keys.busOutKey)}),`,
+        `  mt('payload', 'json', payload),`,
+        `]);`,
         'return;',
       ].join('\n'),
     },
@@ -2033,10 +2042,39 @@ const GENERIC_OWNER_ROUTE_LABEL = 'owner_route';
 const GENERIC_OWNER_FUNC = 'owner_materialize';
 const GENERIC_PIN_ERROR_LABEL = 'owner_pin_error';
 
+function mtPayloadRecord(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function ownerRequestToTemporaryPayload(request, kind = 'owner_request.v1') {
+  const normalized = request && typeof request === 'object' ? request : {};
+  const requestId = typeof normalized.request_id === 'string' && normalized.request_id
+    ? normalized.request_id
+    : `owner_req_${Date.now()}`;
+  const targetModelId = Number.isInteger(normalized.target_model_id) ? normalized.target_model_id : 0;
+  const op = typeof normalized.op === 'string' ? normalized.op : '';
+  const origin = normalized.origin && typeof normalized.origin === 'object' ? normalized.origin : {};
+  const originAction = typeof origin.action === 'string' ? origin.action : '';
+  return [
+    mtPayloadRecord('__mt_payload_kind', 'str', kind),
+    mtPayloadRecord('__mt_request_id', 'str', requestId),
+    mtPayloadRecord('target_model_id', 'int', targetModelId),
+    mtPayloadRecord('op', 'str', op),
+    mtPayloadRecord('origin_action', 'str', originAction),
+    mtPayloadRecord('request', 'json', normalized),
+  ];
+}
+
 function homeOwnerMaterializeCode(modelId) {
   return [
     `const SELF_MODEL_ID = ${JSON.stringify(modelId)};`,
-    "const req = label && label.v && typeof label.v === 'object' ? label.v : null;",
+    "const readPayload = (value, key, fallback = null) => {",
+    "  if (!Array.isArray(value)) return fallback;",
+    "  const rec = value.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key);",
+    "  return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback;",
+    "};",
+    "const labelValue = label ? label.v : null;",
+    "const req = Array.isArray(labelValue) ? readPayload(labelValue, 'request', null) : (labelValue && typeof labelValue === 'object' ? labelValue : null);",
     "if (!req) throw new Error('invalid_request_shape');",
     "if (req.target_model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
     "if (req.op === 'set_labels') {",
@@ -2068,7 +2106,13 @@ function homeOwnerMaterializeCode(modelId) {
 function genericOwnerMaterializeCode(modelId) {
   return [
     `const SELF_MODEL_ID = ${JSON.stringify(modelId)};`,
-    "const req = label && label.v && typeof label.v === 'object' ? label.v : null;",
+    "const readPayload = (value, key, fallback = null) => {",
+    "  if (!Array.isArray(value)) return fallback;",
+    "  const rec = value.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key);",
+    "  return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback;",
+    "};",
+    "const labelValue = label ? label.v : null;",
+    "const req = Array.isArray(labelValue) ? readPayload(labelValue, 'request', null) : (labelValue && typeof labelValue === 'object' ? labelValue : null);",
     "if (!req) throw new Error('invalid_request_shape');",
     "V1N.table.addLabel(0, 0, 0, '__owner_last_request_id', 'str', typeof req.request_id === 'string' ? req.request_id : '');",
     "V1N.table.addLabel(0, 0, 0, '__owner_last_action', 'str', req && req.origin && typeof req.origin.action === 'string' ? req.origin.action : '');",
@@ -2509,8 +2553,83 @@ function repairModel100DualBusConfig(runtime) {
   return true;
 }
 
+function isTemporaryPayloadRecordArray(value) {
+  return Array.isArray(value) && value.every((record) =>
+    record
+    && typeof record === 'object'
+    && Number.isInteger(record.id)
+    && Number.isInteger(record.p)
+    && Number.isInteger(record.r)
+    && Number.isInteger(record.c)
+    && typeof record.k === 'string'
+    && record.k.length > 0
+    && typeof record.t === 'string'
+    && record.t.length > 0
+  );
+}
+
+function isCellCoord(value) {
+  return value
+    && typeof value === 'object'
+    && Number.isInteger(value.p)
+    && Number.isInteger(value.r)
+    && Number.isInteger(value.c);
+}
+
+function temporaryPayloadLabel(payload, key) {
+  return Array.isArray(payload)
+    ? payload.find((record) => record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null
+    : null;
+}
+
+function isValidBusPayloadArray(value) {
+  if (!isTemporaryPayloadRecordArray(value)) return false;
+  const kind = temporaryPayloadLabel(value, '__mt_payload_kind');
+  if (kind && kind.t === 'str' && kind.v === 'write_label.v1') {
+    const targetCell = temporaryPayloadLabel(value, '__mt_target_cell');
+    if (!targetCell || targetCell.t !== 'json' || !isCellCoord(targetCell.v)) return false;
+  }
+  return true;
+}
+
+function isLegacyWriteEnvelope(value) {
+  return value
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && value.op === 'write'
+    && Array.isArray(value.records);
+}
+
 function normalizeDirectPinValue(rawValue, meta, target, pin) {
   let nextValue = rawValue;
+  if (target && target.model_id === 0) {
+    if (Array.isArray(nextValue)) {
+      if (!isValidBusPayloadArray(nextValue)) {
+        return { ok: false, code: 'invalid_bus_payload', detail: 'temporary_modeltable_required' };
+      }
+      return { ok: true, value: nextValue };
+    }
+    if (nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue) && nextValue.version === 'v1' && nextValue.type === 'pin_payload') {
+      const packetPin = typeof nextValue.pin === 'string' ? nextValue.pin.trim() : '';
+      if (!packetPin || packetPin !== pin) {
+        return { ok: false, code: 'invalid_bus_payload', detail: 'pin_mismatch' };
+      }
+      if (!isValidBusPayloadArray(nextValue.payload)) {
+        return { ok: false, code: 'invalid_bus_payload', detail: 'invalid_external_pin_payload' };
+      }
+      return { ok: true, value: nextValue.payload };
+    }
+    if (isLegacyWriteEnvelope(nextValue)) {
+      return { ok: false, code: 'invalid_bus_payload', detail: 'legacy_write_envelope' };
+    }
+    return { ok: false, code: 'invalid_bus_payload', detail: 'temporary_modeltable_required' };
+  }
+  if (target && target.model_id > 0) {
+    if (Array.isArray(nextValue) && isTemporaryPayloadRecordArray(nextValue)) {
+      return { ok: true, value: nextValue };
+    }
+    return { ok: false, code: 'invalid_pin_payload', detail: 'temporary_modeltable_required' };
+  }
   if (nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)
       && typeof nextValue.t === 'string' && Object.prototype.hasOwnProperty.call(nextValue, 'v')) {
     nextValue = nextValue.v;
@@ -2520,9 +2639,9 @@ function normalizeDirectPinValue(rawValue, meta, target, pin) {
     if (meta && !out.meta) out.meta = meta;
     if (target && !out.target) out.target = target;
     if (pin && !out.pin) out.pin = pin;
-    return out;
+    return { ok: true, value: out };
   }
-  return nextValue;
+  return { ok: true, value: nextValue };
 }
 
 const RETIRED_SLIDE_ACTIONS = new Set([
@@ -2564,6 +2683,8 @@ class ProgramModelEngine {
     // Set by server to trigger SSE broadcast.
     this.onSnapshotChanged = null;
     this.bridgedBusOutPorts = new Map();
+    this.outboundMatrixOps = [];
+    this.ignoredMatrixReturnOpIds = new Set();
   }
 
   refreshMatrixBootstrapConfig() {
@@ -2676,7 +2797,35 @@ class ProgramModelEngine {
       console.log('[sendMatrix] WARN: matrix_dm_peer_user_id_required, skipping send');
       return null;
     }
+    const opId = payload && typeof payload.op_id === 'string' ? payload.op_id : '';
+    if (opId) {
+      this.outboundMatrixOps.push({
+        op_id: opId,
+        source_model_id: Number.isInteger(payload.source_model_id) ? payload.source_model_id : null,
+        type: typeof payload.type === 'string' ? payload.type : '',
+        pin: typeof payload.pin === 'string' ? payload.pin : '',
+        ts: Date.now(),
+      });
+      if (this.outboundMatrixOps.length > 200) {
+        this.outboundMatrixOps.splice(0, this.outboundMatrixOps.length - 200);
+      }
+    }
     await this.matrixAdapter.publish(payload);
+  }
+
+  ignoreOutboundMatrixReturns(sourceModelIds, sinceTs) {
+    const sourceSet = new Set(Array.isArray(sourceModelIds) ? sourceModelIds : []);
+    const startTs = Number.isFinite(sinceTs) ? sinceTs : 0;
+    const ignored = [];
+    for (const item of this.outboundMatrixOps) {
+      if (!item || !sourceSet.has(item.source_model_id)) continue;
+      if (item.ts < startTs) continue;
+      if (item.type !== 'pin_payload' || item.pin !== 'submit') continue;
+      if (!item.op_id) continue;
+      this.ignoredMatrixReturnOpIds.add(item.op_id);
+      ignored.push(item.op_id);
+    }
+    return ignored;
   }
 
   async llmInfer(options) {
@@ -2802,7 +2951,7 @@ class ProgramModelEngine {
       runtime.addLabel(sysModel, 0, 0, 0, {
         k: buildGenericSourceOutPin(request.target_model_id),
         t: 'pin.out',
-        v: request,
+        v: ownerRequestToTemporaryPayload(request, 'owner_request.v1'),
       });
     }
 
@@ -2886,6 +3035,11 @@ class ProgramModelEngine {
     if (content.type === 'pin_payload') {
       if (!Number.isInteger(content.source_model_id) || content.source_model_id <= 0) {
         console.log('[handleDyBusEvent] Invalid pin_payload source_model_id');
+        return;
+      }
+      const opId = typeof content.op_id === 'string' ? content.op_id : '';
+      if (opId && this.ignoredMatrixReturnOpIds.has(opId)) {
+        console.log('[handleDyBusEvent] Ignoring quarantined pin_payload op_id:', opId);
         return;
       }
       if (String(content.pin || '').trim() !== 'result') {
@@ -3899,16 +4053,19 @@ class ProgramModelEngine {
     const sys = firstSystemModel(this.runtime);
     const rootCell = this.runtime.getCell(model0, 0, 0, 0);
     for (const [key, label] of rootCell.labels.entries()) {
-      if (!label || label.t !== 'pin.bus.out' || !label.v || typeof label.v !== 'object' || label.v.type !== 'pin_payload') {
+      const packet = label && label.t === 'pin.bus.out' && typeof this.runtime._pinBusOutValueToExternalPayload === 'function'
+        ? this.runtime._pinBusOutValueToExternalPayload(label.v)
+        : (label ? label.v : null);
+      if (!label || label.t !== 'pin.bus.out' || !packet || typeof packet !== 'object' || packet.type !== 'pin_payload') {
         continue;
       }
-      const opIdentity = String(label.v.op_id || `${label.v.source_model_id || ''}:${label.v.pin || ''}`);
+      const opIdentity = String(packet.op_id || `${packet.source_model_id || ''}:${packet.pin || ''}`);
       const bridgeKey = `pin.bus.out:${key}:${opIdentity}`;
       if (alreadyScheduled.has(bridgeKey)) continue;
       if (this.bridgedBusOutPorts.get(key) === opIdentity) continue;
       alreadyScheduled.add(bridgeKey);
       this.bridgedBusOutPorts.set(key, opIdentity);
-      const maybePromise = this.sendMatrix(label.v);
+      const maybePromise = this.sendMatrix(packet);
       if (maybePromise && typeof maybePromise.then === 'function') {
         maybePromise.catch((err) => {
           console.log('[processEventsSnapshot] WARNING: pending pin.bus.out matrix bridge failed', {
@@ -5173,6 +5330,66 @@ function createServerState(options) {
     runtime.addLabel(model100, 0, 0, 0, { k: 'status', t: 'str', v: 'ready' });
   }
 
+  function listPendingModel0EgressModelIds() {
+    const model0 = runtime.getModel(0);
+    if (!model0) return [];
+    const out = [];
+    const rootCell = runtime.getCell(model0, 0, 0, 0);
+    for (const [modelId] of runtime.models) {
+      if (!Number.isInteger(modelId) || modelId <= 0) continue;
+      const dualBusConfig = readDualBusConfig(runtime, modelId);
+      const egressLabel = dualBusConfig && typeof dualBusConfig.model0_egress_label === 'string'
+        ? dualBusConfig.model0_egress_label.trim()
+        : '';
+      if (!egressLabel) continue;
+      const value = rootCell.labels.get(egressLabel)?.v ?? null;
+      if (Array.isArray(value) && value.length > 0) out.push(modelId);
+    }
+    return out;
+  }
+
+  function isModel0EgressSettled(modelId) {
+    const model = runtime.getModel(modelId);
+    if (!model) return true;
+    if (runtime.getLabelValue(model, 0, 0, 0, 'submit_inflight') === true) return false;
+    const model0 = runtime.getModel(0);
+    if (!model0) return true;
+    const dualBusConfig = readDualBusConfig(runtime, modelId);
+    const egressLabel = dualBusConfig && typeof dualBusConfig.model0_egress_label === 'string'
+      ? dualBusConfig.model0_egress_label.trim()
+      : '';
+    if (!egressLabel) return true;
+    const pendingPayload = runtime.getLabelValue(model0, 0, 0, 0, egressLabel);
+    return !(Array.isArray(pendingPayload) && pendingPayload.length > 0);
+  }
+
+  async function drainRuntimeActivationEgress(modelIds, startedAtOverride = null) {
+    const pendingModelIds = Array.from(new Set(Array.isArray(modelIds) ? modelIds : []))
+      .filter((modelId) => Number.isInteger(modelId) && modelId > 0);
+    if (pendingModelIds.length === 0) return { ok: true, waited: false };
+
+    const timeoutMs = readIntEnv('DY_RUNTIME_ACTIVATION_DRAIN_MS', 5000, 0);
+    const startedAt = Number.isFinite(startedAtOverride) ? startedAtOverride : Date.now();
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() <= deadline) {
+      await programEngine.tick();
+      if (pendingModelIds.every((modelId) => isModel0EgressSettled(modelId))) {
+        return { ok: true, waited: true };
+      }
+      await sleepMs(25);
+    }
+    console.warn('[activateRuntimeMode] pending Model 0 egress did not settle before timeout:', pendingModelIds.join(','));
+    const ignoredOpIds = programEngine.ignoreOutboundMatrixReturns(pendingModelIds, startedAt);
+    for (const modelId of pendingModelIds) {
+      const model = runtime.getModel(modelId);
+      if (!model) continue;
+      runtime.addLabel(model, 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: false });
+      runtime.addLabel(model, 0, 0, 0, { k: 'submit_inflight_started_at', t: 'int', v: 0 });
+      runtime.addLabel(model, 0, 0, 0, { k: 'status', t: 'str', v: 'activation_egress_timeout' });
+    }
+    return { ok: true, waited: true, timed_out: true, timeout_ms: timeoutMs, model_ids: pendingModelIds, ignored_op_ids: ignoredOpIds };
+  }
+
   function updateDerived() {
     repairModel100DualBusConfig(runtime);
     recoverModel100StaleInflight();
@@ -5223,6 +5440,12 @@ function createServerState(options) {
 
   function getBusEventErrorValue() {
     return busEventErrorValue;
+  }
+
+  function normalizeBusEventV2ValueToPinPayload(value, metaValue = null) {
+    void metaValue;
+    if (Array.isArray(value)) return isValidBusPayloadArray(value) ? value : { error: 'invalid_bus_payload' };
+    return { error: 'invalid_bus_payload' };
   }
 
   async function submitEnvelope(envelopeOrNull) {
@@ -5297,22 +5520,6 @@ function createServerState(options) {
         return finishError('invalid_bus_in_key', busInKey || 'missing_bus_in_key');
       }
       const v2Value = envelopeOrNull.value;
-      if (v2Value && typeof v2Value === 'object' && typeof v2Value.action === 'string') {
-        const legacyEnvelope = {
-          event_id: Date.now(),
-          type: v2Value.action,
-          source: 'ui_renderer',
-          ts: 0,
-          payload: {
-            action: v2Value.action,
-            meta: envelopeOrNull.meta || { op_id: `legacy_${Date.now()}` },
-            target: v2Value.target,
-            value: v2Value.value,
-            ...(v2Value.pin ? { pin: v2Value.pin } : {}),
-          },
-        };
-        return submitEnvelope(legacyEnvelope);
-      }
       if (!runtime.isRunLoopActive()) {
         return finishError('runtime_not_running', 'model_id=0');
       }
@@ -5320,11 +5527,18 @@ function createServerState(options) {
       if (!model0) {
         return finishError('invalid_target', 'missing_model0');
       }
-      runtime.addLabel(model0, 0, 0, 0, {
+      const busPayload = normalizeBusEventV2ValueToPinPayload(v2Value, envelopeOrNull.meta);
+      if (!Array.isArray(busPayload)) {
+        return finishError('invalid_bus_payload', 'temporary_modeltable_required');
+      }
+      const busResult = runtime.addLabel(model0, 0, 0, 0, {
         k: busInKey,
         t: 'pin.bus.in',
-        v: v2Value ?? null,
+        v: busPayload,
       });
+      if (!busResult || !busResult.applied) {
+        return finishError('invalid_bus_payload', 'pin_bus_in_rejected');
+      }
       return finishOk({ routed_by: 'model0_busin' });
     }
 
@@ -5496,7 +5710,7 @@ function createServerState(options) {
         v: {
           requests: normalized.map((request) => ({
             out_pin: buildHomeSourceOutPin(request.target_model_id),
-            body: request,
+            body: ownerRequestToTemporaryPayload(request, 'home_owner_request.v1'),
           })),
         },
       });
@@ -5543,7 +5757,7 @@ function createServerState(options) {
         runtime.addLabel(sysModel, 0, 0, 0, {
           k: buildGenericSourceOutPin(request.target_model_id),
           t: 'pin.out',
-          v: request,
+          v: ownerRequestToTemporaryPayload(request, 'owner_request.v1'),
         });
       }
       await sleepMs(25);
@@ -5820,7 +6034,14 @@ function createServerState(options) {
       if (!targetModel) {
         return finishError('invalid_target', 'missing_model');
       }
-      runtime.addLabel(
+      const normalizedDirectPin = normalizeDirectPinValue(payload.value, meta, target, pin);
+      if (!normalizedDirectPin || normalizedDirectPin.ok !== true) {
+        return finishError(
+          target.model_id === 0 ? 'invalid_bus_payload' : 'invalid_target',
+          normalizedDirectPin && normalizedDirectPin.detail ? normalizedDirectPin.detail : 'invalid_pin_payload',
+        );
+      }
+      const addResult = runtime.addLabel(
         targetModel,
         target.p,
         target.r,
@@ -5828,9 +6049,12 @@ function createServerState(options) {
         {
           k: pin,
           t: target.model_id === 0 ? 'pin.bus.in' : 'pin.in',
-          v: normalizeDirectPinValue(payload.value, meta, target, pin),
+          v: normalizedDirectPin.value,
         },
       );
+      if (!addResult || !addResult.applied) {
+        return finishError(target.model_id === 0 ? 'invalid_bus_payload' : 'invalid_target', 'runtime_add_label_rejected');
+      }
       return finishOk({ routed_by: 'direct_pin' });
     }
     if (envelopeOrNull && isRetiredSlideAction(action, targetModelId)) {
@@ -6361,11 +6585,16 @@ function createServerState(options) {
   }
 
   async function activateRuntimeMode(mode) {
+    const pendingActivationEgressModelIds = mode === 'running'
+      ? listPendingModel0EgressModelIds()
+      : [];
+    const activationDrainStartedAt = mode === 'running' ? Date.now() : null;
     runtime.setRuntimeMode(mode);
     if (mode === 'running') {
       await programEngineReady;
       await programEngine.activateRunning();
       await programEngine.tick();
+      await drainRuntimeActivationEgress(pendingActivationEgressModelIds, activationDrainStartedAt);
     }
     updateDerived();
     return { mode: runtime.getRuntimeMode() };

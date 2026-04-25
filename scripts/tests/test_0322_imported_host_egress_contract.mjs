@@ -44,7 +44,7 @@ function hostIngressRootLabel() {
       boundaries: [{
         semantic: 'submit',
         pin_name: 'submit_request',
-        value_t: 'event',
+        value_t: 'modeltable',
         locator_kind: 'root_relative_cell',
         locator_value: { p: 0, r: 0, c: 0 },
         primary: true,
@@ -83,14 +83,16 @@ function validPayload() {
       ] },
       { id: 0, p: 0, r: 0, c: 0, k: 'submit', t: 'pin.out', v: null },
       { id: 0, p: 0, r: 0, c: 0, k: 'handle_submit', t: 'func.js', v: { code: [
-        "const event = label && label.v && typeof label.v === 'object' ? label.v : {};",
-        "const text = String(event.text != null ? event.text : '').trim();",
+        "const records = Array.isArray(label && label.v) ? label.v : [];",
+        "const readPayload = function(key, fallback) { const rec = records.find(function(item) { return item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key; }); return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback; };",
+        "const nestedValue = readPayload('value', {});",
+        "const text = String(readPayload('text', nestedValue && nestedValue.text != null ? nestedValue.text : '')).trim();",
         "const SELF = ctx.self.model_id;",
         "const payload = [",
         "  { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.ImportedHostSubmit' },",
         "  { id: 0, p: 0, r: 0, c: 0, k: 'message_text', t: 'str', v: text },",
         "  { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: SELF },",
-        "  { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: String(event.source || 'host_ingress') }",
+        "  { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: String(readPayload('source', nestedValue && nestedValue.source ? nestedValue.source : 'host_ingress')) }",
         "];",
         "V1N.addLabel('input_text', 'str', text);",
         "V1N.addLabel('last_submit_payload', 'json', payload);",
@@ -165,6 +167,9 @@ async function test_import_generates_host_egress_adapter_for_valid_dual_bus_impo
     assert.ok(rootLabels.has(busLabel), 'model0_bus_out_label_must_be_generated');
     assert.ok(rootLabels.has(bridgeIn), 'model0_bridge_input_must_be_generated');
     assert.ok(rootLabels.has(bridgeFunc), 'model0_bridge_function_must_be_generated');
+    const bridgeCode = rootLabels.get(bridgeFunc)?.v?.code || '';
+    assert.ok(bridgeCode.includes('bus_send.v1'), 'model0_bridge_function_must_write_bus_send_v1_temporary_payload');
+    assert.ok(!bridgeCode.includes('source_model_id: '), 'model0_bridge_function_must_not_write_legacy_object_request');
     assert.equal(Object.prototype.hasOwnProperty.call(importedRoot.get('dual_bus_model')?.v || {}, 'model0_egress_label'), false, 'dual_bus_model_must_not_keep_legacy_model0_egress_label');
     assert.equal(Object.prototype.hasOwnProperty.call(importedRoot.get('dual_bus_model')?.v || {}, 'model0_egress_func'), false, 'dual_bus_model_must_not_keep_legacy_model0_egress_func');
     const sys = state.runtime.getModel(-10);

@@ -42,6 +42,12 @@ function getLabelValue(snapshot, ref) {
   return label.v;
 }
 
+function toCssLength(value, fallback) {
+  if (typeof value === 'number' && Number.isFinite(value)) return `${value}px`;
+  if (typeof value === 'string' && value.trim()) return value;
+  return fallback;
+}
+
 function normalizeSelectModelValue(value, options) {
   if (!Array.isArray(options) || options.length === 0 || value === undefined) return value;
   if (options.some((opt) => opt && Object.prototype.hasOwnProperty.call(opt, 'value') && Object.is(opt.value, value))) {
@@ -1195,8 +1201,8 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const bgColor = typeof colorValue === 'string' && colorValue.startsWith('#') ? colorValue : '#FFFFFF';
     const boxStyle = {
       backgroundColor: bgColor,
-      width: (node.props && node.props.width) || '100px',
-      height: (node.props && node.props.height) || '60px',
+      width: toCssLength(node.props && node.props.width, '100px'),
+      height: toCssLength(node.props && node.props.height, '60px'),
       borderRadius: (node.props && node.props.borderRadius) || '8px',
       border: '2px solid #e5e7eb',
       display: 'flex',

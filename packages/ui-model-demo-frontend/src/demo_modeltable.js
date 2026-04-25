@@ -19,7 +19,7 @@ import { buildAstFromSchema } from './ui_schema_projection.js';
 import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
 import { resolvePageAsset } from './page_asset_resolver.js';
 import { resolveRouteUiAst } from './route_ui_projection.js';
-import { buildBusDispatchLabel, buildBusEventV2 } from './bus_event_v2.js';
+import { buildBusDispatchLabel, buildBusEventV2, normalizeBusEventV2ValueToPinPayload } from './bus_event_v2.js';
 import {
   deriveEditorModelOptions,
   deriveHomeEditDialogTitle,
@@ -420,30 +420,22 @@ export function createDemoStore() {
         throw new Error('invalid_envelope');
       }
       const busInKey = typeof envelope.bus_in_key === 'string' ? envelope.bus_in_key.trim() : '';
-      const value = envelope.value;
-      if (value && typeof value === 'object' && typeof value.action === 'string') {
-        const legacyEnvelope = {
-          event_id: Date.now(),
-          type: value.action,
-          source: 'ui_renderer',
-          ts: 0,
-          payload: {
-            action: value.action,
-            meta: envelope.meta || { op_id: `legacy_${Date.now()}` },
-            target: value.target,
-            value: value.value,
-            ...(value.pin ? { pin: value.pin } : {}),
-          },
-        };
-        setMailboxValue(legacyEnvelope);
-        refreshSnapshot();
-        return;
-      }
       if (!busInKey) {
         throw new Error('invalid_envelope');
       }
       const model0 = runtime.getModel(0);
-      runtime.addLabel(model0, 0, 0, 0, { k: busInKey, t: 'pin.bus.in', v: envelope.value ?? null });
+      const busPayload = normalizeBusEventV2ValueToPinPayload(envelope.value, envelope.meta);
+      if (!Array.isArray(busPayload)) {
+        throw new Error('invalid_bus_payload');
+      }
+      const addResult = runtime.addLabel(model0, 0, 0, 0, {
+        k: busInKey,
+        t: 'pin.bus.in',
+        v: busPayload,
+      });
+      if (!addResult || !addResult.applied) {
+        throw new Error('invalid_bus_payload');
+      }
       updateDerived();
       refreshSnapshot();
       return;

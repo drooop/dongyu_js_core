@@ -137,6 +137,7 @@ function buildProps(def) {
   if (layout) props.layout = layout;
   if (gap !== null) props.gap = gap;
   if (wrap !== null) props.wrap = wrap;
+  if (def.slot) props.slot = def.slot;
 
   assignStringOrRef('text', 'ui_text');
   assignStringOrRef('title', 'ui_title');

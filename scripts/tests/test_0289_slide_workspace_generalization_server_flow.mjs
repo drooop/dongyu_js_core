@@ -43,6 +43,19 @@ function pinEnvelope(target, pin, value = undefined) {
   };
 }
 
+function uiEventPayload(labels = []) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+    ...labels.map((label) => ({ id: 0, p: 0, r: 0, c: 0, ...label })),
+  ];
+}
+
+function slideImportClickPayload() {
+  return uiEventPayload([
+    { k: 'target', t: 'json', v: { model_id: 1031, p: 0, r: 0, c: 0 } },
+  ]);
+}
+
 function buildImportZipBuffer() {
   const payload = [
     { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.SlideZipImportedApp' },
@@ -113,7 +126,7 @@ async function test_builtin_and_imported_apps_share_workspace_contract() {
     const importResult = await state.submitEnvelope(pinEnvelope(
       { model_id: 1030, p: 2, r: 4, c: 0 },
       'click',
-      { click: true },
+      slideImportClickPayload(),
     ));
     assert.equal(importResult.result, 'ok', 'slide_app_import_pin_must_succeed');
     await wait();

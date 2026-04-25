@@ -217,6 +217,8 @@ echo ""
 # ── Wait for rollout ─────────────────────────────────────
 echo "=== Step 10: Wait for rollout ==="
 wait_for_rollout mosquitto synapse remote-worker mbr-worker ui-server ui-side-worker
+echo "  Waiting for old app pods to terminate..."
+wait_for_no_terminating_pods remote-worker mbr-worker ui-server ui-side-worker
 echo ""
 
 # ── Verify ────────────────────────────────────────────────

@@ -74,7 +74,7 @@ try {
   assert(findNodeById(ast, 'sliding_flow_process_table')?.type === 'Table', 'sliding_flow_process_table_missing');
   assert(findNodeById(ast, 'sliding_flow_debug_table')?.type === 'Table', 'sliding_flow_debug_table_missing');
   assert(findNodeById(ast, 'sliding_flow_progress')?.type === 'ProgressBar', 'sliding_flow_progress_missing');
-  assert(findNodeById(ast, 'schema_root_100')?.type === 'Container', 'selected_app_schema_missing');
+  assert(findNodeById(ast, 'model100_cellwise_root')?.type === 'Container', 'selected_app_schema_missing');
   assert(
     findNodeById(ast, 'sliding_flow_tabs')?.bind?.write?.target_ref?.k === FLOW_SHELL_TAB_LABEL,
     'flow_tabs_write_target_missing',

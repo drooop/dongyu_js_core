@@ -12,7 +12,30 @@ import {
   setHashPath,
   subscribeHashPath,
 } from './router.js';
-import { buildBusDispatchLabel, buildBusEventV2 } from './bus_event_v2.js';
+
+function buildUiMailboxEventLabel(input) {
+  const { action, target, value, opId } = input || {};
+  const nextOpId = opId || `ui_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  return {
+    p: 0,
+    r: 0,
+    c: 1,
+    k: 'ui_event',
+    t: 'event',
+    v: {
+      event_id: Date.now(),
+      type: action,
+      source: 'ui_renderer',
+      ts: 0,
+      payload: {
+        action,
+        meta: { op_id: nextOpId },
+        ...(target ? { target } : {}),
+        ...(Object.prototype.hasOwnProperty.call(input || {}, 'value') ? { value } : {}),
+      },
+    },
+  };
+}
 
 export function createDemoRoot(store) {
   let consumeScheduled = false;
@@ -136,14 +159,11 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
 
       function selectWorkspaceModel(modelId) {
         if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
-        mainStore.dispatchAddLabel(buildBusDispatchLabel(buildBusEventV2({
-          busInKey: 'ui_edit',
-          value: {
-            action: 'label_update',
-            target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
-            value: { t: 'int', v: modelId },
-          },
-        })));
+        mainStore.dispatchAddLabel(buildUiMailboxEventLabel({
+          action: 'label_update',
+          target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
+          value: { t: 'int', v: modelId },
+        }));
       }
 
       function syncPageLabel(routePath) {
@@ -151,17 +171,12 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         try {
           if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
           const opId = `route_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-          const envelope = {
+          mainStore.dispatchAddLabel(buildUiMailboxEventLabel({
             action: 'label_update',
-            meta: { op_id: opId },
             target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ui_page' },
             value: { t: 'str', v: page },
-          };
-          mainStore.dispatchAddLabel(buildBusDispatchLabel(buildBusEventV2({
-            busInKey: 'ui_edit',
-            value: envelope,
             opId,
-          })));
+          }));
           if (typeof mainStore.consumeOnce === 'function') {
             queueMicrotask(() => mainStore.consumeOnce());
           }
@@ -187,17 +202,12 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       function clearGalleryNavTarget() {
         if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
         const opId = `gallery_nav_clear_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-        const envelope = {
+        mainStore.dispatchAddLabel(buildUiMailboxEventLabel({
           action: 'label_update',
-          meta: { op_id: opId },
           target: { model_id: -102, p: 0, r: 0, c: 0, k: 'nav_to' },
           value: { t: 'str', v: '' },
-        };
-        mainStore.dispatchAddLabel(buildBusDispatchLabel(buildBusEventV2({
-          busInKey: 'ui_edit',
-          value: envelope,
           opId,
-        })));
+        }));
         if (typeof mainStore.consumeOnce === 'function') {
           queueMicrotask(() => mainStore.consumeOnce());
         }

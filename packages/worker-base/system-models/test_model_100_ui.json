@@ -102,6 +102,33 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "bucket_c_cell_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [
+            1,
+            0,
+            0,
+            "write_label_req"
+          ],
+          "to": [
+            [
+              0,
+              0,
+              0,
+              "mt_write_req"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "ui_type",
       "t": "str",
       "v": "color_form"
@@ -186,6 +213,43 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "submit",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_request_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, submit_request)",
+          "to": [
+            "(func, prepare_model100_submit_from_pin:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "owner_request",
       "t": "pin.in",
       "v": null
@@ -216,7 +280,7 @@
       "k": "owner_materialize",
       "t": "func.js",
       "v": {
-        "code": "const req = label && label.v && typeof label.v === 'object' ? label.v : null;\nif (!req) return;\nif (req.target_model_id !== 100) throw new Error('target_scope_rejected');\nconst records = Array.isArray(req.records) ? req.records : [];\nfor (const record of records) {\n  if (!record || typeof record !== 'object') continue;\n  if (record.op === 'add_label') {\n    if (record.model_id !== 100) throw new Error('target_scope_rejected');\n    V1N.table.addLabel(Number.isInteger(record.p) ? record.p : 0, Number.isInteger(record.r) ? record.r : 0, Number.isInteger(record.c) ? record.c : 0, record.k, typeof record.t === 'string' && record.t ? record.t : 'str', record.v);\n    continue;\n  }\n  if (record.op === 'rm_label') {\n    if (record.model_id !== 100) throw new Error('target_scope_rejected');\n    V1N.table.removeLabel(Number.isInteger(record.p) ? record.p : 0, Number.isInteger(record.r) ? record.r : 0, Number.isInteger(record.c) ? record.c : 0, record.k);\n    continue;\n  }\n  throw new Error('unsupported_op');\n}",
+        "code": "const readPayload = (value, key, fallback = null) => {\n  if (!Array.isArray(value)) return fallback;\n  const rec = value.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key);\n  return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback;\n};\nconst labelValue = label ? label.v : null;\nconst req = Array.isArray(labelValue) ? readPayload(labelValue, 'request', null) : (labelValue && typeof labelValue === 'object' ? labelValue : null);\nif (!req) return;\nif (req.target_model_id !== 100) throw new Error('target_scope_rejected');\nconst records = Array.isArray(req.records) ? req.records : [];\nfor (const record of records) {\n  if (!record || typeof record !== 'object') continue;\n  if (record.op === 'add_label') {\n    if (record.model_id !== 100) throw new Error('target_scope_rejected');\n    V1N.table.addLabel(Number.isInteger(record.p) ? record.p : 0, Number.isInteger(record.r) ? record.r : 0, Number.isInteger(record.c) ? record.c : 0, record.k, typeof record.t === 'string' && record.t ? record.t : 'str', record.v);\n    continue;\n  }\n  if (record.op === 'rm_label') {\n    if (record.model_id !== 100) throw new Error('target_scope_rejected');\n    V1N.table.removeLabel(Number.isInteger(record.p) ? record.p : 0, Number.isInteger(record.r) ? record.r : 0, Number.isInteger(record.c) ? record.c : 0, record.k);\n    continue;\n  }\n  throw new Error('unsupported_op');\n}",
         "modelName": "test_model_100_ui"
       }
     },
@@ -259,7 +323,7 @@
       "k": "prepare_model100_submit_from_pin",
       "t": "func.js",
       "v": {
-        "code": "const event = label && label.v && typeof label.v === 'object' ? label.v : null;\nif (!event) return;\nconsole.log('[prepare_model100_submit_from_pin] Event:', JSON.stringify(event));\nconst readValue = (tp, tr, tc, key, fallback = null) => {\n  const next = V1N.readLabel(tp, tr, tc, key);\n  return next && Object.prototype.hasOwnProperty.call(next, 'v') ? next.v : fallback;\n};\nconst writeRoot = (key, type, value) => V1N.table.addLabel(0, 0, 0, key, type, value);\nconst writeMailbox = (key, type, value) => V1N.table.addLabel(0, 0, 1, key, type, value);\nconst inflight = readValue(0, 0, 0, 'submit_inflight', false) === true;\nconst startedAt = Number(readValue(0, 0, 0, 'submit_inflight_started_at', 0) || 0);\nconst TIMEOUT_MS = 30000;\nconst now = Date.now();\nif (inflight === true) {\n  const stale = !Number.isFinite(startedAt) || (now - startedAt > TIMEOUT_MS);\n  if (stale) {\n    writeRoot('submit_inflight', 'bool', false);\n    writeRoot('submit_inflight_started_at', 'int', 0);\n    writeRoot('status', 'str', 'ready');\n  } else {\n    writeMailbox('bus_event_error', 'json', { code: 'busy', detail: 'model100_submit_inflight' });\n    writeMailbox('bus_event_last_op_id', 'str', '');\n    return;\n  }\n}\nwriteRoot('submit_inflight', 'bool', true);\nwriteRoot('submit_inflight_started_at', 'int', now);\nwriteRoot('status', 'str', 'loading');\nwriteMailbox('bus_event_error', 'json', null);\nconst inputValue = String(event.input_value != null ? event.input_value : '');\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: inputValue },\n  { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: 'remote' }\n];\nwriteRoot('submit', 'pin.out', payload);",
+        "code": "const eventPayload = Array.isArray(label && label.v) ? label.v : [];\nif (eventPayload.length === 0) return;\nconst readPayload = (key, fallback = null) => {\n  const record = eventPayload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key);\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\nconsole.log('[prepare_model100_submit_from_pin] Event:', JSON.stringify(eventPayload));\nconst readValue = (tp, tr, tc, key, fallback = null) => {\n  const next = V1N.readLabel(tp, tr, tc, key);\n  return next && Object.prototype.hasOwnProperty.call(next, 'v') ? next.v : fallback;\n};\nconst writeRoot = (key, type, value) => V1N.table.addLabel(0, 0, 0, key, type, value);\nconst writeMailbox = (key, type, value) => V1N.table.addLabel(0, 0, 1, key, type, value);\nconst inflight = readValue(0, 0, 0, 'submit_inflight', false) === true;\nconst startedAt = Number(readValue(0, 0, 0, 'submit_inflight_started_at', 0) || 0);\nconst TIMEOUT_MS = 30000;\nconst now = Date.now();\nif (inflight === true) {\n  const stale = !Number.isFinite(startedAt) || (now - startedAt > TIMEOUT_MS);\n  if (stale) {\n    writeRoot('submit_inflight', 'bool', false);\n    writeRoot('submit_inflight_started_at', 'int', 0);\n    writeRoot('status', 'str', 'ready');\n  } else {\n    writeMailbox('bus_event_error', 'json', { code: 'busy', detail: 'model100_submit_inflight' });\n    writeMailbox('bus_event_last_op_id', 'str', '');\n    return;\n  }\n}\nwriteRoot('submit_inflight', 'bool', true);\nwriteRoot('submit_inflight_started_at', 'int', now);\nwriteRoot('status', 'str', 'loading');\nwriteMailbox('bus_event_error', 'json', null);\nconst inputValue = String(readPayload('input_value', ''));\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: inputValue },\n  { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: 'remote' }\n];\nwriteRoot('submit', 'pin.out', payload);",
         "modelName": "test_model_100_ui"
       }
     },
@@ -287,6 +351,1166 @@
       "v": {
         "code": "const payload = ctx.getLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'model100_submit_out' });\nif (!Array.isArray(payload) || payload.length === 0) return;\nconst packet = { version: 'v1', type: 'pin_payload', op_id: 'm100_' + Date.now(), source_model_id: 100, pin: 'submit', payload, timestamp: Date.now() };\nconst p = ctx.sendMatrix(packet);\nif (p && typeof p.then === 'function') {\n  p.then(function() { console.log('[forward_model100_submit_from_model0] Matrix send OK, op_id:', packet.op_id); })\n   .catch(function(err) {\n     console.warn('[forward_model100_submit_from_model0] Matrix send failed (non-fatal):', err.message);\n     ctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', false);\n     ctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight_started_at' }, 'int', 0);\n     ctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'status' }, 'str', 'send_failed');\n   });\n} else if (!p) {\n  console.warn('[forward_model100_submit_from_model0] Matrix not available, cannot forward event');\n  ctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight' }, 'bool', false);\n  ctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight_started_at' }, 'int', 0);\n  ctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'status' }, 'str', 'matrix_unavailable');\n}\nctx.writeLabel({ model_id: 0, p: 0, r: 0, c: 0, k: 'model100_submit_out' }, 'pin.in', null);\nctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'submit' }, 'pin.out', null);\nctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_forward_model100_submit_from_model0' });",
         "modelName": "test_model_100_ui"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "E2E 颜色生成器"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "k8s-worker"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "model100_cellwise_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_cellwise_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_style_width",
+      "t": "str",
+      "v": "100%"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_cellwise_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "E2E 颜色生成器"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_font_size",
+      "t": "str",
+      "v": "20px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_font_weight",
+      "t": "str",
+      "v": "700"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_subtitle"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_cellwise_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "Local UI -> Matrix -> MBR -> MQTT -> K8s Worker -> MQTT -> MBR -> Matrix -> Local UI"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_color_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_cellwise_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 16
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_style_align_items",
+      "t": "str",
+      "v": "center"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_color_box"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "ColorBox"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_color_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_width",
+      "t": "str",
+      "v": "120px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_height",
+      "t": "int",
+      "v": 80
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "borderRadius": "12px"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": 100,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "bg_color"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_color_value_column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_color_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 4
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_color_label"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_color_value_column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 3,
+      "k": "ui_text",
+      "t": "str",
+      "v": "颜色值"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 3,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_color_value"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_color_value_column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_style_font_family",
+      "t": "str",
+      "v": "monospace"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_style_font_size",
+      "t": "str",
+      "v": "24px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_style_font_weight",
+      "t": "str",
+      "v": "bold"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": 100,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "bg_color"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_input_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_cellwise_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_style_align_items",
+      "t": "str",
+      "v": "center"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_input_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "输入文本"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Enter any text (optional)"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_style_flex",
+      "t": "str",
+      "v": "1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "model100_input_draft"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "model100_input_draft"
+          },
+          "commit_policy": "on_submit"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "input_value",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "scope_privileged",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "click",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "click_route",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, click)",
+          "to": [
+            "(func, handle_submit_click:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "handle_submit_click",
+      "t": "func.js",
+      "v": {
+        "code": "/* rubric: BucketC via write_label_req + bucket_c_cell_routes */\nconst payload = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = (key, fallback = null) => {\n  const record = payload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key);\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\nconst eventPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: String(readPayload('input_value', '')) }\n];\nV1N.writeLabel(0, 0, 0, { k: 'submit_request', t: 'pin.in', v: eventPayload });",
+        "modelName": "model100_submit_button"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "submit_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_input_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Generate Color"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "primary",
+        "size": "large",
+        "disabled": {
+          "$label": {
+            "model_id": 100,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "submit_inflight"
+          }
+        },
+        "loading": {
+          "$label": {
+            "model_id": 100,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "submit_inflight"
+          }
+        },
+        "singleFlight": {
+          "key": "model100_submit",
+          "releaseRef": {
+            "model_id": -1,
+            "p": 0,
+            "r": 0,
+            "c": 1,
+            "k": "bus_event_last_op_id"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "pin": "click",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ui_event.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "input_value",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": -2,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "model100_input_draft"
+                }
+              }
+            }
+          ],
+          "value_t": "modeltable",
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_status_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_cellwise_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 16
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_mbr_ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_status_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "MBR Ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": 100,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "system_ready"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_status_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 2,
+      "k": "ui_label",
+      "t": "str",
+      "v": "颜色状态"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 5,
+      "c": 2,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": 100,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "status"
       }
     }
   ]

@@ -294,8 +294,9 @@ async function createMatrixLiveAdapter(options = {}) {
   const trace = [];
   const listeners = new Set();
 
-  client.on('Room.timeline', (event, room, toStartOfTimeline) => {
+  client.on('Room.timeline', (event, room, toStartOfTimeline, removed, data) => {
     if (toStartOfTimeline) return;
+    if (!data || data.liveEvent !== true) return;
     if (room && room.roomId !== activeRoomId) return;
     if (event.getType && event.getType() !== 'dy.bus.v0') return;
     if (peerUserId) {

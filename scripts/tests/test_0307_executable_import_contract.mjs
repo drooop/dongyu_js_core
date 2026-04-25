@@ -38,6 +38,19 @@ function pinEnvelope(target, pin, value = undefined) {
   };
 }
 
+function uiEventPayload(labels = []) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+    ...labels.map((label) => ({ id: 0, p: 0, r: 0, c: 0, ...label })),
+  ];
+}
+
+function slideImportClickPayload() {
+  return uiEventPayload([
+    { k: 'target', t: 'json', v: { model_id: 1031, p: 0, r: 0, c: 0 } },
+  ]);
+}
+
 function buildZipBuffer(payload) {
   const zip = new AdmZip();
   zip.addFile('app_payload.json', Buffer.from(JSON.stringify(payload, null, 2), 'utf8'));
@@ -56,15 +69,11 @@ function buildExecutablePayload(extraRecords = []) {
     { id: 0, p: 0, r: 0, c: 0, k: 'ui_authoring_version', t: 'str', v: 'cellwise.ui.v1' },
     { id: 0, p: 0, r: 0, c: 0, k: 'ui_root_node_id', t: 'str', v: 'exec_root' },
     { id: 0, p: 0, r: 0, c: 0, k: 'status_text', t: 'str', v: 'idle' },
-    { id: 0, p: 0, r: 0, c: 0, k: 'submit_request', t: 'pin.in', v: null },
-    { id: 0, p: 0, r: 0, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: '(self, submit_request)', to: ['(func, handle_submit:in)'] }] },
-    { id: 0, p: 0, r: 0, c: 0, k: 'submit_owner_route', t: 'pin.connect.label', v: [{ from: '(func, handle_submit:out)', to: ['submit_owner_req'] }] },
     { id: 0, p: 0, r: 0, c: 0, k: 'root_routes', t: 'pin.connect.cell', v: [
-      { from: [2, 2, 0, 'local_owner_req'], to: [[0, 1, 0, 'owner_apply']] },
-      { from: [2, 3, 0, 'click_chain'], to: [[0, 0, 0, 'submit_request']] },
-      { from: [0, 0, 0, 'submit_owner_req'], to: [[0, 1, 0, 'owner_apply']] },
+      { from: [0, 0, 0, 'write_label_req'], to: [[0, 0, 0, 'mt_write_req']] },
+      { from: [2, 2, 0, 'write_label_req'], to: [[0, 0, 0, 'mt_write_req']] },
+      { from: [2, 3, 0, 'write_label_req'], to: [[0, 0, 0, 'mt_write_req']] },
     ] },
-    { id: 0, p: 0, r: 0, c: 0, k: 'handle_submit', t: 'func.js', v: { code: "return [{ p: 0, r: 0, c: 0, k: 'status_text', t: 'str', v: 'chain_processed' }];" } },
     { id: 0, p: 2, r: 0, c: 0, k: 'ui_node_id', t: 'str', v: 'exec_root' },
     { id: 0, p: 2, r: 0, c: 0, k: 'ui_component', t: 'str', v: 'Container' },
     { id: 0, p: 2, r: 0, c: 0, k: 'ui_layout', t: 'str', v: 'column' },
@@ -76,17 +85,18 @@ function buildExecutablePayload(extraRecords = []) {
     { id: 0, p: 2, r: 2, c: 0, k: 'ui_component', t: 'str', v: 'Button' },
     { id: 0, p: 2, r: 2, c: 0, k: 'ui_parent', t: 'str', v: 'exec_root' },
     { id: 0, p: 2, r: 2, c: 0, k: 'ui_label', t: 'str', v: 'Run Local Logic' },
-    { id: 0, p: 2, r: 2, c: 0, k: 'ui_bind_json', t: 'json', v: { write: { pin: 'click_local', value_ref: { t: 'event', v: { trigger: 'local' } } } } },
+    { id: 0, p: 2, r: 2, c: 0, k: 'ui_bind_json', t: 'json', v: { write: { pin: 'click_local', value_ref: uiEventPayload([{ k: 'trigger', t: 'str', v: 'local' }]), value_t: 'modeltable' } } },
     { id: 0, p: 2, r: 2, c: 0, k: 'click_local', t: 'pin.in', v: null },
     { id: 0, p: 2, r: 2, c: 0, k: 'click_local_route', t: 'pin.connect.label', v: [{ from: '(self, click_local)', to: ['(func, handle_local:in)'] }] },
-    { id: 0, p: 2, r: 2, c: 0, k: 'click_local_owner', t: 'pin.connect.label', v: [{ from: '(func, handle_local:out)', to: ['local_owner_req'] }] },
-    { id: 0, p: 2, r: 2, c: 0, k: 'handle_local', t: 'func.js', v: { code: "return [{ p: 0, r: 0, c: 0, k: 'status_text', t: 'str', v: 'local_processed' }];" } },
+    { id: 0, p: 2, r: 2, c: 0, k: 'handle_local', t: 'func.js', v: { code: "V1N.writeLabel(0, 0, 0, { k: 'status_text', t: 'str', v: 'local_processed' });" } },
     { id: 0, p: 2, r: 3, c: 0, k: 'ui_node_id', t: 'str', v: 'exec_chain_button' },
     { id: 0, p: 2, r: 3, c: 0, k: 'ui_component', t: 'str', v: 'Button' },
     { id: 0, p: 2, r: 3, c: 0, k: 'ui_parent', t: 'str', v: 'exec_root' },
     { id: 0, p: 2, r: 3, c: 0, k: 'ui_label', t: 'str', v: 'Run Request Chain' },
-    { id: 0, p: 2, r: 3, c: 0, k: 'ui_bind_json', t: 'json', v: { write: { pin: 'click_chain', value_ref: { t: 'event', v: { trigger: 'chain' } } } } },
+    { id: 0, p: 2, r: 3, c: 0, k: 'ui_bind_json', t: 'json', v: { write: { pin: 'click_chain', value_ref: uiEventPayload([{ k: 'trigger', t: 'str', v: 'chain' }]), value_t: 'modeltable' } } },
     { id: 0, p: 2, r: 3, c: 0, k: 'click_chain', t: 'pin.in', v: null },
+    { id: 0, p: 2, r: 3, c: 0, k: 'click_chain_route', t: 'pin.connect.label', v: [{ from: '(self, click_chain)', to: ['(func, handle_chain:in)'] }] },
+    { id: 0, p: 2, r: 3, c: 0, k: 'handle_chain', t: 'func.js', v: { code: "V1N.writeLabel(0, 0, 0, { k: 'status_text', t: 'str', v: 'chain_processed' });" } },
     ...extraRecords,
   ];
 }
@@ -126,7 +136,7 @@ async function test_executable_import_allows_func_js_within_positive_models() {
     const result = await state.submitEnvelope(pinEnvelope(
       { model_id: 1030, p: 2, r: 4, c: 0 },
       'click',
-      { click: true },
+      slideImportClickPayload(),
     ));
     assert.equal(result.result, 'ok', 'executable_import_pin_request_must_be_accepted');
     await new Promise((resolveWait) => setTimeout(resolveWait, 150));
@@ -154,7 +164,7 @@ async function test_executable_import_rejects_helper_override_and_system_boundar
     const result = await state.submitEnvelope(pinEnvelope(
       { model_id: 1030, p: 2, r: 4, c: 0 },
       'click',
-      { click: true },
+      slideImportClickPayload(),
     ));
     assert.equal(result.result, 'ok', 'forbidden_executable_import_pin_request_still_enters_runtime_ingress');
     await new Promise((resolveWait) => setTimeout(resolveWait, 150));

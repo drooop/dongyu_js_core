@@ -83,10 +83,15 @@ source: ai
 
 | label.t | 说明 | key | value | 位置约束 |
 |---|---|---|---|---|
-| `pin.in` | Cell 级输入端口；写在非系统模型 root `(0,0,0)` 时也承担模型根边界输入 | 端口名 | 传递的模型数据 | 任意 Cell |
-| `pin.out` | Cell 级输出端口；写在非系统模型 root `(0,0,0)` 时也承担模型根边界输出 | 端口名 | 传递的模型数据 | 任意 Cell |
-| `pin.bus.in` | 系统边界输入端口 | 端口名 | 传递的模型数据 | 仅 Model 0 (0,0,0) |
-| `pin.bus.out` | 系统边界输出端口 | 端口名 | 传递的模型数据 | 仅 Model 0 (0,0,0) |
+| `pin.in` | Cell 级输入端口；写在非系统模型 root `(0,0,0)` 时也承担模型根边界输入 | 端口名 | `null` 或临时 ModelTable payload array | 任意 Cell |
+| `pin.out` | Cell 级输出端口；写在非系统模型 root `(0,0,0)` 时也承担模型根边界输出 | 端口名 | `null` 或临时 ModelTable payload array | 任意 Cell |
+| `pin.bus.in` | 系统边界输入端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅 Model 0 (0,0,0) |
+| `pin.bus.out` | 系统边界输出端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅 Model 0 (0,0,0) |
+
+0331 payload 约束：
+- 正式业务 pin 的非空 value 必须是 `docs/ssot/temporary_modeltable_payload_v1.md` 定义的 record array。
+- 对象 envelope（如 `{op, records}` / `{action, target}`）不再是正式 pin value。
+- pin 名称 / 接收程序模型决定动作语义；payload 本身只表达数据。
 
 ### 3.2 日志通道
 

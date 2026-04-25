@@ -101,7 +101,7 @@ try {
   assert.equal(findNodeById(ast, 'sliding_flow_root')?.type, 'Container', 'server sliding_flow_root_missing');
   assert.equal(findNodeById(ast, 'sliding_flow_tabs')?.type, 'Tabs', 'server sliding_flow_tabs_missing');
   assert.equal(findNodeById(ast, 'sliding_flow_debug_table')?.type, 'Table', 'server sliding_flow_debug_table_missing');
-  assert.equal(findNodeById(ast, 'schema_root_100')?.type, 'Container', 'server selected_app_schema_missing');
+  assert.equal(findNodeById(ast, 'model100_cellwise_root')?.type, 'Container', 'server selected_app_schema_missing');
 
   await state.activateRuntimeMode('running');
   result = await state.submitEnvelope(mailboxEnvelope('matrix_debug_summarize', {

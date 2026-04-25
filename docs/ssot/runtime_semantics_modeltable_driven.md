@@ -223,6 +223,12 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - `mqtt.local.*` / `matrix.*`：声明运行时配置（统一写入 Model 0 `(0,0,0)`，通常由 `MODELTABLE_PATCH_JSON` 启动期落表）
 - `runtime_mode`：运行时生命周期标签（仅 Model 0 `(0,0,0)`，取值 `boot | edit | running`）
 
+0331 payload current truth：
+- `pin.in` / `pin.out` / `pin.bus.in` / `pin.bus.out` 的正式业务 value 必须是临时 ModelTable record array。
+- `null` / `undefined` 可继续作为声明或清空端口的空值。
+- 对象式业务 envelope 只允许作为历史迁移债务被 inventory，不得作为新实现或新通过路径。
+- `writeLabel` 的正式跨 cell 写入请求由 `write_label.v1` 临时 ModelTable payload 表达，并通过显式 pin route 到当前模型 `(0,0,0)` 的 `mt_write`。
+
 历史别名说明（non-normative）：
 - repo 内可能仍能搜索到 `BUS_IN` / `BUS_OUT` / `CELL_CONNECT` / `cell_connection` / `MODEL_IN` / `MODEL_OUT` / `IN` / `function` / `subModel` / `submt` 等旧名。
 - repo 内也可能仍能搜索到 `pin.table.*` / `pin.single.*` / `pin.log.table.*` / `pin.log.single.*`。
@@ -391,7 +397,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
     | func.js key | 引脚 | 职责 | 权限 |
     |---|---|---|---|
-    | `mt_write` | `mt_write:in` / `mt_write:out` | 接收写入请求，对当前 model.table 内任意 Cell 执行 addLabel/rmLabel | 模型内特权 |
+    | `mt_write` | `mt_write_req` pin.in / `mt_write_result` pin.out | 接收写入请求，对当前 model.table 内任意 Cell 执行 addLabel/rmLabel | 模型内特权 |
     | `mt_bus_receive` | `mt_bus_receive:in` / `mt_bus_receive:out` | 接收从父模型路由下来的消息，分发到模型内目标 Cell | 模型内特权 |
     | `mt_bus_send` | `mt_bus_send:in` / `mt_bus_send:out` | 汇集模型内 Cell 的外发消息，上行到父模型边界 | 模型内特权 |
 
@@ -417,10 +423,11 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - `V1N.addLabel(k, t, v)` — 写入当前 Cell 的 label（无坐标参数）
 - `V1N.removeLabel(k)` — 删除当前 Cell 的 label（无坐标参数）
 - `V1N.readLabel(p, r, c, k)` — 读取当前模型内任意 Cell 的 label（只读）
+- `V1N.writeLabel(p, r, c, { k, t, v })` — 通过显式 `write_label_req` pin.out 路由到 `(0,0,0)` 的 `mt_write_req`，请求写入当前模型内一个目标 Cell 的一个 label
 
 **跨 Cell 写入路径：**
 
-用户程序 pin.out → pin.connect.label/cell → (0,0,0) mt_write:in → mt_write 执行写入 → mt_write:out
+用户程序 `write_label_req` pin.out → `pin.connect.cell` → `(0,0,0)` `mt_write_req` pin.in → `mt_write` 执行写入 → `mt_write_result` pin.out
 
 **跨模型通信路径（两种合法方式）：**
 
@@ -439,9 +446,13 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 详细 API 定义见 `docs/ssot/host_ctx_api.md`。
 
-### 5.4 MQTT Payload 格式（ModelTablePatch v0）
+### 5.4 MQTT 外层补丁格式（ModelTablePatch v0）
 
-MQTT 消息体统一为 ModelTablePatch：
+本节描述的是 MQTT / bootstrap / trusted system boundary 使用的外层补丁传输格式，不是正式业务 pin value 的格式。
+
+0331 起，正式业务 `pin.in` / `pin.out` / `pin.bus.in` / `pin.bus.out` 的非空 value 必须是临时 ModelTable record array；不得把 `{ op, records }` / ModelTablePatch envelope 作为业务 pin payload。
+
+ModelTablePatch v0 仅作为外部补丁 envelope 或历史迁移债务保留：
 
 - Patch 结构（最小集合）：
   - `version`: `"mt.v0"`
@@ -450,13 +461,13 @@ MQTT 消息体统一为 ModelTablePatch：
     - record: `{ op, model_id, p, r, c, k, t?, v? }`
     - `op` in `{ "add_label", "rm_label" }`
 
-- 入站流程（`mqttIncoming`）：
+- 入站流程（`mqttIncoming`，legacy mt_v0 补丁入口）：
   1. 解析 topic → 提取 modelId, cellK
   2. BUS_IN 短路检查（仅 Model 0）
-  3. mt_v0 模式：先 `applyPatch(records)`，再写 `IN` label 到目标模型 (0,0,0)
-  4. IN label 触发 cell_connection 路由 + CELL_CONNECT 函数执行（异步）
+  3. mt_v0 模式只允许作为外层补丁入口：先 `applyPatch(records)`，再进入相应的 pin / mailbox 迁移路径
+  4. 新业务 pin payload 必须在进入 pin value 前转换为临时 ModelTable record array
 
-- 出站：BUS_OUT label 写入 v 时，自动发布到对应 topic
+- 出站：BUS_OUT label 的内部业务 value 必须是 `pin_payload.v1` 临时 ModelTable payload；运行时或 server 在 MQTT / Matrix / MBR 边界发布前可还原为外层 `pin_payload` object packet。
 
 ### 5.5 消息路由全链路（0143 最终架构）
 
@@ -496,11 +507,11 @@ MQTT → mqttIncoming → BUS_IN 短路 / 写 IN 到 model(0,0,0)
 
 ## 7. 管理总线 Patch 规则（MGMT_IN / MGMT_OUT）
 
-管理总线消息体统一为 ModelTablePatch，并且必须携带 `op_id`。
+管理总线的外层系统消息体仍可使用 ModelTablePatch，并且必须携带 `op_id`。这属于 system boundary / migration envelope，不得作为用户业务 pin value。
 
 ### 6.1 系统侧声明（系统负数模型）
 - 仅允许在系统自带的负数 model_id 模型中声明：
-  - `Label.t = "MGMT_OUT"`：`Label.v` 为 ModelTablePatch
+  - `Label.t = "MGMT_OUT"`：`Label.v` 为 ModelTablePatch（仅系统负数模型 / system boundary）
   - `Label.t = "MGMT_IN"`：`Label.v` 为 TargetRef（仅目标信息）
 - 用户模型不使用 MGMT_*，用户侧入口通过 BUS_IN/BUS_OUT + cell_connection + CELL_CONNECT。
 
@@ -545,6 +556,8 @@ TargetRef 结构：
 - `/bus_event` 是正式入口；`/ui_event` 仍可作为显式兼容 URL alias 接受同一份 `bus_event_v2` body，但不构成独立协议
 - `Model 0 (0,0,0)` 是唯一正式 ingress
 - 事件值写入 `k=<bus_in_key> t=pin.bus.in`
+- `bus_event_v2.value` 在进入 `pin.bus.in` 前必须已经是临时 ModelTable record array；server/frontend 不得把 `{ target_cell, target_pin, value }` 对象在 ingress 上临时转换为通过态 payload。
+- `write_label.v1` 只属于目标模型内部的跨 cell 写入链路：用户程序调用 `writeLabel` 后，经显式 `write_label_req -> mt_write_req -> mt_write_result` 路由生成和消费；它不是 Model 0 bus ingress 的通用 passing path。
 - `pin.connect.model` 把事件送到目标子模型 root `pin.in`
 - 子模型 `(0,0,0)` 的 `mt_bus_receive` 再把 payload 分发到目标 cell / target pin
 

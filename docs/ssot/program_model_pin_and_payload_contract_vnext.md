@@ -80,6 +80,11 @@ source: ai
 权威数据定义：
 - [[docs/ssot/temporary_modeltable_payload_v1]]
 
+0331 收紧：
+- 所有正式业务 pin 的非空 value 都必须是临时 ModelTable record array。
+- 旧式 `{ op, records }` 对象只能作为历史迁移债务，不得作为新通过路径。
+- 外层 transport 可以继续有 packet/envelope，但 packet 的业务 `payload` 字段必须是临时 ModelTable record array。
+
 ### 3.2 Action Removal
 
 payload 中不再体现：
@@ -164,6 +169,36 @@ payload 中不再体现：
 - pin 语义从“Cell 级 / model 级 / table 级 / single 级分化”收敛到“程序模型端点”
 - payload 从“动作 + 数据混合体”收敛到“纯临时模型表”
 - 增删改查由接收程序模型决定，而不是由 payload 决定
+- `writeLabel` 不再是任意对象写请求；它是一个用户 API，底层生成 `write_label.v1` 临时模型表 payload，并通过显式 pin 路由到当前模型 D0。
+
+### 6.1 writeLabel Program Endpoint Rule (0331)
+
+用户程序调用 `writeLabel` 时，只表达自己想写入的目标 cell 和 label：
+
+```js
+V1N.writeLabel(2, 2, 2, { k: 'testk', t: 'testtype', v: 'testv' })
+```
+
+运行时/模板层负责生成临时 ModelTable payload，并把它写入当前 cell 的显式 write pin。
+
+推荐默认 pin 名称：
+- 当前 cell 输出：`write_label_req`
+- 当前模型 D0 输入：`mt_write_req`
+
+推荐显式路由：
+```json
+[
+  { "from": [1, 1, 1, "write_label_req"], "to": [[0, 0, 0, "mt_write_req"]] }
+]
+```
+
+D0 的 `mt_write` 只解释 `write_label.v1` payload：
+- 根据 `__mt_target_cell` 找到目标 cell。
+- 从 payload 中取唯一一个非 `__mt_*` 用户 label。
+- 执行实际 `addLabel`。
+- 如果用户 label 数量不是 1，必须 reject。
+
+这保留显式 pin 可审计性，同时不要求普通用户手写 `__mt_*` 过程字段。
 
 ## 7. What This Does Not Change
 

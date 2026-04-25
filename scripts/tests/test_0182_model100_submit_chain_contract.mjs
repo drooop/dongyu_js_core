@@ -28,6 +28,13 @@ function getFunctionCode(label) {
   return '';
 }
 
+function tempPayload(records = []) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+    ...records,
+  ];
+}
+
 const workspacePatch = loadJson('packages/worker-base/system-models/workspace_positive_models.json');
 const model100Patch = loadJson('packages/worker-base/system-models/test_model_100_ui.json');
 const hierarchyPatch = loadJson('packages/worker-base/system-models/runtime_hierarchy_mounts.json');
@@ -38,25 +45,32 @@ const dualBusRecord = getRecord(
 );
 assert.ok(dualBusRecord, 'workspace_positive_models.json must define model100 dual_bus_model');
 
-const uiEventFunc = dualBusRecord.v?.ui_event_func;
-assert.equal(typeof uiEventFunc, 'string', 'model100 dual_bus_model.ui_event_func must be a string');
+const busEventFunc = dualBusRecord.v?.bus_event_func;
+assert.equal(typeof busEventFunc, 'string', 'model100 dual_bus_model.bus_event_func must be a string');
+assert.equal(
+  Object.prototype.hasOwnProperty.call(dualBusRecord.v || {}, 'ui_event_func'),
+  false,
+  'model100 dual_bus_model must not keep legacy ui_event_func',
+);
 
 const runtime = new ModelTableRuntime();
 runtime.applyPatch(workspacePatch, { allowCreateModel: true, trustedBootstrap: true });
 runtime.applyPatch(model100Patch, { allowCreateModel: true, trustedBootstrap: true });
 runtime.applyPatch(hierarchyPatch, { allowCreateModel: true, trustedBootstrap: true });
+runtime.setRuntimeMode('edit');
+runtime.setRuntimeMode('running');
 
 const runtimeDualBus = runtime.getCell(runtime.getModel(100), 0, 0, 0).labels.get('dual_bus_model')?.v ?? null;
 assert.equal(
-  runtimeDualBus?.ui_event_func,
-  uiEventFunc,
-  'final runtime dual_bus_model.ui_event_func must stay aligned with workspace contract after all patches apply',
+  runtimeDualBus?.bus_event_func,
+  busEventFunc,
+  'final runtime dual_bus_model.bus_event_func must stay aligned with workspace contract after all patches apply',
 );
 
 const systemModel = runtime.getModel(-10);
 assert.ok(systemModel, 'system model -10 must exist after applying model100 patch');
-const prepareFnLabel = runtime.getCell(systemModel, 0, 0, 0).labels.get(uiEventFunc);
-assert.ok(prepareFnLabel, `system model must define ${uiEventFunc}`);
+const prepareFnLabel = runtime.getCell(systemModel, 0, 0, 0).labels.get('prepare_model100_submit_from_pin');
+assert.ok(prepareFnLabel, 'system model must define prepare_model100_submit_from_pin');
 
 const code = getFunctionCode(prepareFnLabel);
 assert.doesNotMatch(
@@ -85,39 +99,18 @@ assert.ok(model0EgressRecord, 'model0 must define a local egress label for model
 
 const model100 = runtime.getModel(100);
 assert.ok(model100, 'model100 must exist');
-runtime.addLabel(model100, 0, 0, 2, {
-  k: 'ui_event',
-  t: 'event',
-  v: { action: 'submit', input_value: 'hello local-first' },
+runtime.addLabel(model100, 1, 0, 0, {
+  k: 'click',
+  t: 'pin.in',
+  v: tempPayload([{ id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello local-first' }]),
 });
+await new Promise((resolve) => setTimeout(resolve, 250));
 
-const ctx = {
-  runtime,
-  sendMatrix: async () => ({ ok: true }),
-  rmLabel: (ref) => {
-    const model = runtime.getModel(ref.model_id);
-    if (!model) return;
-    runtime.rmLabel(model, ref.p, ref.r, ref.c, ref.k);
-  },
-  writeLabel: (ref, t, v) => {
-    const model = runtime.getModel(ref.model_id);
-    if (!model) return;
-    runtime.addLabel(model, ref.p, ref.r, ref.c, { k: ref.k, t, v });
-  },
-  getLabel: (ref) => {
-    const model = runtime.getModel(ref.model_id);
-    if (!model) return null;
-    return runtime.getCell(model, ref.p, ref.r, ref.c).labels.get(ref.k)?.v ?? null;
-  },
-};
-
-new Function('ctx', code)(ctx);
-await new Promise((resolve) => setTimeout(resolve, 50));
-
-const model0 = runtime.getModel(0);
-const egressValue = runtime.getCell(model0, 0, 0, 0).labels.get('model100_submit_out')?.v ?? null;
-assert.ok(Array.isArray(egressValue), 'preparing submit must relay temporary-modeltable payload array to model0 local egress label');
-assert.ok(egressValue.some((record) => record && record.k === 'input_value' && record.v === 'hello local-first'), 'model0 egress payload must preserve input_value');
-assert.ok(egressValue.every((record) => record && !Object.prototype.hasOwnProperty.call(record, 'action')), 'temporary-modeltable records must not carry action');
+const submitValue = runtime.getCell(model100, 0, 0, 0).labels.get('submit')?.v ?? null;
+assert.ok(Array.isArray(submitValue), 'preparing submit must write temporary-modeltable payload array to model100 submit pin.out');
+assert.ok(submitValue.some((record) => record && record.k === 'input_value' && record.v === 'hello local-first'), 'submit payload must preserve input_value');
+assert.ok(submitValue.every((record) => record && !Object.prototype.hasOwnProperty.call(record, 'action')), 'temporary-modeltable records must not carry action');
+assert.equal(runtime.getCell(model100, 0, 0, 0).labels.get('status')?.v, 'loading', 'submit preparation must mark model100 status loading');
 
 console.log('PASS test_0182_model100_submit_chain_contract');
+process.exit(0);

@@ -722,6 +722,325 @@ class ModelTableRuntime {
     return null;
   }
 
+  _mtPayloadRecord(k, t, v) {
+    return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+  }
+
+  _isTemporaryModelTablePayload(value) {
+    return Array.isArray(value) && value.every((rec) =>
+      rec &&
+      typeof rec === 'object' &&
+      Number.isInteger(rec.id) &&
+      Number.isInteger(rec.p) &&
+      Number.isInteger(rec.r) &&
+      Number.isInteger(rec.c) &&
+      typeof rec.k === 'string' &&
+      rec.k.length > 0 &&
+      typeof rec.t === 'string' &&
+      rec.t.length > 0
+    );
+  }
+
+  _buildWriteLabelPayload(fromCell, targetCell, label) {
+    const requestId = `write_label_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    return [
+      this._mtPayloadRecord('__mt_payload_kind', 'str', 'write_label.v1'),
+      this._mtPayloadRecord('__mt_request_id', 'str', requestId),
+      this._mtPayloadRecord('__mt_from_cell', 'json', { p: fromCell.p, r: fromCell.r, c: fromCell.c }),
+      this._mtPayloadRecord('__mt_target_cell', 'json', { p: targetCell.p, r: targetCell.r, c: targetCell.c }),
+      this._mtPayloadRecord(label.k, label.t, label.v),
+    ];
+  }
+
+  _payloadLabel(payload, key) {
+    return Array.isArray(payload)
+      ? payload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key) || null
+      : null;
+  }
+
+  _parseWriteLabelPayload(payload) {
+    if (!this._isTemporaryModelTablePayload(payload)) {
+      return { ok: false, code: 'invalid_payload', requestId: 'unknown' };
+    }
+    const kind = this._payloadLabel(payload, '__mt_payload_kind');
+    const requestIdLabel = this._payloadLabel(payload, '__mt_request_id');
+    const requestId = requestIdLabel && requestIdLabel.t === 'str' && typeof requestIdLabel.v === 'string'
+      ? requestIdLabel.v
+      : 'unknown';
+    if (!payload.every((rec) => rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0)) {
+      return { ok: false, code: 'invalid_payload', requestId };
+    }
+    if (!kind || kind.t !== 'str' || kind.v !== 'write_label.v1') {
+      return { ok: false, code: 'invalid_payload', requestId };
+    }
+    if (!requestIdLabel || requestIdLabel.t !== 'str' || typeof requestIdLabel.v !== 'string' || !requestIdLabel.v) {
+      return { ok: false, code: 'invalid_payload', requestId };
+    }
+    const targetLabel = this._payloadLabel(payload, '__mt_target_cell');
+    if (!targetLabel || targetLabel.t !== 'json') {
+      return { ok: false, code: 'invalid_payload', requestId };
+    }
+    const target = targetLabel && targetLabel.v && typeof targetLabel.v === 'object' ? targetLabel.v : null;
+    if (!target || !this._validateCell(target.p, target.r, target.c)) {
+      return { ok: false, code: 'out_of_scope', requestId };
+    }
+    const userLabels = payload.filter((rec) => !String(rec.k).startsWith('__mt_'));
+    if (userLabels.length === 0) {
+      return { ok: false, code: 'missing_user_label', requestId };
+    }
+    if (userLabels.length > 1) {
+      return { ok: false, code: 'multiple_user_labels', requestId };
+    }
+    const userLabel = userLabels[0];
+    if (typeof userLabel.k !== 'string' || !userLabel.k || typeof userLabel.t !== 'string' || !userLabel.t) {
+      return { ok: false, code: 'invalid_payload', requestId };
+    }
+    if (target.p === 0 && target.r === 0 && target.c === 0 && ['mt_write', 'mt_bus_receive', 'mt_bus_send'].includes(userLabel.k)) {
+      return { ok: false, code: 'reserved_key', requestId };
+    }
+    return {
+      ok: true,
+      requestId,
+      target: { p: target.p, r: target.r, c: target.c },
+      label: { k: userLabel.k, t: userLabel.t, v: userLabel.v },
+    };
+  }
+
+  _buildWriteLabelResultPayload({ status, requestId, error = null }) {
+    const payload = [
+      this._mtPayloadRecord('__mt_payload_kind', 'str', 'write_label_result.v1'),
+      this._mtPayloadRecord('__mt_request_id', 'str', requestId || 'unknown'),
+      this._mtPayloadRecord('__mt_status', 'str', status),
+    ];
+    if (error) {
+      payload.push(this._mtPayloadRecord('__mt_error', 'json', error));
+    }
+    return payload;
+  }
+
+  _writeMtWriteResult(model, p, r, c, resultPayload) {
+    this.addLabel(model, p, r, c, { k: 'mt_write_result', t: 'pin.out', v: resultPayload });
+  }
+
+  _applyWriteLabelPayload(model, p, r, c, payload, sourcePin = 'mt_write_req') {
+    if (sourcePin !== 'mt_write_req') {
+      const parsed = this._parseWriteLabelPayload(payload);
+      const resultPayload = this._buildWriteLabelResultPayload({
+        status: 'rejected',
+        requestId: parsed.requestId,
+        error: { code: 'invalid_source_pin' },
+      });
+      this._writeMtWriteResult(model, p, r, c, resultPayload);
+      return { status: 'rejected', code: 'invalid_source_pin' };
+    }
+    const parsed = this._parseWriteLabelPayload(payload);
+    if (!parsed.ok) {
+      const resultPayload = this._buildWriteLabelResultPayload({
+        status: 'rejected',
+        requestId: parsed.requestId,
+        error: { code: parsed.code },
+      });
+      this._writeMtWriteResult(model, p, r, c, resultPayload);
+      return { status: 'rejected', code: parsed.code };
+    }
+    const res = this.addLabel(model, parsed.target.p, parsed.target.r, parsed.target.c, parsed.label);
+    if (!res || !res.applied) {
+      const resultPayload = this._buildWriteLabelResultPayload({
+        status: 'rejected',
+        requestId: parsed.requestId,
+        error: { code: 'invalid_payload' },
+      });
+      this._writeMtWriteResult(model, p, r, c, resultPayload);
+      return { status: 'rejected', code: 'invalid_payload' };
+    }
+    this._writeMtWriteResult(model, p, r, c, this._buildWriteLabelResultPayload({
+      status: 'ok',
+      requestId: parsed.requestId,
+    }));
+    return { status: 'ok', applied: 1 };
+  }
+
+  _parseBusSendPayload(payload) {
+    if (!this._isTemporaryModelTablePayload(payload)) {
+      return { ok: false, code: 'invalid_payload', requestId: 'unknown' };
+    }
+    const kind = this._payloadLabel(payload, '__mt_payload_kind');
+    const requestIdLabel = this._payloadLabel(payload, '__mt_request_id');
+    const requestId = requestIdLabel && requestIdLabel.t === 'str' && typeof requestIdLabel.v === 'string'
+      ? requestIdLabel.v
+      : 'unknown';
+    if (!kind || kind.t !== 'str' || kind.v !== 'bus_send.v1') {
+      return { ok: false, code: 'invalid_payload_kind', requestId };
+    }
+    if (!requestIdLabel || requestIdLabel.t !== 'str' || typeof requestIdLabel.v !== 'string' || !requestIdLabel.v) {
+      return { ok: false, code: 'invalid_payload', requestId };
+    }
+    const sourceModelIdLabel = this._payloadLabel(payload, 'source_model_id');
+    const pinLabel = this._payloadLabel(payload, 'pin');
+    const busOutKeyLabel = this._payloadLabel(payload, 'bus_out_key');
+    const nestedPayloadLabel = this._payloadLabel(payload, 'payload');
+    const sourceModelId = sourceModelIdLabel && sourceModelIdLabel.t === 'int' && Number.isInteger(sourceModelIdLabel.v)
+      ? sourceModelIdLabel.v
+      : null;
+    const pin = pinLabel && pinLabel.t === 'str' && typeof pinLabel.v === 'string'
+      ? pinLabel.v.trim()
+      : '';
+    const busOutKey = busOutKeyLabel && busOutKeyLabel.t === 'str' && typeof busOutKeyLabel.v === 'string' && busOutKeyLabel.v.trim()
+      ? busOutKeyLabel.v.trim()
+      : pin;
+    const nestedPayload = nestedPayloadLabel && nestedPayloadLabel.t === 'json' ? nestedPayloadLabel.v : null;
+    if (!Number.isInteger(sourceModelId) || sourceModelId <= 0 || !pin || !busOutKey) {
+      return { ok: false, code: 'missing_source', requestId };
+    }
+    if (!this._isTemporaryModelTablePayload(nestedPayload)) {
+      return { ok: false, code: 'invalid_nested_payload', requestId };
+    }
+    return {
+      ok: true,
+      requestId,
+      sourceModelId,
+      pin,
+      busOutKey,
+      payload: nestedPayload,
+    };
+  }
+
+  _buildPinPayloadValue({ opId, sourceModelId, pin, payload, timestamp = Date.now() }) {
+    const requestId = opId || `pin_payload_${Date.now()}`;
+    return [
+      this._mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
+      this._mtPayloadRecord('__mt_request_id', 'str', requestId),
+      this._mtPayloadRecord('op_id', 'str', requestId),
+      this._mtPayloadRecord('source_model_id', 'int', sourceModelId),
+      this._mtPayloadRecord('pin', 'str', pin),
+      this._mtPayloadRecord('payload', 'json', payload),
+      this._mtPayloadRecord('timestamp', 'int', timestamp),
+    ];
+  }
+
+  _parsePinPayloadValue(value) {
+    if (!this._isTemporaryModelTablePayload(value)) {
+      return { ok: false, code: 'invalid_payload' };
+    }
+    const kind = this._payloadLabel(value, '__mt_payload_kind');
+    if (!kind || kind.t !== 'str' || kind.v !== 'pin_payload.v1') {
+      return { ok: false, code: 'invalid_payload_kind' };
+    }
+    const opIdLabel = this._payloadLabel(value, 'op_id') || this._payloadLabel(value, '__mt_request_id');
+    const sourceModelIdLabel = this._payloadLabel(value, 'source_model_id');
+    const pinLabel = this._payloadLabel(value, 'pin');
+    const nestedPayloadLabel = this._payloadLabel(value, 'payload');
+    const timestampLabel = this._payloadLabel(value, 'timestamp');
+    const opId = opIdLabel && opIdLabel.t === 'str' && typeof opIdLabel.v === 'string' && opIdLabel.v
+      ? opIdLabel.v
+      : `pin_payload_${Date.now()}`;
+    const sourceModelId = sourceModelIdLabel && sourceModelIdLabel.t === 'int' && Number.isInteger(sourceModelIdLabel.v)
+      ? sourceModelIdLabel.v
+      : null;
+    const pin = pinLabel && pinLabel.t === 'str' && typeof pinLabel.v === 'string'
+      ? pinLabel.v.trim()
+      : '';
+    const nestedPayload = nestedPayloadLabel && nestedPayloadLabel.t === 'json' ? nestedPayloadLabel.v : null;
+    const timestamp = timestampLabel && timestampLabel.t === 'int' && Number.isInteger(timestampLabel.v)
+      ? timestampLabel.v
+      : Date.now();
+    if (!Number.isInteger(sourceModelId) || sourceModelId <= 0 || !pin || !this._isTemporaryModelTablePayload(nestedPayload)) {
+      return { ok: false, code: 'invalid_payload' };
+    }
+    return {
+      ok: true,
+      packet: {
+        version: 'v1',
+        type: 'pin_payload',
+        op_id: opId,
+        source_model_id: sourceModelId,
+        pin,
+        payload: nestedPayload,
+        timestamp,
+      },
+    };
+  }
+
+  _pinBusOutValueToExternalPayload(value) {
+    if (Array.isArray(value)) {
+      const parsed = this._parsePinPayloadValue(value);
+      return parsed.ok ? parsed.packet : null;
+    }
+    return null;
+  }
+
+  _normalizeBusInValue(value, expectedPin = '') {
+    if (this._isTemporaryModelTablePayload(value)) {
+      return { ok: true, value };
+    }
+    if (value && typeof value === 'object' && value.version === 'v1' && value.type === 'pin_payload') {
+      const packetPin = typeof value.pin === 'string' ? value.pin.trim() : '';
+      if (expectedPin && packetPin !== expectedPin) {
+        return { ok: false, code: 'pin_mismatch' };
+      }
+      return this._isTemporaryModelTablePayload(value.payload)
+        ? { ok: true, value: value.payload }
+        : { ok: false, code: 'invalid_bus_in_payload' };
+    }
+    return { ok: false, code: 'invalid_bus_in_payload' };
+  }
+
+  _validateBusPinPayload(model, p, r, c, label, resolvedType) {
+    if (resolvedType !== 'pin.bus.in' && resolvedType !== 'pin.bus.out') {
+      return null;
+    }
+    if (label.v === null || label.v === undefined) return null;
+    if (!this._isTemporaryModelTablePayload(label.v)) {
+      return 'pin_payload_not_modeltable';
+    }
+    const kind = this._payloadLabel(label.v, '__mt_payload_kind');
+    if (kind && kind.t === 'str' && kind.v === 'write_label.v1') {
+      const parsed = this._parseWriteLabelPayload(label.v);
+      if (!parsed.ok) {
+        return `bus_in_invalid_write_label_${parsed.code || 'payload'}`;
+      }
+    }
+    if (resolvedType === 'pin.bus.out') {
+      if (!kind || kind.t !== 'str' || kind.v !== 'pin_payload.v1') {
+        return 'bus_out_invalid_payload_kind';
+      }
+    }
+    return null;
+  }
+
+  _validatePositiveModelPinPayload(model, label, resolvedType) {
+    if (!model || !Number.isInteger(model.id) || model.id <= 0) return null;
+    if (resolvedType !== 'pin.in' && resolvedType !== 'pin.out') {
+      return null;
+    }
+    if (label.v === null || label.v === undefined) return null;
+    if (!this._isTemporaryModelTablePayload(label.v)) {
+      return 'pin_payload_not_modeltable';
+    }
+    return null;
+  }
+
+  _applyBusSendPayload(model, p, r, c, payload) {
+    if (!model || model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
+      return { status: 'rejected', code: 'invalid_bus_scope' };
+    }
+    const parsed = this._parseBusSendPayload(payload);
+    if (!parsed.ok) {
+      return { status: 'rejected', code: parsed.code };
+    }
+    const busOutPayload = this._buildPinPayloadValue({
+      opId: parsed.requestId,
+      sourceModelId: parsed.sourceModelId,
+      pin: parsed.pin,
+      payload: parsed.payload,
+    });
+    const res = this.addLabel(model, 0, 0, 0, { k: parsed.busOutKey, t: 'pin.bus.out', v: busOutPayload });
+    if (!res || !res.applied) {
+      return { status: 'rejected', code: 'bus_out_write_failed' };
+    }
+    return { status: 'ok', bus_out_key: parsed.busOutKey };
+  }
+
   _isPinLikeResolvedType(typeName) {
     return typeof typeName === 'string' && (
       typeName.startsWith('pin.')
@@ -1055,6 +1374,30 @@ class ModelTableRuntime {
     const cell = this.getCell(model, p, r, c);
     const prevLabel = cell.labels.get(label.k) || null;
     const resolvedType = this._resolveLabelType(label.t);
+    const busPinPayloadError = this._validateBusPinPayload(model, p, r, c, label, resolvedType);
+    if (busPinPayloadError) {
+      this.eventLog.record({
+        op: 'add_label',
+        cell: { model_id: model.id, p, r, c },
+        label,
+        prev_label: prevLabel,
+        result: 'rejected',
+        reason: busPinPayloadError,
+      });
+      return { applied: false };
+    }
+    const positivePinPayloadError = this._validatePositiveModelPinPayload(model, label, resolvedType);
+    if (positivePinPayloadError) {
+      this.eventLog.record({
+        op: 'add_label',
+        cell: { model_id: model.id, p, r, c },
+        label,
+        prev_label: prevLabel,
+        result: 'rejected',
+        reason: positivePinPayloadError,
+      });
+      return { applied: false };
+    }
     const existingSubmodel = this._findSubmodelLabel(cell, label.k);
 
     if (resolvedType === 'submt') {
@@ -1272,11 +1615,13 @@ class ModelTableRuntime {
       }
       // 0142: BUS_IN short-circuit
       if (this.busInPorts.has(pinName) && modelId === 0) {
-        this._handleBusInMessage(pinName, payload);
-        return true;
+        return this._handleBusInMessage(pinName, payload);
       }
       const model = this.getModel(modelId);
       if (!model) return false;
+      if (this.busInPorts.has(pinName) && modelId === 0) {
+        return this._handleBusInMessage(pinName, payload);
+      }
 
       if (payloadMode === 'mt_v0' && payload && Array.isArray(payload.records) && payload.records.length > 0) {
         const result = this.applyPatch(payload, { allowCreateModel: false });
@@ -1322,6 +1667,9 @@ class ModelTableRuntime {
       const pinName = parts[1] || '';
       if (!Number.isInteger(modelId) || !pinName || pinName.includes('/')) return false;
 
+      if (this.busInPorts.has(pinName) && modelId === 0) {
+        return this._handleBusInMessage(pinName, payload);
+      }
       const model = this.getModel(modelId);
       if (!model) return false;
 
@@ -1364,6 +1712,10 @@ class ModelTableRuntime {
 
     const model = this.getModel(0);
     if (!model) return false;
+
+    if (this.busInPorts.has(pinName)) {
+      return this._handleBusInMessage(pinName, payload);
+    }
 
     if (payloadMode === 'mt_v0' && payload && Array.isArray(payload.records) && payload.records.length > 0) {
       const result = this.applyPatch(payload, { allowCreateModel: false });
@@ -1694,7 +2046,7 @@ class ModelTableRuntime {
       if (t.prefix === 'func') {
         if (t.port.endsWith(':in')) {
           const funcName = t.port.slice(0, -3);
-          return this._executeFuncViaCellConnect(modelId, p, r, c, funcName, value, visited);
+          return this._executeFuncViaCellConnect(modelId, p, r, c, funcName, value, visited, port);
         }
         if (t.port.endsWith(':out')) {
           return this._propagateCellConnect(modelId, p, r, c, 'func', t.port, value, visited);
@@ -1723,7 +2075,7 @@ class ModelTableRuntime {
     await Promise.all(tasks);
   }
 
-  async _executeFuncViaCellConnect(modelId, p, r, c, funcName, inputValue, visited) {
+  async _executeFuncViaCellConnect(modelId, p, r, c, funcName, inputValue, visited, inputSourcePin = null) {
     if (!this.isRuntimeRunning()) return;
     const model = this.getModel(modelId);
     if (!model) return;
@@ -1851,6 +2203,34 @@ class ModelTableRuntime {
         const lbl = cl.labels.get(tk);
         return lbl ? { t: lbl.t, v: lbl.v } : null;
       },
+      writeLabel(tp, tr, tc, labelObj) {
+        if (arguments.length !== 4) throw new Error('invalid_v1n_api_signature');
+        if (!Number.isInteger(tp) || !Number.isInteger(tr) || !Number.isInteger(tc)) {
+          throw new Error('invalid_v1n_api_signature');
+        }
+        if (!labelObj || typeof labelObj !== 'object' || Array.isArray(labelObj)) {
+          throw new Error('invalid_v1n_api_signature');
+        }
+        const { k, t, v } = labelObj;
+        if (typeof k !== 'string' || !k || k.startsWith('__mt_')) throw new Error('invalid_v1n_api_signature');
+        if (typeof t !== 'string' || !t) throw new Error('invalid_v1n_api_signature');
+        const payload = runtime._buildWriteLabelPayload(
+          { p, r, c },
+          { p: tp, r: tr, c: tc },
+          { k, t, v },
+        );
+        const routeKey = `${model.id}|${p}|${r}|${c}|write_label_req`;
+        const hasRoute = runtime.cellConnectionRoutes.has(routeKey);
+        runtime.addLabel(model, p, r, c, { k: 'write_label_req', t: 'pin.out', v: payload });
+        if (!hasRoute) {
+          runtime.addLabel(model, p, r, c, {
+            k: '__error_write_label',
+            t: 'json',
+            v: { error: 'write_label_route_missing', target: { p: tp, r: tr, c: tc }, ts: Date.now() },
+          });
+        }
+        return payload;
+      },
     };
     if (p === 0 && r === 0 && c === 0) {
       V1N.table = {
@@ -1871,13 +2251,21 @@ class ModelTableRuntime {
           if (typeof k !== 'string' || !k) throw new Error('invalid_v1n_table_api_signature');
           runtime.rmLabel(model, tp, tr, tc, k);
         },
+        applyWriteLabelPayload(payload, sourcePin = 'mt_write_req') {
+          if (arguments.length < 1 || arguments.length > 2) throw new Error('invalid_v1n_table_api_signature');
+          return runtime._applyWriteLabelPayload(model, p, r, c, payload, sourcePin);
+        },
+        applyBusSendPayload(payload) {
+          if (arguments.length !== 1) throw new Error('invalid_v1n_table_api_signature');
+          return runtime._applyBusSendPayload(model, p, r, c, payload);
+        },
       };
     }
 
     const FUNC_TIMEOUT_MS = 30000;
     try {
       const result = await Promise.race([
-        fn(ctx, { k: funcName, t: 'pin.in', v: inputValue }, V1N),
+        fn(ctx, { k: funcName, t: 'pin.in', v: inputValue, sourcePin: inputSourcePin || null }, V1N),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error(`Function ${funcName} timeout after ${FUNC_TIMEOUT_MS}ms`)), FUNC_TIMEOUT_MS),
         ),
@@ -1900,9 +2288,19 @@ class ModelTableRuntime {
 
   _handleBusInMessage(portName, payload) {
     const model0 = this.getModel(0);
-    if (!model0) return;
-    this.addLabel(model0, 0, 0, 0, { k: portName, t: 'pin.bus.in', v: payload });
-    this.mqttTrace.record('bus_inbound', { port: portName, payload });
+    if (!model0) return false;
+    const normalized = this._normalizeBusInValue(payload, portName);
+    if (!normalized.ok) {
+      this.mqttTrace.record('bus_inbound_rejected', { port: portName, payload, reason: normalized.code });
+      return false;
+    }
+    const result = this.addLabel(model0, 0, 0, 0, { k: portName, t: 'pin.bus.in', v: normalized.value });
+    if (!result || !result.applied) {
+      this.mqttTrace.record('bus_inbound_rejected', { port: portName, payload, reason: 'add_label_rejected' });
+      return false;
+    }
+    this.mqttTrace.record('bus_inbound', { port: portName, payload: normalized.value });
+    return true;
   }
 
   _buildUiEventIngressPort(envelope) {
@@ -2049,7 +2447,8 @@ class ModelTableRuntime {
       this.busOutPorts.set(label.k, true);
       if (label.v !== null && label.v !== undefined && this.mqttClient && this.isRuntimeRunning()) {
         const topic = this._topicFor(0, label.k, 'out');
-        if (topic) this.mqttClient.publish(topic, label.v);
+        const externalPayload = this._pinBusOutValueToExternalPayload(label.v);
+        if (topic && externalPayload !== null && externalPayload !== undefined) this.mqttClient.publish(topic, externalPayload);
       }
       return;
     }

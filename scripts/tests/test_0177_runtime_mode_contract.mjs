@@ -20,6 +20,22 @@ function findRuntimeModeLabel(runtime) {
   return cell.labels.get('runtime_mode') || null;
 }
 
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function pinPayload(opId) {
+  return [
+    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('__mt_request_id', 'str', opId),
+    mt('op_id', 'str', opId),
+    mt('source_model_id', 'int', 100),
+    mt('pin', 'str', 'submit'),
+    mt('payload', 'json', [mt('phase', 'str', 'running')]),
+    mt('timestamp', 'int', Date.now()),
+  ];
+}
+
 function test_runtime_mode_and_trusted_bootstrap() {
   const rt = new ModelTableRuntime();
   assert.equal(typeof rt.getRuntimeMode, 'function', 'runtime must expose getRuntimeMode()');
@@ -44,7 +60,7 @@ function test_runtime_mode_and_trusted_bootstrap() {
       mqttPublishes.push({ topic, payload });
     },
   };
-  rt.addLabel(model0, 0, 0, 0, { k: 'boot_out', t: 'pin.bus.out', v: { phase: 'boot' } });
+  rt.addLabel(model0, 0, 0, 0, { k: 'boot_out', t: 'pin.bus.out', v: pinPayload('boot_out') });
   assert.equal(mqttPublishes.length, 0, 'boot/edit mode must not publish pin.bus.out side effects');
 
   const untrustedCreate = rt.applyPatch({
@@ -81,7 +97,7 @@ function test_runtime_mode_and_trusted_bootstrap() {
     'running mode must enqueue run_* execution',
   );
 
-  rt.addLabel(model0, 0, 0, 0, { k: 'running_out', t: 'pin.bus.out', v: { phase: 'running' } });
+  rt.addLabel(model0, 0, 0, 0, { k: 'running_out', t: 'pin.bus.out', v: pinPayload('running_out') });
   assert.equal(mqttPublishes.length, 1, 'running mode must re-enable pin.bus.out side effects');
   assert.equal(findRuntimeModeLabel(rt)?.v, 'running', 'runtime must update Model 0 runtime_mode label when entering running');
 }

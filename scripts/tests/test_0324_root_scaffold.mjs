@@ -3,7 +3,7 @@
 // Covers:
 //   (1) model.table creation seeds mt_write / mt_bus_receive / mt_bus_send at (0,0,0)
 //   (2) (0,1,0) helper scaffold is NOT seeded (helper completely abolished per user override)
-//   (3) mt_write executes a cross-cell write request submitted to its :in pin
+//   (3) mt_write executes a write_label.v1 request submitted to mt_write_req
 //   (4) default_table_programs.json is the Tier-2 source of truth for the three programs
 
 import assert from 'node:assert/strict';
@@ -27,6 +27,20 @@ function wait(ms = 50) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function writeLabelPayload({ target, label }) {
+  return [
+    mt('__mt_payload_kind', 'str', 'write_label.v1'),
+    mt('__mt_request_id', 'str', 'req_0324'),
+    mt('__mt_from_cell', 'json', { p: 0, r: 0, c: 0 }),
+    mt('__mt_target_cell', 'json', target),
+    mt(label.k, label.t, label.v),
+  ];
+}
+
 async function test_mt_programs_seeded_on_model_table_create() {
   const rt = new ModelTableRuntime();
   await rt.setRuntimeMode('edit');
@@ -44,8 +58,15 @@ async function test_mt_programs_seeded_on_model_table_create() {
       `${k} must have non-empty code string`);
   }
 
-  // Each program has an :in pin (pin.in) at (0,0,0) and a wiring label
-  for (const k of ['mt_write', 'mt_bus_receive', 'mt_bus_send']) {
+  // mt_write uses the canonical 0332 endpoint names.
+  assert.ok(labels.has('mt_write_req'), 'expected (0,0,0) to have pin.in mt_write_req');
+  assert.ok(labels.has('mt_write_result'), 'expected (0,0,0) to have pin.out mt_write_result');
+  assert.ok(labels.has('mt_write_req_route'), 'expected (0,0,0) to have pin.connect.label mt_write_req_route');
+  assert.ok(!labels.has('mt_write_in'), 'mt_write_in old entry pin must not be seeded');
+  assert.ok(!labels.has('mt_write_wiring'), 'mt_write_wiring old mt_write_in path must not be seeded');
+
+  // Other default programs still have an :in pin (pin.in) and a wiring label.
+  for (const k of ['mt_bus_receive', 'mt_bus_send']) {
     const inPinName = `${k}_in`;
     assert.ok(labels.has(inPinName), `expected (0,0,0) to have pin.in ${inPinName}`);
     const wiringKey = `${k}_wiring`;
@@ -76,14 +97,14 @@ async function test_mt_write_executes_cross_cell_write_request() {
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'TestApp' });
   await rt.setRuntimeMode('running');
 
-  // Submit a write request to (0,0,0) mt_write_in
+  // Submit a write_label.v1 request to the canonical (0,0,0) mt_write_req.
   rt.addLabel(model, 0, 0, 0, {
-    k: 'mt_write_in',
+    k: 'mt_write_req',
     t: 'pin.in',
-    v: {
-      op: 'write',
-      records: [{ p: 1, r: 2, c: 0, k: 'status', t: 'str', v: 'ok' }],
-    },
+    v: writeLabelPayload({
+      target: { p: 1, r: 2, c: 0 },
+      label: { k: 'status', t: 'str', v: 'ok' },
+    }),
   });
 
   await wait(120);

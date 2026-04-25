@@ -58,4 +58,22 @@ assert.match(
   'deploy_local.sh must pass ROOM_ID into update_k8s_secrets so generated bootstrap patch includes the actual Matrix room id',
 );
 
+assert.match(
+  deployCommon,
+  /wait_for_no_terminating_pods\(\)[\s\S]*ERROR: terminating pods still present[\s\S]*return "\$failed"/,
+  '_deploy_common.sh must fail when app pods remain Terminating after rollout wait',
+);
+
+assert.match(
+  deployLocal,
+  /wait_for_no_terminating_pods remote-worker mbr-worker ui-server ui-side-worker/,
+  'deploy_local.sh must wait for old app pods to terminate before reporting deploy complete',
+);
+
+assert.match(
+  checkBaseline,
+  /check_no_terminating_pods[\s\S]*has terminating pods/,
+  'check_runtime_baseline.sh must reject baselines with old app pods still Terminating',
+);
+
 console.log('PASS test_0175_local_baseline_matrix_contract');

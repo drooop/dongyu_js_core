@@ -45,6 +45,19 @@ function pinEnvelope(target, pin, value = undefined) {
   };
 }
 
+function uiEventPayload(labels = []) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+    ...labels.map((label) => ({ id: 0, p: 0, r: 0, c: 0, ...label })),
+  ];
+}
+
+function slideImportClickPayload() {
+  return uiEventPayload([
+    { k: 'target', t: 'json', v: { model_id: SLIDE_IMPORTER_TRUTH_MODEL_ID, p: 0, r: 0, c: 0 } },
+  ]);
+}
+
 async function withServerState(fn) {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0303-color-proxy-'));
   process.env.DY_AUTH = '0';
@@ -87,7 +100,7 @@ async function test_proxy_zip_import_reuses_model100_behaviour_contract() {
     const importResult = await state.submitEnvelope(pinEnvelope(
       { model_id: 1030, p: 2, r: 4, c: 0 },
       'click',
-      { click: true },
+      slideImportClickPayload(),
     ));
     assert.equal(importResult.result, 'ok', 'slide_app_import_pin_must_be_accepted');
     await wait();

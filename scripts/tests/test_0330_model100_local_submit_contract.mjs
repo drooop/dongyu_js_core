@@ -49,12 +49,26 @@ function pinEnvelope(target, pin, value = undefined) {
   };
 }
 
+function tempPayload(records = []) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+    ...records,
+  ];
+}
+
 async function main() {
   await withServerState(async (state) => {
+    const legacyObjectResult = await state.submitEnvelope(pinEnvelope(
+      { model_id: 100, p: 1, r: 0, c: 0 },
+      'click',
+      { input_value: 'legacy-object-check' },
+    ));
+    assert.notEqual(legacyObjectResult?.result, 'ok', 'model100_direct_pin_must_reject_plain_object_payload');
+
     const result = await state.submitEnvelope(pinEnvelope(
       { model_id: 100, p: 1, r: 0, c: 0 },
       'click',
-      { input_value: '0330-local-check' },
+      tempPayload([{ id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: '0330-local-check' }]),
     ));
     assert.equal(result?.result, 'ok', 'model100_local_click_must_be_accepted');
     await wait(800);
@@ -72,7 +86,9 @@ async function main() {
   });
 }
 
-main().catch((err) => {
+main().then(() => {
+  process.exit(0);
+}).catch((err) => {
   console.error(`FAIL test_0330_model100_local_submit_contract: ${err.message}`);
   process.exit(1);
 });

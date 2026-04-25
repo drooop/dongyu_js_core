@@ -202,7 +202,7 @@ function test_workspace_route_wraps_model100_in_sliding_flow_shell_without_forbi
   assert.equal(findNodeById(resolved.ast, 'sliding_flow_process_table')?.type, 'Table', 'flow shell must expose process summary table');
   assert.equal(findNodeById(resolved.ast, 'sliding_flow_debug_table')?.type, 'Table', 'flow shell must expose debug summary table');
   assert.equal(findNodeById(resolved.ast, 'sliding_flow_progress')?.type, 'ProgressBar', 'flow shell must expose progress projection');
-  assert.equal(findNodeById(resolved.ast, 'schema_root_100')?.type, 'Container', 'flow shell must keep selected app AST');
+  assert.equal(findNodeById(resolved.ast, 'model100_cellwise_root')?.type, 'Container', 'flow shell must keep selected app AST');
 
   const forbiddenWrites = [];
   walkAst(resolved.ast, (node) => {
@@ -327,7 +327,7 @@ async function test_server_snapshot_keeps_sliding_flow_shell_after_debug_safe_op
 
     let ast = resolveRouteUiAst(state.clientSnap(), '/workspace', { projectSchemaModel: buildAstFromSchema }).ast;
     assert.equal(findNodeById(ast, 'sliding_flow_root')?.type, 'Container', 'server snapshot must derive sliding_flow_root');
-    assert.equal(findNodeById(ast, 'schema_root_100')?.type, 'Container', 'server snapshot must keep selected app AST');
+    assert.equal(findNodeById(ast, 'model100_cellwise_root')?.type, 'Container', 'server snapshot must keep selected app AST');
 
     await state.activateRuntimeMode('running');
     result = await state.submitEnvelope(mailboxEnvelope('matrix_debug_refresh', {
