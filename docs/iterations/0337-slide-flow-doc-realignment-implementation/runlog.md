@@ -1,12 +1,12 @@
 ---
 title: "0337 — slide-flow-doc-realignment-implementation Run Log"
 doc_type: iteration-runlog
-status: in-progress
+status: completed
 updated: 2026-04-26
 source: ai
 iteration_id: 0337-slide-flow-doc-realignment-implementation
 id: 0337-slide-flow-doc-realignment-implementation
-phase: phase3
+phase: phase4
 ---
 
 # 0337 — slide-flow-doc-realignment-implementation Run Log
@@ -32,7 +32,7 @@ phase: phase3
 - Command: `python3 /Users/drop/.codex/skills/it/scripts/init_iteration_scaffold.py 0337-slide-flow-doc-realignment-implementation --repo-root /Users/drop/codebase/cowork/dongyuapp_elysia_based`
 - Key output: generated `plan.md`, `resolution.md`, `runlog.md`.
 - Result: PASS
-- Commit: pending
+- Commit: `eac92ed`
 
 ### Step 1 — Contract Test And Document Realignment
 - Files changed:
@@ -49,7 +49,7 @@ phase: phase3
   - `imported_slide_app_host_ingress_semantics_v1.md` was updated from older candidate wording to current truth after 0326.
   - The contract test rejects older direct-cell phrasing and candidate-regulation phrasing.
 - Result: PASS
-- Commit: pending
+- Commit: `eac92ed`
 
 ### Step 2 — Stage Code Review
 - Review agent `019dc5dc-ddc9-7103-b7e8-eab1d3930c39`: CHANGE_REQUESTED.
@@ -60,7 +60,7 @@ phase: phase3
 - Follow-up: the wording was replaced and tests were expanded to catch the stale phrases.
 - Review agent `019dc5e0-0bbf-7a83-9223-39bf021852c4`: APPROVED.
 - Result: PASS
-- Commit: pending
+- Commit: `eac92ed`
 
 ### Step 3 — Verification
 - Command: `node scripts/tests/test_0337_slide_flow_docs_contract.mjs`
@@ -69,7 +69,7 @@ phase: phase3
 - Result: PASS
 - Command: `node scripts/validate_ui_ast_v0x.mjs --case all`
 - Result: PASS
-- Commit: pending
+- Commit: `eac92ed`
 
 ### Step 4 — Final Code Review
 - Review agent `019dc5ec-d0c6-7bb1-b3a4-b3b67efc7aa4`: APPROVED.
@@ -77,7 +77,7 @@ phase: phase3
 - Open questions: none.
 - Verification gaps: none.
 - Result: PASS
-- Commit: pending
+- Commit: `eac92ed`
 
 ## Docs Updated / Reviewed
 - `docs/user-guide/slide_delivery_and_runtime_overview_v1.md`: rewritten to current four-stage slide flow.

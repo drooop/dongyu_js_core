@@ -1,12 +1,12 @@
 ---
 title: "0336 — mgmt-bus-console-implementation Run Log"
 doc_type: iteration-runlog
-status: in-progress
+status: completed
 updated: 2026-04-26
 source: ai
 iteration_id: 0336-mgmt-bus-console-implementation
 id: 0336-mgmt-bus-console-implementation
-phase: phase3
+phase: phase4
 ---
 
 # 0336 — mgmt-bus-console-implementation Run Log
@@ -32,7 +32,7 @@ phase: phase3
 - Command: `python3 /Users/drop/.codex/skills/it/scripts/init_iteration_scaffold.py 0336-mgmt-bus-console-implementation --repo-root /Users/drop/codebase/cowork/dongyuapp_elysia_based`
 - Key output: generated `plan.md`, `resolution.md`, `runlog.md`.
 - Result: PASS
-- Commit: pending
+- Commit: `eac92ed`
 
 ### Step 1 — Contract Test And Model Implementation
 - Files changed:
@@ -52,7 +52,7 @@ phase: phase3
   - Model 0 routes `mgmt_bus_console_send` to system Model `-10` pin `mgmt_bus_console_intent`.
   - Model `1036` is mounted in `runtime_hierarchy_mounts.json`; browser verification first failed with `Model 1036 is not mounted into Workspace`, then this mount was added and covered by the contract test.
 - Result: PASS
-- Commit: pending
+- Commit: `eac92ed`
 
 ### Step 2 — Stage Code Review
 - Review agent `019dc5d4-28d0-72e3-97c4-170915d9a371`: CHANGE_REQUESTED.
@@ -63,7 +63,7 @@ phase: phase3
 - Follow-up: `selected_subject` was changed to an empty string and asserted by the contract test.
 - Review agent `019dc5da-1c8a-7ca1-99d9-8425100194fd`: APPROVED.
 - Result: PASS
-- Commit: pending
+- Commit: `eac92ed`
 
 ### Step 3 — Local Verification
 - Command: `node scripts/tests/test_0336_mgmt_bus_console_contract.mjs`
@@ -82,7 +82,7 @@ phase: phase3
 - Result: PASS
 - Command: `node -e "JSON.parse(require('fs').readFileSync('packages/worker-base/system-models/workspace_positive_models.json','utf8')); JSON.parse(require('fs').readFileSync('packages/worker-base/system-models/system_models.json','utf8')); JSON.parse(require('fs').readFileSync('packages/worker-base/system-models/runtime_hierarchy_mounts.json','utf8')); console.log('json_ok')"`
 - Result: PASS
-- Commit: pending
+- Commit: `eac92ed`
 
 ### Step 4 — Local Deploy And Browser Verification
 - Command: `bash scripts/ops/deploy_local.sh`
@@ -107,7 +107,7 @@ phase: phase3
   - No browser direct Matrix send was observed.
 - Screenshot: `output/playwright/0336-0337-mgmt-bus-console/mgmt-bus-console.png`.
 - Result: PASS
-- Commit: pending
+- Commit: `eac92ed`
 
 ### Step 5 — Final Code Review
 - Review agent `019dc5ec-d0c6-7bb1-b3a4-b3b67efc7aa4`: APPROVED.
@@ -115,7 +115,7 @@ phase: phase3
 - Open questions: none.
 - Verification gaps: none.
 - Result: PASS
-- Commit: pending
+- Commit: `eac92ed`
 
 ## Docs Updated / Reviewed
 - `docs/plans/2026-04-26-mgmt-bus-console-and-slide-flow-implementation.md`: added implementation plan.
