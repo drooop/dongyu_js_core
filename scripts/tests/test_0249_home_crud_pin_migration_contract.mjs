@@ -106,8 +106,11 @@ function test_home_dispatch_is_converged_to_pin_only() {
 }
 
 function assertOriginEnvelope(request, expectedAction, key) {
-  assert(request && typeof request === 'object', `${key}_missing_request`);
-  const origin = request.origin;
+  const payloadRequest = Array.isArray(request)
+    ? request.find((record) => record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === 'request')?.v
+    : request;
+  assert(payloadRequest && typeof payloadRequest === 'object', `${key}_missing_request`);
+  const origin = payloadRequest.origin;
   assert(origin && typeof origin === 'object', `${key}_missing_origin`);
   assert.equal(origin.model_id, -10, `${key}_origin_model_id_must_be_-10`);
   assert(origin.cell && typeof origin.cell === 'object', `${key}_origin_cell_missing`);

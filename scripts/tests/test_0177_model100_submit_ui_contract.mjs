@@ -4,11 +4,31 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildModel100Ast, MODEL_100_ID } from '../../packages/ui-model-demo-frontend/src/model100_ast.js';
+import { MODEL_100_ID } from '../../packages/ui-model-demo-frontend/src/model_ids.js';
+import { buildAstFromCellwiseModel } from '../../packages/ui-model-demo-frontend/src/ui_cellwise_projection.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..', '..');
+
+function makeSnapshotFromRecords(records, modelId) {
+  const cells = {};
+  for (const record of Array.isArray(records) ? records : []) {
+    if (!record || record.op !== 'add_label' || record.model_id !== modelId) continue;
+    const key = `${record.p},${record.r},${record.c}`;
+    if (!cells[key]) cells[key] = { labels: {} };
+    cells[key].labels[record.k] = { k: record.k, t: record.t, v: record.v };
+  }
+  return {
+    models: {
+      [String(modelId)]: {
+        id: modelId,
+        name: `Model ${modelId}`,
+        cells,
+      },
+    },
+  };
+}
 
 function findNodeById(node, id) {
   if (!node || typeof node !== 'object') return null;
@@ -23,32 +43,33 @@ function findNodeById(node, id) {
 
 function assertModel100SubmitWriteContract(write, label) {
   assert.ok(write && typeof write === 'object', `${label}: submit write binding must exist`);
-  assert.equal(write.action, 'submit', `${label}: submit button must use business action submit`);
-  assert.deepEqual(
-    write.target_ref,
-    { model_id: MODEL_100_ID, p: 0, r: 0, c: 0 },
-    `${label}: submit button must declare current model/current cell target coordinates`,
+  assert.equal(write.pin, 'click', `${label}: submit button must write to the click pin`);
+  assert.equal(write.action, undefined, `${label}: submit button must not use legacy action write`);
+  assert.ok(Array.isArray(write.value_ref), `${label}: submit payload must be a temporary ModelTable array`);
+  assert.ok(
+    write.value_ref.some((record) => record && record.k === '__mt_payload_kind' && record.v === 'ui_event.v1'),
+    `${label}: submit payload must declare ui_event.v1`,
   );
+  const inputValueRecord = write.value_ref.find((record) => record && record.k === 'input_value');
   assert.deepEqual(
-    write.meta,
-    { model_id: MODEL_100_ID },
-    `${label}: submit button must route through business model meta.model_id`,
+    inputValueRecord?.v,
+    { $label: { model_id: -2, p: 0, r: 0, c: 0, k: 'model100_input_draft' } },
+    `${label}: submit payload must read input_value from the draft state`,
   );
-  assert.equal(write.value_ref?.t, 'event', `${label}: submit payload type must be event`);
-  assert.equal(write.value_ref?.v?.action, 'submit', `${label}: submit payload action must be submit`);
 }
 
 const workspacePatchPath = path.join(repoRoot, 'packages/worker-base/system-models/workspace_positive_models.json');
 const workspacePatch = JSON.parse(fs.readFileSync(workspacePatchPath, 'utf8'));
-const submitBindRecord = Array.isArray(workspacePatch.records)
-  ? workspacePatch.records.find((record) => record && record.model_id === MODEL_100_ID && record.p === 1 && record.r === 0 && record.c === 0 && record.k === 'submit__bind')
-  : null;
-assert.ok(submitBindRecord, 'workspace_positive_models.json must define submit__bind for model 100');
-assertModel100SubmitWriteContract(submitBindRecord.v?.write, 'workspace_positive_models.json');
+const ast = buildAstFromCellwiseModel(makeSnapshotFromRecords(workspacePatch.records, MODEL_100_ID), MODEL_100_ID);
+const submitButton = findNodeById(ast, 'submit_button');
 
-const model100Ast = buildModel100Ast();
-const submitButton = findNodeById(model100Ast, 'submit_button');
-assert.ok(submitButton, 'buildModel100Ast must expose submit_button');
-assertModel100SubmitWriteContract(submitButton.bind?.write, 'buildModel100Ast');
+assert.ok(submitButton, 'workspace_positive_models.json must expose cellwise submit_button for model 100');
+assert.equal(submitButton.props?.label, 'Generate Color', 'submit_button label must come from the model table');
+assert.deepEqual(
+  submitButton.cell_ref,
+  { model_id: MODEL_100_ID, p: 1, r: 0, c: 0 },
+  'submit_button must preserve the executable cell address',
+);
+assertModel100SubmitWriteContract(submitButton.bind?.write, 'workspace_positive_models.json');
 
 console.log('PASS test_0177_model100_submit_ui_contract');

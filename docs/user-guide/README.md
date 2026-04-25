@@ -70,7 +70,7 @@ source: ai
 - `slide_matrix_delivery_preview_v0.md`
   - 0304 历史预告：已被 `slide_matrix_delivery_v1.md` 取代，仅保留当时的冻结前背景。
 - `ui_components_v2.md`
-  - 组件能力与 AST 用法。
+  - UI 模型填表开发者指南：说明 `cellwise.ui.v1` 怎么填表、label 含义、布局组合、数据绑定和事件触发。
 - `design_system_v2.md`
   - 视觉 token 与样式规范。
 

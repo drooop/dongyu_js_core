@@ -26,6 +26,19 @@ check_deploy_ready() {
   fi
 }
 
+check_no_terminating_pods() {
+  local name="$1"
+  local stuck
+  stuck="$(kubectl get pods -n "$K8S_NS" -l "app=$name" --no-headers 2>/dev/null \
+    | awk '$3 == "Terminating" {print $1}')"
+  if [ -n "$stuck" ]; then
+    echo "[check] FAIL deploy/$name has terminating pods: $stuck"
+    FAIL=1
+  else
+    echo "[check] PASS deploy/$name no terminating pods"
+  fi
+}
+
 check_secret_patch_ready() {
   local secret_name="$1"
   local label="$2"
@@ -91,6 +104,10 @@ echo "[check] kubernetes context: $(kubectl config current-context 2>/dev/null |
 
 for deploy in mosquitto synapse remote-worker mbr-worker ui-server ui-side-worker; do
   check_deploy_ready "$deploy"
+done
+
+for deploy in remote-worker mbr-worker ui-server ui-side-worker; do
+  check_no_terminating_pods "$deploy"
 done
 
 check_secret_patch_ready "mbr-worker-secret" "mbr-worker-secret.MODELTABLE_PATCH_JSON"

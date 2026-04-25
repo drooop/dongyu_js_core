@@ -56,7 +56,7 @@ function validBoundary(overrides = {}) {
   return {
     semantic: 'submit',
     pin_name: 'submit_request',
-    value_t: 'event',
+    value_t: 'modeltable',
     locator_kind: 'root_relative_cell',
     locator_value: { p: 2, r: 2, c: 0 },
     primary: true,

@@ -29,6 +29,26 @@ function pinEnvelope(target, pin, value = undefined) {
   };
 }
 
+function uiEventPayload(labels = []) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+    ...labels.map((label) => ({ id: 0, p: 0, r: 0, c: 0, ...label })),
+  ];
+}
+
+function slideImportClickPayload() {
+  return uiEventPayload([
+    { k: 'target', t: 'json', v: { model_id: 1031, p: 0, r: 0, c: 0 } },
+  ]);
+}
+
+function temporaryValuePayload(value) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'value', t: 'json', v: value },
+  ];
+}
+
 function payloadWithHostIngress() {
   return [
     { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.HostIngressFlowApp' },
@@ -46,7 +66,7 @@ function payloadWithHostIngress() {
       boundaries: [{
         semantic: 'submit',
         pin_name: 'submit_request',
-        value_t: 'event',
+        value_t: 'modeltable',
         locator_kind: 'root_relative_cell',
         locator_value: { p: 2, r: 2, c: 0 },
         primary: true,
@@ -59,12 +79,11 @@ function payloadWithHostIngress() {
     { id: 0, p: 2, r: 1, c: 0, k: 'ui_parent', t: 'str', v: 'host_flow_root' },
     { id: 0, p: 2, r: 1, c: 0, k: 'ui_bind_json', t: 'json', v: { read: { model_id: 0, p: 0, r: 0, c: 0, k: 'status_text' } } },
     { id: 0, p: 0, r: 0, c: 0, k: 'root_routes', t: 'pin.connect.cell', v: [
-      { from: [2, 2, 0, 'mt_write_req'], to: [[0, 0, 0, 'mt_write_in']] },
+      { from: [2, 2, 0, 'write_label_req'], to: [[0, 0, 0, 'mt_write_req']] },
     ] },
     { id: 0, p: 2, r: 2, c: 0, k: 'submit_request', t: 'pin.in', v: null },
     { id: 0, p: 2, r: 2, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: '(self, submit_request)', to: ['(func, handle_submit:in)'] }] },
-    { id: 0, p: 2, r: 2, c: 0, k: 'mt_write_dispatch_route', t: 'pin.connect.label', v: [{ from: '(func, handle_submit:out)', to: ['mt_write_req'] }] },
-    { id: 0, p: 2, r: 2, c: 0, k: 'handle_submit', t: 'func.js', v: { code: "return { op: 'write', records: [{ p: 0, r: 0, c: 0, k: 'status_text', t: 'str', v: 'host_route_ok' }] };" } },
+    { id: 0, p: 2, r: 2, c: 0, k: 'handle_submit', t: 'func.js', v: { code: "const records = Array.isArray(label && label.v) ? label.v : [];\nconst event = (records.find((rec) => rec && rec.k === 'value') || {}).v || {};\nif (event.trigger !== 'host_submit') return;\nV1N.writeLabel(0, 0, 0, { k: 'status_text', t: 'str', v: 'host_route_ok' });" } },
   ];
 }
 
@@ -110,7 +129,7 @@ async function test_host_ingress_route_reaches_imported_boundary_and_cleans_up_o
     const importResult = await state.submitEnvelope(pinEnvelope(
       { model_id: 1030, p: 2, r: 4, c: 0 },
       'click',
-      { click: true },
+      slideImportClickPayload(),
     ));
     assert.equal(importResult.result, 'ok', 'import_request_must_be_accepted');
     await new Promise((resolveWait) => setTimeout(resolveWait, 150));
@@ -130,7 +149,7 @@ async function test_host_ingress_route_reaches_imported_boundary_and_cleans_up_o
     const hostIngressResult = await state.submitEnvelope(pinEnvelope(
       { model_id: 0, p: 0, r: 0, c: 0 },
       ingressKey,
-      { trigger: 'host_submit' },
+      temporaryValuePayload({ trigger: 'host_submit' }),
     ));
     assert.equal(hostIngressResult.result, 'ok', 'host_ingress_pin_write_must_be_accepted');
     await new Promise((resolveWait) => setTimeout(resolveWait, 150));

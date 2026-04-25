@@ -178,7 +178,7 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
     "name": "submit_request",
     "direction": "in",
     "trigger": "click",
-    "value_t": "event",
+    "value_t": "modeltable",
     "commit_policy": "immediate",
     "primary": true
   }
@@ -196,6 +196,26 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
 
 如果节点没有这组字段，则说明它仍在旧协议或只读投影路径上。
 
+### 3.0.1.1 UI Cellwise Composition Rules (0333)
+
+`cellwise.ui.v1` 的普通界面组合使用 UI node tree，不使用 `model.submt` 来表达“某个按钮在某一行里面”。每个可见 UI 节点通常由一个 cell 提供：
+
+完整开发者填表说明、label 释义和可复制例子见 `docs/user-guide/ui_components_v2.md`。
+
+- `ui_node_id` 标识这个 UI 节点。
+- `ui_component` 选择组件，例如 `Container`、`Text`、`Input`、`Button`、`StatusBadge`。
+- `ui_parent` = visual containment，用父节点 id 表达“这个节点放在谁里面”。
+- `ui_order` = sibling order，用整数表达同一父节点下的排序；同序时按 node id 稳定排序。
+- `ui_layout` = container child layout，只放在 `Container` 一类父容器节点上；当前稳定写法是 `column` 或 `row`，`row-reverse` / `column-reverse` 仅用于明确反向排列。
+- `ui_slot` = named region，用来给父组件的命名区域打标；它不改变所属模型，也不替代 `ui_parent`。
+- `model.submt` = independent child model / independent child app，只用于独立子模型或子 app 的组合，不用于普通 row / column 排版。
+
+示例规则：
+
+- “第一行三个按钮”：建一个 `Container` cell，`ui_layout=row`；再建三个 `Button` cell，它们的 `ui_parent` 都指向这行的 `ui_node_id`，用 `ui_order` 排序。
+- “第二行第一列有两个输入框”：建第二行 `Container`，再建一个 `input_column` 子 `Container`，`ui_layout=column`；两个 `Input` cell 的 `ui_parent` 指向 `input_column`。
+- “多加一行”：新增一个带 `ui_node_id/ui_component/ui_parent/ui_order/ui_layout` 的 cell；不需要把整页 JSON 重写成一个大 blob。
+
 当前 `0311` 首批已落地的 pin 化节点：
 
 - `Model 100 submit`
@@ -209,6 +229,31 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
 
 - `ws_app_select` 当前复用 `ws_select_app` 的同一按钮入口
 - `ws_app_add` 新增了一个最小输入框与按钮组合
+
+### 3.0.2 Pin Payload Must Be ModelTable (0331)
+
+从 0331 起，正式业务 pin 上传的数据必须是“临时 ModelTable payload”，也就是一组 `{id,p,r,c,k,t,v}` 记录。
+
+用户可以这样理解：
+- pin 名称表示“做什么”，例如 `submit_request`、`add_data_in`、`write_label_req`。
+- payload 只表示“传什么数据”。
+- 如果要传一个字符串，也要把它放进临时模型表的一条 label 里。
+
+示例：
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "input_value", "t": "str", "v": "hello" }
+]
+```
+
+`writeLabel` 是一个特殊的常用写入动作。用户程序只需要表达目标 cell 和一个 label：
+
+```js
+V1N.writeLabel(2, 2, 2, { k: 'testk', t: 'str', v: 'testv' })
+```
+
+底层会自动生成带 `__mt_*` 过程字段的临时模型表，并通过显式 pin route 交给当前模型的 `(0,0,0)` 去真正写表。一次 `writeLabel` 只允许写一个 label；如果 payload 里出现多个非 `__mt_*` 用户 label，系统必须拒绝。
 
 ## 2.5 Executable Imported Slide Apps（0307）
 
@@ -373,8 +418,12 @@ relay 规则：
   - 拖动中只更新 overlay
   - `change / pointerup` 时再 commit 到 `slider_demo`
 
-## 4. ModelTablePatch v0 (统一消息体)
-所有总线消息必须是“纯 ModelTable patch”，最小结构如下：
+## 4. ModelTablePatch v0 (外部补丁格式)
+本节是历史/系统侧说明：ModelTablePatch v0 是 MQTT、bootstrap 或 trusted system boundary 使用的外层补丁格式，不是用户业务 pin 上传递的 value。
+
+0331 起，正式业务 pin 的非空 value 必须是“临时 ModelTable payload”，也就是一组 `{id,p,r,c,k,t,v}` 记录；不要把下面这种 `{version, op_id, records}` envelope 填进业务 pin value。
+
+外部补丁格式的最小结构如下：
 
 ```json
 {
@@ -427,7 +476,7 @@ TargetRef 结构（Cell-owned）：
   - 当 `v` 是 legacy-string（或无效对象）时，回退到 legacy mailbox（`p=0,r=1,c=1`）写入 `t=IN`。
 - PIN_OUT：
   - 当前 current path 走 `pin.bus.out`；旧 mailbox publish 只保留历史兼容说明。
-  - payload 为 ModelTablePatch 时按 patch 直发；否则按 legacy envelope 发送。
+  - 这是历史兼容路径；当前用户业务 pin value 不再使用 ModelTablePatch 或 legacy envelope。
 
 ### 5.3 示例（A/B/C）
 - A 页面订阅 pinA：

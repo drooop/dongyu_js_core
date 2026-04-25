@@ -28,6 +28,13 @@ function buildZipBuffer(payload) {
   return zip.toBuffer();
 }
 
+function uiEventPayload(labels = []) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+    ...labels.map((label) => ({ id: 0, p: 0, r: 0, c: 0, ...label })),
+  ];
+}
+
 function payloadWithIngressAndEgress() {
   return [
     { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.ImportedHostEgressFlowApp' },
@@ -47,7 +54,7 @@ function payloadWithIngressAndEgress() {
       boundaries: [{
         semantic: 'submit',
         pin_name: 'submit_request',
-        value_t: 'event',
+        value_t: 'modeltable',
         locator_kind: 'root_relative_cell',
         locator_value: { p: 0, r: 0, c: 0 },
         primary: true,
@@ -64,9 +71,11 @@ function payloadWithIngressAndEgress() {
     ] },
     { id: 0, p: 2, r: 3, c: 0, k: 'click_chain', t: 'pin.in', v: null },
     { id: 0, p: 0, r: 0, c: 0, k: 'handle_submit', t: 'func.js', v: { code: [
-      "const event = label && label.v && typeof label.v === 'object' ? label.v : {};",
-      "const text = String(event.text != null ? event.text : '').trim();",
-      "const source = String(event.source || 'host_ingress');",
+      "const records = Array.isArray(label && label.v) ? label.v : [];",
+      "const readPayload = function(key, fallback) { const rec = records.find(function(item) { return item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key; }); return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback; };",
+      "const nestedValue = readPayload('value', {});",
+      "const text = String(readPayload('text', nestedValue && nestedValue.text != null ? nestedValue.text : '')).trim();",
+      "const source = String(readPayload('source', nestedValue && nestedValue.source ? nestedValue.source : 'host_ingress'));",
       "const payload = [",
       "  { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.ImportedHostSubmit' },",
       "  { id: 0, p: 0, r: 0, c: 0, k: 'message_text', t: 'str', v: text },",

@@ -16,6 +16,20 @@ const WORKSPACE_JSON = path.join(repoRoot, 'packages/worker-base/system-models/w
 
 function wait(ms = 100) { return new Promise((r) => setTimeout(r, ms)); }
 
+function mtPayloadRecord(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function ownerRequestPayload(request) {
+  return [
+    mtPayloadRecord('__mt_payload_kind', 'str', 'owner_request.v1'),
+    mtPayloadRecord('__mt_request_id', 'str', request.request_id),
+    mtPayloadRecord('target_model_id', 'int', request.target_model_id),
+    mtPayloadRecord('op', 'str', request.op),
+    mtPayloadRecord('request', 'json', request),
+  ];
+}
+
 function extractFnSrc(src, fnName) {
   const re = new RegExp(`function ${fnName}\\([^)]*\\)\\s*\\{[\\s\\S]*?^\\}`, 'm');
   const m = src.match(re);
@@ -73,6 +87,8 @@ function test_owner_materialize_generator_uses_v1n_table() {
     const code = evalCodeGenerator(src, fnName, 999);
     assert.ok(/V1N\.table\.addLabel/.test(code),
       `${fnName}(999) generated code must use V1N.table.addLabel (root-privileged cross-cell write)`);
+    assert.ok(/readPayload\(labelValue, 'request'/.test(code),
+      `${fnName}(999) generated code must read owner request from ModelTable payload`);
   }
   return { key: 'owner_materialize_generator_uses_v1n_table', status: 'PASS' };
 }
@@ -121,7 +137,7 @@ function test_model100_owner_materialize_uses_v1n_table() {
   return { key: 'model100_owner_materialize_uses_v1n_table', status: 'PASS' };
 }
 
-function test_bucket_c_handler_uses_mt_write_req() {
+function test_bucket_c_handler_uses_write_label_req() {
   const doc = JSON.parse(readFileSync(WORKSPACE_JSON, 'utf8'));
   const recs = Array.isArray(doc.records) ? doc.records : [];
   const handler = recs.find((r) =>
@@ -131,16 +147,16 @@ function test_bucket_c_handler_uses_mt_write_req() {
   assert.ok(typeof code === 'string', 'handler code must be string');
   assert.ok(!/ctx\.writeLabel/.test(code),
     'handle_slide_import_click must not use ctx.writeLabel for cross-cell write (Bucket C migration)');
-  assert.ok(/V1N\.addLabel\(\s*['"]mt_write_req['"]/.test(code),
-    'handle_slide_import_click must route cross-cell write via V1N.addLabel("mt_write_req", ...)');
-  return { key: 'bucket_c_handler_uses_mt_write_req', status: 'PASS' };
+  assert.ok(/V1N\.writeLabel\(/.test(code),
+    'handle_slide_import_click must route cross-cell write via V1N.writeLabel(...)');
+  return { key: 'bucket_c_handler_uses_write_label_req', status: 'PASS' };
 }
 
 function test_bucket_c_cell_routes_label_present() {
   const doc = JSON.parse(readFileSync(WORKSPACE_JSON, 'utf8'));
   const recs = Array.isArray(doc.records) ? doc.records : [];
   const label = findAddLabel(recs, { model_id: 1030, p: 0, r: 0, c: 0, k: 'bucket_c_cell_routes' });
-  assert.ok(label, 'Model 1030 (0,0,0) must carry bucket_c_cell_routes label to aggregate Bucket C handler mt_write_req sources');
+  assert.ok(label, 'Model 1030 (0,0,0) must carry bucket_c_cell_routes label to aggregate Bucket C handler write_label_req sources');
   assert.equal(label.t, 'pin.connect.cell',
     'bucket_c_cell_routes label type must be pin.connect.cell (aggregate cross-cell routing)');
   assert.ok(Array.isArray(label.v) && label.v.length > 0,
@@ -148,10 +164,12 @@ function test_bucket_c_cell_routes_label_present() {
   const hasImportClickEntry = label.v.some((entry) => {
     if (!entry || !Array.isArray(entry.from) || !Array.isArray(entry.to)) return false;
     const [p, r, c, pin] = entry.from;
-    return p === 2 && r === 4 && c === 0 && pin === 'mt_write_req';
+    return p === 2 && r === 4 && c === 0 && pin === 'write_label_req' &&
+      entry.to.some((target) => Array.isArray(target) &&
+        target[0] === 0 && target[1] === 0 && target[2] === 0 && target[3] === 'mt_write_req');
   });
   assert.ok(hasImportClickEntry,
-    'bucket_c_cell_routes must contain entry routing (2,4,0 mt_write_req) → (0,0,0 mt_write_in) for handle_slide_import_click');
+    'bucket_c_cell_routes must contain entry routing (2,4,0 write_label_req) -> (0,0,0 mt_write_req) for handle_slide_import_click');
   return { key: 'bucket_c_cell_routes_label_present', status: 'PASS' };
 }
 
@@ -190,7 +208,7 @@ async function test_owner_materialize_cross_cell_write_via_v1n_table() {
       k: 'target_k', t: 'str', v: 'from_owner_materialize',
     }],
   };
-  rt.addLabel(model, 0, 0, 0, { k: 'owner_materialize_req', t: 'pin.in', v: reqPayload });
+  rt.addLabel(model, 0, 0, 0, { k: 'owner_materialize_req', t: 'pin.in', v: ownerRequestPayload(reqPayload) });
 
   const targetLabel = await pollUntil(() => {
     const cell = rt.getCell(model, 2, 3, 0);
@@ -210,7 +228,7 @@ const tests = [
   test_owner_materialize_generator_uses_v1n_table,
   test_legacy_forward_funcs_no_runtime_pin_wiring,
   test_model100_owner_materialize_uses_v1n_table,
-  test_bucket_c_handler_uses_mt_write_req,
+  test_bucket_c_handler_uses_write_label_req,
   test_bucket_c_cell_routes_label_present,
   test_owner_materialize_cross_cell_write_via_v1n_table,
 ];

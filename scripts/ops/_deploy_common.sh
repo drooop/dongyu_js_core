@@ -307,6 +307,31 @@ wait_for_rollout() {
   done
 }
 
+wait_for_no_terminating_pods() {
+  local ns="${NAMESPACE:?}"
+  local timeout_seconds="${TERMINATING_POD_WAIT_SECONDS:-60}"
+  local deadline=$((SECONDS + timeout_seconds))
+  local deploy stuck
+  local failed=0
+  for deploy in "$@"; do
+    while true; do
+      stuck="$(kubectl -n "$ns" get pods -l "app=$deploy" --no-headers 2>/dev/null \
+        | awk '$3 == "Terminating" {print $1}')"
+      if [ -z "$stuck" ]; then
+        echo "  No terminating pods for $deploy"
+        break
+      fi
+      if [ "$SECONDS" -ge "$deadline" ]; then
+        echo "  ERROR: terminating pods still present for $deploy: $stuck" >&2
+        failed=1
+        break
+      fi
+      sleep 2
+    done
+  done
+  return "$failed"
+}
+
 # ── verify_pods ───────────────────────────────────────────
 verify_pods() {
   local ns="${NAMESPACE:?}"

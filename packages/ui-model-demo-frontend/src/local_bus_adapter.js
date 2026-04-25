@@ -6,10 +6,26 @@ import {
   THREE_SCENE_UPDATE_ENTITY_ACTION,
   UI_EXAMPLE_PROMOTE_CHILD_ACTION,
 } from './model_ids.js';
+import { normalizeBusEventV2ValueToPinPayload } from './bus_event_v2.js';
 import { parseSafeInt } from './snapshot_utils.js';
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isTemporaryPayloadRecordArray(value) {
+  return Array.isArray(value) && value.every((record) =>
+    record
+    && typeof record === 'object'
+    && Number.isInteger(record.id)
+    && Number.isInteger(record.p)
+    && Number.isInteger(record.r)
+    && Number.isInteger(record.c)
+    && typeof record.k === 'string'
+    && record.k.length > 0
+    && typeof record.t === 'string'
+    && record.t.length > 0
+  );
 }
 
 function matchForbiddenK(k) {
@@ -222,11 +238,22 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
         return fail(op_id, 'invalid_target', 'missing_model');
       }
       let nextValue = payload.value;
-      if (nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)
-          && typeof nextValue.t === 'string' && Object.prototype.hasOwnProperty.call(nextValue, 'v')) {
+      const normalizedBusValue = target.model_id === 0 ? normalizeBusEventV2ValueToPinPayload(nextValue, meta) : nextValue;
+      if (target.model_id === 0 && !Array.isArray(normalizedBusValue)) {
+        return fail(op_id, 'invalid_bus_payload', 'temporary_modeltable_required');
+      }
+      if (target.model_id > 0 && !isTemporaryPayloadRecordArray(normalizedBusValue)) {
+        return fail(op_id, 'invalid_target', 'temporary_modeltable_required');
+      }
+      if (target.model_id < 0
+          && nextValue
+          && typeof nextValue === 'object'
+          && !Array.isArray(nextValue)
+          && typeof nextValue.t === 'string'
+          && Object.prototype.hasOwnProperty.call(nextValue, 'v')) {
         nextValue = nextValue.v;
       }
-      if (nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)) {
+      if (target.model_id < 0 && nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)) {
         nextValue = {
           ...nextValue,
           ...(nextValue.meta ? {} : { meta }),
@@ -234,11 +261,14 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
           ...(nextValue.pin ? {} : { pin }),
         };
       }
-      runtime.addLabel(model, target.p, target.r, target.c, {
+      const addResult = runtime.addLabel(model, target.p, target.r, target.c, {
         k: pin,
         t: target.model_id === 0 ? 'pin.bus.in' : 'pin.in',
-        v: nextValue,
+        v: target.model_id < 0 ? nextValue : normalizedBusValue,
       });
+      if (!addResult || !addResult.applied) {
+        return fail(op_id, target.model_id === 0 ? 'invalid_bus_payload' : 'invalid_target', 'runtime_add_label_rejected');
+      }
       return succeed(op_id, 'pin_write');
     }
 

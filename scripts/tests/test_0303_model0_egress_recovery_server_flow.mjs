@@ -9,7 +9,7 @@ function wait(ms = 120) {
   return new Promise((resolveWait) => setTimeout(resolveWait, ms));
 }
 
-async function withServerState(fn) {
+async function withServerState(fn, options = {}) {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0303-egress-recovery-'));
   process.env.DY_AUTH = '0';
   process.env.DY_PERSISTED_ASSET_ROOT = '';
@@ -20,7 +20,9 @@ async function withServerState(fn) {
   const { createServerState } = await import(new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url));
   const state = createServerState({ dbPath: null });
   try {
-    await state.activateRuntimeMode('running');
+    if (options.activate !== false) {
+      await state.activateRuntimeMode('running');
+    }
     return await fn(state);
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
@@ -82,6 +84,159 @@ function mailboxEnvelope(action, options = {}) {
     source: 'ui_renderer',
     ts: Date.now(),
   };
+}
+
+async function test_runtime_activation_drains_stale_model0_egress_before_returning() {
+  const previousDrainMs = process.env.DY_RUNTIME_ACTIVATION_DRAIN_MS;
+  process.env.DY_RUNTIME_ACTIVATION_DRAIN_MS = '2000';
+  try {
+    return await withServerState(async (state) => {
+      const runtime = state.runtime;
+      const model0 = runtime.getModel(0);
+      const model100 = runtime.getModel(100);
+      assert.ok(model0 && model100, 'required_models_missing');
+
+      runtime.addLabel(model0, 0, 0, 0, { k: 'matrix_room_id', t: 'str', v: '!test-room:local' });
+      runtime.addLabel(model0, 0, 0, 0, { k: 'matrix_contuser', t: 'matrix.contuser', v: ['@peer:local'] });
+
+      const published = [];
+      state.programEngine.matrixAdapter = {
+        publish: async (payload) => {
+          published.push(payload);
+          setTimeout(() => {
+            state.programEngine.handleDyBusEvent({
+              version: 'v1',
+              type: 'pin_payload',
+              op_id: payload.op_id,
+              source_model_id: 100,
+              pin: 'result',
+              payload: [
+                { id: 0, p: 0, r: 0, c: 0, k: 'bg_color', t: 'str', v: '#010203' },
+                { id: 0, p: 0, r: 0, c: 0, k: 'status', t: 'str', v: 'processed' },
+                { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false },
+                { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight_started_at', t: 'int', v: 0 },
+              ],
+            });
+          }, 80);
+        },
+      };
+      state.programEngine.matrixRoomId = '!test-room:local';
+      state.programEngine.matrixDmPeerUserId = '@peer:local';
+
+      runtime.addLabel(model100, 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: true });
+      runtime.addLabel(model100, 0, 0, 0, { k: 'submit_inflight_started_at', t: 'int', v: Date.now() });
+      runtime.addLabel(model100, 0, 0, 0, { k: 'status', t: 'str', v: 'loading' });
+      runtime.addLabel(model0, 0, 0, 0, {
+        k: 'model100_submit_out',
+        t: 'pin.in',
+        v: [
+          { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+          { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'activation stale egress' },
+          { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: 'remote' },
+        ],
+      });
+
+      const started = Date.now();
+      const result = await state.activateRuntimeMode('running');
+      const elapsedMs = Date.now() - started;
+      assert.equal(result.mode, 'running', 'runtime_must_activate_running');
+
+      const snap = state.clientSnap();
+      const rootLabels = snap.models?.['100']?.cells?.['0,0,0']?.labels || {};
+      const model0Labels = snap.models?.['0']?.cells?.['0,0,0']?.labels || {};
+
+      assert.equal(published.length, 1, 'stale_model0_egress_must_be_forwarded_once');
+      assert.ok(elapsedMs >= 60, `activation_must_wait_for_stale_response elapsed_ms=${elapsedMs}`);
+      assert.equal(model0Labels.model100_submit_out?.v ?? null, null, 'activation_drain_must_clear_stale_model0_egress');
+      assert.equal(rootLabels.submit_inflight?.v, false, 'activation_drain_must_release_inflight');
+      assert.equal(rootLabels.bg_color?.v, '#010203', 'activation_drain_must_apply_stale_result_before_returning');
+      return { key: 'runtime_activation_drains_stale_model0_egress_before_returning', status: 'PASS' };
+    }, { activate: false });
+  } finally {
+    if (previousDrainMs == null) {
+      delete process.env.DY_RUNTIME_ACTIVATION_DRAIN_MS;
+    } else {
+      process.env.DY_RUNTIME_ACTIVATION_DRAIN_MS = previousDrainMs;
+    }
+  }
+}
+
+async function test_runtime_activation_quarantines_late_stale_model0_egress_after_timeout() {
+  const previousDrainMs = process.env.DY_RUNTIME_ACTIVATION_DRAIN_MS;
+  process.env.DY_RUNTIME_ACTIVATION_DRAIN_MS = '20';
+  try {
+    return await withServerState(async (state) => {
+      const runtime = state.runtime;
+      const model0 = runtime.getModel(0);
+      const model100 = runtime.getModel(100);
+      assert.ok(model0 && model100, 'required_models_missing');
+
+      runtime.addLabel(model0, 0, 0, 0, { k: 'matrix_room_id', t: 'str', v: '!test-room:local' });
+      runtime.addLabel(model0, 0, 0, 0, { k: 'matrix_contuser', t: 'matrix.contuser', v: ['@peer:local'] });
+
+      const published = [];
+      state.programEngine.matrixAdapter = {
+        publish: async (payload) => {
+          published.push(payload);
+          setTimeout(() => {
+            state.programEngine.handleDyBusEvent({
+              version: 'v1',
+              type: 'pin_payload',
+              op_id: payload.op_id,
+              source_model_id: 100,
+              pin: 'result',
+              payload: [
+                { id: 0, p: 0, r: 0, c: 0, k: 'bg_color', t: 'str', v: '#0a0b0c' },
+                { id: 0, p: 0, r: 0, c: 0, k: 'status', t: 'str', v: 'late_stale_processed' },
+                { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false },
+                { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight_started_at', t: 'int', v: 0 },
+              ],
+            });
+          }, 120);
+        },
+      };
+      state.programEngine.matrixRoomId = '!test-room:local';
+      state.programEngine.matrixDmPeerUserId = '@peer:local';
+
+      runtime.addLabel(model100, 0, 0, 0, { k: 'bg_color', t: 'str', v: '#ffffff' });
+      runtime.addLabel(model100, 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: true });
+      runtime.addLabel(model100, 0, 0, 0, { k: 'submit_inflight_started_at', t: 'int', v: Date.now() });
+      runtime.addLabel(model100, 0, 0, 0, { k: 'status', t: 'str', v: 'loading' });
+      runtime.addLabel(model0, 0, 0, 0, {
+        k: 'model100_submit_out',
+        t: 'pin.in',
+        v: [
+          { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+          { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'activation stale timeout' },
+          { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: 'remote' },
+        ],
+      });
+
+      const result = await state.activateRuntimeMode('running');
+      assert.equal(result.mode, 'running', 'runtime_must_activate_running_after_quarantine');
+      assert.equal(published.length, 1, 'stale_model0_egress_must_be_forwarded_once_before_quarantine');
+
+      const snapAfterActivation = state.clientSnap();
+      const labelsAfterActivation = snapAfterActivation.models?.['100']?.cells?.['0,0,0']?.labels || {};
+      assert.equal(labelsAfterActivation.submit_inflight?.v, false, 'quarantine_must_release_inflight');
+      assert.equal(labelsAfterActivation.status?.v, 'activation_egress_timeout', 'quarantine_must_mark_timeout_status');
+
+      await wait(220);
+
+      const snapAfterLateReturn = state.clientSnap();
+      const labelsAfterLateReturn = snapAfterLateReturn.models?.['100']?.cells?.['0,0,0']?.labels || {};
+      assert.equal(labelsAfterLateReturn.bg_color?.v, '#ffffff', 'quarantined_late_stale_return_must_not_update_color');
+      assert.equal(labelsAfterLateReturn.status?.v, 'activation_egress_timeout', 'quarantined_late_stale_return_must_not_update_status');
+      assert.equal(labelsAfterLateReturn.submit_inflight?.v, false, 'quarantined_late_stale_return_must_keep_inflight_released');
+      return { key: 'runtime_activation_quarantines_late_stale_model0_egress_after_timeout', status: 'PASS' };
+    }, { activate: false });
+  } finally {
+    if (previousDrainMs == null) {
+      delete process.env.DY_RUNTIME_ACTIVATION_DRAIN_MS;
+    } else {
+      process.env.DY_RUNTIME_ACTIVATION_DRAIN_MS = previousDrainMs;
+    }
+  }
 }
 
 async function test_plain_object_submit_value_is_forwarded_as_event_payload() {
@@ -150,6 +305,8 @@ async function test_stale_dual_bus_config_is_repaired_before_submit_forward() {
 
 const tests = [
   test_stale_model0_egress_payload_gets_forwarded_on_next_tick,
+  test_runtime_activation_drains_stale_model0_egress_before_returning,
+  test_runtime_activation_quarantines_late_stale_model0_egress_after_timeout,
   test_plain_object_submit_value_is_forwarded_as_event_payload,
   test_stale_dual_bus_config_is_repaired_before_submit_forward,
 ];

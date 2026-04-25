@@ -2,7 +2,7 @@
 title: "Host Capability Interface (V1N API)"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-04-24
 source: ai
 ---
 
@@ -23,7 +23,7 @@ source: ai
 
 核心约束：
 - 用户程序不得直接读写其他模型的 Cell。
-- 跨 Cell 写入必须通过 pin 路由到 (0,0,0) 的 `mt_write:in`。
+- 跨 Cell 写入必须通过 pin 路由到 (0,0,0) 的 `mt_write_req` 输入。
 - 跨模型通信必须通过 pin 链路经 Model 0 路由。
 - 用户程序不得直接调用 `applyPatch` / `applyScopedPatch`。
 
@@ -49,42 +49,53 @@ source: ai
 
 ```
 用户程序 Cell
-  → pin.out (携带写入请求 payload)
-  → pin.connect.label / pin.connect.cell 路由
-  → (0,0,0) mt_write:in
-  → mt_write 程序执行实际写入
-  → mt_write:out (返回结果)
+  → write_label_req pin.out (携带临时 ModelTable payload)
+  → pin.connect.cell 显式路由
+  → (0,0,0) mt_write_req pin.in
+  → mt_write 程序解析 write_label.v1 payload 并执行实际写入
+  → mt_write_result pin.out (可选返回结果)
 ```
 
-写入请求 payload 格式（0323 冻结 v1）：
+用户 API（0331 冻结 v1）：
+```js
+V1N.writeLabel(p, r, c, { k, t, v })
+```
+
+API 约束：
+- `p/r/c` 是当前模型内目标 cell 坐标。
+- `model_id` 隐式锁定为当前模型，不允许作为参数传入。
+- `label` 必须包含一个非空 `k`、一个非空 `t` 和任意 JSON-compatible `v`。
+- 一次调用只写一个目标 cell 的一个 label。
+
+底层 pin payload 必须是 `docs/ssot/temporary_modeltable_payload_v1.md` 定义的临时 ModelTable record array。`writeLabel` 生成的 canonical payload：
 ```json
-{
-  "op": "add_label",
-  "target": { "p": 1, "r": 0, "c": 0 },
-  "label": { "k": "keyName", "t": "str", "v": "value" }
-}
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "write_label.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_from_cell", "t": "json", "v": { "p": 1, "r": 1, "c": 1 } },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_target_cell", "t": "json", "v": { "p": 2, "r": 2, "c": 2 } },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "keyName", "t": "str", "v": "value" }
+]
 ```
 
 字段约束（规范层面冻结，实施由 0323+1 落地）：
-- `op`：`"add_label"` | `"rm_label"`（必填）
-- `target`：`{ p: int, r: int, c: int }`（必填；坐标必须位于当前 model.table 范围内，mt_write 拒绝越界）
-- `label`：add_label 时必填 `{ k, t, v }`；rm_label 时必填 `{ k }`（`t`/`v` 忽略）
+- `__mt_payload_kind`：必须为 `"write_label.v1"`。
+- `__mt_target_cell`：必填，且坐标必须位于当前 model.table 范围内，`mt_write` 拒绝越界。
+- 非 `__mt_*` 用户 label：必须且只能有一个。
 - `k`：非空字符串，且不得为 (0,0,0) 的保留 key（`mt_write` / `mt_bus_receive` / `mt_bus_send`），mt_write 拒绝覆盖保留 key
 - `t`：遵循 `docs/ssot/label_type_registry.md` 注册的 label.t
 - `v`：与 `t` 匹配的类型化 value
 
-返回结果（`mt_write:out`）payload 格式：
+返回结果（可选 `mt_write_result`）也应使用临时 ModelTable payload，至少包含：
 ```json
-{
-  "op": "add_label",
-  "target": { "p": 1, "r": 0, "c": 0 },
-  "k": "keyName",
-  "status": "ok",
-  "error": null
-}
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "write_label_result.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_status", "t": "str", "v": "ok" }
+]
 ```
-- `status`：`"ok"` | `"rejected"`
-- `error`：status=`"rejected"` 时必填，结构化错误码（由 0323+1 列举完整 error code set，当前至少含 `out_of_scope`、`reserved_key`、`type_mismatch`、`unknown_op`）
+- `__mt_status`：`"ok"` | `"rejected"`
+- `__mt_error`：`__mt_status`=`"rejected"` 时必填，结构化错误码（当前至少含 `out_of_scope`、`reserved_key`、`type_mismatch`、`invalid_payload`、`multiple_user_labels`、`missing_user_label`）
 
 向后兼容承诺：字段的新增必须保持既有字段的 addLabel/rmLabel 行为不变；删除或重命名既有字段需要 iteration 审批。
 
@@ -112,7 +123,7 @@ source: ai
 
 | func.js key | 引脚 | 职责 |
 |---|---|---|
-| `mt_write` | `mt_write:in` / `mt_write:out` | 接收写入请求，对当前 model.table 内任意 Cell 执行 addLabel/rmLabel |
+| `mt_write` | `mt_write_req` pin.in / `mt_write_result` pin.out | 接收写入请求，对当前 model.table 内任意 Cell 执行 addLabel/rmLabel |
 | `mt_bus_receive` | `mt_bus_receive:in` / `mt_bus_receive:out` | 接收从父模型路由下来的消息，分发到模型内目标 Cell |
 | `mt_bus_send` | `mt_bus_send:in` / `mt_bus_send:out` | 汇集模型内 Cell 的外发消息，上行到父模型边界 |
 

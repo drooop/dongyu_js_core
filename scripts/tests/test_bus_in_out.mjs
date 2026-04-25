@@ -4,6 +4,10 @@ import assert from 'node:assert';
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
 
+function temporaryPayload(value, key = 'value') {
+  return [{ id: 0, p: 0, r: 0, c: 0, k: key, t: 'json', v: value }];
+}
+
 function test_bus_in_register() {
   const rt = new ModelTableRuntime();
   const model0 = rt.getModel(0);
@@ -33,13 +37,14 @@ function test_bus_in_routes_via_cell_connection() {
   });
   // Register BUS_IN with null (declaration only)
   rt.addLabel(model0, 0, 0, 0, { k: 'event_in', t: 'pin.bus.in', v: null });
-  // Now write with a value → should trigger routing
-  rt.addLabel(model0, 0, 0, 0, { k: 'event_in', t: 'pin.bus.in', v: 'hello' });
+  // Now write with a temporary ModelTable payload → should trigger routing
+  const payload = temporaryPayload({ text: 'hello' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'event_in', t: 'pin.bus.in', v: payload });
   const cell1 = rt.getCell(model0, 1, 0, 0);
   const cmd = cell1.labels.get('cmd');
   assert(cmd, 'cell 1,0,0 should have cmd');
   assert.strictEqual(cmd.t, 'pin.in');
-  assert.strictEqual(cmd.v, 'hello');
+  assert.deepStrictEqual(cmd.v, payload);
   return { key: 'bus_in_routes_via_cell_connection', status: 'PASS' };
 }
 
@@ -71,11 +76,12 @@ function test_handle_bus_in_message() {
   });
   rt.addLabel(model0, 0, 0, 0, { k: 'data_in', t: 'pin.bus.in', v: null });
   // Simulate incoming
-  rt._handleBusInMessage('data_in', { test: 1 });
+  const payload = temporaryPayload({ test: 1 });
+  rt._handleBusInMessage('data_in', payload);
   const cell1 = rt.getCell(model0, 1, 0, 0);
   const input = cell1.labels.get('input');
   assert(input, 'should route to target');
-  assert.deepStrictEqual(input.v, { test: 1 });
+  assert.deepStrictEqual(input.v, payload);
   return { key: 'handle_bus_in_message', status: 'PASS' };
 }
 

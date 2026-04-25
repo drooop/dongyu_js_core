@@ -12,32 +12,9 @@
       "k": "mt_write",
       "t": "func.js",
       "v": {
-        "code": "const req = label && label.v;\nif (!req || typeof req !== 'object') return;\nconst ensureIdx = (n) => Number.isInteger(n) ? n : 0;\nif (req.op === 'write' && Array.isArray(req.records)) {\n  let applied = 0;\n  for (const rec of req.records) {\n    if (!rec || typeof rec !== 'object') continue;\n    if (typeof rec.k !== 'string' || !rec.k) continue;\n    if (typeof rec.t !== 'string' || !rec.t) continue;\n    V1N.table.addLabel(ensureIdx(rec.p), ensureIdx(rec.r), ensureIdx(rec.c), rec.k, rec.t, rec.v);\n    applied += 1;\n  }\n  return { status: 'ok', applied };\n}\nif (req.op === 'remove' && Array.isArray(req.records)) {\n  let removed = 0;\n  for (const rec of req.records) {\n    if (!rec || typeof rec !== 'object') continue;\n    if (typeof rec.k !== 'string' || !rec.k) continue;\n    V1N.table.removeLabel(ensureIdx(rec.p), ensureIdx(rec.r), ensureIdx(rec.c), rec.k);\n    removed += 1;\n  }\n  return { status: 'ok', removed };\n}\nreturn { status: 'error', reason: 'unsupported_op' };",
+        "code": "const req = label && label.v;\nconst sourcePin = label && typeof label.sourcePin === 'string' ? label.sourcePin : 'unknown';\nif (!V1N.table || typeof V1N.table.applyWriteLabelPayload !== 'function') return { status: 'error', reason: 'missing_table_helper' };\nreturn V1N.table.applyWriteLabelPayload(req, sourcePin);",
         "modelName": "default_table_mt_write"
       }
-    },
-    {
-      "op": "add_label",
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mt_write_in",
-      "t": "pin.in",
-      "v": null
-    },
-    {
-      "op": "add_label",
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mt_write_wiring",
-      "t": "pin.connect.label",
-      "v": [
-        {
-          "from": "(self, mt_write_in)",
-          "to": ["(func, mt_write:in)"]
-        }
-      ]
     },
     {
       "op": "add_label",
@@ -53,12 +30,21 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "mt_write_result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "mt_write_req_route",
       "t": "pin.connect.label",
       "v": [
         {
           "from": "(self, mt_write_req)",
-          "to": ["(self, mt_write_in)"]
+          "to": ["(func, mt_write:in)"]
         }
       ]
     },
@@ -70,7 +56,7 @@
       "k": "mt_bus_receive",
       "t": "func.js",
       "v": {
-        "code": "const req = label && label.v;\nif (!req || typeof req !== 'object') return { status: 'error', reason: 'invalid_request' };\nconst targetCell = req.target_cell && typeof req.target_cell === 'object' ? req.target_cell : null;\nconst targetPin = typeof req.target_pin === 'string' ? req.target_pin.trim() : '';\nif (!targetCell || !targetPin) return { status: 'error', reason: 'missing_target' };\nconst ensureIdx = (n) => Number.isInteger(n) ? n : 0;\nV1N.addLabel('mt_write_req', 'pin.in', {\n  op: 'write',\n  records: [{\n    p: ensureIdx(targetCell.p),\n    r: ensureIdx(targetCell.r),\n    c: ensureIdx(targetCell.c),\n    k: targetPin,\n    t: 'pin.in',\n    v: req.value ?? null\n  }]\n});\nreturn { status: 'ok', dispatched: true };",
+        "code": "const payload = label && label.v;\nif (!Array.isArray(payload)) return { status: 'error', reason: 'invalid_payload' };\nconst get = (key) => payload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key) || null;\nconst kind = get('__mt_payload_kind');\nif (!kind || kind.t !== 'str' || kind.v !== 'write_label.v1') return { status: 'error', reason: 'invalid_payload_kind' };\nV1N.addLabel('mt_write_req', 'pin.in', payload);\nreturn { status: 'ok', dispatched: true };",
         "modelName": "default_table_mt_bus_receive_skeleton"
       }
     },
@@ -105,7 +91,7 @@
       "k": "mt_bus_send",
       "t": "func.js",
       "v": {
-        "code": "const req = label && label.v;\nif (!req || typeof req !== 'object') return { status: 'error', reason: 'invalid_request' };\nconst sourceModelId = Number.isInteger(req.source_model_id) ? req.source_model_id : null;\nconst pin = typeof req.pin === 'string' ? req.pin.trim() : '';\nif (!sourceModelId || !pin) return { status: 'error', reason: 'missing_source' };\nconst busOutKey = typeof req.bus_out_key === 'string' && req.bus_out_key.trim() ? req.bus_out_key.trim() : pin;\nconst opId = typeof req.op_id === 'string' && req.op_id ? req.op_id : ('mt_bus_send_' + Date.now());\nV1N.addLabel(busOutKey, 'pin.bus.out', {\n  version: 'v1',\n  type: 'pin_payload',\n  op_id: opId,\n  source_model_id: sourceModelId,\n  pin,\n  payload: req.payload ?? null,\n  timestamp: Date.now()\n});\nreturn { status: 'ok', bus_out_key: busOutKey };",
+        "code": "const req = label && label.v;\nif (!V1N.table || typeof V1N.table.applyBusSendPayload !== 'function') return { status: 'error', reason: 'missing_table_helper' };\nreturn V1N.table.applyBusSendPayload(req);",
         "modelName": "default_table_mt_bus_send_skeleton"
       }
     },

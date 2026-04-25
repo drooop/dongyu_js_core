@@ -291,7 +291,7 @@ v1 现在已经冻结为一个具体 root label：
     {
       "semantic": "submit",
       "pin_name": "submit_request",
-      "value_t": "event",
+      "value_t": "modeltable",
       "locator_kind": "root_relative_cell",
       "locator_value": { "p": 2, "r": 2, "c": 0 },
       "primary": true

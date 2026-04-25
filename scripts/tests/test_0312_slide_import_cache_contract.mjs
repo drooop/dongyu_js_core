@@ -107,6 +107,19 @@ function pinEnvelope(target, pin, value = undefined) {
   };
 }
 
+function uiEventPayload(labels = []) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+    ...labels.map((label) => ({ id: 0, p: 0, r: 0, c: 0, ...label })),
+  ];
+}
+
+function slideImportClickPayload() {
+  return uiEventPayload([
+    { k: 'target', t: 'json', v: { model_id: 1031, p: 0, r: 0, c: 0 } },
+  ]);
+}
+
 async function test_slide_import_requires_cache_priming_before_import() {
   return withServerState(async (server, state) => {
     const { port } = server.address();
@@ -139,11 +152,16 @@ async function test_slide_import_requires_cache_priming_before_import() {
     });
     assert.equal(ownerUpdate.result, 'ok', 'owner_label_update_must_succeed');
     assert.equal(ownerUpdate.routed_by, 'pin', 'owner_label_update_must_route_by_pin');
+    assert.equal(
+      state.clientSnap().models?.['1031']?.cells?.['0,0,0']?.labels?.slide_import_media_uri?.v,
+      data.uri,
+      'owner_label_update_must_write_media_uri',
+    );
 
     const importClick = await state.submitEnvelope(pinEnvelope(
       { model_id: 1030, p: 2, r: 4, c: 0 },
       'click',
-      { click: true },
+      slideImportClickPayload(),
     ));
     assert.equal(importClick.result, 'ok', 'cached_click_must_be_accepted');
 

@@ -66,7 +66,7 @@ function test_workspace_route_prefers_local_path_over_shared_ui_page() {
   assert.equal(findNodeById(resolved.ast, 'sliding_flow_root')?.type, 'Container', 'workspace route must wrap Model 100 in sliding flow shell');
   assert.equal(findNodeById(resolved.ast, 'sliding_flow_process_table')?.type, 'Table', 'workspace route must expose process summary table');
   assert.equal(findNodeById(resolved.ast, 'sliding_flow_debug_table')?.type, 'Table', 'workspace route must expose debug summary table');
-  assert.equal(findNodeById(resolved.ast, 'schema_root_100')?.type, 'Container', 'workspace route must keep the selected app AST inside the shell');
+  assert.equal(findNodeById(resolved.ast, 'model100_cellwise_root')?.type, 'Container', 'workspace route must keep the selected app AST inside the shell');
 }
 
 const tests = [

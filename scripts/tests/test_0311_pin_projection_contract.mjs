@@ -56,7 +56,11 @@ function test_ast_exposes_writable_pins_schema_for_pin_bound_node() {
                 v: {
                   write: {
                     pin: 'click',
-                    value_ref: { t: 'event', v: { input_value: 'hello' } },
+                    value_ref: [
+                      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+                      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
+                    ],
+                    value_t: 'modeltable',
                     commit_policy: 'immediate',
                   },
                 },
@@ -77,7 +81,7 @@ function test_ast_exposes_writable_pins_schema_for_pin_bound_node() {
       name: 'click',
       direction: 'in',
       trigger: 'click',
-      value_t: 'event',
+      value_t: 'modeltable',
       commit_policy: 'immediate',
       primary: true,
     }],
@@ -90,12 +94,22 @@ function test_workspace_patches_pinize_existing_buttons() {
   const workspace = readJson('packages/worker-base/system-models/workspace_positive_models.json').records || [];
   const catalog = readJson('packages/worker-base/system-models/workspace_catalog_ui.json').records || [];
 
-  const model100SubmitBind = findRecord(workspace, (record) => (
+  const model100SubmitNode = findRecord(workspace, (record) => (
     record?.model_id === 100
-    && record?.k === 'submit__bind'
+    && record?.k === 'ui_node_id'
+    && record?.v === 'submit_button'
     && record?.p === 1
     && record?.r === 0
     && record?.c === 0
+  ));
+  assert.ok(model100SubmitNode, 'model100_submit_button_cellwise_node_missing');
+
+  const model100SubmitBind = findRecord(workspace, (record) => (
+    record?.model_id === 100
+    && record?.k === 'ui_bind_json'
+    && record?.p === model100SubmitNode.p
+    && record?.r === model100SubmitNode.r
+    && record?.c === model100SubmitNode.c
   ));
   assert.equal(model100SubmitBind?.v?.write?.pin, 'click', 'model100_submit_must_use_pin_write');
   assert.ok(!model100SubmitBind?.v?.write?.action, 'model100_submit_must_not_require_action_write');

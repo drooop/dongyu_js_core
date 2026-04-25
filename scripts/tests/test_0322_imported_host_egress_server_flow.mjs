@@ -33,6 +33,19 @@ function pinEnvelope(target, pin, value = undefined) {
   };
 }
 
+function uiEventPayload(labels = []) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+    ...labels.map((label) => ({ id: 0, p: 0, r: 0, c: 0, ...label })),
+  ];
+}
+
+function slideImportClickPayload() {
+  return uiEventPayload([
+    { k: 'target', t: 'json', v: { model_id: 1031, p: 0, r: 0, c: 0 } },
+  ]);
+}
+
 function payloadWithIngressAndEgress() {
   return [
     { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.ImportedHostEgressFlowApp' },
@@ -52,7 +65,7 @@ function payloadWithIngressAndEgress() {
       boundaries: [{
         semantic: 'submit',
         pin_name: 'submit_request',
-        value_t: 'event',
+        value_t: 'modeltable',
         locator_kind: 'root_relative_cell',
         locator_value: { p: 0, r: 0, c: 0 },
         primary: true,
@@ -68,9 +81,11 @@ function payloadWithIngressAndEgress() {
       { from: [0, 0, 0, 'submit_owner_req'], to: [[0, 1, 0, 'owner_apply']] },
     ] },
     { id: 0, p: 0, r: 0, c: 0, k: 'handle_submit', t: 'func.js', v: { code: [
-      "const event = label && label.v && typeof label.v === 'object' ? label.v : {};",
-      "const text = String(event.text != null ? event.text : '').trim();",
-      "const source = String(event.source || 'host_ingress');",
+      "const records = Array.isArray(label && label.v) ? label.v : [];",
+      "const readPayload = function(key, fallback) { const rec = records.find(function(item) { return item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key; }); return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback; };",
+      "const nestedValue = readPayload('value', {});",
+      "const text = String(readPayload('text', nestedValue && nestedValue.text != null ? nestedValue.text : '')).trim();",
+      "const source = String(readPayload('source', nestedValue && nestedValue.source ? nestedValue.source : 'host_ingress'));",
       "const SELF = ctx.self.model_id;",
       "const payload = [",
       "  { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.ImportedHostSubmit' },",
@@ -138,7 +153,7 @@ async function test_imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix(
     const importResult = await state.submitEnvelope(pinEnvelope(
       { model_id: 1030, p: 2, r: 4, c: 0 },
       'click',
-      { click: true },
+      slideImportClickPayload(),
     ));
     assert.equal(importResult.result, 'ok', 'import_request_must_be_accepted');
     await wait();
@@ -157,7 +172,10 @@ async function test_imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix(
     state.runtime.addLabel(state.runtime.getModel(importedId), 2, 3, 0, {
       k: 'click_chain',
       t: 'pin.in',
-      v: { text: 'hello imported host egress', source: 'host_ingress' },
+      v: uiEventPayload([
+        { k: 'text', t: 'str', v: 'hello imported host egress' },
+        { k: 'source', t: 'str', v: 'host_ingress' },
+      ]),
     });
     await wait(220);
 

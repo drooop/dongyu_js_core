@@ -19,7 +19,7 @@ const galleryCatalog = readText('packages/worker-base/system-models/gallery_cata
 assert.match(
   workspacePositiveModels,
   /"commit_policy"\s*:\s*"on_submit"/,
-  'workspace model100 input_value__bind must opt in to commit_policy=on_submit',
+  'workspace model100 input binding must opt in to commit_policy=on_submit',
 );
 
 assert.match(

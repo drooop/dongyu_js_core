@@ -23,6 +23,19 @@ function mailboxEnvelope(action, options = {}) {
   };
 }
 
+function payloadLabel(payload, key) {
+  return Array.isArray(payload)
+    ? payload.find((record) => record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null
+    : null;
+}
+
+function assertHomeOwnerRequestPayload(label, messagePrefix) {
+  assert(label, `${messagePrefix}_missing`);
+  assert.equal(label.t, 'pin.in', `${messagePrefix}_must_use_pin_in`);
+  assert.equal(payloadLabel(label.v, '__mt_payload_kind')?.v, 'home_owner_request.v1', `${messagePrefix}_must_use_modeltable_payload`);
+  assert(payloadLabel(label.v, 'request')?.v && typeof payloadLabel(label.v, 'request').v === 'object', `${messagePrefix}_must_embed_request_label`);
+}
+
 const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0249-home-pin-'));
 process.env.DY_AUTH = '0';
 process.env.WORKER_BASE_WORKSPACE = `it0249_home_pin_${Date.now()}`;
@@ -55,8 +68,7 @@ try {
 
   let stateModel = state.runtime.getModel(-2);
   let ownerRequest = state.runtime.getCell(stateModel, 0, 0, 0).labels.get('home_owner_request');
-  assert(ownerRequest, 'home_open_create_must_write_owner_request_to_state_model');
-  assert.match(String(ownerRequest.t || ''), /^pin\.(table|single)\.in$/, 'state_owner_request_must_use_model_input_pin');
+  assertHomeOwnerRequestPayload(ownerRequest, 'home_open_create_must_write_owner_request_to_state_model');
 
   await setState('dt_edit_p', 'str', '0', 'set_p');
   await setState('dt_edit_r', 'str', '0', 'set_r');
@@ -73,8 +85,7 @@ try {
 
   const targetModel = state.runtime.getModel(1003);
   ownerRequest = state.runtime.getCell(targetModel, 0, 0, 0).labels.get('home_owner_request');
-  assert(ownerRequest, 'home_save_label_must_write_owner_request_to_target_model');
-  assert.match(String(ownerRequest.t || ''), /^pin\.(table|single)\.in$/, 'target_owner_request_must_use_model_input_pin');
+  assertHomeOwnerRequestPayload(ownerRequest, 'home_save_label_must_write_owner_request_to_target_model');
 
   const created = state.runtime.getCell(targetModel, 0, 0, 0).labels.get('demo_home_pin_label');
   assert.equal(created?.v, 'hello-home-pin', 'owner_materialization_must_create_label');
