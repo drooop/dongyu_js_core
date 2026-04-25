@@ -163,6 +163,16 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "mgmt_bus_console_intent",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "mgmt_receive",
       "t": "func.js",
       "v": {

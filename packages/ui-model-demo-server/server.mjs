@@ -5515,7 +5515,7 @@ function createServerState(options) {
 
     if (isUiEventV2) {
       const busInKey = String(envelopeOrNull.bus_in_key || '').trim();
-      const allowedBusInKeys = new Set(['ui_submit', 'ui_click', 'ui_input', 'ui_edit']);
+      const allowedBusInKeys = new Set(['ui_submit', 'ui_click', 'ui_input', 'ui_edit', 'mgmt_bus_console_send']);
       if (!allowedBusInKeys.has(busInKey)) {
         return finishError('invalid_bus_in_key', busInKey || 'missing_bus_in_key');
       }
