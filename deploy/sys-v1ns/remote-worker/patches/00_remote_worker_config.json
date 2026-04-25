@@ -1,7 +1,7 @@
 {
   "version": "mt.v0",
   "op_id": "remote_worker_config_v1",
-  "description": "Remote worker MQTT config + subscription declarations (0144)",
+  "description": "Remote worker MQTT config + explicit subscription list",
   "records": [
     {
       "op": "add_label",
@@ -9,7 +9,7 @@
       "p": 0, "r": 0, "c": 0,
       "k": "mqtt_payload_mode",
       "t": "str",
-      "v": "mt_v0"
+      "v": "pin_payload_v1"
     },
     {
       "op": "add_label",
@@ -29,19 +29,26 @@
     },
     {
       "op": "add_label",
-      "model_id": 0,
+      "model_id": -10,
       "p": 0, "r": 0, "c": 0,
-      "k": "sub_model100_event",
-      "t": "MQTT_WILDCARD_SUB",
-      "v": "UIPUT/ws/dam/pic/de/sw/100/event"
+      "k": "remote_subscriptions",
+      "t": "json",
+      "v": [
+        "UIPUT/ws/dam/pic/de/sw/100/submit",
+        "UIPUT/ws/dam/pic/de/sw/100/result",
+        "UIPUT/ws/dam/pic/de/sw/1010/submit",
+        "UIPUT/ws/dam/pic/de/sw/1010/result",
+        "UIPUT/ws/dam/pic/de/sw/1019/submit",
+        "UIPUT/ws/dam/pic/de/sw/1019/result"
+      ]
     },
     {
       "op": "add_label",
       "model_id": 0,
-      "p": 0, "r": 0, "c": 0,
-      "k": "sub_model100_patch",
-      "t": "MQTT_WILDCARD_SUB",
-      "v": "UIPUT/ws/dam/pic/de/sw/100/patch"
+      "p": 1, "r": 0, "c": 1,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": -10
     }
   ]
 }

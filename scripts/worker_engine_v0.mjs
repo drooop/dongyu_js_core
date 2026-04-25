@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { applyPersistedAssetEntries, resolvePersistedAssetRoot } from '../packages/worker-base/src/persisted_asset_loader.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -170,6 +171,12 @@ export class WorkerEngineV0 {
   }
 
   tick() {
+    if (typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive()) {
+      return;
+    }
+    if (typeof this.runtime.isRuntimeRunning === 'function' && !this.runtime.isRuntimeRunning()) {
+      return;
+    }
     // Drain work until stable (MGMT_OUT may be produced by a function).
     let rounds = 0;
     // eslint-disable-next-line no-constant-condition
@@ -177,7 +184,7 @@ export class WorkerEngineV0 {
       rounds += 1;
       if (rounds > 50) break;
       
-      // Process run_* trigger labels first (e.g., run_mbr_mgmt_to_mqtt, run_mbr_mqtt_to_mgmt)
+      // Process generic run_* trigger labels first for roles that still use trigger-based dispatch.
       const ranTriggers = this._processRunTriggers();
       
       const eventEnd = this.runtime.eventLog.list().length;
@@ -195,7 +202,24 @@ export class WorkerEngineV0 {
   }
 }
 
-export function loadSystemPatch(runtime) {
+export function loadSystemPatch(runtime, options = {}) {
+  const assetRoot = resolvePersistedAssetRoot(options.assetRoot);
+  if (assetRoot) {
+    return applyPersistedAssetEntries(runtime, {
+      assetRoot,
+      scope: options.scope || 'ui-server',
+      authority: 'authoritative',
+      kind: 'patch',
+      phases: ['00-system-base'],
+      applyOptions: { allowCreateModel: true, trustedBootstrap: true },
+    });
+  }
   const patch = require('../packages/worker-base/system-models/system_models.json');
-  runtime.applyPatch(patch, { allowCreateModel: true });
+  runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
+  return {
+    assetRoot: null,
+    entriesApplied: 1,
+    patchObjectsApplied: 1,
+    recordCount: Array.isArray(patch.records) ? patch.records.length : 0,
+  };
 }

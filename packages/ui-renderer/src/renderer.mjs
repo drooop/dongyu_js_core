@@ -2,6 +2,7 @@ import registryRaw from './component_registry_v1.json';
 
 let eventCounter = 0;
 let editorEventCounter = 0;
+let editorOpNonce = 0;
 const DEFAULT_REGISTRY = registryRaw && registryRaw.components
   ? registryRaw
   : { version: 'ui.component_registry.v1', components: {} };
@@ -41,13 +42,35 @@ function getLabelValue(snapshot, ref) {
   return label.v;
 }
 
-function getMailboxValue(snapshot) {
-  const model = getModel(snapshot, -1);
-  if (!model || !model.cells) return undefined;
-  const cell = model.cells['0,0,1'];
-  if (!cell || !cell.labels) return undefined;
-  const label = cell.labels.ui_event;
-  return label ? label.v : undefined;
+function toCssLength(value, fallback) {
+  if (typeof value === 'number' && Number.isFinite(value)) return `${value}px`;
+  if (typeof value === 'string' && value.trim()) return value;
+  return fallback;
+}
+
+function normalizeSelectModelValue(value, options) {
+  if (!Array.isArray(options) || options.length === 0 || value === undefined) return value;
+  if (options.some((opt) => opt && Object.prototype.hasOwnProperty.call(opt, 'value') && Object.is(opt.value, value))) {
+    return value;
+  }
+  if (typeof value !== 'string' && typeof value !== 'number') return value;
+  const normalizedValue = String(value);
+  for (const opt of options) {
+    if (!opt || !Object.prototype.hasOwnProperty.call(opt, 'value')) continue;
+    const optionValue = opt.value;
+    if ((typeof optionValue === 'string' || typeof optionValue === 'number') && String(optionValue) === normalizedValue) {
+      return optionValue;
+    }
+  }
+  return value;
+}
+
+function getEffectiveLabelValue(snapshot, ref, host) {
+  if (host && typeof host.getEffectiveLabelValue === 'function') {
+    const value = host.getEffectiveLabelValue(ref);
+    if (value !== undefined) return value;
+  }
+  return getLabelValue(snapshot, ref);
 }
 
 function isPlainObject(value) {
@@ -81,27 +104,73 @@ function resolveRefValue(ref, ctx) {
   return undefined;
 }
 
-function resolveRefsDeep(value, ctx, snapshot) {
+function resolveRefsDeep(value, ctx, snapshot, host) {
   if (!value) return value;
   if (isPlainObject(value) && Object.keys(value).length === 1 && Object.prototype.hasOwnProperty.call(value, '$label')) {
-    const ref = resolveRefsDeep(value.$label, ctx, snapshot);
-    return snapshot ? getLabelValue(snapshot, ref) : undefined;
+    const ref = resolveRefsDeep(value.$label, ctx, snapshot, host);
+    return snapshot ? getEffectiveLabelValue(snapshot, ref, host) : undefined;
   }
   if (isPlainObject(value) && typeof value.$ref === 'string' && Object.keys(value).length === 1) {
     if (!ctx) return value;
     return resolveRefValue(value.$ref, ctx);
   }
   if (Array.isArray(value)) {
-    return value.map((v) => resolveRefsDeep(v, ctx, snapshot));
+    return value.map((v) => resolveRefsDeep(v, ctx, snapshot, host));
   }
   if (isPlainObject(value)) {
     const out = {};
     for (const [k, v] of Object.entries(value)) {
-      out[k] = resolveRefsDeep(v, ctx, snapshot);
+      out[k] = resolveRefsDeep(v, ctx, snapshot, host);
     }
     return out;
   }
   return value;
+}
+
+function readPropValueFromSnapshot(snapshot, props, valueKey, refKey) {
+  if (!isPlainObject(props)) return undefined;
+  if (Object.prototype.hasOwnProperty.call(props, valueKey)) {
+    return props[valueKey];
+  }
+  const ref = props[refKey];
+  if (isPlainObject(ref)) {
+    return getLabelValue(snapshot, ref);
+  }
+  return undefined;
+}
+
+function inferThreeSceneModelId(props) {
+  if (!isPlainObject(props)) return null;
+  if (Number.isInteger(props.sceneModelId)) return props.sceneModelId;
+  const refKeys = ['sceneGraphRef', 'cameraStateRef', 'selectedEntityIdRef', 'sceneStatusRef', 'auditLogRef'];
+  for (const key of refKeys) {
+    const ref = props[key];
+    if (isPlainObject(ref) && Number.isInteger(ref.model_id)) {
+      return ref.model_id;
+    }
+  }
+  return null;
+}
+
+function normalizeThreeSceneHostProps(snapshot, props) {
+  const sceneGraph = readPropValueFromSnapshot(snapshot, props, 'sceneGraph', 'sceneGraphRef');
+  const cameraState = readPropValueFromSnapshot(snapshot, props, 'cameraState', 'cameraStateRef');
+  const selectedEntityId = readPropValueFromSnapshot(snapshot, props, 'selectedEntityId', 'selectedEntityIdRef');
+  const sceneStatus = readPropValueFromSnapshot(snapshot, props, 'sceneStatus', 'sceneStatusRef');
+  const auditLog = readPropValueFromSnapshot(snapshot, props, 'auditLog', 'auditLogRef');
+  const nextProps = {
+    ...props,
+    sceneModelId: inferThreeSceneModelId(props),
+    sceneGraph: isPlainObject(sceneGraph) ? sceneGraph : { entities: [] },
+    cameraState: isPlainObject(cameraState) ? cameraState : {},
+    selectedEntityId: selectedEntityId == null ? '' : String(selectedEntityId),
+    sceneStatus: sceneStatus == null ? '' : String(sceneStatus),
+    auditLog: auditLog == null ? '' : String(auditLog),
+  };
+  if (!isPlainObject(nextProps.actions)) {
+    nextProps.actions = {};
+  }
+  return nextProps;
 }
 
 function ensureSingleFlightStore(host) {
@@ -132,6 +201,11 @@ function nextEditorEventId() {
   return editorEventCounter;
 }
 
+function nextEditorOpId() {
+  editorOpNonce += 1;
+  return `op_${Date.now()}_${editorOpNonce}_${Math.random().toString(16).slice(2, 8)}`;
+}
+
 function normalizeEvent(node, target, payload, overrideType) {
   const type = overrideType || target.event_type || 'event';
   return {
@@ -145,7 +219,7 @@ function normalizeEvent(node, target, payload, overrideType) {
 
 function normalizeEditorEvent(payload) {
   const event_id = nextEditorEventId();
-  const op_id = `op_${event_id}`;
+  const op_id = nextEditorOpId();
   const body = { action: payload.action };
   if (payload.target !== undefined) {
     body.target = payload.target;
@@ -157,6 +231,26 @@ function normalizeEditorEvent(payload) {
   return {
     event_id,
     type: payload.action,
+    payload: body,
+    source: 'ui_renderer',
+    ts: 0,
+  };
+}
+
+function normalizeEditorPinEvent(payload) {
+  const event_id = nextEditorEventId();
+  const op_id = nextEditorOpId();
+  const body = {
+    target: payload.target,
+    pin: payload.pin,
+    meta: { op_id },
+  };
+  if (payload.value !== undefined) {
+    body.value = payload.value;
+  }
+  return {
+    event_id,
+    type: payload.pin,
     payload: body,
     source: 'ui_renderer',
     ts: 0,
@@ -190,6 +284,36 @@ function normalizeRegistry(registry) {
     return DEFAULT_REGISTRY;
   }
   return registry;
+}
+
+function normalizeCommitPolicy(target) {
+  const raw = target && typeof target.commit_policy === 'string'
+    ? target.commit_policy.trim()
+    : '';
+  if (raw === 'on_change' || raw === 'on_blur' || raw === 'on_submit' || raw === 'immediate') {
+    return raw;
+  }
+  return 'immediate';
+}
+
+function shouldUseOverlay(host, node, target) {
+  if (!host || typeof host.stageOverlayValue !== 'function') return false;
+  const readRef = node && node.bind && node.bind.read;
+  if (!readRef || !isPlainObject(readRef) || !Number.isInteger(readRef.model_id)) return false;
+  if (readRef.model_id === 0 || readRef.model_id === -1) return false;
+  return normalizeCommitPolicy(target) !== 'immediate';
+}
+
+function stageOverlay(node, target, value, host) {
+  if (!host || typeof host.stageOverlayValue !== 'function') return;
+  const readRef = node && node.bind && node.bind.read;
+  host.stageOverlayValue({ ref: readRef, value, writeTarget: target });
+}
+
+function commitOverlay(node, target, value, host) {
+  if (!host || typeof host.commitOverlayValue !== 'function') return;
+  const readRef = node && node.bind && node.bind.read;
+  host.commitOverlayValue({ ref: readRef, value, writeTarget: target });
 }
 
 function resolveComponentSpec(registry, type) {
@@ -234,7 +358,10 @@ function renderTreeNode(node, snapshot, registry) {
   }
 
   if (runtimeNode.type === 'Card') {
-    base.title = (runtimeNode.props && runtimeNode.props.title) || '';
+    const title = runtimeNode.props && Object.prototype.hasOwnProperty.call(runtimeNode.props, 'title')
+      ? resolveRefsDeep(runtimeNode.props.title, null, snapshot)
+      : '';
+    base.title = title === undefined ? '' : title;
     base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
     return base;
   }
@@ -311,6 +438,11 @@ function renderTreeNode(node, snapshot, registry) {
 
   if (runtimeNode.type === 'Button') {
     base.label = (runtimeNode.props && runtimeNode.props.label) || '';
+    return base;
+  }
+
+  if (runtimeNode.type === 'ThreeScene') {
+    base.props = normalizeThreeSceneHostProps(snapshot, runtimeNode.props || {});
     return base;
   }
 
@@ -401,17 +533,194 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     return h('pre', props, text);
   }
 
+  if (node.type === 'Heading') {
+    const tag = `h${Math.min(4, Math.max(1, Number(props.level) || 1))}`;
+    const text = Object.prototype.hasOwnProperty.call(props, 'text') ? String(props.text) : '';
+    const headingProps = { ...props, style: { margin: '0', color: '#0f172a', ...(props.style || {}) } };
+    delete headingProps.level;
+    delete headingProps.text;
+    return h(tag, headingProps, text);
+  }
+
+  if (node.type === 'Paragraph') {
+    const text = Object.prototype.hasOwnProperty.call(props, 'text') ? String(props.text) : '';
+    const lines = text.split('\n');
+    const paragraphProps = { ...props, style: { margin: '0', color: '#334155', lineHeight: '1.7', ...(props.style || {}) } };
+    delete paragraphProps.text;
+    return h('p', paragraphProps, lines.flatMap((line, idx) => (
+      idx === 0 ? [line] : [h('br'), line]
+    )));
+  }
+
+  if (node.type === 'List') {
+    const listTag = props.listType === 'ordered' ? 'ol' : 'ul';
+    const listProps = { ...props, style: { margin: '0', paddingLeft: '1.25rem', color: '#334155', ...(props.style || {}) } };
+    delete listProps.listType;
+    return h(listTag, listProps, children);
+  }
+
+  if (node.type === 'ListItem') {
+    const text = Object.prototype.hasOwnProperty.call(props, 'text') ? String(props.text) : '';
+    const itemProps = { ...props, style: { margin: '0 0 4px 0', ...(props.style || {}) } };
+    delete itemProps.text;
+    return h('li', itemProps, children.length > 0 ? children : text);
+  }
+
+  if (node.type === 'Callout') {
+    const palette = {
+      tip: { border: '#16a34a', bg: '#f0fdf4', title: '#166534' },
+      info: { border: '#2563eb', bg: '#eff6ff', title: '#1d4ed8' },
+      warning: { border: '#d97706', bg: '#fef3c7', title: '#b45309' },
+      danger: { border: '#dc2626', bg: '#fef2f2', title: '#b91c1c' },
+    };
+    const calloutType = typeof props.calloutType === 'string' ? props.calloutType : 'info';
+    const colors = palette[calloutType] || palette.info;
+    const title = typeof props.title === 'string' ? props.title : '';
+    const text = Object.prototype.hasOwnProperty.call(props, 'text') ? String(props.text) : '';
+    const calloutProps = {
+      ...props,
+      style: {
+        borderLeft: `4px solid ${colors.border}`,
+        background: colors.bg,
+        borderRadius: '8px',
+        padding: '12px 14px',
+        color: '#334155',
+        ...(props.style || {}),
+      },
+    };
+    delete calloutProps.calloutType;
+    delete calloutProps.title;
+    delete calloutProps.text;
+    return h('div', calloutProps, [
+      title ? h('div', { style: { fontWeight: 600, color: colors.title, marginBottom: text || children.length > 0 ? '6px' : '0' } }, title) : null,
+      text ? h('div', text) : null,
+      ...children,
+    ].filter(Boolean));
+  }
+
+  if (node.type === 'Image') {
+    const imageProps = {
+      ...props,
+      src: typeof props.src === 'string' ? props.src : '',
+      alt: typeof props.alt === 'string' ? props.alt : '',
+      style: { maxWidth: '100%', height: 'auto', display: 'block', ...(props.style || {}) },
+    };
+    return h('img', imageProps);
+  }
+
+  if (node.type === 'MermaidDiagram') {
+    const code = Object.prototype.hasOwnProperty.call(props, 'code') ? String(props.code) : '';
+    const mermaidProps = {
+      ...props,
+      class: 'mermaid-placeholder',
+      style: {
+        background: '#f1f5f9',
+        padding: '12px',
+        borderRadius: '8px',
+        overflowX: 'auto',
+        color: '#334155',
+        margin: '0',
+        ...(props.style || {}),
+      },
+    };
+    delete mermaidProps.code;
+    return h('pre', mermaidProps, code);
+  }
+
+  if (node.type === 'Section') {
+    const title = typeof props.title === 'string' ? props.title : '';
+    const sectionNumber = Number.isFinite(props.sectionNumber) ? Number(props.sectionNumber) : null;
+    const variant = typeof props.variant === 'string'
+      ? props.variant
+      : (typeof props.type === 'string' ? props.type : 'default');
+    const isHero = variant === 'hero';
+    const sectionProps = {
+      ...props,
+      style: {
+        border: isHero ? 'none' : '1px solid #e2e8f0',
+        background: isHero ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' : '#ffffff',
+        color: isHero ? '#f8fafc' : '#0f172a',
+        borderRadius: '14px',
+        padding: '18px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        boxShadow: isHero ? '0 12px 32px rgba(15,23,42,0.18)' : '0 1px 2px rgba(15,23,42,0.06)',
+        ...(props.style || {}),
+      },
+    };
+    delete sectionProps.title;
+    delete sectionProps.sectionNumber;
+    delete sectionProps.variant;
+    delete sectionProps.type;
+    return h('section', sectionProps, [
+      title ? h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } }, [
+        sectionNumber !== null
+          ? h('span', {
+            style: {
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '28px',
+              height: '28px',
+              borderRadius: '999px',
+              background: isHero ? 'rgba(255,255,255,0.14)' : '#e2e8f0',
+              color: isHero ? '#f8fafc' : '#334155',
+              fontSize: '13px',
+              fontWeight: 700,
+            },
+          }, String(sectionNumber))
+          : null,
+        h('div', { style: { fontSize: isHero ? '20px' : '18px', fontWeight: 700 } }, title),
+      ].filter(Boolean)) : null,
+      ...children,
+    ].filter(Boolean));
+  }
+
   if (node.type === 'Input') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host)) : undefined;
     props.modelValue = value !== undefined ? value : '';
-    props['onUpdate:modelValue'] = (ev) => {
+    let lastEmittedValue = props.modelValue;
+    const emitValue = (ev) => {
       const target = node.bind && node.bind.write;
       if (!target) return;
-      const payload = { value: ev && ev.target ? ev.target.value : ev };
+      let nextValue = ev && ev.target ? ev.target.value : ev;
+      if (typeof document !== 'undefined') {
+        const active = document.activeElement;
+        if (active && Object.prototype.hasOwnProperty.call(active, 'value')) {
+          const activeValue = active.value;
+          if (nextValue === undefined || (typeof activeValue === 'string' && typeof nextValue === 'string' && activeValue.length >= nextValue.length)) {
+            nextValue = activeValue;
+          }
+        }
+      }
+      if (nextValue === lastEmittedValue) return;
+      lastEmittedValue = nextValue;
+      if (shouldUseOverlay(host, node, target)) {
+        stageOverlay(node, target, nextValue, host);
+        return;
+      }
+      const payload = { value: nextValue };
       dispatchEvent(node, target, payload, host, undefined, ctx);
     };
+    props['onUpdate:modelValue'] = emitValue;
+    props.onInput = emitValue;
+    const commitPolicy = normalizeCommitPolicy(node.bind && node.bind.write);
+    if (commitPolicy === 'on_blur') {
+      props.onBlur = () => {
+        const target = node.bind && node.bind.write;
+        if (!target) return;
+        commitOverlay(node, target, undefined, host);
+      };
+    } else if (commitPolicy === 'on_change') {
+      props.onChange = (v) => {
+        const target = node.bind && node.bind.write;
+        if (!target) return;
+        commitOverlay(node, target, v, host);
+      };
+    }
     return h(resolve('ElInput'), props);
   }
 
@@ -461,7 +770,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
     const options = Array.isArray(props.options) ? props.options : [];
     delete props.options;
-    props.modelValue = value !== undefined ? value : '';
+    props.modelValue = value !== undefined ? normalizeSelectModelValue(value, options) : '';
     const onValue = (v) => {
       const target = node.bind && node.bind.write;
       if (!target) return;
@@ -479,14 +788,25 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'NumberInput') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host)) : undefined;
     props.modelValue = value !== undefined ? value : null;
     const onValue = (v) => {
       const target = node.bind && node.bind.write;
       if (!target) return;
+      if (shouldUseOverlay(host, node, target)) {
+        stageOverlay(node, target, v, host);
+        return;
+      }
       dispatchEvent(node, target, { value: v }, host, undefined, ctx);
     };
     props['onUpdate:modelValue'] = onValue;
+    if (normalizeCommitPolicy(node.bind && node.bind.write) === 'on_change') {
+      props.onChange = (v) => {
+        const target = node.bind && node.bind.write;
+        if (!target) return;
+        commitOverlay(node, target, v, host);
+      };
+    }
     return h(resolve('ElInputNumber'), props);
   }
 
@@ -595,18 +915,32 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'Slider') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host)) : undefined;
     props.modelValue = value !== undefined ? value : 0;
     const onValue = (v) => {
       const target = node.bind && node.bind.write;
       if (!target) return;
+      if (shouldUseOverlay(host, node, target)) {
+        stageOverlay(node, target, v, host);
+        return;
+      }
       dispatchEvent(node, target, { value: v }, host, undefined, ctx);
     };
     props['onUpdate:modelValue'] = onValue;
     const changeTarget = node.bind && node.bind.change;
     if (changeTarget) {
       props.onChange = (v) => {
+        const target = node.bind && node.bind.write;
+        if (target && normalizeCommitPolicy(target) === 'on_change') {
+          commitOverlay(node, target, v, host);
+        }
         dispatchEvent(node, changeTarget, { value: v }, host, 'change', ctx);
+      };
+    } else if (normalizeCommitPolicy(node.bind && node.bind.write) === 'on_change') {
+      props.onChange = (v) => {
+        const target = node.bind && node.bind.write;
+        if (!target) return;
+        commitOverlay(node, target, v, host);
       };
     }
     return h(resolve('ElSlider'), props);
@@ -678,19 +1012,16 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       }
     }
     const pendingLocal = Boolean(singleFlightEnabled && flightState && flightState.pending);
+    const schemaLoading = Object.prototype.hasOwnProperty.call(props, 'loading') ? Boolean(props.loading) : false;
+    props.loading = pendingLocal || schemaLoading;
     if (pendingLocal) {
       props.disabled = true;
-      props.loading = true;
     }
 
-    props.onClick = (evt) => {
+    props.onClick = () => {
       if (singleFlightEnabled && flightState && flightState.pending) {
         return;
       }
-
-      const clickEl = evt && evt.currentTarget && typeof evt.currentTarget === 'object'
-        ? evt.currentTarget
-        : null;
 
       if (singleFlightEnabled && singleFlightStore) {
         const nextState = {
@@ -699,12 +1030,6 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         };
         flightState = nextState;
         singleFlightStore.set(singleFlightKey, nextState);
-        if (clickEl && Object.prototype.hasOwnProperty.call(clickEl, 'disabled')) {
-          clickEl.disabled = true;
-        }
-        if (clickEl && clickEl.classList && typeof clickEl.classList.add === 'function') {
-          clickEl.classList.add('is-loading');
-        }
       }
 
       const target = node.bind && node.bind.write;
@@ -717,12 +1042,6 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         };
         flightState = recoverState;
         singleFlightStore.set(singleFlightKey, recoverState);
-        if (clickEl && Object.prototype.hasOwnProperty.call(clickEl, 'disabled')) {
-          clickEl.disabled = false;
-        }
-        if (clickEl && clickEl.classList && typeof clickEl.classList.remove === 'function') {
-          clickEl.classList.remove('is-loading');
-        }
       }
     };
 
@@ -835,7 +1154,9 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   }
 
   if (node.type === 'Card') {
-    const title = (node.props && node.props.title) || '';
+    const title = props && Object.prototype.hasOwnProperty.call(props, 'title')
+      ? props.title
+      : '';
     const cardProps = { ...props };
     delete cardProps.title;
     return h(resolve('ElCard'), cardProps, {
@@ -854,7 +1175,11 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     // Build flexbox style
     const flexStyle = {
       display: 'flex',
-      flexDirection: layout === 'row' ? 'row' : 'column',
+      flexDirection: (
+        layout === 'row' || layout === 'row-reverse' || layout === 'column-reverse'
+          ? layout
+          : 'column'
+      ),
       ...(gap !== undefined && { gap: typeof gap === 'number' ? `${gap}px` : gap }),
       ...(justify && { justifyContent: justify }),
       ...(align && { alignItems: align }),
@@ -876,8 +1201,8 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const bgColor = typeof colorValue === 'string' && colorValue.startsWith('#') ? colorValue : '#FFFFFF';
     const boxStyle = {
       backgroundColor: bgColor,
-      width: (node.props && node.props.width) || '100px',
-      height: (node.props && node.props.height) || '60px',
+      width: toCssLength(node.props && node.props.width, '100px'),
+      height: toCssLength(node.props && node.props.height, '60px'),
       borderRadius: (node.props && node.props.borderRadius) || '8px',
       border: '2px solid #e5e7eb',
       display: 'flex',
@@ -929,6 +1254,10 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     return h('div', divProps);
   }
 
+  if (node.type === 'ThreeSceneHost') {
+    return h(resolve('ThreeSceneHost'), normalizeThreeSceneHostProps(snapshot, props));
+  }
+
   if (node.type === 'Link') {
     const href = Object.prototype.hasOwnProperty.call(props, 'href') ? props.href : '';
     const text = Object.prototype.hasOwnProperty.call(props, 'text') ? props.text : '';
@@ -938,12 +1267,46 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   }
 
   if (node.type === 'FileInput') {
-    const accept = node.props && Object.prototype.hasOwnProperty.call(node.props, 'accept') ? node.props.accept : undefined;
-    const multiple = Boolean(node.props && Object.prototype.hasOwnProperty.call(node.props, 'multiple') ? node.props.multiple : false);
-    const directory = Boolean(node.props && Object.prototype.hasOwnProperty.call(node.props, 'directory') ? node.props.directory : false);
-    const labelText = node.props && Object.prototype.hasOwnProperty.call(node.props, 'label') ? String(node.props.label) : '';
-    const wrapStyle = node.props && node.props.style ? node.props.style : undefined;
+    const accept = Object.prototype.hasOwnProperty.call(props, 'accept') ? props.accept : undefined;
+    const multiple = Boolean(Object.prototype.hasOwnProperty.call(props, 'multiple') ? props.multiple : false);
+    const directory = Boolean(Object.prototype.hasOwnProperty.call(props, 'directory') ? props.directory : false);
+    const labelText = Object.prototype.hasOwnProperty.call(props, 'label') ? String(props.label) : '';
+    const wrapStyle = props && props.style ? props.style : undefined;
+    const triggerLabel = Object.prototype.hasOwnProperty.call(props, 'buttonLabel')
+      ? String(props.buttonLabel)
+      : '选择文件';
+    const emptyText = Object.prototype.hasOwnProperty.call(props, 'emptyText')
+      ? String(props.emptyText)
+      : '未选择任何文件';
+    const selectedText = Object.prototype.hasOwnProperty.call(props, 'selectedText') ? props.selectedText : '';
     const multiAttr = multiple || directory;
+    let inputEl = null;
+    let selectedTextEl = null;
+    const setSelectedText = (value) => {
+      if (!selectedTextEl) return;
+      if (typeof value === 'string') {
+        selectedTextEl.textContent = value.trim() ? value : emptyText;
+        return;
+      }
+      if (Array.isArray(value)) {
+        const merged = value.filter((item) => typeof item === 'string' && item.trim()).join(', ');
+        selectedTextEl.textContent = merged || emptyText;
+        return;
+      }
+      selectedTextEl.textContent = emptyText;
+    };
+    const syncInputRef = (el) => {
+      inputEl = el;
+    };
+    const syncSelectedTextRef = (el) => {
+      selectedTextEl = el;
+      setSelectedText(selectedText);
+    };
+    const openPicker = () => {
+      if (inputEl && typeof inputEl.click === 'function') {
+        inputEl.click();
+      }
+    };
     const onChange = async (e) => {
       const input = e && e.target ? e.target : null;
       const files = input && input.files ? input.files : null;
@@ -952,6 +1315,8 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         : null);
       if (!files || files.length === 0) return;
       if (!target) return;
+      const chosenNames = Array.from(files).map((file) => (file && file.name ? String(file.name) : ''));
+      setSelectedText(chosenNames.filter(Boolean).join(', '));
       if (typeof host.uploadMedia !== 'function') {
         dispatchEvent(node, target, { value: '' }, host, undefined, ctx);
         return;
@@ -977,6 +1342,12 @@ function buildVueNode(node, snapshot, vue, host, registry) {
           });
         }
         if (uploaded.length === 0) return;
+        const nameTargetRef = isPlainObject(props.nameTargetRef) ? props.nameTargetRef : null;
+        if (nameTargetRef) {
+          dispatchEvent(node, { action: 'ui_owner_label_update', target_ref: nameTargetRef }, {
+            value: uploaded.map((item) => item.name).filter(Boolean).join(', '),
+          }, host, undefined, ctx);
+        }
         if (multiple || directory || uploaded.length > 1) {
           dispatchEvent(node, target, { value: uploaded }, host, undefined, ctx);
           return;
@@ -988,14 +1359,35 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     };
     return h('div', { style: wrapStyle }, [
       labelText ? h('div', { style: { marginBottom: '6px', fontSize: '12px', color: '#374151' } }, labelText) : null,
-      h('input', {
-        type: 'file',
-        accept,
-        multiple: multiAttr,
-        webkitdirectory: directory,
-        directory,
-        onChange,
-      }),
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' } }, [
+        h('button', {
+          type: 'button',
+          onClick: openPicker,
+          style: {
+            border: '1px solid #d0d7de',
+            background: '#ffffff',
+            color: '#111827',
+            borderRadius: '8px',
+            padding: '8px 14px',
+            cursor: 'pointer',
+            fontSize: '14px',
+          },
+        }, triggerLabel),
+        h('span', {
+          ref: syncSelectedTextRef,
+          style: { color: '#475569', fontSize: '14px' },
+        }, selectedText && String(selectedText).trim() ? String(selectedText) : emptyText),
+        h('input', {
+          type: 'file',
+          accept,
+          multiple: multiAttr,
+          webkitdirectory: directory,
+          directory,
+          onChange,
+          ref: syncInputRef,
+          style: { display: 'none' },
+        }),
+      ]),
     ].filter(Boolean));
   }
 
@@ -1292,22 +1684,54 @@ function buildVueNode(node, snapshot, vue, host, registry) {
 
 function dispatchEvent(node, target, payload, host, overrideType) {
   const ctx = arguments.length > 5 ? arguments[5] : null;
+  if (target && Object.prototype.hasOwnProperty.call(target, 'pin')) {
+    const snapshot = host.getSnapshot();
+    const out = { pin: target.pin };
+    const resolvedTarget = resolveRefsDeep(target.target_ref, ctx, snapshot);
+    if (resolvedTarget !== undefined) {
+      out.target = resolvedTarget;
+    } else if (node.cell_ref && Number.isInteger(node.cell_ref.model_id)) {
+      out.target = { model_id: node.cell_ref.model_id, p: node.cell_ref.p, r: node.cell_ref.r, c: node.cell_ref.c };
+    }
+    if (target.value_ref !== undefined) {
+      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot, host);
+    } else if (payload && Object.prototype.hasOwnProperty.call(payload, 'value')) {
+      out.value = payload.value;
+    } else if (payload !== undefined) {
+      out.value = payload;
+    }
+    if (target.meta_ref !== undefined) {
+      out.meta = resolveRefsDeep(target.meta_ref, ctx, snapshot, host);
+    } else if (target.meta !== undefined) {
+      out.meta = resolveRefsDeep(target.meta, ctx, snapshot, host);
+    }
+    const envelope = normalizeEditorPinEvent(out);
+    if (out.meta && typeof out.meta === 'object' && !Array.isArray(out.meta)) {
+      envelope.payload.meta = {
+        ...(envelope.payload.meta && typeof envelope.payload.meta === 'object' ? envelope.payload.meta : {}),
+        ...out.meta,
+      };
+    }
+    const label = buildMailboxEventLabel(envelope);
+    host.dispatchAddLabel(label);
+    return label;
+  }
   if (target && Object.prototype.hasOwnProperty.call(target, 'action')) {
     const snapshot = host.getSnapshot();
-    const mailboxValue = getMailboxValue(snapshot);
-    if (mailboxValue !== undefined && mailboxValue !== null) {
-      return { skipped: true, reason: 'mailbox_full' };
-    }
-
     const action = target.action;
     const out = { action };
     if (action !== 'submodel_create') {
-      out.target = resolveRefsDeep(target.target_ref, ctx, snapshot);
+      const resolvedTarget = resolveRefsDeep(target.target_ref, ctx, snapshot);
+      if (resolvedTarget !== undefined) {
+        out.target = resolvedTarget;
+      } else if (node.cell_ref && Number.isInteger(node.cell_ref.model_id)) {
+        out.target = { model_id: node.cell_ref.model_id, p: node.cell_ref.p, r: node.cell_ref.r, c: node.cell_ref.c };
+      }
     }
 
-    if (action === 'label_add' || action === 'label_update') {
+    if (action === 'label_add' || action === 'label_update' || action === 'ui_owner_label_update') {
       if (target.value_ref !== undefined) {
-        out.value = resolveRefsDeep(target.value_ref, ctx, snapshot);
+        out.value = resolveRefsDeep(target.value_ref, ctx, snapshot, host);
       } else {
         const raw = payload && payload.value !== undefined ? payload.value : '';
         let t = 'str';
@@ -1321,15 +1745,15 @@ function dispatchEvent(node, target, payload, host, overrideType) {
         out.value = { t, v: raw };
       }
     } else if (action === 'submodel_create') {
-      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot);
+      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot, host);
     } else if (target.value_ref !== undefined) {
-      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot);
+      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot, host);
     }
 
     if (target.meta_ref !== undefined) {
-      out.meta = resolveRefsDeep(target.meta_ref, ctx, snapshot);
+      out.meta = resolveRefsDeep(target.meta_ref, ctx, snapshot, host);
     } else if (target.meta !== undefined) {
-      out.meta = resolveRefsDeep(target.meta, ctx, snapshot);
+      out.meta = resolveRefsDeep(target.meta, ctx, snapshot, host);
     }
 
     const envelope = normalizeEditorEvent(out);

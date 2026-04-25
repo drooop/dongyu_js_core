@@ -1,0 +1,122 @@
+{
+  "version": "mt.v0",
+  "op_id": "default_table_programs_v1",
+  "scope": "per-model-root",
+  "_description": "Tier 2 source of truth for the three default programs (mt_write / mt_bus_receive / mt_bus_send) that every model.table root (0,0,0) must carry. Loaded by runtime._seedDefaultRootScaffold on createModel. The model_id field is intentionally omitted; runtime injects the actual model id at seed time. 0324 introduces mt_write with full implementation; mt_bus_receive / mt_bus_send carry skeleton bodies to be filled by 0326.",
+  "records": [
+    {
+      "op": "add_label",
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_write",
+      "t": "func.js",
+      "v": {
+        "code": "const req = label && label.v;\nconst sourcePin = label && typeof label.sourcePin === 'string' ? label.sourcePin : 'unknown';\nif (!V1N.table || typeof V1N.table.applyWriteLabelPayload !== 'function') return { status: 'error', reason: 'missing_table_helper' };\nreturn V1N.table.applyWriteLabelPayload(req, sourcePin);",
+        "modelName": "default_table_mt_write"
+      }
+    },
+    {
+      "op": "add_label",
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_write_req",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_write_result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_write_req_route",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, mt_write_req)",
+          "to": ["(func, mt_write:in)"]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_bus_receive",
+      "t": "func.js",
+      "v": {
+        "code": "const payload = label && label.v;\nif (!Array.isArray(payload)) return { status: 'error', reason: 'invalid_payload' };\nconst get = (key) => payload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key) || null;\nconst kind = get('__mt_payload_kind');\nif (!kind || kind.t !== 'str' || kind.v !== 'write_label.v1') return { status: 'error', reason: 'invalid_payload_kind' };\nV1N.addLabel('mt_write_req', 'pin.in', payload);\nreturn { status: 'ok', dispatched: true };",
+        "modelName": "default_table_mt_bus_receive_skeleton"
+      }
+    },
+    {
+      "op": "add_label",
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_bus_receive_in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_bus_receive_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, mt_bus_receive_in)",
+          "to": ["(func, mt_bus_receive:in)"]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_bus_send",
+      "t": "func.js",
+      "v": {
+        "code": "const req = label && label.v;\nif (!V1N.table || typeof V1N.table.applyBusSendPayload !== 'function') return { status: 'error', reason: 'missing_table_helper' };\nreturn V1N.table.applyBusSendPayload(req);",
+        "modelName": "default_table_mt_bus_send_skeleton"
+      }
+    },
+    {
+      "op": "add_label",
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_bus_send_in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_bus_send_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, mt_bus_send_in)",
+          "to": ["(func, mt_bus_send:in)"]
+        }
+      ]
+    }
+  ]
+}

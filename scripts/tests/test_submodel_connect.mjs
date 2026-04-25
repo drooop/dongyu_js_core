@@ -14,14 +14,15 @@ async function test_numeric_prefix_to_child() {
     t: 'pin.connect.label',
     v: [{ from: '(self, cmd)', to: ['(100, input)'] }],
   });
+  const child = rt.getModel(100);
+  rt.addLabel(child, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Flow' });
   // Trigger: write IN to parent cell 1,0,0 → CELL_CONNECT → child table/single IN
   rt.addLabel(parent, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: 'payload' });
   await new Promise((resolve) => setTimeout(resolve, 100));
-  const child = rt.getModel(100);
   const childCell = rt.getCell(child, 0, 0, 0);
   const modelIn = childCell.labels.get('input');
   assert(modelIn, 'child should have model-boundary input label');
-  assert(['pin.table.in', 'pin.single.in'].includes(modelIn.t), 'child boundary input type mismatch');
+  assert.equal(modelIn.t, 'pin.in', 'child boundary input must use pin.in');
   assert.strictEqual(modelIn.v, 'payload');
   return { key: 'numeric_prefix_to_child', status: 'PASS' };
 }
@@ -38,8 +39,9 @@ async function test_child_model_out_to_parent() {
     v: [{ from: '(200, result)', to: ['(self, output)'] }],
   });
   const child = rt.getModel(200);
+  rt.addLabel(child, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Flow' });
   // Child writes table OUT
-  rt.addLabel(child, 0, 0, 0, { k: 'result', t: 'pin.table.out', v: 'done' });
+  rt.addLabel(child, 0, 0, 0, { k: 'result', t: 'pin.out', v: 'done' });
   await new Promise((resolve) => setTimeout(resolve, 100));
   const parentCell = rt.getCell(parent, 2, 0, 0);
   const output = parentCell.labels.get('output');
@@ -66,6 +68,8 @@ async function test_unregistered_submodel_safe() {
 
 async function test_full_round_trip() {
   const rt = new ModelTableRuntime();
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
   const parent = rt.getModel(0);
   // Setup: BUS_IN → cell_connection → hosting cell CELL_CONNECT → child model-boundary IN
   //        child model-boundary OUT → parent CELL_CONNECT → cell_connection → BUS_OUT
@@ -89,6 +93,7 @@ async function test_full_round_trip() {
     ],
   });
   const child = rt.getModel(300);
+  rt.addLabel(child, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Flow' });
   // Child: model-boundary IN(input) → cell_connection → process → model-boundary OUT(output)
   rt.addLabel(child, 0, 0, 0, {
     k: 'routing',
@@ -122,28 +127,16 @@ async function test_full_round_trip() {
   assert(processed, 'child cell should have processed');
   assert.strictEqual(processed.v, 'input_data_transformed');
 
-  // Verify: child model-boundary OUT → parent → BUS_OUT
-  // The cell_connection from child (1,0,0,processed) → (0,0,0,output) writes model-boundary OUT? No.
-  // Actually the cell_connection writes IN label on (0,0,0,output). We need to check if
-  // there's a separate mechanism. The issue is cell_connection writes t='IN', but we need
-  // the child to explicitly write model-boundary OUT.
-
-  // Let's verify the intermediate steps instead:
-  // Child (0,0,0) should have input as model-boundary IN
+  // Verify: child root receives boundary input using pin.in
   const childCell0 = rt.getCell(child, 0, 0, 0);
   const input = childCell0.labels.get('input');
   assert(input, 'child should have boundary input');
-  assert(['pin.table.in', 'pin.single.in'].includes(input.t), 'child boundary input type mismatch');
+  assert.equal(input.t, 'pin.in', 'child boundary input must use pin.in');
 
-  // The IN label on child (0,0,0,output) from cell_connection triggers cell connect
-  // which via the parent bridge propagates to parent
-  // But actually cell_connection writes t='IN', and boundary OUT dispatch is separate.
-  // For the full round trip, the child function result needs to become boundary OUT.
-  // In this test, the cell_connection from (1,0,0,processed) → (0,0,0,output) writes t='IN'.
-  // We'd need a CELL_CONNECT on child (0,0,0) that maps output → MODEL_OUT write, or
-  // a different mechanism.
-
-  // For now, verify up to the function execution
+  // Child root output is currently represented as pin.in by the cell_connection step;
+  // Foundation B only requires the root boundary family to converge to pin.in/out.
+  const output = childCell0.labels.get('output');
+  assert(output && output.v === 'input_data_transformed', 'child root output port must receive transformed value');
   return { key: 'full_round_trip', status: 'PASS' };
 }
 

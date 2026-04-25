@@ -2,11 +2,47 @@ import { reactive } from 'vue';
 import { ModelTableRuntime } from '../../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from './local_bus_adapter.js';
 import { createLocalStoragePersister } from './local_persistence.js';
+import homeCatalogPatch from '../../worker-base/system-models/home_catalog_ui.json' with { type: 'json' };
+import docsCatalogPatch from '../../worker-base/system-models/docs_catalog_ui.json' with { type: 'json' };
+import staticCatalogPatch from '../../worker-base/system-models/static_catalog_ui.json' with { type: 'json' };
+import navCatalogPatch from '../../worker-base/system-models/nav_catalog_ui.json' with { type: 'json' };
+import workspaceCatalogPatch from '../../worker-base/system-models/workspace_catalog_ui.json' with { type: 'json' };
+import workspacePositiveModelsPatch from '../../worker-base/system-models/workspace_positive_models.json' with { type: 'json' };
+import docPageFilltableExampleMinimalPatch from '../../worker-base/system-models/doc_page_filltable_example_minimal.json' with { type: 'json' };
+import runtimeHierarchyMountsPatch from '../../worker-base/system-models/runtime_hierarchy_mounts.json' with { type: 'json' };
+import editorTestCatalogPatch from '../../worker-base/system-models/editor_test_catalog_ui.json' with { type: 'json' };
+import promptCatalogPatch from '../../worker-base/system-models/prompt_catalog_ui.json' with { type: 'json' };
+import matrixDebugSurfacePatch from '../../worker-base/system-models/matrix_debug_surface.json' with { type: 'json' };
+import cognitionSceneModelPatch from '../../worker-base/system-models/cognition_scene_model.json' with { type: 'json' };
+import cognitionLifecycleModelPatch from '../../worker-base/system-models/cognition_lifecycle_model.json' with { type: 'json' };
+import { buildAstFromSchema } from './ui_schema_projection.js';
+import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
+import { resolvePageAsset } from './page_asset_resolver.js';
+import { resolveRouteUiAst } from './route_ui_projection.js';
+import { buildBusDispatchLabel, buildBusEventV2, normalizeBusEventV2ValueToPinPayload } from './bus_event_v2.js';
+import {
+  deriveEditorModelOptions,
+  deriveHomeEditDialogTitle,
+  deriveHomeMissingModelText,
+  deriveHomeSelectedLabelText,
+  deriveSlideGalleryView,
+  deriveMatrixDebugView,
+  deriveHomeTableRows,
+  deriveStaticUploadReady,
+  deriveWorkspaceSelected,
+} from './editor_page_state_derivers.js';
 
 import {
+  DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID,
   EDITOR_MAILBOX_MODEL_ID as EDITOR_MODEL_ID,
   EDITOR_STATE_MODEL_ID,
+  FLOW_SHELL_DEFAULT_TAB,
+  FLOW_SHELL_TAB_LABEL,
   GALLERY_MAILBOX_MODEL_ID,
+  GALLERY_CATALOG_MODEL_ID,
+  GALLERY_STATE_MODEL_ID,
+  MATRIX_DEBUG_MODEL_ID,
+  PROMPT_CATALOG_MODEL_ID,
   SYSTEM_MODEL_ID,
 } from './model_ids.js';
 
@@ -22,2058 +58,141 @@ function ensureLabel(runtime, model, p, r, c, label) {
   runtime.addLabel(model, p, r, c, label);
 }
 
-function getSnapshotModel(snapshot, modelId) {
-  if (!snapshot || !snapshot.models) return null;
-  return snapshot.models[modelId] || snapshot.models[String(modelId)] || null;
+const MAILBOX_EVENT_KEY = 'bus_event';
+
+function overwriteLabel(runtime, model, p, r, c, label) {
+  const cell = runtime.getCell(model, p, r, c);
+  if (cell.labels.has(label.k)) {
+    runtime.rmLabel(model, p, r, c, label.k);
+  }
+  runtime.addLabel(model, p, r, c, label);
 }
 
-function getSnapshotLabelValue(snapshot, ref) {
-  const modelId = ref && typeof ref.model_id === 'number' ? ref.model_id : 0;
-  const model = getSnapshotModel(snapshot, modelId);
-  if (!model || !model.cells) return undefined;
-  const key = `${ref.p},${ref.r},${ref.c}`;
-  const cell = model.cells[key];
-  if (!cell || !cell.labels) return undefined;
-  const label = cell.labels[ref.k];
-  if (!label) return undefined;
-  return label.v;
-}
-
-function parseSafeInt(value) {
-  if (typeof value === 'number' && Number.isSafeInteger(value)) return value;
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (trimmed.length === 0) return null;
-    if (!/^-?\d+$/.test(trimmed)) return null;
-    const parsed = Number(trimmed);
-    if (!Number.isSafeInteger(parsed)) return null;
-    return parsed;
+function applyUiPatch(runtime, patch) {
+  const result = runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
+  if (result && result.rejected > 0) {
+    // bootstrap patches may re-run on persisted runtimes; keep applied records and ignore duplicate rejects
   }
-  return null;
-}
-
-export function buildEditorAstV0() {
-  const controlsDisabled = false;
-  return {
-    id: 'root',
-    type: 'Root',
-    children: [
-      {
-        id: 'layout',
-        type: 'Container',
-        props: { layout: 'column', gap: 12 },
-        children: [
-          {
-            id: 'card_actions',
-            type: 'Card',
-            props: { title: 'Actions' },
-            children: [
-              {
-                id: 'btn_create_model1',
-                type: 'Button',
-                props: { label: 'Create Model 1' },
-                bind: {
-                  write: {
-                    action: 'submodel_create',
-                    value_ref: { t: 'json', v: { id: 1, name: 'M1', type: 'main' } },
-                  },
-                },
-              },
-              {
-                id: 'btn_add_title',
-                type: 'Button',
-                props: { label: 'Add title' },
-                bind: {
-                  write: {
-                    action: 'label_add',
-                    target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' },
-                    value_ref: { t: 'str', v: 'Hello' },
-                  },
-                },
-              },
-              {
-                id: 'input_update_title',
-                type: 'Input',
-                bind: {
-                  read: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' },
-                  write: {
-                    action: 'label_update',
-                    target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' },
-                  },
-                },
-              },
-              {
-                id: 'btn_remove_title',
-                type: 'Button',
-                props: { label: 'Remove title' },
-                bind: {
-                  write: {
-                    action: 'label_remove',
-                    target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'title' },
-                  },
-                },
-              },
-              {
-                id: 'btn_clear_cell',
-                type: 'Button',
-                props: { label: 'Clear cell(0,0,0)' },
-                bind: {
-                  write: {
-                    action: 'cell_clear',
-                    target_ref: { model_id: 1, p: 0, r: 0, c: 0 },
-                  },
-                },
-              },
-            ],
-          },
-          // Debug panels intentionally omitted from UI (Snapshot/Mailbox/Event Log).
-        ],
-      },
-    ],
-  };
-}
-
-/**
- * Build a complete AST tree from a model's p=1 UI schema labels.
- *
- * Convention (p=1 cell at (1,0,0)):
- *   k:'_title'            → page/form title (str)
- *   k:'_subtitle'         → subtitle text (str, optional)
- *   k:'_field_order'      → display order (json array of field names)
- *   k:'<field>'           → component type, e.g. 'Input', 'Select', 'Button', 'Text', 'ColorBox' (str)
- *   k:'<field>__label'    → FormItem label (str)
- *   k:'<field>__props'    → extra component props (json)
- *   k:'<field>__opts'     → options for Select/RadioGroup (json array)
- *   k:'<field>__bind'     → custom bind override (json). Replaces default read/write.
- *   k:'<field>__no_wrap'  → if truthy, render without FormItem wrapper (bool/str)
- *
- * Data values live at p=0 cell (0,0,0) with k:<field>.
- *
- * Returns an AST subtree (Container > Title + Form > FormItems) or null if
- * the model has no p=1 schema.
- */
-export function buildAstFromSchema(snapshot, modelId) {
-  const model = getSnapshotModel(snapshot, modelId);
-  if (!model || !model.cells) return null;
-
-  const schemaCell = model.cells['1,0,0'];
-  if (!schemaCell || !schemaCell.labels) return null;
-
-  const getSchema = (k) => {
-    const label = schemaCell.labels[k];
-    return label ? label.v : undefined;
-  };
-
-  const fieldOrder = getSchema('_field_order');
-  if (!Array.isArray(fieldOrder) || fieldOrder.length === 0) return null;
-
-  const title = getSchema('_title') || `App ${modelId}`;
-  const subtitle = getSchema('_subtitle');
-
-  const formItems = [];
-  const standaloneItems = [];
-
-  for (let idx = 0; idx < fieldOrder.length; idx++) {
-    const fieldName = fieldOrder[idx];
-    const componentType = getSchema(fieldName);
-    if (typeof componentType !== 'string' || componentType.length === 0) continue;
-
-    const fieldLabel = getSchema(`${fieldName}__label`) || fieldName;
-    const extraProps = getSchema(`${fieldName}__props`) || {};
-    const opts = getSchema(`${fieldName}__opts`);
-    const customBind = getSchema(`${fieldName}__bind`);
-    const noWrap = getSchema(`${fieldName}__no_wrap`);
-
-    const componentProps = typeof extraProps === 'object' && extraProps !== null ? { ...extraProps } : {};
-    if (Array.isArray(opts)) {
-      componentProps.options = opts;
-    }
-
-    let bind;
-    if (customBind && typeof customBind === 'object') {
-      bind = customBind;
-    } else {
-      bind = {
-        read: { model_id: modelId, p: 0, r: 0, c: 0, k: fieldName },
-        write: {
-          action: 'label_update',
-          target_ref: { model_id: modelId, p: 0, r: 0, c: 0, k: fieldName },
-        },
-      };
-    }
-
-    const node = {
-      id: `schema_${modelId}_${fieldName}`,
-      type: componentType,
-      props: componentProps,
-      bind,
-    };
-
-    if (noWrap) {
-      standaloneItems.push(node);
-    } else {
-      formItems.push({
-        id: `schema_fi_${modelId}_${fieldName}`,
-        type: 'FormItem',
-        props: { label: fieldLabel },
-        children: [node],
-      });
-    }
-  }
-
-  if (formItems.length === 0 && standaloneItems.length === 0) return null;
-
-  const children = [
-    { id: `schema_title_${modelId}`, type: 'Text', props: { type: 'title', text: title } },
-  ];
-  if (subtitle) {
-    children.push({ id: `schema_subtitle_${modelId}`, type: 'Text', props: { type: 'info', text: subtitle } });
-  }
-  if (formItems.length > 0) {
-    children.push({
-      id: `schema_form_${modelId}`,
-      type: 'Form',
-      children: formItems,
-    });
-  }
-  for (const item of standaloneItems) {
-    children.push(item);
-  }
-
-  return {
-    id: `schema_root_${modelId}`,
-    type: 'Container',
-    props: { layout: 'column', gap: 12 },
-    children,
-  };
-}
-
-export function buildEditorAstV1(snapshot) {
-  const uiPage = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'ui_page' }) ?? '').trim().toLowerCase();
-  const models = (snapshot && snapshot.models) ? snapshot.models : {};
-  const modelOptions = Object.values(models)
-    .map((m) => ({ id: m && typeof m.id === 'number' ? m.id : parseSafeInt(m && m.id), name: m && m.name ? String(m.name) : '' }))
-    .filter((m) => Number.isInteger(m.id) && m.id !== 0)
-    .sort((a, b) => a.id - b.id)
-    .map((m) => ({ label: `${m.id}${m.name ? ` (${m.name})` : ''}`, value: m.id }));
-
-  const modelQuery = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_model_query' }) ?? '').trim().toLowerCase();
-  const modelOptionsFiltered = modelQuery
-    ? modelOptions.filter((opt) => String(opt.label || '').toLowerCase().includes(modelQuery))
-    : modelOptions;
-
-  const selectedModelRaw = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_model_id' });
-  const selectedModelId = parseSafeInt(selectedModelRaw);
-  const targetModel = selectedModelId === null ? null : getSnapshotModel(snapshot, selectedModelId);
-  const targetExists = Boolean(targetModel);
-
-  const tableFilterP = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_p' }));
-  const tableFilterR = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_r' }));
-  const tableFilterC = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_c' }));
-  const tableFilterKtv = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_ktv' }) ?? '').trim().toLowerCase();
-
-  const docsQuery = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_query' }) ?? '').trim();
-  const docsSelectedPath = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_selected_path' }) ?? '').trim();
-  const docsStatus = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_status' }) ?? '').trim();
-  const docsTree = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_tree_json' });
-  const docsResults = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_search_results_json' });
-  const docsHtml = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_render_html' }) ?? '');
-
-  const staticProjectName = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_project_name' }) ?? '').trim();
-  const staticMediaUri = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_media_uri' }) ?? '').trim();
-  const staticUploadKind = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_upload_kind' }) ?? 'zip').trim();
-  const staticStatus = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_status' }) ?? '').trim();
-  const staticProjects = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_projects_json' });
-
-  const llmPromptText = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_text' }) ?? '');
-  const llmPromptStatus = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_status' }) ?? '').trim();
-  const llmPromptAvailable = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_available' }) === true;
-  const llmPromptNotice = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_notice' }) ?? '').trim();
-  const llmPromptPreview = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_preview_json' });
-  const llmPromptPreviewId = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_preview_id' }) ?? '').trim();
-  const llmPromptPreviewDigest = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_preview_digest' }) ?? '').trim();
-  const llmPromptApplyPreviewId = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_preview_id' }) ?? '').trim();
-  const llmPromptApplyResult = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_result_json' });
-  const llmPromptLastAppliedPreviewId = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_last_applied_preview_id' }) ?? '').trim();
-  const llmPreviewAcceptedCount = (() => {
-    if (llmPromptPreview && typeof llmPromptPreview === 'object' && llmPromptPreview.stats && Number.isInteger(llmPromptPreview.stats.accepted)) {
-      return llmPromptPreview.stats.accepted;
-    }
-    if (llmPromptPreview && typeof llmPromptPreview === 'object' && Array.isArray(llmPromptPreview.accepted_changes)) {
-      return llmPromptPreview.accepted_changes.length;
-    }
-    return 0;
-  })();
-  const llmPreviewRejectedCount = (() => {
-    if (llmPromptPreview && typeof llmPromptPreview === 'object' && llmPromptPreview.stats && Number.isInteger(llmPromptPreview.stats.rejected)) {
-      return llmPromptPreview.stats.rejected;
-    }
-    if (llmPromptPreview && typeof llmPromptPreview === 'object' && Array.isArray(llmPromptPreview.rejected_changes)) {
-      return llmPromptPreview.rejected_changes.length;
-    }
-    return 0;
-  })();
-
-  const draftP = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_p' })) ?? 0;
-  const draftR = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_r' })) ?? 0;
-  const draftC = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_c' })) ?? 0;
-  const draftK = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_k' }) ?? '').trim();
-  const draftT = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_t' }) ?? 'str');
-
-  const draftText = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_v_text' }) ?? '');
-  const draftInt = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_v_int' });
-  const draftBool = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_v_bool' });
-
-  const valueT = ['str', 'int', 'bool', 'json'].includes(draftT) ? draftT : 'str';
-  let valueV = draftText;
-  if (valueT === 'int') {
-    valueV = typeof draftInt === 'number' ? draftInt : parseSafeInt(draftInt) ?? 0;
-  } else if (valueT === 'bool') {
-    if (draftBool === true || draftBool === false) {
-      valueV = draftBool;
-    } else if (typeof draftBool === 'string') {
-      const trimmed = draftBool.trim();
-      if (trimmed === 'true') valueV = true;
-      else if (trimmed === 'false') valueV = false;
-      else valueV = Boolean(draftBool);
-    } else {
-      valueV = Boolean(draftBool);
-    }
-  } else if (valueT === 'json') {
-    valueV = draftText;
-  }
-
-  const isMailboxModel = selectedModelId === EDITOR_MODEL_ID || selectedModelId === GALLERY_MAILBOX_MODEL_ID;
-  const controlsDisabled = !targetExists || isMailboxModel;
-  const labelActionsDisabled = controlsDisabled || draftK.length === 0;
-  const valueTextDisabled = valueT === 'int' || valueT === 'bool';
-  const valueIntDisabled = valueT !== 'int';
-  const valueBoolDisabled = valueT !== 'bool';
-
-  const editOpen = Boolean(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_open' }));
-  const editModelId = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_model_id' }));
-  const editP = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_p' })) ?? 0;
-  const editR = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_r' })) ?? 0;
-  const editC = parseSafeInt(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_c' })) ?? 0;
-  const editK = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_k' }) ?? '').trim();
-  const editT = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_t' }) ?? 'str');
-  const editText = String(getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_text' }) ?? '');
-  const editInt = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_int' });
-  const editBool = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_bool' });
-
-  const editValueT = ['str', 'int', 'bool', 'json'].includes(editT) ? editT : 'str';
-  let editValueV = editText;
-  if (editValueT === 'int') {
-    editValueV = typeof editInt === 'number' ? editInt : (parseSafeInt(editInt) ?? 0);
-  } else if (editValueT === 'bool') {
-    if (editBool === true || editBool === false) editValueV = editBool;
-    else if (typeof editBool === 'string') {
-      const trimmed = editBool.trim();
-      if (trimmed === 'true') editValueV = true;
-      else if (trimmed === 'false') editValueV = false;
-      else editValueV = false;
-    } else {
-      editValueV = false;
-    }
-  } else if (editValueT === 'json') {
-    editValueV = editText;
-  }
-
-  const labelRows = [];
-  if (targetModel && targetModel.cells) {
-    const cellKey = `${draftP},${draftR},${draftC}`;
-    const cell = targetModel.cells[cellKey];
-    const labels = cell && cell.labels ? cell.labels : {};
-    for (const [k, lv] of Object.entries(labels)) {
-      labelRows.push({ k, t: lv && lv.t ? String(lv.t) : '', v: stringify(lv && Object.prototype.hasOwnProperty.call(lv, 'v') ? lv.v : undefined) });
-    }
-    labelRows.sort((a, b) => a.k.localeCompare(b.k));
-  }
-
-  const nextId = (() => {
-    let max = 0;
-    for (const m of Object.values(models)) {
-      const id = m && typeof m.id === 'number' ? m.id : parseSafeInt(m && m.id);
-      if (!Number.isInteger(id)) continue;
-      if (id === EDITOR_MODEL_ID || id === EDITOR_STATE_MODEL_ID) continue;
-      if (id > max) max = id;
-    }
-    return Math.max(1, max + 1);
-  })();
-
-  function stringifyOneLine(value) {
-    if (value === undefined) return '';
-    if (value === null) return 'null';
-    if (typeof value === 'string') return value;
-    try {
-      return JSON.stringify(value);
-    } catch (_) {
-      return String(value);
-    }
-  }
-
-  function truncate(text, maxLen) {
-    const s = typeof text === 'string' ? text : String(text);
-    const n = Number.isInteger(maxLen) && maxLen > 0 ? maxLen : 120;
-    if (s.length <= n) return s;
-    return `${s.slice(0, Math.max(0, n - 1))}…`;
-  }
-
-  const tableRows = [];
-  if (targetModel && targetModel.cells) {
-    for (const [cellKey, cell] of Object.entries(targetModel.cells)) {
-      const parts = String(cellKey).split(',');
-      if (parts.length !== 3) continue;
-      const p = parseSafeInt(parts[0]);
-      const r = parseSafeInt(parts[1]);
-      const c = parseSafeInt(parts[2]);
-      if (!Number.isInteger(p) || !Number.isInteger(r) || !Number.isInteger(c)) continue;
-      if (tableFilterP !== null && p !== tableFilterP) continue;
-      if (tableFilterR !== null && r !== tableFilterR) continue;
-      if (tableFilterC !== null && c !== tableFilterC) continue;
-      const labels = cell && cell.labels ? cell.labels : {};
-      for (const [k, lv] of Object.entries(labels)) {
-        const t = lv && lv.t ? String(lv.t) : '';
-        const vRaw = lv && Object.prototype.hasOwnProperty.call(lv, 'v') ? lv.v : undefined;
-        const vText = stringifyOneLine(vRaw);
-
-        if (tableFilterKtv) {
-          const hay = `${String(k).toLowerCase()}|${t.toLowerCase()}|${String(vText).toLowerCase()}`;
-          if (!hay.includes(tableFilterKtv)) continue;
-        }
-
-        const modelIdEditable = Number.isInteger(selectedModelId) && selectedModelId !== 0;
-        tableRows.push({
-          row_id: `${selectedModelId ?? ''}:${p},${r},${c}:${k}`,
-          model_id: selectedModelId ?? 0,
-          model_id_is_editable: !modelIdEditable,
-          p,
-          r,
-          c,
-          k: String(k),
-          t,
-          v_preview: truncate(vText, 120),
-        });
-      }
-    }
-    tableRows.sort((a, b) => {
-      if (a.p !== b.p) return a.p - b.p;
-      if (a.r !== b.r) return a.r - b.r;
-      if (a.c !== b.c) return a.c - b.c;
-      return a.k.localeCompare(b.k);
-    });
-  }
-
-  const missingModelText = selectedModelId !== null && !targetExists
-    ? `Selected model ${selectedModelId} missing. Create it first.`
-    : '';
-
-  if (uiPage === 'home') {
-    return {
-      id: 'root_home',
-      type: 'Root',
-      children: [
-        {
-          id: 'layout',
-          type: 'Container',
-          props: { layout: 'column', gap: 12 },
-          children: [
-            {
-              id: 'card_home_datatable',
-              type: 'Card',
-              props: { title: 'DataTable' },
-              children: [
-                {
-                  id: 'form_home_filters',
-                  type: 'Form',
-                  props: { style: { marginBottom: '12px' } },
-                  children: [
-                    {
-                      id: 'fi_home_model',
-                      type: 'FormItem',
-                      props: { label: 'Model' },
-                      children: [
-                        {
-                          id: 'row_home_model',
-                          type: 'Container',
-                          props: { layout: 'row', wrap: true, size: 8, style: { alignItems: 'center' } },
-                          children: [
-                            {
-                              id: 'input_home_model_query',
-                              type: 'Input',
-                              props: { placeholder: 'id or name contains...', style: { width: '220px' } },
-                              bind: {
-                                read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_model_query' },
-                                write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_model_query' } },
-                              },
-                            },
-                            {
-                              id: 'sel_home_target_model',
-                              type: 'Select',
-                              props: { options: modelOptionsFiltered, placeholder: 'Select model', style: { width: '260px' } },
-                              bind: {
-                                read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_model_id' },
-                                write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_model_id' } },
-                              },
-                            },
-                            {
-                              id: 'btn_home_refresh',
-                              type: 'Button',
-                              props: { label: 'Refresh', disabled: false },
-                              bind: {
-                                write: {
-                                  action: 'datatable_refresh',
-                                  target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_model_query' },
-                                },
-                              },
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                    {
-                      id: 'fi_home_filters',
-                      type: 'FormItem',
-                      props: { label: 'Filter' },
-                      children: [
-                        {
-                          id: 'row_home_filters',
-                          type: 'Container',
-                          props: { layout: 'row', wrap: true, size: 8, style: { alignItems: 'center' } },
-                          children: [
-                            {
-                              id: 'input_home_p',
-                              type: 'Input',
-                              props: { placeholder: 'p', style: { width: '90px' } },
-                              bind: {
-                                read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_p' },
-                                write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_p' } },
-                              },
-                            },
-                            {
-                              id: 'input_home_r',
-                              type: 'Input',
-                              props: { placeholder: 'r', style: { width: '90px' } },
-                              bind: {
-                                read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_r' },
-                                write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_r' } },
-                              },
-                            },
-                            {
-                              id: 'input_home_c',
-                              type: 'Input',
-                              props: { placeholder: 'c', style: { width: '90px' } },
-                              bind: {
-                                read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_c' },
-                                write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_c' } },
-                              },
-                            },
-                            {
-                              id: 'input_home_ktv',
-                              type: 'Input',
-                              props: { placeholder: 'k|t|v substring...', style: { width: '260px' } },
-                              bind: {
-                                read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_ktv' },
-                                write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_ktv' } },
-                              },
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                  ],
-                },
-                missingModelText
-                  ? { id: 'txt_home_missing_model', type: 'Text', props: { type: 'danger', text: missingModelText } }
-                  : null,
-                {
-                  id: 'tbl_home_cells',
-                  type: 'Table',
-                  props: { data: tableRows, border: true, stripe: true, size: 'small', height: 520, rowKey: 'row_id' },
-                  children: [
-                    { id: 'col_home_p', type: 'TableColumn', props: { label: 'p', prop: 'p', width: 70 } },
-                    { id: 'col_home_r', type: 'TableColumn', props: { label: 'r', prop: 'r', width: 70 } },
-                    { id: 'col_home_c', type: 'TableColumn', props: { label: 'c', prop: 'c', width: 70 } },
-                    { id: 'col_home_k', type: 'TableColumn', props: { label: 'k', prop: 'k', minWidth: 180 } },
-                    { id: 'col_home_t', type: 'TableColumn', props: { label: 't', prop: 't', width: 90 } },
-                    { id: 'col_home_v', type: 'TableColumn', props: { label: 'v', prop: 'v_preview', minWidth: 360 } },
-                    {
-                      id: 'col_home_actions',
-                      type: 'TableColumn',
-                      props: { label: 'Actions', width: 260, fixed: 'right' },
-                      children: [
-                        {
-                          id: 'btn_home_use_row',
-                          type: 'Button',
-                          props: { label: 'Use', type: 'primary', link: true },
-                          bind: {
-                            write: {
-                              action: 'datatable_select_row',
-                              target_ref: {
-                                model_id: { $ref: 'row.model_id' },
-                                p: { $ref: 'row.p' },
-                                r: { $ref: 'row.r' },
-                                c: { $ref: 'row.c' },
-                                k: { $ref: 'row.k' },
-                              },
-                            },
-                          },
-                        },
-                        {
-                          id: 'btn_home_edit_row',
-                          type: 'Button',
-                          props: {
-                            label: 'Edit',
-                            type: 'primary',
-                            link: true,
-                            disabled: { $ref: 'row.model_id_is_editable' },
-                          },
-                          bind: {
-                            write: {
-                              action: 'datatable_edit_row',
-                              target_ref: {
-                                model_id: { $ref: 'row.model_id' },
-                                p: { $ref: 'row.p' },
-                                r: { $ref: 'row.r' },
-                                c: { $ref: 'row.c' },
-                                k: { $ref: 'row.k' },
-                              },
-                            },
-                          },
-                        },
-                        {
-                          id: 'btn_home_view_row',
-                          type: 'Button',
-                          props: { label: 'View', type: 'primary', link: true },
-                          bind: {
-                            write: {
-                              action: 'datatable_view_detail',
-                              target_ref: {
-                                model_id: { $ref: 'row.model_id' },
-                                p: { $ref: 'row.p' },
-                                r: { $ref: 'row.r' },
-                                c: { $ref: 'row.c' },
-                                k: { $ref: 'row.k' },
-                              },
-                            },
-                          },
-                        },
-                        {
-                          id: 'btn_home_rm_row',
-                          type: 'Button',
-                          props: {
-                            label: 'Remove',
-                            type: 'danger',
-                            link: true,
-                            disabled: { $ref: 'row.model_id_is_editable' },
-                          },
-                          bind: {
-                            write: {
-                              action: 'datatable_remove_label',
-                              target_ref: {
-                                model_id: { $ref: 'row.model_id' },
-                                p: { $ref: 'row.p' },
-                                r: { $ref: 'row.r' },
-                                c: { $ref: 'row.c' },
-                                k: { $ref: 'row.k' },
-                              },
-                            },
-                          },
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ].filter(Boolean),
-            },
-          ],
-        },
-
-        // Reuse existing detail drawer + edit dialog for row actions.
-        {
-          id: 'drawer_detail',
-          type: 'Drawer',
-          props: { title: { $label: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_detail_title' } }, size: '40%' },
-          bind: {
-            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_detail_open' },
-            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_detail_open' } },
-          },
-          children: [
-            {
-              id: 'txt_detail',
-              type: 'Text',
-              props: { text: { $label: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_detail_text' } }, style: { whiteSpace: 'pre-wrap', wordBreak: 'break-word' } },
-            },
-          ],
-        },
-        {
-          id: 'dialog_edit',
-          type: 'Dialog',
-          props: { title: 'Edit label', width: '680px' },
-          bind: {
-            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_open' },
-            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_open' } },
-          },
-          children: [
-            {
-              id: 'txt_edit_target',
-              type: 'Text',
-              props: { type: 'info', text: `target: ${editModelId ?? ''} (${editP},${editR},${editC}) ${editK}` },
-            },
-            {
-              id: 'form_edit',
-              type: 'Form',
-              children: [
-                {
-                  id: 'fi_edit_t',
-                  type: 'FormItem',
-                  props: { label: 'Type (t)' },
-                  children: [
-                    {
-                      id: 'sel_edit_t',
-                      type: 'Select',
-                      props: {
-                        options: [
-                          { label: 'str', value: 'str' },
-                          { label: 'int', value: 'int' },
-                          { label: 'bool', value: 'bool' },
-                          { label: 'json', value: 'json' },
-                        ],
-                      },
-                      bind: {
-                        read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_t' },
-                        write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_t' } },
-                      },
-                    },
-                  ],
-                },
-                {
-                  id: 'fi_edit_v',
-                  type: 'FormItem',
-                  props: { label: 'Value (v)' },
-                  children: [
-                    {
-                      id: 'input_edit_v_text',
-                      type: 'Input',
-                      props: { disabled: editValueT === 'int' || editValueT === 'bool' },
-                      bind: {
-                        read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_text' },
-                        write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_text' } },
-                      },
-                    },
-                    {
-                      id: 'num_edit_v_int',
-                      type: 'NumberInput',
-                      props: { disabled: editValueT !== 'int' },
-                      bind: {
-                        read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_int' },
-                        write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_int' } },
-                      },
-                    },
-                    {
-                      id: 'switch_edit_v_bool',
-                      type: 'Switch',
-                      props: { disabled: editValueT !== 'bool' },
-                      bind: {
-                        read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_bool' },
-                        write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_bool' } },
-                      },
-                    },
-                  ],
-                },
-              ],
-            },
-            {
-              id: 'btn_edit_save',
-              type: 'Button',
-              props: { type: 'primary', label: 'Save', disabled: editModelId === null || editK.length === 0 },
-              bind: {
-                write: {
-                  action: 'label_update',
-                  target_ref: { model_id: editModelId ?? 1, p: editP, r: editR, c: editC, k: editK || 'title' },
-                  value_ref: { t: editValueT, v: editValueV },
-                },
-              },
-            },
-          ],
-        },
-      ],
-    };
-  }
-
-  if (uiPage === 'docs') {
-    const treeData = Array.isArray(docsTree) ? docsTree : [];
-    const resultRows = Array.isArray(docsResults) ? docsResults : [];
-    const docsEmptyHint = (treeData.length === 0 && !docsStatus)
-      ? 'Docs index is empty. If you are running Vite dev (mode=local), switch to remote: ?mode=remote&server=http://127.0.0.1:9000'
-      : '';
-    return {
-      id: 'root_docs',
-      type: 'Root',
-      children: [
-        {
-          id: 'layout',
-          type: 'Container',
-          props: { layout: 'row', gap: 12, style: { alignItems: 'flex-start' } },
-          children: [
-            {
-              id: 'card_docs_left',
-              type: 'Card',
-              props: { title: 'Docs' },
-              children: [
-                {
-                  id: 'form_docs_controls',
-                  type: 'Form',
-                  children: [
-                    {
-                      id: 'fi_docs_query',
-                      type: 'FormItem',
-                      props: { label: 'Search' },
-                      children: [
-                        {
-                          id: 'input_docs_query',
-                          type: 'Input',
-                          props: { placeholder: 'name | content substring...' },
-                          bind: {
-                            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_query' },
-                            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_query' } },
-                          },
-                        },
-                        {
-                          id: 'btn_docs_search',
-                          type: 'Button',
-                          props: { type: 'primary', label: 'Search', disabled: docsQuery.length === 0 },
-                          bind: {
-                            write: {
-                              action: 'docs_search',
-                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_query' },
-                            },
-                          },
-                        },
-                        {
-                          id: 'btn_docs_refresh',
-                          type: 'Button',
-                          props: { label: 'Refresh index' },
-                          bind: {
-                            write: {
-                              action: 'docs_refresh_tree',
-                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_tree_json' },
-                            },
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      id: 'fi_docs_selected',
-                      type: 'FormItem',
-                      props: { label: 'Selected' },
-                      children: [
-                        { id: 'txt_docs_selected', type: 'Text', props: { type: 'info', text: docsSelectedPath || '(none)' } },
-                        {
-                          id: 'btn_docs_open',
-                          type: 'Button',
-                          props: { type: 'primary', label: 'Open', disabled: docsSelectedPath.length === 0 },
-                          bind: {
-                            write: {
-                              action: 'docs_open_doc',
-                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_selected_path' },
-                            },
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      id: 'fi_docs_tree',
-                      type: 'FormItem',
-                      props: { label: 'Index' },
-                      children: [
-                        {
-                          id: 'tree_docs',
-                          type: 'Tree',
-                          props: {
-                            data: treeData,
-                            nodeKey: 'path',
-                            props: { label: 'label', children: 'children' },
-                            highlightCurrent: true,
-                            defaultExpandAll: true,
-                            expandOnClickNode: true,
-                            emptyText: '(empty)',
-                            style: { width: '360px', maxHeight: '520px', overflow: 'auto' },
-                          },
-                          bind: {
-                            change: {
-                              action: 'label_update',
-                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_selected_path' },
-                            },
-                          },
-                        },
-                      ],
-                    },
-                    docsEmptyHint
-                      ? { id: 'txt_docs_empty_hint', type: 'Text', props: { type: 'warning', text: docsEmptyHint } }
-                      : null,
-                    {
-                      id: 'fi_docs_results',
-                      type: 'FormItem',
-                      props: { label: 'Results' },
-                      children: [
-                        {
-                          id: 'tbl_docs_results',
-                          type: 'Table',
-                          props: { data: resultRows, border: true, stripe: true, size: 'small', height: 240, rowKey: 'path' },
-                          children: [
-                            { id: 'col_docs_path', type: 'TableColumn', props: { label: 'path', prop: 'path', minWidth: 220 } },
-                            { id: 'col_docs_hit', type: 'TableColumn', props: { label: 'hit', prop: 'hit', minWidth: 140 } },
-                            { id: 'col_docs_snip', type: 'TableColumn', props: { label: 'snippet', prop: 'snippet', minWidth: 240 } },
-                            {
-                              id: 'col_docs_actions',
-                              type: 'TableColumn',
-                              props: { label: 'Actions', width: 120, fixed: 'right' },
-                              children: [
-                                {
-                                  id: 'btn_docs_use_row',
-                                  type: 'Button',
-                                  props: { label: 'Use', type: 'primary', link: true },
-                                  bind: {
-                                    write: {
-                                      action: 'label_update',
-                                      target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'docs_selected_path' },
-                                      value_ref: { t: 'str', v: { $ref: 'row.path' } },
-                                    },
-                                  },
-                                },
-                              ],
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                    docsStatus
-                      ? { id: 'txt_docs_status', type: 'Text', props: { type: 'info', text: docsStatus } }
-                      : null,
-                  ].filter(Boolean),
-                },
-              ],
-            },
-            {
-              id: 'card_docs_right',
-              type: 'Card',
-              props: { title: 'Content' },
-              children: [
-                {
-                  id: 'html_docs',
-                  type: 'Html',
-                  props: {
-                    style: { maxWidth: '800px' },
-                  },
-                  bind: {
-                    read: { model_id: -2, p: 0, r: 0, c: 0, k: 'docs_render_html' },
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-  }
-
-  if (uiPage === 'static') {
-    const projects = Array.isArray(staticProjects) ? staticProjects : [];
-    const staticEmptyHint = (projects.length === 0 && !staticStatus)
-      ? 'No projects listed. If you are running Vite dev (mode=local), switch to remote: ?mode=remote&server=http://127.0.0.1:9000'
-      : '';
-    return {
-      id: 'root_static',
-      type: 'Root',
-      children: [
-        {
-          id: 'layout',
-          type: 'Container',
-          props: { layout: 'column', gap: 12 },
-          children: [
-            {
-              id: 'card_static_upload',
-              type: 'Card',
-              props: { title: 'Static Projects' },
-              children: [
-                {
-                  id: 'form_static',
-                  type: 'Form',
-                  children: [
-                    {
-                      id: 'fi_static_name',
-                      type: 'FormItem',
-                      props: { label: 'Project name' },
-                      children: [
-                        {
-                          id: 'input_static_name',
-                          type: 'Input',
-                          props: { placeholder: 'e.g. my-site' },
-                          bind: {
-                            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_project_name' },
-                            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_project_name' } },
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      id: 'fi_static_file',
-                      type: 'FormItem',
-                      props: { label: 'Upload file' },
-                      children: [
-                        {
-                          id: 'file_static_upload',
-                          type: 'FileInput',
-                          props: {
-                            accept: '.html,.htm,.zip',
-                            label: 'Select .html or .zip file (max 50MB)',
-                          },
-                          bind: {
-                            write: {
-                              action: 'label_update',
-                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_media_uri' },
-                            },
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      id: 'fi_static_actions',
-                      type: 'FormItem',
-                      props: { label: 'Actions' },
-                      children: [
-                        {
-                          id: 'btn_static_upload',
-                          type: 'Button',
-                          props: {
-                            type: 'primary',
-                            label: 'Upload',
-                            disabled: staticProjectName.length === 0 || staticMediaUri.length === 0,
-                          },
-                          bind: {
-                            write: {
-                              action: 'static_project_upload',
-                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_project_name' },
-                            },
-                          },
-                        },
-                        {
-                          id: 'btn_static_refresh',
-                          type: 'Button',
-                          props: { label: 'Refresh list' },
-                          bind: {
-                            write: {
-                              action: 'static_project_list',
-                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_projects_json' },
-                            },
-                          },
-                        },
-                      ],
-                    },
-                    staticStatus
-                      ? { id: 'txt_static_status', type: 'Text', props: { type: 'info', text: staticStatus } }
-                      : null,
-                    staticEmptyHint
-                      ? { id: 'txt_static_empty_hint', type: 'Text', props: { type: 'warning', text: staticEmptyHint } }
-                      : null,
-                  ].filter(Boolean),
-                },
-              ],
-            },
-            {
-              id: 'card_static_list',
-              type: 'Card',
-              props: { title: 'Projects' },
-              children: [
-                {
-                  id: 'tbl_static_projects',
-                  type: 'Table',
-                  props: { data: projects, border: true, stripe: true, size: 'small', height: 520, rowKey: 'name' },
-                  children: [
-                    { id: 'col_static_name', type: 'TableColumn', props: { label: 'name', prop: 'name', minWidth: 180 } },
-                    {
-                      id: 'col_static_url',
-                      type: 'TableColumn',
-                      props: { label: 'url', minWidth: 320 },
-                      children: [
-                        {
-                          id: 'link_static_url',
-                          type: 'Link',
-                          props: {
-                            href: { $ref: 'row.url' },
-                            text: { $ref: 'row.url' },
-                            target: '_blank',
-                          },
-                        },
-                      ],
-                    },
-                    { id: 'col_static_updated', type: 'TableColumn', props: { label: 'updated', prop: 'updated_at', minWidth: 180 } },
-                    {
-                      id: 'col_static_actions',
-                      type: 'TableColumn',
-                      props: { label: 'Actions', width: 120, fixed: 'right' },
-                      children: [
-                        {
-                          id: 'btn_static_delete_row',
-                          type: 'Button',
-                          props: { label: 'Delete', type: 'danger', link: true },
-                          bind: {
-                            write: {
-                              action: 'static_project_delete',
-                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'static_project_name' },
-                              value_ref: { t: 'str', v: { $ref: 'row.name' } },
-                            },
-                          },
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-  }
-
-  if (uiPage === 'prompt') {
-    return {
-      id: 'root_prompt_filltable',
-      type: 'Root',
-      children: [
-        {
-          id: 'layout_prompt',
-          type: 'Container',
-          props: { layout: 'column', gap: 12 },
-          children: [
-            {
-              id: 'card_prompt_input',
-              type: 'Card',
-              props: { title: 'Prompt FillTable' },
-              children: [
-                {
-                  id: 'txt_prompt_desc',
-                  type: 'Text',
-                  props: {
-                    type: 'info',
-                    text: '输入自然语言，先 Preview（生成 owner-chain 预览，不落库），再 Apply（执行 owner 已确认的 accepted changes）。默认仅允许正数 model_id。',
-                  },
-                },
-                (!llmPromptAvailable && llmPromptNotice)
-                  ? {
-                      id: 'txt_prompt_unavailable',
-                      type: 'Text',
-                      props: { type: 'warning', text: llmPromptNotice },
-                    }
-                  : null,
-                {
-                  id: 'form_prompt',
-                  type: 'Form',
-                  children: [
-                    {
-                      id: 'fi_prompt_text',
-                      type: 'FormItem',
-                      props: { label: 'Prompt' },
-                      children: [
-                        {
-                          id: 'input_prompt_text',
-                          type: 'Input',
-                          props: {
-                            type: 'textarea',
-                            rows: 6,
-                            placeholder: '例如：把 Model 100 的 title 设为 Blue Team，并删除 obsolete_key',
-                          },
-                          bind: {
-                            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_text' },
-                            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_text' } },
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      id: 'fi_prompt_actions',
-                      type: 'FormItem',
-                      props: { label: 'Actions' },
-                      children: [
-                        {
-                          id: 'btn_prompt_preview',
-                          type: 'Button',
-                          props: {
-                            type: 'primary',
-                            label: 'Preview',
-                            disabled: !llmPromptAvailable || llmPromptText.trim().length === 0,
-                            singleFlight: {
-                              key: 'llm_filltable_preview',
-                              releaseRef: { model_id: EDITOR_MODEL_ID, p: 0, r: 0, c: 1, k: 'ui_event_last_op_id' },
-                            },
-                          },
-                          bind: {
-                            write: {
-                              action: 'llm_filltable_preview',
-                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_text' },
-                              meta_ref: { local_only: true },
-                            },
-                          },
-                        },
-                        {
-                          id: 'btn_prompt_use_latest_preview_id',
-                          type: 'Button',
-                          props: { label: 'Use Latest Preview ID', disabled: !llmPromptAvailable || llmPromptPreviewId.length === 0 },
-                          bind: {
-                            write: {
-                              action: 'label_update',
-                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_preview_id' },
-                              value_ref: { t: 'str', v: llmPromptPreviewId },
-                            },
-                          },
-                        },
-                        {
-                          id: 'btn_prompt_apply',
-                          type: 'Button',
-                          props: {
-                            type: 'success',
-                            label: 'Apply',
-                            disabled: !llmPromptAvailable || llmPromptApplyPreviewId.length === 0 || llmPreviewAcceptedCount === 0,
-                            singleFlight: {
-                              key: 'llm_filltable_apply',
-                              releaseRef: { model_id: EDITOR_MODEL_ID, p: 0, r: 0, c: 1, k: 'ui_event_last_op_id' },
-                            },
-                          },
-                          bind: {
-                            write: {
-                              action: 'llm_filltable_apply',
-                              target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_preview_id' },
-                              meta_ref: { local_only: true },
-                            },
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      id: 'fi_prompt_preview_id',
-                      type: 'FormItem',
-                      props: { label: 'Apply Preview ID' },
-                      children: [
-                        {
-                          id: 'input_prompt_apply_preview_id',
-                          type: 'Input',
-                          props: { placeholder: 'preview id from latest preview' },
-                          bind: {
-                            read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_preview_id' },
-                            write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_preview_id' } },
-                          },
-                        },
-                      ],
-                    },
-                    llmPromptStatus
-                      ? { id: 'txt_prompt_status', type: 'Text', props: { type: 'info', text: llmPromptStatus } }
-                      : null,
-                    {
-                      id: 'txt_prompt_meta',
-                      type: 'Text',
-                      props: {
-                        type: 'info',
-                        text: `preview_id=${llmPromptPreviewId || '(none)'} | digest=${llmPromptPreviewDigest || '(none)'} | last_applied=${llmPromptLastAppliedPreviewId || '(none)'} | accepted=${llmPreviewAcceptedCount} | rejected=${llmPreviewRejectedCount}`,
-                      },
-                    },
-                  ].filter(Boolean),
-                },
-              ].filter(Boolean),
-            },
-            {
-              id: 'card_prompt_preview_json',
-              type: 'Card',
-              props: { title: 'Preview JSON' },
-              children: [
-                {
-                  id: 'code_prompt_preview',
-                  type: 'CodeBlock',
-                  props: { style: { maxHeight: '320px', overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' } },
-                  bind: { read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_preview_json' } },
-                },
-              ],
-            },
-            {
-              id: 'card_prompt_apply_json',
-              type: 'Card',
-              props: { title: 'Apply Result JSON' },
-              children: [
-                {
-                  id: 'code_prompt_apply_result',
-                  type: 'CodeBlock',
-                  props: { style: { maxHeight: '320px', overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' } },
-                  bind: { read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'llm_prompt_apply_result_json' } },
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-  }
-
-  if (uiPage === 'workspace') {
-    const wsRegistry = (() => {
-      const raw = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'ws_apps_registry' });
-      return Array.isArray(raw) ? raw : [];
-    })();
-    const wsSelected = (() => {
-      const raw = getSnapshotLabelValue(snapshot, { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'ws_app_selected' });
-      return typeof raw === 'number' ? raw : (parseSafeInt(raw) ?? 0);
-    })();
-
-    // Split apps into system apps (negative ID) and digital workers (positive ID)
-    const systemApps = wsRegistry.filter((app) => app.model_id < 0);
-    const workerApps = wsRegistry.filter((app) => app.model_id > 0);
-
-    // Icon mapping for app types
-    const appIconMap = {
-      bus_trace: '📊', trace: '📊', system: '⚙️', default_system: '🔧',
-      worker: '👤', k8s: '☸️', default_worker: '🤖',
-    };
-
-    // Helper to build app item
-    const buildAppItem = (app) => {
-      const isActive = wsSelected === app.model_id;
-      const iconKey = app.name?.toLowerCase().includes('trace') ? 'trace'
-        : app.source?.includes('k8s') ? 'k8s'
-        : app.model_id < 0 ? 'default_system' : 'default_worker';
-      const icon = appIconMap[iconKey] || '📱';
-
-      return {
-        id: `ws_app_item_${app.model_id}`,
-        type: 'Box',
-        props: {
-          style: {
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '10px',
-            padding: '10px 12px',
-            cursor: 'pointer',
-            borderRadius: '8px',
-            backgroundColor: isActive ? '#EFF6FF' : 'transparent',
-            border: isActive ? '1px solid #BFDBFE' : '1px solid transparent',
-            transition: 'all 150ms ease',
-            marginBottom: '4px',
-          },
-        },
-        children: [
-          {
-            id: `ws_app_icon_${app.model_id}`,
-            type: 'Text',
-            props: { text: icon, style: { fontSize: '18px', lineHeight: '1.4' } },
-          },
-          {
-            id: `ws_app_info_${app.model_id}`,
-            type: 'Container',
-            props: { layout: 'column', gap: 2 },
-            children: [
-              {
-                id: `ws_app_name_${app.model_id}`,
-                type: 'Text',
-                props: {
-                  text: app.name || `App ${app.model_id}`,
-                  style: { fontWeight: isActive ? '600' : '500', color: isActive ? '#3B82F6' : '#1E293B', fontSize: '14px' },
-                },
-              },
-              {
-                id: `ws_app_source_${app.model_id}`,
-                type: 'Text',
-                props: {
-                  text: app.source ? `from: ${app.source}` : '',
-                  style: { fontSize: '12px', color: '#94A3B8' },
-                },
-              },
-            ],
-          },
-        ],
-        bind: {
-          write: {
-            action: 'label_update',
-            target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
-            value_ref: { t: 'int', v: app.model_id },
-          },
-        },
-      };
-    };
-
-    // Build section header
-    const buildSectionHeader = (id, icon, title) => ({
-      id,
-      type: 'Container',
-      props: {
-        layout: 'row',
-        gap: 8,
-        align: 'center',
-        style: { padding: '8px 12px', marginTop: '8px', marginBottom: '4px' },
-      },
-      children: [
-        { id: `${id}_icon`, type: 'Text', props: { text: icon, style: { fontSize: '14px' } } },
-        { id: `${id}_title`, type: 'Text', props: { text: title, style: { fontSize: '12px', fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' } } },
-      ],
-    });
-
-    const sidebarChildren = [];
-
-    if (systemApps.length > 0) {
-      sidebarChildren.push(buildSectionHeader('ws_section_system', '⚙️', '系统应用'));
-      for (const app of systemApps) {
-        sidebarChildren.push(buildAppItem(app));
-      }
-    }
-
-    if (workerApps.length > 0) {
-      sidebarChildren.push(buildSectionHeader('ws_section_workers', '👤', '数字员工'));
-      for (const app of workerApps) {
-        sidebarChildren.push(buildAppItem(app));
-      }
-    }
-
-    const listItems = sidebarChildren;
-
-    const rightChildren = [];
-    if (wsSelected !== 0) {
-      const schemaAst = buildAstFromSchema(snapshot, wsSelected);
-      if (schemaAst) {
-        rightChildren.push(schemaAst);
-      } else {
-        const selectedModel = getSnapshotModel(snapshot, wsSelected);
-        if (selectedModel && selectedModel.cells) {
-          const astCell = selectedModel.cells['0,0,0'];
-          const appAst = astCell && astCell.labels && astCell.labels.ui_ast_v0 ? astCell.labels.ui_ast_v0.v : null;
-          if (appAst && typeof appAst === 'object') {
-            rightChildren.push(appAst);
-          } else {
-            rightChildren.push({
-              id: 'ws_no_ast',
-              type: 'Text',
-              props: { type: 'warning', text: `Model ${wsSelected} has no UI schema or AST.` },
-            });
-          }
-        } else {
-          rightChildren.push({
-            id: 'ws_model_missing',
-            type: 'Text',
-            props: { type: 'danger', text: `Model ${wsSelected} not found. It may not have synced yet.` },
-          });
-        }
-      }
-    } else {
-      rightChildren.push({
-        id: 'ws_placeholder',
-        type: 'Text',
-        props: { type: 'info', text: '请从左侧选择一个应用', style: { fontSize: '16px', color: '#909399', padding: '40px 0', textAlign: 'center' } },
-      });
-    }
-
-    return {
-      id: 'root_workspace',
-      type: 'Root',
-      children: [
-        {
-          id: 'ws_layout',
-          type: 'Container',
-          props: { layout: 'row', gap: 16, style: { alignItems: 'flex-start', minHeight: '600px' } },
-          children: [
-            {
-              id: 'ws_left_panel',
-              type: 'Card',
-              props: { title: '资产树 ASSET TREE', style: { width: '260px', flexShrink: 0 } },
-              children: listItems.length > 0
-                ? listItems
-                : [{ id: 'ws_empty_list', type: 'Text', props: { type: 'info', text: '暂无可用应用' } }],
-            },
-            {
-              id: 'ws_right_panel',
-              type: 'Card',
-              props: { title: wsSelected !== 0 ? (wsRegistry.find((a) => a.model_id === wsSelected)?.name || `App ${wsSelected}`) : '应用详情', style: { flex: 1, minWidth: 0 } },
-              children: rightChildren,
-            },
-          ],
-        },
-      ],
-    };
-  }
-
-  return {
-    id: 'root_v1',
-    type: 'Root',
-    children: [
-      {
-        id: 'layout',
-        type: 'Container',
-        props: { layout: 'column', gap: 12 },
-        children: [
-          {
-            id: 'card_editor',
-            type: 'Card',
-            props: { title: 'ModelTable Editor' },
-            children: [
-              {
-                id: 'txt_missing_model',
-                type: 'Text',
-                props: { type: 'danger' },
-                bind: missingModelText ? undefined : undefined,
-                ...(missingModelText ? { props: { type: 'danger', text: missingModelText } } : {}),
-              },
-              {
-                id: 'form_controls',
-                type: 'Form',
-                children: [
-      {
-        id: 'fi_model_query',
-        type: 'FormItem',
-        props: { label: 'Model query' },
-        children: [
-          {
-            id: 'input_model_query',
-            type: 'Input',
-            props: { placeholder: 'id or name contains...' },
-            bind: {
-              read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_model_query' },
-              write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_model_query' } },
-            },
-          },
-        ],
-      },
-      {
-        id: 'fi_model',
-        type: 'FormItem',
-        props: { label: 'Target model' },
-        children: [
-          {
-            id: 'sel_target_model',
-            type: 'Select',
-            props: { options: modelOptionsFiltered, placeholder: 'Select model' },
-            bind: {
-              read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_model_id' },
-              write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_model_id' } },
-            },
-          },
-          {
-            id: 'btn_create_next_model',
-            type: 'Button',
-            props: { label: `Create model ${nextId}` },
-                        bind: {
-                          write: {
-                            action: 'submodel_create',
-                            value_ref: { t: 'json', v: { id: nextId, name: `M${nextId}`, type: 'main' } },
-                          },
-                        },
-                      },
-                    ],
-                  },
-      {
-        id: 'fi_dt_filters',
-        type: 'FormItem',
-        props: { label: 'Table filter (p,r,c)' },
-        children: [
-          {
-            id: 'input_dt_p',
-            type: 'Input',
-            props: { placeholder: 'p (empty=all)' },
-            bind: {
-              read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_p' },
-              write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_p' } },
-            },
-          },
-          {
-            id: 'input_dt_r',
-            type: 'Input',
-            props: { placeholder: 'r (empty=all)' },
-            bind: {
-              read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_r' },
-              write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_r' } },
-            },
-          },
-          {
-            id: 'input_dt_c',
-            type: 'Input',
-            props: { placeholder: 'c (empty=all)' },
-            bind: {
-              read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_c' },
-              write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_c' } },
-            },
-          },
-        ],
-      },
-      {
-        id: 'fi_dt_refresh',
-        type: 'FormItem',
-        props: { label: 'Refresh' },
-        children: [
-          {
-            id: 'btn_dt_refresh',
-            type: 'Button',
-            props: { label: 'Refresh table', disabled: false },
-            bind: {
-              write: {
-                action: 'datatable_refresh',
-                // unused; required by envelope shape
-                target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_filter_model_query' },
-              },
-            },
-          },
-          {
-            id: 'sw_pause_sse',
-            type: 'Switch',
-            props: { activeText: 'Pause SSE', inactiveText: 'Live SSE' },
-            bind: {
-              read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_pause_sse' },
-              write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_pause_sse' } },
-            },
-          },
-        ],
-      },
-      {
-        id: 'fi_coords',
-        type: 'FormItem',
-        props: { label: 'Cell (p,r,c)' },
-                    children: [
-      {
-                        id: 'num_p',
-                        type: 'NumberInput',
-                        props: { disabled: controlsDisabled },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_p' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_p' } },
-                        },
-                      },
-                      {
-                        id: 'num_r',
-                        type: 'NumberInput',
-                        props: { disabled: controlsDisabled },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_r' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_r' } },
-                        },
-                      },
-                      {
-                        id: 'num_c',
-                        type: 'NumberInput',
-                        props: { disabled: controlsDisabled },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_c' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_c' } },
-                        },
-                      },
-                    ],
-                  },
-                  {
-                    id: 'fi_key',
-                    type: 'FormItem',
-                    props: { label: 'Label key (k)' },
-                    children: [
-                      {
-                        id: 'input_k',
-                        type: 'Input',
-                        props: { disabled: controlsDisabled },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_k' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_k' } },
-                        },
-                      },
-                    ],
-                  },
-                  {
-                    id: 'fi_type',
-                    type: 'FormItem',
-                    props: { label: 'Type (t)' },
-                    children: [
-                      {
-                        id: 'sel_t',
-                        type: 'Select',
-                        props: {
-                          disabled: controlsDisabled,
-                          options: [
-                            { label: 'str', value: 'str' },
-                            { label: 'int', value: 'int' },
-                            { label: 'bool', value: 'bool' },
-                            { label: 'json', value: 'json' },
-                          ],
-                        },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_t' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_t' } },
-                        },
-                      },
-                    ],
-                  },
-                  {
-                    id: 'fi_value',
-                    type: 'FormItem',
-                    props: { label: 'Value (v)' },
-                    children: [
-                      {
-                        id: 'input_v_text',
-                        type: 'Input',
-                        props: { disabled: controlsDisabled || valueTextDisabled },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_v_text' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_v_text' } },
-                        },
-                      },
-                      {
-                        id: 'num_v_int',
-                        type: 'NumberInput',
-                        props: { disabled: controlsDisabled || valueIntDisabled },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_v_int' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_v_int' } },
-                        },
-                      },
-                      {
-                        id: 'switch_v_bool',
-                        type: 'Switch',
-                        props: { disabled: controlsDisabled || valueBoolDisabled },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_v_bool' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'draft_v_bool' } },
-                        },
-                      },
-                    ],
-                  },
-                  {
-                    id: 'fi_actions',
-                    type: 'FormItem',
-                    props: { label: 'Actions' },
-                    children: [
-                      {
-                        id: 'btn_apply_add',
-                        type: 'Button',
-                        props: { label: 'Add label', disabled: labelActionsDisabled },
-                        bind: {
-                          write: {
-                            action: 'label_add',
-                            target_ref: { model_id: selectedModelId ?? 1, p: draftP, r: draftR, c: draftC, k: draftK || 'title' },
-                            value_ref: { t: valueT, v: valueV },
-                          },
-                        },
-                      },
-                      {
-                        id: 'btn_apply_update',
-                        type: 'Button',
-                        props: { label: 'Update label', disabled: labelActionsDisabled },
-                        bind: {
-                          write: {
-                            action: 'label_update',
-                            target_ref: { model_id: selectedModelId ?? 1, p: draftP, r: draftR, c: draftC, k: draftK || 'title' },
-                            value_ref: { t: valueT, v: valueV },
-                          },
-                        },
-                      },
-                      {
-                        id: 'btn_apply_remove',
-                        type: 'Button',
-                        props: { label: 'Remove label', disabled: labelActionsDisabled },
-                        bind: {
-                          write: {
-                            action: 'label_remove',
-                            target_ref: { model_id: selectedModelId ?? 1, p: draftP, r: draftR, c: draftC, k: draftK || 'title' },
-                          },
-                        },
-                      },
-                      {
-                        id: 'btn_apply_clear',
-                        type: 'Button',
-                        props: { label: 'Clear cell', disabled: controlsDisabled },
-                        bind: {
-                          write: {
-                            action: 'cell_clear',
-                            target_ref: { model_id: selectedModelId ?? 1, p: draftP, r: draftR, c: draftC },
-                          },
-                        },
-                      },
-                    ],
-                  },
-                  {
-                    id: 'fi_cellab',
-                    type: 'FormItem',
-                    props: { label: 'CellA/CellB' },
-                    children: [
-                      {
-                        id: 'input_cellab_payload',
-                        type: 'Input',
-                        props: { placeholder: 'A payload (json string)' },
-                        bind: {
-                          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'cellab_payload_json' },
-                          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'cellab_payload_json' } },
-                        },
-                      },
-                      {
-                        id: 'btn_add_cellA',
-                        type: 'Button',
-                        props: { label: 'ADD_CellA', disabled: false },
-                        bind: {
-                          write: {
-                            action: 'cellab_add_cellA',
-                            // unused by server handler; required by renderer envelope shape
-                            target_ref: { model_id: 1, p: 1, r: 1, c: 1, k: 'intent.v0' },
-                          },
-                        },
-                      },
-                      {
-                        id: 'btn_add_cellB',
-                        type: 'Button',
-                        props: { label: 'ADD_CellB', disabled: false },
-                        bind: {
-                          write: {
-                            action: 'cellab_add_cellB',
-                            // unused by server handler; required by renderer envelope shape
-                            target_ref: { model_id: 1, p: 3, r: 3, c: 3, k: 'intent.v0' },
-                          },
-                        },
-                      },
-                    ],
-                  },
-                ],
-              },
-          // Debug panels intentionally omitted from UI (Snapshot/Mailbox/Event Log).
-        ],
-      },
-      {
-        id: 'card_datatable',
-        type: 'Card',
-        props: { title: 'DataTable (selected model)' },
-        children: [
-          {
-            id: 'tbl_cells',
-            type: 'Table',
-            props: { data: tableRows, border: true, stripe: true, size: 'small', height: 420, rowKey: 'row_id' },
-            children: [
-              { id: 'col_p', type: 'TableColumn', props: { label: 'p', prop: 'p', width: 70 } },
-              { id: 'col_r', type: 'TableColumn', props: { label: 'r', prop: 'r', width: 70 } },
-              { id: 'col_c', type: 'TableColumn', props: { label: 'c', prop: 'c', width: 70 } },
-              { id: 'col_k', type: 'TableColumn', props: { label: 'k', prop: 'k', minWidth: 160 } },
-              { id: 'col_t', type: 'TableColumn', props: { label: 't', prop: 't', width: 90 } },
-              {
-                id: 'col_v',
-                type: 'TableColumn',
-                props: { label: 'v', minWidth: 320 },
-                children: [
-                  {
-                    id: 'v_preview',
-                    type: 'Text',
-                    props: {
-                      text: { $ref: 'row.v_preview' },
-                      style: {
-                        display: 'inline-block',
-                        maxWidth: '360px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        verticalAlign: 'middle',
-                      },
-                    },
-                  },
-                ],
-              },
-              {
-                id: 'col_actions',
-                type: 'TableColumn',
-                props: { label: 'Actions', width: 220, fixed: 'right' },
-                children: [
-                  {
-                    id: 'btn_use_row',
-                    type: 'Button',
-                    props: { label: 'Use', type: 'primary', link: true },
-                    bind: {
-                      write: {
-                        action: 'datatable_select_row',
-                        target_ref: {
-                          model_id: { $ref: 'row.model_id' },
-                          p: { $ref: 'row.p' },
-                          r: { $ref: 'row.r' },
-                          c: { $ref: 'row.c' },
-                          k: { $ref: 'row.k' },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    id: 'btn_edit_row',
-                    type: 'Button',
-                    props: { label: 'Edit', type: 'primary', link: true },
-                    bind: {
-                      write: {
-                        action: 'datatable_edit_row',
-                        target_ref: {
-                          model_id: { $ref: 'row.model_id' },
-                          p: { $ref: 'row.p' },
-                          r: { $ref: 'row.r' },
-                          c: { $ref: 'row.c' },
-                          k: { $ref: 'row.k' },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    id: 'btn_view_row',
-                    type: 'Button',
-                    props: { label: 'View', type: 'primary', link: true },
-                    bind: {
-                      write: {
-                        action: 'datatable_view_detail',
-                        target_ref: {
-                          model_id: { $ref: 'row.model_id' },
-                          p: { $ref: 'row.p' },
-                          r: { $ref: 'row.r' },
-                          c: { $ref: 'row.c' },
-                          k: { $ref: 'row.k' },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    id: 'btn_rm_row',
-                    type: 'Button',
-                    props: { label: 'Remove', type: 'danger', link: true },
-                    bind: {
-                      write: {
-                        action: 'datatable_remove_label',
-                        target_ref: {
-                          model_id: { $ref: 'row.model_id' },
-                          p: { $ref: 'row.p' },
-                          r: { $ref: 'row.r' },
-                          c: { $ref: 'row.c' },
-                          k: { $ref: 'row.k' },
-                        },
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'drawer_detail',
-        type: 'Drawer',
-        props: { title: 'Value details', size: '60%' },
-        bind: {
-          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_detail_open' },
-          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_detail_open' } },
-        },
-        children: [
-          { id: 'detail_title', type: 'Text', bind: { read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_detail_title' } } },
-          {
-            id: 'detail_body',
-            type: 'CodeBlock',
-            props: { style: { whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 } },
-            bind: { read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_detail_text' } },
-          },
-        ],
-      },
-
-      {
-        id: 'dialog_edit',
-        type: 'Dialog',
-        props: { title: 'Edit label', width: '680px' },
-        bind: {
-          read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_open' },
-          write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_open' } },
-        },
-        children: [
-          {
-            id: 'txt_edit_target',
-            type: 'Text',
-            props: { type: 'info', text: `target: ${editModelId ?? ''} (${editP},${editR},${editC}) ${editK}` },
-          },
-          {
-            id: 'form_edit',
-            type: 'Form',
-            children: [
-              {
-                id: 'fi_edit_t',
-                type: 'FormItem',
-                props: { label: 'Type (t)' },
-                children: [
-                  {
-                    id: 'sel_edit_t',
-                    type: 'Select',
-                    props: {
-                      options: [
-                        { label: 'str', value: 'str' },
-                        { label: 'int', value: 'int' },
-                        { label: 'bool', value: 'bool' },
-                        { label: 'json', value: 'json' },
-                      ],
-                    },
-                    bind: {
-                      read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_t' },
-                      write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_t' } },
-                    },
-                  },
-                ],
-              },
-              {
-                id: 'fi_edit_v',
-                type: 'FormItem',
-                props: { label: 'Value (v)' },
-                children: [
-                  {
-                    id: 'input_edit_v_text',
-                    type: 'Input',
-                    props: { disabled: editValueT === 'int' || editValueT === 'bool' },
-                    bind: {
-                      read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_text' },
-                      write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_text' } },
-                    },
-                  },
-                  {
-                    id: 'num_edit_v_int',
-                    type: 'NumberInput',
-                    props: { disabled: editValueT !== 'int' },
-                    bind: {
-                      read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_int' },
-                      write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_int' } },
-                    },
-                  },
-                  {
-                    id: 'switch_edit_v_bool',
-                    type: 'Switch',
-                    props: { disabled: editValueT !== 'bool' },
-                    bind: {
-                      read: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_bool' },
-                      write: { action: 'label_update', target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'dt_edit_v_bool' } },
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-          {
-            id: 'btn_edit_save',
-            type: 'Button',
-            props: { type: 'primary', label: 'Save', disabled: editModelId === null || editK.length === 0 },
-            bind: {
-              write: {
-                action: 'label_update',
-                target_ref: { model_id: editModelId ?? 1, p: editP, r: editR, c: editC, k: editK || 'title' },
-                value_ref: { t: editValueT, v: editValueV },
-              },
-            },
-          },
-        ],
-      },
-    ],
-    },
-    ],
-  };
 }
 
 function stringify(value) {
-  if (value === undefined) return '';
-  if (value === null) return 'null';
-  if (typeof value === 'string') return value;
   try {
     return JSON.stringify(value, null, 2);
   } catch (_) {
     return String(value);
   }
+}
+
+function getMaxPositiveModelId(runtime) {
+  let maxModelId = 0;
+  for (const id of runtime.models.keys()) {
+    if (Number.isInteger(id) && id > maxModelId) {
+      maxModelId = id;
+    }
+  }
+  return maxModelId;
+}
+
+function resolveNextWorkspaceModelId(runtime) {
+  return Math.max(1001, getMaxPositiveModelId(runtime) + 1);
+}
+
+function normalizeIntValue(value, fallback) {
+  if (Number.isInteger(value)) return value;
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isInteger(parsed) ? parsed : fallback;
+}
+
+function shouldResetHomeSelectionFromEnvelope(envelope) {
+  const payload = envelope && typeof envelope === 'object' ? envelope.payload : null;
+  const target = payload && typeof payload === 'object' ? payload.target : null;
+  const value = payload && typeof payload === 'object' ? payload.value : null;
+  return payload && payload.action === 'label_update'
+    && target
+    && target.model_id === EDITOR_STATE_MODEL_ID
+    && target.p === 0
+    && target.r === 0
+    && target.c === 0
+    && target.k === 'ui_page'
+    && String(value && Object.prototype.hasOwnProperty.call(value, 'v') ? value.v : '').trim().toLowerCase() === 'home';
+}
+
+function deriveWorkspaceRegistry(runtime) {
+  const derived = [];
+  const seen = new Set();
+  const excludedModelIds = new Set([
+    EDITOR_MODEL_ID,
+    EDITOR_STATE_MODEL_ID,
+    SYSTEM_MODEL_ID,
+    GALLERY_MAILBOX_MODEL_ID,
+  ]);
+
+  const addOrReplace = (entry) => {
+    if (!entry || !Number.isInteger(entry.model_id)) return;
+    if (entry.model_id === 0 || excludedModelIds.has(entry.model_id)) return;
+    const existing = derived.find((item) => item.model_id === entry.model_id);
+    if (existing) {
+      Object.assign(existing, entry);
+      return;
+    }
+    derived.push(entry);
+    seen.add(entry.model_id);
+  };
+
+  const snap = runtime.snapshot();
+  const models = snap && snap.models ? snap.models : {};
+  for (const [idText, modelSnap] of Object.entries(models)) {
+    const modelId = Number(idText);
+    if (!Number.isInteger(modelId) || modelId === 0 || seen.has(modelId) || excludedModelIds.has(modelId)) continue;
+    const rootLabels = modelSnap && modelSnap.cells && modelSnap.cells['0,0,0'] && modelSnap.cells['0,0,0'].labels
+      ? modelSnap.cells['0,0,0'].labels
+      : {};
+    if (rootLabels.ws_deleted && rootLabels.ws_deleted.v === true) continue;
+    const hasAppSignals = modelId > 0
+      ? Boolean(rootLabels.app_name || rootLabels.dual_bus_model || (modelSnap && modelSnap.cells && modelSnap.cells['1,0,0']))
+      : Boolean(rootLabels.app_name);
+    if (!hasAppSignals) continue;
+    const name = rootLabels.app_name && typeof rootLabels.app_name.v === 'string' && rootLabels.app_name.v.trim()
+      ? rootLabels.app_name.v
+      : (modelSnap && typeof modelSnap.name === 'string' && modelSnap.name.trim()
+        ? modelSnap.name
+        : `App ${modelId}`);
+    const source = rootLabels.source_worker && typeof rootLabels.source_worker.v === 'string'
+      ? rootLabels.source_worker.v
+      : '';
+    const deletable = rootLabels.deletable ? rootLabels.deletable.v === true : false;
+    const slideCapable = rootLabels.slide_capable ? rootLabels.slide_capable.v === true : false;
+    const slideSurfaceType = rootLabels.slide_surface_type && typeof rootLabels.slide_surface_type.v === 'string'
+      ? rootLabels.slide_surface_type.v
+      : '';
+    addOrReplace({
+      model_id: modelId,
+      name,
+      source,
+      deletable,
+      delete_disabled: !deletable,
+      slide_capable: slideCapable,
+      slide_surface_type: slideSurfaceType,
+    });
+  }
+  derived.sort((a, b) => a.model_id - b.model_id);
+  return derived;
+}
+
+function resolveDefaultWorkspaceAppId(apps) {
+  if (!Array.isArray(apps) || apps.length === 0) return 0;
+  const firstSlideCapable = apps.find((app) => app && app.slide_capable === true && Number.isInteger(app.model_id) && app.model_id > 0);
+  if (firstSlideCapable) return firstSlideCapable.model_id;
+  const firstPositive = apps.find((app) => app && Number.isInteger(app.model_id) && app.model_id > 0);
+  return firstPositive ? firstPositive.model_id : apps[0].model_id;
+}
+
+function resolveWorkspaceSelection(apps, selectedValue, defaultSelected) {
+  const selected = Number.isInteger(selectedValue) ? selectedValue : parseSafeInt(selectedValue);
+  if (Number.isInteger(selected) && Array.isArray(apps) && apps.some((app) => app && app.model_id === selected)) {
+    return selected;
+  }
+  return defaultSelected;
 }
 
 export function createDemoStore() {
@@ -2096,7 +215,26 @@ export function createDemoStore() {
   ensureModel(runtime, { id: SYSTEM_MODEL_ID, name: 'system', type: 'system' });
   ensureModel(runtime, { id: 1, name: 'M1', type: 'main' });
 
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: '1' });
+  const stateRoot = runtime.getCell(stateModel, 0, 0, 0);
+  if (!stateRoot.labels.has('ui_page_catalog_json')) {
+    applyUiPatch(runtime, navCatalogPatch);
+  }
+  applyUiPatch(runtime, homeCatalogPatch);
+  applyUiPatch(runtime, docsCatalogPatch);
+  applyUiPatch(runtime, staticCatalogPatch);
+  applyUiPatch(runtime, workspaceCatalogPatch);
+  applyUiPatch(runtime, workspacePositiveModelsPatch);
+  applyUiPatch(runtime, docPageFilltableExampleMinimalPatch);
+  applyUiPatch(runtime, runtimeHierarchyMountsPatch);
+  applyUiPatch(runtime, editorTestCatalogPatch);
+  applyUiPatch(runtime, matrixDebugSurfacePatch);
+  applyUiPatch(runtime, cognitionSceneModelPatch);
+  applyUiPatch(runtime, cognitionLifecycleModelPatch);
+  if (!runtime.getModel(PROMPT_CATALOG_MODEL_ID)) {
+    applyUiPatch(runtime, promptCatalogPatch);
+  }
+
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: '0' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'home' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_p', t: 'str', v: '0' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_r', t: 'str', v: '0' });
@@ -2113,6 +251,16 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_filter_c', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_filter_ktv', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_pause_sse', t: 'bool', v: false });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'editor_model_options_json', t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_table_rows_json', t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_missing_model_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_selected_label_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_status_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_form_mode', t: 'str', v: 'edit' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_edit_dialog_title', t: 'str', v: 'Edit Label' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_delete_confirm_open', t: 'bool', v: false });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_delete_confirm_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'home_delete_target_json', t: 'json', v: null });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_open', t: 'bool', v: false });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_title', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_detail_text', t: 'str', v: '' });
@@ -2154,22 +302,29 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: 0 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: 1001 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: [] });
-
-  // Prompt FillTable page state.
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_text', t: 'str', v: '' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_preview_json', t: 'json', v: {} });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_preview_id', t: 'str', v: '' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_preview_digest', t: 'str', v: '' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_apply_preview_id', t: 'str', v: '' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_apply_result_json', t: 'json', v: {} });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_status', t: 'str', v: '' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_last_applied_preview_id', t: 'str', v: '' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_available', t: 'bool', v: false });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'llm_prompt_notice', t: 'str', v: '当前暂不可用：仅远端模式支持 LLM。' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: FLOW_SHELL_TAB_LABEL, t: 'str', v: FLOW_SHELL_DEFAULT_TAB });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_subject_selected', t: 'str', v: 'trace' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_subjects_json', t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_readiness_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_subject_summary_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_trace_summary_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_summary_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_status_text', t: 'str', v: '' });
 
   const snapshot = reactive(runtime.snapshot());
   const eventLog = [];
+  const routeState = reactive({ path: '/' });
   const adapter = createLocalBusAdapter({ runtime, eventLog, mode: adapterMode, mailboxModelId: EDITOR_MODEL_ID, editorStateModelId: EDITOR_STATE_MODEL_ID });
+
+  function reconcileHomeSelectionState(force = false) {
+    const stateModelLive = runtime.getModel(EDITOR_STATE_MODEL_ID);
+    if (!stateModelLive) return;
+    const uiPage = String(runtime.getLabelValue(stateModelLive, 0, 0, 0, 'ui_page') ?? '').trim().toLowerCase();
+    if (uiPage !== 'home') return;
+    const selectedModelId = runtime.getLabelValue(stateModelLive, 0, 0, 0, 'selected_model_id');
+    if (!force && String(selectedModelId ?? '') === '0') return;
+    overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: '0' });
+  }
 
   function refreshSnapshot() {
     const next = runtime.snapshot();
@@ -2179,44 +334,119 @@ export function createDemoStore() {
 
   function setMailboxValue(envelopeOrNull) {
     const model = runtime.getModel(EDITOR_MODEL_ID);
-    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v: envelopeOrNull });
+    runtime.addLabel(model, 0, 0, 1, { k: MAILBOX_EVENT_KEY, t: 'event', v: envelopeOrNull });
   }
 
   function updateDerived() {
     const snap = runtime.snapshot();
+    const stateModelLive = runtime.getModel(EDITOR_STATE_MODEL_ID);
+    if (stateModelLive) {
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'editor_model_options_json', t: 'json', v: deriveEditorModelOptions(snap, EDITOR_STATE_MODEL_ID) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_table_rows_json', t: 'json', v: deriveHomeTableRows(snap, EDITOR_STATE_MODEL_ID) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_missing_model_text', t: 'str', v: deriveHomeMissingModelText(snap, EDITOR_STATE_MODEL_ID) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_selected_label_text', t: 'str', v: deriveHomeSelectedLabelText(snap, EDITOR_STATE_MODEL_ID) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_edit_dialog_title', t: 'str', v: deriveHomeEditDialogTitle(snap, EDITOR_STATE_MODEL_ID) });
+      const workspaceApps = deriveWorkspaceRegistry(runtime);
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: workspaceApps });
+      const validWorkspaceApp = resolveWorkspaceSelection(
+        workspaceApps,
+        runtime.getLabelValue(stateModelLive, 0, 0, 0, 'ws_app_selected'),
+        resolveDefaultWorkspaceAppId(workspaceApps),
+      );
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: Number(validWorkspaceApp) });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: resolveNextWorkspaceModelId(runtime) });
+      const matrixDebug = deriveMatrixDebugView(snap, EDITOR_STATE_MODEL_ID);
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_subjects_json', t: 'json', v: matrixDebug.subjects });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_subject_selected', t: 'str', v: matrixDebug.selected });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_readiness_text', t: 'str', v: matrixDebug.readinessText });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_subject_summary_text', t: 'str', v: matrixDebug.subjectSummaryText });
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_trace_summary_text', t: 'str', v: matrixDebug.traceSummaryText });
+    }
+    const galleryStateModel = runtime.getModel(GALLERY_STATE_MODEL_ID);
+    if (galleryStateModel) {
+      const slideGallery = deriveSlideGalleryView(snap, GALLERY_STATE_MODEL_ID);
+      overwriteLabel(runtime, galleryStateModel, 0, 0, 0, {
+        k: 'doc_page_example_ast',
+        t: 'json',
+        v: buildAstFromCellwiseModel(snap, DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID),
+      });
+      overwriteLabel(runtime, galleryStateModel, 0, 13, 0, { k: 'gallery_slide_summary_text', t: 'str', v: slideGallery.summaryText });
+      overwriteLabel(runtime, galleryStateModel, 0, 14, 0, { k: 'gallery_slide_registry_count_text', t: 'str', v: slideGallery.registryCountText });
+      overwriteLabel(runtime, galleryStateModel, 0, 15, 0, { k: 'gallery_slide_models_text', t: 'str', v: slideGallery.modelsText });
+      overwriteLabel(runtime, galleryStateModel, 0, 16, 0, { k: 'gallery_slide_creator_status_text', t: 'str', v: slideGallery.creatorStatusText });
+      overwriteLabel(runtime, galleryStateModel, 0, 17, 0, { k: 'gallery_slide_last_created_text', t: 'str', v: slideGallery.lastCreatedText });
+      overwriteLabel(runtime, galleryStateModel, 0, 18, 0, { k: 'gallery_slide_docs_text', t: 'str', v: slideGallery.docsText });
+      overwriteLabel(runtime, galleryStateModel, 0, 19, 0, { k: 'gallery_slide_evidence_local_text', t: 'str', v: slideGallery.localEvidenceText });
+      overwriteLabel(runtime, galleryStateModel, 0, 20, 0, { k: 'gallery_slide_evidence_remote_text', t: 'str', v: slideGallery.remoteEvidenceText });
+    }
+
+    const nextSnap = runtime.snapshot();
     const safeModels = {};
-    const snapModels = snap && snap.models ? snap.models : {};
+    const snapModels = nextSnap && nextSnap.models ? nextSnap.models : {};
     for (const [id, model] of Object.entries(snapModels)) {
       if (String(id) === String(EDITOR_MODEL_ID)) continue;
       if (String(id) === String(EDITOR_STATE_MODEL_ID)) continue;
       safeModels[id] = model;
     }
 
+    const resolved = resolvePageAsset(nextSnap, {
+      projectSchemaModel: buildAstFromSchema,
+      projectCellwiseModel: buildAstFromCellwiseModel,
+    });
+
     adapter.updateUiDerived({
-      uiAst: uiMode === 'v0' ? buildEditorAstV0() : buildEditorAstV1(snap),
-      snapshotJson: JSON.stringify({ models: safeModels, v1nConfig: snap ? snap.v1nConfig : undefined }, null, 2),
+      uiAst: resolved.ast,
+      snapshotJson: JSON.stringify({ models: safeModels, v1nConfig: nextSnap ? nextSnap.v1nConfig : undefined }, null, 2),
       eventLogJson: JSON.stringify(eventLog, null, 2),
     });
   }
 
   function getUiAst() {
-    const model = runtime.getModel(EDITOR_MODEL_ID);
-    const cell = runtime.getCell(model, 0, 0, 0);
-    const label = cell.labels.get('ui_ast_v0');
-    return label ? label.v : null;
+    const resolved = resolveRouteUiAst(snapshot, routeState.path, { projectSchemaModel: buildAstFromSchema });
+    return resolved && resolved.ast && typeof resolved.ast === 'object' ? resolved.ast : null;
+  }
+
+  function setRoutePath(routePath) {
+    routeState.path = typeof routePath === 'string' && routePath.trim().length > 0 ? routePath : '/';
   }
 
   function dispatchAddLabel(label) {
     if (!label || label.t !== 'event') {
       throw new Error('non_event_write');
     }
-    if (label.p !== 0 || label.r !== 0 || label.c !== 1 || label.k !== 'ui_event') {
+    if (label.p === 0 && label.r === 0 && label.c === 0 && label.k === 'bus_in_event' && label.v && typeof label.v === 'object') {
+      const envelope = label.v;
+      if (envelope.type !== 'bus_event_v2') {
+        throw new Error('invalid_envelope');
+      }
+      const busInKey = typeof envelope.bus_in_key === 'string' ? envelope.bus_in_key.trim() : '';
+      if (!busInKey) {
+        throw new Error('invalid_envelope');
+      }
+      const model0 = runtime.getModel(0);
+      const busPayload = normalizeBusEventV2ValueToPinPayload(envelope.value, envelope.meta);
+      if (!Array.isArray(busPayload)) {
+        throw new Error('invalid_bus_payload');
+      }
+      const addResult = runtime.addLabel(model0, 0, 0, 0, {
+        k: busInKey,
+        t: 'pin.bus.in',
+        v: busPayload,
+      });
+      if (!addResult || !addResult.applied) {
+        throw new Error('invalid_bus_payload');
+      }
+      updateDerived();
+      refreshSnapshot();
+      return;
+    }
+    if (label.p !== 0 || label.r !== 0 || label.c !== 1) {
       throw new Error('event_mailbox_mismatch');
     }
 
     const model = runtime.getModel(EDITOR_MODEL_ID);
     const cell = runtime.getCell(model, 0, 0, 1);
-    const current = cell.labels.get('ui_event');
+    const current = cell.labels.get(MAILBOX_EVENT_KEY);
     if (current && current.v !== null && current.v !== undefined) {
       throw new Error('event_mailbox_full');
     }
@@ -2226,7 +456,7 @@ export function createDemoStore() {
   }
 
   function dispatchRmLabel(labelRef) {
-    if (!labelRef || labelRef.p !== 0 || labelRef.r !== 0 || labelRef.c !== 1 || labelRef.k !== 'ui_event') {
+    if (!labelRef || labelRef.p !== 0 || labelRef.r !== 0 || labelRef.c !== 1) {
       return;
     }
     setMailboxValue(null);
@@ -2234,13 +464,20 @@ export function createDemoStore() {
   }
 
   function consumeOnce() {
+    const mailboxModel = runtime.getModel(EDITOR_MODEL_ID);
+    const mailboxCell = runtime.getCell(mailboxModel, 0, 0, 1);
+    const pendingEnvelope = mailboxCell.labels.get(MAILBOX_EVENT_KEY)?.v ?? null;
     const result = adapter.consumeOnce();
+    if (shouldResetHomeSelectionFromEnvelope(pendingEnvelope)) {
+      reconcileHomeSelectionState(true);
+    }
     updateDerived();
     refreshSnapshot();
     return result;
   }
 
   setMailboxValue(null);
+  reconcileHomeSelectionState(true);
   updateDerived();
   refreshSnapshot();
 
@@ -2249,15 +486,19 @@ export function createDemoStore() {
     snapshot,
     refreshSnapshot,
     getUiAst,
+    setRoutePath,
     dispatchAddLabel,
     dispatchRmLabel,
     consumeOnce,
     stringify,
     uiMode,
     adapterMode,
+    buildDispatchLabel: buildBusDispatchLabel,
+    buildUiEventV2: buildBusEventV2,
   };
 }
 
 export function buildDemoAstSample() {
-  return buildEditorAstV1({ models: {} });
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  return store.getUiAst();
 }

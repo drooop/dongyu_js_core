@@ -1,0 +1,228 @@
+{
+  "version": "mt.v0",
+  "op_id": "matrix_userline_phase2_remote_truth_v0",
+  "description": "Model 1019 remote truth for matrix userline phase 2",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 1019,
+      "name": "matrix_userline_phase2_conversation_truth",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.MatrixActiveConversationTruth"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "result_out_topic",
+      "t": "str",
+      "v": "UIPUT/ws/dam/pic/de/sw/1019/result"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "root_routes",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, submit)",
+          "to": [
+            "(func, on_matrix_phase2_remote_submit_in:in)"
+          ]
+        },
+        {
+          "from": "(func, on_matrix_phase2_remote_submit_in:out)",
+          "to": [
+            "(self, result)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "submit",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "processor_routes",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, submit)",
+          "to": [
+            "(func, on_matrix_phase2_remote_submit_in:in)"
+          ]
+        },
+        {
+          "from": "(func, on_matrix_phase2_remote_submit_in:out)",
+          "to": [
+            "(self, result)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "scope_privileged",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "on_matrix_phase2_remote_submit_in",
+      "t": "func.js",
+      "v": {
+        "code": "const payload = Array.isArray(label && label.v) ? label.v : [];\nconst findValue = (key, fallback = '') => {\n  const record = payload.find((item) => item && item.k === key);\n  return record && record.v != null ? String(record.v) : fallback;\n};\nconst text = findValue('message_text').trim();\nconst sender = findValue('sender_user_id', 'unknown').trim() || 'unknown';\nconst roomId = findValue('room_id', 'phase1-room').trim() || 'phase1-room';\nconst roomName = findValue('room_name', roomId).trim() || roomId;\nconst roomKind = findValue('room_kind', roomId.includes('group') ? 'group' : 'dm').trim() || 'dm';\nconst reply = 'echo: ' + text;\nconst existingLabel = V1N.readLabel(0, 0, 0, 'room_timelines_json');\nconst timelines = existingLabel && existingLabel.v && typeof existingLabel.v === 'object' && !Array.isArray(existingLabel.v) ? existingLabel.v : {};\nconst current = Array.isArray(timelines[roomId]) ? timelines[roomId].slice(-10) : [];\nconst nextTimeline = current.concat([{ direction: 'out', sender, text }, { direction: 'in', sender: '@mbr:localhost', text: reply }]).slice(-12);\nconst nextTimelines = { ...timelines, [roomId]: nextTimeline };\nconst timelineText = nextTimeline.map((item) => String(item && item.sender ? item.sender : 'system') + ': ' + String(item && item.text ? item.text : '')).join('\\n');\nconst resultPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: 'last_remote_text', t: 'str', v: reply },\n  { id: 0, p: 0, r: 0, c: 0, k: 'last_remote_sender', t: 'str', v: '@mbr:localhost' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'last_message_room_id', t: 'str', v: roomId },\n  { id: 0, p: 0, r: 0, c: 0, k: 'last_sender_user_id', t: 'str', v: sender },\n  { id: 0, p: 0, r: 0, c: 0, k: 'conversation_status', t: 'str', v: 'remote_processed' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false },\n  { id: 0, p: 0, r: 0, c: 0, k: 'active_room_id', t: 'str', v: roomId },\n  { id: 0, p: 0, r: 0, c: 0, k: 'active_room_name', t: 'str', v: roomName },\n  { id: 0, p: 0, r: 0, c: 0, k: 'active_room_kind', t: 'str', v: roomKind },\n  { id: 0, p: 0, r: 0, c: 0, k: 'room_timelines_json', t: 'json', v: nextTimelines },\n  { id: 0, p: 0, r: 0, c: 0, k: 'timeline_json', t: 'json', v: nextTimeline },\n  { id: 0, p: 0, r: 0, c: 0, k: 'timeline_text', t: 'str', v: timelineText }\n];\nV1N.table.addLabel(0, 0, 0, 'last_remote_text', 'str', reply);\nV1N.table.addLabel(0, 0, 0, 'last_remote_sender', 'str', '@mbr:localhost');\nV1N.table.addLabel(0, 0, 0, 'last_message_room_id', 'str', roomId);\nV1N.table.addLabel(0, 0, 0, 'last_sender_user_id', 'str', sender);\nV1N.table.addLabel(0, 0, 0, 'conversation_status', 'str', 'remote_processed');\nV1N.table.addLabel(0, 0, 0, 'submit_inflight', 'bool', false);\nV1N.table.addLabel(0, 0, 0, 'active_room_id', 'str', roomId);\nV1N.table.addLabel(0, 0, 0, 'active_room_name', 'str', roomName);\nV1N.table.addLabel(0, 0, 0, 'active_room_kind', 'str', roomKind);\nV1N.table.addLabel(0, 0, 0, 'room_timelines_json', 'json', nextTimelines);\nV1N.table.addLabel(0, 0, 0, 'timeline_json', 'json', nextTimeline);\nV1N.table.addLabel(0, 0, 0, 'timeline_text', 'str', timelineText);\nconst topicLabel = V1N.readLabel(0, 0, 0, 'result_out_topic');\nconst topic = String(topicLabel && topicLabel.v ? topicLabel.v : '').trim();\nif (topic) ctx.publishMqtt(topic, { version: 'v1', type: 'pin_payload', op_id: 'matrix_userline_phase2_' + Date.now(), source_model_id: 1019, pin: 'result', payload: resultPayload, timestamp: Date.now() });\nreturn resultPayload;",
+        "modelName": "matrix_userline_phase2_conversation_truth"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "room_timelines_json",
+      "t": "json",
+      "v": {
+        "!phase1-echo:localhost": [
+          {
+            "direction": "system",
+            "sender": "@phase1-bot:localhost",
+            "text": "Welcome back to the Echo DM."
+          },
+          {
+            "direction": "in",
+            "sender": "@mbr:localhost",
+            "text": "Phase 1 loop is ready."
+          }
+        ],
+        "!phase2-group:localhost": [
+          {
+            "direction": "system",
+            "sender": "@team-bot:localhost",
+            "text": "Team room ready for phase 2."
+          },
+          {
+            "direction": "in",
+            "sender": "@designer:localhost",
+            "text": "Share the latest plan before send-off."
+          }
+        ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "timeline_json",
+      "t": "json",
+      "v": [
+        {
+          "direction": "system",
+          "sender": "@phase1-bot:localhost",
+          "text": "Welcome back to the Echo DM."
+        },
+        {
+          "direction": "in",
+          "sender": "@mbr:localhost",
+          "text": "Phase 1 loop is ready."
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "timeline_text",
+      "t": "str",
+      "v": "@phase1-bot:localhost: Welcome back to the Echo DM.\n@mbr:localhost: Phase 1 loop is ready."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "active_room_name",
+      "t": "str",
+      "v": "Phase 1 Echo Room"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "active_room_kind",
+      "t": "str",
+      "v": "dm"
+    }
+  ]
+}

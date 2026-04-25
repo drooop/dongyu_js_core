@@ -1,5 +1,13 @@
 import { createRenderer } from '../packages/ui-renderer/src/index.js';
 import crypto from 'node:crypto';
+import {
+  THREE_SCENE_CHILD_MODEL_ID,
+  THREE_SCENE_COMPONENT_TYPE,
+  THREE_SCENE_CREATE_ENTITY_ACTION,
+  THREE_SCENE_DELETE_ENTITY_ACTION,
+  THREE_SCENE_SELECT_ENTITY_ACTION,
+  THREE_SCENE_UPDATE_ENTITY_ACTION,
+} from '../packages/ui-model-demo-frontend/src/model_ids.js';
 
 function parseArgs(argv) {
   const args = { case: 'all', env: 'jsdom' };
@@ -129,6 +137,108 @@ function buildAstExtension() {
             props: { text: '{"ok":true}' },
           },
         ],
+      },
+    ],
+  };
+}
+
+function buildThreeSceneSnapshot() {
+  return {
+    models: {
+      [String(THREE_SCENE_CHILD_MODEL_ID)]: {
+        id: THREE_SCENE_CHILD_MODEL_ID,
+        cells: {
+          '0,0,0': {
+            p: 0,
+            r: 0,
+            c: 0,
+            labels: {
+              scene_graph_v0: {
+                k: 'scene_graph_v0',
+                t: 'json',
+                v: {
+                  entities: [
+                    {
+                      id: 'cube-1',
+                      type: 'box',
+                      color: '#22c55e',
+                      position: [1, 2, 3],
+                      rotation: [0, 0.5, 0],
+                      scale: [1, 1, 1],
+                      visible: true,
+                    },
+                  ],
+                },
+              },
+              camera_state_v0: {
+                k: 'camera_state_v0',
+                t: 'json',
+                v: {
+                  position: [4, 5, 6],
+                  target: [0, 0, 0],
+                  fov: 55,
+                },
+              },
+              selected_entity_id: {
+                k: 'selected_entity_id',
+                t: 'str',
+                v: 'cube-1',
+              },
+              scene_status: {
+                k: 'scene_status',
+                t: 'str',
+                v: 'seeded',
+              },
+              scene_audit_log: {
+                k: 'scene_audit_log',
+                t: 'str',
+                v: 'seed ready',
+              },
+            },
+          },
+        },
+      },
+      '-1': {
+        id: -1,
+        cells: {
+          '0,0,1': {
+            p: 0,
+            r: 0,
+            c: 1,
+            labels: {
+              ui_event: { k: 'ui_event', t: 'event', v: null },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+function buildThreeSceneAst() {
+  return {
+    id: 'three_scene_root',
+    type: 'Root',
+    children: [
+      {
+        id: 'three_scene_host',
+        type: THREE_SCENE_COMPONENT_TYPE,
+        props: {
+          width: '480px',
+          height: '320px',
+          background: '#0f172a',
+          sceneGraphRef: { model_id: THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'scene_graph_v0' },
+          cameraStateRef: { model_id: THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'camera_state_v0' },
+          selectedEntityIdRef: { model_id: THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_entity_id' },
+          sceneStatusRef: { model_id: THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'scene_status' },
+          auditLogRef: { model_id: THREE_SCENE_CHILD_MODEL_ID, p: 0, r: 0, c: 0, k: 'scene_audit_log' },
+          actions: {
+            create: THREE_SCENE_CREATE_ENTITY_ACTION,
+            select: THREE_SCENE_SELECT_ENTITY_ACTION,
+            update: THREE_SCENE_UPDATE_ENTITY_ACTION,
+            delete: THREE_SCENE_DELETE_ENTITY_ACTION,
+          },
+        },
       },
     ],
   };
@@ -308,6 +418,27 @@ function validateRenderExtension(renderer, ast) {
   assert(code.text === '{"ok":true}', 'CodeBlock text mismatch');
 }
 
+function validateThreeScene(renderer, ast) {
+  const tree = renderer.renderTree(ast);
+  assert(tree.type === 'Root', 'three_scene_root_missing');
+  assert(tree.children.length === 1, 'three_scene_child_missing');
+  const hostNode = tree.children[0];
+  assert(hostNode.type === THREE_SCENE_COMPONENT_TYPE, 'three_scene_tree_node_type_mismatch');
+  assert(hostNode.props.sceneGraphRef.model_id === THREE_SCENE_CHILD_MODEL_ID, 'three_scene_scene_graph_ref_missing');
+  assert(hostNode.props.actions.create === THREE_SCENE_CREATE_ENTITY_ACTION, 'three_scene_create_action_missing');
+
+  const vnode = renderer.renderVNode(ast);
+  const sceneVNode = Array.isArray(vnode.children) ? vnode.children[0] : null;
+  assert(sceneVNode && sceneVNode.type === 'ThreeSceneHost', 'three_scene_vnode_host_missing');
+  assert(sceneVNode.props.sceneModelId === THREE_SCENE_CHILD_MODEL_ID, 'three_scene_scene_model_id_missing');
+  assert(sceneVNode.props.sceneGraph.entities[0].id === 'cube-1', 'three_scene_scene_graph_payload_missing');
+  assert(sceneVNode.props.cameraState.position[2] === 6, 'three_scene_camera_state_missing');
+  assert(sceneVNode.props.selectedEntityId === 'cube-1', 'three_scene_selected_entity_missing');
+  assert(sceneVNode.props.sceneStatus === 'seeded', 'three_scene_status_missing');
+  assert(sceneVNode.props.auditLog === 'seed ready', 'three_scene_audit_log_missing');
+  assert(sceneVNode.props.actions.delete === THREE_SCENE_DELETE_ENTITY_ACTION, 'three_scene_delete_action_missing');
+}
+
 function stableHash(obj) {
   const text = JSON.stringify(obj);
   return crypto.createHash('sha256').update(text).digest('hex');
@@ -339,7 +470,12 @@ function validateEditorEventMailboxOnly(renderer, calls) {
   assert(Number.isInteger(label.v.event_id), 'Editor event_id must be integer');
   assert(label.v.event_id === 1, 'Editor event_id must start at 1 in test run');
   assert(label.v.payload && label.v.payload.action === 'label_add', 'Editor payload.action mismatch');
-  assert(label.v.payload.meta && label.v.payload.meta.op_id === 'op_1', 'Editor payload.meta.op_id mismatch');
+  assert(
+    label.v.payload.meta
+      && typeof label.v.payload.meta.op_id === 'string'
+      && /^op_\d+_\d+_[0-9a-f]+$/.test(label.v.payload.meta.op_id),
+    'Editor payload.meta.op_id mismatch',
+  );
   assert(label.v.payload.target && label.v.payload.target.model_id === 1, 'Editor payload.target missing');
 
   assert(calls.length === 1, 'Editor expected add only');
@@ -444,7 +580,9 @@ async function run() {
   const renderer = createRenderer({ host });
 
   const results = [];
-  const cases = args.case === 'all' ? ['render_minimal', 'event_write', 'render_extension', 'editor', 'registry_upload'] : [args.case];
+  const cases = args.case === 'all'
+    ? ['render_minimal', 'event_write', 'render_extension', 'editor', 'registry_upload', 'three_scene']
+    : [args.case];
 
   for (const name of cases) {
     if (name === 'render_minimal') {
@@ -471,6 +609,18 @@ async function run() {
       results.push({ case: 'editor_snapshot_hash', status: 'PASS' });
     } else if (name === 'registry_upload') {
       await validateRegistryUpload();
+      results.push({ case: name, status: 'PASS' });
+    } else if (name === 'three_scene') {
+      const threeSnapshot = buildThreeSceneSnapshot();
+      const threeHost = createHostAdapter(threeSnapshot, []);
+      const threeRenderer = createRenderer({
+        host: threeHost,
+        vue: {
+          h: (type, props, children) => ({ type, props, children }),
+          resolveComponent: (name) => name,
+        },
+      });
+      validateThreeScene(threeRenderer, buildThreeSceneAst());
       results.push({ case: name, status: 'PASS' });
     } else {
       throw new Error(`Unknown case: ${name}`);

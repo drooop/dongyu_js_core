@@ -105,11 +105,10 @@ while [ $# -gt 0 ]; do
 done
 
 need_cmd kubectl
-need_cmd jq
 need_cmd bun
-need_cmd curl
 need_cmd lsof
 need_cmd base64
+need_cmd python3
 
 if [ -n "$K8S_CONTEXT" ]; then
   kubectl config use-context "$K8S_CONTEXT" >/dev/null
@@ -125,30 +124,73 @@ if [ "$RUN_BASELINE" -eq 1 ]; then
   bash "$SCRIPT_DIR/check_runtime_baseline.sh"
 fi
 
-ROOM_ID="$(kubectl get configmap -n "$K8S_NS" mbr-worker-config -o jsonpath='{.data.DY_MATRIX_ROOM_ID}' 2>/dev/null || true)"
-HOMESERVER_URL="$(kubectl get configmap -n "$K8S_NS" mbr-worker-config -o jsonpath='{.data.MATRIX_HOMESERVER_URL}' 2>/dev/null || true)"
-BOT_USER="$(kubectl get configmap -n "$K8S_NS" mbr-worker-config -o jsonpath='{.data.MATRIX_MBR_BOT_USER}' 2>/dev/null || true)"
-DROP_USER="$(kubectl get deploy -n "$K8S_NS" ui-server -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name==\"MATRIX_MBR_USER\")].value}' 2>/dev/null || true)"
-DROP_PWD_B64="$(kubectl get secret -n "$K8S_NS" ui-server-secret -o jsonpath='{.data.MATRIX_MBR_PASSWORD}' 2>/dev/null || true)"
+PATCH_B64="$(kubectl get secret -n "$K8S_NS" ui-server-secret -o jsonpath='{.data.MODELTABLE_PATCH_JSON}' 2>/dev/null || true)"
 
-if [ -z "$ROOM_ID" ]; then
-  echo "[start] missing mbr-worker-config.data.DY_MATRIX_ROOM_ID in namespace=$K8S_NS" >&2
+if [ -z "$PATCH_B64" ]; then
+  echo "[start] missing ui-server-secret.data.MODELTABLE_PATCH_JSON in namespace=$K8S_NS" >&2
   exit 1
 fi
-if [ -z "$HOMESERVER_URL" ]; then
-  HOMESERVER_URL="http://synapse.${K8S_NS}.svc.cluster.local:8008"
-fi
-if [ -z "$BOT_USER" ]; then
-  BOT_USER="@mbr:localhost"
-fi
-if [ -z "$DROP_USER" ]; then
-  DROP_USER="@drop:localhost"
-fi
-if [ -z "$DROP_PWD_B64" ]; then
-  echo "[start] missing ui-server-secret.data.MATRIX_MBR_PASSWORD in namespace=$K8S_NS" >&2
+MODELTABLE_PATCH_JSON="$(printf '%s' "$PATCH_B64" | decode_b64)"
+BOOTSTRAP_ENV="$(
+  PATCH_JSON="$MODELTABLE_PATCH_JSON" \
+  python3 - <<'PY'
+import json
+import os
+import shlex
+
+patch = json.loads(os.environ["PATCH_JSON"])
+records = patch.get("records") if isinstance(patch, dict) else None
+if not isinstance(records, list):
+    raise SystemExit("records_missing")
+
+values = {}
+for record in records:
+    if not isinstance(record, dict):
+        continue
+    if record.get("op") != "add_label":
+        continue
+    if record.get("model_id") != 0 or record.get("p") != 0 or record.get("r") != 0 or record.get("c") != 0:
+        continue
+    values[record.get("k")] = record.get("v")
+
+def first_text(value):
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, list):
+        for item in value:
+            if isinstance(item, str) and item.strip():
+                return item.strip()
+    return ""
+
+room_id = first_text(values.get("matrix_room_id"))
+homeserver_url = first_text(values.get("matrix_server"))
+drop_user = first_text(values.get("matrix_user"))
+bot_user = first_text(values.get("matrix_contuser"))
+missing = [
+    name for name, value in (
+        ("ROOM_ID", room_id),
+        ("HOMESERVER_URL", homeserver_url),
+        ("DROP_USER", drop_user),
+        ("BOT_USER", bot_user),
+    ) if not value
+]
+if missing:
+    raise SystemExit("missing_bootstrap_fields:" + ",".join(missing))
+
+for name, value in (
+    ("ROOM_ID", room_id),
+    ("HOMESERVER_URL", homeserver_url),
+    ("DROP_USER", drop_user),
+    ("BOT_USER", bot_user),
+):
+    print(f"{name}={shlex.quote(value)}")
+PY
+)"
+if [ -z "$BOOTSTRAP_ENV" ]; then
+  echo "[start] failed to parse ui-server bootstrap patch from MODELTABLE_PATCH_JSON" >&2
   exit 1
 fi
-DROP_PASSWORD="$(printf '%s' "$DROP_PWD_B64" | decode_b64)"
+eval "$BOOTSTRAP_ENV"
 
 if lsof -iTCP:"$PORT" -sTCP:LISTEN -n -P >/dev/null 2>&1; then
   if [ "$FORCE_KILL_PORT" -eq 1 ]; then
@@ -171,12 +213,7 @@ fi
 COMMON_ENV=(
   "PORT=$PORT"
   "DY_AUTH=0"
-  "DY_MATRIX_ROOM_ID=$ROOM_ID"
-  "DY_MATRIX_DM_PEER_USER_ID=$BOT_USER"
-  "MATRIX_HOMESERVER_URL=$HOMESERVER_URL"
-  "MATRIX_MBR_BOT_USER=$BOT_USER"
-  "MATRIX_MBR_USER=$DROP_USER"
-  "MATRIX_MBR_PASSWORD=$DROP_PASSWORD"
+  "MODELTABLE_PATCH_JSON=$MODELTABLE_PATCH_JSON"
   "NO_PROXY=*"
   "no_proxy=*"
 )

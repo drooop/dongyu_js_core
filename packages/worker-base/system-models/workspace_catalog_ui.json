@@ -1,0 +1,976 @@
+{
+  "version": "mt.v0",
+  "op_id": "workspace_catalog_ui_v0",
+  "description": "Workspace page asset",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": -25,
+      "name": "workspace_catalog",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "UI.WorkspaceCatalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "root_workspace"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "root_workspace"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ws_layout"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "root_workspace"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "row",
+        "gap": 16,
+        "style": {
+          "alignItems": "flex-start",
+          "minHeight": "600px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ws_left_panel"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ws_layout"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "资产树 ASSET TREE",
+        "style": {
+          "width": "260px",
+          "flexShrink": 0
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "tbl_workspace_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Table"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ws_left_panel"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "data": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "ws_apps_registry"
+          }
+        },
+        "border": true,
+        "stripe": true,
+        "size": "small",
+        "rowKey": "model_id"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_ws_name"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_workspace_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "name",
+        "prop": "name",
+        "minWidth": 180
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_ws_source"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_workspace_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "source",
+        "prop": "source",
+        "width": 72
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_ws_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_workspace_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Actions",
+        "width": 124,
+        "fixed": "right"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_ws_select"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "col_ws_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Open",
+        "type": "primary",
+        "link": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "pin": "click",
+          "value_ref": {
+            "t": "int",
+            "v": {
+              "$ref": "row.model_id"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "click",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "click_route",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, click)",
+          "to": [
+            "(func, handle_ws_select_click:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "handle_ws_select_click",
+      "t": "func.js",
+      "v": {
+        "code": "/* rubric: P4+P9+P10+P7+P8 */ var selected=Number.isInteger(label&&label.v)?label.v:null;\nif(!Number.isInteger(selected)&&label&&label.v&&typeof label.v==='object'&&Number.isInteger(label.v.value)){selected=label.v.value;}\nvar result=ctx.hostApi&&ctx.hostApi.wsSelectApp?ctx.hostApi.wsSelectApp(selected):{ok:false,code:'host_api_missing',detail:'wsSelectApp'};\nif(!result||result.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:result&&result.code?result.code:'exception',detail:result&&result.detail?result.detail:'ws_select_failed'});return;}\nvar selectedId=result.data&&result.data.selected;ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_app_selected', 'int', Number.isInteger(selectedId)?selectedId:0);ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_select: '+String(Number.isInteger(selectedId)?selectedId:0));",
+        "modelName": "workspace_catalog"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ws_right_panel"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ws_layout"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "应用详情",
+        "style": {
+          "flex": 1,
+          "minWidth": 0
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ws_selected_slot"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ws_right_panel"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "column",
+        "gap": 12,
+        "style": {
+          "minHeight": "120px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_ws_delete"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "col_ws_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Delete",
+        "type": "danger",
+        "link": true,
+        "disabled": {
+          "$ref": "row.delete_disabled"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "pin": "click",
+          "value_ref": {
+            "t": "int",
+            "v": {
+              "$ref": "row.model_id"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "click",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "click_route",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, click)",
+          "to": [
+            "(func, handle_ws_delete_click:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "handle_ws_delete_click",
+      "t": "func.js",
+      "v": {
+        "code": "/* rubric: P4+P9+P10+P7+P8 */ var targetId=Number.isInteger(label&&label.v)?label.v:null;\nif(!Number.isInteger(targetId)&&label&&label.v&&typeof label.v==='object'&&Number.isInteger(label.v.value)){targetId=label.v.value;}\nvar result=ctx.hostApi&&ctx.hostApi.wsDeleteApp?ctx.hostApi.wsDeleteApp(targetId):{ok:false,code:'host_api_missing',detail:'wsDeleteApp'};\nif(!result||result.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:result&&result.code?result.code:'exception',detail:result&&result.detail?result.detail:'ws_app_delete_failed'});return;}\nvar refresh=ctx.hostApi&&ctx.hostApi.wsRefreshCatalog?ctx.hostApi.wsRefreshCatalog():{ok:false,code:'host_api_missing',detail:'wsRefreshCatalog'};\nif(!refresh||refresh.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:refresh&&refresh.code?refresh.code:'exception',detail:refresh&&refresh.detail?refresh.detail:'ws_refresh_failed'});return;}\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_delete: '+String(Number.isInteger(targetId)?targetId:0));",
+        "modelName": "workspace_catalog"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Delete"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "inp_ws_add_name"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ws_right_panel"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "placeholder": "New app name"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "pin": "change",
+          "commit_policy": "on_blur"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "change",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "change_route",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, change)",
+          "to": [
+            "(func, handle_ws_add_name_change:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "handle_ws_add_name_change",
+      "t": "func.js",
+      "v": {
+        "code": "/* rubric: P4+P9+P10 */ var nextValue='';\nif(typeof label&&false){}\nif(typeof label.v==='string'){nextValue=label.v;}else if(label&&label.v&&typeof label.v==='object'){if(typeof label.v.value==='string')nextValue=label.v.value;}\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_new_app_name', 'str', String(nextValue||''));",
+        "modelName": "workspace_catalog"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_ws_add"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ws_right_panel"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Add App"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "pin": "click"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "click",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "click_route",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, click)",
+          "to": [
+            "(func, handle_ws_add_click:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "handle_ws_add_click",
+      "t": "func.js",
+      "v": {
+        "code": "/* rubric: P4+P9+P10+P7+P8 */ var name=String(ctx.getState('ws_new_app_name')||'').trim();\nvar result=ctx.hostApi&&ctx.hostApi.wsAddApp?ctx.hostApi.wsAddApp(name):{ok:false,code:'host_api_missing',detail:'wsAddApp'};\nif(!result||result.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:result&&result.code?result.code:'exception',detail:result&&result.detail?result.detail:'ws_app_add_failed'});return;}\nvar refresh=ctx.hostApi&&ctx.hostApi.wsRefreshCatalog?ctx.hostApi.wsRefreshCatalog():{ok:false,code:'host_api_missing',detail:'wsRefreshCatalog'};\nif(!refresh||refresh.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:refresh&&refresh.code?refresh.code:'exception',detail:refresh&&refresh.detail?refresh.detail:'ws_refresh_failed'});return;}\nvar modelId=result.data&&result.data.model_id;ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_new_app_name', 'str', '');ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_app_selected', 'int', Number.isInteger(modelId)?modelId:0);ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_add: '+String(Number.isInteger(modelId)?modelId:0));",
+        "modelName": "workspace_catalog"
+      }
+    }
+  ]
+}

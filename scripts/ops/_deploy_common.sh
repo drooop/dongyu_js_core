@@ -177,10 +177,65 @@ escape_sed_replacement() {
 update_k8s_secrets() {
   local server_token="$1"
   local mbr_token="$2"
+  local room_id="$3"
   local ns="${NAMESPACE:?}"
-  local tmp_ui tmp_mbr
+  local tmp_ui tmp_mbr ui_patch mbr_patch secret_name
   tmp_ui=$(mktemp)
   tmp_mbr=$(mktemp)
+  ui_patch="$(
+    ROOM_ID="$room_id" \
+    HOMESERVER_URL="http://synapse.${ns}.svc.cluster.local:8008" \
+    MATRIX_USER="@${SERVER_USER}:${SYNAPSE_SERVER_NAME}" \
+    MATRIX_PASSWORD="$SERVER_PASSWORD" \
+    MATRIX_TOKEN="$server_token" \
+    MATRIX_CONTUSER="@${MBR_USER}:${SYNAPSE_SERVER_NAME}" \
+    python3 - <<'PY'
+import json
+import os
+
+patch = {
+    "version": "mt.v0",
+    "op_id": "ui_server_matrix_bootstrap_v0",
+    "records": [
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_room_id", "t": "str", "v": os.environ["ROOM_ID"]},
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_server", "t": "matrix.server", "v": os.environ["HOMESERVER_URL"]},
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_user", "t": "matrix.user", "v": os.environ["MATRIX_USER"]},
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_passwd", "t": "matrix.passwd", "v": os.environ["MATRIX_PASSWORD"]},
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_token", "t": "matrix.token", "v": os.environ["MATRIX_TOKEN"]},
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_contuser", "t": "matrix.contuser", "v": [os.environ["MATRIX_CONTUSER"]]},
+    ],
+}
+print(json.dumps(patch, separators=(',', ':')))
+PY
+  )"
+  mbr_patch="$(
+    ROOM_ID="$room_id" \
+    HOMESERVER_URL="http://synapse.${ns}.svc.cluster.local:8008" \
+    MATRIX_USER="@${MBR_USER}:${SYNAPSE_SERVER_NAME}" \
+    MATRIX_TOKEN="$mbr_token" \
+    MATRIX_CONTUSER="@${SERVER_USER}:${SYNAPSE_SERVER_NAME}" \
+    MQTT_HOST="${MQTT_HOST}" \
+    MQTT_PORT="${MQTT_PORT}" \
+    python3 - <<'PY'
+import json
+import os
+
+patch = {
+    "version": "mt.v0",
+    "op_id": "mbr_worker_bootstrap_v0",
+    "records": [
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_room_id", "t": "str", "v": os.environ["ROOM_ID"]},
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_server", "t": "matrix.server", "v": os.environ["HOMESERVER_URL"]},
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_user", "t": "matrix.user", "v": os.environ["MATRIX_USER"]},
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_token", "t": "matrix.token", "v": os.environ["MATRIX_TOKEN"]},
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_contuser", "t": "matrix.contuser", "v": [os.environ["MATRIX_CONTUSER"]]},
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "local_ip", "t": "mqtt.local.ip", "v": [os.environ["MQTT_HOST"]]},
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "local_port", "t": "mqtt.local.port", "v": [os.environ["MQTT_PORT"]]},
+    ],
+}
+print(json.dumps(patch, separators=(',', ':')))
+PY
+  )"
 
   cat > "$tmp_ui" <<EOF
 apiVersion: v1
@@ -190,9 +245,11 @@ metadata:
   namespace: ${ns}
 type: Opaque
 stringData:
-  MATRIX_MBR_PASSWORD: "${SERVER_PASSWORD}"
-  MATRIX_MBR_ACCESS_TOKEN: "${server_token}"
+  MODELTABLE_PATCH_JSON: >-
+    ${ui_patch}
 EOF
+  secret_name="ui-server-secret"
+  kubectl delete secret "$secret_name" -n "$ns" --ignore-not-found >/dev/null 2>&1 || true
   kubectl apply -f "$tmp_ui"
 
   cat > "$tmp_mbr" <<EOF
@@ -203,8 +260,11 @@ metadata:
   namespace: ${ns}
 type: Opaque
 stringData:
-  MATRIX_MBR_BOT_ACCESS_TOKEN: "${mbr_token}"
+  MODELTABLE_PATCH_JSON: >-
+    ${mbr_patch}
 EOF
+  secret_name="mbr-worker-secret"
+  kubectl delete secret "$secret_name" -n "$ns" --ignore-not-found >/dev/null 2>&1 || true
   kubectl apply -f "$tmp_mbr"
 
   rm -f "$tmp_ui" "$tmp_mbr"
@@ -213,21 +273,23 @@ EOF
 }
 
 # ── patch_manifest ────────────────────────────────────────
-# Usage: patch_manifest <src_yaml> <room_id> [<password>]
+# Usage: patch_manifest <src_yaml> <room_id> [<password>] [<mbr_token>]
 # Replaces placeholder tokens and applies the manifest.
 patch_manifest() {
-  local src="$1" room_id="$2" password="${3:-}"
+  local src="$1" room_id="$2" password="${3:-}" mbr_token="${4:-}"
   if ! is_valid_matrix_room_id "$room_id"; then
     echo "ERROR: invalid matrix room id for patching: $room_id" >&2
     return 1
   fi
-  local room_id_escaped password_escaped
+  local room_id_escaped password_escaped mbr_token_escaped
   room_id_escaped="$(escape_sed_replacement "$room_id")"
   password_escaped="$(escape_sed_replacement "$password")"
+  mbr_token_escaped="$(escape_sed_replacement "$mbr_token")"
   local tmp
   tmp=$(mktemp)
   sed -e "s|placeholder-roomid-update-after-synapse-setup|$room_id_escaped|g" \
       -e "s|placeholder-password-update-after-synapse-setup|${password_escaped}|g" \
+      -e "s|placeholder-will-update-after-synapse-setup|${mbr_token_escaped}|g" \
       "$src" > "$tmp"
   kubectl apply -f "$tmp"
   rm -f "$tmp"
@@ -243,6 +305,31 @@ wait_for_rollout() {
       echo "  WARN: rollout timeout for $deploy"
     fi
   done
+}
+
+wait_for_no_terminating_pods() {
+  local ns="${NAMESPACE:?}"
+  local timeout_seconds="${TERMINATING_POD_WAIT_SECONDS:-60}"
+  local deadline=$((SECONDS + timeout_seconds))
+  local deploy stuck
+  local failed=0
+  for deploy in "$@"; do
+    while true; do
+      stuck="$(kubectl -n "$ns" get pods -l "app=$deploy" --no-headers 2>/dev/null \
+        | awk '$3 == "Terminating" {print $1}')"
+      if [ -z "$stuck" ]; then
+        echo "  No terminating pods for $deploy"
+        break
+      fi
+      if [ "$SECONDS" -ge "$deadline" ]; then
+        echo "  ERROR: terminating pods still present for $deploy: $stuck" >&2
+        failed=1
+        break
+      fi
+      sleep 2
+    done
+  done
+  return "$failed"
 }
 
 # ── verify_pods ───────────────────────────────────────────

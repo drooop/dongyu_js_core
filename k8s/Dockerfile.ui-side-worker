@@ -1,0 +1,14 @@
+FROM node:22-slim
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+RUN npm install --omit=dev
+
+COPY packages/worker-base/src/ ./packages/worker-base/src/
+COPY packages/worker-base/system-models/ ./packages/worker-base/system-models/
+
+COPY scripts/run_worker_ui_side_v0.mjs ./scripts/
+COPY scripts/worker_engine_v0.mjs ./scripts/
+
+CMD ["node", "scripts/run_worker_ui_side_v0.mjs"]

@@ -8,10 +8,91 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "ws_select_app_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_select_app_request_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, ws_select_app_request)",
+          "to": [
+            "(func, handle_ws_select_app:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_app_add_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_app_add_request_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, ws_app_add_request)",
+          "to": [
+            "(func, handle_ws_app_add:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_app_delete_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_app_delete_request_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, ws_app_delete_request)",
+          "to": [
+            "(func, handle_ws_app_delete:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "handle_ws_select_app",
       "t": "func.js",
       "v": {
-        "code": "var mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' });\nvar payload = mailbox && mailbox.payload ? mailbox.payload : {};\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar selected = ctx.getState('ws_app_selected');\nvar result = ctx.hostApi.wsSelectApp(selected);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'ws_select_failed';\n  ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: code, detail: detail });\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar selectedId = result.data && result.data.selected;\nif (typeof selectedId === 'string' && /^-?\\d+$/.test(selectedId.trim())) {\n  selectedId = Number(selectedId.trim());\n}\nif (!Number.isInteger(selectedId)) {\n  selectedId = 0;\n}\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' }, 'int', selectedId);\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ws_select: ' + selectedId);",
+        "code": "/* rubric: P5+P7+P8+P9 */\nvar event = label && label.v && typeof label.v === 'object' ? label.v : null;\nvar mailboxRead = ctx.hostApi.readCrossModel(-1, 0, 0, 1, 'bus_event');\nvar mailbox = mailboxRead && mailboxRead.ok && mailboxRead.data ? mailboxRead.data.v : null;\nvar payload = event && typeof event === 'object' ? event : (mailbox && mailbox.payload ? mailbox.payload : {});\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar selected = ctx.getState('ws_app_selected');\nvar incoming = payload && Object.prototype.hasOwnProperty.call(payload, 'value') ? payload.value : null;\nif (incoming && typeof incoming === 'object' && Object.prototype.hasOwnProperty.call(incoming, 'v')) {\n  selected = incoming.v;\n} else if (typeof incoming === 'string' || typeof incoming === 'number') {\n  selected = incoming;\n}\nvar result = ctx.hostApi.wsSelectApp(selected);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'ws_select_failed';\n  ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', { op_id: opId, code: code, detail: detail });\n  ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar selectedId = result.data && result.data.selected;\nif (typeof selectedId === 'string' && /^-?\\d+$/.test(selectedId.trim())) {\n  selectedId = Number(selectedId.trim());\n}\nif (!Number.isInteger(selectedId)) {\n  selectedId = 0;\n}\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_app_selected', 'int', selectedId);\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_select: ' + selectedId);",
         "modelName": "intent_handlers_ws"
       }
     },
@@ -24,7 +105,7 @@
       "k": "handle_ws_app_add",
       "t": "func.js",
       "v": {
-        "code": "var mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' });\nvar payload = mailbox && mailbox.payload ? mailbox.payload : {};\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar name = String(ctx.getState('ws_new_app_name') != null ? ctx.getState('ws_new_app_name') : '').trim();\nvar result = ctx.hostApi.wsAddApp(name);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'ws_app_add_failed';\n  ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: code, detail: detail });\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar refreshResult = ctx.hostApi.wsRefreshCatalog();\nif (!refreshResult || refreshResult.ok !== true) {\n  var rCode = refreshResult && refreshResult.code ? refreshResult.code : 'exception';\n  var rDetail = refreshResult && refreshResult.detail ? refreshResult.detail : 'ws_refresh_failed';\n  ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: rCode, detail: rDetail });\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ERR ' + String(rCode) + ': ' + String(rDetail));\n  return;\n}\nvar modelId = result.data && result.data.model_id;\nif (!Number.isInteger(modelId)) {\n  modelId = 0;\n}\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_new_app_name' }, 'str', '');\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' }, 'int', modelId);\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ws_add: ' + modelId);",
+        "code": "/* rubric: P5+P7+P8+P9 */\nvar event = label && label.v && typeof label.v === 'object' ? label.v : null;\nvar mailboxRead = ctx.hostApi.readCrossModel(-1, 0, 0, 1, 'bus_event');\nvar mailbox = mailboxRead && mailboxRead.ok && mailboxRead.data ? mailboxRead.data.v : null;\nvar payload = event && typeof event === 'object' ? event : (mailbox && mailbox.payload ? mailbox.payload : {});\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar name = String(ctx.getState('ws_new_app_name') != null ? ctx.getState('ws_new_app_name') : '').trim();\nvar result = ctx.hostApi.wsAddApp(name);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'ws_app_add_failed';\n  ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', { op_id: opId, code: code, detail: detail });\n  ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar refreshResult = ctx.hostApi.wsRefreshCatalog();\nif (!refreshResult || refreshResult.ok !== true) {\n  var rCode = refreshResult && refreshResult.code ? refreshResult.code : 'exception';\n  var rDetail = refreshResult && refreshResult.detail ? refreshResult.detail : 'ws_refresh_failed';\n  ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', { op_id: opId, code: rCode, detail: rDetail });\n  ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ERR ' + String(rCode) + ': ' + String(rDetail));\n  return;\n}\nvar modelId = result.data && result.data.model_id;\nif (!Number.isInteger(modelId)) {\n  modelId = 0;\n}\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_new_app_name', 'str', '');\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_app_selected', 'int', modelId);\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_add: ' + modelId);",
         "modelName": "intent_handlers_ws"
       }
     },
@@ -37,7 +118,7 @@
       "k": "handle_ws_app_delete",
       "t": "func.js",
       "v": {
-        "code": "var mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' });\nvar payload = mailbox && mailbox.payload ? mailbox.payload : {};\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar targetId = ctx.getState('ws_delete_app_id');\nvar result = ctx.hostApi.wsDeleteApp(targetId);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'ws_app_delete_failed';\n  ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: code, detail: detail });\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar refreshResult = ctx.hostApi.wsRefreshCatalog();\nif (!refreshResult || refreshResult.ok !== true) {\n  var rCode = refreshResult && refreshResult.code ? refreshResult.code : 'exception';\n  var rDetail = refreshResult && refreshResult.detail ? refreshResult.detail : 'ws_refresh_failed';\n  ctx.writeLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event_error' }, 'json', { op_id: opId, code: rCode, detail: rDetail });\n  ctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ERR ' + String(rCode) + ': ' + String(rDetail));\n  return;\n}\nvar deletedId = result.data && result.data.model_id;\nif (!Number.isInteger(deletedId)) {\n  deletedId = 0;\n}\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_delete_app_id' }, 'int', 0);\nctx.writeLabel({ model_id: -2, p: 0, r: 0, c: 0, k: 'ws_status' }, 'str', 'ws_delete: ' + deletedId);",
+        "code": "/* rubric: P5+P7+P8+P9 */\nvar event = label && label.v && typeof label.v === 'object' ? label.v : null;\nvar mailboxRead = ctx.hostApi.readCrossModel(-1, 0, 0, 1, 'bus_event');\nvar mailbox = mailboxRead && mailboxRead.ok && mailboxRead.data ? mailboxRead.data.v : null;\nvar payload = event && typeof event === 'object' ? event : (mailbox && mailbox.payload ? mailbox.payload : {});\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar incoming = payload && Object.prototype.hasOwnProperty.call(payload, 'value') ? payload.value : null;\nvar targetId = Number.isInteger(incoming && incoming.v) ? incoming.v : ctx.getState('ws_delete_app_id');\nvar result = ctx.hostApi.wsDeleteApp(targetId);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'ws_app_delete_failed';\n  ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', { op_id: opId, code: code, detail: detail });\n  ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar refreshResult = ctx.hostApi.wsRefreshCatalog();\nif (!refreshResult || refreshResult.ok !== true) {\n  var rCode = refreshResult && refreshResult.code ? refreshResult.code : 'exception';\n  var rDetail = refreshResult && refreshResult.detail ? refreshResult.detail : 'ws_refresh_failed';\n  ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', { op_id: opId, code: rCode, detail: rDetail });\n  ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ERR ' + String(rCode) + ': ' + String(rDetail));\n  return;\n}\nvar deletedId = result.data && result.data.model_id;\nif (!Number.isInteger(deletedId)) {\n  deletedId = 0;\n}\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_delete_app_id', 'int', 0);\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_delete: ' + deletedId);",
         "modelName": "intent_handlers_ws"
       }
     }

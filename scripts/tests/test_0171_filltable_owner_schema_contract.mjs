@@ -15,6 +15,7 @@ function getRecord(doc, key) {
 const promptTemplate = getRecord(llmCfg, 'llm_filltable_prompt_template');
 assert.ok(promptTemplate && typeof promptTemplate.v === 'string', 'llm_filltable_prompt_template missing');
 assert.match(promptTemplate.v, /candidate_changes/, 'prompt template must require candidate_changes');
+assert.match(promptTemplate.v, /Model inventory JSON/, 'prompt template must carry model inventory context');
 assert.doesNotMatch(promptTemplate.v, /records only support op=add_label\/rm_label/, 'prompt template must not keep records/op contract');
 
 const outputSchema = getRecord(llmCfg, 'llm_filltable_output_schema');

@@ -15,6 +15,16 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.LeaveRequest"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "app_name",
       "t": "str",
       "v": "请假申请"
@@ -236,12 +246,21 @@
         "placeholder": "请简要说明请假事由"
       }
     },
-
     {
       "op": "create_model",
       "model_id": 1002,
       "name": "设备报修",
       "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.RepairRequest"
     },
     {
       "op": "add_label",

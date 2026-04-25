@@ -11,6 +11,15 @@
       "k": "intent_dispatch_table",
       "t": "json",
       "v": {
+        "home_refresh": "handle_home_pin_only_dispatch_blocked",
+        "home_select_row": "handle_home_pin_only_dispatch_blocked",
+        "home_open_create": "handle_home_pin_only_dispatch_blocked",
+        "home_open_edit": "handle_home_pin_only_dispatch_blocked",
+        "home_save_label": "handle_home_pin_only_dispatch_blocked",
+        "home_delete_label": "handle_home_pin_only_dispatch_blocked",
+        "home_view_detail": "handle_home_pin_only_dispatch_blocked",
+        "home_close_detail": "handle_home_pin_only_dispatch_blocked",
+        "home_close_edit": "handle_home_pin_only_dispatch_blocked",
         "docs_refresh_tree": "handle_docs_refresh_tree",
         "docs_search": "handle_docs_search",
         "docs_open_doc": "handle_docs_open_doc",
@@ -21,8 +30,18 @@
         "ws_app_delete": "handle_ws_app_delete",
         "ws_select_app": "handle_ws_select_app",
         "ws_app_select": "handle_ws_select_app",
+        "ui_examples_promote_child_stage": "handle_ui_examples_promote_child_stage",
+        "three_scene_create_entity": "handle_three_scene_create_entity",
+        "three_scene_select_entity": "handle_three_scene_select_entity",
+        "three_scene_update_entity": "handle_three_scene_update_entity",
+        "three_scene_delete_entity": "handle_three_scene_delete_entity",
+        "matrix_debug_refresh": "handle_matrix_debug_refresh",
+        "matrix_debug_clear_trace": "handle_matrix_debug_clear_trace",
+        "matrix_debug_summarize": "handle_matrix_debug_summarize",
         "llm_filltable_preview": "handle_llm_filltable_preview",
-        "llm_filltable_apply": "handle_llm_filltable_apply"
+        "llm_filltable_apply": "handle_llm_filltable_apply",
+        "slide_app_import": "handle_slide_app_import",
+        "slide_app_create": "handle_slide_app_create"
       }
     },
     {
@@ -34,9 +53,8 @@
       "k": "event_trigger_map",
       "t": "json",
       "v": {
-        "ui_event": [
-          "update_scene_context",
-          "forward_ui_events"
+        "bus_event": [
+          "update_scene_context"
         ]
       }
     }

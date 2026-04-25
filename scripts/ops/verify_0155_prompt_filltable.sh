@@ -37,11 +37,22 @@ post_ui_event() {
   curl -fsS -X POST "$BASE_URL/ui_event" -H 'content-type: application/json' -d "$body"
 }
 
-apply_patch_json() {
-  local patch_json="$1"
+write_local_state() {
+  local key="$1"
+  local type="$2"
+  local json_value="$3"
+  local op_id="$4"
   local body
-  body="$(jq -nc --argjson patch "$patch_json" '{ patch: $patch }')"
-  curl -fsS -X POST "$BASE_URL/api/modeltable/patch" -H 'content-type: application/json' -d "$body" >/dev/null
+  body="$(jq -nc --arg key "$key" --arg type "$type" --arg op "$op_id" --argjson value "$json_value" '{
+    payload: {
+      action: "label_update",
+      source: "ui_renderer",
+      meta: { op_id: $op, local_only: true, model_id: -2 },
+      target: { model_id: -2, p: 0, r: 0, c: 0, k: $key },
+      value: { t: $type, v: $value }
+    }
+  }')"
+  curl -fsS -X POST "$BASE_URL/ui_event" -H 'content-type: application/json' -d "$body" >/dev/null
 }
 
 while [ $# -gt 0 ]; do
@@ -69,14 +80,11 @@ need_cmd date
 echo "[verify-0155] base_url=$BASE_URL"
 curl -fsS "$BASE_URL/snapshot" >/dev/null
 
-PATCH_PROMPT="$(jq -nc '{
-  version: "mt.v0",
-  op_id: "verify_0155_set_prompt",
-  records: [
-    { op: "add_label", model_id: -2, p: 0, r: 0, c: 0, k: "llm_prompt_text", t: "str", v: "Set model 100 title to prompt demo, remove obsolete_key, then check model 100 status" }
-  ]
-}')"
-apply_patch_json "$PATCH_PROMPT"
+ACTIVATE_RESP="$(curl -fsS -X POST "$BASE_URL/api/runtime/mode" -H 'content-type: application/json' -d '{"mode":"running"}')"
+echo "[verify-0155] runtime_mode_response=$ACTIVATE_RESP"
+echo "$ACTIVATE_RESP" | jq -e '.ok == true and .mode == "running"' >/dev/null
+
+write_local_state "llm_prompt_text" "str" '"Set model 100 title to prompt demo, remove obsolete_key, then check model 100 status"' "verify_0155_set_prompt"
 
 OP1="pf_preview_$(date +%s)_1"
 R1="$(post_ui_event "llm_filltable_preview" "$OP1" "llm_prompt_text")"
@@ -104,42 +112,25 @@ R3="$(post_ui_event "llm_filltable_apply" "$OP3" "llm_prompt_apply_preview_id")"
 echo "[verify-0155] replay_response=$R3"
 echo "$R3" | jq -e '.ok == true and .result == "error" and .code == "preview_replay"' >/dev/null
 
-PATCH_LEGACY="$(jq -nc '{
-  version: "mt.v0",
-  op_id: "verify_0155_legacy_preview",
-  records: [
-    { op: "add_label", model_id: -2, p: 0, r: 0, c: 0, k: "llm_prompt_preview_json", t: "json", v: { accepted_records: [ { action: "set_label", target: { model_id: 100, p: 0, r: 0, c: 0, k: "title" }, label: { t: "str", v: "x" } } ] } },
-    { op: "add_label", model_id: -2, p: 0, r: 0, c: 0, k: "llm_prompt_preview_id", t: "str", v: "pv_legacy_1" },
-    { op: "add_label", model_id: -2, p: 0, r: 0, c: 0, k: "llm_prompt_apply_preview_id", t: "str", v: "pv_legacy_1" },
-    { op: "add_label", model_id: -2, p: 0, r: 0, c: 0, k: "llm_prompt_last_applied_preview_id", t: "str", v: "" }
-  ]
-}')"
-apply_patch_json "$PATCH_LEGACY"
+write_local_state "llm_prompt_preview_json" "json" '{"accepted_records":[{"action":"set_label","target":{"model_id":100,"p":0,"r":0,"c":0,"k":"title"},"label":{"t":"str","v":"x"}}]}' "verify_0155_legacy_preview_json"
+write_local_state "llm_prompt_preview_id" "str" '"pv_legacy_1"' "verify_0155_legacy_preview_id"
+write_local_state "llm_prompt_apply_preview_id" "str" '"pv_legacy_1"' "verify_0155_legacy_apply_preview_id"
+write_local_state "llm_prompt_last_applied_preview_id" "str" '""' "verify_0155_legacy_last_applied"
 
 OP4="pf_legacy_$(date +%s)_4"
 R4="$(post_ui_event "llm_filltable_apply" "$OP4" "llm_prompt_apply_preview_id")"
 echo "[verify-0155] legacy_response=$R4"
 echo "$R4" | jq -e '.ok == true and .result == "error" and .code == "legacy_preview_contract"' >/dev/null
 
-PATCH_TOO_MANY="$(jq -nc 'def mkchange(i): {
+TOO_MANY_JSON="$(jq -nc 'def mkchange(i): {
   action: "set_label",
   target: { model_id: 100, p: 0, r: 0, c: 0, k: ("bulk_" + ((i + 1) | tostring)) },
   label: { t: "str", v: "x" }
-}; {
-  version: "mt.v0",
-  op_id: "verify_0155_toomany_preview",
-  records: [
-    {
-      op: "add_label",
-      model_id: -2, p: 0, r: 0, c: 0, k: "llm_prompt_preview_json", t: "json",
-      v: { accepted_changes: [range(0;11) | mkchange(.)] }
-    },
-    { op: "add_label", model_id: -2, p: 0, r: 0, c: 0, k: "llm_prompt_preview_id", t: "str", v: "pv_toomany_1" },
-    { op: "add_label", model_id: -2, p: 0, r: 0, c: 0, k: "llm_prompt_apply_preview_id", t: "str", v: "pv_toomany_1" },
-    { op: "add_label", model_id: -2, p: 0, r: 0, c: 0, k: "llm_prompt_last_applied_preview_id", t: "str", v: "" }
-  ]
-}')"
-apply_patch_json "$PATCH_TOO_MANY"
+}; { accepted_changes: [range(0;11) | mkchange(.)] }')"
+write_local_state "llm_prompt_preview_json" "json" "$TOO_MANY_JSON" "verify_0155_toomany_preview_json"
+write_local_state "llm_prompt_preview_id" "str" '"pv_toomany_1"' "verify_0155_toomany_preview_id"
+write_local_state "llm_prompt_apply_preview_id" "str" '"pv_toomany_1"' "verify_0155_toomany_apply_preview_id"
+write_local_state "llm_prompt_last_applied_preview_id" "str" '""' "verify_0155_toomany_last_applied"
 
 OP5="pf_toomany_$(date +%s)_5"
 R5="$(post_ui_event "llm_filltable_apply" "$OP5" "llm_prompt_apply_preview_id")"

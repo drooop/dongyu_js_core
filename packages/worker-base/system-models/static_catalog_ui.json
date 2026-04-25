@@ -1,0 +1,972 @@
+{
+  "version": "mt.v0",
+  "op_id": "static_catalog_ui_v0",
+  "description": "Static page asset",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": -24,
+      "name": "static_catalog",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "UI.StaticCatalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "root_static"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "root_static"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "layout_static"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "root_static"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "layout": "column",
+        "gap": 12
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "card_static_upload"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_static"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "Static Projects"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "form_static"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Form"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_static_upload"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_static_name"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_static"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Project name"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_static_name"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_static_name"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "placeholder": "e.g. my-site"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "static_project_name"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "static_project_name"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_static_file"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_static"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Upload file"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "file_static_upload"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FileInput"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_static_file"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "accept": ".html,.htm,.zip",
+        "label": "Select .html or .zip file (max 50MB)",
+        "buttonLabel": "选择文件",
+        "emptyText": "未选择任何文件"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "static_media_uri"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_static_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_static"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Actions"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_static_upload"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_static_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "primary",
+        "label": "Upload",
+        "disabled": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "static_upload_disabled"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "static_project_upload",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "static_project_name"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_static_refresh"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_static_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Refresh list"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "static_project_list",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "static_projects_json"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "txt_static_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_static"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "info",
+        "text": ""
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "static_status"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "card_static_list"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_static"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "Projects"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "tbl_static_projects"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Table"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_static_list"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "data": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "static_projects_json"
+          }
+        },
+        "border": true,
+        "stripe": true,
+        "size": "small",
+        "height": 520,
+        "rowKey": "name"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_static_name"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_static_projects"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "name",
+        "prop": "name",
+        "minWidth": 180
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_static_updated"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_static_projects"
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -24,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "updated",
+        "prop": "updated_at",
+        "minWidth": 180
+      }
+    }
+  ]
+}

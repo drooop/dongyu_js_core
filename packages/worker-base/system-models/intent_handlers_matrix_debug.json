@@ -1,0 +1,45 @@
+{
+  "version": "mt.v0",
+  "op_id": "intent_handlers_matrix_debug_v0",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_matrix_debug_refresh",
+      "t": "func.js",
+      "v": {
+        "code": "/* rubric: P4+P9+P10+P5+P7+P8 */ var mailbox = ((ctx.hostApi.readCrossModel(-1, 0, 0, 1, 'bus_event') || {}).data || {}).v;\nvar payload = mailbox && mailbox.payload ? mailbox.payload : {};\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar selected = String(ctx.getState('matrix_debug_subject_selected') != null ? ctx.getState('matrix_debug_subject_selected') : 'trace');\nvar result = ctx.hostApi.matrixDebugRefresh(selected);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'matrix_debug_refresh_failed';\n  ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', { op_id: opId, code: code, detail: detail });\n  ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_status_text', 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar data = result.data && typeof result.data === 'object' ? result.data : {};\nvar projection = data.projection && typeof data.projection === 'object' ? data.projection : {};\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_subjects_json', 'json', Array.isArray(projection.subjects) ? projection.subjects : []);\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_subject_selected', 'str', typeof projection.selected === 'string' ? projection.selected : selected);\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_readiness_text', 'str', typeof projection.readinessText === 'string' ? projection.readinessText : '');\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_subject_summary_text', 'str', typeof projection.subjectSummaryText === 'string' ? projection.subjectSummaryText : '');\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_trace_summary_text', 'str', typeof projection.traceSummaryText === 'string' ? projection.traceSummaryText : '');\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_status_text', 'str', 'refresh: ' + selected);",
+        "modelName": "intent_handlers_matrix_debug"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_matrix_debug_clear_trace",
+      "t": "func.js",
+      "v": {
+        "code": "/* rubric: P4+P9+P10+P5+P7+P8 */ var mailbox = ((ctx.hostApi.readCrossModel(-1, 0, 0, 1, 'bus_event') || {}).data || {}).v;\nvar payload = mailbox && mailbox.payload ? mailbox.payload : {};\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar selected = String(ctx.getState('matrix_debug_subject_selected') != null ? ctx.getState('matrix_debug_subject_selected') : 'trace');\nvar result = ctx.hostApi.matrixDebugClearTrace(selected);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'matrix_debug_clear_trace_failed';\n  ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', { op_id: opId, code: code, detail: detail });\n  ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_status_text', 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar data = result.data && typeof result.data === 'object' ? result.data : {};\nvar projection = data.projection && typeof data.projection === 'object' ? data.projection : {};\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_subjects_json', 'json', Array.isArray(projection.subjects) ? projection.subjects : []);\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_subject_selected', 'str', typeof projection.selected === 'string' ? projection.selected : selected);\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_readiness_text', 'str', typeof projection.readinessText === 'string' ? projection.readinessText : '');\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_subject_summary_text', 'str', typeof projection.subjectSummaryText === 'string' ? projection.subjectSummaryText : '');\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_trace_summary_text', 'str', typeof projection.traceSummaryText === 'string' ? projection.traceSummaryText : '');\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_status_text', 'str', 'trace cleared');",
+        "modelName": "intent_handlers_matrix_debug"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_matrix_debug_summarize",
+      "t": "func.js",
+      "v": {
+        "code": "/* rubric: P4+P9+P10+P5+P7+P8 */ var mailbox = ((ctx.hostApi.readCrossModel(-1, 0, 0, 1, 'bus_event') || {}).data || {}).v;\nvar payload = mailbox && mailbox.payload ? mailbox.payload : {};\nvar meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\nvar opId = typeof meta.op_id === 'string' ? meta.op_id : '';\nvar selected = String(ctx.getState('matrix_debug_subject_selected') != null ? ctx.getState('matrix_debug_subject_selected') : 'trace');\nvar result = ctx.hostApi.matrixDebugSummarize(selected);\nif (!result || result.ok !== true) {\n  var code = result && result.code ? result.code : 'exception';\n  var detail = result && result.detail ? result.detail : 'matrix_debug_summarize_failed';\n  ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', { op_id: opId, code: code, detail: detail });\n  ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_status_text', 'str', 'ERR ' + String(code) + ': ' + String(detail));\n  return;\n}\nvar data = result.data && typeof result.data === 'object' ? result.data : {};\nvar projection = data.projection && typeof data.projection === 'object' ? data.projection : {};\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_subjects_json', 'json', Array.isArray(projection.subjects) ? projection.subjects : []);\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_subject_selected', 'str', typeof projection.selected === 'string' ? projection.selected : selected);\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_readiness_text', 'str', typeof projection.readinessText === 'string' ? projection.readinessText : '');\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_subject_summary_text', 'str', typeof projection.subjectSummaryText === 'string' ? projection.subjectSummaryText : '');\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_trace_summary_text', 'str', typeof projection.traceSummaryText === 'string' ? projection.traceSummaryText : '');\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_summary_text', 'str', typeof data.summary === 'string' ? data.summary : '');\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'matrix_debug_status_text', 'str', 'summary ready: ' + selected);",
+        "modelName": "intent_handlers_matrix_debug"
+      }
+    }
+  ]
+}

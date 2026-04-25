@@ -1,10 +1,11 @@
 /**
  * Generic Worker Bootstrap v0
  *
- * Loads system patch + role patches from a directory, reads connection
- * parameters from ModelTable labels (env vars override), initializes
- * adapters (Matrix / MQTT), wires event handlers via label-defined
- * triggers, and runs the tick loop.
+ * Loads system patch + role patches from a directory, applies optional
+ * bootstrap patch from MODELTABLE_PATCH_JSON, reads connection
+ * parameters from Model 0, initializes adapters (Matrix / MQTT),
+ * routes inbound events into configured inbox labels, executes
+ * configured role functions by name, and runs the engine tick loop.
  *
  * Usage:
  *   bun scripts/run_worker_v0.mjs <patch_dir>
@@ -15,6 +16,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { WorkerEngineV0, loadSystemPatch } from './worker_engine_v0.mjs';
+import { readMatrixBootstrapConfig, readMqttBootstrapConfig } from '../packages/worker-base/src/bootstrap_config.mjs';
+import { applyPersistedAssetEntries, resolvePersistedAssetRoot } from '../packages/worker-base/src/persisted_asset_loader.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
@@ -31,37 +34,43 @@ function getLabel(rt, modelId, p, r, c, k) {
   return label ? label.v : null;
 }
 
-/** Label value with env-var override. Env wins when non-empty. */
-function labelOrEnv(rt, labelKey, envName, fallback) {
-  const envVal = process.env[envName];
-  if (envVal !== undefined && envVal !== '') return envVal;
-  const v = getLabel(rt, -10, 0, 0, 0, labelKey);
-  if (v !== null && v !== undefined && v !== '') return v;
-  return fallback !== undefined ? fallback : null;
-}
-
-function labelOrEnvInt(rt, labelKey, envName, fallback) {
-  const raw = labelOrEnv(rt, labelKey, envName, null);
-  if (raw === null) return fallback;
-  const n = Number(raw);
-  return Number.isInteger(n) ? n : fallback;
-}
-
 function log(msg) { process.stdout.write(`[worker] ${msg}\n`); }
 function logErr(msg) { process.stderr.write(`[worker] ${msg}\n`); }
+
+function readBootstrapPatchFromEnv() {
+  const raw = process.env.MODELTABLE_PATCH_JSON;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`invalid MODELTABLE_PATCH_JSON: ${err && err.message ? err.message : err}`);
+  }
+}
+
+function runtimeBridgeActive(runtime) {
+  if (!runtime) return false;
+  if (typeof runtime.isRuntimeRunning === 'function') {
+    return runtime.isRuntimeRunning();
+  }
+  if (typeof runtime.isRunLoopActive === 'function') {
+    return runtime.isRunLoopActive();
+  }
+  return false;
+}
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
 function main() {
+  const assetRoot = resolvePersistedAssetRoot();
   // 1. Determine patch directory
   const patchDir = process.argv[2] || process.env.DY_ROLE_PATCH_DIR || '';
-  if (!patchDir) {
+  if (!assetRoot && !patchDir) {
     logErr('Usage: run_worker_v0.mjs <patch_dir>  or set DY_ROLE_PATCH_DIR');
     process.exitCode = 1;
     return;
   }
-  const resolvedDir = path.resolve(patchDir);
-  if (!fs.existsSync(resolvedDir)) {
+  const resolvedDir = patchDir ? path.resolve(patchDir) : '';
+  if (!assetRoot && !fs.existsSync(resolvedDir)) {
     logErr(`Patch directory not found: ${resolvedDir}`);
     process.exitCode = 1;
     return;
@@ -69,18 +78,36 @@ function main() {
 
   // 2. Create runtime + load system patch
   const rt = new ModelTableRuntime();
-  loadSystemPatch(rt);
+  loadSystemPatch(rt, { assetRoot, scope: 'mbr-worker' });
   if (!rt.getModel(-10)) rt.createModel({ id: -10, name: 'system', type: 'system' });
 
-  // 3. Load role patches (alphabetical order)
-  const patchFiles = fs.readdirSync(resolvedDir)
-    .filter(f => f.endsWith('.json'))
-    .sort();
-  for (const f of patchFiles) {
-    const fullPath = path.join(resolvedDir, f);
-    const patch = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
-    const result = rt.applyPatch(patch, { allowCreateModel: true });
-    log(`loaded patch: ${f} (applied=${result.applied} rejected=${result.rejected})`);
+  // 3. Load role patches
+  if (assetRoot) {
+    const result = applyPersistedAssetEntries(rt, {
+      assetRoot,
+      scope: 'mbr-worker',
+      authority: 'authoritative',
+      kind: 'patch',
+      phases: ['20-role-negative', '40-role-positive'],
+      applyOptions: { allowCreateModel: true, trustedBootstrap: true },
+    });
+    log(`loaded persisted assets for mbr-worker (entries=${result.entriesApplied} patches=${result.patchObjectsApplied})`);
+  } else {
+    const patchFiles = fs.readdirSync(resolvedDir)
+      .filter(f => f.endsWith('.json'))
+      .sort();
+    for (const f of patchFiles) {
+      const fullPath = path.join(resolvedDir, f);
+      const patch = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
+      const result = rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
+      log(`loaded patch: ${f} (applied=${result.applied} rejected=${result.rejected})`);
+    }
+  }
+
+  const bootstrapPatch = readBootstrapPatchFromEnv();
+  if (bootstrapPatch) {
+    const result = rt.applyPatch(bootstrapPatch, { allowCreateModel: true, trustedBootstrap: true });
+    log(`loaded bootstrap patch from MODELTABLE_PATCH_JSON (applied=${result.applied} rejected=${result.rejected})`);
   }
 
   const sys = rt.getModel(-10);
@@ -89,31 +116,46 @@ function main() {
     process.exitCode = 1;
     return;
   }
+  rt.setRuntimeMode('edit');
+  log(`runtime_mode=${rt.getRuntimeMode()}`);
 
-  // 4. Read connection parameters from labels (env override)
-
-  // Bot credentials support
-  if (process.env.MATRIX_MBR_BOT_USER && process.env.MATRIX_MBR_BOT_ACCESS_TOKEN) {
-    process.env.MATRIX_MBR_USER = process.env.MATRIX_MBR_BOT_USER;
-    process.env.MATRIX_MBR_ACCESS_TOKEN = process.env.MATRIX_MBR_BOT_ACCESS_TOKEN;
-    log(`Using BOT credentials: ${process.env.MATRIX_MBR_USER}`);
+  // 4. Read connection parameters from Model 0 bootstrap labels.
+  const matrixConfig = readMatrixBootstrapConfig(rt);
+  const mqttConfig = readMqttBootstrapConfig(rt);
+  const matrixRoomId = matrixConfig.roomId;
+  const mqttHost = mqttConfig.host;
+  const mqttPort = mqttConfig.port;
+  const mqttUser = '';
+  const mqttPass = '';
+  if (!mqttHost || !Number.isInteger(mqttPort)) {
+    logErr('missing mqtt.local.ip / mqtt.local.port on Model 0 (0,0,0)');
+    process.exitCode = 1;
+    return;
   }
 
-  const matrixRoomId = labelOrEnv(rt, 'mbr_matrix_room_id', 'DY_MATRIX_ROOM_ID', null);
-  const mqttHost = labelOrEnv(rt, 'mbr_mqtt_host', 'DY_MQTT_HOST', '127.0.0.1');
-  const mqttPort = labelOrEnvInt(rt, 'mbr_mqtt_port', 'DY_MQTT_PORT', 1883);
-  const mqttUser = labelOrEnv(rt, 'mbr_mqtt_user', 'DY_MQTT_USER', 'u');
-  const mqttPass = labelOrEnv(rt, 'mbr_mqtt_pass', 'DY_MQTT_PASS', 'p');
-
   // 5. Read wiring config from labels
-  const matrixEventFilter = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_event_filter') || 'ui_event');
+  const matrixEventFilter = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_event_filter') || 'pin_payload');
   const matrixInboxLabel = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_inbox_label') || 'mbr_mgmt_inbox');
-  const matrixTrigger = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_trigger') || 'run_mbr_mgmt_to_mqtt');
+  const matrixFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_func') || '').trim();
   const mqttInboxLabel = String(getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_inbox_label') || 'mbr_mqtt_inbox');
-  const mqttTrigger = String(getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_trigger') || 'run_mbr_mqtt_to_mgmt');
+  const mqttFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_func') || '').trim();
+  const readyFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_ready_func') || '').trim();
+  const heartbeatFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_heartbeat_func') || '').trim();
 
   const mqttModelIds = getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_model_ids');
-  const heartbeatMs = labelOrEnvInt(rt, 'mbr_heartbeat_interval_ms', 'DY_HEARTBEAT_MS', 30000);
+  const heartbeatRaw = getLabel(rt, -10, 0, 0, 0, 'mbr_heartbeat_interval_ms');
+  const heartbeatMs = Number.isInteger(heartbeatRaw) ? heartbeatRaw : 30000;
+
+  if (!mqttInboxLabel || !mqttFunc || !readyFunc || !heartbeatFunc) {
+    logErr('missing MBR function/inbox config labels');
+    process.exitCode = 1;
+    return;
+  }
+  if (matrixRoomId && (!matrixInboxLabel || !matrixFunc)) {
+    logErr('missing mbr_matrix_inbox_label / mbr_matrix_func config labels');
+    process.exitCode = 1;
+    return;
+  }
 
   // 6. MQTT topic base (from system patch, Model 0)
   const base = String(getLabel(rt, 0, 0, 0, 0, 'mqtt_topic_base') || '').trim();
@@ -127,7 +169,7 @@ function main() {
   const modelIds = Array.isArray(mqttModelIds) ? mqttModelIds : [2];
   const subscribeTopics = [];
   for (const mid of modelIds) {
-    subscribeTopics.push(`${base}/${mid}/patch_out`);
+    subscribeTopics.push(`${base}/${mid}/result`);
   }
 
   // 7. Create MQTT client
@@ -148,36 +190,56 @@ function main() {
   // 8. Create engine
   const engine = new WorkerEngineV0({ runtime: rt, mgmtAdapter: null, mqttPublish });
 
+  let mqttReady = false;
+  let matrixReady = !matrixRoomId;
+  let runtimeActivated = false;
+  const maybeActivateRunning = () => {
+    if (runtimeActivated || !mqttReady || !matrixReady) return;
+    rt.setRuntimeMode('running');
+    runtimeActivated = true;
+    log(`runtime_mode=${rt.getRuntimeMode()}`);
+    engine.executeFunction(readyFunc);
+    engine.tick();
+    setInterval(() => {
+      engine.executeFunction(heartbeatFunc);
+      engine.tick();
+    }, heartbeatMs);
+  };
+
   // 9. Matrix adapter (if room ID configured)
   let mgmtAdapter = null;
   if (matrixRoomId) {
     const filterTypes = matrixEventFilter.split(',').map(s => s.trim());
 
-    createMatrixLiveAdapter({ roomId: matrixRoomId, syncTimeoutMs: 20000 })
+    createMatrixLiveAdapter({
+      roomId: matrixRoomId,
+      syncTimeoutMs: 20000,
+      homeserverUrl: matrixConfig.homeserverUrl || undefined,
+      accessToken: matrixConfig.accessToken || undefined,
+      userId: matrixConfig.userId || undefined,
+      password: matrixConfig.password || undefined,
+      peerUserId: matrixConfig.peerUserId || undefined,
+    })
       .then((adapter) => {
         mgmtAdapter = adapter;
         engine.mgmtAdapter = adapter;
 
         adapter.subscribe((event) => {
-          if (!event || event.version !== 'v0') return;
+          if (!event || (event.version !== 'v0' && event.version !== 'v1')) return;
           if (!filterTypes.includes(event.type)) return;
+          if (!rt.isRuntimeRunning()) {
+            log(`drop pre-running mgmt ${event.type} op_id=${event.op_id || ''}`);
+            return;
+          }
           log(`recv mgmt ${event.type} op_id=${event.op_id}`);
           rt.addLabel(sys, 0, 0, 0, { k: matrixInboxLabel, t: 'json', v: event });
-          rt.addLabel(sys, 0, 0, 0, { k: matrixTrigger, t: 'str', v: '1' });
+          engine.executeFunction(matrixFunc);
           engine.tick();
         });
 
         log(`mgmt READY room_id=${adapter.room_id}`);
-
-        // Fire mbr_ready via program model trigger
-        rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_ready', t: 'str', v: '1' });
-        engine.tick();
-
-        // Heartbeat timer via program model trigger
-        setInterval(() => {
-          rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_heartbeat', t: 'str', v: '1' });
-          engine.tick();
-        }, heartbeatMs);
+        matrixReady = true;
+        maybeActivateRunning();
       })
       .catch((err) => {
         logErr(`matrix adapter init failed: ${err && err.stack ? err.stack : err}`);
@@ -193,6 +255,8 @@ function main() {
       mqttClient.subscribe(topic);
     }
     log(`mqtt READY subscribed=${subscribeTopics.join(', ')}`);
+    mqttReady = true;
+    maybeActivateRunning();
     log('READY');
   });
 
@@ -204,10 +268,16 @@ function main() {
     } catch (_) {
       return;
     }
-    if (!payload || typeof payload !== 'object' || payload.version !== 'mt.v0') return;
+    const isMtPatch = payload && typeof payload === 'object' && payload.version === 'mt.v0';
+    const isPinPayload = payload && typeof payload === 'object' && payload.version === 'v1' && payload.type === 'pin_payload' && Array.isArray(payload.payload);
+    if (!isMtPatch && !isPinPayload) return;
+    if (!rt.isRuntimeRunning()) {
+      log(`drop pre-running mqtt topic=${topic} op_id=${payload.op_id || ''}`);
+      return;
+    }
     log(`recv mqtt topic=${topic} op_id=${payload.op_id || ''}`);
     rt.addLabel(sys, 0, 0, 0, { k: mqttInboxLabel, t: 'json', v: { topic, payload } });
-    rt.addLabel(sys, 0, 0, 0, { k: mqttTrigger, t: 'str', v: '1' });
+    engine.executeFunction(mqttFunc);
     engine.tick();
   });
 

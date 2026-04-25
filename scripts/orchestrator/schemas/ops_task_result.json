@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ops_task_result.v1",
+  "title": "Ops Task Result v1",
+  "description": "Structured result envelope emitted by an external ops executor. stdout/stderr/artifacts are canonical files under the task dir, but they are not authoritative PASS evidence until orchestrator ingests the result.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "ops_task_result.v1",
+      "description": "Versioned ops_task result contract"
+    },
+    "task_kind": {
+      "const": "ops_task",
+      "description": "Explicitly distinguishes ops_task result from browser_task or generic CLI execution"
+    },
+    "batch_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "iteration_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "fail"]
+    },
+    "failure_kind": {
+      "type": "string",
+      "enum": [
+        "none",
+        "request_invalid",
+        "executor_unavailable",
+        "target_unreachable",
+        "timeout",
+        "cancelled",
+        "result_invalid",
+        "nonzero_exit",
+        "assertion_failed",
+        "artifact_missing",
+        "artifact_mismatch",
+        "remote_guard_blocked",
+        "forbidden_remote_op",
+        "stale_result",
+        "duplicate_result",
+        "ingest_failed",
+        "ops_bridge_not_proven"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "exit_code": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "executor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "executor_class": {
+          "const": "ops_capable"
+        },
+        "bridge_channel": {
+          "const": "ops_task_bridge"
+        },
+        "executor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["mock", "local_shell", "ssh"]
+        }
+      },
+      "required": ["executor_class", "bridge_channel", "executor_id", "mode"]
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "stdout_file": {
+      "type": "string",
+      "pattern": "^\\.orchestrator/runs/[^/]+/ops_tasks/[^/]+/stdout\\.log$"
+    },
+    "stderr_file": {
+      "type": "string",
+      "pattern": "^\\.orchestrator/runs/[^/]+/ops_tasks/[^/]+/stderr\\.log$"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "artifact_kind": {
+            "type": "string",
+            "enum": ["file", "json", "log", "archive"]
+          },
+          "relative_path": {
+            "type": "string",
+            "pattern": "^\\.orchestrator/runs/[^/]+/ops_tasks/[^/]+/artifacts/.+"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{64}$"
+          },
+          "producer": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "actor": {
+                "const": "ops_executor"
+              },
+              "executor_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["actor", "executor_id"]
+          }
+        },
+        "required": [
+          "artifact_kind",
+          "relative_path",
+          "required",
+          "media_type",
+          "bytes",
+          "sha256",
+          "producer"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "task_kind",
+    "batch_id",
+    "iteration_id",
+    "task_id",
+    "attempt",
+    "status",
+    "failure_kind",
+    "summary",
+    "exit_code",
+    "executor",
+    "started_at",
+    "completed_at",
+    "stdout_file",
+    "stderr_file",
+    "artifacts"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "pass"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "failure_kind": {
+            "const": "none"
+          },
+          "exit_code": {
+            "const": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "fail"
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "properties": {
+            "failure_kind": {
+              "const": "none"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

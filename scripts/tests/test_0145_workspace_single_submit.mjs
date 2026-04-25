@@ -80,18 +80,23 @@ async function main() {
 
   const opId = `it0145_single_${Date.now()}`;
   const submitEnvelope = {
+    event_id: Date.now(),
     source: 'ui_renderer',
-    type: 'label_add',
+    type: 'click',
+    ts: Date.now(),
     payload: {
-      action: 'label_add',
       meta: { op_id: opId },
-      target: { model_id: 100, p: 0, r: 0, c: 2, k: 'ui_event' },
-      value: { t: 'json', v: { action: 'submit', meta: { op_id: opId } } },
+      target: { model_id: 100, p: 1, r: 0, c: 0 },
+      pin: 'click',
+      value: [
+        { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+        { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: '0145-workspace-check' },
+      ],
     },
   };
 
-  const post = await requestJson('POST', '/ui_event', submitEnvelope);
-  if (post.status !== 200 || !(post.json && post.json.ok)) {
+  const post = await requestJson('POST', '/bus_event', submitEnvelope);
+  if (post.status !== 200 || !(post.json && post.json.ok) || post.json.result !== 'ok') {
     process.stdout.write(`[FAIL] ui_event_submit_failed status=${post.status} body=${post.raw}\n`);
     process.exit(1);
   }
@@ -141,4 +146,3 @@ main().catch((err) => {
   process.stdout.write(`[FAIL] unexpected_error ${String(err && err.message ? err.message : err)}\n`);
   process.exit(1);
 });
-

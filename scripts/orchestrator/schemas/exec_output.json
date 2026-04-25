@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Codex Execution Output",
+  "description": "Structured output from Codex exec (doit role) during PLANNING and EXECUTION phases.",
+  "type": "object",
+  "properties": {
+    "execution_summary": {
+      "type": "string",
+      "description": "Summary of what was done"
+    },
+    "steps_completed": {
+      "type": "array",
+      "description": "List of resolution steps completed",
+      "items": {
+        "type": "object",
+        "properties": {
+          "step": { "type": "integer" },
+          "description": { "type": "string" },
+          "status": { "enum": ["pass", "fail", "skip"] },
+          "evidence": { "type": "string" },
+          "commit": { "type": "string" }
+        },
+        "required": ["step", "status"]
+      }
+    },
+    "files_changed": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "validation_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "string" },
+          "result": { "enum": ["pass", "fail"] },
+          "output_snippet": { "type": "string" }
+        },
+        "required": ["command", "result"]
+      }
+    },
+    "browser_tasks": {
+      "type": "array",
+      "description": "Structured browser_task handshake from execution output to canonical request.json materialization.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "task_kind": {
+            "const": "browser_task"
+          },
+          "task_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "start_url": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "success_assertions": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "required_artifacts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "artifact_kind": {
+                  "enum": ["screenshot", "json", "trace", "console"]
+                },
+                "file_name": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "media_type": {
+                  "type": "string"
+                }
+              },
+              "required": ["artifact_kind", "file_name", "required", "media_type"]
+            }
+          },
+          "executor": {
+            "type": "object",
+            "properties": {
+              "mode": { "enum": ["mock", "mcp"] },
+              "executor_id": { "type": "string" }
+            },
+            "required": ["mode", "executor_id"]
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "task_kind",
+          "task_id",
+          "summary",
+          "instructions",
+          "success_assertions",
+          "required_artifacts",
+          "executor",
+          "timeout_ms"
+        ]
+      }
+    },
+    "ops_tasks": {
+      "type": "array",
+      "description": "Structured ops_task handshake from execution output to canonical request/result/stdout/stderr/artifacts materialization.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "task_kind": {
+            "const": "ops_task"
+          },
+          "task_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "shell": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cwd": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_env": {
+            "enum": ["local", "remote"]
+          },
+          "host_scope": {
+            "enum": ["repo", "local_host", "local_cluster", "remote_host", "remote_cluster"]
+          },
+          "mutating": {
+            "type": "boolean"
+          },
+          "danger_level": {
+            "enum": ["low", "medium", "high", "critical"]
+          },
+          "success_assertions": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "required_artifacts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "artifact_kind": {
+                  "enum": ["file", "json", "log", "archive"]
+                },
+                "file_name": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "media_type": {
+                  "type": "string"
+                }
+              },
+              "required": ["artifact_kind", "file_name", "required", "media_type"]
+            }
+          },
+          "executor": {
+            "type": "object",
+            "properties": {
+              "mode": { "enum": ["mock", "local_shell", "ssh"] },
+              "executor_id": { "type": "string" }
+            },
+            "required": ["mode", "executor_id"]
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "task_kind",
+          "task_id",
+          "summary",
+          "command",
+          "shell",
+          "cwd",
+          "target_env",
+          "host_scope",
+          "mutating",
+          "danger_level",
+          "success_assertions",
+          "required_artifacts",
+          "executor",
+          "timeout_ms"
+        ]
+      }
+    },
+    "spawned_iterations": {
+      "type": "array",
+      "description": "New iterations proposed during execution",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "reason": { "type": "string" },
+          "spawn_type": { "enum": ["derived_dependency", "scope_expansion"] },
+          "blocks_current": { "type": "boolean" },
+          "scope_justification": { "type": "string" }
+        },
+        "required": ["title", "reason", "spawn_type", "blocks_current"]
+      }
+    }
+  },
+  "required": ["execution_summary"]
+}

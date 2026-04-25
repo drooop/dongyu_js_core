@@ -1,0 +1,523 @@
+{
+  "version": "mt.v0",
+  "op_id": "doc_page_filltable_example_minimal_v0",
+  "description": "0275 minimal doc page fill-table example",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 1015,
+      "name": "doc_page_filltable_example_minimal",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.DocPageExampleMinimal"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "doc_example_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "doc_example_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Section"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "0275 文档型页面 MVP"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_section_number",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "hero"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "heading_intro"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Heading"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_example_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "细粒度填表形成文档页面"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_heading_level",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "para_intro"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Paragraph"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_example_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "这个最小示例使用 Section、Heading、Paragraph、Callout 和 List 组件。\n修改对应 label 后，页面应直接变化。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "callout_tip"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Callout"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_example_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "提示"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "本轮 MermaidDiagram 只做占位渲染，真实图表留到后续 iteration。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_callout_type",
+      "t": "str",
+      "v": "tip"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "steps_list"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "List"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_example_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_list_type",
+      "t": "str",
+      "v": "ordered"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "step_1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "ListItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "steps_list"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "创建或打开文档模型"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "step_2"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "ListItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "steps_list"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "逐个填写 Section / Heading / Paragraph 等组件标签"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "step_3"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "ListItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "steps_list"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "刷新页面，确认渲染和改表联动"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "diagram_placeholder"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "MermaidDiagram"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "doc_example_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": 1015,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_mermaid_code",
+      "t": "str",
+      "v": "graph TD; ModelTable-->Compiler; Compiler-->Renderer;"
+    }
+  ]
+}

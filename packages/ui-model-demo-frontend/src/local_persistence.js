@@ -26,9 +26,9 @@ export function createLocalStoragePersister(options) {
   const storage = options && options.storage ? options.storage : (typeof window !== 'undefined' ? window.localStorage : null);
   const ignoreModelIds = options && options.ignoreModelIds ? options.ignoreModelIds : new Set();
   const ignoreLabelKeys = new Set([
-    'ui_event',
-    'ui_event_error',
-    'ui_event_last_op_id',
+    'bus_event',
+    'bus_event_error',
+    'bus_event_last_op_id',
     'ui_ast_v0',
     'snapshot_json',
     'event_log',

@@ -1,9 +1,4 @@
-/**
- * Validate MBR Role Patch v0
- *
- * Tests that the patch-driven MBR (mbr_role_v0.json) produces identical
- * behaviour to the hardcoded run_worker_mbr_v0.mjs implementation.
- */
+#!/usr/bin/env node
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,6 +9,7 @@ const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
 
 const PATCH_PATH = path.resolve('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json');
+const RUN_WORKER_PATH = path.resolve('scripts/run_worker_v0.mjs');
 
 let pass = 0;
 let fail = 0;
@@ -28,22 +24,23 @@ function assert(cond, name) {
   }
 }
 
-function getLabel(rt, modelId, p, r, c, k) {
+function getCell(rt, modelId, p, r, c) {
   const model = rt.getModel(modelId);
   if (!model) return null;
-  const cell = rt.getCell(model, p, r, c);
-  const label = cell.labels.get(k);
-  return label ? label.v : null;
+  return rt.getCell(model, p, r, c);
 }
 
 function getLabelEntry(rt, modelId, p, r, c, k) {
-  const model = rt.getModel(modelId);
-  if (!model) return null;
-  const cell = rt.getCell(model, p, r, c);
-  return cell.labels.get(k) || null;
+  const cell = getCell(rt, modelId, p, r, c);
+  return cell ? cell.labels.get(k) || null : null;
 }
 
-function extractFunctionCode(entry) {
+function getLabel(rt, modelId, p, r, c, k) {
+  const entry = getLabelEntry(rt, modelId, p, r, c, k);
+  return entry ? entry.v : null;
+}
+
+function getFunctionCode(entry) {
   if (!entry) return '';
   if (entry.v && typeof entry.v === 'object' && typeof entry.v.code === 'string') return entry.v.code;
   return '';
@@ -53,463 +50,239 @@ function createPatchedRuntime() {
   const rt = new ModelTableRuntime();
   loadSystemPatch(rt);
   if (!rt.getModel(-10)) rt.createModel({ id: -10, name: 'system', type: 'system' });
-  const patch = JSON.parse(fs.readFileSync(PATCH_PATH, 'utf-8'));
-  rt.applyPatch(patch, { allowCreateModel: true });
+  const patch = JSON.parse(fs.readFileSync(PATCH_PATH, 'utf8'));
+  rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
   return rt;
 }
 
-// ── Test 1: Patch loads successfully ────────────────────────────────────────
+function execMbrFunction(rt, name, ctx) {
+  const entry = getLabelEntry(rt, -10, 0, 0, 0, name);
+  const code = getFunctionCode(entry);
+  const fn = new Function('ctx', code);
+  fn(ctx);
+}
 
 process.stdout.write('\n=== Test Group 1: Patch Loading ===\n');
+{
+  const rt = createPatchedRuntime();
+  assert(rt.getModel(-10) !== undefined, 'system model (-10) exists');
+}
 
-const rt1 = createPatchedRuntime();
-const sys1 = rt1.getModel(-10);
-assert(sys1 !== null, 'system model (-10) exists');
+process.stdout.write('\n=== Test Group 2: Current Metadata Labels ===\n');
+{
+  const rt = createPatchedRuntime();
+  const expectedPresent = [
+    ['mbr_mqtt_model_ids', 'json'],
+    ['mbr_heartbeat_interval_ms', 'int'],
+    ['mbr_matrix_event_filter', 'str'],
+    ['mbr_matrix_inbox_label', 'str'],
+    ['mbr_mqtt_inbox_label', 'str'],
+  ];
+  for (const [k, t] of expectedPresent) {
+    const entry = getLabelEntry(rt, -10, 0, 0, 0, k);
+    assert(entry !== null, `label ${k} exists`);
+    if (entry) {
+      assert(entry.t === t, `label ${k} type=${entry.t} expected=${t}`);
+    }
+  }
 
-// ── Test 2: Connection parameter labels ─────────────────────────────────────
+  const mids = getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_model_ids');
+  assert(Array.isArray(mids), 'mbr_mqtt_model_ids is array');
+  assert(JSON.stringify(mids) === JSON.stringify([2, 100, 1010]), 'mbr_mqtt_model_ids = [2,100,1010]');
+  assert(getLabel(rt, -10, 0, 0, 0, 'mbr_heartbeat_interval_ms') === 30000, 'mbr_heartbeat_interval_ms = 30000');
 
-process.stdout.write('\n=== Test Group 2: Connection Parameter Labels ===\n');
-
-const expectedConfigs = [
-  ['mbr_matrix_room_id', 'str', ''],
-  ['mbr_mqtt_host', 'str', '127.0.0.1'],
-  ['mbr_mqtt_port', 'int', 1883],
-  ['mbr_mqtt_user', 'str', 'u'],
-  ['mbr_mqtt_pass', 'str', 'p'],
-  ['mbr_remote_model_id', 'int', 2],
-  ['mbr_heartbeat_interval_ms', 'int', 30000],
-];
-for (const [k, t, v] of expectedConfigs) {
-  const entry = getLabelEntry(rt1, -10, 0, 0, 0, k);
-  assert(entry !== null, `label ${k} exists`);
-  if (entry) {
-    assert(entry.t === t, `label ${k} type=${entry.t} expected=${t}`);
-    assert(entry.v === v, `label ${k} value=${JSON.stringify(entry.v)} expected=${JSON.stringify(v)}`);
+  for (const legacyKey of [
+    'mbr_matrix_room_id',
+    'mbr_mqtt_host',
+    'mbr_mqtt_port',
+    'mbr_mqtt_user',
+    'mbr_mqtt_pass',
+    'mbr_remote_model_id',
+  ]) {
+    assert(getLabelEntry(rt, -10, 0, 0, 0, legacyKey) === null, `legacy dead-config label ${legacyKey} absent`);
   }
 }
 
-// mqtt_model_ids is json array
-const mids = getLabel(rt1, -10, 0, 0, 0, 'mbr_mqtt_model_ids');
-assert(Array.isArray(mids), 'mbr_mqtt_model_ids is array');
-assert(mids && mids.length === 2 && mids[0] === 2 && mids[1] === 100, 'mbr_mqtt_model_ids = [2, 100]');
-
-// ── Test 3: Event routing labels ────────────────────────────────────────────
-
-process.stdout.write('\n=== Test Group 3: Event Routing Labels ===\n');
-
-const expectedRouting = [
-  ['mbr_matrix_event_filter', 'ui_event'],
-  ['mbr_matrix_inbox_label', 'mbr_mgmt_inbox'],
-  ['mbr_matrix_trigger', 'run_mbr_mgmt_to_mqtt'],
-  ['mbr_mqtt_inbox_label', 'mbr_mqtt_inbox'],
-  ['mbr_mqtt_trigger', 'run_mbr_mqtt_to_mgmt'],
-];
-for (const [k, v] of expectedRouting) {
-  const val = getLabel(rt1, -10, 0, 0, 0, k);
-  assert(val === v, `${k} = '${val}' expected '${v}'`);
-}
-
-// ── Test 4: Business functions exist and are executable ─────────────────────
-
-process.stdout.write('\n=== Test Group 4: Business Functions ===\n');
-
-const expectedFunctions = ['mbr_mgmt_to_mqtt', 'mbr_mqtt_to_mgmt', 'mbr_heartbeat', 'mbr_ready'];
-for (const name of expectedFunctions) {
-  const entry = getLabelEntry(rt1, -10, 0, 0, 0, name);
-  assert(entry !== null && entry.t === 'func.js', `function ${name} exists`);
-  const code = extractFunctionCode(entry);
-  assert(typeof code === 'string' && code.length > 0, `function ${name} has code`);
-  // Verify it compiles
-  let compiles = false;
-  try {
-    new Function('ctx', code);
-    compiles = true;
-  } catch (err) {
-    process.stdout.write(`    compile error: ${err.message}\n`);
+process.stdout.write('\n=== Test Group 3: Functions Compile ===\n');
+{
+  const rt = createPatchedRuntime();
+  for (const name of ['mbr_mgmt_to_mqtt', 'mbr_mqtt_to_mgmt', 'mbr_heartbeat', 'mbr_ready']) {
+    const entry = getLabelEntry(rt, -10, 0, 0, 0, name);
+    assert(entry !== null && entry.t === 'func.js', `function ${name} exists`);
+    const code = getFunctionCode(entry);
+    let compiles = false;
+    try {
+      new Function('ctx', code);
+      compiles = true;
+    } catch (err) {
+      process.stdout.write(`    compile error ${name}: ${err.message}\n`);
+    }
+    assert(compiles, `function ${name} compiles`);
   }
-  assert(compiles, `function ${name} compiles`);
 }
 
-// ── Test 5: mbr_mgmt_to_mqtt — ui_event conversion ─────────────────────────
-
-process.stdout.write('\n=== Test Group 5: mbr_mgmt_to_mqtt (ui_event) ===\n');
-
+process.stdout.write('\n=== Test Group 4: Model 100 Bridge ===\n');
 {
   const rt = createPatchedRuntime();
   const sys = rt.getModel(-10);
-  let publishedTopic = null;
-  let publishedPayload = null;
-
-  const engine = new WorkerEngineV0({
-    runtime: rt,
-    mgmtAdapter: null,
-    mqttPublish: (topic, payload) => {
-      publishedTopic = topic;
-      publishedPayload = payload;
+  let published = null;
+  rt.addLabel(sys, 0, 0, 0, {
+    k: 'mbr_mgmt_inbox',
+    t: 'json',
+    v: {
+      version: 'v1',
+      type: 'pin_payload',
+      op_id: 'm100_001',
+      source_model_id: 100,
+      pin: 'submit',
+      payload: [
+        { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+        { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'abc' },
+      ],
+      timestamp: 1700000000000,
     },
   });
-
-  // Simulate Matrix ui_event arriving
-  const uiEvent = {
-    version: 'v0',
-    type: 'ui_event',
-    op_id: 'test_op_001',
-    action: 'label_update',
-    data: { meta: { op_id: 'test_op_001' }, target: { model_id: 2, p: 0, r: 0, c: 0, k: 'title' }, value: { t: 'str', v: 'Hello' } },
-    timestamp: Date.now(),
-  };
-
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: uiEvent });
-  rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_mgmt_to_mqtt', t: 'str', v: '1' });
-  engine.tick();
-
-  assert(publishedTopic !== null, 'MQTT publish was called');
-  assert(publishedTopic === 'UIPUT/ws/dam/pic/de/sw/2/patch_in', `topic=${publishedTopic} expected UIPUT/ws/dam/pic/de/sw/2/patch_in`);
-  assert(publishedPayload && publishedPayload.version === 'mt.v0', 'payload is mt.v0');
-  assert(publishedPayload && publishedPayload.op_id === 'test_op_001', 'payload has correct op_id');
-  assert(publishedPayload && Array.isArray(publishedPayload.records) && publishedPayload.records.length === 1, 'payload has 1 record');
-  if (publishedPayload && publishedPayload.records && publishedPayload.records[0]) {
-    const rec = publishedPayload.records[0];
-    assert(rec.op === 'add_label', 'record op=add_label');
-    assert(rec.model_id === 2, 'record model_id=2');
-    assert(rec.k === 'ui_event', 'record k=ui_event');
-  }
-
-  // Verify inbox and trigger cleaned up
-  assert(getLabel(rt, -10, 0, 0, 0, 'mbr_mgmt_inbox') === null, 'inbox cleaned up');
-  assert(getLabel(rt, -10, 0, 0, 0, 'run_mbr_mgmt_to_mqtt') === null, 'trigger cleaned up');
-
-  // Verify dedup marker
-  assert(getLabel(rt, -10, 0, 0, 0, 'mbr_seen_test_op_001') === '1', 'dedup marker set');
+  execMbrFunction(rt, 'mbr_mgmt_to_mqtt', {
+    getLabel: (ref) => getLabel(rt, ref.model_id, ref.p, ref.r, ref.c, ref.k),
+    writeLabel: (ref, t, v) => rt.addLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, { k: ref.k, t, v }),
+    rmLabel: (ref) => rt.rmLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, ref.k),
+    publishMqtt: (topic, payload) => { published = { topic, payload }; },
+  });
+  assert(published !== null, 'model100 pin_payload published');
+  assert(published.topic === 'UIPUT/ws/dam/pic/de/sw/100/submit', 'model100 topic uses /100/submit');
+  assert(published.payload && published.payload.version === 'v1', 'model100 payload uses pin_payload v1');
+  assert(published.payload?.type === 'pin_payload', 'model100 payload preserves pin_payload type');
+  assert(published.payload?.pin === 'submit', 'model100 payload preserves submit pin');
+  assert(published.payload?.source_model_id === 100, 'model100 payload preserves source_model_id');
+  assert(Array.isArray(published.payload?.payload), 'model100 payload carries temporary-modeltable array');
 }
 
-// ── Test 6: mbr_mgmt_to_mqtt — Model 100 routing ───────────────────────────
-
-process.stdout.write('\n=== Test Group 6: mbr_mgmt_to_mqtt (Model 100) ===\n');
-
+process.stdout.write('\n=== Test Group 5: Route-Driven Source Model ===\n');
 {
   const rt = createPatchedRuntime();
   const sys = rt.getModel(-10);
-  let publishedTopic = null;
-  let publishedPayload = null;
-
-  const engine = new WorkerEngineV0({
-    runtime: rt,
-    mgmtAdapter: null,
-    mqttPublish: (topic, payload) => {
-      publishedTopic = topic;
-      publishedPayload = payload;
+  let published = null;
+  rt.addLabel(sys, 0, 0, 0, {
+    k: 'mbr_route_101',
+    t: 'json',
+    v: { pin: 'task', type: 'pin_payload' },
+  });
+  rt.addLabel(sys, 0, 0, 0, {
+    k: 'mbr_mgmt_inbox',
+    t: 'json',
+    v: {
+      version: 'v1',
+      type: 'pin_payload',
+      op_id: 'route_101_001',
+      source_model_id: 101,
+      pin: 'task',
+      payload: [
+        { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+        { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'abc' },
+      ],
+      timestamp: 1700000000000,
     },
   });
-
-  const uiEvent = {
-    version: 'v0',
-    type: 'ui_event',
-    op_id: 'test_m100_001',
-    action: 'some_action',
-    source_model_id: 100,
-    data: { foo: 'bar' },
-    timestamp: Date.now(),
-  };
-
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: uiEvent });
-  rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_mgmt_to_mqtt', t: 'str', v: '1' });
-  engine.tick();
-
-  assert(publishedTopic === 'UIPUT/ws/dam/pic/de/sw/100/event', `Model 100 topic=${publishedTopic}`);
-  assert(publishedPayload && publishedPayload.version === 'mt.v0', 'Model 100 payload is mt.v0');
-  assert(publishedPayload && publishedPayload.op_id === 'test_m100_001', 'Model 100 payload has correct op_id');
-  assert(publishedPayload && Array.isArray(publishedPayload.records) && publishedPayload.records.length === 3, 'Model 100 payload is records-only (3 records)');
-  assert(publishedPayload && !('action' in publishedPayload) && !('data' in publishedPayload), 'Model 100 payload does not use legacy action/data fields');
-  if (publishedPayload && Array.isArray(publishedPayload.records)) {
-    const actionRec = publishedPayload.records.find((r) => r && r.op === 'add_label' && r.k === 'action');
-    const dataRec = publishedPayload.records.find((r) => r && r.op === 'add_label' && r.k === 'data');
-    const tsRec = publishedPayload.records.find((r) => r && r.op === 'add_label' && r.k === 'timestamp');
-    assert(actionRec && actionRec.model_id === 100 && actionRec.p === 1 && actionRec.r === 0 && actionRec.c === 0 && actionRec.t === 'str' && actionRec.v === 'some_action', 'Model 100 action record written to request cell');
-    assert(dataRec && dataRec.model_id === 100 && dataRec.p === 1 && dataRec.r === 0 && dataRec.c === 0 && dataRec.t === 'json' && dataRec.v && dataRec.v.foo === 'bar', 'Model 100 data record written to request cell');
-    assert(tsRec && tsRec.model_id === 100 && tsRec.p === 1 && tsRec.r === 0 && tsRec.c === 0 && tsRec.t === 'int' && typeof tsRec.v === 'number', 'Model 100 timestamp record written to request cell');
-  }
+  execMbrFunction(rt, 'mbr_mgmt_to_mqtt', {
+    getLabel: (ref) => getLabel(rt, ref.model_id, ref.p, ref.r, ref.c, ref.k),
+    writeLabel: (ref, t, v) => rt.addLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, { k: ref.k, t, v }),
+    rmLabel: (ref) => rt.rmLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, ref.k),
+    publishMqtt: (topic, payload) => { published = { topic, payload }; },
+  });
+  assert(published !== null, 'route-driven pin_payload published');
+  assert(published.topic === 'UIPUT/ws/dam/pic/de/sw/101/task', 'route-driven topic uses mbr_route_<modelId>.pin');
+  assert(published.payload?.version === 'v1', 'route-driven payload uses pin_payload v1');
+  assert(published.payload?.source_model_id === 101, 'route-driven payload targets source model id');
+  assert(Array.isArray(published.payload?.payload), 'route-driven payload preserves temporary-modeltable array');
 }
 
-// ── Test 7: mbr_mgmt_to_mqtt — dedup ───────────────────────────────────────
-
-process.stdout.write('\n=== Test Group 7: Dedup ===\n');
-
+process.stdout.write('\n=== Test Group 6: Generic CRUD Rejected ===\n');
 {
   const rt = createPatchedRuntime();
   const sys = rt.getModel(-10);
   let publishCount = 0;
-
-  const engine = new WorkerEngineV0({
-    runtime: rt,
-    mgmtAdapter: null,
-    mqttPublish: () => { publishCount += 1; },
-  });
-
-  const uiEvent = {
-    version: 'v0', type: 'ui_event', op_id: 'dedup_001',
-    action: 'test', data: {}, timestamp: Date.now(),
-  };
-
-  // First send
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: uiEvent });
-  rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_mgmt_to_mqtt', t: 'str', v: '1' });
-  engine.tick();
-  assert(publishCount === 1, 'first send published');
-
-  // Second send with same op_id
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: uiEvent });
-  rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_mgmt_to_mqtt', t: 'str', v: '1' });
-  engine.tick();
-  assert(publishCount === 1, 'duplicate suppressed (still 1)');
-}
-
-// ── Test 8: mbr_mqtt_to_mgmt ────────────────────────────────────────────────
-
-process.stdout.write('\n=== Test Group 8: mbr_mqtt_to_mgmt ===\n');
-
-{
-  const rt = createPatchedRuntime();
-  const sys = rt.getModel(-10);
-  let mgmtPublished = null;
-
-  const engine = new WorkerEngineV0({
-    runtime: rt,
-    mgmtAdapter: {
-      publish: (event) => {
-        mgmtPublished = event;
-        return Promise.resolve();
-      },
-    },
-    mqttPublish: null,
-  });
-
-  const mqttPayload = {
-    version: 'mt.v0',
-    op_id: 'mqtt_ack_001',
-    records: [
-      { op: 'add_label', model_id: 1, p: 0, r: 0, c: 0, k: 'result', t: 'str', v: 'ACK' },
-    ],
-  };
-
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mqtt_inbox', t: 'json', v: { topic: 'test/2/patch_out', payload: mqttPayload } });
-  rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_mqtt_to_mgmt', t: 'str', v: '1' });
-  engine.tick();
-
-  assert(mgmtPublished !== null, 'MGMT_OUT was sent via Matrix');
-  assert(mgmtPublished && mgmtPublished.version === 'v0', 'mgmt event version=v0');
-  assert(mgmtPublished && mgmtPublished.type === 'snapshot_delta', 'mgmt event type=snapshot_delta');
-  assert(mgmtPublished && mgmtPublished.op_id === 'mqtt_ack_001', 'mgmt event op_id correct');
-  assert(mgmtPublished && mgmtPublished.payload && mgmtPublished.payload.version === 'mt.v0', 'mgmt payload is mt.v0');
-
-  // Verify cleanup
-  assert(getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_inbox') === null, 'mqtt inbox cleaned up');
-  assert(getLabel(rt, -10, 0, 0, 0, 'run_mbr_mqtt_to_mgmt') === null, 'mqtt trigger cleaned up');
-}
-
-// ── Test 9: mbr_heartbeat ───────────────────────────────────────────────────
-
-process.stdout.write('\n=== Test Group 9: mbr_heartbeat ===\n');
-
-{
-  const rt = createPatchedRuntime();
-  const sys = rt.getModel(-10);
-  let mgmtPublished = null;
-
-  const engine = new WorkerEngineV0({
-    runtime: rt,
-    mgmtAdapter: {
-      publish: (event) => {
-        mgmtPublished = event;
-        return Promise.resolve();
-      },
-    },
-    mqttPublish: null,
-  });
-
-  rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_heartbeat', t: 'str', v: '1' });
-  engine.tick();
-
-  assert(mgmtPublished !== null, 'heartbeat MGMT_OUT sent');
-  assert(mgmtPublished && mgmtPublished.version === 'v0', 'heartbeat version=v0');
-  assert(mgmtPublished && mgmtPublished.type === 'mbr_ready', 'heartbeat type=mbr_ready');
-  assert(mgmtPublished && mgmtPublished.op_id && mgmtPublished.op_id.startsWith('mbr_heartbeat_'), 'heartbeat op_id prefix');
-}
-
-// ── Test 10: mbr_ready ──────────────────────────────────────────────────────
-
-process.stdout.write('\n=== Test Group 10: mbr_ready ===\n');
-
-{
-  const rt = createPatchedRuntime();
-  const sys = rt.getModel(-10);
-  let mgmtPublished = null;
-
-  const engine = new WorkerEngineV0({
-    runtime: rt,
-    mgmtAdapter: {
-      publish: (event) => {
-        mgmtPublished = event;
-        return Promise.resolve();
-      },
-    },
-    mqttPublish: null,
-  });
-
-  rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_ready', t: 'str', v: '1' });
-  engine.tick();
-
-  assert(mgmtPublished !== null, 'ready MGMT_OUT sent');
-  assert(mgmtPublished && mgmtPublished.type === 'mbr_ready', 'ready type=mbr_ready');
-  assert(mgmtPublished && mgmtPublished.op_id && mgmtPublished.op_id.startsWith('mbr_ready_'), 'ready op_id prefix');
-}
-
-// ── Test 11: mbr_mgmt_to_mqtt — label_add/label_remove/cell_clear/submodel_create ──
-
-process.stdout.write('\n=== Test Group 11: Legacy envelope actions ===\n');
-
-{
-  const rt = createPatchedRuntime();
-  const sys = rt.getModel(-10);
-  const published = [];
-
-  const engine = new WorkerEngineV0({
-    runtime: rt,
-    mgmtAdapter: null,
-    mqttPublish: (topic, payload) => { published.push({ topic, payload }); },
-  });
-
-  // label_add action (legacy envelope: no version/type at root → else branch)
-  const labelAddEvent = {
-    op_id: 'legacy_add_001',
-    payload: {
+  rt.addLabel(sys, 0, 0, 0, {
+    k: 'mbr_mgmt_inbox',
+    t: 'json',
+    v: {
+      version: 'v0',
+      type: 'snapshot_delta',
+      op_id: 'reject_001',
       payload: {
         action: 'label_add',
-        meta: { op_id: 'legacy_add_001' },
-        target: { model_id: 2, p: 0, r: 0, c: 0, k: 'title' },
-        value: { t: 'str', v: 'Hello' },
+        target: { model_id: 100, p: 0, r: 0, c: 0, k: 'title' },
+        value: { t: 'str', v: 'x' },
       },
     },
-  };
-
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: labelAddEvent });
-  rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_mgmt_to_mqtt', t: 'str', v: '1' });
-  engine.tick();
-  assert(published.length === 1, 'label_add published');
-  assert(published[0] && published[0].payload && published[0].payload.records[0].op === 'add_label', 'label_add -> add_label record');
-
-  // label_remove action (legacy envelope)
-  const labelRemoveEvent = {
-    op_id: 'legacy_rm_001',
-    payload: {
-      payload: {
-        action: 'label_remove',
-        meta: { op_id: 'legacy_rm_001' },
-        target: { model_id: 2, p: 0, r: 0, c: 0, k: 'title' },
-      },
-    },
-  };
-
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: labelRemoveEvent });
-  rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_mgmt_to_mqtt', t: 'str', v: '1' });
-  engine.tick();
-  assert(published.length === 2, 'label_remove published');
-  assert(published[1] && published[1].payload && published[1].payload.records[0].op === 'rm_label', 'label_remove -> rm_label record');
-
-  // cell_clear action (legacy envelope)
-  const cellClearEvent = {
-    op_id: 'legacy_cc_001',
-    payload: {
-      payload: {
-        action: 'cell_clear',
-        meta: { op_id: 'legacy_cc_001' },
-        target: { model_id: 2, p: 0, r: 0, c: 0 },
-      },
-    },
-  };
-
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: cellClearEvent });
-  rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_mgmt_to_mqtt', t: 'str', v: '1' });
-  engine.tick();
-  assert(published.length === 3, 'cell_clear published');
-  assert(published[2] && published[2].payload && published[2].payload.records[0].op === 'cell_clear', 'cell_clear -> cell_clear record');
-
-  // submodel_create action (legacy envelope)
-  const submodelEvent = {
-    op_id: 'legacy_sm_001',
-    payload: {
-      payload: {
-        action: 'submodel_create',
-        meta: { op_id: 'legacy_sm_001' },
-        target: { model_id: 2, p: 0, r: 0, c: 0, k: 'sub' },
-        value: { t: 'json', v: { id: 5, name: 'Sub5', type: 'data' } },
-      },
-    },
-  };
-
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: submodelEvent });
-  rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_mgmt_to_mqtt', t: 'str', v: '1' });
-  engine.tick();
-  assert(published.length === 4, 'submodel_create published');
-  assert(published[3] && published[3].payload && published[3].payload.records[0].op === 'create_model', 'submodel_create -> create_model record');
+  });
+  execMbrFunction(rt, 'mbr_mgmt_to_mqtt', {
+    getLabel: (ref) => getLabel(rt, ref.model_id, ref.p, ref.r, ref.c, ref.k),
+    writeLabel: (ref, t, v) => rt.addLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, { k: ref.k, t, v }),
+    rmLabel: (ref) => rt.rmLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, ref.k),
+    publishMqtt: () => { publishCount += 1; },
+  });
+  assert(publishCount === 0, 'generic CRUD not published');
+  assert(getLabel(rt, -10, 0, 0, 0, 'mbr_mgmt_error')?.code === 'direct_model_mutation_disabled', 'generic CRUD writes mbr_mgmt_error');
 }
 
-// ── Test 12: mbr_remote_model_id read from label ────────────────────────────
-
-process.stdout.write('\n=== Test Group 12: Dynamic remote model ID ===\n');
-
+process.stdout.write('\n=== Test Group 7: MQTT -> pin_payload ===\n');
 {
   const rt = createPatchedRuntime();
   const sys = rt.getModel(-10);
-  let publishedTopic = null;
+  rt.addLabel(sys, 0, 0, 0, {
+    k: 'mbr_mqtt_inbox',
+    t: 'json',
+    v: {
+      topic: 'UIPUT/ws/dam/pic/de/sw/100/result',
+      payload: {
+        version: 'v1',
+        type: 'pin_payload',
+        op_id: 'ack_001',
+        source_model_id: 100,
+        pin: 'result',
+        payload: [{ id: 0, p: 0, r: 0, c: 0, k: 'bg_color', t: 'str', v: '#fff' }],
+      },
+    },
+  });
+  execMbrFunction(rt, 'mbr_mqtt_to_mgmt', {
+    getLabel: (ref) => getLabel(rt, ref.model_id, ref.p, ref.r, ref.c, ref.k),
+    writeLabel: (ref, t, v) => rt.addLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, { k: ref.k, t, v }),
+    rmLabel: (ref) => rt.rmLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, ref.k),
+  });
+  const changeOut = getLabelEntry(rt, -10, 0, 0, 0, 'change_out');
+  assert(changeOut !== null && changeOut.t === 'MGMT_OUT', 'mbr_mqtt_to_mgmt writes MGMT_OUT');
+  assert(changeOut?.v?.type === 'pin_payload', 'mbr_mqtt_to_mgmt emits pin_payload');
+}
 
-  // Override mbr_remote_model_id to 7
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_remote_model_id', t: 'int', v: 7 });
-
+process.stdout.write('\n=== Test Group 8: Heartbeat / Ready Publish ===\n');
+{
+  const rt = createPatchedRuntime();
+  let published = [];
   const engine = new WorkerEngineV0({
     runtime: rt,
-    mgmtAdapter: null,
-    mqttPublish: (topic) => { publishedTopic = topic; },
+    mgmtAdapter: {
+      publish: async (event) => {
+        published.push(event);
+      },
+    },
+    mqttPublish: null,
   });
-
-  const uiEvent = {
-    version: 'v0', type: 'ui_event', op_id: 'dyn_mid_001',
-    action: 'test', data: {}, timestamp: Date.now(),
-  };
-
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: uiEvent });
-  rt.addLabel(sys, 0, 0, 0, { k: 'run_mbr_mgmt_to_mqtt', t: 'str', v: '1' });
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
+  rt.addLabel(rt.getModel(-10), 0, 0, 0, { k: 'run_mbr_ready', t: 'str', v: '1' });
+  rt.addLabel(rt.getModel(-10), 0, 0, 0, { k: 'run_mbr_heartbeat', t: 'str', v: '1' });
   engine.tick();
-
-  assert(publishedTopic === 'UIPUT/ws/dam/pic/de/sw/7/patch_in', `dynamic model_id topic=${publishedTopic}`);
+  assert(published.some((event) => event?.type === 'mbr_ready' && String(event.op_id || '').startsWith('mbr_ready_')), 'mbr_ready published to Matrix');
+  assert(published.some((event) => event?.type === 'mbr_ready' && String(event.op_id || '').startsWith('mbr_heartbeat_')), 'mbr_heartbeat published to Matrix');
 }
 
-// ── Test 13: run_worker_v0.mjs syntax check ─────────────────────────────────
-
-process.stdout.write('\n=== Test Group 13: Worker bootstrap syntax ===\n');
-
+process.stdout.write('\n=== Test Group 9: Worker Bootstrap Source Contract ===\n');
 {
-  const workerPath = path.resolve('scripts/run_worker_v0.mjs');
-  assert(fs.existsSync(workerPath), 'run_worker_v0.mjs exists');
-  // Verify it can be parsed (import syntax check)
-  let parsed = false;
-  try {
-    const src = fs.readFileSync(workerPath, 'utf-8');
-    // Basic checks
-    assert(src.includes('loadSystemPatch'), 'imports loadSystemPatch');
-    assert(src.includes('applyPatch'), 'calls applyPatch');
-    assert(src.includes('labelOrEnv'), 'uses labelOrEnv helper');
-    assert(src.includes('run_mbr_ready'), 'triggers mbr_ready');
-    assert(src.includes('run_mbr_heartbeat'), 'triggers mbr_heartbeat');
-    assert(src.includes('DY_ROLE_PATCH_DIR'), 'supports DY_ROLE_PATCH_DIR env');
-    parsed = true;
-  } catch (err) {
-    process.stdout.write(`    parse error: ${err.message}\n`);
-  }
-  assert(parsed, 'run_worker_v0.mjs is readable');
+  const src = fs.readFileSync(RUN_WORKER_PATH, 'utf8');
+  assert(!src.includes("mbr_matrix_room_id"), 'run_worker_v0 does not read legacy mbr_matrix_room_id');
+  assert(!src.includes("mbr_mqtt_host"), 'run_worker_v0 does not read legacy mbr_mqtt_host');
+  assert(/if\s*\(!rt\.isRuntimeRunning\(\)\)\s*\{[\s\S]*return;[\s\S]*\}/.test(src), 'run_worker_v0 drops inbound bridge traffic before running');
 }
-
-// ── Summary ─────────────────────────────────────────────────────────────────
 
 process.stdout.write('\n────────────────────────────────────\n');
 process.stdout.write(`TOTAL: ${pass + fail}  PASS: ${pass}  FAIL: ${fail}\n`);

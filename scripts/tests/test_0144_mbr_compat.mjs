@@ -12,9 +12,9 @@ function loadJson(p) {
 function loadSystemAndMbr() {
   const rt = new ModelTableRuntime();
   const sysPatch = loadJson('packages/worker-base/system-models/system_models.json');
-  rt.applyPatch(sysPatch, { allowCreateModel: true });
+  rt.applyPatch(sysPatch, { allowCreateModel: true, trustedBootstrap: true });
   const mbrPatch = loadJson('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json');
-  rt.applyPatch(mbrPatch, { allowCreateModel: true });
+  rt.applyPatch(mbrPatch, { allowCreateModel: true, trustedBootstrap: true });
   return rt;
 }
 
@@ -63,14 +63,16 @@ function test_mbr_mgmt_to_mqtt_execute_model100() {
   const rt = loadSystemAndMbr();
   const sys = rt.getModel(-10);
 
-  // Simulate incoming Matrix ui_event for Model 100
   const uiEvent = {
-    version: 'v0',
-    type: 'ui_event',
+    version: 'v1',
+    type: 'pin_payload',
     op_id: 'test_0144_001',
-    action: 'submit',
     source_model_id: 100,
-    data: { meta: { op_id: 'test_0144_001' } },
+    pin: 'submit',
+    payload: [
+      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'abc' },
+    ],
     timestamp: Date.now(),
   };
   rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: uiEvent });
@@ -106,9 +108,12 @@ function test_mbr_mgmt_to_mqtt_execute_model100() {
   fn(ctx);
 
   assert(publishedTopic, 'should publish to MQTT');
-  assert(publishedTopic.endsWith('/100/event'), `topic should end with /100/event, got ${publishedTopic}`);
-  assert(publishedPayload && publishedPayload.version === 'mt.v0', 'payload must be mt.v0');
-  assert(Array.isArray(publishedPayload.records), 'payload must have records');
+  assert(publishedTopic.endsWith('/100/submit'), `topic should end with /100/submit, got ${publishedTopic}`);
+  assert(publishedPayload && publishedPayload.version === 'v1', 'payload must be pin_payload v1');
+  assert.strictEqual(publishedPayload.type, 'pin_payload', 'payload type must stay pin_payload');
+  assert.strictEqual(publishedPayload.pin, 'submit', 'payload pin must stay submit');
+  assert.strictEqual(publishedPayload.source_model_id, 100, 'payload must preserve source_model_id');
+  assert(Array.isArray(publishedPayload.payload), 'payload must carry temporary-modeltable array');
 
   // Verify inbox cleaned up
   assert(!rt.getCell(sys, 0, 0, 0).labels.has('mbr_mgmt_inbox'), 'inbox should be cleaned');
@@ -126,14 +131,14 @@ function test_mbr_mqtt_to_mgmt_execute() {
 
   // Simulate incoming MQTT patch
   const mqttPayload = {
-    topic: 'UIPUT/ws/dam/pic/de/sw/100/patch_out',
+    topic: 'UIPUT/ws/dam/pic/de/sw/100/result',
     payload: {
-      version: 'mt.v0',
+      version: 'v1',
+      type: 'pin_payload',
       op_id: 'test_0144_002',
-      records: [{
-        op: 'add_label', model_id: 100, p: 0, r: 0, c: 0,
-        k: 'bg_color', t: 'str', v: '#FF0000'
-      }]
+      source_model_id: 100,
+      pin: 'result',
+      payload: [{ id: 0, p: 0, r: 0, c: 0, k: 'bg_color', t: 'str', v: '#FF0000' }],
     }
   };
   rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mqtt_inbox', t: 'json', v: mqttPayload });
@@ -165,7 +170,7 @@ function test_mbr_mqtt_to_mgmt_execute() {
   const changeOut = rt.getCell(sys, 0, 0, 0).labels.get('change_out');
   assert(changeOut, 'change_out label should exist');
   assert.strictEqual(changeOut.t, 'MGMT_OUT', 'change_out type must be MGMT_OUT');
-  assert(changeOut.v && changeOut.v.type === 'snapshot_delta', 'MGMT_OUT value must be snapshot_delta');
+  assert(changeOut.v && changeOut.v.type === 'pin_payload', 'MGMT_OUT value must be pin_payload');
   assert.strictEqual(changeOut.v.op_id, 'test_0144_002');
 
   // Verify inbox cleaned up

@@ -1,0 +1,119 @@
+{
+  "version": "mt.v0",
+  "op_id": "ui_side_worker_demo_v1",
+  "description": "UI-side worker demo state and patch-apply function",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 1,
+      "name": "ui_side_demo",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "UI.UiSideDemo"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_demo_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "owner_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "owner_route",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, owner_request)",
+          "to": [
+            "(func, owner_materialize:in)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "owner_materialize",
+      "t": "func.js",
+      "v": {
+        "code": "const req = label && label.v && typeof label.v === 'object' ? label.v : null;\nif (!req) return;\nif (req.target_model_id !== 1) throw new Error('target_scope_rejected');\nconst records = Array.isArray(req.records) ? req.records : [];\nfor (const record of records) {\n  if (!record || typeof record !== 'object') continue;\n  if (record.model_id !== 1) throw new Error('target_scope_rejected');\n  if (record.op === 'add_label') {\n    ctx.writeLabel({ model_id: 1, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k }, typeof record.t === 'string' && record.t ? record.t : 'str', record.v);\n    continue;\n  }\n  if (record.op === 'rm_label') {\n    ctx.rmLabel({ model_id: 1, p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k });\n    continue;\n  }\n  throw new Error('unsupported_op');\n}",
+        "modelName": "ui_side_worker"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_side_owner_route_1",
+      "t": "pin.connect.model",
+      "v": [
+        {
+          "from": [
+            -10,
+            "ui_side_owner_req_1"
+          ],
+          "to": [
+            [
+              1,
+              "owner_request"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_apply_snapshot_delta",
+      "t": "func.js",
+      "v": {
+        "code": "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' }); if (!inbox || typeof inbox !== 'object' || inbox.version !== 'v0') return; const patch = inbox.payload; if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) return; const records = patch.records.filter((record) => record && (record.op === 'add_label' || record.op === 'rm_label') && record.model_id === 1); if (records.length > 0) { ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_side_owner_req_1' }, 'pin.out', { op: 'apply_records', target_model_id: 1, request_id: patch.op_id || 'ui_side_snapshot_delta', ts: Date.now(), records }); } ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'ui_mgmt_inbox' });",
+        "modelName": "ui_side_worker"
+      }
+    }
+  ]
+}

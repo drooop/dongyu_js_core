@@ -1,0 +1,172 @@
+{
+  "version": "mt.v0",
+  "op_id": "workspace_filltable_example_truth_remote_v0",
+  "description": "Model 1010 remote truth for workspace fill-table example",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 1010,
+      "name": "workspace_filltable_example_truth",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.WorkspaceFilltableExampleTruth"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "generated_color_text",
+      "t": "str",
+      "v": "Waiting for result"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "result_status",
+      "t": "str",
+      "v": "idle"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_inflight",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "result_out_topic",
+      "t": "str",
+      "v": "UIPUT/ws/dam/pic/de/sw/1010/result"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "root_routes",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, submit)",
+          "to": [
+            "(func, on_workspace_filltable_remote_submit_in:in)"
+          ]
+        },
+        {
+          "from": "(func, on_workspace_filltable_remote_submit_in:out)",
+          "to": [
+            "(self, result)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "submit",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "processor_routes",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "(self, submit)",
+          "to": [
+            "(func, on_workspace_filltable_remote_submit_in:in)"
+          ]
+        },
+        {
+          "from": "(func, on_workspace_filltable_remote_submit_in:out)",
+          "to": [
+            "(self, result)"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "scope_privileged",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "on_workspace_filltable_remote_submit_in",
+      "t": "func.js",
+      "v": {
+        "code": "const payload = Array.isArray(label && label.v) ? label.v : [];\nconst inputRecord = payload.find((record) => record && record.k === 'input_value');\nconst text = String(inputRecord && inputRecord.v != null ? inputRecord.v : '').trim();\nlet hash = 0;\nfor (const ch of text) { hash = ((hash * 33) + ch.charCodeAt(0)) >>> 0; }\nconst color = '#' + (hash % 0xffffff).toString(16).padStart(6, '0');\nconst resultPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: 'generated_color_text', t: 'str', v: color },\n  { id: 0, p: 0, r: 0, c: 0, k: 'result_status', t: 'str', v: 'remote_processed' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false }\n];\nV1N.table.addLabel(0, 0, 0, 'generated_color_text', 'str', color);\nV1N.table.addLabel(0, 0, 0, 'result_status', 'str', 'remote_processed');\nV1N.table.addLabel(0, 0, 0, 'submit_inflight', 'bool', false);\nconst topicLabel = V1N.readLabel(0, 0, 0, 'result_out_topic');\nconst topic = String(topicLabel && topicLabel.v ? topicLabel.v : '').trim();\nif (topic) ctx.publishMqtt(topic, { version: 'v1', type: 'pin_payload', op_id: 'ws_filltable_color_' + Date.now(), source_model_id: 1010, pin: 'result', payload: resultPayload, timestamp: Date.now() });\nreturn resultPayload;",
+        "modelName": "workspace_filltable_example_truth"
+      }
+    }
+  ]
+}

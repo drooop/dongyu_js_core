@@ -1,19 +1,5 @@
 {
   "version": "mt.v0",
-  "op_id": "ui_to_matrix_forwarder_v0",
-  "records": [
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 1,
-      "r": 0,
-      "c": 0,
-      "k": "forward_ui_events",
-      "t": "func.js",
-      "v": {
-        "code": "const mailbox = ctx.getLabel({ model_id: -1, p: 0, r: 0, c: 1, k: 'ui_event' });\nconsole.log('[forward_ui_events] mailbox value:', JSON.stringify(mailbox));\nif (mailbox) {\n  var payload = mailbox.payload || mailbox;\n  var action = payload.action || 'unknown';\n  var meta = payload && payload.meta && typeof payload.meta === 'object' ? payload.meta : {};\n  var opId = meta.op_id || ('ui_' + Date.now());\n  if (meta.local_only === true || (typeof action === 'string' && action.indexOf('llm_filltable_') === 0)) {\n    console.log('[forward_ui_events] Skipping local-only action:', action);\n    return;\n  }\n  var targetModelId = null;\n  if (Number.isInteger(meta.model_id)) {\n    targetModelId = meta.model_id;\n  } else if (payload.target && Number.isInteger(payload.target.model_id)) {\n    targetModelId = payload.target.model_id;\n  }\n\n  // Only forward app-level events (positive model ids). Editor state/routing must not leak to Matrix.\n  if (targetModelId === null || targetModelId <= 0) {\n    console.log('[forward_ui_events] Skipping - non-app target model', targetModelId);\n    return;\n  }\n\n  var dbCheck = ctx.getLabel({ model_id: targetModelId, p: 0, r: 0, c: 0, k: 'dual_bus_model' });\n  if (dbCheck) {\n    console.log('[forward_ui_events] Skipping - dual_bus_model forwarder handles model', targetModelId);\n    return;\n  }\n\n  console.log('[forward_ui_events] Forwarding to Matrix:', action, 'op_id:', opId);\n  var p = ctx.sendMatrix({\n    version: 'v0',\n    type: 'ui_event',\n    op_id: opId,\n    action: action,\n    data: payload,\n    timestamp: Date.now()\n  });\n  if (p && typeof p.then === 'function') {\n    p.then(function() { console.log('[forward_ui_events] Matrix send OK'); })\n     .catch(function(err) { console.warn('[forward_ui_events] Matrix send failed (non-fatal):', err.message); });\n  } else if (!p) {\n    console.warn('[forward_ui_events] Matrix not available, skipping forward');\n  }\n} else {\n  console.log('[forward_ui_events] No mailbox data, skipping');\n}",
-        "modelName": "ui_to_matrix_forwarder"
-      }
-    }
-  ]
+  "op_id": "ui_to_matrix_forwarder_removed_v0",
+  "records": []
 }

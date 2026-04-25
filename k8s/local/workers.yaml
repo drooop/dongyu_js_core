@@ -37,6 +37,13 @@ spec:
         envFrom:
         - configMapRef:
             name: remote-worker-config
+        env:
+        - name: DY_PERSISTED_ASSET_ROOT
+          value: /app/persisted-assets
+        volumeMounts:
+        - name: persisted-assets
+          mountPath: /app/persisted-assets
+          readOnly: true
         resources:
           requests:
             memory: "128Mi"
@@ -44,6 +51,11 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "500m"
+      volumes:
+      - name: persisted-assets
+        hostPath:
+          path: /Users/drop/dongyu/volume/persist/assets
+          type: DirectoryOrCreate
 ---
 # MBR Worker ConfigMap (local)
 apiVersion: v1
@@ -52,24 +64,7 @@ metadata:
   name: mbr-worker-config
   namespace: dongyu
 data:
-  MATRIX_HOMESERVER_URL: "http://synapse.dongyu.svc.cluster.local:8008"
-  MATRIX_MBR_BOT_USER: "@mbr:localhost"
-  DY_MATRIX_ROOM_ID: "placeholder-roomid-update-after-synapse-setup"
-  DY_MQTT_HOST: "mosquitto.dongyu.svc.cluster.local"
-  DY_MQTT_PORT: "1883"
-  DY_MQTT_USER: ""
-  DY_MQTT_PASS: ""
   NODE_TLS_REJECT_UNAUTHORIZED: "0"
----
-# MBR Worker Secret (local)
-apiVersion: v1
-kind: Secret
-metadata:
-  name: mbr-worker-secret
-  namespace: dongyu
-type: Opaque
-stringData:
-  MATRIX_MBR_BOT_ACCESS_TOKEN: "placeholder-will-update-after-synapse-setup"
 ---
 # MBR Worker Deployment
 apiVersion: apps/v1
@@ -98,6 +93,13 @@ spec:
             name: mbr-worker-config
         - secretRef:
             name: mbr-worker-secret
+        env:
+        - name: DY_PERSISTED_ASSET_ROOT
+          value: /app/persisted-assets
+        volumeMounts:
+        - name: persisted-assets
+          mountPath: /app/persisted-assets
+          readOnly: true
         resources:
           requests:
             memory: "128Mi"
@@ -105,16 +107,11 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "500m"
----
-# UI Server Secret (Matrix credentials for server bot)
-apiVersion: v1
-kind: Secret
-metadata:
-  name: ui-server-secret
-  namespace: dongyu
-type: Opaque
-stringData:
-  MATRIX_MBR_PASSWORD: "placeholder-password-update-after-synapse-setup"
+      volumes:
+      - name: persisted-assets
+        hostPath:
+          path: /Users/drop/dongyu/volume/persist/assets
+          type: DirectoryOrCreate
 ---
 # UI Server Deployment
 apiVersion: apps/v1
@@ -143,26 +140,11 @@ spec:
         env:
         - name: HOST
           value: "0.0.0.0"
-        - name: MATRIX_HOMESERVER_URL
-          value: "http://synapse.dongyu.svc.cluster.local:8008"
-        - name: MATRIX_MBR_USER
-          value: "@drop:localhost"
-        - name: MATRIX_MBR_BOT_USER
-          value: "@mbr:localhost"
-        - name: MATRIX_MBR_ACCESS_TOKEN
+        - name: MODELTABLE_PATCH_JSON
           valueFrom:
             secretKeyRef:
               name: ui-server-secret
-              key: MATRIX_MBR_ACCESS_TOKEN
-        - name: MATRIX_MBR_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: ui-server-secret
-              key: MATRIX_MBR_PASSWORD
-        - name: DY_MATRIX_ROOM_ID
-          value: "placeholder-roomid-update-after-synapse-setup"
-        - name: DY_MATRIX_DM_PEER_USER_ID
-          value: "@mbr:localhost"
+              key: MODELTABLE_PATCH_JSON
         - name: SEED_POSITIVE_MODELS_ON_BOOT
           value: "0"
         - name: DY_AUTH
@@ -172,18 +154,23 @@ spec:
         - name: DY_LLM_BASE_URL
           value: "http://host.docker.internal:11434"
         - name: DY_LLM_MODEL
-          value: "mt-table"
+          value: "mt-label"
         - name: DY_LLM_FALLBACK_MODEL
-          value: "mt-table"
+          value: "mt-label"
         - name: DY_LLM_MAX_TOKENS
-          value: "512"
+          value: "1024"
         - name: DY_LLM_TIMEOUT_MS
-          value: "120000"
+          value: "180000"
         - name: DY_PERSIST_ROOT
           value: /app/.dy_persist
+        - name: DY_PERSISTED_ASSET_ROOT
+          value: /app/persisted-assets
         volumeMounts:
         - name: persist-data
           mountPath: /app/.dy_persist
+        - name: persisted-assets
+          mountPath: /app/persisted-assets
+          readOnly: true
         resources:
           requests:
             memory: "256Mi"
@@ -195,6 +182,10 @@ spec:
       - name: persist-data
         hostPath:
           path: /Users/drop/dongyu/volume/persist/ui-server
+          type: DirectoryOrCreate
+      - name: persisted-assets
+        hostPath:
+          path: /Users/drop/dongyu/volume/persist/assets
           type: DirectoryOrCreate
 ---
 # UI Server Service

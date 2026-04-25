@@ -1,0 +1,493 @@
+---
+title: "0332 — pin-modeltable-payload-implementation Run Log"
+doc_type: iteration-runlog
+status: completed
+updated: 2026-04-24
+source: ai
+iteration_id: 0332-pin-modeltable-payload-implementation
+id: 0332-pin-modeltable-payload-implementation
+phase: phase4
+---
+
+# 0332 — pin-modeltable-payload-implementation Run Log
+
+规则：只记事实（FACTS）。不要写计划、不要写愿景。每个 Step 只有 PASS 才算完成。
+
+## Environment
+- Date: `2026-04-24`
+- Branch: `dev_0331-0333-pin-payload-ui`
+- Runtime: local macOS, repo `/Users/drop/codebase/cowork/dongyuapp_elysia_based`
+- Notes:
+  - Execute only after 0331 review is Approved.
+
+### Review Gate Records (FACTS)
+```text
+Review Gate Record
+- Iteration ID: 0332-pin-modeltable-payload-implementation
+- Review Date: 2026-04-24
+- Review Type: User
+- Reviewer: drop
+- Review Index: 1/1
+- Decision: Approved
+- Notes: User explicitly approved Codex to execute all three major stages without stopping for further human decisions unless blocked by non-handleable risk.
+```
+
+---
+
+## Step 1 — Contract tests
+- Start time: `2026-04-24 15:31:54 +0800`
+- End time: `2026-04-24 15:31:54 +0800`
+- Branch: `dev_0331-0333-pin-payload-ui`
+- Commits:
+  - pending
+- Commands executed:
+  - `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`
+- Key outputs (snippets):
+  - `[FAIL] test_valid_write_label_payload_writes_one_target_label: mt_write_req must write the single user label to target cell`
+  - `[FAIL] test_multiple_user_labels_are_rejected: mt_write_result pin.out must be written for auditability`
+  - `[FAIL] test_legacy_object_envelope_is_rejected_on_mt_write_req: legacy object envelope must not write target label`
+  - `[FAIL] test_v1n_write_label_routes_through_explicit_pin_connection: V1N.writeLabel must emit write_label_req on the running cell`
+  - `0 passed, 4 failed out of 4`
+  - After sub-agent review, tests were tightened:
+    - success `mt_write_result` is optional;
+    - target cell must not receive `__mt_*` metadata labels;
+    - no-route `V1N.writeLabel` must not direct-write target cell;
+    - old `mt_write_in` object-envelope path must not write.
+  - Rerun output:
+    - `[FAIL] test_valid_write_label_payload_writes_one_target_label: mt_write_req must write the single user label to target cell`
+    - `[FAIL] test_multiple_user_labels_are_rejected: mt_write_result pin.out must be written for auditability`
+    - `[FAIL] test_legacy_object_envelope_is_rejected_on_mt_write_req: legacy object envelope must not write target label`
+    - `[FAIL] test_legacy_object_envelope_does_not_pass_old_mt_write_in: old mt_write_in object envelope must not write target label`
+    - `[FAIL] test_v1n_write_label_without_route_does_not_direct_write: V1N.writeLabel must still emit write_label_req on the running cell`
+    - `[FAIL] test_v1n_write_label_routes_through_explicit_pin_connection: V1N.writeLabel must emit write_label_req on the running cell`
+    - `0 passed, 6 failed out of 6`
+- Review:
+  - Sub-agent review 1: CHANGE_REQUESTED.
+  - Findings fixed:
+    - Route test now checks root `mt_write_req` receives the emitted payload and event log shows a root pin write.
+    - A no-route control case now proves `V1N.writeLabel` does not direct-write target cells.
+    - Target cell checks now reject materialized `__mt_*` metadata.
+    - Success `mt_write_result` is optional; rejected result remains required.
+  - Sub-agent review 2: CHANGE_REQUESTED.
+  - Findings fixed:
+    - No-route test now checks root `mt_write_req.v` remains `null` instead of requiring the seeded declaration to be absent.
+    - Added a route-present / root-`mt_write`-disabled control case proving `V1N.writeLabel` cannot direct-write target cells even when the payload reaches D0.
+  - Sub-agent review 3: CHANGE_REQUESTED.
+  - Findings fixed:
+    - The root-disabled control no longer removes legacy `mt_write_wiring`; it removes the D0 `mt_write` function itself, so the test does not depend on old scaffold wiring details.
+  - Sub-agent review 4: CHANGE_REQUESTED.
+  - Findings fixed:
+    - All `writer_in` trigger values in the new tests now use temporary ModelTable record arrays instead of raw strings.
+    - The root-disabled control asserts that D0 `mt_write` was actually removed before running.
+  - Sub-agent review 5: CHANGE_REQUESTED.
+  - Findings fixed:
+    - Added a negative test proving `mt_write_in` cannot be an alternate entry for `write_label.v1` arrays.
+    - Rejection `mt_write_result` assertions now require `__mt_payload_kind = write_label_result.v1` and `__mt_request_id`.
+  - Sub-agent review 6: APPROVED.
+  - Latest rerun output:
+    - `1 passed, 7 failed out of 8`
+- Result: PASS (RED verified; failures are expected before implementation)
+
+---
+
+## Step 2 — Runtime helper and V1N API
+- Start time: `2026-04-24 15:56:27 +0800`
+- End time: `2026-04-24 15:56:27 +0800`
+- Branch: `dev_0331-0333-pin-payload-ui`
+- Commits:
+  - pending
+- Commands executed:
+  - `node -e "JSON.parse(require('fs').readFileSync('packages/worker-base/system-models/default_table_programs.json','utf8')); console.log('default_table_programs_json_ok')"`
+  - `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`
+  - `node scripts/tests/test_0324_root_scaffold.mjs`
+  - `node scripts/tests/test_0325_v1n_api_shape.mjs`
+  - `node scripts/tests/test_0325_selfcell_write_guard.mjs`
+  - `node scripts/tests/test_0325_cross_model_read_denied.mjs`
+  - `rg -n "mt_write_wiring|\\(self, mt_write_in\\)|V1N\\.table\\.addLabel\\(ensureIdx|op: 'write'|\\\"op\\\": \\\"write\\\"" packages/worker-base/system-models/default_table_programs.json scripts/tests/test_0324_root_scaffold.mjs scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`
+- Key outputs (snippets):
+  - `default_table_programs_json_ok`
+  - Initial sub-agent review: CHANGE_REQUESTED.
+  - Findings fixed:
+    - D0 `mt_write` now receives and checks source pin; explicit legacy `(self, mt_write_in) -> (func, mt_write:in)` routes are rejected with `invalid_source_pin`.
+    - `__mt_request_id` must be `t="str"` with a non-empty string value.
+    - `__mt_target_cell` must be `t="json"` with valid integer coordinates.
+  - `scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`: `11 passed, 0 failed out of 11`
+  - `scripts/tests/test_0324_root_scaffold.mjs`: `4 passed, 0 failed out of 4`
+  - `scripts/tests/test_0325_v1n_api_shape.mjs`: `3 passed, 0 failed out of 3`
+  - `scripts/tests/test_0325_selfcell_write_guard.mjs`: `2 passed, 0 failed out of 2`
+  - `scripts/tests/test_0325_cross_model_read_denied.mjs`: `2 passed, 0 failed out of 2`
+  - `rg` still reports `mt_bus_receive` object-envelope dispatch in `default_table_programs.json`; this is queued for Step 3 default-program/system-model migration.
+- Review:
+  - Sub-agent review 1: CHANGE_REQUESTED.
+  - Findings fixed:
+    - Added negative tests and implementation guard for stale/explicit old `mt_write_in` route into `mt_write`.
+    - Added malformed metadata type rejection tests and parser validation.
+  - Sub-agent review 2: CHANGE_REQUESTED.
+  - Findings fixed:
+    - `default_table_programs.json` no longer seeds legacy `mt_write_in`.
+    - `test_0324_root_scaffold.mjs` asserts `mt_write_in` and `mt_write_wiring` are both absent.
+  - Sub-agent review 3: APPROVED.
+- Result: PASS
+
+---
+
+## Step 3 — Default programs and system models
+- Start time: `2026-04-24 16:00:00 +0800`
+- End time: `2026-04-24 17:18:23 +0800`
+- Branch: `dev_0331-0333-pin-payload-ui`
+- Commits:
+  - pending
+- Commands executed:
+  - `node -e "JSON.parse(require('fs').readFileSync('packages/worker-base/system-models/default_table_programs.json','utf8')); console.log('default_table_programs_json_ok')"`
+  - `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`
+  - `node scripts/tests/test_0321_imported_host_ingress_server_flow.mjs`
+  - `node scripts/tests/test_0322_imported_host_egress_contract.mjs`
+  - `node scripts/tests/test_0322_imported_host_egress_server_flow.mjs`
+  - `node scripts/tests/test_0324_root_scaffold.mjs`
+  - `node scripts/tests/test_0325c_generator_rewrite.mjs`
+  - `node scripts/tests/test_0326_ui_event_busin_flow.mjs`
+  - `node scripts/tests/test_0326_imported_host_egress_bridge.mjs`
+  - `perl -e 'alarm 25; exec @ARGV' node scripts/tests/test_0330_model100_local_submit_contract.mjs`
+  - `node scripts/tests/test_0306_model100_pin_chain_contract.mjs`
+  - `node scripts/tests/test_0306_model100_pin_chain_server_flow.mjs`
+  - `node scripts/tests/test_0311_model100_pin_addressing_server_flow.mjs`
+  - `node scripts/tests/test_0302_slide_app_zip_import_server_flow.mjs`
+  - `node scripts/tests/test_0290_slide_app_filltable_create_server_flow.mjs`
+  - `rg -n "V1N\\.addLabel\\('mt_write_req'|V1N\\.addLabel\\(\"mt_write_req\"|\\\"op\\\": \\\"write\\\"|op: 'write'|mt_write_in|\\[0, 0, 0, \"mt_write_in\"\\]|\"mt_write_req\", \"pin\\.in\", \\{|source_model_id: \\$\\{|source_model_id: [0-9]+, pin|type: 'pin_payload'" ...`
+- Key outputs (snippets):
+  - `default_table_programs_json_ok`
+  - `scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`: `18 passed, 0 failed out of 18`
+  - `scripts/tests/test_0321_imported_host_ingress_server_flow.mjs`: `1 passed, 0 failed out of 1`
+  - `scripts/tests/test_0322_imported_host_egress_contract.mjs`: `2 passed, 0 failed out of 2`
+  - `scripts/tests/test_0322_imported_host_egress_server_flow.mjs`: `1 passed, 0 failed out of 1`
+  - `scripts/tests/test_0324_root_scaffold.mjs`: `4 passed, 0 failed out of 4`
+  - `scripts/tests/test_0325c_generator_rewrite.mjs`: `7 passed, 0 failed out of 7`
+  - `scripts/tests/test_0326_ui_event_busin_flow.mjs`: `29 passed, 0 failed out of 29`
+  - `scripts/tests/test_0326_imported_host_egress_bridge.mjs`: `1 passed, 0 failed out of 1`
+  - `scripts/tests/test_0330_model100_local_submit_contract.mjs`: `PASS test_0330_model100_local_submit_contract` before the alarm wrapper terminated an otherwise non-exiting process.
+  - `scripts/tests/test_0306_model100_pin_chain_contract.mjs`: `3 passed, 0 failed out of 3`
+  - `scripts/tests/test_0306_model100_pin_chain_server_flow.mjs`: `1 passed, 0 failed out of 1`
+  - `scripts/tests/test_0311_model100_pin_addressing_server_flow.mjs`: `1 passed, 0 failed out of 1`
+  - `scripts/tests/test_0302_slide_app_zip_import_server_flow.mjs`: `1 passed, 0 failed out of 1`
+  - `scripts/tests/test_0290_slide_app_filltable_create_server_flow.mjs`: `1 passed, 0 failed out of 1`
+  - `rg` remaining object `pin_payload` hits are external transport packets or legacy tests; `mt_write_in` hits remain only negative tests / scaffold absence assertions.
+  - `rg` found no remaining `bus_event_v2.value.action` to `legacyEnvelope` fallback in server / demo local store / gallery local store.
+  - `rg` found no remaining nullish-allowing Model 0 bus payload guard in server / demo local store / gallery local store / local adapter.
+  - `rg` found no remaining `target_cell` / `target_pin` object-to-bus_event conversion in `bus_event_v2` receiver paths; remaining `target_cell` hits are non-`bus_event_v2` owner request builders.
+  - `npm -C packages/ui-model-demo-frontend run build`: PASS.
+- Review:
+  - Sub-agent review 1: CHANGE_REQUESTED.
+  - Findings fixed:
+    - `pin.bus.out` non-array legacy object values are now rejected for internal storage/publication/bridge paths.
+    - `pin.bus.in` now accepts only temporary ModelTable arrays or external `pin_payload.v1` packets that unwrap to arrays.
+    - Runtime `addLabel` validates `pin.bus.in` / `pin.bus.out` values before storing.
+    - Server `bus_event_v2` Model 0 ingress rejects non-ModelTable payloads instead of passing raw objects through.
+    - Direct host ingress values are wrapped into a temporary ModelTable `value` label before entering Model 0 `pin.bus.in`.
+    - Added negative tests for legacy object `pin.bus.out`, non-ModelTable `pin.bus.in`, MQTT `pin_payload.v1` conversion, and server non-ModelTable event rejection.
+  - Sub-agent review 2: CHANGE_REQUESTED.
+  - Findings fixed:
+    - `uiput_mm_v1` Model 0 bus-in now short-circuits through `_handleBusInMessage`, preserving `pin.bus.in` and storing only the nested temporary ModelTable payload.
+    - External `pin_payload.v1.pin` is now checked against the target bus port before unwrapping.
+    - Server and frontend `bus_event_v2` target-cell normalization now rejects malformed coordinates instead of silently coercing them to `0`.
+    - The local adapter now checks `runtime.addLabel` and reports `invalid_bus_payload` when Model 0 bus-in rejects the value.
+    - Added tests for `uiput_mm_v1` bus-in, mismatched packet pin, malformed server/frontend target-cell coordinates, and local adapter rejection reporting.
+  - Sub-agent review 3: CHANGE_REQUESTED.
+  - Findings fixed:
+    - Server direct-pin writes now check `runtime.addLabel` and return `invalid_bus_payload` when Model 0 `pin.bus.in` rejects the value.
+    - Server direct-pin Model 0 bus-in now rejects legacy `{ op: "write", records: [...] }` envelopes instead of wrapping them as generic `value` payloads.
+    - Server direct-pin Model 0 bus-in validates `write_label.v1` target-cell metadata before accepting an array payload.
+    - Added direct-pin negative tests for malformed temporary payload arrays and legacy object envelopes.
+  - Sub-agent review 4: CHANGE_REQUESTED.
+  - Findings fixed:
+    - Server direct-pin Model 0 bus-in now unwraps external `pin_payload.v1` packets only after `pin` matches the target pin and the nested payload is valid.
+    - Server `bus_event_v2`, frontend normalization, local adapter, and runtime bus-in validation now reject malformed `write_label.v1` array payloads instead of accepting arrays solely because they are arrays.
+    - Runtime `pin.bus.in` validation now parses `write_label.v1` payloads and rejects malformed target-cell metadata with a visible failure reason.
+    - Added tests for malformed server/frontend/local array payloads and matched/mismatched external packet handling.
+  - Sub-agent review 5: CHANGE_REQUESTED.
+  - Findings fixed:
+    - Server `bus_event_v2.value.action` no longer recurses into legacy direct-pin routing; the value is normalized as a Model 0 bus payload and rejected when it is not a temporary ModelTable payload.
+    - `demo_modeltable.js` and `gallery_store.js` local paths no longer convert `value.action` into mailbox fallback events.
+    - Local store paths now reject non-array bus payloads and check `runtime.addLabel` before accepting Model 0 `pin.bus.in`.
+    - Added negative tests proving `value.action` cannot bypass the canonical bus-in path and proving the legacy fallback code is absent from server/local/gallery scoped files.
+  - Sub-agent review 6: pending.
+  - Sub-agent review 6: CHANGE_REQUESTED.
+  - Findings fixed:
+    - Server `bus_event_v2` now rejects `null` or missing `value` as `invalid_bus_payload`.
+    - `demo_modeltable.js`, `gallery_store.js`, and `local_bus_adapter.js` now require Model 0 bus event payloads to be arrays, not `null` / `undefined`.
+    - Added server negative tests for `null` and missing `value`, local-adapter negative coverage for `null`, and a scoped guard against reintroducing nullable Model 0 bus payload checks.
+  - Sub-agent review 7: pending.
+  - Sub-agent review 7: CHANGE_REQUESTED.
+  - Findings fixed:
+    - `bus_event_v2` receiver normalization in frontend and server no longer converts `{ target_cell, target_pin, value }` objects into temporary ModelTable arrays.
+    - Added server/local negative tests proving valid-shaped object values are rejected.
+    - Positive `bus_event_v2` tests now construct `write_label.v1` arrays before the event is submitted.
+    - `demo_app` route-state updates no longer use `bus_event_v2`; they use the normal UI mailbox event path for local UI state labels.
+  - Sub-agent review 8: pending.
+  - Sub-agent review 8: CHANGE_REQUESTED.
+  - Findings fixed:
+    - Server direct-pin Model 0 bus-in no longer wraps arbitrary object, `null`, missing, or scalar values into temporary `value` label arrays.
+    - Server direct-pin Model 0 bus-in accepts only valid temporary ModelTable arrays or matching external `pin_payload.v1` packets.
+    - Host ingress server-flow coverage now sends a temporary ModelTable `value` payload instead of a raw object payload.
+    - Added direct-pin negative tests for generic object, `null`, missing, and scalar Model 0 bus payloads.
+  - Sub-agent review 9: CHANGE_REQUESTED.
+  - Findings fixed:
+    - Server direct-pin Model 0 bus-in no longer unwraps `{ t, v }` wrappers before payload validation.
+    - Local adapter Model 0 direct-pin bus-in no longer unwraps `{ t, v }` wrappers before payload validation.
+    - Added server and local-adapter negative tests proving `{ t: "json", v: temporaryModelTableArray }` wrappers are rejected.
+  - Sub-agent review 10: pending.
+  - Sub-agent review 10: APPROVED.
+- Result: PASS
+
+---
+
+## Step 4 — Regression and deploy
+- Start time: `2026-04-24 17:20:07 +0800`
+- End time: `2026-04-24 17:21:23 +0800`
+- Branch: `dev_0331-0333-pin-payload-ui`
+- Commits:
+  - pending
+- Commands executed:
+  - `node scripts/tests/test_cell_connect_parse.mjs`
+  - `node scripts/tests/test_bus_in_out.mjs`
+  - `node scripts/validate_builtins_v0.mjs`
+  - `node scripts/validate_ui_ast_v0x.mjs --case all`
+  - `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`
+  - `node scripts/tests/test_0326_ui_event_busin_flow.mjs`
+  - `npm -C packages/ui-model-demo-frontend run test`
+  - `npm -C packages/ui-model-demo-frontend run build`
+  - `bash scripts/ops/check_runtime_baseline.sh`
+  - `bash scripts/ops/ensure_runtime_baseline.sh`
+- Key outputs (snippets):
+  - `scripts/tests/test_cell_connect_parse.mjs`: `10 passed, 0 failed out of 10`
+  - Initial `scripts/tests/test_bus_in_out.mjs`: `5 passed, 2 failed out of 7`
+  - The two failures were caused by old non-ModelTable `pin.bus.in` test inputs.
+  - Migrated `scripts/tests/test_bus_in_out.mjs` to use temporary ModelTable array payloads.
+  - Rerun `scripts/tests/test_bus_in_out.mjs`: `7 passed, 0 failed out of 7`
+  - `scripts/validate_builtins_v0.mjs`: all listed checks `PASS`
+  - `scripts/validate_ui_ast_v0x.mjs --case all`: `summary: PASS`
+  - `scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`: `18 passed, 0 failed out of 18`
+  - `scripts/tests/test_0326_ui_event_busin_flow.mjs`: `29 passed, 0 failed out of 29`
+  - `npm -C packages/ui-model-demo-frontend run test`: all `validate_editor.mjs` checks `PASS`
+  - `npm -C packages/ui-model-demo-frontend run build`: `✓ built`
+  - `scripts/ops/check_runtime_baseline.sh`: `[check] baseline ready`
+  - `scripts/ops/ensure_runtime_baseline.sh`: `[baseline] baseline already healthy — nothing to do`
+- Review:
+  - Sub-agent review 1: APPROVED.
+- Result: PASS
+
+---
+
+## Step 5 — Browser E2E
+- Start time: `2026-04-24 17:23:02 +0800`
+- End time: `2026-04-24 17:25:41 +0800`
+- Branch: `dev_0331-0333-pin-payload-ui`
+- Commits:
+  - pending
+- Commands executed:
+  - `"$PWCLI" open 'http://127.0.0.1:30900/#/workspace' --headed`
+  - `"$PWCLI" snapshot`
+  - `"$PWCLI" click e377`
+  - `"$PWCLI" snapshot`
+  - `"$PWCLI" eval "(() => Array.from(document.querySelectorAll('*')).map(e => (e.textContent || '').trim()).filter(t => /^#[0-9a-f]{6}$/i.test(t)).at(-1) || null)()"`
+  - `"$PWCLI" click e377`
+  - `sleep 3; "$PWCLI" snapshot`
+  - `"$PWCLI" console`
+  - `"$PWCLI" screenshot`
+- Key outputs (snippets):
+  - Browser page URL: `http://127.0.0.1:30900/#/workspace`
+  - Browser page title: `UI Model Demo`
+  - Initial snapshot showed selected workspace app `E2E 颜色生成器`.
+  - Initial observed color before first click: `#f86265`
+  - After first Generate click, observed color: `#3460e8`
+  - Before second Generate click, eval returned `#3460e8`
+  - After second Generate click and 3s wait, observed color: `#f19d00`
+  - Final observed status: `processed`; final button: `Generate Color` enabled.
+  - Console messages: one info debug-helper log and one `favicon.ico` 404; no application error observed.
+  - Screenshot artifact: `docs/iterations/0332-pin-modeltable-payload-implementation/assets/e2e-color-generator-after.png`
+- Review:
+  - Sub-agent review 1: APPROVED.
+- Result: PASS
+
+---
+
+## Step 6 — Final review fix: positive direct-pin ingress
+- Start time: `2026-04-24 18:20:00 +0800`
+- End time: `2026-04-24 18:42:15 +0800`
+- Branch: `dev_0331-0333-pin-payload-ui`
+- Commits:
+  - pending
+- Commands executed:
+  - `node --check packages/ui-model-demo-server/server.mjs`
+  - `node --check packages/ui-model-demo-frontend/src/local_bus_adapter.js`
+  - `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`
+  - `node scripts/tests/test_0326_ui_event_busin_flow.mjs`
+  - `node scripts/tests/test_bus_in_out.mjs`
+  - `node scripts/validate_ui_ast_v0x.mjs --case all`
+  - `git diff --check -- . ':(exclude)docs/iterations/0320-imported-slide-app-host-ingress-semantics-freeze/resolution.md' ':(exclude)docs/iterations/0325-ctx-api-tightening-static-selfcell/runlog.md'`
+  - `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
+  - `bash scripts/ops/check_runtime_baseline.sh`
+- Key outputs (snippets):
+  - Positive-model direct pin ingress now rejects object payloads as `temporary_modeltable_required`; positive direct pins accept only temporary ModelTable record arrays.
+  - Model 0 bus ingress remains temporary-ModelTable-only.
+  - Negative/system helper pins keep the existing internal-control behavior so workspace helper controls are not broken by the positive-pin restriction.
+  - `scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`: `18 passed, 0 failed out of 18`
+  - `scripts/tests/test_0326_ui_event_busin_flow.mjs`: `29 passed, 0 failed out of 29`
+  - `scripts/tests/test_bus_in_out.mjs`: `7 passed, 0 failed out of 7`
+  - `scripts/validate_ui_ast_v0x.mjs --case all`: `summary: PASS`
+  - `scripts/ops/deploy_local.sh`: `Local deploy complete`, `UI Server: http://localhost:30900`
+  - `scripts/ops/check_runtime_baseline.sh`: `[check] baseline ready`
+- Review:
+  - Final sub-agent review initially requested this fix because server direct-pin ingress still accepted object payloads for positive models.
+  - Fix applied and re-verification PASS.
+- Result: PASS
+
+## Docs Updated
+- [x] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
+- [x] `docs/user-guide/modeltable_user_guide.md` reviewed
+- [x] `docs/ssot/execution_governance_ultrawork_doit.md` unchanged; no execution-rule change was needed
+
+---
+
+## Step 7 — Final review fix: runtime core and owner request payloads
+- Start time: `2026-04-24 18:43:00 +0800`
+- End time: `2026-04-24 18:59:29 +0800`
+- Branch: `dev_0331-0333-pin-payload-ui`
+- Commits:
+  - pending
+- Commands executed:
+  - `node scripts/tests/test_0312_slide_import_cache_contract.mjs`
+  - `node scripts/tests/test_0325c_generator_rewrite.mjs`
+  - `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`
+  - `node scripts/tests/test_0326_ui_event_busin_flow.mjs`
+  - `node scripts/tests/test_0249_home_crud_pin_contract.mjs`
+  - `node scripts/tests/test_0249_home_crud_pin_migration_contract.mjs`
+  - `node scripts/tests/test_0289_slide_workspace_generalization_server_flow.mjs`
+  - `node scripts/tests/test_0290_slide_app_filltable_create_server_flow.mjs`
+  - `node scripts/tests/test_0302_slide_app_zip_import_server_flow.mjs`
+  - `node scripts/tests/test_0303_color_generator_proxy_import_server_flow.mjs`
+  - `node scripts/tests/test_0307_executable_import_contract.mjs`
+  - `node scripts/tests/test_0307_executable_import_server_flow.mjs`
+  - `node scripts/tests/test_0311_workspace_pin_addressing_server_flow.mjs`
+  - `node scripts/tests/test_0311_pin_projection_contract.mjs`
+  - `node scripts/tests/test_0321_imported_host_ingress_contract.mjs`
+  - `node scripts/tests/test_0321_imported_host_ingress_server_flow.mjs`
+  - `node scripts/tests/test_0322_imported_host_egress_contract.mjs`
+  - `node scripts/tests/test_0322_imported_host_egress_server_flow.mjs`
+  - `node scripts/tests/test_0326_imported_host_egress_bridge.mjs`
+  - `node --check packages/worker-base/src/runtime.mjs`
+  - `node --check packages/ui-model-demo-server/server.mjs`
+  - `git diff --check -- . ':(exclude)docs/iterations/0320-imported-slide-app-host-ingress-semantics-freeze/resolution.md' ':(exclude)docs/iterations/0325-ctx-api-tightening-static-selfcell/runlog.md'`
+  - `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
+  - `bash scripts/ops/check_runtime_baseline.sh`
+- Key outputs (snippets):
+  - Runtime core now rejects non-ModelTable `pin.in` / `pin.out` values on positive models, not only at server/local adapter ingress.
+  - Internal positive-model owner requests now travel as temporary ModelTable payloads (`home_owner_request.v1` / `owner_request.v1`) and materializers read the embedded `request` label.
+  - `scripts/tests/test_0312_slide_import_cache_contract.mjs`: `1 passed, 0 failed out of 1`
+  - `scripts/tests/test_0325c_generator_rewrite.mjs`: `7 passed, 0 failed out of 7`
+  - `scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`: `20 passed, 0 failed out of 20`
+  - `scripts/tests/test_0326_ui_event_busin_flow.mjs`: `29 passed, 0 failed out of 29`
+  - `scripts/tests/test_0249_home_crud_pin_contract.mjs`: `PASS`
+  - `scripts/tests/test_0249_home_crud_pin_migration_contract.mjs`: `3 passed, 0 failed out of 3`
+  - Slide import/create and imported host ingress/egress server flows listed above: all `PASS`.
+  - `scripts/ops/deploy_local.sh`: `Local deploy complete`, `UI Server: http://localhost:30900`
+  - `scripts/ops/check_runtime_baseline.sh`: `[check] baseline ready`
+- Review:
+  - Final sub-agent review 1: CHANGE_REQUESTED.
+  - Findings fixed in Step 8:
+    - Runtime temporary ModelTable payload validation accepted only root `id/p/r/c = 0/0/0`; implementation now accepts integer-addressed temporary ModelTable records while named protocol controls still read root `0/0/0`.
+    - Matrix live adapter processed initial-sync/backfill `dy.bus.v0` events after reconnect/deploy; adapter now ignores non-live timeline events.
+- Result: PASS
+
+---
+
+## Step 8 — Final review fix: temporary payload breadth and Matrix live events
+- Start time: `2026-04-24 19:00:00 +0800`
+- End time: `2026-04-24 19:17:42 +0800`
+- Branch: `dev_0331-0333-pin-payload-ui`
+- Commits:
+  - pending
+- Commands executed:
+  - `node --check packages/worker-base/src/runtime.mjs`
+  - `node --check packages/worker-base/src/matrix_live.js`
+  - `node --check packages/ui-model-demo-server/server.mjs`
+  - `node --check packages/ui-model-demo-frontend/src/local_bus_adapter.js`
+  - `git diff --check -- . ':(exclude)docs/iterations/0320-imported-slide-app-host-ingress-semantics-freeze/resolution.md' ':(exclude)docs/iterations/0325-ctx-api-tightening-static-selfcell/runlog.md'`
+  - `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`
+  - `node scripts/tests/test_0332_matrix_live_adapter_contract.mjs`
+  - `node scripts/tests/test_0177_runtime_mode_contract.mjs`
+  - `node scripts/tests/test_0326_ui_event_busin_flow.mjs`
+  - `node scripts/tests/test_bus_in_out.mjs`
+  - `node scripts/validate_ui_ast_v0x.mjs --case all`
+  - `npm -C packages/ui-model-demo-frontend run test`
+  - `npm -C packages/ui-model-demo-frontend run build`
+  - `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
+  - `bash scripts/ops/check_runtime_baseline.sh`
+  - `curl -fsS -X POST http://127.0.0.1:30900/api/runtime/mode -H 'content-type: application/json' -d '{"mode":"running"}'`
+  - `UI_SERVER_URL=http://127.0.0.1:30900 node scripts/tests/test_0145_workspace_single_submit.mjs`
+- Key outputs (snippets):
+  - `scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`: `21 passed, 0 failed out of 21`
+  - `scripts/tests/test_0332_matrix_live_adapter_contract.mjs`: `[PASS] matrix_live_ignores_initial_sync_timeline_events`
+  - `scripts/tests/test_0177_runtime_mode_contract.mjs`: `2 passed, 0 failed out of 2`
+  - `scripts/tests/test_0326_ui_event_busin_flow.mjs`: `29 passed, 0 failed out of 29`
+  - `scripts/tests/test_bus_in_out.mjs`: `7 passed, 0 failed out of 7`
+  - `scripts/validate_ui_ast_v0x.mjs --case all`: `summary: PASS`
+  - `npm -C packages/ui-model-demo-frontend run test`: all `validate_editor.mjs` checks `PASS`
+  - `npm -C packages/ui-model-demo-frontend run build`: `✓ built in 2.99s`
+  - `scripts/ops/deploy_local.sh`: `Local deploy complete`, `UI Server: http://localhost:30900`
+  - `scripts/ops/check_runtime_baseline.sh`: `[check] baseline ready`
+  - Runtime mode switch response: `{"ok":true,"mode":"running"}`
+  - `scripts/tests/test_0145_workspace_single_submit.mjs`: `[PASS] 0145 workspace regression`, `initial_color=#521c3e`, `final_color=#264e5a`, `change_count=1 elapsed_ms=123`
+  - Matrix timeline handler now checks `data.liveEvent === true` before forwarding `dy.bus.v0`.
+  - Temporary ModelTable payload validation now accepts integer-addressed records; protocol control labels remain rooted at `(0,0,0)`.
+- Review:
+  - Final sub-agent review 2: APPROVED.
+  - Findings: none.
+  - Open questions: none.
+  - Verification gaps: none.
+- Result: PASS
+
+---
+
+## Step 9 — Handoff code-review fixes
+- Start time: `2026-04-26 18:00:00 +0800`
+- End time: `2026-04-26 18:24:00 +0800`
+- Branch: `dev_0331-0333-pin-payload-ui`
+- Commits:
+  - pending
+- Commands executed:
+  - `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs` before fix
+  - `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs` after fix
+  - `node --check packages/worker-base/src/runtime.mjs`
+  - `node --check packages/ui-model-demo-server/server.mjs`
+  - `node scripts/tests/test_0332_matrix_live_adapter_contract.mjs`
+  - `node scripts/tests/test_0333_cellwise_ui_composition_contract.mjs`
+  - `node scripts/tests/test_0333_model100_cellwise_contract.mjs`
+  - `node scripts/tests/test_0326_ui_event_busin_flow.mjs`
+  - `node scripts/tests/test_bus_in_out.mjs`
+  - `node scripts/validate_ui_ast_v0x.mjs --case all`
+  - `npm -C packages/ui-model-demo-frontend run test`
+  - `npm -C packages/ui-model-demo-frontend run build`
+  - `bash scripts/ops/check_runtime_baseline.sh`
+  - `node scripts/ops/obsidian_docs_audit.mjs --root docs`
+- Key outputs (snippets):
+  - Initial RED: `test_write_label_payload_rejects_non_root_temp_records`, `test_write_label_payload_rejects_nonzero_temp_model_ids`, and `test_log_pins_keep_log_data_values` failed.
+  - Fix 1: `write_label.v1` parser now rejects records outside temporary model id `0` and temporary cell `(0,0,0)`.
+  - Fix 2: `pin.log.*` and `pin.log.bus.*` keep their log-data contract and no longer inherit formal business payload validation for `pin.in/out` and `pin.bus.in/out`.
+  - `scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`: `24 passed, 0 failed out of 24`
+  - `scripts/tests/test_0332_matrix_live_adapter_contract.mjs`: `[PASS] matrix_live_ignores_initial_sync_timeline_events`
+  - `scripts/tests/test_0333_cellwise_ui_composition_contract.mjs`: `4 passed, 0 failed out of 4`
+  - `scripts/tests/test_0333_model100_cellwise_contract.mjs`: `6 passed, 0 failed out of 6`
+  - `scripts/tests/test_0326_ui_event_busin_flow.mjs`: `29 passed, 0 failed out of 29`
+  - `scripts/tests/test_bus_in_out.mjs`: `7 passed, 0 failed out of 7`
+  - `scripts/validate_ui_ast_v0x.mjs --case all`: `summary: PASS`
+  - `npm -C packages/ui-model-demo-frontend run test`: all `validate_editor.mjs` checks `PASS`
+  - `npm -C packages/ui-model-demo-frontend run build`: `✓ built`
+  - `scripts/ops/check_runtime_baseline.sh`: `[check] baseline ready`
+  - `scripts/ops/obsidian_docs_audit.mjs --root docs`: `missing_required_frontmatter_docs: 0`
+- Review:
+  - Codex handoff review: CHANGE_REQUESTED.
+  - Findings fixed:
+    - Runtime did not enforce the documented `write_label.v1` root-only temporary payload shape.
+    - Runtime applied business ModelTable payload validation to log pins even though the label registry defines `pin.log.*` values as log data.
+  - Re-review after fixes: APPROVED.
+- Result: PASS

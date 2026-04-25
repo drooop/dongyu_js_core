@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workspace 文档页面填表示例 — 可视化指南</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --card: #ffffff;
+    --border: #e5e7eb;
+    --text: #1f2937;
+    --text-light: #6b7280;
+    --accent: #2563eb;
+    --accent-light: #eff6ff;
+    --green: #16a34a;
+    --green-light: #f0fdf4;
+    --amber: #d97706;
+    --amber-light: #fef3c7;
+    --red: #dc2626;
+    --red-light: #fef2f2;
+    --purple: #7c3aed;
+    --purple-light: #f3e8ff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+    color: white;
+    padding: 48px 24px;
+    text-align: center;
+  }
+  .hero h1 { font-size: 28px; font-weight: 700; margin-bottom: 12px; }
+  .hero p { font-size: 16px; opacity: 0.85; max-width: 600px; margin: 0 auto; }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 20px; }
+
+  .section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 24px;
+    margin-bottom: 28px;
+  }
+  .section h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .section .subtitle {
+    color: var(--text-light);
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .diagram-box {
+    background: #f9fafb;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 12px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .diagram-box .mermaid { text-align: center; }
+  .how-to-read {
+    background: var(--accent-light);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    margin-top: 16px;
+    font-size: 14px;
+  }
+  .how-to-read strong { color: var(--accent); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-default { background: var(--accent-light); color: var(--accent); }
+  .badge-switch { background: var(--green-light); color: var(--green); }
+  .badge-warn { background: var(--amber-light); color: var(--amber); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    text-align: left;
+  }
+  th { background: #f3f4f6; font-weight: 600; }
+  tr:nth-child(even) td { background: #fafafa; }
+
+  .steps-list {
+    counter-reset: step;
+    list-style: none;
+    padding: 0;
+  }
+  .steps-list li {
+    counter-increment: step;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  .steps-list li:last-child { border-bottom: none; }
+  .steps-list li::before {
+    content: counter(step);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .callout {
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  .callout-blue { background: var(--accent-light); border: 1px solid #bfdbfe; }
+  .callout-green { background: var(--green-light); border: 1px solid #bbf7d0; }
+  .callout-amber { background: var(--amber-light); border: 1px solid #fde68a; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+  .card-mini {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .card-mini h4 { font-size: 15px; margin-bottom: 8px; }
+  .card-mini p { font-size: 13px; color: var(--text-light); }
+
+  code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: "SF Mono", "Fira Code", monospace;
+  }
+  pre {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 12px 0;
+  }
+
+  .pending-section {
+    background: var(--amber-light);
+    border: 1px solid #fde68a;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+  .pending-section h2 { color: var(--amber); }
+  .pending-section ul { padding-left: 20px; margin-top: 12px; }
+  .pending-section li { margin-bottom: 8px; font-size: 14px; }
+
+  footer {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-light);
+    font-size: 13px;
+  }
+
+  /*
+   * ── Mermaid contrast fix ──
+   * SVG 背景是深色 (~#1e293b)，无法被 CSS 覆盖。
+   * 策略：拥抱深色背景，所有浮动文字用浅色。
+   * Note 框 / Actor 框有自带浅色底，内部文字仍用深色。
+   * WCAG AA: #f1f5f9 on #1e293b = 13.35:1 ✅
+   */
+  .mermaid svg {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
+  }
+
+  /* 箭头上的消息文字 — 浅色 on 深色背景 (13.35:1) */
+  .mermaid .messageText,
+  .mermaid text.messageText {
+    fill: #f1f5f9 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+  }
+  /* Note 框内文字 — 深色 on 黄色底 (13.62:1) */
+  .mermaid .noteText,
+  .mermaid text.noteText,
+  .mermaid tspan.noteText {
+    fill: #1e293b !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+  }
+  /* 参与者标签 — 深色 on 浅蓝框 */
+  .mermaid text.actor {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    fill: #0f172a !important;
+  }
+  /* 用户 actor 小人下方文字 — 浅色 on 深色背景 */
+  .mermaid .actor-man text,
+  .mermaid g.actor text {
+    fill: #f1f5f9 !important;
+  }
+  /* Actor 框 */
+  .mermaid rect.actor {
+    fill: #dbeafe !important;
+    stroke: #60a5fa !important;
+    stroke-width: 1.5px !important;
+  }
+  /* Note 框 */
+  .mermaid rect.note {
+    fill: #fef9c3 !important;
+    stroke: #fbbf24 !important;
+    stroke-width: 1.5px !important;
+  }
+  /* 箭头线 — 浅灰蓝 on 深色 (9.85:1) */
+  .mermaid .messageLine0 {
+    stroke: #cbd5e1 !important;
+    stroke-width: 2px !important;
+  }
+  .mermaid .messageLine1 {
+    stroke: #cbd5e1 !important;
+    stroke-width: 2.5px !important;
+    stroke-dasharray: 8, 5 !important;
+  }
+  /* 箭头标记 */
+  .mermaid #arrowhead path,
+  .mermaid .arrowMarkerPath,
+  .mermaid marker path {
+    fill: #cbd5e1 !important;
+    stroke: #cbd5e1 !important;
+  }
+  /* 生命线 */
+  .mermaid line.actor-line {
+    stroke: #475569 !important;
+    stroke-width: 1.5px !important;
+  }
+  /* 激活条 */
+  .mermaid .activation0,
+  .mermaid .activation1,
+  .mermaid .activation2 {
+    fill: #334155 !important;
+    stroke: #64748b !important;
+  }
+
+  /* ── Flowchart: 这些图有浅色背景，保留深色文字 ── */
+  .mermaid .nodeLabel,
+  .mermaid .edgeLabel {
+    color: #1f2937 !important;
+    font-weight: 600 !important;
+  }
+  .mermaid .cluster-label span,
+  .mermaid .cluster-label {
+    color: #f1f5f9 !important;
+    font-weight: 700 !important;
+  }
+  .mermaid .flowchart-link {
+    stroke: #94a3b8 !important;
+    stroke-width: 2px !important;
+  }
+  /* Flowchart edge label 背景 */
+  .mermaid .edgeLabel rect {
+    fill: #1e293b !important;
+    opacity: 0.85 !important;
+  }
+  .mermaid .edgeLabel span {
+    color: #f1f5f9 !important;
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>Workspace 文档页面填表示例 — 可视化指南</h1>
+  <p>这份可视化文档现在对齐的是 <code style="background:rgba(255,255,255,0.15);color:white;">0276 Doc Page Workspace Example</code>，目标是展示：接近文档页面的界面，也可以通过填表组合出来。</p>
+</div>
+
+<div class="container">
+
+<div class="section">
+  <h2><span class="num">1</span> 总览：最终看到的页面</h2>
+  <p class="subtitle">这不再是旧的三组件例子，而是正式的文档型 Workspace 页面。</p>
+
+  <div class="diagram-box">
+    <pre class="mermaid">
+graph TD
+    sidebar["Workspace 侧边栏\n0276 Doc Page Workspace Example"]
+    page["右侧文档页面"]
+
+    sidebar --> page
+
+    subgraph doc["页面主体"]
+        direction TB
+        hero["Hero Section\n标题 + 导语"]
+        summary["Summary Row\n左右两块内容"]
+        flow["Flow Section\n说明 + Mermaid 占位"]
+        layout["Layout Proof\n左右布局证明"]
+        rebuild["Rebuild Steps\n重建步骤列表"]
+    end
+
+    page --> doc
+    </pre>
+  </div>
+
+  <div class="how-to-read">
+    <strong>怎么看：</strong> 这是一个正式的 Workspace 条目。打开后，右侧是文档页面，不是表单页。它被拆成多个 section，每一块都来自模型表节点。
+  </div>
+</div>
+
+<div class="section">
+  <h2><span class="num">2</span> 模型关系：谁负责结构，谁负责内容</h2>
+  <p class="subtitle">`1013` 负责结构，`1014` 负责文案和正文。</p>
+
+  <div class="diagram-box">
+    <pre class="mermaid">
+graph TD
+    M0["Model 0\n系统根模型"]
+    M1013["Model 1013\nDoc Page App Host"]
+    M1014["Model 1014\nDoc Page Truth"]
+    WS["Workspace 侧边栏"]
+
+    M0 -->|"model.submt"| M1013
+    M1013 -->|"model.submt (0,2,0)"| M1014
+    WS -. "注册 app 条目" .-> M1013
+
+    subgraph host["1013 负责"]
+      h1["Section / Paragraph / Callout / List 节点结构"]
+      h2["ui_parent / ui_order / ui_layout"]
+      h3["页面布局和显示顺序"]
+    end
+
+    subgraph truth["1014 负责"]
+      t1["doc_title / hero_heading / hero_intro"]
+      t2["summary_left_text / summary_right_text"]
+      t3["flow_section_text / rebuild_step_*"]
+    end
+    </pre>
+  </div>
+
+  <div class="how-to-read">
+    <strong>怎么看：</strong> `1013` 像页面骨架，决定有哪些块、顺序怎样排；`1014` 像正文来源，决定每一块写什么。
+  </div>
+</div>
+
+<div class="section">
+  <h2><span class="num">3</span> 页面组成：每一块都来自填表</h2>
+  <p class="subtitle">一个节点一个 cell，而不是整块页面一次性塞进去。</p>
+
+  <div class="diagram-box">
+    <pre class="mermaid">
+graph LR
+    A["(2,2,0)\nSection hero"] --> B["(2,3,0)\nHeading"]
+    A --> C["(2,4,0)\nParagraph"]
+
+    D["(2,5,0)\nContainer summary row"] --> E["(2,6,0)\nSection left"]
+    D --> F["(2,8,0)\nSection right"]
+    E --> G["(2,7,0)\nParagraph"]
+    F --> H["(2,9,0)\nParagraph"]
+
+    I["(2,10,0)\nSection flow"] --> J["(2,11,0)\nParagraph"]
+    I --> K["(2,12,0)\nMermaidDiagram"]
+
+    L["(2,13,0)\nSection layout proof"] --> M["(2,14,0)\nContainer row"]
+    M --> N["(2,15,0)\nCallout left"]
+    M --> O["(2,16,0)\nCallout right"]
+
+    P["(2,17,0)\nSection rebuild"] --> Q["(2,18,0)\nList"]
+    Q --> R["(2,19,0)\nListItem 1"]
+    Q --> S["(2,20,0)\nListItem 2"]
+    Q --> T["(2,21,0)\nListItem 3"]
+    </pre>
+  </div>
+
+  <div class="how-to-read">
+    <strong>怎么看：</strong> 这张图直接对应 `Model 1013` 的 cell。你可以把它理解成“页面树”被拆成一格一格来填。
+  </div>
+</div>
+
+<div class="section">
+  <h2><span class="num">4</span> 布局为什么真的是由 label 决定</h2>
+  <p class="subtitle">不是换组件，也不是写死两套页面，只改一个标签就能变。</p>
+
+  <div class="callout callout-green">
+    关键例子是：<code>Model 1013 / (2,14,0) / ui_layout</code>
+  </div>
+
+  <div class="diagram-box">
+    <pre class="mermaid">
+graph LR
+    rowLabel["ui_layout = row"] --> rowView["左块 | 右块"]
+    colLabel["ui_layout = column"] --> colView["左块\n右块"]
+    </pre>
+  </div>
+
+  <div class="two-col">
+    <div class="card-mini">
+      <h4>默认值</h4>
+      <p><code>row</code>。页面中“左侧块 / 右侧块”横向排列。</p>
+    </div>
+    <div class="card-mini">
+      <h4>改表后</h4>
+      <p>改成 <code>column</code>，同一个容器会变成上下排列。</p>
+    </div>
+  </div>
+
+  <div class="how-to-read">
+    <strong>怎么看：</strong> 同一个节点，不换组件，只改一个布局 label，页面排版就会改变。这就是“布局位置由 label 定义”的最直接证据。
+  </div>
+</div>
+
+<div class="section">
+  <h2><span class="num">5</span> 内容为什么也是由 label 决定</h2>
+  <p class="subtitle">正文内容主要来自 `Model 1014 / (0,0,0)`。</p>
+
+  <div class="diagram-box">
+    <pre class="mermaid">
+graph TD
+    title["doc_title"] --> hero["Hero Section 标题栏"]
+    heading["hero_heading"] --> heroH["Heading 节点"]
+    intro["hero_intro"] --> heroP["Paragraph 节点"]
+    leftText["summary_left_text"] --> leftP["左侧 Paragraph"]
+    rightText["summary_right_text"] --> rightP["右侧 Paragraph"]
+    flowText["flow_section_text"] --> flowP["Flow Paragraph"]
+    steps["rebuild_step_1/2/3"] --> list["Rebuild ListItem"]
+    </pre>
+  </div>
+
+  <div class="how-to-read">
+    <strong>怎么看：</strong> 这页不是把整段长文塞进 host model。多数正文都在 `1014`，再通过绑定投射到 `1013` 的页面节点上。
+  </div>
+</div>
+
+<div class="section">
+  <h2><span class="num">6</span> 最短重建思路</h2>
+  <p class="subtitle">先有内容，再有结构，再有挂载。</p>
+
+  <div class="diagram-box">
+    <pre class="mermaid">
+flowchart TD
+    S["开始"] --> A["创建 Model 1014\n填写内容 labels"]
+    A --> B["创建 Model 1013\n填写节点结构 labels"]
+    B --> C["在 1013 上挂 1014"]
+    C --> D["在 Model 0 下挂 1013"]
+    D --> E["写入 Workspace registry"]
+    E --> F["刷新页面并打开"]
+    </pre>
+  </div>
+
+  <div class="how-to-read">
+    <strong>怎么看：</strong> 顺序不能反。先有 truth 内容，再有 host 结构，最后才是侧边栏入口。
+  </div>
+</div>
+
+<div class="section">
+  <h2><span class="num">7</span> 你现在最该关注的点</h2>
+  <ul class="steps-list">
+    <li>这页已经不是旧的三组件示例，而是正式的文档页面样例。</li>
+    <li>结构主要在 `1013`，内容主要在 `1014`。</li>
+    <li><code>ui_layout / ui_order / ui_parent</code> 决定“摆在哪里”。</li>
+    <li><code>doc_title / hero_intro / rebuild_step_*</code> 决定“写什么”。</li>
+  </ul>
+</div>
+
+<div class="section">
+  <h2><span class="num">8</span> 最短验证步骤</h2>
+  <ol class="steps-list">
+    <li>打开 Workspace。</li>
+    <li>找到 `0276 Doc Page Workspace Example`。</li>
+    <li>点击 `Open`，确认右侧出现文档页面。</li>
+    <li>去 Home，选择 `Model 1014`，修改 `doc_title` 或 `hero_heading`。</li>
+    <li>回 Workspace，确认标题或文案变化。</li>
+    <li>再去 Home，修改 `Model 1013 / (2,14,0) / ui_layout`。</li>
+    <li>回 Workspace，确认“左侧块 / 右侧块”从横排变成竖排，或反过来。</li>
+  </ol>
+</div>
+
+<footer>
+  当前可视化文档已对齐 `0276 Doc Page Workspace Example`，不是旧版 `0270`。
+</footer>
+
+<script>
+  /* ── Post-render SVG contrast fix ── */
+  function fixMermaidContrast() {
+    document.querySelectorAll('.mermaid svg').forEach(svg => {
+      // Check if this SVG has a dark background
+      const bgRect = svg.querySelector('rect');
+      if (!bgRect) return;
+      const fill = bgRect.getAttribute('fill') || '';
+      // Detect dark background (heuristic: dark fills contain low hex values)
+      const isDark = fill.match(/^#[0-3]/i) || fill === 'rgb(30, 41, 59)' ||
+                     fill.includes('1e293b') || fill.includes('0f172a') ||
+                     fill.includes('111827') || fill.includes('1f2937');
+      if (!isDark) return;
+
+      // ── Fix message text on arrows (浮动在深色背景上) ──
+      svg.querySelectorAll('.messageText, text.messageText').forEach(el => {
+        el.setAttribute('fill', '#f1f5f9');
+        el.style.fill = '#f1f5f9';
+        el.style.fontWeight = '600';
+        el.style.fontSize = '14px';
+      });
+
+      // ── Fix actor labels that are NOT inside a colored rect ──
+      // Actor text inside rect.actor boxes should stay dark
+      // But the "用户" label under the stick figure is on dark bg
+      svg.querySelectorAll('text').forEach(el => {
+        const currentFill = el.getAttribute('fill') || getComputedStyle(el).fill;
+        // Skip text inside note boxes and actor boxes (they have light bg)
+        const parent = el.closest('.note-wrapper, .note');
+        if (parent) return;
+        // Skip if already light
+        if (currentFill === '#f1f5f9' || currentFill === 'rgb(241, 245, 249)') return;
+        // Check if this text is a messageText or loose label
+        if (el.classList.contains('messageText') ||
+            el.classList.contains('loopText') ||
+            el.classList.contains('labelText')) {
+          el.setAttribute('fill', '#f1f5f9');
+          el.style.fill = '#f1f5f9';
+          el.style.fontWeight = '600';
+        }
+      });
+
+      // ── Fix arrow lines ──
+      svg.querySelectorAll('.messageLine0, .messageLine1').forEach(el => {
+        el.setAttribute('stroke', '#94a3b8');
+        el.style.stroke = '#94a3b8';
+        el.style.strokeWidth = '2px';
+      });
+      // Dashed lines thicker
+      svg.querySelectorAll('.messageLine1').forEach(el => {
+        el.style.strokeDasharray = '8, 5';
+        el.style.strokeWidth = '2.5px';
+      });
+
+      // ── Fix arrowhead markers ──
+      svg.querySelectorAll('marker path, .arrowMarkerPath').forEach(el => {
+        el.setAttribute('fill', '#94a3b8');
+        el.setAttribute('stroke', '#94a3b8');
+        el.style.fill = '#94a3b8';
+        el.style.stroke = '#94a3b8';
+      });
+
+      // ── Fix lifelines ──
+      svg.querySelectorAll('line.actor-line').forEach(el => {
+        el.setAttribute('stroke', '#475569');
+        el.style.stroke = '#475569';
+        el.style.strokeWidth = '1.5px';
+      });
+
+      // ── Fix actor boxes ──
+      svg.querySelectorAll('rect.actor').forEach(el => {
+        el.setAttribute('fill', '#dbeafe');
+        el.setAttribute('stroke', '#60a5fa');
+        el.style.fill = '#dbeafe';
+        el.style.stroke = '#60a5fa';
+      });
+
+      // ── Flowchart cluster labels (subgraph titles on dark bg) ──
+      svg.querySelectorAll('.cluster-label text, .cluster-label span').forEach(el => {
+        el.style.fill = '#f1f5f9';
+        el.style.color = '#f1f5f9';
+        el.setAttribute('fill', '#f1f5f9');
+      });
+
+      // ── Flowchart edge labels on dark bg ──
+      svg.querySelectorAll('.edgeLabel span, .edgeLabel text').forEach(el => {
+        el.style.color = '#f1f5f9';
+        el.style.fill = '#f1f5f9';
+      });
+      svg.querySelectorAll('.edgeLabel rect').forEach(el => {
+        el.style.fill = 'transparent';
+      });
+    });
+  }
+
+  // Run after Mermaid renders (with retry)
+  function waitAndFix() {
+    fixMermaidContrast();
+    // Retry a few times to catch async rendering
+    setTimeout(fixMermaidContrast, 500);
+    setTimeout(fixMermaidContrast, 1500);
+    setTimeout(fixMermaidContrast, 3000);
+  }
+
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      /* ── global — 适配深色 SVG 背景 ── */
+      fontFamily: '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif',
+      fontSize: '14px',
+      primaryColor: '#dbeafe',
+      primaryTextColor: '#0f172a',
+      primaryBorderColor: '#60a5fa',
+      lineColor: '#cbd5e1',
+      textColor: '#f1f5f9',
+
+      /* ── sequence diagram — 浅色文字 on 深色背景 ── */
+      actorBkg: '#dbeafe',
+      actorBorder: '#60a5fa',
+      actorTextColor: '#0f172a',
+      actorFontSize: '14px',
+      noteBkgColor: '#fef9c3',
+      noteBorderColor: '#fbbf24',
+      noteTextColor: '#1e293b',
+      signalColor: '#cbd5e1',
+      signalTextColor: '#f1f5f9',
+      messageFontSize: 14,
+      sequenceNumberColor: '#ffffff',
+      activationBkgColor: '#334155',
+      activationBorderColor: '#64748b',
+
+      /* ── flowchart ── */
+      nodeBorder: '#60a5fa',
+      clusterBkg: 'transparent',
+      clusterBorder: '#475569',
+      edgeLabelBackground: 'transparent',
+      defaultLinkColor: '#94a3b8'
+    },
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+    sequence: { useMaxWidth: true, actorMargin: 50, messageFontSize: 14, noteMargin: 12, mirrorActors: false }
+  });
+
+  // Trigger contrast fix after Mermaid renders
+  document.addEventListener('DOMContentLoaded', waitAndFix);
+  window.addEventListener('load', waitAndFix);
+</script>
+</body>
+</html>

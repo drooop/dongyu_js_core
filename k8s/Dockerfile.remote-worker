@@ -2,18 +2,21 @@ FROM oven/bun:latest
 
 WORKDIR /app
 
+# Bun image on Debian does not ship the system CA bundle by default.
+RUN apt-get update \
+  && apt-get install -y ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies
 COPY package.json package-lock.json* ./
 RUN bun install
 
-# Copy worker-base runtime
-COPY packages/worker-base/ ./packages/worker-base/
+# Copy worker-base runtime code only
+COPY packages/worker-base/src/ ./packages/worker-base/src/
+COPY packages/worker-base/system-models/ ./packages/worker-base/system-models/
 
 # Copy fill-table bootstrap script + engine (loadSystemPatch dependency)
 COPY scripts/run_worker_remote_v1.mjs ./scripts/
 COPY scripts/worker_engine_v0.mjs ./scripts/
 
-# Copy remote worker role patches (0144: fill-table architecture)
-COPY deploy/sys-v1ns/remote-worker/patches/ ./deploy/sys-v1ns/remote-worker/patches/
-
-CMD ["bun", "scripts/run_worker_remote_v1.mjs", "deploy/sys-v1ns/remote-worker/patches"]
+CMD ["bun", "scripts/run_worker_remote_v1.mjs"]

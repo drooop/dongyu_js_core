@@ -29,6 +29,7 @@
     "TableColumn": { "tree_kind": "TableColumn", "vnode_kind": "TableColumn" },
     "Tree": { "tree_kind": "Tree", "vnode_kind": "Tree" },
     "Html": { "tree_kind": "Html", "vnode_kind": "Html" },
+    "ThreeScene": { "tree_kind": "ThreeScene", "vnode_kind": "ThreeSceneHost" },
     "Link": { "tree_kind": "Link", "vnode_kind": "Link" },
     "FileInput": {
       "tree_kind": "FileInput",
@@ -51,6 +52,14 @@
     "StatusBadge": { "tree_kind": "StatusBadge", "vnode_kind": "StatusBadge" },
     "Terminal": { "tree_kind": "Terminal", "vnode_kind": "Terminal" },
     "ColorBox": { "tree_kind": "ColorBox", "vnode_kind": "ColorBox" },
-    "Drawer": { "tree_kind": "Drawer", "vnode_kind": "Drawer" }
+    "Drawer": { "tree_kind": "Drawer", "vnode_kind": "Drawer" },
+    "Heading": { "tree_kind": "Heading", "vnode_kind": "Heading" },
+    "Paragraph": { "tree_kind": "Paragraph", "vnode_kind": "Paragraph" },
+    "List": { "tree_kind": "List", "vnode_kind": "List" },
+    "ListItem": { "tree_kind": "ListItem", "vnode_kind": "ListItem" },
+    "Callout": { "tree_kind": "Callout", "vnode_kind": "Callout" },
+    "Image": { "tree_kind": "Image", "vnode_kind": "Image" },
+    "MermaidDiagram": { "tree_kind": "MermaidDiagram", "vnode_kind": "MermaidDiagram" },
+    "Section": { "tree_kind": "Section", "vnode_kind": "Section" }
   }
 }

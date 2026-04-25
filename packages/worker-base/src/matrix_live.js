@@ -148,38 +148,33 @@ async function createMatrixLiveAdapter(options = {}) {
     roomAlias,
     syncTimeoutMs = 20000,
     peerUserId,
+    homeserverUrl: homeserverUrlOpt,
+    accessToken: accessTokenOpt,
+    userId: userIdOpt,
+    password: passwordOpt,
   } = options;
   if (!roomId && !roomAlias) {
     throw new Error('missing_room_identifier');
   }
 
-  const homeserverUrl = requireEnv(['MATRIX_HOMESERVER_URL']).MATRIX_HOMESERVER_URL;
+  const homeserverUrl = firstValidValue(homeserverUrlOpt);
+  if (!homeserverUrl) {
+    throw new Error('missing_matrix_homeserver');
+  }
   const skipTls = homeserverUrl.startsWith('https:');
   const fetchFn = skipTls ? insecureFetch : undefined;
   const candidates = [
     {
       kind: 'token',
-      source: 'MATRIX_MBR_BOT_ACCESS_TOKEN',
-      accessToken: firstValidValue(process.env.MATRIX_MBR_BOT_ACCESS_TOKEN),
-      userId: firstValidValue(process.env.MATRIX_MBR_BOT_USER),
-    },
-    {
-      kind: 'token',
-      source: 'MATRIX_MBR_ACCESS_TOKEN',
-      accessToken: firstValidValue(process.env.MATRIX_MBR_ACCESS_TOKEN),
-      userId: firstValidValue(process.env.MATRIX_MBR_USER),
+      source: 'options.accessToken',
+      accessToken: firstValidValue(accessTokenOpt),
+      userId: firstValidValue(userIdOpt),
     },
     {
       kind: 'password',
-      source: 'MATRIX_MBR_BOT_PASSWORD',
-      user: firstValidValue(process.env.MATRIX_MBR_BOT_USER),
-      password: firstValidValue(process.env.MATRIX_MBR_BOT_PASSWORD),
-    },
-    {
-      kind: 'password',
-      source: 'MATRIX_MBR_PASSWORD',
-      user: firstValidValue(process.env.MATRIX_MBR_USER),
-      password: firstValidValue(process.env.MATRIX_MBR_PASSWORD),
+      source: 'options.password',
+      user: firstValidValue(userIdOpt),
+      password: firstValidValue(passwordOpt),
     },
   ].filter((candidate) => {
     if (candidate.kind === 'token') return Boolean(candidate.accessToken);
@@ -299,8 +294,9 @@ async function createMatrixLiveAdapter(options = {}) {
   const trace = [];
   const listeners = new Set();
 
-  client.on('Room.timeline', (event, room, toStartOfTimeline) => {
+  client.on('Room.timeline', (event, room, toStartOfTimeline, removed, data) => {
     if (toStartOfTimeline) return;
+    if (!data || data.liveEvent !== true) return;
     if (room && room.roomId !== activeRoomId) return;
     if (event.getType && event.getType() !== 'dy.bus.v0') return;
     if (peerUserId) {
@@ -355,4 +351,3 @@ async function createMatrixLiveAdapter(options = {}) {
 module.exports = {
   createMatrixLiveAdapter,
 };
-

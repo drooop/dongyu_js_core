@@ -1,20 +1,120 @@
 import { reactive } from 'vue';
 import { ModelTableRuntime } from '../../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from './local_bus_adapter.js';
-import { buildGalleryAst } from './gallery_model.js';
-import { GALLERY_MAILBOX_MODEL_ID, GALLERY_STATE_MODEL_ID, WAVE_C_SUBMODEL_ID } from './model_ids.js';
+import { getSnapshotLabelValue } from './snapshot_utils.js';
+import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
+import { buildBusDispatchLabel, buildBusEventV2, normalizeBusEventV2ValueToPinPayload } from './bus_event_v2.js';
+import galleryCatalogPatch from '../../worker-base/system-models/gallery_catalog_ui.json' with { type: 'json' };
+import {
+  EDITOR_STATE_MODEL_ID,
+  GALLERY_CATALOG_MODEL_ID,
+  GALLERY_MAILBOX_MODEL_ID,
+  GALLERY_STATE_MODEL_ID,
+  MATRIX_DEBUG_MODEL_ID,
+  MODEL_100_ID,
+  SLIDE_CREATOR_APP_MODEL_ID,
+  SLIDE_CREATOR_TRUTH_MODEL_ID,
+  SLIDE_IMPORTER_APP_MODEL_ID,
+  SLIDE_IMPORTER_TRUTH_MODEL_ID,
+  THREE_SCENE_APP_MODEL_ID,
+  THREE_SCENE_CHILD_MODEL_ID,
+  THREE_SCENE_CREATE_ENTITY_ACTION,
+  THREE_SCENE_DELETE_ENTITY_ACTION,
+  THREE_SCENE_SELECT_ENTITY_ACTION,
+  THREE_SCENE_UPDATE_ENTITY_ACTION,
+  UI_EXAMPLE_CHILD_MODEL_ID,
+  UI_EXAMPLE_PAGE_ASSET_MODEL_ID,
+  UI_EXAMPLE_PARENT_MODEL_ID,
+  UI_EXAMPLE_PROMOTE_CHILD_ACTION,
+  UI_EXAMPLE_SCHEMA_MODEL_ID,
+} from './model_ids.js';
 import { setHashPath } from './router.js';
+
+const MAILBOX_EVENT_KEY = 'bus_event';
+
+function freezeArray(items) {
+  return Object.freeze([...items]);
+}
+
+function freezeObject(entries) {
+  return Object.freeze(entries);
+}
+
+export const GALLERY_PAGE_ASSET_REF = freezeObject({
+  model_id: GALLERY_CATALOG_MODEL_ID,
+  p: 0,
+  r: 1,
+  c: 0,
+  k: 'page_asset_v0',
+});
+
+export const GALLERY_MODE_ALIGNMENT = freezeObject({
+  local: 'shared_runtime_gallery_mailbox',
+  remote: 'shared_snapshot_dispatch',
+  standalone: 'standalone_local_runtime',
+});
+
+const MATRIX_DEBUG_ACTIONS = freezeArray([
+  'matrix_debug_refresh',
+  'matrix_debug_clear_trace',
+  'matrix_debug_summarize',
+]);
+
+const CANONICAL_EXAMPLE_MODEL_IDS = freezeArray([
+  UI_EXAMPLE_SCHEMA_MODEL_ID,
+  UI_EXAMPLE_PAGE_ASSET_MODEL_ID,
+  UI_EXAMPLE_PARENT_MODEL_ID,
+  UI_EXAMPLE_CHILD_MODEL_ID,
+]);
+
+const THREE_SCENE_MODEL_IDS = freezeArray([
+  THREE_SCENE_APP_MODEL_ID,
+  THREE_SCENE_CHILD_MODEL_ID,
+]);
+
+const THREE_SCENE_ACTIONS = freezeArray([
+  THREE_SCENE_CREATE_ENTITY_ACTION,
+  THREE_SCENE_SELECT_ENTITY_ACTION,
+  THREE_SCENE_UPDATE_ENTITY_ACTION,
+  THREE_SCENE_DELETE_ENTITY_ACTION,
+]);
+
+export const GALLERY_INTEGRATION_CONTRACT = freezeObject({
+  matrixDebug: freezeObject({
+    model_id: MATRIX_DEBUG_MODEL_ID,
+    actions: MATRIX_DEBUG_ACTIONS,
+  }),
+  slideMainline: freezeObject({
+    model_ids: [
+      MODEL_100_ID,
+      SLIDE_IMPORTER_APP_MODEL_ID,
+      SLIDE_IMPORTER_TRUTH_MODEL_ID,
+      SLIDE_CREATOR_APP_MODEL_ID,
+      SLIDE_CREATOR_TRUTH_MODEL_ID,
+    ],
+    actions: freezeArray(['slide_app_import', 'slide_app_create']),
+  }),
+  canonicalExamples: freezeObject({
+    model_ids: CANONICAL_EXAMPLE_MODEL_IDS,
+    actions: freezeArray([UI_EXAMPLE_PROMOTE_CHILD_ACTION]),
+  }),
+  threeScene: freezeObject({
+    model_ids: THREE_SCENE_MODEL_IDS,
+    actions: THREE_SCENE_ACTIONS,
+  }),
+});
+
+const GALLERY_UPSTREAM_ACTIONS = new Set([
+  ...MATRIX_DEBUG_ACTIONS,
+  UI_EXAMPLE_PROMOTE_CHILD_ACTION,
+  ...THREE_SCENE_ACTIONS,
+]);
 
 function ensureModel(runtime, { id, name, type }) {
   if (runtime.getModel(id)) return runtime.getModel(id);
   return runtime.createModel({ id, name, type });
 }
 
-function ensureLabel(runtime, model, p, r, c, label) {
-  const cell = runtime.getCell(model, p, r, c);
-  if (cell.labels.has(label.k)) return;
-  runtime.addLabel(model, p, r, c, label);
-}
 function readRuntimeLabelValue(runtime, ref) {
   const modelId = ref && typeof ref.model_id === 'number' ? ref.model_id : 0;
   const model = runtime.getModel(modelId);
@@ -24,118 +124,220 @@ function readRuntimeLabelValue(runtime, ref) {
   return label ? label.v : undefined;
 }
 
+function ensureGalleryAssets(runtime) {
+  if (!runtime.getModel(GALLERY_CATALOG_MODEL_ID) || !runtime.getModel(GALLERY_STATE_MODEL_ID)) {
+    const result = runtime.applyPatch(galleryCatalogPatch, { allowCreateModel: true, trustedBootstrap: true });
+    if (result && result.rejected > 0) {
+      throw new Error('gallery_asset_patch_rejected');
+    }
+  }
+}
+
+function ensureWorkspaceGalleryEntry(runtime) {
+  const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+  if (!stateModel) return;
+  const cell = runtime.getCell(stateModel, 0, 0, 0);
+  const current = cell.labels.get('ws_apps_registry');
+  const list = current && Array.isArray(current.v) ? [...current.v] : [];
+  if (!list.some((entry) => entry && entry.model_id === GALLERY_CATALOG_MODEL_ID)) {
+    list.push({ model_id: GALLERY_CATALOG_MODEL_ID, name: 'Gallery', source: 'system' });
+    list.sort((a, b) => (a.model_id || 0) - (b.model_id || 0));
+    runtime.addLabel(stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: list });
+  }
+}
+
+function resolveSourceMode(options) {
+  const sourceStore = options && options.sourceStore ? options.sourceStore : null;
+  if (sourceStore && sourceStore.runtime) {
+    return GALLERY_MODE_ALIGNMENT.local;
+  }
+  if (sourceStore) {
+    return GALLERY_MODE_ALIGNMENT.remote;
+  }
+  if (options && options.runtime) {
+    return GALLERY_MODE_ALIGNMENT.local;
+  }
+  return GALLERY_MODE_ALIGNMENT.standalone;
+}
+
 export function createGalleryStore(options) {
-  const runtime = options && options.runtime ? options.runtime : new ModelTableRuntime();
-  const snapshot = options && options.snapshot ? options.snapshot : reactive(runtime.snapshot());
+  const sourceMode = resolveSourceMode(options);
+  const sourceStore = options && options.sourceStore ? options.sourceStore : null;
+  const runtime = sourceMode === GALLERY_MODE_ALIGNMENT.remote
+    ? null
+    : (options && options.runtime ? options.runtime : (sourceStore && sourceStore.runtime ? sourceStore.runtime : new ModelTableRuntime()));
+  const snapshot = options && options.snapshot
+    ? options.snapshot
+    : (sourceStore && sourceStore.snapshot ? sourceStore.snapshot : reactive(runtime.snapshot()));
   const refreshSnapshot = options && typeof options.refreshSnapshot === 'function'
     ? options.refreshSnapshot
-    : () => {
-      const next = runtime.snapshot();
-      snapshot.models = next.models;
-      snapshot.v1nConfig = next.v1nConfig;
-    };
+    : (sourceStore && typeof sourceStore.refreshSnapshot === 'function'
+      ? sourceStore.refreshSnapshot
+      : () => {
+        if (!runtime) return;
+        const next = runtime.snapshot();
+        snapshot.models = next.models;
+        snapshot.v1nConfig = next.v1nConfig;
+      });
+  const delegateDispatchAddLabel = options && typeof options.dispatchAddLabel === 'function'
+    ? options.dispatchAddLabel
+    : (sourceStore && typeof sourceStore.dispatchAddLabel === 'function' ? sourceStore.dispatchAddLabel : null);
+  const delegateDispatchRmLabel = options && typeof options.dispatchRmLabel === 'function'
+    ? options.dispatchRmLabel
+    : (sourceStore && typeof sourceStore.dispatchRmLabel === 'function' ? sourceStore.dispatchRmLabel : null);
+  const delegateConsumeOnce = options && typeof options.consumeOnce === 'function'
+    ? options.consumeOnce
+    : (sourceStore && typeof sourceStore.consumeOnce === 'function' ? sourceStore.consumeOnce : null);
+  const routeState = reactive({ path: '/gallery' });
+  let pendingConsumer = 'gallery';
 
-  ensureModel(runtime, { id: GALLERY_MAILBOX_MODEL_ID, name: 'gallery_mailbox', type: 'ui' });
-  const stateModel = ensureModel(runtime, { id: GALLERY_STATE_MODEL_ID, name: 'gallery_state', type: 'ui' });
+  let stateModel = null;
+  let adapter = null;
 
-  const adapter = createLocalBusAdapter({ runtime, eventLog: null, mode: 'v1', mailboxModelId: GALLERY_MAILBOX_MODEL_ID, editorStateModelId: GALLERY_STATE_MODEL_ID });
-
-  function setMailboxValue(envelopeOrNull) {
-    const model = runtime.getModel(GALLERY_MAILBOX_MODEL_ID);
-    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v: envelopeOrNull });
-  }
-
-  function updateDerived() {
-    adapter.updateUiDerived({
-      uiAst: buildGalleryAst(),
-      snapshotJson: '',
-      eventLogJson: '',
+  if (runtime) {
+    ensureModel(runtime, { id: GALLERY_MAILBOX_MODEL_ID, name: 'gallery_mailbox', type: 'ui' });
+    ensureGalleryAssets(runtime);
+    stateModel = runtime.getModel(GALLERY_STATE_MODEL_ID);
+    adapter = createLocalBusAdapter({
+      runtime,
+      eventLog: null,
+      mode: 'v1',
+      mailboxModelId: GALLERY_MAILBOX_MODEL_ID,
+      editorStateModelId: GALLERY_STATE_MODEL_ID,
     });
   }
 
-  function getUiAst() {
+  function setMailboxValue(envelopeOrNull) {
+    if (!runtime) return;
     const model = runtime.getModel(GALLERY_MAILBOX_MODEL_ID);
-    const cell = runtime.getCell(model, 0, 0, 0);
-    const label = cell.labels.get('ui_ast_v0');
-    return label ? label.v : null;
+    runtime.addLabel(model, 0, 0, 1, { k: MAILBOX_EVENT_KEY, t: 'event', v: envelopeOrNull });
+  }
+
+  function getUiAst() {
+    const cellwise = buildAstFromCellwiseModel(snapshot, GALLERY_CATALOG_MODEL_ID);
+    if (cellwise && typeof cellwise === 'object') return cellwise;
+    const raw = getSnapshotLabelValue(snapshot, GALLERY_PAGE_ASSET_REF);
+    return raw && typeof raw === 'object' ? raw : null;
+  }
+
+  function shouldUseGalleryLocalPath(label) {
+    if (sourceMode !== GALLERY_MODE_ALIGNMENT.local) return true;
+    if (!label || label.t !== 'event') return true;
+    const envelope = label.v && typeof label.v === 'object' ? label.v : null;
+    const payload = envelope && envelope.payload && typeof envelope.payload === 'object' ? envelope.payload : null;
+    const action = payload && typeof payload.action === 'string' ? payload.action : '';
+    const target = payload && payload.target && typeof payload.target === 'object' ? payload.target : null;
+    const targetModelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
+
+    if (action === 'label_update' || action === 'label_add' || action === 'label_remove' || action === 'cell_clear') {
+      return targetModelId === GALLERY_STATE_MODEL_ID;
+    }
+    return !GALLERY_UPSTREAM_ACTIONS.has(action);
+  }
+
+  function setRoutePath(routePath) {
+    routeState.path = typeof routePath === 'string' && routePath.trim().length > 0 ? routePath : '/gallery';
+    return routeState.path;
   }
 
   function dispatchAddLabel(label) {
+    if (sourceMode === GALLERY_MODE_ALIGNMENT.remote) {
+      if (typeof delegateDispatchAddLabel !== 'function') {
+        throw new Error('gallery_remote_dispatch_missing');
+      }
+      pendingConsumer = 'source';
+      return delegateDispatchAddLabel(label);
+    }
+
+    if (
+      sourceMode === GALLERY_MODE_ALIGNMENT.local
+      && !shouldUseGalleryLocalPath(label)
+      && typeof delegateDispatchAddLabel === 'function'
+    ) {
+      pendingConsumer = 'source';
+      return delegateDispatchAddLabel(label);
+    }
+
     if (!label || label.t !== 'event') {
       throw new Error('non_event_write');
     }
-    if (label.p !== 0 || label.r !== 0 || label.c !== 1 || label.k !== 'ui_event') {
+    if (label.p === 0 && label.r === 0 && label.c === 0 && label.k === 'bus_in_event' && label.v && typeof label.v === 'object') {
+      const envelope = label.v;
+      if (envelope.type !== 'bus_event_v2') {
+        throw new Error('invalid_envelope');
+      }
+      const busInKey = typeof envelope.bus_in_key === 'string' ? envelope.bus_in_key.trim() : '';
+      if (!busInKey) {
+        throw new Error('invalid_envelope');
+      }
+      const model0 = runtime.getModel(0);
+      const busPayload = normalizeBusEventV2ValueToPinPayload(envelope.value, envelope.meta);
+      if (!Array.isArray(busPayload)) {
+        throw new Error('invalid_bus_payload');
+      }
+      const addResult = runtime.addLabel(model0, 0, 0, 0, {
+        k: busInKey,
+        t: 'pin.bus.in',
+        v: busPayload,
+      });
+      if (!addResult || !addResult.applied) {
+        throw new Error('invalid_bus_payload');
+      }
+      refreshSnapshot();
+      pendingConsumer = 'gallery';
+      return undefined;
+    }
+    if (label.p !== 0 || label.r !== 0 || label.c !== 1) {
       throw new Error('event_mailbox_mismatch');
     }
 
     const model = runtime.getModel(GALLERY_MAILBOX_MODEL_ID);
     const cell = runtime.getCell(model, 0, 0, 1);
-    const current = cell.labels.get('ui_event');
+    const current = cell.labels.get(MAILBOX_EVENT_KEY);
     if (current && current.v !== null && current.v !== undefined) {
       throw new Error('event_mailbox_full');
     }
 
     setMailboxValue(label.v);
     refreshSnapshot();
+    pendingConsumer = 'gallery';
+    return undefined;
   }
 
   function dispatchRmLabel(labelRef) {
-    if (!labelRef || labelRef.p !== 0 || labelRef.r !== 0 || labelRef.c !== 1 || labelRef.k !== 'ui_event') {
-      return;
+    if (sourceMode === GALLERY_MODE_ALIGNMENT.remote) {
+      if (typeof delegateDispatchRmLabel !== 'function') return undefined;
+      return delegateDispatchRmLabel(labelRef);
+    }
+
+    if (sourceMode === GALLERY_MODE_ALIGNMENT.local && pendingConsumer === 'source' && typeof delegateDispatchRmLabel === 'function') {
+      return delegateDispatchRmLabel(labelRef);
+    }
+
+    if (!labelRef || labelRef.p !== 0 || labelRef.r !== 0 || labelRef.c !== 1) {
+      return undefined;
     }
     setMailboxValue(null);
     refreshSnapshot();
+    return undefined;
   }
 
   function consumeOnce() {
-    const result = adapter.consumeOnce();
-
-    // Wave C: if a submodel was created via `submodel_create`, seed its fragment + state.
-    {
-      const model = runtime.getModel(WAVE_C_SUBMODEL_ID);
-      if (model) {
-        const fragCell = runtime.getCell(model, 0, 0, 0);
-        const hasFrag = fragCell.labels.has('ui_fragment_v0');
-        if (!hasFrag) {
-          // Seed a simple fragment that binds to submodel-local state labels.
-          ensureLabel(runtime, model, 0, 1, 0, { k: 'instance_text', t: 'str', v: `hello from submodel ${WAVE_C_SUBMODEL_ID}` });
-          ensureLabel(runtime, model, 0, 0, 0, {
-            k: 'ui_fragment_v0',
-            t: 'json',
-            v: {
-              id: 'submodel_fragment_root',
-              type: 'Card',
-              props: { title: `Submodel Instance (${WAVE_C_SUBMODEL_ID})` },
-              children: [
-                {
-                  id: 'submodel_fragment_desc',
-                  type: 'Text',
-                  props: { type: 'info', text: `This fragment lives in model ${WAVE_C_SUBMODEL_ID}.` },
-                },
-                {
-                  id: 'submodel_fragment_input',
-                  type: 'Input',
-                  props: { placeholder: 'Edit submodel-local text' },
-                  bind: {
-                    read: { model_id: WAVE_C_SUBMODEL_ID, p: 0, r: 1, c: 0, k: 'instance_text' },
-                    write: {
-                      action: 'label_update',
-                      target_ref: { model_id: WAVE_C_SUBMODEL_ID, p: 0, r: 1, c: 0, k: 'instance_text' },
-                    },
-                  },
-                },
-                {
-                  id: 'submodel_fragment_value',
-                  type: 'Text',
-                  props: { type: 'info', text: '' },
-                  bind: { read: { model_id: WAVE_C_SUBMODEL_ID, p: 0, r: 1, c: 0, k: 'instance_text' } },
-                },
-              ],
-            },
-          });
-        }
+    if (sourceMode === GALLERY_MODE_ALIGNMENT.remote) {
+      if (typeof delegateConsumeOnce === 'function') {
+        return delegateConsumeOnce();
       }
+      return { consumed: false };
     }
+
+    if (sourceMode === GALLERY_MODE_ALIGNMENT.local && pendingConsumer === 'source' && typeof delegateConsumeOnce === 'function') {
+      const result = delegateConsumeOnce();
+      refreshSnapshot();
+      pendingConsumer = 'gallery';
+      return result;
+    }
+
+    const result = adapter.consumeOnce();
 
     const navTo = readRuntimeLabelValue(runtime, { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'nav_to' });
     if (typeof navTo === 'string' && navTo.trim().length > 0) {
@@ -143,70 +345,29 @@ export function createGalleryStore(options) {
       runtime.rmLabel(stateModel, 0, 0, 0, 'nav_to');
     }
 
-    updateDerived();
+    ensureWorkspaceGalleryEntry(runtime);
     refreshSnapshot();
+    pendingConsumer = 'gallery';
     return result;
   }
 
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'nav_to', t: 'str', v: '' });
-
-  // Wave A defaults (first render should be populated).
-  ensureLabel(runtime, stateModel, 0, 1, 0, { k: 'checkbox_demo', t: 'bool', v: false });
-  ensureLabel(runtime, stateModel, 0, 2, 0, { k: 'radio_demo', t: 'str', v: 'alpha' });
-  ensureLabel(runtime, stateModel, 0, 3, 0, { k: 'slider_demo', t: 'int', v: 42 });
-
-  // Wave B defaults.
-  ensureLabel(runtime, stateModel, 0, 4, 0, { k: 'wave_b_datepicker', t: 'str', v: '2026-01-31' });
-  ensureLabel(runtime, stateModel, 0, 5, 0, { k: 'wave_b_timepicker', t: 'str', v: '09:30' });
-  ensureLabel(runtime, stateModel, 0, 6, 0, { k: 'wave_b_tabs', t: 'str', v: 'alpha' });
-  ensureLabel(runtime, stateModel, 0, 7, 0, { k: 'dialog_open', t: 'bool', v: false });
-  ensureLabel(runtime, stateModel, 0, 8, 0, { k: 'wave_b_pagination_currentPage', t: 'int', v: 1 });
-  ensureLabel(runtime, stateModel, 0, 8, 1, { k: 'wave_b_pagination_pageSize', t: 'int', v: 10 });
-
-  // Wave C defaults.
-  ensureLabel(runtime, stateModel, 0, 9, 0, { k: 'wave_c_shared_text', t: 'str', v: 'shared fragment text' });
-  ensureLabel(runtime, stateModel, 0, 9, 1, {
-    k: 'wave_c_fragment_static',
-    t: 'json',
-    v: {
-      id: 'wave_c_static_fragment',
-      type: 'Card',
-      props: { title: 'Static Fragment (shared)' },
-      children: [
-        { id: 'wave_c_static_desc', type: 'Text', props: { type: 'info', text: 'Two Includes reference the same fragment label.' } },
-        {
-          id: 'wave_c_static_input',
-          type: 'Input',
-          props: { placeholder: 'Edit shared text' },
-          bind: {
-            read: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 0, k: 'wave_c_shared_text' },
-            write: {
-              action: 'label_update',
-              target_ref: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 0, k: 'wave_c_shared_text' },
-            },
-          },
-        },
-        {
-          id: 'wave_c_static_value',
-          type: 'Text',
-          props: { type: 'info', text: '' },
-          bind: { read: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 0, k: 'wave_c_shared_text' } },
-        },
-      ],
-    },
-  });
-
-  setMailboxValue(null);
-  updateDerived();
-  refreshSnapshot();
+  if (runtime) {
+    setMailboxValue(null);
+    ensureWorkspaceGalleryEntry(runtime);
+    refreshSnapshot();
+  }
 
   return {
     runtime,
     snapshot,
     refreshSnapshot,
     getUiAst,
+    setRoutePath,
     dispatchAddLabel,
     dispatchRmLabel,
     consumeOnce,
+    sourceMode,
+    buildDispatchLabel: buildBusDispatchLabel,
+    buildUiEventV2: buildBusEventV2,
   };
 }

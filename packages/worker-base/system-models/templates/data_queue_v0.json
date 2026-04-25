@@ -1,0 +1,218 @@
+{
+  "version": "mt.v0",
+  "op_id": "0296_data_queue_template_v0",
+  "description": "Canonical Tier2 Data.Queue template",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 2101,
+      "name": "data_queue_v0",
+      "type": "data"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "Data.Queue"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "size_now",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "next_index",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "enqueue_data_in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "dequeue_data_in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "peek_data_in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "get_all_data_in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "get_size_in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "dequeue_data_out",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "peek_data_out",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "get_all_data_out",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "get_size_out",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "queue_routing",
+      "t": "pin.connect.label",
+      "v": [
+        { "from": "(self, enqueue_data_in)", "to": ["(func, queue_enqueue:in)"] },
+        { "from": "(self, dequeue_data_in)", "to": ["(func, queue_dequeue:in)"] },
+        { "from": "(self, peek_data_in)", "to": ["(func, queue_peek:in)"] },
+        { "from": "(self, get_all_data_in)", "to": ["(func, queue_get_all:in)"] },
+        { "from": "(self, get_size_in)", "to": ["(func, queue_get_size:in)"] },
+        { "from": "(func, queue_dequeue:out)", "to": ["(self, dequeue_data_out)"] },
+        { "from": "(func, queue_peek:out)", "to": ["(self, peek_data_out)"] },
+        { "from": "(func, queue_get_all:out)", "to": ["(self, get_all_data_out)"] },
+        { "from": "(func, queue_get_size:out)", "to": ["(self, get_size_out)"] }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "queue_enqueue",
+      "t": "func.js",
+      "v": {
+        "modelName": "data_queue_v0",
+        "code": "const payload=Array.isArray(label&&label.v)?label.v:[];const valueRecord=payload.find((record)=>record&&record.k==='value');if(!valueRecord||typeof valueRecord.t!=='string') throw new Error('invalid_enqueue_payload');const sizeLbl=V1N.readLabel(0,0,0,'size_now');const nextLbl=V1N.readLabel(0,0,0,'next_index');const size=Number(sizeLbl?sizeLbl.v:0);const next=Number(nextLbl?nextLbl.v:1);V1N.table.addLabel(0,next,0,'value',valueRecord.t||'json',valueRecord.v);V1N.addLabel('size_now','int',size+1);V1N.addLabel('next_index','int',next+1);"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "queue_dequeue",
+      "t": "func.js",
+      "v": {
+        "modelName": "data_queue_v0",
+        "code": "const payload=Array.isArray(label&&label.v)?label.v:[];if(payload.some((record)=>record&&record.k!=='model_type')) throw new Error('dequeue_payload_must_be_zero_arg');const sizeLbl=V1N.readLabel(0,0,0,'size_now');const size=Number(sizeLbl?sizeLbl.v:0);if(size<1)return[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.Single'},{id:0,p:0,r:0,c:0,k:'found',t:'bool',v:false},{id:0,p:0,r:0,c:0,k:'value',t:'json',v:null}];const firstLbl=V1N.readLabel(0,1,0,'value');const value=firstLbl?firstLbl.v:null;for(let i=2;i<=size;i++){const movedLbl=V1N.readLabel(0,i,0,'value');V1N.table.addLabel(0,i-1,0,'value','json',movedLbl?movedLbl.v:null);}V1N.table.removeLabel(0,size,0,'value');V1N.addLabel('size_now','int',size-1);V1N.addLabel('next_index','int',size);return[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.Single'},{id:0,p:0,r:0,c:0,k:'found',t:'bool',v:true},{id:0,p:0,r:0,c:0,k:'value',t:'json',v:value}];"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "queue_peek",
+      "t": "func.js",
+      "v": {
+        "modelName": "data_queue_v0",
+        "code": "const payload=Array.isArray(label&&label.v)?label.v:[];if(payload.some((record)=>record&&record.k!=='model_type')) throw new Error('peek_payload_must_be_zero_arg');const sizeLbl=V1N.readLabel(0,0,0,'size_now');const size=Number(sizeLbl?sizeLbl.v:0);if(size<1)return[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.Single'},{id:0,p:0,r:0,c:0,k:'found',t:'bool',v:false},{id:0,p:0,r:0,c:0,k:'value',t:'json',v:null}];const valLbl=V1N.readLabel(0,1,0,'value');const value=valLbl?valLbl.v:null;return[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.Single'},{id:0,p:0,r:0,c:0,k:'found',t:'bool',v:true},{id:0,p:0,r:0,c:0,k:'value',t:'json',v:value}];"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "queue_get_all",
+      "t": "func.js",
+      "v": {
+        "modelName": "data_queue_v0",
+        "code": "const payload=Array.isArray(label&&label.v)?label.v:[];if(payload.some((record)=>record&&record.k!=='model_type')) throw new Error('get_all_payload_must_be_zero_arg');const sizeLbl=V1N.readLabel(0,0,0,'size_now');const size=Number(sizeLbl?sizeLbl.v:0);const out=[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.table',v:'Data.QueueResult'},{id:0,p:0,r:0,c:0,k:'size',t:'int',v:size}];for(let i=1;i<=size;i++){const valLbl=V1N.readLabel(0,i,0,'value');out.push({id:0,p:i,r:0,c:0,k:'value',t:'json',v:valLbl?valLbl.v:null});}return out;"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 2101,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "queue_get_size",
+      "t": "func.js",
+      "v": {
+        "modelName": "data_queue_v0",
+        "code": "const payload=Array.isArray(label&&label.v)?label.v:[];if(payload.some((record)=>record&&record.k!=='model_type')) throw new Error('get_size_payload_must_be_zero_arg');const sizeLbl=V1N.readLabel(0,0,0,'size_now');const size=Number(sizeLbl?sizeLbl.v:0);return[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.Single'},{id:0,p:0,r:0,c:0,k:'size',t:'int',v:size}];"
+      }
+    }
+  ]
+}

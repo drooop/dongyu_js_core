@@ -1,9 +1,36 @@
+import {
+  THREE_SCENE_CREATE_ENTITY_ACTION,
+  THREE_SCENE_DELETE_ENTITY_ACTION,
+  THREE_SCENE_REMOTE_ONLY_DETAIL,
+  THREE_SCENE_SELECT_ENTITY_ACTION,
+  THREE_SCENE_UPDATE_ENTITY_ACTION,
+  UI_EXAMPLE_PROMOTE_CHILD_ACTION,
+} from './model_ids.js';
+import { normalizeBusEventV2ValueToPinPayload } from './bus_event_v2.js';
+import { parseSafeInt } from './snapshot_utils.js';
+
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isTemporaryPayloadRecordArray(value) {
+  return Array.isArray(value) && value.every((record) =>
+    record
+    && typeof record === 'object'
+    && Number.isInteger(record.id)
+    && Number.isInteger(record.p)
+    && Number.isInteger(record.r)
+    && Number.isInteger(record.c)
+    && typeof record.k === 'string'
+    && record.k.length > 0
+    && typeof record.t === 'string'
+    && record.t.length > 0
+  );
+}
+
 function matchForbiddenK(k) {
   if (typeof k !== 'string') return false;
+  if (k.startsWith('matrix_debug_')) return false;
   if (k === 'pin_in' || k === 'pin_out') return true;
   if (k === 'v1n_id' || k === 'data_type') return true;
   if (k.startsWith('run_')) return true;
@@ -15,7 +42,10 @@ function matchForbiddenK(k) {
 }
 
 const ALLOW_T = new Set(['str', 'int', 'bool', 'json', 'event']);
-const RESERVED_LABELS = new Set(['ui_event', 'ui_event_error', 'ui_event_last_op_id']);
+const MAILBOX_EVENT_KEY = 'bus_event';
+const MAILBOX_ERROR_KEY = 'bus_event_error';
+const MAILBOX_LAST_OP_KEY = 'bus_event_last_op_id';
+const RESERVED_LABELS = new Set([MAILBOX_EVENT_KEY, MAILBOX_ERROR_KEY, MAILBOX_LAST_OP_KEY]);
 
 function isUiRendererSource(source) {
   if (source === 'ui_renderer') return true;
@@ -100,34 +130,34 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
   function getMailboxEnvelope() {
     const cell = mailboxCell();
-    const label = cell.labels.get('ui_event');
+    const label = cell.labels.get(MAILBOX_EVENT_KEY);
     return label ? label.v : null;
   }
 
   function setMailboxEnvelope(v) {
     const model = runtime.getModel(mailboxModelId);
-    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event', t: 'event', v });
+    runtime.addLabel(model, 0, 0, 1, { k: MAILBOX_EVENT_KEY, t: 'event', v });
   }
 
   function setLastOpId(op_id) {
     const model = runtime.getModel(mailboxModelId);
-    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event_last_op_id', t: 'str', v: op_id });
+    runtime.addLabel(model, 0, 0, 1, { k: MAILBOX_LAST_OP_KEY, t: 'str', v: op_id });
   }
 
   function getLastOpId() {
     const cell = mailboxCell();
-    const label = cell.labels.get('ui_event_last_op_id');
+    const label = cell.labels.get(MAILBOX_LAST_OP_KEY);
     return label ? String(label.v || '') : '';
   }
 
   function setError(op_id, code, detail) {
     const model = runtime.getModel(mailboxModelId);
-    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event_error', t: 'json', v: toErrorValue(op_id, code, detail) });
+    runtime.addLabel(model, 0, 0, 1, { k: MAILBOX_ERROR_KEY, t: 'json', v: toErrorValue(op_id, code, detail) });
   }
 
   function clearError() {
     const model = runtime.getModel(mailboxModelId);
-    runtime.addLabel(model, 0, 0, 1, { k: 'ui_event_error', t: 'json', v: null });
+    runtime.addLabel(model, 0, 0, 1, { k: MAILBOX_ERROR_KEY, t: 'json', v: null });
   }
 
   function fail(op_id, code, detail) {
@@ -159,19 +189,6 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
     return runtime.getModel(editorStateModelId);
   }
 
-  function parseSafeInt(value) {
-    if (typeof value === 'number' && Number.isSafeInteger(value)) return value;
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (!trimmed) return null;
-      if (!/^-?\d+$/.test(trimmed)) return null;
-      const parsed = Number(trimmed);
-      if (!Number.isSafeInteger(parsed)) return null;
-      return parsed;
-    }
-    return null;
-  }
-
   function stringify(value) {
     if (value === undefined) return '';
     if (value === null) return 'null';
@@ -199,6 +216,7 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
     }
 
     const payload = envelope.payload;
+    const pin = payload && typeof payload.pin === 'string' ? payload.pin.trim() : '';
     const meta = payload.meta;
     if (!isPlainObject(meta) || typeof meta.op_id !== 'string') {
       return fail('', 'invalid_target', 'missing_or_non_string_op_id');
@@ -208,6 +226,50 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
     const last = getLastOpId();
     if (op_id && last && op_id === last) {
       return fail(op_id, 'op_id_replay', 'op_id_replay');
+    }
+
+    if (pin) {
+      const target = payload && payload.target && typeof payload.target === 'object' ? payload.target : null;
+      if (!target || !Number.isInteger(target.model_id) || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c)) {
+        return fail(op_id, 'invalid_target', 'missing_target_coords');
+      }
+      const model = runtime.getModel(target.model_id);
+      if (!model) {
+        return fail(op_id, 'invalid_target', 'missing_model');
+      }
+      let nextValue = payload.value;
+      const normalizedBusValue = target.model_id === 0 ? normalizeBusEventV2ValueToPinPayload(nextValue, meta) : nextValue;
+      if (target.model_id === 0 && !Array.isArray(normalizedBusValue)) {
+        return fail(op_id, 'invalid_bus_payload', 'temporary_modeltable_required');
+      }
+      if (target.model_id > 0 && !isTemporaryPayloadRecordArray(normalizedBusValue)) {
+        return fail(op_id, 'invalid_target', 'temporary_modeltable_required');
+      }
+      if (target.model_id < 0
+          && nextValue
+          && typeof nextValue === 'object'
+          && !Array.isArray(nextValue)
+          && typeof nextValue.t === 'string'
+          && Object.prototype.hasOwnProperty.call(nextValue, 'v')) {
+        nextValue = nextValue.v;
+      }
+      if (target.model_id < 0 && nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)) {
+        nextValue = {
+          ...nextValue,
+          ...(nextValue.meta ? {} : { meta }),
+          ...(nextValue.target ? {} : { target }),
+          ...(nextValue.pin ? {} : { pin }),
+        };
+      }
+      const addResult = runtime.addLabel(model, target.p, target.r, target.c, {
+        k: pin,
+        t: target.model_id === 0 ? 'pin.bus.in' : 'pin.in',
+        v: target.model_id < 0 ? nextValue : normalizedBusValue,
+      });
+      if (!addResult || !addResult.applied) {
+        return fail(op_id, target.model_id === 0 ? 'invalid_bus_payload' : 'invalid_target', 'runtime_add_label_rejected');
+      }
+      return succeed(op_id, 'pin_write');
     }
 
     const action = payload.action;
@@ -223,6 +285,15 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       'datatable_edit_row',
       'datatable_view_detail',
       'datatable_remove_label',
+      'home_refresh',
+      'home_select_row',
+      'home_open_create',
+      'home_open_edit',
+      'home_save_label',
+      'home_delete_label',
+      'home_view_detail',
+      'home_close_detail',
+      'home_close_edit',
       // Test actions.
       'cellab_add_cellA',
       'cellab_add_cellB',
@@ -233,14 +304,40 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       // Static projects actions (remote-only).
       'static_project_list',
       'static_project_upload',
+      'static_project_delete',
       // Workspace actions (remote-only).
       'ws_select_app',
       // Prompt FillTable actions (remote-only).
       'llm_filltable_preview',
       'llm_filltable_apply',
+      // Matrix debug actions.
+      'matrix_debug_refresh',
+      'matrix_debug_clear_trace',
+      'matrix_debug_summarize',
+      // 0215 authoritative example action (remote-only in local mode).
+      UI_EXAMPLE_PROMOTE_CHILD_ACTION,
+      // 0216 authoritative Three scene CRUD actions (remote-only in local mode).
+      THREE_SCENE_CREATE_ENTITY_ACTION,
+      THREE_SCENE_SELECT_ENTITY_ACTION,
+      THREE_SCENE_UPDATE_ENTITY_ACTION,
+      THREE_SCENE_DELETE_ENTITY_ACTION,
     ]);
     if (typeof action !== 'string' || !allowedActions.has(action)) {
       return fail(op_id, 'unknown_action', 'unknown_action');
+    }
+    const target = payload && payload.target && typeof payload.target === 'object' ? payload.target : null;
+    const targetModelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
+    const isUiLocalStateMutation = targetModelId === editorStateModelId;
+    const isDirectModelMutation = action === 'submodel_create'
+      || (!isUiLocalStateMutation && (
+        action === 'label_add'
+        || action === 'label_update'
+        || action === 'label_remove'
+        || action === 'cell_clear'
+        || action === 'datatable_remove_label'
+      ));
+    if (isDirectModelMutation) {
+      return fail(op_id, 'direct_model_mutation_disabled', action);
     }
 
     if (!isUiRendererSource(envelope.source)) {
@@ -339,12 +436,69 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       return fail(op_id, 'unsupported', 'docs_remote_only');
     }
 
+    if (
+      action === 'home_refresh'
+      || action === 'home_select_row'
+      || action === 'home_open_create'
+      || action === 'home_open_edit'
+      || action === 'home_save_label'
+      || action === 'home_delete_label'
+      || action === 'home_view_detail'
+      || action === 'home_close_detail'
+      || action === 'home_close_edit'
+    ) {
+      return fail(op_id, 'unsupported', 'home_remote_only');
+    }
+
     if (action === 'static_project_list' || action === 'static_project_upload' || action === 'static_project_delete') {
       return fail(op_id, 'unsupported', 'static_remote_only');
     }
 
     if (action === 'ws_select_app') {
       return fail(op_id, 'unsupported', 'ws_remote_only');
+    }
+
+    if (action === UI_EXAMPLE_PROMOTE_CHILD_ACTION) {
+      return fail(op_id, 'unsupported', 'ui_examples_remote_only');
+    }
+
+    if (
+      action === THREE_SCENE_CREATE_ENTITY_ACTION
+      || action === THREE_SCENE_SELECT_ENTITY_ACTION
+      || action === THREE_SCENE_UPDATE_ENTITY_ACTION
+      || action === THREE_SCENE_DELETE_ENTITY_ACTION
+    ) {
+      return fail(op_id, 'unsupported', THREE_SCENE_REMOTE_ONLY_DETAIL);
+    }
+
+    if (action === 'matrix_debug_refresh' || action === 'matrix_debug_clear_trace' || action === 'matrix_debug_summarize') {
+      const stateModel = editorStateModel();
+      const traceModel = runtime.getModel(-100);
+      if (!stateModel || !traceModel) {
+        return fail(op_id, 'invalid_target', 'matrix_debug_missing_model');
+      }
+      const stateCell = runtime.getCell(stateModel, 0, 0, 0);
+      const selected = String(stateCell.labels.get('matrix_debug_subject_selected')?.v ?? 'trace');
+
+      if (action === 'matrix_debug_clear_trace') {
+        runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_count', t: 'int', v: 0 });
+        runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_log_text', t: 'str', v: '(cleared)' });
+        runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_last_update', t: 'str', v: '--:--:--' });
+        runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_throughput', t: 'str', v: '0/s' });
+        runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_error_rate', t: 'str', v: '0%' });
+        runtime.addLabel(stateModel, 0, 0, 0, { k: 'matrix_debug_status_text', t: 'str', v: 'trace cleared' });
+        return succeed(op_id, 'matrix_debug_clear_trace');
+      }
+
+      if (action === 'matrix_debug_summarize') {
+        const summary = String(stateCell.labels.get('matrix_debug_subject_summary_text')?.v ?? '');
+        runtime.addLabel(stateModel, 0, 0, 0, { k: 'matrix_debug_summary_text', t: 'str', v: summary });
+        runtime.addLabel(stateModel, 0, 0, 0, { k: 'matrix_debug_status_text', t: 'str', v: `summary ready: ${selected}` });
+        return succeed(op_id, 'matrix_debug_summarize');
+      }
+
+      runtime.addLabel(stateModel, 0, 0, 0, { k: 'matrix_debug_status_text', t: 'str', v: `refresh: ${selected}` });
+      return succeed(op_id, 'matrix_debug_refresh');
     }
 
     if (action === 'llm_filltable_preview' || action === 'llm_filltable_apply') {
@@ -448,33 +602,33 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       return succeed(op_id, 'datatable_select_row');
     }
 
-    const target = payload.target;
-    if (!isPlainObject(target)) {
+    const genericTarget = payload.target;
+    if (!isPlainObject(genericTarget)) {
       return fail(op_id, 'invalid_target', 'missing_target');
     }
-    if (!Number.isInteger(target.model_id) || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c)) {
+    if (!Number.isInteger(genericTarget.model_id) || !Number.isInteger(genericTarget.p) || !Number.isInteger(genericTarget.r) || !Number.isInteger(genericTarget.c)) {
       return fail(op_id, 'invalid_target', 'missing_target_coords');
     }
-    if (isReservedTarget(target)) {
+    if (isReservedTarget(genericTarget)) {
       return fail(op_id, 'reserved_cell', 'reserved_model_id');
     }
 
-    const model = runtime.getModel(target.model_id);
+    const model = runtime.getModel(genericTarget.model_id);
     if (!model) {
       return fail(op_id, 'invalid_target', 'missing_model');
     }
 
     if (action === 'cell_clear') {
-      const cell = runtime.getCell(model, target.p, target.r, target.c);
+      const cell = runtime.getCell(model, genericTarget.p, genericTarget.r, genericTarget.c);
       for (const [k, lv] of cell.labels.entries()) {
         const label = { k: lv.k, t: lv.t, v: lv.v };
         if (!editableLabel(label)) continue;
-        runtime.rmLabel(model, target.p, target.r, target.c, k);
+        runtime.rmLabel(model, genericTarget.p, genericTarget.r, genericTarget.c, k);
       }
       return succeed(op_id, 'cell_clear');
     }
 
-    if (typeof target.k !== 'string' || target.k.length === 0) {
+    if (typeof genericTarget.k !== 'string' || genericTarget.k.length === 0) {
       return fail(op_id, 'invalid_target', 'missing_target_k');
     }
 
@@ -490,13 +644,13 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       }
     }
 
-    const allowRunForSystem = target.model_id < 0 && typeof target.k === 'string' && target.k.startsWith('run_');
-    if (matchForbiddenK(target.k) && !allowRunForSystem) {
+    const allowRunForSystem = genericTarget.model_id < 0 && typeof genericTarget.k === 'string' && genericTarget.k.startsWith('run_');
+    if (matchForbiddenK(genericTarget.k) && !allowRunForSystem) {
       return fail(op_id, 'forbidden_k', 'forbidden_k');
     }
 
     if (action === 'label_remove') {
-      runtime.rmLabel(model, target.p, target.r, target.c, target.k);
+      runtime.rmLabel(model, genericTarget.p, genericTarget.r, genericTarget.c, genericTarget.k);
       return succeed(op_id, 'label_remove');
     }
 
@@ -510,9 +664,9 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
         if (!normalized.ok) {
           return fail(op_id, normalized.code, normalized.detail);
         }
-        runtime.addLabel(model, target.p, target.r, target.c, { k: target.k, t: payload.value.t, v: normalized.value });
+        runtime.addLabel(model, genericTarget.p, genericTarget.r, genericTarget.c, { k: genericTarget.k, t: payload.value.t, v: normalized.value });
       } else {
-        runtime.addLabel(model, target.p, target.r, target.c, { k: target.k, t: payload.value.t, v: payload.value.v });
+        runtime.addLabel(model, genericTarget.p, genericTarget.r, genericTarget.c, { k: genericTarget.k, t: payload.value.t, v: payload.value.v });
       }
       return succeed(op_id, action);
     } catch (_) {
@@ -522,7 +676,6 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
 
   function updateUiDerived({ uiAst, snapshotJson, eventLogJson }) {
     const model = runtime.getModel(mailboxModelId);
-    runtime.addLabel(model, 0, 0, 0, { k: 'ui_ast_v0', t: 'json', v: uiAst });
     runtime.addLabel(model, 0, 1, 0, { k: 'snapshot_json', t: 'str', v: snapshotJson });
     runtime.addLabel(model, 0, 1, 1, { k: 'event_log', t: 'str', v: eventLogJson });
   }

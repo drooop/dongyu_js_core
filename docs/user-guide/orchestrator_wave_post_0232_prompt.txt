@@ -1,0 +1,40 @@
+Execute the remaining environment/materialization wave as existing iterations only.
+
+Current completed prerequisites:
+- 0226-orchestrator-ops-task-contract-freeze
+- 0227-orchestrator-ops-executor-bridge
+- 0228-orchestrator-ops-phase-and-regression
+- 0229-local-ops-bridge-smoke
+- 0231-final-verification-manual-accept-consistency
+- 0232-local-baseline-surface-gate
+
+Wave scope and order:
+1. 0233-local-matrix-debug-surface-materialization-fix
+2. 0234-local-browser-evidence-effective-rerun
+3. 0230-remote-ops-bridge-smoke
+4. 0224-remote-rollout-baseline
+5. 0225-remote-browser-evidence
+
+Rules:
+- Treat every item as an existing iteration; do not decompose into new primary iterations.
+- Keep exactly one active iteration at a time.
+- Do not reopen 0222, 0223, 0229, or 0232 as primary work.
+- If a true derived follow-up iteration appears, insert it immediately after its parent and report the queue change.
+- If any unresolved proposed/on_hold extra iteration appears, stop the wave and report the blocker.
+- 0233 is the current highest-priority repair:
+  - trace why `matrix_debug_surface.json` still fails to materialize into `Model -100 / 0,1,0 / page_asset_v0 = matrix_debug_root`
+  - fix only that chain
+- 0234 must re-run local Playwright MCP evidence after 0233; do not skip it even if 0233 appears successful.
+- 0230 proves remote ops bridge only; it does not replace 0224.
+- 0224 must consume the lesson from 0232:
+  - remote rollout/readiness is not enough by itself
+  - remote baseline must be judged against live surface alignment, not just deployment health
+- 0225 is the final remote browser evidence verdict and must use real Playwright MCP capable execution.
+
+Final output:
+- Per-iteration final status
+- Any inserted derived iterations
+- Whole-wave result:
+  - ALL GOALS MET
+  - PARTIALLY BLOCKED
+  - FAILED

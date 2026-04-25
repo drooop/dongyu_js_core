@@ -1,26 +1,41 @@
-import { computed, h, onBeforeUnmount, onMounted, ref, resolveComponent } from 'vue';
+import { computed, h, onBeforeUnmount, onMounted, ref, resolveComponent, watch } from 'vue';
 import { createRenderer } from '@ui-renderer/index.mjs';
-import { buildGalleryAst } from './gallery_model.js';
+import { readAppShellRouteSyncState, resolveNavigableRoutePath } from './app_shell_route_sync.js';
+import { findPageEntryByPath, readPageCatalog } from './page_asset_resolver.js';
 
 import {
-  ROUTE_GALLERY,
   ROUTE_HOME,
-  ROUTE_DOCS,
   ROUTE_MODEL100,
-  ROUTE_PROMPT,
-  ROUTE_STATIC,
   ROUTE_WORKSPACE,
   getHashPath,
-  isDocsPath,
-  isGalleryPath,
-  isHomePath,
   isModel100Path,
-  isPromptPath,
-  isStaticPath,
-  isWorkspacePath,
   setHashPath,
   subscribeHashPath,
 } from './router.js';
+
+function buildUiMailboxEventLabel(input) {
+  const { action, target, value, opId } = input || {};
+  const nextOpId = opId || `ui_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  return {
+    p: 0,
+    r: 0,
+    c: 1,
+    k: 'ui_event',
+    t: 'event',
+    v: {
+      event_id: Date.now(),
+      type: action,
+      source: 'ui_renderer',
+      ts: 0,
+      payload: {
+        action,
+        meta: { op_id: nextOpId },
+        ...(target ? { target } : {}),
+        ...(Object.prototype.hasOwnProperty.call(input || {}, 'value') ? { value } : {}),
+      },
+    },
+  };
+}
 
 export function createDemoRoot(store) {
   let consumeScheduled = false;
@@ -35,6 +50,24 @@ export function createDemoRoot(store) {
 
   const host = {
     getSnapshot: () => store.snapshot,
+    getEffectiveLabelValue: (ref) => {
+      if (store && typeof store.getEffectiveLabelValue === 'function') {
+        return store.getEffectiveLabelValue(ref);
+      }
+      return undefined;
+    },
+    stageOverlayValue: (payload) => {
+      if (store && typeof store.stageOverlayValue === 'function') {
+        return store.stageOverlayValue(payload);
+      }
+      return undefined;
+    },
+    commitOverlayValue: (payload) => {
+      if (store && typeof store.commitOverlayValue === 'function') {
+        return store.commitOverlayValue(payload);
+      }
+      return undefined;
+    },
     dispatchAddLabel: (label) => {
       store.dispatchAddLabel(label);
       scheduleConsumeOnce();
@@ -81,10 +114,6 @@ export function createDemoRoot(store) {
 export function createAppShell({ mainStore, galleryStore, authStore }) {
   const HomeRoot = createDemoRoot(mainStore);
   const GalleryRoot = createDemoRoot(galleryStore);
-  const GalleryRemoteRoot = createDemoRoot({
-    ...mainStore,
-    getUiAst: () => buildGalleryAst(),
-  });
 
   return {
     name: 'AppShell',
@@ -95,55 +124,59 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       const path = ref(getHashPath());
       let unsubscribe = null;
 
+      if (mainStore && typeof mainStore.setRoutePath === 'function') {
+        mainStore.setRoutePath(path.value);
+      }
+
+      function readCatalog() {
+        return readPageCatalog(mainStore?.snapshot ?? {});
+      }
+
+      function findRouteEntry(routePath) {
+        return findPageEntryByPath(mainStore?.snapshot ?? {}, routePath);
+      }
+
       function normalizeIfUnknown(p) {
-        if (isModel100Path(p)) {
-          setHashPath(ROUTE_WORKSPACE, { replace: true });
-          selectWorkspaceModel(100);
-          return;
+        const nextPath = resolveNavigableRoutePath(mainStore?.snapshot ?? {}, p);
+        if (nextPath === p) return;
+        setHashPath(nextPath, { replace: true });
+        path.value = nextPath;
+        if (mainStore && typeof mainStore.setRoutePath === 'function') {
+          mainStore.setRoutePath(path.value);
         }
-        if (isHomePath(p) || isGalleryPath(p) || isDocsPath(p) || isStaticPath(p) || isWorkspacePath(p) || isPromptPath(p)) return;
-        setHashPath(ROUTE_HOME, { replace: true });
+      }
+
+      function resolveWorkspaceModelId() {
+        const labels = mainStore?.snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels ?? {};
+        const raw = labels.ws_app_selected?.v;
+        if (typeof raw === 'number' && Number.isInteger(raw) && raw !== 0) return raw;
+        if (typeof raw === 'string' && /^-?\d+$/.test(raw.trim())) {
+          const parsed = Number.parseInt(raw.trim(), 10);
+          if (Number.isInteger(parsed) && parsed !== 0) return parsed;
+        }
+        return 100;
       }
 
       function selectWorkspaceModel(modelId) {
         if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
-        const opId = `ws_sel_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-        mainStore.dispatchAddLabel({
-          p: 0, r: 0, c: 1, k: 'ui_event', t: 'event',
-          v: {
-            event_id: Date.now(), type: 'label_update', source: 'ui_renderer', ts: 0,
-            payload: {
-              action: 'label_update',
-              meta: { op_id: opId },
-              target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
-              value: modelId,
-            },
-          },
-        });
+        mainStore.dispatchAddLabel(buildUiMailboxEventLabel({
+          action: 'label_update',
+          target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
+          value: { t: 'int', v: modelId },
+        }));
       }
 
       function syncPageLabel(routePath) {
-        let page = 'home';
-        if (isDocsPath(routePath)) page = 'docs';
-        else if (isStaticPath(routePath)) page = 'static';
-        else if (isWorkspacePath(routePath)) page = 'workspace';
-        else if (isPromptPath(routePath)) page = 'prompt';
+        const page = findRouteEntry(routePath)?.page || 'home';
         try {
           if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
           const opId = `route_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-          const envelope = {
-            event_id: Date.now(),
-            type: 'label_update',
-            source: 'ui_renderer',
-            ts: 0,
-            payload: {
-              action: 'label_update',
-              meta: { op_id: opId },
-              target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ui_page' },
-              value: { t: 'str', v: page },
-            },
-          };
-          mainStore.dispatchAddLabel({ p: 0, r: 0, c: 1, k: 'ui_event', t: 'event', v: envelope });
+          mainStore.dispatchAddLabel(buildUiMailboxEventLabel({
+            action: 'label_update',
+            target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ui_page' },
+            value: { t: 'str', v: page },
+            opId,
+          }));
           if (typeof mainStore.consumeOnce === 'function') {
             queueMicrotask(() => mainStore.consumeOnce());
           }
@@ -152,13 +185,51 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         }
       }
 
+      function syncWorkspaceSelection(routePath) {
+        const page = findRouteEntry(routePath)?.page || 'home';
+        if (page !== 'workspace') return;
+        queueMicrotask(() => {
+          selectWorkspaceModel(resolveWorkspaceModelId());
+        });
+      }
+
+      function syncGalleryRoute(routePath) {
+        if (galleryStore && typeof galleryStore.setRoutePath === 'function') {
+          galleryStore.setRoutePath(routePath);
+        }
+      }
+
+      function clearGalleryNavTarget() {
+        if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
+        const opId = `gallery_nav_clear_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        mainStore.dispatchAddLabel(buildUiMailboxEventLabel({
+          action: 'label_update',
+          target: { model_id: -102, p: 0, r: 0, c: 0, k: 'nav_to' },
+          value: { t: 'str', v: '' },
+          opId,
+        }));
+        if (typeof mainStore.consumeOnce === 'function') {
+          queueMicrotask(() => mainStore.consumeOnce());
+        }
+      }
+
       onMounted(() => {
         normalizeIfUnknown(path.value);
+        if (mainStore && typeof mainStore.setRoutePath === 'function') {
+          mainStore.setRoutePath(path.value);
+        }
+        syncGalleryRoute(path.value);
         syncPageLabel(path.value);
+        syncWorkspaceSelection(path.value);
         unsubscribe = subscribeHashPath((next) => {
           path.value = next;
           normalizeIfUnknown(next);
+          if (mainStore && typeof mainStore.setRoutePath === 'function') {
+            mainStore.setRoutePath(path.value);
+          }
+          syncGalleryRoute(next);
           syncPageLabel(next);
+          syncWorkspaceSelection(next);
         });
       });
 
@@ -166,23 +237,37 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         if (unsubscribe) unsubscribe();
       });
 
-      const isGallery = computed(() => isGalleryPath(path.value));
+      const currentRouteEntry = computed(() => findRouteEntry(path.value));
+      const routeSyncState = computed(() => readAppShellRouteSyncState(mainStore?.snapshot ?? {}, path.value));
+      const galleryNavTarget = computed(() => {
+        const labels = mainStore?.snapshot?.models?.['-102']?.cells?.['0,0,0']?.labels ?? {};
+        const raw = labels.nav_to?.v;
+        return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : '';
+      });
 
-      const isDocs = computed(() => isDocsPath(path.value));
-      const isStatic = computed(() => isStaticPath(path.value));
-      const isWorkspace = computed(() => isWorkspacePath(path.value));
-      const isPrompt = computed(() => isPromptPath(path.value));
+      watch(galleryNavTarget, (next) => {
+        if (!next) return;
+        setHashPath(next);
+        path.value = next;
+        if (mainStore && typeof mainStore.setRoutePath === 'function') {
+          mainStore.setRoutePath(path.value);
+        }
+        syncGalleryRoute(path.value);
+        syncPageLabel(path.value);
+        syncWorkspaceSelection(path.value);
+        clearGalleryNavTarget();
+      });
 
       function Header() {
-        const navButtons = [
-          h(ElButton, { type: isHomePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_HOME) }, { default: () => '首页' }),
-          h('span', { style: { display: 'inline-block', width: '24px' } }, ''),
-          h(ElButton, { type: isGalleryPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_GALLERY) }, { default: () => 'Gallery' }),
-          h(ElButton, { type: isDocsPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_DOCS) }, { default: () => 'Docs' }),
-          h(ElButton, { type: isStaticPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_STATIC) }, { default: () => 'Static' }),
-          h(ElButton, { type: isWorkspacePath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_WORKSPACE) }, { default: () => 'Workspace' }),
-          h(ElButton, { type: isPromptPath(path.value) ? 'primary' : 'default', onClick: () => setHashPath(ROUTE_PROMPT) }, { default: () => 'Prompt' }),
-        ];
+        const catalog = readCatalog().filter((entry) => entry && entry.nav_visible === true && typeof entry.path === 'string');
+        const navButtons = catalog.map((entry) => h(
+          ElButton,
+          {
+            type: currentRouteEntry.value?.page === entry.page ? 'primary' : 'default',
+            onClick: () => setHashPath(entry.path),
+          },
+          { default: () => entry.label || entry.page || entry.path },
+        ));
 
         const userSection = [];
         if (authStore && authStore.state && authStore.state.authenticated) {
@@ -214,11 +299,35 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       }
 
       return () => {
-        if (isGallery.value) {
-          const isRemoteMode = !mainStore || !Object.prototype.hasOwnProperty.call(mainStore, 'runtime');
-          return h('div', [h(Header), h(isRemoteMode ? GalleryRemoteRoot : GalleryRoot)]);
+        if (currentRouteEntry.value?.page === 'gallery') {
+          return h('div', [h(Header), h(GalleryRoot)]);
         }
-        if (isDocs.value || isStatic.value || isWorkspace.value || isPrompt.value) {
+        if (routeSyncState.value.pending) {
+          return h('div', [
+            h(Header),
+            h('div', {
+              style: {
+                padding: '24px 16px',
+              },
+            }, [
+              h('div', {
+                style: {
+                  maxWidth: '960px',
+                  margin: '0 auto',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '12px',
+                  padding: '24px',
+                  background: '#fff',
+                  boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)',
+                },
+              }, [
+                h('div', { style: { fontSize: '18px', fontWeight: '600', color: '#0f172a', marginBottom: '8px' } }, '页面同步中'),
+                h('div', { style: { color: '#475569', lineHeight: '1.6' } }, `正在切换到 ${routeSyncState.value.targetPage}，等待本地表状态完成同步。`),
+              ]),
+            ]),
+          ]);
+        }
+        if (currentRouteEntry.value && currentRouteEntry.value.page !== 'gallery') {
           return h('div', [h(Header), h(HomeRoot)]);
         }
         return h('div', [

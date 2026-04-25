@@ -7,6 +7,67 @@
 2. 新增一键脚本时，必须在本文件追加“用途 + 命令 + PASS 判定”。
 3. `README.md` 中的一键命令应保持与本文件一致。
 
+## 导航入口
+
+若你先需要理解正式口径，再回来找命令：
+- Prompt FillTable 的 owner-chain 说明：`docs/user-guide/prompt_filltable_owner_chain_and_deploy.md`
+- ModelTable 用户口径：`docs/user-guide/modeltable_user_guide.md`
+- 本项目 LLM / `mt-table` 本地 runbook：`docs/user-guide/llm_cognition_ollama_runbook.md`
+
+若你已经明确要执行命令，本文件就是唯一 canonical 入口。
+
+---
+
+## Ops Task Surface（0226 contract freeze）
+
+用途：
+- 作为 orchestrator `ops_task` 可引用的 canonical shell surface 知识库。
+- 为 `0227-0230` 提供统一术语：哪些脚本族允许进入 `ops_task`、何时必须先过 remote safety gate、哪些远端动作必须 stop。
+
+当前边界：
+- 0228 runtime 已接线：orchestrator 当前会把 `ops_task` authoritative ingest 到 `state.json` / `events.jsonl` / `status.txt` / `runlog.md`
+- 0229/0230 只负责真实 shell smoke，不再补 phase contract
+- 真实 shell smoke 仍尚未证明；当前 README 只说明已落地的 phase/runtime 能力边界，不把 0229/0230 的 smoke 结论提前写成已完成
+
+canonical command families：
+- local readonly baseline / readiness：
+  - `bash scripts/ops/check_runtime_baseline.sh`
+- local mutating deploy / ensure：
+  - `bash scripts/ops/ensure_runtime_baseline.sh`
+  - `bash scripts/ops/deploy_local.sh`
+- remote readonly preflight / source gate：
+  - `bash scripts/ops/remote_preflight_guard.sh`
+  - `bash scripts/ops/remote_preflight_guard.sh --print-socket`
+  - cloud deploy 内建 source integrity gate（`deploy_cloud_full.sh` / `deploy_cloud_app.sh`）
+- remote mutating whitelist rollout：
+  - `bash scripts/ops/sync_cloud_source.sh ...`
+  - `sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_full.sh --rebuild`
+  - `sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target <app> --revision <rev>`
+
+`ops_task` canonical path 读法：
+- orchestrator 只接收 machine-readable `ops_task`
+- `request.json` / `result.json` / `stdout.log` / `stderr.log` / `artifacts/` 的 canonical 路径统一在：
+  - `.orchestrator/runs/<batch_id>/ops_tasks/<task_id>/`
+- `ops_task.required_artifacts[]` 只声明文件名与 `media_type`；canonical 路径由 orchestrator materialize
+
+remote safety gate（强制）：
+- 任何 remote mutating `ops_task` 在执行前都必须先过 `remote_preflight_guard.sh`
+- 若 `remote_preflight_guard.sh` 失败、rke2 判定失败、containerd socket 不可达、root/权限不足，必须以 `remote_guard_blocked` 收口，不得继续执行 mutating op
+- `deploy_cloud_full.sh` / `deploy_cloud_app.sh` 额外自带 source integrity gate；若 source gate 失败，同样不能继续 rollout
+- 若 request 在 preflight 就命中 `kubectl delete namespace` / `helm uninstall`，orchestrator 必须进入 `human_decision_required` / `On Hold`，不得 materialize/execute 该 `ops_task`
+
+forbidden / critical-risk remote 边界：
+- `forbidden_remote_op`：
+  - `k3s`
+  - `systemctl start|stop|restart|enable|disable` on `rke2` / `k3s` / `containerd` / `docker` / `sshd` / `networking`
+  - 修改 `/etc/rancher/`
+  - 修改 CNI、防火墙、网络接口
+- `human_decision_required` / `On Hold`：
+  - `kubectl delete namespace`
+  - `helm uninstall`
+  - 任何会影响其他 namespace 或 cluster-wide resources 的操作
+- 这些 stop rules 来自 `CLAUDE.md` + `docs/ssot/orchestrator_hard_rules.md`；executor 不得自行把它们降级为 warning 或 `nonzero_exit`
+
 ---
 
 ## Cloud Remote RKE2 Gate（强制前置）
@@ -39,7 +100,8 @@ PASS 判定：
 - 将 cloud deploy 的构建源固定为 canonical 路径，并在 rollout 后校验容器内源码哈希。
 
 已接入脚本：
-- `scripts/ops/deploy_cloud.sh`
+- `scripts/ops/deploy_cloud_full.sh`
+- `scripts/ops/deploy_cloud_app.sh`
 
 Gate 内容：
 1. 单一构建源校验：`k8s/Dockerfile.ui-server` 为唯一基准。若存在 `Dockerfile.ui-server` 且哈希不一致，直接失败。
@@ -51,39 +113,86 @@ Gate 内容：
 4. rollout 后容器源码验收：比较 pod 内同路径文件 SHA256，任一不一致即失败。
 5. Prompt UI Guard 验收：检查 pod 内前端代码存在 `llmPromptAvailable` 与 `txt_prompt_unavailable` marker。
 
-命令（远端 root）：
+命令（远端 root，full deploy）：
 ```bash
-sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud.sh
+sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_full.sh
 ```
 
-命令（远端 root，使用预构建 tar）：
+命令（远端 root，app fast deploy）：
 ```bash
-sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud.sh --image-tar /tmp/dy-ui-server.tar
+sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-server
 ```
 
 说明：
-- 若远端工作目录不是 git clone（无 `.git`），脚本会优先从 `--image-tar` 文件名推断 `source revision`。
-- 若 tar 文件名不含 revision，可显式传入：`sudo DEPLOY_SOURCE_REV=<rev> bash ...`。
+- `deploy_cloud.sh` 现仅作为兼容 wrapper，内部委托给 `deploy_cloud_full.sh`。
+- `deploy_cloud_app.sh` 只允许目标集：`ui-server | mbr-worker | remote-worker`。
 
 ---
 
-## Cloud Local-Build + Remote-Import（推荐）
+## Cloud Remote Build（推荐）
 
 用途：
-- 本地构建镜像，远端只导入 tar + rollout，降低远端脏目录/旧文件影响。
-- 与 `deploy_cloud.sh --image-tar` 配合使用。
+- 当前无私有镜像仓库时的 canonical cloud deploy 路径。
+- 先同步目标 revision 到远端，再由远端本机 `docker build`，最后本机 `docker save | ctr import -` 导入 `rke2`。
+- 避免继续走 `scp` 大 tar 主路径。
+
+命令（先同步源码）：
+```bash
+bash scripts/ops/sync_cloud_source.sh \
+  --ssh-user drop \
+  --ssh-host dongyudigital.com \
+  --remote-repo /home/wwpic/dongyuapp \
+  --remote-repo-owner wwpic \
+  --revision "$(git rev-parse --short HEAD)"
+```
+
+命令（在远端主机上执行 full deploy）：
+```bash
+sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_full.sh --rebuild
+```
+
+命令（在远端主机上执行 app fast deploy）：
+```bash
+sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-server --revision "$(git rev-parse --short HEAD)"
+```
+
+PASS 判定：
+- `remote_preflight_guard.sh` PASS
+- 远端 `rke2` 集群中的 MQTT broker 已就绪
+- 目标 deployment rollout 成功
+- source hash gate 通过
+- 目标环境验收命令 PASS
+
+说明：
+- canonical SSH deploy user 是 `drop`，不是 `wwpic`。
+- canonical remote repo 路径保持 `/home/wwpic/dongyuapp`，source sync 通过 `drop + sudo -u wwpic` 代持写入。
+- 如果仍通过受限 sudo wrapper 远程触发部署，需要同步更新远端 wrapper / sudoers 白名单，使其允许新入口脚本。
+- 本地 OrbStack baseline 与 cloud baseline 的 MQTT 拓扑不同：
+  - 本地 `k8s/local/workers.yaml` 使用 `mosquitto.dongyu.svc.cluster.local`
+  - 远端 `k8s/cloud/workers.yaml` 使用 `emqx-emqx-enterprise.emqx.svc.cluster.local`
+  - 远端 `EMQX` 位于 `emqx` namespace，不在 `dongyu` namespace
+  - `deploy_cloud_full.sh` / `deploy_cloud_app.sh` 默认假定远端 EMQX 已存在，不负责创建 broker
+
+---
+
+## Cloud Local-Build + Remote-Import（fallback only）
+
+用途：
+- 仅用于远端无法 build、wrapper 仍只允许旧入口、或离线构件交付等 fallback 场景。
+- 不再是推荐主路径。
 
 命令：
 ```bash
 bash scripts/ops/deploy_cloud_ui_server_from_local.sh \
-  --ssh-user wwpic \
-  --ssh-host 124.71.43.80 \
-  --remote-repo /home/wwpic/dongyuapp
+  --ssh-user drop \
+  --ssh-host dongyudigital.com \
+  --remote-repo /home/wwpic/dongyuapp \
+  --remote-repo-owner wwpic
 ```
 
 说明：
 - 脚本会本地 build/save，scp tar 到远端，并通过 `sudo DEPLOY_SOURCE_REV=<local_git_rev> deploy_cloud.sh --image-tar ...` 触发部署。
-- 默认会同步 gate 所需关键文件（deploy scripts + `k8s/cloud/workers.yaml` + `k8s/Dockerfile.ui-server` + `server.mjs` + `demo_modeltable.js` + `local_bus_adapter.js`），并对齐 shadow `workers.yaml`/`Dockerfile.ui-server`。
+- 远端源码同步已统一委托给 `sync_cloud_source.sh`，因此同样遵循 `drop` 登录、`/home/wwpic/dongyuapp` 路径、`sudo -u wwpic` 代持写入。
 
 PASS 判定：
 - 远端 `ui-server` rollout 成功；
@@ -91,20 +200,20 @@ PASS 判定：
 
 ---
 
-## Model 100 Submit Roundtrip（一键）
+## Model 100 Submit Roundtrip（OrbStack pod，推荐）
 
 用途：
-- 在本地 UI Server 复现实例闭环：`Generate Color` 从 submit 到回包。
-- 自动对齐 k8s（OrbStack）中的 Matrix room/token，避免 room mismatch。
+- 以 OrbStack pod 部署路径验证 `Generate Color` 从 submit 到回包。
+- 当前 `0175` 的 canonical 验证口径是 `http://127.0.0.1:30900`，不是 host-side `9011` 临时 server。
 
 命令：
 ```bash
-bash scripts/ops/run_model100_submit_roundtrip_local.sh --port 9011 --stop-after
+bash scripts/ops/ensure_runtime_baseline.sh \
+&& bash scripts/ops/verify_model100_submit_roundtrip.sh --base-url http://127.0.0.1:30900
 ```
 
 PASS 判定：
 - baseline 5 个 deployment ready
-- 本地 server Matrix connected（对齐 k8s room）
 - 验证输出包含：
   - submit response `result=ok`
   - `loading/inflight=true -> processed/inflight=false`
@@ -112,10 +221,14 @@ PASS 判定：
 
 ---
 
-## 拆分执行（调试用）
+## Host-side 9011 路径（调试用，非 canonical）
+
+用途：
+- 在主机侧临时启动 `ui-server`，复用 `MODELTABLE_PATCH_JSON` 进行 debug。
+- 该路径依赖 host 到 Matrix plane 的可达性，不作为 `0175` 的完成口径。
 
 ```bash
-bash scripts/ops/check_runtime_baseline.sh \
+bash scripts/ops/ensure_runtime_baseline.sh \
 && bash scripts/ops/start_local_ui_server_k8s_matrix.sh --port 9011 --force-kill-port \
 && bash scripts/ops/verify_model100_submit_roundtrip.sh --base-url http://127.0.0.1:9011
 ```
@@ -162,6 +275,8 @@ PASS 判定：
 用途：
 - 验证 `0155` Prompt FillTable 闭环：`Preview -> Apply -> Replay Guard -> Policy Reject`。
 - 默认使用本地 mock ollama，确保无真实模型时也可复跑；可切换真实 Ollama。
+- `0188` 起，推荐真实本地模型为 `mt-label`，其底座由 `qwen3.5:9b` 构建。
+- `0188` 起，schema-aware prompt 已要求优先命中现有字段，并在不确定时先提问。
 
 命令（推荐，默认 mock）：
 ```bash
@@ -173,9 +288,19 @@ bash scripts/ops/run_0155_prompt_filltable_local.sh
 bash scripts/ops/run_0155_prompt_filltable_local.sh --real-ollama
 ```
 
+命令（先创建本地 `mt-label`）：
+```bash
+bash scripts/ops/create_mt_label_qwen35.sh
+```
+
 命令（真实 Ollama + 指定模型标签）：
 ```bash
 bash scripts/ops/run_0155_prompt_filltable_local.sh --real-ollama --llm-model mt-label
+```
+
+命令（真实 Ollama + 35B 变体）：
+```bash
+bash scripts/ops/run_0155_prompt_filltable_local.sh --real-ollama --llm-model mt-label-35b
 ```
 
 PASS 判定：
@@ -187,6 +312,61 @@ PASS 判定：
 脚本说明：
 - `verify_0155_prompt_filltable.sh`：执行 Preview/Apply/Replay/Reject 四段验收并严格判定 PASS/FAIL。
 - `run_0155_prompt_filltable_local.sh`：一键串联 mock ollama + 本地 server 启动 + 0155 验证。
+- `create_mt_label_qwen35.sh`：用 `qwen3.5:9b` + 结构化输出参数创建本地 `mt-label`。
+
+---
+
+## 0188 FillTable Capability Matrix（一键）
+
+用途：
+- 按固定能力表回归自然语言填表，而不是只跑单一 `0155` 用例。
+- 支持全量执行，也支持按 capability subset / scenario id 执行。
+- 覆盖：基础写入、表单字段映射、query-only、父子模型负例、需要澄清时先提问。
+
+命令（全量，9B）：
+```bash
+bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label
+```
+
+命令（全量，35B）：
+```bash
+bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label-35b
+```
+
+35B 预热说明：
+- `mt-label-35b` 在本地 Ollama 下首轮 cold load 可能明显慢于 `mt-label`，症状通常是 runner 长时间停在第一个 preview 前。
+- 若需要更稳定地执行 35B 验证，先手动把模型挂上，再跑 matrix：
+```bash
+ollama run mt-label-35b "{}"
+```
+- 看到一次最小响应后，再执行：
+```bash
+bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label-35b --tag forms
+```
+- 2026-03-17 本地实测：先挂载后，请假/报修两个 forms 场景 `passed=2 failed=0`。
+
+命令（按 tag 子集）：
+```bash
+bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label --tag forms
+bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label --tag structure
+```
+
+命令（按 scenario id）：
+```bash
+bash scripts/ops/run_filltable_capability_matrix_local.sh --llm-model mt-label --scenario leave_form_model1001_exact_mapping
+```
+
+PASS 判定：
+- runner JSON summary 中 `failed=0`
+- `leave_form_model1001_exact_mapping` 必须命中 `applicant/leave_type/days/reason`
+- `repair_form_model1002_exact_mapping` 必须命中 `device_name/location/urgency/description`
+- `parent_child_submodel_model11_blocked` 在当前 policy 下必须 blocked，不能创建 `Model11`
+
+脚本说明：
+- `filltable_capability_cases.mjs`：能力矩阵、标签、prompt 与断言的单一事实源。
+- `run_filltable_capability_matrix.mjs`：对已有 server 执行 scenario 并产出 JSON report。
+- `run_filltable_capability_matrix_local.sh`：本地启动 server、warm up 模型、执行矩阵并自动回收进程。
+- `docs/user-guide/filltable_capability_matrix.md`：人类可读版能力表与选择方式。
 
 ---
 
@@ -216,8 +396,8 @@ PASS 判定：
 实测经验：
 - 本地 `ui-server` 默认值：
   - `DY_LLM_MODEL=mt-table`
-  - `DY_LLM_MAX_TOKENS=512`
-  - `DY_LLM_TIMEOUT_MS=120000`
+  - `DY_LLM_MAX_TOKENS=1024`
+  - `DY_LLM_TIMEOUT_MS=180000`
 - `mt-table` 首轮 full prompt 可能出现 warm-up 超时；`0170` 中观察到：
   - 首轮 `verify_0155` 曾返回 `llm_timeout`
   - 紧接着复跑同一命令即可 PASS
