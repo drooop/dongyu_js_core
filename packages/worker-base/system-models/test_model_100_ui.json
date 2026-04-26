@@ -1232,11 +1232,29 @@
       "p": 1,
       "r": 0,
       "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "large"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "type": "primary",
-        "size": "large",
         "disabled": {
           "$label": {
             "model_id": 100,

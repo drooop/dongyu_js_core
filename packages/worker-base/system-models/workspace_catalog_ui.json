@@ -108,13 +108,31 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "layout": "row",
-        "gap": 16,
         "style": {
           "alignItems": "flex-start",
           "minHeight": "600px"
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 16
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
     },
     {
       "op": "add_label",
@@ -165,12 +183,21 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "title": "资产树 ASSET TREE",
         "style": {
           "width": "260px",
           "flexShrink": 0
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "资产树 ASSET TREE"
     },
     {
       "op": "add_label",
@@ -229,12 +256,48 @@
             "c": 0,
             "k": "ws_apps_registry"
           }
-        },
-        "border": true,
-        "stripe": true,
-        "size": "small",
-        "rowKey": "model_id"
+        }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_border",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_row_key",
+      "t": "str",
+      "v": "model_id"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_stripe",
+      "t": "bool",
+      "v": true
     },
     {
       "op": "add_label",
@@ -282,67 +345,29 @@
       "p": 2,
       "r": 4,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "name",
-        "prop": "name",
-        "minWidth": 180
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -25,
-      "p": 2,
-      "r": 5,
-      "c": 0,
-      "k": "ui_node_id",
+      "k": "ui_label",
       "t": "str",
-      "v": "col_ws_source"
+      "v": "name"
     },
     {
       "op": "add_label",
       "model_id": -25,
       "p": 2,
-      "r": 5,
+      "r": 4,
       "c": 0,
-      "k": "ui_component",
+      "k": "ui_min_width",
       "t": "str",
-      "v": "TableColumn"
+      "v": "180"
     },
     {
       "op": "add_label",
       "model_id": -25,
       "p": 2,
-      "r": 5,
+      "r": 4,
       "c": 0,
-      "k": "ui_parent",
+      "k": "ui_prop",
       "t": "str",
-      "v": "__disabled_workspace_source_column"
-    },
-    {
-      "op": "add_label",
-      "model_id": -25,
-      "p": 2,
-      "r": 5,
-      "c": 0,
-      "k": "ui_order",
-      "t": "int",
-      "v": 20
-    },
-    {
-      "op": "add_label",
-      "model_id": -25,
-      "p": 2,
-      "r": 5,
-      "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "",
-        "prop": "source",
-        "width": 16
-      }
+      "v": "name"
     },
     {
       "op": "add_label",
@@ -390,12 +415,19 @@
       "p": 2,
       "r": 6,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Actions",
-        "width": 84
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "84"
     },
     {
       "op": "add_label",
@@ -446,11 +478,38 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Open",
-        "type": "primary",
-        "link": true,
-        "size": "small"
+        "link": true
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Open"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
     },
     {
       "op": "add_label",
@@ -463,12 +522,28 @@
       "v": {
         "write": {
           "pin": "click",
-          "value_ref": {
-            "t": "int",
-            "v": {
-              "$ref": "row.model_id"
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ws_select_app.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "model_id",
+              "t": "int",
+              "v": {
+                "$ref": "row.model_id"
+              }
             }
-          }
+          ]
         }
       }
     },
@@ -508,7 +583,7 @@
       "k": "handle_ws_select_click",
       "t": "func.js",
       "v": {
-        "code": "/* rubric: P4+P9+P10+P7+P8 */ var selected=Number.isInteger(label&&label.v)?label.v:null;\nif(!Number.isInteger(selected)&&label&&label.v&&typeof label.v==='object'&&Number.isInteger(label.v.value)){selected=label.v.value;}\nvar result=ctx.hostApi&&ctx.hostApi.wsSelectApp?ctx.hostApi.wsSelectApp(selected):{ok:false,code:'host_api_missing',detail:'wsSelectApp'};\nif(!result||result.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:result&&result.code?result.code:'exception',detail:result&&result.detail?result.detail:'ws_select_failed'});return;}\nvar selectedId=result.data&&result.data.selected;ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_app_selected', 'int', Number.isInteger(selectedId)?selectedId:0);ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_select: '+String(Number.isInteger(selectedId)?selectedId:0));",
+        "code": "/* rubric: P4+P9+P10+P7+P8 */ var fail=function(code,detail){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:code,detail:detail});ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ERR '+String(code)+': '+String(detail));};\nvar records=Array.isArray(label&&label.v)?label.v:[];\nif(records.length===0){fail('temporary_modeltable_required','ws_select_app.v1');return;}\nvar readPayload=function(key){for(var i=0;i<records.length;i++){var rec=records[i];if(rec&&rec.id===0&&rec.p===0&&rec.r===0&&rec.c===0&&rec.k===key)return rec.v;}return null;};\nif(readPayload('__mt_payload_kind')!=='ws_select_app.v1'){fail('invalid_payload_kind','ws_select_app.v1');return;}\nvar raw=readPayload('model_id');var selected=Number.isInteger(raw)?raw:Number(raw);\nif(!Number.isInteger(selected)){fail('invalid_payload','model_id required');return;}\nvar result=ctx.hostApi&&ctx.hostApi.wsSelectApp?ctx.hostApi.wsSelectApp(selected):{ok:false,code:'host_api_missing',detail:'wsSelectApp'};\nif(!result||result.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:result&&result.code?result.code:'exception',detail:result&&result.detail?result.detail:'ws_select_failed'});return;}\nvar selectedId=result.data&&result.data.selected;ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_app_selected', 'int', Number.isInteger(selectedId)?selectedId:0);ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_select: '+String(Number.isInteger(selectedId)?selectedId:0));",
         "modelName": "workspace_catalog"
       }
     },
@@ -561,12 +636,21 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "title": "应用详情",
         "style": {
           "flex": 1,
           "minWidth": 0
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "应用详情"
     },
     {
       "op": "add_label",
@@ -617,12 +701,30 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "layout": "column",
-        "gap": 12,
         "style": {
           "minHeight": "120px"
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
     },
     {
       "op": "add_label",
@@ -673,14 +775,31 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Del",
-        "type": "danger",
         "link": true,
-        "size": "small",
         "disabled": {
           "$ref": "row.delete_disabled"
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "danger"
     },
     {
       "op": "add_label",
@@ -693,12 +812,28 @@
       "v": {
         "write": {
           "pin": "click",
-          "value_ref": {
-            "t": "int",
-            "v": {
-              "$ref": "row.model_id"
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ws_delete_app.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "model_id",
+              "t": "int",
+              "v": {
+                "$ref": "row.model_id"
+              }
             }
-          }
+          ]
         }
       }
     },
@@ -738,7 +873,7 @@
       "k": "handle_ws_delete_click",
       "t": "func.js",
       "v": {
-        "code": "/* rubric: P4+P9+P10+P7+P8 */ var targetId=Number.isInteger(label&&label.v)?label.v:null;\nif(!Number.isInteger(targetId)&&label&&label.v&&typeof label.v==='object'&&Number.isInteger(label.v.value)){targetId=label.v.value;}\nvar result=ctx.hostApi&&ctx.hostApi.wsDeleteApp?ctx.hostApi.wsDeleteApp(targetId):{ok:false,code:'host_api_missing',detail:'wsDeleteApp'};\nif(!result||result.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:result&&result.code?result.code:'exception',detail:result&&result.detail?result.detail:'ws_app_delete_failed'});return;}\nvar refresh=ctx.hostApi&&ctx.hostApi.wsRefreshCatalog?ctx.hostApi.wsRefreshCatalog():{ok:false,code:'host_api_missing',detail:'wsRefreshCatalog'};\nif(!refresh||refresh.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:refresh&&refresh.code?refresh.code:'exception',detail:refresh&&refresh.detail?refresh.detail:'ws_refresh_failed'});return;}\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_delete: '+String(Number.isInteger(targetId)?targetId:0));",
+        "code": "/* rubric: P4+P9+P10+P7+P8 */ var fail=function(code,detail){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:code,detail:detail});ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ERR '+String(code)+': '+String(detail));};\nvar records=Array.isArray(label&&label.v)?label.v:[];\nif(records.length===0){fail('temporary_modeltable_required','ws_delete_app.v1');return;}\nvar readPayload=function(key){for(var i=0;i<records.length;i++){var rec=records[i];if(rec&&rec.id===0&&rec.p===0&&rec.r===0&&rec.c===0&&rec.k===key)return rec.v;}return null;};\nif(readPayload('__mt_payload_kind')!=='ws_delete_app.v1'){fail('invalid_payload_kind','ws_delete_app.v1');return;}\nvar raw=readPayload('model_id');var targetId=Number.isInteger(raw)?raw:Number(raw);\nif(!Number.isInteger(targetId)){fail('invalid_payload','model_id required');return;}\nvar result=ctx.hostApi&&ctx.hostApi.wsDeleteApp?ctx.hostApi.wsDeleteApp(targetId):{ok:false,code:'host_api_missing',detail:'wsDeleteApp'};\nif(!result||result.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:result&&result.code?result.code:'exception',detail:result&&result.detail?result.detail:'ws_app_delete_failed'});return;}\nvar refresh=ctx.hostApi&&ctx.hostApi.wsRefreshCatalog?ctx.hostApi.wsRefreshCatalog():{ok:false,code:'host_api_missing',detail:'wsRefreshCatalog'};\nif(!refresh||refresh.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:refresh&&refresh.code?refresh.code:'exception',detail:refresh&&refresh.detail?refresh.detail:'ws_refresh_failed'});return;}\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_delete: '+String(Number.isInteger(targetId)?targetId:0));",
         "modelName": "workspace_catalog"
       }
     },
@@ -798,11 +933,9 @@
       "p": 2,
       "r": 10,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "New app name"
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "New app name"
     },
     {
       "op": "add_label",
@@ -815,7 +948,29 @@
       "v": {
         "write": {
           "pin": "change",
-          "commit_policy": "on_blur"
+          "commit_policy": "on_blur",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ws_add_name.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "name",
+              "t": "str",
+              "v": {
+                "$ref": "value"
+              }
+            }
+          ]
         }
       }
     },
@@ -855,7 +1010,7 @@
       "k": "handle_ws_add_name_change",
       "t": "func.js",
       "v": {
-        "code": "/* rubric: P4+P9+P10 */ var nextValue='';\nif(typeof label&&false){}\nif(typeof label.v==='string'){nextValue=label.v;}else if(label&&label.v&&typeof label.v==='object'){if(typeof label.v.value==='string')nextValue=label.v.value;}\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_new_app_name', 'str', String(nextValue||''));",
+        "code": "/* rubric: P4+P9+P10 */ var fail=function(code,detail){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:code,detail:detail});ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ERR '+String(code)+': '+String(detail));};\nvar records=Array.isArray(label&&label.v)?label.v:[];\nif(records.length===0){fail('temporary_modeltable_required','ws_add_name.v1');return;}\nvar readPayload=function(key){for(var i=0;i<records.length;i++){var rec=records[i];if(rec&&rec.id===0&&rec.p===0&&rec.r===0&&rec.c===0&&rec.k===key)return rec.v;}return null;};\nif(readPayload('__mt_payload_kind')!=='ws_add_name.v1'){fail('invalid_payload_kind','ws_add_name.v1');return;}\nvar payloadName=readPayload('name');\nif(typeof payloadName!=='string'){fail('invalid_payload','name required');return;}\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_new_app_name', 'str', payloadName);",
         "modelName": "workspace_catalog"
       }
     },
@@ -929,7 +1084,18 @@
       "t": "json",
       "v": {
         "write": {
-          "pin": "click"
+          "pin": "click",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ws_add_app.v1"
+            }
+          ]
         }
       }
     },
@@ -969,7 +1135,7 @@
       "k": "handle_ws_add_click",
       "t": "func.js",
       "v": {
-        "code": "/* rubric: P4+P9+P10+P7+P8 */ var name=String(ctx.getState('ws_new_app_name')||'').trim();\nvar result=ctx.hostApi&&ctx.hostApi.wsAddApp?ctx.hostApi.wsAddApp(name):{ok:false,code:'host_api_missing',detail:'wsAddApp'};\nif(!result||result.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:result&&result.code?result.code:'exception',detail:result&&result.detail?result.detail:'ws_app_add_failed'});return;}\nvar refresh=ctx.hostApi&&ctx.hostApi.wsRefreshCatalog?ctx.hostApi.wsRefreshCatalog():{ok:false,code:'host_api_missing',detail:'wsRefreshCatalog'};\nif(!refresh||refresh.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:refresh&&refresh.code?refresh.code:'exception',detail:refresh&&refresh.detail?refresh.detail:'ws_refresh_failed'});return;}\nvar modelId=result.data&&result.data.model_id;ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_new_app_name', 'str', '');ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_app_selected', 'int', Number.isInteger(modelId)?modelId:0);ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_add: '+String(Number.isInteger(modelId)?modelId:0));",
+        "code": "/* rubric: P4+P9+P10+P7+P8 */ var fail=function(code,detail){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:code,detail:detail});ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ERR '+String(code)+': '+String(detail));};\nvar records=Array.isArray(label&&label.v)?label.v:[];\nif(records.length===0){fail('temporary_modeltable_required','ws_add_app.v1');return;}\nvar readPayload=function(key){for(var i=0;i<records.length;i++){var rec=records[i];if(rec&&rec.id===0&&rec.p===0&&rec.r===0&&rec.c===0&&rec.k===key)return rec.v;}return null;};\nif(readPayload('__mt_payload_kind')!=='ws_add_app.v1'){fail('invalid_payload_kind','ws_add_app.v1');return;}\nvar name=String(ctx.getState('ws_new_app_name')||'').trim();\nvar result=ctx.hostApi&&ctx.hostApi.wsAddApp?ctx.hostApi.wsAddApp(name):{ok:false,code:'host_api_missing',detail:'wsAddApp'};\nif(!result||result.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:result&&result.code?result.code:'exception',detail:result&&result.detail?result.detail:'ws_app_add_failed'});return;}\nvar refresh=ctx.hostApi&&ctx.hostApi.wsRefreshCatalog?ctx.hostApi.wsRefreshCatalog():{ok:false,code:'host_api_missing',detail:'wsRefreshCatalog'};\nif(!refresh||refresh.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:refresh&&refresh.code?refresh.code:'exception',detail:refresh&&refresh.detail?refresh.detail:'ws_refresh_failed'});return;}\nvar modelId=result.data&&result.data.model_id;ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_new_app_name', 'str', '');ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_app_selected', 'int', Number.isInteger(modelId)?modelId:0);ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_add: '+String(Number.isInteger(modelId)?modelId:0));",
         "modelName": "workspace_catalog"
       }
     }

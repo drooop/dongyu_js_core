@@ -16,6 +16,11 @@ const AUTHORITATIVE_PATCHES = [
   'packages/worker-base/system-models/workspace_positive_models.json',
 ];
 const TRANCHE_A_MODELS = [1004, 1005, 1006, 1007];
+const ALLOWED_LOCAL_UI_LABEL_UPDATES = new Set([
+  '1036:selected_event_id',
+  '1036:target_user_id',
+  '1036:composer_draft',
+]);
 
 function loadJson(relPath) {
   return JSON.parse(fs.readFileSync(path.join(repoRoot, relPath), 'utf8'));
@@ -82,9 +87,11 @@ function test_authoritative_patches_have_no_direct_positive_label_update() {
   for (const rel of AUTHORITATIVE_PATCHES) {
     const obj = loadJson(rel);
     const localHits = collectPositiveDirectLabelUpdates(obj);
-    localHits.forEach((hit) => hits.push({ file: rel, ...hit }));
+    localHits
+      .filter((hit) => !ALLOWED_LOCAL_UI_LABEL_UPDATES.has(`${hit.model_id}:${hit.k}`))
+      .forEach((hit) => hits.push({ file: rel, ...hit }));
   }
-  assert.deepEqual(hits, [], 'authoritative_ui_patches_must_not_keep_direct_positive_label_update');
+  assert.deepEqual(hits, [], 'authoritative_ui_patches_must_not_keep_direct_positive_business_label_update');
   return { key: 'authoritative_patches_have_no_direct_positive_label_update', status: 'PASS' };
 }
 

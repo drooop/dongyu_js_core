@@ -26,6 +26,7 @@ source: ai
 - 跨 Cell 写入必须通过 pin 路由到 (0,0,0) 的 `mt_write_req` 输入。
 - 跨模型通信必须通过 pin 链路经 Model 0 路由。
 - 用户程序不得直接调用 `applyPatch` / `applyScopedPatch`。
+- ctx 不暴露全局 runtime 或 runtime-wide patch 能力；用户程序也不得直接调用 `applyPatch` / `applyScopedPatch`。
 
 ## 1. V1N 数据访问 API（用户程序面）
 
@@ -55,6 +56,8 @@ source: ai
   → mt_write 程序解析 write_label.v1 payload 并执行实际写入
   → mt_write_result pin.out (可选返回结果)
 ```
+
+复杂 materialize 场景必须走 helper request pin / owner_request / owner materialize 这类显式中介路径，不得把 runtime-wide patch 能力直接暴露给用户程序。
 
 用户 API（0331 冻结 v1）：
 ```js

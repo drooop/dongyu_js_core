@@ -5,6 +5,7 @@
     "Container": { "tree_kind": "Container", "vnode_kind": "Container" },
     "Card": { "tree_kind": "Card", "vnode_kind": "Card" },
     "Text": { "tree_kind": "Text", "vnode_kind": "Text" },
+    "Markdown": { "tree_kind": "Markdown", "vnode_kind": "Markdown" },
     "CodeBlock": { "tree_kind": "CodeBlock", "vnode_kind": "CodeBlock" },
     "Input": { "tree_kind": "Input", "vnode_kind": "Input" },
     "DatePicker": { "tree_kind": "DatePicker", "vnode_kind": "DatePicker" },
