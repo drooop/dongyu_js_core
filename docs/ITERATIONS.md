@@ -240,6 +240,7 @@ source: ai
 | 0335-slide-flow-current-truth-realignment | 2026-04-26 | 规划滑动 APP 过程四段式重整，并修正文档中“浏览器事件先直达目标 cell”的过时口径 | 2 | dev_0331-0333-pin-payload-ui | Completed | ./docs/iterations/0335-slide-flow-current-truth-realignment/ |
 | 0336-mgmt-bus-console-implementation | 2026-04-26 | 实现 Mgmt Bus Console 正数模型：cellwise 四区界面、Model 0 ingress 发送合同、负向验证与浏览器实测 | 4 | dev_0336-0337-mgmt-bus-slide-impl | Completed | ./docs/iterations/0336-mgmt-bus-console-implementation/ |
 | 0337-slide-flow-doc-realignment-implementation | 2026-04-26 | 按四段式 current truth 改写滑动 APP 过程文档，并用脚本防止 direct-cell 旧口径回归 | 3 | dev_0336-0337-mgmt-bus-slide-impl | Completed | ./docs/iterations/0337-slide-flow-doc-realignment-implementation/ |
+| 0338-mgmt-bus-console-live-projection | 2026-04-26 | 规划 Mgmt Bus Console live read-only projection：复用既有 Matrix Debug / Model 0 / MBR truth，禁止复制 truth 到 1036 | 2 | dev_0338-mgmt-bus-console-live-projection | Completed | ./docs/iterations/0338-mgmt-bus-console-live-projection/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
