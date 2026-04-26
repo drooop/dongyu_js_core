@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,6 +13,7 @@ import {
   ACTION_LIFECYCLE_MODEL_ID,
   EDITOR_STATE_MODEL_ID,
   FLOW_SHELL_ANCHOR_MODEL_ID,
+  FLOW_SHELL_CATALOG_MODEL_ID,
   FLOW_SHELL_DEFAULT_TAB,
   FLOW_SHELL_FORBIDDEN_WRITE_MODEL_IDS,
   FLOW_SHELL_INPUT_MODEL_IDS,
@@ -79,6 +81,7 @@ function test_flow_contract_model_ids_are_explicit() {
   assert.equal(SCENE_CONTEXT_MODEL_ID, -12, 'scene_context must stay on Model -12');
   assert.equal(ACTION_LIFECYCLE_MODEL_ID, -1, 'action_lifecycle must stay on Model -1 mailbox model');
   assert.equal(WORKSPACE_CATALOG_MODEL_ID, -25, 'workspace catalog must stay on Model -25');
+  assert.equal(FLOW_SHELL_CATALOG_MODEL_ID, -27, 'flow shell catalog must stay on a dedicated negative UI model');
   assert.equal(MATRIX_DEBUG_MODEL_ID, -100, 'matrix debug truth must stay on Model -100');
   assert.equal(FLOW_SHELL_ANCHOR_MODEL_ID, MODEL_100_ID, 'Model 100 must stay the executable flow anchor');
   assert.equal(FLOW_SHELL_TAB_LABEL, 'flow_tab_selected', 'flow UI-only tab label must stay explicit');
@@ -93,6 +96,14 @@ function test_flow_contract_model_ids_are_explicit() {
     [0, SCENE_CONTEXT_MODEL_ID, MATRIX_DEBUG_MODEL_ID],
     'flow shell must forbid direct-write to Model 0 / scene_context / matrix_debug truth',
   );
+}
+
+function test_flow_shell_surface_is_cellwise_model_authored() {
+  const source = fs.readFileSync(new URL('../../packages/ui-model-demo-frontend/src/route_ui_projection.js', import.meta.url), 'utf8');
+  assert.match(source, /FLOW_SHELL_CATALOG_MODEL_ID/, 'workspace route must resolve the shell from its catalog model');
+  assert.equal(source.includes("type: 'Table'"), false, 'workspace route must not hardcode shell Table nodes');
+  assert.equal(source.includes("type: 'StatusBadge'"), false, 'workspace route must not hardcode shell StatusBadge nodes');
+  assert.equal(source.includes("type: 'ProgressBar'"), false, 'workspace route must not hardcode shell ProgressBar nodes');
 }
 
 function test_local_demo_bootstraps_flow_truth_sources_and_ui_only_state() {
@@ -350,6 +361,7 @@ async function test_server_snapshot_keeps_sliding_flow_shell_after_debug_safe_op
 
 const tests = [
   test_flow_contract_model_ids_are_explicit,
+  test_flow_shell_surface_is_cellwise_model_authored,
   test_local_demo_bootstraps_flow_truth_sources_and_ui_only_state,
   test_model100_is_the_only_frozen_flow_capable_anchor_in_step1,
   test_workspace_route_wraps_model100_in_sliding_flow_shell_without_forbidden_writes,

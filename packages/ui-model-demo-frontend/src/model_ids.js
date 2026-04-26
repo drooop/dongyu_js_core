@@ -6,6 +6,7 @@ export const EDITOR_STATE_MODEL_ID = -2;
 export const ACTION_LIFECYCLE_MODEL_ID = EDITOR_MAILBOX_MODEL_ID;
 export const SCENE_CONTEXT_MODEL_ID = -12;
 export const WORKSPACE_CATALOG_MODEL_ID = -25;
+export const FLOW_SHELL_CATALOG_MODEL_ID = -27;
 
 // System/internal (currently used for pin demo actions).
 export const SYSTEM_MODEL_ID = -10;

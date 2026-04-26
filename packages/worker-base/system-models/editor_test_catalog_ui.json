@@ -105,12 +105,19 @@
       "p": 2,
       "r": 1,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "column",
-        "gap": 12
-      }
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": -26,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
     },
     {
       "op": "add_label",
@@ -158,11 +165,9 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": "Editor Test Controls"
-      }
+      "k": "ui_title",
+      "t": "str",
+      "v": "Editor Test Controls"
     },
     {
       "op": "add_label",
@@ -250,11 +255,9 @@
       "p": 2,
       "r": 4,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Target model"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Target model"
     },
     {
       "op": "add_label",
@@ -313,9 +316,18 @@
             "c": 0,
             "k": "editor_model_options_json"
           }
-        },
-        "placeholder": "Select model"
+        }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -26,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Select model"
     },
     {
       "op": "add_label",
@@ -391,12 +403,19 @@
       "p": 2,
       "r": 6,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "warning",
-        "text": "Business-model direct mutation is blocked. This page only tests local editor state mutation."
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": "Business-model direct mutation is blocked. This page only tests local editor state mutation."
+    },
+    {
+      "op": "add_label",
+      "model_id": -26,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "warning"
     },
     {
       "op": "add_label",
@@ -444,11 +463,9 @@
       "p": 2,
       "r": 7,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Value"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Value"
     },
     {
       "op": "add_label",
@@ -564,11 +581,9 @@
       "p": 2,
       "r": 9,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Actions"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Actions"
     },
     {
       "op": "add_label",
@@ -616,12 +631,19 @@
       "p": 2,
       "r": 10,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Add local probe",
-        "type": "primary"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Add local probe"
+    },
+    {
+      "op": "add_label",
+      "model_id": -26,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
     },
     {
       "op": "add_label",
@@ -702,11 +724,9 @@
       "p": 2,
       "r": 11,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Update local probe"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Update local probe"
     },
     {
       "op": "add_label",
@@ -787,11 +807,9 @@
       "p": 2,
       "r": 12,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Remove local probe"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Remove local probe"
     },
     {
       "op": "add_label",
@@ -860,11 +878,9 @@
       "p": 2,
       "r": 13,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Clear local probe cell"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Clear local probe cell"
     },
     {
       "op": "add_label",

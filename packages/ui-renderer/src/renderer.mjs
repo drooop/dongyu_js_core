@@ -1,4 +1,4 @@
-import registryRaw from './component_registry_v1.json';
+import registryRaw from './component_registry_v1.json' with { type: 'json' };
 
 let eventCounter = 0;
 let editorEventCounter = 0;
@@ -88,9 +88,246 @@ function stringifyForCodeBlock(value) {
   }
 }
 
+function readMarkdownText(node, snapshot, host, ctx) {
+  const bind = node.bind && node.bind.read;
+  const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
+  const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host)) : undefined;
+  if (value !== undefined) return String(value);
+  const props = node.props || {};
+  if (Object.prototype.hasOwnProperty.call(props, 'markdown')) return String(props.markdown ?? '');
+  if (Object.prototype.hasOwnProperty.call(props, 'text')) return String(props.text ?? '');
+  return '';
+}
+
+function renderInlineMarkdown(text, h, keyPrefix) {
+  const input = String(text ?? '');
+  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
+  const out = [];
+  let last = 0;
+  let idx = 0;
+  for (const match of input.matchAll(pattern)) {
+    if (match.index > last) out.push(input.slice(last, match.index));
+    const token = match[0];
+    if (token.startsWith('**') && token.endsWith('**')) {
+      out.push(h('strong', { key: `${keyPrefix}_strong_${idx}` }, token.slice(2, -2)));
+    } else if (token.startsWith('`') && token.endsWith('`')) {
+      out.push(h('code', {
+        key: `${keyPrefix}_code_${idx}`,
+        style: {
+          background: '#f1f5f9',
+          border: '1px solid #e2e8f0',
+          borderRadius: '4px',
+          padding: '1px 5px',
+          fontSize: '0.92em',
+        },
+      }, token.slice(1, -1)));
+    } else {
+      const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (linkMatch) {
+        out.push(h('a', {
+          key: `${keyPrefix}_link_${idx}`,
+          href: linkMatch[2],
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        }, linkMatch[1]));
+      } else {
+        out.push(token);
+      }
+    }
+    last = match.index + token.length;
+    idx += 1;
+  }
+  if (last < input.length) out.push(input.slice(last));
+  return out;
+}
+
+function splitMarkdownTableRow(line) {
+  const trimmed = String(line || '').trim().replace(/^\|/, '').replace(/\|$/, '');
+  return trimmed.split('|').map((part) => part.trim());
+}
+
+function isMarkdownTableDivider(line) {
+  const cells = splitMarkdownTableRow(line);
+  return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function renderCodeToken(token, lang, h, key) {
+  const jsKeywords = new Set(['const', 'let', 'var', 'function', 'return', 'if', 'else', 'true', 'false', 'null', 'import', 'export', 'from', 'async', 'await']);
+  const isJsonish = lang === 'json' || lang === 'js' || lang === 'javascript' || lang === 'ts' || lang === 'typescript';
+  if (!isJsonish) return token;
+  if (/^"[^"]*"$/.test(token) || /^'[^']*'$/.test(token)) {
+    return h('span', { key, style: { color: '#0f766e' } }, token);
+  }
+  if (/^-?\d+(\.\d+)?$/.test(token)) {
+    return h('span', { key, style: { color: '#7c3aed' } }, token);
+  }
+  if (jsKeywords.has(token)) {
+    return h('span', { key, style: { color: '#2563eb', fontWeight: 600 } }, token);
+  }
+  return token;
+}
+
+function renderCodeLine(line, lang, h, lineKey) {
+  const tokens = String(line ?? '').split(/(\s+|[{}[\]():,.;])/);
+  return tokens.map((token, idx) => renderCodeToken(token, lang, h, `${lineKey}_${idx}`));
+}
+
+function renderMarkdownBlocks(markdown, h) {
+  const lines = String(markdown || '').replace(/\r\n/g, '\n').split('\n');
+  const nodes = [];
+  let i = 0;
+  let blockIndex = 0;
+
+  const pushParagraph = (buffer) => {
+    const text = buffer.join(' ').trim();
+    if (!text) return;
+    nodes.push(h('p', {
+      key: `md_p_${blockIndex}`,
+      style: { margin: '0 0 12px 0', lineHeight: '1.75', color: '#334155' },
+    }, renderInlineMarkdown(text, h, `md_p_${blockIndex}`)));
+    blockIndex += 1;
+  };
+
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line.trim()) {
+      i += 1;
+      continue;
+    }
+
+    const fence = line.match(/^```([a-zA-Z0-9_-]*)\s*$/);
+    if (fence) {
+      const lang = String(fence[1] || '').toLowerCase();
+      const codeLines = [];
+      i += 1;
+      while (i < lines.length && !/^```\s*$/.test(lines[i])) {
+        codeLines.push(lines[i]);
+        i += 1;
+      }
+      if (i < lines.length) i += 1;
+      if (lang === 'mermaid') {
+        nodes.push(h('div', {
+          key: `md_mermaid_${blockIndex}`,
+          class: 'markdown-mermaid',
+          style: {
+            border: '1px solid #cbd5e1',
+            background: '#f8fafc',
+            borderRadius: '10px',
+            padding: '12px',
+            margin: '0 0 14px 0',
+          },
+        }, [
+          h('div', { style: { fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' } }, 'Mermaid source preview'),
+          h('pre', { style: { margin: 0, whiteSpace: 'pre-wrap', color: '#334155' } }, codeLines.join('\n')),
+        ]));
+      } else {
+        nodes.push(h('pre', {
+          key: `md_code_${blockIndex}`,
+          class: lang ? `language-${lang}` : 'language-text',
+          style: {
+            margin: '0 0 14px 0',
+            padding: '14px',
+            borderRadius: '10px',
+            background: '#0f172a',
+            color: '#e2e8f0',
+            overflowX: 'auto',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+            fontSize: '13px',
+            lineHeight: '1.65',
+          },
+        }, codeLines.map((codeLine, idx) => h('div', { key: `md_code_${blockIndex}_${idx}` }, renderCodeLine(codeLine, lang, h, `md_code_${blockIndex}_${idx}`)))));
+      }
+      blockIndex += 1;
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,4})\s+(.+)$/);
+    if (heading) {
+      const level = heading[1].length;
+      const tag = `h${level}`;
+      const size = ['28px', '24px', '20px', '17px'][level - 1] || '17px';
+      nodes.push(h(tag, {
+        key: `md_h_${blockIndex}`,
+        style: {
+          margin: blockIndex === 0 ? '0 0 12px 0' : '22px 0 10px 0',
+          color: '#0f172a',
+          fontWeight: 700,
+          fontSize: size,
+          lineHeight: '1.25',
+        },
+      }, renderInlineMarkdown(heading[2], h, `md_h_${blockIndex}`)));
+      i += 1;
+      blockIndex += 1;
+      continue;
+    }
+
+    if (/^\s*[-*]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^\s*[-*]\s+/, ''));
+        i += 1;
+      }
+      nodes.push(h('ul', {
+        key: `md_ul_${blockIndex}`,
+        style: { margin: '0 0 14px 0', paddingLeft: '1.25rem', color: '#334155', lineHeight: '1.7' },
+      }, items.map((item, idx) => h('li', { key: `md_ul_${blockIndex}_${idx}` }, renderInlineMarkdown(item, h, `md_ul_${blockIndex}_${idx}`)))));
+      blockIndex += 1;
+      continue;
+    }
+
+    if (line.includes('|') && i + 1 < lines.length && isMarkdownTableDivider(lines[i + 1])) {
+      const headers = splitMarkdownTableRow(line);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim()) {
+        rows.push(splitMarkdownTableRow(lines[i]));
+        i += 1;
+      }
+      const thStyle = { textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid #cbd5e1', background: '#f8fafc' };
+      const tdStyle = { padding: '8px 10px', borderBottom: '1px solid #e2e8f0', verticalAlign: 'top' };
+      nodes.push(h('table', {
+        key: `md_table_${blockIndex}`,
+        style: { width: '100%', borderCollapse: 'collapse', margin: '0 0 16px 0', fontSize: '14px' },
+      }, [
+        h('thead', headers.map((header, idx) => h('th', { key: `md_th_${blockIndex}_${idx}`, style: thStyle }, renderInlineMarkdown(header, h, `md_th_${blockIndex}_${idx}`)))),
+        h('tbody', rows.map((row, rowIdx) => h('tr', { key: `md_tr_${blockIndex}_${rowIdx}` }, headers.map((_, colIdx) => h('td', { key: `md_td_${blockIndex}_${rowIdx}_${colIdx}`, style: tdStyle }, renderInlineMarkdown(row[colIdx] || '', h, `md_td_${blockIndex}_${rowIdx}_${colIdx}`)))))),
+      ]));
+      blockIndex += 1;
+      continue;
+    }
+
+    const paragraph = [];
+    while (
+      i < lines.length
+      && lines[i].trim()
+      && !/^```/.test(lines[i])
+      && !/^(#{1,4})\s+/.test(lines[i])
+      && !/^\s*[-*]\s+/.test(lines[i])
+      && !(lines[i].includes('|') && i + 1 < lines.length && isMarkdownTableDivider(lines[i + 1]))
+    ) {
+      paragraph.push(lines[i]);
+      i += 1;
+    }
+    pushParagraph(paragraph);
+  }
+
+  return nodes;
+}
+
 function resolveRefValue(ref, ctx) {
   if (!ctx || typeof ref !== 'string') return undefined;
   if (ref === '$index') return ctx.$index;
+  if (ref === 'value') return ctx.value;
+  if (ref === 'payload') return ctx.payload;
+  if (ref.startsWith('payload.')) {
+    let cur = ctx.payload;
+    const parts = ref.slice('payload.'.length).split('.');
+    for (const p of parts) {
+      if (!cur || (typeof cur !== 'object' && typeof cur !== 'function')) return undefined;
+      cur = cur[p];
+    }
+    return cur;
+  }
   if (ref === 'row') return ctx.row;
   if (ref.startsWith('row.')) {
     let cur = ctx.row;
@@ -391,6 +628,11 @@ function renderTreeNode(node, snapshot, registry) {
     return base;
   }
 
+  if (runtimeNode.type === 'Markdown') {
+    base.text = readMarkdownText(runtimeNode, snapshot);
+    return base;
+  }
+
   if (runtimeNode.type === 'Input') {
     const bind = runtimeNode.bind && runtimeNode.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
@@ -542,6 +784,23 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
     const text = value !== undefined ? stringifyForCodeBlock(value) : (props && Object.prototype.hasOwnProperty.call(props, 'text') ? props.text : '');
     return h('pre', props, text);
+  }
+
+  if (node.type === 'Markdown') {
+    const markdown = readMarkdownText(node, snapshot, host, ctx);
+    const markdownProps = {
+      ...props,
+      class: ['dy-markdown', props.class].filter(Boolean).join(' '),
+      style: {
+        color: '#334155',
+        fontSize: '15px',
+        lineHeight: '1.7',
+        ...(props.style || {}),
+      },
+    };
+    delete markdownProps.markdown;
+    delete markdownProps.text;
+    return h('article', markdownProps, renderMarkdownBlocks(markdown, h));
   }
 
   if (node.type === 'Heading') {
@@ -1501,9 +1760,9 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const bind = node.bind && node.bind.read;
     const boundStatus = bind ? getLabelValue(snapshot, bind) : undefined;
 
-    const label = (node.props && node.props.label) || 'STATUS';
-    const status = boundStatus !== undefined ? boundStatus : (node.props && node.props.status) || 'idle';
-    const text = (node.props && node.props.text) || status;
+    const label = props.label || 'STATUS';
+    const status = boundStatus !== undefined ? boundStatus : props.status || 'idle';
+    const text = props.text || status;
 
     const statusColors = {
       monitoring: '#22C55E', online: '#22C55E', success: '#22C55E',
@@ -1644,15 +1903,15 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
     const boundValue = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
 
-    const percentage = boundValue !== undefined ? Number(boundValue) : (node.props && node.props.percentage) || 0;
-    const label = (node.props && node.props.label) || '';
-    const strokeWidth = (node.props && node.props.strokeWidth) || 8;
-    const variant = (node.props && node.props.variant) || 'default';
+    const percentage = boundValue !== undefined ? Number(boundValue) : props.percentage || 0;
+    const label = props.label || '';
+    const strokeWidth = props.strokeWidth || 8;
+    const variant = props.variant || 'default';
 
     const variantColorMap = {
       default: '#409EFF', success: '#22C55E', warning: '#F59E0B', error: '#EF4444', info: '#3B82F6',
     };
-    const color = (node.props && node.props.color) || variantColorMap[variant] || variantColorMap.default;
+    const color = props.color || variantColorMap[variant] || variantColorMap.default;
     const clampedPct = Math.min(100, Math.max(0, percentage));
 
     const progressProps = { percentage: clampedPct, color, strokeWidth, showText: false };
@@ -1695,15 +1954,18 @@ function buildVueNode(node, snapshot, vue, host, registry) {
 
 function dispatchEvent(node, target, payload, host, overrideType) {
   const ctx = arguments.length > 5 ? arguments[5] : null;
+  const eventCtx = payload && typeof payload === 'object'
+    ? { ...(ctx && typeof ctx === 'object' ? ctx : {}), value: payload.value, payload }
+    : ctx;
   if (target && target.bus_event_v2 === true) {
     const snapshot = host.getSnapshot();
     const busInKey = typeof target.bus_in_key === 'string' ? target.bus_in_key.trim() : '';
     const value = target.value_ref !== undefined
-      ? resolveRefsDeep(target.value_ref, ctx, snapshot, host)
+      ? resolveRefsDeep(target.value_ref, eventCtx, snapshot, host)
       : (payload && Object.prototype.hasOwnProperty.call(payload, 'value') ? payload.value : payload);
     const meta = target.meta_ref !== undefined
-      ? resolveRefsDeep(target.meta_ref, ctx, snapshot, host)
-      : (target.meta !== undefined ? resolveRefsDeep(target.meta, ctx, snapshot, host) : {});
+      ? resolveRefsDeep(target.meta_ref, eventCtx, snapshot, host)
+      : (target.meta !== undefined ? resolveRefsDeep(target.meta, eventCtx, snapshot, host) : {});
     const envelope = {
       type: 'bus_event_v2',
       bus_in_key: busInKey,
@@ -1721,23 +1983,23 @@ function dispatchEvent(node, target, payload, host, overrideType) {
   if (target && Object.prototype.hasOwnProperty.call(target, 'pin')) {
     const snapshot = host.getSnapshot();
     const out = { pin: target.pin };
-    const resolvedTarget = resolveRefsDeep(target.target_ref, ctx, snapshot);
+    const resolvedTarget = resolveRefsDeep(target.target_ref, eventCtx, snapshot);
     if (resolvedTarget !== undefined) {
       out.target = resolvedTarget;
     } else if (node.cell_ref && Number.isInteger(node.cell_ref.model_id)) {
       out.target = { model_id: node.cell_ref.model_id, p: node.cell_ref.p, r: node.cell_ref.r, c: node.cell_ref.c };
     }
     if (target.value_ref !== undefined) {
-      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot, host);
+      out.value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host);
     } else if (payload && Object.prototype.hasOwnProperty.call(payload, 'value')) {
       out.value = payload.value;
     } else if (payload !== undefined) {
       out.value = payload;
     }
     if (target.meta_ref !== undefined) {
-      out.meta = resolveRefsDeep(target.meta_ref, ctx, snapshot, host);
+      out.meta = resolveRefsDeep(target.meta_ref, eventCtx, snapshot, host);
     } else if (target.meta !== undefined) {
-      out.meta = resolveRefsDeep(target.meta, ctx, snapshot, host);
+      out.meta = resolveRefsDeep(target.meta, eventCtx, snapshot, host);
     }
     const envelope = normalizeEditorPinEvent(out);
     if (out.meta && typeof out.meta === 'object' && !Array.isArray(out.meta)) {
@@ -1755,7 +2017,7 @@ function dispatchEvent(node, target, payload, host, overrideType) {
     const action = target.action;
     const out = { action };
     if (action !== 'submodel_create') {
-      const resolvedTarget = resolveRefsDeep(target.target_ref, ctx, snapshot);
+      const resolvedTarget = resolveRefsDeep(target.target_ref, eventCtx, snapshot);
       if (resolvedTarget !== undefined) {
         out.target = resolvedTarget;
       } else if (node.cell_ref && Number.isInteger(node.cell_ref.model_id)) {
@@ -1765,7 +2027,7 @@ function dispatchEvent(node, target, payload, host, overrideType) {
 
     if (action === 'label_add' || action === 'label_update' || action === 'ui_owner_label_update') {
       if (target.value_ref !== undefined) {
-        out.value = resolveRefsDeep(target.value_ref, ctx, snapshot, host);
+        out.value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host);
       } else {
         const raw = payload && payload.value !== undefined ? payload.value : '';
         let t = 'str';
@@ -1779,15 +2041,15 @@ function dispatchEvent(node, target, payload, host, overrideType) {
         out.value = { t, v: raw };
       }
     } else if (action === 'submodel_create') {
-      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot, host);
+      out.value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host);
     } else if (target.value_ref !== undefined) {
-      out.value = resolveRefsDeep(target.value_ref, ctx, snapshot, host);
+      out.value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host);
     }
 
     if (target.meta_ref !== undefined) {
-      out.meta = resolveRefsDeep(target.meta_ref, ctx, snapshot, host);
+      out.meta = resolveRefsDeep(target.meta_ref, eventCtx, snapshot, host);
     } else if (target.meta !== undefined) {
-      out.meta = resolveRefsDeep(target.meta, ctx, snapshot, host);
+      out.meta = resolveRefsDeep(target.meta, eventCtx, snapshot, host);
     }
 
     const envelope = normalizeEditorEvent(out);

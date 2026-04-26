@@ -1,7 +1,6 @@
 import { reactive } from 'vue';
 import { ModelTableRuntime } from '../../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from './local_bus_adapter.js';
-import { getSnapshotLabelValue } from './snapshot_utils.js';
 import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
 import { buildBusDispatchLabel, buildBusEventV2, normalizeBusEventV2ValueToPinPayload } from './bus_event_v2.js';
 import galleryCatalogPatch from '../../worker-base/system-models/gallery_catalog_ui.json' with { type: 'json' };
@@ -39,14 +38,6 @@ function freezeArray(items) {
 function freezeObject(entries) {
   return Object.freeze(entries);
 }
-
-export const GALLERY_PAGE_ASSET_REF = freezeObject({
-  model_id: GALLERY_CATALOG_MODEL_ID,
-  p: 0,
-  r: 1,
-  c: 0,
-  k: 'page_asset_v0',
-});
 
 export const GALLERY_MODE_ALIGNMENT = freezeObject({
   local: 'shared_runtime_gallery_mailbox',
@@ -216,8 +207,11 @@ export function createGalleryStore(options) {
   function getUiAst() {
     const cellwise = buildAstFromCellwiseModel(snapshot, GALLERY_CATALOG_MODEL_ID);
     if (cellwise && typeof cellwise === 'object') return cellwise;
-    const raw = getSnapshotLabelValue(snapshot, GALLERY_PAGE_ASSET_REF);
-    return raw && typeof raw === 'object' ? raw : null;
+    return {
+      id: 'gallery_missing_cellwise_surface',
+      type: 'Text',
+      props: { type: 'warning', text: 'Gallery cellwise surface missing.' },
+    };
   }
 
   function shouldUseGalleryLocalPath(label) {

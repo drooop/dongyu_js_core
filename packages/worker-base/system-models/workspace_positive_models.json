@@ -1018,7 +1018,7 @@
       "c": 0,
       "k": "next_step_hint",
       "t": "str",
-      "v": "Upgrade to page_asset_v0 only when layout, composition, or mounted fragments become meaningful."
+      "v": "Add granular cellwise.ui.v1 component cells when layout, composition, or mounted fragments become meaningful."
     },
     {
       "op": "add_label",
@@ -1727,7 +1727,7 @@
       "c": 0,
       "k": "audit_log",
       "t": "str",
-      "v": "page_asset_v0 composes Card/StatusBadge/StatCard/Terminal without moving truth ownership off Model 1004."
+      "v": "cellwise.ui.v1 component cells compose Card/StatusBadge/StatCard/Terminal without moving truth ownership off Model 1004."
     },
     {
       "op": "create_model",
@@ -3372,12 +3372,19 @@
       "p": 2,
       "r": 1,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "column",
-        "gap": 12
-      }
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
     },
     {
       "op": "add_label",
@@ -3425,11 +3432,9 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": "Static Upload"
-      }
+      "k": "ui_title",
+      "t": "str",
+      "v": "Static Upload"
     },
     {
       "op": "add_label",
@@ -3517,11 +3522,9 @@
       "p": 2,
       "r": 4,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Project name"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Project name"
     },
     {
       "op": "add_label",
@@ -3569,11 +3572,9 @@
       "p": 2,
       "r": 5,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "e.g. my-site"
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "e.g. my-site"
     },
     {
       "op": "add_label",
@@ -7715,12 +7716,19 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": "Use page_asset_v0 when layout, composition, or richer display components matter."
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": "Use granular cellwise.ui.v1 component cells when layout, composition, or richer display components matter."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -7768,11 +7776,9 @@
       "p": 2,
       "r": 3,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "STATUS"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "STATUS"
     },
     {
       "op": "add_label",
@@ -7909,12 +7915,21 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Requests",
         "variant": "info",
         "style": {
           "flex": 1
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Requests"
     },
     {
       "op": "add_label",
@@ -7981,12 +7996,21 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Stale Cards",
         "variant": "warning",
         "style": {
           "flex": 1
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Stale Cards"
     },
     {
       "op": "add_label",
@@ -8053,13 +8077,22 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Latency",
         "unit": "ms",
         "variant": "success",
         "style": {
           "flex": 1
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Latency"
     },
     {
       "op": "add_label",
@@ -8126,9 +8159,18 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "title": "Authoritative Log",
         "maxHeight": "220px"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1004,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "Authoritative Log"
     },
     {
       "op": "add_label",
@@ -8302,12 +8344,19 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": "Parent orchestrates the action contract; mounted child keeps the detailed truth."
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": "Parent orchestrates the action contract; mounted child keeps the detailed truth."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -8355,12 +8404,19 @@
       "p": 2,
       "r": 3,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -8424,12 +8480,19 @@
       "p": 2,
       "r": 4,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Promote Child Stage",
-        "type": "primary"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Promote Child Stage"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
     },
     {
       "op": "add_label",
@@ -8546,12 +8609,19 @@
       "p": 2,
       "r": 6,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": "Mounted child keeps authoritative detail and is updated only through the formal action path."
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": "Mounted child keeps authoritative detail and is updated only through the formal action path."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -8599,12 +8669,19 @@
       "p": 2,
       "r": 7,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "FLOW",
-        "text": "mounted child"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "FLOW"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "mounted child"
     },
     {
       "op": "add_label",
@@ -8668,12 +8745,19 @@
       "p": 2,
       "r": 8,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -8810,12 +8894,21 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Transitions",
         "variant": "info",
         "style": {
           "flex": 1
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Transitions"
     },
     {
       "op": "add_label",
@@ -8882,9 +8975,18 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "title": "Child Audit Log",
         "maxHeight": "200px"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1005,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "Child Audit Log"
     },
     {
       "op": "add_label",
@@ -8998,12 +9100,19 @@
       "p": 2,
       "r": 1,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": "Mounted child keeps authoritative detail and is updated only through the formal action path."
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": "Mounted child keeps authoritative detail and is updated only through the formal action path."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1006,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -9051,12 +9160,19 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "FLOW",
-        "text": "mounted child"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "FLOW"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1006,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "mounted child"
     },
     {
       "op": "add_label",
@@ -9120,12 +9236,19 @@
       "p": 2,
       "r": 3,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1006,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -9262,12 +9385,21 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Transitions",
         "variant": "info",
         "style": {
           "flex": 1
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1006,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Transitions"
     },
     {
       "op": "add_label",
@@ -9334,9 +9466,18 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "title": "Child Audit Log",
         "maxHeight": "200px"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1006,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "Child Audit Log"
     },
     {
       "op": "add_label",
@@ -9520,12 +9661,19 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": "Parent model owns the page asset; mounted child model owns scene truth."
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": "Parent model owns the page asset; mounted child model owns scene truth."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -9573,12 +9721,19 @@
       "p": 2,
       "r": 3,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -9642,12 +9797,19 @@
       "p": 2,
       "r": 4,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -9711,12 +9873,19 @@
       "p": 2,
       "r": 5,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -9850,12 +10019,19 @@
       "p": 2,
       "r": 7,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Create Sphere",
-        "type": "primary"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Create Sphere"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
     },
     {
       "op": "add_label",
@@ -9946,12 +10122,19 @@
       "p": 2,
       "r": 8,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Select Cube",
-        "type": "default"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Select Cube"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "default"
     },
     {
       "op": "add_label",
@@ -10022,12 +10205,19 @@
       "p": 2,
       "r": 9,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Tint Selected",
-        "type": "warning"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Tint Selected"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "warning"
     },
     {
       "op": "add_label",
@@ -10114,12 +10304,19 @@
       "p": 2,
       "r": 10,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Delete Selected",
-        "type": "danger"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Delete Selected"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "danger"
     },
     {
       "op": "add_label",
@@ -10201,8 +10398,6 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "width": "100%",
-        "height": 360,
         "background": "#020617",
         "sceneGraphRef": {
           "model_id": 1008,
@@ -10246,6 +10441,26 @@
           "delete": "three_scene_delete_entity"
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_height",
+      "t": "int",
+      "v": 360
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "100%"
     },
     {
       "op": "add_label",
@@ -10296,9 +10511,18 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "title": "Scene Audit Log",
         "maxHeight": "220px"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "Scene Audit Log"
     },
     {
       "op": "add_label",
@@ -10860,11 +11084,9 @@
       "p": 2,
       "r": 5,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "Homeserver URL"
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Homeserver URL"
     },
     {
       "op": "add_label",
@@ -10940,11 +11162,9 @@
       "p": 2,
       "r": 6,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "Username"
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Username"
     },
     {
       "op": "add_label",
@@ -11023,10 +11243,28 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "placeholder": "Password",
-        "type": "password",
         "showPassword": true
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1016,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Password"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1016,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "password"
     },
     {
       "op": "add_label",
@@ -11673,11 +11911,9 @@
       "p": 2,
       "r": 17,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "Type one message"
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Type one message"
     },
     {
       "op": "add_label",
@@ -13805,9 +14041,6 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "导入 zip",
-        "buttonLabel": "选择 zip",
-        "emptyText": "未选择任何 zip",
         "accept": ".zip",
         "nameTargetRef": {
           "model_id": 1031,
@@ -13817,6 +14050,36 @@
           "k": "slide_import_media_name"
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_button_label",
+      "t": "str",
+      "v": "选择 zip"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_empty_text",
+      "t": "str",
+      "v": "未选择任何 zip"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "导入 zip"
     },
     {
       "op": "add_label",
@@ -14752,11 +15015,9 @@
       "p": 2,
       "r": 3,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "App name"
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "App name"
     },
     {
       "op": "add_label",
@@ -14832,11 +15093,9 @@
       "p": 2,
       "r": 4,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "Source worker"
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Source worker"
     },
     {
       "op": "add_label",
@@ -14912,17 +15171,24 @@
       "p": 2,
       "r": 5,
       "c": 0,
-      "k": "ui_props_json",
+      "k": "ui_options_json",
       "t": "json",
-      "v": {
-        "placeholder": "Surface type",
-        "options": [
-          {
-            "label": "workspace.page",
-            "value": "workspace.page"
-          }
-        ]
-      }
+      "v": [
+        {
+          "label": "workspace.page",
+          "value": "workspace.page"
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1034,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Surface type"
     },
     {
       "op": "add_label",
@@ -14998,11 +15264,9 @@
       "p": 2,
       "r": 6,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "Headline"
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Headline"
     },
     {
       "op": "add_label",
@@ -15078,11 +15342,9 @@
       "p": 2,
       "r": 7,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "Body text"
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Body text"
     },
     {
       "op": "add_label",
@@ -16286,8 +16548,6 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "type": "primary",
-        "size": "large",
         "disabled": {
           "$label": {
             "model_id": 100,
@@ -16317,6 +16577,26 @@
           }
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "large"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
     },
     {
       "op": "add_label",
@@ -17421,9 +17701,18 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Subjects",
         "name": "subjects"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Subjects"
     },
     {
       "op": "add_label",
@@ -18180,9 +18469,18 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Event",
         "name": "event"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Event"
     },
     {
       "op": "add_label",
@@ -18654,9 +18952,18 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Route",
         "name": "route"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 3,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Route"
     },
     {
       "op": "add_label",
@@ -19252,12 +19559,19 @@
       "p": 2,
       "r": 6,
       "c": 2,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "primary",
-        "size": "small"
-      }
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
     },
     {
       "op": "add_label",
@@ -19402,12 +19716,19 @@
       "p": 2,
       "r": 6,
       "c": 4,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "default",
-        "size": "small"
-      }
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "default"
     },
     {
       "op": "add_label",
@@ -19846,6 +20167,2779 @@
         "c": 0,
         "k": "mgmt_bus_console_message_transcript"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "model1_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model1_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_style_width",
+      "t": "str",
+      "v": "100%"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model1_root_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model1_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_font_size",
+      "t": "str",
+      "v": "20px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_font_weight",
+      "t": "str",
+      "v": "700"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": 1,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "title"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model1_root_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model1_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "SOURCE"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": 1,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "source_worker"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model1_root_note"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model1_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "Model 1 is now rendered from cellwise labels; editing 0,0,0/title changes the title text."
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "model2_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model2_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_style_width",
+      "t": "str",
+      "v": "100%"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model2_root_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model2_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_font_size",
+      "t": "str",
+      "v": "20px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_font_weight",
+      "t": "str",
+      "v": "700"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": 2,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "app_name"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model2_root_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model2_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "STATUS"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": 2,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "status"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model2_root_note"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model2_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "Model 2 is now rendered from cellwise labels; editing 0,0,0/status changes the badge."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "leave_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "leave_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 14
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "leave_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "leave_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "请假申请表"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_font_size",
+      "t": "str",
+      "v": "22px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_font_weight",
+      "t": "str",
+      "v": "700"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "leave_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "leave_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "leave_applicant_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "leave_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "姓名"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "leave_applicant_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "leave_applicant_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "请输入姓名"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1001,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "applicant"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "mode": "intent",
+          "target_ref": {
+            "model_id": 1001,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "applicant"
+          },
+          "commit_policy": "on_blur"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "leave_type_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "leave_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "假别"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "leave_type_select"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Select"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "leave_type_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_options_json",
+      "t": "json",
+      "v": [
+        {
+          "label": "年假",
+          "value": "annual"
+        },
+        {
+          "label": "事假",
+          "value": "personal"
+        },
+        {
+          "label": "病假",
+          "value": "sick"
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1001,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "leave_type"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "mode": "intent",
+          "target_ref": {
+            "model_id": 1001,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "leave_type"
+          },
+          "commit_policy": "on_change"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "leave_days_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "leave_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "天数"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "leave_days_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "NumberInput"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "leave_days_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "min": 1,
+        "max": 30
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1001,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "days"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "mode": "intent",
+          "target_ref": {
+            "model_id": 1001,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "days"
+          },
+          "commit_policy": "on_change"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "leave_reason_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "leave_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "事由"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "leave_reason_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "leave_reason_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "请简要说明请假事由"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "rows": 3
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "textarea"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1001,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "reason"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "mode": "intent",
+          "target_ref": {
+            "model_id": 1001,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "reason"
+          },
+          "commit_policy": "on_blur"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "leave_note"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "leave_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1001,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "这是 cellwise.ui.v1 表单：字段、布局、绑定都拆成独立 label。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "repair_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "repair_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 14
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "repair_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "repair_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "设备报修单"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_font_size",
+      "t": "str",
+      "v": "22px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_font_weight",
+      "t": "str",
+      "v": "700"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "repair_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "repair_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "repair_device_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "repair_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "设备名称"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "repair_device_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "repair_device_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "例：3号会议室投影仪"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1002,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "device_name"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "mode": "intent",
+          "target_ref": {
+            "model_id": 1002,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "device_name"
+          },
+          "commit_policy": "on_blur"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "repair_location_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "repair_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "位置"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "repair_location_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "repair_location_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "楼层/房间号"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1002,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "location"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "mode": "intent",
+          "target_ref": {
+            "model_id": 1002,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "location"
+          },
+          "commit_policy": "on_blur"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "repair_urgency_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "repair_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "紧急程度"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "repair_urgency_radio"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "RadioGroup"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "repair_urgency_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_options_json",
+      "t": "json",
+      "v": [
+        {
+          "label": "低",
+          "value": "low"
+        },
+        {
+          "label": "中",
+          "value": "medium"
+        },
+        {
+          "label": "高",
+          "value": "high"
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1002,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "urgency"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "mode": "intent",
+          "target_ref": {
+            "model_id": 1002,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "urgency"
+          },
+          "commit_policy": "on_change"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "repair_description_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "repair_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "故障描述"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "repair_description_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "repair_description_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "请描述故障现象"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "rows": 4
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "textarea"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1002,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "description"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "mode": "intent",
+          "target_ref": {
+            "model_id": 1002,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "description"
+          },
+          "commit_policy": "on_blur"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "repair_note"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "repair_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1002,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "这是 cellwise.ui.v1 表单：字段、布局、绑定都拆成独立 label。"
+    },
+    {
+      "op": "create_model",
+      "model_id": 1037,
+      "name": "ui_model_authoring_guide_app",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.ModelAuthoringGuide"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "UI 模型开发者手册"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "workspace"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_capable",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "workspace.page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "deletable",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "installed_at",
+      "t": "str",
+      "v": "builtin"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "ui_guide_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_guide_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 18
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_style_max_width",
+      "t": "str",
+      "v": "1120px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_style_margin",
+      "t": "str",
+      "v": "0 auto"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_style_padding",
+      "t": "str",
+      "v": "24px 28px 48px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_guide_hero"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Section"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ui_guide_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "hero"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "UI Model Authoring Guide"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_guide_heading"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Heading"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ui_guide_hero"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_heading_level",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "用 ModelTable labels 编写界面"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_guide_intro"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Paragraph"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ui_guide_hero"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "本页本身就是 cellwise.ui.v1 页面：每段说明、示例、图表都是独立 cell，可按 label 修改。完整 Markdown 文档位于 docs/user-guide/ui_components_v2.md。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_guide_quickstart"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ui_guide_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_markdown",
+      "t": "str",
+      "v": "## Quick Start\n\nA visible UI model starts with model-level labels and then adds component cells.\n\n| label | value | purpose |\n|---|---|---|\n| `ui_authoring_version` | `cellwise.ui.v1` | Enable cellwise projection. |\n| `ui_root_node_id` | root node id | Choose the root component. |\n| `ui_component` | `Container`, `Text`, `Button` | Select the renderer component. |\n\nChange a label, not frontend code, when you want to change text, layout, or component order."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_guide_layout"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ui_guide_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_markdown",
+      "t": "str",
+      "v": "## Layout Rule\n\nUse visual containment labels for layout.\n\n- `ui_parent` says which component contains this node.\n- `ui_order` gives stable sibling order.\n- `ui_layout` lives on the parent `Container`.\n- `model.submt` is only for independent child models, not normal rows and columns."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_guide_components"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ui_guide_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_markdown",
+      "t": "str",
+      "v": "## Base Components\n\n| category | components |\n|---|---|\n| Layout | `Container`, `Card`, `Form`, `FormItem` |\n| Display | `Text`, `Markdown`, `Heading`, `Paragraph`, `CodeBlock`, `MermaidDiagram` |\n| Input | `Input`, `Select`, `RadioGroup`, `NumberInput`, `FileInput` |\n| Action | `Button` |\n| Status | `StatusBadge`, `StatCard`, `Terminal`, `ColorBox` |"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_guide_event_flow"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ui_guide_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_markdown",
+      "t": "str",
+      "v": "## Event Flow\n\nFormal business events must enter the current pin chain.\n\n```mermaid\nflowchart LR\n  UI[UI event] --> Bus[Model 0 pin.bus.in]\n  Bus --> Route[pin route]\n  Route --> Target[target model or MBR]\n```\n\n```json\n{\n  \"pin\": \"click\",\n  \"value_t\": \"modeltable\",\n  \"value_ref\": [\n    { \"id\": 0, \"p\": 0, \"r\": 0, \"c\": 0, \"k\": \"__mt_payload_kind\", \"t\": \"str\", \"v\": \"ui_event.v1\" }\n  ]\n}\n```"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_guide_validation"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ui_guide_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 60
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_markdown",
+      "t": "str",
+      "v": "## Validation\n\nRun the deterministic audit before shipping a UI model.\n\n```bash\nnode scripts/tests/test_0346_ui_model_compliance_contract.mjs\n```\n\nThe audit checks visible surfaces, root nodes, granular component cells, page catalog assets, raw Html usage, and parent links."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "ui_guide_footer"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Callout"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "ui_guide_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 70
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_callout_type",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "Authoring rule"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1037,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "Prefer named labels such as ui_text, ui_label, ui_layout, and ui_bind_json. Use ui_props_json only for small component-specific props that do not yet have first-class labels."
     }
   ]
 }

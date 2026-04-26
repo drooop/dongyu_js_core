@@ -7,6 +7,7 @@ import docsCatalogPatch from '../../worker-base/system-models/docs_catalog_ui.js
 import staticCatalogPatch from '../../worker-base/system-models/static_catalog_ui.json' with { type: 'json' };
 import navCatalogPatch from '../../worker-base/system-models/nav_catalog_ui.json' with { type: 'json' };
 import workspaceCatalogPatch from '../../worker-base/system-models/workspace_catalog_ui.json' with { type: 'json' };
+import slidingFlowShellPatch from '../../worker-base/system-models/sliding_flow_shell_ui.json' with { type: 'json' };
 import workspacePositiveModelsPatch from '../../worker-base/system-models/workspace_positive_models.json' with { type: 'json' };
 import docPageFilltableExampleMinimalPatch from '../../worker-base/system-models/doc_page_filltable_example_minimal.json' with { type: 'json' };
 import runtimeHierarchyMountsPatch from '../../worker-base/system-models/runtime_hierarchy_mounts.json' with { type: 'json' };
@@ -26,6 +27,8 @@ import {
   deriveHomeMissingModelText,
   deriveHomeSelectedLabelText,
   deriveSlideGalleryView,
+  deriveSlidingFlowShellProjectionLabels,
+  deriveSlidingFlowShellState,
   deriveMatrixDebugView,
   deriveHomeTableRows,
   deriveStaticUploadReady,
@@ -215,14 +218,12 @@ export function createDemoStore() {
   ensureModel(runtime, { id: SYSTEM_MODEL_ID, name: 'system', type: 'system' });
   ensureModel(runtime, { id: 1, name: 'M1', type: 'main' });
 
-  const stateRoot = runtime.getCell(stateModel, 0, 0, 0);
-  if (!stateRoot.labels.has('ui_page_catalog_json')) {
-    applyUiPatch(runtime, navCatalogPatch);
-  }
+  applyUiPatch(runtime, navCatalogPatch);
   applyUiPatch(runtime, homeCatalogPatch);
   applyUiPatch(runtime, docsCatalogPatch);
   applyUiPatch(runtime, staticCatalogPatch);
   applyUiPatch(runtime, workspaceCatalogPatch);
+  applyUiPatch(runtime, slidingFlowShellPatch);
   applyUiPatch(runtime, workspacePositiveModelsPatch);
   applyUiPatch(runtime, docPageFilltableExampleMinimalPatch);
   applyUiPatch(runtime, runtimeHierarchyMountsPatch);
@@ -230,9 +231,7 @@ export function createDemoStore() {
   applyUiPatch(runtime, matrixDebugSurfacePatch);
   applyUiPatch(runtime, cognitionSceneModelPatch);
   applyUiPatch(runtime, cognitionLifecycleModelPatch);
-  if (!runtime.getModel(PROMPT_CATALOG_MODEL_ID)) {
-    applyUiPatch(runtime, promptCatalogPatch);
-  }
+  applyUiPatch(runtime, promptCatalogPatch);
 
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: '0' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'home' });
@@ -286,6 +285,7 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'docs_status', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'docs_tree_json', t: 'json', v: [] });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'docs_search_results_json', t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'docs_render_markdown', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'docs_render_html', t: 'str', v: '' });
 
   // Static projects page state.
@@ -303,6 +303,9 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: 1001 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: [] });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: FLOW_SHELL_TAB_LABEL, t: 'str', v: FLOW_SHELL_DEFAULT_TAB });
+  for (const label of deriveSlidingFlowShellProjectionLabels(null, null)) {
+    ensureLabel(runtime, stateModel, 0, 0, 0, label);
+  }
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_subject_selected', t: 'str', v: 'trace' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_subjects_json', t: 'json', v: [] });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'matrix_debug_readiness_text', t: 'str', v: '' });
@@ -361,15 +364,16 @@ export function createDemoStore() {
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_readiness_text', t: 'str', v: matrixDebug.readinessText });
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_subject_summary_text', t: 'str', v: matrixDebug.subjectSummaryText });
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_trace_summary_text', t: 'str', v: matrixDebug.traceSummaryText });
+      const flowSnap = runtime.snapshot();
+      const flowWorkspace = deriveWorkspaceSelected(flowSnap, EDITOR_STATE_MODEL_ID, buildAstFromSchema);
+      const flowState = deriveSlidingFlowShellState(flowSnap, EDITOR_STATE_MODEL_ID);
+      for (const label of deriveSlidingFlowShellProjectionLabels(flowState, flowWorkspace)) {
+        overwriteLabel(runtime, stateModelLive, 0, 0, 0, label);
+      }
     }
     const galleryStateModel = runtime.getModel(GALLERY_STATE_MODEL_ID);
     if (galleryStateModel) {
       const slideGallery = deriveSlideGalleryView(snap, GALLERY_STATE_MODEL_ID);
-      overwriteLabel(runtime, galleryStateModel, 0, 0, 0, {
-        k: 'doc_page_example_ast',
-        t: 'json',
-        v: buildAstFromCellwiseModel(snap, DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID),
-      });
       overwriteLabel(runtime, galleryStateModel, 0, 13, 0, { k: 'gallery_slide_summary_text', t: 'str', v: slideGallery.summaryText });
       overwriteLabel(runtime, galleryStateModel, 0, 14, 0, { k: 'gallery_slide_registry_count_text', t: 'str', v: slideGallery.registryCountText });
       overwriteLabel(runtime, galleryStateModel, 0, 15, 0, { k: 'gallery_slide_models_text', t: 'str', v: slideGallery.modelsText });

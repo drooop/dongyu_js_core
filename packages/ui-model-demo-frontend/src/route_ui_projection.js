@@ -2,46 +2,10 @@ import { normalizeHashPath } from './router.js';
 import { deriveSlidingFlowShellState, deriveWorkspaceSelected } from './editor_page_state_derivers.js';
 import { findPageEntryByPath, resolvePageAsset } from './page_asset_resolver.js';
 import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
-import { EDITOR_STATE_MODEL_ID, FLOW_SHELL_TAB_LABEL } from './model_ids.js';
+import { EDITOR_STATE_MODEL_ID, FLOW_SHELL_CATALOG_MODEL_ID } from './model_ids.js';
 
 function cloneAst(ast) {
   return ast && typeof ast === 'object' ? JSON.parse(JSON.stringify(ast)) : null;
-}
-
-function normalizeStatus(statusText) {
-  const value = typeof statusText === 'string' ? statusText.trim().toLowerCase() : '';
-  if (!value) return 'info';
-  if (value === 'ready' || value === 'completed' || value === 'connected' || value === 'online') return 'success';
-  if (value === 'running' || value === 'loading' || value === 'submitting' || value === 'inflight') return 'warning';
-  if (value === 'failed' || value === 'error' || value === 'send_failed') return 'error';
-  if (value === 'offline' || value === 'idle') return 'offline';
-  return 'info';
-}
-
-function buildSummaryTable(id, rows) {
-  return {
-    id,
-    type: 'Table',
-    props: {
-      data: Array.isArray(rows) ? rows : [],
-      border: true,
-      size: 'small',
-      stripe: true,
-      rowKey: 'key',
-    },
-    children: [
-      {
-        id: `${id}_label_col`,
-        type: 'TableColumn',
-        props: { label: 'Field', prop: 'label', minWidth: 120 },
-      },
-      {
-        id: `${id}_value_col`,
-        type: 'TableColumn',
-        props: { label: 'Value', prop: 'value', minWidth: 220 },
-      },
-    ],
-  };
 }
 
 function normalizeSelectedChildren(ast) {
@@ -59,204 +23,41 @@ function normalizeSelectedChildren(ast) {
   return [node];
 }
 
-function buildSlidingFlowShellAst(workspace, flowState) {
-  const selectedApp = flowState && flowState.selectedApp ? flowState.selectedApp : {};
-  const sceneContext = flowState && flowState.sceneContext ? flowState.sceneContext : {};
-  const actionLifecycle = flowState && flowState.actionLifecycle ? flowState.actionLifecycle : {};
-  const matrixDebug = flowState && flowState.matrixDebug ? flowState.matrixDebug : {};
-  const progress = flowState && flowState.progress ? flowState.progress : { percentage: 0, variant: 'info' };
+function buildSlidingFlowShellProjectionFromModel(snapshot, workspace) {
+  const shellAst = buildAstFromCellwiseModel(snapshot, FLOW_SHELL_CATALOG_MODEL_ID);
+  if (!shellAst || typeof shellAst !== 'object') {
+    return {
+      id: 'sliding_flow_shell_missing',
+      type: 'Text',
+      props: { type: 'warning', text: 'Sliding Flow Shell cellwise model missing.' },
+    };
+  }
   const selectedChildren = normalizeSelectedChildren(workspace && workspace.ast);
 
-  return {
-    id: 'sliding_flow_root',
-    type: 'Container',
-    props: {
-      layout: 'column',
-      gap: 16,
-      style: {
-        minHeight: '520px',
-      },
-    },
-    children: [
-      {
-        id: 'sliding_flow_header_card',
-        type: 'Card',
-        props: {
-          title: `Sliding Flow Shell · ${selectedApp.name || `Model ${flowState.selectedModelId}`}`,
-        },
-        children: [
-          {
-            id: 'sliding_flow_header_intro',
-            type: 'Text',
-            props: {
-              type: 'info',
-              text: `Projection only: reads Model ${flowState.anchorModelId}, Model -12 scene_context, Model -1 action_lifecycle, and Model -100 debug truth. UI tab focus stays on Model -2.`,
-            },
-          },
-        ],
-      },
-      {
-        id: 'sliding_flow_status_row',
-        type: 'Container',
-        props: { layout: 'row', gap: 12, wrap: true },
-        children: [
-          {
-            id: 'sliding_flow_app_status',
-            type: 'StatusBadge',
-            props: {
-              label: 'APP',
-              status: normalizeStatus(selectedApp.status),
-              text: selectedApp.status || selectedApp.name || `Model ${flowState.selectedModelId}`,
-            },
-          },
-          {
-            id: 'sliding_flow_lifecycle_status',
-            type: 'StatusBadge',
-            props: {
-              label: 'LIFECYCLE',
-              status: normalizeStatus(actionLifecycle.status),
-              text: actionLifecycle.status || 'idle',
-            },
-          },
-          {
-            id: 'sliding_flow_debug_status',
-            type: 'StatusBadge',
-            props: {
-              label: 'DEBUG',
-              status: normalizeStatus(matrixDebug.selected),
-              text: matrixDebug.selected || 'trace',
-            },
-          },
-        ],
-      },
-      {
-        id: 'sliding_flow_progress',
-        type: 'ProgressBar',
-        props: {
-          percentage: progress.percentage,
-          label: sceneContext.active_flow ? `Flow: ${sceneContext.active_flow}` : 'Flow Progress',
-          variant: progress.variant,
-        },
-      },
-      {
-        id: 'sliding_flow_body',
-        type: 'Container',
-        props: {
-          layout: 'row',
-          gap: 16,
-          wrap: true,
-          style: { alignItems: 'flex-start' },
-        },
-        children: [
-          {
-            id: 'sliding_flow_summary_card',
-            type: 'Card',
-            props: {
-              title: 'Process / Debug Summary',
-              style: {
-                width: '380px',
-                flexShrink: 0,
-              },
-            },
-            children: [
-              {
-                id: 'sliding_flow_tabs',
-                type: 'Tabs',
-                props: {
-                  type: 'card',
-                },
-                bind: {
-                  read: {
-                    model_id: EDITOR_STATE_MODEL_ID,
-                    p: 0,
-                    r: 0,
-                    c: 0,
-                    k: FLOW_SHELL_TAB_LABEL,
-                  },
-                  write: {
-                    action: 'label_update',
-                    target_ref: {
-                      model_id: EDITOR_STATE_MODEL_ID,
-                      p: 0,
-                      r: 0,
-                      c: 0,
-                      k: FLOW_SHELL_TAB_LABEL,
-                    },
-                  },
-                },
-                children: [
-                  {
-                    id: 'sliding_flow_process_pane',
-                    type: 'TabPane',
-                    props: {
-                      label: 'Process',
-                      name: 'process',
-                    },
-                    children: [
-                      {
-                        id: 'sliding_flow_process_text',
-                        type: 'Text',
-                        props: {
-                          type: 'info',
-                          text: 'Selected app business state plus scene/action lifecycle projection.',
-                        },
-                      },
-                      buildSummaryTable('sliding_flow_process_table', flowState.processSummaryRows),
-                    ],
-                  },
-                  {
-                    id: 'sliding_flow_debug_pane',
-                    type: 'TabPane',
-                    props: {
-                      label: 'Debug',
-                      name: 'debug',
-                    },
-                    children: [
-                      {
-                        id: 'sliding_flow_debug_text',
-                        type: 'Text',
-                        props: {
-                          type: 'info',
-                          text: 'Reuses the 0213 matrix debug projection; no debug truth is duplicated here.',
-                        },
-                      },
-                      buildSummaryTable('sliding_flow_debug_table', flowState.debugSummaryRows),
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-          {
-            id: 'sliding_flow_app_card',
-            type: 'Card',
-            props: {
-              title: workspace && typeof workspace.title === 'string' ? workspace.title : 'Selected App',
-              style: { flex: 1, minWidth: '320px' },
-            },
-            children: [
-              {
-                id: 'sliding_flow_app_meta',
-                type: 'Text',
-                props: {
-                  type: 'info',
-                  text: `source=${selectedApp.source || 'unknown'} | current_app=${sceneContext.current_app ?? ''} | flow_step=${sceneContext.flow_step ?? 0}`,
-                },
-              },
-              ...selectedChildren,
-            ],
-          },
-        ],
-      },
-    ],
+  const visit = (node) => {
+    if (!node || typeof node !== 'object') return node;
+    const next = {
+      ...node,
+      props: node.props && typeof node.props === 'object' ? { ...node.props } : node.props,
+      children: Array.isArray(node.children) ? node.children.map(visit) : node.children,
+    };
+    if (next.id === 'sliding_flow_selected_slot') {
+      return {
+        ...next,
+        children: selectedChildren,
+      };
+    }
+    return next;
   };
+
+  return visit(shellAst);
 }
 
-function composeWorkspaceProjection(shellAst, workspace, flowState) {
+function composeWorkspaceProjection(snapshot, shellAst, workspace, flowState) {
   const selectedAst = workspace && workspace.ast && typeof workspace.ast === 'object'
     ? (
       flowState && flowState.flowCapable
-        ? buildSlidingFlowShellAst(workspace, flowState)
+        ? buildSlidingFlowShellProjectionFromModel(snapshot, workspace)
         : cloneAst(workspace.ast)
     )
     : {
@@ -311,7 +112,7 @@ export function resolveRouteUiAst(snapshot, routePath, options = {}) {
       assetType: 'workspace_projection',
       pageName,
       modelId: shell && Number.isInteger(shell.modelId) ? shell.modelId : null,
-      ast: composeWorkspaceProjection(shell ? shell.ast : null, workspace, flowState),
+      ast: composeWorkspaceProjection(snapshot, shell ? shell.ast : null, workspace, flowState),
     };
   }
 

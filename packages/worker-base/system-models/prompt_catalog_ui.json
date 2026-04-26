@@ -205,12 +205,19 @@
       "p": 2,
       "r": 1,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "column",
-        "gap": 12
-      }
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": -21,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
     },
     {
       "op": "add_label",
@@ -258,11 +265,9 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": "Prompt FillTable"
-      }
+      "k": "ui_title",
+      "t": "str",
+      "v": "Prompt FillTable"
     },
     {
       "op": "add_label",
@@ -310,12 +315,19 @@
       "p": 2,
       "r": 3,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": "输入自然语言，先 Preview（生成 owner-chain 预览，不落库），再 Apply（执行 owner 已确认的 accepted changes）。默认仅允许正数 model_id。"
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": "输入自然语言，先 Preview（生成 owner-chain 预览，不落库），再 Apply（执行 owner 已确认的 accepted changes）。默认仅允许正数 model_id。"
+    },
+    {
+      "op": "add_label",
+      "model_id": -21,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -363,12 +375,19 @@
       "p": 2,
       "r": 4,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "warning",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -21,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "warning"
     },
     {
       "op": "add_label",
@@ -474,11 +493,9 @@
       "p": 2,
       "r": 6,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Prompt"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Prompt"
     },
     {
       "op": "add_label",
@@ -529,10 +546,28 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "type": "textarea",
-        "rows": 6,
-        "placeholder": "例如：把 Model 100 的 title 设为 Blue Team，并删除 obsolete_key"
+        "rows": 6
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -21,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "例如：把 Model 100 的 title 设为 Blue Team，并删除 obsolete_key"
+    },
+    {
+      "op": "add_label",
+      "model_id": -21,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "textarea"
     },
     {
       "op": "add_label",
@@ -608,11 +643,9 @@
       "p": 2,
       "r": 8,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Actions"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Actions"
     },
     {
       "op": "add_label",
@@ -663,8 +696,6 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "type": "primary",
-        "label": "Preview",
         "singleFlight": {
           "key": "llm_filltable_preview",
           "releaseRef": {
@@ -676,6 +707,26 @@
           }
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -21,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Preview"
+    },
+    {
+      "op": "add_label",
+      "model_id": -21,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
     },
     {
       "op": "add_label",
@@ -747,11 +798,9 @@
       "p": 2,
       "r": 10,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Use Latest Preview ID"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Use Latest Preview ID"
     },
     {
       "op": "add_label",
@@ -835,8 +884,6 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "type": "success",
-        "label": "Apply",
         "singleFlight": {
           "key": "llm_filltable_apply",
           "releaseRef": {
@@ -848,6 +895,26 @@
           }
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -21,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Apply"
+    },
+    {
+      "op": "add_label",
+      "model_id": -21,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "success"
     },
     {
       "op": "add_label",
@@ -919,11 +986,9 @@
       "p": 2,
       "r": 12,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Apply Preview ID"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Apply Preview ID"
     },
     {
       "op": "add_label",
@@ -971,11 +1036,9 @@
       "p": 2,
       "r": 13,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "preview id from latest preview"
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "preview id from latest preview"
     },
     {
       "op": "add_label",
@@ -1051,12 +1114,19 @@
       "p": 2,
       "r": 14,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -21,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -1122,11 +1192,9 @@
       "p": 2,
       "r": 15,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": "Preview JSON"
-      }
+      "k": "ui_title",
+      "t": "str",
+      "v": "Preview JSON"
     },
     {
       "op": "add_label",
@@ -1249,11 +1317,9 @@
       "p": 2,
       "r": 17,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": "Apply Result JSON"
-      }
+      "k": "ui_title",
+      "t": "str",
+      "v": "Apply Result JSON"
     },
     {
       "op": "add_label",

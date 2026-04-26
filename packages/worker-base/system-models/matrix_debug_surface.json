@@ -268,14 +268,32 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "layout": "column",
-        "gap": 16,
         "style": {
           "padding": "16px",
           "maxWidth": "1180px",
           "margin": "0 auto"
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 16
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
     },
     {
       "op": "add_label",
@@ -323,11 +341,9 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": "Matrix Debug Surface"
-      }
+      "k": "ui_title",
+      "t": "str",
+      "v": "Matrix Debug Surface"
     },
     {
       "op": "add_label",
@@ -434,12 +450,19 @@
       "p": 2,
       "r": 4,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": "Observable server/Matrix/bridge trace state projected from Model -100."
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": "Observable server/Matrix/bridge trace state projected from Model -100."
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -487,13 +510,29 @@
       "p": 2,
       "r": 5,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "row",
-        "gap": 12,
-        "wrap": true
-      }
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
     },
     {
       "op": "add_label",
@@ -541,12 +580,19 @@
       "p": 2,
       "r": 6,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "STATUS",
-        "text": "monitoring"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "STATUS"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "monitoring"
     },
     {
       "op": "add_label",
@@ -612,12 +658,19 @@
       "p": 2,
       "r": 7,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -683,13 +736,29 @@
       "p": 2,
       "r": 8,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "row",
-        "gap": 12,
-        "wrap": true
-      }
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
     },
     {
       "op": "add_label",
@@ -740,13 +809,22 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Events",
         "unit": "total",
         "variant": "info",
         "style": {
           "flex": 1
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Events"
     },
     {
       "op": "add_label",
@@ -815,13 +893,22 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Avg Latency",
         "unit": "ms",
         "variant": "info",
         "style": {
           "flex": 1
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Avg Latency"
     },
     {
       "op": "add_label",
@@ -890,12 +977,21 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Throughput",
         "variant": "info",
         "style": {
           "flex": 1
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Throughput"
     },
     {
       "op": "add_label",
@@ -964,12 +1060,21 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Error Rate",
         "variant": "success",
         "style": {
           "flex": 1
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Error Rate"
     },
     {
       "op": "add_label",
@@ -1035,11 +1140,9 @@
       "p": 2,
       "r": 13,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": "Subject"
-      }
+      "k": "ui_title",
+      "t": "str",
+      "v": "Subject"
     },
     {
       "op": "add_label",
@@ -1098,9 +1201,18 @@
             "c": 0,
             "k": "matrix_debug_subjects_json"
           }
-        },
-        "placeholder": "Select subject"
+        }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Select subject"
     },
     {
       "op": "add_label",
@@ -1176,12 +1288,19 @@
       "p": 2,
       "r": 15,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -1247,12 +1366,19 @@
       "p": 2,
       "r": 16,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -1318,12 +1444,19 @@
       "p": 2,
       "r": 17,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "success",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "success"
     },
     {
       "op": "add_label",
@@ -1389,11 +1522,9 @@
       "p": 2,
       "r": 18,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": "Safe Ops"
-      }
+      "k": "ui_title",
+      "t": "str",
+      "v": "Safe Ops"
     },
     {
       "op": "add_label",
@@ -1441,12 +1572,19 @@
       "p": 2,
       "r": 19,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -1512,13 +1650,29 @@
       "p": 2,
       "r": 20,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "row",
-        "gap": 8,
-        "wrap": true
-      }
+      "k": "ui_gap",
+      "t": "int",
+      "v": 8
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
     },
     {
       "op": "add_label",
@@ -1566,12 +1720,19 @@
       "p": 2,
       "r": 21,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Refresh",
-        "size": "small"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Refresh"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
     },
     {
       "op": "add_label",
@@ -1640,12 +1801,19 @@
       "p": 2,
       "r": 22,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Clear Trace",
-        "size": "small"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Clear Trace"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
     },
     {
       "op": "add_label",
@@ -1714,12 +1882,19 @@
       "p": 2,
       "r": 23,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Summarize",
-        "size": "small"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Summarize"
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
     },
     {
       "op": "add_label",
@@ -1788,11 +1963,9 @@
       "p": 2,
       "r": 24,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": "Recent Trace"
-      }
+      "k": "ui_title",
+      "t": "str",
+      "v": "Recent Trace"
     },
     {
       "op": "add_label",
@@ -1843,11 +2016,20 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "title": "trace.log",
         "showMacButtons": true,
         "showToolbar": true,
         "maxHeight": "420px"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -100,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "trace.log"
     },
     {
       "op": "add_label",

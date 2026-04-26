@@ -30,17 +30,22 @@ assert.ok(materializeBtn, 'Wave C materialize button must exist');
 assert.equal(materializeBtn.bind?.write?.action, 'label_update', 'Wave C materialize button must use standard label_update');
 assert.deepEqual(
   materializeBtn.bind?.write?.target_ref,
-  { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 2, k: 'wave_c_fragment_dynamic' },
-  'Wave C materialize button must write to gallery state label',
+  { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 3, k: 'wave_c_dynamic_text' },
+  'Wave C materialize button must write to granular dynamic text state',
 );
-assert.equal(materializeBtn.bind?.write?.value_ref?.t, 'json', 'Wave C materialize button must write json fragment');
+assert.equal(materializeBtn.bind?.write?.value_ref?.t, 'str', 'Wave C materialize button must write text state, not a JSON fragment');
 
-const dynamicInclude = findNodeById(ast, 'wave_c_include_dynamic');
-assert.ok(dynamicInclude, 'Wave C dynamic include must exist');
+const dynamicCard = findNodeById(ast, 'wave_c_dynamic_card');
+assert.ok(dynamicCard, 'Wave C dynamic card must exist as granular component cells');
+const dynamicInput = findNodeById(ast, 'wave_c_dynamic_input');
+assert.ok(dynamicInput, 'Wave C dynamic input must exist as a granular component cell');
+const dynamicValue = findNodeById(ast, 'wave_c_dynamic_value');
+assert.ok(dynamicValue, 'Wave C dynamic value must exist as a granular component cell');
 assert.deepEqual(
-  dynamicInclude.props?.ref,
-  { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 2, k: 'wave_c_fragment_dynamic' },
-  'Wave C include must read the same gallery state label that the button writes',
+  dynamicValue.bind?.read,
+  { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 3, k: 'wave_c_dynamic_text' },
+  'Wave C dynamic value must read the same granular label that the button writes',
 );
+assert.equal(findNodeById(ast, 'wave_c_include_dynamic'), null, 'Wave C must not use Include-backed JSON AST fragments');
 
 console.log('PASS test_0177_gallery_wave_c_contract');

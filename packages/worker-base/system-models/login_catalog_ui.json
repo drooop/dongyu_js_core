@@ -3,23 +3,197 @@
   "op_id": "login_catalog_ui_v0",
   "description": "Login model schema/data seeded from patch instead of server code",
   "records": [
-    { "op": "add_label", "model_id": -3, "p": 0, "r": 0, "c": 0, "k": "login_username", "t": "str", "v": "" },
-    { "op": "add_label", "model_id": -3, "p": 0, "r": 0, "c": 0, "k": "login_password", "t": "str", "v": "" },
-    { "op": "add_label", "model_id": -3, "p": 0, "r": 0, "c": 0, "k": "login_error", "t": "str", "v": "" },
-    { "op": "add_label", "model_id": -3, "p": 0, "r": 0, "c": 0, "k": "login_loading", "t": "bool", "v": false },
-    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "_title", "t": "str", "v": "洞宇 DongYu" },
-    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "_subtitle", "t": "str", "v": "Matrix Account Login" },
-    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "_field_order", "t": "json", "v": ["login_username", "login_password", "login_submit"] },
-    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_username", "t": "str", "v": "Input" },
-    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_username__label", "t": "str", "v": "Username" },
-    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_username__props", "t": "json", "v": { "placeholder": "@user:server" } },
-    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_password", "t": "str", "v": "Input" },
-    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_password__label", "t": "str", "v": "Password" },
-    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_password__props", "t": "json", "v": { "type": "password", "showPassword": true } },
-    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_submit", "t": "str", "v": "Button" },
-    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_submit__label", "t": "str", "v": "" },
-    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_submit__no_wrap", "t": "bool", "v": true },
-    { "op": "add_label", "model_id": -3, "p": 1, "r": 0, "c": 0, "k": "login_submit__props", "t": "json", "v": { "label": "Login with Matrix", "type": "primary", "style": { "width": "100%" } } },
+    {
+      "op": "create_model",
+      "model_id": -3,
+      "name": "login_form",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "login_username",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "login_password",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "login_error",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "login_loading",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "_title",
+      "t": "str",
+      "v": "洞宇 DongYu"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "_subtitle",
+      "t": "str",
+      "v": "Matrix Account Login"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "_field_order",
+      "t": "json",
+      "v": [
+        "login_username",
+        "login_password",
+        "login_submit"
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "login_username",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "login_username__label",
+      "t": "str",
+      "v": "Username"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "login_username__props",
+      "t": "json",
+      "v": {
+        "placeholder": "@user:server"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "login_password",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "login_password__label",
+      "t": "str",
+      "v": "Password"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "login_password__props",
+      "t": "json",
+      "v": {
+        "type": "password",
+        "showPassword": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "login_submit",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "login_submit__label",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "login_submit__no_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "login_submit__props",
+      "t": "json",
+      "v": {
+        "label": "Login with Matrix",
+        "type": "primary",
+        "style": {
+          "width": "100%"
+        }
+      }
+    },
     {
       "op": "add_label",
       "model_id": -3,
@@ -31,8 +205,712 @@
       "v": {
         "write": {
           "action": "label_add",
-          "target_ref": { "model_id": -3, "p": 0, "r": 0, "c": 1, "k": "login_event" },
-          "value_ref": { "t": "json", "v": { "action": "login_submit" } }
+          "target_ref": {
+            "model_id": -3,
+            "p": 0,
+            "r": 0,
+            "c": 1,
+            "k": "login_event"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "action": "login_submit"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "UI.Login"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "login_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "login_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 16
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "login_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "login_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "洞宇 DongYu"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_font_size",
+      "t": "str",
+      "v": "24px"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_font_weight",
+      "t": "str",
+      "v": "700"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_style_text_align",
+      "t": "str",
+      "v": "center"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "login_subtitle"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "login_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "Matrix Account Login"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_style_text_align",
+      "t": "str",
+      "v": "center"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "login_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Form"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "login_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "login_username_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "login_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Username"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "login_username_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "login_username_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "@user:server"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -3,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "login_username"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -3,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "login_username"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "login_password_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "login_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Password"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "login_password_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "login_password_item"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "showPassword": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "password"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -3,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "login_password"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -3,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "login_password"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "login_submit"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "login_form"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Login with Matrix"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_style_width",
+      "t": "str",
+      "v": "100%"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_add",
+          "target_ref": {
+            "model_id": -3,
+            "p": 0,
+            "r": 0,
+            "c": 1,
+            "k": "login_event"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "action": "login_submit"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "login_error"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "login_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "danger"
+    },
+    {
+      "op": "add_label",
+      "model_id": -3,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -3,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "login_error"
         }
       }
     }

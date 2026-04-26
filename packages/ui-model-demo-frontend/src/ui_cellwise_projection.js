@@ -140,6 +140,7 @@ function buildProps(def) {
   if (def.slot) props.slot = def.slot;
 
   assignStringOrRef('text', 'ui_text');
+  assignStringOrRef('markdown', 'ui_markdown');
   assignStringOrRef('title', 'ui_title');
   assignStringOrRef('label', 'ui_label');
   assignStringOrRef('type', 'ui_variant');
@@ -185,6 +186,7 @@ function buildProps(def) {
   assignStringOrRef('selectedText', 'ui_selected_text');
 
   assignStyleStringOrRef('width', 'ui_style_width');
+  assignStyleStringOrRef('minHeight', 'ui_style_min_height');
   assignStyleStringOrRef('minWidth', 'ui_style_min_width');
   assignStyleStringOrRef('maxWidth', 'ui_style_max_width');
   assignStyleStringOrRef('padding', 'ui_style_padding');

@@ -88,8 +88,8 @@ function test_matrix_debug_surface_is_model_defined_and_mounted() {
   );
   assert.match(
     server,
-    /matrix_debug_surface\.json page_asset_v0/,
-    'server must document Model -100 page_asset_v0 as the formal matrix debug surface source',
+    /matrix_debug_surface\.json cellwise component cells/,
+    'server must document Model -100 cellwise component cells as the formal matrix debug surface source',
   );
 }
 

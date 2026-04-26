@@ -18,15 +18,9 @@
           "label": "首页",
           "nav_visible": true,
           "view": "main",
-          "asset_type": "model_label",
+          "asset_type": "cellwise_model",
           "model_id": -22,
-          "legacy_fallback": false,
-          "asset_ref": {
-            "p": 0,
-            "r": 1,
-            "c": 0,
-            "k": "page_asset_v0"
-          }
+          "legacy_fallback": false
         },
         {
           "page": "gallery",
@@ -34,15 +28,9 @@
           "label": "Gallery",
           "nav_visible": false,
           "view": "gallery",
-          "asset_type": "model_label",
+          "asset_type": "cellwise_model",
           "model_id": -103,
-          "legacy_fallback": false,
-          "asset_ref": {
-            "p": 0,
-            "r": 1,
-            "c": 0,
-            "k": "page_asset_v0"
-          }
+          "legacy_fallback": false
         },
         {
           "page": "docs",
@@ -50,15 +38,9 @@
           "label": "Docs",
           "nav_visible": false,
           "view": "main",
-          "asset_type": "model_label",
+          "asset_type": "cellwise_model",
           "model_id": -23,
-          "legacy_fallback": false,
-          "asset_ref": {
-            "p": 0,
-            "r": 1,
-            "c": 0,
-            "k": "page_asset_v0"
-          }
+          "legacy_fallback": false
         },
         {
           "page": "static",
@@ -66,15 +48,9 @@
           "label": "Static",
           "nav_visible": false,
           "view": "main",
-          "asset_type": "model_label",
+          "asset_type": "cellwise_model",
           "model_id": -24,
-          "legacy_fallback": false,
-          "asset_ref": {
-            "p": 0,
-            "r": 1,
-            "c": 0,
-            "k": "page_asset_v0"
-          }
+          "legacy_fallback": false
         },
         {
           "page": "workspace",
@@ -82,15 +58,9 @@
           "label": "Workspace",
           "nav_visible": true,
           "view": "main",
-          "asset_type": "model_label",
+          "asset_type": "cellwise_model",
           "model_id": -25,
-          "legacy_fallback": false,
-          "asset_ref": {
-            "p": 0,
-            "r": 1,
-            "c": 0,
-            "k": "page_asset_v0"
-          }
+          "legacy_fallback": false
         },
         {
           "page": "prompt",
@@ -98,15 +68,9 @@
           "label": "Prompt",
           "nav_visible": true,
           "view": "main",
-          "asset_type": "model_label",
+          "asset_type": "cellwise_model",
           "model_id": -21,
-          "legacy_fallback": false,
-          "asset_ref": {
-            "p": 0,
-            "r": 1,
-            "c": 0,
-            "k": "page_asset_v0"
-          }
+          "legacy_fallback": false
         },
         {
           "page": "test",
@@ -114,15 +78,9 @@
           "label": "Test",
           "nav_visible": false,
           "view": "main",
-          "asset_type": "model_label",
+          "asset_type": "cellwise_model",
           "model_id": -26,
-          "legacy_fallback": false,
-          "asset_ref": {
-            "p": 0,
-            "r": 1,
-            "c": 0,
-            "k": "page_asset_v0"
-          }
+          "legacy_fallback": false
         }
       ]
     }
