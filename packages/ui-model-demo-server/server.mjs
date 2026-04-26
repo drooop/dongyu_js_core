@@ -69,6 +69,20 @@ const LEGACY_EVENT_TYPE = ['ui', 'event'].join('_');
 const LEGACY_EVENT_ENDPOINT_PATH = `/${LEGACY_EVENT_TYPE}`;
 const LOGIN_MODEL_ID = -3;
 const TRACE_MODEL_ID = -100; // Registered by 0213 as the Matrix debug / bus trace model id.
+const MGMT_BUS_CONSOLE_MODEL_ID = 1036;
+const MGMT_BUS_CONSOLE_LOCAL_STATE_KEYS = new Set([
+  'selected_subject',
+  'selected_subject_id',
+  'selected_event_id',
+  'subject_filter',
+  'timeline_filter',
+  'timeline_sort',
+  'inspector_tab',
+  'composer_draft',
+  'composer_action',
+  'last_refresh_requested_at',
+  'last_ui_error',
+]);
 // Monotonic sequence counter for trace events (module-level, survives across calls).
 let _traceSeq = 0;
 const MEDIA_CACHE_TTL_MS = 15 * 60 * 1000;
@@ -4284,10 +4298,21 @@ function isDirectModelMutationAction(action) {
   return typeof action === 'string' && DIRECT_MODEL_MUTATION_ACTIONS.has(action);
 }
 
-function isUiLocalMutableModelId(modelId) {
+function isMgmtBusConsoleLocalStateTarget(target) {
+  return target
+    && target.model_id === MGMT_BUS_CONSOLE_MODEL_ID
+    && target.p === 0
+    && target.r === 0
+    && target.c === 0
+    && MGMT_BUS_CONSOLE_LOCAL_STATE_KEYS.has(target.k);
+}
+
+function isUiLocalMutableTarget(target, action = '') {
+  const modelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
   return modelId === EDITOR_STATE_MODEL_ID
     || modelId === LOGIN_MODEL_ID
-    || modelId === GALLERY_STATE_MODEL_ID;
+    || modelId === GALLERY_STATE_MODEL_ID
+    || (action === 'label_update' && isMgmtBusConsoleLocalStateTarget(target));
 }
 
 function createServerState(options) {
@@ -4464,8 +4489,12 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'mgmt_bus_console_subject_rows_json', 'json', []);
   ensureStateLabel(runtime, 'mgmt_bus_console_timeline_text', 'str', '');
   ensureStateLabel(runtime, 'mgmt_bus_console_inspector_text', 'str', '');
+  ensureStateLabel(runtime, 'mgmt_bus_console_event_rows_json', 'json', []);
+  ensureStateLabel(runtime, 'mgmt_bus_console_event_inspector_json', 'json', []);
+  ensureStateLabel(runtime, 'mgmt_bus_console_event_inspector_text', 'str', '');
   ensureStateLabel(runtime, 'mgmt_bus_console_route_rows_json', 'json', []);
   ensureStateLabel(runtime, 'mgmt_bus_console_route_status', 'str', 'route_missing');
+  ensureStateLabel(runtime, 'mgmt_bus_console_composer_actions_json', 'json', []);
 
   let programEngine = null;
 
@@ -4617,8 +4646,15 @@ function createServerState(options) {
   };
 
   const syncMgmtBusConsoleDerivedState = (matrixProjection) => {
+    const consoleModel = runtime.getModel(MGMT_BUS_CONSOLE_MODEL_ID);
+    const selectedEventId = consoleModel
+      ? runtime.getLabelValue(consoleModel, 0, 0, 0, 'selected_event_id')
+      : '';
     const projection = deriveMgmtBusConsoleProjection({
-      matrixProjection,
+      matrixProjection: {
+        ...(matrixProjection && typeof matrixProjection === 'object' ? matrixProjection : {}),
+        selectedEventId,
+      },
       readRootLabel: (modelId, key) => {
         const model = runtime.getModel(modelId);
         return model ? runtime.getLabelValue(model, 0, 0, 0, key) : undefined;
@@ -4627,8 +4663,12 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'mgmt_bus_console_subject_rows_json', 'json', projection.subjects);
     overwriteStateLabel(runtime, 'mgmt_bus_console_timeline_text', 'str', projection.timelineText);
     overwriteStateLabel(runtime, 'mgmt_bus_console_inspector_text', 'str', projection.inspectorText);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_event_rows_json', 'json', projection.eventRows);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_event_inspector_json', 'json', projection.eventInspectorRows);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_event_inspector_text', 'str', projection.eventInspectorText);
     overwriteStateLabel(runtime, 'mgmt_bus_console_route_rows_json', 'json', projection.routeRows);
     overwriteStateLabel(runtime, 'mgmt_bus_console_route_status', 'str', projection.routeStatus);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_composer_actions_json', 'json', projection.composerActions);
     return projection;
   };
 
@@ -6131,7 +6171,7 @@ function createServerState(options) {
     if (envelopeOrNull && (action === 'ui_owner_label_update' || action === 'ui_owner_label_remove')) {
       return executeGenericOwnerAction();
     }
-    const allowUiLocalMutation = isUiLocalMutableModelId(directMutationTarget);
+    const allowUiLocalMutation = isUiLocalMutableTarget(target, action);
     if (envelopeOrNull && isDirectModelMutationAction(action) && !(action !== 'submodel_create' && allowUiLocalMutation)) {
       return finishError('direct_model_mutation_disabled', action);
     }
