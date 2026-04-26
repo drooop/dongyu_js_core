@@ -2178,16 +2178,43 @@ function ownerRequestToTemporaryPayload(request, kind = 'owner_request.v1') {
     ? normalized.request_id
     : `owner_req_${Date.now()}`;
   const targetModelId = Number.isInteger(normalized.target_model_id) ? normalized.target_model_id : 0;
-  const op = typeof normalized.op === 'string' ? normalized.op : '';
   const origin = normalized.origin && typeof normalized.origin === 'object' ? normalized.origin : {};
-  const originAction = typeof origin.action === 'string' ? origin.action : '';
+  const originAction = typeof normalized.origin_action === 'string'
+    ? normalized.origin_action
+    : (typeof origin.action === 'string' ? origin.action : '');
+  const normalizeWrite = (label) => {
+    if (!label || typeof label.k !== 'string' || !label.k || typeof label.t !== 'string' || !label.t) return null;
+    return {
+      p: Number.isInteger(label.p) ? label.p : 0,
+      r: Number.isInteger(label.r) ? label.r : 0,
+      c: Number.isInteger(label.c) ? label.c : 0,
+      k: label.k,
+      t: label.t,
+      v: label.v,
+    };
+  };
+  const normalizeRemove = (label) => {
+    if (!label || typeof label.k !== 'string' || !label.k) return null;
+    return {
+      p: Number.isInteger(label.p) ? label.p : 0,
+      r: Number.isInteger(label.r) ? label.r : 0,
+      c: Number.isInteger(label.c) ? label.c : 0,
+      k: label.k,
+    };
+  };
+  const writeLabels = Array.isArray(normalized.write_labels)
+    ? normalized.write_labels.map(normalizeWrite).filter(Boolean)
+    : [];
+  const removeLabels = Array.isArray(normalized.remove_labels)
+    ? normalized.remove_labels.map(normalizeRemove).filter(Boolean)
+    : [];
   return [
     mtPayloadRecord('__mt_payload_kind', 'str', kind),
     mtPayloadRecord('__mt_request_id', 'str', requestId),
     mtPayloadRecord('target_model_id', 'int', targetModelId),
-    mtPayloadRecord('op', 'str', op),
     mtPayloadRecord('origin_action', 'str', originAction),
-    mtPayloadRecord('request', 'json', normalized),
+    mtPayloadRecord('write_labels', 'json', writeLabels),
+    mtPayloadRecord('remove_labels', 'json', removeLabels),
   ];
 }
 
@@ -2200,32 +2227,22 @@ function homeOwnerMaterializeCode(modelId) {
     "  return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback;",
     "};",
     "const labelValue = label ? label.v : null;",
-    "const req = Array.isArray(labelValue) ? readPayload(labelValue, 'request', null) : (labelValue && typeof labelValue === 'object' ? labelValue : null);",
-    "if (!req) throw new Error('invalid_request_shape');",
-    "if (req.target_model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
-    "if (req.op === 'set_labels') {",
-    "  const labels = Array.isArray(req.labels) ? req.labels : [];",
-    "  for (const item of labels) {",
-    "    if (!item || typeof item.k !== 'string' || !item.k) throw new Error('invalid_request_shape');",
-    "    V1N.table.addLabel(Number.isInteger(item.p) ? item.p : 0, Number.isInteger(item.r) ? item.r : 0, Number.isInteger(item.c) ? item.c : 0, item.k, typeof item.t === 'string' && item.t ? item.t : 'str', item.v);",
-    "  }",
-    "  return;",
+    "if (!Array.isArray(labelValue)) throw new Error('temporary_modeltable_required');",
+    "const targetModelId = readPayload(labelValue, 'target_model_id', null);",
+    "if (targetModelId !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
+    "const writeLabels = readPayload(labelValue, 'write_labels', []);",
+    "const removeLabels = readPayload(labelValue, 'remove_labels', []);",
+    "if (!Array.isArray(writeLabels) || !Array.isArray(removeLabels)) throw new Error('invalid_request_shape');",
+    "for (const item of writeLabels) {",
+    "  if (!item || Object.prototype.hasOwnProperty.call(item, 'op') || Object.prototype.hasOwnProperty.call(item, 'model_id')) throw new Error('invalid_request_shape');",
+    "  if (typeof item.k !== 'string' || !item.k || typeof item.t !== 'string' || !item.t) throw new Error('invalid_request_shape');",
+    "  V1N.table.addLabel(Number.isInteger(item.p) ? item.p : 0, Number.isInteger(item.r) ? item.r : 0, Number.isInteger(item.c) ? item.c : 0, item.k, item.t, item.v);",
     "}",
-    "if (req.op === 'add_label') {",
-    "  const target = req.target_cell || {};",
-    "  const lv = req.label || {};",
-    "  if (typeof lv.k !== 'string' || !lv.k || typeof lv.t !== 'string' || !lv.t) throw new Error('invalid_request_shape');",
-    "  V1N.table.addLabel(Number.isInteger(target.p) ? target.p : 0, Number.isInteger(target.r) ? target.r : 0, Number.isInteger(target.c) ? target.c : 0, lv.k, lv.t, lv.v);",
-    "  return;",
+    "for (const item of removeLabels) {",
+    "  if (!item || Object.prototype.hasOwnProperty.call(item, 'op') || Object.prototype.hasOwnProperty.call(item, 'model_id')) throw new Error('invalid_request_shape');",
+    "  if (typeof item.k !== 'string' || !item.k) throw new Error('invalid_request_shape');",
+    "  V1N.table.removeLabel(Number.isInteger(item.p) ? item.p : 0, Number.isInteger(item.r) ? item.r : 0, Number.isInteger(item.c) ? item.c : 0, item.k);",
     "}",
-    "if (req.op === 'rm_label') {",
-    "  const target = req.target_cell || {};",
-    "  const lv = req.label || {};",
-    "  if (typeof lv.k !== 'string' || !lv.k) throw new Error('invalid_request_shape');",
-    "  V1N.table.removeLabel(Number.isInteger(target.p) ? target.p : 0, Number.isInteger(target.r) ? target.r : 0, Number.isInteger(target.c) ? target.c : 0, lv.k);",
-    "  return;",
-    "}",
-    "throw new Error('unsupported_op');",
   ].join('\n');
 }
 
@@ -2238,46 +2255,38 @@ function genericOwnerMaterializeCode(modelId) {
     "  return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback;",
     "};",
     "const labelValue = label ? label.v : null;",
-    "const req = Array.isArray(labelValue) ? readPayload(labelValue, 'request', null) : (labelValue && typeof labelValue === 'object' ? labelValue : null);",
-    "if (!req) throw new Error('invalid_request_shape');",
-    "V1N.table.addLabel(0, 0, 0, '__owner_last_request_id', 'str', typeof req.request_id === 'string' ? req.request_id : '');",
-    "V1N.table.addLabel(0, 0, 0, '__owner_last_action', 'str', req && req.origin && typeof req.origin.action === 'string' ? req.origin.action : '');",
-    "if (req.target_model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
-    "if (req.op === 'apply_records') {",
-    "  const records = Array.isArray(req.records) ? req.records : [];",
-    "  for (const record of records) {",
-    "    if (!record || typeof record !== 'object') throw new Error('invalid_request_shape');",
-    "    if (record.model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
-    "    if (record.op === 'add_label') {",
-    "      if (typeof record.k !== 'string' || !record.k || typeof record.t !== 'string' || !record.t) throw new Error('invalid_request_shape');",
-    "      V1N.table.addLabel(Number.isInteger(record.p) ? record.p : 0, Number.isInteger(record.r) ? record.r : 0, Number.isInteger(record.c) ? record.c : 0, record.k, record.t, record.v);",
-    "      continue;",
-    "    }",
-    "    if (record.op === 'rm_label') {",
-    "      if (typeof record.k !== 'string' || !record.k) throw new Error('invalid_request_shape');",
-    "      V1N.table.removeLabel(Number.isInteger(record.p) ? record.p : 0, Number.isInteger(record.r) ? record.r : 0, Number.isInteger(record.c) ? record.c : 0, record.k);",
-    "      continue;",
-    "    }",
-    "    throw new Error('unsupported_op');",
-    "  }",
-    "  return;",
+    "if (!Array.isArray(labelValue)) throw new Error('temporary_modeltable_required');",
+    "const targetModelId = readPayload(labelValue, 'target_model_id', null);",
+    "if (targetModelId !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
+    "const requestId = readPayload(labelValue, '__mt_request_id', '');",
+    "const originAction = readPayload(labelValue, 'origin_action', '');",
+    "V1N.table.addLabel(0, 0, 0, '__owner_last_request_id', 'str', typeof requestId === 'string' ? requestId : '');",
+    "V1N.table.addLabel(0, 0, 0, '__owner_last_action', 'str', typeof originAction === 'string' ? originAction : '');",
+    "const writeLabels = readPayload(labelValue, 'write_labels', []);",
+    "const removeLabels = readPayload(labelValue, 'remove_labels', []);",
+    "if (!Array.isArray(writeLabels) || !Array.isArray(removeLabels)) throw new Error('invalid_request_shape');",
+    "for (const item of writeLabels) {",
+    "  if (!item || Object.prototype.hasOwnProperty.call(item, 'op') || Object.prototype.hasOwnProperty.call(item, 'model_id')) throw new Error('invalid_request_shape');",
+    "  if (typeof item.k !== 'string' || !item.k || typeof item.t !== 'string' || !item.t) throw new Error('invalid_request_shape');",
+    "  V1N.table.addLabel(Number.isInteger(item.p) ? item.p : 0, Number.isInteger(item.r) ? item.r : 0, Number.isInteger(item.c) ? item.c : 0, item.k, item.t, item.v);",
     "}",
-    "if (req.op === 'add_label') {",
-    "  const target = req.target_cell || {};",
-    "  const lv = req.label || {};",
-    "  if (typeof lv.k !== 'string' || !lv.k || typeof lv.t !== 'string' || !lv.t) throw new Error('invalid_request_shape');",
-    "  V1N.table.addLabel(Number.isInteger(target.p) ? target.p : 0, Number.isInteger(target.r) ? target.r : 0, Number.isInteger(target.c) ? target.c : 0, lv.k, lv.t, lv.v);",
-    "  return;",
+    "for (const item of removeLabels) {",
+    "  if (!item || Object.prototype.hasOwnProperty.call(item, 'op') || Object.prototype.hasOwnProperty.call(item, 'model_id')) throw new Error('invalid_request_shape');",
+    "  if (typeof item.k !== 'string' || !item.k) throw new Error('invalid_request_shape');",
+    "  V1N.table.removeLabel(Number.isInteger(item.p) ? item.p : 0, Number.isInteger(item.r) ? item.r : 0, Number.isInteger(item.c) ? item.c : 0, item.k);",
     "}",
-    "if (req.op === 'rm_label') {",
-    "  const target = req.target_cell || {};",
-    "  const lv = req.label || {};",
-    "  if (typeof lv.k !== 'string' || !lv.k) throw new Error('invalid_request_shape');",
-    "  V1N.table.removeLabel(Number.isInteger(target.p) ? target.p : 0, Number.isInteger(target.r) ? target.r : 0, Number.isInteger(target.c) ? target.c : 0, lv.k);",
-    "  return;",
-    "}",
-    "throw new Error('unsupported_op');",
   ].join('\n');
+}
+
+function ownerMaterializerNeedsRefresh(cell, funcKey) {
+  const existing = cell && cell.labels ? cell.labels.get(funcKey) : null;
+  if (!existing) return true;
+  const code = existing.v && typeof existing.v.code === 'string' ? existing.v.code : '';
+  return /\bctx\.(writeLabel|getLabel|rmLabel)\b/.test(code)
+    || /typeof labelValue === ['"]object['"] \? labelValue/.test(code)
+    || /if \(!req\) return;/.test(code)
+    || /readPayload\(labelValue, ['"]request['"]/.test(code)
+    || /\breq\.op\b|\brecord\.op\b|\bapply_records\b/.test(code);
 }
 
 function ensureHomeOwnerMaterializer(runtime, modelId) {
@@ -2297,7 +2306,7 @@ function ensureHomeOwnerMaterializer(runtime, modelId) {
       v: [{ from: `(self, ${HOME_OWNER_REQUEST_PIN})`, to: [`(func, ${HOME_OWNER_FUNC}:in)`] }],
     });
   }
-  if (!cell.labels.has(HOME_OWNER_FUNC)) {
+  if (ownerMaterializerNeedsRefresh(cell, HOME_OWNER_FUNC)) {
     runtime.addLabel(model, 0, 0, 0, {
       k: HOME_OWNER_FUNC,
       t: 'func.js',
@@ -2324,7 +2333,7 @@ function ensureGenericOwnerMaterializer(runtime, modelId) {
       v: [{ from: `(self, ${GENERIC_OWNER_REQUEST_PIN})`, to: [`(func, ${GENERIC_OWNER_FUNC}:in)`] }],
     });
   }
-  if (!cell.labels.has(GENERIC_OWNER_FUNC)) {
+  if (ownerMaterializerNeedsRefresh(cell, GENERIC_OWNER_FUNC)) {
     runtime.addLabel(model, 0, 0, 0, {
       k: GENERIC_OWNER_FUNC,
       t: 'func.js',
@@ -2718,6 +2727,8 @@ function isTemporaryPayloadRecordArray(value) {
   return Array.isArray(value) && value.length > 0 && value.every((record) =>
     record
     && typeof record === 'object'
+    && !Object.prototype.hasOwnProperty.call(record, 'op')
+    && !Object.prototype.hasOwnProperty.call(record, 'model_id')
     && Number.isInteger(record.id)
     && Number.isInteger(record.p)
     && Number.isInteger(record.r)
@@ -2726,6 +2737,7 @@ function isTemporaryPayloadRecordArray(value) {
     && record.k.length > 0
     && typeof record.t === 'string'
     && record.t.length > 0
+    && Object.prototype.hasOwnProperty.call(record, 'v')
   );
 }
 
@@ -2786,6 +2798,17 @@ function normalizeDirectPinValue(rawValue, meta, target, pin) {
     return { ok: false, code: 'invalid_bus_payload', detail: 'temporary_modeltable_required' };
   }
   if (target && target.model_id > 0) {
+    if (Array.isArray(nextValue) && isTemporaryPayloadRecordArray(nextValue)) {
+      return { ok: true, value: nextValue };
+    }
+    return { ok: false, code: 'invalid_pin_payload', detail: 'temporary_modeltable_required' };
+  }
+  if (target && target.model_id < 0) {
+    if (nextValue === null || nextValue === undefined) return { ok: true, value: null };
+    if (nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)
+        && typeof nextValue.t === 'string' && Object.prototype.hasOwnProperty.call(nextValue, 'v')) {
+      nextValue = nextValue.v;
+    }
     if (Array.isArray(nextValue) && isTemporaryPayloadRecordArray(nextValue)) {
       return { ok: true, value: nextValue };
     }
@@ -3075,22 +3098,20 @@ class ProgramModelEngine {
         return { ok: false, code: 'unsupported_op', detail: String(record.op || 'unknown') };
       }
 
+      const scopedLabel = {
+        p: Number.isInteger(record.p) ? record.p : 0,
+        r: Number.isInteger(record.r) ? record.r : 0,
+        c: Number.isInteger(record.c) ? record.c : 0,
+        k: record.k,
+        t: record.t,
+        v: record.v,
+      };
       requests.push({
-        op: 'apply_records',
         target_model_id: record.model_id,
         request_id: `${patch.op_id || 'snapshot_delta'}:${requests.length + 1}`,
-        ts: Date.now(),
-        origin: { model_id: 0, cell: { p: 0, r: 0, c: 0 }, action: 'snapshot_delta' },
-        records: [{
-          op: record.op,
-          model_id: record.model_id,
-          p: Number.isInteger(record.p) ? record.p : 0,
-          r: Number.isInteger(record.r) ? record.r : 0,
-          c: Number.isInteger(record.c) ? record.c : 0,
-          k: record.k,
-          t: record.t,
-          v: record.v,
-        }],
+        origin_action: 'snapshot_delta',
+        write_labels: record.op === 'add_label' ? [scopedLabel] : [],
+        remove_labels: record.op === 'rm_label' ? [{ p: scopedLabel.p, r: scopedLabel.r, c: scopedLabel.c, k: scopedLabel.k }] : [],
       });
       targetModelIds.add(record.model_id);
     }
@@ -3360,14 +3381,6 @@ class ProgramModelEngine {
     };
     const ctx = {
       runtime: runtimeView,
-      getLabel: (ref) => {
-        if (!ref || !Number.isInteger(ref.model_id)) return null;
-        const model = this.runtime.getModel(ref.model_id);
-        if (!model) return null;
-        const cell = this.runtime.getCell(model, ref.p, ref.r, ref.c);
-        const label = cell.labels.get(ref.k);
-        return label ? label.v : null;
-      },
       getMgmtOutPayload: (channel) => this.getMgmtOutPayload(channel),
       getMgmtInTarget: (channel) => this.getMgmtInTarget(channel),
       getMgmtInbox: () => findSystemLabel(this.runtime, 'mgmt_inbox')?.label?.v ?? null,
@@ -3392,18 +3405,6 @@ class ProgramModelEngine {
         return null;
       },
       parseJson: (value) => parseJsonMaybe(value),
-      writeLabel: (ref, t, v) => {
-        if (!ref || !Number.isInteger(ref.model_id)) return;
-        const model = this.runtime.getModel(ref.model_id);
-        if (!model) return;
-        this.runtime.addLabel(model, ref.p, ref.r, ref.c, { k: ref.k, t, v });
-      },
-      rmLabel: (ref) => {
-        if (!ref || !Number.isInteger(ref.model_id)) return;
-        const model = this.runtime.getModel(ref.model_id);
-        if (!model) return;
-        this.runtime.rmLabel(model, ref.p, ref.r, ref.c, ref.k);
-      },
       currentTopic: (pinName, modelId) => {
         const mid = Number.isInteger(modelId) ? modelId : 0;
         if (!pinName || typeof pinName !== 'string') return '';
@@ -5967,12 +5968,11 @@ function createServerState(options) {
     });
 
     const buildStateSetRequest = (labels, sourceAction = action) => ({
-      op: 'set_labels',
       target_model_id: EDITOR_STATE_MODEL_ID,
-      labels,
+      write_labels: Array.isArray(labels) ? labels : [],
+      remove_labels: [],
       origin: buildHomeRequestOrigin(sourceAction),
       request_id: opId || `home_req_${Date.now()}`,
-      ts: Date.now(),
     });
 
     const sendHomeOwnerRequestsViaSourcePin = async (requests) => {
@@ -5999,12 +5999,13 @@ function createServerState(options) {
       runtime.addLabel(sysModel, 0, 0, 0, {
         k: action,
         t: 'pin.in',
-        v: {
-          requests: normalized.map((request) => ({
+        v: [
+          mtPayloadRecord('__mt_payload_kind', 'str', 'home_owner_requests.v1'),
+          mtPayloadRecord('requests', 'json', normalized.map((request) => ({
             out_pin: buildHomeSourceOutPin(request.target_model_id),
             body: ownerRequestToTemporaryPayload(request, 'home_owner_request.v1'),
-          })),
-        },
+          }))),
+        ],
       });
       await sleepMs(25);
       await programEngine.tick();
@@ -6172,13 +6173,11 @@ function createServerState(options) {
           return direct.ok ? finishOk({ routed_by: 'direct' }) : finishError('invalid_target', direct.code);
         }
         const sent = await sendHomeOwnerRequestsViaSourcePin([{
-          op: 'add_label',
           target_model_id: modelId,
-          target_cell: { p: dp, r: dr, c: dc },
-          label: { k: dk, t: dt, v: value },
+          write_labels: [{ p: dp, r: dr, c: dc, k: dk, t: dt, v: value }],
+          remove_labels: [],
           origin: buildHomeRequestOrigin(action),
           request_id: opId || `home_save_${Date.now()}`,
-          ts: Date.now(),
         }]);
         if (!sent.ok) return finishError(sent.code, sent.detail);
         const statusSent = await sendHomeOwnerRequestsViaSourcePin([
@@ -6252,13 +6251,11 @@ function createServerState(options) {
           return direct.ok ? finishOk({ routed_by: 'direct' }) : finishError('invalid_target', direct.code);
         }
         const sent = await sendHomeOwnerRequestsViaSourcePin([{
-          op: 'rm_label',
           target_model_id: targetModelId,
-          target_cell: { p, r, c },
-          label: { k: key },
+          write_labels: [],
+          remove_labels: [{ p, r, c, k: key }],
           origin: buildHomeRequestOrigin(action),
           request_id: opId || `home_delete_${Date.now()}`,
-          ts: Date.now(),
         }]);
         if (!sent.ok) return finishError(sent.code, sent.detail);
         const statusSent = await sendHomeOwnerRequestsViaSourcePin([
@@ -6288,25 +6285,21 @@ function createServerState(options) {
           return finishError('invalid_target', 'missing_value');
         }
         const sent = await sendGenericOwnerRequestsViaSourcePin([{
-          op: 'add_label',
           target_model_id: targetModelId,
-          target_cell: { p, r, c },
-          label: { k: key, t: payload.value.t, v: payload.value.v },
+          write_labels: [{ p, r, c, k: key, t: payload.value.t, v: payload.value.v }],
+          remove_labels: [],
           origin: { model_id: -10, cell: { p: 0, r: 0, c: 0 }, action },
           request_id: opId || `ui_owner_set_${Date.now()}`,
-          ts: Date.now(),
         }]);
         return sent.ok ? finishOk({ routed_by: 'pin' }) : finishError(sent.code, sent.detail);
       }
       if (action === 'ui_owner_label_remove') {
         const sent = await sendGenericOwnerRequestsViaSourcePin([{
-          op: 'rm_label',
           target_model_id: targetModelId,
-          target_cell: { p, r, c },
-          label: { k: key },
+          write_labels: [],
+          remove_labels: [{ p, r, c, k: key }],
           origin: { model_id: -10, cell: { p: 0, r: 0, c: 0 }, action },
           request_id: opId || `ui_owner_rm_${Date.now()}`,
-          ts: Date.now(),
         }]);
         return sent.ok ? finishOk({ routed_by: 'pin' }) : finishError(sent.code, sent.detail);
       }

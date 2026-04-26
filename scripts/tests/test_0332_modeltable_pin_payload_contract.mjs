@@ -303,6 +303,46 @@ async function test_write_label_payload_rejects_nonzero_temp_model_ids() {
   return { key: 'write_label_payload_rejects_nonzero_temp_model_ids', status: 'PASS' };
 }
 
+async function test_write_label_payload_rejects_legacy_record_fields() {
+  const { rt, model } = await seedTable(332083);
+  await rt.setRuntimeMode('running');
+  const withOp = writeLabelPayload({
+    target: { p: 1, r: 0, c: 0 },
+    label: { k: 'legacy_op_payload_status', t: 'str', v: 'should_not_write' },
+  });
+  withOp[withOp.length - 1].op = 'add_label';
+  const opResult = rt.addLabel(model, 0, 0, 0, { k: 'mt_write_req', t: 'pin.in', v: withOp });
+  const withModelId = writeLabelPayload({
+    target: { p: 2, r: 0, c: 0 },
+    label: { k: 'legacy_model_id_payload_status', t: 'str', v: 'should_not_write' },
+  });
+  withModelId[withModelId.length - 1].model_id = model.id;
+  const modelIdResult = rt.addLabel(model, 0, 0, 0, { k: 'mt_write_req', t: 'pin.in', v: withModelId });
+  await wait();
+
+  assert.equal(opResult.applied, false, 'temporary payload records must reject legacy op fields');
+  assert.equal(modelIdResult.applied, false, 'temporary payload records must reject legacy model_id fields');
+  assert.ok(!model.getCell(1, 0, 0).labels.has('legacy_op_payload_status'), 'payload with op must not write target label');
+  assert.ok(!model.getCell(2, 0, 0).labels.has('legacy_model_id_payload_status'), 'payload with model_id must not write target label');
+  return { key: 'write_label_payload_rejects_legacy_record_fields', status: 'PASS' };
+}
+
+async function test_write_label_payload_rejects_missing_value_field() {
+  const { rt, model } = await seedTable(332084);
+  await rt.setRuntimeMode('running');
+  const payload = writeLabelPayload({
+    target: { p: 1, r: 0, c: 0 },
+    label: { k: 'missing_value_payload_status', t: 'str', v: 'should_not_write' },
+  });
+  delete payload[payload.length - 1].v;
+  const result = rt.addLabel(model, 0, 0, 0, { k: 'mt_write_req', t: 'pin.in', v: payload });
+  await wait();
+
+  assert.equal(result.applied, false, 'temporary payload records must include an explicit v field');
+  assert.ok(!model.getCell(1, 0, 0).labels.has('missing_value_payload_status'), 'payload without v must not write target label');
+  return { key: 'write_label_payload_rejects_missing_value_field', status: 'PASS' };
+}
+
 async function test_v1n_write_label_without_route_does_not_direct_write() {
   const { rt, model } = await seedTable(33209);
 
@@ -780,6 +820,82 @@ async function test_mqtt_bus_in_pin_payload_v1_rejects_mismatched_pin() {
   return { key: 'mqtt_bus_in_pin_payload_v1_rejects_mismatched_pin', status: 'PASS' };
 }
 
+async function test_mqtt_legacy_pin_envelope_rejects_non_modeltable_value() {
+  const rt = new ModelTableRuntime();
+  await rt.setRuntimeMode('edit');
+  const model0 = rt.getModel(0);
+  const model = rt.createModel({ id: 33230, name: 'it0332_mqtt_legacy_reject', type: 'test' });
+  rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'TestApp' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'it0332/base' });
+  await rt.setRuntimeMode('running');
+
+  const accepted = rt.mqttIncoming('it0332/base/33230/input', {
+    t: 'pin.in',
+    v: { old: 'object_payload' },
+  });
+  assert.equal(accepted, false, 'legacy MQTT pin envelope must reject non-ModelTable values');
+  assert.equal(model.getCell(0, 0, 0).labels.get('input'), undefined, 'rejected legacy MQTT pin must not write input');
+  assert.equal(
+    rt.mqttTrace.list().some((entry) => entry.type === 'inbound_rejected' && entry.payload?.reason === 'temporary_modeltable_required'),
+    true,
+    'rejected legacy MQTT pin must leave explicit trace reason',
+  );
+  return { key: 'mqtt_legacy_pin_envelope_rejects_non_modeltable_value', status: 'PASS' };
+}
+
+async function test_mqtt_mt_v0_rejects_legacy_event_v0_envelope() {
+  const rt = new ModelTableRuntime();
+  await rt.setRuntimeMode('edit');
+  const model0 = rt.getModel(0);
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'mt_v0' });
+  rt.startMqttLoop({
+    host: 'localhost',
+    port: 1883,
+    client_id: '0332-mt-v0-reject-event-v0',
+    topic_prefix: 'it0332',
+    payload_mode: 'mt_v0',
+    transport: 'mock',
+  });
+  await rt.setRuntimeMode('running');
+
+  const accepted = rt.mqttIncoming('it0332/model100_submit', {
+    version: 'v0',
+    type: 'ui_event',
+    op_id: 'legacy_event_v0_0332',
+    payload: { version: 'mt.v0', records: [] },
+  });
+  assert.equal(accepted, false, 'mt_v0 MQTT mode must reject legacy event v0 envelopes');
+  assert.equal(
+    rt.mqttTrace.list().some((entry) => entry.type === 'inbound_rejected' && entry.payload?.reason === 'legacy_event_v0_rejected'),
+    true,
+    'legacy event v0 rejection must be traceable',
+  );
+  return { key: 'mqtt_mt_v0_rejects_legacy_event_v0_envelope', status: 'PASS' };
+}
+
+async function test_mqtt_legacy_pin_envelope_accepts_modeltable_value_only() {
+  const rt = new ModelTableRuntime();
+  await rt.setRuntimeMode('edit');
+  const model0 = rt.getModel(0);
+  const model = rt.createModel({ id: 33231, name: 'it0332_mqtt_legacy_accept', type: 'test' });
+  rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'TestApp' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'it0332/base' });
+  await rt.setRuntimeMode('running');
+
+  const payload = [mt('__mt_payload_kind', 'str', 'test.mqtt.pin.v1'), mt('message', 'str', 'ok')];
+  const accepted = rt.mqttIncoming('it0332/base/33231/input', {
+    t: 'pin.in',
+    v: payload,
+  });
+  assert.equal(accepted, true, 'legacy MQTT pin envelope may carry only a ModelTable payload value');
+  const stored = model.getCell(0, 0, 0).labels.get('input');
+  assert.equal(stored?.t, 'pin.in', 'accepted legacy MQTT pin must store pin.in');
+  assert.deepEqual(stored?.v, payload, 'accepted legacy MQTT pin must store the nested ModelTable payload only');
+  return { key: 'mqtt_legacy_pin_envelope_accepts_modeltable_value_only', status: 'PASS' };
+}
+
 const tests = [
   test_valid_write_label_payload_writes_one_target_label,
   test_multiple_user_labels_are_rejected,
@@ -791,6 +907,8 @@ const tests = [
   test_malformed_target_cell_metadata_is_rejected,
   test_write_label_payload_rejects_non_root_temp_records,
   test_write_label_payload_rejects_nonzero_temp_model_ids,
+  test_write_label_payload_rejects_legacy_record_fields,
+  test_write_label_payload_rejects_missing_value_field,
   test_v1n_write_label_without_route_does_not_direct_write,
   test_v1n_write_label_does_not_write_when_root_mt_write_function_is_absent,
   test_v1n_write_label_routes_through_explicit_pin_connection,
@@ -802,6 +920,9 @@ const tests = [
   test_positive_model_pins_accept_multicell_modeltable_payloads,
   test_log_pins_keep_log_data_values,
   test_negative_system_pins_allow_internal_control_values,
+  test_mqtt_legacy_pin_envelope_rejects_non_modeltable_value,
+  test_mqtt_mt_v0_rejects_legacy_event_v0_envelope,
+  test_mqtt_legacy_pin_envelope_accepts_modeltable_value_only,
   test_mqtt_bus_in_pin_payload_v1_converts_to_temporary_payload,
   test_uiput_mm_v1_bus_in_pin_payload_v1_converts_to_temporary_payload,
   test_mqtt_bus_in_pin_payload_v1_rejects_mismatched_pin,

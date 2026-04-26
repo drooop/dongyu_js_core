@@ -106,18 +106,14 @@ function test_home_dispatch_is_converged_to_pin_only() {
 }
 
 function assertOriginEnvelope(request, expectedAction, key) {
-  const payloadRequest = Array.isArray(request)
-    ? request.find((record) => record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === 'request')?.v
-    : request;
-  assert(payloadRequest && typeof payloadRequest === 'object', `${key}_missing_request`);
-  const origin = payloadRequest.origin;
-  assert(origin && typeof origin === 'object', `${key}_missing_origin`);
-  assert.equal(origin.model_id, -10, `${key}_origin_model_id_must_be_-10`);
-  assert(origin.cell && typeof origin.cell === 'object', `${key}_origin_cell_missing`);
-  assert.equal(origin.cell.p, 0, `${key}_origin_cell_p_must_be_0`);
-  assert.equal(origin.cell.r, 0, `${key}_origin_cell_r_must_be_0`);
-  assert.equal(origin.cell.c, 0, `${key}_origin_cell_c_must_be_0`);
-  assert.equal(origin.action, expectedAction, `${key}_origin_action_mismatch`);
+  assert(Array.isArray(request), `${key}_must_use_modeltable_payload`);
+  const read = (payloadKey) => request.find((record) =>
+    record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === payloadKey)?.v;
+  assert.equal(read('request'), undefined, `${key}_must_not_embed_legacy_request`);
+  assert.equal(read('origin_action'), expectedAction, `${key}_origin_action_mismatch`);
+  assert(Number.isInteger(read('target_model_id')), `${key}_target_model_id_missing`);
+  assert(Array.isArray(read('write_labels')), `${key}_write_labels_missing`);
+  assert(Array.isArray(read('remove_labels')), `${key}_remove_labels_missing`);
 }
 
 async function test_server_home_crud_is_routed_by_pin_and_materializes() {

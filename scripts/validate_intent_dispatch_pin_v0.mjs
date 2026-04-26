@@ -1,8 +1,8 @@
 import { createRequire } from 'node:module';
+import { buildWorkerHostApi, loadSystemPatch } from './worker_engine_v0.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
-const systemPatch = require('../packages/worker-base/system-models/system_models.json');
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -23,6 +23,12 @@ function writeBaseConfig(rt) {
   rt.addLabel(m0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
 }
 
+function createRuntimeWithSystem() {
+  const rt = new ModelTableRuntime();
+  loadSystemPatch(rt);
+  return rt;
+}
+
 function getFunctionCode(rt, name) {
   const sys = rt.getModel(-10);
   if (!sys) return null;
@@ -39,25 +45,7 @@ function getFunctionCode(rt, name) {
 function makeCtx(rt) {
   return {
     runtime: rt,
-    getLabel: (ref) => {
-      if (!ref || !Number.isInteger(ref.model_id)) return null;
-      const model = rt.getModel(ref.model_id);
-      if (!model) return null;
-      const cell = rt.getCell(model, ref.p, ref.r, ref.c);
-      return cell.labels.get(ref.k)?.v ?? null;
-    },
-    writeLabel: (ref, t, v) => {
-      if (!ref || !Number.isInteger(ref.model_id)) return;
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.addLabel(model, ref.p, ref.r, ref.c, { k: ref.k, t, v });
-    },
-    rmLabel: (ref) => {
-      if (!ref || !Number.isInteger(ref.model_id)) return;
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.rmLabel(model, ref.p, ref.r, ref.c, ref.k);
-    },
+    hostApi: buildWorkerHostApi(rt),
     getState: () => null,
     getStateInt: () => null,
     parseJson: (v) => v,
@@ -86,8 +74,7 @@ function runIntentDispatchOnce(rt) {
 }
 
 function caseMgmtPublish() {
-  const rt = new ModelTableRuntime();
-  rt.applyPatch(systemPatch, { allowCreateModel: true });
+  const rt = createRuntimeWithSystem();
   writeBaseConfig(rt);
   rt.createModel({ id: 1, name: 'M1', type: 'data' });
 
@@ -122,8 +109,7 @@ function caseMgmtPublish() {
 }
 
 function caseMgmtBindIn() {
-  const rt = new ModelTableRuntime();
-  rt.applyPatch(systemPatch, { allowCreateModel: true });
+  const rt = createRuntimeWithSystem();
   writeBaseConfig(rt);
   rt.createModel({ id: 1, name: 'M1', type: 'data' });
 

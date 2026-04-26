@@ -17,12 +17,14 @@ function test_worker_engine_executes_structured_func_js() {
     k: 'demo_func',
     t: 'func.js',
     v: {
-      code: "ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'demo_out' }, 'str', 'ok');",
+      code: "ctx.hostApi.writeCrossModel(-10, 0, 0, 0, 'demo_out', 'str', 'ok');",
       modelName: 'test_0161_worker_engine_funcjs',
     },
   });
   rt.addLabel(sys, 0, 0, 0, { k: 'run_demo_func', t: 'str', v: '1' });
 
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
   const engine = new WorkerEngineV0({ runtime: rt });
   engine.tick();
 
@@ -41,10 +43,12 @@ function test_worker_engine_ignores_non_funcjs_labels() {
   rt.addLabel(sys, 0, 0, 0, {
     k: 'legacy_func',
     t: 'str',
-    v: "ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'legacy_out' }, 'str', 'ok');",
+    v: "ctx.hostApi.writeCrossModel(-10, 0, 0, 0, 'legacy_out', 'str', 'ok');",
   });
   rt.addLabel(sys, 0, 0, 0, { k: 'run_legacy_func', t: 'str', v: '1' });
 
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
   const engine = new WorkerEngineV0({ runtime: rt });
   engine.tick();
 

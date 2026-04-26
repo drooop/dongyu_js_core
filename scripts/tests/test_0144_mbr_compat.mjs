@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module';
 import assert from 'node:assert';
+import { buildWorkerHostApi } from '../worker_engine_v0.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
@@ -81,22 +82,7 @@ function test_mbr_mgmt_to_mqtt_execute_model100() {
   let publishedTopic = null;
   let publishedPayload = null;
   const ctx = {
-    getLabel: (ref) => {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return null;
-      const cell = rt.getCell(model, ref.p, ref.r, ref.c);
-      return cell.labels.get(ref.k)?.v ?? null;
-    },
-    writeLabel: (ref, t, v) => {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.addLabel(model, ref.p, ref.r, ref.c, { k: ref.k, t, v });
-    },
-    rmLabel: (ref) => {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.rmLabel(model, ref.p, ref.r, ref.c, ref.k);
-    },
+    hostApi: buildWorkerHostApi(rt),
     publishMqtt: (topic, payload) => {
       publishedTopic = topic;
       publishedPayload = payload;
@@ -144,22 +130,7 @@ function test_mbr_mqtt_to_mgmt_execute() {
   rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mqtt_inbox', t: 'json', v: mqttPayload });
 
   const ctx = {
-    getLabel: (ref) => {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return null;
-      const cell = rt.getCell(model, ref.p, ref.r, ref.c);
-      return cell.labels.get(ref.k)?.v ?? null;
-    },
-    writeLabel: (ref, t, v) => {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.addLabel(model, ref.p, ref.r, ref.c, { k: ref.k, t, v });
-    },
-    rmLabel: (ref) => {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.rmLabel(model, ref.p, ref.r, ref.c, ref.k);
-    },
+    hostApi: buildWorkerHostApi(rt),
   };
 
   const code = getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mqtt_to_mgmt'));

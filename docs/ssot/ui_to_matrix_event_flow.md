@@ -142,18 +142,22 @@ async init() {
 
 #### 函数执行上下文 (`ctx`)
 
-**位置**: `packages/ui-model-demo-server/server.mjs:520-553`
-
 ```javascript
 const ctx = {
-  // Runtime API
-  getLabel: (ref) => { /* ... */ },
-  setLabel: (ref, label) => { /* ... */ },
+  // Restricted runtime view
+  runtime: runtimeView,
 
   // MQTT API
   mqttPublish: (topic, payload) => { /* ... */ },
   mqttIncoming: (topic, payload) => { /* ... */ },
   startMqttLoop: () => { /* ... */ },
+
+  // System bridge API for approved negative-model/server functions
+  hostApi: {
+    readCrossModel: (model_id, p, r, c, k) => { /* ... */ },
+    writeCrossModel: (model_id, p, r, c, k, t, v) => { /* ... */ },
+    rmCrossModel: (model_id, p, r, c, k) => { /* ... */ },
+  },
 
   // Matrix API - 关键！
   sendMatrix: (payload) => this.sendMatrix(payload),
@@ -183,15 +187,14 @@ async sendMatrix(payload) {
 
 ### 4. 程序模型函数示例
 
-**必需配置**: 在合法的系统负数模型函数或 Model 0 egress 函数中调用 `ctx.sendMatrix(payload)`
+**必需配置**: 在合法的系统负数模型函数或 Model 0 egress 函数中调用 `ctx.sendMatrix(payload)`；读取跨模型 label 必须走显式 `ctx.hostApi`，不得恢复 `ctx.getLabel/writeLabel/rmLabel`。
 
 ```javascript
 // 示例：Model 0 egress function 读取已经 relay 到 root 的 payload
-const rootPayload = ctx.getLabel({
-  model_id: 0,
-  p: 0, r: 0, c: 0,
-  k: 'model100_submit_out'
-});
+const rootPayloadLabel = ctx.hostApi.readCrossModel(0, 0, 0, 0, 'model100_submit_out');
+const rootPayload = rootPayloadLabel && rootPayloadLabel.ok && rootPayloadLabel.data
+  ? rootPayloadLabel.data.v
+  : null;
 
 if (rootPayload) {
   ctx.sendMatrix(rootPayload);
