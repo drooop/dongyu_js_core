@@ -28,8 +28,11 @@ import {
   deriveHomeSelectedLabelText,
   deriveHomeTableRows,
   deriveMatrixDebugView,
+  deriveSlidingFlowShellProjectionLabels,
+  deriveSlidingFlowShellState,
   deriveSlideGalleryView,
   deriveStaticUploadReady,
+  deriveWorkspaceSelected,
 } from '../ui-model-demo-frontend/src/editor_page_state_derivers.js';
 import {
   DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID,
@@ -3471,7 +3474,7 @@ class ProgramModelEngine {
           try {
             const md = fs.readFileSync(abs, 'utf8');
             const html = String(getMarkdownProcessor().processSync(md));
-            return { ok: true, data: { html } };
+            return { ok: true, data: { markdown: md, html } };
           } catch (err) {
             return {
               ok: false,
@@ -4557,6 +4560,7 @@ function createServerState(options) {
     runtime.createModel({ id: LOGIN_MODEL_ID, name: 'login_form', type: 'ui' });
   }
 
+  const systemModelsDir = new URL('../worker-base/system-models/', import.meta.url).pathname;
   if (assetRoot) {
     applyPersistedAssetEntries(runtime, {
       assetRoot,
@@ -4566,8 +4570,8 @@ function createServerState(options) {
       phases: ['00-system-base', '10-system-negative', '30-system-positive'],
       applyOptions: { allowCreateModel: true, trustedBootstrap: true },
     });
+    loadFullModelPatches(runtime, systemModelsDir, ['sliding_flow_shell_ui.json']);
   } else {
-    const systemModelsDir = new URL('../worker-base/system-models/', import.meta.url).pathname;
     loadSystemModelPatches(runtime, systemModelsDir);
     loadFullModelPatches(runtime, systemModelsDir, ['server_config.json']);
     const positiveModelCountBeforeSeed = countPositiveModels(runtime);
@@ -4646,6 +4650,7 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'docs_status', 'str', '');
   ensureStateLabel(runtime, 'docs_tree_json', 'json', []);
   ensureStateLabel(runtime, 'docs_search_results_json', 'json', []);
+  ensureStateLabel(runtime, 'docs_render_markdown', 'str', '');
   ensureStateLabel(runtime, 'docs_render_html', 'str', '');
 
   // Static projects page state.
@@ -4665,6 +4670,9 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'ws_app_selected', 'int', 0);
   ensureStateLabel(runtime, 'ws_app_next_id', 'int', 1001);
   ensureStateLabel(runtime, FLOW_SHELL_TAB_LABEL, 'str', FLOW_SHELL_DEFAULT_TAB);
+  for (const label of deriveSlidingFlowShellProjectionLabels(null, null)) {
+    ensureStateLabel(runtime, label.k, label.t, label.v);
+  }
   ensureStateLabel(runtime, 'ws_new_app_name', 'str', '');
   ensureStateLabel(runtime, 'ws_delete_app_id', 'int', 0);
   ensureStateLabel(runtime, 'ws_status', 'str', '');
@@ -4788,16 +4796,6 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'home_selected_label_text', 'str', deriveHomeSelectedLabelText(snap, EDITOR_STATE_MODEL_ID));
     overwriteStateLabel(runtime, 'home_edit_dialog_title', 'str', deriveHomeEditDialogTitle(snap, EDITOR_STATE_MODEL_ID));
     overwriteStateLabel(runtime, 'static_upload_disabled', 'bool', !deriveStaticUploadReady(snap, EDITOR_STATE_MODEL_ID));
-    overwriteRuntimeLabel(
-      runtime,
-      GALLERY_STATE_MODEL_ID,
-      0,
-      0,
-      0,
-      'doc_page_example_ast',
-      'json',
-      buildAstFromCellwiseModel(snap, DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID),
-    );
     const slideGallery = deriveSlideGalleryView(snap, GALLERY_STATE_MODEL_ID);
     overwriteRuntimeLabel(runtime, GALLERY_STATE_MODEL_ID, 0, 13, 0, 'gallery_slide_summary_text', 'str', slideGallery.summaryText);
     overwriteRuntimeLabel(runtime, GALLERY_STATE_MODEL_ID, 0, 14, 0, 'gallery_slide_registry_count_text', 'str', slideGallery.registryCountText);
@@ -4808,6 +4806,12 @@ function createServerState(options) {
     overwriteRuntimeLabel(runtime, GALLERY_STATE_MODEL_ID, 0, 19, 0, 'gallery_slide_evidence_local_text', 'str', slideGallery.localEvidenceText);
     overwriteRuntimeLabel(runtime, GALLERY_STATE_MODEL_ID, 0, 20, 0, 'gallery_slide_evidence_remote_text', 'str', slideGallery.remoteEvidenceText);
     syncMatrixDebugDerivedState();
+    const flowSnap = buildClientSnapshot(runtime);
+    const flowWorkspace = deriveWorkspaceSelected(flowSnap, EDITOR_STATE_MODEL_ID, buildAstFromSchema);
+    const flowState = deriveSlidingFlowShellState(flowSnap, EDITOR_STATE_MODEL_ID);
+    for (const label of deriveSlidingFlowShellProjectionLabels(flowState, flowWorkspace)) {
+      overwriteStateLabel(runtime, label.k, label.t, label.v);
+    }
   };
 
   const syncMatrixDebugHostLabels = () => {
@@ -4938,6 +4942,7 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'docs_search_results_json', 'json', []);
     overwriteStateLabel(runtime, 'docs_selected_path', 'str', '');
     overwriteStateLabel(runtime, 'docs_status', 'str', '');
+    overwriteStateLabel(runtime, 'docs_render_markdown', 'str', '');
     overwriteStateLabel(runtime, 'docs_render_html', 'str', '');
     overwriteStateLabel(runtime, 'static_project_name', 'str', '');
     overwriteStateLabel(runtime, 'static_media_uri', 'str', '');
@@ -5118,8 +5123,8 @@ function createServerState(options) {
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_error_rate', t: 'str', v: '0%' });
   runtime.addLabel(traceModel, 0, 0, 0, { k: 'trace_uptime', t: 'int', v: 92 });
 
-  // 0213 Step 2: the formal Matrix debug surface now comes from
-  // packages/worker-base/system-models/matrix_debug_surface.json page_asset_v0.
+  // 0213 Step 2 / 0346 refresh: the formal Matrix debug surface now comes from
+  // packages/worker-base/system-models/matrix_debug_surface.json cellwise component cells.
 
   // Register clear handler — when clear_cmd is written to cell(0,0,2), clear the buffer
   runtime.registerFunction(traceModel, 'clear_trace', (ctx) => {
@@ -5160,33 +5165,6 @@ function createServerState(options) {
 
       ensureGallery(0, 9, 0, { k: 'wave_c_shared_text', t: 'str', v: 'shared fragment text' });
       ensureGallery(0, 9, 3, { k: 'wave_c_dynamic_text', t: 'str', v: 'hello from deferred fragment' });
-      ensureGallery(0, 9, 1, {
-        k: 'wave_c_fragment_static',
-        t: 'json',
-        v: {
-          id: 'wave_c_static_fragment',
-          type: 'Card',
-          props: { title: 'Static Fragment (shared)' },
-          children: [
-            { id: 'wave_c_static_desc', type: 'Text', props: { type: 'info', text: 'Two Includes reference the same fragment label.' } },
-            {
-              id: 'wave_c_static_input',
-              type: 'Input',
-              props: { placeholder: 'Edit shared text' },
-              bind: {
-                read: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 0, k: 'wave_c_shared_text' },
-                write: { action: 'label_update', target_ref: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 0, k: 'wave_c_shared_text' } },
-              },
-            },
-            {
-              id: 'wave_c_static_value',
-              type: 'Text',
-              props: { type: 'info', text: '' },
-              bind: { read: { model_id: GALLERY_STATE_MODEL_ID, p: 0, r: 9, c: 0, k: 'wave_c_shared_text' } },
-            },
-          ],
-        },
-      });
 
       // Wave E: ProgressBar demo state
       ensureGallery(0, 10, 0, { k: 'wave_e_progress', t: 'int', v: 92 });
@@ -5511,7 +5489,7 @@ function createServerState(options) {
       try {
         const md = fs.readFileSync(abs, 'utf8');
         const html = String(getMarkdownProcessor().processSync(md));
-        return { ok: true, data: { html } };
+        return { ok: true, data: { markdown: md, html } };
       } catch (err) {
         return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
       }
@@ -5687,6 +5665,7 @@ function createServerState(options) {
     // that /snapshot and SSE expose, otherwise raw labels can leak via ui_ast_v0.
     const uiAst = resolvePageAsset(buildClientSnapshot(runtime), {
       projectSchemaModel: buildAstFromSchema,
+      projectCellwiseModel: buildAstFromCellwiseModel,
     }).ast;
     // snapshot_json and event_log are excluded from client snapshot (too large).
     // Skip expensive computation — saves ~2 full snapshot traversals per event.
@@ -7028,7 +7007,7 @@ function startServer(options) {
         ? (fullSnap.models[LOGIN_MODEL_ID] || fullSnap.models[String(LOGIN_MODEL_ID)] || null)
         : null;
       const miniSnap = { models: { [String(LOGIN_MODEL_ID)]: loginModelSnap } };
-      const ast = buildAstFromSchema(miniSnap, LOGIN_MODEL_ID);
+      const ast = buildAstFromCellwiseModel(miniSnap, LOGIN_MODEL_ID);
       writeJson(res, 200, { snapshot: miniSnap, ast }, cors);
       return;
     }
@@ -7061,6 +7040,7 @@ function startServer(options) {
       if (method === 'GET' && pathname === '/auth/homeservers') return true;
       if (method === 'GET' && pathname === '/auth/login-model') return true;
       if (method === 'GET' && (pathname === '/' || pathname === '/index.html'
+          || pathname === '/favicon.ico'
           || pathname.startsWith('/assets/')
           || pathname.startsWith('/p/'))) return true;
       if (method === 'OPTIONS') return true;
@@ -7069,6 +7049,12 @@ function startServer(options) {
 
     if (!isPublicPath(req.method, url.pathname) && !isAuthenticated(req)) {
       writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/favicon.ico') {
+      res.writeHead(204, { 'cache-control': 'no-cache' });
+      res.end();
       return;
     }
 

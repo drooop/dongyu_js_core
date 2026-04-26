@@ -1,0 +1,2165 @@
+{
+  "version": "mt.v0",
+  "op_id": "0346_sliding_flow_shell_ui_v1",
+  "description": "Cellwise Sliding Flow Shell catalog",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": -27,
+      "name": "sliding_flow_shell_catalog",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "UI.SlidingFlowShellCatalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_surface_role",
+      "t": "str",
+      "v": "workspace.flow_shell"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "sliding_flow_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 16
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_style_min_height",
+      "t": "str",
+      "v": "520px"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_header_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_title_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_title_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_title_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_title_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_title_ref_k",
+      "t": "str",
+      "v": "flow_shell_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_header_intro"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_header_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "flow_shell_intro"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_status_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_app_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_status_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "APP"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": -2,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "flow_app_status"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "flow_app_status_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_lifecycle_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_status_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "LIFECYCLE"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": -2,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "flow_lifecycle_status"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "flow_lifecycle_status_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_debug_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_status_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_label",
+      "t": "str",
+      "v": "DEBUG"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": -2,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "flow_debug_status"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "flow_debug_status_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_progress"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "ProgressBar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": -2,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "flow_progress_percentage"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_label_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_label_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_label_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_label_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_label_ref_k",
+      "t": "str",
+      "v": "flow_progress_label"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_variant_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_variant_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_variant_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_variant_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_variant_ref_k",
+      "t": "str",
+      "v": "flow_progress_variant"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "strokeWidth": 8
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_body"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 16
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_style_align_items",
+      "t": "str",
+      "v": "flex-start"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_summary_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_body"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "Process / Debug Summary"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_style_width",
+      "t": "str",
+      "v": "380px"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "flexShrink": 0
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_summary_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "flow_tab_selected"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "flow_tab_selected"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_process_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TabPane"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Process"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "name": "process"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_process_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_process_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "Selected app business state plus scene/action lifecycle projection."
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_process_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Table"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_process_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_data_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_data_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_data_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_data_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_data_ref_k",
+      "t": "str",
+      "v": "flow_process_summary_rows_json"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_border",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_stripe",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_row_key",
+      "t": "str",
+      "v": "key"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_process_table_label_col"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_process_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Field"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "label"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "120"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_process_table_value_col"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_process_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Value"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 1,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "value"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 12,
+      "c": 1,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "220"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_debug_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TabPane"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Debug"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "name": "debug"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_debug_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_debug_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "Reuses the 0213 matrix debug projection; no debug truth is duplicated here."
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_debug_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Table"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_debug_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_data_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_data_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_data_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_data_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_data_ref_k",
+      "t": "str",
+      "v": "flow_debug_summary_rows_json"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_border",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_stripe",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_row_key",
+      "t": "str",
+      "v": "key"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_debug_table_label_col"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_debug_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Field"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "label"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "120"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_debug_table_value_col"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_debug_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Value"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 1,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "value"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 16,
+      "c": 1,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "220"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_app_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_body"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_title_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_title_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_title_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_title_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_title_ref_k",
+      "t": "str",
+      "v": "flow_app_card_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_style_flex",
+      "t": "str",
+      "v": "1"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_style_min_width",
+      "t": "str",
+      "v": "320px"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_app_meta"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_app_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "flow_app_meta"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sliding_flow_selected_slot"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "sliding_flow_app_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": -27,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    }
+  ]
+}

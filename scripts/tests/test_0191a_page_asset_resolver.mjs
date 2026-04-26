@@ -102,7 +102,7 @@ function makeCellwiseModel(modelId) {
   };
 }
 
-function test_prefers_schema_model_asset_over_legacy_ast() {
+function test_rejects_schema_model_asset_by_default() {
   const snapshot = makeSnapshotWithState(
     {
       ui_page_catalog_json: [
@@ -116,13 +116,12 @@ function test_prefers_schema_model_asset_over_legacy_ast() {
     projectSchemaModel: buildAstFromSchema,
   });
 
-  assert.equal(result.source, 'model_asset');
-  assert.equal(result.assetType, 'schema_model');
-  assert.equal(result.modelId, 4101);
-  assert.equal(result.ast?.id, 'schema_root_4101');
+  assert.equal(result.source, 'none');
+  assert.equal(result.assetType, null);
+  assert.equal(result.ast, null);
 }
 
-function test_prefers_model_label_asset_over_legacy_root_ast() {
+function test_rejects_model_label_asset_by_default() {
   const snapshot = makeSnapshotWithState(
     {
       ui_page_catalog_json: [
@@ -136,12 +135,12 @@ function test_prefers_model_label_asset_over_legacy_root_ast() {
     projectSchemaModel: buildAstFromSchema,
   });
 
-  assert.equal(result.source, 'model_asset');
-  assert.equal(result.assetType, 'model_label');
-  assert.equal(result.ast?.id, 'ui_ast_4102');
+  assert.equal(result.source, 'none');
+  assert.equal(result.assetType, null);
+  assert.equal(result.ast, null);
 }
 
-function test_prefers_cellwise_model_label_asset_when_page_asset_source_is_absent() {
+function test_rejects_model_label_cellwise_fallback_by_default() {
   const snapshot = makeSnapshotWithState(
     {
       ui_page_catalog_json: [
@@ -156,10 +155,30 @@ function test_prefers_cellwise_model_label_asset_when_page_asset_source_is_absen
     projectCellwiseModel: buildAstFromCellwiseModel,
   });
 
+  assert.equal(result.source, 'none');
+  assert.equal(result.assetType, null);
+  assert.equal(result.ast, null);
+}
+
+function test_resolves_cellwise_model_asset_without_page_asset_ref() {
+  const snapshot = makeSnapshotWithState(
+    {
+      ui_page_catalog_json: [
+        { page: 'prompt', asset_type: 'cellwise_model', model_id: 4104 },
+      ],
+    },
+    { '4104': makeCellwiseModel(4104) },
+  );
+
+  const result = resolvePageAsset(snapshot, {
+    projectSchemaModel: buildAstFromSchema,
+    projectCellwiseModel: buildAstFromCellwiseModel,
+  });
+
   assert.equal(result.source, 'model_asset');
-  assert.equal(result.assetType, 'model_label');
-  assert.equal(result.modelId, 4103);
-  assert.equal(result.ast?.id, 'cellwise_root_4103');
+  assert.equal(result.assetType, 'cellwise_model');
+  assert.equal(result.modelId, 4104);
+  assert.equal(result.ast?.id, 'cellwise_root_4104');
 }
 
 function test_returns_none_when_model_label_asset_missing() {
@@ -209,9 +228,10 @@ function test_returns_none_when_no_asset_and_no_legacy_builder() {
 }
 
 const tests = [
-  test_prefers_schema_model_asset_over_legacy_ast,
-  test_prefers_model_label_asset_over_legacy_root_ast,
-  test_prefers_cellwise_model_label_asset_when_page_asset_source_is_absent,
+  test_rejects_schema_model_asset_by_default,
+  test_rejects_model_label_asset_by_default,
+  test_rejects_model_label_cellwise_fallback_by_default,
+  test_resolves_cellwise_model_asset_without_page_asset_ref,
   test_returns_none_when_model_label_asset_missing,
   test_returns_none_when_page_asset_missing,
   test_returns_none_when_no_asset_and_no_legacy_builder,

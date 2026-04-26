@@ -293,6 +293,16 @@ function deriveFlowProgress(appMeta, sceneContext, actionLifecycle) {
   return { percentage: 8, variant: 'info' };
 }
 
+function normalizeFlowShellStatus(statusText) {
+  const value = typeof statusText === 'string' ? statusText.trim().toLowerCase() : '';
+  if (!value) return 'info';
+  if (value === 'ready' || value === 'completed' || value === 'connected' || value === 'online') return 'success';
+  if (value === 'running' || value === 'loading' || value === 'submitting' || value === 'inflight') return 'warning';
+  if (value === 'failed' || value === 'error' || value === 'send_failed') return 'error';
+  if (value === 'offline' || value === 'idle') return 'offline';
+  return 'info';
+}
+
 export function isFlowCapableWorkspaceApp(snapshot, modelId) {
   if (!Number.isInteger(modelId) || modelId <= 0) return false;
   const rootLabels = getRootLabels(snapshot, modelId);
@@ -340,6 +350,47 @@ export function deriveSlidingFlowShellState(snapshot, editorStateModelId = EDITO
       { key: 'debug_trace_summary', label: 'Trace Summary', value: matrixDebug.traceSummaryText },
     ],
   };
+}
+
+export function deriveSlidingFlowShellProjectionLabels(flowState, workspace) {
+  const state = flowState && typeof flowState === 'object' ? flowState : {};
+  const selectedApp = state.selectedApp && typeof state.selectedApp === 'object' ? state.selectedApp : {};
+  const sceneContext = state.sceneContext && typeof state.sceneContext === 'object' ? state.sceneContext : {};
+  const actionLifecycle = state.actionLifecycle && typeof state.actionLifecycle === 'object' ? state.actionLifecycle : {};
+  const matrixDebug = state.matrixDebug && typeof state.matrixDebug === 'object' ? state.matrixDebug : {};
+  const progress = state.progress && typeof state.progress === 'object' ? state.progress : {};
+  const selectedModelId = Number.isInteger(state.selectedModelId) ? state.selectedModelId : null;
+  const selectedName = selectedApp.name || (selectedModelId !== null ? `Model ${selectedModelId}` : 'Selected App');
+  const workspaceTitle = workspace && typeof workspace.title === 'string' && workspace.title.trim()
+    ? workspace.title.trim()
+    : selectedName;
+  const appStatusText = selectedApp.status || selectedApp.name || (selectedModelId !== null ? `Model ${selectedModelId}` : 'no app');
+  const lifecycleStatus = actionLifecycle.status || 'idle';
+  const debugStatus = matrixDebug.selected || 'trace';
+  const currentApp = Number.isInteger(sceneContext.current_app) ? sceneContext.current_app : '';
+  const flowStep = Number.isInteger(sceneContext.flow_step) ? sceneContext.flow_step : 0;
+
+  return [
+    { k: 'flow_shell_title', t: 'str', v: `Sliding Flow Shell · ${selectedName}` },
+    {
+      k: 'flow_shell_intro',
+      t: 'str',
+      v: `Projection only: reads Model ${state.anchorModelId || FLOW_SHELL_ANCHOR_MODEL_ID}, Model -12 scene_context, Model -1 action_lifecycle, and Model -100 debug truth. UI tab focus stays on Model -2.`,
+    },
+    { k: 'flow_app_status', t: 'str', v: normalizeFlowShellStatus(selectedApp.status) },
+    { k: 'flow_app_status_text', t: 'str', v: appStatusText },
+    { k: 'flow_lifecycle_status', t: 'str', v: normalizeFlowShellStatus(lifecycleStatus) },
+    { k: 'flow_lifecycle_status_text', t: 'str', v: lifecycleStatus },
+    { k: 'flow_debug_status', t: 'str', v: normalizeFlowShellStatus(debugStatus) },
+    { k: 'flow_debug_status_text', t: 'str', v: debugStatus },
+    { k: 'flow_progress_percentage', t: 'int', v: Number.isFinite(progress.percentage) ? Math.max(0, Math.min(100, Math.round(progress.percentage))) : 0 },
+    { k: 'flow_progress_label', t: 'str', v: sceneContext.active_flow ? `Flow: ${sceneContext.active_flow}` : 'Flow Progress' },
+    { k: 'flow_progress_variant', t: 'str', v: typeof progress.variant === 'string' && progress.variant ? progress.variant : 'info' },
+    { k: 'flow_process_summary_rows_json', t: 'json', v: Array.isArray(state.processSummaryRows) ? state.processSummaryRows : [] },
+    { k: 'flow_debug_summary_rows_json', t: 'json', v: Array.isArray(state.debugSummaryRows) ? state.debugSummaryRows : [] },
+    { k: 'flow_app_card_title', t: 'str', v: workspaceTitle },
+    { k: 'flow_app_meta', t: 'str', v: `source=${selectedApp.source || 'unknown'} | current_app=${currentApp} | flow_step=${flowStep}` },
+  ];
 }
 
 export function deriveEditorModelOptions(snapshot, editorStateModelId) {
@@ -486,22 +537,13 @@ export function deriveWorkspaceSelected(snapshot, editorStateModelId, projectSch
   if (cellwiseAst) {
     return { title: selectedApp.name || `App ${selectedId}`, ast: cellwiseAst };
   }
-  const modelLabelAst = normalizeAssetJson(
-    getSnapshotLabelValue(snapshot, { model_id: selectedId, p: 0, r: 1, c: 0, k: 'page_asset_v0' }),
-  );
-  if (modelLabelAst) {
-    return { title: selectedApp.name || `App ${selectedId}`, ast: modelLabelAst };
-  }
-  const schemaAst = typeof projectSchemaModel === 'function' ? projectSchemaModel(snapshot, selectedId) : null;
-  if (schemaAst) {
-    return { title: selectedApp.name || `App ${selectedId}`, ast: schemaAst };
-  }
+  void projectSchemaModel;
   return {
     title: selectedApp.name || `App ${selectedId}`,
     ast: {
-      id: 'ws_no_ast',
+      id: 'ws_no_cellwise_ast',
       type: 'Text',
-      props: { type: 'warning', text: `Model ${selectedId} has no UI schema or AST.` },
+      props: { type: 'warning', text: `Model ${selectedId} has no cellwise UI surface.` },
     },
   };
 }

@@ -105,12 +105,19 @@
       "p": 2,
       "r": 1,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "column",
-        "gap": 12
-      }
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
     },
     {
       "op": "add_label",
@@ -158,12 +165,19 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": "surface: root_home"
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": "surface: root_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -211,11 +225,9 @@
       "p": 2,
       "r": 3,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "title": "Home Catalog"
-      }
+      "k": "ui_title",
+      "t": "str",
+      "v": "Home Catalog"
     },
     {
       "op": "add_label",
@@ -303,11 +315,9 @@
       "p": 2,
       "r": 5,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Model"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Model"
     },
     {
       "op": "add_label",
@@ -355,11 +365,9 @@
       "p": 2,
       "r": 6,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "id or name contains..."
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "id or name contains..."
     },
     {
       "op": "add_label",
@@ -446,9 +454,18 @@
             "c": 0,
             "k": "editor_model_options_json"
           }
-        },
-        "placeholder": "Select model"
+        }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Select model"
     },
     {
       "op": "add_label",
@@ -524,11 +541,9 @@
       "p": 2,
       "r": 8,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Refresh"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Refresh"
     },
     {
       "op": "add_label",
@@ -597,11 +612,9 @@
       "p": 2,
       "r": 9,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Filter"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Filter"
     },
     {
       "op": "add_label",
@@ -649,11 +662,9 @@
       "p": 2,
       "r": 10,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "p"
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "p"
     },
     {
       "op": "add_label",
@@ -729,11 +740,9 @@
       "p": 2,
       "r": 11,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "r"
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "r"
     },
     {
       "op": "add_label",
@@ -809,11 +818,9 @@
       "p": 2,
       "r": 12,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "c"
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "c"
     },
     {
       "op": "add_label",
@@ -889,11 +896,9 @@
       "p": 2,
       "r": 13,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "placeholder": "k|t|v substring..."
-      }
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "k|t|v substring..."
     },
     {
       "op": "add_label",
@@ -969,12 +974,19 @@
       "p": 2,
       "r": 14,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "danger",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "danger"
     },
     {
       "op": "add_label",
@@ -1040,14 +1052,39 @@
       "p": 2,
       "r": 15,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "row",
-        "gap": 12,
-        "wrap": true,
-        "align": "center"
-      }
+      "k": "ui_align",
+      "t": "str",
+      "v": "center"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
     },
     {
       "op": "add_label",
@@ -1095,12 +1132,19 @@
       "p": 2,
       "r": 16,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -1166,12 +1210,19 @@
       "p": 2,
       "r": 17,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "type": "info",
-        "text": ""
-      }
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -1240,10 +1291,28 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Add Label",
-        "type": "primary",
         "icon": "plus"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Add Label"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
     },
     {
       "op": "add_label",
@@ -1323,13 +1392,58 @@
             "c": 0,
             "k": "home_table_rows_json"
           }
-        },
-        "border": true,
-        "stripe": true,
-        "size": "small",
-        "height": 520,
-        "rowKey": "row_id"
+        }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_border",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_height",
+      "t": "int",
+      "v": 520
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_row_key",
+      "t": "str",
+      "v": "row_id"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_stripe",
+      "t": "bool",
+      "v": true
     },
     {
       "op": "add_label",
@@ -1377,13 +1491,29 @@
       "p": 2,
       "r": 20,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "p",
-        "prop": "p",
-        "width": 70
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "p"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "p"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "70"
     },
     {
       "op": "add_label",
@@ -1431,13 +1561,29 @@
       "p": 2,
       "r": 21,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "r",
-        "prop": "r",
-        "width": 70
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "r"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "r"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "70"
     },
     {
       "op": "add_label",
@@ -1485,13 +1631,29 @@
       "p": 2,
       "r": 22,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "c",
-        "prop": "c",
-        "width": 70
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "c"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "c"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "70"
     },
     {
       "op": "add_label",
@@ -1539,13 +1701,29 @@
       "p": 2,
       "r": 23,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "k",
-        "prop": "k",
-        "minWidth": 160
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "k"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "160"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "k"
     },
     {
       "op": "add_label",
@@ -1593,13 +1771,29 @@
       "p": 2,
       "r": 24,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "t",
-        "prop": "t",
-        "width": 90
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "t"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "t"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "90"
     },
     {
       "op": "add_label",
@@ -1647,13 +1841,29 @@
       "p": 2,
       "r": 25,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "v",
-        "prop": "v_preview",
-        "minWidth": 260
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "v"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "260"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "v_preview"
     },
     {
       "op": "add_label",
@@ -1701,12 +1911,19 @@
       "p": 2,
       "r": 26,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Actions",
-        "minWidth": 280
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 26,
+      "c": 0,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "280"
     },
     {
       "op": "add_label",
@@ -1754,13 +1971,29 @@
       "p": 2,
       "r": 27,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "row",
-        "gap": 8,
-        "wrap": true
-      }
+      "k": "ui_gap",
+      "t": "int",
+      "v": 8
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
     },
     {
       "op": "add_label",
@@ -1808,12 +2041,19 @@
       "p": 2,
       "r": 28,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Select",
-        "size": "small"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Select"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
     },
     {
       "op": "add_label",
@@ -1895,10 +2135,28 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Edit",
-        "size": "small",
         "icon": "edit"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Edit"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
     },
     {
       "op": "add_label",
@@ -1977,12 +2235,19 @@
       "p": 2,
       "r": 30,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Detail",
-        "size": "small"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Detail"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
     },
     {
       "op": "add_label",
@@ -2064,11 +2329,38 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Delete",
-        "size": "small",
-        "type": "danger",
         "icon": "trash"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Delete"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "danger"
     },
     {
       "op": "add_label",
@@ -2159,9 +2451,18 @@
             "k": "home_edit_dialog_title"
           }
         },
-        "width": "680px",
         "closeOnClickModal": false
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "680px"
     },
     {
       "op": "add_label",
@@ -2277,11 +2578,9 @@
       "p": 2,
       "r": 34,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Model"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Model"
     },
     {
       "op": "add_label",
@@ -2397,13 +2696,29 @@
       "p": 2,
       "r": 36,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "row",
-        "gap": 12,
-        "wrap": true
-      }
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
     },
     {
       "op": "add_label",
@@ -2451,11 +2766,9 @@
       "p": 2,
       "r": 37,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "p"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "p"
     },
     {
       "op": "add_label",
@@ -2571,11 +2884,9 @@
       "p": 2,
       "r": 39,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "r"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "r"
     },
     {
       "op": "add_label",
@@ -2691,11 +3002,9 @@
       "p": 2,
       "r": 41,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "c"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "c"
     },
     {
       "op": "add_label",
@@ -2811,11 +3120,9 @@
       "p": 2,
       "r": 43,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "k"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "k"
     },
     {
       "op": "add_label",
@@ -2931,11 +3238,9 @@
       "p": 2,
       "r": 45,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "t"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "t"
     },
     {
       "op": "add_label",
@@ -2989,82 +3294,91 @@
         "filterable": true,
         "allowCreate": true,
         "defaultFirstOption": true,
-        "clearable": false,
-        "options": [
-          {
-            "label": "str",
-            "value": "str"
-          },
-          {
-            "label": "int",
-            "value": "int"
-          },
-          {
-            "label": "bool",
-            "value": "bool"
-          },
-          {
-            "label": "json",
-            "value": "json"
-          },
-          {
-            "label": "event",
-            "value": "event"
-          },
-          {
-            "label": "func.js",
-            "value": "func.js"
-          },
-          {
-            "label": "func.python",
-            "value": "func.python"
-          },
-          {
-            "label": "pin.connect.label",
-            "value": "pin.connect.label"
-          },
-          {
-            "label": "pin.connect.cell",
-            "value": "pin.connect.cell"
-          },
-          {
-            "label": "pin.connect.model",
-            "value": "pin.connect.model"
-          },
-          {
-            "label": "pin.in",
-            "value": "pin.in"
-          },
-          {
-            "label": "pin.out",
-            "value": "pin.out"
-          },
-          {
-            "label": "pin.bus.in",
-            "value": "pin.bus.in"
-          },
-          {
-            "label": "pin.bus.out",
-            "value": "pin.bus.out"
-          },
-          {
-            "label": "model.single",
-            "value": "model.single"
-          },
-          {
-            "label": "model.table",
-            "value": "model.table"
-          },
-          {
-            "label": "model.matrix",
-            "value": "model.matrix"
-          },
-          {
-            "label": "model.submt",
-            "value": "model.submt"
-          }
-        ]
+        "clearable": false
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_options_json",
+      "t": "json",
+      "v": [
+        {
+          "label": "str",
+          "value": "str"
+        },
+        {
+          "label": "int",
+          "value": "int"
+        },
+        {
+          "label": "bool",
+          "value": "bool"
+        },
+        {
+          "label": "json",
+          "value": "json"
+        },
+        {
+          "label": "event",
+          "value": "event"
+        },
+        {
+          "label": "func.js",
+          "value": "func.js"
+        },
+        {
+          "label": "func.python",
+          "value": "func.python"
+        },
+        {
+          "label": "pin.connect.label",
+          "value": "pin.connect.label"
+        },
+        {
+          "label": "pin.connect.cell",
+          "value": "pin.connect.cell"
+        },
+        {
+          "label": "pin.connect.model",
+          "value": "pin.connect.model"
+        },
+        {
+          "label": "pin.in",
+          "value": "pin.in"
+        },
+        {
+          "label": "pin.out",
+          "value": "pin.out"
+        },
+        {
+          "label": "pin.bus.in",
+          "value": "pin.bus.in"
+        },
+        {
+          "label": "pin.bus.out",
+          "value": "pin.bus.out"
+        },
+        {
+          "label": "model.single",
+          "value": "model.single"
+        },
+        {
+          "label": "model.table",
+          "value": "model.table"
+        },
+        {
+          "label": "model.matrix",
+          "value": "model.matrix"
+        },
+        {
+          "label": "model.submt",
+          "value": "model.submt"
+        }
+      ]
     },
     {
       "op": "add_label",
@@ -3140,11 +3454,9 @@
       "p": 2,
       "r": 47,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Value (text/json/structural)"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Value (text/json/structural)"
     },
     {
       "op": "add_label",
@@ -3195,9 +3507,18 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "type": "textarea",
         "rows": 4
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "textarea"
     },
     {
       "op": "add_label",
@@ -3273,13 +3594,29 @@
       "p": 2,
       "r": 49,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "layout": "row",
-        "gap": 12,
-        "wrap": true
-      }
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
     },
     {
       "op": "add_label",
@@ -3327,11 +3664,9 @@
       "p": 2,
       "r": 50,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Value (int)"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Value (int)"
     },
     {
       "op": "add_label",
@@ -3447,11 +3782,9 @@
       "p": 2,
       "r": 52,
       "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "label": "Value (bool)"
-      }
+      "k": "ui_label",
+      "t": "str",
+      "v": "Value (bool)"
     },
     {
       "op": "add_label",
@@ -3570,10 +3903,28 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "layout": "row",
-        "gap": 12,
         "justify": "flex-end"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
     },
     {
       "op": "add_label",
@@ -3624,10 +3975,28 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Save",
-        "type": "primary",
         "icon": "check"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Save"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
     },
     {
       "op": "add_label",
@@ -3782,13 +4151,31 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "type": "info",
-        "text": "",
         "style": {
           "color": "#b91c1c",
           "fontWeight": 600
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
     },
     {
       "op": "add_label",
@@ -3857,9 +4244,18 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Cancel",
         "icon": "close"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Cancel"
     },
     {
       "op": "add_label",
@@ -3896,7 +4292,7 @@
       "op": "add_label",
       "model_id": -22,
       "p": 2,
-      "r": 57,
+      "r": 58,
       "c": 0,
       "k": "ui_component",
       "t": "str",
@@ -3906,7 +4302,7 @@
       "op": "add_label",
       "model_id": -22,
       "p": 2,
-      "r": 57,
+      "r": 58,
       "c": 0,
       "k": "ui_parent",
       "t": "str",
@@ -3916,7 +4312,7 @@
       "op": "add_label",
       "model_id": -22,
       "p": 2,
-      "r": 57,
+      "r": 58,
       "c": 0,
       "k": "ui_order",
       "t": "int",
@@ -3926,7 +4322,7 @@
       "op": "add_label",
       "model_id": -22,
       "p": 2,
-      "r": 57,
+      "r": 58,
       "c": 0,
       "k": "ui_props_json",
       "t": "json",
@@ -3940,7 +4336,6 @@
             "k": "dt_detail_title"
           }
         },
-        "width": "720px",
         "closeOnClickModal": false
       }
     },
@@ -3948,7 +4343,17 @@
       "op": "add_label",
       "model_id": -22,
       "p": 2,
-      "r": 57,
+      "r": 58,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "720px"
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 58,
       "c": 0,
       "k": "ui_bind_json",
       "t": "json",
@@ -3977,7 +4382,7 @@
       "model_id": -22,
       "p": 2,
       "r": 58,
-      "c": 0,
+      "c": 1,
       "k": "ui_node_id",
       "t": "str",
       "v": "code_home_detail_text"
@@ -3987,7 +4392,7 @@
       "model_id": -22,
       "p": 2,
       "r": 58,
-      "c": 0,
+      "c": 1,
       "k": "ui_component",
       "t": "str",
       "v": "CodeBlock"
@@ -3997,7 +4402,7 @@
       "model_id": -22,
       "p": 2,
       "r": 58,
-      "c": 0,
+      "c": 1,
       "k": "ui_parent",
       "t": "str",
       "v": "dlg_home_detail"
@@ -4007,7 +4412,7 @@
       "model_id": -22,
       "p": 2,
       "r": 58,
-      "c": 0,
+      "c": 1,
       "k": "ui_order",
       "t": "int",
       "v": 10
@@ -4017,7 +4422,7 @@
       "model_id": -22,
       "p": 2,
       "r": 58,
-      "c": 0,
+      "c": 1,
       "k": "ui_bind_json",
       "t": "json",
       "v": {
@@ -4079,9 +4484,18 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "layout": "row",
         "justify": "flex-end"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 59,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
     },
     {
       "op": "add_label",
@@ -4132,9 +4546,18 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Close",
         "icon": "close"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -22,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Close"
     },
     {
       "op": "add_label",

@@ -82,7 +82,6 @@ const galleryPatch = readJson('packages/worker-base/system-models/gallery_catalo
 function test_gallery_store_exports_frozen_mode_alignment_and_upstream_contract() {
   const modeAlignment = galleryStoreModule.GALLERY_MODE_ALIGNMENT;
   const upstream = galleryStoreModule.GALLERY_INTEGRATION_CONTRACT;
-  const pageAssetRef = galleryStoreModule.GALLERY_PAGE_ASSET_REF;
 
   assert.deepEqual(
     modeAlignment,
@@ -93,10 +92,15 @@ function test_gallery_store_exports_frozen_mode_alignment_and_upstream_contract(
     },
     'gallery_mode_alignment_must_be_frozen',
   );
-  assert.deepEqual(
-    pageAssetRef,
-    { model_id: -103, p: 0, r: 1, c: 0, k: 'page_asset_v0' },
-    'gallery_page_asset_ref_must_point_to_model_minus_103_page_asset_v0',
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(galleryStoreModule, 'GALLERY_PAGE_ASSET_REF'),
+    false,
+    'gallery_store_must_not_export_legacy_page_asset_ref',
+  );
+  assert.equal(
+    readText('packages/ui-model-demo-frontend/src/gallery_store.js').includes('page_asset_v0'),
+    false,
+    'gallery_store_must_not_fallback_to_page_asset_v0',
   );
   assert.deepEqual(
     upstream,

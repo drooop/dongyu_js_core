@@ -69,16 +69,23 @@ export function resolvePageAsset(snapshot, options = {}) {
   const projectCellwiseModel = typeof options.projectCellwiseModel === 'function'
     ? options.projectCellwiseModel
     : null;
+  const allowLegacyAssets = options.allowLegacyAssets === true;
 
   const pageEntry = findPageEntry(snapshot, pageName);
   if (pageEntry && Number.isInteger(pageEntry.model_id)) {
-    if (pageEntry.asset_type === 'schema_model' && projectSchemaModel) {
+    if (pageEntry.asset_type === 'cellwise_model' && projectCellwiseModel) {
+      const ast = projectCellwiseModel(snapshot, pageEntry.model_id);
+      if (ast) {
+        return { source: 'model_asset', assetType: 'cellwise_model', pageName, modelId: pageEntry.model_id, ast };
+      }
+    }
+    if (allowLegacyAssets && pageEntry.asset_type === 'schema_model' && projectSchemaModel) {
       const ast = projectSchemaModel(snapshot, pageEntry.model_id);
       if (ast) {
         return { source: 'model_asset', assetType: 'schema_model', pageName, modelId: pageEntry.model_id, ast };
       }
     }
-    if (pageEntry.asset_type === 'model_label') {
+    if (allowLegacyAssets && pageEntry.asset_type === 'model_label') {
       const ast = readModelLabelAsset(snapshot, pageEntry.model_id, pageEntry.asset_ref);
       if (ast) {
         return { source: 'model_asset', assetType: 'model_label', pageName, modelId: pageEntry.model_id, ast };
