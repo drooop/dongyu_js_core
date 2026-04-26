@@ -1,7 +1,7 @@
 ---
 title: "0338 — Mgmt Bus Console Live Projection Run Log"
 doc_type: iteration-runlog
-status: in-progress
+status: completed
 updated: 2026-04-26
 source: ai
 iteration_id: 0338-mgmt-bus-console-live-projection
@@ -26,7 +26,7 @@ phase: phase1
 - Command: `python3 /Users/drop/.codex/skills/it/scripts/init_iteration_scaffold.py 0338-mgmt-bus-console-live-projection --repo-root /Users/drop/codebase/cowork/dongyuapp_elysia_based`
 - Key output: generated `plan.md`, `resolution.md`, `runlog.md`.
 - Result: PASS
-- Commit: pending
+- Commit: `642fc54`
 
 ### Step 1 — Planning Draft
 - Files changed:
@@ -42,7 +42,7 @@ phase: phase1
   - Plan requires refresh and formal actions to use `bus_event_v2 -> Model 0 (0,0,0) pin.bus.in`.
   - Resolution defines later implementation steps, tests, local deployment, browser verification, and sub-agent review checkpoints.
 - Result: PASS
-- Commit: pending
+- Commit: `642fc54`
 
 ## Review Records
 - Review agent `019dc7d3-4972-7fe3-b4a9-eb9da82bb5f0`: APPROVED.
