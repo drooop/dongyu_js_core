@@ -16595,6 +16595,29 @@
     },
     {
       "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mgmt_bus_console_refresh_route",
+      "t": "pin.connect.model",
+      "v": [
+        {
+          "from": [
+            0,
+            "mgmt_bus_console_refresh"
+          ],
+          "to": [
+            [
+              -10,
+              "mgmt_bus_console_refresh_intent"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
       "model_id": 1036,
       "p": 0,
       "r": 0,
@@ -16912,11 +16935,11 @@
       "k": "ui_bind_read_json",
       "t": "json",
       "v": {
-        "model_id": 1036,
+        "model_id": -2,
         "p": 0,
         "r": 0,
         "c": 0,
-        "k": "route_status"
+        "k": "mgmt_bus_console_route_status"
       }
     },
     {
@@ -17350,7 +17373,7 @@
       "c": 2,
       "k": "ui_data_ref_model_id",
       "t": "int",
-      "v": 1036
+      "v": -2
     },
     {
       "op": "add_label",
@@ -17390,7 +17413,7 @@
       "c": 2,
       "k": "ui_data_ref_k",
       "t": "str",
-      "v": "subject_projection_rows_json"
+      "v": "mgmt_bus_console_subject_rows_json"
     },
     {
       "op": "add_label",
@@ -17571,11 +17594,11 @@
       "k": "ui_bind_read_json",
       "t": "json",
       "v": {
-        "model_id": 1036,
+        "model_id": -2,
         "p": 0,
         "r": 0,
         "c": 0,
-        "k": "timeline_text"
+        "k": "mgmt_bus_console_timeline_text"
       }
     },
     {
@@ -17730,11 +17753,11 @@
       "k": "ui_bind_read_json",
       "t": "json",
       "v": {
-        "model_id": 1036,
+        "model_id": -2,
         "p": 0,
         "r": 0,
         "c": 0,
-        "k": "inspector_text"
+        "k": "mgmt_bus_console_inspector_text"
       }
     },
     {
@@ -17838,7 +17861,7 @@
       "c": 4,
       "k": "ui_data_ref_model_id",
       "t": "int",
-      "v": 1036
+      "v": -2
     },
     {
       "op": "add_label",
@@ -17878,7 +17901,187 @@
       "c": 4,
       "k": "ui_data_ref_k",
       "t": "str",
-      "v": "route_projection_rows_json"
+      "v": "mgmt_bus_console_route_rows_json"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 5,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_route_col_route"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 5,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 5,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_route_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 5,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 5,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Route"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 5,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "route"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 6,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_route_col_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 6,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 6,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_route_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 6,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 6,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 6,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 7,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_route_col_target"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 7,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 7,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_route_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 7,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 7,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Target"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 7,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "target"
     },
     {
       "op": "add_label",
@@ -18166,6 +18369,104 @@
       "model_id": 1036,
       "p": 2,
       "r": 6,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_refresh_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_composer_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 25
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Refresh"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "default"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "bus_event_v2": true,
+          "bus_in_key": "mgmt_bus_console_refresh",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "mgmt_bus_console.refresh.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "source_model_id",
+              "t": "int",
+              "v": 1036
+            }
+          ],
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
       "c": 3,
       "k": "ui_node_id",
       "t": "str",
@@ -18220,11 +18521,11 @@
       "k": "ui_bind_read_json",
       "t": "json",
       "v": {
-        "model_id": 1036,
+        "model_id": -2,
         "p": 0,
         "r": 0,
         "c": 0,
-        "k": "route_status"
+        "k": "mgmt_bus_console_route_status"
       }
     }
   ]
