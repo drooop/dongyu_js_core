@@ -51,6 +51,7 @@ import {
   evaluateApplyPreviewGuard,
 } from './filltable_policy.mjs';
 import { buildFilltableModelInventoryFromSnapshot } from './filltable_prompt_context.mjs';
+import { deriveMgmtBusConsoleProjection } from './mgmt_bus_console_projection.mjs';
 
 const require = createRequire(import.meta.url);
 const { loadProgramModelFromSqlite } = require('../worker-base/src/program_model_loader.js');
@@ -2271,16 +2272,43 @@ const EXCLUDED_LABEL_KEYS = new Set(['snapshot_json', 'event_log']);
 const CLIENT_SECRET_LABEL_KEYS = new Set([
   'matrix_token',
   'matrix_passwd',
+  'access_token',
 ]);
 const CLIENT_SECRET_LABEL_TYPES = new Set([
   'matrix.token',
   'matrix.passwd',
 ]);
+const CLIENT_SECRET_STRING_PATTERNS = [
+  /syt_[A-Za-z0-9._=-]{8,}/u,
+  /ChangeMeLocal2026/u,
+];
+
+function containsClientSecretValue(value, seen = new WeakSet()) {
+  if (typeof value === 'string') {
+    return CLIENT_SECRET_STRING_PATTERNS.some((pattern) => pattern.test(value));
+  }
+  if (!value || typeof value !== 'object') return false;
+  if (seen.has(value)) return false;
+  seen.add(value);
+  const nestedKey = typeof value.k === 'string' ? value.k.trim().toLowerCase() : '';
+  const nestedType = typeof value.t === 'string' ? value.t.trim().toLowerCase() : '';
+  if (CLIENT_SECRET_LABEL_KEYS.has(nestedKey) || CLIENT_SECRET_LABEL_TYPES.has(nestedType)) {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.some((item) => containsClientSecretValue(item, seen));
+  }
+  return Object.values(value).some((item) => containsClientSecretValue(item, seen));
+}
 
 function isClientSecretLabel(labelKey, labelValue) {
-  void labelKey;
-  void labelValue;
-  return false;
+  const normalizedKey = typeof labelKey === 'string' ? labelKey.trim().toLowerCase() : '';
+  const normalizedType = labelValue && typeof labelValue.t === 'string'
+    ? labelValue.t.trim().toLowerCase()
+    : '';
+  return CLIENT_SECRET_LABEL_KEYS.has(normalizedKey)
+    || CLIENT_SECRET_LABEL_TYPES.has(normalizedType)
+    || containsClientSecretValue(labelValue?.v);
 }
 
 function buildClientSnapshot(runtime) {
@@ -2301,12 +2329,20 @@ function buildClientSnapshot(runtime) {
     const modelId = Number(id);
     // Trace model: include summary root plus cellwise UI nodes, but still skip bulk trace entry cells.
     if (modelId === TRACE_MODEL_ID) {
+      const filterCell = (cell) => {
+        const filteredLabels = {};
+        for (const [lk, lv] of Object.entries(cell?.labels || {})) {
+          if (isClientSecretLabel(lk, lv)) continue;
+          filteredLabels[lk] = lv;
+        }
+        return { ...cell, labels: filteredLabels };
+      };
       const filteredCells = {};
       const rootCell = model.cells && model.cells['0,0,0'];
-      if (rootCell) filteredCells['0,0,0'] = rootCell;
+      if (rootCell) filteredCells['0,0,0'] = filterCell(rootCell);
       for (const [ck, cell] of Object.entries(model.cells || {})) {
         if (!ck.startsWith('2,')) continue;
-        filteredCells[ck] = cell;
+        filteredCells[ck] = filterCell(cell);
       }
       models[id] = { ...model, cells: filteredCells };
       continue;
@@ -4425,6 +4461,11 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'matrix_debug_trace_summary_text', 'str', '');
   ensureStateLabel(runtime, 'matrix_debug_summary_text', 'str', '');
   ensureStateLabel(runtime, 'matrix_debug_status_text', 'str', '');
+  ensureStateLabel(runtime, 'mgmt_bus_console_subject_rows_json', 'json', []);
+  ensureStateLabel(runtime, 'mgmt_bus_console_timeline_text', 'str', '');
+  ensureStateLabel(runtime, 'mgmt_bus_console_inspector_text', 'str', '');
+  ensureStateLabel(runtime, 'mgmt_bus_console_route_rows_json', 'json', []);
+  ensureStateLabel(runtime, 'mgmt_bus_console_route_status', 'str', 'route_missing');
 
   let programEngine = null;
 
@@ -4575,6 +4616,22 @@ function createServerState(options) {
     overwriteRuntimeLabel(runtime, TRACE_MODEL_ID, 0, 0, 0, 'trace_status', 'str', traceEnabled ? 'monitoring' : 'paused');
   };
 
+  const syncMgmtBusConsoleDerivedState = (matrixProjection) => {
+    const projection = deriveMgmtBusConsoleProjection({
+      matrixProjection,
+      readRootLabel: (modelId, key) => {
+        const model = runtime.getModel(modelId);
+        return model ? runtime.getLabelValue(model, 0, 0, 0, key) : undefined;
+      },
+    });
+    overwriteStateLabel(runtime, 'mgmt_bus_console_subject_rows_json', 'json', projection.subjects);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_timeline_text', 'str', projection.timelineText);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_inspector_text', 'str', projection.inspectorText);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_route_rows_json', 'json', projection.routeRows);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_route_status', 'str', projection.routeStatus);
+    return projection;
+  };
+
   const syncMatrixDebugDerivedState = () => {
     syncMatrixDebugHostLabels();
     const projection = deriveMatrixDebugView(buildClientSnapshot(runtime), EDITOR_STATE_MODEL_ID);
@@ -4583,6 +4640,7 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'matrix_debug_readiness_text', 'str', projection.readinessText);
     overwriteStateLabel(runtime, 'matrix_debug_subject_summary_text', 'str', projection.subjectSummaryText);
     overwriteStateLabel(runtime, 'matrix_debug_trace_summary_text', 'str', projection.traceSummaryText);
+    syncMgmtBusConsoleDerivedState(projection);
     return projection;
   };
 
@@ -5515,7 +5573,7 @@ function createServerState(options) {
 
     if (isUiEventV2) {
       const busInKey = String(envelopeOrNull.bus_in_key || '').trim();
-      const allowedBusInKeys = new Set(['ui_submit', 'ui_click', 'ui_input', 'ui_edit', 'mgmt_bus_console_send']);
+      const allowedBusInKeys = new Set(['ui_submit', 'ui_click', 'ui_input', 'ui_edit', 'mgmt_bus_console_send', 'mgmt_bus_console_refresh']);
       if (!allowedBusInKeys.has(busInKey)) {
         return finishError('invalid_bus_in_key', busInKey || 'missing_bus_in_key');
       }

@@ -40,14 +40,13 @@ function isFilteredClientLabel(key, type) {
   const normalizedType = typeof type === 'string' ? type.trim() : '';
   return normalizedKey === 'matrix_token'
     || normalizedKey === 'matrix_passwd'
+    || normalizedKey === 'access_token'
     || normalizedType === 'matrix.token'
     || normalizedType === 'matrix.passwd';
 }
 
 function isHomeInternalTableLabel(key, type) {
-  void key;
-  void type;
-  return false;
+  return isFilteredClientLabel(key, type);
 }
 
 function normalizeAssetJson(rawValue) {

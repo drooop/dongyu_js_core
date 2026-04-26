@@ -88,7 +88,7 @@ process.stdout.write('\n=== Test Group 2: Current Metadata Labels ===\n');
 
   const mids = getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_model_ids');
   assert(Array.isArray(mids), 'mbr_mqtt_model_ids is array');
-  assert(JSON.stringify(mids) === JSON.stringify([2, 100, 1010]), 'mbr_mqtt_model_ids = [2,100,1010]');
+  assert(JSON.stringify(mids) === JSON.stringify([2, 100, 1010, 1019]), 'mbr_mqtt_model_ids = [2,100,1010,1019]');
   assert(getLabel(rt, -10, 0, 0, 0, 'mbr_heartbeat_interval_ms') === 30000, 'mbr_heartbeat_interval_ms = 30000');
 
   for (const legacyKey of [
