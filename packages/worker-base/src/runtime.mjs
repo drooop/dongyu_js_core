@@ -730,6 +730,8 @@ class ModelTableRuntime {
     return Array.isArray(value) && value.every((rec) =>
       rec &&
       typeof rec === 'object' &&
+      !Object.prototype.hasOwnProperty.call(rec, 'op') &&
+      !Object.prototype.hasOwnProperty.call(rec, 'model_id') &&
       Number.isInteger(rec.id) &&
       Number.isInteger(rec.p) &&
       Number.isInteger(rec.r) &&
@@ -737,7 +739,8 @@ class ModelTableRuntime {
       typeof rec.k === 'string' &&
       rec.k.length > 0 &&
       typeof rec.t === 'string' &&
-      rec.t.length > 0
+      rec.t.length > 0 &&
+      Object.prototype.hasOwnProperty.call(rec, 'v')
     );
   }
 
@@ -915,6 +918,18 @@ class ModelTableRuntime {
       this._mtPayloadRecord('pin', 'str', pin),
       this._mtPayloadRecord('payload', 'json', payload),
       this._mtPayloadRecord('timestamp', 'int', timestamp),
+    ];
+  }
+
+  _buildMqttIngressPayloadValue({ kind, topic, payload, opId = '', extra = [] }) {
+    const requestId = typeof opId === 'string' && opId ? opId : `mqtt_ingress_${Date.now()}`;
+    return [
+      this._mtPayloadRecord('__mt_payload_kind', 'str', kind),
+      this._mtPayloadRecord('__mt_request_id', 'str', requestId),
+      this._mtPayloadRecord('op_id', 'str', requestId),
+      this._mtPayloadRecord('topic', 'str', typeof topic === 'string' ? topic : ''),
+      this._mtPayloadRecord('payload', 'json', payload),
+      ...extra,
     ];
   }
 
@@ -1573,13 +1588,11 @@ class ModelTableRuntime {
       && payload.type === 'pin_payload'
       && typeof payload.pin === 'string'
       && Array.isArray(payload.payload);
-    const directEventV0 = typeof payload === 'object'
-      && payload !== null
-      && payload.version === 'v0'
-      && typeof payload.type === 'string'
-      && typeof payload.action === 'string';
     if (payloadMode === 'mt_v0') {
-      if (!(directEventV0 || (typeof payload === 'object' && payload.version === 'mt.v0' && Array.isArray(payload.records)))) {
+      if (!(typeof payload === 'object' && payload.version === 'mt.v0' && Array.isArray(payload.records))) {
+        if (payload && typeof payload === 'object' && payload.version === 'v0') {
+          this.mqttTrace.record('inbound_rejected', { topic, payload, mode: 'mt_v0', reason: 'legacy_event_v0_rejected' });
+        }
         return false;
       }
     } else if (payloadMode === 'pin_payload_v1') {
@@ -1630,14 +1643,17 @@ class ModelTableRuntime {
         this.addLabel(model, 0, 0, 0, {
           k: pinName,
           t: 'pin.in',
-          v: { op_id: typeof payload.op_id === 'string' ? payload.op_id : '' },
+          v: this._buildMqttIngressPayloadValue({
+            kind: 'mqtt_records_applied.v1',
+            topic,
+            payload,
+            opId: payload.op_id,
+            extra: [
+              this._mtPayloadRecord('applied', 'int', Number.isInteger(result.applied) ? result.applied : 0),
+              this._mtPayloadRecord('rejected', 'json', Array.isArray(result.rejected) ? result.rejected : []),
+            ],
+          }),
         });
-        return true;
-      }
-
-      if (payloadMode === 'mt_v0' && directEventV0) {
-        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
-        this.mqttTrace.record('inbound', { topic, payload, mode: 'event_v0' });
         return true;
       }
 
@@ -1648,7 +1664,11 @@ class ModelTableRuntime {
         return true;
       }
 
-      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
+      if (!this._isTemporaryModelTablePayload(payload.v)) {
+        this.mqttTrace.record('inbound_rejected', { topic, payload, mode: 'legacy_in', reason: 'temporary_modeltable_required' });
+        return false;
+      }
+      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload.v });
       this.mqttTrace.record('inbound', { topic, payload, mode: 'legacy_in' });
       return true;
     }
@@ -1679,14 +1699,17 @@ class ModelTableRuntime {
         this.addLabel(model, 0, 0, 0, {
           k: pinName,
           t: 'pin.in',
-          v: { op_id: typeof payload.op_id === 'string' ? payload.op_id : '' },
+          v: this._buildMqttIngressPayloadValue({
+            kind: 'mqtt_records_applied.v1',
+            topic,
+            payload,
+            opId: payload.op_id,
+            extra: [
+              this._mtPayloadRecord('applied', 'int', Number.isInteger(result.applied) ? result.applied : 0),
+              this._mtPayloadRecord('rejected', 'json', Array.isArray(result.rejected) ? result.rejected : []),
+            ],
+          }),
         });
-        return true;
-      }
-
-      if (payloadMode === 'mt_v0' && directEventV0) {
-        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
-        this.mqttTrace.record('inbound', { topic, payload, mode: 'event_v0' });
         return true;
       }
 
@@ -1697,7 +1720,11 @@ class ModelTableRuntime {
         return true;
       }
 
-      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
+      if (!this._isTemporaryModelTablePayload(payload.v)) {
+        this.mqttTrace.record('inbound_rejected', { topic, payload, mode: 'legacy_in', reason: 'temporary_modeltable_required' });
+        return false;
+      }
+      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload.v });
       this.mqttTrace.record('inbound', { topic, payload, mode: 'legacy_in' });
       return true;
     }
@@ -1723,14 +1750,17 @@ class ModelTableRuntime {
       this.addLabel(model, 0, 0, 0, {
         k: pinName,
         t: 'pin.in',
-        v: { op_id: typeof payload.op_id === 'string' ? payload.op_id : '' },
+        v: this._buildMqttIngressPayloadValue({
+          kind: 'mqtt_records_applied.v1',
+          topic,
+          payload,
+          opId: payload.op_id,
+          extra: [
+            this._mtPayloadRecord('applied', 'int', Number.isInteger(result.applied) ? result.applied : 0),
+            this._mtPayloadRecord('rejected', 'json', Array.isArray(result.rejected) ? result.rejected : []),
+          ],
+        }),
       });
-      return true;
-    }
-
-    if (payloadMode === 'mt_v0' && directEventV0) {
-      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
-      this.mqttTrace.record('inbound', { topic, payload, mode: 'event_v0' });
       return true;
     }
 
@@ -1741,7 +1771,11 @@ class ModelTableRuntime {
       return true;
     }
 
-    this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload });
+    if (!this._isTemporaryModelTablePayload(payload.v)) {
+      this.mqttTrace.record('inbound_rejected', { topic, payload, mode: 'legacy_in', reason: 'temporary_modeltable_required' });
+      return false;
+    }
+    this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload.v });
     this.mqttTrace.record('inbound', { topic, payload, mode: 'legacy_in' });
     return true;
   }
@@ -1761,7 +1795,7 @@ class ModelTableRuntime {
           this.addLabel(model, 0, 0, 0, {
             k: label.k,
             t: 'pin.in',
-            v: { topic, payload },
+            v: this._buildMqttIngressPayloadValue({ kind: 'mqtt_wildcard_in.v1', topic, payload }),
           });
           this.mqttTrace.record('wildcard_inbound', { topic, wildcard: label.v, model_id: model.id });
           matched = true;

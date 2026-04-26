@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { buildWorkerHostApi } from '../worker_engine_v0.mjs';
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..');
 const require = createRequire(import.meta.url);
@@ -34,22 +35,7 @@ function getFunctionCode(label) {
 
 function buildCtx(rt) {
   return {
-    getLabel(ref) {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return null;
-      const cell = rt.getCell(model, ref.p, ref.r, ref.c);
-      return cell.labels.get(ref.k)?.v ?? null;
-    },
-    writeLabel(ref, t, v) {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.addLabel(model, ref.p, ref.r, ref.c, { k: ref.k, t, v });
-    },
-    rmLabel(ref) {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.rmLabel(model, ref.p, ref.r, ref.c, ref.k);
-    },
+    hostApi: buildWorkerHostApi(rt),
     runtime: rt,
   };
 }
@@ -64,7 +50,7 @@ function test_ui_side_worker_runner_is_patch_first() {
   assert.match(source, /ui_matrix_func/, 'ui-side worker runner must read ui_matrix_func config');
 }
 
-function test_ui_side_worker_patch_and_function_load() {
+async function test_ui_side_worker_patch_and_function_load() {
   const rt = new ModelTableRuntime();
   rt.applyPatch(loadJson('packages/worker-base/system-models/system_models.json'), { allowCreateModel: true, trustedBootstrap: true });
   loadPatches(rt, 'deploy/sys-v1ns/ui-side-worker/patches');
@@ -106,6 +92,7 @@ function test_ui_side_worker_patch_and_function_load() {
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
   fn(buildCtx(rt));
+  await new Promise((resolve) => setTimeout(resolve, 120));
 
   assert.equal(root.labels.get('slide_demo_text')?.v, 'patched', 'ui-side patch function must apply snapshot_delta payload');
   assert.equal(sysRoot.labels.has('ui_mgmt_inbox'), false, 'ui-side patch function must clear inbox');
@@ -131,18 +118,20 @@ const tests = [
   test_ui_side_worker_deploy_assets_exist,
 ];
 
-let passed = 0;
-let failed = 0;
-for (const test of tests) {
-  try {
-    test();
-    console.log(`[PASS] ${test.name}`);
-    passed += 1;
-  } catch (err) {
-    console.log(`[FAIL] ${test.name}: ${err.message}`);
-    failed += 1;
+(async () => {
+  let passed = 0;
+  let failed = 0;
+  for (const test of tests) {
+    try {
+      await test();
+      console.log(`[PASS] ${test.name}`);
+      passed += 1;
+    } catch (err) {
+      console.log(`[FAIL] ${test.name}: ${err.message}`);
+      failed += 1;
+    }
   }
-}
 
-console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
-process.exit(failed > 0 ? 1 : 0);
+  console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
+  process.exit(failed > 0 ? 1 : 0);
+})();

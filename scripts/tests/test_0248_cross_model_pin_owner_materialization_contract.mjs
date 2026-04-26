@@ -11,22 +11,36 @@ function wait(ms = 50) {
 }
 
 function setRunning(rt) {
-  rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
 }
+const triggerPayload = [{ id: 0, p: 0, r: 0, c: 0, k: 'trigger', t: 'str', v: 'go' }];
 
 function addFuncCell(rt, modelId, p, r, c, funcName, code, wiringFromSelfKey) {
-  const model = rt.getModel(modelId);
-  rt.addLabel(model, p, r, c, {
-    k: 'wiring',
-    t: 'pin.connect.label',
-    v: [{ from: `(self, ${wiringFromSelfKey})`, to: [`(func, ${funcName}:in)`] }],
-  });
-  rt.addLabel(model, p, r, c, {
-    k: funcName,
-    t: 'func.js',
-    v: { code, modelName: 'test_0248_cross_model_pin_owner_materialization_contract' },
-  });
+  rt.applyPatch({
+    version: 'mt.v0',
+    records: [
+      {
+        op: 'add_label',
+        model_id: modelId,
+        p,
+        r,
+        c,
+        k: 'wiring',
+        t: 'pin.connect.label',
+        v: [{ from: `(self, ${wiringFromSelfKey})`, to: [`(func, ${funcName}:in)`] }],
+      },
+      {
+        op: 'add_label',
+        model_id: modelId,
+        p,
+        r,
+        c,
+        k: funcName,
+        t: 'func.js',
+        v: { code, modelName: 'test_0248_cross_model_pin_owner_materialization_contract' },
+      },
+    ],
+  }, { trustedBootstrap: true });
 }
 
 async function test_table_out_routes_to_target_owner_table_in_and_materializes_add() {
@@ -35,14 +49,23 @@ async function test_table_out_routes_to_target_owner_table_in_and_materializes_a
   const target = rt.createModel({ id: 4102, name: 'target_table', type: 'app' });
   const system = rt.getModel(0);
 
+  rt.setRuntimeMode('edit');
   rt.addLabel(source, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Flow' });
   rt.addLabel(target, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Flow' });
 
-  rt.addLabel(system, 0, 0, 0, {
-    k: 'owner_route',
-    t: 'pin.connect.model',
-    v: [{ from: [4101, 'write_req'], to: [[4102, 'apply_req']] }],
-  });
+  rt.applyPatch({
+    version: 'mt.v0',
+    records: [{
+      op: 'add_label',
+      model_id: system.id,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'owner_route',
+      t: 'pin.connect.model',
+      v: [{ from: [4101, 'write_req'], to: [[4102, 'apply_req']] }],
+    }],
+  }, { trustedBootstrap: true });
 
   addFuncCell(
     rt,
@@ -52,19 +75,14 @@ async function test_table_out_routes_to_target_owner_table_in_and_materializes_a
     0,
     'emit_request',
     `
-      ctx.writeLabel(
-        { model_id: 4101, p: 0, r: 0, c: 0, k: 'write_req' },
-        'pin.out',
-        {
-          op: 'add_label',
-          target_model_id: 4102,
-          target_cell: { p: 1, r: 0, c: 0 },
-          label: { k: 'greeting', t: 'str', v: 'hello-owner' },
-          origin: { model_id: 4101, p: 0, r: 0, c: 0, action: 'emit_request' },
-          request_id: 'req-0248-add',
-          ts: 1,
-        },
-      );
+      const mt = (k, t, v) => ({ id: 0, p: 0, r: 0, c: 0, k, t, v });
+      V1N.addLabel('write_req', 'pin.out', [
+        mt('__mt_payload_kind', 'str', 'owner_request.v1'),
+        mt('__mt_request_id', 'str', 'req_0248_add'),
+        mt('target_model_id', 'int', 4102),
+        mt('write_labels', 'json', [{ p: 1, r: 0, c: 0, k: 'greeting', t: 'str', v: 'hello-owner' }]),
+        mt('remove_labels', 'json', []),
+      ]);
     `,
     'go',
   );
@@ -77,25 +95,23 @@ async function test_table_out_routes_to_target_owner_table_in_and_materializes_a
     0,
     'materialize',
     `
-      const req = label.v;
-      if (!req || req.op !== 'add_label') return;
-      ctx.writeLabel(
-        {
-          model_id: req.target_model_id,
-          p: req.target_cell.p,
-          r: req.target_cell.r,
-          c: req.target_cell.c,
-          k: req.label.k,
-        },
-        req.label.t,
-        req.label.v,
-      );
+      const payload = Array.isArray(label.v) ? label.v : [];
+      const read = (key, fallback) => {
+        const rec = payload.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key);
+        return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback;
+      };
+      if (read('target_model_id', null) !== 4102) throw new Error('target_scope_rejected');
+      const writeLabels = read('write_labels', []);
+      for (const item of writeLabels) {
+        if (!item || Object.prototype.hasOwnProperty.call(item, 'op') || Object.prototype.hasOwnProperty.call(item, 'model_id')) throw new Error('invalid_request_shape');
+        V1N.table.addLabel(item.p, item.r, item.c, item.k, item.t, item.v);
+      }
     `,
     'apply_req',
   );
 
   setRunning(rt);
-  rt.addLabel(source, 0, 0, 0, { k: 'go', t: 'pin.in', v: 'go' });
+  rt.addLabel(source, 0, 0, 0, { k: 'go', t: 'pin.in', v: triggerPayload });
   await wait(120);
 
   const targetValue = rt.getCell(target, 1, 0, 0).labels.get('greeting');
@@ -109,15 +125,24 @@ async function test_single_out_routes_to_target_owner_single_in_and_materializes
   const target = rt.createModel({ id: 4202, name: 'target_single', type: 'app' });
   const system = rt.getModel(0);
 
+  rt.setRuntimeMode('edit');
   rt.addLabel(source, 0, 0, 0, { k: 'model_type', t: 'model.single', v: 'Code.JS' });
   rt.addLabel(target, 0, 0, 0, { k: 'model_type', t: 'model.single', v: 'Code.JS' });
   rt.addLabel(target, 0, 0, 0, { k: 'victim', t: 'str', v: 'remove-me' });
 
-  rt.addLabel(system, 0, 0, 0, {
-    k: 'owner_route_single',
-    t: 'pin.connect.model',
-    v: [{ from: [4201, 'remove_req'], to: [[4202, 'apply_remove']] }],
-  });
+  rt.applyPatch({
+    version: 'mt.v0',
+    records: [{
+      op: 'add_label',
+      model_id: system.id,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'owner_route_single',
+      t: 'pin.connect.model',
+      v: [{ from: [4201, 'remove_req'], to: [[4202, 'apply_remove']] }],
+    }],
+  }, { trustedBootstrap: true });
 
   addFuncCell(
     rt,
@@ -127,19 +152,14 @@ async function test_single_out_routes_to_target_owner_single_in_and_materializes
     0,
     'emit_remove',
     `
-      ctx.writeLabel(
-        { model_id: 4201, p: 0, r: 0, c: 0, k: 'remove_req' },
-        'pin.out',
-        {
-          op: 'rm_label',
-          target_model_id: 4202,
-          target_cell: { p: 0, r: 0, c: 0 },
-          label: { k: 'victim' },
-          origin: { model_id: 4201, p: 0, r: 0, c: 0, action: 'emit_remove' },
-          request_id: 'req-0248-rm',
-          ts: 2,
-        },
-      );
+      const mt = (k, t, v) => ({ id: 0, p: 0, r: 0, c: 0, k, t, v });
+      V1N.addLabel('remove_req', 'pin.out', [
+        mt('__mt_payload_kind', 'str', 'owner_request.v1'),
+        mt('__mt_request_id', 'str', 'req_0248_remove'),
+        mt('target_model_id', 'int', 4202),
+        mt('write_labels', 'json', []),
+        mt('remove_labels', 'json', [{ p: 0, r: 0, c: 0, k: 'victim' }]),
+      ]);
     `,
     'go',
   );
@@ -152,21 +172,23 @@ async function test_single_out_routes_to_target_owner_single_in_and_materializes
     0,
     'materialize_remove',
     `
-      const req = label.v;
-      if (!req || req.op !== 'rm_label') return;
-      ctx.rmLabel({
-        model_id: req.target_model_id,
-        p: req.target_cell.p,
-        r: req.target_cell.r,
-        c: req.target_cell.c,
-        k: req.label.k,
-      });
+      const payload = Array.isArray(label.v) ? label.v : [];
+      const read = (key, fallback) => {
+        const rec = payload.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key);
+        return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback;
+      };
+      if (read('target_model_id', null) !== 4202) throw new Error('target_scope_rejected');
+      const removeLabels = read('remove_labels', []);
+      for (const item of removeLabels) {
+        if (!item || Object.prototype.hasOwnProperty.call(item, 'op') || Object.prototype.hasOwnProperty.call(item, 'model_id')) throw new Error('invalid_request_shape');
+        V1N.table.removeLabel(item.p, item.r, item.c, item.k);
+      }
     `,
     'apply_remove',
   );
 
   setRunning(rt);
-  rt.addLabel(source, 0, 0, 0, { k: 'go', t: 'pin.in', v: 'go' });
+  rt.addLabel(source, 0, 0, 0, { k: 'go', t: 'pin.in', v: triggerPayload });
   await wait(120);
 
   const targetValue = rt.getCell(target, 0, 0, 0).labels.get('victim');

@@ -101,7 +101,7 @@
       "k": "on_model100_submit_in",
       "t": "func.js",
       "v": {
-        "code": "const payload = Array.isArray(label && label.v) ? label.v : [];\nif (payload.length === 0) return;\nconst color = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');\nconst resultPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: 'bg_color', t: 'str', v: color },\n  { id: 0, p: 0, r: 0, c: 0, k: 'status', t: 'str', v: 'processed' }\n];\nctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'bg_color' }, 'str', color);\nctx.writeLabel({ model_id: 100, p: 0, r: 0, c: 0, k: 'status' }, 'str', 'processed');\nreturn resultPayload;",
+        "code": "const payload = Array.isArray(label && label.v) ? label.v : [];\nif (payload.length === 0) return;\nconst color = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');\nconst resultPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: 'bg_color', t: 'str', v: color },\n  { id: 0, p: 0, r: 0, c: 0, k: 'status', t: 'str', v: 'processed' }\n];\nV1N.table.addLabel(0, 0, 0, 'bg_color', 'str', color);\nV1N.table.addLabel(0, 0, 0, 'status', 'str', 'processed');\nreturn resultPayload;",
         "modelName": "test_model_100_full"
       }
     }

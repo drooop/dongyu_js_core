@@ -36,6 +36,50 @@ function extractFunctionCode(label) {
   return '';
 }
 
+export function buildWorkerHostApi(runtime) {
+  const requireRuntime = () => {
+    if (!runtime || typeof runtime.getModel !== 'function') {
+      return { ok: false, code: 'runtime_unavailable', detail: 'runtime unavailable' };
+    }
+    return { ok: true };
+  };
+  const requireCell = (modelId, p, r, c) => {
+    const base = requireRuntime();
+    if (!base.ok) return base;
+    if (!Number.isInteger(modelId)) return { ok: false, code: 'invalid_target', detail: 'modelId must be integer' };
+    if (!Number.isInteger(p) || !Number.isInteger(r) || !Number.isInteger(c)) {
+      return { ok: false, code: 'invalid_target', detail: 'p/r/c must be integer' };
+    }
+    const model = runtime.getModel(modelId);
+    if (!model) return { ok: false, code: 'model_not_found', detail: `modelId=${modelId}` };
+    return { ok: true, model, cell: runtime.getCell(model, p, r, c) };
+  };
+  return {
+    readCrossModel(modelId, p, r, c, k) {
+      if (typeof k !== 'string' || !k) return { ok: false, code: 'invalid_label_key', detail: 'k must be non-empty string' };
+      const target = requireCell(modelId, p, r, c);
+      if (!target.ok) return target;
+      const label = target.cell.labels.get(k);
+      return { ok: true, data: label ? { t: label.t, v: label.v } : null };
+    },
+    writeCrossModel(modelId, p, r, c, k, t, v) {
+      if (typeof k !== 'string' || !k) return { ok: false, code: 'invalid_label_key', detail: 'k must be non-empty string' };
+      if (typeof t !== 'string' || !t) return { ok: false, code: 'invalid_label_type', detail: 't must be non-empty string' };
+      const target = requireCell(modelId, p, r, c);
+      if (!target.ok) return target;
+      runtime.addLabel(target.model, p, r, c, { k, t, v });
+      return { ok: true };
+    },
+    rmCrossModel(modelId, p, r, c, k) {
+      if (typeof k !== 'string' || !k) return { ok: false, code: 'invalid_label_key', detail: 'k must be non-empty string' };
+      const target = requireCell(modelId, p, r, c);
+      if (!target.ok) return target;
+      runtime.rmLabel(target.model, p, r, c, k);
+      return { ok: true };
+    },
+  };
+}
+
 export class WorkerEngineV0 {
   constructor({ runtime, mgmtAdapter, mqttPublish }) {
     this.runtime = runtime;
@@ -53,27 +97,35 @@ export class WorkerEngineV0 {
     const code = extractFunctionCode(label);
     if (!code || !code.trim()) return;
 
+    const hostApi = buildWorkerHostApi(this.runtime);
+    const V1N = {
+      readLabel: (p, r, c, k) => {
+        const result = hostApi.readCrossModel(-10, p, r, c, k);
+        return result && result.ok ? result.data : null;
+      },
+      addLabel: (k, t, v) => {
+        const result = hostApi.writeCrossModel(-10, 0, 0, 0, k, t, v);
+        if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'v1n_add_failed');
+      },
+      removeLabel: (k) => {
+        const result = hostApi.rmCrossModel(-10, 0, 0, 0, k);
+        if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'v1n_remove_failed');
+      },
+    };
+    V1N.table = {
+      addLabel: (p, r, c, k, t, v) => {
+        const result = hostApi.writeCrossModel(-10, p, r, c, k, t, v);
+        if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'v1n_table_add_failed');
+      },
+      removeLabel: (p, r, c, k) => {
+        const result = hostApi.rmCrossModel(-10, p, r, c, k);
+        if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'v1n_table_remove_failed');
+      },
+    };
+
     const ctx = {
       runtime: this.runtime,
-      getLabel: (ref) => {
-        if (!ref || !Number.isInteger(ref.model_id)) return null;
-        const model = this.runtime.getModel(ref.model_id);
-        if (!model) return null;
-        const cell = this.runtime.getCell(model, ref.p, ref.r, ref.c);
-        return cell.labels.get(ref.k)?.v ?? null;
-      },
-      writeLabel: (ref, t, v) => {
-        if (!ref || !Number.isInteger(ref.model_id)) return;
-        const model = this.runtime.getModel(ref.model_id);
-        if (!model) return;
-        this.runtime.addLabel(model, ref.p, ref.r, ref.c, { k: ref.k, t, v });
-      },
-      rmLabel: (ref) => {
-        if (!ref || !Number.isInteger(ref.model_id)) return;
-        const model = this.runtime.getModel(ref.model_id);
-        if (!model) return;
-        this.runtime.rmLabel(model, ref.p, ref.r, ref.c, ref.k);
-      },
+      hostApi,
       sendMatrix: async (event) => {
         if (!this.mgmtAdapter) throw new Error('mgmt_adapter_missing');
         return this.mgmtAdapter.publish(event);
@@ -93,8 +145,8 @@ export class WorkerEngineV0 {
     };
 
     // eslint-disable-next-line no-new-func
-    const fn = new Function('ctx', code);
-    return fn(ctx);
+    const fn = new Function('ctx', 'label', 'V1N', code);
+    return fn(ctx, { k: name, t: 'func.js', v: null }, V1N);
   }
 
   _processMgmtOutTriggers(eventEndExclusive) {

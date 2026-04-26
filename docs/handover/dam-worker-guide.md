@@ -324,21 +324,29 @@ UIPUT/{dir}/{ws}/{dam}/{pic}/{de}/{sw}/{model}/{pin}
 
 ### 7.1 编译与运行
 
-程序模型的 `function` label（v = JS 代码字符串）在 init 阶段被编译为 AsyncFunction：
+程序模型的 `function` label（v = JS 代码字符串）在 init 阶段被编译为受限函数：
 
 ```javascript
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-const fn = new AsyncFunction('ctx', 'label', userCode);
+const fn = new AsyncFunction('ctx', 'label', 'V1N', userCode);
 ```
 
-运行时通过 CELL_CONNECT 触发函数，传入受限上下文 `ctx`：
+运行时通过 CELL_CONNECT 触发函数，传入受限上下文 `ctx` 与 `V1N`。用户函数不再提供 `ctx.getLabel` / `ctx.writeLabel` / `ctx.rmLabel` 兼容 API：
 
 ```javascript
-// ctx 提供的 API（白名单）
-ctx.getLabel({ model_id, p, r, c, k })     // 读 label
-ctx.writeLabel({ model_id, p, r, c, k }, t, v)  // 写 label
-ctx.rmLabel({ model_id, p, r, c, k })      // 删 label
-ctx.runtime                                  // ModelTableRuntime 实例
+// 当前 Cell 写入
+V1N.addLabel(k, t, v)
+V1N.removeLabel(k)
+
+// 当前 model.table 内读取或由 root privileged 函数写入
+V1N.readLabel(p, r, c, k)
+V1N.table.addLabel(p, r, c, k, t, v)
+V1N.table.removeLabel(p, r, c, k)
+
+// 系统桥能力只通过显式 hostApi 暴露，不能作为普通业务跨模型直写入口
+ctx.hostApi.readCrossModel(model_id, p, r, c, k)
+ctx.hostApi.writeCrossModel(model_id, p, r, c, k, t, v)
+ctx.hostApi.rmCrossModel(model_id, p, r, c, k)
 ```
 
 ### 7.2 超时与错误处理

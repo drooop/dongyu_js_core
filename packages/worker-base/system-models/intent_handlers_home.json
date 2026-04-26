@@ -102,15 +102,60 @@
       "k": "home_pin_wiring",
       "t": "pin.connect.label",
       "v": [
-        { "from": "(self, home_refresh)", "to": ["(func, handle_home_emit_owner_requests:in)"] },
-        { "from": "(self, home_select_row)", "to": ["(func, handle_home_emit_owner_requests:in)"] },
-        { "from": "(self, home_open_create)", "to": ["(func, handle_home_emit_owner_requests:in)"] },
-        { "from": "(self, home_open_edit)", "to": ["(func, handle_home_emit_owner_requests:in)"] },
-        { "from": "(self, home_save_label)", "to": ["(func, handle_home_emit_owner_requests:in)"] },
-        { "from": "(self, home_delete_label)", "to": ["(func, handle_home_emit_owner_requests:in)"] },
-        { "from": "(self, home_view_detail)", "to": ["(func, handle_home_emit_owner_requests:in)"] },
-        { "from": "(self, home_close_detail)", "to": ["(func, handle_home_emit_owner_requests:in)"] },
-        { "from": "(self, home_close_edit)", "to": ["(func, handle_home_emit_owner_requests:in)"] }
+        {
+          "from": "(self, home_refresh)",
+          "to": [
+            "(func, handle_home_emit_owner_requests:in)"
+          ]
+        },
+        {
+          "from": "(self, home_select_row)",
+          "to": [
+            "(func, handle_home_emit_owner_requests:in)"
+          ]
+        },
+        {
+          "from": "(self, home_open_create)",
+          "to": [
+            "(func, handle_home_emit_owner_requests:in)"
+          ]
+        },
+        {
+          "from": "(self, home_open_edit)",
+          "to": [
+            "(func, handle_home_emit_owner_requests:in)"
+          ]
+        },
+        {
+          "from": "(self, home_save_label)",
+          "to": [
+            "(func, handle_home_emit_owner_requests:in)"
+          ]
+        },
+        {
+          "from": "(self, home_delete_label)",
+          "to": [
+            "(func, handle_home_emit_owner_requests:in)"
+          ]
+        },
+        {
+          "from": "(self, home_view_detail)",
+          "to": [
+            "(func, handle_home_emit_owner_requests:in)"
+          ]
+        },
+        {
+          "from": "(self, home_close_detail)",
+          "to": [
+            "(func, handle_home_emit_owner_requests:in)"
+          ]
+        },
+        {
+          "from": "(self, home_close_edit)",
+          "to": [
+            "(func, handle_home_emit_owner_requests:in)"
+          ]
+        }
       ]
     },
     {
@@ -122,7 +167,7 @@
       "k": "handle_home_emit_owner_requests",
       "t": "func.js",
       "v": {
-        "code": "/* rubric: P1 */ const payload = label && label.v && typeof label.v === 'object' ? label.v : {}; const requests = Array.isArray(payload.requests) ? payload.requests : []; V1N.addLabel('home_pin_error', 'json', null); for (const req of requests) { if (!req || typeof req.out_pin !== 'string' || !req.out_pin || !req.body || typeof req.body !== 'object') { V1N.addLabel('home_pin_error', 'json', { code: 'invalid_request_shape', detail: 'requests[] item invalid' }); return; } V1N.addLabel(req.out_pin, 'pin.out', req.body); }",
+        "code": "/* rubric: P1 */ const payload = label && label.v; if (!Array.isArray(payload)) { V1N.addLabel('home_pin_error', 'json', { code: 'temporary_modeltable_required', detail: 'home pin payload must be temporary ModelTable array' }); return; } const get = (key, fallback = null) => { const rec = payload.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key); return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback; }; if (get('__mt_payload_kind', '') !== 'home_owner_requests.v1') { V1N.addLabel('home_pin_error', 'json', { code: 'invalid_payload_kind', detail: 'expected home_owner_requests.v1' }); return; } const requests = get('requests', null); V1N.addLabel('home_pin_error', 'json', null); if (!Array.isArray(requests)) { V1N.addLabel('home_pin_error', 'json', { code: 'invalid_request_shape', detail: 'requests must be array label in temporary ModelTable payload' }); return; } for (const req of requests) { const body = req && req.body; if (!req || typeof req.out_pin !== 'string' || !req.out_pin || !Array.isArray(body)) { V1N.addLabel('home_pin_error', 'json', { code: 'invalid_request_shape', detail: 'requests[] item invalid or body not temporary ModelTable array' }); return; } V1N.addLabel(req.out_pin, 'pin.out', body); }",
         "modelName": "intent_handlers_home"
       }
     },

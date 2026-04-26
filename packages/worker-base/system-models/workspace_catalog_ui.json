@@ -318,7 +318,7 @@
       "c": 0,
       "k": "ui_parent",
       "t": "str",
-      "v": "tbl_workspace_apps"
+      "v": "__disabled_workspace_source_column"
     },
     {
       "op": "add_label",
@@ -339,9 +339,9 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "source",
+        "label": "",
         "prop": "source",
-        "width": 72
+        "width": 16
       }
     },
     {
@@ -394,8 +394,7 @@
       "t": "json",
       "v": {
         "label": "Actions",
-        "width": 124,
-        "fixed": "right"
+        "width": 84
       }
     },
     {
@@ -449,7 +448,8 @@
       "v": {
         "label": "Open",
         "type": "primary",
-        "link": true
+        "link": true,
+        "size": "small"
       }
     },
     {
@@ -673,9 +673,10 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Delete",
+        "label": "Del",
         "type": "danger",
         "link": true,
+        "size": "small",
         "disabled": {
           "$ref": "row.delete_disabled"
         }
@@ -749,7 +750,7 @@
       "c": 1,
       "k": "ui_label",
       "t": "str",
-      "v": "Delete"
+      "v": "Del"
     },
     {
       "op": "add_label",

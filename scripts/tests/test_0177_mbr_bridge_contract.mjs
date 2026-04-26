@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { buildWorkerHostApi } from '../worker_engine_v0.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
@@ -33,22 +34,7 @@ function loadRuntime() {
 
 function buildCtx(rt, publishSpy) {
   return {
-    getLabel: (ref) => {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return null;
-      const cell = rt.getCell(model, ref.p, ref.r, ref.c);
-      return cell.labels.get(ref.k)?.v ?? null;
-    },
-    writeLabel: (ref, t, v) => {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.addLabel(model, ref.p, ref.r, ref.c, { k: ref.k, t, v });
-    },
-    rmLabel: (ref) => {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.rmLabel(model, ref.p, ref.r, ref.c, ref.k);
-    },
+    hostApi: buildWorkerHostApi(rt),
     publishMqtt: (topic, payload) => {
       publishSpy.push({ topic, payload });
     },

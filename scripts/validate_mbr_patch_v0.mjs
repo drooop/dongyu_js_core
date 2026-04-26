@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { WorkerEngineV0, loadSystemPatch } from './worker_engine_v0.mjs';
+import { WorkerEngineV0, buildWorkerHostApi, loadSystemPatch } from './worker_engine_v0.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
@@ -143,9 +143,7 @@ process.stdout.write('\n=== Test Group 4: Model 100 Bridge ===\n');
     },
   });
   execMbrFunction(rt, 'mbr_mgmt_to_mqtt', {
-    getLabel: (ref) => getLabel(rt, ref.model_id, ref.p, ref.r, ref.c, ref.k),
-    writeLabel: (ref, t, v) => rt.addLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, { k: ref.k, t, v }),
-    rmLabel: (ref) => rt.rmLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, ref.k),
+    hostApi: buildWorkerHostApi(rt),
     publishMqtt: (topic, payload) => { published = { topic, payload }; },
   });
   assert(published !== null, 'model100 pin_payload published');
@@ -184,9 +182,7 @@ process.stdout.write('\n=== Test Group 5: Route-Driven Source Model ===\n');
     },
   });
   execMbrFunction(rt, 'mbr_mgmt_to_mqtt', {
-    getLabel: (ref) => getLabel(rt, ref.model_id, ref.p, ref.r, ref.c, ref.k),
-    writeLabel: (ref, t, v) => rt.addLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, { k: ref.k, t, v }),
-    rmLabel: (ref) => rt.rmLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, ref.k),
+    hostApi: buildWorkerHostApi(rt),
     publishMqtt: (topic, payload) => { published = { topic, payload }; },
   });
   assert(published !== null, 'route-driven pin_payload published');
@@ -216,9 +212,7 @@ process.stdout.write('\n=== Test Group 6: Generic CRUD Rejected ===\n');
     },
   });
   execMbrFunction(rt, 'mbr_mgmt_to_mqtt', {
-    getLabel: (ref) => getLabel(rt, ref.model_id, ref.p, ref.r, ref.c, ref.k),
-    writeLabel: (ref, t, v) => rt.addLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, { k: ref.k, t, v }),
-    rmLabel: (ref) => rt.rmLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, ref.k),
+    hostApi: buildWorkerHostApi(rt),
     publishMqtt: () => { publishCount += 1; },
   });
   assert(publishCount === 0, 'generic CRUD not published');
@@ -245,9 +239,7 @@ process.stdout.write('\n=== Test Group 7: MQTT -> pin_payload ===\n');
     },
   });
   execMbrFunction(rt, 'mbr_mqtt_to_mgmt', {
-    getLabel: (ref) => getLabel(rt, ref.model_id, ref.p, ref.r, ref.c, ref.k),
-    writeLabel: (ref, t, v) => rt.addLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, { k: ref.k, t, v }),
-    rmLabel: (ref) => rt.rmLabel(rt.getModel(ref.model_id), ref.p, ref.r, ref.c, ref.k),
+    hostApi: buildWorkerHostApi(rt),
   });
   const changeOut = getLabelEntry(rt, -10, 0, 0, 0, 'change_out');
   assert(changeOut !== null && changeOut.t === 'MGMT_OUT', 'mbr_mqtt_to_mgmt writes MGMT_OUT');

@@ -2,7 +2,7 @@
 title: "Iterations Index"
 doc_type: governance
 status: active
-updated: 2026-04-21
+updated: 2026-04-26
 source: ai
 ---
 
@@ -244,6 +244,8 @@ source: ai
 | 0339-mgmt-bus-console-live-projection-impl | 2026-04-26 | 实现 Mgmt Bus Console live read-only projection：源投影填充、Model 0 refresh 路径、负向守卫、本地部署与浏览器实测 | 5 | dev_0339-mgmt-bus-console-live-projection-impl | Completed | ./docs/iterations/0339-mgmt-bus-console-live-projection-impl/ |
 | 0340-mgmt-bus-console-event-projection-contract | 2026-04-26 | 规划 Mgmt Bus Console event projection 合同：事件行、选中事件 inspector、composer 动作白名单、组件准入与后续 0341 实现验收 | 2 | dev_0340-mgmt-bus-console-event-projection-contract | Completed | ./docs/iterations/0340-mgmt-bus-console-event-projection-contract/ |
 | 0341-mgmt-bus-console-event-projection-impl | 2026-04-26 | 实现 Mgmt Bus Console event projection：Model -2 事件行/inspector 投影、Model 1036 本地选择状态、部署与浏览器实测 | 6 | dev_0341-mgmt-bus-console-event-projection-impl | Completed | ./docs/iterations/0341-mgmt-bus-console-event-projection-impl/ |
+| 0342-mgmt-bus-console-real-messaging | 2026-04-26 | 修复 Workspace 资产树操作列遮挡，并让 Mgmt Bus Console 通过 UI 模型对 `@mbr:<host_url>` 完成真实发送与回包显示 | 5 | dev_0342-mgmt-bus-console-real-messaging | Completed | ./docs/iterations/0342-mgmt-bus-console-real-messaging/ |
+| 0343-legacy-ctx-api-audit-cleanup | 2026-04-26 | 全面审查并清理运行时/模型表/部署补丁中的 legacy `ctx.writeLabel/getLabel/rmLabel` 残留，补自动检查防止兼容写法回归 | 4 | dev_0343-legacy-ctx-api-audit-cleanup | Completed | ./docs/iterations/0343-legacy-ctx-api-audit-cleanup/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
