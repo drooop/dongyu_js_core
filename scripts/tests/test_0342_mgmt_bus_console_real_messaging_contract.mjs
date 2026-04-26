@@ -656,6 +656,41 @@ function test_mbr_dispatch_replies_only_to_console_messages() {
   assert.equal(malformed.ack, undefined, 'MBR dispatch must reject non-ModelTable-record console sends');
   assert.ok(malformed.error, 'MBR dispatch must record an error for non-ModelTable-record console sends');
   assert.equal(malformed.error?.detail, 'temporary_modeltable_required', 'MBR dispatch must require a temporary ModelTable record array');
+
+  const legacyRecordField = dispatch({
+      version: 'v1',
+      type: 'pin_payload',
+      op_id: 'it0342_mbr_legacy_record_field',
+      source_model_id: 1036,
+      pin: 'submit',
+      payload: [
+        { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
+        { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
+        { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'legacy record fields must reject', op: 'add_label' },
+      ],
+      timestamp: Date.now(),
+  });
+  assert.equal(legacyRecordField.ack, undefined, 'MBR dispatch must reject records carrying legacy op/model_id fields');
+  assert.ok(legacyRecordField.error, 'MBR dispatch must record an error for legacy record fields');
+  assert.equal(legacyRecordField.error?.detail, 'temporary_modeltable_required', 'legacy record fields must fail the temporary ModelTable contract');
+
+  const missingValueRecord = dispatch({
+      version: 'v1',
+      type: 'pin_payload',
+      op_id: 'it0342_mbr_missing_value_record',
+      source_model_id: 1036,
+      pin: 'submit',
+      payload: [
+        { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
+        { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
+        { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'records missing v must reject' },
+        { id: 0, p: 0, r: 0, c: 0, k: 'extra', t: 'str' },
+      ],
+      timestamp: Date.now(),
+  });
+  assert.equal(missingValueRecord.ack, undefined, 'MBR dispatch must reject records without an explicit v field');
+  assert.ok(missingValueRecord.error, 'MBR dispatch must record an error for records missing v');
+  assert.equal(missingValueRecord.error?.detail, 'temporary_modeltable_required', 'records missing v must fail the temporary ModelTable contract');
   return { key: 'mbr_dispatch_replies_only_to_console_messages', status: 'PASS' };
 }
 
