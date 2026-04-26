@@ -1,8 +1,8 @@
 import { createRequire } from 'node:module';
+import { buildWorkerHostApi, loadSystemPatch } from './worker_engine_v0.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
-const systemPatch = require('../packages/worker-base/system-models/system_models.json');
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -19,8 +19,18 @@ function getFunctionCode(rt, name) {
   if (!sys) return null;
   const cell = rt.getCell(sys, 0, 0, 0);
   const label = cell.labels.get(name);
-  if (!label || label.t !== 'function' || typeof label.v !== 'string') return null;
-  return label.v;
+  if (!label) return null;
+  const t = typeof label.t === 'string' ? label.t : '';
+  if (t !== 'func.js' && t !== 'function') return null;
+  if (typeof label.v === 'string') return label.v;
+  if (label.v && typeof label.v === 'object' && typeof label.v.code === 'string') return label.v.code;
+  return null;
+}
+
+function createRuntimeWithSystem() {
+  const rt = new ModelTableRuntime();
+  loadSystemPatch(rt);
+  return rt;
 }
 
 function listSystemLabels(rt, predicate) {
@@ -59,25 +69,7 @@ function getMgmtInTarget(rt, channel) {
 function makeCtx(rt, sent) {
   return {
     runtime: rt,
-    getLabel: (ref) => {
-      if (!ref || !Number.isInteger(ref.model_id)) return null;
-      const model = rt.getModel(ref.model_id);
-      if (!model) return null;
-      const cell = rt.getCell(model, ref.p, ref.r, ref.c);
-      return cell.labels.get(ref.k)?.v ?? null;
-    },
-    writeLabel: (ref, t, v) => {
-      if (!ref || !Number.isInteger(ref.model_id)) return;
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.addLabel(model, ref.p, ref.r, ref.c, { k: ref.k, t, v });
-    },
-    rmLabel: (ref) => {
-      if (!ref || !Number.isInteger(ref.model_id)) return;
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.rmLabel(model, ref.p, ref.r, ref.c, ref.k);
-    },
+    hostApi: buildWorkerHostApi(rt),
     parseJson: (value) => {
       if (typeof value !== 'string') return value;
       try {
@@ -127,8 +119,7 @@ function enqueueJob(rt, id, sourceModelId, intent) {
 }
 
 function caseMgmtPutMbrV0() {
-  const rt = new ModelTableRuntime();
-  rt.applyPatch(systemPatch, { allowCreateModel: true });
+  const rt = createRuntimeWithSystem();
   rt.createModel({ id: 1, name: 'M1', type: 'data' });
 
   // Ensure base exists (system patch sets defaults, but enforce here).
@@ -159,8 +150,7 @@ function caseMgmtPutMbrV0() {
 }
 
 function caseMgmtReceiveWritesTarget() {
-  const rt = new ModelTableRuntime();
-  rt.applyPatch(systemPatch, { allowCreateModel: true });
+  const rt = createRuntimeWithSystem();
   rt.createModel({ id: 1, name: 'M1', type: 'data' });
   const sys = rt.getModel(-10);
 

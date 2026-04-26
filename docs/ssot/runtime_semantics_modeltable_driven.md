@@ -439,9 +439,9 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - 用户程序直接读写其他模型的 Cell
 - 用户程序绕过 pin 链路的任何直接跨模型操作
 
-**Deprecated（兼容期）：**
+**Removed / Historical：**
 
-- `ctx.writeLabel` / `ctx.getLabel` / `ctx.rmLabel` → 替代为 V1N API + pin 路由
+- `ctx.writeLabel` / `ctx.getLabel` / `ctx.rmLabel` 已结束兼容期；活动运行面不得声明或调用，必须替代为 V1N API + pin 路由
 - (0,1,0) helper executor → 替代为 (0,0,0) 默认三程序（**仅 model.table 场景**；model.single 场景保留 helper scaffold，详见 §5.2f）
 
 详细 API 定义见 `docs/ssot/host_ctx_api.md`。
@@ -493,12 +493,12 @@ MQTT → mqttIncoming → BUS_IN 短路 / 写 IN 到 model(0,0,0)
 
 - `label.t`：`func.js` 或 `func.python`
 - `label.k`：函数名
-- `label.v`：兼容期支持两种格式
+- `label.v`：运行时读取两种格式
   - 旧：`string`（仅兼容旧模型）
   - 新：`{"code":"...", "modelName":"optional_scope_name"}`
 
 执行规则：
-- 运行时应优先读取 `v.code`，兼容期可回退到 string。
+- 运行时应优先读取 `v.code`，仅为历史模型可回退到 string。
 - 新模型必须使用结构化 value（`{code, modelName}`）。
 - 每个函数自动关联三个引脚：`func:in`、`func:out`、`func:log.out`。
 - `func.python` 在无 Python worker 时必须写错误标签，不得静默失败。

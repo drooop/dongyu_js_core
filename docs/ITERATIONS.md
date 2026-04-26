@@ -2,7 +2,7 @@
 title: "Iterations Index"
 doc_type: governance
 status: active
-updated: 2026-04-21
+updated: 2026-04-26
 source: ai
 ---
 
@@ -236,8 +236,18 @@ source: ai
 | 0331-pin-modeltable-payload-contract | 2026-04-24 | 冻结 pin payload 只能传临时 ModelTable 记录数组，并把 writeLabel 收敛为单 cell / 单 label / metadata labels 合同 | 3 | dev_0331-0333-pin-payload-ui | Completed | ./docs/iterations/0331-pin-modeltable-payload-contract/ |
 | 0332-pin-modeltable-payload-implementation | 2026-04-24 | 实现 0331 合同：runtime/default programs/system-models 使用 ModelTable payload，完成本地部署与颜色生成器实测 | 5 | dev_0331-0333-pin-payload-ui | Completed | ./docs/iterations/0332-pin-modeltable-payload-implementation/ |
 | 0333-cellwise-ui-composition-model100 | 2026-04-24 | 冻结 UI containment / model composition 规则，并把 Model 100 迁移到真正的 cellwise 填表 UI | 4 | dev_0331-0333-pin-payload-ui | Completed | ./docs/iterations/0333-cellwise-ui-composition-model100/ |
-| 0334-mgmt-bus-console-contract | 2026-04-26 | 规划并冻结 Mgmt Bus Console 正数模型合同：四区管理总线界面、复用既有 truth、正式发送经 Model 0 pin.bus.in | 2 | dev_0331-0333-pin-payload-ui | Planned | ./docs/iterations/0334-mgmt-bus-console-contract/ |
-| 0335-slide-flow-current-truth-realignment | 2026-04-26 | 规划滑动 APP 过程四段式重整，并修正文档中“浏览器事件先直达目标 cell”的过时口径 | 2 | dev_0331-0333-pin-payload-ui | Planned | ./docs/iterations/0335-slide-flow-current-truth-realignment/ |
+| 0334-mgmt-bus-console-contract | 2026-04-26 | 规划并冻结 Mgmt Bus Console 正数模型合同：四区管理总线界面、复用既有 truth、正式发送经 Model 0 pin.bus.in | 2 | dev_0331-0333-pin-payload-ui | Completed | ./docs/iterations/0334-mgmt-bus-console-contract/ |
+| 0335-slide-flow-current-truth-realignment | 2026-04-26 | 规划滑动 APP 过程四段式重整，并修正文档中“浏览器事件先直达目标 cell”的过时口径 | 2 | dev_0331-0333-pin-payload-ui | Completed | ./docs/iterations/0335-slide-flow-current-truth-realignment/ |
+| 0336-mgmt-bus-console-implementation | 2026-04-26 | 实现 Mgmt Bus Console 正数模型：cellwise 四区界面、Model 0 ingress 发送合同、负向验证与浏览器实测 | 4 | dev_0336-0337-mgmt-bus-slide-impl | Completed | ./docs/iterations/0336-mgmt-bus-console-implementation/ |
+| 0337-slide-flow-doc-realignment-implementation | 2026-04-26 | 按四段式 current truth 改写滑动 APP 过程文档，并用脚本防止 direct-cell 旧口径回归 | 3 | dev_0336-0337-mgmt-bus-slide-impl | Completed | ./docs/iterations/0337-slide-flow-doc-realignment-implementation/ |
+| 0338-mgmt-bus-console-live-projection | 2026-04-26 | 规划 Mgmt Bus Console live read-only projection：复用既有 Matrix Debug / Model 0 / MBR truth，禁止复制 truth 到 1036 | 2 | dev_0338-mgmt-bus-console-live-projection | Completed | ./docs/iterations/0338-mgmt-bus-console-live-projection/ |
+| 0339-mgmt-bus-console-live-projection-impl | 2026-04-26 | 实现 Mgmt Bus Console live read-only projection：源投影填充、Model 0 refresh 路径、负向守卫、本地部署与浏览器实测 | 5 | dev_0339-mgmt-bus-console-live-projection-impl | Completed | ./docs/iterations/0339-mgmt-bus-console-live-projection-impl/ |
+| 0340-mgmt-bus-console-event-projection-contract | 2026-04-26 | 规划 Mgmt Bus Console event projection 合同：事件行、选中事件 inspector、composer 动作白名单、组件准入与后续 0341 实现验收 | 2 | dev_0340-mgmt-bus-console-event-projection-contract | Completed | ./docs/iterations/0340-mgmt-bus-console-event-projection-contract/ |
+| 0341-mgmt-bus-console-event-projection-impl | 2026-04-26 | 实现 Mgmt Bus Console event projection：Model -2 事件行/inspector 投影、Model 1036 本地选择状态、部署与浏览器实测 | 6 | dev_0341-mgmt-bus-console-event-projection-impl | Completed | ./docs/iterations/0341-mgmt-bus-console-event-projection-impl/ |
+| 0342-mgmt-bus-console-real-messaging | 2026-04-26 | 修复 Workspace 资产树操作列遮挡，并让 Mgmt Bus Console 通过 UI 模型对 `@mbr:<host_url>` 完成真实发送与回包显示 | 5 | dev_0342-mgmt-bus-console-real-messaging | Completed | ./docs/iterations/0342-mgmt-bus-console-real-messaging/ |
+| 0343-legacy-ctx-api-audit-cleanup | 2026-04-26 | 全面审查并清理运行时/模型表/部署补丁中的 legacy `ctx.writeLabel/getLabel/rmLabel` 残留，补自动检查防止兼容写法回归 | 4 | dev_0343-legacy-ctx-api-audit-cleanup | Completed | ./docs/iterations/0343-legacy-ctx-api-audit-cleanup/ |
+| 0344-mbr-payload-validation-fix | 2026-04-27 | 修复 code review 发现的 MBR 临时 ModelTable payload 校验缺口，拒绝带 legacy 字段或缺少 `v` 的记录 | 2 | dev_0344-mbr-payload-validation-fix | Completed | ./docs/iterations/0344-mbr-payload-validation-fix/ |
+| 0345-dam-worker-guide-pin-payload-current-truth | 2026-04-27 | 修复 code review 发现的 DAM Worker guide 旧 bus payload 示例，改为 pin_payload v1 与临时 ModelTable record array | 1 | dev_0345-doc-pin-payload-guide-fix | Completed | ./docs/iterations/0345-dam-worker-guide-pin-payload-current-truth/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

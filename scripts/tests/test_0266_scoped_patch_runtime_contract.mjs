@@ -11,22 +11,28 @@ function wait(ms = 50) {
 }
 
 function setRunning(rt) {
-  rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
 }
 
-async function executeFunc(rt, model, code, inputValue = 'go') {
-  rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Flow' });
-  rt.addLabel(model, 0, 0, 0, {
-    k: 'wiring',
-    t: 'pin.connect.label',
-    v: [{ from: '(self, cmd)', to: ['(func, op:in)'] }],
-  });
-  rt.addLabel(model, 0, 0, 0, {
-    k: 'op',
-    t: 'func.js',
-    v: { code, modelName: 'test_0266_scoped_patch_runtime_contract' },
-  });
+async function executeFunc(rt, model, code, inputValue = [{ id: 0, p: 0, r: 0, c: 0, k: 'trigger', t: 'str', v: 'go' }]) {
+  rt.setRuntimeMode('edit');
+  rt.applyPatch({
+    version: 'mt.v0',
+    records: [
+      { op: 'add_label', model_id: model.id, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'Flow' },
+      {
+        op: 'add_label',
+        model_id: model.id,
+        p: 0,
+        r: 0,
+        c: 0,
+        k: 'wiring',
+        t: 'pin.connect.label',
+        v: [{ from: '(self, cmd)', to: ['(func, op:in)'] }],
+      },
+      { op: 'add_label', model_id: model.id, p: 0, r: 0, c: 0, k: 'op', t: 'func.js', v: { code, modelName: 'test_0266_scoped_patch_runtime_contract' } },
+    ],
+  }, { trustedBootstrap: true });
   setRunning(rt);
   rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: inputValue });
   await wait(80);
@@ -87,7 +93,7 @@ async function test_program_ctx_runtime_does_not_expose_apply_patch() {
       }, { allowCreateModel: false });
       return;
     }
-    ctx.writeLabel({ model_id: 26066, p: 0, r: 0, c: 0, k: 'marker' }, 'str', 'no_patch_surface');
+    V1N.addLabel('marker', 'str', 'no_patch_surface');
   `);
   const root = rt.getCell(model, 0, 0, 0);
   const target = rt.getCell(model, 1, 0, 0).labels.get('bad');

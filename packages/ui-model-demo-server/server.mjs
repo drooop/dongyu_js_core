@@ -51,6 +51,7 @@ import {
   evaluateApplyPreviewGuard,
 } from './filltable_policy.mjs';
 import { buildFilltableModelInventoryFromSnapshot } from './filltable_prompt_context.mjs';
+import { deriveMgmtBusConsoleProjection } from './mgmt_bus_console_projection.mjs';
 
 const require = createRequire(import.meta.url);
 const { loadProgramModelFromSqlite } = require('../worker-base/src/program_model_loader.js');
@@ -68,6 +69,21 @@ const LEGACY_EVENT_TYPE = ['ui', 'event'].join('_');
 const LEGACY_EVENT_ENDPOINT_PATH = `/${LEGACY_EVENT_TYPE}`;
 const LOGIN_MODEL_ID = -3;
 const TRACE_MODEL_ID = -100; // Registered by 0213 as the Matrix debug / bus trace model id.
+const MGMT_BUS_CONSOLE_MODEL_ID = 1036;
+const MGMT_BUS_CONSOLE_LOCAL_STATE_KEYS = new Set([
+  'selected_subject',
+  'selected_subject_id',
+  'selected_event_id',
+  'subject_filter',
+  'timeline_filter',
+  'timeline_sort',
+  'inspector_tab',
+  'composer_draft',
+  'composer_action',
+  'target_user_id',
+  'last_refresh_requested_at',
+  'last_ui_error',
+]);
 // Monotonic sequence counter for trace events (module-level, survives across calls).
 let _traceSeq = 0;
 const MEDIA_CACHE_TTL_MS = 15 * 60 * 1000;
@@ -93,7 +109,7 @@ function emitTrace(runtime, { hop, direction, op_id, model_id, summary, payload,
   const enabled = runtime.getLabelValue(tm, 0, 0, 0, 'trace_enabled');
   if (!enabled) return;
   _traceSeq += 1;
-  runtime.addLabel(tm, 0, 0, 1, {
+  const traceLabel = {
     k: 'trace_event',
     t: 'json',
     v: {
@@ -107,7 +123,12 @@ function emitTrace(runtime, { hop, direction, op_id, model_id, summary, payload,
       payload: payload != null ? payload : null,
       error: error || null,
     },
-  });
+  };
+  runtime.addLabel(tm, 0, 0, 1, traceLabel);
+  const appendTrace = typeof tm.getFunction === 'function' ? tm.getFunction('trace_append') : null;
+  if (typeof appendTrace === 'function') {
+    appendTrace({ runtime, model: tm, label: traceLabel });
+  }
 }
 
 function readIntEnv(name, fallback, minValue = 0) {
@@ -2022,6 +2043,111 @@ function temporaryPayloadToPatch(targetModelId, payload, opId) {
   };
 }
 
+function findTemporaryPayloadRecord(payload, key) {
+  if (!Array.isArray(payload) || typeof key !== 'string') return null;
+  return payload.find((record) => record
+    && record.id === 0
+    && record.p === 0
+    && record.r === 0
+    && record.c === 0
+    && record.k === key) || null;
+}
+
+function readTemporaryPayloadString(payload, key, fallback = '') {
+  const record = findTemporaryPayloadRecord(payload, key);
+  if (!record || record.v === undefined || record.v === null) return fallback;
+  return String(record.v);
+}
+
+function upsertTemporaryPayloadRecord(payload, record) {
+  const base = Array.isArray(payload)
+    ? payload.map((entry) => (entry && typeof entry === 'object' ? { ...entry } : entry))
+    : [];
+  const index = base.findIndex((entry) => entry && entry.k === record.k);
+  if (index >= 0) {
+    base[index] = { ...base[index], ...record };
+  } else {
+    base.push(record);
+  }
+  return base;
+}
+
+function validateMgmtBusConsoleAck(content) {
+  const payload = content && content.payload;
+  if (!isTemporaryPayloadRecordArray(payload)) {
+    return { ok: false, code: 'temporary_modeltable_required' };
+  }
+  if (!content || content.source_model_id !== MGMT_BUS_CONSOLE_MODEL_ID) {
+    return { ok: false, code: 'source_model_id_mismatch' };
+  }
+  const kind = readTemporaryPayloadString(payload, '__mt_payload_kind').trim();
+  if (kind !== 'mgmt_bus_console.ack.v1') {
+    return { ok: false, code: 'invalid_payload_kind' };
+  }
+  const targetUserId = readTemporaryPayloadString(payload, 'target_user_id').trim();
+  if (!targetUserId.startsWith('@mbr:')) {
+    return { ok: false, code: 'invalid_target_user_id' };
+  }
+  const topLevelTarget = typeof content.target_user_id === 'string' ? content.target_user_id.trim() : '';
+  if (topLevelTarget && topLevelTarget !== targetUserId) {
+    return { ok: false, code: 'target_user_id_mismatch' };
+  }
+  const replyText = readTemporaryPayloadString(payload, 'reply_text').trim();
+  if (!replyText) {
+    return { ok: false, code: 'missing_reply_text' };
+  }
+  return { ok: true, targetUserId, replyText };
+}
+
+function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
+  if (!isTemporaryPayloadRecordArray(payload)) {
+    return { ok: false, code: 'invalid_bus_payload', detail: 'temporary_modeltable_required' };
+  }
+  const kind = readTemporaryPayloadString(payload, '__mt_payload_kind').trim();
+  if (kind !== 'mgmt_bus_console.send.v1') {
+    return { ok: false, code: 'invalid_payload_kind', detail: kind || 'missing_kind' };
+  }
+  const targetUserId = readTemporaryPayloadString(payload, 'target_user_id').trim();
+  if (!targetUserId || !targetUserId.startsWith('@mbr:')) {
+    return { ok: false, code: 'invalid_target_user_id', detail: targetUserId || 'missing_target_user_id' };
+  }
+  const draft = readTemporaryPayloadString(payload, 'draft', readTemporaryPayloadString(payload, 'message_text')).trim();
+  if (!draft) {
+    return { ok: false, code: 'empty_message', detail: 'draft_required' };
+  }
+  const now = Date.now();
+  let normalizedPayload = upsertTemporaryPayloadRecord(payload, {
+    id: 0,
+    p: 0,
+    r: 0,
+    c: 0,
+    k: 'target_user_id',
+    t: 'str',
+    v: targetUserId,
+  });
+  normalizedPayload = upsertTemporaryPayloadRecord(normalizedPayload, {
+    id: 0,
+    p: 0,
+    r: 0,
+    c: 0,
+    k: 'message_text',
+    t: 'str',
+    v: draft,
+  });
+  return {
+    ok: true,
+    data: {
+      version: 'v1',
+      type: 'pin_payload',
+      op_id: `mgmt_bus_console_${now}`,
+      source_model_id: MGMT_BUS_CONSOLE_MODEL_ID,
+      pin: 'submit',
+      payload: normalizedPayload,
+      timestamp: now,
+    },
+  };
+}
+
 const HOME_PIN_ACTIONS = new Set([
   'home_refresh',
   'home_select_row',
@@ -2052,16 +2178,43 @@ function ownerRequestToTemporaryPayload(request, kind = 'owner_request.v1') {
     ? normalized.request_id
     : `owner_req_${Date.now()}`;
   const targetModelId = Number.isInteger(normalized.target_model_id) ? normalized.target_model_id : 0;
-  const op = typeof normalized.op === 'string' ? normalized.op : '';
   const origin = normalized.origin && typeof normalized.origin === 'object' ? normalized.origin : {};
-  const originAction = typeof origin.action === 'string' ? origin.action : '';
+  const originAction = typeof normalized.origin_action === 'string'
+    ? normalized.origin_action
+    : (typeof origin.action === 'string' ? origin.action : '');
+  const normalizeWrite = (label) => {
+    if (!label || typeof label.k !== 'string' || !label.k || typeof label.t !== 'string' || !label.t) return null;
+    return {
+      p: Number.isInteger(label.p) ? label.p : 0,
+      r: Number.isInteger(label.r) ? label.r : 0,
+      c: Number.isInteger(label.c) ? label.c : 0,
+      k: label.k,
+      t: label.t,
+      v: label.v,
+    };
+  };
+  const normalizeRemove = (label) => {
+    if (!label || typeof label.k !== 'string' || !label.k) return null;
+    return {
+      p: Number.isInteger(label.p) ? label.p : 0,
+      r: Number.isInteger(label.r) ? label.r : 0,
+      c: Number.isInteger(label.c) ? label.c : 0,
+      k: label.k,
+    };
+  };
+  const writeLabels = Array.isArray(normalized.write_labels)
+    ? normalized.write_labels.map(normalizeWrite).filter(Boolean)
+    : [];
+  const removeLabels = Array.isArray(normalized.remove_labels)
+    ? normalized.remove_labels.map(normalizeRemove).filter(Boolean)
+    : [];
   return [
     mtPayloadRecord('__mt_payload_kind', 'str', kind),
     mtPayloadRecord('__mt_request_id', 'str', requestId),
     mtPayloadRecord('target_model_id', 'int', targetModelId),
-    mtPayloadRecord('op', 'str', op),
     mtPayloadRecord('origin_action', 'str', originAction),
-    mtPayloadRecord('request', 'json', normalized),
+    mtPayloadRecord('write_labels', 'json', writeLabels),
+    mtPayloadRecord('remove_labels', 'json', removeLabels),
   ];
 }
 
@@ -2074,32 +2227,22 @@ function homeOwnerMaterializeCode(modelId) {
     "  return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback;",
     "};",
     "const labelValue = label ? label.v : null;",
-    "const req = Array.isArray(labelValue) ? readPayload(labelValue, 'request', null) : (labelValue && typeof labelValue === 'object' ? labelValue : null);",
-    "if (!req) throw new Error('invalid_request_shape');",
-    "if (req.target_model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
-    "if (req.op === 'set_labels') {",
-    "  const labels = Array.isArray(req.labels) ? req.labels : [];",
-    "  for (const item of labels) {",
-    "    if (!item || typeof item.k !== 'string' || !item.k) throw new Error('invalid_request_shape');",
-    "    V1N.table.addLabel(Number.isInteger(item.p) ? item.p : 0, Number.isInteger(item.r) ? item.r : 0, Number.isInteger(item.c) ? item.c : 0, item.k, typeof item.t === 'string' && item.t ? item.t : 'str', item.v);",
-    "  }",
-    "  return;",
+    "if (!Array.isArray(labelValue)) throw new Error('temporary_modeltable_required');",
+    "const targetModelId = readPayload(labelValue, 'target_model_id', null);",
+    "if (targetModelId !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
+    "const writeLabels = readPayload(labelValue, 'write_labels', []);",
+    "const removeLabels = readPayload(labelValue, 'remove_labels', []);",
+    "if (!Array.isArray(writeLabels) || !Array.isArray(removeLabels)) throw new Error('invalid_request_shape');",
+    "for (const item of writeLabels) {",
+    "  if (!item || Object.prototype.hasOwnProperty.call(item, 'op') || Object.prototype.hasOwnProperty.call(item, 'model_id')) throw new Error('invalid_request_shape');",
+    "  if (typeof item.k !== 'string' || !item.k || typeof item.t !== 'string' || !item.t) throw new Error('invalid_request_shape');",
+    "  V1N.table.addLabel(Number.isInteger(item.p) ? item.p : 0, Number.isInteger(item.r) ? item.r : 0, Number.isInteger(item.c) ? item.c : 0, item.k, item.t, item.v);",
     "}",
-    "if (req.op === 'add_label') {",
-    "  const target = req.target_cell || {};",
-    "  const lv = req.label || {};",
-    "  if (typeof lv.k !== 'string' || !lv.k || typeof lv.t !== 'string' || !lv.t) throw new Error('invalid_request_shape');",
-    "  V1N.table.addLabel(Number.isInteger(target.p) ? target.p : 0, Number.isInteger(target.r) ? target.r : 0, Number.isInteger(target.c) ? target.c : 0, lv.k, lv.t, lv.v);",
-    "  return;",
+    "for (const item of removeLabels) {",
+    "  if (!item || Object.prototype.hasOwnProperty.call(item, 'op') || Object.prototype.hasOwnProperty.call(item, 'model_id')) throw new Error('invalid_request_shape');",
+    "  if (typeof item.k !== 'string' || !item.k) throw new Error('invalid_request_shape');",
+    "  V1N.table.removeLabel(Number.isInteger(item.p) ? item.p : 0, Number.isInteger(item.r) ? item.r : 0, Number.isInteger(item.c) ? item.c : 0, item.k);",
     "}",
-    "if (req.op === 'rm_label') {",
-    "  const target = req.target_cell || {};",
-    "  const lv = req.label || {};",
-    "  if (typeof lv.k !== 'string' || !lv.k) throw new Error('invalid_request_shape');",
-    "  V1N.table.removeLabel(Number.isInteger(target.p) ? target.p : 0, Number.isInteger(target.r) ? target.r : 0, Number.isInteger(target.c) ? target.c : 0, lv.k);",
-    "  return;",
-    "}",
-    "throw new Error('unsupported_op');",
   ].join('\n');
 }
 
@@ -2112,46 +2255,38 @@ function genericOwnerMaterializeCode(modelId) {
     "  return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback;",
     "};",
     "const labelValue = label ? label.v : null;",
-    "const req = Array.isArray(labelValue) ? readPayload(labelValue, 'request', null) : (labelValue && typeof labelValue === 'object' ? labelValue : null);",
-    "if (!req) throw new Error('invalid_request_shape');",
-    "V1N.table.addLabel(0, 0, 0, '__owner_last_request_id', 'str', typeof req.request_id === 'string' ? req.request_id : '');",
-    "V1N.table.addLabel(0, 0, 0, '__owner_last_action', 'str', req && req.origin && typeof req.origin.action === 'string' ? req.origin.action : '');",
-    "if (req.target_model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
-    "if (req.op === 'apply_records') {",
-    "  const records = Array.isArray(req.records) ? req.records : [];",
-    "  for (const record of records) {",
-    "    if (!record || typeof record !== 'object') throw new Error('invalid_request_shape');",
-    "    if (record.model_id !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
-    "    if (record.op === 'add_label') {",
-    "      if (typeof record.k !== 'string' || !record.k || typeof record.t !== 'string' || !record.t) throw new Error('invalid_request_shape');",
-    "      V1N.table.addLabel(Number.isInteger(record.p) ? record.p : 0, Number.isInteger(record.r) ? record.r : 0, Number.isInteger(record.c) ? record.c : 0, record.k, record.t, record.v);",
-    "      continue;",
-    "    }",
-    "    if (record.op === 'rm_label') {",
-    "      if (typeof record.k !== 'string' || !record.k) throw new Error('invalid_request_shape');",
-    "      V1N.table.removeLabel(Number.isInteger(record.p) ? record.p : 0, Number.isInteger(record.r) ? record.r : 0, Number.isInteger(record.c) ? record.c : 0, record.k);",
-    "      continue;",
-    "    }",
-    "    throw new Error('unsupported_op');",
-    "  }",
-    "  return;",
+    "if (!Array.isArray(labelValue)) throw new Error('temporary_modeltable_required');",
+    "const targetModelId = readPayload(labelValue, 'target_model_id', null);",
+    "if (targetModelId !== SELF_MODEL_ID) throw new Error('target_scope_rejected');",
+    "const requestId = readPayload(labelValue, '__mt_request_id', '');",
+    "const originAction = readPayload(labelValue, 'origin_action', '');",
+    "V1N.table.addLabel(0, 0, 0, '__owner_last_request_id', 'str', typeof requestId === 'string' ? requestId : '');",
+    "V1N.table.addLabel(0, 0, 0, '__owner_last_action', 'str', typeof originAction === 'string' ? originAction : '');",
+    "const writeLabels = readPayload(labelValue, 'write_labels', []);",
+    "const removeLabels = readPayload(labelValue, 'remove_labels', []);",
+    "if (!Array.isArray(writeLabels) || !Array.isArray(removeLabels)) throw new Error('invalid_request_shape');",
+    "for (const item of writeLabels) {",
+    "  if (!item || Object.prototype.hasOwnProperty.call(item, 'op') || Object.prototype.hasOwnProperty.call(item, 'model_id')) throw new Error('invalid_request_shape');",
+    "  if (typeof item.k !== 'string' || !item.k || typeof item.t !== 'string' || !item.t) throw new Error('invalid_request_shape');",
+    "  V1N.table.addLabel(Number.isInteger(item.p) ? item.p : 0, Number.isInteger(item.r) ? item.r : 0, Number.isInteger(item.c) ? item.c : 0, item.k, item.t, item.v);",
     "}",
-    "if (req.op === 'add_label') {",
-    "  const target = req.target_cell || {};",
-    "  const lv = req.label || {};",
-    "  if (typeof lv.k !== 'string' || !lv.k || typeof lv.t !== 'string' || !lv.t) throw new Error('invalid_request_shape');",
-    "  V1N.table.addLabel(Number.isInteger(target.p) ? target.p : 0, Number.isInteger(target.r) ? target.r : 0, Number.isInteger(target.c) ? target.c : 0, lv.k, lv.t, lv.v);",
-    "  return;",
+    "for (const item of removeLabels) {",
+    "  if (!item || Object.prototype.hasOwnProperty.call(item, 'op') || Object.prototype.hasOwnProperty.call(item, 'model_id')) throw new Error('invalid_request_shape');",
+    "  if (typeof item.k !== 'string' || !item.k) throw new Error('invalid_request_shape');",
+    "  V1N.table.removeLabel(Number.isInteger(item.p) ? item.p : 0, Number.isInteger(item.r) ? item.r : 0, Number.isInteger(item.c) ? item.c : 0, item.k);",
     "}",
-    "if (req.op === 'rm_label') {",
-    "  const target = req.target_cell || {};",
-    "  const lv = req.label || {};",
-    "  if (typeof lv.k !== 'string' || !lv.k) throw new Error('invalid_request_shape');",
-    "  V1N.table.removeLabel(Number.isInteger(target.p) ? target.p : 0, Number.isInteger(target.r) ? target.r : 0, Number.isInteger(target.c) ? target.c : 0, lv.k);",
-    "  return;",
-    "}",
-    "throw new Error('unsupported_op');",
   ].join('\n');
+}
+
+function ownerMaterializerNeedsRefresh(cell, funcKey) {
+  const existing = cell && cell.labels ? cell.labels.get(funcKey) : null;
+  if (!existing) return true;
+  const code = existing.v && typeof existing.v.code === 'string' ? existing.v.code : '';
+  return /\bctx\.(writeLabel|getLabel|rmLabel)\b/.test(code)
+    || /typeof labelValue === ['"]object['"] \? labelValue/.test(code)
+    || /if \(!req\) return;/.test(code)
+    || /readPayload\(labelValue, ['"]request['"]/.test(code)
+    || /\breq\.op\b|\brecord\.op\b|\bapply_records\b/.test(code);
 }
 
 function ensureHomeOwnerMaterializer(runtime, modelId) {
@@ -2171,7 +2306,7 @@ function ensureHomeOwnerMaterializer(runtime, modelId) {
       v: [{ from: `(self, ${HOME_OWNER_REQUEST_PIN})`, to: [`(func, ${HOME_OWNER_FUNC}:in)`] }],
     });
   }
-  if (!cell.labels.has(HOME_OWNER_FUNC)) {
+  if (ownerMaterializerNeedsRefresh(cell, HOME_OWNER_FUNC)) {
     runtime.addLabel(model, 0, 0, 0, {
       k: HOME_OWNER_FUNC,
       t: 'func.js',
@@ -2198,7 +2333,7 @@ function ensureGenericOwnerMaterializer(runtime, modelId) {
       v: [{ from: `(self, ${GENERIC_OWNER_REQUEST_PIN})`, to: [`(func, ${GENERIC_OWNER_FUNC}:in)`] }],
     });
   }
-  if (!cell.labels.has(GENERIC_OWNER_FUNC)) {
+  if (ownerMaterializerNeedsRefresh(cell, GENERIC_OWNER_FUNC)) {
     runtime.addLabel(model, 0, 0, 0, {
       k: GENERIC_OWNER_FUNC,
       t: 'func.js',
@@ -2271,16 +2406,43 @@ const EXCLUDED_LABEL_KEYS = new Set(['snapshot_json', 'event_log']);
 const CLIENT_SECRET_LABEL_KEYS = new Set([
   'matrix_token',
   'matrix_passwd',
+  'access_token',
 ]);
 const CLIENT_SECRET_LABEL_TYPES = new Set([
   'matrix.token',
   'matrix.passwd',
 ]);
+const CLIENT_SECRET_STRING_PATTERNS = [
+  /syt_[A-Za-z0-9._=-]{8,}/u,
+  /ChangeMeLocal2026/u,
+];
+
+function containsClientSecretValue(value, seen = new WeakSet()) {
+  if (typeof value === 'string') {
+    return CLIENT_SECRET_STRING_PATTERNS.some((pattern) => pattern.test(value));
+  }
+  if (!value || typeof value !== 'object') return false;
+  if (seen.has(value)) return false;
+  seen.add(value);
+  const nestedKey = typeof value.k === 'string' ? value.k.trim().toLowerCase() : '';
+  const nestedType = typeof value.t === 'string' ? value.t.trim().toLowerCase() : '';
+  if (CLIENT_SECRET_LABEL_KEYS.has(nestedKey) || CLIENT_SECRET_LABEL_TYPES.has(nestedType)) {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.some((item) => containsClientSecretValue(item, seen));
+  }
+  return Object.values(value).some((item) => containsClientSecretValue(item, seen));
+}
 
 function isClientSecretLabel(labelKey, labelValue) {
-  void labelKey;
-  void labelValue;
-  return false;
+  const normalizedKey = typeof labelKey === 'string' ? labelKey.trim().toLowerCase() : '';
+  const normalizedType = labelValue && typeof labelValue.t === 'string'
+    ? labelValue.t.trim().toLowerCase()
+    : '';
+  return CLIENT_SECRET_LABEL_KEYS.has(normalizedKey)
+    || CLIENT_SECRET_LABEL_TYPES.has(normalizedType)
+    || containsClientSecretValue(labelValue?.v);
 }
 
 function buildClientSnapshot(runtime) {
@@ -2301,12 +2463,20 @@ function buildClientSnapshot(runtime) {
     const modelId = Number(id);
     // Trace model: include summary root plus cellwise UI nodes, but still skip bulk trace entry cells.
     if (modelId === TRACE_MODEL_ID) {
+      const filterCell = (cell) => {
+        const filteredLabels = {};
+        for (const [lk, lv] of Object.entries(cell?.labels || {})) {
+          if (isClientSecretLabel(lk, lv)) continue;
+          filteredLabels[lk] = lv;
+        }
+        return { ...cell, labels: filteredLabels };
+      };
       const filteredCells = {};
       const rootCell = model.cells && model.cells['0,0,0'];
-      if (rootCell) filteredCells['0,0,0'] = rootCell;
+      if (rootCell) filteredCells['0,0,0'] = filterCell(rootCell);
       for (const [ck, cell] of Object.entries(model.cells || {})) {
         if (!ck.startsWith('2,')) continue;
-        filteredCells[ck] = cell;
+        filteredCells[ck] = filterCell(cell);
       }
       models[id] = { ...model, cells: filteredCells };
       continue;
@@ -2554,9 +2724,11 @@ function repairModel100DualBusConfig(runtime) {
 }
 
 function isTemporaryPayloadRecordArray(value) {
-  return Array.isArray(value) && value.every((record) =>
+  return Array.isArray(value) && value.length > 0 && value.every((record) =>
     record
     && typeof record === 'object'
+    && !Object.prototype.hasOwnProperty.call(record, 'op')
+    && !Object.prototype.hasOwnProperty.call(record, 'model_id')
     && Number.isInteger(record.id)
     && Number.isInteger(record.p)
     && Number.isInteger(record.r)
@@ -2565,6 +2737,7 @@ function isTemporaryPayloadRecordArray(value) {
     && record.k.length > 0
     && typeof record.t === 'string'
     && record.t.length > 0
+    && Object.prototype.hasOwnProperty.call(record, 'v')
   );
 }
 
@@ -2625,6 +2798,17 @@ function normalizeDirectPinValue(rawValue, meta, target, pin) {
     return { ok: false, code: 'invalid_bus_payload', detail: 'temporary_modeltable_required' };
   }
   if (target && target.model_id > 0) {
+    if (Array.isArray(nextValue) && isTemporaryPayloadRecordArray(nextValue)) {
+      return { ok: true, value: nextValue };
+    }
+    return { ok: false, code: 'invalid_pin_payload', detail: 'temporary_modeltable_required' };
+  }
+  if (target && target.model_id < 0) {
+    if (nextValue === null || nextValue === undefined) return { ok: true, value: null };
+    if (nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)
+        && typeof nextValue.t === 'string' && Object.prototype.hasOwnProperty.call(nextValue, 'v')) {
+      nextValue = nextValue.v;
+    }
     if (Array.isArray(nextValue) && isTemporaryPayloadRecordArray(nextValue)) {
       return { ok: true, value: nextValue };
     }
@@ -2914,22 +3098,20 @@ class ProgramModelEngine {
         return { ok: false, code: 'unsupported_op', detail: String(record.op || 'unknown') };
       }
 
+      const scopedLabel = {
+        p: Number.isInteger(record.p) ? record.p : 0,
+        r: Number.isInteger(record.r) ? record.r : 0,
+        c: Number.isInteger(record.c) ? record.c : 0,
+        k: record.k,
+        t: record.t,
+        v: record.v,
+      };
       requests.push({
-        op: 'apply_records',
         target_model_id: record.model_id,
         request_id: `${patch.op_id || 'snapshot_delta'}:${requests.length + 1}`,
-        ts: Date.now(),
-        origin: { model_id: 0, cell: { p: 0, r: 0, c: 0 }, action: 'snapshot_delta' },
-        records: [{
-          op: record.op,
-          model_id: record.model_id,
-          p: Number.isInteger(record.p) ? record.p : 0,
-          r: Number.isInteger(record.r) ? record.r : 0,
-          c: Number.isInteger(record.c) ? record.c : 0,
-          k: record.k,
-          t: record.t,
-          v: record.v,
-        }],
+        origin_action: 'snapshot_delta',
+        write_labels: record.op === 'add_label' ? [scopedLabel] : [],
+        remove_labels: record.op === 'rm_label' ? [{ p: scopedLabel.p, r: scopedLabel.r, c: scopedLabel.c, k: scopedLabel.k }] : [],
       });
       targetModelIds.add(record.model_id);
     }
@@ -2988,14 +3170,7 @@ class ProgramModelEngine {
     // - { version: 'v0', type: 'snapshot_delta', op_id, payload: { version: 'mt.v0', records: [...] } }
     // - { version: 'v1', type: 'pin_payload', op_id, source_model_id, pin, payload: [...] }
     console.log('[handleDyBusEvent] Processing:', JSON.stringify(content).substring(0, 300));
-    emitTrace(this.runtime, {
-      hop: 'matrix\u2192server', direction: 'inbound',
-      op_id: content && content.op_id ? content.op_id : '',
-      model_id: '',
-      summary: `dy.bus.v0 type=${content && content.type ? content.type : '?'}`,
-      payload: content,
-    });
-    
+
     if (!content || typeof content !== 'object') {
       console.log('[handleDyBusEvent] Invalid content - not an object');
       return;
@@ -3005,6 +3180,16 @@ class ProgramModelEngine {
       console.log('[handleDyBusEvent] Unknown version:', content.version);
       return;
     }
+
+    const traceInbound = () => {
+      emitTrace(this.runtime, {
+        hop: 'matrix\u2192server', direction: 'inbound',
+        op_id: content && content.op_id ? content.op_id : '',
+        model_id: '',
+        summary: `dy.bus.v0 type=${content && content.type ? content.type : '?'}`,
+        payload: content,
+      });
+    };
     
     if (content.type === 'snapshot_delta') {
       const patch = content.payload;
@@ -3012,6 +3197,7 @@ class ProgramModelEngine {
         console.log('[handleDyBusEvent] Invalid patch format');
         return;
       }
+      traceInbound();
       console.log('[handleDyBusEvent] Received snapshot_delta, patch op_id:', patch.op_id);
       this.routeSnapshotDeltaViaOwnerMaterialization(patch)
         .then((result) => {
@@ -3029,6 +3215,25 @@ class ProgramModelEngine {
         .catch((err) => {
           console.error('[handleDyBusEvent] snapshot_delta owner route failed:', err && err.message ? err.message : err);
         });
+      return;
+    }
+
+    if (content.type === 'mgmt_bus_console_ack') {
+      const ackValidation = validateMgmtBusConsoleAck(content);
+      if (!ackValidation.ok) {
+        console.log('[handleDyBusEvent] Invalid mgmt_bus_console_ack:', ackValidation.code);
+        return;
+      }
+      const consoleModel = this.runtime.getModel(MGMT_BUS_CONSOLE_MODEL_ID);
+      if (consoleModel) {
+        this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'ack_received' });
+      }
+      traceInbound();
+      this.tick().then(() => {
+        this.onSnapshotChanged?.();
+      }).catch((err) => {
+        console.error('[handleDyBusEvent] mgmt_bus_console_ack projection failed:', err && err.message ? err.message : err);
+      });
       return;
     }
 
@@ -3051,6 +3256,7 @@ class ProgramModelEngine {
         console.log('[handleDyBusEvent] Invalid pin_payload payload format');
         return;
       }
+      traceInbound();
       this.routeSnapshotDeltaViaOwnerMaterialization(patch)
         .then((result) => {
           if (!result || result.ok !== true) {
@@ -3071,6 +3277,7 @@ class ProgramModelEngine {
     }
     
     if (content.type === 'mbr_ready') {
+      traceInbound();
       console.log('[handleDyBusEvent] Received mbr_ready signal from MBR');
       // Set system_ready=true on all dual-bus models
       let changed = false;
@@ -3174,14 +3381,6 @@ class ProgramModelEngine {
     };
     const ctx = {
       runtime: runtimeView,
-      getLabel: (ref) => {
-        if (!ref || !Number.isInteger(ref.model_id)) return null;
-        const model = this.runtime.getModel(ref.model_id);
-        if (!model) return null;
-        const cell = this.runtime.getCell(model, ref.p, ref.r, ref.c);
-        const label = cell.labels.get(ref.k);
-        return label ? label.v : null;
-      },
       getMgmtOutPayload: (channel) => this.getMgmtOutPayload(channel),
       getMgmtInTarget: (channel) => this.getMgmtInTarget(channel),
       getMgmtInbox: () => findSystemLabel(this.runtime, 'mgmt_inbox')?.label?.v ?? null,
@@ -3206,18 +3405,6 @@ class ProgramModelEngine {
         return null;
       },
       parseJson: (value) => parseJsonMaybe(value),
-      writeLabel: (ref, t, v) => {
-        if (!ref || !Number.isInteger(ref.model_id)) return;
-        const model = this.runtime.getModel(ref.model_id);
-        if (!model) return;
-        this.runtime.addLabel(model, ref.p, ref.r, ref.c, { k: ref.k, t, v });
-      },
-      rmLabel: (ref) => {
-        if (!ref || !Number.isInteger(ref.model_id)) return;
-        const model = this.runtime.getModel(ref.model_id);
-        if (!model) return;
-        this.runtime.rmLabel(model, ref.p, ref.r, ref.c, ref.k);
-      },
       currentTopic: (pinName, modelId) => {
         const mid = Number.isInteger(modelId) ? modelId : 0;
         if (!pinName || typeof pinName !== 'string') return '';
@@ -3934,6 +4121,58 @@ class ProgramModelEngine {
         continue;
       }
 
+      if (event.cell && event.cell.model_id === -10 &&
+          event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
+          event.label && event.label.k === 'mgmt_bus_console_intent' &&
+          event.label.t === 'pin.in') {
+        if (event.label.v === null || event.label.v === undefined) {
+          continue;
+        }
+        const consoleModel = this.runtime.getModel(MGMT_BUS_CONSOLE_MODEL_ID);
+        const packetResult = buildMgmtBusConsoleMatrixPacket(event.label.v, {
+          peerUserId: this.matrixDmPeerUserId,
+        });
+        if (!packetResult || packetResult.ok !== true) {
+          if (consoleModel) {
+            this.runtime.addLabel(consoleModel, 0, 0, 0, {
+              k: 'message_status',
+              t: 'str',
+              v: packetResult && packetResult.code ? packetResult.code : 'send_rejected',
+            });
+          }
+          const sys = firstSystemModel(this.runtime);
+          if (sys) {
+            this.runtime.addLabel(sys, 0, 0, 0, {
+              k: 'mgmt_bus_console_error',
+              t: 'json',
+              v: packetResult || { ok: false, code: 'send_rejected' },
+            });
+          }
+          continue;
+        }
+        const packet = packetResult.data;
+        if (consoleModel) {
+          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'sending' });
+          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'last_sent_text', t: 'str', v: readTemporaryPayloadString(packet.payload, 'message_text') });
+          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'target_user_id', t: 'str', v: readTemporaryPayloadString(packet.payload, 'target_user_id') });
+        }
+        const maybePromise = this.sendMatrix(packet);
+        if (maybePromise && typeof maybePromise.then === 'function') {
+          maybePromise.catch((err) => {
+            if (!consoleModel) return;
+            this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'send_failed' });
+            this.runtime.addLabel(consoleModel, 0, 0, 0, {
+              k: 'last_ui_error',
+              t: 'str',
+              v: String(err && err.message ? err.message : err),
+            });
+          });
+        } else if (!maybePromise && consoleModel) {
+          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'matrix_unavailable' });
+        }
+        continue;
+      }
+
       // Generic dual-bus model: bus_event at Cell(model_id, 0, 0, 2) → trigger forward function
       // Driven by `dual_bus_model` label on the model's Cell(0,0,0)
       if (event.cell && event.cell.model_id > 0 &&
@@ -4248,10 +4487,21 @@ function isDirectModelMutationAction(action) {
   return typeof action === 'string' && DIRECT_MODEL_MUTATION_ACTIONS.has(action);
 }
 
-function isUiLocalMutableModelId(modelId) {
+function isMgmtBusConsoleLocalStateTarget(target) {
+  return target
+    && target.model_id === MGMT_BUS_CONSOLE_MODEL_ID
+    && target.p === 0
+    && target.r === 0
+    && target.c === 0
+    && MGMT_BUS_CONSOLE_LOCAL_STATE_KEYS.has(target.k);
+}
+
+function isUiLocalMutableTarget(target, action = '') {
+  const modelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
   return modelId === EDITOR_STATE_MODEL_ID
     || modelId === LOGIN_MODEL_ID
-    || modelId === GALLERY_STATE_MODEL_ID;
+    || modelId === GALLERY_STATE_MODEL_ID
+    || (action === 'label_update' && isMgmtBusConsoleLocalStateTarget(target));
 }
 
 function createServerState(options) {
@@ -4425,6 +4675,16 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'matrix_debug_trace_summary_text', 'str', '');
   ensureStateLabel(runtime, 'matrix_debug_summary_text', 'str', '');
   ensureStateLabel(runtime, 'matrix_debug_status_text', 'str', '');
+  ensureStateLabel(runtime, 'mgmt_bus_console_subject_rows_json', 'json', []);
+  ensureStateLabel(runtime, 'mgmt_bus_console_timeline_text', 'str', '');
+  ensureStateLabel(runtime, 'mgmt_bus_console_inspector_text', 'str', '');
+  ensureStateLabel(runtime, 'mgmt_bus_console_event_rows_json', 'json', []);
+  ensureStateLabel(runtime, 'mgmt_bus_console_event_inspector_json', 'json', []);
+  ensureStateLabel(runtime, 'mgmt_bus_console_event_inspector_text', 'str', '');
+  ensureStateLabel(runtime, 'mgmt_bus_console_route_rows_json', 'json', []);
+  ensureStateLabel(runtime, 'mgmt_bus_console_route_status', 'str', 'route_missing');
+  ensureStateLabel(runtime, 'mgmt_bus_console_composer_actions_json', 'json', []);
+  ensureStateLabel(runtime, 'mgmt_bus_console_message_transcript', 'str', 'No messages sent yet.');
 
   let programEngine = null;
 
@@ -4575,6 +4835,34 @@ function createServerState(options) {
     overwriteRuntimeLabel(runtime, TRACE_MODEL_ID, 0, 0, 0, 'trace_status', 'str', traceEnabled ? 'monitoring' : 'paused');
   };
 
+  const syncMgmtBusConsoleDerivedState = (matrixProjection) => {
+    const consoleModel = runtime.getModel(MGMT_BUS_CONSOLE_MODEL_ID);
+    const selectedEventId = consoleModel
+      ? runtime.getLabelValue(consoleModel, 0, 0, 0, 'selected_event_id')
+      : '';
+    const projection = deriveMgmtBusConsoleProjection({
+      matrixProjection: {
+        ...(matrixProjection && typeof matrixProjection === 'object' ? matrixProjection : {}),
+        selectedEventId,
+      },
+      readRootLabel: (modelId, key) => {
+        const model = runtime.getModel(modelId);
+        return model ? runtime.getLabelValue(model, 0, 0, 0, key) : undefined;
+      },
+    });
+    overwriteStateLabel(runtime, 'mgmt_bus_console_subject_rows_json', 'json', projection.subjects);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_timeline_text', 'str', projection.timelineText);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_inspector_text', 'str', projection.inspectorText);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_event_rows_json', 'json', projection.eventRows);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_event_inspector_json', 'json', projection.eventInspectorRows);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_event_inspector_text', 'str', projection.eventInspectorText);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_route_rows_json', 'json', projection.routeRows);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_route_status', 'str', projection.routeStatus);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_composer_actions_json', 'json', projection.composerActions);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_message_transcript', 'str', projection.messageTranscript);
+    return projection;
+  };
+
   const syncMatrixDebugDerivedState = () => {
     syncMatrixDebugHostLabels();
     const projection = deriveMatrixDebugView(buildClientSnapshot(runtime), EDITOR_STATE_MODEL_ID);
@@ -4583,6 +4871,7 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'matrix_debug_readiness_text', 'str', projection.readinessText);
     overwriteStateLabel(runtime, 'matrix_debug_subject_summary_text', 'str', projection.subjectSummaryText);
     overwriteStateLabel(runtime, 'matrix_debug_trace_summary_text', 'str', projection.traceSummaryText);
+    syncMgmtBusConsoleDerivedState(projection);
     return projection;
   };
 
@@ -5421,6 +5710,7 @@ function createServerState(options) {
 
   function clientSnap() {
     recoverModel100StaleInflight();
+    syncMatrixDebugDerivedState();
     return buildClientSnapshot(runtime);
   }
 
@@ -5515,13 +5805,16 @@ function createServerState(options) {
 
     if (isUiEventV2) {
       const busInKey = String(envelopeOrNull.bus_in_key || '').trim();
-      const allowedBusInKeys = new Set(['ui_submit', 'ui_click', 'ui_input', 'ui_edit']);
+      const allowedBusInKeys = new Set(['ui_submit', 'ui_click', 'ui_input', 'ui_edit', 'mgmt_bus_console_send', 'mgmt_bus_console_refresh']);
       if (!allowedBusInKeys.has(busInKey)) {
         return finishError('invalid_bus_in_key', busInKey || 'missing_bus_in_key');
       }
       const v2Value = envelopeOrNull.value;
       if (!runtime.isRunLoopActive()) {
         return finishError('runtime_not_running', 'model_id=0');
+      }
+      if (busInKey === 'mgmt_bus_console_send' && Array.isArray(v2Value) && v2Value.length === 0) {
+        return finishError('invalid_bus_payload', 'temporary_modeltable_required');
       }
       const model0 = runtime.getModel(0);
       if (!model0) {
@@ -5675,12 +5968,11 @@ function createServerState(options) {
     });
 
     const buildStateSetRequest = (labels, sourceAction = action) => ({
-      op: 'set_labels',
       target_model_id: EDITOR_STATE_MODEL_ID,
-      labels,
+      write_labels: Array.isArray(labels) ? labels : [],
+      remove_labels: [],
       origin: buildHomeRequestOrigin(sourceAction),
       request_id: opId || `home_req_${Date.now()}`,
-      ts: Date.now(),
     });
 
     const sendHomeOwnerRequestsViaSourcePin = async (requests) => {
@@ -5707,12 +5999,13 @@ function createServerState(options) {
       runtime.addLabel(sysModel, 0, 0, 0, {
         k: action,
         t: 'pin.in',
-        v: {
-          requests: normalized.map((request) => ({
+        v: [
+          mtPayloadRecord('__mt_payload_kind', 'str', 'home_owner_requests.v1'),
+          mtPayloadRecord('requests', 'json', normalized.map((request) => ({
             out_pin: buildHomeSourceOutPin(request.target_model_id),
             body: ownerRequestToTemporaryPayload(request, 'home_owner_request.v1'),
-          })),
-        },
+          }))),
+        ],
       });
       await sleepMs(25);
       await programEngine.tick();
@@ -5880,13 +6173,11 @@ function createServerState(options) {
           return direct.ok ? finishOk({ routed_by: 'direct' }) : finishError('invalid_target', direct.code);
         }
         const sent = await sendHomeOwnerRequestsViaSourcePin([{
-          op: 'add_label',
           target_model_id: modelId,
-          target_cell: { p: dp, r: dr, c: dc },
-          label: { k: dk, t: dt, v: value },
+          write_labels: [{ p: dp, r: dr, c: dc, k: dk, t: dt, v: value }],
+          remove_labels: [],
           origin: buildHomeRequestOrigin(action),
           request_id: opId || `home_save_${Date.now()}`,
-          ts: Date.now(),
         }]);
         if (!sent.ok) return finishError(sent.code, sent.detail);
         const statusSent = await sendHomeOwnerRequestsViaSourcePin([
@@ -5960,13 +6251,11 @@ function createServerState(options) {
           return direct.ok ? finishOk({ routed_by: 'direct' }) : finishError('invalid_target', direct.code);
         }
         const sent = await sendHomeOwnerRequestsViaSourcePin([{
-          op: 'rm_label',
           target_model_id: targetModelId,
-          target_cell: { p, r, c },
-          label: { k: key },
+          write_labels: [],
+          remove_labels: [{ p, r, c, k: key }],
           origin: buildHomeRequestOrigin(action),
           request_id: opId || `home_delete_${Date.now()}`,
-          ts: Date.now(),
         }]);
         if (!sent.ok) return finishError(sent.code, sent.detail);
         const statusSent = await sendHomeOwnerRequestsViaSourcePin([
@@ -5996,25 +6285,21 @@ function createServerState(options) {
           return finishError('invalid_target', 'missing_value');
         }
         const sent = await sendGenericOwnerRequestsViaSourcePin([{
-          op: 'add_label',
           target_model_id: targetModelId,
-          target_cell: { p, r, c },
-          label: { k: key, t: payload.value.t, v: payload.value.v },
+          write_labels: [{ p, r, c, k: key, t: payload.value.t, v: payload.value.v }],
+          remove_labels: [],
           origin: { model_id: -10, cell: { p: 0, r: 0, c: 0 }, action },
           request_id: opId || `ui_owner_set_${Date.now()}`,
-          ts: Date.now(),
         }]);
         return sent.ok ? finishOk({ routed_by: 'pin' }) : finishError(sent.code, sent.detail);
       }
       if (action === 'ui_owner_label_remove') {
         const sent = await sendGenericOwnerRequestsViaSourcePin([{
-          op: 'rm_label',
           target_model_id: targetModelId,
-          target_cell: { p, r, c },
-          label: { k: key },
+          write_labels: [],
+          remove_labels: [{ p, r, c, k: key }],
           origin: { model_id: -10, cell: { p: 0, r: 0, c: 0 }, action },
           request_id: opId || `ui_owner_rm_${Date.now()}`,
-          ts: Date.now(),
         }]);
         return sent.ok ? finishOk({ routed_by: 'pin' }) : finishError(sent.code, sent.detail);
       }
@@ -6073,7 +6358,7 @@ function createServerState(options) {
     if (envelopeOrNull && (action === 'ui_owner_label_update' || action === 'ui_owner_label_remove')) {
       return executeGenericOwnerAction();
     }
-    const allowUiLocalMutation = isUiLocalMutableModelId(directMutationTarget);
+    const allowUiLocalMutation = isUiLocalMutableTarget(target, action);
     if (envelopeOrNull && isDirectModelMutationAction(action) && !(action !== 'submodel_create' && allowUiLocalMutation)) {
       return finishError('direct_model_mutation_disabled', action);
     }

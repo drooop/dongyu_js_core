@@ -76,7 +76,7 @@ function test_workspace_sidebar_defines_delete_action() {
   const workspaceCatalogRecords = getRecords('packages/worker-base/system-models/workspace_catalog_ui.json');
   const deleteButton = findRecord(workspaceCatalogRecords, (record) => (
     record?.k === 'ui_label'
-    && record?.v === 'Delete'
+    && record?.v === 'Del'
   ));
   assert.ok(deleteButton, 'workspace_sidebar_missing_delete_button');
 
@@ -93,12 +93,33 @@ function test_workspace_sidebar_defines_delete_action() {
     record?.p === deleteButton.p
     && record?.r === deleteButton.r
     && record?.c === deleteButton.c
-    && (
-      (record?.k === 'ui_write_action' && record?.v === 'ws_app_delete')
-      || (record?.k === 'ui_bind_json' && record?.v?.write?.action === 'ws_app_delete')
-    )
+    && record?.k === 'ui_bind_json'
+    && record?.v?.write?.pin === 'click'
   ));
-  assert.ok(deleteAction, 'workspace_delete_button_missing_ws_app_delete_action');
+  assert.ok(deleteAction, 'workspace_delete_button_missing_click_pin_binding');
+
+  assert.ok(
+    findRecord(workspaceCatalogRecords, (record) => (
+      record?.p === deleteButton.p
+      && record?.r === deleteButton.r
+      && record?.c === deleteButton.c
+      && record?.k === 'click_route'
+      && Array.isArray(record?.v)
+      && record.v.some((route) => Array.isArray(route?.to) && route.to.includes('(func, handle_ws_delete_click:in)'))
+    )),
+    'workspace_delete_button_missing_click_route',
+  );
+
+  assert.ok(
+    findRecord(workspaceCatalogRecords, (record) => (
+      record?.p === deleteButton.p
+      && record?.r === deleteButton.r
+      && record?.c === deleteButton.c
+      && record?.k === 'handle_ws_delete_click'
+      && String(record?.v?.code || '').includes('wsDeleteApp')
+    )),
+    'workspace_delete_button_missing_delete_handler',
+  );
 
   const intentDispatch = getRecords('packages/worker-base/system-models/intent_dispatch_config.json');
   assert.ok(

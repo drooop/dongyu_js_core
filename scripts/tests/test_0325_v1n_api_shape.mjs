@@ -9,20 +9,33 @@ const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
 
 function wait(ms = 80) { return new Promise((r) => setTimeout(r, ms)); }
+const triggerPayload = [{ id: 0, p: 0, r: 0, c: 0, k: 'trigger', t: 'str', v: 'go' }];
 
 async function seed(rt, modelId) {
+  rt.setRuntimeMode('edit');
   const model = rt.createModel({ id: modelId, name: 'test', type: 'test' });
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'TestApp' });
   return model;
 }
 
 async function installFunc(rt, model, p, r, c, funcName, code) {
-  rt.addLabel(model, p, r, c, { k: funcName, t: 'func.js', v: { code } });
-  rt.addLabel(model, p, r, c, { k: `${funcName}_in`, t: 'pin.in', v: null });
-  rt.addLabel(model, p, r, c, {
-    k: `${funcName}_wiring`, t: 'pin.connect.label',
-    v: [{ from: `(self, ${funcName}_in)`, to: [`(func, ${funcName}:in)`] }],
-  });
+  rt.applyPatch({
+    version: 'mt.v0',
+    records: [
+      { op: 'add_label', model_id: model.id, p, r, c, k: funcName, t: 'func.js', v: { code } },
+      { op: 'add_label', model_id: model.id, p, r, c, k: `${funcName}_in`, t: 'pin.in', v: null },
+      {
+        op: 'add_label',
+        model_id: model.id,
+        p,
+        r,
+        c,
+        k: `${funcName}_wiring`,
+        t: 'pin.connect.label',
+        v: [{ from: `(self, ${funcName}_in)`, to: [`(func, ${funcName}:in)`] }],
+      },
+    ],
+  }, { trustedBootstrap: true });
 }
 
 async function test_v1n_apis_exposed() {
@@ -32,7 +45,7 @@ async function test_v1n_apis_exposed() {
   await installFunc(rt, model, 1, 0, 0, 'fn',
     "const report = ['addLabel:' + typeof V1N.addLabel, 'removeLabel:' + typeof V1N.removeLabel, 'readLabel:' + typeof V1N.readLabel].join('|'); V1N.addLabel('_v1n_probe', 'str', report); return;");
   await rt.setRuntimeMode('running');
-  rt.addLabel(model, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: 'go' });
+  rt.addLabel(model, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: triggerPayload });
   await wait();
   const probe = rt.getCell(model, 1, 0, 0).labels.get('_v1n_probe');
   assert.ok(probe, 'probe label must exist (V1N.addLabel must have worked)');
@@ -48,7 +61,7 @@ async function test_ctx_old_apis_removed() {
   await installFunc(rt, model, 1, 0, 0, 'fn',
     "const report = ['writeLabel:' + typeof ctx.writeLabel, 'getLabel:' + typeof ctx.getLabel, 'rmLabel:' + typeof ctx.rmLabel].join('|'); V1N.addLabel('_ctx_probe', 'str', report); return;");
   await rt.setRuntimeMode('running');
-  rt.addLabel(model, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: 'go' });
+  rt.addLabel(model, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: triggerPayload });
   await wait();
   const probe = rt.getCell(model, 1, 0, 0).labels.get('_ctx_probe');
   assert.ok(probe, 'probe label must exist');
@@ -65,7 +78,7 @@ async function test_v1n_readLabel_same_model() {
   await installFunc(rt, model, 1, 0, 0, 'fn',
     "const got = V1N.readLabel(2, 3, 0, 'origin_label'); V1N.addLabel('_read_probe', 'json', got); return;");
   await rt.setRuntimeMode('running');
-  rt.addLabel(model, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: 'go' });
+  rt.addLabel(model, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: triggerPayload });
   await wait();
   const probe = rt.getCell(model, 1, 0, 0).labels.get('_read_probe');
   assert.ok(probe, 'probe label must exist');

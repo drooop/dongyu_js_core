@@ -29,11 +29,17 @@ function payloadLabel(payload, key) {
     : null;
 }
 
+function mtPayloadRecord(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
 function assertHomeOwnerRequestPayload(label, messagePrefix) {
   assert(label, `${messagePrefix}_missing`);
   assert.equal(label.t, 'pin.in', `${messagePrefix}_must_use_pin_in`);
   assert.equal(payloadLabel(label.v, '__mt_payload_kind')?.v, 'home_owner_request.v1', `${messagePrefix}_must_use_modeltable_payload`);
-  assert(payloadLabel(label.v, 'request')?.v && typeof payloadLabel(label.v, 'request').v === 'object', `${messagePrefix}_must_embed_request_label`);
+  assert.equal(payloadLabel(label.v, 'request'), null, `${messagePrefix}_must_not_embed_legacy_request_label`);
+  assert(Array.isArray(payloadLabel(label.v, 'write_labels')?.v), `${messagePrefix}_must_embed_write_labels`);
+  assert(Array.isArray(payloadLabel(label.v, 'remove_labels')?.v), `${messagePrefix}_must_embed_remove_labels`);
 }
 
 const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0249-home-pin-'));
@@ -49,6 +55,47 @@ const state = createServerState({ dbPath: null });
 try {
   await state.activateRuntimeMode('running');
 
+  let result = await state.submitEnvelope({
+    event_id: Date.now(),
+    type: 'system_pin_direct_reject',
+    payload: {
+      action: 'system_pin_direct_reject',
+      pin: 'debug_bad_pin',
+      meta: { op_id: 'system_pin_direct_reject' },
+      target: { model_id: -10, p: 0, r: 0, c: 0 },
+      value: { legacy: true },
+    },
+    source: 'ui_renderer',
+    ts: Date.now(),
+  });
+  assert.equal(result.result, 'error', 'negative_system_direct_pin_object_must_be_rejected');
+  assert.equal(result.detail, 'temporary_modeltable_required', 'negative_system_direct_pin_reject_reason_must_require_modeltable');
+  assert.equal(
+    state.runtime.getCell(state.runtime.getModel(-10), 0, 0, 0).labels.get('debug_bad_pin'),
+    undefined,
+    'negative_system_direct_pin_object_must_not_be_written',
+  );
+
+  result = await state.submitEnvelope({
+    event_id: Date.now(),
+    type: 'system_pin_direct_accept_modeltable',
+    payload: {
+      action: 'system_pin_direct_accept_modeltable',
+      pin: 'debug_good_pin',
+      meta: { op_id: 'system_pin_direct_accept_modeltable' },
+      target: { model_id: -10, p: 0, r: 0, c: 0 },
+      value: [mtPayloadRecord('__mt_payload_kind', 'str', 'debug.system_pin.v1')],
+    },
+    source: 'ui_renderer',
+    ts: Date.now(),
+  });
+  assert.equal(result.result, 'ok', 'negative_system_direct_pin_modeltable_must_be_accepted');
+  assert.equal(
+    payloadLabel(state.runtime.getCell(state.runtime.getModel(-10), 0, 0, 0).labels.get('debug_good_pin')?.v, '__mt_payload_kind')?.v,
+    'debug.system_pin.v1',
+    'negative_system_direct_pin_modeltable_payload_must_be_written',
+  );
+
   async function setState(key, type, value, opId) {
     return state.submitEnvelope(mailboxEnvelope('label_update', {
       opId,
@@ -57,7 +104,7 @@ try {
     }));
   }
 
-  let result = await setState('selected_model_id', 'str', '1003', 'home_set_model');
+  result = await setState('selected_model_id', 'str', '1003', 'home_set_model');
   assert.equal(result.result, 'ok', 'set_selected_model_id_failed');
 
   result = await state.submitEnvelope(mailboxEnvelope('home_open_create', {

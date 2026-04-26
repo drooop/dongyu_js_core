@@ -84,21 +84,32 @@ function test_model100_new_format_load() {
 // --- Test 4: IN label triggers cell_connection routing ---
 function test_in_triggers_cell_connection() {
   const rt = new ModelTableRuntime();
+  rt.setRuntimeMode('edit');
   const model = rt.createModel({ id: 50, name: 'test', type: 'test' });
-  rt.addLabel(model, 0, 0, 0, {
-    k: 'routing',
-    t: 'pin.connect.cell',
-    v: [{ from: [0, 0, 0, 'cmd'], to: [[1, 0, 0, 'input']] }],
-  });
+  rt.applyPatch({
+    version: 'mt.v0',
+    records: [{
+      op: 'add_label',
+      model_id: model.id,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'routing',
+      t: 'pin.connect.cell',
+      v: [{ from: [0, 0, 0, 'cmd'], to: [[1, 0, 0, 'input']] }],
+    }],
+  }, { trustedBootstrap: true });
 
+  rt.setRuntimeMode('running');
   // Write IN to (0,0,0) — should route to (1,0,0) via cell_connection
-  rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: 'hello' });
+  const payload = [{ id: 0, p: 0, r: 0, c: 0, k: 'message', t: 'str', v: 'hello' }];
+  rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: payload });
 
   const target = rt.getCell(model, 1, 0, 0);
   const label = target.labels.get('input');
   assert(label, 'IN should route via cell_connection to target cell');
   assert.strictEqual(label.t, 'pin.in');
-  assert.strictEqual(label.v, 'hello');
+  assert.deepStrictEqual(label.v, payload);
   return { key: 'in_triggers_cell_connection', status: 'PASS' };
 }
 

@@ -3159,7 +3159,7 @@
       "k": "prepare_workspace_filltable_submit",
       "t": "func.js",
       "v": {
-        "code": "/* rubric: P4+P9+P10+P5 */ const event = ((ctx.hostApi.readCrossModel(1010, 0, 0, 2, 'bus_event') || {}).data || {}).v;\nif (!event || typeof event !== 'object') return;\nctx.hostApi.writeCrossModel(1010, 1, 0, 0, 'confirm', 'pin.in', event);\nctx.hostApi.writeCrossModel(1010, 0, 0, 2, 'bus_event', 'event', null);",
+        "code": "/* rubric: P4+P9+P10+P5 */ const event = ((ctx.hostApi.readCrossModel(1010, 0, 0, 2, 'bus_event') || {}).data || {}).v;\nif (!event || typeof event !== 'object') return;\nconst triggerPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source_event', t: 'json', v: event }\n];\nctx.hostApi.writeCrossModel(1010, 1, 0, 0, 'confirm', 'pin.in', triggerPayload);\nctx.hostApi.writeCrossModel(1010, 0, 0, 2, 'bus_event', 'event', null);",
         "modelName": "workspace_filltable_example"
       }
     },
@@ -12410,7 +12410,7 @@
       "k": "prepare_matrix_phase1_login",
       "t": "func.js",
       "v": {
-        "code": "/* rubric: P4+P9+P10+P5+P7 */ const root={model_id:1017,p:0,r:0,c:0};const event=((ctx.hostApi.readCrossModel(1017, 0, 0, 2, 'bus_event') || {}).data || {}).v;if(!event||typeof event!=='object')return;ctx.hostApi.writeCrossModel(1017, 1, 0, 0, 'login', 'pin.in', event);ctx.hostApi.writeCrossModel(1017, 0, 0, 2, 'bus_event', 'event', null);const hs=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'homeserver_url_draft') || {}).data || {}).v||'').trim();const username=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'username_draft') || {}).data || {}).v||'').trim();const password=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'password_draft') || {}).data || {}).v||'');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', 'authenticating');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', '');return Promise.resolve(ctx.hostApi.matrixUserLogin(hs,username,password)).then(function(result){if(!result||result.ok!==true){const code=result&&result.code?String(result.code):'login_failed';ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_authenticated', 'bool', false);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', code);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', code);return;}const data=result.data&&typeof result.data==='object'?result.data:{};ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_authenticated', 'bool', true);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_user_id', 'str', String(data.userId||''));ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_display_name', 'str', String(data.displayName||''));ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_homeserver_url', 'str', String(data.homeserverUrl||hs));ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', 'authenticated');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', '');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'password_draft', 'str', '');}).catch(function(err){const detail=String(err&&err.message?err.message:err);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_authenticated', 'bool', false);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', 'login_failed');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', detail);});",
+        "code": "/* rubric: P4+P9+P10+P5+P7 */ const root={model_id:1017,p:0,r:0,c:0};const event=((ctx.hostApi.readCrossModel(1017, 0, 0, 2, 'bus_event') || {}).data || {}).v;if(!event||typeof event!=='object')return;const triggerPayload=[{id:0,p:0,r:0,c:0,k:'__mt_payload_kind',t:'str',v:'ui_event.v1'},{id:0,p:0,r:0,c:0,k:'source_event',t:'json',v:event}];ctx.hostApi.writeCrossModel(1017, 1, 0, 0, 'login', 'pin.in', triggerPayload);ctx.hostApi.writeCrossModel(1017, 0, 0, 2, 'bus_event', 'event', null);const hs=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'homeserver_url_draft') || {}).data || {}).v||'').trim();const username=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'username_draft') || {}).data || {}).v||'').trim();const password=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'password_draft') || {}).data || {}).v||'');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', 'authenticating');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', '');return Promise.resolve(ctx.hostApi.matrixUserLogin(hs,username,password)).then(function(result){if(!result||result.ok!==true){const code=result&&result.code?String(result.code):'login_failed';ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_authenticated', 'bool', false);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', code);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', code);return;}const data=result.data&&typeof result.data==='object'?result.data:{};ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_authenticated', 'bool', true);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_user_id', 'str', String(data.userId||''));ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_display_name', 'str', String(data.displayName||''));ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_homeserver_url', 'str', String(data.homeserverUrl||hs));ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', 'authenticated');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', '');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'password_draft', 'str', '');}).catch(function(err){const detail=String(err&&err.message?err.message:err);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_authenticated', 'bool', false);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'session_status', 'str', 'login_failed');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'login_error', 'str', detail);});",
         "modelName": "matrix_userline_phase1"
       }
     },
@@ -16562,6 +16562,3289 @@
         "r": 0,
         "c": 0,
         "k": "status"
+      }
+    },
+    {
+      "op": "create_model",
+      "model_id": 1036,
+      "name": "Mgmt Bus Console",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mgmt_bus_console_send_route",
+      "t": "pin.connect.model",
+      "v": [
+        {
+          "from": [
+            0,
+            "mgmt_bus_console_send"
+          ],
+          "to": [
+            [
+              -10,
+              "mgmt_bus_console_intent"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mgmt_bus_console_refresh_route",
+      "t": "pin.connect.model",
+      "v": [
+        {
+          "from": [
+            0,
+            "mgmt_bus_console_refresh"
+          ],
+          "to": [
+            [
+              -10,
+              "mgmt_bus_console_refresh_intent"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.MgmtBusConsole"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "Mgmt Bus Console"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "k8s-worker"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_capable",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "workspace.page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "mgmt_bus_console_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "selected_subject",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "selected_subject_id",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "selected_event_id",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "subject_filter",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "timeline_filter",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "timeline_sort",
+      "t": "str",
+      "v": "newest_first"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "inspector_tab",
+      "t": "str",
+      "v": "event"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "composer_action",
+      "t": "str",
+      "v": "send"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "composer_draft",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "target_user_id",
+      "t": "str",
+      "v": "@mbr:localhost"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "message_status",
+      "t": "str",
+      "v": "idle"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "last_sent_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "route_status",
+      "t": "str",
+      "v": "monitoring"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "subject_projection_rows_json",
+      "t": "json",
+      "v": []
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "timeline_projection_rows_json",
+      "t": "json",
+      "v": []
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "route_projection_rows_json",
+      "t": "json",
+      "v": []
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "timeline_text",
+      "t": "str",
+      "v": "Timeline projection reads existing bus/debug truth. The console does not copy Matrix room state."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "inspector_text",
+      "t": "str",
+      "v": "Send path: UI event -> bus_event_v2 -> Model 0 pin.bus.in -> pin route -> management target."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_console_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 14
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_console_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "Mgmt Bus Console"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_style_font_size",
+      "t": "str",
+      "v": "24px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_style_font_weight",
+      "t": "str",
+      "v": "700"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 0,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_header_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 0,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 0,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_console_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 0,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 0,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "ROUTE"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 0,
+      "c": 1,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": -2,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "mgmt_bus_console_route_status"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_main"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_console_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 14
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_subjects"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_main"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 1,
+      "k": "ui_title",
+      "t": "str",
+      "v": "Subjects / Rooms"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 1,
+      "k": "ui_style_flex",
+      "t": "str",
+      "v": "0 0 280px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_timeline"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_main"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 2,
+      "k": "ui_title",
+      "t": "str",
+      "v": "Event Timeline"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 2,
+      "k": "ui_style_flex",
+      "t": "str",
+      "v": "1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_inspector"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_main"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 3,
+      "k": "ui_title",
+      "t": "str",
+      "v": "Inspector / Route Status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 1,
+      "c": 3,
+      "k": "ui_style_flex",
+      "t": "str",
+      "v": "0 0 340px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_composer"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_console_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "Composer"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_subject_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_subjects"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_subjects_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TabPane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_subject_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Subjects",
+        "name": "subjects"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_subject_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_subjects_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_data_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_data_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_data_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_data_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 2,
+      "k": "ui_data_ref_k",
+      "t": "str",
+      "v": "mgmt_bus_console_subject_rows_json"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_subject_col_label"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_subject_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 3,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Subject"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 3,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "label"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_subject_col_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_subject_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 4,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_timeline_terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_timeline"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "timeline"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": -2,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "mgmt_bus_console_timeline_text"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_event_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_timeline"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 5
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_data_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_data_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_data_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_data_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_data_ref_k",
+      "t": "str",
+      "v": "mgmt_bus_console_event_rows_json"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_event_col_time"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_event_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Time"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "ts_ms"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_event_col_direction"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_event_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Dir"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "direction"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_event_col_source"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_event_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Source"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "source"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 5,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_event_col_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 5,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 5,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_event_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 5,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 5,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 5,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 6,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_event_col_preview"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 6,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 6,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_event_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 6,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 6,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Preview"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 4,
+      "c": 6,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "preview"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_inspector_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_inspector"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_event_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TabPane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_inspector_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Event",
+        "name": "event"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_event_terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_event_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 2,
+      "k": "ui_title",
+      "t": "str",
+      "v": "event"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 2,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": -2,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "mgmt_bus_console_inspector_text"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 8,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_selected_event_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 8,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 8,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_event_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 8,
+      "k": "ui_order",
+      "t": "int",
+      "v": 5
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 8,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Selected event id"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 8,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1036,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "selected_event_id"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": 1036,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "selected_event_id"
+          },
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 9,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_event_inspector_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 9,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 9,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_event_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 9,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 9,
+      "k": "ui_data_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 9,
+      "k": "ui_data_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 9,
+      "k": "ui_data_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 9,
+      "k": "ui_data_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 9,
+      "k": "ui_data_ref_k",
+      "t": "str",
+      "v": "mgmt_bus_console_event_inspector_json"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 10,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_event_inspector_col_field"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 10,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 10,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_event_inspector_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 10,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 10,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Field"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 10,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "field"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 11,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_event_inspector_col_value"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 11,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 11,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_event_inspector_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 11,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 11,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Value"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 11,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "value"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 12,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_event_inspector_terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 12,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 12,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_event_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 12,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 12,
+      "k": "ui_title",
+      "t": "str",
+      "v": "event projection"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 12,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": -2,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "mgmt_bus_console_event_inspector_text"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_route_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TabPane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_inspector_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 3,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Route",
+        "name": "route"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_route_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_route_pane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 4,
+      "k": "ui_data_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 4,
+      "k": "ui_data_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 4,
+      "k": "ui_data_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 4,
+      "k": "ui_data_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 4,
+      "k": "ui_data_ref_k",
+      "t": "str",
+      "v": "mgmt_bus_console_route_rows_json"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 5,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_route_col_route"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 5,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 5,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_route_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 5,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 5,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Route"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 5,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "route"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 6,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_route_col_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 6,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 6,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_route_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 6,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 6,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 6,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 7,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_route_col_target"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 7,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 7,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_route_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 7,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 7,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Target"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 5,
+      "c": 7,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "target"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_composer_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_composer"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_style_align_items",
+      "t": "str",
+      "v": "center"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 5,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_target_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 5,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 5,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_composer_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 5,
+      "k": "ui_order",
+      "t": "int",
+      "v": 5
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 5,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "@mbr:<host_url>"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 5,
+      "k": "ui_style_width",
+      "t": "str",
+      "v": "170px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 5,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1036,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "target_user_id"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": 1036,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "target_user_id"
+          },
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_composer_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_composer_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Write a management bus message"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_style_flex",
+      "t": "str",
+      "v": "1 1 260px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_style_min_width",
+      "t": "str",
+      "v": "260px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1036,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "composer_draft"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": 1036,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "composer_draft"
+          },
+          "commit_policy": "on_submit"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_send_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_composer_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Send"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "primary",
+        "size": "small"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "bus_event_v2": true,
+          "bus_in_key": "mgmt_bus_console_send",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "mgmt_bus_console.send.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "source_model_id",
+              "t": "int",
+              "v": 1036
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "target_user_id",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1036,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "target_user_id"
+                }
+              }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "selected_subject",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1036,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "selected_subject"
+                }
+              }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "draft",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1036,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "composer_draft"
+                }
+              }
+            }
+          ],
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_refresh_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_composer_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 25
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Refresh"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "default",
+        "size": "small"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "bus_event_v2": true,
+          "bus_in_key": "mgmt_bus_console_refresh",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "mgmt_bus_console.refresh.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "source_model_id",
+              "t": "int",
+              "v": 1036
+            }
+          ],
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_composer_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_composer_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 3,
+      "k": "ui_label",
+      "t": "str",
+      "v": "SEND"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 6,
+      "c": 3,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": 1036,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "message_status"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_composer_actions_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_composer"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_data_ref_model_id",
+      "t": "int",
+      "v": -2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_data_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_data_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_data_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_data_ref_k",
+      "t": "str",
+      "v": "mgmt_bus_console_composer_actions_json"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_composer_action_col_action"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_composer_actions_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Action"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "action"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_composer_action_col_kind"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_composer_actions_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Payload"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "payload_kind"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_composer_action_col_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_composer_actions_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 3,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 7,
+      "c": 3,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "mgmt_bus_message_transcript"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "mgmt_bus_composer"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "MBR Message Transcript"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_bind_read_json",
+      "t": "json",
+      "v": {
+        "model_id": -2,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "mgmt_bus_console_message_transcript"
       }
     }
   ]

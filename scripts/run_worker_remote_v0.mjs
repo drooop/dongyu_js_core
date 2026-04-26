@@ -58,9 +58,10 @@ function main() {
       "const baseRecords = Array.isArray(patch.records) ? patch.records.slice() : [];",
       "baseRecords.push({ op: 'add_label', model_id: 1, p: 0, r: 0, c: 0, k: 'slide_demo_text', t: 'str', v: 'ACK:' + String(v) });",
       "const ack = { version: 'mt.v0', op_id: String(patch.op_id || '') + '#ack', records: baseRecords };",
-      "ctx.writeLabel({ model_id: mid, p: 0, r: 1, c: 1, k: 'patch_out' }, 'pin.out', ack);",
+      "const ackPayload = [{ id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'remote_patch_ack.v1' }, { id: 0, p: 0, r: 0, c: 0, k: 'op_id', t: 'str', v: String(ack.op_id || '') }, { id: 0, p: 0, r: 0, c: 0, k: 'slide_demo_text', t: 'str', v: 'ACK:' + String(v) }, { id: 0, p: 0, r: 0, c: 0, k: 'patch', t: 'json', v: ack }];",
+      "ctx.hostApi.writeCrossModel(mid, 0, 1, 1, 'patch_out', 'pin.out', ackPayload);",
       "try { console.log('[remote-worker] applied patch and queued OUT', { in_op_id: String(patch.op_id || ''), out_op_id: String(ack.op_id || '') }); } catch (_) {}",
-      "ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_remote_apply_patch_in' });",
+      "ctx.hostApi.rmCrossModel(-10, 0, 0, 0, 'run_remote_apply_patch_in');",
     ].join(' '), modelName: 'run_worker_remote_v0' },
   });
 

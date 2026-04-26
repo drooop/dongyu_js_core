@@ -2,7 +2,7 @@
 title: "Imported Slide App Host Ingress Semantics v1"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-04-26
 source: ai
 ---
 
@@ -36,7 +36,7 @@ source: ai
 
 为准。
 
-当前实现里，前端 pin 事件仍可直达目标 cell 的目标 pin；本页定义的是后续 imported app 应收敛到的 **宿主正式 ingress** 语义。
+0326 之后的 current truth 是：正式业务入口经 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.in`，再由 pin route 转给目标模型。早期 direct target-cell 入口只作为 historical / superseded 口径保留在旧 iteration 记录中，不再是本页 current behavior。
 
 ## 1. 为什么需要这份规约
 
@@ -57,12 +57,12 @@ source: ai
 
 本页只裁决这 3 件事。
 
-## 2. 当前事实与候选规约的分界
+## 2. 当前事实与正式规约的分界
 
 ### 2.1 当前事实
 
-- 前端 pin 事件可以直接写目标模型、目标单元格、目标 pin。
-- 并不是所有正式事件都已经统一先进 `Model 0`。
+- 前端正式业务事件提交为 `bus_event_v2`。
+- `Model 0 (0,0,0) pin.bus.in` 是正式业务 ingress 的统一入口。
 - imported app 导入后，可以自己定义内部 pin 链、helper、root relay。
 - 输入草稿、本地 overlay、on_blur / on_submit 延后同步已经成立。
 
@@ -101,7 +101,7 @@ source: ai
 
 ### 3.2 必须视为宿主正式 ingress 的事件
 
-以下事件属于 **正式业务 ingress**，候选规约要求统一进入宿主入口：
+以下事件属于 **正式业务 ingress**，必须统一进入宿主入口：
 
 - submit
 - confirm
@@ -353,30 +353,34 @@ v1 当前还要求：
 
 这份规约的直接影响是：
 
-- 现有总览页、导入页、执行型导入页后续可以引用它
-- 但在实现真正变化前，不应把本页内容改写成“当前已实现事实”
+- 现有总览页、导入页、执行型导入页应引用它作为 current truth
+- 文档必须区分本地 UI 草稿 / overlay 与正式业务 ingress
+- 文档不得继续把 early direct target-cell path 写成当前正式业务入口
 
-尤其要避免把下面这句话提前写成现状：
+当前必须写成现状的是：
 
-- “所有正式业务事件已经统一经 Model 0 ingress”
+- 所有正式业务 ingress 经 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.in`
+- imported app 的 host ingress adapter 由宿主在安装时补齐
+- imported app 内部后续 relay 仍由 app 自己定义
 
-在对应实现迭代完成前，这仍然只是候选架构，不是 live code 事实。
+历史 direct-pin 口径只能作为 historical / superseded 说明出现在旧 iteration 记录中，不能出现在 current user-guide / SSOT 的正文里。
 
-## 8. 下一步实现题目
+## 8. 后续扩展题目
 
-如果进入实现阶段，后续迭代至少要回答：
+current v1 已经落地 `submit` 语义和 `root_relative_cell` locator。后续扩展仍需回答：
 
-1. imported app 的边界 pin 如何声明成可导入的正式结构
-2. 安装时宿主如何自动生成 host adapter
-3. 哪些现有 direct-pin path 要继续保留，哪些 imported app path 要改成统一 ingress
+1. `submit` 之外的 semantic 如何声明和验证
+2. `root_relative_cell` 之外的 locator form 是否需要支持
+3. 多边界 pin 时 primary / fallback / conflict 规则如何定义
+4. host adapter 清理失败时如何记录和恢复
 
-在这三件事未落地前，本页只作为 **候选正式架构冻结** 使用。
+这些是 v1 之后的扩展题目，不影响当前正式业务 ingress 已收口到 Model 0。
 
 ---
 
 ## 9. Egress 对称扩展（0322 实装）
 
-0320 ingress 冻结 + 0321 ingress 实装之后，0322 把同样的"声明 + 宿主补 adapter"模式扩展到出站。下列内容是 live code 事实，不再是候选。
+0320 ingress 冻结 + 0321 ingress 实装之后，0322 把同样的"声明 + 宿主补 adapter"模式扩展到出站。下列内容是 live code 事实。
 
 ### 9.1 imported app 侧的 egress 声明
 

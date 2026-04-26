@@ -2,7 +2,7 @@
 title: "DAM Worker 开发指南：软件工人与总线交互架构"
 doc_type: handover
 status: active
-updated: 2026-04-21
+updated: 2026-04-27
 source: ai
 ---
 
@@ -22,8 +22,8 @@ source: ai
 ```
 ┌──────────┐      HTTP         ┌──────────────┐     Matrix (dy.bus.v0)    ┌────────────┐
 │  滑动 UI  │ ──────────────→  │  UI Server    │ ←─────────────────────→  │ MBR Worker │
-│ (Vue3)   │ POST /bus_event  │  (Bun)        │   管理总线：事件转发      │ (Node.js)  │
-└──────────┘  GET  /snapshot   └──────────────┘   心跳、snapshot_delta    └─────┬──────┘
+│ (Vue3)   │ POST /bus_event  │  (Bun)        │   管理总线：pin_payload   │ (Node.js)  │
+└──────────┘  GET  /snapshot   └──────────────┘   心跳、回包投影          └─────┬──────┘
                                                                                │
                                                                          MQTT (mt.v0)
                                                                          控制总线
@@ -38,8 +38,8 @@ source: ai
 
 | 总线 | 协议 | 传输内容 | 两端 |
 |------|------|----------|------|
-| 管理总线 | Matrix 自定义事件 `dy.bus.v0` | 事件转发、心跳、patch 回写 | Server ↔ MBR |
-| 控制总线 | MQTT + JSON | mt.v0 patch（命令与数据） | MBR ↔ K8s 软件工人 |
+| 管理总线 | Matrix 自定义事件 `dy.bus.v0` | `pin_payload v1` 事件、心跳、回包 | Server ↔ MBR |
+| 控制总线 | MQTT + JSON | `pin_payload v1` transport packet；业务内容是临时 ModelTable record array | MBR ↔ K8s 软件工人 |
 
 **你的 DAM 软件工人位于 K8s 软件工人层**，通过 MQTT 与 MBR 通信。MBR 负责 Matrix↔MQTT 的桥接，你不需要直接连 Matrix。
 
@@ -62,6 +62,7 @@ Model 0 (系统根 — 不是用户直接操作的模型)
 
 关键点：
 - MQTT 消息**只能**通过 Model 0 的 `pin.bus.in` 进入系统，不能直接写任意 Cell
+- `pin.bus.in/out` 的非空业务值必须是临时 ModelTable record array；`mt.v0 patch` 只用于部署、初始化、导入等模型表变更
 - 用户操作的是应用子模型，不直接操作 Model 0
 - 正数/负数模型使用同一套父子机制
 - 对 imported slide app，当前也开始采用宿主自动生成的 `Model 0` ingress route：
@@ -115,7 +116,7 @@ Model 0 (系统根 — 不是用户直接操作的模型)
 |-----------|------|
 | `(model_id, 0, 0, 0)` | 模型入口 — MODEL_IN/OUT、cell_connection、核心业务数据 |
 | `(model_id, 0, 0, 1)` | PIN 注册 — PIN_IN / PIN_OUT 声明 |
-| `(model_id, 1, 0, 0)` | 请求输入 — 外部通过 records `add_label` 写入的业务参数 |
+| `(model_id, 1, 0, 0)` | 请求/中间状态 — 程序模型可读写的业务参数 |
 | `(-10, 0, 0, 0)` | 系统函数 — 程序模型的 function 定义 |
 
 ### 2.3 Model — 模型表中的一张表
@@ -134,9 +135,9 @@ Model 0 (系统根 — 不是用户直接操作的模型)
 
 ---
 
-## 3. mt.v0 Patch 格式
+## 3. mt.v0 Patch 格式（部署/初始化，不是业务 pin payload）
 
-**这是总线上传递的核心数据格式。** 所有模型表变更都通过 patch 描述。
+`mt.v0 patch` 用于模型表部署、初始化、导入和受控维护操作。它不是当前正式业务 `pin.in/out`、`pin.bus.in/out` 的 value 格式。正式业务 pin 的非空 value 必须是临时 ModelTable record array，见第 6 节和第 8.3 节。
 
 ```json
 {
@@ -161,7 +162,7 @@ Model 0 (系统根 — 不是用户直接操作的模型)
 | `rm_label` | `model_id`, `p`, `r`, `c`, `k` | 删除 label |
 | `cell_clear` | `model_id`, `p`, `r`, `c` | 清空 cell |
 
-**核心原则：** 所有业务参数一律通过 `records` 中的 `add_label` 写入请求 Cell，包括 `action` 标识。信封只有 `version` + `op_id` + `records` 三个字段。
+**核心原则：** `mt.v0 patch` 可以描述模型表结构变更；业务运行时参数不要用 `{ version:"mt.v0", records:[...] }` 作为 pin payload，也不要在正式 pin payload 里携带 `op` / `model_id`。
 
 ---
 
@@ -180,7 +181,7 @@ MQTT 与系统内部的唯一接口，位于 Model 0 的 (0,0,0)。
 ```
 
 - `pin.bus.in.k` = 本地端口名（如 `dam_register`），运行时从 Model -10 读配置，拼接完整 MQTT topic
-- MQTT 消息到达时，运行时写入 `pin.bus.in.v`
+- MQTT 消息到达时，运行时写入 `pin.bus.in.v`；非空值必须是临时 ModelTable record array
 - 写入 `pin.bus.out.v` 时，运行时自动拼接 topic 后发布到 MQTT
 - **你不需要手动处理 MQTT topic 构造**，只需声明 `pin.bus.in` / `pin.bus.out` 端口名
 
@@ -283,14 +284,15 @@ UIPUT/{dir}/{ws}/{dam}/{pic}/{de}/{sw}/{model}/{pin}
 ② 前端通过 UI 触发注册命令
    POST /bus_event（legacy `/ui_event` alias）→ Server → Matrix Room → MBR Worker
 
-③ MBR 构造 mt.v0 patch:
-   records = [
-     { op: "add_label", model_id: 1010, p: 1, r: 0, c: 0,
-       k: "action", t: "str", v: "register_asset" },
-     { op: "add_label", model_id: 1010, p: 1, r: 0, c: 0,
+③ MBR 转发 pin_payload v1 transport packet:
+   payload = [
+     { id: 0, p: 0, r: 0, c: 0,
+       k: "__mt_payload_kind", t: "str", v: "dam.register_asset.v1" },
+     { id: 0, p: 0, r: 0, c: 0,
        k: "mxc", t: "str", v: "mxc://localhost/AaBbCcDd" },
      ...
    ]
+   其中 payload 是临时 ModelTable record array，不携带 op/model_id。
 
 ④ MBR 发布到 MQTT → topic 由运行时配置决定
    → 到达 Model 0 的 `pin.bus.in(k="dam_register")`
@@ -302,9 +304,9 @@ UIPUT/{dir}/{ws}/{dam}/{pic}/{de}/{sw}/{model}/{pin}
 ⑥ Cell(2,0,0) 的 CELL_CONNECT 路由:
    (self, register_cmd) → (func, handle_register:in)
    函数 handle_register 执行:
-   - 读请求 Cell (1010, 1, 0, 0) 的 action/mxc/name 等参数
+   - 从输入 label.v 的临时 ModelTable record array 读取 mxc/name 等参数
    - 建立资产索引
-   - 构造响应 patch
+   - 构造响应 payload
 
 ⑦ CELL_CONNECT 路由函数输出:
    (func, handle_register:out) → (self, register_result)
@@ -315,7 +317,7 @@ UIPUT/{dir}/{ws}/{dam}/{pic}/{de}/{sw}/{model}/{pin}
 
 ⑨ MBR 收到 MQTT → 封装为 Matrix dy.bus.v0 → Server
 
-⑩ Server applyPatch → 更新 Model 1010 状态 → 广播 snapshot 给前端
+⑩ Server 校验回包 → owner materialization 更新 Model 1010 投影状态 → 广播 snapshot 给前端
 ```
 
 ---
@@ -324,21 +326,29 @@ UIPUT/{dir}/{ws}/{dam}/{pic}/{de}/{sw}/{model}/{pin}
 
 ### 7.1 编译与运行
 
-程序模型的 `function` label（v = JS 代码字符串）在 init 阶段被编译为 AsyncFunction：
+程序模型的 `function` label（v = JS 代码字符串）在 init 阶段被编译为受限函数：
 
 ```javascript
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-const fn = new AsyncFunction('ctx', 'label', userCode);
+const fn = new AsyncFunction('ctx', 'label', 'V1N', userCode);
 ```
 
-运行时通过 CELL_CONNECT 触发函数，传入受限上下文 `ctx`：
+运行时通过 CELL_CONNECT 触发函数，传入受限上下文 `ctx` 与 `V1N`。用户函数不再提供 `ctx.getLabel` / `ctx.writeLabel` / `ctx.rmLabel` 兼容 API：
 
 ```javascript
-// ctx 提供的 API（白名单）
-ctx.getLabel({ model_id, p, r, c, k })     // 读 label
-ctx.writeLabel({ model_id, p, r, c, k }, t, v)  // 写 label
-ctx.rmLabel({ model_id, p, r, c, k })      // 删 label
-ctx.runtime                                  // ModelTableRuntime 实例
+// 当前 Cell 写入
+V1N.addLabel(k, t, v)
+V1N.removeLabel(k)
+
+// 当前 model.table 内读取或由 root privileged 函数写入
+V1N.readLabel(p, r, c, k)
+V1N.table.addLabel(p, r, c, k, t, v)
+V1N.table.removeLabel(p, r, c, k)
+
+// 系统桥能力只通过显式 hostApi 暴露，不能作为普通业务跨模型直写入口
+ctx.hostApi.readCrossModel(model_id, p, r, c, k)
+ctx.hostApi.writeCrossModel(model_id, p, r, c, k, t, v)
+ctx.hostApi.rmCrossModel(model_id, p, r, c, k)
 ```
 
 ### 7.2 超时与错误处理
@@ -393,38 +403,33 @@ DAM 只关心: mxc://server/mediaId（文件的稳定引用地址）
 **注册资产：**
 
 ```json
-// MBR 通过 `pin.bus.in` 发送到系统，records 写入请求 Cell (1010, 1, 0, 0)
-{
-  "version": "mt.v0",
-  "op_id": "reg_1770535046849",
-  "records": [
-    { "op": "add_label", "model_id": 1010, "p": 1, "r": 0, "c": 0,
-      "k": "action", "t": "str", "v": "register_asset" },
-    { "op": "add_label", "model_id": 1010, "p": 1, "r": 0, "c": 0,
-      "k": "mxc", "t": "str", "v": "mxc://localhost/AaBbCcDd" },
-    { "op": "add_label", "model_id": 1010, "p": 1, "r": 0, "c": 0,
-      "k": "name", "t": "str", "v": "site-v2.zip" },
-    { "op": "add_label", "model_id": 1010, "p": 1, "r": 0, "c": 0,
-      "k": "mime", "t": "str", "v": "application/zip" },
-    { "op": "add_label", "model_id": 1010, "p": 1, "r": 0, "c": 0,
-      "k": "size", "t": "int", "v": 2048000 }
-  ]
-}
+// MBR 通过 `pin.bus.in` 发送到系统；value 是临时 ModelTable record array
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0,
+    "k": "__mt_payload_kind", "t": "str", "v": "dam.register_asset.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0,
+    "k": "mxc", "t": "str", "v": "mxc://localhost/AaBbCcDd" },
+  { "id": 0, "p": 0, "r": 0, "c": 0,
+    "k": "name", "t": "str", "v": "site-v2.zip" },
+  { "id": 0, "p": 0, "r": 0, "c": 0,
+    "k": "mime", "t": "str", "v": "application/zip" },
+  { "id": 0, "p": 0, "r": 0, "c": 0,
+    "k": "size", "t": "int", "v": 2048000 }
+]
 ```
 
 **DAM 响应：**
 
 ```json
 // 通过 `pin.bus.out` 回传到 MQTT
-{
-  "version": "mt.v0",
-  "op_id": "reg_ack_1770535046850",
-  "records": [
-    { "op": "add_label", "model_id": 1010, "p": 0, "r": 0, "c": 0,
-      "k": "last_registered", "t": "json",
-      "v": { "asset_id": "AaBbCcDd", "status": "registered" } }
-  ]
-}
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0,
+    "k": "__mt_payload_kind", "t": "str", "v": "dam.register_asset_ack.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0,
+    "k": "asset_id", "t": "str", "v": "AaBbCcDd" },
+  { "id": 0, "p": 0, "r": 0, "c": 0,
+    "k": "status", "t": "str", "v": "registered" }
+]
 ```
 
 ### 8.4 mxc:// URI 说明
@@ -492,15 +497,16 @@ MBR Worker（`scripts/run_worker_mbr_v0.mjs`）负责 Matrix ↔ MQTT 桥接：
 
 1. 收到 Matrix `dy.bus.v0` 事件
 2. 解析 `source_model_id`，查询路由规则（`mbr_route_<modelId>` label）
-3. 构造 mt.v0 patch
-4. 发布到 MQTT（运行时拼接 topic）
+3. 校验 `pin_payload v1` transport packet，要求其中业务 `payload` 是临时 ModelTable record array
+4. 拒绝携带 legacy `op` / `model_id` 或缺少 `v` 的 payload record
+5. 发布到 MQTT（运行时拼接 topic）
 
 ### MQTT → Matrix
 
 1. 收到 MQTT 消息
-2. 验证 mt.v0 格式 + op_id 去重
-3. 封装为 `{ version:"v0", type:"snapshot_delta", payload:<patch> }`
-4. 发送到 Matrix room → Server applyPatch
+2. 验证 `pin_payload v1` transport packet 与嵌套临时 ModelTable record array
+3. 以 `MGMT_OUT` / `pin_payload` 形式回到 Matrix
+4. Server 校验后由 owner materialization 更新目标模型投影
 
 ---
 
@@ -525,7 +531,7 @@ MBR Worker（`scripts/run_worker_mbr_v0.mjs`）负责 Matrix ↔ MQTT 桥接：
 
 5. **编写 Server 侧 JSON**
    - 相同 model_id 的 create_model
-   - 接收回写 patch 的处理函数
+   - 接收回包 `pin_payload` 并更新投影的处理函数
 
 6. **注册 MBR 路由**
    - 在 `system_models.json` 中添加 `mbr_route_1010` label

@@ -10,9 +10,25 @@ export function createRemoteStore(options) {
   const snapshot = reactive({ models: {}, v1nConfig: { local_mqtt: null, global_mqtt: null } });
 const overlayStore = reactive(new Map());
 const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
+const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
 
   const EDITOR_MODEL_ID = -1;
   const EDITOR_STATE_MODEL_ID = -2;
+  const MGMT_BUS_CONSOLE_MODEL_ID = 1036;
+  const MGMT_BUS_CONSOLE_LOCAL_STATE_KEYS = new Set([
+    'selected_subject',
+    'selected_subject_id',
+    'selected_event_id',
+    'subject_filter',
+    'timeline_filter',
+    'timeline_sort',
+    'inspector_tab',
+    'composer_draft',
+    'composer_action',
+    'target_user_id',
+    'last_refresh_requested_at',
+    'last_ui_error',
+  ]);
 
   let pauseSse = false;
   let pendingSseSnapshot = null;
@@ -171,6 +187,15 @@ const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
   function isNegativeLocalStateTarget(target) {
     const modelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
     if (modelId === null) return false;
+    if (
+      modelId === MGMT_BUS_CONSOLE_MODEL_ID
+      && target.p === 0
+      && target.r === 0
+      && target.c === 0
+      && MGMT_BUS_CONSOLE_LOCAL_STATE_KEYS.has(target.k)
+    ) {
+      return true;
+    }
     return modelId < 0 && modelId !== EDITOR_MODEL_ID;
   }
 
@@ -405,8 +430,11 @@ const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
 
   async function postEnvelope(envelope, options = {}) {
     let resp;
+    const endpointPath = typeof options.endpointPath === 'string' && options.endpointPath
+      ? options.endpointPath
+      : BUS_EVENT_ENDPOINT_PATH;
     try {
-      resp = await fetch(`${baseUrl}${BUS_EVENT_ENDPOINT_PATH}`, {
+      resp = await fetch(`${baseUrl}${endpointPath}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -448,7 +476,7 @@ const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
     }
     if (data && data.code === 'runtime_not_running' && options.retried !== true) {
       await ensureRuntimeRunning();
-      return postEnvelope(envelope, { retried: true });
+      return postEnvelope(envelope, { ...options, retried: true });
     }
     if (data && data.snapshot) applySnapshot(data.snapshot);
     return data;
@@ -466,7 +494,7 @@ const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
     const drafts = Array.from(pendingDraftByKey.values());
     pendingDraftByKey.clear();
     for (const env of drafts) {
-      sendQueue = sendQueue.then(() => postEnvelope(env)).catch(() => {
+      sendQueue = sendQueue.then(() => postEnvelope(env, { endpointPath: LOCAL_UI_EVENT_ENDPOINT_PATH })).catch(() => {
         // keep queue alive
       });
     }

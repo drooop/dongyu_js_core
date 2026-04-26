@@ -6,47 +6,60 @@ import assert from 'node:assert';
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
 
-function wait(ms = 30) {
+function wait(ms = 50) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function setRunning(rt) {
-  rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
 }
 
-async function executeFunc(rt, model, p, r, c, code, inputValue = 'go', opts = {}) {
+async function executeFunc(
+  rt,
+  model,
+  p,
+  r,
+  c,
+  code,
+  inputValue = [{ id: 0, p: 0, r: 0, c: 0, k: 'trigger', t: 'str', v: 'go' }],
+  opts = {},
+) {
+  const pinPayload = Array.isArray(inputValue)
+    ? inputValue
+    : [{ id: 0, p: 0, r: 0, c: 0, k: 'trigger', t: 'str', v: String(inputValue) }];
+  rt.setRuntimeMode('edit');
+  const records = [];
   if (opts.rootType) {
-    rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: opts.rootType, v: opts.rootType === 'model.matrix' ? 'Data.Array' : 'Flow' });
+    records.push({ op: 'add_label', model_id: model.id, p: 0, r: 0, c: 0, k: 'model_type', t: opts.rootType, v: opts.rootType === 'model.matrix' ? 'Data.Array' : 'Flow' });
   }
-  if (opts.cellType) {
-    rt.addLabel(model, p, r, c, { k: 'model_type', t: opts.cellType, v: opts.cellType === 'model.matrix' ? 'Data.Array' : 'Flow' });
-  }
-  if (opts.privileged === true) {
-    rt.addLabel(model, p, r, c, { k: 'scope_privileged', t: 'bool', v: true });
-  }
-  if (opts.matrixBounds) {
-    for (const [k, v] of Object.entries(opts.matrixBounds)) {
-      rt.addLabel(model, p, r, c, { k, t: 'int', v });
-    }
-  }
-  rt.addLabel(model, p, r, c, {
+  records.push({
+    op: 'add_label',
+    model_id: model.id,
+    p,
+    r,
+    c,
     k: 'wiring',
     t: 'pin.connect.label',
     v: [{ from: '(self, cmd)', to: ['(func, op:in)'] }],
   });
-  rt.addLabel(model, p, r, c, {
+  records.push({
+    op: 'add_label',
+    model_id: model.id,
+    p,
+    r,
+    c,
     k: 'op',
     t: 'func.js',
     v: { code, modelName: 'test_0245_scoped_privilege_runtime_contract' },
   });
+  rt.applyPatch({ version: 'mt.v0', records }, { trustedBootstrap: true });
   setRunning(rt);
-  rt.addLabel(model, p, r, c, { k: 'cmd', t: 'pin.in', v: inputValue });
-  await wait(50);
+  rt.addLabel(model, p, r, c, { k: 'cmd', t: 'pin.in', v: pinPayload });
+  await wait();
   return rt.getCell(model, p, r, c).labels.get('__error_op');
 }
 
-async function test_ordinary_cell_cannot_direct_write_sibling_same_model() {
+async function test_non_root_cell_has_only_self_cell_v1n_write() {
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: 2001, name: 'ordinary_table', type: 'app' });
   const err = await executeFunc(
@@ -55,177 +68,98 @@ async function test_ordinary_cell_cannot_direct_write_sibling_same_model() {
     1,
     0,
     0,
-    "ctx.writeLabel({ model_id: 2001, p: 2, r: 0, c: 0, k: 'x' }, 'str', 'blocked');",
+    "V1N.addLabel('self_marker', 'str', 'ok'); if (typeof V1N.table !== 'undefined') { V1N.table.addLabel(2, 0, 0, 'x', 'str', 'bad'); }",
     'go',
     { rootType: 'model.table' },
   );
-  assert(err, 'ordinary_cell_must_emit_error');
-  assert.match(String(err.v.error || ''), /privilege_required/i, 'ordinary_cell_error_must_report_privilege_required');
-  const target = rt.getCell(model, 2, 0, 0).labels.get('x');
-  assert.equal(target, undefined, 'ordinary_cell_must_not_mutate_sibling');
-  return { key: 'ordinary_cell_cannot_direct_write_sibling_same_model', status: 'PASS' };
+  assert.equal(err, undefined, 'non_root_self_write_must_not_error');
+  assert.equal(rt.getCell(model, 1, 0, 0).labels.get('self_marker')?.v, 'ok', 'non-root V1N.addLabel writes current cell');
+  assert.equal(rt.getCell(model, 2, 0, 0).labels.get('x'), undefined, 'non-root cell must not expose V1N.table');
+  return { key: 'non_root_cell_has_only_self_cell_v1n_write', status: 'PASS' };
 }
 
-async function test_table_root_auto_privilege_can_write_same_model_cell() {
+async function test_v1n_write_label_requires_explicit_route() {
   const rt = new ModelTableRuntime();
-  const model = rt.createModel({ id: 2002, name: 'table_root', type: 'app' });
+  const model = rt.createModel({ id: 2002, name: 'route_required', type: 'app' });
+  const err = await executeFunc(
+    rt,
+    model,
+    1,
+    0,
+    0,
+    "V1N.writeLabel(2, 0, 0, { k: 'x', t: 'str', v: 'blocked' });",
+    'go',
+    { rootType: 'model.table' },
+  );
+  assert.equal(err, undefined, 'route_missing_is_reported_as_label_not_throw');
+  assert.equal(rt.getCell(model, 2, 0, 0).labels.get('x'), undefined, 'V1N.writeLabel must not mutate target without route');
+  assert.equal(rt.getCell(model, 1, 0, 0).labels.get('write_label_req')?.t, 'pin.out', 'V1N.writeLabel emits a ModelTable payload request');
+  assert.equal(rt.getCell(model, 1, 0, 0).labels.get('__error_write_label')?.v?.error, 'write_label_route_missing', 'missing route must be explicit');
+  return { key: 'v1n_write_label_requires_explicit_route', status: 'PASS' };
+}
+
+async function test_table_root_can_write_same_model_cell_with_table_api() {
+  const rt = new ModelTableRuntime();
+  const model = rt.createModel({ id: 2003, name: 'table_root', type: 'app' });
   const err = await executeFunc(
     rt,
     model,
     0,
     0,
     0,
-    "ctx.writeLabel({ model_id: 2002, p: 1, r: 0, c: 0, k: 'x' }, 'str', 'ok');",
+    "V1N.table.addLabel(1, 0, 0, 'x', 'str', 'ok');",
     'go',
     { rootType: 'model.table' },
   );
-  assert.equal(err, undefined, 'table_root_auto_privilege_must_not_error');
-  const target = rt.getCell(model, 1, 0, 0).labels.get('x');
-  assert(target && target.v === 'ok', 'table_root_must_mutate_same_model_cell');
-  return { key: 'table_root_auto_privilege_can_write_same_model_cell', status: 'PASS' };
+  assert.equal(err, undefined, 'table_root_table_api_must_not_error');
+  assert.equal(rt.getCell(model, 1, 0, 0).labels.get('x')?.v, 'ok', 'table root can mutate same-model cells through V1N.table');
+  return { key: 'table_root_can_write_same_model_cell_with_table_api', status: 'PASS' };
 }
 
-async function test_explicit_privileged_non_root_can_write_same_model_cell() {
+async function test_table_root_can_remove_same_model_cell_with_table_api() {
   const rt = new ModelTableRuntime();
-  const model = rt.createModel({ id: 2003, name: 'explicit_privileged', type: 'app' });
-  const err = await executeFunc(
-    rt,
-    model,
-    5,
-    0,
-    0,
-    "ctx.writeLabel({ model_id: 2003, p: 2, r: 0, c: 0, k: 'x' }, 'str', 'ok');",
-    'go',
-    { rootType: 'model.table', privileged: true },
-  );
-  assert.equal(err, undefined, 'explicit_privileged_non_root_must_not_error');
-  const target = rt.getCell(model, 2, 0, 0).labels.get('x');
-  assert(target && target.v === 'ok', 'explicit_privileged_non_root_must_mutate_same_model_cell');
-  return { key: 'explicit_privileged_non_root_can_write_same_model_cell', status: 'PASS' };
-}
-
-async function test_matrix_privileged_root_can_write_inside_matrix_scope() {
-  const rt = new ModelTableRuntime();
-  const model = rt.createModel({ id: 2004, name: 'matrix_scope', type: 'app' });
-  const err = await executeFunc(
-    rt,
-    model,
-    10,
-    0,
-    0,
-    "ctx.writeLabel({ model_id: 2004, p: 11, r: 1, c: 0, k: 'inside' }, 'str', 'ok');",
-    'go',
-    {
-      rootType: 'model.table',
-      cellType: 'model.matrix',
-      privileged: true,
-      matrixBounds: { scope_min_p: 10, scope_max_p: 12, scope_min_r: 0, scope_max_r: 2, scope_min_c: 0, scope_max_c: 1 },
-    },
-  );
-  assert.equal(err, undefined, 'matrix_privileged_root_inside_scope_must_not_error');
-  const target = rt.getCell(model, 11, 1, 0).labels.get('inside');
-  assert(target && target.v === 'ok', 'matrix_privileged_root_must_mutate_inside_scope');
-  return { key: 'matrix_privileged_root_can_write_inside_matrix_scope', status: 'PASS' };
-}
-
-async function test_matrix_privileged_root_cannot_write_outside_matrix_scope() {
-  const rt = new ModelTableRuntime();
-  const model = rt.createModel({ id: 2005, name: 'matrix_scope_outside', type: 'app' });
-  const err = await executeFunc(
-    rt,
-    model,
-    10,
-    0,
-    0,
-    "ctx.writeLabel({ model_id: 2005, p: 20, r: 0, c: 0, k: 'outside' }, 'str', 'blocked');",
-    'go',
-    {
-      rootType: 'model.table',
-      cellType: 'model.matrix',
-      privileged: true,
-      matrixBounds: { scope_min_p: 10, scope_max_p: 12, scope_min_r: 0, scope_max_r: 2, scope_min_c: 0, scope_max_c: 1 },
-    },
-  );
-  assert(err, 'matrix_privileged_root_outside_scope_must_error');
-  assert.match(String(err.v.error || ''), /matrix_scope/i, 'matrix_privileged_root_error_must_report_scope');
-  const target = rt.getCell(model, 20, 0, 0).labels.get('outside');
-  assert.equal(target, undefined, 'matrix_privileged_root_must_not_mutate_outside_scope');
-  return { key: 'matrix_privileged_root_cannot_write_outside_matrix_scope', status: 'PASS' };
-}
-
-async function test_table_root_can_write_nested_matrix_cell_same_model() {
-  const rt = new ModelTableRuntime();
-  const model = rt.createModel({ id: 2006, name: 'table_over_matrix', type: 'app' });
-  rt.addLabel(model, 10, 0, 0, { k: 'model_type', t: 'model.matrix', v: 'Data.Array' });
+  const model = rt.createModel({ id: 2004, name: 'table_root_remove', type: 'app' });
+  rt.addLabel(model, 1, 0, 0, { k: 'victim', t: 'str', v: 'remove-me' });
   const err = await executeFunc(
     rt,
     model,
     0,
     0,
     0,
-    "ctx.writeLabel({ model_id: 2006, p: 11, r: 1, c: 0, k: 'nested' }, 'str', 'ok');",
+    "V1N.table.removeLabel(1, 0, 0, 'victim');",
     'go',
     { rootType: 'model.table' },
   );
-  assert.equal(err, undefined, 'table_root_over_nested_matrix_must_not_error');
-  const target = rt.getCell(model, 11, 1, 0).labels.get('nested');
-  assert(target && target.v === 'ok', 'table_root_must_mutate_nested_matrix_cell');
-  return { key: 'table_root_can_write_nested_matrix_cell_same_model', status: 'PASS' };
+  assert.equal(err, undefined, 'table_root_remove_must_not_error');
+  assert.equal(rt.getCell(model, 1, 0, 0).labels.get('victim'), undefined, 'table root can remove same-model labels through V1N.table');
+  return { key: 'table_root_can_remove_same_model_cell_with_table_api', status: 'PASS' };
 }
 
-async function test_parent_cannot_direct_write_child_model_via_submt() {
+async function test_v1n_read_label_reads_same_model_cells() {
   const rt = new ModelTableRuntime();
-  const parent = rt.getModel(0);
-  rt.addLabel(parent, 1, 0, 0, { k: '3001', t: 'submt', v: { alias: 'child3001' } });
+  const model = rt.createModel({ id: 2005, name: 'read_same_model', type: 'app' });
+  rt.addLabel(model, 2, 0, 0, { k: 'origin', t: 'str', v: 'value' });
   const err = await executeFunc(
     rt,
-    parent,
+    model,
+    1,
     0,
     0,
-    0,
-    "ctx.writeLabel({ model_id: 3001, p: 0, r: 0, c: 0, k: 'x' }, 'str', 'blocked');",
+    "const found = V1N.readLabel(2, 0, 0, 'origin'); V1N.addLabel('read_probe', 'json', found);",
     'go',
     { rootType: 'model.table' },
   );
-  assert(err, 'parent_to_child_direct_write_must_error');
-  assert.match(String(err.v.error || ''), /cross_model|submt/i, 'parent_to_child_error_must_report_boundary');
-  const child = rt.getModel(3001);
-  const target = rt.getCell(child, 0, 0, 0).labels.get('x');
-  assert.equal(target, undefined, 'parent_must_not_mutate_child_model_directly');
-  return { key: 'parent_cannot_direct_write_child_model_via_submt', status: 'PASS' };
-}
-
-async function test_cross_model_direct_write_fails() {
-  const rt = new ModelTableRuntime();
-  const modelA = rt.createModel({ id: 2007, name: 'modelA', type: 'app' });
-  rt.createModel({ id: 2008, name: 'modelB', type: 'app' });
-  const err = await executeFunc(
-    rt,
-    modelA,
-    0,
-    0,
-    0,
-    "ctx.writeLabel({ model_id: 2008, p: 0, r: 0, c: 0, k: 'x' }, 'str', 'blocked');",
-    'go',
-    { rootType: 'model.table' },
-  );
-  assert(err, 'cross_model_direct_write_must_error');
-  assert.match(String(err.v.error || ''), /cross_model/i, 'cross_model_error_must_report_cross_model');
-  const modelB = rt.getModel(2008);
-  const target = rt.getCell(modelB, 0, 0, 0).labels.get('x');
-  assert.equal(target, undefined, 'cross_model_direct_write_must_not_mutate_target');
-  return { key: 'cross_model_direct_write_fails', status: 'PASS' };
+  assert.equal(err, undefined, 'read_same_model_must_not_error');
+  assert.deepEqual(rt.getCell(model, 1, 0, 0).labels.get('read_probe')?.v, { t: 'str', v: 'value' }, 'V1N.readLabel returns {t,v}');
+  return { key: 'v1n_read_label_reads_same_model_cells', status: 'PASS' };
 }
 
 const tests = [
-  test_ordinary_cell_cannot_direct_write_sibling_same_model,
-  test_table_root_auto_privilege_can_write_same_model_cell,
-  test_explicit_privileged_non_root_can_write_same_model_cell,
-  test_matrix_privileged_root_can_write_inside_matrix_scope,
-  test_matrix_privileged_root_cannot_write_outside_matrix_scope,
-  test_table_root_can_write_nested_matrix_cell_same_model,
-  test_parent_cannot_direct_write_child_model_via_submt,
-  test_cross_model_direct_write_fails,
+  test_non_root_cell_has_only_self_cell_v1n_write,
+  test_v1n_write_label_requires_explicit_route,
+  test_table_root_can_write_same_model_cell_with_table_api,
+  test_table_root_can_remove_same_model_cell_with_table_api,
+  test_v1n_read_label_reads_same_model_cells,
 ];
 
 (async () => {

@@ -104,9 +104,34 @@ function test_creator_ui_and_action_route_exist() {
       && record?.r === createButton.r
       && record?.c === createButton.c
       && record?.k === 'ui_bind_json'
-      && record?.v?.write?.action === 'slide_app_create'
+      && record?.v?.write?.pin === 'click'
+      && record?.v?.write?.value_t === 'modeltable'
     )),
-    'slide_creator_button_missing_slide_app_create_action',
+    'slide_creator_button_missing_click_pin_binding',
+  );
+  assert.ok(
+    findRecord(workspaceRecords, (record) => (
+      record?.model_id === SLIDE_CREATOR_APP_MODEL_ID
+      && record?.p === createButton.p
+      && record?.r === createButton.r
+      && record?.c === createButton.c
+      && record?.k === 'click_route'
+      && Array.isArray(record?.v)
+      && record.v.some((route) => Array.isArray(route?.to) && route.to.includes('(func, handle_slide_create_click:in)'))
+    )),
+    'slide_creator_button_missing_click_route',
+  );
+  assert.ok(
+    findRecord(workspaceRecords, (record) => (
+      record?.model_id === SLIDE_CREATOR_APP_MODEL_ID
+      && record?.p === createButton.p
+      && record?.r === createButton.r
+      && record?.c === createButton.c
+      && record?.k === 'handle_slide_create_click'
+      && String(record?.v?.code || '').includes('slide_app_create_request.v1')
+      && String(record?.v?.code || '').includes('slide_create_request')
+    )),
+    'slide_creator_button_missing_slide_create_request_handler',
   );
 
   assert.ok(

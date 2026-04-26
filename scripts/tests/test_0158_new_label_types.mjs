@@ -8,6 +8,10 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
 async function test_pin_connect_model_routes_bus_to_submodel() {
   const rt = new ModelTableRuntime();
   const child = rt.createModel({ id: 100, name: 'm100', type: 'app' });
@@ -18,7 +22,7 @@ async function test_pin_connect_model_routes_bus_to_submodel() {
     v: [{ from: [0, 'event'], to: [[100, 'input']] }],
   });
 
-  rt.addLabel(rt.getModel(0), 0, 0, 0, { k: 'event', t: 'pin.bus.in', v: { op_id: 'x1' } });
+  rt.addLabel(rt.getModel(0), 0, 0, 0, { k: 'event', t: 'pin.bus.in', v: [mt('__mt_payload_kind', 'str', 'test.pin.v1'), mt('op_id', 'str', 'x1')] });
   await sleep(10);
 
   const target = rt.getCell(child, 0, 0, 0).labels.get('input');
@@ -65,7 +69,7 @@ async function test_pin_connect_cell_and_pin_in_route() {
     t: 'pin.connect.cell',
     v: [{ from: [0, 0, 0, 'cmd'], to: [[1, 0, 0, 'evt']] }],
   });
-  rt.addLabel(m, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: 'hello' });
+  rt.addLabel(m, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: [mt('__mt_payload_kind', 'str', 'test.pin.v1'), mt('message', 'str', 'hello')] });
 
   await sleep(10);
   const routed = rt.getCell(m, 1, 0, 0).labels.get('evt');

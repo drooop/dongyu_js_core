@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { buildWorkerHostApi } from '../worker_engine_v0.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
@@ -33,22 +34,7 @@ function loadRuntime() {
 
 function buildCtx(rt, publishSpy) {
   return {
-    getLabel: (ref) => {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return null;
-      const cell = rt.getCell(model, ref.p, ref.r, ref.c);
-      return cell.labels.get(ref.k)?.v ?? null;
-    },
-    writeLabel: (ref, t, v) => {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.addLabel(model, ref.p, ref.r, ref.c, { k: ref.k, t, v });
-    },
-    rmLabel: (ref) => {
-      const model = rt.getModel(ref.model_id);
-      if (!model) return;
-      rt.rmLabel(model, ref.p, ref.r, ref.c, ref.k);
-    },
+    hostApi: buildWorkerHostApi(rt),
     publishMqtt: (topic, payload) => {
       publishSpy.push({ topic, payload });
     },
@@ -122,9 +108,73 @@ function test_generic_crud_events_are_rejected() {
   assert.equal(errorLabel.v?.code, 'direct_model_mutation_disabled', 'rejected generic CRUD bridge must expose direct_model_mutation_disabled');
 }
 
+function test_pin_payload_records_with_legacy_fields_are_rejected() {
+  const rt = loadRuntime();
+  const sys = rt.getModel(-10);
+  const published = [];
+
+  rt.addLabel(sys, 0, 0, 0, {
+    k: 'mbr_mgmt_inbox',
+    t: 'json',
+    v: {
+      version: 'v1',
+      type: 'pin_payload',
+      op_id: 'mbr_reject_legacy_record_fields_001',
+      source_model_id: 100,
+      pin: 'submit',
+      payload: [
+        { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+        { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'blocked', model_id: 100 },
+      ],
+      timestamp: Date.now(),
+    },
+  });
+
+  const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt')));
+  fn(buildCtx(rt, published));
+
+  assert.equal(published.length, 0, 'pin_payload records carrying legacy model_id/op fields must not publish to MQTT');
+  const errorLabel = rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_error');
+  assert(errorLabel, 'rejected legacy record fields must write mbr_mgmt_error');
+  assert.equal(errorLabel.v?.detail, 'temporary_modeltable_required', 'legacy record fields must fail temporary ModelTable validation');
+}
+
+function test_pin_payload_records_missing_v_are_rejected() {
+  const rt = loadRuntime();
+  const sys = rt.getModel(-10);
+  const published = [];
+
+  rt.addLabel(sys, 0, 0, 0, {
+    k: 'mbr_mgmt_inbox',
+    t: 'json',
+    v: {
+      version: 'v1',
+      type: 'pin_payload',
+      op_id: 'mbr_reject_missing_v_001',
+      source_model_id: 100,
+      pin: 'submit',
+      payload: [
+        { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+        { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str' },
+      ],
+      timestamp: Date.now(),
+    },
+  });
+
+  const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt')));
+  fn(buildCtx(rt, published));
+
+  assert.equal(published.length, 0, 'pin_payload records missing v must not publish to MQTT');
+  const errorLabel = rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_error');
+  assert(errorLabel, 'rejected records missing v must write mbr_mgmt_error');
+  assert.equal(errorLabel.v?.detail, 'temporary_modeltable_required', 'records missing v must fail temporary ModelTable validation');
+}
+
 const tests = [
   test_model100_pin_payload_still_publishes,
   test_generic_crud_events_are_rejected,
+  test_pin_payload_records_with_legacy_fields_are_rejected,
+  test_pin_payload_records_missing_v_are_rejected,
 ];
 
 let passed = 0;

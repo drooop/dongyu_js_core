@@ -153,20 +153,23 @@ API 约束：
 
 用户程序不暴露这些能力。
 
-## 7. Deprecated API（兼容期）
+## 7. Removed Label APIs
 
-以下 API 标注为 DEPRECATED，仅在兼容期内保留：
+以下 label API 已结束兼容期；活动运行面不得声明、调用或重新暴露：
 
 | 原 API | 替代 | 说明 |
 |---|---|---|
 | `ctx.writeLabel(ref, t, v)` | `V1N.addLabel(k, t, v)` + pin 路由 | 无限制跨模型写 → 仅自身 Cell |
 | `ctx.getLabel(ref)` | `V1N.readLabel(p, r, c, k)` + pin 请求 | 无限制跨模型读 → 仅当前模型 |
 | `ctx.rmLabel(ref)` | `V1N.removeLabel(k)` + pin 路由 | 无限制跨模型删 → 仅自身 Cell |
-| `ctx.getState(key)` | `V1N.readLabel` 指向 editor_state 模型 | 待迁移 |
-| `ctx.getStateInt(key)` | 同上 | 待迁移 |
-| helper executor (0,1,0) | (0,0,0) mt_write 程序 | 仅 model.table 场景替代；model.single 保留 helper scaffold |
 
-兼容期结束条件：后续实现迭代完成所有系统函数迁移后，正式移除。
+其他历史辅助能力状态：
+
+| 原能力 | 状态 | 说明 |
+|---|---|---|
+| `ctx.getState(key)` | DEPRECATED | 后续迁移为通过 editor_state 模型显式读取 |
+| `ctx.getStateInt(key)` | DEPRECATED | 同上 |
+| helper executor (0,1,0) | 部分保留 | 仅 model.single helper scaffold 保留；model.table 写入路径必须走 (0,0,0) mt_write |
 
 ## 8. 约束与保留
 

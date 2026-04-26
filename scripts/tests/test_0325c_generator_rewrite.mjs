@@ -25,8 +25,9 @@ function ownerRequestPayload(request) {
     mtPayloadRecord('__mt_payload_kind', 'str', 'owner_request.v1'),
     mtPayloadRecord('__mt_request_id', 'str', request.request_id),
     mtPayloadRecord('target_model_id', 'int', request.target_model_id),
-    mtPayloadRecord('op', 'str', request.op),
-    mtPayloadRecord('request', 'json', request),
+    mtPayloadRecord('origin_action', 'str', request.origin_action || ''),
+    mtPayloadRecord('write_labels', 'json', Array.isArray(request.write_labels) ? request.write_labels : []),
+    mtPayloadRecord('remove_labels', 'json', Array.isArray(request.remove_labels) ? request.remove_labels : []),
   ];
 }
 
@@ -48,6 +49,29 @@ function evalCodeGenerator(serverSrc, fnName, modelId) {
   const anonSrc = fnSrc.replace(`function ${fnName}`, 'function');
   vm.runInContext(`globalThis._fn = (${anonSrc});`, ctx);
   return vm.runInContext(`globalThis._fn(${JSON.stringify(modelId)});`, ctx);
+}
+
+function evalOwnerMaterializerEnsure(serverSrc, fnName, runtime, modelId) {
+  const ctx = {
+    JSON,
+    runtime,
+    modelId,
+    HOME_OWNER_REQUEST_PIN: 'home_owner_request',
+    HOME_OWNER_ROUTE_LABEL: 'home_owner_route',
+    HOME_OWNER_FUNC: 'home_owner_materialize',
+    GENERIC_OWNER_REQUEST_PIN: 'owner_request',
+    GENERIC_OWNER_ROUTE_LABEL: 'owner_route',
+    GENERIC_OWNER_FUNC: 'owner_materialize',
+  };
+  vm.createContext(ctx);
+  vm.runInContext([
+    extractFnSrc(serverSrc, 'homeOwnerMaterializeCode'),
+    extractFnSrc(serverSrc, 'genericOwnerMaterializeCode'),
+    extractFnSrc(serverSrc, 'ownerMaterializerNeedsRefresh'),
+    extractFnSrc(serverSrc, 'ensureHomeOwnerMaterializer'),
+    extractFnSrc(serverSrc, 'ensureGenericOwnerMaterializer'),
+  ].join('\n'), ctx);
+  return vm.runInContext(`globalThis.${fnName}(runtime, modelId);`, ctx);
 }
 
 async function pollUntil(predicate, { attempts = 20, intervalMs = 50 } = {}) {
@@ -77,6 +101,12 @@ function test_owner_materialize_generator_no_ctx_api() {
       `${fnName}(999) generated code must not contain ctx.getLabel`);
     assert.ok(!/ctx\.rmLabel/.test(code),
       `${fnName}(999) generated code must not contain ctx.rmLabel`);
+    assert.ok(!/typeof labelValue === ['"]object['"] \? labelValue/.test(code),
+      `${fnName}(999) generated code must not accept legacy object pin payloads`);
+    assert.ok(!/if \(!req\) return;/.test(code),
+      `${fnName}(999) generated code must fail visibly on malformed owner payload`);
+    assert.ok(!/readPayload\(labelValue, ['"]request['"]/.test(code),
+      `${fnName}(999) generated code must not unpack legacy request JSON`);
   }
   return { key: 'owner_materialize_generator_no_ctx_api', status: 'PASS' };
 }
@@ -87,8 +117,12 @@ function test_owner_materialize_generator_uses_v1n_table() {
     const code = evalCodeGenerator(src, fnName, 999);
     assert.ok(/V1N\.table\.addLabel/.test(code),
       `${fnName}(999) generated code must use V1N.table.addLabel (root-privileged cross-cell write)`);
-    assert.ok(/readPayload\(labelValue, 'request'/.test(code),
-      `${fnName}(999) generated code must read owner request from ModelTable payload`);
+    assert.ok(/readPayload\(labelValue, 'write_labels'/.test(code),
+      `${fnName}(999) generated code must read owner writes from ModelTable payload`);
+    assert.ok(/readPayload\(labelValue, 'remove_labels'/.test(code),
+      `${fnName}(999) generated code must read owner removals from ModelTable payload`);
+    assert.ok(/temporary_modeltable_required/.test(code),
+      `${fnName}(999) generated code must require a temporary ModelTable payload`);
   }
   return { key: 'owner_materialize_generator_uses_v1n_table', status: 'PASS' };
 }
@@ -134,6 +168,8 @@ function test_model100_owner_materialize_uses_v1n_table() {
     'Model 100 owner_materialize must not use ctx.rmLabel');
   assert.ok(/V1N\.table\.addLabel/.test(code),
     'Model 100 owner_materialize must use V1N.table.addLabel (root-privileged cross-cell write)');
+  assert.ok(!/typeof labelValue === ['"]object['"] \? labelValue/.test(code),
+    'Model 100 owner_materialize must not accept legacy object pin payloads');
   return { key: 'model100_owner_materialize_uses_v1n_table', status: 'PASS' };
 }
 
@@ -200,13 +236,12 @@ async function test_owner_materialize_cross_cell_write_via_v1n_table() {
   const reqPayload = {
     request_id: 'req_0325c_test',
     target_model_id: TEST_MODEL_ID,
-    op: 'apply_records',
-    records: [{
-      op: 'add_label',
-      model_id: TEST_MODEL_ID,
+    origin_action: 'test_owner_materialize',
+    write_labels: [{
       p: 2, r: 3, c: 0,
       k: 'target_k', t: 'str', v: 'from_owner_materialize',
     }],
+    remove_labels: [],
   };
   rt.addLabel(model, 0, 0, 0, { k: 'owner_materialize_req', t: 'pin.in', v: ownerRequestPayload(reqPayload) });
 
@@ -217,10 +252,62 @@ async function test_owner_materialize_cross_cell_write_via_v1n_table() {
   assert.ok(targetLabel,
     'target (2,3,0) target_k must be written by generated owner_materialize via V1N.table.addLabel');
   assert.equal(targetLabel.v, 'from_owner_materialize',
-    'target_k.v must match the apply_records payload value');
+    'target_k.v must match the write_labels payload value');
   assert.equal(targetLabel.t, 'str',
-    'target_k.t must match the apply_records payload type');
+    'target_k.t must match the write_labels payload type');
   return { key: 'owner_materialize_cross_cell_write_via_v1n_table', status: 'PASS' };
+}
+
+function test_ensure_owner_materializer_refreshes_legacy_ctx_api() {
+  const TEST_MODEL_ID = 9326;
+  const src = readFileSync(SERVER_MJS, 'utf8');
+  const rt = new ModelTableRuntime();
+  const model = rt.createModel({ id: TEST_MODEL_ID, name: 'legacy_owner_materialize', type: 'test' });
+  rt.addLabel(model, 0, 0, 0, {
+    k: 'owner_materialize',
+    t: 'func.js',
+    v: {
+      code: "ctx.writeLabel({ model_id: 9326, p: 0, r: 0, c: 0, k: 'stale' }, 'str', 'legacy');",
+      modelName: 'owner_materialize',
+    },
+  });
+
+  assert.equal(evalOwnerMaterializerEnsure(src, 'ensureGenericOwnerMaterializer', rt, TEST_MODEL_ID), true);
+  const refreshed = rt.getCell(model, 0, 0, 0).labels.get('owner_materialize');
+  const code = refreshed && refreshed.v && refreshed.v.code;
+  assert.ok(typeof code === 'string', 'refreshed owner_materialize code must be present');
+  assert.ok(!/ctx\.writeLabel|ctx\.getLabel|ctx\.rmLabel/.test(code),
+    'ensureGenericOwnerMaterializer must replace stale legacy ctx API code');
+  assert.ok(/V1N\.table\.addLabel/.test(code),
+    'refreshed owner_materialize must use V1N.table.addLabel');
+  return { key: 'ensure_owner_materializer_refreshes_legacy_ctx_api', status: 'PASS' };
+}
+
+function test_ensure_owner_materializer_refreshes_legacy_object_payload_fallback() {
+  const TEST_MODEL_ID = 9327;
+  const src = readFileSync(SERVER_MJS, 'utf8');
+  const rt = new ModelTableRuntime();
+  const model = rt.createModel({ id: TEST_MODEL_ID, name: 'legacy_owner_payload_fallback', type: 'test' });
+  rt.addLabel(model, 0, 0, 0, {
+    k: 'owner_materialize',
+    t: 'func.js',
+    v: {
+      code: "const labelValue = label ? label.v : null;\nconst req = Array.isArray(labelValue) ? readPayload(labelValue, 'request', null) : (labelValue && typeof labelValue === 'object' ? labelValue : null);\nif (!req) return;",
+      modelName: 'owner_materialize',
+    },
+  });
+
+  assert.equal(evalOwnerMaterializerEnsure(src, 'ensureGenericOwnerMaterializer', rt, TEST_MODEL_ID), true);
+  const refreshed = rt.getCell(model, 0, 0, 0).labels.get('owner_materialize');
+  const code = refreshed && refreshed.v && refreshed.v.code;
+  assert.ok(typeof code === 'string', 'refreshed owner_materialize code must be present');
+  assert.ok(!/typeof labelValue === ['"]object['"] \? labelValue/.test(code),
+    'ensureGenericOwnerMaterializer must replace legacy object payload fallback');
+  assert.ok(!/if \(!req\) return;/.test(code),
+    'ensureGenericOwnerMaterializer must replace silent malformed-payload return');
+  assert.ok(/temporary_modeltable_required/.test(code),
+    'refreshed owner_materialize must require temporary ModelTable payload');
+  return { key: 'ensure_owner_materializer_refreshes_legacy_object_payload_fallback', status: 'PASS' };
 }
 
 const tests = [
@@ -231,6 +318,8 @@ const tests = [
   test_bucket_c_handler_uses_write_label_req,
   test_bucket_c_cell_routes_label_present,
   test_owner_materialize_cross_cell_write_via_v1n_table,
+  test_ensure_owner_materializer_refreshes_legacy_ctx_api,
+  test_ensure_owner_materializer_refreshes_legacy_object_payload_fallback,
 ];
 
 (async () => {
