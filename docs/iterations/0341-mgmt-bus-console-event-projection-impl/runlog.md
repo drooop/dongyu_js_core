@@ -270,7 +270,24 @@ phase: phase3
   - Diff whitespace check: PASS
 - Iteration index:
   - `docs/ITERATIONS.md` status updated to `Completed`.
-- Commit: pending
+- Commit: `78440e1` (`feat(mgmt-bus): implement 0341 event projection console`)
+
+### Step 9 — Merge And Push
+
+- Command: `git commit -m "feat(mgmt-bus): implement 0341 event projection console" ...`
+- Result: PASS
+- Commit: `78440e1`
+- Command: `git switch dev`
+- Result: PASS
+- Command: `git pull --ff-only origin dev`
+- Result: PASS
+- Command: `git merge --no-ff dev_0341-mgmt-bus-console-event-projection-impl -m "feat(mgmt-bus): merge 0341 event projection console"`
+- Result: PASS
+- Merge commit: `5d33a9b`
+- Command: `node scripts/tests/test_0341_mgmt_bus_console_event_projection_contract.mjs`
+- Result: PASS, 8/8
+- Command: `git push origin dev`
+- Result: PASS, pushed `dev` from `dc42b3d` to `5d33a9b`.
 
 ## Docs Updated
 
