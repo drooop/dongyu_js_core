@@ -208,6 +208,29 @@ function buildComposerActions() {
   ];
 }
 
+function buildMessageTranscript(eventRows) {
+  const rows = (Array.isArray(eventRows) ? eventRows : [])
+    .filter((row) => {
+      const kind = sanitizeString(row?.kind || '');
+      const opId = sanitizeString(row?.op_id || row?.event_id || '');
+      const preview = sanitizeString(row?.preview || '');
+      return kind.startsWith('mgmt_bus_console.')
+        || opId.startsWith('mgmt_bus_console_')
+        || opId.startsWith('mbr_ack_')
+        || preview.includes('@mbr:');
+    })
+    .slice(0, 12);
+  if (rows.length === 0) return 'No messages sent yet.';
+  return rows.map((row) => {
+    const direction = row.direction === 'inbound'
+      ? 'received'
+      : (row.direction === 'outbound' ? 'sent' : 'event');
+    const status = row.status ? ` ${row.status}` : '';
+    const preview = sanitizeString(row.preview || row.kind || row.event_id || '');
+    return `[${direction}${status}] ${preview}`;
+  }).join('\n');
+}
+
 export function deriveMgmtBusConsoleProjection({ matrixProjection, readRootLabel } = {}) {
   const readLabel = typeof readRootLabel === 'function' ? readRootLabel : () => undefined;
   const source = matrixProjection && typeof matrixProjection === 'object' ? matrixProjection : {};
@@ -230,10 +253,15 @@ export function deriveMgmtBusConsoleProjection({ matrixProjection, readRootLabel
   const configuredRoutes = routeRows.filter((row) => row.status === 'configured').length;
   const routeStatus = routeRows.length > 0 && configuredRoutes === routeRows.length ? 'live' : 'route_missing';
   const sourceEvents = Array.isArray(source.events) ? source.events : [];
-  const eventRows = sourceEvents.length > 0
-    ? sourceEvents.map((event, index) => normalizeEventRow(event, index))
-    : buildFallbackEventRows(source, routeRows, routeStatus);
+  const fallbackEventRows = buildFallbackEventRows(source, routeRows, routeStatus);
   const selectedEventId = sanitizeString(source.selectedEventId || source.selected_event_id || '');
+  const normalizedSourceEvents = sourceEvents.map((event, index) => normalizeEventRow(event, index));
+  const needsFallbackSelection = selectedEventId
+    && normalizedSourceEvents.length > 0
+    && !normalizedSourceEvents.some((row) => row.event_id === selectedEventId);
+  const eventRows = normalizedSourceEvents.length > 0
+    ? (needsFallbackSelection ? [...normalizedSourceEvents, ...fallbackEventRows] : normalizedSourceEvents)
+    : fallbackEventRows;
   const selectedEvent = selectedEventId
     ? eventRows.find((row) => row.event_id === selectedEventId) || null
     : eventRows[0] || null;
@@ -252,6 +280,7 @@ export function deriveMgmtBusConsoleProjection({ matrixProjection, readRootLabel
     String(source.subjectSummaryText || ''),
     `routes=${configuredRoutes}/${routeRows.length}`,
   ].filter(Boolean).join('\n');
+  const messageTranscript = buildMessageTranscript(eventRows);
 
   return {
     subjects,
@@ -263,5 +292,6 @@ export function deriveMgmtBusConsoleProjection({ matrixProjection, readRootLabel
     composerActions,
     routeRows,
     routeStatus,
+    messageTranscript,
   };
 }

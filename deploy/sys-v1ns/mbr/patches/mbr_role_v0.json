@@ -71,7 +71,20 @@
       "c": 0,
       "k": "mbr_matrix_func",
       "t": "str",
-      "v": "mbr_mgmt_to_mqtt"
+      "v": "mbr_mgmt_dispatch"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_mgmt_dispatch",
+      "t": "func.js",
+      "v": {
+        "code": "const inbox = ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_inbox' }); if (!inbox || typeof inbox !== 'object') return; const sourceModelId = Number(inbox.source_model_id); const payload = Array.isArray(inbox.payload) ? inbox.payload : []; const isRecord = (record) => record && typeof record === 'object' && Number.isInteger(record.id) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && record.k.length > 0 && typeof record.t === 'string' && record.t.length > 0; const payloadOk = payload.length > 0 && payload.every(isRecord); const read = (key, fallback = '') => { const record = payload.find((item) => isRecord(item) && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key); return record && record.v != null ? String(record.v) : fallback; }; const cleanup = () => { ctx.rmLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_inbox' }); }; const reject = (detail) => { ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_error' }, 'json', { op_id: String(inbox.op_id || ''), code: 'direct_model_mutation_disabled', detail }); cleanup(); }; const kind = read('__mt_payload_kind').trim(); const packetPin = String(inbox.pin || '').trim(); const target = read('target_user_id').trim(); const draft = (read('draft') || read('message_text')).trim(); if (inbox.version === 'v1' && inbox.type === 'pin_payload' && sourceModelId === 1036) { if (!payloadOk) { reject('temporary_modeltable_required'); return; } if (packetPin === 'submit' && kind === 'mgmt_bus_console.send.v1' && target.startsWith('@mbr:') && draft) { let opId = String(inbox.op_id || ''); if (!opId) opId = 'mgmt_bus_console_' + Date.now(); const seenKey = 'mbr_seen_' + opId; if (ctx.getLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey })) { cleanup(); return; } ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: seenKey }, 'str', '1'); const reply = 'ack from ' + target + ': ' + draft; const resultPayload = [ { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.ack.v1' }, { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: target }, { id: 0, p: 0, r: 0, c: 0, k: 'message_text', t: 'str', v: draft }, { id: 0, p: 0, r: 0, c: 0, k: 'reply_text', t: 'str', v: reply }, { id: 0, p: 0, r: 0, c: 0, k: 'source_op_id', t: 'str', v: opId } ]; ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'mbr_mgmt_console_ack_out' }, 'MGMT_OUT', { version: 'v1', type: 'mgmt_bus_console_ack', op_id: 'mbr_ack_' + opId, source_model_id: 1036, target_user_id: target, payload: resultPayload, timestamp: Date.now() }); cleanup(); return; } reject('unsupported_mgmt_bus_console_payload'); return; } ctx.writeLabel({ model_id: -10, p: 0, r: 0, c: 0, k: 'run_mbr_mgmt_to_mqtt' }, 'str', '1');",
+        "modelName": "mbr_role_v0"
+      }
     },
     {
       "op": "add_label",

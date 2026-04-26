@@ -101,6 +101,94 @@ function readObjectValue(snapshot, ref, fallback) {
   return value;
 }
 
+function readModelTableRecordString(records, key, fallback = '') {
+  if (!Array.isArray(records)) return fallback;
+  const record = records.find((entry) => entry && entry.k === key);
+  if (!record || record.v === undefined || record.v === null) return fallback;
+  return String(record.v);
+}
+
+function isModelTableRecordArray(value) {
+  return Array.isArray(value) && value.every((record) => (
+    record
+    && typeof record === 'object'
+    && Number.isInteger(record.id)
+    && Number.isInteger(record.p)
+    && Number.isInteger(record.r)
+    && Number.isInteger(record.c)
+    && typeof record.k === 'string'
+    && record.k.length > 0
+    && typeof record.t === 'string'
+    && record.t.length > 0
+  ));
+}
+
+function parseTraceLogEvent(line, index) {
+  if (typeof line !== 'string' || !line.trim()) return null;
+  const sepIndex = line.indexOf('\x01');
+  if (sepIndex < 0) return null;
+  let detail = null;
+  try {
+    detail = JSON.parse(line.slice(sepIndex + 1));
+  } catch (_) {
+    return null;
+  }
+  if (!detail || typeof detail !== 'object') return null;
+  const payload = detail.payload && typeof detail.payload === 'object' ? detail.payload : {};
+  const hop = String(detail.hop || '');
+  const direction = detail.direction === 'inbound'
+    ? 'inbound'
+    : (detail.direction === 'outbound' ? 'outbound' : 'internal');
+  const source = hop.includes('matrix→server')
+    ? 'matrix'
+    : (hop.includes('server→matrix') ? 'model0' : 'runtime');
+  const payloadRecords = isModelTableRecordArray(payload.payload) ? payload.payload : [];
+  if (payload.type === 'mgmt_bus_console_ack') {
+    const ackKind = readModelTableRecordString(payloadRecords, '__mt_payload_kind').trim();
+    const ackTarget = readModelTableRecordString(payloadRecords, 'target_user_id').trim();
+    const ackReply = readModelTableRecordString(payloadRecords, 'reply_text').trim();
+    const topLevelTarget = typeof payload.target_user_id === 'string' ? payload.target_user_id.trim() : '';
+    if (payload.source_model_id !== 1036) return null;
+    if (topLevelTarget && topLevelTarget !== ackTarget) return null;
+    if (ackKind !== 'mgmt_bus_console.ack.v1' || !ackTarget.startsWith('@mbr:') || !ackReply) return null;
+  }
+  const targetUserId = readModelTableRecordString(payloadRecords, 'target_user_id', String(payload.target_user_id || ''));
+  const draft = readModelTableRecordString(
+    payloadRecords,
+    'draft',
+    readModelTableRecordString(payloadRecords, 'message_text', String(payload.message_text || '')),
+  );
+  const kind = payload.type === 'mgmt_bus_console_ack'
+    ? 'mgmt_bus_console.ack.v1'
+    : readModelTableRecordString(payloadRecords, '__mt_payload_kind', String(payload.type || ''));
+  const preview = payload.type === 'mgmt_bus_console_ack'
+    ? readModelTableRecordString(payloadRecords, 'reply_text')
+    : (targetUserId && draft ? `to ${targetUserId}: ${draft}` : stringifyOneLine(payload));
+  return {
+    event_id: String(payload.op_id || detail.op_id || `trace-${detail.seq || index + 1}`),
+    ts_ms: Number.isSafeInteger(detail.ts) ? detail.ts : 0,
+    direction,
+    source,
+    subject_id: targetUserId || String(payload.room_id || payload.subject_id || source),
+    subject_label: targetUserId || String(payload.subject_label || source),
+    route_key: kind.startsWith('mgmt_bus_console.') ? 'mgmt_bus_console_send' : '',
+    pin: String(payload.pin || ''),
+    kind,
+    status: direction === 'outbound' ? 'sent' : (direction === 'inbound' ? 'received' : 'applied'),
+    preview: truncate(preview, 240),
+    op_id: String(payload.op_id || detail.op_id || ''),
+    model_id: Number.isInteger(payload.source_model_id) ? payload.source_model_id : undefined,
+  };
+}
+
+function parseTraceLogEvents(traceLogText) {
+  if (typeof traceLogText !== 'string' || !traceLogText.trim()) return [];
+  return traceLogText
+    .split('\n')
+    .map((line, index) => parseTraceLogEvent(line, index))
+    .filter(Boolean);
+}
+
 function readFlowUiState(snapshot, editorStateModelId) {
   const activeTab = String(getSnapshotLabelValue(snapshot, {
     model_id: editorStateModelId,
@@ -556,6 +644,7 @@ export function deriveMatrixDebugView(snapshot, editorStateModelId) {
   const traceLastUpdate = readSnapshotString(snapshot, { model_id: traceModelId, p: 0, r: 0, c: 0, k: 'trace_last_update' }, '--:--:--');
   const traceThroughput = readSnapshotString(snapshot, { model_id: traceModelId, p: 0, r: 0, c: 0, k: 'trace_throughput' }, '0/s');
   const traceErrorRate = readSnapshotString(snapshot, { model_id: traceModelId, p: 0, r: 0, c: 0, k: 'trace_error_rate' }, '0%');
+  const traceLogText = readSnapshotString(snapshot, { model_id: traceModelId, p: 0, r: 0, c: 0, k: 'trace_log_text' }, '');
   const traceCount = parseSafeInt(getSnapshotLabelValue(snapshot, {
     model_id: traceModelId, p: 0, r: 0, c: 0, k: 'trace_count',
   })) ?? 0;
@@ -582,5 +671,6 @@ export function deriveMatrixDebugView(snapshot, editorStateModelId) {
     readinessText,
     subjectSummaryText,
     traceSummaryText,
+    events: parseTraceLogEvents(traceLogText),
   };
 }

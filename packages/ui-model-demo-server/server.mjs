@@ -80,6 +80,7 @@ const MGMT_BUS_CONSOLE_LOCAL_STATE_KEYS = new Set([
   'inspector_tab',
   'composer_draft',
   'composer_action',
+  'target_user_id',
   'last_refresh_requested_at',
   'last_ui_error',
 ]);
@@ -108,7 +109,7 @@ function emitTrace(runtime, { hop, direction, op_id, model_id, summary, payload,
   const enabled = runtime.getLabelValue(tm, 0, 0, 0, 'trace_enabled');
   if (!enabled) return;
   _traceSeq += 1;
-  runtime.addLabel(tm, 0, 0, 1, {
+  const traceLabel = {
     k: 'trace_event',
     t: 'json',
     v: {
@@ -122,7 +123,12 @@ function emitTrace(runtime, { hop, direction, op_id, model_id, summary, payload,
       payload: payload != null ? payload : null,
       error: error || null,
     },
-  });
+  };
+  runtime.addLabel(tm, 0, 0, 1, traceLabel);
+  const appendTrace = typeof tm.getFunction === 'function' ? tm.getFunction('trace_append') : null;
+  if (typeof appendTrace === 'function') {
+    appendTrace({ runtime, model: tm, label: traceLabel });
+  }
 }
 
 function readIntEnv(name, fallback, minValue = 0) {
@@ -2037,6 +2043,111 @@ function temporaryPayloadToPatch(targetModelId, payload, opId) {
   };
 }
 
+function findTemporaryPayloadRecord(payload, key) {
+  if (!Array.isArray(payload) || typeof key !== 'string') return null;
+  return payload.find((record) => record
+    && record.id === 0
+    && record.p === 0
+    && record.r === 0
+    && record.c === 0
+    && record.k === key) || null;
+}
+
+function readTemporaryPayloadString(payload, key, fallback = '') {
+  const record = findTemporaryPayloadRecord(payload, key);
+  if (!record || record.v === undefined || record.v === null) return fallback;
+  return String(record.v);
+}
+
+function upsertTemporaryPayloadRecord(payload, record) {
+  const base = Array.isArray(payload)
+    ? payload.map((entry) => (entry && typeof entry === 'object' ? { ...entry } : entry))
+    : [];
+  const index = base.findIndex((entry) => entry && entry.k === record.k);
+  if (index >= 0) {
+    base[index] = { ...base[index], ...record };
+  } else {
+    base.push(record);
+  }
+  return base;
+}
+
+function validateMgmtBusConsoleAck(content) {
+  const payload = content && content.payload;
+  if (!isTemporaryPayloadRecordArray(payload)) {
+    return { ok: false, code: 'temporary_modeltable_required' };
+  }
+  if (!content || content.source_model_id !== MGMT_BUS_CONSOLE_MODEL_ID) {
+    return { ok: false, code: 'source_model_id_mismatch' };
+  }
+  const kind = readTemporaryPayloadString(payload, '__mt_payload_kind').trim();
+  if (kind !== 'mgmt_bus_console.ack.v1') {
+    return { ok: false, code: 'invalid_payload_kind' };
+  }
+  const targetUserId = readTemporaryPayloadString(payload, 'target_user_id').trim();
+  if (!targetUserId.startsWith('@mbr:')) {
+    return { ok: false, code: 'invalid_target_user_id' };
+  }
+  const topLevelTarget = typeof content.target_user_id === 'string' ? content.target_user_id.trim() : '';
+  if (topLevelTarget && topLevelTarget !== targetUserId) {
+    return { ok: false, code: 'target_user_id_mismatch' };
+  }
+  const replyText = readTemporaryPayloadString(payload, 'reply_text').trim();
+  if (!replyText) {
+    return { ok: false, code: 'missing_reply_text' };
+  }
+  return { ok: true, targetUserId, replyText };
+}
+
+function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
+  if (!isTemporaryPayloadRecordArray(payload)) {
+    return { ok: false, code: 'invalid_bus_payload', detail: 'temporary_modeltable_required' };
+  }
+  const kind = readTemporaryPayloadString(payload, '__mt_payload_kind').trim();
+  if (kind !== 'mgmt_bus_console.send.v1') {
+    return { ok: false, code: 'invalid_payload_kind', detail: kind || 'missing_kind' };
+  }
+  const targetUserId = readTemporaryPayloadString(payload, 'target_user_id').trim();
+  if (!targetUserId || !targetUserId.startsWith('@mbr:')) {
+    return { ok: false, code: 'invalid_target_user_id', detail: targetUserId || 'missing_target_user_id' };
+  }
+  const draft = readTemporaryPayloadString(payload, 'draft', readTemporaryPayloadString(payload, 'message_text')).trim();
+  if (!draft) {
+    return { ok: false, code: 'empty_message', detail: 'draft_required' };
+  }
+  const now = Date.now();
+  let normalizedPayload = upsertTemporaryPayloadRecord(payload, {
+    id: 0,
+    p: 0,
+    r: 0,
+    c: 0,
+    k: 'target_user_id',
+    t: 'str',
+    v: targetUserId,
+  });
+  normalizedPayload = upsertTemporaryPayloadRecord(normalizedPayload, {
+    id: 0,
+    p: 0,
+    r: 0,
+    c: 0,
+    k: 'message_text',
+    t: 'str',
+    v: draft,
+  });
+  return {
+    ok: true,
+    data: {
+      version: 'v1',
+      type: 'pin_payload',
+      op_id: `mgmt_bus_console_${now}`,
+      source_model_id: MGMT_BUS_CONSOLE_MODEL_ID,
+      pin: 'submit',
+      payload: normalizedPayload,
+      timestamp: now,
+    },
+  };
+}
+
 const HOME_PIN_ACTIONS = new Set([
   'home_refresh',
   'home_select_row',
@@ -2604,7 +2715,7 @@ function repairModel100DualBusConfig(runtime) {
 }
 
 function isTemporaryPayloadRecordArray(value) {
-  return Array.isArray(value) && value.every((record) =>
+  return Array.isArray(value) && value.length > 0 && value.every((record) =>
     record
     && typeof record === 'object'
     && Number.isInteger(record.id)
@@ -3038,14 +3149,7 @@ class ProgramModelEngine {
     // - { version: 'v0', type: 'snapshot_delta', op_id, payload: { version: 'mt.v0', records: [...] } }
     // - { version: 'v1', type: 'pin_payload', op_id, source_model_id, pin, payload: [...] }
     console.log('[handleDyBusEvent] Processing:', JSON.stringify(content).substring(0, 300));
-    emitTrace(this.runtime, {
-      hop: 'matrix\u2192server', direction: 'inbound',
-      op_id: content && content.op_id ? content.op_id : '',
-      model_id: '',
-      summary: `dy.bus.v0 type=${content && content.type ? content.type : '?'}`,
-      payload: content,
-    });
-    
+
     if (!content || typeof content !== 'object') {
       console.log('[handleDyBusEvent] Invalid content - not an object');
       return;
@@ -3055,6 +3159,16 @@ class ProgramModelEngine {
       console.log('[handleDyBusEvent] Unknown version:', content.version);
       return;
     }
+
+    const traceInbound = () => {
+      emitTrace(this.runtime, {
+        hop: 'matrix\u2192server', direction: 'inbound',
+        op_id: content && content.op_id ? content.op_id : '',
+        model_id: '',
+        summary: `dy.bus.v0 type=${content && content.type ? content.type : '?'}`,
+        payload: content,
+      });
+    };
     
     if (content.type === 'snapshot_delta') {
       const patch = content.payload;
@@ -3062,6 +3176,7 @@ class ProgramModelEngine {
         console.log('[handleDyBusEvent] Invalid patch format');
         return;
       }
+      traceInbound();
       console.log('[handleDyBusEvent] Received snapshot_delta, patch op_id:', patch.op_id);
       this.routeSnapshotDeltaViaOwnerMaterialization(patch)
         .then((result) => {
@@ -3079,6 +3194,25 @@ class ProgramModelEngine {
         .catch((err) => {
           console.error('[handleDyBusEvent] snapshot_delta owner route failed:', err && err.message ? err.message : err);
         });
+      return;
+    }
+
+    if (content.type === 'mgmt_bus_console_ack') {
+      const ackValidation = validateMgmtBusConsoleAck(content);
+      if (!ackValidation.ok) {
+        console.log('[handleDyBusEvent] Invalid mgmt_bus_console_ack:', ackValidation.code);
+        return;
+      }
+      const consoleModel = this.runtime.getModel(MGMT_BUS_CONSOLE_MODEL_ID);
+      if (consoleModel) {
+        this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'ack_received' });
+      }
+      traceInbound();
+      this.tick().then(() => {
+        this.onSnapshotChanged?.();
+      }).catch((err) => {
+        console.error('[handleDyBusEvent] mgmt_bus_console_ack projection failed:', err && err.message ? err.message : err);
+      });
       return;
     }
 
@@ -3101,6 +3235,7 @@ class ProgramModelEngine {
         console.log('[handleDyBusEvent] Invalid pin_payload payload format');
         return;
       }
+      traceInbound();
       this.routeSnapshotDeltaViaOwnerMaterialization(patch)
         .then((result) => {
           if (!result || result.ok !== true) {
@@ -3121,6 +3256,7 @@ class ProgramModelEngine {
     }
     
     if (content.type === 'mbr_ready') {
+      traceInbound();
       console.log('[handleDyBusEvent] Received mbr_ready signal from MBR');
       // Set system_ready=true on all dual-bus models
       let changed = false;
@@ -3984,6 +4120,58 @@ class ProgramModelEngine {
         continue;
       }
 
+      if (event.cell && event.cell.model_id === -10 &&
+          event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
+          event.label && event.label.k === 'mgmt_bus_console_intent' &&
+          event.label.t === 'pin.in') {
+        if (event.label.v === null || event.label.v === undefined) {
+          continue;
+        }
+        const consoleModel = this.runtime.getModel(MGMT_BUS_CONSOLE_MODEL_ID);
+        const packetResult = buildMgmtBusConsoleMatrixPacket(event.label.v, {
+          peerUserId: this.matrixDmPeerUserId,
+        });
+        if (!packetResult || packetResult.ok !== true) {
+          if (consoleModel) {
+            this.runtime.addLabel(consoleModel, 0, 0, 0, {
+              k: 'message_status',
+              t: 'str',
+              v: packetResult && packetResult.code ? packetResult.code : 'send_rejected',
+            });
+          }
+          const sys = firstSystemModel(this.runtime);
+          if (sys) {
+            this.runtime.addLabel(sys, 0, 0, 0, {
+              k: 'mgmt_bus_console_error',
+              t: 'json',
+              v: packetResult || { ok: false, code: 'send_rejected' },
+            });
+          }
+          continue;
+        }
+        const packet = packetResult.data;
+        if (consoleModel) {
+          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'sending' });
+          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'last_sent_text', t: 'str', v: readTemporaryPayloadString(packet.payload, 'message_text') });
+          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'target_user_id', t: 'str', v: readTemporaryPayloadString(packet.payload, 'target_user_id') });
+        }
+        const maybePromise = this.sendMatrix(packet);
+        if (maybePromise && typeof maybePromise.then === 'function') {
+          maybePromise.catch((err) => {
+            if (!consoleModel) return;
+            this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'send_failed' });
+            this.runtime.addLabel(consoleModel, 0, 0, 0, {
+              k: 'last_ui_error',
+              t: 'str',
+              v: String(err && err.message ? err.message : err),
+            });
+          });
+        } else if (!maybePromise && consoleModel) {
+          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'matrix_unavailable' });
+        }
+        continue;
+      }
+
       // Generic dual-bus model: bus_event at Cell(model_id, 0, 0, 2) → trigger forward function
       // Driven by `dual_bus_model` label on the model's Cell(0,0,0)
       if (event.cell && event.cell.model_id > 0 &&
@@ -4495,6 +4683,7 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'mgmt_bus_console_route_rows_json', 'json', []);
   ensureStateLabel(runtime, 'mgmt_bus_console_route_status', 'str', 'route_missing');
   ensureStateLabel(runtime, 'mgmt_bus_console_composer_actions_json', 'json', []);
+  ensureStateLabel(runtime, 'mgmt_bus_console_message_transcript', 'str', 'No messages sent yet.');
 
   let programEngine = null;
 
@@ -4669,6 +4858,7 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'mgmt_bus_console_route_rows_json', 'json', projection.routeRows);
     overwriteStateLabel(runtime, 'mgmt_bus_console_route_status', 'str', projection.routeStatus);
     overwriteStateLabel(runtime, 'mgmt_bus_console_composer_actions_json', 'json', projection.composerActions);
+    overwriteStateLabel(runtime, 'mgmt_bus_console_message_transcript', 'str', projection.messageTranscript);
     return projection;
   };
 
@@ -5519,6 +5709,7 @@ function createServerState(options) {
 
   function clientSnap() {
     recoverModel100StaleInflight();
+    syncMatrixDebugDerivedState();
     return buildClientSnapshot(runtime);
   }
 
@@ -5620,6 +5811,9 @@ function createServerState(options) {
       const v2Value = envelopeOrNull.value;
       if (!runtime.isRunLoopActive()) {
         return finishError('runtime_not_running', 'model_id=0');
+      }
+      if (busInKey === 'mgmt_bus_console_send' && Array.isArray(v2Value) && v2Value.length === 0) {
+        return finishError('invalid_bus_payload', 'temporary_modeltable_required');
       }
       const model0 = runtime.getModel(0);
       if (!model0) {

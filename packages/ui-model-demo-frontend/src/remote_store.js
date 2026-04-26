@@ -25,6 +25,7 @@ const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
     'inspector_tab',
     'composer_draft',
     'composer_action',
+    'target_user_id',
     'last_refresh_requested_at',
     'last_ui_error',
   ]);
