@@ -2,7 +2,7 @@
 title: "Data Models Fill-Table Guide"
 doc_type: user-guide
 status: active
-updated: 2026-04-21
+updated: 2026-04-27
 source: ai
 ---
 
@@ -18,6 +18,32 @@ source: ai
 - 本地 pin 统一使用 `pin.in / pin.out`
 - 数据通过 pin 传递时，值必须是“临时模型表数组”
 - 动作语义由 pin 名称承担，不放进 payload 数据里
+
+## 0. 临时消息与正式落表
+
+开发时需要先区分两件事：
+
+- `Data.Array / Data.Queue / Data.Stack` 本身是正式数据模型。它们的真实数据最终保存在自己的模型表里，例如 `(0,1,0)`、`(0,2,0)` 这些数据行。
+- 通过 pin 传进传出的 payload 是 Temporary ModelTable Message。它的格式像 ModelTable，但它只是传输数据。
+
+合同原文：
+
+```text
+format is ModelTable-like; persistence is explicit materialization
+```
+
+这句话的意思是：
+
+- payload 要按 `{id,p,r,c,k,t,v}` 记录数组来写。
+- payload 里的 `id` 只是这次消息内部的临时 id，不是正式 `model_id`。
+- 把 payload 写到 pin 上，不等于创建了一个正式模型，也不等于修改了模型表。
+- 只有接收方程序按 pin 的语义明确写入自己的数据行时，才发生正式 materialization。
+
+例子：
+
+- 给 `Data.Array.add_data_in` 传一个带 `value` 的消息时，这个消息本身只是输入参数。
+- `Data.Array` 的 `array_add` 程序接收后，把 `value` 写入下一行数据 cell，这一步才是正式落表。
+- 给 `get_all_data_in` 传一个零参数消息时，它只是触发读取；返回的 `get_all_data_out` 也是一份临时消息，不会自动复制成新的正式 `Data.Array`。
 
 ## 1. 三者共同结构
 

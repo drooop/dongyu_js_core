@@ -2,7 +2,7 @@
 title: "定位说明（必须写在文件开头）"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-04-27
 source: ai
 ---
 
@@ -229,6 +229,11 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - 对象式业务 envelope 只允许作为历史迁移债务被 inventory，不得作为新实现或新通过路径。
 - `writeLabel` 的正式跨 cell 写入请求由 `write_label.v1` 临时 ModelTable payload 表达，并通过显式 pin route 到当前模型 `(0,0,0)` 的 `mt_write`。
 
+0347 message/materialization current truth：
+- pin/event 中传递的 record array 是 Temporary ModelTable Message：`format is ModelTable-like; persistence is explicit materialization`。
+- Temporary message 的 `id` 只在当前 message 内有效，不是正式 `model_id`。
+- 接收、路由、转发、trace、projection 都不自动 materialize；只有 owner / 当前模型 D0 helper / 接收程序模型 / importer 明确执行写入时，才产生正式 `add_label` / `rm_label` side effect。
+
 历史别名说明（non-normative）：
 - repo 内可能仍能搜索到 `BUS_IN` / `BUS_OUT` / `CELL_CONNECT` / `cell_connection` / `MODEL_IN` / `MODEL_OUT` / `IN` / `function` / `subModel` / `submt` 等旧名。
 - repo 内也可能仍能搜索到 `pin.table.*` / `pin.single.*` / `pin.log.table.*` / `pin.log.single.*`。
@@ -450,7 +455,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 本节描述的是 MQTT / bootstrap / trusted system boundary 使用的外层补丁传输格式，不是正式业务 pin value 的格式。
 
-0331 起，正式业务 `pin.in` / `pin.out` / `pin.bus.in` / `pin.bus.out` 的非空 value 必须是临时 ModelTable record array；不得把 `{ op, records }` / ModelTablePatch envelope 作为业务 pin payload。
+0331 起，正式业务 `pin.in` / `pin.out` / `pin.bus.in` / `pin.bus.out` 的非空 value 必须是临时 ModelTable record array；不得把 `{ op, records }` / ModelTablePatch envelope 作为业务 pin payload。0347 起，这类 record array 统一视为 Temporary ModelTable Message：格式像 ModelTable，但只有显式 materialization 后才成为正式持久模型表数据。
 
 ModelTablePatch v0 仅作为外部补丁 envelope 或历史迁移债务保留：
 
