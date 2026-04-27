@@ -2,7 +2,7 @@
 title: "Iterations Index"
 doc_type: governance
 status: active
-updated: 2026-04-26
+updated: 2026-04-27
 source: ai
 ---
 
@@ -249,6 +249,7 @@ source: ai
 | 0344-mbr-payload-validation-fix | 2026-04-27 | 修复 code review 发现的 MBR 临时 ModelTable payload 校验缺口，拒绝带 legacy 字段或缺少 `v` 的记录 | 2 | dev_0344-mbr-payload-validation-fix | Completed | ./docs/iterations/0344-mbr-payload-validation-fix/ |
 | 0345-dam-worker-guide-pin-payload-current-truth | 2026-04-27 | 修复 code review 发现的 DAM Worker guide 旧 bus payload 示例，改为 pin_payload v1 与临时 ModelTable record array | 1 | dev_0345-doc-pin-payload-guide-fix | Completed | ./docs/iterations/0345-dam-worker-guide-pin-payload-current-truth/ |
 | 0346-ui-model-compliance-and-guide | 2026-04-27 | 全量审查 Workspace/UI surfaces 是否严格 cellwise 填表、粒度足够细，并交付对标 Vue 文档风格的 UI 模型开发手册及 UI 模型文档页 | 8 | dev_0346-ui-model-compliance-and-guide | Completed | ./docs/iterations/0346-ui-model-compliance-and-guide/ |
+| 0347-temporary-modeltable-message-contract | 2026-04-27 | 核查 Data.* 数据模型现状并冻结临时 ModelTable message 合同：传输格式 ModelTable-like，持久化只由显式 materialization 触发 | 3 | dev_0347-temporary-modeltable-message-contract | Completed | ./docs/iterations/0347-temporary-modeltable-message-contract/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

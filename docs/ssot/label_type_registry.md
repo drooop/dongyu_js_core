@@ -2,7 +2,7 @@
 title: "Label Type Registry"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-04-27
 source: ai
 ---
 
@@ -92,6 +92,12 @@ source: ai
 - 正式业务 pin 的非空 value 必须是 `docs/ssot/temporary_modeltable_payload_v1.md` 定义的 record array。
 - 对象 envelope（如 `{op, records}` / `{action, target}`）不再是正式 pin value。
 - pin 名称 / 接收程序模型决定动作语义；payload 本身只表达数据。
+
+0347 message / materialization 约束：
+- pin value 中的 record array 是 Temporary ModelTable Message：`format is ModelTable-like; persistence is explicit materialization`。
+- `id` 是 message-local 临时 id，不是正式 `model_id`。
+- 写入 pin、route、bus、log/trace 或前端 projection 都不自动创建或更新正式 ModelTable。
+- 只有接收程序模型、当前模型 D0 helper、owner materializer 或 importer/installer 明确执行 materialization 时，才允许产生正式 `add_label` / `rm_label` side effect。
 
 ### 3.2 日志通道
 

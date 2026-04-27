@@ -2,7 +2,7 @@
 title: "ModelTable User Guide (Living Doc)"
 doc_type: user-guide
 status: active
-updated: 2026-04-21
+updated: 2026-04-27
 source: ai
 ---
 
@@ -246,6 +246,14 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "input_value", "t": "str", "v": "hello" }
 ]
 ```
+
+0347 之后还需要明确一条边界：
+
+```text
+format is ModelTable-like; persistence is explicit materialization
+```
+
+也就是说，pin/event payload 的格式像 ModelTable，但它只是临时消息。写到 pin 上、通过 bus 转发、被前端展示、或被记录进诊断 trace，都不会自动变成正式业务数据。只有 owner、当前模型 D0 helper、接收程序模型或 importer 明确执行 materialization 后，才会产生真正的表内写入。
 
 `writeLabel` 是一个特殊的常用写入动作。用户程序只需要表达目标 cell 和一个 label：
 
