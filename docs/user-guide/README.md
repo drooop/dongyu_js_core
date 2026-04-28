@@ -2,7 +2,7 @@
 title: "User Guide Index"
 doc_type: user-guide
 status: active
-updated: 2026-04-21
+updated: 2026-04-29
 source: ai
 ---
 
@@ -44,7 +44,7 @@ source: ai
 - `doc_workspace_filltable_example.md`
   - 0276 正式案例：一个挂到 Workspace 侧边栏的文档页面示例，证明结构、布局位置和主要内容都可以通过填表定义。
 - `data_models_filltable_guide.md`
-  - 0296 数据模型入口：说明 `Data.Array / Data.Queue / Data.Stack` 在新 pin/payload 合同下的填表结构、pin 名称与 payload 形状。
+  - 0348 数据模型入口：说明 Feishu-aligned `Data.*` 目标合同、通用数据 pin、临时消息边界，以及当前 0296-era 模板仍待迁移的实现债务。
 - `matrix_userline_phase1.md`
   - 0283 最小 Matrix 用户产品线：说明 `1016-1019` 的分工、最小登录、单会话消息闭环，以及本地 Synapse 测试用户的注册与验证方式。
 - `matrix_userline_phase2.md`

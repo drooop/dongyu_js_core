@@ -2,7 +2,7 @@
 title: "定位说明（必须写在文件开头）"
 doc_type: ssot
 status: active
-updated: 2026-04-27
+updated: 2026-04-29
 source: ai
 ---
 
@@ -535,17 +535,21 @@ TargetRef 结构：
 
 ## 8. 数据模型 PIN 接口规范（Tier 2 约定）
 
-所有数据模型子类型（Data.Array / Data.Queue / Data.Stack / Data.LinkedList / Data.CircularBuffer 等）
-共享统一的 PIN 接口约定：
+0348 起，Data.* 目标合同由 `docs/ssot/feishu_data_model_contract_v1.md` 接管。
 
-- `add_data_in`（pin.in）：添加数据
-- `delete_data_in`（pin.in）：删除数据
-- `get_data_in`（pin.in）：获取数据请求
-- `get_data_out`（pin.out）：获取数据响应
-- `get_all_data_in`（pin.in）：获取全部数据请求
-- `get_all_data_out`（pin.out）：获取全部数据响应
-- `get_size_in`（pin.in）：获取数据量请求
-- `get_size_out`（pin.out）：获取数据量响应
+所有 Feishu-aligned 数据模型子类型共享统一 PIN 接口约定：
+
+- `add_data:in`（pin.in）：添加数据
+- `delete_data:in`（pin.in）：删除数据
+- `update_data:in`（pin.in）：修改数据
+- `get_data:in`（pin.in）：获取数据请求
+- `get_data:out`（pin.out）：获取数据响应
+- `get_all_data:in`（pin.in）：获取全部数据请求
+- `get_all_data:out`（pin.out）：获取全部数据响应
+- `get_size:in`（pin.in）：获取数据量请求
+- `get_size:out`（pin.out）：获取数据量响应
+
+0296-era underscore pins and operation-specific Queue/Stack pins are implementation debt, not the target contract.
 
 说明：
 - 本节为 Tier 2 约定，运行时不硬编码数据结构算法。
