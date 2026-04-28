@@ -115,10 +115,34 @@ Review Gate Record
 - Result: PASS
 - Commit:
 
+### Step 5 — Post-Merge Review Fix
+
+- Command:
+  - Final integration review by sub-agent `019dd550-2a83-72d0-ae07-b2f71904e4b1` on `origin/dev..HEAD`.
+  - Fixed high-priority `Data.Array` target-type examples in `CLAUDE.md`, `docs/architecture_mantanet_and_workers.md`, `docs/ssot/label_type_registry.md`, `docs/ssot/runtime_semantics_modeltable_driven.md`, and `docs/ssot/feishu_alignment_decisions_v0.md`.
+  - Removed the duplicate unchecked completion item in this runlog.
+  - Expanded `scripts/tests/test_0348_feishu_data_model_contract.mjs` to guard `CLAUDE.md`, `docs/architecture_mantanet_and_workers.md`, and old `Data.Array` examples.
+  - `node scripts/tests/test_0348_feishu_data_model_contract.mjs`
+  - `git diff --check`
+  - `rg --pcre2 -n "Data\\.Array(?!\\.)" CLAUDE.md docs/architecture_mantanet_and_workers.md docs/ssot docs/user-guide docs/iterations/0348-feishu-data-model-contract-realignment scripts/tests/test_0348_feishu_data_model_contract.mjs`
+- Key output:
+  - First integration review decision: `CHANGE_REQUESTED`.
+  - Findings fixed:
+    - High-priority SSOT still used unqualified `Data.Array` as target-type examples.
+    - Completed runlog had a duplicate unchecked item.
+    - 0348 validation did not cover the highest-priority entry points.
+  - Feishu Data Model contract docs test: PASS after fixes.
+  - `git diff --check`: PASS after fixes.
+  - Old `Data.Array` search now only returns test forbidden strings, 0348 evidence records, and explicit family/legacy/debt statements.
+  - Re-review by sub-agent `019dd554-0a56-7813-9b41-7230d1563234`: `APPROVED`; findings none; open questions none; verification gaps none.
+- Result: PASS
+- Commit:
+
 ## Docs Updated
 
-- [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
 - [x] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed and updated for Feishu-aligned Data.* pins.
+- [x] `CLAUDE.md` reviewed and updated for Feishu-aligned Data.Array.One/Two/Three examples.
+- [x] `docs/architecture_mantanet_and_workers.md` reviewed and updated for Feishu-aligned Data.Array.One example.
 - [x] `docs/user-guide/modeltable_user_guide.md` reviewed and updated for 0348 Data.* entry point and pin example.
 - [x] `docs/ssot/execution_governance_ultrawork_doit.md` reviewed for impact: no change needed because this iteration changes Data.* contract docs only.
 - [x] `docs/ssot/label_type_registry.md` reviewed and updated.

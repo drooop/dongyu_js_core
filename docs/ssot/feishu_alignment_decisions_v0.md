@@ -96,7 +96,7 @@ source: ai
 决议：
 - 保持当前二维编码：
   - `label.t` = 形态（`model.single | model.matrix | model.table | model.submt`）
-  - `label.v` = 类型（如 `Code.JS`、`Data.Array`、`Flow`、`Doc.Markdown` 等）
+  - `label.v` = 类型（如 `Code.JS`、`Data.Array.One`、`Flow`、`Doc.Markdown` 等）
 - `model.submt` 的 `label.v` 继续表示 child model id，而不是类型名。
 
 理由：

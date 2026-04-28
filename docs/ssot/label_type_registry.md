@@ -45,7 +45,7 @@ source: ai
 | label.t | 说明 | key | value | 位置约束 |
 |---|---|---|---|---|
 | `model.single` | 普通 Cell / 简单模型声明 | `model_type` | 类型名（如 `Code.JS`） | 任意 Cell；table/matrix 普通 Cell 可隐式默认为本类型 |
-| `model.matrix` | 矩阵模型根声明 | `model_type` | 类型名（如 `Data.Array`） | 矩阵自身相对 `(0,0,0)`；创建必填 |
+| `model.matrix` | 矩阵模型根声明 | `model_type` | 类型名（如 `Data.Array.One`） | 矩阵自身相对 `(0,0,0)`；创建必填 |
 | `model.table` | 模型表根声明 | `model_type` | 类型名（如 `Flow`） | 模型 `(0,0,0)`；创建必填 |
 | `model.submt` | 子模型挂载/映射 Cell | `model_type` | 子模型 id | 任意 hosting Cell；该 Cell 仅允许 `model.submt` + `pin.*` + `pin.log.*` |
 
