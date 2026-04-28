@@ -2,7 +2,7 @@
 title: "Label Type Registry"
 doc_type: ssot
 status: active
-updated: 2026-04-27
+updated: 2026-04-29
 source: ai
 ---
 
@@ -184,18 +184,23 @@ value 字段说明：
 
 ## 7. 数据模型 PIN 接口规范（Tier 2 约定）
 
-所有数据模型子类型共享统一 PIN 接口：
+0348 起，Data.* 目标合同由 `docs/ssot/feishu_data_model_contract_v1.md` 接管。
+
+所有 Feishu-aligned 数据模型子类型共享统一 PIN 接口：
 
 | pin 名称 | 方向 | 说明 |
 |---|---|---|
-| `add_data_in` | pin.in | 添加数据 |
-| `delete_data_in` | pin.in | 删除数据 |
-| `get_data_in` | pin.in | 获取数据（请求） |
-| `get_data_out` | pin.out | 获取数据（响应） |
-| `get_all_data_in` | pin.in | 获取全部数据（请求） |
-| `get_all_data_out` | pin.out | 获取全部数据（响应） |
-| `get_size_in` | pin.in | 获取数据量（请求） |
-| `get_size_out` | pin.out | 获取数据量（响应） |
+| `add_data:in` | pin.in | 添加数据 |
+| `delete_data:in` | pin.in | 删除数据 |
+| `update_data:in` | pin.in | 修改数据 |
+| `get_data:in` | pin.in | 获取数据（请求） |
+| `get_data:out` | pin.out | 获取数据（响应） |
+| `get_all_data:in` | pin.in | 获取全部数据（请求） |
+| `get_all_data:out` | pin.out | 获取全部数据（响应） |
+| `get_size:in` | pin.in | 获取数据量（请求） |
+| `get_size:out` | pin.out | 获取数据量（响应） |
+
+0296-era names such as `add_data_in`, `get_data_out`, `enqueue_data_in`, `dequeue_data_in`, `push_data_in`, `pop_data_in`, and `peek_data_in` may still exist in current implementation artifacts, but are not the target contract after 0348.
 
 ---
 

@@ -2,7 +2,7 @@
 title: "定位说明（必须写在文件开头）"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-04-29
 source: ai
 ---
 
@@ -177,23 +177,27 @@ source: ai
 ## 4.1 数据模型（Data.*）
 
 决议：
-- `Data.Array` / `Data.Queue` / `Data.Stack` / `Data.LinkedList` / `Data.CircularBuffer` 等
-  继续被视为正式类型名。
+- `Data.*` 的当前目标合同由 `docs/ssot/feishu_data_model_contract_v1.md` 接管。
+- `Data.Single` / `Data.Array.One` / `Data.Array.Two` / `Data.Array.Three` / `Data.Queue` / `Data.Stack` / `Data.LinkedList` / `Data.CircularBuffer` / `Data.FlowTicket` 等
+  继续被视为正式类型名或正式目标类型名。
 - 这些类型的行为**不直接写入 Tier 1 运行时解释器**。
 - 当前项目正式方向是：
   - 通过 Tier 2 模板模型 / 系统 worker / `func.js` / `func.python` 实现
   - 复用统一 PIN 接口契约
 
 实施约束：
-- 新工作优先围绕以下统一接口落地：
-  - `add_data_in`
-  - `delete_data_in`
-  - `get_data_in`
-  - `get_data_out`
-  - `get_all_data_in`
-  - `get_all_data_out`
-  - `get_size_in`
-  - `get_size_out`
+- 新工作优先围绕 Feishu 统一接口落地：
+  - `add_data:in`
+  - `delete_data:in`
+  - `update_data:in`
+  - `get_data:in`
+  - `get_data:out`
+  - `get_all_data:in`
+  - `get_all_data:out`
+  - `get_size:in`
+  - `get_size:out`
+- `add_data_in` / `get_data_out` 等 underscore 命名，以及 Queue/Stack 的 operation-specific pins，属于 0296-era 实现债务，不是目标合同。
+- `Data.Array` 作为不分维度的目标类型被 `Data.Array.One/Two/Three` supersede；若现有实现仍使用 `Data.Array`，应在后续迁移 iteration 中处理。
 
 理由：
 - 这既保留了 Feishu “数据模型是一等类型”的方向，
@@ -266,11 +270,12 @@ source: ai
 ## 建议顺序
 
 1. `Data model` iteration
-   - 先做 `Data.Array` 模板能力
+   - 先做 `Data.Single` 与 `Data.Array.One/Two/Three` 模板能力
+   - 再按 Feishu target contract 迁移 `Data.Queue` / `Data.Stack` / `Data.CircularBuffer` / `Data.LinkedList`
    - 建 deterministic tests
 
 2. `Flow model` iteration
-   - 先冻结 `FlowTicket` / state / error contract
+   - 先基于 `Data.FlowTicket` 冻结 state / error contract
    - 再做 executor
 
 3. `Matrix semantics` iteration
