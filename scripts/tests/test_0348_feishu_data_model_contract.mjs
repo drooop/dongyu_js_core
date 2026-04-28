@@ -6,6 +6,29 @@ const repoRoot = process.cwd();
 
 const checks = [
   {
+    file: 'CLAUDE.md',
+    required: [
+      'Data.Array.One',
+      'Data.Array.Two',
+      'Data.Array.Three',
+      'Data.Array.One behavior',
+    ],
+    forbidden: [
+      'type (Code.JS | Data.Array | Flow | Doc.Markdown | ...)',
+      'data model subtypes (Data.Array, Data.Queue, Data.Stack, etc.)',
+      'Data.Array behavior → tier 2',
+    ],
+  },
+  {
+    file: 'docs/architecture_mantanet_and_workers.md',
+    required: [
+      'Data.Array.One',
+    ],
+    forbidden: [
+      '类型（Code.JS | Data.Array | Flow | Doc.Markdown | ...）',
+    ],
+  },
+  {
     file: 'docs/ssot/feishu_data_model_contract_v1.md',
     required: [
       'Feishu Data Model Contract v1',
@@ -25,11 +48,13 @@ const checks = [
     file: 'docs/ssot/runtime_semantics_modeltable_driven.md',
     required: [
       'feishu_data_model_contract_v1.md',
+      'Data.Array.One',
       '`add_data:in`',
       '`update_data:in`',
       '0296-era underscore pins',
     ],
     forbidden: [
+      '类型（Code.JS | Data.Array | Flow | Doc.Markdown | ...）',
       '`add_data_in`（pin.in）：添加数据',
       '`get_data_out`（pin.out）：获取数据响应',
       '`get_size_out`（pin.out）：获取数据量响应',
@@ -39,11 +64,13 @@ const checks = [
     file: 'docs/ssot/label_type_registry.md',
     required: [
       'feishu_data_model_contract_v1.md',
+      'Data.Array.One',
       '`add_data:in`',
       '`update_data:in`',
       '0296-era names',
     ],
     forbidden: [
+      '类型名（如 `Data.Array`）',
       '| `add_data_in` | pin.in | 添加数据 |',
       '| `get_data_out` | pin.out | 获取数据（响应） |',
       '| `get_size_out` | pin.out | 获取数据量（响应） |',
@@ -60,6 +87,7 @@ const checks = [
       '0296-era',
     ],
     forbidden: [
+      '如 `Code.JS`、`Data.Array`、`Flow`、`Doc.Markdown` 等',
       '先做 `Data.Array` 模板能力',
     ],
   },

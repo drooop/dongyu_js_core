@@ -411,7 +411,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 - `model_type` 二维编码：
   - `label.t` = 形态（model.single | model.matrix | model.table）
-  - `label.v` = 类型（Code.JS | Data.Array | Flow | Doc.Markdown | ...）
+  - `label.v` = 类型（Code.JS | Data.Array.One | Flow | Doc.Markdown | ...）
 - 无效的形态×类型组合必须拒绝并写入错误标签（不得 silent fail）。
 
 ### 5.3b 运行时权限模型（0323）

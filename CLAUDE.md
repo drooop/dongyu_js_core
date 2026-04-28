@@ -83,7 +83,7 @@ for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective 
 
   model_type label encodes two dimensions:
     label.t = form (model.single | model.matrix | model.table | model.submt)
-    label.v = type (Code.JS | Data.Array | Flow | Doc.Markdown | ...) for model.single/model.matrix/model.table
+    label.v = type (Code.JS | Data.Array.One | Flow | Doc.Markdown | ...) for model.single/model.matrix/model.table
               child model id for model.submt
     invalid form×type combinations MUST be rejected at registration.
 
@@ -313,7 +313,7 @@ tier 2: model definitions (填表能力)
   - all business logic (via func.js / func.python labels)
   - all routing topology (via pin.connect.* labels)
   - all system infrastructure functions (via system model labels)
-  - data model subtypes (Data.Array, Data.Queue, Data.Stack, etc.) as JSON patch templates
+  - data model subtypes (Data.Array.One/Two/Three, Data.Queue, Data.Stack, etc.) as JSON patch templates
   - flow model (flow.* labels + flow manager function) as JSON patch templates
   - MBR routing rules (via mbr_route_* labels)
   - MGMT send/receive (via function labels)
@@ -341,7 +341,7 @@ conformance review:
       5. allowed data chain / routing path
 
 examples:
-  - Data.Array behavior → tier 2 (func.js template on data model)
+  - Data.Array.One behavior → tier 2 (func.js template on data model)
   - flow step scheduling → tier 2 (flow manager function)
   - MBR routing logic → tier 2 (function label on Model -10)
   - MQTT topic parsing → tier 1 (interpreter logic)
@@ -510,7 +510,9 @@ MODEL_TYPE_REGISTRY
     Code.JS
     Code.Python
     Data
-    Data.Array
+    Data.Array.One
+    Data.Array.Two
+    Data.Array.Three
     Data.Queue
     Data.Stack
     Data.CircularBuffer
