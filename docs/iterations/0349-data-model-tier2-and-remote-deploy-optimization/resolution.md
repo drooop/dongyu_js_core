@@ -79,9 +79,9 @@ source: ai
 - Files:
   - `docs/iterations/0349-data-model-tier2-and-remote-deploy-optimization/runlog.md`
 - Verification:
-  - `bash scripts/ops/sync_cloud_source.sh --ssh-user drop --ssh-host dongyudigital.com --remote-repo /home/wwpic/dongyuapp --remote-repo-owner wwpic --revision "$(git rev-parse --short HEAD)"`
-  - `ssh drop@dongyudigital.com "sudo -n bash /home/wwpic/dongyuapp/scripts/ops/remote_preflight_guard.sh"`
-  - `ssh drop@dongyudigital.com "sudo -n bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-server --revision $(git rev-parse --short HEAD)"`
+  - `bash scripts/ops/sync_cloud_source.sh --ssh-user drop --ssh-host 124.71.43.80 --remote-repo /home/wwpic/dongyuapp --remote-repo-owner wwpic --revision "$(git rev-parse --short HEAD)"`
+  - `ssh drop@124.71.43.80 "sudo -n env KUBECONFIG=/etc/rancher/rke2/rke2.yaml CTR=/usr/local/bin/ctr bash /home/wwpic/dongyuapp/scripts/ops/remote_preflight_guard.sh"`
+  - `ssh drop@124.71.43.80 "sudo -n bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-server --revision $(git rev-parse --short HEAD)"`
   - a remote HTTP or pod-level smoke check recorded in runlog
   - sub-agent review
 - Acceptance:

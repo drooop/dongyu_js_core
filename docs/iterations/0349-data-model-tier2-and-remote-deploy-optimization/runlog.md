@@ -76,6 +76,10 @@ source: ai
   - Retried through historical SSH IP `124.71.43.80`; git checkout missed local-only revision and archive fallback started as expected.
   - Archive fallback failed because remote `/tmp` is on a full root filesystem; read-only disk check showed `/home/wwpic/dongyuapp` is on `/opt` with available space.
   - Updated archive fallback to use `$REMOTE_REPO/.sync-work` instead of `/tmp`.
+  - Second remote sync succeeded with revision stamp `1c6be63`, but verification showed `.dockerignore` was not included in archive fallback paths.
+  - Standalone preflight without explicit `KUBECONFIG` failed with `kubectl cannot reach cluster`; deploy scripts set `KUBECONFIG`, and manual preflight command was updated to pass it explicitly.
+  - Added `.dockerignore` to `DEPLOY_ARCHIVE_PATHS`.
+  - Follow-up review required Stage 4 source sync, preflight, and app deploy commands to use the same reachable SSH target; updated all three to `124.71.43.80`.
 - Result: in progress
 - Commit:
 

@@ -62,6 +62,7 @@ fi
 TARGET="${SSH_USER}@${SSH_HOST}"
 RESOLVED_REVISION="$(git -C "$REPO_DIR" rev-parse --short "$REVISION")"
 DEPLOY_ARCHIVE_PATHS=(
+  ".dockerignore"
   "package.json"
   "package-lock.json"
   "bun.lock"

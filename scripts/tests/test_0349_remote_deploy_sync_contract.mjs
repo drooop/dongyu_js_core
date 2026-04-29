@@ -48,6 +48,7 @@ const sync = read(syncFile);
 for (const needle of [
   'RESOLVED_REVISION=',
   'DEPLOY_ARCHIVE_PATHS=',
+  '".dockerignore"',
   '"packages"',
   '"scripts/ops"',
   '"scripts/run_worker_v0.mjs"',
