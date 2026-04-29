@@ -66,6 +66,12 @@ Not needed in Docker build context for current images:
 - `node_modules/`
 - `.git/`
 
+Keep in Docker build context:
+
+- `packages/ui-model-demo-frontend/dist/`
+  - Required by `k8s/Dockerfile.ui-server-prebuilt`.
+  - Do not exclude all `**/dist` globally unless the prebuilt image path is removed or changed to rebuild frontend assets.
+
 ## 3. Current Sync/Build Weak Spots
 
 1. No `.dockerignore`.

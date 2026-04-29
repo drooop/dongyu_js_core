@@ -1,7 +1,7 @@
 ---
 title: "0349 Data Model Tier2 And Remote Deploy Optimization Runlog"
 doc_type: iteration-runlog
-status: active
+status: completed
 updated: 2026-04-29
 source: ai
 ---
@@ -30,8 +30,8 @@ source: ai
     - archive fallback revision-gate risk was not documented.
     - validation command did not explicitly include untracked new docs.
   - Fixed Stage 1 docs to separate `Data.Single` placement from collection models and to document stale `.git` / `.deploy-source-revision` risk.
-- Result: in progress
-- Commit:
+- Result: PASS
+- Commit: `f3db357 docs(ssot): plan data models and optimize cloud deploy [0349]`
 
 ### Step 2 — Tier 2 Implementation Design
 
@@ -53,8 +53,8 @@ source: ai
   - `git diff --check`: PASS with new Stage 2 files included through intent-to-add.
   - First Stage 2 review returned `CHANGE_REQUESTED` because resolution missed `runtime_semantics_modeltable_driven.md` in Files/Rollback and runlog lacked Stage 2 verification evidence.
   - Fixed resolution and runlog evidence.
-- Result: in progress
-- Commit:
+- Result: PASS
+- Commit: `f3db357 docs(ssot): plan data models and optimize cloud deploy [0349]`
 
 ### Step 3 — Deploy Sync Optimization
 
@@ -80,8 +80,12 @@ source: ai
   - Standalone preflight without explicit `KUBECONFIG` failed with `kubectl cannot reach cluster`; deploy scripts set `KUBECONFIG`, and manual preflight command was updated to pass it explicitly.
   - Added `.dockerignore` to `DEPLOY_ARCHIVE_PATHS`.
   - Follow-up review required Stage 4 source sync, preflight, and app deploy commands to use the same reachable SSH target; updated all three to `124.71.43.80`.
-- Result: in progress
+- Result: PASS
 - Commit:
+  - `f3db357 docs(ssot): plan data models and optimize cloud deploy [0349]`
+  - `1c6be63 fix(ops): avoid tmp during cloud source fallback [0349]`
+  - `64769b8 fix(ops): tighten cloud source sync verification [0349]`
+  - `45f2a81 fix(ops): unblock remote bun image deploy [0349]`
 
 ### Step 4 — Remote Deploy Verification
 
@@ -129,12 +133,45 @@ source: ai
 ### Step 5 — Final Gate
 
 - Command:
+  - `node scripts/tests/test_0349_data_model_tier2_plan.mjs`
+  - `node scripts/tests/test_0349_remote_deploy_sync_contract.mjs`
+  - `node scripts/tests/test_0348_feishu_data_model_contract.mjs`
+  - `node scripts/tests/test_0183_cloud_remote_build_contract.mjs`
+  - `node scripts/tests/test_0183_cloud_split_deploy_contract.mjs`
+  - `node scripts/tests/test_0200_cloud_loader_chain_contract.mjs`
+  - `bash -n scripts/ops/sync_cloud_source.sh scripts/ops/deploy_cloud_app.sh scripts/ops/deploy_cloud_full.sh`
+  - `node scripts/ops/obsidian_docs_audit.mjs --root docs`
+  - `git diff --check`
+  - Final review found that `.dockerignore` excluded `**/dist`, which breaks `k8s/Dockerfile.ui-server-prebuilt`.
+  - `npm -C packages/ui-model-demo-frontend run build`
+  - `docker build -f k8s/Dockerfile.ui-server-prebuilt -t dy-ui-server-prebuilt:0349 .`
+  - `docker run --rm dy-ui-server-prebuilt:0349 sh -lc 'test -f packages/ui-model-demo-frontend/dist/index.html && ls -lh packages/ui-model-demo-frontend/dist/index.html && test -d packages/ui-model-demo-frontend/dist/assets && echo PREBUILT_DIST_OK'`
+  - final sub-agent review
 - Key output:
-- Result: PASS/FAIL
-- Commit:
+  - `node scripts/tests/test_0349_data_model_tier2_plan.mjs`: PASS.
+  - `node scripts/tests/test_0349_remote_deploy_sync_contract.mjs`: PASS.
+  - `node scripts/tests/test_0348_feishu_data_model_contract.mjs`: PASS.
+  - `node scripts/tests/test_0183_cloud_remote_build_contract.mjs`: PASS.
+  - `node scripts/tests/test_0183_cloud_split_deploy_contract.mjs`: PASS.
+  - `node scripts/tests/test_0200_cloud_loader_chain_contract.mjs`: PASS.
+  - `bash -n` deploy scripts: PASS.
+  - `node scripts/ops/obsidian_docs_audit.mjs --root docs`: PASS.
+  - `git diff --check`: PASS.
+  - Final review found and fixed `.dockerignore` / prebuilt image path mismatch.
+  - Frontend build for prebuilt path: PASS.
+  - `k8s/Dockerfile.ui-server-prebuilt` build: PASS.
+  - Prebuilt image contains `packages/ui-model-demo-frontend/dist/index.html`: `PREBUILT_DIST_OK`.
+  - Final sub-agent review after fix: `APPROVED`, no findings and no verification gaps.
+- Result: PASS
+- Commit: pending
 
 ## Docs Updated
 
-- [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
-- [ ] `docs/user-guide/modeltable_user_guide.md` reviewed
-- [ ] `docs/ssot/execution_governance_ultrawork_doit.md` reviewed
+- [x] `docs/ssot/data_model_tier2_implementation_v1.md`
+- [x] `docs/ssot/runtime_semantics_modeltable_driven.md`
+- [x] `docs/user-guide/data_models_filltable_guide.md`
+- [x] `docs/iterations/0349-data-model-tier2-and-remote-deploy-optimization/data_model_tier2_inventory.md`
+- [x] `docs/iterations/0349-data-model-tier2-and-remote-deploy-optimization/remote_deploy_sync_inventory.md`
+- [x] `docs/iterations/0349-data-model-tier2-and-remote-deploy-optimization/plan.md`
+- [x] `docs/iterations/0349-data-model-tier2-and-remote-deploy-optimization/resolution.md`
+- [x] `docs/iterations/0349-data-model-tier2-and-remote-deploy-optimization/runlog.md`

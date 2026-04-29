@@ -1,7 +1,7 @@
 ---
 title: "0349 Data Model Tier2 And Remote Deploy Optimization Resolution"
 doc_type: iteration-resolution
-status: active
+status: completed
 updated: 2026-04-29
 source: ai
 ---

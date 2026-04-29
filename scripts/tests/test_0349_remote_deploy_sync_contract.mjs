@@ -34,6 +34,8 @@ for (const needle of [
 ]) {
   assertContains(dockerignore, needle, dockerignoreFile);
 }
+assertNotContains(dockerignore, '**/dist', dockerignoreFile);
+assertNotContains(dockerignore, 'packages/ui-model-demo-frontend/dist', dockerignoreFile);
 for (const forbidden of [
   '\npackages\n',
   '\nscripts\n',
