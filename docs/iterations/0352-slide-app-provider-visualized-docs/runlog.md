@@ -27,6 +27,13 @@ source: ai
 - Review Index: 2
 - Decision: Approved
 - Notes: after keeping the writeback result visible and adding inline payload preview, no findings or gaps remained.
+- Review Gate Record
+- Iteration ID: `0352-slide-app-provider-visualized-docs`
+- Review Date: 2026-04-29
+- Review Type: AI-assisted sub-agent (`codex-code-review`)
+- Review Index: 3
+- Decision: Approved
+- Notes: runtime blocker fix approved; reviewer requested adding a changed-payload scheduling assertion, which was added and passed.
 
 ## Execution Records
 
@@ -91,7 +98,25 @@ source: ai
 - Result: PASS
 - Commit: pending
 
-### Step 4 - Remote deployment and browser verification
+### Step 4 - Runtime blocker fix for remote verification
+
+- Observation: remote `/api/runtime/mode` timed out after Matrix boot; subsequent `/snapshot` also timed out.
+- Evidence:
+- Remote ui-server logs repeatedly printed `Recovering pending Model 0 egress for model 100, triggering forward_model100_submit_from_model0`.
+- The same pending `model100_submit_out` payload could be scheduled again before it was cleared, occupying the runtime loop.
+- Root cause: pending Model 0 egress recovery had no unchanged-payload dedupe across scheduling rounds.
+- Fix:
+- Added per-engine pending Model 0 egress dispatch signatures in `packages/ui-model-demo-server/server.mjs`.
+- Unchanged pending payloads schedule once while present.
+- Changed payloads schedule again.
+- Cleared/null payloads forget the signature and allow future requeue.
+- Command: `node scripts/tests/test_0303_model0_egress_recovery_server_flow.mjs`
+- Key output:
+- `[PASS] pending_model0_egress_is_not_rescheduled_while_unchanged`
+- `6 passed, 0 failed out of 6`
+- Result: PASS
+
+### Step 5 - Remote deployment and browser verification
 
 - Command: pending after merge/deploy.
 - Key output: pending

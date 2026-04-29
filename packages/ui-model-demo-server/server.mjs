@@ -2870,8 +2870,36 @@ class ProgramModelEngine {
     // Set by server to trigger SSE broadcast.
     this.onSnapshotChanged = null;
     this.bridgedBusOutPorts = new Map();
+    this.pendingModel0EgressDispatches = new Map();
     this.outboundMatrixOps = [];
     this.ignoredMatrixReturnOpIds = new Set();
+  }
+
+  model0EgressDispatchKey(sourceModelId, egressLabel, egressFunc) {
+    return `${sourceModelId}:${egressLabel}:${egressFunc}`;
+  }
+
+  model0EgressPayloadSignature(payload) {
+    return safeJsonStringify(payload, `unserializable:${Date.now()}`);
+  }
+
+  shouldScheduleModel0Egress(sourceModelId, egressLabel, egressFunc, payload) {
+    const key = this.model0EgressDispatchKey(sourceModelId, egressLabel, egressFunc);
+    if (!Array.isArray(payload) || payload.length === 0) {
+      this.pendingModel0EgressDispatches.delete(key);
+      return false;
+    }
+    const signature = this.model0EgressPayloadSignature(payload);
+    if (this.pendingModel0EgressDispatches.get(key) === signature) {
+      return false;
+    }
+    this.pendingModel0EgressDispatches.set(key, signature);
+    return true;
+  }
+
+  forgetModel0EgressDispatch(sourceModelId, egressLabel, egressFunc) {
+    const key = this.model0EgressDispatchKey(sourceModelId, egressLabel, egressFunc);
+    this.pendingModel0EgressDispatches.delete(key);
   }
 
   refreshMatrixBootstrapConfig() {
@@ -4217,7 +4245,9 @@ class ProgramModelEngine {
             console.log(`[processEventsSnapshot] Model 0 egress detected for model ${sourceModelId}, triggering ${egressFunc}`);
             if (sys && sys.hasFunction(egressFunc)) {
               scheduledModel0Egress.add(egressLabel);
-              this.runtime.intercepts.record('run_func', { func: egressFunc, payload: event.label.v });
+              if (this.shouldScheduleModel0Egress(sourceModelId, egressLabel, egressFunc, event.label.v)) {
+                this.runtime.intercepts.record('run_func', { func: egressFunc, payload: event.label.v });
+              }
             } else {
               console.log(`[processEventsSnapshot] WARNING: ${egressFunc} function NOT found`);
             }
@@ -4327,7 +4357,11 @@ class ProgramModelEngine {
         : '';
       if (!egressLabel || !egressFunc || alreadyScheduled.has(egressLabel)) continue;
       const payload = this.runtime.getLabelValue(model0, 0, 0, 0, egressLabel);
-      if (!Array.isArray(payload) || payload.length === 0) continue;
+      if (!Array.isArray(payload) || payload.length === 0) {
+        this.forgetModel0EgressDispatch(sourceModelId, egressLabel, egressFunc);
+        continue;
+      }
+      if (!this.shouldScheduleModel0Egress(sourceModelId, egressLabel, egressFunc, payload)) continue;
       console.log(`[processEventsSnapshot] Recovering pending Model 0 egress for model ${sourceModelId}, triggering ${egressFunc}`);
       if (sys && sys.hasFunction(egressFunc)) {
         alreadyScheduled.add(egressLabel);

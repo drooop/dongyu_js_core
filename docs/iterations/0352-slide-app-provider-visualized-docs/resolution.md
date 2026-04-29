@@ -10,10 +10,11 @@ source: ai
 
 ## Execution Strategy
 
-- Keep the implementation docs-only.
+- Keep the provider guide implementation docs-only.
+- Include the narrow runtime blocker fix discovered during remote verification: unchanged pending Model 0 egress payloads must not be rescheduled repeatedly.
 - Build the visualized Markdown from the 0351 provider example, not from runtime internals.
 - Build the HTML as a static standalone explainer with a small client-side submit simulator.
-- Verify both static contract and real browser interaction.
+- Verify static contract, local browser interaction, remote deployment, and remote browser interaction.
 
 ## Step 1
 
@@ -56,13 +57,16 @@ source: ai
 
 ## Step 4
 
-- Scope: Deploy the completed dev revision and verify the remote service with a real browser.
+- Scope: Fix the remote runtime blocker, deploy the completed revision, and verify the remote service with a real browser.
 - Files:
+- `packages/ui-model-demo-server/server.mjs`
+- `scripts/tests/test_0303_model0_egress_recovery_server_flow.mjs`
 - `docs/iterations/0352-slide-app-provider-visualized-docs/runlog.md`
 - Verification:
+- Confirm repeated unchanged pending Model 0 egress does not keep rescheduling.
 - Upload the documented minimal app zip through `/api/media/upload`, trigger importer through `/ui_event`, confirm Workspace registry contains the imported app, then use Playwright against `https://app.dongyudigital.com/#/workspace`.
 - Acceptance:
-- Remote service loads, the imported minimal app appears, and submit writeback is visible in the browser.
+- Remote service loads, `/api/runtime/mode` returns, the imported minimal app appears, and submit writeback is visible in the browser.
 - Rollback:
 - Re-deploy the previous dev revision if the remote verification fails after this iteration is merged.
 
