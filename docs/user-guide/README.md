@@ -63,6 +63,8 @@ source: ai
   - 0309 正式版：说明 slide app 当前怎么经 Matrix media + importer pin-chain 交付、包结构和最短验证。
 - `slide_delivery_and_runtime_overview_v1.md`
   - 0313 总览页：并排解释 slide app 的安装交付链和导入后运行链。
+- `slide-app-runtime/`
+  - 0350 开发者入口：把滑动 APP 的编写、安装、自动建引脚、点击到后端、后端程序触发和管理总线外发链路写成 Markdown 手册与可视化 HTML。
 - `slide_python_install_client_v1.md`
   - 0316 Python 示例：给同事一个可直接运行的 slide app 安装客户端。
 - `slide_upload_auth_and_cache_contract_v1.md`

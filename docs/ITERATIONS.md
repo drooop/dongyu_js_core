@@ -252,6 +252,7 @@ source: ai
 | 0347-temporary-modeltable-message-contract | 2026-04-27 | 核查 Data.* 数据模型现状并冻结临时 ModelTable message 合同：传输格式 ModelTable-like，持久化只由显式 materialization 触发 | 3 | dev_0347-temporary-modeltable-message-contract | Completed | ./docs/iterations/0347-temporary-modeltable-message-contract/ |
 | 0348-feishu-data-model-contract-realignment | 2026-04-29 | 重新核实 Feishu 原文并按其冻结 Data.* 目标合同，标记 0296-era 数据模型结构和 pin 命名差异为后续迁移债务 | 4 | dev_0348-feishu-data-model-contract-realignment | Completed | ./docs/iterations/0348-feishu-data-model-contract-realignment/ |
 | 0349-data-model-tier2-and-remote-deploy-optimization | 2026-04-29 | 规划 Data.* 如何以 Tier 2 模板实现并盘点适用场景，同时审查并优化远端部署同步/构建路径后完成一次远端部署验证 | 5 | dev_0349-data-model-tier2-and-remote-deploy-optimization | Completed | ./docs/iterations/0349-data-model-tier2-and-remote-deploy-optimization/ |
+| 0350-slide-app-runtime-user-guide | 2026-04-29 | 核实 DNS/SSH 状态，并把滑动 APP 编写、安装、自动建引脚、运行时事件、后端程序触发与管理总线外发链路写成 user guide 与可视化页面 | 4 | dev_0350-slide-app-runtime-user-guide | Completed | ./docs/iterations/0350-slide-app-runtime-user-guide/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

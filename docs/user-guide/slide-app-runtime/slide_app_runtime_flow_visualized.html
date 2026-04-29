@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slide App Runtime Flow</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f6f3ec;
+    --ink: #17202a;
+    --muted: #637083;
+    --panel: #fffdf8;
+    --line: #d9d0bf;
+    --blue: #1d5c96;
+    --green: #317356;
+    --rust: #a6472a;
+    --amber: #ad7a22;
+    --soft-blue: #e8f1f8;
+    --soft-green: #e9f4ed;
+    --soft-rust: #f7e9e3;
+    --shadow: 0 18px 45px rgba(48, 35, 19, 0.12);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(29, 92, 150, 0.12), transparent 32rem),
+      linear-gradient(135deg, #fbf8f0 0%, var(--bg) 52%, #efe6d7 100%);
+    line-height: 1.65;
+  }
+  header {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 56px 24px 28px;
+  }
+  .eyebrow {
+    color: var(--rust);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 10px 0 14px;
+    font-size: clamp(32px, 6vw, 64px);
+    line-height: 1.02;
+    letter-spacing: -0.05em;
+  }
+  .lead {
+    max-width: 780px;
+    color: var(--muted);
+    font-size: 18px;
+  }
+  main {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 24px 64px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 22px;
+    align-items: start;
+  }
+  .nav {
+    position: sticky;
+    top: 16px;
+    display: grid;
+    gap: 10px;
+  }
+  button.stage {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(255,255,255,0.72);
+    color: var(--ink);
+    padding: 14px 16px;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: none;
+    transition: transform .16s ease, background .16s ease, border-color .16s ease;
+  }
+  button.stage:hover { transform: translateY(-1px); border-color: var(--blue); }
+  button.stage.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  button.stage strong { display: block; font-size: 15px; }
+  button.stage span { display: block; color: inherit; opacity: .72; font-size: 12px; margin-top: 2px; }
+  .panel {
+    display: none;
+    background: rgba(255, 253, 248, 0.88);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    box-shadow: var(--shadow);
+    padding: 28px;
+  }
+  .panel.active { display: block; animation: rise .24s ease both; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .panel h2 { margin: 0 0 10px; font-size: 28px; letter-spacing: -0.03em; }
+  .panel p { color: var(--muted); margin: 0 0 18px; }
+  .flow {
+    display: grid;
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .node {
+    position: relative;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 18px;
+    padding: 14px 16px;
+  }
+  .node strong { display: block; }
+  .node small { display: block; color: var(--muted); margin-top: 3px; }
+  .node::after {
+    content: "↓";
+    position: absolute;
+    left: 18px;
+    bottom: -20px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .node:last-child::after { content: ""; }
+  .node.blue { background: var(--soft-blue); border-color: rgba(29, 92, 150, .25); }
+  .node.green { background: var(--soft-green); border-color: rgba(49, 115, 86, .25); }
+  .node.rust { background: var(--soft-rust); border-color: rgba(166, 71, 42, .24); }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .card {
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 20px;
+    padding: 16px;
+  }
+  .card h3 { margin: 0 0 8px; font-size: 16px; }
+  .card p { margin: 0; font-size: 14px; }
+  code {
+    background: rgba(23, 32, 42, .08);
+    border-radius: 7px;
+    padding: 2px 6px;
+    font-family: "SF Mono", "Menlo", monospace;
+    font-size: .92em;
+  }
+  .callout {
+    border-left: 4px solid var(--rust);
+    background: #fff6ed;
+    border-radius: 14px;
+    padding: 14px 16px;
+    color: #5d392c;
+  }
+  @media (max-width: 820px) {
+    .grid { grid-template-columns: 1fr; }
+    .nav { position: static; }
+    .cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">ModelTable-driven Slide App</div>
+  <h1>滑动 APP 从填表到外发的实际链路</h1>
+  <p class="lead">这张可视化图只讲 current truth：UI 是投影，正式事件进入 Model 0，运行时数据用临时 ModelTable record array，外发统一经 Model 0 管理总线。</p>
+</header>
+
+<main class="grid">
+  <nav class="nav" aria-label="Runtime stages">
+    <button class="stage active" data-target="author"><strong>1. 编写</strong><span>root metadata / UI / program / egress</span></button>
+    <button class="stage" data-target="install"><strong>2. 安装</strong><span>zip / upload / importer / mount</span></button>
+    <button class="stage" data-target="auto-pins"><strong>3. 自动建引脚</strong><span>host ingress / host egress</span></button>
+    <button class="stage" data-target="click"><strong>4. 点击到后端</strong><span>bus_event_v2 / Model 0 / target cell</span></button>
+    <button class="stage" data-target="backend"><strong>5. 程序触发</strong><span>pin.in / func.js / pin.out</span></button>
+    <button class="stage" data-target="egress"><strong>6. 外发回流</strong><span>mt_bus_send / pin.bus.out / owner materialization</span></button>
+  </nav>
+
+  <section>
+    <article id="author" class="panel active">
+      <h2>1. 编写：把 APP 写成 ModelTable records</h2>
+      <p>滑动 APP 不是一段 HTML 字符串，而是一组能被 materialize 的临时 ModelTable records。</p>
+      <div class="cards">
+        <div class="card"><h3>root metadata</h3><p><code>model_type</code>、<code>app_name</code>、<code>slide_capable</code>、<code>ui_root_node_id</code> 让 Workspace 能识别和打开 APP。</p></div>
+        <div class="card"><h3>UI 投影层</h3><p><code>cellwise.ui.v1</code> 用多个 cell 表示 Container、Text、Input、Button、布局和父子关系。</p></div>
+        <div class="card"><h3>程序层</h3><p><code>pin.in</code>、<code>pin.connect.label</code>、<code>func.js</code> 声明后端处理链。</p></div>
+        <div class="card"><h3>外发层</h3><p>需要发消息时，APP 写自己的 root <code>pin.out</code>，不要直接发 Matrix / MBR / MQTT。</p></div>
+      </div>
+    </article>
+
+    <article id="install" class="panel">
+      <h2>2. 安装：从 zip 到 Workspace mount</h2>
+      <p>安装交付只负责把 APP materialize 到 Workspace，不处理运行时业务。</p>
+      <div class="flow">
+        <div class="node blue"><strong>zip</strong><small>包含 app_payload.json</small></div>
+        <div class="node blue"><strong>/api/media/upload</strong><small>上传为 media object</small></div>
+        <div class="node blue"><strong>mxc://...</strong><small>得到可引用 URI</small></div>
+        <div class="node green"><strong>importer truth</strong><small>记录 URI、状态和结果</small></div>
+        <div class="node green"><strong>importer click pin</strong><small>触发导入程序</small></div>
+        <div class="node rust"><strong>materialize / mount</strong><small>分配正式 modelId，并在 Model 0 写 model.submt</small></div>
+      </div>
+    </article>
+
+    <article id="auto-pins" class="panel">
+      <h2>3. 自动建引脚：宿主只接公开边界</h2>
+      <p>APP 声明 <code>host_ingress_v1</code> 后，安装器会生成宿主 adapter，不会把内部 helper 直接暴露给外部。</p>
+      <div class="flow">
+        <div class="node blue"><strong>Model 0 root</strong><small><code>imported_host_submit_&lt;modelId&gt;</code> as <code>pin.bus.in</code></small></div>
+        <div class="node blue"><strong>Model 0 route</strong><small><code>pin.connect.model</code> routes to imported root relay</small></div>
+        <div class="node green"><strong>Imported root relay</strong><small><code>__host_ingress_submit</code> as <code>pin.in</code></small></div>
+        <div class="node green"><strong>Imported boundary pin</strong><small>relay to declared <code>submit_request</code></small></div>
+      </div>
+      <div class="callout">如果 APP 还声明外发能力，安装器会在 Model 0 mount cell 和 Model 0 root 上补 host egress relay、bridge function 和 <code>pin.bus.out</code>。</div>
+    </article>
+
+    <article id="click" class="panel">
+      <h2>4. 点击到后端：正式事件先进 Model 0</h2>
+      <p>按钮点击不直接改目标业务 truth。正式提交必须是 <code>bus_event_v2</code>，且 value 已经是临时 ModelTable record array。</p>
+      <div class="flow">
+        <div class="node blue"><strong>Button click</strong><small>renderer reads <code>ui_bind_json.write</code></small></div>
+        <div class="node blue"><strong>bus_event_v2</strong><small><code>bus_in_key</code> + temporary ModelTable payload</small></div>
+        <div class="node green"><strong>POST /bus_event</strong><small>remote store submits to server</small></div>
+        <div class="node green"><strong>Model 0 pin.bus.in</strong><small>server writes <code>k=&lt;bus_in_key&gt; t=pin.bus.in</code></small></div>
+        <div class="node rust"><strong>pin route</strong><small><code>pin.connect.model</code> reaches target model</small></div>
+        <div class="node rust"><strong>target cell pin.in</strong><small><code>mt_bus_receive</code> dispatches to target pin</small></div>
+      </div>
+    </article>
+
+    <article id="backend" class="panel">
+      <h2>5. 程序触发：模型表运行处执行</h2>
+      <p>后端程序由目标 cell 的 pin 收到值后触发。函数读取的是 <code>label.v</code>，并通过 V1N 或 root 默认链写回模型表。</p>
+      <div class="cards">
+        <div class="card"><h3><code>submit_request</code></h3><p>业务入口 <code>pin.in</code>。</p></div>
+        <div class="card"><h3><code>submit_request_wiring</code></h3><p>把入口接到 <code>handle_submit</code>。</p></div>
+        <div class="card"><h3><code>handle_submit</code></h3><p>后端 <code>func.js</code> 处理临时 ModelTable payload。</p></div>
+        <div class="card"><h3><code>submit</code></h3><p>需要外发时写 root <code>pin.out</code>。</p></div>
+      </div>
+      <div class="callout">不要在新函数里使用旧 <code>ctx.writeLabel</code> / <code>ctx.getLabel</code> 口径。</div>
+    </article>
+
+    <article id="egress" class="panel">
+      <h2>6. 外发回流：统一走 Model 0 管理总线</h2>
+      <p>APP 只表达“我要外发什么”；真正 transport 由 Model 0 边界统一处理。</p>
+      <div class="flow">
+        <div class="node green"><strong>app root pin.out</strong><small>例如 root <code>submit</code></small></div>
+        <div class="node green"><strong>host / mount relay</strong><small>安装时自动生成</small></div>
+        <div class="node blue"><strong>Model 0 bridge function</strong><small>写 <code>mt_bus_send_in</code></small></div>
+        <div class="node blue"><strong>Model 0 mt_bus_send</strong><small>构造 <code>bus_send.v1</code></small></div>
+        <div class="node rust"><strong>pin.bus.out</strong><small>Matrix / MBR / MQTT 统一消费</small></div>
+        <div class="node rust"><strong>owner materialization</strong><small>回包经 Model 0 写回目标模型</small></div>
+      </div>
+    </article>
+  </section>
+</main>
+
+<script>
+  const buttons = Array.from(document.querySelectorAll('button.stage'));
+  const panels = Array.from(document.querySelectorAll('.panel'));
+  function activate(id) {
+    buttons.forEach((button) => button.classList.toggle('active', button.dataset.target === id));
+    panels.forEach((panel) => panel.classList.toggle('active', panel.id === id));
+  }
+  buttons.forEach((button) => {
+    button.addEventListener('click', () => activate(button.dataset.target));
+  });
+</script>
+</body>
+</html>
