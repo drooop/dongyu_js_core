@@ -11,10 +11,15 @@ set -euo pipefail
 
 UI_IMAGE_TAR=""
 REBUILD=0
+EXPECTED_REVISION=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --image-tar)
       UI_IMAGE_TAR="${2:?missing value for --image-tar}"
+      shift 2
+      ;;
+    --revision)
+      EXPECTED_REVISION="${2:?missing value for --revision}"
       shift 2
       ;;
     --rebuild|--no-cache)
@@ -88,12 +93,12 @@ require_single_ui_build_source() {
 }
 
 detect_source_revision() {
-  if [ -d "$REPO_DIR/.git" ] && git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    git -C "$REPO_DIR" rev-parse --short HEAD
-    return 0
-  fi
   if [ -f "$REPO_DIR/.deploy-source-revision" ]; then
     tr -d '\r\n' < "$REPO_DIR/.deploy-source-revision"
+    return 0
+  fi
+  if [ -d "$REPO_DIR/.git" ] && git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git -C "$REPO_DIR" rev-parse --short HEAD
     return 0
   fi
   if [ -n "${DEPLOY_SOURCE_REV:-}" ]; then
@@ -270,6 +275,12 @@ require_single_ui_build_source
 echo "  source-of-truth: OK"
 
 SOURCE_REV="$(detect_source_revision)"
+if [ -n "$EXPECTED_REVISION" ]; then
+  if [[ "$SOURCE_REV" != "$EXPECTED_REVISION"* && "$EXPECTED_REVISION" != "$SOURCE_REV"* ]]; then
+    echo "ERROR: current repo revision $SOURCE_REV does not match expected $EXPECTED_REVISION" >&2
+    exit 1
+  fi
+fi
 echo "  source revision: $SOURCE_REV"
 
 UI_SRC_SERVER="$REPO_DIR/packages/ui-model-demo-server/server.mjs"

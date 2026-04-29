@@ -57,16 +57,12 @@ sha256_of_file() {
 }
 
 detect_source_revision() {
-  if [ -n "$EXPECTED_REVISION" ]; then
-    printf '%s' "$EXPECTED_REVISION"
+  if [ -f "$REPO_DIR/.deploy-source-revision" ]; then
+    tr -d '\r\n' < "$REPO_DIR/.deploy-source-revision"
     return 0
   fi
   if [ -d "$REPO_DIR/.git" ] && git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git -C "$REPO_DIR" rev-parse --short HEAD
-    return 0
-  fi
-  if [ -f "$REPO_DIR/.deploy-source-revision" ]; then
-    tr -d '\r\n' < "$REPO_DIR/.deploy-source-revision"
     return 0
   fi
   if [ -n "${DEPLOY_SOURCE_REV:-}" ]; then
@@ -222,13 +218,10 @@ fi
 
 SOURCE_REV="$(detect_source_revision)"
 if [ -n "$EXPECTED_REVISION" ]; then
-  case "$SOURCE_REV" in
-    "$EXPECTED_REVISION"*) ;;
-    *)
-      echo "ERROR: current repo revision $SOURCE_REV does not match expected $EXPECTED_REVISION" >&2
-      exit 1
-      ;;
-  esac
+  if [[ "$SOURCE_REV" != "$EXPECTED_REVISION"* && "$EXPECTED_REVISION" != "$SOURCE_REV"* ]]; then
+    echo "ERROR: current repo revision $SOURCE_REV does not match expected $EXPECTED_REVISION" >&2
+    exit 1
+  fi
 fi
 echo "SOURCE_REV=$SOURCE_REV"
 
