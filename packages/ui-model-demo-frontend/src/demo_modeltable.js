@@ -10,6 +10,7 @@ import workspaceCatalogPatch from '../../worker-base/system-models/workspace_cat
 import slidingFlowShellPatch from '../../worker-base/system-models/sliding_flow_shell_ui.json' with { type: 'json' };
 import workspacePositiveModelsPatch from '../../worker-base/system-models/workspace_positive_models.json' with { type: 'json' };
 import docPageFilltableExampleMinimalPatch from '../../worker-base/system-models/doc_page_filltable_example_minimal.json' with { type: 'json' };
+import slideAppProviderDocsUiPatch from '../../worker-base/system-models/slide_app_provider_docs_ui.json' with { type: 'json' };
 import runtimeHierarchyMountsPatch from '../../worker-base/system-models/runtime_hierarchy_mounts.json' with { type: 'json' };
 import editorTestCatalogPatch from '../../worker-base/system-models/editor_test_catalog_ui.json' with { type: 'json' };
 import promptCatalogPatch from '../../worker-base/system-models/prompt_catalog_ui.json' with { type: 'json' };
@@ -226,6 +227,7 @@ export function createDemoStore() {
   applyUiPatch(runtime, slidingFlowShellPatch);
   applyUiPatch(runtime, workspacePositiveModelsPatch);
   applyUiPatch(runtime, docPageFilltableExampleMinimalPatch);
+  applyUiPatch(runtime, slideAppProviderDocsUiPatch);
   applyUiPatch(runtime, runtimeHierarchyMountsPatch);
   applyUiPatch(runtime, editorTestCatalogPatch);
   applyUiPatch(runtime, matrixDebugSurfacePatch);

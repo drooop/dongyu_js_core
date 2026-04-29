@@ -177,6 +177,7 @@ echo ""
 # ── Sync persisted assets ─────────────────────────────────
 echo "=== Step 6: Sync persisted assets ==="
 LOCAL_PERSISTED_ASSET_ROOT="$LOCAL_PERSISTED_ASSET_ROOT" bash "$REPO_DIR/scripts/ops/sync_local_persisted_assets.sh"
+LOCAL_DY_PERSIST_ROOT="${LOCAL_DY_PERSIST_ROOT:-/Users/drop/dongyu/volume/persist/ui-server}" bash "$REPO_DIR/scripts/ops/sync_ui_public_docs.sh"
 echo ""
 
 # ── Build Docker images ───────────────────────────────────

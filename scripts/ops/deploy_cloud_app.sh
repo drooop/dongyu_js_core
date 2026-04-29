@@ -247,6 +247,11 @@ if [ "$SYNC_PERSISTED_ASSETS" = "1" ]; then
   CLOUD_PERSISTED_ASSET_ROOT="${CLOUD_PERSISTED_ASSET_ROOT:-/home/wwpic/dongyu/volume/persist/assets}"
   echo "=== Sync authoritative assets ==="
   LOCAL_PERSISTED_ASSET_ROOT="$CLOUD_PERSISTED_ASSET_ROOT" bash "$SCRIPT_DIR/sync_local_persisted_assets.sh"
+  if [ "$TARGET" = "ui-server" ]; then
+    CLOUD_DY_PERSIST_ROOT="${CLOUD_DY_PERSIST_ROOT:-/home/wwpic/dongyu/volume/persist/ui-server}"
+    echo "=== Sync UI public docs ==="
+    LOCAL_DY_PERSIST_ROOT="$CLOUD_DY_PERSIST_ROOT" bash "$SCRIPT_DIR/sync_ui_public_docs.sh"
+  fi
 fi
 
 BUILD_ARGS=()

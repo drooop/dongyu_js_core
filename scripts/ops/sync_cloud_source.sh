@@ -70,6 +70,7 @@ DEPLOY_ARCHIVE_PATHS=(
   "AGENTS.md"
   "README.md"
   "CODEX_HANDOFF_MODE.md"
+  "docs/user-guide/slide-app-runtime"
   "packages"
   "scripts/ops"
   "scripts/run_worker_v0.mjs"

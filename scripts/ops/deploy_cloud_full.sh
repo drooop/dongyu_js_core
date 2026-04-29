@@ -361,6 +361,8 @@ echo ""
 # ── Build images ─────────────────────────────────────────
 echo "=== Step 6: Sync authoritative assets ==="
 LOCAL_PERSISTED_ASSET_ROOT="$CLOUD_PERSISTED_ASSET_ROOT" bash "$REPO_DIR/scripts/ops/sync_local_persisted_assets.sh"
+CLOUD_DY_PERSIST_ROOT="${CLOUD_DY_PERSIST_ROOT:-/home/wwpic/dongyu/volume/persist/ui-server}"
+LOCAL_DY_PERSIST_ROOT="$CLOUD_DY_PERSIST_ROOT" bash "$REPO_DIR/scripts/ops/sync_ui_public_docs.sh"
 echo ""
 
 # ── Build images ─────────────────────────────────────────

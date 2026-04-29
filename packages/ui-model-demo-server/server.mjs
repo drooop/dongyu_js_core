@@ -4797,6 +4797,7 @@ function createServerState(options) {
       loadFullModelPatches(runtime, systemModelsDir, [
         'workspace_positive_models.json',
         'doc_page_filltable_example_minimal.json',
+        'slide_app_provider_docs_ui.json',
         'test_model_100_ui.json',
       ]);
     } else {
