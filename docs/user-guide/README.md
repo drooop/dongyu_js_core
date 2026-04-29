@@ -64,7 +64,7 @@ source: ai
 - `slide_delivery_and_runtime_overview_v1.md`
   - 0313 总览页：并排解释 slide app 的安装交付链和导入后运行链。
 - `slide-app-runtime/`
-  - 0350 开发者入口：把滑动 APP 的编写、安装、自动建引脚、点击到后端、后端程序触发和管理总线外发链路写成 Markdown 手册与可视化 HTML。
+  - 0350/0351 开发者入口：包含滑动 APP 运行链路说明，以及给第三方提供方使用的最小 `Input + Submit + Display Label` 完整示例。
 - `slide_python_install_client_v1.md`
   - 0316 Python 示例：给同事一个可直接运行的 slide app 安装客户端。
 - `slide_upload_auth_and_cache_contract_v1.md`
