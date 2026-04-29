@@ -64,7 +64,7 @@ source: ai
 - `docs/iterations/0352-slide-app-provider-visualized-docs/runlog.md`
 - Verification:
 - Confirm repeated unchanged pending Model 0 egress does not keep rescheduling.
-- Upload the documented minimal app zip through `/api/media/upload`, trigger importer through `/ui_event`, confirm Workspace registry contains the imported app, then use Playwright against `https://app.dongyudigital.com/#/workspace`.
+- Upload the documented minimal app zip through `/api/media/upload`, trigger importer through `/bus_event` and Model 0 `slide_import_click`, confirm Workspace registry contains the imported app, then use Playwright against `https://app.dongyudigital.com/#/workspace`.
 - Acceptance:
 - Remote service loads, `/api/runtime/mode` returns, the imported minimal app appears, and submit writeback is visible in the browser.
 - Rollback:

@@ -140,6 +140,8 @@ UI 投影层用 `cellwise.ui.v1` 填表。每个 UI node 尽量对应一个 cell
 zip -> /api/media/upload -> mxc://... -> importer truth -> importer click pin -> materialize / mount
 ```
 
+importer 的安装动作必须全程进入 Model 0。写入上传 URI 时使用 `/bus_event -> Model 0 slide_import_media_uri_update -> pin route -> 1031 slide_import_media_uri`；触发安装时使用 `/bus_event -> Model 0 slide_import_click -> pin route -> 1030 click pin`。不要用普通 `{ "click": true }` 对象触发，也不要直接写 importer 的 positive model pin。两步的 `bus_event_v2.value` 都是 `write_label.v1` 临时 ModelTable record array；click pin 的值本身也必须是临时 ModelTable record array，最小 payload 至少包含 `__mt_payload_kind=ui_event.v1` 和 `target={model_id:1031,p:0,r:0,c:0}` 两条 records，可选再加 `action=click` 方便审计。
+
 开发者要准备的 zip 至少包含：
 
 ```text

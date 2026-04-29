@@ -40,6 +40,60 @@ function slideImportClickPayload() {
   ]);
 }
 
+function writeLabelPayload(targetCell, targetLabel, targetType, value, requestId = `req_${Date.now()}`) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'write_label.v1' },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_request_id', t: 'str', v: requestId },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_from_cell', t: 'json', v: { p: 0, r: 0, c: 0 } },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_target_cell', t: 'json', v: targetCell },
+    { id: 0, p: 0, r: 0, c: 0, k: targetLabel, t: targetType, v: value },
+  ];
+}
+
+function workspacePinPayload(kind, labels = []) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: kind },
+    ...labels.map((label) => ({ id: 0, p: 0, r: 0, c: 0, ...label })),
+  ];
+}
+
+function wsAddNamePayload(name) {
+  return workspacePinPayload('ws_add_name.v1', [
+    { k: 'name', t: 'str', v: name },
+  ]);
+}
+
+function wsAddPayload() {
+  return workspacePinPayload('ws_add_app.v1');
+}
+
+function wsSelectPayload(modelId) {
+  return workspacePinPayload('ws_select_app.v1', [
+    { k: 'model_id', t: 'int', v: modelId },
+  ]);
+}
+
+function wsDeletePayload(modelId) {
+  return workspacePinPayload('ws_delete_app.v1', [
+    { k: 'model_id', t: 'int', v: modelId },
+  ]);
+}
+
+function slideImportClickBusEvent() {
+  return {
+    type: 'bus_event_v2',
+    bus_in_key: 'slide_import_click',
+    value: writeLabelPayload(
+      { p: 2, r: 4, c: 0 },
+      'click',
+      'pin.in',
+      slideImportClickPayload(),
+      `slide_import_click_${Date.now()}`,
+    ),
+    meta: { op_id: `slide_import_click_${Date.now()}`, source: 'test_0311_workspace' },
+  };
+}
+
 function slideCreateClickPayload() {
   return uiEventPayload([
     { k: 'target', t: 'json', v: { model_id: 1035, p: 0, r: 0, c: 0 } },
@@ -96,13 +150,13 @@ async function test_workspace_pin_addressing_handles_add_import_create_select_de
     const addNameResult = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 10, c: 0 },
       'change',
-      '0311 Pin Added App',
+      wsAddNamePayload('0311 Pin Added App'),
     ));
     assert.equal(addNameResult.result, 'ok', 'ws_add_input_pin_must_be_accepted');
     const addResult = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 11, c: 0 },
       'click',
-      { click: true },
+      wsAddPayload(),
     ));
     assert.equal(addResult.result, 'ok', 'ws_app_add_pin_must_be_accepted');
     await wait();
@@ -131,22 +185,19 @@ async function test_workspace_pin_addressing_handles_add_import_create_select_de
       userId: '@drop:localhost',
     });
     runtime.addLabel(runtime.getModel(1031), 0, 0, 0, { k: 'slide_import_media_uri', t: 'str', v: 'mxc://localhost/0311-pin-import' });
-    const importResult = await state.submitEnvelope(pinEnvelope(
-      { model_id: 1030, p: 2, r: 4, c: 0 },
-      'click',
-      slideImportClickPayload(),
-    ));
-    assert.equal(importResult.result, 'ok', 'slide_app_import_pin_must_be_accepted');
+    const importResult = await state.submitEnvelope(slideImportClickBusEvent());
+    assert.equal(importResult.result, 'ok', 'slide_app_import_bus_event_must_be_accepted');
+    assert.equal(importResult.routed_by, 'model0_busin', 'slide_app_import_must_route_by_model0_busin');
     await wait();
 
     const registryAfterImport = state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
     const importedEntry = registryAfterImport.find((entry) => entry && entry.name === '0311 Pin Imported App');
-    assert.ok(importedEntry, 'slide_app_import_pin_must_materialize_imported_entry');
+    assert.ok(importedEntry, 'slide_app_import_bus_event_must_materialize_imported_entry');
 
     const selectResult = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 0 },
       'click',
-      importedEntry.model_id,
+      wsSelectPayload(importedEntry.model_id),
     ));
     assert.equal(selectResult.result, 'ok', 'ws_select_pin_must_be_accepted');
     await wait();
@@ -159,7 +210,7 @@ async function test_workspace_pin_addressing_handles_add_import_create_select_de
     const deleteResult = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 1 },
       'click',
-      importedEntry.model_id,
+      wsDeletePayload(importedEntry.model_id),
     ));
     assert.equal(deleteResult.result, 'ok', 'ws_delete_pin_must_be_accepted');
     await wait();

@@ -579,8 +579,14 @@ TargetRef 结构：
   - `ui_click`
   - `ui_input`
   - `ui_edit`
+  - `slide_import_media_uri_update`
+  - `slide_import_click`
+  - `mgmt_bus_console_send`
+  - `mgmt_bus_console_refresh`
 - unknown key 必须拒绝，返回结构化错误
 - legacy `type = ui_event` envelope 在当前 server ingress 会被显式拒绝，不再是 current truth
+
+说明：`slide_import_*` 与 `mgmt_bus_console_*` 是经过 Model 0 allow-list 登记的专用 ingress key，不是任意动态 key。它们的 `value` 仍必须是临时 ModelTable record array，并由 `pin.connect.model` 进入目标模型。
 
 Tier 归属：
 
