@@ -4,7 +4,6 @@
   "description": "Workspace UI model that points provider users to the published minimal submit app docs",
   "records": [
     { "op": "create_model", "model_id": 1039, "name": "slide_app_provider_docs_ui", "type": "ui" },
-    { "op": "add_label", "model_id": 0, "p": 2, "r": 0, "c": 18, "k": "model_type", "t": "model.submt", "v": 1039 },
     { "op": "add_label", "model_id": 1039, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.table", "v": "UI.SlideAppProviderDocs" },
     { "op": "add_label", "model_id": 1039, "p": 0, "r": 0, "c": 0, "k": "app_name", "t": "str", "v": "Minimal Submit App Provider Docs" },
     { "op": "add_label", "model_id": 1039, "p": 0, "r": 0, "c": 0, "k": "source_worker", "t": "str", "v": "workspace" },

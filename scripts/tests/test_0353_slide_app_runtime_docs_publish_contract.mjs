@@ -8,6 +8,7 @@ import { spawnSync } from 'node:child_process';
 
 const repoRoot = new URL('../..', import.meta.url);
 const patchPath = 'packages/worker-base/system-models/slide_app_provider_docs_ui.json';
+const hierarchyPatchPath = 'packages/worker-base/system-models/runtime_hierarchy_mounts.json';
 const docsScriptPath = 'scripts/ops/sync_ui_public_docs.sh';
 const assetScriptPath = 'scripts/ops/sync_local_persisted_assets.sh';
 const cloudSourcePath = 'scripts/ops/sync_cloud_source.sh';
@@ -43,9 +44,12 @@ function run(cmd, args, options = {}) {
 
 function test_workspace_docs_entry_is_cellwise_model() {
   const patch = readJson(patchPath);
+  const hierarchyPatch = readJson(hierarchyPatchPath);
   const records = patch.records || [];
+  const hierarchyRecords = hierarchyPatch.records || [];
   assert.ok(findRecord(records, (record) => record.op === 'create_model' && record.model_id === 1039), 'model 1039 must be created');
-  assert.ok(findRecord(records, (record) => record.model_id === 0 && record.p === 2 && record.r === 0 && record.c === 18 && record.t === 'model.submt' && record.v === 1039), 'model 1039 must be mounted under Workspace');
+  assert.ok(findRecord(hierarchyRecords, (record) => record.model_id === 0 && record.p === 2 && record.r === 0 && record.c === 19 && record.t === 'model.submt' && record.v === 1039), 'model 1039 must be mounted under Workspace hierarchy');
+  assert.equal(Boolean(findRecord(records, (record) => record.model_id === 0 && record.t === 'model.submt' && record.v === 1039)), false, 'docs UI patch must not own hierarchy mounts');
   assert.ok(findRecord(records, (record) => record.model_id === 1039 && record.k === 'ui_authoring_version' && record.v === 'cellwise.ui.v1'), 'model 1039 must be cellwise.ui.v1');
   assert.ok(findRecord(records, (record) => record.model_id === 1039 && record.k === 'app_name' && record.v === 'Minimal Submit App Provider Docs'), 'workspace entry name must be present');
 
