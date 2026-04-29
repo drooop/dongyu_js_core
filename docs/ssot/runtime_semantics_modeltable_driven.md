@@ -536,6 +536,7 @@ TargetRef 结构：
 ## 8. 数据模型 PIN 接口规范（Tier 2 约定）
 
 0348 起，Data.* 目标合同由 `docs/ssot/feishu_data_model_contract_v1.md` 接管。
+0349 起，Data.* 的 Tier 2 实现路线由 `docs/ssot/data_model_tier2_implementation_v1.md` 接管。
 
 所有 Feishu-aligned 数据模型子类型共享统一 PIN 接口约定：
 
@@ -554,6 +555,7 @@ TargetRef 结构：
 说明：
 - 本节为 Tier 2 约定，运行时不硬编码数据结构算法。
 - 运行时仅保证 pin.* 路由语义；具体行为由模型函数（func.js / func.python）实现。
+- `Data.Single` 是 `model.single` element cell；collection-like Data.* 才使用 `model.table` 或 `model.matrix`。
 
 ---
 

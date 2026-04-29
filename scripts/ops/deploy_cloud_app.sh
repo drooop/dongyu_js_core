@@ -11,6 +11,7 @@ source "$SCRIPT_DIR/_deploy_common.sh"
 TARGET=""
 EXPECTED_REVISION=""
 REBUILD=0
+INSTALL_SYSTEM_CA="${INSTALL_SYSTEM_CA:-0}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -26,6 +27,10 @@ while [ $# -gt 0 ]; do
       REBUILD=1
       shift
       ;;
+    --install-system-ca)
+      INSTALL_SYSTEM_CA=1
+      shift
+      ;;
     *)
       echo "ERROR: unknown argument: $1" >&2
       exit 1
@@ -35,6 +40,11 @@ done
 
 if [ -z "$TARGET" ]; then
   echo "ERROR: --target is required (ui-server|mbr-worker|remote-worker|ui-side-worker)" >&2
+  exit 1
+fi
+
+if [ "$INSTALL_SYSTEM_CA" != "0" ] && [ "$INSTALL_SYSTEM_CA" != "1" ]; then
+  echo "ERROR: INSTALL_SYSTEM_CA must be 0 or 1" >&2
   exit 1
 fi
 
@@ -57,16 +67,12 @@ sha256_of_file() {
 }
 
 detect_source_revision() {
-  if [ -n "$EXPECTED_REVISION" ]; then
-    printf '%s' "$EXPECTED_REVISION"
+  if [ -f "$REPO_DIR/.deploy-source-revision" ]; then
+    tr -d '\r\n' < "$REPO_DIR/.deploy-source-revision"
     return 0
   fi
   if [ -d "$REPO_DIR/.git" ] && git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git -C "$REPO_DIR" rev-parse --short HEAD
-    return 0
-  fi
-  if [ -f "$REPO_DIR/.deploy-source-revision" ]; then
-    tr -d '\r\n' < "$REPO_DIR/.deploy-source-revision"
     return 0
   fi
   if [ -n "${DEPLOY_SOURCE_REV:-}" ]; then
@@ -199,6 +205,7 @@ load_target_spec
 echo "=== Cloud App Deploy ==="
 echo "TARGET=$TARGET"
 echo "REPO_DIR=$REPO_DIR"
+echo "INSTALL_SYSTEM_CA=$INSTALL_SYSTEM_CA"
 
 if [ -f "$REPO_DIR/deploy/env/cloud.env" ]; then
   load_env "$REPO_DIR/deploy/env/cloud.env"
@@ -222,13 +229,10 @@ fi
 
 SOURCE_REV="$(detect_source_revision)"
 if [ -n "$EXPECTED_REVISION" ]; then
-  case "$SOURCE_REV" in
-    "$EXPECTED_REVISION"*) ;;
-    *)
-      echo "ERROR: current repo revision $SOURCE_REV does not match expected $EXPECTED_REVISION" >&2
-      exit 1
-      ;;
-  esac
+  if [[ "$SOURCE_REV" != "$EXPECTED_REVISION"* && "$EXPECTED_REVISION" != "$SOURCE_REV"* ]]; then
+    echo "ERROR: current repo revision $SOURCE_REV does not match expected $EXPECTED_REVISION" >&2
+    exit 1
+  fi
 fi
 echo "SOURCE_REV=$SOURCE_REV"
 
@@ -236,6 +240,9 @@ cd "$REPO_DIR"
 BUILD_ARGS=()
 if [ "$REBUILD" -eq 1 ]; then
   BUILD_ARGS+=(--no-cache)
+fi
+if [ "$INSTALL_SYSTEM_CA" = "1" ]; then
+  BUILD_ARGS+=(--build-arg INSTALL_SYSTEM_CA=1)
 fi
 
 docker build "${BUILD_ARGS[@]}" \

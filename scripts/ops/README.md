@@ -148,7 +148,7 @@ bash scripts/ops/sync_cloud_source.sh \
 
 命令（在远端主机上执行 full deploy）：
 ```bash
-sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_full.sh --rebuild
+sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_full.sh --revision "$(git rev-parse --short HEAD)" --rebuild
 ```
 
 命令（在远端主机上执行 app fast deploy）：
@@ -166,6 +166,10 @@ PASS 判定：
 说明：
 - canonical SSH deploy user 是 `drop`，不是 `wwpic`。
 - canonical remote repo 路径保持 `/home/wwpic/dongyuapp`，source sync 通过 `drop + sudo -u wwpic` 代持写入。
+- `sync_cloud_source.sh` 成功后会写入 `.deploy-source-revision`；deploy 脚本必须优先读取该 stamp 或实际 git HEAD，并与 `--revision` 做比对，不能直接信任传入参数或 `DEPLOY_SOURCE_REV`。
+- Docker build context 通过仓库根 `.dockerignore` 排除 docs、tests、archive、output、node_modules 等非运行输入。
+- 若 remote git checkout 失败，archive fallback 只同步部署必要路径，并保留远端 `deploy/env`。
+- Bun-based images 默认跳过 apt `ca-certificates` 安装，避免远端 apt 阻塞发布；只有在后续证明确实发生 HTTPS/TLS 回归时，才在 `deploy_cloud_app.sh` 或 `deploy_cloud_full.sh` 上追加 `--install-system-ca` 恢复该步骤。
 - 如果仍通过受限 sudo wrapper 远程触发部署，需要同步更新远端 wrapper / sudoers 白名单，使其允许新入口脚本。
 - 本地 OrbStack baseline 与 cloud baseline 的 MQTT 拓扑不同：
   - 本地 `k8s/local/workers.yaml` 使用 `mosquitto.dongyu.svc.cluster.local`

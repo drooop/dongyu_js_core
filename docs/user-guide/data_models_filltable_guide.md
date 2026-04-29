@@ -12,9 +12,11 @@ This guide explains the Feishu-aligned target contract for writing and using `Da
 
 Authoritative contract:
 - `docs/ssot/feishu_data_model_contract_v1.md`
+- `docs/ssot/data_model_tier2_implementation_v1.md`
 
 Important status:
 - The 0348 contract is the target contract.
+- 0349 defines how to implement this target as Tier 2 fill-table templates and programs.
 - Current templates may still lag behind this guide until a later implementation iteration migrates them.
 - Do not use 0296-era examples as new authoring guidance where they conflict with this guide.
 
@@ -197,6 +199,13 @@ This guide only freezes the data shape. Flow execution is separate.
 ## 10. Migration Notes
 
 Do not copy current `data_array_v0`, `data_queue_v0`, or `data_stack_v0` templates as new canonical examples if they conflict with this guide.
+
+New Data.* templates should follow `docs/ssot/data_model_tier2_implementation_v1.md`:
+- `Data.Single` is a `model.single` element cell.
+- Collection-like Data.* models are Tier 2 `model.table` or `model.matrix` definitions.
+- Public pins use colon names only.
+- Payloads are Temporary ModelTable Message arrays.
+- Persistence happens only after explicit materialization by the receiving data model.
 
 Known implementation debt:
 - `Data.Array` should be split into `Data.Array.One/Two/Three`.

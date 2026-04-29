@@ -2,10 +2,14 @@ FROM oven/bun:latest
 
 WORKDIR /app
 
-# Bun image on Debian does not ship the system CA bundle by default.
-RUN apt-get update \
-  && apt-get install -y ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+ARG INSTALL_SYSTEM_CA=0
+RUN if [ "$INSTALL_SYSTEM_CA" = "1" ]; then \
+    apt-get update \
+    && apt-get install -y ca-certificates \
+    && rm -rf /var/lib/apt/lists/*; \
+  else \
+    echo "Skipping apt ca-certificates install; Bun HTTPS uses its bundled CA store."; \
+  fi
 
 # Install dependencies
 COPY package.json package-lock.json* ./
