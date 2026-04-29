@@ -72,6 +72,10 @@ source: ai
   - App deploy now detects actual source revision from `DEPLOY_SOURCE_REV`, `.deploy-source-revision`, or git HEAD and compares it to `--revision`.
   - First Stage 3 review returned `CHANGE_REQUESTED` because full deploy did not accept/check `--revision`, and app deploy trusted `DEPLOY_SOURCE_REV` before actual sync stamp/git state.
   - Fixed both deploy paths to prefer `.deploy-source-revision`/git HEAD before `DEPLOY_SOURCE_REV`; full deploy now accepts `--revision` and rejects mismatch.
+  - First remote source sync attempt through `dongyudigital.com` failed because DNS resolved to expired/non-SSH hosts.
+  - Retried through historical SSH IP `124.71.43.80`; git checkout missed local-only revision and archive fallback started as expected.
+  - Archive fallback failed because remote `/tmp` is on a full root filesystem; read-only disk check showed `/home/wwpic/dongyuapp` is on `/opt` with available space.
+  - Updated archive fallback to use `$REMOTE_REPO/.sync-work` instead of `/tmp`.
 - Result: in progress
 - Commit:
 

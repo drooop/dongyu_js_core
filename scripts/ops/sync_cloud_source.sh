@@ -108,10 +108,14 @@ git_archive_fallback() {
   git -C "$REPO_DIR" archive "$REVISION" -- "${DEPLOY_ARCHIVE_PATHS[@]}" | run_remote_repo_command "
     set -euo pipefail
     mkdir -p '$REMOTE_REPO'
-    archive_tmp=\"\$(mktemp -d)\"
-    trap 'rm -rf \"\$archive_tmp\"' EXIT
+    sync_work='$REMOTE_REPO/.sync-work'
+    rm -rf \"\$sync_work\"
+    mkdir -p \"\$sync_work\"
+    archive_tmp=\"\$(mktemp -d \"\$sync_work/archive.XXXXXX\")\"
+    archive_name=\"\$(basename \"\$archive_tmp\")\"
+    trap 'rm -rf \"\$sync_work\"' EXIT
     tar -xf - -C \"\$archive_tmp\"
-    find '$REMOTE_REPO' -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'deploy' -exec rm -rf {} +
+    find '$REMOTE_REPO' -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'deploy' ! -name '.sync-work' -exec rm -rf {} +
     find '$REMOTE_REPO/deploy' -mindepth 1 -maxdepth 1 ! -name 'env' -exec rm -rf {} + 2>/dev/null || true
     cp -a \"\$archive_tmp\"/. '$REMOTE_REPO'/
     rm -rf '$REMOTE_REPO/deploy/env'/.gitkeep 2>/dev/null || true

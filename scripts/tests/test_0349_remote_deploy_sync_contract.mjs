@@ -58,11 +58,14 @@ for (const needle of [
   '"deploy/env/cloud.env.example"',
   '"k8s"',
   'archive "$REVISION" -- "${DEPLOY_ARCHIVE_PATHS[@]}"',
+  '.sync-work',
+  'mktemp -d \\"\\$sync_work/archive.XXXXXX\\"',
   '.deploy-source-revision',
 ]) {
   assertContains(sync, needle, syncFile);
 }
 assertNotContains(sync, 'archive "$REVISION" |', syncFile);
+assertNotContains(sync, 'mktemp -d)"', syncFile);
 assertNotContains(sync, "printf '%s\\n' '$REVISION' > '$REMOTE_REPO/.deploy-source-revision'", syncFile);
 
 const appDeployFile = 'scripts/ops/deploy_cloud_app.sh';
