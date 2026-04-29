@@ -86,9 +86,45 @@ source: ai
 ### Step 4 — Remote Deploy Verification
 
 - Command:
+  - `docker build -f k8s/Dockerfile.ui-server -t dy-ui-server:0349-noapt .`
+  - `docker build -f k8s/Dockerfile.remote-worker -t dy-remote-worker:0349-noapt .`
+  - `docker run --rm dy-remote-worker:0349-noapt bun -e 'const r=await fetch("https://registry.npmjs.org/bun"); console.log("HTTPS_OK="+r.status)'`
+  - `docker build --build-arg INSTALL_SYSTEM_CA=1 -f k8s/Dockerfile.ui-server -t dy-ui-server:0349-system-ca .`
+  - `node scripts/tests/test_0349_remote_deploy_sync_contract.mjs`
+  - `bash -n scripts/ops/sync_cloud_source.sh scripts/ops/deploy_cloud_app.sh scripts/ops/deploy_cloud_full.sh`
+  - `git diff --check`
+  - Sub-agent review of Bun image deploy unblock fix: first `CHANGE_REQUESTED`, then `APPROVED`.
+  - `bash scripts/ops/sync_cloud_source.sh --ssh-user drop --ssh-host 124.71.43.80 --remote-repo /home/wwpic/dongyuapp --remote-repo-owner wwpic --revision 45f2a81`
+  - `ssh drop@124.71.43.80 'sudo -n env KUBECONFIG=/etc/rancher/rke2/rke2.yaml CTR=/usr/local/bin/ctr bash /home/wwpic/dongyuapp/scripts/ops/remote_preflight_guard.sh'`
+  - `ssh drop@124.71.43.80 'sudo -n bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-server --revision 45f2a81'`
+  - `ssh drop@124.71.43.80 'sudo -n env KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl -n dongyu get deploy ui-server -o wide; sudo -n env KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl -n dongyu get pods -l app=ui-server -o wide'`
+  - Pod-level smoke through `kubectl exec -i deploy/ui-server -- bun -` against `/auth/login-model`, `/snapshot`, and `/`.
 - Key output:
-- Result: PASS/FAIL
-- Commit:
+  - Local default no-apt Bun image build: PASS.
+  - Local opt-in system CA rollback image build: PASS.
+  - Local Bun HTTPS smoke without system CA: `HTTPS_OK=200`.
+  - `node scripts/tests/test_0349_remote_deploy_sync_contract.mjs`: PASS.
+  - `bash -n` deploy scripts: PASS.
+  - `git diff --check`: PASS.
+  - First Stage 4 sub-agent review found that the rollback switch existed only in Dockerfiles and was not reachable through deploy scripts.
+  - Fixed `deploy_cloud_app.sh` and `deploy_cloud_full.sh` to accept `--install-system-ca`; tests and README now cover the pass-through.
+  - Re-review returned `APPROVED`.
+  - Remote DNS note: `dongyudigital.com` and `app.dongyudigital.com` currently resolve to `expired.hichina.com` / unrelated IPs, while SSH to `124.71.43.80` is reachable. Stage 4 therefore used the reachable SSH target and pod-level smoke for service proof.
+  - Source sync to `124.71.43.80` succeeded through archive fallback because `45f2a81` is a local-only branch revision not present in remote git.
+  - Remote revision stamp verified: `.deploy-source-revision = 45f2a81`.
+  - Remote preflight: `REMOTE_RKE2_GATE: PASS`; node `apic-xc599-dongyu=v1.34.1+rke2r1`; resolved containerd socket `/run/k3s/containerd/containerd.sock`.
+  - Remote build context: `11.21MB`.
+  - Remote deploy used default fast path: `INSTALL_SYSTEM_CA=0`; Docker build printed `Skipping apt ca-certificates install; Bun HTTPS uses its bundled CA store.`
+  - Remote `ui-server` rollout: `deployment "ui-server" successfully rolled out`.
+  - Target source gate: six ui-server source hashes matched local vs pod.
+  - Runtime state: deployment `ui-server` is `1/1`, pod `ui-server-7f99b45f65-2cs44` is `Running`, `RESTARTS=0`.
+  - Pod-level smoke:
+    - `/auth/login-model`: HTTP 200 with login ModelTable payload.
+    - `/snapshot`: HTTP 200 with model snapshot payload.
+    - `/`: HTTP 200 with Vite app HTML.
+  - Disk after deploy: root filesystem `68%` used; Docker images `3.013GB`, reclaimable `1.783GB`.
+- Result: PASS
+- Commit: `45f2a81 fix(ops): unblock remote bun image deploy [0349]`
 
 ### Step 5 — Final Gate
 
