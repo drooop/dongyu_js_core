@@ -12,6 +12,7 @@ TARGET=""
 EXPECTED_REVISION=""
 REBUILD=0
 INSTALL_SYSTEM_CA="${INSTALL_SYSTEM_CA:-0}"
+SYNC_PERSISTED_ASSETS="${SYNC_PERSISTED_ASSETS:-1}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -40,11 +41,6 @@ done
 
 if [ -z "$TARGET" ]; then
   echo "ERROR: --target is required (ui-server|mbr-worker|remote-worker|ui-side-worker)" >&2
-  exit 1
-fi
-
-if [ "$INSTALL_SYSTEM_CA" != "0" ] && [ "$INSTALL_SYSTEM_CA" != "1" ]; then
-  echo "ERROR: INSTALL_SYSTEM_CA must be 0 or 1" >&2
   exit 1
 fi
 
@@ -202,17 +198,27 @@ verify_target_source_hashes() {
 
 load_target_spec
 
-echo "=== Cloud App Deploy ==="
-echo "TARGET=$TARGET"
-echo "REPO_DIR=$REPO_DIR"
-echo "INSTALL_SYSTEM_CA=$INSTALL_SYSTEM_CA"
-
 if [ -f "$REPO_DIR/deploy/env/cloud.env" ]; then
   load_env "$REPO_DIR/deploy/env/cloud.env"
 else
   echo "WARN: cloud.env not found; using app-deploy defaults only"
   export NAMESPACE="${NAMESPACE:-dongyu}"
 fi
+if [ "$INSTALL_SYSTEM_CA" != "0" ] && [ "$INSTALL_SYSTEM_CA" != "1" ]; then
+  echo "ERROR: INSTALL_SYSTEM_CA must be 0 or 1" >&2
+  exit 1
+fi
+if [ "$SYNC_PERSISTED_ASSETS" != "0" ] && [ "$SYNC_PERSISTED_ASSETS" != "1" ]; then
+  echo "ERROR: SYNC_PERSISTED_ASSETS must be 0 or 1" >&2
+  exit 1
+fi
+
+echo "=== Cloud App Deploy ==="
+echo "TARGET=$TARGET"
+echo "REPO_DIR=$REPO_DIR"
+echo "INSTALL_SYSTEM_CA=$INSTALL_SYSTEM_CA"
+echo "SYNC_PERSISTED_ASSETS=$SYNC_PERSISTED_ASSETS"
+
 export KUBECONFIG="${KUBECONFIG:-/etc/rancher/rke2/rke2.yaml}"
 CTR="${CTR:-/usr/local/bin/ctr}"
 export CTR
@@ -237,6 +243,12 @@ fi
 echo "SOURCE_REV=$SOURCE_REV"
 
 cd "$REPO_DIR"
+if [ "$SYNC_PERSISTED_ASSETS" = "1" ]; then
+  CLOUD_PERSISTED_ASSET_ROOT="${CLOUD_PERSISTED_ASSET_ROOT:-/home/wwpic/dongyu/volume/persist/assets}"
+  echo "=== Sync authoritative assets ==="
+  LOCAL_PERSISTED_ASSET_ROOT="$CLOUD_PERSISTED_ASSET_ROOT" bash "$SCRIPT_DIR/sync_local_persisted_assets.sh"
+fi
+
 BUILD_ARGS=()
 if [ "$REBUILD" -eq 1 ]; then
   BUILD_ARGS+=(--no-cache)

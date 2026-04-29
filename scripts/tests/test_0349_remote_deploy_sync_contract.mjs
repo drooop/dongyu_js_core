@@ -77,10 +77,22 @@ assertContains(appDeploy, '.deploy-source-revision', appDeployFile);
 assertContains(appDeploy, 'current repo revision $SOURCE_REV does not match expected $EXPECTED_REVISION', appDeployFile);
 assertContains(appDeploy, '--install-system-ca', appDeployFile);
 assertContains(appDeploy, '--build-arg INSTALL_SYSTEM_CA=1', appDeployFile);
+assertContains(appDeploy, 'SYNC_PERSISTED_ASSETS="${SYNC_PERSISTED_ASSETS:-1}"', appDeployFile);
+assertContains(appDeploy, 'sync_local_persisted_assets.sh', appDeployFile);
+assertContains(appDeploy, 'LOCAL_PERSISTED_ASSET_ROOT="$CLOUD_PERSISTED_ASSET_ROOT"', appDeployFile);
+assertContains(appDeploy, 'if [ "$SYNC_PERSISTED_ASSETS" = "1" ]; then', appDeployFile);
 assertNotContains(appDeploy, 'printf \'%s\' "$EXPECTED_REVISION"', appDeployFile);
 assert.ok(
   appDeploy.indexOf('.deploy-source-revision') < appDeploy.indexOf('DEPLOY_SOURCE_REV'),
   `${appDeployFile} must prefer sync stamp before DEPLOY_SOURCE_REV`,
+);
+assert.ok(
+  appDeploy.indexOf('load_env "$REPO_DIR/deploy/env/cloud.env"') < appDeploy.indexOf('SYNC_PERSISTED_ASSETS must be 0 or 1'),
+  `${appDeployFile} must validate SYNC_PERSISTED_ASSETS after cloud.env is loaded`,
+);
+assert.ok(
+  appDeploy.indexOf('sync_local_persisted_assets.sh') < appDeploy.indexOf('rollout restart'),
+  `${appDeployFile} must sync authoritative assets before rollout restart`,
 );
 
 const fullDeployFile = 'scripts/ops/deploy_cloud_full.sh';
