@@ -57,6 +57,8 @@ source: ai
 - Files:
   - `.dockerignore`
   - `scripts/ops/sync_cloud_source.sh`
+  - `scripts/ops/deploy_cloud_app.sh`
+  - `scripts/ops/deploy_cloud_full.sh`
   - `scripts/ops/README.md`
   - `scripts/tests/test_0349_remote_deploy_sync_contract.mjs`
 - Verification:
@@ -70,21 +72,29 @@ source: ai
   - archive fallback 只同步 deploy source 必要路径，并保留远端 `deploy/env`。
   - archive fallback 后的 deploy source revision detection 不会被 stale `.git` HEAD 覆盖。
 - Rollback:
-  - 删除 `.dockerignore`，恢复 `sync_cloud_source.sh` 与 ops README。
+  - 删除 `.dockerignore`，恢复 `sync_cloud_source.sh`、deploy scripts 与 ops README。
 
 ## Step 4 — Remote Deploy Verification
 
 - Scope:
   - 同步当前 revision 到远端，执行远端 app deploy，记录 preflight/source gate/rollout 证据。
 - Files:
+  - `k8s/Dockerfile.ui-server`
+  - `k8s/Dockerfile.ui-server-prebuilt`
+  - `k8s/Dockerfile.remote-worker`
+  - `scripts/tests/test_0349_remote_deploy_sync_contract.mjs`
+  - `scripts/ops/README.md`
   - `docs/iterations/0349-data-model-tier2-and-remote-deploy-optimization/runlog.md`
 - Verification:
   - `bash scripts/ops/sync_cloud_source.sh --ssh-user drop --ssh-host 124.71.43.80 --remote-repo /home/wwpic/dongyuapp --remote-repo-owner wwpic --revision "$(git rev-parse --short HEAD)"`
   - `ssh drop@124.71.43.80 "sudo -n env KUBECONFIG=/etc/rancher/rke2/rke2.yaml CTR=/usr/local/bin/ctr bash /home/wwpic/dongyuapp/scripts/ops/remote_preflight_guard.sh"`
   - `ssh drop@124.71.43.80 "sudo -n bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-server --revision $(git rev-parse --short HEAD)"`
   - a remote HTTP or pod-level smoke check recorded in runlog
+  - `docker build -f k8s/Dockerfile.ui-server -t dy-ui-server:0349-noapt .`
+  - `docker build -f k8s/Dockerfile.remote-worker -t dy-remote-worker:0349-noapt .`
   - sub-agent review
 - Acceptance:
+  - Bun-based deploy builds no longer depend on remote apt by default, and the `INSTALL_SYSTEM_CA=1` rollback switch remains documented.
   - 远端 rke2 preflight PASS。
   - `ui-server` rollout PASS。
   - target source gate PASS。

@@ -85,6 +85,11 @@ Not needed in Docker build context for current images:
    - It is correctly documented as fallback-only.
    - It should stay available for remote build failure/offline cases, but not become the default path again.
 
+5. Bun-based image builds can block on remote apt.
+   - `k8s/Dockerfile.ui-server`, `k8s/Dockerfile.ui-server-prebuilt`, and `k8s/Dockerfile.remote-worker` historically installed `ca-certificates` through `apt-get update`.
+   - The remote host can reach Docker layers and Bun package installs while still stalling in Debian apt index refresh.
+   - Local verification shows Bun HTTPS works without a system CA file for the current build/runtime path, so the apt step should be a fallback switch rather than the default path.
+
 ## 4. Optimization Direction
 
 Use a conservative sequence:
@@ -110,6 +115,10 @@ Use a conservative sequence:
    - Use source sync first.
    - Run remote rke2 preflight.
    - Run `deploy_cloud_app.sh --target ui-server --revision <rev>` to prove the optimized remote build path without touching other deployments.
+
+5. Keep Bun image system CA install opt-in.
+   - Default `INSTALL_SYSTEM_CA=0` avoids remote apt during normal deploys.
+   - `INSTALL_SYSTEM_CA=1` remains available if a future TLS regression proves that the system CA bundle is required.
 
 ## 5. Local Build Versus Remote Build
 

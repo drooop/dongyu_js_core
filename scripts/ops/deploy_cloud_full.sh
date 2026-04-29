@@ -12,6 +12,7 @@ set -euo pipefail
 UI_IMAGE_TAR=""
 REBUILD=0
 EXPECTED_REVISION=""
+INSTALL_SYSTEM_CA="${INSTALL_SYSTEM_CA:-0}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --image-tar)
@@ -26,12 +27,21 @@ while [ $# -gt 0 ]; do
       REBUILD=1
       shift
       ;;
+    --install-system-ca)
+      INSTALL_SYSTEM_CA=1
+      shift
+      ;;
     *)
       echo "ERROR: unknown argument: $1" >&2
       exit 1
       ;;
   esac
 done
+
+if [ "$INSTALL_SYSTEM_CA" != "0" ] && [ "$INSTALL_SYSTEM_CA" != "1" ]; then
+  echo "ERROR: INSTALL_SYSTEM_CA must be 0 or 1" >&2
+  exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -212,6 +222,7 @@ if [ -n "$UI_IMAGE_TAR" ]; then
   echo "UI_IMAGE_TAR=$UI_IMAGE_TAR"
 fi
 echo "REBUILD=$REBUILD"
+echo "INSTALL_SYSTEM_CA=$INSTALL_SYSTEM_CA"
 echo ""
 
 # ── Load env ──────────────────────────────────────────────
@@ -359,6 +370,10 @@ BUILD_ARGS=()
 if [ "$REBUILD" -eq 1 ]; then
   BUILD_ARGS+=(--no-cache)
 fi
+BUN_BUILD_ARGS=()
+if [ "$INSTALL_SYSTEM_CA" = "1" ]; then
+  BUN_BUILD_ARGS+=(--build-arg INSTALL_SYSTEM_CA=1)
+fi
 if [ -n "$UI_IMAGE_TAR" ]; then
   if [ ! -f "$UI_IMAGE_TAR" ]; then
     echo "ERROR: --image-tar file not found: $UI_IMAGE_TAR" >&2
@@ -366,7 +381,7 @@ if [ -n "$UI_IMAGE_TAR" ]; then
   fi
   echo "  skipping ui-server docker build (using prebuilt tar): $UI_IMAGE_TAR"
 else
-  docker build "${BUILD_ARGS[@]}" \
+  docker build "${BUILD_ARGS[@]}" "${BUN_BUILD_ARGS[@]}" \
     -f k8s/Dockerfile.ui-server \
     --label "org.opencontainers.image.revision=$SOURCE_REV" \
     --label "io.dongyu.source.sha256.server_mjs=$UI_SRC_HASH_SERVER" \
@@ -378,7 +393,7 @@ docker build "${BUILD_ARGS[@]}" \
   -f k8s/Dockerfile.mbr-worker \
   --label "org.opencontainers.image.revision=$SOURCE_REV" \
   -t dy-mbr-worker:v2 .
-docker build "${BUILD_ARGS[@]}" \
+docker build "${BUILD_ARGS[@]}" "${BUN_BUILD_ARGS[@]}" \
   -f k8s/Dockerfile.remote-worker \
   --label "org.opencontainers.image.revision=$SOURCE_REV" \
   -t dy-remote-worker:v3 .

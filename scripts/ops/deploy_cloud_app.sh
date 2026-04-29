@@ -11,6 +11,7 @@ source "$SCRIPT_DIR/_deploy_common.sh"
 TARGET=""
 EXPECTED_REVISION=""
 REBUILD=0
+INSTALL_SYSTEM_CA="${INSTALL_SYSTEM_CA:-0}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -26,6 +27,10 @@ while [ $# -gt 0 ]; do
       REBUILD=1
       shift
       ;;
+    --install-system-ca)
+      INSTALL_SYSTEM_CA=1
+      shift
+      ;;
     *)
       echo "ERROR: unknown argument: $1" >&2
       exit 1
@@ -35,6 +40,11 @@ done
 
 if [ -z "$TARGET" ]; then
   echo "ERROR: --target is required (ui-server|mbr-worker|remote-worker|ui-side-worker)" >&2
+  exit 1
+fi
+
+if [ "$INSTALL_SYSTEM_CA" != "0" ] && [ "$INSTALL_SYSTEM_CA" != "1" ]; then
+  echo "ERROR: INSTALL_SYSTEM_CA must be 0 or 1" >&2
   exit 1
 fi
 
@@ -195,6 +205,7 @@ load_target_spec
 echo "=== Cloud App Deploy ==="
 echo "TARGET=$TARGET"
 echo "REPO_DIR=$REPO_DIR"
+echo "INSTALL_SYSTEM_CA=$INSTALL_SYSTEM_CA"
 
 if [ -f "$REPO_DIR/deploy/env/cloud.env" ]; then
   load_env "$REPO_DIR/deploy/env/cloud.env"
@@ -229,6 +240,9 @@ cd "$REPO_DIR"
 BUILD_ARGS=()
 if [ "$REBUILD" -eq 1 ]; then
   BUILD_ARGS+=(--no-cache)
+fi
+if [ "$INSTALL_SYSTEM_CA" = "1" ]; then
+  BUILD_ARGS+=(--build-arg INSTALL_SYSTEM_CA=1)
 fi
 
 docker build "${BUILD_ARGS[@]}" \
