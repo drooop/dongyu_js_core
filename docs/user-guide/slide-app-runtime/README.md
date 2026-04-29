@@ -14,6 +14,8 @@ source: ai
 
 - `slide_app_runtime_developer_guide.md`
   - 主手册。包含 ModelTable 填表示例、root 默认程序链、安装链路、运行时事件链路和外发链路。
+- `minimal_submit_app_provider_guide.md`
+  - 面向滑动 APP 提供方的最小 cookbook。只讲怎样写一个 `Input + Submit + Display Label` APP，并给出完整单元格、完整 `app_payload.json` 和完整 submit 程序模型。
 - `slide_app_runtime_flow_visualized.html`
   - 自包含可视化页面。用可点击阶段卡片和流程图解释同一条链路，可直接用浏览器打开。
 
