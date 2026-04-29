@@ -147,6 +147,7 @@ source: ai
   - `docker build -f k8s/Dockerfile.ui-server-prebuilt -t dy-ui-server-prebuilt:0349 .`
   - `docker run --rm dy-ui-server-prebuilt:0349 sh -lc 'test -f packages/ui-model-demo-frontend/dist/index.html && ls -lh packages/ui-model-demo-frontend/dist/index.html && test -d packages/ui-model-demo-frontend/dist/assets && echo PREBUILT_DIST_OK'`
   - final sub-agent review
+  - Post-merge closeout: after this closeout record is merged to `dev`, synchronize and redeploy the final `dev` HEAD to the remote `ui-server`; verify the final deployment revision through the remote `.deploy-source-revision` stamp.
 - Key output:
   - `node scripts/tests/test_0349_data_model_tier2_plan.mjs`: PASS.
   - `node scripts/tests/test_0349_remote_deploy_sync_contract.mjs`: PASS.
@@ -162,6 +163,7 @@ source: ai
   - `k8s/Dockerfile.ui-server-prebuilt` build: PASS.
   - Prebuilt image contains `packages/ui-model-demo-frontend/dist/index.html`: `PREBUILT_DIST_OK`.
   - Final sub-agent review after fix: `APPROVED`, no findings and no verification gaps.
+  - Post-merge verification plan is explicitly captured without writing a self-referential commit hash into this record.
 - Result: PASS
 - Commit: pending
 
