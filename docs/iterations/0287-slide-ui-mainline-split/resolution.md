@@ -1,12 +1,12 @@
 ---
 title: "0287 — slide-ui-mainline-split Resolution"
 doc_type: iteration-resolution
-status: planned
+status: completed
 updated: 2026-04-21
 source: ai
 iteration_id: 0287-slide-ui-mainline-split
 id: 0287-slide-ui-mainline-split
-phase: phase1
+phase: phase4
 ---
 
 # 0287 — slide-ui-mainline-split Resolution
@@ -15,6 +15,11 @@ phase: phase1
 
 - 本 iteration 仍是 docs-only 计划冻结，不做代码实现。
 - 目标是把 `Slide UI` 主线正式拆成 4 个后续阶段。
+
+## Closeout Note
+
+- 0354 index reconciliation verified `dev_0287-slide-ui-mainline-split` is an ancestor of `dev`.
+- `docs/ITERATIONS.md` was corrected from `Planned` to `Completed`.
 - 实施顺序固定为：
   1. 冻结 Phase A 的双工人拓扑与权属边界
   2. 冻结 Phase B 的 Workspace 主线通用化边界

@@ -1,12 +1,12 @@
 ---
 title: "0287 — slide-ui-mainline-split Runlog"
 doc_type: iteration-runlog
-status: active
+status: completed
 updated: 2026-04-21
 source: ai
 iteration_id: 0287-slide-ui-mainline-split
 id: 0287-slide-ui-mainline-split
-phase: phase3
+phase: phase4
 ---
 
 # 0287 — slide-ui-mainline-split Runlog
@@ -40,3 +40,13 @@ phase: phase3
 - [x] `docs/iterations/0214-sliding-flow-ui/plan.md` reviewed
 - [x] `docs/user-guide/dual_worker_slide_e2e_v0.md` reviewed
 - [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
+
+## 0354 Closeout Reconciliation
+
+- Command:
+  - `git merge-base --is-ancestor dev_0287-slide-ui-mainline-split dev`
+- Result: PASS
+- Evidence:
+  - `dev_0287-slide-ui-mainline-split ancestor_of_dev=YES`
+- Action:
+  - `docs/ITERATIONS.md` status corrected to `Completed`.

@@ -1,12 +1,12 @@
 ---
 title: "0286 — matrix-userline-phase4 Runlog"
 doc_type: iteration-runlog
-status: active
+status: completed
 updated: 2026-04-21
 source: ai
 iteration_id: 0286-matrix-userline-phase4
 id: 0286-matrix-userline-phase4
-phase: phase3
+phase: phase4
 ---
 
 # 0286 — matrix-userline-phase4 Runlog
@@ -53,3 +53,13 @@ phase: phase3
 - Notes:
   - 未发现阻塞项。
   - 第四阶段正确冻结了信令经 `MBR`、媒体经 `WebRTC`、小房间多人 baseline，以及加密/录制/屏幕共享后置。
+
+## 0354 Closeout Reconciliation
+
+- Command:
+  - `git merge-base --is-ancestor dev_0286-matrix-userline-phase4 dev`
+- Result: PASS
+- Evidence:
+  - `dev_0286-matrix-userline-phase4 ancestor_of_dev=YES`
+- Action:
+  - `docs/ITERATIONS.md` status corrected to `Completed`.

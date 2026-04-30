@@ -30,9 +30,9 @@ format is ModelTable-like; persistence is explicit materialization
 
 Meaning:
 - The payload is a `{id,p,r,c,k,t,v}` record array.
-- `id` in the payload is message-local, not formal `model_id`.
+- `id` in the payload is message-local; it is 不是正式 `model_id`.
 - Writing a payload to a pin does not create or update the formal ModelTable by itself.
-- The receiving data model must explicitly materialize labels into its own cells.
+- Persistence happens only after 正式 materialization by the receiving data model into its own cells.
 
 ## 2. Generic Data Pins
 

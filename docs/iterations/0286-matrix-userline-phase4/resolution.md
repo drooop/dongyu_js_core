@@ -1,12 +1,12 @@
 ---
 title: "0286 — matrix-userline-phase4 Resolution"
 doc_type: iteration-resolution
-status: planned
+status: completed
 updated: 2026-04-21
 source: ai
 iteration_id: 0286-matrix-userline-phase4
 id: 0286-matrix-userline-phase4
-phase: phase1
+phase: phase4
 ---
 
 # 0286 — matrix-userline-phase4 Resolution
@@ -15,6 +15,11 @@ phase: phase1
 
 - 本 iteration 仍是 docs-only 计划冻结，不做代码实现。
 - 目标是在 `0285` 之后，把第四阶段“非加密视频通话”正式范围拆到可执行粒度。
+
+## Closeout Note
+
+- 0354 index reconciliation verified `dev_0286-matrix-userline-phase4` is an ancestor of `dev`.
+- `docs/ITERATIONS.md` was corrected from `Approved` to `Completed`.
 - 实施顺序固定为：
   1. 冻结信令 / 媒体分层
   2. 冻结第四阶段产品层模型补充块
