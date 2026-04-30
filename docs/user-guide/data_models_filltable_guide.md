@@ -2,7 +2,7 @@
 title: "Data Models Fill-Table Guide"
 doc_type: user-guide
 status: active
-updated: 2026-04-29
+updated: 2026-04-30
 source: ai
 ---
 
@@ -17,7 +17,10 @@ Authoritative contract:
 Important status:
 - The 0348 contract is the target contract.
 - 0349 defines how to implement this target as Tier 2 fill-table templates and programs.
-- Current templates may still lag behind this guide until a later implementation iteration migrates them.
+- 0355 implements the first no-compatibility slice: `Data.Single` +
+  `Data.Array.One`.
+- Later data families may still lag behind this guide until their own
+  no-compatibility implementation iteration migrates them.
 - Do not use 0296-era examples as new authoring guidance where they conflict with this guide.
 
 ## 1. Temporary Message Versus Formal Persistence
@@ -60,6 +63,8 @@ Superseded names:
 - `peek_data_in`
 
 Those names may still appear in current implementation artifacts, but they are not the target authoring contract.
+For the 0355 `Data.Array.One` template, these legacy names are not aliases and
+will not materialize data.
 
 ## 3. Data.Single
 
@@ -85,6 +90,9 @@ Do not treat a single `value` label as the whole target contract. A data item ca
 
 Use for a one-dimensional array.
 
+Current template:
+- `packages/worker-base/system-models/templates/data_array_one_v1.json`
+
 Root labels:
 - `model_type`: `model.table`, value `Data.Array.One`
 - `max_r`: largest used row
@@ -92,6 +100,27 @@ Root labels:
 Element placement:
 - Data starts at `(0,1,0)`.
 - Each occupied element cell is a `Data.Single`.
+- `data_array_v0.json` is now only a superseded tombstone and is not a
+  runnable authoring template.
+
+Minimal add payload:
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "title", "t": "str", "v": "alpha" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "count", "t": "int", "v": 7 }
+]
+```
+
+Writing that payload to `add_data:in` explicitly materializes this formal
+element:
+
+| p | r | c | k | t | v |
+|---|---:|---:|---|---|---|
+| 0 | 1 | 0 | `model_type` | `model.single` | `Data.Single` |
+| 0 | 1 | 0 | `title` | `str` | `alpha` |
+| 0 | 1 | 0 | `count` | `int` | `7` |
 
 ### Data.Array.Two
 
@@ -198,7 +227,8 @@ This guide only freezes the data shape. Flow execution is separate.
 
 ## 10. Migration Notes
 
-Do not copy current `data_array_v0`, `data_queue_v0`, or `data_stack_v0` templates as new canonical examples if they conflict with this guide.
+Do not copy `data_array_v0`, `data_queue_v0`, or `data_stack_v0` as new canonical examples if they conflict with this guide.
+`data_array_v0` is already a superseded tombstone after 0355.
 
 New Data.* templates should follow `docs/ssot/data_model_tier2_implementation_v1.md`:
 - `Data.Single` is a `model.single` element cell.
@@ -208,8 +238,8 @@ New Data.* templates should follow `docs/ssot/data_model_tier2_implementation_v1
 - Persistence happens only after explicit materialization by the receiving data model.
 
 Known implementation debt:
-- `Data.Array` should be split into `Data.Array.One/Two/Three`.
+- `Data.Array.Two` and `Data.Array.Three` are still pending.
 - Queue should use `start_pos/end_pos`, not only `next_index`.
 - Stack should not require `next_index` as target metadata.
 - CircularBuffer should error on overflow, not overwrite by default.
-- Rows should carry `Data.Single` element cells, not only one `value` label.
+- Remaining collection rows should carry `Data.Single` element cells, not only one `value` label.

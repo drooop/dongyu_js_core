@@ -200,7 +200,7 @@ value 字段说明：
 | `get_size:in` | pin.in | 获取数据量（请求） |
 | `get_size:out` | pin.out | 获取数据量（响应） |
 
-0296-era names such as `add_data_in`, `get_data_out`, `enqueue_data_in`, `dequeue_data_in`, `push_data_in`, `pop_data_in`, and `peek_data_in` may still exist in current implementation artifacts, but are not the target contract after 0348.
+0296-era names such as `add_data_in`, `get_data_out`, `enqueue_data_in`, `dequeue_data_in`, `push_data_in`, `pop_data_in`, and `peek_data_in` are not the target contract after 0348. As of 0355, `Data.Array.One` does not provide aliases for the Array-era underscore pins; remaining Queue/Stack artifacts must be replaced in their own no-compatibility iterations.
 
 ---
 

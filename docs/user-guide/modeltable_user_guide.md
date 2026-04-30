@@ -255,7 +255,7 @@ format is ModelTable-like; persistence is explicit materialization
 
 也就是说，pin/event payload 的格式像 ModelTable，但它只是临时消息。写到 pin 上、通过 bus 转发、被前端展示、或被记录进诊断 trace，都不会自动变成正式业务数据。只有 owner、当前模型 D0 helper、接收程序模型或 importer 明确执行 materialization 后，才会产生真正的表内写入。
 
-0348 之后，`Data.*` 新模型编写应以 `docs/ssot/feishu_data_model_contract_v1.md` 为准。数据模型 pin 使用 Feishu-aligned 命名，例如 `add_data:in` / `get_data:out`；`add_data_in`、`enqueue_data_in`、`push_data_in` 等旧写法只表示当前实现债务，不是新模型目标写法。
+0348 之后，`Data.*` 新模型编写应以 `docs/ssot/feishu_data_model_contract_v1.md` 为准。数据模型 pin 使用 Feishu-aligned 命名，例如 `add_data:in` / `get_data:out`。0355 已把 `Data.Array.One` 落到无兼容模板，`add_data_in` 这类旧 Array pin 不再是可用入口；`Queue/Stack` 等剩余旧写法仍是当前实现债务，不是新模型目标写法。
 
 `writeLabel` 是一个特殊的常用写入动作。用户程序只需要表达目标 cell 和一个 label：
 
