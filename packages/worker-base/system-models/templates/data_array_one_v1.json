@@ -1,0 +1,231 @@
+{
+  "version": "mt.v0",
+  "op_id": "0355_data_array_one_v1",
+  "description": "Canonical Tier2 Data.Array.One template. No legacy Data.Array or underscore-pin aliases.",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 2301,
+      "name": "data_array_one_v1",
+      "type": "data"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "Data.Array.One"
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "max_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "__data_single_keys",
+      "t": "json",
+      "v": []
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "add_data:in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "delete_data:in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "update_data:in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "get_data:in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "get_all_data:in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "get_size:in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "get_data:out",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "get_all_data:out",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "get_size:out",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "array_one_routing",
+      "t": "pin.connect.label",
+      "v": [
+        { "from": "(self, add_data:in)", "to": ["(func, array_one_add:in)"] },
+        { "from": "(self, delete_data:in)", "to": ["(func, array_one_delete:in)"] },
+        { "from": "(self, update_data:in)", "to": ["(func, array_one_update:in)"] },
+        { "from": "(self, get_data:in)", "to": ["(func, array_one_get:in)"] },
+        { "from": "(self, get_all_data:in)", "to": ["(func, array_one_get_all:in)"] },
+        { "from": "(self, get_size:in)", "to": ["(func, array_one_get_size:in)"] },
+        { "from": "(func, array_one_get:out)", "to": ["(self, get_data:out)"] },
+        { "from": "(func, array_one_get_all:out)", "to": ["(self, get_all_data:out)"] },
+        { "from": "(func, array_one_get_size:out)", "to": ["(self, get_size:out)"] }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "array_one_add",
+      "t": "func.js",
+      "v": {
+        "modelName": "data_array_one_v1",
+        "code": "const fail=(m)=>{throw new Error(m);};const isRec=(r)=>r&&Number.isInteger(r.id)&&Number.isInteger(r.p)&&Number.isInteger(r.r)&&Number.isInteger(r.c)&&typeof r.k==='string'&&r.k&&typeof r.t==='string'&&r.t&&Object.prototype.hasOwnProperty.call(r,'v');const payload=label&&label.v;if(!Array.isArray(payload))fail('temporary_modeltable_required');if(!payload.every(isRec))fail('invalid_temporary_modeltable_record');if(payload.some((r)=>r.id!==0||r.p!==0||r.r!==0||r.c!==0))fail('data_single_root_only');const type=payload.find((r)=>r.k==='model_type');if(!type||type.t!=='model.single'||type.v!=='Data.Single')fail('data_single_required');const labels=payload.filter((r)=>!r.k.startsWith('__mt_')&&r.k!=='model_type'&&r.k!=='index');if(labels.length===0)fail('data_single_business_label_required');const maxLbl=V1N.readLabel(0,0,0,'max_r');const max=Number(maxLbl?maxLbl.v:0);if(!Number.isInteger(max)||max<0)fail('invalid_max_r');const next=max+1;V1N.table.addLabel(0,next,0,'model_type','model.single','Data.Single');const keysLbl=V1N.readLabel(0,0,0,'__data_single_keys');const keys=Array.isArray(keysLbl&&keysLbl.v)?keysLbl.v.filter((k)=>typeof k==='string'):[];const keySet=new Set(keys);for(const rec of labels){V1N.table.addLabel(0,next,0,rec.k,rec.t,rec.v);keySet.add(rec.k);}V1N.table.addLabel(0,0,0,'__data_single_keys','json',Array.from(keySet).sort());V1N.table.addLabel(0,0,0,'max_r','int',next);V1N.table.removeLabel(0,0,0,'__error_array_one_add');"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "array_one_delete",
+      "t": "func.js",
+      "v": {
+        "modelName": "data_array_one_v1",
+        "code": "const fail=(m)=>{throw new Error(m);};const isRec=(r)=>r&&Number.isInteger(r.id)&&Number.isInteger(r.p)&&Number.isInteger(r.r)&&Number.isInteger(r.c)&&typeof r.k==='string'&&r.k&&typeof r.t==='string'&&r.t&&Object.prototype.hasOwnProperty.call(r,'v');const payload=label&&label.v;if(!Array.isArray(payload))fail('temporary_modeltable_required');if(!payload.every(isRec))fail('invalid_temporary_modeltable_record');const idxRec=payload.find((r)=>r.id===0&&r.p===0&&r.r===0&&r.c===0&&r.k==='index');const idx=Number(idxRec&&idxRec.v);if(!Number.isInteger(idx)||idx<1)fail('invalid_index');const size=Number((V1N.readLabel(0,0,0,'max_r')||{}).v||0);if(idx>size)fail('index_out_of_range');const keysLbl=V1N.readLabel(0,0,0,'__data_single_keys');const keys=Array.isArray(keysLbl&&keysLbl.v)?keysLbl.v.filter((k)=>typeof k==='string'):[];const allKeys=['model_type',...keys];for(let row=idx+1;row<=size;row++){for(const key of allKeys){const lbl=V1N.readLabel(0,row,0,key);if(lbl)V1N.table.addLabel(0,row-1,0,key,lbl.t,lbl.v);else V1N.table.removeLabel(0,row-1,0,key);}}for(const key of allKeys){V1N.table.removeLabel(0,size,0,key);}V1N.table.addLabel(0,0,0,'max_r','int',size-1);V1N.table.removeLabel(0,0,0,'__error_array_one_delete');"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "array_one_update",
+      "t": "func.js",
+      "v": {
+        "modelName": "data_array_one_v1",
+        "code": "const fail=(m)=>{throw new Error(m);};const isRec=(r)=>r&&Number.isInteger(r.id)&&Number.isInteger(r.p)&&Number.isInteger(r.r)&&Number.isInteger(r.c)&&typeof r.k==='string'&&r.k&&typeof r.t==='string'&&r.t&&Object.prototype.hasOwnProperty.call(r,'v');const payload=label&&label.v;if(!Array.isArray(payload))fail('temporary_modeltable_required');if(!payload.every(isRec))fail('invalid_temporary_modeltable_record');if(payload.some((r)=>r.id!==0||r.p!==0||r.r!==0||r.c!==0))fail('data_single_root_only');const idxRec=payload.find((r)=>r.k==='index');const idx=Number(idxRec&&idxRec.v);if(!Number.isInteger(idx)||idx<1)fail('invalid_index');const size=Number((V1N.readLabel(0,0,0,'max_r')||{}).v||0);if(idx>size)fail('index_out_of_range');const type=payload.find((r)=>r.k==='model_type');if(!type||type.t!=='model.single'||type.v!=='Data.Single')fail('data_single_required');const labels=payload.filter((r)=>!r.k.startsWith('__mt_')&&r.k!=='model_type'&&r.k!=='index');if(labels.length===0)fail('data_single_business_label_required');const keysLbl=V1N.readLabel(0,0,0,'__data_single_keys');const keys=Array.isArray(keysLbl&&keysLbl.v)?keysLbl.v.filter((k)=>typeof k==='string'):[];const keySet=new Set(keys);for(const key of keys)V1N.table.removeLabel(0,idx,0,key);V1N.table.addLabel(0,idx,0,'model_type','model.single','Data.Single');for(const rec of labels){V1N.table.addLabel(0,idx,0,rec.k,rec.t,rec.v);keySet.add(rec.k);}V1N.table.addLabel(0,0,0,'__data_single_keys','json',Array.from(keySet).sort());V1N.table.removeLabel(0,0,0,'__error_array_one_update');"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "array_one_get",
+      "t": "func.js",
+      "v": {
+        "modelName": "data_array_one_v1",
+        "code": "const fail=(m)=>{throw new Error(m);};const isRec=(r)=>r&&Number.isInteger(r.id)&&Number.isInteger(r.p)&&Number.isInteger(r.r)&&Number.isInteger(r.c)&&typeof r.k==='string'&&r.k&&typeof r.t==='string'&&r.t&&Object.prototype.hasOwnProperty.call(r,'v');const payload=label&&label.v;if(!Array.isArray(payload))fail('temporary_modeltable_required');if(!payload.every(isRec))fail('invalid_temporary_modeltable_record');const idxRec=payload.find((r)=>r.id===0&&r.p===0&&r.r===0&&r.c===0&&r.k==='index');const idx=Number(idxRec&&idxRec.v);if(!Number.isInteger(idx)||idx<1)fail('invalid_index');const size=Number((V1N.readLabel(0,0,0,'max_r')||{}).v||0);const found=idx<=size;const out=[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.Single'},{id:0,p:0,r:0,c:0,k:'found',t:'bool',v:found},{id:0,p:0,r:0,c:0,k:'index',t:'int',v:idx}];if(found){const keysLbl=V1N.readLabel(0,0,0,'__data_single_keys');const keys=Array.isArray(keysLbl&&keysLbl.v)?keysLbl.v.filter((k)=>typeof k==='string'):[];for(const key of keys){const lbl=V1N.readLabel(0,idx,0,key);if(lbl)out.push({id:0,p:0,r:0,c:0,k:key,t:lbl.t,v:lbl.v});}}V1N.table.removeLabel(0,0,0,'__error_array_one_get');return out;"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "array_one_get_all",
+      "t": "func.js",
+      "v": {
+        "modelName": "data_array_one_v1",
+        "code": "const fail=(m)=>{throw new Error(m);};const isRec=(r)=>r&&Number.isInteger(r.id)&&Number.isInteger(r.p)&&Number.isInteger(r.r)&&Number.isInteger(r.c)&&typeof r.k==='string'&&r.k&&typeof r.t==='string'&&r.t&&Object.prototype.hasOwnProperty.call(r,'v');const payload=label&&label.v;if(!Array.isArray(payload))fail('temporary_modeltable_required');if(!payload.every(isRec))fail('invalid_temporary_modeltable_record');const extras=payload.filter((r)=>!r.k.startsWith('__mt_')&&r.k!=='model_type');if(extras.length>0)fail('get_all_payload_must_be_zero_arg');const size=Number((V1N.readLabel(0,0,0,'max_r')||{}).v||0);const keysLbl=V1N.readLabel(0,0,0,'__data_single_keys');const keys=Array.isArray(keysLbl&&keysLbl.v)?keysLbl.v.filter((k)=>typeof k==='string'):[];const out=[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.table',v:'Data.Array.One'},{id:0,p:0,r:0,c:0,k:'max_r',t:'int',v:size}];for(let row=1;row<=size;row++){out.push({id:0,p:0,r:row,c:0,k:'model_type',t:'model.single',v:'Data.Single'});for(const key of keys){const lbl=V1N.readLabel(0,row,0,key);if(lbl)out.push({id:0,p:0,r:row,c:0,k:key,t:lbl.t,v:lbl.v});}}V1N.table.removeLabel(0,0,0,'__error_array_one_get_all');return out;"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 2301,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "array_one_get_size",
+      "t": "func.js",
+      "v": {
+        "modelName": "data_array_one_v1",
+        "code": "const fail=(m)=>{throw new Error(m);};const isRec=(r)=>r&&Number.isInteger(r.id)&&Number.isInteger(r.p)&&Number.isInteger(r.r)&&Number.isInteger(r.c)&&typeof r.k==='string'&&r.k&&typeof r.t==='string'&&r.t&&Object.prototype.hasOwnProperty.call(r,'v');const payload=label&&label.v;if(!Array.isArray(payload))fail('temporary_modeltable_required');if(!payload.every(isRec))fail('invalid_temporary_modeltable_record');const extras=payload.filter((r)=>!r.k.startsWith('__mt_')&&r.k!=='model_type');if(extras.length>0)fail('get_size_payload_must_be_zero_arg');const size=Number((V1N.readLabel(0,0,0,'max_r')||{}).v||0);V1N.table.removeLabel(0,0,0,'__error_array_one_get_size');return[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.Single'},{id:0,p:0,r:0,c:0,k:'size',t:'int',v:size},{id:0,p:0,r:0,c:0,k:'max_r',t:'int',v:size}];"
+      }
+    }
+  ]
+}

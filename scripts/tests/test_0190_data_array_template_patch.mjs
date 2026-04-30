@@ -1,74 +1,34 @@
 #!/usr/bin/env node
 
-import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const require = createRequire(import.meta.url);
-const repoRoot = path.resolve(new URL('../..', import.meta.url).pathname);
-const templatePath = path.join(repoRoot, 'packages/worker-base/system-models/templates/data_array_v0.json');
+const repoRoot = path.resolve(import.meta.dirname, '..', '..');
+const legacyTemplatePath = path.join(repoRoot, 'packages/worker-base/system-models/templates/data_array_v0.json');
+const arrayOneTemplatePath = path.join(repoRoot, 'packages/worker-base/system-models/templates/data_array_one_v1.json');
 
 function loadJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-function findAddLabel(records, k) {
-  return records.find((record) => record.op === 'add_label' && record.k === k);
+function test_0190_data_array_template_is_superseded_tombstone() {
+  const patch = loadJson(legacyTemplatePath);
+  assert.match(String(patch.status || ''), /superseded/, '0190 Data.Array template must be superseded');
+  assert.deepEqual(patch.records, [], '0190 Data.Array template must not remain runnable');
 }
 
-function test_template_exists_and_declares_data_array_root() {
-  assert.ok(fs.existsSync(templatePath), `missing canonical template: ${templatePath}`);
-  const patch = loadJson(templatePath);
-  assert.ok(Array.isArray(patch.records), 'template must expose patch.records');
-  const rootType = findAddLabel(patch.records, 'model_type');
-  assert.ok(rootType, 'template must declare model_type');
-  assert.equal(rootType.model_id, 2001, 'template should target canonical Data.Array example model_id=2001');
-  assert.equal(rootType.p, 0);
-  assert.equal(rootType.r, 0);
-  assert.equal(rootType.c, 0);
-  assert.equal(rootType.t, 'model.table');
-  assert.equal(rootType.v, 'Data.Array');
-}
-
-function test_template_declares_unified_pins_and_functions() {
-  const patch = loadJson(templatePath);
-  for (const key of ['add_data_in', 'delete_data_in', 'get_data_in', 'get_all_data_in', 'get_size_in']) {
-    const label = findAddLabel(patch.records, key);
-    assert.ok(label, `template must declare input pin ${key}`);
-    assert.equal(label.t, 'pin.in', `${key} must be pin.in`);
-  }
-  for (const key of ['get_data_out', 'get_all_data_out', 'get_size_out']) {
-    const label = findAddLabel(patch.records, key);
-    assert.ok(label, `template must declare output pin ${key}`);
-    assert.equal(label.t, 'pin.out', `${key} must be pin.out`);
-  }
-  for (const key of ['array_add', 'array_delete', 'array_get', 'array_get_all', 'array_get_size']) {
-    const label = findAddLabel(patch.records, key);
-    assert.ok(label, `template must declare function ${key}`);
-    assert.equal(label.t, 'func.js', `${key} must be func.js`);
-    assert.equal(typeof label.v?.code, 'string', `${key} must provide code`);
-  }
-  const wiring = findAddLabel(patch.records, 'array_routing');
-  assert.ok(wiring, 'template must declare pin.connect.label wiring');
-  assert.equal(wiring.t, 'pin.connect.label');
-}
-
-function test_template_functions_do_not_hardcode_example_model_id() {
-  const patch = loadJson(templatePath);
-  for (const key of ['array_add', 'array_delete', 'array_get', 'array_get_all', 'array_get_size']) {
-    const label = findAddLabel(patch.records, key);
-    assert.ok(label, `template must declare function ${key}`);
-    const code = String(label?.v?.code || '');
-    assert.doesNotMatch(code, /\bmodel_id\s*:\s*2001\b/, `${key} must not hardcode model_id=2001`);
-    assert.match(code, /ctx\.self|SELF_MODEL_ID/, `${key} must use runtime-provided self model identity`);
-  }
+function test_0355_data_array_one_is_current_template() {
+  const patch = loadJson(arrayOneTemplatePath);
+  assert.equal(patch.op_id, '0355_data_array_one_v1');
+  const root = patch.records.find((record) => record && record.op === 'add_label' && record.k === 'model_type');
+  assert.equal(root?.t, 'model.table');
+  assert.equal(root?.v, 'Data.Array.One');
 }
 
 const tests = [
-  test_template_exists_and_declares_data_array_root,
-  test_template_declares_unified_pins_and_functions,
-  test_template_functions_do_not_hardcode_example_model_id,
+  test_0190_data_array_template_is_superseded_tombstone,
+  test_0355_data_array_one_is_current_template,
 ];
 
 let passed = 0;
