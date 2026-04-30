@@ -1,0 +1,31 @@
+---
+title: "Slide App Runtime User Guide"
+doc_type: user-guide
+status: active
+updated: 2026-04-29
+source: ai
+---
+
+# Slide App Runtime User Guide
+
+本目录面向开发者解释“滑动 APP”当前怎么编写、怎么安装、安装时宿主会自动补哪些引脚、点击按钮后事件如何进入后端，以及后端程序模型怎样把消息发到管理总线。
+
+## 文档入口
+
+- `slide_app_runtime_developer_guide.md`
+  - 主手册。包含 ModelTable 填表示例、root 默认程序链、安装链路、运行时事件链路和外发链路。
+- `minimal_submit_app_provider_guide.md`
+  - 面向滑动 APP 提供方的最小 cookbook。只讲怎样写一个 `Input + Submit + Display Label` APP，并给出完整单元格、完整 `app_payload.json` 和完整 submit 程序模型。
+- `minimal_submit_app_provider_visualized.md`
+  - 同一个最小 APP 的可视化说明：用流程图、单元格地图和检查图解释 provider 要填什么。
+- `minimal_submit_app_provider_interactive.html`
+  - 自包含交互式文档。可在浏览器中切换步骤，并用输入框模拟 submit 程序写回 `display_text`。
+- `slide_app_runtime_flow_visualized.html`
+  - 自包含可视化页面。用可点击阶段卡片和流程图解释同一条链路，可直接用浏览器打开。
+
+## 当前边界
+
+- 这里说明的是 0326 之后的 current truth。
+- 正式业务入口必须是 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.in -> pin route -> target`。
+- 输入过程中的本地草稿不等于业务提交。
+- 引脚上传递的业务数据是临时 ModelTable record array；只有显式 materialization 才落成正式模型表。

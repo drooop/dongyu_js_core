@@ -13804,6 +13804,52 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "slide_import_click_route",
+      "t": "pin.connect.model",
+      "v": [
+        {
+          "from": [
+            0,
+            "slide_import_click"
+          ],
+          "to": [
+            [
+              1030,
+              "mt_bus_receive_in"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_import_media_uri_update_route",
+      "t": "pin.connect.model",
+      "v": [
+        {
+          "from": [
+            0,
+            "slide_import_media_uri_update"
+          ],
+          "to": [
+            [
+              1031,
+              "mt_bus_receive_in"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "slide_import_request_route",
       "t": "pin.connect.model",
       "v": [
@@ -14091,14 +14137,66 @@
       "t": "json",
       "v": {
         "write": {
-          "action": "ui_owner_label_update",
-          "target_ref": {
-            "model_id": 1031,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "slide_import_media_uri"
-          }
+          "bus_event_v2": true,
+          "bus_in_key": "slide_import_media_uri_update",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "write_label.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_request_id",
+              "t": "str",
+              "v": "slide_import_media_uri_update"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_from_cell",
+              "t": "json",
+              "v": {
+                "p": 0,
+                "r": 0,
+                "c": 0
+              }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_target_cell",
+              "t": "json",
+              "v": {
+                "p": 0,
+                "r": 0,
+                "c": 0
+              }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "slide_import_media_uri",
+              "t": "str",
+              "v": {
+                "$ref": "value"
+              }
+            }
+          ],
+          "value_t": "modeltable"
         }
       }
     },
@@ -14172,7 +14270,8 @@
       "t": "json",
       "v": {
         "write": {
-          "pin": "click",
+          "bus_event_v2": true,
+          "bus_in_key": "slide_import_click",
           "value_ref": [
             {
               "id": 0,
@@ -14181,21 +14280,75 @@
               "c": 0,
               "k": "__mt_payload_kind",
               "t": "str",
-              "v": "ui_event.v1"
+              "v": "write_label.v1"
             },
             {
               "id": 0,
               "p": 0,
               "r": 0,
               "c": 0,
-              "k": "target",
+              "k": "__mt_request_id",
+              "t": "str",
+              "v": "slide_import_click"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_from_cell",
               "t": "json",
               "v": {
-                "model_id": 1031,
                 "p": 0,
                 "r": 0,
                 "c": 0
               }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_target_cell",
+              "t": "json",
+              "v": {
+                "p": 2,
+                "r": 4,
+                "c": 0
+              }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "click",
+              "t": "pin.in",
+              "v": [
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "__mt_payload_kind",
+                  "t": "str",
+                  "v": "ui_event.v1"
+                },
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "target",
+                  "t": "json",
+                  "v": {
+                    "model_id": 1031,
+                    "p": 0,
+                    "r": 0,
+                    "c": 0
+                  }
+                }
+              ]
             }
           ],
           "value_t": "modeltable"
@@ -14248,7 +14401,7 @@
       "k": "handle_slide_import_click",
       "t": "func.js",
       "v": {
-        "code": "/* rubric: P1 */ const payload = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = (key, fallback = null) => {\n  const record = payload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key);\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\nconst requestPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'slide_app_import_request.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'target', t: 'json', v: readPayload('target', { model_id: 1031, p: 0, r: 0, c: 0 }) }\n];\nV1N.writeLabel(0, 0, 0, { k: 'slide_import_request', t: 'pin.out', v: requestPayload });",
+        "code": "/* rubric: P1 */ const payload = label && label.v;\nconst fail = (code, detail) => V1N.addLabel('slide_import_click_error', 'json', { code, detail, ts: Date.now() });\nif (!Array.isArray(payload)) {\n  fail('invalid_payload', 'temporary_modeltable_required');\n  return;\n}\nconst readPayload = (key, fallback = null) => {\n  const record = payload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key);\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\nif (readPayload('__mt_payload_kind', '') !== 'ui_event.v1') {\n  fail('invalid_payload_kind', 'ui_event.v1_required');\n  return;\n}\nconst target = readPayload('target', null);\nif (!target || target.model_id !== 1031 || target.p !== 0 || target.r !== 0 || target.c !== 0) {\n  fail('invalid_target', 'slide_importer_truth_cell_required');\n  return;\n}\nconst requestPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'slide_app_import_request.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'target', t: 'json', v: target }\n];\nV1N.writeLabel(0, 0, 0, { k: 'slide_import_request', t: 'pin.out', v: requestPayload });",
         "modelName": "slide_import_button"
       }
     },

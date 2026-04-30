@@ -20,8 +20,8 @@ source: ai
 2. 把 runtime 切到 `running`
 3. 把 zip 发给 `/api/media/upload`
 4. 拿到 `mxc://...`
-5. 把这个 URI 写进 importer 真值模型的 `slide_import_media_uri`
-6. 触发 importer 的 `click` pin
+5. 通过 `/bus_event` 写入 Model 0 的 `slide_import_media_uri_update` bus 输入，再由 pin route 写进 importer 真值模型的 `slide_import_media_uri`
+6. 通过 `/bus_event` 写入 Model 0 的 `slide_import_click` bus 输入，再由 pin route 触发 importer 的 `click` pin
 
 ## 示例脚本
 
@@ -87,12 +87,15 @@ python3 scripts/examples/slide_app_install_client.py \
 1. 可选 `POST /auth/login`
 2. `POST /api/runtime/mode`
 3. `POST /api/media/upload?filename=...`
-4. `POST /ui_event`
-   - `action = ui_owner_label_update`
-   - target = `1031 / slide_import_media_uri`
-5. `POST /ui_event`
-   - target = `1030, 2,4,0`
-   - importer `click pin`
+4. `POST /bus_event`
+   - `type = bus_event_v2`
+   - `bus_in_key = slide_import_media_uri_update`
+   - `value` 是临时 ModelTable record array，外层为 `write_label.v1`，目标单元格是 importer truth `1031, 0,0,0` 的 `slide_import_media_uri`
+5. `POST /bus_event`
+   - `type = bus_event_v2`
+   - `bus_in_key = slide_import_click`
+   - `value` 是临时 ModelTable record array，外层为 `write_label.v1`，目标单元格是 importer button `1030, 2,4,0` 的 `click pin`
+   - click pin 的值本身也是临时 ModelTable record array，至少包含 `__mt_payload_kind=ui_event.v1` 与 `target={model_id:1031,p:0,r:0,c:0}`；可以额外包含 `action=click` 作为审计信息
 6. `GET /snapshot`
    - 确认 Workspace registry 里出现新 app
 

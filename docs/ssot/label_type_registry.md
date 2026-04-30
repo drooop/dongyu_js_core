@@ -2,7 +2,7 @@
 title: "Label Type Registry"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-04-29
 source: ai
 ---
 
@@ -45,7 +45,7 @@ source: ai
 | label.t | 说明 | key | value | 位置约束 |
 |---|---|---|---|---|
 | `model.single` | 普通 Cell / 简单模型声明 | `model_type` | 类型名（如 `Code.JS`） | 任意 Cell；table/matrix 普通 Cell 可隐式默认为本类型 |
-| `model.matrix` | 矩阵模型根声明 | `model_type` | 类型名（如 `Data.Array`） | 矩阵自身相对 `(0,0,0)`；创建必填 |
+| `model.matrix` | 矩阵模型根声明 | `model_type` | 类型名（如 `Data.Array.One`） | 矩阵自身相对 `(0,0,0)`；创建必填 |
 | `model.table` | 模型表根声明 | `model_type` | 类型名（如 `Flow`） | 模型 `(0,0,0)`；创建必填 |
 | `model.submt` | 子模型挂载/映射 Cell | `model_type` | 子模型 id | 任意 hosting Cell；该 Cell 仅允许 `model.submt` + `pin.*` + `pin.log.*` |
 
@@ -92,6 +92,12 @@ source: ai
 - 正式业务 pin 的非空 value 必须是 `docs/ssot/temporary_modeltable_payload_v1.md` 定义的 record array。
 - 对象 envelope（如 `{op, records}` / `{action, target}`）不再是正式 pin value。
 - pin 名称 / 接收程序模型决定动作语义；payload 本身只表达数据。
+
+0347 message / materialization 约束：
+- pin value 中的 record array 是 Temporary ModelTable Message：`format is ModelTable-like; persistence is explicit materialization`。
+- `id` 是 message-local 临时 id，不是正式 `model_id`。
+- 写入 pin、route、bus、log/trace 或前端 projection 都不自动创建或更新正式 ModelTable。
+- 只有接收程序模型、当前模型 D0 helper、owner materializer 或 importer/installer 明确执行 materialization 时，才允许产生正式 `add_label` / `rm_label` side effect。
 
 ### 3.2 日志通道
 
@@ -178,18 +184,23 @@ value 字段说明：
 
 ## 7. 数据模型 PIN 接口规范（Tier 2 约定）
 
-所有数据模型子类型共享统一 PIN 接口：
+0348 起，Data.* 目标合同由 `docs/ssot/feishu_data_model_contract_v1.md` 接管。
+
+所有 Feishu-aligned 数据模型子类型共享统一 PIN 接口：
 
 | pin 名称 | 方向 | 说明 |
 |---|---|---|
-| `add_data_in` | pin.in | 添加数据 |
-| `delete_data_in` | pin.in | 删除数据 |
-| `get_data_in` | pin.in | 获取数据（请求） |
-| `get_data_out` | pin.out | 获取数据（响应） |
-| `get_all_data_in` | pin.in | 获取全部数据（请求） |
-| `get_all_data_out` | pin.out | 获取全部数据（响应） |
-| `get_size_in` | pin.in | 获取数据量（请求） |
-| `get_size_out` | pin.out | 获取数据量（响应） |
+| `add_data:in` | pin.in | 添加数据 |
+| `delete_data:in` | pin.in | 删除数据 |
+| `update_data:in` | pin.in | 修改数据 |
+| `get_data:in` | pin.in | 获取数据（请求） |
+| `get_data:out` | pin.out | 获取数据（响应） |
+| `get_all_data:in` | pin.in | 获取全部数据（请求） |
+| `get_all_data:out` | pin.out | 获取全部数据（响应） |
+| `get_size:in` | pin.in | 获取数据量（请求） |
+| `get_size:out` | pin.out | 获取数据量（响应） |
+
+0296-era names such as `add_data_in`, `get_data_out`, `enqueue_data_in`, `dequeue_data_in`, `push_data_in`, `pop_data_in`, and `peek_data_in` may still exist in current implementation artifacts, but are not the target contract after 0348.
 
 ---
 

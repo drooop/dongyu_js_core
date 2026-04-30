@@ -2,7 +2,7 @@
 title: "ModelTable User Guide (Living Doc)"
 doc_type: user-guide
 status: active
-updated: 2026-04-21
+updated: 2026-04-29
 source: ai
 ---
 
@@ -20,7 +20,7 @@ source: ai
 
 数据模型专项指南：
 - `docs/user-guide/data_models_filltable_guide.md`
-  - 说明 `Data.Array / Data.Queue / Data.Stack` 的新合同下使用方式。
+  - 说明 0348 Feishu-aligned `Data.*` 目标合同，包括 `Data.Single`、`Data.Array.One/Two/Three`、`Data.Queue`、`Data.Stack`、`Data.CircularBuffer`、`Data.LinkedList`、`Data.FlowTicket` 与通用数据 pin。
 
 ## 1. Mental Model (SSOT-aligned)
 - ModelTable 是唯一真值；UI 只是投影。
@@ -235,7 +235,7 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
 从 0331 起，正式业务 pin 上传的数据必须是“临时 ModelTable payload”，也就是一组 `{id,p,r,c,k,t,v}` 记录。
 
 用户可以这样理解：
-- pin 名称表示“做什么”，例如 `submit_request`、`add_data_in`、`write_label_req`。
+- pin 名称表示“做什么”，例如 `submit_request`、`add_data:in`、`write_label_req`。
 - payload 只表示“传什么数据”。
 - 如果要传一个字符串，也要把它放进临时模型表的一条 label 里。
 
@@ -246,6 +246,16 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "input_value", "t": "str", "v": "hello" }
 ]
 ```
+
+0347 之后还需要明确一条边界：
+
+```text
+format is ModelTable-like; persistence is explicit materialization
+```
+
+也就是说，pin/event payload 的格式像 ModelTable，但它只是临时消息。写到 pin 上、通过 bus 转发、被前端展示、或被记录进诊断 trace，都不会自动变成正式业务数据。只有 owner、当前模型 D0 helper、接收程序模型或 importer 明确执行 materialization 后，才会产生真正的表内写入。
+
+0348 之后，`Data.*` 新模型编写应以 `docs/ssot/feishu_data_model_contract_v1.md` 为准。数据模型 pin 使用 Feishu-aligned 命名，例如 `add_data:in` / `get_data:out`；`add_data_in`、`enqueue_data_in`、`push_data_in` 等旧写法只表示当前实现债务，不是新模型目标写法。
 
 `writeLabel` 是一个特殊的常用写入动作。用户程序只需要表达目标 cell 和一个 label：
 

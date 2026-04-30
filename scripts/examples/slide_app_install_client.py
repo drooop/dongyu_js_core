@@ -13,7 +13,9 @@ from pathlib import Path
 
 
 IMPORTER_HOST_TARGET = {"model_id": 1030, "p": 2, "r": 4, "c": 0}
-IMPORTER_TRUTH_TARGET = {"model_id": 1031, "p": 0, "r": 0, "c": 0, "k": "slide_import_media_uri"}
+IMPORTER_TRUTH_CELL = {"p": 0, "r": 0, "c": 0}
+IMPORTER_MEDIA_URI_BUS_KEY = "slide_import_media_uri_update"
+IMPORTER_CLICK_BUS_KEY = "slide_import_click"
 
 
 class SlideInstallClient:
@@ -75,12 +77,12 @@ class SlideInstallClient:
             raise RuntimeError(f"/api/media/upload failed: status={status} body={data}")
         return data
 
-    def post_ui_event(self, envelope: dict):
-        status, data = self._request_json("/ui_event", method="POST", payload=envelope)
+    def post_bus_event(self, envelope: dict):
+        status, data = self._request_json("/bus_event", method="POST", payload=envelope)
         if status != 200 or data.get("ok") is not True:
-            raise RuntimeError(f"/ui_event failed: status={status} body={data}")
+            raise RuntimeError(f"/bus_event failed: status={status} body={data}")
         if data.get("result") == "error":
-            raise RuntimeError(f"/ui_event returned error result: {data}")
+            raise RuntimeError(f"/bus_event returned error result: {data}")
         return data
 
     def snapshot(self):
@@ -102,34 +104,38 @@ class SlideInstallClient:
     def write_import_media_uri(self, uri: str):
         op_id = f"slide_import_uri_{int(time.time() * 1000)}"
         envelope = {
-            "event_id": int(time.time() * 1000),
-            "type": "ui_owner_label_update",
-            "payload": {
-                "action": "ui_owner_label_update",
-                "meta": {"op_id": op_id},
-                "target": IMPORTER_TRUTH_TARGET,
-                "value": {"t": "str", "v": uri},
-            },
-            "source": "python_slide_install_client",
-            "ts": int(time.time() * 1000),
+            "type": "bus_event_v2",
+            "bus_in_key": IMPORTER_MEDIA_URI_BUS_KEY,
+            "value": build_write_label_payload(
+                IMPORTER_TRUTH_CELL,
+                "slide_import_media_uri",
+                "str",
+                uri,
+                op_id,
+            ),
+            "meta": {"op_id": op_id, "source": "python_slide_install_client"},
         }
-        return self.post_ui_event(envelope)
+        return self.post_bus_event(envelope)
 
     def trigger_import_click(self):
         op_id = f"slide_import_click_{int(time.time() * 1000)}"
         envelope = {
-            "event_id": int(time.time() * 1000),
-            "type": "click",
-            "payload": {
-                "meta": {"op_id": op_id},
-                "target": IMPORTER_HOST_TARGET,
-                "pin": "click",
-                "value": {"click": True},
-            },
-            "source": "python_slide_install_client",
-            "ts": int(time.time() * 1000),
+            "type": "bus_event_v2",
+            "bus_in_key": IMPORTER_CLICK_BUS_KEY,
+            "value": build_write_label_payload(
+                {"p": IMPORTER_HOST_TARGET["p"], "r": IMPORTER_HOST_TARGET["r"], "c": IMPORTER_HOST_TARGET["c"]},
+                "click",
+                "pin.in",
+                [
+                    {"id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "ui_event.v1"},
+                    {"id": 0, "p": 0, "r": 0, "c": 0, "k": "target", "t": "json", "v": {"model_id": 1031, "p": 0, "r": 0, "c": 0}},
+                    {"id": 0, "p": 0, "r": 0, "c": 0, "k": "action", "t": "str", "v": "click"},
+                ],
+                op_id,
+            ),
+            "meta": {"op_id": op_id, "source": "python_slide_install_client"},
         }
-        return self.post_ui_event(envelope)
+        return self.post_bus_event(envelope)
 
 
 def infer_app_name(zip_path: Path) -> str:
@@ -149,14 +155,21 @@ def infer_app_name(zip_path: Path) -> str:
     return ""
 
 
-def extract_result(snapshot: dict, expected_app_name: str):
-    labels = (
-        snapshot.get("models", {})
-        .get("1031", {})
-        .get("cells", {})
-        .get("0,0,0", {})
-        .get("labels", {})
-    )
+def mt_record(k: str, t: str, v):
+    return {"id": 0, "p": 0, "r": 0, "c": 0, "k": k, "t": t, "v": v}
+
+
+def build_write_label_payload(target_cell: dict, target_label: str, target_type: str, value, request_id: str):
+    return [
+        mt_record("__mt_payload_kind", "str", "write_label.v1"),
+        mt_record("__mt_request_id", "str", request_id),
+        mt_record("__mt_from_cell", "json", {"p": 0, "r": 0, "c": 0}),
+        mt_record("__mt_target_cell", "json", target_cell),
+        mt_record(target_label, target_type, value),
+    ]
+
+
+def extract_registry(snapshot: dict):
     registry = (
         snapshot.get("models", {})
         .get("-2", {})
@@ -166,26 +179,63 @@ def extract_result(snapshot: dict, expected_app_name: str):
         .get("ws_apps_registry", {})
         .get("v", [])
     )
+    return registry if isinstance(registry, list) else []
+
+
+def matching_registry_ids(snapshot: dict, expected_app_name: str):
+    if not expected_app_name:
+        return set()
+    ids = set()
+    for entry in extract_registry(snapshot):
+        if isinstance(entry, dict) and entry.get("name") == expected_app_name and isinstance(entry.get("model_id"), int):
+            ids.add(entry["model_id"])
+    return ids
+
+
+def extract_result(snapshot: dict, expected_app_name: str, previous_model_ids=None):
+    labels = (
+        snapshot.get("models", {})
+        .get("1031", {})
+        .get("cells", {})
+        .get("0,0,0", {})
+        .get("labels", {})
+    )
+    registry = extract_registry(snapshot)
     status = labels.get("slide_import_status", {}).get("v", "")
     last_name = labels.get("slide_import_last_app_name", {}).get("v", "")
     last_id = labels.get("slide_import_last_app_id", {}).get("v", 0)
+    previous_model_ids = set(previous_model_ids or [])
     matched = None
     if isinstance(registry, list):
-        if isinstance(last_id, int) and last_id > 0:
-            for entry in registry:
-                if isinstance(entry, dict) and entry.get("model_id") == last_id:
-                    matched = entry
-                    break
-        if matched is None:
+        if expected_app_name:
             for entry in registry:
                 if not isinstance(entry, dict):
                     continue
-                if expected_app_name and entry.get("name") == expected_app_name:
+                if (
+                    entry.get("name") == expected_app_name
+                    and isinstance(last_id, int)
+                    and entry.get("model_id") == last_id
+                    and entry.get("model_id") not in previous_model_ids
+                ):
                     matched = entry
                     break
-                if last_name and entry.get("name") == last_name:
-                    matched = entry
-                    break
+        else:
+            if isinstance(last_id, int) and last_id > 0:
+                for entry in registry:
+                    if (
+                        isinstance(entry, dict)
+                        and entry.get("model_id") == last_id
+                        and entry.get("model_id") not in previous_model_ids
+                    ):
+                        matched = entry
+                        break
+            if matched is None:
+                for entry in registry:
+                    if not isinstance(entry, dict):
+                        continue
+                    if last_name and entry.get("name") == last_name:
+                        matched = entry
+                        break
     return {
         "status": status,
         "last_app_name": last_name,
@@ -194,12 +244,13 @@ def extract_result(snapshot: dict, expected_app_name: str):
     }
 
 
-def wait_for_final_result(client: SlideInstallClient, expected_app_name: str, timeout_seconds: float = 8.0):
+def wait_for_final_result(client: SlideInstallClient, expected_app_name: str, timeout_seconds: float = 8.0, previous_model_ids=None):
     deadline = time.time() + timeout_seconds
+    previous_model_ids = set(previous_model_ids or [])
     last_result = None
     while time.time() < deadline:
         snapshot = client.snapshot()
-        current = extract_result(snapshot, expected_app_name)
+        current = extract_result(snapshot, expected_app_name, previous_model_ids=previous_model_ids)
         last_result = current
         registry_match = current.get("registry_match")
         last_app_id = current.get("last_app_id")
@@ -255,9 +306,10 @@ def main():
     result["upload"] = upload
     result["runtime_mode"] = client.ensure_runtime_running()
     result["write_media_uri"] = client.write_import_media_uri(upload["uri"])
+    previous_model_ids = matching_registry_ids(client.snapshot(), expected_app_name)
     result["trigger_import"] = client.trigger_import_click()
 
-    final_result = wait_for_final_result(client, expected_app_name)
+    final_result = wait_for_final_result(client, expected_app_name, previous_model_ids=previous_model_ids)
     result["final"] = final_result
 
     registry_match = final_result.get("registry_match")

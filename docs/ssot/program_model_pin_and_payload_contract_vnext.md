@@ -2,7 +2,7 @@
 title: "Program Model Pin And Payload Contract vNext"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-04-27
 source: ai
 ---
 
@@ -84,6 +84,13 @@ source: ai
 - 所有正式业务 pin 的非空 value 都必须是临时 ModelTable record array。
 - 旧式 `{ op, records }` 对象只能作为历史迁移债务，不得作为新通过路径。
 - 外层 transport 可以继续有 packet/envelope，但 packet 的业务 `payload` 字段必须是临时 ModelTable record array。
+
+0347 冻结：
+- pin/event 中传递的是 Temporary ModelTable Message：`format is ModelTable-like; persistence is explicit materialization`。
+- 临时 message 的 `{id,p,r,c,k,t,v}` shape 只说明它能按 ModelTable 结构表达数据，不说明它已经被写入正式模型表。
+- `id` 是 message-local 临时 id，不是正式 `model_id`。
+- 接收方只有在自身 pin/program 语义明确要求并通过 owner / D0 / importer materialization 路径时，才能把 message 写成正式 label。
+- 单纯收到 pin value、转发 bus payload、保存诊断 trace 或推送前端 projection，都不得自动 materialize。
 
 ### 3.2 Action Removal
 

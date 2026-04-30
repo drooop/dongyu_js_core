@@ -69,6 +69,78 @@ async function test_stale_model0_egress_payload_gets_forwarded_on_next_tick() {
   });
 }
 
+async function test_pending_model0_egress_is_not_rescheduled_while_unchanged() {
+  return withServerState(async (state) => {
+    const runtime = state.runtime;
+    const model0 = runtime.getModel(0);
+    const model100 = runtime.getModel(100);
+    assert.ok(model0 && model100, 'required_models_missing');
+
+    const payload = [
+      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'unchanged pending payload' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: 'remote' },
+    ];
+    const changedPayload = [
+      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'changed pending payload' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: 'remote' },
+    ];
+
+    runtime.addLabel(model0, 0, 0, 0, {
+      k: 'model100_submit_out',
+      t: 'pin.in',
+      v: payload,
+    });
+
+    state.programEngine.eventCursor = runtime.eventLog.list().length;
+    state.programEngine.interceptCursor = runtime.intercepts.list().length;
+
+    state.programEngine.schedulePendingModel0Egress(new Set());
+    state.programEngine.schedulePendingModel0Egress(new Set());
+
+    const scheduled = runtime.intercepts.list()
+      .filter((item) => item.type === 'run_func'
+        && item.payload
+        && item.payload.func === 'forward_model100_submit_from_model0');
+    assert.equal(scheduled.length, 1, 'unchanged_pending_egress_must_only_schedule_once');
+
+    runtime.addLabel(model0, 0, 0, 0, {
+      k: 'model100_submit_out',
+      t: 'pin.in',
+      v: changedPayload,
+    });
+    state.programEngine.schedulePendingModel0Egress(new Set());
+
+    const changedScheduled = runtime.intercepts.list()
+      .filter((item) => item.type === 'run_func'
+        && item.payload
+        && item.payload.func === 'forward_model100_submit_from_model0');
+    assert.equal(changedScheduled.length, 2, 'changed_pending_egress_must_schedule_again');
+
+    runtime.addLabel(model0, 0, 0, 0, {
+      k: 'model100_submit_out',
+      t: 'pin.in',
+      v: null,
+    });
+    state.programEngine.schedulePendingModel0Egress(new Set());
+
+    runtime.addLabel(model0, 0, 0, 0, {
+      k: 'model100_submit_out',
+      t: 'pin.in',
+      v: payload,
+    });
+    state.programEngine.schedulePendingModel0Egress(new Set());
+
+    const rescheduled = runtime.intercepts.list()
+      .filter((item) => item.type === 'run_func'
+        && item.payload
+        && item.payload.func === 'forward_model100_submit_from_model0');
+    assert.equal(rescheduled.length, 3, 'cleared_then_readded_egress_must_schedule_again');
+    return { key: 'pending_model0_egress_is_not_rescheduled_while_unchanged', status: 'PASS' };
+  });
+}
+
 function mailboxEnvelope(action, options = {}) {
   const payload = {
     action,
@@ -305,6 +377,7 @@ async function test_stale_dual_bus_config_is_repaired_before_submit_forward() {
 
 const tests = [
   test_stale_model0_egress_payload_gets_forwarded_on_next_tick,
+  test_pending_model0_egress_is_not_rescheduled_while_unchanged,
   test_runtime_activation_drains_stale_model0_egress_before_returning,
   test_runtime_activation_quarantines_late_stale_model0_egress_after_timeout,
   test_plain_object_submit_value_is_forwarded_as_event_payload,

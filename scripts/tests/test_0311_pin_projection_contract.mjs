@@ -115,7 +115,7 @@ function test_workspace_patches_pinize_existing_buttons() {
   assert.ok(!model100SubmitBind?.v?.write?.action, 'model100_submit_must_not_require_action_write');
 
   const expectations = [
-    { records: workspace, model_id: 1030, p: 2, r: 4, c: 0, node: 'slide_import_button', pin: 'click' },
+    { records: workspace, model_id: 1030, p: 2, r: 4, c: 0, node: 'slide_import_button', bus_in_key: 'slide_import_click', pin: 'click' },
     { records: workspace, model_id: 1034, p: 2, r: 8, c: 0, node: 'slide_creator_button', pin: 'click' },
     { records: catalog, model_id: -25, p: 2, r: 7, c: 0, node: 'btn_ws_select', pin: 'click' },
     { records: catalog, model_id: -25, p: 2, r: 7, c: 1, node: 'btn_ws_delete', pin: 'click' },
@@ -137,9 +137,31 @@ function test_workspace_patches_pinize_existing_buttons() {
       && record?.c === nodeRecord.c
       && record?.k === 'ui_bind_json'
     ));
-    assert.equal(bind?.v?.write?.pin, expectation.pin, `${expectation.node}_must_use_pin_write`);
+    if (expectation.bus_in_key) {
+      assert.equal(bind?.v?.write?.bus_event_v2, true, `${expectation.node}_must_use_model0_bus_event_write`);
+      assert.equal(bind?.v?.write?.bus_in_key, expectation.bus_in_key, `${expectation.node}_must_use_expected_bus_in_key`);
+      assert.ok(
+        Array.isArray(bind?.v?.write?.value_ref)
+          && bind.v.write.value_ref.some((record) => record && record.k === expectation.pin && record.t === 'pin.in'),
+        `${expectation.node}_must_write_expected_target_pin`,
+      );
+    } else {
+      assert.equal(bind?.v?.write?.pin, expectation.pin, `${expectation.node}_must_use_pin_write`);
+    }
     assert.ok(!bind?.v?.write?.action, `${expectation.node}_must_not_require_action_write`);
   }
+
+  const importerFileInputBind = findRecord(workspace, (record) => (
+    record?.model_id === 1030
+    && record?.p === 2
+    && record?.r === 3
+    && record?.c === 0
+    && record?.k === 'ui_bind_json'
+  ));
+  assert.equal(importerFileInputBind?.v?.write?.bus_event_v2, true, 'slide_import_fileinput_must_use_model0_bus_event_write');
+  assert.equal(importerFileInputBind?.v?.write?.bus_in_key, 'slide_import_media_uri_update', 'slide_import_fileinput_must_use_uri_update_bus_key');
+  assert.equal(importerFileInputBind?.v?.write?.value_t, 'modeltable', 'slide_import_fileinput_must_emit_modeltable_payload');
+  assert.ok(!importerFileInputBind?.v?.write?.action, 'slide_import_fileinput_must_not_use_owner_label_update');
 
   return { key: 'workspace_patches_pinize_existing_buttons', status: 'PASS' };
 }

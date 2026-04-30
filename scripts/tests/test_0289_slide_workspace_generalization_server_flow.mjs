@@ -56,6 +56,50 @@ function slideImportClickPayload() {
   ]);
 }
 
+function writeLabelPayload(targetCell, targetLabel, targetType, value, requestId = `req_${Date.now()}`) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'write_label.v1' },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_request_id', t: 'str', v: requestId },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_from_cell', t: 'json', v: { p: 0, r: 0, c: 0 } },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_target_cell', t: 'json', v: targetCell },
+    { id: 0, p: 0, r: 0, c: 0, k: targetLabel, t: targetType, v: value },
+  ];
+}
+
+function workspacePinPayload(kind, labels = []) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: kind },
+    ...labels.map((label) => ({ id: 0, p: 0, r: 0, c: 0, ...label })),
+  ];
+}
+
+function wsSelectPayload(modelId) {
+  return workspacePinPayload('ws_select_app.v1', [
+    { k: 'model_id', t: 'int', v: modelId },
+  ]);
+}
+
+function wsDeletePayload(modelId) {
+  return workspacePinPayload('ws_delete_app.v1', [
+    { k: 'model_id', t: 'int', v: modelId },
+  ]);
+}
+
+function slideImportClickBusEvent() {
+  return {
+    type: 'bus_event_v2',
+    bus_in_key: 'slide_import_click',
+    value: writeLabelPayload(
+      { p: 2, r: 4, c: 0 },
+      'click',
+      'pin.in',
+      slideImportClickPayload(),
+      `slide_import_click_${Date.now()}`,
+    ),
+    meta: { op_id: `slide_import_click_${Date.now()}`, source: 'test_0289' },
+  };
+}
+
 function buildImportZipBuffer() {
   const payload = [
     { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.SlideZipImportedApp' },
@@ -123,12 +167,9 @@ async function test_builtin_and_imported_apps_share_workspace_contract() {
     const importerTruth = state.runtime.getModel(1031);
     state.runtime.addLabel(importerTruth, 0, 0, 0, { k: 'slide_import_media_uri', t: 'str', v: 'mxc://localhost/test-slide-import' });
 
-    const importResult = await state.submitEnvelope(pinEnvelope(
-      { model_id: 1030, p: 2, r: 4, c: 0 },
-      'click',
-      slideImportClickPayload(),
-    ));
-    assert.equal(importResult.result, 'ok', 'slide_app_import_pin_must_succeed');
+    const importResult = await state.submitEnvelope(slideImportClickBusEvent());
+    assert.equal(importResult.result, 'ok', 'slide_app_import_bus_event_must_succeed');
+    assert.equal(importResult.routed_by, 'model0_busin', 'slide_app_import_must_route_by_model0_busin');
     await wait();
 
     const afterImportRegistry = state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
@@ -143,7 +184,7 @@ async function test_builtin_and_imported_apps_share_workspace_contract() {
     const selectImported = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 0 },
       'click',
-      importedEntry.model_id,
+      wsSelectPayload(importedEntry.model_id),
     ));
     assert.equal(selectImported.result, 'ok', 'ws_app_select_imported_pin_must_succeed');
     await wait();
@@ -156,7 +197,7 @@ async function test_builtin_and_imported_apps_share_workspace_contract() {
     const selectBuiltin = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 0 },
       'click',
-      100,
+      wsSelectPayload(100),
     ));
     assert.equal(selectBuiltin.result, 'ok', 'ws_app_select_builtin_pin_must_succeed');
     await wait();
@@ -169,7 +210,7 @@ async function test_builtin_and_imported_apps_share_workspace_contract() {
     const deleteImported = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 1 },
       'click',
-      importedEntry.model_id,
+      wsDeletePayload(importedEntry.model_id),
     ));
     assert.equal(deleteImported.result, 'ok', 'delete_imported_slide_app_pin_must_succeed');
     await wait();

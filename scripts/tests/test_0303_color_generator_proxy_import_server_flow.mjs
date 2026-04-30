@@ -58,6 +58,44 @@ function slideImportClickPayload() {
   ]);
 }
 
+function writeLabelPayload(targetCell, targetLabel, targetType, value, requestId = `req_${Date.now()}`) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'write_label.v1' },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_request_id', t: 'str', v: requestId },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_from_cell', t: 'json', v: { p: 0, r: 0, c: 0 } },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_target_cell', t: 'json', v: targetCell },
+    { id: 0, p: 0, r: 0, c: 0, k: targetLabel, t: targetType, v: value },
+  ];
+}
+
+function workspacePinPayload(kind, labels = []) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: kind },
+    ...labels.map((label) => ({ id: 0, p: 0, r: 0, c: 0, ...label })),
+  ];
+}
+
+function wsDeletePayload(modelId) {
+  return workspacePinPayload('ws_delete_app.v1', [
+    { k: 'model_id', t: 'int', v: modelId },
+  ]);
+}
+
+function slideImportClickBusEvent() {
+  return {
+    type: 'bus_event_v2',
+    bus_in_key: 'slide_import_click',
+    value: writeLabelPayload(
+      { p: 2, r: 4, c: 0 },
+      'click',
+      'pin.in',
+      slideImportClickPayload(),
+      `slide_import_click_${Date.now()}`,
+    ),
+    meta: { op_id: `slide_import_click_${Date.now()}`, source: 'test_0303_color_proxy' },
+  };
+}
+
 async function withServerState(fn) {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0303-color-proxy-'));
   process.env.DY_AUTH = '0';
@@ -97,12 +135,9 @@ async function test_proxy_zip_import_reuses_model100_behaviour_contract() {
     runtime.addLabel(importerTruth, 0, 0, 0, { k: 'slide_import_media_uri', t: 'str', v: uri });
     runtime.addLabel(importerTruth, 0, 0, 0, { k: 'slide_import_media_name', t: 'str', v: 'color-generator-proxy.zip' });
 
-    const importResult = await state.submitEnvelope(pinEnvelope(
-      { model_id: 1030, p: 2, r: 4, c: 0 },
-      'click',
-      slideImportClickPayload(),
-    ));
-    assert.equal(importResult.result, 'ok', 'slide_app_import_pin_must_be_accepted');
+    const importResult = await state.submitEnvelope(slideImportClickBusEvent());
+    assert.equal(importResult.result, 'ok', 'slide_app_import_bus_event_must_be_accepted');
+    assert.equal(importResult.routed_by, 'model0_busin', 'slide_app_import_must_route_by_model0_busin');
     await wait();
 
     const snapAfterImport = state.clientSnap();
@@ -131,7 +166,7 @@ async function test_proxy_zip_import_reuses_model100_behaviour_contract() {
     const deleteResult = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 1 },
       'click',
-      importedModelId,
+      wsDeletePayload(importedModelId),
     ));
     assert.equal(deleteResult.result, 'ok', 'proxy_imported_app_delete_pin_must_succeed');
     await wait();

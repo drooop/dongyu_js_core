@@ -11,14 +11,24 @@ set -euo pipefail
 
 UI_IMAGE_TAR=""
 REBUILD=0
+EXPECTED_REVISION=""
+INSTALL_SYSTEM_CA="${INSTALL_SYSTEM_CA:-0}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --image-tar)
       UI_IMAGE_TAR="${2:?missing value for --image-tar}"
       shift 2
       ;;
+    --revision)
+      EXPECTED_REVISION="${2:?missing value for --revision}"
+      shift 2
+      ;;
     --rebuild|--no-cache)
       REBUILD=1
+      shift
+      ;;
+    --install-system-ca)
+      INSTALL_SYSTEM_CA=1
       shift
       ;;
     *)
@@ -27,6 +37,11 @@ while [ $# -gt 0 ]; do
       ;;
   esac
 done
+
+if [ "$INSTALL_SYSTEM_CA" != "0" ] && [ "$INSTALL_SYSTEM_CA" != "1" ]; then
+  echo "ERROR: INSTALL_SYSTEM_CA must be 0 or 1" >&2
+  exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -88,12 +103,12 @@ require_single_ui_build_source() {
 }
 
 detect_source_revision() {
-  if [ -d "$REPO_DIR/.git" ] && git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    git -C "$REPO_DIR" rev-parse --short HEAD
-    return 0
-  fi
   if [ -f "$REPO_DIR/.deploy-source-revision" ]; then
     tr -d '\r\n' < "$REPO_DIR/.deploy-source-revision"
+    return 0
+  fi
+  if [ -d "$REPO_DIR/.git" ] && git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git -C "$REPO_DIR" rev-parse --short HEAD
     return 0
   fi
   if [ -n "${DEPLOY_SOURCE_REV:-}" ]; then
@@ -207,6 +222,7 @@ if [ -n "$UI_IMAGE_TAR" ]; then
   echo "UI_IMAGE_TAR=$UI_IMAGE_TAR"
 fi
 echo "REBUILD=$REBUILD"
+echo "INSTALL_SYSTEM_CA=$INSTALL_SYSTEM_CA"
 echo ""
 
 # ── Load env ──────────────────────────────────────────────
@@ -270,6 +286,12 @@ require_single_ui_build_source
 echo "  source-of-truth: OK"
 
 SOURCE_REV="$(detect_source_revision)"
+if [ -n "$EXPECTED_REVISION" ]; then
+  if [[ "$SOURCE_REV" != "$EXPECTED_REVISION"* && "$EXPECTED_REVISION" != "$SOURCE_REV"* ]]; then
+    echo "ERROR: current repo revision $SOURCE_REV does not match expected $EXPECTED_REVISION" >&2
+    exit 1
+  fi
+fi
 echo "  source revision: $SOURCE_REV"
 
 UI_SRC_SERVER="$REPO_DIR/packages/ui-model-demo-server/server.mjs"
@@ -339,6 +361,8 @@ echo ""
 # ── Build images ─────────────────────────────────────────
 echo "=== Step 6: Sync authoritative assets ==="
 LOCAL_PERSISTED_ASSET_ROOT="$CLOUD_PERSISTED_ASSET_ROOT" bash "$REPO_DIR/scripts/ops/sync_local_persisted_assets.sh"
+CLOUD_DY_PERSIST_ROOT="${CLOUD_DY_PERSIST_ROOT:-/home/wwpic/dongyu/volume/persist/ui-server}"
+LOCAL_DY_PERSIST_ROOT="$CLOUD_DY_PERSIST_ROOT" bash "$REPO_DIR/scripts/ops/sync_ui_public_docs.sh"
 echo ""
 
 # ── Build images ─────────────────────────────────────────
@@ -348,6 +372,10 @@ BUILD_ARGS=()
 if [ "$REBUILD" -eq 1 ]; then
   BUILD_ARGS+=(--no-cache)
 fi
+BUN_BUILD_ARGS=()
+if [ "$INSTALL_SYSTEM_CA" = "1" ]; then
+  BUN_BUILD_ARGS+=(--build-arg INSTALL_SYSTEM_CA=1)
+fi
 if [ -n "$UI_IMAGE_TAR" ]; then
   if [ ! -f "$UI_IMAGE_TAR" ]; then
     echo "ERROR: --image-tar file not found: $UI_IMAGE_TAR" >&2
@@ -355,7 +383,7 @@ if [ -n "$UI_IMAGE_TAR" ]; then
   fi
   echo "  skipping ui-server docker build (using prebuilt tar): $UI_IMAGE_TAR"
 else
-  docker build "${BUILD_ARGS[@]}" \
+  docker build "${BUILD_ARGS[@]}" "${BUN_BUILD_ARGS[@]}" \
     -f k8s/Dockerfile.ui-server \
     --label "org.opencontainers.image.revision=$SOURCE_REV" \
     --label "io.dongyu.source.sha256.server_mjs=$UI_SRC_HASH_SERVER" \
@@ -367,7 +395,7 @@ docker build "${BUILD_ARGS[@]}" \
   -f k8s/Dockerfile.mbr-worker \
   --label "org.opencontainers.image.revision=$SOURCE_REV" \
   -t dy-mbr-worker:v2 .
-docker build "${BUILD_ARGS[@]}" \
+docker build "${BUILD_ARGS[@]}" "${BUN_BUILD_ARGS[@]}" \
   -f k8s/Dockerfile.remote-worker \
   --label "org.opencontainers.image.revision=$SOURCE_REV" \
   -t dy-remote-worker:v3 .

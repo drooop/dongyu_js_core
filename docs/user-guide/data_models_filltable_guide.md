@@ -2,201 +2,214 @@
 title: "Data Models Fill-Table Guide"
 doc_type: user-guide
 status: active
-updated: 2026-04-21
+updated: 2026-04-29
 source: ai
 ---
 
 # Data Models Fill-Table Guide
 
-本文档说明在当前新合同下，如何通过填表使用第一批正式数据模型：
+This guide explains the Feishu-aligned target contract for writing and using `Data.*` models through ModelTable labels.
 
-- `Data.Array`
-- `Data.Queue`
-- `Data.Stack`
+Authoritative contract:
+- `docs/ssot/feishu_data_model_contract_v1.md`
+- `docs/ssot/data_model_tier2_implementation_v1.md`
 
-前提：
-- 本地 pin 统一使用 `pin.in / pin.out`
-- 数据通过 pin 传递时，值必须是“临时模型表数组”
-- 动作语义由 pin 名称承担，不放进 payload 数据里
+Important status:
+- The 0348 contract is the target contract.
+- 0349 defines how to implement this target as Tier 2 fill-table templates and programs.
+- Current templates may still lag behind this guide until a later implementation iteration migrates them.
+- Do not use 0296-era examples as new authoring guidance where they conflict with this guide.
 
-## 1. 三者共同结构
+## 1. Temporary Message Versus Formal Persistence
 
-三类数据模型都采用相同的基本布局：
+Data model pins carry Temporary ModelTable Message records.
 
-- D0，也就是 `(0,0,0)`：
-  - `model_type`
-  - `size_now`
-  - `next_index`
-  - 所有输入/输出 pin
-  - 所有 `func.js`
-  - 所有 `pin.connect.label`
-- 数据行：
-  - 默认放在 `(0,r,0)`，其中 `r >= 1`
+```text
+format is ModelTable-like; persistence is explicit materialization
+```
 
-这意味着：
-- 页面/列布局不是重点
-- 数据模型的差别主要来自 pin 名称和函数行为
+Meaning:
+- The payload is a `{id,p,r,c,k,t,v}` record array.
+- `id` in the payload is message-local, not formal `model_id`.
+- Writing a payload to a pin does not create or update the formal ModelTable by itself.
+- The receiving data model must explicitly materialize labels into its own cells.
 
-## 2. Data.Array
+## 2. Generic Data Pins
 
-### 输入 pin
+All Feishu-aligned data models use generic data pins:
 
+| pin name | direction | meaning |
+|---|---|---|
+| `add_data:in` | `pin.in` | add data |
+| `delete_data:in` | `pin.in` | delete data |
+| `update_data:in` | `pin.in` | update data |
+| `get_data:in` | `pin.in` | get one item |
+| `get_data:out` | `pin.out` | one-item result |
+| `get_all_data:in` | `pin.in` | get all items |
+| `get_all_data:out` | `pin.out` | all-item result |
+| `get_size:in` | `pin.in` | get size |
+| `get_size:out` | `pin.out` | size result |
+
+Superseded names:
 - `add_data_in`
-- `delete_data_in`
-- `get_data_in`
-- `get_all_data_in`
-- `get_size_in`
-
-### 输出 pin
-
 - `get_data_out`
-- `get_all_data_out`
-- `get_size_out`
-
-### 输入 payload 示例
-
-新增一项：
-
-```json
-[
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": "A" }
-]
-```
-
-删除第 2 项：
-
-```json
-[
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "index", "t": "int", "v": 2 }
-]
-```
-
-读取全部：
-
-```json
-[
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" }
-]
-```
-
-### 输出 payload 示例
-
-`get_data_out`：
-
-```json
-[
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "found", "t": "bool", "v": true },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": "B" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "index", "t": "int", "v": 2 }
-]
-```
-
-`get_all_data_out`：
-
-```json
-[
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.table", "v": "Data.ArrayResult" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "size", "t": "int", "v": 2 },
-  { "id": 0, "p": 1, "r": 0, "c": 0, "k": "value", "t": "json", "v": "A" },
-  { "id": 0, "p": 2, "r": 0, "c": 0, "k": "value", "t": "json", "v": "B" }
-]
-```
-
-## 3. Data.Queue
-
-### 输入 pin
-
 - `enqueue_data_in`
 - `dequeue_data_in`
-- `peek_data_in`
-- `get_all_data_in`
-- `get_size_in`
-
-### 输出 pin
-
-- `dequeue_data_out`
-- `peek_data_out`
-- `get_all_data_out`
-- `get_size_out`
-
-### 语义
-
-- `enqueue`：追加到尾部
-- `dequeue`：从头部取出并删除
-- `peek`：只看头部，不删除
-- 顺序必须符合 FIFO
-
-### `dequeue_data_out` 示例
-
-```json
-[
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "found", "t": "bool", "v": true },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": "A" }
-]
-```
-
-## 4. Data.Stack
-
-### 输入 pin
-
 - `push_data_in`
 - `pop_data_in`
 - `peek_data_in`
-- `get_all_data_in`
-- `get_size_in`
 
-### 输出 pin
+Those names may still appear in current implementation artifacts, but they are not the target authoring contract.
 
-- `pop_data_out`
-- `peek_data_out`
-- `get_all_data_out`
-- `get_size_out`
+## 3. Data.Single
 
-### 语义
+`Data.Single` is the primitive element type.
 
-- `push`：压栈到尾部
-- `pop`：从尾部取出并删除
-- `peek`：只看栈顶，不删除
-- 顺序必须符合 LIFO
-
-### `pop_data_out` 示例
+Example message / element shape:
 
 ```json
 [
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.single", "v": "Data.Single" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "found", "t": "bool", "v": true },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "value", "t": "json", "v": "B" }
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "参数1", "t": "str", "v": "" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "参数2", "t": "str", "v": "" }
 ]
 ```
 
-## 5. ack 策略
+Do not treat a single `value` label as the whole target contract. A data item can carry multiple labels.
 
-这三类数据模型当前不引入独立的通用 `ack` pin。
+## 4. Data.Array
 
-- 纯 mutation：
-  - `add`
-  - `delete`
-  - `enqueue`
-  - `push`
-  成功与否主要看 committed state 是否变化
-- 同时需要返回值的操作：
-  - `dequeue`
-  - `pop`
-  直接通过对应 output pin 回传结果
+`Data.Array` is a family name. New authoring should choose a dimensional type.
 
-## 6. 当前不做的事
+### Data.Array.One
 
-本轮没有把这些能力一起做进去：
+Use for a one-dimensional array.
 
-- `Flow` 模型
-- `Data.LinkedList`
-- `Data.CircularBuffer`
-- 数据模型的 Gallery 可视化页面
+Root labels:
+- `model_type`: `model.table`, value `Data.Array.One`
+- `max_r`: largest used row
 
-原因很简单：
-- 这轮先把新合同下的 canonical data templates 做稳
-- UI 展示面可以放到后续单独迭代
+Element placement:
+- Data starts at `(0,1,0)`.
+- Each occupied element cell is a `Data.Single`.
+
+### Data.Array.Two
+
+Use for a two-dimensional array on page `0`.
+
+Root labels:
+- `model_type`: `model.table`, value `Data.Array.Two`
+- `max_r`
+- `max_c`
+
+Each occupied element cell is a `Data.Single`.
+
+### Data.Array.Three
+
+Use for a three-dimensional array.
+
+Root labels:
+- `model_type`: `model.table`, value `Data.Array.Three`
+- `max_p`
+- `max_r`
+- `max_c`
+
+Additional pages may record their own `max_r` and `max_c`.
+
+## 5. Data.Queue
+
+Use for FIFO data.
+
+Root labels:
+- `model_type`: `model.table`, value `Data.Queue`
+- `size_now`
+- `start_pos`
+- `end_pos`
+
+Behavior:
+- Write from top to bottom.
+- Read from top to bottom.
+- Each queued item is a `Data.Single`.
+
+## 6. Data.Stack
+
+Use for LIFO data.
+
+Root labels:
+- `model_type`: `model.table`, value `Data.Stack`
+- `size_now`
+
+Behavior:
+- Write from top to bottom.
+- Read from bottom to top.
+- Each stack item is a `Data.Single`.
+
+## 7. Data.CircularBuffer
+
+Use for a fixed-size circular buffer.
+
+Root labels:
+- `model_type`: `model.table`, value `Data.CircularBuffer`
+- `size_now`
+- `start_pos`
+- `end_pos`
+- `size_max`
+
+Behavior:
+- Insert at the tail.
+- Read from the head.
+- If insertion exceeds range, the operation errors.
+- Each buffer item is a `Data.Single`.
+
+## 8. Data.LinkedList
+
+Use for linked list data.
+
+Root labels:
+- `model_type`: `model.table`, value `Data.LinkedList`
+- `size_now`
+- `start_node`
+- `last_pos`
+
+Node labels:
+- each node is a `Data.Single`
+- each node carries `next_node`
+
+## 9. Data.FlowTicket
+
+Use for workflow ticket storage.
+
+Root labels:
+- `model_type`: `model.table`, value `Data.FlowTicket`
+- `workorderSize`
+
+Ticket row labels:
+- `~STATUS~`
+- `ticket_id`
+- `flow_model`
+- `now_ticket_r`
+
+Step row labels:
+- `~StepName~`
+- business parameter labels
+- `~next_step~` when a transfer step records branch direction
+
+This guide only freezes the data shape. Flow execution is separate.
+
+## 10. Migration Notes
+
+Do not copy current `data_array_v0`, `data_queue_v0`, or `data_stack_v0` templates as new canonical examples if they conflict with this guide.
+
+New Data.* templates should follow `docs/ssot/data_model_tier2_implementation_v1.md`:
+- `Data.Single` is a `model.single` element cell.
+- Collection-like Data.* models are Tier 2 `model.table` or `model.matrix` definitions.
+- Public pins use colon names only.
+- Payloads are Temporary ModelTable Message arrays.
+- Persistence happens only after explicit materialization by the receiving data model.
+
+Known implementation debt:
+- `Data.Array` should be split into `Data.Array.One/Two/Three`.
+- Queue should use `start_pos/end_pos`, not only `next_index`.
+- Stack should not require `next_index` as target metadata.
+- CircularBuffer should error on overflow, not overwrite by default.
+- Rows should carry `Data.Single` element cells, not only one `value` label.

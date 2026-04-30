@@ -1,0 +1,145 @@
+---
+title: "0349 Remote Deploy Sync Inventory"
+doc_type: iteration-evidence
+status: draft
+updated: 2026-04-29
+source: ai
+---
+
+# 0349 Remote Deploy Sync Inventory
+
+## 1. Current Cloud Deploy Paths
+
+Canonical remote deploy path already exists:
+
+- Source sync:
+  - `scripts/ops/sync_cloud_source.sh`
+  - target host: `drop@dongyudigital.com`
+  - remote repo: `/home/wwpic/dongyuapp`
+  - remote repo owner: `wwpic`
+- Full deploy:
+  - `sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_full.sh --rebuild`
+- App fast deploy:
+  - `sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-server --revision <rev>`
+- Local-build tar upload:
+  - `scripts/ops/deploy_cloud_ui_server_from_local.sh`
+  - documented as fallback-only.
+
+Remote safety constraints:
+
+- Target cluster is rke2.
+- Mutating deploy must pass `remote_preflight_guard.sh`.
+- Allowed operations are `kubectl`, `helm`, Docker build/save/load image operations, `rsync`/`scp`/`git` source sync.
+- Prohibited operations include restarting k3s/rke2/containerd/docker/sshd/networking, editing `/etc/rancher`, CNI, firewall, or network interfaces.
+
+## 2. What The Docker Images Actually Need
+
+Current Dockerfiles copy only these runtime inputs:
+
+| Image | Required source paths |
+|---|---|
+| `dy-ui-server:v1` | `packages/worker-base/`, `packages/ui-renderer/`, `packages/ui-model-demo-server/`, `packages/ui-model-demo-frontend/`, `package.json`, optional `package-lock.json` |
+| `dy-mbr-worker:v2` | `package.json`, optional `package-lock.json`, `packages/worker-base/src/`, `packages/worker-base/system-models/`, `scripts/run_worker_v0.mjs`, `scripts/worker_engine_v0.mjs` |
+| `dy-remote-worker:v3` | `package.json`, optional `package-lock.json`, `packages/worker-base/src/`, `packages/worker-base/system-models/`, `scripts/run_worker_remote_v1.mjs`, `scripts/worker_engine_v0.mjs` |
+| `dy-ui-side-worker:v1` | `package.json`, optional `package-lock.json`, `packages/worker-base/src/`, `packages/worker-base/system-models/`, `scripts/run_worker_ui_side_v0.mjs`, `scripts/worker_engine_v0.mjs` |
+
+Deploy scripts additionally need:
+
+- `scripts/ops/`
+- `k8s/`
+- `deploy/sys-v1ns/`
+- `deploy/env/cloud.env` on the remote host, preserved outside git.
+- `packages/ui-renderer/src/component_registry_v1.json`
+- selected system model JSON files copied by `scripts/ops/sync_local_persisted_assets.sh`
+
+Not needed in Docker build context for current images:
+
+- `docs/`
+- `docs-shared/`
+- `archive/`
+- `test_files/`
+- `output/`
+- `.orchestrator/`
+- `.playwright-cli/`
+- `scripts/tests/`
+- `scripts/fixtures/`
+- `node_modules/`
+- `.git/`
+
+Keep in Docker build context:
+
+- `packages/ui-model-demo-frontend/dist/`
+  - Required by `k8s/Dockerfile.ui-server-prebuilt`.
+  - Do not exclude all `**/dist` globally unless the prebuilt image path is removed or changed to rebuild frontend assets.
+
+## 3. Current Sync/Build Weak Spots
+
+1. No `.dockerignore`.
+   - Docker build context can include docs and test artifacts even though Dockerfiles do not copy them.
+   - This is local-to-remote-host I/O during remote build, not public upload, but it still costs time.
+
+2. Archive fallback in `sync_cloud_source.sh` streams the full git archive.
+   - Normal case uses remote `.git` checkout and is efficient.
+   - Fallback can still transfer docs/tests/history-adjacent tracked files that are not needed for deployment.
+   - Fallback currently preserves any existing remote `.git`, while deploy scripts prefer `.git` HEAD over `.deploy-source-revision`; after an archive fallback, source revision detection can therefore report a stale git HEAD instead of the archive revision.
+
+3. Target choice is manual.
+   - `deploy_cloud_app.sh --target ui-server` is already available.
+   - There is no checked-in decision table that says which changed files require `ui-server`, `mbr-worker`, `remote-worker`, `ui-side-worker`, or full deploy.
+
+4. Local tar upload remains available.
+   - It is correctly documented as fallback-only.
+   - It should stay available for remote build failure/offline cases, but not become the default path again.
+
+5. Bun-based image builds can block on remote apt.
+   - `k8s/Dockerfile.ui-server`, `k8s/Dockerfile.ui-server-prebuilt`, and `k8s/Dockerfile.remote-worker` historically installed `ca-certificates` through `apt-get update`.
+   - The remote host can reach Docker layers and Bun package installs while still stalling in Debian apt index refresh.
+   - Local verification shows Bun HTTPS works without a system CA file for the current build/runtime path, so the apt step should be a fallback switch rather than the default path.
+
+## 4. Optimization Direction
+
+Use a conservative sequence:
+
+1. Add `.dockerignore`.
+   - Exclude docs/tests/output/archive/git metadata and dependency folders.
+   - Keep package/source/script paths available to Dockerfiles.
+
+2. Narrow archive fallback.
+   - Keep normal remote git checkout unchanged.
+   - If fallback is needed, archive only deploy source paths.
+   - Preserve remote `deploy/env`.
+   - Make fallback revision detection explicit: either remove/hide stale `.git` for fallback sync, or make deploy scripts prefer `.deploy-source-revision` when present and generated by the sync step.
+
+3. Document deploy target selection.
+   - Docs-only change: source sync only, no app deploy required unless the user explicitly asks for a live deployment proof.
+   - `packages/ui-model-demo-server`, frontend, and renderer changes: `ui-server`.
+   - `packages/worker-base` or shared system models: usually all worker images, unless narrowed by source gate and target ownership.
+   - `k8s/cloud`, secrets/bootstrap, Synapse, or manifest changes: full deploy.
+   - `deploy/sys-v1ns/remote-worker`: remote-worker and possibly ui-server if persisted assets must be regenerated.
+
+4. For this iteration's remote proof:
+   - Use source sync first.
+   - Run remote rke2 preflight.
+   - Run `deploy_cloud_app.sh --target ui-server --revision <rev>` to prove the optimized remote build path without touching other deployments.
+
+5. Keep Bun image system CA install opt-in.
+   - Default `INSTALL_SYSTEM_CA=0` avoids remote apt during normal deploys.
+   - `INSTALL_SYSTEM_CA=1` remains available if a future TLS regression proves that the system CA bundle is required.
+
+## 5. Local Build Versus Remote Build
+
+Remote build remains the preferred default:
+
+- It avoids public upload of a large image tar.
+- It can use remote Docker layer cache.
+- It keeps `docker save | ctr import -` on the same host as rke2.
+
+Local build + upload remains fallback-only:
+
+- Use only when remote Docker build is broken or an offline artifact is required.
+- It pays the cost of local build, local save, public upload, and remote import.
+
+Future best path:
+
+- A private registry would beat both approaches for repeated deploys because it transfers image layers incrementally.
+- This requires separate registry credentials/tag/retention work and is out of scope for 0349.

@@ -11,6 +11,8 @@ source "$SCRIPT_DIR/_deploy_common.sh"
 TARGET=""
 EXPECTED_REVISION=""
 REBUILD=0
+INSTALL_SYSTEM_CA="${INSTALL_SYSTEM_CA:-0}"
+SYNC_PERSISTED_ASSETS="${SYNC_PERSISTED_ASSETS:-1}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -24,6 +26,10 @@ while [ $# -gt 0 ]; do
       ;;
     --rebuild|--no-cache)
       REBUILD=1
+      shift
+      ;;
+    --install-system-ca)
+      INSTALL_SYSTEM_CA=1
       shift
       ;;
     *)
@@ -57,16 +63,12 @@ sha256_of_file() {
 }
 
 detect_source_revision() {
-  if [ -n "$EXPECTED_REVISION" ]; then
-    printf '%s' "$EXPECTED_REVISION"
+  if [ -f "$REPO_DIR/.deploy-source-revision" ]; then
+    tr -d '\r\n' < "$REPO_DIR/.deploy-source-revision"
     return 0
   fi
   if [ -d "$REPO_DIR/.git" ] && git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git -C "$REPO_DIR" rev-parse --short HEAD
-    return 0
-  fi
-  if [ -f "$REPO_DIR/.deploy-source-revision" ]; then
-    tr -d '\r\n' < "$REPO_DIR/.deploy-source-revision"
     return 0
   fi
   if [ -n "${DEPLOY_SOURCE_REV:-}" ]; then
@@ -196,16 +198,27 @@ verify_target_source_hashes() {
 
 load_target_spec
 
-echo "=== Cloud App Deploy ==="
-echo "TARGET=$TARGET"
-echo "REPO_DIR=$REPO_DIR"
-
 if [ -f "$REPO_DIR/deploy/env/cloud.env" ]; then
   load_env "$REPO_DIR/deploy/env/cloud.env"
 else
   echo "WARN: cloud.env not found; using app-deploy defaults only"
   export NAMESPACE="${NAMESPACE:-dongyu}"
 fi
+if [ "$INSTALL_SYSTEM_CA" != "0" ] && [ "$INSTALL_SYSTEM_CA" != "1" ]; then
+  echo "ERROR: INSTALL_SYSTEM_CA must be 0 or 1" >&2
+  exit 1
+fi
+if [ "$SYNC_PERSISTED_ASSETS" != "0" ] && [ "$SYNC_PERSISTED_ASSETS" != "1" ]; then
+  echo "ERROR: SYNC_PERSISTED_ASSETS must be 0 or 1" >&2
+  exit 1
+fi
+
+echo "=== Cloud App Deploy ==="
+echo "TARGET=$TARGET"
+echo "REPO_DIR=$REPO_DIR"
+echo "INSTALL_SYSTEM_CA=$INSTALL_SYSTEM_CA"
+echo "SYNC_PERSISTED_ASSETS=$SYNC_PERSISTED_ASSETS"
+
 export KUBECONFIG="${KUBECONFIG:-/etc/rancher/rke2/rke2.yaml}"
 CTR="${CTR:-/usr/local/bin/ctr}"
 export CTR
@@ -222,20 +235,31 @@ fi
 
 SOURCE_REV="$(detect_source_revision)"
 if [ -n "$EXPECTED_REVISION" ]; then
-  case "$SOURCE_REV" in
-    "$EXPECTED_REVISION"*) ;;
-    *)
-      echo "ERROR: current repo revision $SOURCE_REV does not match expected $EXPECTED_REVISION" >&2
-      exit 1
-      ;;
-  esac
+  if [[ "$SOURCE_REV" != "$EXPECTED_REVISION"* && "$EXPECTED_REVISION" != "$SOURCE_REV"* ]]; then
+    echo "ERROR: current repo revision $SOURCE_REV does not match expected $EXPECTED_REVISION" >&2
+    exit 1
+  fi
 fi
 echo "SOURCE_REV=$SOURCE_REV"
 
 cd "$REPO_DIR"
+if [ "$SYNC_PERSISTED_ASSETS" = "1" ]; then
+  CLOUD_PERSISTED_ASSET_ROOT="${CLOUD_PERSISTED_ASSET_ROOT:-/home/wwpic/dongyu/volume/persist/assets}"
+  echo "=== Sync authoritative assets ==="
+  LOCAL_PERSISTED_ASSET_ROOT="$CLOUD_PERSISTED_ASSET_ROOT" bash "$SCRIPT_DIR/sync_local_persisted_assets.sh"
+  if [ "$TARGET" = "ui-server" ]; then
+    CLOUD_DY_PERSIST_ROOT="${CLOUD_DY_PERSIST_ROOT:-/home/wwpic/dongyu/volume/persist/ui-server}"
+    echo "=== Sync UI public docs ==="
+    LOCAL_DY_PERSIST_ROOT="$CLOUD_DY_PERSIST_ROOT" bash "$SCRIPT_DIR/sync_ui_public_docs.sh"
+  fi
+fi
+
 BUILD_ARGS=()
 if [ "$REBUILD" -eq 1 ]; then
   BUILD_ARGS+=(--no-cache)
+fi
+if [ "$INSTALL_SYSTEM_CA" = "1" ]; then
+  BUILD_ARGS+=(--build-arg INSTALL_SYSTEM_CA=1)
 fi
 
 docker build "${BUILD_ARGS[@]}" \

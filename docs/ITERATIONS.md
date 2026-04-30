@@ -2,7 +2,7 @@
 title: "Iterations Index"
 doc_type: governance
 status: active
-updated: 2026-04-26
+updated: 2026-04-29
 source: ai
 ---
 
@@ -249,6 +249,13 @@ source: ai
 | 0344-mbr-payload-validation-fix | 2026-04-27 | 修复 code review 发现的 MBR 临时 ModelTable payload 校验缺口，拒绝带 legacy 字段或缺少 `v` 的记录 | 2 | dev_0344-mbr-payload-validation-fix | Completed | ./docs/iterations/0344-mbr-payload-validation-fix/ |
 | 0345-dam-worker-guide-pin-payload-current-truth | 2026-04-27 | 修复 code review 发现的 DAM Worker guide 旧 bus payload 示例，改为 pin_payload v1 与临时 ModelTable record array | 1 | dev_0345-doc-pin-payload-guide-fix | Completed | ./docs/iterations/0345-dam-worker-guide-pin-payload-current-truth/ |
 | 0346-ui-model-compliance-and-guide | 2026-04-27 | 全量审查 Workspace/UI surfaces 是否严格 cellwise 填表、粒度足够细，并交付对标 Vue 文档风格的 UI 模型开发手册及 UI 模型文档页 | 8 | dev_0346-ui-model-compliance-and-guide | Completed | ./docs/iterations/0346-ui-model-compliance-and-guide/ |
+| 0347-temporary-modeltable-message-contract | 2026-04-27 | 核查 Data.* 数据模型现状并冻结临时 ModelTable message 合同：传输格式 ModelTable-like，持久化只由显式 materialization 触发 | 3 | dev_0347-temporary-modeltable-message-contract | Completed | ./docs/iterations/0347-temporary-modeltable-message-contract/ |
+| 0348-feishu-data-model-contract-realignment | 2026-04-29 | 重新核实 Feishu 原文并按其冻结 Data.* 目标合同，标记 0296-era 数据模型结构和 pin 命名差异为后续迁移债务 | 4 | dev_0348-feishu-data-model-contract-realignment | Completed | ./docs/iterations/0348-feishu-data-model-contract-realignment/ |
+| 0349-data-model-tier2-and-remote-deploy-optimization | 2026-04-29 | 规划 Data.* 如何以 Tier 2 模板实现并盘点适用场景，同时审查并优化远端部署同步/构建路径后完成一次远端部署验证 | 5 | dev_0349-data-model-tier2-and-remote-deploy-optimization | Completed | ./docs/iterations/0349-data-model-tier2-and-remote-deploy-optimization/ |
+| 0350-slide-app-runtime-user-guide | 2026-04-29 | 核实 DNS/SSH 状态，并把滑动 APP 编写、安装、自动建引脚、运行时事件、后端程序触发与管理总线外发链路写成 user guide 与可视化页面 | 4 | dev_0350-slide-app-runtime-user-guide | Completed | ./docs/iterations/0350-slide-app-runtime-user-guide/ |
+| 0351-slide-app-minimal-provider-guide | 2026-04-29 | 面向第三方滑动 APP 提供方补最小 `Input + Submit + Label` 示例文档，给出完整单元格表、完整 `app_payload.json` 和 submit 程序模型内容 | 3 | dev_0351-slide-app-minimal-provider-guide | Completed | ./docs/iterations/0351-slide-app-minimal-provider-guide/ |
+| 0352-slide-app-provider-visualized-docs | 2026-04-29 | 在 slide-app-runtime 目录补第三方 provider 视角的 visualized Markdown 与自包含 interactive HTML，演示最小 `Input + Submit + Display Label` 编写与 submit 程序回写 | 4 | dev_0352-slide-app-provider-visualized-docs | Completed | ./docs/iterations/0352-slide-app-provider-visualized-docs/ |
+| 0353-slide-app-runtime-docs-publish | 2026-04-30 | 将 `minimal_submit_app_provider` 系列 Markdown/HTML 通过 docs UI 模型与 Static 挂载发布到 app.dongyudigital.com，并完成公网浏览器实测 | 3 | dev_0353-slide-app-runtime-docs-publish | Completed | ./docs/iterations/0353-slide-app-runtime-docs-publish/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

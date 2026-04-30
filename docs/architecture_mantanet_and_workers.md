@@ -150,7 +150,7 @@ source: ai
 
 **模型类型二维编码**
 - label.t = 形态（model.single | model.matrix | model.table | model.submt）
-- label.v = 类型（Code.JS | Data.Array | Flow | Doc.Markdown | ...），但 `model.submt` 的 value 为 child model id
+- label.v = 类型（Code.JS | Data.Array.One | Flow | Doc.Markdown | ...），但 `model.submt` 的 value 为 child model id
 - 无效的形态×类型组合必须在注册时被拒绝。
 
 补充：

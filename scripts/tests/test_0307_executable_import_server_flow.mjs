@@ -55,6 +55,31 @@ function slideImportClickPayload() {
   ]);
 }
 
+function writeLabelPayload(targetCell, targetLabel, targetType, value, requestId = `req_${Date.now()}`) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'write_label.v1' },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_request_id', t: 'str', v: requestId },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_from_cell', t: 'json', v: { p: 0, r: 0, c: 0 } },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_target_cell', t: 'json', v: targetCell },
+    { id: 0, p: 0, r: 0, c: 0, k: targetLabel, t: targetType, v: value },
+  ];
+}
+
+function slideImportClickBusEvent() {
+  return {
+    type: 'bus_event_v2',
+    bus_in_key: 'slide_import_click',
+    value: writeLabelPayload(
+      { p: 2, r: 4, c: 0 },
+      'click',
+      'pin.in',
+      slideImportClickPayload(),
+      `slide_import_click_${Date.now()}`,
+    ),
+    meta: { op_id: `slide_import_click_${Date.now()}`, source: 'test_0307' },
+  };
+}
+
 function buildZipBuffer(payload) {
   const zip = new AdmZip();
   zip.addFile('app_payload.json', Buffer.from(JSON.stringify(payload, null, 2), 'utf8'));
@@ -136,12 +161,9 @@ async function test_executable_import_runs_local_and_chain_paths() {
       userId: '@drop:localhost',
     });
     state.runtime.addLabel(state.runtime.getModel(1031), 0, 0, 0, { k: 'slide_import_media_uri', t: 'str', v: 'mxc://localhost/0307-exec' });
-    const importResult = await state.submitEnvelope(pinEnvelope(
-      { model_id: 1030, p: 2, r: 4, c: 0 },
-      'click',
-      slideImportClickPayload(),
-    ));
-    assert.equal(importResult.result, 'ok', 'executable_import_pin_must_be_accepted');
+    const importResult = await state.submitEnvelope(slideImportClickBusEvent());
+    assert.equal(importResult.result, 'ok', 'executable_import_bus_event_must_be_accepted');
+    assert.equal(importResult.routed_by, 'model0_busin', 'executable_import_must_route_by_model0_busin');
     await wait();
 
     const registry = state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];

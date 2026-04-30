@@ -2726,6 +2726,167 @@ function repairModel100DualBusConfig(runtime) {
   return true;
 }
 
+const SLIDE_IMPORTER_CLICK_PAYLOAD = Object.freeze([
+  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+  { id: 0, p: 0, r: 0, c: 0, k: 'target', t: 'json', v: { model_id: 1031, p: 0, r: 0, c: 0 } },
+]);
+
+const SLIDE_IMPORTER_MEDIA_URI_BIND = Object.freeze({
+  write: {
+    bus_event_v2: true,
+    bus_in_key: 'slide_import_media_uri_update',
+    value_ref: [
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'write_label.v1' },
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_request_id', t: 'str', v: 'slide_import_media_uri_update' },
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_from_cell', t: 'json', v: { p: 0, r: 0, c: 0 } },
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_target_cell', t: 'json', v: { p: 0, r: 0, c: 0 } },
+      { id: 0, p: 0, r: 0, c: 0, k: 'slide_import_media_uri', t: 'str', v: { $ref: 'value' } },
+    ],
+    value_t: 'modeltable',
+  },
+});
+
+const SLIDE_IMPORTER_CLICK_BIND = Object.freeze({
+  write: {
+    bus_event_v2: true,
+    bus_in_key: 'slide_import_click',
+    value_ref: [
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'write_label.v1' },
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_request_id', t: 'str', v: 'slide_import_click' },
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_from_cell', t: 'json', v: { p: 0, r: 0, c: 0 } },
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_target_cell', t: 'json', v: { p: 2, r: 4, c: 0 } },
+      { id: 0, p: 0, r: 0, c: 0, k: 'click', t: 'pin.in', v: SLIDE_IMPORTER_CLICK_PAYLOAD },
+    ],
+    value_t: 'modeltable',
+  },
+});
+
+const SLIDE_IMPORTER_BUCKET_C_ROUTES = Object.freeze([
+  { from: [2, 4, 0, 'write_label_req'], to: [[0, 0, 0, 'mt_write_req']] },
+]);
+
+const SLIDE_IMPORTER_CLICK_ROUTE = Object.freeze([
+  { from: '(self, click)', to: ['(func, handle_slide_import_click:in)'] },
+]);
+
+const SLIDE_IMPORTER_CLICK_INGRESS_ROUTE = Object.freeze([
+  { from: [0, 'slide_import_click'], to: [[1030, 'mt_bus_receive_in']] },
+]);
+
+const SLIDE_IMPORTER_MEDIA_URI_UPDATE_ROUTE = Object.freeze([
+  { from: [0, 'slide_import_media_uri_update'], to: [[1031, 'mt_bus_receive_in']] },
+]);
+
+const SLIDE_IMPORTER_REQUEST_ROUTE = Object.freeze([
+  { from: [1030, 'slide_import_request'], to: [[-10, 'slide_app_import_request']] },
+]);
+
+const SLIDE_IMPORTER_CLICK_HANDLER_CODE = "/* rubric: P1 */ const payload = label && label.v;\nconst fail = (code, detail) => V1N.addLabel('slide_import_click_error', 'json', { code, detail, ts: Date.now() });\nif (!Array.isArray(payload)) {\n  fail('invalid_payload', 'temporary_modeltable_required');\n  return;\n}\nconst readPayload = (key, fallback = null) => {\n  const record = payload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key);\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\nif (readPayload('__mt_payload_kind', '') !== 'ui_event.v1') {\n  fail('invalid_payload_kind', 'ui_event.v1_required');\n  return;\n}\nconst target = readPayload('target', null);\nif (!target || target.model_id !== 1031 || target.p !== 0 || target.r !== 0 || target.c !== 0) {\n  fail('invalid_target', 'slide_importer_truth_cell_required');\n  return;\n}\nconst requestPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'slide_app_import_request.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'target', t: 'json', v: target }\n];\nV1N.writeLabel(0, 0, 0, { k: 'slide_import_request', t: 'pin.out', v: requestPayload });";
+
+const SLIDE_IMPORTER_CLICK_HANDLER = Object.freeze({
+  code: SLIDE_IMPORTER_CLICK_HANDLER_CODE,
+  modelName: 'slide_import_button',
+});
+
+function modelTableValueEquals(a, b) {
+  if (a === b) return true;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch (_) {
+    return false;
+  }
+}
+
+function ensureRuntimeLabel(runtime, modelId, p, r, c, label, options = {}) {
+  const model = runtime.getModel(modelId);
+  if (!model) return false;
+  const cell = runtime.getCell(model, p, r, c);
+  const current = cell.labels.get(label.k) || null;
+  const preserveExistingValue = options.preserveExistingValue === true;
+  if (preserveExistingValue && current && current.t === label.t) return false;
+  if (current && current.t === label.t && modelTableValueEquals(current.v, label.v)) return false;
+  if (current) runtime.rmLabel(model, p, r, c, label.k);
+  runtime.addLabel(model, p, r, c, label);
+  return true;
+}
+
+function ensureRuntimeModelTablePinInOrNull(runtime, modelId, p, r, c, key) {
+  const model = runtime.getModel(modelId);
+  if (!model) return false;
+  const cell = runtime.getCell(model, p, r, c);
+  const current = cell.labels.get(key) || null;
+  if (
+    current
+    && current.t === 'pin.in'
+    && (current.v === null || current.v === undefined || isTemporaryPayloadRecordArray(current.v))
+  ) {
+    return false;
+  }
+  if (current) runtime.rmLabel(model, p, r, c, key);
+  runtime.addLabel(model, p, r, c, {
+    k: key,
+    t: 'pin.in',
+    v: null,
+  });
+  return true;
+}
+
+function repairSlideImporterClickContract(runtime) {
+  let changed = false;
+  changed = ensureRuntimeLabel(runtime, 1030, 0, 0, 0, {
+    k: 'bucket_c_cell_routes',
+    t: 'pin.connect.cell',
+    v: SLIDE_IMPORTER_BUCKET_C_ROUTES,
+  }) || changed;
+  changed = ensureRuntimeLabel(runtime, 1030, 0, 0, 0, {
+    k: 'slide_import_request',
+    t: 'pin.out',
+    v: null,
+  }, { preserveExistingValue: true }) || changed;
+  changed = ensureRuntimeLabel(runtime, 0, 0, 0, 0, {
+    k: 'slide_import_click_route',
+    t: 'pin.connect.model',
+    v: SLIDE_IMPORTER_CLICK_INGRESS_ROUTE,
+  }) || changed;
+  changed = ensureRuntimeLabel(runtime, 0, 0, 0, 0, {
+    k: 'slide_import_media_uri_update_route',
+    t: 'pin.connect.model',
+    v: SLIDE_IMPORTER_MEDIA_URI_UPDATE_ROUTE,
+  }) || changed;
+  changed = ensureRuntimeLabel(runtime, 0, 0, 0, 0, {
+    k: 'slide_import_request_route',
+    t: 'pin.connect.model',
+    v: SLIDE_IMPORTER_REQUEST_ROUTE,
+  }) || changed;
+  changed = ensureRuntimeLabel(runtime, 1030, 2, 3, 0, {
+    k: 'ui_bind_json',
+    t: 'json',
+    v: SLIDE_IMPORTER_MEDIA_URI_BIND,
+  }) || changed;
+  changed = ensureRuntimeLabel(runtime, 1030, 2, 4, 0, {
+    k: 'ui_bind_json',
+    t: 'json',
+    v: SLIDE_IMPORTER_CLICK_BIND,
+  }) || changed;
+  changed = ensureRuntimeLabel(runtime, 1030, 2, 4, 0, {
+    k: 'scope_privileged',
+    t: 'bool',
+    v: true,
+  }) || changed;
+  changed = ensureRuntimeModelTablePinInOrNull(runtime, 1030, 2, 4, 0, 'click') || changed;
+  changed = ensureRuntimeLabel(runtime, 1030, 2, 4, 0, {
+    k: 'click_route',
+    t: 'pin.connect.label',
+    v: SLIDE_IMPORTER_CLICK_ROUTE,
+  }) || changed;
+  changed = ensureRuntimeLabel(runtime, 1030, 2, 4, 0, {
+    k: 'handle_slide_import_click',
+    t: 'func.js',
+    v: SLIDE_IMPORTER_CLICK_HANDLER,
+  }) || changed;
+  return changed;
+}
+
 function isTemporaryPayloadRecordArray(value) {
   return Array.isArray(value) && value.length > 0 && value.every((record) =>
     record
@@ -2741,6 +2902,29 @@ function isTemporaryPayloadRecordArray(value) {
     && typeof record.t === 'string'
     && record.t.length > 0
     && Object.prototype.hasOwnProperty.call(record, 'v')
+  );
+}
+
+function isRetiredSlideImporterDirectPin(target, pin) {
+  return Boolean(
+    target
+    && target.model_id === 1030
+    && target.p === 2
+    && target.r === 4
+    && target.c === 0
+    && pin === 'click'
+  );
+}
+
+function isRetiredSlideImporterOwnerLabelMutation(action, target) {
+  return Boolean(
+    (action === 'ui_owner_label_update' || action === 'ui_owner_label_remove')
+    && target
+    && target.model_id === 1031
+    && target.p === 0
+    && target.r === 0
+    && target.c === 0
+    && target.k === 'slide_import_media_uri'
   );
 }
 
@@ -2870,8 +3054,36 @@ class ProgramModelEngine {
     // Set by server to trigger SSE broadcast.
     this.onSnapshotChanged = null;
     this.bridgedBusOutPorts = new Map();
+    this.pendingModel0EgressDispatches = new Map();
     this.outboundMatrixOps = [];
     this.ignoredMatrixReturnOpIds = new Set();
+  }
+
+  model0EgressDispatchKey(sourceModelId, egressLabel, egressFunc) {
+    return `${sourceModelId}:${egressLabel}:${egressFunc}`;
+  }
+
+  model0EgressPayloadSignature(payload) {
+    return safeJsonStringify(payload, `unserializable:${Date.now()}`);
+  }
+
+  shouldScheduleModel0Egress(sourceModelId, egressLabel, egressFunc, payload) {
+    const key = this.model0EgressDispatchKey(sourceModelId, egressLabel, egressFunc);
+    if (!Array.isArray(payload) || payload.length === 0) {
+      this.pendingModel0EgressDispatches.delete(key);
+      return false;
+    }
+    const signature = this.model0EgressPayloadSignature(payload);
+    if (this.pendingModel0EgressDispatches.get(key) === signature) {
+      return false;
+    }
+    this.pendingModel0EgressDispatches.set(key, signature);
+    return true;
+  }
+
+  forgetModel0EgressDispatch(sourceModelId, egressLabel, egressFunc) {
+    const key = this.model0EgressDispatchKey(sourceModelId, egressLabel, egressFunc);
+    this.pendingModel0EgressDispatches.delete(key);
   }
 
   refreshMatrixBootstrapConfig() {
@@ -4217,7 +4429,9 @@ class ProgramModelEngine {
             console.log(`[processEventsSnapshot] Model 0 egress detected for model ${sourceModelId}, triggering ${egressFunc}`);
             if (sys && sys.hasFunction(egressFunc)) {
               scheduledModel0Egress.add(egressLabel);
-              this.runtime.intercepts.record('run_func', { func: egressFunc, payload: event.label.v });
+              if (this.shouldScheduleModel0Egress(sourceModelId, egressLabel, egressFunc, event.label.v)) {
+                this.runtime.intercepts.record('run_func', { func: egressFunc, payload: event.label.v });
+              }
             } else {
               console.log(`[processEventsSnapshot] WARNING: ${egressFunc} function NOT found`);
             }
@@ -4327,7 +4541,11 @@ class ProgramModelEngine {
         : '';
       if (!egressLabel || !egressFunc || alreadyScheduled.has(egressLabel)) continue;
       const payload = this.runtime.getLabelValue(model0, 0, 0, 0, egressLabel);
-      if (!Array.isArray(payload) || payload.length === 0) continue;
+      if (!Array.isArray(payload) || payload.length === 0) {
+        this.forgetModel0EgressDispatch(sourceModelId, egressLabel, egressFunc);
+        continue;
+      }
+      if (!this.shouldScheduleModel0Egress(sourceModelId, egressLabel, egressFunc, payload)) continue;
       console.log(`[processEventsSnapshot] Recovering pending Model 0 egress for model ${sourceModelId}, triggering ${egressFunc}`);
       if (sys && sys.hasFunction(egressFunc)) {
         alreadyScheduled.add(egressLabel);
@@ -4579,6 +4797,7 @@ function createServerState(options) {
       loadFullModelPatches(runtime, systemModelsDir, [
         'workspace_positive_models.json',
         'doc_page_filltable_example_minimal.json',
+        'slide_app_provider_docs_ui.json',
         'test_model_100_ui.json',
       ]);
     } else {
@@ -5659,6 +5878,7 @@ function createServerState(options) {
 
   function updateDerived() {
     repairModel100DualBusConfig(runtime);
+    repairSlideImporterClickContract(runtime);
     recoverModel100StaleInflight();
     syncDerivedPageState();
     // Client-visible AST must be derived from the same filtered snapshot surface
@@ -5784,7 +6004,7 @@ function createServerState(options) {
 
     if (isUiEventV2) {
       const busInKey = String(envelopeOrNull.bus_in_key || '').trim();
-      const allowedBusInKeys = new Set(['ui_submit', 'ui_click', 'ui_input', 'ui_edit', 'mgmt_bus_console_send', 'mgmt_bus_console_refresh']);
+      const allowedBusInKeys = new Set(['ui_submit', 'ui_click', 'ui_input', 'ui_edit', 'slide_import_media_uri_update', 'slide_import_click', 'mgmt_bus_console_send', 'mgmt_bus_console_refresh']);
       if (!allowedBusInKeys.has(busInKey)) {
         return finishError('invalid_bus_in_key', busInKey || 'missing_bus_in_key');
       }
@@ -6259,6 +6479,9 @@ function createServerState(options) {
       if (!(Number.isInteger(targetModelId) && targetModelId > 0 && key)) {
         return finishError('invalid_target', 'positive_target_required');
       }
+      if (isRetiredSlideImporterOwnerLabelMutation(action, { model_id: targetModelId, p, r, c, k: key })) {
+        return finishError('direct_owner_update_disabled', 'slide_import_media_uri_requires_model0_busin');
+      }
       if (action === 'ui_owner_label_update') {
         if (!payload.value || typeof payload.value.t !== 'string' || !Object.prototype.hasOwnProperty.call(payload.value, 'v')) {
           return finishError('invalid_target', 'missing_value');
@@ -6293,6 +6516,9 @@ function createServerState(options) {
       }
       if (!runtime.isRunLoopActive()) {
         return finishError('runtime_not_running', `model_id=${target.model_id}`);
+      }
+      if (isRetiredSlideImporterDirectPin(target, pin)) {
+        return finishError('direct_pin_disabled', 'slide_import_click_requires_model0_busin');
       }
       const targetModel = runtime.getModel(target.model_id);
       if (!targetModel) {

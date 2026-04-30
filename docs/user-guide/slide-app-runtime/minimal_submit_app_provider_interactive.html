@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minimal Submit App Provider Interactive Guide</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --paper: #f4efe4;
+    --ink: #19212b;
+    --muted: #617080;
+    --panel: #fffaf0;
+    --line: #d8cab5;
+    --accent: #bd5b2d;
+    --accent-dark: #7a341e;
+    --sage: #2f6f53;
+    --blue: #245f8f;
+    --soft-blue: #e7f0f7;
+    --soft-sage: #e7f2eb;
+    --soft-rust: #faeadf;
+    --shadow: 0 24px 70px rgba(50, 32, 14, 0.16);
+    --mono: "SF Mono", "Menlo", "Consolas", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 12% 12%, rgba(189, 91, 45, 0.14), transparent 28rem),
+      radial-gradient(circle at 88% 0%, rgba(36, 95, 143, 0.12), transparent 26rem),
+      linear-gradient(140deg, #fbf7ee 0%, var(--paper) 55%, #eadfcc 100%);
+    font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    line-height: 1.62;
+  }
+
+  header {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 58px 24px 30px;
+  }
+
+  .eyebrow {
+    color: var(--accent-dark);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    max-width: 900px;
+    margin: 12px 0 16px;
+    font-size: clamp(34px, 6.4vw, 76px);
+    line-height: .98;
+    letter-spacing: -.055em;
+  }
+
+  .lead {
+    max-width: 780px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 18px;
+  }
+
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px 68px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  .rail {
+    position: sticky;
+    top: 18px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .stage {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(255, 250, 240, .74);
+    color: var(--ink);
+    padding: 14px 15px;
+    text-align: left;
+    cursor: pointer;
+    transition: transform .18s ease, background .18s ease, border-color .18s ease;
+  }
+
+  .stage:hover { transform: translateY(-1px); border-color: var(--accent); }
+  .stage.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .stage strong { display: block; font-size: 15px; }
+  .stage span { display: block; margin-top: 3px; color: inherit; opacity: .72; font-size: 12px; }
+
+  .content {
+    display: grid;
+    gap: 22px;
+  }
+
+  .panel {
+    display: none;
+    min-height: 360px;
+    border: 1px solid var(--line);
+    border-radius: 30px;
+    background: rgba(255, 250, 240, .9);
+    box-shadow: var(--shadow);
+    padding: 30px;
+    overflow: hidden;
+  }
+
+  .panel.active {
+    display: block;
+    animation: enter .24s ease both;
+  }
+
+  @keyframes enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  h2 {
+    margin: 0 0 10px;
+    font-size: clamp(24px, 3.8vw, 42px);
+    line-height: 1.05;
+    letter-spacing: -.035em;
+  }
+
+  .panel > p {
+    max-width: 760px;
+    color: var(--muted);
+    margin: 0 0 22px;
+  }
+
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1.04fr) minmax(280px, .96fr);
+    gap: 22px;
+  }
+
+  .mini-app {
+    border: 1px solid #c8d7c9;
+    border-radius: 28px;
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbf7 100%);
+    padding: 22px;
+  }
+
+  .mini-title {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -.03em;
+    margin-bottom: 16px;
+  }
+
+  label {
+    display: block;
+    color: #345;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  input {
+    width: 100%;
+    border: 1px solid #bfd0c0;
+    border-radius: 16px;
+    background: #fff;
+    color: var(--ink);
+    padding: 12px 14px;
+    font: inherit;
+    outline: none;
+  }
+
+  input:focus {
+    border-color: var(--sage);
+    box-shadow: 0 0 0 4px rgba(47, 111, 83, .12);
+  }
+
+  .primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 14px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--sage);
+    color: #fff;
+    font-weight: 800;
+    padding: 11px 18px;
+    cursor: pointer;
+    box-shadow: 0 12px 24px rgba(47, 111, 83, .18);
+  }
+
+  .result {
+    margin-top: 18px;
+    border-radius: 18px;
+    background: var(--soft-sage);
+    border: 1px solid #c7dfcd;
+    padding: 14px 16px;
+    font-weight: 800;
+    color: #1e4b37;
+  }
+
+  .flow {
+    display: grid;
+    gap: 10px;
+  }
+
+  .node {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: #fff;
+    padding: 13px 15px;
+  }
+
+  .node strong { display: block; }
+  .node small { color: var(--muted); display: block; margin-top: 2px; }
+  .node.blue { background: var(--soft-blue); border-color: #c8d9e7; }
+  .node.sage { background: var(--soft-sage); border-color: #c7dfcd; }
+  .node.rust { background: var(--soft-rust); border-color: #e5c5b2; }
+
+  .cell-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .cell {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(255,255,255,.75);
+    padding: 14px;
+  }
+
+  .cell code {
+    display: inline-block;
+    margin-bottom: 6px;
+    color: var(--accent-dark);
+    font-weight: 800;
+  }
+
+  pre {
+    margin: 0;
+    border: 1px solid #d7c8b3;
+    border-radius: 20px;
+    background: #1d252d;
+    color: #f8ead9;
+    padding: 18px;
+    overflow: auto;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .inline-payload {
+    max-height: 180px;
+    font-size: 11px;
+  }
+
+  .checklist {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .check {
+    border-left: 4px solid var(--accent);
+    border-radius: 14px;
+    background: #fff6ed;
+    padding: 12px 14px;
+  }
+
+  .note {
+    margin-top: 16px;
+    border-radius: 18px;
+    background: #fff3e8;
+    border: 1px solid #e8c9b5;
+    color: #69371e;
+    padding: 14px 16px;
+  }
+
+  code {
+    background: rgba(25,33,43,.08);
+    border-radius: 7px;
+    padding: 2px 6px;
+    font-family: var(--mono);
+    font-size: .92em;
+  }
+
+  @media (max-width: 880px) {
+    .layout, .split { grid-template-columns: 1fr; }
+    .rail { position: static; }
+    .cell-grid, .checklist { grid-template-columns: 1fr; }
+    header { padding-top: 34px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">Provider cookbook</div>
+  <h1>Input + Submit Button + Display Label</h1>
+  <p class="lead">一个第三方滑动 APP 提供方需要理解的最小闭环：填表定义 UI，按钮提交临时 ModelTable records，submit 程序模型写回显示 label。</p>
+</header>
+
+<main class="layout">
+  <nav class="rail" aria-label="Guide stages">
+    <button class="stage active" data-stage="mental"><strong>1. 先看成品</strong><span>最小 UI 和运行结果</span></button>
+    <button class="stage" data-stage="cells"><strong>2. 单元格地图</strong><span>每个 cell 负责什么</span></button>
+    <button class="stage" data-stage="payload"><strong>3. 按钮 payload</strong><span>提交的是 records</span></button>
+    <button class="stage" data-stage="program"><strong>4. submit 程序</strong><span>读取 text，写 display_text</span></button>
+    <button class="stage" data-stage="package"><strong>5. 打包自检</strong><span>zip 中只放 app_payload.json</span></button>
+  </nav>
+
+  <section class="content">
+    <article class="panel active" id="stage-mental">
+      <h2>提供方只需要交付一个最小闭环</h2>
+      <p>你不需要手写宿主路由，也不需要知道安装后的正式 model id。先把下面这个最小 APP 用 ModelTable records 表达出来。</p>
+      <div class="split">
+        <div class="mini-app" aria-label="Minimal app preview">
+          <div class="mini-title">Minimal Submit App</div>
+          <label for="demoInput">Message</label>
+          <input id="demoInput" value="hello provider" aria-label="Demo message input">
+          <button class="primary" id="demoSubmit" type="button">Submit</button>
+          <div class="result" id="demoOutput">Waiting for submit</div>
+        </div>
+        <div class="flow" aria-label="Submit flow">
+          <div class="node blue"><strong>Input cell</strong><small><code>(2,2,0)</code> reads and drafts <code>input_text</code></small></div>
+          <div class="node blue"><strong>Button cell</strong><small><code>(2,3,0)</code> sends temporary ModelTable records</small></div>
+          <div class="node sage"><strong>Root program cell</strong><small><code>(0,0,0)</code> receives <code>submit_request</code></small></div>
+          <div class="node rust"><strong>Display label</strong><small><code>handle_submit</code> writes <code>display_text</code></small></div>
+          <pre class="inline-payload" id="inlinePayloadPreview" aria-label="Live payload preview">[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "ui_event.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello provider" }
+]</pre>
+        </div>
+      </div>
+      <div class="note">交互提示：改输入框内容后点 Submit，显示 label 和右侧 payload 预览会一起更新；如果要单独研究 payload，可以再切到第 3 步。</div>
+    </article>
+
+    <article class="panel" id="stage-cells">
+      <h2>单元格地图：六个 cell 构成最小 APP</h2>
+      <p>完整示例仍在 `minimal_submit_app_provider_guide.md` 中，这里只解释每个 cell 的职责。</p>
+      <div class="cell-grid">
+        <div class="cell"><code>(0,0,0)</code><strong>Root + program</strong><br>放 `model_type`、`app_name`、`host_ingress_v1`、`submit_request`、`handle_submit`、`display_text`。</div>
+        <div class="cell"><code>(2,0,0)</code><strong>Container</strong><br>页面根容器，`ui_layout=column`，让子组件从上到下排列。</div>
+        <div class="cell"><code>(2,1,0)</code><strong>Title Text</strong><br>页面标题，`ui_text=Minimal Submit App`。</div>
+        <div class="cell"><code>(2,2,0)</code><strong>Input</strong><br>读写 `input_text`，`commit_policy=on_submit`，避免输入时每个字符都正式提交。</div>
+        <div class="cell"><code>(2,3,0)</code><strong>Submit Button</strong><br>提交 `text` record 到 `submit_request`。</div>
+        <div class="cell"><code>(2,4,0)</code><strong>Display Text</strong><br>读取 `display_text`，展示程序模型写回的结果。</div>
+      </div>
+    </article>
+
+    <article class="panel" id="stage-payload">
+      <h2>按钮 payload：必须是临时 ModelTable records</h2>
+      <p>按钮不发普通对象，也不直接改 `display_text`。它只提交下面这种 records。</p>
+      <pre id="payloadPreview">[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "ui_event.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello provider" }
+]</pre>
+      <div class="note">安装后宿主会 remap `model_id: 0`。提供方交付包里仍然只写临时 `id: 0`。</div>
+    </article>
+
+    <article class="panel" id="stage-program">
+      <h2>submit 程序模型：读取 text，写回 display_text</h2>
+      <p>这是本例的完整程序逻辑。正式显示结果必须由它写回，而不是由按钮直接写。</p>
+      <pre id="handlerPreview">const records = Array.isArray(label && label.v) ? label.v : [];
+const readPayload = (key, fallback = '') => {
+  const record = records.find((item) => (
+    item
+    && item.id === 0
+    && item.p === 0
+    && item.r === 0
+    && item.c === 0
+    && item.k === key
+  ));
+  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;
+};
+
+const text = String(readPayload('text', '')).trim();
+const displayText = text ? `Submitted: ${text}` : 'Submitted: (empty)';
+V1N.addLabel('display_text', 'str', displayText);
+V1N.addLabel('last_submit_payload', 'json', records);
+return;</pre>
+      <div class="note">不要使用 `ctx.writeLabel` 或 `ctx.getLabel` 作为新示例写法。</div>
+    </article>
+
+    <article class="panel" id="stage-package">
+      <h2>打包自检：zip 里只需要一个 JSON</h2>
+      <p>交付包结构保持极简，宿主导入器负责 materialize、mount 和自动补宿主 adapter。</p>
+      <div class="checklist">
+        <div class="check">`minimal-submit-app.zip` 只包含 `app_payload.json`。</div>
+        <div class="check">`app_payload.json` 是 records array，不包含 `op` 或安装后的 `model_id`。</div>
+        <div class="check">root 有 `host_ingress_v1`，指向 `submit_request`。</div>
+        <div class="check">按钮 `value_ref` 中的 `text` 来自 `input_text`。</div>
+        <div class="check">`handle_submit` 只写当前模型内 label。</div>
+        <div class="check">显示节点读取 `display_text`，不保存自己的业务 truth。</div>
+      </div>
+    </article>
+  </section>
+</main>
+
+<script>
+  const stageButtons = Array.from(document.querySelectorAll('.stage'));
+  const panels = Array.from(document.querySelectorAll('.panel'));
+  const input = document.getElementById('demoInput');
+  const submit = document.getElementById('demoSubmit');
+  const output = document.getElementById('demoOutput');
+  const payloadPreview = document.getElementById('payloadPreview');
+  const inlinePayloadPreview = document.getElementById('inlinePayloadPreview');
+
+  function showStage(stage) {
+    stageButtons.forEach((button) => {
+      const active = button.dataset.stage === stage;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-current', active ? 'step' : 'false');
+    });
+    panels.forEach((panel) => {
+      panel.classList.toggle('active', panel.id === `stage-${stage}`);
+    });
+  }
+
+  function payloadFor(text) {
+    return [
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'text', t: 'str', v: text }
+    ];
+  }
+
+  function refreshPayload() {
+    const json = JSON.stringify(payloadFor(input.value), null, 2);
+    payloadPreview.textContent = json;
+    inlinePayloadPreview.textContent = json;
+  }
+
+  stageButtons.forEach((button) => {
+    button.addEventListener('click', () => showStage(button.dataset.stage));
+  });
+
+  input.addEventListener('input', refreshPayload);
+  submit.addEventListener('click', () => {
+    const text = input.value.trim();
+    output.textContent = text ? `Submitted: ${text}` : 'Submitted: (empty)';
+    refreshPayload();
+  });
+
+  refreshPayload();
+</script>
+</body>
+</html>

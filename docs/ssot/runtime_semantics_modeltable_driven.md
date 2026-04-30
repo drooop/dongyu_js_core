@@ -2,7 +2,7 @@
 title: "定位说明（必须写在文件开头）"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-04-29
 source: ai
 ---
 
@@ -229,6 +229,11 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - 对象式业务 envelope 只允许作为历史迁移债务被 inventory，不得作为新实现或新通过路径。
 - `writeLabel` 的正式跨 cell 写入请求由 `write_label.v1` 临时 ModelTable payload 表达，并通过显式 pin route 到当前模型 `(0,0,0)` 的 `mt_write`。
 
+0347 message/materialization current truth：
+- pin/event 中传递的 record array 是 Temporary ModelTable Message：`format is ModelTable-like; persistence is explicit materialization`。
+- Temporary message 的 `id` 只在当前 message 内有效，不是正式 `model_id`。
+- 接收、路由、转发、trace、projection 都不自动 materialize；只有 owner / 当前模型 D0 helper / 接收程序模型 / importer 明确执行写入时，才产生正式 `add_label` / `rm_label` side effect。
+
 历史别名说明（non-normative）：
 - repo 内可能仍能搜索到 `BUS_IN` / `BUS_OUT` / `CELL_CONNECT` / `cell_connection` / `MODEL_IN` / `MODEL_OUT` / `IN` / `function` / `subModel` / `submt` 等旧名。
 - repo 内也可能仍能搜索到 `pin.table.*` / `pin.single.*` / `pin.log.table.*` / `pin.log.single.*`。
@@ -406,7 +411,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 - `model_type` 二维编码：
   - `label.t` = 形态（model.single | model.matrix | model.table）
-  - `label.v` = 类型（Code.JS | Data.Array | Flow | Doc.Markdown | ...）
+  - `label.v` = 类型（Code.JS | Data.Array.One | Flow | Doc.Markdown | ...）
 - 无效的形态×类型组合必须拒绝并写入错误标签（不得 silent fail）。
 
 ### 5.3b 运行时权限模型（0323）
@@ -450,7 +455,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 本节描述的是 MQTT / bootstrap / trusted system boundary 使用的外层补丁传输格式，不是正式业务 pin value 的格式。
 
-0331 起，正式业务 `pin.in` / `pin.out` / `pin.bus.in` / `pin.bus.out` 的非空 value 必须是临时 ModelTable record array；不得把 `{ op, records }` / ModelTablePatch envelope 作为业务 pin payload。
+0331 起，正式业务 `pin.in` / `pin.out` / `pin.bus.in` / `pin.bus.out` 的非空 value 必须是临时 ModelTable record array；不得把 `{ op, records }` / ModelTablePatch envelope 作为业务 pin payload。0347 起，这类 record array 统一视为 Temporary ModelTable Message：格式像 ModelTable，但只有显式 materialization 后才成为正式持久模型表数据。
 
 ModelTablePatch v0 仅作为外部补丁 envelope 或历史迁移债务保留：
 
@@ -530,21 +535,27 @@ TargetRef 结构：
 
 ## 8. 数据模型 PIN 接口规范（Tier 2 约定）
 
-所有数据模型子类型（Data.Array / Data.Queue / Data.Stack / Data.LinkedList / Data.CircularBuffer 等）
-共享统一的 PIN 接口约定：
+0348 起，Data.* 目标合同由 `docs/ssot/feishu_data_model_contract_v1.md` 接管。
+0349 起，Data.* 的 Tier 2 实现路线由 `docs/ssot/data_model_tier2_implementation_v1.md` 接管。
 
-- `add_data_in`（pin.in）：添加数据
-- `delete_data_in`（pin.in）：删除数据
-- `get_data_in`（pin.in）：获取数据请求
-- `get_data_out`（pin.out）：获取数据响应
-- `get_all_data_in`（pin.in）：获取全部数据请求
-- `get_all_data_out`（pin.out）：获取全部数据响应
-- `get_size_in`（pin.in）：获取数据量请求
-- `get_size_out`（pin.out）：获取数据量响应
+所有 Feishu-aligned 数据模型子类型共享统一 PIN 接口约定：
+
+- `add_data:in`（pin.in）：添加数据
+- `delete_data:in`（pin.in）：删除数据
+- `update_data:in`（pin.in）：修改数据
+- `get_data:in`（pin.in）：获取数据请求
+- `get_data:out`（pin.out）：获取数据响应
+- `get_all_data:in`（pin.in）：获取全部数据请求
+- `get_all_data:out`（pin.out）：获取全部数据响应
+- `get_size:in`（pin.in）：获取数据量请求
+- `get_size:out`（pin.out）：获取数据量响应
+
+0296-era underscore pins and operation-specific Queue/Stack pins are implementation debt, not the target contract.
 
 说明：
 - 本节为 Tier 2 约定，运行时不硬编码数据结构算法。
 - 运行时仅保证 pin.* 路由语义；具体行为由模型函数（func.js / func.python）实现。
+- `Data.Single` 是 `model.single` element cell；collection-like Data.* 才使用 `model.table` 或 `model.matrix`。
 
 ---
 
@@ -568,8 +579,14 @@ TargetRef 结构：
   - `ui_click`
   - `ui_input`
   - `ui_edit`
+  - `slide_import_media_uri_update`
+  - `slide_import_click`
+  - `mgmt_bus_console_send`
+  - `mgmt_bus_console_refresh`
 - unknown key 必须拒绝，返回结构化错误
 - legacy `type = ui_event` envelope 在当前 server ingress 会被显式拒绝，不再是 current truth
+
+说明：`slide_import_*` 与 `mgmt_bus_console_*` 是经过 Model 0 allow-list 登记的专用 ingress key，不是任意动态 key。它们的 `value` 仍必须是临时 ModelTable record array，并由 `pin.connect.model` 进入目标模型。
 
 Tier 归属：
 

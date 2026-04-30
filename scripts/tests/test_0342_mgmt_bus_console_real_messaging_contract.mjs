@@ -95,20 +95,32 @@ function flattenRecords(records) {
 
 function test_workspace_asset_tree_uses_compact_actions() {
   const records = readJson(workspaceCatalogPath).records || [];
-  const actionsCol = findRecord(records, (record) => record?.k === 'ui_props_json' && record?.v?.label === 'Actions');
-  const sourceCol = findRecord(records, (record) => record?.k === 'ui_props_json' && record?.v?.prop === 'source');
-  const sourceParent = findRecord(records, (record) => record?.k === 'ui_parent' && record?.model_id === -25 && record?.p === 2 && record?.r === 5 && record?.c === 0);
-  const openButton = findRecord(records, (record) => record?.k === 'ui_props_json' && record?.model_id === -25 && record?.p === 2 && record?.r === 7 && record?.c === 0);
-  const deleteButton = findRecord(records, (record) => record?.k === 'ui_props_json' && record?.model_id === -25 && record?.p === 2 && record?.r === 7 && record?.c === 1);
+  const cellLabel = (p, r, c, key) => findRecord(records, (record) => (
+    record?.model_id === -25
+    && record?.p === p
+    && record?.r === r
+    && record?.c === c
+    && record?.k === key
+  ));
+  const actionsLabel = cellLabel(2, 6, 0, 'ui_label');
+  const actionsWidth = cellLabel(2, 6, 0, 'ui_width');
+  const actionsFixed = cellLabel(2, 6, 0, 'ui_fixed');
+  const sourceVisibleCol = findRecord(records, (record) => (
+    record?.model_id === -25
+    && record?.k === 'ui_prop'
+    && record?.v === 'source'
+  ));
+  const openSize = cellLabel(2, 7, 0, 'ui_size');
+  const deleteLabel = cellLabel(2, 7, 1, 'ui_label');
+  const deleteSize = cellLabel(2, 7, 1, 'ui_size');
 
-  assert.ok(actionsCol, 'Workspace actions column must exist');
-  assert.ok(actionsCol.v.width <= 84, 'Workspace actions column must be compact enough to stop covering names');
-  assert.equal(actionsCol.v.fixed, undefined, 'Workspace actions column must not use fixed overlay in the narrow asset tree');
-  assert.ok(sourceCol, 'Workspace source column contract record must remain declared');
-  assert.notEqual(sourceParent?.v, 'tbl_workspace_apps', 'Workspace source column must not render as a squeezed visible column');
-  assert.equal(openButton?.v?.size, 'small', 'Open button must use compact sizing');
-  assert.equal(deleteButton?.v?.label, 'Del', 'Delete button must use a short visible label');
-  assert.equal(deleteButton?.v?.size, 'small', 'Delete button must use compact sizing');
+  assert.equal(actionsLabel?.v, 'Actions', 'Workspace actions column must exist');
+  assert.ok(Number(actionsWidth?.v) <= 84, 'Workspace actions column must be compact enough to stop covering names');
+  assert.equal(actionsFixed, null, 'Workspace actions column must not use fixed overlay in the narrow asset tree');
+  assert.equal(sourceVisibleCol, null, 'Workspace source column must not render as a squeezed visible column');
+  assert.equal(openSize?.v, 'small', 'Open button must use compact sizing');
+  assert.equal(deleteLabel?.v, 'Del', 'Delete button must use a short visible label');
+  assert.equal(deleteSize?.v, 'small', 'Delete button must use compact sizing');
   return { key: 'workspace_asset_tree_uses_compact_actions', status: 'PASS' };
 }
 

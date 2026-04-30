@@ -60,6 +60,29 @@ if ! command -v ssh >/dev/null 2>&1; then
 fi
 
 TARGET="${SSH_USER}@${SSH_HOST}"
+RESOLVED_REVISION="$(git -C "$REPO_DIR" rev-parse --short "$REVISION")"
+DEPLOY_ARCHIVE_PATHS=(
+  ".dockerignore"
+  "package.json"
+  "package-lock.json"
+  "bun.lock"
+  "CLAUDE.md"
+  "AGENTS.md"
+  "README.md"
+  "CODEX_HANDOFF_MODE.md"
+  "docs/user-guide/slide-app-runtime"
+  "packages"
+  "scripts/ops"
+  "scripts/run_worker_v0.mjs"
+  "scripts/run_worker_remote_v1.mjs"
+  "scripts/run_worker_ui_side_v0.mjs"
+  "scripts/worker_engine_v0.mjs"
+  "deploy/sys-v1ns"
+  "deploy/env/.gitkeep"
+  "deploy/env/cloud.env.example"
+  "deploy/env/local.env.example"
+  "k8s"
+)
 
 run_remote_repo_command() {
   local script="$1"
@@ -77,22 +100,28 @@ echo "TARGET=$TARGET"
 echo "REMOTE_REPO=$REMOTE_REPO"
 echo "REMOTE_REPO_OWNER=$REMOTE_REPO_OWNER"
 echo "REVISION=$REVISION"
+echo "RESOLVED_REVISION=$RESOLVED_REVISION"
 
 run_remote_repo_command "mkdir -p '$REMOTE_REPO'"
 
 git_archive_fallback() {
   git -C "$REPO_DIR" rev-parse --verify "$REVISION" >/dev/null 2>&1
-  git -C "$REPO_DIR" archive "$REVISION" | run_remote_repo_command "
+  echo "ARCHIVE_PATHS=${DEPLOY_ARCHIVE_PATHS[*]}"
+  git -C "$REPO_DIR" archive "$REVISION" -- "${DEPLOY_ARCHIVE_PATHS[@]}" | run_remote_repo_command "
     set -euo pipefail
     mkdir -p '$REMOTE_REPO'
-    archive_tmp=\"\$(mktemp -d)\"
-    trap 'rm -rf \"\$archive_tmp\"' EXIT
+    sync_work='$REMOTE_REPO/.sync-work'
+    rm -rf \"\$sync_work\"
+    mkdir -p \"\$sync_work\"
+    archive_tmp=\"\$(mktemp -d \"\$sync_work/archive.XXXXXX\")\"
+    archive_name=\"\$(basename \"\$archive_tmp\")\"
+    trap 'rm -rf \"\$sync_work\"' EXIT
     tar -xf - -C \"\$archive_tmp\"
-    find '$REMOTE_REPO' -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'deploy' -exec rm -rf {} +
+    find '$REMOTE_REPO' -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'deploy' ! -name '.sync-work' -exec rm -rf {} +
     find '$REMOTE_REPO/deploy' -mindepth 1 -maxdepth 1 ! -name 'env' -exec rm -rf {} + 2>/dev/null || true
     cp -a \"\$archive_tmp\"/. '$REMOTE_REPO'/
     rm -rf '$REMOTE_REPO/deploy/env'/.gitkeep 2>/dev/null || true
-    printf '%s\n' '$REVISION' > '$REMOTE_REPO/.deploy-source-revision'
+    printf '%s\n' '$RESOLVED_REVISION' > '$REMOTE_REPO/.deploy-source-revision'
     cat '$REMOTE_REPO/.deploy-source-revision'
   "
 }
@@ -105,7 +134,8 @@ if run_remote_repo_command "test -d '$REMOTE_REPO/.git'"; then
     git -C '$REMOTE_REPO' checkout --force '$REVISION'
     git -C '$REMOTE_REPO' reset --hard '$REVISION'
     git -C '$REMOTE_REPO' clean -fd
-    git -C '$REMOTE_REPO' rev-parse --short HEAD
+    git -C '$REMOTE_REPO' rev-parse --short HEAD > '$REMOTE_REPO/.deploy-source-revision'
+    cat '$REMOTE_REPO/.deploy-source-revision'
   "; then
     echo "WARN: remote git checkout failed; falling back to git archive sync"
     git_archive_fallback

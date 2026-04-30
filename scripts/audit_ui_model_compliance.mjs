@@ -20,6 +20,7 @@ const UI_PATCH_FILES = [
   'packages/worker-base/system-models/workspace_positive_models.json',
   'packages/worker-base/system-models/test_model_100_ui.json',
   'packages/worker-base/system-models/doc_page_filltable_example_minimal.json',
+  'packages/worker-base/system-models/slide_app_provider_docs_ui.json',
 ];
 
 const DEDICATED_PROP_LABELS = {
