@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0267-home-save-draft-sync Run Log"
 doc_type: iteration-runlog
-status: active
+status: completed
 updated: 2026-04-21
 source: ai
 iteration_id: 0267-home-save-draft-sync
 id: 0267-home-save-draft-sync
-phase: phase3
+phase: phase4
 ---
 
 # Iteration 0267-home-save-draft-sync Run Log
@@ -27,3 +27,13 @@ Review Gate Record
 - Decision: Approved
 - Notes: user requested root-cause analysis for Home save issue and explicitly approved continuing after repo-wide gallery review.
 ```
+
+## 0354 Closeout Reconciliation
+
+- Command:
+  - `git merge-base --is-ancestor dev_0267-home-save-draft-sync dev`
+- Result: PASS
+- Evidence:
+  - `dev_0267-home-save-draft-sync ancestor_of_dev=YES`
+- Action:
+  - `docs/ITERATIONS.md` status corrected to `Completed`.

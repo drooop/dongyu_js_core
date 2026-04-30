@@ -2,7 +2,7 @@
 title: "Iterations Index"
 doc_type: governance
 status: active
-updated: 2026-04-29
+updated: 2026-04-30
 source: ai
 ---
 
@@ -174,7 +174,7 @@ source: ai
 | 0264-debug-crud-unhide-all | 2026-03-30 | 调试 ModelTable 增删改查界面取消结构标签隐藏，并支持直接操作任意模型/任意 label.t | 4 | dev_0264-debug-crud-unhide-all | Completed | ./docs/iterations/0264-debug-crud-unhide-all/ |
 | 0265-local-deploy-and-debug-policy | 2026-03-30 | 重新部署本地环境验证 debug CRUD 放开已生效，并把“开发后先部署再测试”提升为执行规约 | 3 | dev_0265-local-deploy-and-debug-policy | Completed | ./docs/iterations/0265-local-deploy-and-debug-policy/ |
 | 0266-scoped-patch-authority | 2026-03-30 | 冻结并实施“全局 patch 仅限 bootstrap、运行态修改必须经当前模型 helper 执行 scoped patch”的权限模型，并升级所有受影响 JSON patches 后再部署验收 | 6 | dev_0266-scoped-patch-authority | Completed | ./docs/iterations/0266-scoped-patch-authority/ |
-| 0267-home-save-draft-sync | 2026-03-31 | 修复首页 ModelTable 编辑弹窗在 JSON 文本编辑后的保存竞态，并显式显示保存失败错误 | 3 | dev_0267-home-save-draft-sync | In Progress | ./docs/iterations/0267-home-save-draft-sync/ |
+| 0267-home-save-draft-sync | 2026-03-31 | 修复首页 ModelTable 编辑弹窗在 JSON 文本编辑后的保存竞态，并显式显示保存失败错误 | 3 | dev_0267-home-save-draft-sync | Completed | ./docs/iterations/0267-home-save-draft-sync/ |
 | 0268-home-all-models-filter | 2026-03-31 | 首页模型选择器支持“不筛选/All models”，并在该模式下展示所有模型行且对不明确目标的创建动作保持显式阻断 | 3 | dev_0268-home-all-models-filter | Completed | ./docs/iterations/0268-home-all-models-filter/ |
 | 0269-model100-live-submit-regression | 2026-03-31 | 修复 live 环境下颜色生成器点击后不出站的问题，恢复 `prepare_model100_submit` 注册与整条双总线样板链路 | 3 | dev_0269-model100-live-submit-regression | Completed | ./docs/iterations/0269-model100-live-submit-regression/ |
 | 0270-workspace-ui-filltable-example | 2026-03-31 | 新增一个预置 Workspace UI 模型示例：由 Input/Button/Label 组成，可通过改表切换远端双总线模式与本地程序模型模式，并形成删除后重建教程 | 7 | dev_0270-workspace-ui-filltable-example | Completed | ./docs/iterations/0270-workspace-ui-filltable-example/ |
@@ -192,10 +192,10 @@ source: ai
 | 0282-baseline-doc-clarify | 2026-04-03 | 修正 0281 基线文档中的本地绝对路径，并补充后续 UI 模型能力合法扩展与沉淀约束 | 1 | dev_0282-baseline-doc-clarify | Completed | ./docs/iterations/0282-baseline-doc-clarify/ |
 | 0283-matrix-userline-phase1 | 2026-04-03 | Matrix 非加密第一阶段：落地 `1016-1019` 正数模型块、最小登录/session 真值，以及经 MBR 双总线的一发一收最小闭环 | 3 | dev_0283-matrix-userline-phase1 | Completed | ./docs/iterations/0283-matrix-userline-phase1/ |
 | 0284-matrix-userline-phase2 | 2026-04-03 | Matrix 非加密第二阶段：规划私聊/群聊基础界面、房间列表、消息时间线、输入框与基础成员管理 | 2 | dev_0284-matrix-userline-phase2 | Completed | ./docs/iterations/0284-matrix-userline-phase2/ |
-| 0285-matrix-userline-phase3 | 2026-04-03 | Matrix 非加密第三阶段：规划完整用户管理，包括注册、资料编辑与在线状态展示 | 2 | dev_0285-matrix-userline-phase3 | Approved | ./docs/iterations/0285-matrix-userline-phase3/ |
-| 0286-matrix-userline-phase4 | 2026-04-03 | Matrix 非加密第四阶段：规划视频通话（含多人）的信令、媒体链路与最小产品范围 | 2 | dev_0286-matrix-userline-phase4 | Approved | ./docs/iterations/0286-matrix-userline-phase4/ |
-| 0287-slide-ui-mainline-split | 2026-04-05 | 基于 0214 与当前基线，正式拆分 Slide UI 主线后续阶段与依赖顺序 | 2 | dev_0287-slide-ui-mainline-split | Planned | ./docs/iterations/0287-slide-ui-mainline-split/ |
-| 0288-slide-ui-phaseA-topology-freeze | 2026-04-05 | Slide UI Phase A：冻结 ui-server / remote-worker / MBR 的双工人拓扑、权属边界与 Model 100 合同锚点 | 2 | dev_0288-slide-ui-phaseA-topology-freeze | Approved | ./docs/iterations/0288-slide-ui-phaseA-topology-freeze/ |
+| 0285-matrix-userline-phase3 | 2026-04-03 | Matrix 非加密第三阶段：规划完整用户管理，包括注册、资料编辑与在线状态展示 | 2 | dev_0285-matrix-userline-phase3 | Completed | ./docs/iterations/0285-matrix-userline-phase3/ |
+| 0286-matrix-userline-phase4 | 2026-04-03 | Matrix 非加密第四阶段：规划视频通话（含多人）的信令、媒体链路与最小产品范围 | 2 | dev_0286-matrix-userline-phase4 | Completed | ./docs/iterations/0286-matrix-userline-phase4/ |
+| 0287-slide-ui-mainline-split | 2026-04-05 | 基于 0214 与当前基线，正式拆分 Slide UI 主线后续阶段与依赖顺序 | 2 | dev_0287-slide-ui-mainline-split | Completed | ./docs/iterations/0287-slide-ui-mainline-split/ |
+| 0288-slide-ui-phaseA-topology-freeze | 2026-04-05 | Slide UI Phase A：冻结 ui-server / remote-worker / MBR 的双工人拓扑、权属边界与 Model 100 合同锚点 | 2 | dev_0288-slide-ui-phaseA-topology-freeze | Completed | ./docs/iterations/0288-slide-ui-phaseA-topology-freeze/ |
 | 0289-slide-ui-phaseB-workspace-generalization | 2026-04-06 | Slide UI Phase B：将当前围绕 Model 100 的单点 Slide UI 壳推广为 Workspace 中多个 slide-capable app 的通用主线 | 2 | dev_0289-slide-ui-phaseB-workspace-generalization | Completed | ./docs/iterations/0289-slide-ui-phaseB-workspace-generalization/ |
 | 0290-slide-ui-phaseC-filltable-create-mount | 2026-04-06 | Slide UI Phase C：规划用户通过填表创建 slide app、声明 metadata，并挂载到 Workspace 主线 | 2 | dev_0290-slide-ui-phaseC-filltable-create-mount | Completed | ./docs/iterations/0290-slide-ui-phaseC-filltable-create-mount/ |
 | 0291-slide-ui-phaseD-gallery-doc-evidence | 2026-04-06 | Slide UI Phase D：规划 Gallery 展示、使用文档与浏览器/远端取证的正式收口资产 | 2 | dev_0291-slide-ui-phaseD-gallery-doc-evidence | Completed | ./docs/iterations/0291-slide-ui-phaseD-gallery-doc-evidence/ |
@@ -229,7 +229,7 @@ source: ai
 | 0325b-legacy-system-models-ctx-migration | 2026-04-21 | 0325 延伸：迁移 system-models JSON 里 30+ 处 legacy ctx.* 到 V1N / mt_write 请求路径；合并 server.mjs ensureGenericOwnerMaterializer (M1)；与 0325 作为一组整体 merge 到 dev，保持"无兼容层" | 7 | dev_0325b-legacy-system-models-ctx-migration | Completed | ./docs/iterations/0325b-legacy-system-models-ctx-migration/ |
 | 0325c-option-b-generator-rewrite | 2026-04-21 | 0325b 二次 sub-agent REJECT 后拆分：实装 Option B — 重写 server.mjs owner-materializer 生成器为 V1N.table 版本；迁移 system-models JSON 47 处 ctx.* 经 Step 3.5 Stage 0-4 5-阶段 gate（inventory/rubric/ref impl slide_import/batch migration/final gate）→ 最终 grep 清零至 4 处（test_model_100_{full,ui} 延 0325d）；runtime.hostApi 扩展 4 methods + docs/static 真 impl + matrixDebug/llm/matrixUserLogin stubs；programEngine ctx.hostApi merge runtime.hostApi；Bucket C handlers 走 mt_write_req + bucket_c_cell_routes | 7 | dev_0325c-option-b-generator-rewrite | Completed | ./docs/iterations/0325c-option-b-generator-rewrite/ |
 | 0326-ui-event-ingress-via-model0-busin | 2026-04-21 | 前端 UI 事件统一走 Model 0 pin.bus.in → pin.connect.model → 子模型 (0,0,0) mt_bus_receive；填 mt_bus_receive / mt_bus_send 业务；0321/0322 adapter 合并；废弃 mailbox (Model -1) UI 第一落点；与 0319 Superseded 同窗口 merge | 7 | dev_0326-ui-event-ingress-via-model0-busin | Completed | ./docs/iterations/0326-ui-event-ingress-via-model0-busin/ |
-| 0327-docs-realign-to-0323-rw-spec | 2026-04-22 | docs-only：在 0326 落地后，把 `CLAUDE.md`、`docs/WORKFLOW.md`、`docs/handover/dam-worker-guide.md`、`docs/user-guide/modeltable_user_guide.md` 与当前 Model 0 pin.bus.in / mt_* current truth 对齐，并正式化 Superseded 状态语义 | 5 | dev_0327-docs-realign-to-0323-rw-spec | Planned | ./docs/iterations/0327-docs-realign-to-0323-rw-spec/ |
+| 0327-docs-realign-to-0323-rw-spec | 2026-04-22 | docs-only：在 0326 落地后，把 `CLAUDE.md`、`docs/WORKFLOW.md`、`docs/handover/dam-worker-guide.md`、`docs/user-guide/modeltable_user_guide.md` 与当前 Model 0 pin.bus.in / mt_* current truth 对齐，并正式化 Superseded 状态语义 | 5 | dev_0327-docs-realign-to-0323-rw-spec | Completed | ./docs/iterations/0327-docs-realign-to-0323-rw-spec/ |
 | 0328-worker-image-runtime-assets | 2026-04-22 | 修复 `remote-worker` / `mbr-worker` / `ui-side-worker` 本地镜像缺少 `worker-base/system-models` 导致 CrashLoop 的部署回归；评估后确认 `mbr` 暂不重填，但 `remote-worker` 三张 truth patch 需迁移到当前运行时语义，再完成本地重部署与浏览器实测 | 4 | dev_0328-worker-image-runtime-assets | Completed | ./docs/iterations/0328-worker-image-runtime-assets/ |
 | 0329-renderer-singleflight-release | 2026-04-22 | 修复浏览器实测中 `Generate Color` 已处理完成但按钮仍持续 loading/disabled 的前端 single-flight 释放问题；保证跨页面重载不会复用旧 op_id，并把最新 op_id 同步回 snapshot 供前端释放本地锁 | 3 | dev_0329-renderer-singleflight-release | Completed | ./docs/iterations/0329-renderer-singleflight-release/ |
 | 0330-model100-submit-v1n | 2026-04-22 | 修复本地 `Model 100` 仍执行旧 `ctx.getLabel/writeLabel` 语义导致 `Generate Color` 点击后颜色不更新的问题；把 `test_model_100_ui.json` 的 pin-submit 函数迁移到当前运行时可用的 `V1N` 路径，并重做本地浏览器验证 | 3 | dev_0330-model100-submit-v1n | Completed | ./docs/iterations/0330-model100-submit-v1n/ |
@@ -256,6 +256,7 @@ source: ai
 | 0351-slide-app-minimal-provider-guide | 2026-04-29 | 面向第三方滑动 APP 提供方补最小 `Input + Submit + Label` 示例文档，给出完整单元格表、完整 `app_payload.json` 和 submit 程序模型内容 | 3 | dev_0351-slide-app-minimal-provider-guide | Completed | ./docs/iterations/0351-slide-app-minimal-provider-guide/ |
 | 0352-slide-app-provider-visualized-docs | 2026-04-29 | 在 slide-app-runtime 目录补第三方 provider 视角的 visualized Markdown 与自包含 interactive HTML，演示最小 `Input + Submit + Display Label` 编写与 submit 程序回写 | 4 | dev_0352-slide-app-provider-visualized-docs | Completed | ./docs/iterations/0352-slide-app-provider-visualized-docs/ |
 | 0353-slide-app-runtime-docs-publish | 2026-04-30 | 将 `minimal_submit_app_provider` 系列 Markdown/HTML 通过 docs UI 模型与 Static 挂载发布到 app.dongyudigital.com，并完成公网浏览器实测 | 3 | dev_0353-slide-app-runtime-docs-publish | Completed | ./docs/iterations/0353-slide-app-runtime-docs-publish/ |
+| 0354-iteration-index-reconciliation | 2026-04-30 | 收口已并入 dev 但索引仍显示非终态的历史 iteration，并修复数据模型用户指南合同短语回归 | 4 | dev_0354-iteration-index-reconciliation | Completed | ./docs/iterations/0354-iteration-index-reconciliation/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

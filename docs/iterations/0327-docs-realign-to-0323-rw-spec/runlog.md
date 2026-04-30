@@ -1,12 +1,12 @@
 ---
 title: "0327 — docs-realign-to-0323-rw-spec Runlog"
 doc_type: iteration-runlog
-status: active
+status: completed
 updated: 2026-04-22
 source: ai
 iteration_id: 0327-docs-realign-to-0323-rw-spec
 id: 0327-docs-realign-to-0323-rw-spec
-phase: phase1
+phase: phase4
 ---
 
 # 0327 — docs-realign-to-0323-rw-spec Runlog
@@ -137,6 +137,16 @@ Review Gate Record
   - `0246-home-crud-pin-migration-pilot` 已规范化为 `Superseded-by-0249`
 - Result: PASS
 - Commit:
+
+## 0354 Closeout Reconciliation
+
+- Command:
+  - `git merge-base --is-ancestor dev_0327-docs-realign-to-0323-rw-spec dev`
+- Result: PASS
+- Evidence:
+  - `dev_0327-docs-realign-to-0323-rw-spec ancestor_of_dev=YES`
+- Action:
+  - `docs/ITERATIONS.md` status corrected to `Completed`.
 
 ### Step 4
 
