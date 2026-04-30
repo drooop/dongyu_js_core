@@ -1,12 +1,12 @@
 ---
 title: "0285 — matrix-userline-phase3 Runlog"
 doc_type: iteration-runlog
-status: active
+status: completed
 updated: 2026-04-21
 source: ai
 iteration_id: 0285-matrix-userline-phase3
 id: 0285-matrix-userline-phase3
-phase: phase3
+phase: phase4
 ---
 
 # 0285 — matrix-userline-phase3 Runlog
@@ -52,3 +52,13 @@ phase: phase3
 - Notes:
   - 未发现阻塞项。
   - 第三阶段和前两阶段、第四阶段边界清晰：只做注册、资料、在线状态，不触发聊天 UI 与视频范围回流。
+
+## 0354 Closeout Reconciliation
+
+- Command:
+  - `git merge-base --is-ancestor dev_0285-matrix-userline-phase3 dev`
+- Result: PASS
+- Evidence:
+  - `dev_0285-matrix-userline-phase3 ancestor_of_dev=YES`
+- Action:
+  - `docs/ITERATIONS.md` status corrected to `Completed`.

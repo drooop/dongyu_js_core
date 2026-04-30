@@ -1,12 +1,12 @@
 ---
 title: "0288 — slide-ui-phaseA-topology-freeze Resolution"
 doc_type: iteration-resolution
-status: planned
+status: completed
 updated: 2026-04-21
 source: ai
 iteration_id: 0288-slide-ui-phaseA-topology-freeze
 id: 0288-slide-ui-phaseA-topology-freeze
-phase: phase1
+phase: phase4
 ---
 
 # 0288 — slide-ui-phaseA-topology-freeze Resolution
@@ -15,6 +15,11 @@ phase: phase1
 
 - 本 iteration 仍是 docs-only 计划冻结，不做代码实现。
 - 目标是把 `Slide UI Phase A` 的双工人拓扑与权属边界拆到可执行粒度。
+
+## Closeout Note
+
+- 0354 index reconciliation verified `dev_0288-slide-ui-phaseA-topology-freeze` is an ancestor of `dev`.
+- `docs/ITERATIONS.md` was corrected from `Approved` to `Completed`.
 - 实施顺序固定为：
   1. 冻结三方角色分工
   2. 冻结 `Model 100` 锚点地位

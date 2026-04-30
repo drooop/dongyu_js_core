@@ -1,12 +1,12 @@
 ---
 title: "0327 — docs-realign-to-0323-rw-spec Resolution"
 doc_type: iteration-resolution
-status: planned
+status: completed
 updated: 2026-04-22
 source: ai
 iteration_id: 0327-docs-realign-to-0323-rw-spec
 id: 0327-docs-realign-to-0323-rw-spec
-phase: phase1
+phase: phase4
 ---
 
 # 0327 — docs-realign-to-0323-rw-spec Resolution
@@ -18,6 +18,11 @@ phase: phase1
 3. 改 `docs/WORKFLOW.md`
 4. 改 `docs/handover/dam-worker-guide.md`
 5. 跑 audit + grep 复核并填 runlog
+
+## Closeout Note
+
+- 0354 index reconciliation verified `dev_0327-docs-realign-to-0323-rw-spec` is an ancestor of `dev`.
+- `docs/ITERATIONS.md` was corrected from `Planned` to `Completed`.
 
 ## Step 1 — Inventory
 

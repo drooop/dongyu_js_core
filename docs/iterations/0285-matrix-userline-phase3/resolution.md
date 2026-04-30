@@ -1,12 +1,12 @@
 ---
 title: "0285 — matrix-userline-phase3 Resolution"
 doc_type: iteration-resolution
-status: planned
+status: completed
 updated: 2026-04-21
 source: ai
 iteration_id: 0285-matrix-userline-phase3
 id: 0285-matrix-userline-phase3
-phase: phase1
+phase: phase4
 ---
 
 # 0285 — matrix-userline-phase3 Resolution
@@ -15,6 +15,11 @@ phase: phase1
 
 - 本 iteration 仍是 docs-only 计划冻结，不做代码实现。
 - 目标是在 `0284` 之后，把第三阶段“完整用户管理”正式范围拆到可执行粒度。
+
+## Closeout Note
+
+- 0354 index reconciliation verified `dev_0285-matrix-userline-phase3` is an ancestor of `dev`.
+- `docs/ITERATIONS.md` was corrected from `Approved` to `Completed`.
 - 实施顺序固定为：
   1. 冻结第三阶段产品层模型补充块
   2. 冻结注册边界
