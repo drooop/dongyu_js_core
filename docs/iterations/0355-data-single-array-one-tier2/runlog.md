@@ -32,36 +32,36 @@ Review Gate Record
 - Command: `python3 /Users/drop/.codex/skills/it/scripts/init_iteration_scaffold.py 0355-data-single-array-one-tier2 --repo-root /Users/drop/codebase/cowork/dongyuapp_elysia_based`
 - Key output: wrote `plan.md`, `resolution.md`, `runlog.md`.
 - Result: PASS
-- Commit: pending
+- Commit: `f9a075d`
 - Command: `git diff --check && rg -n "0355-data-single-array-one-tier2" docs/ITERATIONS.md docs/iterations/0355-data-single-array-one-tier2 -S`
 - Key output: iteration registered in `docs/ITERATIONS.md`; no whitespace errors.
 - Result: PASS
-- Commit: pending
+- Commit: `f9a075d`
 
 ### Step 2 — Failing Contract Tests
 
 - Command: `node scripts/tests/test_0355_data_single_array_one_tier2.mjs`
 - Key output: failed before implementation because `data_array_one_v1.json` was missing and `data_array_v0.json` was still a runnable legacy target.
 - Result: PASS (expected RED)
-- Commit: pending
+- Commit: `f9a075d`
 
 ### Step 3 — Data.Single / Data.Array.One Template Implementation
 
 - Command: `node scripts/tests/test_0355_data_single_array_one_tier2.mjs && node scripts/tests/test_0190_data_array_template_patch.mjs && node scripts/tests/test_0190_data_array_contract.mjs`
 - Key output: `6 passed, 0 failed`; `2 passed, 0 failed`; `1 passed, 0 failed`.
 - Result: PASS
-- Commit: pending
+- Commit: `f9a075d`
 - Command: `node scripts/tests/test_0296_data_queue_contract.mjs && node scripts/tests/test_0296_data_stack_contract.mjs && node scripts/tests/test_0355_data_single_array_one_tier2.mjs`
 - Key output: Queue and Stack legacy tests still pass; Data.Array.One tests still pass.
 - Result: PASS
-- Commit: pending
+- Commit: `f9a075d`
 
 ### Step 4 — Documentation And Living Docs Review
 
 - Command: `node scripts/tests/test_0348_feishu_data_model_contract.mjs && node scripts/tests/test_0349_data_model_tier2_plan.mjs && node scripts/tests/test_0347_temporary_modeltable_message_contract.mjs`
 - Key output: 0348, 0349, and 0347 data-model contract checks passed after updating docs for 0355.
 - Result: PASS
-- Commit: pending
+- Commit: `f9a075d`
 - Living docs review:
   - `docs/ssot/runtime_semantics_modeltable_driven.md`: reviewed; no change needed because runtime Tier 1 semantics did not change.
   - `docs/ssot/label_type_registry.md`: updated to state `Data.Array.One` has no underscore-pin aliases after 0355.
@@ -77,7 +77,7 @@ Review Gate Record
 - Command: `codex-code-review subagent`
 - Key output: `Decision: APPROVED`; findings none; open questions none; verification gaps none.
 - Result: PASS
-- Commit:
+- Commit: `f9a075d`
 
 ## Docs Updated
 
