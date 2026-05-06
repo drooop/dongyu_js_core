@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
+const REPO_ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
 
-function wait(ms = 60) {
+function wait(ms = 80) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -15,72 +18,93 @@ function setRunning(rt) {
   rt.setRuntimeMode('running');
 }
 
-async function test_positive_model_create_seeds_reserved_helper_cell() {
-  const rt = new ModelTableRuntime();
-  const model = rt.createModel({ id: 26601, name: 'seeded_helper', type: 'app' });
-  const helper = rt.getCell(model, 0, 1, 0);
-  assert.equal(helper.labels.get('helper_executor')?.v, true, 'helper_executor flag must exist');
-  assert.equal(helper.labels.get('scope_privileged')?.v, true, 'helper cell must be scope privileged');
-  assert.equal(helper.labels.get('owner_apply')?.t, 'pin.in', 'helper cell must expose owner_apply pin.in');
-  assert.equal(helper.labels.get('owner_materialize')?.t, 'func.js', 'helper cell must define owner_materialize');
-  assert.equal(helper.labels.get('owner_apply_route')?.t, 'pin.connect.label', 'helper cell must wire owner_apply to owner_materialize');
-  return { key: 'positive_model_create_seeds_reserved_helper_cell', status: 'PASS' };
+function mtRecord(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
 }
 
-async function test_negative_model_does_not_auto_seed_helper_cell() {
+async function test_positive_model_does_not_seed_reserved_helper_cell() {
+  const rt = new ModelTableRuntime();
+  const model = rt.createModel({ id: 26601, name: 'helper_removed', type: 'app' });
+  const helper = rt.getCell(model, 0, 1, 0);
+  const forbidden = ['helper_executor', 'scope_privileged', 'owner_apply', 'owner_materialize', 'owner_apply_route'];
+  for (const key of forbidden) {
+    assert.equal(helper.labels.has(key), false, `helper cell must not seed retired label ${key}`);
+  }
+  return { key: 'positive_model_does_not_seed_reserved_helper_cell', status: 'PASS' };
+}
+
+async function test_negative_model_does_not_seed_helper_cell() {
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: -26602, name: 'negative_helper', type: 'system' });
   const helper = rt.getCell(model, 0, 1, 0);
   assert.equal(helper.labels.size, 0, 'negative model must not auto-seed helper cell');
-  return { key: 'negative_model_does_not_auto_seed_helper_cell', status: 'PASS' };
+  return { key: 'negative_model_does_not_seed_helper_cell', status: 'PASS' };
 }
 
-async function test_reserved_helper_cell_materializes_same_model_records() {
+async function test_retired_owner_apply_has_no_materialization_semantics() {
   const rt = new ModelTableRuntime();
-  const model = rt.createModel({ id: 26603, name: 'materialize_helper', type: 'app' });
+  const model = rt.createModel({ id: 26603, name: 'owner_apply_retired', type: 'app' });
   setRunning(rt);
   rt.addLabel(model, 0, 1, 0, {
     k: 'owner_apply',
     t: 'pin.in',
-    v: {
-      op: 'apply_records',
-      target_model_id: 26603,
-      records: [{ op: 'add_label', model_id: 26603, p: 2, r: 0, c: 0, k: 'x', t: 'str', v: 'ok' }],
-    },
+    v: [
+      mtRecord('x', 'str', 'must_not_materialize'),
+    ],
   });
   await wait();
   const label = rt.getCell(model, 2, 0, 0).labels.get('x');
-  assert.equal(label?.v, 'ok', 'helper cell must materialize same-model record');
-  return { key: 'reserved_helper_cell_materializes_same_model_records', status: 'PASS' };
+  assert.equal(label, undefined, 'retired owner_apply must not materialize records');
+  return { key: 'retired_owner_apply_has_no_materialization_semantics', status: 'PASS' };
 }
 
-async function test_reserved_helper_cell_can_materialize_single_model() {
+async function test_canonical_mt_write_materializes_same_model_record() {
   const rt = new ModelTableRuntime();
-  const model = rt.createModel({ id: 26604, name: 'single_helper', type: 'app' });
-  rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.single', v: 'Code.JS' });
-  setRunning(rt);
-  rt.addLabel(model, 0, 1, 0, {
-    k: 'owner_apply',
-    t: 'pin.in',
+  const model = rt.createModel({ id: 26604, name: 'canonical_mt_write', type: 'app' });
+  rt.addLabel(model, 0, 0, 0, {
+    k: 'bucket_c_cell_routes',
+    t: 'pin.connect.cell',
+    v: [
+      {
+        from: [1, 0, 0, 'write_label_req'],
+        to: [[0, 0, 0, 'mt_write_req']],
+      },
+    ],
+  });
+  rt.addLabel(model, 1, 0, 0, {
+    k: 'writer',
+    t: 'func.js',
     v: {
-      op: 'apply_records',
-      target_model_id: 26604,
-      records: [{ op: 'add_label', model_id: 26604, p: 0, r: 0, c: 0, k: 'single_state', t: 'str', v: 'ok' }],
+      code: "V1N.writeLabel(2, 0, 0, { k: 'x', t: 'str', v: 'ok' });",
+      modelName: 'canonical_mt_write',
     },
   });
+  rt.addLabel(model, 1, 0, 0, {
+    k: 'run_writer',
+    t: 'pin.connect.label',
+    v: [{ from: 'run', to: ['writer:in'] }],
+  });
+  setRunning(rt);
+  rt.addLabel(model, 1, 0, 0, { k: 'run', t: 'pin.in', v: [mtRecord('trigger', 'str', 'go')] });
   await wait();
-  const err = rt.getCell(model, 0, 1, 0).labels.get('__error_owner_materialize');
-  assert.equal(err, undefined, 'helper cell must not fail on single-model owner materialization');
-  const label = rt.getCell(model, 0, 0, 0).labels.get('single_state');
-  assert.equal(label?.v, 'ok', 'helper cell must materialize single-model records');
-  return { key: 'reserved_helper_cell_can_materialize_single_model', status: 'PASS' };
+  const label = rt.getCell(model, 2, 0, 0).labels.get('x');
+  assert.equal(label?.v, 'ok', 'canonical mt_write route must materialize same-model record');
+  return { key: 'canonical_mt_write_materializes_same_model_record', status: 'PASS' };
+}
+
+async function test_runtime_contains_no_helper_executor_privilege_path() {
+  const text = fs.readFileSync(path.join(REPO_ROOT, 'packages/worker-base/src/runtime.mjs'), 'utf8');
+  assert.equal(text.includes('_cellHasHelperExecutor'), false, 'runtime must not keep helper_executor privilege helper');
+  assert.equal(text.includes("cell.labels.get('helper_executor')"), false, 'runtime must not inspect helper_executor for privileges');
+  return { key: 'runtime_contains_no_helper_executor_privilege_path', status: 'PASS' };
 }
 
 const tests = [
-  test_positive_model_create_seeds_reserved_helper_cell,
-  test_negative_model_does_not_auto_seed_helper_cell,
-  test_reserved_helper_cell_materializes_same_model_records,
-  test_reserved_helper_cell_can_materialize_single_model,
+  test_positive_model_does_not_seed_reserved_helper_cell,
+  test_negative_model_does_not_seed_helper_cell,
+  test_retired_owner_apply_has_no_materialization_semantics,
+  test_canonical_mt_write_materializes_same_model_record,
+  test_runtime_contains_no_helper_executor_privilege_path,
 ];
 
 (async () => {

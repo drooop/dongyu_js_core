@@ -89,15 +89,15 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, submit)",
+          "from": "submit",
           "to": [
-            "(func, on_workspace_filltable_remote_submit_in:in)"
+            "on_workspace_filltable_remote_submit_in:in"
           ]
         },
         {
-          "from": "(func, on_workspace_filltable_remote_submit_in:out)",
+          "from": "on_workspace_filltable_remote_submit_in:out",
           "to": [
-            "(self, result)"
+            "result"
           ]
         }
       ]
@@ -132,15 +132,15 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, submit)",
+          "from": "submit",
           "to": [
-            "(func, on_workspace_filltable_remote_submit_in:in)"
+            "on_workspace_filltable_remote_submit_in:in"
           ]
         },
         {
-          "from": "(func, on_workspace_filltable_remote_submit_in:out)",
+          "from": "on_workspace_filltable_remote_submit_in:out",
           "to": [
-            "(self, result)"
+            "result"
           ]
         }
       ]

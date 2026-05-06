@@ -6,16 +6,17 @@
     {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0,
      "label": {"k": "test_out", "t": "pin.bus.out", "v": null}},
     {"op": "add_label", "model_id": 0, "p": 1, "r": 0, "c": 0,
-     "label": {"k": "100", "t": "submt", "v": {"alias": "color_gen"}}},
+     "label": {"k": "model_type", "t": "model.submt", "v": 100}},
     {"op": "add_label", "model_id": 0, "p": 1, "r": 0, "c": 0,
-     "label": {"k": "bridge", "t": "pin.connect.label", "v": [
-       {"from": "(self, cmd)", "to": ["(100, cmd)"]},
-       {"from": "(100, result)", "to": ["(self, result_out)"]}
-     ]}},
+     "label": {"k": "cmd", "t": "pin.in", "v": null}},
+    {"op": "add_label", "model_id": 0, "p": 1, "r": 0, "c": 0,
+     "label": {"k": "result", "t": "pin.out", "v": null}},
+    {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0,
+     "label": {"k": "test_out_local", "t": "pin.in", "v": null}},
     {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0,
      "label": {"k": "routing", "t": "pin.connect.cell", "v": [
        {"from": [0,0,0,"test_in"], "to": [[1,0,0,"cmd"]]},
-       {"from": [1,0,0,"result_out"], "to": [[0,0,0,"test_out"]]}
+       {"from": [1,0,0,"result"], "to": [[0,0,0,"test_out_local"]]}
      ]}}
   ]
 }

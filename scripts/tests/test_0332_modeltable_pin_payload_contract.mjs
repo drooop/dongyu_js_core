@@ -207,7 +207,7 @@ async function test_write_label_payload_does_not_pass_old_mt_write_in_even_with_
   rt.addLabel(model, 0, 0, 0, {
     k: 'legacy_mt_write_route',
     t: 'pin.connect.label',
-    v: [{ from: '(self, mt_write_in)', to: ['(func, mt_write:in)'] }],
+    v: [{ from: 'mt_write_in', to: ['mt_write:in'] }],
   });
   await rt.setRuntimeMode('running');
 
@@ -355,7 +355,7 @@ async function test_v1n_write_label_without_route_does_not_direct_write() {
   rt.addLabel(model, 1, 0, 0, {
     k: 'writer_wiring',
     t: 'pin.connect.label',
-    v: [{ from: '(self, writer_in)', to: ['(func, writer:in)'] }],
+    v: [{ from: 'writer_in', to: ['writer:in'] }],
   });
 
   await rt.setRuntimeMode('running');
@@ -395,7 +395,7 @@ async function test_v1n_write_label_does_not_write_when_root_mt_write_function_i
   rt.addLabel(model, 1, 0, 0, {
     k: 'writer_wiring',
     t: 'pin.connect.label',
-    v: [{ from: '(self, writer_in)', to: ['(func, writer:in)'] }],
+    v: [{ from: 'writer_in', to: ['writer:in'] }],
   });
 
   await rt.setRuntimeMode('running');
@@ -433,7 +433,7 @@ async function test_v1n_write_label_routes_through_explicit_pin_connection() {
   rt.addLabel(model, 1, 0, 0, {
     k: 'writer_wiring',
     t: 'pin.connect.label',
-    v: [{ from: '(self, writer_in)', to: ['(func, writer:in)'] }],
+    v: [{ from: 'writer_in', to: ['writer:in'] }],
   });
 
   await rt.setRuntimeMode('running');
@@ -649,40 +649,32 @@ async function test_positive_model_pins_accept_multicell_modeltable_payloads() {
 async function test_log_pins_keep_log_data_values() {
   const rt = new ModelTableRuntime();
   await rt.setRuntimeMode('edit');
-  const model0 = rt.getModel(0);
   const model = rt.createModel({ id: 3374, name: 'it0332_3374', type: 'test' });
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'TestApp' });
   await rt.setRuntimeMode('running');
+  const payload = [mt('level', 'str', 'info'), mt('message', 'str', 'model log')];
 
+  const oldLogIn = rt.addLabel(model, 0, 0, 0, {
+    k: 'old_activity_log_in',
+    t: 'pin.log.in',
+    v: payload,
+  });
   const modelLogIn = rt.addLabel(model, 0, 0, 0, {
     k: 'activity_log_in',
-    t: 'pin.log.in',
-    v: { level: 'info', message: 'model log in' },
+    t: 'pin.login',
+    v: payload,
   });
   const modelLogOut = rt.addLabel(model, 1, 0, 0, {
     k: 'activity_log_out',
-    t: 'pin.log.out',
-    v: 'model log out',
-  });
-  const busLogIn = rt.addLabel(model0, 0, 0, 0, {
-    k: 'system_log_in',
-    t: 'pin.log.bus.in',
-    v: { level: 'info', message: 'bus log in' },
-  });
-  const busLogOut = rt.addLabel(model0, 0, 0, 0, {
-    k: 'system_log_out',
-    t: 'pin.log.bus.out',
-    v: 'bus log out',
+    t: 'pin.logout',
+    v: payload,
   });
 
-  assert.equal(modelLogIn.applied, true, 'positive model pin.log.in must accept log data');
-  assert.equal(modelLogOut.applied, true, 'positive model pin.log.out must accept log data');
-  assert.equal(busLogIn.applied, true, 'Model 0 pin.log.bus.in must accept log data');
-  assert.equal(busLogOut.applied, true, 'Model 0 pin.log.bus.out must accept log data');
-  assert.deepEqual(model.getCell(0, 0, 0).labels.get('activity_log_in')?.v, { level: 'info', message: 'model log in' });
-  assert.equal(model.getCell(1, 0, 0).labels.get('activity_log_out')?.v, 'model log out');
-  assert.deepEqual(model0.getCell(0, 0, 0).labels.get('system_log_in')?.v, { level: 'info', message: 'bus log in' });
-  assert.equal(model0.getCell(0, 0, 0).labels.get('system_log_out')?.v, 'bus log out');
+  assert.equal(oldLogIn.applied, false, 'removed pin.log.in must be rejected');
+  assert.equal(modelLogIn.applied, true, 'positive model pin.login must accept ModelTable log data');
+  assert.equal(modelLogOut.applied, true, 'positive model pin.logout must accept ModelTable log data');
+  assert.deepEqual(model.getCell(0, 0, 0).labels.get('activity_log_in')?.v, payload);
+  assert.deepEqual(model.getCell(1, 0, 0).labels.get('activity_log_out')?.v, payload);
 
   return { key: 'log_pins_keep_log_data_values', status: 'PASS' };
 }

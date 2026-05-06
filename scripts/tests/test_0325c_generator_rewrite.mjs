@@ -140,7 +140,7 @@ function test_legacy_forward_funcs_no_runtime_pin_wiring() {
     'forward_model100_submit_from_model0',
   ];
   for (const fwdName of FORWARD_NAMES) {
-    const funcTarget = `(func, ${fwdName}:in)`;
+    const funcTarget = `${fwdName}:in`;
     const hits = pinConnectLabels.filter((lbl) => {
       const entries = Array.isArray(lbl.v) ? lbl.v : [];
       return entries.some((entry) => Array.isArray(entry && entry.to) && entry.to.includes(funcTarget));
@@ -224,7 +224,7 @@ async function test_owner_materialize_cross_cell_write_via_v1n_table() {
   rt.addLabel(model, 0, 0, 0, {
     k: 'owner_materialize_wiring',
     t: 'pin.connect.label',
-    v: [{ from: '(self, owner_materialize_req)', to: ['(func, owner_materialize:in)'] }],
+    v: [{ from: 'owner_materialize_req', to: ['owner_materialize:in'] }],
   });
   rt.addLabel(model, 0, 0, 0, {
     k: 'owner_materialize',

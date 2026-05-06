@@ -6,7 +6,6 @@ const STRUCTURAL_LABEL_TYPES = new Set([
   'func.python',
   'pin.connect.label',
   'pin.connect.cell',
-  'pin.connect.model',
   'pin.bus.in',
   'pin.bus.out',
   'pin.table.in',
@@ -102,7 +101,7 @@ function normalizeTypedValue(typeName, rawValue) {
       return { ok: false, code: 'invalid_func_value' };
     }
   }
-  if (typeName === 'pin.connect.label' || typeName === 'pin.connect.cell' || typeName === 'pin.connect.model') {
+  if (typeName === 'pin.connect.label' || typeName === 'pin.connect.cell') {
     if (!Array.isArray(rawValue)) {
       return { ok: false, code: 'invalid_connect_value' };
     }

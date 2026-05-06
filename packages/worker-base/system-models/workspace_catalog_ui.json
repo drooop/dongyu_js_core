@@ -567,9 +567,9 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, click)",
+          "from": "click",
           "to": [
-            "(func, handle_ws_select_click:in)"
+            "handle_ws_select_click:in"
           ]
         }
       ]
@@ -857,9 +857,9 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, click)",
+          "from": "click",
           "to": [
-            "(func, handle_ws_delete_click:in)"
+            "handle_ws_delete_click:in"
           ]
         }
       ]
@@ -994,9 +994,9 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, change)",
+          "from": "change",
           "to": [
-            "(func, handle_ws_add_name_change:in)"
+            "handle_ws_add_name_change:in"
           ]
         }
       ]
@@ -1119,9 +1119,9 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, click)",
+          "from": "click",
           "to": [
-            "(func, handle_ws_add_click:in)"
+            "handle_ws_add_click:in"
           ]
         }
       ]

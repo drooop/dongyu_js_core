@@ -138,15 +138,15 @@
       "k": "array_one_routing",
       "t": "pin.connect.label",
       "v": [
-        { "from": "(self, add_data:in)", "to": ["(func, array_one_add:in)"] },
-        { "from": "(self, delete_data:in)", "to": ["(func, array_one_delete:in)"] },
-        { "from": "(self, update_data:in)", "to": ["(func, array_one_update:in)"] },
-        { "from": "(self, get_data:in)", "to": ["(func, array_one_get:in)"] },
-        { "from": "(self, get_all_data:in)", "to": ["(func, array_one_get_all:in)"] },
-        { "from": "(self, get_size:in)", "to": ["(func, array_one_get_size:in)"] },
-        { "from": "(func, array_one_get:out)", "to": ["(self, get_data:out)"] },
-        { "from": "(func, array_one_get_all:out)", "to": ["(self, get_all_data:out)"] },
-        { "from": "(func, array_one_get_size:out)", "to": ["(self, get_size:out)"] }
+        { "from": "add_data:in", "to": ["array_one_add:in"] },
+        { "from": "delete_data:in", "to": ["array_one_delete:in"] },
+        { "from": "update_data:in", "to": ["array_one_update:in"] },
+        { "from": "get_data:in", "to": ["array_one_get:in"] },
+        { "from": "get_all_data:in", "to": ["array_one_get_all:in"] },
+        { "from": "get_size:in", "to": ["array_one_get_size:in"] },
+        { "from": "array_one_get:out", "to": ["get_data:out"] },
+        { "from": "array_one_get_all:out", "to": ["get_all_data:out"] },
+        { "from": "array_one_get_size:out", "to": ["get_size:out"] }
       ]
     },
     {

@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
 
 function wait(ms = 80) { return new Promise((r) => setTimeout(r, ms)); }
+const mt = (k, t, v) => [{ id: 0, p: 0, r: 0, c: 0, k, t, v }];
 
 async function test_v1n_addLabel_writes_only_running_cell() {
   const rt = new ModelTableRuntime();
@@ -22,10 +23,10 @@ async function test_v1n_addLabel_writes_only_running_cell() {
   rt.addLabel(model, 2, 3, 0, { k: 'fn_in', t: 'pin.in', v: null });
   rt.addLabel(model, 2, 3, 0, {
     k: 'fn_wiring', t: 'pin.connect.label',
-    v: [{ from: '(self, fn_in)', to: ['(func, fn:in)'] }],
+    v: [{ from: 'fn_in', to: ['fn:in'] }],
   });
   await rt.setRuntimeMode('running');
-  rt.addLabel(model, 2, 3, 0, { k: 'fn_in', t: 'pin.in', v: 'go' });
+  rt.addLabel(model, 2, 3, 0, { k: 'fn_in', t: 'pin.in', v: mt('trigger', 'str', 'go') });
   await wait();
   // Assert (2,3,0) has the probe
   const hostCell = rt.getCell(model, 2, 3, 0).labels.get('self_probe');
@@ -69,10 +70,10 @@ async function test_v1n_addLabel_rejects_multi_arg_ref_form() {
   rt.addLabel(model, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: null });
   rt.addLabel(model, 1, 0, 0, {
     k: 'fn_wiring', t: 'pin.connect.label',
-    v: [{ from: '(self, fn_in)', to: ['(func, fn:in)'] }],
+    v: [{ from: 'fn_in', to: ['fn:in'] }],
   });
   await rt.setRuntimeMode('running');
-  rt.addLabel(model, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: 'go' });
+  rt.addLabel(model, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: mt('trigger', 'str', 'go') });
   await wait();
   const probe = rt.getCell(model, 1, 0, 0).labels.get('_sig_probe');
   assert.ok(probe, 'probe must exist');

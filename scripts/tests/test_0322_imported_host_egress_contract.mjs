@@ -75,11 +75,9 @@ function validPayload() {
       { id: 0, p: 0, r: 0, c: 0, k: 'input_text', t: 'str', v: '' },
       { id: 0, p: 0, r: 0, c: 0, k: 'last_submit_payload', t: 'json', v: null },
       { id: 0, p: 0, r: 0, c: 0, k: 'submit_request', t: 'pin.in', v: null },
-      { id: 0, p: 0, r: 0, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: '(self, submit_request)', to: ['(func, handle_submit:in)'] }] },
-      { id: 0, p: 0, r: 0, c: 0, k: 'submit_owner_route', t: 'pin.connect.label', v: [{ from: '(func, handle_submit:out)', to: ['submit_owner_req'] }] },
+      { id: 0, p: 0, r: 0, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: 'submit_request', to: ['handle_submit:in'] }] },
       { id: 0, p: 0, r: 0, c: 0, k: 'root_routes', t: 'pin.connect.cell', v: [
         { from: [2, 3, 0, 'click_chain'], to: [[0, 0, 0, 'submit_request']] },
-        { from: [0, 0, 0, 'submit_owner_req'], to: [[0, 1, 0, 'owner_apply']] },
       ] },
       { id: 0, p: 0, r: 0, c: 0, k: 'submit', t: 'pin.out', v: null },
       { id: 0, p: 0, r: 0, c: 0, k: 'handle_submit', t: 'func.js', v: { code: [

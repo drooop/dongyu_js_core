@@ -11,7 +11,7 @@ iteration: 0356-pin-connection-contract-realignment
 
 本文件冻结 0356 后的目标引脚合同。它覆盖早期文档中把跨模型路由声明为 `pin.connect.model`、把同 Cell 端点写成 `(self, pin)` / `(func, func:in)` 的写法。
 
-0356 是 docs-only 规约收口：当前 runtime、测试资产和部分历史示例仍可能包含旧写法。旧写法只能作为迁移债务出现，不得作为新模型、新文档或新测试的输入面。
+0357 已完成 runtime 硬切：当前输入面不再接受旧写法。旧写法只能出现在历史文档或负向测试中，不得作为新模型、新文档或新通过路径的输入面。
 
 ---
 
@@ -31,7 +31,7 @@ iteration: 0356-pin-connection-contract-realignment
 - 数据通道与日志通道不可混连。
 - `pin.in` / `pin.out` 传普通模型数据。
 - `pin.login` / `pin.logout` 传日志模型数据。
-- 早期 `pin.log.in` / `pin.log.out` / `pin.log.bus.*` 不是 0356 后的新规约名称，只能作为迁移债务处理。
+- 早期 `pin.log.in` / `pin.log.out` / `pin.log.bus.*` 不是 0356 后的新规约名称；0357 后写入会被 runtime 拒绝。
 - `pin.bus.in` / `pin.bus.out` 是 Model 0 的系统边界 adapter，不是普通 Cell 的第五类引脚；它们进入普通模型层后必须转换为本合同中的 Cell 引脚路由。
 
 ---
@@ -175,14 +175,14 @@ iteration: 0356-pin-connection-contract-realignment
 
 ---
 
-## 8. 0356 迁移边界
+## 8. 0357 实现边界
 
-0356 只冻结目标合同并标记矛盾点，不直接修改 runtime。
+0357 已将本合同落到 runtime、server repair、系统模型和测试资产。
 
-后续 implementation iteration 必须处理：
+当前硬规则：
 
-- runtime 中 `pin.connect.model` 的解析、存储和分发。
-- runtime 中 `(self, ...)` / `(func, ...)` / numeric prefix 的 `pin.connect.label` 解析。
-- runtime 和系统模型中的 `{functionName}:log.out`。
-- 当前 `pin.log.*` 日志引脚命名。
-- 文档、测试和模型资产中的旧示例。
+- `pin.connect.model` 必须被拒绝，不得存储或分发。
+- `(self, ...)` / `(func, ...)` / numeric prefix 必须被拒绝，不得解析为可运行端点。
+- `{functionName}:logout` 是函数日志输出；`{functionName}:log.out` 不是当前函数引脚。
+- `pin.log.*` 必须被拒绝；日志通道只使用 `pin.login` / `pin.logout`。
+- 运行资产、server 生成路径和通过测试不得生成旧示例。

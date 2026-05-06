@@ -63,12 +63,14 @@ function seedBusInHarness(state) {
   rt.addLabel(child, 0, 0, 0, {
     k: 'ui_submit_route',
     t: 'pin.connect.label',
-    v: [{ from: '(self, ui_submit)', to: ['(self, mt_bus_receive_in)'] }],
+    v: [{ from: 'ui_submit', to: ['mt_bus_receive_in'] }],
   });
+  rt.addLabel(model0, 9, 0, CHILD_MODEL_ID, { k: 'model_type', t: 'model.submt', v: CHILD_MODEL_ID });
+  rt.addLabel(model0, 9, 0, CHILD_MODEL_ID, { k: 'ui_submit', t: 'pin.in', v: null });
   rt.addLabel(model0, 0, 0, 0, {
     k: 'ui_submit_route',
-    t: 'pin.connect.model',
-    v: [{ from: [0, 'ui_submit'], to: [[CHILD_MODEL_ID, 'ui_submit']] }],
+    t: 'pin.connect.cell',
+    v: [{ from: [0, 0, 0, 'ui_submit'], to: [[9, 0, CHILD_MODEL_ID, 'ui_submit']] }],
   });
   return child;
 }

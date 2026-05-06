@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const mt = (k, t, v) => ({ id: 0, p: 0, r: 0, c: 0, k, t, v });
 
 /**
  * 0142 Integration Test
@@ -36,6 +37,10 @@ async function test_full_e2e_model0_framework() {
 
   // Setup child model 100 with processing
   const child = rt.getModel(100);
+  rt.addLabel(child, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: null });
+  rt.addLabel(child, 0, 0, 0, { k: 'result', t: 'pin.out', v: null });
+  rt.addLabel(child, 1, 0, 0, { k: 'input', t: 'pin.in', v: null });
+  rt.addLabel(child, 1, 0, 0, { k: 'output', t: 'pin.out', v: null });
   rt.addLabel(child, 0, 0, 0, {
     k: 'routing',
     t: 'pin.connect.cell',
@@ -48,18 +53,19 @@ async function test_full_e2e_model0_framework() {
     k: 'wiring',
     t: 'pin.connect.label',
     v: [
-      { from: '(self, input)', to: ['(func, process:in)'] },
-      { from: '(func, process:out)', to: ['(self, output)'] },
+      { from: 'input', to: ['process:in'] },
+      { from: 'process:out', to: ['output'] },
     ],
   });
   rt.addLabel(child, 1, 0, 0, {
     k: 'process',
     t: 'func.js',
-    v: { code: "return 'processed:' + label.v;", modelName: 'test_0142_integration' },
+    v: { code: "const rec = Array.isArray(label.v) ? label.v.find((r) => r && r.k === 'message') : null;\nreturn [{ id: 0, p: 0, r: 0, c: 0, k: 'message', t: 'str', v: 'processed:' + String(rec && rec.v || '') }];", modelName: 'test_0142_integration' },
   });
 
   // Trigger: BUS_IN arrival
-  rt._handleBusInMessage('test_in', 'hello');
+  const payload = [mt('message', 'str', 'hello')];
+  rt._handleBusInMessage('test_in', payload);
   await new Promise((resolve) => setTimeout(resolve, 200));
 
   // Verify: BUS_IN routes to hosting cell
@@ -77,7 +83,7 @@ async function test_full_e2e_model0_framework() {
   const childCell1 = rt.getCell(child, 1, 0, 0);
   const output = childCell1.labels.get('output');
   assert(output, 'child cell 1 should have output');
-  assert.strictEqual(output.v, 'processed:hello');
+  assert.deepStrictEqual(output.v, [mt('message', 'str', 'processed:hello')]);
 
   return { key: 'full_e2e_model0_framework', status: 'PASS' };
 }
@@ -87,6 +93,7 @@ async function test_bus_in_priority_over_pin() {
   const model0 = rt.getModel(0);
   // Register BUS_IN
   rt.addLabel(model0, 0, 0, 0, { k: 'data', t: 'pin.bus.in', v: null });
+  rt.addLabel(model0, 1, 0, 0, { k: 'received', t: 'pin.in', v: null });
   rt.addLabel(model0, 0, 0, 0, {
     k: 'routing',
     t: 'pin.connect.cell',
@@ -94,13 +101,14 @@ async function test_bus_in_priority_over_pin() {
   });
 
   // Simulate _handleBusInMessage
-  rt._handleBusInMessage('data', { val: 42 });
+  const payload = [mt('value', 'int', 42)];
+  rt._handleBusInMessage('data', payload);
 
   // Verify routing happened
   const cell1 = rt.getCell(model0, 1, 0, 0);
   const received = cell1.labels.get('received');
   assert(received, 'should route via cell_connection');
-  assert.deepStrictEqual(received.v, { val: 42 });
+  assert.deepStrictEqual(received.v, payload);
   return { key: 'bus_in_priority_over_pin', status: 'PASS' };
 }
 
