@@ -2,7 +2,7 @@
 title: "Imported Slide App Host Ingress Semantics v1"
 doc_type: ssot
 status: active
-updated: 2026-04-26
+updated: 2026-05-06
 source: ai
 ---
 
@@ -12,6 +12,8 @@ source: ai
 
 这是一份 **v1 已部分实现的正式规约**。
 
+0356 PIN 连接目标合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。本文中早期 `pin.connect.model`、numeric prefix、`(self, ...)` / `(func, ...)` 写法只保留为已实现旧路径的迁移债务；后续新实现不得继续采用。
+
 当前已经落地的范围只有：
 
 - semantic:
@@ -20,7 +22,8 @@ source: ai
   - `root-relative cell locator`
 - 安装时自动补：
   - `Model 0 pin.bus.in`
-  - `Model 0 pin.connect.model`
+  - `Model 0 pin.connect.cell`
+  - imported app hosting Cell 的 `model.submt` 与边界 pin
   - imported model root relay `pin.in`
   - imported model root relay `pin.connect.cell`
 
@@ -329,7 +332,12 @@ v1 当前还要求：
   - `t = pin.bus.in`
 - `Model 0 (0,0,0)`
   - `k = imported_host_submit_<model_id>_route`
-  - `t = pin.connect.model`
+  - `t = pin.connect.cell`
+- imported app hosting Cell
+  - `k = model_type`
+  - `t = model.submt`
+  - `v = <imported_model_id>`
+  - 同时声明与 imported root 边界对应的 `pin.in` / `pin.out`
 
 同时，宿主会在 imported model root 自动补一层 relay：
 
@@ -340,7 +348,7 @@ v1 当前还要求：
   - `k = __host_ingress_submit_route`
   - `t = pin.connect.cell`
 
-删除 imported app 时，宿主必须把上述 `Model 0` 自动生成 labels 一并清理。
+删除 imported app 时，宿主必须把上述 `Model 0` 与 hosting Cell 自动生成 labels 一并清理。
 
 ### 6.2 imported app 负责
 
@@ -388,7 +396,7 @@ imported app zip 必须：
 
 - 在 root (0,0,0) 上声明 `dual_bus_model: json`，说明自己期望对外发送业务包。
 - 在 root (0,0,0) 声明一个 `pin.out` 作为对外出口（约定名 `submit`；后续可通过 `dual_bus_model` 的 `egress_pin_name` 参数化，当前强制 `submit`）。
-- 不允许在 zip 内声明 `pin.bus.in` / `pin.bus.out` / `pin.connect.model` / `func.python`，这些由 `SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES` 拒绝，防止 imported app 自建第二个对外入口。
+- 不允许在 zip 内声明 `pin.bus.in` / `pin.bus.out` / legacy `pin.connect.model` / `func.python`，这些由 `SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES` 拒绝，防止 imported app 自建第二个对外入口。
 
 ### 9.2 宿主自动补齐的 egress adapter（0326 current truth）
 
@@ -397,10 +405,10 @@ imported app zip 必须：
 | 位置 | label | 作用 |
 |---|---|---|
 | Model 0 `mountCell` | `__host_egress_<semantic>_relay_<id>` `pin.in` | 接收 imported root `pin.out` 经 `pin.connect.label` 数字前缀转发的 value |
-| Model 0 `mountCell` | `__host_egress_<semantic>_bridge_<id>` `pin.connect.label` | `(<rootModelId>, <pinName>) → (self, mountRelayPin)` |
+| Model 0 `mountCell` | `__host_egress_<semantic>_bridge_<id>` `pin.connect.label` | 0356 target: root boundary pin → mount relay pin；旧实现的 numeric prefix 写法属于迁移债务 |
 | Model 0 `(0,0,0)` | `__host_egress_<semantic>_bridge_in_<id>` `pin.in` | 宿主 root bridge 入口 |
 | Model 0 `(0,0,0)` | `bridge_imported_<semantic>_to_mt_bus_send_<id>` `func.js` | 把 imported payload 写到 `mt_bus_send_in` |
-| Model 0 `(0,0,0)` | `imported_<semantic>_<id>_bridge_wiring` `pin.connect.label` | `(self, bridge_in) -> (func, bridge_func:in)` |
+| Model 0 `(0,0,0)` | `imported_<semantic>_<id>_bridge_wiring` `pin.connect.label` | `bridge_in -> bridge_func:in` |
 | Model 0 `(0,0,0)` | `imported_<semantic>_<id>_route` `pin.connect.cell` | `[mountCell,mountRelayPin] -> [0,0,0,bridge_in]` |
 | Model 0 `(0,0,0)` | `imported_<semantic>_<id>_bus` `pin.bus.out` | 宿主 egress bus-out key |
 | imported root `(0,0,0)` | `host_egress_generated_model0_labels` / `host_egress_generated_mount` | 删除清理清单 |

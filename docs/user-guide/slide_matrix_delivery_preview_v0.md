@@ -93,7 +93,7 @@ source: ai
 - `Model 100` 的 submit 已开始使用这一方向的内置链路：
   - mailbox submit
   - runtime 派生 `Model 0` ingress key
-  - `pin.connect.model` 路由到 `Model 100` 的 pin 输入
+  - 经 `model.submt` hosting Cell + `pin.connect.cell` 路由到 `Model 100` 的 pin 输入
 - Slide / Workspace 系统动作也已经开始使用同一方向的 runtime ingress：
   - `slide_app_import`
   - `slide_app_create`

@@ -195,7 +195,7 @@ zip 内当前只放一个 JSON 文件，建议叫：
 - `func.python`
 - `pin.bus.in`
 - `pin.bus.out`
-- `pin.connect.model`
+- legacy `pin.connect.model`
 - 覆盖系统 helper / privilege labels
 - 浏览器侧任意 `eval`
 

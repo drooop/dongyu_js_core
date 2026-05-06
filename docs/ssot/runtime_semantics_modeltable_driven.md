@@ -189,6 +189,9 @@ source: ai
 
 ## 5. 连接与路由声明
 
+0356 target PIN contract is defined by `docs/ssot/pin_connection_contract_v2.md`.
+本节中早期 `pin.connect.model`、`pin.log.*`、`(self, ...)` / `(func, ...)` 的 runtime 描述只保留为当前实现债务；新规约、新模型和新测试不得继续使用这些旧写法。
+
 ### 5.1 Legacy PIN_IN / PIN_OUT（DEPRECATED since 0143）
 
 > **状态**：已废弃。0143 删除了运行时中所有 PIN_IN/PIN_OUT 处理代码。
@@ -205,10 +208,9 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 以下声明服从本规范，由 `_applyBuiltins` 统一分发：
 - pin.in / pin.out：Cell 级端口；写在非系统模型 root `(0,0,0)` 时同时承担模型边界端口语义
 - pin.bus.in / pin.bus.out：系统边界端口（新，仅 Model 0）
-- pin.log.*：日志通道端口；写在非系统模型 root `(0,0,0)` 时同时承担模型边界日志端口语义
+- pin.login / pin.logout：日志通道端口；写在非系统模型 root `(0,0,0)` 时同时承担模型边界日志端口语义
 - pin.connect.label：Cell 内接线图（新）
 - pin.connect.cell：跨 Cell 路由（新）
-- pin.connect.model：跨 Model 路由（新）
 - model.submt：子模型声明（新）
 - func.js / func.python：函数声明（新）
 - model.single / model.matrix / model.table：模型形态声明（新）
@@ -237,31 +239,47 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 历史别名说明（non-normative）：
 - repo 内可能仍能搜索到 `BUS_IN` / `BUS_OUT` / `CELL_CONNECT` / `cell_connection` / `MODEL_IN` / `MODEL_OUT` / `IN` / `function` / `subModel` / `submt` 等旧名。
 - repo 内也可能仍能搜索到 `pin.table.*` / `pin.single.*` / `pin.log.table.*` / `pin.log.single.*`。
+- repo 内还可能仍能搜索到 `pin.connect.model`、`pin.log.in` / `pin.log.out`、以及 `(self, ...)` / `(func, ...)` endpoint 字符串。
 - 这些旧名属于迁移债务，不构成当前允许的新工作输入面。
 - 若确需保留/新增兼容逻辑，必须得到用户显式批准。
 
-### 5.2b CELL_CONNECT / cell_connection（0141）
+### 5.2b pin.connect.label / pin.connect.cell（0356 target）
 
-**label.t 分发**：`_applyBuiltins` 首先按 `label.t` 分发，独立于 `label.k` connectKeys 检查。
+0356 后只保留两种连接声明：
 
 | label.t | 触发 | 位置约束 |
 |---|---|---|
-| `CELL_CONNECT` | `_parseCellConnectLabel` → 构建 `cellConnectGraph` | 任意 Cell |
-| `cell_connection` | `_parseCellConnectionLabel` → 构建 `cellConnectionRoutes` | 仅 (0,0,0) |
-| `IN` | `_routeViaCellConnection` (同步) + 若 Cell 有 `cellConnectGraph` 条目 → `_propagateCellConnect` (async) | 任意 Cell |
+| `pin.connect.label` | 构建当前 Cell 内引脚接线图 | 任意 Cell |
+| `pin.connect.cell` | 构建当前模型内跨 Cell 路由 | 仅当前模型 root `(0,0,0)` |
 
-**CELL_CONNECT 端点格式**：`(prefix, port)`
-- prefix = `self` | `func` | `<numericModelId>`
-- self 目标：写 label(t='OUT') + 递归传播
-- func 目标：`:in` 后缀 → `_executeFuncViaCellConnect`，`:out` 后缀 → 继续传播
-- numeric 目标：路由到子模型 root `(0,0,0)` 的 `pin.in`
+**pin.connect.label 端点格式**：直接写同 Cell 内引脚 key。
 
-**cell_connection 路由格式**：`[{from: [p,r,c,k], to: [[p,r,c,k], ...]}]`
-- 同 Model 内跨 Cell 路由，写入目标 Cell 的 label(t='IN')
+```json
+[{ "from": "submit_request", "to": ["handle_submit:in"] }]
+```
 
-**AsyncFunction 隔离**：`_executeFuncViaCellConnect` 使用 `AsyncFunction` 构造器，完全独立于 `worker_engine_v0.mjs` 的同步 `executeFunction`。支持 30s 超时，错误写入 `__error_<funcName>` label。
+规则：
 
-**循环检测**：`_propagateCellConnect` 携带 `visited` Set，重复端点写入 eventLog(reason='cycle_detected') 后跳过。
+- 允许连接当前 Cell 上声明的 `pin.in` / `pin.out` / `pin.login` / `pin.logout`。
+- 允许连接当前 Cell 上函数自动拥有的 `{funcName}:in` / `{funcName}:out` / `{funcName}:logout`。
+- 不允许 `(self, port)`、`(func, funcName:in)` 或 numeric prefix。
+- 不允许引用其他 Cell 或其他 model id。
+
+**pin.connect.cell 端点格式**：
+
+```json
+[{ "from": [p, r, c, "pinName"], "to": [[p, r, c, "pinName"]] }]
+```
+
+规则：
+
+- 同 Model 内跨 Cell 路由，目标仍是 Cell 引脚，不是函数引脚。
+- 函数触发必须先把模型数据送到函数所在 Cell 的普通引脚，再由该 Cell 的 `pin.connect.label` 接到 `{funcName}:in`。
+- 子模型对外只能经子模型 root `(0,0,0)` 的引脚和父模型 hosting Cell 的引脚，不再经 `pin.connect.model`。
+
+**AsyncFunction 隔离**：函数执行仍必须隔离于普通 worker tick。支持超时和错误落表，不得 silent fail。
+
+**循环检测**：跨 Cell / Cell 内传播都必须记录 visited endpoint；重复端点写入 eventLog(reason='cycle_detected') 后跳过。
 
 ### 5.2c BUS_IN/BUS_OUT 系统边界（0142）
 
@@ -280,11 +298,11 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 | label.t | 位置约束 | 语义 |
 |---|---|---|
-| `pin.in` / `pin.log.in` | 非系统模型 `(0,0,0)` | 注册模型输入端口 → `modelInPorts` Map |
-| `pin.out` / `pin.log.out` | 非系统模型 `(0,0,0)` | 注册模型输出端口 → `modelOutPorts` Map |
+| `pin.in` / `pin.login` | 非系统模型 `(0,0,0)` | 注册模型输入端口 → `modelInPorts` Map |
+| `pin.out` / `pin.logout` | 非系统模型 `(0,0,0)` | 注册模型输出端口 → `modelOutPorts` Map |
 
 - 非系统模型 root `(0,0,0)` 上的 `pin.in` 写入 v 时 → 子模型内 cell_connection 路由 + CELL_CONNECT 传播
-- 非系统模型 root `(0,0,0)` 上的 `pin.out` 写入 v 时 → 查 `parentChildMap` → 在父模型 hosting cell 上以 `(childModelId, portName)` 为源端口触发 CELL_CONNECT，并同时进入 `pin.connect.model`
+- 非系统模型 root `(0,0,0)` 上的 `pin.out` 写入 v 时 → 经子模型 root 边界引脚传到父模型 hosting Cell 引脚，再由父模型 `pin.connect.cell` 继续路由
 - `pin.table.* / pin.single.*` 不再是当前运行时主路径；若文档或历史测试仍提及它们，只能视为迁移债务或历史记录。
 
 ### 5.2e subModel 声明与 parentChildMap（0142）
@@ -297,7 +315,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - 同一 hosting Cell 最多允许一个 `model.submt`
 - 同一个 child model 只能被一个父模型 hosting Cell 挂载（single-parent）
 - hosting Cell 一旦安装 `model.submt`：
-  - 允许保留或继续添加的只剩引脚类标签（`pin.*` / `pin.log.*`）
+  - 允许保留或继续添加的只剩引脚类标签（`pin.in` / `pin.out` / `pin.login` / `pin.logout`）
   - 预先存在的非引脚标签必须被清理
   - 后续再写入非引脚标签必须 reject，并写入 `eventLog(reason='submodel_host_cell_forbidden_label')`
 - 删除 `model.submt` 仅解除父子挂载关系；不自动删除 child model 数据。
@@ -368,7 +386,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - 三程序（`mt_write` / `mt_bus_receive` / `mt_bus_send`）由 `createModel()` **在 model.table 创建时自动植入 (0,0,0)**，不占用 bootstrap patch 步骤。
 - 注入发生在步骤 1–3 中：任何通过 `createModel({type: 'table'})` 产生的 model.table，其 (0,0,0) 在创建返回时已包含三个 func.js 标签。
 - JSON patches（步骤 1–3）可以覆盖三程序的 code 实现（用于升级或定制），但不得删除这三个 key。删除尝试必须被 rejected 并写入 `eventLog(reason='default_program_removal_forbidden')`。
-- Model 0（系统根）作为特殊情况：其 (0,0,0) 承载 pin.bus.* 和 pin.connect.model，不强制植入三程序；跨模型路由由 Model 0 的既有系统函数承担。
+- Model 0（系统根）作为特殊情况：其 (0,0,0) 承载 pin.bus.* 系统边界 adapter，不强制植入三程序；0356 目标中跨模型路由必须经 `model.submt` hosting Cell + `pin.connect.cell`，不得再经 `pin.connect.model`。
 - 负数系统模型（如 Model -10）保留现有实现路径：是否植入三程序由各系统模型独立裁决，迁移计划见 0323+2。
 
 **(0323) 三程序 code 的 Tier 归属裁决：**
@@ -437,7 +455,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 **跨模型通信路径（两种合法方式）：**
 
 1. 子模型挂载路径：model.submt hosting cell → 引脚接出/接入
-2. Model 0 中转路径：Cell pin.out → (0,0,0) mt_bus_send:in → 模型边界 pin.out → Model 0 pin.connect.model → 目标模型
+2. Model 0 中转路径：Cell pin.out → (0,0,0) mt_bus_send:in → 模型边界 pin.out → 父模型 hosting Cell 引脚 → Model 0 `pin.connect.cell` → 目标模型 hosting/root 边界引脚
 
 **禁止：**
 
@@ -505,7 +523,7 @@ MQTT → mqttIncoming → BUS_IN 短路 / 写 IN 到 model(0,0,0)
 执行规则：
 - 运行时应优先读取 `v.code`，仅为历史模型可回退到 string。
 - 新模型必须使用结构化 value（`{code, modelName}`）。
-- 每个函数自动关联三个引脚：`func:in`、`func:out`、`func:log.out`。
+- 每个函数自动关联三个引脚：`func:in`、`func:out`、`func:logout`。
 - `func.python` 在无 Python worker 时必须写错误标签，不得静默失败。
 
 ---
@@ -569,7 +587,7 @@ TargetRef 结构：
 - 事件值写入 `k=<bus_in_key> t=pin.bus.in`
 - `bus_event_v2.value` 在进入 `pin.bus.in` 前必须已经是临时 ModelTable record array；server/frontend 不得把 `{ target_cell, target_pin, value }` 对象在 ingress 上临时转换为通过态 payload。
 - `write_label.v1` 只属于目标模型内部的跨 cell 写入链路：用户程序调用 `writeLabel` 后，经显式 `write_label_req -> mt_write_req -> mt_write_result` 路由生成和消费；它不是 Model 0 bus ingress 的通用 passing path。
-- `pin.connect.model` 把事件送到目标子模型 root `pin.in`
+- Model 0 内的 `pin.connect.cell` 把事件送到目标模型的 hosting Cell / 子模型 root 边界 `pin.in`
 - 子模型 `(0,0,0)` 的 `mt_bus_receive` 再把 payload 分发到目标 cell / target pin
 
 冻结点：
@@ -586,11 +604,11 @@ TargetRef 结构：
 - unknown key 必须拒绝，返回结构化错误
 - legacy `type = ui_event` envelope 在当前 server ingress 会被显式拒绝，不再是 current truth
 
-说明：`slide_import_*` 与 `mgmt_bus_console_*` 是经过 Model 0 allow-list 登记的专用 ingress key，不是任意动态 key。它们的 `value` 仍必须是临时 ModelTable record array，并由 `pin.connect.model` 进入目标模型。
+说明：`slide_import_*` 与 `mgmt_bus_console_*` 是经过 Model 0 allow-list 登记的专用 ingress key，不是任意动态 key。它们的 `value` 仍必须是临时 ModelTable record array，并由 `model.submt` hosting Cell + `pin.connect.cell` 进入目标模型。
 
 Tier 归属：
 
-- `Model 0 pin.bus.in -> pin.connect.model -> child mt_bus_receive` 属于 Tier 1 runtime 语义
+- `Model 0 pin.bus.in -> pin.connect.cell -> child root pin.in -> child mt_bus_receive` 属于 Tier 1 runtime 语义
 - `server` / `frontend` 只负责：
   - `bus_event_v2` envelope 适配
   - HTTP transport / snapshot
@@ -625,7 +643,8 @@ Compatibility note:
 安装时，宿主会自动补：
 
 - `Model 0` 上的 host ingress `pin.bus.in`
-- `Model 0` 上对应的 `pin.connect.model`
+- `Model 0` 上对应的 `pin.connect.cell`
+- imported model hosting Cell 上的 `model.submt` 与边界 `pin.in` / `pin.out`
 - imported model root 上的 relay `pin.in`
 - imported model root 上对应的 `pin.connect.cell`
 
@@ -633,9 +652,10 @@ Compatibility note:
 
 1. 宿主把正式业务输入写到：
    - `Model 0 (0,0,0) k=imported_host_submit_<model_id> t=pin.bus.in`
-2. `Model 0` 的 `pin.connect.model` 把它路由到 imported model root relay pin
-3. imported model root 的 `pin.connect.cell` 再把它 relay 到声明的 boundary pin
-4. imported app 内部后续链路继续由 app 自己定义
+2. `Model 0` 的 `pin.connect.cell` 把它路由到 imported app hosting Cell 的边界 pin
+3. hosting Cell 经 `model.submt` / imported model root 边界 pin 把它交给 imported model root relay
+4. imported model root 的 `pin.connect.cell` 再把它 relay 到声明的 boundary pin
+5. imported app 内部后续链路继续由 app 自己定义
 
 删除 imported app 时，宿主必须同时清理这条自动生成的 `Model 0` ingress route。
 
@@ -735,7 +755,7 @@ Compatibility note:
   - `pin.in`
   - `pin.connect.label`
   - `pin.connect.cell`
-  - `pin.connect.model`
+- legacy `pin.connect.model`
   - `model.submt`
 - “是否外发”的 authority 落在接线路径事实本身，不落在新的辅助字段。
 

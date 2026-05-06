@@ -2,23 +2,25 @@
 title: "UI 模型 Pin 路由架构"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-05-06
 source: ai
 tags:
   - pin-routing
   - ui-model
   - architecture
-  - 3-layer-connection
+  - pin-connection-v2
 ---
 
 # UI 模型 Pin 路由架构
 
 ## 概述
 
-本文档描述前端应用（APP）与软件工人内部 UI 模型之间的完整消息链路，以及基于 3 层 Pin 路由的目标架构。
+本文档描述前端应用（APP）与软件工人内部 UI 模型之间的完整消息链路，以及基于 0356 PIN 连接合同的目标架构。
+
+> 0356 后不再使用 `pin.connect.model`。跨模型段必须通过 `model.submt` hosting Cell 的边界引脚、子模型 root `(0,0,0)` 的边界引脚，以及所在模型内的 `pin.connect.cell` 表达。
 
 **当前状态**：UI 事件链路通过 `submitEnvelope()` 硬编码路由（server.mjs 300+ 行特判），未使用 Pin 声明式路由。
-**目标状态**：所有 UI 模型间通信通过 pin.connect.model / pin.connect.cell 声明完成，路由拓扑完全 Tier 2 化。
+**目标状态**：所有 UI 模型间通信通过 `pin.connect.cell` 与各模型内部 `pin.connect.label` 声明完成，路由拓扑完全 Tier 2 化。
 
 ## 图一：系统全景
 
@@ -137,14 +139,14 @@ graph TB
 
 | Step | 路径 | Pin 类型 | 连接层 |
 |------|------|---------|--------|
-| step1 | Model 0 bus\_in → M-1 (0,0,0) | pin.connect.model | Layer 2 |
+| step1 | Model 0 bus\_in → M-1 hosting Cell → M-1 (0,0,0) | pin.connect.cell + model.submt boundary | Layer 2 |
 | — | M-1 (0,0,0) → M-1 (0,0,1) mailbox | pin.connect.cell | Layer 3 |
 | — | M-1 (0,0,1) event 处理 → M-1 (0,0,0) | pin.connect.cell | Layer 3 |
-| step2 | M-1 (0,0,0) → M-10 (0,0,0) dispatch | pin.connect.model | Layer 2 |
+| step2 | M-1 root → M-10 hosting Cell → M-10 (0,0,0) dispatch | pin.connect.cell + model.submt boundary | Layer 2 |
 | — | M-10 (0,0,0) → M-10 (1,0,0) handler | pin.connect.cell | Layer 3 |
-| — | M-10 (1,0,0) func.js 执行 → M-10 (0,0,0) | pin.connect.cell | Layer 3 |
-| step3 | M-10 (0,0,0) result → M-1 (0,0,0) | pin.connect.model | Layer 2 |
-| step4 | M-1 (0,0,0) → Model 0 bus\_out | pin.connect.model | Layer 2 |
+| — | M-10 (1,0,0) func.js 执行 → M-10 (0,0,0) | pin.connect.label + pin.connect.cell | Layer 3 |
+| step3 | M-10 root result → M-1 hosting/root boundary | pin.connect.cell + model.submt boundary | Layer 2 |
+| step4 | M-1 root → Model 0 bus\_out | pin.connect.cell + model.submt boundary | Layer 2 |
 
 ---
 
@@ -158,7 +160,7 @@ UI 事件链路绕过 Pin 系统，通过 `submitEnvelope()` 硬编码路由：
 HTTP POST /ui_event
   → addLabel(M-1, 0,0,1, ui_event)        // 直接写 label，无 pin.bus.in
   → processEventsSnapshot() 特判检测       // 硬编码 model_id === -1 检查
-  → event_trigger_map 查找                 // 直接读 M-10 label，无 pin.connect.model
+  → event_trigger_map 查找                 // 直接读 M-10 label，无跨模型 pin 链
   → intent_dispatch_table 查找             // 同上
   → handler 执行                           // 直接调用，无 pin.connect.cell
   → HTTP response                          // 直接返回，无 pin.bus.out
@@ -169,13 +171,13 @@ HTTP POST /ui_event
 | 模型 | Cell | 需新增的 Pin 声明 |
 |------|------|-------------------|
 | Model 0 | (0,0,0) | pin.bus.in, pin.bus.out（已有定义，未用于 UI 链路） |
-| Model -1 | (0,0,0) | pin.model.in: ui\_msg\_in, pin.model.out: dispatch\_out, bus\_reply |
+| Model -1 | (0,0,0) | pin.in: ui\_msg\_in, pin.out: dispatch\_out, bus\_reply |
 | Model -1 | (0,0,1) | pin.in: event\_in, pin.out: event\_out |
 | Model -1 | (0,0,0) | pin.connect.cell: (0,0,0)→(0,0,1), (0,0,1)→(0,0,0) |
-| Model -10 | (0,0,0) | pin.model.in: dispatch\_in, pin.model.out: result\_out |
+| Model -10 | (0,0,0) | pin.in: dispatch\_in, pin.out: result\_out |
 | Model -10 | (1,0,0) | pin.in: handler\_in, pin.out: handler\_out |
 | Model -10 | (0,0,0) | pin.connect.cell: (0,0,0)→(1,0,0), (1,0,0)→(0,0,0) |
-| 跨模型 | — | pin.connect.model: M0→M-1, M-1→M-10, M-10→M-1, M-1→M0 |
+| 跨模型 | — | `model.submt` hosting Cell 边界引脚 + 所在模型内 `pin.connect.cell` |
 
 ### 迁移影响
 

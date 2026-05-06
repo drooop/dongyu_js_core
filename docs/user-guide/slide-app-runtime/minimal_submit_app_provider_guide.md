@@ -116,7 +116,7 @@ return;
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "last_submit_payload", "t": "json", "v": null },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "host_ingress_v1", "t": "json", "v": { "version": "v1", "boundaries": [{ "semantic": "submit", "pin_name": "submit_request", "value_t": "modeltable", "locator_kind": "root_relative_cell", "locator_value": { "p": 0, "r": 0, "c": 0 }, "primary": true }] } },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit_request", "t": "pin.in", "v": null },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit_request_wiring", "t": "pin.connect.label", "v": [{ "from": "(self, submit_request)", "to": ["(func, handle_submit:in)"] }] },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit_request_wiring", "t": "pin.connect.label", "v": [{ "from": "submit_request", "to": ["handle_submit:in"] }] },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "handle_submit", "t": "func.js", "v": { "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = (key, fallback = '') => {\n  const record = records.find((item) => (\n    item\n    && item.id === 0\n    && item.p === 0\n    && item.r === 0\n    && item.c === 0\n    && item.k === key\n  ));\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\n\nconst text = String(readPayload('text', '')).trim();\nconst displayText = text ? `Submitted: ${text}` : 'Submitted: (empty)';\nV1N.addLabel('display_text', 'str', displayText);\nV1N.addLabel('last_submit_payload', 'json', records);\nreturn;" } },
 
   { "id": 0, "p": 2, "r": 0, "c": 0, "k": "ui_node_id", "t": "str", "v": "minimal_root" },

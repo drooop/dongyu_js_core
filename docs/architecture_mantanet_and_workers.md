@@ -2,7 +2,7 @@
 title: "云海流核心概念与架构边界（SSOT）"
 doc_type: note
 status: active
-updated: 2026-04-21
+updated: 2026-05-06
 source: ai
 ---
 
@@ -13,6 +13,8 @@ source: ai
 > 适用范围：所有方案设计、文档、测试脚本、以及代码实现讨论，均必须以本文档定义的术语与边界为准。
 >
 > 说明：本文档**不以源码路径为中心**（那属于实现导览文档），而以“概念宪法”为中心；实现细节可在独立的 `v1n_concept_and_implement.md` 中维护。
+
+> 0356 PIN 连接目标合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。本文中与引脚连接相关的描述必须以该合同为准；`pin.connect.model`、`pin.log.*` 与 `(self, ...)` / `(func, ...)` 端点写法不再作为新规约输入面。
 
 ---
 
@@ -144,7 +146,7 @@ source: ai
 
 **子模型映射位（model.submt）**
 - 某个 Cell 的 `model_type` 若声明为 `model.submt`，则该 Cell 是 child model 的挂载/映射位。
-- 该 Cell 只允许 `pin.*` 与 `pin.log.*` 共存。
+- 该 Cell 只允许 `pin.in` / `pin.out` / `pin.login` / `pin.logout` 等普通引脚标签共存。
 - 删除 `model.submt` 只解除挂载，不自动删除 child model 数据。
 - child model 挂载采用 single-parent 语义。
 
@@ -224,33 +226,34 @@ source: ai
 > 详细运行时语义见 `docs/ssot/runtime_semantics_modeltable_driven.md`。
 > 完整标签类型注册表见 `docs/ssot/label_type_registry.md`。
 
-### 6.1 三层 PIN 架构
+### 6.1 PIN 架构
 
 PIN 端口按**类型**区分层级（不是按位置硬编码）：
 
 | 层级 | 数据通道 | 日志通道 | 作用域 |
 |---|---|---|---|
-| Cell 级 | pin.in / pin.out | pin.log.in / pin.log.out | 任意 Cell |
-| Model 根边界 | pin.in / pin.out | pin.log.in / pin.log.out | 非系统模型 `(0,0,0)` |
-| 系统边界 | pin.bus.in / pin.bus.out | pin.log.bus.in / pin.log.bus.out | 仅 Model 0 (0,0,0) |
+| Cell 级 | pin.in / pin.out | pin.login / pin.logout | 任意 Cell |
+| Model 根边界 | pin.in / pin.out | pin.login / pin.logout | 非系统模型 `(0,0,0)` |
+| 系统边界 adapter | pin.bus.in / pin.bus.out | 日志边界后续单独裁决；普通模型不使用 pin.log.bus.* | 仅 Model 0 (0,0,0) |
 
-### 6.2 三层连接声明
+### 6.2 连接声明
 
 | 连接类型 | 作用域 | 端点格式 | 位置约束 |
 |---|---|---|---|
 | pin.connect.label | Cell 内接线 | pin 名称字符串 | 任意 Cell |
 | pin.connect.cell | Model 内跨 Cell 路由 | [p, r, c, pinName] | 仅 (0,0,0) |
-| pin.connect.model | 跨 Model 路由 | [modelId, pinName] | 仅 Model 0 (0,0,0) |
+
+0356 后不再有 `pin.connect.model`。跨模型连接通过 `model.submt` hosting Cell 的边界引脚、子模型 root `(0,0,0)` 的边界引脚，以及父模型内 `pin.connect.cell` 表达。
 
 ### 6.3 通道隔离与函数引脚
 
 - 数据通道与日志通道类型隔离，不可混连。
-- pin.in 只连 pin.out；pin.log.in 只连 pin.log.out。
+- pin.in 只连 pin.out；pin.login 只连 pin.logout。
 - pin.model.* 不处理 model_id=0；model_id=0 的外部出入口由 pin.bus.* 专属。
 - 每个函数标签（func.js / func.python）自动关联三个引脚：
   - `{funcName}:in`
   - `{funcName}:out`
-  - `{funcName}:log.out`
+  - `{funcName}:logout`
 
 ### 6.4 权限模型与 PIN 路由（0323）
 

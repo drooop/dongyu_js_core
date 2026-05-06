@@ -137,9 +137,11 @@ source: ai
 ### 5.2 引脚共存规则
 
 - `model.submt` Cell 只允许以下标签共存：
-  - `pin.*`
-  - `pin.log.*`
-- 本规约中“引脚标签”默认同时包含 `pin.*` 与 `pin.log.*`。
+  - `pin.in`
+  - `pin.out`
+  - `pin.login`
+  - `pin.logout`
+- 本规约中“引脚标签”按 0356 目标合同理解；早期 `pin.log.*` 名称属于迁移债务。
 
 ### 5.3 子模型引脚转发
 
