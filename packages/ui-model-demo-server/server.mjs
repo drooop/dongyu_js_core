@@ -6105,7 +6105,30 @@ function createServerState(options) {
     if (isUiEventV2) {
       const busInKey = String(envelopeOrNull.bus_in_key || '').trim();
       const allowedBusInKeys = new Set(['ui_submit', 'ui_click', 'ui_input', 'ui_edit', 'slide_import_media_uri_update', 'slide_import_click', 'mgmt_bus_console_send', 'mgmt_bus_console_refresh']);
-      if (!allowedBusInKeys.has(busInKey)) {
+      const isDeclaredModel0BusInRoute = (() => {
+        if (!busInKey) return false;
+        const model0 = runtime.getModel(0);
+        if (!model0) return false;
+        const rootCell = runtime.getCell(model0, 0, 0, 0);
+        for (const label of rootCell.labels.values()) {
+          if (label.t !== 'pin.connect.cell' || !Array.isArray(label.v)) continue;
+          for (const route of label.v) {
+            const from = route && route.from;
+            if (
+              Array.isArray(from)
+              && from.length === 4
+              && from[0] === 0
+              && from[1] === 0
+              && from[2] === 0
+              && from[3] === busInKey
+            ) {
+              return true;
+            }
+          }
+        }
+        return false;
+      })();
+      if (!allowedBusInKeys.has(busInKey) && !isDeclaredModel0BusInRoute) {
         return finishError('invalid_bus_in_key', busInKey || 'missing_bus_in_key');
       }
       const v2Value = envelopeOrNull.value;

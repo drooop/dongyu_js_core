@@ -1228,7 +1228,8 @@
       "t": "json",
       "v": {
         "write": {
-          "pin": "click",
+          "bus_event_v2": true,
+          "bus_in_key": "bus_event_submit_100_0_0_0",
           "value_ref": [
             {
               "id": 0,
@@ -1512,10 +1513,10 @@
           ],
           "to": [
             [
-              10,
               0,
               0,
-              "submit_request"
+              0,
+              "model100_submit_out"
             ]
           ]
         }

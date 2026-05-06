@@ -43,7 +43,9 @@ function findNodeById(node, id) {
 
 function assertModel100SubmitWriteContract(write, label) {
   assert.ok(write && typeof write === 'object', `${label}: submit write binding must exist`);
-  assert.equal(write.pin, 'click', `${label}: submit button must write to the click pin`);
+  assert.equal(write.bus_event_v2, true, `${label}: submit button must use bus_event_v2`);
+  assert.equal(write.bus_in_key, 'bus_event_submit_100_0_0_0', `${label}: submit button must enter Model 0 bus-in route`);
+  assert.equal(write.pin, undefined, `${label}: submit button must not directly write a positive-model pin`);
   assert.equal(write.action, undefined, `${label}: submit button must not use legacy action write`);
   assert.ok(Array.isArray(write.value_ref), `${label}: submit payload must be a temporary ModelTable array`);
   assert.ok(
@@ -71,5 +73,12 @@ assert.deepEqual(
   'submit_button must preserve the executable cell address',
 );
 assertModel100SubmitWriteContract(submitButton.bind?.write, 'workspace_positive_models.json');
+
+const serverPath = path.join(repoRoot, 'packages/ui-model-demo-server/server.mjs');
+const serverSource = fs.readFileSync(serverPath, 'utf8');
+assert.ok(
+  serverSource.includes('isDeclaredModel0BusInRoute'),
+  'server must admit dynamic bus_event_v2 keys only when declared by Model 0 pin.connect.cell route sources',
+);
 
 console.log('PASS test_0177_model100_submit_ui_contract');
