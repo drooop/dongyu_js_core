@@ -117,7 +117,7 @@ function test_creator_ui_and_action_route_exist() {
       && record?.c === createButton.c
       && record?.k === 'click_route'
       && Array.isArray(record?.v)
-      && record.v.some((route) => Array.isArray(route?.to) && route.to.includes('(func, handle_slide_create_click:in)'))
+      && record.v.some((route) => Array.isArray(route?.to) && route.to.includes('handle_slide_create_click:in'))
     )),
     'slide_creator_button_missing_click_route',
   );

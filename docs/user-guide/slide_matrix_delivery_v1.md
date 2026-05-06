@@ -195,7 +195,7 @@ zip 内当前只放一个 JSON 文件，建议叫：
 - `func.python`
 - `pin.bus.in`
 - `pin.bus.out`
-- legacy `pin.connect.model`
+- removed `pin.connect.model`
 - 覆盖系统 helper / privilege labels
 - 浏览器侧任意 `eval`
 
@@ -311,7 +311,7 @@ zip 内当前只放一个 JSON 文件，建议叫：
 
 - `legacy_action_protocol_retired`
 
-非 slide legacy action 目前仍有兼容保留，但不属于这份文档范围。
+非 slide 旧 action 不属于这份文档的当前合同；不得作为新实现入口继续使用。
 
 ## 最短验证
 

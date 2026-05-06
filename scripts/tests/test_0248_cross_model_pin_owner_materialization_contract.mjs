@@ -15,6 +15,21 @@ function setRunning(rt) {
 }
 const triggerPayload = [{ id: 0, p: 0, r: 0, c: 0, k: 'trigger', t: 'str', v: 'go' }];
 
+function addModel0HostRoute(rt, sourceModelId, sourcePin, targetModelId, targetPin, routeKey) {
+  const root = rt.getModel(0);
+  const sourceCell = { p: 9, r: 0, c: sourceModelId };
+  const targetCell = { p: 9, r: 0, c: targetModelId };
+  rt.addLabel(root, sourceCell.p, sourceCell.r, sourceCell.c, { k: 'model_type', t: 'model.submt', v: sourceModelId });
+  rt.addLabel(root, sourceCell.p, sourceCell.r, sourceCell.c, { k: sourcePin, t: 'pin.out', v: null });
+  rt.addLabel(root, targetCell.p, targetCell.r, targetCell.c, { k: 'model_type', t: 'model.submt', v: targetModelId });
+  rt.addLabel(root, targetCell.p, targetCell.r, targetCell.c, { k: targetPin, t: 'pin.in', v: null });
+  rt.addLabel(root, 0, 0, 0, {
+    k: routeKey,
+    t: 'pin.connect.cell',
+    v: [{ from: [sourceCell.p, sourceCell.r, sourceCell.c, sourcePin], to: [[targetCell.p, targetCell.r, targetCell.c, targetPin]] }],
+  });
+}
+
 function addFuncCell(rt, modelId, p, r, c, funcName, code, wiringFromSelfKey) {
   rt.applyPatch({
     version: 'mt.v0',
@@ -27,7 +42,7 @@ function addFuncCell(rt, modelId, p, r, c, funcName, code, wiringFromSelfKey) {
         c,
         k: 'wiring',
         t: 'pin.connect.label',
-        v: [{ from: `(self, ${wiringFromSelfKey})`, to: [`(func, ${funcName}:in)`] }],
+        v: [{ from: `${wiringFromSelfKey}`, to: [`${funcName}:in`] }],
       },
       {
         op: 'add_label',
@@ -47,25 +62,12 @@ async function test_table_out_routes_to_target_owner_table_in_and_materializes_a
   const rt = new ModelTableRuntime();
   const source = rt.createModel({ id: 4101, name: 'source_table', type: 'app' });
   const target = rt.createModel({ id: 4102, name: 'target_table', type: 'app' });
-  const system = rt.getModel(0);
 
   rt.setRuntimeMode('edit');
   rt.addLabel(source, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Flow' });
   rt.addLabel(target, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Flow' });
 
-  rt.applyPatch({
-    version: 'mt.v0',
-    records: [{
-      op: 'add_label',
-      model_id: system.id,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'owner_route',
-      t: 'pin.connect.model',
-      v: [{ from: [4101, 'write_req'], to: [[4102, 'apply_req']] }],
-    }],
-  }, { trustedBootstrap: true });
+  addModel0HostRoute(rt, source.id, 'write_req', target.id, 'apply_req', 'owner_route');
 
   addFuncCell(
     rt,
@@ -123,26 +125,13 @@ async function test_single_out_routes_to_target_owner_single_in_and_materializes
   const rt = new ModelTableRuntime();
   const source = rt.createModel({ id: 4201, name: 'source_single', type: 'app' });
   const target = rt.createModel({ id: 4202, name: 'target_single', type: 'app' });
-  const system = rt.getModel(0);
 
   rt.setRuntimeMode('edit');
   rt.addLabel(source, 0, 0, 0, { k: 'model_type', t: 'model.single', v: 'Code.JS' });
   rt.addLabel(target, 0, 0, 0, { k: 'model_type', t: 'model.single', v: 'Code.JS' });
   rt.addLabel(target, 0, 0, 0, { k: 'victim', t: 'str', v: 'remove-me' });
 
-  rt.applyPatch({
-    version: 'mt.v0',
-    records: [{
-      op: 'add_label',
-      model_id: system.id,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'owner_route_single',
-      t: 'pin.connect.model',
-      v: [{ from: [4201, 'remove_req'], to: [[4202, 'apply_remove']] }],
-    }],
-  }, { trustedBootstrap: true });
+  addModel0HostRoute(rt, source.id, 'remove_req', target.id, 'apply_remove', 'owner_route_single');
 
   addFuncCell(
     rt,

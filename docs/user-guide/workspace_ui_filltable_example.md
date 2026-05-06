@@ -134,14 +134,14 @@ source: ai
 - `Confirm` 仍然先进入 `Model 1010`
 - 但不会再走双总线
 - 而是改由 `dispatch_local` 在当前模型内计算颜色字符串
-- 然后通过 helper cell `(0,1,0)` 的 `owner_apply -> owner_materialize` 更新：
+- 然后通过当前模型 root `(0,0,0)` 的 `mt_write_req -> mt_write` 正式写入入口更新：
   - `generated_color_text`
   - `result_status`
   - `submit_inflight`
 
 因此这条本地链仍然遵守当前规约：
 - 用户程序本身不直接拿全局 patch 权限
-- 真正落表还是通过本模型 owner/helper 执行
+- 真正落表通过本模型 root `mt_write` 执行
 
 ## 6. 只改标签就能影响界面
 

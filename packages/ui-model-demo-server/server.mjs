@@ -380,7 +380,7 @@ const DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE = [
   '- If a field is ambiguous or no schema key matches confidently, omit that field from candidate_changes and ask one concise clarification question in proposal.confirmation_question',
   '- If the request needs structural changes or child-model creation that policy forbids, keep candidate_changes: [] and explain the block briefly in proposal.summary/confirmation_question',
   '- obey policy.allowed_label_types and policy.allow_structural_types',
-  '- Structural t (func.js/func.python/pin.connect.label/pin.connect.cell/pin.connect.model/pin.bus.in/pin.bus.out/pin.table.in/pin.table.out/pin.single.in/pin.single.out/model.single/model.matrix/model.table/submt) are forbidden unless policy.allow_structural_types=true',
+  '- Structural t (func.js/func.python/pin.connect.label/pin.connect.cell/pin.bus.in/pin.bus.out/pin.table.in/pin.table.out/pin.single.in/pin.single.out/model.single/model.matrix/model.table/submt) are forbidden unless policy.allow_structural_types=true',
   '- pin.table.in / pin.table.out are for table-or-matrix models, and pin.single.in / pin.single.out are for model.single',
   '- For func.js/func.python, v must be object and include non-empty string field code',
   '- For pin.connect.*, v must be an array',
@@ -1319,7 +1319,7 @@ const SLIDE_IMPORT_DUAL_BUS_LABEL = 'dual_bus_model';
 const SLIDE_IMPORT_HOST_EGRESS_SUPPORTED_SEMANTIC = 'submit';
 const SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES = new Set([
   'func.python',
-  'pin.connect.model',
+  '',
   'pin.bus.in',
   'pin.bus.out',
 ]);
@@ -1617,11 +1617,36 @@ function buildImportedHostEgressKeys(rootModelId, semantic) {
   };
 }
 
-function materializeImportedHostIngressAdapter(runtime, rootModelId, hostIngress) {
+function findModel0SubmodelMount(runtime, childModelId) {
+  const model0 = runtime.getModel(0);
+  if (!model0) return null;
+  for (const cell of model0.cells.values()) {
+    for (const label of cell.labels.values()) {
+      if (label && label.t === 'model.submt' && label.v === childModelId) {
+        return { p: cell.p, r: cell.r, c: cell.c };
+      }
+    }
+  }
+  return null;
+}
+
+function ensureModel0SubmodelMount(runtime, childModelId, preferredCell = null) {
+  const existing = findModel0SubmodelMount(runtime, childModelId);
+  if (existing) return existing;
+  const model0 = runtime.getModel(0);
+  if (!model0) return null;
+  const mountCell = preferredCell && Number.isInteger(preferredCell.p) && Number.isInteger(preferredCell.r) && Number.isInteger(preferredCell.c)
+    ? preferredCell
+    : { p: 9, r: 0, c: Math.abs(childModelId) };
+  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'model_type', t: 'model.submt', v: childModelId });
+  return mountCell;
+}
+
+function materializeImportedHostIngressAdapter(runtime, rootModelId, mountCell, hostIngress) {
   if (!hostIngress) return null;
   const rootModel = runtime.getModel(rootModelId);
   const model0 = runtime.getModel(0);
-  if (!rootModel || !model0) return null;
+  if (!rootModel || !model0 || !mountCell) return null;
   const keys = buildImportedHostIngressKeys(rootModelId, hostIngress.semantic);
   runtime.addLabel(rootModel, 0, 0, 0, { k: keys.relayPin, t: 'pin.in', v: null });
   runtime.addLabel(rootModel, 0, 0, 0, {
@@ -1632,13 +1657,19 @@ function materializeImportedHostIngressAdapter(runtime, rootModelId, hostIngress
       to: [[hostIngress.locator.p, hostIngress.locator.r, hostIngress.locator.c, hostIngress.pinName]],
     }],
   });
+  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: keys.relayPin, t: 'pin.in', v: null });
   runtime.addLabel(model0, 0, 0, 0, { k: keys.ingressKey, t: 'pin.bus.in', v: null });
   runtime.addLabel(model0, 0, 0, 0, {
     k: keys.routeKey,
-    t: 'pin.connect.model',
-    v: [{ from: [0, keys.ingressKey], to: [[rootModelId, keys.relayPin]] }],
+    t: 'pin.connect.cell',
+    v: [{ from: [0, 0, 0, keys.ingressKey], to: [[mountCell.p, mountCell.r, mountCell.c, keys.relayPin]] }],
   });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'host_ingress_generated_model0_labels', t: 'json', v: [keys.ingressKey, keys.routeKey] });
+  runtime.addLabel(rootModel, 0, 0, 0, {
+    k: 'host_ingress_generated_mount',
+    t: 'json',
+    v: { p: mountCell.p, r: mountCell.r, c: mountCell.c, keys: [keys.relayPin] },
+  });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'host_ingress_generated_root_labels', t: 'json', v: [keys.relayPin, keys.relayRouteKey] });
   return keys;
 }
@@ -1660,15 +1691,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
     return null;
   }
   const keys = buildImportedHostEgressKeys(rootModelId, hostEgress.semantic);
-  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: keys.mountRelayPin, t: 'pin.in', v: null });
-  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, {
-    k: keys.mountBridgeKey,
-    t: 'pin.connect.label',
-    v: [{
-      from: `(${rootModelId}, ${hostEgress.pinName})`,
-      to: [`(self, ${keys.mountRelayPin})`],
-    }],
-  });
+  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: hostEgress.pinName, t: 'pin.out', v: null });
   runtime.addLabel(model0, 0, 0, 0, { k: keys.busOutKey, t: 'pin.bus.out', v: null });
   runtime.addLabel(model0, 0, 0, 0, { k: keys.model0BridgeIn, t: 'pin.in', v: null });
   runtime.addLabel(model0, 0, 0, 0, {
@@ -1695,15 +1718,15 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
     k: keys.model0BridgeWiringKey,
     t: 'pin.connect.label',
     v: [{
-      from: `(self, ${keys.model0BridgeIn})`,
-      to: [`(func, ${keys.bridgeFunc}:in)`],
+      from: keys.model0BridgeIn,
+      to: [`${keys.bridgeFunc}:in`],
     }],
   });
   runtime.addLabel(model0, 0, 0, 0, {
     k: keys.model0BridgeRouteKey,
     t: 'pin.connect.cell',
     v: [{
-      from: [mountCell.p, mountCell.r, mountCell.c, keys.mountRelayPin],
+      from: [mountCell.p, mountCell.r, mountCell.c, hostEgress.pinName],
       to: [[0, 0, 0, keys.model0BridgeIn]],
     }],
   });
@@ -1719,7 +1742,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
       p: mountCell.p,
       r: mountCell.r,
       c: mountCell.c,
-      keys: [keys.mountRelayPin, keys.mountBridgeKey],
+      keys: [hostEgress.pinName],
     },
   });
   return keys;
@@ -1768,7 +1791,7 @@ function materializeSlideImportPayload(runtime, payload, validation) {
   const mountCell = resolveNextWorkspaceMountCell(runtime);
   const model0 = runtime.getModel(0);
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'model_type', t: 'model.submt', v: rootModelId });
-  const hostIngressKeys = materializeImportedHostIngressAdapter(runtime, rootModelId, validation.hostIngress);
+  const hostIngressKeys = materializeImportedHostIngressAdapter(runtime, rootModelId, mountCell, validation.hostIngress);
   const hostEgressKeys = materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, validation.hostEgress);
 
   return {
@@ -1831,6 +1854,9 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
   const generatedModel0Labels = Array.isArray(rootCell.labels.get('host_ingress_generated_model0_labels')?.v)
     ? rootCell.labels.get('host_ingress_generated_model0_labels').v.filter((item) => typeof item === 'string' && item)
     : [];
+  const generatedIngressMount = isPlainObject(rootCell.labels.get('host_ingress_generated_mount')?.v)
+    ? rootCell.labels.get('host_ingress_generated_mount').v
+    : null;
   const generatedEgressModel0Labels = Array.isArray(rootCell.labels.get('host_egress_generated_model0_labels')?.v)
     ? rootCell.labels.get('host_egress_generated_model0_labels').v.filter((item) => typeof item === 'string' && item)
     : [];
@@ -1851,6 +1877,15 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
     if (model0) {
       for (const key of generatedModel0Labels) {
         runtime.rmLabel(model0, 0, 0, 0, key);
+      }
+    }
+  }
+  if (generatedIngressMount && Number.isInteger(generatedIngressMount.p) && Number.isInteger(generatedIngressMount.r) && Number.isInteger(generatedIngressMount.c)) {
+    const model0 = runtime.getModel(0);
+    const mountKeys = Array.isArray(generatedIngressMount.keys) ? generatedIngressMount.keys.filter((item) => typeof item === 'string' && item) : [];
+    if (model0) {
+      for (const key of mountKeys) {
+        runtime.rmLabel(model0, generatedIngressMount.p, generatedIngressMount.r, generatedIngressMount.c, key);
       }
     }
   }
@@ -2306,7 +2341,7 @@ function ensureHomeOwnerMaterializer(runtime, modelId) {
     runtime.addLabel(model, 0, 0, 0, {
       k: HOME_OWNER_ROUTE_LABEL,
       t: 'pin.connect.label',
-      v: [{ from: `(self, ${HOME_OWNER_REQUEST_PIN})`, to: [`(func, ${HOME_OWNER_FUNC}:in)`] }],
+      v: [{ from: HOME_OWNER_REQUEST_PIN, to: [`${HOME_OWNER_FUNC}:in`] }],
     });
   }
   if (ownerMaterializerNeedsRefresh(cell, HOME_OWNER_FUNC)) {
@@ -2333,7 +2368,7 @@ function ensureGenericOwnerMaterializer(runtime, modelId) {
     runtime.addLabel(model, 0, 0, 0, {
       k: GENERIC_OWNER_ROUTE_LABEL,
       t: 'pin.connect.label',
-      v: [{ from: `(self, ${GENERIC_OWNER_REQUEST_PIN})`, to: [`(func, ${GENERIC_OWNER_FUNC}:in)`] }],
+      v: [{ from: GENERIC_OWNER_REQUEST_PIN, to: [`${GENERIC_OWNER_FUNC}:in`] }],
     });
   }
   if (ownerMaterializerNeedsRefresh(cell, GENERIC_OWNER_FUNC)) {
@@ -2354,15 +2389,20 @@ function ensureHomeOwnerRoute(runtime, targetModelId) {
   const model0 = runtime.getModel(0);
   if (!model0) return false;
   const sourcePin = buildHomeSourceOutPin(targetModelId);
-  const routeKey = `${-10}|${sourcePin}`;
-  const existing = runtime.modelConnectionRoutes.get(routeKey) || [];
-  if (existing.some((target) => target && target.model_id === targetModelId && target.k === HOME_OWNER_REQUEST_PIN)) {
+  const systemMount = ensureModel0SubmodelMount(runtime, -10);
+  const targetMount = ensureModel0SubmodelMount(runtime, targetModelId);
+  if (!systemMount || !targetMount) return false;
+  runtime.addLabel(model0, systemMount.p, systemMount.r, systemMount.c, { k: sourcePin, t: 'pin.out', v: null });
+  runtime.addLabel(model0, targetMount.p, targetMount.r, targetMount.c, { k: HOME_OWNER_REQUEST_PIN, t: 'pin.in', v: null });
+  const routeKey = `0|${systemMount.p}|${systemMount.r}|${systemMount.c}|${sourcePin}`;
+  const existing = runtime.cellConnectionRoutes.get(routeKey) || [];
+  if (existing.some((target) => target && target.model_id === 0 && target.p === targetMount.p && target.r === targetMount.r && target.c === targetMount.c && target.k === HOME_OWNER_REQUEST_PIN)) {
     return true;
   }
   runtime.addLabel(model0, 0, 0, 0, {
     k: `${HOME_OWNER_ROUTE_LABEL}_${sourcePin}`,
-    t: 'pin.connect.model',
-    v: [{ from: [-10, sourcePin], to: [[targetModelId, HOME_OWNER_REQUEST_PIN]] }],
+    t: 'pin.connect.cell',
+    v: [{ from: [systemMount.p, systemMount.r, systemMount.c, sourcePin], to: [[targetMount.p, targetMount.r, targetMount.c, HOME_OWNER_REQUEST_PIN]] }],
   });
   return true;
 }
@@ -2375,15 +2415,20 @@ function ensureGenericOwnerRoute(runtime, targetModelId) {
   const model0 = runtime.getModel(0);
   if (!model0) return false;
   const sourcePin = buildGenericSourceOutPin(targetModelId);
-  const routeKey = `${-10}|${sourcePin}`;
-  const existing = runtime.modelConnectionRoutes.get(routeKey) || [];
-  if (existing.some((target) => target && target.model_id === targetModelId && target.k === GENERIC_OWNER_REQUEST_PIN)) {
+  const systemMount = ensureModel0SubmodelMount(runtime, -10);
+  const targetMount = ensureModel0SubmodelMount(runtime, targetModelId);
+  if (!systemMount || !targetMount) return false;
+  runtime.addLabel(model0, systemMount.p, systemMount.r, systemMount.c, { k: sourcePin, t: 'pin.out', v: null });
+  runtime.addLabel(model0, targetMount.p, targetMount.r, targetMount.c, { k: GENERIC_OWNER_REQUEST_PIN, t: 'pin.in', v: null });
+  const routeKey = `0|${systemMount.p}|${systemMount.r}|${systemMount.c}|${sourcePin}`;
+  const existing = runtime.cellConnectionRoutes.get(routeKey) || [];
+  if (existing.some((target) => target && target.model_id === 0 && target.p === targetMount.p && target.r === targetMount.r && target.c === targetMount.c && target.k === GENERIC_OWNER_REQUEST_PIN)) {
     return true;
   }
   runtime.addLabel(model0, 0, 0, 0, {
     k: `${GENERIC_OWNER_ROUTE_LABEL}_${sourcePin}`,
-    t: 'pin.connect.model',
-    v: [{ from: [-10, sourcePin], to: [[targetModelId, GENERIC_OWNER_REQUEST_PIN]] }],
+    t: 'pin.connect.cell',
+    v: [{ from: [systemMount.p, systemMount.r, systemMount.c, sourcePin], to: [[targetMount.p, targetMount.r, targetMount.c, GENERIC_OWNER_REQUEST_PIN]] }],
   });
   return true;
 }
@@ -2766,19 +2811,26 @@ const SLIDE_IMPORTER_BUCKET_C_ROUTES = Object.freeze([
 ]);
 
 const SLIDE_IMPORTER_CLICK_ROUTE = Object.freeze([
-  { from: '(self, click)', to: ['(func, handle_slide_import_click:in)'] },
+  { from: 'click', to: ['handle_slide_import_click:in'] },
 ]);
 
+const SLIDE_IMPORTER_ROOT_MOUNT = Object.freeze({ p: 2, r: 0, c: 13 });
+const SLIDE_IMPORTER_SYSTEM_MOUNT = Object.freeze({ p: 1, r: 0, c: 3 });
+
 const SLIDE_IMPORTER_CLICK_INGRESS_ROUTE = Object.freeze([
-  { from: [0, 'slide_import_click'], to: [[1030, 'mt_bus_receive_in']] },
+  { from: [0, 0, 0, 'slide_import_click'], to: [[SLIDE_IMPORTER_ROOT_MOUNT.p, SLIDE_IMPORTER_ROOT_MOUNT.r, SLIDE_IMPORTER_ROOT_MOUNT.c, 'mt_bus_receive_in']] },
 ]);
 
 const SLIDE_IMPORTER_MEDIA_URI_UPDATE_ROUTE = Object.freeze([
-  { from: [0, 'slide_import_media_uri_update'], to: [[1031, 'mt_bus_receive_in']] },
+  { from: [0, 0, 0, 'slide_import_media_uri_update'], to: [[SLIDE_IMPORTER_ROOT_MOUNT.p, SLIDE_IMPORTER_ROOT_MOUNT.r, SLIDE_IMPORTER_ROOT_MOUNT.c, 'slide_import_media_uri_update']] },
+]);
+
+const SLIDE_IMPORTER_MEDIA_URI_CHILD_ROUTE = Object.freeze([
+  { from: [0, 0, 0, 'slide_import_media_uri_update'], to: [[0, 2, 0, 'mt_bus_receive_in']] },
 ]);
 
 const SLIDE_IMPORTER_REQUEST_ROUTE = Object.freeze([
-  { from: [1030, 'slide_import_request'], to: [[-10, 'slide_app_import_request']] },
+  { from: [SLIDE_IMPORTER_ROOT_MOUNT.p, SLIDE_IMPORTER_ROOT_MOUNT.r, SLIDE_IMPORTER_ROOT_MOUNT.c, 'slide_import_request'], to: [[SLIDE_IMPORTER_SYSTEM_MOUNT.p, SLIDE_IMPORTER_SYSTEM_MOUNT.r, SLIDE_IMPORTER_SYSTEM_MOUNT.c, 'slide_app_import_request']] },
 ]);
 
 const SLIDE_IMPORTER_CLICK_HANDLER_CODE = "/* rubric: P1 */ const payload = label && label.v;\nconst fail = (code, detail) => V1N.addLabel('slide_import_click_error', 'json', { code, detail, ts: Date.now() });\nif (!Array.isArray(payload)) {\n  fail('invalid_payload', 'temporary_modeltable_required');\n  return;\n}\nconst readPayload = (key, fallback = null) => {\n  const record = payload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key);\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\nif (readPayload('__mt_payload_kind', '') !== 'ui_event.v1') {\n  fail('invalid_payload_kind', 'ui_event.v1_required');\n  return;\n}\nconst target = readPayload('target', null);\nif (!target || target.model_id !== 1031 || target.p !== 0 || target.r !== 0 || target.c !== 0) {\n  fail('invalid_target', 'slide_importer_truth_cell_required');\n  return;\n}\nconst requestPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'slide_app_import_request.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'target', t: 'json', v: target }\n];\nV1N.writeLabel(0, 0, 0, { k: 'slide_import_request', t: 'pin.out', v: requestPayload });";
@@ -2833,10 +2885,58 @@ function ensureRuntimeModelTablePinInOrNull(runtime, modelId, p, r, c, key) {
 
 function repairSlideImporterClickContract(runtime) {
   let changed = false;
+  const model0 = runtime.getModel(0);
+  if (model0) {
+    changed = ensureRuntimeLabel(runtime, 0, SLIDE_IMPORTER_ROOT_MOUNT.p, SLIDE_IMPORTER_ROOT_MOUNT.r, SLIDE_IMPORTER_ROOT_MOUNT.c, {
+      k: 'model_type',
+      t: 'model.submt',
+      v: 1030,
+    }) || changed;
+    changed = ensureRuntimeLabel(runtime, 0, SLIDE_IMPORTER_ROOT_MOUNT.p, SLIDE_IMPORTER_ROOT_MOUNT.r, SLIDE_IMPORTER_ROOT_MOUNT.c, {
+      k: 'mt_bus_receive_in',
+      t: 'pin.in',
+      v: null,
+    }) || changed;
+    changed = ensureRuntimeLabel(runtime, 0, SLIDE_IMPORTER_ROOT_MOUNT.p, SLIDE_IMPORTER_ROOT_MOUNT.r, SLIDE_IMPORTER_ROOT_MOUNT.c, {
+      k: 'slide_import_media_uri_update',
+      t: 'pin.in',
+      v: null,
+    }) || changed;
+    changed = ensureRuntimeLabel(runtime, 0, SLIDE_IMPORTER_ROOT_MOUNT.p, SLIDE_IMPORTER_ROOT_MOUNT.r, SLIDE_IMPORTER_ROOT_MOUNT.c, {
+      k: 'slide_import_request',
+      t: 'pin.out',
+      v: null,
+    }) || changed;
+    changed = ensureRuntimeLabel(runtime, 0, SLIDE_IMPORTER_SYSTEM_MOUNT.p, SLIDE_IMPORTER_SYSTEM_MOUNT.r, SLIDE_IMPORTER_SYSTEM_MOUNT.c, {
+      k: 'model_type',
+      t: 'model.submt',
+      v: -10,
+    }) || changed;
+    changed = ensureRuntimeLabel(runtime, 0, SLIDE_IMPORTER_SYSTEM_MOUNT.p, SLIDE_IMPORTER_SYSTEM_MOUNT.r, SLIDE_IMPORTER_SYSTEM_MOUNT.c, {
+      k: 'slide_app_import_request',
+      t: 'pin.in',
+      v: null,
+    }) || changed;
+  }
   changed = ensureRuntimeLabel(runtime, 1030, 0, 0, 0, {
     k: 'bucket_c_cell_routes',
     t: 'pin.connect.cell',
     v: SLIDE_IMPORTER_BUCKET_C_ROUTES,
+  }) || changed;
+  changed = ensureRuntimeLabel(runtime, 1030, 0, 0, 0, {
+    k: 'slide_import_media_uri_update',
+    t: 'pin.in',
+    v: null,
+  }) || changed;
+  changed = ensureRuntimeLabel(runtime, 1030, 0, 2, 0, {
+    k: 'mt_bus_receive_in',
+    t: 'pin.in',
+    v: null,
+  }) || changed;
+  changed = ensureRuntimeLabel(runtime, 1030, 0, 0, 0, {
+    k: 'slide_import_media_uri_update_route',
+    t: 'pin.connect.cell',
+    v: SLIDE_IMPORTER_MEDIA_URI_CHILD_ROUTE,
   }) || changed;
   changed = ensureRuntimeLabel(runtime, 1030, 0, 0, 0, {
     k: 'slide_import_request',
@@ -2845,17 +2945,17 @@ function repairSlideImporterClickContract(runtime) {
   }, { preserveExistingValue: true }) || changed;
   changed = ensureRuntimeLabel(runtime, 0, 0, 0, 0, {
     k: 'slide_import_click_route',
-    t: 'pin.connect.model',
+    t: 'pin.connect.cell',
     v: SLIDE_IMPORTER_CLICK_INGRESS_ROUTE,
   }) || changed;
   changed = ensureRuntimeLabel(runtime, 0, 0, 0, 0, {
     k: 'slide_import_media_uri_update_route',
-    t: 'pin.connect.model',
+    t: 'pin.connect.cell',
     v: SLIDE_IMPORTER_MEDIA_URI_UPDATE_ROUTE,
   }) || changed;
   changed = ensureRuntimeLabel(runtime, 0, 0, 0, 0, {
     k: 'slide_import_request_route',
-    t: 'pin.connect.model',
+    t: 'pin.connect.cell',
     v: SLIDE_IMPORTER_REQUEST_ROUTE,
   }) || changed;
   changed = ensureRuntimeLabel(runtime, 1030, 2, 3, 0, {
@@ -6718,7 +6818,7 @@ function createServerState(options) {
         }
       }
 
-      // Step 3 dual-track: dispatch table first, legacy action-prefix as fallback.
+      // Step 3: dispatch only through an explicit action-to-function table.
       if (typeof resolvedFunc === 'string' && resolvedFunc.trim().length > 0 &&
           sysModel && sysModel.hasFunction(resolvedFunc)) {
         if (!runtime.isRunLoopActive()) {

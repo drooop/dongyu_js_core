@@ -28,7 +28,7 @@ async function executeFunc(rt, model, code, inputValue = [{ id: 0, p: 0, r: 0, c
         c: 0,
         k: 'wiring',
         t: 'pin.connect.label',
-        v: [{ from: '(self, cmd)', to: ['(func, op:in)'] }],
+        v: [{ from: 'cmd', to: ['op:in'] }],
       },
       { op: 'add_label', model_id: model.id, p: 0, r: 0, c: 0, k: 'op', t: 'func.js', v: { code, modelName: 'test_0266_scoped_patch_runtime_contract' } },
     ],

@@ -142,7 +142,7 @@ async function test_import_generates_model0_host_route_for_valid_boundary_pin() 
       [hostIngressLabel([validBoundary()])],
       [
         { id: 0, p: 2, r: 2, c: 0, k: 'submit_request', t: 'pin.in', v: null },
-        { id: 0, p: 2, r: 2, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: '(self, submit_request)', to: ['(func, handle_submit:in)'] }] },
+        { id: 0, p: 2, r: 2, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: 'submit_request', to: ['handle_submit:in'] }] },
         { id: 0, p: 2, r: 2, c: 0, k: 'handle_submit', t: 'func.js', v: { code: "return [{ p: 0, r: 0, c: 0, k: 'status_text', t: 'str', v: 'host_ingress_ok' }];" } },
       ],
     );

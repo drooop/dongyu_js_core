@@ -258,12 +258,12 @@ function test_model0_and_server_accept_management_console_bus_key() {
     && record?.r === 0
     && record?.c === 0
     && record?.k === 'mgmt_bus_console_send_route'
-    && record?.t === 'pin.connect.model'
+    && record?.t === 'pin.connect.cell'
   ));
   assert.deepEqual(
     route?.v,
-    [{ from: [0, busInKey], to: [[-10, 'mgmt_bus_console_intent']] }],
-    'Model 0 must route the console bus key to the existing management system model',
+    [{ from: [0, 0, 0, busInKey], to: [[1, 0, 3, 'mgmt_bus_console_intent']] }],
+    'Model 0 must route the console bus key through the system host cell',
   );
   assert.ok(
     findRecord(systemRecords, (record) => (

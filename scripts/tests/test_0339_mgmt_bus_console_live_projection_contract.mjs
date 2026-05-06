@@ -282,12 +282,12 @@ function test_model0_server_and_runtime_accept_refresh_payload_only_as_modeltabl
     && record?.r === 0
     && record?.c === 0
     && record?.k === 'mgmt_bus_console_refresh_route'
-    && record?.t === 'pin.connect.model'
+    && record?.t === 'pin.connect.cell'
   ));
   assert.deepEqual(
     route?.v,
-    [{ from: [0, refreshBusInKey], to: [[-10, 'mgmt_bus_console_refresh_intent']] }],
-    'Model 0 must route refresh through the management bus system model',
+    [{ from: [0, 0, 0, refreshBusInKey], to: [[1, 0, 3, 'mgmt_bus_console_refresh_intent']] }],
+    'Model 0 must route refresh through the management bus system host cell',
   );
   assert.ok(
     findRecord(systemRecords, (record) => (

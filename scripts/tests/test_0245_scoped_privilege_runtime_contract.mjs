@@ -40,7 +40,7 @@ async function executeFunc(
     c,
     k: 'wiring',
     t: 'pin.connect.label',
-    v: [{ from: '(self, cmd)', to: ['(func, op:in)'] }],
+    v: [{ from: 'cmd', to: ['op:in'] }],
   });
   records.push({
     op: 'add_label',
@@ -154,12 +154,34 @@ async function test_v1n_read_label_reads_same_model_cells() {
   return { key: 'v1n_read_label_reads_same_model_cells', status: 'PASS' };
 }
 
+async function test_helper_executor_label_does_not_grant_table_api() {
+  const rt = new ModelTableRuntime();
+  const model = rt.createModel({ id: 2006, name: 'helper_executor_removed', type: 'app' });
+  rt.addLabel(model, 1, 0, 0, { k: 'scope_privileged', t: 'bool', v: true });
+  rt.addLabel(model, 1, 0, 0, { k: 'helper_executor', t: 'bool', v: true });
+  const err = await executeFunc(
+    rt,
+    model,
+    1,
+    0,
+    0,
+    "if (typeof V1N.table !== 'undefined') { V1N.table.addLabel(2, 0, 0, 'x', 'str', 'bad'); } V1N.addLabel('self_marker', 'str', 'ok');",
+    'go',
+    { rootType: 'model.table' },
+  );
+  assert.equal(err, undefined, 'retired_helper_executor_must_not_throw');
+  assert.equal(rt.getCell(model, 1, 0, 0).labels.get('self_marker')?.v, 'ok', 'ordinary self write still works');
+  assert.equal(rt.getCell(model, 2, 0, 0).labels.get('x'), undefined, 'helper_executor label must not grant V1N.table');
+  return { key: 'helper_executor_label_does_not_grant_table_api', status: 'PASS' };
+}
+
 const tests = [
   test_non_root_cell_has_only_self_cell_v1n_write,
   test_v1n_write_label_requires_explicit_route,
   test_table_root_can_write_same_model_cell_with_table_api,
   test_table_root_can_remove_same_model_cell_with_table_api,
   test_v1n_read_label_reads_same_model_cells,
+  test_helper_executor_label_does_not_grant_table_api,
 ];
 
 (async () => {

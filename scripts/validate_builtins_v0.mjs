@@ -103,7 +103,7 @@ function runValidation() {
     rt.addLabel(model, 1, 0, 0, {
       k: 'wiring',
       t: 'pin.connect.label',
-      v: [{ from: '(self, cmd)', to: ['(func, demo:in)'] }],
+      v: [{ from: 'cmd', to: ['demo:in'] }],
     });
     const cellKey = '100|1|0|0';
     assert(rt.cellConnectGraph.has(cellKey), 'pin.connect.label: graph should be registered');
@@ -126,18 +126,18 @@ function runValidation() {
     results.push({ key: 'pin.connect.cell', status: 'PASS' });
   }
 
-  // pin.connect.model
+  // removed pin.connect.model
   {
     const rt = createIsolatedRuntime();
     const root = rt.getModel(0);
-    rt.addLabel(root, 0, 0, 0, {
+    const result = rt.addLabel(root, 0, 0, 0, {
       k: 'bus_to_model',
       t: 'pin.connect.model',
       v: [{ from: [0, 'event'], to: [[200, 'input']] }],
     });
-    const routeKey = '0|event';
-    assert(rt.modelConnectionRoutes.has(routeKey), 'pin.connect.model: route should be registered');
-    results.push({ key: 'pin.connect.model', status: 'PASS' });
+    assert(!result.applied, 'pin.connect.model: removed type must be rejected');
+    assert(!root.getCell(0, 0, 0).labels.has('bus_to_model'), 'pin.connect.model: rejected label must not be stored');
+    results.push({ key: 'removed pin.connect.model', status: 'PASS' });
   }
 
   // run_<func> registered

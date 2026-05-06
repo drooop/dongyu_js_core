@@ -22,9 +22,9 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, ws_select_app_request)",
+          "from": "ws_select_app_request",
           "to": [
-            "(func, handle_ws_select_app:in)"
+            "handle_ws_select_app:in"
           ]
         }
       ]
@@ -49,9 +49,9 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, ws_app_add_request)",
+          "from": "ws_app_add_request",
           "to": [
-            "(func, handle_ws_app_add:in)"
+            "handle_ws_app_add:in"
           ]
         }
       ]
@@ -76,9 +76,9 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, ws_app_delete_request)",
+          "from": "ws_app_delete_request",
           "to": [
-            "(func, handle_ws_app_delete:in)"
+            "handle_ws_app_delete:in"
           ]
         }
       ]

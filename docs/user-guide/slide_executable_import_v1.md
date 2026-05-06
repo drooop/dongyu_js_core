@@ -21,8 +21,8 @@ source: ai
 - 不支持 `func.python`
 - 不支持 `pin.bus.in`
 - 不支持 `pin.bus.out`
-- 不支持 legacy `pin.connect.model`
-- 不支持覆盖系统 helper / privilege labels：
+- 不支持 removed `pin.connect.model`
+- 不支持覆盖系统保留/已移除的 helper labels：
   - `scope_privileged`
   - `helper_executor`
   - `owner_apply`

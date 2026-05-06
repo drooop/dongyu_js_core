@@ -43,7 +43,10 @@ async function test_e2e_fixture() {
   assert(graph.has('func:process:out'), 'should have func:process:out endpoint');
 
   // Trigger the flow: simulate input arriving at cell 0,0,0
-  rt._routeViaCellConnection(999, 0, 0, 0, 'input', 'hello_world');
+  const payload = [{ id: 0, p: 0, r: 0, c: 0, k: 'message', t: 'str', v: 'hello_world' }];
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
+  rt._routeViaCellConnection(999, 0, 0, 0, 'input', payload);
 
   // cell_connection should have routed to cell 1,0,0 with label 'cmd', t='pin.in'
   const model = rt.getModel(999);
@@ -51,7 +54,7 @@ async function test_e2e_fixture() {
   const cmdLabel = cell1.labels.get('cmd');
   assert(cmdLabel, 'cell 1,0,0 should have cmd label');
   assert.strictEqual(cmdLabel.t, 'pin.in');
-  assert.strictEqual(cmdLabel.v, 'hello_world');
+  assert.deepStrictEqual(cmdLabel.v, payload);
 
   // The IN label write triggers _applyBuiltins → _propagateCellConnect
   // which is async. Wait a tick for it to complete.
@@ -60,14 +63,14 @@ async function test_e2e_fixture() {
   // Verify function executed: result should be 'hello_world_processed'
   const resultLabel = cell1.labels.get('result');
   assert(resultLabel, 'cell 1,0,0 should have result label');
-  assert.strictEqual(resultLabel.v, 'hello_world_processed');
+  assert.deepStrictEqual(resultLabel.v, [{ id: 0, p: 0, r: 0, c: 0, k: 'message', t: 'str', v: 'hello_world_processed' }]);
 
   // Verify cell_connection routed result back to cell 0,0,0
   const cell0 = rt.getCell(model, 0, 0, 0);
   const outputLabel = cell0.labels.get('output');
   assert(outputLabel, 'cell 0,0,0 should have output label');
   assert.strictEqual(outputLabel.t, 'pin.in');
-  assert.strictEqual(outputLabel.v, 'hello_world_processed');
+  assert.deepStrictEqual(outputLabel.v, [{ id: 0, p: 0, r: 0, c: 0, k: 'message', t: 'str', v: 'hello_world_processed' }]);
 
   return { key: 'e2e_fixture', status: 'PASS' };
 }
@@ -93,7 +96,7 @@ async function test_no_regression_connect_keys() {
   rt.addLabel(model, 1, 0, 0, {
     k: 'pin.connect.label',
     t: 'pin.connect.label',
-    v: [{ from: '(self, a)', to: ['(self, b)'] }],
+    v: [{ from: 'a', to: ['b'] }],
   });
   // label.t='pin.connect.label' should be parsed by _parseCellConnectLabel
   const graph = rt.cellConnectGraph.get('2|1|0|0');

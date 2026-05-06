@@ -8,61 +8,74 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const mt = (k, t, v) => [{ id: 0, p: 0, r: 0, c: 0, k, t, v }];
+
 async function test_func_js_structured_value_executes() {
   const rt = new ModelTableRuntime();
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
   const m = rt.createModel({ id: 300, name: 'm300', type: 'app' });
+  rt.addLabel(m, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: null });
+  rt.addLabel(m, 1, 0, 0, { k: 'result', t: 'pin.out', v: null });
 
   rt.addLabel(m, 1, 0, 0, {
     k: 'wiring',
     t: 'pin.connect.label',
     v: [
-      { from: '(self, cmd)', to: ['(func, echo:in)'] },
-      { from: '(func, echo:out)', to: ['(self, result)'] },
+      { from: 'cmd', to: ['echo:in'] },
+      { from: 'echo:out', to: ['result'] },
     ],
   });
   rt.addLabel(m, 1, 0, 0, {
     k: 'echo',
     t: 'func.js',
-    v: { code: 'return (label && label.v ? label.v : "") + "!";', modelName: 'm300' },
+    v: { code: "const rec = Array.isArray(label.v) ? label.v.find((r) => r && r.k === 'message') : null;\nreturn [{ id: 0, p: 0, r: 0, c: 0, k: 'message', t: 'str', v: String(rec && rec.v || '') + '!' }];", modelName: 'm300' },
   });
 
-  rt.addLabel(m, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: 'ok' });
+  rt.addLabel(m, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: mt('message', 'str', 'ok') });
   await sleep(30);
 
   const result = rt.getCell(m, 1, 0, 0).labels.get('result');
-  assert(result && result.v === 'ok!', 'func.js structured value should execute');
+  assert.deepEqual(result?.v, mt('message', 'str', 'ok!'), 'func.js structured value should execute');
   return { key: 'func_js_structured_value_executes', status: 'PASS' };
 }
 
 async function test_func_js_string_value_is_ignored() {
   const rt = new ModelTableRuntime();
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
   const m = rt.createModel({ id: 301, name: 'm301', type: 'app' });
+  rt.addLabel(m, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: null });
+  rt.addLabel(m, 1, 0, 0, { k: 'result', t: 'pin.out', v: null });
 
   rt.addLabel(m, 1, 0, 0, {
     k: 'wiring',
     t: 'pin.connect.label',
     v: [
-      { from: '(self, cmd)', to: ['(func, legacy:in)'] },
-      { from: '(func, legacy:out)', to: ['(self, result)'] },
+      { from: 'cmd', to: ['legacy:in'] },
+      { from: 'legacy:out', to: ['result'] },
     ],
   });
   rt.addLabel(m, 1, 0, 0, { k: 'legacy', t: 'func.js', v: 'return label.v + "_legacy";' });
-  rt.addLabel(m, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: 'ok' });
+  rt.addLabel(m, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: mt('message', 'str', 'ok') });
   await sleep(30);
 
   const result = rt.getCell(m, 1, 0, 0).labels.get('result');
-  assert(!result, 'func.js string value should be ignored after compat cleanup');
+  assert.equal(result?.v, null, 'func.js string value should be ignored after compat cleanup');
   return { key: 'func_js_string_value_is_ignored', status: 'PASS' };
 }
 
 async function test_func_python_without_worker_writes_error() {
   const rt = new ModelTableRuntime();
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
   const m = rt.createModel({ id: 302, name: 'm302', type: 'app' });
+  rt.addLabel(m, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: null });
 
   rt.addLabel(m, 1, 0, 0, {
     k: 'wiring',
     t: 'pin.connect.label',
-    v: [{ from: '(self, cmd)', to: ['(func, pyfn:in)'] }],
+    v: [{ from: 'cmd', to: ['pyfn:in'] }],
   });
   rt.addLabel(m, 1, 0, 0, {
     k: 'pyfn',
@@ -70,7 +83,7 @@ async function test_func_python_without_worker_writes_error() {
     v: { code: 'def run(ctx, label):\n  return label["v"]', modelName: 'm302' },
   });
 
-  rt.addLabel(m, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: 'ok' });
+  rt.addLabel(m, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: mt('message', 'str', 'ok') });
   await sleep(30);
 
   const err = rt.getCell(m, 1, 0, 0).labels.get('__error_pyfn');

@@ -190,7 +190,7 @@ source: ai
 ## 5. 连接与路由声明
 
 0356 target PIN contract is defined by `docs/ssot/pin_connection_contract_v2.md`.
-本节中早期 `pin.connect.model`、`pin.log.*`、`(self, ...)` / `(func, ...)` 的 runtime 描述只保留为当前实现债务；新规约、新模型和新测试不得继续使用这些旧写法。
+0357 起，runtime 对早期 `pin.connect.model`、`pin.log.*`、`(self, ...)` / `(func, ...)` 写法执行硬拒绝；新规约、新模型和新测试不得继续使用这些旧写法，也不得恢复兼容解析。
 
 ### 5.1 Legacy PIN_IN / PIN_OUT（DEPRECATED since 0143）
 
@@ -234,14 +234,12 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 0347 message/materialization current truth：
 - pin/event 中传递的 record array 是 Temporary ModelTable Message：`format is ModelTable-like; persistence is explicit materialization`。
 - Temporary message 的 `id` 只在当前 message 内有效，不是正式 `model_id`。
-- 接收、路由、转发、trace、projection 都不自动 materialize；只有 owner / 当前模型 D0 helper / 接收程序模型 / importer 明确执行写入时，才产生正式 `add_label` / `rm_label` side effect。
+- 接收、路由、转发、trace、projection 都不自动 materialize；只有当前模型 root 默认程序（如 `mt_write`）、owner materializer、接收程序模型或 importer 明确执行写入时，才产生正式 `add_label` / `rm_label` side effect。
 
 历史别名说明（non-normative）：
-- repo 内可能仍能搜索到 `BUS_IN` / `BUS_OUT` / `CELL_CONNECT` / `cell_connection` / `MODEL_IN` / `MODEL_OUT` / `IN` / `function` / `subModel` / `submt` 等旧名。
-- repo 内也可能仍能搜索到 `pin.table.*` / `pin.single.*` / `pin.log.table.*` / `pin.log.single.*`。
-- repo 内还可能仍能搜索到 `pin.connect.model`、`pin.log.in` / `pin.log.out`、以及 `(self, ...)` / `(func, ...)` endpoint 字符串。
-- 这些旧名属于迁移债务，不构成当前允许的新工作输入面。
-- 若确需保留/新增兼容逻辑，必须得到用户显式批准。
+- 旧名可能仍出现在历史文档或负向测试中。
+- `pin.table.*` / `pin.single.*` / `pin.log.*` / `pin.connect.model` / `(self, ...)` / `(func, ...)` 不构成当前允许的新工作输入面。
+- 当前实现不得保留兼容解析；结构性旧写法必须失败并留下可审计错误。
 
 ### 5.2b pin.connect.label / pin.connect.cell（0356 target）
 
@@ -303,14 +301,14 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 - 非系统模型 root `(0,0,0)` 上的 `pin.in` 写入 v 时 → 子模型内 cell_connection 路由 + CELL_CONNECT 传播
 - 非系统模型 root `(0,0,0)` 上的 `pin.out` 写入 v 时 → 经子模型 root 边界引脚传到父模型 hosting Cell 引脚，再由父模型 `pin.connect.cell` 继续路由
-- `pin.table.* / pin.single.*` 不再是当前运行时主路径；若文档或历史测试仍提及它们，只能视为迁移债务或历史记录。
+- `pin.table.* / pin.single.*` 不再是当前运行时输入面；新模型、修复逻辑和测试不得再依赖这些名称。
 
 ### 5.2e subModel 声明与 parentChildMap（0142）
 
 - `label.t === 'model.submt'`, `label.k = 'model_type'`, `label.v` = 子模型 ID
 - 注册到 `parentChildMap`: key=childModelId → {parentModelId, hostingCell:{p,r,c}}
 - 如果子模型不存在 → 自动 `createModel({id, name: alias, type: 'sub'})`
-- CELL_CONNECT 数字前缀路由：`(numericId, port)` → 查 parentChildMap → 写子模型模型边界输入（table/single）
+- 跨父子模型路由只通过父模型 hosting Cell 的 `pin.in` / `pin.out` / `pin.login` / `pin.logout` 与子模型 root `(0,0,0)` 的同名边界引脚完成，再由所在模型内的 `pin.connect.cell` 继续分发。
 - `model.submt` 表示**子模型映射位置**，不是 root-only 声明：`hostingCell` 可以是任意 Cell
 - 同一 hosting Cell 最多允许一个 `model.submt`
 - 同一个 child model 只能被一个父模型 hosting Cell 挂载（single-parent）
@@ -338,22 +336,16 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
   - `MODELTABLE_PATCH_JSON`
 - `applyPatch(... allowCreateModel=true)` 不是公共能力；只有 `trustedBootstrap=true` 的 patch loader 才允许 `create_model` 或隐式补建模型
 - 除 bootstrap loader 外，运行态普通 handler / server 回程 / 用户程序模型都不得直接持有或调用 runtime-wide `applyPatch`。
-- 运行态正式 materialization 必须通过当前模型的 owner materialization / helper executor 完成。
+- 运行态正式 materialization 必须通过当前模型 root 默认程序（如 `mt_write`）或显式 owner materializer 完成。
 - `applyScopedPatch(currentModelId, patch)` 是运行态唯一允许的 patch 语义：
   - 只允许 bootstrap loader 之外的内部 owner/helper 路径使用
   - 所有 `records[*].model_id` 必须等于 `currentModelId`
   - 禁止 `create_model`
   - 禁止跨模型写入父/子/兄弟模型
-- 正数模型默认 helper scaffold：
-  - **(0323) 裁决**：本节描述的 (0,1,0) helper executor 模式已被 §5.3 规定的 (0,0,0) 默认三程序（mt_write / mt_bus_receive / mt_bus_send）替代，仅对 `model.single` 场景仍适用（因为 model.single 不具备独立的 (0,0,0) 根 Cell 承载三程序）。对 `model.table`，createModel 不再保留 (0,1,0) helper，而是自动植入 (0,0,0) 三程序——详见 §5.2g。
-  - `createModel()` 创建正数模型时，默认保留 `(0,1,0)` 为 helper executor cell（**仅 model.single 适用**）
-  - 该 cell 默认具备：
-    - `helper_executor=true`
-    - `scope_privileged=true`
-    - `owner_apply: pin.in`
-    - `owner_apply_route: pin.connect.label`
-    - `owner_materialize: func.js`
-  - 该 helper cell 允许作为 same-model privileged exception 执行 owner materialization，包括 `model.single` 场景
+- 正数模型默认 root scaffold：
+  - `createModel()` 创建正数 `model.table` 时，root `(0,0,0)` 自动植入默认三程序（`mt_write` / `mt_bus_receive` / `mt_bus_send`）。
+  - `(0,1,0)` helper executor 模式已删除；runtime 不再自动种入 `helper_executor`、`owner_apply`、`owner_apply_route` 或 `owner_materialize`。
+  - 即使用户手工写入 `helper_executor=true`，runtime 也不得据此授予非 root Cell 表级写权限。
 - `boot/edit` 期间必须抑制：
   - `run_*` 入口
   - `_executeFuncViaCellConnect`
@@ -424,7 +416,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
     | `mt_bus_receive` | `mt_bus_receive:in` / `mt_bus_receive:out` | 接收从父模型路由下来的消息，分发到模型内目标 Cell | 模型内特权 |
     | `mt_bus_send` | `mt_bus_send:in` / `mt_bus_send:out` | 汇集模型内 Cell 的外发消息，上行到父模型边界 | 模型内特权 |
 
-  - 这三个程序替代原 (0,1,0) helper executor 模式（**仅 model.table 场景废弃**；model.single 场景保留，详见 §5.2f 裁决）。
+  - 这三个程序替代原 `(0,1,0)` helper executor 模式；当前 runtime 不再使用 helper executor 授权路径。
   - 用户程序不得覆盖或删除这三个 func.js 标签。
 
 - `model_type` 二维编码：
@@ -465,7 +457,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 **Removed / Historical：**
 
 - `ctx.writeLabel` / `ctx.getLabel` / `ctx.rmLabel` 已结束兼容期；活动运行面不得声明或调用，必须替代为 V1N API + pin 路由
-- (0,1,0) helper executor → 替代为 (0,0,0) 默认三程序（**仅 model.table 场景**；model.single 场景保留 helper scaffold，详见 §5.2f）
+- `(0,1,0)` helper executor → 已由 `(0,0,0)` 默认三程序替代；runtime 不再使用 helper executor 授权路径。
 
 详细 API 定义见 `docs/ssot/host_ctx_api.md`。
 
@@ -669,7 +661,7 @@ Compatibility note:
   - `target.model_id / p / r / c` 只负责指向“哪个 Cell”
   - `pin` 只负责指向“这个 Cell 的哪个可写入口”
 - `pin` 不进入 `target`，两者必须保持分离。
-- `action` 在兼容层中可暂留到 `0308`，但不再是新的正式协议字段。
+- `action` 只允许作为历史 envelope 的诊断字段；正式协议字段是 `target` + `pin`。
 
 投影协议的后续正式冻结（`0310`）如下：
 
@@ -755,8 +747,7 @@ Compatibility note:
   - `pin.in`
   - `pin.connect.label`
   - `pin.connect.cell`
-- legacy `pin.connect.model`
-  - `model.submt`
+- `model.submt`
 - “是否外发”的 authority 落在接线路径事实本身，不落在新的辅助字段。
 
 判定规则：
@@ -768,7 +759,7 @@ Compatibility note:
 - 外界返回结果先到 `Model 0`
 - `Model 0` 只能写本层 relay / input pin，不得 direct patch 深层子模型
 - 数据必须经父模型 hosting cell 暴露的 child pin 逐层下传
-- 到达目标模型后，只允许由该模型 owner materialization / helper executor 完成最终 label 落盘
+- 到达目标模型后，只允许由该模型 root `mt_write` 或显式 owner materializer 完成最终 label 落盘
 - `server` 或任意运行态 handler 若 direct `applyPatch` 目标子模型，应视为 direct patch bypass / 规约违规
 
 禁止：
@@ -806,8 +797,8 @@ Compatibility note:
 
 回程 materialization：
 - `Model 0` 收到返回后只能继续写 relay / request pin
-- 目标模型 `(0,0,0)` 或 reserved helper executor cell 接收 owner request
-- owner materialization / helper executor 仅在当前 `model_id` 内执行 scoped writes
+- 目标模型 `(0,0,0)` 的 `mt_write` 或显式 owner materializer 接收 owner request
+- materializer 仅在当前 `model_id` 内执行 scoped writes
 - 不允许用“先写目标模型 input pin，再 direct `applyPatch(records)`”作为中转；这属于 direct patch bypass
 
 Model 0：

@@ -43,8 +43,8 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, mt_write_req)",
-          "to": ["(func, mt_write:in)"]
+          "from": "mt_write_req",
+          "to": ["mt_write:in"]
         }
       ]
     },
@@ -78,8 +78,8 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, mt_bus_receive_in)",
-          "to": ["(func, mt_bus_receive:in)"]
+          "from": "mt_bus_receive_in",
+          "to": ["mt_bus_receive:in"]
         }
       ]
     },
@@ -113,8 +113,8 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, mt_bus_send_in)",
-          "to": ["(func, mt_bus_send:in)"]
+          "from": "mt_bus_send_in",
+          "to": ["mt_bus_send:in"]
         }
       ]
     }

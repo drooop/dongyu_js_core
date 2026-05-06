@@ -107,7 +107,7 @@ function payloadWithHostIngress() {
       { from: [2, 2, 0, 'write_label_req'], to: [[0, 0, 0, 'mt_write_req']] },
     ] },
     { id: 0, p: 2, r: 2, c: 0, k: 'submit_request', t: 'pin.in', v: null },
-    { id: 0, p: 2, r: 2, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: '(self, submit_request)', to: ['(func, handle_submit:in)'] }] },
+    { id: 0, p: 2, r: 2, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: 'submit_request', to: ['handle_submit:in'] }] },
     { id: 0, p: 2, r: 2, c: 0, k: 'handle_submit', t: 'func.js', v: { code: "const records = Array.isArray(label && label.v) ? label.v : [];\nconst event = (records.find((rec) => rec && rec.k === 'value') || {}).v || {};\nif (event.trigger !== 'host_submit') return;\nV1N.writeLabel(0, 0, 0, { k: 'status_text', t: 'str', v: 'host_route_ok' });" } },
   ];
 }

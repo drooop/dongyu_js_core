@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
 
 function wait(ms = 80) { return new Promise((r) => setTimeout(r, ms)); }
+const mt = (k, t, v) => [{ id: 0, p: 0, r: 0, c: 0, k, t, v }];
 
 async function test_v1n_readLabel_signature_rejects_ref_form() {
   const rt = new ModelTableRuntime();
@@ -35,10 +36,10 @@ async function test_v1n_readLabel_signature_rejects_ref_form() {
   rt.addLabel(modelA, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: null });
   rt.addLabel(modelA, 1, 0, 0, {
     k: 'fn_wiring', t: 'pin.connect.label',
-    v: [{ from: '(self, fn_in)', to: ['(func, fn:in)'] }],
+    v: [{ from: 'fn_in', to: ['fn:in'] }],
   });
   await rt.setRuntimeMode('running');
-  rt.addLabel(modelA, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: 'trigger' });
+  rt.addLabel(modelA, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: mt('trigger', 'str', 'go') });
   await wait();
   const probe = rt.getCell(modelA, 1, 0, 0).labels.get('_cross_probe');
   assert.ok(probe, 'probe label must exist');
@@ -65,12 +66,12 @@ async function test_v1n_readLabel_positional_cannot_cross_model() {
     rt.addLabel(model, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: null });
     rt.addLabel(model, 1, 0, 0, {
       k: 'fn_wiring', t: 'pin.connect.label',
-      v: [{ from: '(self, fn_in)', to: ['(func, fn:in)'] }],
+      v: [{ from: 'fn_in', to: ['fn:in'] }],
     });
   }
   await rt.setRuntimeMode('running');
-  rt.addLabel(modelA, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: 'goA' });
-  rt.addLabel(modelB, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: 'goB' });
+  rt.addLabel(modelA, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: mt('trigger', 'str', 'goA') });
+  rt.addLabel(modelB, 1, 0, 0, { k: 'fn_in', t: 'pin.in', v: mt('trigger', 'str', 'goB') });
   await wait();
   const probeA = rt.getCell(modelA, 1, 0, 0).labels.get('_got');
   const probeB = rt.getCell(modelB, 1, 0, 0).labels.get('_got');

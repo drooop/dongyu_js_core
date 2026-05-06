@@ -8,10 +8,10 @@ source: ai
 
 # Label Type Registry
 
-> 本文件是所有 `label.t` 的目标权威注册表。运行时 `_applyBuiltins` 的 dispatch 列表必须与本表一致；0356 docs-only 后尚未一致的地方属于 implementation debt。
+> 本文件是所有 `label.t` 的目标权威注册表。运行时 `_applyBuiltins` 的 dispatch 列表必须与本表一致；不一致必须以失败和修正处理，不得用兼容层遮蔽。
 > 新增 `label.t` 必须先在本表注册，再实现运行时代码。
 >
-> 0356 起，PIN 连接合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。当前 runtime 中仍存在的 `pin.connect.model`、`pin.log.*`、`(self, ...)` / `(func, ...)` 端点写法属于迁移债务，不再是新规约输入面。
+> 0356 起，PIN 连接合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。0357 起，runtime 对 `pin.connect.model`、`pin.log.*`、`(self, ...)` / `(func, ...)` 端点写法执行硬拒绝；它们不是当前输入面，也不得通过兼容层恢复。
 
 ---
 
@@ -54,19 +54,14 @@ source: ai
 补充约束：
 - `model.submt` 是 single-parent 挂载：同一个 child model 在任一时刻只能被一个父模型 hosting Cell 挂载。
 - `model.submt` 只负责父子挂载，不自动赋予父模型对子模型内部 label 的 direct write 权限。
-- child model 的正式输入/输出仍必须通过 hosting Cell 暴露出来的 pin relay 进入；最终落盘只能由 child owner materialize / reserved helper executor cell 完成。
+- child model 的正式输入/输出仍必须通过 hosting Cell 暴露出来的 pin relay 进入；最终落盘只能由 child root 默认程序（如 `mt_write`）、child owner materializer 或 importer/installer 明确执行。
 - 删除 `model.submt` 仅删除父子挂载关系，不自动删除 child model 数据；只有删除 child model 自己的 `(0,0,0)` 根声明后，才删除整个 child model。
 - 除 Model 0 外，每个模型都必须通过某个父模型 Cell 上的 `model.submt` 显式挂载进入模型层级。
 
-保留约定：
-- 每个需要正式 owner materialization 的模型，应保留一个 reserved helper executor cell。
-- 该 helper cell 的职责是接收当前模型 scoped request，并在当前模型内完成 owner materialize；不得跨模型写入。
-- 当前默认实现把该 helper cell 固定在 `(0,1,0)`，并保留以下 key：
-  - `helper_executor`
-  - `scope_privileged`
-  - `owner_apply`
-  - `owner_apply_route`
-  - `owner_materialize`
+根程序约定：
+- 每个正数 `model.table` root `(0,0,0)` 默认携带 `mt_write` / `mt_bus_receive` / `mt_bus_send` 三类程序入口。
+- 普通 Cell 发起正式写入时，必须通过当前模型内显式 `pin.connect.cell` 把 `write_label_req` 路由到 root `mt_write_req`。
+- 早期 `(0,1,0)` reserved helper executor cell 已删除；`helper_executor`、`owner_apply`、`owner_apply_route`、`owner_materialize` 不再由 runtime 自动种入，也不得作为默认物化入口。
 
 ### 2.1 UI Bootstrap Boundary (0210 Freeze)
 
@@ -99,13 +94,13 @@ source: ai
 - pin value 中的 record array 是 Temporary ModelTable Message：`format is ModelTable-like; persistence is explicit materialization`。
 - `id` 是 message-local 临时 id，不是正式 `model_id`。
 - 写入 pin、route、bus、log/trace 或前端 projection 都不自动创建或更新正式 ModelTable。
-- 只有接收程序模型、当前模型 D0 helper、owner materializer 或 importer/installer 明确执行 materialization 时，才允许产生正式 `add_label` / `rm_label` side effect。
+- 只有接收程序模型、当前模型 root 默认程序（如 `mt_write`）、owner materializer 或 importer/installer 明确执行 materialization 时，才允许产生正式 `add_label` / `rm_label` side effect。
 
 ### 3.2 日志通道
 
 行为与数据通道一致，但类型隔离（不可与数据通道混连）。
 
-说明：0356 目标合同中日志通道使用 `pin.login` / `pin.logout`。早期 `pin.log.in` / `pin.log.out` / `pin.log.bus.*` 只允许作为迁移债务出现。
+说明：0356 目标合同中日志通道使用 `pin.login` / `pin.logout`。早期 `pin.log.in` / `pin.log.out` / `pin.log.bus.*` 在 0357 后会被 runtime 拒绝。
 
 | label.t | 说明 | key | value | 位置约束 |
 |---|---|---|---|---|
@@ -158,8 +153,8 @@ value 字段说明：
 - `code`（必填）：函数代码。
 - `modelName`（推荐）：声明函数作用域；矩阵模型启用后用于父/子矩阵消歧。
 
-兼容期说明：
-- 旧格式 `value: "code string"` 仅用于历史模型兼容。
+旧格式说明：
+- `value: "code string"` 不再执行。
 - 新模型必须使用结构化 value。
 
 每个函数自动关联三个引脚：
@@ -210,10 +205,10 @@ value 字段说明：
 
 ---
 
-## 8. Historical Aliases（非当前规范）
+## 8. Removed Historical Aliases（非当前规范）
 
-以下旧名可能仍出现在历史文档/测试/代码中，但它们不是当前允许的新工作输入面。
-除非用户显式批准，否则不得新增或保留兼容层来支持这些旧名。
+以下旧名可能仍出现在历史文档或负向测试中，但它们不是当前允许的新工作输入面。
+runtime 不得新增或保留兼容层来支持这些旧名；结构性旧类型写入必须失败。
 
 | label.t | 替代方案 |
 |---|---|
@@ -229,8 +224,8 @@ value 字段说明：
 | `pin.single.out` | 非系统模型 root `(0,0,0)` 上的 `pin.out` |
 | `pin.log.in` | `pin.login` |
 | `pin.log.out` | `pin.logout` |
-| `pin.log.bus.in` | 后续 system boundary log adapter 迁移裁决；新 ordinary Cell 不得使用 |
-| `pin.log.bus.out` | 后续 system boundary log adapter 迁移裁决；新 ordinary Cell 不得使用 |
+| `pin.log.bus.in` | 已移除；不得使用 |
+| `pin.log.bus.out` | 已移除；不得使用 |
 | `pin.log.table.in` | `pin.login` |
 | `pin.log.table.out` | `pin.logout` |
 | `pin.log.single.in` | `pin.login` |

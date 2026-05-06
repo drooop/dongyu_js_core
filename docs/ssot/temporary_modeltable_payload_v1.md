@@ -74,7 +74,7 @@ source: ai
 - 传输格式必须像 ModelTable：由 `{id,p,r,c,k,t,v}` records 组成，可以表达单 cell、多 cell、单临时模型或多临时模型。
 - 这类 message 本身不是正式持久 ModelTable；接收、路由、转发、缓存、trace、SSE 推送、Matrix/MQTT/MBR envelope 转换都不得自动把它变成业务 truth。
 - `id` 是 message-local 临时 id，只在当前 message 内有意义；它不是正式 `model_id`，也不得被当成运行时模型 id 直接写入。
-- 持久化只能由显式 materialization 触发，例如接收程序模型按 pin 语义调用 owner 写入路径、`write_label.v1` 被当前模型 D0 helper 接受、importer/installer 明确 materialize 新模型，或 owner materializer 经过校验后执行写入。
+- 持久化只能由显式 materialization 触发，例如接收程序模型按 pin 语义调用 owner 写入路径、`write_label.v1` 被当前模型 root `mt_write` 接受、importer/installer 明确 materialize 新模型，或 owner materializer 经过校验后执行写入。
 - 显式 materialization 发生后，才会产生正式 `add_label` / `rm_label` side effect；在此之前，message 只是传输数据。
 - 临时 message 可以被短暂记录为诊断、审计或重放输入，但这类记录不是业务 ModelTable truth，不能作为 UI 或程序模型的 authoritative state。
 

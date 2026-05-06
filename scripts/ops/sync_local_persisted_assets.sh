@@ -55,7 +55,6 @@ system_negative_full = [
     'matrix_debug_surface.json',
     'nav_catalog_ui.json',
     'prompt_catalog_ui.json',
-    'remote_worker_model.legacy.json',
     'server_config.json',
     'static_catalog_ui.json',
     'ui_to_matrix_forwarder.json',

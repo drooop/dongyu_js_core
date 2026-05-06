@@ -35,12 +35,16 @@ function test_model100_declares_submit_request_pin_and_wiring() {
 function test_model0_declares_model100_submit_ingress_route() {
   const patch = readJson('packages/worker-base/system-models/test_model_100_ui.json');
   const records = patch.records || [];
-  const route = findRecord(records, (record) => record?.model_id === 0 && record?.k === 'model100_submit_ingress_route' && record?.t === 'pin.connect.model');
+  const route = findRecord(records, (record) => record?.model_id === 0 && record?.k === 'model100_submit_ingress_route' && record?.t === 'pin.connect.cell');
   assert.ok(route, 'model100_submit_ingress_route_missing');
   assert.deepEqual(
     route.v,
-    [{ from: [0, 'bus_event_submit_100_0_0_0'], to: [[100, 'submit_request']] }],
-    'model100_submit_ingress_route_must_bind_model0_bus_event_submit_to_model100_submit_request',
+    [{ from: [0, 0, 0, 'bus_event_submit_100_0_0_0'], to: [[10, 0, 0, 'submit_request']] }],
+    'model100_submit_ingress_route_must_bind_model0_bus_event_submit_to_model100_host_submit_request',
+  );
+  assert.ok(
+    findRecord(records, (record) => record?.model_id === 0 && record?.p === 10 && record?.r === 0 && record?.c === 0 && record?.k === 'model_type' && record?.t === 'model.submt' && record?.v === 100),
+    'model100_host_mount_missing',
   );
   return { key: 'model0_declares_model100_submit_ingress_route', status: 'PASS' };
 }

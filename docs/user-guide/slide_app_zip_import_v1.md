@@ -81,7 +81,7 @@ zip 中只允许一个 JSON 文件，建议叫：
 
 - `func.js`
 - `func.python`
-- legacy `pin.connect.model`
+- removed `pin.connect.model`
 - `pin.bus.*`
 - assets
 
