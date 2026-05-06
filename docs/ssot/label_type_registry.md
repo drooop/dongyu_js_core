@@ -2,14 +2,16 @@
 title: "Label Type Registry"
 doc_type: ssot
 status: active
-updated: 2026-04-29
+updated: 2026-05-06
 source: ai
 ---
 
 # Label Type Registry
 
-> 本文件是所有 `label.t` 的权威注册表。运行时 `_applyBuiltins` 的 dispatch 列表必须与本表一致。
+> 本文件是所有 `label.t` 的目标权威注册表。运行时 `_applyBuiltins` 的 dispatch 列表必须与本表一致；0356 docs-only 后尚未一致的地方属于 implementation debt。
 > 新增 `label.t` 必须先在本表注册，再实现运行时代码。
+>
+> 0356 起，PIN 连接合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。当前 runtime 中仍存在的 `pin.connect.model`、`pin.log.*`、`(self, ...)` / `(func, ...)` 端点写法属于迁移债务，不再是新规约输入面。
 
 ---
 
@@ -47,7 +49,7 @@ source: ai
 | `model.single` | 普通 Cell / 简单模型声明 | `model_type` | 类型名（如 `Code.JS`） | 任意 Cell；table/matrix 普通 Cell 可隐式默认为本类型 |
 | `model.matrix` | 矩阵模型根声明 | `model_type` | 类型名（如 `Data.Array.One`） | 矩阵自身相对 `(0,0,0)`；创建必填 |
 | `model.table` | 模型表根声明 | `model_type` | 类型名（如 `Flow`） | 模型 `(0,0,0)`；创建必填 |
-| `model.submt` | 子模型挂载/映射 Cell | `model_type` | 子模型 id | 任意 hosting Cell；该 Cell 仅允许 `model.submt` + `pin.*` + `pin.log.*` |
+| `model.submt` | 子模型挂载/映射 Cell | `model_type` | 子模型 id | 任意 hosting Cell；该 Cell 仅允许 `model.submt` + `pin.in` / `pin.out` / `pin.login` / `pin.logout` |
 
 补充约束：
 - `model.submt` 是 single-parent 挂载：同一个 child model 在任一时刻只能被一个父模型 hosting Cell 挂载。
@@ -103,18 +105,16 @@ source: ai
 
 行为与数据通道一致，但类型隔离（不可与数据通道混连）。
 
-说明：`pin.log.*` 视为 pin family 的一部分；当规约提到“引脚标签”时，默认同时包含 `pin.*` 与 `pin.log.*`。
+说明：0356 目标合同中日志通道使用 `pin.login` / `pin.logout`。早期 `pin.log.in` / `pin.log.out` / `pin.log.bus.*` 只允许作为迁移债务出现。
 
 | label.t | 说明 | key | value | 位置约束 |
 |---|---|---|---|---|
-| `pin.log.in` | Cell 级日志输入；写在非系统模型 root `(0,0,0)` 时也承担模型根边界日志输入 | 端口名 | 日志数据 | 任意 Cell |
-| `pin.log.out` | Cell 级日志输出；写在非系统模型 root `(0,0,0)` 时也承担模型根边界日志输出 | 端口名 | 日志数据 | 任意 Cell |
-| `pin.log.bus.in` | 系统边界日志输入 | 端口名 | 日志数据 | 仅 Model 0 (0,0,0) |
-| `pin.log.bus.out` | 系统边界日志输出 | 端口名 | 日志数据 | 仅 Model 0 (0,0,0) |
+| `pin.login` | Cell 级日志输入；写在非系统模型 root `(0,0,0)` 时也承担模型根边界日志输入 | 端口名 | `null` 或临时 ModelTable payload array | 任意 Cell |
+| `pin.logout` | Cell 级日志输出；写在非系统模型 root `(0,0,0)` 时也承担模型根边界日志输出 | 端口名 | `null` 或临时 ModelTable payload array | 任意 Cell |
 
 ### 3.3 连接规则
 
-- `pin.in` ↔ `pin.out` 互连；`pin.log.in` ↔ `pin.log.out` 互连。
+- `pin.in` ↔ `pin.out` 互连；`pin.login` ↔ `pin.logout` 互连。
 - 数据通道与日志通道不可混连。
 - 同层级内 `in` 只连 `out`。
 - 子模型对外连接只通过 (0,0,0) 的边界端口。
@@ -125,19 +125,25 @@ source: ai
 
 | label.t | 说明 | key | value 格式 | 位置约束 |
 |---|---|---|---|---|
-| `pin.connect.label` | Cell 内接线 | 连接名 | `[{from: "(prefix, pinName)", to: ["(prefix, pinName)", ...]}, ...]` | 任意 Cell |
+| `pin.connect.label` | Cell 内接线 | 连接名 | `[{from: "pinName", to: ["pinName", ...]}, ...]` | 任意 Cell |
 | `pin.connect.cell` | Model 内跨 Cell 路由 | 连接名 | `[{from: [p,r,c,"pinName"], to: [[p,r,c,"pinName"], ...]}, ...]` | 仅 (0,0,0) |
-| `pin.connect.model` | 跨 Model 路由 | 连接名 | `[{from: [modelId,"pinName"], to: [[modelId,"pinName"], ...]}, ...]` | 仅 Model 0 (0,0,0) |
 
-`pin.connect.label` 的端点 `(prefix, pinName)` 语义：
+`pin.connect.model` 已从 0356 目标合同中移除。跨模型通信必须通过 `model.submt` hosting Cell 暴露的父模型内 Cell 引脚、子模型 root `(0,0,0)` 的边界引脚，以及父模型内 `pin.connect.cell` 完成。
 
-| prefix 形式 | 含义 | 触发方向 |
-|---|---|---|
-| `self` | 当前 cell 上的 label（pin.in/pin.out） | label 写入时传播 |
-| `func` | 当前 cell 上（或 Model -10 fallback）的 `func.*` label；`pinName` 形式必须是 `funcName:in` 或 `funcName:out` | 写 `:in` 触发函数执行；`:out` 是函数返回值 |
-| 数字（如 `1030`） | 宿主接入的子模型边界 pin — 表示子模型 id；`pinName` 是子模型 root (0,0,0) 的 `pin.in` / `pin.out` | 子模型 root pin.out 被写 → 通过 `parentChildMap` 传播到该 cell 对应的 child id 前缀规则；反向写 `pin.in` 用于向子模型注入 |
+`pin.connect.label` 端点规则：
 
-数字前缀仅用于宿主 adapter 场景（例如导入 app 的 root pin.out 经 mount cell 的 pin.connect.label 桥接到宿主）。不是用户层模型的日常路由声明。
+- 端点直接使用同一个 Cell 内的引脚 key。
+- 可连接当前 Cell 上的 `pin.in` / `pin.out` / `pin.login` / `pin.logout`。
+- 可连接当前 Cell 上函数自动拥有的 `{funcName}:in` / `{funcName}:out` / `{funcName}:logout`。
+- 不允许 `(self, x)` / `(func, f:in)` / numeric prefix。
+- 不允许引用其他 Cell 或其他 model id。
+
+`pin.connect.cell` 端点规则：
+
+- 端点必须是同一模型内 `[p,r,c,"pinName"]`。
+- `"pinName"` 必须是目标 Cell 上声明的 Cell 引脚 key。
+- 不允许在 `pin.connect.cell` 中直接引用函数引脚。
+- 函数触发必须先到函数所在 Cell 的普通引脚，再由该 Cell 的 `pin.connect.label` 转给函数引脚。
 
 ---
 
@@ -159,7 +165,7 @@ value 字段说明：
 每个函数自动关联三个引脚：
 - `{funcName}:in`（输入）
 - `{funcName}:out`（输出）
-- `{funcName}:log.out`（日志输出）
+- `{funcName}:logout`（日志输出）
 
 ---
 
@@ -221,10 +227,14 @@ value 字段说明：
 | `pin.table.out` | 非系统模型 root `(0,0,0)` 上的 `pin.out` |
 | `pin.single.in` | 非系统模型 root `(0,0,0)` 上的 `pin.in` |
 | `pin.single.out` | 非系统模型 root `(0,0,0)` 上的 `pin.out` |
-| `pin.log.table.in` | 非系统模型 root `(0,0,0)` 上的 `pin.log.in` |
-| `pin.log.table.out` | 非系统模型 root `(0,0,0)` 上的 `pin.log.out` |
-| `pin.log.single.in` | 非系统模型 root `(0,0,0)` 上的 `pin.log.in` |
-| `pin.log.single.out` | 非系统模型 root `(0,0,0)` 上的 `pin.log.out` |
+| `pin.log.in` | `pin.login` |
+| `pin.log.out` | `pin.logout` |
+| `pin.log.bus.in` | 后续 system boundary log adapter 迁移裁决；新 ordinary Cell 不得使用 |
+| `pin.log.bus.out` | 后续 system boundary log adapter 迁移裁决；新 ordinary Cell 不得使用 |
+| `pin.log.table.in` | `pin.login` |
+| `pin.log.table.out` | `pin.logout` |
+| `pin.log.single.in` | `pin.login` |
+| `pin.log.single.out` | `pin.logout` |
 | `IN` | `pin.in` |
 | `function` | `func.js` |
 | `subModel` | `model.submt` |
@@ -233,6 +243,8 @@ value 字段说明：
 | `label_connection` | `pin.connect.label` |
 | `trigger_funcs` | `pin.connect.label` |
 | `function_PIN_IN` / `function_PIN_OUT` | （已废弃） |
+| `pin.connect.model` | （已移除）通过 `model.submt` hosting Cell + child root pins + `pin.connect.cell` 表达 |
+| `(self, pinName)` / `(func, funcName:in)` / `(modelId, pinName)` | `pin.connect.label` 直接写同 Cell 端点名 |
 
 ## 9. Imported App Host Ingress Declaration（0321 MVP）
 
@@ -258,9 +270,12 @@ v1 当前只允许：
 
 - `Model 0`:
   - `pin.bus.in`
-  - `pin.connect.model`
+  - `pin.connect.cell`（从 Model 0 root 系统边界 adapter 路由到 imported app 的 hosting Cell 引脚）
+- imported app hosting Cell:
+  - `model.submt`
+  - 与 imported model root `(0,0,0)` 边界对应的 `pin.in` / `pin.out`
 - imported model root:
   - `pin.in`
   - `pin.connect.cell`
 
-删除 imported app 时，宿主必须清理安装时自动补上的 `Model 0` labels。
+删除 imported app 时，宿主必须清理安装时自动补上的 Model 0 / hosting Cell labels。

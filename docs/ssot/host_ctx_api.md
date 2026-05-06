@@ -104,6 +104,8 @@ API 约束：
 
 ## 3. 跨模型通信路径
 
+0356 后跨模型通信不再使用 `pin.connect.model`；目标合同见 `docs/ssot/pin_connection_contract_v2.md`。
+
 两种合法路径：
 
 **路径 A — 子模型挂载：**
@@ -114,7 +116,8 @@ API 约束：
 
 **路径 B — Model 0 中转：**
 ```
-子模型边界 pin.out → pin.connect.model (Model 0) → 目标模型边界 pin.in
+子模型边界 pin.out → Model 0 hosting Cell 引脚 → pin.connect.cell (Model 0)
+  → 目标模型 hosting/root 边界 pin.in
   → 目标模型 (0,0,0) mt_bus_receive:in → mt_bus_receive → 分发到目标 Cell
 ```
 

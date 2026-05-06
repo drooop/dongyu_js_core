@@ -258,6 +258,7 @@ source: ai
 | 0353-slide-app-runtime-docs-publish | 2026-04-30 | 将 `minimal_submit_app_provider` 系列 Markdown/HTML 通过 docs UI 模型与 Static 挂载发布到 app.dongyudigital.com，并完成公网浏览器实测 | 3 | dev_0353-slide-app-runtime-docs-publish | Completed | ./docs/iterations/0353-slide-app-runtime-docs-publish/ |
 | 0354-iteration-index-reconciliation | 2026-04-30 | 收口已并入 dev 但索引仍显示非终态的历史 iteration，并修复数据模型用户指南合同短语回归 | 4 | dev_0354-iteration-index-reconciliation | Completed | ./docs/iterations/0354-iteration-index-reconciliation/ |
 | 0355-data-single-array-one-tier2 | 2026-04-30 | 断开式落地 Feishu-aligned `Data.Single` 与 `Data.Array.One` Tier 2 最小闭环，拒绝旧 `Data.Array` / underscore pin 兼容入口 | 5 | dev_0355-data-single-array-one-tier2 | Completed | ./docs/iterations/0355-data-single-array-one-tier2/ |
+| 0356-pin-connection-contract-realignment | 2026-05-06 | docs-only 冻结 0356 引脚连接目标合同：移除 `pin.connect.model` 作为新规约输入面，改为 `model.submt` 边界 + `pin.connect.cell`，并清点 runtime/tests/assets 迁移债务 | 3 | dev_0356-pin-connection-contract-realignment | Completed | ./docs/iterations/0356-pin-connection-contract-realignment/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

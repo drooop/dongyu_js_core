@@ -42,7 +42,7 @@ source: ai
 - 有效模型标签集合：`model.single` / `model.matrix` / `model.table` / `model.submt`
 - `model.table`：模型根 `(0,0,0)` 的显式根声明
 - `model.matrix`：矩阵自身相对 `(0,0,0)` 的显式根声明
-- `model.submt`：子模型挂载/映射位；该 Cell 只允许 `pin.*` / `pin.log.*` 共存
+- `model.submt`：子模型挂载/映射位；该 Cell 只允许 `pin.in` / `pin.out` / `pin.login` / `pin.logout` 等普通引脚共存
 - `model.submt` 只建立父子挂载关系；不代表父模型可以 direct 修改子模型内部 label
 - 在 table/matrix 作用域内，未物化且未显式声明的普通 Cell，默认有效模型标签为 `model.single`
 - `model.name` 只允许写在模型自己的 `(0,0,0)`
@@ -131,7 +131,7 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
 补充：
 
 - `Model -1 (0,0,1)` mailbox 只保留 compat/status 角色，不再是 current frontend/server 第一落点。
-- `Model 0 pin.bus.in -> pin.connect.model -> child mt_bus_receive` 的解释属于 Tier 1 runtime。
+- `Model 0 pin.bus.in -> pin.connect.cell -> child root pin.in -> child mt_bus_receive` 的解释属于 Tier 1 runtime。
 - `server` 只负责 envelope 适配、bus-event transport 与 snapshot / transport；不应长期持有独立正式事件语义。
 - 对需要落到“当前模型 / 当前单元格”的业务动作，前端事件 envelope 应显式携带：
   - `target.model_id`
@@ -145,7 +145,7 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
 - 兼容期可继续保留 `meta.model_id`，但它不再是唯一目标来源。
 - 当前 built-in submit 已启用 target-based ingress：
   - runtime 会把 `submit + target` 映射为 `Model 0 pin.bus.in` 上的一个 ingress key
-  - 然后再按 `pin.connect.model` 进入目标模型
+  - 然后再按 `model.submt` hosting Cell + `pin.connect.cell` 进入目标模型
 - 当前 slide/workspace 系统动作也已启用同一方向的 runtime ingress：
   - `slide_app_import`
   - `slide_app_create`
@@ -280,7 +280,7 @@ V1N.writeLabel(2, 2, 2, { k: 'testk', t: 'str', v: 'testv' })
 当前 v1 仍禁止：
 
 - `func.python`
-- `pin.connect.model`
+- legacy `pin.connect.model`
 - `pin.bus.in`
 - `pin.bus.out`
 - helper / privilege 覆盖标签：

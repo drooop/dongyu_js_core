@@ -21,7 +21,7 @@ source: ai
 - 不支持 `func.python`
 - 不支持 `pin.bus.in`
 - 不支持 `pin.bus.out`
-- 不支持 `pin.connect.model`
+- 不支持 legacy `pin.connect.model`
 - 不支持覆盖系统 helper / privilege labels：
   - `scope_privileged`
   - `helper_executor`

@@ -91,9 +91,9 @@ source: ai
 ```json
 [
   {
-    "from": "(self, confirm)",
+    "from": "confirm",
     "to": [
-      "(func, dispatch_remote:in)"
+      "dispatch_remote:in"
     ]
   }
 ]
@@ -121,9 +121,9 @@ source: ai
 ```json
 [
   {
-    "from": "(self, confirm)",
+    "from": "confirm",
     "to": [
-      "(func, dispatch_local:in)"
+      "dispatch_local:in"
     ]
   }
 ]
@@ -293,4 +293,3 @@ source: ai
 
 - `Model 1010 / (1,0,0) / processor_routes`
 - 是否仍然连到 `dispatch_remote`
-

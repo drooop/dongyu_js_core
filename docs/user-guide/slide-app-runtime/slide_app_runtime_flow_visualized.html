@@ -208,7 +208,7 @@
       <p>APP 声明 <code>host_ingress_v1</code> 后，安装器会生成宿主 adapter，不会把内部 helper 直接暴露给外部。</p>
       <div class="flow">
         <div class="node blue"><strong>Model 0 root</strong><small><code>imported_host_submit_&lt;modelId&gt;</code> as <code>pin.bus.in</code></small></div>
-        <div class="node blue"><strong>Model 0 route</strong><small><code>pin.connect.model</code> routes to imported root relay</small></div>
+        <div class="node blue"><strong>Model 0 route</strong><small><code>pin.connect.cell</code> routes to hosting/root boundary</small></div>
         <div class="node green"><strong>Imported root relay</strong><small><code>__host_ingress_submit</code> as <code>pin.in</code></small></div>
         <div class="node green"><strong>Imported boundary pin</strong><small>relay to declared <code>submit_request</code></small></div>
       </div>
@@ -223,7 +223,7 @@
         <div class="node blue"><strong>bus_event_v2</strong><small><code>bus_in_key</code> + temporary ModelTable payload</small></div>
         <div class="node green"><strong>POST /bus_event</strong><small>remote store submits to server</small></div>
         <div class="node green"><strong>Model 0 pin.bus.in</strong><small>server writes <code>k=&lt;bus_in_key&gt; t=pin.bus.in</code></small></div>
-        <div class="node rust"><strong>pin route</strong><small><code>pin.connect.model</code> reaches target model</small></div>
+        <div class="node rust"><strong>pin route</strong><small><code>pin.connect.cell</code> reaches target boundary pin</small></div>
         <div class="node rust"><strong>target cell pin.in</strong><small><code>mt_bus_receive</code> dispatches to target pin</small></div>
       </div>
     </article>
