@@ -1330,9 +1330,170 @@ const SLIDE_IMPORT_FORBIDDEN_LABEL_KEYS = new Set([
   'owner_apply_route',
   'owner_materialize',
 ]);
+const SLIDE_EXPORT_EXCLUDED_LABEL_KEYS = new Set([
+  'deletable',
+  'installed_at',
+  'imported_bundle_model_ids',
+  'import_root_temp_id',
+  'host_ingress_generated_model0_labels',
+  'host_ingress_generated_mount',
+  'host_ingress_generated_root_labels',
+  'host_egress_generated_model0_labels',
+  'host_egress_generated_mount',
+  'mt_write',
+  'mt_write_req',
+  'mt_write_result',
+  'mt_write_req_route',
+  'mt_bus_receive',
+  'mt_bus_receive_in',
+  'mt_bus_receive_wiring',
+  'mt_bus_send',
+  'mt_bus_send_in',
+  'mt_bus_send_wiring',
+]);
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function sanitizeSlideExportName(input, fallback = 'slide-app') {
+  const raw = String(input || '').trim().toLowerCase();
+  const ascii = raw
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+  return ascii || fallback;
+}
+
+function shouldExcludeSlideExportLabel(label) {
+  if (!label || typeof label.k !== 'string' || typeof label.t !== 'string') return true;
+  if (SLIDE_EXPORT_EXCLUDED_LABEL_KEYS.has(label.k)) return true;
+  if (SLIDE_IMPORT_FORBIDDEN_LABEL_KEYS.has(label.k) || String(label.k).startsWith('run_')) return true;
+  if (SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES.has(label.t)) return true;
+  if (label.k.startsWith('__host_ingress_') || label.k.startsWith('__host_egress_')) return true;
+  if (label.k.startsWith('host_ingress_generated_') || label.k.startsWith('host_egress_generated_')) return true;
+  return false;
+}
+
+function collectSlideExportModelIds(runtime, rootModelId) {
+  const ids = [];
+  const seen = new Set();
+  const visit = (modelId) => {
+    if (!Number.isInteger(modelId) || modelId <= 0 || seen.has(modelId)) return;
+    const model = runtime.getModel(modelId);
+    if (!model) return;
+    seen.add(modelId);
+    ids.push(modelId);
+    for (const cell of model.cells.values()) {
+      for (const label of cell.labels.values()) {
+        if (label && label.t === 'model.submt' && Number.isInteger(label.v) && label.v > 0) {
+          visit(label.v);
+        }
+      }
+    }
+  };
+  visit(rootModelId);
+  return ids;
+}
+
+function remapSlideExportValue(value, actualToTempId) {
+  if (Array.isArray(value)) {
+    return value.map((item) => remapSlideExportValue(item, actualToTempId));
+  }
+  if (!isPlainObject(value)) return value;
+  const out = {};
+  for (const [key, child] of Object.entries(value)) {
+    if ((key === 'model_id' || key.endsWith('_model_id')) && Number.isInteger(child) && actualToTempId.has(child)) {
+      out[key] = actualToTempId.get(child);
+    } else {
+      out[key] = remapSlideExportValue(child, actualToTempId);
+    }
+  }
+  return out;
+}
+
+function isModelIdReferenceKey(key) {
+  return key === 'model_id' || (typeof key === 'string' && key.endsWith('_model_id'));
+}
+
+function normalizeSlideExportLabelValue(label, actualToTempId) {
+  if (label && label.k === 'dual_bus_model' && isPlainObject(label.v)) {
+    return { mode: typeof label.v.mode === 'string' && label.v.mode.trim() ? label.v.mode.trim() : 'imported_host_egress' };
+  }
+  if (label && label.t === 'model.submt' && Number.isInteger(label.v) && actualToTempId.has(label.v)) {
+    return actualToTempId.get(label.v);
+  }
+  if (label && isModelIdReferenceKey(label.k) && Number.isInteger(label.v) && actualToTempId.has(label.v)) {
+    return actualToTempId.get(label.v);
+  }
+  return remapSlideExportValue(label ? label.v : null, actualToTempId);
+}
+
+function buildSlideAppExportPayload(runtime, rootModelId) {
+  if (!runtime || !Number.isInteger(rootModelId) || rootModelId <= 0) {
+    return { ok: false, code: 'invalid_target', detail: 'positive_model_id_required' };
+  }
+  const rootModel = runtime.getModel(rootModelId);
+  if (!rootModel) {
+    return { ok: false, code: 'model_not_found', detail: `modelId=${rootModelId}` };
+  }
+  const rootCell = runtime.getCell(rootModel, 0, 0, 0);
+  const rootLabels = rootCell && rootCell.labels ? rootCell.labels : new Map();
+  if (!rootLabels.has('slide_capable') || rootLabels.get('slide_capable').v !== true) {
+    return { ok: false, code: 'not_exportable', detail: 'slide_capable_required' };
+  }
+  const modelIds = collectSlideExportModelIds(runtime, rootModelId);
+  const actualToTempId = new Map(modelIds.map((modelId, index) => [modelId, index]));
+  const records = [];
+  for (const modelId of modelIds) {
+    const tempId = actualToTempId.get(modelId);
+    const model = runtime.getModel(modelId);
+    if (!model) continue;
+    const cells = Array.from(model.cells.values()).sort((a, b) => (
+      (a.p - b.p) || (a.r - b.r) || (a.c - b.c)
+    ));
+    for (const cell of cells) {
+      const labels = Array.from(cell.labels.values()).sort((a, b) => String(a.k).localeCompare(String(b.k)));
+      for (const label of labels) {
+        if (shouldExcludeSlideExportLabel(label)) continue;
+        records.push({
+          id: tempId,
+          p: cell.p,
+          r: cell.r,
+          c: cell.c,
+          k: label.k,
+          t: label.t,
+          v: normalizeSlideExportLabelValue(label, actualToTempId),
+        });
+      }
+    }
+  }
+  const validation = validateSlideImportPayload(records);
+  if (!validation.ok) {
+    return { ok: false, code: validation.code || 'invalid_export', detail: validation.detail || 'export_payload_invalid' };
+  }
+  return { ok: true, data: { payload: records, modelIds } };
+}
+
+function buildSlideAppExportZip(runtime, rootModelId) {
+  const payloadResult = buildSlideAppExportPayload(runtime, rootModelId);
+  if (!payloadResult.ok) return payloadResult;
+  const model = runtime.getModel(rootModelId);
+  const appName = runtime.getLabelValue
+    ? runtime.getLabelValue(model, 0, 0, 0, 'app_name')
+    : '';
+  const zipName = `${sanitizeSlideExportName(appName || (model && model.name) || `slide-app-${rootModelId}`)}.zip`;
+  const zip = new AdmZip();
+  zip.addFile('app_payload.json', Buffer.from(JSON.stringify(payloadResult.data.payload, null, 2), 'utf8'));
+  return {
+    ok: true,
+    data: {
+      filename: zipName,
+      buffer: zip.toBuffer(),
+      payload: payloadResult.data.payload,
+      modelIds: payloadResult.data.modelIds,
+    },
+  };
 }
 
 function parseSlideImportPayloadFromZipBuffer(zipBuffer) {
@@ -1579,6 +1740,19 @@ function remapImportedValue(value, idMap) {
   return out;
 }
 
+function remapImportedLabelValue(record, idMap) {
+  if (record.t === 'model.submt' && Number.isInteger(record.v) && idMap.has(record.v)) {
+    return idMap.get(record.v);
+  }
+  if (isModelIdReferenceKey(record.k) && Number.isInteger(record.v) && idMap.has(record.v)) {
+    return idMap.get(record.v);
+  }
+  if (isPlainObject(record.v) || Array.isArray(record.v)) {
+    return remapImportedValue(record.v, idMap);
+  }
+  return record.v;
+}
+
 function resolveNextWorkspaceMountCell(runtime) {
   const model0 = runtime.getModel(0);
   if (!model0) return { p: 2, r: 0, c: 0 };
@@ -1766,12 +1940,7 @@ function materializeSlideImportPayload(runtime, payload, validation) {
   for (const record of payload) {
     const actualModelId = idMap.get(record.id);
     const model = runtime.getModel(actualModelId);
-    let nextValue = record.v;
-    if (record.t === 'model.submt' && Number.isInteger(record.v) && idMap.has(record.v)) {
-      nextValue = idMap.get(record.v);
-    } else if (isPlainObject(record.v) || Array.isArray(record.v)) {
-      nextValue = remapImportedValue(record.v, idMap);
-    }
+    const nextValue = remapImportedLabelValue(record, idMap);
     runtime.addLabel(model, record.p, record.r, record.c, { k: record.k, t: record.t, v: nextValue });
   }
 
@@ -5092,6 +5261,8 @@ function createServerState(options) {
         installed_at: installedAt,
         from_user: fromUser,
         to_user: toUser,
+        export_url: slideCapable ? `/api/slide-apps/${modelId}/export.zip` : '',
+        export_label: slideCapable ? 'Zip' : '',
       });
     }
     derived.sort((a, b) => a.model_id - b.model_id);
@@ -7401,6 +7572,33 @@ function startServer(options) {
       return;
     }
 
+    if (req.method === 'GET') {
+      const exportMatch = url.pathname.match(/^\/api\/slide-apps\/(\d+)\/export\.zip$/);
+      if (exportMatch) {
+        const modelId = Number(exportMatch[1]);
+        const result = buildSlideAppExportZip(state.runtime, modelId);
+        if (!result || result.ok !== true) {
+          const status = result && result.code === 'model_not_found' ? 404 : 400;
+          writeJson(res, status, {
+            ok: false,
+            error: result && result.code ? result.code : 'export_failed',
+            detail: result && result.detail ? result.detail : '',
+          }, cors);
+          return;
+        }
+        const filename = result.data.filename || `slide-app-${modelId}.zip`;
+        res.writeHead(200, {
+          'content-type': 'application/zip',
+          'content-length': result.data.buffer.length,
+          'content-disposition': `attachment; filename="${filename}"`,
+          'cache-control': 'no-cache',
+          ...cors,
+        });
+        res.end(result.data.buffer);
+        return;
+      }
+    }
+
     if (req.method === 'GET' && url.pathname === '/favicon.ico') {
       res.writeHead(204, { 'cache-control': 'no-cache' });
       res.end();
@@ -7733,7 +7931,7 @@ export function buildCrossModelHostApiMethods(runtime) {
   return { writeCrossModel, readCrossModel, rmCrossModel, setMqttTargetConfig };
 }
 
-export { buildClientSnapshot, createServerState, handleMediaUploadRequest, startServer };
+export { buildClientSnapshot, buildSlideAppExportPayload, buildSlideAppExportZip, createServerState, handleMediaUploadRequest, startServer };
 
 const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMainModule) {

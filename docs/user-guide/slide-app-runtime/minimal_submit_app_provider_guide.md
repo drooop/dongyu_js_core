@@ -187,7 +187,40 @@ minimal-submit-dual-bus.zip
 
 实际交付时还要继续补齐 `(2,0,0)` 到 `(2,6,0)` 的 UI 组件 labels。原则是每个可见组件一个 cell，不要把页面压成一个 HTML 字符串。
 
-### 3.2 如何在 Workspace 触发导入
+完整可导入示例已经落盘：
+
+```text
+test_files/minimal_submit_dual_bus_app_payload.json
+test_files/minimal_submit_dual_bus.zip
+```
+
+这两个文件是手工测试 zip 安装流程的基准资产。`zip` 版本只包含一个 `app_payload.json`，内容与 JSON 文件一致。
+
+### 3.2 app_payload.json 后续如何生成
+
+有两条正式路径：
+
+1. **直接编写 ModelTable records array**。开发者按本节的单元格拆分方式写 `app_payload.json`，所有模型 id 都使用临时 id，例如根模型写 `id: 0`。如果 payload 里引用自己，也写 `model_id: 0`；导入器安装时会 remap 成正式模型 id。
+2. **从 Workspace 已有 APP 导出 zip**。如果开发者已经在 Workspace 里通过填表做出了一个 `slide_capable=true` 的滑动 APP，可以在 Workspace 资产树里使用该 APP 行的 `Zip` 链接，或者直接访问：
+
+```text
+/api/slide-apps/<modelId>/export.zip
+```
+
+导出的 zip 会自动生成一个 `app_payload.json`。导出过程会去掉安装时生成的状态，例如 `installed_at`、`deletable`、`host_ingress_generated_*`、`host_egress_generated_*`，也会把正式 `model_id` 重新改写成临时 id。因此导出的包可以交给另一个环境再走 `滑动 APP 导入`。
+
+引用其他模型时可以使用两种写法，导入/导出都会 remap：
+
+```json
+{ "k": "ui_bind_json", "t": "json", "v": { "read": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "display_text" } } }
+{ "k": "ui_text_ref_model_id", "t": "int", "v": 0 }
+```
+
+第一种是推荐写法，因为一个 label 里就能完整表达绑定关系；第二种是分散式引用写法，适合已有的 `ui_text_ref_*` 标签族。两种写法里的 `0` 都表示 zip 内的临时根模型，不是安装后的正式模型 id。
+
+导出不是“把运行时完整数据库复制走”。它只导出当前 APP 自己的可交付模型表定义。Model 0、MBR、remote-worker 的订阅配置不在 zip 内；如果导入后的新模型 id 要跑完整双总线回流，R1/MBR 仍需要订阅导入后实际模型 id 对应的 submit/result topic。
+
+### 3.3 如何在 Workspace 触发导入
 
 1. 打开 Workspace。
 2. 在资产树中打开 `滑动 APP 导入`。

@@ -357,7 +357,7 @@
       "c": 0,
       "k": "ui_min_width",
       "t": "str",
-      "v": "180"
+      "v": "150"
     },
     {
       "op": "add_label",
@@ -427,7 +427,7 @@
       "c": 0,
       "k": "ui_width",
       "t": "str",
-      "v": "84"
+      "v": "108"
     },
     {
       "op": "add_label",
@@ -725,6 +725,69 @@
       "k": "ui_layout",
       "t": "str",
       "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "lnk_ws_export_zip"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Link"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "col_ws_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 15
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "href": {
+          "$ref": "row.export_url"
+        },
+        "text": {
+          "$ref": "row.export_label"
+        },
+        "target": "_self",
+        "style": {
+          "color": "#2f8df7",
+          "marginLeft": "8px",
+          "textDecoration": "none"
+        }
+      }
     },
     {
       "op": "add_label",

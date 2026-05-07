@@ -80,6 +80,8 @@ flowchart LR
 
 zip 里只放 `app_payload.json`。这个文件是 ModelTable records array，不是 HTML 页面，也不是 patch ops。UI 应按 cell 拆分：Container、Card、Input、Button、Text、StatusBadge 分别是独立 cell。
 
+开发者可以直接写 `app_payload.json`，也可以先在 Workspace 中填表做出一个 `slide_capable=true` 的 APP，再通过 `Zip` 链接或 `/api/slide-apps/<modelId>/export.zip` 导出。导出包会把正式模型 id 改回临时 id，并移除安装时生成的 `host_*_generated_*` 状态。绑定中的 `model_id` 字段和分散式 `*_model_id` 标签都会随导入/导出一起 remap。
+
 ## 4. 外部客户端收发测试
 
 ```mermaid

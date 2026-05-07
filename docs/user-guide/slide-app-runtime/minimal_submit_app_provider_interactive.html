@@ -454,7 +454,8 @@
       <p>如果交付新 APP，不直接改运行时。把模型表 records 打成 zip，再由 Workspace 导入器完成上传、materialize、mount 和自动引脚建立。</p>
       <div class="steps">
         <div class="step"><div><strong>准备 zip</strong><br><code>minimal-submit-dual-bus.zip</code> 里只放 <code>app_payload.json</code>。</div></div>
-        <div class="step"><div><strong>写 app_payload.json</strong><br>内容是临时 ModelTable records array，使用 <code>id: 0</code>，不写正式 model id，不写 patch op。</div></div>
+        <div class="step"><div><strong>写 app_payload.json</strong><br>内容是临时 ModelTable records array，使用 <code>id: 0</code>，不写正式 model id，不写 patch op。绑定里的 <code>model_id: 0</code> 或 <code>*_model_id=0</code> 都表示 zip 内根模型，会在导入时 remap。</div></div>
+        <div class="step"><div><strong>或者导出 zip</strong><br>如果 APP 已经在 Workspace 中填表完成，使用资产树里的 <code>Zip</code> 链接，或访问 <code>/api/slide-apps/&lt;modelId&gt;/export.zip</code>。</div></div>
         <div class="step"><div><strong>打开 Workspace</strong><br>在资产树中打开 <code>滑动 APP 导入</code>。</div></div>
         <div class="step"><div><strong>选择 zip 并导入</strong><br>导入器会调用 <code>/api/media/upload</code>，得到 <code>mxc://...</code>，再把 records materialize 成正式模型。</div></div>
         <div class="step"><div><strong>自动挂载</strong><br>宿主把新模型挂到 Workspace，并按声明建立宿主侧引脚和 Model 0 adapter。</div></div>
@@ -463,7 +464,10 @@
   "zip": "minimal-submit-dual-bus.zip",
   "files": ["app_payload.json"],
   "payload_shape": "ModelTable records array",
-  "do_not_include": ["op", "installed model_id", "secret", "token"]
+  "can_generate_by": ["write records", "Workspace Zip export"],
+  "export_endpoint": "/api/slide-apps/<modelId>/export.zip",
+  "model_id_remap": ["ui_bind_json.read.model_id", "ui_text_ref_model_id"],
+  "do_not_include": ["op", "installed model_id", "secret", "token", "host_*_generated_*"]
 }</pre>
     </article>
 
