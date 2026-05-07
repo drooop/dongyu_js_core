@@ -1,7 +1,7 @@
 ---
 title: "0360 Minimal Submit Docs And Remote Deploy Runlog"
 doc_type: iteration_runlog
-status: in_progress
+status: completed
 updated: 2026-05-07
 source: ai
 iteration: 0360-minimal-submit-docs-and-remote-deploy
@@ -148,10 +148,88 @@ iteration: 0360-minimal-submit-docs-and-remote-deploy
 - Command: publish a valid external MQTT result message to `UIPUT/ws/dam/pic/de/sw/1050/result`, then inspect browser and snapshot.
 - Key output: browser displayed `Submitted: manual external topic 0360`; ui-server logged `manual_result_1050_0360_...` routed via owner materialization.
 - Result: PASS.
-- Commit: pending
+- Commit: `12ae4fc`
+
+### Step 19
+
+- Command: `git commit -m "docs(slide): publish minimal submit dual bus guide [0360]"`
+- Key output: committed the docs rewrite, R1 remote-worker `text`-only handler, docs UI entry, contract tests, and iteration scaffolding.
+- Result: PASS.
+- Commit: `12ae4fc`
+
+### Step 20
+
+- Command: remote SSH/rke2 preflight via `drop@124.71.43.80`.
+- Key output: SSH login, remote repo path, passwordless sudo, and `remote_preflight_guard.sh` all passed.
+- Result: PASS.
+- Commit: `12ae4fc`
+
+### Step 21
+
+- Command: `bash scripts/ops/sync_cloud_source.sh --ssh-user drop --ssh-host 124.71.43.80 --remote-repo /home/wwpic/dongyuapp --remote-repo-owner wwpic --revision 12ae4fc`
+- Key output: remote git checkout was unavailable for the local branch revision, so the script used its archive fallback and wrote `.deploy-source-revision=12ae4fc`.
+- Result: PASS.
+- Commit: `12ae4fc`
+
+### Step 22
+
+- Command: deploy cloud `ui-server`, `mbr-worker`, and `remote-worker` with `scripts/ops/deploy_cloud_app.sh --revision 12ae4fc`.
+- Key output: all three deployments completed; source hash gates passed for each target.
+- Result: PASS.
+- Commit: `12ae4fc`
+
+### Step 23
+
+- Command: Playwright opened `https://app.dongyudigital.com/p/slide-app-runtime-minimal-submit-provider/`, filled the docs preview with `remote docs browser 0360`, and clicked `Submit`.
+- Key output: browser displayed `Submitted: remote docs browser 0360`; static HTML title is `最小 Submit 双总线示例`.
+- Result: PASS.
+- Commit: `12ae4fc`
+
+### Step 24
+
+- Command: Playwright opened remote Workspace and selected `最小 Submit 双总线示例`.
+- Key output: first remote Workspace run showed `Model 1050 is not mounted into Workspace`; snapshot inspection showed remote persisted Model 0 `(2,0,20)` already mounted a user/imported model `1041`, colliding with the 1050 canonical mount.
+- Result: FAIL -> fixed in Step 25.
+- Commit: `12ae4fc`
+
+### Step 25
+
+- Command: move Model 1050 canonical mount from Model 0 `(2,0,20)` to reserved mount `(9,0,1050)` and strengthen `test_0359_minimal_submit_matrix_e2e_contract.mjs`.
+- Key output: `node scripts/tests/test_0359_minimal_submit_matrix_e2e_contract.mjs`, `node scripts/tests/test_0360_minimal_submit_dual_bus_docs_contract.mjs`, `node scripts/tests/test_0353_slide_app_runtime_docs_publish_contract.mjs`, `git diff --check`, local deploy, baseline check, and local Playwright Workspace submit all passed.
+- Result: PASS. Local browser displayed `Submitted: local reserved mount 0360`.
+- Commit: `157b922`
+
+### Step 26
+
+- Command: sync and deploy cloud `ui-server` with `--revision 157b922`.
+- Key output: archive source sync wrote `.deploy-source-revision=157b922`; cloud `ui-server` deploy completed; source hash gate passed.
+- Result: PASS.
+- Commit: `157b922`
+
+### Step 27
+
+- Command: Playwright opened `https://app.dongyudigital.com/?v=0360mount2#/workspace`, opened `最小 Submit 双总线示例`, filled `remote reserved mount 0360`, and clicked `Submit`.
+- Key output: browser displayed `Submitted: remote reserved mount 0360`; status displayed `remote_processed`.
+- Result: PASS.
+- Commit: `157b922`
+
+### Step 28
+
+- Command: inspect remote route evidence and conformance.
+- Key output: MBR logs show Matrix payload -> `UIPUT/ws/dam/pic/de/sw/1050/submit` -> `UIPUT/ws/dam/pic/de/sw/1050/result`; remote-worker logs show inbound `text=remote reserved mount 0360` and result payload; ui-server logs show owner materialization to model `1050`; `/snapshot` shows Model 0 `(9,0,1050)` mounted to `1050`; targeted remote MBR/remote-worker assets have no `pin.connect.model`, no old `ctx.*Label`, and no `input_value` fallback.
+- Result: PASS.
+- Commit: `157b922`
 
 ## Docs Updated
 
 - [x] `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_guide.md` updated
 - [x] `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_visualized.md` updated
 - [x] `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_interactive.html` updated
+
+## Final Status
+
+- [x] Local deployment verified.
+- [x] Remote deployment verified.
+- [x] Static HTML docs published at `https://app.dongyudigital.com/p/slide-app-runtime-minimal-submit-provider/`.
+- [x] Workspace `最小 Submit 双总线示例` verified with real browser and remote logs.
+- [x] Targeted MBR/remote-worker 1050 path verified with no compatibility route.

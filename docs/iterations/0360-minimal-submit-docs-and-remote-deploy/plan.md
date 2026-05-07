@@ -1,7 +1,7 @@
 ---
 title: "0360 Minimal Submit Docs And Remote Deploy Plan"
 doc_type: iteration_plan
-status: in_progress
+status: completed
 updated: 2026-05-07
 source: ai
 iteration: 0360-minimal-submit-docs-and-remote-deploy
