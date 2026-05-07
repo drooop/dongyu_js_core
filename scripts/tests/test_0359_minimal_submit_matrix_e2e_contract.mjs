@@ -89,9 +89,12 @@ function test_seeded_workspace_model_is_cellwise_and_bus_event_v2() {
   const records = recordsFor('packages/worker-base/system-models/workspace_positive_models.json');
   const hierarchyRecords = recordsFor(HIERARCHY_PATCH);
   assert.ok(findRecord(records, (record) => record.op === 'create_model' && record.model_id === EXAMPLE_MODEL_ID), 'minimal submit Matrix example model must be seeded');
-  assert.ok(
-    findRecord(hierarchyRecords, (record) => record.model_id === 0 && record.t === 'model.submt' && record.v === EXAMPLE_MODEL_ID),
-    'minimal submit Matrix example model must be mounted into Workspace hierarchy',
+  const hierarchyMount = findRecord(hierarchyRecords, (record) => record.model_id === 0 && record.t === 'model.submt' && record.v === EXAMPLE_MODEL_ID);
+  assert.ok(hierarchyMount, 'minimal submit Matrix example model must be mounted into Workspace hierarchy');
+  assert.deepEqual(
+    { p: hierarchyMount.p, r: hierarchyMount.r, c: hierarchyMount.c },
+    { p: 9, r: 0, c: EXAMPLE_MODEL_ID },
+    'minimal submit Matrix example mount must avoid the Workspace import auto-mount row',
   );
 
   const appName = findRecord(records, (record) => record.model_id === EXAMPLE_MODEL_ID && record.k === 'app_name');

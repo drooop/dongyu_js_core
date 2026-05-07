@@ -326,9 +326,9 @@
     {
       "op": "add_label",
       "model_id": 0,
-      "p": 2,
+      "p": 9,
       "r": 0,
-      "c": 20,
+      "c": 1050,
       "k": "model_type",
       "t": "model.submt",
       "v": 1050
