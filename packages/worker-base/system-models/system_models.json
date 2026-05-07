@@ -101,6 +101,19 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "mbr_route_1050",
+      "t": "json",
+      "v": {
+        "pin": "submit",
+        "type": "pin_payload"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "mbr_route_1010",
       "t": "json",
       "v": {

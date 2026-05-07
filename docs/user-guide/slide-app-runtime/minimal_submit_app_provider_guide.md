@@ -2,7 +2,7 @@
 title: "Minimal Slide App Provider Guide"
 doc_type: user-guide
 status: active
-updated: 2026-04-29
+updated: 2026-05-07
 source: ai
 ---
 
@@ -19,6 +19,12 @@ source: ai
 也就是一个完整的 `Input + Submit Button + Display Label` 示例。
 
 你最终交付一个 zip，里面放一个 `app_payload.json`。这个 JSON 是一组 ModelTable records；每条 record 就是一格上的一个 label。
+
+本项目已经把同样的最小应用落成一个可执行参考模型：Workspace 里的 `最小 Submit 双总线示例`，模型 id 是 `1050`。这个参考模型不是文档静态预览，它会走真实消息链路：
+
+`UI click -> Model 0 -> Matrix -> MBR -> MQTT -> remote-worker -> MQTT -> MBR -> Matrix -> ui-server -> UI model`
+
+浏览器里输入内容后点击 `Submit`，显示文字应从 `Waiting for submit` 变成 `Submitted: <输入内容>`。
 
 ## 1. 你需要关心的三件事
 
@@ -160,6 +166,8 @@ return;
 
 ## 6. 这个例子运行后会发生什么
 
+### 6.1 提供方 zip 安装后的本地最小闭环
+
 1. 安装器把临时 `id: 0` 变成正式模型 id。
 2. 页面显示标题、输入框、`Submit` 按钮和结果文字。
 3. 用户输入 `hello` 时，输入过程先作为本地草稿处理；不会每个字符都强制变成正式业务结果。
@@ -167,6 +175,56 @@ return;
 5. `submit_request_wiring` 触发 `handle_submit`。
 6. `handle_submit` 写回 `display_text = "Submitted: hello"`。
 7. 显示用 `Text` 读取 `display_text`，页面展示结果。
+
+### 6.2 项目内真实 Matrix 双总线参考实现
+
+Workspace 里的 `最小 Submit 双总线示例` 是同一类应用的真实 E2E 版本。它的用户界面仍然由细粒度 cellwise UI labels 组成，但点击按钮后不在本地直接完成业务结果，而是把临时 ModelTable payload 送入 Model 0。
+
+| 名称 | 值 |
+|---|---|
+| UI 模型 | `1050` |
+| Model 0 bus-in key | `bus_event_submit_1050_0_0_0` |
+| submit topic | `UIPUT/ws/dam/pic/de/sw/1050/submit` |
+| result topic | `UIPUT/ws/dam/pic/de/sw/1050/result` |
+| 可见结果 | `Submitted: <输入内容>` |
+
+真实运行路径如下：
+
+1. Input cell 把输入草稿写入模型 `1050` 的 `input_text`。
+2. Button cell 点击后提交 `bus_event_v2`，入口是 `bus_event_submit_1050_0_0_0`。
+3. Model 0 把提交 payload 转成 `pin_payload`，经 Matrix 发给目标用户 `@mbr:<host_url>`。
+4. MBR 根据模型 `1050` 的 route，把消息转到 MQTT submit topic：`UIPUT/ws/dam/pic/de/sw/1050/submit`。
+5. remote-worker 收到 submit topic 后触发自己的模型 `1050` 程序模型，生成 `display_text = "Submitted: <输入内容>"`。
+6. remote-worker 把结果发到 result topic：`UIPUT/ws/dam/pic/de/sw/1050/result`。
+7. MBR 再把结果经 Matrix 回送 ui-server。
+8. ui-server 收到 `pin=result` 的 `pin_payload` 后 materialize 到 UI 模型 `1050`，页面显示更新。
+
+同事如果只想观察 remote-worker 收到的 submit 数据，应订阅：
+
+```text
+UIPUT/ws/dam/pic/de/sw/1050/submit
+```
+
+同事如果要模拟 remote-worker 回包并直接改变这个 UI 示例的显示内容，应向下面这个 result topic 发送 `pin_payload`，payload 中包含 `display_text` 这条 ModelTable record：
+
+```text
+UIPUT/ws/dam/pic/de/sw/1050/result
+```
+
+示例 result payload：
+
+```json
+{
+  "version": "v1",
+  "type": "pin_payload",
+  "source_model_id": 1050,
+  "pin": "result",
+  "payload": [
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Submitted: hello from remote-worker" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "remote_status", "t": "str", "v": "remote_processed" }
+  ]
+}
+```
 
 ## 7. 如何打包
 

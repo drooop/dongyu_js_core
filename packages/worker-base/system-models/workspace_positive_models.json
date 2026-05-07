@@ -23267,6 +23267,697 @@
           ]
         }
       ]
+    },
+    {
+      "op": "create_model",
+      "model_id": 1050,
+      "name": "minimal_submit_matrix_example",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.MinimalSubmitMatrixExample"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "最小 Submit 双总线示例"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "remote-worker"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "workspace.page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "minimal_submit_matrix_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "dual_bus_model",
+      "t": "json",
+      "v": {
+        "model0_egress_label": "minimal_submit_matrix_submit_out",
+        "model0_egress_func": "forward_minimal_submit_matrix_from_model0"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "input_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "display_text",
+      "t": "str",
+      "v": "Waiting for submit"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_status",
+      "t": "str",
+      "v": "idle"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_inflight",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "last_submit_payload",
+      "t": "json",
+      "v": []
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "minimal_submit_matrix_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 14
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "minimal_submit_matrix_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "minimal_submit_matrix_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "最小 Submit 双总线示例"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "minimal_submit_matrix_intro"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "minimal_submit_matrix_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "输入内容后点击 Submit；正式业务会经过 Model 0、Matrix、MBR、MQTT 和 remote-worker 再回写本页面。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "minimal_submit_matrix_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "minimal_submit_matrix_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Type message for Matrix roundtrip"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1050,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "input_text"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1050,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "input_text"
+          },
+          "commit_policy": "on_blur"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "minimal_submit_matrix_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "minimal_submit_matrix_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Submit"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "bus_event_v2": true,
+          "bus_in_key": "bus_event_submit_1050_0_0_0",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ui_event.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "text",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1050,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "input_text"
+                }
+              }
+            }
+          ],
+          "value_t": "modeltable",
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "minimal_submit_matrix_display"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "minimal_submit_matrix_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "success"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1050,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "display_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "minimal_submit_matrix_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "minimal_submit_matrix_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "REMOTE"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": 1050
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "remote_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "minimal_submit_matrix_submit_out",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "minimal_submit_matrix_submit_route",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [
+            0,
+            0,
+            0,
+            "bus_event_submit_1050_0_0_0"
+          ],
+          "to": [
+            [
+              0,
+              0,
+              0,
+              "minimal_submit_matrix_submit_out"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "forward_minimal_submit_matrix_from_model0",
+      "t": "func.js",
+      "v": {
+        "code": "/* rubric: P4+P9+P10+P5 */ const payload = ((ctx.hostApi.readCrossModel(0, 0, 0, 0, 'minimal_submit_matrix_submit_out') || {}).data || {}).v;\nif (!Array.isArray(payload) || payload.length === 0) return;\nctx.hostApi.writeCrossModel(1050, 0, 0, 0, 'submit_inflight', 'bool', true);\nctx.hostApi.writeCrossModel(1050, 0, 0, 0, 'remote_status', 'str', 'sending');\nconst packet = { version: 'v1', type: 'pin_payload', op_id: 'minimal_submit_matrix_' + Date.now(), source_model_id: 1050, pin: 'submit', payload, timestamp: Date.now() };\nif (!ctx.sendMatrix || typeof ctx.sendMatrix !== 'function') {\n  ctx.hostApi.writeCrossModel(1050, 0, 0, 0, 'submit_inflight', 'bool', false);\n  ctx.hostApi.writeCrossModel(1050, 0, 0, 0, 'remote_status', 'str', 'matrix_unavailable');\n  ctx.hostApi.writeCrossModel(0, 0, 0, 0, 'minimal_submit_matrix_submit_out', 'pin.in', null);\n  ctx.hostApi.writeCrossModel(1050, 0, 0, 0, 'submit', 'pin.out', null);\n  return;\n}\nconst p = ctx.sendMatrix(packet);\nif (p && typeof p.then === 'function') {\n  p.catch(function() {\n    ctx.hostApi.writeCrossModel(1050, 0, 0, 0, 'submit_inflight', 'bool', false);\n    ctx.hostApi.writeCrossModel(1050, 0, 0, 0, 'remote_status', 'str', 'send_failed');\n  });\n} else if (!p) {\n  ctx.hostApi.writeCrossModel(1050, 0, 0, 0, 'submit_inflight', 'bool', false);\n  ctx.hostApi.writeCrossModel(1050, 0, 0, 0, 'remote_status', 'str', 'matrix_unavailable');\n}\nctx.hostApi.writeCrossModel(0, 0, 0, 0, 'minimal_submit_matrix_submit_out', 'pin.in', null);\nctx.hostApi.writeCrossModel(1050, 0, 0, 0, 'submit', 'pin.out', null);",
+        "modelName": "minimal_submit_matrix_example"
+      }
     }
   ]
 }

@@ -2,7 +2,7 @@
 title: "Minimal Submit App Provider Visualized Guide"
 doc_type: user-guide
 status: active
-updated: 2026-04-29
+updated: 2026-05-07
 source: ai
 ---
 
@@ -13,6 +13,19 @@ source: ai
 如果你只想快速交付一个最小 APP，记住一句话：
 
 > 页面由 cellwise UI labels 组成；按钮只提交临时 ModelTable records；结果由 `handle_submit` 写回 `display_text`。
+
+项目内可实测的 Workspace 参考模型是 `最小 Submit 双总线示例`，模型 id 为 `1050`。点击按钮后真实路径是：
+
+`UI click -> Model 0 -> Matrix -> MBR -> MQTT -> remote-worker -> MQTT -> MBR -> Matrix -> ui-server -> UI model`
+
+关键连接值如下：
+
+| 项 | 值 |
+|---|---|
+| Model 0 bus-in key | `bus_event_submit_1050_0_0_0` |
+| submit topic | `UIPUT/ws/dam/pic/de/sw/1050/submit` |
+| result topic | `UIPUT/ws/dam/pic/de/sw/1050/result` |
+| 可见结果 | `Submitted: <输入内容>` |
 
 ## 1. 最小交付物长什么样
 
@@ -67,6 +80,31 @@ sequenceDiagram
   F->>F: read record k=text
   F->>L: V1N.addLabel display_text
   L-->>U: Text node shows Submitted: hello
+```
+
+上图是提供方 zip 的本地最小闭环。项目内真实参考实现会继续经过 Model 0、Matrix、MBR、MQTT 与 remote-worker：
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant UI as UI model 1050
+  participant M0 as Model 0
+  participant MX as Matrix
+  participant MBR as MBR
+  participant MQTT as MQTT topics
+  participant RW as remote-worker model 1050
+
+  U->>UI: Click Submit
+  UI->>M0: bus_event_submit_1050_0_0_0
+  M0->>MX: pin_payload submit
+  MX->>MBR: Matrix event to @mbr:<host_url>
+  MBR->>MQTT: UIPUT/ws/dam/pic/de/sw/1050/submit
+  MQTT->>RW: trigger submit program
+  RW->>MQTT: UIPUT/ws/dam/pic/de/sw/1050/result
+  MQTT->>MBR: result pin_payload
+  MBR->>MX: Matrix result event
+  MX->>UI: ui-server materializes display_text
+  UI-->>U: Submitted: <输入内容>
 ```
 
 按钮提交的是下面这种 payload：

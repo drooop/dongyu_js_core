@@ -342,7 +342,14 @@
 ]</pre>
         </div>
       </div>
-      <div class="note">交互提示：改输入框内容后点 Submit，显示 label 和右侧 payload 预览会一起更新；如果要单独研究 payload，可以再切到第 3 步。</div>
+      <div class="note">交互提示：这一页内的输入框只是文档预览。真实可执行版本在 Workspace 的 <code>最小 Submit 双总线示例</code>，模型 id 是 <code>1050</code>，点击后应显示 <code>Submitted: &lt;输入内容&gt;</code>。</div>
+      <div class="note">真实路径：<code>UI click -> Model 0 -> Matrix -> MBR -> MQTT -> remote-worker -> MQTT -> MBR -> Matrix -> ui-server -> UI model</code>。</div>
+      <div class="cell-grid" aria-label="Real Matrix route contract">
+        <div class="cell"><code>bus_event_submit_1050_0_0_0</code><strong>Model 0 bus-in key</strong><br>UI Button 进入 Model 0 的正式入口。</div>
+        <div class="cell"><code>UIPUT/ws/dam/pic/de/sw/1050/submit</code><strong>submit topic</strong><br>MBR 转发给 remote-worker 的提交 topic。</div>
+        <div class="cell"><code>UIPUT/ws/dam/pic/de/sw/1050/result</code><strong>result topic</strong><br>remote-worker 回包后改变 UI 显示的 topic。</div>
+        <div class="cell"><code>Submitted: &lt;输入内容&gt;</code><strong>visible result</strong><br>回流 materialize 到 UI 模型后的显示文字。</div>
+      </div>
     </article>
 
     <article class="panel" id="stage-cells">
