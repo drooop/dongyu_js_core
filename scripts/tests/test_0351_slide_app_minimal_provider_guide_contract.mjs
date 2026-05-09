@@ -1,120 +1,76 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import fs from 'node:fs';
+import { resolve } from 'node:path';
 
-const DOC_PATH = 'docs/user-guide/slide-app-runtime/minimal_submit_app_provider_guide.md';
-const ROOT_README_PATH = 'docs/user-guide/README.md';
-const SLIDE_README_PATH = 'docs/user-guide/slide-app-runtime/README.md';
-const REMOTE_PATCH_PATH = 'deploy/sys-v1ns/remote-worker/patches/13_model1050_minimal_submit.json';
-const MBR_PATCH_PATH = 'deploy/sys-v1ns/mbr/patches/mbr_role_v0.json';
-const REMOTE_CONFIG_PATH = 'deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json';
+const repoRoot = resolve(import.meta.dirname, '..', '..');
+const GUIDE = 'docs/user-guide/slide-app-runtime/minimal_submit_app_provider_guide.md';
+const REMOTE_PATCH = 'deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json';
 
-function readRepoText(path) {
-  return readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+function read(path) { return fs.readFileSync(resolve(repoRoot, path), 'utf8'); }
+function json(path) { return JSON.parse(read(path)); }
+function records(path) { return json(path).records || []; }
+function find(recs, pred) { return recs.find((record) => record && pred(record)) || null; }
+function assertNoOld(text, label) {
+  assert.equal(text.includes('/1050/'), false, label + ' must not mention old 1050 topics');
+  assert.equal(text.includes('bus_event_submit_1050_0_0_0'), false, label + ' must not mention old fixed bus key');
+  assert.equal(text.includes('mbr_route_'), false, label + ' must not mention static MBR routes');
 }
 
-function readRepoJson(path) {
-  return JSON.parse(readRepoText(path));
+function test_doc_has_self_described_route_contract() {
+  const doc = read(GUIDE);
+  assert.match(doc, /remote-worker `RE`|remote-worker RE/u, 'guide must explain RE remote-worker');
+  assert.match(doc, /route\.to/u, 'guide must explain route.to');
+  assert.match(doc, /route\.reply_to/u, 'guide must explain route.reply_to');
+  assert.match(doc, /model `3000`|model 3000/u, 'guide must explain provider model 3000');
+  assert.match(doc, /submit1/u, 'guide must explain public submit1 pin');
+  assert.match(doc, /UIPUT\/ws\/dam\/pic\/de\/sw\/worker\/RE\/model\/3000\/pin\/submit1/u, 'guide must document route-addressed submit topic');
+  assert.match(doc, /worker\/ui-server-U1\/model\/2000\/pin\/result/u, 'guide must document reply topic');
+  assert.match(doc, /test_files\/minimal_submit_dual_bus_app_payload\.json/u, 'guide must reference payload fixture');
+  assert.match(doc, /test_files\/minimal_submit_dual_bus\.zip/u, 'guide must reference zip fixture');
+  assertNoOld(doc, 'guide');
+  return { key: 'doc_has_self_described_route_contract', status: 'PASS' };
 }
 
-function findRecord(records, predicate) {
-  return records.find((record) => record && predicate(record)) || null;
+function test_remote_worker_provider_patch_matches_contract() {
+  const recs = records(REMOTE_PATCH);
+  assert.ok(find(recs, (record) => record.op === 'create_model' && record.model_id === 3000), 'provider model 3000 must be created');
+  assert.equal(find(recs, (record) => record.model_id === 3000 && record.k === 'submit1')?.t, 'pin.in', 'provider root submit1 must be pin.in');
+  assert.equal(find(recs, (record) => record.model_id === 3000 && record.k === 'result')?.t, 'pin.out', 'provider root result must be pin.out');
+  assert.equal(find(recs, (record) => record.model_id === 3000 && record.k === 'result_out_topic'), null, 'provider must not use static result_out_topic');
+  assert.ok(find(recs, (record) => record.model_id === 3000 && record.k === 'submit1_route' && record.t === 'pin.connect.cell'), 'provider must route root submit1 via pin.connect.cell');
+  const code = find(recs, (record) => record.model_id === 3000 && record.k === 'submit1' && record.t === 'func.js')?.v?.code || '';
+  assert.match(code, /reply_to/u, 'provider function must use reply_to');
+  assert.match(code, /ctx\.publishMqtt/u, 'provider function must publish MQTT reply');
+  assert.equal(code.includes('V1N.table'), false, 'provider function in non-root cell must not use V1N.table');
+  assertNoOld(code, 'provider code');
+  return { key: 'remote_worker_provider_patch_matches_contract', status: 'PASS' };
 }
 
-function assertNoLegacyCalls(text, label) {
-  assert.equal(/ctx\.(writeLabel|getLabel|rmLabel)\s*\(/u.test(text), false, `${label} must not call legacy ctx label APIs`);
-}
-
-function assertNoLegacyRouteSurface(text, label) {
-  assert.equal(text.includes('pin.connect.model'), false, `${label} must not contain pin.connect.model`);
-  assert.equal(/ctx\.(writeLabel|getLabel|rmLabel)\s*\(/u.test(text), false, `${label} must not call legacy ctx label APIs`);
-}
-
-function test_doc_has_dual_bus_provider_contract() {
-  const doc = readRepoText(DOC_PATH);
-  assert.match(doc, /# 最小 Submit 双总线示例/u);
-  assert.match(doc, /remote-worker R1/u);
-  assert.match(doc, /Workspace 下的 `滑动 APP 导入`/u);
-  assert.match(doc, /minimal-submit-dual-bus\.zip/u);
-  assert.match(doc, /app_payload\.json/u);
-  assert.match(doc, /@mbr:<host_url>/u);
-  assert.match(doc, /dy\.bus\.v0/u);
-  assert.match(doc, /UI click -> Model 0 -> Matrix -> MBR -> MQTT -> remote-worker -> MQTT -> MBR -> Matrix -> ui-server -> UI model/u);
-  assert.match(doc, /UIPUT\/ws\/dam\/pic\/de\/sw\/1050\/submit/u);
-  assert.match(doc, /UIPUT\/ws\/dam\/pic\/de\/sw\/1050\/result/u);
-  assert.match(doc, /Submitted: <输入内容>/u);
-  assert.match(doc, /外部客户端要模拟 `R1` 回包/u);
-  assertNoLegacyCalls(doc, 'guide');
-  return { key: 'doc_has_dual_bus_provider_contract', status: 'PASS' };
-}
-
-function test_remote_worker_r1_patch_matches_documented_contract() {
-  const patch = readRepoJson(REMOTE_PATCH_PATH);
-  const records = patch.records || [];
-  assert.ok(findRecord(records, (record) => record.op === 'create_model' && record.model_id === 1050), 'R1 model 1050 must be created');
-  assert.equal(findRecord(records, (record) => record.model_id === 1050 && record.k === 'model_type')?.t, 'model.table');
-  assert.equal(findRecord(records, (record) => record.model_id === 1050 && record.k === 'submit')?.t, 'pin.in');
-  assert.equal(findRecord(records, (record) => record.model_id === 1050 && record.k === 'result')?.t, 'pin.out');
-  assert.equal(findRecord(records, (record) => record.model_id === 1050 && record.k === 'result_out_topic')?.v, 'UIPUT/ws/dam/pic/de/sw/1050/result');
-  assert.deepEqual(
-    findRecord(records, (record) => record.model_id === 1050 && record.k === 'root_routes')?.v,
-    [
-      { from: 'submit', to: ['on_minimal_submit_matrix_remote_submit:in'] },
-      { from: 'on_minimal_submit_matrix_remote_submit:out', to: ['result'] },
-    ],
-  );
-  const code = findRecord(records, (record) => record.model_id === 1050 && record.k === 'on_minimal_submit_matrix_remote_submit')?.v?.code || '';
-  assert.match(code, /record\.k === 'text'/u, 'R1 handler must read text record');
-  assert.equal(code.includes('input_value'), false, 'R1 handler must not keep input_value compatibility fallback');
-  assert.match(code, /ctx\.publishMqtt\(topic,\s*\{ version: 'v1', type: 'pin_payload'/u, 'R1 handler must publish pin_payload result');
-  assertNoLegacyRouteSurface(code, 'R1 handler');
-  return { key: 'remote_worker_r1_patch_matches_documented_contract', status: 'PASS' };
-}
-
-function test_mbr_and_remote_config_route_1050_topics() {
-  const mbrRecords = readRepoJson(MBR_PATCH_PATH).records || [];
-  const configRecords = readRepoJson(REMOTE_CONFIG_PATH).records || [];
-  const modelIds = findRecord(mbrRecords, (record) => record.k === 'mbr_mqtt_model_ids')?.v || [];
-  assert.ok(modelIds.includes(1050), 'MBR must bridge model 1050');
-  const subscriptions = findRecord(configRecords, (record) => record.k === 'remote_subscriptions')?.v || [];
-  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/1050/submit'), 'R1 config must subscribe submit topic');
-  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/1050/result'), 'R1 config must subscribe result topic');
-  assertNoLegacyRouteSurface(readRepoText(MBR_PATCH_PATH), 'MBR patch');
-  assertNoLegacyRouteSurface(readRepoText(REMOTE_CONFIG_PATH), 'remote config patch');
-  return { key: 'mbr_and_remote_config_route_1050_topics', status: 'PASS' };
+function test_mbr_and_remote_config_use_route_topics() {
+  const mbrText = read('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json');
+  const systemText = read('packages/worker-base/system-models/system_models.json');
+  const subscriptions = find(records('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json'), (record) => record.k === 'remote_subscriptions')?.v || [];
+  assert.equal(mbrText.includes('mbr_route_'), false, 'MBR patch must not use static mbr_route');
+  assert.equal(systemText.includes('mbr_route_'), false, 'system models must not seed static mbr_route');
+  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1'), 'remote config must subscribe provider route topic');
+  assert.equal(subscriptions.some((topic) => String(topic).includes('/1050/')), false, 'remote config must not include old 1050 topics');
+  return { key: 'mbr_and_remote_config_use_route_topics', status: 'PASS' };
 }
 
 function test_user_guide_indexes_link_new_doc() {
-  const rootReadme = readRepoText(ROOT_README_PATH);
-  const slideReadme = readRepoText(SLIDE_README_PATH);
-  assert.match(rootReadme, /0360/u);
-  assert.match(rootReadme, /最小 Submit 双总线示例/u);
-  assert.match(slideReadme, /minimal_submit_app_provider_guide\.md/u);
-  assert.match(slideReadme, /R1 填表/u);
-  assert.match(slideReadme, /外部 Matrix\/MQTT 收发测试/u);
+  const index = read('docs/user-guide/slide-app-runtime/README.md');
+  assert.match(index, /minimal_submit_app_provider_guide\.md/u, 'runtime user-guide index must link provider guide');
   return { key: 'user_guide_indexes_link_new_doc', status: 'PASS' };
 }
 
-const tests = [
-  test_doc_has_dual_bus_provider_contract,
-  test_remote_worker_r1_patch_matches_documented_contract,
-  test_mbr_and_remote_config_route_1050_topics,
-  test_user_guide_indexes_link_new_doc,
-];
-
+const tests = [test_doc_has_self_described_route_contract, test_remote_worker_provider_patch_matches_contract, test_mbr_and_remote_config_use_route_topics, test_user_guide_indexes_link_new_doc];
 let passed = 0;
 let failed = 0;
 for (const test of tests) {
-  try {
-    const result = test();
-    console.log(`[${result.status}] ${result.key}`);
-    passed += 1;
-  } catch (error) {
-    console.log(`[FAIL] ${test.name}: ${error.stack || error.message}`);
-    failed += 1;
-  }
+  try { const result = test(); console.log('[' + result.status + '] ' + result.key); passed += 1; }
+  catch (error) { console.log('[FAIL] ' + test.name + ': ' + (error.stack || error.message)); failed += 1; }
 }
-
-console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
+console.log('\n' + passed + ' passed, ' + failed + ' failed out of ' + tests.length);
 process.exit(failed > 0 ? 1 : 0);

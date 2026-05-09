@@ -651,6 +651,53 @@ Compatibility note:
 
 删除 imported app 时，宿主必须同时清理这条自动生成的 `Model 0` ingress route。
 
+### 3.0.3 Imported Slide App Self-Described Remote Route（0362）
+
+Imported slide app 的 ZIP 仍然只包含一个 `app_payload.json`，且内容只能是 ModelTable records array。远端路由信息也必须写在模型表 records 中，不允许 sidecar manifest。
+
+Root `(0,0,0)` 可以声明：
+
+```json
+{
+  "k": "remote_bus_endpoint_v1",
+  "t": "json",
+  "v": {
+    "transport": "mqtt",
+    "to": {
+      "worker_id": "RE",
+      "model_id": 3000
+    }
+  }
+}
+```
+
+该声明只表达远端 provider 默认目标。运行时出站 packet 必须合成：
+
+- `route.to.worker_id` / `route.to.model_id`：来自 `remote_bus_endpoint_v1`
+- `route.to.pin`：来自当前被触发的公开出口 pin，例如 `submit1`
+- `route.reply_to.worker_id` / `route.reply_to.model_id` / `route.reply_to.pin`：由 UI Server 根据当前 host identity 与本地安装模型 id 生成
+
+公开出口 pin 必须由 root `(0,0,0)` 的 `dual_bus_model` 明确列出：
+
+```json
+{
+  "k": "dual_bus_model",
+  "t": "json",
+  "v": {
+    "mode": "imported_host_egress",
+    "egress_pins": ["submit1"]
+  }
+}
+```
+
+硬规则：
+
+- `reply_to` 是 server-owned metadata，ZIP / imported records 不得提供或覆盖。
+- `remote_bus_endpoint_v1` 不得声明 `to.pin`；公开 pin 只能来自 `dual_bus_model.egress_pins` 与当前触发的 root `pin.out`。
+- 本地安装模型 id 和远端 provider model id 必须分开。多名用户可分别安装成本地 `2000` / `2010` / `2030`，同时都指向同一个远端 `RE:3000`。
+- `route.to.pin` 表示远端 provider model root 的公开 Cell pin，不是 `{functionName}:in`。
+- MBR 不得要求为每个 imported app 写 per-app 静态 route；MBR / MQTT adapter 只能从 `route.to` 派生 transport topic 或目标地址。
+
 前端协议的后续正式冻结（`0310`）如下：
 
 - 前端正式业务事件不再以 `action` 作为长期语义。

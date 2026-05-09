@@ -264,6 +264,7 @@ source: ai
 | 0359-matrix-submit-example-e2e | 2026-05-06 | 将最小 `Input + Submit + Label` 示例升级为真实 Matrix 双总线闭环，同时清理本地含 Codex 的测试 app 名称并复验颜色生成器本地部署 | 4 | dev_0359-matrix-submit-example-e2e | Completed | ./docs/iterations/0359-matrix-submit-example-e2e/ |
 | 0360-minimal-submit-docs-and-remote-deploy | 2026-05-07 | 将 provider 示例文档改为真实 `最小 Submit 双总线示例`，补 R1 填表、Workspace 导入、外部 Matrix/MQTT 测试说明，并发布到远端 | 5 | dev_0360-minimal-submit-docs-and-remote-deploy | Completed | ./docs/iterations/0360-minimal-submit-docs-and-remote-deploy/ |
 | 0361-minimal-submit-import-export-docs | 2026-05-07 | 保存可导入的最小 Submit 双总线 payload/zip，补 Workspace 导出 zip 能力与开发者生成文档，并用真实浏览器验证 zip 上传安装运行 | 5 | dev_0361-minimal-submit-import-export-docs | Completed | ./docs/iterations/0361-minimal-submit-import-export-docs/ |
+| 0362-slide-app-self-described-route | 2026-05-07 | 冻结并实现滑动 App 自描述 route：ZIP 仅含模型表、远端 provider/local instance 身份拆分、公开 pin 入口、MBR 无 per-app 静态注册 | 4 | dev_0362-slide-app-self-described-route | Completed | ./docs/iterations/0362-slide-app-self-described-route/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

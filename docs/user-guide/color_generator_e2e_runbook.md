@@ -303,7 +303,7 @@ PASS 判定：`bg_color` 在 30 秒内发生变化。
 - 处理：先调用 `/auth/login` 获取 `dy_session` cookie 再访问。
 
 3. MBR 未转发到 `.../100/event`：
-- 检查 `mbr_route_100` 是否存在（`system_models.json`）。
+- 检查出站 pin_payload 是否携带合法 `route.to`，且 `route.to.pin` 与 packet pin 一致。
 - 检查 MBR 日志是否出现 `ui_event, routing to 100/event`。
 
 4. K8s Worker 没收到事件：

@@ -395,8 +395,11 @@ current v1 已经落地 `submit` 语义和 `root_relative_cell` locator。后续
 imported app zip 必须：
 
 - 在 root (0,0,0) 上声明 `dual_bus_model: json`，说明自己期望对外发送业务包。
-- 在 root (0,0,0) 声明一个 `pin.out` 作为对外出口（约定名 `submit`；后续可通过 `dual_bus_model` 的 `egress_pin_name` 参数化，当前强制 `submit`）。
+- 在 root (0,0,0) 上声明 `remote_bus_endpoint_v1: json`，说明远端 provider worker / model 默认目标。该声明只含 `route.to` 默认值，不含 `route.reply_to`。
+- 在 root (0,0,0) 声明一个或多个 `pin.out` 作为对外出口，并在 `dual_bus_model.egress_pins` 中逐一列出。0362 后 outbound packet 的 `route.to.pin` 必须来自当前被触发的公开出口 pin，例如 `submit1`；不得再把 imported egress 固定为单一 `submit`。
 - 不允许在 zip 内声明 `pin.bus.in` / `pin.bus.out` / `pin.connect.model` / `func.python`，这些由 `SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES` 拒绝，防止 imported app 自建第二个对外入口。
+- 不允许在 zip 内声明运行时 `reply_to`。`reply_to` 是宿主 UI Server 在发出消息时根据当前本地安装模型 id 与 host identity 生成的 server-owned metadata。
+- 不允许在 `remote_bus_endpoint_v1` 内声明 `to.pin`；公开 pin 来源只能是 `dual_bus_model.egress_pins` 与当前触发的 root `pin.out`。
 
 ### 9.2 宿主自动补齐的 egress adapter（0326 current truth）
 
@@ -415,12 +418,40 @@ imported app zip 必须：
 
 ### 9.3 current egress 执行路径
 
-1. imported app root `pin.out submit` 被写入 payload。
+1. imported app root 的某个公开 `pin.out` 被写入 payload，例如 `submit1`。
 2. root pin.out 经过 mount relay / mount bridge 到达 Model 0 `(0,0,0)` 的 `bridge_in`。
-3. `bridge_imported_*_to_mt_bus_send_*` 把 `{source_model_id, pin, payload, bus_out_key, op_id}` 写入 `mt_bus_send_in`。
-4. `mt_bus_send` 构造 `pin_payload` packet，写入 `imported_<semantic>_<id>_bus` `pin.bus.out`。
-5. runtime 对 `pin.bus.out` 执行 MQTT publish。
-6. `ProgramModelEngine` 在 intercept 后补扫 `pin.bus.out`，按 packet `op_id` 做一次性 Matrix bridge。
+3. `bridge_imported_*_to_mt_bus_send_*` 读取 `remote_bus_endpoint_v1` 的远端 worker / model 默认值，补上当前公开出口 pin，合成 `route.to`。
+4. 同一个 bridge 合成 `route.reply_to`，指向当前 UI Server / local installed model id / result pin；ZIP 内容不能覆盖它。
+5. bridge 把 `{source_model_id, pin, payload, bus_out_key, route, op_id}` 写入 `mt_bus_send_in`。
+6. `mt_bus_send` 构造带 `route` 的 `pin_payload` packet，写入 `imported_<semantic>_<id>_bus` `pin.bus.out`。
+7. runtime 对 `pin.bus.out` 执行 MQTT publish。
+8. `ProgramModelEngine` 在 intercept 后补扫 `pin.bus.out`，按 packet `op_id` 做一次性 Matrix bridge。MBR 只按 packet 内 `route.to` 做通用转发，不要求 per-app route registration。
+
+### 9.3a remote-worker 内部公开 pin 到程序模型的接线
+
+`route.to.pin` 表示远端 provider model root 的公开 `pin.in`，不是直接调用程序模型。
+
+如果 RE 的 Model `3000` 公开 `submit1` 并希望触发 `(1,1,1)` 的 `func.js submit1`，RE 应在模型内部这样填表：
+
+```json
+[
+  { "op": "add_label", "model_id": 3000, "p": 0, "r": 0, "c": 0, "k": "submit1", "t": "pin.in", "v": null },
+  { "op": "add_label", "model_id": 3000, "p": 0, "r": 0, "c": 0, "k": "result", "t": "pin.out", "v": null },
+  { "op": "add_label", "model_id": 3000, "p": 0, "r": 0, "c": 0, "k": "submit1_route", "t": "pin.connect.cell", "v": [
+    { "from": [0, 0, 0, "submit1"], "to": [[1, 1, 1, "submit1_in"]] },
+    { "from": [1, 1, 1, "submit1_out"], "to": [[0, 0, 0, "result"]] }
+  ] },
+  { "op": "add_label", "model_id": 3000, "p": 1, "r": 1, "c": 1, "k": "submit1_in", "t": "pin.in", "v": null },
+  { "op": "add_label", "model_id": 3000, "p": 1, "r": 1, "c": 1, "k": "submit1_out", "t": "pin.out", "v": null },
+  { "op": "add_label", "model_id": 3000, "p": 1, "r": 1, "c": 1, "k": "submit1", "t": "func.js", "v": { "code": "const payload = Array.isArray(label && label.v) ? label.v : []; return payload;" } },
+  { "op": "add_label", "model_id": 3000, "p": 1, "r": 1, "c": 1, "k": "submit1_wiring", "t": "pin.connect.label", "v": [
+    { "from": "submit1_in", "to": ["submit1:in"] },
+    { "from": "submit1:out", "to": ["submit1_out"] }
+  ] }
+]
+```
+
+函数引脚不能出现在 `pin.connect.cell` 端点里。跨 Cell 时必须先路由到函数所在 Cell 的普通 `pin.in`，再由同 Cell 的 `pin.connect.label` 接到 `{functionName}:in`。
 
 ### 9.4 删除契约
 
@@ -441,5 +472,5 @@ imported app zip 必须：
 
 范围限定：
 
-- 上述退役只针对 imported-host 自动生成路径。
-- 正数模型现有 dual-bus 配置中同名字段仍可能存在；它们不属于本节 imported-host 退役范围。
+- 上述退役适用于 imported-host 自动生成路径，也适用于当前正数模型种子与新安装的 slide app。
+- 当前模型不得继续声明 `dual_bus_model.model0_egress_label` / `dual_bus_model.model0_egress_func`；外发必须由 `remote_bus_endpoint_v1`、`dual_bus_model.egress_pins` 和 generated host egress adapter 表达。

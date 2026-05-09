@@ -114,6 +114,8 @@ source: ai
 - 从外部直接写任意 cell
 - 用 Tier 1 代码偷实现 Tier 2 能力
 - 让 server 层长期持有独立于 runtime 的正式事件分发语义
+- 让 imported slide app ZIP 提供或覆盖 `route.reply_to`
+- 让 MBR 依赖每个 uploaded app 的 per-app 静态 route 才能转发
 
 ### 4.4 Approved Temporary Exceptions
 

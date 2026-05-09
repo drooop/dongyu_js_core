@@ -363,19 +363,19 @@
 <header>
   <div class="eyebrow">Slide app provider cookbook</div>
   <h1>最小 Submit 双总线示例</h1>
-  <p class="lead">这不是静态 HTML demo。它说明 Workspace 中的 cellwise UI 如何点击 Submit，经 Model 0、Matrix、MBR、MQTT 到 remote-worker R1，再把结果回流到 UI 模型。</p>
+  <p class="lead">这不是静态 HTML demo。它说明 Workspace 中的 cellwise UI 如何点击 Submit，经 Model 0、Matrix、MBR、MQTT 到 remote-worker RE，再按 server-owned reply_to 把结果回流到本地 UI 模型。</p>
   <div class="facts" aria-label="Contract facts">
-    <div class="fact"><span>UI model</span><strong>1050</strong></div>
-    <div class="fact"><span>Bus in</span><strong>bus_event_submit_1050_0_0_0</strong></div>
-    <div class="fact"><span>Submit topic</span><strong>UIPUT/ws/dam/pic/de/sw/1050/submit</strong></div>
-    <div class="fact"><span>Result topic</span><strong>UIPUT/ws/dam/pic/de/sw/1050/result</strong></div>
+    <div class="fact"><span>Local model</span><strong>2000</strong></div>
+    <div class="fact"><span>Provider</span><strong>RE / 3000</strong></div>
+    <div class="fact"><span>Submit route</span><strong>route.to.pin=submit1</strong></div>
+    <div class="fact"><span>Reply route</span><strong>server-owned reply_to</strong></div>
   </div>
 </header>
 
 <main class="layout">
   <nav class="rail" aria-label="Guide stages">
     <button class="stage active" data-stage="overview"><strong>1. 先看结果</strong><span>真实双总线路径</span></button>
-    <button class="stage" data-stage="r1"><strong>2. R1 怎么填</strong><span>remote-worker 模型表</span></button>
+    <button class="stage" data-stage="r1"><strong>2. RE 怎么填</strong><span>remote-worker 模型表</span></button>
     <button class="stage" data-stage="ui"><strong>3. UI 怎么写</strong><span>cellwise 组件拆分</span></button>
     <button class="stage" data-stage="import"><strong>4. 怎么导入</strong><span>zip 与滑动 APP 导入</span></button>
     <button class="stage" data-stage="external"><strong>5. 外部收发</strong><span>Matrix/MQTT 测试</span></button>
@@ -385,7 +385,7 @@
   <section class="content">
     <article class="panel active" id="stage-overview">
       <h2>浏览器显示的是 remote-worker 回流结果</h2>
-      <p>在 Workspace 打开 <code>最小 Submit 双总线示例</code> 后，输入内容并点击 <code>Submit</code>，结果应由 R1 处理后回写为 <code>Submitted: &lt;输入内容&gt;</code>。</p>
+      <p>在 Workspace 打开 <code>最小 Submit 双总线示例</code> 后，输入内容并点击 <code>Submit</code>，结果应由 RE 的 provider model 处理后回写为 <code>Submitted: &lt;输入内容&gt;</code>。</p>
       <div class="split">
         <div class="mini-app" aria-label="Minimal dual bus app preview">
           <div class="mini-title">最小 Submit 双总线示例</div>
@@ -396,11 +396,11 @@
           <div class="status" id="demoStatus">REMOTE idle</div>
         </div>
         <div class="flow" aria-label="Dual bus route">
-          <div class="node route"><strong>UI model 1050</strong><small>Button sends <code>bus_event_v2</code> to <code>bus_event_submit_1050_0_0_0</code></small></div>
+          <div class="node route"><strong>UI local model 2000</strong><small>Button sends <code>bus_event_v2</code>; UI Server creates <code>reply_to</code></small></div>
           <div class="node route"><strong>Model 0 -> Matrix</strong><small>Matrix event type <code>dy.bus.v0</code>, target <code>@mbr:&lt;host_url&gt;</code></small></div>
-          <div class="node accent"><strong>MBR -> MQTT</strong><small><code>UIPUT/ws/dam/pic/de/sw/1050/submit</code></small></div>
-          <div class="node worker"><strong>remote-worker R1</strong><small><code>on_minimal_submit_matrix_remote_submit</code> reads only <code>text</code></small></div>
-          <div class="node accent"><strong>MQTT -> MBR -> Matrix -> UI</strong><small><code>UIPUT/ws/dam/pic/de/sw/1050/result</code> materializes <code>display_text</code></small></div>
+          <div class="node accent"><strong>MBR -> MQTT</strong><small><code>route.to = RE / 3000 / submit1</code></small></div>
+          <div class="node worker"><strong>remote-worker RE</strong><small>root <code>submit1</code> pin routes to program cell <code>(1,1,1)</code></small></div>
+          <div class="node accent"><strong>MQTT -> MBR -> Matrix -> UI</strong><small><code>route.reply_to</code> materializes <code>display_text</code> on local model</small></div>
           <pre class="inline-payload" id="inlinePayloadPreview" aria-label="Live payload preview"></pre>
         </div>
       </div>
@@ -408,16 +408,17 @@
     </article>
 
     <article class="panel" id="stage-r1">
-      <h2>R1 只填 remote truth 和程序模型</h2>
-      <p>新建 remote-worker R1 时，R1 上的模型 1050 不负责 UI 渲染；它只负责收 submit、跑程序、发 result。</p>
+      <h2>RE 公开 pin，内部接程序模型</h2>
+      <p>新建 remote-worker RE 时，RE 上的 provider model 3000 不负责 UI 渲染；它只负责公开 <code>submit1</code> pin、跑程序、发 result。</p>
       <div class="grid">
-        <div class="card"><code>model_type</code><strong>model.table</strong><br>R1 的 1050 是可执行表模型。</div>
-        <div class="card"><code>submit</code><strong>pin.in</strong><br>接收 <code>UIPUT/ws/dam/pic/de/sw/1050/submit</code> 上的 payload。</div>
+        <div class="card"><code>model_type</code><strong>model.table</strong><br>RE 的 3000 是 provider 表模型。</div>
+        <div class="card"><code>submit1</code><strong>pin.in</strong><br>接收 <code>route.to.pin=submit1</code> 的 payload。</div>
         <div class="card"><code>result</code><strong>pin.out</strong><br>程序处理完成后把结果发出。</div>
-        <div class="card"><code>root_routes</code><strong>pin.connect.label</strong><br><code>submit -> on_minimal_submit_matrix_remote_submit:in</code>。</div>
+        <div class="card"><code>submit1_route</code><strong>pin.connect.cell</strong><br><code>[0,0,0,submit1] -> [1,1,1,submit1_in]</code>。</div>
+        <div class="card"><code>submit1_wiring</code><strong>pin.connect.label</strong><br><code>submit1_in -> submit1:in</code>。</div>
       </div>
       <pre>{
-  "model_id": 1050,
+  "model_id": 3000,
   "cell": [0, 0, 0],
   "required_labels": [
     "model_type",
@@ -425,14 +426,14 @@
     "remote_status",
     "submit_inflight",
     "last_submit_payload",
-    "submit",
+    "submit1",
     "result",
-    "result_out_topic",
-    "root_routes",
-    "on_minimal_submit_matrix_remote_submit"
+    "submit1_route",
+    "submit1_wiring",
+    "submit1"
   ]
 }</pre>
-      <div class="note">R1 程序只接受 payload 中的 <code>text</code> record；不接受 <code>input_value</code> 旧字段兜底。</div>
+      <div class="note">RE 程序只接受 payload 中的 <code>text</code> record；不接受 <code>input_value</code> 旧字段兜底。函数端点不能跨 Cell 直连，必须先到普通 pin。</div>
     </article>
 
     <article class="panel" id="stage-ui">
@@ -464,10 +465,12 @@
   "zip": "minimal-submit-dual-bus.zip",
   "files": ["app_payload.json"],
   "payload_shape": "ModelTable records array",
+  "remote_bus_endpoint_v1": { "to": { "worker_id": "RE", "model_id": 3000 } },
+  "dual_bus_model": { "mode": "imported_host_egress", "egress_pins": ["submit1"] },
   "can_generate_by": ["write records", "Workspace Zip export"],
   "export_endpoint": "/api/slide-apps/<modelId>/export.zip",
   "model_id_remap": ["ui_bind_json.read.model_id", "ui_text_ref_model_id"],
-  "do_not_include": ["op", "installed model_id", "secret", "token", "host_*_generated_*"]
+  "do_not_include": ["op", "installed model_id", "remote_bus_endpoint_v1.to.pin", "route.reply_to", "secret", "token", "host_*_generated_*"]
 }</pre>
     </article>
 
@@ -475,15 +478,19 @@
       <h2>外部客户端按 topic 收发</h2>
       <p>最直接的联调点是 MQTT topic。Matrix 客户端看到的是 <code>dy.bus.v0</code> 事件；普通第三方 Matrix 账号可能被 peer 过滤，联调时优先使用 MQTT。</p>
       <div class="grid">
-        <div class="card"><code>subscribe</code><strong>UIPUT/ws/dam/pic/de/sw/1050/submit</strong><br>观察浏览器点击 Submit 后 MBR 发给 R1 的消息。</div>
-        <div class="card"><code>publish</code><strong>UIPUT/ws/dam/pic/de/sw/1050/result</strong><br>模拟 R1 回包，直接让 UI 显示更新。</div>
+        <div class="card"><code>subscribe</code><strong>UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1</strong><br>观察浏览器点击 Submit 后 MBR 发给 RE 的消息。</div>
+        <div class="card"><code>publish</code><strong>UIPUT/ws/dam/pic/de/sw/worker/ui-server-U1/model/2000/pin/result</strong><br>模拟 RE 回包，直接让 UI 显示更新。</div>
       </div>
       <pre>{
   "version": "v1",
   "type": "pin_payload",
-  "op_id": "manual_result_1050_001",
-  "source_model_id": 1050,
+  "op_id": "manual_result_2000_001",
+  "source_model_id": 2000,
   "pin": "result",
+  "route": {
+    "to": { "worker_id": "ui-server-U1", "model_id": 2000, "pin": "result" },
+    "from": { "worker_id": "RE", "model_id": 3000, "pin": "submit1" }
+  },
   "payload": [
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Submitted: hello from external client" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "remote_status", "t": "str", "v": "remote_processed" },
@@ -491,7 +498,7 @@
   ],
   "timestamp": 1778115520131
 }</pre>
-      <div class="note">这条消息发到 result topic 后，MBR 会转回 Matrix，ui-server 再 materialize 到 UI 模型 1050 的 <code>display_text</code>。</div>
+      <div class="note">这条消息发到 result topic 后，MBR 会转回 Matrix，ui-server 再按 <code>source_model_id=2000</code> materialize 到本地 UI 模型的 <code>display_text</code>。</div>
     </article>
 
     <article class="panel" id="stage-guard">
@@ -500,7 +507,9 @@
       <div class="grid">
         <div class="card"><code>pin.connect.model</code><strong>禁止</strong><br>当前规约改用 <code>pin.connect.cell</code> 和 <code>model.submt</code> 边界。</div>
         <div class="card"><code>ctx.writeLabel/getLabel/rmLabel</code><strong>禁止</strong><br>程序模型写 label 使用当前 <code>V1N</code> 口径。</div>
-        <div class="card"><code>input_value fallback</code><strong>禁止</strong><br>R1 submit 程序只读 <code>text</code>。</div>
+        <div class="card"><code>input_value fallback</code><strong>禁止</strong><br>RE submit 程序只读 <code>text</code>。</div>
+        <div class="card"><code>route.reply_to in zip</code><strong>禁止</strong><br>回包目标由 UI Server 运行时生成，不能由第三方包覆盖。</div>
+        <div class="card"><code>MBR per-app route</code><strong>禁止</strong><br>MBR 应读取消息内 <code>route.to</code> 通用转发。</div>
         <div class="card"><code>frontend direct Matrix</code><strong>禁止</strong><br>正式业务先进入 Model 0。</div>
       </div>
     </article>

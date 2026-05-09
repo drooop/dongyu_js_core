@@ -761,7 +761,7 @@ async function test_uiput_mm_v1_bus_in_pin_payload_v1_converts_to_temporary_payl
     label: { k: 'submit_request', t: 'pin.in', v: [mt('event_text', 'str', 'from_mqtt_mm')] },
     requestId: 'req_bus_in_mqtt_mm_0332',
   });
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/0/ui_submit', {
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/worker/ui-server-local/model/0/pin/ui_submit', {
     version: 'v1',
     type: 'pin_payload',
     op_id: 'req_bus_in_mqtt_mm_transport_0332',
@@ -775,6 +775,64 @@ async function test_uiput_mm_v1_bus_in_pin_payload_v1_converts_to_temporary_payl
   assert.equal(storedLabel?.t, 'pin.bus.in', 'uiput_mm_v1 bus.in must preserve pin.bus.in type');
   assert.deepEqual(storedLabel?.v, nestedPayload, 'uiput_mm_v1 Model 0 bus.in must store only the nested temporary ModelTable payload');
   return { key: 'uiput_mm_v1_bus_in_pin_payload_v1_converts_to_temporary_payload', status: 'PASS' };
+}
+
+async function test_uiput_mm_v1_rejects_legacy_two_segment_topic() {
+  const rt = new ModelTableRuntime();
+  await rt.setRuntimeMode('edit');
+  const model0 = rt.getModel(0);
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+  await rt.setRuntimeMode('running');
+
+  const nestedPayload = writeLabelPayload({
+    target: { p: 1, r: 0, c: 0 },
+    label: { k: 'submit_request', t: 'pin.in', v: [mt('event_text', 'str', 'legacy_topic')] },
+    requestId: 'req_bus_in_mqtt_mm_legacy_0332',
+  });
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/0/ui_submit', {
+    version: 'v1',
+    type: 'pin_payload',
+    op_id: 'req_bus_in_mqtt_mm_legacy_transport_0332',
+    source_model_id: 100,
+    pin: 'ui_submit',
+    payload: nestedPayload,
+    timestamp: Date.now(),
+  });
+  assert.equal(accepted, false, 'uiput_mm_v1 must reject legacy <base>/<modelId>/<pin> topics');
+  const storedLabel = model0.getCell(0, 0, 0).labels.get('ui_submit');
+  assert.equal(storedLabel?.v ?? null, null, 'legacy two-segment topic must not overwrite Model 0 bus.in value');
+  return { key: 'uiput_mm_v1_rejects_legacy_two_segment_topic', status: 'PASS' };
+}
+
+async function test_uiput_mm_v1_rejects_mismatched_worker_id() {
+  const rt = new ModelTableRuntime();
+  await rt.setRuntimeMode('edit');
+  const model0 = rt.getModel(0);
+  const model = rt.createModel({ id: 33300, name: 'it0332_worker_guard', type: 'test' });
+  rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'WorkerGuard' });
+  rt.addLabel(model, 0, 0, 0, { k: 'submit1', t: 'pin.in', v: null });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'RE' });
+  await rt.setRuntimeMode('running');
+
+  const nestedPayload = [mt('text', 'str', 'wrong worker')];
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/worker/OTHER/model/33300/pin/submit1', {
+    version: 'v1',
+    type: 'pin_payload',
+    op_id: 'req_wrong_worker_0332',
+    source_model_id: 2000,
+    pin: 'submit1',
+    payload: nestedPayload,
+    timestamp: Date.now(),
+  });
+  assert.equal(accepted, false, 'uiput_mm_v1 must reject topics addressed to a different worker id');
+  assert.equal(model.getCell(0, 0, 0).labels.get('submit1')?.v ?? null, null, 'worker-id mismatch must not deliver pin payload');
+  return { key: 'uiput_mm_v1_rejects_mismatched_worker_id', status: 'PASS' };
 }
 
 async function test_mqtt_bus_in_pin_payload_v1_rejects_mismatched_pin() {
@@ -829,9 +887,9 @@ async function test_mqtt_legacy_pin_envelope_rejects_non_modeltable_value() {
   assert.equal(accepted, false, 'legacy MQTT pin envelope must reject non-ModelTable values');
   assert.equal(model.getCell(0, 0, 0).labels.get('input'), undefined, 'rejected legacy MQTT pin must not write input');
   assert.equal(
-    rt.mqttTrace.list().some((entry) => entry.type === 'inbound_rejected' && entry.payload?.reason === 'temporary_modeltable_required'),
+    rt.mqttTrace.list().some((entry) => entry.type === 'inbound_rejected' && entry.payload?.reason === 'worker_model_pin_topic_required'),
     true,
-    'rejected legacy MQTT pin must leave explicit trace reason',
+    'rejected uiput_mm_v1 legacy topic must leave explicit trace reason',
   );
   return { key: 'mqtt_legacy_pin_envelope_rejects_non_modeltable_value', status: 'PASS' };
 }
@@ -866,11 +924,11 @@ async function test_mqtt_mt_v0_rejects_legacy_event_v0_envelope() {
   return { key: 'mqtt_mt_v0_rejects_legacy_event_v0_envelope', status: 'PASS' };
 }
 
-async function test_mqtt_legacy_pin_envelope_accepts_modeltable_value_only() {
+async function test_uiput_mm_v1_legacy_pin_envelope_topic_is_rejected_even_with_modeltable_value() {
   const rt = new ModelTableRuntime();
   await rt.setRuntimeMode('edit');
   const model0 = rt.getModel(0);
-  const model = rt.createModel({ id: 33231, name: 'it0332_mqtt_legacy_accept', type: 'test' });
+  const model = rt.createModel({ id: 33231, name: 'it0332_mqtt_legacy_reject_modeltable', type: 'test' });
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'TestApp' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'it0332/base' });
@@ -881,11 +939,10 @@ async function test_mqtt_legacy_pin_envelope_accepts_modeltable_value_only() {
     t: 'pin.in',
     v: payload,
   });
-  assert.equal(accepted, true, 'legacy MQTT pin envelope may carry only a ModelTable payload value');
+  assert.equal(accepted, false, 'uiput_mm_v1 legacy two-segment topic must be rejected even when payload is ModelTable-shaped');
   const stored = model.getCell(0, 0, 0).labels.get('input');
-  assert.equal(stored?.t, 'pin.in', 'accepted legacy MQTT pin must store pin.in');
-  assert.deepEqual(stored?.v, payload, 'accepted legacy MQTT pin must store the nested ModelTable payload only');
-  return { key: 'mqtt_legacy_pin_envelope_accepts_modeltable_value_only', status: 'PASS' };
+  assert.equal(stored, undefined, 'rejected uiput_mm_v1 legacy topic must not write input');
+  return { key: 'uiput_mm_v1_legacy_pin_envelope_topic_is_rejected_even_with_modeltable_value', status: 'PASS' };
 }
 
 const tests = [
@@ -914,9 +971,11 @@ const tests = [
   test_negative_system_pins_allow_internal_control_values,
   test_mqtt_legacy_pin_envelope_rejects_non_modeltable_value,
   test_mqtt_mt_v0_rejects_legacy_event_v0_envelope,
-  test_mqtt_legacy_pin_envelope_accepts_modeltable_value_only,
+  test_uiput_mm_v1_legacy_pin_envelope_topic_is_rejected_even_with_modeltable_value,
   test_mqtt_bus_in_pin_payload_v1_converts_to_temporary_payload,
   test_uiput_mm_v1_bus_in_pin_payload_v1_converts_to_temporary_payload,
+  test_uiput_mm_v1_rejects_legacy_two_segment_topic,
+  test_uiput_mm_v1_rejects_mismatched_worker_id,
   test_mqtt_bus_in_pin_payload_v1_rejects_mismatched_pin,
 ];
 

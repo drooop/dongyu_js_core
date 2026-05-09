@@ -45,6 +45,10 @@ rt.addLabel(sys, 0, 0, 0, {
     op_id: 'mbr_submit_001',
     source_model_id: 100,
     pin: 'submit',
+    route: {
+      to: { worker_id: 'RE', model_id: 100, pin: 'submit' },
+      reply_to: { worker_id: 'ui-server-test', model_id: 100, pin: 'result' },
+    },
     payload: [
       { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
       { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
@@ -65,11 +69,12 @@ const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.g
 fn(ctx);
 
 assert.ok(published, 'route-driven pin_payload must publish to MQTT');
-assert.equal(published.topic, 'UIPUT/ws/dam/pic/de/sw/100/submit', 'Model 100 submit must publish to /100/submit');
+assert.equal(published.topic, 'UIPUT/ws/dam/pic/de/sw/worker/RE/model/100/pin/submit', 'Model 100 submit must publish to route.to topic');
 assert.equal(published.payload?.version, 'v1', 'MBR bridge must publish v1 pin_payload transport');
 assert.equal(published.payload?.type, 'pin_payload', 'MBR bridge must preserve pin_payload type');
 assert.equal(published.payload?.pin, 'submit', 'MBR bridge must preserve pin name');
 assert.equal(published.payload?.source_model_id, 100, 'MBR bridge must preserve source_model_id');
+assert.equal(published.payload?.route?.to?.worker_id, 'RE', 'MBR bridge must preserve route.to');
 assert.ok(Array.isArray(published.payload?.payload), 'MBR bridge must preserve temporary-modeltable payload array');
 assert.equal(published.payload?.payload?.[1]?.v, 'hello', 'MBR bridge must preserve payload data');
 assert.ok(!Array.isArray(published.payload?.records), 'MBR bridge must not emit records patch to worker business cells');

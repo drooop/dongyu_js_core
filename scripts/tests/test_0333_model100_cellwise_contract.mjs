@@ -250,8 +250,8 @@ async function test_test_model100_ui_declares_model0_bus_event_submit_route() {
   assert.ok(Array.isArray(route), 'Model 0 must declare model100_submit_ingress_route');
   assert.deepEqual(
     route[0],
-    { from: [0, 0, 0, 'bus_event_submit_100_0_0_0'], to: [[0, 0, 0, 'model100_submit_out']] },
-    'Model 100 browser submit must enter Model 0 bus-in before reaching Model 0 egress',
+    { from: [0, 0, 0, 'bus_event_submit_100_0_0_0'], to: [[10, 0, 0, 'submit_request']] },
+    'Model 100 browser submit must enter Model 0 bus-in before reaching Model 100 public submit_request pin',
   );
   return { key: 'test_model100_ui_declares_model0_bus_event_submit_route', status: 'PASS' };
 }

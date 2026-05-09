@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const MATRIX_SESSION_MODEL_ID = 1017;
 const MATRIX_ACTIVE_CONVERSATION_MODEL_ID = 1019;
+const WORKSPACE_POSITIVE_MODELS_PATH = resolve('packages/worker-base/system-models/workspace_positive_models.json');
 
 function wait(ms = 120) {
   return new Promise((resolveWait) => setTimeout(resolveWait, ms));
@@ -102,6 +103,7 @@ async function test_send_submit_publishes_pin_payload_for_model1019() {
         { id: 0, p: 0, r: 0, c: 0, k: 'conversation_status', t: 'str', v: 'remote_processed' },
         { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false },
       ],
+      route: { to: published[0].route.reply_to, from: published[0].route.to },
     });
     await wait();
 
@@ -113,7 +115,39 @@ async function test_send_submit_publishes_pin_payload_for_model1019() {
   });
 }
 
+async function test_model1019_dispatch_uses_explicit_write_label_route() {
+  const patch = JSON.parse(readFileSync(WORKSPACE_POSITIVE_MODELS_PATH, 'utf8'));
+  const records = Array.isArray(patch.records) ? patch.records : [];
+  const route = records.find((record) => (
+    record && record.op === 'add_label' &&
+    record.model_id === MATRIX_ACTIVE_CONVERSATION_MODEL_ID &&
+    record.p === 0 && record.r === 0 && record.c === 0 &&
+    record.k === 'matrix_phase1_processor_write_routes'
+  ));
+  assert.ok(route, 'model1019_must_declare_processor_write_route');
+  assert.equal(route.t, 'pin.connect.cell', 'model1019_processor_write_route_must_use_pin_connect_cell');
+  assert.ok(route.v.some((entry) => (
+    Array.isArray(entry.from) &&
+    entry.from[0] === 1 && entry.from[1] === 0 && entry.from[2] === 0 && entry.from[3] === 'write_label_req' &&
+    entry.to.some((target) => Array.isArray(target) && target[0] === 0 && target[1] === 0 && target[2] === 0 && target[3] === 'mt_write_req')
+  )), 'model1019_processor_write_route_must_target_root_mt_write_req');
+
+  const dispatch = records.find((record) => (
+    record && record.op === 'add_label' &&
+    record.model_id === MATRIX_ACTIVE_CONVERSATION_MODEL_ID &&
+    record.p === 1 && record.r === 0 && record.c === 0 &&
+    record.k === 'dispatch_matrix_phase1_send'
+  ));
+  assert.ok(dispatch, 'model1019_dispatch_function_missing');
+  const code = String(dispatch.v?.code || '');
+  assert.match(code, /V1N\.writeLabel\(0,\s*0,\s*0/u, 'model1019_dispatch_must_write_root_via_v1n_write_label');
+  assert.doesNotMatch(code, /V1N\.table/u, 'model1019_dispatch_must_not_use_root_table_privilege');
+  assert.doesNotMatch(code, /ctx\.hostApi/u, 'model1019_dispatch_must_not_use_host_api');
+  return { key: 'model1019_dispatch_uses_explicit_write_label_route', status: 'PASS' };
+}
+
 const tests = [
+  test_model1019_dispatch_uses_explicit_write_label_route,
   test_send_submit_publishes_pin_payload_for_model1019,
 ];
 

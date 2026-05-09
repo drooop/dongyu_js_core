@@ -56,20 +56,26 @@ function test_remote_worker_patch_uses_current_tier2_shape() {
   ));
   assert.ok(funcRecord, 'remote worker patch must place on_model100_submit_in on model100 D0');
 
-  const patchOutTopicRecord = modelRecords.find((record) => (
+  const topicBaseRecord = modelRecords.find((record) => (
     record && record.op === 'add_label' && record.model_id === 100
     && record.p === 0 && record.r === 0 && record.c === 0
-    && record.k === 'result_out_topic' && record.t === 'str'
+    && record.k === 'mqtt_topic_base' && record.t === 'str'
   ));
-  assert.ok(patchOutTopicRecord, 'remote worker root must declare result_out_topic');
-  assert.ok(String(patchOutTopicRecord.v).endsWith('/100/result'), 'result_out_topic must target model100 result topic');
+  assert.ok(topicBaseRecord, 'remote worker root must declare mqtt_topic_base');
+  assert.equal(String(topicBaseRecord.v), 'UIPUT/ws/dam/pic/de/sw', 'mqtt_topic_base must declare the shared routed topic base');
+  assert.equal(
+    modelRecords.some((record) => record && record.model_id === 100 && record.k === 'result_out_topic'),
+    false,
+    'remote worker patch must not use static result_out_topic',
+  );
 
   const subConfig = configRecords.find((record) => (
     record && record.op === 'add_label' && record.model_id === -10
     && record.k === 'remote_subscriptions' && record.t === 'json'
   ));
   assert.ok(subConfig, 'remote worker config patch must declare remote_subscriptions');
-  assert.ok(Array.isArray(subConfig.v) && subConfig.v.some((s) => String(s).endsWith('/100/submit')) && subConfig.v.some((s) => String(s).endsWith('/100/result')), 'remote_subscriptions must include submit and result topics');
+  assert.ok(Array.isArray(subConfig.v) && subConfig.v.includes('UIPUT/ws/dam/pic/de/sw/worker/RE/model/100/pin/submit'), 'remote_subscriptions must include the routed model100 submit topic');
+  assert.equal(subConfig.v.some((s) => String(s).endsWith('/100/result')), false, 'remote_subscriptions must not include static model100 result topic');
 }
 
 function test_remote_runner_reads_subscription_config() {

@@ -96,7 +96,8 @@ function payloadWithIngressAndEgress() {
         primary: true,
       }],
     } },
-    { id: 0, p: 0, r: 0, c: 0, k: 'dual_bus_model', t: 'json', v: { mode: 'imported_host_egress' } },
+    { id: 0, p: 0, r: 0, c: 0, k: 'remote_bus_endpoint_v1', t: 'json', v: { transport: 'mqtt', to: { worker_id: 'RE', model_id: 3000 } } },
+    { id: 0, p: 0, r: 0, c: 0, k: 'dual_bus_model', t: 'json', v: { mode: 'imported_host_egress', egress_pins: ['submit'] } },
     { id: 0, p: 0, r: 0, c: 0, k: 'submit_request', t: 'pin.in', v: null },
     { id: 0, p: 0, r: 0, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: 'submit_request', to: ['handle_submit:in'] }] },
     { id: 0, p: 0, r: 0, c: 0, k: 'submit', t: 'pin.out', v: null },
@@ -183,9 +184,8 @@ async function test_imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix(
     assert.ok(importedEntry, 'imported_app_must_appear_in_registry');
     const importedId = importedEntry.model_id;
     const ingressKey = `imported_host_submit_${importedId}`;
-    const egressLabel = `imported_submit_${importedId}_out`;
     const busLabel = `imported_submit_${importedId}_bus`;
-    const forwardFunc = `forward_imported_submit_from_model0_${importedId}`;
+    const bridgeFunc = `bridge_imported_submit_to_mt_bus_send_${importedId}`;
 
     const model0Root = state.runtime.getCell(state.runtime.getModel(0), 0, 0, 0).labels;
     assert.ok(model0Root.has(ingressKey), 'host_ingress_adapter_must_exist_before_egress_flow');
@@ -212,6 +212,8 @@ async function test_imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix(
     assert.equal(matrixPublished[0]?.type, 'pin_payload', 'matrix_publish_must_use_pin_payload_transport');
     assert.equal(matrixPublished[0]?.source_model_id, importedId, 'matrix_publish_must_use_imported_model_id_as_source');
     assert.equal(matrixPublished[0]?.pin, 'submit', 'matrix_publish_must_preserve_submit_pin');
+    assert.deepEqual(matrixPublished[0]?.route?.to, { worker_id: 'RE', model_id: 3000, pin: 'submit' }, 'matrix_publish_must_use_remote_bus_endpoint_target');
+    assert.equal(matrixPublished[0]?.route?.reply_to?.model_id, importedId, 'matrix_publish_must_reply_to_local_imported_model_id');
     assert.equal(matrixPublished[0]?.payload?.find?.((record) => record && record.k === 'message_text')?.v, 'hello imported host egress', 'matrix_payload_must_preserve_message_text');
 
     const deleteResult = state.runtime.hostApi.wsDeleteApp(importedId);
@@ -219,10 +221,8 @@ async function test_imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix(
     const model0 = state.runtime.getModel(0);
     const rootCell = state.runtime.getCell(model0, 0, 0, 0).labels;
     assert.ok(!rootCell.has(ingressKey), 'delete_must_remove_host_ingress_port');
-    assert.ok(!rootCell.has(egressLabel), 'delete_must_remove_model0_egress_label');
     assert.ok(!rootCell.has(busLabel), 'delete_must_remove_model0_bus_out_label');
-    const sys = state.runtime.getModel(-10);
-    assert.ok(!state.runtime.getCell(sys, 0, 0, 0).labels.has(forwardFunc), 'delete_must_remove_generated_forward_function');
+    assert.ok(!rootCell.has(bridgeFunc), 'delete_must_remove_generated_bridge_function');
     return { key: 'imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix', status: 'PASS' };
   });
 }

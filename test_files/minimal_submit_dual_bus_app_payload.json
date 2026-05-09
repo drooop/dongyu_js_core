@@ -34,9 +34,24 @@
       ]
     }
   },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "dual_bus_model", "t": "json", "v": { "mode": "imported_host_egress" } },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "remote_bus_endpoint_v1",
+    "t": "json",
+    "v": {
+      "transport": "mqtt",
+      "to": {
+        "worker_id": "RE",
+        "model_id": 3000
+      }
+    }
+  },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "dual_bus_model", "t": "json", "v": { "mode": "imported_host_egress", "egress_pins": ["submit1"] } },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit_request", "t": "pin.in", "v": null },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit", "t": "pin.out", "v": null },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit1", "t": "pin.out", "v": null },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit_request_wiring", "t": "pin.connect.label", "v": [{ "from": "submit_request", "to": ["handle_submit:in"] }] },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "root_routes", "t": "pin.connect.cell", "v": [{ "from": [2, 3, 0, "click_chain"], "to": [[0, 0, 0, "submit_request"]] }] },
   {
@@ -47,7 +62,7 @@
     "k": "handle_submit",
     "t": "func.js",
     "v": {
-      "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = function(key, fallback) { const rec = records.find(function(item) { return item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key; }); return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback; };\nconst nestedValue = readPayload('value', {});\nconst text = String(readPayload('text', nestedValue && nestedValue.text != null ? nestedValue.text : '')).trim();\nconst source = String(readPayload('source', nestedValue && nestedValue.source ? nestedValue.source : 'ui_button'));\nconst SELF = ctx.self.model_id;\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'minimal_submit.request.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'text', t: 'str', v: text },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: SELF },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source', t: 'str', v: source }\n];\nV1N.addLabel('input_text', 'str', text);\nV1N.addLabel('last_submit_payload', 'json', payload);\nV1N.addLabel('submit_inflight', 'bool', !!text);\nV1N.addLabel('remote_status', 'str', text ? 'sending' : 'empty_input');\nif (text) V1N.addLabel('submit', 'pin.out', payload);\nreturn;"
+      "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = function(key, fallback) { const rec = records.find(function(item) { return item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key; }); return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback; };\nconst nestedValue = readPayload('value', {});\nconst text = String(readPayload('text', nestedValue && nestedValue.text != null ? nestedValue.text : '')).trim();\nconst source = String(readPayload('source', nestedValue && nestedValue.source ? nestedValue.source : 'ui_button'));\nconst SELF = ctx.self.model_id;\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'minimal_submit.request.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'text', t: 'str', v: text },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: SELF },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source', t: 'str', v: source }\n];\nV1N.addLabel('input_text', 'str', text);\nV1N.addLabel('last_submit_payload', 'json', payload);\nV1N.addLabel('submit_inflight', 'bool', !!text);\nV1N.addLabel('remote_status', 'str', text ? 'sending' : 'empty_input');\nif (text) V1N.addLabel('submit1', 'pin.out', payload);\nreturn;"
     }
   },
   { "id": 0, "p": 2, "r": 0, "c": 0, "k": "ui_node_id", "t": "str", "v": "minimal_submit_zip_root" },

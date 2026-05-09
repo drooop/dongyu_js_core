@@ -49,22 +49,22 @@ function test_model0_declares_model100_submit_ingress_route() {
   return { key: 'model0_declares_model100_submit_ingress_route', status: 'PASS' };
 }
 
-function test_system_model_declares_prepare_model100_submit_from_pin() {
+function test_model100_root_declares_prepare_model100_submit_from_pin() {
   const patch = readJson('packages/worker-base/system-models/test_model_100_ui.json');
   const records = patch.records || [];
-  const fn = findRecord(records, (record) => record?.model_id === -10 && record?.k === 'prepare_model100_submit_from_pin' && record?.t === 'func.js');
+  const fn = findRecord(records, (record) => record?.model_id === 100 && record?.p === 0 && record?.r === 0 && record?.c === 0 && record?.k === 'prepare_model100_submit_from_pin' && record?.t === 'func.js');
   assert.ok(fn, 'prepare_model100_submit_from_pin_missing');
   assert.match(String(fn.v?.code || ''), /label\.v/, 'prepare_model100_submit_from_pin_must_read_from_pin_label_payload');
   assert.doesNotMatch(String(fn.v?.code || ''), /ctx\.getLabel|ctx\.writeLabel/, 'prepare_model100_submit_from_pin_must_not_use_legacy_ctx_label_api');
   assert.match(String(fn.v?.code || ''), /V1N\.readLabel\(/, 'prepare_model100_submit_from_pin_must_read_submit_state_via_v1n');
   assert.match(String(fn.v?.code || ''), /writeRoot\('submit',\s*'pin\.out'/, 'prepare_model100_submit_from_pin_must_write_model100_submit_pin_out_via_v1n_table');
-  return { key: 'system_model_declares_prepare_model100_submit_from_pin', status: 'PASS' };
+  return { key: 'model100_root_declares_prepare_model100_submit_from_pin', status: 'PASS' };
 }
 
 const tests = [
   test_model100_declares_submit_request_pin_and_wiring,
   test_model0_declares_model100_submit_ingress_route,
-  test_system_model_declares_prepare_model100_submit_from_pin,
+  test_model100_root_declares_prepare_model100_submit_from_pin,
 ];
 
 (async () => {

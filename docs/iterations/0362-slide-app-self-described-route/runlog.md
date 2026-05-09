@@ -1,0 +1,363 @@
+---
+title: "0362 Slide App Self Described Route Runlog"
+doc_type: iteration_runlog
+status: completed
+updated: 2026-05-07
+source: ai
+iteration: 0362-slide-app-self-described-route
+---
+
+# Iteration 0362-slide-app-self-described-route Runlog
+
+## Environment
+
+- Date: 2026-05-07
+- Branch: `dev_0362-slide-app-self-described-route`
+- Runtime: local `http://127.0.0.1:30900`
+
+Review Gate Record
+- Iteration ID: 0362-slide-app-self-described-route
+- Review Date: 2026-05-07
+- Review Type: User
+- Review Index: 1
+- Decision: Approved
+- Notes: User approved the self-described route direction: ZIP contains only ModelTable records; `remote_bus_endpoint_v1` declares remote worker/model; `route.to.pin` is a public target pin; MBR must not require per-app route registration.
+
+## Execution Records
+
+### Step 1
+
+- Command: planning scaffold review by sub-agent `019e00d5-bb1a-7f33-bd28-ae04348120dc`
+- Key output: `Decision: CHANGE_REQUESTED`; required server-owned `route.reply_to`, final `APPROVED` review per stage, and living-doc checklist for tier conformance.
+- Result: FIXED_PENDING_REVIEW
+- Commit:
+- Command: planning scaffold re-review by sub-agent `019e00d6-d2f7-7392-b6a0-c56c53aaac48`
+- Key output: `Decision: APPROVED`; findings none.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs`
+- Key output: `3 passed, 0 failed out of 3`
+- Result: PASS
+- Commit:
+- Command: Stage 1 review by sub-agent `019e00db-f0c8-7ae2-8b5a-9fc7fa47782b`
+- Key output: `Decision: CHANGE_REQUESTED`; fixed old forced `submit` wording and added zip single-file ModelTable records contract test.
+- Result: FIXED
+- Commit:
+- Command: `node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs && git diff --check`
+- Key output: `4 passed, 0 failed out of 4`; diff check PASS.
+- Result: PASS
+- Commit:
+- Command: Stage 1 final re-review by sub-agent `019e00e1-5bc7-7f41-8934-4f6df5d9488e`
+- Key output: `Decision: APPROVED`; findings none; open questions none; verification gaps none.
+- Result: PASS
+- Commit:
+- Command: Stage 1 third review by sub-agent `019e00df-8c51-72c1-b768-b2c3bcb8003a`
+- Key output: `Decision: CHANGE_REQUESTED`; fixed visualized guide old `bus_event_submit_1050_0_0_0` residue and added cross-document old-path rejection checks.
+- Result: FIXED
+- Commit:
+- Command: `node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs && git diff --check`
+- Key output: `4 passed, 0 failed out of 4`; diff check PASS; old-path grep returned no matches.
+- Result: PASS
+- Commit:
+- Command: Stage 1 re-review by sub-agent `019e00dd-326e-7530-aba9-39d93bc4bb02`
+- Key output: `Decision: CHANGE_REQUESTED`; fixed remaining forced `pin.out submit` SSOT path and old `1050` fixed-topic primary guide path, then tightened 0362 tests to catch both.
+- Result: FIXED
+- Commit:
+- Command: `node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs && git diff --check`
+- Key output: `4 passed, 0 failed out of 4`; diff check PASS.
+- Result: PASS
+- Commit:
+
+### Step 2
+
+- Command: `node --check packages/ui-model-demo-server/server.mjs && node --check packages/worker-base/src/runtime.mjs && git diff --check`
+- Key output: syntax checks PASS; diff whitespace check PASS.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs`
+- Key output: `5 passed, 0 failed out of 5`; importer rejects bundle `route.reply_to`, missing `remote_bus_endpoint_v1`, and missing `dual_bus_model.egress_pins`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0326_imported_host_egress_bridge.mjs`
+- Key output: `1 passed, 0 failed out of 1`; outbound Matrix packet carries `route.to=RE/3000/submit1` and server-owned `route.reply_to=<ui-server>/local-model/result`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0361_minimal_submit_import_export_contract.mjs`
+- Key output: `3 passed, 0 failed out of 3`; saved ZIP imports, exports, and reimports with `remote_bus_endpoint_v1` and `egress_pins=["submit1"]`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_bus_in_out.mjs`
+- Key output: `7 passed, 0 failed out of 7`; updated the test fixture to declare target `pin.in` before `pin.connect.cell`, matching the current no-implicit-target-pin contract.
+- Result: PASS
+- Commit:
+- Command: Stage 2 review by sub-agent `019e00ed-1bb9-7871-a137-2942ba16330f`
+- Key output: `Decision: CHANGE_REQUESTED`; fixed importer to require exactly one `app_payload.json`, reject sidecar/wrong-name ZIPs, and fail fast on `pin.connect.model`.
+- Result: FIXED_PENDING_REVIEW
+- Commit:
+- Command: `node --check packages/ui-model-demo-server/server.mjs && node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs`
+- Key output: `6 passed, 0 failed out of 6`; added negative tests for wrong ZIP filename, sidecar files, and removed `pin.connect.model`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0326_imported_host_egress_bridge.mjs && node scripts/tests/test_0361_minimal_submit_import_export_contract.mjs && node scripts/tests/test_bus_in_out.mjs && git diff --check`
+- Key output: egress bridge `1/1` PASS; import/export `3/3` PASS; bus in/out `7/7` PASS; diff check PASS.
+- Result: PASS
+- Commit:
+- Command: Stage 2 final re-review by sub-agent `019e00f1-9bbb-7922-97fe-8b07a3795835`
+- Key output: `Decision: APPROVED`; findings none; open questions none; verification gaps none.
+- Result: PASS
+- Commit:
+- Command: Stage 2 re-review by sub-agent `019e00ef-55a6-75f1-bcfc-b36fdf0976e2`
+- Key output: `Decision: CHANGE_REQUESTED`; fixed unsafe-path sidecar bypass by counting all ZIP file entries before shape validation.
+- Result: FIXED_PENDING_REVIEW
+- Commit:
+- Command: `node --check packages/ui-model-demo-server/server.mjs && node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs`
+- Key output: `6 passed, 0 failed out of 6`; includes unsafe sidecar rejection.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0326_imported_host_egress_bridge.mjs && node scripts/tests/test_0361_minimal_submit_import_export_contract.mjs && node scripts/tests/test_bus_in_out.mjs && git diff --check`
+- Key output: egress bridge `1/1` PASS; import/export `3/3` PASS; bus in/out `7/7` PASS; diff check PASS.
+- Result: PASS
+- Commit:
+
+### Step 3
+
+- Command: `node --check packages/worker-base/src/runtime.mjs`
+- Key output: syntax check PASS.
+- Result: PASS
+- Commit:
+- Command: `node --check scripts/run_worker_v0.mjs`
+- Key output: syntax check PASS.
+- Result: PASS
+- Commit:
+- Command: `node --check packages/ui-model-demo-server/mgmt_bus_console_projection.mjs`
+- Key output: syntax check PASS.
+- Result: PASS
+- Commit:
+- Command: `node scripts/validate_mbr_patch_v0.mjs`
+- Key output: `TOTAL: 50  PASS: 50  FAIL: 0`; MBR publishes to `route.to` worker/model/pin topic and does not read static model id subscriptions.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0177_mbr_bridge_contract.mjs`
+- Key output: `4 passed, 0 failed out of 4`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0179_mbr_route_contract.mjs`
+- Key output: `PASS test_0179_mbr_route_contract`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0184_mbr_direct_event_bridge_contract.mjs`
+- Key output: `PASS test_0184_mbr_direct_event_bridge_contract`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0197_remote_worker_tier2_contract.mjs`
+- Key output: `2 passed, 0 failed out of 2`; remote-worker model100 uses shared topic base and no static `result_out_topic`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0270_workspace_ui_filltable_remote_mode_contract.mjs`
+- Key output: `2 passed, 0 failed out of 2`; workspace remote submit sends route metadata and materializes return payload.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0283_matrix_userline_phase1_contract.mjs`
+- Key output: `4 passed, 0 failed out of 4`; model1019 uses routed worker topic and no static MBR route.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0326_imported_host_egress_bridge.mjs`
+- Key output: `1 passed, 0 failed out of 1`; imported egress sends `route.to=RE/3000/submit1` and server-owned `route.reply_to`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0328_remote_worker_v1n_runtime_contract.mjs`
+- Key output: `4 passed, 0 failed out of 4`; model100/1010/1019 accept new routed MQTT topic shape with route record delivered to program input.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0339_mgmt_bus_console_live_projection_contract.mjs`
+- Key output: `5/5` projection tests PASS; route rows now summarize Model 0 routes plus `message.route.to` / `message.route.reply_to`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0341_mgmt_bus_console_event_projection_contract.mjs`
+- Key output: `8/8` event projection tests PASS.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0351_slide_app_minimal_provider_guide_contract.mjs`
+- Key output: `4 passed, 0 failed out of 4`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0352_slide_app_provider_visualized_docs_contract.mjs`
+- Key output: `4 passed, 0 failed out of 4`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0357_pin_connection_hard_cut.mjs`
+- Key output: removed `pin.connect.model` and removed endpoint syntax rejection checks PASS.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0359_minimal_submit_matrix_e2e_contract.mjs`
+- Key output: `4 passed, 0 failed out of 4`; imported ZIP roundtrip materializes remote result into local UI model.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0360_minimal_submit_dual_bus_docs_contract.mjs`
+- Key output: `3 passed, 0 failed out of 3`; docs and provider assets describe `RE/3000/submit1` and no old 1050/static route path.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0361_minimal_submit_import_export_contract.mjs`
+- Key output: `3 passed, 0 failed out of 3`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0362_mbr_remote_worker_route_contract.mjs`
+- Key output: `3 passed, 0 failed out of 3`; MBR rejects missing `route.to`, remote-worker `submit1` replies to `route.reply_to`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs`
+- Key output: `6 passed, 0 failed out of 6`; ZIP shape, importer hard rejects, and route contract tests PASS.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_bus_in_out.mjs`
+- Key output: `7 passed, 0 failed out of 7`.
+- Result: PASS
+- Commit:
+- Command: `git diff --check`
+- Key output: whitespace check PASS.
+- Result: PASS
+- Commit:
+- Command: Stage 3 review by sub-agent `019e0127-5be1-7930-94fe-2f2564abd2b0`
+- Key output: `Decision: CHANGE_REQUESTED`; findings: server-owned `route` could be shadowed by business payload records, inbound `pin_payload` return route was not validated, and MBR MQTT inbound accepted non-temporary payload records.
+- Result: FIXED
+- Commit:
+- Command: `node scripts/tests/test_0362_mbr_remote_worker_route_contract.mjs`
+- Key output: `5 passed, 0 failed out of 5`; added route-shadow and invalid MQTT payload rejection coverage.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0359_minimal_submit_matrix_e2e_contract.mjs`
+- Key output: `5 passed, 0 failed out of 5`; added result route mismatch rejection coverage.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0144_mbr_compat.mjs`
+- Key output: `5 passed, 0 failed out of 5`; updated old MBR bridge fixture to the new route-driven worker/model/pin topic shape.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0303_model0_egress_recovery_server_flow.mjs`
+- Key output: `6 passed, 0 failed out of 6`; activation drain fixtures now return through server-owned `route.reply_to`.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0342_mgmt_bus_console_real_messaging_contract.mjs`
+- Key output: `12` contract checks PASS; workspace asset tree Actions column width now satisfies compact model-table UI contract.
+- Result: PASS
+- Commit:
+- Command: `node --check packages/ui-model-demo-server/server.mjs && node --check packages/worker-base/src/runtime.mjs && node --check scripts/run_worker_v0.mjs && node --check packages/ui-model-demo-server/mgmt_bus_console_projection.mjs && node scripts/validate_mbr_patch_v0.mjs && node scripts/tests/test_0144_mbr_compat.mjs && node scripts/tests/test_0177_mbr_bridge_contract.mjs && node scripts/tests/test_0179_mbr_route_contract.mjs && node scripts/tests/test_0184_mbr_direct_event_bridge_contract.mjs && node scripts/tests/test_0197_remote_worker_tier2_contract.mjs && node scripts/tests/test_0270_workspace_ui_filltable_remote_mode_contract.mjs && node scripts/tests/test_0283_matrix_userline_phase1_contract.mjs && node scripts/tests/test_0283_matrix_userline_send_receive_contract.mjs && node scripts/tests/test_0303_model0_egress_recovery_server_flow.mjs && node scripts/tests/test_0326_imported_host_egress_bridge.mjs && node scripts/tests/test_0328_remote_worker_v1n_runtime_contract.mjs && node scripts/tests/test_0339_mgmt_bus_console_live_projection_contract.mjs && node scripts/tests/test_0341_mgmt_bus_console_event_projection_contract.mjs && node scripts/tests/test_0342_mgmt_bus_console_real_messaging_contract.mjs && node scripts/tests/test_0351_slide_app_minimal_provider_guide_contract.mjs && node scripts/tests/test_0352_slide_app_provider_visualized_docs_contract.mjs && node scripts/tests/test_0357_pin_connection_hard_cut.mjs && node scripts/tests/test_0359_minimal_submit_matrix_e2e_contract.mjs && node scripts/tests/test_0360_minimal_submit_dual_bus_docs_contract.mjs && node scripts/tests/test_0361_minimal_submit_import_export_contract.mjs && node scripts/tests/test_0362_mbr_remote_worker_route_contract.mjs && node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs && node scripts/tests/test_bus_in_out.mjs && node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs && git diff --check`
+- Key output: syntax checks PASS; MBR validator `50/50` PASS; all listed contract tests PASS; `test_0332_modeltable_pin_payload_contract` `29/29` PASS; diff whitespace check PASS.
+- Result: PASS
+- Commit:
+- Command: Stage 3 re-review by sub-agent `019e0132-9bc4-7d60-81c0-e3c6d12c469a`
+- Key output: `Decision: CHANGE_REQUESTED`; findings: seeded minimal submit app still used old fixed Model 0 egress records, fixed `bus_event_submit_1050_0_0_0`, and hard-coded `route.reply_to` for `ui-server-local/1050`.
+- Result: FIXED
+- Commit:
+- Command: `node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs`
+- Key output: red test first caught old seeded minimal submit app route residue; after fix `8 passed, 0 failed out of 8`.
+- Result: PASS
+- Commit:
+- Command: `node --check packages/ui-model-demo-server/server.mjs && node -e "JSON.parse(require('fs').readFileSync('packages/worker-base/system-models/workspace_positive_models.json', 'utf8'))"`
+- Key output: server syntax check PASS; workspace positive model JSON parses successfully.
+- Result: PASS
+- Commit:
+- Command: `node scripts/tests/test_0359_minimal_submit_matrix_e2e_contract.mjs && node scripts/tests/test_0361_minimal_submit_import_export_contract.mjs && node scripts/tests/test_0362_mbr_remote_worker_route_contract.mjs && node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs && node scripts/tests/test_0303_model0_egress_recovery_server_flow.mjs && node scripts/tests/test_0342_mgmt_bus_console_real_messaging_contract.mjs && git diff --check`
+- Key output: minimal submit E2E `5/5` PASS; import/export `3/3` PASS; MBR/remote route `5/5` PASS; self-described route `8/8` PASS; Model 0 egress recovery PASS; management bus console real messaging `12` checks PASS; diff whitespace check PASS.
+- Result: PASS
+- Commit:
+- Command: full Stage 3 regression rerun after seeded app fix
+- Key output: server/runtime/worker/projection syntax checks PASS; MBR validator `50/50` PASS; MBR bridge, remote-worker, Model 0 egress, imported egress, management bus console, minimal submit, hard-cut pin, and ModelTable pin payload contract tests all PASS; self-described route `8/8` PASS; diff whitespace check PASS.
+- Result: PASS
+- Commit:
+- Commit:
+- Command: Stage 3 hard-cut review by sub-agent `019e013e-3da0-7f12-a8fa-f43453172c38`
+- Key output: `Decision: CHANGE_REQUESTED`; findings: server still dispatched removed `dual_bus_model.model0_egress_*` records for seeded apps, runtime `uiput_mm_v1` still accepted legacy `<base>/<model>/<pin>` topics, and seeded Model 100/1010/1019 still had fixed old egress records.
+- Result: FIXED
+- Commit:
+- Command: `node scripts/tests/test_0283_matrix_userline_send_receive_contract.mjs`
+- Key output: red test first caught Model 1019 send not publishing. Fixed by moving userland dispatch to explicit `(1,0,0) write_label_req -> (0,0,0) mt_write_req` and by using 1019 `message_draft` when 1021 composer draft is empty. Final output: `2 passed, 0 failed out of 2`.
+- Result: PASS
+- Commit:
+- Command: full Stage 3 regression after hard-cut fixes
+- Key output: server/runtime/worker/projection syntax checks PASS; MBR validator `50/50` PASS; self-described route `10/10` PASS; ModelTable pin payload `30/30` PASS; all listed route, MBR, remote-worker, imported egress, management console, minimal submit, and hard-cut pin tests PASS; `git diff --check` PASS.
+- Result: PASS
+- Commit:
+- Command: full Stage 3 regression after debug-log cleanup and Model 1019 route guard
+- Key output: server/runtime/worker/projection syntax checks PASS; MBR validator `50/50` PASS; `test_0283_matrix_userline_send_receive_contract` now `2/2` PASS including explicit `write_label_req` route guard; self-described route `10/10` PASS; ModelTable pin payload `30/30` PASS; all listed contract tests PASS; `git diff --check` PASS.
+- Result: PASS
+- Commit:
+- Command: `rg -n "model0_egress_label|model0_egress_func|model100_submit_out|ws_filltable_submit_out|matrix_phase1_submit_out|forward_.*_from_model0|pin\\.connect\\.model|ctx\\.writeLabel" docs/ssot docs/user-guide packages scripts deploy test_files --glob '!**/node_modules/**' --glob '!**/*.zip'`
+- Key output: remaining matches are removed-contract docs, explicit rejection/absence tests, and runtime/importer forbidden-type lists; no current positive seed, provider asset, MBR patch, or remote-worker runtime path uses the removed route shape.
+- Result: PASS
+- Commit:
+- Command: Stage 3 review by sub-agent `019e015c-e9af-72f2-b073-556172d11c23`
+- Key output: `Decision: CHANGE_REQUESTED`; findings: MBR subscribed to all worker/model/pin topics and could echo its own `route.to` MQTT publish back to Matrix; runtime parsed `worker/<worker_id>` in `uiput_mm_v1` but did not enforce configured worker identity.
+- Result: FIXED
+- Commit:
+- Command: red/green targeted fixes for Stage 3 review findings
+- Key output: red tests first failed for MBR self-echo and worker id mismatch. After fixes, `node scripts/tests/test_0362_mbr_remote_worker_route_contract.mjs` -> `6 passed, 0 failed out of 6`; `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs` -> `31 passed, 0 failed out of 31`; `node scripts/tests/test_0328_remote_worker_v1n_runtime_contract.mjs` -> `4 passed, 0 failed out of 4`.
+- Result: PASS
+- Commit:
+- Command: full Stage 3 regression after MBR echo guard and worker-id guard
+- Key output: server/runtime/worker/projection syntax checks PASS; MBR validator `50/50` PASS; `test_0362_mbr_remote_worker_route_contract` `6/6` PASS; `test_0332_modeltable_pin_payload_contract` `31/31` PASS; all listed contract tests PASS; `git diff --check` PASS.
+- Result: PASS
+- Commit:
+
+### Step 4
+
+- Command: `bash scripts/ops/check_runtime_baseline.sh`
+- Key output: local runtime baseline ready at `http://127.0.0.1:30900`; UI Server / MBR / remote-worker pods reachable before browser verification.
+- Result: PASS
+- Commit:
+- Command: Playwright browser verification for Workspace color generator
+- Key output: real browser submit reproduced the stuck-loading symptom first. Investigation showed sqlite persistence could keep old rows with the same `(model,p,r,c,k)` but stale `t=pin.table.out`, so reload selected the obsolete pin type and skipped current host egress materialization.
+- Result: REPRODUCED_AND_FIXED
+- Commit:
+- Command: `bun scripts/tests/test_0362_persistence_canonical_reload.mjs`
+- Key output: regression covers stale persisted `pin.table.out` rows for Model 100 / 1010 / 1019, positive seed reapply, generated host egress labels, and route publish after reload. Final output: `1 passed, 0 failed out of 1`.
+- Result: PASS
+- Commit:
+- Command: local UI Server image refresh and rollout restart
+- Key output: updated running local `dy-ui-server:v1` with the fixed sqlite overwrite semantics and authoritative positive-surface reapply before host egress materialization; baseline check passed after rollout.
+- Result: PASS
+- Commit:
+- Command: Playwright browser verification for color generator after first runtime fix
+- Key output: outbound request reached remote-worker and a result returned through MBR, but the outer flow shell still stayed loading because external Matrix/MQTT return broadcasts did not refresh derived UI labels before SSE snapshot delivery.
+- Result: REPRODUCED_AND_FIXED
+- Commit:
+- Command: `node scripts/tests/test_0303_model0_egress_recovery_server_flow.mjs`
+- Key output: `5 passed, 0 failed out of 5`; added coverage that explicit derived-state refresh updates the flow shell after Model 100 return, and that repeated `clientSnap()` reads do not append runtime events.
+- Result: PASS
+- Commit:
+- Command: `node scripts/validate_mbr_patch_v0.mjs`
+- Key output: `TOTAL: 50  PASS: 50  FAIL: 0`; MBR inbound validation uses routed `worker/<worker_id>/model/<model_id>/pin/<pin>` topic shape, not old fixed `<model>/result`.
+- Result: PASS
+- Commit:
+- Command: local MBR image refresh and rollout restart
+- Key output: running MBR image was stale even though source had the wildcard route-addressed subscription. Refreshed `dy-mbr-worker:v2`, restarted `mbr-worker`, verified container source subscribes worker/model/pin route topics, and baseline check passed.
+- Result: PASS
+- Commit:
+- Command: final deterministic regression set for Stage 4
+- Key output: `node --check packages/ui-model-demo-server/server.mjs`; `node --check scripts/run_worker_v0.mjs`; `node scripts/tests/test_0362_mbr_remote_worker_route_contract.mjs` -> `6 passed`; `node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs` -> `11 passed`; `bun scripts/tests/test_0362_persistence_canonical_reload.mjs` -> `1 passed`; `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs` -> `31 passed`; `node scripts/tests/test_0359_minimal_submit_matrix_e2e_contract.mjs` -> `5 passed`; `node scripts/tests/test_0283_matrix_userline_send_receive_contract.mjs` -> `2 passed`; `node scripts/tests/test_0283_matrix_userline_phase1_contract.mjs` -> `4 passed`; `node scripts/tests/test_0360_minimal_submit_dual_bus_docs_contract.mjs` -> `3 passed`; `git diff --check` PASS.
+- Result: PASS
+- Commit:
+- Command: Stage 4 review by sub-agent `019e0189-9403-7053-9b2d-4a1f8c9b3428`
+- Key output: first review returned `Decision: CHANGES_REQUESTED` for write-on-read in `clientSnap()`, old fixed MBR validation topic, and missing direct regression coverage. Fixed by removing derived refresh from `clientSnap()`, making derived writes idempotent, updating the MBR validation topic, and adding targeted tests.
+- Result: FIXED
+- Commit:
+- Command: Stage 4 re-review by sub-agent `019e0189-9403-7053-9b2d-4a1f8c9b3428`
+- Key output: `Decision: APPROVED`; findings none; open questions none; verification gaps none.
+- Result: PASS
+- Commit:
+- Command: post-fix Playwright browser verification after Stage 4 re-review on `http://127.0.0.1:30900/#/workspace`
+- Key output: `E2E 颜色生成器` input `stage4 color after review fix` -> `Generate Color` -> visible color value changed to `#d48314`, status `processed`, APP `processed`. `最小 Submit 双总线示例` input `stage4 minimal after review fix` -> `Submit` -> visible label changed to `Submitted: stage4 minimal after review fix`.
+- Result: PASS
+- Command: final closure Playwright recheck on `http://127.0.0.1:30900/#/workspace`
+- Key output: `E2E 颜色生成器` input `final browser color 0507` -> `Generate Color` -> visible color value changed to `#e60fda`, status `processed`, APP `processed`. `最小 Submit 双总线示例` input `final browser submit 0507` -> `Submit` -> visible label changed to `Submitted: final browser submit 0507`.
+- Result: PASS
+
+## Docs Updated
+
+- [x] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
+- [x] `docs/user-guide/modeltable_user_guide.md` reviewed
+- [x] `docs/ssot/execution_governance_ultrawork_doit.md` reviewed
+- [x] `docs/ssot/label_type_registry.md` reviewed
+- [x] `docs/ssot/temporary_modeltable_payload_v1.md` reviewed
+- [x] `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md` reviewed
+- [x] `docs/ssot/tier_boundary_and_conformance_testing.md` reviewed
