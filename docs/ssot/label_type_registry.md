@@ -2,7 +2,7 @@
 title: "Label Type Registry"
 doc_type: ssot
 status: active
-updated: 2026-05-06
+updated: 2026-05-09
 source: ai
 ---
 
@@ -82,8 +82,12 @@ source: ai
 |---|---|---|---|---|
 | `pin.in` | Cell 级输入端口；写在非系统模型 root `(0,0,0)` 时也承担模型根边界输入 | 端口名 | `null` 或临时 ModelTable payload array | 任意 Cell |
 | `pin.out` | Cell 级输出端口；写在非系统模型 root `(0,0,0)` 时也承担模型根边界输出 | 端口名 | `null` 或临时 ModelTable payload array | 任意 Cell |
-| `pin.bus.in` | 系统边界输入端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅 Model 0 (0,0,0) |
-| `pin.bus.out` | 系统边界输出端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅 Model 0 (0,0,0) |
+| `pin.bus.cb.in` | 控制总线边界输入端口（0363 目标合同） | 端口名 | `null` 或临时 ModelTable payload array | 仅软件工人 Model 0 (0,0,0) |
+| `pin.bus.cb.out` | 控制总线边界输出端口（0363 目标合同） | 端口名 | `null` 或临时 ModelTable payload array | 仅软件工人 Model 0 (0,0,0) |
+| `pin.bus.mb.in` | 管理总线边界输入端口（0363 目标合同） | 端口名 | `null` 或临时 ModelTable payload array | 仅 DEM 软件工人 Model 0 (0,0,0) |
+| `pin.bus.mb.out` | 管理总线边界输出端口（0363 目标合同） | 端口名 | `null` 或临时 ModelTable payload array | 仅 DEM 软件工人 Model 0 (0,0,0) |
+
+迁移说明：当前运行面在 0364 实施前仍使用未拆分的 `pin.bus.in` / `pin.bus.out`。它们不再是目标作者ing口径；0364 必须将运行时、系统模型、部署补丁和测试资产迁到上表的拆分总线引脚。
 
 0331 payload 约束：
 - 正式业务 pin 的非空 value 必须是 `docs/ssot/temporary_modeltable_payload_v1.md` 定义的 record array。
@@ -212,8 +216,8 @@ runtime 不得新增或保留兼容层来支持这些旧名；结构性旧类型
 
 | label.t | 替代方案 |
 |---|---|
-| `BUS_IN` | `pin.bus.in` |
-| `BUS_OUT` | `pin.bus.out` |
+| `BUS_IN` | current migration surface: `pin.bus.in`; 0364 target: `pin.bus.cb.in` or `pin.bus.mb.in` by bus role |
+| `BUS_OUT` | current migration surface: `pin.bus.out`; 0364 target: `pin.bus.cb.out` or `pin.bus.mb.out` by bus role |
 | `CELL_CONNECT` | `pin.connect.label` |
 | `cell_connection` | `pin.connect.cell` |
 | `MODEL_IN` | 非系统模型 root `(0,0,0)` 上的 `pin.in` |
@@ -317,3 +321,33 @@ v1 只允许声明远端默认目标：
 ```
 
 `egress_pins` 可以包含多个公开 pin，例如 `submit1`、`submit2`。每个 pin 都必须是 imported app root `(0,0,0)` 上已声明的普通 `pin.out`；不得写成 `submit1:in` 这类函数端点。
+
+## 11. Host-owned UI Egress Binding（0363）
+
+0363 新增目标 label.t：
+
+- `t = ui.egress.binding.v1`
+
+它只允许由 UI Server installer 在 imported slide app 安装完成后写入，不允许出现在 provider ZIP / imported records 中。
+
+| label.t | 说明 | key | value | 位置约束 |
+|---|---|---|---|---|
+| `ui.egress.binding.v1` | 记录 imported app 公开 `pin.out` 与宿主系统总线出口之间的 host-owned egress 绑定；供 UI 投影显示，不替代实际 pin route | 绑定名，例如 `ui_egress_submit1_binding` | JSON object | 安装后的 imported app root `(0,0,0)`；仅 UI Server installer 可写 |
+
+value 必须至少包含：
+
+- `from_pin`: imported root 上的公开 `pin.out` 名称。
+- `bus`: `"management"` 或 `"control"`；UI/滑动 App 用户交互默认使用 `"management"`。
+- `host_model_id`: 当前 worker root model id，目标为 `0`。
+- `host_cell`: 目标为 `[0,0,0]`。
+- `host_pin_type`: 0363 目标为 `pin.bus.mb.out` 或 `pin.bus.cb.out`；0364 前 current window 仍可能对应 `pin.bus.out`。
+- `host_pin_key`: 宿主生成的系统总线出口 key。
+- `target`: `{ worker_id, model_id, pin }`，由 `remote_bus_endpoint_v1` 与当前公开出口 pin 合成。
+- `reply_pin`: 回包进入本地 imported app 的公开 pin。
+- `owned_by`: 必须是 `"ui-server-installer"`。
+
+约束：
+
+- `ui.egress.binding.v1` 只能描述安装后的接线事实；不能授权 UI 绕过 pin route 直接发 bus 消息。
+- 若 binding 存在但对应 `pin.connect.*` 或系统总线出口缺失，安装状态必须判为不完整。
+- 删除 imported app 时，宿主必须同步删除 binding 记录。

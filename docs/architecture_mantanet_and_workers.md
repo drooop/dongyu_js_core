@@ -191,7 +191,7 @@ source: ai
 - **不变量**：
   - 面向执行与控制，强调可靠性、时序与审计。
   - 与管理总线在语义上区分，避免混用导致权限边界模糊。
-  - 外部消息只能通过 pin.bus.in（Model 0, (0,0,0)）进入系统。
+  - 外部消息只能通过软件工人 root Model 0 `(0,0,0)` 的系统总线入口进入系统。0364 前当前运行面为 `pin.bus.in`；0363 目标合同为控制总线 `pin.bus.cb.in` 与 DEM 管理总线 `pin.bus.mb.in`。
 
 ### 5.3 MBR（Message Bridge Robot）
 - **定义**：管理总线与控制总线之间的桥接者，负责消息转发、协议适配与安全策略执行。
@@ -234,7 +234,10 @@ PIN 端口按**类型**区分层级（不是按位置硬编码）：
 |---|---|---|---|
 | Cell 级 | pin.in / pin.out | pin.login / pin.logout | 任意 Cell |
 | Model 根边界 | pin.in / pin.out | pin.login / pin.logout | 非系统模型 `(0,0,0)` |
-| 系统边界 adapter | pin.bus.in / pin.bus.out | 日志边界后续单独裁决；普通模型不使用 pin.log.bus.* | 仅 Model 0 (0,0,0) |
+| 控制总线系统边界 adapter | pin.bus.cb.in / pin.bus.cb.out | 日志边界后续单独裁决；普通模型不使用 pin.log.bus.* | 软件工人 Model 0 `(0,0,0)` |
+| 管理总线系统边界 adapter | pin.bus.mb.in / pin.bus.mb.out | 日志边界后续单独裁决；普通模型不使用 pin.log.bus.* | DEM 软件工人 Model 0 `(0,0,0)` |
+
+0363 目标合同将系统边界 adapter 从当前未拆分的 `pin.bus.in` / `pin.bus.out` 迁到上表的控制总线和管理总线两组。0364 实施前，`pin.bus.in` / `pin.bus.out` 只表示当前运行面，不再作为新模型的目标作者ing口径。
 
 ### 6.2 连接声明
 
@@ -249,7 +252,8 @@ PIN 端口按**类型**区分层级（不是按位置硬编码）：
 
 - 数据通道与日志通道类型隔离，不可混连。
 - pin.in 只连 pin.out；pin.login 只连 pin.logout。
-- pin.model.* 不处理 model_id=0；model_id=0 的外部出入口由 pin.bus.* 专属。
+- pin.model.* 不处理 model_id=0；model_id=0 的外部出入口由 worker root 的 pin.bus.* 专属。
+- 普通软件工人只能使用控制总线引脚；DEM 软件工人可以同时使用控制总线和管理总线引脚。
 - 每个函数标签（func.js / func.python）自动关联三个引脚：
   - `{funcName}:in`
   - `{funcName}:out`
