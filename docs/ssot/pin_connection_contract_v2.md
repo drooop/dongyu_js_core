@@ -2,14 +2,14 @@
 title: "PIN Connection Contract v2"
 doc_type: ssot
 status: active
-updated: 2026-05-06
+updated: 2026-05-09
 source: user
 iteration: 0356-pin-connection-contract-realignment
 ---
 
 # PIN Connection Contract v2
 
-本文件冻结 0356 后的目标引脚合同。它覆盖早期文档中把跨模型路由声明为 `pin.connect.model`、把同 Cell 端点写成 `(self, pin)` / `(func, func:in)` 的写法。
+本文件冻结 0356 后的目标引脚合同。它覆盖早期文档中把跨模型路由声明为 `pin.connect.model`、把同 Cell 端点写成 `(self, pin)` / `(func, func:in)` 的写法。0363 增补控制总线 / 管理总线边界引脚拆分目标合同。
 
 0357 已完成 runtime 硬切：当前输入面不再接受旧写法。旧写法只能出现在历史文档或负向测试中，不得作为新模型、新文档或新通过路径的输入面。
 
@@ -32,7 +32,27 @@ iteration: 0356-pin-connection-contract-realignment
 - `pin.in` / `pin.out` 传普通模型数据。
 - `pin.login` / `pin.logout` 传日志模型数据。
 - 早期 `pin.log.in` / `pin.log.out` / `pin.log.bus.*` 不是 0356 后的新规约名称；0357 后写入会被 runtime 拒绝。
-- `pin.bus.in` / `pin.bus.out` 是 Model 0 的系统边界 adapter，不是普通 Cell 的第五类引脚；它们进入普通模型层后必须转换为本合同中的 Cell 引脚路由。
+- bus 引脚不是普通 Cell 的第五类引脚；它们是软件工人 root Model 0 `(0,0,0)` 的系统边界 adapter，进入普通模型层后必须转换为本合同中的 Cell 引脚路由。
+- 0364 实施前，当前运行面仍使用未拆分的 `pin.bus.in` / `pin.bus.out`。新模型和新文档不得把它们作为目标作者ing口径；0364 必须迁移到下节的拆分目标。
+
+## 1.1 目标系统总线引脚（0363 contract）
+
+目标合同把系统边界总线引脚拆成控制总线和管理总线两组：
+
+| label.t | 含义 | 允许位置 |
+|---|---|---|
+| `pin.bus.cb.in` | 控制总线输入 | 软件工人 root Model 0 `(0,0,0)` |
+| `pin.bus.cb.out` | 控制总线输出 | 软件工人 root Model 0 `(0,0,0)` |
+| `pin.bus.mb.in` | 管理总线输入 | DEM 软件工人 root Model 0 `(0,0,0)` |
+| `pin.bus.mb.out` | 管理总线输出 | DEM 软件工人 root Model 0 `(0,0,0)` |
+
+规则：
+
+- 普通软件工人只能声明和使用 `pin.bus.cb.*`。
+- DEM 软件工人可以声明和使用 `pin.bus.cb.*` 与 `pin.bus.mb.*`，并负责控制总线和管理总线之间的连接策略。
+- 正数业务模型、滑动 App、子模型内部都不得直接声明 bus 引脚。
+- imported UI 模型只声明自己的公开 `pin.out` 与远端意图；宿主安装器负责生成到 root Model 0 bus 引脚的 host-owned 接线。
+- `pin.log.*` 不因本次 bus 拆分而恢复；日志通道仍只使用 `pin.login` / `pin.logout`。
 
 ---
 

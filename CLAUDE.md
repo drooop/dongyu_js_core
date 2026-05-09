@@ -21,7 +21,8 @@ HARD_RULES
 - iteration must exist in docs/ITERATIONS.md before any work starts.
 - all side effects via add_label / rm_label only. no bypass.
 - UI is projection of ModelTable. never truth source.
-- UI business events enter via Model 0 (0,0,0) pin.bus.in.
+- UI business events enter via the worker root Model 0 (0,0,0) system bus boundary.
+  Current runtime uses pin.bus.in until 0364; 0363 target is pin.bus.mb.in for DEM management ingress and pin.bus.cb.in for control ingress.
 - init and runtime use identical interpretation rules.
 - hidden platform/policy/helper capabilities default to negative model_id system models.
 - do not place non-user-facing helper workers into positive models just to avoid tier1 work.
@@ -133,8 +134,8 @@ FORBIDDEN
 - phase3 without Approved gate
 - unregistered iteration work
 - side effects outside add_label / rm_label
-- UI direct bus connection (must go through Model 0 pin.bus.in)
-- external MQTT writing to arbitrary cells (must go through pin.bus.in on Model 0)
+- UI direct bus connection (must go through worker root Model 0 system bus ingress; current pin.bus.in until 0364, target split pin.bus.mb.in / pin.bus.cb.in)
+- external MQTT writing to arbitrary cells (must go through worker root Model 0 system bus ingress)
 - using legacy connection types: label_connection, trigger_funcs, function_PIN_IN/OUT (use CELL_CONNECT)
 - using DEPRECATED / historical label types in new models
 - adding or preserving compatibility code/compatibility aliases without explicit user approval
@@ -279,8 +280,10 @@ ARCH_INVARIANTS
 - application-layer = positive model_id user-created models; system-level = negative model_id software-worker capability layers.
 - Model 0 = system root / intermediate layer. system boundary ports live here.
 - every model except Model 0 MUST be explicitly mounted into the hierarchy via model.submt, including bootstrap children such as -1 and 1.
-- single external entry: pin.bus.in/pin.bus.out on Model 0 (0,0,0) = only MQTT interface. no direct cell writes from external.
-- connection chain (no skip): pin.bus.in/out (system boundary adapter) → pin.connect.cell (inter-cell routing) → pin.connect.label (intra-cell wiring)
+- single external entry: worker root system bus pins on Model 0 (0,0,0) = only MQTT/Matrix boundary. no direct cell writes from external.
+  current runtime window: pin.bus.in/pin.bus.out.
+  0363 target: pin.bus.cb.in/out for control bus and pin.bus.mb.in/out for management bus.
+- connection chain (no skip): worker root bus boundary adapter → pin.connect.cell (inter-cell routing) → pin.connect.label (intra-cell wiring)
 - pin.connect.label = current Cell intra-wiring table. replaces historical CELL_CONNECT / label_connection / trigger_funcs / function_PIN_IN/OUT.
 - program model: function label, v = JS code string, compiled to AsyncFunction at init. ctx = runtime execution context (system-level); user program API face = V1N namespace (0323).
 - fill-table-first: new capabilities MUST be implemented by filling models (JSON patches) before considering runtime code changes.
@@ -297,12 +300,13 @@ tier 1: runtime base (基座运行能力)
   what it provides:
   - model form enforcement: model.single / model.matrix / model.table constraints
   - label type interpretation: _applyBuiltins dispatches on label.t
-    0356 target recognized types after implementation migration:
-      pin.in, pin.out, pin.bus.in, pin.bus.out,
+    0363 target recognized types after implementation migration:
+      pin.in, pin.out,
+      pin.bus.cb.in, pin.bus.cb.out, pin.bus.mb.in, pin.bus.mb.out,
       pin.login, pin.logout,
       pin.connect.label, pin.connect.cell, model.submt, func.js, func.python
-    current runtime may still contain legacy pin.log.* and pin.connect.model handling;
-    those are migration debt and MUST NOT be used in new specs, models, or tests.
+    current runtime window still recognizes pin.bus.in / pin.bus.out until 0364.
+    legacy pin.log.* and pin.connect.model are removed input surfaces and MUST NOT be restored.
   - MQTT loop: startMqttLoop, mqttIncoming, topic routing
   - AsyncFunction executor: _executeFuncViaCellConnect (30s timeout, sandboxed ctx)
   - graph management: pinConnectLabelGraph, pinConnectCellRoutes, busInPorts, busOutPorts
@@ -356,7 +360,7 @@ MODEL_ID_REGISTRY
 
 allocation rules (authoritative):
 
-  Model 0        system root / intermediate layer. pin.bus.in/out and root-side routing live here.
+  Model 0        system root / intermediate layer. worker root bus boundary pins and root-side routing live here.
                  the only model with system boundary ports. never holds user business logic.
                  Model 0 (0,0,0) MUST explicitly carry model.table.
 
@@ -439,11 +443,19 @@ Use that document for any new model, test, user guide, or implementation plannin
 
 2-family PIN architecture. type-based differentiation (NOT position-based).
 
-data channel:
+local data channel:
   pin.in            Local model/program input port
   pin.out           Local model/program output port
-  pin.bus.in        System boundary input port (only on Model 0 (0,0,0))
-  pin.bus.out       System boundary output port (only on Model 0 (0,0,0))
+
+target system bus channel (0363 contract; implementation in 0364):
+  pin.bus.cb.in     Control-bus boundary input port (only on worker Model 0 (0,0,0))
+  pin.bus.cb.out    Control-bus boundary output port (only on worker Model 0 (0,0,0))
+  pin.bus.mb.in     Management-bus boundary input port (only on DEM worker Model 0 (0,0,0))
+  pin.bus.mb.out    Management-bus boundary output port (only on DEM worker Model 0 (0,0,0))
+
+current implementation window:
+  pin.bus.in        Current unsplit system boundary input port until 0364 hard-cut
+  pin.bus.out       Current unsplit system boundary output port until 0364 hard-cut
 
 log channel (identical routing behavior, type-isolated from data channel):
   pin.login         Local log input
@@ -457,8 +469,10 @@ connection declarations:
 
 rules:
   - pin.in only connects to pin.out. pin.login only connects to pin.logout. no cross-channel.
-  - Local model/program pins use pin.in / pin.out only. pin.bus.* remains system boundary only.
+  - Local model/program pins use pin.in / pin.out only. pin.bus.* remains worker-root system boundary only.
   - model_id=0 external entry is pin.bus.* only.
+  - Imported UI models MUST NOT author bus pins directly; host installation owns bus boundary wiring.
+  - Management-bus pins are valid only for DEM workers; ordinary software workers use control-bus pins only.
   - sub-model external connections are routed through the child root (0,0,0) pins and parent hosting Cell pins, not through a separate pin.connect.model family.
   - log pins have NO special runtime behavior. no wiring = log discarded.
   - each function has 3 pins: func:in / func:out / func:logout.

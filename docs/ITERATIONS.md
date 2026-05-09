@@ -265,6 +265,7 @@ source: ai
 | 0360-minimal-submit-docs-and-remote-deploy | 2026-05-07 | 将 provider 示例文档改为真实 `最小 Submit 双总线示例`，补 R1 填表、Workspace 导入、外部 Matrix/MQTT 测试说明，并发布到远端 | 5 | dev_0360-minimal-submit-docs-and-remote-deploy | Completed | ./docs/iterations/0360-minimal-submit-docs-and-remote-deploy/ |
 | 0361-minimal-submit-import-export-docs | 2026-05-07 | 保存可导入的最小 Submit 双总线 payload/zip，补 Workspace 导出 zip 能力与开发者生成文档，并用真实浏览器验证 zip 上传安装运行 | 5 | dev_0361-minimal-submit-import-export-docs | Completed | ./docs/iterations/0361-minimal-submit-import-export-docs/ |
 | 0362-slide-app-self-described-route | 2026-05-07 | 冻结并实现滑动 App 自描述 route：ZIP 仅含模型表、远端 provider/local instance 身份拆分、公开 pin 入口、MBR 无 per-app 静态注册 | 4 | dev_0362-slide-app-self-described-route | Completed | ./docs/iterations/0362-slide-app-self-described-route/ |
+| 0363-ui-egress-bus-init-contract | 2026-05-09 | docs-only 冻结 UI 对外管理总线绑定、控制/管理总线引脚拆分、软件工人启动顺序，以及 0364 实施验收范围 | 5 | dev_0363-ui-egress-bus-init-contract | Completed | ./docs/iterations/0363-ui-egress-bus-init-contract/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

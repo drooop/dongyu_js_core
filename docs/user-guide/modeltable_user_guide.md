@@ -2,7 +2,7 @@
 title: "ModelTable User Guide (Living Doc)"
 doc_type: user-guide
 status: active
-updated: 2026-04-29
+updated: 2026-05-09
 source: ai
 ---
 
@@ -164,6 +164,12 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
   - `route.to.pin` 来自当前公开入口 pin，例如 `submit1`
   - `route.reply_to` 必须由 UI Server 运行时按本地安装实例生成，ZIP 不能提供或覆盖
   - MBR 不应要求为每个上传 App 预注册 per-app route
+- `0363` 新增 host-owned UI egress binding 目标合同：
+  - provider ZIP 只声明 UI、公开 root `pin.out`、`dual_bus_model.egress_pins` 与 `remote_bus_endpoint_v1`
+  - provider ZIP 不得声明 `ui.egress.binding.v1`，也不得声明任何 `pin.bus.*`
+  - UI Server 安装器在分配本地模型 id 后生成 `ui.egress.binding.v1`
+  - UI 可以显示这个公开 `pin.out` 实际通过哪个宿主管理总线 pin 外发
+  - 正式外发 authority 仍来自实际 pin route，不来自 UI 直接发送
 - `0308` 之后，对以上 slide/workspace 主线路径，legacy `action` envelope 已正式退役：
   - 会显式返回 `legacy_action_protocol_retired`
   - 不再通过 server 侧 action → ingress 旧映射放行
@@ -289,6 +295,11 @@ V1N.writeLabel(2, 2, 2, { k: 'testk', t: 'str', v: 'testv' })
 - removed `pin.connect.model`
 - `pin.bus.in`
 - `pin.bus.out`
+- `pin.bus.cb.in`
+- `pin.bus.cb.out`
+- `pin.bus.mb.in`
+- `pin.bus.mb.out`
+- `ui.egress.binding.v1`
 - 系统保留/已移除的 helper 覆盖标签：
   - `scope_privileged`
   - `helper_executor`
@@ -370,7 +381,7 @@ owner-chain 的正式链路固定为：
 relay 规则：
 - 深层子模型的 `submit` 只能先到父模型 hosting cell
 - 父模型 hosting cell 只能用现有 `pin.connect.label` / `cell_connection` relay
-- 必须逐层上送，直到 Model 0 `(0,0,0)` 的 `pin.bus.out submit`
+- 必须逐层上送，直到 worker root Model 0 `(0,0,0)` 的系统总线出口。0364 前 current window 是 `pin.bus.out submit`；0363 目标合同中，UI/管理类外发应是 `pin.bus.mb.out submit`
 
 因此：
 - 如果 `submit` 没有接到 Model 0，则它仍然只是本地动作
@@ -378,7 +389,7 @@ relay 规则：
 
 使用判断法：
 - “这个动作会不会出总线？”
-  - 看它是否最终进入 Model 0 `pin.bus.out`
+  - 看它是否最终进入 worker root Model 0 的系统总线出口
   - 不看新的辅助字段
   - 不依赖新的 pin 类型
 
@@ -585,6 +596,38 @@ MGMT_IN 仅在以下条件全部满足时写入：
 - Matrix token / password 当前允许作为 trusted bootstrap patch 的一部分进入 Model 0，仅用于启动期读取
 - 这意味着测试环境里的 snapshot / runlog / EventLog 可能看到这些值，验证时必须按环境隔离处理
 - 不再允许走独立 `MATRIX_*` env fallback 作为产品路径
+
+### 7.1 软件工人启动顺序（0363 目标合同）
+
+启动一个软件工人时，先给三个参数：
+
+- 软件工人名称：用来决定读取或新建哪个软件工人文件。
+- 软件工人 ID：写入 Model 0 `(0,0,0)`，示例 `k=v1n_id, t=str, v="5/10/28/35/13"`。
+- 是否 DEM：写入 Model 0 `(0,0,0)`，示例 `k=is_DEM, t=bool, v=true`。
+
+启动顺序必须是：
+
+1. 建立模型与层级关系。
+2. 写入软件工人身份与角色。
+3. 写入对外通讯参数。
+4. 加载程序模型。
+5. 声明引脚。
+6. 声明连接。
+7. 恢复可继续执行的运行态数据。
+
+这样做的目的很简单：旧的 pin value、flow 状态或待处理请求可能一恢复就触发程序模型或总线发送，所以必须等模型、身份、程序模型、引脚和连接都准备好之后再恢复。
+
+角色规则：
+
+- `is_DEM=true`：可以使用控制总线和管理总线。
+- `is_DEM=false`：只能使用控制总线；不得声明或安装 `pin.bus.mb.*`。
+
+0364 实施时还必须完成：
+
+- 重新检查并必要时重新填表 `ui-server`、`mbr`、`remote-worker`。
+- 调整现有 UI 模型和界面，确保不再依赖旧 bus 写法或兼容链路。
+- 给出新版“最小 Submit 双总线示例” JSON patch。
+- 本地部署后，用真实浏览器测通 workspace 滑动过程、App 运行过程、双总线收发和页面更新。
 
 ## 8. Troubleshooting
 - `reserved_cell`: 写入了保留模型或保留坐标
