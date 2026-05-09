@@ -55,7 +55,6 @@ system_negative_full = [
     'matrix_debug_surface.json',
     'nav_catalog_ui.json',
     'prompt_catalog_ui.json',
-    'remote_worker_model.legacy.json',
     'server_config.json',
     'static_catalog_ui.json',
     'ui_to_matrix_forwarder.json',
@@ -82,6 +81,7 @@ role_files = {
         ('deploy/sys-v1ns/remote-worker/patches/10_model100.json', 'roles/remote-worker/patches/10_model100.json', '40-role-positive'),
         ('deploy/sys-v1ns/remote-worker/patches/11_model1010.json', 'roles/remote-worker/patches/11_model1010.json', '40-role-positive'),
         ('deploy/sys-v1ns/remote-worker/patches/12_model1019.json', 'roles/remote-worker/patches/12_model1019.json', '40-role-positive'),
+        ('deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json', 'roles/remote-worker/patches/13_model3000_minimal_submit.json', '40-role-positive'),
     ],
     'ui-side-worker': [
         ('deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json', 'roles/ui-side-worker/patches/00_ui_side_worker_config.json', '20-role-negative'),

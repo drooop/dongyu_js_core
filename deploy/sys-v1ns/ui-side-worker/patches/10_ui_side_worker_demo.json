@@ -59,9 +59,9 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, owner_request)",
+          "from": "owner_request",
           "to": [
-            "(func, owner_materialize:in)"
+            "owner_materialize:in"
           ]
         }
       ]
@@ -81,29 +81,6 @@
     },
     {
       "op": "add_label",
-      "model_id": 0,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "ui_side_owner_route_1",
-      "t": "pin.connect.model",
-      "v": [
-        {
-          "from": [
-            -10,
-            "ui_side_owner_req_1"
-          ],
-          "to": [
-            [
-              1,
-              "owner_request"
-            ]
-          ]
-        }
-      ]
-    },
-    {
-      "op": "add_label",
       "model_id": -10,
       "p": 0,
       "r": 0,
@@ -114,6 +91,73 @@
         "code": "const host = ctx.hostApi; if (!host) throw new Error('host_api_missing'); const mtRead = (modelId, p, r, c, k, fallback = null) => { const result = host.readCrossModel(modelId, p, r, c, k); return result && result.ok && result.data && Object.prototype.hasOwnProperty.call(result.data, 'v') ? result.data.v : fallback; }; const mtAdd = (modelId, p, r, c, k, t, v) => { const result = host.writeCrossModel(modelId, p, r, c, k, t, v); if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'mt_add_failed'); return result; }; const mtDrop = (modelId, p, r, c, k) => { const result = host.rmCrossModel(modelId, p, r, c, k); if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'mt_remove_failed'); return result; }; const mt = (k, t, v) => ({ id: 0, p: 0, r: 0, c: 0, k, t, v }); const inbox = mtRead(-10, 0, 0, 0, 'ui_mgmt_inbox'); if (!inbox || typeof inbox !== 'object' || inbox.version !== 'v0') return; const patch = inbox.payload; if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) return; const writeLabels = []; const removeLabels = []; for (const record of patch.records) { if (!record || record.model_id !== 1) continue; if (record.op === 'add_label') { writeLabels.push({ p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k, t: typeof record.t === 'string' && record.t ? record.t : 'str', v: record.v }); continue; } if (record.op === 'rm_label') { removeLabels.push({ p: Number.isInteger(record.p) ? record.p : 0, r: Number.isInteger(record.r) ? record.r : 0, c: Number.isInteger(record.c) ? record.c : 0, k: record.k }); } } if (writeLabels.length > 0 || removeLabels.length > 0) { mtAdd(-10, 0, 0, 0, 'ui_side_owner_req_1', 'pin.out', [mt('__mt_payload_kind', 'str', 'owner_request.v1'), mt('__mt_request_id', 'str', typeof patch.op_id === 'string' ? patch.op_id : 'ui_side_owner_req_1'), mt('target_model_id', 'int', 1), mt('origin_action', 'str', 'ui_apply_snapshot_delta'), mt('write_labels', 'json', writeLabels), mt('remove_labels', 'json', removeLabels)]); } mtDrop(-10, 0, 0, 0, 'ui_mgmt_inbox');",
         "modelName": "ui_side_worker"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 9,
+      "r": 0,
+      "c": 10,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": -10
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 9,
+      "r": 0,
+      "c": 10,
+      "k": "ui_side_owner_req_1",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 9,
+      "r": 0,
+      "c": 1,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 9,
+      "r": 0,
+      "c": 1,
+      "k": "owner_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_side_owner_route_1",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [
+            9,
+            0,
+            10,
+            "ui_side_owner_req_1"
+          ],
+          "to": [
+            [
+              9,
+              0,
+              1,
+              "owner_request"
+            ]
+          ]
+        }
+      ]
     }
   ]
 }

@@ -70,6 +70,10 @@ function test_mbr_mgmt_to_mqtt_execute_model100() {
     op_id: 'test_0144_001',
     source_model_id: 100,
     pin: 'submit',
+    route: {
+      to: { worker_id: 'RE', model_id: 100, pin: 'submit' },
+      reply_to: { worker_id: 'ui-server', model_id: 100, pin: 'result' },
+    },
     payload: [
       { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
       { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'abc' },
@@ -94,11 +98,12 @@ function test_mbr_mgmt_to_mqtt_execute_model100() {
   fn(ctx);
 
   assert(publishedTopic, 'should publish to MQTT');
-  assert(publishedTopic.endsWith('/100/submit'), `topic should end with /100/submit, got ${publishedTopic}`);
+  assert(publishedTopic.endsWith('/worker/RE/model/100/pin/submit'), `topic should end with /worker/RE/model/100/pin/submit, got ${publishedTopic}`);
   assert(publishedPayload && publishedPayload.version === 'v1', 'payload must be pin_payload v1');
   assert.strictEqual(publishedPayload.type, 'pin_payload', 'payload type must stay pin_payload');
   assert.strictEqual(publishedPayload.pin, 'submit', 'payload pin must stay submit');
   assert.strictEqual(publishedPayload.source_model_id, 100, 'payload must preserve source_model_id');
+  assert.deepStrictEqual(publishedPayload.route, uiEvent.route, 'payload must preserve self-described route metadata');
   assert(Array.isArray(publishedPayload.payload), 'payload must carry temporary-modeltable array');
 
   // Verify inbox cleaned up
@@ -117,13 +122,17 @@ function test_mbr_mqtt_to_mgmt_execute() {
 
   // Simulate incoming MQTT patch
   const mqttPayload = {
-    topic: 'UIPUT/ws/dam/pic/de/sw/100/result',
+    topic: 'UIPUT/ws/dam/pic/de/sw/worker/ui-server/model/100/pin/result',
     payload: {
       version: 'v1',
       type: 'pin_payload',
       op_id: 'test_0144_002',
       source_model_id: 100,
       pin: 'result',
+      route: {
+        to: { worker_id: 'ui-server', model_id: 100, pin: 'result' },
+        from: { worker_id: 'RE', model_id: 100, pin: 'submit' },
+      },
       payload: [{ id: 0, p: 0, r: 0, c: 0, k: 'bg_color', t: 'str', v: '#FF0000' }],
     }
   };

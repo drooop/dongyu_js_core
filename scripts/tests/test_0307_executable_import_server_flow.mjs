@@ -116,7 +116,7 @@ function buildExecutablePayload() {
     { id: 0, p: 2, r: 2, c: 0, k: 'ui_label', t: 'str', v: 'Run Local Logic' },
     { id: 0, p: 2, r: 2, c: 0, k: 'ui_bind_json', t: 'json', v: { write: { pin: 'click_local', value_ref: uiEventPayload([{ k: 'trigger', t: 'str', v: 'local' }]), value_t: 'modeltable' } } },
     { id: 0, p: 2, r: 2, c: 0, k: 'click_local', t: 'pin.in', v: null },
-    { id: 0, p: 2, r: 2, c: 0, k: 'click_local_route', t: 'pin.connect.label', v: [{ from: '(self, click_local)', to: ['(func, handle_local:in)'] }] },
+    { id: 0, p: 2, r: 2, c: 0, k: 'click_local_route', t: 'pin.connect.label', v: [{ from: 'click_local', to: ['handle_local:in'] }] },
     { id: 0, p: 2, r: 2, c: 0, k: 'handle_local', t: 'func.js', v: { code: "V1N.writeLabel(0, 0, 0, { k: 'status_text', t: 'str', v: 'local_processed' });" } },
     { id: 0, p: 2, r: 3, c: 0, k: 'ui_node_id', t: 'str', v: 'exec_chain_button' },
     { id: 0, p: 2, r: 3, c: 0, k: 'ui_component', t: 'str', v: 'Button' },
@@ -124,7 +124,7 @@ function buildExecutablePayload() {
     { id: 0, p: 2, r: 3, c: 0, k: 'ui_label', t: 'str', v: 'Run Request Chain' },
     { id: 0, p: 2, r: 3, c: 0, k: 'ui_bind_json', t: 'json', v: { write: { pin: 'click_chain', value_ref: uiEventPayload([{ k: 'trigger', t: 'str', v: 'chain' }]), value_t: 'modeltable' } } },
     { id: 0, p: 2, r: 3, c: 0, k: 'click_chain', t: 'pin.in', v: null },
-    { id: 0, p: 2, r: 3, c: 0, k: 'click_chain_route', t: 'pin.connect.label', v: [{ from: '(self, click_chain)', to: ['(func, handle_chain:in)'] }] },
+    { id: 0, p: 2, r: 3, c: 0, k: 'click_chain_route', t: 'pin.connect.label', v: [{ from: 'click_chain', to: ['handle_chain:in'] }] },
     { id: 0, p: 2, r: 3, c: 0, k: 'handle_chain', t: 'func.js', v: { code: "V1N.writeLabel(0, 0, 0, { k: 'status_text', t: 'str', v: 'chain_processed' });" } },
   ];
 }

@@ -3343,10 +3343,6 @@
           "value": "pin.connect.cell"
         },
         {
-          "label": "pin.connect.model",
-          "value": "pin.connect.model"
-        },
-        {
           "label": "pin.in",
           "value": "pin.in"
         },

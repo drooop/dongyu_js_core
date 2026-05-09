@@ -15,11 +15,11 @@ source: ai
 - `slide_app_runtime_developer_guide.md`
   - 主手册。包含 ModelTable 填表示例、root 默认程序链、安装链路、运行时事件链路和外发链路。
 - `minimal_submit_app_provider_guide.md`
-  - 面向滑动 APP 提供方的最小 cookbook。只讲怎样写一个 `Input + Submit + Display Label` APP，并给出完整单元格、完整 `app_payload.json` 和完整 submit 程序模型。
+  - 面向滑动 APP 提供方和 remote-worker 提供方的最小双总线 cookbook。说明 `最小 Submit 双总线示例`、R1 填表、zip 导入和外部 Matrix/MQTT 收发测试。
 - `minimal_submit_app_provider_visualized.md`
-  - 同一个最小 APP 的可视化说明：用流程图、单元格地图和检查图解释 provider 要填什么。
+  - 同一个最小双总线示例的可视化说明：用流程图解释 UI、Model 0、Matrix、MBR、MQTT 与 remote-worker R1 的关系。
 - `minimal_submit_app_provider_interactive.html`
-  - 自包含交互式文档。可在浏览器中切换步骤，并用输入框模拟 submit 程序写回 `display_text`。
+  - 自包含交互式文档。可在浏览器中切换 R1 填表、UI 拆分、Workspace 导入和外部 topic 测试步骤。
 - `slide_app_runtime_flow_visualized.html`
   - 自包含可视化页面。用可点击阶段卡片和流程图解释同一条链路，可直接用浏览器打开。
 

@@ -3,16 +3,24 @@
   "records": [
     {"op": "create_model", "model_id": 999, "name": "test_connect", "type": "test"},
     {"op": "add_label", "model_id": 999, "p": 0, "r": 0, "c": 0,
+     "label": {"k": "input", "t": "pin.in", "v": null}},
+    {"op": "add_label", "model_id": 999, "p": 0, "r": 0, "c": 0,
+     "label": {"k": "output", "t": "pin.in", "v": null}},
+    {"op": "add_label", "model_id": 999, "p": 1, "r": 0, "c": 0,
+     "label": {"k": "cmd", "t": "pin.in", "v": null}},
+    {"op": "add_label", "model_id": 999, "p": 1, "r": 0, "c": 0,
+     "label": {"k": "result", "t": "pin.out", "v": null}},
+    {"op": "add_label", "model_id": 999, "p": 0, "r": 0, "c": 0,
      "label": {"k": "routing", "t": "pin.connect.cell", "v": [
        {"from": [0,0,0,"input"], "to": [[1,0,0,"cmd"]]},
        {"from": [1,0,0,"result"], "to": [[0,0,0,"output"]]}
      ]}},
     {"op": "add_label", "model_id": 999, "p": 1, "r": 0, "c": 0,
      "label": {"k": "wiring", "t": "pin.connect.label", "v": [
-       {"from": "(self, cmd)", "to": ["(func, process:in)"]},
-       {"from": "(func, process:out)", "to": ["(self, result)"]}
-     ]}},
+       {"from": "cmd", "to": ["process:in"]},
+       {"from": "process:out", "to": ["result"]}
+    ]}},
     {"op": "add_label", "model_id": 999, "p": 1, "r": 0, "c": 0,
-     "label": {"k": "process", "t": "func.js", "v": {"code": "return label.v + '_processed';", "modelName": "test_connect"}}}
+     "label": {"k": "process", "t": "func.js", "v": {"code": "const rec = Array.isArray(label.v) ? label.v.find((r) => r && r.k === 'message') : null;\nreturn [{ id: 0, p: 0, r: 0, c: 0, k: 'message', t: 'str', v: String(rec && rec.v || '') + '_processed' }];", "modelName": "test_connect"}}}
   ]
 }

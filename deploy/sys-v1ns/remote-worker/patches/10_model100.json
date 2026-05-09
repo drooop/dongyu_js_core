@@ -95,29 +95,19 @@
       "p": 0,
       "r": 0,
       "c": 0,
-      "k": "result_out_topic",
-      "t": "str",
-      "v": "UIPUT/ws/dam/pic/de/sw/100/result"
-    },
-    {
-      "op": "add_label",
-      "model_id": 100,
-      "p": 0,
-      "r": 0,
-      "c": 0,
       "k": "root_routes",
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, submit)",
+          "from": "submit",
           "to": [
-            "(func, on_model100_submit_in:in)"
+            "on_model100_submit_in:in"
           ]
         },
         {
-          "from": "(func, on_model100_submit_in:out)",
+          "from": "on_model100_submit_in:out",
           "to": [
-            "(self, result)"
+            "result"
           ]
         }
       ]
@@ -152,15 +142,15 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, submit)",
+          "from": "submit",
           "to": [
-            "(func, on_model100_submit_in:in)"
+            "on_model100_submit_in:in"
           ]
         },
         {
-          "from": "(func, on_model100_submit_in:out)",
+          "from": "on_model100_submit_in:out",
           "to": [
-            "(self, result)"
+            "result"
           ]
         }
       ]
@@ -184,9 +174,19 @@
       "k": "on_model100_submit_in",
       "t": "func.js",
       "v": {
-        "code": "const payload = Array.isArray(label && label.v) ? label.v : [];\nif (payload.length === 0) return;\nconst color = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');\nconst resultPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: 'bg_color', t: 'str', v: color },\n  { id: 0, p: 0, r: 0, c: 0, k: 'status', t: 'str', v: 'processed' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false }\n];\nV1N.table.addLabel(0, 0, 0, 'bg_color', 'str', color);\nV1N.table.addLabel(0, 0, 0, 'status', 'str', 'processed');\nV1N.table.addLabel(0, 0, 0, 'submit_inflight', 'bool', false);\nconst topicLabel = V1N.readLabel(0, 0, 0, 'result_out_topic');\nconst topic = String(topicLabel && topicLabel.v ? topicLabel.v : '').trim();\nif (topic) {\n  ctx.publishMqtt(topic, { version: 'v1', type: 'pin_payload', op_id: 'color_response_' + Date.now(), source_model_id: 100, pin: 'result', payload: resultPayload, timestamp: Date.now() });\n}\nreturn resultPayload;",
+        "code": "const payload = Array.isArray(label && label.v) ? label.v : [];\nif (payload.length === 0) return;\nconst routeRecord = payload.find((record) => record && record.k === 'route' && record.t === 'json' && record.v && typeof record.v === 'object') || null;\nconst route = routeRecord ? routeRecord.v : null;\nconst replyTo = route && route.reply_to && typeof route.reply_to === 'object' && !Array.isArray(route.reply_to) ? route.reply_to : null;\nconst businessPayload = payload.filter((record) => !(record && record.k === 'route'));\nconst publishReply = (resultPayload) => {\n  const safeSegment = (value) => typeof value === 'string' && value.trim() === value && value.length > 0 && !value.includes('/') && !value.includes('+') && !value.includes('#');\n  if (!replyTo || !safeSegment(String(replyTo.worker_id || '')) || !Number.isInteger(Number(replyTo.model_id)) || Number(replyTo.model_id) <= 0 || !safeSegment(String(replyTo.pin || ''))) {\n    V1N.table.addLabel(0, 0, 0, 'status', 'str', 'route_reply_to_missing');\n    V1N.table.addLabel(0, 0, 0, 'result_status', 'str', 'route_reply_to_missing');\n    V1N.table.addLabel(0, 0, 0, 'remote_status', 'str', 'route_reply_to_missing');\n    V1N.table.addLabel(0, 0, 0, 'conversation_status', 'str', 'route_reply_to_missing');\n    return;\n  }\n  const baseLabel = V1N.readLabel(0, 0, 0, 'mqtt_topic_base');\n  const base = String(baseLabel && baseLabel.v ? baseLabel.v : '').trim();\n  if (!base) return;\n  const topic = base + '/worker/' + String(replyTo.worker_id).trim() + '/model/' + Number(replyTo.model_id) + '/pin/' + String(replyTo.pin).trim();\n  ctx.publishMqtt(topic, {\n    version: 'v1',\n    type: 'pin_payload',\n    op_id: 'submit_result_' + Date.now(),\n    source_model_id: Number(replyTo.model_id),\n    pin: String(replyTo.pin).trim(),\n    payload: resultPayload,\n    timestamp: Date.now(),\n    route: {\n      to: { worker_id: String(replyTo.worker_id).trim(), model_id: Number(replyTo.model_id), pin: String(replyTo.pin).trim() },\n      from: { worker_id: 'RE', model_id: 100, pin: 'submit' }\n    }\n  });\n};\nconst color = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');\nconst resultPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: 'bg_color', t: 'str', v: color },\n  { id: 0, p: 0, r: 0, c: 0, k: 'status', t: 'str', v: 'processed' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false }\n];\nV1N.table.addLabel(0, 0, 0, 'bg_color', 'str', color);\nV1N.table.addLabel(0, 0, 0, 'status', 'str', 'processed');\nV1N.table.addLabel(0, 0, 0, 'submit_inflight', 'bool', false);\npublishReply(resultPayload);\nreturn resultPayload;",
         "modelName": "10_model100"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_topic_base",
+      "t": "str",
+      "v": "UIPUT/ws/dam/pic/de/sw"
     }
   ]
 }

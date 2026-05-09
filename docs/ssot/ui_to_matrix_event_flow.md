@@ -187,23 +187,20 @@ async sendMatrix(payload) {
 
 ### 4. 程序模型函数示例
 
-**必需配置**: 在合法的系统负数模型函数或 Model 0 egress 函数中调用 `ctx.sendMatrix(payload)`；读取跨模型 label 必须走显式 `ctx.hostApi`，不得恢复 `ctx.getLabel/writeLabel/rmLabel`。
+**必需配置**: UI 模型或 imported slide app 在 root 声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`，业务程序只把 Temporary ModelTable records 写到公开 root `pin.out`。UI Server 运行时负责生成 host egress adapter，把 `route.to` 和 server-owned `route.reply_to` 写进 `pin_payload` 后经 Model 0 `mt_bus_send` / `pin.bus.out` 外发；不得恢复旧的 Model 0 egress label/function 或 `ctx.getLabel/writeLabel/rmLabel`。
 
 ```javascript
-// 示例：Model 0 egress function 读取已经 relay 到 root 的 payload
-const rootPayloadLabel = ctx.hostApi.readCrossModel(0, 0, 0, 0, 'model100_submit_out');
-const rootPayload = rootPayloadLabel && rootPayloadLabel.ok && rootPayloadLabel.data
-  ? rootPayloadLabel.data.v
-  : null;
-
-if (rootPayload) {
-  ctx.sendMatrix(rootPayload);
-}
+// 示例：业务程序只准备模型表形态 payload，并写到公开 root pin.out。
+const payload = [
+  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+  { id: 0, p: 0, r: 0, c: 0, k: 'message_text', t: 'str', v: 'hello' },
+];
+V1N.addLabel('submit', 'pin.out', payload);
 ```
 
 **注意**:
 - 不再推荐把 mailbox 中的任意 `ui_event` 直接默认转发到 Matrix。
-- 如果某个动作需要外发，必须先在模型定义中显式接到 Model 0。
+- 如果某个动作需要外发，必须先在模型定义中声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`；实际回包目标由 UI Server 根据本地安装模型 id 合成，ZIP 内不得声明 `route.reply_to`。
 
 ### 5. MBR Worker 接收和转发
 
@@ -216,7 +213,8 @@ MBR Worker 监听 Matrix room 的消息，解析 JSON payload，然后：
 
 **现行 product path 约束**：
 - Matrix / MQTT bootstrap 只从 Model 0 `(0,0,0)` 读取，不再使用 `mbr_matrix_room_id` / `mbr_mqtt_host` 这类负数模型旧 transport config。
-- `mbr_mgmt_to_mqtt` 必须通过系统模型 `-10` 上的 `mbr_route_<source_model_id>` 解析目标 pin；缺少 route 或 route.type 不匹配时必须拒绝并写 `mbr_mgmt_error`。
+- `mbr_mgmt_to_mqtt` 必须通过消息体中的 `route.to` 解析目标 worker / model / pin；缺少 `route.to`、目标不合法、或 `route.to.pin` 与 packet pin 不一致时必须拒绝并写 `mbr_mgmt_error`。
+- `mbr_route_<source_model_id>` 不再是当前规约输入面，也不得作为兼容兜底恢复。
 - `runtime_mode=edit` 时，MBR 可以建立 Matrix/MQTT 连接，但入站 Matrix/MQTT 消息必须直接丢弃，不得先写 inbox 再等到 `running` 后补处理。
 - 当前 canonical 业务桥接仍是 records-only patch：
   - Matrix `ui_event` -> MQTT `<base>/<model_id>/<pin>`

@@ -42,7 +42,7 @@ source: ai
 - 有效模型标签集合：`model.single` / `model.matrix` / `model.table` / `model.submt`
 - `model.table`：模型根 `(0,0,0)` 的显式根声明
 - `model.matrix`：矩阵自身相对 `(0,0,0)` 的显式根声明
-- `model.submt`：子模型挂载/映射位；该 Cell 只允许 `pin.*` / `pin.log.*` 共存
+- `model.submt`：子模型挂载/映射位；该 Cell 只允许 `pin.in` / `pin.out` / `pin.login` / `pin.logout` 等普通引脚共存
 - `model.submt` 只建立父子挂载关系；不代表父模型可以 direct 修改子模型内部 label
 - 在 table/matrix 作用域内，未物化且未显式声明的普通 Cell，默认有效模型标签为 `model.single`
 - `model.name` 只允许写在模型自己的 `(0,0,0)`
@@ -131,7 +131,7 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
 补充：
 
 - `Model -1 (0,0,1)` mailbox 只保留 compat/status 角色，不再是 current frontend/server 第一落点。
-- `Model 0 pin.bus.in -> pin.connect.model -> child mt_bus_receive` 的解释属于 Tier 1 runtime。
+- `Model 0 pin.bus.in -> pin.connect.cell -> child root pin.in -> child mt_bus_receive` 的解释属于 Tier 1 runtime。
 - `server` 只负责 envelope 适配、bus-event transport 与 snapshot / transport；不应长期持有独立正式事件语义。
 - 对需要落到“当前模型 / 当前单元格”的业务动作，前端事件 envelope 应显式携带：
   - `target.model_id`
@@ -142,10 +142,10 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
   - `target = cell`
   - `pin = port`
 - 也就是说，前端最终不再用 `action` 表达“要做什么”，而是直接表达“把值送到这个 cell 的哪个 pin”
-- 兼容期可继续保留 `meta.model_id`，但它不再是唯一目标来源。
+- `meta.model_id` 只能作为诊断/关联字段；正式目标必须来自 `target`。
 - 当前 built-in submit 已启用 target-based ingress：
   - runtime 会把 `submit + target` 映射为 `Model 0 pin.bus.in` 上的一个 ingress key
-  - 然后再按 `pin.connect.model` 进入目标模型
+  - 然后再按 `model.submt` hosting Cell + `pin.connect.cell` 进入目标模型
 - 当前 slide/workspace 系统动作也已启用同一方向的 runtime ingress：
   - `slide_app_import`
   - `slide_app_create`
@@ -158,10 +158,16 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
   - 当前 MVP 只支持：
     - `submit`
     - `root_relative_cell`
+- `0362` 新增 imported slide app 的自描述远端路由：
+  - imported app 可在 root `(0,0,0)` 声明 `remote_bus_endpoint_v1`
+  - 它只声明远端 `route.to.worker_id` 与 `route.to.model_id`
+  - `route.to.pin` 来自当前公开入口 pin，例如 `submit1`
+  - `route.reply_to` 必须由 UI Server 运行时按本地安装实例生成，ZIP 不能提供或覆盖
+  - MBR 不应要求为每个上传 App 预注册 per-app route
 - `0308` 之后，对以上 slide/workspace 主线路径，legacy `action` envelope 已正式退役：
   - 会显式返回 `legacy_action_protocol_retired`
-  - 不再通过 server 侧 action → ingress 兼容映射偷偷放行
-- 仍未迁移的非 slide 动作，可能还保留 legacy shortcut；它们会在后续迭代继续收口。
+  - 不再通过 server 侧 action → ingress 旧映射放行
+- 其他历史 shortcut 不属于当前合同；新工作不得继续使用，遇到缺口应显式补 pin 链或返回错误。
 
 ### 3.0.1 Projection Pin Metadata（0310 Freeze）
 
@@ -253,9 +259,9 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
 format is ModelTable-like; persistence is explicit materialization
 ```
 
-也就是说，pin/event payload 的格式像 ModelTable，但它只是临时消息。写到 pin 上、通过 bus 转发、被前端展示、或被记录进诊断 trace，都不会自动变成正式业务数据。只有 owner、当前模型 D0 helper、接收程序模型或 importer 明确执行 materialization 后，才会产生真正的表内写入。
+也就是说，pin/event payload 的格式像 ModelTable，但它只是临时消息。写到 pin 上、通过 bus 转发、被前端展示、或被记录进诊断 trace，都不会自动变成正式业务数据。只有当前模型 root `mt_write`、owner materializer、接收程序模型或 importer 明确执行 materialization 后，才会产生真正的表内写入。
 
-0348 之后，`Data.*` 新模型编写应以 `docs/ssot/feishu_data_model_contract_v1.md` 为准。数据模型 pin 使用 Feishu-aligned 命名，例如 `add_data:in` / `get_data:out`；`add_data_in`、`enqueue_data_in`、`push_data_in` 等旧写法只表示当前实现债务，不是新模型目标写法。
+0348 之后，`Data.*` 新模型编写应以 `docs/ssot/feishu_data_model_contract_v1.md` 为准。数据模型 pin 使用 Feishu-aligned 命名，例如 `add_data:in` / `get_data:out`。0355 已把 `Data.Array.One` 落到无兼容模板，`add_data_in` 这类旧 Array pin 不再是可用入口；`Queue/Stack` 等剩余旧写法仍是当前实现债务，不是新模型目标写法。
 
 `writeLabel` 是一个特殊的常用写入动作。用户程序只需要表达目标 cell 和一个 label：
 
@@ -280,10 +286,10 @@ V1N.writeLabel(2, 2, 2, { k: 'testk', t: 'str', v: 'testv' })
 当前 v1 仍禁止：
 
 - `func.python`
-- `pin.connect.model`
+- removed `pin.connect.model`
 - `pin.bus.in`
 - `pin.bus.out`
-- helper / privilege 覆盖标签：
+- 系统保留/已移除的 helper 覆盖标签：
   - `scope_privileged`
   - `helper_executor`
   - `owner_apply`
@@ -483,10 +489,10 @@ TargetRef 结构（Cell-owned）：
 - PIN_IN：
   - 当 `v` 是 TargetRef（Cell-owned）时，MQTT 入站写入 TargetRef 指向的 Cell/Label。
   - 若同时声明 `trigger_funcs`，runtime 会在该次入站写入后产出 `run_func` intercept（由 engine 执行）。
-  - 当 `v` 是 legacy-string（或无效对象）时，回退到 legacy mailbox（`p=0,r=1,c=1`）写入 `t=IN`。
+  - 当 `v` 不符合当前输入合同，应显式失败；不得回退到旧 mailbox。
 - PIN_OUT：
-  - 当前 current path 走 `pin.bus.out`；旧 mailbox publish 只保留历史兼容说明。
-  - 这是历史兼容路径；当前用户业务 pin value 不再使用 ModelTablePatch 或 legacy envelope。
+  - 当前路径走 `pin.bus.out`。
+  - 当前用户业务 pin value 不再使用 ModelTablePatch 或旧 envelope。
 
 ### 5.3 示例（A/B/C）
 - A 页面订阅 pinA：

@@ -6,12 +6,52 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const ROUTE_CASES = [
-  { action: 'slide_app_import', sourcePin: 'ui_event_slide_app_import', targetPin: 'slide_app_import_request' },
-  { action: 'slide_app_create', sourcePin: 'ui_event_slide_app_create', targetPin: 'slide_app_create_request' },
-  { action: 'ws_app_add', sourcePin: 'ui_event_ws_app_add', targetPin: 'ws_app_add_request' },
-  { action: 'ws_app_delete', sourcePin: 'ui_event_ws_app_delete', targetPin: 'ws_app_delete_request' },
-  { action: 'ws_select_app', sourcePin: 'ui_event_ws_select_app', targetPin: 'ws_select_app_request' },
-  { action: 'ws_app_select', sourcePin: 'ui_event_ws_app_select', targetPin: 'ws_select_app_request' },
+  {
+    name: 'slide_import_click',
+    routeLabel: 'slide_import_click_route',
+    from: [0, 0, 0, 'slide_import_click'],
+    to: [2, 0, 13, 'mt_bus_receive_in'],
+  },
+  {
+    name: 'slide_import_media_uri_update',
+    routeLabel: 'slide_import_media_uri_update_route',
+    from: [0, 0, 0, 'slide_import_media_uri_update'],
+    to: [2, 0, 13, 'slide_import_media_uri_update'],
+  },
+  {
+    name: 'slide_import_request',
+    routeLabel: 'slide_import_request_route',
+    from: [2, 0, 13, 'slide_import_request'],
+    to: [1, 0, 3, 'slide_app_import_request'],
+    systemPin: 'slide_app_import_request',
+    systemFunc: 'handle_slide_app_import',
+  },
+  {
+    name: 'slide_create_request',
+    routeLabel: 'slide_create_request_route',
+    from: [2, 0, 15, 'slide_create_request'],
+    to: [1, 0, 3, 'slide_app_create_request'],
+    systemPin: 'slide_app_create_request',
+    systemFunc: 'handle_slide_app_create',
+  },
+  {
+    name: 'mgmt_bus_console_send',
+    routeLabel: 'mgmt_bus_console_send_route',
+    from: [0, 0, 0, 'mgmt_bus_console_send'],
+    to: [1, 0, 3, 'mgmt_bus_console_intent'],
+  },
+  {
+    name: 'mgmt_bus_console_refresh',
+    routeLabel: 'mgmt_bus_console_refresh_route',
+    from: [0, 0, 0, 'mgmt_bus_console_refresh'],
+    to: [1, 0, 3, 'mgmt_bus_console_refresh_intent'],
+  },
+];
+
+const SYSTEM_HANDLER_CASES = [
+  ['ws_select_app_request', 'handle_ws_select_app'],
+  ['ws_app_add_request', 'handle_ws_app_add'],
+  ['ws_app_delete_request', 'handle_ws_app_delete'],
 ];
 
 async function withServerState(fn) {
@@ -36,37 +76,72 @@ async function withServerState(fn) {
   }
 }
 
+function routeKey(modelId, endpoint) {
+  return `${modelId}|${endpoint[0]}|${endpoint[1]}|${endpoint[2]}|${endpoint[3]}`;
+}
+
+function includesTarget(targets, endpoint) {
+  return targets.some((target) => (
+    target
+    && target.model_id === 0
+    && target.p === endpoint[0]
+    && target.r === endpoint[1]
+    && target.c === endpoint[2]
+    && target.k === endpoint[3]
+  ));
+}
+
+function wiringTargetsFunction(wiring, pinName, funcName) {
+  const routes = Array.isArray(wiring?.v) ? wiring.v : [];
+  return routes.some((route) => (
+    route
+    && route.from === pinName
+    && Array.isArray(route.to)
+    && route.to.includes(`${funcName}:in`)
+  ));
+}
+
 async function test_workspace_system_actions_declare_runtime_pin_routes_and_pins() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
     const systemModel = state.runtime.getModel(-10);
     assert.ok(model0, 'model0_missing');
     assert.ok(systemModel, 'system_model_missing');
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(state.runtime, 'modelConnectionRoutes'),
+      false,
+      'removed_model_connection_routes_state_must_not_exist',
+    );
 
     const model0Root = state.runtime.getCell(model0, 0, 0, 0).labels;
     const systemRoot = state.runtime.getCell(systemModel, 0, 0, 0).labels;
 
     for (const routeCase of ROUTE_CASES) {
-      const routeTargets = state.runtime.modelConnectionRoutes.get(`0|${routeCase.sourcePin}`) || [];
-      assert.ok(
-        routeTargets.some((target) => target?.model_id === -10 && target?.k === routeCase.targetPin),
-        `runtime_route_missing_for_${routeCase.action}`,
-      );
-      const pinLabel = systemRoot.get(routeCase.targetPin);
-      assert.ok(pinLabel, `system_pin_missing_for_${routeCase.action}`);
-      assert.equal(pinLabel.t, 'pin.in', `system_pin_type_invalid_for_${routeCase.action}`);
-      const wiring = systemRoot.get(`${routeCase.targetPin}_wiring`);
-      assert.ok(wiring, `system_wiring_missing_for_${routeCase.action}`);
-      assert.equal(wiring.t, 'pin.connect.label', `system_wiring_type_invalid_for_${routeCase.action}`);
-      assert.match(
-        JSON.stringify(wiring.v),
-        new RegExp(`${routeCase.targetPin.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}.*handle_`),
-        `system_wiring_target_missing_for_${routeCase.action}`,
-      );
-      assert.ok(
-        [...model0Root.keys()].some((key) => key.includes(routeCase.action)),
-        `model0_route_label_not_materialized_for_${routeCase.action}`,
-      );
+      const routeLabel = model0Root.get(routeCase.routeLabel);
+      assert.equal(routeLabel?.t, 'pin.connect.cell', `model0_route_label_invalid_for_${routeCase.name}`);
+      const routeTargets = state.runtime.cellConnectionRoutes.get(routeKey(0, routeCase.from)) || [];
+      assert.ok(includesTarget(routeTargets, routeCase.to), `runtime_route_missing_for_${routeCase.name}`);
+      const targetCellLabels = state.runtime.getCell(model0, routeCase.to[0], routeCase.to[1], routeCase.to[2]).labels;
+      assert.ok(targetCellLabels.has(routeCase.to[3]), `target_pin_missing_for_${routeCase.name}`);
+
+      if (routeCase.systemPin) {
+        const pinLabel = systemRoot.get(routeCase.systemPin);
+        assert.equal(pinLabel?.t, 'pin.in', `system_pin_type_invalid_for_${routeCase.name}`);
+        const wiring = systemRoot.get(`${routeCase.systemPin}_wiring`);
+        assert.equal(wiring?.t, 'pin.connect.label', `system_wiring_type_invalid_for_${routeCase.name}`);
+        assert.ok(
+          wiringTargetsFunction(wiring, routeCase.systemPin, routeCase.systemFunc),
+          `system_wiring_target_missing_for_${routeCase.name}`,
+        );
+      }
+    }
+
+    for (const [pinName, funcName] of SYSTEM_HANDLER_CASES) {
+      const pinLabel = systemRoot.get(pinName);
+      assert.equal(pinLabel?.t, 'pin.in', `system_handler_pin_missing_for_${pinName}`);
+      const wiring = systemRoot.get(`${pinName}_wiring`);
+      assert.equal(wiring?.t, 'pin.connect.label', `system_handler_wiring_missing_for_${pinName}`);
+      assert.ok(wiringTargetsFunction(wiring, pinName, funcName), `system_handler_target_missing_for_${pinName}`);
     }
 
     return { key: 'workspace_system_actions_declare_runtime_pin_routes_and_pins', status: 'PASS' };

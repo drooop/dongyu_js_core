@@ -72,7 +72,6 @@ process.stdout.write('\n=== Test Group 2: Current Metadata Labels ===\n');
 {
   const rt = createPatchedRuntime();
   const expectedPresent = [
-    ['mbr_mqtt_model_ids', 'json'],
     ['mbr_heartbeat_interval_ms', 'int'],
     ['mbr_matrix_event_filter', 'str'],
     ['mbr_matrix_inbox_label', 'str'],
@@ -86,9 +85,7 @@ process.stdout.write('\n=== Test Group 2: Current Metadata Labels ===\n');
     }
   }
 
-  const mids = getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_model_ids');
-  assert(Array.isArray(mids), 'mbr_mqtt_model_ids is array');
-  assert(JSON.stringify(mids) === JSON.stringify([2, 100, 1010, 1019]), 'mbr_mqtt_model_ids = [2,100,1010,1019]');
+  assert(getLabelEntry(rt, -10, 0, 0, 0, 'mbr_mqtt_model_ids') === null, 'mbr_mqtt_model_ids static list absent');
   assert(getLabel(rt, -10, 0, 0, 0, 'mbr_heartbeat_interval_ms') === 30000, 'mbr_heartbeat_interval_ms = 30000');
 
   for (const legacyKey of [
@@ -135,6 +132,10 @@ process.stdout.write('\n=== Test Group 4: Model 100 Bridge ===\n');
       op_id: 'm100_001',
       source_model_id: 100,
       pin: 'submit',
+      route: {
+        to: { worker_id: 'RE', model_id: 100, pin: 'submit' },
+        reply_to: { worker_id: 'ui-server-test', model_id: 100, pin: 'result' },
+      },
       payload: [
         { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
         { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'abc' },
@@ -147,11 +148,12 @@ process.stdout.write('\n=== Test Group 4: Model 100 Bridge ===\n');
     publishMqtt: (topic, payload) => { published = { topic, payload }; },
   });
   assert(published !== null, 'model100 pin_payload published');
-  assert(published.topic === 'UIPUT/ws/dam/pic/de/sw/100/submit', 'model100 topic uses /100/submit');
+  assert(published.topic === 'UIPUT/ws/dam/pic/de/sw/worker/RE/model/100/pin/submit', 'model100 topic uses route.to worker/model/pin');
   assert(published.payload && published.payload.version === 'v1', 'model100 payload uses pin_payload v1');
   assert(published.payload?.type === 'pin_payload', 'model100 payload preserves pin_payload type');
   assert(published.payload?.pin === 'submit', 'model100 payload preserves submit pin');
   assert(published.payload?.source_model_id === 100, 'model100 payload preserves source_model_id');
+  assert(published.payload?.route?.to?.worker_id === 'RE', 'model100 payload preserves route.to');
   assert(Array.isArray(published.payload?.payload), 'model100 payload carries temporary-modeltable array');
 }
 
@@ -161,11 +163,6 @@ process.stdout.write('\n=== Test Group 5: Route-Driven Source Model ===\n');
   const sys = rt.getModel(-10);
   let published = null;
   rt.addLabel(sys, 0, 0, 0, {
-    k: 'mbr_route_101',
-    t: 'json',
-    v: { pin: 'task', type: 'pin_payload' },
-  });
-  rt.addLabel(sys, 0, 0, 0, {
     k: 'mbr_mgmt_inbox',
     t: 'json',
     v: {
@@ -174,6 +171,10 @@ process.stdout.write('\n=== Test Group 5: Route-Driven Source Model ===\n');
       op_id: 'route_101_001',
       source_model_id: 101,
       pin: 'task',
+      route: {
+        to: { worker_id: 'RE', model_id: 3000, pin: 'task' },
+        reply_to: { worker_id: 'ui-server-test', model_id: 101, pin: 'result' },
+      },
       payload: [
         { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
         { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'abc' },
@@ -186,9 +187,10 @@ process.stdout.write('\n=== Test Group 5: Route-Driven Source Model ===\n');
     publishMqtt: (topic, payload) => { published = { topic, payload }; },
   });
   assert(published !== null, 'route-driven pin_payload published');
-  assert(published.topic === 'UIPUT/ws/dam/pic/de/sw/101/task', 'route-driven topic uses mbr_route_<modelId>.pin');
+  assert(published.topic === 'UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/task', 'route-driven topic uses message route.to');
   assert(published.payload?.version === 'v1', 'route-driven payload uses pin_payload v1');
-  assert(published.payload?.source_model_id === 101, 'route-driven payload targets source model id');
+  assert(published.payload?.source_model_id === 101, 'route-driven payload preserves local source model id');
+  assert(published.payload?.route?.reply_to?.model_id === 101, 'route-driven payload preserves reply_to');
   assert(Array.isArray(published.payload?.payload), 'route-driven payload preserves temporary-modeltable array');
 }
 
@@ -227,7 +229,7 @@ process.stdout.write('\n=== Test Group 7: MQTT -> pin_payload ===\n');
     k: 'mbr_mqtt_inbox',
     t: 'json',
     v: {
-      topic: 'UIPUT/ws/dam/pic/de/sw/100/result',
+      topic: 'UIPUT/ws/dam/pic/de/sw/worker/ui-server-local/model/100/pin/result',
       payload: {
         version: 'v1',
         type: 'pin_payload',
@@ -273,6 +275,8 @@ process.stdout.write('\n=== Test Group 9: Worker Bootstrap Source Contract ===\n
   const src = fs.readFileSync(RUN_WORKER_PATH, 'utf8');
   assert(!src.includes("mbr_matrix_room_id"), 'run_worker_v0 does not read legacy mbr_matrix_room_id');
   assert(!src.includes("mbr_mqtt_host"), 'run_worker_v0 does not read legacy mbr_mqtt_host');
+  assert(!src.includes("mbr_mqtt_model_ids"), 'run_worker_v0 does not read static MBR model id subscriptions');
+  assert(src.includes('/worker/+/model/+/pin/+'), 'run_worker_v0 subscribes generic worker/model/pin wildcard');
   assert(/if\s*\(!rt\.isRuntimeRunning\(\)\)\s*\{[\s\S]*return;[\s\S]*\}/.test(src), 'run_worker_v0 drops inbound bridge traffic before running');
 }
 

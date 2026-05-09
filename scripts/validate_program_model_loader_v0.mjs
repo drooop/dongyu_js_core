@@ -108,7 +108,7 @@ function connectAllowlistCase() {
     t: 'pin.connect.cell',
     v: [{ from: [0, 0, 0, 'event'], to: [[1, 0, 0, 'cmd']] }],
   });
-  runtime.addLabel(root, 0, 0, 0, {
+  const removed = runtime.addLabel(root, 0, 0, 0, {
     k: 'routes_model',
     t: 'pin.connect.model',
     v: [{ from: [0, 'event_in'], to: [[1, 'input']] }],
@@ -126,13 +126,12 @@ function connectAllowlistCase() {
       cellTargets[0].k === 'cmd',
     'connect: pin.connect.cell route mismatch',
   );
-  const modelTargets = runtime.modelConnectionRoutes.get('0|event_in');
-  assert(Array.isArray(modelTargets) && modelTargets.length === 1, 'connect: missing pin.connect.model route');
-  assert(modelTargets[0].model_id === 1 && modelTargets[0].k === 'input', 'connect: pin.connect.model route mismatch');
+  assert(!removed.applied, 'connect: removed pin.connect.model must be rejected');
+  assert(!root.getCell(0, 0, 0).labels.has('routes_model'), 'connect: rejected removed route must not be stored');
 
   // Legacy generic "connect" should not create structured routes.
   runtime.addLabel(root, 0, 0, 0, { k: 'LEGACY_CONNECT', t: 'connect', v: {} });
-  assert(!runtime.modelConnectionRoutes.has('0|LEGACY_CONNECT'), 'connect: legacy connect unexpectedly routed');
+  assert(!runtime.cellConnectionRoutes.has('0|0|0|0|LEGACY_CONNECT'), 'connect: legacy connect unexpectedly routed');
   return { key: 'connect_allowlist', status: 'PASS' };
 }
 

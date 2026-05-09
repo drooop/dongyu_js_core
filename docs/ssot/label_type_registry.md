@@ -2,14 +2,16 @@
 title: "Label Type Registry"
 doc_type: ssot
 status: active
-updated: 2026-04-29
+updated: 2026-05-06
 source: ai
 ---
 
 # Label Type Registry
 
-> 本文件是所有 `label.t` 的权威注册表。运行时 `_applyBuiltins` 的 dispatch 列表必须与本表一致。
+> 本文件是所有 `label.t` 的目标权威注册表。运行时 `_applyBuiltins` 的 dispatch 列表必须与本表一致；不一致必须以失败和修正处理，不得用兼容层遮蔽。
 > 新增 `label.t` 必须先在本表注册，再实现运行时代码。
+>
+> 0356 起，PIN 连接合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。0357 起，runtime 对 `pin.connect.model`、`pin.log.*`、`(self, ...)` / `(func, ...)` 端点写法执行硬拒绝；它们不是当前输入面，也不得通过兼容层恢复。
 
 ---
 
@@ -47,24 +49,19 @@ source: ai
 | `model.single` | 普通 Cell / 简单模型声明 | `model_type` | 类型名（如 `Code.JS`） | 任意 Cell；table/matrix 普通 Cell 可隐式默认为本类型 |
 | `model.matrix` | 矩阵模型根声明 | `model_type` | 类型名（如 `Data.Array.One`） | 矩阵自身相对 `(0,0,0)`；创建必填 |
 | `model.table` | 模型表根声明 | `model_type` | 类型名（如 `Flow`） | 模型 `(0,0,0)`；创建必填 |
-| `model.submt` | 子模型挂载/映射 Cell | `model_type` | 子模型 id | 任意 hosting Cell；该 Cell 仅允许 `model.submt` + `pin.*` + `pin.log.*` |
+| `model.submt` | 子模型挂载/映射 Cell | `model_type` | 子模型 id | 任意 hosting Cell；该 Cell 仅允许 `model.submt` + `pin.in` / `pin.out` / `pin.login` / `pin.logout` |
 
 补充约束：
 - `model.submt` 是 single-parent 挂载：同一个 child model 在任一时刻只能被一个父模型 hosting Cell 挂载。
 - `model.submt` 只负责父子挂载，不自动赋予父模型对子模型内部 label 的 direct write 权限。
-- child model 的正式输入/输出仍必须通过 hosting Cell 暴露出来的 pin relay 进入；最终落盘只能由 child owner materialize / reserved helper executor cell 完成。
+- child model 的正式输入/输出仍必须通过 hosting Cell 暴露出来的 pin relay 进入；最终落盘只能由 child root 默认程序（如 `mt_write`）、child owner materializer 或 importer/installer 明确执行。
 - 删除 `model.submt` 仅删除父子挂载关系，不自动删除 child model 数据；只有删除 child model 自己的 `(0,0,0)` 根声明后，才删除整个 child model。
 - 除 Model 0 外，每个模型都必须通过某个父模型 Cell 上的 `model.submt` 显式挂载进入模型层级。
 
-保留约定：
-- 每个需要正式 owner materialization 的模型，应保留一个 reserved helper executor cell。
-- 该 helper cell 的职责是接收当前模型 scoped request，并在当前模型内完成 owner materialize；不得跨模型写入。
-- 当前默认实现把该 helper cell 固定在 `(0,1,0)`，并保留以下 key：
-  - `helper_executor`
-  - `scope_privileged`
-  - `owner_apply`
-  - `owner_apply_route`
-  - `owner_materialize`
+根程序约定：
+- 每个正数 `model.table` root `(0,0,0)` 默认携带 `mt_write` / `mt_bus_receive` / `mt_bus_send` 三类程序入口。
+- 普通 Cell 发起正式写入时，必须通过当前模型内显式 `pin.connect.cell` 把 `write_label_req` 路由到 root `mt_write_req`。
+- 早期 `(0,1,0)` reserved helper executor cell 已删除；`helper_executor`、`owner_apply`、`owner_apply_route`、`owner_materialize` 不再由 runtime 自动种入，也不得作为默认物化入口。
 
 ### 2.1 UI Bootstrap Boundary (0210 Freeze)
 
@@ -97,24 +94,22 @@ source: ai
 - pin value 中的 record array 是 Temporary ModelTable Message：`format is ModelTable-like; persistence is explicit materialization`。
 - `id` 是 message-local 临时 id，不是正式 `model_id`。
 - 写入 pin、route、bus、log/trace 或前端 projection 都不自动创建或更新正式 ModelTable。
-- 只有接收程序模型、当前模型 D0 helper、owner materializer 或 importer/installer 明确执行 materialization 时，才允许产生正式 `add_label` / `rm_label` side effect。
+- 只有接收程序模型、当前模型 root 默认程序（如 `mt_write`）、owner materializer 或 importer/installer 明确执行 materialization 时，才允许产生正式 `add_label` / `rm_label` side effect。
 
 ### 3.2 日志通道
 
 行为与数据通道一致，但类型隔离（不可与数据通道混连）。
 
-说明：`pin.log.*` 视为 pin family 的一部分；当规约提到“引脚标签”时，默认同时包含 `pin.*` 与 `pin.log.*`。
+说明：0356 目标合同中日志通道使用 `pin.login` / `pin.logout`。早期 `pin.log.in` / `pin.log.out` / `pin.log.bus.*` 在 0357 后会被 runtime 拒绝。
 
 | label.t | 说明 | key | value | 位置约束 |
 |---|---|---|---|---|
-| `pin.log.in` | Cell 级日志输入；写在非系统模型 root `(0,0,0)` 时也承担模型根边界日志输入 | 端口名 | 日志数据 | 任意 Cell |
-| `pin.log.out` | Cell 级日志输出；写在非系统模型 root `(0,0,0)` 时也承担模型根边界日志输出 | 端口名 | 日志数据 | 任意 Cell |
-| `pin.log.bus.in` | 系统边界日志输入 | 端口名 | 日志数据 | 仅 Model 0 (0,0,0) |
-| `pin.log.bus.out` | 系统边界日志输出 | 端口名 | 日志数据 | 仅 Model 0 (0,0,0) |
+| `pin.login` | Cell 级日志输入；写在非系统模型 root `(0,0,0)` 时也承担模型根边界日志输入 | 端口名 | `null` 或临时 ModelTable payload array | 任意 Cell |
+| `pin.logout` | Cell 级日志输出；写在非系统模型 root `(0,0,0)` 时也承担模型根边界日志输出 | 端口名 | `null` 或临时 ModelTable payload array | 任意 Cell |
 
 ### 3.3 连接规则
 
-- `pin.in` ↔ `pin.out` 互连；`pin.log.in` ↔ `pin.log.out` 互连。
+- `pin.in` ↔ `pin.out` 互连；`pin.login` ↔ `pin.logout` 互连。
 - 数据通道与日志通道不可混连。
 - 同层级内 `in` 只连 `out`。
 - 子模型对外连接只通过 (0,0,0) 的边界端口。
@@ -125,19 +120,25 @@ source: ai
 
 | label.t | 说明 | key | value 格式 | 位置约束 |
 |---|---|---|---|---|
-| `pin.connect.label` | Cell 内接线 | 连接名 | `[{from: "(prefix, pinName)", to: ["(prefix, pinName)", ...]}, ...]` | 任意 Cell |
+| `pin.connect.label` | Cell 内接线 | 连接名 | `[{from: "pinName", to: ["pinName", ...]}, ...]` | 任意 Cell |
 | `pin.connect.cell` | Model 内跨 Cell 路由 | 连接名 | `[{from: [p,r,c,"pinName"], to: [[p,r,c,"pinName"], ...]}, ...]` | 仅 (0,0,0) |
-| `pin.connect.model` | 跨 Model 路由 | 连接名 | `[{from: [modelId,"pinName"], to: [[modelId,"pinName"], ...]}, ...]` | 仅 Model 0 (0,0,0) |
 
-`pin.connect.label` 的端点 `(prefix, pinName)` 语义：
+`pin.connect.model` 已从 0356 目标合同中移除。跨模型通信必须通过 `model.submt` hosting Cell 暴露的父模型内 Cell 引脚、子模型 root `(0,0,0)` 的边界引脚，以及父模型内 `pin.connect.cell` 完成。
 
-| prefix 形式 | 含义 | 触发方向 |
-|---|---|---|
-| `self` | 当前 cell 上的 label（pin.in/pin.out） | label 写入时传播 |
-| `func` | 当前 cell 上（或 Model -10 fallback）的 `func.*` label；`pinName` 形式必须是 `funcName:in` 或 `funcName:out` | 写 `:in` 触发函数执行；`:out` 是函数返回值 |
-| 数字（如 `1030`） | 宿主接入的子模型边界 pin — 表示子模型 id；`pinName` 是子模型 root (0,0,0) 的 `pin.in` / `pin.out` | 子模型 root pin.out 被写 → 通过 `parentChildMap` 传播到该 cell 对应的 child id 前缀规则；反向写 `pin.in` 用于向子模型注入 |
+`pin.connect.label` 端点规则：
 
-数字前缀仅用于宿主 adapter 场景（例如导入 app 的 root pin.out 经 mount cell 的 pin.connect.label 桥接到宿主）。不是用户层模型的日常路由声明。
+- 端点直接使用同一个 Cell 内的引脚 key。
+- 可连接当前 Cell 上的 `pin.in` / `pin.out` / `pin.login` / `pin.logout`。
+- 可连接当前 Cell 上函数自动拥有的 `{funcName}:in` / `{funcName}:out` / `{funcName}:logout`。
+- 不允许 `(self, x)` / `(func, f:in)` / numeric prefix。
+- 不允许引用其他 Cell 或其他 model id。
+
+`pin.connect.cell` 端点规则：
+
+- 端点必须是同一模型内 `[p,r,c,"pinName"]`。
+- `"pinName"` 必须是目标 Cell 上声明的 Cell 引脚 key。
+- 不允许在 `pin.connect.cell` 中直接引用函数引脚。
+- 函数触发必须先到函数所在 Cell 的普通引脚，再由该 Cell 的 `pin.connect.label` 转给函数引脚。
 
 ---
 
@@ -152,14 +153,14 @@ value 字段说明：
 - `code`（必填）：函数代码。
 - `modelName`（推荐）：声明函数作用域；矩阵模型启用后用于父/子矩阵消歧。
 
-兼容期说明：
-- 旧格式 `value: "code string"` 仅用于历史模型兼容。
+旧格式说明：
+- `value: "code string"` 不再执行。
 - 新模型必须使用结构化 value。
 
 每个函数自动关联三个引脚：
 - `{funcName}:in`（输入）
 - `{funcName}:out`（输出）
-- `{funcName}:log.out`（日志输出）
+- `{funcName}:logout`（日志输出）
 
 ---
 
@@ -200,14 +201,14 @@ value 字段说明：
 | `get_size:in` | pin.in | 获取数据量（请求） |
 | `get_size:out` | pin.out | 获取数据量（响应） |
 
-0296-era names such as `add_data_in`, `get_data_out`, `enqueue_data_in`, `dequeue_data_in`, `push_data_in`, `pop_data_in`, and `peek_data_in` may still exist in current implementation artifacts, but are not the target contract after 0348.
+0296-era names such as `add_data_in`, `get_data_out`, `enqueue_data_in`, `dequeue_data_in`, `push_data_in`, `pop_data_in`, and `peek_data_in` are not the target contract after 0348. As of 0355, `Data.Array.One` does not provide aliases for the Array-era underscore pins; remaining Queue/Stack artifacts must be replaced in their own no-compatibility iterations.
 
 ---
 
-## 8. Historical Aliases（非当前规范）
+## 8. Removed Historical Aliases（非当前规范）
 
-以下旧名可能仍出现在历史文档/测试/代码中，但它们不是当前允许的新工作输入面。
-除非用户显式批准，否则不得新增或保留兼容层来支持这些旧名。
+以下旧名可能仍出现在历史文档或负向测试中，但它们不是当前允许的新工作输入面。
+runtime 不得新增或保留兼容层来支持这些旧名；结构性旧类型写入必须失败。
 
 | label.t | 替代方案 |
 |---|---|
@@ -221,10 +222,14 @@ value 字段说明：
 | `pin.table.out` | 非系统模型 root `(0,0,0)` 上的 `pin.out` |
 | `pin.single.in` | 非系统模型 root `(0,0,0)` 上的 `pin.in` |
 | `pin.single.out` | 非系统模型 root `(0,0,0)` 上的 `pin.out` |
-| `pin.log.table.in` | 非系统模型 root `(0,0,0)` 上的 `pin.log.in` |
-| `pin.log.table.out` | 非系统模型 root `(0,0,0)` 上的 `pin.log.out` |
-| `pin.log.single.in` | 非系统模型 root `(0,0,0)` 上的 `pin.log.in` |
-| `pin.log.single.out` | 非系统模型 root `(0,0,0)` 上的 `pin.log.out` |
+| `pin.log.in` | `pin.login` |
+| `pin.log.out` | `pin.logout` |
+| `pin.log.bus.in` | 已移除；不得使用 |
+| `pin.log.bus.out` | 已移除；不得使用 |
+| `pin.log.table.in` | `pin.login` |
+| `pin.log.table.out` | `pin.logout` |
+| `pin.log.single.in` | `pin.login` |
+| `pin.log.single.out` | `pin.logout` |
 | `IN` | `pin.in` |
 | `function` | `func.js` |
 | `subModel` | `model.submt` |
@@ -233,6 +238,8 @@ value 字段说明：
 | `label_connection` | `pin.connect.label` |
 | `trigger_funcs` | `pin.connect.label` |
 | `function_PIN_IN` / `function_PIN_OUT` | （已废弃） |
+| `pin.connect.model` | （已移除）通过 `model.submt` hosting Cell + child root pins + `pin.connect.cell` 表达 |
+| `(self, pinName)` / `(func, funcName:in)` / `(modelId, pinName)` | `pin.connect.label` 直接写同 Cell 端点名 |
 
 ## 9. Imported App Host Ingress Declaration（0321 MVP）
 
@@ -258,9 +265,55 @@ v1 当前只允许：
 
 - `Model 0`:
   - `pin.bus.in`
-  - `pin.connect.model`
+  - `pin.connect.cell`（从 Model 0 root 系统边界 adapter 路由到 imported app 的 hosting Cell 引脚）
+- imported app hosting Cell:
+  - `model.submt`
+  - 与 imported model root `(0,0,0)` 边界对应的 `pin.in` / `pin.out`
 - imported model root:
   - `pin.in`
   - `pin.connect.cell`
 
-删除 imported app 时，宿主必须清理安装时自动补上的 `Model 0` labels。
+删除 imported app 时，宿主必须清理安装时自动补上的 Model 0 / hosting Cell labels。
+
+## 10. Imported Slide App Remote Bus Endpoint（0362）
+
+除 label.t 之外，0362 新增一条 imported slide app root label 声明，用于表达远端提供方入口：
+
+- Cell:
+  - imported app root `(0,0,0)`
+- Label:
+  - `k = remote_bus_endpoint_v1`
+  - `t = json`
+
+它不是新的 label.t，不是 ZIP sidecar manifest，也不是 MBR per-app route。它只是 imported app 模型表内的 root 声明。
+
+v1 只允许声明远端默认目标：
+
+```json
+{
+  "transport": "mqtt",
+  "to": {
+    "worker_id": "RE",
+    "model_id": 3000
+  }
+}
+```
+
+约束：
+
+- `to.worker_id` 是远端提供方 worker / Remote Entity 标识。
+- `to.model_id` 是远端提供方 worker 内部的 provider model id。
+- `to.pin` 不写在 `remote_bus_endpoint_v1` 中；运行时必须由触发动作的公开 pin 名补齐，例如 `submit1`。
+- `route.reply_to` 不允许由 ZIP / imported records 提供或覆盖。`route.reply_to` 是 UI Server 运行时根据当前安装实例与宿主身份生成的 server-owned route metadata。
+- MBR 不得要求为每个 imported app 写入静态 per-app route label；跨 worker 目的地必须来自运行时消息的 `route.to`。
+
+与之配套的 `dual_bus_model` 必须显式列出可外发的公开 pin：
+
+```json
+{
+  "mode": "imported_host_egress",
+  "egress_pins": ["submit1"]
+}
+```
+
+`egress_pins` 可以包含多个公开 pin，例如 `submit1`、`submit2`。每个 pin 都必须是 imported app root `(0,0,0)` 上已声明的普通 `pin.out`；不得写成 `submit1:in` 这类函数端点。

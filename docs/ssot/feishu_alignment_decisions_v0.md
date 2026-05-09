@@ -106,7 +106,7 @@ source: ai
 
 决议：
 - 继续采用当前项目更严格的口径：
-  - `model.submt` Cell 仅允许 `model.submt` + `pin.*` + `pin.log.*`
+  - `model.submt` Cell 仅允许 `model.submt` + `pin.in` / `pin.out` / `pin.login` / `pin.logout`
   - 同一 child model 只能被一个父模型 hosting cell 挂载
   - 删除挂载关系不自动删除 child model 数据
   - 除 Model 0 外，所有模型都必须显式挂载进入层级
@@ -148,8 +148,8 @@ source: ai
 
 决议：
 - 不把 `print(info)` / `error(error)` 升格为 runtime 语义层能力。
-- 继续以 `pin.log.*` 为日志数据链路的正式语义。
-- 若后续有 SDK 层，可把 `print/error` 映射到 `pin.log.*`。
+- 0356 后以 `pin.login` / `pin.logout` 为日志数据链路的正式语义。
+- 若后续有 SDK 层，可把 `print/error` 映射到 `pin.login` / `pin.logout`。
 
 理由：
 - 当前项目已经有通用日志 PIN 通道，不需要再在 runtime 增加第二条日志语义。

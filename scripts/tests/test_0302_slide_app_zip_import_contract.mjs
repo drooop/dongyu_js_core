@@ -105,7 +105,7 @@ function test_workspace_sidebar_defines_delete_action() {
       && record?.c === deleteButton.c
       && record?.k === 'click_route'
       && Array.isArray(record?.v)
-      && record.v.some((route) => Array.isArray(route?.to) && route.to.includes('(func, handle_ws_delete_click:in)'))
+      && record.v.some((route) => Array.isArray(route?.to) && route.to.includes('handle_ws_delete_click:in'))
     )),
     'workspace_delete_button_missing_click_route',
   );

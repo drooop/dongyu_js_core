@@ -159,7 +159,7 @@ bus_event_v2 -> Model 0 (0,0,0) pin.bus.in -> pin route -> target
 - 前端提交 `bus_event_v2`。
 - `bus_event_v2.value` 必须已经是临时 ModelTable record array。
 - server 只把合法 envelope 写入 Model 0 的 `pin.bus.in`。
-- `pin.connect.model` 再把事件送到目标模型。
+- `model.submt` hosting Cell + `pin.connect.cell` 再把事件送到目标模型边界。
 - 目标模型 root 的 `mt_bus_receive` 再按 payload 分发到目标 cell / target pin。
 
 这种写法故意把“本地 UI 草稿”和“正式业务入口”分开，避免用户还在编辑时就把草稿误认为正式业务。

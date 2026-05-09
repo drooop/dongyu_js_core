@@ -177,6 +177,8 @@ function deriveWorkspaceRegistry(runtime) {
       delete_disabled: !deletable,
       slide_capable: slideCapable,
       slide_surface_type: slideSurfaceType,
+      export_url: slideCapable ? `/api/slide-apps/${modelId}/export.zip` : '',
+      export_label: slideCapable ? 'Zip' : '',
     });
   }
   derived.sort((a, b) => a.model_id - b.model_id);

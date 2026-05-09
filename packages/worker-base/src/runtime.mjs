@@ -353,9 +353,6 @@ class ModelTableRuntime {
     // key: "${modelId}:${label.k}" → value: true
     this.modelInPorts = new Map();
     this.modelOutPorts = new Map();
-    // 0158: pin.connect.model routing table
-    // key: "${fromModelId}|${fromPin}" -> value: [{ model_id, k }]
-    this.modelConnectionRoutes = new Map();
     this.runtimeMode = 'boot';
     this.runLoopActive = false;
     this.persistence = null;
@@ -551,15 +548,6 @@ class ModelTableRuntime {
     return Boolean(label && label.v === true);
   }
 
-  _cellHasHelperExecutor(model, p, r, c) {
-    if (!model || !this._validateCell(p, r, c)) return false;
-    const key = model.cellKey(p, r, c);
-    const cell = model.cells.get(key);
-    if (!cell || !cell.labels) return false;
-    const label = cell.labels.get('helper_executor');
-    return Boolean(label && label.v === true);
-  }
-
   _getScopedPrivilegeMode(model, p, r, c) {
     if (!model || !this._validateCell(p, r, c)) return null;
     const declaredAtCell = this._getDeclaredFormAtCell(model, p, r, c);
@@ -572,8 +560,6 @@ class ModelTableRuntime {
     }
 
     if (!this._cellHasExplicitScopedPrivilege(model, p, r, c)) return null;
-
-    if (this._cellHasHelperExecutor(model, p, r, c)) return 'table';
 
     if (declaredAtCell === 'model.matrix') return 'matrix';
     if (rootDeclared === 'model.matrix') return 'matrix';
@@ -656,14 +642,13 @@ class ModelTableRuntime {
   _registerRootBoundaryOutput(model, p, r, c, label) {
     this.modelOutPorts.set(`${model.id}:${label.k}`, true);
     if (label.v !== null && label.v !== undefined) {
-      this._routeViaModelConnection(model.id, label.k, label.v);
       const childInfo = this.parentChildMap.get(model.id);
       if (childInfo) {
         const { parentModelId, hostingCell: { p: hp, r: hr, c: hc } } = childInfo;
-        this._propagateCellConnect(parentModelId, hp, hr, hc, String(model.id), label.k, label.v)
-          .catch(() => {
-            this._recordError(model, p, r, c, label, 'model_out_propagation_error');
-          });
+        const parentModel = this.getModel(parentModelId);
+        if (parentModel) {
+          this.addLabel(parentModel, hp, hr, hc, { k: label.k, t: 'pin.out', v: label.v });
+        }
       }
     }
   }
@@ -715,10 +700,28 @@ class ModelTableRuntime {
     } catch (_) {
       return 'invalid_label_v';
     }
+    if (
+      label.t === 'pin.connect.model'
+      || (typeof label.t === 'string' && label.t.startsWith('pin.log.'))
+    ) {
+      return 'label_type_removed';
+    }
     return null;
   }
 
   _validatePlacement(model, p, r, c, label) {
+    return null;
+  }
+
+  _validateStructuralLabelValue(model, p, r, c, label, resolvedType) {
+    if (resolvedType === 'pin.connect.label') {
+      const normalized = this._normalizeCellConnectLabel(model, p, r, c, label);
+      return normalized.ok ? null : normalized.reason;
+    }
+    if (resolvedType === 'pin.connect.cell') {
+      const normalized = this._normalizeCellConnectionLabel(model, p, r, c, label);
+      return normalized.ok ? null : normalized.reason;
+    }
     return null;
   }
 
@@ -882,6 +885,7 @@ class ModelTableRuntime {
     const pinLabel = this._payloadLabel(payload, 'pin');
     const busOutKeyLabel = this._payloadLabel(payload, 'bus_out_key');
     const nestedPayloadLabel = this._payloadLabel(payload, 'payload');
+    const routeLabel = this._payloadLabel(payload, 'route');
     const sourceModelId = sourceModelIdLabel && sourceModelIdLabel.t === 'int' && Number.isInteger(sourceModelIdLabel.v)
       ? sourceModelIdLabel.v
       : null;
@@ -892,11 +896,15 @@ class ModelTableRuntime {
       ? busOutKeyLabel.v.trim()
       : pin;
     const nestedPayload = nestedPayloadLabel && nestedPayloadLabel.t === 'json' ? nestedPayloadLabel.v : null;
+    const route = routeLabel && routeLabel.t === 'json' ? routeLabel.v : null;
     if (!Number.isInteger(sourceModelId) || sourceModelId <= 0 || !pin || !busOutKey) {
       return { ok: false, code: 'missing_source', requestId };
     }
     if (!this._isTemporaryModelTablePayload(nestedPayload)) {
       return { ok: false, code: 'invalid_nested_payload', requestId };
+    }
+    if (routeLabel && (routeLabel.t !== 'json' || !this._isPinRouteMetadata(routeLabel.v))) {
+      return { ok: false, code: 'invalid_route', requestId };
     }
     return {
       ok: true,
@@ -905,20 +913,39 @@ class ModelTableRuntime {
       pin,
       busOutKey,
       payload: nestedPayload,
+      route,
     };
   }
 
-  _buildPinPayloadValue({ opId, sourceModelId, pin, payload, timestamp = Date.now() }) {
+  _isPinRouteMetadata(value) {
+    if (value === null || value === undefined) return true;
+    if (typeof value !== 'object' || Array.isArray(value)) return false;
+    if (Object.prototype.hasOwnProperty.call(value, 'to')) {
+      const to = value.to;
+      if (!to || typeof to !== 'object' || Array.isArray(to)) return false;
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'reply_to')) {
+      const replyTo = value.reply_to;
+      if (!replyTo || typeof replyTo !== 'object' || Array.isArray(replyTo)) return false;
+    }
+    return true;
+  }
+
+  _buildPinPayloadValue({ opId, sourceModelId, pin, payload, route = null, timestamp = Date.now() }) {
     const requestId = opId || `pin_payload_${Date.now()}`;
-    return [
+    const records = [
       this._mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
       this._mtPayloadRecord('__mt_request_id', 'str', requestId),
       this._mtPayloadRecord('op_id', 'str', requestId),
       this._mtPayloadRecord('source_model_id', 'int', sourceModelId),
       this._mtPayloadRecord('pin', 'str', pin),
       this._mtPayloadRecord('payload', 'json', payload),
-      this._mtPayloadRecord('timestamp', 'int', timestamp),
     ];
+    if (this._isPinRouteMetadata(route) && route !== null && route !== undefined) {
+      records.push(this._mtPayloadRecord('route', 'json', route));
+    }
+    records.push(this._mtPayloadRecord('timestamp', 'int', timestamp));
+    return records;
   }
 
   _buildMqttIngressPayloadValue({ kind, topic, payload, opId = '', extra = [] }) {
@@ -945,6 +972,7 @@ class ModelTableRuntime {
     const sourceModelIdLabel = this._payloadLabel(value, 'source_model_id');
     const pinLabel = this._payloadLabel(value, 'pin');
     const nestedPayloadLabel = this._payloadLabel(value, 'payload');
+    const routeLabel = this._payloadLabel(value, 'route');
     const timestampLabel = this._payloadLabel(value, 'timestamp');
     const opId = opIdLabel && opIdLabel.t === 'str' && typeof opIdLabel.v === 'string' && opIdLabel.v
       ? opIdLabel.v
@@ -956,23 +984,31 @@ class ModelTableRuntime {
       ? pinLabel.v.trim()
       : '';
     const nestedPayload = nestedPayloadLabel && nestedPayloadLabel.t === 'json' ? nestedPayloadLabel.v : null;
+    const route = routeLabel && routeLabel.t === 'json' ? routeLabel.v : null;
     const timestamp = timestampLabel && timestampLabel.t === 'int' && Number.isInteger(timestampLabel.v)
       ? timestampLabel.v
       : Date.now();
     if (!Number.isInteger(sourceModelId) || sourceModelId <= 0 || !pin || !this._isTemporaryModelTablePayload(nestedPayload)) {
       return { ok: false, code: 'invalid_payload' };
     }
+    if (routeLabel && (routeLabel.t !== 'json' || !this._isPinRouteMetadata(routeLabel.v))) {
+      return { ok: false, code: 'invalid_route' };
+    }
+    const packet = {
+      version: 'v1',
+      type: 'pin_payload',
+      op_id: opId,
+      source_model_id: sourceModelId,
+      pin,
+      payload: nestedPayload,
+      timestamp,
+    };
+    if (route !== null && route !== undefined) {
+      packet.route = route;
+    }
     return {
       ok: true,
-      packet: {
-        version: 'v1',
-        type: 'pin_payload',
-        op_id: opId,
-        source_model_id: sourceModelId,
-        pin,
-        payload: nestedPayload,
-        timestamp,
-      },
+      packet,
     };
   }
 
@@ -982,6 +1018,18 @@ class ModelTableRuntime {
       return parsed.ok ? parsed.packet : null;
     }
     return null;
+  }
+
+  _pinPayloadDeliveryValue(packet) {
+    const value = Array.isArray(packet && packet.payload) ? packet.payload : [];
+    const route = packet && packet.route;
+    if (route === null || route === undefined) return value;
+    if (!this._isPinRouteMetadata(route)) return value;
+    const businessValue = value.filter((record) => !(record && record.k === 'route'));
+    return [
+      this._mtPayloadRecord('route', 'json', route),
+      ...businessValue,
+    ];
   }
 
   _normalizeBusInValue(value, expectedPin = '') {
@@ -1025,7 +1073,12 @@ class ModelTableRuntime {
 
   _validatePositiveModelPinPayload(model, label, resolvedType) {
     if (!model || !Number.isInteger(model.id) || model.id <= 0) return null;
-    if (resolvedType !== 'pin.in' && resolvedType !== 'pin.out') {
+    if (
+      resolvedType !== 'pin.in'
+      && resolvedType !== 'pin.out'
+      && resolvedType !== 'pin.login'
+      && resolvedType !== 'pin.logout'
+    ) {
       return null;
     }
     if (label.v === null || label.v === undefined) return null;
@@ -1048,6 +1101,7 @@ class ModelTableRuntime {
       sourceModelId: parsed.sourceModelId,
       pin: parsed.pin,
       payload: parsed.payload,
+      route: parsed.route,
     });
     const res = this.addLabel(model, 0, 0, 0, { k: parsed.busOutKey, t: 'pin.bus.out', v: busOutPayload });
     if (!res || !res.applied) {
@@ -1057,10 +1111,10 @@ class ModelTableRuntime {
   }
 
   _isPinLikeResolvedType(typeName) {
-    return typeof typeName === 'string' && (
-      typeName.startsWith('pin.')
-      || typeName.startsWith('pin.log.')
-    );
+    return typeName === 'pin.in'
+      || typeName === 'pin.out'
+      || typeName === 'pin.login'
+      || typeName === 'pin.logout';
   }
 
   _findSubmodelLabel(cell, excludeKey = null) {
@@ -1078,6 +1132,13 @@ class ModelTableRuntime {
     if (Number.isInteger(label.v)) return label.v;
     const parsed = Number.parseInt(String(label.k ?? ''), 10);
     return Number.isInteger(parsed) ? parsed : null;
+  }
+
+  _getHostedChildModelForCell(model, p, r, c) {
+    const cell = this.getCell(model, p, r, c);
+    const submodelLabel = this._findSubmodelLabel(cell);
+    const childModelId = this._getSubmodelChildId(submodelLabel);
+    return Number.isInteger(childModelId) ? this.getModel(childModelId) : null;
   }
 
   applyScopedPatch(currentModelId, patch) {
@@ -1303,6 +1364,7 @@ class ModelTableRuntime {
       topic_prefix: get('mqtt_target_topic_prefix')?.v ?? null,
       topic_mode: get('mqtt_topic_mode')?.v ?? null,
       topic_base: get('mqtt_topic_base')?.v ?? null,
+      worker_id: get('mqtt_worker_id')?.v ?? null,
       payload_mode: get('mqtt_payload_mode')?.v ?? null,
       // 9-layer segment labels
       topic_ns: get('mqtt_topic_ns')?.v ?? null,
@@ -1389,6 +1451,18 @@ class ModelTableRuntime {
     const cell = this.getCell(model, p, r, c);
     const prevLabel = cell.labels.get(label.k) || null;
     const resolvedType = this._resolveLabelType(label.t);
+    const structuralLabelError = this._validateStructuralLabelValue(model, p, r, c, label, resolvedType);
+    if (structuralLabelError) {
+      this.eventLog.record({
+        op: 'add_label',
+        cell: { model_id: model.id, p, r, c },
+        label,
+        prev_label: prevLabel,
+        result: 'rejected',
+        reason: structuralLabelError,
+      });
+      return { applied: false };
+    }
     const busPinPayloadError = this._validateBusPinPayload(model, p, r, c, label, resolvedType);
     if (busPinPayloadError) {
       this.eventLog.record({
@@ -1496,14 +1570,11 @@ class ModelTableRuntime {
     if (prevResolvedType === 'pin.connect.cell') {
       this._rebuildCellConnectionForCell(model, p, r, c);
     }
-    if (prevResolvedType === 'pin.connect.model') {
-      this._rebuildModelConnectionForCell(model, p, r, c);
-    }
-    if ((prevResolvedType === 'pin.bus.in' || prevResolvedType === 'pin.log.bus.in') && model.id === 0 && p === 0 && r === 0 && c === 0) {
+    if (prevResolvedType === 'pin.bus.in' && model.id === 0 && p === 0 && r === 0 && c === 0) {
       this.busInPorts.delete(key);
       this._syncBusInSubscription(key, false);
     }
-    if ((prevResolvedType === 'pin.bus.out' || prevResolvedType === 'pin.log.bus.out') && model.id === 0 && p === 0 && r === 0 && c === 0) {
+    if (prevResolvedType === 'pin.bus.out' && model.id === 0 && p === 0 && r === 0 && c === 0) {
       this.busOutPorts.delete(key);
     }
     return { applied: true };
@@ -1532,7 +1603,11 @@ class ModelTableRuntime {
     if (mode === 'uiput_mm_v1') {
       const base = config.topic_base || '';
       if (!base) return null;
-      return `${base}/${modelId}/${pinName}`;
+      const workerId = typeof config.worker_id === 'string' && config.worker_id.trim()
+        ? config.worker_id.trim()
+        : 'local';
+      if (workerId.includes('/') || workerId.includes('+') || workerId.includes('#')) return null;
+      return `${base}/worker/${workerId}/model/${modelId}/pin/${pinName}`;
     }
     const prefix = config.topic_prefix || '';
     if (prefix) return `${prefix}/${pinName}`;
@@ -1659,7 +1734,7 @@ class ModelTableRuntime {
 
       if (payloadMode === 'pin_payload_v1' && pinPayloadV1) {
         if (payload.pin !== pinName) return false;
-        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload.payload });
+        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: this._pinPayloadDeliveryValue(payload) });
         this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1' });
         return true;
       }
@@ -1682,10 +1757,33 @@ class ModelTableRuntime {
       }
       const rest = topic.slice(prefix.length);
       const parts = rest.split('/');
-      if (parts.length !== 2) return false;
-      const modelId = Number(parts[0]);
-      const pinName = parts[1] || '';
-      if (!Number.isInteger(modelId) || !pinName || pinName.includes('/')) return false;
+      let modelId = null;
+      let pinName = '';
+      if (parts.length === 6 && parts[0] === 'worker' && parts[2] === 'model' && parts[4] === 'pin') {
+        const workerId = parts[1] || '';
+        modelId = Number(parts[3]);
+        pinName = parts[5] || '';
+        if (!workerId || workerId.includes('/') || workerId.includes('+') || workerId.includes('#')) return false;
+        const configuredWorkerId = typeof config.worker_id === 'string' ? config.worker_id.trim() : '';
+        if (configuredWorkerId && workerId !== configuredWorkerId) {
+          this.mqttTrace.record('inbound_rejected', {
+            topic,
+            payload,
+            mode: 'uiput_mm_v1',
+            reason: 'worker_id_mismatch',
+          });
+          return false;
+        }
+      } else {
+        this.mqttTrace.record('inbound_rejected', {
+          topic,
+          payload,
+          mode: 'uiput_mm_v1',
+          reason: 'worker_model_pin_topic_required',
+        });
+        return false;
+      }
+      if (!Number.isInteger(modelId) || !pinName || pinName.includes('/') || pinName.includes('+') || pinName.includes('#')) return false;
 
       if (this.busInPorts.has(pinName) && modelId === 0) {
         return this._handleBusInMessage(pinName, payload);
@@ -1715,7 +1813,7 @@ class ModelTableRuntime {
 
       if (payloadMode === 'pin_payload_v1' && pinPayloadV1) {
         if (payload.pin !== pinName) return false;
-        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload.payload });
+        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: this._pinPayloadDeliveryValue(payload) });
         this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1' });
         return true;
       }
@@ -1766,7 +1864,7 @@ class ModelTableRuntime {
 
     if (payloadMode === 'pin_payload_v1' && pinPayloadV1) {
       if (payload.pin !== pinName) return false;
-      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload.payload });
+      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: this._pinPayloadDeliveryValue(payload) });
       this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1' });
       return true;
     }
@@ -1823,39 +1921,88 @@ class ModelTableRuntime {
     return topicParts.length === patternParts.length;
   }
 
-  // --- 0141: CELL_CONNECT / cell_connection parsing and routing ---
+  // --- 0141/0357: pin.connect.label / pin.connect.cell parsing and routing ---
 
-  _parseCellConnectEndpoint(str) {
-    if (typeof str !== 'string') return null;
-    const trimmed = str.trim();
-    if (!trimmed.startsWith('(') || !trimmed.endsWith(')')) return null;
-    const inner = trimmed.slice(1, -1);
-    const parts = inner.includes(', ') ? inner.split(', ') : inner.split(',');
-    if (parts.length !== 2) return null;
-    const prefix = parts[0].trim();
-    const port = parts[1].trim();
-    if (!prefix || !port) return null;
-    if (prefix !== 'self' && prefix !== 'func') {
-      const num = parseInt(prefix, 10);
-      if (!Number.isInteger(num)) return null;
-    }
-    return { prefix, port };
+  _isRemovedEndpointSyntax(value) {
+    return typeof value === 'string' && value.trim().startsWith('(') && value.trim().endsWith(')');
   }
 
-  _parseCellConnectRouteEndpoint(str) {
-    if (typeof str !== 'string') return null;
-    const trimmed = str.trim();
-    if (!trimmed) return null;
-    if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
-      return this._parseCellConnectEndpoint(trimmed);
+  _isCellPinResolvedType(typeName) {
+    return typeName === 'pin.in'
+      || typeName === 'pin.out'
+      || typeName === 'pin.login'
+      || typeName === 'pin.logout'
+      || typeName === 'pin.bus.in'
+      || typeName === 'pin.bus.out';
+  }
+
+  _cellEndpointLabel(model, p, r, c, endpoint) {
+    if (!model || typeof endpoint !== 'string') return null;
+    const cell = this.getCell(model, p, r, c);
+    return cell.labels.get(endpoint) || null;
+  }
+
+  _hasSameCellFunction(model, p, r, c, funcName) {
+    if (!model || typeof funcName !== 'string' || !funcName) return false;
+    const cell = this.getCell(model, p, r, c);
+    const label = cell.labels.get(funcName);
+    if (!label) return false;
+    const typeName = this._resolveLabelType(label.t);
+    return typeName === 'func.js' || typeName === 'func.python';
+  }
+
+  _functionEndpointBase(endpoint) {
+    if (typeof endpoint !== 'string') return null;
+    for (const suffix of [':logout', ':out', ':in']) {
+      if (endpoint.endsWith(suffix) && endpoint.length > suffix.length) {
+        return endpoint.slice(0, -suffix.length);
+      }
     }
-    return { prefix: 'self', port: trimmed };
+    return null;
+  }
+
+  _classifyCellConnectEndpoint(model, p, r, c, endpoint) {
+    if (typeof endpoint !== 'string') return { ok: false, reason: 'cell_connect_bad_endpoint' };
+    const trimmed = endpoint.trim();
+    if (!trimmed) return { ok: false, reason: 'cell_connect_bad_endpoint' };
+    if (this._isRemovedEndpointSyntax(trimmed)) {
+      return { ok: false, reason: 'cell_connect_removed_endpoint_syntax' };
+    }
+    const label = this._cellEndpointLabel(model, p, r, c, trimmed);
+    if (label && this._isCellPinResolvedType(this._resolveLabelType(label.t))) {
+      return { ok: true, endpoint: { prefix: 'self', port: trimmed } };
+    }
+    const funcName = this._functionEndpointBase(trimmed);
+    if (funcName) {
+      return { ok: true, endpoint: { prefix: 'func', port: trimmed } };
+    }
+    return { ok: true, endpoint: { prefix: 'self', port: trimmed } };
+  }
+
+  _normalizeCellConnectLabel(model, p, r, c, label) {
+    const v = label.v;
+    if (!Array.isArray(v)) return { ok: false, reason: 'cell_connect_invalid_value' };
+    const routes = [];
+    for (const entry of v) {
+      if (!entry || typeof entry !== 'object') return { ok: false, reason: 'cell_connect_invalid_value' };
+      const source = this._classifyCellConnectEndpoint(model, p, r, c, entry.from);
+      if (!source.ok) return { ok: false, reason: source.reason || 'cell_connect_bad_source' };
+      if (!Array.isArray(entry.to)) return { ok: false, reason: 'cell_connect_bad_targets' };
+      const targets = [];
+      for (const targetValue of entry.to) {
+        const target = this._classifyCellConnectEndpoint(model, p, r, c, targetValue);
+        if (!target.ok) return { ok: false, reason: target.reason || 'cell_connect_bad_target' };
+        targets.push(target.endpoint);
+      }
+      routes.push({ source: source.endpoint, targets });
+    }
+    return { ok: true, routes };
   }
 
   _parseCellConnectLabel(model, p, r, c, label) {
-    const v = label.v;
-    if (!v || typeof v !== 'object') {
-      this._recordError(model, p, r, c, label, 'cell_connect_invalid_value');
+    const normalized = this._normalizeCellConnectLabel(model, p, r, c, label);
+    if (!normalized.ok) {
+      this._recordError(model, p, r, c, label, normalized.reason);
       return;
     }
     const cellKey = `${model.id}|${p}|${r}|${c}`;
@@ -1863,39 +2010,10 @@ class ModelTableRuntime {
       this.cellConnectGraph.set(cellKey, new Map());
     }
     const cellGraph = this.cellConnectGraph.get(cellKey);
-    const addRoute = (sourceStr, targetArr) => {
-      const source = this._parseCellConnectRouteEndpoint(sourceStr);
-      if (!source) {
-        this._recordError(model, p, r, c, label, 'cell_connect_bad_source');
-        return;
-      }
-      if (!Array.isArray(targetArr)) {
-        this._recordError(model, p, r, c, label, 'cell_connect_bad_targets');
-        return;
-      }
-      const targets = [];
-      for (const tStr of targetArr) {
-        const t = this._parseCellConnectRouteEndpoint(tStr);
-        if (!t) {
-          this._recordError(model, p, r, c, label, 'cell_connect_bad_target');
-          continue;
-        }
-        targets.push(t);
-      }
-      if (targets.length > 0) {
-        const endpointKey = `${source.prefix}:${source.port}`;
-        const existing = cellGraph.get(endpointKey) || [];
-        cellGraph.set(endpointKey, existing.concat(targets));
-      }
-    };
-
-    if (!Array.isArray(v)) {
-      this._recordError(model, p, r, c, label, 'cell_connect_invalid_value');
-      return;
-    }
-    for (const entry of v) {
-      if (!entry || typeof entry !== 'object') continue;
-      addRoute(entry.from, entry.to);
+    for (const route of normalized.routes) {
+      const endpointKey = `${route.source.prefix}:${route.source.port}`;
+      const existing = cellGraph.get(endpointKey) || [];
+      cellGraph.set(endpointKey, existing.concat(route.targets));
     }
   }
 
@@ -1910,41 +2028,56 @@ class ModelTableRuntime {
     }
   }
 
-  _parseCellConnectionLabel(model, p, r, c, label) {
-    if (p !== 0 || r !== 0 || c !== 0) {
-      this._recordError(model, p, r, c, label, 'cell_connection_wrong_position');
-      return;
+  _normalizeCellConnectionEndpoint(model, endpoint) {
+    if (!Array.isArray(endpoint) || endpoint.length !== 4) {
+      return { ok: false, reason: 'cell_connection_bad_endpoint' };
     }
+    const [p, r, c, pinName] = endpoint;
+    if (!Number.isInteger(p) || !Number.isInteger(r) || !Number.isInteger(c) || typeof pinName !== 'string' || !pinName.trim()) {
+      return { ok: false, reason: 'cell_connection_bad_endpoint' };
+    }
+    if (this._isRemovedEndpointSyntax(pinName)) {
+      return { ok: false, reason: 'cell_connection_removed_endpoint_syntax' };
+    }
+    if (this._functionEndpointBase(pinName.trim())) {
+      return { ok: false, reason: 'cell_connection_function_endpoint_forbidden' };
+    }
+    return { ok: true, endpoint: { p, r, c, k: pinName.trim() } };
+  }
+
+  _normalizeCellConnectionLabel(model, p, r, c, label) {
+    if (p !== 0 || r !== 0 || c !== 0) return { ok: false, reason: 'cell_connection_wrong_position' };
     const v = label.v;
-    if (!Array.isArray(v)) {
-      this._recordError(model, p, r, c, label, 'cell_connection_invalid_value');
+    if (!Array.isArray(v)) return { ok: false, reason: 'cell_connection_invalid_value' };
+    const routes = [];
+    for (const entry of v) {
+      if (!entry || typeof entry !== 'object') return { ok: false, reason: 'cell_connection_invalid_value' };
+      const from = this._normalizeCellConnectionEndpoint(model, entry.from);
+      if (!from.ok) return { ok: false, reason: from.reason === 'cell_connection_bad_endpoint' ? 'cell_connection_bad_from' : from.reason };
+      if (!Array.isArray(entry.to)) return { ok: false, reason: 'cell_connection_bad_to' };
+      const targets = [];
+      for (const dest of entry.to) {
+        const target = this._normalizeCellConnectionEndpoint(model, dest);
+        if (!target.ok) return { ok: false, reason: target.reason === 'cell_connection_bad_endpoint' ? 'cell_connection_bad_dest' : target.reason };
+        targets.push(target.endpoint);
+      }
+      routes.push({ from: from.endpoint, targets });
+    }
+    return { ok: true, routes };
+  }
+
+  _parseCellConnectionLabel(model, p, r, c, label) {
+    const normalized = this._normalizeCellConnectionLabel(model, p, r, c, label);
+    if (!normalized.ok) {
+      this._recordError(model, p, r, c, label, normalized.reason);
       return;
     }
-    for (const entry of v) {
-      if (!entry || typeof entry !== 'object') continue;
-      const from = entry.from;
-      const to = entry.to;
-      if (!Array.isArray(from) || from.length !== 4) {
-        this._recordError(model, p, r, c, label, 'cell_connection_bad_from');
-        continue;
-      }
-      if (!Array.isArray(to)) {
-        this._recordError(model, p, r, c, label, 'cell_connection_bad_to');
-        continue;
-      }
-      const routeKey = `${model.id}|${from[0]}|${from[1]}|${from[2]}|${from[3]}`;
-      const targets = [];
-      for (const dest of to) {
-        if (!Array.isArray(dest) || dest.length !== 4) {
-          this._recordError(model, p, r, c, label, 'cell_connection_bad_dest');
-          continue;
-        }
-        targets.push({ model_id: model.id, p: dest[0], r: dest[1], c: dest[2], k: dest[3] });
-      }
-      if (targets.length > 0) {
-        const existing = this.cellConnectionRoutes.get(routeKey) || [];
-        this.cellConnectionRoutes.set(routeKey, existing.concat(targets));
-      }
+    for (const route of normalized.routes) {
+      const from = route.from;
+      const routeKey = `${model.id}|${from.p}|${from.r}|${from.c}|${from.k}`;
+      const targets = route.targets.map((dest) => ({ model_id: model.id, p: dest.p, r: dest.r, c: dest.c, k: dest.k }));
+      const existing = this.cellConnectionRoutes.get(routeKey) || [];
+      this.cellConnectionRoutes.set(routeKey, existing.concat(targets));
     }
   }
 
@@ -1961,89 +2094,29 @@ class ModelTableRuntime {
     }
   }
 
-  _parseModelConnectionLabel(model, p, r, c, label) {
-    if (model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
-      this._recordError(model, p, r, c, label, 'model_connection_wrong_position');
-      return;
-    }
-    const v = label.v;
-    if (!Array.isArray(v)) {
-      this._recordError(model, p, r, c, label, 'model_connection_invalid_value');
-      return;
-    }
-    for (const entry of v) {
-      if (!entry || typeof entry !== 'object') continue;
-      const from = entry.from;
-      const to = entry.to;
-      if (!Array.isArray(from) || from.length !== 2) {
-        this._recordError(model, p, r, c, label, 'model_connection_bad_from');
-        continue;
-      }
-      if (!Array.isArray(to)) {
-        this._recordError(model, p, r, c, label, 'model_connection_bad_to');
-        continue;
-      }
-      const fromModelId = Number(from[0]);
-      const fromPin = typeof from[1] === 'string' ? from[1] : '';
-      if (!Number.isInteger(fromModelId) || !fromPin) {
-        this._recordError(model, p, r, c, label, 'model_connection_bad_from');
-        continue;
-      }
-      const routeKey = `${fromModelId}|${fromPin}`;
-      const targets = [];
-      for (const dest of to) {
-        if (!Array.isArray(dest) || dest.length !== 2) {
-          this._recordError(model, p, r, c, label, 'model_connection_bad_dest');
-          continue;
-        }
-        const targetModelId = Number(dest[0]);
-        const targetPin = typeof dest[1] === 'string' ? dest[1] : '';
-        if (!Number.isInteger(targetModelId) || !targetPin) {
-          this._recordError(model, p, r, c, label, 'model_connection_bad_dest');
-          continue;
-        }
-        targets.push({ model_id: targetModelId, k: targetPin });
-      }
-      if (targets.length > 0) {
-        const existing = this.modelConnectionRoutes.get(routeKey) || [];
-        this.modelConnectionRoutes.set(routeKey, existing.concat(targets));
-      }
-    }
-  }
-
-  _rebuildModelConnectionForCell(model, p, r, c) {
-    this.modelConnectionRoutes.clear();
-    const cell = this.getCell(model, p, r, c);
-    for (const [, existingLabel] of cell.labels.entries()) {
-      if (this._resolveLabelType(existingLabel.t) === 'pin.connect.model') {
-        this._parseModelConnectionLabel(model, p, r, c, existingLabel);
-      }
-    }
-  }
-
   _routeViaCellConnection(modelId, p, r, c, k, value) {
     const key = `${modelId}|${p}|${r}|${c}|${k}`;
     const targets = this.cellConnectionRoutes.get(key);
     if (!targets) return;
+    const sourceModel = this.getModel(modelId);
     for (const t of targets) {
       const targetModel = this.getModel(t.model_id);
       if (!targetModel) continue;
-      this.addLabel(targetModel, t.p, t.r, t.c, { k: t.k, t: 'pin.in', v: value });
-    }
-  }
-
-  _routeViaModelConnection(modelId, pinName, value) {
-    const key = `${modelId}|${pinName}`;
-    const targets = this.modelConnectionRoutes.get(key);
-    if (!targets) return;
-    for (const t of targets) {
-      const targetModel = this.getModel(t.model_id);
-      if (!targetModel) continue;
-      if (targetModel.id === 0) {
-        this.addLabel(targetModel, 0, 0, 0, { k: t.k, t: 'pin.bus.in', v: value });
+      const existingTarget = this._cellEndpointLabel(targetModel, t.p, t.r, t.c, t.k);
+      if (!existingTarget) {
+        if (sourceModel) {
+          this._recordError(sourceModel, p, r, c, { k, t: 'pin.connect.cell', v: value }, 'cell_connection_target_pin_missing');
+        }
         continue;
       }
-      this.addLabel(targetModel, 0, 0, 0, { k: t.k, t: 'pin.in', v: value });
+      const targetType = this._resolveLabelType(existingTarget.t);
+      if (!this._isCellPinResolvedType(targetType)) {
+        if (sourceModel) {
+          this._recordError(sourceModel, p, r, c, { k, t: 'pin.connect.cell', v: value }, 'cell_connection_target_pin_invalid_type');
+        }
+        continue;
+      }
+      this.addLabel(targetModel, t.p, t.r, t.c, { k: t.k, t: targetType, v: value });
     }
   }
 
@@ -2073,7 +2146,11 @@ class ModelTableRuntime {
       if (t.prefix === 'self') {
         const targetModel = this.getModel(modelId);
         if (!targetModel) return Promise.resolve();
-        this.addLabel(targetModel, p, r, c, { k: t.port, t: 'pin.out', v: value });
+        const existingTarget = this._cellEndpointLabel(targetModel, p, r, c, t.port);
+        const targetType = existingTarget && this._isCellPinResolvedType(this._resolveLabelType(existingTarget.t))
+          ? this._resolveLabelType(existingTarget.t)
+          : 'pin.out';
+        this.addLabel(targetModel, p, r, c, { k: t.port, t: targetType, v: value });
         this._routeViaCellConnection(modelId, p, r, c, t.port, value);
         return this._propagateCellConnect(modelId, p, r, c, 'self', t.port, value, visited);
       }
@@ -2085,24 +2162,6 @@ class ModelTableRuntime {
         if (t.port.endsWith(':out')) {
           return this._propagateCellConnect(modelId, p, r, c, 'func', t.port, value, visited);
         }
-      }
-      // 0142+: Numeric ID prefix → route to child model-boundary pin.in
-      if (!isNaN(Number(t.prefix))) {
-        const childModelId = Number(t.prefix);
-      if (!this.parentChildMap.has(childModelId)) {
-          this.eventLog.record({
-            op: 'cell_connect_error',
-            cell: { model_id: modelId, p, r, c },
-            label: { k: `${t.prefix}:${t.port}` },
-            result: 'failed',
-            reason: 'submodel_not_registered',
-          });
-          return Promise.resolve();
-        }
-        const childModel = this.getModel(childModelId);
-        if (!childModel) return Promise.resolve();
-        this.addLabel(childModel, 0, 0, 0, { k: t.port, t: 'pin.in', v: value });
-        return Promise.resolve();
       }
       return Promise.resolve();
     });
@@ -2123,19 +2182,9 @@ class ModelTableRuntime {
       }
     }
     if (!funcLabel) {
-      const sysModel = this.getModel(-10);
-      if (sysModel) {
-        const sysCell = this.getCell(sysModel, 0, 0, 0);
-        const sysLabel = sysCell.labels.get(funcName);
-        if (sysLabel) {
-          const resolvedType = this._resolveLabelType(sysLabel.t);
-          if (resolvedType === 'func.js' || resolvedType === 'func.python') {
-            funcLabel = sysLabel;
-          }
-        }
-      }
+      this._recordError(model, p, r, c, { k: `${funcName}:in`, t: 'pin.connect.label', v: inputValue }, 'cell_connect_function_missing');
+      return;
     }
-    if (!funcLabel) return;
 
     const funcType = this._resolveLabelType(funcLabel.t);
     if (funcType === 'func.python') {
@@ -2297,12 +2346,13 @@ class ModelTableRuntime {
     }
 
     const FUNC_TIMEOUT_MS = 30000;
+    let timeoutId = null;
     try {
       const result = await Promise.race([
         fn(ctx, { k: funcName, t: 'pin.in', v: inputValue, sourcePin: inputSourcePin || null }, V1N),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Function ${funcName} timeout after ${FUNC_TIMEOUT_MS}ms`)), FUNC_TIMEOUT_MS),
-        ),
+        new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error(`Function ${funcName} timeout after ${FUNC_TIMEOUT_MS}ms`)), FUNC_TIMEOUT_MS);
+        }),
       ]);
       if (result !== undefined) {
         await this._propagateCellConnect(modelId, p, r, c, 'func', `${funcName}:out`, result, visited);
@@ -2313,6 +2363,8 @@ class ModelTableRuntime {
         t: 'json',
         v: { error: err.message, ts: Date.now() },
       });
+    } finally {
+      if (timeoutId !== null) clearTimeout(timeoutId);
     }
   }
 
@@ -2362,6 +2414,7 @@ class ModelTableRuntime {
       : null;
     if (!payload) return null;
     const rawValue = payload.value;
+    if (this._isTemporaryModelTablePayload(rawValue)) return rawValue;
     const eventValue = rawValue && rawValue.t === 'event'
       ? rawValue.v
       : (rawValue && rawValue.t === 'json' ? rawValue.v : rawValue);
@@ -2372,7 +2425,26 @@ class ModelTableRuntime {
     if (!normalized.meta && payload.meta && typeof payload.meta === 'object') normalized.meta = payload.meta;
     if (!normalized.target && payload.target && typeof payload.target === 'object') normalized.target = payload.target;
     if (!Object.prototype.hasOwnProperty.call(normalized, 'value') && rawValue !== undefined) normalized.value = rawValue;
-    return normalized;
+    const records = [
+      this._mtPayloadRecord('__mt_payload_kind', 'str', 'ui_event.v1'),
+    ];
+    if (typeof normalized.action === 'string' && normalized.action) {
+      records.push(this._mtPayloadRecord('action', 'str', normalized.action));
+    }
+    if (normalized.meta && typeof normalized.meta === 'object') {
+      records.push(this._mtPayloadRecord('meta', 'json', normalized.meta));
+    }
+    if (normalized.target && typeof normalized.target === 'object') {
+      records.push(this._mtPayloadRecord('target', 'json', normalized.target));
+    }
+    for (const [key, value] of Object.entries(normalized)) {
+      if (key === 'action' || key === 'meta' || key === 'target' || key.startsWith('__mt_')) continue;
+      const typeName = typeof value === 'string'
+        ? 'str'
+        : (Number.isInteger(value) ? 'int' : (typeof value === 'boolean' ? 'bool' : 'json'));
+      records.push(this._mtPayloadRecord(key, typeName, value));
+    }
+    return records;
   }
 
   // --- end 0142 ---
@@ -2419,19 +2491,16 @@ class ModelTableRuntime {
       }
       return;
     }
-    if (resolvedType === 'pin.connect.model') {
-      if (prevLabel && this._resolveLabelType(prevLabel.t) === 'pin.connect.model') {
-        this._rebuildModelConnectionForCell(model, p, r, c);
-      } else {
-        this._parseModelConnectionLabel(model, p, r, c, label);
-      }
-      return;
-    }
-    if ((resolvedType === 'pin.in' || resolvedType === 'pin.log.in') && this._isNonSystemModelRoot(model, p, r, c)) {
+    if ((resolvedType === 'pin.in' || resolvedType === 'pin.login') && this._isNonSystemModelRoot(model, p, r, c)) {
       this._registerRootBoundaryInput(model, p, r, c, label);
       return;
     }
-    if (resolvedType === 'pin.in' || resolvedType === 'pin.log.in') {
+    if (resolvedType === 'pin.in' || resolvedType === 'pin.login') {
+      const hostedChild = this._getHostedChildModelForCell(model, p, r, c);
+      if (hostedChild && label.v !== null && label.v !== undefined) {
+        this.addLabel(hostedChild, 0, 0, 0, { k: label.k, t: resolvedType, v: label.v });
+        return;
+      }
       // 0143: Route via cell_connection to propagate IN to target cells
       this._routeViaCellConnection(model.id, p, r, c, label.k, label.v);
       // Propagate via CELL_CONNECT if this cell has wiring
@@ -2444,7 +2513,7 @@ class ModelTableRuntime {
       }
     }
     // 0142: BUS_IN label dispatch
-    if (resolvedType === 'pin.bus.in' || resolvedType === 'pin.log.bus.in') {
+    if (resolvedType === 'pin.bus.in') {
       if (model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
         this._recordError(model, p, r, c, label, 'bus_in_wrong_position');
         return;
@@ -2453,15 +2522,14 @@ class ModelTableRuntime {
       this._syncBusInSubscription(label.k, true);
       if (label.v !== null && label.v !== undefined) {
         this._routeViaCellConnection(0, 0, 0, 0, label.k, label.v);
-        this._routeViaModelConnection(0, label.k, label.v);
       }
       return;
     }
-    if ((resolvedType === 'pin.out' || resolvedType === 'pin.log.out') && this._isNonSystemModelRoot(model, p, r, c)) {
+    if ((resolvedType === 'pin.out' || resolvedType === 'pin.logout') && this._isNonSystemModelRoot(model, p, r, c)) {
       this._registerRootBoundaryOutput(model, p, r, c, label);
       return;
     }
-    if (resolvedType === 'pin.out' || resolvedType === 'pin.log.out') {
+    if (resolvedType === 'pin.out' || resolvedType === 'pin.logout') {
       this._routeViaCellConnection(model.id, p, r, c, label.k, label.v);
       const cellKey = `${model.id}|${p}|${r}|${c}`;
       if (this.cellConnectGraph.has(cellKey)) {
@@ -2473,7 +2541,7 @@ class ModelTableRuntime {
       return;
     }
     // 0142: BUS_OUT label dispatch
-    if (resolvedType === 'pin.bus.out' || resolvedType === 'pin.log.bus.out') {
+    if (resolvedType === 'pin.bus.out') {
       if (model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
         this._recordError(model, p, r, c, label, 'bus_out_wrong_position');
         return;

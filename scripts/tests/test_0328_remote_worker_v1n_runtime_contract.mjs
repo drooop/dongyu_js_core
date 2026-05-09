@@ -35,6 +35,10 @@ function pinPayload({ sourceModelId, pin = 'submit', payload }) {
     pin,
     payload,
     timestamp: Date.now(),
+    route: {
+      to: { worker_id: 'RE', model_id: sourceModelId, pin },
+      reply_to: { worker_id: 'ui-server-test', model_id: sourceModelId, pin: 'result' },
+    },
   };
 }
 
@@ -45,7 +49,7 @@ async function waitForSettle(ms = 1200) {
 async function test_model100_submit_updates_root_state() {
   const rt = createConfiguredRuntime();
   const handled = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/100/submit',
+    'UIPUT/ws/dam/pic/de/sw/worker/RE/model/100/pin/submit',
     pinPayload({
       sourceModelId: 100,
       payload: [
@@ -78,7 +82,7 @@ function test_remote_worker_patches_stop_using_legacy_ctx_mutators() {
 async function test_model1010_submit_updates_root_state() {
   const rt = createConfiguredRuntime();
   const handled = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/1010/submit',
+    'UIPUT/ws/dam/pic/de/sw/worker/RE/model/1010/pin/submit',
     pinPayload({
       sourceModelId: 1010,
       payload: [
@@ -96,7 +100,7 @@ async function test_model1010_submit_updates_root_state() {
 async function test_model1019_submit_updates_root_state() {
   const rt = createConfiguredRuntime();
   const handled = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/1019/submit',
+    'UIPUT/ws/dam/pic/de/sw/worker/RE/model/1019/pin/submit',
     pinPayload({
       sourceModelId: 1019,
       payload: [

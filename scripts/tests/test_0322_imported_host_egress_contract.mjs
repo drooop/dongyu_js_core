@@ -63,6 +63,23 @@ function dualBusRootLabel(value = {}) {
     t: 'json',
     v: {
       mode: 'imported_host_egress',
+      egress_pins: ['submit'],
+      ...value,
+    },
+  };
+}
+
+function remoteBusEndpointRootLabel(value = {}) {
+  return {
+    id: 0,
+    p: 0,
+    r: 0,
+    c: 0,
+    k: 'remote_bus_endpoint_v1',
+    t: 'json',
+    v: {
+      transport: 'mqtt',
+      to: { worker_id: 'RE', model_id: 3000 },
       ...value,
     },
   };
@@ -70,16 +87,14 @@ function dualBusRootLabel(value = {}) {
 
 function validPayload() {
   return buildBasePayload(
-    [hostIngressRootLabel(), dualBusRootLabel()],
+    [hostIngressRootLabel(), remoteBusEndpointRootLabel(), dualBusRootLabel()],
     [
       { id: 0, p: 0, r: 0, c: 0, k: 'input_text', t: 'str', v: '' },
       { id: 0, p: 0, r: 0, c: 0, k: 'last_submit_payload', t: 'json', v: null },
       { id: 0, p: 0, r: 0, c: 0, k: 'submit_request', t: 'pin.in', v: null },
-      { id: 0, p: 0, r: 0, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: '(self, submit_request)', to: ['(func, handle_submit:in)'] }] },
-      { id: 0, p: 0, r: 0, c: 0, k: 'submit_owner_route', t: 'pin.connect.label', v: [{ from: '(func, handle_submit:out)', to: ['submit_owner_req'] }] },
+      { id: 0, p: 0, r: 0, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: 'submit_request', to: ['handle_submit:in'] }] },
       { id: 0, p: 0, r: 0, c: 0, k: 'root_routes', t: 'pin.connect.cell', v: [
         { from: [2, 3, 0, 'click_chain'], to: [[0, 0, 0, 'submit_request']] },
-        { from: [0, 0, 0, 'submit_owner_req'], to: [[0, 1, 0, 'owner_apply']] },
       ] },
       { id: 0, p: 0, r: 0, c: 0, k: 'submit', t: 'pin.out', v: null },
       { id: 0, p: 0, r: 0, c: 0, k: 'handle_submit', t: 'func.js', v: { code: [
@@ -141,14 +156,14 @@ async function importPayload(state, payload, uri) {
 async function test_import_rejects_dual_bus_model_without_root_submit_pin_out() {
   return withServerState(async (state) => {
     const payload = buildBasePayload(
-      [hostIngressRootLabel(), dualBusRootLabel()],
+      [hostIngressRootLabel(), remoteBusEndpointRootLabel(), dualBusRootLabel()],
       [
         { id: 0, p: 0, r: 0, c: 0, k: 'submit_request', t: 'pin.in', v: null },
       ],
     );
     const result = await importPayload(state, payload, 'mxc://localhost/0322-contract-missing-egress');
     assert.equal(result.ok, false, 'dual_bus_import_without_root_submit_pin_out_must_be_rejected');
-    assert.equal(result.detail, 'host_egress_target_pin_missing', 'missing_root_submit_pin_out_reason_must_be_explicit');
+    assert.equal(result.detail, 'host_egress_target_pin_missing:submit', 'missing_root_submit_pin_out_reason_must_be_explicit');
     return { key: 'import_rejects_dual_bus_model_without_root_submit_pin_out', status: 'PASS' };
   });
 }
@@ -164,9 +179,9 @@ async function test_import_generates_host_egress_adapter_for_valid_dual_bus_impo
     const busLabel = `imported_submit_${importedId}_bus`;
     const bridgeIn = `__host_egress_submit_bridge_in_${importedId}`;
     const bridgeFunc = `bridge_imported_submit_to_mt_bus_send_${importedId}`;
-    assert.ok(rootLabels.has(busLabel), 'model0_bus_out_label_must_be_generated');
-    assert.ok(rootLabels.has(bridgeIn), 'model0_bridge_input_must_be_generated');
-    assert.ok(rootLabels.has(bridgeFunc), 'model0_bridge_function_must_be_generated');
+    assert.ok(rootLabels.has(busLabel), 'model0_bus_out_label_must_be_generated_from_remote_bus_endpoint');
+    assert.ok(rootLabels.has(bridgeIn), 'model0_bridge_input_must_be_generated_from_public_pin');
+    assert.ok(rootLabels.has(bridgeFunc), 'model0_bridge_function_must_be_generated_from_public_pin');
     const bridgeCode = rootLabels.get(bridgeFunc)?.v?.code || '';
     assert.ok(bridgeCode.includes('bus_send.v1'), 'model0_bridge_function_must_write_bus_send_v1_temporary_payload');
     assert.ok(!bridgeCode.includes('source_model_id: '), 'model0_bridge_function_must_not_write_legacy_object_request');

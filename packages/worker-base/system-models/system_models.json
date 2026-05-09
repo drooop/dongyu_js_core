@@ -88,58 +88,6 @@
       "p": 0,
       "r": 0,
       "c": 0,
-      "k": "mbr_route_100",
-      "t": "json",
-      "v": {
-        "pin": "submit",
-        "type": "pin_payload"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_route_1010",
-      "t": "json",
-      "v": {
-        "pin": "submit",
-        "type": "pin_payload"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_route_1019",
-      "t": "json",
-      "v": {
-        "pin": "submit",
-        "type": "pin_payload"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_route_default",
-      "t": "json",
-      "v": {
-        "pin": "result",
-        "type": "pin_payload"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
       "k": "mbr_default_model_id",
       "t": "int",
       "v": 2

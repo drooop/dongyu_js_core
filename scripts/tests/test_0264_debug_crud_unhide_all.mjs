@@ -14,9 +14,9 @@ async function test_debug_table_shows_structural_labels() {
   const state = createServerState({ dbPath: null, assetRoot: null });
   const runtime = state.runtime;
   const model0 = runtime.getModel(0);
-  runtime.addLabel(model0, 0, 9, 9, { k: 'debug_route', t: 'pin.connect.label', v: [{ from: '(self, in)', to: ['(self, out)'] }] });
+  runtime.addLabel(model0, 0, 9, 9, { k: 'debug_route', t: 'pin.connect.label', v: [{ from: 'in', to: ['out'] }] });
   setStateLabel(runtime, 'selected_model_id', 'str', '0');
-  const rows = deriveHomeTableRows(state.clientSnap().snapshot, -2);
+  const rows = deriveHomeTableRows(state.clientSnap(), -2);
   assert.ok(rows.some((row) => row && row.t === 'model.submt'), 'debug table must show model.submt labels');
   assert.ok(rows.some((row) => row && row.t === 'pin.connect.label' && row.k === 'debug_route'), 'debug table must show structural pin/connect labels');
 }

@@ -78,7 +78,8 @@ for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective 
 
   model.submt    child-model hosting Cell. value = child model id.
                   this Cell is the mounting/mapping point for a child model.
-                  only pin.* and pin.log.* labels may coexist on a model.submt Cell.
+                  only model.submt plus ordinary pin labels may coexist on a model.submt Cell.
+                  0356 target ordinary pin labels are pin.in / pin.out / pin.login / pin.logout.
                   model.submt is single-parent only: one child model may be mounted by only one parent hosting Cell at a time.
 
   model_type label encodes two dimensions:
@@ -271,7 +272,7 @@ ARCH_INVARIANTS
 - model-driven: ModelTable = SSOT, code = runtime + extension
 - app-as-OS: IA organized by apps/workstations, not single function
 - three model forms: simple (sandbox) / matrix (spatial, deferred) / table (dynamic)
-- PIN decoupling: 3-layer pin architecture (label/cell/model), type-based differentiation
+- PIN decoupling: 0356 target uses 2 connection declarations (label/cell), type-based differentiation
 - bus decoupling: management bus (user-facing) + control bus (execution) + MBR bridge
 - workspace isolation: data separated, comms encrypted, trust revocable
 - capability detection: worker base must degrade gracefully, never crash silently
@@ -279,8 +280,8 @@ ARCH_INVARIANTS
 - Model 0 = system root / intermediate layer. system boundary ports live here.
 - every model except Model 0 MUST be explicitly mounted into the hierarchy via model.submt, including bootstrap children such as -1 and 1.
 - single external entry: pin.bus.in/pin.bus.out on Model 0 (0,0,0) = only MQTT interface. no direct cell writes from external.
-- 3-layer connection (no skip): pin.bus.in/out (system boundary) → cell_connection (inter-cell routing) → CELL_CONNECT (intra-cell wiring)
-- CELL_CONNECT = unified connection table. replaces: label_connection, trigger_funcs, function_PIN_IN/OUT.
+- connection chain (no skip): pin.bus.in/out (system boundary adapter) → pin.connect.cell (inter-cell routing) → pin.connect.label (intra-cell wiring)
+- pin.connect.label = current Cell intra-wiring table. replaces historical CELL_CONNECT / label_connection / trigger_funcs / function_PIN_IN/OUT.
 - program model: function label, v = JS code string, compiled to AsyncFunction at init. ctx = runtime execution context (system-level); user program API face = V1N namespace (0323).
 - fill-table-first: new capabilities MUST be implemented by filling models (JSON patches) before considering runtime code changes.
 - terminology: use §9 of docs/architecture_mantanet_and_workers.md
@@ -296,10 +297,12 @@ tier 1: runtime base (基座运行能力)
   what it provides:
   - model form enforcement: model.single / model.matrix / model.table constraints
   - label type interpretation: _applyBuiltins dispatches on label.t
-    recognized types:
+    0356 target recognized types after implementation migration:
       pin.in, pin.out, pin.bus.in, pin.bus.out,
-      pin.log.in, pin.log.out, pin.log.bus.in, pin.log.bus.out,
-      pin.connect.label, pin.connect.cell, pin.connect.model, model.submt, func.js, func.python
+      pin.login, pin.logout,
+      pin.connect.label, pin.connect.cell, model.submt, func.js, func.python
+    current runtime may still contain legacy pin.log.* and pin.connect.model handling;
+    those are migration debt and MUST NOT be used in new specs, models, or tests.
   - MQTT loop: startMqttLoop, mqttIncoming, topic routing
   - AsyncFunction executor: _executeFuncViaCellConnect (30s timeout, sandboxed ctx)
   - graph management: pinConnectLabelGraph, pinConnectCellRoutes, busInPorts, busOutPorts
@@ -431,6 +434,9 @@ cell position conventions:
 
 PIN_SYSTEM
 
+0356 target PIN contract is defined by docs/ssot/pin_connection_contract_v2.md.
+Use that document for any new model, test, user guide, or implementation planning.
+
 2-family PIN architecture. type-based differentiation (NOT position-based).
 
 data channel:
@@ -440,26 +446,25 @@ data channel:
   pin.bus.out       System boundary output port (only on Model 0 (0,0,0))
 
 log channel (identical routing behavior, type-isolated from data channel):
-  pin.log.in        Local log input
-  pin.log.out       Local log output
-  pin.log.bus.in    System boundary log input (only on Model 0 (0,0,0))
-  pin.log.bus.out   System boundary log output (only on Model 0 (0,0,0))
+  pin.login         Local log input
+  pin.logout        Local log output
+  legacy pin.log.*  migration debt only; do not use in new work
 
 connection declarations:
   pin.connect.label     Cell intra-wiring (endpoint = pin name string)
   pin.connect.cell      Model intra-routing (endpoint = [p,r,c,pinName])
-  pin.connect.model     Inter-model routing (endpoint = [model_id,pinName])
+  pin.connect.model     REMOVED from target contract; migration debt only
 
 rules:
-  - pin.in only connects to pin.out. pin.log.in only connects to pin.log.out. no cross-channel.
+  - pin.in only connects to pin.out. pin.login only connects to pin.logout. no cross-channel.
   - Local model/program pins use pin.in / pin.out only. pin.bus.* remains system boundary only.
   - model_id=0 external entry is pin.bus.* only.
-  - sub-model external connections are routed through declared pins, not through a separate pin.model.* family.
+  - sub-model external connections are routed through the child root (0,0,0) pins and parent hosting Cell pins, not through a separate pin.connect.model family.
   - log pins have NO special runtime behavior. no wiring = log discarded.
-  - each function has 3 pins: func:in / func:out / func:log.out.
+  - each function has 3 pins: func:in / func:out / func:logout.
 
 historical aliases (non-normative):
-  old docs/tests/code may still mention BUS_IN / BUS_OUT / cell_connection / CELL_CONNECT / MODEL_IN / MODEL_OUT.
+  old docs/tests/code may still mention BUS_IN / BUS_OUT / cell_connection / CELL_CONNECT / MODEL_IN / MODEL_OUT / pin.log.* / pin.connect.model.
   they are migration debt, not approved surface area for new work.
 
 
@@ -469,7 +474,7 @@ FUNCTION_LABELS
   value: {"code": "async (ctx) => { ... }", "modelName": "optional_scope_name"}
   value MUST use structured object in new models.
   compatibility retention is forbidden unless the user explicitly approves it.
-  each function has 3 pins: func:in, func:out, func:log.out.
+  each function has 3 pins: func:in, func:out, func:logout.
 
   func.js: compiled to AsyncFunction, executed in sandboxed ctx.
   func.python: forwarded to Python worker. JS runtime writes error label if worker unavailable.

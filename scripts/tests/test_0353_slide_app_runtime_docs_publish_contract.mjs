@@ -51,7 +51,7 @@ function test_workspace_docs_entry_is_cellwise_model() {
   assert.ok(findRecord(hierarchyRecords, (record) => record.model_id === 0 && record.p === 2 && record.r === 0 && record.c === 19 && record.t === 'model.submt' && record.v === 1039), 'model 1039 must be mounted under Workspace hierarchy');
   assert.equal(Boolean(findRecord(records, (record) => record.model_id === 0 && record.t === 'model.submt' && record.v === 1039)), false, 'docs UI patch must not own hierarchy mounts');
   assert.ok(findRecord(records, (record) => record.model_id === 1039 && record.k === 'ui_authoring_version' && record.v === 'cellwise.ui.v1'), 'model 1039 must be cellwise.ui.v1');
-  assert.ok(findRecord(records, (record) => record.model_id === 1039 && record.k === 'app_name' && record.v === 'Minimal Submit App Provider Docs'), 'workspace entry name must be present');
+  assert.ok(findRecord(records, (record) => record.model_id === 1039 && record.k === 'app_name' && record.v === 'Minimal Submit Dual-Bus Docs'), 'workspace entry name must be present');
 
   const components = records.filter((record) => record.model_id === 1039 && record.k === 'ui_component').map((record) => record.v);
   for (const component of ['Container', 'Heading', 'Paragraph', 'Markdown', 'Link', 'Callout']) {
@@ -70,8 +70,8 @@ function test_publish_script_copies_docs_and_static_project() {
     run('bash', [docsScriptPath], { env: { LOCAL_DY_PERSIST_ROOT: root } });
     const docsRoot = join(root, 'docs/user-guide/slide-app-runtime');
     const staticRoot = join(root, 'static_projects/slide-app-runtime-minimal-submit-provider');
-    assert.match(readFileSync(join(docsRoot, 'minimal_submit_app_provider_guide.md'), 'utf8'), /Input \+ Submit/u);
-    assert.match(readFileSync(join(docsRoot, 'minimal_submit_app_provider_visualized.md'), 'utf8'), /cellwise UI labels/u);
+    assert.match(readFileSync(join(docsRoot, 'minimal_submit_app_provider_guide.md'), 'utf8'), /最小 Submit 双总线示例/u);
+    assert.match(readFileSync(join(docsRoot, 'minimal_submit_app_provider_visualized.md'), 'utf8'), /remote-worker R1/u);
     assert.match(readFileSync(join(staticRoot, 'index.html'), 'utf8'), /demoInput/u);
     assert.match(readFileSync(join(staticRoot, 'minimal_submit_app_provider_interactive.html'), 'utf8'), /demoSubmit/u);
   } finally {
@@ -97,7 +97,7 @@ async function test_server_can_open_published_docs_and_static_project() {
 
     const docResult = state.runtime.hostApi.docsOpenDoc('user-guide/slide-app-runtime/minimal_submit_app_provider_guide.md');
     assert.equal(docResult.ok, true, `docsOpenDoc must open guide: ${docResult.detail || ''}`);
-    assert.match(docResult.data?.markdown || '', /Minimal Submit App/u);
+    assert.match(docResult.data?.markdown || '', /最小 Submit 双总线示例/u);
 
     const projectsResult = state.runtime.hostApi.staticListProjects();
     assert.equal(projectsResult.ok, true, 'staticListProjects must succeed');

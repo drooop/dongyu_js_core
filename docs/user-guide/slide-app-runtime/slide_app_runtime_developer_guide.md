@@ -108,7 +108,7 @@ UI 投影层用 `cellwise.ui.v1` 填表。每个 UI node 尽量对应一个 cell
     "c": 0,
     "k": "submit_request_wiring",
     "t": "pin.connect.label",
-    "v": [{ "from": "(self, submit_request)", "to": ["(func, handle_submit:in)"] }]
+    "v": [{ "from": "submit_request", "to": ["handle_submit:in"] }]
   },
   {
     "id": 0,
@@ -199,7 +199,7 @@ my-slide-app.zip
 | imported root `(0,0,0)` | `__host_ingress_submit` `pin.in` | imported APP 的宿主入口 relay |
 | imported root `(0,0,0)` | `__host_ingress_submit_route` `pin.connect.cell` | relay 到声明的 `submit_request` |
 | Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>` `pin.bus.in` | 宿主入口 |
-| Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>_route` `pin.connect.model` | 从 Model 0 路由到 imported root relay |
+| Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>_route` `pin.connect.cell` | 从 Model 0 路由到 imported app hosting Cell / imported root relay |
 
 如果 root 还声明了 `dual_bus_model` 并且有 root `submit` `pin.out`，宿主还会补外发 adapter：
 
@@ -228,7 +228,7 @@ Button click
 -> remote store POST /bus_event
 -> server validates temporary ModelTable payload
 -> server writes Model 0 (0,0,0) k=<bus_in_key> t=pin.bus.in
--> pin.connect.model routes to target model root pin.in
+-> pin.connect.cell routes to the target hosting/root boundary pin.in
 -> target model mt_bus_receive_in
 -> mt_bus_receive dispatches write_label.v1
 -> target cell receives target pin.in

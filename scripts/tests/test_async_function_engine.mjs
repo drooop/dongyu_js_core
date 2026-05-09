@@ -2,40 +2,46 @@ import { createRequire } from 'node:module';
 import assert from 'node:assert';
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
+const mt = (k, t, v) => [{ id: 0, p: 0, r: 0, c: 0, k, t, v }];
 
 async function test_func_execution() {
   const rt = new ModelTableRuntime();
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
   const model = rt.createModel({ id: 999, name: 'test', type: 'test' });
+  rt.addLabel(model, 1, 0, 0, { k: 'result', t: 'pin.out', v: null });
   rt.addLabel(model, 1, 0, 0, {
     k: 'wiring',
     t: 'pin.connect.label',
     v: [
-      { from: '(self, cmd)', to: ['(func, process:in)'] },
-      { from: '(func, process:out)', to: ['(self, result)'] },
+      { from: 'cmd', to: ['process:in'] },
+      { from: 'process:out', to: ['result'] },
     ],
   });
   rt.addLabel(model, 1, 0, 0, {
     k: 'process',
     t: 'func.js',
-    v: { code: "return label.v + '_processed';", modelName: 'test_async_function_engine' },
+    v: { code: "const rec = Array.isArray(label.v) ? label.v.find((r) => r && r.k === 'message') : null;\nreturn [{ id: 0, p: 0, r: 0, c: 0, k: 'message', t: 'str', v: String(rec && rec.v || '') + '_processed' }];", modelName: 'test_async_function_engine' },
   });
 
-  await rt._propagateCellConnect(999, 1, 0, 0, 'self', 'cmd', 'hello');
+  await rt._propagateCellConnect(999, 1, 0, 0, 'self', 'cmd', mt('message', 'str', 'hello'));
 
   const cell = rt.getCell(model, 1, 0, 0);
   const result = cell.labels.get('result');
   assert(result, 'should have result label');
-  assert.strictEqual(result.v, 'hello_processed');
+  assert.deepStrictEqual(result.v, mt('message', 'str', 'hello_processed'));
   return { key: 'func_execution', status: 'PASS' };
 }
 
 async function test_func_error_capture() {
   const rt = new ModelTableRuntime();
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
   const model = rt.createModel({ id: 998, name: 'test', type: 'test' });
   rt.addLabel(model, 0, 0, 0, {
     k: 'wiring',
     t: 'pin.connect.label',
-    v: [{ from: '(self, cmd)', to: ['(func, bad:in)'] }],
+    v: [{ from: 'cmd', to: ['bad:in'] }],
   });
   rt.addLabel(model, 0, 0, 0, {
     k: 'bad',
@@ -43,7 +49,7 @@ async function test_func_error_capture() {
     v: { code: 'throw new Error("intentional error");', modelName: 'test_async_function_engine' },
   });
 
-  await rt._propagateCellConnect(998, 0, 0, 0, 'self', 'cmd', 'test');
+  await rt._propagateCellConnect(998, 0, 0, 0, 'self', 'cmd', mt('trigger', 'str', 'test'));
 
   const cell = rt.getCell(model, 0, 0, 0);
   const err = cell.labels.get('__error_bad');
@@ -60,8 +66,8 @@ async function test_cycle_detection() {
     k: 'wiring',
     t: 'pin.connect.label',
     v: [
-      { from: '(self, a)', to: ['(self, b)'] },
-      { from: '(self, b)', to: ['(self, a)'] },
+      { from: 'a', to: ['b'] },
+      { from: 'b', to: ['a'] },
     ],
   });
 
@@ -73,8 +79,10 @@ async function test_cycle_detection() {
   return { key: 'cycle_detection', status: 'PASS' };
 }
 
-async function test_func_fallback_to_model_minus10() {
+async function test_func_does_not_fallback_to_model_minus10() {
   const rt = new ModelTableRuntime();
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
   const model = rt.createModel({ id: 996, name: 'test', type: 'test' });
   const sysModel = rt.createModel({ id: -10, name: 'system', type: 'system' });
   rt.addLabel(sysModel, 0, 0, 0, {
@@ -86,38 +94,40 @@ async function test_func_fallback_to_model_minus10() {
     k: 'wiring',
     t: 'pin.connect.label',
     v: [
-      { from: '(self, cmd)', to: ['(func, shared_func:in)'] },
-      { from: '(func, shared_func:out)', to: ['(self, out)'] },
+      { from: 'cmd', to: ['shared_func:in'] },
+      { from: 'shared_func:out', to: ['out'] },
     ],
   });
 
-  await rt._propagateCellConnect(996, 0, 0, 0, 'self', 'cmd', 'test');
+  await rt._propagateCellConnect(996, 0, 0, 0, 'self', 'cmd', mt('trigger', 'str', 'test'));
 
   const cell = rt.getCell(model, 0, 0, 0);
   const out = cell.labels.get('out');
-  assert(out, 'should have out label');
-  assert.strictEqual(out.v, 'from_system');
-  return { key: 'func_fallback_model_minus10', status: 'PASS' };
+  assert.equal(out, undefined, 'same-cell function wiring must not fallback to Model -10');
+  return { key: 'func_does_not_fallback_model_minus10', status: 'PASS' };
 }
 
 async function test_multi_target_concurrent() {
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: 995, name: 'test', type: 'test' });
+  rt.addLabel(model, 0, 0, 0, { k: 'out_a', t: 'pin.out', v: null });
+  rt.addLabel(model, 0, 0, 0, { k: 'out_b', t: 'pin.out', v: null });
   rt.addLabel(model, 0, 0, 0, {
     k: 'wiring',
     t: 'pin.connect.label',
     v: [
-      { from: '(self, cmd)', to: ['(self, out_a)', '(self, out_b)'] },
+      { from: 'cmd', to: ['out_a', 'out_b'] },
     ],
   });
 
-  await rt._propagateCellConnect(995, 0, 0, 0, 'self', 'cmd', 'data');
+  const payload = mt('data', 'str', 'value');
+  await rt._propagateCellConnect(995, 0, 0, 0, 'self', 'cmd', payload);
 
   const cell = rt.getCell(model, 0, 0, 0);
   assert(cell.labels.get('out_a'), 'should have out_a');
   assert(cell.labels.get('out_b'), 'should have out_b');
-  assert.strictEqual(cell.labels.get('out_a').v, 'data');
-  assert.strictEqual(cell.labels.get('out_b').v, 'data');
+  assert.deepStrictEqual(cell.labels.get('out_a').v, payload);
+  assert.deepStrictEqual(cell.labels.get('out_b').v, payload);
   return { key: 'multi_target_concurrent', status: 'PASS' };
 }
 
@@ -133,7 +143,7 @@ const tests = [
   test_func_execution,
   test_func_error_capture,
   test_cycle_detection,
-  test_func_fallback_to_model_minus10,
+  test_func_does_not_fallback_to_model_minus10,
   test_multi_target_concurrent,
   test_no_graph_no_error,
 ];

@@ -22,9 +22,9 @@
       "t": "pin.connect.label",
       "v": [
         {
-          "from": "(self, slide_app_create_request)",
+          "from": "slide_app_create_request",
           "to": [
-            "(func, handle_slide_app_create:in)"
+            "handle_slide_app_create:in"
           ]
         }
       ]

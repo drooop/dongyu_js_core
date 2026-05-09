@@ -32,7 +32,7 @@ async function installFunc(rt, model, p, r, c, funcName, code) {
         c,
         k: `${funcName}_wiring`,
         t: 'pin.connect.label',
-        v: [{ from: `(self, ${funcName}_in)`, to: [`(func, ${funcName}:in)`] }],
+        v: [{ from: `${funcName}_in`, to: [`${funcName}:in`] }],
       },
     ],
   }, { trustedBootstrap: true });

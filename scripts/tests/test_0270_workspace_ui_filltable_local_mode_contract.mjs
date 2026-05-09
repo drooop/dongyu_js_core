@@ -44,7 +44,7 @@ async function test_local_mode_switch_works_via_processor_routes_without_matrix_
     state.runtime.addLabel(truth, 1, 0, 0, {
       k: 'processor_routes',
       t: 'pin.connect.label',
-      v: [{ from: '(self, confirm)', to: ['(func, dispatch_local:in)'] }],
+      v: [{ from: 'confirm', to: ['dispatch_local:in'] }],
     });
     state.runtime.addLabel(truth, 0, 0, 0, { k: 'input_draft', t: 'str', v: 'LocalOnly' });
 

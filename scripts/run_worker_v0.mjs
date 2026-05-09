@@ -58,6 +58,21 @@ function runtimeBridgeActive(runtime) {
   return false;
 }
 
+function topicMatchesSubscription(subscription, topic) {
+  if (subscription === topic) return true;
+  if (typeof subscription !== 'string' || typeof topic !== 'string') return false;
+  const subParts = subscription.split('/');
+  const topicParts = topic.split('/');
+  for (let index = 0; index < subParts.length; index += 1) {
+    const part = subParts[index];
+    if (part === '#') return index === subParts.length - 1;
+    if (index >= topicParts.length) return false;
+    if (part === '+') continue;
+    if (part !== topicParts[index]) return false;
+  }
+  return subParts.length === topicParts.length;
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 function main() {
@@ -142,7 +157,6 @@ function main() {
   const readyFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_ready_func') || '').trim();
   const heartbeatFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_heartbeat_func') || '').trim();
 
-  const mqttModelIds = getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_model_ids');
   const heartbeatRaw = getLabel(rt, -10, 0, 0, 0, 'mbr_heartbeat_interval_ms');
   const heartbeatMs = Number.isInteger(heartbeatRaw) ? heartbeatRaw : 30000;
 
@@ -165,12 +179,7 @@ function main() {
     return;
   }
 
-  // Build subscription topics from model IDs
-  const modelIds = Array.isArray(mqttModelIds) ? mqttModelIds : [2];
-  const subscribeTopics = [];
-  for (const mid of modelIds) {
-    subscribeTopics.push(`${base}/${mid}/result`);
-  }
+  const subscribeTopics = [`${base}/worker/+/model/+/pin/+`];
 
   // 7. Create MQTT client
   const mqttUrl = `mqtt://${mqttHost}:${mqttPort}`;
@@ -261,7 +270,7 @@ function main() {
   });
 
   mqttClient.on('message', (topic, buf) => {
-    if (!subscribeTopics.includes(topic)) return;
+    if (!subscribeTopics.some((subscription) => topicMatchesSubscription(subscription, topic))) return;
     let payload = null;
     try {
       payload = JSON.parse(buf.toString('utf8'));

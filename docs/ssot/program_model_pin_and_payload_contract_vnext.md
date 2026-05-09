@@ -126,10 +126,10 @@ payload 中不再体现：
 - `pin.out`
 - `pin.bus.*` 继续仅保留为系统边界
 
-### 4.2 Compatibility Note
+### 4.2 Removed Legacy Names
 
-当前仓库里仍然存在大量 `pin.table.*` / `pin.single.*` / `pin.log.table.*` / `pin.log.single.*` 历史写法。  
-这些属于 `foundation B` 的迁移目标，不代表本合同继续认可它们。
+`pin.table.*` / `pin.single.*` / `pin.log.table.*` / `pin.log.single.*` 是历史写法。
+它们不代表本合同继续认可的输入面；当前实现不得为这些名称保留兼容层。
 
 ### 4.3 System Boundary Note
 

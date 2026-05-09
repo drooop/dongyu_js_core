@@ -66,11 +66,21 @@ assert.equal(
   busEventFunc,
   'final runtime dual_bus_model.bus_event_func must stay aligned with workspace contract after all patches apply',
 );
+assert.deepEqual(
+  runtimeDualBus?.egress_pins,
+  ['submit'],
+  'model100 dual_bus_model must declare public egress pin submit',
+);
 
-const systemModel = runtime.getModel(-10);
-assert.ok(systemModel, 'system model -10 must exist after applying model100 patch');
-const prepareFnLabel = runtime.getCell(systemModel, 0, 0, 0).labels.get('prepare_model100_submit_from_pin');
-assert.ok(prepareFnLabel, 'system model must define prepare_model100_submit_from_pin');
+const runtimeRemoteEndpoint = runtime.getCell(runtime.getModel(100), 0, 0, 0).labels.get('remote_bus_endpoint_v1')?.v ?? null;
+assert.deepEqual(
+  runtimeRemoteEndpoint,
+  { transport: 'mqtt', to: { worker_id: 'RE', model_id: 100 } },
+  'model100 must declare remote_bus_endpoint_v1 without route.reply_to',
+);
+
+const prepareFnLabel = runtime.getCell(runtime.getModel(100), 0, 0, 0).labels.get('prepare_model100_submit_from_pin');
+assert.ok(prepareFnLabel, 'model100 root must define prepare_model100_submit_from_pin for same-cell submit_request wiring');
 
 const code = getFunctionCode(prepareFnLabel);
 assert.doesNotMatch(
@@ -91,11 +101,11 @@ const model0MountRecord = getRecord(
 );
 assert.ok(model0MountRecord, 'model100 must be mounted under model0 via runtime hierarchy');
 
-const model0EgressRecord = getRecord(
+const legacyModel0EgressRecord = getRecord(
   model100Patch.records,
   (record) => record && record.model_id === 0 && record.k === 'model100_submit_out',
 );
-assert.ok(model0EgressRecord, 'model0 must define a local egress label for model100 submit');
+assert.equal(legacyModel0EgressRecord, null, 'model0 must not define old local egress label for model100 submit');
 
 const model100 = runtime.getModel(100);
 assert.ok(model100, 'model100 must exist');

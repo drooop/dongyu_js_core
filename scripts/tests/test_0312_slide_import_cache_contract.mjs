@@ -352,9 +352,11 @@ async function test_slide_importer_repairs_legacy_persisted_click_contract() {
     assert.equal(repairedClick?.v, null, 'repair_must_clear_legacy_scalar_click_payload');
     assert.equal(readLabelFromState(state, 1030, 0, 0, 0, 'bucket_c_cell_routes')?.t, 'pin.connect.cell', 'repair_must_restore_bucket_c_route');
     assert.equal(readLabelFromState(state, 1030, 0, 0, 0, 'slide_import_request')?.t, 'pin.out', 'repair_must_restore_import_request_pin');
-    assert.equal(readLabelFromState(state, 0, 0, 0, 0, 'slide_import_click_route')?.t, 'pin.connect.model', 'repair_must_restore_model0_click_ingress_route');
-    assert.equal(readLabelFromState(state, 0, 0, 0, 0, 'slide_import_media_uri_update_route')?.t, 'pin.connect.model', 'repair_must_restore_model0_uri_update_route');
-    assert.equal(readLabelFromState(state, 0, 0, 0, 0, 'slide_import_request_route')?.t, 'pin.connect.model', 'repair_must_restore_model0_import_route');
+    assert.equal(readLabelFromState(state, 0, 0, 0, 0, 'slide_import_click_route')?.t, 'pin.connect.cell', 'repair_must_restore_model0_click_ingress_route');
+    assert.equal(readLabelFromState(state, 0, 0, 0, 0, 'slide_import_media_uri_update_route')?.t, 'pin.connect.cell', 'repair_must_restore_model0_uri_update_route');
+    assert.equal(readLabelFromState(state, 0, 0, 0, 0, 'slide_import_request_route')?.t, 'pin.connect.cell', 'repair_must_restore_model0_import_route');
+    assert.equal(readLabelFromState(state, 0, 2, 0, 13, 'model_type')?.t, 'model.submt', 'repair_must_restore_importer_model0_mount');
+    assert.equal(readLabelFromState(state, 0, 1, 0, 3, 'model_type')?.t, 'model.submt', 'repair_must_restore_system_model0_mount');
     assert.equal(readLabelFromState(state, 1030, 2, 4, 0, 'click_route')?.t, 'pin.connect.label', 'repair_must_restore_button_click_route');
     const repairedHandler = readLabelFromState(state, 1030, 2, 4, 0, 'handle_slide_import_click');
     assert.equal(repairedHandler?.t, 'func.js', 'repair_must_restore_click_handler');

@@ -14,13 +14,6 @@ const repoRoot = path.resolve(import.meta.dirname, '..', '..');
 const workspacePatchPath = 'packages/worker-base/system-models/workspace_positive_models.json';
 const testPatchPath = 'packages/worker-base/system-models/test_model_100_ui.json';
 
-function tempPayload(records = []) {
-  return [
-    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
-    ...records,
-  ];
-}
-
 function readJson(relPath) {
   return JSON.parse(fs.readFileSync(path.join(repoRoot, relPath), 'utf8'));
 }
@@ -200,16 +193,19 @@ function test_workspace_model100_submit_button_preserves_pin_metadata() {
   assert.deepEqual(
     submit.writable_pins,
     [{
-      name: 'click',
-      direction: 'in',
+      name: 'bus_event_submit_100_0_0_0',
+      direction: 'bus.in',
       trigger: 'click',
       value_t: 'modeltable',
       commit_policy: 'immediate',
+      transport: 'bus_event_v2',
       primary: true,
     }],
     'submit button must expose frozen writable_pins',
   );
-  assert.equal(submit.bind?.write?.pin, 'click', 'submit button write must target click pin');
+  assert.equal(submit.bind?.write?.bus_event_v2, true, 'submit button write must use bus_event_v2');
+  assert.equal(submit.bind?.write?.bus_in_key, 'bus_event_submit_100_0_0_0', 'submit button write must target the Model 0 bus-in route');
+  assert.equal(submit.bind?.write?.pin, undefined, 'submit button must not directly write the positive-model click pin');
   assert.deepEqual(
     submit.props?.loading,
     { $label: { model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight' } },
@@ -232,41 +228,32 @@ function test_test_model100_ui_patch_carries_same_cellwise_authoring_surface() {
   );
   const ast = buildAstFromCellwiseModel(makeSnapshotFromRecords(records, 100), 100);
   assert.equal(ast?.id, 'model100_cellwise_root', 'test_model_100_ui must project the same cellwise root');
-  assert.equal(findNodeById(ast, 'submit_button')?.bind?.write?.pin, 'click', 'test_model_100_ui submit must keep click pin write');
+  assert.equal(findNodeById(ast, 'submit_button')?.bind?.write?.bus_event_v2, true, 'test_model_100_ui submit must use bus_event_v2');
+  assert.equal(findNodeById(ast, 'submit_button')?.bind?.write?.bus_in_key, 'bus_event_submit_100_0_0_0', 'test_model_100_ui submit must target Model 0 bus-in route');
   assert.ok(
     Array.isArray(findNodeById(ast, 'submit_button')?.bind?.write?.value_ref),
-    'test_model_100_ui submit click value_ref must be a temporary ModelTable array',
+    'test_model_100_ui submit value_ref must be a temporary ModelTable array',
   );
   return { key: 'test_model100_ui_patch_carries_same_cellwise_authoring_surface', status: 'PASS' };
 }
 
-async function test_test_model100_ui_standalone_click_pin_executes_submit_chain() {
+async function test_test_model100_ui_declares_model0_bus_event_submit_route() {
   const patch = readJson(testPatchPath);
   const runtime = new ModelTableRuntime();
   runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
   runtime.setRuntimeMode('edit');
   runtime.setRuntimeMode('running');
 
-  const model100 = runtime.getModel(100);
-  assert.ok(model100, 'test_model_100_ui must create model100');
-  runtime.addLabel(model100, 1, 0, 0, {
-    k: 'click',
-    t: 'pin.in',
-    v: tempPayload([{ id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'fixture-standalone-check' }]),
-  });
-  await new Promise((resolve) => setTimeout(resolve, 300));
-
-  const rootLabels = runtime.getCell(model100, 0, 0, 0).labels;
-  const submit = rootLabels.get('submit')?.v ?? null;
-  assert.ok(Array.isArray(submit), 'test_model_100_ui standalone click must produce submit temporary ModelTable payload');
-  assert.ok(
-    submit.some((record) => record && record.k === 'input_value' && record.v === 'fixture-standalone-check'),
-    'test_model_100_ui standalone submit payload must preserve input_value',
+  const model0 = runtime.getModel(0);
+  assert.ok(model0, 'test_model_100_ui must create Model 0 route host');
+  const route = runtime.getCell(model0, 0, 0, 0).labels.get('model100_submit_ingress_route')?.v ?? null;
+  assert.ok(Array.isArray(route), 'Model 0 must declare model100_submit_ingress_route');
+  assert.deepEqual(
+    route[0],
+    { from: [0, 0, 0, 'bus_event_submit_100_0_0_0'], to: [[10, 0, 0, 'submit_request']] },
+    'Model 100 browser submit must enter Model 0 bus-in before reaching Model 100 public submit_request pin',
   );
-  assert.equal(rootLabels.get('status')?.v, 'loading', 'test_model_100_ui standalone click must reach submit preparation');
-  assert.equal(rootLabels.get('__error_prepare_model100_submit_from_pin')?.v ?? null, null, 'standalone fixture must not leave prepare error');
-  assert.equal(runtime.getCell(model100, 1, 0, 0).labels.get('__error_handle_submit_click')?.v ?? null, null, 'standalone fixture must not leave click handler error');
-  return { key: 'test_model100_ui_standalone_click_pin_executes_submit_chain', status: 'PASS' };
+  return { key: 'test_model100_ui_declares_model0_bus_event_submit_route', status: 'PASS' };
 }
 
 const tests = [
@@ -275,7 +262,7 @@ const tests = [
   test_model100_colorbox_numeric_height_renders_as_css_length,
   test_workspace_model100_submit_button_preserves_pin_metadata,
   test_test_model100_ui_patch_carries_same_cellwise_authoring_surface,
-  test_test_model100_ui_standalone_click_pin_executes_submit_chain,
+  test_test_model100_ui_declares_model0_bus_event_submit_route,
 ];
 
 async function main() {

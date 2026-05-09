@@ -35,32 +35,36 @@ function test_model100_declares_submit_request_pin_and_wiring() {
 function test_model0_declares_model100_submit_ingress_route() {
   const patch = readJson('packages/worker-base/system-models/test_model_100_ui.json');
   const records = patch.records || [];
-  const route = findRecord(records, (record) => record?.model_id === 0 && record?.k === 'model100_submit_ingress_route' && record?.t === 'pin.connect.model');
+  const route = findRecord(records, (record) => record?.model_id === 0 && record?.k === 'model100_submit_ingress_route' && record?.t === 'pin.connect.cell');
   assert.ok(route, 'model100_submit_ingress_route_missing');
   assert.deepEqual(
     route.v,
-    [{ from: [0, 'bus_event_submit_100_0_0_0'], to: [[100, 'submit_request']] }],
-    'model100_submit_ingress_route_must_bind_model0_bus_event_submit_to_model100_submit_request',
+    [{ from: [0, 0, 0, 'bus_event_submit_100_0_0_0'], to: [[10, 0, 0, 'submit_request']] }],
+    'model100_submit_ingress_route_must_bind_model0_bus_event_submit_to_model100_host_submit_request',
+  );
+  assert.ok(
+    findRecord(records, (record) => record?.model_id === 0 && record?.p === 10 && record?.r === 0 && record?.c === 0 && record?.k === 'model_type' && record?.t === 'model.submt' && record?.v === 100),
+    'model100_host_mount_missing',
   );
   return { key: 'model0_declares_model100_submit_ingress_route', status: 'PASS' };
 }
 
-function test_system_model_declares_prepare_model100_submit_from_pin() {
+function test_model100_root_declares_prepare_model100_submit_from_pin() {
   const patch = readJson('packages/worker-base/system-models/test_model_100_ui.json');
   const records = patch.records || [];
-  const fn = findRecord(records, (record) => record?.model_id === -10 && record?.k === 'prepare_model100_submit_from_pin' && record?.t === 'func.js');
+  const fn = findRecord(records, (record) => record?.model_id === 100 && record?.p === 0 && record?.r === 0 && record?.c === 0 && record?.k === 'prepare_model100_submit_from_pin' && record?.t === 'func.js');
   assert.ok(fn, 'prepare_model100_submit_from_pin_missing');
   assert.match(String(fn.v?.code || ''), /label\.v/, 'prepare_model100_submit_from_pin_must_read_from_pin_label_payload');
   assert.doesNotMatch(String(fn.v?.code || ''), /ctx\.getLabel|ctx\.writeLabel/, 'prepare_model100_submit_from_pin_must_not_use_legacy_ctx_label_api');
   assert.match(String(fn.v?.code || ''), /V1N\.readLabel\(/, 'prepare_model100_submit_from_pin_must_read_submit_state_via_v1n');
   assert.match(String(fn.v?.code || ''), /writeRoot\('submit',\s*'pin\.out'/, 'prepare_model100_submit_from_pin_must_write_model100_submit_pin_out_via_v1n_table');
-  return { key: 'system_model_declares_prepare_model100_submit_from_pin', status: 'PASS' };
+  return { key: 'model100_root_declares_prepare_model100_submit_from_pin', status: 'PASS' };
 }
 
 const tests = [
   test_model100_declares_submit_request_pin_and_wiring,
   test_model0_declares_model100_submit_ingress_route,
-  test_system_model_declares_prepare_model100_submit_from_pin,
+  test_model100_root_declares_prepare_model100_submit_from_pin,
 ];
 
 (async () => {

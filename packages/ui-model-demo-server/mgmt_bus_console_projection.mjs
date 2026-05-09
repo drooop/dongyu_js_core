@@ -3,11 +3,17 @@ const MODEL_ROUTE_KEYS = [
   'mgmt_bus_console_refresh_route',
 ];
 
-const MBR_ROUTE_KEYS = [
-  'mbr_route_100',
-  'mbr_route_1010',
-  'mbr_route_1019',
-  'mbr_route_default',
+const BUS_ROUTE_METADATA_ROWS = [
+  {
+    route: 'message.route.to',
+    status: 'configured',
+    target: 'worker_id / model_id / pin from outbound packet',
+  },
+  {
+    route: 'message.route.reply_to',
+    status: 'configured',
+    target: 'server-owned UI worker / local model / result pin',
+  },
 ];
 
 const SENSITIVE_KEY_RE = /(^|[_\-.])(access_token|refresh_token|matrix_token|matrix_passwd|token|secret|passwd|password|credential|credentials|authorization|auth)([_\-.]|$)/iu;
@@ -83,16 +89,6 @@ function describeModelRoute(routeKey, value) {
     target: to.map((entry) => (
       Array.isArray(entry) ? `${entry[0]}.${entry[1]}` : String(entry)
     )).join(', '),
-  };
-}
-
-function describeMbrRoute(routeKey, value) {
-  return {
-    route: routeKey,
-    status: value && typeof value === 'object' ? 'configured' : 'missing',
-    target: value && typeof value === 'object'
-      ? `pin=${String(value.pin || '')}`
-      : '',
   };
 }
 
@@ -246,10 +242,7 @@ export function deriveMgmtBusConsoleProjection({ matrixProjection, readRootLabel
   const modelRoutes = MODEL_ROUTE_KEYS.map((routeKey) => (
     describeModelRoute(routeKey, readLabel(0, routeKey))
   ));
-  const mbrRoutes = MBR_ROUTE_KEYS.map((routeKey) => (
-    describeMbrRoute(routeKey, readLabel(-10, routeKey))
-  ));
-  const routeRows = [...modelRoutes, ...mbrRoutes];
+  const routeRows = [...modelRoutes, ...BUS_ROUTE_METADATA_ROWS];
   const configuredRoutes = routeRows.filter((row) => row.status === 'configured').length;
   const routeStatus = routeRows.length > 0 && configuredRoutes === routeRows.length ? 'live' : 'route_missing';
   const sourceEvents = Array.isArray(source.events) ? source.events : [];

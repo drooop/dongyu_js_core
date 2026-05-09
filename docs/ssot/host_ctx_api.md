@@ -57,7 +57,7 @@ source: ai
   → mt_write_result pin.out (可选返回结果)
 ```
 
-复杂 materialize 场景必须走 helper request pin / owner_request / owner materialize 这类显式中介路径，不得把 runtime-wide patch 能力直接暴露给用户程序。
+复杂 materialize 场景必须走 `mt_write_req`、`owner_request`、owner materializer 这类显式中介路径，不得把 runtime-wide patch 能力直接暴露给用户程序。
 
 用户 API（0331 冻结 v1）：
 ```js
@@ -100,9 +100,11 @@ API 约束：
 - `__mt_status`：`"ok"` | `"rejected"`
 - `__mt_error`：`__mt_status`=`"rejected"` 时必填，结构化错误码（当前至少含 `out_of_scope`、`reserved_key`、`type_mismatch`、`invalid_payload`、`multiple_user_labels`、`missing_user_label`）
 
-向后兼容承诺：字段的新增必须保持既有字段的 addLabel/rmLabel 行为不变；删除或重命名既有字段需要 iteration 审批。
+字段演进规则：字段的新增必须保持既有字段的 addLabel/rmLabel 行为不变；删除或重命名既有字段需要 iteration 审批，且不得增加兼容别名。
 
 ## 3. 跨模型通信路径
+
+0356 后跨模型通信不再使用 `pin.connect.model`；目标合同见 `docs/ssot/pin_connection_contract_v2.md`。
 
 两种合法路径：
 
@@ -114,7 +116,8 @@ API 约束：
 
 **路径 B — Model 0 中转：**
 ```
-子模型边界 pin.out → pin.connect.model (Model 0) → 目标模型边界 pin.in
+子模型边界 pin.out → Model 0 hosting Cell 引脚 → pin.connect.cell (Model 0)
+  → 目标模型 hosting/root 边界 pin.in
   → 目标模型 (0,0,0) mt_bus_receive:in → mt_bus_receive → 分发到目标 Cell
 ```
 
@@ -133,7 +136,7 @@ API 约束：
 约束：
 - 这三个程序是系统提供的基础设施，用户不得覆盖或删除。
 - 这三个程序拥有模型内特权：可读写当前模型内任意 Cell。
-- 替代原 (0,1,0) helper executor 模式（**仅 model.table 场景**；model.single 场景仍保留 helper scaffold，详见 `docs/ssot/runtime_semantics_modeltable_driven.md` §5.2f）。
+- 替代原 `(0,1,0)` helper executor 模式；当前 runtime 不再使用 helper executor 授权路径。
 
 ## 5. MGMT 相关（待迁移）
 
@@ -172,7 +175,7 @@ API 约束：
 |---|---|---|
 | `ctx.getState(key)` | DEPRECATED | 后续迁移为通过 editor_state 模型显式读取 |
 | `ctx.getStateInt(key)` | DEPRECATED | 同上 |
-| helper executor (0,1,0) | 部分保留 | 仅 model.single helper scaffold 保留；model.table 写入路径必须走 (0,0,0) mt_write |
+| helper executor (0,1,0) | REMOVED | 写入路径必须走 (0,0,0) `mt_write` 或显式 owner materializer |
 
 ## 8. 约束与保留
 

@@ -257,10 +257,16 @@ They are reserved planning inputs, not current implementation targets.
 Current 0296-era artifacts should be treated as implementation debt where they conflict with this file:
 - `docs/iterations/0296-foundation-c-data-models/*`
 - `docs/user-guide/data_models_filltable_guide.md`
-- `packages/worker-base/system-models/templates/data_array_v0.json`
 - `packages/worker-base/system-models/templates/data_queue_v0.json`
 - `packages/worker-base/system-models/templates/data_stack_v0.json`
 - `scripts/fixtures/0190_data_array_cases.json`
 - `scripts/fixtures/0296_data_model_cases.json`
 
-Future implementation should migrate templates and tests to this contract instead of adding compatibility aliases, unless a user explicitly approves a compatibility period.
+0355 update:
+- `Data.Array.One` is implemented as
+  `packages/worker-base/system-models/templates/data_array_one_v1.json`.
+- `packages/worker-base/system-models/templates/data_array_v0.json` is now a
+  superseded, non-runnable tombstone.
+- 0190-era Array tests now guard against reintroducing the old runnable target.
+
+Future implementation should migrate each remaining template and test to this contract instead of adding compatibility aliases, unless a user explicitly approves a compatibility period.

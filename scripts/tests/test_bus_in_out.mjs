@@ -35,6 +35,7 @@ function test_bus_in_routes_via_cell_connection() {
     t: 'pin.connect.cell',
     v: [{ from: [0, 0, 0, 'event_in'], to: [[1, 0, 0, 'cmd']] }],
   });
+  rt.addLabel(model0, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: null });
   // Register BUS_IN with null (declaration only)
   rt.addLabel(model0, 0, 0, 0, { k: 'event_in', t: 'pin.bus.in', v: null });
   // Now write with a temporary ModelTable payload → should trigger routing
@@ -74,6 +75,7 @@ function test_handle_bus_in_message() {
     t: 'pin.connect.cell',
     v: [{ from: [0, 0, 0, 'data_in'], to: [[1, 0, 0, 'input']] }],
   });
+  rt.addLabel(model0, 1, 0, 0, { k: 'input', t: 'pin.in', v: null });
   rt.addLabel(model0, 0, 0, 0, { k: 'data_in', t: 'pin.bus.in', v: null });
   // Simulate incoming
   const payload = temporaryPayload({ test: 1 });

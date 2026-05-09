@@ -2,7 +2,7 @@
 title: "Data Model Tier 2 Implementation v1"
 doc_type: ssot
 status: active
-updated: 2026-04-29
+updated: 2026-04-30
 source: ai
 ---
 
@@ -85,6 +85,12 @@ The following names are not allowed in new target templates:
 
 No compatibility aliases may be added unless a later iteration explicitly approves a compatibility period.
 
+0355 implementation status:
+- `Data.Array.One` has no compatibility aliases for 0296-era names.
+- `data_array_v0.json` is a superseded tombstone, not a runnable fallback.
+- Later data-family iterations must follow the same break-and-replace rule for
+  their target type.
+
 ## 3. Payload And Materialization
 
 Every non-empty Data.* pin value must be a Temporary ModelTable Message record array.
@@ -122,8 +128,10 @@ Function requirements:
 
 The migration should happen in separate implementation iterations:
 
-1. `Data.Single` and shared payload/result helpers.
-2. `Data.Array.One`.
+1. `Data.Single` and shared payload/result helpers. Implemented for the
+   `Data.Array.One` slice in 0355.
+2. `Data.Array.One`. Implemented in 0355 as
+   `packages/worker-base/system-models/templates/data_array_one_v1.json`.
 3. `Data.Array.Two` and `Data.Array.Three`.
 4. `Data.Queue` and `Data.Stack`.
 5. `Data.CircularBuffer`.
@@ -164,18 +172,21 @@ Poor fits:
 
 These artifacts are known migration debt:
 
-- `packages/worker-base/system-models/templates/data_array_v0.json`
 - `packages/worker-base/system-models/templates/data_queue_v0.json`
 - `packages/worker-base/system-models/templates/data_stack_v0.json`
 - `scripts/fixtures/0190_data_array_cases.json`
 - `scripts/fixtures/0296_data_model_cases.json`
-- `scripts/tests/test_0190_data_array_contract.mjs`
-- `scripts/tests/test_0190_data_array_template_patch.mjs`
 - `scripts/tests/test_0296_data_queue_contract.mjs`
 - `scripts/tests/test_0296_data_stack_contract.mjs`
 - `packages/worker-base/src/data_models.js`
 
 Do not copy these as new canonical examples. They are useful as migration references only.
+
+Superseded but intentionally retained as non-runnable evidence:
+
+- `packages/worker-base/system-models/templates/data_array_v0.json`
+- `scripts/tests/test_0190_data_array_contract.mjs`
+- `scripts/tests/test_0190_data_array_template_patch.mjs`
 
 ## 8. Verification Expectations
 

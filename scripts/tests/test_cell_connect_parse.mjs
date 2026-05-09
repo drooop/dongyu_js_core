@@ -6,60 +6,51 @@ const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js
 
 function test_parse_endpoint_self() {
   const rt = new ModelTableRuntime();
-  const r = rt._parseCellConnectEndpoint('(self, topic_cellA)');
+  const model = rt.createModel({ id: 991, name: 'test', type: 'test' });
+  rt.addLabel(model, 1, 0, 0, { k: 'topic_cellA', t: 'pin.in', v: null });
+  const r = rt._classifyCellConnectEndpoint(model, 1, 0, 0, 'topic_cellA');
   assert(r !== null, 'should parse self prefix');
-  assert.strictEqual(r.prefix, 'self');
-  assert.strictEqual(r.port, 'topic_cellA');
+  assert.strictEqual(r.endpoint.prefix, 'self');
+  assert.strictEqual(r.endpoint.port, 'topic_cellA');
   return { key: 'parse_endpoint_self', status: 'PASS' };
 }
 
 function test_parse_endpoint_func() {
   const rt = new ModelTableRuntime();
-  const r = rt._parseCellConnectEndpoint('(func, process_A1:in)');
+  const model = rt.createModel({ id: 992, name: 'test', type: 'test' });
+  rt.addLabel(model, 1, 0, 0, { k: 'process_A1', t: 'func.js', v: { code: 'return label.v;' } });
+  const r = rt._classifyCellConnectEndpoint(model, 1, 0, 0, 'process_A1:in');
   assert(r !== null, 'should parse func prefix');
-  assert.strictEqual(r.prefix, 'func');
-  assert.strictEqual(r.port, 'process_A1:in');
+  assert.strictEqual(r.endpoint.prefix, 'func');
+  assert.strictEqual(r.endpoint.port, 'process_A1:in');
   return { key: 'parse_endpoint_func', status: 'PASS' };
 }
 
-function test_parse_endpoint_numeric() {
+function test_removed_endpoint_syntax() {
   const rt = new ModelTableRuntime();
-  const r = rt._parseCellConnectEndpoint('(10, from_parent)');
-  assert(r !== null, 'should parse numeric prefix');
-  assert.strictEqual(r.prefix, '10');
-  assert.strictEqual(r.port, 'from_parent');
-  return { key: 'parse_endpoint_numeric', status: 'PASS' };
-}
-
-function test_parse_endpoint_no_space() {
-  const rt = new ModelTableRuntime();
-  const r = rt._parseCellConnectEndpoint('(self,cmd)');
-  assert(r !== null, 'should parse without space after comma');
-  assert.strictEqual(r.prefix, 'self');
-  assert.strictEqual(r.port, 'cmd');
-  return { key: 'parse_endpoint_no_space', status: 'PASS' };
-}
-
-function test_parse_endpoint_invalid() {
-  const rt = new ModelTableRuntime();
-  assert.strictEqual(rt._parseCellConnectEndpoint('invalid'), null, 'no parentheses');
-  assert.strictEqual(rt._parseCellConnectEndpoint('(only_one)'), null, 'no comma');
-  assert.strictEqual(rt._parseCellConnectEndpoint('(a, b, c)'), null, 'too many parts');
-  assert.strictEqual(rt._parseCellConnectEndpoint('(, port)'), null, 'empty prefix');
-  assert.strictEqual(rt._parseCellConnectEndpoint('(self, )'), null, 'empty port');
-  assert.strictEqual(rt._parseCellConnectEndpoint('(abc, port)'), null, 'invalid prefix');
-  return { key: 'parse_endpoint_invalid', status: 'PASS' };
+  const model = rt.createModel({ id: 993, name: 'test', type: 'test' });
+  const normalized = rt._normalizeCellConnectLabel(model, 1, 0, 0, {
+    k: 'wiring',
+    t: 'pin.connect.label',
+    v: [{ from: '(self, cmd)', to: ['(func, process:in)'] }],
+  });
+  assert.strictEqual(normalized.ok, false, 'removed endpoint syntax must be rejected');
+  assert.strictEqual(normalized.reason, 'cell_connect_removed_endpoint_syntax');
+  return { key: 'removed_endpoint_syntax', status: 'PASS' };
 }
 
 function test_cell_connect_label_parse() {
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: 999, name: 'test', type: 'test' });
+  rt.addLabel(model, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: null });
+  rt.addLabel(model, 1, 0, 0, { k: 'process', t: 'func.js', v: { code: 'return label.v;' } });
+  rt.addLabel(model, 1, 0, 0, { k: 'result', t: 'pin.out', v: null });
   rt.addLabel(model, 1, 0, 0, {
     k: 'wiring',
     t: 'pin.connect.label',
     v: [
-      { from: '(self, cmd)', to: ['(func, process:in)'] },
-      { from: '(func, process:out)', to: ['(self, result)'] },
+      { from: 'cmd', to: ['process:in'] },
+      { from: 'process:out', to: ['result'] },
     ],
   });
   const cellKey = '999|1|0|0';
@@ -121,10 +112,13 @@ function test_cell_connection_wrong_position() {
 function test_multi_target_fanout() {
   const rt = new ModelTableRuntime();
   const model = rt.createModel({ id: 996, name: 'test', type: 'test' });
+  rt.addLabel(model, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: null });
+  rt.addLabel(model, 1, 0, 0, { k: 'a', t: 'func.js', v: { code: 'return label.v;' } });
+  rt.addLabel(model, 1, 0, 0, { k: 'b', t: 'func.js', v: { code: 'return label.v;' } });
   rt.addLabel(model, 1, 0, 0, {
     k: 'wiring',
     t: 'pin.connect.label',
-    v: [{ from: '(self, cmd)', to: ['(func, a:in)', '(func, b:in)'] }],
+    v: [{ from: 'cmd', to: ['a:in', 'b:in'] }],
   });
   const graph = rt.cellConnectGraph.get('996|1|0|0');
   const targets = graph.get('self:cmd');
@@ -136,9 +130,7 @@ function test_multi_target_fanout() {
 const tests = [
   test_parse_endpoint_self,
   test_parse_endpoint_func,
-  test_parse_endpoint_numeric,
-  test_parse_endpoint_no_space,
-  test_parse_endpoint_invalid,
+  test_removed_endpoint_syntax,
   test_cell_connect_label_parse,
   test_cell_connect_bad_value,
   test_cell_connection_parse,

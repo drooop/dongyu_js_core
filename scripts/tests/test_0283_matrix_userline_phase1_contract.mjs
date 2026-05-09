@@ -49,7 +49,7 @@ function test_workspace_patch_defines_matrix_phase1_models_and_mounts() {
   }
 
   assert.ok(
-    findRecord(hierarchyRecords, (record) => (
+    findRecord([...hierarchyRecords, ...workspaceRecords], (record) => (
       record?.model_id === 0
       && record?.t === 'model.submt'
       && record?.v === MATRIX_WORKSPACE_APP_MODEL_ID
@@ -95,23 +95,29 @@ function test_system_and_remote_patches_cover_model1019_route() {
   const remoteConfigRecords = getRecords('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json');
   const remoteConversationRecords = getRecords('deploy/sys-v1ns/remote-worker/patches/12_model1019.json');
 
-  assert.ok(findRecord(systemRecords, (record) => record?.k === 'mbr_route_1019'), 'system_models_missing_mbr_route_1019');
+  assert.equal(systemRecords.some((record) => String(record?.k || '').startsWith('mbr_route_')), false, 'system_models_must_not_seed_static_mbr_routes');
+  assert.equal(mbrRecords.some((record) => record?.k === 'mbr_mqtt_model_ids'), false, 'mbr_role_must_not_use_static_model_ids');
   assert.ok(
-    findRecord(mbrRecords, (record) => record?.k === 'mbr_mqtt_model_ids' && Array.isArray(record?.v) && record.v.includes(MATRIX_ACTIVE_CONVERSATION_MODEL_ID)),
-    'mbr_role_missing_model1019_in_mqtt_model_ids',
+    findRecord(mbrRecords, (record) => record?.k === 'mbr_mgmt_to_mqtt' && String(record?.v?.code || '').includes('route.to')),
+    'mbr_role_must_derive_destination_from_message_route_to',
   );
   assert.ok(
     findRecord(remoteConfigRecords, (record) => (
       record?.k === 'remote_subscriptions'
       && Array.isArray(record?.v)
-      && record.v.some((topic) => String(topic).endsWith('/1019/submit'))
-      && record.v.some((topic) => String(topic).endsWith('/1019/result'))
+      && record.v.includes('UIPUT/ws/dam/pic/de/sw/worker/RE/model/1019/pin/submit')
+      && !record.v.some((topic) => String(topic).endsWith('/1019/result'))
     )),
-    'remote_worker_config_missing_model1019_topics',
+    'remote_worker_config_must_subscribe_new_model1019_submit_topic_only',
   );
   assert.ok(
+    findRecord(remoteConversationRecords, (record) => record?.model_id === MATRIX_ACTIVE_CONVERSATION_MODEL_ID && record?.k === 'mqtt_topic_base'),
+    'remote_worker_patch_missing_model1019_mqtt_topic_base',
+  );
+  assert.equal(
     findRecord(remoteConversationRecords, (record) => record?.model_id === MATRIX_ACTIVE_CONVERSATION_MODEL_ID && record?.k === 'result_out_topic'),
-    'remote_worker_patch_missing_model1019_result_out_topic',
+    null,
+    'remote_worker_patch_must_not_use_static_model1019_result_out_topic',
   );
 
   return { key: 'system_and_remote_patches_cover_model1019_route', status: 'PASS' };
