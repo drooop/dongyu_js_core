@@ -327,9 +327,27 @@
       "k": "dual_bus_model",
       "t": "json",
       "v": {
-        "bus_event_func": "prepare_model100_submit",
-        "model0_egress_label": "model100_submit_out",
-        "model0_egress_func": "forward_model100_submit_from_model0"
+        "mode": "imported_host_egress",
+        "egress_pins": [
+          "submit"
+        ],
+        "bus_event_func": "prepare_model100_submit"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_bus_endpoint_v1",
+      "t": "json",
+      "v": {
+        "transport": "mqtt",
+        "to": {
+          "worker_id": "RE",
+          "model_id": 100
+        }
       }
     },
     {
@@ -351,6 +369,19 @@
       "k": "submit_request",
       "t": "pin.in",
       "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "prepare_model100_submit_from_pin",
+      "t": "func.js",
+      "v": {
+        "code": "const eventPayload = Array.isArray(label && label.v) ? label.v : [];\nif (eventPayload.length === 0) return;\nconst readPayload = (key, fallback = null) => {\n  const record = eventPayload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key);\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\nconst readValue = (tp, tr, tc, key, fallback = null) => {\n  const next = V1N.readLabel(tp, tr, tc, key);\n  return next && Object.prototype.hasOwnProperty.call(next, 'v') ? next.v : fallback;\n};\nconst writeRoot = (key, type, value) => V1N.table.addLabel(0, 0, 0, key, type, value);\nconst writeMailbox = (key, type, value) => V1N.table.addLabel(0, 0, 1, key, type, value);\nconst inflight = readValue(0, 0, 0, 'submit_inflight', false) === true;\nconst startedAt = Number(readValue(0, 0, 0, 'submit_inflight_started_at', 0) || 0);\nconst TIMEOUT_MS = 30000;\nconst now = Date.now();\nif (inflight === true) {\n  const stale = !Number.isFinite(startedAt) || (now - startedAt > TIMEOUT_MS);\n  if (stale) {\n    writeRoot('submit_inflight', 'bool', false);\n    writeRoot('submit_inflight_started_at', 'int', 0);\n    writeRoot('status', 'str', 'ready');\n  } else {\n    writeMailbox('bus_event_error', 'json', { code: 'busy', detail: 'model100_submit_inflight' });\n    writeMailbox('bus_event_last_op_id', 'str', '');\n    return;\n  }\n}\nwriteRoot('submit_inflight', 'bool', true);\nwriteRoot('submit_inflight_started_at', 'int', now);\nwriteRoot('status', 'str', 'loading');\nwriteMailbox('bus_event_error', 'json', null);\nconst inputValue = String(readPayload('input_value', ''));\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: inputValue },\n  { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: 'remote' }\n];\nwriteRoot('submit', 'pin.out', payload);",
+        "modelName": "test_model_100_ui"
+      }
     },
     {
       "op": "add_label",
@@ -2928,9 +2959,27 @@
       "k": "dual_bus_model",
       "t": "json",
       "v": {
-        "bus_event_func": "prepare_workspace_filltable_submit",
-        "model0_egress_label": "ws_filltable_submit_out",
-        "model0_egress_func": "forward_workspace_filltable_submit_from_model0"
+        "mode": "imported_host_egress",
+        "egress_pins": [
+          "submit"
+        ],
+        "bus_event_func": "prepare_workspace_filltable_submit"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1010,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_bus_endpoint_v1",
+      "t": "json",
+      "v": {
+        "transport": "mqtt",
+        "to": {
+          "worker_id": "RE",
+          "model_id": 1010
+        }
       }
     },
     {
@@ -3128,29 +3177,6 @@
       "k": "ws_filltable_submit_relay",
       "t": "pin.in",
       "v": null
-    },
-    {
-      "op": "add_label",
-      "model_id": 0,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "ws_filltable_submit_out",
-      "t": "pin.in",
-      "v": null
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "forward_workspace_filltable_submit_from_model0",
-      "t": "func.js",
-      "v": {
-        "code": "/* rubric: P4+P9+P10+P5 */ const payload = ((ctx.hostApi.readCrossModel(0, 0, 0, 0, 'ws_filltable_submit_out') || {}).data || {}).v;\nif (!Array.isArray(payload) || payload.length === 0) return;\nconst packet = { version: 'v1', type: 'pin_payload', op_id: 'ws_filltable_' + Date.now(), source_model_id: 1010, pin: 'submit', payload, timestamp: Date.now() };\nconst p = ctx.sendMatrix(packet);\nif (p && typeof p.then === 'function') {\n  p.catch(function() {\n    ctx.hostApi.writeCrossModel(1010, 0, 0, 0, 'submit_inflight', 'bool', false);\n    ctx.hostApi.writeCrossModel(1010, 0, 0, 0, 'result_status', 'str', 'send_failed');\n  });\n} else if (!p) {\n  ctx.hostApi.writeCrossModel(1010, 0, 0, 0, 'submit_inflight', 'bool', false);\n  ctx.hostApi.writeCrossModel(1010, 0, 0, 0, 'result_status', 'str', 'matrix_unavailable');\n}\nctx.hostApi.writeCrossModel(0, 0, 0, 0, 'ws_filltable_submit_out', 'pin.in', null);\nctx.hostApi.writeCrossModel(1010, 0, 0, 0, 'submit', 'pin.out', null);",
-        "modelName": "workspace_filltable_example"
-      }
     },
     {
       "op": "create_model",
@@ -12340,9 +12366,27 @@
       "k": "dual_bus_model",
       "t": "json",
       "v": {
-        "bus_event_func": "prepare_matrix_phase1_send",
-        "model0_egress_label": "matrix_phase1_submit_out",
-        "model0_egress_func": "forward_matrix_phase1_send_from_model0"
+        "mode": "imported_host_egress",
+        "egress_pins": [
+          "submit"
+        ],
+        "bus_event_func": "prepare_matrix_phase1_send"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_bus_endpoint_v1",
+      "t": "json",
+      "v": {
+        "transport": "mqtt",
+        "to": {
+          "worker_id": "RE",
+          "model_id": 1019
+        }
       }
     },
     {
@@ -12458,6 +12502,33 @@
     {
       "op": "add_label",
       "model_id": 1019,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "matrix_phase1_processor_write_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [
+            1,
+            0,
+            0,
+            "write_label_req"
+          ],
+          "to": [
+            [
+              0,
+              0,
+              0,
+              "mt_write_req"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1019,
       "p": 1,
       "r": 0,
       "c": 0,
@@ -12501,8 +12572,8 @@
       "k": "dispatch_matrix_phase1_send",
       "t": "func.js",
       "v": {
-        "code": "/* rubric: P4+P9+P10+P5 */ const SELF_MODEL_ID=ctx.self.model_id;const root={model_id:SELF_MODEL_ID,p:0,r:0,c:0};const sessionRoot={model_id:1017,p:0,r:0,c:0};const uiRoot={model_id:1021,p:0,r:0,c:0};const authenticated=((ctx.hostApi.readCrossModel(1017, 0, 0, 0, 'session_authenticated') || {}).data || {}).v===true;const text=String(((ctx.hostApi.readCrossModel(1021, 0, 0, 0, 'composer_draft') || {}).data || {}).v||((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'message_draft') || {}).data || {}).v||'').trim();if(!authenticated){ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'conversation_status', 'str', 'login_required');return;}if(!text){ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'conversation_status', 'str', 'empty_message');return;}const sender=String(((ctx.hostApi.readCrossModel(1017, 0, 0, 0, 'session_user_id') || {}).data || {}).v||'').trim();const roomId=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'active_room_id') || {}).data || {}).v||'').trim()||'!phase1-echo:localhost';const roomName=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'active_room_name') || {}).data || {}).v||roomId);const roomKind=String(((ctx.hostApi.readCrossModel(root.model_id, root.p, root.r, root.c, 'active_room_kind') || {}).data || {}).v||'dm');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'last_sent_text', 'str', text);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'submit_inflight', 'bool', true);ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'conversation_status', 'str', 'loading');ctx.hostApi.writeCrossModel(1021, 0, 0, 0, 'composer_draft', 'str', '');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'message_draft', 'str', '');ctx.hostApi.writeCrossModel(root.model_id, root.p, root.r, root.c, 'submit', 'pin.out', [{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.MatrixChatMessage'},{id:0,p:0,r:0,c:0,k:'room_id',t:'str',v:roomId},{id:0,p:0,r:0,c:0,k:'room_name',t:'str',v:roomName},{id:0,p:0,r:0,c:0,k:'room_kind',t:'str',v:roomKind},{id:0,p:0,r:0,c:0,k:'sender_user_id',t:'str',v:sender},{id:0,p:0,r:0,c:0,k:'message_text',t:'str',v:text}]);",
-        "modelName": "matrix_userline_phase2_active_conversation_truth"
+        "code": "/* rubric: Model 1019 same-model dispatch via explicit write_label_req */\nconst records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = (key, fallback = '') => {\n  const record = records.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key);\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\nconst writeRoot = (k, t, v) => V1N.writeLabel(0, 0, 0, { k, t, v });\nconst text = String(readPayload('message_text', '') || '').trim();\nif (!text) {\n  writeRoot('conversation_status', 'str', 'empty_message');\n  return;\n}\nconst roomId = String(readPayload('room_id', '!phase1-echo:localhost') || '!phase1-echo:localhost');\nconst roomName = String(readPayload('room_name', roomId) || roomId);\nconst roomKind = String(readPayload('room_kind', 'dm') || 'dm');\nconst sender = String(readPayload('sender_user_id', '') || '');\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.MatrixChatMessage' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'room_id', t: 'str', v: roomId },\n  { id: 0, p: 0, r: 0, c: 0, k: 'room_name', t: 'str', v: roomName },\n  { id: 0, p: 0, r: 0, c: 0, k: 'room_kind', t: 'str', v: roomKind },\n  { id: 0, p: 0, r: 0, c: 0, k: 'sender_user_id', t: 'str', v: sender },\n  { id: 0, p: 0, r: 0, c: 0, k: 'message_text', t: 'str', v: text }\n];\nwriteRoot('last_sent_text', 'str', text);\nwriteRoot('submit_inflight', 'bool', true);\nwriteRoot('conversation_status', 'str', 'loading');\nwriteRoot('submit', 'pin.out', payload);",
+        "modelName": "matrix_phase1"
       }
     },
     {
@@ -12527,8 +12598,8 @@
       "k": "prepare_matrix_phase1_send",
       "t": "func.js",
       "v": {
-        "code": "/* rubric: P4+P9+P10+P5 */ const convoRoot={model_id:1019,p:0,r:0,c:0};const membersRoot={model_id:1020,p:0,r:0,c:0};const uiRoot={model_id:1021,p:0,r:0,c:0};const roomRoot={model_id:1018,p:0,r:0,c:0};const sessionRoot={model_id:1017,p:0,r:0,c:0};const event=((ctx.hostApi.readCrossModel(1019, 0, 0, 2, 'bus_event') || {}).data || {}).v;if(!event||typeof event!=='object')return;const rooms=((ctx.hostApi.readCrossModel(1018, 0, 0, 0, 'rooms_json') || {}).data || {}).v;const roomMembers=((ctx.hostApi.readCrossModel(1020, 0, 0, 0, 'room_members_json') || {}).data || {}).v;const roomTimelines=((ctx.hostApi.readCrossModel(1019, 0, 0, 0, 'room_timelines_json') || {}).data || {}).v;const roomList=Array.isArray(rooms)?rooms:[];const memberMap=roomMembers&&typeof roomMembers==='object'&&!Array.isArray(roomMembers)?roomMembers:{};const timelineMap=roomTimelines&&typeof roomTimelines==='object'&&!Array.isArray(roomTimelines)?roomTimelines:{};const toTimelineText=(items)=>Array.isArray(items)&&items.length>0?items.map((item)=>{const sender=String(item&&item.sender?item.sender:'system');const text=String(item&&item.text?item.text:'');return sender+': '+text;}).join('\\n'):'No messages yet';const toMemberSummary=(items)=>Array.isArray(items)&&items.length>0?items.map((item)=>{const name=String(item&&item.display_name?item.display_name:(item&&item.user_id?item.user_id:'unknown'));const userId=String(item&&item.user_id?item.user_id:'unknown');const presence=String(item&&item.presence?item.presence:'unknown');return name+' <'+userId+'> ('+presence+')';}).join('\\n'):'No members';const applyRoom=(roomId)=>{const fallbackRoom=roomId?{room_id:roomId,name:roomId,kind:'dm'}:(roomList[0]||{room_id:'!phase1-echo:localhost',name:'Phase 1 Echo Room',kind:'dm'});const room=roomList.find((item)=>item&&item.room_id===roomId)||fallbackRoom;const chosenId=String(room.room_id||roomId||'!phase1-echo:localhost');const chosenName=String(room.name||chosenId);const chosenKind=String(room.kind||'dm');const timeline=Array.isArray(timelineMap[chosenId])?timelineMap[chosenId]:[];const members=Array.isArray(memberMap[chosenId])?memberMap[chosenId]:[];ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'active_room_id', 'str', chosenId);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'active_room_name', 'str', chosenName);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'active_room_kind', 'str', chosenKind);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'timeline_json', 'json', timeline);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'timeline_text', 'str', toTimelineText(timeline));ctx.hostApi.writeCrossModel(1020, 0, 0, 0, 'active_room_id', 'str', chosenId);ctx.hostApi.writeCrossModel(1020, 0, 0, 0, 'active_room_name', 'str', chosenName);ctx.hostApi.writeCrossModel(1020, 0, 0, 0, 'active_room_kind', 'str', chosenKind);ctx.hostApi.writeCrossModel(1020, 0, 0, 0, 'active_members_json', 'json', members);ctx.hostApi.writeCrossModel(1020, 0, 0, 0, 'active_members_summary', 'str', toMemberSummary(members));ctx.hostApi.writeCrossModel(1021, 0, 0, 0, 'selected_room_id', 'str', chosenId);ctx.hostApi.writeCrossModel(1021, 0, 0, 0, 'selected_room_kind', 'str', chosenKind);return {roomId:chosenId,roomName:chosenName,roomKind:chosenKind};};const action=String(event.action||'submit');if(action==='select_room'){applyRoom(String(event.room_id||''));ctx.hostApi.writeCrossModel(1019, 0, 0, 2, 'bus_event', 'event', null);return;}if(action!=='submit'){ctx.hostApi.writeCrossModel(1019, 0, 0, 2, 'bus_event', 'event', null);return;}const authenticated=((ctx.hostApi.readCrossModel(1017, 0, 0, 0, 'session_authenticated') || {}).data || {}).v===true;const text=String(((ctx.hostApi.readCrossModel(1021, 0, 0, 0, 'composer_draft') || {}).data || {}).v||((ctx.hostApi.readCrossModel(1019, 0, 0, 0, 'message_draft') || {}).data || {}).v||'').trim();if(!authenticated){ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'login_required');ctx.hostApi.writeCrossModel(1019, 0, 0, 2, 'bus_event', 'event', null);return;}if(!text){ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'empty_message');ctx.hostApi.writeCrossModel(1019, 0, 0, 2, 'bus_event', 'event', null);return;}const currentRoom=applyRoom(String(((ctx.hostApi.readCrossModel(1019, 0, 0, 0, 'active_room_id') || {}).data || {}).v||''));const sender=String(((ctx.hostApi.readCrossModel(1017, 0, 0, 0, 'session_user_id') || {}).data || {}).v||'').trim();const submitPayload=[{id:0,p:0,r:0,c:0,k:'model_type',t:'model.single',v:'Data.MatrixChatMessage'},{id:0,p:0,r:0,c:0,k:'room_id',t:'str',v:currentRoom.roomId},{id:0,p:0,r:0,c:0,k:'room_name',t:'str',v:currentRoom.roomName},{id:0,p:0,r:0,c:0,k:'room_kind',t:'str',v:currentRoom.roomKind},{id:0,p:0,r:0,c:0,k:'sender_user_id',t:'str',v:sender},{id:0,p:0,r:0,c:0,k:'message_text',t:'str',v:text}];ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'last_sent_text', 'str', text);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'submit_inflight', 'bool', true);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'loading');ctx.hostApi.writeCrossModel(1021, 0, 0, 0, 'composer_draft', 'str', '');ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'message_draft', 'str', '');const packet={version:'v1',type:'pin_payload',op_id:'matrix_phase2_'+Date.now(),source_model_id:1019,pin:'submit',payload:submitPayload,timestamp:Date.now()};const p=ctx.sendMatrix(packet);if(p&&typeof p.then==='function'){p.catch(function(){ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'submit_inflight', 'bool', false);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'send_failed');});}else if(!p){ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'submit_inflight', 'bool', false);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'matrix_unavailable');}ctx.hostApi.writeCrossModel(1019, 0, 0, 2, 'bus_event', 'event', null);",
-        "modelName": "matrix_userline_phase2"
+        "code": "/* rubric: Model 1019 system ingress prepares same-model pin payload */\nconst host = ctx.hostApi;\nif (!host) throw new Error('host_api_missing');\nconst read = (modelId, p, r, c, k, fallback = null) => {\n  const result = host.readCrossModel(modelId, p, r, c, k);\n  return result && result.ok && result.data && Object.prototype.hasOwnProperty.call(result.data, 'v') ? result.data.v : fallback;\n};\nconst write = (modelId, p, r, c, k, t, v) => {\n  const result = host.writeCrossModel(modelId, p, r, c, k, t, v);\n  if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'write_failed');\n};\nconst event = read(1019, 0, 0, 2, 'bus_event');\nif (!event || typeof event !== 'object') return;\nconst action = String(event.action || 'submit');\nconst clearEvent = () => write(1019, 0, 0, 2, 'bus_event', 'event', null);\nif (action !== 'submit') {\n  clearEvent();\n  return;\n}\nconst authenticated = read(1017, 0, 0, 0, 'session_authenticated', false) === true;\nconst composerDraft = String(read(1021, 0, 0, 0, 'composer_draft', '') || '').trim();\nconst localDraft = String(read(1019, 0, 0, 0, 'message_draft', '') || '').trim();\nconst text = composerDraft || localDraft;\nif (!authenticated) {\n  write(1019, 0, 0, 0, 'conversation_status', 'str', 'login_required');\n  clearEvent();\n  return;\n}\nif (!text) {\n  write(1019, 0, 0, 0, 'conversation_status', 'str', 'empty_message');\n  clearEvent();\n  return;\n}\nconst sender = String(read(1017, 0, 0, 0, 'session_user_id', '') || '').trim();\nconst roomId = String(read(1019, 0, 0, 0, 'active_room_id', '') || '').trim() || '!phase1-echo:localhost';\nconst roomName = String(read(1019, 0, 0, 0, 'active_room_name', '') || roomId);\nconst roomKind = String(read(1019, 0, 0, 0, 'active_room_kind', '') || 'dm');\nconst triggerPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'room_id', t: 'str', v: roomId },\n  { id: 0, p: 0, r: 0, c: 0, k: 'room_name', t: 'str', v: roomName },\n  { id: 0, p: 0, r: 0, c: 0, k: 'room_kind', t: 'str', v: roomKind },\n  { id: 0, p: 0, r: 0, c: 0, k: 'sender_user_id', t: 'str', v: sender },\n  { id: 0, p: 0, r: 0, c: 0, k: 'message_text', t: 'str', v: text }\n];\nwrite(1021, 0, 0, 0, 'composer_draft', 'str', '');\nwrite(1019, 0, 0, 0, 'message_draft', 'str', '');\nwrite(1019, 1, 0, 0, 'send', 'pin.in', triggerPayload);\nclearEvent();",
+        "modelName": "system"
       }
     },
     {
@@ -12540,29 +12611,6 @@
       "k": "matrix_phase1_submit_relay",
       "t": "pin.in",
       "v": null
-    },
-    {
-      "op": "add_label",
-      "model_id": 0,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "matrix_phase1_submit_out",
-      "t": "pin.in",
-      "v": null
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "forward_matrix_phase1_send_from_model0",
-      "t": "func.js",
-      "v": {
-        "code": "/* rubric: P4+P9+P10+P5 */ const payload=((ctx.hostApi.readCrossModel(0, 0, 0, 0, 'matrix_phase1_submit_out') || {}).data || {}).v;if(!Array.isArray(payload)||payload.length===0)return;const packet={version:'v1',type:'pin_payload',op_id:'matrix_phase1_'+Date.now(),source_model_id:1019,pin:'submit',payload,timestamp:Date.now()};const p=ctx.sendMatrix(packet);if(p&&typeof p.then==='function'){p.catch(function(){ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'submit_inflight', 'bool', false);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'send_failed');});}else if(!p){ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'submit_inflight', 'bool', false);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'conversation_status', 'str', 'matrix_unavailable');}ctx.hostApi.writeCrossModel(0, 0, 0, 0, 'matrix_phase1_submit_out', 'pin.in', null);ctx.hostApi.writeCrossModel(1019, 0, 0, 0, 'submit', 'pin.out', null);",
-        "modelName": "matrix_userline_phase1"
-      }
     },
     {
       "op": "add_label",
@@ -16503,7 +16551,8 @@
       "t": "json",
       "v": {
         "write": {
-          "pin": "click",
+          "bus_event_v2": true,
+          "bus_in_key": "bus_event_submit_100_0_0_0",
           "value_ref": [
             {
               "id": 0,
@@ -23141,60 +23190,6 @@
     },
     {
       "op": "add_label",
-      "model_id": 0,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "ws_filltable_submit_route",
-      "t": "pin.connect.cell",
-      "v": [
-        {
-          "from": [
-            2,
-            0,
-            8,
-            "submit"
-          ],
-          "to": [
-            [
-              0,
-              0,
-              0,
-              "ws_filltable_submit_out"
-            ]
-          ]
-        }
-      ]
-    },
-    {
-      "op": "add_label",
-      "model_id": 0,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "matrix_phase1_submit_route",
-      "t": "pin.connect.cell",
-      "v": [
-        {
-          "from": [
-            2,
-            0,
-            12,
-            "submit"
-          ],
-          "to": [
-            [
-              0,
-              0,
-              0,
-              "matrix_phase1_submit_out"
-            ]
-          ]
-        }
-      ]
-    },
-    {
-      "op": "add_label",
       "model_id": 1009,
       "p": 0,
       "r": 2,
@@ -23266,6 +23261,745 @@
           ]
         }
       ]
+    },
+    {
+      "op": "create_model",
+      "model_id": 1050,
+      "name": "minimal_submit_matrix_example",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.MinimalSubmitDualBusZip"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "最小 Submit 双总线示例"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "manual-zip-import"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_capable",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "workspace.page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "from_user",
+      "t": "str",
+      "v": "@manual:localhost"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "to_user",
+      "t": "str",
+      "v": "@mbr:localhost"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "minimal_submit_zip_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "input_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "display_text",
+      "t": "str",
+      "v": "Waiting for submit"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_status",
+      "t": "str",
+      "v": "idle"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_inflight",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "last_submit_payload",
+      "t": "json",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "host_ingress_v1",
+      "t": "json",
+      "v": {
+        "version": "v1",
+        "boundaries": [
+          {
+            "semantic": "submit",
+            "pin_name": "submit_request",
+            "value_t": "modeltable",
+            "locator_kind": "root_relative_cell",
+            "locator_value": {
+              "p": 0,
+              "r": 0,
+              "c": 0
+            },
+            "primary": true
+          }
+        ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_bus_endpoint_v1",
+      "t": "json",
+      "v": {
+        "transport": "mqtt",
+        "to": {
+          "worker_id": "RE",
+          "model_id": 3000
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "dual_bus_model",
+      "t": "json",
+      "v": {
+        "mode": "imported_host_egress",
+        "egress_pins": [
+          "submit1"
+        ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit1",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_request_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "submit_request",
+          "to": [
+            "handle_submit:in"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "root_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [
+            2,
+            3,
+            0,
+            "click_chain"
+          ],
+          "to": [
+            [
+              0,
+              0,
+              0,
+              "submit_request"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_submit",
+      "t": "func.js",
+      "v": {
+        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = function(key, fallback) { const rec = records.find(function(item) { return item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key; }); return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback; };\nconst nestedValue = readPayload('value', {});\nconst text = String(readPayload('text', nestedValue && nestedValue.text != null ? nestedValue.text : '')).trim();\nconst source = String(readPayload('source', nestedValue && nestedValue.source ? nestedValue.source : 'ui_button'));\nconst SELF = ctx.self.model_id;\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'minimal_submit.request.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'text', t: 'str', v: text },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: SELF },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source', t: 'str', v: source }\n];\nV1N.addLabel('input_text', 'str', text);\nV1N.addLabel('last_submit_payload', 'json', payload);\nV1N.addLabel('submit_inflight', 'bool', !!text);\nV1N.addLabel('remote_status', 'str', text ? 'sending' : 'empty_input');\nif (text) V1N.addLabel('submit1', 'pin.out', payload);\nreturn;"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "minimal_submit_zip_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 14
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "minimal_submit_zip_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "minimal_submit_zip_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "最小 Submit 双总线示例"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "minimal_submit_zip_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "minimal_submit_zip_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "输入要发送到 remote-worker R1 的内容"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1050,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "input_text"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1050,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "input_text"
+          },
+          "commit_policy": "on_blur"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "minimal_submit_zip_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "minimal_submit_zip_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Submit"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "click_chain",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "pin": "click_chain",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ui_event.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "text",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1050,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "input_text"
+                }
+              }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "source",
+              "t": "str",
+              "v": "ui_button"
+            }
+          ],
+          "value_t": "modeltable",
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "minimal_submit_zip_display"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "minimal_submit_zip_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "success"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1050,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "display_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "minimal_submit_zip_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "minimal_submit_zip_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "REMOTE"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_text_ref_model_id",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_text_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_text_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_text_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_text_ref_k",
+      "t": "str",
+      "v": "remote_status"
     }
   ]
 }

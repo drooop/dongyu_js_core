@@ -48,6 +48,13 @@ function buildSubmitPayload(text = 'hello') {
   ];
 }
 
+function buildRoute(sourceModelId = 100, pin = 'submit') {
+  return {
+    to: { worker_id: 'RE', model_id: sourceModelId, pin },
+    reply_to: { worker_id: 'ui-server-test', model_id: sourceModelId, pin: 'result' },
+  };
+}
+
 function test_model100_pin_payload_still_publishes() {
   const rt = loadRuntime();
   const sys = rt.getModel(-10);
@@ -62,6 +69,7 @@ function test_model100_pin_payload_still_publishes() {
       op_id: 'mbr_ok_001',
       source_model_id: 100,
       pin: 'submit',
+      route: buildRoute(100, 'submit'),
       payload: buildSubmitPayload(),
       timestamp: Date.now(),
     },
@@ -71,9 +79,10 @@ function test_model100_pin_payload_still_publishes() {
   fn(buildCtx(rt, published));
 
   assert.equal(published.length, 1, 'standard Model 100 pin_payload must still publish to MQTT');
-  assert.match(published[0].topic, /\/100\/submit$/, 'standard Model 100 submit pin must publish to /100/submit');
+  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/worker/RE/model/100/pin/submit', 'standard Model 100 submit pin must publish to route.to topic');
   assert.equal(published[0].payload?.type, 'pin_payload', 'MBR must preserve pin_payload transport type');
   assert.equal(published[0].payload?.pin, 'submit', 'MBR must preserve pin name');
+  assert.equal(published[0].payload?.route?.to?.worker_id, 'RE', 'MBR must preserve route metadata');
   assert.ok(Array.isArray(published[0].payload?.payload), 'MBR must publish temporary-modeltable payload arrays');
   assert.equal(published[0].payload?.payload?.[1]?.v, 'hello', 'MBR must preserve temporary-modeltable content');
 }
@@ -122,6 +131,7 @@ function test_pin_payload_records_with_legacy_fields_are_rejected() {
       op_id: 'mbr_reject_legacy_record_fields_001',
       source_model_id: 100,
       pin: 'submit',
+      route: buildRoute(100, 'submit'),
       payload: [
         { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
         { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'blocked', model_id: 100 },
@@ -153,6 +163,7 @@ function test_pin_payload_records_missing_v_are_rejected() {
       op_id: 'mbr_reject_missing_v_001',
       source_model_id: 100,
       pin: 'submit',
+      route: buildRoute(100, 'submit'),
       payload: [
         { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
         { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str' },

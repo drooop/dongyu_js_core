@@ -3,22 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Minimal Submit App Provider Interactive Guide</title>
+<title>最小 Submit 双总线示例</title>
 <link rel="icon" href="data:,">
 <style>
   :root {
-    --paper: #f4efe4;
-    --ink: #19212b;
-    --muted: #617080;
+    --paper: #f6f0e5;
+    --ink: #17212b;
+    --muted: #627083;
     --panel: #fffaf0;
     --line: #d8cab5;
+    --route: #245f8f;
+    --worker: #2f6f53;
     --accent: #bd5b2d;
-    --accent-dark: #7a341e;
-    --sage: #2f6f53;
-    --blue: #245f8f;
-    --soft-blue: #e7f0f7;
-    --soft-sage: #e7f2eb;
-    --soft-rust: #faeadf;
+    --dark: #1e2936;
+    --soft-route: #e7f0f7;
+    --soft-worker: #e7f2eb;
+    --soft-accent: #faeadf;
     --shadow: 0 24px 70px rgba(50, 32, 14, 0.16);
     --mono: "SF Mono", "Menlo", "Consolas", monospace;
   }
@@ -30,46 +30,79 @@
     min-height: 100vh;
     color: var(--ink);
     background:
-      radial-gradient(circle at 12% 12%, rgba(189, 91, 45, 0.14), transparent 28rem),
-      radial-gradient(circle at 88% 0%, rgba(36, 95, 143, 0.12), transparent 26rem),
-      linear-gradient(140deg, #fbf7ee 0%, var(--paper) 55%, #eadfcc 100%);
+      radial-gradient(circle at 10% 12%, rgba(189, 91, 45, 0.16), transparent 30rem),
+      radial-gradient(circle at 90% 4%, rgba(36, 95, 143, 0.13), transparent 28rem),
+      linear-gradient(145deg, #fbf7ee 0%, var(--paper) 55%, #eadfcc 100%);
     font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     line-height: 1.62;
   }
 
-  header {
-    max-width: 1180px;
+  header, main {
+    max-width: 1240px;
     margin: 0 auto;
-    padding: 58px 24px 30px;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  header {
+    padding-top: 54px;
+    padding-bottom: 28px;
   }
 
   .eyebrow {
-    color: var(--accent-dark);
+    color: var(--accent);
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 900;
     letter-spacing: .18em;
     text-transform: uppercase;
   }
 
   h1 {
-    max-width: 900px;
+    max-width: 960px;
     margin: 12px 0 16px;
-    font-size: clamp(34px, 6.4vw, 76px);
+    font-size: clamp(36px, 6vw, 74px);
     line-height: .98;
     letter-spacing: -.055em;
   }
 
   .lead {
-    max-width: 780px;
+    max-width: 860px;
     margin: 0;
     color: var(--muted);
     font-size: 18px;
   }
 
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .fact {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(255, 250, 240, .78);
+    padding: 14px;
+  }
+
+  .fact span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .fact strong {
+    display: block;
+    margin-top: 5px;
+    overflow-wrap: anywhere;
+  }
+
   main {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 0 24px 68px;
+    padding-bottom: 72px;
   }
 
   .layout {
@@ -89,7 +122,7 @@
   .stage {
     border: 1px solid var(--line);
     border-radius: 18px;
-    background: rgba(255, 250, 240, .74);
+    background: rgba(255, 250, 240, .78);
     color: var(--ink);
     padding: 14px 15px;
     text-align: left;
@@ -98,21 +131,17 @@
   }
 
   .stage:hover { transform: translateY(-1px); border-color: var(--accent); }
-  .stage.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .stage.active { background: var(--dark); color: #fff; border-color: var(--dark); }
   .stage strong { display: block; font-size: 15px; }
   .stage span { display: block; margin-top: 3px; color: inherit; opacity: .72; font-size: 12px; }
 
-  .content {
-    display: grid;
-    gap: 22px;
-  }
+  .content { display: grid; gap: 22px; }
 
   .panel {
     display: none;
-    min-height: 360px;
     border: 1px solid var(--line);
     border-radius: 30px;
-    background: rgba(255, 250, 240, .9);
+    background: rgba(255, 250, 240, .92);
     box-shadow: var(--shadow);
     padding: 30px;
     overflow: hidden;
@@ -130,20 +159,20 @@
 
   h2 {
     margin: 0 0 10px;
-    font-size: clamp(24px, 3.8vw, 42px);
+    font-size: clamp(26px, 3.7vw, 44px);
     line-height: 1.05;
-    letter-spacing: -.035em;
+    letter-spacing: -.04em;
   }
 
   .panel > p {
-    max-width: 760px;
+    max-width: 820px;
     color: var(--muted);
     margin: 0 0 22px;
   }
 
   .split {
     display: grid;
-    grid-template-columns: minmax(0, 1.04fr) minmax(280px, .96fr);
+    grid-template-columns: minmax(0, 1.03fr) minmax(300px, .97fr);
     gap: 22px;
   }
 
@@ -156,7 +185,7 @@
 
   .mini-title {
     font-size: 24px;
-    font-weight: 800;
+    font-weight: 900;
     letter-spacing: -.03em;
     margin-bottom: 16px;
   }
@@ -164,7 +193,7 @@
   label {
     display: block;
     color: #345;
-    font-weight: 700;
+    font-weight: 800;
     margin-bottom: 8px;
   }
 
@@ -180,7 +209,7 @@
   }
 
   input:focus {
-    border-color: var(--sage);
+    border-color: var(--worker);
     box-shadow: 0 0 0 4px rgba(47, 111, 83, .12);
   }
 
@@ -191,9 +220,9 @@
     margin-top: 14px;
     border: 0;
     border-radius: 999px;
-    background: var(--sage);
+    background: var(--worker);
     color: #fff;
-    font-weight: 800;
+    font-weight: 900;
     padding: 11px 18px;
     cursor: pointer;
     box-shadow: 0 12px 24px rgba(47, 111, 83, .18);
@@ -202,11 +231,24 @@
   .result {
     margin-top: 18px;
     border-radius: 18px;
-    background: var(--soft-sage);
+    background: var(--soft-worker);
     border: 1px solid #c7dfcd;
     padding: 14px 16px;
-    font-weight: 800;
+    font-weight: 900;
     color: #1e4b37;
+  }
+
+  .status {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 12px;
+    border-radius: 999px;
+    background: #eef4f0;
+    border: 1px solid #d5e2d9;
+    padding: 7px 11px;
+    color: #315845;
+    font-weight: 800;
   }
 
   .flow {
@@ -222,29 +264,59 @@
   }
 
   .node strong { display: block; }
-  .node small { color: var(--muted); display: block; margin-top: 2px; }
-  .node.blue { background: var(--soft-blue); border-color: #c8d9e7; }
-  .node.sage { background: var(--soft-sage); border-color: #c7dfcd; }
-  .node.rust { background: var(--soft-rust); border-color: #e5c5b2; }
+  .node small { color: var(--muted); display: block; margin-top: 2px; overflow-wrap: anywhere; }
+  .node.route { background: var(--soft-route); border-color: #c8d9e7; }
+  .node.worker { background: var(--soft-worker); border-color: #c7dfcd; }
+  .node.accent { background: var(--soft-accent); border-color: #e5c5b2; }
 
-  .cell-grid {
+  .grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
 
-  .cell {
+  .card {
     border: 1px solid var(--line);
     border-radius: 18px;
-    background: rgba(255,255,255,.75);
+    background: rgba(255,255,255,.76);
     padding: 14px;
   }
 
-  .cell code {
+  .card code {
     display: inline-block;
     margin-bottom: 6px;
-    color: var(--accent-dark);
-    font-weight: 800;
+    color: var(--accent);
+    font-weight: 900;
+  }
+
+  .steps {
+    counter-reset: step;
+    display: grid;
+    gap: 12px;
+  }
+
+  .step {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: #fff;
+    padding: 14px;
+  }
+
+  .step:before {
+    content: counter(step);
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--dark);
+    color: #fff;
+    font-weight: 900;
   }
 
   pre {
@@ -260,23 +332,7 @@
     line-height: 1.55;
   }
 
-  .inline-payload {
-    max-height: 180px;
-    font-size: 11px;
-  }
-
-  .checklist {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-  }
-
-  .check {
-    border-left: 4px solid var(--accent);
-    border-radius: 14px;
-    background: #fff6ed;
-    padding: 12px 14px;
-  }
+  .inline-payload { max-height: 230px; font-size: 11px; }
 
   .note {
     margin-top: 16px;
@@ -295,113 +351,166 @@
     font-size: .92em;
   }
 
-  @media (max-width: 880px) {
+  @media (max-width: 920px) {
     .layout, .split { grid-template-columns: 1fr; }
     .rail { position: static; }
-    .cell-grid, .checklist { grid-template-columns: 1fr; }
+    .facts, .grid { grid-template-columns: 1fr; }
     header { padding-top: 34px; }
   }
 </style>
 </head>
 <body>
 <header>
-  <div class="eyebrow">Provider cookbook</div>
-  <h1>Input + Submit Button + Display Label</h1>
-  <p class="lead">一个第三方滑动 APP 提供方需要理解的最小闭环：填表定义 UI，按钮提交临时 ModelTable records，submit 程序模型写回显示 label。</p>
+  <div class="eyebrow">Slide app provider cookbook</div>
+  <h1>最小 Submit 双总线示例</h1>
+  <p class="lead">这不是静态 HTML demo。它说明 Workspace 中的 cellwise UI 如何点击 Submit，经 Model 0、Matrix、MBR、MQTT 到 remote-worker RE，再按 server-owned reply_to 把结果回流到本地 UI 模型。</p>
+  <div class="facts" aria-label="Contract facts">
+    <div class="fact"><span>Local model</span><strong>2000</strong></div>
+    <div class="fact"><span>Provider</span><strong>RE / 3000</strong></div>
+    <div class="fact"><span>Submit route</span><strong>route.to.pin=submit1</strong></div>
+    <div class="fact"><span>Reply route</span><strong>server-owned reply_to</strong></div>
+  </div>
 </header>
 
 <main class="layout">
   <nav class="rail" aria-label="Guide stages">
-    <button class="stage active" data-stage="mental"><strong>1. 先看成品</strong><span>最小 UI 和运行结果</span></button>
-    <button class="stage" data-stage="cells"><strong>2. 单元格地图</strong><span>每个 cell 负责什么</span></button>
-    <button class="stage" data-stage="payload"><strong>3. 按钮 payload</strong><span>提交的是 records</span></button>
-    <button class="stage" data-stage="program"><strong>4. submit 程序</strong><span>读取 text，写 display_text</span></button>
-    <button class="stage" data-stage="package"><strong>5. 打包自检</strong><span>zip 中只放 app_payload.json</span></button>
+    <button class="stage active" data-stage="overview"><strong>1. 先看结果</strong><span>真实双总线路径</span></button>
+    <button class="stage" data-stage="r1"><strong>2. RE 怎么填</strong><span>remote-worker 模型表</span></button>
+    <button class="stage" data-stage="ui"><strong>3. UI 怎么写</strong><span>cellwise 组件拆分</span></button>
+    <button class="stage" data-stage="import"><strong>4. 怎么导入</strong><span>zip 与滑动 APP 导入</span></button>
+    <button class="stage" data-stage="external"><strong>5. 外部收发</strong><span>Matrix/MQTT 测试</span></button>
+    <button class="stage" data-stage="guard"><strong>6. 禁止残留</strong><span>无兼容链路</span></button>
   </nav>
 
   <section class="content">
-    <article class="panel active" id="stage-mental">
-      <h2>提供方只需要交付一个最小闭环</h2>
-      <p>你不需要手写宿主路由，也不需要知道安装后的正式 model id。先把下面这个最小 APP 用 ModelTable records 表达出来。</p>
+    <article class="panel active" id="stage-overview">
+      <h2>浏览器显示的是 remote-worker 回流结果</h2>
+      <p>在 Workspace 打开 <code>最小 Submit 双总线示例</code> 后，输入内容并点击 <code>Submit</code>，结果应由 RE 的 provider model 处理后回写为 <code>Submitted: &lt;输入内容&gt;</code>。</p>
       <div class="split">
-        <div class="mini-app" aria-label="Minimal app preview">
-          <div class="mini-title">Minimal Submit App</div>
+        <div class="mini-app" aria-label="Minimal dual bus app preview">
+          <div class="mini-title">最小 Submit 双总线示例</div>
           <label for="demoInput">Message</label>
-          <input id="demoInput" value="hello provider" aria-label="Demo message input">
+          <input id="demoInput" value="hello dual bus" aria-label="Demo message input">
           <button class="primary" id="demoSubmit" type="button">Submit</button>
           <div class="result" id="demoOutput">Waiting for submit</div>
+          <div class="status" id="demoStatus">REMOTE idle</div>
         </div>
-        <div class="flow" aria-label="Submit flow">
-          <div class="node blue"><strong>Input cell</strong><small><code>(2,2,0)</code> reads and drafts <code>input_text</code></small></div>
-          <div class="node blue"><strong>Button cell</strong><small><code>(2,3,0)</code> sends temporary ModelTable records</small></div>
-          <div class="node sage"><strong>Root program cell</strong><small><code>(0,0,0)</code> receives <code>submit_request</code></small></div>
-          <div class="node rust"><strong>Display label</strong><small><code>handle_submit</code> writes <code>display_text</code></small></div>
-          <pre class="inline-payload" id="inlinePayloadPreview" aria-label="Live payload preview">[
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "ui_event.v1" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello provider" }
-]</pre>
+        <div class="flow" aria-label="Dual bus route">
+          <div class="node route"><strong>UI local model 2000</strong><small>Button sends <code>bus_event_v2</code>; UI Server creates <code>reply_to</code></small></div>
+          <div class="node route"><strong>Model 0 -> Matrix</strong><small>Matrix event type <code>dy.bus.v0</code>, target <code>@mbr:&lt;host_url&gt;</code></small></div>
+          <div class="node accent"><strong>MBR -> MQTT</strong><small><code>route.to = RE / 3000 / submit1</code></small></div>
+          <div class="node worker"><strong>remote-worker RE</strong><small>root <code>submit1</code> pin routes to program cell <code>(1,1,1)</code></small></div>
+          <div class="node accent"><strong>MQTT -> MBR -> Matrix -> UI</strong><small><code>route.reply_to</code> materializes <code>display_text</code> on local model</small></div>
+          <pre class="inline-payload" id="inlinePayloadPreview" aria-label="Live payload preview"></pre>
         </div>
       </div>
-      <div class="note">交互提示：改输入框内容后点 Submit，显示 label 和右侧 payload 预览会一起更新；如果要单独研究 payload，可以再切到第 3 步。</div>
+      <div class="note">上面的输入框是文档内的预览，用来展示 payload。真实验证请在 Workspace 的 <code>最小 Submit 双总线示例</code> 里操作。</div>
     </article>
 
-    <article class="panel" id="stage-cells">
-      <h2>单元格地图：六个 cell 构成最小 APP</h2>
-      <p>完整示例仍在 `minimal_submit_app_provider_guide.md` 中，这里只解释每个 cell 的职责。</p>
-      <div class="cell-grid">
-        <div class="cell"><code>(0,0,0)</code><strong>Root + program</strong><br>放 `model_type`、`app_name`、`host_ingress_v1`、`submit_request`、`handle_submit`、`display_text`。</div>
-        <div class="cell"><code>(2,0,0)</code><strong>Container</strong><br>页面根容器，`ui_layout=column`，让子组件从上到下排列。</div>
-        <div class="cell"><code>(2,1,0)</code><strong>Title Text</strong><br>页面标题，`ui_text=Minimal Submit App`。</div>
-        <div class="cell"><code>(2,2,0)</code><strong>Input</strong><br>读写 `input_text`，`commit_policy=on_submit`，避免输入时每个字符都正式提交。</div>
-        <div class="cell"><code>(2,3,0)</code><strong>Submit Button</strong><br>提交 `text` record 到 `submit_request`。</div>
-        <div class="cell"><code>(2,4,0)</code><strong>Display Text</strong><br>读取 `display_text`，展示程序模型写回的结果。</div>
+    <article class="panel" id="stage-r1">
+      <h2>RE 公开 pin，内部接程序模型</h2>
+      <p>新建 remote-worker RE 时，RE 上的 provider model 3000 不负责 UI 渲染；它只负责公开 <code>submit1</code> pin、跑程序、发 result。</p>
+      <div class="grid">
+        <div class="card"><code>model_type</code><strong>model.table</strong><br>RE 的 3000 是 provider 表模型。</div>
+        <div class="card"><code>submit1</code><strong>pin.in</strong><br>接收 <code>route.to.pin=submit1</code> 的 payload。</div>
+        <div class="card"><code>result</code><strong>pin.out</strong><br>程序处理完成后把结果发出。</div>
+        <div class="card"><code>submit1_route</code><strong>pin.connect.cell</strong><br><code>[0,0,0,submit1] -> [1,1,1,submit1_in]</code>。</div>
+        <div class="card"><code>submit1_wiring</code><strong>pin.connect.label</strong><br><code>submit1_in -> submit1:in</code>。</div>
       </div>
+      <pre>{
+  "model_id": 3000,
+  "cell": [0, 0, 0],
+  "required_labels": [
+    "model_type",
+    "display_text",
+    "remote_status",
+    "submit_inflight",
+    "last_submit_payload",
+    "submit1",
+    "result",
+    "submit1_route",
+    "submit1_wiring",
+    "submit1"
+  ]
+}</pre>
+      <div class="note">RE 程序只接受 payload 中的 <code>text</code> record；不接受 <code>input_value</code> 旧字段兜底。函数端点不能跨 Cell 直连，必须先到普通 pin。</div>
     </article>
 
-    <article class="panel" id="stage-payload">
-      <h2>按钮 payload：必须是临时 ModelTable records</h2>
-      <p>按钮不发普通对象，也不直接改 `display_text`。它只提交下面这种 records。</p>
-      <pre id="payloadPreview">[
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "ui_event.v1" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello provider" }
-]</pre>
-      <div class="note">安装后宿主会 remap `model_id: 0`。提供方交付包里仍然只写临时 `id: 0`。</div>
+    <article class="panel" id="stage-ui">
+      <h2>UI 是细粒度 cellwise 填表</h2>
+      <p>页面不是 HTML 字符串。每个可见部件都是一个 cell，正式业务提交进入 Model 0。</p>
+      <div class="grid">
+        <div class="card"><code>(2,0,0)</code><strong>Container</strong><br>页面根容器。</div>
+        <div class="card"><code>(2,1,0)</code><strong>Card</strong><br>标题为 <code>最小 Submit 双总线示例</code>。</div>
+        <div class="card"><code>(2,3,0)</code><strong>Input</strong><br>读写 <code>input_text</code>，<code>commit_policy=on_blur</code>。</div>
+        <div class="card"><code>(2,4,0)</code><strong>Button</strong><br><code>bus_event_v2=true</code>，提交临时 records。</div>
+        <div class="card"><code>(2,5,0)</code><strong>Text</strong><br>读取 <code>display_text</code>。</div>
+        <div class="card"><code>(2,6,0)</code><strong>StatusBadge</strong><br>读取 <code>remote_status</code>。</div>
+      </div>
+      <pre id="payloadPreview"></pre>
     </article>
 
-    <article class="panel" id="stage-program">
-      <h2>submit 程序模型：读取 text，写回 display_text</h2>
-      <p>这是本例的完整程序逻辑。正式显示结果必须由它写回，而不是由按钮直接写。</p>
-      <pre id="handlerPreview">const records = Array.isArray(label && label.v) ? label.v : [];
-const readPayload = (key, fallback = '') => {
-  const record = records.find((item) => (
-    item
-    && item.id === 0
-    && item.p === 0
-    && item.r === 0
-    && item.c === 0
-    && item.k === key
-  ));
-  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;
-};
-
-const text = String(readPayload('text', '')).trim();
-const displayText = text ? `Submitted: ${text}` : 'Submitted: (empty)';
-V1N.addLabel('display_text', 'str', displayText);
-V1N.addLabel('last_submit_payload', 'json', records);
-return;</pre>
-      <div class="note">不要使用 `ctx.writeLabel` 或 `ctx.getLabel` 作为新示例写法。</div>
+    <article class="panel" id="stage-import">
+      <h2>用 Workspace 的“滑动 APP 导入”触发安装</h2>
+      <p>如果交付新 APP，不直接改运行时。把模型表 records 打成 zip，再由 Workspace 导入器完成上传、materialize、mount 和自动引脚建立。</p>
+      <div class="steps">
+        <div class="step"><div><strong>准备 zip</strong><br><code>minimal-submit-dual-bus.zip</code> 里只放 <code>app_payload.json</code>。</div></div>
+        <div class="step"><div><strong>写 app_payload.json</strong><br>内容是临时 ModelTable records array，使用 <code>id: 0</code>，不写正式 model id，不写 patch op。绑定里的 <code>model_id: 0</code> 或 <code>*_model_id=0</code> 都表示 zip 内根模型，会在导入时 remap。</div></div>
+        <div class="step"><div><strong>或者导出 zip</strong><br>如果 APP 已经在 Workspace 中填表完成，使用资产树里的 <code>Zip</code> 链接，或访问 <code>/api/slide-apps/&lt;modelId&gt;/export.zip</code>。</div></div>
+        <div class="step"><div><strong>打开 Workspace</strong><br>在资产树中打开 <code>滑动 APP 导入</code>。</div></div>
+        <div class="step"><div><strong>选择 zip 并导入</strong><br>导入器会调用 <code>/api/media/upload</code>，得到 <code>mxc://...</code>，再把 records materialize 成正式模型。</div></div>
+        <div class="step"><div><strong>自动挂载</strong><br>宿主把新模型挂到 Workspace，并按声明建立宿主侧引脚和 Model 0 adapter。</div></div>
+      </div>
+      <pre>{
+  "zip": "minimal-submit-dual-bus.zip",
+  "files": ["app_payload.json"],
+  "payload_shape": "ModelTable records array",
+  "remote_bus_endpoint_v1": { "to": { "worker_id": "RE", "model_id": 3000 } },
+  "dual_bus_model": { "mode": "imported_host_egress", "egress_pins": ["submit1"] },
+  "can_generate_by": ["write records", "Workspace Zip export"],
+  "export_endpoint": "/api/slide-apps/<modelId>/export.zip",
+  "model_id_remap": ["ui_bind_json.read.model_id", "ui_text_ref_model_id"],
+  "do_not_include": ["op", "installed model_id", "remote_bus_endpoint_v1.to.pin", "route.reply_to", "secret", "token", "host_*_generated_*"]
+}</pre>
     </article>
 
-    <article class="panel" id="stage-package">
-      <h2>打包自检：zip 里只需要一个 JSON</h2>
-      <p>交付包结构保持极简，宿主导入器负责 materialize、mount 和自动补宿主 adapter。</p>
-      <div class="checklist">
-        <div class="check">`minimal-submit-app.zip` 只包含 `app_payload.json`。</div>
-        <div class="check">`app_payload.json` 是 records array，不包含 `op` 或安装后的 `model_id`。</div>
-        <div class="check">root 有 `host_ingress_v1`，指向 `submit_request`。</div>
-        <div class="check">按钮 `value_ref` 中的 `text` 来自 `input_text`。</div>
-        <div class="check">`handle_submit` 只写当前模型内 label。</div>
-        <div class="check">显示节点读取 `display_text`，不保存自己的业务 truth。</div>
+    <article class="panel" id="stage-external">
+      <h2>外部客户端按 topic 收发</h2>
+      <p>最直接的联调点是 MQTT topic。Matrix 客户端看到的是 <code>dy.bus.v0</code> 事件；普通第三方 Matrix 账号可能被 peer 过滤，联调时优先使用 MQTT。</p>
+      <div class="grid">
+        <div class="card"><code>subscribe</code><strong>UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1</strong><br>观察浏览器点击 Submit 后 MBR 发给 RE 的消息。</div>
+        <div class="card"><code>publish</code><strong>UIPUT/ws/dam/pic/de/sw/worker/ui-server-U1/model/2000/pin/result</strong><br>模拟 RE 回包，直接让 UI 显示更新。</div>
+      </div>
+      <pre>{
+  "version": "v1",
+  "type": "pin_payload",
+  "op_id": "manual_result_2000_001",
+  "source_model_id": 2000,
+  "pin": "result",
+  "route": {
+    "to": { "worker_id": "ui-server-U1", "model_id": 2000, "pin": "result" },
+    "from": { "worker_id": "RE", "model_id": 3000, "pin": "submit1" }
+  },
+  "payload": [
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Submitted: hello from external client" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "remote_status", "t": "str", "v": "remote_processed" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit_inflight", "t": "bool", "v": false }
+  ],
+  "timestamp": 1778115520131
+}</pre>
+      <div class="note">这条消息发到 result topic 后，MBR 会转回 Matrix，ui-server 再按 <code>source_model_id=2000</code> materialize 到本地 UI 模型的 <code>display_text</code>。</div>
+    </article>
+
+    <article class="panel" id="stage-guard">
+      <h2>这个示例不保留兼容链路</h2>
+      <p>如果这些写法出现在新示例中，应该直接修正，不做兼容。</p>
+      <div class="grid">
+        <div class="card"><code>pin.connect.model</code><strong>禁止</strong><br>当前规约改用 <code>pin.connect.cell</code> 和 <code>model.submt</code> 边界。</div>
+        <div class="card"><code>ctx.writeLabel/getLabel/rmLabel</code><strong>禁止</strong><br>程序模型写 label 使用当前 <code>V1N</code> 口径。</div>
+        <div class="card"><code>input_value fallback</code><strong>禁止</strong><br>RE submit 程序只读 <code>text</code>。</div>
+        <div class="card"><code>route.reply_to in zip</code><strong>禁止</strong><br>回包目标由 UI Server 运行时生成，不能由第三方包覆盖。</div>
+        <div class="card"><code>MBR per-app route</code><strong>禁止</strong><br>MBR 应读取消息内 <code>route.to</code> 通用转发。</div>
+        <div class="card"><code>frontend direct Matrix</code><strong>禁止</strong><br>正式业务先进入 Model 0。</div>
       </div>
     </article>
   </section>
@@ -413,6 +522,7 @@ return;</pre>
   const input = document.getElementById('demoInput');
   const submit = document.getElementById('demoSubmit');
   const output = document.getElementById('demoOutput');
+  const status = document.getElementById('demoStatus');
   const payloadPreview = document.getElementById('payloadPreview');
   const inlinePayloadPreview = document.getElementById('inlinePayloadPreview');
 
@@ -448,6 +558,7 @@ return;</pre>
   submit.addEventListener('click', () => {
     const text = input.value.trim();
     output.textContent = text ? `Submitted: ${text}` : 'Submitted: (empty)';
+    status.textContent = 'REMOTE remote_processed';
     refreshPayload();
   });
 

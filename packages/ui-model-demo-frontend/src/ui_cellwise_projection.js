@@ -79,19 +79,26 @@ function inferWriteTrigger(componentType, commitPolicy = 'immediate') {
 }
 
 function buildWritablePins(componentType, writeBind) {
-  if (!writeBind || typeof writeBind !== 'object' || typeof writeBind.pin !== 'string' || !writeBind.pin.trim()) {
+  if (!writeBind || typeof writeBind !== 'object') {
     return undefined;
   }
+  const directPin = typeof writeBind.pin === 'string' ? writeBind.pin.trim() : '';
+  const busInKey = writeBind.bus_event_v2 === true && typeof writeBind.bus_in_key === 'string'
+    ? writeBind.bus_in_key.trim()
+    : '';
+  const pinName = directPin || busInKey;
+  if (!pinName) return undefined;
   const rawValueRef = writeBind.value_ref;
   const value_t = rawValueRef && typeof rawValueRef === 'object' && typeof rawValueRef.t === 'string'
     ? rawValueRef.t
     : (typeof writeBind.value_t === 'string' ? writeBind.value_t : undefined);
   return [{
-    name: writeBind.pin.trim(),
-    direction: 'in',
+    name: pinName,
+    direction: busInKey ? 'bus.in' : 'in',
     trigger: inferWriteTrigger(componentType, typeof writeBind.commit_policy === 'string' ? writeBind.commit_policy : 'immediate'),
     ...(value_t ? { value_t } : {}),
     ...(typeof writeBind.commit_policy === 'string' ? { commit_policy: writeBind.commit_policy } : {}),
+    ...(busInKey ? { transport: 'bus_event_v2' } : {}),
     primary: true,
   }];
 }

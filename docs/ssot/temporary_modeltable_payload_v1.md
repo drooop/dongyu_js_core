@@ -231,6 +231,8 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
 
 `pin_payload.v1` 是 Model 0 `pin.bus.out` 的内部业务值格式。它本身仍是临时模型表数组；运行时或 server 在真正跨出系统边界时，可以把它还原为既有 transport packet：
 
+对 imported slide app，`route.to` 的默认远端 worker / model 来自 app root 的 `remote_bus_endpoint_v1`；`route.to.pin` 来自当前被触发的公开 pin；`route.reply_to` 必须由 UI Server 运行时生成。
+
 ```json
 {
   "version": "v1",
@@ -238,6 +240,18 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
   "op_id": "req_123",
   "source_model_id": 100,
   "pin": "submit",
+  "route": {
+    "to": {
+      "worker_id": "RE",
+      "model_id": 3000,
+      "pin": "submit"
+    },
+    "reply_to": {
+      "worker_id": "ui-server-U1",
+      "model_id": 100,
+      "pin": "result"
+    }
+  },
   "payload": []
 }
 ```
@@ -246,6 +260,10 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
 - `pin.bus.out` label 的 `v` 必须是 `pin_payload.v1` 临时模型表数组，而不是上述 object packet。
 - MQTT / Matrix / MBR 等外层 transport 可以继续使用 object packet；这是系统边界 envelope，不是业务 pin value。
 - `pin_payload.v1.payload` 里的业务内容必须仍是临时模型表 record array。
+- `route.to` 是远端公开入口目标，使用 `worker_id + model_id + pin` 定位目标 worker 上的目标模型 root 公开 pin。
+- `route.reply_to` 是本地回包目标，必须由 UI Server / 宿主在运行时生成，不能由 imported ZIP records 提供或覆盖。
+- `route.to.pin` 和 top-level `pin` 必须一致，且表示目标模型公开 Cell pin，不是直接跨 Cell 调用 `{functionName}:in`。
+- MBR / MQTT adapter 可以从 `route.to` 派生 transport topic，但 topic 字符串不是规约真相；规约真相是 `route.to` / `route.reply_to`。
 
 ## 3. Imported Feishu Evidence
 

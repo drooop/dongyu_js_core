@@ -43,10 +43,11 @@ function test_remote_mode_role_patches_cover_model1010() {
   const remoteCfg = readJson('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json').records || [];
   const remoteTruth = readJson('deploy/sys-v1ns/remote-worker/patches/11_model1010.json').records || [];
 
-  assert.ok(findRecord(systemPatch, (record) => record?.k === 'mbr_route_1010'), 'system_models_missing_mbr_route_1010');
-  assert.ok(findRecord(mbrPatch, (record) => record?.k === 'mbr_mqtt_model_ids' && Array.isArray(record?.v) && record.v.includes(1010)), 'mbr_role_missing_1010_model_id');
-  assert.ok(findRecord(remoteCfg, (record) => record?.k === 'remote_subscriptions' && Array.isArray(record?.v) && record.v.some((topic) => String(topic).endsWith('/1010/submit')) && record.v.some((topic) => String(topic).endsWith('/1010/result'))), 'remote_worker_config_missing_1010_topics');
-  assert.ok(findRecord(remoteTruth, (record) => record?.model_id === 1010 && record?.k === 'result_out_topic' && String(record?.v).endsWith('/1010/result')), 'remote_truth_missing_result_out_topic');
+  assert.equal(systemPatch.some((record) => String(record?.k || '').startsWith('mbr_route_')), false, 'system_models_must_not_seed_static_mbr_routes');
+  assert.equal(mbrPatch.some((record) => record?.k === 'mbr_mqtt_model_ids'), false, 'mbr_role_must_not_seed_static_model_ids');
+  assert.ok(findRecord(remoteCfg, (record) => record?.k === 'remote_subscriptions' && Array.isArray(record?.v) && record.v.includes('UIPUT/ws/dam/pic/de/sw/worker/RE/model/1010/pin/submit')), 'remote_worker_config_missing_1010_route_topic');
+  assert.ok(findRecord(remoteTruth, (record) => record?.model_id === 1010 && record?.k === 'mqtt_topic_base' && record?.v === 'UIPUT/ws/dam/pic/de/sw'), 'remote_truth_missing_mqtt_topic_base');
+  assert.equal(findRecord(remoteTruth, (record) => record?.model_id === 1010 && record?.k === 'result_out_topic'), null, 'remote_truth_must_not_use_static_result_out_topic');
   return { key: 'remote_mode_role_patches_cover_model1010', status: 'PASS' };
 }
 
@@ -89,6 +90,9 @@ async function test_remote_mode_submits_to_matrix_and_accepts_snapshot_delta_ret
     assert.equal(published[0]?.source_model_id, WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID, 'remote_payload_must_preserve_source_model_id');
     assert.equal(published[0]?.type, 'pin_payload', 'remote_payload_must_use_pin_payload_transport');
     assert.equal(published[0]?.pin, 'submit', 'remote_payload_must_use_submit_pin');
+    assert.equal(published[0]?.route?.to?.worker_id, 'RE', 'remote_payload_must_include_route_to_worker');
+    assert.equal(published[0]?.route?.to?.model_id, WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID, 'remote_payload_must_include_route_to_model');
+    assert.equal(published[0]?.route?.reply_to?.model_id, WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID, 'remote_payload_must_include_reply_to_model');
     assert.ok(Array.isArray(published[0]?.payload), 'remote_payload_must_carry_temporary_modeltable_array');
     assert.ok(published[0]?.payload?.some?.((record) => record && record.k === 'input_value' && record.v === 'Gamma1'), 'remote_payload_must_use_truth_input_draft');
 
@@ -106,6 +110,7 @@ async function test_remote_mode_submits_to_matrix_and_accepts_snapshot_delta_ret
         { id: 0, p: 0, r: 0, c: 0, k: 'result_status', t: 'str', v: 'remote_processed' },
         { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false },
       ],
+      route: { to: published[0].route.reply_to, from: published[0].route.to },
     });
     await wait();
 

@@ -82,8 +82,10 @@ source: ai
 
 - `Model 1010 / submit_route_mode = remote`
 - `Model 1010 / (1,0,0) / processor_routes`
-- `Model 0 / ws_filltable_submit_out`
-- `MBR` 的 `mbr_route_1010`
+- `Model 1010 / remote_bus_endpoint_v1`
+- `Model 1010 / dual_bus_model.egress_pins = ["submit"]`
+- `Model 1010 / (0,0,0) / submit`
+- 消息体里的 `route.to` 目标
 - `remote-worker` 的 `11_model1010.json`
 
 默认 `processor_routes` 值应把 `confirm` 接到 `dispatch_remote`：
@@ -105,8 +107,8 @@ source: ai
 2. `prepare_workspace_filltable_submit` 把事件送到 `Model 1010 (1,0,0) confirm`
 3. `dispatch_remote` 把 payload 写到 `Model 1010 / submit`
 4. `Model 1009` hosting cell 把 child `submit` 接出来
-5. `Model 0` 接到 `ws_filltable_submit_out`
-6. `forward_workspace_filltable_submit_from_model0` 发到双总线
+5. UI Server 根据 `remote_bus_endpoint_v1` 和 `egress_pins` 生成 host egress adapter
+6. generated adapter 把 payload 包成 `pin_payload`，通过 Model 0 `mt_bus_send` / `pin.bus.out` 发到双总线
 7. `MBR -> remote-worker`
 8. `remote-worker` 返回 patch
 9. `ui-server` 把 `snapshot_delta` 路由到 `Model 1010` 的 owner materialization
@@ -275,7 +277,9 @@ source: ai
 
 先查：
 
-- `Model 0 / ws_filltable_submit_out`
+- `Model 1010 / remote_bus_endpoint_v1`
+- `Model 1010 / dual_bus_model.egress_pins`
+- `Model 1010 / submit`
 - `MBR` 是否包含 `1010`
 - `remote-worker` 是否加载了 `11_model1010.json`
 

@@ -37,12 +37,6 @@ const sys = rt.getModel(-10);
 assert(sys, 'system model must exist');
 
 rt.addLabel(sys, 0, 0, 0, {
-  k: 'mbr_route_101',
-  t: 'json',
-  v: { pin: 'task', type: 'pin_payload' },
-});
-
-rt.addLabel(sys, 0, 0, 0, {
   k: 'mbr_mgmt_inbox',
   t: 'json',
   v: {
@@ -51,6 +45,10 @@ rt.addLabel(sys, 0, 0, 0, {
     op_id: 'route_101_001',
     source_model_id: 101,
     pin: 'task',
+    route: {
+      to: { worker_id: 'RE', model_id: 3000, pin: 'task' },
+      reply_to: { worker_id: 'ui-server-test', model_id: 101, pin: 'result' },
+    },
     payload: [
       { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
       { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
@@ -71,12 +69,13 @@ const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.g
 fn(ctx);
 
 assert.ok(published, 'route-driven pin_payload must publish to MQTT');
-assert.equal(published.topic, 'UIPUT/ws/dam/pic/de/sw/101/task', 'route-driven bridge must use mbr_route_<modelId>.pin');
+assert.equal(published.topic, 'UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/task', 'route-driven bridge must use message route.to');
 assert.equal(published.payload?.version, 'v1', 'route-driven bridge payload must now be pin_payload');
 assert.equal(published.payload?.type, 'pin_payload', 'route-driven bridge must preserve pin_payload type');
 assert.equal(published.payload?.pin, 'task', 'route-driven bridge must preserve pin name');
 assert.equal(published.payload?.op_id, 'route_101_001', 'route-driven bridge must preserve op_id');
 assert.equal(published.payload?.source_model_id, 101, 'route-driven bridge must preserve source model id');
+assert.equal(published.payload?.route?.reply_to?.model_id, 101, 'route-driven bridge must preserve reply route');
 assert.equal(published.payload?.payload?.[1]?.v, 'hello', 'route-driven bridge must preserve temporary-modeltable content');
 assert.ok(!Array.isArray(published.payload?.records), 'route-driven bridge must not emit records patch');
 

@@ -6,7 +6,7 @@
  * 2. mqttIncoming writes IN to root cell (0,0,0)
  * 3. cell_connection routes IN from (0,0,0) to processing cell (1,0,0)
  * 4. CELL_CONNECT wiring triggers on_model100_event_in function
- * 5. Function output propagates via CELL_CONNECT (self,patch) → cell_connection → (0,0,0)
+ * 5. Function output propagates via CELL_CONNECT function output → cell_connection → (0,0,0)
  * 6. bg_color is updated by the function
  * 7. No legacy PIN symbols remain (pinInSet, pinOutSet, pinInBindings deleted)
  */

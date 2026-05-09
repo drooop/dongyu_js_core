@@ -1316,12 +1316,14 @@ const SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_SEMANTIC = 'submit';
 const SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_LOCATOR = 'root_relative_cell';
 const SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_VALUE_T = 'modeltable';
 const SLIDE_IMPORT_DUAL_BUS_LABEL = 'dual_bus_model';
-const SLIDE_IMPORT_HOST_EGRESS_SUPPORTED_SEMANTIC = 'submit';
+const SLIDE_IMPORT_REMOTE_BUS_ENDPOINT_LABEL = 'remote_bus_endpoint_v1';
+const SLIDE_IMPORT_REPLY_PIN = 'result';
 const SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES = new Set([
   'func.python',
   '',
   'pin.bus.in',
   'pin.bus.out',
+  'pin.connect.model',
 ]);
 const SLIDE_IMPORT_FORBIDDEN_LABEL_KEYS = new Set([
   'scope_privileged',
@@ -1330,21 +1332,236 @@ const SLIDE_IMPORT_FORBIDDEN_LABEL_KEYS = new Set([
   'owner_apply_route',
   'owner_materialize',
 ]);
+const SLIDE_EXPORT_EXCLUDED_LABEL_KEYS = new Set([
+  'deletable',
+  'installed_at',
+  'imported_bundle_model_ids',
+  'import_root_temp_id',
+  'host_ingress_generated_model0_labels',
+  'host_ingress_generated_mount',
+  'host_ingress_generated_root_labels',
+  'host_egress_generated_model0_labels',
+  'host_egress_generated_mount',
+  'mt_write',
+  'mt_write_req',
+  'mt_write_result',
+  'mt_write_req_route',
+  'mt_bus_receive',
+  'mt_bus_receive_in',
+  'mt_bus_receive_wiring',
+  'mt_bus_send',
+  'mt_bus_send_in',
+  'mt_bus_send_wiring',
+]);
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isValidPublicPinName(value) {
+  return typeof value === 'string'
+    && /^[A-Za-z_][A-Za-z0-9_.-]*$/u.test(value.trim());
+}
+
+function containsRouteReplyTo(value) {
+  if (Array.isArray(value)) {
+    return value.some((item) => containsRouteReplyTo(item));
+  }
+  if (!isPlainObject(value)) return false;
+  for (const [key, child] of Object.entries(value)) {
+    if (key === 'reply_to' || key === 'route.reply_to') return true;
+    if (containsRouteReplyTo(child)) return true;
+  }
+  return false;
+}
+
+function resolveUiServerWorkerId() {
+  const raw = process.env.DY_UI_SERVER_WORKER_ID || process.env.UI_SERVER_WORKER_ID || 'ui-server-local';
+  const id = String(raw || '').trim();
+  return id || 'ui-server-local';
+}
+
+function isTemporaryModelTableRecord(record) {
+  return isPlainObject(record)
+    && !Object.prototype.hasOwnProperty.call(record, 'op')
+    && !Object.prototype.hasOwnProperty.call(record, 'model_id')
+    && Number.isInteger(record.id)
+    && Number.isInteger(record.p)
+    && Number.isInteger(record.r)
+    && Number.isInteger(record.c)
+    && typeof record.k === 'string'
+    && record.k.length > 0
+    && typeof record.t === 'string'
+    && record.t.length > 0
+    && Object.prototype.hasOwnProperty.call(record, 'v');
+}
+
+function isExpectedPinPayloadReturnRoute(content) {
+  if (!isPlainObject(content)) return false;
+  const route = isPlainObject(content.route) ? content.route : null;
+  const to = route && isPlainObject(route.to) ? route.to : null;
+  return Boolean(to
+    && to.worker_id === resolveUiServerWorkerId()
+    && to.model_id === content.source_model_id
+    && to.pin === 'result');
+}
+
+function sanitizeSlideExportName(input, fallback = 'slide-app') {
+  const raw = String(input || '').trim().toLowerCase();
+  const ascii = raw
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+  return ascii || fallback;
+}
+
+function shouldExcludeSlideExportLabel(label) {
+  if (!label || typeof label.k !== 'string' || typeof label.t !== 'string') return true;
+  if (SLIDE_EXPORT_EXCLUDED_LABEL_KEYS.has(label.k)) return true;
+  if (SLIDE_IMPORT_FORBIDDEN_LABEL_KEYS.has(label.k) || String(label.k).startsWith('run_')) return true;
+  if (SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES.has(label.t)) return true;
+  if (label.k.startsWith('__host_ingress_') || label.k.startsWith('__host_egress_')) return true;
+  if (label.k.startsWith('host_ingress_generated_') || label.k.startsWith('host_egress_generated_')) return true;
+  return false;
+}
+
+function collectSlideExportModelIds(runtime, rootModelId) {
+  const ids = [];
+  const seen = new Set();
+  const visit = (modelId) => {
+    if (!Number.isInteger(modelId) || modelId <= 0 || seen.has(modelId)) return;
+    const model = runtime.getModel(modelId);
+    if (!model) return;
+    seen.add(modelId);
+    ids.push(modelId);
+    for (const cell of model.cells.values()) {
+      for (const label of cell.labels.values()) {
+        if (label && label.t === 'model.submt' && Number.isInteger(label.v) && label.v > 0) {
+          visit(label.v);
+        }
+      }
+    }
+  };
+  visit(rootModelId);
+  return ids;
+}
+
+function remapSlideExportValue(value, actualToTempId) {
+  if (Array.isArray(value)) {
+    return value.map((item) => remapSlideExportValue(item, actualToTempId));
+  }
+  if (!isPlainObject(value)) return value;
+  const out = {};
+  for (const [key, child] of Object.entries(value)) {
+    if ((key === 'model_id' || key.endsWith('_model_id')) && Number.isInteger(child) && actualToTempId.has(child)) {
+      out[key] = actualToTempId.get(child);
+    } else {
+      out[key] = remapSlideExportValue(child, actualToTempId);
+    }
+  }
+  return out;
+}
+
+function isModelIdReferenceKey(key) {
+  return key === 'model_id' || (typeof key === 'string' && key.endsWith('_model_id'));
+}
+
+function normalizeSlideExportLabelValue(label, actualToTempId) {
+  if (label && label.k === 'dual_bus_model' && isPlainObject(label.v)) {
+    const mode = typeof label.v.mode === 'string' && label.v.mode.trim() ? label.v.mode.trim() : 'imported_host_egress';
+    const egressPins = Array.isArray(label.v.egress_pins)
+      ? Array.from(new Set(label.v.egress_pins.map((pin) => String(pin || '').trim()).filter(isValidPublicPinName)))
+      : [];
+    return { mode, egress_pins: egressPins };
+  }
+  if (label && label.t === 'model.submt' && Number.isInteger(label.v) && actualToTempId.has(label.v)) {
+    return actualToTempId.get(label.v);
+  }
+  if (label && isModelIdReferenceKey(label.k) && Number.isInteger(label.v) && actualToTempId.has(label.v)) {
+    return actualToTempId.get(label.v);
+  }
+  return remapSlideExportValue(label ? label.v : null, actualToTempId);
+}
+
+function buildSlideAppExportPayload(runtime, rootModelId) {
+  if (!runtime || !Number.isInteger(rootModelId) || rootModelId <= 0) {
+    return { ok: false, code: 'invalid_target', detail: 'positive_model_id_required' };
+  }
+  const rootModel = runtime.getModel(rootModelId);
+  if (!rootModel) {
+    return { ok: false, code: 'model_not_found', detail: `modelId=${rootModelId}` };
+  }
+  const rootCell = runtime.getCell(rootModel, 0, 0, 0);
+  const rootLabels = rootCell && rootCell.labels ? rootCell.labels : new Map();
+  if (!rootLabels.has('slide_capable') || rootLabels.get('slide_capable').v !== true) {
+    return { ok: false, code: 'not_exportable', detail: 'slide_capable_required' };
+  }
+  const modelIds = collectSlideExportModelIds(runtime, rootModelId);
+  const actualToTempId = new Map(modelIds.map((modelId, index) => [modelId, index]));
+  const records = [];
+  for (const modelId of modelIds) {
+    const tempId = actualToTempId.get(modelId);
+    const model = runtime.getModel(modelId);
+    if (!model) continue;
+    const cells = Array.from(model.cells.values()).sort((a, b) => (
+      (a.p - b.p) || (a.r - b.r) || (a.c - b.c)
+    ));
+    for (const cell of cells) {
+      const labels = Array.from(cell.labels.values()).sort((a, b) => String(a.k).localeCompare(String(b.k)));
+      for (const label of labels) {
+        if (shouldExcludeSlideExportLabel(label)) continue;
+        records.push({
+          id: tempId,
+          p: cell.p,
+          r: cell.r,
+          c: cell.c,
+          k: label.k,
+          t: label.t,
+          v: normalizeSlideExportLabelValue(label, actualToTempId),
+        });
+      }
+    }
+  }
+  const validation = validateSlideImportPayload(records);
+  if (!validation.ok) {
+    return { ok: false, code: validation.code || 'invalid_export', detail: validation.detail || 'export_payload_invalid' };
+  }
+  return { ok: true, data: { payload: records, modelIds } };
+}
+
+function buildSlideAppExportZip(runtime, rootModelId) {
+  const payloadResult = buildSlideAppExportPayload(runtime, rootModelId);
+  if (!payloadResult.ok) return payloadResult;
+  const model = runtime.getModel(rootModelId);
+  const appName = runtime.getLabelValue
+    ? runtime.getLabelValue(model, 0, 0, 0, 'app_name')
+    : '';
+  const zipName = `${sanitizeSlideExportName(appName || (model && model.name) || `slide-app-${rootModelId}`)}.zip`;
+  const zip = new AdmZip();
+  zip.addFile('app_payload.json', Buffer.from(JSON.stringify(payloadResult.data.payload, null, 2), 'utf8'));
+  return {
+    ok: true,
+    data: {
+      filename: zipName,
+      buffer: zip.toBuffer(),
+      payload: payloadResult.data.payload,
+      modelIds: payloadResult.data.modelIds,
+    },
+  };
 }
 
 function parseSlideImportPayloadFromZipBuffer(zipBuffer) {
   const zip = new AdmZip(zipBuffer);
   const entries = zip.getEntries().filter((entry) => {
     if (!entry || entry.isDirectory) return false;
-    const name = String(entry.entryName || '').replace(/\\/g, '/');
-    if (!name || name.startsWith('/') || name.includes('..')) return false;
-    return name.toLowerCase().endsWith('.json');
+    return true;
   });
-  if (entries.length !== 1) {
-    throw new Error('zip_must_contain_exactly_one_json_payload');
+  const entryNames = entries.map((entry) => String(entry.entryName || '').replace(/\\/g, '/'));
+  if (entryNames.some((name) => !name || name.startsWith('/') || name.split('/').includes('..'))) {
+    throw new Error('zip_must_contain_exactly_one_app_payload_json');
+  }
+  if (entries.length !== 1 || String(entries[0].entryName || '').replace(/\\/g, '/') !== 'app_payload.json') {
+    throw new Error('zip_must_contain_exactly_one_app_payload_json');
   }
   const raw = entries[0].getData().toString('utf8');
   const payload = JSON.parse(raw);
@@ -1447,6 +1664,46 @@ function validateSlideImportHostIngress(records) {
   };
 }
 
+function validateSlideImportRemoteBusEndpoint(records) {
+  const declaration = findRootPayloadLabel(records, SLIDE_IMPORT_REMOTE_BUS_ENDPOINT_LABEL);
+  if (!declaration) {
+    return { ok: true, remoteEndpoint: null };
+  }
+  if (declaration.t !== 'json' || !isPlainObject(declaration.v)) {
+    return { ok: false, code: 'invalid_target', detail: 'invalid_remote_bus_endpoint_shape' };
+  }
+  if (containsRouteReplyTo(declaration.v)) {
+    return { ok: false, code: 'invalid_target', detail: 'remote_endpoint_must_not_declare_reply_to' };
+  }
+  const transport = typeof declaration.v.transport === 'string' ? declaration.v.transport.trim() : '';
+  const to = isPlainObject(declaration.v.to) ? declaration.v.to : null;
+  const workerId = to && typeof to.worker_id === 'string' ? to.worker_id.trim() : '';
+  const modelId = to && Number.isInteger(to.model_id) ? to.model_id : null;
+  if (transport !== 'mqtt' || !to || !workerId || !Number.isInteger(modelId) || modelId <= 0) {
+    return { ok: false, code: 'invalid_target', detail: 'invalid_remote_bus_endpoint_target' };
+  }
+  if (Object.prototype.hasOwnProperty.call(to, 'pin')) {
+    return { ok: false, code: 'invalid_target', detail: 'remote_endpoint_pin_is_runtime_owned' };
+  }
+  return {
+    ok: true,
+    remoteEndpoint: {
+      transport,
+      to: {
+        worker_id: workerId,
+        model_id: modelId,
+      },
+      declaration: {
+        transport,
+        to: {
+          worker_id: workerId,
+          model_id: modelId,
+        },
+      },
+    },
+  };
+}
+
 function validateSlideImportHostEgress(records) {
   const declaration = findRootPayloadLabel(records, SLIDE_IMPORT_DUAL_BUS_LABEL);
   if (!declaration) {
@@ -1455,22 +1712,52 @@ function validateSlideImportHostEgress(records) {
   if (declaration.t !== 'json' || !isPlainObject(declaration.v)) {
     return { ok: false, code: 'invalid_target', detail: 'invalid_dual_bus_model_shape' };
   }
-  const targetPin = records.find((record) => (
-    record
-    && record.p === 0
-    && record.r === 0
-    && record.c === 0
-    && record.k === SLIDE_IMPORT_HOST_EGRESS_SUPPORTED_SEMANTIC
-  ));
-  if (!targetPin || targetPin.t !== 'pin.out') {
-    return { ok: false, code: 'invalid_target', detail: 'host_egress_target_pin_missing' };
+  const mode = typeof declaration.v.mode === 'string' ? declaration.v.mode.trim() : '';
+  if (mode !== 'imported_host_egress') {
+    return { ok: false, code: 'invalid_target', detail: 'unsupported_dual_bus_model_mode' };
+  }
+  const egressPins = Array.isArray(declaration.v.egress_pins)
+    ? declaration.v.egress_pins.map((pin) => String(pin || '').trim())
+    : [];
+  if (egressPins.length === 0) {
+    return { ok: false, code: 'invalid_target', detail: 'dual_bus_model_egress_pins_required' };
+  }
+  const seenPins = new Set();
+  const entries = [];
+  for (const pinName of egressPins) {
+    if (!isValidPublicPinName(pinName) || seenPins.has(pinName)) {
+      return { ok: false, code: 'invalid_target', detail: 'invalid_dual_bus_model_egress_pin' };
+    }
+    seenPins.add(pinName);
+    const targetPin = records.find((record) => (
+      record
+      && record.p === 0
+      && record.r === 0
+      && record.c === 0
+      && record.k === pinName
+    ));
+    if (!targetPin || targetPin.t !== 'pin.out') {
+      return { ok: false, code: 'invalid_target', detail: `host_egress_target_pin_missing:${pinName}` };
+    }
+    entries.push({
+      semantic: pinName,
+      pinName,
+      dualBusDeclaration: {
+        mode,
+        egress_pins: [...egressPins],
+      },
+    });
   }
   return {
     ok: true,
     hostEgress: {
-      semantic: SLIDE_IMPORT_HOST_EGRESS_SUPPORTED_SEMANTIC,
-      pinName: targetPin.k,
-      dualBusDeclaration: declaration.v,
+      mode,
+      egressPins: [...egressPins],
+      declaration: {
+        mode,
+        egress_pins: [...egressPins],
+      },
+      entries,
     },
   };
 }
@@ -1489,6 +1776,9 @@ function validateSlideImportPayload(payload) {
     }
     if (typeof record.k !== 'string' || !record.k.trim() || typeof record.t !== 'string' || !record.t.trim()) {
       return { ok: false, code: 'invalid_target', detail: 'invalid_label_shape' };
+    }
+    if (record.k === 'reply_to' || record.k === 'route.reply_to' || containsRouteReplyTo(record.v)) {
+      return { ok: false, code: 'invalid_target', detail: 'bundle_must_not_declare_route_reply_to' };
     }
     if (SLIDE_IMPORT_FORBIDDEN_LABEL_KEYS.has(record.k) || String(record.k).startsWith('run_')) {
       return { ok: false, code: 'invalid_target', detail: `forbidden_label_key:${record.k}` };
@@ -1529,9 +1819,19 @@ function validateSlideImportPayload(payload) {
     if (!hostIngressValidation.ok) {
       return hostIngressValidation;
     }
+    const remoteEndpointValidation = validateSlideImportRemoteBusEndpoint(records);
+    if (!remoteEndpointValidation.ok) {
+      return remoteEndpointValidation;
+    }
     const hostEgressValidation = validateSlideImportHostEgress(records);
     if (!hostEgressValidation.ok) {
       return hostEgressValidation;
+    }
+    if (hostEgressValidation.hostEgress && !remoteEndpointValidation.remoteEndpoint) {
+      return { ok: false, code: 'invalid_target', detail: 'remote_bus_endpoint_required_for_host_egress' };
+    }
+    if (remoteEndpointValidation.remoteEndpoint && !hostEgressValidation.hostEgress) {
+      return { ok: false, code: 'invalid_target', detail: 'dual_bus_model_required_for_remote_bus_endpoint' };
     }
     rootCandidates.push({
       tempId,
@@ -1542,6 +1842,7 @@ function validateSlideImportPayload(payload) {
       toUser,
       hostIngress: hostIngressValidation.hostIngress,
       hostEgress: hostEgressValidation.hostEgress,
+      remoteEndpoint: remoteEndpointValidation.remoteEndpoint,
     });
   }
 
@@ -1556,6 +1857,7 @@ function validateSlideImportPayload(payload) {
     metadata: rootCandidates[0],
     hostIngress: rootCandidates[0].hostIngress,
     hostEgress: rootCandidates[0].hostEgress,
+    remoteEndpoint: rootCandidates[0].remoteEndpoint,
   };
 }
 
@@ -1577,6 +1879,19 @@ function remapImportedValue(value, idMap) {
     out[key] = remapImportedValue(child, idMap);
   }
   return out;
+}
+
+function remapImportedLabelValue(record, idMap) {
+  if (record.t === 'model.submt' && Number.isInteger(record.v) && idMap.has(record.v)) {
+    return idMap.get(record.v);
+  }
+  if (isModelIdReferenceKey(record.k) && Number.isInteger(record.v) && idMap.has(record.v)) {
+    return idMap.get(record.v);
+  }
+  if (isPlainObject(record.v) || Array.isArray(record.v)) {
+    return remapImportedValue(record.v, idMap);
+  }
+  return record.v;
 }
 
 function resolveNextWorkspaceMountCell(runtime) {
@@ -1674,7 +1989,7 @@ function materializeImportedHostIngressAdapter(runtime, rootModelId, mountCell, 
   return keys;
 }
 
-function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, hostEgress) {
+function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, hostEgress, remoteEndpoint) {
   if (!hostEgress) return null;
   const rootModel = runtime.getModel(rootModelId);
   const model0 = runtime.getModel(0);
@@ -1690,7 +2005,21 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
     });
     return null;
   }
+  if (!remoteEndpoint || !remoteEndpoint.to) return null;
   const keys = buildImportedHostEgressKeys(rootModelId, hostEgress.semantic);
+  const route = {
+    transport: remoteEndpoint.transport,
+    to: {
+      worker_id: remoteEndpoint.to.worker_id,
+      model_id: remoteEndpoint.to.model_id,
+      pin: hostEgress.pinName,
+    },
+    reply_to: {
+      worker_id: resolveUiServerWorkerId(),
+      model_id: rootModelId,
+      pin: SLIDE_IMPORT_REPLY_PIN,
+    },
+  };
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: hostEgress.pinName, t: 'pin.out', v: null });
   runtime.addLabel(model0, 0, 0, 0, { k: keys.busOutKey, t: 'pin.bus.out', v: null });
   runtime.addLabel(model0, 0, 0, 0, { k: keys.model0BridgeIn, t: 'pin.in', v: null });
@@ -1708,6 +2037,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
         `  mt('source_model_id', 'int', ${rootModelId}),`,
         `  mt('pin', 'str', ${JSON.stringify(hostEgress.pinName)}),`,
         `  mt('bus_out_key', 'str', ${JSON.stringify(keys.busOutKey)}),`,
+        `  mt('route', 'json', ${JSON.stringify(route)}),`,
         `  mt('payload', 'json', payload),`,
         `]);`,
         'return;',
@@ -1730,11 +2060,25 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
       to: [[0, 0, 0, keys.model0BridgeIn]],
     }],
   });
+  const existingGenerated = runtime.getLabelValue(rootModel, 0, 0, 0, 'host_egress_generated_model0_labels');
+  const generatedModel0Labels = Array.from(new Set([
+    ...(Array.isArray(existingGenerated) ? existingGenerated : []),
+    keys.busOutKey,
+    keys.model0BridgeIn,
+    keys.model0BridgeWiringKey,
+    keys.model0BridgeRouteKey,
+    keys.bridgeFunc,
+  ]));
   runtime.addLabel(rootModel, 0, 0, 0, {
     k: 'host_egress_generated_model0_labels',
     t: 'json',
-    v: [keys.busOutKey, keys.model0BridgeIn, keys.model0BridgeWiringKey, keys.model0BridgeRouteKey, keys.bridgeFunc],
+    v: generatedModel0Labels,
   });
+  const existingMount = runtime.getLabelValue(rootModel, 0, 0, 0, 'host_egress_generated_mount');
+  const mountKeys = Array.from(new Set([
+    ...((existingMount && Array.isArray(existingMount.keys)) ? existingMount.keys : []),
+    hostEgress.pinName,
+  ]));
   runtime.addLabel(rootModel, 0, 0, 0, {
     k: 'host_egress_generated_mount',
     t: 'json',
@@ -1742,10 +2086,98 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
       p: mountCell.p,
       r: mountCell.r,
       c: mountCell.c,
-      keys: [hostEgress.pinName],
+      keys: mountKeys,
     },
   });
   return keys;
+}
+
+function normalizeRuntimeRemoteBusEndpoint(value) {
+  if (!isPlainObject(value) || containsRouteReplyTo(value)) return null;
+  const transport = typeof value.transport === 'string' ? value.transport.trim() : '';
+  const to = isPlainObject(value.to) ? value.to : null;
+  const workerId = to && typeof to.worker_id === 'string' ? to.worker_id.trim() : '';
+  const modelId = to && Number.isInteger(to.model_id) ? to.model_id : null;
+  if (transport !== 'mqtt' || !to || !workerId || !Number.isInteger(modelId) || modelId <= 0) return null;
+  if (Object.prototype.hasOwnProperty.call(to, 'pin')) return null;
+  return {
+    transport,
+    to: {
+      worker_id: workerId,
+      model_id: modelId,
+    },
+  };
+}
+
+function readRuntimeHostEgressEntries(runtime, rootModelId) {
+  const rootModel = runtime.getModel(rootModelId);
+  if (!rootModel) return [];
+  const rootCell = runtime.getCell(rootModel, 0, 0, 0);
+  const declaration = rootCell.labels.get(SLIDE_IMPORT_DUAL_BUS_LABEL)?.v ?? null;
+  if (!isPlainObject(declaration) || declaration.mode !== 'imported_host_egress') return [];
+  const egressPins = Array.isArray(declaration.egress_pins)
+    ? declaration.egress_pins.map((pin) => String(pin || '').trim())
+    : [];
+  const seenPins = new Set();
+  const entries = [];
+  for (const pinName of egressPins) {
+    if (!isValidPublicPinName(pinName) || seenPins.has(pinName)) return [];
+    seenPins.add(pinName);
+    const targetPin = rootCell.labels.get(pinName);
+    if (!targetPin || targetPin.t !== 'pin.out') return [];
+    entries.push({
+      semantic: pinName,
+      pinName,
+      dualBusDeclaration: {
+        mode: declaration.mode,
+        egress_pins: [...egressPins],
+      },
+    });
+  }
+  return entries;
+}
+
+function materializeDeclaredHostEgressAdapters(runtime) {
+  const materialized = [];
+  for (const [modelId] of runtime.models) {
+    if (!Number.isInteger(modelId) || modelId <= 0) continue;
+    const rootModel = runtime.getModel(modelId);
+    if (!rootModel) continue;
+    const rootCell = runtime.getCell(rootModel, 0, 0, 0);
+    const remoteEndpoint = normalizeRuntimeRemoteBusEndpoint(rootCell.labels.get(SLIDE_IMPORT_REMOTE_BUS_ENDPOINT_LABEL)?.v ?? null);
+    if (!remoteEndpoint) continue;
+    const entries = readRuntimeHostEgressEntries(runtime, modelId);
+    if (entries.length === 0) continue;
+    const mountCell = ensureModel0SubmodelMount(runtime, modelId);
+    if (!mountCell) continue;
+    for (const entry of entries) {
+      const keys = materializeImportedHostEgressAdapter(runtime, modelId, mountCell, entry, remoteEndpoint);
+      if (keys) materialized.push({ model_id: modelId, pin: entry.pinName });
+    }
+  }
+  return materialized;
+}
+
+function reapplyAuthoritativePositiveSurface(runtime, { assetRoot, systemModelsDir }) {
+  if (!runtime) return;
+  if (assetRoot) {
+    applyPersistedAssetEntries(runtime, {
+      assetRoot,
+      scope: 'ui-server',
+      authority: 'authoritative',
+      kind: 'patch',
+      phases: ['30-system-positive'],
+      applyOptions: { allowCreateModel: true, trustedBootstrap: true },
+    });
+    return;
+  }
+  loadFullModelPatches(runtime, systemModelsDir, [
+    'workspace_positive_models.json',
+    'doc_page_filltable_example_minimal.json',
+    'slide_app_provider_docs_ui.json',
+    'test_model_100_ui.json',
+    'runtime_hierarchy_mounts.json',
+  ]);
 }
 
 function materializeSlideImportPayload(runtime, payload, validation) {
@@ -1766,12 +2198,7 @@ function materializeSlideImportPayload(runtime, payload, validation) {
   for (const record of payload) {
     const actualModelId = idMap.get(record.id);
     const model = runtime.getModel(actualModelId);
-    let nextValue = record.v;
-    if (record.t === 'model.submt' && Number.isInteger(record.v) && idMap.has(record.v)) {
-      nextValue = idMap.get(record.v);
-    } else if (isPlainObject(record.v) || Array.isArray(record.v)) {
-      nextValue = remapImportedValue(record.v, idMap);
-    }
+    const nextValue = remapImportedLabelValue(record, idMap);
     runtime.addLabel(model, record.p, record.r, record.c, { k: record.k, t: record.t, v: nextValue });
   }
 
@@ -1787,12 +2214,22 @@ function materializeSlideImportPayload(runtime, payload, validation) {
   if (validation.hostIngress) {
     runtime.addLabel(rootModel, 0, 0, 0, { k: SLIDE_IMPORT_HOST_INGRESS_LABEL, t: 'json', v: validation.hostIngress.declaration });
   }
+  if (validation.hostEgress) {
+    runtime.addLabel(rootModel, 0, 0, 0, { k: SLIDE_IMPORT_DUAL_BUS_LABEL, t: 'json', v: validation.hostEgress.declaration });
+  }
+  if (validation.remoteEndpoint) {
+    runtime.addLabel(rootModel, 0, 0, 0, { k: SLIDE_IMPORT_REMOTE_BUS_ENDPOINT_LABEL, t: 'json', v: validation.remoteEndpoint.declaration });
+  }
 
   const mountCell = resolveNextWorkspaceMountCell(runtime);
   const model0 = runtime.getModel(0);
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'model_type', t: 'model.submt', v: rootModelId });
   const hostIngressKeys = materializeImportedHostIngressAdapter(runtime, rootModelId, mountCell, validation.hostIngress);
-  const hostEgressKeys = materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, validation.hostEgress);
+  const hostEgressKeys = validation.hostEgress && Array.isArray(validation.hostEgress.entries)
+    ? validation.hostEgress.entries
+      .map((entry) => materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, entry, validation.remoteEndpoint))
+      .filter(Boolean)
+    : null;
 
   return {
     rootModelId,
@@ -2057,23 +2494,20 @@ function setMailboxEnvelope(runtime, envelopeOrNull) {
 
 function temporaryPayloadToPatch(targetModelId, payload, opId) {
   if (!Number.isInteger(targetModelId)) return null;
+  if (!Array.isArray(payload) || payload.length === 0 || !payload.every(isTemporaryModelTableRecord)) return null;
   const records = [];
-  for (const record of Array.isArray(payload) ? payload : []) {
-    if (!record || typeof record !== 'object') continue;
-    if (typeof record.k !== 'string' || !record.k) continue;
-    if (typeof record.t !== 'string' || !record.t) continue;
+  for (const record of payload) {
     records.push({
       op: 'add_label',
       model_id: targetModelId,
-      p: Number.isInteger(record.p) ? record.p : 0,
-      r: Number.isInteger(record.r) ? record.r : 0,
-      c: Number.isInteger(record.c) ? record.c : 0,
+      p: record.p,
+      r: record.r,
+      c: record.c,
       k: record.k,
       t: record.t,
       v: record.v,
     });
   }
-  if (records.length === 0) return null;
   return {
     version: 'mt.v0',
     op_id: typeof opId === 'string' && opId ? opId : `pin_payload_${Date.now()}`,
@@ -2593,7 +3027,11 @@ function ensureStateLabel(runtime, key, t, v) {
 function overwriteStateLabel(runtime, key, t, v) {
   const model = runtime.getModel(EDITOR_STATE_MODEL_ID);
   const cell = runtime.getCell(model, 0, 0, 0);
-  if (cell.labels.has(key)) {
+  const current = cell.labels.get(key) || null;
+  if (current && current.t === t && modelTableValueEquals(current.v, v)) {
+    return;
+  }
+  if (current) {
     runtime.rmLabel(model, 0, 0, 0, key);
   }
   runtime.addLabel(model, 0, 0, 0, { k: key, t, v });
@@ -2653,7 +3091,11 @@ function overwriteRuntimeLabel(runtime, modelId, p, r, c, key, t, v) {
   const model = runtime.getModel(modelId);
   if (!model) return;
   const cell = runtime.getCell(model, p, r, c);
-  if (cell.labels.has(key)) {
+  const current = cell.labels.get(key) || null;
+  if (current && current.t === t && modelTableValueEquals(current.v, v)) {
+    return;
+  }
+  if (current) {
     runtime.rmLabel(model, p, r, c, key);
   }
   runtime.addLabel(model, p, r, c, { k: key, t, v });
@@ -2737,38 +3179,6 @@ function readDualBusConfig(runtime, modelId) {
   if (!model) return null;
   const value = runtime.getCell(model, 0, 0, 0).labels.get('dual_bus_model')?.v ?? null;
   return value && typeof value === 'object' ? value : null;
-}
-
-const MODEL100_DUAL_BUS_CANONICAL = Object.freeze({
-  bus_event_func: 'prepare_model100_submit',
-  model0_egress_label: 'model100_submit_out',
-  model0_egress_func: 'forward_model100_submit_from_model0',
-});
-
-function repairModel100DualBusConfig(runtime) {
-  const model = runtime.getModel(100);
-  if (!model) return false;
-  const cell = runtime.getCell(model, 0, 0, 0);
-  const currentLabel = cell.labels.get('dual_bus_model') || null;
-  const currentValue = currentLabel && currentLabel.v && typeof currentLabel.v === 'object'
-    ? currentLabel.v
-    : {};
-  const nextValue = {
-    ...currentValue,
-    ...MODEL100_DUAL_BUS_CANONICAL,
-  };
-  const changed = Object.entries(MODEL100_DUAL_BUS_CANONICAL)
-    .some(([key, value]) => currentValue[key] !== value);
-  if (!changed) return false;
-  if (currentLabel) {
-    runtime.rmLabel(model, 0, 0, 0, 'dual_bus_model');
-  }
-  runtime.addLabel(model, 0, 0, 0, {
-    k: 'dual_bus_model',
-    t: currentLabel && typeof currentLabel.t === 'string' && currentLabel.t ? currentLabel.t : 'json',
-    v: nextValue,
-  });
-  return true;
 }
 
 const SLIDE_IMPORTER_CLICK_PAYLOAD = Object.freeze([
@@ -3154,36 +3564,8 @@ class ProgramModelEngine {
     // Set by server to trigger SSE broadcast.
     this.onSnapshotChanged = null;
     this.bridgedBusOutPorts = new Map();
-    this.pendingModel0EgressDispatches = new Map();
     this.outboundMatrixOps = [];
     this.ignoredMatrixReturnOpIds = new Set();
-  }
-
-  model0EgressDispatchKey(sourceModelId, egressLabel, egressFunc) {
-    return `${sourceModelId}:${egressLabel}:${egressFunc}`;
-  }
-
-  model0EgressPayloadSignature(payload) {
-    return safeJsonStringify(payload, `unserializable:${Date.now()}`);
-  }
-
-  shouldScheduleModel0Egress(sourceModelId, egressLabel, egressFunc, payload) {
-    const key = this.model0EgressDispatchKey(sourceModelId, egressLabel, egressFunc);
-    if (!Array.isArray(payload) || payload.length === 0) {
-      this.pendingModel0EgressDispatches.delete(key);
-      return false;
-    }
-    const signature = this.model0EgressPayloadSignature(payload);
-    if (this.pendingModel0EgressDispatches.get(key) === signature) {
-      return false;
-    }
-    this.pendingModel0EgressDispatches.set(key, signature);
-    return true;
-  }
-
-  forgetModel0EgressDispatch(sourceModelId, egressLabel, egressFunc) {
-    const key = this.model0EgressDispatchKey(sourceModelId, egressLabel, egressFunc);
-    this.pendingModel0EgressDispatches.delete(key);
   }
 
   refreshMatrixBootstrapConfig() {
@@ -3279,7 +3661,6 @@ class ProgramModelEngine {
   }
 
   async sendMatrix(payload) {
-    console.log('[sendMatrix] CALLED with payload:', JSON.stringify(payload));
     emitTrace(this.runtime, {
       hop: 'server\u2192matrix', direction: 'outbound',
       op_id: payload && payload.op_id ? payload.op_id : '',
@@ -3289,11 +3670,9 @@ class ProgramModelEngine {
     });
     if ((typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive())
       || !this.matrixAdapter || !this.matrixRoomId) {
-      console.log('[sendMatrix] WARN: matrix_not_ready, skipping send');
       return null;
     }
     if (!this.matrixDmPeerUserId) {
-      console.log('[sendMatrix] WARN: matrix_dm_peer_user_id_required, skipping send');
       return null;
     }
     const opId = payload && typeof payload.op_id === 'string' ? payload.op_id : '';
@@ -3484,15 +3863,11 @@ class ProgramModelEngine {
     // Expected formats:
     // - { version: 'v0', type: 'snapshot_delta', op_id, payload: { version: 'mt.v0', records: [...] } }
     // - { version: 'v1', type: 'pin_payload', op_id, source_model_id, pin, payload: [...] }
-    console.log('[handleDyBusEvent] Processing:', JSON.stringify(content).substring(0, 300));
-
     if (!content || typeof content !== 'object') {
-      console.log('[handleDyBusEvent] Invalid content - not an object');
       return;
     }
     
     if (content.version !== 'v0' && content.version !== 'v1') {
-      console.log('[handleDyBusEvent] Unknown version:', content.version);
       return;
     }
 
@@ -3509,11 +3884,9 @@ class ProgramModelEngine {
     if (content.type === 'snapshot_delta') {
       const patch = content.payload;
       if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) {
-        console.log('[handleDyBusEvent] Invalid patch format');
         return;
       }
       traceInbound();
-      console.log('[handleDyBusEvent] Received snapshot_delta, patch op_id:', patch.op_id);
       this.routeSnapshotDeltaViaOwnerMaterialization(patch)
         .then((result) => {
           if (!result || result.ok !== true) {
@@ -3524,7 +3897,6 @@ class ProgramModelEngine {
             );
             return;
           }
-          console.log('[handleDyBusEvent] snapshot_delta routed via owner materialization:', JSON.stringify(result));
           this.onSnapshotChanged?.();
         })
         .catch((err) => {
@@ -3536,7 +3908,6 @@ class ProgramModelEngine {
     if (content.type === 'mgmt_bus_console_ack') {
       const ackValidation = validateMgmtBusConsoleAck(content);
       if (!ackValidation.ok) {
-        console.log('[handleDyBusEvent] Invalid mgmt_bus_console_ack:', ackValidation.code);
         return;
       }
       const consoleModel = this.runtime.getModel(MGMT_BUS_CONSOLE_MODEL_ID);
@@ -3554,21 +3925,20 @@ class ProgramModelEngine {
 
     if (content.type === 'pin_payload') {
       if (!Number.isInteger(content.source_model_id) || content.source_model_id <= 0) {
-        console.log('[handleDyBusEvent] Invalid pin_payload source_model_id');
         return;
       }
       const opId = typeof content.op_id === 'string' ? content.op_id : '';
       if (opId && this.ignoredMatrixReturnOpIds.has(opId)) {
-        console.log('[handleDyBusEvent] Ignoring quarantined pin_payload op_id:', opId);
         return;
       }
       if (String(content.pin || '').trim() !== 'result') {
-        console.log('[handleDyBusEvent] Unhandled pin_payload pin:', content.pin);
+        return;
+      }
+      if (!isExpectedPinPayloadReturnRoute(content)) {
         return;
       }
       const patch = temporaryPayloadToPatch(content.source_model_id, content.payload, content.op_id);
       if (!patch) {
-        console.log('[handleDyBusEvent] Invalid pin_payload payload format');
         return;
       }
       traceInbound();
@@ -3582,7 +3952,6 @@ class ProgramModelEngine {
             );
             return;
           }
-          console.log('[handleDyBusEvent] pin_payload routed via owner materialization:', JSON.stringify(result));
           this.onSnapshotChanged?.();
         })
         .catch((err) => {
@@ -3593,7 +3962,6 @@ class ProgramModelEngine {
     
     if (content.type === 'mbr_ready') {
       traceInbound();
-      console.log('[handleDyBusEvent] Received mbr_ready signal from MBR');
       // Set system_ready=true on all dual-bus models
       let changed = false;
       for (const [, model] of this.runtime.models) {
@@ -3601,7 +3969,6 @@ class ProgramModelEngine {
         const dbLabel = this.runtime.getCell(model, 0, 0, 0).labels.get('dual_bus_model');
         if (!dbLabel || !dbLabel.v) continue;
         this.runtime.addLabel(model, 0, 0, 0, { k: 'system_ready', t: 'bool', v: true });
-        console.log(`[handleDyBusEvent] Set system_ready=true on Model ${model.id}`);
         changed = true;
       }
       if (changed) {
@@ -3616,12 +3983,9 @@ class ProgramModelEngine {
       // Echo of our own Matrix send — ignore in server return path.
       return;
     }
-    
-    console.log('[handleDyBusEvent] Unhandled event type:', content.type);
   }
 
   executeFunction(name, interceptPayload) {
-    console.log('[executeFunction] CALLED with name:', name);
     // Emit trace for function execution (skip trace_append to avoid infinite loop)
     if (name !== 'trace_append' && name !== 'add_data') {
       emitTrace(this.runtime, {
@@ -3639,7 +4003,6 @@ class ProgramModelEngine {
       if (targetModel) {
         const handler = targetModel.getFunction(name);
         if (typeof handler === 'function') {
-          console.log('[executeFunction] Using runtime handler for', name, 'on model', interceptPayload.model_id);
           try {
             return handler({
               runtime: this.runtime,
@@ -3658,10 +4021,8 @@ class ProgramModelEngine {
     // --- Path B: code-string function (legacy / SQLite-loaded program model) ---
     const code = this.functions.get(name);
     if (!code) {
-      console.log('[executeFunction] WARNING: no code found for function:', name);
       return;
     }
-    console.log('[executeFunction] Found code, executing...');
     const runtimeView = {
       getModel: (modelId) => {
         const model = this.runtime.getModel(modelId);
@@ -4389,26 +4750,15 @@ class ProgramModelEngine {
   processEventsSnapshot(eventEndExclusive) {
     const events = this.runtime.eventLog.list();
     const end = Math.min(Number.isInteger(eventEndExclusive) ? eventEndExclusive : events.length, events.length);
-    const scheduledModel0Egress = new Set();
+    const scheduledBusOut = new Set();
     for (; this.eventCursor < end; this.eventCursor += 1) {
       const event = events[this.eventCursor];
       if (event.op !== 'add_label') continue;
 
       // UI event in mailbox -> trigger mapped forward function(s)
-      // Debug: log mailbox event labels being processed
-      if (event.cell && event.label && event.label.k === BUS_EVENT_KEY) {
-        console.log('[processEventsSnapshot] mailbox event detected:', {
-          model_id: event.cell.model_id,
-          expected_model_id: EDITOR_MODEL_ID,
-          p: event.cell.p, r: event.cell.r, c: event.cell.c,
-          label_v: event.label.v,
-          label_v_truthy: !!event.label.v
-        });
-      }
       if (event.cell && event.cell.model_id === EDITOR_MODEL_ID && 
           event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 1 &&
           event.label && event.label.k === BUS_EVENT_KEY && event.label.v) {
-        console.log('[processEventsSnapshot] mailbox event MATCHED! Resolving event_trigger_map...');
         const sys = firstSystemModel(this.runtime);
         const triggerMap = sys
           ? this.runtime.getLabelValue(sys, 0, 0, 0, 'event_trigger_map')
@@ -4430,9 +4780,6 @@ class ProgramModelEngine {
           }
         }
 
-        if (triggered === 0) {
-          console.log('[processEventsSnapshot] WARNING: no available mailbox-event trigger, sys=', !!sys);
-        }
         continue;
       }
 
@@ -4498,67 +4845,13 @@ class ProgramModelEngine {
           const dbLabel = this.runtime.getCell(targetModel, 0, 0, 0).labels.get('dual_bus_model');
           if (dbLabel && dbLabel.v && typeof dbLabel.v === 'object' && dbLabel.v.bus_event_func) {
             const funcName = dbLabel.v.bus_event_func;
-            console.log(`[processEventsSnapshot] Model ${event.cell.model_id} bus_event detected, triggering ${funcName}`);
             const sys = firstSystemModel(this.runtime);
             if (sys && sys.hasFunction(funcName)) {
               this.runtime.intercepts.record('run_func', { func: funcName });
-            } else {
-              console.log(`[processEventsSnapshot] WARNING: ${funcName} function NOT found`);
             }
             continue;
           }
         }
-      }
-
-      // Model 0 local egress point: dual-bus submit payload has already been
-      // normalized and relayed upward through existing model-boundary wiring.
-      if (event.cell && event.cell.model_id === 0 &&
-          event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
-          event.label && Array.isArray(event.label.v)) {
-        for (const [sourceModelId] of this.runtime.models) {
-          if (!Number.isInteger(sourceModelId) || sourceModelId <= 0) continue;
-          const dualBusConfig = readDualBusConfig(this.runtime, sourceModelId);
-          const egressLabel = dualBusConfig && typeof dualBusConfig.model0_egress_label === 'string'
-            ? dualBusConfig.model0_egress_label.trim()
-            : '';
-          const egressFunc = dualBusConfig && typeof dualBusConfig.model0_egress_func === 'string'
-            ? dualBusConfig.model0_egress_func.trim()
-            : '';
-          if (egressLabel && egressFunc && event.label.k === egressLabel) {
-            const sys = firstSystemModel(this.runtime);
-            console.log(`[processEventsSnapshot] Model 0 egress detected for model ${sourceModelId}, triggering ${egressFunc}`);
-            if (sys && sys.hasFunction(egressFunc)) {
-              scheduledModel0Egress.add(egressLabel);
-              if (this.shouldScheduleModel0Egress(sourceModelId, egressLabel, egressFunc, event.label.v)) {
-                this.runtime.intercepts.record('run_func', { func: egressFunc, payload: event.label.v });
-              }
-            } else {
-              console.log(`[processEventsSnapshot] WARNING: ${egressFunc} function NOT found`);
-            }
-            break;
-          }
-        }
-        continue;
-      }
-
-      if (event.cell && event.cell.model_id === 0 &&
-          event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
-          event.label && event.label.k === 'model100_submit_out' && event.label.v) {
-        const payload = event.label.v;
-        if (!payload || payload.source_model_id !== 100) {
-          console.log('[processEventsSnapshot] WARNING: model100_submit_out missing source_model_id=100');
-          continue;
-        }
-        const sys = firstSystemModel(this.runtime);
-        const funcName = 'forward_model100_submit_from_model0';
-        console.log('[processEventsSnapshot] Model 0 egress detected, triggering forward_model100_submit_from_model0');
-        if (sys && sys.hasFunction(funcName)) {
-          scheduledModel0Egress.add('model100_submit_out');
-          this.runtime.intercepts.record('run_func', { func: funcName, payload });
-        } else {
-          console.log(`[processEventsSnapshot] WARNING: ${funcName} function NOT found`);
-        }
-        continue;
       }
 
       // Legacy PIN_IN binding routing removed in 0143.
@@ -4600,13 +4893,12 @@ class ProgramModelEngine {
         v: { op_id: event.trace_id || '' },
       });
     }
-    this.schedulePendingModel0Egress(scheduledModel0Egress);
+    this.schedulePendingModel0Egress(scheduledBusOut);
   }
 
   schedulePendingModel0Egress(alreadyScheduled = new Set()) {
     const model0 = this.runtime.getModel(0);
     if (!model0) return;
-    const sys = firstSystemModel(this.runtime);
     const rootCell = this.runtime.getCell(model0, 0, 0, 0);
     for (const [key, label] of rootCell.labels.entries()) {
       const packet = label && label.t === 'pin.bus.out' && typeof this.runtime._pinBusOutValueToExternalPayload === 'function'
@@ -4624,34 +4916,10 @@ class ProgramModelEngine {
       const maybePromise = this.sendMatrix(packet);
       if (maybePromise && typeof maybePromise.then === 'function') {
         maybePromise.catch((err) => {
-          console.log('[processEventsSnapshot] WARNING: pending pin.bus.out matrix bridge failed', {
+          console.warn('[processEventsSnapshot] pending pin.bus.out matrix bridge failed', {
             error: err && err.message ? err.message : String(err),
           });
         });
-      }
-    }
-    for (const [sourceModelId] of this.runtime.models) {
-      if (!Number.isInteger(sourceModelId) || sourceModelId <= 0) continue;
-      const dualBusConfig = readDualBusConfig(this.runtime, sourceModelId);
-      const egressLabel = dualBusConfig && typeof dualBusConfig.model0_egress_label === 'string'
-        ? dualBusConfig.model0_egress_label.trim()
-        : '';
-      const egressFunc = dualBusConfig && typeof dualBusConfig.model0_egress_func === 'string'
-        ? dualBusConfig.model0_egress_func.trim()
-        : '';
-      if (!egressLabel || !egressFunc || alreadyScheduled.has(egressLabel)) continue;
-      const payload = this.runtime.getLabelValue(model0, 0, 0, 0, egressLabel);
-      if (!Array.isArray(payload) || payload.length === 0) {
-        this.forgetModel0EgressDispatch(sourceModelId, egressLabel, egressFunc);
-        continue;
-      }
-      if (!this.shouldScheduleModel0Egress(sourceModelId, egressLabel, egressFunc, payload)) continue;
-      console.log(`[processEventsSnapshot] Recovering pending Model 0 egress for model ${sourceModelId}, triggering ${egressFunc}`);
-      if (sys && sys.hasFunction(egressFunc)) {
-        alreadyScheduled.add(egressLabel);
-        this.runtime.intercepts.record('run_func', { func: egressFunc, payload });
-      } else {
-        console.log(`[processEventsSnapshot] WARNING: ${egressFunc} function NOT found during pending egress recovery`);
       }
     }
   }
@@ -4918,7 +5186,11 @@ function createServerState(options) {
       includeModelId: (modelId) => Number.isInteger(modelId) && modelId >= 0,
       includeRecord: ({ modelId, k }) => !(modelId === 0 && bootstrapGeneratedKeys.has(String(k || ''))),
     });
+    if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(true);
+    reapplyAuthoritativePositiveSurface(runtime, { assetRoot, systemModelsDir });
+    if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(false);
   }
+  materializeDeclaredHostEgressAdapters(runtime);
   if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(true);
   runtime.setRuntimeMode('edit');
 
@@ -5092,6 +5364,8 @@ function createServerState(options) {
         installed_at: installedAt,
         from_user: fromUser,
         to_user: toUser,
+        export_url: slideCapable ? `/api/slide-apps/${modelId}/export.zip` : '',
+        export_label: slideCapable ? 'Zip' : '',
       });
     }
     derived.sort((a, b) => a.model_id - b.model_id);
@@ -5916,68 +6190,7 @@ function createServerState(options) {
     runtime.addLabel(model100, 0, 0, 0, { k: 'status', t: 'str', v: 'ready' });
   }
 
-  function listPendingModel0EgressModelIds() {
-    const model0 = runtime.getModel(0);
-    if (!model0) return [];
-    const out = [];
-    const rootCell = runtime.getCell(model0, 0, 0, 0);
-    for (const [modelId] of runtime.models) {
-      if (!Number.isInteger(modelId) || modelId <= 0) continue;
-      const dualBusConfig = readDualBusConfig(runtime, modelId);
-      const egressLabel = dualBusConfig && typeof dualBusConfig.model0_egress_label === 'string'
-        ? dualBusConfig.model0_egress_label.trim()
-        : '';
-      if (!egressLabel) continue;
-      const value = rootCell.labels.get(egressLabel)?.v ?? null;
-      if (Array.isArray(value) && value.length > 0) out.push(modelId);
-    }
-    return out;
-  }
-
-  function isModel0EgressSettled(modelId) {
-    const model = runtime.getModel(modelId);
-    if (!model) return true;
-    if (runtime.getLabelValue(model, 0, 0, 0, 'submit_inflight') === true) return false;
-    const model0 = runtime.getModel(0);
-    if (!model0) return true;
-    const dualBusConfig = readDualBusConfig(runtime, modelId);
-    const egressLabel = dualBusConfig && typeof dualBusConfig.model0_egress_label === 'string'
-      ? dualBusConfig.model0_egress_label.trim()
-      : '';
-    if (!egressLabel) return true;
-    const pendingPayload = runtime.getLabelValue(model0, 0, 0, 0, egressLabel);
-    return !(Array.isArray(pendingPayload) && pendingPayload.length > 0);
-  }
-
-  async function drainRuntimeActivationEgress(modelIds, startedAtOverride = null) {
-    const pendingModelIds = Array.from(new Set(Array.isArray(modelIds) ? modelIds : []))
-      .filter((modelId) => Number.isInteger(modelId) && modelId > 0);
-    if (pendingModelIds.length === 0) return { ok: true, waited: false };
-
-    const timeoutMs = readIntEnv('DY_RUNTIME_ACTIVATION_DRAIN_MS', 5000, 0);
-    const startedAt = Number.isFinite(startedAtOverride) ? startedAtOverride : Date.now();
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() <= deadline) {
-      await programEngine.tick();
-      if (pendingModelIds.every((modelId) => isModel0EgressSettled(modelId))) {
-        return { ok: true, waited: true };
-      }
-      await sleepMs(25);
-    }
-    console.warn('[activateRuntimeMode] pending Model 0 egress did not settle before timeout:', pendingModelIds.join(','));
-    const ignoredOpIds = programEngine.ignoreOutboundMatrixReturns(pendingModelIds, startedAt);
-    for (const modelId of pendingModelIds) {
-      const model = runtime.getModel(modelId);
-      if (!model) continue;
-      runtime.addLabel(model, 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: false });
-      runtime.addLabel(model, 0, 0, 0, { k: 'submit_inflight_started_at', t: 'int', v: 0 });
-      runtime.addLabel(model, 0, 0, 0, { k: 'status', t: 'str', v: 'activation_egress_timeout' });
-    }
-    return { ok: true, waited: true, timed_out: true, timeout_ms: timeoutMs, model_ids: pendingModelIds, ignored_op_ids: ignoredOpIds };
-  }
-
   function updateDerived() {
-    repairModel100DualBusConfig(runtime);
     repairSlideImporterClickContract(runtime);
     recoverModel100StaleInflight();
     syncDerivedPageState();
@@ -6105,7 +6318,30 @@ function createServerState(options) {
     if (isUiEventV2) {
       const busInKey = String(envelopeOrNull.bus_in_key || '').trim();
       const allowedBusInKeys = new Set(['ui_submit', 'ui_click', 'ui_input', 'ui_edit', 'slide_import_media_uri_update', 'slide_import_click', 'mgmt_bus_console_send', 'mgmt_bus_console_refresh']);
-      if (!allowedBusInKeys.has(busInKey)) {
+      const isDeclaredModel0BusInRoute = (() => {
+        if (!busInKey) return false;
+        const model0 = runtime.getModel(0);
+        if (!model0) return false;
+        const rootCell = runtime.getCell(model0, 0, 0, 0);
+        for (const label of rootCell.labels.values()) {
+          if (label.t !== 'pin.connect.cell' || !Array.isArray(label.v)) continue;
+          for (const route of label.v) {
+            const from = route && route.from;
+            if (
+              Array.isArray(from)
+              && from.length === 4
+              && from[0] === 0
+              && from[1] === 0
+              && from[2] === 0
+              && from[3] === busInKey
+            ) {
+              return true;
+            }
+          }
+        }
+        return false;
+      })();
+      if (!allowedBusInKeys.has(busInKey) && !isDeclaredModel0BusInRoute) {
         return finishError('invalid_bus_in_key', busInKey || 'missing_bus_in_key');
       }
       const v2Value = envelopeOrNull.value;
@@ -7169,22 +7405,18 @@ function createServerState(options) {
       applied += Number(result && Number.isFinite(result.applied) ? result.applied : 0);
       rejected += Number(result && Number.isFinite(result.rejected) ? result.rejected : 0);
     }
+    materializeDeclaredHostEgressAdapters(runtime);
     updateDerived();
     await programEngine.tick();
     return { applied, rejected };
   }
 
   async function activateRuntimeMode(mode) {
-    const pendingActivationEgressModelIds = mode === 'running'
-      ? listPendingModel0EgressModelIds()
-      : [];
-    const activationDrainStartedAt = mode === 'running' ? Date.now() : null;
     runtime.setRuntimeMode(mode);
     if (mode === 'running') {
       await programEngineReady;
       await programEngine.activateRunning();
       await programEngine.tick();
-      await drainRuntimeActivationEgress(pendingActivationEgressModelIds, activationDrainStartedAt);
     }
     updateDerived();
     return { mode: runtime.getRuntimeMode() };
@@ -7197,6 +7429,7 @@ function createServerState(options) {
     submitEnvelope,
     applyModelTablePatch,
     activateRuntimeMode,
+    updateDerived,
     getRuntimeMode: () => runtime.getRuntimeMode(),
     getLastOpId: () => getLastBusEventOpId(),
     getEventError: () => getBusEventErrorValue(),
@@ -7249,8 +7482,11 @@ function startServer(options) {
     }
   }
 
-  // Wire up Matrix/external event handler to broadcast snapshot changes via SSE
-  state.programEngine.onSnapshotChanged = broadcastSnapshot;
+  // Rebuild derived UI projection before broadcasting external Matrix/MQTT returns.
+  state.programEngine.onSnapshotChanged = () => {
+    state.updateDerived();
+    broadcastSnapshot();
+  };
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
@@ -7376,6 +7612,33 @@ function startServer(options) {
     if (!isPublicPath(req.method, url.pathname) && !isAuthenticated(req)) {
       writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
       return;
+    }
+
+    if (req.method === 'GET') {
+      const exportMatch = url.pathname.match(/^\/api\/slide-apps\/(\d+)\/export\.zip$/);
+      if (exportMatch) {
+        const modelId = Number(exportMatch[1]);
+        const result = buildSlideAppExportZip(state.runtime, modelId);
+        if (!result || result.ok !== true) {
+          const status = result && result.code === 'model_not_found' ? 404 : 400;
+          writeJson(res, status, {
+            ok: false,
+            error: result && result.code ? result.code : 'export_failed',
+            detail: result && result.detail ? result.detail : '',
+          }, cors);
+          return;
+        }
+        const filename = result.data.filename || `slide-app-${modelId}.zip`;
+        res.writeHead(200, {
+          'content-type': 'application/zip',
+          'content-length': result.data.buffer.length,
+          'content-disposition': `attachment; filename="${filename}"`,
+          'cache-control': 'no-cache',
+          ...cors,
+        });
+        res.end(result.data.buffer);
+        return;
+      }
     }
 
     if (req.method === 'GET' && url.pathname === '/favicon.ico') {
@@ -7710,7 +7973,7 @@ export function buildCrossModelHostApiMethods(runtime) {
   return { writeCrossModel, readCrossModel, rmCrossModel, setMqttTargetConfig };
 }
 
-export { buildClientSnapshot, createServerState, handleMediaUploadRequest, startServer };
+export { buildClientSnapshot, buildSlideAppExportPayload, buildSlideAppExportZip, createServerState, handleMediaUploadRequest, startServer };
 
 const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMainModule) {

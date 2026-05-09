@@ -158,6 +158,12 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
   - 当前 MVP 只支持：
     - `submit`
     - `root_relative_cell`
+- `0362` 新增 imported slide app 的自描述远端路由：
+  - imported app 可在 root `(0,0,0)` 声明 `remote_bus_endpoint_v1`
+  - 它只声明远端 `route.to.worker_id` 与 `route.to.model_id`
+  - `route.to.pin` 来自当前公开入口 pin，例如 `submit1`
+  - `route.reply_to` 必须由 UI Server 运行时按本地安装实例生成，ZIP 不能提供或覆盖
+  - MBR 不应要求为每个上传 App 预注册 per-app route
 - `0308` 之后，对以上 slide/workspace 主线路径，legacy `action` envelope 已正式退役：
   - 会显式返回 `legacy_action_protocol_retired`
   - 不再通过 server 侧 action → ingress 旧映射放行

@@ -127,28 +127,19 @@ function test_owner_materialize_generator_uses_v1n_table() {
   return { key: 'owner_materialize_generator_uses_v1n_table', status: 'PASS' };
 }
 
-// Per Step 3 decision (runlog Step 3 补录 SC #7 豁免清单): 3 forward funcs 均降级为 programEngine-only;
-// forward body 保留 ctx.*（programEngine ctx shape server.mjs:3040-3080；runtime 入口已断，等价 programEngine-only 代码，按 runlog Step 3 SC #7 豁免清单补录纳入豁免范围）;
-// 契约转为「不存在 runtime pin.connect.label 入口指向 (func, forward_*:in)」
-function test_legacy_forward_funcs_no_runtime_pin_wiring() {
+function test_legacy_forward_funcs_are_removed_from_positive_models() {
   const doc = JSON.parse(readFileSync(WORKSPACE_JSON, 'utf8'));
   const recs = Array.isArray(doc.records) ? doc.records : [];
-  const pinConnectLabels = recs.filter((r) => r && r.op === 'add_label' && r.t === 'pin.connect.label');
   const FORWARD_NAMES = [
     'forward_workspace_filltable_submit_from_model0',
     'forward_matrix_phase1_send_from_model0',
     'forward_model100_submit_from_model0',
   ];
   for (const fwdName of FORWARD_NAMES) {
-    const funcTarget = `${fwdName}:in`;
-    const hits = pinConnectLabels.filter((lbl) => {
-      const entries = Array.isArray(lbl.v) ? lbl.v : [];
-      return entries.some((entry) => Array.isArray(entry && entry.to) && entry.to.includes(funcTarget));
-    });
-    assert.equal(hits.length, 0,
-      `${fwdName} must have no runtime pin.connect.label entry (programEngine-only). Found ${hits.length} hit(s).`);
+    const hits = recs.filter((record) => record && record.k === fwdName);
+    assert.equal(hits.length, 0, `${fwdName} must be fully removed from positive model seeds`);
   }
-  return { key: 'legacy_forward_funcs_no_runtime_pin_wiring', status: 'PASS' };
+  return { key: 'legacy_forward_funcs_are_removed_from_positive_models', status: 'PASS' };
 }
 
 // Bucket B Model 100 owner_materialize 在 test_model_100_ui.json (0,0,0) root,
@@ -313,7 +304,7 @@ function test_ensure_owner_materializer_refreshes_legacy_object_payload_fallback
 const tests = [
   test_owner_materialize_generator_no_ctx_api,
   test_owner_materialize_generator_uses_v1n_table,
-  test_legacy_forward_funcs_no_runtime_pin_wiring,
+  test_legacy_forward_funcs_are_removed_from_positive_models,
   test_model100_owner_materialize_uses_v1n_table,
   test_bucket_c_handler_uses_write_label_req,
   test_bucket_c_cell_routes_label_present,

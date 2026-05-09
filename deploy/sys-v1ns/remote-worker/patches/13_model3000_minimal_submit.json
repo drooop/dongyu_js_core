@@ -1,0 +1,202 @@
+{
+  "version": "mt.v0",
+  "op_id": "minimal_submit_dual_bus_provider_remote_v1",
+  "description": "Model 3000 remote provider truth for minimal Submit dual-bus example",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 3000,
+      "name": "minimal_submit_dual_bus_provider_remote",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.MinimalSubmitDualBusProviderRemote"
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "provider_worker_id",
+      "t": "str",
+      "v": "RE"
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_topic_base",
+      "t": "str",
+      "v": "UIPUT/ws/dam/pic/de/sw"
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "display_text",
+      "t": "str",
+      "v": "Waiting for submit"
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_status",
+      "t": "str",
+      "v": "idle"
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_inflight",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "last_submit_payload",
+      "t": "json",
+      "v": []
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit1",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit1_route",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [
+            0,
+            0,
+            0,
+            "submit1"
+          ],
+          "to": [
+            [
+              1,
+              1,
+              1,
+              "submit1_in"
+            ]
+          ]
+        },
+        {
+          "from": [
+            1,
+            1,
+            1,
+            "submit1_out"
+          ],
+          "to": [
+            [
+              0,
+              0,
+              0,
+              "result"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 1,
+      "r": 1,
+      "c": 1,
+      "k": "submit1_in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 1,
+      "r": 1,
+      "c": 1,
+      "k": "submit1_out",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 1,
+      "r": 1,
+      "c": 1,
+      "k": "submit1_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "submit1_in",
+          "to": [
+            "submit1:in"
+          ]
+        },
+        {
+          "from": "submit1:out",
+          "to": [
+            "submit1_out"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 3000,
+      "p": 1,
+      "r": 1,
+      "c": 1,
+      "k": "submit1",
+      "t": "func.js",
+      "v": {
+        "code": "const inputRecords = Array.isArray(label && label.v) ? label.v : [];\nconst routeRecord = inputRecords.find((record) => record && record.k === 'route' && record.t === 'json' && record.v && typeof record.v === 'object') || null;\nconst route = routeRecord ? routeRecord.v : null;\nconst replyTo = route && route.reply_to && typeof route.reply_to === 'object' && !Array.isArray(route.reply_to) ? route.reply_to : null;\nconst businessPayload = inputRecords.filter((record) => !(record && record.k === 'route'));\nconst textRecord = businessPayload.find((record) => record && (record.k === 'text' || record.k === 'message_text')) || null;\nconst text = String(textRecord && textRecord.v != null ? textRecord.v : '').trim();\nconst displayText = 'Submitted: ' + (text || '(empty)');\nconst resultPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: 'display_text', t: 'str', v: displayText },\n  { id: 0, p: 0, r: 0, c: 0, k: 'remote_status', t: 'str', v: 'remote_processed' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'last_submit_payload', t: 'json', v: businessPayload },\n  { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false }\n];\nconst safeSegment = (value) => typeof value === 'string' && value.trim() === value && value.length > 0 && !value.includes('/') && !value.includes('+') && !value.includes('#');\nif (!replyTo || !safeSegment(String(replyTo.worker_id || '')) || !Number.isInteger(Number(replyTo.model_id)) || Number(replyTo.model_id) <= 0 || !safeSegment(String(replyTo.pin || ''))) {\n  V1N.addLabel('remote_status', 'str', 'route_reply_to_missing');\n  return resultPayload;\n}\nconst baseLabel = V1N.readLabel(0, 0, 0, 'mqtt_topic_base');\nconst base = String(baseLabel && baseLabel.v ? baseLabel.v : '').trim();\nif (!base) {\n  V1N.addLabel('remote_status', 'str', 'missing_mqtt_topic_base');\n  return resultPayload;\n}\nconst topic = base + '/worker/' + String(replyTo.worker_id).trim() + '/model/' + Number(replyTo.model_id) + '/pin/' + String(replyTo.pin).trim();\nctx.publishMqtt(topic, {\n  version: 'v1',\n  type: 'pin_payload',\n  op_id: 'minimal_submit_matrix_result_' + Date.now(),\n  source_model_id: Number(replyTo.model_id),\n  pin: String(replyTo.pin).trim(),\n  payload: resultPayload,\n  timestamp: Date.now(),\n  route: {\n    to: {\n      worker_id: String(replyTo.worker_id).trim(),\n      model_id: Number(replyTo.model_id),\n      pin: String(replyTo.pin).trim()\n    },\n    from: {\n      worker_id: 'RE',\n      model_id: 3000,\n      pin: 'submit1'\n    }\n  }\n});\nreturn resultPayload;",
+        "modelName": "minimal_submit_dual_bus_provider_remote"
+      }
+    }
+  ]
+}

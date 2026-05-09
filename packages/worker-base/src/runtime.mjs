@@ -885,6 +885,7 @@ class ModelTableRuntime {
     const pinLabel = this._payloadLabel(payload, 'pin');
     const busOutKeyLabel = this._payloadLabel(payload, 'bus_out_key');
     const nestedPayloadLabel = this._payloadLabel(payload, 'payload');
+    const routeLabel = this._payloadLabel(payload, 'route');
     const sourceModelId = sourceModelIdLabel && sourceModelIdLabel.t === 'int' && Number.isInteger(sourceModelIdLabel.v)
       ? sourceModelIdLabel.v
       : null;
@@ -895,11 +896,15 @@ class ModelTableRuntime {
       ? busOutKeyLabel.v.trim()
       : pin;
     const nestedPayload = nestedPayloadLabel && nestedPayloadLabel.t === 'json' ? nestedPayloadLabel.v : null;
+    const route = routeLabel && routeLabel.t === 'json' ? routeLabel.v : null;
     if (!Number.isInteger(sourceModelId) || sourceModelId <= 0 || !pin || !busOutKey) {
       return { ok: false, code: 'missing_source', requestId };
     }
     if (!this._isTemporaryModelTablePayload(nestedPayload)) {
       return { ok: false, code: 'invalid_nested_payload', requestId };
+    }
+    if (routeLabel && (routeLabel.t !== 'json' || !this._isPinRouteMetadata(routeLabel.v))) {
+      return { ok: false, code: 'invalid_route', requestId };
     }
     return {
       ok: true,
@@ -908,20 +913,39 @@ class ModelTableRuntime {
       pin,
       busOutKey,
       payload: nestedPayload,
+      route,
     };
   }
 
-  _buildPinPayloadValue({ opId, sourceModelId, pin, payload, timestamp = Date.now() }) {
+  _isPinRouteMetadata(value) {
+    if (value === null || value === undefined) return true;
+    if (typeof value !== 'object' || Array.isArray(value)) return false;
+    if (Object.prototype.hasOwnProperty.call(value, 'to')) {
+      const to = value.to;
+      if (!to || typeof to !== 'object' || Array.isArray(to)) return false;
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'reply_to')) {
+      const replyTo = value.reply_to;
+      if (!replyTo || typeof replyTo !== 'object' || Array.isArray(replyTo)) return false;
+    }
+    return true;
+  }
+
+  _buildPinPayloadValue({ opId, sourceModelId, pin, payload, route = null, timestamp = Date.now() }) {
     const requestId = opId || `pin_payload_${Date.now()}`;
-    return [
+    const records = [
       this._mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
       this._mtPayloadRecord('__mt_request_id', 'str', requestId),
       this._mtPayloadRecord('op_id', 'str', requestId),
       this._mtPayloadRecord('source_model_id', 'int', sourceModelId),
       this._mtPayloadRecord('pin', 'str', pin),
       this._mtPayloadRecord('payload', 'json', payload),
-      this._mtPayloadRecord('timestamp', 'int', timestamp),
     ];
+    if (this._isPinRouteMetadata(route) && route !== null && route !== undefined) {
+      records.push(this._mtPayloadRecord('route', 'json', route));
+    }
+    records.push(this._mtPayloadRecord('timestamp', 'int', timestamp));
+    return records;
   }
 
   _buildMqttIngressPayloadValue({ kind, topic, payload, opId = '', extra = [] }) {
@@ -948,6 +972,7 @@ class ModelTableRuntime {
     const sourceModelIdLabel = this._payloadLabel(value, 'source_model_id');
     const pinLabel = this._payloadLabel(value, 'pin');
     const nestedPayloadLabel = this._payloadLabel(value, 'payload');
+    const routeLabel = this._payloadLabel(value, 'route');
     const timestampLabel = this._payloadLabel(value, 'timestamp');
     const opId = opIdLabel && opIdLabel.t === 'str' && typeof opIdLabel.v === 'string' && opIdLabel.v
       ? opIdLabel.v
@@ -959,23 +984,31 @@ class ModelTableRuntime {
       ? pinLabel.v.trim()
       : '';
     const nestedPayload = nestedPayloadLabel && nestedPayloadLabel.t === 'json' ? nestedPayloadLabel.v : null;
+    const route = routeLabel && routeLabel.t === 'json' ? routeLabel.v : null;
     const timestamp = timestampLabel && timestampLabel.t === 'int' && Number.isInteger(timestampLabel.v)
       ? timestampLabel.v
       : Date.now();
     if (!Number.isInteger(sourceModelId) || sourceModelId <= 0 || !pin || !this._isTemporaryModelTablePayload(nestedPayload)) {
       return { ok: false, code: 'invalid_payload' };
     }
+    if (routeLabel && (routeLabel.t !== 'json' || !this._isPinRouteMetadata(routeLabel.v))) {
+      return { ok: false, code: 'invalid_route' };
+    }
+    const packet = {
+      version: 'v1',
+      type: 'pin_payload',
+      op_id: opId,
+      source_model_id: sourceModelId,
+      pin,
+      payload: nestedPayload,
+      timestamp,
+    };
+    if (route !== null && route !== undefined) {
+      packet.route = route;
+    }
     return {
       ok: true,
-      packet: {
-        version: 'v1',
-        type: 'pin_payload',
-        op_id: opId,
-        source_model_id: sourceModelId,
-        pin,
-        payload: nestedPayload,
-        timestamp,
-      },
+      packet,
     };
   }
 
@@ -985,6 +1018,18 @@ class ModelTableRuntime {
       return parsed.ok ? parsed.packet : null;
     }
     return null;
+  }
+
+  _pinPayloadDeliveryValue(packet) {
+    const value = Array.isArray(packet && packet.payload) ? packet.payload : [];
+    const route = packet && packet.route;
+    if (route === null || route === undefined) return value;
+    if (!this._isPinRouteMetadata(route)) return value;
+    const businessValue = value.filter((record) => !(record && record.k === 'route'));
+    return [
+      this._mtPayloadRecord('route', 'json', route),
+      ...businessValue,
+    ];
   }
 
   _normalizeBusInValue(value, expectedPin = '') {
@@ -1056,6 +1101,7 @@ class ModelTableRuntime {
       sourceModelId: parsed.sourceModelId,
       pin: parsed.pin,
       payload: parsed.payload,
+      route: parsed.route,
     });
     const res = this.addLabel(model, 0, 0, 0, { k: parsed.busOutKey, t: 'pin.bus.out', v: busOutPayload });
     if (!res || !res.applied) {
@@ -1318,6 +1364,7 @@ class ModelTableRuntime {
       topic_prefix: get('mqtt_target_topic_prefix')?.v ?? null,
       topic_mode: get('mqtt_topic_mode')?.v ?? null,
       topic_base: get('mqtt_topic_base')?.v ?? null,
+      worker_id: get('mqtt_worker_id')?.v ?? null,
       payload_mode: get('mqtt_payload_mode')?.v ?? null,
       // 9-layer segment labels
       topic_ns: get('mqtt_topic_ns')?.v ?? null,
@@ -1556,7 +1603,11 @@ class ModelTableRuntime {
     if (mode === 'uiput_mm_v1') {
       const base = config.topic_base || '';
       if (!base) return null;
-      return `${base}/${modelId}/${pinName}`;
+      const workerId = typeof config.worker_id === 'string' && config.worker_id.trim()
+        ? config.worker_id.trim()
+        : 'local';
+      if (workerId.includes('/') || workerId.includes('+') || workerId.includes('#')) return null;
+      return `${base}/worker/${workerId}/model/${modelId}/pin/${pinName}`;
     }
     const prefix = config.topic_prefix || '';
     if (prefix) return `${prefix}/${pinName}`;
@@ -1683,7 +1734,7 @@ class ModelTableRuntime {
 
       if (payloadMode === 'pin_payload_v1' && pinPayloadV1) {
         if (payload.pin !== pinName) return false;
-        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload.payload });
+        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: this._pinPayloadDeliveryValue(payload) });
         this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1' });
         return true;
       }
@@ -1706,10 +1757,33 @@ class ModelTableRuntime {
       }
       const rest = topic.slice(prefix.length);
       const parts = rest.split('/');
-      if (parts.length !== 2) return false;
-      const modelId = Number(parts[0]);
-      const pinName = parts[1] || '';
-      if (!Number.isInteger(modelId) || !pinName || pinName.includes('/')) return false;
+      let modelId = null;
+      let pinName = '';
+      if (parts.length === 6 && parts[0] === 'worker' && parts[2] === 'model' && parts[4] === 'pin') {
+        const workerId = parts[1] || '';
+        modelId = Number(parts[3]);
+        pinName = parts[5] || '';
+        if (!workerId || workerId.includes('/') || workerId.includes('+') || workerId.includes('#')) return false;
+        const configuredWorkerId = typeof config.worker_id === 'string' ? config.worker_id.trim() : '';
+        if (configuredWorkerId && workerId !== configuredWorkerId) {
+          this.mqttTrace.record('inbound_rejected', {
+            topic,
+            payload,
+            mode: 'uiput_mm_v1',
+            reason: 'worker_id_mismatch',
+          });
+          return false;
+        }
+      } else {
+        this.mqttTrace.record('inbound_rejected', {
+          topic,
+          payload,
+          mode: 'uiput_mm_v1',
+          reason: 'worker_model_pin_topic_required',
+        });
+        return false;
+      }
+      if (!Number.isInteger(modelId) || !pinName || pinName.includes('/') || pinName.includes('+') || pinName.includes('#')) return false;
 
       if (this.busInPorts.has(pinName) && modelId === 0) {
         return this._handleBusInMessage(pinName, payload);
@@ -1739,7 +1813,7 @@ class ModelTableRuntime {
 
       if (payloadMode === 'pin_payload_v1' && pinPayloadV1) {
         if (payload.pin !== pinName) return false;
-        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload.payload });
+        this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: this._pinPayloadDeliveryValue(payload) });
         this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1' });
         return true;
       }
@@ -1790,7 +1864,7 @@ class ModelTableRuntime {
 
     if (payloadMode === 'pin_payload_v1' && pinPayloadV1) {
       if (payload.pin !== pinName) return false;
-      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: payload.payload });
+      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: this._pinPayloadDeliveryValue(payload) });
       this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1' });
       return true;
     }

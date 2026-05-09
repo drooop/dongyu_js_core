@@ -377,10 +377,6 @@ function test_projection_deriver_emits_redacted_event_rows_and_inspector() {
   const labels = new Map([
     ['0:mgmt_bus_console_send_route', [{ from: [0, 'mgmt_bus_console_send'], to: [[-10, 'mgmt_bus_console_intent']] }]],
     ['0:mgmt_bus_console_refresh_route', [{ from: [0, 'mgmt_bus_console_refresh'], to: [[-10, 'mgmt_bus_console_refresh_intent']] }]],
-    ['-10:mbr_route_100', { pin: 'submit', type: 'pin_payload' }],
-    ['-10:mbr_route_1010', { pin: 'submit', type: 'pin_payload' }],
-    ['-10:mbr_route_1019', { pin: 'submit', type: 'pin_payload' }],
-    ['-10:mbr_route_default', { pin: 'result', type: 'pin_payload' }],
   ]);
   const projection = deriveMgmtBusConsoleProjection({
     matrixProjection,

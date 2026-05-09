@@ -274,3 +274,46 @@ v1 当前只允许：
   - `pin.connect.cell`
 
 删除 imported app 时，宿主必须清理安装时自动补上的 Model 0 / hosting Cell labels。
+
+## 10. Imported Slide App Remote Bus Endpoint（0362）
+
+除 label.t 之外，0362 新增一条 imported slide app root label 声明，用于表达远端提供方入口：
+
+- Cell:
+  - imported app root `(0,0,0)`
+- Label:
+  - `k = remote_bus_endpoint_v1`
+  - `t = json`
+
+它不是新的 label.t，不是 ZIP sidecar manifest，也不是 MBR per-app route。它只是 imported app 模型表内的 root 声明。
+
+v1 只允许声明远端默认目标：
+
+```json
+{
+  "transport": "mqtt",
+  "to": {
+    "worker_id": "RE",
+    "model_id": 3000
+  }
+}
+```
+
+约束：
+
+- `to.worker_id` 是远端提供方 worker / Remote Entity 标识。
+- `to.model_id` 是远端提供方 worker 内部的 provider model id。
+- `to.pin` 不写在 `remote_bus_endpoint_v1` 中；运行时必须由触发动作的公开 pin 名补齐，例如 `submit1`。
+- `route.reply_to` 不允许由 ZIP / imported records 提供或覆盖。`route.reply_to` 是 UI Server 运行时根据当前安装实例与宿主身份生成的 server-owned route metadata。
+- MBR 不得要求为每个 imported app 写入静态 per-app route label；跨 worker 目的地必须来自运行时消息的 `route.to`。
+
+与之配套的 `dual_bus_model` 必须显式列出可外发的公开 pin：
+
+```json
+{
+  "mode": "imported_host_egress",
+  "egress_pins": ["submit1"]
+}
+```
+
+`egress_pins` 可以包含多个公开 pin，例如 `submit1`、`submit2`。每个 pin 都必须是 imported app root `(0,0,0)` 上已声明的普通 `pin.out`；不得写成 `submit1:in` 这类函数端点。

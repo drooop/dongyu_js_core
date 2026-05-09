@@ -60,10 +60,11 @@ function payloadWithIngressAndEgress() {
         primary: true,
       }],
     } },
-    { id: 0, p: 0, r: 0, c: 0, k: 'dual_bus_model', t: 'json', v: { mode: 'imported_host_egress' } },
+    { id: 0, p: 0, r: 0, c: 0, k: 'remote_bus_endpoint_v1', t: 'json', v: { transport: 'mqtt', to: { worker_id: 'RE', model_id: 3000 } } },
+    { id: 0, p: 0, r: 0, c: 0, k: 'dual_bus_model', t: 'json', v: { mode: 'imported_host_egress', egress_pins: ['submit1'] } },
     { id: 0, p: 0, r: 0, c: 0, k: 'submit_request', t: 'pin.in', v: null },
     { id: 0, p: 0, r: 0, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: 'submit_request', to: ['handle_submit:in'] }] },
-    { id: 0, p: 0, r: 0, c: 0, k: 'submit', t: 'pin.out', v: null },
+    { id: 0, p: 0, r: 0, c: 0, k: 'submit1', t: 'pin.out', v: null },
     { id: 0, p: 0, r: 0, c: 0, k: 'root_routes', t: 'pin.connect.cell', v: [
       { from: [2, 3, 0, 'click_chain'], to: [[0, 0, 0, 'submit_request']] },
     ] },
@@ -83,7 +84,7 @@ function payloadWithIngressAndEgress() {
       "V1N.addLabel('input_text', 'str', text);",
       "V1N.addLabel('last_submit_payload', 'json', payload);",
       "V1N.addLabel('status_text', 'str', text ? 'payload_ready' : 'empty_input');",
-      "if (text) V1N.addLabel('submit', 'pin.out', payload);",
+      "if (text) V1N.addLabel('submit1', 'pin.out', payload);",
       "return;",
     ].join('\\n') } },
   ];
@@ -97,6 +98,7 @@ async function withServerState(fn) {
   process.env.WORKER_BASE_DATA_ROOT = join(tempRoot, 'runtime');
   process.env.DOCS_ROOT = join(tempRoot, 'docs');
   process.env.STATIC_PROJECTS_ROOT = join(tempRoot, 'static');
+  process.env.DY_UI_SERVER_WORKER_ID = 'ui-server-it0326';
   const { createServerState } = await import(new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url));
   const state = createServerState({ dbPath: null });
   try {
@@ -109,6 +111,7 @@ async function withServerState(fn) {
     delete process.env.DOCS_ROOT;
     delete process.env.STATIC_PROJECTS_ROOT;
     delete process.env.DY_PERSISTED_ASSET_ROOT;
+    delete process.env.DY_UI_SERVER_WORKER_ID;
   }
 }
 
@@ -151,7 +154,7 @@ async function test_imported_egress_uses_bus_out_bridge_without_forward_func() {
 
     const publishSubmit = async (messageText) => {
       state.runtime.addLabel(state.runtime.getModel(importedId), 0, 0, 0, {
-        k: 'submit',
+        k: 'submit1',
         t: 'pin.out',
         v: [
           { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.ImportedHostSubmit' },
@@ -165,6 +168,12 @@ async function test_imported_egress_uses_bus_out_bridge_without_forward_func() {
         && entry.payload?.payload?.type === 'pin_payload'
         && entry.payload?.payload?.source_model_id === importedId
         && entry.payload?.payload?.payload?.some?.((record) => record && record.k === 'message_text' && record.v === messageText)
+        && entry.payload?.payload?.route?.to?.worker_id === 'RE'
+        && entry.payload?.payload?.route?.to?.model_id === 3000
+        && entry.payload?.payload?.route?.to?.pin === 'submit1'
+        && entry.payload?.payload?.route?.reply_to?.worker_id === 'ui-server-it0326'
+        && entry.payload?.payload?.route?.reply_to?.model_id === importedId
+        && entry.payload?.payload?.route?.reply_to?.pin === 'result'
       ));
       assert.ok(mqttPublish, `model0 pin.bus.out must publish MQTT payload for ${messageText}`);
 
@@ -172,9 +181,15 @@ async function test_imported_egress_uses_bus_out_bridge_without_forward_func() {
         entry?.type === 'pin_payload'
         && entry?.source_model_id === importedId
         && entry?.payload?.some?.((record) => record && record.k === 'message_text' && record.v === messageText)
+        && entry?.route?.to?.worker_id === 'RE'
+        && entry?.route?.to?.model_id === 3000
+        && entry?.route?.to?.pin === 'submit1'
+        && entry?.route?.reply_to?.worker_id === 'ui-server-it0326'
+        && entry?.route?.reply_to?.model_id === importedId
+        && entry?.route?.reply_to?.pin === 'result'
       ));
       assert.ok(matrixPacket, `Matrix publish must occur via the new bridge for ${messageText}`);
-      assert.equal(matrixPacket.pin, 'submit', 'Matrix bridge must preserve submit pin');
+      assert.equal(matrixPacket.pin, 'submit1', 'Matrix bridge must preserve public egress pin');
     };
 
     await publishSubmit('hello imported bridge #1');

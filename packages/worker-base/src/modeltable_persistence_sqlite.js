@@ -57,7 +57,7 @@ class SqlitePersister {
       'insert or replace into mt_data (mt_id, p, r, c, k, t, v, s, i, m) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
     this.deleteStmt = this.db.prepare(
-      'delete from mt_data where mt_id = ? and p = ? and r = ? and c = ? and k = ? and t = ?',
+      'delete from mt_data where mt_id = ? and p = ? and r = ? and c = ? and k = ?',
     );
   }
 
@@ -75,13 +75,14 @@ class SqlitePersister {
   onLabelAdded({ model, p, r, c, label }) {
     if (!this.enabled) return;
     if (!model || !label) return;
+    this.deleteStmt.run(model.id, p, r, c, label.k);
     this.insertStmt.run(model.id, p, r, c, label.k, label.t, encodeValue(label.v), null, null, null);
   }
 
   onLabelRemoved({ model, p, r, c, label }) {
     if (!this.enabled) return;
     if (!model || !label) return;
-    this.deleteStmt.run(model.id, p, r, c, label.k, label.t);
+    this.deleteStmt.run(model.id, p, r, c, label.k);
   }
 
   close() {

@@ -357,22 +357,27 @@ function test_server_projection_deriver_includes_mbr_health_and_sanitizes_routes
   };
   const labels = new Map([
     ['0:mgmt_bus_console_send_route', [{ from: [0, 'mgmt_bus_console_send'], to: [[-10, 'mgmt_bus_console_intent']] }]],
-    ['0:mgmt_bus_console_refresh_route', [{ from: [0, 'mgmt_bus_console_refresh'], to: [[-10, 'mgmt_bus_console_refresh_intent']] }]],
-    ['-10:mbr_route_100', { pin: 'submit', type: 'pin_payload', access_token: 'SECRET_SHOULD_NOT_RENDER' }],
-    ['-10:mbr_route_1010', { pin: 'submit', type: 'pin_payload' }],
-    ['-10:mbr_route_default', { pin: 'result', type: 'pin_payload', password: 'SECRET_SHOULD_NOT_RENDER' }],
+    ['0:mgmt_bus_console_refresh_route', [{ from: [0, 'mgmt_bus_console_refresh'], to: [] }]],
   ]);
   const readRootLabel = (modelId, key) => labels.get(`${modelId}:${key}`);
   const partial = deriveMgmtBusConsoleProjection({ matrixProjection, readRootLabel });
 
-  assert.equal(partial.routeStatus, 'route_missing', 'aggregate route status must include missing MBR routes');
+  assert.equal(partial.routeStatus, 'route_missing', 'aggregate route status must include missing Model 0 routes');
   assert.deepEqual(partial.subjects, [
     { label: 'Trace Buffer', value: 'trace', status: 'available' },
     { label: 'Matrix Adapter', value: 'matrix', status: 'selected' },
   ]);
   assert.ok(
-    partial.routeRows.some((row) => row.route === 'mbr_route_1019' && row.status === 'missing'),
-    'missing MBR routes must be visible in the route projection',
+    partial.routeRows.some((row) => row.route === 'mgmt_bus_console_refresh' && row.status === 'missing'),
+    'missing Model 0 routes must be visible in the route projection',
+  );
+  assert.ok(
+    partial.routeRows.some((row) => row.route === 'message.route.to' && row.status === 'configured'),
+    'self-described outbound route metadata must be visible in the route projection',
+  );
+  assert.ok(
+    partial.routeRows.some((row) => row.route === 'message.route.reply_to' && row.status === 'configured'),
+    'server-owned reply route metadata must be visible in the route projection',
   );
   assert.doesNotMatch(
     JSON.stringify(partial),
@@ -380,11 +385,11 @@ function test_server_projection_deriver_includes_mbr_health_and_sanitizes_routes
     'derived management console projection must not expose secret-like route fields',
   );
 
-  labels.set('-10:mbr_route_1019', { pin: 'submit', type: 'pin_payload' });
+  labels.set('0:mgmt_bus_console_refresh_route', [{ from: [0, 'mgmt_bus_console_refresh'], to: [[-10, 'mgmt_bus_console_refresh_intent']] }]);
   const live = deriveMgmtBusConsoleProjection({ matrixProjection, readRootLabel });
-  assert.equal(live.routeStatus, 'live', 'aggregate route status may be live only when Model 0 and MBR routes are configured');
+  assert.equal(live.routeStatus, 'live', 'aggregate route status may be live only when Model 0 routes and self-described message route metadata are configured');
   assert.match(live.timelineText, /runtime=running/, 'timeline projection must include source readiness');
-  assert.match(live.inspectorText, /routes=6\/6/, 'inspector projection must summarize all checked routes');
+  assert.match(live.inspectorText, /routes=4\/4/, 'inspector projection must summarize all checked routes');
   assert.match(
     readText(serverPath),
     /deriveMgmtBusConsoleProjection/su,
