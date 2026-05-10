@@ -2,7 +2,7 @@
 title: "Temporary ModelTable Payload v1"
 doc_type: ssot
 status: active
-updated: 2026-04-29
+updated: 2026-05-10
 source: ai
 ---
 
@@ -19,6 +19,17 @@ source: ai
 - 外部 Feishu 文档是来源。
 - 自本文件落盘后，repo 版本作为后续实现与迁移的执行权威。
 - 本文件只定义 payload 本身，不定义接收方应执行的业务动作。
+
+Authority:
+- Below `CLAUDE.md`, architecture SSOT, runtime semantics, and label registry.
+- Above lower data-model, UI, Matrix/MQTT, and user-guide descriptions that mention temporary message payload shape.
+
+Scope:
+- Temporary ModelTable message shape, metadata labels, validation rules, and materialization boundary.
+
+Conflict behavior:
+- If a lower doc describes formal business pin payload as plain object/string instead of record array, update the lower doc.
+- Receiving, routing, forwarding, tracing, or displaying a temporary message does not materialize it unless an approved receiver explicitly writes labels.
 
 ## 1. Core Shape
 

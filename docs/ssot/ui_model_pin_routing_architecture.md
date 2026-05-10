@@ -2,7 +2,7 @@
 title: "UI 模型 Pin 路由架构"
 doc_type: ssot
 status: active
-updated: 2026-05-06
+updated: 2026-05-10
 source: ai
 tags:
   - pin-routing
@@ -18,6 +18,17 @@ tags:
 本文档描述前端应用（APP）与软件工人内部 UI 模型之间的完整消息链路，以及基于 0356 PIN 连接合同的目标架构。
 
 > 0356 后不再使用 `pin.connect.model`。跨模型段必须通过 `model.submt` hosting Cell 的边界引脚、子模型 root `(0,0,0)` 的边界引脚，以及所在模型内的 `pin.connect.cell` 表达。
+
+Authority:
+- Below `CLAUDE.md`, architecture SSOT, runtime semantics, label registry, PIN connection contract, and temporary payload contract.
+- This file describes UI model routing architecture and migration targets; it does not override runtime or PIN contracts.
+
+Scope:
+- UI model message routing, current direct/hardcoded route debt, and target declaration-driven PIN routing architecture.
+
+Conflict behavior:
+- If current implementation language conflicts with target contract language, mark the section as current state or target state explicitly.
+- If another doc restores direct UI bus side effects, update it or mark it historical.
 
 **当前状态**：UI 事件链路通过 `submitEnvelope()` 硬编码路由（server.mjs 300+ 行特判），未使用 Pin 声明式路由。
 **目标状态**：所有 UI 模型间通信通过 `pin.connect.cell` 与各模型内部 `pin.connect.label` 声明完成，路由拓扑完全 Tier 2 化。

@@ -2,7 +2,7 @@
 title: "Label Type Registry"
 doc_type: ssot
 status: active
-updated: 2026-05-09
+updated: 2026-05-10
 source: ai
 ---
 
@@ -12,6 +12,14 @@ source: ai
 > 新增 `label.t` 必须先在本表注册，再实现运行时代码。
 >
 > 0356 起，PIN 连接合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。0357 起，runtime 对 `pin.connect.model`、`pin.log.*`、`(self, ...)` / `(func, ...)` 端点写法执行硬拒绝；它们不是当前输入面，也不得通过兼容层恢复。
+
+Authority:
+- Below `CLAUDE.md`, architecture SSOT, and runtime semantics.
+- This file is the target authority for `label.t` registration and placement rules.
+
+Conflict behavior:
+- If runtime dispatch accepts a label type not registered here, fix runtime or register the label through an iteration.
+- If lower docs mention unregistered or deprecated label types as current inputs, update those docs.
 
 ---
 
@@ -87,7 +95,7 @@ source: ai
 | `pin.bus.mb.in` | 管理总线边界输入端口（0363 目标合同） | 端口名 | `null` 或临时 ModelTable payload array | 仅 DEM 软件工人 Model 0 (0,0,0) |
 | `pin.bus.mb.out` | 管理总线边界输出端口（0363 目标合同） | 端口名 | `null` 或临时 ModelTable payload array | 仅 DEM 软件工人 Model 0 (0,0,0) |
 
-迁移说明：当前运行面在 0364 实施前仍使用未拆分的 `pin.bus.in` / `pin.bus.out`。它们不再是目标作者ing口径；0364 必须将运行时、系统模型、部署补丁和测试资产迁到上表的拆分总线引脚。
+迁移说明：当前运行面在 0364 实施前仍使用未拆分的 `pin.bus.in` / `pin.bus.out`。它们不再是目标编写口径；0364 必须将运行时、系统模型、部署补丁和测试资产迁到上表的拆分总线引脚。
 
 0331 payload 约束：
 - 正式业务 pin 的非空 value 必须是 `docs/ssot/temporary_modeltable_payload_v1.md` 定义的 record array。

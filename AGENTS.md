@@ -4,6 +4,8 @@ Generated: 2026-02-14 01:11:19 +08:00
 Commit: d9209a1
 Branch: dev
 
+Authority: `CLAUDE.md` is the highest execution constraint. This file is repo-local navigation and collaboration guidance; it must not override `CLAUDE.md` or current SSOT docs.
+
 ## OVERVIEW
 本仓库是 ModelTable-driven runtime + UI demo + worker orchestration 的混合仓库。
 执行约束以 `CLAUDE.md` 为唯一最高优先级，`AGENTS.md` 仅做分层导航与本地工作提示。

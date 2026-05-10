@@ -2,7 +2,7 @@
 title: "Dongyu App Next Runtime Execution Charter (2026)"
 doc_type: charter
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
@@ -12,10 +12,12 @@ source: ai
 
 This document is a **Project-level Execution Charter** for the current Dongyu App rewrite.
 
+Authority:
 - It is **subordinate to** `docs/architecture_mantanet_and_workers.md` (System SSOT).
 - It is **superior to** any Iteration plan, resolution, or implementation detail.
 - All iterations executed via `$doit` / `$doit-auto` **MUST comply** with this Charter unless an explicit conflict with SSOT is identified.
 - This Charter is **time- and scope-bound**: it governs the current “Next Runtime” rewrite only.
+- It is also subordinate to `CLAUDE.md`, which defines the repository execution priority tree and hard safety/workflow rules.
 
 If any ambiguity exists:
 > **Stop, document, and ask. Never infer.**

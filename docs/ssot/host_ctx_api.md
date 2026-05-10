@@ -2,7 +2,7 @@
 title: "Host Capability Interface (V1N API)"
 doc_type: ssot
 status: active
-updated: 2026-04-24
+updated: 2026-05-10
 source: ai
 ---
 
@@ -11,6 +11,14 @@ source: ai
 本文件定义宿主层暴露给"程序模型函数"的最小能力集合。
 
 0323 起，用户程序 API 面统一使用 **V1N 命名空间**，替代原 ctx 命名空间。
+
+Authority:
+- Below `CLAUDE.md`, architecture SSOT, runtime semantics, label registry, PIN connection contract, and temporary payload contract.
+- This file defines host capability boundaries; it does not authorize bypassing ModelTable, pin, or ownership rules.
+
+Conflict behavior:
+- If an API would allow cross-model or cross-cell side effects outside the approved paths, reject the API or update the higher SSOT first.
+- Deprecated `ctx.*` entries document migration status and must not be reintroduced as current capability.
 
 ## 0. 权限模型总则（0323）
 

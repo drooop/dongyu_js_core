@@ -2,15 +2,18 @@
 title: "UI 事件到 Matrix 的完整流转机制"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
 # UI 事件到 Matrix 的完整流转机制
 
-**文档状态**: SSOT (Single Source of Truth)
-**创建日期**: 2026-02-04
-**最后更新**: 2026-02-04
+## Positioning
+
+- Authority: below `CLAUDE.md`, architecture SSOT, runtime semantics, label registry, and current PIN / payload contracts.
+- Scope: current UI event flow through ModelTable, program models, Matrix, MQTT, and device PIN delivery.
+- Rule type: current flow description plus target constraints where explicitly marked.
+- Conflict behavior: if current flow language conflicts with `pin_connection_contract_v2.md`, `temporary_modeltable_payload_v1.md`, or runtime semantics, those higher-priority SSOT docs win.
 
 ## 概述
 

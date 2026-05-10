@@ -2,7 +2,7 @@
 title: "Imported Slide App Host Ingress Semantics v1"
 doc_type: ssot
 status: active
-updated: 2026-05-09
+updated: 2026-05-10
 source: ai
 ---
 
@@ -13,6 +13,16 @@ source: ai
 这是一份 **v1 已部分实现的正式规约**。
 
 0356 PIN 连接目标合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。0357 起，早期 `pin.connect.model`、numeric prefix、`(self, ...)` / `(func, ...)` 写法已从 runtime 输入面硬移除；importer、server repair 和测试不得继续生成这些写法。
+
+Authority:
+- Below `CLAUDE.md`, architecture SSOT, runtime semantics, label registry, PIN connection contract, and temporary payload contract.
+- This file defines imported slide app host ingress behavior only; it does not define general PIN semantics.
+
+Current status:
+- The v1 spec is partly implemented. Sections marked as current describe implemented behavior; target/migration notes must not be cited as already complete.
+
+Conflict behavior:
+- If this file conflicts with `pin_connection_contract_v2.md` or temporary payload rules, those files win.
 
 当前已经落地的范围只有：
 

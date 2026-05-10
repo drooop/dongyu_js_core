@@ -8,7 +8,7 @@ source: ai
 
 # 执行治理规范：ultrawork / doit / doit-auto
 
-## 定位说明（必须写在文件开头）
+## Positioning
 
 本文件用于为当前项目建立并长期遵守一套【执行治理规范】。
 

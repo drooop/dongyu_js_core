@@ -1,20 +1,23 @@
 ---
-title: "定位说明（必须写在文件开头）"
+title: "Runtime Semantics: ModelTable-Driven Side Effects"
 doc_type: ssot
 status: active
-updated: 2026-05-09
+updated: 2026-05-10
 source: ai
 ---
 
-# 定位说明（必须写在文件开头）
+# Runtime Semantics: ModelTable-Driven Side Effects
 
-本文件是 派生运行时语义规范（Derived Runtime Semantics Spec）。
+## Positioning
 
-上位约束：`docs/architecture_mantanet_and_workers.md`
+本文件是派生运行时语义规范（Derived Runtime Semantics Spec）。
 
-作用对象：所有软件工人运行时（Python/JS）
+- Authority: below `CLAUDE.md` and `docs/architecture_mantanet_and_workers.md`; above runtime implementation details, tests, and user guides.
+- Scope: all software-worker runtimes (Python/JS) and all code paths that interpret ModelTable structural declarations.
+- Rule type: semantic invariants. Use absolute wording only for runtime safety, data ownership, and side-effect contracts.
+- Conflict behavior: if this file conflicts with `CLAUDE.md` or the architecture SSOT, stop and apply the higher-priority source. If it conflicts with lower docs or implementation, update the lower layer or record a non-conformance.
 
-目的：统一解释“ModelTable 中的结构性声明如何在运行时产生副作用”
+目的：统一解释“ModelTable 中的结构性声明如何在运行时产生副作用”。
 
 本文件不是实现指南，而是语义裁判规则。
 
@@ -23,8 +26,6 @@ source: ai
 标签类型注册表：`docs/ssot/label_type_registry.md`
 
 ---
-
-# Runtime Semantics: ModelTable-Driven Side Effects (v0)
 
 ## 0. Scope & Intent
 
@@ -227,7 +228,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - `runtime_mode`：运行时生命周期标签（仅 Model 0 `(0,0,0)`，取值 `boot | edit | running`）
 
 0363 bus split target:
-- `pin.bus.in` / `pin.bus.out` 是 0364 实施前的当前未拆分运行面；它们不得再作为新模型或新文档的目标作者ing口径。
+- `pin.bus.in` / `pin.bus.out` 是 0364 实施前的当前未拆分运行面；它们不得再作为新模型或新文档的目标编写口径。
 - 0364 必须将正式系统边界迁到 `pin.bus.cb.*` 与 `pin.bus.mb.*`，并 hard-cut 旧未拆分 bus 输入面。
 - 正数业务模型、滑动 App、子模型内部不得直接声明 bus 引脚。它们只能声明普通 `pin.in` / `pin.out` 并通过宿主安装的接线到达软件工人 root。
 
@@ -287,7 +288,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 ### 5.2c BUS_IN/BUS_OUT 系统边界（0142）
 
-本节记录当前 0364 前的未拆分运行面。0363 目标合同已将系统边界拆成 `pin.bus.cb.*` 与 `pin.bus.mb.*`；0364 实施必须替换本节运行面，不得把 `pin.bus.in` / `pin.bus.out` 继续作为新模型作者ing口径。
+本节记录当前 0364 前的未拆分运行面。0363 目标合同已将系统边界拆成 `pin.bus.cb.*` 与 `pin.bus.mb.*`；0364 实施必须替换本节运行面，不得把 `pin.bus.in` / `pin.bus.out` 继续作为新模型编写口径。
 
 | label.t | 位置约束 | 语义 |
 |---|---|---|
@@ -877,7 +878,7 @@ Root `(0,0,0)` 可以声明：
 
 禁止：
 - 不得为“是否远端”再发明新的 pin 类型。
-- 不得用 `pin.bus.in` / `pin.bus.out` 作为 0364 后的新目标作者ing口径。
+- 不得用 `pin.bus.in` / `pin.bus.out` 作为 0364 后的新目标编写口径。
 - 不得要求所有 UI 动作先进入远端候选池，再由宿主特判是否转发。
 - 不得绕过父模型 hosting cell，直接从深层子模型跳接到 Model 0。
 

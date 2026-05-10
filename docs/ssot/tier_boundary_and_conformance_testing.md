@@ -2,11 +2,18 @@
 title: "Tier Boundary And Conformance Testing"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
 # Tier Boundary And Conformance Testing
+
+## Positioning
+
+- Authority: below `CLAUDE.md`, architecture SSOT, runtime semantics, and label registry.
+- Scope: all feature implementation, testing, and review work that might cross Tier 1 / Tier 2 boundaries.
+- Rule type: conformance review decision rules and hard stop conditions.
+- Conflict behavior: if this file conflicts with higher SSOT, higher SSOT wins; if an implementation passes functionally but fails this conformance gate, it is not deliverable.
 
 ## 0. Quick Gate
 

@@ -2,7 +2,7 @@
 title: "云海流核心概念与架构边界（SSOT）"
 doc_type: note
 status: active
-updated: 2026-05-06
+updated: 2026-05-10
 source: ai
 ---
 
@@ -15,6 +15,14 @@ source: ai
 > 说明：本文档**不以源码路径为中心**（那属于实现导览文档），而以“概念宪法”为中心；实现细节可在独立的 `v1n_concept_and_implement.md` 中维护。
 
 > 0356 PIN 连接目标合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。本文中与引脚连接相关的描述必须以该合同为准；`pin.connect.model`、`pin.log.*` 与 `(self, ...)` / `(func, ...)` 端点写法不再作为新规约输入面。
+
+Authority:
+- Below `CLAUDE.md`; above runtime semantics, label registry, charter, workflow, iteration records, user guides, and implementation details.
+- This file defines conceptual invariants and architecture boundaries. It does not replace more specific lower-level SSOT files where `CLAUDE.md` explicitly delegates a topic, such as PIN connection details.
+
+Conflict behavior:
+- If this file conflicts with `CLAUDE.md`, `CLAUDE.md` wins.
+- If a lower document or implementation conflicts with this file, update the lower layer or record a non-conformance.
 
 ---
 
