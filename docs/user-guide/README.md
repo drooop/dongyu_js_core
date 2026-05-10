@@ -26,6 +26,10 @@ source: ai
   - 0154 LLM 路由 + 0170 本地 Orbstack `mt-table` prompt filltable runbook。
 - `prompt_filltable_owner_chain_and_deploy.md`
   - Prompt FillTable 的 owner-chain 正式口径与本地 / cloud deploy 导航入口。
+- `ai_prompt_and_artifact_guidance.md`
+  - 0365 AI 协作规约撰写方法：把规则分成硬约束 / 判断规则 / 偏好建议，并明确 HTML 只在 visualized / interactive 或显式要求时使用。
+- `ai_prompt_and_artifact_guidance.html`
+  - 0365 显式 HTML 版用户指南；用于可视化阅读，不作为 SSOT。
 
 ## UI 文档
 

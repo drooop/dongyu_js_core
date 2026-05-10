@@ -46,6 +46,44 @@ HARD_RULES
             docs/user-guide/modeltable_user_guide.md
             docs/handover/dam-worker-guide.md
 
+RULE_WRITING_METHOD
+
+classify every new or edited instruction before writing it:
+
+1  invariant
+   true safety, data ownership, workflow gate, prohibited operation, required output
+   field, or semantic contract. use absolute wording only here.
+
+2  decision rule
+   judgment calls such as whether to search, ask the user, generate an artifact,
+   use HTML, inspect more files, or escalate. write these as:
+   condition -> action -> stop condition -> verification.
+
+3  preference
+   style, readability, collaboration rhythm, or default reporting shape. write
+   these as defaults that can yield to task context or explicit user direction.
+
+prompt / rule authoring guidance:
+- prefer outcome-first wording: state the desired result, relevant constraints,
+  available evidence, and final reporting shape.
+- avoid process-heavy instruction stacks unless every step is required for
+  correctness, auditability, or safety.
+- when a rule controls model output shape, prefer examples or structured schema
+  over stronger wording alone.
+- when a rule controls quality, define verification or eval criteria instead of
+  relying on repeated "must" language.
+- keep durable context in AGENTS / SSOT / user-guide docs; do not repeat large
+  static instruction blocks in every ad hoc prompt.
+
+artifact boundary:
+- default delivery is concise Markdown / plain text.
+- HTML artifact is not the default answer shape.
+- use HTML or other visualized / interactive artifacts only when the user
+  explicitly asks for HTML, or when a visualized / interactive document is the
+  clearest way to compare, inspect, teach, or operate the material.
+- generated HTML is a reading / interaction artifact. it is not SSOT unless a
+  higher-priority document explicitly promotes it.
+
 
 MODEL_FORMS
 

@@ -20,6 +20,12 @@ Branch: dev
   - 第一行先给结论或当前状态，再写下一步（如果有）。
   - 不写寒暄，不做情绪性铺垫，不用教程口吻，不用营销口吻。
   - 不使用 emoji。
+- Rule writing:
+  - 先把规则分成三类：硬约束、判断规则、偏好建议。
+  - 硬约束只用于安全、数据真源、流程闸门、禁止操作、必填字段和语义合同。
+  - 搜索、追问、生成 artifact、是否使用 HTML、是否继续探索这类判断，写成“条件 → 动作 → 停止条件 → 验证”的规则。
+  - 风格和汇报偏好写成默认行为，不要伪装成不可变硬规则。
+  - 默认使用 Markdown / 文本交付；只有用户明确要求 HTML，或材料确实需要 visualized / interactive 文档时，才生成 HTML 或类似 artifact。
 - Done criteria first:
   - 开始前先定义完成标准，并把它当作本轮收尾检查单。
   - 如果任务依赖运行结果、页面行为或脚本输出，完成标准里必须包含对应验证。
@@ -89,6 +95,7 @@ Branch: dev
 - Side effects: only via `add_label` / `rm_label`.
 - Capability policy: fill-table-first; runtime changes only for interpreter semantics or bugfixes.
 - Verification style: deterministic PASS/FAIL; avoid "looks ok".
+- Prompt / artifact style: outcome-first; avoid process-heavy prompts unless each step is truly required; HTML is opt-in or purpose-bound, not default.
 
 ## ANTI-PATTERNS (THIS PROJECT)
 - Remote ops forbidden set in `CLAUDE.md` (k3s/systemctl/rancher/CNI/firewall/network mutations).

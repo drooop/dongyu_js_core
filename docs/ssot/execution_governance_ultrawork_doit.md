@@ -2,7 +2,7 @@
 title: "执行治理规范：ultrawork / doit / doit-auto"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
@@ -15,6 +15,55 @@ source: ai
 - 本文件属于“制度建立 + 执行约束”，不是一次性分析材料。
 - 本文件**不**改变架构 SSOT、运行时语义宪法或 Project Charter 的内容与优先级。
 - 当本文件与更高层规范冲突时，必须停下并报告冲突（见“冲突处理”）。
+
+---
+
+========================
+【规约撰写方法（必须先分类）】
+========================
+
+本节用于约束以后如何写 AGENTS / CLAUDE / SSOT / user-guide 中的 AI 协作规则。
+
+来源依据：
+- OpenAI Prompt guidance: outcome-first prompts usually work better than process-heavy prompt stacks.
+- OpenAI Prompt engineering: clear structure, relevant context, examples, and prompt caching all favor stable reusable instructions.
+- OpenAI Reasoning best practices: reasoning models prefer simple, direct instructions and clear delimiters.
+- OpenAI Structured Outputs: when exact fields matter, schema is stronger than repeated formatting emphasis.
+- OpenAI Codex best practices: stable repository guidance belongs in AGENTS.md and should stay practical, short, and updated from repeated friction.
+
+写规则前先分类：
+
+1) 硬约束（Invariant）
+- 适用：安全禁区、数据真源、流程闸门、禁止操作、必填字段、语义合同、验证要求。
+- 写法：可以使用“必须 / 禁止 / 不得 / MUST / NEVER”。
+- 要求：说明约束对象、违反后果、验证方式或停机条件。
+
+2) 判断规则（Decision Rule）
+- 适用：是否搜索、是否追问、是否生成 artifact、是否用 HTML、是否继续探索、是否升级验证范围。
+- 写法：条件 → 动作 → 停止条件 → 验证。
+- 要求：不得写成无条件“永远 / 绝不”；必须允许上下文证据改变路径。
+
+3) 偏好建议（Preference）
+- 适用：语气、篇幅、汇报顺序、默认格式、协作节奏。
+- 写法：默认倾向 + 让位条件。
+- 要求：不得冒充硬约束；显式用户要求可覆盖。
+
+Prompt / 规约内容组织：
+- 先写目标和成功标准，再写约束和证据来源。
+- 把稳定内容放在长期文档里，把本次变化内容放在用户请求或 iteration 文档里。
+- 对输出格式有硬要求时，优先给 schema、字段表或例子。
+- 对质量有要求时，写可执行验证或 eval 条件。
+- 避免把“先做 A，再做 B，再做 C”写成默认脚本；只有每一步确实影响正确性、审计或安全时才固定顺序。
+
+HTML / visualized artifact 边界：
+- 默认交付格式是 Markdown / 文本。
+- HTML 不作为默认交付格式。
+- 只有以下情况使用 HTML 或其他显式 artifact：
+  - 用户明确要求 HTML；
+  - 需要 visualized 文档；
+  - 需要可交互阅读、筛选、对比、导出；
+  - 复杂图解比纯文本更能减少误解。
+- HTML artifact 是阅读和交互产物，不是 SSOT；除非更高优先级文档显式提升，否则真实规则仍以 AGENTS / CLAUDE / SSOT / iteration 记录为准。
 
 ---
 
