@@ -154,6 +154,14 @@ phase: phase3
   - `npm -C packages/ui-model-demo-frontend run test` PASS.
   - `git diff --check` PASS.
 - Review: sub-agent `codex-code-review` first requested fixes for stale top-level/frontend bus surfaces and local/demo DEM seeding; after both fixes, re-review APPROVED with no findings, no open questions, no verification gaps.
+- Post-fix local deploy verification:
+  - Full `bash scripts/ops/deploy_local.sh` rebuilt `dy-ui-server:v1` and `dy-remote-worker:v3`; Docker Hub returned `EOF` while resolving the unchanged `node:22-slim` base for `dy-mbr-worker:v2`.
+  - Re-ran deployment with `SKIP_IMAGE_BUILD=1` to apply manifests and restart workloads using the freshly rebuilt UI/remote images plus the existing unchanged MBR image; rollout PASS for all local deployments.
+  - `bash scripts/ops/check_runtime_baseline.sh` PASS.
+  - Playwright CLI loaded `http://127.0.0.1:30900/#/workspace` with final asset `index-DP_lJvrl.js`.
+  - Browser color generator PASS: `#FFFFFF` changed to `#455bc2`, status `processed`.
+  - Browser Mgmt Bus Console PASS: sent `0364 final mgmt 1778425183978` to `@mbr:localhost`, outbound count increased from 2 to 3, and ack was received.
+  - Browser Minimal Submit PASS: model `1054` submitted `0364 final submit 1778425212780`, displayed `Submitted: 0364 final submit 1778425212780`, and `remote_status=remote_processed`.
 - Status: Updated 0364 artifacts and iteration index to `Completed`.
 - Result: PASS.
 
