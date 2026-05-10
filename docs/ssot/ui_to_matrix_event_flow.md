@@ -28,7 +28,8 @@ source: ai
  - UI 写 mailbox / 模型内本地状态
   - 模型内函数或 relay 写 root `pin.out`
   - 逐层 relay 到 Model 0
-  - 仅 Model 0 `pin.bus.out` / 等价宿主观察点触发 `ctx.sendMatrix(payload)`
+  - 仅 Model 0 `pin.bus.mb.out` / 等价宿主观察点触发 `ctx.sendMatrix(payload)`
+- 系统边界已拆分：UI/管理类消息使用 `pin.bus.mb.in` / `pin.bus.mb.out`，控制类消息使用 `pin.bus.cb.in` / `pin.bus.cb.out`。
 - mailbox 之后的“事件 -> pin ingress / routing”解释属于 Tier 1 runtime；`server` 只负责 transport / adapter。
 
 0213 Matrix debug 补充：
@@ -190,7 +191,7 @@ async sendMatrix(payload) {
 
 ### 4. 程序模型函数示例
 
-**必需配置**: UI 模型或 imported slide app 在 root 声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`，业务程序只把 Temporary ModelTable records 写到公开 root `pin.out`。UI Server 运行时负责生成 host egress adapter，把 `route.to` 和 server-owned `route.reply_to` 写进 `pin_payload` 后经 Model 0 `mt_bus_send` / `pin.bus.out` 外发；不得恢复旧的 Model 0 egress label/function 或 `ctx.getLabel/writeLabel/rmLabel`。
+**必需配置**: UI 模型或 imported slide app 在 root 声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`，业务程序只把 Temporary ModelTable records 写到公开 root `pin.out`。UI Server 运行时负责生成 host egress adapter，把 `route.to` 和 server-owned `route.reply_to` 写进 `pin_payload` 后经 Model 0 `mt_bus_send` / `pin.bus.mb.out` 外发；不得恢复旧的 Model 0 egress label/function 或 `ctx.getLabel/writeLabel/rmLabel`。
 
 ```javascript
 // 示例：业务程序只准备模型表形态 payload，并写到公开 root pin.out。

@@ -5,7 +5,7 @@
 //   (2) mt_write rejects payloads with multiple user labels
 //   (3) legacy { op, records } envelopes no longer pass on mt_write_req or old mt_write_in
 //   (4) V1N.writeLabel emits through explicit write_label_req -> mt_write_req route only
-//   (5) mt_bus_send_in / pin.bus.out use temporary ModelTable payloads internally
+//   (5) mt_bus_send_in / pin.bus.cb.out use temporary ModelTable payloads internally
 //   (6) positive-model pin.in/pin.out reject non-ModelTable values at runtime core
 
 import assert from 'node:assert/strict';
@@ -499,8 +499,8 @@ async function test_mt_bus_send_uses_temporary_payload_and_externalizes_bus_out(
 
   const busLabel = model0.getCell(0, 0, 0).labels.get('model100_submit_bus');
   assert.ok(busLabel, 'mt_bus_send must materialize requested Model 0 bus out label');
-  assert.equal(busLabel.t, 'pin.bus.out', 'mt_bus_send output must be pin.bus.out');
-  assert.ok(Array.isArray(busLabel.v), 'pin.bus.out business value must be temporary ModelTable payload array');
+  assert.equal(busLabel.t, 'pin.bus.cb.out', 'mt_bus_send output must be pin.bus.cb.out');
+  assert.ok(Array.isArray(busLabel.v), 'pin.bus.cb.out business value must be temporary ModelTable payload array');
   assert.equal(getPayloadLabel(busLabel.v, '__mt_payload_kind')?.v, 'pin_payload.v1');
   assert.equal(getPayloadLabel(busLabel.v, 'source_model_id')?.v, 100);
   assert.equal(getPayloadLabel(busLabel.v, 'pin')?.v, 'submit');
@@ -510,7 +510,7 @@ async function test_mt_bus_send_uses_temporary_payload_and_externalizes_bus_out(
     entry.type === 'publish' &&
     entry.payload?.topic === 'it0332/model100_submit_bus'
   );
-  assert.ok(publish, 'pin.bus.out must still publish an external transport packet');
+  assert.ok(publish, 'pin.bus.cb.out must still publish an external transport packet');
   assert.equal(publish.payload?.payload?.type, 'pin_payload', 'external transport packet must stay pin_payload');
   assert.equal(publish.payload?.payload?.source_model_id, 100);
   assert.deepEqual(publish.payload?.payload?.payload, nestedPayload);
@@ -551,7 +551,7 @@ async function test_pin_bus_out_rejects_legacy_object_internal_value() {
   await rt.setRuntimeMode('running');
   const result = rt.addLabel(model0, 0, 0, 0, {
     k: 'legacy_object_bus_out',
-    t: 'pin.bus.out',
+    t: 'pin.bus.cb.out',
     v: {
       version: 'v1',
       type: 'pin_payload',
@@ -562,12 +562,12 @@ async function test_pin_bus_out_rejects_legacy_object_internal_value() {
     },
   });
   await wait();
-  assert.equal(result.applied, false, 'legacy object pin.bus.out value must be rejected');
-  assert.ok(!model0.getCell(0, 0, 0).labels.has('legacy_object_bus_out'), 'legacy object pin.bus.out value must not be stored');
+  assert.equal(result.applied, false, 'legacy object pin.bus.cb.out value must be rejected');
+  assert.ok(!model0.getCell(0, 0, 0).labels.has('legacy_object_bus_out'), 'legacy object pin.bus.cb.out value must not be stored');
   assert.ok(!rt.mqttTrace.list().some((entry) =>
     entry.type === 'publish' &&
     entry.payload?.topic === 'it0332/legacy_object_bus_out'
-  ), 'legacy object pin.bus.out value must not publish to MQTT');
+  ), 'legacy object pin.bus.cb.out value must not publish to MQTT');
   return { key: 'pin_bus_out_rejects_legacy_object_internal_value', status: 'PASS' };
 }
 
@@ -578,18 +578,18 @@ async function test_pin_bus_in_rejects_non_modeltable_internal_values() {
   await rt.setRuntimeMode('running');
   const objectResult = rt.addLabel(model0, 0, 0, 0, {
     k: 'legacy_object_bus_in',
-    t: 'pin.bus.in',
+    t: 'pin.bus.cb.in',
     v: { action: 'submit', value: 'must_not_route' },
   });
   const stringResult = rt.addLabel(model0, 0, 0, 0, {
     k: 'legacy_string_bus_in',
-    t: 'pin.bus.in',
+    t: 'pin.bus.cb.in',
     v: 'must_not_route',
   });
-  assert.equal(objectResult.applied, false, 'legacy object pin.bus.in value must be rejected');
-  assert.equal(stringResult.applied, false, 'legacy string pin.bus.in value must be rejected');
-  assert.ok(!model0.getCell(0, 0, 0).labels.has('legacy_object_bus_in'), 'legacy object pin.bus.in value must not be stored');
-  assert.ok(!model0.getCell(0, 0, 0).labels.has('legacy_string_bus_in'), 'legacy string pin.bus.in value must not be stored');
+  assert.equal(objectResult.applied, false, 'legacy object pin.bus.cb.in value must be rejected');
+  assert.equal(stringResult.applied, false, 'legacy string pin.bus.cb.in value must be rejected');
+  assert.ok(!model0.getCell(0, 0, 0).labels.has('legacy_object_bus_in'), 'legacy object pin.bus.cb.in value must not be stored');
+  assert.ok(!model0.getCell(0, 0, 0).labels.has('legacy_string_bus_in'), 'legacy string pin.bus.cb.in value must not be stored');
   return { key: 'pin_bus_in_rejects_non_modeltable_internal_values', status: 'PASS' };
 }
 
@@ -706,7 +706,7 @@ async function test_mqtt_bus_in_pin_payload_v1_converts_to_temporary_payload() {
   await rt.setRuntimeMode('edit');
   const model0 = rt.getModel(0);
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+  rt.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.cb.in', v: null });
   rt.startMqttLoop({
     host: 'localhost',
     port: 1883,
@@ -732,7 +732,7 @@ async function test_mqtt_bus_in_pin_payload_v1_converts_to_temporary_payload() {
   });
   assert.equal(accepted, true, 'MQTT pin_payload_v1 bus.in packet must be accepted');
   const storedLabel = model0.getCell(0, 0, 0).labels.get('ui_submit');
-  assert.equal(storedLabel?.t, 'pin.bus.in', 'MQTT bus.in short-circuit must preserve pin.bus.in type');
+  assert.equal(storedLabel?.t, 'pin.bus.cb.in', 'MQTT bus.in short-circuit must preserve pin.bus.cb.in type');
   assert.deepEqual(storedLabel?.v, nestedPayload, 'Model 0 bus.in must store only the nested temporary ModelTable payload');
   return { key: 'mqtt_bus_in_pin_payload_v1_converts_to_temporary_payload', status: 'PASS' };
 }
@@ -744,7 +744,7 @@ async function test_uiput_mm_v1_bus_in_pin_payload_v1_converts_to_temporary_payl
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+  rt.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.cb.in', v: null });
   rt.startMqttLoop({
     host: 'localhost',
     port: 1883,
@@ -772,7 +772,7 @@ async function test_uiput_mm_v1_bus_in_pin_payload_v1_converts_to_temporary_payl
   });
   assert.equal(accepted, true, 'uiput_mm_v1 Model 0 bus.in pin_payload_v1 packet must be accepted');
   const storedLabel = model0.getCell(0, 0, 0).labels.get('ui_submit');
-  assert.equal(storedLabel?.t, 'pin.bus.in', 'uiput_mm_v1 bus.in must preserve pin.bus.in type');
+  assert.equal(storedLabel?.t, 'pin.bus.cb.in', 'uiput_mm_v1 bus.in must preserve pin.bus.cb.in type');
   assert.deepEqual(storedLabel?.v, nestedPayload, 'uiput_mm_v1 Model 0 bus.in must store only the nested temporary ModelTable payload');
   return { key: 'uiput_mm_v1_bus_in_pin_payload_v1_converts_to_temporary_payload', status: 'PASS' };
 }
@@ -784,7 +784,7 @@ async function test_uiput_mm_v1_rejects_legacy_two_segment_topic() {
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+  rt.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.cb.in', v: null });
   await rt.setRuntimeMode('running');
 
   const nestedPayload = writeLabelPayload({
@@ -840,7 +840,7 @@ async function test_mqtt_bus_in_pin_payload_v1_rejects_mismatched_pin() {
   await rt.setRuntimeMode('edit');
   const model0 = rt.getModel(0);
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+  rt.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.cb.in', v: null });
   rt.startMqttLoop({
     host: 'localhost',
     port: 1883,

@@ -8,7 +8,7 @@ source: ai
 
 # 最小 Submit 双总线示例可视化说明
 
-这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经过 Matrix、MBR、MQTT、remote-worker RE，最后按 `route.reply_to` 回到本地 UI 模型。
+这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经过 Matrix、MBR、MQTT、remote-worker R1（RE），最后按 `route.reply_to` 回到本地 UI 模型。
 
 ## 1. 总链路
 
@@ -142,7 +142,7 @@ result 消息的核心 payload：
 
 | 检查项 | 正确结果 |
 |---|---|
-| UI 入口 | local model 的 `bus_event_v2 -> Model 0 pin.bus.in` |
+| UI 入口 | local model 的 `bus_event_v2 -> Model 0 pin.bus.mb.in` |
 | Matrix event | `dy.bus.v0`，目标 `@mbr:<host_url>` |
 | submit route | `route.to = RE / 3000 / submit1` |
 | result route | `route.reply_to = ui-server-U1 / local model / result` |

@@ -368,6 +368,30 @@ class ModelTableRuntime {
     return labelType;
   }
 
+  _isBusInResolvedType(typeName) {
+    return typeName === 'pin.bus.cb.in' || typeName === 'pin.bus.mb.in';
+  }
+
+  _isBusOutResolvedType(typeName) {
+    return typeName === 'pin.bus.cb.out' || typeName === 'pin.bus.mb.out';
+  }
+
+  _isBusResolvedType(typeName) {
+    return this._isBusInResolvedType(typeName) || this._isBusOutResolvedType(typeName);
+  }
+
+  _isManagementBusResolvedType(typeName) {
+    return typeName === 'pin.bus.mb.in' || typeName === 'pin.bus.mb.out';
+  }
+
+  _isDemWorker() {
+    const model0 = this.getModel(0);
+    if (!model0) return false;
+    const cell = model0.cells.get(model0.cellKey(0, 0, 0));
+    const role = cell && cell.labels ? cell.labels.get('is_DEM') : null;
+    return Boolean(role && role.t === 'bool' && role.v === true);
+  }
+
   _loadDefaultTableProgramsJson() {
     if (this._defaultTablePrograms !== undefined) return this._defaultTablePrograms;
     try {
@@ -702,6 +726,8 @@ class ModelTableRuntime {
     }
     if (
       label.t === 'pin.connect.model'
+      || label.t === 'pin.bus.in'
+      || label.t === 'pin.bus.out'
       || (typeof label.t === 'string' && label.t.startsWith('pin.log.'))
     ) {
       return 'label_type_removed';
@@ -710,6 +736,15 @@ class ModelTableRuntime {
   }
 
   _validatePlacement(model, p, r, c, label) {
+    const resolvedType = this._resolveLabelType(label && label.t);
+    if (this._isBusResolvedType(resolvedType)) {
+      if (!model || model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
+        return this._isBusInResolvedType(resolvedType) ? 'bus_in_wrong_position' : 'bus_out_wrong_position';
+      }
+      if (this._isManagementBusResolvedType(resolvedType) && !this._isDemWorker()) {
+        return 'management_bus_pin_requires_dem';
+      }
+    }
     return null;
   }
 
@@ -886,6 +921,7 @@ class ModelTableRuntime {
     const busOutKeyLabel = this._payloadLabel(payload, 'bus_out_key');
     const nestedPayloadLabel = this._payloadLabel(payload, 'payload');
     const routeLabel = this._payloadLabel(payload, 'route');
+    const busLabel = this._payloadLabel(payload, 'bus');
     const sourceModelId = sourceModelIdLabel && sourceModelIdLabel.t === 'int' && Number.isInteger(sourceModelIdLabel.v)
       ? sourceModelIdLabel.v
       : null;
@@ -897,6 +933,9 @@ class ModelTableRuntime {
       : pin;
     const nestedPayload = nestedPayloadLabel && nestedPayloadLabel.t === 'json' ? nestedPayloadLabel.v : null;
     const route = routeLabel && routeLabel.t === 'json' ? routeLabel.v : null;
+    const bus = busLabel && busLabel.t === 'str' && typeof busLabel.v === 'string'
+      ? busLabel.v.trim()
+      : null;
     if (!Number.isInteger(sourceModelId) || sourceModelId <= 0 || !pin || !busOutKey) {
       return { ok: false, code: 'missing_source', requestId };
     }
@@ -906,6 +945,9 @@ class ModelTableRuntime {
     if (routeLabel && (routeLabel.t !== 'json' || !this._isPinRouteMetadata(routeLabel.v))) {
       return { ok: false, code: 'invalid_route', requestId };
     }
+    if (busLabel && (busLabel.t !== 'str' || (bus !== 'control' && bus !== 'management'))) {
+      return { ok: false, code: 'invalid_bus', requestId };
+    }
     return {
       ok: true,
       requestId,
@@ -914,6 +956,7 @@ class ModelTableRuntime {
       busOutKey,
       payload: nestedPayload,
       route,
+      bus,
     };
   }
 
@@ -1049,7 +1092,7 @@ class ModelTableRuntime {
   }
 
   _validateBusPinPayload(model, p, r, c, label, resolvedType) {
-    if (resolvedType !== 'pin.bus.in' && resolvedType !== 'pin.bus.out') {
+    if (!this._isBusResolvedType(resolvedType)) {
       return null;
     }
     if (label.v === null || label.v === undefined) return null;
@@ -1063,12 +1106,21 @@ class ModelTableRuntime {
         return `bus_in_invalid_write_label_${parsed.code || 'payload'}`;
       }
     }
-    if (resolvedType === 'pin.bus.out') {
+    if (this._isBusOutResolvedType(resolvedType)) {
       if (!kind || kind.t !== 'str' || kind.v !== 'pin_payload.v1') {
         return 'bus_out_invalid_payload_kind';
       }
     }
     return null;
+  }
+
+  _busOutTypeForBusSend(model, busOutKey, requestedBus) {
+    const existing = model && this.getCell(model, 0, 0, 0).labels.get(busOutKey);
+    const existingType = existing ? this._resolveLabelType(existing.t) : null;
+    if (this._isBusOutResolvedType(existingType)) return existingType;
+    if (requestedBus === 'management') return 'pin.bus.mb.out';
+    if (requestedBus === 'control') return 'pin.bus.cb.out';
+    return this._isDemWorker() ? 'pin.bus.mb.out' : 'pin.bus.cb.out';
   }
 
   _validatePositiveModelPinPayload(model, label, resolvedType) {
@@ -1103,7 +1155,11 @@ class ModelTableRuntime {
       payload: parsed.payload,
       route: parsed.route,
     });
-    const res = this.addLabel(model, 0, 0, 0, { k: parsed.busOutKey, t: 'pin.bus.out', v: busOutPayload });
+    const res = this.addLabel(model, 0, 0, 0, {
+      k: parsed.busOutKey,
+      t: this._busOutTypeForBusSend(model, parsed.busOutKey, parsed.bus),
+      v: busOutPayload,
+    });
     if (!res || !res.applied) {
       return { status: 'rejected', code: 'bus_out_write_failed' };
     }
@@ -1570,11 +1626,11 @@ class ModelTableRuntime {
     if (prevResolvedType === 'pin.connect.cell') {
       this._rebuildCellConnectionForCell(model, p, r, c);
     }
-    if (prevResolvedType === 'pin.bus.in' && model.id === 0 && p === 0 && r === 0 && c === 0) {
+    if (this._isBusInResolvedType(prevResolvedType) && model.id === 0 && p === 0 && r === 0 && c === 0) {
       this.busInPorts.delete(key);
       this._syncBusInSubscription(key, false);
     }
-    if (prevResolvedType === 'pin.bus.out' && model.id === 0 && p === 0 && r === 0 && c === 0) {
+    if (this._isBusOutResolvedType(prevResolvedType) && model.id === 0 && p === 0 && r === 0 && c === 0) {
       this.busOutPorts.delete(key);
     }
     return { applied: true };
@@ -1932,8 +1988,7 @@ class ModelTableRuntime {
       || typeName === 'pin.out'
       || typeName === 'pin.login'
       || typeName === 'pin.logout'
-      || typeName === 'pin.bus.in'
-      || typeName === 'pin.bus.out';
+      || this._isBusResolvedType(typeName);
   }
 
   _cellEndpointLabel(model, p, r, c, endpoint) {
@@ -2380,7 +2435,12 @@ class ModelTableRuntime {
       this.mqttTrace.record('bus_inbound_rejected', { port: portName, payload, reason: normalized.code });
       return false;
     }
-    const result = this.addLabel(model0, 0, 0, 0, { k: portName, t: 'pin.bus.in', v: normalized.value });
+    const pinType = this.busInPorts.get(portName);
+    if (!this._isBusInResolvedType(pinType)) {
+      this.mqttTrace.record('bus_inbound_rejected', { port: portName, payload, reason: 'bus_in_port_not_registered' });
+      return false;
+    }
+    const result = this.addLabel(model0, 0, 0, 0, { k: portName, t: pinType, v: normalized.value });
     if (!result || !result.applied) {
       this.mqttTrace.record('bus_inbound_rejected', { port: portName, payload, reason: 'add_label_rejected' });
       return false;
@@ -2457,7 +2517,7 @@ class ModelTableRuntime {
       if (ingressPort && ingressPayload) {
         const model0 = this.getModel(0);
         if (model0) {
-          this.addLabel(model0, 0, 0, 0, { k: ingressPort, t: 'pin.bus.in', v: ingressPayload });
+          this.addLabel(model0, 0, 0, 0, { k: ingressPort, t: 'pin.bus.mb.in', v: ingressPayload });
         }
       }
       return;
@@ -2513,12 +2573,12 @@ class ModelTableRuntime {
       }
     }
     // 0142: BUS_IN label dispatch
-    if (resolvedType === 'pin.bus.in') {
+    if (this._isBusInResolvedType(resolvedType)) {
       if (model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
         this._recordError(model, p, r, c, label, 'bus_in_wrong_position');
         return;
       }
-      this.busInPorts.set(label.k, true);
+      this.busInPorts.set(label.k, resolvedType);
       this._syncBusInSubscription(label.k, true);
       if (label.v !== null && label.v !== undefined) {
         this._routeViaCellConnection(0, 0, 0, 0, label.k, label.v);
@@ -2541,12 +2601,12 @@ class ModelTableRuntime {
       return;
     }
     // 0142: BUS_OUT label dispatch
-    if (resolvedType === 'pin.bus.out') {
+    if (this._isBusOutResolvedType(resolvedType)) {
       if (model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
         this._recordError(model, p, r, c, label, 'bus_out_wrong_position');
         return;
       }
-      this.busOutPorts.set(label.k, true);
+      this.busOutPorts.set(label.k, resolvedType);
       if (label.v !== null && label.v !== undefined && this.mqttClient && this.isRuntimeRunning()) {
         const topic = this._topicFor(0, label.k, 'out');
         const externalPayload = this._pinBusOutValueToExternalPayload(label.v);

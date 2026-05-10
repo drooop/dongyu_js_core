@@ -73,6 +73,7 @@ const LEGACY_EVENT_ENDPOINT_PATH = `/${LEGACY_EVENT_TYPE}`;
 const LOGIN_MODEL_ID = -3;
 const TRACE_MODEL_ID = -100; // Registered by 0213 as the Matrix debug / bus trace model id.
 const MGMT_BUS_CONSOLE_MODEL_ID = 1036;
+const DEFAULT_UI_SERVER_V1N_ID = '5/10/28/35/13';
 const MGMT_BUS_CONSOLE_LOCAL_STATE_KEYS = new Set([
   'selected_subject',
   'selected_subject_id',
@@ -380,11 +381,11 @@ const DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE = [
   '- If a field is ambiguous or no schema key matches confidently, omit that field from candidate_changes and ask one concise clarification question in proposal.confirmation_question',
   '- If the request needs structural changes or child-model creation that policy forbids, keep candidate_changes: [] and explain the block briefly in proposal.summary/confirmation_question',
   '- obey policy.allowed_label_types and policy.allow_structural_types',
-  '- Structural t (func.js/func.python/pin.connect.label/pin.connect.cell/pin.bus.in/pin.bus.out/pin.table.in/pin.table.out/pin.single.in/pin.single.out/model.single/model.matrix/model.table/submt) are forbidden unless policy.allow_structural_types=true',
+  '- Structural t (func.js/func.python/pin.connect.label/pin.connect.cell/pin.bus.cb.in/pin.bus.cb.out/pin.bus.mb.in/pin.bus.mb.out/pin.table.in/pin.table.out/pin.single.in/pin.single.out/model.single/model.matrix/model.table/submt) are forbidden unless policy.allow_structural_types=true',
   '- pin.table.in / pin.table.out are for table-or-matrix models, and pin.single.in / pin.single.out are for model.single',
   '- For func.js/func.python, v must be object and include non-empty string field code',
   '- For pin.connect.*, v must be an array',
-  '- For pin.bus.* / pin.table.* / pin.single.*, v must be JSON-serializable; use null for declaration-only ports when appropriate',
+  '- For pin.bus.cb.* / pin.bus.mb.* / pin.table.* / pin.single.*, v must be JSON-serializable; use null for declaration-only ports when appropriate',
   '- For model.single/model.matrix/model.table, v must be a non-empty string',
   '- owner_hint is optional; if present, use modeltable_local_owner',
   '- Keep summary and reasoning short',
@@ -1323,7 +1324,12 @@ const SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES = new Set([
   '',
   'pin.bus.in',
   'pin.bus.out',
+  'pin.bus.cb.in',
+  'pin.bus.cb.out',
+  'pin.bus.mb.in',
+  'pin.bus.mb.out',
   'pin.connect.model',
+  'ui.egress.binding.v1',
 ]);
 const SLIDE_IMPORT_FORBIDDEN_LABEL_KEYS = new Set([
   'scope_privileged',
@@ -1379,6 +1385,10 @@ function resolveUiServerWorkerId() {
   const raw = process.env.DY_UI_SERVER_WORKER_ID || process.env.UI_SERVER_WORKER_ID || 'ui-server-local';
   const id = String(raw || '').trim();
   return id || 'ui-server-local';
+}
+
+function isSplitBusOutLabelType(typeName) {
+  return typeName === 'pin.bus.cb.out' || typeName === 'pin.bus.mb.out';
 }
 
 function isTemporaryModelTableRecord(record) {
@@ -1973,7 +1983,7 @@ function materializeImportedHostIngressAdapter(runtime, rootModelId, mountCell, 
     }],
   });
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: keys.relayPin, t: 'pin.in', v: null });
-  runtime.addLabel(model0, 0, 0, 0, { k: keys.ingressKey, t: 'pin.bus.in', v: null });
+  runtime.addLabel(model0, 0, 0, 0, { k: keys.ingressKey, t: 'pin.bus.mb.in', v: null });
   runtime.addLabel(model0, 0, 0, 0, {
     k: keys.routeKey,
     t: 'pin.connect.cell',
@@ -2021,7 +2031,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
     },
   };
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: hostEgress.pinName, t: 'pin.out', v: null });
-  runtime.addLabel(model0, 0, 0, 0, { k: keys.busOutKey, t: 'pin.bus.out', v: null });
+  runtime.addLabel(model0, 0, 0, 0, { k: keys.busOutKey, t: 'pin.bus.mb.out', v: null });
   runtime.addLabel(model0, 0, 0, 0, { k: keys.model0BridgeIn, t: 'pin.in', v: null });
   runtime.addLabel(model0, 0, 0, 0, {
     k: keys.bridgeFunc,
@@ -2036,6 +2046,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
         `  mt('__mt_request_id', 'str', opId),`,
         `  mt('source_model_id', 'int', ${rootModelId}),`,
         `  mt('pin', 'str', ${JSON.stringify(hostEgress.pinName)}),`,
+        `  mt('bus', 'str', 'management'),`,
         `  mt('bus_out_key', 'str', ${JSON.stringify(keys.busOutKey)}),`,
         `  mt('route', 'json', ${JSON.stringify(route)}),`,
         `  mt('payload', 'json', payload),`,
@@ -2087,6 +2098,25 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
       r: mountCell.r,
       c: mountCell.c,
       keys: mountKeys,
+    },
+  });
+  runtime.addLabel(rootModel, 0, 0, 0, {
+    k: `ui_egress_${hostEgress.pinName}_binding`,
+    t: 'ui.egress.binding.v1',
+    v: {
+      from_pin: hostEgress.pinName,
+      bus: 'management',
+      host_model_id: 0,
+      host_cell: [0, 0, 0],
+      host_pin_type: 'pin.bus.mb.out',
+      host_pin_key: keys.busOutKey,
+      target: {
+        worker_id: remoteEndpoint.to.worker_id,
+        model_id: remoteEndpoint.to.model_id,
+        pin: hostEgress.pinName,
+      },
+      reply_pin: SLIDE_IMPORT_REPLY_PIN,
+      owned_by: 'ui-server-installer',
     },
   });
   return keys;
@@ -4901,14 +4931,14 @@ class ProgramModelEngine {
     if (!model0) return;
     const rootCell = this.runtime.getCell(model0, 0, 0, 0);
     for (const [key, label] of rootCell.labels.entries()) {
-      const packet = label && label.t === 'pin.bus.out' && typeof this.runtime._pinBusOutValueToExternalPayload === 'function'
+      const packet = label && isSplitBusOutLabelType(label.t) && typeof this.runtime._pinBusOutValueToExternalPayload === 'function'
         ? this.runtime._pinBusOutValueToExternalPayload(label.v)
         : (label ? label.v : null);
-      if (!label || label.t !== 'pin.bus.out' || !packet || typeof packet !== 'object' || packet.type !== 'pin_payload') {
+      if (!label || !isSplitBusOutLabelType(label.t) || !packet || typeof packet !== 'object' || packet.type !== 'pin_payload') {
         continue;
       }
       const opIdentity = String(packet.op_id || `${packet.source_model_id || ''}:${packet.pin || ''}`);
-      const bridgeKey = `pin.bus.out:${key}:${opIdentity}`;
+      const bridgeKey = `${label.t}:${key}:${opIdentity}`;
       if (alreadyScheduled.has(bridgeKey)) continue;
       if (this.bridgedBusOutPorts.get(key) === opIdentity) continue;
       alreadyScheduled.add(bridgeKey);
@@ -4916,7 +4946,7 @@ class ProgramModelEngine {
       const maybePromise = this.sendMatrix(packet);
       if (maybePromise && typeof maybePromise.then === 'function') {
         maybePromise.catch((err) => {
-          console.warn('[processEventsSnapshot] pending pin.bus.out matrix bridge failed', {
+          console.warn('[processEventsSnapshot] pending split bus out matrix bridge failed', {
             error: err && err.message ? err.message : String(err),
           });
         });
@@ -5099,6 +5129,12 @@ function createServerState(options) {
     ? options.matrixUserLoginImpl
     : null;
   const runtime = new ModelTableRuntime();
+  runtime.addLabel(runtime.getModel(0), 0, 0, 0, {
+    k: 'v1n_id',
+    t: 'str',
+    v: process.env.DY_UI_SERVER_V1N_ID || DEFAULT_UI_SERVER_V1N_ID,
+  });
+  runtime.addLabel(runtime.getModel(0), 0, 0, 0, { k: 'is_DEM', t: 'bool', v: true });
   const assetRoot = resolvePersistedAssetRoot();
   const bootstrapGeneratedKeys = new Set([
     'matrix_room_id',
@@ -6361,7 +6397,7 @@ function createServerState(options) {
       }
       const busResult = runtime.addLabel(model0, 0, 0, 0, {
         k: busInKey,
-        t: 'pin.bus.in',
+        t: 'pin.bus.mb.in',
         v: busPayload,
       });
       if (!busResult || !busResult.applied) {
@@ -6874,7 +6910,7 @@ function createServerState(options) {
         target.c,
         {
           k: pin,
-          t: target.model_id === 0 ? 'pin.bus.in' : 'pin.in',
+          t: target.model_id === 0 ? 'pin.bus.mb.in' : 'pin.in',
           v: normalizedDirectPin.value,
         },
       );

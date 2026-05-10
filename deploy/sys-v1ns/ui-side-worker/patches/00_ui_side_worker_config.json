@@ -5,6 +5,26 @@
   "records": [
     {
       "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "v1n_id",
+      "t": "str",
+      "v": "5/10/28/35/16"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "is_DEM",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
       "model_id": -10,
       "p": 0,
       "r": 0,

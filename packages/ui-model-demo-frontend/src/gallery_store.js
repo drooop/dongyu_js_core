@@ -106,6 +106,19 @@ function ensureModel(runtime, { id, name, type }) {
   return runtime.createModel({ id, name, type });
 }
 
+function overwriteLabel(runtime, model, p, r, c, label) {
+  const cell = runtime.getCell(model, p, r, c);
+  if (cell.labels.has(label.k)) {
+    runtime.rmLabel(model, p, r, c, label.k);
+  }
+  runtime.addLabel(model, p, r, c, label);
+}
+
+function ensureLocalDemRole(runtime) {
+  const model0 = ensureModel(runtime, { id: 0, name: 'M0', type: 'system' });
+  overwriteLabel(runtime, model0, 0, 0, 0, { k: 'is_DEM', t: 'bool', v: true });
+}
+
 function readRuntimeLabelValue(runtime, ref) {
   const modelId = ref && typeof ref.model_id === 'number' ? ref.model_id : 0;
   const model = runtime.getModel(modelId);
@@ -186,6 +199,7 @@ export function createGalleryStore(options) {
   let adapter = null;
 
   if (runtime) {
+    ensureLocalDemRole(runtime);
     ensureModel(runtime, { id: GALLERY_MAILBOX_MODEL_ID, name: 'gallery_mailbox', type: 'ui' });
     ensureGalleryAssets(runtime);
     stateModel = runtime.getModel(GALLERY_STATE_MODEL_ID);
@@ -271,7 +285,7 @@ export function createGalleryStore(options) {
       }
       const addResult = runtime.addLabel(model0, 0, 0, 0, {
         k: busInKey,
-        t: 'pin.bus.in',
+        t: 'pin.bus.mb.in',
         v: busPayload,
       });
       if (!addResult || !addResult.applied) {

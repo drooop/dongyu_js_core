@@ -185,7 +185,7 @@ async function test_submodel_boundary_bridge_replaces_numeric_prefix() {
       { from: [2, 0, 0, 'result'], to: [[0, 0, 0, 'ui_result']] },
     ],
   });
-  rt.addLabel(parent, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+  rt.addLabel(parent, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.cb.in', v: null });
   rt.addLabel(parent, 0, 0, 0, { k: 'ui_result', t: 'pin.out', v: null });
 
   const child = rt.getModel(9363);
@@ -215,7 +215,7 @@ async function test_submodel_boundary_bridge_replaces_numeric_prefix() {
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
   const payload = mt('request', 'str', 'ping');
-  rt.addLabel(parent, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: payload });
+  rt.addLabel(parent, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.cb.in', v: payload });
   await wait();
   assert.deepEqual(child.getCell(0, 0, 0).labels.get('submit')?.v, payload, 'host pin.in must forward to child root');
   assert.deepEqual(parent.getCell(0, 0, 0).labels.get('ui_result')?.v, mt('reply', 'str', 'pong'), 'child root pin.out must return through host pin.out and parent cell route');

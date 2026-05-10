@@ -87,7 +87,7 @@ source: ai
 
 - `ThreeScene` 只读 snapshot / label refs，把 child truth 投影成浏览器 3D scene。
 - 浏览器端 mesh / camera / renderer 只是 host cache，不是 business truth。
-- CRUD 真正写表时，必须走 `bus_event_v2 -> Model 0 pin.bus.in -> intent_dispatch_table / pin-chain -> handle_three_scene_* -> Model 1008/1007 labels`。
+- CRUD 真正写表时，必须走 `bus_event_v2 -> Model 0 pin.bus.mb.in -> intent_dispatch_table / pin-chain -> handle_three_scene_* -> Model 1008/1007 labels`。
 - local mode 必须明确返回 `unsupported / three_scene_remote_only`，不能偷偷复制第二套本地 CRUD 逻辑。
 
 ## 2.4 Workspace Slide App Built-ins (0289 / 0290 / 0302)
@@ -125,13 +125,13 @@ source: ai
 - 新增 `slide_surface_type` 枚举值时，必须先更新现行规约，再进入实现。
 
 ## 3. User Input (Bus Event)
-frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0 (0,0,0)` 的 `pin.bus.in`。
+frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0 (0,0,0)` 的 `pin.bus.mb.in`。
 事件 envelope 仍必须包含 `op_id`（用于审计/去重）。
 
 补充：
 
 - `Model -1 (0,0,1)` mailbox 只保留 compat/status 角色，不再是 current frontend/server 第一落点。
-- `Model 0 pin.bus.in -> pin.connect.cell -> child root pin.in -> child mt_bus_receive` 的解释属于 Tier 1 runtime。
+- `Model 0 pin.bus.mb.in -> pin.connect.cell -> child root pin.in -> child mt_bus_receive` 的解释属于 Tier 1 runtime。
 - `server` 只负责 envelope 适配、bus-event transport 与 snapshot / transport；不应长期持有独立正式事件语义。
 - 对需要落到“当前模型 / 当前单元格”的业务动作，前端事件 envelope 应显式携带：
   - `target.model_id`
@@ -144,7 +144,7 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
 - 也就是说，前端最终不再用 `action` 表达“要做什么”，而是直接表达“把值送到这个 cell 的哪个 pin”
 - `meta.model_id` 只能作为诊断/关联字段；正式目标必须来自 `target`。
 - 当前 built-in submit 已启用 target-based ingress：
-  - runtime 会把 `submit + target` 映射为 `Model 0 pin.bus.in` 上的一个 ingress key
+  - runtime 会把 `submit + target` 映射为 `Model 0 pin.bus.mb.in` 上的一个 ingress key
   - 然后再按 `model.submt` hosting Cell + `pin.connect.cell` 进入目标模型
 - 当前 slide/workspace 系统动作也已启用同一方向的 runtime ingress：
   - `slide_app_import`
@@ -293,8 +293,8 @@ V1N.writeLabel(2, 2, 2, { k: 'testk', t: 'str', v: 'testv' })
 
 - `func.python`
 - removed `pin.connect.model`
-- `pin.bus.in`
-- `pin.bus.out`
+- `pin.bus.mb.in`
+- `pin.bus.mb.out`
 - `pin.bus.cb.in`
 - `pin.bus.cb.out`
 - `pin.bus.mb.in`
@@ -381,7 +381,7 @@ owner-chain 的正式链路固定为：
 relay 规则：
 - 深层子模型的 `submit` 只能先到父模型 hosting cell
 - 父模型 hosting cell 只能用现有 `pin.connect.label` / `cell_connection` relay
-- 必须逐层上送，直到 worker root Model 0 `(0,0,0)` 的系统总线出口。0364 前 current window 是 `pin.bus.out submit`；0363 目标合同中，UI/管理类外发应是 `pin.bus.mb.out submit`
+- 必须逐层上送，直到 worker root Model 0 `(0,0,0)` 的系统总线出口。UI/管理类外发应进入 `pin.bus.mb.out submit`。
 
 因此：
 - 如果 `submit` 没有接到 Model 0，则它仍然只是本地动作
@@ -502,7 +502,7 @@ TargetRef 结构（Cell-owned）：
   - 若同时声明 `trigger_funcs`，runtime 会在该次入站写入后产出 `run_func` intercept（由 engine 执行）。
   - 当 `v` 不符合当前输入合同，应显式失败；不得回退到旧 mailbox。
 - PIN_OUT：
-  - 当前路径走 `pin.bus.out`。
+  - 当前路径走 `pin.bus.mb.out`。
   - 当前用户业务 pin value 不再使用 ModelTablePatch 或旧 envelope。
 
 ### 5.3 示例（A/B/C）

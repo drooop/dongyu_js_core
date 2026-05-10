@@ -25,7 +25,7 @@ async function test_pin_connect_cell_routes_bus_to_submodel_host() {
     v: [{ from: [0, 0, 0, 'event'], to: [[1, 0, 0, 'input']] }],
   });
 
-  rt.addLabel(root, 0, 0, 0, { k: 'event', t: 'pin.bus.in', v: [mt('__mt_payload_kind', 'str', 'test.pin.v1'), mt('op_id', 'str', 'x1')] });
+  rt.addLabel(root, 0, 0, 0, { k: 'event', t: 'pin.bus.cb.in', v: [mt('__mt_payload_kind', 'str', 'test.pin.v1'), mt('op_id', 'str', 'x1')] });
   await sleep(10);
 
   const target = rt.getCell(child, 0, 0, 0).labels.get('input');

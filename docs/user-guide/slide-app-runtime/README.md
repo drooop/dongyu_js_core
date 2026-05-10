@@ -14,7 +14,7 @@ Authority:
 - This is a user guide. It does not override `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md`, `docs/ssot/pin_connection_contract_v2.md`, `docs/ssot/temporary_modeltable_payload_v1.md`, or `docs/ssot/label_type_registry.md`.
 
 Current boundary:
-- 正式业务入口仍通过 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.in -> pin route -> target`。
+- 正式业务入口仍通过 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.mb.in -> pin route -> target`。
 - 输入过程中的本地草稿不等于业务提交。
 - 引脚上传递的业务数据是临时 ModelTable record array；只有显式 materialization 才落成正式模型表。
 - HTML 文件只作为 visualized / interactive companion，不是 SSOT。

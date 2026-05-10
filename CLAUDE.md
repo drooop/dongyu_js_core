@@ -22,7 +22,7 @@ HARD_RULES
 - all side effects via add_label / rm_label only. no bypass.
 - UI is projection of ModelTable. never truth source.
 - UI business events enter via the worker root Model 0 (0,0,0) system bus boundary.
-  Current runtime uses pin.bus.in until 0364; 0363 target is pin.bus.mb.in for DEM management ingress and pin.bus.cb.in for control ingress.
+  Use pin.bus.mb.in for DEM management ingress and pin.bus.cb.in for control ingress.
 - init and runtime use identical interpretation rules.
 - hidden platform/policy/helper capabilities default to negative model_id system models.
 - do not place non-user-facing helper workers into positive models just to avoid tier1 work.
@@ -172,7 +172,7 @@ FORBIDDEN
 - phase3 without Approved gate
 - unregistered iteration work
 - side effects outside add_label / rm_label
-- UI direct bus connection (must go through worker root Model 0 system bus ingress; current pin.bus.in until 0364, target split pin.bus.mb.in / pin.bus.cb.in)
+- UI direct bus connection (must go through worker root Model 0 system bus ingress; use pin.bus.mb.in or pin.bus.cb.in)
 - external MQTT writing to arbitrary cells (must go through worker root Model 0 system bus ingress)
 - using legacy connection types: label_connection, trigger_funcs, function_PIN_IN/OUT (use CELL_CONNECT)
 - using DEPRECATED / historical label types in new models
@@ -319,8 +319,7 @@ ARCH_INVARIANTS
 - Model 0 = system root / intermediate layer. system boundary ports live here.
 - every model except Model 0 MUST be explicitly mounted into the hierarchy via model.submt, including bootstrap children such as -1 and 1.
 - single external entry: worker root system bus pins on Model 0 (0,0,0) = only MQTT/Matrix boundary. no direct cell writes from external.
-  current runtime window: pin.bus.in/pin.bus.out.
-  0363 target: pin.bus.cb.in/out for control bus and pin.bus.mb.in/out for management bus.
+  Use pin.bus.cb.in/out for control bus and pin.bus.mb.in/out for management bus.
 - connection chain (no skip): worker root bus boundary adapter → pin.connect.cell (inter-cell routing) → pin.connect.label (intra-cell wiring)
 - pin.connect.label = current Cell intra-wiring table. replaces historical CELL_CONNECT / label_connection / trigger_funcs / function_PIN_IN/OUT.
 - program model: function label, v = JS code string, compiled to AsyncFunction at init. ctx = runtime execution context (system-level); user program API face = V1N namespace (0323).
@@ -343,8 +342,7 @@ tier 1: runtime base (基座运行能力)
       pin.bus.cb.in, pin.bus.cb.out, pin.bus.mb.in, pin.bus.mb.out,
       pin.login, pin.logout,
       pin.connect.label, pin.connect.cell, model.submt, func.js, func.python
-    current runtime window still recognizes pin.bus.in / pin.bus.out until 0364.
-    legacy pin.log.* and pin.connect.model are removed input surfaces and MUST NOT be restored.
+    legacy unsplit bus pins, legacy pin.log.*, and pin.connect.model are removed input surfaces and MUST NOT be restored.
   - MQTT loop: startMqttLoop, mqttIncoming, topic routing
   - AsyncFunction executor: _executeFuncViaCellConnect (30s timeout, sandboxed ctx)
   - graph management: pinConnectLabelGraph, pinConnectCellRoutes, busInPorts, busOutPorts
@@ -485,15 +483,11 @@ local data channel:
   pin.in            Local model/program input port
   pin.out           Local model/program output port
 
-target system bus channel (0363 contract; implementation in 0364):
+target system bus channel:
   pin.bus.cb.in     Control-bus boundary input port (only on worker Model 0 (0,0,0))
   pin.bus.cb.out    Control-bus boundary output port (only on worker Model 0 (0,0,0))
   pin.bus.mb.in     Management-bus boundary input port (only on DEM worker Model 0 (0,0,0))
   pin.bus.mb.out    Management-bus boundary output port (only on DEM worker Model 0 (0,0,0))
-
-current implementation window:
-  pin.bus.in        Current unsplit system boundary input port until 0364 hard-cut
-  pin.bus.out       Current unsplit system boundary output port until 0364 hard-cut
 
 log channel (identical routing behavior, type-isolated from data channel):
   pin.login         Local log input

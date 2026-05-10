@@ -90,12 +90,10 @@ Conflict behavior:
 |---|---|---|---|---|
 | `pin.in` | Cell 级输入端口；写在非系统模型 root `(0,0,0)` 时也承担模型根边界输入 | 端口名 | `null` 或临时 ModelTable payload array | 任意 Cell |
 | `pin.out` | Cell 级输出端口；写在非系统模型 root `(0,0,0)` 时也承担模型根边界输出 | 端口名 | `null` 或临时 ModelTable payload array | 任意 Cell |
-| `pin.bus.cb.in` | 控制总线边界输入端口（0363 目标合同） | 端口名 | `null` 或临时 ModelTable payload array | 仅软件工人 Model 0 (0,0,0) |
-| `pin.bus.cb.out` | 控制总线边界输出端口（0363 目标合同） | 端口名 | `null` 或临时 ModelTable payload array | 仅软件工人 Model 0 (0,0,0) |
-| `pin.bus.mb.in` | 管理总线边界输入端口（0363 目标合同） | 端口名 | `null` 或临时 ModelTable payload array | 仅 DEM 软件工人 Model 0 (0,0,0) |
-| `pin.bus.mb.out` | 管理总线边界输出端口（0363 目标合同） | 端口名 | `null` 或临时 ModelTable payload array | 仅 DEM 软件工人 Model 0 (0,0,0) |
-
-迁移说明：当前运行面在 0364 实施前仍使用未拆分的 `pin.bus.in` / `pin.bus.out`。它们不再是目标编写口径；0364 必须将运行时、系统模型、部署补丁和测试资产迁到上表的拆分总线引脚。
+| `pin.bus.cb.in` | 控制总线边界输入端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅软件工人 Model 0 (0,0,0) |
+| `pin.bus.cb.out` | 控制总线边界输出端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅软件工人 Model 0 (0,0,0) |
+| `pin.bus.mb.in` | 管理总线边界输入端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅 DEM 软件工人 Model 0 (0,0,0) |
+| `pin.bus.mb.out` | 管理总线边界输出端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅 DEM 软件工人 Model 0 (0,0,0) |
 
 0331 payload 约束：
 - 正式业务 pin 的非空 value 必须是 `docs/ssot/temporary_modeltable_payload_v1.md` 定义的 record array。
@@ -224,8 +222,8 @@ runtime 不得新增或保留兼容层来支持这些旧名；结构性旧类型
 
 | label.t | 替代方案 |
 |---|---|
-| `BUS_IN` | current migration surface: `pin.bus.in`; 0364 target: `pin.bus.cb.in` or `pin.bus.mb.in` by bus role |
-| `BUS_OUT` | current migration surface: `pin.bus.out`; 0364 target: `pin.bus.cb.out` or `pin.bus.mb.out` by bus role |
+| `BUS_IN` | 按总线角色使用 `pin.bus.cb.in` 或 `pin.bus.mb.in` |
+| `BUS_OUT` | 按总线角色使用 `pin.bus.cb.out` 或 `pin.bus.mb.out` |
 | `CELL_CONNECT` | `pin.connect.label` |
 | `cell_connection` | `pin.connect.cell` |
 | `MODEL_IN` | 非系统模型 root `(0,0,0)` 上的 `pin.in` |
@@ -276,7 +274,7 @@ v1 当前只允许：
 宿主安装后自动生成的接入 labels 当前包括：
 
 - `Model 0`:
-  - `pin.bus.in`
+  - `pin.bus.mb.in`
   - `pin.connect.cell`（从 Model 0 root 系统边界 adapter 路由到 imported app 的 hosting Cell 引脚）
 - imported app hosting Cell:
   - `model.submt`
@@ -348,7 +346,7 @@ value 必须至少包含：
 - `bus`: `"management"` 或 `"control"`；UI/滑动 App 用户交互默认使用 `"management"`。
 - `host_model_id`: 当前 worker root model id，目标为 `0`。
 - `host_cell`: 目标为 `[0,0,0]`。
-- `host_pin_type`: 0363 目标为 `pin.bus.mb.out` 或 `pin.bus.cb.out`；0364 前 current window 仍可能对应 `pin.bus.out`。
+- `host_pin_type`: 必须是 `pin.bus.mb.out` 或 `pin.bus.cb.out`。
 - `host_pin_key`: 宿主生成的系统总线出口 key。
 - `target`: `{ worker_id, model_id, pin }`，由 `remote_bus_endpoint_v1` 与当前公开出口 pin 合成。
 - `reply_pin`: 回包进入本地 imported app 的公开 pin。

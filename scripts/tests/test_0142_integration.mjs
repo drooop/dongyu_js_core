@@ -92,7 +92,7 @@ async function test_bus_in_priority_over_pin() {
   const rt = new ModelTableRuntime();
   const model0 = rt.getModel(0);
   // Register BUS_IN
-  rt.addLabel(model0, 0, 0, 0, { k: 'data', t: 'pin.bus.in', v: null });
+  rt.addLabel(model0, 0, 0, 0, { k: 'data', t: 'pin.bus.cb.in', v: null });
   rt.addLabel(model0, 1, 0, 0, { k: 'received', t: 'pin.in', v: null });
   rt.addLabel(model0, 0, 0, 0, {
     k: 'routing',

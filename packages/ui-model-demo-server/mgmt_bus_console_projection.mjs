@@ -143,7 +143,7 @@ function buildFallbackEventRows(source, routeRows, routeStatus) {
       subject_id: 'model0',
       subject_label: 'Model 0 bus',
       route_key: 'mgmt_bus_console',
-      pin: 'pin.bus.in',
+      pin: 'pin.bus.mb.in',
       kind: 'mgmt_bus_console.route_status.v1',
       status: routeStatus === 'live' ? 'applied' : 'error',
       preview: `routes=${configuredRoutes}/${routeRows.length} status=${routeStatus}`,

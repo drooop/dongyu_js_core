@@ -32,7 +32,7 @@ async function withServerState(fn) {
   }
 }
 
-async function test_legacy_submit_protocol_is_rejected_after_model0_ingress_materialization() {
+async function test_legacy_submit_protocol_is_rejected_without_model0_ingress_materialization() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
     state.runtime.rmLabel(model0, 0, 0, 0, 'model100_submit_ingress_route');
@@ -60,8 +60,8 @@ async function test_legacy_submit_protocol_is_rejected_after_model0_ingress_mate
 
     const events = state.runtime.eventLog.list();
     assert.ok(
-      events.some((event) => event.op === 'add_label' && event.cell?.model_id === 0 && event.cell?.p === 0 && event.cell?.r === 0 && event.cell?.c === 0 && event.label?.k === 'ui_event_submit_100_0_0_0' && event.label?.t === 'pin.bus.in'),
-      'legacy_submit_must_still_materialize_model0_ingress_before_protocol_rejection',
+      !events.some((event) => event.op === 'add_label' && event.cell?.model_id === 0 && event.cell?.p === 0 && event.cell?.r === 0 && event.cell?.c === 0 && event.label?.k === 'ui_event_submit_100_0_0_0'),
+      'legacy_submit_must_not_materialize_model0_ingress_after_hard_cut',
     );
     assert.ok(
       !events.some((event) => event.op === 'add_label' && event.cell?.model_id === 100 && event.cell?.p === 0 && event.cell?.r === 0 && event.cell?.c === 2 && event.label?.k === 'ui_event' && event.label?.v),
@@ -71,12 +71,12 @@ async function test_legacy_submit_protocol_is_rejected_after_model0_ingress_mate
       !events.some((event) => event.op === 'add_label' && event.cell?.model_id === 100 && event.cell?.p === 0 && event.cell?.r === 0 && event.cell?.c === 0 && event.label?.k === 'submit_request' && event.label?.t === 'pin.in' && event.label?.v),
       'legacy_submit_must_not_reach_model100_submit_request',
     );
-    return { key: 'legacy_submit_protocol_is_rejected_after_model0_ingress_materialization', status: 'PASS' };
+    return { key: 'legacy_submit_protocol_is_rejected_without_model0_ingress_materialization', status: 'PASS' };
   });
 }
 
 const tests = [
-  test_legacy_submit_protocol_is_rejected_after_model0_ingress_materialization,
+  test_legacy_submit_protocol_is_rejected_without_model0_ingress_materialization,
 ];
 
 (async () => {

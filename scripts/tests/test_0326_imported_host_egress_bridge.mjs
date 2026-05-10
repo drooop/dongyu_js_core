@@ -175,7 +175,7 @@ async function test_imported_egress_uses_bus_out_bridge_without_forward_func() {
         && entry.payload?.payload?.route?.reply_to?.model_id === importedId
         && entry.payload?.payload?.route?.reply_to?.pin === 'result'
       ));
-      assert.ok(mqttPublish, `model0 pin.bus.out must publish MQTT payload for ${messageText}`);
+      assert.ok(mqttPublish, `model0 pin.bus.mb.out must publish MQTT payload for ${messageText}`);
 
       const matrixPacket = await pollUntil(() => matrixPublished.find((entry) =>
         entry?.type === 'pin_payload'

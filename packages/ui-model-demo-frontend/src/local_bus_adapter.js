@@ -263,7 +263,7 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       }
       const addResult = runtime.addLabel(model, target.p, target.r, target.c, {
         k: pin,
-        t: target.model_id === 0 ? 'pin.bus.in' : 'pin.in',
+        t: target.model_id === 0 ? 'pin.bus.mb.in' : 'pin.in',
         v: target.model_id < 0 ? nextValue : normalizedBusValue,
       });
       if (!addResult || !addResult.applied) {

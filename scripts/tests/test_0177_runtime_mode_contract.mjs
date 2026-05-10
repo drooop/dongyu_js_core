@@ -60,8 +60,8 @@ function test_runtime_mode_and_trusted_bootstrap() {
       mqttPublishes.push({ topic, payload });
     },
   };
-  rt.addLabel(model0, 0, 0, 0, { k: 'boot_out', t: 'pin.bus.out', v: pinPayload('boot_out') });
-  assert.equal(mqttPublishes.length, 0, 'boot/edit mode must not publish pin.bus.out side effects');
+  rt.addLabel(model0, 0, 0, 0, { k: 'boot_out', t: 'pin.bus.cb.out', v: pinPayload('boot_out') });
+  assert.equal(mqttPublishes.length, 0, 'boot/edit mode must not publish pin.bus.cb.out side effects');
 
   const untrustedCreate = rt.applyPatch({
     version: 'mt.v0',
@@ -97,8 +97,8 @@ function test_runtime_mode_and_trusted_bootstrap() {
     'running mode must enqueue run_* execution',
   );
 
-  rt.addLabel(model0, 0, 0, 0, { k: 'running_out', t: 'pin.bus.out', v: pinPayload('running_out') });
-  assert.equal(mqttPublishes.length, 1, 'running mode must re-enable pin.bus.out side effects');
+  rt.addLabel(model0, 0, 0, 0, { k: 'running_out', t: 'pin.bus.cb.out', v: pinPayload('running_out') });
+  assert.equal(mqttPublishes.length, 1, 'running mode must re-enable pin.bus.cb.out side effects');
   assert.equal(findRuntimeModeLabel(rt)?.v, 'running', 'runtime must update Model 0 runtime_mode label when entering running');
 }
 

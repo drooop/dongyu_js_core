@@ -17042,7 +17042,7 @@
       "c": 0,
       "k": "inspector_text",
       "t": "str",
-      "v": "Send path: UI event -> bus_event_v2 -> Model 0 pin.bus.in -> pin route -> management target."
+      "v": "Send path: UI event -> bus_event_v2 -> Model 0 pin.bus.mb.in -> pin route -> management target."
     },
     {
       "op": "add_label",
@@ -22717,7 +22717,7 @@
       "c": 0,
       "k": "ui_markdown",
       "t": "str",
-      "v": "## Event Flow\n\nFormal business events must enter the current pin chain.\n\n```mermaid\nflowchart LR\n  UI[UI event] --> Bus[Model 0 pin.bus.in]\n  Bus --> Route[pin route]\n  Route --> Target[target model or MBR]\n```\n\n```json\n{\n  \"pin\": \"click\",\n  \"value_t\": \"modeltable\",\n  \"value_ref\": [\n    { \"id\": 0, \"p\": 0, \"r\": 0, \"c\": 0, \"k\": \"__mt_payload_kind\", \"t\": \"str\", \"v\": \"ui_event.v1\" }\n  ]\n}\n```"
+      "v": "## Event Flow\n\nFormal business events must enter the current pin chain.\n\n```mermaid\nflowchart LR\n  UI[UI event] --> Bus[Model 0 pin.bus.mb.in]\n  Bus --> Route[pin route]\n  Route --> Target[target model or MBR]\n```\n\n```json\n{\n  \"pin\": \"click\",\n  \"value_t\": \"modeltable\",\n  \"value_ref\": [\n    { \"id\": 0, \"p\": 0, \"r\": 0, \"c\": 0, \"k\": \"__mt_payload_kind\", \"t\": \"str\", \"v\": \"ui_event.v1\" }\n  ]\n}\n```"
     },
     {
       "op": "add_label",

@@ -72,6 +72,11 @@ function overwriteLabel(runtime, model, p, r, c, label) {
   runtime.addLabel(model, p, r, c, label);
 }
 
+function ensureLocalDemRole(runtime) {
+  const model0 = ensureModel(runtime, { id: 0, name: 'M0', type: 'system' });
+  overwriteLabel(runtime, model0, 0, 0, 0, { k: 'is_DEM', t: 'bool', v: true });
+}
+
 function applyUiPatch(runtime, patch) {
   const result = runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
   if (result && result.rejected > 0) {
@@ -218,6 +223,7 @@ export function createDemoStore() {
 
   ensureModel(runtime, { id: EDITOR_MODEL_ID, name: 'editor_mailbox', type: 'ui' });
   const stateModel = ensureModel(runtime, { id: EDITOR_STATE_MODEL_ID, name: 'editor_state', type: 'ui' });
+  ensureLocalDemRole(runtime);
   ensureModel(runtime, { id: SYSTEM_MODEL_ID, name: 'system', type: 'system' });
   ensureModel(runtime, { id: 1, name: 'M1', type: 'main' });
 
@@ -438,7 +444,7 @@ export function createDemoStore() {
       }
       const addResult = runtime.addLabel(model0, 0, 0, 0, {
         k: busInKey,
-        t: 'pin.bus.in',
+        t: 'pin.bus.mb.in',
         v: busPayload,
       });
       if (!addResult || !addResult.applied) {

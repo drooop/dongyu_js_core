@@ -210,7 +210,7 @@ Example: trigger a pin with ModelTable payload records.
 For management bus events, the formal path is:
 
 ```text
-UI event -> bus_event_v2 -> Model 0 pin.bus.in -> pin route -> target model / MBR
+UI event -> bus_event_v2 -> Model 0 pin.bus.mb.in -> pin route -> target model / MBR
 ```
 
 ### Data Display
@@ -300,7 +300,7 @@ Example Markdown value:
 
 ```mermaid
 flowchart LR
-  UI[UI event] --> Bus[Model 0 pin.bus.in]
+  UI[UI event] --> Bus[Model 0 pin.bus.mb.in]
   Bus --> Target[Target model or MBR]
 ```
 
