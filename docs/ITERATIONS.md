@@ -268,6 +268,7 @@ source: ai
 | 0363-ui-egress-bus-init-contract | 2026-05-09 | docs-only 冻结 UI 对外管理总线绑定、控制/管理总线引脚拆分、软件工人启动顺序，以及 0364 实施验收范围 | 5 | dev_0363-ui-egress-bus-init-contract | Completed | ./docs/iterations/0363-ui-egress-bus-init-contract/ |
 | 0365-prompt-guidance-rules | 2026-05-10 | 基于 OpenAI 官方提示词建议重写 AI 协作规约撰写方法，并收窄 HTML artifact 使用边界与用户指南 | 4 | dev_0365-prompt-guidance-rules | Completed | ./docs/iterations/0365-prompt-guidance-rules/ |
 | 0366-spec-tree-rewrite | 2026-05-10 | 按 0365 规约撰写方法梳理多入口规约树，重写当前规约入口并修正矛盾/模糊口径 | 5 | dev_0366-spec-tree-rewrite | Completed | ./docs/iterations/0366-spec-tree-rewrite/ |
+| 0367-docs-tree-rewrite | 2026-05-10 | 全量梳理 docs 树并在 sub-agent review 通过后重写 active docs 与 user-guide，保留历史证据层 | 6 | dev_0367-docs-tree-rewrite | Completed | ./docs/iterations/0367-docs-tree-rewrite/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

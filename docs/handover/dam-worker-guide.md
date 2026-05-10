@@ -1,12 +1,14 @@
 ---
 title: "DAM Worker 开发指南：软件工人与总线交互架构"
 doc_type: handover
-status: active
-updated: 2026-04-27
+status: historical
+updated: 2026-05-10
 source: ai
 ---
 
 # DAM Worker 开发指南：软件工人与总线交互架构
+
+Status: historical handover / implementation guide. Use current SSOT for model ids, label semantics, PIN contracts, and bus split targets.
 
 > 前置知识：了解 MQTT、Matrix 协议基础概念
 > 参考实现：Model 100 颜色生成器（完整 E2E 双总线样板）

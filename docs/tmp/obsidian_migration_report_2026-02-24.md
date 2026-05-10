@@ -1,12 +1,14 @@
 ---
 title: "Obsidian Migration Report 2026-02-24"
 doc_type: note
-status: active
-updated: 2026-04-21
+status: evidence
+updated: 2026-05-10
 source: ai
 ---
 
 # Obsidian Migration Report 2026-02-24
+
+Status: historical migration evidence. It does not define current documentation policy.
 
 ## Summary
 - Scope: `__DY_PROTECTED_WL_0__` vault (`docs/` symlink target)

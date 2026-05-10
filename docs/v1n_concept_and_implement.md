@@ -1,12 +1,14 @@
 ---
 title: "V1N / PICtest 软件工人基座：概念与实现理解"
 doc_type: note
-status: active
-updated: 2026-04-21
+status: historical
+updated: 2026-05-10
 source: ai
 ---
 
 # V1N / PICtest 软件工人基座：概念与实现理解
+
+Status: historical implementation note from the PICtest / Python integration period. Current runtime rules live in `docs/architecture_mantanet_and_workers.md`, `docs/ssot/runtime_semantics_modeltable_driven.md`, and related SSOT files.
 
 ## 0. 阅读范围与假设
 - 本文档基于当前仓库中的 PICtest 源码状态

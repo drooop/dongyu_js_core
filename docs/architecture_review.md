@@ -1,16 +1,18 @@
 ---
 title: "架构评价与改进建议"
 doc_type: note
-status: active
-updated: 2026-04-21
+status: historical
+updated: 2026-05-10
 source: ai
 ---
 
 # 架构评价与改进建议
 
-> 本文档记录对项目架构的评价、已知问题和改进方向。属于设计反思文档，按需查阅。
+> 本文档记录对项目架构的评价、已知问题和改进方向。属于历史设计反思文档，按需查阅。
 >
 > 最后更新：2026-02-04
+>
+> Current authority: `CLAUDE.md`, `docs/architecture_mantanet_and_workers.md`, and `docs/ssot/**`. 本文件不作为当前 roadmap 或规约来源。
 
 ---
 

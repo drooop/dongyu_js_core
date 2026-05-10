@@ -1,15 +1,14 @@
 ---
 title: "Roadmap: Sliding UI Workspace"
 doc_type: roadmap
-status: active
-updated: 2026-04-21
+status: target
+updated: 2026-05-10
 source: ai
 ---
 
 # Roadmap: Sliding UI Workspace
 
-> 目标：把 Workspace 从"静态 AST 页面"演进到"ModelTable UI schema 驱动"。
-> 历史说明：roadmap 只表达产品/演进方向，不是当前模型 id 与模型标签语义的权威来源；如与 `CLAUDE.md` 或 `docs/ssot/**` 冲突，以上位规范为准。
+Status: roadmap / target material. It explains product direction, not current model id or label semantics. If it conflicts with `CLAUDE.md` or `docs/ssot/**`, use the higher source.
 
 ## 1. 背景
 

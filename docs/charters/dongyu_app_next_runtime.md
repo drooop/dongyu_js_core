@@ -19,6 +19,15 @@ Authority:
 - This Charter is **time- and scope-bound**: it governs the current “Next Runtime” rewrite only.
 - It is also subordinate to `CLAUDE.md`, which defines the repository execution priority tree and hard safety/workflow rules.
 
+Scope:
+- This Charter governs the Next Runtime rewrite decisions and boundaries.
+- It does not define general post-rewrite policy unless a later iteration explicitly renews it.
+
+Conflict behavior:
+- If this Charter conflicts with `CLAUDE.md` or the system SSOT, apply the higher source.
+- If lower docs or implementation conflict with this Charter, update the lower layer or record a non-conformance.
+- If ambiguity remains, stop, document the ambiguity, and ask for a decision.
+
 If any ambiguity exists:
 > **Stop, document, and ask. Never infer.**
 

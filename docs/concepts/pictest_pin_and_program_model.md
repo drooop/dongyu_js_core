@@ -1,14 +1,14 @@
 ---
 title: "PICtest PIN_IN/PIN_OUT 与程序模型触发机制（理解记录）"
 doc_type: note
-status: active
-updated: 2026-04-21
+status: historical
+updated: 2026-05-10
 source: ai
 ---
 
 # PICtest PIN_IN/PIN_OUT 与程序模型触发机制（理解记录）
 
-> 目的：将 PICtest 中与 PIN_IN/PIN_OUT、程序模型触发相关的“可观测行为”整理为可复用的理解记录。
+> Status: historical concept/evidence note. Current runtime semantics and PIN contracts live in `docs/ssot/runtime_semantics_modeltable_driven.md`, `docs/ssot/label_type_registry.md`, and `docs/ssot/pin_connection_contract_v2.md`.
 
 ## 0. 适用范围与约束
 

@@ -2,11 +2,13 @@
 title: "Remote Worker K8s Runbook"
 doc_type: deployment
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
 # Remote Worker K8s Runbook
+
+Status: current runbook when working on local K8s remote-worker validation. It does not override the default runtime baseline in `docs/deployment/runtime_baseline_default.md` or any SSOT.
 
 > 目标：在本地开发环境中跑通  
 > `UI -> Matrix -> MBR -> MQTT -> K8s Remote Worker`。

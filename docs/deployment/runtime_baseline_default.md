@@ -2,11 +2,13 @@
 title: "Runtime Baseline Default"
 doc_type: deployment
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
 # Runtime Baseline Default
+
+Status: current deployment/runbook baseline. Treat `ensure_runtime_baseline.sh` as mutating; use `check_runtime_baseline.sh` for read-only confirmation.
 
 ## 1. 默认策略
 

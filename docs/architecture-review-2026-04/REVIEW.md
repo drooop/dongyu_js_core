@@ -1,12 +1,14 @@
 ---
 title: "架构评审报告：dongyu_js_core (dongyuapp_elysia_based)"
 doc_type: note
-status: active
-updated: 2026-04-21
+status: historical
+updated: 2026-05-10
 source: ai
 ---
 
 # 架构评审报告：dongyu_js_core (dongyuapp_elysia_based)
+
+Status: historical architecture review evidence. It may inform future work, but it does not override current SSOT or workflow.
 
 **评审日期**: 2026-04-10
 **评审范围**: 全栈架构（Runtime Core / Server API / Frontend / Deployment）

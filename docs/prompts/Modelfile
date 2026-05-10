@@ -1,5 +1,8 @@
 FROM qwen3:32b
 
+# Status: prompt archive. This Modelfile is not the current AI collaboration rule source.
+# Current governance lives in CLAUDE.md, docs/WORKFLOW.md, and docs/ssot/execution_governance_ultrawork_doit.md.
+
 PARAMETER temperature 0.3
 PARAMETER num_ctx 8192
 

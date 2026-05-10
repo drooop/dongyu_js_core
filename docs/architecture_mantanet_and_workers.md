@@ -245,7 +245,7 @@ PIN 端口按**类型**区分层级（不是按位置硬编码）：
 | 控制总线系统边界 adapter | pin.bus.cb.in / pin.bus.cb.out | 日志边界后续单独裁决；普通模型不使用 pin.log.bus.* | 软件工人 Model 0 `(0,0,0)` |
 | 管理总线系统边界 adapter | pin.bus.mb.in / pin.bus.mb.out | 日志边界后续单独裁决；普通模型不使用 pin.log.bus.* | DEM 软件工人 Model 0 `(0,0,0)` |
 
-0363 目标合同将系统边界 adapter 从当前未拆分的 `pin.bus.in` / `pin.bus.out` 迁到上表的控制总线和管理总线两组。0364 实施前，`pin.bus.in` / `pin.bus.out` 只表示当前运行面，不再作为新模型的目标作者ing口径。
+0363 目标合同将系统边界 adapter 从当前未拆分的 `pin.bus.in` / `pin.bus.out` 迁到上表的控制总线和管理总线两组。0364 实施前，`pin.bus.in` / `pin.bus.out` 只表示当前运行面，不再作为新模型的目标编写口径。
 
 ### 6.2 连接声明
 
