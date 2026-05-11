@@ -174,8 +174,48 @@ PASS 判定：
 - 本地 OrbStack baseline 与 cloud baseline 的 MQTT 拓扑不同：
   - 本地 `k8s/local/workers.yaml` 使用 `mosquitto.dongyu.svc.cluster.local`
   - 远端 `k8s/cloud/workers.yaml` 使用 `emqx-emqx-enterprise.emqx.svc.cluster.local`
-  - 远端 `EMQX` 位于 `emqx` namespace，不在 `dongyu` namespace
-  - `deploy_cloud_full.sh` / `deploy_cloud_app.sh` 默认假定远端 EMQX 已存在，不负责创建 broker
+- 远端 `EMQX` 位于 `emqx` namespace，不在 `dongyu` namespace
+- `deploy_cloud_full.sh` / `deploy_cloud_app.sh` 默认假定远端 EMQX 已存在，不负责创建 broker
+
+---
+
+## Cloud Public Docs Fast Deploy（docs/static only）
+
+用途：
+- 仅发布 `docs/user-guide/slide-app-runtime` 下的公开文档与静态 HTML。
+- 适合本次这类只改 Markdown / HTML 文档、没有运行时代码或镜像输入变化的发布。
+- 该路径不执行 Docker build、不执行 `docker save | ctr import`、不触发 `kubectl rollout restart`，因此比 `deploy_cloud_app.sh --target ui-server` 更快，风险面也更小。
+
+命令：
+```bash
+bash scripts/ops/deploy_cloud_public_docs_fast.sh \
+  --ssh-user drop \
+  --ssh-host dongyudigital.com \
+  --remote-repo /home/wwpic/dongyuapp \
+  --remote-repo-owner wwpic \
+  --revision "$(git rev-parse --short HEAD)"
+```
+
+实际动作：
+1. 复用 `sync_cloud_source.sh` 将当前 revision 同步到远端 `/home/wwpic/dongyuapp`。
+2. 在远端执行 `scripts/ops/sync_ui_public_docs.sh`。
+3. 将 `minimal_submit_app_provider_interactive.html` 写入：
+   - `/home/wwpic/dongyu/volume/persist/ui-server/static_projects/slide-app-runtime-minimal-submit-provider/index.html`
+   - `/home/wwpic/dongyu/volume/persist/ui-server/static_projects/slide-app-runtime-minimal-submit-provider/minimal_submit_app_provider_interactive.html`
+4. 同步 Markdown 到：
+   - `/home/wwpic/dongyu/volume/persist/ui-server/docs/user-guide/slide-app-runtime/`
+
+PASS 判定：
+- 远端脚本输出 `Cloud public docs fast deploy complete`。
+- 远端文件存在且 sha256 已输出。
+- 公网访问成功：
+  - `https://app.dongyudigital.com/p/slide-app-runtime-minimal-submit-provider/`
+  - `https://app.dongyudigital.com/p/slide-app-runtime-minimal-submit-provider/minimal_submit_app_provider_interactive.html`
+- Playwright 能打开交互式 HTML 并看到“提交按钮 / 模型表准备清单”页签。
+
+何时不要使用：
+- 改了 `packages/**`、`deploy/sys-v1ns/**`、`k8s/**` 或运行时需要重启时，不使用该 fast path；改用 `deploy_cloud_app.sh --target ui-server` 或 `deploy_cloud_full.sh`。
+- 需要验证容器内源码哈希或 rollout 行为时，不使用该 fast path。
 
 ---
 

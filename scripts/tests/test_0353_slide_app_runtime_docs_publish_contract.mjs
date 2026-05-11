@@ -14,6 +14,7 @@ const assetScriptPath = 'scripts/ops/sync_local_persisted_assets.sh';
 const cloudSourcePath = 'scripts/ops/sync_cloud_source.sh';
 const appDeployPath = 'scripts/ops/deploy_cloud_app.sh';
 const fullDeployPath = 'scripts/ops/deploy_cloud_full.sh';
+const publicDocsFastDeployPath = 'scripts/ops/deploy_cloud_public_docs_fast.sh';
 const localDeployPath = 'scripts/ops/deploy_local.sh';
 
 function repoFile(relPath) {
@@ -119,11 +120,15 @@ function test_deploy_and_asset_sync_include_public_docs() {
   const localDeploy = readText(localDeployPath);
   const appDeploy = readText(appDeployPath);
   const fullDeploy = readText(fullDeployPath);
+  const publicDocsFastDeploy = readText(publicDocsFastDeployPath);
   const cloudSource = readText(cloudSourcePath);
   assert.match(localDeploy, /sync_ui_public_docs\.sh/u, 'local deploy must sync public docs');
   assert.match(appDeploy, /sync_ui_public_docs\.sh/u, 'cloud app deploy must sync public docs');
   assert.match(appDeploy, /\[\s*"\$TARGET"\s*=\s*"ui-server"\s*\]/u, 'cloud app deploy must limit public docs sync to ui-server');
   assert.match(fullDeploy, /sync_ui_public_docs\.sh/u, 'cloud full deploy must sync public docs');
+  assert.match(publicDocsFastDeploy, /sync_ui_public_docs\.sh/u, 'cloud public docs fast deploy must sync public docs');
+  assert.match(publicDocsFastDeploy, /minimal_submit_app_provider_interactive\.html/u, 'cloud public docs fast deploy must publish interactive HTML');
+  assert.doesNotMatch(publicDocsFastDeploy, /docker build|rollout restart|images import/u, 'cloud public docs fast deploy must not rebuild or restart');
   assert.match(cloudSource, /docs\/user-guide\/slide-app-runtime/u, 'cloud source fallback must include slide app runtime docs');
   return { key: 'deploy_and_asset_sync_include_public_docs', status: 'PASS' };
 }
