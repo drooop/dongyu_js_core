@@ -229,7 +229,7 @@ function test_model_zero_is_forbidden_in_owner_chain() {
     {
       action: 'set_label',
       target: { model_id: 0, p: 0, r: 0, c: 0, k: 'bus_evt' },
-      label: { t: 'pin.bus.in', v: null },
+      label: { t: 'pin.bus.mb.in', v: null },
     },
   ], normalizeFilltablePolicy({ allow_structural_types: true }));
   assert.strictEqual(out.accepted_changes.length, 0);

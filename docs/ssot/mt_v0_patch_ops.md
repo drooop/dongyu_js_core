@@ -1,27 +1,27 @@
 ---
-title: "定位说明（必须写在文件开头）"
+title: "mt.v0 Patch Operations Specification"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
----
-
-# 定位说明（必须写在文件开头）
-
-本文件是 mt.v0 Patch 操作规范（mt.v0 Patch Operations Spec）。
-
-上位约束：`docs/architecture_mantanet_and_workers.md`
-
-关联规范：`docs/ssot/runtime_semantics_modeltable_driven.md`
-
-作用对象：所有通过 Patch 机制修改 ModelTable 的组件（MBR、Remote Worker、applyPatch 调用方）
-
-目的：统一定义 mt.v0 版本 Patch 的结构与操作语义
-
 ---
 
 # mt.v0 Patch Operations Specification
 
+## Positioning
+
+本文件是 mt.v0 Patch 操作规范（mt.v0 Patch Operations Spec）。
+
+- Authority: below `CLAUDE.md`, `docs/architecture_mantanet_and_workers.md`, and `docs/ssot/runtime_semantics_modeltable_driven.md`.
+- Scope: all components that modify ModelTable through Patch mechanisms, including MBR, Remote Worker, and `applyPatch` callers.
+- Rule type: patch structure and operation invariants.
+- Conflict behavior: if this file conflicts with runtime semantics, runtime semantics win; if implementation differs, treat it as implementation drift unless an iteration updates this spec first.
+
+关联规范：`docs/ssot/runtime_semantics_modeltable_driven.md`
+
+目的：统一定义 mt.v0 版本 Patch 的结构与操作语义
+
+---
 ## 0. Scope & Intent
 
 本规范定义 mt.v0 版本的 Patch 结构和支持的操作类型。
@@ -189,7 +189,7 @@ Patch 是 ModelTable 状态变更的批量载体，用于：
 | 模式 | 示例 | 用途 |
 |------|------|------|
 | `pin_in` / `pin_out` | - | PIN 声明 |
-| `v1n_id` / `data_type` | - | 系统标识 |
+| `sys_worker_id` / `sys_worker_role` / `data_type` | - | 系统标识 |
 | `run_*` | `run_submit` | 函数触发 |
 | `mqtt_*` | `mqtt_target_host` | MQTT 配置 |
 | `matrix_*` | `matrix_room_id` | Matrix 配置 |

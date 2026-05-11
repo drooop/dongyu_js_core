@@ -2,15 +2,20 @@
 title: "Iteration Workflow"
 doc_type: governance
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
 # Iteration Workflow
 
-> 关键约束已提升至 `CLAUDE.md`（自动加载）。本文件为详细参考。
+> 关键约束已提升至 `CLAUDE.md`（自动加载）。本文件只细化 iteration 工作流；若冲突，以 `CLAUDE.md` 为准。
 
 本仓库的非紧急工作必须按 Iteration 工作流执行。目标：将"需求 → 计划 → 执行 → 验证 → 证据沉淀"固化为可复制流程。
+
+规则分类：
+- 硬约束：iteration 登记、Phase Gate、Approved 后才能执行、runlog 证据、PASS/FAIL 验证。
+- 判断规则：是否拆分 iteration、是否触发 Auto-Approval、是否进入 On Hold；按条件、证据和停止条件执行。
+- 偏好建议：单人项目默认本地验证后 merge 到 `dev`；用户明确要求 PR 时才开 PR。
 
 ---
 
@@ -21,6 +26,10 @@ source: ai
 - **resolution.md**：施工方案（HOW）。以 Step 1..N 定义范围、文件、验证、验收、回滚。不得记录真实执行结果。
 - **runlog.md**：飞行记录仪（FACTS）。只记录真实执行命令、关键输出、commit、PASS/FAIL、修复。不得写愿景与计划。
 - **assets/**：截图、录屏、性能数据、对比图等证据（可选）。
+
+边界说明：
+- 当前规约以 `CLAUDE.md`、`docs/architecture_mantanet_and_workers.md`、`docs/ssot/**` 为准。
+- 历史 iteration 目录是证据档案；除当前 iteration 自身外，不做日常改写，也不得用历史记录覆盖当前 SSOT。
 
 ---
 

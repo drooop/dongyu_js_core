@@ -1,12 +1,14 @@
 ---
 title: "Roadmap: ModelTable Editor v1 (Sliding UI / UI Model)"
 doc_type: roadmap
-status: active
-updated: 2026-04-21
+status: target
+updated: 2026-05-10
 source: ai
 ---
 
 # Roadmap: ModelTable Editor v1 (Sliding UI / UI Model)
+
+Status: roadmap / target material. It does not override current SSOT, charter, or completed iteration evidence.
 
 SSOT: `docs/architecture_mantanet_and_workers.md`
 Charter: `docs/charters/dongyu_app_next_runtime.md`

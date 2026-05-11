@@ -2,7 +2,7 @@
 title: "UI 模型 Pin 路由架构"
 doc_type: ssot
 status: active
-updated: 2026-05-06
+updated: 2026-05-10
 source: ai
 tags:
   - pin-routing
@@ -18,6 +18,17 @@ tags:
 本文档描述前端应用（APP）与软件工人内部 UI 模型之间的完整消息链路，以及基于 0356 PIN 连接合同的目标架构。
 
 > 0356 后不再使用 `pin.connect.model`。跨模型段必须通过 `model.submt` hosting Cell 的边界引脚、子模型 root `(0,0,0)` 的边界引脚，以及所在模型内的 `pin.connect.cell` 表达。
+
+Authority:
+- Below `CLAUDE.md`, architecture SSOT, runtime semantics, label registry, PIN connection contract, and temporary payload contract.
+- This file describes UI model routing architecture and migration targets; it does not override runtime or PIN contracts.
+
+Scope:
+- UI model message routing, current direct/hardcoded route debt, and target declaration-driven PIN routing architecture.
+
+Conflict behavior:
+- If current implementation language conflicts with target contract language, mark the section as current state or target state explicitly.
+- If another doc restores direct UI bus side effects, update it or mark it historical.
 
 **当前状态**：UI 事件链路通过 `submitEnvelope()` 硬编码路由（server.mjs 300+ 行特判），未使用 Pin 声明式路由。
 **目标状态**：所有 UI 模型间通信通过 `pin.connect.cell` 与各模型内部 `pin.connect.label` 声明完成，路由拓扑完全 Tier 2 化。
@@ -42,7 +53,7 @@ graph LR
     end
 
     subgraph sw["软件工人"]
-        m0["Model 0 pin.bus.in/out"]
+    m0["Model 0 pin.bus.mb.* / pin.bus.cb.*"]
         ms["模型空间 - 详见图二"]
     end
 
@@ -84,7 +95,7 @@ graph LR
 |------|------|------|
 | 前端模型基座位置 | 在 UI 模型**内部**，与 M1-M4 并列 | 基座是**解释器**，应包裹所有模型 |
 | 系统边界 | 无 Model 0，In/Out 直接挂在 UI 模型上 | Model 0 (0,0,0) 是唯一外部入口 |
-| In/Out 端口 | 泛称 In\_1/In\_2/Out\_1/Out\_2 | 应为 pin.bus.in/out, pin.model.in/out |
+| In/Out 端口 | 泛称 In\_1/In\_2/Out\_1/Out\_2 | 系统边界应使用 `pin.bus.mb.*` / `pin.bus.cb.*`，模型内部使用 `pin.in` / `pin.out` |
 | M1-M4 | 无具体含义 | 应为具体模型 ID（-1, -2, -10 等） |
 | 返回路径 | 无 | 完整回路可见 |
 | 层次 | 无 3 层连接架构 | Layer 1/2/3 分层可见 |
@@ -98,8 +109,8 @@ graph LR
 ```mermaid
 graph TB
     subgraph l1["Layer1 系统边界 Model 0"]
-        bus_in["pin.bus.in 外部消息入站"]
-        bus_out["pin.bus.out 结果出站"]
+        bus_in["pin.bus.mb.in / pin.bus.cb.in 外部消息入站"]
+        bus_out["pin.bus.mb.out / pin.bus.cb.out 结果出站"]
     end
 
     subgraph l2["软件工人内"]
@@ -158,19 +169,19 @@ UI 事件链路绕过 Pin 系统，通过 `submitEnvelope()` 硬编码路由：
 
 ```
 HTTP POST /ui_event
-  → addLabel(M-1, 0,0,1, ui_event)        // 直接写 label，无 pin.bus.in
+  → addLabel(M-1, 0,0,1, ui_event)        // 直接写 label，未进入 split bus
   → processEventsSnapshot() 特判检测       // 硬编码 model_id === -1 检查
   → event_trigger_map 查找                 // 直接读 M-10 label，无跨模型 pin 链
   → intent_dispatch_table 查找             // 同上
   → handler 执行                           // 直接调用，无 pin.connect.cell
-  → HTTP response                          // 直接返回，无 pin.bus.out
+  → HTTP response                          // 直接返回，未进入 split bus out
 ```
 
 ### 需要补齐的 Pin 声明
 
 | 模型 | Cell | 需新增的 Pin 声明 |
 |------|------|-------------------|
-| Model 0 | (0,0,0) | pin.bus.in, pin.bus.out（已有定义，未用于 UI 链路） |
+| Model 0 | (0,0,0) | `pin.bus.mb.in` / `pin.bus.mb.out`（UI/管理类）；需要控制类时使用 `pin.bus.cb.in` / `pin.bus.cb.out` |
 | Model -1 | (0,0,0) | pin.in: ui\_msg\_in, pin.out: dispatch\_out, bus\_reply |
 | Model -1 | (0,0,1) | pin.in: event\_in, pin.out: event\_out |
 | Model -1 | (0,0,0) | pin.connect.cell: (0,0,0)→(0,0,1), (0,0,1)→(0,0,0) |

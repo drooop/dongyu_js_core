@@ -49,6 +49,46 @@ function rootRecord(records, key) {
   ));
 }
 
+function externalPinPacket(rt, key) {
+  const model0 = rt.getModel(0);
+  const label = model0 ? rt.getCell(model0, 0, 0, 0).labels.get(key) : null;
+  return label && typeof rt._pinBusOutValueToExternalPayload === 'function'
+    ? rt._pinBusOutValueToExternalPayload(label.v)
+    : null;
+}
+
+function makeSplitBusPinPayloadValue(opId, text = 'hello') {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'pin_payload.v1' },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_request_id', t: 'str', v: opId },
+    { id: 0, p: 0, r: 0, c: 0, k: 'op_id', t: 'str', v: opId },
+    { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: 1036 },
+    { id: 0, p: 0, r: 0, c: 0, k: 'pin', t: 'str', v: 'result' },
+    {
+      id: 0,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'payload',
+      t: 'json',
+      v: [{ id: 0, p: 0, r: 0, c: 0, k: 'reply_text', t: 'str', v: text }],
+    },
+    {
+      id: 0,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'route',
+      t: 'json',
+      v: {
+        to: { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' },
+        from: { worker_id: 'MBR', model_id: 1036, pin: 'submit' },
+      },
+    },
+    { id: 0, p: 0, r: 0, c: 0, k: 'timestamp', t: 'int', v: Date.now() },
+  ];
+}
+
 function makeSnapshot(records, sourceLabels = []) {
   const models = {};
   const ensureModel = (modelId) => {
@@ -248,6 +288,8 @@ async function test_server_forwards_console_intent_to_matrix() {
     assert.equal(sent[0].type, 'pin_payload', 'forwarded packet type must be pin_payload');
     assert.equal(sent[0].source_model_id, 1036, 'forwarded packet must identify Model 1036 as source');
     assert.equal(sent[0].pin, 'submit', 'forwarded packet must use submit pin');
+    assert.deepEqual(sent[0].route?.to, { worker_id: 'mbr', model_id: 1036, pin: 'submit' }, 'forwarded packet route.to must target the MBR console pin');
+    assert.deepEqual(sent[0].route?.reply_to, { worker_id: 'ui-server-local', model_id: 1036, pin: 'result' }, 'forwarded packet route.reply_to must target local console result');
     assert.ok(Array.isArray(sent[0].payload), 'forwarded packet payload must remain a ModelTable record array');
     assert.ok(sent[0].payload.some((record) => record.k === 'target_user_id' && record.v === '@mbr:localhost'), 'forwarded packet must preserve target_user_id');
     assert.ok(sent[0].payload.some((record) => record.k === 'draft' && record.v === 'hello from 0342'), 'forwarded packet must preserve draft text');
@@ -564,6 +606,91 @@ async function test_server_rejects_malformed_mbr_ack_payloads() {
   return { key: 'server_rejects_malformed_mbr_ack_payloads', status: 'PASS' };
 }
 
+async function test_server_split_bus_matrix_failures_are_observable_and_retryable() {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), 'dy-0342-split-bus-failure-'));
+  process.env.DY_AUTH = '0';
+  process.env.DY_PERSISTED_ASSET_ROOT = '';
+  process.env.WORKER_BASE_WORKSPACE = `it0342_split_bus_failure_${Date.now()}`;
+  process.env.WORKER_BASE_DATA_ROOT = path.join(tempRoot, 'runtime');
+  process.env.DOCS_ROOT = path.join(tempRoot, 'docs');
+  process.env.STATIC_PROJECTS_ROOT = path.join(tempRoot, 'static');
+  const { createServerState } = await import(new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url));
+  const state = createServerState({ dbPath: null });
+  try {
+    state.runtime.setRuntimeMode('running');
+    const model0 = state.runtime.getModel(0);
+    const model0Root = state.runtime.getCell(model0, 0, 0, 0);
+
+    state.runtime.addLabel(model0, 0, 0, 0, {
+      k: 'unavailable_mb_out',
+      t: 'pin.bus.mb.out',
+      v: makeSplitBusPinPayloadValue('it0342_unavailable_mb_out', 'adapter unavailable'),
+    });
+    state.programEngine.schedulePendingModel0Egress(new Set());
+    await wait(20);
+
+    assert.equal(state.programEngine.bridgedBusOutPorts.get('unavailable_mb_out'), undefined, 'unavailable Matrix must not be marked bridged');
+    assert.ok(model0Root.labels.has('unavailable_mb_out'), 'unavailable Matrix must retain the management bus out pin for retry');
+    assert.equal(
+      state.runtime.getLabelValue(model0, 0, 0, 0, 'split_bus_out_error')?.code,
+      'missing_split_bus_matrix_adapter',
+      'unavailable Matrix must write an observable split bus out error',
+    );
+
+    const rejected = [];
+    state.programEngine.matrixRoomId = '!unit:localhost';
+    state.programEngine.matrixDmPeerUserId = '@mbr:localhost';
+    state.programEngine.matrixAdapter = {
+      publish: async (payload) => {
+        rejected.push(payload);
+        throw new Error('matrix down');
+      },
+    };
+    state.runtime.addLabel(model0, 0, 0, 0, {
+      k: 'reject_mb_out',
+      t: 'pin.bus.mb.out',
+      v: makeSplitBusPinPayloadValue('it0342_reject_mb_out', 'adapter rejects'),
+    });
+    state.programEngine.schedulePendingModel0Egress(new Set());
+    await wait(20);
+
+    assert.equal(rejected.length, 2, 'rejecting Matrix adapter must receive one publish attempt for each retryable pending pin');
+    assert.ok(rejected.some((packet) => packet?.op_id === 'it0342_unavailable_mb_out'), 'previous unavailable pin must retry once Matrix config becomes available');
+    assert.ok(rejected.some((packet) => packet?.op_id === 'it0342_reject_mb_out'), 'new rejecting pin must attempt publish once');
+    assert.equal(state.programEngine.bridgedBusOutPorts.get('reject_mb_out'), undefined, 'rejected Matrix publish must not be marked bridged');
+    assert.ok(model0Root.labels.has('reject_mb_out'), 'rejected Matrix publish must retain the management bus out pin for retry');
+    assert.equal(
+      state.runtime.getLabelValue(model0, 0, 0, 0, 'split_bus_out_error')?.code,
+      'split_bus_matrix_publish_failed',
+      'rejected Matrix publish must write an observable split bus out error',
+    );
+
+    const sent = [];
+    state.programEngine.matrixAdapter = {
+      publish: async (payload) => {
+        sent.push(payload);
+        return { ok: true, event_id: '$retry', room_id: '!unit:localhost' };
+      },
+    };
+    state.programEngine.schedulePendingModel0Egress(new Set());
+    await wait(20);
+
+    assert.ok(sent.some((packet) => packet?.op_id === 'it0342_unavailable_mb_out'), 'unavailable pin must be retryable after Matrix recovers');
+    assert.ok(sent.some((packet) => packet?.op_id === 'it0342_reject_mb_out'), 'rejected pin must be retryable after Matrix recovers');
+    assert.equal(state.programEngine.bridgedBusOutPorts.get('unavailable_mb_out'), 'it0342_unavailable_mb_out', 'successful retry must mark unavailable pin bridged');
+    assert.equal(state.programEngine.bridgedBusOutPorts.get('reject_mb_out'), 'it0342_reject_mb_out', 'successful retry must mark rejected pin bridged');
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+    delete process.env.DY_AUTH;
+    delete process.env.DY_PERSISTED_ASSET_ROOT;
+    delete process.env.WORKER_BASE_WORKSPACE;
+    delete process.env.WORKER_BASE_DATA_ROOT;
+    delete process.env.DOCS_ROOT;
+    delete process.env.STATIC_PROJECTS_ROOT;
+  }
+  return { key: 'server_split_bus_matrix_failures_are_observable_and_retryable', status: 'PASS' };
+}
+
 function test_mbr_dispatch_replies_only_to_console_messages() {
   const rt = new ModelTableRuntime();
   rt.applyPatch(readJson(systemPatchPath), { allowCreateModel: true, trustedBootstrap: true });
@@ -576,11 +703,12 @@ function test_mbr_dispatch_replies_only_to_console_messages() {
   const engine = new WorkerEngineV0({ runtime: rt, mqttPublish: () => {} });
   const dispatch = (packet) => {
     rt.rmLabel(sys, 0, 0, 0, 'mbr_mgmt_console_ack_out');
+    rt.rmLabel(rt.getModel(0), 0, 0, 0, 'mbr_mb_out');
     rt.rmLabel(sys, 0, 0, 0, 'mbr_mgmt_error');
     rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: packet });
     engine.executeFunction(matrixFunc);
     return {
-      ack: root.labels.get('mbr_mgmt_console_ack_out')?.v,
+      ack: externalPinPacket(rt, 'mbr_mb_out'),
       error: root.labels.get('mbr_mgmt_error')?.v,
     };
   };
@@ -591,6 +719,10 @@ function test_mbr_dispatch_replies_only_to_console_messages() {
       op_id: 'it0342_mbr_dispatch',
       source_model_id: 1036,
       pin: 'submit',
+      route: {
+        to: { worker_id: 'MBR', model_id: 1036, pin: 'submit' },
+        reply_to: { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' },
+      },
       payload: [
         { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
         { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
@@ -600,12 +732,15 @@ function test_mbr_dispatch_replies_only_to_console_messages() {
   });
   const ack = valid.ack;
   assert.equal(ack?.version, 'v1', 'MBR dispatch must emit v1 response');
-  assert.equal(ack?.type, 'mgmt_bus_console_ack', 'MBR dispatch response must be a console ack event, not a Model 1036 writeback');
+  assert.equal(ack?.type, 'pin_payload', 'MBR dispatch response must be emitted through the management-bus pin_payload path');
+  assert.equal(ack?.pin, 'result', 'MBR dispatch response must target the console result pin');
   assert.equal(ack?.source_model_id, 1036, 'MBR dispatch response must correlate to Model 1036 without materializing into it');
-  assert.equal(ack?.target_user_id, '@mbr:localhost', 'MBR dispatch response must preserve the explicit target');
   assert.ok(Array.isArray(ack?.payload), 'MBR dispatch response payload must be a ModelTable record array');
   assert.ok(ack.payload.some((record) => record.k === '__mt_payload_kind' && record.v === 'mgmt_bus_console.ack.v1'), 'MBR dispatch must mark the response payload kind');
+  assert.ok(ack.payload.some((record) => record.k === 'target_user_id' && record.v === '@mbr:localhost'), 'MBR dispatch response must preserve the explicit target');
   assert.ok(ack.payload.some((record) => record.k === 'reply_text' && /ack from @mbr:localhost/u.test(record.v)), 'MBR dispatch must return an ack text in the temporary payload');
+  assert.deepEqual(ack.route?.to, { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' }, 'MBR dispatch response must route to request reply_to');
+  assert.equal(ack.route?.reply_to, undefined, 'MBR dispatch response must not create a second reply_to');
   assert.equal(root.labels.has('mbr_mgmt_inbox'), false, 'MBR dispatch must clean the consumed inbox');
 
   const missingTarget = dispatch({
@@ -620,8 +755,88 @@ function test_mbr_dispatch_replies_only_to_console_messages() {
     ],
     timestamp: Date.now(),
   });
-  assert.equal(missingTarget.ack, undefined, 'MBR dispatch must reject missing target_user_id');
+  assert.equal(missingTarget.ack, null, 'MBR dispatch must reject missing target_user_id');
   assert.ok(missingTarget.error, 'MBR dispatch must record an error for missing target_user_id');
+
+  const missingRouteTo = dispatch({
+    version: 'v1',
+    type: 'pin_payload',
+    op_id: 'it0342_mbr_missing_route_to',
+    source_model_id: 1036,
+    pin: 'submit',
+    route: {
+      reply_to: { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' },
+    },
+    payload: [
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'missing route.to must reject' },
+    ],
+    timestamp: Date.now(),
+  });
+  assert.equal(missingRouteTo.ack, null, 'MBR dispatch must reject missing route.to even when reply_to exists');
+  assert.equal(missingRouteTo.error?.detail, 'invalid_route_to', 'missing route.to rejection must be explicit');
+
+  const mismatchedRouteTo = dispatch({
+    version: 'v1',
+    type: 'pin_payload',
+    op_id: 'it0342_mbr_mismatched_route_to',
+    source_model_id: 1036,
+    pin: 'submit',
+    route: {
+      to: { worker_id: 'RE', model_id: 3000, pin: 'submit1' },
+      reply_to: { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' },
+    },
+    payload: [
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'mismatch route.to must reject' },
+    ],
+    timestamp: Date.now(),
+  });
+  assert.equal(mismatchedRouteTo.ack, null, 'MBR dispatch must reject route.to for another worker/model/pin');
+  assert.equal(mismatchedRouteTo.error?.detail, 'invalid_route_to', 'mismatched route.to rejection must be explicit');
+
+  const retryAfterBadRoute = dispatch({
+    version: 'v1',
+    type: 'pin_payload',
+    op_id: 'it0342_mbr_retry_after_bad_route',
+    source_model_id: 1036,
+    pin: 'submit',
+    route: {
+      to: { worker_id: 'RE', model_id: 3000, pin: 'submit1' },
+      reply_to: { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' },
+    },
+    payload: [
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'first bad route' },
+    ],
+    timestamp: Date.now(),
+  });
+  assert.equal(retryAfterBadRoute.ack, null, 'test setup must reject the first bad route');
+  const correctedRetry = dispatch({
+    version: 'v1',
+    type: 'pin_payload',
+    op_id: 'it0342_mbr_retry_after_bad_route',
+    source_model_id: 1036,
+    pin: 'submit',
+    route: {
+      to: { worker_id: 'mbr', model_id: 1036, pin: 'submit' },
+      reply_to: { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' },
+    },
+    payload: [
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'corrected route retry' },
+    ],
+    timestamp: Date.now(),
+  });
+  assert.ok(correctedRetry.ack, 'corrected retry with the same op_id must not be blocked by the rejected attempt');
+  assert.ok(
+    correctedRetry.ack.payload.some((record) => record.k === 'reply_text' && /corrected route retry/u.test(record.v)),
+    'corrected retry must produce the ack for the corrected payload',
+  );
 
   const invalidTarget = dispatch({
     version: 'v1',
@@ -636,7 +851,7 @@ function test_mbr_dispatch_replies_only_to_console_messages() {
     ],
     timestamp: Date.now(),
   });
-  assert.equal(invalidTarget.ack, undefined, 'MBR dispatch must reject non-MBR targets');
+  assert.equal(invalidTarget.ack, null, 'MBR dispatch must reject non-MBR targets');
   assert.ok(invalidTarget.error, 'MBR dispatch must record an error for non-MBR targets');
 
   const generic = dispatch({
@@ -665,7 +880,7 @@ function test_mbr_dispatch_replies_only_to_console_messages() {
       ],
       timestamp: Date.now(),
   });
-  assert.equal(malformed.ack, undefined, 'MBR dispatch must reject non-ModelTable-record console sends');
+  assert.equal(malformed.ack, null, 'MBR dispatch must reject non-ModelTable-record console sends');
   assert.ok(malformed.error, 'MBR dispatch must record an error for non-ModelTable-record console sends');
   assert.equal(malformed.error?.detail, 'temporary_modeltable_required', 'MBR dispatch must require a temporary ModelTable record array');
 
@@ -682,7 +897,7 @@ function test_mbr_dispatch_replies_only_to_console_messages() {
       ],
       timestamp: Date.now(),
   });
-  assert.equal(legacyRecordField.ack, undefined, 'MBR dispatch must reject records carrying legacy op/model_id fields');
+  assert.equal(legacyRecordField.ack, null, 'MBR dispatch must reject records carrying legacy op/model_id fields');
   assert.ok(legacyRecordField.error, 'MBR dispatch must record an error for legacy record fields');
   assert.equal(legacyRecordField.error?.detail, 'temporary_modeltable_required', 'legacy record fields must fail the temporary ModelTable contract');
 
@@ -700,7 +915,7 @@ function test_mbr_dispatch_replies_only_to_console_messages() {
       ],
       timestamp: Date.now(),
   });
-  assert.equal(missingValueRecord.ack, undefined, 'MBR dispatch must reject records without an explicit v field');
+  assert.equal(missingValueRecord.ack, null, 'MBR dispatch must reject records without an explicit v field');
   assert.ok(missingValueRecord.error, 'MBR dispatch must record an error for records missing v');
   assert.equal(missingValueRecord.error?.detail, 'temporary_modeltable_required', 'records missing v must fail the temporary ModelTable contract');
   return { key: 'mbr_dispatch_replies_only_to_console_messages', status: 'PASS' };
@@ -715,7 +930,19 @@ function test_no_browser_or_ui_direct_matrix_path_added() {
   ]) {
     assert.doesNotMatch(readText(relPath), forbiddenBrowser, `${relPath} must not gain direct Matrix calls`);
   }
-  assert.match(readText(serverPath), /mgmt_bus_console_intent/u, 'server must process the already-routed management console intent');
+  const serverText = readText(serverPath);
+  assert.match(serverText, /mgmt_bus_console_intent/u, 'server must process the already-routed management console intent');
+  assert.match(serverText, /mgmt_bus_console_mb_out/u, 'server must write console send packets to a Model 0 management-bus out pin');
+  assert.doesNotMatch(
+    serverText,
+    /mgmt_bus_console_intent[\s\S]{0,2500}sendMatrix\(packet\)/u,
+    'server must not directly send Matrix from the console intent handler',
+  );
+  assert.doesNotMatch(
+    serverText,
+    /_pinBusOutValueToExternalPayload\(label\.v\)\s*:\s*\(label/u,
+    'server split-bus bridge must not fall back to raw label.v payloads',
+  );
   assert.doesNotMatch(
     flattenRecords(recordsForModel(readJson(workspacePatchPath).records || [], consoleModelId)),
     /access_token|matrix_token|matrix_passwd|password/u,
@@ -736,6 +963,7 @@ async function main() {
     test_server_rejects_non_array_console_intent_without_silent_skip,
     test_server_projects_mbr_response_from_trace_without_writing_model1036,
     test_server_rejects_malformed_mbr_ack_payloads,
+    test_server_split_bus_matrix_failures_are_observable_and_retryable,
     test_mbr_dispatch_replies_only_to_console_messages,
     test_no_browser_or_ui_direct_matrix_path_added,
   ];

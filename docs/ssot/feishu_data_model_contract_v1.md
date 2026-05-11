@@ -2,7 +2,7 @@
 title: "Feishu Data Model Contract v1"
 doc_type: ssot
 status: active
-updated: 2026-04-29
+updated: 2026-05-10
 source: ai
 ---
 
@@ -20,6 +20,13 @@ Authority:
 - `CLAUDE.md` and higher repository SSOT still win over this file.
 - This file supersedes the 0296-era Data.* shape and pin naming where they conflict.
 - This file does not supersede `docs/ssot/temporary_modeltable_payload_v1.md`; 0347 remains current truth for temporary message transport and explicit materialization.
+
+Scope:
+- Feishu-aligned `Data.*` model target shapes, generic pins, and superseded data-model names.
+
+Conflict behavior:
+- If a lower implementation or user guide still uses superseded data pins as target contract, update the lower layer or mark it as migration debt.
+- If Feishu source changes, do not auto-apply it; re-check and update this repo contract through an iteration.
 
 ## 1. Boundary With Temporary ModelTable Message
 

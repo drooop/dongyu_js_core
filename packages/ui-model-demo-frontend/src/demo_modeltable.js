@@ -72,6 +72,11 @@ function overwriteLabel(runtime, model, p, r, c, label) {
   runtime.addLabel(model, p, r, c, label);
 }
 
+function ensureLocalDemRole(runtime) {
+  const model0 = ensureModel(runtime, { id: 0, name: 'M0', type: 'system' });
+  overwriteLabel(runtime, model0, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
+}
+
 function applyUiPatch(runtime, patch) {
   const result = runtime.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
   if (result && result.rejected > 0) {
@@ -218,6 +223,7 @@ export function createDemoStore() {
 
   ensureModel(runtime, { id: EDITOR_MODEL_ID, name: 'editor_mailbox', type: 'ui' });
   const stateModel = ensureModel(runtime, { id: EDITOR_STATE_MODEL_ID, name: 'editor_state', type: 'ui' });
+  ensureLocalDemRole(runtime);
   ensureModel(runtime, { id: SYSTEM_MODEL_ID, name: 'system', type: 'system' });
   ensureModel(runtime, { id: 1, name: 'M1', type: 'main' });
 
@@ -247,6 +253,7 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_v_text', t: 'str', v: 'Hello' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_v_int', t: 'int', v: 0 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_v_bool', t: 'bool', v: false });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'model100_input_draft', t: 'str', v: '' });
 
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_filter_model_query', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_filter_p', t: 'str', v: '' });
@@ -438,7 +445,7 @@ export function createDemoStore() {
       }
       const addResult = runtime.addLabel(model0, 0, 0, 0, {
         k: busInKey,
-        t: 'pin.bus.in',
+        t: 'pin.bus.mb.in',
         v: busPayload,
       });
       if (!addResult || !addResult.applied) {

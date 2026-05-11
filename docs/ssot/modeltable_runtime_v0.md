@@ -2,13 +2,19 @@
 title: "ModelTable Runtime Spec v0"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
 # ModelTable Runtime Spec v0
-本 Spec 是 Stage 2.x 期间 ModelTable Runtime 的唯一接口与语义约束；任何实现不得偏离，除非同步更新 Harness 与证据。
-Derived Runtime Spec under SSOT.
+
+## Positioning
+
+本文件是早期 ModelTable Runtime v0 接口与语义约束，保留为当前 runtime 语义链的一部分。
+
+- Authority: below `CLAUDE.md`, architecture SSOT, and `docs/ssot/runtime_semantics_modeltable_driven.md`.
+- Scope: v0 Cell identity, core API, EventLog, and harness-facing runtime behavior.
+- Conflict behavior: if this older v0 spec conflicts with newer runtime semantics, newer runtime semantics win; keep this file aligned or mark superseded sections explicitly.
 
 ## 1) Cell Identity & Model Structure
 - Cell 唯一身份由 `(p, r, c)` 组成；`p/r/c` 必须为整数。

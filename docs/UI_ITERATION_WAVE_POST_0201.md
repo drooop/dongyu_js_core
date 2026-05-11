@@ -1,12 +1,14 @@
 ---
 title: "UI Iteration Wave Post-0201"
 doc_type: note
-status: active
-updated: 2026-04-21
+status: historical
+updated: 2026-05-10
 source: ai
 ---
 
 # UI Iteration Wave Post-0201
+
+Status: historical wave plan. Use `docs/ITERATIONS.md` for current iteration state and current SSOT for current UI/PIN rules.
 
 ## Purpose
 

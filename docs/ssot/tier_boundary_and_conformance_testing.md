@@ -2,11 +2,18 @@
 title: "Tier Boundary And Conformance Testing"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
 # Tier Boundary And Conformance Testing
+
+## Positioning
+
+- Authority: below `CLAUDE.md`, architecture SSOT, runtime semantics, and label registry.
+- Scope: all feature implementation, testing, and review work that might cross Tier 1 / Tier 2 boundaries.
+- Rule type: conformance review decision rules and hard stop conditions.
+- Conflict behavior: if this file conflicts with higher SSOT, higher SSOT wins; if an implementation passes functionally but fails this conformance gate, it is not deliverable.
 
 ## 0. Quick Gate
 
@@ -119,14 +126,9 @@ source: ai
 
 ### 4.4 Approved Temporary Exceptions
 
-以下例外只有在 iteration runlog 中被显式记录时才允许存在：
+0368 后当前没有已批准的 host-glue 总线出口例外。
 
-- `MGMT_OUT` 作为临时 host-glue 出口  
-  当前仅允许作为 Matrix 发送能力尚未进入 runtime `func.js ctx` 时的过渡出口。
-  使用条件：
-  - 必须在 runlog 中写明为何当前无法继续下沉到 Tier 2 纯 patch 路径
-  - 必须写明后续迁移条件，例如 runtime 提供 `ctx.sendMatrix`
-  - 若已有规约路径可用，必须优先走规约路径，不得以“graceful degradation”名义长期保留
+如果后续确实需要临时例外，必须先新建 iteration、冻结退出条件，并在 runlog 中写明为什么不能使用当前 split bus pins。不得把 direct transport helper、旧管理总线标签或 raw JSON fallback 作为临时兼容入口。
 
 ## 5. Test Design
 

@@ -16,15 +16,15 @@ source: ai
 |---|---|---|
 | 编写 | 开发者怎样把 APP 写成模型表 | root metadata、UI 投影层、可选程序层、可选外发层都写成 ModelTable records |
 | 安装 | zip 怎样变成 Workspace 里的一个 APP | `zip -> /api/media/upload -> mxc://... -> importer truth -> importer click pin -> materialize / mount` |
-| 运行 | 用户点按钮后怎样到达后端目标单元格 | 前端发 `bus_event_v2`，server 写 Model 0 `pin.bus.in`，再由 pin route 进入目标模型 |
-| 外发 | APP 怎样发管理总线消息 | app root `pin.out -> host / mount relay -> Model 0 mt_bus_send -> pin.bus.out` |
+| 运行 | 用户点按钮后怎样到达后端目标单元格 | 前端发 `bus_event_v2`，server 写 Model 0 `pin.bus.mb.in`，再由 pin route 进入目标模型 |
+| 外发 | APP 怎样发管理总线消息 | app root `pin.out -> host / mount relay -> Model 0 mt_bus_send -> pin.bus.mb.out` |
 
 正式业务数据在传输过程中使用临时 ModelTable record array。这个数组“像模型表”，但不会自动落盘；只有安装、导入或 owner materialization 这类显式动作才会把它变成正式模型表 truth。
 
 正式业务 ingress 的固定链路是：
 
 ```text
-bus_event_v2 -> Model 0 (0,0,0) pin.bus.in -> pin route -> target
+bus_event_v2 -> Model 0 (0,0,0) pin.bus.mb.in -> pin route -> target
 ```
 
 ## 2. root 第 0 格默认有什么
@@ -37,7 +37,7 @@ bus_event_v2 -> Model 0 (0,0,0) pin.bus.in -> pin route -> target
 |---|---|---|
 | 写格子 | `mt_write`、`mt_write_req`、`mt_write_result`、`mt_write_req_route` | 接收 `write_label.v1` 临时 ModelTable payload，并在当前模型内写一个目标 cell / label |
 | 总线接收 | `mt_bus_receive`、`mt_bus_receive_in`、`mt_bus_receive_wiring` | 接收从 Model 0 或其他 pin route 过来的正式业务 payload，再派发给本模型目标 cell |
-| 总线发送 | `mt_bus_send`、`mt_bus_send_in`、`mt_bus_send_wiring` | 接收外发请求，构造 `bus_send.v1`，最终写到 Model 0 的 `pin.bus.out` 链 |
+| 总线发送 | `mt_bus_send`、`mt_bus_send_in`、`mt_bus_send_wiring` | 接收外发请求，构造 `bus_send.v1`，最终写到 Model 0 的 `pin.bus.mb.out` 链 |
 
 开发者通常不需要手写这三条链。你要做的是：
 
@@ -198,7 +198,7 @@ my-slide-app.zip
 |---|---|---|
 | imported root `(0,0,0)` | `__host_ingress_submit` `pin.in` | imported APP 的宿主入口 relay |
 | imported root `(0,0,0)` | `__host_ingress_submit_route` `pin.connect.cell` | relay 到声明的 `submit_request` |
-| Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>` `pin.bus.in` | 宿主入口 |
+| Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>` `pin.bus.mb.in` | 宿主入口 |
 | Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>_route` `pin.connect.cell` | 从 Model 0 路由到 imported app hosting Cell / imported root relay |
 
 如果 root 还声明了 `dual_bus_model` 并且有 root `submit` `pin.out`，宿主还会补外发 adapter：
@@ -209,7 +209,7 @@ my-slide-app.zip
 | Model 0 mount cell | `__host_egress_submit_bridge_<modelId>` `pin.connect.label` | 把 imported root `submit` 接到 mount relay |
 | Model 0 root `(0,0,0)` | `__host_egress_submit_bridge_in_<modelId>` `pin.in` | relay 到 root bridge function |
 | Model 0 root `(0,0,0)` | `bridge_imported_submit_to_mt_bus_send_<modelId>` `func.js` | 构造 `bus_send.v1` 临时 ModelTable payload |
-| Model 0 root `(0,0,0)` | `imported_submit_<modelId>_bus` `pin.bus.out` | 统一外发边界 |
+| Model 0 root `(0,0,0)` | `imported_submit_<modelId>_bus` `pin.bus.mb.out` | 统一外发边界 |
 
 这些自动 label 是宿主责任。开发者不应在 zip 里写死安装后的正式 `modelId`。
 
@@ -227,7 +227,7 @@ Button click
 -> renderer builds bus_event_v2
 -> remote store POST /bus_event
 -> server validates temporary ModelTable payload
--> server writes Model 0 (0,0,0) k=<bus_in_key> t=pin.bus.in
+-> server writes Model 0 (0,0,0) k=<bus_in_key> t=pin.bus.mb.in
 -> pin.connect.cell routes to the target hosting/root boundary pin.in
 -> target model mt_bus_receive_in
 -> mt_bus_receive dispatches write_label.v1
@@ -293,7 +293,7 @@ target func.js
 -> Model 0 bridge_imported_submit_to_mt_bus_send_<modelId>
 -> Model 0 mt_bus_send_in
 -> Model 0 mt_bus_send
--> Model 0 pin.bus.out
+-> Model 0 pin.bus.mb.out
 -> Matrix / MBR / MQTT
 ```
 
@@ -302,8 +302,8 @@ target func.js
 - APP 自己只写自己的 root `pin.out`。
 - 宿主在安装时已经知道这个 APP 挂在哪个 Model 0 mount cell。
 - 宿主 relay 把 app root `pin.out` 转成 Model 0 的 `mt_bus_send_in`。
-- `mt_bus_send` 再统一写 `pin.bus.out`。
-- Matrix / MBR / MQTT 只消费 Model 0 `pin.bus.out`。
+- `mt_bus_send` 再统一写 `pin.bus.mb.out`。
+- Matrix / MBR / MQTT 只消费 Model 0 `pin.bus.mb.out`。
 
 因此，开发者要写的是“我这个 APP 的业务完成后产生了什么 payload”，不是“我怎样直接发 Matrix 消息”。
 
@@ -328,5 +328,5 @@ target func.js
 当前要区分：
 
 - 本地 UI 草稿可以留在前端或 overlay。
-- 正式业务必须进入 Model 0 `pin.bus.in`。
+- 正式业务必须进入 Model 0 `pin.bus.mb.in`。
 - 后端目标 cell 的实际变化，是 `mt_bus_receive` / `mt_write` 等模型表链路处理后的结果，不是浏览器直接改出来的结果。

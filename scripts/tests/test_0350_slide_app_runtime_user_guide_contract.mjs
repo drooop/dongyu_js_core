@@ -48,14 +48,14 @@ function test_guide_covers_required_slide_runtime_sections() {
     'zip -> /api/media/upload -> mxc://... -> importer truth -> importer click pin -> materialize / mount',
     '正式业务数据在传输过程中使用临时 ModelTable record array',
     '不要把它理解成三对普通业务引脚',
-    'bus_event_v2 -> Model 0 (0,0,0) pin.bus.in -> pin route -> target',
+    'bus_event_v2 -> Model 0 (0,0,0) pin.bus.mb.in -> pin route -> target',
     'host_ingress_v1',
     '__host_ingress_submit',
     'imported_host_submit_<modelId>',
     '__host_egress_submit_relay_<modelId>',
     'bridge_imported_submit_to_mt_bus_send_<modelId>',
     'mt_bus_send_in',
-    'pin.bus.out',
+    'pin.bus.mb.out',
     'owner materialization',
   ]) {
     assertIncludes(text, phrase, guidePath);
@@ -81,7 +81,7 @@ function test_visualized_html_is_self_contained_and_has_all_stages() {
     'zip / upload / importer / mount',
     'host ingress / host egress',
     'bus_event_v2 / Model 0 / target cell',
-    'mt_bus_send / pin.bus.out / owner materialization',
+    'mt_bus_send / pin.bus.mb.out / owner materialization',
   ]) {
     assertIncludes(text, phrase, htmlPath);
   }
@@ -137,8 +137,8 @@ function test_runtime_code_still_supports_documented_event_and_adapter_path() {
     'function materializeImportedHostIngressAdapter',
     'function materializeImportedHostEgressAdapter',
     "V1N.addLabel('mt_bus_send_in', 'pin.in', [",
-    "t: 'pin.bus.in'",
-    "t: 'pin.bus.out'",
+    "t: 'pin.bus.mb.in'",
+    "t: 'pin.bus.mb.out'",
     "runtime.addLabel(model0, 0, 0, 0, {",
   ]) {
     assertIncludes(server, phrase, serverPath);

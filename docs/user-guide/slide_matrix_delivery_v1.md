@@ -193,8 +193,11 @@ zip 内当前只放一个 JSON 文件，建议叫：
 当前仍明确不支持：
 
 - `func.python`
-- `pin.bus.in`
-- `pin.bus.out`
+- `pin.bus.cb.in`
+- `pin.bus.cb.out`
+- `pin.bus.mb.in`
+- `pin.bus.mb.out`
+- `ui.egress.binding.v1`
 - removed `pin.connect.model`
 - 覆盖系统 helper / privilege labels
 - 浏览器侧任意 `eval`

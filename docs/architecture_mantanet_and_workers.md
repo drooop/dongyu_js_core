@@ -2,7 +2,7 @@
 title: "云海流核心概念与架构边界（SSOT）"
 doc_type: note
 status: active
-updated: 2026-05-06
+updated: 2026-05-10
 source: ai
 ---
 
@@ -15,6 +15,14 @@ source: ai
 > 说明：本文档**不以源码路径为中心**（那属于实现导览文档），而以“概念宪法”为中心；实现细节可在独立的 `v1n_concept_and_implement.md` 中维护。
 
 > 0356 PIN 连接目标合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。本文中与引脚连接相关的描述必须以该合同为准；`pin.connect.model`、`pin.log.*` 与 `(self, ...)` / `(func, ...)` 端点写法不再作为新规约输入面。
+
+Authority:
+- Below `CLAUDE.md`; above runtime semantics, label registry, charter, workflow, iteration records, user guides, and implementation details.
+- This file defines conceptual invariants and architecture boundaries. It does not replace more specific lower-level SSOT files where `CLAUDE.md` explicitly delegates a topic, such as PIN connection details.
+
+Conflict behavior:
+- If this file conflicts with `CLAUDE.md`, `CLAUDE.md` wins.
+- If a lower document or implementation conflicts with this file, update the lower layer or record a non-conformance.
 
 ---
 
@@ -191,7 +199,7 @@ source: ai
 - **不变量**：
   - 面向执行与控制，强调可靠性、时序与审计。
   - 与管理总线在语义上区分，避免混用导致权限边界模糊。
-  - 外部消息只能通过软件工人 root Model 0 `(0,0,0)` 的系统总线入口进入系统。0364 前当前运行面为 `pin.bus.in`；0363 目标合同为控制总线 `pin.bus.cb.in` 与 DEM 管理总线 `pin.bus.mb.in`。
+  - 外部消息只能通过软件工人 root Model 0 `(0,0,0)` 的系统总线入口进入系统。控制类消息进入 `pin.bus.cb.in`；管理类消息进入 DEM 的 `pin.bus.mb.in`。
 
 ### 5.3 MBR（Message Bridge Robot）
 - **定义**：管理总线与控制总线之间的桥接者，负责消息转发、协议适配与安全策略执行。
@@ -235,9 +243,9 @@ PIN 端口按**类型**区分层级（不是按位置硬编码）：
 | Cell 级 | pin.in / pin.out | pin.login / pin.logout | 任意 Cell |
 | Model 根边界 | pin.in / pin.out | pin.login / pin.logout | 非系统模型 `(0,0,0)` |
 | 控制总线系统边界 adapter | pin.bus.cb.in / pin.bus.cb.out | 日志边界后续单独裁决；普通模型不使用 pin.log.bus.* | 软件工人 Model 0 `(0,0,0)` |
-| 管理总线系统边界 adapter | pin.bus.mb.in / pin.bus.mb.out | 日志边界后续单独裁决；普通模型不使用 pin.log.bus.* | DEM 软件工人 Model 0 `(0,0,0)` |
+| 管理总线系统边界 adapter | pin.bus.mb.in / pin.bus.mb.out | 日志边界后续单独裁决；普通模型不使用 pin.log.bus.* | `sys_worker_role="DEM"` 的软件工人 Model 0 `(0,0,0)` |
 
-0363 目标合同将系统边界 adapter 从当前未拆分的 `pin.bus.in` / `pin.bus.out` 迁到上表的控制总线和管理总线两组。0364 实施前，`pin.bus.in` / `pin.bus.out` 只表示当前运行面，不再作为新模型的目标作者ing口径。
+系统边界 adapter 只使用上表的控制总线和管理总线两组；普通业务模型不得直接声明 bus 引脚。
 
 ### 6.2 连接声明
 
@@ -253,7 +261,7 @@ PIN 端口按**类型**区分层级（不是按位置硬编码）：
 - 数据通道与日志通道类型隔离，不可混连。
 - pin.in 只连 pin.out；pin.login 只连 pin.logout。
 - pin.model.* 不处理 model_id=0；model_id=0 的外部出入口由 worker root 的 pin.bus.* 专属。
-- 普通软件工人只能使用控制总线引脚；DEM 软件工人可以同时使用控制总线和管理总线引脚。
+- `sys_worker_role="V1N"` 的普通软件工人只能使用控制总线引脚；`sys_worker_role="DEM"` 的软件工人可以同时使用控制总线和管理总线引脚。
 - 每个函数标签（func.js / func.python）自动关联三个引脚：
   - `{funcName}:in`
   - `{funcName}:out`

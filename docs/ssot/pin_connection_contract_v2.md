@@ -2,7 +2,7 @@
 title: "PIN Connection Contract v2"
 doc_type: ssot
 status: active
-updated: 2026-05-09
+updated: 2026-05-10
 source: user
 iteration: 0356-pin-connection-contract-realignment
 ---
@@ -12,6 +12,20 @@ iteration: 0356-pin-connection-contract-realignment
 本文件冻结 0356 后的目标引脚合同。它覆盖早期文档中把跨模型路由声明为 `pin.connect.model`、把同 Cell 端点写成 `(self, pin)` / `(func, func:in)` 的写法。0363 增补控制总线 / 管理总线边界引脚拆分目标合同。
 
 0357 已完成 runtime 硬切：当前输入面不再接受旧写法。旧写法只能出现在历史文档或负向测试中，不得作为新模型、新文档或新通过路径的输入面。
+
+Authority:
+- Below `CLAUDE.md`, architecture SSOT, runtime semantics, and label registry.
+- This file owns PIN connection and routing contract details after 0356.
+
+Scope:
+- Cell pin types, bus boundary pin families, cross-cell routing, removed legacy connection forms, and payload expectations for PIN values.
+
+Current contract:
+- Runtime has hard-cut legacy `pin.connect.model`, `(self, ...)`, `(func, ...)`, numeric prefixes, and `pin.log.*`.
+- Runtime also hard-cuts the removed unsplit bus family; current bus boundary pins are the split `pin.bus.cb.*` / `pin.bus.mb.*` family.
+
+Conflict behavior:
+- If another current doc describes legacy PIN forms as valid current input, update that doc or mark it historical.
 
 ---
 
@@ -33,9 +47,8 @@ iteration: 0356-pin-connection-contract-realignment
 - `pin.login` / `pin.logout` 传日志模型数据。
 - 早期 `pin.log.in` / `pin.log.out` / `pin.log.bus.*` 不是 0356 后的新规约名称；0357 后写入会被 runtime 拒绝。
 - bus 引脚不是普通 Cell 的第五类引脚；它们是软件工人 root Model 0 `(0,0,0)` 的系统边界 adapter，进入普通模型层后必须转换为本合同中的 Cell 引脚路由。
-- 0364 实施前，当前运行面仍使用未拆分的 `pin.bus.in` / `pin.bus.out`。新模型和新文档不得把它们作为目标作者ing口径；0364 必须迁移到下节的拆分目标。
 
-## 1.1 目标系统总线引脚（0363 contract）
+## 1.1 系统总线引脚
 
 目标合同把系统边界总线引脚拆成控制总线和管理总线两组：
 

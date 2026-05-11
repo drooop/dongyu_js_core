@@ -2,7 +2,7 @@
 title: "Data Model Tier 2 Implementation v1"
 doc_type: ssot
 status: active
-updated: 2026-04-30
+updated: 2026-05-10
 source: ai
 ---
 
@@ -11,6 +11,17 @@ source: ai
 ## Purpose
 
 This document defines how the Feishu-aligned `Data.*` contract should be implemented in this repository.
+
+Authority:
+- Below `CLAUDE.md`, architecture SSOT, runtime semantics, label registry, `feishu_data_model_contract_v1.md`, and `temporary_modeltable_payload_v1.md`.
+- This document is an implementation-shape SSOT for Tier 2 `Data.*` capability, not a runtime interpreter contract.
+
+Scope:
+- Repository implementation pattern for Feishu-aligned `Data.*` Tier 2 templates.
+
+Conflict behavior:
+- If the Feishu data contract or temporary payload contract changes, this file must be realigned through an iteration.
+- If implementation differs from this file, treat the difference as implementation drift unless a later SSOT supersedes it.
 
 Authoritative inputs:
 

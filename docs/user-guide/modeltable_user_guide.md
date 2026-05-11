@@ -87,7 +87,7 @@ source: ai
 
 - `ThreeScene` 只读 snapshot / label refs，把 child truth 投影成浏览器 3D scene。
 - 浏览器端 mesh / camera / renderer 只是 host cache，不是 business truth。
-- CRUD 真正写表时，必须走 `bus_event_v2 -> Model 0 pin.bus.in -> intent_dispatch_table / pin-chain -> handle_three_scene_* -> Model 1008/1007 labels`。
+- CRUD 真正写表时，必须走 `bus_event_v2 -> Model 0 pin.bus.mb.in -> intent_dispatch_table / pin-chain -> handle_three_scene_* -> Model 1008/1007 labels`。
 - local mode 必须明确返回 `unsupported / three_scene_remote_only`，不能偷偷复制第二套本地 CRUD 逻辑。
 
 ## 2.4 Workspace Slide App Built-ins (0289 / 0290 / 0302)
@@ -125,13 +125,13 @@ source: ai
 - 新增 `slide_surface_type` 枚举值时，必须先更新现行规约，再进入实现。
 
 ## 3. User Input (Bus Event)
-frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0 (0,0,0)` 的 `pin.bus.in`。
+frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0 (0,0,0)` 的 `pin.bus.mb.in`。
 事件 envelope 仍必须包含 `op_id`（用于审计/去重）。
 
 补充：
 
 - `Model -1 (0,0,1)` mailbox 只保留 compat/status 角色，不再是 current frontend/server 第一落点。
-- `Model 0 pin.bus.in -> pin.connect.cell -> child root pin.in -> child mt_bus_receive` 的解释属于 Tier 1 runtime。
+- `Model 0 pin.bus.mb.in -> pin.connect.cell -> child root pin.in -> child mt_bus_receive` 的解释属于 Tier 1 runtime。
 - `server` 只负责 envelope 适配、bus-event transport 与 snapshot / transport；不应长期持有独立正式事件语义。
 - 对需要落到“当前模型 / 当前单元格”的业务动作，前端事件 envelope 应显式携带：
   - `target.model_id`
@@ -144,7 +144,7 @@ frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0
 - 也就是说，前端最终不再用 `action` 表达“要做什么”，而是直接表达“把值送到这个 cell 的哪个 pin”
 - `meta.model_id` 只能作为诊断/关联字段；正式目标必须来自 `target`。
 - 当前 built-in submit 已启用 target-based ingress：
-  - runtime 会把 `submit + target` 映射为 `Model 0 pin.bus.in` 上的一个 ingress key
+  - runtime 会把 `submit + target` 映射为 `Model 0 pin.bus.mb.in` 上的一个 ingress key
   - 然后再按 `model.submt` hosting Cell + `pin.connect.cell` 进入目标模型
 - 当前 slide/workspace 系统动作也已启用同一方向的 runtime ingress：
   - `slide_app_import`
@@ -293,8 +293,8 @@ V1N.writeLabel(2, 2, 2, { k: 'testk', t: 'str', v: 'testv' })
 
 - `func.python`
 - removed `pin.connect.model`
-- `pin.bus.in`
-- `pin.bus.out`
+- `pin.bus.mb.in`
+- `pin.bus.mb.out`
 - `pin.bus.cb.in`
 - `pin.bus.cb.out`
 - `pin.bus.mb.in`
@@ -381,7 +381,7 @@ owner-chain 的正式链路固定为：
 relay 规则：
 - 深层子模型的 `submit` 只能先到父模型 hosting cell
 - 父模型 hosting cell 只能用现有 `pin.connect.label` / `cell_connection` relay
-- 必须逐层上送，直到 worker root Model 0 `(0,0,0)` 的系统总线出口。0364 前 current window 是 `pin.bus.out submit`；0363 目标合同中，UI/管理类外发应是 `pin.bus.mb.out submit`
+- 必须逐层上送，直到 worker root Model 0 `(0,0,0)` 的系统总线出口。UI/管理类外发应进入 `pin.bus.mb.out submit`。
 
 因此：
 - 如果 `submit` 没有接到 Model 0，则它仍然只是本地动作
@@ -502,7 +502,7 @@ TargetRef 结构（Cell-owned）：
   - 若同时声明 `trigger_funcs`，runtime 会在该次入站写入后产出 `run_func` intercept（由 engine 执行）。
   - 当 `v` 不符合当前输入合同，应显式失败；不得回退到旧 mailbox。
 - PIN_OUT：
-  - 当前路径走 `pin.bus.out`。
+  - 当前路径走 `pin.bus.mb.out`。
   - 当前用户业务 pin value 不再使用 ModelTablePatch 或旧 envelope。
 
 ### 5.3 示例（A/B/C）
@@ -510,80 +510,87 @@ TargetRef 结构（Cell-owned）：
   - `k=pinA, t=PIN_IN, v={ model_id:1,p:2,r:3,c:4,k:"pageA.textA1" }`
 - 远端发送 pinA：payload 到达后写入 `model_id=1,p=2,r=3,c=4,k=pageA.textA1`。
 
-## 6. MGMT (Management Bus, MBR Format v0)
+## 6. Management Bus / Control Bus
 
-本节以 **MBR 当前可执行格式** 为准：消息体是 JSON 文本，字段固定；topic 为固定分段。
+当前可执行路径不再使用旧的管理总线填表项。总线收发只通过 Model 0 `(0,0,0)` 的 split bus pins 表达：
 
-### 6.1 MBR Topic（8 段）
-```
-UIPUT/<workspace>/<dam>/<pic>/<de>/<sw>/<model>/<cell_k>
-```
+- 控制总线：`pin.bus.cb.in` / `pin.bus.cb.out`
+- 管理总线：`pin.bus.mb.in` / `pin.bus.mb.out`
 
-每段必须符合：`^[A-Za-z0-9_-]+$`
+其中 `pin.bus.mb.*` 只能出现在 `sys_worker_role="DEM"` 的软件工人 Model 0。普通 `sys_worker_role="V1N"` 只能声明和使用 `pin.bus.cb.*`。
 
-### 6.2 Matrix 侧 payload（UI ↔ MBR）
-必填字段：
-- `topic`: string（8 段）
-- `signature`: string（trace id，全链路透传）
-- `k`: string（PIN 名称）
-- `t`: string（`str` 或 `json`）
-- `v`: string（当 `t=json` 时为 JSON 文本）
-- `timestamp`: string（毫秒级 Unix 时间戳）
+### 6.1 Topic
 
-### 6.3 MQTT 侧 payload（Worker ↔ MBR）
-必填字段：
-- `userid`: string（Matrix 用户 id）
-- `signature`, `k`, `t`, `v`, `timestamp`
+MBR 转发时使用消息里的 `route.to` 决定目标，不需要为每个 App 预注册静态 route。
 
-### 6.4 系统填写方式（只填 Cell）
-系统在系统负数模型里只需要填写 **TargetRef**：
-
-```
-{ "model_id": 1, "p": 2, "r": 3, "c": 4, "k": "pageA.textA1" }
+```text
+UIPUT/<workspace>/<dam>/<pic>/<de>/<sw>/worker/<worker_id>/model/<model_id>/pin/<pin>
 ```
 
-用于：
-- 出站：`k=<channel>, t=MGMT_OUT, v=<MBR_Matrix_Payload>`
-- 入站订阅：`k=<channel>, t=MGMT_IN, v=<TargetRef>`
+每个动态分段必须是非空安全字符串，不能包含 `/`、`+`、`#`。
 
-**分格规则（必须）**：
-- `MGMT_OUT` 与 `MGMT_IN` 必须写在不同的 cell（不同的 `p/r/c`），避免同一 cell 内同名 `k` 覆盖与方向歧义。
-- 若同一 `channel` 需要同时支持收发，建议使用相同 `k` 但不同 cell 坐标。
+### 6.2 Pin Value
 
-其中：
-- `channel == k`（用于匹配）
-- `MBR_Matrix_Payload` 为上述 Matrix payload 结构（topic/signature/k/t/v/timestamp）
+bus pin 的 `v` 必须是临时 ModelTable record array。常用 record 形状如下：
 
-### 6.5 匹配规则
-MGMT_IN 仅在以下条件全部满足时写入：
-1) `session_id` 一致（由系统注入，用户不填写）
-2) `channel == Label.k`
-3) 若消息带 `target`，坐标必须与该 cell 完全一致
-
-### 6.6 示例（A/B/C）
-页面 A/B/C 的 Text 组件：
-- `pageA.textA1`
-- `pageB.textB1`
-- `pageC.textC1`
-
-系统声明：
-- `k=pageA.textA1, t=MGMT_IN, v={ model_id:1,p:2,r:3,c:4,k:"pageA.textA1" }`
-
-远端返回（Matrix payload）示例：
 ```json
-{
-  "topic": "UIPUT/ws_test/dam/pic/de/sw/model/pageA.textA1",
-  "signature": "sig-...",
-  "k": "pageA.textA1",
-  "t": "str",
-  "v": "hello",
-  "timestamp": "1733943035123"
-}
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "op-001" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "pin", "t": "str", "v": "submit1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload", "t": "json", "v": [
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello" }
+  ] },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route", "t": "json", "v": {
+    "to": { "worker_id": "RE", "model_id": 3000, "pin": "submit1" },
+    "from": { "worker_id": "UI", "model_id": 1055, "pin": "submit1" },
+    "reply_to": { "worker_id": "UI", "model_id": 1055, "pin": "result" }
+  } }
+]
 ```
 
-### 6.7 对齐说明
+如果 `route.to` 缺失或非法，MBR 必须拒绝该消息并写入可观察错误。不能把普通业务 JSON 当成 fallback 直接发送。
+
+### 6.3 Management To Control
+
+UI Server 要把业务请求发给 remote-worker 时，写入本机 DEM Model 0 的 `pin.bus.mb.out`。MBR 收到后读取 `route.to`，再把消息转成目标 worker 的控制总线 topic。
+
+最小 Submit 的实际方向是：
+
+```text
+UI button -> local model root pin.out -> host adapter
+-> Model 0 pin.bus.mb.out
+-> MBR
+-> remote-worker Model 3000 submit1
+```
+
+remote-worker 内部再通过自己的 `pin.connect.cell` / `pin.connect.label` 把 root `submit1` 送到程序模型 `submit1:in`。
+
+### 6.4 Management To Management
+
+MBR 也支持管理总线消息转管理总线消息。此时仍由 DEM Model 0 的 `pin.bus.mb.out` 承载，MBR 根据 `route.to.worker_id`、`route.to.model_id`、`route.to.pin` 发送到另一个 DEM 的管理总线入口。
+
+这条路径同样只认 `pin_payload.v1` 临时 ModelTable records，不接受旧 envelope 或普通 JSON fallback。
+
+### 6.5 Control To Management Return
+
+remote-worker 回包时，写入自身 Model 0 的 `pin.bus.cb.out`。MBR 收到后按 `route.to` 或 `route.reply_to` 回到 UI Server 的管理总线，再由 owner materialization 写入目标 UI 模型 label。
+
+最小 Submit 的返回方向是：
+
+```text
+remote-worker Model 3000 submit1 result
+-> remote-worker Model 0 pin.bus.cb.out
+-> MBR
+-> UI Server Model 0 pin.bus.mb.in
+-> owner materialization
+-> imported UI model display_text / remote_status
+```
+
+### 6.6 对齐说明
+
 - 若与 `docs/ssot/runtime_semantics_modeltable_driven.md` 冲突，以该文档为准。
-- Mailbox 合同冻结：`docs/iterations/0129-modeltable-editor-v0/contract_event_mailbox.md`。
+- 总线传输格式始终是 ModelTable-like；是否持久化由显式 materialization 决定。
 
 ## 7. Env vs ModelTable
 当前产品路径的唯一启动入口是 `MODELTABLE_PATCH_JSON`：
@@ -597,13 +604,13 @@ MGMT_IN 仅在以下条件全部满足时写入：
 - 这意味着测试环境里的 snapshot / runlog / EventLog 可能看到这些值，验证时必须按环境隔离处理
 - 不再允许走独立 `MATRIX_*` env fallback 作为产品路径
 
-### 7.1 软件工人启动顺序（0363 目标合同）
+### 7.1 软件工人启动顺序
 
 启动一个软件工人时，先给三个参数：
 
 - 软件工人名称：用来决定读取或新建哪个软件工人文件。
-- 软件工人 ID：写入 Model 0 `(0,0,0)`，示例 `k=v1n_id, t=str, v="5/10/28/35/13"`。
-- 是否 DEM：写入 Model 0 `(0,0,0)`，示例 `k=is_DEM, t=bool, v=true`。
+- 软件工人 ID：首次 trusted bootstrap 写入 Model 0 `(0,0,0)`，示例 `k=sys_worker_id, t=worker.id, v="5/10/28/35/13"`；普通重启不得覆盖，后续变更必须走显式维护流程。
+- 软件工人角色：写入 Model 0 `(0,0,0)`，示例 `k=sys_worker_role, t=worker.role, v="DEM"` 或 `v="V1N"`。`"WSM"` 预留给社区管理软件工人。
 
 启动顺序必须是：
 
@@ -619,15 +626,15 @@ MGMT_IN 仅在以下条件全部满足时写入：
 
 角色规则：
 
-- `is_DEM=true`：可以使用控制总线和管理总线。
-- `is_DEM=false`：只能使用控制总线；不得声明或安装 `pin.bus.mb.*`。
+- `sys_worker_role="DEM"`：可以使用控制总线和管理总线。
+- `sys_worker_role="V1N"`：只能使用控制总线；不得声明或安装 `pin.bus.mb.*`。
 
-0364 实施时还必须完成：
+当前实现要求：
 
-- 重新检查并必要时重新填表 `ui-server`、`mbr`、`remote-worker`。
-- 调整现有 UI 模型和界面，确保不再依赖旧 bus 写法或兼容链路。
-- 给出新版“最小 Submit 双总线示例” JSON patch。
-- 本地部署后，用真实浏览器测通 workspace 滑动过程、App 运行过程、双总线收发和页面更新。
+- `ui-server`、`mbr`、`remote-worker` 的身份与角色标签都必须使用 `sys_worker_id` / `sys_worker_role`。
+- 运行时不得接受旧 `v1n_id`、旧 `k=worker.role` 或旧 `is_DEM` 标签。
+- 若已经声明 `pin.bus.mb.*`，不得再把 `sys_worker_role` 改为 `"V1N"` 或 `"WSM"`。
+- 本地部署验收必须包含真实浏览器测试，不能只看脚本结果。
 
 ## 8. Troubleshooting
 - `reserved_cell`: 写入了保留模型或保留坐标
@@ -636,42 +643,50 @@ MGMT_IN 仅在以下条件全部满足时写入：
 
 建议先查 `ui_event_error` 与 EventLog。
 
-## 9. Connectivity Test (CellA/CellB 双向)
-本测试只依赖 MBR 格式与 ModelTable，不依赖 UI 特殊逻辑。
+## 9. Connectivity Test (Submit / Result 双向)
 
-### 9.1 CellA（模拟 UI 侧 → MBR）
-在系统负数模型中写：
-- `k=pageA.submitA1, t=MGMT_OUT`
-- `v` 填入 MBR Matrix payload（JSON 文本），例如：
+本测试只依赖 split bus pins 与 ModelTable-like payload，不依赖 UI 特殊逻辑。
+
+### 9.1 Submit（UI Server → MBR → remote-worker）
+
+在 UI Server 所在 DEM 的 Model 0 `(0,0,0)` 写入一个 `pin.bus.mb.out` label。`v` 是临时 ModelTable records，其中 `route.to` 指向 remote-worker 的公开 pin：
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "submit-test-001" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "pin", "t": "str", "v": "submit1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload", "t": "json", "v": [
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello" }
+  ] },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route", "t": "json", "v": {
+    "to": { "worker_id": "RE", "model_id": 3000, "pin": "submit1" },
+    "from": { "worker_id": "UI", "model_id": 1055, "pin": "submit1" },
+    "reply_to": { "worker_id": "UI", "model_id": 1055, "pin": "result" }
+  } }
+]
+```
+
+预期：
+
+- MBR 根据 `route.to` 发布到 remote-worker 的控制总线 topic。
+- remote-worker Model 3000 的 root `submit1` 通过 `pin.connect.cell` 触发程序模型。
+
+### 9.2 Result（remote-worker → MBR → UI Server）
+
+remote-worker 程序模型处理完成后，不能直接发 transport。它应返回 `pin_payload.v1` records，先走本 worker 的 Model 0 `pin.bus.cb.out`。
+
+返回 payload 的 `route.to` 指向 `reply_to` 中的 UI Server 本地模型：
+
 ```json
 {
-  "topic": "UIPUT/ws_test/dam/pic/de/sw/model/pageA.submitA1",
-  "signature": "sig-1111",
-  "k": "pageA.submitA1",
-  "t": "str",
-  "v": "hello",
-  "timestamp": "1733943035123"
+  "to": { "worker_id": "UI", "model_id": 1055, "pin": "result" },
+  "from": { "worker_id": "RE", "model_id": 3000, "pin": "submit1" }
 }
 ```
 
 预期：
-- MBR 将该 payload 转发到 MQTT（同名 topic）。
 
-### 9.2 CellB（模拟 Worker → MBR → UI 回包）
-先在系统负数模型中声明入站目标：
-- `k=pageA.textA1, t=MGMT_IN, v={ model_id:1,p:2,r:3,c:4,k:"pageA.textA1" }`
-
-使用 MQTT 客户端向同名 topic 发送 payload：
-```json
-{
-  "userid": "@your_user:server",
-  "signature": "sig-2222",
-  "k": "pageA.textA1",
-  "t": "str",
-  "v": "updated",
-  "timestamp": "1733943035123"
-}
-```
-
-预期：
-- MBR 私聊回 Matrix，程序模型写回 `pageA.textA1` 的目标 cell。
+- MBR 把 remote-worker 的控制总线回包转成 UI Server 管理总线消息。
+- UI Server 的 owner materialization 更新 imported UI model 的 `display_text` 和 `remote_status`。
+- 浏览器里显示 `Submitted: <输入内容>`，状态显示 `remote_processed`。

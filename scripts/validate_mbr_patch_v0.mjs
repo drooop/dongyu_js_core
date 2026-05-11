@@ -62,6 +62,29 @@ function execMbrFunction(rt, name, ctx) {
   fn(ctx);
 }
 
+function toExternalPinPacket(rt, label) {
+  if (!label || typeof rt._pinBusOutValueToExternalPayload !== 'function') return null;
+  return rt._pinBusOutValueToExternalPayload(label.v);
+}
+
+function drainWorkerEngine(rt, options = {}) {
+  const mqttPublished = [];
+  const mgmtPublished = [];
+  const engine = new WorkerEngineV0({
+    runtime: rt,
+    mqttPublish: options.mqttPublish || ((topic, payload) => { mqttPublished.push({ topic, payload }); }),
+    mgmtAdapter: options.mgmtAdapter || {
+      publish: async (event) => { mgmtPublished.push(event); },
+    },
+  });
+  if (!rt.isRuntimeRunning || !rt.isRuntimeRunning()) {
+    if (!rt.getRuntimeMode || rt.getRuntimeMode() === 'boot') rt.setRuntimeMode('edit');
+    rt.setRuntimeMode('running');
+  }
+  engine.tick();
+  return { mqttPublished, mgmtPublished };
+}
+
 process.stdout.write('\n=== Test Group 1: Patch Loading ===\n');
 {
   const rt = createPatchedRuntime();
@@ -143,10 +166,13 @@ process.stdout.write('\n=== Test Group 4: Model 100 Bridge ===\n');
       timestamp: 1700000000000,
     },
   });
-  execMbrFunction(rt, 'mbr_mgmt_to_mqtt', {
-    hostApi: buildWorkerHostApi(rt),
-    publishMqtt: (topic, payload) => { published = { topic, payload }; },
-  });
+  execMbrFunction(rt, 'mbr_mgmt_to_mqtt', { hostApi: buildWorkerHostApi(rt) });
+  const cbOut = getLabelEntry(rt, 0, 0, 0, 0, 'mbr_cb_out');
+  const packet = toExternalPinPacket(rt, cbOut);
+  assert(cbOut !== null && cbOut.t === 'pin.bus.cb.out', 'model100 bridge writes control-bus out pin');
+  assert(packet?.type === 'pin_payload', 'model100 control-bus pin carries pin_payload');
+  const drained = drainWorkerEngine(rt);
+  published = drained.mqttPublished[0] || null;
   assert(published !== null, 'model100 pin_payload published');
   assert(published.topic === 'UIPUT/ws/dam/pic/de/sw/worker/RE/model/100/pin/submit', 'model100 topic uses route.to worker/model/pin');
   assert(published.payload && published.payload.version === 'v1', 'model100 payload uses pin_payload v1');
@@ -182,10 +208,13 @@ process.stdout.write('\n=== Test Group 5: Route-Driven Source Model ===\n');
       timestamp: 1700000000000,
     },
   });
-  execMbrFunction(rt, 'mbr_mgmt_to_mqtt', {
-    hostApi: buildWorkerHostApi(rt),
-    publishMqtt: (topic, payload) => { published = { topic, payload }; },
-  });
+  execMbrFunction(rt, 'mbr_mgmt_to_mqtt', { hostApi: buildWorkerHostApi(rt) });
+  const cbOut = getLabelEntry(rt, 0, 0, 0, 0, 'mbr_cb_out');
+  const packet = toExternalPinPacket(rt, cbOut);
+  assert(cbOut !== null && cbOut.t === 'pin.bus.cb.out', 'route-driven bridge writes control-bus out pin');
+  assert(packet?.type === 'pin_payload', 'route-driven control-bus pin carries pin_payload');
+  const drained = drainWorkerEngine(rt);
+  published = drained.mqttPublished[0] || null;
   assert(published !== null, 'route-driven pin_payload published');
   assert(published.topic === 'UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/task', 'route-driven topic uses message route.to');
   assert(published.payload?.version === 'v1', 'route-driven payload uses pin_payload v1');
@@ -215,7 +244,6 @@ process.stdout.write('\n=== Test Group 6: Generic CRUD Rejected ===\n');
   });
   execMbrFunction(rt, 'mbr_mgmt_to_mqtt', {
     hostApi: buildWorkerHostApi(rt),
-    publishMqtt: () => { publishCount += 1; },
   });
   assert(publishCount === 0, 'generic CRUD not published');
   assert(getLabel(rt, -10, 0, 0, 0, 'mbr_mgmt_error')?.code === 'direct_model_mutation_disabled', 'generic CRUD writes mbr_mgmt_error');
@@ -236,6 +264,7 @@ process.stdout.write('\n=== Test Group 7: MQTT -> pin_payload ===\n');
         op_id: 'ack_001',
         source_model_id: 100,
         pin: 'result',
+        route: { to: { worker_id: 'ui-server-local', model_id: 100, pin: 'result' } },
         payload: [{ id: 0, p: 0, r: 0, c: 0, k: 'bg_color', t: 'str', v: '#fff' }],
       },
     },
@@ -243,12 +272,13 @@ process.stdout.write('\n=== Test Group 7: MQTT -> pin_payload ===\n');
   execMbrFunction(rt, 'mbr_mqtt_to_mgmt', {
     hostApi: buildWorkerHostApi(rt),
   });
-  const changeOut = getLabelEntry(rt, -10, 0, 0, 0, 'change_out');
-  assert(changeOut !== null && changeOut.t === 'MGMT_OUT', 'mbr_mqtt_to_mgmt writes MGMT_OUT');
-  assert(changeOut?.v?.type === 'pin_payload', 'mbr_mqtt_to_mgmt emits pin_payload');
+  const mbOut = getLabelEntry(rt, 0, 0, 0, 0, 'mbr_mb_out');
+  const packet = toExternalPinPacket(rt, mbOut);
+  assert(mbOut !== null && mbOut.t === 'pin.bus.mb.out', 'mbr_mqtt_to_mgmt writes management-bus out pin');
+  assert(packet?.type === 'pin_payload', 'mbr_mqtt_to_mgmt emits pin_payload');
 }
 
-process.stdout.write('\n=== Test Group 8: Heartbeat / Ready Publish ===\n');
+process.stdout.write('\n=== Test Group 8: Heartbeat / Ready Local Status ===\n');
 {
   const rt = createPatchedRuntime();
   let published = [];
@@ -266,8 +296,9 @@ process.stdout.write('\n=== Test Group 8: Heartbeat / Ready Publish ===\n');
   rt.addLabel(rt.getModel(-10), 0, 0, 0, { k: 'run_mbr_ready', t: 'str', v: '1' });
   rt.addLabel(rt.getModel(-10), 0, 0, 0, { k: 'run_mbr_heartbeat', t: 'str', v: '1' });
   engine.tick();
-  assert(published.some((event) => event?.type === 'mbr_ready' && String(event.op_id || '').startsWith('mbr_ready_')), 'mbr_ready published to Matrix');
-  assert(published.some((event) => event?.type === 'mbr_ready' && String(event.op_id || '').startsWith('mbr_heartbeat_')), 'mbr_heartbeat published to Matrix');
+  assert(published.length === 0, 'mbr_ready and mbr_heartbeat do not publish route-less Matrix packets');
+  assert(getLabel(rt, -10, 0, 0, 0, 'mbr_ready_status')?.status === 'ready', 'mbr_ready writes local status');
+  assert(getLabel(rt, -10, 0, 0, 0, 'mbr_heartbeat_status')?.status === 'ready', 'mbr_heartbeat writes local status');
 }
 
 process.stdout.write('\n=== Test Group 9: Worker Bootstrap Source Contract ===\n');
@@ -278,6 +309,190 @@ process.stdout.write('\n=== Test Group 9: Worker Bootstrap Source Contract ===\n
   assert(!src.includes("mbr_mqtt_model_ids"), 'run_worker_v0 does not read static MBR model id subscriptions');
   assert(src.includes('/worker/+/model/+/pin/+'), 'run_worker_v0 subscribes generic worker/model/pin wildcard');
   assert(/if\s*\(!rt\.isRuntimeRunning\(\)\)\s*\{[\s\S]*return;[\s\S]*\}/.test(src), 'run_worker_v0 drops inbound bridge traffic before running');
+}
+
+process.stdout.write('\n=== Test Group 10: Split Bus Out Failure Is Observable ===\n');
+{
+  const rt = createPatchedRuntime();
+  const model0 = rt.getModel(0);
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'bad_raw_object_bus_out',
+    t: 'pin.bus.cb.out',
+    v: {
+      version: 'v1',
+      type: 'pin_payload',
+      op_id: 'raw_object_should_reject',
+      source_model_id: 100,
+      pin: 'submit',
+      payload: [],
+      route: { to: { worker_id: 'RE', model_id: 100, pin: 'submit' } },
+    },
+  });
+  const engine = new WorkerEngineV0({
+    runtime: rt,
+    mqttPublish: () => { throw new Error('raw_object_must_not_publish'); },
+    mgmtAdapter: { publish: async () => { throw new Error('raw_object_must_not_publish'); } },
+  });
+  engine.tick();
+  assert(getLabel(rt, 0, 0, 0, 0, 'split_bus_out_error')?.code === 'invalid_split_bus_payload', 'invalid raw object bus out writes observable error');
+}
+
+{
+  const rt = createPatchedRuntime();
+  const model0 = rt.getModel(0);
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'missing_adapter_bus_out',
+    t: 'pin.bus.mb.out',
+    v: [
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'pin_payload.v1' },
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_request_id', t: 'str', v: 'missing_adapter_001' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'op_id', t: 'str', v: 'missing_adapter_001' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: 1036 },
+      { id: 0, p: 0, r: 0, c: 0, k: 'pin', t: 'str', v: 'result' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'payload', t: 'json', v: [{ id: 0, p: 0, r: 0, c: 0, k: 'reply_text', t: 'str', v: 'x' }] },
+      { id: 0, p: 0, r: 0, c: 0, k: 'route', t: 'json', v: { to: { worker_id: 'ui-server-local', model_id: 1036, pin: 'result' } } },
+      { id: 0, p: 0, r: 0, c: 0, k: 'timestamp', t: 'int', v: Date.now() },
+    ],
+  });
+  const engine = new WorkerEngineV0({ runtime: rt, mqttPublish: null, mgmtAdapter: null });
+  engine.tick();
+  assert(getLabelEntry(rt, 0, 0, 0, 0, 'missing_adapter_bus_out') !== null, 'unsent management bus out is retained when adapter missing');
+  assert(getLabel(rt, 0, 0, 0, 0, 'split_bus_out_error')?.code === 'missing_split_bus_mgmt_adapter', 'missing management adapter writes observable error');
+}
+
+{
+  const rt = createPatchedRuntime();
+  const model0 = rt.getModel(0);
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'rejecting_adapter_bus_out',
+    t: 'pin.bus.mb.out',
+    v: [
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'pin_payload.v1' },
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_request_id', t: 'str', v: 'rejecting_adapter_001' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'op_id', t: 'str', v: 'rejecting_adapter_001' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: 1036 },
+      { id: 0, p: 0, r: 0, c: 0, k: 'pin', t: 'str', v: 'result' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'payload', t: 'json', v: [{ id: 0, p: 0, r: 0, c: 0, k: 'reply_text', t: 'str', v: 'x' }] },
+      { id: 0, p: 0, r: 0, c: 0, k: 'route', t: 'json', v: { to: { worker_id: 'ui-server-local', model_id: 1036, pin: 'result' } } },
+      { id: 0, p: 0, r: 0, c: 0, k: 'timestamp', t: 'int', v: Date.now() },
+    ],
+  });
+  const engine = new WorkerEngineV0({
+    runtime: rt,
+    mqttPublish: null,
+    mgmtAdapter: { publish: async () => { throw new Error('matrix down'); } },
+  });
+  engine.tick();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert(getLabelEntry(rt, 0, 0, 0, 0, 'rejecting_adapter_bus_out') !== null, 'rejected management bus out is retained for retry');
+  assert(getLabel(rt, 0, 0, 0, 0, 'split_bus_out_error')?.code === 'split_bus_mgmt_publish_failed', 'rejected management adapter publish writes observable error');
+}
+
+{
+  const rt = createPatchedRuntime();
+  const model0 = rt.getModel(0);
+  const published = [];
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'same_engine_retry_mb_out',
+    t: 'pin.bus.mb.out',
+    v: [
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'pin_payload.v1' },
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_request_id', t: 'str', v: 'same_engine_retry_mb_001' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'op_id', t: 'str', v: 'same_engine_retry_mb_001' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: 1036 },
+      { id: 0, p: 0, r: 0, c: 0, k: 'pin', t: 'str', v: 'result' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'payload', t: 'json', v: [{ id: 0, p: 0, r: 0, c: 0, k: 'reply_text', t: 'str', v: 'x' }] },
+      { id: 0, p: 0, r: 0, c: 0, k: 'route', t: 'json', v: { to: { worker_id: 'ui-server-local', model_id: 1036, pin: 'result' } } },
+      { id: 0, p: 0, r: 0, c: 0, k: 'timestamp', t: 'int', v: Date.now() },
+    ],
+  });
+  const engine = new WorkerEngineV0({ runtime: rt, mqttPublish: null, mgmtAdapter: null });
+  engine.tick();
+  assert(getLabelEntry(rt, 0, 0, 0, 0, 'same_engine_retry_mb_out') !== null, 'same-engine retry starts with retained management pin');
+  engine.mgmtAdapter = { publish: async (event) => { published.push(event); } };
+  engine.tick();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert(published.length === 1, 'same WorkerEngine retries retained management pin after adapter is restored');
+  assert(getLabelEntry(rt, 0, 0, 0, 0, 'same_engine_retry_mb_out') === null, 'same-engine management retry removes pin only after success');
+}
+
+{
+  const rt = createPatchedRuntime();
+  const model0 = rt.getModel(0);
+  const published = [];
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'same_engine_retry_cb_out',
+    t: 'pin.bus.cb.out',
+    v: [
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'pin_payload.v1' },
+      { id: 0, p: 0, r: 0, c: 0, k: '__mt_request_id', t: 'str', v: 'same_engine_retry_cb_001' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'op_id', t: 'str', v: 'same_engine_retry_cb_001' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: 100 },
+      { id: 0, p: 0, r: 0, c: 0, k: 'pin', t: 'str', v: 'submit' },
+      { id: 0, p: 0, r: 0, c: 0, k: 'payload', t: 'json', v: [] },
+      { id: 0, p: 0, r: 0, c: 0, k: 'route', t: 'json', v: { to: { worker_id: 'R1', model_id: 3000, pin: 'submit1' } } },
+      { id: 0, p: 0, r: 0, c: 0, k: 'timestamp', t: 'int', v: Date.now() },
+    ],
+  });
+  const engine = new WorkerEngineV0({ runtime: rt, mqttPublish: null, mgmtAdapter: null });
+  engine.tick();
+  assert(getLabelEntry(rt, 0, 0, 0, 0, 'same_engine_retry_cb_out') !== null, 'same-engine retry starts with retained control pin');
+  engine.mqttPublish = (topic, packet) => { published.push({ topic, packet }); };
+  engine.tick();
+  assert(published.length === 1, 'same WorkerEngine retries retained control pin after MQTT adapter is restored');
+  assert(getLabelEntry(rt, 0, 0, 0, 0, 'same_engine_retry_cb_out') === null, 'same-engine control retry removes pin only after success');
+}
+
+{
+  const rt = createPatchedRuntime();
+  const model0 = rt.getModel(0);
+  let resolveFirst = null;
+  const firstPublish = new Promise((resolve) => { resolveFirst = resolve; });
+  const published = [];
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
+  const makeValue = (opId, text) => [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'pin_payload.v1' },
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_request_id', t: 'str', v: opId },
+    { id: 0, p: 0, r: 0, c: 0, k: 'op_id', t: 'str', v: opId },
+    { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: 1036 },
+    { id: 0, p: 0, r: 0, c: 0, k: 'pin', t: 'str', v: 'result' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'payload', t: 'json', v: [{ id: 0, p: 0, r: 0, c: 0, k: 'reply_text', t: 'str', v: text }] },
+    { id: 0, p: 0, r: 0, c: 0, k: 'route', t: 'json', v: { to: { worker_id: 'ui-server-local', model_id: 1036, pin: 'result' } } },
+    { id: 0, p: 0, r: 0, c: 0, k: 'timestamp', t: 'int', v: Date.now() },
+  ];
+  const engine = new WorkerEngineV0({
+    runtime: rt,
+    mqttPublish: null,
+    mgmtAdapter: {
+      publish: (event) => {
+        published.push(event);
+        return published.length === 1 ? firstPublish : Promise.resolve();
+      },
+    },
+  });
+  rt.addLabel(model0, 0, 0, 0, { k: 'same_key_mb_out', t: 'pin.bus.mb.out', v: makeValue('same_key_op_001', 'first') });
+  engine.tick();
+  rt.addLabel(model0, 0, 0, 0, { k: 'same_key_mb_out', t: 'pin.bus.mb.out', v: makeValue('same_key_op_002', 'second') });
+  resolveFirst();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const current = getLabelEntry(rt, 0, 0, 0, 0, 'same_key_mb_out');
+  const currentPacket = current ? toExternalPinPacket(rt, current) : null;
+  assert(currentPacket?.op_id === 'same_key_op_002', 'first async success must not remove later same-key bus message');
+  engine.tick();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert(published.some((event) => event?.op_id === 'same_key_op_002'), 'later same-key bus message remains sendable after first success resolves');
+  assert(getLabelEntry(rt, 0, 0, 0, 0, 'same_key_mb_out') === null, 'later same-key bus message is removed only after its own success');
 }
 
 process.stdout.write('\n────────────────────────────────────\n');
