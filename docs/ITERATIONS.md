@@ -271,6 +271,7 @@ source: ai
 | 0366-spec-tree-rewrite | 2026-05-10 | 按 0365 规约撰写方法梳理多入口规约树，重写当前规约入口并修正矛盾/模糊口径 | 5 | dev_0366-spec-tree-rewrite | Completed | ./docs/iterations/0366-spec-tree-rewrite/ |
 | 0367-docs-tree-rewrite | 2026-05-10 | 全量梳理 docs 树并在 sub-agent review 通过后重写 active docs 与 user-guide，保留历史证据层 | 6 | dev_0367-docs-tree-rewrite | Completed | ./docs/iterations/0367-docs-tree-rewrite/ |
 | 0368-worker-role-mbr-refill-submit-docs | 2026-05-11 | 将软件工人身份与角色收敛到 `sys_worker_id` / `sys_worker_role`，重填 MBR/remote-worker 双总线路径，并补最小 Submit 示例 JSON/HTML 说明与本地浏览器实测 | 7 | dev_0368-worker-role-mbr-refill-submit-docs | Completed | ./docs/iterations/0368-worker-role-mbr-refill-submit-docs/ |
+| 0369-worker-label-table-clarity | 2026-05-11 | 按用户给定 Worker 标签表补齐 `worker.role` / `worker.id` 的 type、key、value、示例说明，并加入文档合同检查 | 2 | dropx/0369-worker-label-table-clarity | Completed | ./docs/iterations/0369-worker-label-table-clarity/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

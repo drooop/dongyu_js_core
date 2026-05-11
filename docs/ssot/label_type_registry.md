@@ -71,16 +71,20 @@ Conflict behavior:
 - 普通 Cell 发起正式写入时，必须通过当前模型内显式 `pin.connect.cell` 把 `write_label_req` 路由到 root `mt_write_req`。
 - 早期 `(0,1,0)` reserved helper executor cell 已删除；`helper_executor`、`owner_apply`、`owner_apply_route`、`owner_materialize` 不再由 runtime 自动种入，也不得作为默认物化入口。
 
-### 2.0 软件工人身份标签
+### 2.0 Worker：软件工人类型标签
 
-这些标签写在软件工人 root Model 0 `(0,0,0)`，用于启动期身份与角色校验。
+这些标签写在软件工人 root Model 0 `(0,0,0)`，用于标明该软件工人是数字员工管理软件工人还是一般软件工人，并参与启动期身份与角色校验。
 
-| label.k | label.t | value | 位置约束 |
-|---|---|---|---|
-| `sys_worker_id` | `worker.id` | `<workspace>/<dam>/<pic>/<dem>/<worker>`，五段数字，如 `5/10/28/35/13` | 仅 Model 0 `(0,0,0)`；首次 trusted bootstrap 写入后锁定，后续只能显式维护变更 |
-| `sys_worker_role` | `worker.role` | `"WSM"`、`"DEM"` 或 `"V1N"` | 仅 Model 0 `(0,0,0)` |
+| type | 解释 | key | value | 示例 |
+|---|---|---|---|---|
+| `worker.role` | 软件工人类型 | `sys_worker_role` | `WSM` 社区管理；`DEM` 数字员工管理；`V1N` 普通软件工人 | `[{"k":"sys_worker_role","t":"worker.role","v":"DEM"}]` |
+| `worker.id` | 软件工人 ID | `sys_worker_id` | `ws/dam/pic/de/sw`，五段数字 | `[{"k":"sys_worker_id","t":"worker.id","v":"5/10/28/35/13"}]` |
 
-`sys_worker_role` 的值为 `"DEM"` 才允许声明 `pin.bus.mb.*`。`"V1N"` 普通软件工人只能声明 `pin.bus.cb.*`。旧 `v1n_id`、旧 `k=worker.role` 和旧 `is_DEM` 都不是合法输入面。
+位置约束：
+- `sys_worker_id` 和 `sys_worker_role` 只能写在 Model 0 `(0,0,0)`。
+- `sys_worker_id` 首次 trusted bootstrap 写入后锁定，后续只能通过显式维护流程变更。
+- `sys_worker_role` 的值为 `"DEM"` 才允许声明 `pin.bus.mb.*`。`"V1N"` 普通软件工人只能声明 `pin.bus.cb.*`。`"WSM"` 当前仅作为社区管理角色保留，不得被当作 `"DEM"` 使用。
+- 旧 `v1n_id`、旧 `k=worker.role` 和旧 `is_DEM` 都不是合法输入面。
 
 ### 2.1 UI Bootstrap Boundary (0210 Freeze)
 
