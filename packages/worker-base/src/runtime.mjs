@@ -388,8 +388,8 @@ class ModelTableRuntime {
     const model0 = this.getModel(0);
     if (!model0) return false;
     const cell = model0.cells.get(model0.cellKey(0, 0, 0));
-    const role = cell && cell.labels ? cell.labels.get('worker.role') : null;
-    return Boolean(role && role.t === 'str' && role.v === 'dem');
+    const role = cell && cell.labels ? cell.labels.get('sys_worker_role') : null;
+    return Boolean(role && role.t === 'worker.role' && role.v === 'DEM');
   }
 
   _hasManagementBusPins(model0) {
@@ -749,21 +749,35 @@ class ModelTableRuntime {
 
   _validatePlacement(model, p, r, c, label) {
     const resolvedType = this._resolveLabelType(label && label.t);
-    if (label && label.k === 'is_DEM') {
+    if (label && (label.k === 'is_DEM' || label.k === 'worker.role')) {
       return 'worker_role_label_removed';
     }
-    if (label && label.k === 'worker.role') {
+    if (label && label.k === 'v1n_id') {
+      return 'worker_id_label_removed';
+    }
+    if (label && label.k === 'sys_worker_role') {
       if (!model || model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
         return 'worker_role_wrong_position';
       }
-      if (label.t !== 'str') {
+      if (label.t !== 'worker.role') {
         return 'worker_role_invalid_type';
       }
-      if (label.v !== 'dem' && label.v !== 'worker') {
+      if (label.v !== 'WSM' && label.v !== 'DEM' && label.v !== 'V1N') {
         return 'worker_role_invalid_value';
       }
-      if (label.v === 'worker' && this._hasManagementBusPins(model)) {
+      if (label.v !== 'DEM' && this._hasManagementBusPins(model)) {
         return 'worker_role_conflicts_with_management_bus_pins';
+      }
+    }
+    if (label && label.k === 'sys_worker_id') {
+      if (!model || model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
+        return 'worker_id_wrong_position';
+      }
+      if (label.t !== 'worker.id') {
+        return 'worker_id_invalid_type';
+      }
+      if (typeof label.v !== 'string' || !/^\d+\/\d+\/\d+\/\d+\/\d+$/u.test(label.v)) {
+        return 'worker_id_invalid_value';
       }
     }
     if (this._isBusResolvedType(resolvedType)) {
@@ -989,18 +1003,40 @@ class ModelTableRuntime {
     };
   }
 
+  _isSafePinRouteSegment(value) {
+    return typeof value === 'string'
+      && value.trim() === value
+      && value.length > 0
+      && !value.includes('/')
+      && !value.includes('+')
+      && !value.includes('#');
+  }
+
+  _isValidPinRouteEndpoint(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    if (!this._isSafePinRouteSegment(value.worker_id)) return false;
+    if (!Number.isInteger(value.model_id) || value.model_id <= 0) return false;
+    if (!this._isSafePinRouteSegment(value.pin)) return false;
+    return true;
+  }
+
   _isPinRouteMetadata(value) {
     if (value === null || value === undefined) return true;
     if (typeof value !== 'object' || Array.isArray(value)) return false;
     if (Object.prototype.hasOwnProperty.call(value, 'to')) {
-      const to = value.to;
-      if (!to || typeof to !== 'object' || Array.isArray(to)) return false;
+      if (!this._isValidPinRouteEndpoint(value.to)) return false;
     }
     if (Object.prototype.hasOwnProperty.call(value, 'reply_to')) {
-      const replyTo = value.reply_to;
-      if (!replyTo || typeof replyTo !== 'object' || Array.isArray(replyTo)) return false;
+      if (!this._isValidPinRouteEndpoint(value.reply_to)) return false;
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'from')) {
+      if (!this._isValidPinRouteEndpoint(value.from)) return false;
     }
     return true;
+  }
+
+  _isPinRouteMetadataWithTo(value) {
+    return this._isPinRouteMetadata(value) && this._isValidPinRouteEndpoint(value && value.to);
   }
 
   _buildPinPayloadValue({ opId, sourceModelId, pin, payload, route = null, timestamp = Date.now() }) {
@@ -1032,7 +1068,7 @@ class ModelTableRuntime {
     ];
   }
 
-  _parsePinPayloadValue(value) {
+  _parsePinPayloadValue(value, options = {}) {
     if (!this._isTemporaryModelTablePayload(value)) {
       return { ok: false, code: 'invalid_payload' };
     }
@@ -1066,6 +1102,9 @@ class ModelTableRuntime {
     if (routeLabel && (routeLabel.t !== 'json' || !this._isPinRouteMetadata(routeLabel.v))) {
       return { ok: false, code: 'invalid_route' };
     }
+    if (options.requireRouteTo && !this._isPinRouteMetadataWithTo(route)) {
+      return { ok: false, code: 'missing_route_to' };
+    }
     const packet = {
       version: 'v1',
       type: 'pin_payload',
@@ -1086,7 +1125,7 @@ class ModelTableRuntime {
 
   _pinBusOutValueToExternalPayload(value) {
     if (Array.isArray(value)) {
-      const parsed = this._parsePinPayloadValue(value);
+      const parsed = this._parsePinPayloadValue(value, { requireRouteTo: true });
       return parsed.ok ? parsed.packet : null;
     }
     return null;
@@ -1136,9 +1175,8 @@ class ModelTableRuntime {
       }
     }
     if (this._isBusOutResolvedType(resolvedType)) {
-      if (!kind || kind.t !== 'str' || kind.v !== 'pin_payload.v1') {
-        return 'bus_out_invalid_payload_kind';
-      }
+      const parsed = this._parsePinPayloadValue(label.v, { requireRouteTo: true });
+      if (!parsed.ok) return `bus_out_${parsed.code || 'invalid_payload'}`;
     }
     return null;
   }
@@ -1274,7 +1312,7 @@ class ModelTableRuntime {
     const matchForbiddenK = (k) => {
       if (typeof k !== 'string') return false;
       if (k === 'pin_in' || k === 'pin_out') return true;
-      if (k === 'v1n_id' || k === 'data_type') return true;
+      if (k === 'v1n_id' || k === 'sys_worker_id' || k === 'sys_worker_role' || k === 'data_type') return true;
       if (k.startsWith('run_')) return true;
       if (k.startsWith('mqtt_')) return true;
       if (k.startsWith('matrix_')) return true;
@@ -1594,14 +1632,14 @@ class ModelTableRuntime {
       return { applied: false };
     }
 
-    if (label.k === 'v1n_id' && model.id === 0 && p === 0 && r === 0 && c === 0 && prevLabel) {
+    if (label.k === 'sys_worker_id' && model.id === 0 && p === 0 && r === 0 && c === 0 && prevLabel) {
       this.eventLog.record({
         op: 'add_label',
         cell: { model_id: model.id, p, r, c },
         label,
         prev_label: prevLabel,
         result: 'rejected',
-        reason: 'v1n_id_locked',
+        reason: 'worker_id_locked',
       });
       return { applied: false };
     }
@@ -2339,11 +2377,6 @@ class ModelTableRuntime {
           return Number.isInteger(parsed) ? parsed : null;
         }
         return null;
-      },
-      publishMqtt(topic, payload) {
-        if (!runtime.isRuntimeRunning()) return;
-        if (!runtime.mqttClient) return;
-        runtime.mqttClient.publish(topic, payload);
       },
     };
 

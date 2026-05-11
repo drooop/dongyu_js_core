@@ -77,10 +77,10 @@ Conflict behavior:
 
 | label.k | label.t | value | 位置约束 |
 |---|---|---|---|
-| `v1n_id` | `str` | `<workspace>/<dam>/<pic>/<dem>/<worker>` | 仅 Model 0 `(0,0,0)`；首次 trusted bootstrap 写入后锁定，后续只能显式维护变更 |
-| `worker.role` | `str` | `"dem"` 或 `"worker"` | 仅 Model 0 `(0,0,0)` |
+| `sys_worker_id` | `worker.id` | `<workspace>/<dam>/<pic>/<dem>/<worker>`，五段数字，如 `5/10/28/35/13` | 仅 Model 0 `(0,0,0)`；首次 trusted bootstrap 写入后锁定，后续只能显式维护变更 |
+| `sys_worker_role` | `worker.role` | `"WSM"`、`"DEM"` 或 `"V1N"` | 仅 Model 0 `(0,0,0)` |
 
-`worker.role="dem"` 才允许声明 `pin.bus.mb.*`。`worker.role="worker"` 只能声明 `pin.bus.cb.*`。
+`sys_worker_role` 的值为 `"DEM"` 才允许声明 `pin.bus.mb.*`。`"V1N"` 普通软件工人只能声明 `pin.bus.cb.*`。旧 `v1n_id`、旧 `k=worker.role` 和旧 `is_DEM` 都不是合法输入面。
 
 ### 2.1 UI Bootstrap Boundary (0210 Freeze)
 

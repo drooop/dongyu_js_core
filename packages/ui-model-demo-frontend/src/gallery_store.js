@@ -116,7 +116,7 @@ function overwriteLabel(runtime, model, p, r, c, label) {
 
 function ensureLocalDemRole(runtime) {
   const model0 = ensureModel(runtime, { id: 0, name: 'M0', type: 'system' });
-  overwriteLabel(runtime, model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
+  overwriteLabel(runtime, model0, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
 }
 
 function readRuntimeLabelValue(runtime, ref) {

@@ -2601,6 +2601,28 @@ function validateMgmtBusConsoleAck(content) {
   return { ok: true, targetUserId, replyText };
 }
 
+function pinPayloadPacketToBusValue(packet) {
+  if (!packet || typeof packet !== 'object') return null;
+  if (packet.version !== 'v1' || packet.type !== 'pin_payload') return null;
+  if (!Number.isInteger(packet.source_model_id) || packet.source_model_id <= 0) return null;
+  if (typeof packet.pin !== 'string' || !packet.pin.trim()) return null;
+  if (!isTemporaryPayloadRecordArray(packet.payload)) return null;
+  const opId = typeof packet.op_id === 'string' && packet.op_id ? packet.op_id : `pin_payload_${Date.now()}`;
+  const records = [
+    mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mtPayloadRecord('__mt_request_id', 'str', opId),
+    mtPayloadRecord('op_id', 'str', opId),
+    mtPayloadRecord('source_model_id', 'int', packet.source_model_id),
+    mtPayloadRecord('pin', 'str', packet.pin.trim()),
+    mtPayloadRecord('payload', 'json', packet.payload),
+    mtPayloadRecord('timestamp', 'int', Number.isInteger(packet.timestamp) ? packet.timestamp : Date.now()),
+  ];
+  if (packet.route && typeof packet.route === 'object' && !Array.isArray(packet.route)) {
+    records.push(mtPayloadRecord('route', 'json', packet.route));
+  }
+  return records;
+}
+
 function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
   if (!isTemporaryPayloadRecordArray(payload)) {
     return { ok: false, code: 'invalid_bus_payload', detail: 'temporary_modeltable_required' };
@@ -2616,6 +2638,12 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
   const draft = readTemporaryPayloadString(payload, 'draft', readTemporaryPayloadString(payload, 'message_text')).trim();
   if (!draft) {
     return { ok: false, code: 'empty_message', detail: 'draft_required' };
+  }
+  const targetWorkerId = targetUserId.startsWith('@')
+    ? targetUserId.slice(1).split(':')[0]
+    : targetUserId;
+  if (!isValidPublicPinName(targetWorkerId)) {
+    return { ok: false, code: 'invalid_target_worker_id', detail: targetWorkerId || 'missing_target_worker_id' };
   }
   const now = Date.now();
   let normalizedPayload = upsertTemporaryPayloadRecord(payload, {
@@ -2645,6 +2673,18 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
       source_model_id: MGMT_BUS_CONSOLE_MODEL_ID,
       pin: 'submit',
       payload: normalizedPayload,
+      route: {
+        to: {
+          worker_id: targetWorkerId,
+          model_id: MGMT_BUS_CONSOLE_MODEL_ID,
+          pin: 'submit',
+        },
+        reply_to: {
+          worker_id: resolveUiServerWorkerId(),
+          model_id: MGMT_BUS_CONSOLE_MODEL_ID,
+          pin: 'result',
+        },
+      },
       timestamp: now,
     },
   };
@@ -3594,6 +3634,8 @@ class ProgramModelEngine {
     // Set by server to trigger SSE broadcast.
     this.onSnapshotChanged = null;
     this.bridgedBusOutPorts = new Map();
+    this.pendingBusOutPorts = new Map();
+    this.failedBusOutPorts = new Map();
     this.outboundMatrixOps = [];
     this.ignoredMatrixReturnOpIds = new Set();
   }
@@ -3672,24 +3714,6 @@ class ProgramModelEngine {
     }
   }
 
-  getMgmtOutPayload(channel) {
-    const items = listSystemLabels(this.runtime, (label) => label.t === 'MGMT_OUT');
-    for (const item of items) {
-      if (channel && item.label.k !== channel) continue;
-      return item.label.v || null;
-    }
-    return null;
-  }
-
-  getMgmtInTarget(channel) {
-    const items = listSystemLabels(this.runtime, (label) => label.t === 'MGMT_IN');
-    for (const item of items) {
-      if (channel && item.label.k !== channel) continue;
-      return item.label.v || null;
-    }
-    return null;
-  }
-
   async sendMatrix(payload) {
     emitTrace(this.runtime, {
       hop: 'server\u2192matrix', direction: 'outbound',
@@ -3719,6 +3743,7 @@ class ProgramModelEngine {
       }
     }
     await this.matrixAdapter.publish(payload);
+    return true;
   }
 
   ignoreOutboundMatrixReturns(sourceModelIds, sinceTs) {
@@ -3957,6 +3982,22 @@ class ProgramModelEngine {
       if (!Number.isInteger(content.source_model_id) || content.source_model_id <= 0) {
         return;
       }
+      const ackValidation = content.source_model_id === MGMT_BUS_CONSOLE_MODEL_ID
+        ? validateMgmtBusConsoleAck({ ...content, type: 'mgmt_bus_console_ack' })
+        : { ok: false };
+      if (ackValidation.ok) {
+        const consoleModel = this.runtime.getModel(MGMT_BUS_CONSOLE_MODEL_ID);
+        if (consoleModel) {
+          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'ack_received' });
+        }
+        traceInbound();
+        this.tick().then(() => {
+          this.onSnapshotChanged?.();
+        }).catch((err) => {
+          console.error('[handleDyBusEvent] mgmt_bus_console_ack projection failed:', err && err.message ? err.message : err);
+        });
+        return;
+      }
       const opId = typeof content.op_id === 'string' ? content.op_id : '';
       if (opId && this.ignoredMatrixReturnOpIds.has(opId)) {
         return;
@@ -4087,14 +4128,6 @@ class ProgramModelEngine {
     };
     const ctx = {
       runtime: runtimeView,
-      getMgmtOutPayload: (channel) => this.getMgmtOutPayload(channel),
-      getMgmtInTarget: (channel) => this.getMgmtInTarget(channel),
-      getMgmtInbox: () => findSystemLabel(this.runtime, 'mgmt_inbox')?.label?.v ?? null,
-      clearMgmtInbox: () => {
-        const model = firstSystemModel(this.runtime);
-        if (!model) return;
-        this.runtime.addLabel(model, 0, 0, 0, { k: 'mgmt_inbox', t: 'json', v: null });
-      },
       getState: (key) => {
         const stateModel = this.runtime.getModel(EDITOR_STATE_MODEL_ID);
         if (!stateModel) return null;
@@ -4119,12 +4152,6 @@ class ProgramModelEngine {
       },
       mqttIncoming: (topic, payload) => this.runtime.mqttIncoming(topic, payload),
       startMqttLoop: () => this.runtime.startMqttLoop(),
-      sendMatrix: (payload) => {
-        if (!this.matrixAdapter || !this.matrixRoomId || !this.matrixDmPeerUserId) {
-          return null;
-        }
-        return this.sendMatrix(payload);
-      },
       hostApi: {
         docsRefreshTree: () => {
           const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
@@ -4765,15 +4792,6 @@ class ProgramModelEngine {
     for (; this.eventCursor < events.length; this.eventCursor += 1) {
       const event = events[this.eventCursor];
       if (event.op !== 'add_label') continue;
-      if (!event.label || event.label.t !== 'MGMT_OUT') continue;
-      if (!event.cell || event.cell.model_id >= 0) continue;
-      const model = this.runtime.getModel(event.cell.model_id);
-      if (!model) continue;
-      this.runtime.addLabel(model, event.cell.p, event.cell.r, event.cell.c, {
-        k: 'run_mgmt_send',
-        t: 'event',
-        v: { op_id: event.trace_id || '' },
-      });
     }
   }
 
@@ -4848,20 +4866,17 @@ class ProgramModelEngine {
           this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'last_sent_text', t: 'str', v: readTemporaryPayloadString(packet.payload, 'message_text') });
           this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'target_user_id', t: 'str', v: readTemporaryPayloadString(packet.payload, 'target_user_id') });
         }
-        const maybePromise = this.sendMatrix(packet);
-        if (maybePromise && typeof maybePromise.then === 'function') {
-          maybePromise.catch((err) => {
-            if (!consoleModel) return;
-            this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'send_failed' });
-            this.runtime.addLabel(consoleModel, 0, 0, 0, {
-              k: 'last_ui_error',
-              t: 'str',
-              v: String(err && err.message ? err.message : err),
-            });
-          });
-        } else if (!maybePromise && consoleModel) {
-          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'matrix_unavailable' });
+        const model0 = this.runtime.getModel(0);
+        const busValue = pinPayloadPacketToBusValue(packet);
+        if (!model0 || !busValue) {
+          if (consoleModel) this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'send_rejected' });
+          continue;
         }
+        this.runtime.addLabel(model0, 0, 0, 0, {
+          k: 'mgmt_bus_console_mb_out',
+          t: 'pin.bus.mb.out',
+          v: busValue,
+        });
         continue;
       }
 
@@ -4913,17 +4928,24 @@ class ProgramModelEngine {
         continue;
       }
 
-      if (!event.label || event.label.t !== 'MGMT_OUT') continue;
-      if (!event.cell || event.cell.model_id >= 0) continue;
-      const model = this.runtime.getModel(event.cell.model_id);
-      if (!model) continue;
-      this.runtime.addLabel(model, event.cell.p, event.cell.r, event.cell.c, {
-        k: 'run_mgmt_send',
-        t: 'event',
-        v: { op_id: event.trace_id || '' },
-      });
     }
     this.schedulePendingModel0Egress(scheduledBusOut);
+  }
+
+  writeSplitBusOutError(code, detail, key, label) {
+    const model0 = this.runtime.getModel(0);
+    if (!model0) return;
+    this.runtime.addLabel(model0, 0, 0, 0, {
+      k: 'split_bus_out_error',
+      t: 'json',
+      v: {
+        code,
+        detail,
+        pin: key || '',
+        pin_type: label && label.t ? label.t : '',
+        ts: Date.now(),
+      },
+    });
   }
 
   schedulePendingModel0Egress(alreadyScheduled = new Set()) {
@@ -4933,7 +4955,7 @@ class ProgramModelEngine {
     for (const [key, label] of rootCell.labels.entries()) {
       const packet = label && isSplitBusOutLabelType(label.t) && typeof this.runtime._pinBusOutValueToExternalPayload === 'function'
         ? this.runtime._pinBusOutValueToExternalPayload(label.v)
-        : (label ? label.v : null);
+        : null;
       if (!label || !isSplitBusOutLabelType(label.t) || !packet || typeof packet !== 'object' || packet.type !== 'pin_payload') {
         continue;
       }
@@ -4941,15 +4963,59 @@ class ProgramModelEngine {
       const bridgeKey = `${label.t}:${key}:${opIdentity}`;
       if (alreadyScheduled.has(bridgeKey)) continue;
       if (this.bridgedBusOutPorts.get(key) === opIdentity) continue;
+      if (this.pendingBusOutPorts.get(key) === opIdentity) continue;
+      const previousFailure = this.failedBusOutPorts.get(key);
+      if (previousFailure && previousFailure.opIdentity === opIdentity) {
+        const matrixReady = this.matrixAdapter && this.matrixRoomId && this.matrixDmPeerUserId;
+        const sameRejectingAdapter = previousFailure.adapter === this.matrixAdapter;
+        if (previousFailure.code === 'missing_split_bus_matrix_adapter' && !matrixReady) continue;
+        if (previousFailure.code === 'split_bus_matrix_publish_failed' && sameRejectingAdapter) continue;
+      }
       alreadyScheduled.add(bridgeKey);
-      this.bridgedBusOutPorts.set(key, opIdentity);
-      const maybePromise = this.sendMatrix(packet);
-      if (maybePromise && typeof maybePromise.then === 'function') {
-        maybePromise.catch((err) => {
-          console.warn('[processEventsSnapshot] pending split bus out matrix bridge failed', {
-            error: err && err.message ? err.message : String(err),
-          });
+      const markSuccess = () => {
+        this.pendingBusOutPorts.delete(key);
+        this.failedBusOutPorts.delete(key);
+        this.bridgedBusOutPorts.set(key, opIdentity);
+      };
+      const markFailure = (code, detail) => {
+        this.pendingBusOutPorts.delete(key);
+        this.failedBusOutPorts.set(key, {
+          opIdentity,
+          code,
+          adapter: this.matrixAdapter,
         });
+        this.writeSplitBusOutError(code, detail, key, label);
+      };
+      try {
+        const maybePromise = this.sendMatrix(packet);
+        if (!maybePromise) {
+          markFailure('missing_split_bus_matrix_adapter', 'sendMatrix returned no result');
+          continue;
+        }
+        if (typeof maybePromise.then === 'function') {
+          this.pendingBusOutPorts.set(key, opIdentity);
+          maybePromise
+            .then((result) => {
+              if (result === null || result === false) {
+                markFailure('missing_split_bus_matrix_adapter', 'Matrix adapter, room, or peer user is required');
+                return;
+              }
+              markSuccess();
+            })
+            .catch((err) => {
+              markFailure(
+                'split_bus_matrix_publish_failed',
+                err && err.message ? err.message : String(err),
+              );
+            });
+          continue;
+        }
+        markSuccess();
+      } catch (err) {
+        markFailure(
+          'split_bus_matrix_publish_failed',
+          err && err.message ? err.message : String(err),
+        );
       }
     }
   }
@@ -5130,11 +5196,11 @@ function createServerState(options) {
     : null;
   const runtime = new ModelTableRuntime();
   runtime.addLabel(runtime.getModel(0), 0, 0, 0, {
-    k: 'v1n_id',
-    t: 'str',
+    k: 'sys_worker_id',
+    t: 'worker.id',
     v: process.env.DY_UI_SERVER_V1N_ID || DEFAULT_UI_SERVER_V1N_ID,
   });
-  runtime.addLabel(runtime.getModel(0), 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
+  runtime.addLabel(runtime.getModel(0), 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
   const assetRoot = resolvePersistedAssetRoot();
   const bootstrapGeneratedKeys = new Set([
     'matrix_room_id',

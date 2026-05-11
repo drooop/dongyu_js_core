@@ -311,7 +311,7 @@ function test_model0_server_and_runtime_accept_refresh_payload_only_as_modeltabl
   rt.applyPatch(readJson(workspacePatchPath), { allowCreateModel: true, trustedBootstrap: true });
   const model0 = rt.getModel(0);
   const sys = rt.getModel(-10);
-  rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
   const payload = [
     { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.refresh.v1' },
     { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: consoleModelId },

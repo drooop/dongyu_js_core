@@ -30,6 +30,19 @@ function isExecutableJsFunctionLabel(label) {
   return label.t === 'func.js';
 }
 
+function isSplitBusOutLabel(label) {
+  return label && (label.t === 'pin.bus.cb.out' || label.t === 'pin.bus.mb.out');
+}
+
+function isSafeTopicSegment(value) {
+  return typeof value === 'string'
+    && value.trim() === value
+    && value.length > 0
+    && !value.includes('/')
+    && !value.includes('+')
+    && !value.includes('#');
+}
+
 function extractFunctionCode(label) {
   if (!label || typeof label !== 'object') return '';
   if (label.v && typeof label.v === 'object' && typeof label.v.code === 'string') return label.v.code;
@@ -87,6 +100,10 @@ export class WorkerEngineV0 {
     this.mqttPublish = typeof mqttPublish === 'function' ? mqttPublish : null;
     this.interceptCursor = 0;
     this.eventCursor = 0;
+    this.processedBusOpIds = new Set();
+    this.pendingBusOpIds = new Set();
+    this.failedBusOpIds = new Map();
+    this.splitBusRetryDelayMs = 1000;
   }
 
   executeFunction(name) {
@@ -126,22 +143,6 @@ export class WorkerEngineV0 {
     const ctx = {
       runtime: this.runtime,
       hostApi,
-      sendMatrix: async (event) => {
-        if (!this.mgmtAdapter) throw new Error('mgmt_adapter_missing');
-        return this.mgmtAdapter.publish(event);
-      },
-      publishMqtt: (topic, payload) => {
-        if (!this.mqttPublish) throw new Error('mqtt_publish_missing');
-        return this.mqttPublish(topic, payload);
-      },
-      getMgmtOutPayload: (channel) => {
-        const items = listSystemLabels(this.runtime, (l) => l.t === 'MGMT_OUT');
-        for (const item of items) {
-          if (channel && item.label.k !== channel) continue;
-          return item.label.v ?? null;
-        }
-        return null;
-      },
     };
 
     // eslint-disable-next-line no-new-func
@@ -149,27 +150,219 @@ export class WorkerEngineV0 {
     return fn(ctx, { k: name, t: 'func.js', v: null }, V1N);
   }
 
-  _processMgmtOutTriggers(eventEndExclusive) {
+  _packetFromSplitBusOut(label) {
+    if (!label || !isSplitBusOutLabel(label)) return null;
+    if (typeof this.runtime._pinBusOutValueToExternalPayload !== 'function') return null;
+    return this.runtime._pinBusOutValueToExternalPayload(label.v);
+  }
+
+  _writeSplitBusOutError(code, detail, event) {
+    const model0 = this.runtime.getModel(0);
+    if (!model0) return;
+    this.runtime.addLabel(model0, 0, 0, 0, {
+      k: 'split_bus_out_error',
+      t: 'json',
+      v: {
+        code,
+        detail,
+        pin: event && event.label ? event.label.k : '',
+        pin_type: event && event.label ? event.label.t : '',
+        ts: Date.now(),
+      },
+    });
+  }
+
+  _mqttTopicForRoute(packet) {
+    const routeTo = packet && packet.route && packet.route.to && typeof packet.route.to === 'object'
+      ? packet.route.to
+      : null;
+    if (!routeTo) return null;
+    const workerId = String(routeTo.worker_id || '');
+    const modelId = Number(routeTo.model_id);
+    const pin = String(routeTo.pin || '');
+    if (!isSafeTopicSegment(workerId) || !Number.isInteger(modelId) || modelId <= 0 || !isSafeTopicSegment(pin)) {
+      return null;
+    }
+    const root = this.runtime.getModel(0);
+    const baseLabel = root ? this.runtime.getCell(root, 0, 0, 0).labels.get('mqtt_topic_base') : null;
+    const base = String(baseLabel && baseLabel.v ? baseLabel.v : '').trim();
+    if (!base) return null;
+    return `${base}/worker/${workerId}/model/${modelId}/pin/${pin}`;
+  }
+
+  _processSplitBusOutTriggers(eventEndExclusive) {
     const events = this.runtime.eventLog.list();
     const end = Math.min(Number.isInteger(eventEndExclusive) ? eventEndExclusive : events.length, events.length);
     for (; this.eventCursor < end; this.eventCursor += 1) {
       const event = events[this.eventCursor];
       if (!event || event.op !== 'add_label') continue;
-      if (!event.label || event.label.t !== 'MGMT_OUT') continue;
-      if (!event.cell || !Number.isInteger(event.cell.model_id) || event.cell.model_id >= 0) continue;
-      const model = this.runtime.getModel(event.cell.model_id);
-      if (!model) continue;
-      
-      // For MBR worker: directly send to Matrix instead of using mgmt_send function
-      // (mgmt_send function would need the MGMT_OUT label which we want to remove)
-      if (this.mgmtAdapter && event.label.v) {
-        this.mgmtAdapter.publish(event.label.v).catch((err) => {
-          process.stderr.write(`[WorkerEngineV0] mgmt publish failed: ${err.message}\n`);
-        });
+      if (!event.label || !isSplitBusOutLabel(event.label)) continue;
+      if (!event.cell || event.cell.model_id !== 0 || event.cell.p !== 0 || event.cell.r !== 0 || event.cell.c !== 0) continue;
+      this._processSplitBusOutEvent(event);
+    }
+    this._scanRootSplitBusOutLabels();
+  }
+
+  _scanRootSplitBusOutLabels() {
+    const model = this.runtime.getModel(0);
+    if (!model) return;
+    const cell = this.runtime.getCell(model, 0, 0, 0);
+    const entries = Array.from(cell.labels.entries());
+    for (const [key, label] of entries) {
+      if (!isSplitBusOutLabel(label)) continue;
+      this._processSplitBusOutEvent({
+        op: 'add_label',
+        cell: { model_id: 0, p: 0, r: 0, c: 0 },
+        label: { ...label, k: key },
+      });
+    }
+  }
+
+  _splitBusOpKey(event, packet) {
+    const opId = packet && typeof packet.op_id === 'string' && packet.op_id ? packet.op_id : '';
+    if (opId && event && event.label && event.label.t) return `${event.label.t}:${opId}`;
+    if (!event || !event.cell || !event.label) return '';
+    return `${event.label.t}:${event.cell.model_id}:${event.cell.p}:${event.cell.r}:${event.cell.c}:${event.label.k}`;
+  }
+
+  _clearSplitBusFailure(busOpKey) {
+    if (busOpKey) this.failedBusOpIds.delete(busOpKey);
+  }
+
+  _recordSplitBusFailure(busOpKey, code, detail, event, extra = {}) {
+    if (busOpKey) {
+      this.failedBusOpIds.set(busOpKey, {
+        code,
+        adapter: this.mgmtAdapter,
+        mqttPublish: this.mqttPublish,
+        topic: extra.topic || null,
+        retryAt: Date.now() + this.splitBusRetryDelayMs,
+      });
+    }
+    this._writeSplitBusOutError(code, detail, event);
+  }
+
+  _shouldSkipFailedSplitBusOp(busOpKey, event, packet) {
+    if (!busOpKey) return false;
+    const failed = this.failedBusOpIds.get(busOpKey);
+    if (!failed) return false;
+    const labelType = event && event.label ? event.label.t : '';
+    let changed = false;
+    if (labelType === 'pin.bus.mb.out') {
+      changed = failed.adapter !== this.mgmtAdapter;
+    } else if (labelType === 'pin.bus.cb.out') {
+      const topic = this._mqttTopicForRoute(packet);
+      changed = failed.mqttPublish !== this.mqttPublish || failed.topic !== topic;
+    }
+    if (changed || Date.now() >= failed.retryAt) {
+      this.failedBusOpIds.delete(busOpKey);
+      return false;
+    }
+    return true;
+  }
+
+  _currentSplitBusOpKey(model, event) {
+    const current = this.runtime.getCell(model, event.cell.p, event.cell.r, event.cell.c).labels.get(event.label.k);
+    if (!current || current.t !== event.label.t) return '';
+    const packet = this._packetFromSplitBusOut(current);
+    return this._splitBusOpKey({ ...event, label: { ...current, k: event.label.k } }, packet);
+  }
+
+  _removeSplitBusOutIfCurrent(model, event, expectedBusOpKey) {
+    if (this._currentSplitBusOpKey(model, event) !== expectedBusOpKey) return;
+    this.runtime.rmLabel(model, event.cell.p, event.cell.r, event.cell.c, event.label.k);
+  }
+
+  _processSplitBusOutEvent(event) {
+    const model = this.runtime.getModel(0);
+    if (!model) return;
+    const packet = this._packetFromSplitBusOut(event.label);
+    const busOpKey = this._splitBusOpKey(event, packet);
+    if (busOpKey && this.processedBusOpIds.has(busOpKey)) {
+      this._removeSplitBusOutIfCurrent(model, event, busOpKey);
+      return;
+    }
+    if (busOpKey && this.pendingBusOpIds.has(busOpKey)) {
+      return;
+    }
+    if (this._shouldSkipFailedSplitBusOp(busOpKey, event, packet)) {
+      return;
+    }
+
+    if (!packet || typeof packet !== 'object' || packet.type !== 'pin_payload') {
+      this._recordSplitBusFailure(
+        busOpKey,
+        'invalid_split_bus_payload',
+        'ModelTable-shaped pin_payload.v1 required',
+        event,
+      );
+      return;
+    }
+
+    if (event.label.t === 'pin.bus.cb.out') {
+      const topic = this._mqttTopicForRoute(packet);
+      if (topic && this.mqttPublish) {
+        try {
+          this.mqttPublish(topic, packet);
+          this._clearSplitBusFailure(busOpKey);
+          if (busOpKey) this.processedBusOpIds.add(busOpKey);
+          this._removeSplitBusOutIfCurrent(model, event, busOpKey);
+        } catch (err) {
+          this._recordSplitBusFailure(
+            busOpKey,
+            'split_bus_mqtt_publish_failed',
+            err && err.message ? err.message : String(err),
+            event,
+            { topic },
+          );
+        }
+      } else {
+        this._recordSplitBusFailure(
+          busOpKey,
+          !topic ? 'missing_split_bus_mqtt_topic' : 'missing_split_bus_mqtt_adapter',
+          !topic ? 'route.to and mqtt_topic_base are required' : 'mqttPublish adapter is required',
+          event,
+          { topic },
+        );
       }
-      
-      // Remove the MGMT_OUT label to prevent re-processing
-      this.runtime.rmLabel(model, event.cell.p, event.cell.r, event.cell.c, event.label.k);
+      return;
+    }
+
+    if (event.label.t === 'pin.bus.mb.out' && this.mgmtAdapter) {
+      if (busOpKey) this.pendingBusOpIds.add(busOpKey);
+      try {
+        Promise.resolve(this.mgmtAdapter.publish(packet))
+          .then(() => {
+            if (busOpKey) {
+              this.pendingBusOpIds.delete(busOpKey);
+              this.failedBusOpIds.delete(busOpKey);
+              this.processedBusOpIds.add(busOpKey);
+            }
+            this._removeSplitBusOutIfCurrent(model, event, busOpKey);
+          })
+          .catch((err) => {
+            if (busOpKey) this.pendingBusOpIds.delete(busOpKey);
+            this._recordSplitBusFailure(
+              busOpKey,
+              'split_bus_mgmt_publish_failed',
+              err && err.message ? err.message : String(err),
+              event,
+            );
+          });
+      } catch (err) {
+        if (busOpKey) this.pendingBusOpIds.delete(busOpKey);
+        this._recordSplitBusFailure(
+          busOpKey,
+          'split_bus_mgmt_publish_failed',
+          err && err.message ? err.message : String(err),
+          event,
+        );
+      }
+      return;
+    }
+
+    if (event.label.t === 'pin.bus.mb.out') {
+      this._recordSplitBusFailure(busOpKey, 'missing_split_bus_mgmt_adapter', 'mgmtAdapter is required', event);
     }
   }
 
@@ -229,7 +422,7 @@ export class WorkerEngineV0 {
     if (typeof this.runtime.isRuntimeRunning === 'function' && !this.runtime.isRuntimeRunning()) {
       return;
     }
-    // Drain work until stable (MGMT_OUT may be produced by a function).
+    // Drain work until stable (split bus out labels may be produced by a function).
     let rounds = 0;
     // eslint-disable-next-line no-constant-condition
     while (true) {
@@ -241,7 +434,7 @@ export class WorkerEngineV0 {
       
       const eventEnd = this.runtime.eventLog.list().length;
       const interceptEnd = this.runtime.intercepts.list().length;
-      this._processMgmtOutTriggers(eventEnd);
+      this._processSplitBusOutTriggers(eventEnd);
       this._processIntercepts(interceptEnd);
       const eventsLen = this.runtime.eventLog.list().length;
       const interceptsLen = this.runtime.intercepts.list().length;

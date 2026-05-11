@@ -42,10 +42,28 @@ function test_remote_worker_provider_patch_matches_contract() {
   assert.ok(find(recs, (record) => record.model_id === 3000 && record.k === 'submit1_route' && record.t === 'pin.connect.cell'), 'provider must route root submit1 via pin.connect.cell');
   const code = find(recs, (record) => record.model_id === 3000 && record.k === 'submit1' && record.t === 'func.js')?.v?.code || '';
   assert.match(code, /reply_to/u, 'provider function must use reply_to');
-  assert.match(code, /ctx\.publishMqtt/u, 'provider function must publish MQTT reply');
+  assert.equal(code.includes('ctx.publishMqtt'), false, 'provider function must not publish MQTT directly');
+  assert.equal(code.includes('message_text'), false, 'provider function must not keep message_text fallback');
+  assert.match(code, /pin_payload\.v1/u, 'provider function must return a ModelTable-shaped pin payload');
   assert.equal(code.includes('V1N.table'), false, 'provider function in non-root cell must not use V1N.table');
   assertNoOld(code, 'provider code');
   return { key: 'remote_worker_provider_patch_matches_contract', status: 'PASS' };
+}
+
+function test_provider_guide_embedded_submit_handler_result_fields_match_current_patch() {
+  const doc = read(GUIDE);
+  const staleSingleFieldPayload = "const resultPayload = [{ id: 0, p: 0, r: 0, c: 0, k: 'display_text', t: 'str', v: 'Submitted: ' + (text || '(empty)') }];";
+  assert.equal(doc.includes(staleSingleFieldPayload), false, 'guide embedded JSON must not keep stale display_text-only submit handler');
+  for (const required of [
+    "k: 'remote_status', t: 'str', v: 'remote_processed'",
+    "k: 'last_submit_payload', t: 'json', v: businessPayload",
+    "k: 'submit_inflight', t: 'bool', v: false",
+  ]) {
+    assert.ok(doc.includes(required), 'guide embedded JSON must include current provider result field: ' + required);
+  }
+  const businessPayloadReferences = doc.match(/v: businessPayload/g) || [];
+  assert.ok(businessPayloadReferences.length >= 2, 'guide final JSON snippets must use businessPayload for returned last_submit_payload');
+  return { key: 'provider_guide_embedded_submit_handler_result_fields_match_current_patch', status: 'PASS' };
 }
 
 function test_mbr_and_remote_config_use_route_topics() {
@@ -65,7 +83,13 @@ function test_user_guide_indexes_link_new_doc() {
   return { key: 'user_guide_indexes_link_new_doc', status: 'PASS' };
 }
 
-const tests = [test_doc_has_self_described_route_contract, test_remote_worker_provider_patch_matches_contract, test_mbr_and_remote_config_use_route_topics, test_user_guide_indexes_link_new_doc];
+const tests = [
+  test_doc_has_self_described_route_contract,
+  test_remote_worker_provider_patch_matches_contract,
+  test_provider_guide_embedded_submit_handler_result_fields_match_current_patch,
+  test_mbr_and_remote_config_use_route_topics,
+  test_user_guide_indexes_link_new_doc,
+];
 let passed = 0;
 let failed = 0;
 for (const test of tests) {

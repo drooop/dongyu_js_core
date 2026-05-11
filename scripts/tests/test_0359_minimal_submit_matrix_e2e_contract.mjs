@@ -107,8 +107,20 @@ function test_remote_worker_provider_patch_returns_reply_to_result() {
   const code = func?.v?.code || '';
   assert.match(code, /Submitted: /u, 'remote handler must build Submitted display text');
   assert.match(code, /route.reply_to|reply_to/u, 'remote handler must read route.reply_to');
-  assert.equal(code.includes('ctx.publishMqtt(topic,'), true, 'remote handler must publish MQTT reply');
-  assert.equal(code.includes('source_model_id: Number(replyTo.model_id)'), true, 'remote result must target reply_to model id');
+  assert.equal(code.includes('ctx.publishMqtt'), false, 'remote handler must not publish MQTT directly');
+  assert.equal(code.includes("pin_payload.v1"), true, 'remote handler must return ModelTable-shaped pin_payload');
+  assert.equal(code.includes("mt('source_model_id', 'int', Number(replyTo.model_id))"), true, 'remote result must target reply_to model id');
+  const remoteConfigRecords = recordsFor('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json');
+  assert.equal(
+    findRecord(remoteConfigRecords, (record) => record.model_id === 0 && record.k === 'remote_result_bus')?.t,
+    'pin.bus.cb.out',
+    'remote worker Model 0 must expose control-bus result out pin',
+  );
+  assert.ok(
+    findRecord(remoteConfigRecords, (record) => record.model_id === 0 && record.k === 'remote_result_routes')?.v
+      ?.some((route) => JSON.stringify(route.from) === JSON.stringify([1, 0, 30, 'result'])),
+    'remote worker Model 0 must route hosted model 3000 result to control-bus out pin',
+  );
   assert.equal(code.includes('V1N.table'), false, 'non-root program cell must not use V1N.table');
   assertNoLegacyRouteSurface(code, 'remote submit handler');
   return { key: 'remote_worker_provider_patch_returns_reply_to_result', status: 'PASS' };

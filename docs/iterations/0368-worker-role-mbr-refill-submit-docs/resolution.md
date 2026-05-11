@@ -2,7 +2,7 @@
 id: 0368
 title: worker-role-mbr-refill-submit-docs
 doc_type: iteration_resolution
-status: Approved
+status: Completed
 updated: 2026-05-11
 source: ai
 branch: dev_0368-worker-role-mbr-refill-submit-docs
@@ -26,18 +26,18 @@ Execute in small review-gated stages. Each stage must add or update deterministi
 
 ## Step 2 - Worker Role And Startup Contract
 
-- Scope: Replace active `is_DEM` role truth with `worker.role`, preserve `v1n_id` lock wording, and update startup order wording in SSOT/user guides.
+- Scope: Replace active `is_DEM`, old `k=worker.role`, and `v1n_id` truth with `sys_worker_role / worker.role` and `sys_worker_id / worker.id`; update startup order wording in SSOT/user guides.
 - Files: `docs/ssot/runtime_semantics_modeltable_driven.md`, `docs/user-guide/modeltable_user_guide.md`, `docs/architecture_mantanet_and_workers.md`, `docs/ssot/label_type_registry.md`, runtime/server role tests.
-- Verification: New/updated tests fail before implementation and pass after implementation; static scan rejects active `is_DEM`.
-- Acceptance: Role semantics are expressed only as `worker.role = "dem" | "worker"` in active implementation and current docs.
+- Verification: New/updated tests fail before implementation and pass after implementation; static scan rejects active legacy worker identity/role labels outside negative tests.
+- Acceptance: Identity and role semantics are expressed only as `sys_worker_id / worker.id` and `sys_worker_role / worker.role` in active implementation and current docs.
 - Rollback: Revert docs/tests/runtime/server changes for this step.
 
 ## Step 3 - Runtime And UI Server Role Enforcement
 
-- Scope: Change runtime and server/demo bootstrap to read/write `worker.role`; reject illegal management bus pins for non-DEM workers without fallback.
+- Scope: Change runtime and server/demo bootstrap to read/write `sys_worker_role` and `sys_worker_id`; reject illegal management bus pins for non-DEM workers without fallback.
 - Files: `packages/worker-base/src/runtime.mjs`, `packages/worker-base/src/runtime.js`, `packages/ui-model-demo-server/server.mjs`, `packages/ui-model-demo-frontend/src/*`, affected tests.
 - Verification: Runtime split-bus tests, builtins validation, and server import/ingress tests.
-- Acceptance: No active role path depends on `is_DEM`; `pin.bus.mb.*` remains DEM-only.
+- Acceptance: No active role path depends on `is_DEM`, old `k=worker.role`, or `v1n_id`; `pin.bus.mb.*` remains DEM-only.
 - Rollback: Revert runtime/server/frontend/test changes for this step.
 
 ## Step 4 - MBR And Remote-Worker Refill

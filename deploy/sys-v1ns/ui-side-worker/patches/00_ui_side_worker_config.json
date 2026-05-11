@@ -9,8 +9,8 @@
       "p": 0,
       "r": 0,
       "c": 0,
-      "k": "v1n_id",
-      "t": "str",
+      "k": "sys_worker_id",
+      "t": "worker.id",
       "v": "5/10/28/35/16"
     },
     {
@@ -19,9 +19,9 @@
       "p": 0,
       "r": 0,
       "c": 0,
-      "k": "worker.role",
-      "t": "str",
-      "v": "worker"
+      "k": "sys_worker_role",
+      "t": "worker.role",
+      "v": "V1N"
     },
     {
       "op": "add_label",

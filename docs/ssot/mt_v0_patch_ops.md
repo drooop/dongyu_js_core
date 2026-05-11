@@ -189,7 +189,7 @@ Patch 是 ModelTable 状态变更的批量载体，用于：
 | 模式 | 示例 | 用途 |
 |------|------|------|
 | `pin_in` / `pin_out` | - | PIN 声明 |
-| `v1n_id` / `data_type` | - | 系统标识 |
+| `sys_worker_id` / `sys_worker_role` / `data_type` | - | 系统标识 |
 | `run_*` | `run_submit` | 函数触发 |
 | `mqtt_*` | `mqtt_target_host` | MQTT 配置 |
 | `matrix_*` | `matrix_room_id` | Matrix 配置 |

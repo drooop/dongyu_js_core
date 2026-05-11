@@ -42,7 +42,7 @@ source: ai
 - PIN_IN / PIN_OUT
 - 连接类声明（CONNECT）
 - 运行触发类声明（run_<func>）
-- 系统配置类声明（`mqtt.local.*` / `matrix.*` / `v1n_id` / `data_type` 等）
+- 系统配置类声明（`mqtt.local.*` / `matrix.*` / `sys_worker_id` / `sys_worker_role` / `data_type` 等）
 
 ---
 
@@ -333,7 +333,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - 运行时全局生命周期由 Model 0 `(0,0,0)` 的 `runtime_mode` 表示：
   - `boot`: trusted bootstrap 直写期
   - `edit`: 可读可建模，但不执行软件工人副作用
-  - `running`: 才允许函数执行、MGMT_OUT/MQTT/Matrix 生效
+  - `running`: 才允许函数执行和 worker root split bus bridge 生效
 - `ModelTableRuntime` 初始状态必须是：
   - `runtime_mode=boot`
   - `runLoopActive=false`
@@ -359,8 +359,8 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - `boot/edit` 期间必须抑制：
   - `run_*` 入口
   - `_executeFuncViaCellConnect`
-  - `ctx.publishMqtt()`
-  - worker root system bus publish（当前运行面 `pin.bus.mb.out`；0363 目标 `pin.bus.cb.out` / `pin.bus.mb.out`）
+  - 程序模型直接 transport 能力（不得暴露 direct MQTT / Matrix send helper）
+  - worker root system bus publish（`pin.bus.cb.out` / `pin.bus.mb.out`）
   - `MQTT_WILDCARD_SUB` 生效
 
 ### 5.2f.1 EventLog Observer（0322）
@@ -371,28 +371,29 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - 不允许的用法：
   - observer 不得在回调里同步写 label（会造成重入记录）——必须延后到 microtask / tick。
   - observer 不得抛出未捕获异常；record 已做本地 catch，但 tier 2 代码仍应自己保证幂等。
-- 与 `_executeFuncViaCellConnect` ctx 的区别：ctx 只暴露 `publishMqtt`，不含 `sendMatrix`。Matrix 发送、intercept dispatch、跨 tick 调度属 tier 2 `ProgramModelEngine` 的职责；任何需要 Matrix 的路径必须经 worker root 系统总线出口 + programEngine bridge，不得在 runtime pin.connect.label 直接触发的 func 里使用 `ctx.sendMatrix`。当前运行面出口为 `pin.bus.mb.out`；0363 目标出口为 `pin.bus.mb.out` 或 `pin.bus.cb.out`。
+- `_executeFuncViaCellConnect` ctx 不暴露 direct transport。程序模型不得调用 direct MQTT / Matrix send helper。Matrix/MQTT 发送、intercept dispatch、跨 tick 调度属 tier 2 `ProgramModelEngine` 的职责；任何需要外发的路径必须经 worker root 系统总线出口和 programEngine bridge，出口为 `pin.bus.cb.out` 或 `pin.bus.mb.out`。
 
 ### 5.2g 软件工人启动顺序（0142/0177，0323 增补，0363 修订）
 
-0368 后，启动顺序与角色标签必须使用当前 `worker.role` 合同；旧 `is_DEM` 布尔标签已不是合法输入面。
+0368 后，启动顺序与身份标签必须使用当前 worker 合同：`k=sys_worker_id, t=worker.id` 与 `k=sys_worker_role, t=worker.role`。旧 `v1n_id`、旧 `k=worker.role` 和旧 `is_DEM` 都不是合法输入面。
 
 软件工人启动参数：
 
 - 软件工人名称：决定读取或新建哪个软件工人存储文件。
-- 软件工人 ID：首次 trusted bootstrap 写入 Model 0 `(0,0,0)`，格式为 `k=v1n_id, t=str, v="<workspace>/<dam>/<pic>/<dem>/<worker>"`；后续只能通过显式维护流程变更，普通重启不得覆盖。
-- 软件工人角色：写入 Model 0 `(0,0,0)`，格式为 `k=worker.role, t=str, v="dem"|"worker"`。
+- 软件工人 ID：首次 trusted bootstrap 写入 Model 0 `(0,0,0)`，格式为 `k=sys_worker_id, t=worker.id, v="<workspace>/<dam>/<pic>/<dem>/<worker>"`；值必须是五段数字，例如 `5/10/28/35/13`；后续只能通过显式维护流程变更，普通重启不得覆盖。
+- 软件工人角色：写入 Model 0 `(0,0,0)`，格式为 `k=sys_worker_role, t=worker.role, v="WSM"|"DEM"|"V1N"`。
 
 角色约束：
 
-- `worker.role="dem"` 的软件工人可以使用控制总线和管理总线，并可以处理控制总线与管理总线之间的连接。
-- `worker.role="worker"` 的普通软件工人只能使用控制总线；若声明或安装 `pin.bus.mb.*`，必须拒绝并写可观测错误。
-- `v1n_id` 决定该软件工人对外发送控制总线消息时的 Topic 身份段；管理总线消息还必须满足 DEM 角色约束。
+- `sys_worker_role="DEM"` 的数字员工管理软件工人可以使用控制总线和管理总线，并可以处理控制总线与管理总线之间的连接。
+- `sys_worker_role="V1N"` 的普通软件工人只能使用控制总线；若声明或安装 `pin.bus.mb.*`，必须拒绝并写可观测错误。
+- `sys_worker_role="WSM"` 预留给社区管理软件工人；当前运行实现不得把它当作 DEM 使用。
+- `sys_worker_id` 是软件工人的稳定身份标签；路由消息里的 `route.to.worker_id` 仍是一次总线发送的目标 worker 地址段。
 
 启动顺序：
 
 1. 建立模型与层级关系：先创建 Model 0、系统负数模型、业务模型，并按 `model.submt` 建立父子挂载关系。
-2. 写入软件工人身份与角色：写入 `v1n_id` 与 `worker.role`，让后续总线声明可以按身份和角色校验。
+2. 写入软件工人身份与角色：写入 `sys_worker_id` 与 `sys_worker_role`，让后续总线声明可以按身份和角色校验。
 3. 写入对外通讯参数：写入 `matrix.*`、`mqtt.*` 等连接参数，但此时仍不得启动外部收发。
 4. 加载程序模型：加载 `func.*` 与 model.table 根默认程序模型（`mt_write` / `mt_bus_receive` / `mt_bus_send`）。
 5. 声明引脚：声明普通引脚、日志引脚和 worker root 系统总线引脚，并按角色校验 `pin.bus.cb.*` / `pin.bus.mb.*` 的位置。
@@ -562,26 +563,36 @@ MQTT → mqttIncoming → BUS_IN 短路 / 写 IN 到 model(0,0,0)
 
 ---
 
-## 7. 管理总线 Patch 规则（MGMT_IN / MGMT_OUT）
+## 7. Management Bus / Control Bus Split Pins
 
-管理总线的外层系统消息体仍可使用 ModelTablePatch，并且必须携带 `op_id`。这属于 system boundary / migration envelope，不得作为用户业务 pin value。
+0368 后，当前运行面不再使用旧的管理总线 patch 标签。所有外部总线传输都必须通过 Model 0 `(0,0,0)` 的 split bus pins 表达：
 
-### 6.1 系统侧声明（系统负数模型）
-- 仅允许在系统自带的负数 model_id 模型中声明：
-  - `Label.t = "MGMT_OUT"`：`Label.v` 为 ModelTablePatch（仅系统负数模型 / system boundary）
-  - `Label.t = "MGMT_IN"`：`Label.v` 为 TargetRef（仅目标信息）
-- 用户模型不使用 MGMT_*，用户侧入口通过 BUS_IN/BUS_OUT + cell_connection + CELL_CONNECT。
+- 控制总线：`pin.bus.cb.in` / `pin.bus.cb.out`
+- 管理总线：`pin.bus.mb.in` / `pin.bus.mb.out`
 
-TargetRef 结构：
+`pin.bus.mb.*` 只能存在于 `sys_worker_role="DEM"` 的软件工人 Model 0；普通 `sys_worker_role="V1N"` 只能声明和使用 `pin.bus.cb.*`。
+
+### 7.1 Payload
+
+bus pin 的 `v` 必须是 ModelTable-like temporary record array。标准外发载荷必须包含：
+
+- `__mt_payload_kind = "pin_payload.v1"`
+- `op_id` / `__mt_request_id`
+- `pin`
+- `payload`，其值仍是业务临时 ModelTable records
+- `route`，其中 `route.to` 决定目标 worker/model/pin；需要远端回包的请求还必须包含 `route.reply_to`
+
+普通业务 JSON、旧 envelope 或 raw `resultPayload` 不能作为 fallback 发送。任何外发 payload 缺少或非法 `route.to` 时必须 fail closed，并写可观察错误；请求类 payload 若缺少或非法 `route.reply_to`，必须由接收侧或转发侧 fail closed，不得公开发送普通业务结果。
+
+### 7.2 Routing
+
+MBR 不维护每个滑动 App 的静态 route truth。转发目标由消息内 `route.to` 决定：
+
+```text
+UIPUT/<workspace>/<dam>/<pic>/<de>/<sw>/worker/<worker_id>/model/<model_id>/pin/<pin>
 ```
-{ "model_id": 1, "p": 2, "r": 3, "c": 4, "k": "pageA.textA1" }
-```
 
-### 6.2 匹配规则（必须全部满足）
-- `session_id` 必须一致（由系统注入，用户不填写）。
-- `channel` 必须一致：`channel == Label.k`。
-- 若消息带 `target`，则 `target` 坐标必须与该 Label 所在 Cell 完全一致。
-- 不满足任一条件 → 丢弃并记录。
+管理总线转控制总线、管理总线转管理总线、控制总线回管理总线，均走上述 split bus pin 与 `pin_payload.v1` 合同。
 
 ---
 
@@ -829,7 +840,7 @@ Root `(0,0,0)` 可以声明：
 - 跳过 Matrix 转发不影响本地 dispatch 执行；本地 Preview/Apply 仍通过 `intent_dispatch_table` + function labels 完整执行。
 
 0187 补充：
-- legacy `mailbox -> forward_ui_events -> ctx.sendMatrix(...)` 通路已退役。
+- legacy `mailbox -> forward_ui_events -> direct Matrix send` 通路已退役。
 - `bus_event` 从 mailbox/compat 层出发时，不再存在“默认 direct Matrix forward” 兜底。
 - 当前 UI 外发 authority 只允许通过显式接线最终到达 worker root Model 0 系统总线出口的路径。UI/管理类外发应到达 DEM 的 `pin.bus.mb.out`，控制类外发应到达 `pin.bus.cb.out`。
 

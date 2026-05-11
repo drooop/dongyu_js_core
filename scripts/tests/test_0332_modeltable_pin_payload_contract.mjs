@@ -47,12 +47,20 @@ function triggerPayload(value = 'go') {
   return [mt('trigger', 'str', value)];
 }
 
+function route({ workerId = 'RE', modelId = 3000, pin = 'submit', replyModelId = 100 } = {}) {
+  return {
+    to: { worker_id: workerId, model_id: modelId, pin },
+    reply_to: { worker_id: 'ui-server-test', model_id: replyModelId, pin: 'result' },
+  };
+}
+
 function busSendPayload({
   sourceModelId = 100,
   pin = 'submit',
   busOutKey = 'model100_submit_bus',
   payload = [mt('message_text', 'str', 'hello_bus')],
   requestId = 'req_bus_send_0332',
+  routeValue = route({ pin, replyModelId: sourceModelId }),
 } = {}) {
   return [
     mt('__mt_payload_kind', 'str', 'bus_send.v1'),
@@ -61,6 +69,7 @@ function busSendPayload({
     mt('pin', 'str', pin),
     mt('bus_out_key', 'str', busOutKey),
     mt('payload', 'json', payload),
+    mt('route', 'json', routeValue),
   ];
 }
 

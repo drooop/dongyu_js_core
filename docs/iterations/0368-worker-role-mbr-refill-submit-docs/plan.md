@@ -2,7 +2,7 @@
 id: 0368
 title: worker-role-mbr-refill-submit-docs
 doc_type: iteration_plan
-status: Approved
+status: Completed
 updated: 2026-05-11
 source: ai
 branch: dev_0368-worker-role-mbr-refill-submit-docs
@@ -21,8 +21,9 @@ Bring the worker initialization contract, MBR/remote-worker fill-table truth, an
 
 In scope:
 
-- Replace the worker role contract with `worker.role = "dem" | "worker"` and remove active `is_DEM` usage.
-- Preserve the existing `v1n_id` lock: first trusted bootstrap writes the ID; later changes require an explicit maintenance path.
+- Replace the worker identity and role contract with `sys_worker_id / worker.id` and `sys_worker_role / worker.role`.
+- Remove active `v1n_id`, old `k=worker.role`, and `is_DEM` usage; these labels are rejected instead of treated as compatibility aliases.
+- Preserve the worker ID lock: first trusted bootstrap writes `sys_worker_id`; later changes require an explicit maintenance path.
 - Clarify startup ordering with project terms: create models and mount hierarchy, write worker identity and role, write Matrix/MQTT communication labels, load program models, declare pins, declare pin connections, then restore resumable runtime values.
 - Refill MBR so management-bus input can produce either control-bus output or management-bus output through Tier 2 ModelTable paths.
 - Refill remote-worker so ordinary workers only use control-bus pins and provider programs do not bypass the root bus outlet.
@@ -32,7 +33,7 @@ In scope:
 
 Out of scope:
 
-- Adding compatibility aliases for `is_DEM`, legacy `pin.bus.in/out`, `pin.connect.model`, `MGMT_OUT` as a formal bus outlet, or direct `ctx.publishMqtt` provider replies.
+- Adding compatibility aliases for `v1n_id`, old `k=worker.role`, `is_DEM`, legacy `pin.bus.in/out`, `pin.connect.model`, `MGMT_OUT` as a formal bus outlet, or direct `ctx.publishMqtt` provider replies.
 - Redesigning Matrix, MQTT, or MBR identity formats beyond the route fields already required by existing payloads.
 - Remote cloud deployment unless a local fix proves deployment assets are wrong and must be published separately.
 
@@ -47,10 +48,10 @@ Out of scope:
 
 ## Success Criteria
 
-- Active runtime/server/deploy/system-model files contain no `is_DEM` as the worker role source of truth.
-- Runtime role validation uses `worker.role`; invalid roles and illegal management-bus pins fail visibly.
+- Active runtime/server/deploy/system-model files contain no legacy worker identity or role source of truth.
+- Runtime role validation uses `sys_worker_role` with `t=worker.role`; invalid roles and illegal management-bus pins fail visibly.
 - Active MBR fill-table content exposes two Tier 2 paths: management input to control output, and management input to management output.
-- Active remote-worker fill-table content declares `worker.role="worker"`, rejects management-bus pins by role, and routes Model 3000 `submit1` replies through the control bus outlet path.
+- Active remote-worker fill-table content declares `sys_worker_role="V1N"`, rejects management-bus pins by role, and routes Model 3000 `submit1` replies through the control bus outlet path.
 - The minimal Submit JSON patch and HTML document explain each significant label group and the button-to-program-to-bus flow.
 - Local deployment is refreshed and Playwright verifies actual browser behavior at `http://127.0.0.1:30900/#/workspace`.
 - Each stage receives a bounded `codex-code-review` sub-agent review; findings are fixed before continuing.

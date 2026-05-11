@@ -243,7 +243,7 @@ PIN 端口按**类型**区分层级（不是按位置硬编码）：
 | Cell 级 | pin.in / pin.out | pin.login / pin.logout | 任意 Cell |
 | Model 根边界 | pin.in / pin.out | pin.login / pin.logout | 非系统模型 `(0,0,0)` |
 | 控制总线系统边界 adapter | pin.bus.cb.in / pin.bus.cb.out | 日志边界后续单独裁决；普通模型不使用 pin.log.bus.* | 软件工人 Model 0 `(0,0,0)` |
-| 管理总线系统边界 adapter | pin.bus.mb.in / pin.bus.mb.out | 日志边界后续单独裁决；普通模型不使用 pin.log.bus.* | `worker.role="dem"` 的软件工人 Model 0 `(0,0,0)` |
+| 管理总线系统边界 adapter | pin.bus.mb.in / pin.bus.mb.out | 日志边界后续单独裁决；普通模型不使用 pin.log.bus.* | `sys_worker_role="DEM"` 的软件工人 Model 0 `(0,0,0)` |
 
 系统边界 adapter 只使用上表的控制总线和管理总线两组；普通业务模型不得直接声明 bus 引脚。
 
@@ -261,7 +261,7 @@ PIN 端口按**类型**区分层级（不是按位置硬编码）：
 - 数据通道与日志通道类型隔离，不可混连。
 - pin.in 只连 pin.out；pin.login 只连 pin.logout。
 - pin.model.* 不处理 model_id=0；model_id=0 的外部出入口由 worker root 的 pin.bus.* 专属。
-- `worker.role="worker"` 的普通软件工人只能使用控制总线引脚；`worker.role="dem"` 的软件工人可以同时使用控制总线和管理总线引脚。
+- `sys_worker_role="V1N"` 的普通软件工人只能使用控制总线引脚；`sys_worker_role="DEM"` 的软件工人可以同时使用控制总线和管理总线引脚。
 - 每个函数标签（func.js / func.python）自动关联三个引脚：
   - `{funcName}:in`
   - `{funcName}:out`

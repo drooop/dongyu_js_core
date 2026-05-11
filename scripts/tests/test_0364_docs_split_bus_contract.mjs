@@ -53,6 +53,8 @@ function test_current_user_guides_use_split_bus_only() {
     const text = read(relPath);
     assertNotIncludes(text, 'pin.bus.in', relPath);
     assertNotIncludes(text, 'pin.bus.out', relPath);
+    assertNotIncludes(text, 'MGMT_OUT', relPath);
+    assertNotIncludes(text, 'MGMT_IN', relPath);
   }
   return { key: 'current_user_guides_use_split_bus_only', status: 'PASS' };
 }
@@ -77,6 +79,10 @@ function test_ssot_freezes_0364_as_current_contract() {
   ]) {
     assertIncludes(text, 'pin.bus.cb.in', name);
     assertIncludes(text, 'pin.bus.mb.out', name);
+    assertNotIncludes(text, 'MGMT_OUT', name);
+    assertNotIncludes(text, 'MGMT_IN', name);
+    assertNotIncludes(text, 'ctx.publishMqtt', name);
+    assertNotIncludes(text, 'ctx.sendMatrix', name);
     assertNotIncludes(text, '0364 前', name);
     assertNotIncludes(text, 'current window', name);
     assertNotIncludes(text, 'current migration surface', name);
@@ -106,11 +112,25 @@ function test_provider_import_docs_forbid_all_host_owned_bus_surface() {
   return { key: 'provider_import_docs_forbid_all_host_owned_bus_surface', status: 'PASS' };
 }
 
+function test_public_guides_use_canonical_worker_topic_shape() {
+  const canonicalTopic = 'UIPUT/<workspace>/<dam>/<pic>/<de>/<sw>/worker/<worker_id>/model/<model_id>/pin/<pin>';
+  const wrongTopic = 'UIPUT/<workspace>/<dam>/<pic>/<de>/<sw>/<worker_id>/model/<model_id>/pin/<pin>';
+  const runtime = read('docs/ssot/runtime_semantics_modeltable_driven.md');
+  const userGuide = read('docs/user-guide/modeltable_user_guide.md');
+
+  assertIncludes(runtime, canonicalTopic, 'runtime_semantics');
+  assertIncludes(userGuide, canonicalTopic, 'modeltable_user_guide');
+  assertNotIncludes(runtime, wrongTopic, 'runtime_semantics');
+  assertNotIncludes(userGuide, wrongTopic, 'modeltable_user_guide');
+  return { key: 'public_guides_use_canonical_worker_topic_shape', status: 'PASS' };
+}
+
 const tests = [
   test_slide_runtime_docs_use_split_bus_only,
   test_current_user_guides_use_split_bus_only,
   test_ssot_freezes_0364_as_current_contract,
   test_provider_import_docs_forbid_all_host_owned_bus_surface,
+  test_public_guides_use_canonical_worker_topic_shape,
 ];
 
 let passed = 0;

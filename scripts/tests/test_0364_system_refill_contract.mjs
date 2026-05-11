@@ -48,19 +48,23 @@ function rootLabel(records, key) {
 
 function assertWorkerIdentity(relPath, expectedRole) {
   const records = recordsOf(relPath);
-  const id = rootLabel(records, 'v1n_id');
-  const role = rootLabel(records, 'worker.role');
-  assert.ok(id, `${relPath}_must_seed_v1n_id`);
-  assert.equal(id.t, 'str', `${relPath}_v1n_id_must_be_str`);
-  assert.match(id.v, /^\d+\/\d+\/\d+\/\d+\/\d+$/u, `${relPath}_v1n_id_must_use_five_numeric_segments`);
-  assert.ok(role, `${relPath}_must_seed_worker_role`);
-  assert.equal(role.t, 'str', `${relPath}_worker_role_must_be_str`);
+  const id = rootLabel(records, 'sys_worker_id');
+  const role = rootLabel(records, 'sys_worker_role');
+  assert.ok(id, `${relPath}_must_seed_sys_worker_id`);
+  assert.equal(id.t, 'worker.id', `${relPath}_sys_worker_id_must_use_worker_id_type`);
+  assert.match(id.v, /^\d+\/\d+\/\d+\/\d+\/\d+$/u, `${relPath}_sys_worker_id_must_use_five_numeric_segments`);
+  assert.ok(role, `${relPath}_must_seed_sys_worker_role`);
+  assert.equal(role.t, 'worker.role', `${relPath}_sys_worker_role_must_use_worker_role_type`);
   assert.equal(role.v, expectedRole, `${relPath}_worker_role_mismatch`);
   assert.equal(rootLabel(records, 'is_DEM'), null, `${relPath}_must_not_seed_removed_is_DEM`);
+  assert.equal(rootLabel(records, 'v1n_id'), null, `${relPath}_must_not_seed_removed_v1n_id`);
+  assert.equal(rootLabel(records, 'worker.role'), null, `${relPath}_must_not_seed_legacy_worker_role_key`);
 }
 
 function test_system_seed_does_not_lock_worker_identity() {
   const records = recordsOf('packages/worker-base/system-models/system_models.json');
+  assert.equal(rootLabel(records, 'sys_worker_id'), null, 'system_seed_must_not_write_generic_sys_worker_id');
+  assert.equal(rootLabel(records, 'sys_worker_role'), null, 'system_seed_must_not_write_generic_sys_worker_role');
   assert.equal(rootLabel(records, 'v1n_id'), null, 'system_seed_must_not_write_generic_v1n_id');
   assert.equal(rootLabel(records, 'worker.role'), null, 'system_seed_must_not_write_generic_role');
   assert.equal(rootLabel(records, 'is_DEM'), null, 'system_seed_must_not_write_removed_role');
@@ -68,9 +72,9 @@ function test_system_seed_does_not_lock_worker_identity() {
 }
 
 function test_worker_role_patches_are_explicit() {
-  assertWorkerIdentity('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json', 'dem');
-  assertWorkerIdentity('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json', 'worker');
-  assertWorkerIdentity('deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json', 'worker');
+  assertWorkerIdentity('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json', 'DEM');
+  assertWorkerIdentity('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json', 'V1N');
+  assertWorkerIdentity('deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json', 'V1N');
   return { key: 'worker_role_patches_are_explicit', status: 'PASS' };
 }
 
@@ -82,9 +86,11 @@ function assertLoadedWorkerIdentity(roleName, relDir, expectedId, expectedRole) 
   });
   loadRolePatches(rt, relDir);
   const root = rt.getCell(rt.getModel(0), 0, 0, 0);
-  assert.equal(root.labels.get('v1n_id')?.v, expectedId, `${roleName}_loaded_v1n_id_mismatch`);
-  assert.equal(root.labels.get('worker.role')?.v, expectedRole, `${roleName}_loaded_worker_role_mismatch`);
+  assert.equal(root.labels.get('sys_worker_id')?.v, expectedId, `${roleName}_loaded_sys_worker_id_mismatch`);
+  assert.equal(root.labels.get('sys_worker_role')?.v, expectedRole, `${roleName}_loaded_sys_worker_role_mismatch`);
   assert.equal(root.labels.has('is_DEM'), false, `${roleName}_must_not_load_removed_is_DEM`);
+  assert.equal(root.labels.has('v1n_id'), false, `${roleName}_must_not_load_removed_v1n_id`);
+  assert.equal(root.labels.has('worker.role'), false, `${roleName}_must_not_load_legacy_worker_role_key`);
 }
 
 async function assertUiServerIdentity() {
@@ -99,9 +105,11 @@ async function assertUiServerIdentity() {
     const { createServerState } = await import(new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url));
     const state = createServerState({ dbPath: null });
     const root = state.runtime.getCell(state.runtime.getModel(0), 0, 0, 0);
-    assert.equal(root.labels.get('v1n_id')?.v, '5/10/28/35/13', 'ui_server_loaded_v1n_id_mismatch');
-    assert.equal(root.labels.get('worker.role')?.v, 'dem', 'ui_server_loaded_worker_role_mismatch');
+    assert.equal(root.labels.get('sys_worker_id')?.v, '5/10/28/35/13', 'ui_server_loaded_sys_worker_id_mismatch');
+    assert.equal(root.labels.get('sys_worker_role')?.v, 'DEM', 'ui_server_loaded_sys_worker_role_mismatch');
     assert.equal(root.labels.has('is_DEM'), false, 'ui_server_must_not_seed_removed_is_DEM');
+    assert.equal(root.labels.has('v1n_id'), false, 'ui_server_must_not_seed_removed_v1n_id');
+    assert.equal(root.labels.has('worker.role'), false, 'ui_server_must_not_seed_legacy_worker_role_key');
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
     delete process.env.DY_AUTH;
@@ -114,9 +122,9 @@ async function assertUiServerIdentity() {
 }
 
 function test_worker_identity_survives_actual_load_order() {
-  assertLoadedWorkerIdentity('mbr', 'deploy/sys-v1ns/mbr/patches', '5/10/28/35/14', 'dem');
-  assertLoadedWorkerIdentity('remote_worker', 'deploy/sys-v1ns/remote-worker/patches', '5/10/28/35/15', 'worker');
-  assertLoadedWorkerIdentity('ui_side_worker', 'deploy/sys-v1ns/ui-side-worker/patches', '5/10/28/35/16', 'worker');
+  assertLoadedWorkerIdentity('mbr', 'deploy/sys-v1ns/mbr/patches', '5/10/28/35/14', 'DEM');
+  assertLoadedWorkerIdentity('remote_worker', 'deploy/sys-v1ns/remote-worker/patches', '5/10/28/35/15', 'V1N');
+  assertLoadedWorkerIdentity('ui_side_worker', 'deploy/sys-v1ns/ui-side-worker/patches', '5/10/28/35/16', 'V1N');
   return { key: 'worker_identity_survives_actual_load_order', status: 'PASS' };
 }
 

@@ -15,8 +15,15 @@ function payload(value = 'hello') {
   return [mt('message_text', 'str', value)];
 }
 
-function pinPayload({ requestId = 'req_0364', sourceModelId = 100, pin = 'submit', nested = payload() } = {}) {
-  return [
+function route({ workerId = 'RE', modelId = 3000, pin = 'submit' } = {}) {
+  return {
+    to: { worker_id: workerId, model_id: modelId, pin },
+    reply_to: { worker_id: 'ui-server-test', model_id: 100, pin: 'result' },
+  };
+}
+
+function pinPayload({ requestId = 'req_0364', sourceModelId = 100, pin = 'submit', nested = payload(), routeValue = undefined } = {}) {
+  const records = [
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', requestId),
     mt('op_id', 'str', requestId),
@@ -25,9 +32,11 @@ function pinPayload({ requestId = 'req_0364', sourceModelId = 100, pin = 'submit
     mt('payload', 'json', nested),
     mt('timestamp', 'int', 1),
   ];
+  if (routeValue !== undefined) records.push(mt('route', 'json', routeValue));
+  return records;
 }
 
-function busSendPayload({ bus = null, requestId = 'req_bus_send_0364', busOutKey = 'submit_bus', pin = 'submit' } = {}) {
+function busSendPayload({ bus = null, requestId = 'req_bus_send_0364', busOutKey = 'submit_bus', pin = 'submit', routeValue = route({ pin }) } = {}) {
   const records = [
     mt('__mt_payload_kind', 'str', 'bus_send.v1'),
     mt('__mt_request_id', 'str', requestId),
@@ -36,6 +45,7 @@ function busSendPayload({ bus = null, requestId = 'req_bus_send_0364', busOutKey
     mt('bus_out_key', 'str', busOutKey),
     mt('payload', 'json', payload('from_bus_send')),
   ];
+  if (routeValue !== undefined) records.push(mt('route', 'json', routeValue));
   if (bus) records.push(mt('bus', 'str', bus));
   return records;
 }
@@ -44,8 +54,8 @@ function root(rt) {
   return rt.getModel(0);
 }
 
-function markRole(rt, value = 'dem') {
-  return rt.addLabel(root(rt), 0, 0, 0, { k: 'worker.role', t: 'str', v: value });
+function markRole(rt, value = 'DEM') {
+  return rt.addLabel(root(rt), 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: value });
 }
 
 function eventReasons(rt) {
@@ -54,7 +64,7 @@ function eventReasons(rt) {
 
 function test_legacy_bus_pin_types_are_removed() {
   const rt = new ModelTableRuntime();
-  markRole(rt, 'dem');
+  markRole(rt, 'DEM');
   const model0 = root(rt);
 
   const busIn = rt.addLabel(model0, 0, 0, 0, { k: 'old_in', t: 'pin.bus.in', v: null });
@@ -98,9 +108,9 @@ function test_management_bus_requires_dem_root() {
   const model0 = root(rt);
 
   const withoutRole = rt.addLabel(model0, 0, 0, 0, { k: 'mb_out', t: 'pin.bus.mb.out', v: null });
-  markRole(rt, 'worker');
+  markRole(rt, 'V1N');
   const ordinaryWorker = rt.addLabel(model0, 0, 0, 0, { k: 'mb_in', t: 'pin.bus.mb.in', v: null });
-  markRole(rt, 'dem');
+  markRole(rt, 'DEM');
   const demWorker = rt.addLabel(model0, 0, 0, 0, { k: 'mb_out', t: 'pin.bus.mb.out', v: null });
 
   assert.equal(withoutRole.applied, false, 'management bus pin without DEM role must be rejected');
@@ -111,37 +121,42 @@ function test_management_bus_requires_dem_root() {
   return { key: 'management_bus_requires_dem_root', status: 'PASS' };
 }
 
-function test_worker_role_replaces_removed_is_dem_label() {
+function test_worker_role_replaces_removed_legacy_role_labels() {
   const rt = new ModelTableRuntime();
   const model0 = root(rt);
   const removedRole = rt.addLabel(model0, 0, 0, 0, { k: 'is_DEM', t: 'bool', v: true });
-  const invalidValue = rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'admin' });
-  const invalidType = rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'bool', v: true });
-  const wrongCell = rt.addLabel(model0, 0, 0, 1, { k: 'worker.role', t: 'str', v: 'dem' });
-  const valid = rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
+  const removedLegacyKey = rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
+  const invalidValue = rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'admin' });
+  const invalidCase = rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'dem' });
+  const invalidType = rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_role', t: 'str', v: 'DEM' });
+  const wrongCell = rt.addLabel(model0, 0, 0, 1, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
+  const valid = rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
 
   assert.equal(removedRole.applied, false, 'removed is_DEM label must be rejected');
-  assert.equal(invalidValue.applied, false, 'worker.role must reject unknown roles');
-  assert.equal(invalidType.applied, false, 'worker.role must be string typed');
-  assert.equal(wrongCell.applied, false, 'worker.role must be on Model 0 root');
-  assert.equal(valid.applied, true, 'worker.role=dem must be accepted on Model 0 root');
+  assert.equal(removedLegacyKey.applied, false, 'legacy worker.role key must be rejected');
+  assert.equal(invalidValue.applied, false, 'sys_worker_role must reject unknown roles');
+  assert.equal(invalidCase.applied, false, 'sys_worker_role must reject lowercase legacy values');
+  assert.equal(invalidType.applied, false, 'sys_worker_role must use worker.role type');
+  assert.equal(wrongCell.applied, false, 'sys_worker_role must be on Model 0 root');
+  assert.equal(valid.applied, true, 'sys_worker_role=DEM must be accepted on Model 0 root');
   assert.equal(model0.getCell(0, 0, 0).labels.has('is_DEM'), false, 'removed is_DEM label must not be stored');
-  assert.equal(model0.getCell(0, 0, 0).labels.get('worker.role')?.v, 'dem', 'worker.role must be stored as role truth');
+  assert.equal(model0.getCell(0, 0, 0).labels.has('worker.role'), false, 'legacy worker.role key must not be stored');
+  assert.equal(model0.getCell(0, 0, 0).labels.get('sys_worker_role')?.v, 'DEM', 'sys_worker_role must be stored as role truth');
   assert.ok(eventReasons(rt).includes('worker_role_label_removed'), 'removed role rejection must be explicit');
-  return { key: 'worker_role_replaces_removed_is_dem_label', status: 'PASS' };
+  return { key: 'worker_role_replaces_removed_legacy_role_labels', status: 'PASS' };
 }
 
 function test_worker_role_downgrade_is_rejected_when_management_bus_pins_exist() {
   const rt = new ModelTableRuntime();
   const model0 = root(rt);
-  const demRole = rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
+  const demRole = rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
   const managementOut = rt.addLabel(model0, 0, 0, 0, { k: 'mb_out', t: 'pin.bus.mb.out', v: null });
-  const downgrade = rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'worker' });
+  const downgrade = rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'V1N' });
 
-  assert.equal(demRole.applied, true, 'worker.role=dem must be accepted');
+  assert.equal(demRole.applied, true, 'sys_worker_role=DEM must be accepted');
   assert.equal(managementOut.applied, true, 'DEM must be able to declare management bus output');
-  assert.equal(downgrade.applied, false, 'worker.role downgrade must be rejected when management bus pins exist');
-  assert.equal(model0.getCell(0, 0, 0).labels.get('worker.role')?.v, 'dem', 'rejected downgrade must leave DEM role intact');
+  assert.equal(downgrade.applied, false, 'sys_worker_role downgrade must be rejected when management bus pins exist');
+  assert.equal(model0.getCell(0, 0, 0).labels.get('sys_worker_role')?.v, 'DEM', 'rejected downgrade must leave DEM role intact');
   assert.ok(
     eventReasons(rt).includes('worker_role_conflicts_with_management_bus_pins'),
     'role downgrade rejection must be explicit',
@@ -149,9 +164,32 @@ function test_worker_role_downgrade_is_rejected_when_management_bus_pins_exist()
   return { key: 'worker_role_downgrade_is_rejected_when_management_bus_pins_exist', status: 'PASS' };
 }
 
+function test_worker_id_replaces_removed_v1n_id_label() {
+  const rt = new ModelTableRuntime();
+  const model0 = root(rt);
+  const removedLegacyId = rt.addLabel(model0, 0, 0, 0, { k: 'v1n_id', t: 'str', v: '5/10/28/35/13' });
+  const invalidType = rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_id', t: 'str', v: '5/10/28/35/13' });
+  const invalidValue = rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_id', t: 'worker.id', v: 'ui-server' });
+  const wrongCell = rt.addLabel(model0, 0, 0, 1, { k: 'sys_worker_id', t: 'worker.id', v: '5/10/28/35/13' });
+  const valid = rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_id', t: 'worker.id', v: '5/10/28/35/13' });
+  const locked = rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_id', t: 'worker.id', v: '5/10/28/35/99' });
+
+  assert.equal(removedLegacyId.applied, false, 'legacy v1n_id must be rejected');
+  assert.equal(invalidType.applied, false, 'sys_worker_id must use worker.id type');
+  assert.equal(invalidValue.applied, false, 'sys_worker_id must use five numeric segments');
+  assert.equal(wrongCell.applied, false, 'sys_worker_id must be on Model 0 root');
+  assert.equal(valid.applied, true, 'sys_worker_id must accept five numeric segments on Model 0 root');
+  assert.equal(locked.applied, false, 'sys_worker_id must be locked after the first trusted bootstrap value');
+  assert.equal(model0.getCell(0, 0, 0).labels.has('v1n_id'), false, 'legacy v1n_id key must not be stored');
+  assert.equal(model0.getCell(0, 0, 0).labels.get('sys_worker_id')?.v, '5/10/28/35/13', 'locked worker id must keep original value');
+  assert.ok(eventReasons(rt).includes('worker_id_label_removed'), 'removed id rejection must be explicit');
+  assert.ok(eventReasons(rt).includes('worker_id_locked'), 'worker id lock rejection must be explicit');
+  return { key: 'worker_id_replaces_removed_v1n_id_label', status: 'PASS' };
+}
+
 function test_mqtt_bus_in_preserves_declared_split_type() {
   const rt = new ModelTableRuntime();
-  markRole(rt, 'dem');
+  markRole(rt, 'DEM');
   const model0 = root(rt);
   rt.addLabel(model0, 0, 0, 0, { k: 'mb_event', t: 'pin.bus.mb.in', v: null });
 
@@ -165,9 +203,45 @@ function test_mqtt_bus_in_preserves_declared_split_type() {
   return { key: 'mqtt_bus_in_preserves_declared_split_type', status: 'PASS' };
 }
 
+function test_split_bus_out_requires_route_to_metadata() {
+  const rt = new ModelTableRuntime();
+  markRole(rt, 'DEM');
+  const model0 = root(rt);
+
+  const missingRoute = rt.addLabel(model0, 0, 0, 0, {
+    k: 'missing_route_mb_out',
+    t: 'pin.bus.mb.out',
+    v: pinPayload({ requestId: 'req_missing_route_0364' }),
+  });
+  const missingTo = rt.addLabel(model0, 0, 0, 0, {
+    k: 'missing_to_cb_out',
+    t: 'pin.bus.cb.out',
+    v: pinPayload({ requestId: 'req_missing_to_0364', routeValue: { reply_to: route().reply_to } }),
+  });
+  const invalidTo = rt.addLabel(model0, 0, 0, 0, {
+    k: 'invalid_to_cb_out',
+    t: 'pin.bus.cb.out',
+    v: pinPayload({ requestId: 'req_invalid_to_0364', routeValue: { to: { worker_id: '', model_id: -1, pin: 'bad/pin' } } }),
+  });
+  const valid = rt.addLabel(model0, 0, 0, 0, {
+    k: 'valid_mb_out',
+    t: 'pin.bus.mb.out',
+    v: pinPayload({ requestId: 'req_valid_route_0364', routeValue: route() }),
+  });
+
+  assert.equal(missingRoute.applied, false, 'split bus out must reject pin_payload.v1 without route.to');
+  assert.equal(missingTo.applied, false, 'split bus out must reject route metadata without route.to');
+  assert.equal(invalidTo.applied, false, 'split bus out must reject invalid route.to');
+  assert.equal(valid.applied, true, 'split bus out must accept pin_payload.v1 with valid route.to');
+  assert.equal(model0.getCell(0, 0, 0).labels.has('missing_route_mb_out'), false, 'route-less management bus out must not be stored');
+  assert.equal(model0.getCell(0, 0, 0).labels.has('missing_to_cb_out'), false, 'route metadata without to must not be stored');
+  assert.equal(model0.getCell(0, 0, 0).labels.get('valid_mb_out')?.t, 'pin.bus.mb.out', 'valid route bus out remains stored');
+  return { key: 'split_bus_out_requires_route_to_metadata', status: 'PASS' };
+}
+
 function test_mt_bus_send_selects_declared_bus_family() {
   const rt = new ModelTableRuntime();
-  markRole(rt, 'dem');
+  markRole(rt, 'DEM');
   const model0 = root(rt);
   const management = rt._applyBusSendPayload(model0, 0, 0, 0, busSendPayload({ bus: 'management', busOutKey: 'mb_submit_bus' }));
   const managementLabel = model0.getCell(0, 0, 0).labels.get('mb_submit_bus');
@@ -191,9 +265,11 @@ const tests = [
   test_legacy_bus_pin_types_are_removed,
   test_control_bus_pins_are_root_only_and_route_payloads,
   test_management_bus_requires_dem_root,
-  test_worker_role_replaces_removed_is_dem_label,
+  test_worker_role_replaces_removed_legacy_role_labels,
   test_worker_role_downgrade_is_rejected_when_management_bus_pins_exist,
+  test_worker_id_replaces_removed_v1n_id_label,
   test_mqtt_bus_in_preserves_declared_split_type,
+  test_split_bus_out_requires_route_to_metadata,
   test_mt_bus_send_selects_declared_bus_family,
 ];
 

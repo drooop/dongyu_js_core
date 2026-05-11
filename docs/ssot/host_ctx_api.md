@@ -146,16 +146,13 @@ API 约束：
 - 这三个程序拥有模型内特权：可读写当前模型内任意 Cell。
 - 替代原 `(0,1,0)` helper executor 模式；当前 runtime 不再使用 helper executor 授权路径。
 
-## 5. MGMT 相关（待迁移）
+## 5. 总线相关
 
-以下 API 在后续实现迭代中将迁移为 pin 链路通信：
+0368 后，用户程序模型不暴露管理总线直连 API，也不暴露 direct Matrix / MQTT send helper。
 
-- `ctx.getMgmtOutPayload(channel?)` → DEPRECATED
-- `ctx.getMgmtInTarget(channel)` → DEPRECATED
-- `ctx.getMgmtInbox()` / `ctx.clearMgmtInbox()` → DEPRECATED
-- `ctx.sendMatrix(payload)` → DEPRECATED
+当前外发方向：通过 `(0,0,0)` `mt_bus_send` 经 pin 链路上行到 Model 0，由 Model 0 的 `pin.bus.mb.out` 或 `pin.bus.cb.out` 进入宿主 bridge。
 
-迁移方向：通过 (0,0,0) mt_bus_send 经 pin 链路上行到 Model 0，由 Model 0 负责管理总线外发。
+当前入站方向：外部消息进入 Model 0 的 `pin.bus.mb.in` 或 `pin.bus.cb.in`，再由 pin route / owner materialization 到目标模型。
 
 ## 6. PIN/MQTT 相关（系统级，非用户程序面）
 

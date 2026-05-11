@@ -59,7 +59,7 @@ async function test_runtime_mailbox_submit_routes_into_model0_and_target_pin() {
   const model100 = rt.createModel({ id: 100, name: 'model100', type: 'app' });
 
   const model0 = rt.getModel(0);
-  rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
   rt.addLabel(model0, 9, 0, 100, { k: 'model_type', t: 'model.submt', v: 100 });
   rt.addLabel(model0, 9, 0, 100, { k: 'submit_request', t: 'pin.in', v: null });
   rt.addLabel(model0, 0, 0, 0, {
@@ -92,7 +92,7 @@ async function test_runtime_mailbox_system_action_routes_into_model0_and_negativ
   const systemModel = rt.createModel({ id: -10, name: 'system_handlers', type: 'system' });
 
   const model0 = rt.getModel(0);
-  rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
   rt.addLabel(model0, 9, 0, 10, { k: 'model_type', t: 'model.submt', v: -10 });
   rt.addLabel(model0, 9, 0, 10, { k: 'slide_app_create_request', t: 'pin.in', v: null });
   rt.addLabel(model0, 0, 0, 0, {

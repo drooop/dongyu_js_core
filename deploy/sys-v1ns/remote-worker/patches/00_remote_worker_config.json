@@ -9,8 +9,8 @@
       "p": 0,
       "r": 0,
       "c": 0,
-      "k": "v1n_id",
-      "t": "str",
+      "k": "sys_worker_id",
+      "t": "worker.id",
       "v": "5/10/28/35/15"
     },
     {
@@ -19,9 +19,9 @@
       "p": 0,
       "r": 0,
       "c": 0,
-      "k": "worker.role",
-      "t": "str",
-      "v": "worker"
+      "k": "sys_worker_role",
+      "t": "worker.role",
+      "v": "V1N"
     },
     {
       "op": "add_label",
@@ -87,6 +87,91 @@
       "k": "model_type",
       "t": "model.submt",
       "v": -10
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_result_bus",
+      "t": "pin.bus.cb.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_result_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [
+            1,
+            0,
+            0,
+            "result"
+          ],
+          "to": [
+            [
+              0,
+              0,
+              0,
+              "remote_result_bus"
+            ]
+          ]
+        },
+        {
+          "from": [
+            1,
+            0,
+            10,
+            "result"
+          ],
+          "to": [
+            [
+              0,
+              0,
+              0,
+              "remote_result_bus"
+            ]
+          ]
+        },
+        {
+          "from": [
+            1,
+            0,
+            19,
+            "result"
+          ],
+          "to": [
+            [
+              0,
+              0,
+              0,
+              "remote_result_bus"
+            ]
+          ]
+        },
+        {
+          "from": [
+            1,
+            0,
+            30,
+            "result"
+          ],
+          "to": [
+            [
+              0,
+              0,
+              0,
+              "remote_result_bus"
+            ]
+          ]
+        }
+      ]
     }
   ]
 }

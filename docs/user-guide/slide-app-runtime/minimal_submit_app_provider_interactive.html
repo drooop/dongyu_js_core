@@ -438,15 +438,46 @@
 
     <article class="panel" id="stage-ui">
       <h2>UI 是细粒度 cellwise 填表</h2>
-      <p>页面不是 HTML 字符串。每个可见部件都是一个 cell，正式业务提交进入 Model 0。</p>
+      <p>页面不是 HTML 字符串。每个可见部件都是一个 cell；按钮点击先写入本 Cell 的 <code>click_chain</code>，再通过 root 接线触发 <code>handle_submit</code>，最后由 root <code>submit1 pin.out</code> 进入双总线。</p>
       <div class="grid">
         <div class="card"><code>(2,0,0)</code><strong>Container</strong><br>页面根容器。</div>
         <div class="card"><code>(2,1,0)</code><strong>Card</strong><br>标题为 <code>最小 Submit 双总线示例</code>。</div>
-        <div class="card"><code>(2,3,0)</code><strong>Input</strong><br>读写 <code>input_text</code>，<code>commit_policy=on_blur</code>。</div>
-        <div class="card"><code>(2,4,0)</code><strong>Button</strong><br><code>bus_event_v2=true</code>，提交临时 records。</div>
-        <div class="card"><code>(2,5,0)</code><strong>Text</strong><br>读取 <code>display_text</code>。</div>
-        <div class="card"><code>(2,6,0)</code><strong>StatusBadge</strong><br>读取 <code>remote_status</code>。</div>
+        <div class="card"><code>(2,2,0)</code><strong>Input</strong><br>读写 <code>input_text</code>，<code>commit_policy=on_blur</code>。</div>
+        <div class="card"><code>(2,3,0)</code><strong>Button</strong><br><code>ui_bind_json.write.pin=click_chain</code>，提交临时 records。</div>
+        <div class="card"><code>(2,4,0)</code><strong>Text</strong><br>读取 <code>display_text</code>。</div>
+        <div class="card"><code>(2,5,0)</code><strong>StatusBadge</strong><br>读取 <code>remote_status</code>。</div>
       </div>
+      <h3>按钮事件绑定</h3>
+      <p><code>ui_bind_json</code> 的 <code>value_ref</code> 会被前端解析成 ModelTable-like records，并写到按钮 Cell 的 <code>click_chain pin.in</code>。这里不直接写 <code>display_text</code>，也不直接发 Matrix。</p>
+      <pre>{
+  "cell": [2, 3, 0],
+  "labels": {
+    "ui_component": "Button",
+    "click_chain": "pin.in",
+    "ui_bind_json.write.pin": "click_chain",
+    "ui_bind_json.write.value_t": "modeltable",
+    "ui_bind_json.write.value_ref": [
+      "__mt_payload_kind=ui_event.v1",
+      "text=$label(input_text)",
+      "source=ui_button"
+    ]
+  }
+}</pre>
+      <h3>从按钮到程序模型</h3>
+      <p>root 的 <code>root_routes</code> 用 <code>pin.connect.cell</code> 把 <code>[2,3,0,click_chain]</code> 接到 root <code>submit_request</code>；root 的 <code>submit_request_wiring</code> 再用 <code>pin.connect.label</code> 触发 <code>handle_submit:in</code>。</p>
+      <pre>{
+  "root_labels": {
+    "host_ingress_v1": "declares submit_request as import boundary",
+    "remote_bus_endpoint_v1": "route.to worker/model = RE / 3000",
+    "dual_bus_model": "egress_pins = [submit1]",
+    "submit_request": "pin.in",
+    "submit_request_wiring": "submit_request -> handle_submit:in",
+    "root_routes": "[2,3,0,click_chain] -> [0,0,0,submit_request]",
+    "handle_submit": "func.js, reads only text record",
+    "submit1": "pin.out, public egress pin"
+  }
+}</pre>
+      <div class="note">当前示例不接受 <code>input_value</code>、<code>message_text</code> 或嵌套 <code>value.text</code> 兜底。payload 中没有 <code>text</code> 就按空输入处理。</div>
       <pre id="payloadPreview"></pre>
     </article>
 
@@ -494,6 +525,9 @@
   "payload": [
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Submitted: hello from external client" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "remote_status", "t": "str", "v": "remote_processed" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "last_submit_payload", "t": "json", "v": [
+      { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello from external client" }
+    ] },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit_inflight", "t": "bool", "v": false }
   ],
   "timestamp": 1778115520131
@@ -507,7 +541,7 @@
       <div class="grid">
         <div class="card"><code>pin.connect.model</code><strong>禁止</strong><br>当前规约改用 <code>pin.connect.cell</code> 和 <code>model.submt</code> 边界。</div>
         <div class="card"><code>ctx.writeLabel/getLabel/rmLabel</code><strong>禁止</strong><br>程序模型写 label 使用当前 <code>V1N</code> 口径。</div>
-        <div class="card"><code>input_value fallback</code><strong>禁止</strong><br>RE submit 程序只读 <code>text</code>。</div>
+        <div class="card"><code>input_value / message_text fallback</code><strong>禁止</strong><br>UI 和 RE submit 程序都只读 <code>text</code>。</div>
         <div class="card"><code>route.reply_to in zip</code><strong>禁止</strong><br>回包目标由 UI Server 运行时生成，不能由第三方包覆盖。</div>
         <div class="card"><code>MBR per-app route</code><strong>禁止</strong><br>MBR 应读取消息内 <code>route.to</code> 通用转发。</div>
         <div class="card"><code>frontend direct Matrix</code><strong>禁止</strong><br>正式业务先进入 Model 0。</div>
