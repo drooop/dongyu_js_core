@@ -242,6 +242,65 @@ function test_minimal_submit_docs_explain_ui_server_install_materialization() {
   return { key: 'minimal_submit_docs_explain_ui_server_install_materialization', status: 'PASS' };
 }
 
+function test_minimal_submit_docs_explain_submit_button_modeltable_recipe() {
+  const guide = readText('docs/user-guide/slide-app-runtime/minimal_submit_app_provider_guide.md');
+  const interactive = readText('docs/user-guide/slide-app-runtime/minimal_submit_app_provider_interactive.html');
+  for (const [path, text] of [
+    ['minimal_submit_app_provider_guide.md', guide],
+    ['minimal_submit_app_provider_interactive.html', interactive],
+  ]) {
+    for (const required of [
+      'Submit 类提交按钮',
+      '按钮 Cell labels',
+      'ui_component',
+      'Button',
+      'ui_label',
+      'click_chain',
+      'ui_bind_json',
+      'write.pin',
+      'value_t',
+      'modeltable',
+      'value_ref',
+      '__mt_payload_kind',
+      'ui_event.v1',
+      'text',
+      'source',
+      'input_text',
+      'Root 入口',
+      'submit_request',
+      'root_routes',
+      'submit_request_wiring',
+      'handle_submit',
+      'handle_submit:in',
+      'submit1',
+      'pin.out',
+      'dual_bus_model',
+      'egress_pins',
+      'remote_bus_endpoint_v1',
+      'host_ingress_v1',
+      'submit_inflight',
+      'last_submit_payload',
+      'remote_status',
+      'display_text',
+      '生效顺序',
+      '多个提交按钮',
+      'approve_click_chain',
+      'approve_request',
+      'handle_approve',
+      'approve1',
+    ]) {
+      assert.ok(text.includes(required), `${path} must explain submit-button ModelTable recipe detail: ${required}`);
+    }
+    assert.match(text, /ui_bind_json.*click_chain/us, `${path} must link ui_bind_json to click_chain`);
+    assert.match(text, /click_chain.*submit_request/us, `${path} must link click_chain to submit_request`);
+    assert.match(text, /submit_request.*handle_submit:in/us, `${path} must link submit_request to handle_submit`);
+    assert.match(text, /handle_submit.*submit1.*pin\.out/us, `${path} must link handle_submit to submit1 pin.out`);
+    assert.match(text, /dual_bus_model.*egress_pins.*submit1/us, `${path} must link egress_pins to submit1`);
+    assert.match(text, /(?:display_text.*remote_status|remote_status.*display_text)/us, `${path} must explain result/status labels together`);
+  }
+  return { key: 'minimal_submit_docs_explain_submit_button_modeltable_recipe', status: 'PASS' };
+}
+
 const tests = [
   test_all_public_docs_cover_required_operational_steps,
   test_provider_assets_have_no_compatibility_route,
@@ -249,6 +308,7 @@ const tests = [
   test_provider_docs_result_payload_examples_keep_current_shape,
   test_minimal_submit_docs_explain_full_patch_labels_and_submit_chain,
   test_minimal_submit_docs_explain_ui_server_install_materialization,
+  test_minimal_submit_docs_explain_submit_button_modeltable_recipe,
 ];
 let passed = 0;
 let failed = 0;
