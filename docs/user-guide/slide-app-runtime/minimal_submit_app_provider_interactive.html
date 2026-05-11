@@ -289,6 +289,38 @@
     font-weight: 900;
   }
 
+  .table-wrap {
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, .72);
+    margin: 16px 0;
+  }
+
+  table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    border-bottom: 1px solid #e5d8c7;
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: #f3eadc;
+    color: #3f4b5a;
+    font-size: 12px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  td { font-size: 14px; }
+  tr:last-child td { border-bottom: 0; }
+
   .steps {
     counter-reset: step;
     display: grid;
@@ -377,9 +409,10 @@
     <button class="stage active" data-stage="overview"><strong>1. 先看结果</strong><span>真实双总线路径</span></button>
     <button class="stage" data-stage="r1"><strong>2. RE 怎么填</strong><span>remote-worker 模型表</span></button>
     <button class="stage" data-stage="ui"><strong>3. UI 怎么写</strong><span>cellwise 组件拆分</span></button>
-    <button class="stage" data-stage="import"><strong>4. 怎么导入</strong><span>zip 与滑动 APP 导入</span></button>
-    <button class="stage" data-stage="external"><strong>5. 外部收发</strong><span>Matrix/MQTT 测试</span></button>
-    <button class="stage" data-stage="guard"><strong>6. 禁止残留</strong><span>无兼容链路</span></button>
+    <button class="stage" data-stage="labels"><strong>4. Patch labels</strong><span>61 条 label 说明</span></button>
+    <button class="stage" data-stage="import"><strong>5. 怎么导入</strong><span>zip 与滑动 APP 导入</span></button>
+    <button class="stage" data-stage="external"><strong>6. 外部收发</strong><span>Matrix/MQTT 测试</span></button>
+    <button class="stage" data-stage="guard"><strong>7. 禁止残留</strong><span>无兼容链路</span></button>
   </nav>
 
   <section class="content">
@@ -475,10 +508,106 @@
     "root_routes": "[2,3,0,click_chain] -> [0,0,0,submit_request]",
     "handle_submit": "func.js, reads only text record",
     "submit1": "pin.out, public egress pin"
-  }
+      }
 }</pre>
-      <div class="note">当前示例不接受 <code>input_value</code>、<code>message_text</code> 或嵌套 <code>value.text</code> 兜底。payload 中没有 <code>text</code> 就按空输入处理。</div>
+      <h3>完整触发链路</h3>
+      <pre>(2,3,0) Button ui_bind_json
+-> writes temporary ModelTable records to (2,3,0) click_chain
+-> root_routes: [2,3,0,"click_chain"] -> [0,0,0,"submit_request"]
+-> submit_request_wiring: submit_request -> handle_submit:in
+-> handle_submit func.js reads text and writes root submit1 pin.out
+-> generated host egress adapter reads remote_bus_endpoint_v1 + dual_bus_model.egress_pins
+-> Model 0 mt_bus_send / pin.bus.mb.out
+-> Matrix dy.bus.v0 to @mbr:&lt;host_url&gt;
+-> MBR derives MQTT topic from route.to = RE / 3000 / submit1
+-> RE Model 3000 public submit1 pin
+-> RE submit1 program returns pin_payload.v1 to route.reply_to
+-> UI Server materializes display_text / remote_status on local installed model</pre>
+      <div class="note">当前示例不接受 <code>input_value</code>、<code>message_text</code> 或嵌套 <code>value.text</code> 兜底。payload 中没有 <code>text</code> 就按空输入处理。<code>Submit</code> 这类按钮只产生 ModelTable-like 事件；后续是否触发程序、是否外发双总线，由模型表引脚和接线决定。</div>
       <pre id="payloadPreview"></pre>
+    </article>
+
+    <article class="panel" id="stage-labels">
+      <h2>完整 patch labels 对照表</h2>
+      <p><code>test_files/minimal_submit_dual_bus_app_payload.json</code> 是一个 61 条 record 的 ModelTable records array。zip 内只包含 <code>app_payload.json</code>，它不能携带安装后的正式 model id、<code>route.reply_to</code> 或 host-generated labels。</p>
+      <h3>Root labels：状态、导入合同、远端路由、程序链路</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Cell</th><th>label.k</th><th>label.t</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td>(0,0,0)</td><td><code>model_type</code></td><td><code>model.table</code></td><td>声明这是一个可挂载的 UI 表模型。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>app_name</code></td><td><code>str</code></td><td>Workspace 资产树和页面标题显示的应用名。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>source_worker</code></td><td><code>str</code></td><td>交付来源元信息；不决定路由。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>slide_capable</code></td><td><code>bool</code></td><td>声明该模型可作为滑动 APP 被导入和挂载。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>slide_surface_type</code></td><td><code>str</code></td><td>声明展示面类型，当前是 Workspace 页面。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>from_user</code></td><td><code>str</code></td><td>导入来源用户元信息；导入器可覆盖或记录。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>to_user</code></td><td><code>str</code></td><td>示例 Matrix 目标元信息；正式外发目标以运行时 <code>route.to</code> 为准。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>ui_authoring_version</code></td><td><code>str</code></td><td>声明 UI 写法版本为 <code>cellwise.ui.v1</code>。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>ui_root_node_id</code></td><td><code>str</code></td><td>指向页面根 UI 节点。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>input_text</code></td><td><code>str</code></td><td>输入框绑定的草稿值。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>display_text</code></td><td><code>str</code></td><td>页面显示结果，初始为 <code>Waiting for submit</code>。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>remote_status</code></td><td><code>str</code></td><td>状态徽标读取的远端处理状态。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>submit_inflight</code></td><td><code>bool</code></td><td>标记 Submit 是否等待回包。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>last_submit_payload</code></td><td><code>json</code></td><td>保存最后一次提交的业务 payload。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>host_ingress_v1</code></td><td><code>json</code></td><td>告诉宿主导入器正式入口是 <code>submit_request</code>。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>remote_bus_endpoint_v1</code></td><td><code>json</code></td><td>声明远端默认目标 <code>RE / 3000</code>；不写 <code>to.pin</code> 或 <code>reply_to</code>。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>dual_bus_model</code></td><td><code>json</code></td><td>声明公开双总线出口，本示例为 <code>submit1</code>。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>submit_request</code></td><td><code>pin.in</code></td><td>root 内部业务入口。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>submit1</code></td><td><code>pin.out</code></td><td>对外公开出口，触发宿主生成的 Model 0 双总线 adapter。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>submit_request_wiring</code></td><td><code>pin.connect.label</code></td><td>把 <code>submit_request</code> 接到 <code>handle_submit:in</code>。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>root_routes</code></td><td><code>pin.connect.cell</code></td><td>把按钮 Cell 的 <code>click_chain</code> 接到 root <code>submit_request</code>。</td></tr>
+            <tr><td>(0,0,0)</td><td><code>handle_submit</code></td><td><code>func.js</code></td><td>后端模型表运行环境里的程序模型：读取 <code>text</code> 并写 <code>submit1 pin.out</code>。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>UI labels：每个可见部件一个 Cell</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Cell</th><th>label.k</th><th>label.t</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td>(2,0,0)</td><td><code>ui_node_id</code></td><td><code>str</code></td><td>页面根容器节点 id。</td></tr>
+            <tr><td>(2,0,0)</td><td><code>ui_component</code></td><td><code>str</code></td><td>渲染为 <code>Container</code>。</td></tr>
+            <tr><td>(2,0,0)</td><td><code>ui_layout</code></td><td><code>str</code></td><td>根容器纵向排列。</td></tr>
+            <tr><td>(2,0,0)</td><td><code>ui_gap</code></td><td><code>int</code></td><td>根容器子组件间距。</td></tr>
+            <tr><td>(2,1,0)</td><td><code>ui_node_id</code></td><td><code>str</code></td><td>Card 节点 id。</td></tr>
+            <tr><td>(2,1,0)</td><td><code>ui_component</code></td><td><code>str</code></td><td>渲染为 <code>Card</code>。</td></tr>
+            <tr><td>(2,1,0)</td><td><code>ui_parent</code></td><td><code>str</code></td><td>Card 挂到根容器。</td></tr>
+            <tr><td>(2,1,0)</td><td><code>ui_order</code></td><td><code>int</code></td><td>Card 在根容器中的排序。</td></tr>
+            <tr><td>(2,1,0)</td><td><code>ui_title</code></td><td><code>str</code></td><td>Card 标题。</td></tr>
+            <tr><td>(2,2,0)</td><td><code>ui_node_id</code></td><td><code>str</code></td><td>Input 节点 id。</td></tr>
+            <tr><td>(2,2,0)</td><td><code>ui_component</code></td><td><code>str</code></td><td>渲染为 <code>Input</code>。</td></tr>
+            <tr><td>(2,2,0)</td><td><code>ui_parent</code></td><td><code>str</code></td><td>Input 挂到 Card。</td></tr>
+            <tr><td>(2,2,0)</td><td><code>ui_order</code></td><td><code>int</code></td><td>Input 排序。</td></tr>
+            <tr><td>(2,2,0)</td><td><code>ui_placeholder</code></td><td><code>str</code></td><td>输入框占位文案。</td></tr>
+            <tr><td>(2,2,0)</td><td><code>ui_bind_json</code></td><td><code>json</code></td><td>Input 读写 root <code>input_text</code>，写入策略为 <code>on_blur</code>。</td></tr>
+            <tr><td>(2,3,0)</td><td><code>ui_node_id</code></td><td><code>str</code></td><td>Button 节点 id。</td></tr>
+            <tr><td>(2,3,0)</td><td><code>ui_component</code></td><td><code>str</code></td><td>渲染为 <code>Button</code>。</td></tr>
+            <tr><td>(2,3,0)</td><td><code>ui_parent</code></td><td><code>str</code></td><td>Button 挂到 Card。</td></tr>
+            <tr><td>(2,3,0)</td><td><code>ui_order</code></td><td><code>int</code></td><td>Button 排序。</td></tr>
+            <tr><td>(2,3,0)</td><td><code>ui_label</code></td><td><code>str</code></td><td>按钮文字 <code>Submit</code>。</td></tr>
+            <tr><td>(2,3,0)</td><td><code>ui_variant</code></td><td><code>str</code></td><td>按钮外观为 primary。</td></tr>
+            <tr><td>(2,3,0)</td><td><code>click_chain</code></td><td><code>pin.in</code></td><td>按钮点击时写入的本 Cell 普通引脚。</td></tr>
+            <tr><td>(2,3,0)</td><td><code>ui_bind_json</code></td><td><code>json</code></td><td>Button 点击绑定：生成临时 records，写入 <code>click_chain</code>。</td></tr>
+            <tr><td>(2,4,0)</td><td><code>ui_node_id</code></td><td><code>str</code></td><td>Text 节点 id。</td></tr>
+            <tr><td>(2,4,0)</td><td><code>ui_component</code></td><td><code>str</code></td><td>渲染为 <code>Text</code>。</td></tr>
+            <tr><td>(2,4,0)</td><td><code>ui_parent</code></td><td><code>str</code></td><td>Text 挂到 Card。</td></tr>
+            <tr><td>(2,4,0)</td><td><code>ui_order</code></td><td><code>int</code></td><td>Text 排序。</td></tr>
+            <tr><td>(2,4,0)</td><td><code>ui_variant</code></td><td><code>str</code></td><td>Text 采用 success 外观。</td></tr>
+            <tr><td>(2,4,0)</td><td><code>ui_bind_json</code></td><td><code>json</code></td><td>Text 读取 root <code>display_text</code>。</td></tr>
+            <tr><td>(2,5,0)</td><td><code>ui_node_id</code></td><td><code>str</code></td><td>StatusBadge 节点 id。</td></tr>
+            <tr><td>(2,5,0)</td><td><code>ui_component</code></td><td><code>str</code></td><td>渲染为 <code>StatusBadge</code>。</td></tr>
+            <tr><td>(2,5,0)</td><td><code>ui_parent</code></td><td><code>str</code></td><td>StatusBadge 挂到 Card。</td></tr>
+            <tr><td>(2,5,0)</td><td><code>ui_order</code></td><td><code>int</code></td><td>StatusBadge 排序。</td></tr>
+            <tr><td>(2,5,0)</td><td><code>ui_label</code></td><td><code>str</code></td><td>状态前缀显示为 <code>REMOTE</code>。</td></tr>
+            <tr><td>(2,5,0)</td><td><code>ui_text_ref_model_id</code></td><td><code>int</code></td><td>引用 zip 内临时 root 模型；导入后 remap。</td></tr>
+            <tr><td>(2,5,0)</td><td><code>ui_text_ref_p</code></td><td><code>int</code></td><td>状态值引用的 p 坐标。</td></tr>
+            <tr><td>(2,5,0)</td><td><code>ui_text_ref_r</code></td><td><code>int</code></td><td>状态值引用的 r 坐标。</td></tr>
+            <tr><td>(2,5,0)</td><td><code>ui_text_ref_c</code></td><td><code>int</code></td><td>状态值引用的 c 坐标。</td></tr>
+            <tr><td>(2,5,0)</td><td><code>ui_text_ref_k</code></td><td><code>str</code></td><td>状态值读取 root <code>remote_status</code>。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">最关键的有效性链路是：<code>ui_bind_json</code> 写 <code>click_chain</code>，<code>root_routes</code> 转给 <code>submit_request</code>，<code>submit_request_wiring</code> 触发 <code>handle_submit:in</code>，程序再写 <code>submit1 pin.out</code>，由宿主生成的 egress adapter 进入 Model 0 双总线。</div>
     </article>
 
     <article class="panel" id="stage-import">
