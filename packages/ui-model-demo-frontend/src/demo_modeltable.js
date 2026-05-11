@@ -253,6 +253,7 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_v_text', t: 'str', v: 'Hello' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_v_int', t: 'int', v: 0 });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_v_bool', t: 'bool', v: false });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'model100_input_draft', t: 'str', v: '' });
 
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_filter_model_query', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'dt_filter_p', t: 'str', v: '' });

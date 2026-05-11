@@ -5239,6 +5239,7 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'draft_v_text', 'str', 'Hello');
   ensureStateLabel(runtime, 'draft_v_int', 'int', 0);
   ensureStateLabel(runtime, 'draft_v_bool', 'bool', false);
+  ensureStateLabel(runtime, 'model100_input_draft', 'str', '');
 
 
   ensureStateLabel(runtime, 'dt_filter_model_query', 'str', '');

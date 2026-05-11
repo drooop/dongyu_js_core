@@ -74,11 +74,28 @@ assert.deepEqual(
 );
 assertModel100SubmitWriteContract(submitButton.bind?.write, 'workspace_positive_models.json');
 
+const model100DraftRecord = workspacePatch.records.find((record) =>
+  record
+  && record.op === 'add_label'
+  && record.model_id === -2
+  && record.p === 0
+  && record.r === 0
+  && record.c === 0
+  && record.k === 'model100_input_draft'
+);
+assert.ok(model100DraftRecord, 'workspace_positive_models.json must seed model100_input_draft');
+assert.equal(model100DraftRecord.t, 'str', 'model100_input_draft must be a string draft');
+assert.equal(model100DraftRecord.v, '', 'model100_input_draft must default to an empty string');
+
 const serverPath = path.join(repoRoot, 'packages/ui-model-demo-server/server.mjs');
 const serverSource = fs.readFileSync(serverPath, 'utf8');
 assert.ok(
   serverSource.includes('isDeclaredModel0BusInRoute'),
   'server must admit dynamic bus_event_v2 keys only when declared by Model 0 pin.connect.cell route sources',
+);
+assert.ok(
+  serverSource.includes("ensureStateLabel(runtime, 'model100_input_draft', 'str', '')"),
+  'server bootstrap must seed model100_input_draft for no-input color submit',
 );
 
 console.log('PASS test_0177_model100_submit_ui_contract');
