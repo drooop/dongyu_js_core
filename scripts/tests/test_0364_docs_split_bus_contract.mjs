@@ -125,12 +125,32 @@ function test_public_guides_use_canonical_worker_topic_shape() {
   return { key: 'public_guides_use_canonical_worker_topic_shape', status: 'PASS' };
 }
 
+function test_worker_label_docs_use_current_table_shape() {
+  const registry = read('docs/ssot/label_type_registry.md');
+  const userGuide = read('docs/user-guide/modeltable_user_guide.md');
+
+  for (const [name, text] of [
+    ['label_type_registry', registry],
+    ['modeltable_user_guide', userGuide],
+  ]) {
+    assertIncludes(text, 'Worker：软件工人类型标签', name);
+    assertIncludes(text, '| `worker.role` | 软件工人类型 | `sys_worker_role` |', name);
+    assertIncludes(text, '`WSM` 社区管理；`DEM` 数字员工管理；`V1N` 普通软件工人', name);
+    assertIncludes(text, '| `worker.id` | 软件工人 ID | `sys_worker_id` |', name);
+    assertIncludes(text, 'ws/dam/pic/de/sw', name);
+    assertIncludes(text, '"k":"sys_worker_role","t":"worker.role","v":"DEM"', name);
+    assertIncludes(text, '"k":"sys_worker_id","t":"worker.id","v":"5/10/28/35/13"', name);
+  }
+  return { key: 'worker_label_docs_use_current_table_shape', status: 'PASS' };
+}
+
 const tests = [
   test_slide_runtime_docs_use_split_bus_only,
   test_current_user_guides_use_split_bus_only,
   test_ssot_freezes_0364_as_current_contract,
   test_provider_import_docs_forbid_all_host_owned_bus_surface,
   test_public_guides_use_canonical_worker_topic_shape,
+  test_worker_label_docs_use_current_table_shape,
 ];
 
 let passed = 0;

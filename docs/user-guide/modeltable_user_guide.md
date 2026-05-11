@@ -612,6 +612,13 @@ remote-worker Model 3000 submit1 result
 - 软件工人 ID：首次 trusted bootstrap 写入 Model 0 `(0,0,0)`，示例 `k=sys_worker_id, t=worker.id, v="5/10/28/35/13"`；普通重启不得覆盖，后续变更必须走显式维护流程。
 - 软件工人角色：写入 Model 0 `(0,0,0)`，示例 `k=sys_worker_role, t=worker.role, v="DEM"` 或 `v="V1N"`。`"WSM"` 预留给社区管理软件工人。
 
+Worker：软件工人类型标签固定写法如下：
+
+| type | 解释 | key | value | 示例 |
+|---|---|---|---|---|
+| `worker.role` | 软件工人类型 | `sys_worker_role` | `WSM` 社区管理；`DEM` 数字员工管理；`V1N` 普通软件工人 | `[{"k":"sys_worker_role","t":"worker.role","v":"DEM"}]` |
+| `worker.id` | 软件工人 ID | `sys_worker_id` | `ws/dam/pic/de/sw`，五段数字 | `[{"k":"sys_worker_id","t":"worker.id","v":"5/10/28/35/13"}]` |
+
 启动顺序必须是：
 
 1. 建立模型与层级关系。
