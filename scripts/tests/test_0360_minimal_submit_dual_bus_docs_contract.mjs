@@ -14,6 +14,47 @@ const PATCH_FILES = [
   'deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json',
   'test_files/minimal_submit_dual_bus_app_payload.json',
 ];
+const MINIMAL_SUBMIT_PATCH_KEYS = [
+  'model_type',
+  'app_name',
+  'source_worker',
+  'slide_capable',
+  'slide_surface_type',
+  'from_user',
+  'to_user',
+  'ui_authoring_version',
+  'ui_root_node_id',
+  'input_text',
+  'display_text',
+  'remote_status',
+  'submit_inflight',
+  'last_submit_payload',
+  'host_ingress_v1',
+  'remote_bus_endpoint_v1',
+  'dual_bus_model',
+  'submit_request',
+  'submit1',
+  'submit_request_wiring',
+  'root_routes',
+  'handle_submit',
+  'ui_node_id',
+  'ui_component',
+  'ui_layout',
+  'ui_gap',
+  'ui_parent',
+  'ui_order',
+  'ui_title',
+  'ui_placeholder',
+  'ui_bind_json',
+  'ui_label',
+  'ui_variant',
+  'click_chain',
+  'ui_text_ref_model_id',
+  'ui_text_ref_p',
+  'ui_text_ref_r',
+  'ui_text_ref_c',
+  'ui_text_ref_k',
+];
 
 function readText(path) { return fs.readFileSync(resolve(repoRoot, path), 'utf8'); }
 function readJson(path) { return JSON.parse(readText(path)); }
@@ -54,6 +95,15 @@ function test_all_public_docs_cover_required_operational_steps() {
 
 function test_provider_assets_have_no_compatibility_route() {
   for (const path of PATCH_FILES) assertNoOld(readText(path), path);
+  const uiPayload = readJson('test_files/minimal_submit_dual_bus_app_payload.json');
+  assert.equal(Array.isArray(uiPayload), true, 'minimal submit JSON patch must be a ModelTable record array');
+  assert.equal(uiPayload.length, 61, 'minimal submit JSON patch must keep the reviewed 61-label shape');
+  assert.equal(JSON.stringify(uiPayload).includes('route.reply_to'), false, 'minimal submit JSON patch must not include server-owned route.reply_to');
+  assert.equal(uiPayload.some((record) => record && record.k === 'remote_bus_endpoint_v1' && record.v?.to?.worker_id === 'RE' && record.v?.to?.model_id === 3000 && !Object.prototype.hasOwnProperty.call(record.v.to, 'pin')), true, 'minimal submit JSON patch must declare remote endpoint without to.pin');
+  assert.equal(uiPayload.some((record) => record && record.k === 'dual_bus_model' && Array.isArray(record.v?.egress_pins) && record.v.egress_pins.includes('submit1')), true, 'minimal submit JSON patch must declare submit1 as public egress pin');
+  assert.equal(uiPayload.some((record) => record && record.k === 'ui_bind_json' && record.p === 2 && record.r === 3 && record.v?.write?.pin === 'click_chain'), true, 'minimal submit JSON patch must bind Submit button to click_chain');
+  assert.equal(uiPayload.some((record) => record && record.k === 'root_routes' && record.t === 'pin.connect.cell'), true, 'minimal submit JSON patch must connect click_chain to root submit_request');
+  assert.equal(uiPayload.some((record) => record && record.k === 'submit_request_wiring' && record.t === 'pin.connect.label'), true, 'minimal submit JSON patch must wire submit_request to handle_submit');
   const remoteRecords = readJson('deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json').records || [];
   const remoteCode = findRecord(remoteRecords, (record) => record.k === 'submit1' && record.t === 'func.js')?.v?.code || '';
   assert.equal(remoteCode.includes('input_value'), false, 'remote 3000 handler must not keep input_value fallback');
@@ -121,11 +171,44 @@ function test_provider_docs_result_payload_examples_keep_current_shape() {
   return { key: 'provider_docs_result_payload_examples_keep_current_shape', status: 'PASS' };
 }
 
+function test_minimal_submit_docs_explain_full_patch_labels_and_submit_chain() {
+  const guide = readText('docs/user-guide/slide-app-runtime/minimal_submit_app_provider_guide.md');
+  const interactive = readText('docs/user-guide/slide-app-runtime/minimal_submit_app_provider_interactive.html');
+  for (const [path, text] of [
+    ['minimal_submit_app_provider_guide.md', guide],
+    ['minimal_submit_app_provider_interactive.html', interactive],
+  ]) {
+    assert.match(text, /61 条 record/u, path + ' must state the reviewed patch record count');
+    assert.match(text, /完整 patch label/u, path + ' must include a full patch label explanation section');
+    for (const key of MINIMAL_SUBMIT_PATCH_KEYS) {
+      assert.ok(text.includes(key), `${path} must explain patch label ${key}`);
+    }
+    for (const required of [
+      'ui_bind_json',
+      'click_chain',
+      'root_routes',
+      'submit_request_wiring',
+      'handle_submit:in',
+      'submit1 pin.out',
+      'generated host egress adapter',
+      'pin.bus.mb.out',
+      'route.to = RE / 3000 / submit1',
+      'route.reply_to',
+      'display_text',
+      'remote_status',
+    ]) {
+      assert.ok(text.includes(required), `${path} must explain submit chain detail: ${required}`);
+    }
+  }
+  return { key: 'minimal_submit_docs_explain_full_patch_labels_and_submit_chain', status: 'PASS' };
+}
+
 const tests = [
   test_all_public_docs_cover_required_operational_steps,
   test_provider_assets_have_no_compatibility_route,
   test_model0_mbr_remote_worker_contract_is_complete,
   test_provider_docs_result_payload_examples_keep_current_shape,
+  test_minimal_submit_docs_explain_full_patch_labels_and_submit_chain,
 ];
 let passed = 0;
 let failed = 0;
