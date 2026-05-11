@@ -83,17 +83,22 @@ function runValidation() {
     results.push({ key: 'data_type', status: 'PASS' });
   }
 
-  // v1n_id lock
+  // worker id lock and removed legacy id label
   {
     const rt = createIsolatedRuntime();
     const root = rt.getModel(0);
-    rt.addLabel(root, 0, 0, 0, { k: 'v1n_id', t: 'str', v: 'A' });
-    rt.addLabel(root, 0, 0, 0, { k: 'v1n_id', t: 'str', v: 'B' });
+    const legacy = rt.addLabel(root, 0, 0, 0, { k: 'v1n_id', t: 'str', v: '5/10/28/35/13' });
+    rt.addLabel(root, 0, 0, 0, { k: 'sys_worker_id', t: 'worker.id', v: '5/10/28/35/13' });
+    rt.addLabel(root, 0, 0, 0, { k: 'sys_worker_id', t: 'worker.id', v: '5/10/28/35/14' });
     const events = rt.eventLog.list();
-    const second = events[1];
-    assert(second.result === 'rejected', 'v1n_id: second rejected');
-    assert(second.reason === 'v1n_id_locked', 'v1n_id: reason locked');
-    results.push({ key: 'v1n_id', status: 'PASS' });
+    const legacyEvent = events[0];
+    const second = events[2];
+    assert(legacy.applied === false, 'sys_worker_id: removed v1n_id rejected');
+    assert(legacyEvent.result === 'rejected', 'sys_worker_id: legacy event rejected');
+    assert(legacyEvent.reason === 'worker_id_label_removed', 'sys_worker_id: legacy reason removed');
+    assert(second.result === 'rejected', 'sys_worker_id: second rejected');
+    assert(second.reason === 'worker_id_locked', 'sys_worker_id: reason locked');
+    results.push({ key: 'sys_worker_id', status: 'PASS' });
   }
 
   // pin.connect.label

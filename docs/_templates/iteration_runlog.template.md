@@ -2,11 +2,13 @@
 title: "Iteration <ID> Run Log"
 doc_type: template
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
 # Iteration <ID> Run Log
+
+Template status: current.
 
 规则：只记事实（FACTS）。不要写计划、不要写愿景。每个 Step 只有 PASS 才算完成。
 
@@ -21,8 +23,8 @@ source: ai
 Review Gate Record
 - Iteration ID:
 - Review Date:
-- Review Type: User / OpenCode
-- Reviewer: @oracle / @momus
+- Review Type: User / AI-assisted / sub-agent
+- Reviewer:
 - Review Index: 1/2/3...
 - Decision: Approved / Change Requested / On Hold
 - Notes:

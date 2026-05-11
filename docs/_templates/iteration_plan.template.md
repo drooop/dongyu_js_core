@@ -2,11 +2,13 @@
 title: "Iteration <ID> Plan"
 doc_type: template
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
 # Iteration <ID> Plan
+
+Template status: current. Write hard constraints, decision rules, and preferences separately when they affect execution.
 
 ## 0. Metadata
 - ID:

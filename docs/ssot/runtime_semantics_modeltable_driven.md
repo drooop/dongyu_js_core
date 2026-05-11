@@ -1,20 +1,23 @@
 ---
-title: "定位说明（必须写在文件开头）"
+title: "Runtime Semantics: ModelTable-Driven Side Effects"
 doc_type: ssot
 status: active
-updated: 2026-04-29
+updated: 2026-05-10
 source: ai
 ---
 
-# 定位说明（必须写在文件开头）
+# Runtime Semantics: ModelTable-Driven Side Effects
 
-本文件是 派生运行时语义规范（Derived Runtime Semantics Spec）。
+## Positioning
 
-上位约束：`docs/architecture_mantanet_and_workers.md`
+本文件是派生运行时语义规范（Derived Runtime Semantics Spec）。
 
-作用对象：所有软件工人运行时（Python/JS）
+- Authority: below `CLAUDE.md` and `docs/architecture_mantanet_and_workers.md`; above runtime implementation details, tests, and user guides.
+- Scope: all software-worker runtimes (Python/JS) and all code paths that interpret ModelTable structural declarations.
+- Rule type: semantic invariants. Use absolute wording only for runtime safety, data ownership, and side-effect contracts.
+- Conflict behavior: if this file conflicts with `CLAUDE.md` or the architecture SSOT, stop and apply the higher-priority source. If it conflicts with lower docs or implementation, update the lower layer or record a non-conformance.
 
-目的：统一解释“ModelTable 中的结构性声明如何在运行时产生副作用”
+目的：统一解释“ModelTable 中的结构性声明如何在运行时产生副作用”。
 
 本文件不是实现指南，而是语义裁判规则。
 
@@ -23,8 +26,6 @@ source: ai
 标签类型注册表：`docs/ssot/label_type_registry.md`
 
 ---
-
-# Runtime Semantics: ModelTable-Driven Side Effects (v0)
 
 ## 0. Scope & Intent
 
@@ -41,7 +42,7 @@ source: ai
 - PIN_IN / PIN_OUT
 - 连接类声明（CONNECT）
 - 运行触发类声明（run_<func>）
-- 系统配置类声明（`mqtt.local.*` / `matrix.*` / `v1n_id` / `data_type` 等）
+- 系统配置类声明（`mqtt.local.*` / `matrix.*` / `sys_worker_id` / `sys_worker_role` / `data_type` 等）
 
 ---
 
@@ -140,7 +141,7 @@ source: ai
 - 从持久化存储（如 sqlite）重建内存 ModelTable 的过程
 
 规则：
-- 初始化阶段通过 重放 add_label 建立内存状态
+- 初始化阶段按软件工人启动顺序恢复标签并建立内存状态
 - 所有结构性声明的副作用必须在初始化阶段被一致触发
 - 初始化与运行期的解释规则完全一致
 
@@ -207,7 +208,8 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 以下声明服从本规范，由 `_applyBuiltins` 统一分发：
 - pin.in / pin.out：Cell 级端口；写在非系统模型 root `(0,0,0)` 时同时承担模型边界端口语义
-- pin.bus.in / pin.bus.out：系统边界端口（新，仅 Model 0）
+- pin.bus.cb.in / pin.bus.cb.out：控制总线系统边界端口（仅软件工人 Model 0）
+- pin.bus.mb.in / pin.bus.mb.out：管理总线系统边界端口（仅 DEM 软件工人 Model 0）
 - pin.login / pin.logout：日志通道端口；写在非系统模型 root `(0,0,0)` 时同时承担模型边界日志端口语义
 - pin.connect.label：Cell 内接线图（新）
 - pin.connect.cell：跨 Cell 路由（新）
@@ -225,8 +227,13 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - `mqtt.local.*` / `matrix.*`：声明运行时配置（统一写入 Model 0 `(0,0,0)`，通常由 `MODELTABLE_PATCH_JSON` 启动期落表）
 - `runtime_mode`：运行时生命周期标签（仅 Model 0 `(0,0,0)`，取值 `boot | edit | running`）
 
+当前 bus split 合同：
+- 正式系统边界只允许 `pin.bus.cb.*` 与 `pin.bus.mb.*`。
+- 控制总线使用 `pin.bus.cb.in` / `pin.bus.cb.out`；管理总线使用 `pin.bus.mb.in` / `pin.bus.mb.out`。
+- 正数业务模型、滑动 App、子模型内部不得直接声明 bus 引脚。它们只能声明普通 `pin.in` / `pin.out` 并通过宿主安装的接线到达软件工人 root。
+
 0331 payload current truth：
-- `pin.in` / `pin.out` / `pin.bus.in` / `pin.bus.out` 的正式业务 value 必须是临时 ModelTable record array。
+- `pin.in` / `pin.out` / 目标 bus pins（`pin.bus.cb.*` / `pin.bus.mb.*`）的正式业务 value 必须是临时 ModelTable record array。
 - `null` / `undefined` 可继续作为声明或清空端口的空值。
 - 对象式业务 envelope 只允许作为历史迁移债务被 inventory，不得作为新实现或新通过路径。
 - `writeLabel` 的正式跨 cell 写入请求由 `write_label.v1` 临时 ModelTable payload 表达，并通过显式 pin route 到当前模型 `(0,0,0)` 的 `mt_write`。
@@ -279,18 +286,21 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 **循环检测**：跨 Cell / Cell 内传播都必须记录 visited endpoint；重复端点写入 eventLog(reason='cycle_detected') 后跳过。
 
-### 5.2c BUS_IN/BUS_OUT 系统边界（0142）
+### 5.2c Split Bus 系统边界（0142, amended by 0364）
+
+当前系统边界按 bus role 拆分，且只允许写在软件工人 Model 0 `(0,0,0)`：
 
 | label.t | 位置约束 | 语义 |
 |---|---|---|
-| `BUS_IN` | 仅 Model 0 (0,0,0) | 注册外部输入端口 → `busInPorts` Map |
-| `BUS_OUT` | 仅 Model 0 (0,0,0) | 注册外部输出端口 → `busOutPorts` Map |
+| `pin.bus.cb.in` | 仅 Model 0 (0,0,0) | 注册控制总线输入端口 → `busInPorts` Map |
+| `pin.bus.cb.out` | 仅 Model 0 (0,0,0) | 注册控制总线输出端口 → `busOutPorts` Map |
+| `pin.bus.mb.in` | 仅 DEM Model 0 (0,0,0) | 注册管理总线输入端口 → `busInPorts` Map |
+| `pin.bus.mb.out` | 仅 DEM Model 0 (0,0,0) | 注册管理总线输出端口 → `busOutPorts` Map |
 
-- BUS_IN 写入 v 时 → 触发 cell_connection 路由（单一路由入口在 `_applyBuiltins`）
-- BUS_OUT 写入 v 时 → 如有 mqttClient → `_topicFor(0, k, 'out')` 发布
-- `mqttIncoming` BUS_IN 短路：`busInPorts.has(pinName) && modelId === 0` → `_handleBusInMessage` → 直接路由，不进入通用 IN 路径
-- `_subscribeDeclaredPinsOnStart` 追加 BUS_IN 端口 MQTT 订阅
-- `_handleBusInMessage` 仅写 `addLabel(model0, 0,0,0, {k, t:'BUS_IN', v})`，路由由 `_applyBuiltins` 触发
+- split bus in 写入 v 时 → 触发 `pin.connect.cell` 路由（单一路由入口在 `_applyBuiltins`）。
+- split bus out 写入 v 时 → ProgramModelEngine / adapter 按 bus role 发往 Matrix、MBR 或 MQTT。
+- `mqttIncoming` split bus in 短路：`busInPorts.has(pinName) && modelId === 0` → `_handleBusInMessage` → 直接路由，不进入通用 `pin.in` 路径。
+- `_subscribeDeclaredPinsOnStart` 追加 split bus in 端口 MQTT 订阅。
 
 ### 5.2d 模型根边界端口（0142+）
 
@@ -323,7 +333,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - 运行时全局生命周期由 Model 0 `(0,0,0)` 的 `runtime_mode` 表示：
   - `boot`: trusted bootstrap 直写期
   - `edit`: 可读可建模，但不执行软件工人副作用
-  - `running`: 才允许函数执行、MGMT_OUT/MQTT/Matrix 生效
+  - `running`: 才允许函数执行和 worker root split bus bridge 生效
 - `ModelTableRuntime` 初始状态必须是：
   - `runtime_mode=boot`
   - `runLoopActive=false`
@@ -349,8 +359,8 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - `boot/edit` 期间必须抑制：
   - `run_*` 入口
   - `_executeFuncViaCellConnect`
-  - `ctx.publishMqtt()`
-  - `pin.bus.out` publish
+  - 程序模型直接 transport 能力（不得暴露 direct MQTT / Matrix send helper）
+  - worker root system bus publish（`pin.bus.cb.out` / `pin.bus.mb.out`）
   - `MQTT_WILDCARD_SUB` 生效
 
 ### 5.2f.1 EventLog Observer（0322）
@@ -361,9 +371,42 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - 不允许的用法：
   - observer 不得在回调里同步写 label（会造成重入记录）——必须延后到 microtask / tick。
   - observer 不得抛出未捕获异常；record 已做本地 catch，但 tier 2 代码仍应自己保证幂等。
-- 与 `_executeFuncViaCellConnect` ctx 的区别：ctx 只暴露 `publishMqtt`，不含 `sendMatrix`。Matrix 发送、intercept dispatch、跨 tick 调度属 tier 2 `ProgramModelEngine` 的职责；任何需要 Matrix 的路径必须经 `pin.bus.out` + programEngine bridge，不得在 runtime pin.connect.label 直接触发的 func 里使用 `ctx.sendMatrix`。
+- `_executeFuncViaCellConnect` ctx 不暴露 direct transport。程序模型不得调用 direct MQTT / Matrix send helper。Matrix/MQTT 发送、intercept dispatch、跨 tick 调度属 tier 2 `ProgramModelEngine` 的职责；任何需要外发的路径必须经 worker root 系统总线出口和 programEngine bridge，出口为 `pin.bus.cb.out` 或 `pin.bus.mb.out`。
 
-### 5.2g Bootstrap 加载顺序（0142/0177，0323 增补）
+### 5.2g 软件工人启动顺序（0142/0177，0323 增补，0363 修订）
+
+0368 后，启动顺序与身份标签必须使用当前 worker 合同：`k=sys_worker_id, t=worker.id` 与 `k=sys_worker_role, t=worker.role`。旧 `v1n_id`、旧 `k=worker.role` 和旧 `is_DEM` 都不是合法输入面。
+
+软件工人启动参数：
+
+- 软件工人名称：决定读取或新建哪个软件工人存储文件。
+- 软件工人 ID：首次 trusted bootstrap 写入 Model 0 `(0,0,0)`，格式为 `k=sys_worker_id, t=worker.id, v="<workspace>/<dam>/<pic>/<dem>/<worker>"`；值必须是五段数字，例如 `5/10/28/35/13`；后续只能通过显式维护流程变更，普通重启不得覆盖。
+- 软件工人角色：写入 Model 0 `(0,0,0)`，格式为 `k=sys_worker_role, t=worker.role, v="WSM"|"DEM"|"V1N"`。
+
+角色约束：
+
+- `sys_worker_role="DEM"` 的数字员工管理软件工人可以使用控制总线和管理总线，并可以处理控制总线与管理总线之间的连接。
+- `sys_worker_role="V1N"` 的普通软件工人只能使用控制总线；若声明或安装 `pin.bus.mb.*`，必须拒绝并写可观测错误。
+- `sys_worker_role="WSM"` 预留给社区管理软件工人；当前运行实现不得把它当作 DEM 使用。
+- `sys_worker_id` 是软件工人的稳定身份标签；路由消息里的 `route.to.worker_id` 仍是一次总线发送的目标 worker 地址段。
+
+启动顺序：
+
+1. 建立模型与层级关系：先创建 Model 0、系统负数模型、业务模型，并按 `model.submt` 建立父子挂载关系。
+2. 写入软件工人身份与角色：写入 `sys_worker_id` 与 `sys_worker_role`，让后续总线声明可以按身份和角色校验。
+3. 写入对外通讯参数：写入 `matrix.*`、`mqtt.*` 等连接参数，但此时仍不得启动外部收发。
+4. 加载程序模型：加载 `func.*` 与 model.table 根默认程序模型（`mt_write` / `mt_bus_receive` / `mt_bus_send`）。
+5. 声明引脚：声明普通引脚、日志引脚和 worker root 系统总线引脚，并按角色校验 `pin.bus.cb.*` / `pin.bus.mb.*` 的位置。
+6. 声明连接：建立 `pin.connect.label` 与 `pin.connect.cell`，确保同 Cell 和跨 Cell 路由图完整。
+7. 恢复可继续执行的运行态数据：最后才恢复非空 pin value、flow runtime state、pending owner request 等可能触发程序模型或总线动作的数据。
+
+顺序约束：
+
+- 不得只按 `label.t` 粗略排序来初始化。
+- 任何可能触发程序模型、引脚转发或总线发送的 value，必须等模型层级、身份角色、程序模型、引脚和连接都就绪后才恢复。
+- 启动期间直接写入可信补丁只允许用于建立上述启动事实；进入 `running` 后，业务写入仍必须走 owner materialize / pin route。
+
+当前实现顺序：
 
 1. `model_0_framework.json` → 创建 Model 0 结构（BUS_IN/OUT、subModel、CELL_CONNECT、cell_connection）
 2. `system_models.json` → 填充 Model -10 等系统子模型
@@ -465,7 +508,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 本节描述的是 MQTT / bootstrap / trusted system boundary 使用的外层补丁传输格式，不是正式业务 pin value 的格式。
 
-0331 起，正式业务 `pin.in` / `pin.out` / `pin.bus.in` / `pin.bus.out` 的非空 value 必须是临时 ModelTable record array；不得把 `{ op, records }` / ModelTablePatch envelope 作为业务 pin payload。0347 起，这类 record array 统一视为 Temporary ModelTable Message：格式像 ModelTable，但只有显式 materialization 后才成为正式持久模型表数据。
+0331 起，正式业务 `pin.in` / `pin.out` / worker root 系统总线 pin 的非空 value 必须是临时 ModelTable record array；不得把 `{ op, records }` / ModelTablePatch envelope 作为业务 pin payload。0347 起，这类 record array 统一视为 Temporary ModelTable Message：格式像 ModelTable，但只有显式 materialization 后才成为正式持久模型表数据。系统总线 pin 只允许使用 `pin.bus.cb.*` / `pin.bus.mb.*`。
 
 ModelTablePatch v0 仅作为外部补丁 envelope 或历史迁移债务保留：
 
@@ -520,26 +563,36 @@ MQTT → mqttIncoming → BUS_IN 短路 / 写 IN 到 model(0,0,0)
 
 ---
 
-## 7. 管理总线 Patch 规则（MGMT_IN / MGMT_OUT）
+## 7. Management Bus / Control Bus Split Pins
 
-管理总线的外层系统消息体仍可使用 ModelTablePatch，并且必须携带 `op_id`。这属于 system boundary / migration envelope，不得作为用户业务 pin value。
+0368 后，当前运行面不再使用旧的管理总线 patch 标签。所有外部总线传输都必须通过 Model 0 `(0,0,0)` 的 split bus pins 表达：
 
-### 6.1 系统侧声明（系统负数模型）
-- 仅允许在系统自带的负数 model_id 模型中声明：
-  - `Label.t = "MGMT_OUT"`：`Label.v` 为 ModelTablePatch（仅系统负数模型 / system boundary）
-  - `Label.t = "MGMT_IN"`：`Label.v` 为 TargetRef（仅目标信息）
-- 用户模型不使用 MGMT_*，用户侧入口通过 BUS_IN/BUS_OUT + cell_connection + CELL_CONNECT。
+- 控制总线：`pin.bus.cb.in` / `pin.bus.cb.out`
+- 管理总线：`pin.bus.mb.in` / `pin.bus.mb.out`
 
-TargetRef 结构：
+`pin.bus.mb.*` 只能存在于 `sys_worker_role="DEM"` 的软件工人 Model 0；普通 `sys_worker_role="V1N"` 只能声明和使用 `pin.bus.cb.*`。
+
+### 7.1 Payload
+
+bus pin 的 `v` 必须是 ModelTable-like temporary record array。标准外发载荷必须包含：
+
+- `__mt_payload_kind = "pin_payload.v1"`
+- `op_id` / `__mt_request_id`
+- `pin`
+- `payload`，其值仍是业务临时 ModelTable records
+- `route`，其中 `route.to` 决定目标 worker/model/pin；需要远端回包的请求还必须包含 `route.reply_to`
+
+普通业务 JSON、旧 envelope 或 raw `resultPayload` 不能作为 fallback 发送。任何外发 payload 缺少或非法 `route.to` 时必须 fail closed，并写可观察错误；请求类 payload 若缺少或非法 `route.reply_to`，必须由接收侧或转发侧 fail closed，不得公开发送普通业务结果。
+
+### 7.2 Routing
+
+MBR 不维护每个滑动 App 的静态 route truth。转发目标由消息内 `route.to` 决定：
+
+```text
+UIPUT/<workspace>/<dam>/<pic>/<de>/<sw>/worker/<worker_id>/model/<model_id>/pin/<pin>
 ```
-{ "model_id": 1, "p": 2, "r": 3, "c": 4, "k": "pageA.textA1" }
-```
 
-### 6.2 匹配规则（必须全部满足）
-- `session_id` 必须一致（由系统注入，用户不填写）。
-- `channel` 必须一致：`channel == Label.k`。
-- 若消息带 `target`，则 `target` 坐标必须与该 Label 所在 Cell 完全一致。
-- 不满足任一条件 → 丢弃并记录。
+管理总线转控制总线、管理总线转管理总线、控制总线回管理总线，均走上述 split bus pin 与 `pin_payload.v1` 合同。
 
 ---
 
@@ -576,8 +629,9 @@ TargetRef 结构：
 - 浏览器 / server current path 只提交 `type = bus_event_v2`
 - `/bus_event` 是正式入口；`/ui_event` 仍可作为显式兼容 URL alias 接受同一份 `bus_event_v2` body，但不构成独立协议
 - `Model 0 (0,0,0)` 是唯一正式 ingress
-- 事件值写入 `k=<bus_in_key> t=pin.bus.in`
-- `bus_event_v2.value` 在进入 `pin.bus.in` 前必须已经是临时 ModelTable record array；server/frontend 不得把 `{ target_cell, target_pin, value }` 对象在 ingress 上临时转换为通过态 payload。
+- 事件值写入 `k=<bus_in_key> t=pin.bus.mb.in`
+- 正式 UI/管理类 ingress 链路是 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.mb.in -> pin route -> target`
+- `bus_event_v2.value` 在进入 `pin.bus.mb.in` 前必须已经是临时 ModelTable record array；server/frontend 不得把 `{ target_cell, target_pin, value }` 对象在 ingress 上临时转换为通过态 payload。
 - `write_label.v1` 只属于目标模型内部的跨 cell 写入链路：用户程序调用 `writeLabel` 后，经显式 `write_label_req -> mt_write_req -> mt_write_result` 路由生成和消费；它不是 Model 0 bus ingress 的通用 passing path。
 - Model 0 内的 `pin.connect.cell` 把事件送到目标模型的 hosting Cell / 子模型 root 边界 `pin.in`
 - 子模型 `(0,0,0)` 的 `mt_bus_receive` 再把 payload 分发到目标 cell / target pin
@@ -600,7 +654,7 @@ TargetRef 结构：
 
 Tier 归属：
 
-- `Model 0 pin.bus.in -> pin.connect.cell -> child root pin.in -> child mt_bus_receive` 属于 Tier 1 runtime 语义
+- `Model 0 pin.bus.mb.in -> pin.connect.cell -> child root pin.in -> child mt_bus_receive` 属于 Tier 1 runtime 语义
 - `server` / `frontend` 只负责：
   - `bus_event_v2` envelope 适配
   - HTTP transport / snapshot
@@ -634,7 +688,7 @@ Compatibility note:
 
 安装时，宿主会自动补：
 
-- `Model 0` 上的 host ingress `pin.bus.in`
+- `Model 0` 上的 host ingress `pin.bus.mb.in`
 - `Model 0` 上对应的 `pin.connect.cell`
 - imported model hosting Cell 上的 `model.submt` 与边界 `pin.in` / `pin.out`
 - imported model root 上的 relay `pin.in`
@@ -643,7 +697,7 @@ Compatibility note:
 因此，当前 v1 的正式宿主 ingress 路径是：
 
 1. 宿主把正式业务输入写到：
-   - `Model 0 (0,0,0) k=imported_host_submit_<model_id> t=pin.bus.in`
+   - `Model 0 (0,0,0) k=imported_host_submit_<model_id> t=pin.bus.mb.in`
 2. `Model 0` 的 `pin.connect.cell` 把它路由到 imported app hosting Cell 的边界 pin
 3. hosting Cell 经 `model.submt` / imported model root 边界 pin 把它交给 imported model root relay
 4. imported model root 的 `pin.connect.cell` 再把它 relay 到声明的 boundary pin
@@ -694,9 +748,17 @@ Root `(0,0,0)` 可以声明：
 
 - `reply_to` 是 server-owned metadata，ZIP / imported records 不得提供或覆盖。
 - `remote_bus_endpoint_v1` 不得声明 `to.pin`；公开 pin 只能来自 `dual_bus_model.egress_pins` 与当前触发的 root `pin.out`。
+- provider ZIP / imported records 不得提供 `ui.egress.binding.v1`，也不得声明任何 `pin.bus.*`。host-owned egress binding 和系统总线出口只能由 UI Server installer 在安装后生成。
 - 本地安装模型 id 和远端 provider model id 必须分开。多名用户可分别安装成本地 `2000` / `2010` / `2030`，同时都指向同一个远端 `RE:3000`。
 - `route.to.pin` 表示远端 provider model root 的公开 Cell pin，不是 `{functionName}:in`。
 - MBR 不得要求为每个 imported app 写 per-app 静态 route；MBR / MQTT adapter 只能从 `route.to` 派生 transport topic 或目标地址。
+
+0363 host-owned egress binding：
+- 安装器分配本地模型 id 后，必须为每个 imported root 公开 egress pin 生成 `ui.egress.binding.v1` 记录。
+- 该记录至少包含 `from_pin`、`bus`、`host_model_id`、`host_cell`、`host_pin_type`、`host_pin_key`、`target`、`reply_pin`、`owned_by`。
+- `host_pin_type` 必须是 `pin.bus.mb.out`（UI/管理类 egress）或 `pin.bus.cb.out`（控制类 egress）。
+- UI 可以投影这个 binding，显示某个公开出口实际接到哪个宿主总线 pin；但正式 authority 仍来自实际 `pin.connect.*` 路径和 worker root 系统总线出口，不能由 UI 直接发送替代。
+- 删除 imported app 时，binding 必须随 host-owned egress adapter 一并清理。
 
 前端协议的后续正式冻结（`0310`）如下：
 
@@ -778,29 +840,36 @@ Root `(0,0,0)` 可以声明：
 - 跳过 Matrix 转发不影响本地 dispatch 执行；本地 Preview/Apply 仍通过 `intent_dispatch_table` + function labels 完整执行。
 
 0187 补充：
-- legacy `mailbox -> forward_ui_events -> ctx.sendMatrix(...)` 通路已退役。
+- legacy `mailbox -> forward_ui_events -> direct Matrix send` 通路已退役。
 - `bus_event` 从 mailbox/compat 层出发时，不再存在“默认 direct Matrix forward” 兜底。
-- 当前 UI 外发 authority 只允许通过显式接线最终到达 Model 0 `pin.bus.out` 的路径。
+- 当前 UI 外发 authority 只允许通过显式接线最终到达 worker root Model 0 系统总线出口的路径。UI/管理类外发应到达 DEM 的 `pin.bus.mb.out`，控制类外发应到达 `pin.bus.cb.out`。
 
-### 7.4 Local-First Egress Authority（0181, approved target contract）
+### 7.4 Local-First Egress Authority（0181, amended by 0363）
 
-本节定义一个**目标规约**：UI 动作默认本地处理；只有当动作的现有 out pin 接线最终到达 Model 0 的 `pin.bus.out` 时，动作才允许离开本地 runtime。
+本节定义 UI 外发 authority：UI 动作默认本地处理；只有当动作的现有 out pin 接线最终到达 worker root Model 0 的系统总线出口时，动作才允许离开本地 runtime。
+
+0364 修订：
+- 外发出口拆为 `pin.bus.mb.out`（管理总线，DEM only）与 `pin.bus.cb.out`（控制总线）。
+- UI/滑动 App 的用户交互外发默认属于管理总线，应通过 host-owned 接线到达 DEM 的 `pin.bus.mb.out`。
 
 约束：
-- 不新增 pin type、label.t 或额外 runtime 解释语义。
+- 不允许 imported UI 模型直接声明 bus pin。
+- 不允许 provider ZIP / imported records 声明 `ui.egress.binding.v1`；该 binding 只能由 UI Server installer 在安装后写入。
+- 0363 新增的 bus pin family 仅存在于 worker root Model 0 系统边界，不是普通 UI / 业务 Cell 引脚。
 - 只能沿用现有：
   - `pin.out`
-  - `pin.bus.out`
+  - `pin.bus.mb.out` / `pin.bus.cb.out`
   - `pin.in`
   - `pin.connect.label`
   - `pin.connect.cell`
 - `model.submt`
 - “是否外发”的 authority 落在接线路径事实本身，不落在新的辅助字段。
+- `ui.egress.binding.v1` 只是 host-owned 接线说明，供 UI 展示和安装审计使用；它不能替代实际 pin route。
 
 判定规则：
 - UI 动作若只改本地状态 label，且没有进入任何模型边界 out pin，则该动作是本地动作。
 - UI 动作若写入了模型边界 out pin，但该 pin 没有通过父子 hosting cell relay 一路接到 Model 0，则该动作仍视为本地动作。
-- 只有当动作写入的现有 out pin 经 `model.submt` hosting cell + `pin.connect.label` + `cell_connection` 逐层 relay，并最终接到 Model 0 `(0,0,0)` 的 `pin.bus.out`，该动作才允许外发。
+- 只有当动作写入的现有 out pin 经 `model.submt` hosting cell + `pin.connect.label` + `cell_connection` 逐层 relay，并最终接到 worker root Model 0 `(0,0,0)` 的系统总线出口时，该动作才允许外发。出口必须是 `pin.bus.mb.out` 或 `pin.bus.cb.out`，由动作语义和 worker role 决定。
 
 回程规则：
 - 外界返回结果先到 `Model 0`
@@ -811,6 +880,7 @@ Root `(0,0,0)` 可以声明：
 
 禁止：
 - 不得为“是否远端”再发明新的 pin 类型。
+- 正数业务模型、滑动 App、provider ZIP 不得直接声明 `pin.bus.cb.*` / `pin.bus.mb.*`。
 - 不得要求所有 UI 动作先进入远端候选池，再由宿主特判是否转发。
 - 不得绕过父模型 hosting cell，直接从深层子模型跳接到 Model 0。
 
@@ -819,7 +889,7 @@ Root `(0,0,0)` 可以声明：
 本样例仅作为规约范式，不代表当前运行时已在所有环境完全按此落地。
 
 层级：
-- `Model 0`：系统根，唯一允许 `pin.bus.out`
+- `Model 0`：系统根，唯一允许系统总线出口；UI/管理类外发使用 `pin.bus.mb.out`，控制类外发使用 `pin.bus.cb.out`
 - `Model 100`：颜色生成器应用根
 - `Model 110`：workspace/color page
 - `Model 111`：color form
@@ -832,7 +902,7 @@ Root `(0,0,0)` 可以声明：
   - 先在本地函数中写 `submit_inflight=true`
   - 本地组装 payload
   - 然后写入 `Model 112 (0,0,0)` 的现有 `pin.out submit`
-  - 该 `submit` 端口经父层 hosting cell relay 逐级上送至 `Model 0 pin.bus.out submit`
+  - 该 `submit` 端口经父层 hosting cell relay 逐级上送至 worker root Model 0 的管理总线出口 `pin.bus.mb.out submit`
   - 因此只有 `submit` 会外发
 
 每一级父模型只做 relay：
@@ -849,7 +919,7 @@ Root `(0,0,0)` 可以声明：
 - 不允许用“先写目标模型 input pin，再 direct `applyPatch(records)`”作为中转；这属于 direct patch bypass
 
 Model 0：
-- 只允许在 `(0,0,0)` 声明 `pin.bus.out submit`
+- 只允许在 `(0,0,0)` 声明系统总线出口。当前运行面为 `pin.bus.mb.out submit`；0363 目标为 `pin.bus.mb.out submit`（UI/管理类外发）或 `pin.bus.cb.out submit`（控制类外发）。
 - 所有真正离开本地 runtime 的动作必须最终接到这里
 
 由此得到的 conformance 结论：
@@ -992,7 +1062,7 @@ slide-capable app 的最小根标签：
 
 则：
 - 每一步都直接写 committed ModelTable
-- 若同时又显式接到 Model 0 `pin.bus.out`，则每一步都可继续外发
+- 若同时又显式接到 worker root Model 0 系统总线出口，则每一步都可继续外发。当前运行面为 `pin.bus.mb.out`；0363 目标按语义使用 `pin.bus.mb.out` 或 `pin.bus.cb.out`。
 
 #### 7.5f 约束
 

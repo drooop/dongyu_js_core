@@ -25,6 +25,13 @@ function test_server_legacy_function_ctx_uses_runtime_view() {
   return { key: 'server_legacy_function_ctx_uses_runtime_view', status: 'PASS' };
 }
 
+function test_server_legacy_function_ctx_removes_direct_mgmt_inbox_api() {
+  const text = read('packages/ui-model-demo-server/server.mjs');
+  const ctxSection = text.slice(text.indexOf('const ctx = {'), text.indexOf('hostApi: {', text.indexOf('const ctx = {')));
+  assert.doesNotMatch(ctxSection, /getMgmtInbox|clearMgmtInbox/u, 'server code-string ctx must not expose direct management-bus inbox APIs');
+  return { key: 'server_legacy_function_ctx_removes_direct_mgmt_inbox_api', status: 'PASS' };
+}
+
 function test_model100_patch_no_longer_uses_runtime_apply_patch() {
   const text = read('packages/worker-base/system-models/test_model_100_ui.json');
   assert.doesNotMatch(text, /ctx\.runtime\.applyPatch/, 'model100 return handler must not use ctx.runtime.applyPatch');
@@ -35,6 +42,7 @@ function test_model100_patch_no_longer_uses_runtime_apply_patch() {
 const tests = [
   test_server_snapshot_delta_no_longer_direct_applies_patch,
   test_server_legacy_function_ctx_uses_runtime_view,
+  test_server_legacy_function_ctx_removes_direct_mgmt_inbox_api,
   test_model100_patch_no_longer_uses_runtime_apply_patch,
 ];
 

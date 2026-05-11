@@ -1,12 +1,14 @@
 ---
 title: "基础设施部署恢复指南"
 doc_type: deployment
-status: active
-updated: 2026-04-21
+status: historical
+updated: 2026-05-10
 source: ai
 ---
 
 # 基础设施部署恢复指南
+
+Status: historical recovery runbook. Use `docs/deployment/runtime_baseline_default.md` for the current default runtime baseline, then use this file only as recovery context.
 
 **创建日期**: 2026-02-06  
 **目的**: 在新机器上恢复完整的开发/测试环境

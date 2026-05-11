@@ -8,7 +8,7 @@ source: ai
 
 # 最小 Submit 双总线示例可视化说明
 
-这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经过 Matrix、MBR、MQTT、remote-worker RE，最后按 `route.reply_to` 回到本地 UI 模型。
+这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经过 Matrix、MBR、MQTT、remote-worker R1（RE），最后按 `route.reply_to` 回到本地 UI 模型。
 
 ## 1. 总链路
 
@@ -44,8 +44,8 @@ flowchart TB
   M3000 --> Routes["submit1_route<br/>pin.connect.cell"]
   Routes --> ProgramCell["Cell (1,1,1)<br/>submit1_in / submit1_out"]
   ProgramCell --> Func["submit1<br/>func.js"]
-  Func --> Result["resultPayload<br/>display_text + remote_status"]
-  Result --> Topic["reply_to<br/>ui-server-U1 model 2000 result"]
+  Func --> Result["pin_payload.v1<br/>payload: display_text + remote_status + last_submit_payload + submit_inflight"]
+  Result --> Topic["route.reply_to<br/>ui-server-U1 model 2000 result"]
 
   classDef table fill:#e8f1f8,stroke:#2b6f9f,color:#102a43;
   classDef pin fill:#edf7ef,stroke:#357a54,color:#173b2b;
@@ -55,7 +55,7 @@ flowchart TB
   class Result,Topic out;
 ```
 
-RE 的公开 `submit1` pin 不是程序端点本身。RE 需要用 `pin.connect.cell` 把 root `submit1` 接到 `(1,1,1).submit1_in`，再用同 Cell 的 `pin.connect.label` 把 `submit1_in` 接到 `submit1:in`。程序只读取 submit payload 里的 `text` record，不接受 `input_value` 旧字段兜底。
+RE 的公开 `submit1` pin 不是程序端点本身。RE 需要用 `pin.connect.cell` 把 root `submit1` 接到 `(1,1,1).submit1_in`，再用同 Cell 的 `pin.connect.label` 把 `submit1_in` 接到 `submit1:in`。程序只读取 submit payload 里的 `text` record，不接受 `input_value` 旧字段兜底；回包必须包装成 `pin_payload.v1`，并按 `route.reply_to` 返回。
 
 ## 3. Workspace 导入过程
 
@@ -79,6 +79,8 @@ flowchart LR
 ```
 
 zip 里只放 `app_payload.json`。这个文件是 ModelTable records array，不是 HTML 页面，也不是 patch ops。UI 应按 cell 拆分：Container、Card、Input、Button、Text、StatusBadge 分别是独立 cell。
+
+按钮绑定也必须是模型表声明，不是前端直发。示例中 `(2,3,0)` 的 `Button` 声明 `click_chain pin.in`，`ui_bind_json.write.pin=click_chain`，并把 `value_ref` 解析成包含 `text` 的临时 ModelTable records。root `(0,0,0)` 再用 `root_routes pin.connect.cell` 把 `[2,3,0,click_chain]` 接到 `[0,0,0,submit_request]`，并用 `submit_request_wiring pin.connect.label` 触发 `handle_submit:in`。`handle_submit` 只读取 `text`，然后写 root `submit1 pin.out`，由安装时生成的 host adapter 进入 Model 0 与双总线。
 
 开发者可以直接写 `app_payload.json`，也可以先在 Workspace 中填表做出一个 `slide_capable=true` 的 APP，再通过 `Zip` 链接或 `/api/slide-apps/<modelId>/export.zip` 导出。导出包会把正式模型 id 改回临时 id，并移除安装时生成的 `host_*_generated_*` 状态。绑定中的 `model_id` 字段和分散式 `*_model_id` 标签都会随导入/导出一起 remap。
 
@@ -124,6 +126,7 @@ result 消息的核心 payload：
 {
   "version": "v1",
   "type": "pin_payload",
+  "op_id": "manual_result_2000_001",
   "source_model_id": 2000,
   "pin": "result",
   "route": {
@@ -133,6 +136,9 @@ result 消息的核心 payload：
   "payload": [
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Submitted: hello from external client" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "remote_status", "t": "str", "v": "remote_processed" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "last_submit_payload", "t": "json", "v": [
+      { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello from external client" }
+    ] },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit_inflight", "t": "bool", "v": false }
   ]
 }
@@ -142,7 +148,7 @@ result 消息的核心 payload：
 
 | 检查项 | 正确结果 |
 |---|---|
-| UI 入口 | local model 的 `bus_event_v2 -> Model 0 pin.bus.in` |
+| UI 入口 | local model 的 `bus_event_v2 -> Model 0 pin.bus.mb.in` |
 | Matrix event | `dy.bus.v0`，目标 `@mbr:<host_url>` |
 | submit route | `route.to = RE / 3000 / submit1` |
 | result route | `route.reply_to = ui-server-U1 / local model / result` |

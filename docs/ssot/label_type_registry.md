@@ -2,7 +2,7 @@
 title: "Label Type Registry"
 doc_type: ssot
 status: active
-updated: 2026-05-06
+updated: 2026-05-10
 source: ai
 ---
 
@@ -12,6 +12,14 @@ source: ai
 > 新增 `label.t` 必须先在本表注册，再实现运行时代码。
 >
 > 0356 起，PIN 连接合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。0357 起，runtime 对 `pin.connect.model`、`pin.log.*`、`(self, ...)` / `(func, ...)` 端点写法执行硬拒绝；它们不是当前输入面，也不得通过兼容层恢复。
+
+Authority:
+- Below `CLAUDE.md`, architecture SSOT, and runtime semantics.
+- This file is the target authority for `label.t` registration and placement rules.
+
+Conflict behavior:
+- If runtime dispatch accepts a label type not registered here, fix runtime or register the label through an iteration.
+- If lower docs mention unregistered or deprecated label types as current inputs, update those docs.
 
 ---
 
@@ -63,6 +71,17 @@ source: ai
 - 普通 Cell 发起正式写入时，必须通过当前模型内显式 `pin.connect.cell` 把 `write_label_req` 路由到 root `mt_write_req`。
 - 早期 `(0,1,0)` reserved helper executor cell 已删除；`helper_executor`、`owner_apply`、`owner_apply_route`、`owner_materialize` 不再由 runtime 自动种入，也不得作为默认物化入口。
 
+### 2.0 软件工人身份标签
+
+这些标签写在软件工人 root Model 0 `(0,0,0)`，用于启动期身份与角色校验。
+
+| label.k | label.t | value | 位置约束 |
+|---|---|---|---|
+| `sys_worker_id` | `worker.id` | `<workspace>/<dam>/<pic>/<dem>/<worker>`，五段数字，如 `5/10/28/35/13` | 仅 Model 0 `(0,0,0)`；首次 trusted bootstrap 写入后锁定，后续只能显式维护变更 |
+| `sys_worker_role` | `worker.role` | `"WSM"`、`"DEM"` 或 `"V1N"` | 仅 Model 0 `(0,0,0)` |
+
+`sys_worker_role` 的值为 `"DEM"` 才允许声明 `pin.bus.mb.*`。`"V1N"` 普通软件工人只能声明 `pin.bus.cb.*`。旧 `v1n_id`、旧 `k=worker.role` 和旧 `is_DEM` 都不是合法输入面。
+
 ### 2.1 UI Bootstrap Boundary (0210 Freeze)
 
 - `ui_ast_v0`、`ws_selected_ast`、共享 mailbox root AST 都不是新的 label.t 合同；它们只是普通 `json` 数据标签在某些历史实现里的投影结果。
@@ -82,8 +101,10 @@ source: ai
 |---|---|---|---|---|
 | `pin.in` | Cell 级输入端口；写在非系统模型 root `(0,0,0)` 时也承担模型根边界输入 | 端口名 | `null` 或临时 ModelTable payload array | 任意 Cell |
 | `pin.out` | Cell 级输出端口；写在非系统模型 root `(0,0,0)` 时也承担模型根边界输出 | 端口名 | `null` 或临时 ModelTable payload array | 任意 Cell |
-| `pin.bus.in` | 系统边界输入端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅 Model 0 (0,0,0) |
-| `pin.bus.out` | 系统边界输出端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅 Model 0 (0,0,0) |
+| `pin.bus.cb.in` | 控制总线边界输入端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅软件工人 Model 0 (0,0,0) |
+| `pin.bus.cb.out` | 控制总线边界输出端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅软件工人 Model 0 (0,0,0) |
+| `pin.bus.mb.in` | 管理总线边界输入端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅 DEM 软件工人 Model 0 (0,0,0) |
+| `pin.bus.mb.out` | 管理总线边界输出端口 | 端口名 | `null` 或临时 ModelTable payload array | 仅 DEM 软件工人 Model 0 (0,0,0) |
 
 0331 payload 约束：
 - 正式业务 pin 的非空 value 必须是 `docs/ssot/temporary_modeltable_payload_v1.md` 定义的 record array。
@@ -212,8 +233,8 @@ runtime 不得新增或保留兼容层来支持这些旧名；结构性旧类型
 
 | label.t | 替代方案 |
 |---|---|
-| `BUS_IN` | `pin.bus.in` |
-| `BUS_OUT` | `pin.bus.out` |
+| `BUS_IN` | 按总线角色使用 `pin.bus.cb.in` 或 `pin.bus.mb.in` |
+| `BUS_OUT` | 按总线角色使用 `pin.bus.cb.out` 或 `pin.bus.mb.out` |
 | `CELL_CONNECT` | `pin.connect.label` |
 | `cell_connection` | `pin.connect.cell` |
 | `MODEL_IN` | 非系统模型 root `(0,0,0)` 上的 `pin.in` |
@@ -264,7 +285,7 @@ v1 当前只允许：
 宿主安装后自动生成的接入 labels 当前包括：
 
 - `Model 0`:
-  - `pin.bus.in`
+  - `pin.bus.mb.in`
   - `pin.connect.cell`（从 Model 0 root 系统边界 adapter 路由到 imported app 的 hosting Cell 引脚）
 - imported app hosting Cell:
   - `model.submt`
@@ -317,3 +338,33 @@ v1 只允许声明远端默认目标：
 ```
 
 `egress_pins` 可以包含多个公开 pin，例如 `submit1`、`submit2`。每个 pin 都必须是 imported app root `(0,0,0)` 上已声明的普通 `pin.out`；不得写成 `submit1:in` 这类函数端点。
+
+## 11. Host-owned UI Egress Binding（0363）
+
+0363 新增目标 label.t：
+
+- `t = ui.egress.binding.v1`
+
+它只允许由 UI Server installer 在 imported slide app 安装完成后写入，不允许出现在 provider ZIP / imported records 中。
+
+| label.t | 说明 | key | value | 位置约束 |
+|---|---|---|---|---|
+| `ui.egress.binding.v1` | 记录 imported app 公开 `pin.out` 与宿主系统总线出口之间的 host-owned egress 绑定；供 UI 投影显示，不替代实际 pin route | 绑定名，例如 `ui_egress_submit1_binding` | JSON object | 安装后的 imported app root `(0,0,0)`；仅 UI Server installer 可写 |
+
+value 必须至少包含：
+
+- `from_pin`: imported root 上的公开 `pin.out` 名称。
+- `bus`: `"management"` 或 `"control"`；UI/滑动 App 用户交互默认使用 `"management"`。
+- `host_model_id`: 当前 worker root model id，目标为 `0`。
+- `host_cell`: 目标为 `[0,0,0]`。
+- `host_pin_type`: 必须是 `pin.bus.mb.out` 或 `pin.bus.cb.out`。
+- `host_pin_key`: 宿主生成的系统总线出口 key。
+- `target`: `{ worker_id, model_id, pin }`，由 `remote_bus_endpoint_v1` 与当前公开出口 pin 合成。
+- `reply_pin`: 回包进入本地 imported app 的公开 pin。
+- `owned_by`: 必须是 `"ui-server-installer"`。
+
+约束：
+
+- `ui.egress.binding.v1` 只能描述安装后的接线事实；不能授权 UI 绕过 pin route 直接发 bus 消息。
+- 若 binding 存在但对应 `pin.connect.*` 或系统总线出口缺失，安装状态必须判为不完整。
+- 删除 imported app 时，宿主必须同步删除 binding 记录。

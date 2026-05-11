@@ -2,7 +2,7 @@
 title: "Fill-Table-Only Mode（显式强制模式）"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
@@ -12,8 +12,10 @@ source: ai
 本文件定义一个执行治理模式：当任务被明确声明为“只能填表实现”时，进入 **Fill-Table-Only** 强制约束。
 
 - 这是执行治理规则，不是 runtime 语义扩展。
-- 上位约束仍是 `CLAUDE.md`。
+- Authority: below `CLAUDE.md`, `docs/WORKFLOW.md`, and `docs/ssot/execution_governance_ultrawork_doit.md`.
 - 本模式是 **opt-in**，不是仓库全局默认。
+- Scope: only tasks explicitly declared as fill-table-only.
+- Conflict behavior: if this mode conflicts with `CLAUDE.md` or a required emergency/security exception, stop and ask for user approval before proceeding.
 
 ## 1. 目标
 在显式填表任务中，阻止“改 runtime/改服务逻辑绕过填表”的实现路径，从而暴露真实的 runtime capability gap。

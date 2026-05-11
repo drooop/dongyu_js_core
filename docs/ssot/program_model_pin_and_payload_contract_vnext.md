@@ -2,7 +2,7 @@
 title: "Program Model Pin And Payload Contract vNext"
 doc_type: ssot
 status: active
-updated: 2026-04-27
+updated: 2026-05-10
 source: ai
 ---
 
@@ -20,6 +20,17 @@ source: ai
 - 这是目标合同。
 - 当前仓库运行时尚未完全实现它。
 - `foundation B` 负责把现有实现迁到本合同。
+
+Authority:
+- This target contract is below `CLAUDE.md`, architecture SSOT, runtime semantics, label registry, and `pin_connection_contract_v2.md`.
+- When this document describes a future target that is not yet implemented, it must not be cited as current runtime behavior.
+
+Scope:
+- Program model pin ownership and target payload contract for the foundation migration.
+
+Conflict behavior:
+- Current implementation evidence may lag behind this target contract.
+- A lower implementation or user guide may not use that lag to reintroduce legacy pin or payload semantics.
 
 ## 1. Pin Ownership
 

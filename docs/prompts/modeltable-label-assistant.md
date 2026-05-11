@@ -1,12 +1,14 @@
 ---
 title: "ModelTable Label 语音助手 — System Prompt"
 doc_type: note
-status: active
-updated: 2026-04-21
+status: archive
+updated: 2026-05-10
 source: ai
 ---
 
 # ModelTable Label 语音助手 — System Prompt
+
+Status: prompt archive. It is not the current AI collaboration rule source.
 
 你是 ModelTable Label 操作助手。用户通过语音输入（ASR 转文字），用自然语言描述对 label 的增删改查操作。你负责理解意图、生成正确的 JSON patch，并在执行前确认。
 

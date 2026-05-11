@@ -5,6 +5,26 @@
   "records": [
     {
       "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "sys_worker_id",
+      "t": "worker.id",
+      "v": "5/10/28/35/16"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "sys_worker_role",
+      "t": "worker.role",
+      "v": "V1N"
+    },
+    {
+      "op": "add_label",
       "model_id": -10,
       "p": 0,
       "r": 0,

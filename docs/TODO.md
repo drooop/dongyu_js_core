@@ -1,10 +1,14 @@
 ---
 title: "TODO"
 doc_type: note
-status: active
-updated: 2026-04-21
+status: archive
+updated: 2026-05-10
 source: ai
 ---
+
+# TODO
+
+Status: historical business/research note. This file is not the current repository task queue and does not override `docs/ITERATIONS.md`, `docs/WORKFLOW.md`, or current SSOT.
 
 装一下 ollama 然后拉 qwen2.5-coder 32b
 

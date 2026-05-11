@@ -2,7 +2,7 @@
 title: "Imported Slide App Host Ingress Semantics v1"
 doc_type: ssot
 status: active
-updated: 2026-05-06
+updated: 2026-05-10
 source: ai
 ---
 
@@ -14,6 +14,16 @@ source: ai
 
 0356 PIN 连接目标合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。0357 起，早期 `pin.connect.model`、numeric prefix、`(self, ...)` / `(func, ...)` 写法已从 runtime 输入面硬移除；importer、server repair 和测试不得继续生成这些写法。
 
+Authority:
+- Below `CLAUDE.md`, architecture SSOT, runtime semantics, label registry, PIN connection contract, and temporary payload contract.
+- This file defines imported slide app host ingress behavior only; it does not define general PIN semantics.
+
+Current status:
+- The v1 spec is partly implemented. Sections marked as current describe implemented behavior; target/migration notes must not be cited as already complete.
+
+Conflict behavior:
+- If this file conflicts with `pin_connection_contract_v2.md` or temporary payload rules, those files win.
+
 当前已经落地的范围只有：
 
 - semantic:
@@ -21,7 +31,7 @@ source: ai
 - locator form:
   - `root-relative cell locator`
 - 安装时自动补：
-  - `Model 0 pin.bus.in`
+  - `Model 0 pin.bus.mb.in`
   - `Model 0 pin.connect.cell`
   - imported app hosting Cell 的 `model.submt` 与边界 pin
   - imported model root relay `pin.in`
@@ -39,7 +49,7 @@ source: ai
 
 为准。
 
-0326 之后的 current truth 是：正式业务入口经 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.in`，再由 pin route 转给目标模型。早期 direct target-cell 入口只作为 historical / superseded 口径保留在旧 iteration 记录中，不再是本页 current behavior。
+0326 之后的 current truth 是：正式业务入口经 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.mb.in`，再由 pin route 转给目标模型。早期 direct target-cell 入口只作为 historical / superseded 口径保留在旧 iteration 记录中，不再是本页 current behavior。
 
 ## 1. 为什么需要这份规约
 
@@ -65,7 +75,7 @@ source: ai
 ### 2.1 当前事实
 
 - 前端正式业务事件提交为 `bus_event_v2`。
-- `Model 0 (0,0,0) pin.bus.in` 是正式业务 ingress 的统一入口。
+- `Model 0 (0,0,0) pin.bus.mb.in` 是正式业务 ingress 的统一入口。
 - imported app 导入后，可以自己定义内部 pin 链、helper、root relay。
 - 输入草稿、本地 overlay、on_blur / on_submit 延后同步已经成立。
 
@@ -329,7 +339,7 @@ v1 当前还要求：
 
 - `Model 0 (0,0,0)`
   - `k = imported_host_submit_<model_id>`
-  - `t = pin.bus.in`
+  - `t = pin.bus.mb.in`
 - `Model 0 (0,0,0)`
   - `k = imported_host_submit_<model_id>_route`
   - `t = pin.connect.cell`
@@ -367,7 +377,7 @@ v1 当前还要求：
 
 当前必须写成现状的是：
 
-- 所有正式业务 ingress 经 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.in`
+- 所有正式业务 ingress 经 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.mb.in`
 - imported app 的 host ingress adapter 由宿主在安装时补齐
 - imported app 内部后续 relay 仍由 app 自己定义
 
@@ -397,11 +407,13 @@ imported app zip 必须：
 - 在 root (0,0,0) 上声明 `dual_bus_model: json`，说明自己期望对外发送业务包。
 - 在 root (0,0,0) 上声明 `remote_bus_endpoint_v1: json`，说明远端 provider worker / model 默认目标。该声明只含 `route.to` 默认值，不含 `route.reply_to`。
 - 在 root (0,0,0) 声明一个或多个 `pin.out` 作为对外出口，并在 `dual_bus_model.egress_pins` 中逐一列出。0362 后 outbound packet 的 `route.to.pin` 必须来自当前被触发的公开出口 pin，例如 `submit1`；不得再把 imported egress 固定为单一 `submit`。
-- 不允许在 zip 内声明 `pin.bus.in` / `pin.bus.out` / `pin.connect.model` / `func.python`，这些由 `SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES` 拒绝，防止 imported app 自建第二个对外入口。
+- 不允许在 zip 内声明 `pin.bus.cb.*` / `pin.bus.mb.*` / `pin.connect.model` / `func.python`，这些由 `SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES` 拒绝，防止 imported app 自建第二个对外入口。
+- 不允许在 zip 内声明 `ui.egress.binding.v1`。这个 label.t 是 UI Server 安装后生成的 host-owned truth，不是 provider-authored bundle truth。
 - 不允许在 zip 内声明运行时 `reply_to`。`reply_to` 是宿主 UI Server 在发出消息时根据当前本地安装模型 id 与 host identity 生成的 server-owned metadata。
 - 不允许在 `remote_bus_endpoint_v1` 内声明 `to.pin`；公开 pin 来源只能是 `dual_bus_model.egress_pins` 与当前触发的 root `pin.out`。
+- imported slide app 的 UI/管理类 egress 使用 `pin.bus.mb.out`；若后续出现控制类 egress，宿主必须显式选择 `pin.bus.cb.out`，其入站对称入口为 `pin.bus.cb.in`。
 
-### 9.2 宿主自动补齐的 egress adapter（0326 current truth）
+### 9.2 宿主自动补齐的 egress adapter
 
 安装期 `materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, hostEgress)` 当前产出：
 
@@ -413,19 +425,66 @@ imported app zip 必须：
 | Model 0 `(0,0,0)` | `bridge_imported_<semantic>_to_mt_bus_send_<id>` `func.js` | 把 imported payload 写到 `mt_bus_send_in` |
 | Model 0 `(0,0,0)` | `imported_<semantic>_<id>_bridge_wiring` `pin.connect.label` | `bridge_in -> bridge_func:in` |
 | Model 0 `(0,0,0)` | `imported_<semantic>_<id>_route` `pin.connect.cell` | `[mountCell,mountRelayPin] -> [0,0,0,bridge_in]` |
-| Model 0 `(0,0,0)` | `imported_<semantic>_<id>_bus` `pin.bus.out` | 宿主 egress bus-out key |
+| Model 0 `(0,0,0)` | `imported_<semantic>_<id>_bus` `pin.bus.mb.out` | UI/管理类 egress 写入 DEM 管理总线出口 |
+| imported root `(0,0,0)` | `ui_egress_<semantic>_binding_<id>` `ui.egress.binding.v1` | host-owned 绑定说明，供 UI 投影显示该公开出口实际使用哪个宿主管理总线 pin |
 | imported root `(0,0,0)` | `host_egress_generated_model0_labels` / `host_egress_generated_mount` | 删除清理清单 |
 
-### 9.3 current egress 执行路径
+### 9.2a Host-owned UI egress binding
+
+`ui.egress.binding.v1` 是安装后的 host-owned truth，用于说明 imported app 的某个公开 `pin.out` 经过哪一个宿主总线出口离开 UI Server。它不是 provider ZIP 内容，不能由外部 bundle 提供。
+
+安装器在分配本地模型 id、确认当前 worker identity、确认 DEM 管理总线出口后，才可以在 imported root `(0,0,0)` 写入类似记录：
+
+```json
+{
+  "op": "add_label",
+  "model_id": 1050,
+  "p": 0,
+  "r": 0,
+  "c": 0,
+  "k": "ui_egress_submit1_binding",
+  "t": "ui.egress.binding.v1",
+  "v": {
+    "from_pin": "submit1",
+    "bus": "management",
+    "host_model_id": 0,
+    "host_cell": [0, 0, 0],
+    "host_pin_type": "pin.bus.mb.out",
+    "host_pin_key": "imported_submit1_1050_bus",
+    "target": {
+      "worker_id": "RE",
+      "model_id": 3000,
+      "pin": "submit1"
+    },
+    "reply_pin": "result",
+    "owned_by": "ui-server-installer"
+  }
+}
+```
+
+字段含义：
+
+- `from_pin`：imported root 上被触发的公开 `pin.out`。
+- `bus`：本次 egress 使用的总线类别；UI/滑动 App 用户交互默认是 `management`。
+- `host_model_id` / `host_cell` / `host_pin_type` / `host_pin_key`：宿主实际接到的系统总线出口。
+- `target`：根据 `remote_bus_endpoint_v1` 和当前 `from_pin` 合成的远端目标。
+- `reply_pin`：回包进入本地 imported app 时使用的公开回程 pin。
+- `owned_by`：必须标明由安装器持有，provider ZIP 不得覆盖。
+
+UI 可把 `ui.egress.binding.v1` 投影出来，让用户看到“这个按钮/出口通过哪个宿主管理总线 pin 外发”。但 authority 仍然来自实际 pin route；如果 binding 记录存在而实际 `pin.connect.*` / bus pin 不存在，必须视为安装不完整，而不是允许 UI 直接发送。
+
+删除 imported app 时，宿主必须同时删除 `ui.egress.binding.v1` 和清理清单内的 host-owned egress labels。
+
+### 9.3 egress 执行路径
 
 1. imported app root 的某个公开 `pin.out` 被写入 payload，例如 `submit1`。
 2. root pin.out 经过 mount relay / mount bridge 到达 Model 0 `(0,0,0)` 的 `bridge_in`。
 3. `bridge_imported_*_to_mt_bus_send_*` 读取 `remote_bus_endpoint_v1` 的远端 worker / model 默认值，补上当前公开出口 pin，合成 `route.to`。
 4. 同一个 bridge 合成 `route.reply_to`，指向当前 UI Server / local installed model id / result pin；ZIP 内容不能覆盖它。
 5. bridge 把 `{source_model_id, pin, payload, bus_out_key, route, op_id}` 写入 `mt_bus_send_in`。
-6. `mt_bus_send` 构造带 `route` 的 `pin_payload` packet，写入 `imported_<semantic>_<id>_bus` `pin.bus.out`。
-7. runtime 对 `pin.bus.out` 执行 MQTT publish。
-8. `ProgramModelEngine` 在 intercept 后补扫 `pin.bus.out`，按 packet `op_id` 做一次性 Matrix bridge。MBR 只按 packet 内 `route.to` 做通用转发，不要求 per-app route registration。
+6. `mt_bus_send` 构造带 `route` 的 `pin_payload` packet，写入 `imported_<semantic>_<id>_bus`；UI/管理类 egress 的 type 是 `pin.bus.mb.out`。
+7. runtime 对 worker root 系统总线出口执行 MQTT publish。
+8. `ProgramModelEngine` 在 intercept 后补扫 worker root 系统总线出口，按 packet `op_id` 做一次性 Matrix bridge。MBR 只按 packet 内 `route.to` 做通用转发，不要求 per-app route registration。
 
 ### 9.3a remote-worker 内部公开 pin 到程序模型的接线
 

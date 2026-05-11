@@ -19,8 +19,11 @@ source: ai
 ## 当前明确不做什么
 
 - 不支持 `func.python`
-- 不支持 `pin.bus.in`
-- 不支持 `pin.bus.out`
+- 不支持 `pin.bus.cb.in`
+- 不支持 `pin.bus.cb.out`
+- 不支持 `pin.bus.mb.in`
+- 不支持 `pin.bus.mb.out`
+- 不支持 `ui.egress.binding.v1`
 - 不支持 removed `pin.connect.model`
 - 不支持覆盖系统保留/已移除的 helper labels：
   - `scope_privileged`

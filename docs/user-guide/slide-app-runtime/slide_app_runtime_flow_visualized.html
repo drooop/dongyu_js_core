@@ -175,7 +175,7 @@
     <button class="stage" data-target="auto-pins"><strong>3. 自动建引脚</strong><span>host ingress / host egress</span></button>
     <button class="stage" data-target="click"><strong>4. 点击到后端</strong><span>bus_event_v2 / Model 0 / target cell</span></button>
     <button class="stage" data-target="backend"><strong>5. 程序触发</strong><span>pin.in / func.js / pin.out</span></button>
-    <button class="stage" data-target="egress"><strong>6. 外发回流</strong><span>mt_bus_send / pin.bus.out / owner materialization</span></button>
+    <button class="stage" data-target="egress"><strong>6. 外发回流</strong><span>mt_bus_send / pin.bus.mb.out / owner materialization</span></button>
   </nav>
 
   <section>
@@ -207,12 +207,12 @@
       <h2>3. 自动建引脚：宿主只接公开边界</h2>
       <p>APP 声明 <code>host_ingress_v1</code> 后，安装器会生成宿主 adapter，不会把内部 helper 直接暴露给外部。</p>
       <div class="flow">
-        <div class="node blue"><strong>Model 0 root</strong><small><code>imported_host_submit_&lt;modelId&gt;</code> as <code>pin.bus.in</code></small></div>
+        <div class="node blue"><strong>Model 0 root</strong><small><code>imported_host_submit_&lt;modelId&gt;</code> as <code>pin.bus.mb.in</code></small></div>
         <div class="node blue"><strong>Model 0 route</strong><small><code>pin.connect.cell</code> routes to hosting/root boundary</small></div>
         <div class="node green"><strong>Imported root relay</strong><small><code>__host_ingress_submit</code> as <code>pin.in</code></small></div>
         <div class="node green"><strong>Imported boundary pin</strong><small>relay to declared <code>submit_request</code></small></div>
       </div>
-      <div class="callout">如果 APP 还声明外发能力，安装器会在 Model 0 mount cell 和 Model 0 root 上补 host egress relay、bridge function 和 <code>pin.bus.out</code>。</div>
+      <div class="callout">如果 APP 还声明外发能力，安装器会在 Model 0 mount cell 和 Model 0 root 上补 host egress relay、bridge function 和 <code>pin.bus.mb.out</code>。</div>
     </article>
 
     <article id="click" class="panel">
@@ -222,7 +222,7 @@
         <div class="node blue"><strong>Button click</strong><small>renderer reads <code>ui_bind_json.write</code></small></div>
         <div class="node blue"><strong>bus_event_v2</strong><small><code>bus_in_key</code> + temporary ModelTable payload</small></div>
         <div class="node green"><strong>POST /bus_event</strong><small>remote store submits to server</small></div>
-        <div class="node green"><strong>Model 0 pin.bus.in</strong><small>server writes <code>k=&lt;bus_in_key&gt; t=pin.bus.in</code></small></div>
+        <div class="node green"><strong>Model 0 pin.bus.mb.in</strong><small>server writes <code>k=&lt;bus_in_key&gt; t=pin.bus.mb.in</code></small></div>
         <div class="node rust"><strong>pin route</strong><small><code>pin.connect.cell</code> reaches target boundary pin</small></div>
         <div class="node rust"><strong>target cell pin.in</strong><small><code>mt_bus_receive</code> dispatches to target pin</small></div>
       </div>
@@ -248,7 +248,7 @@
         <div class="node green"><strong>host / mount relay</strong><small>安装时自动生成</small></div>
         <div class="node blue"><strong>Model 0 bridge function</strong><small>写 <code>mt_bus_send_in</code></small></div>
         <div class="node blue"><strong>Model 0 mt_bus_send</strong><small>构造 <code>bus_send.v1</code></small></div>
-        <div class="node rust"><strong>pin.bus.out</strong><small>Matrix / MBR / MQTT 统一消费</small></div>
+        <div class="node rust"><strong>pin.bus.mb.out</strong><small>Matrix / MBR / MQTT 统一消费</small></div>
         <div class="node rust"><strong>owner materialization</strong><small>回包经 Model 0 写回目标模型</small></div>
       </div>
     </article>

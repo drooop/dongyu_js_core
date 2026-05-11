@@ -1,23 +1,21 @@
 ---
-title: "定位说明（必须写在文件开头）"
+title: "Feishu Alignment Decisions v0"
 doc_type: ssot
 status: active
-updated: 2026-04-29
+updated: 2026-05-10
 source: ai
 ---
 
-# 定位说明（必须写在文件开头）
+# Feishu Alignment Decisions v0
+
+## Positioning
 
 本文件用于冻结当前仓库对 Feishu 文档《软件工人模型2》及其直接引用文档的**对齐决议**。
 
-上位约束：
-- `CLAUDE.md`
-- `docs/architecture_mantanet_and_workers.md`
-- `docs/ssot/runtime_semantics_modeltable_driven.md`
-- `docs/ssot/label_type_registry.md`
-
-作用对象：
-- 本仓库的所有运行时、system model、fill-table patch、验证脚本、后续迭代设计
+- Authority: below `CLAUDE.md`, `docs/architecture_mantanet_and_workers.md`, `docs/ssot/runtime_semantics_modeltable_driven.md`, and `docs/ssot/label_type_registry.md`.
+- Scope: runtime, system models, fill-table patches, validation scripts, and future iteration designs that claim Feishu alignment.
+- Rule type: adoption decisions. It decides what this repository adopts, rejects, or defers from Feishu source material.
+- Conflict behavior: Feishu source material never overrides repository SSOT automatically. If Feishu changes should become project rules, first update the repository spec chain through an iteration.
 
 本文件的性质：
 - 它不是 Feishu 原文的镜像

@@ -2,7 +2,7 @@
 title: "Temporary ModelTable Payload v1"
 doc_type: ssot
 status: active
-updated: 2026-04-29
+updated: 2026-05-10
 source: ai
 ---
 
@@ -19,6 +19,17 @@ source: ai
 - 外部 Feishu 文档是来源。
 - 自本文件落盘后，repo 版本作为后续实现与迁移的执行权威。
 - 本文件只定义 payload 本身，不定义接收方应执行的业务动作。
+
+Authority:
+- Below `CLAUDE.md`, architecture SSOT, runtime semantics, and label registry.
+- Above lower data-model, UI, Matrix/MQTT, and user-guide descriptions that mention temporary message payload shape.
+
+Scope:
+- Temporary ModelTable message shape, metadata labels, validation rules, and materialization boundary.
+
+Conflict behavior:
+- If a lower doc describes formal business pin payload as plain object/string instead of record array, update the lower doc.
+- Receiving, routing, forwarding, tracing, or displaying a temporary message does not materialize it unless an approved receiver explicitly writes labels.
 
 ## 1. Core Shape
 
@@ -96,7 +107,7 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
 
 ### 2.1 Pin Payload Rule (0331)
 
-所有正式业务 `pin.in` / `pin.out` / `pin.bus.in` / `pin.bus.out` 的非空 value 都必须是本文件定义的临时模型表 payload，也就是 JSON record array。
+所有正式业务 `pin.in` / `pin.out` / `pin.bus.cb.in` / `pin.bus.cb.out` / `pin.bus.mb.in` / `pin.bus.mb.out` 的非空 value 都必须是本文件定义的临时模型表 payload，也就是 JSON record array。
 
 允许的空值：
 - `null` / `undefined` 可用于声明 pin 或清空 pin。
@@ -205,7 +216,7 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
 
 ### 2.4 Canonical bus_send Payload (0332)
 
-`bus_send.v1` 是 Model 0 root 上 `mt_bus_send_in` 的内部请求格式。它用于把一个已经是临时模型表数组的业务 payload 转成 `pin.bus.out` 上的临时模型表值。
+`bus_send.v1` 是 Model 0 root 上 `mt_bus_send_in` 的内部请求格式。它用于把一个已经是临时模型表数组的业务 payload 转成 `pin.bus.cb.out` 或 `pin.bus.mb.out` 上的临时模型表值。
 
 合法 payload：
 
@@ -215,6 +226,7 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "source_model_id", "t": "int", "v": 100 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "pin", "t": "str", "v": "submit" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "management" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus_out_key", "t": "str", "v": "model100_submit_bus" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload", "t": "json", "v": [
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_text", "t": "str", "v": "hello" }
@@ -224,12 +236,13 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
 
 接收方规则：
 - `bus_send.v1` 只能由 Model 0 `(0,0,0)` 的 `mt_bus_send` 处理。
+- `bus` 必须是 `"control"` 或 `"management"`；UI / 滑动 App 交互默认使用 `"management"`。
 - `payload` label 的 `v` 必须仍是临时模型表 record array。
 - 旧对象请求，例如 `{ "source_model_id": 100, "pin": "submit", ... }`，不得作为 `mt_bus_send_in` 的合法 pin value。
 
 ### 2.5 Canonical pin_payload Payload (0332)
 
-`pin_payload.v1` 是 Model 0 `pin.bus.out` 的内部业务值格式。它本身仍是临时模型表数组；运行时或 server 在真正跨出系统边界时，可以把它还原为既有 transport packet：
+`pin_payload.v1` 是 Model 0 `pin.bus.cb.out` / `pin.bus.mb.out` 的内部业务值格式。它本身仍是临时模型表数组；运行时或 server 在真正跨出系统边界时，可以把它还原为既有 transport packet：
 
 对 imported slide app，`route.to` 的默认远端 worker / model 来自 app root 的 `remote_bus_endpoint_v1`；`route.to.pin` 来自当前被触发的公开 pin；`route.reply_to` 必须由 UI Server 运行时生成。
 
@@ -257,7 +270,7 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
 ```
 
 边界转换规则：
-- `pin.bus.out` label 的 `v` 必须是 `pin_payload.v1` 临时模型表数组，而不是上述 object packet。
+- `pin.bus.cb.out` / `pin.bus.mb.out` label 的 `v` 必须是 `pin_payload.v1` 临时模型表数组，而不是上述 object packet。
 - MQTT / Matrix / MBR 等外层 transport 可以继续使用 object packet；这是系统边界 envelope，不是业务 pin value。
 - `pin_payload.v1.payload` 里的业务内容必须仍是临时模型表 record array。
 - `route.to` 是远端公开入口目标，使用 `worker_id + model_id + pin` 定位目标 worker 上的目标模型 root 公开 pin。

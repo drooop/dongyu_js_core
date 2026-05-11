@@ -2,30 +2,35 @@
 title: "Slide App Runtime User Guide"
 doc_type: user-guide
 status: active
-updated: 2026-04-29
+updated: 2026-05-10
 source: ai
 ---
 
 # Slide App Runtime User Guide
 
-本目录面向开发者解释“滑动 APP”当前怎么编写、怎么安装、安装时宿主会自动补哪些引脚、点击按钮后事件如何进入后端，以及后端程序模型怎样把消息发到管理总线。
+本目录面向滑动 APP 开发者、provider 和集成者。它说明当前滑动 APP 如何编写、打包、安装、接入宿主引脚、触发后端程序模型，以及如何把结果沿总线回写到 UI。
 
-## 文档入口
+Authority:
+- This is a user guide. It does not override `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md`, `docs/ssot/pin_connection_contract_v2.md`, `docs/ssot/temporary_modeltable_payload_v1.md`, or `docs/ssot/label_type_registry.md`.
 
-- `slide_app_runtime_developer_guide.md`
-  - 主手册。包含 ModelTable 填表示例、root 默认程序链、安装链路、运行时事件链路和外发链路。
-- `minimal_submit_app_provider_guide.md`
-  - 面向滑动 APP 提供方和 remote-worker 提供方的最小双总线 cookbook。说明 `最小 Submit 双总线示例`、R1 填表、zip 导入和外部 Matrix/MQTT 收发测试。
-- `minimal_submit_app_provider_visualized.md`
-  - 同一个最小双总线示例的可视化说明：用流程图解释 UI、Model 0、Matrix、MBR、MQTT 与 remote-worker R1 的关系。
-- `minimal_submit_app_provider_interactive.html`
-  - 自包含交互式文档。可在浏览器中切换 R1 填表、UI 拆分、Workspace 导入和外部 topic 测试步骤。
-- `slide_app_runtime_flow_visualized.html`
-  - 自包含可视化页面。用可点击阶段卡片和流程图解释同一条链路，可直接用浏览器打开。
-
-## 当前边界
-
-- 这里说明的是 0326 之后的 current truth。
-- 正式业务入口必须是 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.in -> pin route -> target`。
+Current boundary:
+- 正式业务入口仍通过 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.mb.in -> pin route -> target`。
 - 输入过程中的本地草稿不等于业务提交。
 - 引脚上传递的业务数据是临时 ModelTable record array；只有显式 materialization 才落成正式模型表。
+- HTML 文件只作为 visualized / interactive companion，不是 SSOT。
+
+## Start Here
+
+| File | Role | Use when |
+|---|---|---|
+| `slide_app_runtime_developer_guide.md` | main developer guide | 需要理解完整开发、安装、运行、事件和外发链路。 |
+| `minimal_submit_app_provider_guide.md` | provider cookbook | 需要做一个最小 Submit 双总线 APP 或 remote-worker provider 示例。 |
+| `minimal_submit_app_provider_visualized.md` | visualized Markdown | 需要用图解理解最小 Submit 示例。 |
+| `minimal_submit_app_provider_interactive.html` | interactive HTML | 需要在浏览器里切换查看 R1 填表、UI 拆分、Workspace 导入和外部 topic 测试步骤。 |
+| `slide_app_runtime_flow_visualized.html` | visualized HTML | 需要用阶段卡片和流程图浏览同一条链路。 |
+
+## Verification Rule
+
+修改本目录 Markdown 时，检查它仍然和上游 SSOT 对齐。
+
+修改本目录 HTML 时，必须用本地静态服务或浏览器直接打开页面，确认页面能加载、关键内容可见、交互控件可用。

@@ -1,16 +1,18 @@
 ---
-title: "新版规约条文草案 v0.1：模型分层与 Cell 模型标签"
+title: "Model Layering and Cell Model Labels v0.1"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
 # 新版规约条文草案 v0.1：模型分层与 Cell 模型标签
 
-> 位置说明：本文件是 review draft，用于集中审核新版模型分层与 Cell 模型标签语义。
-> 生效顺序仍遵循 `CLAUDE.md` > `docs/ssot/**` > 其他 docs。
-> 本文不覆盖上位硬约束，只做统一重述与待确认文本收口。
+> Positioning: this file is a review draft for model layering and Cell model label semantics.
+> Authority stays below `CLAUDE.md`, architecture SSOT, runtime semantics, and label registry.
+> It does not override higher-priority hard constraints; it restates and collects pending wording.
+> Scope: model id layers, effective Cell model labels, child-model mounting, and deletion semantics under review.
+> Conflict behavior: if this draft conflicts with higher SSOT, higher SSOT wins; do not cite draft-only wording as current runtime behavior until promoted.
 
 ## 0. 目标
 

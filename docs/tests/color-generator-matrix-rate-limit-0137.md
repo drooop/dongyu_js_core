@@ -1,12 +1,14 @@
 ---
 title: "Color Generator Matrix 限流排查与最小改动验证（0137）"
 doc_type: note
-status: active
-updated: 2026-04-21
+status: evidence
+updated: 2026-05-10
 source: ai
 ---
 
 # Color Generator Matrix 限流排查与最小改动验证（0137）
+
+Status: historical test evidence. It records one investigation and does not override current runtime or Matrix sending policy.
 
 ## 1. 结论
 

@@ -14,191 +14,85 @@ function parseArgs() {
   return idx === -1 ? 'all' : args[idx + 1];
 }
 
-function getFunctionCode(rt, name) {
-  const sys = rt.getModel(-10);
-  if (!sys) return null;
-  const cell = rt.getCell(sys, 0, 0, 0);
-  const label = cell.labels.get(name);
-  if (!label) return null;
-  const t = typeof label.t === 'string' ? label.t : '';
-  if (t !== 'func.js' && t !== 'function') return null;
-  if (typeof label.v === 'string') return label.v;
-  if (label.v && typeof label.v === 'object' && typeof label.v.code === 'string') return label.v.code;
-  return null;
-}
-
 function createRuntimeWithSystem() {
   const rt = new ModelTableRuntime();
   loadSystemPatch(rt);
   return rt;
 }
 
-function listSystemLabels(rt, predicate) {
-  const out = [];
-  for (const [id, model] of rt.models.entries()) {
-    if (id >= 0) continue;
-    for (const cell of model.cells.values()) {
-      for (const label of cell.labels.values()) {
-        if (!predicate || predicate(label, model, cell)) {
-          out.push({ model, cell, label });
-        }
-      }
-    }
-  }
-  return out;
-}
-
-function getMgmtOutPayload(rt, channel) {
-  const items = listSystemLabels(rt, (label) => label.t === 'MGMT_OUT');
-  for (const item of items) {
-    if (channel && item.label.k !== channel) continue;
-    return item.label.v || null;
-  }
-  return null;
-}
-
-function getMgmtInTarget(rt, channel) {
-  const items = listSystemLabels(rt, (label) => label.t === 'MGMT_IN');
-  for (const item of items) {
-    if (channel && item.label.k !== channel) continue;
-    return item.label.v || null;
-  }
-  return null;
-}
-
-function makeCtx(rt, sent) {
-  return {
-    runtime: rt,
-    hostApi: buildWorkerHostApi(rt),
-    parseJson: (value) => {
-      if (typeof value !== 'string') return value;
-      try {
-        return JSON.parse(value);
-      } catch (_) {
-        return value;
-      }
-    },
-    sendMatrix: (payload) => {
-      sent.push(payload);
-      return { ok: true };
-    },
-    getMgmtOutPayload: (channel) => getMgmtOutPayload(rt, channel),
-    getMgmtInTarget: (channel) => getMgmtInTarget(rt, channel),
-    getMgmtInbox: () => {
-      const sys = rt.getModel(-10);
-      if (!sys) return null;
-      const cell = rt.getCell(sys, 0, 0, 0);
-      return cell.labels.get('mgmt_inbox')?.v ?? null;
-    },
-    clearMgmtInbox: () => {
-      const sys = rt.getModel(-10);
-      if (!sys) return;
-      rt.addLabel(sys, 0, 0, 0, { k: 'mgmt_inbox', t: 'json', v: null });
-    },
-  };
-}
-
-function runFunction(rt, name, ctx) {
-  const code = getFunctionCode(rt, name);
-  assert(code, `missing_function:${name}`);
-  const fn = new Function('ctx', code);
-  return fn(ctx);
-}
-
-function enqueueJob(rt, id, sourceModelId, intent) {
+function getFunctionCode(rt, name) {
   const sys = rt.getModel(-10);
-  assert(sys, 'system_model_-10_missing');
+  if (!sys) return null;
+  const label = rt.getCell(sys, 0, 0, 0).labels.get(name);
+  if (!label) return null;
+  if (typeof label.v === 'string') return label.v;
+  if (label.v && typeof label.v === 'object' && typeof label.v.code === 'string') return label.v.code;
+  return null;
+}
+
+function runIntentDispatchOnce(rt) {
+  const code = getFunctionCode(rt, 'intent_dispatch');
+  assert(code, 'missing_intent_dispatch_function');
+  const fn = new Function('ctx', code);
+  fn({ runtime: rt, hostApi: buildWorkerHostApi(rt) });
+}
+
+function enqueueJob(rt, id, action, extra = {}) {
+  const sys = rt.getModel(-10);
+  assert(sys, 'system_model_missing');
+  rt.createModel({ id, name: 'source', type: 'data' });
   rt.addLabel(sys, 0, 0, 0, {
-    k: `intent_job_${id}`,
+    k: 'intent_job_' + id,
     t: 'json',
     v: {
-      source: { model_id: sourceModelId, p: 0, r: 0, c: 0, k: 'intent.v0' },
-      intent,
+      source: { model_id: id, p: 0, r: 0, c: 0, k: 'intent.v0' },
+      intent: Object.assign({ op_id: 'op-' + id, action }, extra),
     },
   });
 }
 
-function caseMgmtPutMbrV0() {
-  const rt = createRuntimeWithSystem();
-  rt.createModel({ id: 1, name: 'M1', type: 'data' });
-
-  // Ensure base exists (system patch sets defaults, but enforce here).
-  rt.addLabel(rt.getModel(0), 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
-
-  enqueueJob(rt, 1, 1, {
-    op_id: 'op-mgmt-1',
-    action: 'mgmt_put_mbr_v0',
-    cell_k: 'pageA.submitA1',
-    t: 'json',
-    v: { hello: 1 },
-  });
-
-  const sent = [];
-  const ctx = makeCtx(rt, sent);
-  runFunction(rt, 'intent_dispatch', ctx);
-
-  // Now run mgmt_send (it should pick MGMT_OUT and sendMatrix once).
-  runFunction(rt, 'mgmt_send', ctx);
-  assert(sent.length === 1, 'mgmt_send should send exactly once');
-  const payload = sent[0];
-  assert(payload && payload.op_id === 'op-mgmt-1', 'payload should include op_id');
-  assert(payload.topic === 'UIPUT/ws/dam/pic/de/sw/1/pageA.submitA1', 'payload.topic should include model_id and cell_k');
-  assert(payload.k === 'pageA.submitA1', 'payload.k should be cell_k');
-  assert(payload.t === 'json', 'payload.t');
-  assert(typeof payload.v === 'string' && payload.v.includes('hello'), 'payload.v should be json string');
-  return { key: 'mgmt_put_mbr_v0', status: 'PASS' };
-}
-
-function caseMgmtReceiveWritesTarget() {
-  const rt = createRuntimeWithSystem();
-  rt.createModel({ id: 1, name: 'M1', type: 'data' });
+function assertRemovedAction(rt, sourceModelId, action) {
+  const source = rt.getModel(sourceModelId);
+  const result = rt.getCell(source, 0, 0, 0).labels.get('intent_result');
+  assert(result && result.t === 'json', action + ' should write intent_result');
+  assert(result.v && result.v.result === 'error', action + ' should fail closed');
+  assert(result.v.code === 'removed_action', action + ' should be removed');
   const sys = rt.getModel(-10);
-
-  // Bind channel -> TargetRef
-  enqueueJob(rt, 1, 1, {
-    op_id: 'op-bind-1',
-    action: 'mgmt_bind_in',
-    channel: 'pageA.textA1',
-    target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'pageA.textA1' },
-  });
-  const sent = [];
-  const ctx = makeCtx(rt, sent);
-  runFunction(rt, 'intent_dispatch', ctx);
-
-  // Simulate inbound
-  rt.addLabel(sys, 0, 0, 0, {
-    k: 'mgmt_inbox',
-    t: 'json',
-    v: { k: 'pageA.textA1', t: 'json', v: '{"x":2}' },
-  });
-  runFunction(rt, 'mgmt_receive', ctx);
-
-  const cell = rt.getCell(rt.getModel(1), 0, 0, 0);
-  const label = cell.labels.get('pageA.textA1');
-  assert(label && label.t === 'json', 'target label type');
-  assert(label.v && label.v.x === 2, 'target label value should be parsed json');
-  return { key: 'mgmt_receive_to_target', status: 'PASS' };
-}
-
-function runAll() {
-  return [caseMgmtPutMbrV0(), caseMgmtReceiveWritesTarget()];
+  for (const cell of sys.cells.values()) {
+    for (const label of cell.labels.values()) {
+      assert(label.t !== 'pin.bus.mb.out' || label.v == null, action + ' must not emit bus output');
+    }
+  }
 }
 
 function output(results) {
   console.log('VALIDATION RESULTS');
-  for (const row of results) {
-    console.log(`${row.key}: ${row.status}`);
-  }
+  for (const row of results) console.log(row.key + ': ' + row.status);
+}
+
+function casePutActionRemoved() {
+  const rt = createRuntimeWithSystem();
+  enqueueJob(rt, 1, 'mgmt_put_mbr_v0', { cell_k: 'pageA.submitA1', t: 'json', v: { hello: 1 } });
+  runIntentDispatchOnce(rt);
+  assertRemovedAction(rt, 1, 'mgmt_put_mbr_v0');
+  return { key: 'mgmt_put_mbr_v0_removed', status: 'PASS' };
+}
+
+function caseBindActionRemoved() {
+  const rt = createRuntimeWithSystem();
+  enqueueJob(rt, 2, 'mgmt_bind_in', { channel: 'pageA.textA1', target_ref: { model_id: 2, p: 0, r: 0, c: 0, k: 'pageA.textA1' } });
+  runIntentDispatchOnce(rt);
+  assertRemovedAction(rt, 2, 'mgmt_bind_in');
+  return { key: 'mgmt_bind_in_removed', status: 'PASS' };
 }
 
 try {
   const which = parseArgs();
-  let results = [];
-  if (which === 'mgmt_put_mbr_v0') results = [caseMgmtPutMbrV0()];
-  else if (which === 'mgmt_receive_to_target') results = [caseMgmtReceiveWritesTarget()];
-  else results = runAll();
+  let results;
+  if (which === 'mgmt_put_mbr_v0') results = [casePutActionRemoved()];
+  else if (which === 'mgmt_bind_in') results = [caseBindActionRemoved()];
+  else results = [casePutActionRemoved(), caseBindActionRemoved()];
   output(results);
-  process.exit(0);
 } catch (err) {
   console.error('VALIDATION FAILED');
   console.error(err && err.message ? err.message : String(err));

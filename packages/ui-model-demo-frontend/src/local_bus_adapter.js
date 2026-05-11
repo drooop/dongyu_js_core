@@ -32,7 +32,7 @@ function matchForbiddenK(k) {
   if (typeof k !== 'string') return false;
   if (k.startsWith('matrix_debug_')) return false;
   if (k === 'pin_in' || k === 'pin_out') return true;
-  if (k === 'v1n_id' || k === 'data_type') return true;
+  if (k === 'v1n_id' || k === 'sys_worker_id' || k === 'sys_worker_role' || k === 'data_type') return true;
   if (k.startsWith('run_')) return true;
   if (k.startsWith('mqtt_')) return true;
   if (k.startsWith('matrix_')) return true;
@@ -263,7 +263,7 @@ export function createLocalBusAdapter({ runtime, eventLog }) {
       }
       const addResult = runtime.addLabel(model, target.p, target.r, target.c, {
         k: pin,
-        t: target.model_id === 0 ? 'pin.bus.in' : 'pin.in',
+        t: target.model_id === 0 ? 'pin.bus.mb.in' : 'pin.in',
         v: target.model_id < 0 ? nextValue : normalizedBusValue,
       });
       if (!addResult || !addResult.applied) {

@@ -2,13 +2,13 @@
 
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { buildWorkerHostApi } from '../worker_engine_v0.mjs';
+import { WorkerEngineV0, buildWorkerHostApi, loadSystemPatch } from '../worker_engine_v0.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
+const fs = require('node:fs');
 
-function loadJson(pathname) {
-  const fs = require('node:fs');
+function readJson(pathname) {
   return JSON.parse(fs.readFileSync(pathname, 'utf8'));
 }
 
@@ -21,62 +21,72 @@ function getFunctionCode(label) {
 
 function loadRuntime() {
   const rt = new ModelTableRuntime();
-  rt.applyPatch(loadJson('packages/worker-base/system-models/system_models.json'), {
-    allowCreateModel: true,
-    trustedBootstrap: true,
-  });
-  rt.applyPatch(loadJson('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json'), {
-    allowCreateModel: true,
-    trustedBootstrap: true,
-  });
+  loadSystemPatch(rt);
+  if (!rt.getModel(-10)) rt.createModel({ id: -10, name: 'system', type: 'system' });
+  rt.applyPatch(readJson('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json'), { allowCreateModel: true, trustedBootstrap: true });
   return rt;
+}
+
+function runMbrFunction(rt, name) {
+  const sys = rt.getModel(-10);
+  const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get(name)));
+  fn({ hostApi: buildWorkerHostApi(rt) });
+}
+
+function drainMqtt(rt) {
+  const published = [];
+  const engine = new WorkerEngineV0({
+    runtime: rt,
+    mqttPublish: (topic, payload) => published.push({ topic, payload }),
+    mgmtAdapter: { publish: async () => {} },
+  });
+  if (!rt.isRuntimeRunning()) {
+    if (rt.getRuntimeMode() === 'boot') rt.setRuntimeMode('edit');
+    rt.setRuntimeMode('running');
+  }
+  engine.tick();
+  return published;
+}
+
+function toExternalPacket(rt, key) {
+  const label = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get(key);
+  return label && typeof rt._pinBusOutValueToExternalPayload === 'function'
+    ? rt._pinBusOutValueToExternalPayload(label.v)
+    : null;
+}
+
+function payload(text = 'hello') {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: text },
+  ];
+}
+
+function route(sourceModelId = 100, pin = 'submit', targetModelId = sourceModelId) {
+  return {
+    to: { worker_id: 'RE', model_id: targetModelId, pin },
+    reply_to: { worker_id: 'ui-server-test', model_id: sourceModelId, pin: 'result' },
+  };
 }
 
 const rt = loadRuntime();
 const sys = rt.getModel(-10);
-assert(sys, 'system model must exist');
-
 rt.addLabel(sys, 0, 0, 0, {
   k: 'mbr_mgmt_inbox',
   t: 'json',
   v: {
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: 'mbr_submit_001',
-    source_model_id: 100,
-    pin: 'submit',
-    route: {
-      to: { worker_id: 'RE', model_id: 100, pin: 'submit' },
-      reply_to: { worker_id: 'ui-server-test', model_id: 100, pin: 'result' },
-    },
-    payload: [
-      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
-    ],
-    timestamp: 1700000000000,
+    version: 'v1', type: 'pin_payload', op_id: 'test_0184_mbr_direct_event_bridge_contract_001', source_model_id: 100, pin: 'submit',
+    route: route(100, 'submit', 100), payload: payload('hello'), timestamp: 1700000000000,
   },
 });
-
-let published = null;
-const ctx = {
-  hostApi: buildWorkerHostApi(rt),
-  publishMqtt: (topic, payload) => {
-    published = { topic, payload };
-  },
-};
-
-const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt')));
-fn(ctx);
-
-assert.ok(published, 'route-driven pin_payload must publish to MQTT');
-assert.equal(published.topic, 'UIPUT/ws/dam/pic/de/sw/worker/RE/model/100/pin/submit', 'Model 100 submit must publish to route.to topic');
-assert.equal(published.payload?.version, 'v1', 'MBR bridge must publish v1 pin_payload transport');
-assert.equal(published.payload?.type, 'pin_payload', 'MBR bridge must preserve pin_payload type');
-assert.equal(published.payload?.pin, 'submit', 'MBR bridge must preserve pin name');
-assert.equal(published.payload?.source_model_id, 100, 'MBR bridge must preserve source_model_id');
-assert.equal(published.payload?.route?.to?.worker_id, 'RE', 'MBR bridge must preserve route.to');
-assert.ok(Array.isArray(published.payload?.payload), 'MBR bridge must preserve temporary-modeltable payload array');
-assert.equal(published.payload?.payload?.[1]?.v, 'hello', 'MBR bridge must preserve payload data');
-assert.ok(!Array.isArray(published.payload?.records), 'MBR bridge must not emit records patch to worker business cells');
-
+runMbrFunction(rt, 'mbr_mgmt_to_mqtt');
+const packet = toExternalPacket(rt, 'mbr_cb_out');
+assert.equal(packet?.type, 'pin_payload');
+assert.equal(packet?.pin, 'submit');
+assert.equal(packet?.source_model_id, 100);
+const published = drainMqtt(rt);
+assert.equal(published.length, 1);
+assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/worker/RE/model/100/pin/submit');
+assert.equal(published[0].payload?.payload?.[1]?.v, 'hello');
+assert.ok(!Array.isArray(published[0].payload?.records));
 console.log('PASS test_0184_mbr_direct_event_bridge_contract');

@@ -2,81 +2,109 @@
 title: "User Guide Index"
 doc_type: user-guide
 status: active
-updated: 2026-04-29
+updated: 2026-05-10
 source: ai
 ---
 
 # User Guide Index
 
-本目录仅保留面向使用者和集成者的“现行有效文档”。
+本目录面向使用者、集成者和文档读者。它解释“当前怎么用、怎么验证、遇到边界看哪里”，不覆盖 `CLAUDE.md`、`docs/ssot/**` 或 iteration runlog。
 
-## 核心入口
+阅读规则：
 
-- `modeltable_user_guide.md`
-  - ModelTable、Mailbox、PIN/MGMT 的统一口径。
-- `project_address_record.md`
-  - 当前本地仓库路径、docs 落盘目录、本地访问入口、远端 deploy 主机/仓库路径/公开 URL 记录。
-- `ui_event_matrix_mqtt_configuration.md`
-  - UI 事件到 Matrix/MQTT 的配置步骤。
-- `dual_worker_slide_e2e_v0.md`
-  - 双工人链路的可执行 E2E 验收方法。
-- `color_generator_e2e_runbook.md`
-  - Model 100 颜色生成器双总线复现实操（含 patch-only 模式、Playwright 终验与排障）。
-- `llm_cognition_ollama_runbook.md`
-  - 0154 LLM 路由 + 0170 本地 Orbstack `mt-table` prompt filltable runbook。
-- `prompt_filltable_owner_chain_and_deploy.md`
-  - Prompt FillTable 的 owner-chain 正式口径与本地 / cloud deploy 导航入口。
+- 需要 current truth 时，先读本索引标为 current 的 Markdown 指南，再回到对应 SSOT。
+- 需要图解或交互阅读时，才打开 visualized / interactive HTML。
+- `*_prompt.txt` 和 `diary/**` 是 archive，不作为当前操作指令。
+- 如果用户指南和 SSOT 冲突，以 SSOT 为准，并把用户指南当作待修正对象。
 
-## UI 文档
+## Current Core Guides
 
-- `ui_binding_conversational.md`
-  - UI “看似双向绑定”的运行机制解释。
-- `ui_model_filltable_workspace_example.md`
-  - 当前界面真实可做的正例：在 Home 里逐条填写 label，修改已挂载正数 UI model 的显示结果。
-- `workspace_ui_filltable_example.md`
-  - 0270 正式案例：通过填表创建并挂载 `Input + Button + Label` Workspace 条目，并在远端双总线 / 本地程序模型两种链路之间切换。
-- `workspace_ui_filltable_example_visualized.md`
-  - 当前可视化版本：已对齐到 `0276 Doc Page Workspace Example`，用图解方式展示文档页的模型关系、节点组成、布局 label 和重建顺序。
-- `static_workspace_rebuild.md`
-  - 0272 正式案例：通过 Workspace 中的 Static 页面上传单个 HTML 或 ZIP，并固定挂载到 `/p/<projectName>/...`。
-- `doc_page_filltable_guide.md`
-  - 0275 MVP：如何通过 `Model 1015` 的细粒度填表，做出最小可工作的文档型页面。
-- `doc_workspace_filltable_example.md`
-  - 0276 正式案例：一个挂到 Workspace 侧边栏的文档页面示例，证明结构、布局位置和主要内容都可以通过填表定义。
-- `data_models_filltable_guide.md`
-  - 0348 数据模型入口：说明 Feishu-aligned `Data.*` 目标合同、通用数据 pin、临时消息边界，以及当前部分 0296-era 模板仍待迁移的实现债务；0355 已完成 `Data.Single` + `Data.Array.One` 的无兼容切换。
-- `matrix_userline_phase1.md`
-  - 0283 最小 Matrix 用户产品线：说明 `1016-1019` 的分工、最小登录、单会话消息闭环，以及本地 Synapse 测试用户的注册与验证方式。
-- `matrix_userline_phase2.md`
-  - 0284 基础聊天界面：说明 `1016-1021` 的分工、房间切换、时间线、输入框、成员面板，以及当前房间的一发一收验证方式。
-- `slide_app_zip_import_v1.md`
-  - 0302 Slide app 导入：说明 zip 包格式、导入字段、安装/卸载规则，以及最短导入验证步骤。
-- `slide_workspace_generalization.md`
-  - 0289 Phase B：说明什么算 slide-capable app、Workspace 统一 registry 字段、默认选择与删除规则。
-- `slide_app_filltable_create_v1.md`
-  - 0290 Slide app 填表创建：说明 creator app 填哪些字段、创建后如何自动挂载，以及它与 0302 zip 导入共用的 payload 合同。
-- `slide_ui_mainline_guide.md`
-  - 0291 主文档：把 Slide UI 当前主线入口、Gallery 展示面、Workspace 入口和细分说明页收成统一导航。
-- `slide_ui_evidence_runbook.md`
-  - 0291 证据 runbook：定义本地和远端两条最小取证路径，以及 cloud deploy 后的验证步骤。
-- `slide_matrix_delivery_v1.md`
-  - 0309 正式版：说明 slide app 当前怎么经 Matrix media + importer pin-chain 交付、包结构和最短验证。
-- `slide_delivery_and_runtime_overview_v1.md`
-  - 0313 总览页：并排解释 slide app 的安装交付链和导入后运行链。
-- `slide-app-runtime/`
-  - 0350/0351/0352/0360 开发者入口：包含滑动 APP 运行链路说明，以及给第三方提供方和 remote-worker 提供方使用的 `最小 Submit 双总线示例`、R1 填表说明、可视化说明和交互式 HTML。
-- `slide_python_install_client_v1.md`
-  - 0316 Python 示例：给同事一个可直接运行的 slide app 安装客户端。
-- `slide_upload_auth_and_cache_contract_v1.md`
-  - 0312 正式合同：冻结上传鉴权模式、`/api/media/upload`、cache-priming 与 `media_not_cached` 边界。
-- `slide_matrix_delivery_preview_v0.md`
-  - 0304 历史预告：已被 `slide_matrix_delivery_v1.md` 取代，仅保留当时的冻结前背景。
-- `ui_components_v2.md`
-  - UI 模型填表开发者指南：说明 `cellwise.ui.v1` 怎么填表、label 含义、布局组合、数据绑定和事件触发。
-- `design_system_v2.md`
-  - 视觉 token 与样式规范。
+| File | Role | Notes |
+|---|---|---|
+| `modeltable_user_guide.md` | current living guide | ModelTable、Mailbox、PIN/MGMT 的统一用户口径。 |
+| `ai_prompt_and_artifact_guidance.md` | current collaboration guide | 0365 规约撰写方法：硬约束 / 判断规则 / 偏好建议，以及 HTML 使用边界。 |
+| `project_address_record.md` | current address record | 本地仓库、远端 deploy、公开 URL 等仍被脚本/runlog 使用的地址。 |
+| `data_models_filltable_guide.md` | current data model guide | Feishu-aligned `Data.*` 目标合同、通用 pin、临时消息边界与 0355 状态。 |
+| `filltable_capability_matrix.md` | current capability matrix | Prompt FillTable 能力项、case 和 runner 入口。 |
+| `prompt_filltable_owner_chain_and_deploy.md` | current runbook/guide | Prompt FillTable owner-chain 口径与本地/cloud deploy 导航。 |
 
-## 归档说明
+## Current UI And Workspace Guides
 
-- 历史交接类文档已迁出/收敛；迭代事实以 `docs/iterations/*/runlog.md` 为准。
-- 本目录不放测试数据和临时草稿。
+| File | Role | Notes |
+|---|---|---|
+| `ui_binding_conversational.md` | current explanation | “看似双向绑定”的现状、边界和真实链路。 |
+| `ui_components_v2.md` | current authoring guide | `cellwise.ui.v1` 填表、label、布局、绑定、事件触发。 |
+| `ui_event_matrix_mqtt_configuration.md` | current configuration guide | UI 事件经 Matrix/MQTT 到设备或模型 PIN 的配置。 |
+| `ui_model_filltable_workspace_example.md` | current/example | Home 中逐条填写 label 并修改正数 UI model 显示结果。 |
+| `workspace_ui_filltable_example.md` | current/example | 0270 Workspace UI 填表示例。 |
+| `doc_page_filltable_guide.md` | current/example | 0275 文档型页面最小可工作填表路径。 |
+| `doc_workspace_filltable_example.md` | current/example | 0276 Workspace 文档页面示例。 |
+| `static_workspace_rebuild.md` | current runbook | Static 页面上传 HTML/ZIP 并挂载到 `/p/<projectName>/...`。 |
+| `design_system_v2.md` | current design reference | 视觉 token 与样式规范；若与实现不同，应按当前 UI SSOT/实现复核。 |
+
+## Current Slide App Guides
+
+| File | Role | Notes |
+|---|---|---|
+| `slide-app-runtime/README.md` | current entrypoint | 滑动 APP 运行链路子目录入口。 |
+| `slide-app-runtime/slide_app_runtime_developer_guide.md` | current developer guide | 当前滑动 APP 的开发、安装、运行和外发链路。 |
+| `slide-app-runtime/minimal_submit_app_provider_guide.md` | current provider guide | 最小 Submit 双总线示例、R1 填表、zip 导入、外部 Matrix/MQTT 测试。 |
+| `slide-app-runtime/minimal_submit_app_provider_visualized.md` | visualized Markdown companion | 最小 Submit 示例的图解说明。 |
+| `slide_app_zip_import_v1.md` | current slide guide | zip 包格式、导入字段、安装/卸载和最短验证。 |
+| `slide_app_filltable_create_v1.md` | current slide guide | 通过填表创建 slide app 并自动挂载。 |
+| `slide_executable_import_v1.md` | current slide guide | slide executable import 当前可用路径。 |
+| `slide_delivery_and_runtime_overview_v1.md` | current overview | slide app 安装交付链和导入后运行链。 |
+| `slide_matrix_delivery_v1.md` | current delivery guide | Matrix media + importer pin-chain 交付、包结构和验证。 |
+| `slide_python_install_client_v1.md` | current install-client guide | Python 安装客户端示例。 |
+| `slide_ui_mainline_guide.md` | current navigation guide | Slide UI 当前主线、Gallery、Workspace 和细分说明页。 |
+| `slide_upload_auth_and_cache_contract_v1.md` | current contract guide | 上传鉴权、`/api/media/upload`、cache priming 和 `media_not_cached`。 |
+| `slide_workspace_generalization.md` | status-bound guide/plan | slide-capable app 与 Workspace registry 说明；使用前按当前 SSOT 复核。 |
+
+## Runbooks And Evidence Guides
+
+| File | Role | Notes |
+|---|---|---|
+| `color_generator_e2e_runbook.md` | runbook | Model 100 颜色生成器双总线复现实操和 Playwright 终验。 |
+| `dual_worker_slide_e2e_v0.md` | runbook | 双工人链路 E2E 验收方法。 |
+| `llm_cognition_ollama_runbook.md` | runbook | LLM routing、本地 Orbstack `mt-table` prompt filltable 操作。 |
+| `orchestrator_local_smoke.md` | runbook | Orchestrator 本地 smoke、failure kind 和 evidence surface。 |
+| `slide_ui_evidence_runbook.md` | evidence runbook | 本地/远端 Slide UI 取证路径和 cloud deploy 后验证。 |
+| `matrix_userline_phase1.md` | phase runbook | 0283 Matrix 用户线最小登录和单会话闭环。 |
+| `matrix_userline_phase2.md` | phase runbook | 0284 基础聊天界面、房间切换、时间线、输入和成员面板。 |
+
+## Visualized / Interactive HTML
+
+HTML 只作为阅读或交互 companion。真实规则仍以 Markdown 指南和 SSOT 为准。
+
+| File | Role | Notes |
+|---|---|---|
+| `ai_prompt_and_artifact_guidance.html` | visualized guide | 0365 AI 协作规约图解版。 |
+| `workspace_ui_filltable_example_visualized.md` | visualized Markdown | Workspace 文档页面填表示例图解。 |
+| `workspace_ui_filltable_example_visualized.html` | visualized HTML | Workspace 文档页面填表示例的可视化页面。 |
+| `slide-app-runtime/slide_app_runtime_flow_visualized.html` | visualized HTML | Slide App Runtime 流程可视化页面。 |
+| `slide-app-runtime/minimal_submit_app_provider_interactive.html` | interactive HTML | 最小 Submit 示例的交互式说明。 |
+
+## Superseded Or Preview Material
+
+| File | Role | Notes |
+|---|---|---|
+| `slide_matrix_delivery_preview_v0.md` | superseded preview | 已被 `slide_matrix_delivery_v1.md` 取代，仅保留冻结前背景。 |
+
+## Prompt Archive
+
+这些文件是历史 prompt，不是当前工作指令。
+
+| File | Role |
+|---|---|
+| `claude_code_wave_launcher_0210_0217_prompt.txt` | historical prompt |
+| `claude_code_wave_post_0232_prompt.txt` | historical prompt |
+| `orchestrator_wave_0210_0217_prompt.txt` | historical prompt |
+| `orchestrator_wave_0218_0221_prompt.txt` | historical prompt |
+| `orchestrator_wave_post_0232_prompt.txt` | historical prompt |
+
+## Diary / Archive
+
+| File | Role |
+|---|---|
+| `diary/2026/2026-02-01_0122-0133_weekly/handoff_compact.md` | diary archive |
+| `diary/2026/2026-02-01_0122-0133_weekly/weekly-report.md` | diary archive |

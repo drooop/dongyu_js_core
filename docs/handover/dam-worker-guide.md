@@ -1,12 +1,14 @@
 ---
 title: "DAM Worker 开发指南：软件工人与总线交互架构"
 doc_type: handover
-status: active
-updated: 2026-04-27
+status: historical
+updated: 2026-05-10
 source: ai
 ---
 
 # DAM Worker 开发指南：软件工人与总线交互架构
+
+Status: historical handover / implementation guide. Use current SSOT for model ids, label semantics, PIN contracts, and bus split targets.
 
 > 前置知识：了解 MQTT、Matrix 协议基础概念
 > 参考实现：Model 100 颜色生成器（完整 E2E 双总线样板）
@@ -57,12 +59,13 @@ Model 0 (系统根 — 不是用户直接操作的模型)
 │   ├── Model 100  test_color_form（颜色生成器示例）
 │   ├── Model 1010 DAM Worker（你的资产管理模型）
 │   └── ...
-└── pin.bus.in / pin.bus.out — MQTT 的唯一外部入口/出口
+└── pin.bus.cb.in / pin.bus.cb.out — 控制总线的唯一外部入口/出口
 ```
 
 关键点：
-- MQTT 消息**只能**通过 Model 0 的 `pin.bus.in` 进入系统，不能直接写任意 Cell
-- `pin.bus.in/out` 的非空业务值必须是临时 ModelTable record array；`mt.v0 patch` 只用于部署、初始化、导入等模型表变更
+- MQTT 控制类消息**只能**通过 Model 0 的 `pin.bus.cb.in` 进入普通软件工人，不能直接写任意 Cell
+- DEM 管理类消息使用 Model 0 的 `pin.bus.mb.in` / `pin.bus.mb.out`；普通软件工人不得声明这组管理总线引脚
+- `pin.bus.cb.*` / `pin.bus.mb.*` 的非空业务值必须是临时 ModelTable record array；`mt.v0 patch` 只用于部署、初始化、导入等模型表变更
 - 用户操作的是应用子模型，不直接操作 Model 0
 - 正数/负数模型使用同一套父子机制
 - 对 imported slide app，当前也开始采用宿主自动生成的 `Model 0` ingress route：
@@ -89,16 +92,16 @@ Model 0 (系统根 — 不是用户直接操作的模型)
 
 | 层级 | Type | 用途 | 位置限制 |
 |------|------|------|----------|
-| 系统边界 | `pin.bus.in` | MQTT 入站端口（全系统唯一入口） | 仅 Model 0 的 (0,0,0) |
-| 系统边界 | `pin.bus.out` | MQTT 出站端口（全系统唯一出口） | 仅 Model 0 的 (0,0,0) |
-| 模型边界 | `MODEL_IN` | 从父模型接收数据 | 子模型的 (0,0,0) |
-| 模型边界 | `MODEL_OUT` | 向父模型回传数据 | 子模型的 (0,0,0) |
-| 模型路由 | `cell_connection` | Cell 间路由表 | 各模型的 (0,0,0) |
-| Cell 层 | `PIN_IN` | Cell 输入端口 | 各 Cell |
-| Cell 层 | `PIN_OUT` | Cell 输出端口 | 各 Cell |
-| Cell 层 | `CELL_CONNECT` | 统一连接表 | 各 Cell |
-| Cell 层 | `function` | 程序模型（JS 代码） | 各 Cell |
-| Cell 层 | `subModel` | 子模型挂载声明 | 各 Cell |
+| 系统边界 | `pin.bus.cb.in` | MQTT 入站端口（全系统唯一入口） | 仅 Model 0 的 (0,0,0) |
+| 系统边界 | `pin.bus.cb.out` | MQTT 出站端口（全系统唯一出口） | 仅 Model 0 的 (0,0,0) |
+| 模型边界 | `pin.in` | 从父模型接收数据 | 子模型的 (0,0,0) |
+| 模型边界 | `pin.out` | 向父模型回传数据 | 子模型的 (0,0,0) |
+| 模型路由 | `pin.connect.cell` | Cell 间路由表 | 各模型的 (0,0,0) |
+| Cell 层 | `pin.in` | Cell 输入端口 | 各 Cell |
+| Cell 层 | `pin.out` | Cell 输出端口 | 各 Cell |
+| Cell 层 | `pin.connect.label` | 同 Cell 内统一连接表 | 各 Cell |
+| Cell 层 | `func.js` | 程序模型（JS 代码） | 各 Cell |
+| Cell 层 | `model.submt` | 子模型挂载声明 | hosting Cell |
 | 数据 | `str` / `int` / `bool` / `json` | 业务数据 | 任意 Cell |
 
 ### 2.2 Cell — 由四元组寻址
@@ -114,8 +117,8 @@ Model 0 (系统根 — 不是用户直接操作的模型)
 
 | Cell 位置 | 用途 |
 |-----------|------|
-| `(model_id, 0, 0, 0)` | 模型入口 — MODEL_IN/OUT、cell_connection、核心业务数据 |
-| `(model_id, 0, 0, 1)` | PIN 注册 — PIN_IN / PIN_OUT 声明 |
+| `(model_id, 0, 0, 0)` | 模型入口 — `pin.in` / `pin.out`、`pin.connect.cell`、核心业务数据 |
+| `(model_id, 0, 0, 1)` | 可作为普通业务 Cell，按需声明 `pin.in` / `pin.out` |
 | `(model_id, 1, 0, 0)` | 请求/中间状态 — 程序模型可读写的业务参数 |
 | `(-10, 0, 0, 0)` | 系统函数 — 程序模型的 function 定义 |
 
@@ -130,14 +133,14 @@ Model 0 (系统根 — 不是用户直接操作的模型)
 | 范围 | 用途 |
 |------|------|
 | `< 0` | 软件工人系统级能力层（含 mailbox/state/support 与内置系统级应用） |
-| `0` | 系统根/中间层模型（`pin.bus.in/out`、root routing、bootstrap config） |
+| `0` | 系统根/中间层模型（`pin.bus.cb.in/out`、root routing、bootstrap config） |
 | `> 0` | 用户创建模型 |
 
 ---
 
 ## 3. mt.v0 Patch 格式（部署/初始化，不是业务 pin payload）
 
-`mt.v0 patch` 用于模型表部署、初始化、导入和受控维护操作。它不是当前正式业务 `pin.in/out`、`pin.bus.in/out` 的 value 格式。正式业务 pin 的非空 value 必须是临时 ModelTable record array，见第 6 节和第 8.3 节。
+`mt.v0 patch` 用于模型表部署、初始化、导入和受控维护操作。它不是当前正式业务 `pin.in/out`、`pin.bus.cb.in/out` 的 value 格式。正式业务 pin 的非空 value 必须是临时 ModelTable record array，见第 6 节和第 8.3 节。
 
 ```json
 {
@@ -170,27 +173,27 @@ Model 0 (系统根 — 不是用户直接操作的模型)
 
 这是 DAM Worker 开发中最重要的概念。数据从外部 MQTT 到达你的程序模型，经过三层显式声明的路由。
 
-### 4.1 Layer 1: 系统边界 — pin.bus.in / pin.bus.out
+### 4.1 Layer 1: 系统边界 — pin.bus.cb.in / pin.bus.cb.out
 
 MQTT 与系统内部的唯一接口，位于 Model 0 的 (0,0,0)。
 
 ```json
 // Model 0 (0,0,0) 上的 label
-{ "k": "dam_register", "t": "pin.bus.in", "v": null }
-{ "k": "dam_result",   "t": "pin.bus.out", "v": null }
+{ "k": "dam_register", "t": "pin.bus.cb.in", "v": null }
+{ "k": "dam_result",   "t": "pin.bus.cb.out", "v": null }
 ```
 
-- `pin.bus.in.k` = 本地端口名（如 `dam_register`），运行时从 Model -10 读配置，拼接完整 MQTT topic
-- MQTT 消息到达时，运行时写入 `pin.bus.in.v`；非空值必须是临时 ModelTable record array
-- 写入 `pin.bus.out.v` 时，运行时自动拼接 topic 后发布到 MQTT
-- **你不需要手动处理 MQTT topic 构造**，只需声明 `pin.bus.in` / `pin.bus.out` 端口名
+- `pin.bus.cb.in.k` = 本地端口名（如 `dam_register`），运行时从 Model -10 读配置，拼接完整 MQTT topic
+- MQTT 消息到达时，运行时写入 `pin.bus.cb.in.v`；非空值必须是临时 ModelTable record array
+- 写入 `pin.bus.cb.out.v` 时，运行时自动拼接 topic 后发布到 MQTT
+- **你不需要手动处理 MQTT topic 构造**，只需声明 `pin.bus.cb.in` / `pin.bus.cb.out` 端口名
 
-### 4.2 Layer 2: 模型内路由 — cell_connection
+### 4.2 Layer 2: 模型内路由 — pin.connect.cell
 
 位于各模型的 (0,0,0)，描述 Cell 间的数据路由。
 
 ```json
-{ "k": "routing", "t": "cell_connection", "v": [
+{ "k": "routing", "t": "pin.connect.cell", "v": [
   {"from": [0,0,0,"dam_register"],     "to": [[2,0,0,"register_cmd"]]},
   {"from": [2,0,0,"register_result"],   "to": [[0,0,0,"dam_result"]]}
 ]}
@@ -200,48 +203,39 @@ MQTT 与系统内部的唯一接口，位于 Model 0 的 (0,0,0)。
 - `to`: 二维数组，每个目标也是 `[p, r, c, k]`
 - init 时遍历一次，建内存路由表
 
-### 4.3 Layer 3: Cell 内连接 — CELL_CONNECT
+### 4.3 Layer 3: Cell 内连接 — pin.connect.label
 
 位于各 Cell，描述 Cell 内部 PIN、函数、子模型之间的连线。
 
 ```json
-{ "k": "wiring", "t": "CELL_CONNECT", "v": {
-  "(self, register_cmd)":          ["(func, handle_register:in)"],
-  "(func, handle_register:out)":   ["(self, register_result)"]
-}}
+{ "k": "wiring", "t": "pin.connect.label", "v": [
+  { "from": "register_cmd", "to": ["handle_register:in"] },
+  { "from": "handle_register:out", "to": ["register_result"] }
+]}
 ```
 
-**前缀规则：**
+端点直接使用同一个 Cell 内的引脚 key 或函数自动引脚。函数端口命名约定为 `funcname:in`（输入端）/ `funcname:out`（输出端）。
 
-| 前缀 | 含义 | 示例 |
-|------|------|------|
-| `self` | Cell 自身的 PIN | `(self, register_cmd)` |
-| `func` | Cell 内函数端口 | `(func, handle_register:in)` |
-| `<数字ID>` | 挂载的子模型 | `(10, from_parent)` |
+### 4.4 子模型边界 — model.submt + root pins
 
-函数端口命名约定：`funcname:in`（输入端）/ `funcname:out`（输出端）。
-
-### 4.4 子模型边界 — MODEL_IN / MODEL_OUT
-
-当 DAM Worker 需要内嵌子模型时，子模型通过 MODEL_IN/MODEL_OUT 声明边界入口：
+当 DAM Worker 需要内嵌子模型时，父模型 hosting Cell 使用 `model.submt` 挂载子模型，子模型 root `(0,0,0)` 使用普通 `pin.in` / `pin.out` 声明边界入口：
 
 ```json
 // 子模型 (0,0,0) 上的 label
-{ "k": "from_parent", "t": "MODEL_IN", "v": null }
-{ "k": "to_parent",   "t": "MODEL_OUT", "v": null }
+{ "k": "from_parent", "t": "pin.in", "v": null }
+{ "k": "to_parent",   "t": "pin.out", "v": null }
 ```
 
-父模型的 CELL_CONNECT 用 `<子模型ID>` 前缀桥接到子模型：
+父模型通过 hosting Cell 的普通引脚和所在模型的 `pin.connect.cell` 与子模型 root 边界连接；不再使用数字前缀端点。
 
 ```json
-{ "(self, data_for_sub)": ["(1011, from_parent)"],
-  "(1011, to_parent)":    ["(self, sub_result)"] }
+{ "k": "child_mount", "t": "model.submt", "v": 1011 }
 ```
 
 ### 4.5 数据流全路径
 
 ```
-MQTT 消息 → `pin.bus.in` → cell_connection → PIN_IN → CELL_CONNECT → function → CELL_CONNECT → PIN_OUT → cell_connection → `pin.bus.out` → MQTT
+MQTT 消息 → `pin.bus.cb.in` → `pin.connect.cell` → `pin.in` → `pin.connect.label` → `func.js` → `pin.connect.label` → `pin.out` → `pin.connect.cell` → `pin.bus.cb.out` → MQTT
 ```
 
 每一跳都有显式声明，可在 ModelTable 中追踪完整路径。
@@ -265,7 +259,7 @@ UIPUT/{dir}/{ws}/{dam}/{pic}/{de}/{sw}/{model}/{pin}
 | ⑧ | model | 模型 ID |
 | ⑨ | pin | PIN 名称（不含方向后缀） |
 
-**你不需要手动构造 topic。** 运行时从 Model -10 的配置中读取 ws/dam/pic/de/sw 各层值，加上 `pin.bus.in/out` 的端口名，自动拼接完整 topic。
+**你不需要手动构造 topic。** 运行时从 Model -10 的配置中读取 ws/dam/pic/de/sw 各层值，加上 `pin.bus.cb.in/out` 的端口名，自动拼接完整 topic。
 
 ### 5.2 通配符
 
@@ -295,23 +289,23 @@ UIPUT/{dir}/{ws}/{dam}/{pic}/{de}/{sw}/{model}/{pin}
    其中 payload 是临时 ModelTable record array，不携带 op/model_id。
 
 ④ MBR 发布到 MQTT → topic 由运行时配置决定
-   → 到达 Model 0 的 `pin.bus.in(k="dam_register")`
+   → 到达 Model 0 的 `pin.bus.cb.in(k="dam_register")`
 
-⑤ Model 0 的 cell_connection 路由:
+⑤ Model 0 的 `pin.connect.cell` 路由:
    (0,0,0,"dam_register") → (2,0,0,"register_cmd")
-   Cell(2,0,0) 的 PIN_IN "register_cmd" 收到数据
+   Cell(2,0,0) 的 `pin.in` "register_cmd" 收到数据
 
-⑥ Cell(2,0,0) 的 CELL_CONNECT 路由:
-   (self, register_cmd) → (func, handle_register:in)
+⑥ Cell(2,0,0) 的 `pin.connect.label` 路由:
+   register_cmd → handle_register:in
    函数 handle_register 执行:
    - 从输入 label.v 的临时 ModelTable record array 读取 mxc/name 等参数
    - 建立资产索引
    - 构造响应 payload
 
-⑦ CELL_CONNECT 路由函数输出:
-   (func, handle_register:out) → (self, register_result)
+⑦ `pin.connect.label` 路由函数输出:
+   handle_register:out → register_result
 
-⑧ cell_connection 路由到 `pin.bus.out`:
+⑧ `pin.connect.cell` 路由到 `pin.bus.cb.out`:
    (2,0,0,"register_result") → (0,0,0,"dam_result")
    运行时发布到 MQTT
 
@@ -333,7 +327,7 @@ const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 const fn = new AsyncFunction('ctx', 'label', 'V1N', userCode);
 ```
 
-运行时通过 CELL_CONNECT 触发函数，传入受限上下文 `ctx` 与 `V1N`。用户函数不再提供 `ctx.getLabel` / `ctx.writeLabel` / `ctx.rmLabel` 兼容 API：
+运行时通过 `pin.connect.label` 触发函数，传入受限上下文 `ctx` 与 `V1N`。用户函数不再提供 `ctx.getLabel` / `ctx.writeLabel` / `ctx.rmLabel` 兼容 API：
 
 ```javascript
 // 当前 Cell 写入
@@ -366,7 +360,7 @@ const result = await Promise.race([
 
 ### 7.3 并发模型
 
-- CELL_CONNECT 一个源连多个目标 → 所有目标**并发执行**（Promise.all）
+- `pin.connect.label` 一个源连多个目标 → 所有目标并发执行
 - 串行依赖通过连接拓扑表达：A:out → B:in，A 完成后 B 自动触发
 - 不需要排序注解，连接图本身就是执行计划
 
@@ -403,7 +397,7 @@ DAM 只关心: mxc://server/mediaId（文件的稳定引用地址）
 **注册资产：**
 
 ```json
-// MBR 通过 `pin.bus.in` 发送到系统；value 是临时 ModelTable record array
+// MBR 通过 `pin.bus.cb.in` 发送到系统；value 是临时 ModelTable record array
 [
   { "id": 0, "p": 0, "r": 0, "c": 0,
     "k": "__mt_payload_kind", "t": "str", "v": "dam.register_asset.v1" },
@@ -421,7 +415,7 @@ DAM 只关心: mxc://server/mediaId（文件的稳定引用地址）
 **DAM 响应：**
 
 ```json
-// 通过 `pin.bus.out` 回传到 MQTT
+// 通过 `pin.bus.cb.out` 回传到 MQTT
 [
   { "id": 0, "p": 0, "r": 0, "c": 0,
     "k": "__mt_payload_kind", "t": "str", "v": "dam.register_asset_ack.v1" },
@@ -463,7 +457,7 @@ if (!rt.getModel(-10)) {
 }
 
 // 4. 启动 MQTT 连接
-//    运行时自动根据 `pin.bus.in/out` 声明订阅/发布对应 topic
+//    运行时自动根据 `pin.bus.cb.in/out` 声明订阅/发布对应 topic
 rt.startMqttLoop({
   transport: 'real',
   host: 'host.docker.internal',
@@ -476,15 +470,15 @@ rt.startMqttLoop({
 
 // 5. 加载 DAM 模型定义
 //    - create_model
-//    - `pin.bus.in/out` 声明 → 自动订阅 MQTT
-//    - cell_connection 路由
-//    - CELL_CONNECT 连线
+//    - `pin.bus.cb.in/out` 声明 → 自动订阅 MQTT
+//    - pin.connect.cell 路由
+//    - pin.connect.label 连线
 //    - function 编译
 const patch = JSON.parse(fs.readFileSync('path/to/dam_model.json', 'utf8'));
 rt.applyPatch(patch, { allowCreateModel: true });
 
 // 6. 运行时自动处理：
-//    MQTT 入站 → `pin.bus.in` → cell_connection → CELL_CONNECT → function → ... → `pin.bus.out` → MQTT 出站
+//    MQTT 入站 → `pin.bus.cb.in` → pin.connect.cell → pin.connect.label → function → ... → `pin.bus.cb.out` → MQTT 出站
 ```
 
 ---
@@ -496,7 +490,7 @@ MBR Worker（`scripts/run_worker_mbr_v0.mjs`）负责 Matrix ↔ MQTT 桥接：
 ### Matrix → MQTT
 
 1. 收到 Matrix `dy.bus.v0` 事件
-2. 解析 `source_model_id`，查询路由规则（`mbr_route_<modelId>` label）
+2. 读取消息里的 `route.to`，决定目标 worker / model / pin
 3. 校验 `pin_payload v1` transport packet，要求其中业务 `payload` 是临时 ModelTable record array
 4. 拒绝携带 legacy `op` / `model_id` 或缺少 `v` 的 payload record
 5. 发布到 MQTT（运行时拼接 topic）
@@ -505,7 +499,7 @@ MBR Worker（`scripts/run_worker_mbr_v0.mjs`）负责 Matrix ↔ MQTT 桥接：
 
 1. 收到 MQTT 消息
 2. 验证 `pin_payload v1` transport packet 与嵌套临时 ModelTable record array
-3. 以 `MGMT_OUT` / `pin_payload` 形式回到 Matrix
+3. 经 MBR 的 `pin.bus.mb.out` 把 `pin_payload` 回到管理总线
 4. Server 校验后由 owner materialization 更新目标模型投影
 
 ---
@@ -514,27 +508,28 @@ MBR Worker（`scripts/run_worker_mbr_v0.mjs`）负责 Matrix ↔ MQTT 桥接：
 
 1. **选定 Model ID**（1000~1999 段，如 `1010`）
 
-2. **在 Model 0 声明 `pin.bus.in` / `pin.bus.out`**
+2. **在 Model 0 声明 `pin.bus.cb.in` / `pin.bus.cb.out`**
    - 为 DAM 的每个外部接口声明入站/出站端口
-   - 如：`pin.bus.in(k="dam_register")`、`pin.bus.out(k="dam_result")`
+   - 如：`pin.bus.cb.in(k="dam_register")`、`pin.bus.cb.out(k="dam_result")`
 
-3. **编写 Model 0 的 cell_connection**
-   - 路由 `pin.bus.in` 端口到 DAM 的 hosting cell
-   - 路由 DAM 的输出端口到 `pin.bus.out`
+3. **编写 Model 0 的 `pin.connect.cell`**
+   - 路由 `pin.bus.cb.in` 端口到 DAM 的 hosting cell
+   - 路由 DAM 的输出端口到 `pin.bus.cb.out`
 
 4. **编写 DAM 模型 JSON**
    - `create_model`（model_id = 1010）
    - 业务数据 label 初始值
-   - MODEL_IN / MODEL_OUT 声明（如有子模型需求）
-   - CELL_CONNECT 定义：PIN → 函数 → PIN 的连线
+   - `pin.in` / `pin.out` 声明（如有子模型需求）
+   - `pin.connect.label` 定义：PIN → 函数 → PIN 的连线
    - 程序模型函数
 
 5. **编写 Server 侧 JSON**
    - 相同 model_id 的 create_model
    - 接收回包 `pin_payload` 并更新投影的处理函数
 
-6. **注册 MBR 路由**
-   - 在 `system_models.json` 中添加 `mbr_route_1010` label
+6. **准备 route metadata**
+   - 发往 DAM Worker 的消息必须带 `route.to = { worker_id, model_id, pin }`
+   - MBR 不再依赖 per-app 静态 `mbr_route_*` 注册
 
 7. **编写 K8s 软件工人启动脚本**（参照 `run_remote_worker_k8s_v2.mjs`）
 

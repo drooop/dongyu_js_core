@@ -6,8 +6,10 @@ const STRUCTURAL_LABEL_TYPES = new Set([
   'func.python',
   'pin.connect.label',
   'pin.connect.cell',
-  'pin.bus.in',
-  'pin.bus.out',
+  'pin.bus.cb.in',
+  'pin.bus.cb.out',
+  'pin.bus.mb.in',
+  'pin.bus.mb.out',
   'pin.table.in',
   'pin.table.out',
   'pin.single.in',
@@ -108,8 +110,10 @@ function normalizeTypedValue(typeName, rawValue) {
     return { ok: true, value: rawValue };
   }
   if (
-    typeName === 'pin.bus.in'
-    || typeName === 'pin.bus.out'
+    typeName === 'pin.bus.cb.in'
+    || typeName === 'pin.bus.cb.out'
+    || typeName === 'pin.bus.mb.in'
+    || typeName === 'pin.bus.mb.out'
     || typeName === 'pin.table.in'
     || typeName === 'pin.table.out'
     || typeName === 'pin.single.in'

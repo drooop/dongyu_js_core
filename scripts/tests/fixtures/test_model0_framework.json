@@ -2,9 +2,9 @@
   "version": "mt.v0",
   "records": [
     {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0,
-     "label": {"k": "test_in", "t": "pin.bus.in", "v": null}},
+     "label": {"k": "test_in", "t": "pin.bus.cb.in", "v": null}},
     {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0,
-     "label": {"k": "test_out", "t": "pin.bus.out", "v": null}},
+     "label": {"k": "test_out", "t": "pin.bus.cb.out", "v": null}},
     {"op": "add_label", "model_id": 0, "p": 1, "r": 0, "c": 0,
      "label": {"k": "model_type", "t": "model.submt", "v": 100}},
     {"op": "add_label", "model_id": 0, "p": 1, "r": 0, "c": 0,

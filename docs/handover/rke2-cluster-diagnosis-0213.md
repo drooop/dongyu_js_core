@@ -1,12 +1,14 @@
 ---
 title: "rke2 集群故障诊断与恢复方案"
 doc_type: handover
-status: active
-updated: 2026-04-21
+status: historical
+updated: 2026-05-10
 source: ai
 ---
 
 # rke2 集群故障诊断与恢复方案
+
+Status: historical incident diagnosis. Confirm current cluster state before applying any operational advice.
 
 **日期**: 2026-02-13
 **诊断人**: Claude (AI)

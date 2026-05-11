@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { createLocalBusAdapter } from '../../packages/ui-model-demo-frontend/src/local_bus_adapter.js';
+import { createDemoStore } from '../../packages/ui-model-demo-frontend/src/demo_modeltable.js';
+import { createGalleryStore } from '../../packages/ui-model-demo-frontend/src/gallery_store.js';
 import {
   buildWriteLabelPayloadValue,
   normalizeBusEventV2ValueToPinPayload,
@@ -225,7 +227,7 @@ async function test_bus_event_v2_missing_value_rejected() {
 async function test_bus_event_v2_value_action_does_not_fallback_to_legacy_direct_pin() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
-    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
     const result = await state.submitEnvelope(v2Envelope({
       value: {
         action: 'ui_submit',
@@ -333,7 +335,7 @@ function test_local_adapter_reports_rejected_model0_busin_write() {
   runtime.createModel({ id: -1, name: 'editor_mailbox', type: 'ui' });
   runtime.createModel({ id: -2, name: 'editor_state', type: 'ui' });
   const model0 = runtime.getModel(0);
-  runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+  runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
   const adapter = createLocalBusAdapter({
     runtime,
     eventLog: [],
@@ -362,7 +364,7 @@ function test_local_adapter_rejects_malformed_write_label_array() {
   runtime.createModel({ id: -1, name: 'editor_mailbox', type: 'ui' });
   runtime.createModel({ id: -2, name: 'editor_state', type: 'ui' });
   const model0 = runtime.getModel(0);
-  runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+  runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
   const adapter = createLocalBusAdapter({
     runtime,
     eventLog: [],
@@ -391,7 +393,7 @@ function test_local_adapter_rejects_null_model0_busin_payload() {
   runtime.createModel({ id: -1, name: 'editor_mailbox', type: 'ui' });
   runtime.createModel({ id: -2, name: 'editor_state', type: 'ui' });
   const model0 = runtime.getModel(0);
-  runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+  runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
   const adapter = createLocalBusAdapter({
     runtime,
     eventLog: [],
@@ -420,7 +422,7 @@ function test_local_adapter_rejects_valid_shaped_object_model0_busin_payload() {
   runtime.createModel({ id: -1, name: 'editor_mailbox', type: 'ui' });
   runtime.createModel({ id: -2, name: 'editor_state', type: 'ui' });
   const model0 = runtime.getModel(0);
-  runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+  runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
   const adapter = createLocalBusAdapter({
     runtime,
     eventLog: [],
@@ -453,7 +455,7 @@ function test_local_adapter_rejects_wrapped_modeltable_array_model0_busin_payloa
   runtime.createModel({ id: -1, name: 'editor_mailbox', type: 'ui' });
   runtime.createModel({ id: -2, name: 'editor_state', type: 'ui' });
   const model0 = runtime.getModel(0);
-  runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+  runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
   const adapter = createLocalBusAdapter({
     runtime,
     eventLog: [],
@@ -478,10 +480,62 @@ function test_local_adapter_rejects_wrapped_modeltable_array_model0_busin_payloa
   return { key: 'local_adapter_rejects_wrapped_modeltable_array_model0_busin_payload', status: 'PASS' };
 }
 
+function test_local_adapter_accepts_valid_model0_management_bus_payload_with_dem_role() {
+  const runtime = new ModelTableRuntime();
+  runtime.createModel({ id: -1, name: 'editor_mailbox', type: 'ui' });
+  runtime.createModel({ id: -2, name: 'editor_state', type: 'ui' });
+  const model0 = runtime.getModel(0);
+  runtime.addLabel(model0, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
+  runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
+  const adapter = createLocalBusAdapter({
+    runtime,
+    eventLog: [],
+    mode: 'v1',
+    mailboxModelId: -1,
+    editorStateModelId: -2,
+  });
+  const validPayload = v2Envelope({ opId: 'local_valid_mb_0364' }).value;
+  const result = submitToLocalAdapter(adapter, runtime, {
+    type: 'bus_event',
+    source: { node_type: 'Button', node_id: 'submit' },
+    payload: {
+      meta: { op_id: 'local_valid_mb_0364' },
+      target: { model_id: 0, p: 0, r: 0, c: 0 },
+      pin: 'ui_submit',
+      value: validPayload,
+    },
+  });
+  assert.equal(result?.result, 'ok', 'local adapter must accept valid Model 0 management-bus payload when DEM role is present');
+  const label = model0.getCell(0, 0, 0).labels.get('ui_submit');
+  assert.equal(label?.t, 'pin.bus.mb.in', 'local adapter must write split management-bus input type');
+  assert.deepEqual(label?.v, validPayload, 'local adapter must preserve valid temporary ModelTable payload');
+  return { key: 'local_adapter_accepts_valid_model0_management_bus_payload_with_dem_role', status: 'PASS' };
+}
+
+function test_frontend_local_stores_seed_dem_role_for_management_bus() {
+  const demoStore = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  const demoModel0 = demoStore.runtime.getModel(0);
+  assert.equal(
+    demoModel0.getCell(0, 0, 0).labels.get('sys_worker_role')?.v,
+    'DEM',
+    'createDemoStore must seed sys_worker_role=DEM for local management bus ingress',
+  );
+  assert.equal(demoModel0.getCell(0, 0, 0).labels.has('worker.role'), false, 'createDemoStore must not seed legacy worker.role key');
+  const galleryStore = createGalleryStore({});
+  const galleryModel0 = galleryStore.runtime.getModel(0);
+  assert.equal(
+    galleryModel0.getCell(0, 0, 0).labels.get('sys_worker_role')?.v,
+    'DEM',
+    'standalone createGalleryStore must seed sys_worker_role=DEM for local management bus ingress',
+  );
+  assert.equal(galleryModel0.getCell(0, 0, 0).labels.has('worker.role'), false, 'standalone createGalleryStore must not seed legacy worker.role key');
+  return { key: 'frontend_local_stores_seed_dem_role_for_management_bus', status: 'PASS' };
+}
+
 async function test_server_direct_pin_model0_rejects_malformed_temporary_payload() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
-    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
     const malformedPayload = [
       { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'write_label.v1' },
       { id: 0, p: 0, r: 0, c: 0, k: '__mt_target_cell', t: 'str', v: '{"p":2,"r":0,"c":0}' },
@@ -510,7 +564,7 @@ async function test_server_direct_pin_model0_rejects_malformed_temporary_payload
 async function test_server_direct_pin_model0_rejects_legacy_object_envelope() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
-    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
     const result = await state.submitEnvelope({
       event_id: Date.now(),
       type: 'ui_submit',
@@ -537,7 +591,7 @@ async function test_server_direct_pin_model0_rejects_legacy_object_envelope() {
 async function test_server_direct_pin_model0_rejects_generic_object_payload() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
-    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
     const result = await state.submitEnvelope({
       event_id: Date.now(),
       type: 'ui_submit',
@@ -561,7 +615,7 @@ async function test_server_direct_pin_model0_rejects_generic_object_payload() {
 async function test_server_direct_pin_model0_rejects_wrapped_modeltable_array_payload() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
-    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
     const validPayload = v2Envelope({ opId: 'direct_wrapped_array_nested_0332' }).value;
     const result = await state.submitEnvelope({
       event_id: Date.now(),
@@ -586,7 +640,7 @@ async function test_server_direct_pin_model0_rejects_wrapped_modeltable_array_pa
 async function test_server_direct_pin_model0_rejects_null_missing_and_scalar_payloads() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
-    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
     const cases = [
       { suffix: 'null', includeValue: true, value: null },
       { suffix: 'missing', includeValue: false },
@@ -618,7 +672,7 @@ async function test_server_direct_pin_model0_rejects_null_missing_and_scalar_pay
 async function test_server_direct_pin_model0_rejects_mismatched_external_packet() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
-    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
     const nestedPayload = v2Envelope().value;
     const validPayload = normalizeBusEventV2ValueToPinPayload(nestedPayload, { op_id: 'direct_external_mismatch_nested' });
     const result = await state.submitEnvelope({
@@ -651,7 +705,7 @@ async function test_server_direct_pin_model0_rejects_mismatched_external_packet(
 async function test_server_direct_pin_model0_unwraps_matched_external_packet() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
-    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.in', v: null });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
     const originalValue = v2Envelope().value;
     const validPayload = normalizeBusEventV2ValueToPinPayload(originalValue, { op_id: 'direct_external_match_nested' });
     const result = await state.submitEnvelope({
@@ -697,7 +751,7 @@ async function test_ui_event_writes_model0_busin_and_skips_mailbox() {
   });
 }
 
-async function test_busin_routes_via_pin_connect_model_to_child() {
+async function test_busin_routes_via_pin_connect_cell_to_child() {
   return withServerState(async (state) => {
     const rt = state.runtime;
     seedBusInHarness(state);
@@ -708,7 +762,7 @@ async function test_busin_routes_via_pin_connect_model_to_child() {
     const childRoot = rt.getCell(rt.getModel(CHILD_MODEL_ID), 0, 0, 0).labels;
     const childValue = await pollUntil(() => childRoot.get('ui_submit')?.v);
     assertWriteLabelPayload(childValue, envelope.__intent, 'child root pin.in must receive the Model 0 routed payload');
-    return { key: 'busin_routes_via_pin_connect_model_to_child', status: 'PASS' };
+    return { key: 'busin_routes_via_pin_connect_cell_to_child', status: 'PASS' };
   });
 }
 
@@ -750,6 +804,8 @@ const tests = [
   test_local_adapter_rejects_null_model0_busin_payload,
   test_local_adapter_rejects_valid_shaped_object_model0_busin_payload,
   test_local_adapter_rejects_wrapped_modeltable_array_model0_busin_payload,
+  test_local_adapter_accepts_valid_model0_management_bus_payload_with_dem_role,
+  test_frontend_local_stores_seed_dem_role_for_management_bus,
   test_server_direct_pin_model0_rejects_malformed_temporary_payload,
   test_server_direct_pin_model0_rejects_legacy_object_envelope,
   test_server_direct_pin_model0_rejects_generic_object_payload,
@@ -758,7 +814,7 @@ const tests = [
   test_server_direct_pin_model0_rejects_mismatched_external_packet,
   test_server_direct_pin_model0_unwraps_matched_external_packet,
   test_ui_event_writes_model0_busin_and_skips_mailbox,
-  test_busin_routes_via_pin_connect_model_to_child,
+  test_busin_routes_via_pin_connect_cell_to_child,
   test_mt_bus_receive_dispatches_to_target_pin,
 ];
 

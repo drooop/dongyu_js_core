@@ -1,10 +1,14 @@
 ---
 title: "asdh"
 doc_type: handover
-status: active
-updated: 2026-04-21
+status: archive
+updated: 2026-05-10
 source: ai
 ---
+
+# asdh
+
+Status: handover/archive note. It is not current policy or current product specification.
 
 ---
 
@@ -43,4 +47,3 @@ source: ai
 另一个角度下
 
 由于用户"外行",
-

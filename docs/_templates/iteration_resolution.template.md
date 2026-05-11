@@ -2,11 +2,13 @@
 title: "Iteration <ID> Resolution"
 doc_type: template
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
 # Iteration <ID> Resolution
+
+Template status: current. Put executable checks and PASS/FAIL signals here; real outputs belong in `runlog.md`.
 
 ## 0. Execution Rules
 - Work branch: dev_<id>

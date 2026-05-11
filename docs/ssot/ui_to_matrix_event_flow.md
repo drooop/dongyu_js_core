@@ -2,15 +2,18 @@
 title: "UI 事件到 Matrix 的完整流转机制"
 doc_type: ssot
 status: active
-updated: 2026-04-21
+updated: 2026-05-10
 source: ai
 ---
 
 # UI 事件到 Matrix 的完整流转机制
 
-**文档状态**: SSOT (Single Source of Truth)
-**创建日期**: 2026-02-04
-**最后更新**: 2026-02-04
+## Positioning
+
+- Authority: below `CLAUDE.md`, architecture SSOT, runtime semantics, label registry, and current PIN / payload contracts.
+- Scope: current UI event flow through ModelTable, program models, Matrix, MQTT, and device PIN delivery.
+- Rule type: current flow description plus target constraints where explicitly marked.
+- Conflict behavior: if current flow language conflicts with `pin_connection_contract_v2.md`, `temporary_modeltable_payload_v1.md`, or runtime semantics, those higher-priority SSOT docs win.
 
 ## 概述
 
@@ -19,13 +22,14 @@ source: ai
 ## 完整数据流
 
 说明：
-- 本文档保留 `ctx.sendMatrix(payload)` 作为宿主能力说明。
-- 自 0187 起，UI 侧已不再存在 legacy `mailbox -> forward_ui_events -> ctx.sendMatrix(...)` 默认旁路。
+- 程序模型不暴露 direct Matrix send helper。
+- 自 0187 起，UI 侧已不再存在 legacy `mailbox -> forward_ui_events -> direct Matrix send` 默认旁路。
 - 当前 canonical app-level 外发路径是：
- - UI 写 mailbox / 模型内本地状态
+  - UI 写 mailbox / 模型内本地状态
   - 模型内函数或 relay 写 root `pin.out`
   - 逐层 relay 到 Model 0
-  - 仅 Model 0 `pin.bus.out` / 等价宿主观察点触发 `ctx.sendMatrix(payload)`
+  - 仅 Model 0 `pin.bus.mb.out` / 等价宿主观察点触发管理总线 bridge
+- 系统边界已拆分：UI/管理类消息使用 `pin.bus.mb.in` / `pin.bus.mb.out`，控制类消息使用 `pin.bus.cb.in` / `pin.bus.cb.out`。
 - mailbox 之后的“事件 -> pin ingress / routing”解释属于 Tier 1 runtime；`server` 只负责 transport / adapter。
 
 0213 Matrix debug 补充：
@@ -47,7 +51,7 @@ Mailbox 写入 (Model -1, Cell 0,0,1)
 本地 dispatch / model relay
   ↓ [only if explicit route reaches Model 0 egress]
 Model 0 egress function
-  ↓ [ctx.sendMatrix(payload)]
+  ↓ [pin.bus.mb.out bridge]
 Matrix 消息发送 (drop → mbr DM room)
   ↓ [Matrix Room.timeline 事件]
 MBR Worker 接收
@@ -159,27 +163,11 @@ const ctx = {
     rmCrossModel: (model_id, p, r, c, k) => { /* ... */ },
   },
 
-  // Matrix API - 关键！
-  sendMatrix: (payload) => this.sendMatrix(payload),
+  // No direct Matrix/MQTT send helper is exposed to user program models.
 };
 ```
 
-**`ctx.sendMatrix(payload)` 实现**:
-
-```javascript
-async sendMatrix(payload) {
-  if (!this.runtime.isRuntimeRunning()) {
-    throw new Error('runtime_not_running');
-  }
-  if (!this.matrixAdapter || !this.matrixRoomId) {
-    throw new Error('matrix_not_ready');
-  }
-  if (!this.matrixDmPeerUserId) {
-    throw new Error('matrix_contuser_required');
-  }
-  await this.matrixAdapter.publish(payload);
-}
-```
+Matrix/MQTT 发送由 `ProgramModelEngine` 观察 Model 0 root split bus out pin 后完成。程序模型只能生成 ModelTable-like `pin_payload.v1` records 并写入合法 pin 链路。
 
 **0177 边界补充**：
 - `/api/modeltable/patch` 不再作为公共建模入口，固定返回 `direct_patch_api_disabled`
@@ -187,7 +175,7 @@ async sendMatrix(payload) {
 
 ### 4. 程序模型函数示例
 
-**必需配置**: UI 模型或 imported slide app 在 root 声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`，业务程序只把 Temporary ModelTable records 写到公开 root `pin.out`。UI Server 运行时负责生成 host egress adapter，把 `route.to` 和 server-owned `route.reply_to` 写进 `pin_payload` 后经 Model 0 `mt_bus_send` / `pin.bus.out` 外发；不得恢复旧的 Model 0 egress label/function 或 `ctx.getLabel/writeLabel/rmLabel`。
+**必需配置**: UI 模型或 imported slide app 在 root 声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`，业务程序只把 Temporary ModelTable records 写到公开 root `pin.out`。UI Server 运行时负责生成 host egress adapter，把 `route.to` 和 server-owned `route.reply_to` 写进 `pin_payload` 后经 Model 0 `mt_bus_send` / `pin.bus.mb.out` 外发；不得恢复旧的 Model 0 egress label/function 或 `ctx.getLabel/writeLabel/rmLabel`。
 
 ```javascript
 // 示例：业务程序只准备模型表形态 payload，并写到公开 root pin.out。
@@ -206,19 +194,20 @@ V1N.addLabel('submit', 'pin.out', payload);
 
 **位置**: `scripts/run_worker_mbr_v0.mjs`
 
-MBR Worker 监听 Matrix room 的消息，解析 JSON payload，然后：
-1. 识别目标 MQTT topic
-2. 发布到 MQTT broker
-3. 远程 Worker 通过 PIN_IN 接收
+MBR Worker 监听 Matrix room 的消息，解析 `pin_payload.v1` temporary ModelTable records，然后：
+1. 读取消息内 `route.to`
+2. 生成目标 MQTT topic
+3. 发布到 MQTT broker
+4. remote-worker 通过 `pin.bus.cb.in` / root route 接收
 
 **现行 product path 约束**：
 - Matrix / MQTT bootstrap 只从 Model 0 `(0,0,0)` 读取，不再使用 `mbr_matrix_room_id` / `mbr_mqtt_host` 这类负数模型旧 transport config。
 - `mbr_mgmt_to_mqtt` 必须通过消息体中的 `route.to` 解析目标 worker / model / pin；缺少 `route.to`、目标不合法、或 `route.to.pin` 与 packet pin 不一致时必须拒绝并写 `mbr_mgmt_error`。
 - `mbr_route_<source_model_id>` 不再是当前规约输入面，也不得作为兼容兜底恢复。
 - `runtime_mode=edit` 时，MBR 可以建立 Matrix/MQTT 连接，但入站 Matrix/MQTT 消息必须直接丢弃，不得先写 inbox 再等到 `running` 后补处理。
-- 当前 canonical 业务桥接仍是 records-only patch：
-  - Matrix `ui_event` -> MQTT `<base>/<model_id>/<pin>`
-  - MQTT `patch_out` -> MGMT `snapshot_delta`
+- 当前 canonical 业务桥接是 route-addressed `pin_payload.v1`：
+  - Matrix management bus packet -> MQTT `.../worker/<worker_id>/model/<model_id>/pin/<pin>`
+  - MQTT control bus result -> Matrix management bus packet -> owner materialization
 
 ## 疏通检查清单
 
@@ -242,7 +231,7 @@ MBR Worker 监听 Matrix room 的消息，解析 JSON payload，然后：
 
 ### 程序模型配置
 - [ ] **System Model (-10) 中存在 function label**
-- [ ] **函数包含 `ctx.sendMatrix()` 调用**
+- [ ] **函数写入合法 `pin_payload.v1` 到 split bus pin 链路**
 - [ ] **函数在 `tick()` 时被执行**
 
 ## 常见问题
@@ -263,7 +252,7 @@ console.log('Functions:', functions);
 
 如果为空，说明**缺少程序模型函数**。
 
-### Q: 如何调试 `sendMatrix` 是否被调用？
+### Q: 如何调试 Matrix 是否真的发送？
 
 **A**: 查看后端日志，搜索 `sendEvent` 或 `m.room.message`：
 

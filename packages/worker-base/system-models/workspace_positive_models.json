@@ -7500,6 +7500,16 @@
     },
     {
       "op": "add_label",
+      "model_id": -2,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model100_input_draft",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
       "model_id": 1004,
       "p": 0,
       "r": 0,
@@ -17042,7 +17052,7 @@
       "c": 0,
       "k": "inspector_text",
       "t": "str",
-      "v": "Send path: UI event -> bus_event_v2 -> Model 0 pin.bus.in -> pin route -> management target."
+      "v": "Send path: UI event -> bus_event_v2 -> Model 0 pin.bus.mb.in -> pin route -> management target."
     },
     {
       "op": "add_label",
@@ -22717,7 +22727,7 @@
       "c": 0,
       "k": "ui_markdown",
       "t": "str",
-      "v": "## Event Flow\n\nFormal business events must enter the current pin chain.\n\n```mermaid\nflowchart LR\n  UI[UI event] --> Bus[Model 0 pin.bus.in]\n  Bus --> Route[pin route]\n  Route --> Target[target model or MBR]\n```\n\n```json\n{\n  \"pin\": \"click\",\n  \"value_t\": \"modeltable\",\n  \"value_ref\": [\n    { \"id\": 0, \"p\": 0, \"r\": 0, \"c\": 0, \"k\": \"__mt_payload_kind\", \"t\": \"str\", \"v\": \"ui_event.v1\" }\n  ]\n}\n```"
+      "v": "## Event Flow\n\nFormal business events must enter the current pin chain.\n\n```mermaid\nflowchart LR\n  UI[UI event] --> Bus[Model 0 pin.bus.mb.in]\n  Bus --> Route[pin route]\n  Route --> Target[target model or MBR]\n```\n\n```json\n{\n  \"pin\": \"click\",\n  \"value_t\": \"modeltable\",\n  \"value_ref\": [\n    { \"id\": 0, \"p\": 0, \"r\": 0, \"c\": 0, \"k\": \"__mt_payload_kind\", \"t\": \"str\", \"v\": \"ui_event.v1\" }\n  ]\n}\n```"
     },
     {
       "op": "add_label",
@@ -23538,7 +23548,7 @@
       "k": "handle_submit",
       "t": "func.js",
       "v": {
-        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = function(key, fallback) { const rec = records.find(function(item) { return item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key; }); return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback; };\nconst nestedValue = readPayload('value', {});\nconst text = String(readPayload('text', nestedValue && nestedValue.text != null ? nestedValue.text : '')).trim();\nconst source = String(readPayload('source', nestedValue && nestedValue.source ? nestedValue.source : 'ui_button'));\nconst SELF = ctx.self.model_id;\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'minimal_submit.request.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'text', t: 'str', v: text },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: SELF },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source', t: 'str', v: source }\n];\nV1N.addLabel('input_text', 'str', text);\nV1N.addLabel('last_submit_payload', 'json', payload);\nV1N.addLabel('submit_inflight', 'bool', !!text);\nV1N.addLabel('remote_status', 'str', text ? 'sending' : 'empty_input');\nif (text) V1N.addLabel('submit1', 'pin.out', payload);\nreturn;"
+        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = function(key, fallback) { const rec = records.find(function(item) { return item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key; }); return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback; };\nconst text = String(readPayload('text', '')).trim();\nconst source = String(readPayload('source', 'ui_button'));\nconst SELF = ctx.self.model_id;\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'minimal_submit.request.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'text', t: 'str', v: text },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: SELF },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source', t: 'str', v: source }\n];\nV1N.addLabel('input_text', 'str', text);\nV1N.addLabel('last_submit_payload', 'json', payload);\nV1N.addLabel('submit_inflight', 'bool', !!text);\nV1N.addLabel('remote_status', 'str', text ? 'sending' : 'empty_input');\nif (text) V1N.addLabel('submit1', 'pin.out', payload);\nreturn;"
       }
     },
     {
@@ -23959,7 +23969,7 @@
       "c": 0,
       "k": "ui_text_ref_model_id",
       "t": "int",
-      "v": 0
+      "v": 1050
     },
     {
       "op": "add_label",

@@ -1,15 +1,14 @@
 ---
 title: "Roadmap: dongyu-app-next-runtime"
 doc_type: roadmap
-status: active
-updated: 2026-04-21
+status: target
+updated: 2026-05-10
 source: ai
 ---
 
 # Roadmap: dongyu-app-next-runtime
 
-> 本文档是“新版洞宇 APP 重写”的**唯一执行路线图**。  
-> 上位约束：`docs/architecture_mantanet_and_workers.md`、`docs/charters/dongyu_app_next_runtime.md`。
+Status: roadmap / target material. It guides sequencing, but current runtime truth still comes from `CLAUDE.md`, `docs/architecture_mantanet_and_workers.md`, `docs/charters/dongyu_app_next_runtime.md`, and `docs/ssot/**`.
 
 ## 1. 目标与边界
 
