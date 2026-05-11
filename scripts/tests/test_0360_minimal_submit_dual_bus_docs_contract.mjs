@@ -203,12 +203,52 @@ function test_minimal_submit_docs_explain_full_patch_labels_and_submit_chain() {
   return { key: 'minimal_submit_docs_explain_full_patch_labels_and_submit_chain', status: 'PASS' };
 }
 
+function test_minimal_submit_docs_explain_ui_server_install_materialization() {
+  const guide = readText('docs/user-guide/slide-app-runtime/minimal_submit_app_provider_guide.md');
+  const interactive = readText('docs/user-guide/slide-app-runtime/minimal_submit_app_provider_interactive.html');
+  for (const [path, text] of [
+    ['minimal_submit_app_provider_guide.md', guide],
+    ['minimal_submit_app_provider_interactive.html', interactive],
+  ]) {
+    for (const required of [
+      'UI Server 安装',
+      'model.submt',
+      'deletable',
+      'installed_at',
+      'imported_bundle_model_ids',
+      'import_root_temp_id',
+      'host_ingress_generated_model0_labels',
+      'host_ingress_generated_mount',
+      'host_ingress_generated_root_labels',
+      'host_egress_generated_model0_labels',
+      'host_egress_generated_mount',
+      'ui_egress_submit1_binding',
+      'ui.egress.binding.v1',
+      'imported_host_submit_',
+      'imported_submit1_',
+      'bridge_imported_submit1_to_mt_bus_send_',
+      'mt_bus_send_in',
+      'pin.bus.mb.out',
+      'route.reply_to',
+      '侧边栏',
+      'Model 0',
+    ]) {
+      assert.ok(text.includes(required), `${path} must explain UI Server install detail: ${required}`);
+    }
+    assert.match(text, /Model 0.*\(0,0,0\)/us, `${path} must mention Model 0 root cell`);
+    assert.match(text, /Workspace mount|Workspace.*mount|mount cell/u, `${path} must mention Workspace mount cell`);
+    assert.match(text, /imported root.*submit1.*Model 0/us, `${path} must describe imported root submit1 reaching Model 0`);
+  }
+  return { key: 'minimal_submit_docs_explain_ui_server_install_materialization', status: 'PASS' };
+}
+
 const tests = [
   test_all_public_docs_cover_required_operational_steps,
   test_provider_assets_have_no_compatibility_route,
   test_model0_mbr_remote_worker_contract_is_complete,
   test_provider_docs_result_payload_examples_keep_current_shape,
   test_minimal_submit_docs_explain_full_patch_labels_and_submit_chain,
+  test_minimal_submit_docs_explain_ui_server_install_materialization,
 ];
 let passed = 0;
 let failed = 0;

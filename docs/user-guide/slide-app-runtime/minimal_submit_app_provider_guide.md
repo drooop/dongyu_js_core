@@ -565,6 +565,136 @@ topic 只负责把消息送到 RE 的 Model 0。真正触发哪个程序，由 R
 7. 宿主把新模型挂到 Workspace，并根据声明自动建立宿主侧引脚/Model 0 adapter。
 8. 用户在 Workspace 打开新 APP 后，页面由 `cellwise.ui.v1` labels 渲染。
 
+### 3.4 UI Server 安装过程
+
+zip 进入 UI Server 后，安装器做的是“把临时模型表 materialize 成正式子模型，并补齐宿主侧接线”。它不是把 HTML 页面塞进 WebView，也不是让 provider 自己声明 Model 0 总线引脚。
+
+安装过程按下面顺序发生：
+
+1. 解析 zip：zip 必须只有 `app_payload.json`，内容必须是 ModelTable records array。
+2. 校验 payload：拒绝 `op`、安装后的正式 `model_id`、`route.reply_to`、`pin.bus.*`、`ui.egress.binding.v1`、`pin.connect.model` 等 provider 不该写的内容。
+3. 分配正式模型 id：zip 内 `id: 0` 会映射成 UI Server 本地新模型，例如 `1056`。如果 zip 里有多个临时模型，会从同一个起点连续分配。
+4. 创建正式模型：root 模型类型为 `sliding_ui`，名称来自 `app_name`。
+5. 写入 provider labels：把 zip 里的全部合法 labels 写到新模型对应 cell，并把内部 `model_id: 0`、`ui_text_ref_model_id=0` 等引用 remap 为正式模型 id。
+6. 写入安装元信息：安装器在 imported root `(0,0,0)` 额外写入 `deletable`、`installed_at`、`imported_bundle_model_ids`、`import_root_temp_id`、`from_user`、`to_user`。
+7. 挂载为 Model 0 子模型：UI Server 在 Model 0 的 Workspace mount 区选择下一个空 cell，例如 `(2,0,nextC)`，写入 `k=model_type, t=model.submt, v=<installedModelId>`。这一步让 imported app 成为 Model 0 下的正式子模型。
+8. 生成 host ingress adapter：如果 root 声明了 `host_ingress_v1`，安装器把 Model 0 的管理总线输入接到 imported root 的入口。
+9. 生成 host egress adapter：如果 root 声明了 `dual_bus_model.egress_pins=["submit1"]` 和 `remote_bus_endpoint_v1`，安装器把 imported root 的 `submit1 pin.out` 接到 Model 0 root 的 `mt_bus_send / pin.bus.mb.out` 路径。
+10. 刷新 Workspace 资产树：`滑动 APP 导入` 程序会在导入成功后调用 catalog refresh。侧边栏会看到新的 app，因为它有 `app_name` / `source_worker`，并且已经被 Model 0 通过 `model.submt` 直接挂载。
+
+安装完成后，侧边栏行会使用这些信息：
+
+| 字段 | 来源 |
+|---|---|
+| 名称 | imported root 的 `app_name`，没有时退回模型名 |
+| 是否可删除 | imported root 的 `deletable=true` |
+| 是否可导出 zip | imported root 的 `slide_capable=true` |
+| zip 导出地址 | `/api/slide-apps/<installedModelId>/export.zip` |
+| 来源/目标 | imported root 的 `source_worker`、`from_user`、`to_user` |
+| 是否显示为顶层 app | 有 `app_name` / `source_worker`，或直接通过 Model 0 `model.submt` 挂载 |
+
+#### 3.4.1 自动生成的 host ingress labels
+
+如果 zip root 有：
+
+```json
+{
+  "k": "host_ingress_v1",
+  "t": "json",
+  "v": {
+    "boundaries": [
+      {
+        "semantic": "submit",
+        "pin_name": "submit_request",
+        "value_t": "modeltable",
+        "locator_kind": "root_relative_cell",
+        "locator_value": { "p": 0, "r": 0, "c": 0 },
+        "primary": true
+      }
+    ]
+  }
+}
+```
+
+安装器会额外写入：
+
+| 位置 | 自动 label | 作用 |
+|---|---|---|
+| imported root `(0,0,0)` | `__host_ingress_submit` / `pin.in` | child root 接收宿主转发进来的管理总线消息。 |
+| imported root `(0,0,0)` | `__host_ingress_submit_route` / `pin.connect.cell` | `[0,0,0,"__host_ingress_submit"] -> [0,0,0,"submit_request"]`。 |
+| Model 0 mount cell `(2,0,nextC)` | `__host_ingress_submit` / `pin.in` | 父模型 hosting Cell 上的同名 relay pin。 |
+| Model 0 root `(0,0,0)` | `imported_host_submit_<id>` / `pin.bus.mb.in` | 管理总线进入该 imported app 的宿主入口。 |
+| Model 0 root `(0,0,0)` | `imported_host_submit_<id>_route` / `pin.connect.cell` | `[0,0,0,"imported_host_submit_<id>"] -> [2,0,nextC,"__host_ingress_submit"]`。 |
+| imported root `(0,0,0)` | `host_ingress_generated_model0_labels` / `json` | 清理清单，记录 Model 0 root 上生成的 ingress labels。 |
+| imported root `(0,0,0)` | `host_ingress_generated_mount` / `json` | 清理清单，记录 mount cell 上生成的 relay labels。 |
+| imported root `(0,0,0)` | `host_ingress_generated_root_labels` / `json` | 清理清单，记录 child root 上生成的 ingress labels。 |
+
+这条链路表达的是“Model 0 root 的管理总线输入如何进入 imported app root 的业务入口”。它不是用户点击 Submit 的主要外发路径，但它说明宿主可以从 Model 0 管理总线入口把正式消息送进该 app。
+
+#### 3.4.2 自动生成的 host egress labels
+
+本示例的主要 Submit 外发路径来自这两个 provider labels：
+
+```json
+{ "k": "remote_bus_endpoint_v1", "t": "json", "v": { "transport": "mqtt", "to": { "worker_id": "RE", "model_id": 3000 } } }
+{ "k": "dual_bus_model", "t": "json", "v": { "mode": "imported_host_egress", "egress_pins": ["submit1"] } }
+```
+
+安装器会为 `submit1` 生成：
+
+| 位置 | 自动 label | 作用 |
+|---|---|---|
+| Model 0 mount cell `(2,0,nextC)` | `submit1` / `pin.out` | imported root `submit1 pin.out` 经过 `model.submt` 暴露到父模型 hosting Cell。 |
+| Model 0 root `(0,0,0)` | `imported_submit1_<id>_bus` / `pin.bus.mb.out` | UI Server 管理总线出口。 |
+| Model 0 root `(0,0,0)` | `__host_egress_submit1_bridge_in_<id>` / `pin.in` | 宿主 root bridge 入口。 |
+| Model 0 root `(0,0,0)` | `bridge_imported_submit1_to_mt_bus_send_<id>` / `func.js` | 读取 imported payload，补 `route.to` 和 server-owned `route.reply_to`，再写 `mt_bus_send_in`。 |
+| Model 0 root `(0,0,0)` | `imported_submit1_<id>_bridge_wiring` / `pin.connect.label` | `bridge_in -> bridge_func:in`。 |
+| Model 0 root `(0,0,0)` | `imported_submit1_<id>_route` / `pin.connect.cell` | `[2,0,nextC,"submit1"] -> [0,0,0,"__host_egress_submit1_bridge_in_<id>"]`。 |
+| imported root `(0,0,0)` | `ui_egress_submit1_binding` / `ui.egress.binding.v1` | host-owned 说明：`submit1` 通过哪个 Model 0 管理总线出口发出，以及目标是谁。 |
+| imported root `(0,0,0)` | `host_egress_generated_model0_labels` / `json` | 清理清单，记录 Model 0 root 上生成的 egress labels。 |
+| imported root `(0,0,0)` | `host_egress_generated_mount` / `json` | 清理清单，记录 mount cell 上生成的 egress relay labels。 |
+
+`ui_egress_submit1_binding` 的内容形状如下，其中 `<id>` 是 UI Server 安装后分配的本地模型 id：
+
+```json
+{
+  "from_pin": "submit1",
+  "bus": "management",
+  "host_model_id": 0,
+  "host_cell": [0, 0, 0],
+  "host_pin_type": "pin.bus.mb.out",
+  "host_pin_key": "imported_submit1_<id>_bus",
+  "target": { "worker_id": "RE", "model_id": 3000, "pin": "submit1" },
+  "reply_pin": "result",
+  "owned_by": "ui-server-installer"
+}
+```
+
+#### 3.4.3 从 imported app 第 0 格到 Model 0 第 0 格
+
+点击 Submit 后，真实外发链路是：
+
+```text
+imported app (2,3,0) Button
+-> imported app (2,3,0) click_chain
+-> imported root (0,0,0) submit_request
+-> imported root (0,0,0) handle_submit:in
+-> imported root (0,0,0) submit1 pin.out
+-> Model 0 mount cell (2,0,nextC) submit1 pin.out
+-> Model 0 root (0,0,0) __host_egress_submit1_bridge_in_<id>
+-> Model 0 root (0,0,0) bridge_imported_submit1_to_mt_bus_send_<id>:in
+-> Model 0 root (0,0,0) mt_bus_send_in
+-> Model 0 root (0,0,0) imported_submit1_<id>_bus pin.bus.mb.out
+-> Matrix dy.bus.v0 -> MBR -> MQTT topic for RE / 3000 / submit1
+```
+
+bridge 函数会合成：
+
+- `route.to = { worker_id: "RE", model_id: 3000, pin: "submit1" }`
+- `route.reply_to = { worker_id: <ui-server worker id>, model_id: <installedModelId>, pin: "result" }`
+
+所以 provider zip 只需要声明“我要把 `submit1` 发到 RE / 3000”，不需要、也不能声明 `route.reply_to`。回包目标只能由 UI Server 根据当前安装实例生成。
+
 ## 4. 用外部客户端测试双总线
 
 ### 4.1 如何观察 UI 发出的 submit
