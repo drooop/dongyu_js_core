@@ -382,6 +382,156 @@ if (text) V1N.addLabel('submit1', 'pin.out', payload);
 
 也就是说，`Submit` 这类按钮的绑定不是“按钮直接调 Matrix”，也不是“按钮直接改结果 label”。按钮只产生一个 ModelTable-like 事件；后续是否触发程序、是否外发双总线，完全由模型表中的引脚和接线决定。
 
+### 2.2 Submit 类提交按钮模型表准备清单
+
+开发者新增一个“提交按钮”时，可以按四组 labels 准备模型表。下面用 `submit1` 做例子；如果按钮叫 `submit2`，同一套名字应成组替换。
+
+#### A. 按钮 Cell labels
+
+按钮 Cell 负责“显示成按钮，并在点击时写入一个普通 pin”。本示例按钮 Cell 是 `(2,3,0)`：
+
+| label.k | label.t | 示例值 | 生效方式 |
+|---|---|---|---|
+| `ui_node_id` | `str` | `minimal_submit_zip_button` | 前端用它识别 UI 节点。 |
+| `ui_component` | `str` | `Button` | 前端把该 Cell 渲染为按钮组件。 |
+| `ui_parent` | `str` | `minimal_submit_zip_card` | 决定按钮挂在哪个父 UI 节点下。 |
+| `ui_order` | `int` | `30` | 决定按钮在父节点里的排序。 |
+| `ui_label` | `str` | `Submit` | 按钮上显示的文字。 |
+| `ui_variant` | `str` | `primary` | 按钮外观。 |
+| `click_chain` | `pin.in` | `null` | 前端点击按钮时写入的本 Cell 普通入口。 |
+| `ui_bind_json` | `json` | `write.pin=click_chain` | 定义点击时生成什么临时 ModelTable records，并写到哪个 pin。 |
+
+最小可复制形状如下：
+
+```json
+[
+  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_component", "t": "str", "v": "Button" },
+  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_label", "t": "str", "v": "Submit" },
+  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "click_chain", "t": "pin.in", "v": null },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "write": {
+        "pin": "click_chain",
+        "value_t": "modeltable",
+        "commit_policy": "immediate",
+        "value_ref": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "ui_event.v1" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": { "$label": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "input_text" } } },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "source", "t": "str", "v": "ui_button" }
+        ]
+      }
+    }
+  }
+]
+```
+
+`ui_bind_json.write.value_t=modeltable` 是关键：它要求前端把 `value_ref` 解析成临时 ModelTable records，而不是普通字符串或对象。`value_ref` 里的 `$label` 表示点击那一刻读取当前模型里的 `input_text`，填进临时 record 的 `text`。
+
+#### B. Root 入口与程序触发 labels
+
+按钮 Cell 只把事件写入 `(2,3,0)` 自己的 `click_chain`。要让它触发 root 程序，还必须在 root `(0,0,0)` 填这些 labels：
+
+| label.k | label.t | 示例值 | 生效方式 |
+|---|---|---|---|
+| `submit_request` | `pin.in` | `null` | root 业务入口，接收按钮传来的临时 records。 |
+| `root_routes` | `pin.connect.cell` | `[2,3,0,"click_chain"] -> [0,0,0,"submit_request"]` | 把按钮 Cell 的 pin 连接到 root 入口。 |
+| `submit_request_wiring` | `pin.connect.label` | `submit_request -> handle_submit:in` | 在 root Cell 内触发程序模型。 |
+| `handle_submit` | `func.js` | 读取 `text`，更新状态，写 `submit1 pin.out` | 程序模型实际处理点击事件。 |
+
+对应最小写法：
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit_request", "t": "pin.in", "v": null },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "root_routes",
+    "t": "pin.connect.cell",
+    "v": [
+      { "from": [2, 3, 0, "click_chain"], "to": [[0, 0, 0, "submit_request"]] }
+    ]
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "submit_request_wiring",
+    "t": "pin.connect.label",
+    "v": [
+      { "from": "submit_request", "to": ["handle_submit:in"] }
+    ]
+  }
+]
+```
+
+#### C. 外发双总线相关 labels
+
+如果提交按钮需要把请求发给 remote-worker，还必须准备 root 外发 labels：
+
+| label.k | label.t | 示例值 | 生效方式 |
+|---|---|---|---|
+| `submit1` | `pin.out` | `null` | `handle_submit` 写入的公开外发 pin。 |
+| `dual_bus_model` | `json` | `egress_pins=["submit1"]` | 告诉安装器 `submit1` 是需要接到双总线的 root pin。 |
+| `remote_bus_endpoint_v1` | `json` | `to.worker_id="RE", to.model_id=3000` | 告诉安装器这个 app 的远端 provider 是谁。 |
+| `host_ingress_v1` | `json` | `pin_name="submit_request"` | 说明宿主如何从 Model 0 管理总线入口进入该 app。 |
+
+安装完成后，UI Server 会用这些 labels 自动生成 `ui_egress_submit1_binding`、`imported_submit1_<id>_bus`、`bridge_imported_submit1_to_mt_bus_send_<id>` 等 host-owned labels。开发者的 zip 里不应手写这些自动 labels。
+
+#### D. 状态与结果 labels
+
+这些 labels 不负责触发按钮，但它们让页面能显示按钮提交后的状态：
+
+| label.k | label.t | 何时变化 | 作用 |
+|---|---|---|---|
+| `input_text` | `str` | 输入框提交草稿时变化 | `ui_bind_json.value_ref` 读取它形成 `text` record。 |
+| `submit_inflight` | `bool` | `handle_submit` 和回包处理时变化 | 标记请求是否正在等待远端结果。 |
+| `last_submit_payload` | `json` | `handle_submit` 和回包处理时变化 | 保存最近一次提交/回包 payload，便于审查。 |
+| `remote_status` | `str` | `handle_submit` 写 `sending`，回包写 `remote_processed` | StatusBadge 读取它。 |
+| `display_text` | `str` | remote-worker 回包 materialize 后变化 | Text 组件读取它显示 `Submitted: ...`。 |
+
+#### E. 生效顺序
+
+提交按钮生效时，顺序固定如下：
+
+```text
+Button Cell ui_component=Button makes the visual button
+-> user clicks Button
+-> ui_bind_json.write.value_ref creates temporary ModelTable records
+-> frontend writes records to Button Cell click_chain pin.in
+-> root_routes sends click_chain to root submit_request
+-> submit_request_wiring calls handle_submit:in
+-> handle_submit reads text and writes root submit1 pin.out
+-> installer-generated host egress adapter adds route.to and route.reply_to
+-> Model 0 mt_bus_send / pin.bus.mb.out sends to Matrix / MBR / RE
+-> RE reply materializes display_text and remote_status
+```
+
+### 2.3 多个提交按钮如何扩展
+
+复杂页面可以有多个提交按钮，但每个按钮要有自己的一组 pin 和程序链路。推荐命名方式：
+
+| 用途 | 第一个按钮 | 第二个按钮 |
+|---|---|---|
+| Button Cell pin | `click_chain` | `approve_click_chain` |
+| Root 入口 pin | `submit_request` | `approve_request` |
+| Root 程序模型 | `handle_submit` | `handle_approve` |
+| Root 外发 pin | `submit1` | `approve1` |
+| Root 同 Cell 接线 | `submit_request_wiring` | `approve_request_wiring` |
+| Root 跨 Cell 接线 | 合并写入 `root_routes` | 合并写入 `root_routes` |
+| 外发声明 | `dual_bus_model.egress_pins=["submit1"]` | `dual_bus_model.egress_pins=["submit1","approve1"]` |
+
+每个按钮的远端程序由 `route.to.pin` 指向的公开 pin 决定。安装器会为 `egress_pins` 中的每个 root `pin.out` 分别生成 host egress adapter；因此新增按钮时，不要复用同一个 `click_chain` 或同一个 root `submit_request`，除非它们确实要走完全相同的程序逻辑。
+
 ## 3. 滑动过程如何触发
 
 如果要交付一个新的滑动 APP，则通过 Workspace 下的 `滑动 APP 导入` 触发安装。
