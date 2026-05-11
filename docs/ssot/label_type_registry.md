@@ -71,6 +71,17 @@ Conflict behavior:
 - 普通 Cell 发起正式写入时，必须通过当前模型内显式 `pin.connect.cell` 把 `write_label_req` 路由到 root `mt_write_req`。
 - 早期 `(0,1,0)` reserved helper executor cell 已删除；`helper_executor`、`owner_apply`、`owner_apply_route`、`owner_materialize` 不再由 runtime 自动种入，也不得作为默认物化入口。
 
+### 2.0 软件工人身份标签
+
+这些标签写在软件工人 root Model 0 `(0,0,0)`，用于启动期身份与角色校验。
+
+| label.k | label.t | value | 位置约束 |
+|---|---|---|---|
+| `v1n_id` | `str` | `<workspace>/<dam>/<pic>/<dem>/<worker>` | 仅 Model 0 `(0,0,0)`；首次 trusted bootstrap 写入后锁定，后续只能显式维护变更 |
+| `worker.role` | `str` | `"dem"` 或 `"worker"` | 仅 Model 0 `(0,0,0)` |
+
+`worker.role="dem"` 才允许声明 `pin.bus.mb.*`。`worker.role="worker"` 只能声明 `pin.bus.cb.*`。
+
 ### 2.1 UI Bootstrap Boundary (0210 Freeze)
 
 - `ui_ast_v0`、`ws_selected_ast`、共享 mailbox root AST 都不是新的 label.t 合同；它们只是普通 `json` 数据标签在某些历史实现里的投影结果。

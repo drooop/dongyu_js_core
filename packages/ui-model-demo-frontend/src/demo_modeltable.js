@@ -74,7 +74,7 @@ function overwriteLabel(runtime, model, p, r, c, label) {
 
 function ensureLocalDemRole(runtime) {
   const model0 = ensureModel(runtime, { id: 0, name: 'M0', type: 'system' });
-  overwriteLabel(runtime, model0, 0, 0, 0, { k: 'is_DEM', t: 'bool', v: true });
+  overwriteLabel(runtime, model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
 }
 
 function applyUiPatch(runtime, patch) {

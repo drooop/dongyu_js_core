@@ -60,7 +60,7 @@ async function test_import_generates_host_owned_binding_and_split_bus_pins() {
   return withServerState(async (state, buildSlideAppExportPayload) => {
     const model0 = state.runtime.getModel(0);
     assert.equal(model0.getCell(0, 0, 0).labels.get('v1n_id')?.v, '5/10/28/35/13', 'ui_server_runtime_must_seed_explicit_worker_id');
-    assert.equal(model0.getCell(0, 0, 0).labels.get('is_DEM')?.v, true, 'ui_server_runtime_must_seed_dem_role_before_bus_materialization');
+    assert.equal(model0.getCell(0, 0, 0).labels.get('worker.role')?.v, 'dem', 'ui_server_runtime_must_seed_dem_role_before_bus_materialization');
 
     cacheZip(state, 'mxc://localhost/0364-valid', readPayload());
     const importResult = state.runtime.hostApi.slideImportAppFromMxc('mxc://localhost/0364-valid');

@@ -388,8 +388,20 @@ class ModelTableRuntime {
     const model0 = this.getModel(0);
     if (!model0) return false;
     const cell = model0.cells.get(model0.cellKey(0, 0, 0));
-    const role = cell && cell.labels ? cell.labels.get('is_DEM') : null;
-    return Boolean(role && role.t === 'bool' && role.v === true);
+    const role = cell && cell.labels ? cell.labels.get('worker.role') : null;
+    return Boolean(role && role.t === 'str' && role.v === 'dem');
+  }
+
+  _hasManagementBusPins(model0) {
+    if (!model0) return false;
+    const cell = model0.cells.get(model0.cellKey(0, 0, 0));
+    if (!cell || !cell.labels) return false;
+    for (const existingLabel of cell.labels.values()) {
+      if (existingLabel && this._isManagementBusResolvedType(this._resolveLabelType(existingLabel.t))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   _loadDefaultTableProgramsJson() {
@@ -737,6 +749,23 @@ class ModelTableRuntime {
 
   _validatePlacement(model, p, r, c, label) {
     const resolvedType = this._resolveLabelType(label && label.t);
+    if (label && label.k === 'is_DEM') {
+      return 'worker_role_label_removed';
+    }
+    if (label && label.k === 'worker.role') {
+      if (!model || model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
+        return 'worker_role_wrong_position';
+      }
+      if (label.t !== 'str') {
+        return 'worker_role_invalid_type';
+      }
+      if (label.v !== 'dem' && label.v !== 'worker') {
+        return 'worker_role_invalid_value';
+      }
+      if (label.v === 'worker' && this._hasManagementBusPins(model)) {
+        return 'worker_role_conflicts_with_management_bus_pins';
+      }
+    }
     if (this._isBusResolvedType(resolvedType)) {
       if (!model || model.id !== 0 || p !== 0 || r !== 0 || c !== 0) {
         return this._isBusInResolvedType(resolvedType) ? 'bus_in_wrong_position' : 'bus_out_wrong_position';

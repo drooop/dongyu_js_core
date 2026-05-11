@@ -46,33 +46,35 @@ function rootLabel(records, key) {
   )) || null;
 }
 
-function assertWorkerIdentity(relPath, expectedDem) {
+function assertWorkerIdentity(relPath, expectedRole) {
   const records = recordsOf(relPath);
   const id = rootLabel(records, 'v1n_id');
-  const dem = rootLabel(records, 'is_DEM');
+  const role = rootLabel(records, 'worker.role');
   assert.ok(id, `${relPath}_must_seed_v1n_id`);
   assert.equal(id.t, 'str', `${relPath}_v1n_id_must_be_str`);
   assert.match(id.v, /^\d+\/\d+\/\d+\/\d+\/\d+$/u, `${relPath}_v1n_id_must_use_five_numeric_segments`);
-  assert.ok(dem, `${relPath}_must_seed_is_DEM`);
-  assert.equal(dem.t, 'bool', `${relPath}_is_DEM_must_be_bool`);
-  assert.equal(dem.v, expectedDem, `${relPath}_is_DEM_role_mismatch`);
+  assert.ok(role, `${relPath}_must_seed_worker_role`);
+  assert.equal(role.t, 'str', `${relPath}_worker_role_must_be_str`);
+  assert.equal(role.v, expectedRole, `${relPath}_worker_role_mismatch`);
+  assert.equal(rootLabel(records, 'is_DEM'), null, `${relPath}_must_not_seed_removed_is_DEM`);
 }
 
 function test_system_seed_does_not_lock_worker_identity() {
   const records = recordsOf('packages/worker-base/system-models/system_models.json');
   assert.equal(rootLabel(records, 'v1n_id'), null, 'system_seed_must_not_write_generic_v1n_id');
-  assert.equal(rootLabel(records, 'is_DEM'), null, 'system_seed_must_not_write_generic_role');
+  assert.equal(rootLabel(records, 'worker.role'), null, 'system_seed_must_not_write_generic_role');
+  assert.equal(rootLabel(records, 'is_DEM'), null, 'system_seed_must_not_write_removed_role');
   return { key: 'system_seed_does_not_lock_worker_identity', status: 'PASS' };
 }
 
 function test_worker_role_patches_are_explicit() {
-  assertWorkerIdentity('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json', true);
-  assertWorkerIdentity('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json', false);
-  assertWorkerIdentity('deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json', false);
+  assertWorkerIdentity('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json', 'dem');
+  assertWorkerIdentity('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json', 'worker');
+  assertWorkerIdentity('deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json', 'worker');
   return { key: 'worker_role_patches_are_explicit', status: 'PASS' };
 }
 
-function assertLoadedWorkerIdentity(roleName, relDir, expectedId, expectedDem) {
+function assertLoadedWorkerIdentity(roleName, relDir, expectedId, expectedRole) {
   const rt = new ModelTableRuntime();
   rt.applyPatch(json('packages/worker-base/system-models/system_models.json'), {
     allowCreateModel: true,
@@ -81,7 +83,8 @@ function assertLoadedWorkerIdentity(roleName, relDir, expectedId, expectedDem) {
   loadRolePatches(rt, relDir);
   const root = rt.getCell(rt.getModel(0), 0, 0, 0);
   assert.equal(root.labels.get('v1n_id')?.v, expectedId, `${roleName}_loaded_v1n_id_mismatch`);
-  assert.equal(root.labels.get('is_DEM')?.v, expectedDem, `${roleName}_loaded_is_DEM_mismatch`);
+  assert.equal(root.labels.get('worker.role')?.v, expectedRole, `${roleName}_loaded_worker_role_mismatch`);
+  assert.equal(root.labels.has('is_DEM'), false, `${roleName}_must_not_load_removed_is_DEM`);
 }
 
 async function assertUiServerIdentity() {
@@ -97,7 +100,8 @@ async function assertUiServerIdentity() {
     const state = createServerState({ dbPath: null });
     const root = state.runtime.getCell(state.runtime.getModel(0), 0, 0, 0);
     assert.equal(root.labels.get('v1n_id')?.v, '5/10/28/35/13', 'ui_server_loaded_v1n_id_mismatch');
-    assert.equal(root.labels.get('is_DEM')?.v, true, 'ui_server_loaded_is_DEM_mismatch');
+    assert.equal(root.labels.get('worker.role')?.v, 'dem', 'ui_server_loaded_worker_role_mismatch');
+    assert.equal(root.labels.has('is_DEM'), false, 'ui_server_must_not_seed_removed_is_DEM');
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
     delete process.env.DY_AUTH;
@@ -110,9 +114,9 @@ async function assertUiServerIdentity() {
 }
 
 function test_worker_identity_survives_actual_load_order() {
-  assertLoadedWorkerIdentity('mbr', 'deploy/sys-v1ns/mbr/patches', '5/10/28/35/14', true);
-  assertLoadedWorkerIdentity('remote_worker', 'deploy/sys-v1ns/remote-worker/patches', '5/10/28/35/15', false);
-  assertLoadedWorkerIdentity('ui_side_worker', 'deploy/sys-v1ns/ui-side-worker/patches', '5/10/28/35/16', false);
+  assertLoadedWorkerIdentity('mbr', 'deploy/sys-v1ns/mbr/patches', '5/10/28/35/14', 'dem');
+  assertLoadedWorkerIdentity('remote_worker', 'deploy/sys-v1ns/remote-worker/patches', '5/10/28/35/15', 'worker');
+  assertLoadedWorkerIdentity('ui_side_worker', 'deploy/sys-v1ns/ui-side-worker/patches', '5/10/28/35/16', 'worker');
   return { key: 'worker_identity_survives_actual_load_order', status: 'PASS' };
 }
 

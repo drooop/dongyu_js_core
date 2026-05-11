@@ -44,8 +44,8 @@ function root(rt) {
   return rt.getModel(0);
 }
 
-function markDem(rt, value = true) {
-  return rt.addLabel(root(rt), 0, 0, 0, { k: 'is_DEM', t: 'bool', v: value });
+function markRole(rt, value = 'dem') {
+  return rt.addLabel(root(rt), 0, 0, 0, { k: 'worker.role', t: 'str', v: value });
 }
 
 function eventReasons(rt) {
@@ -54,7 +54,7 @@ function eventReasons(rt) {
 
 function test_legacy_bus_pin_types_are_removed() {
   const rt = new ModelTableRuntime();
-  markDem(rt, true);
+  markRole(rt, 'dem');
   const model0 = root(rt);
 
   const busIn = rt.addLabel(model0, 0, 0, 0, { k: 'old_in', t: 'pin.bus.in', v: null });
@@ -98,9 +98,9 @@ function test_management_bus_requires_dem_root() {
   const model0 = root(rt);
 
   const withoutRole = rt.addLabel(model0, 0, 0, 0, { k: 'mb_out', t: 'pin.bus.mb.out', v: null });
-  markDem(rt, false);
+  markRole(rt, 'worker');
   const ordinaryWorker = rt.addLabel(model0, 0, 0, 0, { k: 'mb_in', t: 'pin.bus.mb.in', v: null });
-  markDem(rt, true);
+  markRole(rt, 'dem');
   const demWorker = rt.addLabel(model0, 0, 0, 0, { k: 'mb_out', t: 'pin.bus.mb.out', v: null });
 
   assert.equal(withoutRole.applied, false, 'management bus pin without DEM role must be rejected');
@@ -111,9 +111,47 @@ function test_management_bus_requires_dem_root() {
   return { key: 'management_bus_requires_dem_root', status: 'PASS' };
 }
 
+function test_worker_role_replaces_removed_is_dem_label() {
+  const rt = new ModelTableRuntime();
+  const model0 = root(rt);
+  const removedRole = rt.addLabel(model0, 0, 0, 0, { k: 'is_DEM', t: 'bool', v: true });
+  const invalidValue = rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'admin' });
+  const invalidType = rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'bool', v: true });
+  const wrongCell = rt.addLabel(model0, 0, 0, 1, { k: 'worker.role', t: 'str', v: 'dem' });
+  const valid = rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
+
+  assert.equal(removedRole.applied, false, 'removed is_DEM label must be rejected');
+  assert.equal(invalidValue.applied, false, 'worker.role must reject unknown roles');
+  assert.equal(invalidType.applied, false, 'worker.role must be string typed');
+  assert.equal(wrongCell.applied, false, 'worker.role must be on Model 0 root');
+  assert.equal(valid.applied, true, 'worker.role=dem must be accepted on Model 0 root');
+  assert.equal(model0.getCell(0, 0, 0).labels.has('is_DEM'), false, 'removed is_DEM label must not be stored');
+  assert.equal(model0.getCell(0, 0, 0).labels.get('worker.role')?.v, 'dem', 'worker.role must be stored as role truth');
+  assert.ok(eventReasons(rt).includes('worker_role_label_removed'), 'removed role rejection must be explicit');
+  return { key: 'worker_role_replaces_removed_is_dem_label', status: 'PASS' };
+}
+
+function test_worker_role_downgrade_is_rejected_when_management_bus_pins_exist() {
+  const rt = new ModelTableRuntime();
+  const model0 = root(rt);
+  const demRole = rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
+  const managementOut = rt.addLabel(model0, 0, 0, 0, { k: 'mb_out', t: 'pin.bus.mb.out', v: null });
+  const downgrade = rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'worker' });
+
+  assert.equal(demRole.applied, true, 'worker.role=dem must be accepted');
+  assert.equal(managementOut.applied, true, 'DEM must be able to declare management bus output');
+  assert.equal(downgrade.applied, false, 'worker.role downgrade must be rejected when management bus pins exist');
+  assert.equal(model0.getCell(0, 0, 0).labels.get('worker.role')?.v, 'dem', 'rejected downgrade must leave DEM role intact');
+  assert.ok(
+    eventReasons(rt).includes('worker_role_conflicts_with_management_bus_pins'),
+    'role downgrade rejection must be explicit',
+  );
+  return { key: 'worker_role_downgrade_is_rejected_when_management_bus_pins_exist', status: 'PASS' };
+}
+
 function test_mqtt_bus_in_preserves_declared_split_type() {
   const rt = new ModelTableRuntime();
-  markDem(rt, true);
+  markRole(rt, 'dem');
   const model0 = root(rt);
   rt.addLabel(model0, 0, 0, 0, { k: 'mb_event', t: 'pin.bus.mb.in', v: null });
 
@@ -129,7 +167,7 @@ function test_mqtt_bus_in_preserves_declared_split_type() {
 
 function test_mt_bus_send_selects_declared_bus_family() {
   const rt = new ModelTableRuntime();
-  markDem(rt, true);
+  markRole(rt, 'dem');
   const model0 = root(rt);
   const management = rt._applyBusSendPayload(model0, 0, 0, 0, busSendPayload({ bus: 'management', busOutKey: 'mb_submit_bus' }));
   const managementLabel = model0.getCell(0, 0, 0).labels.get('mb_submit_bus');
@@ -153,6 +191,8 @@ const tests = [
   test_legacy_bus_pin_types_are_removed,
   test_control_bus_pins_are_root_only_and_route_payloads,
   test_management_bus_requires_dem_root,
+  test_worker_role_replaces_removed_is_dem_label,
+  test_worker_role_downgrade_is_rejected_when_management_bus_pins_exist,
   test_mqtt_bus_in_preserves_declared_split_type,
   test_mt_bus_send_selects_declared_bus_family,
 ];

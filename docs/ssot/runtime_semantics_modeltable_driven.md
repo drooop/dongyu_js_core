@@ -375,24 +375,24 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 ### 5.2g 软件工人启动顺序（0142/0177，0323 增补，0363 修订）
 
-0363 目标合同先冻结启动顺序；0364 才实施对应 runtime / system model / deploy patch 迁移。
+0368 后，启动顺序与角色标签必须使用当前 `worker.role` 合同；旧 `is_DEM` 布尔标签已不是合法输入面。
 
 软件工人启动参数：
 
 - 软件工人名称：决定读取或新建哪个软件工人存储文件。
-- 软件工人 ID：写入 Model 0 `(0,0,0)`，格式为 `k=v1n_id, t=str, v="<workspace>/<dam>/<pic>/<dem>/<worker>"`。
-- 软件工人角色：写入 Model 0 `(0,0,0)`，格式为 `k=is_DEM, t=bool, v=true|false`。
+- 软件工人 ID：首次 trusted bootstrap 写入 Model 0 `(0,0,0)`，格式为 `k=v1n_id, t=str, v="<workspace>/<dam>/<pic>/<dem>/<worker>"`；后续只能通过显式维护流程变更，普通重启不得覆盖。
+- 软件工人角色：写入 Model 0 `(0,0,0)`，格式为 `k=worker.role, t=str, v="dem"|"worker"`。
 
 角色约束：
 
-- `is_DEM=true` 的软件工人可以使用控制总线和管理总线，并可以处理控制总线与管理总线之间的连接。
-- `is_DEM=false` 的普通软件工人只能使用控制总线；若声明或安装 `pin.bus.mb.*`，必须拒绝并写可观测错误。
+- `worker.role="dem"` 的软件工人可以使用控制总线和管理总线，并可以处理控制总线与管理总线之间的连接。
+- `worker.role="worker"` 的普通软件工人只能使用控制总线；若声明或安装 `pin.bus.mb.*`，必须拒绝并写可观测错误。
 - `v1n_id` 决定该软件工人对外发送控制总线消息时的 Topic 身份段；管理总线消息还必须满足 DEM 角色约束。
 
-0363 目标启动顺序：
+启动顺序：
 
 1. 建立模型与层级关系：先创建 Model 0、系统负数模型、业务模型，并按 `model.submt` 建立父子挂载关系。
-2. 写入软件工人身份与角色：写入 `v1n_id` 与 `is_DEM`，让后续总线声明可以按身份和角色校验。
+2. 写入软件工人身份与角色：写入 `v1n_id` 与 `worker.role`，让后续总线声明可以按身份和角色校验。
 3. 写入对外通讯参数：写入 `matrix.*`、`mqtt.*` 等连接参数，但此时仍不得启动外部收发。
 4. 加载程序模型：加载 `func.*` 与 model.table 根默认程序模型（`mt_write` / `mt_bus_receive` / `mt_bus_send`）。
 5. 声明引脚：声明普通引脚、日志引脚和 worker root 系统总线引脚，并按角色校验 `pin.bus.cb.*` / `pin.bus.mb.*` 的位置。

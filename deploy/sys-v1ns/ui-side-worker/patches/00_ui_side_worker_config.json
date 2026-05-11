@@ -19,9 +19,9 @@
       "p": 0,
       "r": 0,
       "c": 0,
-      "k": "is_DEM",
-      "t": "bool",
-      "v": false
+      "k": "worker.role",
+      "t": "str",
+      "v": "worker"
     },
     {
       "op": "add_label",

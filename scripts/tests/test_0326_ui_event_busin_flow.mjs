@@ -485,7 +485,7 @@ function test_local_adapter_accepts_valid_model0_management_bus_payload_with_dem
   runtime.createModel({ id: -1, name: 'editor_mailbox', type: 'ui' });
   runtime.createModel({ id: -2, name: 'editor_state', type: 'ui' });
   const model0 = runtime.getModel(0);
-  runtime.addLabel(model0, 0, 0, 0, { k: 'is_DEM', t: 'bool', v: true });
+  runtime.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
   runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
   const adapter = createLocalBusAdapter({
     runtime,
@@ -516,16 +516,16 @@ function test_frontend_local_stores_seed_dem_role_for_management_bus() {
   const demoStore = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
   const demoModel0 = demoStore.runtime.getModel(0);
   assert.equal(
-    demoModel0.getCell(0, 0, 0).labels.get('is_DEM')?.v,
-    true,
-    'createDemoStore must seed is_DEM=true for local management bus ingress',
+    demoModel0.getCell(0, 0, 0).labels.get('worker.role')?.v,
+    'dem',
+    'createDemoStore must seed worker.role=dem for local management bus ingress',
   );
   const galleryStore = createGalleryStore({});
   const galleryModel0 = galleryStore.runtime.getModel(0);
   assert.equal(
-    galleryModel0.getCell(0, 0, 0).labels.get('is_DEM')?.v,
-    true,
-    'standalone createGalleryStore must seed is_DEM=true for local management bus ingress',
+    galleryModel0.getCell(0, 0, 0).labels.get('worker.role')?.v,
+    'dem',
+    'standalone createGalleryStore must seed worker.role=dem for local management bus ingress',
   );
   return { key: 'frontend_local_stores_seed_dem_role_for_management_bus', status: 'PASS' };
 }

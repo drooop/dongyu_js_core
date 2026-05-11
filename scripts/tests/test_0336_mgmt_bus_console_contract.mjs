@@ -292,7 +292,7 @@ function test_runtime_routes_management_console_bus_payload_to_system_model() {
   const sys = rt.getModel(-10);
   assert.ok(model0, 'Model 0 missing');
   assert.ok(sys, 'system model -10 missing');
-  rt.addLabel(model0, 0, 0, 0, { k: 'is_DEM', t: 'bool', v: true });
+  rt.addLabel(model0, 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
 
   const payload = [
     { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },

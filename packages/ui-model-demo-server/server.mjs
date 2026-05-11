@@ -5134,7 +5134,7 @@ function createServerState(options) {
     t: 'str',
     v: process.env.DY_UI_SERVER_V1N_ID || DEFAULT_UI_SERVER_V1N_ID,
   });
-  runtime.addLabel(runtime.getModel(0), 0, 0, 0, { k: 'is_DEM', t: 'bool', v: true });
+  runtime.addLabel(runtime.getModel(0), 0, 0, 0, { k: 'worker.role', t: 'str', v: 'dem' });
   const assetRoot = resolvePersistedAssetRoot();
   const bootstrapGeneratedKeys = new Set([
     'matrix_room_id',

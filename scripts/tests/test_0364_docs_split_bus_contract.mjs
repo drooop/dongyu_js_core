@@ -47,6 +47,7 @@ function test_current_user_guides_use_split_bus_only() {
     'docs/user-guide/ui_components_v2.md',
     'docs/user-guide/slide_matrix_delivery_v1.md',
     'docs/architecture_mantanet_and_workers.md',
+    'docs/handover/dam-worker-guide.md',
   ];
   for (const relPath of files) {
     const text = read(relPath);

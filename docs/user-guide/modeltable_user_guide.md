@@ -597,13 +597,13 @@ MGMT_IN 仅在以下条件全部满足时写入：
 - 这意味着测试环境里的 snapshot / runlog / EventLog 可能看到这些值，验证时必须按环境隔离处理
 - 不再允许走独立 `MATRIX_*` env fallback 作为产品路径
 
-### 7.1 软件工人启动顺序（0363 目标合同）
+### 7.1 软件工人启动顺序
 
 启动一个软件工人时，先给三个参数：
 
 - 软件工人名称：用来决定读取或新建哪个软件工人文件。
-- 软件工人 ID：写入 Model 0 `(0,0,0)`，示例 `k=v1n_id, t=str, v="5/10/28/35/13"`。
-- 是否 DEM：写入 Model 0 `(0,0,0)`，示例 `k=is_DEM, t=bool, v=true`。
+- 软件工人 ID：首次 trusted bootstrap 写入 Model 0 `(0,0,0)`，示例 `k=v1n_id, t=str, v="5/10/28/35/13"`；普通重启不得覆盖，后续变更必须走显式维护流程。
+- 软件工人角色：写入 Model 0 `(0,0,0)`，示例 `k=worker.role, t=str, v="dem"` 或 `v="worker"`。
 
 启动顺序必须是：
 
@@ -619,15 +619,15 @@ MGMT_IN 仅在以下条件全部满足时写入：
 
 角色规则：
 
-- `is_DEM=true`：可以使用控制总线和管理总线。
-- `is_DEM=false`：只能使用控制总线；不得声明或安装 `pin.bus.mb.*`。
+- `worker.role="dem"`：可以使用控制总线和管理总线。
+- `worker.role="worker"`：只能使用控制总线；不得声明或安装 `pin.bus.mb.*`。
 
-0364 实施时还必须完成：
+当前实现要求：
 
-- 重新检查并必要时重新填表 `ui-server`、`mbr`、`remote-worker`。
-- 调整现有 UI 模型和界面，确保不再依赖旧 bus 写法或兼容链路。
-- 给出新版“最小 Submit 双总线示例” JSON patch。
-- 本地部署后，用真实浏览器测通 workspace 滑动过程、App 运行过程、双总线收发和页面更新。
+- `ui-server`、`mbr`、`remote-worker` 的角色标签都必须使用 `worker.role`。
+- 运行时不得接受旧 `is_DEM` 标签。
+- 若已经声明 `pin.bus.mb.*`，不得再把 `worker.role` 改为 `"worker"`。
+- 本地部署验收必须包含真实浏览器测试，不能只看脚本结果。
 
 ## 8. Troubleshooting
 - `reserved_cell`: 写入了保留模型或保留坐标
