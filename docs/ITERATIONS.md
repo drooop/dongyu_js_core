@@ -274,6 +274,7 @@ source: ai
 | 0369-worker-label-table-clarity | 2026-05-11 | 按用户给定 Worker 标签表补齐 `worker.role` / `worker.id` 的 type、key、value、示例说明，并加入文档合同检查 | 2 | dropx/0369-worker-label-table-clarity | Completed | ./docs/iterations/0369-worker-label-table-clarity/ |
 | 0370-minimal-submit-patch-doc-review | 2026-05-11 | 复审“最小 Submit 双总线示例” JSON patch/zip 与 HTML 说明，补全 61 条 label 对照表和 Submit 触发双总线链路说明 | 2 | dropx/0370-minimal-submit-patch-doc-review | Completed | ./docs/iterations/0370-minimal-submit-patch-doc-review/ |
 | 0371-minimal-submit-install-docs | 2026-05-11 | 补充“最小 Submit 双总线示例”zip 进入 UI Server 后的安装过程、子模型挂载、侧边栏显示和自动生成 host ingress/egress labels | 2 | dropx/0371-minimal-submit-install-docs | Completed | ./docs/iterations/0371-minimal-submit-install-docs/ |
+| 0372-submit-button-modeltable-docs | 2026-05-11 | 补充 Submit 类提交按钮如何准备模型表、相关 labels、点击后如何触发程序模型与双总线外发 | 2 | dropx/0372-submit-button-modeltable-docs | Completed | ./docs/iterations/0372-submit-button-modeltable-docs/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

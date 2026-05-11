@@ -409,11 +409,12 @@
     <button class="stage active" data-stage="overview"><strong>1. 先看结果</strong><span>真实双总线路径</span></button>
     <button class="stage" data-stage="r1"><strong>2. RE 怎么填</strong><span>remote-worker 模型表</span></button>
     <button class="stage" data-stage="ui"><strong>3. UI 怎么写</strong><span>cellwise 组件拆分</span></button>
-    <button class="stage" data-stage="labels"><strong>4. Patch labels</strong><span>61 条 label 说明</span></button>
-    <button class="stage" data-stage="install"><strong>5. 安装过程</strong><span>挂载与自动 labels</span></button>
-    <button class="stage" data-stage="import"><strong>6. 怎么导入</strong><span>zip 与滑动 APP 导入</span></button>
-    <button class="stage" data-stage="external"><strong>7. 外部收发</strong><span>Matrix/MQTT 测试</span></button>
-    <button class="stage" data-stage="guard"><strong>8. 禁止残留</strong><span>无兼容链路</span></button>
+    <button class="stage" data-stage="submit-button"><strong>4. 提交按钮</strong><span>模型表准备清单</span></button>
+    <button class="stage" data-stage="labels"><strong>5. Patch labels</strong><span>61 条 label 说明</span></button>
+    <button class="stage" data-stage="install"><strong>6. 安装过程</strong><span>挂载与自动 labels</span></button>
+    <button class="stage" data-stage="import"><strong>7. 怎么导入</strong><span>zip 与滑动 APP 导入</span></button>
+    <button class="stage" data-stage="external"><strong>8. 外部收发</strong><span>Matrix/MQTT 测试</span></button>
+    <button class="stage" data-stage="guard"><strong>9. 禁止残留</strong><span>无兼容链路</span></button>
   </nav>
 
   <section class="content">
@@ -526,6 +527,97 @@
 -> UI Server materializes display_text / remote_status on local installed model</pre>
       <div class="note">当前示例不接受 <code>input_value</code>、<code>message_text</code> 或嵌套 <code>value.text</code> 兜底。payload 中没有 <code>text</code> 就按空输入处理。<code>Submit</code> 这类按钮只产生 ModelTable-like 事件；后续是否触发程序、是否外发双总线，由模型表引脚和接线决定。</div>
       <pre id="payloadPreview"></pre>
+    </article>
+
+    <article class="panel" id="stage-submit-button">
+      <h2>Submit 类提交按钮如何准备模型表</h2>
+      <p>提交按钮不是一个“直接调接口”的控件。它由按钮 Cell、root 入口、程序模型、root 外发 pin 和状态 labels 一起组成；点击时只产生临时 ModelTable records，正式业务再由模型表接线继续流动。</p>
+
+      <h3>A. 按钮 Cell labels</h3>
+      <p>按钮 Cell 负责显示和产生事件。本示例使用 <code>(2,3,0)</code>，点击后把临时 records 写到本 Cell 的 <code>click_chain pin.in</code>。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>label.k</th><th>label.t</th><th>示例值</th><th>如何生效</th></tr></thead>
+          <tbody>
+            <tr><td><code>ui_component</code></td><td><code>str</code></td><td><code>Button</code></td><td>前端把该 Cell 渲染为按钮。</td></tr>
+            <tr><td><code>ui_label</code></td><td><code>str</code></td><td><code>Submit</code></td><td>按钮上显示的文字。</td></tr>
+            <tr><td><code>ui_parent</code></td><td><code>str</code></td><td><code>minimal_submit_zip_card</code></td><td>按钮挂到哪个父 UI 节点。</td></tr>
+            <tr><td><code>ui_order</code></td><td><code>int</code></td><td><code>30</code></td><td>按钮在父节点里的排序。</td></tr>
+            <tr><td><code>ui_variant</code></td><td><code>str</code></td><td><code>primary</code></td><td>按钮外观。</td></tr>
+            <tr><td><code>click_chain</code></td><td><code>pin.in</code></td><td><code>null</code></td><td>点击时写入的本 Cell 普通入口。</td></tr>
+            <tr><td><code>ui_bind_json</code></td><td><code>json</code></td><td><code>write.pin=click_chain</code></td><td>定义点击时生成哪些临时 ModelTable records。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <pre>{
+  "cell": [2, 3, 0],
+  "button_labels": [
+    { "k": "ui_component", "t": "str", "v": "Button" },
+    { "k": "ui_label", "t": "str", "v": "Submit" },
+    { "k": "click_chain", "t": "pin.in", "v": null },
+    {
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "pin": "click_chain",
+          "value_t": "modeltable",
+          "commit_policy": "immediate",
+          "value_ref": [
+            { "k": "__mt_payload_kind", "t": "str", "v": "ui_event.v1" },
+            { "k": "text", "t": "str", "v": { "$label": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "input_text" } } },
+            { "k": "source", "t": "str", "v": "ui_button" }
+          ]
+        }
+      }
+    }
+  ]
+}</pre>
+
+      <h3>B. Root 入口与程序模型 labels</h3>
+      <p>按钮 Cell 只写自己的 <code>click_chain</code>。要触发程序，root 必须声明 <code>submit_request</code>、<code>root_routes</code>、<code>submit_request_wiring</code> 和 <code>handle_submit</code>。</p>
+      <div class="grid">
+        <div class="card"><code>submit_request</code><strong>pin.in</strong><br>root 业务入口，接收按钮生成的 records。</div>
+        <div class="card"><code>root_routes</code><strong>pin.connect.cell</strong><br><code>[2,3,0,click_chain] -> [0,0,0,submit_request]</code>。</div>
+        <div class="card"><code>submit_request_wiring</code><strong>pin.connect.label</strong><br><code>submit_request -> handle_submit:in</code>。</div>
+        <div class="card"><code>handle_submit</code><strong>func.js</strong><br>读取 <code>text</code>，写状态，并写 <code>submit1 pin.out</code>。</div>
+      </div>
+
+      <h3>C. 外发与回包相关 labels</h3>
+      <p>需要双总线时，root 还要有 <code>submit1 pin.out</code>、<code>dual_bus_model.egress_pins</code>、<code>remote_bus_endpoint_v1</code> 和 <code>host_ingress_v1</code>。这些 labels 让安装器生成 host egress adapter；开发者 zip 不应手写 <code>ui_egress_submit1_binding</code> 或 <code>pin.bus.mb.out</code>。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>label.k</th><th>label.t</th><th>示例值</th><th>如何生效</th></tr></thead>
+          <tbody>
+            <tr><td><code>submit1</code></td><td><code>pin.out</code></td><td><code>null</code></td><td><code>handle_submit</code> 写入后进入宿主外发链路。</td></tr>
+            <tr><td><code>dual_bus_model</code></td><td><code>json</code></td><td><code>egress_pins=["submit1"]</code></td><td>安装器知道哪些 root pin 要接双总线。</td></tr>
+            <tr><td><code>remote_bus_endpoint_v1</code></td><td><code>json</code></td><td><code>RE / 3000</code></td><td>安装器生成 <code>route.to = RE / 3000 / submit1</code>。</td></tr>
+            <tr><td><code>host_ingress_v1</code></td><td><code>json</code></td><td><code>pin_name=submit_request</code></td><td>宿主知道如何从 Model 0 管理总线进入该 app。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>D. 状态与结果 labels</h3>
+      <p><code>input_text</code> 被 <code>value_ref</code> 读取；<code>submit_inflight</code>、<code>last_submit_payload</code>、<code>remote_status</code> 和 <code>display_text</code> 让页面显示提交过程与远端结果。</p>
+      <pre>input_text -> ui_bind_json.value_ref reads as text
+handle_submit -> submit_inflight=true, remote_status=sending, last_submit_payload=...
+remote-worker reply -> display_text="Submitted: ...", remote_status=remote_processed, submit_inflight=false</pre>
+
+      <h3>E. 生效顺序</h3>
+      <pre>Button Cell ui_component=Button makes the visual button
+-> user clicks Button
+-> ui_bind_json.write.value_t=modeltable creates temporary ModelTable records
+-> frontend writes records to Button Cell click_chain pin.in
+-> root_routes sends click_chain to root submit_request
+-> submit_request_wiring calls handle_submit:in
+-> handle_submit reads text and writes root submit1 pin.out
+-> generated host egress adapter adds route.to and route.reply_to
+-> Model 0 mt_bus_send / pin.bus.mb.out sends to Matrix / MBR / RE
+-> RE reply materializes display_text and remote_status</pre>
+
+      <h3>多个提交按钮</h3>
+      <p>多个按钮要成组命名。比如第二个按钮可以使用 <code>approve_click_chain</code>、<code>approve_request</code>、<code>handle_approve</code> 和 <code>approve1</code>，并把 <code>dual_bus_model.egress_pins</code> 扩展为 <code>["submit1","approve1"]</code>。</p>
+      <div class="note">不要复用同一个 <code>click_chain</code> 或 root <code>submit_request</code>，除非这些按钮确实要走完全相同的程序逻辑。</div>
     </article>
 
     <article class="panel" id="stage-labels">
