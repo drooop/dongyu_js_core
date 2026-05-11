@@ -86,6 +86,8 @@ source: ai
   - remote worker / K8s 操作 runbook。
 - `docs/deployment/infrastructure_recovery.md`
   - 历史恢复记录和排障参考。
+- `docs/deployment/cloud_public_docs_fast_deploy.md`
+  - 只发布公开文档和静态 HTML 时的远端快速部署路径，不重建镜像、不重启 workload。
 
 ## 7. 历史事实与 archive
 
