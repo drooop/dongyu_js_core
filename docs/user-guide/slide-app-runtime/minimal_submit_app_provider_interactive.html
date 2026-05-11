@@ -410,9 +410,10 @@
     <button class="stage" data-stage="r1"><strong>2. RE 怎么填</strong><span>remote-worker 模型表</span></button>
     <button class="stage" data-stage="ui"><strong>3. UI 怎么写</strong><span>cellwise 组件拆分</span></button>
     <button class="stage" data-stage="labels"><strong>4. Patch labels</strong><span>61 条 label 说明</span></button>
-    <button class="stage" data-stage="import"><strong>5. 怎么导入</strong><span>zip 与滑动 APP 导入</span></button>
-    <button class="stage" data-stage="external"><strong>6. 外部收发</strong><span>Matrix/MQTT 测试</span></button>
-    <button class="stage" data-stage="guard"><strong>7. 禁止残留</strong><span>无兼容链路</span></button>
+    <button class="stage" data-stage="install"><strong>5. 安装过程</strong><span>挂载与自动 labels</span></button>
+    <button class="stage" data-stage="import"><strong>6. 怎么导入</strong><span>zip 与滑动 APP 导入</span></button>
+    <button class="stage" data-stage="external"><strong>7. 外部收发</strong><span>Matrix/MQTT 测试</span></button>
+    <button class="stage" data-stage="guard"><strong>8. 禁止残留</strong><span>无兼容链路</span></button>
   </nav>
 
   <section class="content">
@@ -608,6 +609,66 @@
         </table>
       </div>
       <div class="note">最关键的有效性链路是：<code>ui_bind_json</code> 写 <code>click_chain</code>，<code>root_routes</code> 转给 <code>submit_request</code>，<code>submit_request_wiring</code> 触发 <code>handle_submit:in</code>，程序再写 <code>submit1 pin.out</code>，由宿主生成的 egress adapter 进入 Model 0 双总线。</div>
+    </article>
+
+    <article class="panel" id="stage-install">
+      <h2>zip 进入 UI Server 后如何安装</h2>
+      <p>UI Server 安装器会把 zip 中的临时 ModelTable records materialize 成正式模型，再把它挂成 Model 0 的子模型，并自动生成 host ingress / host egress labels。provider zip 不能自己写这些 host-owned labels。</p>
+      <div class="steps">
+        <div class="step"><div><strong>解析和校验</strong><br>zip 必须只有 <code>app_payload.json</code>；安装器拒绝 <code>op</code>、正式 <code>model_id</code>、<code>route.reply_to</code>、<code>pin.bus.*</code>、<code>ui.egress.binding.v1</code> 和 <code>pin.connect.model</code>。</div></div>
+        <div class="step"><div><strong>分配正式模型 id</strong><br>zip 内 <code>id: 0</code> 会映射成 UI Server 本地新模型，例如 <code>1056</code>；内部 <code>model_id: 0</code>、<code>ui_text_ref_model_id=0</code> 会同步 remap。</div></div>
+        <div class="step"><div><strong>创建模型并写 provider labels</strong><br>新模型类型为 <code>sliding_ui</code>，名称来自 <code>app_name</code>，zip 中合法 labels 被写入对应 cell。</div></div>
+        <div class="step"><div><strong>写安装元信息</strong><br>imported root 额外获得 <code>deletable</code>、<code>installed_at</code>、<code>imported_bundle_model_ids</code>、<code>import_root_temp_id</code>、<code>from_user</code>、<code>to_user</code>。</div></div>
+        <div class="step"><div><strong>挂成 Model 0 子模型</strong><br>Model 0 的 Workspace mount 区选择下一个空 cell，例如 <code>(2,0,nextC)</code>，写入 <code>k=model_type, t=model.submt, v=&lt;installedModelId&gt;</code>。</div></div>
+        <div class="step"><div><strong>刷新侧边栏</strong><br>导入程序调用 catalog refresh；侧边栏使用 <code>app_name</code>、<code>source_worker</code>、<code>deletable</code>、<code>slide_capable</code>、<code>installed_at</code> 和 Model 0 <code>model.submt</code> mount 显示新 App。</div></div>
+      </div>
+
+      <h3>自动生成的 host ingress labels</h3>
+      <p><code>host_ingress_v1</code> 会让 Model 0 管理总线入口可以一路进入 imported app root 的 <code>submit_request</code>。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>位置</th><th>自动 label</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td>imported root (0,0,0)</td><td><code>__host_ingress_submit</code> / <code>pin.in</code></td><td>child root 接收宿主转发进来的管理总线消息。</td></tr>
+            <tr><td>imported root (0,0,0)</td><td><code>__host_ingress_submit_route</code> / <code>pin.connect.cell</code></td><td><code>[0,0,0,"__host_ingress_submit"] -> [0,0,0,"submit_request"]</code>。</td></tr>
+            <tr><td>Model 0 mount cell (2,0,nextC)</td><td><code>__host_ingress_submit</code> / <code>pin.in</code></td><td>父模型 hosting Cell 上的同名 relay pin。</td></tr>
+            <tr><td>Model 0 root (0,0,0)</td><td><code>imported_host_submit_&lt;id&gt;</code> / <code>pin.bus.mb.in</code></td><td>管理总线进入该 imported app 的宿主入口。</td></tr>
+            <tr><td>Model 0 root (0,0,0)</td><td><code>imported_host_submit_&lt;id&gt;_route</code> / <code>pin.connect.cell</code></td><td><code>[0,0,0,"imported_host_submit_&lt;id&gt;"] -> [2,0,nextC,"__host_ingress_submit"]</code>。</td></tr>
+            <tr><td>imported root (0,0,0)</td><td><code>host_ingress_generated_model0_labels</code></td><td>清理清单：Model 0 root 上生成的 ingress labels。</td></tr>
+            <tr><td>imported root (0,0,0)</td><td><code>host_ingress_generated_mount</code></td><td>清理清单：mount cell 上生成的 relay labels。</td></tr>
+            <tr><td>imported root (0,0,0)</td><td><code>host_ingress_generated_root_labels</code></td><td>清理清单：child root 上生成的 ingress labels。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>自动生成的 host egress labels</h3>
+      <p><code>dual_bus_model.egress_pins=["submit1"]</code> 与 <code>remote_bus_endpoint_v1</code> 会让 imported root 的 <code>submit1 pin.out</code> 接到 Model 0 root 的 <code>mt_bus_send / pin.bus.mb.out</code>。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>位置</th><th>自动 label</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td>Model 0 mount cell (2,0,nextC)</td><td><code>submit1</code> / <code>pin.out</code></td><td>imported root <code>submit1</code> 经 <code>model.submt</code> 暴露到父模型 hosting Cell。</td></tr>
+            <tr><td>Model 0 root (0,0,0)</td><td><code>imported_submit1_&lt;id&gt;_bus</code> / <code>pin.bus.mb.out</code></td><td>UI Server 管理总线出口。</td></tr>
+            <tr><td>Model 0 root (0,0,0)</td><td><code>__host_egress_submit1_bridge_in_&lt;id&gt;</code> / <code>pin.in</code></td><td>宿主 root bridge 入口。</td></tr>
+            <tr><td>Model 0 root (0,0,0)</td><td><code>bridge_imported_submit1_to_mt_bus_send_&lt;id&gt;</code> / <code>func.js</code></td><td>补 <code>route.to</code> 与 server-owned <code>route.reply_to</code>，再写 <code>mt_bus_send_in</code>。</td></tr>
+            <tr><td>Model 0 root (0,0,0)</td><td><code>imported_submit1_&lt;id&gt;_bridge_wiring</code> / <code>pin.connect.label</code></td><td><code>bridge_in -> bridge_func:in</code>。</td></tr>
+            <tr><td>Model 0 root (0,0,0)</td><td><code>imported_submit1_&lt;id&gt;_route</code> / <code>pin.connect.cell</code></td><td><code>[2,0,nextC,"submit1"] -> [0,0,0,"__host_egress_submit1_bridge_in_&lt;id&gt;"]</code>。</td></tr>
+            <tr><td>imported root (0,0,0)</td><td><code>ui_egress_submit1_binding</code> / <code>ui.egress.binding.v1</code></td><td>host-owned 说明：<code>submit1</code> 通过哪个 Model 0 管理总线出口发到 <code>RE / 3000 / submit1</code>。</td></tr>
+            <tr><td>imported root (0,0,0)</td><td><code>host_egress_generated_model0_labels</code></td><td>清理清单：Model 0 root 上生成的 egress labels。</td></tr>
+            <tr><td>imported root (0,0,0)</td><td><code>host_egress_generated_mount</code></td><td>清理清单：mount cell 上生成的 egress relay labels。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>从 imported app 第 0 格到 Model 0 第 0 格</h3>
+      <pre>imported root (0,0,0) submit1 pin.out
+-> Model 0 mount cell (2,0,nextC) submit1 pin.out
+-> Model 0 root (0,0,0) __host_egress_submit1_bridge_in_&lt;id&gt;
+-> Model 0 root (0,0,0) bridge_imported_submit1_to_mt_bus_send_&lt;id&gt;:in
+-> Model 0 root (0,0,0) mt_bus_send_in
+-> Model 0 root (0,0,0) imported_submit1_&lt;id&gt;_bus pin.bus.mb.out
+-> Matrix dy.bus.v0 -> MBR -> MQTT topic for RE / 3000 / submit1</pre>
+      <div class="note">安装器生成 <code>route.to = RE / 3000 / submit1</code>，并按当前 UI Server worker id 与本地安装模型 id 生成 <code>route.reply_to</code>。provider zip 不能提供或覆盖 <code>reply_to</code>。</div>
     </article>
 
     <article class="panel" id="stage-import">
