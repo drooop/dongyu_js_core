@@ -50,6 +50,11 @@ function getEditorStateValue(snapshot, key) {
   return snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels?.[key]?.v;
 }
 
+function findWorkspaceAppEntry(snapshot, modelId) {
+  const registry = getEditorStateValue(snapshot, 'ws_apps_registry');
+  return Array.isArray(registry) ? registry.find((entry) => entry && entry.model_id === modelId) || null : null;
+}
+
 function dispatchDesktopButton(store, node) {
   const host = {
     getSnapshot: () => store.snapshot,
@@ -122,18 +127,50 @@ function test_desktop_exposes_required_system_app_icons() {
 
 function test_desktop_exposes_workspace_slide_app_icons_from_registry() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
-  const ast = buildAstFromCellwiseModel(store.snapshot, DESKTOP_CATALOG_MODEL_ID);
+  const ast = resolveRouteUiAst(store.snapshot, '/')?.ast;
+  const registry = getEditorStateValue(store.snapshot, 'ws_apps_registry');
+  const slideAppIds = Array.isArray(registry)
+    ? registry
+      .filter((entry) => entry && entry.slide_capable === true && Number.isInteger(entry.model_id) && entry.model_id > 0)
+      .map((entry) => entry.model_id)
+    : [];
   const slideButtons = collectNodes(ast, (node) => (
     node.type === 'Button'
     && typeof node.id === 'string'
     && node.id.startsWith('desktop_slide_app_')
   ));
 
-  assert.ok(slideButtons.length >= 2, 'desktop_must_include_workspace_slide_app_icons');
-  assert.ok(findNodeById(ast, 'desktop_slide_app_100'), 'desktop_must_include_model100_slide_app');
-  assert.ok(findNodeById(ast, 'desktop_slide_app_1030'), 'desktop_must_include_slide_importer_app');
+  assert.ok(slideAppIds.length >= 3, 'workspace_registry_must_have_slide_apps_for_desktop_contract');
+  assert.equal(slideButtons.length, slideAppIds.length, 'desktop_must_project_every_slide_capable_workspace_app');
+  for (const modelId of slideAppIds) {
+    const node = findNodeById(ast, `desktop_slide_app_${modelId}`);
+    assert.ok(node, `desktop_must_include_slide_app_${modelId}`);
+    assert.equal(node?.props?.modelId, modelId, `desktop_slide_app_${modelId}_must_keep_model_id`);
+    assert.equal(node?.bind?.write?.target_ref?.k, DESKTOP_FOREGROUND_APP_LABEL, `desktop_slide_app_${modelId}_must_launch_foreground_app`);
+  }
 
   return { key: 'desktop_exposes_workspace_slide_app_icons_from_registry', status: 'PASS' };
+}
+
+function test_desktop_does_not_fallback_to_static_workspace_icons_without_registry() {
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  const stateLabels = store.snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels;
+  assert.ok(stateLabels, 'editor_state_labels_missing');
+  delete stateLabels.ws_apps_registry;
+  const ast = resolveRouteUiAst(store.snapshot, '/')?.ast;
+  const slideButtons = collectNodes(ast, (node) => (
+    node.type === 'Button'
+    && typeof node.id === 'string'
+    && node.id.startsWith('desktop_slide_app_')
+  ));
+
+  assert.deepEqual(
+    slideButtons.map((node) => node.id),
+    [],
+    'desktop_must_not_fallback_to_static_workspace_icons_when_registry_missing',
+  );
+
+  return { key: 'desktop_does_not_fallback_to_static_workspace_icons_without_registry', status: 'PASS' };
 }
 
 function test_root_route_resolves_desktop_and_nav_links_are_hidden() {
@@ -162,7 +199,7 @@ function test_root_route_resolves_desktop_and_nav_links_are_hidden() {
 
 function test_desktop_icon_launches_single_foreground_app_state() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
-  const ast = buildAstFromCellwiseModel(store.snapshot, DESKTOP_CATALOG_MODEL_ID);
+  const ast = resolveRouteUiAst(store.snapshot, '/')?.ast;
   const docsButton = findNodeById(ast, 'desktop_app_docs');
   assert.ok(docsButton?.bind?.write, 'desktop_docs_button_must_have_launch_write');
 
@@ -184,9 +221,11 @@ function test_desktop_icon_launches_single_foreground_app_state() {
 
 function test_workspace_icon_launches_foreground_and_selects_workspace_model() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
-  const ast = buildAstFromCellwiseModel(store.snapshot, DESKTOP_CATALOG_MODEL_ID);
+  const ast = resolveRouteUiAst(store.snapshot, '/')?.ast;
+  const model100Entry = findWorkspaceAppEntry(store.snapshot, 100);
   const model100Button = findNodeById(ast, 'desktop_slide_app_100');
   assert.ok(model100Button?.bind?.write, 'desktop_workspace_button_must_have_launch_write');
+  assert.ok(model100Entry, 'workspace_registry_must_include_model100');
 
   const foreground = dispatchDesktopButton(store, model100Button);
   assert.deepEqual(
@@ -196,7 +235,7 @@ function test_workspace_icon_launches_foreground_and_selects_workspace_model() {
       kind: 'workspace',
       page: 'workspace',
       path: '/workspace',
-      title: 'Color E2E',
+      title: model100Entry.name,
       model_id: 100,
     },
     'desktop_workspace_button_must_open_model100_as_foreground_app',
@@ -208,7 +247,7 @@ function test_workspace_icon_launches_foreground_and_selects_workspace_model() {
 
 function test_desktop_launch_records_task_stack_and_switcher_state() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
-  const ast = buildAstFromCellwiseModel(store.snapshot, DESKTOP_CATALOG_MODEL_ID);
+  const ast = resolveRouteUiAst(store.snapshot, '/')?.ast;
 
   dispatchDesktopButton(store, findNodeById(ast, 'desktop_app_docs'));
   dispatchDesktopButton(store, findNodeById(ast, 'desktop_slide_app_100'));
@@ -332,6 +371,7 @@ const tests = [
   test_desktop_catalog_model_is_cellwise_ui_surface,
   test_desktop_exposes_required_system_app_icons,
   test_desktop_exposes_workspace_slide_app_icons_from_registry,
+  test_desktop_does_not_fallback_to_static_workspace_icons_without_registry,
   test_root_route_resolves_desktop_and_nav_links_are_hidden,
   test_desktop_icon_launches_single_foreground_app_state,
   test_workspace_icon_launches_foreground_and_selects_workspace_model,

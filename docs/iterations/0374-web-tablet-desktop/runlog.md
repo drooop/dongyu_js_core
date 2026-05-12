@@ -444,9 +444,62 @@ NODE
 
 ### Step 7 - Batched App Entry Migration
 
-- Command: pending
-- Key output: pending
-- Result: pending
+- Change:
+  - Desktop route projection now reads `ws_apps_registry` and dynamically projects every positive `slide_capable` workspace app into the `desktop_slide_apps` slot.
+  - The desktop route no longer depends on the three static starter workspace buttons for the actual rendered app list.
+  - Workspace launch bindings still write only `desktop_foreground_app_json` on Model `-2`.
+  - Existing system app entries and legacy deep links remain unchanged.
+- Command: `node scripts/tests/test_0374_web_tablet_desktop_contract.mjs`
+- Key output:
+  - First run before implementation: `[FAIL] test_desktop_exposes_workspace_slide_app_icons_from_registry: desktop_must_project_every_slide_capable_workspace_app`, `3 !== 7`
+  - First run for review fix: `[FAIL] test_desktop_does_not_fallback_to_static_workspace_icons_without_registry`, actual `[desktop_slide_app_100, desktop_slide_app_1030, desktop_slide_app_1034]`
+  - After implementation: `11 passed, 0 failed out of 11`
+- Result: PASS
+- Command: `node scripts/tests/test_0346_ui_model_compliance_contract.mjs`
+- Key output: `test_0346_ui_model_compliance_contract: PASS (30 visible surfaces, 6 warnings)`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run test`
+- Key output:
+  - `editor_ast_no_direct_mutation_buttons: PASS`
+  - `editor_v1_static_upload_binding_persisted: PASS`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run build`
+- Key output:
+  - `✓ 1456 modules transformed.`
+  - `✓ built in 2.64s`
+- Result: PASS
+- Command: `node scripts/tests/test_0199_nav_catalog_visibility_contract.mjs`, `node scripts/tests/test_0182_app_shell_route_sync_contract.mjs`, `node scripts/tests/test_0210_ui_cellwise_contract_inventory.mjs`, `node scripts/tests/test_0211_ui_bootstrap_and_submodel_migration.mjs`
+- Key output:
+  - `PASS test_0199_nav_catalog_visibility_contract`
+  - `PASS test_0182_app_shell_route_sync_contract`
+  - `4 passed, 0 failed out of 4`
+  - `3 passed, 0 failed out of 3`
+- Result: PASS
+- Command: Playwright CLI against `http://127.0.0.1:5173/?persist=0#/`
+- Key output:
+  - Desktop snapshot showed 7 workspace slide app buttons: `E2E 颜色生成器`, `滑动 APP 导入`, `滑动 APP 创建`, `Mgmt Bus Console`, `UI 模型开发者手册`, `Minimal Submit Dual-Bus Docs`, `最小 Submit 双总线示例`.
+  - Clicking `Mgmt Bus Console` opened it as the single foreground app.
+  - Task switcher showed `Mgmt Bus Console · 1036`.
+  - Browser state: `registry=[100,1030,1034,1036,1037,1039,1050]`, `foreground.id=workspace:1036`, `tasks=[workspace:1036]`, `switcher=true`, `mailbox_error=null`.
+  - Console had only the existing `/favicon.ico` 404; no mailbox error.
+- Result: PASS
+- Command: `git diff --check`
+- Key output: no output
+- Result: PASS
+- Review: pending
+- Review:
+  - Reviewer: sub-agent `019e19d6-0a97-7c62-a64e-a9a994392285`
+  - Decision: Change Requested
+  - Findings:
+    - When `ws_apps_registry` was missing or empty, desktop projection kept the base model's three static workspace buttons, violating the registry-derived app entry boundary.
+  - Fix:
+    - Desktop projection now always replaces the `desktop_slide_apps` slot, including empty replacement when no registry entries exist.
+    - Added `desktop_does_not_fallback_to_static_workspace_icons_without_registry`.
+- Review:
+  - Reviewer: sub-agent `019e19d8-7000-7a10-81b0-ec5afe7d42ba`
+  - Decision: Approved
+  - Findings: none
+  - Notes: no open questions or verification gaps.
 - Commit:
 
 ### Step 8 - Browser Verification, Docs Assessment, And Closeout
