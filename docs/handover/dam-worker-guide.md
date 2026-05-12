@@ -2,7 +2,7 @@
 title: "DAM Worker 开发指南：软件工人与总线交互架构"
 doc_type: handover
 status: historical
-updated: 2026-05-10
+updated: 2026-05-12
 source: ai
 ---
 
@@ -247,26 +247,26 @@ MQTT 消息 → `pin.bus.cb.in` → `pin.connect.cell` → `pin.in` → `pin.con
 ### 5.1 Topic 层级结构（uiput_9layer_v2）
 
 ```
-UIPUT/{dir}/{ws}/{dam}/{pic}/{de}/{sw}/{model}/{pin}
-  ①     ②    ③     ④     ⑤    ⑥    ⑦     ⑧      ⑨
+UIPUT/{ws}/{dam}/{pic}/{de}/{sw}/{worker_id}/{model_id}/{pin}
+  ①    ②    ③     ④     ⑤    ⑥       ⑦        ⑧        ⑨
 ```
 
 | 层 | 名称 | 含义 |
 |----|------|------|
 | ① | UIPUT | 协议命名空间（固定） |
-| ② | dir | PIN 方向：`in`（入站）/ `out`（出站） |
-| ③~⑦ | ws/dam/pic/de/sw | 工作区/DAM/PIC/数字员工/软件工人 ID |
-| ⑧ | model | 模型 ID |
+| ②~⑥ | ws/dam/pic/de/sw | 工作区/DAM/PIC/数字员工/软件工人 ID |
+| ⑦ | worker_id | 目标软件工人 ID，例如 `R1` |
+| ⑧ | model_id | 目标软件工人内部模型 ID，例如 `3000` |
 | ⑨ | pin | PIN 名称（不含方向后缀） |
 
-**你不需要手动构造 topic。** 运行时从 Model -10 的配置中读取 ws/dam/pic/de/sw 各层值，加上 `pin.bus.cb.in/out` 的端口名，自动拼接完整 topic。
+**你不需要手动构造 topic。** 运行时从 Model 0 的 worker identity / topic 配置读取 ws/dam/pic/de/sw，并从 payload records 读取 `endpoint_worker_id` / `endpoint_model_id` / `endpoint_pin` 后拼接完整 topic。旧 `worker/<worker_id>/model/<model_id>/pin/<pin>` 与旧 `<model_id>/<pin>` topic 必须拒绝。
 
 ### 5.2 通配符
 
 | 通配符 | 规则 | 典型用法 |
 |--------|------|----------|
-| `+` | 匹配单层 | `UIPUT/out/+/dam1/#` — 所有工作区的出站 |
-| `#` | 匹配末尾所有层 | `UIPUT/out/#` — 所有出站 |
+| `+` | 匹配单层 | `UIPUT/ws1/dam1/pic1/de1/sw1/+/3000/submit` — 同一前缀下多个 worker 的同一模型入口 |
+| `#` | 匹配末尾所有层 | `UIPUT/ws1/dam1/pic1/de1/sw1/#` — 同一软件工人前缀下的全部 endpoint |
 
 ---
 
@@ -490,9 +490,9 @@ MBR Worker（`scripts/run_worker_mbr_v0.mjs`）负责 Matrix ↔ MQTT 桥接：
 ### Matrix → MQTT
 
 1. 收到 Matrix `dy.bus.v0` 事件
-2. 读取消息里的 `route.to`，决定目标 worker / model / pin
+2. 读取消息 payload records 里的 `endpoint_worker_id` / `endpoint_model_id` / `endpoint_pin`，决定目标 worker / model / pin
 3. 校验 `pin_payload v1` transport packet，要求其中业务 `payload` 是临时 ModelTable record array
-4. 拒绝携带 legacy `op` / `model_id` 或缺少 `v` 的 payload record
+4. 拒绝携带 legacy `op` / `model_id`、loose top-level `origin_*` / `reply_target_*`、`route.reply_to`、`return_topic`、`returnTopic`、`result_topic` 或缺少 `v` 的 payload record
 5. 发布到 MQTT（运行时拼接 topic）
 
 ### MQTT → Matrix
@@ -528,7 +528,8 @@ MBR Worker（`scripts/run_worker_mbr_v0.mjs`）负责 Matrix ↔ MQTT 桥接：
    - 接收回包 `pin_payload` 并更新投影的处理函数
 
 6. **准备 route metadata**
-   - 发往 DAM Worker 的消息必须带 `route.to = { worker_id, model_id, pin }`
+   - 发往 DAM Worker 的消息必须带 endpoint metadata records：`endpoint_worker_id`、`endpoint_model_id`、`endpoint_pin`
+   - 本地回写目标必须带 reply target metadata records：`reply_target_worker_id`、`reply_target_model_id`、`reply_target_pin`
    - MBR 不再依赖 per-app 静态 `mbr_route_*` 注册
 
 7. **编写 K8s 软件工人启动脚本**（参照 `run_remote_worker_k8s_v2.mjs`）

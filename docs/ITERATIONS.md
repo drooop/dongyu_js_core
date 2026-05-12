@@ -277,6 +277,7 @@ source: ai
 | 0372-submit-button-modeltable-docs | 2026-05-11 | 补充 Submit 类提交按钮如何准备模型表、相关 labels、点击后如何触发程序模型与双总线外发 | 2 | dropx/0372-submit-button-modeltable-docs | Completed | ./docs/iterations/0372-submit-button-modeltable-docs/ |
 | 0373-fast-static-doc-deploy | 2026-05-12 | 增加 docs/static-only 远端快速部署路径并发布最新 Minimal Submit 交互 HTML 到 app.dongyudigital.com Static | 3 | dropx/0373-fast-static-doc-deploy | Completed | ./docs/iterations/0373-fast-static-doc-deploy/ |
 | 0374-web-tablet-desktop | 2026-05-12 | Web Tablet Desktop：桌面首屏、单前台 app、任务切换器，Tier2 / UI model 优先 | 8 | dev_0374-web-tablet-desktop | Completed | ./docs/iterations/0374-web-tablet-desktop/ |
+| 0375-unified-worker-model-topic | 2026-05-12 | 统一双总线 endpoint topic：topic 只表达远端 worker/model/pin，UI Server 本地实例和回写目标进入 Temporary ModelTable payload records | 9 | dev_0375-unified-worker-model-topic | In Progress | ./docs/iterations/0375-unified-worker-model-topic/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
