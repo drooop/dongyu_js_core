@@ -218,12 +218,44 @@ NODE
   - Findings: none
   - Notes: no new component required; current evidence supports entering Step 3.
 - Commit:
+  - `b3f378f` (`docs(iterations): record desktop component audit`)
 
 ### Step 3 - Desktop UI Model Patch
 
-- Command: pending
-- Key output: pending
-- Result: pending
+- Change:
+  - Added a reserved desktop UI model id `-28`.
+  - Added `packages/worker-base/system-models/desktop_catalog_ui.json` as the first desktop launcher surface.
+  - Wired the desktop catalog patch into the local demo store bootstrap.
+  - Added `scripts/tests/test_0374_web_tablet_desktop_contract.mjs` to lock the desktop root, required system app icons, and initial workspace slide app icons.
+  - Added the desktop catalog patch to the UI model compliance audit source list.
+- Command: `node scripts/tests/test_0374_web_tablet_desktop_contract.mjs`
+- Key output:
+  - `[PASS] desktop_catalog_model_is_cellwise_ui_surface`
+  - `[PASS] desktop_exposes_required_system_app_icons`
+  - `[PASS] desktop_exposes_workspace_slide_app_icons_from_registry`
+  - `3 passed, 0 failed out of 3`
+- Result: PASS
+- Command: `node scripts/tests/test_0346_ui_model_compliance_contract.mjs`
+- Key output: `test_0346_ui_model_compliance_contract: PASS (30 visible surfaces, 6 warnings)`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run test`
+- Key output:
+  - `editor_ast_no_direct_mutation_buttons: PASS`
+  - `editor_v1_static_upload_binding_persisted: PASS`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run build`
+- Key output:
+  - `✓ 1454 modules transformed.`
+  - `✓ built in 2.72s`
+- Result: PASS
+- Command: `git diff --check`
+- Key output: no output
+- Result: PASS
+- Review:
+  - Reviewer: sub-agent `019e19ab-aa8d-7cc2-8ff8-d9a8dc1ad6ef`
+  - Decision: Approved
+  - Findings: none
+  - Notes: no open questions or verification gaps.
 - Commit:
 
 ### Step 4 - Web Shell Read-Only Desktop Entry

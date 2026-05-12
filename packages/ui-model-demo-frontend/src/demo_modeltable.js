@@ -6,6 +6,7 @@ import homeCatalogPatch from '../../worker-base/system-models/home_catalog_ui.js
 import docsCatalogPatch from '../../worker-base/system-models/docs_catalog_ui.json' with { type: 'json' };
 import staticCatalogPatch from '../../worker-base/system-models/static_catalog_ui.json' with { type: 'json' };
 import navCatalogPatch from '../../worker-base/system-models/nav_catalog_ui.json' with { type: 'json' };
+import desktopCatalogPatch from '../../worker-base/system-models/desktop_catalog_ui.json' with { type: 'json' };
 import workspaceCatalogPatch from '../../worker-base/system-models/workspace_catalog_ui.json' with { type: 'json' };
 import slidingFlowShellPatch from '../../worker-base/system-models/sliding_flow_shell_ui.json' with { type: 'json' };
 import workspacePositiveModelsPatch from '../../worker-base/system-models/workspace_positive_models.json' with { type: 'json' };
@@ -228,6 +229,7 @@ export function createDemoStore() {
   ensureModel(runtime, { id: 1, name: 'M1', type: 'main' });
 
   applyUiPatch(runtime, navCatalogPatch);
+  applyUiPatch(runtime, desktopCatalogPatch);
   applyUiPatch(runtime, homeCatalogPatch);
   applyUiPatch(runtime, docsCatalogPatch);
   applyUiPatch(runtime, staticCatalogPatch);
