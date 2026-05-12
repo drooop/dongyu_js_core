@@ -98,14 +98,14 @@ function test_system_and_remote_patches_cover_model1019_route() {
   assert.equal(systemRecords.some((record) => String(record?.k || '').startsWith('mbr_route_')), false, 'system_models_must_not_seed_static_mbr_routes');
   assert.equal(mbrRecords.some((record) => record?.k === 'mbr_mqtt_model_ids'), false, 'mbr_role_must_not_use_static_model_ids');
   assert.ok(
-    findRecord(mbrRecords, (record) => record?.k === 'mbr_mgmt_to_mqtt' && String(record?.v?.code || '').includes('route.to')),
-    'mbr_role_must_derive_destination_from_message_route_to',
+    findRecord(mbrRecords, (record) => record?.k === 'mbr_mgmt_to_mqtt' && String(record?.v?.code || '').includes("endpointFrom(records, 'endpoint')")),
+    'mbr_role_must_derive_destination_from_endpoint_records',
   );
   assert.ok(
     findRecord(remoteConfigRecords, (record) => (
       record?.k === 'remote_subscriptions'
       && Array.isArray(record?.v)
-      && record.v.includes('UIPUT/ws/dam/pic/de/sw/worker/RE/model/1019/pin/submit')
+      && record.v.includes('UIPUT/ws/dam/pic/de/sw/R1/1019/submit')
       && !record.v.some((topic) => String(topic).endsWith('/1019/result'))
     )),
     'remote_worker_config_must_subscribe_new_model1019_submit_topic_only',

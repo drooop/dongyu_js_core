@@ -14,6 +14,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { WorkerEngineV0, loadSystemPatch } from './worker_engine_v0.mjs';
 import { readMatrixBootstrapConfig, readMqttBootstrapConfig } from '../packages/worker-base/src/bootstrap_config.mjs';
@@ -71,6 +72,259 @@ function topicMatchesSubscription(subscription, topic) {
     if (part !== topicParts[index]) return false;
   }
   return subParts.length === topicParts.length;
+}
+
+export function isStrictPinPayloadPacket(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  const keys = Object.keys(payload).sort();
+  if (keys.length !== 3 || keys[0] !== 'payload' || keys[1] !== 'type' || keys[2] !== 'version') return false;
+  return payload.version === 'v1' && payload.type === 'pin_payload' && Array.isArray(payload.payload);
+}
+
+function isSafeTopicSegment(value) {
+  return typeof value === 'string'
+    && value.trim() === value
+    && value.length > 0
+    && !value.includes('/')
+    && !value.includes('+')
+    && !value.includes('#');
+}
+
+function isCanonicalPositiveIntSegment(value) {
+  return typeof value === 'string' && /^[1-9][0-9]*$/.test(value);
+}
+
+function isValidUnifiedTopicBase(value) {
+  if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
+  const parts = value.split('/');
+  return parts.length === 6
+    && parts[0] === 'UIPUT'
+    && parts.every((part) => isSafeTopicSegment(part));
+}
+
+function isTemporaryPayloadRecord(record) {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
+  const keys = Object.keys(record).sort();
+  if (keys.length !== 7 || keys.join('|') !== 'c|id|k|p|r|t|v') return false;
+  return Number.isInteger(record.id)
+    && Number.isInteger(record.p)
+    && Number.isInteger(record.r)
+    && Number.isInteger(record.c)
+    && typeof record.k === 'string'
+    && record.k.length > 0
+    && typeof record.t === 'string'
+    && record.t.length > 0;
+}
+
+function isTemporaryPayloadRecordArray(value) {
+  return Array.isArray(value) && value.length > 0 && value.every(isTemporaryPayloadRecord);
+}
+
+function isLegacyPinPayloadKey(key) {
+  return key === 'source_model_id'
+    || key === 'pin'
+    || key === 'route'
+    || key === 'reply_to'
+    || key === 'route.reply_to'
+    || key === 'return_topic'
+    || key === 'returnTopic'
+    || key === 'result_topic';
+}
+
+function containsLegacyPinPayloadMetadata(value, seen = new WeakSet()) {
+  if (!value) return false;
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return false;
+    seen.add(value);
+    return value.some((item) => containsLegacyPinPayloadMetadata(item, seen));
+  }
+  if (typeof value !== 'object') return false;
+  if (seen.has(value)) return false;
+  seen.add(value);
+  for (const [key, child] of Object.entries(value)) {
+    if (isLegacyPinPayloadKey(key)) return true;
+    if (key === 'k' && typeof child === 'string' && isLegacyPinPayloadKey(child)) return true;
+    if (key === 'route' && child && typeof child === 'object' && !Array.isArray(child) && Object.prototype.hasOwnProperty.call(child, 'reply_to')) return true;
+    if (containsLegacyPinPayloadMetadata(child, seen)) return true;
+  }
+  return false;
+}
+
+function pinPayloadRecord(payload, key) {
+  if (!payload || !Array.isArray(payload.payload)) return null;
+  return payload.payload.find((item) => item
+    && item.id === 0
+    && item.p === 0
+    && item.r === 0
+    && item.c === 0
+    && item.k === key) || null;
+}
+
+function pinPayloadString(payload, key) {
+  const record = pinPayloadRecord(payload, key);
+  return record && record.t === 'str' && typeof record.v === 'string' ? record.v : '';
+}
+
+function pinPayloadInt(payload, key) {
+  const record = pinPayloadRecord(payload, key);
+  return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null;
+}
+
+function hasInvalidPinPayloadStringRecord(payload, key) {
+  const record = pinPayloadRecord(payload, key);
+  return Boolean(record && (record.t !== 'str' || typeof record.v !== 'string'));
+}
+
+function hasDuplicatePinPayloadRecordKeys(payload, keys) {
+  if (!payload || !Array.isArray(payload.payload)) return false;
+  const watched = new Set(keys);
+  const seen = new Set();
+  for (const record of payload.payload) {
+    if (!record || !watched.has(record.k)) continue;
+    if (seen.has(record.k)) return true;
+    seen.add(record.k);
+  }
+  return false;
+}
+
+function isStrictNonBlankString(value) {
+  return typeof value === 'string' && value.length > 0 && value.trim() === value;
+}
+
+function validatePinPayloadRecordEnvelope(payload) {
+  if (!isStrictPinPayloadPacket(payload)) {
+    return { ok: false, reason: 'invalid_pin_payload_packet' };
+  }
+  if (!isTemporaryPayloadRecordArray(payload.payload)) {
+    return { ok: false, reason: 'invalid_pin_payload_records' };
+  }
+  const kind = pinPayloadString(payload, '__mt_payload_kind');
+  if (kind !== 'pin_payload.v1') {
+    return { ok: false, reason: 'invalid_payload_kind' };
+  }
+  const stringMetadataKeys = [
+    '__mt_request_id',
+    'op_id',
+    'message_role',
+    'endpoint_worker_id',
+    'endpoint_pin',
+    'origin_worker_id',
+    'origin_pin',
+    'reply_target_worker_id',
+    'reply_target_pin',
+  ];
+  const metadataKeys = stringMetadataKeys.concat([
+    '__mt_payload_kind',
+    'endpoint_model_id',
+    'origin_model_id',
+    'reply_target_model_id',
+    'payload',
+    'timestamp',
+    'bus_out_key',
+    'bus',
+  ]);
+  if (hasDuplicatePinPayloadRecordKeys(payload, metadataKeys)) {
+    return { ok: false, reason: 'invalid_pin_payload_records' };
+  }
+  for (const key of stringMetadataKeys) {
+    if (hasInvalidPinPayloadStringRecord(payload, key)) {
+      return { ok: false, reason: 'invalid_pin_payload_records' };
+    }
+  }
+  const requestId = pinPayloadString(payload, '__mt_request_id');
+  const opId = pinPayloadString(payload, 'op_id');
+  const requestIdIsValid = requestId === '' || isStrictNonBlankString(requestId);
+  const opIdIsValid = opId === '' || isStrictNonBlankString(opId);
+  if (!requestIdIsValid || !opIdIsValid) {
+    return { ok: false, reason: 'invalid_pin_payload_records' };
+  }
+  if (!requestId && !opId) {
+    return { ok: false, reason: 'missing_request_correlation' };
+  }
+  const messageRole = pinPayloadString(payload, 'message_role');
+  if (messageRole !== 'request' && messageRole !== 'response') {
+    return { ok: false, reason: 'invalid_message_role' };
+  }
+  for (const record of payload.payload) {
+    if (isLegacyPinPayloadKey(record.k)) {
+      return { ok: false, reason: 'legacy_pin_payload_metadata_removed' };
+    }
+    if (containsLegacyPinPayloadMetadata(record.v)) {
+      return { ok: false, reason: 'legacy_pin_payload_metadata_removed' };
+    }
+  }
+  const endpointWorkerId = pinPayloadString(payload, 'endpoint_worker_id');
+  const endpointModelId = pinPayloadInt(payload, 'endpoint_model_id');
+  const endpointPin = pinPayloadString(payload, 'endpoint_pin');
+  const originWorkerId = pinPayloadString(payload, 'origin_worker_id');
+  const originModelId = pinPayloadInt(payload, 'origin_model_id');
+  const originPin = pinPayloadString(payload, 'origin_pin');
+  const replyTargetWorkerId = pinPayloadString(payload, 'reply_target_worker_id');
+  const replyTargetModelId = pinPayloadInt(payload, 'reply_target_model_id');
+  const replyTargetPin = pinPayloadString(payload, 'reply_target_pin');
+  const nestedPayload = pinPayloadRecord(payload, 'payload');
+  if (
+    !isSafeTopicSegment(endpointWorkerId)
+    || !Number.isInteger(endpointModelId)
+    || endpointModelId <= 0
+    || !isSafeTopicSegment(endpointPin)
+    || !isSafeTopicSegment(originWorkerId)
+    || !Number.isInteger(originModelId)
+    || originModelId <= 0
+    || !isSafeTopicSegment(originPin)
+    || !isSafeTopicSegment(replyTargetWorkerId)
+    || !Number.isInteger(replyTargetModelId)
+    || replyTargetModelId <= 0
+    || !isSafeTopicSegment(replyTargetPin)
+    || !nestedPayload
+    || nestedPayload.t !== 'json'
+    || !isTemporaryPayloadRecordArray(nestedPayload.v)
+  ) {
+    return { ok: false, reason: 'invalid_pin_payload_records' };
+  }
+  return {
+    ok: true,
+    message_role: messageRole,
+    endpoint: { worker_id: endpointWorkerId, model_id: endpointModelId, pin: endpointPin },
+    origin: { worker_id: originWorkerId, model_id: originModelId, pin: originPin },
+    reply_target: { worker_id: replyTargetWorkerId, model_id: replyTargetModelId, pin: replyTargetPin },
+  };
+}
+
+export function validateUnifiedMatrixEventPacket(event) {
+  return validatePinPayloadRecordEnvelope(event);
+}
+
+export function validateUnifiedEndpointTopicPacket(topic, payload, base) {
+  const topicBase = typeof base === 'string' ? base : '';
+  if (!isValidUnifiedTopicBase(topicBase) || typeof topic !== 'string' || !topic.startsWith(`${topicBase}/`)) {
+    return { ok: false, reason: 'invalid_topic_base' };
+  }
+  const parts = topic.slice(topicBase.length + 1).split('/');
+  if (parts.length !== 3) {
+    return { ok: false, reason: 'invalid_unified_endpoint_topic' };
+  }
+  const [workerId, modelIdRaw, pin] = parts;
+  if (!isCanonicalPositiveIntSegment(modelIdRaw)) {
+    return { ok: false, reason: 'invalid_unified_endpoint_topic' };
+  }
+  const modelId = Number(modelIdRaw);
+  if (!isSafeTopicSegment(workerId) || !Number.isInteger(modelId) || modelId <= 0 || !isSafeTopicSegment(pin)) {
+    return { ok: false, reason: 'invalid_unified_endpoint_topic' };
+  }
+  const parsed = validatePinPayloadRecordEnvelope(payload);
+  if (!parsed.ok) return parsed;
+  const { endpoint } = parsed;
+  if (endpoint.worker_id !== workerId || endpoint.model_id !== modelId || endpoint.pin !== pin) {
+    return { ok: false, reason: 'endpoint_mismatch' };
+  }
+  return { ok: true, worker_id: workerId, model_id: modelId, pin };
+}
+
+function packetOpId(payload) {
+  if (!payload || !Array.isArray(payload.payload)) return '';
+  const record = payload.payload.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && (item.k === 'op_id' || item.k === '__mt_request_id'));
+  return record && typeof record.v === 'string' ? record.v : '';
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -172,14 +426,14 @@ function main() {
   }
 
   // 6. MQTT topic base (from system patch, Model 0)
-  const base = String(getLabel(rt, 0, 0, 0, 0, 'mqtt_topic_base') || '').trim();
-  if (!base) {
+  const base = String(getLabel(rt, 0, 0, 0, 0, 'mqtt_topic_base') || '');
+  if (!isValidUnifiedTopicBase(base)) {
     logErr('missing mqtt_topic_base in Model 0');
     process.exitCode = 1;
     return;
   }
 
-  const subscribeTopics = [`${base}/worker/+/model/+/pin/+`];
+  const subscribeTopics = [`${base}/+/+/+`];
 
   // 7. Create MQTT client
   const mqttUrl = `mqtt://${mqttHost}:${mqttPort}`;
@@ -234,7 +488,11 @@ function main() {
         engine.mgmtAdapter = adapter;
 
         adapter.subscribe((event) => {
-          if (!event || (event.version !== 'v0' && event.version !== 'v1')) return;
+          const validation = validateUnifiedMatrixEventPacket(event);
+          if (!validation.ok) {
+            log(`drop invalid mgmt event reason=${validation.reason || 'invalid'}`);
+            return;
+          }
           if (!filterTypes.includes(event.type)) return;
           if (!rt.isRuntimeRunning()) {
             log(`drop pre-running mgmt ${event.type} op_id=${event.op_id || ''}`);
@@ -277,14 +535,17 @@ function main() {
     } catch (_) {
       return;
     }
-    const isMtPatch = payload && typeof payload === 'object' && payload.version === 'mt.v0';
-    const isPinPayload = payload && typeof payload === 'object' && payload.version === 'v1' && payload.type === 'pin_payload' && Array.isArray(payload.payload);
-    if (!isMtPatch && !isPinPayload) return;
-    if (!rt.isRuntimeRunning()) {
-      log(`drop pre-running mqtt topic=${topic} op_id=${payload.op_id || ''}`);
+    const validation = validateUnifiedEndpointTopicPacket(topic, payload, base);
+    if (!validation.ok) {
+      log(`drop invalid mqtt topic=${topic} reason=${validation.reason}`);
       return;
     }
-    log(`recv mqtt topic=${topic} op_id=${payload.op_id || ''}`);
+    const opId = packetOpId(payload);
+    if (!rt.isRuntimeRunning()) {
+      log(`drop pre-running mqtt topic=${topic} op_id=${opId}`);
+      return;
+    }
+    log(`recv mqtt topic=${topic} op_id=${opId}`);
     rt.addLabel(sys, 0, 0, 0, { k: mqttInboxLabel, t: 'json', v: { topic, payload } });
     engine.executeFunction(mqttFunc);
     engine.tick();
@@ -298,10 +559,13 @@ function main() {
   });
 }
 
-try {
-  main();
-} catch (err) {
-  logErr('FAILED');
-  logErr(String(err && err.stack ? err.stack : err));
-  process.exitCode = 1;
+const entrypointUrl = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
+if (import.meta.url === entrypointUrl) {
+  try {
+    main();
+  } catch (err) {
+    logErr('FAILED');
+    logErr(String(err && err.stack ? err.stack : err));
+    process.exitCode = 1;
+  }
 }

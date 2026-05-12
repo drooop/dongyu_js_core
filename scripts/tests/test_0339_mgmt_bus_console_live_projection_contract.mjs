@@ -314,7 +314,7 @@ function test_model0_server_and_runtime_accept_refresh_payload_only_as_modeltabl
   rt.addLabel(model0, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
   const payload = [
     { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.refresh.v1' },
-    { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: consoleModelId },
+    { id: 0, p: 0, r: 0, c: 0, k: 'origin_model_id', t: 'int', v: consoleModelId },
   ];
   const addResult = rt.addLabel(model0, 0, 0, 0, {
     k: refreshBusInKey,
@@ -373,12 +373,12 @@ function test_server_projection_deriver_includes_mbr_health_and_sanitizes_routes
     'missing Model 0 routes must be visible in the route projection',
   );
   assert.ok(
-    partial.routeRows.some((row) => row.route === 'message.route.to' && row.status === 'configured'),
-    'self-described outbound route metadata must be visible in the route projection',
+    partial.routeRows.some((row) => row.route === 'message.endpoint' && row.status === 'configured'),
+    'self-described outbound endpoint metadata must be visible in the route projection',
   );
   assert.ok(
-    partial.routeRows.some((row) => row.route === 'message.route.reply_to' && row.status === 'configured'),
-    'server-owned reply route metadata must be visible in the route projection',
+    partial.routeRows.some((row) => row.route === 'message.reply_target' && row.status === 'configured'),
+    'server-owned reply target metadata must be visible in the route projection',
   );
   assert.doesNotMatch(
     JSON.stringify(partial),

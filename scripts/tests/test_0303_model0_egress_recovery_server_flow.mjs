@@ -48,6 +48,40 @@ function payloadFor(text) {
   ];
 }
 
+function payloadValue(packet, key) {
+  const record = Array.isArray(packet?.payload)
+    ? packet.payload.find((item) => item && item.k === key)
+    : null;
+  return record ? record.v : undefined;
+}
+
+function assertPinPayloadPacket(packet, {
+  endpointModelId,
+  originModelId,
+  replyTargetModelId,
+  workerId = 'R1',
+  uiWorkerId = 'ui-server-0303',
+  pin = 'submit',
+}) {
+  assert.deepEqual(Object.keys(packet || {}).sort(), ['payload', 'type', 'version'], 'published packet must use strict pin_payload top-level keys');
+  assert.equal(packet.version, 'v1');
+  assert.equal(packet.type, 'pin_payload');
+  assert.equal(payloadValue(packet, '__mt_payload_kind'), 'pin_payload.v1');
+  assert.equal(payloadValue(packet, 'message_role'), 'request');
+  assert.ok(typeof payloadValue(packet, '__mt_request_id') === 'string' && payloadValue(packet, '__mt_request_id').length > 0);
+  assert.ok(typeof payloadValue(packet, 'op_id') === 'string' && payloadValue(packet, 'op_id').length > 0);
+  assert.equal(payloadValue(packet, 'endpoint_worker_id'), workerId);
+  assert.equal(payloadValue(packet, 'endpoint_model_id'), endpointModelId);
+  assert.equal(payloadValue(packet, 'endpoint_pin'), pin);
+  assert.equal(payloadValue(packet, 'origin_worker_id'), uiWorkerId);
+  assert.equal(payloadValue(packet, 'origin_model_id'), originModelId);
+  assert.equal(payloadValue(packet, 'origin_pin'), pin);
+  assert.equal(payloadValue(packet, 'reply_target_worker_id'), uiWorkerId);
+  assert.equal(payloadValue(packet, 'reply_target_model_id'), replyTargetModelId);
+  assert.equal(payloadValue(packet, 'reply_target_pin'), 'result');
+  assert.ok(Array.isArray(payloadValue(packet, 'payload')), 'nested business payload must remain a ModelTable records array');
+}
+
 async function test_legacy_model0_egress_label_is_not_dispatched() {
   return withServerState(async (state) => {
     const runtime = state.runtime;
@@ -91,9 +125,7 @@ async function test_model100_submit_pin_uses_generated_route_adapter() {
     await wait();
 
     assert.equal(published.length, 1, 'Model 100 submit pin must publish once through generated adapter');
-    assert.equal(published[0].source_model_id, 100, 'published source model must be Model 100');
-    assert.deepEqual(published[0].route?.to, { worker_id: 'RE', model_id: 100, pin: 'submit' });
-    assert.deepEqual(published[0].route?.reply_to, { worker_id: 'ui-server-0303', model_id: 100, pin: 'result' });
+    assertPinPayloadPacket(published[0], { endpointModelId: 100, originModelId: 100, replyTargetModelId: 100 });
     return { key: 'model100_submit_pin_uses_generated_route_adapter', status: 'PASS' };
   });
 }
@@ -114,12 +146,11 @@ async function test_indirect_seeded_models_get_generated_route_adapters() {
       await wait();
     }
 
-    const byModel = new Map(published.map((packet) => [packet.source_model_id, packet]));
+    const byModel = new Map(published.map((packet) => [payloadValue(packet, 'origin_model_id'), packet]));
     for (const modelId of [1010, 1019]) {
       const packet = byModel.get(modelId);
       assert.ok(packet, `model_${modelId}_must_publish_through_generated_adapter`);
-      assert.deepEqual(packet.route?.to, { worker_id: 'RE', model_id: modelId, pin: 'submit' });
-      assert.deepEqual(packet.route?.reply_to, { worker_id: 'ui-server-0303', model_id: modelId, pin: 'result' });
+      assertPinPayloadPacket(packet, { endpointModelId: modelId, originModelId: modelId, replyTargetModelId: modelId });
     }
     return { key: 'indirect_seeded_models_get_generated_route_adapters', status: 'PASS' };
   });

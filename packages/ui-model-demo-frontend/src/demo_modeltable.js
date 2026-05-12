@@ -6,6 +6,7 @@ import homeCatalogPatch from '../../worker-base/system-models/home_catalog_ui.js
 import docsCatalogPatch from '../../worker-base/system-models/docs_catalog_ui.json' with { type: 'json' };
 import staticCatalogPatch from '../../worker-base/system-models/static_catalog_ui.json' with { type: 'json' };
 import navCatalogPatch from '../../worker-base/system-models/nav_catalog_ui.json' with { type: 'json' };
+import desktopCatalogPatch from '../../worker-base/system-models/desktop_catalog_ui.json' with { type: 'json' };
 import workspaceCatalogPatch from '../../worker-base/system-models/workspace_catalog_ui.json' with { type: 'json' };
 import slidingFlowShellPatch from '../../worker-base/system-models/sliding_flow_shell_ui.json' with { type: 'json' };
 import workspacePositiveModelsPatch from '../../worker-base/system-models/workspace_positive_models.json' with { type: 'json' };
@@ -21,6 +22,14 @@ import { buildAstFromSchema } from './ui_schema_projection.js';
 import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
 import { resolvePageAsset } from './page_asset_resolver.js';
 import { resolveRouteUiAst } from './route_ui_projection.js';
+import {
+  DESKTOP_FOREGROUND_APP_LABEL,
+  DESKTOP_TASK_STACK_LABEL,
+  DESKTOP_TASK_SWITCHER_OPEN_LABEL,
+  deriveDesktopTaskStack,
+  normalizeDesktopForegroundApp,
+  readDesktopForegroundWorkspaceModelId,
+} from './desktop_app_state.js';
 import { buildBusDispatchLabel, buildBusEventV2, normalizeBusEventV2ValueToPinPayload } from './bus_event_v2.js';
 import {
   deriveEditorModelOptions,
@@ -126,6 +135,22 @@ function shouldResetHomeSelectionFromEnvelope(envelope) {
     && String(value && Object.prototype.hasOwnProperty.call(value, 'v') ? value.v : '').trim().toLowerCase() === 'home';
 }
 
+function readDesktopForegroundFromEnvelope(envelope) {
+  const payload = envelope && typeof envelope === 'object' ? envelope.payload : null;
+  const target = payload && typeof payload === 'object' ? payload.target : null;
+  const value = payload && typeof payload === 'object' ? payload.value : null;
+  if (!payload || payload.action !== 'label_update') return null;
+  if (!target
+    || target.model_id !== EDITOR_STATE_MODEL_ID
+    || target.p !== 0
+    || target.r !== 0
+    || target.c !== 0
+    || target.k !== DESKTOP_FOREGROUND_APP_LABEL) {
+    return null;
+  }
+  return normalizeDesktopForegroundApp(value && Object.prototype.hasOwnProperty.call(value, 'v') ? value.v : value);
+}
+
 function deriveWorkspaceRegistry(runtime) {
   const derived = [];
   const seen = new Set();
@@ -228,6 +253,7 @@ export function createDemoStore() {
   ensureModel(runtime, { id: 1, name: 'M1', type: 'main' });
 
   applyUiPatch(runtime, navCatalogPatch);
+  applyUiPatch(runtime, desktopCatalogPatch);
   applyUiPatch(runtime, homeCatalogPatch);
   applyUiPatch(runtime, docsCatalogPatch);
   applyUiPatch(runtime, staticCatalogPatch);
@@ -244,7 +270,10 @@ export function createDemoStore() {
   applyUiPatch(runtime, promptCatalogPatch);
 
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: '0' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'home' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'desktop' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_FOREGROUND_APP_LABEL, t: 'json', v: null });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_TASK_STACK_LABEL, t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_TASK_SWITCHER_OPEN_LABEL, t: 'bool', v: false });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_p', t: 'str', v: '0' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_r', t: 'str', v: '0' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_c', t: 'str', v: '0' });
@@ -362,9 +391,12 @@ export function createDemoStore() {
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_edit_dialog_title', t: 'str', v: deriveHomeEditDialogTitle(snap, EDITOR_STATE_MODEL_ID) });
       const workspaceApps = deriveWorkspaceRegistry(runtime);
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: workspaceApps });
+      const foregroundWorkspaceModelId = readDesktopForegroundWorkspaceModelId(snap);
       const validWorkspaceApp = resolveWorkspaceSelection(
         workspaceApps,
-        runtime.getLabelValue(stateModelLive, 0, 0, 0, 'ws_app_selected'),
+        Number.isInteger(foregroundWorkspaceModelId)
+          ? foregroundWorkspaceModelId
+          : runtime.getLabelValue(stateModelLive, 0, 0, 0, 'ws_app_selected'),
         resolveDefaultWorkspaceAppId(workspaceApps),
       );
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: Number(validWorkspaceApp) });
@@ -485,6 +517,16 @@ export function createDemoStore() {
     const result = adapter.consumeOnce();
     if (shouldResetHomeSelectionFromEnvelope(pendingEnvelope)) {
       reconcileHomeSelectionState(true);
+    }
+    const foregroundApp = readDesktopForegroundFromEnvelope(pendingEnvelope);
+    if (foregroundApp) {
+      const stateModelLive = runtime.getModel(EDITOR_STATE_MODEL_ID);
+      const currentStack = runtime.getLabelValue(stateModelLive, 0, 0, 0, DESKTOP_TASK_STACK_LABEL);
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, {
+        k: DESKTOP_TASK_STACK_LABEL,
+        t: 'json',
+        v: deriveDesktopTaskStack(currentStack, foregroundApp),
+      });
     }
     updateDerived();
     refreshSnapshot();

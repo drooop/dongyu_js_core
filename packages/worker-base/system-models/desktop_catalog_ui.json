@@ -1,0 +1,1298 @@
+{
+  "version": "mt.v0",
+  "op_id": "0374_desktop_catalog_ui_v1",
+  "description": "Tablet-style desktop launcher surface",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": -28,
+      "name": "desktop_catalog",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "UI.DesktopCatalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_surface_role",
+      "t": "str",
+      "v": "desktop.launcher"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "desktop_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 18
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "width": "100%",
+          "minHeight": "720px",
+          "padding": "24px",
+          "background": "#f4f7fb",
+          "boxSizing": "border-box"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "工作台"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "fontSize": "26px",
+          "fontWeight": 700,
+          "color": "#18233a"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_subtitle"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "所有可运行应用以平板桌面方式进入"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "color": "#5d6a7d"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_system_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_app_gallery"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_system_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Gallery"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "desktopApp": true,
+        "appKind": "system",
+        "targetPage": "gallery"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_app_docs"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_system_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Docs"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "desktopApp": true,
+        "appKind": "system",
+        "targetPage": "docs"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_app_modeltable"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_system_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_label",
+      "t": "str",
+      "v": "ModelTable"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "desktopApp": true,
+        "appKind": "system",
+        "targetPage": "home"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_app_prompt"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_system_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Prompt"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "desktopApp": true,
+        "appKind": "system",
+        "targetPage": "prompt"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_app_static"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_system_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Static"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "desktopApp": true,
+        "appKind": "system",
+        "targetPage": "static"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_workspace_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "Workspace Apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "fontSize": "18px",
+          "fontWeight": 600,
+          "color": "#24314a"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_slide_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_slide_app_100"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_slide_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Color E2E"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "desktopApp": true,
+        "appKind": "workspace",
+        "modelId": 100,
+        "surface": "slide"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_slide_app_1030"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_slide_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Slide Importer"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "desktopApp": true,
+        "appKind": "workspace",
+        "modelId": 1030,
+        "surface": "slide"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_slide_app_1034"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_slide_apps"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Slide Creator"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "desktopApp": true,
+        "appKind": "workspace",
+        "modelId": 1034,
+        "surface": "slide"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "gallery",
+              "kind": "system",
+              "page": "gallery",
+              "path": "/gallery",
+              "title": "Gallery"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "docs",
+              "kind": "system",
+              "page": "docs",
+              "path": "/docs",
+              "title": "Docs"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "modeltable",
+              "kind": "system",
+              "page": "home",
+              "path": "/modeltable",
+              "title": "ModelTable"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "prompt",
+              "kind": "system",
+              "page": "prompt",
+              "path": "/prompt",
+              "title": "Prompt"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "static",
+              "kind": "system",
+              "page": "static",
+              "path": "/static",
+              "title": "Static"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "workspace:100",
+              "kind": "workspace",
+              "page": "workspace",
+              "path": "/workspace",
+              "title": "Color E2E",
+              "model_id": 100
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "workspace:1030",
+              "kind": "workspace",
+              "page": "workspace",
+              "path": "/workspace",
+              "title": "Slide Importer",
+              "model_id": 1030
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "workspace:1034",
+              "kind": "workspace",
+              "page": "workspace",
+              "path": "/workspace",
+              "title": "Slide Creator",
+              "model_id": 1034
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_task_switcher_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 25
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Tasks"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_task_switcher_open"
+          },
+          "value_ref": {
+            "t": "bool",
+            "v": true
+          }
+        }
+      }
+    }
+  ]
+}

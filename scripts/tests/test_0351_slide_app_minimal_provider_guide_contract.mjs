@@ -20,13 +20,14 @@ function assertNoOld(text, label) {
 
 function test_doc_has_self_described_route_contract() {
   const doc = read(GUIDE);
-  assert.match(doc, /remote-worker `RE`|remote-worker RE/u, 'guide must explain RE remote-worker');
-  assert.match(doc, /route\.to/u, 'guide must explain route.to');
-  assert.match(doc, /route\.reply_to/u, 'guide must explain route.reply_to');
+  assert.match(doc, /remote-worker `R1`|remote-worker R1/u, 'guide must explain R1 remote-worker');
+  assert.match(doc, /endpoint_worker_id/u, 'guide must explain endpoint records');
+  assert.match(doc, /reply_target_worker_id/u, 'guide must explain reply target records');
   assert.match(doc, /model `3000`|model 3000/u, 'guide must explain provider model 3000');
   assert.match(doc, /submit1/u, 'guide must explain public submit1 pin');
-  assert.match(doc, /UIPUT\/ws\/dam\/pic\/de\/sw\/worker\/RE\/model\/3000\/pin\/submit1/u, 'guide must document route-addressed submit topic');
-  assert.match(doc, /worker\/ui-server-U1\/model\/2000\/pin\/result/u, 'guide must document reply topic');
+  assert.match(doc, /UIPUT\/ws\/dam\/pic\/de\/sw\/R1\/3000\/submit1/u, 'guide must document unified endpoint submit topic');
+  assert.match(doc, /message_role.*request.*response/us, 'guide must document message_role request/response split');
+  assert.match(doc, /reply_target.*ui-server-U1.*2000.*result/us, 'guide must document reply target as payload records');
   assert.match(doc, /test_files\/minimal_submit_dual_bus_app_payload\.json/u, 'guide must reference payload fixture');
   assert.match(doc, /test_files\/minimal_submit_dual_bus\.zip/u, 'guide must reference zip fixture');
   assertNoOld(doc, 'guide');
@@ -41,7 +42,9 @@ function test_remote_worker_provider_patch_matches_contract() {
   assert.equal(find(recs, (record) => record.model_id === 3000 && record.k === 'result_out_topic'), null, 'provider must not use static result_out_topic');
   assert.ok(find(recs, (record) => record.model_id === 3000 && record.k === 'submit1_route' && record.t === 'pin.connect.cell'), 'provider must route root submit1 via pin.connect.cell');
   const code = find(recs, (record) => record.model_id === 3000 && record.k === 'submit1' && record.t === 'func.js')?.v?.code || '';
-  assert.match(code, /reply_to/u, 'provider function must use reply_to');
+  assert.match(code, /replyTarget/u, 'provider function must use reply_target records');
+  assert.match(code, /messageRole !== 'request'/u, 'provider function must process only request role packets');
+  assert.match(code, /mt\('message_role', 'str', 'response'\)/u, 'provider function must mark replies with message_role=response');
   assert.equal(code.includes('ctx.publishMqtt'), false, 'provider function must not publish MQTT directly');
   assert.equal(code.includes('message_text'), false, 'provider function must not keep message_text fallback');
   assert.match(code, /pin_payload\.v1/u, 'provider function must return a ModelTable-shaped pin payload');
@@ -66,13 +69,28 @@ function test_provider_guide_embedded_submit_handler_result_fields_match_current
   return { key: 'provider_guide_embedded_submit_handler_result_fields_match_current_patch', status: 'PASS' };
 }
 
+function test_provider_guide_embedded_submit_handler_validates_strict_records() {
+  const doc = read(GUIDE);
+  assert.match(doc, /const isRecord = \(record\) =>/u, 'guide embedded handler must define strict ModelTable record validation');
+  assert.match(doc, /const validEndpoint = \(endpoint\) =>/u, 'guide embedded handler must validate endpoint-like metadata');
+  for (const required of [
+    '!validEndpoint(endpoint)',
+    '!validEndpoint(origin)',
+    '!validEndpoint(replyTarget)',
+    '!businessPayload.every(isRecord)',
+  ]) {
+    assert.ok(doc.includes(required), 'guide embedded handler must fail closed on missing or invalid strict field: ' + required);
+  }
+  return { key: 'provider_guide_embedded_submit_handler_validates_strict_records', status: 'PASS' };
+}
+
 function test_mbr_and_remote_config_use_route_topics() {
   const mbrText = read('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json');
   const systemText = read('packages/worker-base/system-models/system_models.json');
   const subscriptions = find(records('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json'), (record) => record.k === 'remote_subscriptions')?.v || [];
   assert.equal(mbrText.includes('mbr_route_'), false, 'MBR patch must not use static mbr_route');
   assert.equal(systemText.includes('mbr_route_'), false, 'system models must not seed static mbr_route');
-  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1'), 'remote config must subscribe provider route topic');
+  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1'), 'remote config must subscribe provider endpoint topic');
   assert.equal(subscriptions.some((topic) => String(topic).includes('/1050/')), false, 'remote config must not include old 1050 topics');
   return { key: 'mbr_and_remote_config_use_route_topics', status: 'PASS' };
 }
@@ -87,6 +105,7 @@ const tests = [
   test_doc_has_self_described_route_contract,
   test_remote_worker_provider_patch_matches_contract,
   test_provider_guide_embedded_submit_handler_result_fields_match_current_patch,
+  test_provider_guide_embedded_submit_handler_validates_strict_records,
   test_mbr_and_remote_config_use_route_topics,
   test_user_guide_indexes_link_new_doc,
 ];

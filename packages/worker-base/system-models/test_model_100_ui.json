@@ -143,7 +143,7 @@
       "v": {
         "transport": "mqtt",
         "to": {
-          "worker_id": "RE",
+          "worker_id": "R1",
           "model_id": 100
         }
       }

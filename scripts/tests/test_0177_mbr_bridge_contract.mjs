@@ -62,24 +62,80 @@ function payload(text = 'hello') {
   ];
 }
 
-function route(sourceModelId = 100, pin = 'submit', targetModelId = sourceModelId) {
-  return {
-    to: { worker_id: 'RE', model_id: targetModelId, pin },
-    reply_to: { worker_id: 'ui-server-test', model_id: sourceModelId, pin: 'result' },
-  };
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function pinPayloadRecords({
+  opId = 'mbr_ok_001',
+  endpointWorkerId = 'R1',
+  endpointModelId = 100,
+  endpointPin = 'submit',
+  originWorkerId = 'ui-server-test',
+  originModelId = 100,
+  originPin = 'submit',
+  replyTargetWorkerId = 'ui-server-test',
+  replyTargetModelId = 100,
+  replyTargetPin = 'result',
+  messageRole = 'request',
+  payloadRecords = payload(),
+  timestamp = 1700000000000,
+} = {}) {
+  return [
+    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('__mt_request_id', 'str', opId),
+    mt('op_id', 'str', opId),
+    mt('message_role', 'str', messageRole),
+    mt('endpoint_worker_id', 'str', endpointWorkerId),
+    mt('endpoint_model_id', 'int', endpointModelId),
+    mt('endpoint_pin', 'str', endpointPin),
+    mt('origin_worker_id', 'str', originWorkerId),
+    mt('origin_model_id', 'int', originModelId),
+    mt('origin_pin', 'str', originPin),
+    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
+    mt('reply_target_model_id', 'int', replyTargetModelId),
+    mt('reply_target_pin', 'str', replyTargetPin),
+    mt('payload', 'json', payloadRecords),
+    mt('timestamp', 'int', timestamp),
+  ];
+}
+
+function externalPacket(records) {
+  return { version: 'v1', type: 'pin_payload', payload: records };
+}
+
+function payloadValue(records, key) {
+  return Array.isArray(records) ? records.find((record) => record && record.k === key)?.v : undefined;
+}
+
+function assertStrictPacket(packet, message = 'packet') {
+  assert.deepEqual(Object.keys(packet || {}).sort(), ['payload', 'type', 'version'], `${message} must only expose version/type/payload`);
+  assert.equal(packet.version, 'v1', `${message} must be v1`);
+  assert.equal(packet.type, 'pin_payload', `${message} must carry pin_payload`);
+  assert.equal(Array.isArray(packet.payload), true, `${message} payload must be Temporary ModelTable records`);
+  for (const forbidden of ['source_model_id', 'pin', 'route', 'reply_to', 'return_topic', 'returnTopic', 'result_topic']) {
+    assert.equal(Object.hasOwn(packet, forbidden), false, `${message} must not expose loose ${forbidden}`);
+  }
 }
 
 function test_model100_pin_payload_writes_control_bus_out() {
   const rt = loadRuntime();
   const sys = rt.getModel(-10);
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: { version: 'v1', type: 'pin_payload', op_id: 'mbr_ok_001', source_model_id: 100, pin: 'submit', route: route(100, 'submit'), payload: payload(), timestamp: Date.now() } });
+  rt.addLabel(sys, 0, 0, 0, {
+    k: 'mbr_mgmt_inbox',
+    t: 'json',
+    v: externalPacket(pinPayloadRecords({ opId: 'mbr_ok_001', payloadRecords: payload() })),
+  });
   runMbrFunction(rt, 'mbr_mgmt_to_mqtt');
   const packet = toExternalPacket(rt, 'mbr_cb_out');
-  assert.equal(packet?.type, 'pin_payload');
+  assertStrictPacket(packet, 'control bus out');
   const published = drainMqtt(rt);
   assert.equal(published.length, 1);
-  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/worker/RE/model/100/pin/submit');
-  assert.equal(published[0].payload?.payload?.[1]?.v, 'hello');
+  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/100/submit');
+  assertStrictPacket(published[0].payload, 'published payload');
+  assert.equal(payloadValue(published[0].payload.payload, 'endpoint_worker_id'), 'R1');
+  assert.equal(payloadValue(published[0].payload.payload, 'endpoint_model_id'), 100);
+  assert.equal(payloadValue(payloadValue(published[0].payload.payload, 'payload'), 'input_value'), 'hello');
 }
 
 function test_generic_crud_events_are_rejected() {
@@ -94,10 +150,17 @@ function test_generic_crud_events_are_rejected() {
 function test_invalid_records_are_rejected() {
   const rt = loadRuntime();
   const sys = rt.getModel(-10);
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: { version: 'v1', type: 'pin_payload', op_id: 'mbr_bad_records', source_model_id: 100, pin: 'submit', route: route(100, 'submit'), payload: [{ id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str' }], timestamp: Date.now() } });
+  rt.addLabel(sys, 0, 0, 0, {
+    k: 'mbr_mgmt_inbox',
+    t: 'json',
+    v: externalPacket(pinPayloadRecords({
+      opId: 'mbr_bad_records',
+      payloadRecords: [{ id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str' }],
+    })),
+  });
   runMbrFunction(rt, 'mbr_mgmt_to_mqtt');
   assert.equal(drainMqtt(rt).length, 0);
-  assert.equal(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_error')?.v?.detail, 'temporary_modeltable_required');
+  assert.equal(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_error')?.v?.detail, 'invalid_pin_payload_records');
 }
 
 const tests = [test_model100_pin_payload_writes_control_bus_out, test_generic_crud_events_are_rejected, test_invalid_records_are_rejected];

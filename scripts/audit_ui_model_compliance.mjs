@@ -7,6 +7,7 @@ const repoRoot = path.resolve(import.meta.dirname, '..');
 
 const UI_PATCH_FILES = [
   'packages/worker-base/system-models/nav_catalog_ui.json',
+  'packages/worker-base/system-models/desktop_catalog_ui.json',
   'packages/worker-base/system-models/home_catalog_ui.json',
   'packages/worker-base/system-models/docs_catalog_ui.json',
   'packages/worker-base/system-models/static_catalog_ui.json',

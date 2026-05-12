@@ -23,6 +23,14 @@ function buildZipBuffer(payload) {
   return zip.toBuffer();
 }
 
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function payloadValue(packet, key) {
+  return Array.isArray(packet?.payload) ? packet.payload.find((record) => record && record.k === key)?.v : undefined;
+}
+
 function buildNamedZipBuffer(entries) {
   const zip = new AdmZip();
   for (const entry of entries) {
@@ -68,13 +76,14 @@ function test_ssot_freezes_self_described_route_contract() {
     ['imported', imported],
   ]) {
     assertIncludes(text, 'remote_bus_endpoint_v1', name);
-    assertIncludes(text, 'route.to', name);
-    assertIncludes(text, 'route.reply_to', name);
+    assertIncludes(text, 'message_role', name);
+    assertIncludes(text, 'endpoint_worker_id', name);
+    assertIncludes(text, 'reply_target_worker_id', name);
   }
 
-  assert.match(runtime, /reply_to.*server-owned|server-owned.*reply_to/u, 'runtime_must_make_reply_to_server_owned');
+  assert.match(runtime, /reply_target.*server-owned|server-owned.*reply_target/u, 'runtime_must_make_reply_target_server_owned');
   assert.match(labels, /ZIP.*reply_to|reply_to.*ZIP/u, 'label_registry_must_forbid_zip_reply_to');
-  assert.match(payload, /topic.*not.*规约真相|规约真相.*route\.to/u, 'payload_doc_must_not_make_topic_source_of_truth');
+  assert.match(payload, /reply_target_worker_id/u, 'payload_doc_must_define_reply_target_records');
   assert.match(imported, /MBR.*per-app route registration|per-app route registration/u, 'imported_doc_must_forbid_mbr_per_app_registration');
   assert.match(conformance, /per-app static route|route\.reply_to/u, 'conformance_doc_must_review_new_route_risks');
 
@@ -92,8 +101,8 @@ function test_user_docs_explain_provider_local_identity_split_and_re_wiring() {
     ['interactive', interactive],
   ]) {
     assertIncludes(text, 'remote_bus_endpoint_v1', name);
-    assertIncludes(text, 'route.to', name);
-    assertIncludes(text, 'route.reply_to', name);
+    assertIncludes(text, 'endpoint_worker_id', name);
+    assertIncludes(text, 'reply_target_worker_id', name);
     assertIncludes(text, 'submit1', name);
     assertIncludes(text, '3000', name);
     assertIncludes(text, '2000', name);
@@ -103,7 +112,7 @@ function test_user_docs_explain_provider_local_identity_split_and_re_wiring() {
     assert.equal(text.includes('on_minimal_submit_matrix_remote_submit'), false, `${name}_must_not_teach_old_single_cell_remote_handler`);
   }
 
-  assert.match(guide, /route\.to\.pin=submit1|route\.to\.pin.*submit1/u, 'guide_must_define_public_pin_entry');
+  assert.match(guide, /endpoint_pin.*submit1|submit1.*endpoint_pin/u, 'guide_must_define_public_pin_entry');
   assert.match(guide, /submit1_route/u, 'guide_must_show_root_pin_connect_cell_route');
   assert.match(guide, /submit1_wiring/u, 'guide_must_show_program_cell_pin_connect_label_wiring');
   assert.match(guide, /函数端点不能跨 Cell 直连/u, 'guide_must_forbid_cross_cell_function_endpoint');
@@ -149,7 +158,7 @@ function test_saved_zip_is_single_modeltable_records_payload() {
     record.k === 'remote_bus_endpoint_v1'
     && record.t === 'json'
     && record.v?.transport === 'mqtt'
-    && record.v?.to?.worker_id === 'RE'
+    && record.v?.to?.worker_id === 'R1'
     && record.v?.to?.model_id === 3000
     && !Object.prototype.hasOwnProperty.call(record.v.to, 'pin')
     && !Object.prototype.hasOwnProperty.call(record.v, 'reply_to')
@@ -213,7 +222,7 @@ function test_seeded_minimal_submit_app_has_no_static_route_residue() {
   assert.deepEqual(remoteEndpoint?.v, {
     transport: 'mqtt',
     to: {
-      worker_id: 'RE',
+      worker_id: 'R1',
       model_id: 3000,
     },
   }, 'seeded_minimal_app_must_declare_remote_endpoint_without_runtime_owned_pin_or_reply_to');
@@ -268,7 +277,7 @@ function test_all_seeded_dual_bus_apps_use_current_route_contract() {
     ));
     assert.deepEqual(remoteEndpoint?.v, {
       transport: 'mqtt',
-      to: { worker_id: 'RE', model_id: remoteModelId },
+      to: { worker_id: 'R1', model_id: remoteModelId },
     }, `model_${modelId}_must_declare_remote_endpoint_without_pin_or_reply_to`);
   }
 
@@ -301,9 +310,14 @@ async function test_seeded_minimal_submit_app_materializes_server_owned_route() 
       await state.programEngine.tick();
       await new Promise((resolve) => setTimeout(resolve, 450));
       assert.equal(published.length, 1, 'seeded_minimal_app_must_publish_once_through_generated_adapter');
-      assert.equal(published[0].pin, 'submit1', 'seeded_minimal_app_must_publish_public_pin');
-      assert.deepEqual(published[0].route?.to, { worker_id: 'RE', model_id: 3000, pin: 'submit1' }, 'seeded_minimal_app_route_to_must_come_from_remote_endpoint_and_public_pin');
-      assert.deepEqual(published[0].route?.reply_to, { worker_id: 'ui-server-0362-seed', model_id: 1050, pin: 'result' }, 'seeded_minimal_app_reply_to_must_be_server_owned');
+      assert.deepEqual(Object.keys(published[0]).sort(), ['payload', 'type', 'version'], 'seeded_minimal_app_packet_must_not_keep_loose_fields');
+      assert.equal(payloadValue(published[0], 'origin_pin'), 'submit1', 'seeded_minimal_app_must_publish_public_pin');
+      assert.equal(payloadValue(published[0], 'endpoint_worker_id'), 'R1', 'seeded_minimal_app_endpoint_worker_must_come_from_remote_endpoint');
+      assert.equal(payloadValue(published[0], 'endpoint_model_id'), 3000, 'seeded_minimal_app_endpoint_model_must_come_from_remote_endpoint');
+      assert.equal(payloadValue(published[0], 'endpoint_pin'), 'submit1', 'seeded_minimal_app_endpoint_pin_must_come_from_public_pin');
+      assert.equal(payloadValue(published[0], 'reply_target_worker_id'), 'ui-server-0362-seed', 'seeded_minimal_app_reply_target_worker_must_be_server_owned');
+      assert.equal(payloadValue(published[0], 'reply_target_model_id'), 1050, 'seeded_minimal_app_reply_target_model_must_be_server_owned');
+      assert.equal(payloadValue(published[0], 'reply_target_pin'), 'result', 'seeded_minimal_app_reply_target_pin_must_be_server_owned');
     });
   } finally {
     if (previousWorkerId == null) {
@@ -335,21 +349,26 @@ async function test_all_seeded_dual_bus_apps_materialize_server_owned_routes() {
           k: 'submit',
           t: 'pin.out',
           v: [
-            { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'seeded.submit.v1' },
-            { id: 0, p: 0, r: 0, c: 0, k: 'message_text', t: 'str', v: `seeded ${modelId}` },
+            mt('__mt_payload_kind', 'str', 'seeded.submit.v1'),
+            mt('message_text', 'str', `seeded ${modelId}`),
           ],
         });
         await state.programEngine.tick();
         await new Promise((resolve) => setTimeout(resolve, 120));
       }
 
-      const byModel = new Map(published.map((packet) => [packet.source_model_id, packet]));
+      const byModel = new Map(published.map((packet) => [payloadValue(packet, 'origin_model_id'), packet]));
       for (const modelId of [100, 1010, 1019]) {
         const packet = byModel.get(modelId);
         assert.ok(packet, `model_${modelId}_must_publish_through_generated_adapter`);
-        assert.equal(packet.pin, 'submit', `model_${modelId}_must_publish_submit_pin`);
-        assert.deepEqual(packet.route?.to, { worker_id: 'RE', model_id: modelId, pin: 'submit' }, `model_${modelId}_route_to_must_come_from_remote_endpoint_and_public_pin`);
-        assert.deepEqual(packet.route?.reply_to, { worker_id: 'ui-server-0362-all-seed', model_id: modelId, pin: 'result' }, `model_${modelId}_reply_to_must_be_server_owned`);
+        assert.deepEqual(Object.keys(packet).sort(), ['payload', 'type', 'version'], `model_${modelId}_packet_must_not_keep_loose_fields`);
+        assert.equal(payloadValue(packet, 'origin_pin'), 'submit', `model_${modelId}_must_publish_submit_pin`);
+        assert.equal(payloadValue(packet, 'endpoint_worker_id'), 'R1', `model_${modelId}_endpoint_worker_must_come_from_remote_endpoint`);
+        assert.equal(payloadValue(packet, 'endpoint_model_id'), modelId, `model_${modelId}_endpoint_model_must_come_from_remote_endpoint`);
+        assert.equal(payloadValue(packet, 'endpoint_pin'), 'submit', `model_${modelId}_endpoint_pin_must_come_from_public_pin`);
+        assert.equal(payloadValue(packet, 'reply_target_worker_id'), 'ui-server-0362-all-seed', `model_${modelId}_reply_target_worker_must_be_server_owned`);
+        assert.equal(payloadValue(packet, 'reply_target_model_id'), modelId, `model_${modelId}_reply_target_model_must_be_server_owned`);
+        assert.equal(payloadValue(packet, 'reply_target_pin'), 'result', `model_${modelId}_reply_target_pin_must_be_server_owned`);
       }
     });
   } finally {

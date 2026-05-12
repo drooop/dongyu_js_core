@@ -273,8 +273,8 @@ const records = Array.isArray(label && label.v) ? label.v : [];
 const text = String((records.find((rec) => rec.k === 'text') || {}).v || '').trim();
 const payload = [
   { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'app.submit.v1' },
-  { id: 0, p: 0, r: 0, c: 0, k: 'message_text', t: 'str', v: text },
-  { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: ctx.self.model_id }
+  { id: 0, p: 0, r: 0, c: 0, k: 'text', t: 'str', v: text },
+  { id: 0, p: 0, r: 0, c: 0, k: 'source', t: 'str', v: 'ui_button' }
 ];
 if (text) V1N.addLabel('submit', 'pin.out', payload);
 return;

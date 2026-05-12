@@ -2,7 +2,7 @@
 title: "User Guide Index"
 doc_type: user-guide
 status: active
-updated: 2026-05-10
+updated: 2026-05-12
 source: ai
 ---
 
@@ -21,7 +21,7 @@ source: ai
 
 | File | Role | Notes |
 |---|---|---|
-| `modeltable_user_guide.md` | current living guide | ModelTable、Mailbox、PIN/MGMT 的统一用户口径。 |
+| `modeltable_user_guide.md` | current living guide | ModelTable、Mailbox、PIN/MGMT、Web Tablet Desktop 的统一用户口径。 |
 | `ai_prompt_and_artifact_guidance.md` | current collaboration guide | 0365 规约撰写方法：硬约束 / 判断规则 / 偏好建议，以及 HTML 使用边界。 |
 | `project_address_record.md` | current address record | 本地仓库、远端 deploy、公开 URL 等仍被脚本/runlog 使用的地址。 |
 | `data_models_filltable_guide.md` | current data model guide | Feishu-aligned `Data.*` 目标合同、通用 pin、临时消息边界与 0355 状态。 |

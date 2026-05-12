@@ -74,7 +74,7 @@ function test_remote_worker_patch_uses_current_tier2_shape() {
     && record.k === 'remote_subscriptions' && record.t === 'json'
   ));
   assert.ok(subConfig, 'remote worker config patch must declare remote_subscriptions');
-  assert.ok(Array.isArray(subConfig.v) && subConfig.v.includes('UIPUT/ws/dam/pic/de/sw/worker/RE/model/100/pin/submit'), 'remote_subscriptions must include the routed model100 submit topic');
+  assert.ok(Array.isArray(subConfig.v) && subConfig.v.includes('UIPUT/ws/dam/pic/de/sw/R1/100/submit'), 'remote_subscriptions must include the routed model100 submit topic');
   assert.equal(subConfig.v.some((s) => String(s).endsWith('/100/result')), false, 'remote_subscriptions must not include static model100 result topic');
 }
 

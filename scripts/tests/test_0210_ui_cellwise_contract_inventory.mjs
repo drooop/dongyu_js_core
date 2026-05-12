@@ -28,6 +28,7 @@ function findRootLabelValue(patch, modelId, key) {
 }
 
 const pageCatalogExpectations = new Map([
+  ['desktop', -28],
   ['home', -22],
   ['gallery', -103],
   ['docs', -23],
@@ -38,6 +39,7 @@ const pageCatalogExpectations = new Map([
 ]);
 
 const rootBootstrapInventory = [
+  ['desktop', 'packages/worker-base/system-models/desktop_catalog_ui.json', -28],
   ['home', 'packages/worker-base/system-models/home_catalog_ui.json', -22],
   ['docs', 'packages/worker-base/system-models/docs_catalog_ui.json', -23],
   ['static', 'packages/worker-base/system-models/static_catalog_ui.json', -24],
