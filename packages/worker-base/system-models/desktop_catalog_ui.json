@@ -1218,6 +1218,81 @@
           }
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_task_switcher_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 25
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Tasks"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_task_switcher_open"
+          },
+          "value_ref": {
+            "t": "bool",
+            "v": true
+          }
+        }
+      }
     }
   ]
 }

@@ -377,9 +377,69 @@ NODE
 
 ### Step 6 - Task Switcher And Pseudo-Background
 
-- Command: pending
-- Key output: pending
-- Result: pending
+- Change:
+  - Added desktop task stack state label `desktop_task_stack_json`.
+  - Added task switcher open state label `desktop_task_switcher_open`.
+  - Added `Tasks` entry on the desktop model; the entry writes local UI state on Model `-2`.
+  - Recorded recently opened foreground apps latest-first while keeping a single foreground app.
+  - Added a task switcher overlay that can restore recent system apps and workspace apps.
+  - Kept pseudo-background as restorable UI state only; no split-screen or true concurrent app runtime is introduced in this phase.
+- Command: `node scripts/tests/test_0374_web_tablet_desktop_contract.mjs`
+- Key output:
+  - `[PASS] desktop_launch_records_task_stack_and_switcher_state`
+  - `[PASS] app_shell_state_dispatch_can_open_task_switcher`
+  - `[PASS] remote_store_flushes_derived_task_stack_for_fast_foreground_launches`
+  - `10 passed, 0 failed out of 10`
+- Result: PASS
+- Command: `node scripts/tests/test_0242_remote_negative_state_debounce_contract.mjs`
+- Key output: `PASS test_0242_remote_negative_state_debounce_contract`
+- Result: PASS
+- Command: `node scripts/tests/test_0346_ui_model_compliance_contract.mjs`
+- Key output: `test_0346_ui_model_compliance_contract: PASS (30 visible surfaces, 6 warnings)`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run test`
+- Key output:
+  - `editor_ast_no_direct_mutation_buttons: PASS`
+  - `editor_v1_static_upload_binding_persisted: PASS`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run build`
+- Key output:
+  - `✓ 1456 modules transformed.`
+  - `✓ built in 2.68s`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run dev -- --host 127.0.0.1 --port 5173` then Playwright CLI against `http://127.0.0.1:5173/?persist=0#/`
+- Key output:
+  - Initial desktop snapshot showed the new `Tasks` button plus existing desktop app icons.
+  - Opening `Docs`, returning to desktop, then opening `Color E2E` preserved a latest-first task list.
+  - Opening the task switcher from foreground mode showed `Color E2E · 100` and `Docs`.
+  - Selecting `Docs` restored Docs as the single foreground app and closed the switcher.
+  - Browser state after task restore: `foreground.id=docs`, `tasks=[docs, workspace:100]`, `switcher=false`, `ui_page=docs`, `mailbox_error=null`, `mailbox_event=null`.
+  - Console had only `/favicon.ico` 404 and existing Element Plus `Text type=title` warnings; no mailbox error.
+- Result: PASS
+- Command: `node scripts/tests/test_0199_nav_catalog_visibility_contract.mjs`, `node scripts/tests/test_0182_app_shell_route_sync_contract.mjs`, `node scripts/tests/test_0210_ui_cellwise_contract_inventory.mjs`, `node scripts/tests/test_0211_ui_bootstrap_and_submodel_migration.mjs`
+- Key output:
+  - `PASS test_0199_nav_catalog_visibility_contract`
+  - `PASS test_0182_app_shell_route_sync_contract`
+  - `4 passed, 0 failed out of 4`
+  - `3 passed, 0 failed out of 3`
+- Result: PASS
+- Command: `git diff --check`
+- Key output: no output
+- Result: PASS
+- Review:
+  - Reviewer: sub-agent `019e19c9-8b37-7692-aa3f-3da8e166add7`
+  - Decision: Change Requested
+  - Findings:
+    - Remote mode could coalesce rapid foreground app launches into one server write, causing the server-side task stack to lose the earlier app after SSE/snapshot refresh.
+  - Fix:
+    - When a foreground app write derives a new task stack, remote mode now queues a separate coalesced `desktop_task_stack_json` local-state write for `/ui_event`.
+    - Added `remote_store_flushes_derived_task_stack_for_fast_foreground_launches` to prove a fast Docs -> Color E2E launch preserves both tasks latest-first.
+    - Updated the older negative-state debounce contract to assert `/ui_event`, matching the current local UI state endpoint.
+- Review:
+  - Reviewer: sub-agent `019e19ce-c2ef-7950-a0f4-034da6218779`
+  - Decision: Approved
+  - Findings: none
+  - Notes: no open questions or verification gaps.
 - Commit:
 
 ### Step 7 - Batched App Entry Migration

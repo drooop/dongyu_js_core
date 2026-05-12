@@ -24,6 +24,10 @@ import { resolvePageAsset } from './page_asset_resolver.js';
 import { resolveRouteUiAst } from './route_ui_projection.js';
 import {
   DESKTOP_FOREGROUND_APP_LABEL,
+  DESKTOP_TASK_STACK_LABEL,
+  DESKTOP_TASK_SWITCHER_OPEN_LABEL,
+  deriveDesktopTaskStack,
+  normalizeDesktopForegroundApp,
   readDesktopForegroundWorkspaceModelId,
 } from './desktop_app_state.js';
 import { buildBusDispatchLabel, buildBusEventV2, normalizeBusEventV2ValueToPinPayload } from './bus_event_v2.js';
@@ -129,6 +133,22 @@ function shouldResetHomeSelectionFromEnvelope(envelope) {
     && target.c === 0
     && target.k === 'ui_page'
     && String(value && Object.prototype.hasOwnProperty.call(value, 'v') ? value.v : '').trim().toLowerCase() === 'home';
+}
+
+function readDesktopForegroundFromEnvelope(envelope) {
+  const payload = envelope && typeof envelope === 'object' ? envelope.payload : null;
+  const target = payload && typeof payload === 'object' ? payload.target : null;
+  const value = payload && typeof payload === 'object' ? payload.value : null;
+  if (!payload || payload.action !== 'label_update') return null;
+  if (!target
+    || target.model_id !== EDITOR_STATE_MODEL_ID
+    || target.p !== 0
+    || target.r !== 0
+    || target.c !== 0
+    || target.k !== DESKTOP_FOREGROUND_APP_LABEL) {
+    return null;
+  }
+  return normalizeDesktopForegroundApp(value && Object.prototype.hasOwnProperty.call(value, 'v') ? value.v : value);
 }
 
 function deriveWorkspaceRegistry(runtime) {
@@ -252,6 +272,8 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: '0' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'desktop' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_FOREGROUND_APP_LABEL, t: 'json', v: null });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_TASK_STACK_LABEL, t: 'json', v: [] });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_TASK_SWITCHER_OPEN_LABEL, t: 'bool', v: false });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_p', t: 'str', v: '0' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_r', t: 'str', v: '0' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_c', t: 'str', v: '0' });
@@ -495,6 +517,16 @@ export function createDemoStore() {
     const result = adapter.consumeOnce();
     if (shouldResetHomeSelectionFromEnvelope(pendingEnvelope)) {
       reconcileHomeSelectionState(true);
+    }
+    const foregroundApp = readDesktopForegroundFromEnvelope(pendingEnvelope);
+    if (foregroundApp) {
+      const stateModelLive = runtime.getModel(EDITOR_STATE_MODEL_ID);
+      const currentStack = runtime.getLabelValue(stateModelLive, 0, 0, 0, DESKTOP_TASK_STACK_LABEL);
+      overwriteLabel(runtime, stateModelLive, 0, 0, 0, {
+        k: DESKTOP_TASK_STACK_LABEL,
+        t: 'json',
+        v: deriveDesktopTaskStack(currentStack, foregroundApp),
+      });
     }
     updateDerived();
     refreshSnapshot();

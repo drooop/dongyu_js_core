@@ -9,6 +9,13 @@ import { buildAstFromCellwiseModel } from '../../packages/ui-model-demo-frontend
 import { createRenderer } from '../../packages/ui-renderer/src/renderer.mjs';
 import { DESKTOP_CATALOG_MODEL_ID } from '../../packages/ui-model-demo-frontend/src/model_ids.js';
 import { dispatchAppShellStateUpdate } from '../../packages/ui-model-demo-frontend/src/app_shell_state_dispatch.js';
+import { createRemoteStore } from '../../packages/ui-model-demo-frontend/src/remote_store.js';
+import {
+  DESKTOP_FOREGROUND_APP_LABEL,
+  DESKTOP_TASK_STACK_LABEL,
+  DESKTOP_TASK_SWITCHER_OPEN_LABEL,
+  readDesktopTaskStack,
+} from '../../packages/ui-model-demo-frontend/src/desktop_app_state.js';
 
 function findNodeById(ast, id) {
   let found = null;
@@ -54,6 +61,32 @@ function dispatchDesktopButton(store, node) {
   const result = store.consumeOnce();
   assert.equal(result?.result, 'ok', 'desktop_button_event_must_be_consumed');
   return getEditorStateValue(store.snapshot, 'desktop_foreground_app_json');
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function localStateMailboxLabel(target, value, opId) {
+  return {
+    p: 0,
+    r: 0,
+    c: 1,
+    k: 'ui_event',
+    t: 'event',
+    v: {
+      event_id: Date.now(),
+      type: 'label_update',
+      source: 'ui_renderer',
+      ts: 0,
+      payload: {
+        action: 'label_update',
+        meta: { op_id: opId },
+        target,
+        value,
+      },
+    },
+  };
 }
 
 function test_desktop_catalog_model_is_cellwise_ui_surface() {
@@ -173,6 +206,29 @@ function test_workspace_icon_launches_foreground_and_selects_workspace_model() {
   return { key: 'workspace_icon_launches_foreground_and_selects_workspace_model', status: 'PASS' };
 }
 
+function test_desktop_launch_records_task_stack_and_switcher_state() {
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  const ast = buildAstFromCellwiseModel(store.snapshot, DESKTOP_CATALOG_MODEL_ID);
+
+  dispatchDesktopButton(store, findNodeById(ast, 'desktop_app_docs'));
+  dispatchDesktopButton(store, findNodeById(ast, 'desktop_slide_app_100'));
+
+  const foreground = getEditorStateValue(store.snapshot, 'desktop_foreground_app_json');
+  const taskStack = readDesktopTaskStack(store.snapshot);
+  const taskSwitcherButton = findNodeById(ast, 'desktop_task_switcher_button');
+
+  assert.equal(foreground?.id, 'workspace:100', 'desktop_must_keep_single_latest_foreground_app');
+  assert.deepEqual(
+    taskStack.map((task) => task.id),
+    ['workspace:100', 'docs'],
+    'desktop_task_stack_must_keep_recent_apps_latest_first',
+  );
+  assert.equal(getEditorStateValue(store.snapshot, DESKTOP_TASK_SWITCHER_OPEN_LABEL), false, 'task_switcher_must_default_closed');
+  assert.ok(taskSwitcherButton?.bind?.write, 'desktop_must_expose_task_switcher_button');
+
+  return { key: 'desktop_launch_records_task_stack_and_switcher_state', status: 'PASS' };
+}
+
 function test_app_shell_state_dispatch_sequences_multiple_local_writes() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
 
@@ -193,6 +249,85 @@ function test_app_shell_state_dispatch_sequences_multiple_local_writes() {
   return { key: 'app_shell_state_dispatch_sequences_multiple_local_writes', status: 'PASS' };
 }
 
+function test_app_shell_state_dispatch_can_open_task_switcher() {
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+
+  dispatchAppShellStateUpdate(store, {
+    target: { model_id: -2, p: 0, r: 0, c: 0, k: DESKTOP_TASK_SWITCHER_OPEN_LABEL },
+    value: { t: 'bool', v: true },
+  });
+
+  assert.equal(getEditorStateValue(store.snapshot, DESKTOP_TASK_SWITCHER_OPEN_LABEL), true, 'task_switcher_open_must_be_local_ui_state');
+
+  return { key: 'app_shell_state_dispatch_can_open_task_switcher', status: 'PASS' };
+}
+
+async function test_remote_store_flushes_derived_task_stack_for_fast_foreground_launches() {
+  const originalFetch = globalThis.fetch;
+  const originalEventSource = globalThis.EventSource;
+  const originalWindow = globalThis.window;
+  const requests = [];
+  const stateRoot = {
+    [DESKTOP_FOREGROUND_APP_LABEL]: { k: DESKTOP_FOREGROUND_APP_LABEL, t: 'json', v: null },
+    [DESKTOP_TASK_STACK_LABEL]: { k: DESKTOP_TASK_STACK_LABEL, t: 'json', v: [] },
+    [DESKTOP_TASK_SWITCHER_OPEN_LABEL]: { k: DESKTOP_TASK_SWITCHER_OPEN_LABEL, t: 'bool', v: false },
+  };
+  globalThis.window = { location: { origin: 'http://local.test' } };
+  globalThis.EventSource = class {
+    addEventListener() {}
+    close() {}
+  };
+  globalThis.fetch = async (url, init = {}) => {
+    const entry = { url: String(url), method: String(init?.method || 'GET').toUpperCase(), body: init?.body || '' };
+    requests.push(entry);
+    const json = entry.url.endsWith('/snapshot')
+      ? { snapshot: { models: { '-2': { cells: { '0,0,0': { labels: structuredClone(stateRoot) } } } }, v1nConfig: {} } }
+      : { ok: true, result: 'ok' };
+    return {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: { get: () => 'application/json' },
+      json: async () => json,
+      text: async () => JSON.stringify(json),
+    };
+  };
+  try {
+    const store = createRemoteStore({ baseUrl: 'http://local.test' });
+    await wait(0);
+    requests.length = 0;
+    const foregroundTarget = { model_id: -2, p: 0, r: 0, c: 0, k: DESKTOP_FOREGROUND_APP_LABEL };
+    store.dispatchAddLabel(localStateMailboxLabel(foregroundTarget, {
+      t: 'json',
+      v: { id: 'docs', kind: 'system', page: 'docs', path: '/docs', title: 'Docs' },
+    }, 'it0374_docs'));
+    store.dispatchAddLabel(localStateMailboxLabel(foregroundTarget, {
+      t: 'json',
+      v: { id: 'workspace:100', kind: 'workspace', page: 'workspace', path: '/workspace', title: 'Color E2E', model_id: 100 },
+    }, 'it0374_workspace_100'));
+    await wait(260);
+
+    const uiEventBodies = requests
+      .filter((request) => request.method === 'POST' && request.url.endsWith('/ui_event'))
+      .map((request) => JSON.parse(request.body));
+    const taskStackBody = uiEventBodies.find((body) => body?.payload?.target?.k === DESKTOP_TASK_STACK_LABEL);
+
+    assert.ok(taskStackBody, 'remote_fast_launch_must_flush_derived_task_stack_to_server');
+    assert.deepEqual(
+      taskStackBody.payload.value.v.map((task) => task.id),
+      ['workspace:100', 'docs'],
+      'remote_fast_launch_task_stack_must_include_coalesced_foreground_history',
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalEventSource === undefined) delete globalThis.EventSource;
+    else globalThis.EventSource = originalEventSource;
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
+  return { key: 'remote_store_flushes_derived_task_stack_for_fast_foreground_launches', status: 'PASS' };
+}
+
 const tests = [
   test_desktop_catalog_model_is_cellwise_ui_surface,
   test_desktop_exposes_required_system_app_icons,
@@ -200,7 +335,10 @@ const tests = [
   test_root_route_resolves_desktop_and_nav_links_are_hidden,
   test_desktop_icon_launches_single_foreground_app_state,
   test_workspace_icon_launches_foreground_and_selects_workspace_model,
+  test_desktop_launch_records_task_stack_and_switcher_state,
   test_app_shell_state_dispatch_sequences_multiple_local_writes,
+  test_app_shell_state_dispatch_can_open_task_switcher,
+  test_remote_store_flushes_derived_task_stack_for_fast_foreground_launches,
 ];
 
 let passed = 0;
@@ -208,7 +346,7 @@ let failed = 0;
 
 for (const test of tests) {
   try {
-    const result = test();
+    const result = await test();
     console.log(`[${result.status}] ${result.key}`);
     passed += 1;
   } catch (error) {

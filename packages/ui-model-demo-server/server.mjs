@@ -23,6 +23,10 @@ import { buildAstFromSchema } from '../ui-model-demo-frontend/src/ui_schema_proj
 import { resolvePageAsset } from '../ui-model-demo-frontend/src/page_asset_resolver.js';
 import {
   DESKTOP_FOREGROUND_APP_LABEL,
+  DESKTOP_TASK_STACK_LABEL,
+  DESKTOP_TASK_SWITCHER_OPEN_LABEL,
+  deriveDesktopTaskStack,
+  normalizeDesktopForegroundApp,
   readDesktopForegroundWorkspaceModelId,
 } from '../ui-model-demo-frontend/src/desktop_app_state.js';
 import {
@@ -5319,6 +5323,8 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'dt_filter_ktv', 'str', '');
   ensureStateLabel(runtime, 'ui_page', 'str', 'desktop');
   ensureStateLabel(runtime, DESKTOP_FOREGROUND_APP_LABEL, 'json', null);
+  ensureStateLabel(runtime, DESKTOP_TASK_STACK_LABEL, 'json', []);
+  ensureStateLabel(runtime, DESKTOP_TASK_SWITCHER_OPEN_LABEL, 'bool', false);
   ensureStateLabel(runtime, 'dt_pause_sse', 'bool', false);
   ensureStateLabel(runtime, 'home_selected_label_text', 'str', '');
   ensureStateLabel(runtime, 'home_status_text', 'str', '');
@@ -5638,6 +5644,30 @@ function createServerState(options) {
       && target.c === 0
       && target.k === 'ui_page'
       && String(value && Object.prototype.hasOwnProperty.call(value, 'v') ? value.v : '').trim().toLowerCase() === 'home';
+  };
+
+  const readDesktopForegroundFromEnvelope = (envelope) => {
+    const payload = envelope && typeof envelope === 'object' ? envelope.payload : null;
+    const target = payload && typeof payload === 'object' ? payload.target : null;
+    const value = payload && typeof payload === 'object' ? payload.value : null;
+    if (!payload || payload.action !== 'label_update') return null;
+    if (!target
+      || target.model_id !== EDITOR_STATE_MODEL_ID
+      || target.p !== 0
+      || target.r !== 0
+      || target.c !== 0
+      || target.k !== DESKTOP_FOREGROUND_APP_LABEL) {
+      return null;
+    }
+    return normalizeDesktopForegroundApp(value && Object.prototype.hasOwnProperty.call(value, 'v') ? value.v : value);
+  };
+
+  const reconcileDesktopTaskStackFromEnvelope = (envelope) => {
+    const foregroundApp = readDesktopForegroundFromEnvelope(envelope);
+    if (!foregroundApp) return;
+    const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+    const currentStack = runtime.getLabelValue(stateModel, 0, 0, 0, DESKTOP_TASK_STACK_LABEL);
+    overwriteStateLabel(runtime, DESKTOP_TASK_STACK_LABEL, 'json', deriveDesktopTaskStack(currentStack, foregroundApp));
   };
 
   const sanitizeStartupCatalogState = () => {
@@ -7483,6 +7513,7 @@ function createServerState(options) {
     if (forceHomeSelectionReset) {
       reconcileHomeSelectionState(true);
     }
+    reconcileDesktopTaskStackFromEnvelope(envelope);
     reconcileWorkspaceSelectionState();
     updateDerived();
     await programEngine.tick();

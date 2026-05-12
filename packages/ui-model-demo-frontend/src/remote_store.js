@@ -3,6 +3,11 @@ import { getSnapshotModel, getSnapshotLabelValue, parseSafeInt } from './snapsho
 import { buildAstFromSchema } from './ui_schema_projection.js';
 import { resolveRouteUiAst } from './route_ui_projection.js';
 import { buildBusDispatchLabel, buildBusEventV2 } from './bus_event_v2.js';
+import {
+  DESKTOP_FOREGROUND_APP_LABEL,
+  DESKTOP_TASK_STACK_LABEL,
+  deriveDesktopTaskStack,
+} from './desktop_app_state.js';
 
 export function createRemoteStore(options) {
   const defaultBaseUrl = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'http://127.0.0.1:9000';
@@ -203,14 +208,36 @@ const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
     return `${target.model_id}:${target.p}:${target.r}:${target.c}:${target.k}`;
   }
 
+  function buildDerivedLocalStateEnvelope(rawEnvelope, target, value, suffix) {
+    const payload = rawEnvelope && typeof rawEnvelope === 'object' ? rawEnvelope.payload : null;
+    const meta = payload && typeof payload.meta === 'object' && payload.meta ? payload.meta : {};
+    const baseOpId = typeof meta.op_id === 'string' && meta.op_id.trim() ? meta.op_id.trim() : `local_${Date.now()}`;
+    return {
+      event_id: Date.now(),
+      type: 'label_update',
+      source: rawEnvelope && typeof rawEnvelope.source === 'string' ? rawEnvelope.source : 'ui_renderer',
+      ts: rawEnvelope && Number.isFinite(rawEnvelope.ts) ? rawEnvelope.ts : 0,
+      payload: {
+        action: 'label_update',
+        meta: {
+          ...meta,
+          op_id: `${baseOpId}_${suffix}`,
+          derived_from_op_id: baseOpId,
+        },
+        target,
+        value,
+      },
+    };
+  }
+
   function patchNegativeLocalStateLabel(target, value) {
     const modelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
-    if (!isNegativeLocalStateTarget(target)) return;
+    if (!isNegativeLocalStateTarget(target)) return [];
     if (!target || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c) || typeof target.k !== 'string') {
-      return;
+      return [];
     }
     if (!value || typeof value.t !== 'string' || !Object.prototype.hasOwnProperty.call(value, 'v')) {
-      return;
+      return [];
     }
 
     let model = getSnapshotModel(snapshot, modelId);
@@ -230,6 +257,21 @@ const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
       cell.labels = {};
     }
     cell.labels[target.k] = { k: target.k, t: value.t, v: value.v };
+    if (modelId === EDITOR_STATE_MODEL_ID && target.k === DESKTOP_FOREGROUND_APP_LABEL) {
+      const currentStack = cell.labels[DESKTOP_TASK_STACK_LABEL]?.v;
+      const nextStack = deriveDesktopTaskStack(currentStack, value.v);
+      cell.labels[DESKTOP_TASK_STACK_LABEL] = {
+        k: DESKTOP_TASK_STACK_LABEL,
+        t: 'json',
+        v: nextStack,
+      };
+      return [{
+        target: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: DESKTOP_TASK_STACK_LABEL },
+        value: { t: 'json', v: nextStack },
+        suffix: 'desktop_task_stack',
+      }];
+    }
+    return [];
   }
 
   function buildOverlayCommitEnvelope(entry, explicitValue) {
@@ -527,9 +569,16 @@ const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
     // - Still sync to server in the background to keep remote runtime state aligned.
     // - Coalesce per-target writes to reduce per-keystroke/per-drag network chatter.
     if (rawAction === 'label_update' && rawTarget && isNegativeLocalStateTarget(rawTarget)) {
-      patchNegativeLocalStateLabel(rawTarget, rawPayload.value);
+      const derivedWrites = patchNegativeLocalStateLabel(rawTarget, rawPayload.value);
       if (rawTarget && typeof rawTarget.k === 'string') {
         pendingDraftByKey.set(localStateKey(rawTarget), rawEnvelope);
+      }
+      for (const derivedWrite of derivedWrites) {
+        if (!derivedWrite?.target || !derivedWrite?.value) continue;
+        pendingDraftByKey.set(
+          localStateKey(derivedWrite.target),
+          buildDerivedLocalStateEnvelope(rawEnvelope, derivedWrite.target, derivedWrite.value, derivedWrite.suffix || 'derived'),
+        );
       }
       scheduleDraftFlush();
       return;
