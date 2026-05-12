@@ -19508,15 +19508,6 @@
               "p": 0,
               "r": 0,
               "c": 0,
-              "k": "source_model_id",
-              "t": "int",
-              "v": 1036
-            },
-            {
-              "id": 0,
-              "p": 0,
-              "r": 0,
-              "c": 0,
               "k": "target_user_id",
               "t": "str",
               "v": {
@@ -19659,15 +19650,6 @@
               "k": "__mt_payload_kind",
               "t": "str",
               "v": "mgmt_bus_console.refresh.v1"
-            },
-            {
-              "id": 0,
-              "p": 0,
-              "r": 0,
-              "c": 0,
-              "k": "source_model_id",
-              "t": "int",
-              "v": 1036
             }
           ],
           "commit_policy": "immediate"
@@ -23548,7 +23530,7 @@
       "k": "handle_submit",
       "t": "func.js",
       "v": {
-        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = function(key, fallback) { const rec = records.find(function(item) { return item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key; }); return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback; };\nconst text = String(readPayload('text', '')).trim();\nconst source = String(readPayload('source', 'ui_button'));\nconst SELF = ctx.self.model_id;\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'minimal_submit.request.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'text', t: 'str', v: text },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: SELF },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source', t: 'str', v: source }\n];\nV1N.addLabel('input_text', 'str', text);\nV1N.addLabel('last_submit_payload', 'json', payload);\nV1N.addLabel('submit_inflight', 'bool', !!text);\nV1N.addLabel('remote_status', 'str', text ? 'sending' : 'empty_input');\nif (text) V1N.addLabel('submit1', 'pin.out', payload);\nreturn;"
+        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = function(key, fallback) { const rec = records.find(function(item) { return item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key; }); return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback; };\nconst text = String(readPayload('text', '')).trim();\nconst source = String(readPayload('source', 'ui_button'));\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'minimal_submit.request.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'text', t: 'str', v: text },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source', t: 'str', v: source }\n];\nV1N.addLabel('input_text', 'str', text);\nV1N.addLabel('last_submit_payload', 'json', payload);\nV1N.addLabel('submit_inflight', 'bool', !!text);\nV1N.addLabel('remote_status', 'str', text ? 'sending' : 'empty_input');\nif (text) V1N.addLabel('submit1', 'pin.out', payload);\nreturn;"
       }
     },
     {

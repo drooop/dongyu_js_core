@@ -19,6 +19,77 @@ function getFunctionCode(label) {
   return '';
 }
 
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function tempPayload(text = 'hello endpoint') {
+  return [
+    mt('model_type', 'model.single', 'Data.MinimalSubmit'),
+    mt('text', 'str', text),
+  ];
+}
+
+function pinPayloadRecords({
+  opId = '0362_endpoint_ok',
+  endpointWorkerId = 'RE',
+  endpointModelId = 3000,
+  endpointPin = 'submit1',
+  originWorkerId = 'ui-server-local',
+  originModelId = 2000,
+  originPin = 'submit1',
+  replyTargetWorkerId = 'ui-server-local',
+  replyTargetModelId = 2000,
+  replyTargetPin = 'result',
+  payload = tempPayload(),
+  timestamp = 1700000000000,
+} = {}) {
+  return [
+    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('__mt_request_id', 'str', opId),
+    mt('op_id', 'str', opId),
+    mt('endpoint_worker_id', 'str', endpointWorkerId),
+    mt('endpoint_model_id', 'int', endpointModelId),
+    mt('endpoint_pin', 'str', endpointPin),
+    mt('origin_worker_id', 'str', originWorkerId),
+    mt('origin_model_id', 'int', originModelId),
+    mt('origin_pin', 'str', originPin),
+    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
+    mt('reply_target_model_id', 'int', replyTargetModelId),
+    mt('reply_target_pin', 'str', replyTargetPin),
+    mt('payload', 'json', payload),
+    mt('timestamp', 'int', timestamp),
+  ];
+}
+
+function withoutRecords(records, keys) {
+  const deny = new Set(keys);
+  return records.filter((record) => !deny.has(record.k));
+}
+
+function externalPacket(records) {
+  return { version: 'v1', type: 'pin_payload', payload: records };
+}
+
+function payloadRecord(records, key) {
+  return Array.isArray(records) ? records.find((record) => record && record.k === key) || null : null;
+}
+
+function payloadString(records, key) {
+  const record = payloadRecord(records, key);
+  return record && record.t === 'str' ? record.v : '';
+}
+
+function payloadInt(records, key) {
+  const record = payloadRecord(records, key);
+  return record && record.t === 'int' ? record.v : null;
+}
+
+function payloadJson(records, key) {
+  const record = payloadRecord(records, key);
+  return record && record.t === 'json' ? record.v : null;
+}
+
 function loadMbrRuntime() {
   const rt = new ModelTableRuntime();
   loadSystemPatch(rt);
@@ -44,20 +115,6 @@ function loadRemoteRuntime() {
     });
   }
   return rt;
-}
-
-function tempPayload(text = 'hello route') {
-  return [
-    { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.MinimalSubmit' },
-    { id: 0, p: 0, r: 0, c: 0, k: 'text', t: 'str', v: text },
-  ];
-}
-
-function routeFor(localModelId = 2000) {
-  return {
-    to: { worker_id: 'RE', model_id: 3000, pin: 'submit1' },
-    reply_to: { worker_id: 'ui-server-local', model_id: localModelId, pin: 'result' },
-  };
 }
 
 async function wait(ms = 80) {
@@ -102,20 +159,20 @@ function test_no_static_mbr_route_or_model_subscription_residue() {
   assert.equal(mbrText.includes('mbr_mqtt_model_ids'), false, 'MBR patch must not seed static MQTT model ids');
   assert.equal(workerId, 'RE', 'remote-worker runtime must declare its worker id for topic guard');
   assert.deepEqual(subscriptions, [
-    'UIPUT/ws/dam/pic/de/sw/worker/RE/model/100/pin/submit',
-    'UIPUT/ws/dam/pic/de/sw/worker/RE/model/1010/pin/submit',
-    'UIPUT/ws/dam/pic/de/sw/worker/RE/model/1019/pin/submit',
-    'UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1',
-  ], 'remote-worker subscriptions must be route-addressed worker/model/pin topics only');
+    'UIPUT/ws/dam/pic/de/sw/RE/100/submit',
+    'UIPUT/ws/dam/pic/de/sw/RE/1010/submit',
+    'UIPUT/ws/dam/pic/de/sw/RE/1019/submit',
+    'UIPUT/ws/dam/pic/de/sw/RE/3000/submit1',
+  ], 'remote-worker subscriptions must be unified worker/model/pin endpoint topics only');
   assert.equal(
-    workerBootstrap.includes("`${base}/worker/+/model/+/pin/+`"),
+    workerBootstrap.includes('$' + '{base}/+/+/+'),
     true,
-    'MBR worker bootstrap must subscribe to route-addressed worker/model/pin wildcard topics',
+    'worker bootstrap must subscribe to the unified worker/model/pin wildcard topic',
   );
   assert.equal(
-    workerBootstrap.includes("`${base}/${mid}/result`"),
+    workerBootstrap.includes('$' + '{base}/worker/+/model/+/pin/+'),
     false,
-    'MBR worker bootstrap must not subscribe through fixed legacy model result topics',
+    'worker bootstrap must not subscribe through old worker/model/pin wildcard topics',
   );
   return { key: 'no_static_mbr_route_or_model_subscription_residue', status: 'PASS' };
 }
@@ -129,6 +186,9 @@ function test_remote_worker_patches_do_not_keep_raw_result_fallbacks() {
   ]) {
     const text = fs.readFileSync(pathname, 'utf8');
     assert.equal(text.includes('ctx.publishMqtt'), false, pathname + ' must not publish transport directly');
+    assert.equal(text.includes('source_model_id'), false, pathname + ' must not use legacy source_model_id metadata');
+    assert.equal(text.includes('reply_to'), false, pathname + ' must not use legacy reply_to metadata');
+    assert.equal(text.includes("k === 'route'"), false, pathname + ' must not read legacy route records');
     assert.equal(text.includes('return buildReplyBusPayload(resultPayload) || resultPayload;'), false, pathname + ' must not keep raw result fallback');
     assert.equal(text.includes('return resultPayload;'), false, pathname + ' must not return raw public result payload');
     assert.equal(text.includes('return payload;'), false, pathname + ' must not return raw public input payload');
@@ -136,55 +196,40 @@ function test_remote_worker_patches_do_not_keep_raw_result_fallbacks() {
   return { key: 'remote_worker_patches_do_not_keep_raw_result_fallbacks', status: 'PASS' };
 }
 
-function test_mbr_uses_message_route_to_and_rejects_missing_route() {
+function test_mbr_uses_endpoint_records_and_rejects_missing_endpoint() {
   const rt = loadMbrRuntime();
   const sys = rt.getModel(-10);
   const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt')));
   rt.addLabel(sys, 0, 0, 0, {
     k: 'mbr_mgmt_inbox',
     t: 'json',
-    v: {
-      version: 'v1',
-      type: 'pin_payload',
-      op_id: '0362_route_ok',
-      source_model_id: 2000,
-      pin: 'submit1',
-      route: routeFor(2000),
-      payload: tempPayload('mbr route'),
-      timestamp: 1700000000000,
-    },
+    v: externalPacket(pinPayloadRecords({ opId: '0362_endpoint_ok', payload: tempPayload('mbr endpoint') })),
   });
   fn({ hostApi: buildWorkerHostApi(rt) });
   const cbOut = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_cb_out');
   const packet = toExternalPinPacket(rt, cbOut);
-  assert.equal(cbOut?.t, 'pin.bus.cb.out', 'MBR must write route packet to control-bus out pin');
+  assert.equal(cbOut?.t, 'pin.bus.cb.out', 'MBR must write endpoint packet to control-bus out pin');
   assert.equal(packet?.type, 'pin_payload', 'control-bus out pin must carry pin_payload');
+  assert.deepEqual(Object.keys(packet).sort(), ['payload', 'type', 'version'], 'MBR transport packet must not carry loose route/source/pin fields');
   const { mqttPublished: published } = drainWorkerEngine(rt);
-  assert.equal(published.length, 1, 'MBR must publish route-addressed packet');
-  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1', 'MBR topic must come from route.to');
-  assert.equal(published[0].payload?.source_model_id, 2000, 'MBR must preserve local installed source model id');
-  assert.equal(published[0].payload?.route?.reply_to?.model_id, 2000, 'MBR must preserve server-owned reply_to');
+  assert.equal(published.length, 1, 'MBR must publish endpoint-addressed packet');
+  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/RE/3000/submit1', 'MBR topic must come from endpoint records');
+  assert.equal(payloadString(published[0].payload.payload, 'origin_worker_id'), 'ui-server-local', 'MBR must preserve local origin worker id');
+  assert.equal(payloadInt(published[0].payload.payload, 'origin_model_id'), 2000, 'MBR must preserve local origin model id');
+  assert.equal(payloadString(published[0].payload.payload, 'reply_target_worker_id'), 'ui-server-local', 'MBR must preserve server-owned reply target');
 
   rt.addLabel(sys, 0, 0, 0, {
     k: 'mbr_mgmt_inbox',
     t: 'json',
-    v: {
-      version: 'v1',
-      type: 'pin_payload',
-      op_id: '0362_route_missing',
-      source_model_id: 2000,
-      pin: 'submit1',
-      payload: tempPayload('missing route'),
-      timestamp: 1700000000001,
-    },
+    v: externalPacket(withoutRecords(pinPayloadRecords({ opId: '0362_endpoint_missing' }), ['endpoint_worker_id'])),
   });
   fn({ hostApi: buildWorkerHostApi(rt) });
-  assert.equal(published.length, 1, 'missing route must not publish');
-  assert.equal(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_error')?.v?.detail, 'missing_route_to', 'missing route rejection must be explicit');
-  return { key: 'mbr_uses_message_route_to_and_rejects_missing_route', status: 'PASS' };
+  assert.equal(published.length, 1, 'missing endpoint records must not publish');
+  assert.equal(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_error')?.v?.detail, 'invalid_pin_payload_records', 'missing endpoint rejection must be explicit');
+  return { key: 'mbr_uses_endpoint_records_and_rejects_missing_endpoint', status: 'PASS' };
 }
 
-function test_mbr_does_not_echo_own_route_to_mqtt_publish() {
+function test_mbr_does_not_echo_own_control_publish_to_management_bus() {
   const rt = loadMbrRuntime();
   const sys = rt.getModel(-10);
   const mgmtFn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt')));
@@ -193,16 +238,7 @@ function test_mbr_does_not_echo_own_route_to_mqtt_publish() {
   rt.addLabel(sys, 0, 0, 0, {
     k: 'mbr_mgmt_inbox',
     t: 'json',
-    v: {
-      version: 'v1',
-      type: 'pin_payload',
-      op_id: '0362_no_echo',
-      source_model_id: 2000,
-      pin: 'submit1',
-      route: routeFor(2000),
-      payload: tempPayload('no echo'),
-      timestamp: 1700000000005,
-    },
+    v: externalPacket(pinPayloadRecords({ opId: '0362_no_echo', payload: tempPayload('no echo') })),
   });
   mgmtFn({ hostApi: buildWorkerHostApi(rt) });
   const { mqttPublished: published } = drainWorkerEngine(rt);
@@ -211,137 +247,119 @@ function test_mbr_does_not_echo_own_route_to_mqtt_publish() {
   rt.addLabel(sys, 0, 0, 0, {
     k: 'mbr_mqtt_inbox',
     t: 'json',
-    v: {
-      topic: published[0].topic,
-      payload: published[0].payload,
-    },
+    v: { topic: published[0].topic, payload: published[0].payload },
   });
   mqttFn({ hostApi: buildWorkerHostApi(rt) });
-  assert.equal(rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_mb_out')?.v, null, 'MBR must not bridge its own route.to MQTT publish back to Matrix');
-  return { key: 'mbr_does_not_echo_own_route_to_mqtt_publish', status: 'PASS' };
+  assert.equal(rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_mb_out')?.v, null, 'MBR must not bridge its own endpoint request back to Matrix');
+  return { key: 'mbr_does_not_echo_own_control_publish_to_management_bus', status: 'PASS' };
 }
 
-async function test_remote_worker_submit1_receives_route_and_replies_to_reply_to() {
+function test_mbr_mqtt_inbound_bridges_remote_reply_to_management_bus() {
+  const rt = loadMbrRuntime();
+  const sys = rt.getModel(-10);
+  const mqttFn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mqtt_to_mgmt')));
+  const replyRecords = pinPayloadRecords({
+    opId: '0362_remote_reply',
+    endpointWorkerId: 'ui-server-local',
+    endpointModelId: 2000,
+    endpointPin: 'result',
+    originWorkerId: 'RE',
+    originModelId: 3000,
+    originPin: 'submit1',
+    replyTargetWorkerId: 'ui-server-local',
+    replyTargetModelId: 2000,
+    replyTargetPin: 'result',
+    payload: [mt('display_text', 'str', 'Submitted: from remote')],
+  });
+  rt.addLabel(sys, 0, 0, 0, {
+    k: 'mbr_mqtt_inbox',
+    t: 'json',
+    v: { topic: 'UIPUT/ws/dam/pic/de/sw/ui-server-local/2000/result', payload: externalPacket(replyRecords) },
+  });
+  mqttFn({ hostApi: buildWorkerHostApi(rt) });
+  const mbOut = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_mb_out');
+  const packet = toExternalPinPacket(rt, mbOut);
+  assert.equal(mbOut?.t, 'pin.bus.mb.out', 'MBR must bridge remote replies to management-bus out pin');
+  assert.equal(payloadString(packet.payload, 'endpoint_worker_id'), 'ui-server-local', 'remote reply endpoint must be preserved');
+  assert.equal(payloadJson(packet.payload, 'payload')?.find((record) => record.k === 'display_text')?.v, 'Submitted: from remote', 'remote reply payload must be preserved');
+  return { key: 'mbr_mqtt_inbound_bridges_remote_reply_to_management_bus', status: 'PASS' };
+}
+
+async function test_remote_worker_submit1_receives_endpoint_and_replies_to_reply_target() {
   const rt = loadRemoteRuntime();
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1', {
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: '0362_remote_submit',
-    source_model_id: 2000,
-    pin: 'submit1',
-    route: routeFor(2000),
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1', externalPacket(pinPayloadRecords({
+    opId: '0362_remote_submit',
     payload: tempPayload('browser submit'),
-    timestamp: 1700000000002,
-  });
-  assert.equal(accepted, true, 'remote runtime must accept worker/model/pin submit1 topic');
+  })));
+  assert.equal(accepted, true, 'remote runtime must accept unified submit1 endpoint topic');
   await wait();
   const model = rt.getModel(3000);
   const root = rt.getCell(model, 0, 0, 0).labels;
-  assert.equal(root.get('result')?.v?.find((record) => record.k === 'payload')?.v?.find((record) => record.k === 'display_text')?.v, 'Submitted: browser submit', 'remote submit handler must emit provider result pin payload');
+  const resultValue = root.get('result')?.v;
+  assert.equal(payloadJson(resultValue, 'payload')?.find((record) => record.k === 'display_text')?.v, 'Submitted: browser submit', 'remote submit handler must emit provider result pin payload');
   const { mqttPublished: published } = drainWorkerEngine(rt);
   assert.equal(published.length, 1, 'remote submit handler must publish one reply');
-  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/worker/ui-server-local/model/2000/pin/result', 'reply topic must come from route.reply_to');
-  assert.equal(published[0].payload?.source_model_id, 2000, 'reply payload source_model_id must target local installed model');
-  assert.equal(published[0].payload?.pin, 'result', 'reply payload must use reply_to pin');
-  assert.equal(published[0].payload?.payload?.find((record) => record.k === 'display_text')?.v, 'Submitted: browser submit', 'reply payload must carry display_text');
-  return { key: 'remote_worker_submit1_receives_route_and_replies_to_reply_to', status: 'PASS' };
+  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/ui-server-local/2000/result', 'reply topic must come from reply target records');
+  assert.equal(payloadString(published[0].payload.payload, 'endpoint_worker_id'), 'ui-server-local', 'reply payload endpoint must target UI server');
+  assert.equal(payloadString(published[0].payload.payload, 'origin_worker_id'), 'RE', 'reply payload origin must be remote worker');
+  assert.equal(payloadJson(published[0].payload.payload, 'payload')?.find((record) => record.k === 'display_text')?.v, 'Submitted: browser submit', 'reply payload must carry display_text');
+  return { key: 'remote_worker_submit1_receives_endpoint_and_replies_to_reply_target', status: 'PASS' };
 }
 
-async function test_runtime_route_record_overrides_business_route_record() {
+async function test_runtime_rejects_legacy_business_route_record() {
   const rt = loadRemoteRuntime();
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1', {
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: '0362_remote_submit_route_shadow',
-    source_model_id: 2000,
-    pin: 'submit1',
-    route: routeFor(2000),
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1', externalPacket(pinPayloadRecords({
+    opId: '0362_reject_business_route',
     payload: [
-      {
-        id: 0,
-        p: 0,
-        r: 0,
-        c: 0,
-        k: 'route',
-        t: 'json',
-        v: {
-          to: { worker_id: 'RE', model_id: 3000, pin: 'submit1' },
-          reply_to: { worker_id: 'attacker', model_id: 9999, pin: 'result' },
-        },
-      },
+      mt('route', 'json', { to: { worker_id: 'RE', model_id: 3000, pin: 'submit1' } }),
       ...tempPayload('route shadow'),
     ],
-    timestamp: 1700000000003,
-  });
-  assert.equal(accepted, true, 'remote runtime must accept the outer packet route');
-  await wait();
+  })));
+  assert.equal(accepted, false, 'runtime must reject legacy route records even inside business payload');
   const { mqttPublished: published } = drainWorkerEngine(rt);
-  assert.equal(published.length, 1, 'remote submit handler must publish one reply');
-  assert.equal(
-    published[0].topic,
-    'UIPUT/ws/dam/pic/de/sw/worker/ui-server-local/model/2000/pin/result',
-    'runtime-injected route metadata must override same-key business payload records',
-  );
-  return { key: 'runtime_route_record_overrides_business_route_record', status: 'PASS' };
+  assert.equal(published.length, 0, 'rejected legacy business route must not publish a reply');
+  return { key: 'runtime_rejects_legacy_business_route_record', status: 'PASS' };
 }
 
-async function test_remote_worker_rejects_missing_reply_to_without_public_result() {
+async function test_remote_worker_rejects_missing_reply_target_without_public_result() {
   const rt = loadRemoteRuntime();
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1', {
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: '0362_missing_reply_to',
-    source_model_id: 2000,
-    pin: 'submit1',
-    route: { to: { worker_id: 'RE', model_id: 3000, pin: 'submit1' } },
-    payload: tempPayload('missing reply_to'),
-    timestamp: 1700000000006,
-  });
-  assert.equal(accepted, true, 'remote runtime must accept packet before program-level reply_to validation');
-  await wait();
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1', externalPacket(withoutRecords(pinPayloadRecords({
+    opId: '0362_missing_reply_target',
+    payload: tempPayload('missing reply target'),
+  }), ['reply_target_worker_id', 'reply_target_model_id', 'reply_target_pin'])));
+  assert.equal(accepted, false, 'remote runtime must reject packets missing reply target records at ingress');
   const model = rt.getModel(3000);
   const root = rt.getCell(model, 0, 0, 0).labels;
-  const programCell = rt.getCell(model, 1, 1, 1).labels;
-  assert.equal(root.get('result')?.v, null, 'missing reply_to must not write non-pin_payload data to public result pin');
-  assert.equal(programCell.get('remote_status')?.v, 'route_reply_to_missing', 'missing reply_to must be visible on the program cell');
+  assert.equal(root.get('result')?.v, null, 'missing reply target must not write public result pin');
   const { mqttPublished: published } = drainWorkerEngine(rt);
-  assert.equal(published.length, 0, 'missing reply_to must not publish a public bus result');
-  return { key: 'remote_worker_rejects_missing_reply_to_without_public_result', status: 'PASS' };
+  assert.equal(published.length, 0, 'missing reply target must not publish a public bus result');
+  return { key: 'remote_worker_rejects_missing_reply_target_without_public_result', status: 'PASS' };
 }
 
-async function test_remote_worker_rejects_invalid_reply_to_without_public_result() {
+async function test_remote_worker_rejects_invalid_reply_target_without_public_result() {
   const rt = loadRemoteRuntime();
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1', {
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: '0362_invalid_reply_to',
-    source_model_id: 2000,
-    pin: 'submit1',
-    route: {
-      to: { worker_id: 'RE', model_id: 3000, pin: 'submit1' },
-      reply_to: { worker_id: '', model_id: -1, pin: 'bad/pin' },
-    },
-    payload: tempPayload('invalid reply_to'),
-    timestamp: 1700000000007,
-  });
-  assert.equal(accepted, true, 'remote runtime must accept packet before program-level invalid reply_to validation');
-  await wait();
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1', externalPacket(pinPayloadRecords({
+    opId: '0362_invalid_reply_target',
+    replyTargetWorkerId: '',
+    replyTargetModelId: -1,
+    replyTargetPin: 'bad/pin',
+    payload: tempPayload('invalid reply target'),
+  })));
+  assert.equal(accepted, false, 'remote runtime must reject invalid reply target records at ingress');
   const model = rt.getModel(3000);
   const root = rt.getCell(model, 0, 0, 0).labels;
-  const programCell = rt.getCell(model, 1, 1, 1).labels;
-  assert.equal(root.get('result')?.v, null, 'invalid reply_to must not write non-pin_payload data to public result pin');
-  assert.equal(programCell.get('remote_status')?.v, 'route_reply_to_missing', 'invalid reply_to must be visible on the program cell');
+  assert.equal(root.get('result')?.v, null, 'invalid reply target must not write public result pin');
   const { mqttPublished: published } = drainWorkerEngine(rt);
-  assert.equal(published.length, 0, 'invalid reply_to must not publish a public bus result');
-  return { key: 'remote_worker_rejects_invalid_reply_to_without_public_result', status: 'PASS' };
+  assert.equal(published.length, 0, 'invalid reply target must not publish a public bus result');
+  return { key: 'remote_worker_rejects_invalid_reply_target_without_public_result', status: 'PASS' };
 }
 
 function test_mbr_mqtt_inbound_rejects_invalid_temporary_modeltable_records() {
@@ -352,24 +370,27 @@ function test_mbr_mqtt_inbound_rejects_invalid_temporary_modeltable_records() {
     k: 'mbr_mqtt_inbox',
     t: 'json',
     v: {
-      topic: 'UIPUT/ws/dam/pic/de/sw/worker/ui-server-local/model/2000/pin/result',
-      payload: {
-        version: 'v1',
-        type: 'pin_payload',
-        op_id: '0362_bad_mqtt_payload',
-        source_model_id: 2000,
-        pin: 'result',
-        route: { to: { worker_id: 'ui-server-local', model_id: 2000, pin: 'result' } },
+      topic: 'UIPUT/ws/dam/pic/de/sw/ui-server-local/2000/result',
+      payload: externalPacket(pinPayloadRecords({
+        opId: '0362_bad_mqtt_payload',
+        endpointWorkerId: 'ui-server-local',
+        endpointModelId: 2000,
+        endpointPin: 'result',
+        originWorkerId: 'RE',
+        originModelId: 3000,
+        originPin: 'submit1',
+        replyTargetWorkerId: 'ui-server-local',
+        replyTargetModelId: 2000,
+        replyTargetPin: 'result',
         payload: [{ id: 0, p: 0, r: 0, c: 0, k: 'display_text', t: 'str' }],
-        timestamp: 1700000000004,
-      },
+      })),
     },
   });
   fn({ hostApi: buildWorkerHostApi(rt) });
   assert.equal(rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_mb_out')?.v, null, 'invalid MQTT inbound payload must not be bridged to management-bus out pin');
   assert.equal(
     rt.getCell(sys, 0, 0, 0).labels.get('mbr_mqtt_error')?.v?.detail,
-    'temporary_modeltable_required',
+    'invalid_pin_payload_records',
     'invalid MQTT inbound payload rejection must be visible',
   );
   return { key: 'mbr_mqtt_inbound_rejects_invalid_temporary_modeltable_records', status: 'PASS' };
@@ -378,12 +399,13 @@ function test_mbr_mqtt_inbound_rejects_invalid_temporary_modeltable_records() {
 const tests = [
   test_no_static_mbr_route_or_model_subscription_residue,
   test_remote_worker_patches_do_not_keep_raw_result_fallbacks,
-  test_mbr_uses_message_route_to_and_rejects_missing_route,
-  test_mbr_does_not_echo_own_route_to_mqtt_publish,
-  test_remote_worker_submit1_receives_route_and_replies_to_reply_to,
-  test_runtime_route_record_overrides_business_route_record,
-  test_remote_worker_rejects_missing_reply_to_without_public_result,
-  test_remote_worker_rejects_invalid_reply_to_without_public_result,
+  test_mbr_uses_endpoint_records_and_rejects_missing_endpoint,
+  test_mbr_does_not_echo_own_control_publish_to_management_bus,
+  test_mbr_mqtt_inbound_bridges_remote_reply_to_management_bus,
+  test_remote_worker_submit1_receives_endpoint_and_replies_to_reply_target,
+  test_runtime_rejects_legacy_business_route_record,
+  test_remote_worker_rejects_missing_reply_target_without_public_result,
+  test_remote_worker_rejects_invalid_reply_target_without_public_result,
   test_mbr_mqtt_inbound_rejects_invalid_temporary_modeltable_records,
 ];
 
@@ -392,13 +414,13 @@ let failed = 0;
 for (const test of tests) {
   try {
     const result = await test();
-    console.log(`[${result.status}] ${result.key}`);
+    console.log('[' + result.status + '] ' + result.key);
     passed += 1;
   } catch (error) {
-    console.log(`[FAIL] ${test.name}: ${error && error.stack ? error.stack : error}`);
+    console.log('[FAIL] ' + test.name + ': ' + (error && error.stack ? error.stack : error));
     failed += 1;
   }
 }
 
-console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
+console.log('\n' + passed + ' passed, ' + failed + ' failed out of ' + tests.length);
 process.exit(failed > 0 ? 1 : 0);

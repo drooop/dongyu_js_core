@@ -2169,6 +2169,90 @@ async function test_server_return_accepts_safe_numeric_origin_segments() {
   return { key: 'server_return_accepts_safe_numeric_origin_segments', status: 'PASS' };
 }
 
+function collectExecutableStrings(value, out = []) {
+  if (!value) return out;
+  if (Array.isArray(value)) {
+    for (const item of value) collectExecutableStrings(item, out);
+    return out;
+  }
+  if (typeof value !== 'object') return out;
+  if (value.t === 'func.js' && value.v && typeof value.v.code === 'string') {
+    out.push({ key: value.k || '', text: value.v.code });
+  }
+  for (const child of Object.values(value)) collectExecutableStrings(child, out);
+  return out;
+}
+
+function collectModelTableRecords(value, out = []) {
+  if (!value) return out;
+  if (Array.isArray(value)) {
+    for (const item of value) collectModelTableRecords(item, out);
+    return out;
+  }
+  if (typeof value !== 'object') return out;
+  const keys = Object.keys(value).sort().join(',');
+  if (keys === 'c,id,k,p,r,t,v'
+    && Number.isInteger(value.id)
+    && Number.isInteger(value.p)
+    && Number.isInteger(value.r)
+    && Number.isInteger(value.c)
+    && typeof value.k === 'string'
+    && typeof value.t === 'string') {
+    out.push(value);
+  }
+  for (const child of Object.values(value)) collectModelTableRecords(child, out);
+  return out;
+}
+
+async function test_current_tier2_and_fixture_sources_have_no_legacy_transport_metadata() {
+  const sourceFiles = [
+    'deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json',
+    'deploy/sys-v1ns/remote-worker/patches/10_model100.json',
+    'deploy/sys-v1ns/remote-worker/patches/11_model1010.json',
+    'deploy/sys-v1ns/remote-worker/patches/12_model1019.json',
+    'deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json',
+    'packages/worker-base/system-models/test_model_100_ui.json',
+    'packages/worker-base/system-models/workspace_positive_models.json',
+    'test_files/minimal_submit_dual_bus_app_payload.json',
+    'test_files/imported_host_egress_app_payload.json',
+  ];
+  const legacyPatterns = [
+    { name: 'old worker/model/pin topic', pattern: /UIPUT\/[^"'\s]+\/worker\/[^"'\s]+\/model\/[^"'\s]+\/pin\//u },
+    { name: 'source_model_id metadata', pattern: /source_model_id/u },
+    { name: 'reply_to metadata', pattern: /\breply_to\b/u },
+    { name: 'route.reply_to metadata', pattern: /route\.reply_to/u },
+    { name: 'return topic metadata', pattern: /return_topic|returnTopic|result_topic/u },
+    { name: 'route record metadata', pattern: /\bk:\s*['"]route['"]|["']k["']\s*:\s*["']route["']/u },
+  ];
+  const failures = [];
+  for (const relPath of sourceFiles) {
+    const raw = readFileSync(new URL(relPath, repoRoot), 'utf8');
+    if (/UIPUT\/[^"'\s]+\/worker\/[^"'\s]+\/model\/[^"'\s]+\/pin\//u.test(raw)) {
+      failures.push(`${relPath}: old worker/model/pin topic`);
+    }
+    const json = JSON.parse(raw);
+    for (const record of collectModelTableRecords(json)) {
+      if (['source_model_id', 'pin', 'route', 'reply_to', 'route.reply_to', 'return_topic', 'returnTopic', 'result_topic'].includes(record.k)) {
+        failures.push(`${relPath}: modeltable record ${record.k}`);
+      }
+    }
+    for (const entry of collectExecutableStrings(json)) {
+      for (const { name, pattern } of legacyPatterns.slice(1)) {
+        if (pattern.test(entry.text)) failures.push(`${relPath}:${entry.key}: ${name}`);
+      }
+    }
+  }
+  assert.deepEqual(failures, [], `current Tier2 and app fixture sources must not use legacy transport metadata: ${failures.join('; ')}`);
+  return { key: 'current_tier2_and_fixture_sources_have_no_legacy_transport_metadata', status: 'PASS' };
+}
+
+async function test_frontend_projection_does_not_parse_removed_console_ack_shape() {
+  const source = readFileSync(new URL('packages/ui-model-demo-frontend/src/editor_page_state_derivers.js', repoRoot), 'utf8');
+  assert.equal(source.includes("payload.type === 'mgmt_bus_console_ack'"), false, 'frontend projection must not parse retired direct mgmt_bus_console_ack packets');
+  assert.equal(source.includes('payload.source_model_id'), false, 'frontend projection must not read retired loose source_model_id fields');
+  return { key: 'frontend_projection_does_not_parse_removed_console_ack_shape', status: 'PASS' };
+}
+
 const tests = [
   test_runtime_topic_for_builds_unified_worker_model_topic,
   test_runtime_mqtt_incoming_accepts_unified_endpoint_topic_without_loose_pin,
@@ -2237,6 +2321,8 @@ const tests = [
   test_server_rejects_legacy_record_extra_properties_inside_pin_payload,
   test_server_owner_materialization_rejects_malformed_nested_pin_payload_pin_label,
   test_server_return_accepts_safe_numeric_origin_segments,
+  test_current_tier2_and_fixture_sources_have_no_legacy_transport_metadata,
+  test_frontend_projection_does_not_parse_removed_console_ack_shape,
 ];
 
 (async () => {

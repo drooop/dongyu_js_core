@@ -152,15 +152,6 @@ function parseTraceLogEvent(line, index) {
   const nestedRecords = payload.type === 'pin_payload' && isModelTableRecordArray(readModelTableRecordValue(payloadRecords, 'payload'))
     ? readModelTableRecordValue(payloadRecords, 'payload')
     : payloadRecords;
-  if (payload.type === 'mgmt_bus_console_ack') {
-    const ackKind = readModelTableRecordString(payloadRecords, '__mt_payload_kind').trim();
-    const ackTarget = readModelTableRecordString(payloadRecords, 'target_user_id').trim();
-    const ackReply = readModelTableRecordString(payloadRecords, 'reply_text').trim();
-    const topLevelTarget = typeof payload.target_user_id === 'string' ? payload.target_user_id.trim() : '';
-    if (payload.source_model_id !== 1036) return null;
-    if (topLevelTarget && topLevelTarget !== ackTarget) return null;
-    if (ackKind !== 'mgmt_bus_console.ack.v1' || !ackTarget.startsWith('@mbr:') || !ackReply) return null;
-  }
   const outerOpId = readModelTableRecordString(payloadRecords, 'op_id', String(payload.op_id || detail.op_id || ''));
   const targetUserId = readModelTableRecordString(nestedRecords, 'target_user_id', String(payload.target_user_id || ''));
   const draft = readModelTableRecordString(
@@ -170,9 +161,7 @@ function parseTraceLogEvent(line, index) {
   );
   const nestedKind = readModelTableRecordString(nestedRecords, '__mt_payload_kind', '');
   const outerKind = readModelTableRecordString(payloadRecords, '__mt_payload_kind', String(payload.type || ''));
-  const kind = payload.type === 'mgmt_bus_console_ack'
-    ? 'mgmt_bus_console.ack.v1'
-    : (nestedKind.startsWith('mgmt_bus_console.') ? nestedKind : outerKind);
+  const kind = nestedKind.startsWith('mgmt_bus_console.') ? nestedKind : outerKind;
   const preview = kind === 'mgmt_bus_console.ack.v1'
     ? readModelTableRecordString(nestedRecords, 'reply_text')
     : (targetUserId && draft ? `to ${targetUserId}: ${draft}` : stringifyOneLine(payload));
@@ -189,9 +178,7 @@ function parseTraceLogEvent(line, index) {
     status: direction === 'outbound' ? 'sent' : (direction === 'inbound' ? 'received' : 'applied'),
     preview: truncate(preview, 240),
     op_id: String(outerOpId || ''),
-    model_id: Number.isInteger(payload.source_model_id)
-      ? payload.source_model_id
-      : (Number.isInteger(readModelTableRecordValue(payloadRecords, 'origin_model_id')) ? readModelTableRecordValue(payloadRecords, 'origin_model_id') : undefined),
+    model_id: Number.isInteger(readModelTableRecordValue(payloadRecords, 'origin_model_id')) ? readModelTableRecordValue(payloadRecords, 'origin_model_id') : undefined,
   };
 }
 

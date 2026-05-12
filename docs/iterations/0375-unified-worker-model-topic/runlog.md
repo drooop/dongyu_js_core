@@ -190,6 +190,90 @@ Review Gate Record
 - Key output: no whitespace errors.
 - Result: PASS
 
+### Step 4 Review Attempt 1
+
+- Reviewer: sub-agent `019e1cf1-e258-7a30-ad92-70ffcf398d8d`
+- Decision: Approved
+- Key output: Findings none; open questions none; verification gaps none.
+- Result: PASS
+
+### Step 4 Red Test: Tier2 / Fixture Sources Still Had Legacy Transport Metadata
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 67 passed, 1 failed out of 68; current Tier2 / fixture source scan found old remote-worker subscriptions and legacy `source_model_id` / `reply_to` / `route` metadata in active model code and fixtures.
+- Result: PASS for red-test capture.
+
+### Step 4 Red Test: Mgmt Bus Console UI Bind Still Emitted Removed Metadata
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 67 passed, 1 failed out of 68 after source scan was expanded to ModelTable records; `workspace_positive_models.json` still had two active `source_model_id` records in Mgmt Bus Console button payloads.
+- Result: PASS for red-test capture.
+
+### Step 4 Red Test: Frontend Projection Still Parsed Removed Console Ack Shape
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 68 passed, 1 failed out of 69; frontend trace projection still recognized retired direct `mgmt_bus_console_ack` packets and loose `payload.source_model_id`.
+- Result: PASS for red-test capture.
+
+### Step 4 Fix Summary
+
+- Refilling: remote-worker subscriptions now use `UIPUT/ws/dam/pic/de/sw/<worker_id>/<model_id>/<pin>` only.
+- Refilling: remote-worker Model 100 / 1010 / 1019 / 3000 handlers now parse endpoint/origin/reply_target records and return strict `pin_payload.v1` record arrays.
+- Refilling: MBR MQTT inbound path bridges remote replies back to management bus only when endpoint equals reply_target, preventing self-echo of UI-originated control-bus publishes.
+- Cleanup: minimal Submit and imported host fixtures no longer emit `source_model_id` records in business payloads; regenerated `test_files/minimal_submit_dual_bus.zip`.
+- Cleanup: Mgmt Bus Console UI button payloads no longer send `source_model_id`; frontend projection reads current `origin_model_id` records only.
+- Result: PASS for implementation capture.
+
+### Step 4 Verification Refresh
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 69 passed, 0 failed out of 69.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0362_mbr_remote_worker_route_contract.mjs`
+- Key output: 10 passed, 0 failed out of 10.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0322_imported_host_egress_server_flow.mjs`
+- Key output: 1 passed, 0 failed out of 1.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0326_imported_host_egress_bridge.mjs`
+- Key output: 1 passed, 0 failed out of 1.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`
+- Key output: 32 passed, 0 failed out of 32.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0342_mgmt_bus_console_real_messaging_contract.mjs`
+- Key output: 13 PASS results.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0364_bus_pin_split_runtime_contract.mjs`
+- Key output: 9 passed, 0 failed out of 9.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0326_ui_event_busin_flow.mjs`
+- Key output: 31 passed, 0 failed out of 31.
+- Result: PASS
+
+- Command: `node scripts/tests/test_bus_in_out.mjs`
+- Key output: 7 passed, 0 failed out of 7.
+- Result: PASS
+
+- Command: `node scripts/tests/test_cell_connect_parse.mjs`
+- Key output: 8 passed, 0 failed out of 8.
+- Result: PASS
+
+- Command: `node --check scripts/tests/test_0362_mbr_remote_worker_route_contract.mjs && node --check scripts/tests/test_0375_unified_worker_model_topic_contract.mjs && node --check packages/ui-model-demo-frontend/src/editor_page_state_derivers.js`
+- Key output: syntax checks passed.
+- Result: PASS
+
+- Command: `git diff --check`
+- Key output: no whitespace errors.
+- Result: PASS
+
 ### Step 3 Review Attempt 23
 
 - Reviewer: sub-agent `019e1c90-92cd-7f72-95f4-e6863610f50e`
