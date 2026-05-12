@@ -69,3 +69,81 @@ Review Gate Record
 - Decision: Approved
 - Key output: scoped docs/plan files passed; no runtime code changes found.
 - Result: PASS
+
+### Step 2 — Contract Tests First
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 0 passed, 5 failed out of 5; initial RED state found expected old topic shape and route-based split bus behavior, but review requested sharper payload coverage.
+- Result: PASS for RED verification
+
+### Step 2 Review Attempt 1
+
+- Reviewer: sub-agent `019e1b88-dd66-77c3-bc10-95fc735afd39`
+- Decision: Change Requested
+- Key output: fix WorkerEngine runtime mode setup; add new-topic loose top-level field rejection; add missing endpoint/origin/reply metadata rejection.
+- Result: PASS for review capture; requested test fixes applied before re-review.
+
+### Step 2 Test Revision
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 0 passed, 9 failed out of 9; failures now cover old topic generation/acceptance, new topic rejection, loose field compatibility, missing metadata, legacy route payload externalization, endpoint-record externalization, and split bus publish.
+- Result: PASS for RED verification
+
+### Step 2 Review Attempt 2
+
+- Reviewer: sub-agent `019e1b8d-b45f-7400-a120-a39205164fc0`
+- Decision: Change Requested
+- Key output: add reply-target materialization tests and missing/extra/old two-segment topic boundary tests.
+- Result: PASS for review capture; requested test fixes applied before re-review.
+
+### Step 2 Test Revision 2
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 1 passed, 11 failed out of 12; failures cover the expected old/missing behavior, while the existing no-reply-target non-materialization guard already passes.
+- Result: PASS for RED verification
+
+### Step 2 Review Attempt 3
+
+- Reviewer: sub-agent `019e1b93-118d-7d93-88e0-1ed405b8ade6`
+- Decision: Change Requested
+- Key output: make endpoint model and reply target model distinct in the materialization test.
+- Result: PASS for review capture; requested test fix applied before re-review.
+
+### Step 2 Test Revision 3
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 1 passed, 11 failed out of 12; reply-target test now uses distinct endpoint and reply target model ids.
+- Result: PASS for RED verification
+
+### Step 2 Review Attempt 4
+
+- Reviewer: sub-agent `019e1b95-e5fd-7a03-a50e-28851647cbcc`
+- Decision: Change Requested
+- Key output: assert exact transport packet top-level keys and test missing endpoint/origin/reply target metadata independently.
+- Result: PASS for review capture; requested test fixes applied before re-review.
+
+### Step 2 Test Revision 4
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 1 passed, 11 failed out of 12; missing endpoint/origin/reply target records are now checked independently, and transport packet keys are asserted exactly.
+- Result: PASS for RED verification
+
+### Step 2 Review Attempt 5
+
+- Reviewer: sub-agent `019e1b9a-27cb-72e0-833a-5655188291bf`
+- Decision: Change Requested
+- Key output: split missing endpoint/origin/reply target metadata checks into independent test functions so later cases still execute during RED.
+- Result: PASS for review capture; requested test fix applied before re-review.
+
+### Step 2 Test Revision 5
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 1 passed, 13 failed out of 14; missing endpoint, origin, and reply target metadata each fail as independent RED tests.
+- Result: PASS for RED verification
+
+### Step 2 Review Attempt 6
+
+- Reviewer: sub-agent `019e1b9d-2d06-7900-b3ca-17989f0c86dc`
+- Decision: Approved
+- Key output: Step 2 tests and runlog are adequate; no production/runtime code changes found.
+- Result: PASS
