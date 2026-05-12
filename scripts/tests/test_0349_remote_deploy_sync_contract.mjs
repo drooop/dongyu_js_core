@@ -81,6 +81,9 @@ assertContains(appDeploy, 'SYNC_PERSISTED_ASSETS="${SYNC_PERSISTED_ASSETS:-1}"',
 assertContains(appDeploy, 'sync_local_persisted_assets.sh', appDeployFile);
 assertContains(appDeploy, 'LOCAL_PERSISTED_ASSET_ROOT="$CLOUD_PERSISTED_ASSET_ROOT"', appDeployFile);
 assertContains(appDeploy, 'if [ "$SYNC_PERSISTED_ASSETS" = "1" ]; then', appDeployFile);
+assertContains(appDeploy, 'apply_target_manifest', appDeployFile);
+assertContains(appDeploy, 'kubectl apply -f "$REPO_DIR/k8s/cloud/workers.yaml"', appDeployFile);
+assertContains(appDeploy, 'kubectl apply -f "$REPO_DIR/k8s/cloud/ui-side-worker.yaml"', appDeployFile);
 assertNotContains(appDeploy, 'printf \'%s\' "$EXPECTED_REVISION"', appDeployFile);
 assert.ok(
   appDeploy.indexOf('.deploy-source-revision') < appDeploy.indexOf('DEPLOY_SOURCE_REV'),
@@ -94,6 +97,11 @@ assert.ok(
   appDeploy.indexOf('sync_local_persisted_assets.sh') < appDeploy.indexOf('rollout restart'),
   `${appDeployFile} must sync authoritative assets before rollout restart`,
 );
+assert.ok(
+  appDeploy.indexOf('echo "=== Apply target runtime manifest ==="') < appDeploy.indexOf('rollout restart'),
+  `${appDeployFile} must apply cloud runtime manifests before rollout restart`,
+);
+assertContains(appDeploy, 'apply_target_manifest\n\nkubectl -n "$NAMESPACE" rollout restart', appDeployFile);
 
 const fullDeployFile = 'scripts/ops/deploy_cloud_full.sh';
 const fullDeploy = read(fullDeployFile);
@@ -120,6 +128,7 @@ assertContains(readme, '.dockerignore', readmeFile);
 assertContains(readme, 'archive fallback', readmeFile);
 assertContains(readme, 'deploy_cloud_full.sh --revision', readmeFile);
 assertContains(readme, '--install-system-ca', readmeFile);
+assertContains(readme, 'cloud manifest', readmeFile);
 
 for (const dockerfile of [
   'k8s/Dockerfile.ui-server',
