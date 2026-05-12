@@ -150,12 +150,73 @@ phase: execution
   - Findings: none
   - Notes: Step 1 baseline gate disposition is correct; can proceed to Step 2 Component Gap Audit.
 - Commit:
+  - `0ca057a` (`test(ui): align pin projection contract with bus event ingress`)
 
 ### Step 2 - Component Gap Audit
 
-- Command: pending
-- Key output: pending
-- Result: pending
+- Decision:
+  - No new UI component is required for the first Web Tablet Desktop slice.
+  - Existing components are sufficient for the planned first implementation:
+    - `Container` / `Card` for desktop sections, icon grid, task cards, and foreground framing.
+    - `Button` / `Icon` for app launch and task controls.
+    - `StatusBadge` for task/app status.
+    - `Drawer` or equivalent panel surface for task switcher.
+    - `Tabs` only if a first-slice surface needs simple segmented grouping.
+    - `Text` for labels and empty states.
+- Command:
+```bash
+node - <<'NODE'
+import fs from 'node:fs';
+const registry = JSON.parse(fs.readFileSync('packages/ui-renderer/src/component_registry_v1.json','utf8')).components || {};
+const required = ['Container','Card','Button','Icon','StatusBadge','Drawer','Tabs','Text'];
+const missing = required.filter((name) => !registry[name]);
+console.log(JSON.stringify({ required, missing }, null, 2));
+process.exit(missing.length ? 1 : 0);
+NODE
+```
+- Key output:
+  - `missing: []`
+- Result: PASS
+- Command: `rg -n "if \\(node\\.type === 'Text'\\)|if \\(node\\.type === 'Tabs'\\)|if \\(node\\.type === 'Button'\\)|if \\(node\\.type === 'Drawer'\\)|if \\(node\\.type === 'Card'\\)|if \\(node\\.type === 'Container'\\)|if \\(node\\.type === 'Icon'\\)|if \\(node\\.type === 'StatusBadge'\\)" packages/ui-renderer/src/renderer.mjs`
+- Key output:
+  - `738:  if (node.type === 'Text')`
+  - `1219:  if (node.type === 'Tabs')`
+  - `1243:  if (node.type === 'Button')`
+  - `1359:  if (node.type === 'Drawer')`
+  - `1426:  if (node.type === 'Card')`
+  - `1438:  if (node.type === 'Container')`
+  - `1686:  if (node.type === 'Icon')`
+  - `1759:  if (node.type === 'StatusBadge')`
+- Result: PASS
+- Command: `node scripts/tests/test_0346_ui_model_compliance_contract.mjs`
+- Key output: `test_0346_ui_model_compliance_contract: PASS (29 visible surfaces, 6 warnings)`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run test`
+- Key output:
+  - `ui-model-demo-frontend@0.1.0 test`
+  - `editor_v1_static_upload_binding_persisted: PASS`
+- Result: PASS
+- Command: `git diff --check`
+- Key output: no output
+- Result: PASS
+- Review:
+  - Reviewer: sub-agent `019e19a0-dc81-79a0-9c18-e0c627374add`
+  - Decision: Change Requested
+  - Findings:
+    - Step 2 runlog lacked `git diff --check` evidence.
+    - The renderer support check used an abbreviated command and needed a replayable command.
+  - Notes: component decision was accepted; only evidence recording needed revision.
+- Review:
+  - Reviewer: sub-agent `019e19a3-a1b9-7791-85db-4c7414cc6d55`
+  - Decision: Change Requested
+  - Findings:
+    - Step 2 registry check needed a replayable command, not only a prose description.
+  - Notes: component decision was accepted; registry evidence recording needed revision.
+- Review:
+  - Reviewer: sub-agent `019e19a5-dff3-7cc3-b1b5-552c038cab6c`
+  - Decision: Approved
+  - Findings: none
+  - Notes: no new component required; current evidence supports entering Step 3.
 - Commit:
 
 ### Step 3 - Desktop UI Model Patch
