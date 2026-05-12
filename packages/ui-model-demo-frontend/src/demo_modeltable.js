@@ -22,6 +22,10 @@ import { buildAstFromSchema } from './ui_schema_projection.js';
 import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
 import { resolvePageAsset } from './page_asset_resolver.js';
 import { resolveRouteUiAst } from './route_ui_projection.js';
+import {
+  DESKTOP_FOREGROUND_APP_LABEL,
+  readDesktopForegroundWorkspaceModelId,
+} from './desktop_app_state.js';
 import { buildBusDispatchLabel, buildBusEventV2, normalizeBusEventV2ValueToPinPayload } from './bus_event_v2.js';
 import {
   deriveEditorModelOptions,
@@ -246,7 +250,8 @@ export function createDemoStore() {
   applyUiPatch(runtime, promptCatalogPatch);
 
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: '0' });
-  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'home' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'desktop' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_FOREGROUND_APP_LABEL, t: 'json', v: null });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_p', t: 'str', v: '0' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_r', t: 'str', v: '0' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_c', t: 'str', v: '0' });
@@ -364,9 +369,12 @@ export function createDemoStore() {
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_edit_dialog_title', t: 'str', v: deriveHomeEditDialogTitle(snap, EDITOR_STATE_MODEL_ID) });
       const workspaceApps = deriveWorkspaceRegistry(runtime);
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: workspaceApps });
+      const foregroundWorkspaceModelId = readDesktopForegroundWorkspaceModelId(snap);
       const validWorkspaceApp = resolveWorkspaceSelection(
         workspaceApps,
-        runtime.getLabelValue(stateModelLive, 0, 0, 0, 'ws_app_selected'),
+        Number.isInteger(foregroundWorkspaceModelId)
+          ? foregroundWorkspaceModelId
+          : runtime.getLabelValue(stateModelLive, 0, 0, 0, 'ws_app_selected'),
         resolveDefaultWorkspaceAppId(workspaceApps),
       );
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: Number(validWorkspaceApp) });

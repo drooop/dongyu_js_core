@@ -22,6 +22,10 @@ import { buildAstFromCellwiseModel } from '../ui-model-demo-frontend/src/ui_cell
 import { buildAstFromSchema } from '../ui-model-demo-frontend/src/ui_schema_projection.js';
 import { resolvePageAsset } from '../ui-model-demo-frontend/src/page_asset_resolver.js';
 import {
+  DESKTOP_FOREGROUND_APP_LABEL,
+  readDesktopForegroundWorkspaceModelId,
+} from '../ui-model-demo-frontend/src/desktop_app_state.js';
+import {
   deriveEditorModelOptions,
   deriveHomeEditDialogTitle,
   deriveHomeMissingModelText,
@@ -5313,7 +5317,8 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'dt_filter_r', 'str', '');
   ensureStateLabel(runtime, 'dt_filter_c', 'str', '');
   ensureStateLabel(runtime, 'dt_filter_ktv', 'str', '');
-  ensureStateLabel(runtime, 'ui_page', 'str', 'home');
+  ensureStateLabel(runtime, 'ui_page', 'str', 'desktop');
+  ensureStateLabel(runtime, DESKTOP_FOREGROUND_APP_LABEL, 'json', null);
   ensureStateLabel(runtime, 'dt_pause_sse', 'bool', false);
   ensureStateLabel(runtime, 'home_selected_label_text', 'str', '');
   ensureStateLabel(runtime, 'home_status_text', 'str', '');
@@ -5581,9 +5586,12 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'ws_apps_registry', 'json', apps);
 
     const defaultSelected = resolveDefaultAppId(runtime, apps);
+    const foregroundWorkspaceModelId = readDesktopForegroundWorkspaceModelId(buildClientSnapshot(runtime));
     const validSelected = resolveWorkspaceSelection(
       apps,
-      runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'),
+      Number.isInteger(foregroundWorkspaceModelId)
+        ? foregroundWorkspaceModelId
+        : runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'),
       defaultSelected,
     );
     overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validSelected));

@@ -1,41 +1,19 @@
 import { computed, h, onBeforeUnmount, onMounted, ref, resolveComponent, watch } from 'vue';
 import { createRenderer } from '@ui-renderer/index.mjs';
 import { readAppShellRouteSyncState, resolveNavigableRoutePath } from './app_shell_route_sync.js';
+import { dispatchAppShellStateUpdate } from './app_shell_state_dispatch.js';
 import { findPageEntryByPath, readPageCatalog } from './page_asset_resolver.js';
+import {
+  DESKTOP_FOREGROUND_APP_LABEL,
+  readDesktopForegroundApp,
+} from './desktop_app_state.js';
 
 import {
   ROUTE_HOME,
-  ROUTE_MODEL100,
-  ROUTE_WORKSPACE,
   getHashPath,
-  isModel100Path,
   setHashPath,
   subscribeHashPath,
 } from './router.js';
-
-function buildUiMailboxEventLabel(input) {
-  const { action, target, value, opId } = input || {};
-  const nextOpId = opId || `ui_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-  return {
-    p: 0,
-    r: 0,
-    c: 1,
-    k: 'ui_event',
-    t: 'event',
-    v: {
-      event_id: Date.now(),
-      type: action,
-      source: 'ui_renderer',
-      ts: 0,
-      payload: {
-        action,
-        meta: { op_id: nextOpId },
-        ...(target ? { target } : {}),
-        ...(Object.prototype.hasOwnProperty.call(input || {}, 'value') ? { value } : {}),
-      },
-    },
-  };
-}
 
 export function createDemoRoot(store) {
   let consumeScheduled = false;
@@ -158,28 +136,19 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       }
 
       function selectWorkspaceModel(modelId) {
-        if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
-        mainStore.dispatchAddLabel(buildUiMailboxEventLabel({
-          action: 'label_update',
+        dispatchAppShellStateUpdate(mainStore, {
           target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
           value: { t: 'int', v: modelId },
-        }));
+        });
       }
 
       function syncPageLabel(routePath) {
         const page = findRouteEntry(routePath)?.page || 'home';
         try {
-          if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
-          const opId = `route_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-          mainStore.dispatchAddLabel(buildUiMailboxEventLabel({
-            action: 'label_update',
+          dispatchAppShellStateUpdate(mainStore, {
             target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ui_page' },
             value: { t: 'str', v: page },
-            opId,
-          }));
-          if (typeof mainStore.consumeOnce === 'function') {
-            queueMicrotask(() => mainStore.consumeOnce());
-          }
+          });
         } catch (_) {
           // ignore
         }
@@ -200,17 +169,10 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       }
 
       function clearGalleryNavTarget() {
-        if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
-        const opId = `gallery_nav_clear_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-        mainStore.dispatchAddLabel(buildUiMailboxEventLabel({
-          action: 'label_update',
+        dispatchAppShellStateUpdate(mainStore, {
           target: { model_id: -102, p: 0, r: 0, c: 0, k: 'nav_to' },
           value: { t: 'str', v: '' },
-          opId,
-        }));
-        if (typeof mainStore.consumeOnce === 'function') {
-          queueMicrotask(() => mainStore.consumeOnce());
-        }
+        });
       }
 
       onMounted(() => {
@@ -221,6 +183,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         syncGalleryRoute(path.value);
         syncPageLabel(path.value);
         syncWorkspaceSelection(path.value);
+        syncDesktopForeground(desktopForegroundApp.value);
         unsubscribe = subscribeHashPath((next) => {
           path.value = next;
           normalizeIfUnknown(next);
@@ -230,6 +193,9 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           syncGalleryRoute(next);
           syncPageLabel(next);
           syncWorkspaceSelection(next);
+          if (next === ROUTE_HOME) {
+            syncDesktopForeground(desktopForegroundApp.value);
+          }
         });
       });
 
@@ -239,11 +205,43 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
 
       const currentRouteEntry = computed(() => findRouteEntry(path.value));
       const routeSyncState = computed(() => readAppShellRouteSyncState(mainStore?.snapshot ?? {}, path.value));
+      const desktopForegroundApp = computed(() => readDesktopForegroundApp(mainStore?.snapshot ?? {}));
+      const desktopForegroundKey = computed(() => JSON.stringify(desktopForegroundApp.value || null));
       const galleryNavTarget = computed(() => {
         const labels = mainStore?.snapshot?.models?.['-102']?.cells?.['0,0,0']?.labels ?? {};
         const raw = labels.nav_to?.v;
         return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : '';
       });
+
+      function syncDesktopForeground(app) {
+        if (!app) {
+          if (mainStore && typeof mainStore.setRoutePath === 'function') {
+            mainStore.setRoutePath(path.value);
+          }
+          syncGalleryRoute(path.value);
+          syncPageLabel(path.value);
+          syncWorkspaceSelection(path.value);
+          return;
+        }
+        if (mainStore && typeof mainStore.setRoutePath === 'function') {
+          mainStore.setRoutePath(app.path);
+        }
+        syncGalleryRoute(app.path);
+        syncPageLabel(app.path);
+        if (app.page === 'workspace' && Number.isInteger(app.model_id)) {
+          selectWorkspaceModel(app.model_id);
+        } else {
+          syncWorkspaceSelection(app.path);
+        }
+      }
+
+      function clearDesktopForeground() {
+        dispatchAppShellStateUpdate(mainStore, {
+          target: { model_id: -2, p: 0, r: 0, c: 0, k: DESKTOP_FOREGROUND_APP_LABEL },
+          value: { t: 'json', v: null },
+        });
+        syncDesktopForeground(null);
+      }
 
       watch(galleryNavTarget, (next) => {
         if (!next) return;
@@ -257,6 +255,60 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         syncWorkspaceSelection(path.value);
         clearGalleryNavTarget();
       });
+
+      watch(desktopForegroundKey, () => {
+        syncDesktopForeground(desktopForegroundApp.value);
+      });
+
+      function ForegroundPlayer() {
+        const app = desktopForegroundApp.value;
+        if (!app) return null;
+        const content = app.page === 'gallery' ? h(GalleryRoot) : h(HomeRoot);
+        return h('div', {
+          'data-testid': 'desktop-foreground-player',
+          style: {
+            minHeight: '100vh',
+            background: '#edf2f8',
+            display: 'flex',
+            flexDirection: 'column',
+          },
+        }, [
+          h('div', {
+            style: {
+              height: '52px',
+              padding: '0 14px',
+              borderBottom: '1px solid #d7dee8',
+              background: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              boxSizing: 'border-box',
+            },
+          }, [
+            h(ElButton, {
+              size: 'small',
+              'data-testid': 'desktop-foreground-back',
+              onClick: clearDesktopForeground,
+            }, { default: () => '桌面' }),
+            h('div', {
+              style: {
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#172033',
+              },
+            }, app.title || app.id),
+            h('div', { style: { width: '58px' } }),
+          ]),
+          h('div', {
+            style: {
+              flex: 1,
+              minHeight: 0,
+              overflow: 'auto',
+              background: '#ffffff',
+            },
+          }, [content]),
+        ]);
+      }
 
       function Header() {
         const catalog = readCatalog().filter((entry) => entry && entry.nav_visible === true && typeof entry.path === 'string');
@@ -303,6 +355,9 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       }
 
       return () => {
+        if (desktopForegroundApp.value && path.value === ROUTE_HOME) {
+          return h(ForegroundPlayer);
+        }
         if (currentRouteEntry.value?.page === 'gallery') {
           return h('div', [h(Header), h(GalleryRoot)]);
         }

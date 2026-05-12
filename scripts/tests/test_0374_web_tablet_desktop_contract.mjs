@@ -6,7 +6,9 @@ import { createDemoStore } from '../../packages/ui-model-demo-frontend/src/demo_
 import { readPageCatalog, findPageEntryByPath } from '../../packages/ui-model-demo-frontend/src/page_asset_resolver.js';
 import { resolveRouteUiAst } from '../../packages/ui-model-demo-frontend/src/route_ui_projection.js';
 import { buildAstFromCellwiseModel } from '../../packages/ui-model-demo-frontend/src/ui_cellwise_projection.js';
+import { createRenderer } from '../../packages/ui-renderer/src/renderer.mjs';
 import { DESKTOP_CATALOG_MODEL_ID } from '../../packages/ui-model-demo-frontend/src/model_ids.js';
+import { dispatchAppShellStateUpdate } from '../../packages/ui-model-demo-frontend/src/app_shell_state_dispatch.js';
 
 function findNodeById(ast, id) {
   let found = null;
@@ -35,6 +37,23 @@ function collectNodes(ast, predicate) {
 
 function getRootLabels(snapshot, modelId) {
   return snapshot?.models?.[String(modelId)]?.cells?.['0,0,0']?.labels ?? {};
+}
+
+function getEditorStateValue(snapshot, key) {
+  return snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels?.[key]?.v;
+}
+
+function dispatchDesktopButton(store, node) {
+  const host = {
+    getSnapshot: () => store.snapshot,
+    dispatchAddLabel: (label) => store.dispatchAddLabel(label),
+    dispatchRmLabel: (labelRef) => store.dispatchRmLabel(labelRef),
+  };
+  const renderer = createRenderer({ host });
+  renderer.dispatchEvent(node, { click: true });
+  const result = store.consumeOnce();
+  assert.equal(result?.result, 'ok', 'desktop_button_event_must_be_consumed');
+  return getEditorStateValue(store.snapshot, 'desktop_foreground_app_json');
 }
 
 function test_desktop_catalog_model_is_cellwise_ui_surface() {
@@ -108,11 +127,80 @@ function test_root_route_resolves_desktop_and_nav_links_are_hidden() {
   return { key: 'root_route_resolves_desktop_and_nav_links_are_hidden', status: 'PASS' };
 }
 
+function test_desktop_icon_launches_single_foreground_app_state() {
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  const ast = buildAstFromCellwiseModel(store.snapshot, DESKTOP_CATALOG_MODEL_ID);
+  const docsButton = findNodeById(ast, 'desktop_app_docs');
+  assert.ok(docsButton?.bind?.write, 'desktop_docs_button_must_have_launch_write');
+
+  const foreground = dispatchDesktopButton(store, docsButton);
+  assert.deepEqual(
+    foreground,
+    {
+      id: 'docs',
+      kind: 'system',
+      page: 'docs',
+      path: '/docs',
+      title: 'Docs',
+    },
+    'desktop_docs_button_must_open_docs_as_foreground_app',
+  );
+
+  return { key: 'desktop_icon_launches_single_foreground_app_state', status: 'PASS' };
+}
+
+function test_workspace_icon_launches_foreground_and_selects_workspace_model() {
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  const ast = buildAstFromCellwiseModel(store.snapshot, DESKTOP_CATALOG_MODEL_ID);
+  const model100Button = findNodeById(ast, 'desktop_slide_app_100');
+  assert.ok(model100Button?.bind?.write, 'desktop_workspace_button_must_have_launch_write');
+
+  const foreground = dispatchDesktopButton(store, model100Button);
+  assert.deepEqual(
+    foreground,
+    {
+      id: 'workspace:100',
+      kind: 'workspace',
+      page: 'workspace',
+      path: '/workspace',
+      title: 'Color E2E',
+      model_id: 100,
+    },
+    'desktop_workspace_button_must_open_model100_as_foreground_app',
+  );
+  assert.equal(getEditorStateValue(store.snapshot, 'ws_app_selected'), 100, 'workspace_foreground_must_select_model100');
+
+  return { key: 'workspace_icon_launches_foreground_and_selects_workspace_model', status: 'PASS' };
+}
+
+function test_app_shell_state_dispatch_sequences_multiple_local_writes() {
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+
+  assert.doesNotThrow(() => {
+    dispatchAppShellStateUpdate(store, {
+      target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ui_page' },
+      value: { t: 'str', v: 'workspace' },
+    });
+    dispatchAppShellStateUpdate(store, {
+      target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
+      value: { t: 'int', v: 100 },
+    });
+  }, 'app_shell_must_consume_between_local_state_writes');
+
+  assert.equal(getEditorStateValue(store.snapshot, 'ui_page'), 'workspace', 'app_shell_sequence_must_set_ui_page');
+  assert.equal(getEditorStateValue(store.snapshot, 'ws_app_selected'), 100, 'app_shell_sequence_must_set_workspace_selection');
+
+  return { key: 'app_shell_state_dispatch_sequences_multiple_local_writes', status: 'PASS' };
+}
+
 const tests = [
   test_desktop_catalog_model_is_cellwise_ui_surface,
   test_desktop_exposes_required_system_app_icons,
   test_desktop_exposes_workspace_slide_app_icons_from_registry,
   test_root_route_resolves_desktop_and_nav_links_are_hidden,
+  test_desktop_icon_launches_single_foreground_app_state,
+  test_workspace_icon_launches_foreground_and_selects_workspace_model,
+  test_app_shell_state_dispatch_sequences_multiple_local_writes,
 ];
 
 let passed = 0;

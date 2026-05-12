@@ -312,9 +312,67 @@ NODE
 
 ### Step 5 - Single Foreground App Player
 
-- Command: pending
-- Key output: pending
-- Result: pending
+- Change:
+  - Added desktop foreground app state label `desktop_foreground_app_json`.
+  - Added launch bindings to desktop app buttons; launch writes only local UI state on Model `-2`.
+  - Added `desktop_app_state.js` helpers for reading and normalizing foreground app state.
+  - Added `app_shell_state_dispatch.js` so AppShell local UI state writes consume before the next local write.
+  - Added a single foreground app frame in the Web shell when `/` has an active foreground app.
+  - Preserved existing deep links; foreground mode composes existing Gallery/Home roots instead of replacing app surfaces.
+  - Workspace foreground apps select their target workspace model through derived state.
+- Command: `node scripts/tests/test_0374_web_tablet_desktop_contract.mjs`
+- Key output:
+  - `[PASS] desktop_icon_launches_single_foreground_app_state`
+  - `[PASS] workspace_icon_launches_foreground_and_selects_workspace_model`
+  - `[PASS] app_shell_state_dispatch_sequences_multiple_local_writes`
+  - `7 passed, 0 failed out of 7`
+- Result: PASS
+- Command: `node scripts/tests/test_0346_ui_model_compliance_contract.mjs`
+- Key output: `test_0346_ui_model_compliance_contract: PASS (30 visible surfaces, 6 warnings)`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run test`
+- Key output:
+  - `editor_ast_no_direct_mutation_buttons: PASS`
+  - `editor_v1_static_upload_binding_persisted: PASS`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run build`
+- Key output:
+  - `✓ 1456 modules transformed.`
+  - `✓ built in 2.85s`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run dev -- --host 127.0.0.1 --port 5173` then Playwright CLI against `http://127.0.0.1:5173/?persist=0#/`
+- Key output:
+  - Initial desktop snapshot showed `Gallery`, `Docs`, `ModelTable`, `Prompt`, `Static`, `Color E2E`, `Slide Importer`, and `Slide Creator`.
+  - Clicking `Color E2E` rendered `desktop-foreground-player` with title `Color E2E` and Model 100 workspace content.
+  - Clicking `desktop-foreground-back` returned to the desktop snapshot.
+  - Browser state after return: `foreground=null`, `ui_page=desktop`, `ws_app_selected=100`, `mailbox_error=null`, `mailbox_event=null`.
+  - Console had only `/favicon.ico` 404 and existing Element Plus `Text type=title` warnings; no `event_mailbox_full` or mailbox error.
+- Result: PASS
+- Command: `node scripts/tests/test_0199_nav_catalog_visibility_contract.mjs && node scripts/tests/test_0182_app_shell_route_sync_contract.mjs && node scripts/tests/test_0210_ui_cellwise_contract_inventory.mjs && node scripts/tests/test_0211_ui_bootstrap_and_submodel_migration.mjs`
+- Key output:
+  - `PASS test_0199_nav_catalog_visibility_contract`
+  - `PASS test_0182_app_shell_route_sync_contract`
+  - `4 passed, 0 failed out of 4`
+  - `3 passed, 0 failed out of 3`
+- Result: PASS
+- Command: `git diff --check`
+- Key output: no output
+- Result: PASS
+- Review:
+  - Reviewer: sub-agent `019e19b7-d324-7ca3-9a08-d5ef44304fa8`
+  - Decision: Change Requested
+  - Findings:
+    - Workspace foreground launch could enqueue two local UI writes into the single mailbox in one tick.
+    - Verification needed a mounted AppShell/browser-level check for workspace launch and return-to-desktop.
+  - Fix:
+    - Added `app_shell_state_dispatch.js` and routed AppShell local UI state writes through immediate consume.
+    - Added `app_shell_state_dispatch_sequences_multiple_local_writes` contract coverage.
+    - Added Playwright CLI verification for desktop -> workspace foreground -> desktop.
+- Review:
+  - Reviewer: sub-agent `019e19c0-0312-7211-90d6-a63ffe760517`
+  - Decision: Approved
+  - Findings: none
+  - Notes: prior mailbox sequencing finding verified fixed; no open questions or verification gaps.
 - Commit:
 
 ### Step 6 - Task Switcher And Pseudo-Background

@@ -967,6 +967,257 @@
         "modelId": 1034,
         "surface": "slide"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "gallery",
+              "kind": "system",
+              "page": "gallery",
+              "path": "/gallery",
+              "title": "Gallery"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "docs",
+              "kind": "system",
+              "page": "docs",
+              "path": "/docs",
+              "title": "Docs"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 2,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "modeltable",
+              "kind": "system",
+              "page": "home",
+              "path": "/modeltable",
+              "title": "ModelTable"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 3,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "prompt",
+              "kind": "system",
+              "page": "prompt",
+              "path": "/prompt",
+              "title": "Prompt"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 4,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "static",
+              "kind": "system",
+              "page": "static",
+              "path": "/static",
+              "title": "Static"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "workspace:100",
+              "kind": "workspace",
+              "page": "workspace",
+              "path": "/workspace",
+              "title": "Color E2E",
+              "model_id": 100
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "workspace:1030",
+              "kind": "workspace",
+              "page": "workspace",
+              "path": "/workspace",
+              "title": "Slide Importer",
+              "model_id": 1030
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 2,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "workspace:1034",
+              "kind": "workspace",
+              "page": "workspace",
+              "path": "/workspace",
+              "title": "Slide Creator",
+              "model_id": 1034
+            }
+          }
+        }
+      }
     }
   ]
 }
