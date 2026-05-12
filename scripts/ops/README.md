@@ -125,7 +125,8 @@ sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-serv
 
 说明：
 - `deploy_cloud.sh` 现仅作为兼容 wrapper，内部委托给 `deploy_cloud_full.sh`。
-- `deploy_cloud_app.sh` 只允许目标集：`ui-server | mbr-worker | remote-worker`。
+- `deploy_cloud_app.sh` 只允许目标集：`ui-server | mbr-worker | remote-worker | ui-side-worker`。
+- `deploy_cloud_app.sh` 在重启目标服务前会重新应用对应的 cloud manifest，避免镜像已更新但运行配置仍停留在旧版本。
 
 ---
 
@@ -159,6 +160,7 @@ sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-serv
 PASS 判定：
 - `remote_preflight_guard.sh` PASS
 - 远端 `rke2` 集群中的 MQTT broker 已就绪
+- 目标服务对应的 cloud manifest 已应用
 - 目标 deployment rollout 成功
 - source hash gate 通过
 - 目标环境验收命令 PASS

@@ -196,6 +196,17 @@ verify_target_source_hashes() {
   done
 }
 
+apply_target_manifest() {
+  case "$TARGET" in
+    ui-side-worker)
+      kubectl apply -f "$REPO_DIR/k8s/cloud/ui-side-worker.yaml"
+      ;;
+    ui-server|mbr-worker|remote-worker)
+      kubectl apply -f "$REPO_DIR/k8s/cloud/workers.yaml"
+      ;;
+  esac
+}
+
 load_target_spec
 
 if [ -f "$REPO_DIR/deploy/env/cloud.env" ]; then
@@ -268,6 +279,9 @@ docker build "${BUILD_ARGS[@]}" \
   -t "$IMAGE_TAG" .
 
 docker save "$IMAGE_TAG" | "$CTR" --address "$CONTAINERD_SOCK" -n k8s.io images import -
+
+echo "=== Apply target runtime manifest ==="
+apply_target_manifest
 
 kubectl -n "$NAMESPACE" rollout restart "deployment/${DEPLOYMENT}"
 wait_for_rollout "$DEPLOYMENT"
