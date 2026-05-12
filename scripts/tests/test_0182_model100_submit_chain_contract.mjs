@@ -75,7 +75,7 @@ assert.deepEqual(
 const runtimeRemoteEndpoint = runtime.getCell(runtime.getModel(100), 0, 0, 0).labels.get('remote_bus_endpoint_v1')?.v ?? null;
 assert.deepEqual(
   runtimeRemoteEndpoint,
-  { transport: 'mqtt', to: { worker_id: 'RE', model_id: 100 } },
+  { transport: 'mqtt', to: { worker_id: 'R1', model_id: 100 } },
   'model100 must declare remote_bus_endpoint_v1 without route.reply_to',
 );
 

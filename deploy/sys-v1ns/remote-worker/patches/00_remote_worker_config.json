@@ -51,7 +51,7 @@
       "c": 0,
       "k": "mqtt_worker_id",
       "t": "str",
-      "v": "RE"
+      "v": "R1"
     },
     {
       "op": "add_label",
@@ -72,10 +72,10 @@
       "k": "remote_subscriptions",
       "t": "json",
       "v": [
-        "UIPUT/ws/dam/pic/de/sw/worker/RE/model/100/pin/submit",
-        "UIPUT/ws/dam/pic/de/sw/worker/RE/model/1010/pin/submit",
-        "UIPUT/ws/dam/pic/de/sw/worker/RE/model/1019/pin/submit",
-        "UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1"
+        "UIPUT/ws/dam/pic/de/sw/R1/100/submit",
+        "UIPUT/ws/dam/pic/de/sw/R1/1010/submit",
+        "UIPUT/ws/dam/pic/de/sw/R1/1019/submit",
+        "UIPUT/ws/dam/pic/de/sw/R1/3000/submit1"
       ]
     },
     {

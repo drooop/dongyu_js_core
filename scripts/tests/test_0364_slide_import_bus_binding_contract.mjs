@@ -82,7 +82,7 @@ async function test_import_generates_host_owned_binding_and_split_bus_pins() {
       host_cell: [0, 0, 0],
       host_pin_type: 'pin.bus.mb.out',
       host_pin_key: `imported_submit1_${importedId}_bus`,
-      target: { worker_id: 'RE', model_id: 3000, pin: 'submit1' },
+      target: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
       reply_pin: 'result',
       owned_by: 'ui-server-installer',
     }, 'binding_value_must_describe_actual_management_bus_route');

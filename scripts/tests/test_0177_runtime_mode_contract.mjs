@@ -29,8 +29,16 @@ function pinPayload(opId) {
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
-    mt('source_model_id', 'int', 100),
-    mt('pin', 'str', 'submit'),
+    mt('message_role', 'str', 'request'),
+    mt('endpoint_worker_id', 'str', 'R1'),
+    mt('endpoint_model_id', 'int', 100),
+    mt('endpoint_pin', 'str', 'submit'),
+    mt('origin_worker_id', 'str', 'ui-server-test'),
+    mt('origin_model_id', 'int', 100),
+    mt('origin_pin', 'str', 'submit'),
+    mt('reply_target_worker_id', 'str', 'ui-server-test'),
+    mt('reply_target_model_id', 'int', 100),
+    mt('reply_target_pin', 'str', 'result'),
     mt('payload', 'json', [mt('phase', 'str', 'running')]),
     mt('timestamp', 'int', Date.now()),
   ];
@@ -60,6 +68,10 @@ function test_runtime_mode_and_trusted_bootstrap() {
       mqttPublishes.push({ topic, payload });
     },
   };
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'ui-server-test' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'boot_out', t: 'pin.bus.cb.out', v: pinPayload('boot_out') });
   assert.equal(mqttPublishes.length, 0, 'boot/edit mode must not publish pin.bus.cb.out side effects');
 

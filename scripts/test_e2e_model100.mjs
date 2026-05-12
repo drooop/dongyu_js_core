@@ -3,15 +3,15 @@
  * Model 100 E2E 测试脚本
  * 
  * 测试完整的双总线往返流程：
- * 1. 本地 Submit (Model 100, Cell 0,0,2, ui_event)
- * 2. → forward_model100_events → Matrix (dy.bus.v0, source_model_id: 100)
- * 3. → MBR Worker (mbr_mgmt_to_mqtt) → MQTT topic: UIPUT/.../100/event_in
- * 4. → K8s Worker PIN_IN → on_model100_event_in → 计算颜色
+ * 1. 本地 Submit → /bus_event → Model 0 ingress
+ * 2. → pin_payload.v1 Temporary ModelTable records
+ * 3. → MBR Worker (mbr_mgmt_to_mqtt) → MQTT topic: UIPUT/.../R1/100/submit
+ * 4. → Remote Worker pin.in → on_model100_submit_in → 计算颜色
  * 5. → K8s PIN_OUT (patch: 更新 bg_color)
- * 6. → MQTT topic: UIPUT/.../100/patch_out
- * 7. → MBR (mbr_mqtt_to_mgmt) → Matrix (dy.bus.v0, snapshot_delta)
- * 8. → 本地 UI Server (handleDyBusEvent) → Model 100 PIN_IN (patch_in)
- * 9. → on_model100_patch_in → apply patch → bg_color 更新
+ * 6. → MQTT topic: UIPUT/.../<ui-server-worker>/<model-id>/result
+ * 7. → MBR (mbr_mqtt_to_mgmt) → Matrix strict pin_payload.v1
+ * 8. → 本地 UI Server (handleDyBusEvent) → reply_target_* materialization
+ * 9. → bg_color 更新
  * 
  * 使用方法：
  * 1. 确保以下服务已启动：
@@ -173,58 +173,25 @@ async function main() {
   console.log('');
   console.log('[Step 2] 发送 Submit 事件到 Model 100...');
   
-  const submitEvent = {
-    type: 'ui_event',
+  // 通过正式业务入口提交；服务端负责组装 pin_payload.v1 和 endpoint/reply_target metadata。
+  const opId = `e2e_submit_${Date.now()}`;
+  const submitEnvelope = {
+    event_id: Date.now(),
+    source: 'ui_renderer',
+    type: 'submit',
     payload: {
-      action: 'model100_submit',
-      meta: {
-        op_id: `e2e_test_${Date.now()}`,
-      },
-      target: {
-        model_id: 100,
-        p: 0, r: 0, c: 2,
-        k: 'ui_event',
-      },
+      action: 'submit',
+      meta: { op_id: opId, model_id: 100 },
       value: {
         t: 'event',
-        v: {
-          action: 'submit',
-          input_value: 'test_input',
-          timestamp: Date.now(),
-        },
+        v: { action: 'submit', meta: { op_id: opId, model_id: 100 } },
       },
     },
-  };
-  
-  // 直接写入 Model 100 的 ui_event 来触发 forward_model100_events
-  // 这需要通过 label_add action，需要 source: 'ui_renderer' 和 type: 'label_add'
-  const opId = `e2e_submit_${Date.now()}`;
-  const labelAddEvent = {
-    source: 'ui_renderer',
-    type: 'label_add',
-    payload: {
-      action: 'label_add',
-      meta: {
-        op_id: opId,
-      },
-      target: {
-        model_id: 100,
-        p: 0, r: 0, c: 2,
-        k: 'ui_event',
-      },
-      value: {
-        t: 'json',
-        v: {
-          action: 'submit',
-          input_value: 'test_e2e',
-          meta: { op_id: opId },
-        },
-      },
-    },
+    ts: Date.now(),
   };
   
   try {
-    res = await httpPost(`${UI_SERVER_URL}/ui_event`, labelAddEvent);
+    res = await httpPost(`${UI_SERVER_URL}/bus_event`, submitEnvelope);
   } catch (e) {
     console.error('[FAIL] 发送事件失败:', e.message);
     process.exit(1);

@@ -24,20 +24,57 @@ loadPatches(rt, path.join(repoRoot, 'deploy/sys-v1ns/remote-worker/patches'));
 rt.setRuntimeMode('edit');
 rt.setRuntimeMode('running');
 
-const handled = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/100/submit', {
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function pinPayloadRecords({
+  opId,
+  payload,
+  endpointWorkerId = 'R1',
+  endpointModelId = 100,
+  endpointPin = 'submit',
+  originWorkerId = 'ui-server-test',
+  originModelId = 100,
+  originPin = 'submit',
+  replyTargetWorkerId = 'ui-server-test',
+  replyTargetModelId = 100,
+  replyTargetPin = 'result',
+  messageRole = 'request',
+  timestamp = 1700000000000,
+}) {
+  return [
+    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('__mt_request_id', 'str', opId),
+    mt('op_id', 'str', opId),
+    mt('message_role', 'str', messageRole),
+    mt('endpoint_worker_id', 'str', endpointWorkerId),
+    mt('endpoint_model_id', 'int', endpointModelId),
+    mt('endpoint_pin', 'str', endpointPin),
+    mt('origin_worker_id', 'str', originWorkerId),
+    mt('origin_model_id', 'int', originModelId),
+    mt('origin_pin', 'str', originPin),
+    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
+    mt('reply_target_model_id', 'int', replyTargetModelId),
+    mt('reply_target_pin', 'str', replyTargetPin),
+    mt('payload', 'json', payload),
+    mt('timestamp', 'int', timestamp),
+  ];
+}
+
+const handled = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/100/submit', {
   version: 'v1',
   type: 'pin_payload',
-  op_id: 'wildcard_direct_001',
-  source_model_id: 100,
-  pin: 'submit',
-  payload: [
-    { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
-    { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
-  ],
-  timestamp: Date.now(),
+  payload: pinPayloadRecords({
+    opId: 'wildcard_direct_001',
+    payload: [
+      mt('model_type', 'model.single', 'Data.RemoteSubmit'),
+      mt('input_value', 'str', 'hello'),
+    ],
+  }),
 });
 
-assert.equal(handled, true, 'runtime mqttIncoming must accept direct v1 pin_payload on wildcard topic');
+assert.equal(handled, true, 'runtime mqttIncoming must accept direct v1 pin_payload on unified endpoint topic');
 await new Promise((resolve) => setTimeout(resolve, 1000));
 
 const model100 = rt.getModel(100);

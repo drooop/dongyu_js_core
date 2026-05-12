@@ -1,41 +1,24 @@
 import { computed, h, onBeforeUnmount, onMounted, ref, resolveComponent, watch } from 'vue';
 import { createRenderer } from '@ui-renderer/index.mjs';
 import { readAppShellRouteSyncState, resolveNavigableRoutePath } from './app_shell_route_sync.js';
+import { dispatchAppShellStateUpdate } from './app_shell_state_dispatch.js';
 import { findPageEntryByPath, readPageCatalog } from './page_asset_resolver.js';
+import {
+  DESKTOP_FOREGROUND_APP_LABEL,
+  DESKTOP_TASK_STACK_LABEL,
+  DESKTOP_TASK_SWITCHER_OPEN_LABEL,
+  readDesktopForegroundApp,
+  readDesktopTaskStack,
+  readDesktopTaskSwitcherOpen,
+  removeDesktopTaskFromStack,
+} from './desktop_app_state.js';
 
 import {
   ROUTE_HOME,
-  ROUTE_MODEL100,
-  ROUTE_WORKSPACE,
   getHashPath,
-  isModel100Path,
   setHashPath,
   subscribeHashPath,
 } from './router.js';
-
-function buildUiMailboxEventLabel(input) {
-  const { action, target, value, opId } = input || {};
-  const nextOpId = opId || `ui_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-  return {
-    p: 0,
-    r: 0,
-    c: 1,
-    k: 'ui_event',
-    t: 'event',
-    v: {
-      event_id: Date.now(),
-      type: action,
-      source: 'ui_renderer',
-      ts: 0,
-      payload: {
-        action,
-        meta: { op_id: nextOpId },
-        ...(target ? { target } : {}),
-        ...(Object.prototype.hasOwnProperty.call(input || {}, 'value') ? { value } : {}),
-      },
-    },
-  };
-}
 
 export function createDemoRoot(store) {
   let consumeScheduled = false;
@@ -158,28 +141,19 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       }
 
       function selectWorkspaceModel(modelId) {
-        if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
-        mainStore.dispatchAddLabel(buildUiMailboxEventLabel({
-          action: 'label_update',
+        dispatchAppShellStateUpdate(mainStore, {
           target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
           value: { t: 'int', v: modelId },
-        }));
+        });
       }
 
       function syncPageLabel(routePath) {
         const page = findRouteEntry(routePath)?.page || 'home';
         try {
-          if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
-          const opId = `route_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-          mainStore.dispatchAddLabel(buildUiMailboxEventLabel({
-            action: 'label_update',
+          dispatchAppShellStateUpdate(mainStore, {
             target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ui_page' },
             value: { t: 'str', v: page },
-            opId,
-          }));
-          if (typeof mainStore.consumeOnce === 'function') {
-            queueMicrotask(() => mainStore.consumeOnce());
-          }
+          });
         } catch (_) {
           // ignore
         }
@@ -200,17 +174,10 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       }
 
       function clearGalleryNavTarget() {
-        if (!mainStore || typeof mainStore.dispatchAddLabel !== 'function') return;
-        const opId = `gallery_nav_clear_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-        mainStore.dispatchAddLabel(buildUiMailboxEventLabel({
-          action: 'label_update',
+        dispatchAppShellStateUpdate(mainStore, {
           target: { model_id: -102, p: 0, r: 0, c: 0, k: 'nav_to' },
           value: { t: 'str', v: '' },
-          opId,
-        }));
-        if (typeof mainStore.consumeOnce === 'function') {
-          queueMicrotask(() => mainStore.consumeOnce());
-        }
+        });
       }
 
       onMounted(() => {
@@ -221,6 +188,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         syncGalleryRoute(path.value);
         syncPageLabel(path.value);
         syncWorkspaceSelection(path.value);
+        syncDesktopForeground(desktopForegroundApp.value);
         unsubscribe = subscribeHashPath((next) => {
           path.value = next;
           normalizeIfUnknown(next);
@@ -230,6 +198,9 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           syncGalleryRoute(next);
           syncPageLabel(next);
           syncWorkspaceSelection(next);
+          if (next === ROUTE_HOME) {
+            syncDesktopForeground(desktopForegroundApp.value);
+          }
         });
       });
 
@@ -239,11 +210,79 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
 
       const currentRouteEntry = computed(() => findRouteEntry(path.value));
       const routeSyncState = computed(() => readAppShellRouteSyncState(mainStore?.snapshot ?? {}, path.value));
+      const desktopForegroundApp = computed(() => readDesktopForegroundApp(mainStore?.snapshot ?? {}));
+      const desktopForegroundKey = computed(() => JSON.stringify(desktopForegroundApp.value || null));
+      const desktopTasks = computed(() => readDesktopTaskStack(mainStore?.snapshot ?? {}));
+      const desktopTaskSwitcherOpen = computed(() => readDesktopTaskSwitcherOpen(mainStore?.snapshot ?? {}));
       const galleryNavTarget = computed(() => {
         const labels = mainStore?.snapshot?.models?.['-102']?.cells?.['0,0,0']?.labels ?? {};
         const raw = labels.nav_to?.v;
         return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : '';
       });
+
+      function syncDesktopForeground(app) {
+        if (!app) {
+          if (mainStore && typeof mainStore.setRoutePath === 'function') {
+            mainStore.setRoutePath(path.value);
+          }
+          syncGalleryRoute(path.value);
+          syncPageLabel(path.value);
+          syncWorkspaceSelection(path.value);
+          return;
+        }
+        if (mainStore && typeof mainStore.setRoutePath === 'function') {
+          mainStore.setRoutePath(app.path);
+        }
+        syncGalleryRoute(app.path);
+        syncPageLabel(app.path);
+        if (app.page === 'workspace' && Number.isInteger(app.model_id)) {
+          selectWorkspaceModel(app.model_id);
+        } else {
+          syncWorkspaceSelection(app.path);
+        }
+      }
+
+      function clearDesktopForeground() {
+        dispatchAppShellStateUpdate(mainStore, {
+          target: { model_id: -2, p: 0, r: 0, c: 0, k: DESKTOP_FOREGROUND_APP_LABEL },
+          value: { t: 'json', v: null },
+        });
+        syncDesktopForeground(null);
+      }
+
+      function setTaskSwitcherOpen(open) {
+        dispatchAppShellStateUpdate(mainStore, {
+          target: { model_id: -2, p: 0, r: 0, c: 0, k: DESKTOP_TASK_SWITCHER_OPEN_LABEL },
+          value: { t: 'bool', v: Boolean(open) },
+        });
+      }
+
+      function activateDesktopTask(task) {
+        if (!task || typeof task !== 'object') return;
+        if (path.value !== ROUTE_HOME) {
+          setHashPath(ROUTE_HOME);
+          path.value = ROUTE_HOME;
+        }
+        dispatchAppShellStateUpdate(mainStore, {
+          target: { model_id: -2, p: 0, r: 0, c: 0, k: DESKTOP_FOREGROUND_APP_LABEL },
+          value: { t: 'json', v: task },
+        });
+        setTaskSwitcherOpen(false);
+        syncDesktopForeground(task);
+      }
+
+      function closeDesktopTask(task) {
+        if (!task || typeof task.id !== 'string' || !task.id.trim()) return;
+        const nextStack = removeDesktopTaskFromStack(desktopTasks.value, task.id);
+        dispatchAppShellStateUpdate(mainStore, {
+          target: { model_id: -2, p: 0, r: 0, c: 0, k: DESKTOP_TASK_STACK_LABEL },
+          value: { t: 'json', v: nextStack },
+        });
+        if (desktopForegroundApp.value?.id === task.id) {
+          clearDesktopForeground();
+          setTaskSwitcherOpen(false);
+        }
+      }
 
       watch(galleryNavTarget, (next) => {
         if (!next) return;
@@ -257,6 +296,161 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         syncWorkspaceSelection(path.value);
         clearGalleryNavTarget();
       });
+
+      watch(desktopForegroundKey, () => {
+        syncDesktopForeground(desktopForegroundApp.value);
+      });
+
+      function ForegroundPlayer() {
+        const app = desktopForegroundApp.value;
+        if (!app) return null;
+        const content = app.page === 'gallery' ? h(GalleryRoot) : h(HomeRoot);
+        return h('div', {
+          'data-testid': 'desktop-foreground-player',
+          style: {
+            minHeight: '100vh',
+            background: '#edf2f8',
+            display: 'flex',
+            flexDirection: 'column',
+          },
+        }, [
+          h('div', {
+            style: {
+              height: '52px',
+              padding: '0 14px',
+              borderBottom: '1px solid #d7dee8',
+              background: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              boxSizing: 'border-box',
+            },
+          }, [
+            h(ElButton, {
+              size: 'small',
+              'data-testid': 'desktop-foreground-back',
+              onClick: clearDesktopForeground,
+            }, { default: () => '桌面' }),
+            h(ElButton, {
+              size: 'small',
+              'data-testid': 'desktop-task-switcher-open',
+              onClick: () => setTaskSwitcherOpen(true),
+            }, { default: () => '任务' }),
+            h('div', {
+              style: {
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#172033',
+              },
+            }, app.title || app.id),
+            h('div', { style: { width: '58px' } }),
+          ]),
+          h('div', {
+            style: {
+              flex: 1,
+              minHeight: 0,
+              overflow: 'auto',
+              background: '#ffffff',
+            },
+          }, [content]),
+        ]);
+      }
+
+      function TaskSwitcherOverlay() {
+        if (!desktopTaskSwitcherOpen.value) return null;
+        const tasks = desktopTasks.value;
+        return h('div', {
+          'data-testid': 'desktop-task-switcher',
+          style: {
+            position: 'fixed',
+            inset: 0,
+            zIndex: 50,
+            background: 'rgba(15, 23, 42, 0.22)',
+            display: 'flex',
+            justifyContent: 'flex-end',
+          },
+          onClick: () => setTaskSwitcherOpen(false),
+        }, [
+          h('div', {
+            style: {
+              width: 'min(360px, 92vw)',
+              height: '100%',
+              background: '#ffffff',
+              borderLeft: '1px solid #d9e1ea',
+              boxShadow: '-12px 0 28px rgba(15, 23, 42, 0.16)',
+              padding: '16px',
+              boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            },
+            onClick: (event) => event.stopPropagation(),
+          }, [
+            h('div', {
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              },
+            }, [
+              h('div', { style: { fontWeight: 700, color: '#172033' } }, '任务'),
+              h(ElButton, {
+                size: 'small',
+                'data-testid': 'desktop-task-switcher-close',
+                onClick: () => setTaskSwitcherOpen(false),
+              }, { default: () => '关闭' }),
+            ]),
+            tasks.length === 0
+              ? h('div', { style: { color: '#64748b', lineHeight: '1.6' } }, '暂无后台任务')
+              : h('div', {
+                style: {
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                },
+              }, tasks.map((task) => h('div', {
+                key: task.id,
+                style: {
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr) auto',
+                  gap: '8px',
+                  alignItems: 'stretch',
+                },
+              }, [
+                h(ElButton, {
+                  'data-testid': `desktop-task-${task.id}`,
+                  style: {
+                    justifyContent: 'flex-start',
+                    minHeight: '44px',
+                    whiteSpace: 'normal',
+                    textAlign: 'left',
+                  },
+                  onClick: () => activateDesktopTask(task),
+                }, {
+                  default: () => `${task.title || task.id}${task.kind === 'workspace' && Number.isInteger(task.model_id) ? ` · ${task.model_id}` : ''}`,
+                }),
+                h(ElButton, {
+                  'data-testid': `desktop-task-close-${task.id}`,
+                  size: 'small',
+                  style: {
+                    minHeight: '44px',
+                  },
+                  onClick: (event) => {
+                    event.stopPropagation();
+                    closeDesktopTask(task);
+                  },
+                }, { default: () => '关闭' }),
+              ]))),
+          ]),
+        ]);
+      }
+
+      function withTaskSwitcher(content) {
+        return h('div', [
+          content,
+          h(TaskSwitcherOverlay),
+        ]);
+      }
 
       function Header() {
         const catalog = readCatalog().filter((entry) => entry && entry.nav_visible === true && typeof entry.path === 'string');
@@ -282,6 +476,10 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           );
         }
 
+        if (navButtons.length === 0 && userSection.length === 0) {
+          return null;
+        }
+
         return h('div', {
           style: {
             padding: '12px 16px',
@@ -299,11 +497,14 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       }
 
       return () => {
+        if (desktopForegroundApp.value && path.value === ROUTE_HOME) {
+          return withTaskSwitcher(h(ForegroundPlayer));
+        }
         if (currentRouteEntry.value?.page === 'gallery') {
-          return h('div', [h(Header), h(GalleryRoot)]);
+          return withTaskSwitcher(h('div', [h(Header), h(GalleryRoot)]));
         }
         if (routeSyncState.value.pending) {
-          return h('div', [
+          return withTaskSwitcher(h('div', [
             h(Header),
             h('div', {
               style: {
@@ -325,16 +526,16 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
                 h('div', { style: { color: '#475569', lineHeight: '1.6' } }, `正在切换到 ${routeSyncState.value.targetPage}，等待本地表状态完成同步。`),
               ]),
             ]),
-          ]);
+          ]));
         }
         if (currentRouteEntry.value && currentRouteEntry.value.page !== 'gallery') {
-          return h('div', [h(Header), h(HomeRoot)]);
+          return withTaskSwitcher(h('div', [h(Header), h(HomeRoot)]));
         }
-        return h('div', [
+        return withTaskSwitcher(h('div', [
           h(Header),
           h(ElDivider, { style: { margin: '12px 0' } }),
           h(HomeRoot),
-        ]);
+        ]));
       };
     },
   };

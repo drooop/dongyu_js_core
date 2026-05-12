@@ -35,6 +35,7 @@ function readPageCatalog() {
 function test_non_workspace_page_catalogs_stop_using_root_ui_ast_bootstrap() {
   const catalog = readPageCatalog();
   const expected = [
+    ['desktop', 'packages/worker-base/system-models/desktop_catalog_ui.json', -28],
     ['home', 'packages/worker-base/system-models/home_catalog_ui.json', -22],
     ['docs', 'packages/worker-base/system-models/docs_catalog_ui.json', -23],
     ['static', 'packages/worker-base/system-models/static_catalog_ui.json', -24],

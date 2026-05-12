@@ -21,8 +21,8 @@ function main() {
   const visiblePages = readVisiblePages();
   assert.deepEqual(
     visiblePages,
-    ['home', 'workspace', 'prompt'],
-    'Header visible pages must be limited to home/workspace/prompt',
+    [],
+    'Tablet desktop shell must not expose legacy top navigation links',
   );
   console.log('PASS test_0199_nav_catalog_visibility_contract');
 }

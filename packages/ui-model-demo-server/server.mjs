@@ -22,6 +22,14 @@ import { buildAstFromCellwiseModel } from '../ui-model-demo-frontend/src/ui_cell
 import { buildAstFromSchema } from '../ui-model-demo-frontend/src/ui_schema_projection.js';
 import { resolvePageAsset } from '../ui-model-demo-frontend/src/page_asset_resolver.js';
 import {
+  DESKTOP_FOREGROUND_APP_LABEL,
+  DESKTOP_TASK_STACK_LABEL,
+  DESKTOP_TASK_SWITCHER_OPEN_LABEL,
+  deriveDesktopTaskStack,
+  normalizeDesktopForegroundApp,
+  readDesktopForegroundWorkspaceModelId,
+} from '../ui-model-demo-frontend/src/desktop_app_state.js';
+import {
   deriveEditorModelOptions,
   deriveHomeEditDialogTitle,
   deriveHomeMissingModelText,
@@ -1366,7 +1374,17 @@ function isPlainObject(value) {
 
 function isValidPublicPinName(value) {
   return typeof value === 'string'
-    && /^[A-Za-z_][A-Za-z0-9_.-]*$/u.test(value.trim());
+    && value.trim() === value
+    && /^[A-Za-z_][A-Za-z0-9_.-]*$/u.test(value);
+}
+
+function isSafePinRouteSegment(value) {
+  return typeof value === 'string'
+    && value.trim() === value
+    && value.length > 0
+    && !value.includes('/')
+    && !value.includes('+')
+    && !value.includes('#');
 }
 
 function containsRouteReplyTo(value) {
@@ -1381,10 +1399,40 @@ function containsRouteReplyTo(value) {
   return false;
 }
 
+function isLegacyPinPayloadKey(key) {
+  return key === 'source_model_id'
+    || key === 'pin'
+    || key === 'route'
+    || key === 'reply_to'
+    || key === 'route.reply_to'
+    || key === 'return_topic'
+    || key === 'returnTopic'
+    || key === 'result_topic';
+}
+
+function containsLegacyPinPayloadMetadata(value, seen = new WeakSet()) {
+  if (!value) return false;
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return false;
+    seen.add(value);
+    return value.some((item) => containsLegacyPinPayloadMetadata(item, seen));
+  }
+  if (!isPlainObject(value)) return false;
+  if (seen.has(value)) return false;
+  seen.add(value);
+  for (const [key, child] of Object.entries(value)) {
+    if (isLegacyPinPayloadKey(key)) return true;
+    if (key === 'k' && typeof child === 'string' && isLegacyPinPayloadKey(child)) return true;
+    if (key === 'route' && isPlainObject(child) && Object.prototype.hasOwnProperty.call(child, 'reply_to')) return true;
+    if (containsLegacyPinPayloadMetadata(child, seen)) return true;
+  }
+  return false;
+}
+
 function resolveUiServerWorkerId() {
-  const raw = process.env.DY_UI_SERVER_WORKER_ID || process.env.UI_SERVER_WORKER_ID || 'ui-server-local';
+  const raw = process.env.DY_UI_SERVER_WORKER_ID || 'U1';
   const id = String(raw || '').trim();
-  return id || 'ui-server-local';
+  return id || 'U1';
 }
 
 function isSplitBusOutLabelType(typeName) {
@@ -1392,28 +1440,25 @@ function isSplitBusOutLabelType(typeName) {
 }
 
 function isTemporaryModelTableRecord(record) {
-  return isPlainObject(record)
-    && !Object.prototype.hasOwnProperty.call(record, 'op')
-    && !Object.prototype.hasOwnProperty.call(record, 'model_id')
-    && Number.isInteger(record.id)
+  if (!isPlainObject(record)) return false;
+  const keys = Object.keys(record).sort();
+  if (keys.length !== 7 || keys.join('|') !== 'c|id|k|p|r|t|v') return false;
+  return Number.isInteger(record.id)
     && Number.isInteger(record.p)
     && Number.isInteger(record.r)
     && Number.isInteger(record.c)
     && typeof record.k === 'string'
     && record.k.length > 0
     && typeof record.t === 'string'
-    && record.t.length > 0
-    && Object.prototype.hasOwnProperty.call(record, 'v');
+    && record.t.length > 0;
 }
 
 function isExpectedPinPayloadReturnRoute(content) {
-  if (!isPlainObject(content)) return false;
-  const route = isPlainObject(content.route) ? content.route : null;
-  const to = route && isPlainObject(route.to) ? route.to : null;
-  return Boolean(to
-    && to.worker_id === resolveUiServerWorkerId()
-    && to.model_id === content.source_model_id
-    && to.pin === 'result');
+  const parsed = parsePinPayloadRecordEnvelope(content);
+  return Boolean(parsed.ok
+    && parsed.replyTarget.worker_id === resolveUiServerWorkerId()
+    && parsed.replyTarget.pin === 'result'
+    && parsed.messageRole === 'response');
 }
 
 function sanitizeSlideExportName(input, fallback = 'slide-app') {
@@ -2017,19 +2062,6 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
   }
   if (!remoteEndpoint || !remoteEndpoint.to) return null;
   const keys = buildImportedHostEgressKeys(rootModelId, hostEgress.semantic);
-  const route = {
-    transport: remoteEndpoint.transport,
-    to: {
-      worker_id: remoteEndpoint.to.worker_id,
-      model_id: remoteEndpoint.to.model_id,
-      pin: hostEgress.pinName,
-    },
-    reply_to: {
-      worker_id: resolveUiServerWorkerId(),
-      model_id: rootModelId,
-      pin: SLIDE_IMPORT_REPLY_PIN,
-    },
-  };
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: hostEgress.pinName, t: 'pin.out', v: null });
   runtime.addLabel(model0, 0, 0, 0, { k: keys.busOutKey, t: 'pin.bus.mb.out', v: null });
   runtime.addLabel(model0, 0, 0, 0, { k: keys.model0BridgeIn, t: 'pin.in', v: null });
@@ -2044,11 +2076,18 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
         `V1N.addLabel('mt_bus_send_in', 'pin.in', [`,
         `  mt('__mt_payload_kind', 'str', 'bus_send.v1'),`,
         `  mt('__mt_request_id', 'str', opId),`,
-        `  mt('source_model_id', 'int', ${rootModelId}),`,
-        `  mt('pin', 'str', ${JSON.stringify(hostEgress.pinName)}),`,
+        `  mt('message_role', 'str', 'request'),`,
         `  mt('bus', 'str', 'management'),`,
         `  mt('bus_out_key', 'str', ${JSON.stringify(keys.busOutKey)}),`,
-        `  mt('route', 'json', ${JSON.stringify(route)}),`,
+        `  mt('endpoint_worker_id', 'str', ${JSON.stringify(remoteEndpoint.to.worker_id)}),`,
+        `  mt('endpoint_model_id', 'int', ${remoteEndpoint.to.model_id}),`,
+        `  mt('endpoint_pin', 'str', ${JSON.stringify(hostEgress.pinName)}),`,
+        `  mt('origin_worker_id', 'str', ${JSON.stringify(resolveUiServerWorkerId())}),`,
+        `  mt('origin_model_id', 'int', ${rootModelId}),`,
+        `  mt('origin_pin', 'str', ${JSON.stringify(hostEgress.pinName)}),`,
+        `  mt('reply_target_worker_id', 'str', ${JSON.stringify(resolveUiServerWorkerId())}),`,
+        `  mt('reply_target_model_id', 'int', ${rootModelId}),`,
+        `  mt('reply_target_pin', 'str', ${JSON.stringify(SLIDE_IMPORT_REPLY_PIN)}),`,
         `  mt('payload', 'json', payload),`,
         `]);`,
         'return;',
@@ -2522,7 +2561,7 @@ function setMailboxEnvelope(runtime, envelopeOrNull) {
   runtime.addLabel(model, 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: envelopeOrNull });
 }
 
-function temporaryPayloadToPatch(targetModelId, payload, opId) {
+function temporaryPayloadToOwnerMaterialization(targetModelId, payload, opId) {
   if (!Number.isInteger(targetModelId)) return null;
   if (!Array.isArray(payload) || payload.length === 0 || !payload.every(isTemporaryModelTableRecord)) return null;
   const records = [];
@@ -2539,7 +2578,6 @@ function temporaryPayloadToPatch(targetModelId, payload, opId) {
     });
   }
   return {
-    version: 'mt.v0',
     op_id: typeof opId === 'string' && opId ? opId : `pin_payload_${Date.now()}`,
     records,
   };
@@ -2557,8 +2595,135 @@ function findTemporaryPayloadRecord(payload, key) {
 
 function readTemporaryPayloadString(payload, key, fallback = '') {
   const record = findTemporaryPayloadRecord(payload, key);
-  if (!record || record.v === undefined || record.v === null) return fallback;
-  return String(record.v);
+  if (!record) return fallback;
+  return record.t === 'str' && typeof record.v === 'string' ? record.v : fallback;
+}
+
+function readTemporaryPayloadInt(payload, key) {
+  const record = findTemporaryPayloadRecord(payload, key);
+  return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null;
+}
+
+function readTemporaryPayloadJson(payload, key) {
+  const record = findTemporaryPayloadRecord(payload, key);
+  return record && record.t === 'json' ? record.v : null;
+}
+
+function hasInvalidTemporaryPayloadStringRecord(payload, key) {
+  const record = findTemporaryPayloadRecord(payload, key);
+  return Boolean(record && (record.t !== 'str' || typeof record.v !== 'string'));
+}
+
+function hasDuplicateTemporaryPayloadRecordKeys(payload, keys) {
+  if (!Array.isArray(payload)) return false;
+  const watched = new Set(keys);
+  const seen = new Set();
+  for (const record of payload) {
+    if (!record || !watched.has(record.k)) continue;
+    if (seen.has(record.k)) return true;
+    seen.add(record.k);
+  }
+  return false;
+}
+
+function isStrictNonBlankString(value) {
+  return typeof value === 'string' && value.length > 0 && value.trim() === value;
+}
+
+function parsePinPayloadRecordEnvelope(content) {
+  if (!content || content.version !== 'v1' || content.type !== 'pin_payload') {
+    return { ok: false, code: 'invalid_packet' };
+  }
+  const keys = Object.keys(content).sort();
+  if (keys.length !== 3 || keys[0] !== 'payload' || keys[1] !== 'type' || keys[2] !== 'version') {
+    return { ok: false, code: 'loose_pin_payload_fields_removed' };
+  }
+  const records = content.payload;
+  if (!isTemporaryPayloadRecordArray(records)) {
+    return { ok: false, code: 'temporary_modeltable_required' };
+  }
+  const kind = readTemporaryPayloadString(records, '__mt_payload_kind');
+  if (kind !== 'pin_payload.v1') {
+    return { ok: false, code: 'invalid_payload_kind' };
+  }
+  const stringMetadataKeys = [
+    '__mt_request_id',
+    'op_id',
+    'message_role',
+    'endpoint_worker_id',
+    'endpoint_pin',
+    'origin_worker_id',
+    'origin_pin',
+    'reply_target_worker_id',
+    'reply_target_pin',
+  ];
+  const metadataKeys = stringMetadataKeys.concat([
+    '__mt_payload_kind',
+    'endpoint_model_id',
+    'origin_model_id',
+    'reply_target_model_id',
+    'payload',
+    'timestamp',
+    'bus_out_key',
+    'bus',
+  ]);
+  if (hasDuplicateTemporaryPayloadRecordKeys(records, metadataKeys)) {
+    return { ok: false, code: 'invalid_pin_payload_records' };
+  }
+  for (const key of stringMetadataKeys) {
+    if (hasInvalidTemporaryPayloadStringRecord(records, key)) {
+      return { ok: false, code: 'invalid_pin_payload_records' };
+    }
+  }
+  const requestId = readTemporaryPayloadString(records, '__mt_request_id');
+  const opIdLabel = readTemporaryPayloadString(records, 'op_id');
+  const requestIdIsValid = requestId === '' || isStrictNonBlankString(requestId);
+  const opIdIsValid = opIdLabel === '' || isStrictNonBlankString(opIdLabel);
+  if (!requestIdIsValid || !opIdIsValid) {
+    return { ok: false, code: 'invalid_pin_payload_records' };
+  }
+  if (!requestId && !opIdLabel) {
+    return { ok: false, code: 'missing_request_correlation' };
+  }
+  const messageRole = readTemporaryPayloadString(records, 'message_role');
+  if (messageRole !== 'request' && messageRole !== 'response') {
+    return { ok: false, code: 'invalid_message_role' };
+  }
+  for (const record of records) {
+    if (!record || typeof record.k !== 'string') {
+      return { ok: false, code: 'invalid_pin_payload_records' };
+    }
+    if (isLegacyPinPayloadKey(record.k)) {
+      return { ok: false, code: 'legacy_pin_payload_metadata_removed' };
+    }
+    if (containsLegacyPinPayloadMetadata(record.v)) {
+      return { ok: false, code: 'legacy_pin_payload_metadata_removed' };
+    }
+  }
+  const endpoint = {
+    worker_id: readTemporaryPayloadString(records, 'endpoint_worker_id'),
+    model_id: readTemporaryPayloadInt(records, 'endpoint_model_id'),
+    pin: readTemporaryPayloadString(records, 'endpoint_pin'),
+  };
+  const origin = {
+    worker_id: readTemporaryPayloadString(records, 'origin_worker_id'),
+    model_id: readTemporaryPayloadInt(records, 'origin_model_id'),
+    pin: readTemporaryPayloadString(records, 'origin_pin'),
+  };
+  const replyTarget = {
+    worker_id: readTemporaryPayloadString(records, 'reply_target_worker_id'),
+    model_id: readTemporaryPayloadInt(records, 'reply_target_model_id'),
+    pin: readTemporaryPayloadString(records, 'reply_target_pin'),
+  };
+  const validEndpoint = isSafePinRouteSegment(endpoint.worker_id) && Number.isInteger(endpoint.model_id) && endpoint.model_id > 0 && isSafePinRouteSegment(endpoint.pin);
+  const validOrigin = isSafePinRouteSegment(origin.worker_id) && Number.isInteger(origin.model_id) && origin.model_id > 0 && isSafePinRouteSegment(origin.pin);
+  const validReplyTarget = isSafePinRouteSegment(replyTarget.worker_id) && Number.isInteger(replyTarget.model_id) && replyTarget.model_id > 0 && isSafePinRouteSegment(replyTarget.pin);
+  const nestedPayload = readTemporaryPayloadJson(records, 'payload');
+  if (!validEndpoint || !validOrigin || !validReplyTarget || !isTemporaryPayloadRecordArray(nestedPayload)) {
+    return { ok: false, code: 'invalid_pin_payload_records' };
+  }
+  const opId = opIdLabel || requestId;
+  return { ok: true, records, endpoint, origin, replyTarget, nestedPayload, opId, messageRole };
 }
 
 function upsertTemporaryPayloadRecord(payload, record) {
@@ -2579,9 +2744,6 @@ function validateMgmtBusConsoleAck(content) {
   if (!isTemporaryPayloadRecordArray(payload)) {
     return { ok: false, code: 'temporary_modeltable_required' };
   }
-  if (!content || content.source_model_id !== MGMT_BUS_CONSOLE_MODEL_ID) {
-    return { ok: false, code: 'source_model_id_mismatch' };
-  }
   const kind = readTemporaryPayloadString(payload, '__mt_payload_kind').trim();
   if (kind !== 'mgmt_bus_console.ack.v1') {
     return { ok: false, code: 'invalid_payload_kind' };
@@ -2589,10 +2751,6 @@ function validateMgmtBusConsoleAck(content) {
   const targetUserId = readTemporaryPayloadString(payload, 'target_user_id').trim();
   if (!targetUserId.startsWith('@mbr:')) {
     return { ok: false, code: 'invalid_target_user_id' };
-  }
-  const topLevelTarget = typeof content.target_user_id === 'string' ? content.target_user_id.trim() : '';
-  if (topLevelTarget && topLevelTarget !== targetUserId) {
-    return { ok: false, code: 'target_user_id_mismatch' };
   }
   const replyText = readTemporaryPayloadString(payload, 'reply_text').trim();
   if (!replyText) {
@@ -2602,25 +2760,8 @@ function validateMgmtBusConsoleAck(content) {
 }
 
 function pinPayloadPacketToBusValue(packet) {
-  if (!packet || typeof packet !== 'object') return null;
-  if (packet.version !== 'v1' || packet.type !== 'pin_payload') return null;
-  if (!Number.isInteger(packet.source_model_id) || packet.source_model_id <= 0) return null;
-  if (typeof packet.pin !== 'string' || !packet.pin.trim()) return null;
-  if (!isTemporaryPayloadRecordArray(packet.payload)) return null;
-  const opId = typeof packet.op_id === 'string' && packet.op_id ? packet.op_id : `pin_payload_${Date.now()}`;
-  const records = [
-    mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mtPayloadRecord('__mt_request_id', 'str', opId),
-    mtPayloadRecord('op_id', 'str', opId),
-    mtPayloadRecord('source_model_id', 'int', packet.source_model_id),
-    mtPayloadRecord('pin', 'str', packet.pin.trim()),
-    mtPayloadRecord('payload', 'json', packet.payload),
-    mtPayloadRecord('timestamp', 'int', Number.isInteger(packet.timestamp) ? packet.timestamp : Date.now()),
-  ];
-  if (packet.route && typeof packet.route === 'object' && !Array.isArray(packet.route)) {
-    records.push(mtPayloadRecord('route', 'json', packet.route));
-  }
-  return records;
+  const parsed = parsePinPayloadRecordEnvelope(packet);
+  return parsed.ok ? parsed.records : null;
 }
 
 function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
@@ -2642,10 +2783,11 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
   const targetWorkerId = targetUserId.startsWith('@')
     ? targetUserId.slice(1).split(':')[0]
     : targetUserId;
-  if (!isValidPublicPinName(targetWorkerId)) {
+  if (!isSafePinRouteSegment(targetWorkerId)) {
     return { ok: false, code: 'invalid_target_worker_id', detail: targetWorkerId || 'missing_target_worker_id' };
   }
   const now = Date.now();
+  const opId = `mgmt_bus_console_${now}`;
   let normalizedPayload = upsertTemporaryPayloadRecord(payload, {
     id: 0,
     p: 0,
@@ -2669,23 +2811,23 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
     data: {
       version: 'v1',
       type: 'pin_payload',
-      op_id: `mgmt_bus_console_${now}`,
-      source_model_id: MGMT_BUS_CONSOLE_MODEL_ID,
-      pin: 'submit',
-      payload: normalizedPayload,
-      route: {
-        to: {
-          worker_id: targetWorkerId,
-          model_id: MGMT_BUS_CONSOLE_MODEL_ID,
-          pin: 'submit',
-        },
-        reply_to: {
-          worker_id: resolveUiServerWorkerId(),
-          model_id: MGMT_BUS_CONSOLE_MODEL_ID,
-          pin: 'result',
-        },
-      },
-      timestamp: now,
+      payload: [
+        mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
+        mtPayloadRecord('__mt_request_id', 'str', opId),
+        mtPayloadRecord('op_id', 'str', opId),
+        mtPayloadRecord('message_role', 'str', 'request'),
+        mtPayloadRecord('endpoint_worker_id', 'str', targetWorkerId),
+        mtPayloadRecord('endpoint_model_id', 'int', MGMT_BUS_CONSOLE_MODEL_ID),
+        mtPayloadRecord('endpoint_pin', 'str', 'submit'),
+        mtPayloadRecord('origin_worker_id', 'str', resolveUiServerWorkerId()),
+        mtPayloadRecord('origin_model_id', 'int', MGMT_BUS_CONSOLE_MODEL_ID),
+        mtPayloadRecord('origin_pin', 'str', 'submit'),
+        mtPayloadRecord('reply_target_worker_id', 'str', resolveUiServerWorkerId()),
+        mtPayloadRecord('reply_target_model_id', 'int', MGMT_BUS_CONSOLE_MODEL_ID),
+        mtPayloadRecord('reply_target_pin', 'str', 'result'),
+        mtPayloadRecord('payload', 'json', normalizedPayload),
+        mtPayloadRecord('timestamp', 'int', now),
+      ],
     },
   };
 }
@@ -3468,21 +3610,7 @@ function repairSlideImporterClickContract(runtime) {
 }
 
 function isTemporaryPayloadRecordArray(value) {
-  return Array.isArray(value) && value.length > 0 && value.every((record) =>
-    record
-    && typeof record === 'object'
-    && !Object.prototype.hasOwnProperty.call(record, 'op')
-    && !Object.prototype.hasOwnProperty.call(record, 'model_id')
-    && Number.isInteger(record.id)
-    && Number.isInteger(record.p)
-    && Number.isInteger(record.r)
-    && Number.isInteger(record.c)
-    && typeof record.k === 'string'
-    && record.k.length > 0
-    && typeof record.t === 'string'
-    && record.t.length > 0
-    && Object.prototype.hasOwnProperty.call(record, 'v')
-  );
+  return Array.isArray(value) && value.length > 0 && value.every(isTemporaryModelTableRecord);
 }
 
 function isRetiredSlideImporterDirectPin(target, pin) {
@@ -3522,9 +3650,27 @@ function temporaryPayloadLabel(payload, key) {
     : null;
 }
 
+function isMalformedPinPayloadKind(kind) {
+  if (!kind) return false;
+  if (kind.t !== 'str' || typeof kind.v !== 'string') return true;
+  const normalized = kind.v.trim();
+  return normalized.startsWith('pin_payload.') && (kind.v !== normalized || normalized !== 'pin_payload.v1');
+}
+
 function isValidBusPayloadArray(value) {
   if (!isTemporaryPayloadRecordArray(value)) return false;
+  for (const record of value) {
+    if (!record || typeof record.k !== 'string') return false;
+    if (isLegacyPinPayloadKey(record.k)) return false;
+    if (containsLegacyPinPayloadMetadata(record.v)) return false;
+  }
   const kind = temporaryPayloadLabel(value, '__mt_payload_kind');
+  if (kind && (kind.t !== 'str' || typeof kind.v !== 'string')) return false;
+  if (isMalformedPinPayloadKind(kind)) return false;
+  if (kind && kind.t === 'str' && kind.v === 'pin_payload.v1') {
+    const parsed = parsePinPayloadRecordEnvelope({ version: 'v1', type: 'pin_payload', payload: value });
+    return parsed.ok === true;
+  }
   if (kind && kind.t === 'str' && kind.v === 'write_label.v1') {
     const targetCell = temporaryPayloadLabel(value, '__mt_target_cell');
     if (!targetCell || targetCell.t !== 'json' || !isCellCoord(targetCell.v)) return false;
@@ -3550,14 +3696,7 @@ function normalizeDirectPinValue(rawValue, meta, target, pin) {
       return { ok: true, value: nextValue };
     }
     if (nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue) && nextValue.version === 'v1' && nextValue.type === 'pin_payload') {
-      const packetPin = typeof nextValue.pin === 'string' ? nextValue.pin.trim() : '';
-      if (!packetPin || packetPin !== pin) {
-        return { ok: false, code: 'invalid_bus_payload', detail: 'pin_mismatch' };
-      }
-      if (!isValidBusPayloadArray(nextValue.payload)) {
-        return { ok: false, code: 'invalid_bus_payload', detail: 'invalid_external_pin_payload' };
-      }
-      return { ok: true, value: nextValue.payload };
+      return { ok: false, code: 'invalid_bus_payload', detail: 'external_pin_payload_wrapper_removed' };
     }
     if (isLegacyWriteEnvelope(nextValue)) {
       return { ok: false, code: 'invalid_bus_payload', detail: 'legacy_write_envelope' };
@@ -3565,7 +3704,7 @@ function normalizeDirectPinValue(rawValue, meta, target, pin) {
     return { ok: false, code: 'invalid_bus_payload', detail: 'temporary_modeltable_required' };
   }
   if (target && target.model_id > 0) {
-    if (Array.isArray(nextValue) && isTemporaryPayloadRecordArray(nextValue)) {
+    if (Array.isArray(nextValue) && isValidBusPayloadArray(nextValue)) {
       return { ok: true, value: nextValue };
     }
     return { ok: false, code: 'invalid_pin_payload', detail: 'temporary_modeltable_required' };
@@ -3576,7 +3715,7 @@ function normalizeDirectPinValue(rawValue, meta, target, pin) {
         && typeof nextValue.t === 'string' && Object.prototype.hasOwnProperty.call(nextValue, 'v')) {
       nextValue = nextValue.v;
     }
-    if (Array.isArray(nextValue) && isTemporaryPayloadRecordArray(nextValue)) {
+    if (Array.isArray(nextValue) && isValidBusPayloadArray(nextValue)) {
       return { ok: true, value: nextValue };
     }
     return { ok: false, code: 'invalid_pin_payload', detail: 'temporary_modeltable_required' };
@@ -3730,12 +3869,16 @@ class ProgramModelEngine {
       return null;
     }
     const opId = payload && typeof payload.op_id === 'string' ? payload.op_id : '';
-    if (opId) {
+    const parsedPinPayload = payload && payload.type === 'pin_payload'
+      ? parsePinPayloadRecordEnvelope(payload)
+      : { ok: false };
+    const normalizedOpId = opId || (parsedPinPayload.ok ? parsedPinPayload.opId : '');
+    if (normalizedOpId) {
       this.outboundMatrixOps.push({
-        op_id: opId,
-        source_model_id: Number.isInteger(payload.source_model_id) ? payload.source_model_id : null,
+        op_id: normalizedOpId,
+        origin_model_id: parsedPinPayload.ok ? parsedPinPayload.origin.model_id : null,
         type: typeof payload.type === 'string' ? payload.type : '',
-        pin: typeof payload.pin === 'string' ? payload.pin : '',
+        pin: parsedPinPayload.ok ? parsedPinPayload.endpoint.pin : '',
         ts: Date.now(),
       });
       if (this.outboundMatrixOps.length > 200) {
@@ -3746,12 +3889,12 @@ class ProgramModelEngine {
     return true;
   }
 
-  ignoreOutboundMatrixReturns(sourceModelIds, sinceTs) {
-    const sourceSet = new Set(Array.isArray(sourceModelIds) ? sourceModelIds : []);
+  ignoreOutboundMatrixReturns(originModelIds, sinceTs) {
+    const originSet = new Set(Array.isArray(originModelIds) ? originModelIds : []);
     const startTs = Number.isFinite(sinceTs) ? sinceTs : 0;
     const ignored = [];
     for (const item of this.outboundMatrixOps) {
-      if (!item || !sourceSet.has(item.source_model_id)) continue;
+      if (!item || !originSet.has(item.origin_model_id)) continue;
       if (item.ts < startTs) continue;
       if (item.type !== 'pin_payload' || item.pin !== 'submit') continue;
       if (!item.op_id) continue;
@@ -3829,14 +3972,14 @@ class ProgramModelEngine {
     }
   }
 
-  async routeSnapshotDeltaViaOwnerMaterialization(patch) {
+  async routePinPayloadViaOwnerMaterialization(requestEnvelope) {
     const runtime = this.runtime;
     const sysModel = runtime.getModel(-10);
     if (!sysModel) return { ok: false, code: 'invalid_target', detail: 'missing_system_model' };
 
     const requests = [];
     const targetModelIds = new Set();
-    for (const record of patch.records) {
+    for (const record of requestEnvelope.records) {
       if (!record || typeof record !== 'object' || !Number.isInteger(record.model_id)) continue;
       const targetModel = runtime.getModel(record.model_id);
       if (!targetModel) continue;
@@ -3857,8 +4000,8 @@ class ProgramModelEngine {
       };
       requests.push({
         target_model_id: record.model_id,
-        request_id: `${patch.op_id || 'snapshot_delta'}:${requests.length + 1}`,
-        origin_action: 'snapshot_delta',
+        request_id: `${requestEnvelope.op_id || 'pin_payload'}:${requests.length + 1}`,
+        origin_action: 'pin_payload_result',
         write_labels: record.op === 'add_label' ? [scopedLabel] : [],
         remove_labels: record.op === 'rm_label' ? [{ p: scopedLabel.p, r: scopedLabel.r, c: scopedLabel.c, k: scopedLabel.k }] : [],
       });
@@ -3866,7 +4009,7 @@ class ProgramModelEngine {
     }
 
     if (requests.length === 0) {
-      return { ok: false, code: 'no_dual_bus_target', detail: 'snapshot_delta_no_owner_route' };
+      return { ok: false, code: 'no_dual_bus_target', detail: 'pin_payload_no_owner_route' };
     }
 
     runtime.addLabel(sysModel, 0, 0, 0, { k: GENERIC_PIN_ERROR_LABEL, t: 'json', v: null });
@@ -3914,76 +4057,45 @@ class ProgramModelEngine {
   }
 
   handleDyBusEvent(content) {
-    // Handle dy.bus.v0 events from MBR (return path: K8s -> MQTT -> MBR -> Matrix -> here)
-    // Expected formats:
-    // - { version: 'v0', type: 'snapshot_delta', op_id, payload: { version: 'mt.v0', records: [...] } }
-    // - { version: 'v1', type: 'pin_payload', op_id, source_model_id, pin, payload: [...] }
+    // Handle dy.bus.v1 events from MBR (return path: K8s -> MQTT -> MBR -> Matrix -> here).
+    // Expected format: { version: 'v1', type: 'pin_payload', payload: Temporary ModelTable records }.
     if (!content || typeof content !== 'object') {
       return;
     }
     
-    if (content.version !== 'v0' && content.version !== 'v1') {
+    if (content.version !== 'v1') {
       return;
     }
 
     const traceInbound = () => {
+      const parsedForTrace = content && content.type === 'pin_payload' ? parsePinPayloadRecordEnvelope(content) : { ok: false };
       emitTrace(this.runtime, {
         hop: 'matrix\u2192server', direction: 'inbound',
-        op_id: content && content.op_id ? content.op_id : '',
+        op_id: parsedForTrace.ok ? parsedForTrace.opId : (content && content.op_id ? content.op_id : ''),
         model_id: '',
         summary: `dy.bus.v0 type=${content && content.type ? content.type : '?'}`,
         payload: content,
       });
     };
     
-    if (content.type === 'snapshot_delta') {
-      const patch = content.payload;
-      if (!patch || patch.version !== 'mt.v0' || !Array.isArray(patch.records)) {
-        return;
-      }
-      traceInbound();
-      this.routeSnapshotDeltaViaOwnerMaterialization(patch)
-        .then((result) => {
-          if (!result || result.ok !== true) {
-            console.warn(
-              '[handleDyBusEvent] snapshot_delta owner route rejected:',
-              result && result.code ? result.code : 'unknown',
-              result && result.detail ? result.detail : '',
-            );
-            return;
-          }
-          this.onSnapshotChanged?.();
-        })
-        .catch((err) => {
-          console.error('[handleDyBusEvent] snapshot_delta owner route failed:', err && err.message ? err.message : err);
-        });
-      return;
-    }
-
-    if (content.type === 'mgmt_bus_console_ack') {
-      const ackValidation = validateMgmtBusConsoleAck(content);
-      if (!ackValidation.ok) {
-        return;
-      }
-      const consoleModel = this.runtime.getModel(MGMT_BUS_CONSOLE_MODEL_ID);
-      if (consoleModel) {
-        this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'ack_received' });
-      }
-      traceInbound();
-      this.tick().then(() => {
-        this.onSnapshotChanged?.();
-      }).catch((err) => {
-        console.error('[handleDyBusEvent] mgmt_bus_console_ack projection failed:', err && err.message ? err.message : err);
-      });
-      return;
-    }
-
     if (content.type === 'pin_payload') {
-      if (!Number.isInteger(content.source_model_id) || content.source_model_id <= 0) {
+      const parsedEnvelope = parsePinPayloadRecordEnvelope(content);
+      if (!parsedEnvelope.ok) {
         return;
       }
-      const ackValidation = content.source_model_id === MGMT_BUS_CONSOLE_MODEL_ID
-        ? validateMgmtBusConsoleAck({ ...content, type: 'mgmt_bus_console_ack' })
+      const uiServerWorkerId = resolveUiServerWorkerId();
+      if (parsedEnvelope.messageRole === 'response' && parsedEnvelope.endpoint.worker_id === uiServerWorkerId) {
+        return;
+      }
+      const ackValidation = parsedEnvelope.replyTarget.model_id === MGMT_BUS_CONSOLE_MODEL_ID
+        && parsedEnvelope.replyTarget.worker_id === uiServerWorkerId
+        && parsedEnvelope.replyTarget.pin === 'result'
+        && parsedEnvelope.messageRole === 'response'
+        ? validateMgmtBusConsoleAck({
+          version: 'v1',
+          type: 'mgmt_bus_console_ack',
+          payload: parsedEnvelope.nestedPayload,
+        })
         : { ok: false };
       if (ackValidation.ok) {
         const consoleModel = this.runtime.getModel(MGMT_BUS_CONSOLE_MODEL_ID);
@@ -3998,22 +4110,22 @@ class ProgramModelEngine {
         });
         return;
       }
-      const opId = typeof content.op_id === 'string' ? content.op_id : '';
+      const opId = parsedEnvelope.opId;
       if (opId && this.ignoredMatrixReturnOpIds.has(opId)) {
         return;
       }
-      if (String(content.pin || '').trim() !== 'result') {
+      if (parsedEnvelope.replyTarget.worker_id !== uiServerWorkerId || parsedEnvelope.replyTarget.pin !== 'result') {
         return;
       }
-      if (!isExpectedPinPayloadReturnRoute(content)) {
+      if (parsedEnvelope.messageRole !== 'response') {
         return;
       }
-      const patch = temporaryPayloadToPatch(content.source_model_id, content.payload, content.op_id);
-      if (!patch) {
+      const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget.model_id, parsedEnvelope.nestedPayload, opId);
+      if (!materialization) {
         return;
       }
       traceInbound();
-      this.routeSnapshotDeltaViaOwnerMaterialization(patch)
+      this.routePinPayloadViaOwnerMaterialization(materialization)
         .then((result) => {
           if (!result || result.ok !== true) {
             console.warn(
@@ -4031,25 +4143,6 @@ class ProgramModelEngine {
       return;
     }
     
-    if (content.type === 'mbr_ready') {
-      traceInbound();
-      // Set system_ready=true on all dual-bus models
-      let changed = false;
-      for (const [, model] of this.runtime.models) {
-        if (model.id <= 0) continue;
-        const dbLabel = this.runtime.getCell(model, 0, 0, 0).labels.get('dual_bus_model');
-        if (!dbLabel || !dbLabel.v) continue;
-        this.runtime.addLabel(model, 0, 0, 0, { k: 'system_ready', t: 'bool', v: true });
-        changed = true;
-      }
-      if (changed) {
-        this.tick().then(() => {
-          this.onSnapshotChanged?.();
-        }).catch(() => {});
-      }
-      return;
-    }
-
     if (content.type === LEGACY_EVENT_TYPE) {
       // Echo of our own Matrix send — ignore in server return path.
       return;
@@ -4861,10 +4954,11 @@ class ProgramModelEngine {
           continue;
         }
         const packet = packetResult.data;
+        const businessPayload = readTemporaryPayloadJson(packet.payload, 'payload') || [];
         if (consoleModel) {
           this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'sending' });
-          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'last_sent_text', t: 'str', v: readTemporaryPayloadString(packet.payload, 'message_text') });
-          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'target_user_id', t: 'str', v: readTemporaryPayloadString(packet.payload, 'target_user_id') });
+          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'last_sent_text', t: 'str', v: readTemporaryPayloadString(businessPayload, 'message_text') });
+          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'target_user_id', t: 'str', v: readTemporaryPayloadString(businessPayload, 'target_user_id') });
         }
         const model0 = this.runtime.getModel(0);
         const busValue = pinPayloadPacketToBusValue(packet);
@@ -4959,7 +5053,8 @@ class ProgramModelEngine {
       if (!label || !isSplitBusOutLabelType(label.t) || !packet || typeof packet !== 'object' || packet.type !== 'pin_payload') {
         continue;
       }
-      const opIdentity = String(packet.op_id || `${packet.source_model_id || ''}:${packet.pin || ''}`);
+      const opIdentity = readTemporaryPayloadString(packet.payload, 'op_id', readTemporaryPayloadString(packet.payload, '__mt_request_id')).trim()
+        || `${readTemporaryPayloadString(packet.payload, 'endpoint_worker_id')}:${readTemporaryPayloadInt(packet.payload, 'endpoint_model_id')}:${readTemporaryPayloadString(packet.payload, 'endpoint_pin')}`;
       const bridgeKey = `${label.t}:${key}:${opIdentity}`;
       if (alreadyScheduled.has(bridgeKey)) continue;
       if (this.bridgedBusOutPorts.get(key) === opIdentity) continue;
@@ -5144,13 +5239,6 @@ function readModelTablePatchFromEnv() {
   }
 }
 
-function currentTopic(runtime, pinName) {
-  const config = runtime._getConfigFromPage0();
-  const prefix = config.topic_prefix || '';
-  if (prefix) return `${prefix}/${pinName}`;
-  return pinName;
-}
-
 function countPositiveModels(runtime) {
   let count = 0;
   for (const id of runtime.models.keys()) {
@@ -5313,7 +5401,10 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'dt_filter_r', 'str', '');
   ensureStateLabel(runtime, 'dt_filter_c', 'str', '');
   ensureStateLabel(runtime, 'dt_filter_ktv', 'str', '');
-  ensureStateLabel(runtime, 'ui_page', 'str', 'home');
+  ensureStateLabel(runtime, 'ui_page', 'str', 'desktop');
+  ensureStateLabel(runtime, DESKTOP_FOREGROUND_APP_LABEL, 'json', null);
+  ensureStateLabel(runtime, DESKTOP_TASK_STACK_LABEL, 'json', []);
+  ensureStateLabel(runtime, DESKTOP_TASK_SWITCHER_OPEN_LABEL, 'bool', false);
   ensureStateLabel(runtime, 'dt_pause_sse', 'bool', false);
   ensureStateLabel(runtime, 'home_selected_label_text', 'str', '');
   ensureStateLabel(runtime, 'home_status_text', 'str', '');
@@ -5581,9 +5672,12 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'ws_apps_registry', 'json', apps);
 
     const defaultSelected = resolveDefaultAppId(runtime, apps);
+    const foregroundWorkspaceModelId = readDesktopForegroundWorkspaceModelId(buildClientSnapshot(runtime));
     const validSelected = resolveWorkspaceSelection(
       apps,
-      runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'),
+      Number.isInteger(foregroundWorkspaceModelId)
+        ? foregroundWorkspaceModelId
+        : runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'),
       defaultSelected,
     );
     overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validSelected));
@@ -5630,6 +5724,30 @@ function createServerState(options) {
       && target.c === 0
       && target.k === 'ui_page'
       && String(value && Object.prototype.hasOwnProperty.call(value, 'v') ? value.v : '').trim().toLowerCase() === 'home';
+  };
+
+  const readDesktopForegroundFromEnvelope = (envelope) => {
+    const payload = envelope && typeof envelope === 'object' ? envelope.payload : null;
+    const target = payload && typeof payload === 'object' ? payload.target : null;
+    const value = payload && typeof payload === 'object' ? payload.value : null;
+    if (!payload || payload.action !== 'label_update') return null;
+    if (!target
+      || target.model_id !== EDITOR_STATE_MODEL_ID
+      || target.p !== 0
+      || target.r !== 0
+      || target.c !== 0
+      || target.k !== DESKTOP_FOREGROUND_APP_LABEL) {
+      return null;
+    }
+    return normalizeDesktopForegroundApp(value && Object.prototype.hasOwnProperty.call(value, 'v') ? value.v : value);
+  };
+
+  const reconcileDesktopTaskStackFromEnvelope = (envelope) => {
+    const foregroundApp = readDesktopForegroundFromEnvelope(envelope);
+    if (!foregroundApp) return;
+    const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+    const currentStack = runtime.getLabelValue(stateModel, 0, 0, 0, DESKTOP_TASK_STACK_LABEL);
+    overwriteStateLabel(runtime, DESKTOP_TASK_STACK_LABEL, 'json', deriveDesktopTaskStack(currentStack, foregroundApp));
   };
 
   const sanitizeStartupCatalogState = () => {
@@ -7475,6 +7593,7 @@ function createServerState(options) {
     if (forceHomeSelectionReset) {
       reconcileHomeSelectionState(true);
     }
+    reconcileDesktopTaskStackFromEnvelope(envelope);
     reconcileWorkspaceSelectionState();
     updateDerived();
     await programEngine.tick();

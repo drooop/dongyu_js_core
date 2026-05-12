@@ -36,6 +36,7 @@ function setMmV1MtV0Config(rt, base) {
   const root = rt.getModel(0);
   rt.addLabel(root, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
   rt.addLabel(root, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: base });
+  rt.addLabel(root, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'R1' });
   rt.addLabel(root, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
 }
 
@@ -43,6 +44,52 @@ function getLabel(rt, modelId, p, r, c, k) {
   const m = rt.getModel(modelId);
   if (!m) return null;
   return rt.getCell(m, p, r, c).labels.get(k) || null;
+}
+
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function pinPayloadRecords({
+  opId,
+  messageRole = 'request',
+  endpointWorkerId = 'R1',
+  endpointModelId = 100,
+  endpointPin = 'submit',
+  originWorkerId = 'ui-server-test',
+  originModelId = 100,
+  originPin = 'submit',
+  replyTargetWorkerId = 'ui-server-test',
+  replyTargetModelId = 100,
+  replyTargetPin = 'result',
+  payload,
+  timestamp = 1700000000000,
+}) {
+  return [
+    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('__mt_request_id', 'str', opId),
+    mt('op_id', 'str', opId),
+    mt('message_role', 'str', messageRole),
+    mt('endpoint_worker_id', 'str', endpointWorkerId),
+    mt('endpoint_model_id', 'int', endpointModelId),
+    mt('endpoint_pin', 'str', endpointPin),
+    mt('origin_worker_id', 'str', originWorkerId),
+    mt('origin_model_id', 'int', originModelId),
+    mt('origin_pin', 'str', originPin),
+    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
+    mt('reply_target_model_id', 'int', replyTargetModelId),
+    mt('reply_target_pin', 'str', replyTargetPin),
+    mt('payload', 'json', payload),
+    mt('timestamp', 'int', timestamp),
+  ];
+}
+
+function externalPacket(records) {
+  return { version: 'v1', type: 'pin_payload', payload: records };
+}
+
+function payloadValue(records, key) {
+  return Array.isArray(records) ? records.find((record) => record && record.k === key)?.v : undefined;
 }
 
 async function main() {
@@ -70,29 +117,28 @@ async function main() {
     },
   });
 
-  const uiEvent = {
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: 'it0140_m100_submit_001',
-    source_model_id: 100,
-    pin: 'submit',
-    payload: [
-      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
-    ],
-    timestamp: Date.now(),
-  };
+  const businessPayload = [
+    mt('model_type', 'model.single', 'Data.RemoteSubmit'),
+    mt('input_value', 'str', 'hello'),
+  ];
+  const uiEvent = externalPacket(pinPayloadRecords({
+    opId: 'it0140_m100_submit_001',
+    payload: businessPayload,
+  }));
   mbrRt.addLabel(mbrRt.getModel(-10), 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: uiEvent });
   mbrRt.addLabel(mbrRt.getModel(-10), 0, 0, 0, { k: 'run_mbr_mgmt_to_mqtt', t: 'str', v: '1' });
   mbrEngine.tick();
 
-  assert(publishedTopic === `${base}/100/submit`, `expected publish topic ${base}/100/submit, got ${publishedTopic}`);
+  assert(publishedTopic === `${base}/R1/100/submit`, `expected publish topic ${base}/R1/100/submit, got ${publishedTopic}`);
   assert(publishedPayload && publishedPayload.version === 'v1', 'published payload must be pin_payload v1');
   assert(publishedPayload && publishedPayload.type === 'pin_payload', 'published payload must preserve pin_payload type');
-  assert(publishedPayload && publishedPayload.op_id === uiEvent.op_id, 'published payload op_id mismatch');
-  assert(publishedPayload && publishedPayload.pin === 'submit', 'published payload must preserve submit pin');
-  assert(publishedPayload && publishedPayload.source_model_id === 100, 'published payload must preserve source_model_id');
-  assert(Array.isArray(publishedPayload.payload), 'published payload must carry temporary-modeltable array');
+  assert(publishedPayload && Object.keys(publishedPayload).sort().join(',') === 'payload,type,version', 'published payload must only expose version/type/payload');
+  assert(payloadValue(publishedPayload.payload, 'op_id') === 'it0140_m100_submit_001', 'published payload op_id mismatch');
+  assert(payloadValue(publishedPayload.payload, 'message_role') === 'request', 'published payload must be a request');
+  assert(payloadValue(publishedPayload.payload, 'endpoint_worker_id') === 'R1', 'published payload must target R1');
+  assert(payloadValue(publishedPayload.payload, 'endpoint_model_id') === 100, 'published payload must target model 100');
+  assert(payloadValue(publishedPayload.payload, 'endpoint_pin') === 'submit', 'published payload must target submit pin');
+  assert(Array.isArray(payloadValue(publishedPayload.payload, 'payload')), 'published payload must carry nested temporary-modeltable array');
 
   // --- Worker side: consume mqttIncoming(pin_payload) -> D0 function -> pin.out ---
   const wRt = new ModelTableRuntime();

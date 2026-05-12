@@ -31,8 +31,8 @@ assert.match(
 
 assert.match(
   serverText,
-  /reply_to/,
-  'server must synthesize route.reply_to on outbound pin_payload packets',
+  /reply_target_worker_id/,
+  'server must synthesize reply_target records on outbound pin_payload packets',
 );
 
 console.log('PASS test_0182_server_model0_egress_contract');

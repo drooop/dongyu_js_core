@@ -3,6 +3,7 @@ import { deriveSlidingFlowShellState, deriveWorkspaceSelected } from './editor_p
 import { findPageEntryByPath, resolvePageAsset } from './page_asset_resolver.js';
 import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
 import { EDITOR_STATE_MODEL_ID, FLOW_SHELL_CATALOG_MODEL_ID } from './model_ids.js';
+import { DESKTOP_FOREGROUND_APP_LABEL } from './desktop_app_state.js';
 
 function cloneAst(ast) {
   return ast && typeof ast === 'object' ? JSON.parse(JSON.stringify(ast)) : null;
@@ -88,6 +89,89 @@ function composeWorkspaceProjection(snapshot, shellAst, workspace, flowState) {
   return visit(cloneAst(shellAst));
 }
 
+function readEditorStateLabel(snapshot, key) {
+  return snapshot?.models?.[String(EDITOR_STATE_MODEL_ID)]?.cells?.['0,0,0']?.labels?.[key]?.v;
+}
+
+function normalizeDesktopWorkspaceApps(snapshot) {
+  const registry = readEditorStateLabel(snapshot, 'ws_apps_registry');
+  if (!Array.isArray(registry)) return [];
+  const apps = [];
+  const seen = new Set();
+  for (const entry of registry) {
+    const modelId = entry && Number.isInteger(entry.model_id) ? entry.model_id : null;
+    if (!Number.isInteger(modelId) || modelId <= 0 || seen.has(modelId)) continue;
+    if (entry.slide_capable !== true) continue;
+    seen.add(modelId);
+    const title = typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : `App ${modelId}`;
+    apps.push({
+      modelId,
+      title,
+      surface: typeof entry.slide_surface_type === 'string' && entry.slide_surface_type.trim()
+        ? entry.slide_surface_type.trim()
+        : 'workspace.page',
+    });
+  }
+  return apps;
+}
+
+function buildDesktopWorkspaceAppNode(app) {
+  return {
+    id: `desktop_slide_app_${app.modelId}`,
+    type: 'Button',
+    props: {
+      label: app.title,
+      desktopApp: true,
+      appKind: 'workspace',
+      modelId: app.modelId,
+      surface: app.surface,
+    },
+    bind: {
+      write: {
+        action: 'label_update',
+        target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: DESKTOP_FOREGROUND_APP_LABEL },
+        value_ref: {
+          t: 'json',
+          v: {
+            id: `workspace:${app.modelId}`,
+            kind: 'workspace',
+            page: 'workspace',
+            path: '/workspace',
+            title: app.title,
+            model_id: app.modelId,
+          },
+        },
+      },
+    },
+    children: [],
+  };
+}
+
+function composeDesktopProjection(snapshot, desktopAst) {
+  const ast = cloneAst(desktopAst);
+  const apps = normalizeDesktopWorkspaceApps(snapshot);
+  if (!ast || typeof ast !== 'object') return ast;
+  const appNodes = apps.map(buildDesktopWorkspaceAppNode);
+
+  const visit = (node) => {
+    if (!node || typeof node !== 'object') return node;
+    const next = {
+      ...node,
+      props: node.props && typeof node.props === 'object' ? { ...node.props } : node.props,
+      children: Array.isArray(node.children) ? node.children.map(visit) : node.children,
+    };
+    if (next.id === 'desktop_slide_apps') {
+      return {
+        ...next,
+        children: appNodes,
+      };
+    }
+    return next;
+  };
+
+  return visit(ast);
+}
+
 export function resolveRouteUiAst(snapshot, routePath, options = {}) {
   const normalizedPath = normalizeHashPath(routePath);
   const projectSchemaModel = typeof options.projectSchemaModel === 'function'
@@ -113,6 +197,18 @@ export function resolveRouteUiAst(snapshot, routePath, options = {}) {
       pageName,
       modelId: shell && Number.isInteger(shell.modelId) ? shell.modelId : null,
       ast: composeWorkspaceProjection(snapshot, shell ? shell.ast : null, workspace, flowState),
+    };
+  }
+
+  if (pageName === 'desktop') {
+    const desktop = resolvePageAsset(snapshot, {
+      pageName,
+      projectSchemaModel,
+      projectCellwiseModel: buildAstFromCellwiseModel,
+    });
+    return {
+      ...desktop,
+      ast: composeDesktopProjection(snapshot, desktop ? desktop.ast : null),
     };
   }
 

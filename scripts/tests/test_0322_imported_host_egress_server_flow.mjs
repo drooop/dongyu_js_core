@@ -40,6 +40,27 @@ function uiEventPayload(labels = []) {
   ];
 }
 
+function findPayloadRecord(records, key) {
+  return Array.isArray(records)
+    ? records.find((record) => record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null
+    : null;
+}
+
+function payloadString(records, key) {
+  const record = findPayloadRecord(records, key);
+  return record && record.t === 'str' && typeof record.v === 'string' ? record.v : '';
+}
+
+function payloadInt(records, key) {
+  const record = findPayloadRecord(records, key);
+  return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null;
+}
+
+function payloadJson(records, key) {
+  const record = findPayloadRecord(records, key);
+  return record && record.t === 'json' ? record.v : null;
+}
+
 function slideImportClickPayload() {
   return uiEventPayload([
     { k: 'target', t: 'json', v: { model_id: 1031, p: 0, r: 0, c: 0 } },
@@ -96,7 +117,7 @@ function payloadWithIngressAndEgress() {
         primary: true,
       }],
     } },
-    { id: 0, p: 0, r: 0, c: 0, k: 'remote_bus_endpoint_v1', t: 'json', v: { transport: 'mqtt', to: { worker_id: 'RE', model_id: 3000 } } },
+    { id: 0, p: 0, r: 0, c: 0, k: 'remote_bus_endpoint_v1', t: 'json', v: { transport: 'mqtt', to: { worker_id: 'R1', model_id: 3000 } } },
     { id: 0, p: 0, r: 0, c: 0, k: 'dual_bus_model', t: 'json', v: { mode: 'imported_host_egress', egress_pins: ['submit'] } },
     { id: 0, p: 0, r: 0, c: 0, k: 'submit_request', t: 'pin.in', v: null },
     { id: 0, p: 0, r: 0, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: 'submit_request', to: ['handle_submit:in'] }] },
@@ -110,12 +131,10 @@ function payloadWithIngressAndEgress() {
       "const nestedValue = readPayload('value', {});",
       "const text = String(readPayload('text', nestedValue && nestedValue.text != null ? nestedValue.text : '')).trim();",
       "const source = String(readPayload('source', nestedValue && nestedValue.source ? nestedValue.source : 'host_ingress'));",
-      "const SELF = ctx.self.model_id;",
       "const payload = [",
       "  { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.ImportedHostSubmit' },",
       "  { id: 0, p: 0, r: 0, c: 0, k: 'message_text', t: 'str', v: text },",
-      "  { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: source },",
-      "  { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: SELF }",
+      "  { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: source }",
       "];",
       "V1N.addLabel('input_text', 'str', text);",
       "V1N.addLabel('last_submit_payload', 'json', payload);",
@@ -135,6 +154,7 @@ async function withServerState(fn) {
   process.env.WORKER_BASE_DATA_ROOT = join(tempRoot, 'runtime');
   process.env.DOCS_ROOT = join(tempRoot, 'docs');
   process.env.STATIC_PROJECTS_ROOT = join(tempRoot, 'static');
+  process.env.DY_UI_SERVER_WORKER_ID = 'ui-server-it0322';
   const { createServerState } = await import(new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url));
   const state = createServerState({ dbPath: null });
   try {
@@ -147,6 +167,7 @@ async function withServerState(fn) {
     delete process.env.DOCS_ROOT;
     delete process.env.STATIC_PROJECTS_ROOT;
     delete process.env.DY_PERSISTED_ASSET_ROOT;
+    delete process.env.DY_UI_SERVER_WORKER_ID;
   }
 }
 
@@ -160,11 +181,15 @@ async function test_imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix(
         matrixPublished.push(payload);
       },
     };
+    const model0 = state.runtime.getModel(0);
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'ui-server-it0322' });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
     state.runtime.startMqttLoop({
       host: 'localhost',
       port: 1883,
       client_id: '0322-flow',
-      topic_prefix: 'it0322',
       transport: 'mock',
     });
     state.cacheUploadedMediaForTest('mxc://localhost/0322-flow', {
@@ -205,20 +230,35 @@ async function test_imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix(
     assert.equal(importedRoot.get('last_submit_payload')?.v?.find?.((record) => record && record.k === 'message_text')?.v, 'hello imported host egress', 'imported_payload_must_preserve_message_text');
 
     const mqttPublishes = state.runtime.mqttTrace.list().filter((entry) => entry.type === 'publish');
-    assert.ok(mqttPublishes.some((entry) => entry.payload?.topic === `it0322/${busLabel}`), 'model0_bus_out_must_publish_to_mqtt');
-    assert.ok(mqttPublishes.some((entry) => entry.payload?.payload?.type === 'pin_payload' && entry.payload?.payload?.source_model_id === importedId), 'mqtt_publish_must_carry_pin_payload_packet');
+    assert.ok(mqttPublishes.some((entry) =>
+      entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit'
+      && entry.payload?.payload?.type === 'pin_payload'
+      && payloadString(entry.payload.payload.payload, 'message_role') === 'request'
+      && payloadString(entry.payload.payload.payload, 'endpoint_worker_id') === 'R1'
+      && payloadInt(entry.payload.payload.payload, 'endpoint_model_id') === 3000
+      && payloadString(entry.payload.payload.payload, 'endpoint_pin') === 'submit'
+      && payloadString(entry.payload.payload.payload, 'origin_worker_id') === 'ui-server-it0322'
+      && payloadInt(entry.payload.payload.payload, 'origin_model_id') === importedId
+      && payloadString(entry.payload.payload.payload, 'reply_target_worker_id') === 'ui-server-it0322'
+      && payloadInt(entry.payload.payload.payload, 'reply_target_model_id') === importedId
+      && payloadString(entry.payload.payload.payload, 'reply_target_pin') === 'result'
+      && payloadJson(entry.payload.payload.payload, 'payload')?.find?.((record) => record && record.k === 'message_text')?.v === 'hello imported host egress',
+    ), 'model0_bus_out_must_publish_endpoint_record_packet_to_mqtt');
 
     assert.equal(matrixPublished.length, 1, 'matrix_publish_must_be_called_once');
     assert.equal(matrixPublished[0]?.type, 'pin_payload', 'matrix_publish_must_use_pin_payload_transport');
-    assert.equal(matrixPublished[0]?.source_model_id, importedId, 'matrix_publish_must_use_imported_model_id_as_source');
-    assert.equal(matrixPublished[0]?.pin, 'submit', 'matrix_publish_must_preserve_submit_pin');
-    assert.deepEqual(matrixPublished[0]?.route?.to, { worker_id: 'RE', model_id: 3000, pin: 'submit' }, 'matrix_publish_must_use_remote_bus_endpoint_target');
-    assert.equal(matrixPublished[0]?.route?.reply_to?.model_id, importedId, 'matrix_publish_must_reply_to_local_imported_model_id');
-    assert.equal(matrixPublished[0]?.payload?.find?.((record) => record && record.k === 'message_text')?.v, 'hello imported host egress', 'matrix_payload_must_preserve_message_text');
+    assert.deepEqual(Object.keys(matrixPublished[0] || {}).sort(), ['payload', 'type', 'version'], 'matrix packet must expose only version/type/payload');
+    assert.equal(payloadString(matrixPublished[0]?.payload, 'message_role'), 'request', 'matrix_publish_must_mark_request_role');
+    assert.equal(payloadString(matrixPublished[0]?.payload, 'endpoint_worker_id'), 'R1', 'matrix_publish_must_use_remote_worker_endpoint');
+    assert.equal(payloadInt(matrixPublished[0]?.payload, 'endpoint_model_id'), 3000, 'matrix_publish_must_use_remote_model_endpoint');
+    assert.equal(payloadString(matrixPublished[0]?.payload, 'endpoint_pin'), 'submit', 'matrix_publish_must_preserve_submit_pin_as_endpoint');
+    assert.equal(payloadString(matrixPublished[0]?.payload, 'origin_worker_id'), 'ui-server-it0322', 'matrix_publish_must_use_ui_server_origin_worker');
+    assert.equal(payloadInt(matrixPublished[0]?.payload, 'origin_model_id'), importedId, 'matrix_publish_must_use_imported_model_id_as_origin');
+    assert.equal(payloadInt(matrixPublished[0]?.payload, 'reply_target_model_id'), importedId, 'matrix_publish_must_reply_to_local_imported_model_id');
+    assert.equal(payloadJson(matrixPublished[0]?.payload, 'payload')?.find?.((record) => record && record.k === 'message_text')?.v, 'hello imported host egress', 'matrix_payload_must_preserve_message_text');
 
     const deleteResult = state.runtime.hostApi.wsDeleteApp(importedId);
     assert.equal(deleteResult.ok, true, 'delete_must_succeed');
-    const model0 = state.runtime.getModel(0);
     const rootCell = state.runtime.getCell(model0, 0, 0, 0).labels;
     assert.ok(!rootCell.has(ingressKey), 'delete_must_remove_host_ingress_port');
     assert.ok(!rootCell.has(busLabel), 'delete_must_remove_model0_bus_out_label');

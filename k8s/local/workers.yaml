@@ -147,6 +147,8 @@ spec:
               key: MODELTABLE_PATCH_JSON
         - name: SEED_POSITIVE_MODELS_ON_BOOT
           value: "0"
+        - name: DY_UI_SERVER_WORKER_ID
+          value: "U1"
         - name: DY_AUTH
           value: "0"
         - name: NODE_TLS_REJECT_UNAUTHORIZED

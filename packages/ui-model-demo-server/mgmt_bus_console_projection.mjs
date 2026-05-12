@@ -5,14 +5,14 @@ const MODEL_ROUTE_KEYS = [
 
 const BUS_ROUTE_METADATA_ROWS = [
   {
-    route: 'message.route.to',
+    route: 'message.endpoint',
     status: 'configured',
-    target: 'worker_id / model_id / pin from outbound packet',
+    target: 'endpoint_worker_id / endpoint_model_id / endpoint_pin records',
   },
   {
-    route: 'message.route.reply_to',
+    route: 'message.reply_target',
     status: 'configured',
-    target: 'server-owned UI worker / local model / result pin',
+    target: 'reply_target_worker_id / reply_target_model_id / reply_target_pin records',
   },
 ];
 
@@ -53,7 +53,39 @@ function sanitizeObjectForDisplay(value) {
   return sanitizeString(value);
 }
 
+function findModelTableRecord(records, key) {
+  return (Array.isArray(records) ? records : []).find((record) => (
+    record
+    && record.id === 0
+    && record.p === 0
+    && record.r === 0
+    && record.c === 0
+    && record.k === key
+  )) || null;
+}
+
+function previewFromBusinessRecords(records) {
+  for (const key of ['reply_text', 'message_text', 'draft', 'text']) {
+    const record = findModelTableRecord(records, key);
+    if (record && typeof record.v === 'string' && record.v.trim()) return record.v;
+  }
+  const target = findModelTableRecord(records, 'target_user_id');
+  return target && typeof target.v === 'string' ? target.v : '';
+}
+
+function previewFromPinPayloadPacket(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+  if (value.version !== 'v1' || value.type !== 'pin_payload') return '';
+  const nestedPayload = findModelTableRecord(value.payload, 'payload')?.v;
+  return previewFromBusinessRecords(nestedPayload);
+}
+
 function compactPreview(value) {
+  const pinPayloadPreview = previewFromPinPayloadPacket(value);
+  if (pinPayloadPreview) {
+    const normalized = sanitizeString(pinPayloadPreview).replace(/\s+/gu, ' ').trim();
+    return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized;
+  }
   const sanitized = sanitizeObjectForDisplay(value);
   let text = '';
   if (typeof sanitized === 'string') {

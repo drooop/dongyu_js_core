@@ -1,159 +1,132 @@
 ---
-title: "Minimal Submit Dual-Bus Visualized Guide"
+title: "最小 Submit 双总线示例 - Visualized"
 doc_type: user-guide
 status: active
-updated: 2026-05-07
+updated: 2026-05-12
 source: ai
 ---
 
-# 最小 Submit 双总线示例可视化说明
+# 最小 Submit 双总线示例 - Visualized
 
-这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经过 Matrix、MBR、MQTT、remote-worker R1（RE），最后按 `route.reply_to` 回到本地 UI 模型。
+这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经过 Matrix、MBR、MQTT、remote-worker R1，最后在同一个 remote endpoint topic 上用 `message_role=response` 回包，并根据 `reply_target_worker_id / reply_target_model_id / reply_target_pin` 回到本地 UI 模型，页面显示 `Submitted: <输入内容>`。
 
-## 1. 总链路
+## 总览
 
 ```mermaid
 sequenceDiagram
-  participant User as Browser User
-  participant UI as UI local model 2000
-  participant M0 as Model 0
-  participant Matrix as Matrix dy.bus.v0
+  participant UI as Workspace UI model 2000
+  participant M0 as UI Server Model 0
+  participant MX as Matrix management bus
   participant MBR as MBR
-  participant MQTT as MQTT topics
-  participant R1 as remote-worker RE
-
-  User->>UI: Type text and click Submit
-  UI->>M0: bus_event_v2 with local model 2000 and pin submit1
-  M0->>Matrix: pin_payload submit to @mbr:<host_url>
-  Matrix->>MBR: dy.bus.v0 content
-  MBR->>MQTT: route.to RE / model 3000 / pin submit1
-  MQTT->>R1: trigger public pin submit1
-  R1->>MQTT: route.reply_to ui-server-U1 / model 2000 / pin result
-  MQTT->>MBR: result pin_payload
-  MBR->>Matrix: dy.bus.v0 result
-  Matrix->>UI: ui-server materializes result by local model id
-  UI-->>User: Submitted: <输入内容>
+  participant MQTT as MQTT
+  participant R1 as remote-worker R1 model 3000
+  UI->>UI: ui_bind_json writes value_ref to click_chain
+  UI->>UI: click_chain -> submit_request -> handle_submit:in
+  UI->>M0: submit1 pin.out reaches generated host egress adapter
+  M0->>MX: pin_payload.v1 with endpoint_worker_id=R1 endpoint_model_id=3000 endpoint_pin=submit1
+  MX->>MBR: management bus packet
+  MBR->>MQTT: UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
+  MQTT->>R1: root submit1 pin.in
+  R1->>R1: root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in`
+  R1->>MQTT: same topic pin_payload.v1 message_role=response
+  MQTT->>MBR: control bus reply
+  MBR->>MX: management bus reply
+  MX->>M0: endpoint=R1/3000/submit1 + reply_target=ui-server-U1/2000/result
+  M0->>UI: materialize display_text / remote_status / last_submit_payload / submit_inflight
 ```
 
-## 2. RE 填表结构
-
-```mermaid
-flowchart TB
-  R1["remote-worker RE"] --> M3000["Provider Model 3000<br/>model.table"]
-  M3000 --> Pins["Root public pins<br/>submit1 pin.in<br/>result pin.out"]
-  M3000 --> Routes["submit1_route<br/>pin.connect.cell"]
-  Routes --> ProgramCell["Cell (1,1,1)<br/>submit1_in / submit1_out"]
-  ProgramCell --> Func["submit1<br/>func.js"]
-  Func --> Result["pin_payload.v1<br/>payload: display_text + remote_status + last_submit_payload + submit_inflight"]
-  Result --> Topic["route.reply_to<br/>ui-server-U1 model 2000 result"]
-
-  classDef table fill:#e8f1f8,stroke:#2b6f9f,color:#102a43;
-  classDef pin fill:#edf7ef,stroke:#357a54,color:#173b2b;
-  classDef out fill:#fff0e6,stroke:#b35d2e,color:#4b2412;
-  class M3000 table;
-  class Pins,Routes,ProgramCell,Func pin;
-  class Result,Topic out;
-```
-
-RE 的公开 `submit1` pin 不是程序端点本身。RE 需要用 `pin.connect.cell` 把 root `submit1` 接到 `(1,1,1).submit1_in`，再用同 Cell 的 `pin.connect.label` 把 `submit1_in` 接到 `submit1:in`。程序只读取 submit payload 里的 `text` record，不接受 `input_value` 旧字段兜底；回包必须包装成 `pin_payload.v1`，并按 `route.reply_to` 返回。
-
-## 3. Workspace 导入过程
+## UI App 内部
 
 ```mermaid
 flowchart LR
-  Zip["minimal-submit-dual-bus.zip"] --> Payload["app_payload.json<br/>temporary id: 0 records"]
-  Payload --> Upload["/api/media/upload"]
-  Upload --> Mxc["mxc://..."]
-  Mxc --> Importer["Workspace: 滑动 APP 导入"]
-  Importer --> Materialize["materialize into formal model id"]
-  Materialize --> Mount["mount into Workspace"]
-  Mount --> Adapter["auto host pins / Model 0 adapter"]
-  Adapter --> App["Workspace slide app"]
-
-  classDef file fill:#f7efe1,stroke:#9b6b2f,color:#1f2933;
-  classDef host fill:#e8f1f8,stroke:#2b6f9f,color:#102a43;
-  classDef app fill:#edf7ef,stroke:#357a54,color:#173b2b;
-  class Zip,Payload file;
-  class Upload,Mxc,Importer,Materialize,Mount,Adapter host;
-  class App app;
+  Button["Button Cell labels<br/>ui_component=Button<br/>ui_label=Submit<br/>ui_bind_json.write.pin=click_chain"]
+  Click["click_chain pin.out"]
+  RootIn["root submit_request pin.in"]
+  Handler["handle_submit func.js"]
+  SubmitOut["submit1 pin.out"]
+  Button --> Click
+  Click -->|root_routes pin.connect.cell| RootIn
+  RootIn -->|submit_request_wiring pin.connect.label| Handler
+  Handler -->|business records: text, source| SubmitOut
 ```
 
-zip 里只放 `app_payload.json`。这个文件是 ModelTable records array，不是 HTML 页面，也不是 patch ops。UI 应按 cell 拆分：Container、Card、Input、Button、Text、StatusBadge 分别是独立 cell。
+Submit 类提交按钮需要 `value_t=modeltable` 与 `value_ref`。`value_ref` 里至少包含 `__mt_payload_kind=ui_event.v1`、`text`、`source`。`handle_submit` 只读取 `text`，不读取旧 `input_value` 或 `message_text` 兜底。
 
-按钮绑定也必须是模型表声明，不是前端直发。示例中 `(2,3,0)` 的 `Button` 声明 `click_chain pin.in`，`ui_bind_json.write.pin=click_chain`，并把 `value_ref` 解析成包含 `text` 的临时 ModelTable records。root `(0,0,0)` 再用 `root_routes pin.connect.cell` 把 `[2,3,0,click_chain]` 接到 `[0,0,0,submit_request]`，并用 `submit_request_wiring pin.connect.label` 触发 `handle_submit:in`。`handle_submit` 只读取 `text`，然后写 root `submit1 pin.out`，由安装时生成的 host adapter 进入 Model 0 与双总线。
-
-开发者可以直接写 `app_payload.json`，也可以先在 Workspace 中填表做出一个 `slide_capable=true` 的 APP，再通过 `Zip` 链接或 `/api/slide-apps/<modelId>/export.zip` 导出。导出包会把正式模型 id 改回临时 id，并移除安装时生成的 `host_*_generated_*` 状态。绑定中的 `model_id` 字段和分散式 `*_model_id` 标签都会随导入/导出一起 remap。
-
-如果 APP 要把 submit 交给远端 provider，root 应声明 `remote_bus_endpoint_v1`。该 label 只声明 `route.to.worker_id=RE` 与 `route.to.model_id=3000`，不能写 `to.pin`；公开 pin 必须由 `dual_bus_model.egress_pins=["submit1"]` 和 root `submit1 pin.out` 决定。`route.reply_to` 由 UI Server 运行时根据本地安装模型 id 生成，不能写在 zip 里。
-
-## 4. 外部客户端收发测试
+## 安装后自动生成
 
 ```mermaid
 flowchart TB
-  Browser["Browser Submit"] --> MBR["MBR"]
-  MBR --> SubmitTopic["subscribe:<br/>worker/RE/model/3000/pin/submit1"]
-  SubmitTopic --> Observer["External client observes<br/>pin_payload submit"]
-
-  External["External client publishes result"] --> ResultTopic["publish:<br/>worker/ui-server-U1/model/2000/pin/result"]
-  ResultTopic --> MBR2["MBR"]
-  MBR2 --> Matrix["Matrix dy.bus.v0"]
-  Matrix --> UIServer["ui-server"]
-  UIServer --> UI["UI local model 2000<br/>display_text"]
-
-  classDef observe fill:#e8f1f8,stroke:#2b6f9f,color:#102a43;
-  classDef publish fill:#fff0e6,stroke:#b35d2e,color:#4b2412;
-  classDef ui fill:#edf7ef,stroke:#357a54,color:#173b2b;
-  class SubmitTopic,Observer observe;
-  class External,ResultTopic publish;
-  class UI ui;
+  Zip["ZIP: app_payload.json<br/>61 条 record"]
+  Install["UI Server 安装"]
+  Side["Workspace 侧边栏"]
+  Submt["Model 0 mount cell<br/>model.submt -> local model 2000"]
+  Ingress["host ingress<br/>imported_host_submit_<id>"]
+  Egress["host egress<br/>ui_egress_submit1_binding<br/>imported_submit1_<id>_bus<br/>bridge_imported_submit1_to_mt_bus_send_<id>"]
+  Bus["Model 0 (0,0,0)<br/>mt_bus_send_in -> pin.bus.mb.out"]
+  Zip --> Install
+  Install --> Side
+  Install --> Submt
+  Install --> Ingress
+  Install --> Egress
+  Egress --> Bus
 ```
 
-观察 submit 时订阅：
+安装器会生成 `deletable`、`installed_at`、`imported_bundle_model_ids`、`import_root_temp_id`、`host_ingress_generated_model0_labels`、`host_ingress_generated_mount`、`host_ingress_generated_root_labels`、`host_egress_generated_model0_labels`、`host_egress_generated_mount`。这些不是 provider ZIP 内容。
+
+## Endpoint Topic 与 Payload Records
+
+发送给 R1 的 topic 是：
 
 ```text
-UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1
+UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
 ```
 
-模拟 RE 回包并改变 UI 时发布：
+topic 只描述远端 endpoint，请求和回包都使用这一个 topic。真正的请求来源、消息方向和回包目标都在 `pin_payload.v1` 的 Temporary ModelTable records 里：
 
-```text
-UIPUT/ws/dam/pic/de/sw/worker/ui-server-U1/model/2000/pin/result
-```
+| records | 示例 |
+|---|---|
+| `message_role` | 请求为 `request`，回包为 `response` |
+| `remote_bus_endpoint_v1` -> `endpoint_worker_id` / `endpoint_model_id` / `endpoint_pin` | `R1 / 3000 / submit1` |
+| `origin_worker_id` / `origin_model_id` / `origin_pin` | `ui-server-U1 / 2000 / submit1` |
+| `reply_target_worker_id` / `reply_target_model_id` / `reply_target_pin` | `ui-server-U1 / 2000 / result` |
+| nested `payload` | `text`、`source` |
 
-result 消息的核心 payload：
+外部客户端模拟回包时，仍向 `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1` 发送 `pin_payload.v1`，并把 `message_role` 写成 `response`。手工示例的 `op_id` 可以是 `"manual_result_2000_001"`，嵌套 payload 至少包含：
 
 ```json
-{
-  "version": "v1",
-  "type": "pin_payload",
-  "op_id": "manual_result_2000_001",
-  "source_model_id": 2000,
-  "pin": "result",
-  "route": {
-    "to": { "worker_id": "ui-server-U1", "model_id": 2000, "pin": "result" },
-    "from": { "worker_id": "RE", "model_id": 3000, "pin": "submit1" }
-  },
-  "payload": [
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Submitted: hello from external client" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "remote_status", "t": "str", "v": "remote_processed" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "last_submit_payload", "t": "json", "v": [
-      { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello from external client" }
-    ] },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit_inflight", "t": "bool", "v": false }
-  ]
-}
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Submitted: hello from external client" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "remote_status", "t": "str", "v": "remote_processed" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "last_submit_payload", "t": "json", "v": [] },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit_inflight", "t": "bool", "v": false }
+]
 ```
 
-## 5. 快速检查表
+## Remote Worker 内部接线
 
-| 检查项 | 正确结果 |
+R1 的公开 `submit1` pin 不是程序端点本身。R1 需要用 `submit1_route` 这个 `pin.connect.cell` 把 root `submit1` 接到 `(1,1,1).submit1_in`，再用同 Cell 的 `pin.connect.label` 把 `submit1_in` 接到 `submit1:in`。
+
+```text
+root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in`
+submit1:out -> `(1,1,1).submit1_out` -> root `result`
+```
+
+## 禁止残留
+
+| 项 | 当前要求 |
 |---|---|
-| UI 入口 | local model 的 `bus_event_v2 -> Model 0 pin.bus.mb.in` |
-| Matrix event | `dy.bus.v0`，目标 `@mbr:<host_url>` |
-| submit route | `route.to = RE / 3000 / submit1` |
-| result route | `route.reply_to = ui-server-U1 / local model / result` |
-| RE 程序接线 | root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in` |
-| 页面结果 | `Submitted: <输入内容>` |
-| 禁止残留 | 无 `pin.connect.model`，无 `ctx.writeLabel/getLabel/rmLabel`，无 `input_value` 兼容兜底 |
+| `route.reply_to` | 只能作为禁止项出现；ZIP 和 runtime 输入面都不能使用。 |
+| `source_model_id` | 不再作为传输 metadata；使用 `origin_model_id` / `reply_target_model_id`。 |
+| `worker/R1/model/3000/pin/submit1` | 旧 topic 形态，禁止。 |
+| `pin.connect.model` | 已移除；使用 `pin.connect.cell`。 |
+| raw `resultPayload` | 公开 result path 必须包装成 `pin_payload.v1`。 |
+
+## 导出
+
+导出文件仍是 Zip，只有 `app_payload.json`。导出接口：
+
+```text
+/api/slide-apps/<modelId>/export.zip
+```
 
 交互版文档见：[minimal_submit_app_provider_interactive.html](minimal_submit_app_provider_interactive.html)。
