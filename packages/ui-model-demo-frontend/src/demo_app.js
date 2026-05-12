@@ -282,6 +282,10 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           );
         }
 
+        if (navButtons.length === 0 && userSection.length === 0) {
+          return null;
+        }
+
         return h('div', {
           style: {
             padding: '12px 16px',

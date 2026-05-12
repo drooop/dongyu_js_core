@@ -7,7 +7,8 @@ function makeSnapshot(labels = {}) {
   const rootLabels = {};
   rootLabels.ui_page_catalog_json = {
     v: [
-      { page: 'home', path: '/' },
+      { page: 'desktop', path: '/' },
+      { page: 'home', path: '/modeltable' },
       { page: 'workspace', path: '/workspace' },
       { page: 'docs', path: '/docs' },
       { page: 'prompt', path: '/prompt' },
@@ -70,8 +71,13 @@ function makeSnapshot(labels = {}) {
 }
 
 {
-  const state = readAppShellRouteSyncState(makeSnapshot({ ui_page: 'home' }), '/');
-  assert.equal(state.pending, false, 'home route must not be blocked by synchronization gating');
+  const state = readAppShellRouteSyncState(makeSnapshot({ ui_page: 'desktop' }), '/');
+  assert.equal(state.pending, false, 'desktop route must not be blocked by synchronization gating');
+}
+
+{
+  const state = readAppShellRouteSyncState(makeSnapshot({ ui_page: 'home' }), '/modeltable');
+  assert.equal(state.pending, false, 'modeltable route must not be blocked by synchronization gating');
 }
 
 console.log('PASS test_0182_app_shell_route_sync_contract');

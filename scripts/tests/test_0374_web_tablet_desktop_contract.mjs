@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict';
 
 import { createDemoStore } from '../../packages/ui-model-demo-frontend/src/demo_modeltable.js';
+import { readPageCatalog, findPageEntryByPath } from '../../packages/ui-model-demo-frontend/src/page_asset_resolver.js';
+import { resolveRouteUiAst } from '../../packages/ui-model-demo-frontend/src/route_ui_projection.js';
 import { buildAstFromCellwiseModel } from '../../packages/ui-model-demo-frontend/src/ui_cellwise_projection.js';
 import { DESKTOP_CATALOG_MODEL_ID } from '../../packages/ui-model-demo-frontend/src/model_ids.js';
 
@@ -82,10 +84,35 @@ function test_desktop_exposes_workspace_slide_app_icons_from_registry() {
   return { key: 'desktop_exposes_workspace_slide_app_icons_from_registry', status: 'PASS' };
 }
 
+function test_root_route_resolves_desktop_and_nav_links_are_hidden() {
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  const catalog = readPageCatalog(store.snapshot);
+  const rootEntry = findPageEntryByPath(store.snapshot, '/');
+  const modelTableEntry = findPageEntryByPath(store.snapshot, '/modeltable');
+  const visiblePages = catalog
+    .filter((entry) => entry && entry.nav_visible === true)
+    .map((entry) => entry.page);
+
+  assert.equal(rootEntry?.page, 'desktop', 'root_route_must_be_desktop_page');
+  assert.equal(rootEntry?.model_id, DESKTOP_CATALOG_MODEL_ID, 'root_route_must_use_desktop_model');
+  assert.equal(rootEntry?.asset_type, 'cellwise_model', 'desktop_route_must_use_cellwise_model');
+  assert.equal(modelTableEntry?.page, 'home', 'modeltable_deeplink_must_preserve_existing_editor_page');
+  assert.equal(modelTableEntry?.model_id, -22, 'modeltable_deeplink_must_use_existing_home_model');
+  assert.deepEqual(visiblePages, [], 'tablet_desktop_shell_must_not_expose_top_nav_links');
+
+  const resolved = resolveRouteUiAst(store.snapshot, '/');
+  assert.equal(resolved?.pageName, 'desktop', 'root_route_projection_page_must_be_desktop');
+  assert.equal(resolved?.modelId, DESKTOP_CATALOG_MODEL_ID, 'root_route_projection_model_must_be_desktop');
+  assert.equal(resolved?.ast?.id, 'desktop_root', 'root_route_projection_ast_must_be_desktop');
+
+  return { key: 'root_route_resolves_desktop_and_nav_links_are_hidden', status: 'PASS' };
+}
+
 const tests = [
   test_desktop_catalog_model_is_cellwise_ui_surface,
   test_desktop_exposes_required_system_app_icons,
   test_desktop_exposes_workspace_slide_app_icons_from_registry,
+  test_root_route_resolves_desktop_and_nav_links_are_hidden,
 ];
 
 let passed = 0;

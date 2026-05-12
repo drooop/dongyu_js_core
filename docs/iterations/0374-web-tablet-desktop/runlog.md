@@ -260,9 +260,54 @@ NODE
 
 ### Step 4 - Web Shell Read-Only Desktop Entry
 
-- Command: pending
-- Key output: pending
-- Result: pending
+- Change:
+  - Changed `/` to resolve to the desktop catalog model `-28`.
+  - Preserved the existing ModelTable editor as a deep link at `/modeltable`.
+  - Hid legacy top navigation links by making page catalog entries non-nav-visible.
+  - Kept Gallery, Docs, Static, Workspace, Prompt, and Test as explicit deep-linkable page entries.
+  - Hid the empty app-shell header when there are no visible nav buttons and no authenticated user controls.
+- Command: `node scripts/tests/test_0374_web_tablet_desktop_contract.mjs`
+- Key output:
+  - `[PASS] desktop_catalog_model_is_cellwise_ui_surface`
+  - `[PASS] root_route_resolves_desktop_and_nav_links_are_hidden`
+  - `4 passed, 0 failed out of 4`
+- Result: PASS
+- Command: `node scripts/tests/test_0199_nav_catalog_visibility_contract.mjs`
+- Key output: `PASS test_0199_nav_catalog_visibility_contract`
+- Result: PASS
+- Command: `node scripts/tests/test_0182_app_shell_route_sync_contract.mjs`
+- Key output: `PASS test_0182_app_shell_route_sync_contract`
+- Result: PASS
+- Command: `node scripts/tests/test_0210_ui_cellwise_contract_inventory.mjs`
+- Key output:
+  - `[INFO] page_catalog:desktop:asset_type=cellwise_model`
+  - `[PASS] test_page_catalog_entries_stay_explicit_while_allowing_asset_type_migration`
+  - `4 passed, 0 failed out of 4`
+- Result: PASS
+- Command: `node scripts/tests/test_0211_ui_bootstrap_and_submodel_migration.mjs`
+- Key output: `3 passed, 0 failed out of 3`
+- Result: PASS
+- Command: `node scripts/tests/test_0346_ui_model_compliance_contract.mjs`
+- Key output: `test_0346_ui_model_compliance_contract: PASS (30 visible surfaces, 6 warnings)`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run test`
+- Key output:
+  - `editor_ast_no_direct_mutation_buttons: PASS`
+  - `editor_v1_static_upload_binding_persisted: PASS`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run build`
+- Key output:
+  - `✓ 1454 modules transformed.`
+  - `✓ built in 2.69s`
+- Result: PASS
+- Command: `git diff --check`
+- Key output: no output
+- Result: PASS
+- Review:
+  - Reviewer: sub-agent `019e19b0-48c4-72a0-ad15-c16f2a3f7ea0`
+  - Decision: Approved
+  - Findings: none
+  - Notes: no open questions or verification gaps.
 - Commit:
 
 ### Step 5 - Single Foreground App Player
