@@ -201,6 +201,84 @@ Review Gate Record
 - Key output: Findings none; open questions none; verification gaps none.
 - Result: PASS
 
+### Step 7 — Local Deploy And Browser Trace Verification
+
+- Command: `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
+- Key output: synced persisted assets and public docs; rebuilt `dy-ui-server:v1` and `dy-remote-worker:v3`; failed while fetching Docker Hub metadata for `node:22-slim` during `dy-mbr-worker:v2` build (`TLS handshake timeout`).
+- Result: PASS for failure capture; continued with local-base overlay build to avoid network dependency.
+
+- Command: local-base overlay Docker builds for `dy-mbr-worker:v2` and `dy-ui-side-worker:v1`
+- Key output: used existing local images `dy-mbr-worker:v2-local-base-0375` and `dy-ui-side-worker:v1-local-base-0375`, then copied current `package.json`, `packages/worker-base/src`, `packages/worker-base/system-models`, and worker entry scripts into fresh tags.
+- Result: PASS
+
+- Command: `SKIP_IMAGE_BUILD=1 SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
+- Key output: applied manifests and restarted `ui-server`, `mbr-worker`, `remote-worker`, and `ui-side-worker`; all rollouts completed and old pods terminated.
+- Result: PASS
+
+- Command: `bash scripts/ops/check_runtime_baseline.sh`
+- Key output: all local deployments ready; no terminating pods; mbr-worker and ui-server Matrix secrets ready.
+- Result: PASS
+
+- Command: `curl -fsS http://127.0.0.1:30900/ | head -c 240`
+- Key output: UI Model Demo HTML served from local NodePort.
+- Result: PASS
+
+- Browser: Playwright headed browser opened `http://127.0.0.1:30900/#/workspace`.
+- Browser: Opened `E2E 颜色生成器`, filled `0375 local color`, clicked `Generate Color`; visible color changed from `#FFFFFF` to `#38f312`, and status changed to `processed`.
+- Result: PASS
+
+- Browser: Opened `滑动 APP 导入`, uploaded `test_files/minimal_submit_dual_bus.zip`, clicked `导入 Slide App`; Workspace added imported model `1057` named `最小 Submit 双总线示例`.
+- Browser: Opened imported app `1057`, filled `0375 local minimal submit`, clicked `Submit`; visible result changed to `Submitted: 0375 local minimal submit`, and remote status changed to `remote_processed`.
+- Artifact: `output/playwright/0375-local-minimal-submit-success.png`.
+- Result: PASS
+
+- Command: `kubectl -n dongyu logs deploy/remote-worker --since=5m | rg -n "UIPUT/ws/dam/pic/de/sw/RE/3000/submit1|submit1|pin_payload|remote_processed|0375 local minimal submit|legacy|reply_to|source_model_id|worker/RE/model"`
+- Key output: remote-worker subscribed to `UIPUT/ws/dam/pic/de/sw/RE/3000/submit1`; inbound minimal Submit packet used `version/type/payload` with `pin_payload.v1`, `endpoint_worker_id=RE`, `endpoint_model_id=3000`, `endpoint_pin=submit1`, `origin_worker_id=ui-server-local`, `origin_model_id=1057`, `reply_target_worker_id=ui-server-local`, `reply_target_model_id=1057`, and nested business `text="0375 local minimal submit"`; remote-worker published `UIPUT/ws/dam/pic/de/sw/ui-server-local/1057/result` with `display_text="Submitted: 0375 local minimal submit"` and `remote_status="remote_processed"`.
+- Result: PASS
+
+- Command: `kubectl -n dongyu logs deploy/mbr-worker --since=5m | rg -n "UIPUT/ws/dam/pic/de/sw/RE/3000/submit1|UIPUT/ws/dam/pic/de/sw/ui-server|pin_payload|endpoint_worker_id|reply_target_worker_id|0375 local minimal submit|legacy|reply_to|source_model_id|worker/RE/model"`
+- Key output: MBR published `UIPUT/ws/dam/pic/de/sw/RE/3000/submit1`, then observed `UIPUT/ws/dam/pic/de/sw/ui-server-local/1057/result`; no old `worker/RE/model/...`, `source_model_id`, or `reply_to` path appeared in the matched trace.
+- Result: PASS
+
+### Step 7 Review Attempt 1
+
+- Reviewer: sub-agent `019e1d1c-9b1d-7b93-b516-70df4acafa1c`
+- Decision: Change Requested
+- Key output: local-base overlay build needed harder proof that final pods contained current source/assets; trace evidence also needed explicit no-match scans for forbidden old markers.
+- Result: PASS for review capture; requested verification added before re-review.
+
+### Step 7 Review Fix Verification
+
+- Command: `docker images --format '{{.Repository}}:{{.Tag}} {{.ID}}' | rg '^(dy-mbr-worker:v2|dy-ui-side-worker:v1|dy-remote-worker:v3|dy-ui-server:v1) ' && kubectl -n dongyu get pod -l 'app in (mbr-worker,ui-side-worker,remote-worker,ui-server)' -o jsonpath=...`
+- Key output: local image IDs matched running pod image IDs:
+  - `dy-mbr-worker:v2` -> `sha256:5e4dbf389c9a6158559ed7ea8c72b60a701b66421792de0b5e11364b26069d2b`
+  - `dy-ui-side-worker:v1` -> `sha256:18d48080e71459a58799dc3f3703ee4834ab565c4ace3afcda6dbf016b1c10e9`
+  - `dy-remote-worker:v3` -> `sha256:e7054009396245f495fb150e37649421cba5eed265ae00f101adc9318b57fdf5`
+  - `dy-ui-server:v1` -> `sha256:fecd43e8eb72f8b46a474ea7d10cda30701322e79f0df5b473c08c392eeaf7d2`
+- Result: PASS
+
+- Command: per-pod content checksum comparison for repo vs running containers.
+- Key output:
+  - `mbr` content hashes match 59 files; manifest hash `1b99ec59b5b1d8e2854ffe357fcb0cc466430bd159ba40d444263906fbcdface`
+  - `ui_side` content hashes match 59 files; manifest hash `fc352a86490d38b5f0a2b95fea1691161c9224e716d4f187143321a46d209c21`
+  - `remote` content hashes match 59 files; manifest hash `8df553b72e25991fb2627bfd91e7067e105edbe22196f42c7792b06a786e1315`
+  - `ui_server_core` content hashes match 102 files; manifest hash `268cb6bcb4031b73422693e40076b8151a3842f7b51849191e08b94c2db30557`
+- Result: PASS
+
+- Command: forbidden-marker scans for local `remote-worker`, `mbr-worker`, and `ui-server` logs using `worker/RE/model|source_model_id|route\.reply_to|\breply_to\b|return_topic|returnTopic|result_topic|UIPUT/.*/worker/.*/model/.*/pin/`.
+- Key output:
+  - `PASS no forbidden markers in remote-worker logs`
+  - `PASS no forbidden markers in mbr-worker logs`
+  - `PASS no forbidden markers in ui-server logs`
+- Result: PASS
+
+### Step 7 Review Attempt 2
+
+- Reviewer: sub-agent `019e1d1c-9b1d-7b93-b516-70df4acafa1c`
+- Decision: Approved
+- Key output: Findings none; open questions none; verification gaps none.
+- Result: PASS
+
 ### Step 5 Review Attempt 1
 
 - Reviewer: sub-agent `019e1d0b-bcda-7a52-9ff9-243c7d8b9b96`
