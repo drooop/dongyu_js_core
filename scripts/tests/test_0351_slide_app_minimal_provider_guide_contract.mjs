@@ -26,7 +26,8 @@ function test_doc_has_self_described_route_contract() {
   assert.match(doc, /model `3000`|model 3000/u, 'guide must explain provider model 3000');
   assert.match(doc, /submit1/u, 'guide must explain public submit1 pin');
   assert.match(doc, /UIPUT\/ws\/dam\/pic\/de\/sw\/R1\/3000\/submit1/u, 'guide must document unified endpoint submit topic');
-  assert.match(doc, /endpoint.*ui-server-U1.*2000.*result/us, 'guide must document reply target as payload endpoint records');
+  assert.match(doc, /message_role.*request.*response/us, 'guide must document message_role request/response split');
+  assert.match(doc, /reply_target.*ui-server-U1.*2000.*result/us, 'guide must document reply target as payload records');
   assert.match(doc, /test_files\/minimal_submit_dual_bus_app_payload\.json/u, 'guide must reference payload fixture');
   assert.match(doc, /test_files\/minimal_submit_dual_bus\.zip/u, 'guide must reference zip fixture');
   assertNoOld(doc, 'guide');
@@ -42,6 +43,8 @@ function test_remote_worker_provider_patch_matches_contract() {
   assert.ok(find(recs, (record) => record.model_id === 3000 && record.k === 'submit1_route' && record.t === 'pin.connect.cell'), 'provider must route root submit1 via pin.connect.cell');
   const code = find(recs, (record) => record.model_id === 3000 && record.k === 'submit1' && record.t === 'func.js')?.v?.code || '';
   assert.match(code, /replyTarget/u, 'provider function must use reply_target records');
+  assert.match(code, /messageRole !== 'request'/u, 'provider function must process only request role packets');
+  assert.match(code, /mt\('message_role', 'str', 'response'\)/u, 'provider function must mark replies with message_role=response');
   assert.equal(code.includes('ctx.publishMqtt'), false, 'provider function must not publish MQTT directly');
   assert.equal(code.includes('message_text'), false, 'provider function must not keep message_text fallback');
   assert.match(code, /pin_payload\.v1/u, 'provider function must return a ModelTable-shaped pin payload');

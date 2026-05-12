@@ -20,11 +20,12 @@ function withoutRecords(records, keys) {
   return records.filter((record) => !deny.has(record.k));
 }
 
-function pinPayload({ requestId = 'req_0364', workerId = 'R1', modelId = 3000, pin = 'submit', nested = payload() } = {}) {
+function pinPayload({ requestId = 'req_0364', messageRole = 'request', workerId = 'R1', modelId = 3000, pin = 'submit', nested = payload() } = {}) {
   const records = [
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', requestId),
     mt('op_id', 'str', requestId),
+    mt('message_role', 'str', messageRole),
     mt('endpoint_worker_id', 'str', workerId),
     mt('endpoint_model_id', 'int', modelId),
     mt('endpoint_pin', 'str', pin),
@@ -40,10 +41,11 @@ function pinPayload({ requestId = 'req_0364', workerId = 'R1', modelId = 3000, p
   return records;
 }
 
-function busSendPayload({ bus = null, requestId = 'req_bus_send_0364', busOutKey = 'submit_bus', pin = 'submit' } = {}) {
+function busSendPayload({ bus = null, requestId = 'req_bus_send_0364', busOutKey = 'submit_bus', pin = 'submit', messageRole = 'request' } = {}) {
   const records = [
     mt('__mt_payload_kind', 'str', 'bus_send.v1'),
     mt('__mt_request_id', 'str', requestId),
+    mt('message_role', 'str', messageRole),
     mt('endpoint_worker_id', 'str', 'R1'),
     mt('endpoint_model_id', 'int', 3000),
     mt('endpoint_pin', 'str', pin),

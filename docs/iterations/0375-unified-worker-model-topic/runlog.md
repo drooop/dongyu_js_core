@@ -190,6 +190,177 @@ Review Gate Record
 - Key output: no whitespace errors.
 - Result: PASS
 
+### Step 3 Review Attempt 8
+
+- Reviewer: sub-agent `019e1d55-78d9-7243-9520-c386bcc6cb48`
+- Decision: Timed out / superseded
+- Key output: no completed review result was returned; superseded by Review Attempt 9 to avoid blocking execution.
+- Result: PASS for review capture
+
+### Step 3 Review Attempt 9
+
+- Reviewer: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
+- Decision: Change Requested
+- Key output: `mbr_mgmt_dispatch` still produced a local management-bus ack for `mgmt_bus_console.send.v1`; `handleDyBusEvent` still accepted a response packet whose endpoint was the local UI/result endpoint.
+- Result: PASS for review capture; requested MBR/server/test/doc fixes applied before re-review.
+
+### Step 3 Review Attempt 9 Fixes
+
+- Change: `mbr_mgmt_dispatch` no longer writes direct `mbr_mb_out` business acks. A valid management-bus request now leaves the inbox for the MBR routing function and sets `run_mbr_mgmt_to_mqtt=1`.
+- Change: UI Server now ignores `message_role=response` packets whose endpoint is the local UI Server worker, preventing old `U1/<local_model>/result` style responses from materializing.
+- Change: added negative coverage for local UI/result response packets and MBR direct-ack prevention.
+- Change: updated the ModelTable user guide examples so request and response both use the remote endpoint topic while the local UI target is expressed only by `reply_target_*` payload records.
+- Result: PASS
+
+- Command: `node scripts/validate_mbr_patch_v0.mjs`
+- Key output: 92 passed, 0 failed.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 74 passed, 0 failed.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0342_mgmt_bus_console_real_messaging_contract.mjs`
+- Key output: all checks passed; MBR dispatch now routes valid requests without local ack.
+- Result: PASS
+
+- Command: combined regression suites for pin payload, MBR/remote-worker route, minimal submit docs, slide-app import/export, legacy worker flows, syntax checks, and `git diff --check`.
+- Key output: all checks passed.
+- Result: PASS
+
+### Step 3 Review Attempt 10
+
+- Reviewer: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
+- Decision: Approved
+- Key output: no findings; no open questions; no verification gaps.
+- Result: PASS
+
+### Step 3 U1 Worker Identity Hardening
+
+- Change: removed the old `ui-server-local` positive/default worker identity from the UI Server current runtime path. `resolveUiServerWorkerId()` now defaults to `U1` and no longer reads the old `UI_SERVER_WORKER_ID` alias.
+- Change: updated MBR validator and positive route-contract assertions so UI Server reply target evidence uses `U1`.
+- Residual scan: remaining `ui-server-local` references are negative old-topic tests, "must not hardcode" checks, or test-local custom worker ids.
+- Result: PASS
+
+- Command: `node scripts/validate_mbr_patch_v0.mjs`
+- Key output: 92 passed, 0 failed.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0362_mbr_remote_worker_route_contract.mjs`
+- Key output: 10 passed, 0 failed.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0342_mgmt_bus_console_real_messaging_contract.mjs`
+- Key output: all checks passed.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 74 passed, 0 failed.
+- Result: PASS
+
+### Step 3 U1 Worker Identity Review
+
+- Reviewer: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
+- Decision: Approved
+- Key output: no findings; no open questions; no verification gaps.
+- Result: PASS
+
+### Step 3 Full Regression Refresh
+
+- Command: `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs && node scripts/tests/test_0359_minimal_submit_matrix_e2e_contract.mjs && node scripts/tests/test_0362_mbr_remote_worker_route_contract.mjs && node scripts/tests/test_0364_bus_pin_split_runtime_contract.mjs`
+- Key output: all checks passed; 0332 reported 32/32, 0359 reported 5/5, 0362 route reported 10/10, 0364 split bus reported 9/9.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0322_imported_host_egress_server_flow.mjs && node scripts/tests/test_0326_imported_host_egress_bridge.mjs && node scripts/tests/test_0364_slide_import_bus_binding_contract.mjs && node scripts/tests/test_0361_minimal_submit_import_export_contract.mjs`
+- Key output: all checks passed; imported host, bridge, slide import binding, and minimal submit import/export contracts passed.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0143_e2e.mjs && node scripts/tests/test_0144_mbr_compat.mjs && node scripts/tests/test_0144_remote_worker.mjs && node scripts/tests/test_0177_mbr_bridge_contract.mjs && node scripts/tests/test_0179_mbr_route_contract.mjs && node scripts/tests/test_0184_mbr_direct_event_bridge_contract.mjs && node scripts/tests/test_0184_remote_worker_wildcard_event_contract.mjs && node scripts/tests/test_0328_remote_worker_v1n_runtime_contract.mjs`
+- Key output: all checks passed.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0351_slide_app_minimal_provider_guide_contract.mjs && node scripts/tests/test_0352_slide_app_provider_visualized_docs_contract.mjs && node scripts/tests/test_0360_minimal_submit_dual_bus_docs_contract.mjs && node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs`
+- Key output: all docs and self-described route checks passed.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0270_workspace_ui_filltable_remote_mode_contract.mjs && node scripts/tests/test_0283_matrix_userline_send_receive_contract.mjs && node scripts/tests/test_0303_model0_egress_recovery_server_flow.mjs && node scripts/tests/test_0330_model100_local_submit_contract.mjs`
+- Key output: all checks passed.
+- Result: PASS
+
+- Command: `bun scripts/tests/test_0362_persistence_canonical_reload.mjs`
+- Key output: 1 passed, 0 failed.
+- Result: PASS
+
+- Command: `npm -C packages/ui-model-demo-frontend run build`
+- Key output: Vite build completed successfully.
+- Result: PASS
+
+- Command: `node --check packages/worker-base/src/runtime.mjs && node --check packages/ui-model-demo-server/server.mjs && node --check scripts/run_worker_v0.mjs && git diff --check`
+- Key output: syntax checks and whitespace check passed.
+- Result: PASS
+
+### Step 4 — Local Deploy And Browser Verification
+
+- Command: `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
+- Key output: rebuilt `dy-ui-server:v1` and `dy-remote-worker:v3`; Docker Hub metadata fetch for `node:22-slim` timed out while building `dy-mbr-worker:v2`.
+- Result: FAIL, superseded by local-base overlay build below.
+
+- Command: local-base overlay Docker builds for `dy-mbr-worker:v2` and `dy-ui-side-worker:v1`
+- Key output: rebuilt current-source overlays from existing local base images `dy-mbr-worker:v2-local-base-0375` and `dy-ui-side-worker:v1-local-base-0375`.
+- Result: PASS
+
+- Command: `SKIP_MATRIX_BOOTSTRAP=1 SKIP_IMAGE_BUILD=1 bash scripts/ops/deploy_local.sh`
+- Key output: applied manifests; restarted `ui-server`, `mbr-worker`, `remote-worker`, and `ui-side-worker`; all four app roles rolled out with no terminating old pods.
+- Result: PASS
+
+- Command: `bash scripts/ops/check_runtime_baseline.sh`
+- Key output: all deployments ready; `mbr-worker-secret.MODELTABLE_PATCH_JSON` and `ui-server-secret.MODELTABLE_PATCH_JSON` ready; baseline ready.
+- Result: PASS
+
+- Browser verification: Playwright headed browser at `http://127.0.0.1:30900/#/workspace`.
+- Flow: opened `E2E 颜色生成器`, clicked `Generate Color`.
+- Key output: visible color changed from `#FFFFFF` to `#a98ed8`; visible status changed from `ready` to `processed`.
+- Result: PASS
+
+- Browser verification: Playwright headed browser at `http://127.0.0.1:30900/#/workspace`.
+- Flow: opened `滑动 APP 导入`, uploaded `test_files/minimal_submit_dual_bus.zip`, clicked `导入 Slide App`.
+- Key output: new app appeared as `最小 Submit 双总线示例`; export link `/api/slide-apps/1059/export.zip`; page opened with `Waiting for submit`.
+- Result: PASS
+
+- Browser verification: Playwright headed browser at `http://127.0.0.1:30900/#/workspace`.
+- Flow: in imported model `1059`, entered `0375 same topic browser submit`, clicked `Submit`.
+- Key output: visible text changed to `Submitted: 0375 same topic browser submit`; visible remote status changed to `remote_processed`.
+- Screenshot: `output/playwright/0375-local-minimal-submit-success.png`
+- Result: PASS
+
+- Command: `kubectl -n dongyu logs deploy/remote-worker --since=20m | rg -n "UIPUT/ws/dam/pic/de/sw/(R1/3000/submit1|U1|ui-server-local|worker/|model/|pin/|result_topic|return_topic|reply_to)"`
+- Key output: request and response both used `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`; payload records used `origin_worker_id=U1`, `reply_target_worker_id=U1`, `message_role=request|response`.
+- Result: PASS
+
+- Command: three log scans over `deploy/remote-worker`, `deploy/mbr-worker`, and `deploy/ui-server` for `ui-server-local|UIPUT/ws/dam/pic/de/sw/.*/result|/worker/.*/model/.*/pin/|return_topic|result_topic|route\\.reply_to`.
+- Key output: no matches in current local deployed logs.
+- Result: PASS
+
+### Step 4 Review Attempt 1
+
+- Reviewer: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
+- Decision: Change Requested
+- Key output: an older non-superseded local verification section still recorded `ui-server-local` and `UIPUT/ws/dam/pic/de/sw/ui-server-local/1058/result` as PASS evidence.
+- Result: PASS for review capture; runlog evidence was corrected before re-review.
+
+### Step 4 Review Fix
+
+- Change: renamed the older local verification section as superseded historical evidence.
+- Change: explicitly marked every result in that section and its old review as `SUPERSEDED, not final acceptance evidence`.
+- Result: PASS
+
+### Step 4 Review Attempt 2
+
+- Reviewer: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
+- Decision: Approved
+- Key output: no findings; no open questions; no verification gaps.
+- Result: PASS
+
 ### Step 6 R1 Cleanup And Validator Refresh
 
 - Change: removed stale Step 7 / Step 8 runlog sections that recorded `RE` as passing evidence; new acceptance evidence must use current `R1` worker identity.
@@ -241,23 +412,25 @@ Review Gate Record
 - Key output: Findings none; open questions none; verification gaps none.
 - Result: PASS
 
-### Step 7 — Local Deploy And Browser R1 Verification
+### Step 7 — Superseded Historical Local Deploy And Browser R1 Verification
+
+- Superseded: this section is retained only as historical evidence from an earlier 0375 attempt. It is not acceptance evidence for the final contract because it used `ui-server-local` and a UI-local `/result` endpoint. Final valid local deployment and browser evidence is recorded in `Step 4 — Local Deploy And Browser Verification` above.
 
 - Command: `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
 - Key output: rebuilt `dy-ui-server:v1` and `dy-remote-worker:v3`, then Docker Hub metadata fetch for `node:22-slim` timed out while building `dy-mbr-worker:v2`.
-- Result: PASS for failure capture; continued with local-base overlay build.
+- Result: SUPERSEDED, not final acceptance evidence.
 
 - Command: local-base overlay Docker builds for `dy-mbr-worker:v2` and `dy-ui-side-worker:v1`
 - Key output: rebuilt current-source overlays from `dy-mbr-worker:v2-local-base-0375` and `dy-ui-side-worker:v1-local-base-0375`.
-- Result: PASS
+- Result: SUPERSEDED, not final acceptance evidence.
 
 - Command: `SKIP_IMAGE_BUILD=1 SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
 - Key output: applied manifests and restarted `ui-server`, `mbr-worker`, `remote-worker`, and `ui-side-worker`; all rollouts completed and old app pods terminated.
-- Result: PASS
+- Result: SUPERSEDED, not final acceptance evidence.
 
 - Command: `bash scripts/ops/check_runtime_baseline.sh`
 - Key output: all local deployments ready; no terminating app pods; mbr-worker and ui-server secrets ready.
-- Result: PASS
+- Result: SUPERSEDED, not final acceptance evidence.
 
 - Command: local image and running pod image ID comparison.
 - Key output:
@@ -265,46 +438,46 @@ Review Gate Record
   - `dy-remote-worker:v3` -> `sha256:0e6e84b7b5ad75bb077e4187f1c51c7aff9fd16fb1e57dbe321495cc07d2a204`
   - `dy-mbr-worker:v2` -> `sha256:eccd8f7f43fcd22db33692a5327446252009f96e4f70a94d4e2d258abb79567b`
   - `dy-ui-side-worker:v1` -> `sha256:7aeab9150e0df344e867a840042e0ea0ea84bce677cff1854d8d74f248fa8811`
-- Result: PASS
+- Result: SUPERSEDED, not final acceptance evidence.
 
 - Command: `curl -fsS http://127.0.0.1:30900/ | head -c 240`
 - Key output: UI Model Demo HTML served from local NodePort.
-- Result: PASS
+- Result: SUPERSEDED, not final acceptance evidence.
 
 - Browser: Playwright headed session `0375local` opened `http://127.0.0.1:30900/#/workspace`.
 - Browser: Opened `E2E 颜色生成器`, filled `0375 local R1 color`, clicked `Generate Color`; visible color changed from `#FFFFFF` to `#455aec`, and status became `processed`.
-- Result: PASS
+- Result: SUPERSEDED, not final acceptance evidence.
 
 - Browser: Opened `滑动 APP 导入`, uploaded `test_files/minimal_submit_dual_bus.zip`, clicked `导入 Slide App`; Workspace added imported model `1058` named `最小 Submit 双总线示例`.
 - Browser: Opened imported app `1058`, filled `0375 local R1 minimal submit 1778610678506`, clicked `Submit`; visible result became `Submitted: 0375 local R1 minimal submit 1778610678506`, and remote status became `remote_processed`.
 - Artifact: `output/playwright/0375-local-r1-minimal-submit-success.png`.
-- Result: PASS
+- Result: SUPERSEDED, not final acceptance evidence.
 
 - Command: `kubectl -n dongyu logs deploy/remote-worker --since=10m`
-- Key output: remote-worker subscribed to `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`; inbound minimal Submit used strict `version/type/payload`, `endpoint_worker_id=R1`, `endpoint_model_id=3000`, `endpoint_pin=submit1`, `origin_worker_id=ui-server-local`, `origin_model_id=1058`, `reply_target_worker_id=ui-server-local`, `reply_target_model_id=1058`; remote-worker published `UIPUT/ws/dam/pic/de/sw/ui-server-local/1058/result` with `display_text="Submitted: 0375 local R1 minimal submit 1778610678506"` and `remote_status="remote_processed"`.
-- Result: PASS
+- Key output: remote-worker subscribed to `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`; inbound minimal Submit used strict `version/type/payload`, `endpoint_worker_id=R1`, `endpoint_model_id=3000`, `endpoint_pin=submit1`, but still used historical `origin_worker_id=ui-server-local`, `reply_target_worker_id=ui-server-local`, and published `UIPUT/ws/dam/pic/de/sw/ui-server-local/1058/result`.
+- Result: SUPERSEDED, not final acceptance evidence.
 
 - Command: `kubectl -n dongyu logs deploy/mbr-worker --since=10m`
-- Key output: MBR published `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`, observed the same inbound topic, then observed `UIPUT/ws/dam/pic/de/sw/ui-server-local/1058/result` for `submit1_result_1778610680822`.
-- Result: PASS
+- Key output: MBR published `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`, observed the same inbound topic, then observed the now-invalid `UIPUT/ws/dam/pic/de/sw/ui-server-local/1058/result` path.
+- Result: SUPERSEDED, not final acceptance evidence.
 
 - Command: forbidden-marker scan over local `remote-worker`, `mbr-worker`, and `ui-server` logs since deploy.
 - Key output:
   - `PASS remote-worker forbidden markers clear`
   - `PASS mbr-worker forbidden markers clear`
   - `PASS ui-server forbidden markers clear`
-- Result: PASS
+- Result: SUPERSEDED, not final acceptance evidence.
 
 - Command: `curl -fsS http://127.0.0.1:30900/p/slide-app-runtime-minimal-submit-provider/minimal_submit_app_provider_interactive.html`
 - Key output: local static HTML is available and documents `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`.
-- Result: PASS
+- Result: SUPERSEDED, not final acceptance evidence.
 
 ### Step 7 Review Attempt 1
 
 - Reviewer: sub-agent `019e1d55-78d9-7243-9520-c386bcc6cb48`
 - Decision: Approved
 - Key output: Findings none; open questions none; verification gaps none.
-- Result: PASS
+- Result: SUPERSEDED, not final acceptance evidence.
 
 ### Step 5 Review Attempt 2
 

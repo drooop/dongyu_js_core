@@ -67,6 +67,7 @@ function assertPinPayloadPacket(packet, {
   assert.equal(packet.version, 'v1');
   assert.equal(packet.type, 'pin_payload');
   assert.equal(payloadValue(packet, '__mt_payload_kind'), 'pin_payload.v1');
+  assert.equal(payloadValue(packet, 'message_role'), 'request');
   assert.ok(typeof payloadValue(packet, '__mt_request_id') === 'string' && payloadValue(packet, '__mt_request_id').length > 0);
   assert.ok(typeof payloadValue(packet, 'op_id') === 'string' && payloadValue(packet, 'op_id').length > 0);
   assert.equal(payloadValue(packet, 'endpoint_worker_id'), workerId);

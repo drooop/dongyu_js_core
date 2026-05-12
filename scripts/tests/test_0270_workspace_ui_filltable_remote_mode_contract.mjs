@@ -56,6 +56,7 @@ function assertStrictPinPacket(packet, message = 'packet') {
 
 function pinPayloadRecords({
   opId,
+  messageRole = 'request',
   endpointWorkerId,
   endpointModelId,
   endpointPin,
@@ -72,6 +73,7 @@ function pinPayloadRecords({
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
+    mt('message_role', 'str', messageRole),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),
@@ -163,9 +165,10 @@ async function test_remote_mode_submits_to_matrix_and_accepts_pin_payload_return
       type: 'pin_payload',
       payload: pinPayloadRecords({
         opId: 'test_0270_remote_return',
-        endpointWorkerId: 'ui-server-it0270',
+        messageRole: 'response',
+        endpointWorkerId: 'R1',
         endpointModelId: WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID,
-        endpointPin: 'result',
+        endpointPin: 'submit',
         originWorkerId: 'R1',
         originModelId: WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID,
         originPin: 'submit',

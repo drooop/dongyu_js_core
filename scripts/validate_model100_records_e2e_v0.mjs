@@ -52,6 +52,7 @@ function mt(k, t, v) {
 
 function pinPayloadRecords({
   opId,
+  messageRole = 'request',
   endpointWorkerId = 'R1',
   endpointModelId = 100,
   endpointPin = 'submit',
@@ -68,6 +69,7 @@ function pinPayloadRecords({
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
+    mt('message_role', 'str', messageRole),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),
@@ -132,6 +134,7 @@ async function main() {
   assert(publishedPayload && publishedPayload.type === 'pin_payload', 'published payload must preserve pin_payload type');
   assert(publishedPayload && Object.keys(publishedPayload).sort().join(',') === 'payload,type,version', 'published payload must only expose version/type/payload');
   assert(payloadValue(publishedPayload.payload, 'op_id') === 'it0140_m100_submit_001', 'published payload op_id mismatch');
+  assert(payloadValue(publishedPayload.payload, 'message_role') === 'request', 'published payload must be a request');
   assert(payloadValue(publishedPayload.payload, 'endpoint_worker_id') === 'R1', 'published payload must target R1');
   assert(payloadValue(publishedPayload.payload, 'endpoint_model_id') === 100, 'published payload must target model 100');
   assert(payloadValue(publishedPayload.payload, 'endpoint_pin') === 'submit', 'published payload must target submit pin');

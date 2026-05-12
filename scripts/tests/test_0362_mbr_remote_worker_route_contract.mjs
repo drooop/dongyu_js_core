@@ -35,12 +35,13 @@ function pinPayloadRecords({
   endpointWorkerId = 'R1',
   endpointModelId = 3000,
   endpointPin = 'submit1',
-  originWorkerId = 'ui-server-local',
+  originWorkerId = 'U1',
   originModelId = 2000,
   originPin = 'submit1',
-  replyTargetWorkerId = 'ui-server-local',
+  replyTargetWorkerId = 'U1',
   replyTargetModelId = 2000,
   replyTargetPin = 'result',
+  messageRole = 'request',
   payload = tempPayload(),
   timestamp = 1700000000000,
 } = {}) {
@@ -48,6 +49,7 @@ function pinPayloadRecords({
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
+    mt('message_role', 'str', messageRole),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),
@@ -214,9 +216,9 @@ function test_mbr_uses_endpoint_records_and_rejects_missing_endpoint() {
   const { mqttPublished: published } = drainWorkerEngine(rt);
   assert.equal(published.length, 1, 'MBR must publish endpoint-addressed packet');
   assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', 'MBR topic must come from endpoint records');
-  assert.equal(payloadString(published[0].payload.payload, 'origin_worker_id'), 'ui-server-local', 'MBR must preserve local origin worker id');
+  assert.equal(payloadString(published[0].payload.payload, 'origin_worker_id'), 'U1', 'MBR must preserve local origin worker id');
   assert.equal(payloadInt(published[0].payload.payload, 'origin_model_id'), 2000, 'MBR must preserve local origin model id');
-  assert.equal(payloadString(published[0].payload.payload, 'reply_target_worker_id'), 'ui-server-local', 'MBR must preserve server-owned reply target');
+  assert.equal(payloadString(published[0].payload.payload, 'reply_target_worker_id'), 'U1', 'MBR must preserve server-owned reply target');
 
   rt.addLabel(sys, 0, 0, 0, {
     k: 'mbr_mgmt_inbox',
@@ -260,13 +262,14 @@ function test_mbr_mqtt_inbound_bridges_remote_reply_to_management_bus() {
   const mqttFn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mqtt_to_mgmt')));
   const replyRecords = pinPayloadRecords({
     opId: '0362_remote_reply',
-    endpointWorkerId: 'ui-server-local',
-    endpointModelId: 2000,
-    endpointPin: 'result',
+    messageRole: 'response',
+    endpointWorkerId: 'R1',
+    endpointModelId: 3000,
+    endpointPin: 'submit1',
     originWorkerId: 'R1',
     originModelId: 3000,
     originPin: 'submit1',
-    replyTargetWorkerId: 'ui-server-local',
+    replyTargetWorkerId: 'U1',
     replyTargetModelId: 2000,
     replyTargetPin: 'result',
     payload: [mt('display_text', 'str', 'Submitted: from remote')],
@@ -274,18 +277,20 @@ function test_mbr_mqtt_inbound_bridges_remote_reply_to_management_bus() {
   rt.addLabel(sys, 0, 0, 0, {
     k: 'mbr_mqtt_inbox',
     t: 'json',
-    v: { topic: 'UIPUT/ws/dam/pic/de/sw/ui-server-local/2000/result', payload: externalPacket(replyRecords) },
+    v: { topic: 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', payload: externalPacket(replyRecords) },
   });
   mqttFn({ hostApi: buildWorkerHostApi(rt) });
   const mbOut = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_mb_out');
   const packet = toExternalPinPacket(rt, mbOut);
   assert.equal(mbOut?.t, 'pin.bus.mb.out', 'MBR must bridge remote replies to management-bus out pin');
-  assert.equal(payloadString(packet.payload, 'endpoint_worker_id'), 'ui-server-local', 'remote reply endpoint must be preserved');
+  assert.equal(payloadString(packet.payload, 'message_role'), 'response', 'remote reply role must be preserved');
+  assert.equal(payloadString(packet.payload, 'endpoint_worker_id'), 'R1', 'remote reply endpoint remains the remote endpoint');
+  assert.equal(payloadString(packet.payload, 'reply_target_worker_id'), 'U1', 'remote reply UI Server target stays in payload records');
   assert.equal(payloadJson(packet.payload, 'payload')?.find((record) => record.k === 'display_text')?.v, 'Submitted: from remote', 'remote reply payload must be preserved');
   return { key: 'mbr_mqtt_inbound_bridges_remote_reply_to_management_bus', status: 'PASS' };
 }
 
-async function test_remote_worker_submit1_receives_endpoint_and_replies_to_reply_target() {
+async function test_remote_worker_submit1_receives_endpoint_and_replies_on_same_endpoint_topic() {
   const rt = loadRemoteRuntime();
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
@@ -301,11 +306,13 @@ async function test_remote_worker_submit1_receives_endpoint_and_replies_to_reply
   assert.equal(payloadJson(resultValue, 'payload')?.find((record) => record.k === 'display_text')?.v, 'Submitted: browser submit', 'remote submit handler must emit provider result pin payload');
   const { mqttPublished: published } = drainWorkerEngine(rt);
   assert.equal(published.length, 1, 'remote submit handler must publish one reply');
-  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/ui-server-local/2000/result', 'reply topic must come from reply target records');
-  assert.equal(payloadString(published[0].payload.payload, 'endpoint_worker_id'), 'ui-server-local', 'reply payload endpoint must target UI server');
+  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', 'reply topic must remain the same remote endpoint topic');
+  assert.equal(payloadString(published[0].payload.payload, 'message_role'), 'response', 'reply payload must mark response role');
+  assert.equal(payloadString(published[0].payload.payload, 'endpoint_worker_id'), 'R1', 'reply payload endpoint must remain remote worker endpoint');
+  assert.equal(payloadString(published[0].payload.payload, 'reply_target_worker_id'), 'U1', 'reply payload carries UI Server target in records');
   assert.equal(payloadString(published[0].payload.payload, 'origin_worker_id'), 'R1', 'reply payload origin must be remote worker');
   assert.equal(payloadJson(published[0].payload.payload, 'payload')?.find((record) => record.k === 'display_text')?.v, 'Submitted: browser submit', 'reply payload must carry display_text');
-  return { key: 'remote_worker_submit1_receives_endpoint_and_replies_to_reply_target', status: 'PASS' };
+  return { key: 'remote_worker_submit1_receives_endpoint_and_replies_on_same_endpoint_topic', status: 'PASS' };
 }
 
 async function test_runtime_rejects_legacy_business_route_record() {
@@ -370,16 +377,17 @@ function test_mbr_mqtt_inbound_rejects_invalid_temporary_modeltable_records() {
     k: 'mbr_mqtt_inbox',
     t: 'json',
     v: {
-      topic: 'UIPUT/ws/dam/pic/de/sw/ui-server-local/2000/result',
+      topic: 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1',
       payload: externalPacket(pinPayloadRecords({
         opId: '0362_bad_mqtt_payload',
-        endpointWorkerId: 'ui-server-local',
-        endpointModelId: 2000,
-        endpointPin: 'result',
+        messageRole: 'response',
+        endpointWorkerId: 'R1',
+        endpointModelId: 3000,
+        endpointPin: 'submit1',
         originWorkerId: 'R1',
         originModelId: 3000,
         originPin: 'submit1',
-        replyTargetWorkerId: 'ui-server-local',
+        replyTargetWorkerId: 'U1',
         replyTargetModelId: 2000,
         replyTargetPin: 'result',
         payload: [{ id: 0, p: 0, r: 0, c: 0, k: 'display_text', t: 'str' }],
@@ -402,7 +410,7 @@ const tests = [
   test_mbr_uses_endpoint_records_and_rejects_missing_endpoint,
   test_mbr_does_not_echo_own_control_publish_to_management_bus,
   test_mbr_mqtt_inbound_bridges_remote_reply_to_management_bus,
-  test_remote_worker_submit1_receives_endpoint_and_replies_to_reply_target,
+  test_remote_worker_submit1_receives_endpoint_and_replies_on_same_endpoint_topic,
   test_runtime_rejects_legacy_business_route_record,
   test_remote_worker_rejects_missing_reply_target_without_public_result,
   test_remote_worker_rejects_invalid_reply_target_without_public_result,

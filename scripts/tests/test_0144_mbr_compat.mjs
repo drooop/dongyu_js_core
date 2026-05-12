@@ -68,6 +68,7 @@ function mt(k, t, v) {
 
 function pinPayloadRecords({
   opId = 'test_0144_op',
+  messageRole = 'request',
   endpointWorkerId = 'R1',
   endpointModelId = 100,
   endpointPin = 'submit',
@@ -84,6 +85,7 @@ function pinPayloadRecords({
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
+    mt('message_role', 'str', messageRole),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),
@@ -141,6 +143,7 @@ function test_mbr_mgmt_to_mqtt_execute_model100() {
   assert.equal(published.length, 1, 'control bus out must publish once through engine');
   assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/100/submit');
   assertStrictPacket(published[0].payload, 'published payload');
+  assert.equal(payloadValue(published[0].payload.payload, 'message_role'), 'request');
   assert.equal(payloadValue(published[0].payload.payload, 'endpoint_worker_id'), 'R1');
   assert.equal(payloadValue(published[0].payload.payload, 'endpoint_model_id'), 100);
   assert.equal(payloadValue(published[0].payload.payload, 'endpoint_pin'), 'submit');
@@ -154,9 +157,10 @@ function test_mbr_mqtt_to_mgmt_execute() {
   const sys = rt.getModel(-10);
   const busPacket = externalPacket(pinPayloadRecords({
     opId: 'test_0144_002',
-    endpointWorkerId: 'ui-server',
+    messageRole: 'response',
+    endpointWorkerId: 'R1',
     endpointModelId: 100,
-    endpointPin: 'result',
+    endpointPin: 'submit',
     originWorkerId: 'R1',
     originModelId: 100,
     originPin: 'submit',
@@ -165,14 +169,15 @@ function test_mbr_mqtt_to_mgmt_execute() {
     replyTargetPin: 'result',
     payloadRecords: [{ id: 0, p: 0, r: 0, c: 0, k: 'bg_color', t: 'str', v: '#FF0000' }],
   }));
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mqtt_inbox', t: 'json', v: { topic: 'UIPUT/ws/dam/pic/de/sw/ui-server/100/result', payload: busPacket } });
+  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mqtt_inbox', t: 'json', v: { topic: 'UIPUT/ws/dam/pic/de/sw/R1/100/submit', payload: busPacket } });
   runMbrFunction(rt, 'mbr_mqtt_to_mgmt');
   const packet = toExternalPacket(rt, 'mbr_mb_out');
   assertStrictPacket(packet, 'management bus out');
   assert.equal(payloadValue(packet.payload, 'op_id'), 'test_0144_002');
-  assert.equal(payloadValue(packet.payload, 'endpoint_worker_id'), 'ui-server');
+  assert.equal(payloadValue(packet.payload, 'message_role'), 'response');
+  assert.equal(payloadValue(packet.payload, 'endpoint_worker_id'), 'R1');
   assert.equal(payloadValue(packet.payload, 'endpoint_model_id'), 100);
-  assert.equal(payloadValue(packet.payload, 'endpoint_pin'), 'result');
+  assert.equal(payloadValue(packet.payload, 'endpoint_pin'), 'submit');
   assert.equal(payloadValue(payloadValue(packet.payload, 'payload'), 'bg_color'), '#FF0000');
   assert(!rt.getCell(sys, 0, 0, 0).labels.has('mbr_mqtt_inbox'), 'inbox should be cleaned');
 }

@@ -40,12 +40,14 @@ function pinPayloadRecords({
   replyTargetWorkerId = 'ui-server-test',
   replyTargetModelId = 100,
   replyTargetPin = 'result',
+  messageRole = 'request',
   timestamp = 1700000000000,
 }) {
   return [
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
+    mt('message_role', 'str', messageRole),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),

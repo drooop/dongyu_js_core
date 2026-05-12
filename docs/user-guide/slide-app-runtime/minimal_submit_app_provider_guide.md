@@ -13,7 +13,7 @@ source: ai
 一句话链路：
 
 ```text
-UI click -> Model 0 -> Matrix -> MBR -> remote provider public pin -> reply_target records -> ui-server -> local UI model
+UI click -> Model 0 -> Matrix -> MBR -> remote provider public pin -> same endpoint topic response -> reply_target records -> ui-server -> local UI model
 ```
 
 当前规约的关键点是：
@@ -21,9 +21,10 @@ UI click -> Model 0 -> Matrix -> MBR -> remote provider public pin -> reply_targ
 | 项 | 当前写法 |
 |---|---|
 | MQTT topic | `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1` |
-| topic 含义 | 只表示远端 endpoint：worker `R1`、model `3000`、pin `submit1` |
+| topic 含义 | 请求和回包都使用同一个远端 endpoint：worker `R1`、model `3000`、pin `submit1` |
 | 回包目标 | 不放在 topic；放在 payload records：`reply_target_worker_id = ui-server-U1`、`reply_target_model_id = 2000`、`reply_target_pin = result` |
 | 请求来源 | 放在 payload records：`origin_worker_id`、`origin_model_id`、`origin_pin` |
+| 消息方向 | 放在 payload records：`message_role = request` 或 `message_role = response` |
 | 业务数据 | 放在嵌套 `payload` record 中，仍是 ModelTable records array |
 | 禁止项 | `route.reply_to`、`return_topic`、`returnTopic`、`result_topic`、旧 `worker/<id>/model/<id>/pin/<pin>` topic |
 
@@ -107,10 +108,12 @@ const replyTarget = {
   model_id: readInt(inputRecords, 'reply_target_model_id'),
   pin: readString(inputRecords, 'reply_target_pin'),
 };
+const messageRole = readString(inputRecords, 'message_role');
 const businessPayload = readJson(inputRecords, 'payload', []);
 
 if (
   readString(inputRecords, '__mt_payload_kind') !== 'pin_payload.v1'
+  || messageRole !== 'request'
   || !validEndpoint(endpoint)
   || !validEndpoint(origin)
   || !validEndpoint(replyTarget)
@@ -141,9 +144,10 @@ return [
   mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
   mt('__mt_request_id', 'str', opId),
   mt('op_id', 'str', opId),
-  mt('endpoint_worker_id', 'str', replyTarget.worker_id),
-  mt('endpoint_model_id', 'int', replyTarget.model_id),
-  mt('endpoint_pin', 'str', replyTarget.pin),
+  mt('message_role', 'str', 'response'),
+  mt('endpoint_worker_id', 'str', endpoint.worker_id),
+  mt('endpoint_model_id', 'int', endpoint.model_id),
+  mt('endpoint_pin', 'str', endpoint.pin),
   mt('origin_worker_id', 'str', 'R1'),
   mt('origin_model_id', 'int', 3000),
   mt('origin_pin', 'str', 'submit1'),
@@ -242,7 +246,7 @@ submit_request -> submit_request_wiring -> handle_submit:in
 handle_submit writes input_text / last_submit_payload / submit_inflight / remote_status
 handle_submit writes business payload to submit1 pin.out
 dual_bus_model.egress_pins contains submit1
-generated host egress adapter wraps endpoint_worker_id / origin_worker_id / reply_target_worker_id
+generated host egress adapter wraps message_role / endpoint_worker_id / origin_worker_id / reply_target_worker_id
 Model 0 mt_bus_send_in -> pin.bus.mb.out -> Matrix -> MBR -> UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
 ```
 
@@ -300,6 +304,7 @@ host bridge 写入的 `bus_send.v1` records 形态如下：
 [
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "bus_send.v1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus_out_key", "t": "str", "v": "imported_submit1_2000_bus" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "submit1" },
@@ -327,7 +332,13 @@ UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
 { "version": "v1", "type": "pin_payload", "payload": "ModelTable records array" }
 ```
 
-要模拟 `R1` 回包，不要发布到所谓 result topic。仍然使用 endpoint topic 规则，只是 endpoint records 指向 UI Server：
+要模拟 `R1` 回包，不要发布到所谓 result topic。仍然发布到同一个 endpoint topic：
+
+```text
+UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
+```
+
+回包 records 的 `endpoint_*` 仍指向 `R1 / 3000 / submit1`，并通过 `message_role = response` 表示这不是再次触发远端程序的请求。UI Server 本地目标只放在 `reply_target_*` records：
 
 ```json
 {
@@ -337,9 +348,10 @@ UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "manual_result_2000_001" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "manual_result_2000_001" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "ui-server-U1" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 2000 },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "result" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "submit1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "R1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_model_id", "t": "int", "v": 3000 },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_pin", "t": "str", "v": "submit1" },
@@ -359,7 +371,7 @@ UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
 }
 ```
 
-MBR 收到这类回包后会转回 Matrix；UI Server 只按 endpoint / reply target records materialize 到本地 UI 模型，不从 topic 推断 model id。
+MBR 收到 `message_role=response` 后会转回 Matrix；UI Server 只按 `reply_target_*` records materialize 到本地 UI 模型，不从 topic 推断本地 model id。远端 runtime 收到同一 topic 上的 `response` 时会忽略它，避免二次触发 `submit1` 程序。
 
 ## 6. 导出与交付
 

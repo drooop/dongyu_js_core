@@ -1430,9 +1430,9 @@ function containsLegacyPinPayloadMetadata(value, seen = new WeakSet()) {
 }
 
 function resolveUiServerWorkerId() {
-  const raw = process.env.DY_UI_SERVER_WORKER_ID || process.env.UI_SERVER_WORKER_ID || 'ui-server-local';
+  const raw = process.env.DY_UI_SERVER_WORKER_ID || 'U1';
   const id = String(raw || '').trim();
-  return id || 'ui-server-local';
+  return id || 'U1';
 }
 
 function isSplitBusOutLabelType(typeName) {
@@ -1456,10 +1456,9 @@ function isTemporaryModelTableRecord(record) {
 function isExpectedPinPayloadReturnRoute(content) {
   const parsed = parsePinPayloadRecordEnvelope(content);
   return Boolean(parsed.ok
-    && parsed.endpoint.worker_id === resolveUiServerWorkerId()
     && parsed.replyTarget.worker_id === resolveUiServerWorkerId()
-    && parsed.endpoint.pin === 'result'
-    && parsed.replyTarget.pin === 'result');
+    && parsed.replyTarget.pin === 'result'
+    && parsed.messageRole === 'response');
 }
 
 function sanitizeSlideExportName(input, fallback = 'slide-app') {
@@ -2077,6 +2076,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
         `V1N.addLabel('mt_bus_send_in', 'pin.in', [`,
         `  mt('__mt_payload_kind', 'str', 'bus_send.v1'),`,
         `  mt('__mt_request_id', 'str', opId),`,
+        `  mt('message_role', 'str', 'request'),`,
         `  mt('bus', 'str', 'management'),`,
         `  mt('bus_out_key', 'str', ${JSON.stringify(keys.busOutKey)}),`,
         `  mt('endpoint_worker_id', 'str', ${JSON.stringify(remoteEndpoint.to.worker_id)}),`,
@@ -2649,6 +2649,7 @@ function parsePinPayloadRecordEnvelope(content) {
   const stringMetadataKeys = [
     '__mt_request_id',
     'op_id',
+    'message_role',
     'endpoint_worker_id',
     'endpoint_pin',
     'origin_worker_id',
@@ -2684,6 +2685,10 @@ function parsePinPayloadRecordEnvelope(content) {
   if (!requestId && !opIdLabel) {
     return { ok: false, code: 'missing_request_correlation' };
   }
+  const messageRole = readTemporaryPayloadString(records, 'message_role');
+  if (messageRole !== 'request' && messageRole !== 'response') {
+    return { ok: false, code: 'invalid_message_role' };
+  }
   for (const record of records) {
     if (!record || typeof record.k !== 'string') {
       return { ok: false, code: 'invalid_pin_payload_records' };
@@ -2718,7 +2723,7 @@ function parsePinPayloadRecordEnvelope(content) {
     return { ok: false, code: 'invalid_pin_payload_records' };
   }
   const opId = opIdLabel || requestId;
-  return { ok: true, records, endpoint, origin, replyTarget, nestedPayload, opId };
+  return { ok: true, records, endpoint, origin, replyTarget, nestedPayload, opId, messageRole };
 }
 
 function upsertTemporaryPayloadRecord(payload, record) {
@@ -2810,6 +2815,7 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
         mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
         mtPayloadRecord('__mt_request_id', 'str', opId),
         mtPayloadRecord('op_id', 'str', opId),
+        mtPayloadRecord('message_role', 'str', 'request'),
         mtPayloadRecord('endpoint_worker_id', 'str', targetWorkerId),
         mtPayloadRecord('endpoint_model_id', 'int', MGMT_BUS_CONSOLE_MODEL_ID),
         mtPayloadRecord('endpoint_pin', 'str', 'submit'),
@@ -4077,11 +4083,14 @@ class ProgramModelEngine {
       if (!parsedEnvelope.ok) {
         return;
       }
+      const uiServerWorkerId = resolveUiServerWorkerId();
+      if (parsedEnvelope.messageRole === 'response' && parsedEnvelope.endpoint.worker_id === uiServerWorkerId) {
+        return;
+      }
       const ackValidation = parsedEnvelope.replyTarget.model_id === MGMT_BUS_CONSOLE_MODEL_ID
-        && parsedEnvelope.replyTarget.worker_id === resolveUiServerWorkerId()
+        && parsedEnvelope.replyTarget.worker_id === uiServerWorkerId
         && parsedEnvelope.replyTarget.pin === 'result'
-        && parsedEnvelope.endpoint.worker_id === resolveUiServerWorkerId()
-        && parsedEnvelope.endpoint.pin === 'result'
+        && parsedEnvelope.messageRole === 'response'
         ? validateMgmtBusConsoleAck({
           version: 'v1',
           type: 'mgmt_bus_console_ack',
@@ -4105,10 +4114,10 @@ class ProgramModelEngine {
       if (opId && this.ignoredMatrixReturnOpIds.has(opId)) {
         return;
       }
-      if (parsedEnvelope.endpoint.worker_id !== resolveUiServerWorkerId() || parsedEnvelope.endpoint.pin !== 'result') {
+      if (parsedEnvelope.replyTarget.worker_id !== uiServerWorkerId || parsedEnvelope.replyTarget.pin !== 'result') {
         return;
       }
-      if (parsedEnvelope.replyTarget.worker_id !== resolveUiServerWorkerId() || parsedEnvelope.replyTarget.pin !== 'result') {
+      if (parsedEnvelope.messageRole !== 'response') {
         return;
       }
       const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget.model_id, parsedEnvelope.nestedPayload, opId);

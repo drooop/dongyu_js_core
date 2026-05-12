@@ -69,6 +69,7 @@ function test_all_public_docs_cover_required_operational_steps() {
   for (const path of PUBLIC_DOCS) {
     const text = readText(path);
     assert.match(text, /remote-worker `R1`|remote-worker R1|R1 \/ 3000/u, path + ' must explain R1');
+    assert.match(text, /message_role/u, path + ' must explain request and response role records');
     assert.match(text, /endpoint_worker_id/u, path + ' must explain endpoint records');
     assert.match(text, /reply_target_worker_id/u, path + ' must explain reply target records');
     assert.match(text, /submit1/u, path + ' must explain submit1');

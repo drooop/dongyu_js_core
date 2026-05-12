@@ -76,6 +76,7 @@ function test_ssot_freezes_self_described_route_contract() {
     ['imported', imported],
   ]) {
     assertIncludes(text, 'remote_bus_endpoint_v1', name);
+    assertIncludes(text, 'message_role', name);
     assertIncludes(text, 'endpoint_worker_id', name);
     assertIncludes(text, 'reply_target_worker_id', name);
   }

@@ -685,7 +685,9 @@ Worker：软件工人类型标签固定写法如下：
 ```json
 [
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "submit-test-001" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "submit-test-001" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "submit1" },
@@ -710,15 +712,17 @@ Worker：软件工人类型标签固定写法如下：
 
 remote-worker 程序模型处理完成后，不能直接发 transport。它应返回 `pin_payload.v1` records，先走本 worker 的 Model 0 `pin.bus.cb.out`。
 
-返回 payload 必须把回包目的地写成新的 `endpoint_*` records，同时保留原请求里的 `reply_target_*` records 作为审计信息。MBR 只根据 `endpoint_*` records 派生回 UI Server 的 topic：
+返回 payload 必须把 `message_role` 写成 `response`。`endpoint_*` 必须保持原来的 remote-worker endpoint，也就是仍然指向 `R1 / 3000 / submit1`；UI Server 本地安装实例只允许写在 `reply_target_*` records 中。MBR 不再根据本地 result endpoint 派生回包 topic，也不接受 `U1 / <local_model_id> / result` 作为 endpoint。
 
 ```json
 [
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "req_123" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "U1" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 1055 },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "submit1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "R1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_model_id", "t": "int", "v": 3000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_pin", "t": "str", "v": "submit1" },

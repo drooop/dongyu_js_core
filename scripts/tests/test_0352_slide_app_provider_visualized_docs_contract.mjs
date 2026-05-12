@@ -19,6 +19,7 @@ function test_visualized_doc_explains_route_flow() {
   const doc = read(VISUAL);
   assertIncludes(doc, 'endpoint_worker_id', VISUAL);
   assertIncludes(doc, 'reply_target_worker_id', VISUAL);
+  assertIncludes(doc, 'message_role', VISUAL);
   assertIncludes(doc, 'submit1_route', VISUAL);
   assertIncludes(doc, 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', VISUAL);
   assertIncludes(doc, 'ui-server-U1 / 2000 / result', VISUAL);
@@ -30,6 +31,7 @@ function test_interactive_html_covers_route_contract() {
   const html = read(HTML);
   assertIncludes(html, 'endpoint_worker_id', HTML);
   assertIncludes(html, 'reply_target_worker_id', HTML);
+  assertIncludes(html, 'message_role', HTML);
   assertIncludes(html, 'submit1_route', HTML);
   assertIncludes(html, 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', HTML);
   assertIncludes(html, 'ui-server-U1 / 2000 / result', HTML);

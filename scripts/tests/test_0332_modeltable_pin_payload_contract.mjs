@@ -71,6 +71,7 @@ function busSendPayload({
   return [
     mt('__mt_payload_kind', 'str', 'bus_send.v1'),
     mt('__mt_request_id', 'str', requestId),
+    mt('message_role', 'str', 'request'),
     mt('endpoint_worker_id', 'str', 'R1'),
     mt('endpoint_model_id', 'int', 3000),
     mt('endpoint_pin', 'str', pin),

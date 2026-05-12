@@ -205,6 +205,7 @@ function validatePinPayloadRecordEnvelope(payload) {
   const stringMetadataKeys = [
     '__mt_request_id',
     'op_id',
+    'message_role',
     'endpoint_worker_id',
     'endpoint_pin',
     'origin_worker_id',
@@ -239,6 +240,10 @@ function validatePinPayloadRecordEnvelope(payload) {
   }
   if (!requestId && !opId) {
     return { ok: false, reason: 'missing_request_correlation' };
+  }
+  const messageRole = pinPayloadString(payload, 'message_role');
+  if (messageRole !== 'request' && messageRole !== 'response') {
+    return { ok: false, reason: 'invalid_message_role' };
   }
   for (const record of payload.payload) {
     if (isLegacyPinPayloadKey(record.k)) {
@@ -279,6 +284,7 @@ function validatePinPayloadRecordEnvelope(payload) {
   }
   return {
     ok: true,
+    message_role: messageRole,
     endpoint: { worker_id: endpointWorkerId, model_id: endpointModelId, pin: endpointPin },
     origin: { worker_id: originWorkerId, model_id: originModelId, pin: originPin },
     reply_target: { worker_id: replyTargetWorkerId, model_id: replyTargetModelId, pin: replyTargetPin },

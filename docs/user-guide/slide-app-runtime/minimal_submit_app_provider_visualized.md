@@ -8,7 +8,7 @@ source: ai
 
 # 最小 Submit 双总线示例 - Visualized
 
-这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经过 Matrix、MBR、MQTT、remote-worker R1，最后根据 `reply_target_worker_id / reply_target_model_id / reply_target_pin` 回到本地 UI 模型，页面显示 `Submitted: <输入内容>`。
+这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经过 Matrix、MBR、MQTT、remote-worker R1，最后在同一个 remote endpoint topic 上用 `message_role=response` 回包，并根据 `reply_target_worker_id / reply_target_model_id / reply_target_pin` 回到本地 UI 模型，页面显示 `Submitted: <输入内容>`。
 
 ## 总览
 
@@ -28,10 +28,10 @@ sequenceDiagram
   MBR->>MQTT: UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
   MQTT->>R1: root submit1 pin.in
   R1->>R1: root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in`
-  R1->>MQTT: pin_payload.v1 endpoint = ui-server-U1 / 2000 / result
+  R1->>MQTT: same topic pin_payload.v1 message_role=response
   MQTT->>MBR: control bus reply
   MBR->>MX: management bus reply
-  MX->>M0: endpoint_worker_id=ui-server-U1 endpoint_model_id=2000 endpoint_pin=result
+  MX->>M0: endpoint=R1/3000/submit1 + reply_target=ui-server-U1/2000/result
   M0->>UI: materialize display_text / remote_status / last_submit_payload / submit_inflight
 ```
 
@@ -81,16 +81,17 @@ flowchart TB
 UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
 ```
 
-topic 只描述远端 endpoint。真正的请求来源和回包目标都在 `pin_payload.v1` 的 Temporary ModelTable records 里：
+topic 只描述远端 endpoint，请求和回包都使用这一个 topic。真正的请求来源、消息方向和回包目标都在 `pin_payload.v1` 的 Temporary ModelTable records 里：
 
 | records | 示例 |
 |---|---|
+| `message_role` | 请求为 `request`，回包为 `response` |
 | `remote_bus_endpoint_v1` -> `endpoint_worker_id` / `endpoint_model_id` / `endpoint_pin` | `R1 / 3000 / submit1` |
 | `origin_worker_id` / `origin_model_id` / `origin_pin` | `ui-server-U1 / 2000 / submit1` |
 | `reply_target_worker_id` / `reply_target_model_id` / `reply_target_pin` | `ui-server-U1 / 2000 / result` |
 | nested `payload` | `text`、`source` |
 
-外部客户端模拟回包时，仍使用 `pin_payload.v1`。手工示例的 `op_id` 可以是 `"manual_result_2000_001"`，嵌套 payload 至少包含：
+外部客户端模拟回包时，仍向 `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1` 发送 `pin_payload.v1`，并把 `message_role` 写成 `response`。手工示例的 `op_id` 可以是 `"manual_result_2000_001"`，嵌套 payload 至少包含：
 
 ```json
 [

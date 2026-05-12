@@ -33,7 +33,7 @@ function payloadValue(records, key) {
   return Array.isArray(records) ? records.find((record) => record && record.k === key)?.v : undefined;
 }
 
-function pinPayloadPacket({ opId, endpoint, origin, replyTarget, payload }) {
+function pinPayloadPacket({ opId, endpoint, origin, replyTarget, payload, messageRole = 'request' }) {
   return {
     version: 'v1',
     type: 'pin_payload',
@@ -41,6 +41,7 @@ function pinPayloadPacket({ opId, endpoint, origin, replyTarget, payload }) {
       mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
       mt('__mt_request_id', 'str', opId),
       mt('op_id', 'str', opId),
+      mt('message_role', 'str', messageRole),
       mt('endpoint_worker_id', 'str', endpoint.worker_id),
       mt('endpoint_model_id', 'int', endpoint.model_id),
       mt('endpoint_pin', 'str', endpoint.pin),
@@ -141,7 +142,9 @@ function test_remote_worker_provider_patch_returns_reply_to_result() {
   assert.match(code, /replyTarget/u, 'remote handler must read reply_target records');
   assert.equal(code.includes('ctx.publishMqtt'), false, 'remote handler must not publish MQTT directly');
   assert.equal(code.includes("pin_payload.v1"), true, 'remote handler must return ModelTable-shaped pin_payload');
-  assert.equal(code.includes("mt('endpoint_model_id', 'int', replyTarget.model_id)"), true, 'remote result must target reply_target model id');
+  assert.equal(code.includes("mt('message_role', 'str', 'response')"), true, 'remote result must mark message_role=response');
+  assert.equal(code.includes("mt('endpoint_model_id', 'int', endpoint.model_id)"), true, 'remote result must keep the same remote endpoint model id');
+  assert.equal(code.includes("mt('reply_target_model_id', 'int', replyTarget.model_id)"), true, 'remote result must carry reply_target model id in payload records');
   const remoteConfigRecords = recordsFor('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json');
   assert.equal(
     findRecord(remoteConfigRecords, (record) => record.model_id === 0 && record.k === 'remote_result_bus')?.t,
@@ -171,7 +174,7 @@ function test_docs_describe_real_matrix_roundtrip() {
     assert.equal(text.includes('/1050/'), false, `${label} must not use old 1050 topics`);
     assert.equal(text.includes('mbr_route_'), false, `${label} must not use mbr_route_*`);
   }
-  assert.equal(guide.includes('UI click -> Model 0 -> Matrix -> MBR -> remote provider public pin -> reply_target records -> ui-server -> local UI model'), true);
+  assert.equal(guide.includes('UI click -> Model 0 -> Matrix -> MBR -> remote provider public pin -> same endpoint topic response -> reply_target records -> ui-server -> local UI model'), true);
   return { key: 'docs_describe_real_matrix_roundtrip', status: 'PASS' };
 }
 
@@ -199,7 +202,12 @@ async function test_imported_zip_roundtrip_materializes_matrix_result_to_ui_mode
         setTimeout(() => {
           state.programEngine.handleDyBusEvent(pinPayloadPacket({
             opId: `result_${payloadValue(packet.payload, 'op_id')}`,
-            endpoint: replyTarget,
+            messageRole: 'response',
+            endpoint: {
+              worker_id: payloadValue(packet.payload, 'endpoint_worker_id'),
+              model_id: payloadValue(packet.payload, 'endpoint_model_id'),
+              pin: payloadValue(packet.payload, 'endpoint_pin'),
+            },
             origin: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
             replyTarget,
             payload: [
@@ -251,7 +259,8 @@ async function test_imported_zip_rejects_result_route_to_mismatch() {
     const modelId = importResult.data?.model_id;
     state.programEngine.handleDyBusEvent(pinPayloadPacket({
       opId: 'result_route_mismatch',
-      endpoint: { worker_id: 'other-ui-server', model_id: modelId, pin: 'result' },
+      messageRole: 'response',
+      endpoint: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
       origin: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
       replyTarget: { worker_id: 'other-ui-server', model_id: modelId, pin: 'result' },
       payload: [mt('display_text', 'str', 'Submitted: should not apply')],

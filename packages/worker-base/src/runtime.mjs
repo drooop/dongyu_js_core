@@ -976,6 +976,7 @@ class ModelTableRuntime {
     const busOutKeyLabel = this._payloadLabel(payload, 'bus_out_key');
     const nestedPayloadLabel = this._payloadLabel(payload, 'payload');
     const busLabel = this._payloadLabel(payload, 'bus');
+    const messageRoleLabel = this._payloadLabel(payload, 'message_role');
     for (const key of ['source_model_id', 'pin', 'route', 'reply_to', 'route.reply_to', 'return_topic', 'returnTopic', 'result_topic']) {
       if (this._payloadLabel(payload, key)) {
         return { ok: false, code: 'legacy_pin_payload_metadata_removed', requestId };
@@ -994,6 +995,12 @@ class ModelTableRuntime {
     const bus = busLabel && busLabel.t === 'str' && typeof busLabel.v === 'string'
       ? busLabel.v.trim()
       : null;
+    const messageRole = messageRoleLabel && messageRoleLabel.t === 'str' && typeof messageRoleLabel.v === 'string'
+      ? messageRoleLabel.v
+      : '';
+    if (messageRole !== 'request' && messageRole !== 'response') {
+      return { ok: false, code: 'invalid_message_role', requestId };
+    }
     if (!endpoint || !origin || !replyTarget || !busOutKey) {
       return { ok: false, code: 'missing_source', requestId };
     }
@@ -1012,6 +1019,7 @@ class ModelTableRuntime {
       busOutKey,
       payload: nestedPayload,
       bus,
+      messageRole,
     };
   }
 
@@ -1113,6 +1121,7 @@ class ModelTableRuntime {
     const stringMetadataKeys = [
       '__mt_request_id',
       'op_id',
+      'message_role',
       'endpoint_worker_id',
       'endpoint_pin',
       'origin_worker_id',
@@ -1147,6 +1156,10 @@ class ModelTableRuntime {
     if (!hasRequestCorrelation) {
       return { ok: false, code: 'missing_request_correlation' };
     }
+    const messageRole = this._payloadString(value, 'message_role');
+    if (messageRole !== 'request' && messageRole !== 'response') {
+      return { ok: false, code: 'invalid_message_role' };
+    }
     if (this._hasLegacyPinPayloadMetadata(value)) {
       return { ok: false, code: 'legacy_pin_payload_metadata_removed' };
     }
@@ -1171,15 +1184,16 @@ class ModelTableRuntime {
         return { ok: false, code: 'endpoint_mismatch' };
       }
     }
-    return { ok: true, endpoint, origin, replyTarget, nestedPayload };
+    return { ok: true, endpoint, origin, replyTarget, nestedPayload, messageRole };
   }
 
-  _buildPinPayloadValue({ opId, payload, timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null }) {
+  _buildPinPayloadValue({ opId, payload, timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null, messageRole = 'request' }) {
     const requestId = opId || `pin_payload_${Date.now()}`;
     const records = [
       this._mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
       this._mtPayloadRecord('__mt_request_id', 'str', requestId),
       this._mtPayloadRecord('op_id', 'str', requestId),
+      this._mtPayloadRecord('message_role', 'str', messageRole),
       this._mtPayloadRecord('endpoint_worker_id', 'str', endpoint && endpoint.worker_id ? endpoint.worker_id : ''),
       this._mtPayloadRecord('endpoint_model_id', 'int', endpoint && Number.isInteger(endpoint.model_id) ? endpoint.model_id : 0),
       this._mtPayloadRecord('endpoint_pin', 'str', endpoint && endpoint.pin ? endpoint.pin : ''),
@@ -1374,6 +1388,7 @@ class ModelTableRuntime {
       endpoint: parsed.endpoint,
       origin: parsed.origin,
       replyTarget: parsed.replyTarget,
+      messageRole: parsed.messageRole,
     });
     const res = this.addLabel(model, 0, 0, 0, {
       k: parsed.busOutKey,
@@ -2029,6 +2044,15 @@ class ModelTableRuntime {
           payload,
           mode: 'pin_payload_v1',
           reason: parsed.code === 'endpoint_mismatch' ? 'endpoint_mismatch' : 'invalid_pin_payload_records',
+        });
+        return false;
+      }
+      if (parsed.messageRole === 'response') {
+        this.mqttTrace.record('inbound_ignored', {
+          topic,
+          payload,
+          mode: 'pin_payload_v1',
+          reason: 'response_packet_not_delivered_to_endpoint_runtime',
         });
         return false;
       }

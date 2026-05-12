@@ -39,6 +39,7 @@ function pinPayload({ endpointModelId, pin = 'submit', payload }) {
       mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
       mt('__mt_request_id', 'str', opId),
       mt('op_id', 'str', opId),
+      mt('message_role', 'str', 'request'),
       mt('endpoint_worker_id', 'str', 'R1'),
       mt('endpoint_model_id', 'int', endpointModelId),
       mt('endpoint_pin', 'str', pin),

@@ -112,6 +112,7 @@ async function test_seeded_dual_bus_contract_overrides_persisted_removed_pin_typ
         assert.equal(packet.version, 'v1', `model_${modelId}_packet_version`);
         assert.equal(packet.type, 'pin_payload', `model_${modelId}_packet_type`);
         assert.equal(payloadValue(packet, '__mt_payload_kind'), 'pin_payload.v1', `model_${modelId}_payload_kind`);
+        assert.equal(payloadValue(packet, 'message_role'), 'request', `model_${modelId}_message_role`);
         assert.equal(payloadValue(packet, 'endpoint_worker_id'), 'R1', `model_${modelId}_endpoint_worker`);
         assert.equal(payloadValue(packet, 'endpoint_model_id'), modelId, `model_${modelId}_endpoint_model`);
         assert.equal(payloadValue(packet, 'endpoint_pin'), 'submit', `model_${modelId}_endpoint_pin`);

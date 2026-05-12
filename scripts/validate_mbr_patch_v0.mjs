@@ -70,6 +70,7 @@ function pinPayloadRecords({
   replyTargetWorkerId = 'ui-server-test',
   replyTargetModelId = 100,
   replyTargetPin = 'result',
+  messageRole = 'request',
   payloadRecords = businessPayload(),
   timestamp = 1700000000000,
 } = {}) {
@@ -77,6 +78,7 @@ function pinPayloadRecords({
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
+    mt('message_role', 'str', messageRole),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),
@@ -259,19 +261,45 @@ process.stdout.write('\n=== Test Group 5: Generic CRUD Rejected ===\n');
   assert(getLabel(rt, -10, 0, 0, 0, 'mbr_mgmt_error')?.code === 'direct_model_mutation_disabled', 'generic CRUD writes mbr_mgmt_error');
 }
 
+process.stdout.write('\n=== Test Group 5b: MBR Dispatch Does Not Direct Ack ===\n');
+{
+  const rt = createPatchedRuntime();
+  writeMgmtInbox(rt, externalPacket(pinPayloadRecords({
+    opId: 'mbr_dispatch_no_direct_ack',
+    endpointWorkerId: 'mbr',
+    endpointModelId: 1036,
+    endpointPin: 'submit',
+    originWorkerId: 'ui-server-test',
+    originModelId: 1036,
+    originPin: 'submit',
+    replyTargetWorkerId: 'ui-server-test',
+    replyTargetModelId: 1036,
+    replyTargetPin: 'result',
+    payloadRecords: [
+      mt('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
+      mt('target_user_id', 'str', '@mbr:localhost'),
+      mt('draft', 'str', 'hello mbr dispatch'),
+    ],
+  })));
+  execMbrFunction(rt, 'mbr_mgmt_dispatch');
+  assert((getLabelEntry(rt, 0, 0, 0, 0, 'mbr_mb_out')?.v ?? null) === null, 'mbr_mgmt_dispatch must not directly emit management-bus responses');
+  assert(getLabel(rt, -10, 0, 0, 0, 'run_mbr_mgmt_to_mqtt') === '1', 'mbr_mgmt_dispatch must hand request packets to management-to-control forwarding');
+}
+
 process.stdout.write('\n=== Test Group 6: Control Bus To Mgmt Bus ===\n');
 {
   const rt = createPatchedRuntime();
-  const topic = `${TOPIC_BASE}/ui-server-local/100/result`;
+  const topic = `${TOPIC_BASE}/R1/100/submit`;
   writeMqttInbox(rt, topic, externalPacket(pinPayloadRecords({
     opId: 'ack_001',
-    endpointWorkerId: 'ui-server-local',
+    messageRole: 'response',
+    endpointWorkerId: 'R1',
     endpointModelId: 100,
-    endpointPin: 'result',
+    endpointPin: 'submit',
     originWorkerId: 'R1',
     originModelId: 100,
     originPin: 'submit',
-    replyTargetWorkerId: 'ui-server-local',
+    replyTargetWorkerId: 'U1',
     replyTargetModelId: 100,
     replyTargetPin: 'result',
     payloadRecords: [mt('bg_color', 'str', '#fff')],
@@ -281,8 +309,19 @@ process.stdout.write('\n=== Test Group 6: Control Bus To Mgmt Bus ===\n');
   assert(mbOut !== null && mbOut.t === 'pin.bus.mb.out', 'mbr_mqtt_to_mgmt writes management-bus out pin');
   const packet = toExternalPinPacket(rt, mbOut);
   assertStrictPacket(packet, 'management-bus out packet');
-  assert(payloadValue(packet?.payload, 'endpoint_worker_id') === 'ui-server-local', 'management out endpoint is reply target');
+  assert(payloadValue(packet?.payload, 'message_role') === 'response', 'management out forwards only response packets');
+  assert(payloadValue(packet?.payload, 'endpoint_worker_id') === 'R1', 'management out endpoint remains remote worker endpoint');
+  assert(payloadValue(packet?.payload, 'reply_target_worker_id') === 'U1', 'management out carries UI Server target in payload records');
   assert(getLabelEntry(rt, -10, 0, 0, 0, 'mbr_mqtt_inbox') === null, 'mqtt inbox cleaned after bridge');
+}
+
+{
+  const rt = createPatchedRuntime();
+  const topic = `${TOPIC_BASE}/R1/100/submit`;
+  writeMqttInbox(rt, topic, externalPacket(pinPayloadRecords({ opId: 'request_echo_001' })));
+  execMbrFunction(rt, 'mbr_mqtt_to_mgmt');
+  assert((getLabelEntry(rt, 0, 0, 0, 0, 'mbr_mb_out')?.v ?? null) === null, 'request echo on endpoint topic is not forwarded to management bus');
+  assert(getLabelEntry(rt, -10, 0, 0, 0, 'mbr_mqtt_inbox') === null, 'request echo inbox cleaned after drop');
 }
 
 process.stdout.write('\n=== Test Group 7: Heartbeat / Ready Local Status ===\n');
@@ -333,13 +372,13 @@ process.stdout.write('\n=== Test Group 9: Split Bus Failure And Retry ===\n');
     t: 'pin.bus.mb.out',
     v: pinPayloadRecords({
       opId: 'missing_adapter_001',
-      endpointWorkerId: 'ui-server-local',
+      endpointWorkerId: 'U1',
       endpointModelId: 1036,
       endpointPin: 'result',
       originWorkerId: 'mbr',
       originModelId: 1036,
       originPin: 'submit',
-      replyTargetWorkerId: 'ui-server-local',
+      replyTargetWorkerId: 'U1',
       replyTargetModelId: 1036,
       replyTargetPin: 'result',
       payloadRecords: [mt('reply_text', 'str', 'x')],
@@ -361,13 +400,13 @@ process.stdout.write('\n=== Test Group 9: Split Bus Failure And Retry ===\n');
     t: 'pin.bus.mb.out',
     v: pinPayloadRecords({
       opId: 'rejecting_adapter_001',
-      endpointWorkerId: 'ui-server-local',
+      endpointWorkerId: 'U1',
       endpointModelId: 1036,
       endpointPin: 'result',
       originWorkerId: 'mbr',
       originModelId: 1036,
       originPin: 'submit',
-      replyTargetWorkerId: 'ui-server-local',
+      replyTargetWorkerId: 'U1',
       replyTargetModelId: 1036,
       replyTargetPin: 'result',
       payloadRecords: [mt('reply_text', 'str', 'x')],
@@ -393,13 +432,13 @@ process.stdout.write('\n=== Test Group 9: Split Bus Failure And Retry ===\n');
   rt.setRuntimeMode('running');
   const makeMgmtValue = (opId, text) => pinPayloadRecords({
     opId,
-    endpointWorkerId: 'ui-server-local',
+    endpointWorkerId: 'U1',
     endpointModelId: 1036,
     endpointPin: 'result',
     originWorkerId: 'mbr',
     originModelId: 1036,
     originPin: 'submit',
-    replyTargetWorkerId: 'ui-server-local',
+    replyTargetWorkerId: 'U1',
     replyTargetModelId: 1036,
     replyTargetPin: 'result',
     payloadRecords: [mt('reply_text', 'str', text)],

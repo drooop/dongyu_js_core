@@ -99,6 +99,7 @@ async function main() {
     assert.equal(published[0]?.version, 'v1');
     assert.equal(published[0]?.type, 'pin_payload');
     assert.equal(payloadValue(published[0], '__mt_payload_kind'), 'pin_payload.v1');
+    assert.equal(payloadValue(published[0], 'message_role'), 'request');
     assert.equal(payloadValue(published[0], 'endpoint_worker_id'), 'R1');
     assert.equal(payloadValue(published[0], 'endpoint_model_id'), 100);
     assert.equal(payloadValue(published[0], 'endpoint_pin'), 'submit');

@@ -68,6 +68,7 @@ function mt(k, t, v) {
 
 function pinPayloadRecords({
   opId = 'test_0184_mbr_direct_event_bridge_contract_001',
+  messageRole = 'request',
   endpointWorkerId = 'R1',
   endpointModelId = 100,
   endpointPin = 'submit',
@@ -84,6 +85,7 @@ function pinPayloadRecords({
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
+    mt('message_role', 'str', messageRole),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),
@@ -123,6 +125,7 @@ rt.addLabel(sys, 0, 0, 0, {
 runMbrFunction(rt, 'mbr_mgmt_to_mqtt');
 const packet = toExternalPacket(rt, 'mbr_cb_out');
 assertStrictPacket(packet, 'control bus out');
+assert.equal(payloadValue(packet.payload, 'message_role'), 'request');
 assert.equal(payloadValue(packet.payload, 'endpoint_pin'), 'submit');
 assert.equal(payloadValue(packet.payload, 'origin_model_id'), 100);
 const published = drainMqtt(rt);

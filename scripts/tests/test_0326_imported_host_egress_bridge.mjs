@@ -190,6 +190,7 @@ async function test_imported_egress_uses_bus_out_bridge_without_forward_func() {
         entry.type === 'publish'
         && entry.payload?.payload?.type === 'pin_payload'
         && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1'
+        && payloadString(entry.payload.payload.payload, 'message_role') === 'request'
         && payloadString(entry.payload.payload.payload, 'endpoint_worker_id') === 'R1'
         && payloadInt(entry.payload.payload.payload, 'endpoint_model_id') === 3000
         && payloadString(entry.payload.payload.payload, 'endpoint_pin') === 'submit1'
@@ -205,6 +206,7 @@ async function test_imported_egress_uses_bus_out_bridge_without_forward_func() {
 
       const matrixPacket = await pollUntil(() => matrixPublished.find((entry) =>
         entry?.type === 'pin_payload'
+        && payloadString(entry.payload, 'message_role') === 'request'
         && payloadString(entry.payload, 'endpoint_worker_id') === 'R1'
         && payloadInt(entry.payload, 'endpoint_model_id') === 3000
         && payloadString(entry.payload, 'endpoint_pin') === 'submit1'

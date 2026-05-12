@@ -226,6 +226,7 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "management" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus_out_key", "t": "str", "v": "model100_submit_bus" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "submit" },
@@ -245,6 +246,7 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
 - `bus_send.v1` 只能由 Model 0 `(0,0,0)` 的 `mt_bus_send` 处理。
 - `bus` 必须是 `"control"` 或 `"management"`；UI / 滑动 App 交互默认使用 `"management"`。
 - `payload` label 的 `v` 必须仍是临时模型表 record array。
+- `message_role` 必须是 `"request"` 或 `"response"`；UI / 滑动 App 发起外发时写 `"request"`。
 - `endpoint_*`、`origin_*`、`reply_target_*` 必须是 record array 中的 records，不能放在外层 JSON object 上。
 - 旧对象请求，例如 `{ "op": "submit", "model_id": 100, ... }`，不得作为 `mt_bus_send_in` 的合法 pin value。
 
@@ -261,6 +263,7 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "req_123" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "submit" },
@@ -286,6 +289,7 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "req_123" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "submit" },
@@ -303,10 +307,12 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
 - `pin.bus.cb.out` / `pin.bus.mb.out` label 的 `v` 必须是 `pin_payload.v1` 临时模型表数组，而不是上述 object packet。
 - MQTT / Matrix / MBR 等外层 transport 可以继续使用 object packet；这是系统边界 envelope，不是业务 pin value。
 - `pin_payload.v1.payload` 里的业务内容必须仍是临时模型表 record array。
+- `message_role` 必须存在；`request` 触发目标程序链路，`response` 只作为回包转发和 UI materialization 输入。
 - `endpoint_*` records 是远端公开入口目标，使用 `worker_id + model_id + pin` 定位目标 worker 上的目标模型 root 公开 pin。
 - `reply_target_*` records 是本地回包目标，必须由 UI Server / 宿主在运行时生成，不能由 imported ZIP records 提供或覆盖。
 - `endpoint_pin` 必须和 transport topic 的最后一段一致，且表示目标模型公开 Cell pin，不是直接跨 Cell 调用 `{functionName}:in`。
 - MBR / MQTT adapter 可以从 `endpoint_*` records 派生 transport topic。唯一合法 topic 形态是 `UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<sw_id>/<worker_id>/<model_id>/<pin>`。
+- 请求和回包都使用同一个 endpoint topic；回包目标不能从 `reply_target_*` 派生成 result topic。
 - `route.reply_to`、`return_topic`、`returnTopic`、`result_topic` 与旧 result topic 不是当前输入面；不能作为回包目标、不能兼容解析。
 
 ## 3. Imported Feishu Evidence
