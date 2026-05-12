@@ -189,6 +189,73 @@ Review Gate Record
 - Command: `git diff --check`
 - Key output: no whitespace errors.
 - Result: PASS
+### Step 9 — Cloud Deploy Drift Fix And Remote Browser Verification
+
+- Command: `node scripts/tests/test_0349_remote_deploy_sync_contract.mjs && bash -n scripts/ops/deploy_cloud_app.sh`
+- Key output: `PASS test_0349_remote_deploy_sync_contract`; shell syntax check passed.
+- Result: PASS
+
+- Review: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
+- Decision: Approved
+- Scope: `scripts/ops/deploy_cloud_app.sh`, `scripts/ops/README.md`, `scripts/tests/test_0349_remote_deploy_sync_contract.mjs`
+- Key output: no findings, no open questions, no verification gaps.
+- Result: PASS
+
+- Command: `git push origin dev main`
+- Key output: `dev -> dev` and `main -> main`; final pushed main revision `e0db410`.
+- Result: PASS
+
+- Command: `bash scripts/ops/sync_cloud_source.sh --ssh-user drop --ssh-host 124.71.43.80 --remote-repo /home/wwpic/dongyuapp --remote-repo-owner wwpic --revision e0db410`
+- Key output: remote git checkout did not know `e0db410`, archive fallback synced deployment-required paths and wrote `.deploy-source-revision=e0db410`.
+- Result: PASS
+
+- Command: `ssh drop@124.71.43.80 'sudo -n bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-server --revision e0db410'`
+- Key output: image built/imported with revision `e0db410`; `=== Apply target runtime manifest ===` ran; `deployment.apps/ui-server configured`; rollout completed; source hash gate passed.
+- Result: PASS
+
+- Command: `ssh drop@124.71.43.80 'sudo -n bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target remote-worker --revision e0db410'`
+- Key output: image built/imported with revision `e0db410`; `=== Apply target runtime manifest ===` ran; rollout completed; source hash gate passed.
+- Result: PASS
+
+- Command: `ssh drop@124.71.43.80 'sudo -n bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target mbr-worker --revision e0db410'`
+- Key output: image built/imported with revision `e0db410`; `=== Apply target runtime manifest ===` ran; rollout completed; source hash gate passed.
+- Result: PASS
+
+- Command: `ssh drop@124.71.43.80 'sudo -n kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml -n dongyu exec deploy/ui-server -- env | grep DY_UI_SERVER_WORKER_ID'`
+- Key output: `DY_UI_SERVER_WORKER_ID=U1`
+- Result: PASS
+
+- Command: `curl -fsS --max-time 20 https://app.dongyudigital.com/p/slide-app-runtime-minimal-submit-provider/minimal_submit_app_provider_interactive.html`
+- Key output: public HTML returned `最小 Submit 双总线示例` and `topic: UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`.
+- Result: PASS
+
+- Browser: Playwright headed session opened `https://app.dongyudigital.com/#/workspace`.
+- Flow: clicked `E2E 颜色生成器` -> `Generate Color`.
+- Key output: visible color changed from `#FFFFFF` to `#ec7a29`; visible status changed to `processed`.
+- Result: PASS
+
+- Browser: opened `滑动 APP 导入`, uploaded `/Users/drop/codebase/cowork/dongyuapp_elysia_based/test_files/minimal_submit_dual_bus.zip`, clicked `导入 Slide App`.
+- Key output: a new `最小 Submit 双总线示例` app was created as model `1053` and opened from workspace.
+- Result: PASS
+
+- Browser: in imported model `1053`, entered `0375 remote same topic browser submit`, clicked `Submit`.
+- Key output: visible text changed to `Submitted: 0375 remote same topic browser submit`; visible remote status changed to `remote_processed`.
+- Screenshot: `output/playwright/0375-remote-minimal-submit-success.png`
+- Result: PASS
+
+- Command: remote worker log grep for `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`
+- Key output: request and response both used `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`; request had `message_role=request`, `origin_worker_id=U1`, `reply_target_model_id=1053`; response had `message_role=response`, `origin_worker_id=R1`, `reply_target_worker_id=U1`, `reply_target_model_id=1053`, `reply_target_pin=result`; response packets were logged as `response_packet_not_delivered_to_endpoint_runtime` on the remote worker.
+- Result: PASS
+
+- Command: remote log grep for `ui-server-local|return_topic|result_topic|route.reply_to|reply_to|/worker/.*/model/.*/pin/|UIPUT/ws/dam/pic/de/sw/.*/result`
+- Key output: no matches in `ui-server`, `remote-worker`, or `mbr-worker` logs for the current verification window.
+- Result: PASS
+
+- Review: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
+- Decision: Approved
+- Scope: final remote deployment and browser evidence for 0375 same-topic contract.
+- Key output: no findings, no open questions, no verification gaps.
+- Result: PASS
 
 ### Step 3 Review Attempt 8
 
