@@ -6,7 +6,7 @@ updated: 2026-05-12
 source: ai
 iteration_id: 0374-web-tablet-desktop
 id: 0374-web-tablet-desktop
-phase: approved
+phase: execution
 ---
 
 # Iteration 0374-web-tablet-desktop Runlog
@@ -118,9 +118,37 @@ phase: approved
 
 ### Step 1 - Desktop Contract And State Ownership
 
-- Command: pending
-- Key output: pending
-- Result: pending
+- Root cause:
+  - `scripts/tests/test_0311_pin_projection_contract.mjs` still asserted the pre-0358 direct positive-model pin shape for Model 100 submit.
+  - Current SSOT and current tests require Model 100 submit to use `bus_event_v2 -> Model 0 bus_event_submit_100_0_0_0`.
+  - The failure was therefore a stale test expectation, not a current UI model defect.
+- Change:
+  - Updated the Model 100 submit assertion in `scripts/tests/test_0311_pin_projection_contract.mjs` to require `bus_event_v2`, `bus_in_key=bus_event_submit_100_0_0_0`, and `value_t=modeltable`.
+- Command: `node scripts/tests/test_0311_pin_projection_contract.mjs`
+- Key output:
+  - `[PASS] ast_exposes_writable_pins_schema_for_pin_bound_node`
+  - `[PASS] workspace_patches_pinize_existing_buttons`
+  - `[PASS] renderer_and_server_have_pin_envelope_contract`
+  - `3 passed, 0 failed out of 3`
+- Result: PASS
+- Command: `node scripts/tests/test_0177_model100_submit_ui_contract.mjs`
+- Key output: `PASS test_0177_model100_submit_ui_contract`
+- Result: PASS
+- Command: `node scripts/tests/test_0333_model100_cellwise_contract.mjs`
+- Key output:
+  - `[PASS] workspace_model100_declares_cellwise_and_drops_legacy_schema_source`
+  - `[PASS] workspace_model100_submit_button_preserves_pin_metadata`
+  - `[PASS] test_model100_ui_declares_model0_bus_event_submit_route`
+  - `6 passed, 0 failed out of 6`
+- Result: PASS
+- Command: `git diff --check`
+- Key output: no output
+- Result: PASS
+- Review:
+  - Reviewer: sub-agent `019e199e-ce5b-7472-90b3-86cc392eb4e9`
+  - Decision: Approved
+  - Findings: none
+  - Notes: Step 1 baseline gate disposition is correct; can proceed to Step 2 Component Gap Audit.
 - Commit:
 
 ### Step 2 - Component Gap Audit

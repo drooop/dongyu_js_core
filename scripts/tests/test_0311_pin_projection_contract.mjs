@@ -111,7 +111,9 @@ function test_workspace_patches_pinize_existing_buttons() {
     && record?.r === model100SubmitNode.r
     && record?.c === model100SubmitNode.c
   ));
-  assert.equal(model100SubmitBind?.v?.write?.pin, 'click', 'model100_submit_must_use_pin_write');
+  assert.equal(model100SubmitBind?.v?.write?.bus_event_v2, true, 'model100_submit_must_use_model0_bus_event_write');
+  assert.equal(model100SubmitBind?.v?.write?.bus_in_key, 'bus_event_submit_100_0_0_0', 'model100_submit_must_target_model0_bus_in_route');
+  assert.equal(model100SubmitBind?.v?.write?.value_t, 'modeltable', 'model100_submit_must_emit_modeltable_payload');
   assert.ok(!model100SubmitBind?.v?.write?.action, 'model100_submit_must_not_require_action_write');
 
   const expectations = [
