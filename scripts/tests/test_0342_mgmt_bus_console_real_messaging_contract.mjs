@@ -57,36 +57,67 @@ function externalPinPacket(rt, key) {
     : null;
 }
 
+function payloadRecord(records, key) {
+  return (Array.isArray(records) ? records : []).find((record) => (
+    record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key
+  )) || null;
+}
+
+function mtRecord(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function packetOpId(packet) {
+  return payloadRecord(packet?.payload, 'op_id')?.v;
+}
+
 function makeSplitBusPinPayloadValue(opId, text = 'hello') {
   return [
-    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'pin_payload.v1' },
-    { id: 0, p: 0, r: 0, c: 0, k: '__mt_request_id', t: 'str', v: opId },
-    { id: 0, p: 0, r: 0, c: 0, k: 'op_id', t: 'str', v: opId },
-    { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: 1036 },
-    { id: 0, p: 0, r: 0, c: 0, k: 'pin', t: 'str', v: 'result' },
-    {
-      id: 0,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'payload',
-      t: 'json',
-      v: [{ id: 0, p: 0, r: 0, c: 0, k: 'reply_text', t: 'str', v: text }],
-    },
-    {
-      id: 0,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'route',
-      t: 'json',
-      v: {
-        to: { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' },
-        from: { worker_id: 'MBR', model_id: 1036, pin: 'submit' },
-      },
-    },
-    { id: 0, p: 0, r: 0, c: 0, k: 'timestamp', t: 'int', v: Date.now() },
+    mtRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mtRecord('__mt_request_id', 'str', opId),
+    mtRecord('op_id', 'str', opId),
+    mtRecord('endpoint_worker_id', 'str', 'mbr'),
+    mtRecord('endpoint_model_id', 'int', 1036),
+    mtRecord('endpoint_pin', 'str', 'submit'),
+    mtRecord('origin_worker_id', 'str', 'ui-server-test'),
+    mtRecord('origin_model_id', 'int', 1036),
+    mtRecord('origin_pin', 'str', 'submit'),
+    mtRecord('reply_target_worker_id', 'str', 'ui-server-test'),
+    mtRecord('reply_target_model_id', 'int', 1036),
+    mtRecord('reply_target_pin', 'str', 'result'),
+    mtRecord('payload', 'json', [mtRecord('reply_text', 'str', text)]),
+    mtRecord('timestamp', 'int', Date.now()),
   ];
+}
+
+function makePinPayloadPacket({
+  opId,
+  endpoint = { worker_id: 'mbr', model_id: 1036, pin: 'submit' },
+  origin = { worker_id: 'ui-server-test', model_id: 1036, pin: 'submit' },
+  replyTarget = { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' },
+  payload = [],
+  timestamp = Date.now(),
+}) {
+  return {
+    version: 'v1',
+    type: 'pin_payload',
+    payload: [
+      mtRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
+      mtRecord('__mt_request_id', 'str', opId),
+      mtRecord('op_id', 'str', opId),
+      mtRecord('endpoint_worker_id', 'str', endpoint.worker_id),
+      mtRecord('endpoint_model_id', 'int', endpoint.model_id),
+      mtRecord('endpoint_pin', 'str', endpoint.pin),
+      mtRecord('origin_worker_id', 'str', origin.worker_id),
+      mtRecord('origin_model_id', 'int', origin.model_id),
+      mtRecord('origin_pin', 'str', origin.pin),
+      mtRecord('reply_target_worker_id', 'str', replyTarget.worker_id),
+      mtRecord('reply_target_model_id', 'int', replyTarget.model_id),
+      mtRecord('reply_target_pin', 'str', replyTarget.pin),
+      mtRecord('payload', 'json', payload),
+      mtRecord('timestamp', 'int', timestamp),
+    ],
+  };
 }
 
 function makeSnapshot(records, sourceLabels = []) {
@@ -274,7 +305,6 @@ async function test_server_forwards_console_intent_to_matrix() {
       bus_in_key: 'mgmt_bus_console_send',
       value: [
         { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: 1036 },
         { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
         { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'hello from 0342' },
       ],
@@ -286,13 +316,22 @@ async function test_server_forwards_console_intent_to_matrix() {
     assert.equal(sent.length, 1, 'server must forward one Matrix packet for console send');
     assert.equal(sent[0].version, 'v1', 'forwarded packet must use pin_payload v1');
     assert.equal(sent[0].type, 'pin_payload', 'forwarded packet type must be pin_payload');
-    assert.equal(sent[0].source_model_id, 1036, 'forwarded packet must identify Model 1036 as source');
-    assert.equal(sent[0].pin, 'submit', 'forwarded packet must use submit pin');
-    assert.deepEqual(sent[0].route?.to, { worker_id: 'mbr', model_id: 1036, pin: 'submit' }, 'forwarded packet route.to must target the MBR console pin');
-    assert.deepEqual(sent[0].route?.reply_to, { worker_id: 'ui-server-local', model_id: 1036, pin: 'result' }, 'forwarded packet route.reply_to must target local console result');
-    assert.ok(Array.isArray(sent[0].payload), 'forwarded packet payload must remain a ModelTable record array');
-    assert.ok(sent[0].payload.some((record) => record.k === 'target_user_id' && record.v === '@mbr:localhost'), 'forwarded packet must preserve target_user_id');
-    assert.ok(sent[0].payload.some((record) => record.k === 'draft' && record.v === 'hello from 0342'), 'forwarded packet must preserve draft text');
+    assert.deepEqual(Object.keys(sent[0]).sort(), ['payload', 'type', 'version'], 'forwarded packet must not carry loose route/source/pin fields');
+    assert.equal(payloadRecord(sent[0].payload, '__mt_payload_kind')?.v, 'pin_payload.v1', 'forwarded packet must declare outer pin_payload kind');
+    assert.equal(payloadRecord(sent[0].payload, 'endpoint_worker_id')?.v, 'mbr', 'forwarded packet endpoint worker must target the MBR user');
+    assert.equal(payloadRecord(sent[0].payload, 'endpoint_model_id')?.v, 1036, 'forwarded packet endpoint model must be Mgmt Bus Console');
+    assert.equal(payloadRecord(sent[0].payload, 'endpoint_pin')?.v, 'submit', 'forwarded packet endpoint pin must be submit');
+    assert.equal(payloadRecord(sent[0].payload, 'reply_target_worker_id')?.v, 'ui-server-local', 'forwarded packet reply target worker must be the UI server');
+    assert.equal(payloadRecord(sent[0].payload, 'reply_target_model_id')?.v, 1036, 'forwarded packet reply target model must be Mgmt Bus Console');
+    assert.equal(payloadRecord(sent[0].payload, 'reply_target_pin')?.v, 'result', 'forwarded packet reply target pin must be result');
+    const businessPayload = payloadRecord(sent[0].payload, 'payload')?.v;
+    assert.ok(Array.isArray(businessPayload), 'forwarded packet nested payload must remain a ModelTable record array');
+    assert.ok(businessPayload.some((record) => record.k === 'target_user_id' && record.v === '@mbr:localhost'), 'forwarded packet must preserve target_user_id in nested payload');
+    assert.ok(businessPayload.some((record) => record.k === 'draft' && record.v === 'hello from 0342'), 'forwarded packet must preserve draft text in nested payload');
+    assert.ok(businessPayload.some((record) => record.k === 'message_text' && record.v === 'hello from 0342'), 'forwarded packet must normalize message_text in nested payload');
+    const consoleModel = state.runtime.getModel(consoleModelId);
+    assert.equal(state.runtime.getLabelValue(consoleModel, 0, 0, 0, 'last_sent_text'), 'hello from 0342', 'send projection must display nested message_text');
+    assert.equal(state.runtime.getLabelValue(consoleModel, 0, 0, 0, 'target_user_id'), '@mbr:localhost', 'send projection must display nested target_user_id');
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
     delete process.env.DY_AUTH;
@@ -473,16 +512,27 @@ async function test_server_projects_mbr_response_from_trace_without_writing_mode
     state.runtime.setRuntimeMode('running');
     state.programEngine.handleDyBusEvent({
       version: 'v1',
-      type: 'mgmt_bus_console_ack',
-      op_id: 'mbr_ack_it0342_mbr_ack',
-      source_model_id: 1036,
-      target_user_id: '@mbr:localhost',
+      type: 'pin_payload',
       payload: [
-        { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.ack.v1' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'reply_text', t: 'str', v: 'ack from @mbr:localhost: hello' },
+        mtRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
+        mtRecord('__mt_request_id', 'str', 'mbr_ack_it0342_mbr_ack'),
+        mtRecord('op_id', 'str', 'mbr_ack_it0342_mbr_ack'),
+        mtRecord('endpoint_worker_id', 'str', 'ui-server-local'),
+        mtRecord('endpoint_model_id', 'int', 1036),
+        mtRecord('endpoint_pin', 'str', 'result'),
+        mtRecord('origin_worker_id', 'str', 'mbr'),
+        mtRecord('origin_model_id', 'int', 1036),
+        mtRecord('origin_pin', 'str', 'submit'),
+        mtRecord('reply_target_worker_id', 'str', 'ui-server-local'),
+        mtRecord('reply_target_model_id', 'int', 1036),
+        mtRecord('reply_target_pin', 'str', 'result'),
+        mtRecord('payload', 'json', [
+          mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.ack.v1'),
+          mtRecord('target_user_id', 'str', '@mbr:localhost'),
+          mtRecord('reply_text', 'str', 'ack from @mbr:localhost: hello'),
+        ]),
+        mtRecord('timestamp', 'int', Date.now()),
       ],
-      timestamp: Date.now(),
     });
     await state.programEngine.tick();
     state.clientSnap();
@@ -655,8 +705,8 @@ async function test_server_split_bus_matrix_failures_are_observable_and_retryabl
     await wait(20);
 
     assert.equal(rejected.length, 2, 'rejecting Matrix adapter must receive one publish attempt for each retryable pending pin');
-    assert.ok(rejected.some((packet) => packet?.op_id === 'it0342_unavailable_mb_out'), 'previous unavailable pin must retry once Matrix config becomes available');
-    assert.ok(rejected.some((packet) => packet?.op_id === 'it0342_reject_mb_out'), 'new rejecting pin must attempt publish once');
+    assert.ok(rejected.some((packet) => packetOpId(packet) === 'it0342_unavailable_mb_out'), 'previous unavailable pin must retry once Matrix config becomes available');
+    assert.ok(rejected.some((packet) => packetOpId(packet) === 'it0342_reject_mb_out'), 'new rejecting pin must attempt publish once');
     assert.equal(state.programEngine.bridgedBusOutPorts.get('reject_mb_out'), undefined, 'rejected Matrix publish must not be marked bridged');
     assert.ok(model0Root.labels.has('reject_mb_out'), 'rejected Matrix publish must retain the management bus out pin for retry');
     assert.equal(
@@ -675,8 +725,8 @@ async function test_server_split_bus_matrix_failures_are_observable_and_retryabl
     state.programEngine.schedulePendingModel0Egress(new Set());
     await wait(20);
 
-    assert.ok(sent.some((packet) => packet?.op_id === 'it0342_unavailable_mb_out'), 'unavailable pin must be retryable after Matrix recovers');
-    assert.ok(sent.some((packet) => packet?.op_id === 'it0342_reject_mb_out'), 'rejected pin must be retryable after Matrix recovers');
+    assert.ok(sent.some((packet) => packetOpId(packet) === 'it0342_unavailable_mb_out'), 'unavailable pin must be retryable after Matrix recovers');
+    assert.ok(sent.some((packet) => packetOpId(packet) === 'it0342_reject_mb_out'), 'rejected pin must be retryable after Matrix recovers');
     assert.equal(state.programEngine.bridgedBusOutPorts.get('unavailable_mb_out'), 'it0342_unavailable_mb_out', 'successful retry must mark unavailable pin bridged');
     assert.equal(state.programEngine.bridgedBusOutPorts.get('reject_mb_out'), 'it0342_reject_mb_out', 'successful retry must mark rejected pin bridged');
   } finally {
@@ -712,212 +762,122 @@ function test_mbr_dispatch_replies_only_to_console_messages() {
       error: root.labels.get('mbr_mgmt_error')?.v,
     };
   };
+  const consolePayload = (opId, payload) => makePinPayloadPacket({ opId, payload });
 
-  const valid = dispatch({
-      version: 'v1',
-      type: 'pin_payload',
-      op_id: 'it0342_mbr_dispatch',
-      source_model_id: 1036,
-      pin: 'submit',
-      route: {
-        to: { worker_id: 'MBR', model_id: 1036, pin: 'submit' },
-        reply_to: { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' },
-      },
-      payload: [
-        { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'hello mbr dispatch' },
-      ],
-      timestamp: Date.now(),
-  });
+  const valid = dispatch(consolePayload('it0342_mbr_dispatch', [
+    mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
+    mtRecord('target_user_id', 'str', '@mbr:localhost'),
+    mtRecord('draft', 'str', 'hello mbr dispatch'),
+  ]));
   const ack = valid.ack;
   assert.equal(ack?.version, 'v1', 'MBR dispatch must emit v1 response');
   assert.equal(ack?.type, 'pin_payload', 'MBR dispatch response must be emitted through the management-bus pin_payload path');
-  assert.equal(ack?.pin, 'result', 'MBR dispatch response must target the console result pin');
-  assert.equal(ack?.source_model_id, 1036, 'MBR dispatch response must correlate to Model 1036 without materializing into it');
-  assert.ok(Array.isArray(ack?.payload), 'MBR dispatch response payload must be a ModelTable record array');
-  assert.ok(ack.payload.some((record) => record.k === '__mt_payload_kind' && record.v === 'mgmt_bus_console.ack.v1'), 'MBR dispatch must mark the response payload kind');
-  assert.ok(ack.payload.some((record) => record.k === 'target_user_id' && record.v === '@mbr:localhost'), 'MBR dispatch response must preserve the explicit target');
-  assert.ok(ack.payload.some((record) => record.k === 'reply_text' && /ack from @mbr:localhost/u.test(record.v)), 'MBR dispatch must return an ack text in the temporary payload');
-  assert.deepEqual(ack.route?.to, { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' }, 'MBR dispatch response must route to request reply_to');
-  assert.equal(ack.route?.reply_to, undefined, 'MBR dispatch response must not create a second reply_to');
+  assert.deepEqual(Object.keys(ack).sort(), ['payload', 'type', 'version'], 'MBR dispatch response must not carry loose route/source/pin fields');
+  assert.equal(payloadRecord(ack.payload, 'endpoint_worker_id')?.v, 'ui-server-test', 'MBR dispatch response endpoint must target the UI Server worker');
+  assert.equal(payloadRecord(ack.payload, 'endpoint_model_id')?.v, 1036, 'MBR dispatch response endpoint must target Model 1036');
+  assert.equal(payloadRecord(ack.payload, 'endpoint_pin')?.v, 'result', 'MBR dispatch response endpoint must target the result pin');
+  assert.equal(payloadRecord(ack.payload, 'origin_worker_id')?.v, 'mbr', 'MBR dispatch response origin must be MBR');
+  assert.equal(payloadRecord(ack.payload, 'origin_model_id')?.v, 1036, 'MBR dispatch response origin must preserve the console model');
+  assert.equal(payloadRecord(ack.payload, 'origin_pin')?.v, 'submit', 'MBR dispatch response origin must preserve the console ingress pin');
+  assert.equal(payloadRecord(ack.payload, 'reply_target_worker_id')?.v, 'ui-server-test', 'MBR dispatch response reply target must be carried in payload records');
+  assert.equal(payloadRecord(ack.payload, 'reply_target_model_id')?.v, 1036, 'MBR dispatch response reply target model must be carried in payload records');
+  assert.equal(payloadRecord(ack.payload, 'reply_target_pin')?.v, 'result', 'MBR dispatch response reply target pin must be carried in payload records');
+  const ackPayload = payloadRecord(ack.payload, 'payload')?.v;
+  assert.ok(Array.isArray(ackPayload), 'MBR dispatch response business payload must be a ModelTable record array');
+  assert.ok(ackPayload.some((record) => record.k === '__mt_payload_kind' && record.v === 'mgmt_bus_console.ack.v1'), 'MBR dispatch must mark the response payload kind');
+  assert.ok(ackPayload.some((record) => record.k === 'target_user_id' && record.v === '@mbr:localhost'), 'MBR dispatch response must preserve the explicit target');
+  assert.ok(ackPayload.some((record) => record.k === 'reply_text' && /ack from @mbr:localhost/u.test(record.v)), 'MBR dispatch must return an ack text in the temporary payload');
   assert.equal(root.labels.has('mbr_mgmt_inbox'), false, 'MBR dispatch must clean the consumed inbox');
 
-  const missingTarget = dispatch({
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: 'it0342_mbr_missing_target',
-    source_model_id: 1036,
-    pin: 'submit',
-    payload: [
-      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'missing target must reject' },
-    ],
-    timestamp: Date.now(),
-  });
+  const missingTarget = dispatch(consolePayload('it0342_mbr_missing_target', [
+    mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
+    mtRecord('draft', 'str', 'missing target must reject'),
+  ]));
   assert.equal(missingTarget.ack, null, 'MBR dispatch must reject missing target_user_id');
   assert.ok(missingTarget.error, 'MBR dispatch must record an error for missing target_user_id');
 
-  const missingRouteTo = dispatch({
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: 'it0342_mbr_missing_route_to',
-    source_model_id: 1036,
-    pin: 'submit',
-    route: {
-      reply_to: { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' },
-    },
+  const nonConsoleEndpoint = dispatch(makePinPayloadPacket({
+    opId: 'it0342_mbr_non_console_endpoint',
+    endpoint: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
     payload: [
-      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'missing route.to must reject' },
+      mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
+      mtRecord('target_user_id', 'str', '@mbr:localhost'),
+      mtRecord('draft', 'str', 'non-console endpoint must forward'),
     ],
-    timestamp: Date.now(),
-  });
-  assert.equal(missingRouteTo.ack, null, 'MBR dispatch must reject missing route.to even when reply_to exists');
-  assert.equal(missingRouteTo.error?.detail, 'invalid_route_to', 'missing route.to rejection must be explicit');
+  }));
+  assert.equal(nonConsoleEndpoint.ack, null, 'MBR dispatch must not ack non-console endpoints');
+  assert.equal(root.labels.get('run_mbr_mgmt_to_mqtt')?.v, '1', 'MBR dispatch must hand non-console endpoints to management-to-control forwarding');
+  rt.rmLabel(sys, 0, 0, 0, 'run_mbr_mgmt_to_mqtt');
 
-  const mismatchedRouteTo = dispatch({
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: 'it0342_mbr_mismatched_route_to',
-    source_model_id: 1036,
-    pin: 'submit',
-    route: {
-      to: { worker_id: 'RE', model_id: 3000, pin: 'submit1' },
-      reply_to: { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' },
-    },
-    payload: [
-      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'mismatch route.to must reject' },
-    ],
-    timestamp: Date.now(),
-  });
-  assert.equal(mismatchedRouteTo.ack, null, 'MBR dispatch must reject route.to for another worker/model/pin');
-  assert.equal(mismatchedRouteTo.error?.detail, 'invalid_route_to', 'mismatched route.to rejection must be explicit');
-
-  const retryAfterBadRoute = dispatch({
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: 'it0342_mbr_retry_after_bad_route',
-    source_model_id: 1036,
-    pin: 'submit',
-    route: {
-      to: { worker_id: 'RE', model_id: 3000, pin: 'submit1' },
-      reply_to: { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' },
-    },
-    payload: [
-      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'first bad route' },
-    ],
-    timestamp: Date.now(),
-  });
-  assert.equal(retryAfterBadRoute.ack, null, 'test setup must reject the first bad route');
-  const correctedRetry = dispatch({
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: 'it0342_mbr_retry_after_bad_route',
-    source_model_id: 1036,
-    pin: 'submit',
-    route: {
-      to: { worker_id: 'mbr', model_id: 1036, pin: 'submit' },
-      reply_to: { worker_id: 'ui-server-test', model_id: 1036, pin: 'result' },
-    },
-    payload: [
-      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'corrected route retry' },
-    ],
-    timestamp: Date.now(),
-  });
+  const retryAfterBadPayload = dispatch(consolePayload('it0342_mbr_retry_after_bad_payload', [
+    mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
+    mtRecord('target_user_id', 'str', '@not-mbr:localhost'),
+    mtRecord('draft', 'str', 'first bad payload'),
+  ]));
+  assert.equal(retryAfterBadPayload.ack, null, 'test setup must reject the first bad payload');
+  const correctedRetry = dispatch(consolePayload('it0342_mbr_retry_after_bad_payload', [
+    mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
+    mtRecord('target_user_id', 'str', '@mbr:localhost'),
+    mtRecord('draft', 'str', 'corrected payload retry'),
+  ]));
   assert.ok(correctedRetry.ack, 'corrected retry with the same op_id must not be blocked by the rejected attempt');
   assert.ok(
-    correctedRetry.ack.payload.some((record) => record.k === 'reply_text' && /corrected route retry/u.test(record.v)),
+    payloadRecord(correctedRetry.ack.payload, 'payload')?.v.some((record) => record.k === 'reply_text' && /corrected payload retry/u.test(record.v)),
     'corrected retry must produce the ack for the corrected payload',
   );
 
-  const invalidTarget = dispatch({
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: 'it0342_mbr_invalid_target',
-    source_model_id: 1036,
-    pin: 'submit',
-    payload: [
-      { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@not-mbr:localhost' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'invalid target must reject' },
-    ],
-    timestamp: Date.now(),
-  });
+  const invalidTarget = dispatch(consolePayload('it0342_mbr_invalid_target', [
+    mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
+    mtRecord('target_user_id', 'str', '@not-mbr:localhost'),
+    mtRecord('draft', 'str', 'invalid target must reject'),
+  ]));
   assert.equal(invalidTarget.ack, null, 'MBR dispatch must reject non-MBR targets');
   assert.ok(invalidTarget.error, 'MBR dispatch must record an error for non-MBR targets');
 
-  const generic = dispatch({
-      version: 'v1',
-      type: 'pin_payload',
-      op_id: 'it0342_mbr_not_crud',
-      source_model_id: 1036,
-      pin: 'submit',
-      payload: [
-        { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'generic.crud.v1' },
-      ],
-      timestamp: Date.now(),
-  });
+  const generic = dispatch(consolePayload('it0342_mbr_not_crud', [
+    mtRecord('__mt_payload_kind', 'str', 'generic.crud.v1'),
+  ]));
   assert.ok(generic.error, 'MBR dispatch must not treat generic Model 1036 payloads as accepted CRUD');
 
-  const malformed = dispatch({
-      version: 'v1',
-      type: 'pin_payload',
-      op_id: 'it0342_mbr_malformed_send',
-      source_model_id: 1036,
-      pin: 'submit',
-      payload: [
-        { k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
-        { k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
-        { k: 'draft', t: 'str', v: 'malformed mbr send' },
-      ],
-      timestamp: Date.now(),
-  });
+  const malformed = dispatch(consolePayload('it0342_mbr_malformed_send', [
+    { k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
+    { k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
+    { k: 'draft', t: 'str', v: 'malformed mbr send' },
+  ]));
   assert.equal(malformed.ack, null, 'MBR dispatch must reject non-ModelTable-record console sends');
   assert.ok(malformed.error, 'MBR dispatch must record an error for non-ModelTable-record console sends');
-  assert.equal(malformed.error?.detail, 'temporary_modeltable_required', 'MBR dispatch must require a temporary ModelTable record array');
+  assert.equal(malformed.error?.detail, 'invalid_pin_payload_records', 'MBR dispatch must require a temporary ModelTable record array');
 
-  const legacyRecordField = dispatch({
-      version: 'v1',
-      type: 'pin_payload',
-      op_id: 'it0342_mbr_legacy_record_field',
-      source_model_id: 1036,
-      pin: 'submit',
-      payload: [
-        { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'legacy record fields must reject', op: 'add_label' },
-      ],
-      timestamp: Date.now(),
+  const legacyEnvelopeField = dispatch({
+    ...consolePayload('it0342_mbr_legacy_envelope_field', [
+      mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
+      mtRecord('target_user_id', 'str', '@mbr:localhost'),
+      mtRecord('draft', 'str', 'legacy envelope fields must reject'),
+    ]),
+    source_model_id: 1036,
   });
+  assert.equal(legacyEnvelopeField.ack, null, 'MBR dispatch must reject loose legacy envelope fields');
+  assert.ok(legacyEnvelopeField.error, 'MBR dispatch must record an error for loose legacy envelope fields');
+  assert.equal(legacyEnvelopeField.error?.detail, 'loose_pin_payload_fields_removed', 'loose legacy envelope fields must fail the strict packet contract');
+
+  const legacyRecordField = dispatch(consolePayload('it0342_mbr_legacy_record_field', [
+    mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
+    mtRecord('target_user_id', 'str', '@mbr:localhost'),
+    { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'legacy record fields must reject', op: 'add_label' },
+  ]));
   assert.equal(legacyRecordField.ack, null, 'MBR dispatch must reject records carrying legacy op/model_id fields');
   assert.ok(legacyRecordField.error, 'MBR dispatch must record an error for legacy record fields');
-  assert.equal(legacyRecordField.error?.detail, 'temporary_modeltable_required', 'legacy record fields must fail the temporary ModelTable contract');
+  assert.equal(legacyRecordField.error?.detail, 'invalid_pin_payload_records', 'legacy record fields must fail the temporary ModelTable contract');
 
-  const missingValueRecord = dispatch({
-      version: 'v1',
-      type: 'pin_payload',
-      op_id: 'it0342_mbr_missing_value_record',
-      source_model_id: 1036,
-      pin: 'submit',
-      payload: [
-        { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'records missing v must reject' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'extra', t: 'str' },
-      ],
-      timestamp: Date.now(),
-  });
+  const missingValueRecord = dispatch(consolePayload('it0342_mbr_missing_value_record', [
+    mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
+    mtRecord('target_user_id', 'str', '@mbr:localhost'),
+    mtRecord('draft', 'str', 'records missing v must reject'),
+    { id: 0, p: 0, r: 0, c: 0, k: 'extra', t: 'str' },
+  ]));
   assert.equal(missingValueRecord.ack, null, 'MBR dispatch must reject records without an explicit v field');
   assert.ok(missingValueRecord.error, 'MBR dispatch must record an error for records missing v');
-  assert.equal(missingValueRecord.error?.detail, 'temporary_modeltable_required', 'records missing v must fail the temporary ModelTable contract');
+  assert.equal(missingValueRecord.error?.detail, 'invalid_pin_payload_records', 'records missing v must fail the temporary ModelTable contract');
   return { key: 'mbr_dispatch_replies_only_to_console_messages', status: 'PASS' };
 }
 

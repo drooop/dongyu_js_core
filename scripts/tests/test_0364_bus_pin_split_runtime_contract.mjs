@@ -15,37 +15,47 @@ function payload(value = 'hello') {
   return [mt('message_text', 'str', value)];
 }
 
-function route({ workerId = 'RE', modelId = 3000, pin = 'submit' } = {}) {
-  return {
-    to: { worker_id: workerId, model_id: modelId, pin },
-    reply_to: { worker_id: 'ui-server-test', model_id: 100, pin: 'result' },
-  };
+function withoutRecords(records, keys) {
+  const deny = new Set(keys);
+  return records.filter((record) => !deny.has(record.k));
 }
 
-function pinPayload({ requestId = 'req_0364', sourceModelId = 100, pin = 'submit', nested = payload(), routeValue = undefined } = {}) {
+function pinPayload({ requestId = 'req_0364', workerId = 'RE', modelId = 3000, pin = 'submit', nested = payload() } = {}) {
   const records = [
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', requestId),
     mt('op_id', 'str', requestId),
-    mt('source_model_id', 'int', sourceModelId),
-    mt('pin', 'str', pin),
+    mt('endpoint_worker_id', 'str', workerId),
+    mt('endpoint_model_id', 'int', modelId),
+    mt('endpoint_pin', 'str', pin),
+    mt('origin_worker_id', 'str', 'ui-server-test'),
+    mt('origin_model_id', 'int', 100),
+    mt('origin_pin', 'str', pin),
+    mt('reply_target_worker_id', 'str', 'ui-server-test'),
+    mt('reply_target_model_id', 'int', 100),
+    mt('reply_target_pin', 'str', 'result'),
     mt('payload', 'json', nested),
     mt('timestamp', 'int', 1),
   ];
-  if (routeValue !== undefined) records.push(mt('route', 'json', routeValue));
   return records;
 }
 
-function busSendPayload({ bus = null, requestId = 'req_bus_send_0364', busOutKey = 'submit_bus', pin = 'submit', routeValue = route({ pin }) } = {}) {
+function busSendPayload({ bus = null, requestId = 'req_bus_send_0364', busOutKey = 'submit_bus', pin = 'submit' } = {}) {
   const records = [
     mt('__mt_payload_kind', 'str', 'bus_send.v1'),
     mt('__mt_request_id', 'str', requestId),
-    mt('source_model_id', 'int', 100),
-    mt('pin', 'str', pin),
+    mt('endpoint_worker_id', 'str', 'RE'),
+    mt('endpoint_model_id', 'int', 3000),
+    mt('endpoint_pin', 'str', pin),
+    mt('origin_worker_id', 'str', 'ui-server-test'),
+    mt('origin_model_id', 'int', 100),
+    mt('origin_pin', 'str', pin),
+    mt('reply_target_worker_id', 'str', 'ui-server-test'),
+    mt('reply_target_model_id', 'int', 100),
+    mt('reply_target_pin', 'str', 'result'),
     mt('bus_out_key', 'str', busOutKey),
     mt('payload', 'json', payload('from_bus_send')),
   ];
-  if (routeValue !== undefined) records.push(mt('route', 'json', routeValue));
   if (bus) records.push(mt('bus', 'str', bus));
   return records;
 }
@@ -203,40 +213,40 @@ function test_mqtt_bus_in_preserves_declared_split_type() {
   return { key: 'mqtt_bus_in_preserves_declared_split_type', status: 'PASS' };
 }
 
-function test_split_bus_out_requires_route_to_metadata() {
+function test_split_bus_out_requires_endpoint_metadata_records() {
   const rt = new ModelTableRuntime();
   markRole(rt, 'DEM');
   const model0 = root(rt);
 
-  const missingRoute = rt.addLabel(model0, 0, 0, 0, {
-    k: 'missing_route_mb_out',
+  const missingEndpoint = rt.addLabel(model0, 0, 0, 0, {
+    k: 'missing_endpoint_mb_out',
     t: 'pin.bus.mb.out',
-    v: pinPayload({ requestId: 'req_missing_route_0364' }),
+    v: withoutRecords(pinPayload({ requestId: 'req_missing_endpoint_0364' }), ['endpoint_worker_id']),
   });
-  const missingTo = rt.addLabel(model0, 0, 0, 0, {
-    k: 'missing_to_cb_out',
+  const missingOrigin = rt.addLabel(model0, 0, 0, 0, {
+    k: 'missing_origin_cb_out',
     t: 'pin.bus.cb.out',
-    v: pinPayload({ requestId: 'req_missing_to_0364', routeValue: { reply_to: route().reply_to } }),
+    v: withoutRecords(pinPayload({ requestId: 'req_missing_origin_0364' }), ['origin_model_id']),
   });
-  const invalidTo = rt.addLabel(model0, 0, 0, 0, {
-    k: 'invalid_to_cb_out',
+  const invalidEndpoint = rt.addLabel(model0, 0, 0, 0, {
+    k: 'invalid_endpoint_cb_out',
     t: 'pin.bus.cb.out',
-    v: pinPayload({ requestId: 'req_invalid_to_0364', routeValue: { to: { worker_id: '', model_id: -1, pin: 'bad/pin' } } }),
+    v: pinPayload({ requestId: 'req_invalid_endpoint_0364', workerId: '', modelId: -1, pin: 'bad/pin' }),
   });
   const valid = rt.addLabel(model0, 0, 0, 0, {
     k: 'valid_mb_out',
     t: 'pin.bus.mb.out',
-    v: pinPayload({ requestId: 'req_valid_route_0364', routeValue: route() }),
+    v: pinPayload({ requestId: 'req_valid_endpoint_0364' }),
   });
 
-  assert.equal(missingRoute.applied, false, 'split bus out must reject pin_payload.v1 without route.to');
-  assert.equal(missingTo.applied, false, 'split bus out must reject route metadata without route.to');
-  assert.equal(invalidTo.applied, false, 'split bus out must reject invalid route.to');
-  assert.equal(valid.applied, true, 'split bus out must accept pin_payload.v1 with valid route.to');
-  assert.equal(model0.getCell(0, 0, 0).labels.has('missing_route_mb_out'), false, 'route-less management bus out must not be stored');
-  assert.equal(model0.getCell(0, 0, 0).labels.has('missing_to_cb_out'), false, 'route metadata without to must not be stored');
-  assert.equal(model0.getCell(0, 0, 0).labels.get('valid_mb_out')?.t, 'pin.bus.mb.out', 'valid route bus out remains stored');
-  return { key: 'split_bus_out_requires_route_to_metadata', status: 'PASS' };
+  assert.equal(missingEndpoint.applied, false, 'split bus out must reject pin_payload.v1 without endpoint records');
+  assert.equal(missingOrigin.applied, false, 'split bus out must reject pin_payload.v1 without origin records');
+  assert.equal(invalidEndpoint.applied, false, 'split bus out must reject invalid endpoint records');
+  assert.equal(valid.applied, true, 'split bus out must accept pin_payload.v1 with endpoint/origin/reply records');
+  assert.equal(model0.getCell(0, 0, 0).labels.has('missing_endpoint_mb_out'), false, 'endpoint-less management bus out must not be stored');
+  assert.equal(model0.getCell(0, 0, 0).labels.has('missing_origin_cb_out'), false, 'origin-less bus out must not be stored');
+  assert.equal(model0.getCell(0, 0, 0).labels.get('valid_mb_out')?.t, 'pin.bus.mb.out', 'valid endpoint bus out remains stored');
+  return { key: 'split_bus_out_requires_endpoint_metadata_records', status: 'PASS' };
 }
 
 function test_mt_bus_send_selects_declared_bus_family() {
@@ -269,7 +279,7 @@ const tests = [
   test_worker_role_downgrade_is_rejected_when_management_bus_pins_exist,
   test_worker_id_replaces_removed_v1n_id_label,
   test_mqtt_bus_in_preserves_declared_split_type,
-  test_split_bus_out_requires_route_to_metadata,
+  test_split_bus_out_requires_endpoint_metadata_records,
   test_mt_bus_send_selects_declared_bus_family,
 ];
 

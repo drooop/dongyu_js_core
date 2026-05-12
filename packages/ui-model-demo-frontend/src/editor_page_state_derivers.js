@@ -108,6 +108,12 @@ function readModelTableRecordString(records, key, fallback = '') {
   return String(record.v);
 }
 
+function readModelTableRecordValue(records, key, fallback = undefined) {
+  if (!Array.isArray(records)) return fallback;
+  const record = records.find((entry) => entry && entry.k === key);
+  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;
+}
+
 function isModelTableRecordArray(value) {
   return Array.isArray(value) && value.every((record) => (
     record
@@ -143,6 +149,9 @@ function parseTraceLogEvent(line, index) {
     ? 'matrix'
     : (hop.includes('server→matrix') ? 'model0' : 'runtime');
   const payloadRecords = isModelTableRecordArray(payload.payload) ? payload.payload : [];
+  const nestedRecords = payload.type === 'pin_payload' && isModelTableRecordArray(readModelTableRecordValue(payloadRecords, 'payload'))
+    ? readModelTableRecordValue(payloadRecords, 'payload')
+    : payloadRecords;
   if (payload.type === 'mgmt_bus_console_ack') {
     const ackKind = readModelTableRecordString(payloadRecords, '__mt_payload_kind').trim();
     const ackTarget = readModelTableRecordString(payloadRecords, 'target_user_id').trim();
@@ -152,20 +161,23 @@ function parseTraceLogEvent(line, index) {
     if (topLevelTarget && topLevelTarget !== ackTarget) return null;
     if (ackKind !== 'mgmt_bus_console.ack.v1' || !ackTarget.startsWith('@mbr:') || !ackReply) return null;
   }
-  const targetUserId = readModelTableRecordString(payloadRecords, 'target_user_id', String(payload.target_user_id || ''));
+  const outerOpId = readModelTableRecordString(payloadRecords, 'op_id', String(payload.op_id || detail.op_id || ''));
+  const targetUserId = readModelTableRecordString(nestedRecords, 'target_user_id', String(payload.target_user_id || ''));
   const draft = readModelTableRecordString(
-    payloadRecords,
+    nestedRecords,
     'draft',
-    readModelTableRecordString(payloadRecords, 'message_text', String(payload.message_text || '')),
+    readModelTableRecordString(nestedRecords, 'message_text', String(payload.message_text || '')),
   );
+  const nestedKind = readModelTableRecordString(nestedRecords, '__mt_payload_kind', '');
+  const outerKind = readModelTableRecordString(payloadRecords, '__mt_payload_kind', String(payload.type || ''));
   const kind = payload.type === 'mgmt_bus_console_ack'
     ? 'mgmt_bus_console.ack.v1'
-    : readModelTableRecordString(payloadRecords, '__mt_payload_kind', String(payload.type || ''));
-  const preview = payload.type === 'mgmt_bus_console_ack'
-    ? readModelTableRecordString(payloadRecords, 'reply_text')
+    : (nestedKind.startsWith('mgmt_bus_console.') ? nestedKind : outerKind);
+  const preview = kind === 'mgmt_bus_console.ack.v1'
+    ? readModelTableRecordString(nestedRecords, 'reply_text')
     : (targetUserId && draft ? `to ${targetUserId}: ${draft}` : stringifyOneLine(payload));
   return {
-    event_id: String(payload.op_id || detail.op_id || `trace-${detail.seq || index + 1}`),
+    event_id: String(outerOpId || `trace-${detail.seq || index + 1}`),
     ts_ms: Number.isSafeInteger(detail.ts) ? detail.ts : 0,
     direction,
     source,
@@ -176,8 +188,10 @@ function parseTraceLogEvent(line, index) {
     kind,
     status: direction === 'outbound' ? 'sent' : (direction === 'inbound' ? 'received' : 'applied'),
     preview: truncate(preview, 240),
-    op_id: String(payload.op_id || detail.op_id || ''),
-    model_id: Number.isInteger(payload.source_model_id) ? payload.source_model_id : undefined,
+    op_id: String(outerOpId || ''),
+    model_id: Number.isInteger(payload.source_model_id)
+      ? payload.source_model_id
+      : (Number.isInteger(readModelTableRecordValue(payloadRecords, 'origin_model_id')) ? readModelTableRecordValue(payloadRecords, 'origin_model_id') : undefined),
   };
 }
 

@@ -47,29 +47,41 @@ function triggerPayload(value = 'go') {
   return [mt('trigger', 'str', value)];
 }
 
-function route({ workerId = 'RE', modelId = 3000, pin = 'submit', replyModelId = 100 } = {}) {
-  return {
-    to: { worker_id: workerId, model_id: modelId, pin },
-    reply_to: { worker_id: 'ui-server-test', model_id: replyModelId, pin: 'result' },
-  };
+function malformedPinPayloadV1Records() {
+  return [
+    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('payload', 'json', [mt('text', 'str', 'missing_endpoint_metadata')]),
+  ];
+}
+
+function pinPayloadNamespaceKindRecords(kind) {
+  return [
+    mt('__mt_payload_kind', 'str', kind),
+    mt('payload', 'json', [mt('text', 'str', 'must_not_store_malformed_kind')]),
+  ];
 }
 
 function busSendPayload({
-  sourceModelId = 100,
+  originModelId = 100,
   pin = 'submit',
   busOutKey = 'model100_submit_bus',
   payload = [mt('message_text', 'str', 'hello_bus')],
   requestId = 'req_bus_send_0332',
-  routeValue = route({ pin, replyModelId: sourceModelId }),
 } = {}) {
   return [
     mt('__mt_payload_kind', 'str', 'bus_send.v1'),
     mt('__mt_request_id', 'str', requestId),
-    mt('source_model_id', 'int', sourceModelId),
-    mt('pin', 'str', pin),
+    mt('endpoint_worker_id', 'str', 'RE'),
+    mt('endpoint_model_id', 'int', 3000),
+    mt('endpoint_pin', 'str', pin),
+    mt('origin_worker_id', 'str', 'ui-server-test'),
+    mt('origin_model_id', 'int', originModelId),
+    mt('origin_pin', 'str', pin),
+    mt('reply_target_worker_id', 'str', 'ui-server-test'),
+    mt('reply_target_model_id', 'int', originModelId),
+    mt('reply_target_pin', 'str', 'result'),
     mt('bus_out_key', 'str', busOutKey),
     mt('payload', 'json', payload),
-    mt('route', 'json', routeValue),
   ];
 }
 
@@ -483,24 +495,27 @@ async function test_mt_bus_send_uses_temporary_payload_and_externalizes_bus_out(
   const rt = new ModelTableRuntime();
   await rt.setRuntimeMode('edit');
   const model0 = rt.getModel(0);
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'ui-server-test' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
   rt.startMqttLoop({
     host: 'localhost',
     port: 1883,
     client_id: '0332-bus-send',
-    topic_prefix: 'it0332',
     transport: 'mock',
   });
   await rt.setRuntimeMode('running');
 
   const nestedPayload = [mt('message_text', 'str', 'hello_bus')];
-  rt.addLabel(model0, 0, 0, 0, {
-    k: 'mt_bus_send_in',
-    t: 'pin.in',
-    v: busSendPayload({
-      sourceModelId: 100,
-      pin: 'submit',
-      busOutKey: 'model100_submit_bus',
-      payload: nestedPayload,
+	  rt.addLabel(model0, 0, 0, 0, {
+	    k: 'mt_bus_send_in',
+	    t: 'pin.in',
+	    v: busSendPayload({
+	      originModelId: 100,
+	      pin: 'submit',
+	      busOutKey: 'model100_submit_bus',
+	      payload: nestedPayload,
       requestId: 'req_bus_send_success_0332',
     }),
   });
@@ -508,21 +523,29 @@ async function test_mt_bus_send_uses_temporary_payload_and_externalizes_bus_out(
 
   const busLabel = model0.getCell(0, 0, 0).labels.get('model100_submit_bus');
   assert.ok(busLabel, 'mt_bus_send must materialize requested Model 0 bus out label');
-  assert.equal(busLabel.t, 'pin.bus.cb.out', 'mt_bus_send output must be pin.bus.cb.out');
-  assert.ok(Array.isArray(busLabel.v), 'pin.bus.cb.out business value must be temporary ModelTable payload array');
-  assert.equal(getPayloadLabel(busLabel.v, '__mt_payload_kind')?.v, 'pin_payload.v1');
-  assert.equal(getPayloadLabel(busLabel.v, 'source_model_id')?.v, 100);
-  assert.equal(getPayloadLabel(busLabel.v, 'pin')?.v, 'submit');
-  assert.deepEqual(getPayloadLabel(busLabel.v, 'payload')?.v, nestedPayload);
+	  assert.equal(busLabel.t, 'pin.bus.cb.out', 'mt_bus_send output must be pin.bus.cb.out');
+	  assert.ok(Array.isArray(busLabel.v), 'pin.bus.cb.out business value must be temporary ModelTable payload array');
+	  assert.equal(getPayloadLabel(busLabel.v, '__mt_payload_kind')?.v, 'pin_payload.v1');
+	  assert.equal(getPayloadLabel(busLabel.v, 'endpoint_worker_id')?.v, 'RE');
+	  assert.equal(getPayloadLabel(busLabel.v, 'endpoint_model_id')?.v, 3000);
+	  assert.equal(getPayloadLabel(busLabel.v, 'endpoint_pin')?.v, 'submit');
+	  assert.equal(getPayloadLabel(busLabel.v, 'origin_model_id')?.v, 100);
+	  assert.equal(getPayloadLabel(busLabel.v, 'reply_target_model_id')?.v, 100);
+	  assert.deepEqual(getPayloadLabel(busLabel.v, 'payload')?.v, nestedPayload);
 
   const publish = rt.mqttTrace.list().find((entry) =>
     entry.type === 'publish' &&
-    entry.payload?.topic === 'it0332/model100_submit_bus'
+    entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/RE/3000/submit'
   );
-  assert.ok(publish, 'pin.bus.cb.out must still publish an external transport packet');
-  assert.equal(publish.payload?.payload?.type, 'pin_payload', 'external transport packet must stay pin_payload');
-  assert.equal(publish.payload?.payload?.source_model_id, 100);
-  assert.deepEqual(publish.payload?.payload?.payload, nestedPayload);
+	  assert.ok(publish, 'pin.bus.cb.out must publish an external transport packet to endpoint topic');
+	  assert.equal(publish.payload?.payload?.type, 'pin_payload', 'external transport packet must stay pin_payload');
+	  assert.deepEqual(Object.keys(publish.payload?.payload || {}).sort(), ['payload', 'type', 'version']);
+	  assert.deepEqual(publish.payload?.payload?.payload, busLabel.v);
+  assert.equal(
+    rt.mqttTrace.list().some((entry) => entry.type === 'publish' && entry.payload?.topic === 'it0332/model100_submit_bus'),
+    false,
+    'pin.bus.cb.out must not publish to old local bus-key topic',
+  );
   return { key: 'mt_bus_send_uses_temporary_payload_and_externalizes_bus_out', status: 'PASS' };
 }
 
@@ -636,6 +659,34 @@ async function test_positive_model_pins_reject_non_modeltable_internal_values() 
   return { key: 'positive_model_pins_reject_non_modeltable_internal_values', status: 'PASS' };
 }
 
+async function test_positive_model_pins_reject_malformed_pin_payload_v1_arrays() {
+  const { rt, model } = await seedTable(33720);
+  await rt.setRuntimeMode('running');
+  const cases = [
+    ['incomplete', malformedPinPayloadV1Records()],
+    ['padded_kind', pinPayloadNamespaceKindRecords(' pin_payload.v1 ')],
+    ['unknown_kind', pinPayloadNamespaceKindRecords('pin_payload.v2')],
+  ];
+  for (const [suffix, value] of cases) {
+    const invalidIn = rt.addLabel(model, 0, 0, 0, {
+      k: `malformed_pin_payload_in_${suffix}`,
+      t: 'pin.in',
+      v: value,
+    });
+    const invalidOut = rt.addLabel(model, 1, 0, 0, {
+      k: `malformed_pin_payload_out_${suffix}`,
+      t: 'pin.out',
+      v: value,
+    });
+
+    assert.equal(invalidIn.applied, false, `positive model pin.in must reject ${suffix} pin_payload arrays`);
+    assert.equal(invalidOut.applied, false, `positive model pin.out must reject ${suffix} pin_payload arrays`);
+    assert.equal(model.getCell(0, 0, 0).labels.get(`malformed_pin_payload_in_${suffix}`), undefined, `malformed pin.in ${suffix} payload must not be stored`);
+    assert.equal(model.getCell(1, 0, 0).labels.get(`malformed_pin_payload_out_${suffix}`), undefined, `malformed pin.out ${suffix} payload must not be stored`);
+  }
+  return { key: 'positive_model_pins_reject_malformed_pin_payload_v1_arrays', status: 'PASS' };
+}
+
 async function test_positive_model_pins_accept_multicell_modeltable_payloads() {
   const { rt, model } = await seedTable(3373);
   await rt.setRuntimeMode('running');
@@ -739,10 +790,10 @@ async function test_mqtt_bus_in_pin_payload_v1_converts_to_temporary_payload() {
     payload: nestedPayload,
     timestamp: Date.now(),
   });
-  assert.equal(accepted, true, 'MQTT pin_payload_v1 bus.in packet must be accepted');
+  assert.equal(accepted, false, 'MQTT pin_payload_v1 with loose top-level metadata must be rejected');
   const storedLabel = model0.getCell(0, 0, 0).labels.get('ui_submit');
   assert.equal(storedLabel?.t, 'pin.bus.cb.in', 'MQTT bus.in short-circuit must preserve pin.bus.cb.in type');
-  assert.deepEqual(storedLabel?.v, nestedPayload, 'Model 0 bus.in must store only the nested temporary ModelTable payload');
+  assert.equal(storedLabel?.v ?? null, null, 'rejected loose pin_payload_v1 packet must not overwrite Model 0 bus.in value');
   return { key: 'mqtt_bus_in_pin_payload_v1_converts_to_temporary_payload', status: 'PASS' };
 }
 
@@ -779,10 +830,10 @@ async function test_uiput_mm_v1_bus_in_pin_payload_v1_converts_to_temporary_payl
     payload: nestedPayload,
     timestamp: Date.now(),
   });
-  assert.equal(accepted, true, 'uiput_mm_v1 Model 0 bus.in pin_payload_v1 packet must be accepted');
+  assert.equal(accepted, false, 'uiput_mm_v1 old worker/model/pin Model 0 bus.in packet must be rejected');
   const storedLabel = model0.getCell(0, 0, 0).labels.get('ui_submit');
   assert.equal(storedLabel?.t, 'pin.bus.cb.in', 'uiput_mm_v1 bus.in must preserve pin.bus.cb.in type');
-  assert.deepEqual(storedLabel?.v, nestedPayload, 'uiput_mm_v1 Model 0 bus.in must store only the nested temporary ModelTable payload');
+  assert.equal(storedLabel?.v ?? null, null, 'rejected uiput_mm_v1 old bus.in packet must not overwrite Model 0 bus.in value');
   return { key: 'uiput_mm_v1_bus_in_pin_payload_v1_converts_to_temporary_payload', status: 'PASS' };
 }
 
@@ -887,6 +938,7 @@ async function test_mqtt_legacy_pin_envelope_rejects_non_modeltable_value() {
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'TestApp' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'it0332/base' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
   await rt.setRuntimeMode('running');
 
   const accepted = rt.mqttIncoming('it0332/base/33230/input', {
@@ -895,11 +947,11 @@ async function test_mqtt_legacy_pin_envelope_rejects_non_modeltable_value() {
   });
   assert.equal(accepted, false, 'legacy MQTT pin envelope must reject non-ModelTable values');
   assert.equal(model.getCell(0, 0, 0).labels.get('input'), undefined, 'rejected legacy MQTT pin must not write input');
-  assert.equal(
-    rt.mqttTrace.list().some((entry) => entry.type === 'inbound_rejected' && entry.payload?.reason === 'worker_model_pin_topic_required'),
-    true,
-    'rejected uiput_mm_v1 legacy topic must leave explicit trace reason',
-  );
+	  assert.equal(
+	    rt.mqttTrace.list().some((entry) => entry.type === 'inbound_rejected' && entry.payload?.reason === 'loose_pin_payload_fields_removed'),
+	    true,
+	    'rejected legacy pin envelope must leave explicit trace reason',
+	  );
   return { key: 'mqtt_legacy_pin_envelope_rejects_non_modeltable_value', status: 'PASS' };
 }
 
@@ -924,11 +976,11 @@ async function test_mqtt_mt_v0_rejects_legacy_event_v0_envelope() {
     op_id: 'legacy_event_v0_0332',
     payload: { version: 'mt.v0', records: [] },
   });
-  assert.equal(accepted, false, 'mt_v0 MQTT mode must reject legacy event v0 envelopes');
+  assert.equal(accepted, false, 'removed mt_v0 MQTT mode must reject legacy event v0 envelopes');
   assert.equal(
-    rt.mqttTrace.list().some((entry) => entry.type === 'inbound_rejected' && entry.payload?.reason === 'legacy_event_v0_rejected'),
+    rt.mqttTrace.list().some((entry) => entry.type === 'inbound_rejected' && entry.payload?.reason === 'unified_topic_and_pin_payload_required'),
     true,
-    'legacy event v0 rejection must be traceable',
+    'removed mt_v0 mode rejection must be traceable',
   );
   return { key: 'mqtt_mt_v0_rejects_legacy_event_v0_envelope', status: 'PASS' };
 }
@@ -975,6 +1027,7 @@ const tests = [
   test_pin_bus_out_rejects_legacy_object_internal_value,
   test_pin_bus_in_rejects_non_modeltable_internal_values,
   test_positive_model_pins_reject_non_modeltable_internal_values,
+  test_positive_model_pins_reject_malformed_pin_payload_v1_arrays,
   test_positive_model_pins_accept_multicell_modeltable_payloads,
   test_log_pins_keep_log_data_values,
   test_negative_system_pins_allow_internal_control_values,

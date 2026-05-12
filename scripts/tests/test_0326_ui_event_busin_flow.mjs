@@ -702,7 +702,7 @@ async function test_server_direct_pin_model0_rejects_mismatched_external_packet(
   });
 }
 
-async function test_server_direct_pin_model0_unwraps_matched_external_packet() {
+async function test_server_direct_pin_model0_rejects_legacy_matched_external_packet() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
     state.runtime.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.mb.in', v: null });
@@ -727,10 +727,11 @@ async function test_server_direct_pin_model0_unwraps_matched_external_packet() {
       source: 'ui_renderer',
       ts: Date.now(),
     });
-    assert.equal(result?.result, 'ok', 'server direct-pin must accept matched external pin_payload.v1');
+    assert.equal(result?.result, 'error', 'server direct-pin must reject legacy matched external pin_payload.v1');
+    assert.equal(result?.code, 'invalid_bus_payload', 'legacy matched external packet must fail with invalid_bus_payload');
     const model0Root = state.runtime.getCell(model0, 0, 0, 0).labels;
-    assert.deepEqual(model0Root.get('ui_submit')?.v, validPayload, 'matched external packet must unwrap to nested temporary ModelTable payload');
-    return { key: 'server_direct_pin_model0_unwraps_matched_external_packet', status: 'PASS' };
+    assert.equal(model0Root.get('ui_submit')?.v ?? null, null, 'legacy matched external packet must not overwrite Model 0 bus.in');
+    return { key: 'server_direct_pin_model0_rejects_legacy_matched_external_packet', status: 'PASS' };
   });
 }
 
@@ -812,7 +813,7 @@ const tests = [
   test_server_direct_pin_model0_rejects_wrapped_modeltable_array_payload,
   test_server_direct_pin_model0_rejects_null_missing_and_scalar_payloads,
   test_server_direct_pin_model0_rejects_mismatched_external_packet,
-  test_server_direct_pin_model0_unwraps_matched_external_packet,
+  test_server_direct_pin_model0_rejects_legacy_matched_external_packet,
   test_ui_event_writes_model0_busin_and_skips_mailbox,
   test_busin_routes_via_pin_connect_cell_to_child,
   test_mt_bus_receive_dispatches_to_target_pin,

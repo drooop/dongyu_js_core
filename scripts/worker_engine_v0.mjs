@@ -43,6 +43,32 @@ function isSafeTopicSegment(value) {
     && !value.includes('#');
 }
 
+function isValidUnifiedTopicBase(value) {
+  if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
+  const parts = value.split('/');
+  return parts.length === 6
+    && parts[0] === 'UIPUT'
+    && parts.every((part) => isSafeTopicSegment(part));
+}
+
+function payloadRecord(payload, key) {
+  return Array.isArray(payload)
+    ? payload.find((record) => record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null
+    : null;
+}
+
+function payloadString(payload, key) {
+  const record = payloadRecord(payload, key);
+  return record && record.t === 'str' && typeof record.v === 'string' && record.v.trim() === record.v
+    ? record.v
+    : '';
+}
+
+function payloadInt(payload, key) {
+  const record = payloadRecord(payload, key);
+  return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null;
+}
+
 function extractFunctionCode(label) {
   if (!label || typeof label !== 'object') return '';
   if (label.v && typeof label.v === 'object' && typeof label.v.code === 'string') return label.v.code;
@@ -173,21 +199,18 @@ export class WorkerEngineV0 {
   }
 
   _mqttTopicForRoute(packet) {
-    const routeTo = packet && packet.route && packet.route.to && typeof packet.route.to === 'object'
-      ? packet.route.to
-      : null;
-    if (!routeTo) return null;
-    const workerId = String(routeTo.worker_id || '');
-    const modelId = Number(routeTo.model_id);
-    const pin = String(routeTo.pin || '');
+    const payload = packet && Array.isArray(packet.payload) ? packet.payload : [];
+    const workerId = payloadString(payload, 'endpoint_worker_id');
+    const modelId = payloadInt(payload, 'endpoint_model_id');
+    const pin = payloadString(payload, 'endpoint_pin');
     if (!isSafeTopicSegment(workerId) || !Number.isInteger(modelId) || modelId <= 0 || !isSafeTopicSegment(pin)) {
       return null;
     }
     const root = this.runtime.getModel(0);
     const baseLabel = root ? this.runtime.getCell(root, 0, 0, 0).labels.get('mqtt_topic_base') : null;
-    const base = String(baseLabel && baseLabel.v ? baseLabel.v : '').trim();
-    if (!base) return null;
-    return `${base}/worker/${workerId}/model/${modelId}/pin/${pin}`;
+    const base = String(baseLabel && baseLabel.v ? baseLabel.v : '');
+    if (!isValidUnifiedTopicBase(base)) return null;
+    return `${base}/${workerId}/${modelId}/${pin}`;
   }
 
   _processSplitBusOutTriggers(eventEndExclusive) {
@@ -219,7 +242,7 @@ export class WorkerEngineV0 {
   }
 
   _splitBusOpKey(event, packet) {
-    const opId = packet && typeof packet.op_id === 'string' && packet.op_id ? packet.op_id : '';
+    const opId = payloadString(packet && packet.payload, 'op_id') || payloadString(packet && packet.payload, '__mt_request_id');
     if (opId && event && event.label && event.label.t) return `${event.label.t}:${opId}`;
     if (!event || !event.cell || !event.label) return '';
     return `${event.label.t}:${event.cell.model_id}:${event.cell.p}:${event.cell.r}:${event.cell.c}:${event.label.k}`;
@@ -320,7 +343,7 @@ export class WorkerEngineV0 {
         this._recordSplitBusFailure(
           busOpKey,
           !topic ? 'missing_split_bus_mqtt_topic' : 'missing_split_bus_mqtt_adapter',
-          !topic ? 'route.to and mqtt_topic_base are required' : 'mqttPublish adapter is required',
+          !topic ? 'endpoint records and mqtt_topic_base are required' : 'mqttPublish adapter is required',
           event,
           { topic },
         );
