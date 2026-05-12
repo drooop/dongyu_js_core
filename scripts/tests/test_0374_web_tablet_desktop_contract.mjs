@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { createDemoStore } from '../../packages/ui-model-demo-frontend/src/demo_modeltable.js';
 import { readPageCatalog, findPageEntryByPath } from '../../packages/ui-model-demo-frontend/src/page_asset_resolver.js';
@@ -15,6 +16,7 @@ import {
   DESKTOP_TASK_STACK_LABEL,
   DESKTOP_TASK_SWITCHER_OPEN_LABEL,
   readDesktopTaskStack,
+  removeDesktopTaskFromStack,
 } from '../../packages/ui-model-demo-frontend/src/desktop_app_state.js';
 
 function findNodeById(ast, id) {
@@ -268,6 +270,24 @@ function test_desktop_launch_records_task_stack_and_switcher_state() {
   return { key: 'desktop_launch_records_task_stack_and_switcher_state', status: 'PASS' };
 }
 
+function test_desktop_task_close_removes_only_target_task() {
+  const currentStack = [
+    { id: 'workspace:100', kind: 'workspace', page: 'workspace', path: '/workspace', title: 'Color E2E', model_id: 100 },
+    { id: 'docs', kind: 'system', page: 'docs', path: '/docs', title: 'Docs' },
+    { id: 'gallery', kind: 'system', page: 'gallery', path: '/gallery', title: 'Gallery' },
+  ];
+
+  const nextStack = removeDesktopTaskFromStack(currentStack, 'docs');
+
+  assert.deepEqual(
+    nextStack.map((task) => task.id),
+    ['workspace:100', 'gallery'],
+    'desktop_task_close_must_remove_only_the_requested_task',
+  );
+
+  return { key: 'desktop_task_close_removes_only_target_task', status: 'PASS' };
+}
+
 function test_app_shell_state_dispatch_sequences_multiple_local_writes() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
 
@@ -367,6 +387,15 @@ async function test_remote_store_flushes_derived_task_stack_for_fast_foreground_
   return { key: 'remote_store_flushes_derived_task_stack_for_fast_foreground_launches', status: 'PASS' };
 }
 
+function test_task_switcher_exposes_per_task_close_control() {
+  const source = readFileSync('packages/ui-model-demo-frontend/src/demo_app.js', 'utf8');
+
+  assert.match(source, /desktop-task-close-/, 'task_switcher_must_render_a_close_control_for_each_task');
+  assert.match(source, /removeDesktopTaskFromStack/, 'task_switcher_close_must_remove_the_target_task_from_stack');
+
+  return { key: 'task_switcher_exposes_per_task_close_control', status: 'PASS' };
+}
+
 const tests = [
   test_desktop_catalog_model_is_cellwise_ui_surface,
   test_desktop_exposes_required_system_app_icons,
@@ -376,9 +405,11 @@ const tests = [
   test_desktop_icon_launches_single_foreground_app_state,
   test_workspace_icon_launches_foreground_and_selects_workspace_model,
   test_desktop_launch_records_task_stack_and_switcher_state,
+  test_desktop_task_close_removes_only_target_task,
   test_app_shell_state_dispatch_sequences_multiple_local_writes,
   test_app_shell_state_dispatch_can_open_task_switcher,
   test_remote_store_flushes_derived_task_stack_for_fast_foreground_launches,
+  test_task_switcher_exposes_per_task_close_control,
 ];
 
 let passed = 0;

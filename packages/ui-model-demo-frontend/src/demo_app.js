@@ -5,10 +5,12 @@ import { dispatchAppShellStateUpdate } from './app_shell_state_dispatch.js';
 import { findPageEntryByPath, readPageCatalog } from './page_asset_resolver.js';
 import {
   DESKTOP_FOREGROUND_APP_LABEL,
+  DESKTOP_TASK_STACK_LABEL,
   DESKTOP_TASK_SWITCHER_OPEN_LABEL,
   readDesktopForegroundApp,
   readDesktopTaskStack,
   readDesktopTaskSwitcherOpen,
+  removeDesktopTaskFromStack,
 } from './desktop_app_state.js';
 
 import {
@@ -269,6 +271,19 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         syncDesktopForeground(task);
       }
 
+      function closeDesktopTask(task) {
+        if (!task || typeof task.id !== 'string' || !task.id.trim()) return;
+        const nextStack = removeDesktopTaskFromStack(desktopTasks.value, task.id);
+        dispatchAppShellStateUpdate(mainStore, {
+          target: { model_id: -2, p: 0, r: 0, c: 0, k: DESKTOP_TASK_STACK_LABEL },
+          value: { t: 'json', v: nextStack },
+        });
+        if (desktopForegroundApp.value?.id === task.id) {
+          clearDesktopForeground();
+          setTaskSwitcherOpen(false);
+        }
+      }
+
       watch(galleryNavTarget, (next) => {
         if (!next) return;
         setHashPath(next);
@@ -393,19 +408,39 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
                   flexDirection: 'column',
                   gap: '8px',
                 },
-              }, tasks.map((task) => h(ElButton, {
+              }, tasks.map((task) => h('div', {
                 key: task.id,
-                'data-testid': `desktop-task-${task.id}`,
                 style: {
-                  justifyContent: 'flex-start',
-                  minHeight: '44px',
-                  whiteSpace: 'normal',
-                  textAlign: 'left',
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr) auto',
+                  gap: '8px',
+                  alignItems: 'stretch',
                 },
-                onClick: () => activateDesktopTask(task),
-              }, {
-                default: () => `${task.title || task.id}${task.kind === 'workspace' && Number.isInteger(task.model_id) ? ` · ${task.model_id}` : ''}`,
-              }))),
+              }, [
+                h(ElButton, {
+                  'data-testid': `desktop-task-${task.id}`,
+                  style: {
+                    justifyContent: 'flex-start',
+                    minHeight: '44px',
+                    whiteSpace: 'normal',
+                    textAlign: 'left',
+                  },
+                  onClick: () => activateDesktopTask(task),
+                }, {
+                  default: () => `${task.title || task.id}${task.kind === 'workspace' && Number.isInteger(task.model_id) ? ` · ${task.model_id}` : ''}`,
+                }),
+                h(ElButton, {
+                  'data-testid': `desktop-task-close-${task.id}`,
+                  size: 'small',
+                  style: {
+                    minHeight: '44px',
+                  },
+                  onClick: (event) => {
+                    event.stopPropagation();
+                    closeDesktopTask(task);
+                  },
+                }, { default: () => '关闭' }),
+              ]))),
           ]),
         ]);
       }

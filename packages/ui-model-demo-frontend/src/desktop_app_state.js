@@ -72,3 +72,9 @@ export function deriveDesktopTaskStack(currentValue, foregroundValue, options = 
     ...current.filter((item) => item.id !== foreground.id),
   ].slice(0, limit);
 }
+
+export function removeDesktopTaskFromStack(currentValue, taskId) {
+  const id = typeof taskId === 'string' ? taskId.trim() : '';
+  if (!id) return normalizeDesktopTaskStack(currentValue);
+  return normalizeDesktopTaskStack(currentValue).filter((task) => task.id !== id);
+}
