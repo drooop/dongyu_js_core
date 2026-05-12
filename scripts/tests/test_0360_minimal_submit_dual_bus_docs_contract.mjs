@@ -68,9 +68,9 @@ function assertNoOld(text, path) {
 function test_all_public_docs_cover_required_operational_steps() {
   for (const path of PUBLIC_DOCS) {
     const text = readText(path);
-    assert.match(text, /remote-worker `RE`|remote-worker RE|worker\/RE\/model\/3000/u, path + ' must explain RE');
-    assert.match(text, /route\.to/u, path + ' must explain route.to');
-    assert.match(text, /route\.reply_to/u, path + ' must explain route.reply_to');
+    assert.match(text, /remote-worker `RE`|remote-worker RE|RE \/ 3000/u, path + ' must explain RE');
+    assert.match(text, /endpoint_worker_id/u, path + ' must explain endpoint records');
+    assert.match(text, /reply_target_worker_id/u, path + ' must explain reply target records');
     assert.match(text, /submit1/u, path + ' must explain submit1');
     assert.match(text, /submit_request/u, path + ' must explain submit_request');
     assert.match(text, /click_chain/u, path + ' must explain click_chain button pin');
@@ -89,7 +89,7 @@ function test_all_public_docs_cover_required_operational_steps() {
   assert.match(guide, /pin_payload\.v1/u, 'guide must teach wrapping remote result as pin_payload.v1');
   assert.match(readText(PUBLIC_DOCS[1]), /pin_payload\.v1/u, 'visualized doc must show pin_payload.v1 wrapper on public result path');
   assert.equal(readText(PUBLIC_DOCS[1]).includes('resultPayload<br/>'), false, 'visualized doc must not show raw resultPayload on public result path');
-  assert.match(guide, /return null/u, 'guide must teach returning null when reply_to is invalid');
+  assert.match(guide, /return null/u, 'guide must teach returning null when endpoint records are invalid');
   return { key: 'all_public_docs_cover_required_operational_steps', status: 'PASS' };
 }
 
@@ -108,8 +108,8 @@ function test_provider_assets_have_no_compatibility_route() {
   const remoteCode = findRecord(remoteRecords, (record) => record.k === 'submit1' && record.t === 'func.js')?.v?.code || '';
   assert.equal(remoteCode.includes('input_value'), false, 'remote 3000 handler must not keep input_value fallback');
   assert.equal(remoteCode.includes('message_text'), false, 'remote 3000 handler must not keep message_text fallback');
-  assert.match(remoteCode, /record\.k === 'text'/u, 'remote 3000 handler must read the current text record');
-  assert.match(remoteCode, /reply_to/u, 'remote 3000 handler must use reply_to');
+  assert.match(remoteCode, /recordOf\(businessPayload, 'text'\)/u, 'remote 3000 handler must read the current text record');
+  assert.match(remoteCode, /replyTarget/u, 'remote 3000 handler must use reply_target records');
   assert.equal(remoteCode.includes('V1N.table'), false, 'remote 3000 non-root handler must not use V1N.table');
 
   const uiPayloadText = readText('test_files/minimal_submit_dual_bus_app_payload.json');
@@ -143,8 +143,8 @@ function test_model0_mbr_remote_worker_contract_is_complete() {
   const subscriptions = findRecord(remoteConfigRecords, (record) => record.k === 'remote_subscriptions')?.v || [];
   assert.equal(systemRecords.some((record) => String(record.k || '').startsWith('mbr_route_')), false, 'system models must not seed static MBR routes');
   assert.equal(mbrRecords.some((record) => record.k === 'mbr_mqtt_model_ids'), false, 'MBR must not use static MQTT model id list');
-  assert.ok(readText('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json').includes('route.to'), 'MBR function must derive destination from route.to');
-  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1'), 'remote-worker must subscribe provider submit1 route topic');
+  assert.ok(readText('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json').includes('endpoint_worker_id'), 'MBR function must derive destination from endpoint records');
+  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1'), 'remote-worker must subscribe provider submit1 endpoint topic');
   assert.equal(subscriptions.some((topic) => String(topic).includes('/1050/')), false, 'remote-worker must not subscribe old 1050 topics');
   return { key: 'model0_mbr_remote_worker_contract_is_complete', status: 'PASS' };
 }
@@ -152,7 +152,7 @@ function test_model0_mbr_remote_worker_contract_is_complete() {
 function test_provider_docs_result_payload_examples_keep_current_shape() {
   for (const path of PUBLIC_DOCS) {
     const doc = readText(path);
-    const manualResultIndex = doc.indexOf('"op_id": "manual_result_2000_001"');
+    const manualResultIndex = doc.indexOf('manual_result_2000_001');
     assert.ok(manualResultIndex >= 0, `${path} must include manual result example`);
     const manualResult = doc.slice(manualResultIndex, manualResultIndex + 2500);
     for (const required of [
@@ -192,8 +192,9 @@ function test_minimal_submit_docs_explain_full_patch_labels_and_submit_chain() {
       'submit1 pin.out',
       'generated host egress adapter',
       'pin.bus.mb.out',
-      'route.to = RE / 3000 / submit1',
-      'route.reply_to',
+      'endpoint_worker_id',
+      'reply_target_worker_id',
+      'RE / 3000 / submit1',
       'display_text',
       'remote_status',
     ]) {
@@ -229,7 +230,8 @@ function test_minimal_submit_docs_explain_ui_server_install_materialization() {
       'bridge_imported_submit1_to_mt_bus_send_',
       'mt_bus_send_in',
       'pin.bus.mb.out',
-      'route.reply_to',
+      'endpoint_worker_id',
+      'reply_target_worker_id',
       '侧边栏',
       'Model 0',
     ]) {

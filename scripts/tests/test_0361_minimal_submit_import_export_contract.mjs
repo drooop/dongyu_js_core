@@ -142,7 +142,7 @@ function test_docs_explain_generation_and_export_paths() {
     ['interactive', interactive],
   ]) {
     assert.match(text, /app_payload\.json/u, `${label}_must_name_app_payload`);
-    assert.match(text, /\/api\/slide-apps\/<modelId>\/export\.zip/u, `${label}_must_document_export_endpoint`);
+    assert.match(text, /\/api\/slide-apps\/(?:<modelId>|&lt;modelId&gt;)\/export\.zip/u, `${label}_must_document_export_endpoint`);
     assert.match(text, /Zip/u, `${label}_must_document_workspace_zip_export`);
   }
   assert.match(guide, /test_files\/minimal_submit_dual_bus_app_payload\.json/u, 'guide_must_reference_saved_payload_fixture');

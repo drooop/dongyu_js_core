@@ -175,7 +175,7 @@ Matrix/MQTT 发送由 `ProgramModelEngine` 观察 Model 0 root split bus out pin
 
 ### 4. 程序模型函数示例
 
-**必需配置**: UI 模型或 imported slide app 在 root 声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`，业务程序只把 Temporary ModelTable records 写到公开 root `pin.out`。UI Server 运行时负责生成 host egress adapter，把 `route.to` 和 server-owned `route.reply_to` 写进 `pin_payload` 后经 Model 0 `mt_bus_send` / `pin.bus.mb.out` 外发；不得恢复旧的 Model 0 egress label/function 或 `ctx.getLabel/writeLabel/rmLabel`。
+**必需配置**: UI 模型或 imported slide app 在 root 声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`，业务程序只把 Temporary ModelTable records 写到公开 root `pin.out`。UI Server 运行时负责生成 host egress adapter，把 endpoint、origin 和 server-owned reply target 写成 `pin_payload.v1` records 后经 Model 0 `mt_bus_send` / `pin.bus.mb.out` 外发；不得恢复旧的 Model 0 egress label/function 或 `ctx.getLabel/writeLabel/rmLabel`。
 
 ```javascript
 // 示例：业务程序只准备模型表形态 payload，并写到公开 root pin.out。
@@ -188,25 +188,25 @@ V1N.addLabel('submit', 'pin.out', payload);
 
 **注意**:
 - 不再推荐把 mailbox 中的任意 `ui_event` 直接默认转发到 Matrix。
-- 如果某个动作需要外发，必须先在模型定义中声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`；实际回包目标由 UI Server 根据本地安装模型 id 合成，ZIP 内不得声明 `route.reply_to`。
+- 如果某个动作需要外发，必须先在模型定义中声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`；实际回包目标由 UI Server 根据本地安装模型 id 写入 `reply_target_worker_id` / `reply_target_model_id` / `reply_target_pin` records，ZIP 内不得声明 `route.reply_to` 或 `reply_target_*`。
 
 ### 5. MBR Worker 接收和转发
 
 **位置**: `scripts/run_worker_mbr_v0.mjs`
 
-MBR Worker 监听 Matrix room 的消息，解析 `pin_payload.v1` temporary ModelTable records，然后：
-1. 读取消息内 `route.to`
-2. 生成目标 MQTT topic
+MBR Worker 监听 Matrix room 的消息，解析 `pin_payload.v1` Temporary ModelTable records，然后：
+1. 读取消息内 `endpoint_worker_id` / `endpoint_model_id` / `endpoint_pin`
+2. 生成统一 endpoint MQTT topic：`UIPUT/<ws>/<dam>/<pic>/<de>/<sw>/<worker_id>/<model_id>/<pin>`
 3. 发布到 MQTT broker
 4. remote-worker 通过 `pin.bus.cb.in` / root route 接收
 
 **现行 product path 约束**：
 - Matrix / MQTT bootstrap 只从 Model 0 `(0,0,0)` 读取，不再使用 `mbr_matrix_room_id` / `mbr_mqtt_host` 这类负数模型旧 transport config。
-- `mbr_mgmt_to_mqtt` 必须通过消息体中的 `route.to` 解析目标 worker / model / pin；缺少 `route.to`、目标不合法、或 `route.to.pin` 与 packet pin 不一致时必须拒绝并写 `mbr_mgmt_error`。
+- `mbr_mgmt_to_mqtt` 必须通过消息体中的 endpoint records 解析目标 worker / model / pin；缺少 endpoint、目标不合法、或 topic 与 endpoint records 不一致时必须拒绝并写 `mbr_mgmt_error`。
 - `mbr_route_<source_model_id>` 不再是当前规约输入面，也不得作为兼容兜底恢复。
 - `runtime_mode=edit` 时，MBR 可以建立 Matrix/MQTT 连接，但入站 Matrix/MQTT 消息必须直接丢弃，不得先写 inbox 再等到 `running` 后补处理。
-- 当前 canonical 业务桥接是 route-addressed `pin_payload.v1`：
-  - Matrix management bus packet -> MQTT `.../worker/<worker_id>/model/<model_id>/pin/<pin>`
+- 当前 canonical 业务桥接是 endpoint-addressed `pin_payload.v1`：
+  - Matrix management bus packet -> MQTT `UIPUT/<ws>/<dam>/<pic>/<de>/<sw>/<worker_id>/<model_id>/<pin>`
   - MQTT control bus result -> Matrix management bus packet -> owner materialization
 
 ## 疏通检查清单

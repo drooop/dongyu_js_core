@@ -25,6 +25,37 @@ function findRecord(records, predicate) {
   return records.find((record) => record && predicate(record)) || null;
 }
 
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function payloadValue(records, key) {
+  return Array.isArray(records) ? records.find((record) => record && record.k === key)?.v : undefined;
+}
+
+function pinPayloadPacket({ opId, endpoint, origin, replyTarget, payload }) {
+  return {
+    version: 'v1',
+    type: 'pin_payload',
+    payload: [
+      mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+      mt('__mt_request_id', 'str', opId),
+      mt('op_id', 'str', opId),
+      mt('endpoint_worker_id', 'str', endpoint.worker_id),
+      mt('endpoint_model_id', 'int', endpoint.model_id),
+      mt('endpoint_pin', 'str', endpoint.pin),
+      mt('origin_worker_id', 'str', origin.worker_id),
+      mt('origin_model_id', 'int', origin.model_id),
+      mt('origin_pin', 'str', origin.pin),
+      mt('reply_target_worker_id', 'str', replyTarget.worker_id),
+      mt('reply_target_model_id', 'int', replyTarget.model_id),
+      mt('reply_target_pin', 'str', replyTarget.pin),
+      mt('payload', 'json', payload),
+      mt('timestamp', 'int', Date.now()),
+    ],
+  };
+}
+
 function recordsFor(path) {
   return readJson(path).records || [];
 }
@@ -81,9 +112,10 @@ function test_model0_mbr_remote_worker_contracts_use_route_metadata() {
   assert.equal(mbrText.includes('mbr_route_'), false, 'MBR role must not contain static mbr_route lookup');
   assert.equal(mbrText.includes('mbr_mqtt_model_ids'), false, 'MBR role must not contain static model id subscription list');
   const subscriptions = findRecord(remoteConfigRecords, (record) => record.k === 'remote_subscriptions')?.v || [];
-  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1'), 'remote-worker must subscribe provider submit1 route topic');
+  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1'), 'remote-worker must subscribe provider submit1 endpoint topic');
   assert.equal(subscriptions.some((topic) => String(topic).includes('/1050/')), false, 'remote-worker must not subscribe old 1050 topics');
-  assert.equal(readText('scripts/run_worker_v0.mjs').includes('/worker/+/model/+/pin/+'), true, 'MBR runner must subscribe generic worker/model/pin wildcard');
+  assert.equal(readText('scripts/run_worker_v0.mjs').includes('/worker/+/model/+/pin/+'), false, 'MBR runner must not subscribe legacy worker/model/pin wildcard');
+  assert.equal(readText('scripts/run_worker_v0.mjs').includes('${base}/+/+/+'), true, 'MBR runner must subscribe unified endpoint wildcard');
   return { key: 'model0_mbr_remote_worker_contracts_use_route_metadata', status: 'PASS' };
 }
 
@@ -106,10 +138,10 @@ function test_remote_worker_provider_patch_returns_reply_to_result() {
   assert.equal(func?.t, 'func.js', 'remote submit1 handler must be func.js');
   const code = func?.v?.code || '';
   assert.match(code, /Submitted: /u, 'remote handler must build Submitted display text');
-  assert.match(code, /route.reply_to|reply_to/u, 'remote handler must read route.reply_to');
+  assert.match(code, /replyTarget/u, 'remote handler must read reply_target records');
   assert.equal(code.includes('ctx.publishMqtt'), false, 'remote handler must not publish MQTT directly');
   assert.equal(code.includes("pin_payload.v1"), true, 'remote handler must return ModelTable-shaped pin_payload');
-  assert.equal(code.includes("mt('source_model_id', 'int', Number(replyTo.model_id))"), true, 'remote result must target reply_to model id');
+  assert.equal(code.includes("mt('endpoint_model_id', 'int', replyTarget.model_id)"), true, 'remote result must target reply_target model id');
   const remoteConfigRecords = recordsFor('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json');
   assert.equal(
     findRecord(remoteConfigRecords, (record) => record.model_id === 0 && record.k === 'remote_result_bus')?.t,
@@ -131,15 +163,15 @@ function test_docs_describe_real_matrix_roundtrip() {
   const visual = readText(VISUAL_DOC);
   const html = readText(INTERACTIVE_DOC);
   for (const [label, text] of [['guide', guide], ['visual', visual], ['html', html]]) {
-    assert.equal(text.includes('UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/submit1'), true, `${label} must document provider submit topic`);
-    assert.equal(text.includes('worker/ui-server-U1/model/2000/pin/result'), true, `${label} must document reply_to result topic`);
-    assert.equal(text.includes('route.to'), true, `${label} must document route.to`);
-    assert.equal(text.includes('route.reply_to'), true, `${label} must document route.reply_to`);
+    assert.equal(text.includes('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1'), true, `${label} must document provider submit topic`);
+    assert.equal(text.includes('reply_target_worker_id'), true, `${label} must document reply target records`);
+    assert.equal(text.includes('endpoint_worker_id'), true, `${label} must document endpoint records`);
+    assert.equal(text.includes('origin_worker_id'), true, `${label} must document origin records`);
     assert.match(text, /Submitted: <输入内容>|Submitted: &lt;输入内容&gt;/u, `${label} must document visible result`);
     assert.equal(text.includes('/1050/'), false, `${label} must not use old 1050 topics`);
     assert.equal(text.includes('mbr_route_'), false, `${label} must not use mbr_route_*`);
   }
-  assert.equal(guide.includes('UI click -> Model 0 -> Matrix -> MBR -> remote provider public pin -> reply_to -> ui-server -> local UI model'), true);
+  assert.equal(guide.includes('UI click -> Model 0 -> Matrix -> MBR -> remote provider public pin -> reply_target records -> ui-server -> local UI model'), true);
   return { key: 'docs_describe_real_matrix_roundtrip', status: 'PASS' };
 }
 
@@ -159,21 +191,23 @@ async function test_imported_zip_roundtrip_materializes_matrix_result_to_ui_mode
     state.programEngine.matrixAdapter = {
       publish: async (packet) => {
         published.push(packet);
+        const replyTarget = {
+          worker_id: payloadValue(packet.payload, 'reply_target_worker_id'),
+          model_id: payloadValue(packet.payload, 'reply_target_model_id'),
+          pin: payloadValue(packet.payload, 'reply_target_pin'),
+        };
         setTimeout(() => {
-          state.programEngine.handleDyBusEvent({
-            version: 'v1',
-            type: 'pin_payload',
-            op_id: `result_${packet.op_id}`,
-            source_model_id: modelId,
-            pin: 'result',
+          state.programEngine.handleDyBusEvent(pinPayloadPacket({
+            opId: `result_${payloadValue(packet.payload, 'op_id')}`,
+            endpoint: replyTarget,
+            origin: { worker_id: 'RE', model_id: 3000, pin: 'submit1' },
+            replyTarget,
             payload: [
-              { id: 0, p: 0, r: 0, c: 0, k: 'display_text', t: 'str', v: 'Submitted: hello matrix e2e' },
-              { id: 0, p: 0, r: 0, c: 0, k: 'remote_status', t: 'str', v: 'remote_processed' },
-              { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false },
+              mt('display_text', 'str', 'Submitted: hello matrix e2e'),
+              mt('remote_status', 'str', 'remote_processed'),
+              mt('submit_inflight', 'bool', false),
             ],
-            timestamp: Date.now(),
-            route: { to: packet.route.reply_to, from: packet.route.to },
-          });
+          }));
         }, 60);
       },
     };
@@ -191,12 +225,13 @@ async function test_imported_zip_roundtrip_materializes_matrix_result_to_ui_mode
     await wait(900);
     const root = state.clientSnap().models[String(modelId)]?.cells?.['0,0,0']?.labels || {};
     assert.equal(published.length, 1, 'server must publish exactly one Matrix pin_payload');
-    assert.equal(published[0].source_model_id, modelId, 'published packet source_model_id must be local installed model');
-    assert.equal(published[0].pin, 'submit1', 'published packet pin must be public provider pin');
-    assert.equal(published[0].route?.to?.worker_id, 'RE', 'published packet route.to worker');
-    assert.equal(published[0].route?.to?.model_id, 3000, 'published packet route.to provider model');
-    assert.equal(published[0].route?.reply_to?.worker_id, 'ui-server-0359', 'published packet reply_to worker must be server-owned');
-    assert.equal(published[0].route?.reply_to?.model_id, modelId, 'published packet reply_to model must be local installed model');
+    assert.deepEqual(Object.keys(published[0]).sort(), ['payload', 'type', 'version'], 'published packet must not carry loose route/source/pin fields');
+    assert.equal(payloadValue(published[0].payload, 'origin_model_id'), modelId, 'published packet origin model must be local installed model');
+    assert.equal(payloadValue(published[0].payload, 'origin_pin'), 'submit1', 'published packet origin pin must be public provider pin');
+    assert.equal(payloadValue(published[0].payload, 'endpoint_worker_id'), 'RE', 'published packet endpoint worker');
+    assert.equal(payloadValue(published[0].payload, 'endpoint_model_id'), 3000, 'published packet endpoint provider model');
+    assert.equal(payloadValue(published[0].payload, 'reply_target_worker_id'), 'ui-server-0359', 'published packet reply_target worker must be server-owned');
+    assert.equal(payloadValue(published[0].payload, 'reply_target_model_id'), modelId, 'published packet reply_target model must be local installed model');
     assert.equal(root.display_text?.v, 'Submitted: hello matrix e2e', 'Matrix result must materialize into the imported UI model label');
     return { key: 'imported_zip_roundtrip_materializes_matrix_result_to_ui_model', status: 'PASS' };
   });
@@ -214,21 +249,13 @@ async function test_imported_zip_rejects_result_route_to_mismatch() {
     const importResult = state.runtime.hostApi.slideImportAppFromMxc('mxc://localhost/0359-minimal-route-mismatch');
     assert.equal(importResult.ok, true, 'minimal submit zip must import');
     const modelId = importResult.data?.model_id;
-    state.programEngine.handleDyBusEvent({
-      version: 'v1',
-      type: 'pin_payload',
-      op_id: 'result_route_mismatch',
-      source_model_id: modelId,
-      pin: 'result',
-      payload: [
-        { id: 0, p: 0, r: 0, c: 0, k: 'display_text', t: 'str', v: 'Submitted: should not apply' },
-      ],
-      timestamp: Date.now(),
-      route: {
-        to: { worker_id: 'other-ui-server', model_id: modelId, pin: 'result' },
-        from: { worker_id: 'RE', model_id: 3000, pin: 'submit1' },
-      },
-    });
+    state.programEngine.handleDyBusEvent(pinPayloadPacket({
+      opId: 'result_route_mismatch',
+      endpoint: { worker_id: 'other-ui-server', model_id: modelId, pin: 'result' },
+      origin: { worker_id: 'RE', model_id: 3000, pin: 'submit1' },
+      replyTarget: { worker_id: 'other-ui-server', model_id: modelId, pin: 'result' },
+      payload: [mt('display_text', 'str', 'Submitted: should not apply')],
+    }));
     await wait(450);
     const root = state.clientSnap().models[String(modelId)]?.cells?.['0,0,0']?.labels || {};
     assert.notEqual(root.display_text?.v, 'Submitted: should not apply', 'route.to mismatch must not materialize into the local UI model');

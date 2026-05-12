@@ -2246,6 +2246,29 @@ async function test_current_tier2_and_fixture_sources_have_no_legacy_transport_m
   return { key: 'current_tier2_and_fixture_sources_have_no_legacy_transport_metadata', status: 'PASS' };
 }
 
+async function test_runtime_semantics_payload_contract_does_not_require_plain_pin() {
+  const source = readFileSync(new URL('docs/ssot/runtime_semantics_modeltable_driven.md', repoRoot), 'utf8');
+  const payloadSection = source.match(/### 7\.1 Payload[\s\S]*?### 7\.2 Routing/u)?.[0] || '';
+  assert.ok(payloadSection, 'runtime semantics payload section must be present');
+  assert.equal(/-\s+`pin`\s*(?:\n|$)/u.test(payloadSection), false, 'runtime semantics must not list plain pin as a required payload record');
+  for (const required of [
+    'endpoint_worker_id',
+    'endpoint_model_id',
+    'endpoint_pin',
+    'origin_worker_id',
+    'origin_model_id',
+    'origin_pin',
+    'reply_target_worker_id',
+    'reply_target_model_id',
+    'reply_target_pin',
+  ]) {
+    assert.ok(payloadSection.includes(required), `runtime semantics payload section must require ${required}`);
+  }
+  assert.ok(payloadSection.includes('`pin=result`'), 'runtime semantics must explicitly name plain pin reply-target inference as forbidden');
+  assert.match(payloadSection, /不得从 topic 末段/u, 'runtime semantics must explicitly reject inferring reply target from topic suffix');
+  return { key: 'runtime_semantics_payload_contract_does_not_require_plain_pin', status: 'PASS' };
+}
+
 async function test_frontend_projection_does_not_parse_removed_console_ack_shape() {
   const source = readFileSync(new URL('packages/ui-model-demo-frontend/src/editor_page_state_derivers.js', repoRoot), 'utf8');
   assert.equal(source.includes("payload.type === 'mgmt_bus_console_ack'"), false, 'frontend projection must not parse retired direct mgmt_bus_console_ack packets');
@@ -2322,6 +2345,7 @@ const tests = [
   test_server_owner_materialization_rejects_malformed_nested_pin_payload_pin_label,
   test_server_return_accepts_safe_numeric_origin_segments,
   test_current_tier2_and_fixture_sources_have_no_legacy_transport_metadata,
+  test_runtime_semantics_payload_contract_does_not_require_plain_pin,
   test_frontend_projection_does_not_parse_removed_console_ack_shape,
 ];
 

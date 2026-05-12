@@ -190,6 +190,48 @@ Review Gate Record
 - Key output: no whitespace errors.
 - Result: PASS
 
+- Command: `node scripts/ops/obsidian_docs_audit.mjs --root docs --json`
+- Key output: withoutFrontmatter=0; missingRequired=0; withMarkdownMdLink=0; withBareMdPath=0.
+- Result: PASS
+
+### Step 5 Review Attempt 2
+
+- Reviewer: sub-agent `019e1d0b-bcda-7a52-9ff9-243c7d8b9b96`
+- Decision: Approved
+- Key output: Findings none; open questions none; verification gaps none.
+- Result: PASS
+
+### Step 5 Review Attempt 1
+
+- Reviewer: sub-agent `019e1d0b-bcda-7a52-9ff9-243c7d8b9b96`
+- Decision: Change Requested
+- Key output: SSOT `runtime_semantics_modeltable_driven.md` still listed plain `pin` as a required payload record; minimal Submit guide embedded handler did not fail closed on missing/invalid endpoint/origin/reply_target records or invalid nested business records.
+- Result: PASS for review capture; requested fixes applied before re-review.
+
+### Step 5 Review Fix Verification
+
+- Change: removed plain `pin` from the required payload record list in `runtime_semantics_modeltable_driven.md`; added a 0375 contract test to keep it removed while requiring `endpoint_pin` / `origin_pin` / `reply_target_pin`.
+- Change: strengthened the minimal Submit guide embedded handler snippet to validate strict ModelTable record shape, endpoint/origin/reply_target records, and nested business records before processing.
+- Command: `node scripts/tests/test_0351_slide_app_minimal_provider_guide_contract.mjs`
+- Key output: 6 passed, 0 failed out of 6.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 70 passed, 0 failed out of 70.
+- Result: PASS
+
+- Command: `node --check scripts/tests/test_0351_slide_app_minimal_provider_guide_contract.mjs`
+- Key output: syntax check passed.
+- Result: PASS
+
+- Command: `node --check scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: syntax check passed.
+- Result: PASS
+
+- Command: `git diff --check`
+- Key output: no whitespace errors.
+- Result: PASS
+
 ### Step 4 Review Attempt 1
 
 - Reviewer: sub-agent `019e1cf1-e258-7a30-ad92-70ffcf398d8d`
@@ -256,6 +298,110 @@ Review Gate Record
 
 - Command: `node scripts/tests/test_0326_ui_event_busin_flow.mjs`
 - Key output: 31 passed, 0 failed out of 31.
+- Result: PASS
+
+### Step 5 — Provider Docs / Importer Contract Refresh
+
+- Red evidence: current provider docs and related contract tests still expected the old bundle-level `route.reply_to`, old local result topic wording, and remote-worker `message_text` fallback wording.
+- Red evidence: `scripts/tests/test_0359_minimal_submit_matrix_e2e_contract.mjs`, `scripts/tests/test_0360_minimal_submit_dual_bus_docs_contract.mjs`, `scripts/tests/test_0362_slide_app_self_described_route_contract.mjs`, and `scripts/tests/test_0364_docs_split_bus_contract.mjs` each failed before the docs/tests were updated for endpoint/origin/reply_target records.
+- Change: rewrote `minimal_submit_app_provider_guide.md`, `minimal_submit_app_provider_visualized.md`, and `minimal_submit_app_provider_interactive.html` around the current contract: provider ZIP declares only UI model + `remote_bus_endpoint_v1`; UI Server owns local installed model id, origin records, and reply target records.
+- Change: updated SSOT docs for imported slide app host ingress/egress and UI-to-Matrix flow so current public docs no longer teach per-app route registration or result topic inference.
+- Change: updated provider/import/export/docs contract tests to assert `UIPUT/<ws>/<dam>/<pic>/<de>/<sw>/<worker_id>/<model_id>/<pin>`, strict `pin_payload.v1`, server-owned `reply_target_*`, and the absence of current-path compatibility fallbacks.
+- Change: remote-worker Model 3000 handler now reads only business `text` for the minimal Submit example and no longer accepts `message_text` fallback.
+- Result: PASS for implementation capture.
+
+### Step 5 Verification Refresh
+
+- Command: `node scripts/tests/test_0351_slide_app_minimal_provider_guide_contract.mjs`
+- Key output: 5 passed, 0 failed out of 5.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0352_slide_app_provider_visualized_docs_contract.mjs`
+- Key output: 4 passed, 0 failed out of 4.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0359_minimal_submit_matrix_e2e_contract.mjs`
+- Key output: 5 passed, 0 failed out of 5.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0360_minimal_submit_dual_bus_docs_contract.mjs`
+- Key output: 7 passed, 0 failed out of 7.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0361_minimal_submit_import_export_contract.mjs`
+- Key output: 3 passed, 0 failed out of 3.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs`
+- Key output: 11 passed, 0 failed out of 11.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0364_docs_split_bus_contract.mjs`
+- Key output: 6 passed, 0 failed out of 6.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0350_slide_app_runtime_user_guide_contract.mjs`
+- Key output: ok true; 5 PASS results.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+- Key output: 69 passed, 0 failed out of 69.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0362_mbr_remote_worker_route_contract.mjs`
+- Key output: 10 passed, 0 failed out of 10.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0322_imported_host_egress_server_flow.mjs`
+- Key output: 1 passed, 0 failed out of 1.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0326_imported_host_egress_bridge.mjs`
+- Key output: 1 passed, 0 failed out of 1.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`
+- Key output: 32 passed, 0 failed out of 32.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0342_mgmt_bus_console_real_messaging_contract.mjs`
+- Key output: ok true; 13 PASS results.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0364_bus_pin_split_runtime_contract.mjs`
+- Key output: 9 passed, 0 failed out of 9.
+- Result: PASS
+
+- Command: `node scripts/tests/test_0326_ui_event_busin_flow.mjs`
+- Key output: 31 passed, 0 failed out of 31.
+- Result: PASS
+
+- Command: `node scripts/tests/test_bus_in_out.mjs`
+- Key output: 7 passed, 0 failed out of 7.
+- Result: PASS
+
+- Command: `node scripts/tests/test_cell_connect_parse.mjs`
+- Key output: 8 passed, 0 failed out of 8.
+- Result: PASS
+
+- Command: `node --check scripts/tests/test_0351_slide_app_minimal_provider_guide_contract.mjs`
+- Key output: syntax check passed.
+- Result: PASS
+
+- Command: `node --check scripts/tests/test_0359_minimal_submit_matrix_e2e_contract.mjs`
+- Key output: syntax check passed.
+- Result: PASS
+
+- Command: `node --check scripts/tests/test_0362_slide_app_self_described_route_contract.mjs`
+- Key output: syntax check passed.
+- Result: PASS
+
+- Command: `node -e "const fs=require('fs'); JSON.parse(fs.readFileSync('deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json','utf8'));"`.
+- Key output: JSON parse passed.
+- Result: PASS
+
+- Command: `git diff --check`
+- Key output: no whitespace errors.
 - Result: PASS
 
 - Command: `node scripts/tests/test_bus_in_out.mjs`
