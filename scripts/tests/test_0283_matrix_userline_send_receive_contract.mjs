@@ -28,6 +28,59 @@ function mailboxEnvelope(action, options = {}) {
   };
 }
 
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function payloadValue(packetOrRecords, key) {
+  const records = Array.isArray(packetOrRecords)
+    ? packetOrRecords
+    : (Array.isArray(packetOrRecords?.payload) ? packetOrRecords.payload : []);
+  return records.find((record) => record && record.k === key)?.v;
+}
+
+function assertStrictPinPacket(packet, message = 'packet') {
+  assert.deepEqual(Object.keys(packet || {}).sort(), ['payload', 'type', 'version'], `${message}_must_only_expose_version_type_payload`);
+  assert.equal(packet.version, 'v1', `${message}_must_be_v1`);
+  assert.equal(packet.type, 'pin_payload', `${message}_must_use_pin_payload_transport`);
+  assert.equal(Array.isArray(packet.payload), true, `${message}_payload_must_be_modeltable_records`);
+  for (const forbidden of ['source_model_id', 'pin', 'route', 'reply_to', 'return_topic', 'returnTopic', 'result_topic']) {
+    assert.equal(Object.hasOwn(packet, forbidden), false, `${message}_must_not_expose_${forbidden}`);
+  }
+}
+
+function pinPayloadRecords({
+  opId,
+  endpointWorkerId,
+  endpointModelId,
+  endpointPin,
+  originWorkerId,
+  originModelId,
+  originPin,
+  replyTargetWorkerId,
+  replyTargetModelId,
+  replyTargetPin,
+  payloadRecords,
+  timestamp = 1700000000000,
+}) {
+  return [
+    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('__mt_request_id', 'str', opId),
+    mt('op_id', 'str', opId),
+    mt('endpoint_worker_id', 'str', endpointWorkerId),
+    mt('endpoint_model_id', 'int', endpointModelId),
+    mt('endpoint_pin', 'str', endpointPin),
+    mt('origin_worker_id', 'str', originWorkerId),
+    mt('origin_model_id', 'int', originModelId),
+    mt('origin_pin', 'str', originPin),
+    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
+    mt('reply_target_model_id', 'int', replyTargetModelId),
+    mt('reply_target_pin', 'str', replyTargetPin),
+    mt('payload', 'json', payloadRecords),
+    mt('timestamp', 'int', timestamp),
+  ];
+}
+
 async function withServerState(fn) {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0283-send-'));
   process.env.DY_AUTH = '0';
@@ -36,6 +89,7 @@ async function withServerState(fn) {
   process.env.WORKER_BASE_DATA_ROOT = join(tempRoot, 'runtime');
   process.env.DOCS_ROOT = join(tempRoot, 'docs');
   process.env.STATIC_PROJECTS_ROOT = join(tempRoot, 'static');
+  process.env.DY_UI_SERVER_WORKER_ID = 'ui-server-it0283';
   const { createServerState } = await import(new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url));
   const state = createServerState({ dbPath: null });
   try {
@@ -48,6 +102,7 @@ async function withServerState(fn) {
     delete process.env.DOCS_ROOT;
     delete process.env.STATIC_PROJECTS_ROOT;
     delete process.env.DY_PERSISTED_ASSET_ROOT;
+    delete process.env.DY_UI_SERVER_WORKER_ID;
   }
 }
 
@@ -79,13 +134,21 @@ async function test_send_submit_publishes_pin_payload_for_model1019() {
     await wait();
 
     assert.equal(published.length, 1, 'send_submit_must_publish_one_matrix_payload');
-    assert.equal(published[0]?.type, 'pin_payload', 'send_submit_must_use_pin_payload_transport');
-    assert.equal(published[0]?.source_model_id, MATRIX_ACTIVE_CONVERSATION_MODEL_ID, 'send_submit_must_preserve_source_model_id');
-    assert.equal(published[0]?.pin, 'submit', 'send_submit_must_use_submit_pin');
-    assert.ok(Array.isArray(published[0]?.payload), 'send_submit_must_carry_temporary_modeltable_array');
-    assert.ok(published[0]?.payload?.some?.((record) => record && record.k === 'message_text' && record.v === 'hello matrix'), 'send_submit_payload_missing_message_text');
-    assert.ok(published[0]?.payload?.some?.((record) => record && record.k === 'sender_user_id' && record.v === '@drop:localhost'), 'send_submit_payload_missing_sender_user_id');
-    assert.ok(published[0]?.payload?.some?.((record) => record && record.k === 'room_id' && record.v === '!phase1:localhost'), 'send_submit_payload_missing_room_id');
+    assertStrictPinPacket(published[0], 'send_submit_payload');
+    assert.equal(payloadValue(published[0], '__mt_payload_kind'), 'pin_payload.v1', 'send_submit_must_declare_pin_payload_v1');
+    assert.equal(payloadValue(published[0], 'endpoint_worker_id'), 'R1', 'send_submit_must_target_remote_worker');
+    assert.equal(payloadValue(published[0], 'endpoint_model_id'), MATRIX_ACTIVE_CONVERSATION_MODEL_ID, 'send_submit_must_target_model1019');
+    assert.equal(payloadValue(published[0], 'endpoint_pin'), 'submit', 'send_submit_must_use_submit_endpoint_pin');
+    assert.equal(payloadValue(published[0], 'origin_worker_id'), 'ui-server-it0283', 'send_submit_must_include_origin_worker');
+    assert.equal(payloadValue(published[0], 'origin_model_id'), MATRIX_ACTIVE_CONVERSATION_MODEL_ID, 'send_submit_must_include_origin_model');
+    assert.equal(payloadValue(published[0], 'origin_pin'), 'submit', 'send_submit_must_include_origin_pin');
+    assert.equal(payloadValue(published[0], 'reply_target_worker_id'), 'ui-server-it0283', 'send_submit_must_include_reply_target_worker');
+    assert.equal(payloadValue(published[0], 'reply_target_model_id'), MATRIX_ACTIVE_CONVERSATION_MODEL_ID, 'send_submit_must_include_reply_target_model');
+    assert.equal(payloadValue(published[0], 'reply_target_pin'), 'result', 'send_submit_must_include_reply_target_pin');
+    assert.ok(Array.isArray(payloadValue(published[0], 'payload')), 'send_submit_must_carry_temporary_modeltable_array');
+    assert.ok(payloadValue(published[0], 'payload')?.some?.((record) => record && record.k === 'message_text' && record.v === 'hello matrix'), 'send_submit_payload_missing_message_text');
+    assert.ok(payloadValue(published[0], 'payload')?.some?.((record) => record && record.k === 'sender_user_id' && record.v === '@drop:localhost'), 'send_submit_payload_missing_sender_user_id');
+    assert.ok(payloadValue(published[0], 'payload')?.some?.((record) => record && record.k === 'room_id' && record.v === '!phase1:localhost'), 'send_submit_payload_missing_room_id');
 
     const beforeReturn = state.clientSnap().models[String(MATRIX_ACTIVE_CONVERSATION_MODEL_ID)].cells['0,0,0'].labels;
     assert.equal(beforeReturn.last_sent_text?.v, 'hello matrix', 'send_submit_must_materialize_last_sent_text');
@@ -95,15 +158,23 @@ async function test_send_submit_publishes_pin_payload_for_model1019() {
     state.programEngine.handleDyBusEvent({
       version: 'v1',
       type: 'pin_payload',
-      op_id: 'test_0283_send_return',
-      source_model_id: MATRIX_ACTIVE_CONVERSATION_MODEL_ID,
-      pin: 'result',
-      payload: [
+      payload: pinPayloadRecords({
+        opId: 'test_0283_send_return',
+        endpointWorkerId: 'ui-server-it0283',
+        endpointModelId: MATRIX_ACTIVE_CONVERSATION_MODEL_ID,
+        endpointPin: 'result',
+        originWorkerId: 'R1',
+        originModelId: MATRIX_ACTIVE_CONVERSATION_MODEL_ID,
+        originPin: 'submit',
+        replyTargetWorkerId: 'ui-server-it0283',
+        replyTargetModelId: MATRIX_ACTIVE_CONVERSATION_MODEL_ID,
+        replyTargetPin: 'result',
+        payloadRecords: [
         { id: 0, p: 0, r: 0, c: 0, k: 'last_remote_text', t: 'str', v: 'echo: hello matrix' },
         { id: 0, p: 0, r: 0, c: 0, k: 'conversation_status', t: 'str', v: 'remote_processed' },
         { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false },
-      ],
-      route: { to: published[0].route.reply_to, from: published[0].route.to },
+        ],
+      }),
     });
     await wait();
 

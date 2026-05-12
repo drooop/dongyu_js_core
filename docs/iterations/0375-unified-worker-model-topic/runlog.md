@@ -171,7 +171,7 @@ Review Gate Record
 - Result: PASS
 
 - Command: `node scripts/tests/test_0322_imported_host_egress_server_flow.mjs`
-- Key output: 1 passed, 0 failed out of 1; imported host ingress-to-egress flow publishes `UIPUT/ws/dam/pic/de/sw/RE/3000/submit` with endpoint/origin/reply target records.
+- Key output: 1 passed, 0 failed out of 1; imported host ingress-to-egress flow now publishes `UIPUT/ws/dam/pic/de/sw/R1/3000/submit` with endpoint/origin/reply target records.
 - Result: PASS
 
 - Command: `node scripts/tests/test_0326_ui_event_busin_flow.mjs`
@@ -190,91 +190,125 @@ Review Gate Record
 - Key output: no whitespace errors.
 - Result: PASS
 
-- Command: `node scripts/ops/obsidian_docs_audit.mjs --root docs --json`
-- Key output: withoutFrontmatter=0; missingRequired=0; withMarkdownMdLink=0; withBareMdPath=0.
+### Step 6 R1 Cleanup And Validator Refresh
+
+- Change: removed stale Step 7 / Step 8 runlog sections that recorded `RE` as passing evidence; new acceptance evidence must use current `R1` worker identity.
+- Change: updated the management bus console live projection test from `message.route.to` / `message.route.reply_to` to current `message.endpoint` / `message.reply_target`.
+- Change: rewrote `scripts/validate_mbr_patch_v0.mjs` so the validator uses only strict `pin_payload.v1` packets with endpoint/origin/reply_target ModelTable records and `UIPUT/ws/dam/pic/de/sw/R1/<model>/<pin>` topics.
+- Red evidence: `node scripts/validate_mbr_patch_v0.mjs` failed before the validator refresh because it still sent legacy loose `source_model_id`, `pin`, and `route` fields and expected `UIPUT/ws/dam/pic/de/sw/worker/RE/model/.../pin/...`.
+- Fix evidence: the validator helper was corrected so explicit `null` adapters remain `null`, making split-bus missing-adapter retry checks meaningful.
+
+- Command: `node scripts/tests/test_0339_mgmt_bus_console_live_projection_contract.mjs`
+- Key output: ok true; 5 PASS results.
 - Result: PASS
 
-### Step 5 Review Attempt 2
+- Command: `node scripts/validate_mbr_patch_v0.mjs`
+- Key output: 81 PASS, 0 FAIL.
+- Result: PASS
 
-- Reviewer: sub-agent `019e1d0b-bcda-7a52-9ff9-243c7d8b9b96`
+- Command: `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs && node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs && node scripts/tests/test_0364_bus_pin_split_runtime_contract.mjs && node scripts/tests/test_0322_imported_host_egress_server_flow.mjs && node scripts/tests/test_0326_imported_host_egress_bridge.mjs && node scripts/tests/test_0326_ui_event_busin_flow.mjs && node scripts/tests/test_0144_mbr_compat.mjs && node scripts/tests/test_0177_mbr_bridge_contract.mjs && node scripts/tests/test_0179_mbr_route_contract.mjs && node scripts/tests/test_0182_server_model0_egress_contract.mjs && node scripts/tests/test_0336_mgmt_bus_console_contract.mjs && node scripts/tests/test_0339_mgmt_bus_console_live_projection_contract.mjs && node scripts/validate_mbr_patch_v0.mjs`
+- Key output: all checks passed; 0375 main contract reported 70/70, pin-payload contract 32/32, split-bus contract 9/9, UI event bus-in 31/31, and MBR validator 81/81.
+- Result: PASS
+
+- Command: `node --check scripts/validate_mbr_patch_v0.mjs && node --check scripts/tests/test_0339_mgmt_bus_console_live_projection_contract.mjs && git diff --check`
+- Key output: syntax checks and whitespace check passed.
+- Result: PASS
+
+- Command: forbidden-marker scan for old `RE`, old worker/model/pin topics, and old management-console route labels across current active docs/tests/runtime/fixtures.
+- Key output: no matches.
+- Result: PASS
+
+### Step 6 Review Attempt 1
+
+- Reviewer: sub-agent `019e1d55-78d9-7243-9520-c386bcc6cb48`
+- Decision: Change Requested
+- Key output: positive imported-host egress fixture still emitted `source_model_id`; MBR validator needed to restore management-bus adapter rejection / retry coverage.
+- Result: PASS for review capture; requested fixes applied before re-review.
+
+### Step 6 Review Fix Verification
+
+- Change: `scripts/tests/test_0322_imported_host_egress_contract.mjs` no longer emits `source_model_id` from its valid imported app handler; it now asserts the imported handler does not contain that removed key.
+- Change: `scripts/validate_mbr_patch_v0.mjs` now also verifies `split_bus_mgmt_publish_failed`, rejected management-bus retry retention, and same-key management retry safety.
+
+- Command: `node scripts/tests/test_0322_imported_host_egress_contract.mjs && node scripts/validate_mbr_patch_v0.mjs && node --check scripts/validate_mbr_patch_v0.mjs && node --check scripts/tests/test_0322_imported_host_egress_contract.mjs && git diff --check`
+- Key output: imported-host egress contract 2/2; MBR validator 86/86; syntax and whitespace checks passed.
+- Result: PASS
+
+### Step 6 Review Attempt 2
+
+- Reviewer: sub-agent `019e1d55-78d9-7243-9520-c386bcc6cb48`
 - Decision: Approved
 - Key output: Findings none; open questions none; verification gaps none.
 - Result: PASS
 
-### Step 7 — Local Deploy And Browser Trace Verification
+### Step 7 — Local Deploy And Browser R1 Verification
 
 - Command: `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
-- Key output: synced persisted assets and public docs; rebuilt `dy-ui-server:v1` and `dy-remote-worker:v3`; failed while fetching Docker Hub metadata for `node:22-slim` during `dy-mbr-worker:v2` build (`TLS handshake timeout`).
-- Result: PASS for failure capture; continued with local-base overlay build to avoid network dependency.
+- Key output: rebuilt `dy-ui-server:v1` and `dy-remote-worker:v3`, then Docker Hub metadata fetch for `node:22-slim` timed out while building `dy-mbr-worker:v2`.
+- Result: PASS for failure capture; continued with local-base overlay build.
 
 - Command: local-base overlay Docker builds for `dy-mbr-worker:v2` and `dy-ui-side-worker:v1`
-- Key output: used existing local images `dy-mbr-worker:v2-local-base-0375` and `dy-ui-side-worker:v1-local-base-0375`, then copied current `package.json`, `packages/worker-base/src`, `packages/worker-base/system-models`, and worker entry scripts into fresh tags.
+- Key output: rebuilt current-source overlays from `dy-mbr-worker:v2-local-base-0375` and `dy-ui-side-worker:v1-local-base-0375`.
 - Result: PASS
 
 - Command: `SKIP_IMAGE_BUILD=1 SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
-- Key output: applied manifests and restarted `ui-server`, `mbr-worker`, `remote-worker`, and `ui-side-worker`; all rollouts completed and old pods terminated.
+- Key output: applied manifests and restarted `ui-server`, `mbr-worker`, `remote-worker`, and `ui-side-worker`; all rollouts completed and old app pods terminated.
 - Result: PASS
 
 - Command: `bash scripts/ops/check_runtime_baseline.sh`
-- Key output: all local deployments ready; no terminating pods; mbr-worker and ui-server Matrix secrets ready.
+- Key output: all local deployments ready; no terminating app pods; mbr-worker and ui-server secrets ready.
+- Result: PASS
+
+- Command: local image and running pod image ID comparison.
+- Key output:
+  - `dy-ui-server:v1` -> `sha256:a542ea02f5a577ca1489c4db0c557617cd0e6ec17dc0e33f0c32d2ee994a8f99`
+  - `dy-remote-worker:v3` -> `sha256:0e6e84b7b5ad75bb077e4187f1c51c7aff9fd16fb1e57dbe321495cc07d2a204`
+  - `dy-mbr-worker:v2` -> `sha256:eccd8f7f43fcd22db33692a5327446252009f96e4f70a94d4e2d258abb79567b`
+  - `dy-ui-side-worker:v1` -> `sha256:7aeab9150e0df344e867a840042e0ea0ea84bce677cff1854d8d74f248fa8811`
 - Result: PASS
 
 - Command: `curl -fsS http://127.0.0.1:30900/ | head -c 240`
 - Key output: UI Model Demo HTML served from local NodePort.
 - Result: PASS
 
-- Browser: Playwright headed browser opened `http://127.0.0.1:30900/#/workspace`.
-- Browser: Opened `E2E 颜色生成器`, filled `0375 local color`, clicked `Generate Color`; visible color changed from `#FFFFFF` to `#38f312`, and status changed to `processed`.
+- Browser: Playwright headed session `0375local` opened `http://127.0.0.1:30900/#/workspace`.
+- Browser: Opened `E2E 颜色生成器`, filled `0375 local R1 color`, clicked `Generate Color`; visible color changed from `#FFFFFF` to `#455aec`, and status became `processed`.
 - Result: PASS
 
-- Browser: Opened `滑动 APP 导入`, uploaded `test_files/minimal_submit_dual_bus.zip`, clicked `导入 Slide App`; Workspace added imported model `1057` named `最小 Submit 双总线示例`.
-- Browser: Opened imported app `1057`, filled `0375 local minimal submit`, clicked `Submit`; visible result changed to `Submitted: 0375 local minimal submit`, and remote status changed to `remote_processed`.
-- Artifact: `output/playwright/0375-local-minimal-submit-success.png`.
+- Browser: Opened `滑动 APP 导入`, uploaded `test_files/minimal_submit_dual_bus.zip`, clicked `导入 Slide App`; Workspace added imported model `1058` named `最小 Submit 双总线示例`.
+- Browser: Opened imported app `1058`, filled `0375 local R1 minimal submit 1778610678506`, clicked `Submit`; visible result became `Submitted: 0375 local R1 minimal submit 1778610678506`, and remote status became `remote_processed`.
+- Artifact: `output/playwright/0375-local-r1-minimal-submit-success.png`.
 - Result: PASS
 
-- Command: `kubectl -n dongyu logs deploy/remote-worker --since=5m | rg -n "UIPUT/ws/dam/pic/de/sw/RE/3000/submit1|submit1|pin_payload|remote_processed|0375 local minimal submit|legacy|reply_to|source_model_id|worker/RE/model"`
-- Key output: remote-worker subscribed to `UIPUT/ws/dam/pic/de/sw/RE/3000/submit1`; inbound minimal Submit packet used `version/type/payload` with `pin_payload.v1`, `endpoint_worker_id=RE`, `endpoint_model_id=3000`, `endpoint_pin=submit1`, `origin_worker_id=ui-server-local`, `origin_model_id=1057`, `reply_target_worker_id=ui-server-local`, `reply_target_model_id=1057`, and nested business `text="0375 local minimal submit"`; remote-worker published `UIPUT/ws/dam/pic/de/sw/ui-server-local/1057/result` with `display_text="Submitted: 0375 local minimal submit"` and `remote_status="remote_processed"`.
+- Command: `kubectl -n dongyu logs deploy/remote-worker --since=10m`
+- Key output: remote-worker subscribed to `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`; inbound minimal Submit used strict `version/type/payload`, `endpoint_worker_id=R1`, `endpoint_model_id=3000`, `endpoint_pin=submit1`, `origin_worker_id=ui-server-local`, `origin_model_id=1058`, `reply_target_worker_id=ui-server-local`, `reply_target_model_id=1058`; remote-worker published `UIPUT/ws/dam/pic/de/sw/ui-server-local/1058/result` with `display_text="Submitted: 0375 local R1 minimal submit 1778610678506"` and `remote_status="remote_processed"`.
 - Result: PASS
 
-- Command: `kubectl -n dongyu logs deploy/mbr-worker --since=5m | rg -n "UIPUT/ws/dam/pic/de/sw/RE/3000/submit1|UIPUT/ws/dam/pic/de/sw/ui-server|pin_payload|endpoint_worker_id|reply_target_worker_id|0375 local minimal submit|legacy|reply_to|source_model_id|worker/RE/model"`
-- Key output: MBR published `UIPUT/ws/dam/pic/de/sw/RE/3000/submit1`, then observed `UIPUT/ws/dam/pic/de/sw/ui-server-local/1057/result`; no old `worker/RE/model/...`, `source_model_id`, or `reply_to` path appeared in the matched trace.
+- Command: `kubectl -n dongyu logs deploy/mbr-worker --since=10m`
+- Key output: MBR published `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`, observed the same inbound topic, then observed `UIPUT/ws/dam/pic/de/sw/ui-server-local/1058/result` for `submit1_result_1778610680822`.
+- Result: PASS
+
+- Command: forbidden-marker scan over local `remote-worker`, `mbr-worker`, and `ui-server` logs since deploy.
+- Key output:
+  - `PASS remote-worker forbidden markers clear`
+  - `PASS mbr-worker forbidden markers clear`
+  - `PASS ui-server forbidden markers clear`
+- Result: PASS
+
+- Command: `curl -fsS http://127.0.0.1:30900/p/slide-app-runtime-minimal-submit-provider/minimal_submit_app_provider_interactive.html`
+- Key output: local static HTML is available and documents `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`.
 - Result: PASS
 
 ### Step 7 Review Attempt 1
 
-- Reviewer: sub-agent `019e1d1c-9b1d-7b93-b516-70df4acafa1c`
-- Decision: Change Requested
-- Key output: local-base overlay build needed harder proof that final pods contained current source/assets; trace evidence also needed explicit no-match scans for forbidden old markers.
-- Result: PASS for review capture; requested verification added before re-review.
-
-### Step 7 Review Fix Verification
-
-- Command: `docker images --format '{{.Repository}}:{{.Tag}} {{.ID}}' | rg '^(dy-mbr-worker:v2|dy-ui-side-worker:v1|dy-remote-worker:v3|dy-ui-server:v1) ' && kubectl -n dongyu get pod -l 'app in (mbr-worker,ui-side-worker,remote-worker,ui-server)' -o jsonpath=...`
-- Key output: local image IDs matched running pod image IDs:
-  - `dy-mbr-worker:v2` -> `sha256:5e4dbf389c9a6158559ed7ea8c72b60a701b66421792de0b5e11364b26069d2b`
-  - `dy-ui-side-worker:v1` -> `sha256:18d48080e71459a58799dc3f3703ee4834ab565c4ace3afcda6dbf016b1c10e9`
-  - `dy-remote-worker:v3` -> `sha256:e7054009396245f495fb150e37649421cba5eed265ae00f101adc9318b57fdf5`
-  - `dy-ui-server:v1` -> `sha256:fecd43e8eb72f8b46a474ea7d10cda30701322e79f0df5b473c08c392eeaf7d2`
+- Reviewer: sub-agent `019e1d55-78d9-7243-9520-c386bcc6cb48`
+- Decision: Approved
+- Key output: Findings none; open questions none; verification gaps none.
 - Result: PASS
 
-- Command: per-pod content checksum comparison for repo vs running containers.
-- Key output:
-  - `mbr` content hashes match 59 files; manifest hash `1b99ec59b5b1d8e2854ffe357fcb0cc466430bd159ba40d444263906fbcdface`
-  - `ui_side` content hashes match 59 files; manifest hash `fc352a86490d38b5f0a2b95fea1691161c9224e716d4f187143321a46d209c21`
-  - `remote` content hashes match 59 files; manifest hash `8df553b72e25991fb2627bfd91e7067e105edbe22196f42c7792b06a786e1315`
-  - `ui_server_core` content hashes match 102 files; manifest hash `268cb6bcb4031b73422693e40076b8151a3842f7b51849191e08b94c2db30557`
-- Result: PASS
+### Step 5 Review Attempt 2
 
-- Command: forbidden-marker scans for local `remote-worker`, `mbr-worker`, and `ui-server` logs using `worker/RE/model|source_model_id|route\.reply_to|\breply_to\b|return_topic|returnTopic|result_topic|UIPUT/.*/worker/.*/model/.*/pin/`.
-- Key output:
-  - `PASS no forbidden markers in remote-worker logs`
-  - `PASS no forbidden markers in mbr-worker logs`
-  - `PASS no forbidden markers in ui-server logs`
-- Result: PASS
-
-### Step 7 Review Attempt 2
-
-- Reviewer: sub-agent `019e1d1c-9b1d-7b93-b516-70df4acafa1c`
+- Reviewer: sub-agent `019e1d0b-bcda-7a52-9ff9-243c7d8b9b96`
 - Decision: Approved
 - Key output: Findings none; open questions none; verification gaps none.
 - Result: PASS

@@ -723,7 +723,7 @@ Root `(0,0,0)` 可以声明：
   "v": {
     "transport": "mqtt",
     "to": {
-      "worker_id": "RE",
+      "worker_id": "R1",
       "model_id": 3000
     }
   }
@@ -756,7 +756,7 @@ Root `(0,0,0)` 可以声明：
 - origin / reply target 是 server-owned metadata records；ZIP / imported records 不得提供或覆盖。
 - `remote_bus_endpoint_v1` 不得声明 `to.pin`；公开 pin 只能来自 `dual_bus_model.egress_pins` 与当前触发的 root `pin.out`。
 - provider ZIP / imported records 不得提供 `ui.egress.binding.v1`，也不得声明任何 `pin.bus.*`。host-owned egress binding 和系统总线出口只能由 UI Server installer 在安装后生成。
-- 本地安装模型 id 和远端 provider model id 必须分开。多名用户可分别安装成本地 `2000` / `2010` / `2030`，同时都指向同一个远端 `RE:3000`。
+- 本地安装模型 id 和远端 provider model id 必须分开。多名用户可分别安装成本地 `2000` / `2010` / `2030`，同时都指向同一个远端 `R1:3000`。
 - `endpoint_pin` 表示远端 provider model root 的公开 Cell pin，不是 `{functionName}:in`。
 - MBR 不得要求为每个 imported app 写 per-app 静态 route；MBR / MQTT adapter 只能从 endpoint metadata records 派生 transport topic 或目标地址。
 

@@ -20,12 +20,12 @@ function assertNoOld(text, label) {
 
 function test_doc_has_self_described_route_contract() {
   const doc = read(GUIDE);
-  assert.match(doc, /remote-worker `RE`|remote-worker RE/u, 'guide must explain RE remote-worker');
+  assert.match(doc, /remote-worker `R1`|remote-worker R1/u, 'guide must explain R1 remote-worker');
   assert.match(doc, /endpoint_worker_id/u, 'guide must explain endpoint records');
   assert.match(doc, /reply_target_worker_id/u, 'guide must explain reply target records');
   assert.match(doc, /model `3000`|model 3000/u, 'guide must explain provider model 3000');
   assert.match(doc, /submit1/u, 'guide must explain public submit1 pin');
-  assert.match(doc, /UIPUT\/ws\/dam\/pic\/de\/sw\/RE\/3000\/submit1/u, 'guide must document unified endpoint submit topic');
+  assert.match(doc, /UIPUT\/ws\/dam\/pic\/de\/sw\/R1\/3000\/submit1/u, 'guide must document unified endpoint submit topic');
   assert.match(doc, /endpoint.*ui-server-U1.*2000.*result/us, 'guide must document reply target as payload endpoint records');
   assert.match(doc, /test_files\/minimal_submit_dual_bus_app_payload\.json/u, 'guide must reference payload fixture');
   assert.match(doc, /test_files\/minimal_submit_dual_bus\.zip/u, 'guide must reference zip fixture');
@@ -87,7 +87,7 @@ function test_mbr_and_remote_config_use_route_topics() {
   const subscriptions = find(records('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json'), (record) => record.k === 'remote_subscriptions')?.v || [];
   assert.equal(mbrText.includes('mbr_route_'), false, 'MBR patch must not use static mbr_route');
   assert.equal(systemText.includes('mbr_route_'), false, 'system models must not seed static mbr_route');
-  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1'), 'remote config must subscribe provider endpoint topic');
+  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1'), 'remote config must subscribe provider endpoint topic');
   assert.equal(subscriptions.some((topic) => String(topic).includes('/1050/')), false, 'remote config must not include old 1050 topics');
   return { key: 'mbr_and_remote_config_use_route_topics', status: 'PASS' };
 }

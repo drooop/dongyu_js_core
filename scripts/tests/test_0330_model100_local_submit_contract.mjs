@@ -58,6 +58,13 @@ function tempPayload(records = []) {
   ];
 }
 
+function payloadValue(packet, key) {
+  const record = Array.isArray(packet?.payload)
+    ? packet.payload.find((item) => item && item.k === key)
+    : null;
+  return record ? record.v : undefined;
+}
+
 async function main() {
   await withServerState(async (state) => {
     const published = [];
@@ -88,8 +95,20 @@ async function main() {
     assert.equal(root.submit_inflight?.v, true, 'model100_local_submit_must_stay_inflight_until_remote_result');
     assert.equal(Object.prototype.hasOwnProperty.call(model0Root, 'model100_submit_out'), false, 'model100_local_submit_must_not_create_old_model0_egress_label');
     assert.equal(published.length, 1, 'model100_local_submit_must_publish_once_through_generated_adapter');
-    assert.deepEqual(published[0]?.route?.to, { worker_id: 'RE', model_id: 100, pin: 'submit' });
-    assert.deepEqual(published[0]?.route?.reply_to, { worker_id: 'ui-server-it0330', model_id: 100, pin: 'result' });
+    assert.deepEqual(Object.keys(published[0] || {}).sort(), ['payload', 'type', 'version'], 'published packet must use strict pin_payload top-level keys');
+    assert.equal(published[0]?.version, 'v1');
+    assert.equal(published[0]?.type, 'pin_payload');
+    assert.equal(payloadValue(published[0], '__mt_payload_kind'), 'pin_payload.v1');
+    assert.equal(payloadValue(published[0], 'endpoint_worker_id'), 'R1');
+    assert.equal(payloadValue(published[0], 'endpoint_model_id'), 100);
+    assert.equal(payloadValue(published[0], 'endpoint_pin'), 'submit');
+    assert.equal(payloadValue(published[0], 'origin_worker_id'), 'ui-server-it0330');
+    assert.equal(payloadValue(published[0], 'origin_model_id'), 100);
+    assert.equal(payloadValue(published[0], 'origin_pin'), 'submit');
+    assert.equal(payloadValue(published[0], 'reply_target_worker_id'), 'ui-server-it0330');
+    assert.equal(payloadValue(published[0], 'reply_target_model_id'), 100);
+    assert.equal(payloadValue(published[0], 'reply_target_pin'), 'result');
+    assert.ok(Array.isArray(payloadValue(published[0], 'payload')), 'nested business payload must stay a ModelTable records array');
     const mailboxLast = snap.models[String(EDITOR_MODEL_ID)]?.cells?.['0,0,1']?.labels?.bus_event_last_op_id?.v;
     assert.ok(typeof mailboxLast === 'string' && mailboxLast.length > 0, 'model100_local_submit_must_update_bus_event_last_op_id');
     console.log('PASS test_0330_model100_local_submit_contract');

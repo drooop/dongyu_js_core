@@ -8,7 +8,7 @@ source: ai
 
 # 最小 Submit 双总线示例
 
-本文说明一个最小滑动 App 如何由 provider 准备成 ZIP，进入 UI Server 后被安装为 Workspace 侧边栏里的 App，并通过双总线让 remote-worker `RE` 的 provider model `3000` 处理 Submit，最终把页面文字更新为 `Submitted: <输入内容>`。
+本文说明一个最小滑动 App 如何由 provider 准备成 ZIP，进入 UI Server 后被安装为 Workspace 侧边栏里的 App，并通过双总线让 remote-worker `R1` 的 provider model `3000` 处理 Submit，最终把页面文字更新为 `Submitted: <输入内容>`。
 
 一句话链路：
 
@@ -20,16 +20,16 @@ UI click -> Model 0 -> Matrix -> MBR -> remote provider public pin -> reply_targ
 
 | 项 | 当前写法 |
 |---|---|
-| MQTT topic | `UIPUT/ws/dam/pic/de/sw/RE/3000/submit1` |
-| topic 含义 | 只表示远端 endpoint：worker `RE`、model `3000`、pin `submit1` |
+| MQTT topic | `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1` |
+| topic 含义 | 只表示远端 endpoint：worker `R1`、model `3000`、pin `submit1` |
 | 回包目标 | 不放在 topic；放在 payload records：`reply_target_worker_id = ui-server-U1`、`reply_target_model_id = 2000`、`reply_target_pin = result` |
 | 请求来源 | 放在 payload records：`origin_worker_id`、`origin_model_id`、`origin_pin` |
 | 业务数据 | 放在嵌套 `payload` record 中，仍是 ModelTable records array |
 | 禁止项 | `route.reply_to`、`return_topic`、`returnTopic`、`result_topic`、旧 `worker/<id>/model/<id>/pin/<pin>` topic |
 
-## 1. Remote worker `RE` 的 provider model `3000`
+## 1. Remote worker `R1` 的 provider model `3000`
 
-`RE` 不需要知道 UI Server 最后把 App 安装成本地 model `2000`、`3000` 还是其他 id。`RE` 只需要声明自己有 provider model `3000`，root `(0,0,0)` 暴露 `submit1 pin.in`，然后把它接到真正的程序模型 Cell。这个远端 endpoint 可以简写为：`RE / 3000 / submit1`。
+`R1` 不需要知道 UI Server 最后把 App 安装成本地 model `2000`、`3000` 还是其他 id。`R1` 只需要声明自己有 provider model `3000`，root `(0,0,0)` 暴露 `submit1 pin.in`，然后把它接到真正的程序模型 Cell。这个远端 endpoint 可以简写为：`R1 / 3000 / submit1`。
 
 最小填表结构：
 
@@ -144,7 +144,7 @@ return [
   mt('endpoint_worker_id', 'str', replyTarget.worker_id),
   mt('endpoint_model_id', 'int', replyTarget.model_id),
   mt('endpoint_pin', 'str', replyTarget.pin),
-  mt('origin_worker_id', 'str', 'RE'),
+  mt('origin_worker_id', 'str', 'R1'),
   mt('origin_model_id', 'int', 3000),
   mt('origin_pin', 'str', 'submit1'),
   mt('reply_target_worker_id', 'str', replyTarget.worker_id),
@@ -155,7 +155,7 @@ return [
 ];
 ```
 
-注意：`RE` 当前只接受 `text`。不要写旧的 `input_value`、`message_text` 或 `value.text` 兼容兜底。校验失败时写本地状态并 `return null`。
+注意：`R1` 当前只接受 `text`。不要写旧的 `input_value`、`message_text` 或 `value.text` 兼容兜底。校验失败时写本地状态并 `return null`。
 
 ## 2. UI App JSON patch
 
@@ -181,7 +181,7 @@ return [
 | `submit_inflight` | `bool` | Submit 是否正在等待回包。 |
 | `last_submit_payload` | `json` | 最近一次提交的业务 ModelTable records。 |
 | `host_ingress_v1` | `json` | 安装器生成 host ingress adapter 的声明。 |
-| `remote_bus_endpoint_v1` | `json` | 远端 endpoint 默认目标：`RE / 3000`。不写 `to.pin`。 |
+| `remote_bus_endpoint_v1` | `json` | 远端 endpoint 默认目标：`R1 / 3000`。不写 `to.pin`。 |
 | `dual_bus_model` | `json` | 声明 `egress_pins=["submit1"]`，让安装器生成 host egress adapter。 |
 | `submit_request` | `pin.in` | root 内部提交入口。 |
 | `submit1` | `pin.out` | 对外提交出口，也就是后续的 `endpoint_pin`。 |
@@ -243,7 +243,7 @@ handle_submit writes input_text / last_submit_payload / submit_inflight / remote
 handle_submit writes business payload to submit1 pin.out
 dual_bus_model.egress_pins contains submit1
 generated host egress adapter wraps endpoint_worker_id / origin_worker_id / reply_target_worker_id
-Model 0 mt_bus_send_in -> pin.bus.mb.out -> Matrix -> MBR -> UIPUT/ws/dam/pic/de/sw/RE/3000/submit1
+Model 0 mt_bus_send_in -> pin.bus.mb.out -> Matrix -> MBR -> UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
 ```
 
 `handle_submit` 只准备业务 payload：
@@ -300,7 +300,7 @@ host bridge 写入的 `bus_send.v1` records 形态如下：
 [
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "bus_send.v1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus_out_key", "t": "str", "v": "imported_submit1_2000_bus" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "RE" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "submit1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "ui-server-U1" },
@@ -318,7 +318,7 @@ host bridge 写入的 `bus_send.v1` records 形态如下：
 观察请求时订阅：
 
 ```text
-UIPUT/ws/dam/pic/de/sw/RE/3000/submit1
+UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
 ```
 
 这条消息的外层只有：
@@ -327,7 +327,7 @@ UIPUT/ws/dam/pic/de/sw/RE/3000/submit1
 { "version": "v1", "type": "pin_payload", "payload": "ModelTable records array" }
 ```
 
-要模拟 `RE` 回包，不要发布到所谓 result topic。仍然使用 endpoint topic 规则，只是 endpoint records 指向 UI Server：
+要模拟 `R1` 回包，不要发布到所谓 result topic。仍然使用 endpoint topic 规则，只是 endpoint records 指向 UI Server：
 
 ```json
 {
@@ -340,7 +340,7 @@ UIPUT/ws/dam/pic/de/sw/RE/3000/submit1
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "ui-server-U1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 2000 },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "result" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "RE" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "R1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_model_id", "t": "int", "v": 3000 },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_pin", "t": "str", "v": "submit1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_worker_id", "t": "str", "v": "ui-server-U1" },
@@ -379,6 +379,6 @@ MBR 收到这类回包后会转回 Matrix；UI Server 只按 endpoint / reply ta
 |---|---|
 | `route.reply_to` in zip | 回包目标必须由 UI Server 写入 `reply_target_*` records。 |
 | `source_model_id` | 已被 `origin_model_id` / `reply_target_model_id` 取代。 |
-| `worker/RE/model/3000/pin/submit1` 旧 topic | 当前只允许 `UIPUT/ws/dam/pic/de/sw/RE/3000/submit1`。 |
+| `worker/R1/model/3000/pin/submit1` 旧 topic | 当前只允许 `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`。 |
 | `pin.connect.model` | 跨模型连接使用 `model.submt` + `pin.connect.cell`。 |
 | `ctx.writeLabel/getLabel/rmLabel` | 当前业务副作用只能走模型表运行时允许的 pin / V1N API。 |

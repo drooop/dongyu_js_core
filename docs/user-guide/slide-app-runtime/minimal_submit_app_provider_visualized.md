@@ -8,7 +8,7 @@ source: ai
 
 # 最小 Submit 双总线示例 - Visualized
 
-这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经过 Matrix、MBR、MQTT、remote-worker RE，最后根据 `reply_target_worker_id / reply_target_model_id / reply_target_pin` 回到本地 UI 模型，页面显示 `Submitted: <输入内容>`。
+这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经过 Matrix、MBR、MQTT、remote-worker R1，最后根据 `reply_target_worker_id / reply_target_model_id / reply_target_pin` 回到本地 UI 模型，页面显示 `Submitted: <输入内容>`。
 
 ## 总览
 
@@ -19,16 +19,16 @@ sequenceDiagram
   participant MX as Matrix management bus
   participant MBR as MBR
   participant MQTT as MQTT
-  participant RE as remote-worker RE model 3000
+  participant R1 as remote-worker R1 model 3000
   UI->>UI: ui_bind_json writes value_ref to click_chain
   UI->>UI: click_chain -> submit_request -> handle_submit:in
   UI->>M0: submit1 pin.out reaches generated host egress adapter
-  M0->>MX: pin_payload.v1 with endpoint_worker_id=RE endpoint_model_id=3000 endpoint_pin=submit1
+  M0->>MX: pin_payload.v1 with endpoint_worker_id=R1 endpoint_model_id=3000 endpoint_pin=submit1
   MX->>MBR: management bus packet
-  MBR->>MQTT: UIPUT/ws/dam/pic/de/sw/RE/3000/submit1
-  MQTT->>RE: root submit1 pin.in
-  RE->>RE: root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in`
-  RE->>MQTT: pin_payload.v1 endpoint = ui-server-U1 / 2000 / result
+  MBR->>MQTT: UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
+  MQTT->>R1: root submit1 pin.in
+  R1->>R1: root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in`
+  R1->>MQTT: pin_payload.v1 endpoint = ui-server-U1 / 2000 / result
   MQTT->>MBR: control bus reply
   MBR->>MX: management bus reply
   MX->>M0: endpoint_worker_id=ui-server-U1 endpoint_model_id=2000 endpoint_pin=result
@@ -75,17 +75,17 @@ flowchart TB
 
 ## Endpoint Topic 与 Payload Records
 
-发送给 RE 的 topic 是：
+发送给 R1 的 topic 是：
 
 ```text
-UIPUT/ws/dam/pic/de/sw/RE/3000/submit1
+UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
 ```
 
 topic 只描述远端 endpoint。真正的请求来源和回包目标都在 `pin_payload.v1` 的 Temporary ModelTable records 里：
 
 | records | 示例 |
 |---|---|
-| `remote_bus_endpoint_v1` -> `endpoint_worker_id` / `endpoint_model_id` / `endpoint_pin` | `RE / 3000 / submit1` |
+| `remote_bus_endpoint_v1` -> `endpoint_worker_id` / `endpoint_model_id` / `endpoint_pin` | `R1 / 3000 / submit1` |
 | `origin_worker_id` / `origin_model_id` / `origin_pin` | `ui-server-U1 / 2000 / submit1` |
 | `reply_target_worker_id` / `reply_target_model_id` / `reply_target_pin` | `ui-server-U1 / 2000 / result` |
 | nested `payload` | `text`、`source` |
@@ -103,7 +103,7 @@ topic 只描述远端 endpoint。真正的请求来源和回包目标都在 `pin
 
 ## Remote Worker 内部接线
 
-RE 的公开 `submit1` pin 不是程序端点本身。RE 需要用 `submit1_route` 这个 `pin.connect.cell` 把 root `submit1` 接到 `(1,1,1).submit1_in`，再用同 Cell 的 `pin.connect.label` 把 `submit1_in` 接到 `submit1:in`。
+R1 的公开 `submit1` pin 不是程序端点本身。R1 需要用 `submit1_route` 这个 `pin.connect.cell` 把 root `submit1` 接到 `(1,1,1).submit1_in`，再用同 Cell 的 `pin.connect.label` 把 `submit1_in` 接到 `submit1:in`。
 
 ```text
 root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in`
@@ -116,7 +116,7 @@ submit1:out -> `(1,1,1).submit1_out` -> root `result`
 |---|---|
 | `route.reply_to` | 只能作为禁止项出现；ZIP 和 runtime 输入面都不能使用。 |
 | `source_model_id` | 不再作为传输 metadata；使用 `origin_model_id` / `reply_target_model_id`。 |
-| `worker/RE/model/3000/pin/submit1` | 旧 topic 形态，禁止。 |
+| `worker/R1/model/3000/pin/submit1` | 旧 topic 形态，禁止。 |
 | `pin.connect.model` | 已移除；使用 `pin.connect.cell`。 |
 | raw `resultPayload` | 公开 result path 必须包装成 `pin_payload.v1`。 |
 

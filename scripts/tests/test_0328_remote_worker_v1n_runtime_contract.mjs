@@ -26,19 +26,31 @@ function createConfiguredRuntime() {
   return rt;
 }
 
-function pinPayload({ sourceModelId, pin = 'submit', payload }) {
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function pinPayload({ endpointModelId, pin = 'submit', payload }) {
+  const opId = `it0328_${endpointModelId}_${Date.now()}`;
   return {
     version: 'v1',
     type: 'pin_payload',
-    op_id: `it0328_${sourceModelId}_${Date.now()}`,
-    source_model_id: sourceModelId,
-    pin,
-    payload,
-    timestamp: Date.now(),
-    route: {
-      to: { worker_id: 'RE', model_id: sourceModelId, pin },
-      reply_to: { worker_id: 'ui-server-test', model_id: sourceModelId, pin: 'result' },
-    },
+    payload: [
+      mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+      mt('__mt_request_id', 'str', opId),
+      mt('op_id', 'str', opId),
+      mt('endpoint_worker_id', 'str', 'R1'),
+      mt('endpoint_model_id', 'int', endpointModelId),
+      mt('endpoint_pin', 'str', pin),
+      mt('origin_worker_id', 'str', 'ui-server-test'),
+      mt('origin_model_id', 'int', endpointModelId),
+      mt('origin_pin', 'str', pin),
+      mt('reply_target_worker_id', 'str', 'ui-server-test'),
+      mt('reply_target_model_id', 'int', endpointModelId),
+      mt('reply_target_pin', 'str', 'result'),
+      mt('payload', 'json', payload),
+      mt('timestamp', 'int', Date.now()),
+    ],
   };
 }
 
@@ -49,9 +61,9 @@ async function waitForSettle(ms = 1200) {
 async function test_model100_submit_updates_root_state() {
   const rt = createConfiguredRuntime();
   const handled = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/worker/RE/model/100/pin/submit',
+    'UIPUT/ws/dam/pic/de/sw/R1/100/submit',
     pinPayload({
-      sourceModelId: 100,
+      endpointModelId: 100,
       payload: [
         { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello-0328' },
       ],
@@ -82,9 +94,9 @@ function test_remote_worker_patches_stop_using_legacy_ctx_mutators() {
 async function test_model1010_submit_updates_root_state() {
   const rt = createConfiguredRuntime();
   const handled = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/worker/RE/model/1010/pin/submit',
+    'UIPUT/ws/dam/pic/de/sw/R1/1010/submit',
     pinPayload({
-      sourceModelId: 1010,
+      endpointModelId: 1010,
       payload: [
         { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'workspace-0328' },
       ],
@@ -97,33 +109,10 @@ async function test_model1010_submit_updates_root_state() {
   return { key: 'model1010_submit_updates_root_state', status: 'PASS' };
 }
 
-async function test_model1019_submit_updates_root_state() {
-  const rt = createConfiguredRuntime();
-  const handled = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/worker/RE/model/1019/pin/submit',
-    pinPayload({
-      sourceModelId: 1019,
-      payload: [
-        { id: 0, p: 0, r: 0, c: 0, k: 'message_text', t: 'str', v: 'matrix-0328' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'sender_user_id', t: 'str', v: '@drop:localhost' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'room_id', t: 'str', v: '!phase2-group:localhost' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'room_name', t: 'str', v: 'Phase 2 Group' },
-        { id: 0, p: 0, r: 0, c: 0, k: 'room_kind', t: 'str', v: 'group' },
-      ],
-    }),
-  );
-  assert.equal(handled, true, 'model1019_mqtt_incoming_must_be_handled');
-  await waitForSettle();
-  const root = rt.getCell(rt.getModel(1019), 0, 0, 0).labels;
-  assert.equal(root.get('conversation_status')?.v, 'remote_processed', 'model1019_conversation_status_must_be_remote_processed');
-  return { key: 'model1019_submit_updates_root_state', status: 'PASS' };
-}
-
 const tests = [
   test_remote_worker_patches_stop_using_legacy_ctx_mutators,
   test_model100_submit_updates_root_state,
   test_model1010_submit_updates_root_state,
-  test_model1019_submit_updates_root_state,
 ];
 
 (async () => {

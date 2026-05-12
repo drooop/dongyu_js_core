@@ -33,6 +33,59 @@ function mailboxEnvelope(action, options = {}) {
   };
 }
 
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function payloadValue(packetOrRecords, key) {
+  const records = Array.isArray(packetOrRecords)
+    ? packetOrRecords
+    : (Array.isArray(packetOrRecords?.payload) ? packetOrRecords.payload : []);
+  return records.find((record) => record && record.k === key)?.v;
+}
+
+function assertStrictPinPacket(packet, message = 'packet') {
+  assert.deepEqual(Object.keys(packet || {}).sort(), ['payload', 'type', 'version'], `${message}_must_only_expose_version_type_payload`);
+  assert.equal(packet.version, 'v1', `${message}_must_be_v1`);
+  assert.equal(packet.type, 'pin_payload', `${message}_must_use_pin_payload_transport`);
+  assert.equal(Array.isArray(packet.payload), true, `${message}_payload_must_be_modeltable_records`);
+  for (const forbidden of ['source_model_id', 'pin', 'route', 'reply_to', 'return_topic', 'returnTopic', 'result_topic']) {
+    assert.equal(Object.hasOwn(packet, forbidden), false, `${message}_must_not_expose_${forbidden}`);
+  }
+}
+
+function pinPayloadRecords({
+  opId,
+  endpointWorkerId,
+  endpointModelId,
+  endpointPin,
+  originWorkerId,
+  originModelId,
+  originPin,
+  replyTargetWorkerId,
+  replyTargetModelId,
+  replyTargetPin,
+  payloadRecords,
+  timestamp = 1700000000000,
+}) {
+  return [
+    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('__mt_request_id', 'str', opId),
+    mt('op_id', 'str', opId),
+    mt('endpoint_worker_id', 'str', endpointWorkerId),
+    mt('endpoint_model_id', 'int', endpointModelId),
+    mt('endpoint_pin', 'str', endpointPin),
+    mt('origin_worker_id', 'str', originWorkerId),
+    mt('origin_model_id', 'int', originModelId),
+    mt('origin_pin', 'str', originPin),
+    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
+    mt('reply_target_model_id', 'int', replyTargetModelId),
+    mt('reply_target_pin', 'str', replyTargetPin),
+    mt('payload', 'json', payloadRecords),
+    mt('timestamp', 'int', timestamp),
+  ];
+}
+
 function findRecord(records, predicate) {
   return records.find((record) => predicate(record)) || null;
 }
@@ -45,13 +98,13 @@ function test_remote_mode_role_patches_cover_model1010() {
 
   assert.equal(systemPatch.some((record) => String(record?.k || '').startsWith('mbr_route_')), false, 'system_models_must_not_seed_static_mbr_routes');
   assert.equal(mbrPatch.some((record) => record?.k === 'mbr_mqtt_model_ids'), false, 'mbr_role_must_not_seed_static_model_ids');
-  assert.ok(findRecord(remoteCfg, (record) => record?.k === 'remote_subscriptions' && Array.isArray(record?.v) && record.v.includes('UIPUT/ws/dam/pic/de/sw/worker/RE/model/1010/pin/submit')), 'remote_worker_config_missing_1010_route_topic');
+  assert.ok(findRecord(remoteCfg, (record) => record?.k === 'remote_subscriptions' && Array.isArray(record?.v) && record.v.includes('UIPUT/ws/dam/pic/de/sw/R1/1010/submit')), 'remote_worker_config_missing_1010_route_topic');
   assert.ok(findRecord(remoteTruth, (record) => record?.model_id === 1010 && record?.k === 'mqtt_topic_base' && record?.v === 'UIPUT/ws/dam/pic/de/sw'), 'remote_truth_missing_mqtt_topic_base');
   assert.equal(findRecord(remoteTruth, (record) => record?.model_id === 1010 && record?.k === 'result_out_topic'), null, 'remote_truth_must_not_use_static_result_out_topic');
   return { key: 'remote_mode_role_patches_cover_model1010', status: 'PASS' };
 }
 
-async function test_remote_mode_submits_to_matrix_and_accepts_snapshot_delta_return() {
+async function test_remote_mode_submits_to_matrix_and_accepts_pin_payload_return() {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0270-remote-mode-'));
   process.env.DY_AUTH = '0';
   process.env.DY_PERSISTED_ASSET_ROOT = '';
@@ -59,6 +112,7 @@ async function test_remote_mode_submits_to_matrix_and_accepts_snapshot_delta_ret
   process.env.WORKER_BASE_DATA_ROOT = join(tempRoot, 'runtime');
   process.env.DOCS_ROOT = join(tempRoot, 'docs');
   process.env.STATIC_PROJECTS_ROOT = join(tempRoot, 'static');
+  process.env.DY_UI_SERVER_WORKER_ID = 'ui-server-it0270';
 
   const { createServerState } = await import(new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url));
   const state = createServerState({ dbPath: null });
@@ -87,14 +141,19 @@ async function test_remote_mode_submits_to_matrix_and_accepts_snapshot_delta_ret
 
     await wait();
     assert.equal(published.length, 1, 'remote_mode_must_publish_one_matrix_payload');
-    assert.equal(published[0]?.source_model_id, WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID, 'remote_payload_must_preserve_source_model_id');
-    assert.equal(published[0]?.type, 'pin_payload', 'remote_payload_must_use_pin_payload_transport');
-    assert.equal(published[0]?.pin, 'submit', 'remote_payload_must_use_submit_pin');
-    assert.equal(published[0]?.route?.to?.worker_id, 'RE', 'remote_payload_must_include_route_to_worker');
-    assert.equal(published[0]?.route?.to?.model_id, WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID, 'remote_payload_must_include_route_to_model');
-    assert.equal(published[0]?.route?.reply_to?.model_id, WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID, 'remote_payload_must_include_reply_to_model');
-    assert.ok(Array.isArray(published[0]?.payload), 'remote_payload_must_carry_temporary_modeltable_array');
-    assert.ok(published[0]?.payload?.some?.((record) => record && record.k === 'input_value' && record.v === 'Gamma1'), 'remote_payload_must_use_truth_input_draft');
+    assertStrictPinPacket(published[0], 'remote_payload');
+    assert.equal(payloadValue(published[0], '__mt_payload_kind'), 'pin_payload.v1', 'remote_payload_must_declare_pin_payload_v1');
+    assert.equal(payloadValue(published[0], 'endpoint_worker_id'), 'R1', 'remote_payload_must_include_endpoint_worker');
+    assert.equal(payloadValue(published[0], 'endpoint_model_id'), WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID, 'remote_payload_must_include_endpoint_model');
+    assert.equal(payloadValue(published[0], 'endpoint_pin'), 'submit', 'remote_payload_must_use_submit_endpoint_pin');
+    assert.equal(payloadValue(published[0], 'origin_worker_id'), 'ui-server-it0270', 'remote_payload_must_include_origin_worker');
+    assert.equal(payloadValue(published[0], 'origin_model_id'), WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID, 'remote_payload_must_include_origin_model');
+    assert.equal(payloadValue(published[0], 'origin_pin'), 'submit', 'remote_payload_must_include_origin_pin');
+    assert.equal(payloadValue(published[0], 'reply_target_worker_id'), 'ui-server-it0270', 'remote_payload_must_include_reply_target_worker');
+    assert.equal(payloadValue(published[0], 'reply_target_model_id'), WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID, 'remote_payload_must_include_reply_target_model');
+    assert.equal(payloadValue(published[0], 'reply_target_pin'), 'result', 'remote_payload_must_include_reply_target_pin');
+    assert.ok(Array.isArray(payloadValue(published[0], 'payload')), 'remote_payload_must_carry_temporary_modeltable_array');
+    assert.ok(payloadValue(published[0], 'payload')?.some?.((record) => record && record.k === 'input_value' && record.v === 'Gamma1'), 'remote_payload_must_use_truth_input_draft');
 
     const beforeReturn = state.clientSnap().models[String(WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID)].cells['0,0,0'].labels.result_status?.v;
     assert.equal(beforeReturn, 'loading', 'remote_submit_must_set_loading_status_before_return');
@@ -102,23 +161,31 @@ async function test_remote_mode_submits_to_matrix_and_accepts_snapshot_delta_ret
     state.programEngine.handleDyBusEvent({
       version: 'v1',
       type: 'pin_payload',
-      op_id: 'test_0270_remote_return',
-      source_model_id: WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID,
-      pin: 'result',
-      payload: [
+      payload: pinPayloadRecords({
+        opId: 'test_0270_remote_return',
+        endpointWorkerId: 'ui-server-it0270',
+        endpointModelId: WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID,
+        endpointPin: 'result',
+        originWorkerId: 'R1',
+        originModelId: WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID,
+        originPin: 'submit',
+        replyTargetWorkerId: 'ui-server-it0270',
+        replyTargetModelId: WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID,
+        replyTargetPin: 'result',
+        payloadRecords: [
         { id: 0, p: 0, r: 0, c: 0, k: 'generated_color_text', t: 'str', v: '#123abc' },
         { id: 0, p: 0, r: 0, c: 0, k: 'result_status', t: 'str', v: 'remote_processed' },
         { id: 0, p: 0, r: 0, c: 0, k: 'submit_inflight', t: 'bool', v: false },
-      ],
-      route: { to: published[0].route.reply_to, from: published[0].route.to },
+        ],
+      }),
     });
     await wait();
 
     const after = state.clientSnap().models[String(WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID)].cells['0,0,0'].labels;
-    assert.equal(after.generated_color_text?.v, '#123abc', 'snapshot_delta_return_must_materialize_generated_color_text');
-    assert.equal(after.result_status?.v, 'remote_processed', 'snapshot_delta_return_must_materialize_remote_status');
-    assert.equal(after.submit_inflight?.v, false, 'snapshot_delta_return_must_clear_submit_inflight');
-    return { key: 'remote_mode_submits_to_matrix_and_accepts_snapshot_delta_return', status: 'PASS' };
+    assert.equal(after.generated_color_text?.v, '#123abc', 'pin_payload_return_must_materialize_generated_color_text');
+    assert.equal(after.result_status?.v, 'remote_processed', 'pin_payload_return_must_materialize_remote_status');
+    assert.equal(after.submit_inflight?.v, false, 'pin_payload_return_must_clear_submit_inflight');
+    return { key: 'remote_mode_submits_to_matrix_and_accepts_pin_payload_return', status: 'PASS' };
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
     delete process.env.WORKER_BASE_WORKSPACE;
@@ -126,12 +193,13 @@ async function test_remote_mode_submits_to_matrix_and_accepts_snapshot_delta_ret
     delete process.env.DOCS_ROOT;
     delete process.env.STATIC_PROJECTS_ROOT;
     delete process.env.DY_PERSISTED_ASSET_ROOT;
+    delete process.env.DY_UI_SERVER_WORKER_ID;
   }
 }
 
 const tests = [
   test_remote_mode_role_patches_cover_model1010,
-  test_remote_mode_submits_to_matrix_and_accepts_snapshot_delta_return,
+  test_remote_mode_submits_to_matrix_and_accepts_pin_payload_return,
 ];
 
 (async () => {

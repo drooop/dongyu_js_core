@@ -117,7 +117,7 @@ function payloadWithIngressAndEgress() {
         primary: true,
       }],
     } },
-    { id: 0, p: 0, r: 0, c: 0, k: 'remote_bus_endpoint_v1', t: 'json', v: { transport: 'mqtt', to: { worker_id: 'RE', model_id: 3000 } } },
+    { id: 0, p: 0, r: 0, c: 0, k: 'remote_bus_endpoint_v1', t: 'json', v: { transport: 'mqtt', to: { worker_id: 'R1', model_id: 3000 } } },
     { id: 0, p: 0, r: 0, c: 0, k: 'dual_bus_model', t: 'json', v: { mode: 'imported_host_egress', egress_pins: ['submit'] } },
     { id: 0, p: 0, r: 0, c: 0, k: 'submit_request', t: 'pin.in', v: null },
     { id: 0, p: 0, r: 0, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: 'submit_request', to: ['handle_submit:in'] }] },
@@ -231,9 +231,9 @@ async function test_imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix(
 
     const mqttPublishes = state.runtime.mqttTrace.list().filter((entry) => entry.type === 'publish');
     assert.ok(mqttPublishes.some((entry) =>
-      entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/RE/3000/submit'
+      entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit'
       && entry.payload?.payload?.type === 'pin_payload'
-      && payloadString(entry.payload.payload.payload, 'endpoint_worker_id') === 'RE'
+      && payloadString(entry.payload.payload.payload, 'endpoint_worker_id') === 'R1'
       && payloadInt(entry.payload.payload.payload, 'endpoint_model_id') === 3000
       && payloadString(entry.payload.payload.payload, 'endpoint_pin') === 'submit'
       && payloadString(entry.payload.payload.payload, 'origin_worker_id') === 'ui-server-it0322'
@@ -247,7 +247,7 @@ async function test_imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix(
     assert.equal(matrixPublished.length, 1, 'matrix_publish_must_be_called_once');
     assert.equal(matrixPublished[0]?.type, 'pin_payload', 'matrix_publish_must_use_pin_payload_transport');
     assert.deepEqual(Object.keys(matrixPublished[0] || {}).sort(), ['payload', 'type', 'version'], 'matrix packet must expose only version/type/payload');
-    assert.equal(payloadString(matrixPublished[0]?.payload, 'endpoint_worker_id'), 'RE', 'matrix_publish_must_use_remote_worker_endpoint');
+    assert.equal(payloadString(matrixPublished[0]?.payload, 'endpoint_worker_id'), 'R1', 'matrix_publish_must_use_remote_worker_endpoint');
     assert.equal(payloadInt(matrixPublished[0]?.payload, 'endpoint_model_id'), 3000, 'matrix_publish_must_use_remote_model_endpoint');
     assert.equal(payloadString(matrixPublished[0]?.payload, 'endpoint_pin'), 'submit', 'matrix_publish_must_preserve_submit_pin_as_endpoint');
     assert.equal(payloadString(matrixPublished[0]?.payload, 'origin_worker_id'), 'ui-server-it0322', 'matrix_publish_must_use_ui_server_origin_worker');

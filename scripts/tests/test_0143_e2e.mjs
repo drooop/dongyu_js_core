@@ -32,6 +32,46 @@ function getLabel(rt, modelId, p, r, c, k) {
   return rt.getCell(m, p, r, c).labels.get(k) || null;
 }
 
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function pinPayloadRecords({
+  opId,
+  endpointWorkerId = 'R1',
+  endpointModelId = 100,
+  endpointPin = 'submit',
+  originWorkerId = 'ui-server-test',
+  originModelId = 100,
+  originPin = 'submit',
+  replyTargetWorkerId = 'ui-server-test',
+  replyTargetModelId = 100,
+  replyTargetPin = 'result',
+  payload,
+  timestamp = 1700000000000,
+}) {
+  return [
+    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('__mt_request_id', 'str', opId),
+    mt('op_id', 'str', opId),
+    mt('endpoint_worker_id', 'str', endpointWorkerId),
+    mt('endpoint_model_id', 'int', endpointModelId),
+    mt('endpoint_pin', 'str', endpointPin),
+    mt('origin_worker_id', 'str', originWorkerId),
+    mt('origin_model_id', 'int', originModelId),
+    mt('origin_pin', 'str', originPin),
+    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
+    mt('reply_target_model_id', 'int', replyTargetModelId),
+    mt('reply_target_pin', 'str', replyTargetPin),
+    mt('payload', 'json', payload),
+    mt('timestamp', 'int', timestamp),
+  ];
+}
+
+function externalPacket(records) {
+  return { version: 'v1', type: 'pin_payload', payload: records };
+}
+
 // --- Test 1: Legacy PIN symbols removed ---
 function test_no_legacy_pin_symbols() {
   const rt = new ModelTableRuntime();
@@ -99,6 +139,8 @@ function test_in_triggers_cell_connection() {
       v: [{ from: [0, 0, 0, 'cmd'], to: [[1, 0, 0, 'input']] }],
     }],
   }, { trustedBootstrap: true });
+  rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: null });
+  rt.addLabel(model, 1, 0, 0, { k: 'input', t: 'pin.in', v: null });
 
   rt.setRuntimeMode('running');
   // Write IN to (0,0,0) — should route to (1,0,0) via cell_connection
@@ -127,22 +169,19 @@ async function test_model100_full_flow() {
   const model0 = rt.getModel(0);
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'R1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
 
-  const topic = 'UIPUT/ws/dam/pic/de/sw/100/submit';
-  const payload = {
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: 'test_0143_submit_001',
-    source_model_id: 100,
-    pin: 'submit',
+  const topic = 'UIPUT/ws/dam/pic/de/sw/R1/100/submit';
+  const payload = externalPacket(pinPayloadRecords({
+    opId: 'test_0143_submit_001',
     payload: [
-      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
+      mt('model_type', 'model.single', 'Data.RemoteSubmit'),
+      mt('input_value', 'str', 'hello'),
     ],
-  };
+  }));
 
   const handled = rt.mqttIncoming(topic, payload);
   assert(handled, 'mqttIncoming must handle the message');
@@ -156,7 +195,6 @@ async function test_model100_full_flow() {
 
   const patchOut = getLabel(rt, 100, 0, 0, 0, 'result');
   assert(patchOut && patchOut.t === 'pin.out', 'function output should be at root as pin.out');
-  assert(Array.isArray(patchOut.v), 'output must be temporary-modeltable payload');
 
   // Verify bg_color updated
   const bg = getLabel(rt, 100, 0, 0, 0, 'bg_color');

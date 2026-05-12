@@ -71,7 +71,7 @@ function busSendPayload({
   return [
     mt('__mt_payload_kind', 'str', 'bus_send.v1'),
     mt('__mt_request_id', 'str', requestId),
-    mt('endpoint_worker_id', 'str', 'RE'),
+    mt('endpoint_worker_id', 'str', 'R1'),
     mt('endpoint_model_id', 'int', 3000),
     mt('endpoint_pin', 'str', pin),
     mt('origin_worker_id', 'str', 'ui-server-test'),
@@ -526,7 +526,7 @@ async function test_mt_bus_send_uses_temporary_payload_and_externalizes_bus_out(
 	  assert.equal(busLabel.t, 'pin.bus.cb.out', 'mt_bus_send output must be pin.bus.cb.out');
 	  assert.ok(Array.isArray(busLabel.v), 'pin.bus.cb.out business value must be temporary ModelTable payload array');
 	  assert.equal(getPayloadLabel(busLabel.v, '__mt_payload_kind')?.v, 'pin_payload.v1');
-	  assert.equal(getPayloadLabel(busLabel.v, 'endpoint_worker_id')?.v, 'RE');
+	  assert.equal(getPayloadLabel(busLabel.v, 'endpoint_worker_id')?.v, 'R1');
 	  assert.equal(getPayloadLabel(busLabel.v, 'endpoint_model_id')?.v, 3000);
 	  assert.equal(getPayloadLabel(busLabel.v, 'endpoint_pin')?.v, 'submit');
 	  assert.equal(getPayloadLabel(busLabel.v, 'origin_model_id')?.v, 100);
@@ -535,7 +535,7 @@ async function test_mt_bus_send_uses_temporary_payload_and_externalizes_bus_out(
 
   const publish = rt.mqttTrace.list().find((entry) =>
     entry.type === 'publish' &&
-    entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/RE/3000/submit'
+    entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit'
   );
 	  assert.ok(publish, 'pin.bus.cb.out must publish an external transport packet to endpoint topic');
 	  assert.equal(publish.payload?.payload?.type, 'pin_payload', 'external transport packet must stay pin_payload');
@@ -877,18 +877,29 @@ async function test_uiput_mm_v1_rejects_mismatched_worker_id() {
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'RE' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'R1' });
   await rt.setRuntimeMode('running');
 
   const nestedPayload = [mt('text', 'str', 'wrong worker')];
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/worker/OTHER/model/33300/pin/submit1', {
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/OTHER/33300/submit1', {
     version: 'v1',
     type: 'pin_payload',
-    op_id: 'req_wrong_worker_0332',
-    source_model_id: 2000,
-    pin: 'submit1',
-    payload: nestedPayload,
-    timestamp: Date.now(),
+    payload: [
+      mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+      mt('__mt_request_id', 'str', 'req_wrong_worker_0332'),
+      mt('op_id', 'str', 'req_wrong_worker_0332'),
+      mt('endpoint_worker_id', 'str', 'OTHER'),
+      mt('endpoint_model_id', 'int', 33300),
+      mt('endpoint_pin', 'str', 'submit1'),
+      mt('origin_worker_id', 'str', 'ui-server-test'),
+      mt('origin_model_id', 'int', 2000),
+      mt('origin_pin', 'str', 'submit1'),
+      mt('reply_target_worker_id', 'str', 'ui-server-test'),
+      mt('reply_target_model_id', 'int', 2000),
+      mt('reply_target_pin', 'str', 'result'),
+      mt('payload', 'json', nestedPayload),
+      mt('timestamp', 'int', Date.now()),
+    ],
   });
   assert.equal(accepted, false, 'uiput_mm_v1 must reject topics addressed to a different worker id');
   assert.equal(model.getCell(0, 0, 0).labels.get('submit1')?.v ?? null, null, 'worker-id mismatch must not deliver pin payload');

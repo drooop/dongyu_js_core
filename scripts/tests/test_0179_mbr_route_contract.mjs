@@ -62,11 +62,55 @@ function payload(text = 'hello') {
   ];
 }
 
-function route(sourceModelId = 100, pin = 'submit', targetModelId = sourceModelId) {
-  return {
-    to: { worker_id: 'RE', model_id: targetModelId, pin },
-    reply_to: { worker_id: 'ui-server-test', model_id: sourceModelId, pin: 'result' },
-  };
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function pinPayloadRecords({
+  opId = 'test_0179_mbr_route_contract_001',
+  endpointWorkerId = 'R1',
+  endpointModelId = 3000,
+  endpointPin = 'task',
+  originWorkerId = 'ui-server-test',
+  originModelId = 101,
+  originPin = 'task',
+  replyTargetWorkerId = 'ui-server-test',
+  replyTargetModelId = 101,
+  replyTargetPin = 'result',
+  payloadRecords = payload('hello'),
+  timestamp = 1700000000000,
+} = {}) {
+  return [
+    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('__mt_request_id', 'str', opId),
+    mt('op_id', 'str', opId),
+    mt('endpoint_worker_id', 'str', endpointWorkerId),
+    mt('endpoint_model_id', 'int', endpointModelId),
+    mt('endpoint_pin', 'str', endpointPin),
+    mt('origin_worker_id', 'str', originWorkerId),
+    mt('origin_model_id', 'int', originModelId),
+    mt('origin_pin', 'str', originPin),
+    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
+    mt('reply_target_model_id', 'int', replyTargetModelId),
+    mt('reply_target_pin', 'str', replyTargetPin),
+    mt('payload', 'json', payloadRecords),
+    mt('timestamp', 'int', timestamp),
+  ];
+}
+
+function externalPacket(records) {
+  return { version: 'v1', type: 'pin_payload', payload: records };
+}
+
+function payloadValue(records, key) {
+  return Array.isArray(records) ? records.find((record) => record && record.k === key)?.v : undefined;
+}
+
+function assertStrictPacket(packet, message = 'packet') {
+  assert.deepEqual(Object.keys(packet || {}).sort(), ['payload', 'type', 'version'], `${message} must only expose version/type/payload`);
+  assert.equal(packet.version, 'v1', `${message} must be v1`);
+  assert.equal(packet.type, 'pin_payload', `${message} must carry pin_payload`);
+  assert.equal(Array.isArray(packet.payload), true, `${message} payload must be Temporary ModelTable records`);
 }
 
 const rt = loadRuntime();
@@ -74,19 +118,17 @@ const sys = rt.getModel(-10);
 rt.addLabel(sys, 0, 0, 0, {
   k: 'mbr_mgmt_inbox',
   t: 'json',
-  v: {
-    version: 'v1', type: 'pin_payload', op_id: 'test_0179_mbr_route_contract_001', source_model_id: 101, pin: 'task',
-    route: route(101, 'task', 3000), payload: payload('hello'), timestamp: 1700000000000,
-  },
+  v: externalPacket(pinPayloadRecords()),
 });
 runMbrFunction(rt, 'mbr_mgmt_to_mqtt');
 const packet = toExternalPacket(rt, 'mbr_cb_out');
-assert.equal(packet?.type, 'pin_payload');
-assert.equal(packet?.pin, 'task');
-assert.equal(packet?.source_model_id, 101);
+assertStrictPacket(packet, 'control bus out');
+assert.equal(payloadValue(packet.payload, 'endpoint_pin'), 'task');
+assert.equal(payloadValue(packet.payload, 'origin_model_id'), 101);
 const published = drainMqtt(rt);
 assert.equal(published.length, 1);
-assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/worker/RE/model/3000/pin/task');
-assert.equal(published[0].payload?.payload?.[1]?.v, 'hello');
-assert.ok(!Array.isArray(published[0].payload?.records));
+assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/3000/task');
+assertStrictPacket(published[0].payload, 'published payload');
+assert.equal(payloadValue(payloadValue(published[0].payload.payload, 'payload'), 'input_value'), 'hello');
+assert.equal(published[0].payload.records, undefined);
 console.log('PASS test_0179_mbr_route_contract');

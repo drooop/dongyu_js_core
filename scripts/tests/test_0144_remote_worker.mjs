@@ -29,6 +29,52 @@ function createConfiguredRuntime() {
   return rt;
 }
 
+function mt(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function pinPayloadRecords({
+  opId,
+  endpointWorkerId = 'R1',
+  endpointModelId = 100,
+  endpointPin = 'submit',
+  originWorkerId = 'ui-server-test',
+  originModelId = 100,
+  originPin = 'submit',
+  replyTargetWorkerId = 'ui-server-test',
+  replyTargetModelId = 100,
+  replyTargetPin = 'result',
+  payload,
+  timestamp = 1700000000000,
+}) {
+  return [
+    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('__mt_request_id', 'str', opId),
+    mt('op_id', 'str', opId),
+    mt('endpoint_worker_id', 'str', endpointWorkerId),
+    mt('endpoint_model_id', 'int', endpointModelId),
+    mt('endpoint_pin', 'str', endpointPin),
+    mt('origin_worker_id', 'str', originWorkerId),
+    mt('origin_model_id', 'int', originModelId),
+    mt('origin_pin', 'str', originPin),
+    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
+    mt('reply_target_model_id', 'int', replyTargetModelId),
+    mt('reply_target_pin', 'str', replyTargetPin),
+    mt('payload', 'json', payload),
+    mt('timestamp', 'int', timestamp),
+  ];
+}
+
+function externalPacket(records) {
+  return { version: 'v1', type: 'pin_payload', payload: records };
+}
+
+function payloadRecords(records) {
+  if (!Array.isArray(records)) return [];
+  const nested = records.find((record) => record && record.k === 'payload' && Array.isArray(record.v));
+  return nested ? nested.v : records;
+}
+
 function test_patches_load_successfully() {
   const rt = createConfiguredRuntime();
   assert(rt.getModel(0), 'Model 0 should exist');
@@ -46,8 +92,8 @@ function test_remote_subscription_config_registered() {
   assert(subs, 'remote_subscriptions label should exist');
   assert.strictEqual(subs.t, 'json');
   assert(Array.isArray(subs.v), 'remote_subscriptions must be an array');
-  assert(subs.v.some((topic) => String(topic).includes('100/submit')), 'remote_subscriptions must include model 100 submit topic');
-  assert(subs.v.some((topic) => String(topic).includes('100/result')), 'remote_subscriptions must include model 100 result topic');
+  assert(subs.v.includes('UIPUT/ws/dam/pic/de/sw/R1/100/submit'), 'remote_subscriptions must include model 100 submit endpoint topic');
+  assert.equal(subs.v.some((topic) => String(topic).includes('100/result')), false, 'remote_subscriptions must not include model 100 result topic');
 
   return { key: 'remote_subscription_config_registered', status: 'PASS' };
 }
@@ -82,19 +128,14 @@ function test_mqtt_incoming_routes_to_model100() {
   const rt = createConfiguredRuntime();
 
   // Simulate MQTT message arriving on Model 100 event topic
-  const topic = 'UIPUT/ws/dam/pic/de/sw/100/submit';
-  const payload = {
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: 'test_0144_mqtt_001',
-    source_model_id: 100,
-    pin: 'submit',
+  const topic = 'UIPUT/ws/dam/pic/de/sw/R1/100/submit';
+  const payload = externalPacket(pinPayloadRecords({
+    opId: 'test_0144_mqtt_001',
     payload: [
-      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
+      mt('model_type', 'model.single', 'Data.RemoteSubmit'),
+      mt('input_value', 'str', 'hello'),
     ],
-    timestamp: Date.now(),
-  };
+  }));
 
   const handled = rt.mqttIncoming(topic, payload);
   assert(handled, 'mqttIncoming should handle the message');
@@ -129,19 +170,14 @@ async function test_full_chain_async() {
   const rt = createConfiguredRuntime();
 
   // Simulate MQTT incoming → full chain
-  const topic = 'UIPUT/ws/dam/pic/de/sw/100/submit';
-  const payload = {
-    version: 'v1',
-    type: 'pin_payload',
-    op_id: 'test_0144_full_001',
-    source_model_id: 100,
-    pin: 'submit',
+  const topic = 'UIPUT/ws/dam/pic/de/sw/R1/100/submit';
+  const payload = externalPacket(pinPayloadRecords({
+    opId: 'test_0144_full_001',
     payload: [
-      { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },
-      { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'hello' },
+      mt('model_type', 'model.single', 'Data.RemoteSubmit'),
+      mt('input_value', 'str', 'hello'),
     ],
-    timestamp: Date.now(),
-  };
+  }));
 
   const handled = rt.mqttIncoming(topic, payload);
   assert(handled, 'mqttIncoming should handle');
@@ -167,7 +203,7 @@ async function test_full_chain_async() {
   const patchOut = procCell.labels.get('result');
   assert(patchOut, 'processing cell result label should exist');
   assert.ok(Array.isArray(patchOut.v), 'processing cell must emit temporary-modeltable payload array');
-  assert.ok(patchOut.v.some((record) => record && record.k === 'bg_color'), 'processing cell result payload must contain bg_color');
+  assert.ok(payloadRecords(patchOut.v).some((record) => record && record.k === 'bg_color'), 'processing cell result payload must contain bg_color');
 
   return { key: 'full_chain_async', status: 'PASS' };
 }

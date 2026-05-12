@@ -65,6 +65,13 @@ function payloadFor(modelId) {
   ];
 }
 
+function payloadValue(packet, key) {
+  const record = Array.isArray(packet?.payload)
+    ? packet.payload.find((item) => item && item.k === key)
+    : null;
+  return record ? record.v : undefined;
+}
+
 async function test_seeded_dual_bus_contract_overrides_persisted_removed_pin_type() {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0362-persist-db-'));
   const dbPath = join(tempRoot, 'modeltable.sqlite');
@@ -97,13 +104,24 @@ async function test_seeded_dual_bus_contract_overrides_persisted_removed_pin_typ
         await wait();
       }
 
-      const byModel = new Map(published.map((packet) => [packet.source_model_id, packet]));
+      const byModel = new Map(published.map((packet) => [payloadValue(packet, 'origin_model_id'), packet]));
       for (const modelId of [100, 1010, 1019]) {
         const packet = byModel.get(modelId);
         assert.ok(packet, `model_${modelId}_must_publish_after_persisted_reload`);
-        assert.equal(packet.pin, 'submit', `model_${modelId}_must_publish_public_submit_pin`);
-        assert.deepEqual(packet.route?.to, { worker_id: 'RE', model_id: modelId, pin: 'submit' });
-        assert.deepEqual(packet.route?.reply_to, { worker_id: 'ui-server-0362-persist', model_id: modelId, pin: 'result' });
+        assert.deepEqual(Object.keys(packet || {}).sort(), ['payload', 'type', 'version'], `model_${modelId}_must_publish_strict_pin_payload_packet`);
+        assert.equal(packet.version, 'v1', `model_${modelId}_packet_version`);
+        assert.equal(packet.type, 'pin_payload', `model_${modelId}_packet_type`);
+        assert.equal(payloadValue(packet, '__mt_payload_kind'), 'pin_payload.v1', `model_${modelId}_payload_kind`);
+        assert.equal(payloadValue(packet, 'endpoint_worker_id'), 'R1', `model_${modelId}_endpoint_worker`);
+        assert.equal(payloadValue(packet, 'endpoint_model_id'), modelId, `model_${modelId}_endpoint_model`);
+        assert.equal(payloadValue(packet, 'endpoint_pin'), 'submit', `model_${modelId}_endpoint_pin`);
+        assert.equal(payloadValue(packet, 'origin_worker_id'), 'ui-server-0362-persist', `model_${modelId}_origin_worker`);
+        assert.equal(payloadValue(packet, 'origin_model_id'), modelId, `model_${modelId}_origin_model`);
+        assert.equal(payloadValue(packet, 'origin_pin'), 'submit', `model_${modelId}_origin_pin`);
+        assert.equal(payloadValue(packet, 'reply_target_worker_id'), 'ui-server-0362-persist', `model_${modelId}_reply_target_worker`);
+        assert.equal(payloadValue(packet, 'reply_target_model_id'), modelId, `model_${modelId}_reply_target_model`);
+        assert.equal(payloadValue(packet, 'reply_target_pin'), 'result', `model_${modelId}_reply_target_pin`);
+        assert.ok(Array.isArray(payloadValue(packet, 'payload')), `model_${modelId}_nested_payload_must_be_records`);
       }
     });
   } finally {

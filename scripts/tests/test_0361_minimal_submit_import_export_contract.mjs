@@ -99,7 +99,7 @@ async function test_saved_zip_imports_and_exports_reimportable_zip() {
     assert.equal(Number.isInteger(importedId), true, 'imported_model_id_must_be_int');
     const root = state.runtime.getCell(state.runtime.getModel(importedId), 0, 0, 0).labels;
     assert.equal(root.get('app_name')?.v, '最小 Submit 双总线示例', 'imported_app_name_must_match');
-    assert.deepEqual(root.get('remote_bus_endpoint_v1')?.v, { transport: 'mqtt', to: { worker_id: 'RE', model_id: 3000 } }, 'remote_endpoint_must_be_preserved_without_reply_to');
+    assert.deepEqual(root.get('remote_bus_endpoint_v1')?.v, { transport: 'mqtt', to: { worker_id: 'R1', model_id: 3000 } }, 'remote_endpoint_must_be_preserved_without_reply_to');
     assert.deepEqual(root.get('dual_bus_model')?.v, { mode: 'imported_host_egress', egress_pins: ['submit1'] }, 'dual_bus_must_declare_public_egress_pin');
     assert.ok(root.has('host_egress_generated_model0_labels'), 'host_egress_adapter_must_be_generated');
     const statusCell = state.runtime.getCell(state.runtime.getModel(importedId), 2, 5, 0).labels;
@@ -114,7 +114,7 @@ async function test_saved_zip_imports_and_exports_reimportable_zip() {
     const exportedPayload = JSON.parse(entries[0].getData().toString('utf8'));
     assertTemporaryRecordArray(exportedPayload, 'exported_payload');
     assertNoLegacyPayloadSurface(exportedPayload, 'exported_payload');
-    assert.equal(exportedPayload.some((record) => record.k === 'remote_bus_endpoint_v1' && record.v?.to?.worker_id === 'RE' && record.v?.to?.model_id === 3000 && !Object.prototype.hasOwnProperty.call(record.v, 'reply_to')), true, 'exported_payload_must_keep_remote_endpoint_without_reply_to');
+    assert.equal(exportedPayload.some((record) => record.k === 'remote_bus_endpoint_v1' && record.v?.to?.worker_id === 'R1' && record.v?.to?.model_id === 3000 && !Object.prototype.hasOwnProperty.call(record.v, 'reply_to')), true, 'exported_payload_must_keep_remote_endpoint_without_reply_to');
     assert.equal(exportedPayload.some((record) => record.k === 'dual_bus_model' && record.v?.mode === 'imported_host_egress' && Array.isArray(record.v.egress_pins) && record.v.egress_pins.includes('submit1')), true, 'exported_payload_must_keep_dual_bus_egress_pin');
     assert.equal(exportedPayload.some((record) => record.k === 'submit1' && record.t === 'pin.out'), true, 'exported_payload_must_keep_submit1_pin_out');
     assert.equal(exportedPayload.some((record) => record.k === 'submit' && record.t === 'pin.out'), false, 'exported_payload_must_not_recreate_legacy_submit_pin');

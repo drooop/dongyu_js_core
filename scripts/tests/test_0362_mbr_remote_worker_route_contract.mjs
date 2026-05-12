@@ -32,7 +32,7 @@ function tempPayload(text = 'hello endpoint') {
 
 function pinPayloadRecords({
   opId = '0362_endpoint_ok',
-  endpointWorkerId = 'RE',
+  endpointWorkerId = 'R1',
   endpointModelId = 3000,
   endpointPin = 'submit1',
   originWorkerId = 'ui-server-local',
@@ -157,12 +157,12 @@ function test_no_static_mbr_route_or_model_subscription_residue() {
   assert.equal(systemText.includes('mbr_route_'), false, 'system model must not seed mbr_route_*');
   assert.equal(mbrText.includes('mbr_route_'), false, 'MBR patch must not read mbr_route_*');
   assert.equal(mbrText.includes('mbr_mqtt_model_ids'), false, 'MBR patch must not seed static MQTT model ids');
-  assert.equal(workerId, 'RE', 'remote-worker runtime must declare its worker id for topic guard');
+  assert.equal(workerId, 'R1', 'remote-worker runtime must declare its worker id for topic guard');
   assert.deepEqual(subscriptions, [
-    'UIPUT/ws/dam/pic/de/sw/RE/100/submit',
-    'UIPUT/ws/dam/pic/de/sw/RE/1010/submit',
-    'UIPUT/ws/dam/pic/de/sw/RE/1019/submit',
-    'UIPUT/ws/dam/pic/de/sw/RE/3000/submit1',
+    'UIPUT/ws/dam/pic/de/sw/R1/100/submit',
+    'UIPUT/ws/dam/pic/de/sw/R1/1010/submit',
+    'UIPUT/ws/dam/pic/de/sw/R1/1019/submit',
+    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1',
   ], 'remote-worker subscriptions must be unified worker/model/pin endpoint topics only');
   assert.equal(
     workerBootstrap.includes('$' + '{base}/+/+/+'),
@@ -213,7 +213,7 @@ function test_mbr_uses_endpoint_records_and_rejects_missing_endpoint() {
   assert.deepEqual(Object.keys(packet).sort(), ['payload', 'type', 'version'], 'MBR transport packet must not carry loose route/source/pin fields');
   const { mqttPublished: published } = drainWorkerEngine(rt);
   assert.equal(published.length, 1, 'MBR must publish endpoint-addressed packet');
-  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/RE/3000/submit1', 'MBR topic must come from endpoint records');
+  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', 'MBR topic must come from endpoint records');
   assert.equal(payloadString(published[0].payload.payload, 'origin_worker_id'), 'ui-server-local', 'MBR must preserve local origin worker id');
   assert.equal(payloadInt(published[0].payload.payload, 'origin_model_id'), 2000, 'MBR must preserve local origin model id');
   assert.equal(payloadString(published[0].payload.payload, 'reply_target_worker_id'), 'ui-server-local', 'MBR must preserve server-owned reply target');
@@ -263,7 +263,7 @@ function test_mbr_mqtt_inbound_bridges_remote_reply_to_management_bus() {
     endpointWorkerId: 'ui-server-local',
     endpointModelId: 2000,
     endpointPin: 'result',
-    originWorkerId: 'RE',
+    originWorkerId: 'R1',
     originModelId: 3000,
     originPin: 'submit1',
     replyTargetWorkerId: 'ui-server-local',
@@ -289,7 +289,7 @@ async function test_remote_worker_submit1_receives_endpoint_and_replies_to_reply
   const rt = loadRemoteRuntime();
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1', externalPacket(pinPayloadRecords({
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', externalPacket(pinPayloadRecords({
     opId: '0362_remote_submit',
     payload: tempPayload('browser submit'),
   })));
@@ -303,7 +303,7 @@ async function test_remote_worker_submit1_receives_endpoint_and_replies_to_reply
   assert.equal(published.length, 1, 'remote submit handler must publish one reply');
   assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/ui-server-local/2000/result', 'reply topic must come from reply target records');
   assert.equal(payloadString(published[0].payload.payload, 'endpoint_worker_id'), 'ui-server-local', 'reply payload endpoint must target UI server');
-  assert.equal(payloadString(published[0].payload.payload, 'origin_worker_id'), 'RE', 'reply payload origin must be remote worker');
+  assert.equal(payloadString(published[0].payload.payload, 'origin_worker_id'), 'R1', 'reply payload origin must be remote worker');
   assert.equal(payloadJson(published[0].payload.payload, 'payload')?.find((record) => record.k === 'display_text')?.v, 'Submitted: browser submit', 'reply payload must carry display_text');
   return { key: 'remote_worker_submit1_receives_endpoint_and_replies_to_reply_target', status: 'PASS' };
 }
@@ -312,10 +312,10 @@ async function test_runtime_rejects_legacy_business_route_record() {
   const rt = loadRemoteRuntime();
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1', externalPacket(pinPayloadRecords({
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', externalPacket(pinPayloadRecords({
     opId: '0362_reject_business_route',
     payload: [
-      mt('route', 'json', { to: { worker_id: 'RE', model_id: 3000, pin: 'submit1' } }),
+      mt('route', 'json', { to: { worker_id: 'R1', model_id: 3000, pin: 'submit1' } }),
       ...tempPayload('route shadow'),
     ],
   })));
@@ -329,7 +329,7 @@ async function test_remote_worker_rejects_missing_reply_target_without_public_re
   const rt = loadRemoteRuntime();
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1', externalPacket(withoutRecords(pinPayloadRecords({
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', externalPacket(withoutRecords(pinPayloadRecords({
     opId: '0362_missing_reply_target',
     payload: tempPayload('missing reply target'),
   }), ['reply_target_worker_id', 'reply_target_model_id', 'reply_target_pin'])));
@@ -346,7 +346,7 @@ async function test_remote_worker_rejects_invalid_reply_target_without_public_re
   const rt = loadRemoteRuntime();
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1', externalPacket(pinPayloadRecords({
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', externalPacket(pinPayloadRecords({
     opId: '0362_invalid_reply_target',
     replyTargetWorkerId: '',
     replyTargetModelId: -1,
@@ -376,7 +376,7 @@ function test_mbr_mqtt_inbound_rejects_invalid_temporary_modeltable_records() {
         endpointWorkerId: 'ui-server-local',
         endpointModelId: 2000,
         endpointPin: 'result',
-        originWorkerId: 'RE',
+        originWorkerId: 'R1',
         originModelId: 3000,
         originPin: 'submit1',
         replyTargetWorkerId: 'ui-server-local',

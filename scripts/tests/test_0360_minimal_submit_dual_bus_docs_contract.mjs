@@ -68,7 +68,7 @@ function assertNoOld(text, path) {
 function test_all_public_docs_cover_required_operational_steps() {
   for (const path of PUBLIC_DOCS) {
     const text = readText(path);
-    assert.match(text, /remote-worker `RE`|remote-worker RE|RE \/ 3000/u, path + ' must explain RE');
+    assert.match(text, /remote-worker `R1`|remote-worker R1|R1 \/ 3000/u, path + ' must explain R1');
     assert.match(text, /endpoint_worker_id/u, path + ' must explain endpoint records');
     assert.match(text, /reply_target_worker_id/u, path + ' must explain reply target records');
     assert.match(text, /submit1/u, path + ' must explain submit1');
@@ -99,7 +99,7 @@ function test_provider_assets_have_no_compatibility_route() {
   assert.equal(Array.isArray(uiPayload), true, 'minimal submit JSON patch must be a ModelTable record array');
   assert.equal(uiPayload.length, 61, 'minimal submit JSON patch must keep the reviewed 61-label shape');
   assert.equal(JSON.stringify(uiPayload).includes('route.reply_to'), false, 'minimal submit JSON patch must not include server-owned route.reply_to');
-  assert.equal(uiPayload.some((record) => record && record.k === 'remote_bus_endpoint_v1' && record.v?.to?.worker_id === 'RE' && record.v?.to?.model_id === 3000 && !Object.prototype.hasOwnProperty.call(record.v.to, 'pin')), true, 'minimal submit JSON patch must declare remote endpoint without to.pin');
+  assert.equal(uiPayload.some((record) => record && record.k === 'remote_bus_endpoint_v1' && record.v?.to?.worker_id === 'R1' && record.v?.to?.model_id === 3000 && !Object.prototype.hasOwnProperty.call(record.v.to, 'pin')), true, 'minimal submit JSON patch must declare remote endpoint without to.pin');
   assert.equal(uiPayload.some((record) => record && record.k === 'dual_bus_model' && Array.isArray(record.v?.egress_pins) && record.v.egress_pins.includes('submit1')), true, 'minimal submit JSON patch must declare submit1 as public egress pin');
   assert.equal(uiPayload.some((record) => record && record.k === 'ui_bind_json' && record.p === 2 && record.r === 3 && record.v?.write?.pin === 'click_chain'), true, 'minimal submit JSON patch must bind Submit button to click_chain');
   assert.equal(uiPayload.some((record) => record && record.k === 'root_routes' && record.t === 'pin.connect.cell'), true, 'minimal submit JSON patch must connect click_chain to root submit_request');
@@ -144,7 +144,7 @@ function test_model0_mbr_remote_worker_contract_is_complete() {
   assert.equal(systemRecords.some((record) => String(record.k || '').startsWith('mbr_route_')), false, 'system models must not seed static MBR routes');
   assert.equal(mbrRecords.some((record) => record.k === 'mbr_mqtt_model_ids'), false, 'MBR must not use static MQTT model id list');
   assert.ok(readText('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json').includes('endpoint_worker_id'), 'MBR function must derive destination from endpoint records');
-  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1'), 'remote-worker must subscribe provider submit1 endpoint topic');
+  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1'), 'remote-worker must subscribe provider submit1 endpoint topic');
   assert.equal(subscriptions.some((topic) => String(topic).includes('/1050/')), false, 'remote-worker must not subscribe old 1050 topics');
   return { key: 'model0_mbr_remote_worker_contract_is_complete', status: 'PASS' };
 }
@@ -194,7 +194,7 @@ function test_minimal_submit_docs_explain_full_patch_labels_and_submit_chain() {
       'pin.bus.mb.out',
       'endpoint_worker_id',
       'reply_target_worker_id',
-      'RE / 3000 / submit1',
+      'R1 / 3000 / submit1',
       'display_text',
       'remote_status',
     ]) {

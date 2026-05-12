@@ -318,7 +318,7 @@ v1 只允许声明远端默认目标：
 {
   "transport": "mqtt",
   "to": {
-    "worker_id": "RE",
+    "worker_id": "R1",
     "model_id": 3000
   }
 }

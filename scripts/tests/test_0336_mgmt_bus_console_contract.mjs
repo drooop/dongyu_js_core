@@ -296,7 +296,7 @@ function test_runtime_routes_management_console_bus_payload_to_system_model() {
 
   const payload = [
     { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
-    { id: 0, p: 0, r: 0, c: 0, k: 'source_model_id', t: 'int', v: modelId },
+    { id: 0, p: 0, r: 0, c: 0, k: 'origin_model_id', t: 'int', v: modelId },
     { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'runtime route check' },
   ];
   const addResult = rt.addLabel(model0, 0, 0, 0, {

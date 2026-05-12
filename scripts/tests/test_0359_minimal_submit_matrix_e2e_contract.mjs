@@ -112,7 +112,7 @@ function test_model0_mbr_remote_worker_contracts_use_route_metadata() {
   assert.equal(mbrText.includes('mbr_route_'), false, 'MBR role must not contain static mbr_route lookup');
   assert.equal(mbrText.includes('mbr_mqtt_model_ids'), false, 'MBR role must not contain static model id subscription list');
   const subscriptions = findRecord(remoteConfigRecords, (record) => record.k === 'remote_subscriptions')?.v || [];
-  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1'), 'remote-worker must subscribe provider submit1 endpoint topic');
+  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1'), 'remote-worker must subscribe provider submit1 endpoint topic');
   assert.equal(subscriptions.some((topic) => String(topic).includes('/1050/')), false, 'remote-worker must not subscribe old 1050 topics');
   assert.equal(readText('scripts/run_worker_v0.mjs').includes('/worker/+/model/+/pin/+'), false, 'MBR runner must not subscribe legacy worker/model/pin wildcard');
   assert.equal(readText('scripts/run_worker_v0.mjs').includes('${base}/+/+/+'), true, 'MBR runner must subscribe unified endpoint wildcard');
@@ -163,7 +163,7 @@ function test_docs_describe_real_matrix_roundtrip() {
   const visual = readText(VISUAL_DOC);
   const html = readText(INTERACTIVE_DOC);
   for (const [label, text] of [['guide', guide], ['visual', visual], ['html', html]]) {
-    assert.equal(text.includes('UIPUT/ws/dam/pic/de/sw/RE/3000/submit1'), true, `${label} must document provider submit topic`);
+    assert.equal(text.includes('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1'), true, `${label} must document provider submit topic`);
     assert.equal(text.includes('reply_target_worker_id'), true, `${label} must document reply target records`);
     assert.equal(text.includes('endpoint_worker_id'), true, `${label} must document endpoint records`);
     assert.equal(text.includes('origin_worker_id'), true, `${label} must document origin records`);
@@ -200,7 +200,7 @@ async function test_imported_zip_roundtrip_materializes_matrix_result_to_ui_mode
           state.programEngine.handleDyBusEvent(pinPayloadPacket({
             opId: `result_${payloadValue(packet.payload, 'op_id')}`,
             endpoint: replyTarget,
-            origin: { worker_id: 'RE', model_id: 3000, pin: 'submit1' },
+            origin: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
             replyTarget,
             payload: [
               mt('display_text', 'str', 'Submitted: hello matrix e2e'),
@@ -228,7 +228,7 @@ async function test_imported_zip_roundtrip_materializes_matrix_result_to_ui_mode
     assert.deepEqual(Object.keys(published[0]).sort(), ['payload', 'type', 'version'], 'published packet must not carry loose route/source/pin fields');
     assert.equal(payloadValue(published[0].payload, 'origin_model_id'), modelId, 'published packet origin model must be local installed model');
     assert.equal(payloadValue(published[0].payload, 'origin_pin'), 'submit1', 'published packet origin pin must be public provider pin');
-    assert.equal(payloadValue(published[0].payload, 'endpoint_worker_id'), 'RE', 'published packet endpoint worker');
+    assert.equal(payloadValue(published[0].payload, 'endpoint_worker_id'), 'R1', 'published packet endpoint worker');
     assert.equal(payloadValue(published[0].payload, 'endpoint_model_id'), 3000, 'published packet endpoint provider model');
     assert.equal(payloadValue(published[0].payload, 'reply_target_worker_id'), 'ui-server-0359', 'published packet reply_target worker must be server-owned');
     assert.equal(payloadValue(published[0].payload, 'reply_target_model_id'), modelId, 'published packet reply_target model must be local installed model');
@@ -252,7 +252,7 @@ async function test_imported_zip_rejects_result_route_to_mismatch() {
     state.programEngine.handleDyBusEvent(pinPayloadPacket({
       opId: 'result_route_mismatch',
       endpoint: { worker_id: 'other-ui-server', model_id: modelId, pin: 'result' },
-      origin: { worker_id: 'RE', model_id: 3000, pin: 'submit1' },
+      origin: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
       replyTarget: { worker_id: 'other-ui-server', model_id: modelId, pin: 'result' },
       payload: [mt('display_text', 'str', 'Submitted: should not apply')],
     }));

@@ -81,7 +81,7 @@ function payloadWithIngressAndEgress() {
         primary: true,
       }],
     } },
-    { id: 0, p: 0, r: 0, c: 0, k: 'remote_bus_endpoint_v1', t: 'json', v: { transport: 'mqtt', to: { worker_id: 'RE', model_id: 3000 } } },
+    { id: 0, p: 0, r: 0, c: 0, k: 'remote_bus_endpoint_v1', t: 'json', v: { transport: 'mqtt', to: { worker_id: 'R1', model_id: 3000 } } },
     { id: 0, p: 0, r: 0, c: 0, k: 'dual_bus_model', t: 'json', v: { mode: 'imported_host_egress', egress_pins: ['submit1'] } },
     { id: 0, p: 0, r: 0, c: 0, k: 'submit_request', t: 'pin.in', v: null },
     { id: 0, p: 0, r: 0, c: 0, k: 'submit_request_wiring', t: 'pin.connect.label', v: [{ from: 'submit_request', to: ['handle_submit:in'] }] },
@@ -189,8 +189,8 @@ async function test_imported_egress_uses_bus_out_bridge_without_forward_func() {
       const mqttPublish = await pollUntil(() => state.runtime.mqttTrace.list().find((entry) =>
         entry.type === 'publish'
         && entry.payload?.payload?.type === 'pin_payload'
-        && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/RE/3000/submit1'
-        && payloadString(entry.payload.payload.payload, 'endpoint_worker_id') === 'RE'
+        && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1'
+        && payloadString(entry.payload.payload.payload, 'endpoint_worker_id') === 'R1'
         && payloadInt(entry.payload.payload.payload, 'endpoint_model_id') === 3000
         && payloadString(entry.payload.payload.payload, 'endpoint_pin') === 'submit1'
         && payloadString(entry.payload.payload.payload, 'origin_worker_id') === 'ui-server-it0326'
@@ -205,7 +205,7 @@ async function test_imported_egress_uses_bus_out_bridge_without_forward_func() {
 
       const matrixPacket = await pollUntil(() => matrixPublished.find((entry) =>
         entry?.type === 'pin_payload'
-        && payloadString(entry.payload, 'endpoint_worker_id') === 'RE'
+        && payloadString(entry.payload, 'endpoint_worker_id') === 'R1'
         && payloadInt(entry.payload, 'endpoint_model_id') === 3000
         && payloadString(entry.payload, 'endpoint_pin') === 'submit1'
         && payloadString(entry.payload, 'origin_worker_id') === 'ui-server-it0326'
