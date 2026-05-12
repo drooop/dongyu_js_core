@@ -2,7 +2,7 @@
 title: "UI Model Authoring Guide (cellwise.ui.v1)"
 doc_type: user-guide
 status: active
-updated: 2026-04-27
+updated: 2026-05-12
 source: ai
 ---
 
@@ -44,7 +44,7 @@ These labels usually live on `0,0,0`.
 | label | t | required | purpose |
 |---|---|---|---|
 | `app_name` | `str` | for Workspace apps | Name shown in the Workspace app list. |
-| `slide_capable` | `bool` | for slide apps | Marks the model as mountable in Workspace. |
+| `slide_capable` | `bool` | for slide apps | Marks the model as runnable from Workspace and the Web tablet desktop. |
 | `slide_surface_type` | `str` | recommended | Describes the host surface, for example `workspace.page` or `flow.shell`. |
 | `ui_authoring_version` | `str` | yes | Must be `cellwise.ui.v1`. |
 | `ui_root_node_id` | `str` | yes | Points to an existing `ui_node_id`. |
@@ -315,7 +315,7 @@ Run the compliance audit before shipping a UI model.
 
 | check | pass condition |
 |---|---|
-| Discoverable | Workspace apps have `app_name`; slide apps have `slide_capable=true`. |
+| Discoverable | Workspace apps have `app_name`; slide apps have `slide_capable=true` so they can appear in Workspace and on the Web tablet desktop. |
 | Cellwise | `ui_authoring_version=cellwise.ui.v1`. |
 | Root valid | `ui_root_node_id` points to an existing `ui_node_id`. |
 | Granular | Each visible component is a cell. |

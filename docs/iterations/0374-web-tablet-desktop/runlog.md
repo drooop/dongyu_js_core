@@ -257,6 +257,7 @@ NODE
   - Findings: none
   - Notes: no open questions or verification gaps.
 - Commit:
+  - `95e79a1` (`feat(ui): add tablet desktop catalog model`)
 
 ### Step 4 - Web Shell Read-Only Desktop Entry
 
@@ -309,6 +310,7 @@ NODE
   - Findings: none
   - Notes: no open questions or verification gaps.
 - Commit:
+  - `7ba43cb` (`feat(ui): make desktop the web root`)
 
 ### Step 5 - Single Foreground App Player
 
@@ -374,6 +376,7 @@ NODE
   - Findings: none
   - Notes: prior mailbox sequencing finding verified fixed; no open questions or verification gaps.
 - Commit:
+  - `89a5041` (`feat(ui): add single foreground desktop app`)
 
 ### Step 6 - Task Switcher And Pseudo-Background
 
@@ -441,6 +444,7 @@ NODE
   - Findings: none
   - Notes: no open questions or verification gaps.
 - Commit:
+  - `0f8bae9` (`feat(ui): add desktop task switcher`)
 
 ### Step 7 - Batched App Entry Migration
 
@@ -486,7 +490,6 @@ NODE
 - Command: `git diff --check`
 - Key output: no output
 - Result: PASS
-- Review: pending
 - Review:
   - Reviewer: sub-agent `019e19d6-0a97-7c62-a64e-a9a994392285`
   - Decision: Change Requested
@@ -501,19 +504,77 @@ NODE
   - Findings: none
   - Notes: no open questions or verification gaps.
 - Commit:
+  - `1c2780a` (`feat(ui): project desktop apps from registry`)
 
 ### Step 8 - Browser Verification, Docs Assessment, And Closeout
 
-- Command: pending
-- Key output: pending
-- Result: pending
+- Change:
+  - Added per-task close controls in the task switcher.
+  - Closing a background task removes only that task and keeps the current foreground app.
+  - Closing the foreground task clears the foreground app, closes the switcher, and returns to the desktop.
+  - Updated the living user guide to describe the Web Tablet Desktop, single foreground behavior, task switcher, registry-driven Workspace app icons, and later mobile direction.
+- Command: `node scripts/tests/test_0374_web_tablet_desktop_contract.mjs`
+- Key output:
+  - First run before close-control implementation: `[FAIL] test_task_switcher_exposes_per_task_close_control: task_switcher_must_render_a_close_control_for_each_task`
+  - After implementation: `13 passed, 0 failed out of 13`
+- Result: PASS
+- Command: `node scripts/tests/test_0346_ui_model_compliance_contract.mjs`
+- Key output: `test_0346_ui_model_compliance_contract: PASS (30 visible surfaces, 6 warnings)`
+- Result: PASS
+- Command: `node scripts/tests/test_0311_pin_projection_contract.mjs`
+- Key output:
+  - `[PASS] ast_exposes_writable_pins_schema_for_pin_bound_node`
+  - `[PASS] workspace_patches_pinize_existing_buttons`
+  - `[PASS] renderer_and_server_have_pin_envelope_contract`
+  - `3 passed, 0 failed out of 3`
+- Result: PASS
+- Command: `node scripts/tests/test_0242_remote_negative_state_debounce_contract.mjs`
+- Key output: `PASS test_0242_remote_negative_state_debounce_contract`
+- Result: PASS
+- Command: `node scripts/tests/test_0199_nav_catalog_visibility_contract.mjs`, `node scripts/tests/test_0182_app_shell_route_sync_contract.mjs`, `node scripts/tests/test_0210_ui_cellwise_contract_inventory.mjs`, `node scripts/tests/test_0211_ui_bootstrap_and_submodel_migration.mjs`
+- Key output:
+  - `PASS test_0199_nav_catalog_visibility_contract`
+  - `PASS test_0182_app_shell_route_sync_contract`
+  - `4 passed, 0 failed out of 4`
+  - `3 passed, 0 failed out of 3`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run test`
+- Key output:
+  - `editor_ast_no_direct_mutation_buttons: PASS`
+  - `editor_v1_static_upload_binding_persisted: PASS`
+- Result: PASS
+- Command: `npm -C packages/ui-model-demo-frontend run build`
+- Key output:
+  - `✓ 1456 modules transformed.`
+  - `✓ built in 2.68s`
+  - Existing large chunk warning remained; no build failure.
+- Result: PASS
+- Command: Playwright CLI against `http://127.0.0.1:5173/?persist=0#/`
+- Key output:
+  - Root desktop rendered system apps and 7 registry-derived Workspace slide apps.
+  - `Docs` opened as a single foreground app and was recorded in `desktop_task_stack_json`.
+  - `Mgmt Bus Console` opened as `workspace:1036`; task switcher showed `workspace:1036` and `docs`.
+  - Restoring `Docs` closed the switcher and made `Docs` the single foreground app.
+  - Closing `workspace:1036` removed only that background task and kept `Docs` foreground.
+  - Closing `Docs` cleared foreground state, emptied task stack, closed the switcher, and returned to desktop.
+  - Browser state after flow: `foreground=null`, `tasks=[]`, `switcher=false`, `mailbox=null`.
+  - Console check reported 0 errors and 0 warnings.
+- Result: PASS
+- Command: `git diff --check`
+- Key output: no output
+- Result: PASS
+- Review:
+  - Reviewer: sub-agent `019e19e3-6fef-7360-adeb-caf8fc54950f`
+  - Decision: Approved
+  - Findings: none
+  - Notes: no open questions or verification gaps.
 - Commit:
 
 ## Docs Updated
 
-- [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
-- [ ] `docs/ssot/label_type_registry.md` reviewed
-- [ ] `docs/ssot/tier_boundary_and_conformance_testing.md` reviewed
-- [ ] `docs/user-guide/modeltable_user_guide.md` reviewed
-- [ ] `docs/user-guide/ui_components_v2.md` reviewed
-- [ ] `docs/ssot/execution_governance_ultrawork_doit.md` reviewed
+- [x] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed; no change needed because 0374 only uses negative-model UI state and existing bus/pin paths.
+- [x] `docs/ssot/label_type_registry.md` reviewed; no new label.t introduced.
+- [x] `docs/ssot/tier_boundary_and_conformance_testing.md` reviewed; no new tier boundary rule needed.
+- [x] `docs/user-guide/modeltable_user_guide.md` updated with Web Tablet Desktop user-facing behavior.
+- [x] `docs/user-guide/ui_components_v2.md` updated so `slide_capable` also covers Web tablet desktop discoverability.
+- [x] `docs/ssot/execution_governance_ultrawork_doit.md` reviewed; no execution governance change needed.

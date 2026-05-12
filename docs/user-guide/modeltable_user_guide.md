@@ -2,7 +2,7 @@
 title: "ModelTable User Guide (Living Doc)"
 doc_type: user-guide
 status: active
-updated: 2026-05-09
+updated: 2026-05-12
 source: ai
 ---
 
@@ -123,6 +123,27 @@ source: ai
   - `ui_authoring_version`
   - `ui_root_node_id`
 - 新增 `slide_surface_type` 枚举值时，必须先更新现行规约，再进入实现。
+
+## 2.5 Web Tablet Desktop (0374)
+
+当前 Web 根入口 `/` 是平板式桌面，不再把顶部 Navigate 链接作为主入口。
+
+用户入口：
+
+- `Gallery`、`Docs`、`ModelTable`、`Prompt`、`Static` 以桌面 app 图标进入。
+- Workspace 下所有 `slide_capable=true` 且 `model_id > 0` 的滑动 app，会从 `ws_apps_registry` 投影为桌面 app 图标。
+- ModelTable 编辑界面保留为普通桌面 app，同时保留深链接 `/modeltable`。
+- 原有 `/gallery`、`/docs`、`/workspace`、`/prompt`、`/static` 等深链接仍可直接访问。
+
+运行口径：
+
+- Web 桌面一次只显示一个前台 app。
+- 任务切换器保存最近打开的 app，提供伪后台恢复；它不同时渲染多个 app，也不是分屏。
+- 任务状态、前台 app、任务切换器开关都是 Model `-2` 上的本地 UI 状态，不是业务真值。
+- Workspace app 的桌面入口只写 `desktop_foreground_app_json`；实际 Workspace 选择继续由现有投影/状态链路处理。
+- 如果 `ws_apps_registry` 缺失或为空，桌面不显示旧的硬编码 Workspace app 兜底入口，避免展示过期 app。
+
+后续移动端可以沿用同一产品边界：最终用户先看到 app 桌面，通过单前台运行和任务切换完成常规使用；分屏、多实例和更复杂后台属于后续阶段。
 
 ## 3. User Input (Bus Event)
 frontend/server current path 只提交 `bus_event_v2`，并统一写入 `Model 0 (0,0,0)` 的 `pin.bus.mb.in`。
