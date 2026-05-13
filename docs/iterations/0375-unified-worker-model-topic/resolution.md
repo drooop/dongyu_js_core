@@ -205,7 +205,7 @@ Use a hard-cut, test-first migration. First freeze documentation and contract te
 - Scope: Produce the current JSON patch and zip for `最小 Submit 双总线示例`, then prove import and runtime behavior locally.
 - Files:
   - `docs/user-guide/slide-app-runtime/**`
-  - `test_files/minimal_submit_dual_bus.json`
+  - `test_files/minimal_submit_dual_bus_app_payload.json`
   - `test_files/minimal_submit_dual_bus.zip`
   - related tests
 - Verification:

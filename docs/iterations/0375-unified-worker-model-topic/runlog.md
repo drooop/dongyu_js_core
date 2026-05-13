@@ -2,7 +2,7 @@
 title: "0375 - Unified Worker Model Topic Runlog"
 doc_type: iteration-runlog
 status: active
-updated: 2026-05-12
+updated: 2026-05-13
 source: ai
 iteration_id: 0375-unified-worker-model-topic
 id: 0375-unified-worker-model-topic
@@ -189,6 +189,86 @@ Review Gate Record
 - Command: `git diff --check`
 - Key output: no whitespace errors.
 - Result: PASS
+
+## Step 10-14 Final Closure Refresh — 2026-05-13
+
+### Step 10 — Worker Fill-Table Recheck
+
+- Decision: no additional refill is required for `ui-server`, `mbr-worker`, or `remote-worker` after the same-topic contract change.
+- Evidence:
+  - `deploy/sys-v1ns/mbr/patches/mbr_role_v0.json` remains DEM-scoped and derives forwarding from `pin_payload.v1` endpoint records.
+  - `deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json` still subscribes `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`.
+  - `deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json` keeps the remote provider public pin as `submit1`.
+- Commands:
+  - `node scripts/validate_mbr_patch_v0.mjs`
+  - `node scripts/tests/test_0362_mbr_remote_worker_route_contract.mjs`
+  - `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+  - `node scripts/tests/test_0359_minimal_submit_matrix_e2e_contract.mjs`
+- Key output: all checks passed; no old `return_topic`, `result_topic`, `route.reply_to`, `ui-server-local`, or old topic form is needed.
+- Result: PASS
+
+### Step 11 — Existing UI Model And Surface Recheck
+
+- Change: compacted the Workspace asset action column so existing names no longer collide with `Open` / `Del`.
+- Files changed:
+  - `packages/worker-base/system-models/workspace_catalog_ui.json`
+  - `scripts/tests/test_0346_ui_model_compliance_contract.mjs`
+- Commands:
+  - `node scripts/tests/test_0346_ui_model_compliance_contract.mjs`
+  - `node scripts/validate_ui_ast_v0x.mjs --case all`
+  - `npm -C packages/ui-model-demo-frontend run test`
+- Browser: Playwright opened `http://127.0.0.1:30900/#/workspace`; Workspace sidebar showed `name` / `Act`, compact `Open Zip Del`, and no `Codex` app name.
+- Result: PASS
+
+### Step 12 — Minimal Submit JSON Patch And ZIP Refresh
+
+- Change: refreshed `test_files/minimal_submit_dual_bus_app_payload.json` and `test_files/minimal_submit_dual_bus.zip`.
+- Current provider payload hash: `88a642103ab7b39a43ae19cc49c7111c6997ce2842271bfb4829b4532977db7a`.
+- Current provider ZIP hash: `039075fdb1b5e9cef144a8017c75853ddd09b15f8b75f6ef3f0e92b5354e5522`.
+- Important correction: the button path is now `ui_bind_json.write.pin=click_event`, `click_event pin.in`, `click_event_wiring pin.connect.label`, then `click_chain pin.out`. This avoids UI writing directly to an output pin while preserving the root `click_chain -> submit_request` route.
+- Commands:
+  - `node scripts/tests/test_0360_minimal_submit_dual_bus_docs_contract.mjs`
+  - `node scripts/tests/test_0361_minimal_submit_import_export_contract.mjs`
+  - `node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs`
+  - `node scripts/tests/test_0364_slide_import_bus_binding_contract.mjs`
+- Browser: uploaded `test_files/minimal_submit_dual_bus.zip` through Workspace `滑动 APP 导入`; imported model `1063`; entered `0375 redeploy browser submit`; clicked `Submit`.
+- Key output: visible result became `Submitted: 0375 redeploy browser submit`; visible status became `remote_processed`.
+- Topic evidence: remote-worker logs showed request and response on `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1` with `origin_worker_id=U1`, `reply_target_model_id=1063`, and `reply_target_pin=result`.
+- Export evidence: exporting model `1063` returned 63 provider records with `click_event=pin.in`, `click_event_wiring=pin.connect.label`, `click_chain=pin.out`, `ui_bind_json.write.pin=click_event`, and without `bus_event*`, `owner_request`, `owner_route`, or `__owner_last_*`.
+- Review improvement: sub-agent review requested wildcard `bus_event*` filtering instead of exact `bus_event` keys only; implementation now excludes any `bus_event` prefix and test coverage injects `bus_event_custom`.
+- Screenshot: `output/playwright/0375-local-redeploy-minimal-submit-success.png`.
+- Result: PASS
+
+### Step 13 — Minimal Submit MD And HTML Refresh
+
+- Files changed:
+  - `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_guide.md`
+  - `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_visualized.md`
+  - `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_interactive.html`
+- Content updated:
+  - Documents the 63-record patch shape.
+  - Explains every patch label group, including `click_event`, `click_event_wiring`, and `click_chain`.
+  - Explains Submit button binding, backend `handle_submit`, `submit1 pin.out`, generated host egress adapter, Model 0 bus path, MBR, and remote-worker response materialization.
+  - Explains UI Server installation labels and export filtering for installation/runtime-only labels.
+- Command: `curl -fsS http://127.0.0.1:30900/p/slide-app-runtime-minimal-submit-provider/minimal_submit_app_provider_interactive.html | rg "63 条 record|click_event|owner_request|UIPUT/ws/dam/pic/de/sw/R1/3000/submit1"`
+- Key output: local static HTML includes the refreshed 63-record count, click-event chain, same endpoint topic, and export filtering notes.
+- Result: PASS
+
+### Step 14 — Local Deployment And Browser Verification
+
+- Local deploy:
+  - `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh` rebuilt `dy-ui-server:v1` and `dy-remote-worker:v3`; it failed only while fetching unchanged Docker Hub metadata for `dy-mbr-worker:v2`.
+  - `SKIP_MATRIX_BOOTSTRAP=1 SKIP_IMAGE_BUILD=1 bash scripts/ops/deploy_local.sh` completed rollout for all local pods.
+  - After server export filtering changed, used a narrower path: `LOCAL_DY_PERSIST_ROOT=/Users/drop/dongyu/volume/persist/ui-server bash scripts/ops/sync_ui_public_docs.sh && docker build -t dy-ui-server:v1 -f k8s/Dockerfile.ui-server . && kubectl -n dongyu rollout restart deployment/ui-server && kubectl -n dongyu rollout status deployment/ui-server --timeout=180s`.
+- Browser: Playwright opened `http://127.0.0.1:30900/#/workspace`.
+- Color generator evidence: clicked `Generate Color`; visible color changed from `#FFFFFF` to `#31e3af`.
+- Minimal Submit evidence: imported model `1063`, submitted `0375 redeploy browser submit`, and saw `Submitted: 0375 redeploy browser submit` plus `remote_processed`.
+- Export evidence: `curl -fsS http://127.0.0.1:30900/api/slide-apps/1063/export.zip` produced a clean 63-record provider ZIP.
+- Post-review redeploy evidence: rebuilt and rolled out `dy-ui-server:v1` after the `bus_event*` export-filter fix; re-exporting model `1063` still produced 63 records with no `bus_event*` or owner runtime labels.
+- Review: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
+- Review decision: Approved after one change request for wildcard `bus_event*` filtering.
+- Result: PASS
+
 ### Step 9 — Cloud Deploy Drift Fix And Remote Browser Verification
 
 - Command: `node scripts/tests/test_0349_remote_deploy_sync_contract.mjs && bash -n scripts/ops/deploy_cloud_app.sh`
@@ -268,6 +348,118 @@ Review Gate Record
   - Step 13: refresh the minimal Submit Markdown and interactive HTML docs.
   - Step 14: deploy locally, then publish remote docs/statics and verify the remote site with a real browser.
 - Files changed: `docs/iterations/0375-unified-worker-model-topic/resolution.md`, `docs/ITERATIONS.md`, `docs/iterations/0375-unified-worker-model-topic/runlog.md`.
+- Review: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
+- Decision: Approved
+- Key output: no findings, no open questions, no verification gaps.
+- Result: PASS
+
+### Step 10 Worker Fill-Table Recheck
+
+- Date: 2026-05-13
+- Scope: Re-audited whether `ui-server`, `mbr-worker`, and `remote-worker` need additional fill-table/config changes after the same-topic endpoint implementation.
+- Fill-table/config decision:
+  - `mbr-worker`: no additional refill required. Current `deploy/sys-v1ns/mbr/patches/mbr_role_v0.json` sets `sys_worker_role=DEM`, `sys_worker_id=5/10/28/35/14`, declares `mbr_cb_out` / `mbr_mb_out`, and validates/forwards only `pin_payload.v1` Temporary ModelTable records.
+  - `remote-worker`: no additional refill required. Current `deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json` sets `sys_worker_role=V1N`, `sys_worker_id=5/10/28/35/15`, `mqtt_worker_id=R1`, and subscribes `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`. `13_model3000_minimal_submit.json` exposes root `submit1` -> `(1,1,1).submit1:in` and returns `message_role=response` on the same endpoint.
+  - `ui-server`: no model-table refill required in `deploy/sys-v1ns`; current local/cloud deployment config sets `DY_UI_SERVER_WORKER_ID=U1`, and `packages/ui-model-demo-server/server.mjs` defaults the UI Server worker id to `U1`.
+- Commands:
+  - `find deploy/sys-v1ns -maxdepth 4 -type f | sort`
+  - `rg -n "return_topic|returnTopic|result_topic|reply_to|route\\.reply_to|ui-server-local|/worker/|/model/|/pin/|UIPUT/ws/dam/pic/de/sw/.*/result|source_model_id|\\\"return|\\\"pin\\\"" deploy/sys-v1ns packages/worker-base/system-models packages/ui-model-demo-server/server.mjs k8s/local/workers.yaml k8s/cloud/workers.yaml scripts/run_worker_v0.mjs scripts/run_worker_remote_v1.mjs scripts/tests docs/ssot docs/user-guide -g '!docs/user-guide/slide-app-runtime/minimal_submit_app_provider_interactive.html'`
+  - `rg -n "DY_UI_SERVER_WORKER_ID|name: ui-server|name: mbr-worker|name: remote-worker|R1|U1" k8s/local/workers.yaml`
+  - `rg -n "DY_UI_SERVER_WORKER_ID|name: ui-server|name: mbr-worker|name: remote-worker|R1|U1" k8s/cloud/workers.yaml`
+  - `rg -n "remote_subscriptions|R1/3000/submit1|R1/1010/submit|R1/1019/submit|R1/100/submit|worker/R1|model/3000|return_topic|result_topic|ui-server-local" deploy/sys-v1ns`
+  - `node scripts/validate_mbr_patch_v0.mjs`
+  - `node scripts/tests/test_0362_mbr_remote_worker_route_contract.mjs`
+  - `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+  - `node scripts/tests/test_0359_minimal_submit_matrix_e2e_contract.mjs`
+- Key output:
+  - `validate_mbr_patch_v0`: 92 passed, 0 failed.
+  - `test_0362_mbr_remote_worker_route_contract`: 10 passed, 0 failed.
+  - `test_0375_unified_worker_model_topic_contract`: 74 passed, 0 failed.
+  - `test_0359_minimal_submit_matrix_e2e_contract`: 5 passed, 0 failed.
+  - Active deploy patches/configs use endpoint-only topics and reject old `return_topic` / `result_topic` / `reply_to` / `ui-server-local` metadata.
+- Review: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
+- Decision: Approved
+- Key output: no findings, no open questions, no verification gaps.
+- Result: PASS
+
+### Step 11 Existing UI Model And Surface Recheck
+
+- Date: 2026-05-13
+- Scope: Re-audited existing UI model assets and visible workspace surfaces affected by the same-topic endpoint contract and recent browser feedback.
+- Changes:
+  - Adjusted `packages/worker-base/system-models/workspace_catalog_ui.json` so the Workspace asset tree leaves more room for app names: left panel width `300px`, name column min-width `190`, compact action column label `Act`, width `70`, compact `Open` / `Zip` / `Del` action styling.
+  - Added assertions in `scripts/tests/test_0346_ui_model_compliance_contract.mjs` to prevent reintroducing Codex-specific app names or widening the action column.
+- Static audit:
+  - No current UI model/front-end surface contains `Codex` naming.
+  - No current UI model/front-end surface contains active `pin.connect.model`, old `return_topic` / `result_topic`, old `route.reply_to`, `ui-server-local`, or old `worker/R1/model/...` endpoint shapes.
+- Commands:
+  - `rg -n "Codex|codex" packages/worker-base/system-models packages/ui-model-demo-frontend/src packages/ui-model-demo-server/server.mjs docs/user-guide/slide-app-runtime test_files`
+  - `rg -n "pin\\.connect\\.model|ui-server-local|route\\.reply_to|return_topic|returnTopic|result_topic|source_model_id|worker/R1/model|worker/<worker_id>/model|UIPUT/ws/dam/pic/de/sw/[0-9]+/(submit|result)" packages/worker-base/system-models packages/ui-model-demo-frontend/src packages/ui-model-demo-server/server.mjs`
+  - `node scripts/tests/test_0346_ui_model_compliance_contract.mjs`
+  - `node scripts/validate_ui_ast_v0x.mjs --case all`
+  - `node scripts/tests/test_0362_slide_app_self_described_route_contract.mjs`
+  - `node scripts/tests/test_0364_slide_import_bus_binding_contract.mjs`
+  - `npm -C packages/ui-model-demo-frontend run test`
+  - `git diff --check`
+- Key output:
+  - `test_0346_ui_model_compliance_contract`: PASS, 30 visible surfaces, 0 violations, 6 low warnings for historical schema labels that are not primary projection.
+  - `validate_ui_ast_v0x`: summary PASS.
+  - `test_0362_slide_app_self_described_route_contract`: 11 passed, 0 failed.
+  - `test_0364_slide_import_bus_binding_contract`: 2 passed, 0 failed.
+  - frontend validation: PASS.
+- Review Attempt 1: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
+- Decision: Change Requested
+- Key output: browser evidence for the visible Workspace asset tree layout change was missing.
+- Follow-up deployment:
+  - `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh` rebuilt `dy-ui-server:v1` successfully, then failed while rebuilding unchanged `dy-mbr-worker:v2` because Docker Hub TLS handshake timed out.
+  - `SKIP_MATRIX_BOOTSTRAP=1 SKIP_IMAGE_BUILD=1 bash scripts/ops/deploy_local.sh` applied manifests and restarted local deployments successfully; all pods Running.
+- Browser verification:
+  - Playwright headed browser opened `http://127.0.0.1:30900/#/workspace`.
+  - Snapshot shows Workspace table header `name Act`, rows such as `E2E 颜色生成器 Open Zip Del`, and no `Codex` app name.
+  - Measured first Workspace table rows in the browser: `nameWidth=190`, `actionWidth=70`, `actionScrollWidth=69`, `actionClientWidth=69`; action content fits the compact column without overflow.
+  - Screenshot: `.playwright-cli/page-2026-05-13T02-34-01-952Z.png`.
+- Review Attempt 2: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
+- Decision: Approved
+- Key output: no findings, no open questions, no verification gaps.
+- Result: PASS
+
+### Step 12 Minimal Submit Patch And ZIP Refresh
+
+- Date: 2026-05-13
+- Scope: Rechecked the current `最小 Submit 双总线示例` JSON patch and ZIP, then installed and ran it through the local Workspace with a real browser.
+- Artifact decision:
+  - Canonical JSON patch: `test_files/minimal_submit_dual_bus_app_payload.json`.
+  - ZIP delivery artifact: `test_files/minimal_submit_dual_bus.zip`.
+  - ZIP contents: exactly one file, `app_payload.json`, whose content matches the canonical JSON patch.
+- Structure checks:
+  - JSON patch contains 61 ModelTable records.
+  - ZIP hash: `15dce30605410aea4dd178747950fb89c74db745f611951fa2125320491d998e`.
+  - JSON hash: `d1c812d09dc4492b1f0731f622feb7ddb6e08b9ae43563b527ee00f57aa6e970`.
+  - Forbidden legacy fields were absent: `route.reply_to`, `return_topic`, `returnTopic`, `result_topic`, `source_model_id`, `pin.connect.model`, `ui-server-local`, and old `worker/R1/model/...` topic shapes.
+- Commands:
+  - `node scripts/tests/test_0360_minimal_submit_dual_bus_docs_contract.mjs`
+  - `node scripts/tests/test_0361_minimal_submit_import_export_contract.mjs`
+  - `unzip -l test_files/minimal_submit_dual_bus.zip`
+  - JSON/ZIP equality and forbidden-field structure check with Node.
+- Key output:
+  - `test_0360_minimal_submit_dual_bus_docs_contract`: 7 passed, 0 failed.
+  - `test_0361_minimal_submit_import_export_contract`: 3 passed, 0 failed.
+  - ZIP contains only `app_payload.json`, and it is byte-equivalent at JSON level to `test_files/minimal_submit_dual_bus_app_payload.json`.
+- Local deploy/runtime state:
+  - Local `ui-server`, `mbr-worker`, `remote-worker`, `mosquitto`, `synapse`, and `ui-side-worker` pods were Running under the `dongyu` namespace.
+  - UI was available at `http://127.0.0.1:30900/#/workspace`.
+- Browser verification:
+  - Playwright opened `http://127.0.0.1:30900/#/workspace` in a headed browser.
+  - Opened `滑动 APP 导入`, uploaded `/Users/drop/codebase/cowork/dongyuapp_elysia_based/test_files/minimal_submit_dual_bus.zip`, and clicked `导入 Slide App`.
+  - Import created a new `最小 Submit 双总线示例` app as local model `1060` and opened it in Workspace.
+  - Entered `0375 local refreshed submit`, clicked `Submit`, and the visible result changed to `Submitted: 0375 local refreshed submit`.
+  - Visible remote status changed to `remote_processed`.
+  - Screenshot: `output/playwright/0375-local-minimal-submit-refresh-success.png`.
+- Log verification:
+  - Remote worker logs show request and response both using `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`.
+  - Request records include `message_role=request`, `origin_worker_id=U1`, `origin_model_id=1060`, `reply_target_worker_id=U1`, `reply_target_model_id=1060`, and `reply_target_pin=result`.
+  - Response records include `message_role=response`, `origin_worker_id=R1`, `origin_model_id=3000`, `reply_target_worker_id=U1`, `reply_target_model_id=1060`, `reply_target_pin=result`, and payload records that update `display_text`, `remote_status`, `last_submit_payload`, and `submit_inflight`.
+  - Remote worker logs mark the echoed response packet as `response_packet_not_delivered_to_endpoint_runtime`, preventing the response from re-triggering the remote endpoint program.
 - Review: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
 - Decision: Approved
 - Key output: no findings, no open questions, no verification gaps.

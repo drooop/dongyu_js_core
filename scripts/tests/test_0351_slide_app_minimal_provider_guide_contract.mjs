@@ -27,7 +27,7 @@ function test_doc_has_self_described_route_contract() {
   assert.match(doc, /submit1/u, 'guide must explain public submit1 pin');
   assert.match(doc, /UIPUT\/ws\/dam\/pic\/de\/sw\/R1\/3000\/submit1/u, 'guide must document unified endpoint submit topic');
   assert.match(doc, /message_role.*request.*response/us, 'guide must document message_role request/response split');
-  assert.match(doc, /reply_target.*ui-server-U1.*2000.*result/us, 'guide must document reply target as payload records');
+  assert.match(doc, /reply_target.*U1.*2000.*result/us, 'guide must document reply target as payload records');
   assert.match(doc, /test_files\/minimal_submit_dual_bus_app_payload\.json/u, 'guide must reference payload fixture');
   assert.match(doc, /test_files\/minimal_submit_dual_bus\.zip/u, 'guide must reference zip fixture');
   assertNoOld(doc, 'guide');
