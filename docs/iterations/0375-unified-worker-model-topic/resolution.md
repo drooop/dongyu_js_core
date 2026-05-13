@@ -164,6 +164,97 @@ Use a hard-cut, test-first migration. First freeze documentation and contract te
   - All previous stage reviews are approved.
   - `docs/ITERATIONS.md` status can be moved to Completed only after all evidence is in `runlog.md`.
 
+## Step 10 — Worker Fill-Table Recheck
+
+- Scope: Re-audit whether `ui-server`, `mbr-worker`, and `remote-worker` need additional fill-table changes after the same-topic implementation.
+- Files:
+  - `deploy/sys-v1ns/mbr/patches/**`
+  - `deploy/sys-v1ns/remote-worker/patches/**`
+  - `k8s/local/workers.yaml`
+  - `k8s/cloud/workers.yaml`
+  - `packages/ui-model-demo-server/server.mjs`
+- Verification:
+  - focused grep/static audit for old topic and return fields
+  - `node scripts/validate_mbr_patch_v0.mjs`
+  - relevant focused contract tests
+  - sub-agent code review
+- Acceptance:
+  - Refill decision is explicit for each worker.
+  - Any required patch/config update is applied and verified.
+  - No current active path uses return topic, result topic, `ui-server-local`, or old endpoint shape.
+
+## Step 11 — Existing UI Model And Surface Recheck
+
+- Scope: Review current UI model assets and visible workspace surfaces affected by the new endpoint contract; adjust any stale label, binding, or display wording.
+- Files:
+  - `packages/worker-base/system-models/**`
+  - `packages/ui-model-demo-frontend/src/**`
+  - `packages/ui-model-demo-server/server.mjs`
+- Verification:
+  - UI model/static scans
+  - focused renderer/importer tests
+  - local browser check for affected surfaces
+  - sub-agent code review
+- Acceptance:
+  - User-facing UI text and bindings describe the endpoint-only topic contract.
+  - Submit-like buttons still bind through model labels and trigger the backend ModelTable runtime path.
+  - No UI surface teaches or depends on old return-topic semantics.
+
+## Step 12 — Minimal Submit Patch And ZIP Refresh
+
+- Scope: Produce the current JSON patch and zip for `最小 Submit 双总线示例`, then prove import and runtime behavior locally.
+- Files:
+  - `docs/user-guide/slide-app-runtime/**`
+  - `test_files/minimal_submit_dual_bus.json`
+  - `test_files/minimal_submit_dual_bus.zip`
+  - related tests
+- Verification:
+  - JSON/zip structure checks
+  - import/export contract tests
+  - local deploy and Playwright import/submit verification
+  - sub-agent code review
+- Acceptance:
+  - JSON patch contains only ModelTable records.
+  - Provider records declare the remote endpoint only; installer owns local model/reply target.
+  - Browser import creates an app that submits via `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1` and updates visible text from the response.
+
+## Step 13 — Minimal Submit MD And HTML Refresh
+
+- Scope: Rewrite the MD and interactive HTML docs to match the actual current JSON patch, installer behavior, topic format, and runtime path.
+- Files:
+  - `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_guide.md`
+  - `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_visualized.md`
+  - `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_interactive.html`
+  - static-project mirrors if generated from these docs
+- Verification:
+  - doc content scan for old fields and stale URLs
+  - public-doc/static sync contract tests
+  - local browser view of the HTML artifact
+  - sub-agent code review
+- Acceptance:
+  - Docs explain every patch label that matters.
+  - Docs explain Submit button binding, backend program trigger, and final dual-bus send/return path.
+  - Docs explain UI Server installation: model id allocation, sidebar mount, host-owned labels, and Model 0 bus path.
+
+## Step 14 — Local And Remote Publication Verification
+
+- Scope: Deploy locally, verify behavior, then publish docs/statics and required runtime changes to the remote server.
+- Files:
+  - runlog evidence
+  - optional deployment docs if the process changes
+- Verification:
+  - local deployment
+  - Playwright against `http://127.0.0.1:30900/#/workspace`
+  - remote source sync/deploy or docs/static fast deploy as appropriate
+  - Playwright against `https://app.dongyudigital.com/#/workspace`
+  - public docs/static URL checks
+  - final sub-agent code review
+- Acceptance:
+  - Local and remote runtime behavior passes.
+  - MD docs are available via UI Server docs path.
+  - HTML docs are available via UI Server static project path.
+  - `docs/ITERATIONS.md` can be moved to Completed.
+
 ## Notes
 
 - Generated at: 2026-05-12

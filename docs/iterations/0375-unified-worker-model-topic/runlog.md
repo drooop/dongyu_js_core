@@ -257,6 +257,22 @@ Review Gate Record
 - Key output: no findings, no open questions, no verification gaps.
 - Result: PASS
 
+### Step 10-14 Planning Extension
+
+- Date: 2026-05-13
+- Change: Extended 0375 resolution from 9 to 14 steps for post-implementation closure requested by the user.
+- Scope:
+  - Step 10: re-audit/refill worker fill-table state for `ui-server`, `mbr-worker`, and `remote-worker`.
+  - Step 11: re-audit existing UI models and visible surfaces.
+  - Step 12: refresh the minimal Submit JSON patch/zip and prove it locally with a real browser.
+  - Step 13: refresh the minimal Submit Markdown and interactive HTML docs.
+  - Step 14: deploy locally, then publish remote docs/statics and verify the remote site with a real browser.
+- Files changed: `docs/iterations/0375-unified-worker-model-topic/resolution.md`, `docs/ITERATIONS.md`, `docs/iterations/0375-unified-worker-model-topic/runlog.md`.
+- Review: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
+- Decision: Approved
+- Key output: no findings, no open questions, no verification gaps.
+- Result: PASS
+
 ### Step 3 Review Attempt 8
 
 - Reviewer: sub-agent `019e1d55-78d9-7243-9520-c386bcc6cb48`
