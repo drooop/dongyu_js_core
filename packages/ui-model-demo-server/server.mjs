@@ -1366,6 +1366,15 @@ const SLIDE_EXPORT_EXCLUDED_LABEL_KEYS = new Set([
   'mt_bus_send',
   'mt_bus_send_in',
   'mt_bus_send_wiring',
+  'bus_event',
+  'bus_event_last_op_id',
+  'bus_event_error',
+  'owner_request',
+  'owner_route',
+  'owner_materialize',
+  'owner_pin_error',
+  '__owner_last_request_id',
+  '__owner_last_action',
 ]);
 
 function isPlainObject(value) {
@@ -1477,6 +1486,8 @@ function shouldExcludeSlideExportLabel(label) {
   if (SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES.has(label.t)) return true;
   if (label.k.startsWith('__host_ingress_') || label.k.startsWith('__host_egress_')) return true;
   if (label.k.startsWith('host_ingress_generated_') || label.k.startsWith('host_egress_generated_')) return true;
+  if (label.k.startsWith('bus_event')) return true;
+  if (label.k.startsWith('__owner_')) return true;
   return false;
 }
 

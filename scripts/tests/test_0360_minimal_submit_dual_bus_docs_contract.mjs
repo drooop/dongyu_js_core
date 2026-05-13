@@ -48,6 +48,8 @@ const MINIMAL_SUBMIT_PATCH_KEYS = [
   'ui_bind_json',
   'ui_label',
   'ui_variant',
+  'click_event',
+  'click_event_wiring',
   'click_chain',
   'ui_text_ref_model_id',
   'ui_text_ref_p',
@@ -74,7 +76,9 @@ function test_all_public_docs_cover_required_operational_steps() {
     assert.match(text, /reply_target_worker_id/u, path + ' must explain reply target records');
     assert.match(text, /submit1/u, path + ' must explain submit1');
     assert.match(text, /submit_request/u, path + ' must explain submit_request');
-    assert.match(text, /click_chain/u, path + ' must explain click_chain button pin');
+    assert.match(text, /click_event/u, path + ' must explain click_event button input pin');
+    assert.match(text, /click_event_wiring/u, path + ' must explain click_event_wiring button cell wiring');
+    assert.match(text, /click_chain/u, path + ' must explain click_chain button output pin');
     assert.match(text, /handle_submit/u, path + ' must explain handle_submit program model');
     assert.match(text, /3000/u, path + ' must include provider model 3000');
     assert.match(text, /2000/u, path + ' must include local installed model example 2000');
@@ -98,11 +102,14 @@ function test_provider_assets_have_no_compatibility_route() {
   for (const path of PATCH_FILES) assertNoOld(readText(path), path);
   const uiPayload = readJson('test_files/minimal_submit_dual_bus_app_payload.json');
   assert.equal(Array.isArray(uiPayload), true, 'minimal submit JSON patch must be a ModelTable record array');
-  assert.equal(uiPayload.length, 61, 'minimal submit JSON patch must keep the reviewed 61-label shape');
+  assert.equal(uiPayload.length, 63, 'minimal submit JSON patch must keep the reviewed 63-label shape');
   assert.equal(JSON.stringify(uiPayload).includes('route.reply_to'), false, 'minimal submit JSON patch must not include server-owned route.reply_to');
   assert.equal(uiPayload.some((record) => record && record.k === 'remote_bus_endpoint_v1' && record.v?.to?.worker_id === 'R1' && record.v?.to?.model_id === 3000 && !Object.prototype.hasOwnProperty.call(record.v.to, 'pin')), true, 'minimal submit JSON patch must declare remote endpoint without to.pin');
   assert.equal(uiPayload.some((record) => record && record.k === 'dual_bus_model' && Array.isArray(record.v?.egress_pins) && record.v.egress_pins.includes('submit1')), true, 'minimal submit JSON patch must declare submit1 as public egress pin');
-  assert.equal(uiPayload.some((record) => record && record.k === 'ui_bind_json' && record.p === 2 && record.r === 3 && record.v?.write?.pin === 'click_chain'), true, 'minimal submit JSON patch must bind Submit button to click_chain');
+  assert.equal(uiPayload.some((record) => record && record.k === 'click_event' && record.p === 2 && record.r === 3 && record.t === 'pin.in'), true, 'minimal submit JSON patch must declare button click_event as pin.in');
+  assert.equal(uiPayload.some((record) => record && record.k === 'click_chain' && record.p === 2 && record.r === 3 && record.t === 'pin.out'), true, 'minimal submit JSON patch must declare button click_chain as pin.out');
+  assert.equal(uiPayload.some((record) => record && record.k === 'click_event_wiring' && record.p === 2 && record.r === 3 && record.t === 'pin.connect.label'), true, 'minimal submit JSON patch must wire click_event to click_chain inside the button cell');
+  assert.equal(uiPayload.some((record) => record && record.k === 'ui_bind_json' && record.p === 2 && record.r === 3 && record.v?.write?.pin === 'click_event'), true, 'minimal submit JSON patch must bind Submit button to click_event');
   assert.equal(uiPayload.some((record) => record && record.k === 'root_routes' && record.t === 'pin.connect.cell'), true, 'minimal submit JSON patch must connect click_chain to root submit_request');
   assert.equal(uiPayload.some((record) => record && record.k === 'submit_request_wiring' && record.t === 'pin.connect.label'), true, 'minimal submit JSON patch must wire submit_request to handle_submit');
   const remoteRecords = readJson('deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json').records || [];
@@ -121,6 +128,14 @@ function test_provider_assets_have_no_compatibility_route() {
     .filter((record) => record && record.model_id === 1050);
   const model1050SubmitCode = findRecord(model1050, (record) => record.k === 'handle_submit' && record.t === 'func.js')?.v?.code || '';
   const model1050StatusRef = findRecord(model1050, (record) => record.p === 2 && record.r === 5 && record.c === 0 && record.k === 'ui_text_ref_model_id');
+  const model1050ClickEvent = findRecord(model1050, (record) => record.p === 2 && record.r === 3 && record.c === 0 && record.k === 'click_event');
+  const model1050ClickChain = findRecord(model1050, (record) => record.p === 2 && record.r === 3 && record.c === 0 && record.k === 'click_chain');
+  const model1050ClickEventWiring = findRecord(model1050, (record) => record.p === 2 && record.r === 3 && record.c === 0 && record.k === 'click_event_wiring');
+  const model1050ButtonBind = findRecord(model1050, (record) => record.p === 2 && record.r === 3 && record.c === 0 && record.k === 'ui_bind_json');
+  assert.equal(model1050ClickEvent?.t, 'pin.in', 'workspace seed Model 1050 button click_event must be pin.in');
+  assert.equal(model1050ClickChain?.t, 'pin.out', 'workspace seed Model 1050 button click_chain must be pin.out');
+  assert.equal(model1050ClickEventWiring?.t, 'pin.connect.label', 'workspace seed Model 1050 button click_event_wiring must be pin.connect.label');
+  assert.equal(model1050ButtonBind?.v?.write?.pin, 'click_event', 'workspace seed Model 1050 button must bind ui writes to click_event');
   assert.equal(model1050SubmitCode.includes("readPayload('value'"), false, 'workspace seed Model 1050 handler must not keep nested value fallback');
   assert.equal(model1050SubmitCode.includes('nestedValue'), false, 'workspace seed Model 1050 handler must not keep nested value fallback variable');
   assert.equal(model1050SubmitCode.includes('value.text'), false, 'workspace seed Model 1050 handler must not keep value.text fallback');
@@ -131,6 +146,8 @@ function test_provider_assets_have_no_compatibility_route() {
   assert.equal(model1050StatusRef?.v, 1050, 'workspace seed Model 1050 status badge must read its own remote_status, not Model 0');
   assert.match(uiPayloadText, /"host_ingress_v1"/u, 'minimal submit UI payload must declare host_ingress_v1');
   assert.match(uiPayloadText, /"submit_request"/u, 'minimal submit UI payload must declare submit_request pin');
+  assert.match(uiPayloadText, /"click_event"/u, 'minimal submit UI payload must declare button click_event pin');
+  assert.match(uiPayloadText, /"click_event_wiring"/u, 'minimal submit UI payload must declare button click_event_wiring');
   assert.match(uiPayloadText, /"click_chain"/u, 'minimal submit UI payload must declare button click_chain pin');
   assert.match(uiPayloadText, /"root_routes"/u, 'minimal submit UI payload must declare root_routes pin.connect.cell');
   assert.match(uiPayloadText, /"handle_submit"/u, 'minimal submit UI payload must declare handle_submit program model');
@@ -179,13 +196,15 @@ function test_minimal_submit_docs_explain_full_patch_labels_and_submit_chain() {
     ['minimal_submit_app_provider_guide.md', guide],
     ['minimal_submit_app_provider_interactive.html', interactive],
   ]) {
-    assert.match(text, /61 条 record/u, path + ' must state the reviewed patch record count');
+    assert.match(text, /63 条 record/u, path + ' must state the reviewed patch record count');
     assert.match(text, /完整 patch label/u, path + ' must include a full patch label explanation section');
     for (const key of MINIMAL_SUBMIT_PATCH_KEYS) {
       assert.ok(text.includes(key), `${path} must explain patch label ${key}`);
     }
     for (const required of [
       'ui_bind_json',
+      'click_event',
+      'click_event_wiring',
       'click_chain',
       'root_routes',
       'submit_request_wiring',
@@ -258,6 +277,8 @@ function test_minimal_submit_docs_explain_submit_button_modeltable_recipe() {
       'ui_component',
       'Button',
       'ui_label',
+      'click_event',
+      'click_event_wiring',
       'click_chain',
       'ui_bind_json',
       'write.pin',
@@ -294,7 +315,8 @@ function test_minimal_submit_docs_explain_submit_button_modeltable_recipe() {
     ]) {
       assert.ok(text.includes(required), `${path} must explain submit-button ModelTable recipe detail: ${required}`);
     }
-    assert.match(text, /ui_bind_json.*click_chain/us, `${path} must link ui_bind_json to click_chain`);
+    assert.match(text, /ui_bind_json.*click_event/us, `${path} must link ui_bind_json to click_event`);
+    assert.match(text, /click_event.*click_chain/us, `${path} must link click_event to click_chain`);
     assert.match(text, /click_chain.*submit_request/us, `${path} must link click_chain to submit_request`);
     assert.match(text, /submit_request.*handle_submit:in/us, `${path} must link submit_request to handle_submit`);
     assert.match(text, /handle_submit.*submit1.*pin\.out/us, `${path} must link handle_submit to submit1 pin.out`);

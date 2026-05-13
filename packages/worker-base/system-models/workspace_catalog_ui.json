@@ -184,7 +184,7 @@
       "t": "json",
       "v": {
         "style": {
-          "width": "260px",
+          "width": "300px",
           "flexShrink": 0
         }
       }
@@ -357,7 +357,7 @@
       "c": 0,
       "k": "ui_min_width",
       "t": "str",
-      "v": "150"
+      "v": "190"
     },
     {
       "op": "add_label",
@@ -417,7 +417,7 @@
       "c": 0,
       "k": "ui_label",
       "t": "str",
-      "v": "Actions"
+      "v": "Act"
     },
     {
       "op": "add_label",
@@ -427,7 +427,7 @@
       "c": 0,
       "k": "ui_width",
       "t": "str",
-      "v": "84"
+      "v": "70"
     },
     {
       "op": "add_label",
@@ -478,7 +478,11 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "link": true
+        "link": true,
+        "style": {
+          "minWidth": "0",
+          "padding": "0 2px"
+        }
       }
     },
     {
@@ -784,7 +788,8 @@
         "target": "_self",
         "style": {
           "color": "#2f8df7",
-          "marginLeft": "8px",
+          "fontSize": "12px",
+          "marginLeft": "4px",
           "textDecoration": "none"
         }
       }
@@ -841,8 +846,22 @@
         "link": true,
         "disabled": {
           "$ref": "row.delete_disabled"
+        },
+        "style": {
+          "minWidth": "0",
+          "padding": "0 2px"
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -25,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Del"
     },
     {
       "op": "add_label",
