@@ -1,12 +1,12 @@
 ---
 title: "0375 - Unified Worker Model Topic Runlog"
 doc_type: iteration-runlog
-status: active
+status: completed
 updated: 2026-05-13
 source: ai
 iteration_id: 0375-unified-worker-model-topic
 id: 0375-unified-worker-model-topic
-phase: execution
+phase: completed
 ---
 
 # Iteration 0375-unified-worker-model-topic Runlog
@@ -15,7 +15,7 @@ phase: execution
 
 - Date: 2026-05-12
 - Branch: `dev_0375-unified-worker-model-topic`
-- Runtime: local repository planning phase; no runtime process changed yet.
+- Runtime: local and remote verification completed; final evidence recorded below.
 
 Review Gate Record
 - Iteration ID: 0375-unified-worker-model-topic
@@ -40,6 +40,33 @@ Review Gate Record
 - Review Index: 3
 - Decision: Approved
 - Notes: Third plan revision approved by sub-agent review. Execution may proceed only after Step 1 docs are reviewed against the recorded contract.
+
+## Final Closure Summary — 2026-05-13
+
+- Status: Completed.
+- Current provider JSON patch: `test_files/minimal_submit_dual_bus_app_payload.json`.
+- Current provider ZIP: `test_files/minimal_submit_dual_bus.zip`.
+- Current provider shape: 63 ModelTable records; ZIP contains exactly one `app_payload.json`.
+- Current endpoint topic: `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`.
+- Local browser verification:
+  - Color generator changed `#FFFFFF` to `#31e3af`.
+  - Minimal Submit ZIP import created model `1063`; submitting `0375 redeploy browser submit` showed `Submitted: 0375 redeploy browser submit` and `remote_processed`.
+  - Local export of model `1063` produced a clean 63-record provider ZIP without `bus_event*` or owner runtime labels.
+- Remote deployment:
+  - Commit `5048c57` was synced to `drop@124.71.43.80:/home/wwpic/dongyuapp` by archive fallback.
+  - Remote `ui-server` was rebuilt/imported and rolled out with source hash gate passing.
+  - `mbr-worker` and `remote-worker` required no additional refill for Steps 10-14 because their fill-table patches and subscriptions already matched the same-topic contract.
+- Remote docs/static publication:
+  - Static HTML URL `https://app.dongyudigital.com/p/slide-app-runtime-minimal-submit-provider/minimal_submit_app_provider_interactive.html` returns the refreshed 63-record, `click_event`, `bus_event*`, and endpoint-topic content.
+  - Markdown guide exists under the remote UI Server docs root at `/home/wwpic/dongyu/volume/persist/ui-server/docs/user-guide/slide-app-runtime/minimal_submit_app_provider_guide.md` with the same refreshed content.
+- Remote browser verification:
+  - Color generator request/response used `UIPUT/ws/dam/pic/de/sw/R1/100/submit`; response set `bg_color=#c965f0` and `status=processed`.
+  - Minimal Submit ZIP import created model `1054`; submitting `0375 remote closure submit` showed `Submitted: 0375 remote closure submit` and `remote_processed`.
+  - Remote export of model `1054` produced a clean 63-record provider ZIP without `bus_event*` or owner runtime labels.
+  - Remote worker logs show request and response both using `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`; response packets are not delivered back into the remote endpoint runtime.
+- Iteration records:
+  - `docs/ITERATIONS.md` status is `Completed`.
+  - This runlog status is `completed`.
 
 ## Execution Records
 
@@ -432,9 +459,9 @@ Review Gate Record
   - ZIP delivery artifact: `test_files/minimal_submit_dual_bus.zip`.
   - ZIP contents: exactly one file, `app_payload.json`, whose content matches the canonical JSON patch.
 - Structure checks:
-  - JSON patch contains 61 ModelTable records.
-  - ZIP hash: `15dce30605410aea4dd178747950fb89c74db745f611951fa2125320491d998e`.
-  - JSON hash: `d1c812d09dc4492b1f0731f622feb7ddb6e08b9ae43563b527ee00f57aa6e970`.
+  - JSON patch contains 63 ModelTable records.
+  - ZIP hash: `039075fdb1b5e9cef144a8017c75853ddd09b15f8b75f6ef3f0e92b5354e5522`.
+  - JSON hash: `88a642103ab7b39a43ae19cc49c7111c6997ce2842271bfb4829b4532977db7a`.
   - Forbidden legacy fields were absent: `route.reply_to`, `return_topic`, `returnTopic`, `result_topic`, `source_model_id`, `pin.connect.model`, `ui-server-local`, and old `worker/R1/model/...` topic shapes.
 - Commands:
   - `node scripts/tests/test_0360_minimal_submit_dual_bus_docs_contract.mjs`
@@ -451,14 +478,14 @@ Review Gate Record
 - Browser verification:
   - Playwright opened `http://127.0.0.1:30900/#/workspace` in a headed browser.
   - Opened `滑动 APP 导入`, uploaded `/Users/drop/codebase/cowork/dongyuapp_elysia_based/test_files/minimal_submit_dual_bus.zip`, and clicked `导入 Slide App`.
-  - Import created a new `最小 Submit 双总线示例` app as local model `1060` and opened it in Workspace.
-  - Entered `0375 local refreshed submit`, clicked `Submit`, and the visible result changed to `Submitted: 0375 local refreshed submit`.
+  - Import created a new `最小 Submit 双总线示例` app as local model `1063` and opened it in Workspace.
+  - Entered `0375 redeploy browser submit`, clicked `Submit`, and the visible result changed to `Submitted: 0375 redeploy browser submit`.
   - Visible remote status changed to `remote_processed`.
-  - Screenshot: `output/playwright/0375-local-minimal-submit-refresh-success.png`.
+  - Screenshot: `output/playwright/0375-local-redeploy-minimal-submit-success.png`.
 - Log verification:
   - Remote worker logs show request and response both using `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`.
-  - Request records include `message_role=request`, `origin_worker_id=U1`, `origin_model_id=1060`, `reply_target_worker_id=U1`, `reply_target_model_id=1060`, and `reply_target_pin=result`.
-  - Response records include `message_role=response`, `origin_worker_id=R1`, `origin_model_id=3000`, `reply_target_worker_id=U1`, `reply_target_model_id=1060`, `reply_target_pin=result`, and payload records that update `display_text`, `remote_status`, `last_submit_payload`, and `submit_inflight`.
+  - Request records include `message_role=request`, `origin_worker_id=U1`, `origin_model_id=1063`, `reply_target_worker_id=U1`, `reply_target_model_id=1063`, and `reply_target_pin=result`.
+  - Response records include `message_role=response`, `origin_worker_id=R1`, `origin_model_id=3000`, `reply_target_worker_id=U1`, `reply_target_model_id=1063`, `reply_target_pin=result`, and payload records that update `display_text`, `remote_status`, `last_submit_payload`, and `submit_inflight`.
   - Remote worker logs mark the echoed response packet as `response_packet_not_delivered_to_endpoint_runtime`, preventing the response from re-triggering the remote endpoint program.
 - Review: sub-agent `019e1dab-ca27-7310-9c5c-b7c2b743a593`
 - Decision: Approved
