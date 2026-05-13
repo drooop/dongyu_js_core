@@ -88,8 +88,8 @@
         <div class="card full">
           <h2>真实链路</h2>
           <div class="node">UI click -> Model 0 -> Matrix -> MBR -> remote provider public pin -> same endpoint topic response -> reply_target records -> ui-server -> local UI model</div>
-          <div class="arrow">ui_bind_json writes value_ref to click_chain</div>
-          <div class="node amber">click_chain -> root_routes -> submit_request -> submit_request_wiring -> handle_submit:in</div>
+          <div class="arrow">ui_bind_json writes value_ref to click_event</div>
+          <div class="node amber">click_event -> click_event_wiring -> click_chain -> root_routes -> submit_request -> submit_request_wiring -> handle_submit:in</div>
           <div class="arrow">handle_submit writes business records to submit1 pin.out</div>
           <div class="node blue">generated host egress adapter writes mt_bus_send_in and pin.bus.mb.out</div>
           <div class="arrow">MBR publishes endpoint topic</div>
@@ -104,7 +104,7 @@
         <div class="card">
           <h3>方向和回包目标在 payload records</h3>
           <p><code>message_role=request</code> 表示触发远端程序；<code>message_role=response</code> 表示这是回包，远端 runtime 会忽略它，避免重复触发。</p>
-          <p><code>reply_target_worker_id</code>、<code>reply_target_model_id</code>、<code>reply_target_pin</code> 指向 <code>ui-server-U1 / 2000 / result</code>。</p>
+          <p><code>reply_target_worker_id</code>、<code>reply_target_model_id</code>、<code>reply_target_pin</code> 指向 <code>U1 / 2000 / result</code>。</p>
         </div>
       </div>
     </section>
@@ -112,7 +112,7 @@
     <section id="patch" class="section">
       <div class="card full">
         <h2>完整 patch label 说明</h2>
-        <p><code>test_files/minimal_submit_dual_bus_app_payload.json</code> 是一个 61 条 record 的 ModelTable records array；<code>test_files/minimal_submit_dual_bus.zip</code> 内只有 <code>app_payload.json</code>。</p>
+        <p><code>test_files/minimal_submit_dual_bus_app_payload.json</code> 是一个 63 条 record 的 ModelTable records array；<code>test_files/minimal_submit_dual_bus.zip</code> 内只有 <code>app_payload.json</code>。</p>
         <table>
           <thead><tr><th>类别</th><th>labels</th><th>作用</th></tr></thead>
           <tbody>
@@ -120,7 +120,7 @@
             <tr><td>state</td><td><code>input_text</code>, <code>display_text</code>, <code>remote_status</code>, <code>submit_inflight</code>, <code>last_submit_payload</code></td><td>页面状态与回包结果。</td></tr>
             <tr><td>bus</td><td><code>host_ingress_v1</code>, <code>remote_bus_endpoint_v1</code>, <code>dual_bus_model</code>, <code>submit_request</code>, <code>submit1</code>, <code>submit_request_wiring</code>, <code>root_routes</code>, <code>handle_submit</code></td><td>声明 ingress、egress 与程序链路。</td></tr>
             <tr><td>UI</td><td><code>ui_node_id</code>, <code>ui_component</code>, <code>ui_layout</code>, <code>ui_gap</code>, <code>ui_parent</code>, <code>ui_order</code>, <code>ui_title</code>, <code>ui_placeholder</code>, <code>ui_bind_json</code>, <code>ui_label</code>, <code>ui_variant</code></td><td>把模型表渲染成页面。</td></tr>
-            <tr><td>bindings</td><td><code>click_chain</code>, <code>ui_text_ref_model_id</code>, <code>ui_text_ref_p</code>, <code>ui_text_ref_r</code>, <code>ui_text_ref_c</code>, <code>ui_text_ref_k</code></td><td>按钮事件与显示文字读取。</td></tr>
+            <tr><td>bindings</td><td><code>click_event</code>, <code>click_event_wiring</code>, <code>click_chain</code>, <code>ui_text_ref_model_id</code>, <code>ui_text_ref_p</code>, <code>ui_text_ref_r</code>, <code>ui_text_ref_c</code>, <code>ui_text_ref_k</code></td><td>按钮事件与显示文字读取。</td></tr>
           </tbody>
         </table>
       </div>
@@ -130,10 +130,10 @@
       <div class="grid">
         <div class="card full">
           <h2>Submit 类提交按钮</h2>
-          <p>按钮 Cell labels 必须包含 <code>ui_component=Button</code>、<code>ui_label=Submit</code>、<code>click_chain pin.out</code>、<code>ui_bind_json</code>。其中 <code>ui_bind_json.write.pin</code> 指向 <code>click_chain</code>，<code>value_t</code> 是 <code>modeltable</code>，<code>value_ref</code> 准备 <code>__mt_payload_kind=ui_event.v1</code>、<code>text</code>、<code>source</code>。</p>
+          <p>按钮 Cell labels 必须包含 <code>ui_component=Button</code>、<code>ui_label=Submit</code>、<code>click_event pin.in</code>、<code>click_event_wiring pin.connect.label</code>、<code>click_chain pin.out</code>、<code>ui_bind_json</code>。其中 <code>ui_bind_json.write.pin</code> 指向 <code>click_event</code>，<code>value_t</code> 是 <code>modeltable</code>，<code>value_ref</code> 准备 <code>__mt_payload_kind=ui_event.v1</code>、<code>text</code>、<code>source</code>。</p>
           <pre>{
   "write": {
-    "pin": "click_chain",
+    "pin": "click_event",
     "value_t": "modeltable",
     "value_ref": [
       { "k": "__mt_payload_kind", "t": "str", "v": "ui_event.v1" },
@@ -145,7 +145,7 @@
         </div>
         <div class="card">
           <h3>Root 入口</h3>
-          <p><code>click_chain</code> 经 <code>root_routes</code> 进入 <code>submit_request</code>，再经 <code>submit_request_wiring</code> 进入 <code>handle_submit:in</code>。</p>
+          <p><code>click_event</code> 经 <code>click_event_wiring</code> 转到 <code>click_chain</code>，再经 <code>root_routes</code> 进入 <code>submit_request</code>，最后经 <code>submit_request_wiring</code> 进入 <code>handle_submit:in</code>。</p>
         </div>
         <div class="card">
           <h3>业务出口</h3>
@@ -153,11 +153,11 @@
         </div>
         <div class="card full">
           <h3>生效顺序</h3>
-          <p><code>ui_bind_json</code> -> <code>click_chain</code> -> <code>submit_request</code> -> <code>handle_submit:in</code> -> <code>submit1 pin.out</code> -> generated host egress adapter。</p>
+          <p><code>ui_bind_json</code> -> <code>click_event</code> -> <code>click_event_wiring</code> -> <code>click_chain</code> -> <code>submit_request</code> -> <code>handle_submit:in</code> -> <code>submit1 pin.out</code> -> generated host egress adapter。</p>
         </div>
         <div class="card full">
           <h3>多个提交按钮</h3>
-          <p>多个提交按钮应拆开：<code>approve_click_chain</code> -> <code>approve_request</code> -> <code>handle_approve</code> -> <code>approve1</code>。不要复用同一个 root pin，除非它们确实是同一类业务。</p>
+          <p>多个提交按钮应拆开：<code>approve_click_event</code> -> <code>approve_click_chain</code> -> <code>approve_request</code> -> <code>handle_approve</code> -> <code>approve1</code>。不要复用同一个 root pin，除非它们确实是同一类业务。</p>
         </div>
       </div>
     </section>
@@ -208,7 +208,7 @@
     { "k": "origin_worker_id", "t": "str", "v": "R1" },
     { "k": "origin_model_id", "t": "int", "v": 3000 },
     { "k": "origin_pin", "t": "str", "v": "submit1" },
-    { "k": "reply_target_worker_id", "t": "str", "v": "ui-server-U1" },
+    { "k": "reply_target_worker_id", "t": "str", "v": "U1" },
     { "k": "reply_target_model_id", "t": "int", "v": 2000 },
     { "k": "reply_target_pin", "t": "str", "v": "result" },
     { "k": "payload", "t": "json", "v": [
@@ -225,7 +225,7 @@
     <section id="export" class="section">
       <div class="card full">
         <h2>Zip 导出</h2>
-        <p>导出接口：<code>/api/slide-apps/&lt;modelId&gt;/export.zip</code>。导出的 Zip 只包含 provider-authored <code>app_payload.json</code>，不包含安装态 labels。</p>
+        <p>导出接口：<code>/api/slide-apps/&lt;modelId&gt;/export.zip</code>。导出的 Zip 只包含 provider-authored <code>app_payload.json</code>，不包含安装态 labels，也不会带出 <code>bus_event*</code>、<code>owner_request</code>、<code>owner_route</code>、<code>__owner_last_*</code> 这类运行态 labels。</p>
         <div class="warning">
           <strong>禁止残留：</strong>不要在 ZIP 中提供 <code>route.reply_to</code>、<code>source_model_id</code>、旧 <code>worker/R1/model/3000/pin/submit1</code> topic、<code>pin.connect.model</code> 或 raw resultPayload。
         </div>

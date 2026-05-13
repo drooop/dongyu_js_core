@@ -23768,9 +23768,36 @@
       "p": 2,
       "r": 3,
       "c": 0,
-      "k": "click_chain",
+      "k": "click_event",
       "t": "pin.in",
       "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "click_chain",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "click_event_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "click_event",
+          "to": [
+            "click_chain"
+          ]
+        }
+      ]
     },
     {
       "op": "add_label",
@@ -23782,7 +23809,7 @@
       "t": "json",
       "v": {
         "write": {
-          "pin": "click_chain",
+          "pin": "click_event",
           "value_ref": [
             {
               "id": 0,
