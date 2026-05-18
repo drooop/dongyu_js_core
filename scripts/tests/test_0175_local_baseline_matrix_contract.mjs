@@ -66,7 +66,7 @@ assert.match(
 
 assert.match(
   deployLocal,
-  /wait_for_no_terminating_pods remote-worker mbr-worker ui-server ui-side-worker/,
+  /wait_for_no_terminating_pods remote-worker workspace-manager mbr-worker ui-server/,
   'deploy_local.sh must wait for old app pods to terminate before reporting deploy complete',
 );
 

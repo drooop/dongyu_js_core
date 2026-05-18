@@ -57,6 +57,66 @@ spec:
           path: /Users/drop/dongyu/volume/persist/assets
           type: DirectoryOrCreate
 ---
+# Workspace Manager ConfigMap (local)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: workspace-manager-config
+  namespace: dongyu
+data:
+  MQTT_HOST: "mosquitto.dongyu.svc.cluster.local"
+  MQTT_PORT: "1883"
+  MQTT_USER: ""
+  MQTT_PASS: ""
+  WORKER_ID: "WM1"
+  DY_WORKER_SCOPE: "workspace-manager"
+  DY_WORKER_LOG_PREFIX: "workspace-manager"
+---
+# Workspace Manager Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workspace-manager
+  namespace: dongyu
+  labels:
+    app: workspace-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workspace-manager
+  template:
+    metadata:
+      labels:
+        app: workspace-manager
+    spec:
+      containers:
+      - name: worker
+        image: dy-remote-worker:v3
+        imagePullPolicy: Never
+        envFrom:
+        - configMapRef:
+            name: workspace-manager-config
+        env:
+        - name: DY_PERSISTED_ASSET_ROOT
+          value: /app/persisted-assets
+        volumeMounts:
+        - name: persisted-assets
+          mountPath: /app/persisted-assets
+          readOnly: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+      volumes:
+      - name: persisted-assets
+        hostPath:
+          path: /Users/drop/dongyu/volume/persist/assets
+          type: DirectoryOrCreate
+---
 # MBR Worker ConfigMap (local)
 apiVersion: v1
 kind: ConfigMap

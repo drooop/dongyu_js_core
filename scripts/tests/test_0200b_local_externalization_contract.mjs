@@ -20,14 +20,10 @@ function test_deploy_local_supports_asset_sync_and_skip_build() {
 
 function test_local_manifests_mount_persisted_asset_root() {
   const workers = read('k8s/local/workers.yaml');
-  const uiSide = read('k8s/local/ui-side-worker.yaml');
 
   assert.match(workers, /DY_PERSISTED_ASSET_ROOT/, 'workers manifest must pass DY_PERSISTED_ASSET_ROOT');
-  assert.match(uiSide, /DY_PERSISTED_ASSET_ROOT/, 'ui-side worker manifest must pass DY_PERSISTED_ASSET_ROOT');
   assert.match(workers, /mountPath:\s*\/app\/persisted-assets/, 'workers manifest must mount persisted asset root into containers');
-  assert.match(uiSide, /mountPath:\s*\/app\/persisted-assets/, 'ui-side worker manifest must mount persisted asset root into containers');
   assert.match(workers, /hostPath:/, 'workers manifest must use hostPath for local persisted assets');
-  assert.match(uiSide, /hostPath:/, 'ui-side worker manifest must use hostPath for local persisted assets');
 }
 
 function test_runtime_entrypoints_reference_persisted_asset_root() {
@@ -35,14 +31,12 @@ function test_runtime_entrypoints_reference_persisted_asset_root() {
   const engine = read('scripts/worker_engine_v0.mjs');
   const mbr = read('scripts/run_worker_v0.mjs');
   const remote = read('scripts/run_worker_remote_v1.mjs');
-  const uiSide = read('scripts/run_worker_ui_side_v0.mjs');
 
   assert.match(engine, /resolvePersistedAssetRoot/, 'worker engine must support persisted asset root resolution');
   assert.match(engine, /applyPersistedAssetEntries/, 'worker engine must support persisted asset manifest application');
   assert.match(server, /applyPersistedAssetEntries/, 'ui-server must load authoritative assets through persisted asset loader');
   assert.match(mbr, /applyPersistedAssetEntries/, 'mbr runner must load authoritative assets through persisted asset loader');
   assert.match(remote, /applyPersistedAssetEntries/, 'remote worker runner must load authoritative assets through persisted asset loader');
-  assert.match(uiSide, /applyPersistedAssetEntries/, 'ui-side worker runner must load authoritative assets through persisted asset loader');
 }
 
 const tests = [

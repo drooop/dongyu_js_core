@@ -13,7 +13,7 @@ const { analyzeModelMounting } = await import('../ops/model_mounting_analyzer.mj
 const result = await analyzeModelMounting({ repoRoot });
 assert.ok(result.profiles && typeof result.profiles === 'object', 'analyzer must expose profile audits');
 
-for (const profileId of ['ui-server', 'remote-worker', 'ui-side-worker', 'mbr-worker']) {
+for (const profileId of ['ui-server', 'remote-worker', 'mbr-worker']) {
   const profile = result.profiles[profileId];
   assert.ok(profile, `missing profile ${profileId}`);
   assert.equal(profile.audit.unmountedCount, 0, `${profileId} must not keep unmounted models`);

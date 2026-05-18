@@ -1,5 +1,5 @@
 window.MODEL_MOUNTING_DATA = {
-  "generatedAt": "2026-03-30T06:45:44.627Z",
+  "generatedAt": "2026-05-18T16:11:07.566Z",
   "models": [
     {
       "id": -103,
@@ -106,6 +106,52 @@ window.MODEL_MOUNTING_DATA = {
       "sourceScopes": [
         "page-assets",
         "server-bootstrap"
+      ],
+      "canonical": true
+    },
+    {
+      "id": -28,
+      "title": "Model -28",
+      "desc": "",
+      "kind": "system",
+      "runtimeType": "ui",
+      "form": "model.single",
+      "declaredBy": [
+        "packages/worker-base/system-models/desktop_catalog_ui.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/desktop_catalog_ui.json",
+          "scopeId": "page-assets",
+          "scopeLabel": "page assets",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "page-assets"
+      ],
+      "canonical": true
+    },
+    {
+      "id": -27,
+      "title": "Model -27",
+      "desc": "",
+      "kind": "system",
+      "runtimeType": "ui",
+      "form": "model.single",
+      "declaredBy": [
+        "packages/worker-base/system-models/sliding_flow_shell_ui.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/sliding_flow_shell_ui.json",
+          "scopeId": "system-bootstrap",
+          "scopeLabel": "system bootstrap",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "system-bootstrap"
       ],
       "canonical": true
     },
@@ -280,24 +326,25 @@ window.MODEL_MOUNTING_DATA = {
       "declaredBy": [
         "deploy/sys-v1ns/mbr/patches/mbr_role_v0.json:record",
         "deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json:record",
-        "deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json:record",
-        "deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json:record",
+        "deploy/sys-v1ns/workspace-manager/patches/00_workspace_manager_dem_config.json:record",
         "packages/worker-base/system-models/cognition_handlers.json:record",
         "packages/worker-base/system-models/intent_dispatch_config.json:record",
         "packages/worker-base/system-models/intent_handlers_docs.json:record",
         "packages/worker-base/system-models/intent_handlers_home.json:record",
         "packages/worker-base/system-models/intent_handlers_matrix_debug.json:record",
         "packages/worker-base/system-models/intent_handlers_prompt_filltable.json:record",
+        "packages/worker-base/system-models/intent_handlers_slide_create.json:record",
+        "packages/worker-base/system-models/intent_handlers_slide_import.json:record",
         "packages/worker-base/system-models/intent_handlers_static.json:record",
         "packages/worker-base/system-models/intent_handlers_three_scene.json:record",
         "packages/worker-base/system-models/intent_handlers_ui_examples.json:record",
         "packages/worker-base/system-models/intent_handlers_ws.json:record",
         "packages/worker-base/system-models/llm_cognition_config.json:record",
         "packages/worker-base/system-models/matrix_config.json:record",
-        "packages/worker-base/system-models/remote_worker_model.legacy.json:record",
         "packages/worker-base/system-models/system_models.json:record",
         "packages/worker-base/system-models/test_model_100_full.json:record",
-        "packages/worker-base/system-models/test_model_100_ui.json:record"
+        "packages/worker-base/system-models/test_model_100_ui.json:record",
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
       ],
       "sources": [
         {
@@ -313,15 +360,9 @@ window.MODEL_MOUNTING_DATA = {
           "canonical": true
         },
         {
-          "relPath": "deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json",
-          "scopeId": "deploy-ui-side-worker",
-          "scopeLabel": "deploy ui-side-worker",
-          "canonical": true
-        },
-        {
-          "relPath": "deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json",
-          "scopeId": "deploy-ui-side-worker",
-          "scopeLabel": "deploy ui-side-worker",
+          "relPath": "deploy/sys-v1ns/workspace-manager/patches/00_workspace_manager_dem_config.json",
+          "scopeId": "system-bootstrap",
+          "scopeLabel": "system bootstrap",
           "canonical": true
         },
         {
@@ -356,6 +397,18 @@ window.MODEL_MOUNTING_DATA = {
         },
         {
           "relPath": "packages/worker-base/system-models/intent_handlers_prompt_filltable.json",
+          "scopeId": "system-bootstrap",
+          "scopeLabel": "system bootstrap",
+          "canonical": true
+        },
+        {
+          "relPath": "packages/worker-base/system-models/intent_handlers_slide_create.json",
+          "scopeId": "system-bootstrap",
+          "scopeLabel": "system bootstrap",
+          "canonical": true
+        },
+        {
+          "relPath": "packages/worker-base/system-models/intent_handlers_slide_import.json",
           "scopeId": "system-bootstrap",
           "scopeLabel": "system bootstrap",
           "canonical": true
@@ -397,12 +450,6 @@ window.MODEL_MOUNTING_DATA = {
           "canonical": true
         },
         {
-          "relPath": "packages/worker-base/system-models/remote_worker_model.legacy.json",
-          "scopeId": "fixture",
-          "scopeLabel": "fixture / legacy",
-          "canonical": false
-        },
-        {
           "relPath": "packages/worker-base/system-models/system_models.json",
           "scopeId": "system-bootstrap",
           "scopeLabel": "system bootstrap",
@@ -419,15 +466,21 @@ window.MODEL_MOUNTING_DATA = {
           "scopeId": "model100-local",
           "scopeLabel": "model100 local ui",
           "canonical": true
+        },
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
         }
       ],
       "sourceScopes": [
         "deploy-mbr",
         "deploy-remote-worker",
-        "deploy-ui-side-worker",
         "fixture",
         "model100-local",
-        "system-bootstrap"
+        "system-bootstrap",
+        "workspace-positive-models"
       ],
       "canonical": true
     },
@@ -437,7 +490,7 @@ window.MODEL_MOUNTING_DATA = {
       "desc": "Login UI 模型",
       "kind": "system",
       "runtimeType": "ui",
-      "form": "unknown",
+      "form": "model.single",
       "declaredBy": [
         "packages/ui-model-demo-server/server.mjs#bootstrap:server-bootstrap",
         "packages/worker-base/system-models/login_catalog_ui.json:record"
@@ -550,12 +603,15 @@ window.MODEL_MOUNTING_DATA = {
         "deploy/sys-v1ns/mbr/patches/mbr_role_v0.json:record",
         "deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json:record",
         "deploy/sys-v1ns/remote-worker/patches/10_model100.json:record",
-        "deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json:record",
-        "deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json:record",
+        "deploy/sys-v1ns/remote-worker/patches/11_model1010.json:record",
+        "deploy/sys-v1ns/remote-worker/patches/12_model1019.json:record",
+        "deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json:record",
+        "deploy/sys-v1ns/workspace-manager/patches/00_workspace_manager_dem_config.json:record",
         "packages/worker-base/system-models/runtime_hierarchy_mounts.json:record",
         "packages/worker-base/system-models/server_config.json:record",
         "packages/worker-base/system-models/system_models.json:record",
-        "packages/worker-base/system-models/test_model_100_ui.json:record"
+        "packages/worker-base/system-models/test_model_100_ui.json:record",
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
       ],
       "sources": [
         {
@@ -577,15 +633,27 @@ window.MODEL_MOUNTING_DATA = {
           "canonical": true
         },
         {
-          "relPath": "deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json",
-          "scopeId": "deploy-ui-side-worker",
-          "scopeLabel": "deploy ui-side-worker",
+          "relPath": "deploy/sys-v1ns/remote-worker/patches/11_model1010.json",
+          "scopeId": "deploy-remote-worker",
+          "scopeLabel": "deploy remote-worker",
           "canonical": true
         },
         {
-          "relPath": "deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json",
-          "scopeId": "deploy-ui-side-worker",
-          "scopeLabel": "deploy ui-side-worker",
+          "relPath": "deploy/sys-v1ns/remote-worker/patches/12_model1019.json",
+          "scopeId": "deploy-remote-worker",
+          "scopeLabel": "deploy remote-worker",
+          "canonical": true
+        },
+        {
+          "relPath": "deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json",
+          "scopeId": "deploy-remote-worker",
+          "scopeLabel": "deploy remote-worker",
+          "canonical": true
+        },
+        {
+          "relPath": "deploy/sys-v1ns/workspace-manager/patches/00_workspace_manager_dem_config.json",
+          "scopeId": "system-bootstrap",
+          "scopeLabel": "system bootstrap",
           "canonical": true
         },
         {
@@ -611,35 +679,6 @@ window.MODEL_MOUNTING_DATA = {
           "scopeId": "model100-local",
           "scopeLabel": "model100 local ui",
           "canonical": true
-        }
-      ],
-      "sourceScopes": [
-        "deploy-mbr",
-        "deploy-remote-worker",
-        "deploy-ui-side-worker",
-        "model100-local",
-        "system-bootstrap",
-        "ui-runtime-hierarchy"
-      ],
-      "canonical": true
-    },
-    {
-      "id": 1,
-      "title": "Model 1",
-      "desc": "用户模型 / demo",
-      "kind": "user",
-      "runtimeType": "main",
-      "form": "model.single",
-      "declaredBy": [
-        "deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json:record",
-        "packages/worker-base/system-models/workspace_positive_models.json:record"
-      ],
-      "sources": [
-        {
-          "relPath": "deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json",
-          "scopeId": "deploy-ui-side-worker",
-          "scopeLabel": "deploy ui-side-worker",
-          "canonical": true
         },
         {
           "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
@@ -649,7 +688,34 @@ window.MODEL_MOUNTING_DATA = {
         }
       ],
       "sourceScopes": [
-        "deploy-ui-side-worker",
+        "deploy-mbr",
+        "deploy-remote-worker",
+        "model100-local",
+        "system-bootstrap",
+        "ui-runtime-hierarchy",
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1,
+      "title": "Model 1",
+      "desc": "用户模型 / demo",
+      "kind": "user",
+      "runtimeType": "main",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
         "workspace-positive-models"
       ],
       "canonical": true
@@ -662,16 +728,9 @@ window.MODEL_MOUNTING_DATA = {
       "runtimeType": "main",
       "form": "model.table",
       "declaredBy": [
-        "packages/worker-base/system-models/remote_worker_model.legacy.json:record",
         "packages/worker-base/system-models/workspace_positive_models.json:record"
       ],
       "sources": [
-        {
-          "relPath": "packages/worker-base/system-models/remote_worker_model.legacy.json",
-          "scopeId": "fixture",
-          "scopeLabel": "fixture / legacy",
-          "canonical": false
-        },
         {
           "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
           "scopeId": "workspace-positive-models",
@@ -680,7 +739,6 @@ window.MODEL_MOUNTING_DATA = {
         }
       ],
       "sourceScopes": [
-        "fixture",
         "workspace-positive-models"
       ],
       "canonical": true
@@ -696,6 +754,7 @@ window.MODEL_MOUNTING_DATA = {
         "deploy/sys-v1ns/remote-worker/patches/10_model100.json:record",
         "packages/worker-base/system-models/test_model_100_full.json:record",
         "packages/worker-base/system-models/test_model_100_ui.json:record",
+        "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json:record",
         "packages/worker-base/system-models/workspace_positive_models.json:record"
       ],
       "sources": [
@@ -718,6 +777,12 @@ window.MODEL_MOUNTING_DATA = {
           "canonical": true
         },
         {
+          "relPath": "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json",
+          "scopeId": "system-bootstrap",
+          "scopeLabel": "system bootstrap",
+          "canonical": true
+        },
+        {
           "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
           "scopeId": "workspace-positive-models",
           "scopeLabel": "workspace positive models",
@@ -728,6 +793,7 @@ window.MODEL_MOUNTING_DATA = {
         "deploy-remote-worker",
         "fixture",
         "model100-local",
+        "system-bootstrap",
         "workspace-positive-models"
       ],
       "canonical": true
@@ -933,18 +999,571 @@ window.MODEL_MOUNTING_DATA = {
       "canonical": true
     },
     {
-      "id": 2001,
-      "title": "Model 2001",
+      "id": 1009,
+      "title": "Model 1009",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1010,
+      "title": "Model 1010",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "deploy/sys-v1ns/remote-worker/patches/11_model1010.json:record",
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "deploy/sys-v1ns/remote-worker/patches/11_model1010.json",
+          "scopeId": "deploy-remote-worker",
+          "scopeLabel": "deploy remote-worker",
+          "canonical": true
+        },
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "deploy-remote-worker",
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1011,
+      "title": "Model 1011",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1012,
+      "title": "Model 1012",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1013,
+      "title": "Model 1013",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1014,
+      "title": "Model 1014",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1015,
+      "title": "Model 1015",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/doc_page_filltable_example_minimal.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/doc_page_filltable_example_minimal.json",
+          "scopeId": "system-bootstrap",
+          "scopeLabel": "system bootstrap",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "system-bootstrap"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1016,
+      "title": "Model 1016",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1017,
+      "title": "Model 1017",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1018,
+      "title": "Model 1018",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1019,
+      "title": "Model 1019",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "deploy/sys-v1ns/remote-worker/patches/12_model1019.json:record",
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "deploy/sys-v1ns/remote-worker/patches/12_model1019.json",
+          "scopeId": "deploy-remote-worker",
+          "scopeLabel": "deploy remote-worker",
+          "canonical": true
+        },
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "deploy-remote-worker",
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1020,
+      "title": "Model 1020",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1021,
+      "title": "Model 1021",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1030,
+      "title": "Model 1030",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1031,
+      "title": "Model 1031",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1034,
+      "title": "Model 1034",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1035,
+      "title": "Model 1035",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1036,
+      "title": "Model 1036",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1037,
+      "title": "Model 1037",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1039,
+      "title": "Model 1039",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/slide_app_provider_docs_ui.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/slide_app_provider_docs_ui.json",
+          "scopeId": "system-bootstrap",
+          "scopeLabel": "system bootstrap",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "system-bootstrap"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1050,
+      "title": "Model 1050",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1051,
+      "title": "Model 1051",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "sliding_ui",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json:record",
+        "packages/worker-base/system-models/workspace_positive_models.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json",
+          "scopeId": "system-bootstrap",
+          "scopeLabel": "system bootstrap",
+          "canonical": true
+        },
+        {
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "system-bootstrap",
+        "workspace-positive-models"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 1052,
+      "title": "Model 1052",
       "desc": "",
       "kind": "user",
       "runtimeType": "data",
       "form": "model.table",
       "declaredBy": [
-        "packages/worker-base/system-models/templates/data_array_v0.json:record"
+        "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json:record"
       ],
       "sources": [
         {
-          "relPath": "packages/worker-base/system-models/templates/data_array_v0.json",
+          "relPath": "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json",
+          "scopeId": "system-bootstrap",
+          "scopeLabel": "system bootstrap",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "system-bootstrap"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 2101,
+      "title": "Model 2101",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "data",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/templates/data_queue_v0.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/templates/data_queue_v0.json",
           "scopeId": "fixture",
           "scopeLabel": "fixture / legacy",
           "canonical": false
@@ -954,6 +1573,98 @@ window.MODEL_MOUNTING_DATA = {
         "fixture"
       ],
       "canonical": false
+    },
+    {
+      "id": 2201,
+      "title": "Model 2201",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "data",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/templates/data_stack_v0.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/templates/data_stack_v0.json",
+          "scopeId": "fixture",
+          "scopeLabel": "fixture / legacy",
+          "canonical": false
+        }
+      ],
+      "sourceScopes": [
+        "fixture"
+      ],
+      "canonical": false
+    },
+    {
+      "id": 2301,
+      "title": "Model 2301",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "data",
+      "form": "model.table",
+      "declaredBy": [
+        "packages/worker-base/system-models/templates/data_array_one_v1.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "packages/worker-base/system-models/templates/data_array_one_v1.json",
+          "scopeId": "fixture",
+          "scopeLabel": "fixture / legacy",
+          "canonical": false
+        }
+      ],
+      "sourceScopes": [
+        "fixture"
+      ],
+      "canonical": false
+    },
+    {
+      "id": 3000,
+      "title": "Model 3000",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "ui",
+      "form": "model.table",
+      "declaredBy": [
+        "deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json",
+          "scopeId": "deploy-remote-worker",
+          "scopeLabel": "deploy remote-worker",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "deploy-remote-worker"
+      ],
+      "canonical": true
+    },
+    {
+      "id": 4000,
+      "title": "Model 4000",
+      "desc": "",
+      "kind": "user",
+      "runtimeType": "service",
+      "form": "model.table",
+      "declaredBy": [
+        "deploy/sys-v1ns/workspace-manager/patches/00_workspace_manager_dem_config.json:record"
+      ],
+      "sources": [
+        {
+          "relPath": "deploy/sys-v1ns/workspace-manager/patches/00_workspace_manager_dem_config.json",
+          "scopeId": "system-bootstrap",
+          "scopeLabel": "system bootstrap",
+          "canonical": true
+        }
+      ],
+      "sourceScopes": [
+        "system-bootstrap"
+      ],
+      "canonical": true
     }
   ],
   "mounts": [
@@ -1077,19 +1788,19 @@ window.MODEL_MOUNTING_DATA = {
     {
       "parent": 0,
       "child": -10,
-      "cell": "(1,0,1)",
-      "relPath": "deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json",
-      "scopeId": "deploy-ui-side-worker",
-      "scopeLabel": "deploy ui-side-worker",
+      "cell": "(1,0,3)",
+      "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+      "scopeId": "ui-runtime-hierarchy",
+      "scopeLabel": "ui runtime hierarchy",
       "canonical": true
     },
     {
       "parent": 0,
       "child": -10,
       "cell": "(1,0,3)",
-      "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
-      "scopeId": "ui-runtime-hierarchy",
-      "scopeLabel": "ui runtime hierarchy",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
       "canonical": true
     },
     {
@@ -1117,15 +1828,6 @@ window.MODEL_MOUNTING_DATA = {
       "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
       "scopeId": "ui-runtime-hierarchy",
       "scopeLabel": "ui runtime hierarchy",
-      "canonical": true
-    },
-    {
-      "parent": 0,
-      "child": 1,
-      "cell": "(1,0,0)",
-      "relPath": "deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json",
-      "scopeId": "deploy-ui-side-worker",
-      "scopeLabel": "deploy ui-side-worker",
       "canonical": true
     },
     {
@@ -1162,6 +1864,15 @@ window.MODEL_MOUNTING_DATA = {
       "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
       "scopeId": "ui-runtime-hierarchy",
       "scopeLabel": "ui runtime hierarchy",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 100,
+      "cell": "(10,0,0)",
+      "relPath": "packages/worker-base/system-models/test_model_100_ui.json",
+      "scopeId": "model100-local",
+      "scopeLabel": "model100 local ui",
       "canonical": true
     },
     {
@@ -1219,6 +1930,159 @@ window.MODEL_MOUNTING_DATA = {
       "canonical": true
     },
     {
+      "parent": 0,
+      "child": 1009,
+      "cell": "(2,0,8)",
+      "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+      "scopeId": "ui-runtime-hierarchy",
+      "scopeLabel": "ui runtime hierarchy",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1009,
+      "cell": "(2,0,8)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1010,
+      "cell": "(1,0,10)",
+      "relPath": "deploy/sys-v1ns/remote-worker/patches/11_model1010.json",
+      "scopeId": "deploy-remote-worker",
+      "scopeLabel": "deploy remote-worker",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1011,
+      "cell": "(2,0,9)",
+      "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+      "scopeId": "ui-runtime-hierarchy",
+      "scopeLabel": "ui runtime hierarchy",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1013,
+      "cell": "(2,0,10)",
+      "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+      "scopeId": "ui-runtime-hierarchy",
+      "scopeLabel": "ui runtime hierarchy",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1016,
+      "cell": "(2,0,12)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1019,
+      "cell": "(1,0,19)",
+      "relPath": "deploy/sys-v1ns/remote-worker/patches/12_model1019.json",
+      "scopeId": "deploy-remote-worker",
+      "scopeLabel": "deploy remote-worker",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1030,
+      "cell": "(2,0,13)",
+      "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+      "scopeId": "ui-runtime-hierarchy",
+      "scopeLabel": "ui runtime hierarchy",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1030,
+      "cell": "(2,0,13)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1034,
+      "cell": "(2,0,15)",
+      "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+      "scopeId": "ui-runtime-hierarchy",
+      "scopeLabel": "ui runtime hierarchy",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1034,
+      "cell": "(2,0,15)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1036,
+      "cell": "(2,0,16)",
+      "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+      "scopeId": "ui-runtime-hierarchy",
+      "scopeLabel": "ui runtime hierarchy",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1037,
+      "cell": "(2,0,17)",
+      "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+      "scopeId": "ui-runtime-hierarchy",
+      "scopeLabel": "ui runtime hierarchy",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1039,
+      "cell": "(2,0,19)",
+      "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+      "scopeId": "ui-runtime-hierarchy",
+      "scopeLabel": "ui runtime hierarchy",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 1050,
+      "cell": "(9,0,1050)",
+      "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+      "scopeId": "ui-runtime-hierarchy",
+      "scopeLabel": "ui runtime hierarchy",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 3000,
+      "cell": "(1,0,30)",
+      "relPath": "deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json",
+      "scopeId": "deploy-remote-worker",
+      "scopeLabel": "deploy remote-worker",
+      "canonical": true
+    },
+    {
+      "parent": 0,
+      "child": 4000,
+      "cell": "(1,0,0)",
+      "relPath": "deploy/sys-v1ns/workspace-manager/patches/00_workspace_manager_dem_config.json",
+      "scopeId": "system-bootstrap",
+      "scopeLabel": "system bootstrap",
+      "canonical": true
+    },
+    {
       "parent": 1005,
       "child": 1006,
       "cell": "(0,2,0)",
@@ -1230,6 +2094,96 @@ window.MODEL_MOUNTING_DATA = {
     {
       "parent": 1007,
       "child": 1008,
+      "cell": "(0,2,0)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 1009,
+      "child": 1010,
+      "cell": "(0,2,0)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 1011,
+      "child": 1012,
+      "cell": "(0,2,0)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 1013,
+      "child": 1014,
+      "cell": "(0,2,0)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 1016,
+      "child": 1017,
+      "cell": "(0,2,0)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 1016,
+      "child": 1018,
+      "cell": "(0,2,1)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 1016,
+      "child": 1019,
+      "cell": "(0,2,2)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 1016,
+      "child": 1020,
+      "cell": "(0,2,3)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 1016,
+      "child": 1021,
+      "cell": "(0,2,4)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 1030,
+      "child": 1031,
+      "cell": "(0,2,0)",
+      "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+      "scopeId": "workspace-positive-models",
+      "scopeLabel": "workspace positive models",
+      "canonical": true
+    },
+    {
+      "parent": 1034,
+      "child": 1035,
       "cell": "(0,2,0)",
       "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
       "scopeId": "workspace-positive-models",
@@ -1249,21 +2203,14 @@ window.MODEL_MOUNTING_DATA = {
       "id": "deploy-remote-worker",
       "label": "deploy remote-worker",
       "canonical": true,
-      "modelCount": 3,
-      "mountCount": 2
-    },
-    {
-      "id": "deploy-ui-side-worker",
-      "label": "deploy ui-side-worker",
-      "canonical": true,
-      "modelCount": 3,
-      "mountCount": 2
+      "modelCount": 6,
+      "mountCount": 5
     },
     {
       "id": "fixture",
       "label": "fixture / legacy",
       "canonical": false,
-      "modelCount": 6,
+      "modelCount": 7,
       "mountCount": 0
     },
     {
@@ -1278,13 +2225,13 @@ window.MODEL_MOUNTING_DATA = {
       "label": "model100 local ui",
       "canonical": true,
       "modelCount": 3,
-      "mountCount": 0
+      "mountCount": 1
     },
     {
       "id": "page-assets",
       "label": "page assets",
       "canonical": true,
-      "modelCount": 8,
+      "modelCount": 9,
       "mountCount": 0
     },
     {
@@ -1298,15 +2245,15 @@ window.MODEL_MOUNTING_DATA = {
       "id": "system-bootstrap",
       "label": "system bootstrap",
       "canonical": true,
-      "modelCount": 4,
-      "mountCount": 0
+      "modelCount": 11,
+      "mountCount": 1
     },
     {
       "id": "ui-runtime-hierarchy",
       "label": "ui runtime hierarchy",
       "canonical": true,
       "modelCount": 1,
-      "mountCount": 24
+      "mountCount": 33
     },
     {
       "id": "workspace-catalog",
@@ -1319,17 +2266,141 @@ window.MODEL_MOUNTING_DATA = {
       "id": "workspace-positive-models",
       "label": "workspace positive models",
       "canonical": true,
-      "modelCount": 12,
-      "mountCount": 2
+      "modelCount": 34,
+      "mountCount": 17
     }
   ],
   "audit": {
     "canonical": {
-      "declaredModelCount": 27,
-      "mountCount": 31,
-      "unmountedCount": 0,
-      "duplicateCount": 3,
-      "unmountedModels": [],
+      "declaredModelCount": 54,
+      "mountCount": 58,
+      "unmountedCount": 5,
+      "duplicateCount": 7,
+      "unmountedModels": [
+        {
+          "id": -28,
+          "title": "Model -28",
+          "desc": "",
+          "kind": "system",
+          "runtimeType": "ui",
+          "form": "model.single",
+          "declaredBy": [
+            "packages/worker-base/system-models/desktop_catalog_ui.json:record"
+          ],
+          "sources": [
+            {
+              "relPath": "packages/worker-base/system-models/desktop_catalog_ui.json",
+              "scopeId": "page-assets",
+              "scopeLabel": "page assets",
+              "canonical": true
+            }
+          ],
+          "sourceScopes": [
+            "page-assets"
+          ],
+          "canonical": true
+        },
+        {
+          "id": -27,
+          "title": "Model -27",
+          "desc": "",
+          "kind": "system",
+          "runtimeType": "ui",
+          "form": "model.single",
+          "declaredBy": [
+            "packages/worker-base/system-models/sliding_flow_shell_ui.json:record"
+          ],
+          "sources": [
+            {
+              "relPath": "packages/worker-base/system-models/sliding_flow_shell_ui.json",
+              "scopeId": "system-bootstrap",
+              "scopeLabel": "system bootstrap",
+              "canonical": true
+            }
+          ],
+          "sourceScopes": [
+            "system-bootstrap"
+          ],
+          "canonical": true
+        },
+        {
+          "id": 1015,
+          "title": "Model 1015",
+          "desc": "",
+          "kind": "user",
+          "runtimeType": "ui",
+          "form": "model.table",
+          "declaredBy": [
+            "packages/worker-base/system-models/doc_page_filltable_example_minimal.json:record"
+          ],
+          "sources": [
+            {
+              "relPath": "packages/worker-base/system-models/doc_page_filltable_example_minimal.json",
+              "scopeId": "system-bootstrap",
+              "scopeLabel": "system bootstrap",
+              "canonical": true
+            }
+          ],
+          "sourceScopes": [
+            "system-bootstrap"
+          ],
+          "canonical": true
+        },
+        {
+          "id": 1051,
+          "title": "Model 1051",
+          "desc": "",
+          "kind": "user",
+          "runtimeType": "sliding_ui",
+          "form": "model.table",
+          "declaredBy": [
+            "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json:record",
+            "packages/worker-base/system-models/workspace_positive_models.json:record"
+          ],
+          "sources": [
+            {
+              "relPath": "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json",
+              "scopeId": "system-bootstrap",
+              "scopeLabel": "system bootstrap",
+              "canonical": true
+            },
+            {
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
+              "canonical": true
+            }
+          ],
+          "sourceScopes": [
+            "system-bootstrap",
+            "workspace-positive-models"
+          ],
+          "canonical": true
+        },
+        {
+          "id": 1052,
+          "title": "Model 1052",
+          "desc": "",
+          "kind": "user",
+          "runtimeType": "data",
+          "form": "model.table",
+          "declaredBy": [
+            "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json:record"
+          ],
+          "sources": [
+            {
+              "relPath": "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json",
+              "scopeId": "system-bootstrap",
+              "scopeLabel": "system bootstrap",
+              "canonical": true
+            }
+          ],
+          "sourceScopes": [
+            "system-bootstrap"
+          ],
+          "canonical": true
+        }
+      ],
       "duplicateChildren": [
         {
           "child": -10,
@@ -1355,42 +2426,19 @@ window.MODEL_MOUNTING_DATA = {
             {
               "parent": 0,
               "child": -10,
-              "cell": "(1,0,1)",
-              "relPath": "deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json",
-              "scopeId": "deploy-ui-side-worker",
-              "scopeLabel": "deploy ui-side-worker",
+              "cell": "(1,0,3)",
+              "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+              "scopeId": "ui-runtime-hierarchy",
+              "scopeLabel": "ui runtime hierarchy",
               "canonical": true
             },
             {
               "parent": 0,
               "child": -10,
               "cell": "(1,0,3)",
-              "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
-              "scopeId": "ui-runtime-hierarchy",
-              "scopeLabel": "ui runtime hierarchy",
-              "canonical": true
-            }
-          ]
-        },
-        {
-          "child": 1,
-          "entries": [
-            {
-              "parent": 0,
-              "child": 1,
-              "cell": "(1,0,0)",
-              "relPath": "deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json",
-              "scopeId": "deploy-ui-side-worker",
-              "scopeLabel": "deploy ui-side-worker",
-              "canonical": true
-            },
-            {
-              "parent": 0,
-              "child": 1,
-              "cell": "(2,0,0)",
-              "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
-              "scopeId": "ui-runtime-hierarchy",
-              "scopeLabel": "ui runtime hierarchy",
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
               "canonical": true
             }
           ]
@@ -1415,30 +2463,323 @@ window.MODEL_MOUNTING_DATA = {
               "scopeId": "ui-runtime-hierarchy",
               "scopeLabel": "ui runtime hierarchy",
               "canonical": true
+            },
+            {
+              "parent": 0,
+              "child": 100,
+              "cell": "(10,0,0)",
+              "relPath": "packages/worker-base/system-models/test_model_100_ui.json",
+              "scopeId": "model100-local",
+              "scopeLabel": "model100 local ui",
+              "canonical": true
+            }
+          ]
+        },
+        {
+          "child": 1009,
+          "entries": [
+            {
+              "parent": 0,
+              "child": 1009,
+              "cell": "(2,0,8)",
+              "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+              "scopeId": "ui-runtime-hierarchy",
+              "scopeLabel": "ui runtime hierarchy",
+              "canonical": true
+            },
+            {
+              "parent": 0,
+              "child": 1009,
+              "cell": "(2,0,8)",
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
+              "canonical": true
+            }
+          ]
+        },
+        {
+          "child": 1010,
+          "entries": [
+            {
+              "parent": 0,
+              "child": 1010,
+              "cell": "(1,0,10)",
+              "relPath": "deploy/sys-v1ns/remote-worker/patches/11_model1010.json",
+              "scopeId": "deploy-remote-worker",
+              "scopeLabel": "deploy remote-worker",
+              "canonical": true
+            },
+            {
+              "parent": 1009,
+              "child": 1010,
+              "cell": "(0,2,0)",
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
+              "canonical": true
+            }
+          ]
+        },
+        {
+          "child": 1019,
+          "entries": [
+            {
+              "parent": 0,
+              "child": 1019,
+              "cell": "(1,0,19)",
+              "relPath": "deploy/sys-v1ns/remote-worker/patches/12_model1019.json",
+              "scopeId": "deploy-remote-worker",
+              "scopeLabel": "deploy remote-worker",
+              "canonical": true
+            },
+            {
+              "parent": 1016,
+              "child": 1019,
+              "cell": "(0,2,2)",
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
+              "canonical": true
+            }
+          ]
+        },
+        {
+          "child": 1030,
+          "entries": [
+            {
+              "parent": 0,
+              "child": 1030,
+              "cell": "(2,0,13)",
+              "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+              "scopeId": "ui-runtime-hierarchy",
+              "scopeLabel": "ui runtime hierarchy",
+              "canonical": true
+            },
+            {
+              "parent": 0,
+              "child": 1030,
+              "cell": "(2,0,13)",
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
+              "canonical": true
+            }
+          ]
+        },
+        {
+          "child": 1034,
+          "entries": [
+            {
+              "parent": 0,
+              "child": 1034,
+              "cell": "(2,0,15)",
+              "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+              "scopeId": "ui-runtime-hierarchy",
+              "scopeLabel": "ui runtime hierarchy",
+              "canonical": true
+            },
+            {
+              "parent": 0,
+              "child": 1034,
+              "cell": "(2,0,15)",
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
+              "canonical": true
             }
           ]
         }
       ]
     },
     "all": {
-      "declaredModelCount": 28,
-      "mountCount": 31,
-      "unmountedCount": 1,
-      "duplicateCount": 3,
+      "declaredModelCount": 57,
+      "mountCount": 58,
+      "unmountedCount": 8,
+      "duplicateCount": 7,
       "unmountedModels": [
         {
-          "id": 2001,
-          "title": "Model 2001",
+          "id": -28,
+          "title": "Model -28",
+          "desc": "",
+          "kind": "system",
+          "runtimeType": "ui",
+          "form": "model.single",
+          "declaredBy": [
+            "packages/worker-base/system-models/desktop_catalog_ui.json:record"
+          ],
+          "sources": [
+            {
+              "relPath": "packages/worker-base/system-models/desktop_catalog_ui.json",
+              "scopeId": "page-assets",
+              "scopeLabel": "page assets",
+              "canonical": true
+            }
+          ],
+          "sourceScopes": [
+            "page-assets"
+          ],
+          "canonical": true
+        },
+        {
+          "id": -27,
+          "title": "Model -27",
+          "desc": "",
+          "kind": "system",
+          "runtimeType": "ui",
+          "form": "model.single",
+          "declaredBy": [
+            "packages/worker-base/system-models/sliding_flow_shell_ui.json:record"
+          ],
+          "sources": [
+            {
+              "relPath": "packages/worker-base/system-models/sliding_flow_shell_ui.json",
+              "scopeId": "system-bootstrap",
+              "scopeLabel": "system bootstrap",
+              "canonical": true
+            }
+          ],
+          "sourceScopes": [
+            "system-bootstrap"
+          ],
+          "canonical": true
+        },
+        {
+          "id": 1015,
+          "title": "Model 1015",
+          "desc": "",
+          "kind": "user",
+          "runtimeType": "ui",
+          "form": "model.table",
+          "declaredBy": [
+            "packages/worker-base/system-models/doc_page_filltable_example_minimal.json:record"
+          ],
+          "sources": [
+            {
+              "relPath": "packages/worker-base/system-models/doc_page_filltable_example_minimal.json",
+              "scopeId": "system-bootstrap",
+              "scopeLabel": "system bootstrap",
+              "canonical": true
+            }
+          ],
+          "sourceScopes": [
+            "system-bootstrap"
+          ],
+          "canonical": true
+        },
+        {
+          "id": 1051,
+          "title": "Model 1051",
+          "desc": "",
+          "kind": "user",
+          "runtimeType": "sliding_ui",
+          "form": "model.table",
+          "declaredBy": [
+            "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json:record",
+            "packages/worker-base/system-models/workspace_positive_models.json:record"
+          ],
+          "sources": [
+            {
+              "relPath": "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json",
+              "scopeId": "system-bootstrap",
+              "scopeLabel": "system bootstrap",
+              "canonical": true
+            },
+            {
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
+              "canonical": true
+            }
+          ],
+          "sourceScopes": [
+            "system-bootstrap",
+            "workspace-positive-models"
+          ],
+          "canonical": true
+        },
+        {
+          "id": 1052,
+          "title": "Model 1052",
           "desc": "",
           "kind": "user",
           "runtimeType": "data",
           "form": "model.table",
           "declaredBy": [
-            "packages/worker-base/system-models/templates/data_array_v0.json:record"
+            "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json:record"
           ],
           "sources": [
             {
-              "relPath": "packages/worker-base/system-models/templates/data_array_v0.json",
+              "relPath": "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json",
+              "scopeId": "system-bootstrap",
+              "scopeLabel": "system bootstrap",
+              "canonical": true
+            }
+          ],
+          "sourceScopes": [
+            "system-bootstrap"
+          ],
+          "canonical": true
+        },
+        {
+          "id": 2101,
+          "title": "Model 2101",
+          "desc": "",
+          "kind": "user",
+          "runtimeType": "data",
+          "form": "model.table",
+          "declaredBy": [
+            "packages/worker-base/system-models/templates/data_queue_v0.json:record"
+          ],
+          "sources": [
+            {
+              "relPath": "packages/worker-base/system-models/templates/data_queue_v0.json",
+              "scopeId": "fixture",
+              "scopeLabel": "fixture / legacy",
+              "canonical": false
+            }
+          ],
+          "sourceScopes": [
+            "fixture"
+          ],
+          "canonical": false
+        },
+        {
+          "id": 2201,
+          "title": "Model 2201",
+          "desc": "",
+          "kind": "user",
+          "runtimeType": "data",
+          "form": "model.table",
+          "declaredBy": [
+            "packages/worker-base/system-models/templates/data_stack_v0.json:record"
+          ],
+          "sources": [
+            {
+              "relPath": "packages/worker-base/system-models/templates/data_stack_v0.json",
+              "scopeId": "fixture",
+              "scopeLabel": "fixture / legacy",
+              "canonical": false
+            }
+          ],
+          "sourceScopes": [
+            "fixture"
+          ],
+          "canonical": false
+        },
+        {
+          "id": 2301,
+          "title": "Model 2301",
+          "desc": "",
+          "kind": "user",
+          "runtimeType": "data",
+          "form": "model.table",
+          "declaredBy": [
+            "packages/worker-base/system-models/templates/data_array_one_v1.json:record"
+          ],
+          "sources": [
+            {
+              "relPath": "packages/worker-base/system-models/templates/data_array_one_v1.json",
               "scopeId": "fixture",
               "scopeLabel": "fixture / legacy",
               "canonical": false
@@ -1475,42 +2816,19 @@ window.MODEL_MOUNTING_DATA = {
             {
               "parent": 0,
               "child": -10,
-              "cell": "(1,0,1)",
-              "relPath": "deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json",
-              "scopeId": "deploy-ui-side-worker",
-              "scopeLabel": "deploy ui-side-worker",
+              "cell": "(1,0,3)",
+              "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+              "scopeId": "ui-runtime-hierarchy",
+              "scopeLabel": "ui runtime hierarchy",
               "canonical": true
             },
             {
               "parent": 0,
               "child": -10,
               "cell": "(1,0,3)",
-              "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
-              "scopeId": "ui-runtime-hierarchy",
-              "scopeLabel": "ui runtime hierarchy",
-              "canonical": true
-            }
-          ]
-        },
-        {
-          "child": 1,
-          "entries": [
-            {
-              "parent": 0,
-              "child": 1,
-              "cell": "(1,0,0)",
-              "relPath": "deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json",
-              "scopeId": "deploy-ui-side-worker",
-              "scopeLabel": "deploy ui-side-worker",
-              "canonical": true
-            },
-            {
-              "parent": 0,
-              "child": 1,
-              "cell": "(2,0,0)",
-              "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
-              "scopeId": "ui-runtime-hierarchy",
-              "scopeLabel": "ui runtime hierarchy",
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
               "canonical": true
             }
           ]
@@ -1535,6 +2853,130 @@ window.MODEL_MOUNTING_DATA = {
               "scopeId": "ui-runtime-hierarchy",
               "scopeLabel": "ui runtime hierarchy",
               "canonical": true
+            },
+            {
+              "parent": 0,
+              "child": 100,
+              "cell": "(10,0,0)",
+              "relPath": "packages/worker-base/system-models/test_model_100_ui.json",
+              "scopeId": "model100-local",
+              "scopeLabel": "model100 local ui",
+              "canonical": true
+            }
+          ]
+        },
+        {
+          "child": 1009,
+          "entries": [
+            {
+              "parent": 0,
+              "child": 1009,
+              "cell": "(2,0,8)",
+              "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+              "scopeId": "ui-runtime-hierarchy",
+              "scopeLabel": "ui runtime hierarchy",
+              "canonical": true
+            },
+            {
+              "parent": 0,
+              "child": 1009,
+              "cell": "(2,0,8)",
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
+              "canonical": true
+            }
+          ]
+        },
+        {
+          "child": 1010,
+          "entries": [
+            {
+              "parent": 0,
+              "child": 1010,
+              "cell": "(1,0,10)",
+              "relPath": "deploy/sys-v1ns/remote-worker/patches/11_model1010.json",
+              "scopeId": "deploy-remote-worker",
+              "scopeLabel": "deploy remote-worker",
+              "canonical": true
+            },
+            {
+              "parent": 1009,
+              "child": 1010,
+              "cell": "(0,2,0)",
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
+              "canonical": true
+            }
+          ]
+        },
+        {
+          "child": 1019,
+          "entries": [
+            {
+              "parent": 0,
+              "child": 1019,
+              "cell": "(1,0,19)",
+              "relPath": "deploy/sys-v1ns/remote-worker/patches/12_model1019.json",
+              "scopeId": "deploy-remote-worker",
+              "scopeLabel": "deploy remote-worker",
+              "canonical": true
+            },
+            {
+              "parent": 1016,
+              "child": 1019,
+              "cell": "(0,2,2)",
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
+              "canonical": true
+            }
+          ]
+        },
+        {
+          "child": 1030,
+          "entries": [
+            {
+              "parent": 0,
+              "child": 1030,
+              "cell": "(2,0,13)",
+              "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+              "scopeId": "ui-runtime-hierarchy",
+              "scopeLabel": "ui runtime hierarchy",
+              "canonical": true
+            },
+            {
+              "parent": 0,
+              "child": 1030,
+              "cell": "(2,0,13)",
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
+              "canonical": true
+            }
+          ]
+        },
+        {
+          "child": 1034,
+          "entries": [
+            {
+              "parent": 0,
+              "child": 1034,
+              "cell": "(2,0,15)",
+              "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+              "scopeId": "ui-runtime-hierarchy",
+              "scopeLabel": "ui runtime hierarchy",
+              "canonical": true
+            },
+            {
+              "parent": 0,
+              "child": 1034,
+              "cell": "(2,0,15)",
+              "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+              "scopeId": "workspace-positive-models",
+              "scopeLabel": "workspace positive models",
+              "canonical": true
             }
           ]
         }
@@ -1545,13 +2987,15 @@ window.MODEL_MOUNTING_DATA = {
     "ui-server": {
       "id": "ui-server",
       "label": "ui-server",
-      "modelCount": 27,
-      "mountCount": 26,
+      "modelCount": 52,
+      "mountCount": 51,
       "modelIds": [
         -103,
         -102,
         -101,
         -100,
+        -28,
+        -27,
         -26,
         -25,
         -24,
@@ -1574,7 +3018,30 @@ window.MODEL_MOUNTING_DATA = {
         1005,
         1006,
         1007,
-        1008
+        1008,
+        1009,
+        1010,
+        1011,
+        1012,
+        1013,
+        1014,
+        1015,
+        1016,
+        1017,
+        1018,
+        1019,
+        1020,
+        1021,
+        1030,
+        1031,
+        1034,
+        1035,
+        1036,
+        1037,
+        1039,
+        1050,
+        1051,
+        1052
       ],
       "mounts": [
         {
@@ -1687,6 +3154,15 @@ window.MODEL_MOUNTING_DATA = {
         },
         {
           "parent": 0,
+          "child": -10,
+          "cell": "(1,0,3)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 0,
           "child": -3,
           "cell": "(1,0,2)",
           "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
@@ -1737,6 +3213,15 @@ window.MODEL_MOUNTING_DATA = {
           "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
           "scopeId": "ui-runtime-hierarchy",
           "scopeLabel": "ui runtime hierarchy",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 100,
+          "cell": "(10,0,0)",
+          "relPath": "packages/worker-base/system-models/test_model_100_ui.json",
+          "scopeId": "model100-local",
+          "scopeLabel": "model100 local ui",
           "canonical": true
         },
         {
@@ -1794,6 +3279,123 @@ window.MODEL_MOUNTING_DATA = {
           "canonical": true
         },
         {
+          "parent": 0,
+          "child": 1009,
+          "cell": "(2,0,8)",
+          "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+          "scopeId": "ui-runtime-hierarchy",
+          "scopeLabel": "ui runtime hierarchy",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 1009,
+          "cell": "(2,0,8)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 1011,
+          "cell": "(2,0,9)",
+          "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+          "scopeId": "ui-runtime-hierarchy",
+          "scopeLabel": "ui runtime hierarchy",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 1013,
+          "cell": "(2,0,10)",
+          "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+          "scopeId": "ui-runtime-hierarchy",
+          "scopeLabel": "ui runtime hierarchy",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 1016,
+          "cell": "(2,0,12)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 1030,
+          "cell": "(2,0,13)",
+          "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+          "scopeId": "ui-runtime-hierarchy",
+          "scopeLabel": "ui runtime hierarchy",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 1030,
+          "cell": "(2,0,13)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 1034,
+          "cell": "(2,0,15)",
+          "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+          "scopeId": "ui-runtime-hierarchy",
+          "scopeLabel": "ui runtime hierarchy",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 1034,
+          "cell": "(2,0,15)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 1036,
+          "cell": "(2,0,16)",
+          "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+          "scopeId": "ui-runtime-hierarchy",
+          "scopeLabel": "ui runtime hierarchy",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 1037,
+          "cell": "(2,0,17)",
+          "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+          "scopeId": "ui-runtime-hierarchy",
+          "scopeLabel": "ui runtime hierarchy",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 1039,
+          "cell": "(2,0,19)",
+          "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+          "scopeId": "ui-runtime-hierarchy",
+          "scopeLabel": "ui runtime hierarchy",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 1050,
+          "cell": "(9,0,1050)",
+          "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+          "scopeId": "ui-runtime-hierarchy",
+          "scopeLabel": "ui runtime hierarchy",
+          "canonical": true
+        },
+        {
           "parent": 1005,
           "child": 1006,
           "cell": "(0,2,0)",
@@ -1810,26 +3412,359 @@ window.MODEL_MOUNTING_DATA = {
           "scopeId": "workspace-positive-models",
           "scopeLabel": "workspace positive models",
           "canonical": true
+        },
+        {
+          "parent": 1009,
+          "child": 1010,
+          "cell": "(0,2,0)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 1011,
+          "child": 1012,
+          "cell": "(0,2,0)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 1013,
+          "child": 1014,
+          "cell": "(0,2,0)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 1016,
+          "child": 1017,
+          "cell": "(0,2,0)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 1016,
+          "child": 1018,
+          "cell": "(0,2,1)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 1016,
+          "child": 1019,
+          "cell": "(0,2,2)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 1016,
+          "child": 1020,
+          "cell": "(0,2,3)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 1016,
+          "child": 1021,
+          "cell": "(0,2,4)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 1030,
+          "child": 1031,
+          "cell": "(0,2,0)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
+        },
+        {
+          "parent": 1034,
+          "child": 1035,
+          "cell": "(0,2,0)",
+          "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+          "scopeId": "workspace-positive-models",
+          "scopeLabel": "workspace positive models",
+          "canonical": true
         }
       ],
       "audit": {
-        "declaredModelCount": 27,
-        "mountCount": 26,
-        "unmountedCount": 0,
-        "duplicateCount": 0,
-        "unmountedModels": [],
-        "duplicateChildren": []
+        "declaredModelCount": 52,
+        "mountCount": 51,
+        "unmountedCount": 5,
+        "duplicateCount": 5,
+        "unmountedModels": [
+          {
+            "id": -28,
+            "title": "Model -28",
+            "desc": "",
+            "kind": "system",
+            "runtimeType": "ui",
+            "form": "model.single",
+            "declaredBy": [
+              "packages/worker-base/system-models/desktop_catalog_ui.json:record"
+            ],
+            "sources": [
+              {
+                "relPath": "packages/worker-base/system-models/desktop_catalog_ui.json",
+                "scopeId": "page-assets",
+                "scopeLabel": "page assets",
+                "canonical": true
+              }
+            ],
+            "sourceScopes": [
+              "page-assets"
+            ],
+            "canonical": true
+          },
+          {
+            "id": -27,
+            "title": "Model -27",
+            "desc": "",
+            "kind": "system",
+            "runtimeType": "ui",
+            "form": "model.single",
+            "declaredBy": [
+              "packages/worker-base/system-models/sliding_flow_shell_ui.json:record"
+            ],
+            "sources": [
+              {
+                "relPath": "packages/worker-base/system-models/sliding_flow_shell_ui.json",
+                "scopeId": "system-bootstrap",
+                "scopeLabel": "system bootstrap",
+                "canonical": true
+              }
+            ],
+            "sourceScopes": [
+              "system-bootstrap"
+            ],
+            "canonical": true
+          },
+          {
+            "id": 1015,
+            "title": "Model 1015",
+            "desc": "",
+            "kind": "user",
+            "runtimeType": "ui",
+            "form": "model.table",
+            "declaredBy": [
+              "packages/worker-base/system-models/doc_page_filltable_example_minimal.json:record"
+            ],
+            "sources": [
+              {
+                "relPath": "packages/worker-base/system-models/doc_page_filltable_example_minimal.json",
+                "scopeId": "system-bootstrap",
+                "scopeLabel": "system bootstrap",
+                "canonical": true
+              }
+            ],
+            "sourceScopes": [
+              "system-bootstrap"
+            ],
+            "canonical": true
+          },
+          {
+            "id": 1051,
+            "title": "Model 1051",
+            "desc": "",
+            "kind": "user",
+            "runtimeType": "sliding_ui",
+            "form": "model.table",
+            "declaredBy": [
+              "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json:record",
+              "packages/worker-base/system-models/workspace_positive_models.json:record"
+            ],
+            "sources": [
+              {
+                "relPath": "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json",
+                "scopeId": "system-bootstrap",
+                "scopeLabel": "system bootstrap",
+                "canonical": true
+              },
+              {
+                "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+                "scopeId": "workspace-positive-models",
+                "scopeLabel": "workspace positive models",
+                "canonical": true
+              }
+            ],
+            "sourceScopes": [
+              "system-bootstrap",
+              "workspace-positive-models"
+            ],
+            "canonical": true
+          },
+          {
+            "id": 1052,
+            "title": "Model 1052",
+            "desc": "",
+            "kind": "user",
+            "runtimeType": "data",
+            "form": "model.table",
+            "declaredBy": [
+              "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json:record"
+            ],
+            "sources": [
+              {
+                "relPath": "packages/worker-base/system-models/workspace_manager_asset_manager_ui.json",
+                "scopeId": "system-bootstrap",
+                "scopeLabel": "system bootstrap",
+                "canonical": true
+              }
+            ],
+            "sourceScopes": [
+              "system-bootstrap"
+            ],
+            "canonical": true
+          }
+        ],
+        "duplicateChildren": [
+          {
+            "child": -10,
+            "entries": [
+              {
+                "parent": 0,
+                "child": -10,
+                "cell": "(1,0,3)",
+                "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+                "scopeId": "ui-runtime-hierarchy",
+                "scopeLabel": "ui runtime hierarchy",
+                "canonical": true
+              },
+              {
+                "parent": 0,
+                "child": -10,
+                "cell": "(1,0,3)",
+                "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+                "scopeId": "workspace-positive-models",
+                "scopeLabel": "workspace positive models",
+                "canonical": true
+              }
+            ]
+          },
+          {
+            "child": 100,
+            "entries": [
+              {
+                "parent": 0,
+                "child": 100,
+                "cell": "(10,0,0)",
+                "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+                "scopeId": "ui-runtime-hierarchy",
+                "scopeLabel": "ui runtime hierarchy",
+                "canonical": true
+              },
+              {
+                "parent": 0,
+                "child": 100,
+                "cell": "(10,0,0)",
+                "relPath": "packages/worker-base/system-models/test_model_100_ui.json",
+                "scopeId": "model100-local",
+                "scopeLabel": "model100 local ui",
+                "canonical": true
+              }
+            ]
+          },
+          {
+            "child": 1009,
+            "entries": [
+              {
+                "parent": 0,
+                "child": 1009,
+                "cell": "(2,0,8)",
+                "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+                "scopeId": "ui-runtime-hierarchy",
+                "scopeLabel": "ui runtime hierarchy",
+                "canonical": true
+              },
+              {
+                "parent": 0,
+                "child": 1009,
+                "cell": "(2,0,8)",
+                "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+                "scopeId": "workspace-positive-models",
+                "scopeLabel": "workspace positive models",
+                "canonical": true
+              }
+            ]
+          },
+          {
+            "child": 1030,
+            "entries": [
+              {
+                "parent": 0,
+                "child": 1030,
+                "cell": "(2,0,13)",
+                "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+                "scopeId": "ui-runtime-hierarchy",
+                "scopeLabel": "ui runtime hierarchy",
+                "canonical": true
+              },
+              {
+                "parent": 0,
+                "child": 1030,
+                "cell": "(2,0,13)",
+                "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+                "scopeId": "workspace-positive-models",
+                "scopeLabel": "workspace positive models",
+                "canonical": true
+              }
+            ]
+          },
+          {
+            "child": 1034,
+            "entries": [
+              {
+                "parent": 0,
+                "child": 1034,
+                "cell": "(2,0,15)",
+                "relPath": "packages/worker-base/system-models/runtime_hierarchy_mounts.json",
+                "scopeId": "ui-runtime-hierarchy",
+                "scopeLabel": "ui runtime hierarchy",
+                "canonical": true
+              },
+              {
+                "parent": 0,
+                "child": 1034,
+                "cell": "(2,0,15)",
+                "relPath": "packages/worker-base/system-models/workspace_positive_models.json",
+                "scopeId": "workspace-positive-models",
+                "scopeLabel": "workspace positive models",
+                "canonical": true
+              }
+            ]
+          }
+        ]
       }
     },
     "remote-worker": {
       "id": "remote-worker",
       "label": "remote-worker",
-      "modelCount": 3,
-      "mountCount": 2,
+      "modelCount": 6,
+      "mountCount": 5,
       "modelIds": [
         -10,
         0,
-        100
+        100,
+        1010,
+        1019,
+        3000
       ],
       "mounts": [
         {
@@ -1849,50 +3784,38 @@ window.MODEL_MOUNTING_DATA = {
           "scopeId": "deploy-remote-worker",
           "scopeLabel": "deploy remote-worker",
           "canonical": true
-        }
-      ],
-      "audit": {
-        "declaredModelCount": 3,
-        "mountCount": 2,
-        "unmountedCount": 0,
-        "duplicateCount": 0,
-        "unmountedModels": [],
-        "duplicateChildren": []
-      }
-    },
-    "ui-side-worker": {
-      "id": "ui-side-worker",
-      "label": "ui-side-worker",
-      "modelCount": 3,
-      "mountCount": 2,
-      "modelIds": [
-        -10,
-        0,
-        1
-      ],
-      "mounts": [
+        },
         {
           "parent": 0,
-          "child": -10,
-          "cell": "(1,0,1)",
-          "relPath": "deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json",
-          "scopeId": "deploy-ui-side-worker",
-          "scopeLabel": "deploy ui-side-worker",
+          "child": 1010,
+          "cell": "(1,0,10)",
+          "relPath": "deploy/sys-v1ns/remote-worker/patches/11_model1010.json",
+          "scopeId": "deploy-remote-worker",
+          "scopeLabel": "deploy remote-worker",
           "canonical": true
         },
         {
           "parent": 0,
-          "child": 1,
-          "cell": "(1,0,0)",
-          "relPath": "deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json",
-          "scopeId": "deploy-ui-side-worker",
-          "scopeLabel": "deploy ui-side-worker",
+          "child": 1019,
+          "cell": "(1,0,19)",
+          "relPath": "deploy/sys-v1ns/remote-worker/patches/12_model1019.json",
+          "scopeId": "deploy-remote-worker",
+          "scopeLabel": "deploy remote-worker",
+          "canonical": true
+        },
+        {
+          "parent": 0,
+          "child": 3000,
+          "cell": "(1,0,30)",
+          "relPath": "deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json",
+          "scopeId": "deploy-remote-worker",
+          "scopeLabel": "deploy remote-worker",
           "canonical": true
         }
       ],
       "audit": {
-        "declaredModelCount": 3,
-        "mountCount": 2,
+        "declaredModelCount": 6,
+        "mountCount": 5,
         "unmountedCount": 0,
         "duplicateCount": 0,
         "unmountedModels": [],

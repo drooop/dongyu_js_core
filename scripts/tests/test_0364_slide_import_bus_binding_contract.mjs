@@ -77,27 +77,34 @@ async function test_import_generates_host_owned_binding_and_split_bus_pins() {
     assert.equal(binding.k, 'ui_egress_submit1_binding', 'binding_key_must_be_stable_and_provider_visible');
     assert.deepEqual(binding.v, {
       from_pin: 'submit1',
-      bus: 'management',
+      bus: 'control',
       host_model_id: 0,
       host_cell: [0, 0, 0],
-      host_pin_type: 'pin.bus.mb.out',
+      host_pin_type: 'pin.bus.cb.out',
       host_pin_key: `imported_submit1_${importedId}_bus`,
-      target: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
+      target: {
+        transport: 'mqtt',
+        route_kind: 'control',
+        worker_id: 'R1',
+        model_id: 3000,
+        pin: 'submit1',
+        topic: 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1',
+      },
       reply_pin: 'result',
       owned_by: 'ui-server-installer',
-    }, 'binding_value_must_describe_actual_management_bus_route');
+    }, 'binding_value_must_describe_actual_control_bus_route');
 
     const generatedModel0Labels = rootLabels.get('host_egress_generated_model0_labels')?.v || [];
     assert.equal(generatedModel0Labels.includes(binding.v.host_pin_key), true, 'host_egress_cleanup_list_must_include_bus_out_pin');
     assert.equal(generatedModel0Labels.includes(binding.k), false, 'binding_is_not_a_model0_label');
 
     const hostPin = state.runtime.getCell(model0, 0, 0, 0).labels.get(binding.v.host_pin_key);
-    assert.equal(hostPin?.t, 'pin.bus.mb.out', 'generated_host_egress_pin_must_use_management_bus_out');
+    assert.equal(hostPin?.t, 'pin.bus.cb.out', 'generated_host_egress_pin_must_use_control_bus_out');
 
     const ingressLabels = rootLabels.get('host_ingress_generated_model0_labels')?.v || [];
     const ingressKey = ingressLabels.find((key) => key && key.includes('_submit_'));
     assert.ok(ingressKey, 'host_ingress_cleanup_list_must_include_model0_ingress_pin');
-    assert.equal(state.runtime.getCell(model0, 0, 0, 0).labels.get(ingressKey)?.t, 'pin.bus.mb.in', 'generated_host_ingress_pin_must_use_management_bus_in');
+    assert.equal(state.runtime.getCell(model0, 0, 0, 0).labels.get(ingressKey)?.t, 'pin.bus.cb.in', 'generated_host_ingress_pin_must_use_control_bus_in');
 
     const exportResult = buildSlideAppExportPayload(state.runtime, importedId);
     assert.equal(exportResult.ok, true, 'export_must_succeed_after_import');
@@ -131,9 +138,29 @@ async function test_import_rejects_provider_owned_binding_and_bus_pins() {
   });
 }
 
+async function test_import_rejects_unsafe_remote_endpoint_before_generating_empty_topic() {
+  return withServerState(async (state) => {
+    const payload = readPayload().map((record) => {
+      if (record && record.k === 'remote_bus_endpoint_v1') {
+        return {
+          ...record,
+          v: { transport: 'mqtt', to: { worker_id: 'bad/worker', model_id: 3000 } },
+        };
+      }
+      return record;
+    });
+    cacheZip(state, 'mxc://localhost/0364-unsafe-endpoint', payload);
+    const result = state.runtime.hostApi.slideImportAppFromMxc('mxc://localhost/0364-unsafe-endpoint');
+    assert.equal(result.ok, false, 'unsafe endpoint must be rejected during import');
+    assert.equal(result.detail, 'invalid_remote_bus_endpoint_target', 'unsafe endpoint rejection must be explicit before topic generation');
+    return { key: 'import_rejects_unsafe_remote_endpoint_before_generating_empty_topic', status: 'PASS' };
+  });
+}
+
 const tests = [
   test_import_generates_host_owned_binding_and_split_bus_pins,
   test_import_rejects_provider_owned_binding_and_bus_pins,
+  test_import_rejects_unsafe_remote_endpoint_before_generating_empty_topic,
 ];
 
 (async () => {

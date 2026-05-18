@@ -278,6 +278,11 @@ source: ai
 | 0373-fast-static-doc-deploy | 2026-05-12 | 增加 docs/static-only 远端快速部署路径并发布最新 Minimal Submit 交互 HTML 到 app.dongyudigital.com Static | 3 | dropx/0373-fast-static-doc-deploy | Completed | ./docs/iterations/0373-fast-static-doc-deploy/ |
 | 0374-web-tablet-desktop | 2026-05-12 | Web Tablet Desktop：桌面首屏、单前台 app、任务切换器，Tier2 / UI model 优先 | 8 | dev_0374-web-tablet-desktop | Completed | ./docs/iterations/0374-web-tablet-desktop/ |
 | 0375-unified-worker-model-topic | 2026-05-12 | 统一双总线 endpoint topic：topic 只表达远端 worker/model/pin，UI Server 本地实例和回写目标进入 Temporary ModelTable payload records | 14 | dev_0375-unified-worker-model-topic | Completed | ./docs/iterations/0375-unified-worker-model-topic/ |
+| 0376-control-first-mbr-routing | 2026-05-18 | 将滑动 App 默认链路改为控制总线先到 MBR，由 MBR 按 payload topic 转发；重填 MBR 的控制转控制与控制转管理 Tier2 路径 | 5 | dropx/dev_0376-control-first-mbr-routing | Approved | ./docs/iterations/0376-control-first-mbr-routing/ |
+| 0377-default-workspace-manager-de | 2026-05-18 | 新增系统默认 Workspace Manager DE，并填表其唯一 DEM 以提供工作区管理滑动 App 服务 | 5 | dropx/dev_0377-default-workspace-manager-de | Completed | ./docs/iterations/0377-default-workspace-manager-de/ |
+| 0378-workspace-asset-manager | 2026-05-18 | 将工作区管理器扩展为可交互资产管理器，展示 Worker 资产与可安装滑动 App | 5 | dropx/dev_0378-workspace-asset-manager | Completed | ./docs/iterations/0378-workspace-asset-manager/ |
+| 0379-explicit-management-route | 2026-05-18 | 支持滑动 App 显式选择管理总线路由，由 UI Server 先到 MBR 再转控制总线访问 Remote Worker | 5 | dropx/dev_0379-explicit-management-route | Completed | ./docs/iterations/0379-explicit-management-route/ |
+| 0380-remove-ui-side-worker | 2026-05-19 | 移除历史测试用 UI-side worker，收敛本地/云端正式部署角色列表 | 3 | dropx/dev_0379-explicit-management-route | Completed | ./docs/iterations/0380-remove-ui-side-worker/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

@@ -195,15 +195,12 @@ else
   echo "  Building dy-mbr-worker:v2 ..."
   docker_build_with_local_fallback dy-mbr-worker:v2 k8s/Dockerfile.mbr-worker
 
-  echo "  Building dy-ui-side-worker:v1 ..."
-  docker_build_with_local_fallback dy-ui-side-worker:v1 k8s/Dockerfile.ui-side-worker
 fi
 echo ""
 
 # ── Apply worker manifests (with placeholder replacement) ─
 echo "=== Step 8: Apply manifests ==="
 patch_manifest "$REPO_DIR/k8s/local/workers.yaml" "$ROOM_ID" "$SERVER_PASSWORD" "$MBR_TOKEN"
-kubectl apply -f "$REPO_DIR/k8s/local/ui-side-worker.yaml"
 kubectl apply -f "$REPO_DIR/k8s/local/ui-server-nodeport.yaml"
 echo ""
 
@@ -212,14 +209,14 @@ echo "=== Step 9: Rollout restart ==="
 kubectl -n "$NAMESPACE" rollout restart deployment/ui-server
 kubectl -n "$NAMESPACE" rollout restart deployment/mbr-worker
 kubectl -n "$NAMESPACE" rollout restart deployment/remote-worker
-kubectl -n "$NAMESPACE" rollout restart deployment/ui-side-worker
+kubectl -n "$NAMESPACE" rollout restart deployment/workspace-manager
 echo ""
 
 # ── Wait for rollout ─────────────────────────────────────
 echo "=== Step 10: Wait for rollout ==="
-wait_for_rollout mosquitto synapse remote-worker mbr-worker ui-server ui-side-worker
+wait_for_rollout mosquitto synapse remote-worker workspace-manager mbr-worker ui-server
 echo "  Waiting for old app pods to terminate..."
-wait_for_no_terminating_pods remote-worker mbr-worker ui-server ui-side-worker
+wait_for_no_terminating_pods remote-worker workspace-manager mbr-worker ui-server
 echo ""
 
 # ── Verify ────────────────────────────────────────────────

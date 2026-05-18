@@ -65,7 +65,6 @@ source: ai
 | File | Role | Notes |
 |---|---|---|
 | `color_generator_e2e_runbook.md` | runbook | Model 100 颜色生成器双总线复现实操和 Playwright 终验。 |
-| `dual_worker_slide_e2e_v0.md` | runbook | 双工人链路 E2E 验收方法。 |
 | `llm_cognition_ollama_runbook.md` | runbook | LLM routing、本地 Orbstack `mt-table` prompt filltable 操作。 |
 | `orchestrator_local_smoke.md` | runbook | Orchestrator 本地 smoke、failure kind 和 evidence surface。 |
 | `slide_ui_evidence_runbook.md` | evidence runbook | 本地/远端 Slide UI 取证路径和 cloud deploy 后验证。 |

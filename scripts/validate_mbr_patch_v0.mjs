@@ -73,12 +73,17 @@ function pinPayloadRecords({
   messageRole = 'request',
   payloadRecords = businessPayload(),
   timestamp = 1700000000000,
+  topic = `${TOPIC_BASE}/${endpointWorkerId}/${endpointModelId}/${endpointPin}`,
+  routeKind = 'control',
 } = {}) {
   return [
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
     mt('message_role', 'str', messageRole),
+    mt('topic', 'str', topic),
+    mt('route_kind', 'str', routeKind),
+    mt('bus', 'str', routeKind),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),
@@ -221,7 +226,7 @@ process.stdout.write('\n=== Test Group 3: Mgmt Bus To Control Bus ===\n');
   assertStrictPacket(toExternalPinPacket(rt, cbOut), 'control-bus out packet');
   const { mqttPublished } = drainWorkerEngine(rt);
   assert(mqttPublished.length === 1, 'control-bus out published once');
-  assert(mqttPublished[0]?.topic === `${TOPIC_BASE}/R1/100/submit`, 'control-bus topic uses endpoint worker/model/pin');
+  assert(mqttPublished[0]?.topic === `${TOPIC_BASE}/R1/100/submit`, 'control-bus topic uses payload topic record');
   assertStrictPacket(mqttPublished[0]?.payload, 'published control-bus packet');
   assert(payloadValue(mqttPublished[0]?.payload?.payload, 'endpoint_worker_id') === 'R1', 'published packet keeps endpoint_worker_id=R1');
   assert(payloadValue(mqttPublished[0]?.payload?.payload, 'origin_model_id') === 100, 'published packet keeps origin_model_id');
@@ -242,7 +247,7 @@ process.stdout.write('\n=== Test Group 4: Route-Independent Endpoint Model ===\n
   execMbrFunction(rt, 'mbr_mgmt_to_mqtt');
   const { mqttPublished } = drainWorkerEngine(rt);
   assert(mqttPublished.length === 1, 'endpoint-directed pin_payload published');
-  assert(mqttPublished[0]?.topic === `${TOPIC_BASE}/R1/3000/task`, 'topic is derived only from endpoint records');
+  assert(mqttPublished[0]?.topic === `${TOPIC_BASE}/R1/3000/task`, 'topic comes from payload topic record');
   assertStrictPacket(mqttPublished[0]?.payload, 'endpoint-directed packet');
   assert(payloadValue(mqttPublished[0]?.payload?.payload, 'origin_model_id') === 101, 'origin model remains payload metadata');
 }
@@ -259,6 +264,19 @@ process.stdout.write('\n=== Test Group 5: Generic CRUD Rejected ===\n');
   execMbrFunction(rt, 'mbr_mgmt_to_mqtt');
   assert(drainWorkerEngine(rt).mqttPublished.length === 0, 'generic CRUD not published');
   assert(getLabel(rt, -10, 0, 0, 0, 'mbr_mgmt_error')?.code === 'direct_model_mutation_disabled', 'generic CRUD writes mbr_mgmt_error');
+}
+
+process.stdout.write('\n=== Test Group 5a: Non-Canonical Topic Rejected Before Publish ===\n');
+for (const [name, topic] of [
+  ['zero model', `${TOPIC_BASE}/R1/0/submit`],
+  ['leading zero model', `${TOPIC_BASE}/R1/0100/submit`],
+]) {
+  const rt = createPatchedRuntime();
+  writeMgmtInbox(rt, externalPacket(pinPayloadRecords({ opId: `bad_topic_${name.replaceAll(' ', '_')}`, topic })));
+  execMbrFunction(rt, 'mbr_mgmt_to_mqtt');
+  assert(drainWorkerEngine(rt).mqttPublished.length === 0, `mbr_mgmt_to_mqtt rejects ${name} topic before MQTT publish`);
+  assert(getLabel(rt, -10, 0, 0, 0, 'mbr_mgmt_error')?.detail === 'invalid_pin_payload_records', `mbr_mgmt_to_mqtt writes visible error for ${name} topic`);
+  assert(getLabelEntry(rt, -10, 0, 0, 0, 'mbr_mgmt_inbox') === null, `mbr_mgmt_to_mqtt cleans inbox after ${name} topic rejection`);
 }
 
 process.stdout.write('\n=== Test Group 5b: MBR Dispatch Does Not Direct Ack ===\n');
@@ -305,13 +323,14 @@ process.stdout.write('\n=== Test Group 6: Control Bus To Mgmt Bus ===\n');
     payloadRecords: [mt('bg_color', 'str', '#fff')],
   })));
   execMbrFunction(rt, 'mbr_mqtt_to_mgmt');
-  const mbOut = getLabelEntry(rt, 0, 0, 0, 0, 'mbr_mb_out');
-  assert(mbOut !== null && mbOut.t === 'pin.bus.mb.out', 'mbr_mqtt_to_mgmt writes management-bus out pin');
-  const packet = toExternalPinPacket(rt, mbOut);
-  assertStrictPacket(packet, 'management-bus out packet');
-  assert(payloadValue(packet?.payload, 'message_role') === 'response', 'management out forwards only response packets');
-  assert(payloadValue(packet?.payload, 'endpoint_worker_id') === 'R1', 'management out endpoint remains remote worker endpoint');
-  assert(payloadValue(packet?.payload, 'reply_target_worker_id') === 'U1', 'management out carries UI Server target in payload records');
+  const cbOut = getLabelEntry(rt, 0, 0, 0, 0, 'mbr_cb_out');
+  assert(cbOut !== null && cbOut.t === 'pin.bus.cb.out', 'mbr_mqtt_to_mgmt writes control-bus out pin by default');
+  const packet = toExternalPinPacket(rt, cbOut);
+  assertStrictPacket(packet, 'control-bus out packet');
+  assert(payloadValue(packet?.payload, 'message_role') === 'response', 'control out forwards only response packets');
+  assert(payloadValue(packet?.payload, 'topic') === topic, 'control out preserves payload topic record');
+  assert(payloadValue(packet?.payload, 'endpoint_worker_id') === 'R1', 'control out endpoint remains remote worker endpoint');
+  assert(payloadValue(packet?.payload, 'reply_target_worker_id') === 'U1', 'control out carries UI Server target in payload records');
   assert(getLabelEntry(rt, -10, 0, 0, 0, 'mbr_mqtt_inbox') === null, 'mqtt inbox cleaned after bridge');
 }
 
@@ -322,6 +341,24 @@ process.stdout.write('\n=== Test Group 6: Control Bus To Mgmt Bus ===\n');
   execMbrFunction(rt, 'mbr_mqtt_to_mgmt');
   assert((getLabelEntry(rt, 0, 0, 0, 0, 'mbr_mb_out')?.v ?? null) === null, 'request echo on endpoint topic is not forwarded to management bus');
   assert(getLabelEntry(rt, -10, 0, 0, 0, 'mbr_mqtt_inbox') === null, 'request echo inbox cleaned after drop');
+}
+
+{
+  for (const [name, topic] of [
+    ['zero model', `${TOPIC_BASE}/R1/0/submit`],
+    ['leading zero model', `${TOPIC_BASE}/R1/0100/submit`],
+  ]) {
+    const rt = createPatchedRuntime();
+    writeMqttInbox(rt, topic, externalPacket(pinPayloadRecords({
+      opId: `bad_mqtt_topic_${name.replaceAll(' ', '_')}`,
+      topic,
+      messageRole: 'response',
+    })));
+    execMbrFunction(rt, 'mbr_mqtt_to_mgmt');
+    assert((getLabelEntry(rt, 0, 0, 0, 0, 'mbr_cb_out')?.v ?? null) === null, `mbr_mqtt_to_mgmt rejects ${name} topic before control out`);
+    assert(getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_error')?.detail === 'invalid_pin_payload_records', `mbr_mqtt_to_mgmt writes visible error for ${name} topic`);
+    assert(getLabelEntry(rt, -10, 0, 0, 0, 'mbr_mqtt_inbox') === null, `mbr_mqtt_to_mgmt cleans inbox after ${name} topic rejection`);
+  }
 }
 
 process.stdout.write('\n=== Test Group 7: Heartbeat / Ready Local Status ===\n');

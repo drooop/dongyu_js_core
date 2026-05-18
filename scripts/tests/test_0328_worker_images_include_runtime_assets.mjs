@@ -19,7 +19,6 @@ function run() {
   const targets = [
     'k8s/Dockerfile.remote-worker',
     'k8s/Dockerfile.mbr-worker',
-    'k8s/Dockerfile.ui-side-worker',
   ];
 
   for (const relPath of targets) {

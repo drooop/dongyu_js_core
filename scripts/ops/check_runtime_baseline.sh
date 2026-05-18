@@ -102,11 +102,11 @@ PY
 
 echo "[check] kubernetes context: $(kubectl config current-context 2>/dev/null || echo unknown)"
 
-for deploy in mosquitto synapse remote-worker mbr-worker ui-server ui-side-worker; do
+for deploy in mosquitto synapse remote-worker workspace-manager mbr-worker ui-server; do
   check_deploy_ready "$deploy"
 done
 
-for deploy in remote-worker mbr-worker ui-server ui-side-worker; do
+for deploy in remote-worker workspace-manager mbr-worker ui-server; do
   check_no_terminating_pods "$deploy"
 done
 

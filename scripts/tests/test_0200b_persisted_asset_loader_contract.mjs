@@ -99,7 +99,7 @@ async function test_manifest_loader_orders_and_filters_by_scope_phase_and_filter
         phase: '00-system-base',
         path: 'system/base/system_models.json',
         kind: 'patch',
-        scope: ['ui-server', 'mbr-worker', 'remote-worker', 'ui-side-worker'],
+        scope: ['ui-server', 'mbr-worker', 'remote-worker', 'workspace-manager'],
         authority: 'authoritative',
         filter: 'full',
         required: true,
