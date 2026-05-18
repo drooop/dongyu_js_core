@@ -91,19 +91,20 @@ exec_in_running_pod() {
   local purpose="${3:-pod exec}"
   local attempt=1
   local pod out
-  while [ $attempt -le 8 ]; do
+  local max_attempts="${POD_EXEC_MAX_ATTEMPTS:-30}"
+  while [ $attempt -le $max_attempts ]; do
     pod="$(find_running_pod "$app")"
     if [ -n "$pod" ]; then
       if out="$(kubectl -n "$NAMESPACE" exec "$pod" -- sh -lc "$command" 2>&1)"; then
         printf '%s' "$out"
         return 0
       fi
-      echo "WARN: ${purpose} failed on pod ${pod} (attempt ${attempt}/8): ${out}" >&2
+      echo "WARN: ${purpose} failed on pod ${pod} (attempt ${attempt}/${max_attempts}): ${out}" >&2
     fi
     attempt=$((attempt + 1))
     sleep 2
   done
-  echo "ERROR: ${purpose} failed" >&2
+  echo "ERROR: ${purpose} failed after ${max_attempts} attempts" >&2
   return 1
 }
 
