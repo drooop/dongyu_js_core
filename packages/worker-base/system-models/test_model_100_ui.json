@@ -122,6 +122,32 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "host_ingress_v1",
+      "t": "json",
+      "v": {
+        "version": "v1",
+        "boundaries": [
+          {
+            "semantic": "submit",
+            "pin_name": "submit_request",
+            "value_t": "modeltable",
+            "locator_kind": "root_relative_cell",
+            "locator_value": {
+              "p": 0,
+              "r": 0,
+              "c": 0
+            },
+            "primary": true
+          }
+        ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "dual_bus_model",
       "t": "json",
       "v": {
@@ -499,7 +525,7 @@
       "c": 0,
       "k": "ui_text",
       "t": "str",
-      "v": "Local UI -> Matrix -> MBR -> MQTT -> K8s Worker -> MQTT -> MBR -> Matrix -> Local UI"
+      "v": "Local UI -> Control Bus -> MBR -> MQTT -> K8s Worker -> MQTT -> MBR -> Control Bus -> Local UI"
     },
     {
       "op": "add_label",

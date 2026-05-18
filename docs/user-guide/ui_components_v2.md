@@ -207,11 +207,13 @@ Example: trigger a pin with ModelTable payload records.
 }
 ```
 
-For management bus events, the formal path is:
+For same-workspace bus events, the formal path is:
 
 ```text
-UI event -> bus_event_v2 -> Model 0 pin.bus.mb.in -> pin route -> target model / MBR
+UI event -> bus_event_v2 -> Model 0 pin.bus.cb.in -> pin route -> target model / MBR
 ```
+
+Explicit management semantics use `pin.bus.mb.in` / `pin.bus.mb.out`; they are not the default UI path.
 
 ### Data Display
 

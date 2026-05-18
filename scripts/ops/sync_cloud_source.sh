@@ -75,7 +75,6 @@ DEPLOY_ARCHIVE_PATHS=(
   "scripts/ops"
   "scripts/run_worker_v0.mjs"
   "scripts/run_worker_remote_v1.mjs"
-  "scripts/run_worker_ui_side_v0.mjs"
   "scripts/worker_engine_v0.mjs"
   "deploy/sys-v1ns"
   "deploy/env/.gitkeep"

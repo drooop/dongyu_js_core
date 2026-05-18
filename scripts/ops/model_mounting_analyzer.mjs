@@ -61,9 +61,6 @@ function classifySource(relPath) {
   if (relPath.startsWith('deploy/sys-v1ns/remote-worker/')) {
     return { scopeId: 'deploy-remote-worker', scopeLabel: 'deploy remote-worker', canonical: true };
   }
-  if (relPath.startsWith('deploy/sys-v1ns/ui-side-worker/')) {
-    return { scopeId: 'deploy-ui-side-worker', scopeLabel: 'deploy ui-side-worker', canonical: true };
-  }
   if (relPath.startsWith('deploy/sys-v1ns/mbr/')) {
     return { scopeId: 'deploy-mbr', scopeLabel: 'deploy mbr', canonical: true };
   }
@@ -361,17 +358,6 @@ export async function analyzeModelMounting({ repoRoot = process.cwd() } = {}) {
         || source.relPath.startsWith('deploy/sys-v1ns/remote-worker/')
       )),
       mountFrom((source) => source.relPath.startsWith('deploy/sys-v1ns/remote-worker/')),
-    ),
-    'ui-side-worker': buildProfile(
-      'ui-side-worker',
-      'ui-side-worker',
-      analysis.models,
-      analysis.mounts,
-      (model) => modelHasSource(model, (source) => (
-        source.relPath === 'packages/worker-base/system-models/system_models.json'
-        || source.relPath.startsWith('deploy/sys-v1ns/ui-side-worker/')
-      )),
-      mountFrom((source) => source.relPath.startsWith('deploy/sys-v1ns/ui-side-worker/')),
     ),
     'mbr-worker': buildProfile(
       'mbr-worker',

@@ -44,6 +44,9 @@ wait_for_rollout() {
   writeFile(path.join(scriptDir, 'sync_local_persisted_assets.sh'), `#!/usr/bin/env bash
 echo "SYNC_ASSETS $LOCAL_PERSISTED_ASSET_ROOT" >> "$TEST_LOG"
 `, 0o755);
+  writeFile(path.join(scriptDir, 'sync_ui_public_docs.sh'), `#!/usr/bin/env bash
+echo "SYNC_UI_DOCS $LOCAL_DY_PERSIST_ROOT" >> "$TEST_LOG"
+`, 0o755);
   writeFile(path.join(scriptDir, 'remote_preflight_guard.sh'), `#!/usr/bin/env bash
 echo "REMOTE_PREFLIGHT $*" >> "$TEST_LOG"
 if [ "$1" = "--print-socket" ]; then
@@ -72,36 +75,29 @@ exit 23
 
 function test_cloud_manifests_mount_persisted_asset_root_for_all_roles() {
   const workers = read('k8s/cloud/workers.yaml');
-  const uiSide = read('k8s/cloud/ui-side-worker.yaml');
 
   assert.match(workers, /DY_PERSISTED_ASSET_ROOT/, 'cloud workers manifest must pass DY_PERSISTED_ASSET_ROOT');
-  assert.match(uiSide, /DY_PERSISTED_ASSET_ROOT/, 'cloud ui-side worker manifest must pass DY_PERSISTED_ASSET_ROOT');
   assert.match(workers, /mountPath:\s*\/app\/persisted-assets/, 'cloud workers manifest must mount persisted asset root into containers');
-  assert.match(uiSide, /mountPath:\s*\/app\/persisted-assets/, 'cloud ui-side worker manifest must mount persisted asset root into container');
   assert.match(workers, /path:\s*\/home\/wwpic\/dongyu\/volume\/persist\/assets/, 'cloud workers manifest must mount canonical cloud persisted asset hostPath');
-  assert.match(uiSide, /path:\s*\/home\/wwpic\/dongyu\/volume\/persist\/assets/, 'cloud ui-side worker manifest must mount canonical cloud persisted asset hostPath');
   assert.match(workers, /type:\s*DirectoryOrCreate\n---\n# UI Server Deployment/s, 'cloud workers manifest must keep mbr-worker and ui-server as separate YAML documents');
 }
 
-function test_cloud_full_deploy_syncs_assets_and_rolls_out_ui_side_worker() {
+function test_cloud_full_deploy_syncs_assets_and_rolls_out_active_workers() {
   const source = read('scripts/ops/deploy_cloud_full.sh');
 
   assert.match(source, /sync_local_persisted_assets\.sh/, 'cloud full deploy must sync authoritative assets before rollout');
   assert.match(source, /CLOUD_PERSISTED_ASSET_ROOT="\$\{CLOUD_PERSISTED_ASSET_ROOT:-\/home\/wwpic\/dongyu\/volume\/persist\/assets\}"/, 'cloud full deploy must default to canonical cloud persisted asset root');
   assert.match(source, /LOCAL_PERSISTED_ASSET_ROOT="\$CLOUD_PERSISTED_ASSET_ROOT"/, 'cloud full deploy must pass the persisted asset root into sync script');
-  assert.match(source, /Dockerfile\.ui-side-worker/, 'cloud full deploy must build ui-side-worker image');
-  assert.match(source, /docker save dy-ui-side-worker:v1/, 'cloud full deploy must import ui-side-worker image');
-  assert.match(source, /kubectl apply -f "\$REPO_DIR\/k8s\/cloud\/ui-side-worker\.yaml"/, 'cloud full deploy must apply ui-side-worker manifest');
-  assert.match(source, /rollout restart deployment\/ui-side-worker/, 'cloud full deploy must restart ui-side-worker');
-  assert.match(source, /wait_for_rollout ui-server mbr-worker remote-worker ui-side-worker/, 'cloud full deploy must wait for ui-side-worker rollout');
+  assert.doesNotMatch(source, /ui-side-worker|dy-ui-side-worker|Dockerfile\.ui-side-worker/, 'cloud full deploy must not build, apply, or wait for removed ui-side-worker');
+  assert.match(source, /wait_for_rollout ui-server mbr-worker remote-worker workspace-manager/, 'cloud full deploy must wait for active worker rollouts');
 }
 
-function test_cloud_app_deploy_supports_ui_side_worker_target() {
+function test_cloud_app_deploy_supports_active_worker_targets_only() {
   const source = read('scripts/ops/deploy_cloud_app.sh');
 
-  assert.match(source, /ui-server\|mbr-worker\|remote-worker\|ui-side-worker/, 'cloud app deploy must accept ui-side-worker target');
-  assert.match(source, /k8s\/Dockerfile\.ui-side-worker/, 'cloud app deploy must define ui-side-worker dockerfile');
-  assert.match(source, /DEPLOYMENT="ui-side-worker"/, 'cloud app deploy must define ui-side-worker deployment name');
+  assert.match(source, /ui-server\|mbr-worker\|remote-worker\|workspace-manager/, 'cloud app deploy must accept active worker targets');
+  assert.doesNotMatch(source, /ui-side-worker|Dockerfile\.ui-side-worker|dy-ui-side-worker/, 'cloud app deploy must not accept removed ui-side-worker target');
+  assert.match(source, /DEPLOYMENT="workspace-manager"/, 'cloud app deploy must define workspace-manager deployment name');
 }
 
 function test_cloud_app_deploy_syncs_authoritative_assets_before_rollout() {
@@ -153,8 +149,8 @@ function test_cloud_app_deploy_asset_sync_flag_behavior() {
 
 const tests = [
   test_cloud_manifests_mount_persisted_asset_root_for_all_roles,
-  test_cloud_full_deploy_syncs_assets_and_rolls_out_ui_side_worker,
-  test_cloud_app_deploy_supports_ui_side_worker_target,
+  test_cloud_full_deploy_syncs_assets_and_rolls_out_active_workers,
+  test_cloud_app_deploy_supports_active_worker_targets_only,
   test_cloud_app_deploy_syncs_authoritative_assets_before_rollout,
   test_cloud_app_deploy_asset_sync_flag_behavior,
 ];

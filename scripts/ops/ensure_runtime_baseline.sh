@@ -11,7 +11,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 K8S_NS="dongyu"
-DEPLOYMENTS=(mosquitto synapse remote-worker mbr-worker ui-server ui-side-worker)
+DEPLOYMENTS=(mosquitto synapse remote-worker workspace-manager mbr-worker ui-server)
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then

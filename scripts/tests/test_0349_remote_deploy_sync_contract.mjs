@@ -55,7 +55,6 @@ for (const needle of [
   '"scripts/ops"',
   '"scripts/run_worker_v0.mjs"',
   '"scripts/run_worker_remote_v1.mjs"',
-  '"scripts/run_worker_ui_side_v0.mjs"',
   '"scripts/worker_engine_v0.mjs"',
   '"deploy/sys-v1ns"',
   '"deploy/env/cloud.env.example"',
@@ -83,7 +82,7 @@ assertContains(appDeploy, 'LOCAL_PERSISTED_ASSET_ROOT="$CLOUD_PERSISTED_ASSET_RO
 assertContains(appDeploy, 'if [ "$SYNC_PERSISTED_ASSETS" = "1" ]; then', appDeployFile);
 assertContains(appDeploy, 'apply_target_manifest', appDeployFile);
 assertContains(appDeploy, 'kubectl apply -f "$REPO_DIR/k8s/cloud/workers.yaml"', appDeployFile);
-assertContains(appDeploy, 'kubectl apply -f "$REPO_DIR/k8s/cloud/ui-side-worker.yaml"', appDeployFile);
+assertNotContains(appDeploy, 'ui-side-worker', appDeployFile);
 assertNotContains(appDeploy, 'printf \'%s\' "$EXPECTED_REVISION"', appDeployFile);
 assert.ok(
   appDeploy.indexOf('.deploy-source-revision') < appDeploy.indexOf('DEPLOY_SOURCE_REV'),

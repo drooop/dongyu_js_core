@@ -87,11 +87,11 @@
       <div class="grid">
         <div class="card full">
           <h2>真实链路</h2>
-          <div class="node">UI click -> Model 0 -> Matrix -> MBR -> remote provider public pin -> same endpoint topic response -> reply_target records -> ui-server -> local UI model</div>
+          <div class="node">UI click -> Model 0 control bus -> MBR -> remote provider public pin -> same endpoint topic response -> reply_target records -> ui-server -> local UI model</div>
           <div class="arrow">ui_bind_json writes value_ref to click_event</div>
           <div class="node amber">click_event -> click_event_wiring -> click_chain -> root_routes -> submit_request -> submit_request_wiring -> handle_submit:in</div>
           <div class="arrow">handle_submit writes business records to submit1 pin.out</div>
-          <div class="node blue">generated host egress adapter writes mt_bus_send_in and pin.bus.mb.out</div>
+          <div class="node blue">generated host egress adapter writes mt_bus_send_in and pin.bus.cb.out</div>
           <div class="arrow">MBR publishes endpoint topic</div>
           <div class="node">UIPUT/ws/dam/pic/de/sw/R1/3000/submit1</div>
           <div class="arrow">R1 returns pin_payload.v1 on the same endpoint topic with message_role=response</div>
@@ -149,7 +149,7 @@
         </div>
         <div class="card">
           <h3>业务出口</h3>
-          <p><code>handle_submit</code> 更新 <code>input_text</code>、<code>submit_inflight</code>、<code>last_submit_payload</code>、<code>remote_status</code>，并把业务 records 写到 <code>submit1 pin.out</code>。<code>dual_bus_model.egress_pins</code> 必须包含 <code>submit1</code>，<code>remote_bus_endpoint_v1</code> 必须声明 R1 / 3000。</p>
+          <p><code>handle_submit</code> 更新 <code>input_text</code>、<code>submit_inflight</code>、<code>last_submit_payload</code>、<code>remote_status</code>，并把业务 records 写到 <code>submit1 pin.out</code>。<code>dual_bus_model.egress_pins</code> 必须包含 <code>submit1</code>，<code>remote_bus_endpoint_v1</code> 必须声明 R1 / 3000；可选 <code>route_kind</code>，省略为 control，写 management 时 UI Server 先走管理总线到 MBR。</p>
         </div>
         <div class="card full">
           <h3>生效顺序</h3>
@@ -174,7 +174,7 @@
           <li>生成 <code>host_ingress_generated_model0_labels</code>、<code>host_ingress_generated_mount</code>、<code>host_ingress_generated_root_labels</code>。</li>
           <li>生成 <code>host_egress_generated_model0_labels</code>、<code>host_egress_generated_mount</code>、<code>ui_egress_submit1_binding</code> / <code>ui.egress.binding.v1</code>、<code>imported_host_submit_</code>、<code>imported_submit1_</code>、<code>bridge_imported_submit1_to_mt_bus_send_</code>。</li>
         </ol>
-        <p>安装后：imported root submit1 先到 Model 0 mount cell，再到 Model 0 (0,0,0) 的 <code>mt_bus_send_in</code>，最后写入 <code>pin.bus.mb.out</code>。</p>
+        <p>安装后：imported root submit1 先到 Model 0 mount cell，再到 Model 0 (0,0,0) 的 <code>mt_bus_send_in</code>，最后默认写入 <code>pin.bus.cb.out</code>。如果 <code>remote_bus_endpoint_v1.route_kind = "management"</code>，安装器会改写到 <code>pin.bus.mb.out</code>，由 MBR 再按 payload <code>topic</code> 转发到控制总线 / MQTT。</p>
       </div>
     </section>
 
@@ -202,6 +202,9 @@
     { "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
     { "k": "op_id", "t": "str", "v": "manual_result_2000_001" },
     { "k": "message_role", "t": "str", "v": "response" },
+    { "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/sw/R1/3000/submit1" },
+    { "k": "route_kind", "t": "str", "v": "control" },
+    { "k": "bus", "t": "str", "v": "control" },
     { "k": "endpoint_worker_id", "t": "str", "v": "R1" },
     { "k": "endpoint_model_id", "t": "int", "v": 3000 },
     { "k": "endpoint_pin", "t": "str", "v": "submit1" },

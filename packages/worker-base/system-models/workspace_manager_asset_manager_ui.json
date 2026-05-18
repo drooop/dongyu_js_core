@@ -1,0 +1,1760 @@
+{
+  "op_id": "workspace_manager_asset_manager_ui_v1",
+  "description": "0378 Workspace Manager interactive asset manager overlay. Data is kept in a Data.Array.One-style model and projected into the cellwise UI.",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 1052,
+      "name": "workspace_manager_asset_catalog_data",
+      "type": "data"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "Data.Array.One"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "max_r",
+      "t": "int",
+      "v": 6
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "__data_single_keys",
+      "t": "json",
+      "v": [
+        "asset_id",
+        "name",
+        "kind",
+        "asset_type",
+        "owner",
+        "owner_worker_id",
+        "parent_asset_id",
+        "source_model_id",
+        "installable",
+        "action_label",
+        "summary_markdown",
+        "detail_markdown"
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "Data.Single"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "asset_id",
+      "t": "str",
+      "v": "workspace-manager-dem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "name",
+      "t": "str",
+      "v": "Workspace Manager DEM"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "kind",
+      "t": "str",
+      "v": "DEM"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "asset_type",
+      "t": "str",
+      "v": "worker"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "owner",
+      "t": "str",
+      "v": "Workspace-Manager-DE"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "owner_worker_id",
+      "t": "str",
+      "v": "WM1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "parent_asset_id",
+      "t": "str",
+      "v": "workspace-manager-de"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "installable",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "action_label",
+      "t": "str",
+      "v": "详情"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "summary_markdown",
+      "t": "str",
+      "v": "### Workspace Manager DEM\n\n- 所属 DE：Workspace-Manager-DE\n- Worker ID：WM1\n- 角色：DEM\n- 当前用途：提供工作区资产目录与滑动 APP 安装入口。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 1,
+      "c": 0,
+      "k": "detail_markdown",
+      "t": "str",
+      "v": "## Workspace Manager DEM\n\n该软件工人是工作区管理器所在 DE 的 DEM。当前简化部署中，工作区管理器 DE 仅包含这个 DEM，资产目录、滑动 APP 列表和安装入口都暂时由它提供。\n\n### 对外资产\n\n| 名称 | 类型 | 用途 |\n|---|---|---|\n| 工作区资产目录 | Data.Array.One | 固定资产清单测试数据 |\n| 工作区管理器滑动 APP | slide_app | 当前界面本身 |"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "Data.Single"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "asset_id",
+      "t": "str",
+      "v": "mbr"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "name",
+      "t": "str",
+      "v": "MBR"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "kind",
+      "t": "str",
+      "v": "router"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "asset_type",
+      "t": "str",
+      "v": "worker"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "owner",
+      "t": "str",
+      "v": "Workspace"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "owner_worker_id",
+      "t": "str",
+      "v": "MBR"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "installable",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "action_label",
+      "t": "str",
+      "v": "详情"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "summary_markdown",
+      "t": "str",
+      "v": "### MBR\n\n- 类型：消息路由软件工人\n- 当前职责：控制总线转控制总线、控制总线转管理总线。\n- 资产：路由能力，不提供可安装滑动 APP。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 2,
+      "c": 0,
+      "k": "detail_markdown",
+      "t": "str",
+      "v": "## MBR\n\nMBR 负责工作区内消息路由。当前 0378 不改变它的路由实现，只把它作为普通资产显示在资产管理器中。\n\n### 适合展示的元数据\n\n| 字段 | 当前值 |\n|---|---|\n| 类型 | router |\n| 是否可安装 | 否 |\n| 资产说明 | 控制总线和管理总线转发能力 |"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 3,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "Data.Single"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 3,
+      "c": 0,
+      "k": "asset_id",
+      "t": "str",
+      "v": "ui-server"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 3,
+      "c": 0,
+      "k": "name",
+      "t": "str",
+      "v": "UI-Server"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 3,
+      "c": 0,
+      "k": "kind",
+      "t": "str",
+      "v": "host"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 3,
+      "c": 0,
+      "k": "asset_type",
+      "t": "str",
+      "v": "host"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 3,
+      "c": 0,
+      "k": "owner",
+      "t": "str",
+      "v": "Workspace"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 3,
+      "c": 0,
+      "k": "owner_worker_id",
+      "t": "str",
+      "v": "U1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 3,
+      "c": 0,
+      "k": "installable",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 3,
+      "c": 0,
+      "k": "action_label",
+      "t": "str",
+      "v": "详情"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 3,
+      "c": 0,
+      "k": "summary_markdown",
+      "t": "str",
+      "v": "### UI-Server\n\n- 类型：滑动 APP 宿主\n- 当前职责：展示 Workspace、安装本地滑动 APP、承接用户交互。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 3,
+      "c": 0,
+      "k": "detail_markdown",
+      "t": "str",
+      "v": "## UI-Server\n\nUI-Server 是用户实际访问的滑动 APP 宿主。它不拥有远端软件工人的业务真相；安装滑动 APP 时会在本地分配新的 model id，并把第 0 格管理总线通路接到 Model 0。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 4,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "Data.Single"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 4,
+      "c": 0,
+      "k": "asset_id",
+      "t": "str",
+      "v": "r1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 4,
+      "c": 0,
+      "k": "name",
+      "t": "str",
+      "v": "RemoteWorker R1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 4,
+      "c": 0,
+      "k": "kind",
+      "t": "str",
+      "v": "V1N"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 4,
+      "c": 0,
+      "k": "asset_type",
+      "t": "str",
+      "v": "worker"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 4,
+      "c": 0,
+      "k": "owner",
+      "t": "str",
+      "v": "RemoteWorker-DE"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 4,
+      "c": 0,
+      "k": "owner_worker_id",
+      "t": "str",
+      "v": "R1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 4,
+      "c": 0,
+      "k": "installable",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 4,
+      "c": 0,
+      "k": "action_label",
+      "t": "str",
+      "v": "详情"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 4,
+      "c": 0,
+      "k": "summary_markdown",
+      "t": "str",
+      "v": "### RemoteWorker R1\n\n- 类型：普通 V1N 软件工人\n- 对外提供：颜色生成器、最小 Submit 双总线示例。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 4,
+      "c": 0,
+      "k": "detail_markdown",
+      "t": "str",
+      "v": "## RemoteWorker R1\n\nR1 是当前测试用普通软件工人。0378 中它上报两项可安装滑动 APP 资产，安装动作由 UI-Server 读取本地源模型并 materialize 成新的本地滑动 APP 实例。\n\n### 当前对外滑动 APP\n\n| 名称 | 源模型 | 安装动作 |\n|---|---:|---|\n| E2E 颜色生成器 | 100 | 可安装 |\n| 最小 Submit 双总线示例 | 1050 | 可安装 |"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "Data.Single"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "asset_id",
+      "t": "str",
+      "v": "r1-color-generator"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "name",
+      "t": "str",
+      "v": "E2E 颜色生成器"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "kind",
+      "t": "str",
+      "v": "slide_app"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "asset_type",
+      "t": "str",
+      "v": "slide_app"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "owner",
+      "t": "str",
+      "v": "RemoteWorker R1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "owner_worker_id",
+      "t": "str",
+      "v": "R1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "parent_asset_id",
+      "t": "str",
+      "v": "r1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "source_model_id",
+      "t": "int",
+      "v": 100
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "installable",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "action_label",
+      "t": "str",
+      "v": "安装"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "summary_markdown",
+      "t": "str",
+      "v": "### E2E 颜色生成器\n\n- 提供方：RemoteWorker R1\n- 源模型：100\n- 类型：可安装滑动 APP\n- 功能：点击按钮生成并展示颜色。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "detail_markdown",
+      "t": "str",
+      "v": "## E2E 颜色生成器\n\n这是 R1 提供的滑动 APP 资产。点击安装后，UI-Server 会从源模型 100 导出 ModelTable JSON payload，再使用现有滑动 APP materialize 流程创建一个新的本地模型，并自动挂载到 Workspace 侧边栏。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "Data.Single"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "asset_id",
+      "t": "str",
+      "v": "r1-minimal-submit"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "name",
+      "t": "str",
+      "v": "最小 Submit 双总线示例"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "kind",
+      "t": "str",
+      "v": "slide_app"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "asset_type",
+      "t": "str",
+      "v": "slide_app"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "owner",
+      "t": "str",
+      "v": "RemoteWorker R1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "owner_worker_id",
+      "t": "str",
+      "v": "R1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "parent_asset_id",
+      "t": "str",
+      "v": "r1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "source_model_id",
+      "t": "int",
+      "v": 1050
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "installable",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "action_label",
+      "t": "str",
+      "v": "安装"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "summary_markdown",
+      "t": "str",
+      "v": "### 最小 Submit 双总线示例\n\n- 提供方：RemoteWorker R1\n- 源模型：1050\n- 类型：可安装滑动 APP\n- 功能：输入内容，Submit 后经双总线回写展示值。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "detail_markdown",
+      "t": "str",
+      "v": "## 最小 Submit 双总线示例\n\n这是 R1 提供的最小交互滑动 APP。安装后，UI-Server 会在本地生成新的模型实例；按钮事件仍按滑动 APP 规约进入当前 App 第 0 格，再走 Model 0 的总线通路。"
+    },
+    {
+      "op": "rm_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_bus_endpoint_v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_bus_endpoint_v1",
+      "t": "json",
+      "v": {
+        "transport": "mqtt",
+        "to": {
+          "worker_id": "R1",
+          "model_id": 100
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "workspace.page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "from_user",
+      "t": "str",
+      "v": "@r1:localhost"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "to_user",
+      "t": "str",
+      "v": "@mbr:localhost"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "workspace_asset_catalog_model_id",
+      "t": "int",
+      "v": 1052
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "asset_catalog_json",
+      "t": "json",
+      "v": [
+        {
+          "id": "workspace-manager-dem",
+          "name": "Workspace Manager DEM",
+          "kind": "DEM",
+          "asset_type": "worker",
+          "owner": "Workspace-Manager-DE",
+          "owner_worker_id": "WM1",
+          "installable": false,
+          "action_label": "详情",
+          "action_type": "default",
+          "summary_markdown": "### Workspace Manager DEM\n\n- 所属 DE：Workspace-Manager-DE\n- Worker ID：WM1\n- 角色：DEM\n- 当前用途：提供工作区资产目录与滑动 APP 安装入口。",
+          "detail_markdown": "## Workspace Manager DEM\n\n该软件工人是工作区管理器所在 DE 的 DEM。当前简化部署中，工作区管理器 DE 仅包含这个 DEM，资产目录、滑动 APP 列表和安装入口都暂时由它提供。"
+        },
+        {
+          "id": "mbr",
+          "name": "MBR",
+          "kind": "router",
+          "asset_type": "worker",
+          "owner": "Workspace",
+          "owner_worker_id": "MBR",
+          "installable": false,
+          "action_label": "详情",
+          "action_type": "default",
+          "summary_markdown": "### MBR\n\n- 类型：消息路由软件工人\n- 当前职责：控制总线转控制总线、控制总线转管理总线。",
+          "detail_markdown": "## MBR\n\nMBR 负责工作区内消息路由。当前 0378 不改变它的路由实现，只把它作为普通资产显示在资产管理器中。"
+        },
+        {
+          "id": "ui-server",
+          "name": "UI-Server",
+          "kind": "host",
+          "asset_type": "host",
+          "owner": "Workspace",
+          "owner_worker_id": "U1",
+          "installable": false,
+          "action_label": "详情",
+          "action_type": "default",
+          "summary_markdown": "### UI-Server\n\n- 类型：滑动 APP 宿主\n- 当前职责：展示 Workspace、安装本地滑动 APP、承接用户交互。",
+          "detail_markdown": "## UI-Server\n\nUI-Server 是用户实际访问的滑动 APP 宿主。安装滑动 APP 时会在本地分配新的 model id，并挂载到 Workspace。"
+        },
+        {
+          "id": "r1",
+          "name": "RemoteWorker R1",
+          "kind": "V1N",
+          "asset_type": "worker",
+          "owner": "RemoteWorker-DE",
+          "owner_worker_id": "R1",
+          "installable": false,
+          "action_label": "详情",
+          "action_type": "default",
+          "summary_markdown": "### RemoteWorker R1\n\n- 类型：普通 V1N 软件工人\n- 对外提供：颜色生成器、最小 Submit 双总线示例。",
+          "detail_markdown": "## RemoteWorker R1\n\nR1 当前上报两项可安装滑动 APP 资产：E2E 颜色生成器和最小 Submit 双总线示例。"
+        },
+        {
+          "id": "r1-color-generator",
+          "name": "E2E 颜色生成器",
+          "kind": "slide_app",
+          "asset_type": "slide_app",
+          "owner": "RemoteWorker R1",
+          "owner_worker_id": "R1",
+          "source_model_id": 100,
+          "installable": true,
+          "action_label": "安装",
+          "action_type": "primary",
+          "summary_markdown": "### E2E 颜色生成器\n\n- 提供方：RemoteWorker R1\n- 源模型：100\n- 点击安装后会在本地生成新的滑动 APP。",
+          "detail_markdown": "## E2E 颜色生成器\n\n安装动作会复用滑动 APP 导出/导入 materialize 流程：源模型 100 先导出为 ModelTable JSON payload，再在 UI-Server 本地创建新模型。"
+        },
+        {
+          "id": "r1-minimal-submit",
+          "name": "最小 Submit 双总线示例",
+          "kind": "slide_app",
+          "asset_type": "slide_app",
+          "owner": "RemoteWorker R1",
+          "owner_worker_id": "R1",
+          "source_model_id": 1050,
+          "installable": true,
+          "action_label": "安装",
+          "action_type": "primary",
+          "summary_markdown": "### 最小 Submit 双总线示例\n\n- 提供方：RemoteWorker R1\n- 源模型：1050\n- 安装后可在本地 Workspace 打开运行。",
+          "detail_markdown": "## 最小 Submit 双总线示例\n\n该示例用于验证 input + submit + 双总线回写的最小完整链路。"
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "selected_asset_id",
+      "t": "str",
+      "v": "workspace-manager-dem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "selected_asset_name",
+      "t": "str",
+      "v": "Workspace Manager DEM"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "selected_asset_summary_markdown",
+      "t": "str",
+      "v": "### Workspace Manager DEM\n\n- 所属 DE：Workspace-Manager-DE\n- Worker ID：WM1\n- 角色：DEM\n- 当前用途：提供工作区资产目录与滑动 APP 安装入口。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "selected_asset_detail_markdown",
+      "t": "str",
+      "v": "## Workspace Manager DEM\n\n该软件工人是工作区管理器所在 DE 的 DEM。当前简化部署中，工作区管理器 DE 仅包含这个 DEM，资产目录、滑动 APP 列表和安装入口都暂时由它提供。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "asset_detail_dialog_open",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "asset_install_status",
+      "t": "str",
+      "v": "ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "资产事务管理器"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "可用资产"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_manager_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_data_ref_model_id",
+      "t": "int",
+      "v": 1051
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_data_ref_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_data_ref_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_data_ref_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_data_ref_k",
+      "t": "str",
+      "v": "asset_catalog_json"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_row_key",
+      "t": "str",
+      "v": "id"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_col_name"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_asset_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_label",
+      "t": "str",
+      "v": "资产"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 1,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "name"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_col_owner"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_asset_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_label",
+      "t": "str",
+      "v": "提供方"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 2,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "owner"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_col_kind"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_asset_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 3,
+      "k": "ui_label",
+      "t": "str",
+      "v": "类型"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 3,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "kind"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_col_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_asset_table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_label",
+      "t": "str",
+      "v": "操作"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 6,
+      "c": 4,
+      "k": "ui_width",
+      "t": "str",
+      "v": "170"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_select_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_asset_col_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "查看"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "size": "small",
+        "type": "default"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "workspace_asset_select",
+          "value_ref": {
+            "$ref": "row"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_primary_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_asset_col_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "size": "small",
+        "label": {
+          "$ref": "row.action_label"
+        },
+        "type": {
+          "$ref": "row.action_type"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 7,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "workspace_asset_primary_action",
+          "value_ref": {
+            "$ref": "row"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_summary_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_manager_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 16
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "基础信息"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 8,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_summary_markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 8,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 8,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_asset_summary_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 8,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1051,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "selected_asset_summary_markdown"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_install_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_manager_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 18
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1051,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "asset_install_status"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_detail_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_manager_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "资产详情"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1051,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "asset_detail_dialog_open"
+        },
+        "write": {
+          "action": "workspace_asset_close_detail"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 10,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_detail_markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 10,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 10,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_asset_detail_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 10,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1051,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "selected_asset_detail_markdown"
+        }
+      }
+    }
+  ]
+}

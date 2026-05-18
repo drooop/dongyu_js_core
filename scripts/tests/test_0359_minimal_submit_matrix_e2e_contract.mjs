@@ -174,7 +174,7 @@ function test_docs_describe_real_matrix_roundtrip() {
     assert.equal(text.includes('/1050/'), false, `${label} must not use old 1050 topics`);
     assert.equal(text.includes('mbr_route_'), false, `${label} must not use mbr_route_*`);
   }
-  assert.equal(guide.includes('UI click -> Model 0 -> Matrix -> MBR -> remote provider public pin -> same endpoint topic response -> reply_target records -> ui-server -> local UI model'), true);
+  assert.equal(guide.includes('UI click -> Model 0 control bus -> MBR -> remote provider public pin -> same endpoint topic response -> reply_target records -> ui-server -> local UI model'), true);
   return { key: 'docs_describe_real_matrix_roundtrip', status: 'PASS' };
 }
 

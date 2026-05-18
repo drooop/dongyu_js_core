@@ -67,6 +67,7 @@ system_positive_full = [
     'doc_page_filltable_example_minimal.json',
     'slide_app_provider_docs_ui.json',
     'test_model_100_ui.json',
+    'workspace_manager_asset_manager_ui.json',
     'runtime_hierarchy_mounts.json',
 ]
 registry_files = [
@@ -83,9 +84,8 @@ role_files = {
         ('deploy/sys-v1ns/remote-worker/patches/12_model1019.json', 'roles/remote-worker/patches/12_model1019.json', '40-role-positive'),
         ('deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json', 'roles/remote-worker/patches/13_model3000_minimal_submit.json', '40-role-positive'),
     ],
-    'ui-side-worker': [
-        ('deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json', 'roles/ui-side-worker/patches/00_ui_side_worker_config.json', '20-role-negative'),
-        ('deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json', 'roles/ui-side-worker/patches/10_ui_side_worker_demo.json', '40-role-positive'),
+    'workspace-manager': [
+        ('deploy/sys-v1ns/workspace-manager/patches/00_workspace_manager_dem_config.json', 'roles/workspace-manager/patches/00_workspace_manager_dem_config.json', '20-role-negative'),
     ],
 }
 
@@ -106,7 +106,7 @@ entries = [
         'phase': '00-system-base',
         'path': 'system/base/system_models.json',
         'kind': 'patch',
-        'scope': ['ui-server', 'mbr-worker', 'remote-worker', 'ui-side-worker'],
+        'scope': ['ui-server', 'mbr-worker', 'remote-worker', 'workspace-manager'],
         'authority': 'authoritative',
         'filter': 'full',
         'required': True,

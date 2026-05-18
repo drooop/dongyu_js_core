@@ -2,8 +2,8 @@
  * Validate Model 100 records-only E2E (local simulation)
  *
  * Flow:
- * 1) Simulate Matrix pin_payload arriving at MBR (mbr_role_v0 patch)
- * 2) Capture mqtt publish topic + payload (pin_payload on /submit)
+ * 1) Simulate control-bus pin_payload arriving at MBR (mbr_role_v0 patch)
+ * 2) Capture mqtt publish topic from the ModelTable topic record
  * 3) Deliver to a Worker runtime via mqttIncoming
  * 4) Assert D0 function executes and emits temporary-modeltable result payload
  * 5) Assert bg_color updated
@@ -56,6 +56,8 @@ function pinPayloadRecords({
   endpointWorkerId = 'R1',
   endpointModelId = 100,
   endpointPin = 'submit',
+  topic = 'UIPUT/ws/dam/pic/de/sw/R1/100/submit',
+  routeKind = 'control',
   originWorkerId = 'ui-server-test',
   originModelId = 100,
   originPin = 'submit',
@@ -70,6 +72,8 @@ function pinPayloadRecords({
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
     mt('message_role', 'str', messageRole),
+    mt('topic', 'str', topic),
+    mt('route_kind', 'str', routeKind),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),

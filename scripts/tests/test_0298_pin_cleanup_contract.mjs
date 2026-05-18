@@ -18,7 +18,6 @@ function test_cleanup_scope_drops_legacy_pin_families() {
     ['packages/ui-model-demo-frontend/src/demo_modeltable.js', /pin\.bus\.in|pin\.bus\.out|pin\.connect\.model/],
     ['packages/worker-base/system-models/intent_handlers_home.json', /pin\.table\.in|pin\.table\.out|pin\.single\.in|pin\.single\.out/],
     ['packages/worker-base/system-models/home_catalog_ui.json', /pin\.table\.in|pin\.table\.out|pin\.single\.in|pin\.single\.out/],
-    ['deploy/sys-v1ns/ui-side-worker/patches/10_ui_side_worker_demo.json', /pin\.table\.in|pin\.table\.out|pin\.single\.in|pin\.single\.out/],
     ['packages/worker-base/system-models/llm_cognition_config.json', /pin\.table\.in|pin\.table\.out|pin\.single\.in|pin\.single\.out|pin\.model\.in|pin\.model\.out/],
   ];
   for (const [relPath, pattern] of checks) {

@@ -16,16 +16,40 @@ source: ai
 |---|---|---|
 | 编写 | 开发者怎样把 APP 写成模型表 | root metadata、UI 投影层、可选程序层、可选外发层都写成 ModelTable records |
 | 安装 | zip 怎样变成 Workspace 里的一个 APP | `zip -> /api/media/upload -> mxc://... -> importer truth -> importer click pin -> materialize / mount` |
-| 运行 | 用户点按钮后怎样到达后端目标单元格 | 前端发 `bus_event_v2`，server 写 Model 0 `pin.bus.mb.in`，再由 pin route 进入目标模型 |
-| 外发 | APP 怎样发管理总线消息 | app root `pin.out -> host / mount relay -> Model 0 mt_bus_send -> pin.bus.mb.out` |
+| 运行 | 用户点按钮后怎样到达后端目标单元格 | 前端发 `bus_event_v2`，server 默认写 Model 0 `pin.bus.cb.in`，再由 pin route 进入目标模型 |
+| 外发 | APP 怎样发双总线消息 | app root `pin.out -> host / mount relay -> Model 0 mt_bus_send -> pin.bus.cb.out`；显式管理语义才使用 `pin.bus.mb.out` |
 
 正式业务数据在传输过程中使用临时 ModelTable record array。这个数组“像模型表”，但不会自动落盘；只有安装、导入或 owner materialization 这类显式动作才会把它变成正式模型表 truth。
+
+滑动 APP 的提供方分两类，但运行合同相同：
+
+| 提供方 | 说明 | UI-Server 的责任 |
+|---|---|---|
+| 普通远端提供方 | 例如 remote-worker R1 提供颜色选择器或最小 Submit 示例 | 安装 ZIP、挂载模型、把事件转成正式 pin/control-bus 消息 |
+| 默认系统 DE | 例如 Workspace-Manager-DE；未来还有 PICS-DE | 安装或发现该 DE 提供的系统滑动 APP，但业务真相仍由该 DE 的 DEM 维护 |
+
+0377 起，Workspace Manager 和 PICS 不再被描述为 UI-Server 内部业务页面。它们是默认 DE 提供的服务。UI-Server 只作为滑动 APP 宿主：显示、挂载、转发、接收结果，不直接创建或修改这些服务的业务真相。
 
 正式业务 ingress 的固定链路是：
 
 ```text
-bus_event_v2 -> Model 0 (0,0,0) pin.bus.mb.in -> pin route -> target
+bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in -> pin route -> target
 ```
+
+当 UI-Server 上安装的 Workspace Manager 滑动 APP 调用 Workspace-Manager-DE 服务时，路径是：
+
+```text
+UI event
+-> UI-Server Model 0 pin.bus.cb.in
+-> MBR / control-bus route
+-> Workspace-Manager-DE 的 DEM Model 0 pin.bus.cb.in
+-> DEM 程序模型处理
+-> control-bus response
+-> UI-Server
+-> 更新本地挂载 APP 的投影标签
+```
+
+未来 PICS-DE 也使用同一模式。PICS-DE 负责创建 DE / DEM / V1N；UI-Server 不直接承担创建者职责。
 
 ## 2. root 第 0 格默认有什么
 
@@ -37,7 +61,7 @@ bus_event_v2 -> Model 0 (0,0,0) pin.bus.mb.in -> pin route -> target
 |---|---|---|
 | 写格子 | `mt_write`、`mt_write_req`、`mt_write_result`、`mt_write_req_route` | 接收 `write_label.v1` 临时 ModelTable payload，并在当前模型内写一个目标 cell / label |
 | 总线接收 | `mt_bus_receive`、`mt_bus_receive_in`、`mt_bus_receive_wiring` | 接收从 Model 0 或其他 pin route 过来的正式业务 payload，再派发给本模型目标 cell |
-| 总线发送 | `mt_bus_send`、`mt_bus_send_in`、`mt_bus_send_wiring` | 接收外发请求，构造 `bus_send.v1`，最终写到 Model 0 的 `pin.bus.mb.out` 链 |
+| 总线发送 | `mt_bus_send`、`mt_bus_send_in`、`mt_bus_send_wiring` | 接收外发请求，构造 `bus_send.v1`，默认最终写到 Model 0 的 `pin.bus.cb.out` 链 |
 
 开发者通常不需要手写这三条链。你要做的是：
 
@@ -47,7 +71,7 @@ bus_event_v2 -> Model 0 (0,0,0) pin.bus.mb.in -> pin route -> target
 
 ## 3. 编写一个滑动 APP
 
-一个滑动 APP 包通常至少包含 root metadata 和 UI 投影层。如果要触发后端逻辑，再加程序层。如果要发出管理总线消息，再加外发层。
+一个滑动 APP 包通常至少包含 root metadata 和 UI 投影层。如果要触发后端逻辑，再加程序层。如果要向其他软件工人或 DEM 发消息，再加外发层。
 
 ### 3.1 root metadata
 
@@ -198,7 +222,7 @@ my-slide-app.zip
 |---|---|---|
 | imported root `(0,0,0)` | `__host_ingress_submit` `pin.in` | imported APP 的宿主入口 relay |
 | imported root `(0,0,0)` | `__host_ingress_submit_route` `pin.connect.cell` | relay 到声明的 `submit_request` |
-| Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>` `pin.bus.mb.in` | 宿主入口 |
+| Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>` `pin.bus.cb.in` | 宿主入口 |
 | Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>_route` `pin.connect.cell` | 从 Model 0 路由到 imported app hosting Cell / imported root relay |
 
 如果 root 还声明了 `dual_bus_model` 并且有 root `submit` `pin.out`，宿主还会补外发 adapter：
@@ -209,7 +233,7 @@ my-slide-app.zip
 | Model 0 mount cell | `__host_egress_submit_bridge_<modelId>` `pin.connect.label` | 把 imported root `submit` 接到 mount relay |
 | Model 0 root `(0,0,0)` | `__host_egress_submit_bridge_in_<modelId>` `pin.in` | relay 到 root bridge function |
 | Model 0 root `(0,0,0)` | `bridge_imported_submit_to_mt_bus_send_<modelId>` `func.js` | 构造 `bus_send.v1` 临时 ModelTable payload |
-| Model 0 root `(0,0,0)` | `imported_submit_<modelId>_bus` `pin.bus.mb.out` | 统一外发边界 |
+| Model 0 root `(0,0,0)` | `imported_submit_<modelId>_bus` `pin.bus.cb.out` | 默认统一外发边界 |
 
 这些自动 label 是宿主责任。开发者不应在 zip 里写死安装后的正式 `modelId`。
 
@@ -227,7 +251,7 @@ Button click
 -> renderer builds bus_event_v2
 -> remote store POST /bus_event
 -> server validates temporary ModelTable payload
--> server writes Model 0 (0,0,0) k=<bus_in_key> t=pin.bus.mb.in
+-> server writes Model 0 (0,0,0) k=<bus_in_key> t=pin.bus.cb.in
 -> pin.connect.cell routes to the target hosting/root boundary pin.in
 -> target model mt_bus_receive_in
 -> mt_bus_receive dispatches write_label.v1
@@ -282,9 +306,9 @@ return;
 
 这段不会直接发 Matrix / MQTT / MBR。它只写 app root 的 `submit` `pin.out`，后续由安装时自动生成的 host egress adapter 接管。
 
-## 8. UI 模型怎样向自己的第 0 格发管理总线消息
+## 8. UI 模型怎样向自己的第 0 格发双总线消息
 
-如果 APP 需要外发管理总线消息，推荐链路是：
+如果 APP 需要外发双总线消息，同工作区默认链路是：
 
 ```text
 target func.js
@@ -293,8 +317,8 @@ target func.js
 -> Model 0 bridge_imported_submit_to_mt_bus_send_<modelId>
 -> Model 0 mt_bus_send_in
 -> Model 0 mt_bus_send
--> Model 0 pin.bus.mb.out
--> Matrix / MBR / MQTT
+-> Model 0 pin.bus.cb.out
+-> MBR / MQTT
 ```
 
 关键点：
@@ -302,8 +326,8 @@ target func.js
 - APP 自己只写自己的 root `pin.out`。
 - 宿主在安装时已经知道这个 APP 挂在哪个 Model 0 mount cell。
 - 宿主 relay 把 app root `pin.out` 转成 Model 0 的 `mt_bus_send_in`。
-- `mt_bus_send` 再统一写 `pin.bus.mb.out`。
-- Matrix / MBR / MQTT 只消费 Model 0 `pin.bus.mb.out`。
+- `mt_bus_send` 再默认写 `pin.bus.cb.out`。
+- MBR / MQTT 默认只消费 Model 0 `pin.bus.cb.out`。显式管理语义才使用 `pin.bus.mb.out`。
 
 因此，开发者要写的是“我这个 APP 的业务完成后产生了什么 payload”，不是“我怎样直接发 Matrix 消息”。
 
@@ -328,5 +352,5 @@ target func.js
 当前要区分：
 
 - 本地 UI 草稿可以留在前端或 overlay。
-- 正式业务必须进入 Model 0 `pin.bus.mb.in`。
+- 正式业务默认必须进入 Model 0 `pin.bus.cb.in`；显式管理语义才进入 `pin.bus.mb.in`。
 - 后端目标 cell 的实际变化，是 `mt_bus_receive` / `mt_write` 等模型表链路处理后的结果，不是浏览器直接改出来的结果。

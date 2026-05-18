@@ -40,7 +40,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$TARGET" ]; then
-  echo "ERROR: --target is required (ui-server|mbr-worker|remote-worker|ui-side-worker)" >&2
+  echo "ERROR: --target is required (ui-server|mbr-worker|remote-worker|workspace-manager)" >&2
   exit 1
 fi
 
@@ -162,20 +162,20 @@ load_target_spec() {
         "packages/worker-base/src/persisted_asset_loader.mjs:/app/packages/worker-base/src/persisted_asset_loader.mjs"
       )
       ;;
-    ui-side-worker)
-      IMAGE_TAG="dy-ui-side-worker:v1"
-      DOCKERFILE="k8s/Dockerfile.ui-side-worker"
-      DEPLOYMENT="ui-side-worker"
-      APP_LABEL="ui-side-worker"
+    workspace-manager)
+      IMAGE_TAG="dy-remote-worker:v3"
+      DOCKERFILE="k8s/Dockerfile.remote-worker"
+      DEPLOYMENT="workspace-manager"
+      APP_LABEL="workspace-manager"
       LOCAL_FILES=(
-        "scripts/run_worker_ui_side_v0.mjs:/app/scripts/run_worker_ui_side_v0.mjs"
+        "scripts/run_worker_remote_v1.mjs:/app/scripts/run_worker_remote_v1.mjs"
         "packages/worker-base/src/runtime.js:/app/packages/worker-base/src/runtime.js"
         "packages/worker-base/src/runtime.mjs:/app/packages/worker-base/src/runtime.mjs"
         "packages/worker-base/src/persisted_asset_loader.mjs:/app/packages/worker-base/src/persisted_asset_loader.mjs"
       )
       ;;
     *)
-      echo "ERROR: unsupported target '$TARGET' (expected ui-server|mbr-worker|remote-worker|ui-side-worker)" >&2
+      echo "ERROR: unsupported target '$TARGET' (expected ui-server|mbr-worker|remote-worker|workspace-manager)" >&2
       exit 1
       ;;
   esac
@@ -198,10 +198,7 @@ verify_target_source_hashes() {
 
 apply_target_manifest() {
   case "$TARGET" in
-    ui-side-worker)
-      kubectl apply -f "$REPO_DIR/k8s/cloud/ui-side-worker.yaml"
-      ;;
-    ui-server|mbr-worker|remote-worker)
+    ui-server|mbr-worker|remote-worker|workspace-manager)
       kubectl apply -f "$REPO_DIR/k8s/cloud/workers.yaml"
       ;;
   esac

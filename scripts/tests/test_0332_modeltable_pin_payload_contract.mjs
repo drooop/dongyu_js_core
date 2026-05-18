@@ -67,11 +67,16 @@ function busSendPayload({
   busOutKey = 'model100_submit_bus',
   payload = [mt('message_text', 'str', 'hello_bus')],
   requestId = 'req_bus_send_0332',
+  topic = `UIPUT/ws/dam/pic/de/sw/R1/3000/${pin}`,
+  routeKind = 'control',
 } = {}) {
   return [
     mt('__mt_payload_kind', 'str', 'bus_send.v1'),
     mt('__mt_request_id', 'str', requestId),
     mt('message_role', 'str', 'request'),
+    mt('topic', 'str', topic),
+    mt('route_kind', 'str', routeKind),
+    mt('bus', 'str', routeKind),
     mt('endpoint_worker_id', 'str', 'R1'),
     mt('endpoint_model_id', 'int', 3000),
     mt('endpoint_pin', 'str', pin),

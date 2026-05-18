@@ -125,7 +125,7 @@ sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_app.sh --target ui-serv
 
 说明：
 - `deploy_cloud.sh` 现仅作为兼容 wrapper，内部委托给 `deploy_cloud_full.sh`。
-- `deploy_cloud_app.sh` 只允许目标集：`ui-server | mbr-worker | remote-worker | ui-side-worker`。
+- `deploy_cloud_app.sh` 只允许目标集：`ui-server | mbr-worker | remote-worker | workspace-manager`。
 - `deploy_cloud_app.sh` 在重启目标服务前会重新应用对应的 cloud manifest，避免镜像已更新但运行配置仍停留在旧版本。
 
 ---

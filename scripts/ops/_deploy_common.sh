@@ -189,6 +189,8 @@ update_k8s_secrets() {
     MATRIX_PASSWORD="$SERVER_PASSWORD" \
     MATRIX_TOKEN="$server_token" \
     MATRIX_CONTUSER="@${MBR_USER}:${SYNAPSE_SERVER_NAME}" \
+    MQTT_HOST="${MQTT_HOST}" \
+    MQTT_PORT="${MQTT_PORT}" \
     python3 - <<'PY'
 import json
 import os
@@ -203,6 +205,8 @@ patch = {
         {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_passwd", "t": "matrix.passwd", "v": os.environ["MATRIX_PASSWORD"]},
         {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_token", "t": "matrix.token", "v": os.environ["MATRIX_TOKEN"]},
         {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "matrix_contuser", "t": "matrix.contuser", "v": [os.environ["MATRIX_CONTUSER"]]},
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "local_ip", "t": "mqtt.local.ip", "v": [os.environ["MQTT_HOST"]]},
+        {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "local_port", "t": "mqtt.local.port", "v": [os.environ["MQTT_PORT"]]},
     ],
 }
 print(json.dumps(patch, separators=(',', ':')))

@@ -1250,7 +1250,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         props.disabled = false;
       }
     }
-    const singleFlight = node.props && node.props.singleFlight;
+    const singleFlight = props && props.singleFlight;
     const singleFlightEnabled = Boolean(singleFlight);
     const singleFlightStore = singleFlightEnabled ? ensureSingleFlightStore(host) : null;
     const singleFlightKey = singleFlightEnabled
@@ -1316,7 +1316,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     };
 
     // Variant support: pill (capsule button), text, link
-    const variant = node.props && node.props.variant;
+    const variant = props && props.variant;
     if (variant === 'pill') {
       props.round = true;
       props.style = { borderRadius: '9999px', paddingLeft: '24px', paddingRight: '24px', ...(props.style || {}) };
@@ -1327,9 +1327,9 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     }
 
     // Icon support
-    const icon = node.props && node.props.icon;
-    const iconPosition = (node.props && node.props.iconPosition) || 'left';
-    const label = (node.props && node.props.label) || '';
+    const icon = props && props.icon;
+    const iconPosition = (props && props.iconPosition) || 'left';
+    const label = (props && props.label) || '';
 
     // Clean up custom props from ElButton
     const buttonProps = { ...props };

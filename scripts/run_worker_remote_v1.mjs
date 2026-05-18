@@ -28,6 +28,8 @@ const MQTT_PASS = process.env.DY_MQTT_PASS || process.env.MQTT_PASS || 'p';
 const WORKER_ID = process.env.WORKER_ID || '2';
 const PATCH_DIR = process.argv[2] || process.env.DY_ROLE_PATCH_DIR || '';
 const ASSET_ROOT = resolvePersistedAssetRoot();
+const WORKER_SCOPE = process.env.DY_WORKER_SCOPE || 'remote-worker';
+const LOG_PREFIX = process.env.DY_WORKER_LOG_PREFIX || WORKER_SCOPE;
 
 if (!ASSET_ROOT && !PATCH_DIR) {
   process.stderr.write('Usage: bun scripts/run_worker_remote_v1.mjs <patch_dir>\n');
@@ -41,17 +43,17 @@ if (!ASSET_ROOT && !fs.existsSync(patchDirAbs)) {
   process.exit(1);
 }
 
-process.stdout.write(`[remote-worker-v1] Starting (fill-table architecture)\n`);
-process.stdout.write(`[remote-worker-v1] MQTT: ${MQTT_HOST}:${MQTT_PORT}\n`);
+process.stdout.write(`[${LOG_PREFIX}] Starting (fill-table architecture, scope=${WORKER_SCOPE})\n`);
+process.stdout.write(`[${LOG_PREFIX}] MQTT: ${MQTT_HOST}:${MQTT_PORT}\n`);
 if (ASSET_ROOT) {
-  process.stdout.write(`[remote-worker-v1] Persisted asset root: ${ASSET_ROOT}\n`);
+  process.stdout.write(`[${LOG_PREFIX}] Persisted asset root: ${ASSET_ROOT}\n`);
 } else {
-  process.stdout.write(`[remote-worker-v1] Patch dir: ${patchDirAbs}\n`);
+  process.stdout.write(`[${LOG_PREFIX}] Patch dir: ${patchDirAbs}\n`);
 }
 
 // --- 1. Create runtime + load system patches ---
 const rt = new ModelTableRuntime();
-loadSystemPatch(rt, { assetRoot: ASSET_ROOT, scope: 'remote-worker' });
+loadSystemPatch(rt, { assetRoot: ASSET_ROOT, scope: WORKER_SCOPE });
 let mqttTraceCursor = 0;
 
 function mqttRuntimeStatus() {
@@ -67,22 +69,22 @@ function emitMqttDiagnostics(reason) {
   const trace = rt.mqttTrace.list();
   const delta = trace.slice(mqttTraceCursor);
   mqttTraceCursor = trace.length;
-  process.stdout.write(`[remote-worker-v1] MQTT connected: ${connected} status=${mqttRuntimeStatus()} reason=${reason}\n`);
-  process.stdout.write(`[remote-worker-v1] MQTT subscriptions: ${JSON.stringify(subscriptions)}\n`);
-  process.stdout.write(`[remote-worker-v1] MQTT trace delta: ${JSON.stringify(delta.slice(-20))}\n`);
+  process.stdout.write(`[${LOG_PREFIX}] MQTT connected: ${connected} status=${mqttRuntimeStatus()} reason=${reason}\n`);
+  process.stdout.write(`[${LOG_PREFIX}] MQTT subscriptions: ${JSON.stringify(subscriptions)}\n`);
+  process.stdout.write(`[${LOG_PREFIX}] MQTT trace delta: ${JSON.stringify(delta.slice(-20))}\n`);
 }
 
 // --- 2. Load role patches (alphabetical order) ---
 if (ASSET_ROOT) {
   const result = applyPersistedAssetEntries(rt, {
     assetRoot: ASSET_ROOT,
-    scope: 'remote-worker',
+    scope: WORKER_SCOPE,
     authority: 'authoritative',
     kind: 'patch',
     phases: ['20-role-negative', '40-role-positive'],
     applyOptions: { allowCreateModel: true, trustedBootstrap: true },
   });
-  process.stdout.write(`[remote-worker-v1] Loaded persisted assets: entries=${result.entriesApplied}, patches=${result.patchObjectsApplied}\n`);
+  process.stdout.write(`[${LOG_PREFIX}] Loaded persisted assets: entries=${result.entriesApplied}, patches=${result.patchObjectsApplied}\n`);
 } else {
   const patchFiles = fs.readdirSync(patchDirAbs)
     .filter(f => f.endsWith('.json'))
@@ -92,11 +94,11 @@ if (ASSET_ROOT) {
     const filePath = path.join(patchDirAbs, file);
     const patch = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     const result = rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
-    process.stdout.write(`[remote-worker-v1] Loaded ${file}: applied=${result.applied}, rejected=${result.rejected}\n`);
+    process.stdout.write(`[${LOG_PREFIX}] Loaded ${file}: applied=${result.applied}, rejected=${result.rejected}\n`);
   }
 }
 rt.setRuntimeMode('edit');
-process.stdout.write(`[remote-worker-v1] runtime_mode=${rt.getRuntimeMode()}\n`);
+process.stdout.write(`[${LOG_PREFIX}] runtime_mode=${rt.getRuntimeMode()}\n`);
 
 const sysModel = rt.getModel(-10);
 const remoteSubConfig = sysModel ? rt.getLabelValue(sysModel, 0, 0, 0, 'remote_subscriptions') : null;
@@ -109,27 +111,27 @@ const mqttResult = rt.startMqttLoop({
   transport: 'real',
   host: MQTT_HOST,
   port: MQTT_PORT,
-  client_id: `dy-remote-worker-${WORKER_ID}-${Date.now()}`,
+  client_id: `dy-${WORKER_SCOPE}-${WORKER_ID}-${Date.now()}`,
   username: MQTT_USER,
   password: MQTT_PASS,
   tls: false,
 });
-process.stdout.write(`[remote-worker-v1] MQTT startMqttLoop: ${JSON.stringify(mqttResult)}\n`);
+process.stdout.write(`[${LOG_PREFIX}] MQTT startMqttLoop: ${JSON.stringify(mqttResult)}\n`);
 
 if (mqttResult.status !== 'running') {
-  process.stderr.write(`[remote-worker-v1] MQTT failed to start: ${JSON.stringify(mqttResult)}\n`);
+  process.stderr.write(`[${LOG_PREFIX}] MQTT failed to start: ${JSON.stringify(mqttResult)}\n`);
   process.exit(1);
 }
 rt.setRuntimeMode('running');
-process.stdout.write(`[remote-worker-v1] runtime_mode=${rt.getRuntimeMode()}\n`);
+process.stdout.write(`[${LOG_PREFIX}] runtime_mode=${rt.getRuntimeMode()}\n`);
 
 // --- 4. Report subscriptions ---
 for (const topic of remoteSubscriptions) {
   rt.mqttClient.subscribe(topic);
 }
-process.stdout.write(`[remote-worker-v1] BUS_IN ports: [${[...rt.busInPorts.keys()].join(', ')}]\n`);
-process.stdout.write(`[remote-worker-v1] BUS_OUT ports: [${[...rt.busOutPorts.keys()].join(', ')}]\n`);
-process.stdout.write(`[remote-worker-v1] patch subscriptions: ${JSON.stringify(remoteSubscriptions)}\n`);
+process.stdout.write(`[${LOG_PREFIX}] bus.in ports: [${[...rt.busInPorts.keys()].join(', ')}]\n`);
+process.stdout.write(`[${LOG_PREFIX}] bus.out ports: [${[...rt.busOutPorts.keys()].join(', ')}]\n`);
+process.stdout.write(`[${LOG_PREFIX}] patch subscriptions: ${JSON.stringify(remoteSubscriptions)}\n`);
 emitMqttDiagnostics('after_start');
 
 // --- 5. Heartbeat (optional diagnostic logging) ---
@@ -144,9 +146,9 @@ const heartbeatTimer = setInterval(() => {
     const cell = rt.getCell(model100, 0, 0, 0);
     const bgColor = cell.labels.get('bg_color')?.v || 'N/A';
     const status = cell.labels.get('status')?.v || 'N/A';
-    process.stdout.write(`[remote-worker-v1] Heartbeat — Model 100: bg_color=${bgColor}, status=${status}\n`);
+    process.stdout.write(`[${LOG_PREFIX}] Heartbeat — Model 100: bg_color=${bgColor}, status=${status}\n`);
   }
 }, 30000);
 heartbeatTimer.unref();
 
-process.stdout.write(`[remote-worker-v1] Ready. Runtime handles: mqttIncoming → IN → cell_connection → CELL_CONNECT → function\n`);
+process.stdout.write(`[${LOG_PREFIX}] Ready. Runtime handles: mqttIncoming -> IN -> cell_connection -> CELL_CONNECT -> function\n`);
