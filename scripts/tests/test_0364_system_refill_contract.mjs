@@ -74,7 +74,6 @@ function test_system_seed_does_not_lock_worker_identity() {
 function test_worker_role_patches_are_explicit() {
   assertWorkerIdentity('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json', 'DEM');
   assertWorkerIdentity('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json', 'V1N');
-  assertWorkerIdentity('deploy/sys-v1ns/ui-side-worker/patches/00_ui_side_worker_config.json', 'V1N');
   return { key: 'worker_role_patches_are_explicit', status: 'PASS' };
 }
 
@@ -124,7 +123,6 @@ async function assertUiServerIdentity() {
 function test_worker_identity_survives_actual_load_order() {
   assertLoadedWorkerIdentity('mbr', 'deploy/sys-v1ns/mbr/patches', '5/10/28/35/14', 'DEM');
   assertLoadedWorkerIdentity('remote_worker', 'deploy/sys-v1ns/remote-worker/patches', '5/10/28/35/15', 'V1N');
-  assertLoadedWorkerIdentity('ui_side_worker', 'deploy/sys-v1ns/ui-side-worker/patches', '5/10/28/35/16', 'V1N');
   return { key: 'worker_identity_survives_actual_load_order', status: 'PASS' };
 }
 

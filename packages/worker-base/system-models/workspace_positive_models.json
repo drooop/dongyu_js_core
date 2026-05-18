@@ -324,6 +324,32 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "host_ingress_v1",
+      "t": "json",
+      "v": {
+        "version": "v1",
+        "boundaries": [
+          {
+            "semantic": "submit",
+            "pin_name": "submit_request",
+            "value_t": "modeltable",
+            "locator_kind": "root_relative_cell",
+            "locator_value": {
+              "p": 0,
+              "r": 0,
+              "c": 0
+            },
+            "primary": true
+          }
+        ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "dual_bus_model",
       "t": "json",
       "v": {
@@ -15897,7 +15923,7 @@
       "c": 0,
       "k": "ui_text",
       "t": "str",
-      "v": "Local UI -> Matrix -> MBR -> MQTT -> K8s Worker -> MQTT -> MBR -> Matrix -> Local UI"
+      "v": "Local UI -> Control Bus -> MBR -> MQTT -> K8s Worker -> MQTT -> MBR -> Control Bus -> Local UI"
     },
     {
       "op": "add_label",
@@ -17052,7 +17078,7 @@
       "c": 0,
       "k": "inspector_text",
       "t": "str",
-      "v": "Send path: UI event -> bus_event_v2 -> Model 0 pin.bus.mb.in -> pin route -> management target."
+      "v": "Send path: UI event -> bus_event_v2 -> Model 0 pin.bus.cb.in -> pin route -> target. Explicit management semantics use pin.bus.mb.in."
     },
     {
       "op": "add_label",
@@ -24019,6 +24045,599 @@
       "k": "ui_text_ref_k",
       "t": "str",
       "v": "remote_status"
+    },
+    {
+      "op": "create_model",
+      "model_id": 1051,
+      "name": "workspace_manager_slide_app",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.WorkspaceManagerApp"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "工作区管理器"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "Workspace-Manager-DE"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_capable",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "workspace_manager_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_bus_endpoint_v1",
+      "t": "json",
+      "v": {
+        "transport": "mqtt",
+        "to": {
+          "worker_id": "WM1",
+          "model_id": 4000
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "dual_bus_model",
+      "t": "json",
+      "v": {
+        "mode": "imported_host_egress",
+        "egress_pins": [
+          "refresh"
+        ]
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "refresh_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "refresh",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "refresh_request_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "refresh_request",
+          "to": [
+            "handle_refresh:in"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "root_routes",
+      "t": "pin.connect.cell",
+      "v": []
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "workspace_manager_refresh_ingress_route",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [
+            0,
+            0,
+            0,
+            "bus_event_refresh_1051_0_0_0"
+          ],
+          "to": [
+            [
+              9,
+              0,
+              1051,
+              "refresh_request"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_refresh",
+      "t": "func.js",
+      "v": {
+        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = (key, fallback = null) => {\n  const rec = records.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key);\n  return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback;\n};\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'workspace_manager.refresh.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'request_kind', t: 'str', v: String(readPayload('request_kind', 'asset_tree')) },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source', t: 'str', v: 'workspace_manager_slide_app' }\n];\nV1N.addLabel('workspace_manager_status', 'str', 'refreshing');\nV1N.addLabel('submit_inflight', 'bool', true);\nV1N.addLabel('refresh', 'pin.out', payload);\nreturn;",
+        "modelName": "workspace_manager_slide_app"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "workspace_manager_status",
+      "t": "str",
+      "v": "ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "asset_tree_text",
+      "t": "str",
+      "v": "- Workspace [workspace]\n  - Workspace Manager DE [DE]\n    - Workspace Manager DEM [DEM]\n  - MBR [DEM]\n  - UI-Server [host]\n  - RemoteWorker R1 [V1N]"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "submit_inflight",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_manager_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "vertical"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 18
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_manager_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_manager_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "工作区管理器"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_manager_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_manager_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "Asset Tree"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_manager_refresh_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_manager_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "刷新资产树"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "click_event",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "click_chain",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "click_event_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "click_event",
+          "to": [
+            "click_chain"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "bus_event_v2": true,
+          "bus_in_key": "bus_event_refresh_1051_0_0_0",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ui_event.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "request_kind",
+              "t": "str",
+              "v": "asset_tree"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "source",
+              "t": "str",
+              "v": "ui_button"
+            }
+          ],
+          "value_t": "modeltable",
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_manager_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBadge"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_manager_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1051,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "workspace_manager_status"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_manager_tree_terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Terminal"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_manager_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1051,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "asset_tree_text"
+        }
+      }
     }
   ]
 }

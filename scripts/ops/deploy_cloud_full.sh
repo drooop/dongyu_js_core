@@ -399,10 +399,6 @@ docker build "${BUILD_ARGS[@]}" "${BUN_BUILD_ARGS[@]}" \
   -f k8s/Dockerfile.remote-worker \
   --label "org.opencontainers.image.revision=$SOURCE_REV" \
   -t dy-remote-worker:v3 .
-docker build "${BUILD_ARGS[@]}" \
-  -f k8s/Dockerfile.ui-side-worker \
-  --label "org.opencontainers.image.revision=$SOURCE_REV" \
-  -t dy-ui-side-worker:v1 .
 echo ""
 
 # ── Import images to rke2 containerd ─────────────────────
@@ -414,14 +410,12 @@ else
 fi
 docker save dy-mbr-worker:v2 | "$CTR" --address "$CONTAINERD_SOCK" -n k8s.io images import -
 docker save dy-remote-worker:v3 | "$CTR" --address "$CONTAINERD_SOCK" -n k8s.io images import -
-docker save dy-ui-side-worker:v1 | "$CTR" --address "$CONTAINERD_SOCK" -n k8s.io images import -
 echo "  Images imported."
 echo ""
 
 # ── Apply manifests (with placeholder replacement) ───────
 echo "=== Step 9: Apply manifests ==="
 patch_manifest "$REPO_DIR/k8s/cloud/workers.yaml" "$ROOM_ID" "$SERVER_PASSWORD"
-kubectl apply -f "$REPO_DIR/k8s/cloud/ui-side-worker.yaml"
 
 # Also patch mbr-update.yaml if it exists
 if [ -f "$REPO_DIR/k8s/cloud/mbr-update.yaml" ]; then
@@ -438,7 +432,7 @@ echo ""
 
 # ── Cleanup stuck pods ────────────────────────────────────
 echo "=== Step 10: Cleanup stuck pods ==="
-for deploy in ui-server mbr-worker remote-worker ui-side-worker; do
+for deploy in ui-server mbr-worker remote-worker workspace-manager; do
   STUCK=$(kubectl -n "$NAMESPACE" get pods -l "app=$deploy" --no-headers 2>/dev/null \
     | awk '$3 == "Terminating" {print $1}')
   if [ -n "$STUCK" ]; then
@@ -453,12 +447,12 @@ echo "=== Step 11: Rollout restart ==="
 kubectl -n "$NAMESPACE" rollout restart deployment/ui-server
 kubectl -n "$NAMESPACE" rollout restart deployment/mbr-worker
 kubectl -n "$NAMESPACE" rollout restart deployment/remote-worker
-kubectl -n "$NAMESPACE" rollout restart deployment/ui-side-worker
+kubectl -n "$NAMESPACE" rollout restart deployment/workspace-manager
 echo ""
 
 # ── Wait for rollout ─────────────────────────────────────
 echo "=== Step 12: Wait for rollout ==="
-wait_for_rollout ui-server mbr-worker remote-worker ui-side-worker
+wait_for_rollout ui-server mbr-worker remote-worker workspace-manager
 echo ""
 
 # ── Verify ────────────────────────────────────────────────

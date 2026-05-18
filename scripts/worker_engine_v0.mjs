@@ -51,6 +51,15 @@ function isValidUnifiedTopicBase(value) {
     && parts.every((part) => isSafeTopicSegment(part));
 }
 
+function isValidPayloadTopic(value) {
+  if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
+  const parts = value.split('/');
+  return parts.length === 9
+    && parts[0] === 'UIPUT'
+    && parts.every((part) => isSafeTopicSegment(part))
+    && /^[1-9][0-9]*$/.test(parts[7]);
+}
+
 function payloadRecord(payload, key) {
   return Array.isArray(payload)
     ? payload.find((record) => record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null
@@ -200,17 +209,8 @@ export class WorkerEngineV0 {
 
   _mqttTopicForRoute(packet) {
     const payload = packet && Array.isArray(packet.payload) ? packet.payload : [];
-    const workerId = payloadString(payload, 'endpoint_worker_id');
-    const modelId = payloadInt(payload, 'endpoint_model_id');
-    const pin = payloadString(payload, 'endpoint_pin');
-    if (!isSafeTopicSegment(workerId) || !Number.isInteger(modelId) || modelId <= 0 || !isSafeTopicSegment(pin)) {
-      return null;
-    }
-    const root = this.runtime.getModel(0);
-    const baseLabel = root ? this.runtime.getCell(root, 0, 0, 0).labels.get('mqtt_topic_base') : null;
-    const base = String(baseLabel && baseLabel.v ? baseLabel.v : '');
-    if (!isValidUnifiedTopicBase(base)) return null;
-    return `${base}/${workerId}/${modelId}/${pin}`;
+    const topic = payloadString(payload, 'topic');
+    return isValidPayloadTopic(topic) ? topic : null;
   }
 
   _processSplitBusOutTriggers(eventEndExclusive) {

@@ -181,7 +181,7 @@ HTTP POST /ui_event
 
 | 模型 | Cell | 需新增的 Pin 声明 |
 |------|------|-------------------|
-| Model 0 | (0,0,0) | `pin.bus.mb.in` / `pin.bus.mb.out`（UI/管理类）；需要控制类时使用 `pin.bus.cb.in` / `pin.bus.cb.out` |
+| Model 0 | (0,0,0) | 同工作区 UI/滑动 App 默认使用 `pin.bus.cb.in` / `pin.bus.cb.out`；显式管理语义使用 `pin.bus.mb.in` / `pin.bus.mb.out` |
 | Model -1 | (0,0,0) | pin.in: ui\_msg\_in, pin.out: dispatch\_out, bus\_reply |
 | Model -1 | (0,0,1) | pin.in: event\_in, pin.out: event\_out |
 | Model -1 | (0,0,0) | pin.connect.cell: (0,0,0)→(0,0,1), (0,0,1)→(0,0,0) |

@@ -8,7 +8,7 @@ source: ai
 
 # 最小 Submit 双总线示例 - Visualized
 
-这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经过 Matrix、MBR、MQTT、remote-worker R1，最后在同一个 remote endpoint topic 上用 `message_role=response` 回包，并根据 `reply_target_worker_id / reply_target_model_id / reply_target_pin` 回到本地 UI 模型，页面显示 `Submitted: <输入内容>`。
+这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经控制总线、MBR、MQTT、remote-worker R1，最后在同一个 remote endpoint topic 上用 `message_role=response` 回包，并根据 `reply_target_worker_id / reply_target_model_id / reply_target_pin` 回到本地 UI 模型，页面显示 `Submitted: <输入内容>`。
 
 ## 总览
 
@@ -16,22 +16,22 @@ source: ai
 sequenceDiagram
   participant UI as Workspace UI model 2000
   participant M0 as UI Server Model 0
-  participant MX as Matrix management bus
+  participant CB as Control bus
   participant MBR as MBR
   participant MQTT as MQTT
   participant R1 as remote-worker R1 model 3000
   UI->>UI: ui_bind_json writes value_ref to click_event
   UI->>UI: click_event -> click_event_wiring -> click_chain -> submit_request -> handle_submit:in
   UI->>M0: submit1 pin.out reaches generated host egress adapter
-  M0->>MX: pin_payload.v1 with endpoint_worker_id=R1 endpoint_model_id=3000 endpoint_pin=submit1
-  MX->>MBR: management bus packet
+  M0->>CB: pin_payload.v1 with topic=UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
+  CB->>MBR: control bus packet
   MBR->>MQTT: UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
   MQTT->>R1: root submit1 pin.in
   R1->>R1: root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in`
   R1->>MQTT: same topic pin_payload.v1 message_role=response
   MQTT->>MBR: control bus reply
-  MBR->>MX: management bus reply
-  MX->>M0: endpoint=R1/3000/submit1 + reply_target=U1/2000/result
+  MBR->>CB: same topic response
+  CB->>M0: endpoint=R1/3000/submit1 + reply_target=U1/2000/result
   M0->>UI: materialize display_text / remote_status / last_submit_payload / submit_inflight
 ```
 
@@ -66,7 +66,7 @@ flowchart TB
   Submt["Model 0 mount cell<br/>model.submt -> local model 2000"]
   Ingress["host ingress<br/>imported_host_submit_<id>"]
   Egress["host egress<br/>ui_egress_submit1_binding<br/>imported_submit1_<id>_bus<br/>bridge_imported_submit1_to_mt_bus_send_<id>"]
-  Bus["Model 0 (0,0,0)<br/>mt_bus_send_in -> pin.bus.mb.out"]
+  Bus["Model 0 (0,0,0)<br/>mt_bus_send_in -> pin.bus.cb.out"]
   Zip --> Install
   Install --> Side
   Install --> Submt

@@ -1,0 +1,335 @@
+{
+  "version": "mt.v0",
+  "op_id": "workspace_manager_dem_config_v1",
+  "description": "Workspace Manager DE minimal DEM worker bootstrap and control-bus service",
+  "records": [
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "sys_worker_id",
+      "t": "worker.id",
+      "v": "5/10/28/36/16"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "sys_worker_role",
+      "t": "worker.role",
+      "v": "DEM"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "workspace_manager_de_id",
+      "t": "str",
+      "v": "workspace-manager"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "workspace_manager_worker_id",
+      "t": "str",
+      "v": "WM1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_payload_mode",
+      "t": "str",
+      "v": "pin_payload_v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_topic_mode",
+      "t": "str",
+      "v": "uiput_mm_v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_topic_base",
+      "t": "str",
+      "v": "UIPUT/ws/dam/pic/de/sw"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_worker_id",
+      "t": "str",
+      "v": "WM1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_ingress_pin",
+      "t": "str",
+      "v": "wm_cb_in"
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_subscriptions",
+      "t": "json",
+      "v": [
+        "UIPUT/ws/dam/pic/de/sw/WM1/4000/refresh"
+      ]
+    },
+    {
+      "op": "create_model",
+      "model_id": 4000,
+      "name": "workspace_manager_service",
+      "type": "service"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": 4000
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "refresh",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "wm_cb_in",
+      "t": "pin.bus.cb.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "wm_cb_out",
+      "t": "pin.bus.cb.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "wm_mb_in",
+      "t": "pin.bus.mb.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "wm_mb_out",
+      "t": "pin.bus.mb.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "wm_cb_in_wiring",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [
+            0,
+            0,
+            0,
+            "wm_cb_in"
+          ],
+          "to": [
+            [
+              1,
+              0,
+              0,
+              "refresh"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "wm_service_result_route",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [
+            1,
+            0,
+            0,
+            "result"
+          ],
+          "to": [
+            [
+              0,
+              0,
+              0,
+              "wm_cb_out"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 4000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "Service.WorkspaceManager"
+    },
+    {
+      "op": "add_label",
+      "model_id": 4000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "service_worker_id",
+      "t": "str",
+      "v": "WM1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 4000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "refresh",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 4000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 4000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "refresh_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "refresh",
+          "to": [
+            "wm_refresh_assets:in"
+          ]
+        },
+        {
+          "from": "wm_refresh_assets:out",
+          "to": [
+            "result"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 4000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "wm_status",
+      "t": "str",
+      "v": "ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": 4000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "wm_asset_tree_text",
+      "t": "str",
+      "v": "- Workspace [workspace]\n  - Workspace Manager DE [DE]\n  - Workspace Manager DEM [DEM]\n  - MBR [DEM]\n  - UI-Server [host]\n  - RemoteWorker R1 [V1N]"
+    },
+    {
+      "op": "add_label",
+      "model_id": 4000,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "wm_refresh_assets",
+      "t": "func.js",
+      "v": {
+        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);\nconst mt = (k, t, v) => ({ id: 0, p: 0, r: 0, c: 0, k, t, v });\nconst isRecord = (record) => record && typeof record === 'object' && !Array.isArray(record) && Object.keys(record).sort().join(',') === 'c,id,k,p,r,t,v' && Number.isInteger(record.id) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && record.k.length > 0 && typeof record.t === 'string' && record.t.length > 0 && hasOwn(record, 'v');\nconst recordOf = (key) => records.find((record) => isRecord(record) && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null;\nconst readString = (key, fallback = '') => { const record = recordOf(key); return record && record.t === 'str' && typeof record.v === 'string' && record.v.trim() === record.v ? record.v : fallback; };\nconst readInt = (key) => { const record = recordOf(key); return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null; };\nconst readJson = (key, fallback = null) => { const record = recordOf(key); return record && record.t === 'json' ? record.v : fallback; };\nconst safeSegment = (value) => typeof value === 'string' && value.trim() === value && value.length > 0 && !value.includes('/') && !value.includes('+') && !value.includes('#');\nconst endpoint = { worker_id: readString('endpoint_worker_id'), model_id: readInt('endpoint_model_id'), pin: readString('endpoint_pin') };\nconst origin = { worker_id: readString('origin_worker_id'), model_id: readInt('origin_model_id'), pin: readString('origin_pin') };\nconst replyTarget = { worker_id: readString('reply_target_worker_id'), model_id: readInt('reply_target_model_id'), pin: readString('reply_target_pin') };\nconst routeTopic = readString('topic');\nconst routeKind = readString('route_kind', 'control') || 'control';\nconst validTopic = (value) => {\n  if (typeof value !== 'string' || value.includes('+') || value.includes('#')) return false;\n  const parts = value.split('/');\n  return value.trim() === value && parts.length === 9 && parts[0] === 'UIPUT' && parts.every((part) => safeSegment(part)) && /^[1-9][0-9]*$/.test(parts[7]);\n};\nconst validEndpoint = endpoint.worker_id === 'WM1' && endpoint.model_id === 4000 && endpoint.pin === 'refresh';\nconst validOrigin = safeSegment(origin.worker_id) && Number.isInteger(origin.model_id) && origin.model_id > 0 && safeSegment(origin.pin);\nconst validReplyTarget = safeSegment(replyTarget.worker_id) && Number.isInteger(replyTarget.model_id) && replyTarget.model_id > 0 && safeSegment(replyTarget.pin);\nconst businessPayload = readJson('payload', []);\nconst fail = (detail) => {\n  V1N.addLabel('wm_status', 'str', 'invalid_request');\n  V1N.addLabel('wm_error', 'json', { code: 'invalid_workspace_manager_payload', detail, ts: Date.now() });\n};\nif (readString('__mt_payload_kind') !== 'pin_payload.v1' || readString('message_role') !== 'request' || !validEndpoint || !validOrigin || !validReplyTarget || !validTopic(routeTopic) || routeKind !== 'control' || !Array.isArray(businessPayload) || !businessPayload.every(isRecord)) {\n  fail('invalid_pin_payload_records');\n  return null;\n}\nconst tree = [\n  { id: 'workspace', label: 'Workspace', kind: 'workspace' },\n  { id: 'workspace-manager-de', label: 'Workspace Manager DE', kind: 'DE', parent: 'workspace' },\n  { id: 'workspace-manager-dem', label: 'Workspace Manager DEM', kind: 'DEM', parent: 'workspace-manager-de', worker_id: 'WM1' },\n  { id: 'mbr', label: 'MBR', kind: 'DEM', parent: 'workspace' },\n  { id: 'ui-server', label: 'UI-Server', kind: 'host', parent: 'workspace' },\n  { id: 'r1', label: 'RemoteWorker R1', kind: 'V1N', parent: 'workspace' }\n];\nconst treeText = tree.map((item) => (item.parent ? '  - ' : '- ') + item.label + ' [' + item.kind + ']').join('\\n');\nconst resultPayload = [\n  mt('asset_tree_json', 'json', tree),\n  mt('asset_tree_text', 'str', treeText),\n  mt('workspace_manager_status', 'str', 'ready'),\n  mt('workspace_manager_last_refresh', 'int', Date.now()),\n  mt('submit_inflight', 'bool', false)\n];\nconst opId = 'wm_refresh_result_' + Date.now();\nconst response = [\n  mt('__mt_payload_kind', 'str', 'pin_payload.v1'),\n  mt('__mt_request_id', 'str', opId),\n  mt('op_id', 'str', opId),\n  mt('message_role', 'str', 'response'),\n  mt('topic', 'str', routeTopic),\n  mt('route_kind', 'str', 'control'),\n  mt('bus', 'str', 'control'),\n  mt('endpoint_worker_id', 'str', endpoint.worker_id),\n  mt('endpoint_model_id', 'int', endpoint.model_id),\n  mt('endpoint_pin', 'str', endpoint.pin),\n  mt('origin_worker_id', 'str', 'WM1'),\n  mt('origin_model_id', 'int', 4000),\n  mt('origin_pin', 'str', 'refresh'),\n  mt('reply_target_worker_id', 'str', replyTarget.worker_id),\n  mt('reply_target_model_id', 'int', replyTarget.model_id),\n  mt('reply_target_pin', 'str', replyTarget.pin),\n  mt('payload', 'json', resultPayload),\n  mt('timestamp', 'int', Date.now())\n];\nV1N.addLabel('wm_status', 'str', 'ready');\nV1N.addLabel('wm_asset_tree_json', 'json', tree);\nV1N.addLabel('wm_asset_tree_text', 'str', treeText);\nreturn response;",
+        "modelName": "workspace_manager_dem"
+      }
+    }
+  ]
+}

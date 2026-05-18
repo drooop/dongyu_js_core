@@ -13,7 +13,7 @@ source: ai
 一句话链路：
 
 ```text
-UI click -> Model 0 -> Matrix -> MBR -> remote provider public pin -> same endpoint topic response -> reply_target records -> ui-server -> local UI model
+UI click -> Model 0 control bus -> MBR -> remote provider public pin -> same endpoint topic response -> reply_target records -> ui-server -> local UI model
 ```
 
 当前规约的关键点是：
@@ -22,6 +22,7 @@ UI click -> Model 0 -> Matrix -> MBR -> remote provider public pin -> same endpo
 |---|---|
 | MQTT topic | `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1` |
 | topic 含义 | 请求和回包都使用同一个远端 endpoint：worker `R1`、model `3000`、pin `submit1` |
+| 默认总线 | 同工作区请求默认走控制总线：`pin.bus.cb.out` -> MBR -> MQTT topic |
 | 回包目标 | 不放在 topic；放在 payload records：`reply_target_worker_id = U1`、`reply_target_model_id = 2000`、`reply_target_pin = result` |
 | 请求来源 | 放在 payload records：`origin_worker_id`、`origin_model_id`、`origin_pin` |
 | 消息方向 | 放在 payload records：`message_role = request` 或 `message_role = response` |
@@ -109,6 +110,14 @@ const replyTarget = {
   pin: readString(inputRecords, 'reply_target_pin'),
 };
 const messageRole = readString(inputRecords, 'message_role');
+const routeTopic = readString(inputRecords, 'topic');
+const routeKind = readString(inputRecords, 'route_kind', 'control') || 'control';
+const validRouteTopic = (value) => {
+  if (typeof value !== 'string' || value.includes('+') || value.includes('#')) return false;
+  const parts = value.split('/');
+  return value.trim() === value && parts.length === 9 && parts[0] === 'UIPUT' && parts.every((part) => safeSegment(part)) && /^[1-9][0-9]*$/.test(parts[7]);
+};
+const validRouteKind = (value) => value === 'control' || value === 'management';
 const businessPayload = readJson(inputRecords, 'payload', []);
 
 if (
@@ -117,6 +126,8 @@ if (
   || !validEndpoint(endpoint)
   || !validEndpoint(origin)
   || !validEndpoint(replyTarget)
+  || !validRouteTopic(routeTopic)
+  || !validRouteKind(routeKind)
   || !Array.isArray(businessPayload)
   || !businessPayload.every(isRecord)
 ) {
@@ -145,6 +156,9 @@ return [
   mt('__mt_request_id', 'str', opId),
   mt('op_id', 'str', opId),
   mt('message_role', 'str', 'response'),
+  mt('topic', 'str', routeTopic),
+  mt('route_kind', 'str', routeKind),
+  mt('bus', 'str', routeKind),
   mt('endpoint_worker_id', 'str', endpoint.worker_id),
   mt('endpoint_model_id', 'int', endpoint.model_id),
   mt('endpoint_pin', 'str', endpoint.pin),
@@ -176,7 +190,7 @@ return [
 | `source_worker` | `str` | 交付来源说明。 |
 | `slide_capable` | `bool` | 标记它是滑动 App。 |
 | `slide_surface_type` | `str` | 表示页面挂载到 `workspace.page`。 |
-| `from_user` / `to_user` | `str` | Matrix 管理总线示例用户。 |
+| `from_user` / `to_user` | `str` | 历史示例用户字段；当前默认链路不依赖它们发送 Matrix。 |
 | `ui_authoring_version` | `str` | 当前 UI 填表版本。 |
 | `ui_root_node_id` | `str` | 根 UI 节点，例如 `minimal_submit_zip_root`。 |
 | `input_text` | `str` | 输入框本地草稿。 |
@@ -185,7 +199,7 @@ return [
 | `submit_inflight` | `bool` | Submit 是否正在等待回包。 |
 | `last_submit_payload` | `json` | 最近一次提交的业务 ModelTable records。 |
 | `host_ingress_v1` | `json` | 安装器生成 host ingress adapter 的声明。 |
-| `remote_bus_endpoint_v1` | `json` | 远端 endpoint 默认目标：`R1 / 3000`。不写 `to.pin`。 |
+| `remote_bus_endpoint_v1` | `json` | 远端 endpoint 默认目标：`R1 / 3000`。不写 `to.pin`。可选 `route_kind`，省略等同 `control`；写 `management` 时 UI Server 先走管理总线到 MBR。 |
 | `dual_bus_model` | `json` | 声明 `egress_pins=["submit1"]`，让安装器生成 host egress adapter。 |
 | `submit_request` | `pin.in` | root 内部提交入口。 |
 | `submit1` | `pin.out` | 对外提交出口，也就是后续的 `endpoint_pin`。 |
@@ -251,8 +265,8 @@ submit_request -> submit_request_wiring -> handle_submit:in
 handle_submit writes input_text / last_submit_payload / submit_inflight / remote_status
 handle_submit writes business payload to submit1 pin.out
 dual_bus_model.egress_pins contains submit1
-generated host egress adapter wraps message_role / endpoint_worker_id / origin_worker_id / reply_target_worker_id
-Model 0 mt_bus_send_in -> pin.bus.mb.out -> Matrix -> MBR -> UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
+generated host egress adapter wraps topic / route_kind / message_role / endpoint_worker_id / origin_worker_id / reply_target_worker_id
+Model 0 mt_bus_send_in -> pin.bus.cb.out -> MBR -> UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
 ```
 
 `handle_submit` 只准备业务 payload：
@@ -300,8 +314,20 @@ if (text) V1N.addLabel('submit1', 'pin.out', payload);
 ```text
 imported root submit1 pin.out -> Model 0 mount cell relay -> Model 0 (0,0,0) bridge_imported_submit1_to_mt_bus_send_<id>:in
 -> Model 0 (0,0,0) mt_bus_send_in
--> Model 0 pin.bus.mb.out
+-> Model 0 pin.bus.cb.out
 ```
+
+如果 `remote_bus_endpoint_v1.route_kind` 显式写为 `management`，最后一步会变为：
+
+```text
+-> Model 0 pin.bus.mb.out
+-> management bus
+-> MBR
+-> payload topic 指向的控制总线 / MQTT
+-> Remote Worker
+```
+
+这不会改变远端 topic，也不会增加 return topic；MBR 仍只读取 payload records 中的 `topic` record。
 
 host bridge 写入的 `bus_send.v1` records 形态如下：
 
@@ -309,6 +335,9 @@ host bridge 写入的 `bus_send.v1` records 形态如下：
 [
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "bus_send.v1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus_out_key", "t": "str", "v": "imported_submit1_2000_bus" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/sw/R1/3000/submit1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
@@ -376,7 +405,7 @@ UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
 }
 ```
 
-MBR 收到 `message_role=response` 后会转回 Matrix；UI Server 只按 `reply_target_*` records materialize 到本地 UI 模型，不从 topic 推断本地 model id。远端 runtime 收到同一 topic 上的 `response` 时会忽略它，避免二次触发 `submit1` 程序。
+MBR 收到 `message_role=response` 后仍按同一个 `topic` record 转发；UI Server 只按 `reply_target_*` records materialize 到本地 UI 模型，不从 topic 推断本地 model id。远端 runtime 收到同一 topic 上的 `response` 时会忽略它，避免二次触发 `submit1` 程序。
 
 ## 6. 导出与交付
 

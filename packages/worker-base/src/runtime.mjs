@@ -976,6 +976,8 @@ class ModelTableRuntime {
     const busOutKeyLabel = this._payloadLabel(payload, 'bus_out_key');
     const nestedPayloadLabel = this._payloadLabel(payload, 'payload');
     const busLabel = this._payloadLabel(payload, 'bus');
+    const routeKindLabel = this._payloadLabel(payload, 'route_kind');
+    const topicLabel = this._payloadLabel(payload, 'topic');
     const messageRoleLabel = this._payloadLabel(payload, 'message_role');
     for (const key of ['source_model_id', 'pin', 'route', 'reply_to', 'route.reply_to', 'return_topic', 'returnTopic', 'result_topic']) {
       if (this._payloadLabel(payload, key)) {
@@ -995,6 +997,12 @@ class ModelTableRuntime {
     const bus = busLabel && busLabel.t === 'str' && typeof busLabel.v === 'string'
       ? busLabel.v.trim()
       : null;
+    const routeKind = routeKindLabel && routeKindLabel.t === 'str' && typeof routeKindLabel.v === 'string'
+      ? routeKindLabel.v.trim()
+      : null;
+    const topic = topicLabel && topicLabel.t === 'str' && typeof topicLabel.v === 'string'
+      ? topicLabel.v.trim()
+      : '';
     const messageRole = messageRoleLabel && messageRoleLabel.t === 'str' && typeof messageRoleLabel.v === 'string'
       ? messageRoleLabel.v
       : '';
@@ -1010,6 +1018,12 @@ class ModelTableRuntime {
     if (busLabel && (busLabel.t !== 'str' || (bus !== 'control' && bus !== 'management'))) {
       return { ok: false, code: 'invalid_bus', requestId };
     }
+    if (routeKindLabel && (routeKindLabel.t !== 'str' || (routeKind !== 'control' && routeKind !== 'management'))) {
+      return { ok: false, code: 'invalid_route_kind', requestId };
+    }
+    if (!this._isValidPayloadTopic(topic)) {
+      return { ok: false, code: 'invalid_topic', requestId };
+    }
     return {
       ok: true,
       requestId,
@@ -1019,6 +1033,8 @@ class ModelTableRuntime {
       busOutKey,
       payload: nestedPayload,
       bus,
+      routeKind,
+      topic,
       messageRole,
     };
   }
@@ -1042,6 +1058,15 @@ class ModelTableRuntime {
     return parts.length === 6
       && parts[0] === 'UIPUT'
       && parts.every((part) => this._isSafePinRouteSegment(part));
+  }
+
+  _isValidPayloadTopic(value) {
+    if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
+    const parts = value.split('/');
+    return parts.length === 9
+      && parts[0] === 'UIPUT'
+      && parts.every((part) => this._isSafePinRouteSegment(part))
+      && this._isCanonicalPositiveIntSegment(parts[7]);
   }
 
   _endpointFromPayloadRecords(payload, prefix) {
@@ -1122,6 +1147,7 @@ class ModelTableRuntime {
       '__mt_request_id',
       'op_id',
       'message_role',
+      'topic',
       'endpoint_worker_id',
       'endpoint_pin',
       'origin_worker_id',
@@ -1138,6 +1164,8 @@ class ModelTableRuntime {
       'timestamp',
       'bus_out_key',
       'bus',
+      'route_kind',
+      'topic',
     ]);
     if (this._hasDuplicatePayloadRecordKeys(value, metadataKeys)) {
       return { ok: false, code: 'invalid_pin_payload_records' };
@@ -1159,6 +1187,15 @@ class ModelTableRuntime {
     const messageRole = this._payloadString(value, 'message_role');
     if (messageRole !== 'request' && messageRole !== 'response') {
       return { ok: false, code: 'invalid_message_role' };
+    }
+    const topic = this._payloadString(value, 'topic');
+    if (!this._isValidPayloadTopic(topic)) {
+      return { ok: false, code: 'invalid_topic' };
+    }
+    const routeKindLabel = this._payloadLabel(value, 'route_kind');
+    const routeKind = this._payloadString(value, 'route_kind') || 'control';
+    if (routeKindLabel && (routeKindLabel.t !== 'str' || (routeKind !== 'control' && routeKind !== 'management'))) {
+      return { ok: false, code: 'invalid_route_kind' };
     }
     if (this._hasLegacyPinPayloadMetadata(value)) {
       return { ok: false, code: 'legacy_pin_payload_metadata_removed' };
@@ -1184,10 +1221,10 @@ class ModelTableRuntime {
         return { ok: false, code: 'endpoint_mismatch' };
       }
     }
-    return { ok: true, endpoint, origin, replyTarget, nestedPayload, messageRole };
+    return { ok: true, endpoint, origin, replyTarget, nestedPayload, messageRole, topic, routeKind };
   }
 
-  _buildPinPayloadValue({ opId, payload, timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null, messageRole = 'request' }) {
+  _buildPinPayloadValue({ opId, payload, timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null, messageRole = 'request', topic = '', routeKind = null, bus = null }) {
     const requestId = opId || `pin_payload_${Date.now()}`;
     const records = [
       this._mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
@@ -1206,6 +1243,9 @@ class ModelTableRuntime {
       this._mtPayloadRecord('payload', 'json', payload),
       this._mtPayloadRecord('timestamp', 'int', timestamp),
     ];
+    if (typeof topic === 'string' && topic) records.push(this._mtPayloadRecord('topic', 'str', topic));
+    if (typeof routeKind === 'string' && routeKind) records.push(this._mtPayloadRecord('route_kind', 'str', routeKind));
+    if (typeof bus === 'string' && bus) records.push(this._mtPayloadRecord('bus', 'str', bus));
     return records;
   }
 
@@ -1333,7 +1373,7 @@ class ModelTableRuntime {
     if (this._isBusOutResolvedType(existingType)) return existingType;
     if (requestedBus === 'management') return 'pin.bus.mb.out';
     if (requestedBus === 'control') return 'pin.bus.cb.out';
-    return this._isDemWorker() ? 'pin.bus.mb.out' : 'pin.bus.cb.out';
+    return 'pin.bus.cb.out';
   }
 
   _validatePositiveModelPinPayload(model, label, resolvedType) {
@@ -1389,6 +1429,9 @@ class ModelTableRuntime {
       origin: parsed.origin,
       replyTarget: parsed.replyTarget,
       messageRole: parsed.messageRole,
+      topic: parsed.topic,
+      routeKind: parsed.routeKind,
+      bus: parsed.bus,
     });
     const res = this.addLabel(model, 0, 0, 0, {
       k: parsed.busOutKey,
@@ -1653,6 +1696,7 @@ class ModelTableRuntime {
       topic_mode: get('mqtt_topic_mode')?.v ?? null,
       topic_base: get('mqtt_topic_base')?.v ?? null,
       worker_id: get('mqtt_worker_id')?.v ?? null,
+      ingress_pin: get('mqtt_ingress_pin')?.v ?? null,
       payload_mode: get('mqtt_payload_mode')?.v ?? null,
     };
   }
@@ -1886,14 +1930,10 @@ class ModelTableRuntime {
   }
 
   _topicForPinPayloadPacket(packet) {
-    const config = this._getConfigFromPage0();
-    if (this._topicMode(config) !== 'uiput_mm_v1') return null;
-    const base = typeof config.topic_base === 'string' ? config.topic_base : '';
-    if (!this._isValidUnifiedTopicBase(base)) return null;
     if (!packet || packet.version !== 'v1' || packet.type !== 'pin_payload') return null;
     const parsed = this._parsePinPayloadValue(packet.payload);
     if (!parsed.ok) return null;
-    return `${base}/${parsed.endpoint.worker_id}/${parsed.endpoint.model_id}/${parsed.endpoint.pin}`;
+    return parsed.topic || null;
   }
 
   _subscribeDeclaredPinsOnStart() {
@@ -2055,6 +2095,25 @@ class ModelTableRuntime {
           reason: 'response_packet_not_delivered_to_endpoint_runtime',
         });
         return false;
+      }
+      const ingressPin = typeof config.ingress_pin === 'string' ? config.ingress_pin.trim() : '';
+      if (ingressPin) {
+        const model0 = this.getModel(0);
+        const model0Root = model0 ? this.getCell(model0, 0, 0, 0) : null;
+        const ingressLabel = model0Root ? model0Root.labels.get(ingressPin) : null;
+        const ingressType = ingressLabel ? this._resolveLabelType(ingressLabel.t) : null;
+        if (!model0 || !this._isSafePinRouteSegment(ingressPin) || (ingressType !== 'pin.bus.cb.in' && ingressType !== 'pin.bus.mb.in')) {
+          this.mqttTrace.record('inbound_rejected', {
+            topic,
+            payload,
+            mode: 'pin_payload_v1',
+            reason: 'invalid_mqtt_ingress_pin',
+          });
+          return false;
+        }
+        this.addLabel(model0, 0, 0, 0, { k: ingressPin, t: ingressLabel.t, v: this._pinPayloadDeliveryValue(payload) });
+        this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1', ingress_pin: ingressPin });
+        return true;
       }
       this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: this._pinPayloadDeliveryValue(payload) });
       this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1' });
@@ -2641,7 +2700,7 @@ class ModelTableRuntime {
       if (ingressPort && ingressPayload) {
         const model0 = this.getModel(0);
         if (model0) {
-          this.addLabel(model0, 0, 0, 0, { k: ingressPort, t: 'pin.bus.mb.in', v: ingressPayload });
+          this.addLabel(model0, 0, 0, 0, { k: ingressPort, t: 'pin.bus.cb.in', v: ingressPayload });
         }
       }
       return;
@@ -2706,6 +2765,13 @@ class ModelTableRuntime {
       this._syncBusInSubscription(label.k, true);
       if (label.v !== null && label.v !== undefined) {
         this._routeViaCellConnection(0, 0, 0, 0, label.k, label.v);
+        const cellKey = '0|0|0|0';
+        if (this.cellConnectGraph.has(cellKey)) {
+          this._propagateCellConnect(0, 0, 0, 0, 'self', label.k, label.v)
+            .catch(() => {
+              this._recordError(model, p, r, c, label, 'cell_connect_propagation_error');
+            });
+        }
       }
       return;
     }

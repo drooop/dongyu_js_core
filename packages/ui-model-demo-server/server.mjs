@@ -15,7 +15,7 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 
 import { ModelTableRuntime } from '../worker-base/src/index.mjs';
-import { readMatrixBootstrapConfig } from '../worker-base/src/bootstrap_config.mjs';
+import { readMatrixBootstrapConfig, readMqttBootstrapConfig } from '../worker-base/src/bootstrap_config.mjs';
 import { applyPersistedAssetEntries, resolvePersistedAssetRoot } from '../worker-base/src/persisted_asset_loader.mjs';
 import { createLocalBusAdapter } from '../ui-model-demo-frontend/src/local_bus_adapter.js';
 import { buildAstFromCellwiseModel } from '../ui-model-demo-frontend/src/ui_cellwise_projection.js';
@@ -69,9 +69,12 @@ const { loadProgramModelFromSqlite } = require('../worker-base/src/program_model
 const { createSqlitePersister } = require('../worker-base/src/modeltable_persistence_sqlite.js');
 const { initDataModel } = require('../worker-base/src/data_models.js');
 const { createMatrixLiveAdapter } = require('../worker-base/src/matrix_live.js');
+const mqtt = require('mqtt');
 
 const EDITOR_MODEL_ID = -1;
 const EDITOR_STATE_MODEL_ID = -2;
+const WORKSPACE_MANAGER_APP_MODEL_ID = 1051;
+const WORKSPACE_ASSET_CATALOG_MODEL_ID = 1052;
 const BUS_EVENT_KEY = 'bus_event';
 const BUS_EVENT_LAST_OP_KEY = 'bus_event_last_op_id';
 const BUS_EVENT_ERROR_KEY = 'bus_event_error';
@@ -1396,6 +1399,23 @@ function isSafePinRouteSegment(value) {
     && !value.includes('#');
 }
 
+function isValidControlBusTopicBase(value) {
+  if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
+  const parts = value.split('/');
+  return parts.length === 6
+    && parts[0] === 'UIPUT'
+    && parts.every((part) => isSafePinRouteSegment(part));
+}
+
+function isValidControlBusEndpointTopic(value) {
+  if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
+  const parts = value.split('/');
+  return parts.length === 9
+    && parts[0] === 'UIPUT'
+    && parts.every((part) => isSafePinRouteSegment(part))
+    && /^[1-9][0-9]*$/u.test(parts[7]);
+}
+
 function containsRouteReplyTo(value) {
   if (Array.isArray(value)) {
     return value.some((item) => containsRouteReplyTo(item));
@@ -1444,6 +1464,26 @@ function resolveUiServerWorkerId() {
   return id || 'U1';
 }
 
+function readModel0MqttTopicBase(runtime) {
+  const model0 = runtime && typeof runtime.getModel === 'function' ? runtime.getModel(0) : null;
+  const label = model0 ? runtime.getCell(model0, 0, 0, 0).labels.get('mqtt_topic_base') : null;
+  return typeof label?.v === 'string' ? label.v.trim() : 'UIPUT/ws/dam/pic/de/sw';
+}
+
+function buildRemoteEndpointTopic(runtime, remoteEndpoint, pinName) {
+  const base = readModel0MqttTopicBase(runtime);
+  const workerId = remoteEndpoint && remoteEndpoint.to ? remoteEndpoint.to.worker_id : '';
+  const modelId = remoteEndpoint && remoteEndpoint.to ? remoteEndpoint.to.model_id : null;
+  if (!base || !isSafePinRouteSegment(workerId) || !Number.isInteger(modelId) || modelId <= 0 || !isSafePinRouteSegment(pinName)) return '';
+  return `${base}/${workerId}/${modelId}/${pinName}`;
+}
+
+function normalizeRemoteEndpointRouteKind(value) {
+  if (!value || !Object.prototype.hasOwnProperty.call(value, 'route_kind')) return 'control';
+  const routeKind = typeof value.route_kind === 'string' ? value.route_kind.trim() : '';
+  return routeKind === 'control' || routeKind === 'management' ? routeKind : '';
+}
+
 function isSplitBusOutLabelType(typeName) {
   return typeName === 'pin.bus.cb.out' || typeName === 'pin.bus.mb.out';
 }
@@ -1487,8 +1527,34 @@ function shouldExcludeSlideExportLabel(label) {
   if (label.k.startsWith('__host_ingress_') || label.k.startsWith('__host_egress_')) return true;
   if (label.k.startsWith('host_ingress_generated_') || label.k.startsWith('host_egress_generated_')) return true;
   if (label.k.startsWith('bus_event')) return true;
+  if (label.k.startsWith('__error_')) return true;
   if (label.k.startsWith('__owner_')) return true;
   return false;
+}
+
+function normalizeSlideExportRuntimeStateLabel(label, actualToTempId) {
+  if (!label || typeof label.k !== 'string' || typeof label.t !== 'string') return label;
+  if (label.t === 'pin.in' || label.t === 'pin.out') {
+    return { ...label, v: null };
+  }
+  if (label.k === 'submit_inflight') {
+    return { ...label, t: 'bool', v: false };
+  }
+  if (label.k === 'submit_inflight_started_at') {
+    return { ...label, t: 'int', v: 0 };
+  }
+  if (
+    label.k === 'status'
+    || label.k === 'result_status'
+    || label.k === 'remote_status'
+    || label.k === 'conversation_status'
+  ) {
+    return { ...label, t: 'str', v: 'ready' };
+  }
+  return {
+    ...label,
+    v: normalizeSlideExportLabelValue(label, actualToTempId),
+  };
 }
 
 function collectSlideExportModelIds(runtime, rootModelId) {
@@ -1521,6 +1587,15 @@ function remapSlideExportValue(value, actualToTempId) {
   for (const [key, child] of Object.entries(value)) {
     if ((key === 'model_id' || key.endsWith('_model_id')) && Number.isInteger(child) && actualToTempId.has(child)) {
       out[key] = actualToTempId.get(child);
+    } else if (key === 'bus_in_key' && typeof child === 'string') {
+      out[key] = child.replace(
+        /^bus_event_(.+)_([1-9][0-9]*)_([0-9]+)_([0-9]+)_([0-9]+)$/u,
+        (match, pinName, modelIdText, pText, rText, cText) => {
+          const modelId = Number(modelIdText);
+          if (!actualToTempId.has(modelId)) return match;
+          return `bus_event_${pinName}_${actualToTempId.get(modelId)}_${pText}_${rText}_${cText}`;
+        },
+      );
     } else {
       out[key] = remapSlideExportValue(child, actualToTempId);
     }
@@ -1533,6 +1608,9 @@ function isModelIdReferenceKey(key) {
 }
 
 function normalizeSlideExportLabelValue(label, actualToTempId) {
+  if (label && label.k === SLIDE_IMPORT_REMOTE_BUS_ENDPOINT_LABEL && isPlainObject(label.v)) {
+    return normalizeRuntimeRemoteBusEndpoint(label.v) || label.v;
+  }
   if (label && label.k === 'dual_bus_model' && isPlainObject(label.v)) {
     const mode = typeof label.v.mode === 'string' && label.v.mode.trim() ? label.v.mode.trim() : 'imported_host_egress';
     const egressPins = Array.isArray(label.v.egress_pins)
@@ -1576,14 +1654,15 @@ function buildSlideAppExportPayload(runtime, rootModelId) {
       const labels = Array.from(cell.labels.values()).sort((a, b) => String(a.k).localeCompare(String(b.k)));
       for (const label of labels) {
         if (shouldExcludeSlideExportLabel(label)) continue;
+        const normalizedLabel = normalizeSlideExportRuntimeStateLabel(label, actualToTempId);
         records.push({
           id: tempId,
           p: cell.p,
           r: cell.r,
           c: cell.c,
-          k: label.k,
-          t: label.t,
-          v: normalizeSlideExportLabelValue(label, actualToTempId),
+          k: normalizedLabel.k,
+          t: normalizedLabel.t,
+          v: normalizedLabel.v,
         });
       }
     }
@@ -1745,27 +1824,36 @@ function validateSlideImportRemoteBusEndpoint(records) {
   const to = isPlainObject(declaration.v.to) ? declaration.v.to : null;
   const workerId = to && typeof to.worker_id === 'string' ? to.worker_id.trim() : '';
   const modelId = to && Number.isInteger(to.model_id) ? to.model_id : null;
-  if (transport !== 'mqtt' || !to || !workerId || !Number.isInteger(modelId) || modelId <= 0) {
+  const routeKind = normalizeRemoteEndpointRouteKind(declaration.v);
+  if (transport !== 'mqtt' || !to || !isSafePinRouteSegment(workerId) || !Number.isInteger(modelId) || modelId <= 0) {
     return { ok: false, code: 'invalid_target', detail: 'invalid_remote_bus_endpoint_target' };
+  }
+  if (!routeKind) {
+    return { ok: false, code: 'invalid_target', detail: 'invalid_remote_bus_endpoint_route_kind' };
   }
   if (Object.prototype.hasOwnProperty.call(to, 'pin')) {
     return { ok: false, code: 'invalid_target', detail: 'remote_endpoint_pin_is_runtime_owned' };
+  }
+  const endpointDeclaration = {
+    transport,
+    to: {
+      worker_id: workerId,
+      model_id: modelId,
+    },
+  };
+  if (Object.prototype.hasOwnProperty.call(declaration.v, 'route_kind')) {
+    endpointDeclaration.route_kind = routeKind;
   }
   return {
     ok: true,
     remoteEndpoint: {
       transport,
+      route_kind: routeKind,
       to: {
         worker_id: workerId,
         model_id: modelId,
       },
-      declaration: {
-        transport,
-        to: {
-          worker_id: workerId,
-          model_id: modelId,
-        },
-      },
+      declaration: endpointDeclaration,
     },
   };
 }
@@ -1942,6 +2030,20 @@ function remapImportedValue(value, idMap) {
       out[key] = idMap.get(child);
       continue;
     }
+    if (key === 'bus_in_key' && typeof child === 'string') {
+      out[key] = child.replace(
+        /^bus_event_(.+)_([0-9]+)_([0-9]+)_([0-9]+)_([0-9]+)$/u,
+        (match, pinName, tempIdText, pText, rText, cText) => {
+          void pText;
+          void rText;
+          void cText;
+          const tempId = Number(tempIdText);
+          if (!idMap.has(tempId)) return match;
+          return buildImportedHostIngressKeys(idMap.get(tempId), pinName).ingressKey;
+        },
+      );
+      continue;
+    }
     out[key] = remapImportedValue(child, idMap);
   }
   return out;
@@ -2039,7 +2141,7 @@ function materializeImportedHostIngressAdapter(runtime, rootModelId, mountCell, 
     }],
   });
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: keys.relayPin, t: 'pin.in', v: null });
-  runtime.addLabel(model0, 0, 0, 0, { k: keys.ingressKey, t: 'pin.bus.mb.in', v: null });
+  runtime.addLabel(model0, 0, 0, 0, { k: keys.ingressKey, t: 'pin.bus.cb.in', v: null });
   runtime.addLabel(model0, 0, 0, 0, {
     k: keys.routeKey,
     t: 'pin.connect.cell',
@@ -2073,8 +2175,20 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
   }
   if (!remoteEndpoint || !remoteEndpoint.to) return null;
   const keys = buildImportedHostEgressKeys(rootModelId, hostEgress.semantic);
+  const routeTopic = buildRemoteEndpointTopic(runtime, remoteEndpoint, hostEgress.pinName);
+  const routeKind = normalizeRemoteEndpointRouteKind(remoteEndpoint) || 'control';
+  const hostPinType = routeKind === 'management' ? 'pin.bus.mb.out' : 'pin.bus.cb.out';
+  const rootCell = runtime.getCell(rootModel, 0, 0, 0);
+  const rootIngressPins = rootCell
+    ? Array.from(rootCell.labels.entries())
+      .filter(([, label]) => label && label.t === 'pin.in')
+      .map(([key]) => key)
+    : [];
+  for (const pinName of rootIngressPins) {
+    runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: pinName, t: 'pin.in', v: null });
+  }
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: hostEgress.pinName, t: 'pin.out', v: null });
-  runtime.addLabel(model0, 0, 0, 0, { k: keys.busOutKey, t: 'pin.bus.mb.out', v: null });
+  runtime.addLabel(model0, 0, 0, 0, { k: keys.busOutKey, t: hostPinType, v: null });
   runtime.addLabel(model0, 0, 0, 0, { k: keys.model0BridgeIn, t: 'pin.in', v: null });
   runtime.addLabel(model0, 0, 0, 0, {
     k: keys.bridgeFunc,
@@ -2088,7 +2202,9 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
         `  mt('__mt_payload_kind', 'str', 'bus_send.v1'),`,
         `  mt('__mt_request_id', 'str', opId),`,
         `  mt('message_role', 'str', 'request'),`,
-        `  mt('bus', 'str', 'management'),`,
+        `  mt('bus', 'str', ${JSON.stringify(routeKind)}),`,
+        `  mt('route_kind', 'str', ${JSON.stringify(routeKind)}),`,
+        `  mt('topic', 'str', ${JSON.stringify(routeTopic)}),`,
         `  mt('bus_out_key', 'str', ${JSON.stringify(keys.busOutKey)}),`,
         `  mt('endpoint_worker_id', 'str', ${JSON.stringify(remoteEndpoint.to.worker_id)}),`,
         `  mt('endpoint_model_id', 'int', ${remoteEndpoint.to.model_id}),`,
@@ -2138,6 +2254,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
   const existingMount = runtime.getLabelValue(rootModel, 0, 0, 0, 'host_egress_generated_mount');
   const mountKeys = Array.from(new Set([
     ...((existingMount && Array.isArray(existingMount.keys)) ? existingMount.keys : []),
+    ...rootIngressPins,
     hostEgress.pinName,
   ]));
   runtime.addLabel(rootModel, 0, 0, 0, {
@@ -2155,15 +2272,18 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
     t: 'ui.egress.binding.v1',
     v: {
       from_pin: hostEgress.pinName,
-      bus: 'management',
+      bus: routeKind,
       host_model_id: 0,
       host_cell: [0, 0, 0],
-      host_pin_type: 'pin.bus.mb.out',
+      host_pin_type: hostPinType,
       host_pin_key: keys.busOutKey,
       target: {
+        transport: remoteEndpoint.transport,
+        route_kind: routeKind,
         worker_id: remoteEndpoint.to.worker_id,
         model_id: remoteEndpoint.to.model_id,
         pin: hostEgress.pinName,
+        topic: routeTopic,
       },
       reply_pin: SLIDE_IMPORT_REPLY_PIN,
       owned_by: 'ui-server-installer',
@@ -2178,15 +2298,21 @@ function normalizeRuntimeRemoteBusEndpoint(value) {
   const to = isPlainObject(value.to) ? value.to : null;
   const workerId = to && typeof to.worker_id === 'string' ? to.worker_id.trim() : '';
   const modelId = to && Number.isInteger(to.model_id) ? to.model_id : null;
+  const routeKind = normalizeRemoteEndpointRouteKind(value);
   if (transport !== 'mqtt' || !to || !workerId || !Number.isInteger(modelId) || modelId <= 0) return null;
+  if (!routeKind) return null;
   if (Object.prototype.hasOwnProperty.call(to, 'pin')) return null;
-  return {
+  const normalized = {
     transport,
     to: {
       worker_id: workerId,
       model_id: modelId,
     },
   };
+  if (Object.prototype.hasOwnProperty.call(value, 'route_kind')) {
+    normalized.route_kind = routeKind;
+  }
+  return normalized;
 }
 
 function readRuntimeHostEgressEntries(runtime, rootModelId) {
@@ -2256,6 +2382,7 @@ function reapplyAuthoritativePositiveSurface(runtime, { assetRoot, systemModelsD
     'doc_page_filltable_example_minimal.json',
     'slide_app_provider_docs_ui.json',
     'test_model_100_ui.json',
+    'workspace_manager_asset_manager_ui.json',
     'runtime_hierarchy_mounts.json',
   ]);
 }
@@ -2661,6 +2788,8 @@ function parsePinPayloadRecordEnvelope(content) {
     '__mt_request_id',
     'op_id',
     'message_role',
+    'topic',
+    'route_kind',
     'endpoint_worker_id',
     'endpoint_pin',
     'origin_worker_id',
@@ -3324,6 +3453,75 @@ function overwriteRuntimeLabel(runtime, modelId, p, r, c, key, t, v) {
   runtime.addLabel(model, p, r, c, { k: key, t, v });
 }
 
+function readRuntimeCellLabel(runtime, modelId, p, r, c, key) {
+  const model = runtime && typeof runtime.getModel === 'function' ? runtime.getModel(modelId) : null;
+  if (!model) return null;
+  const cell = runtime.getCell(model, p, r, c);
+  return cell && cell.labels ? (cell.labels.get(key) || null) : null;
+}
+
+function readRuntimeCellString(runtime, modelId, p, r, c, key, fallback = '') {
+  const label = readRuntimeCellLabel(runtime, modelId, p, r, c, key);
+  return label && typeof label.v === 'string' ? label.v : fallback;
+}
+
+function readRuntimeCellInt(runtime, modelId, p, r, c, key, fallback = null) {
+  const label = readRuntimeCellLabel(runtime, modelId, p, r, c, key);
+  return label && Number.isInteger(label.v) ? label.v : fallback;
+}
+
+function readRuntimeCellBool(runtime, modelId, p, r, c, key, fallback = false) {
+  const label = readRuntimeCellLabel(runtime, modelId, p, r, c, key);
+  return label && typeof label.v === 'boolean' ? label.v : fallback;
+}
+
+function deriveWorkspaceAssetCatalogRowsFromDataArrayOne(runtime) {
+  const catalog = runtime && typeof runtime.getModel === 'function'
+    ? runtime.getModel(WORKSPACE_ASSET_CATALOG_MODEL_ID)
+    : null;
+  if (!catalog) return [];
+  const rootType = readRuntimeCellLabel(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, 0, 0, 'model_type');
+  if (!rootType || rootType.t !== 'model.table' || rootType.v !== 'Data.Array.One') return [];
+  const maxRow = readRuntimeCellInt(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, 0, 0, 'max_r', 0);
+  const rows = [];
+  for (let rowIndex = 1; rowIndex <= maxRow; rowIndex += 1) {
+    const id = readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'asset_id', '').trim();
+    const name = readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'name', '').trim();
+    if (!id || !name) continue;
+    const installable = readRuntimeCellBool(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'installable', false);
+    const sourceModelId = readRuntimeCellInt(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'source_model_id', null);
+    rows.push({
+      id,
+      name,
+      kind: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'kind', ''),
+      asset_type: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'asset_type', ''),
+      owner: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'owner', ''),
+      owner_worker_id: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'owner_worker_id', ''),
+      parent_asset_id: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'parent_asset_id', ''),
+      ...(Number.isInteger(sourceModelId) ? { source_model_id: sourceModelId } : {}),
+      installable,
+      action_label: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'action_label', installable ? '安装' : '详情'),
+      action_type: installable ? 'primary' : 'default',
+      summary_markdown: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'summary_markdown', `### ${name}`),
+      detail_markdown: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'detail_markdown', `## ${name}`),
+    });
+  }
+  return rows;
+}
+
+function syncWorkspaceAssetCatalogProjection(runtime) {
+  const rows = deriveWorkspaceAssetCatalogRowsFromDataArrayOne(runtime);
+  if (rows.length === 0) return rows;
+  overwriteRuntimeLabel(runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_catalog_json', 'json', rows);
+  return rows;
+}
+
+function findWorkspaceAssetCatalogRow(runtime, assetId) {
+  const id = typeof assetId === 'string' ? assetId.trim() : '';
+  if (!id) return null;
+  return deriveWorkspaceAssetCatalogRowsFromDataArrayOne(runtime).find((row) => row.id === id) || null;
+}
+
 function parseJsonMaybe(value) {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
@@ -3771,6 +3969,9 @@ class ProgramModelEngine {
     this.matrixRoomId = null;
     this.matrixDmPeerUserId = null;
     this.matrixUserLoginImpl = null;
+    this.controlBusClient = null;
+    this.controlBusSubscription = '';
+    this.controlBusReady = false;
     this.started = false;
 
     // Tick scheduler state.
@@ -3845,12 +4046,14 @@ class ProgramModelEngine {
     this.refreshMatrixBootstrapConfig();
     if (typeof this.runtime.isRunLoopActive === 'function' && this.runtime.isRunLoopActive()) {
       await this.ensureMatrixAdapter();
+      this.ensureControlBusAdapter();
     }
     this.started = true;
   }
 
   async activateRunning() {
     await this.ensureMatrixAdapter();
+    this.ensureControlBusAdapter();
   }
 
   refreshFunctionRegistry() {
@@ -3897,6 +4100,86 @@ class ProgramModelEngine {
       }
     }
     await this.matrixAdapter.publish(payload);
+    return true;
+  }
+
+  ensureControlBusAdapter() {
+    if (typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive()) {
+      return;
+    }
+    if (this.controlBusClient) return;
+    const mqttConfig = readMqttBootstrapConfig(this.runtime);
+    const base = readModel0MqttTopicBase(this.runtime);
+    if (!mqttConfig.host || !Number.isInteger(mqttConfig.port) || !isValidControlBusTopicBase(base)) {
+      return;
+    }
+    const subscription = `${base}/+/+/+`;
+    const clientId = `dy-ui-server-${resolveUiServerWorkerId()}-${Date.now()}`;
+    const client = mqtt.connect(`mqtt://${mqttConfig.host}:${mqttConfig.port}`, {
+      username: '',
+      password: '',
+      clientId,
+      reconnectPeriod: 500,
+    });
+    this.controlBusClient = client;
+    this.controlBusSubscription = subscription;
+    client.on('connect', () => {
+      client.subscribe(subscription, (err) => {
+        if (err) {
+          console.warn('[ProgramModelEngine] Control bus subscribe failed:', err && err.message ? err.message : err);
+          return;
+        }
+        this.controlBusReady = true;
+        console.log('[ProgramModelEngine] Control bus adapter connected, subscription:', subscription);
+      });
+    });
+    client.on('message', (topic, buf) => {
+      let payload = null;
+      try {
+        payload = JSON.parse(buf.toString('utf8'));
+      } catch (_) {
+        return;
+      }
+      this.handleControlBusPacket(topic, payload).catch((err) => {
+        console.warn('[ProgramModelEngine] handleControlBusPacket failed:', err && err.message ? err.message : err);
+      });
+    });
+    client.on('error', (err) => {
+      console.warn('[ProgramModelEngine] Control bus adapter error:', err && err.message ? err.message : err);
+    });
+  }
+
+  async handleControlBusPacket(topic, payload) {
+    if (!isValidControlBusEndpointTopic(topic)) return false;
+    const parsedEnvelope = parsePinPayloadRecordEnvelope(payload);
+    if (!parsedEnvelope.ok) return false;
+    const payloadTopic = readTemporaryPayloadString(parsedEnvelope.records, 'topic');
+    const routeKindRecord = findTemporaryPayloadRecord(parsedEnvelope.records, 'route_kind');
+    const routeKind = routeKindRecord && routeKindRecord.t === 'str' ? routeKindRecord.v : '';
+    if (payloadTopic !== topic || routeKind !== 'control') return false;
+    if (parsedEnvelope.messageRole !== 'response') return false;
+    const uiServerWorkerId = resolveUiServerWorkerId();
+    if (parsedEnvelope.replyTarget.worker_id !== uiServerWorkerId || parsedEnvelope.replyTarget.pin !== 'result') return false;
+    const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget.model_id, parsedEnvelope.nestedPayload, parsedEnvelope.opId);
+    if (!materialization) return false;
+    emitTrace(this.runtime, {
+      hop: 'mqtt\u2192server',
+      direction: 'inbound',
+      op_id: parsedEnvelope.opId,
+      model_id: parsedEnvelope.replyTarget.model_id,
+      summary: `control-bus response topic=${topic}`,
+      payload,
+    });
+    const result = await this.routePinPayloadViaOwnerMaterialization(materialization);
+    if (!result || result.ok !== true) {
+      console.warn(
+        '[handleControlBusPacket] pin_payload owner route rejected:',
+        result && result.code ? result.code : 'unknown',
+        result && result.detail ? result.detail : '',
+      );
+      return false;
+    }
+    this.onSnapshotChanged?.();
     return true;
   }
 
@@ -5368,6 +5651,7 @@ function createServerState(options) {
         'doc_page_filltable_example_minimal.json',
         'slide_app_provider_docs_ui.json',
         'test_model_100_ui.json',
+        'workspace_manager_asset_manager_ui.json',
       ]);
     } else {
       console.log(`[createServerState] skip positive seed patches (existing_positive_models=${positiveModelCountBeforeSeed})`);
@@ -5678,6 +5962,7 @@ function createServerState(options) {
   };
 
   const refreshWorkspaceStateCatalog = () => {
+    syncWorkspaceAssetCatalogProjection(runtime);
     const apps = deriveWorkspaceRegistry();
     const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
     overwriteStateLabel(runtime, 'ws_apps_registry', 'json', apps);
@@ -6017,6 +6302,7 @@ function createServerState(options) {
   sanitizeStartupCatalogState();
   resetStaticCatalogStateFromFilesystem();
   clearAndValidateWorkspaceSelection();
+  syncWorkspaceAssetCatalogProjection(runtime);
   refreshWorkspaceStateCatalog();
   reconcileHomeSelectionState(true);
   reconcileWorkspaceSelectionState();
@@ -6593,7 +6879,7 @@ function createServerState(options) {
       }
       const busResult = runtime.addLabel(model0, 0, 0, 0, {
         k: busInKey,
-        t: 'pin.bus.mb.in',
+        t: 'pin.bus.cb.in',
         v: busPayload,
       });
       if (!busResult || !busResult.applied) {
@@ -7076,6 +7362,84 @@ function createServerState(options) {
       return finishError('unknown_action', action);
     };
 
+    const unwrapWorkspaceAssetValue = (raw) => {
+      if (raw && typeof raw === 'object' && !Array.isArray(raw) && Object.prototype.hasOwnProperty.call(raw, 'v') && typeof raw.t === 'string') {
+        return raw.v;
+      }
+      return raw;
+    };
+
+    const normalizeWorkspaceAssetRow = (raw) => {
+      const row = unwrapWorkspaceAssetValue(raw);
+      if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+      const id = typeof row.id === 'string'
+        ? row.id.trim()
+        : (typeof row.asset_id === 'string' ? row.asset_id.trim() : '');
+      return findWorkspaceAssetCatalogRow(runtime, id);
+    };
+
+    const writeWorkspaceAssetSelection = (row, { detailOpen = false, status = null } = {}) => {
+      overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'selected_asset_id', 'str', row.id);
+      overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'selected_asset_name', 'str', row.name);
+      overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'selected_asset_summary_markdown', 'str', row.summary_markdown);
+      overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'selected_asset_detail_markdown', 'str', row.detail_markdown);
+      overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'asset_detail_dialog_open', 'bool', detailOpen === true);
+      if (typeof status === 'string') {
+        overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'asset_install_status', 'str', status);
+      }
+    };
+
+    const installWorkspaceSlideAsset = async (row) => {
+      if (row.asset_type !== 'slide_app' || row.installable !== true) {
+        writeWorkspaceAssetSelection(row, { detailOpen: true, status: `detail ${row.name}` });
+        return finishOk({ routed_by: 'workspace_asset_detail' });
+      }
+      if (!Number.isInteger(row.source_model_id) || row.source_model_id <= 0) {
+        return finishError('invalid_target', 'missing_source_model_id');
+      }
+      const exportResult = buildSlideAppExportPayload(runtime, row.source_model_id);
+      if (!exportResult || exportResult.ok !== true) {
+        return finishError(exportResult?.code || 'export_failed', exportResult?.detail || `source_model_id=${row.source_model_id}`);
+      }
+      const importPayload = exportResult.data && Array.isArray(exportResult.data.payload) ? exportResult.data.payload : null;
+      const validation = validateSlideImportPayload(importPayload);
+      if (!validation.ok) {
+        return finishError(validation.code || 'invalid_import_payload', validation.detail || 'source_export_invalid');
+      }
+      const imported = materializeSlideImportPayload(runtime, importPayload, validation);
+      refreshWorkspaceStateCatalog();
+      overwriteStateLabel(runtime, 'ws_app_selected', 'int', imported.rootModelId);
+      overwriteStateLabel(runtime, 'selected_model_id', 'str', String(imported.rootModelId));
+      const status = `installed ${row.name} as model ${imported.rootModelId}`;
+      writeWorkspaceAssetSelection(row, {
+        detailOpen: false,
+        status,
+      });
+      overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'last_installed_asset_id', 'str', row.id);
+      overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'last_installed_model_id', 'int', imported.rootModelId);
+      return finishOk({
+        routed_by: 'workspace_asset_install',
+        installed_model_id: imported.rootModelId,
+      });
+    };
+
+    const executeWorkspaceAssetAction = async () => {
+      if (action === 'workspace_asset_close_detail') {
+        overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'asset_detail_dialog_open', 'bool', false);
+        return finishOk({ routed_by: 'workspace_asset_dialog' });
+      }
+      const row = normalizeWorkspaceAssetRow(payload && Object.prototype.hasOwnProperty.call(payload, 'value') ? payload.value : null);
+      if (!row) return finishError('invalid_target', 'workspace_asset_row_required');
+      if (action === 'workspace_asset_select') {
+        writeWorkspaceAssetSelection(row, { detailOpen: false, status: `selected ${row.name}` });
+        return finishOk({ routed_by: 'workspace_asset_select' });
+      }
+      if (action === 'workspace_asset_primary_action') {
+        return installWorkspaceSlideAsset(row);
+      }
+      return finishError('unknown_action', action);
+    };
+
     const target = payload && payload.target && typeof payload.target === 'object' ? payload.target : null;
     const targetModelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
     if (envelopeOrNull && pin) {
@@ -7106,7 +7470,7 @@ function createServerState(options) {
         target.c,
         {
           k: pin,
-          t: target.model_id === 0 ? 'pin.bus.mb.in' : 'pin.in',
+          t: target.model_id === 0 ? 'pin.bus.cb.in' : 'pin.in',
           v: normalizedDirectPin.value,
         },
       );
@@ -7130,6 +7494,13 @@ function createServerState(options) {
     }
     if (envelopeOrNull && (action === 'ui_owner_label_update' || action === 'ui_owner_label_remove')) {
       return executeGenericOwnerAction();
+    }
+    if (envelopeOrNull && (
+      action === 'workspace_asset_select'
+      || action === 'workspace_asset_primary_action'
+      || action === 'workspace_asset_close_detail'
+    )) {
+      return executeWorkspaceAssetAction();
     }
     const allowUiLocalMutation = isUiLocalMutableTarget(target, action);
     if (envelopeOrNull && isDirectModelMutationAction(action) && !(action !== 'submodel_create' && allowUiLocalMutation)) {

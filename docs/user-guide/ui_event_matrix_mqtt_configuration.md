@@ -1,15 +1,15 @@
 ---
-title: "UI 事件通过 Matrix/MQTT 到达设备的配置指南"
+title: "UI 事件通过控制总线/MQTT 到达设备的配置指南"
 doc_type: user-guide
 status: active
 updated: 2026-04-21
 source: ai
 ---
 
-# UI 事件通过 Matrix/MQTT 到达设备的配置指南
+# UI 事件通过控制总线/MQTT 到达设备的配置指南
 
 适用场景：
-- Web UI 的事件经由 `Matrix -> MBR -> MQTT -> worker` 到达设备或模型 PIN。
+- Web UI 的同工作区事件默认经由 `Control Bus -> MBR -> MQTT -> worker` 到达设备或模型 PIN；显式管理语义才转入 Matrix 管理总线。
 
 当前正式口径：
 - 产品路径只接受一个启动入口：`MODELTABLE_PATCH_JSON`
@@ -17,7 +17,7 @@ source: ai
 - Matrix / MQTT 运行参数只从 **Model 0, Cell (0,0,0)** 读取
 - 不再把 `MATRIX_*` / `DY_MATRIX_*` 作为产品路径里的直接运行时配置
 - `ui-server` 启动后默认是 `runtime_mode=edit`
-- 只有显式切到 `running` 后，才允许真正的 Matrix / MQTT 软件工人副作用执行
+- 只有显式切到 `running` 后，才允许真正的 Control Bus / Matrix / MQTT 软件工人副作用执行
 
 ## 一、必填 labels
 

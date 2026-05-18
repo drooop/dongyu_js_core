@@ -32,8 +32,8 @@ function test_slide_overview_has_four_current_truth_sections() {
     'optional program layer',
     'optional egress adapter',
     '本地 UI 草稿 / overlay 不算正式业务',
-    '正式业务 ingress 必须进入 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.mb.in -> pin route -> target`',
-    'app root pin.out -> host / mount relay -> Model 0 mt_bus_send -> pin.bus.mb.out -> Matrix / MBR / MQTT -> return packet -> Model 0 -> owner materialization -> target model',
+    '正式业务 ingress 默认进入 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in -> pin route -> target`',
+    'app root pin.out -> host / mount relay -> Model 0 mt_bus_send -> pin.bus.cb.out -> MBR / MQTT -> return packet -> Model 0 -> owner materialization -> target model',
   ]) {
     assertIncludes(text, phrase, overviewPath);
   }
@@ -65,8 +65,8 @@ function test_slide_docs_do_not_claim_direct_cell_formal_ingress() {
 
 function test_imported_slide_ingress_ssot_marks_old_direct_path_historical() {
   const text = readText(ingressSsotPath);
-  assertIncludes(text, '0326 之后的 current truth', ingressSsotPath);
-  assertIncludes(text, '`bus_event_v2 -> Model 0 (0,0,0) pin.bus.mb.in`', ingressSsotPath);
+  assertIncludes(text, '0326 之后 formal ingress 收口到 Model 0', ingressSsotPath);
+  assertIncludes(text, '`bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in`', ingressSsotPath);
   assertIncludes(text, '本地 UI 草稿', ingressSsotPath);
   assertIncludes(text, '正式业务 ingress', ingressSsotPath);
   return { key: 'imported_slide_ingress_ssot_marks_old_direct_path_historical', status: 'PASS' };
