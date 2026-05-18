@@ -1,12 +1,12 @@
 ---
 title: "0382 - Workspace Entry Cleanup Resolution"
 doc_type: iteration-resolution
-status: approved
+status: completed
 updated: 2026-05-19
 source: ai
 iteration_id: 0382-workspace-entry-cleanup
 id: 0382-workspace-entry-cleanup
-phase: approved
+phase: completed
 ---
 
 # Iteration 0382-workspace-entry-cleanup Resolution
@@ -43,4 +43,5 @@ phase: approved
 
 ## Notes
 
-- Generated at: 2026-05-19
+- Local verification passed before cloud deployment.
+- Cloud deployment used source revision `a420adc` for the implementation rollout and passed public browser verification at `https://app.dongyudigital.com/#/workspace`.
