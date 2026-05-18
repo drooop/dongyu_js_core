@@ -15,6 +15,26 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "Docs"
+    },
+    {
+      "op": "add_label",
+      "model_id": -23,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "system"
+    },
+    {
+      "op": "add_label",
+      "model_id": -23,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "model_type",
       "t": "model.single",
       "v": "UI.DocsCatalog"

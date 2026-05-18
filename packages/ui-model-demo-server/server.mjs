@@ -48,6 +48,7 @@ import {
   FLOW_SHELL_TAB_LABEL,
   GALLERY_MAILBOX_MODEL_ID,
   GALLERY_STATE_MODEL_ID,
+  WORKSPACE_ENTRY_MODEL_IDS,
 } from '../ui-model-demo-frontend/src/model_ids.js';
 import {
   getSession, getSessionWithToken, isAuthenticated, loginWithMatrix, logout,
@@ -5779,6 +5780,7 @@ function createServerState(options) {
   const deriveWorkspaceRegistry = () => {
     const derived = [];
     const seen = new Set();
+    const allowedWorkspaceEntryIds = new Set(WORKSPACE_ENTRY_MODEL_IDS);
     const excludedModelIds = new Set([
       EDITOR_MODEL_ID,
       EDITOR_STATE_MODEL_ID,
@@ -5808,6 +5810,7 @@ function createServerState(options) {
       if (!Number.isInteger(modelId) || modelId === 0) continue;
       if (seen.has(modelId)) continue;
       if (excludedModelIds.has(modelId)) continue;
+      if (!allowedWorkspaceEntryIds.has(modelId)) continue;
       const rootLabels = modelSnap && modelSnap.cells && modelSnap.cells['0,0,0'] && modelSnap.cells['0,0,0'].labels
         ? modelSnap.cells['0,0,0'].labels
         : {};

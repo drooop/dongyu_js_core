@@ -1932,7 +1932,7 @@
       "c": 0,
       "k": "app_name",
       "t": "str",
-      "v": "0216 Three Scene"
+      "v": "Three Scene"
     },
     {
       "op": "add_label",
@@ -7453,14 +7453,14 @@
       "t": "json",
       "v": [
         {
-          "model_id": 1,
-          "name": "Model 1",
-          "source": "local"
+          "model_id": -103,
+          "name": "Gallery",
+          "source": "system"
         },
         {
-          "model_id": 2,
-          "name": "Model 2",
-          "source": "remote-worker"
+          "model_id": -23,
+          "name": "Docs",
+          "source": "system"
         },
         {
           "model_id": 100,
@@ -7468,49 +7468,29 @@
           "source": "k8s-worker"
         },
         {
-          "model_id": 1001,
-          "name": "请假申请",
-          "source": "worker-A"
-        },
-        {
-          "model_id": 1002,
-          "name": "设备报修",
-          "source": "worker-B"
-        },
-        {
-          "model_id": 1003,
-          "name": "0215 Schema Leaf",
-          "source": "workspace"
-        },
-        {
-          "model_id": 1004,
-          "name": "0215 Page Asset",
-          "source": "workspace"
-        },
-        {
-          "model_id": 1005,
-          "name": "0215 Parent Mounted",
-          "source": "workspace"
-        },
-        {
           "model_id": 1007,
-          "name": "0216 Three Scene",
-          "source": "workspace"
-        },
-        {
-          "model_id": 1009,
-          "name": "0270 Fill-Table Workspace UI",
-          "source": "workspace"
-        },
-        {
-          "model_id": 1013,
-          "name": "0276 Doc Page Workspace Example",
+          "name": "Three Scene",
           "source": "workspace"
         },
         {
           "model_id": 1011,
           "name": "Static",
           "source": "workspace"
+        },
+        {
+          "model_id": 1030,
+          "name": "滑动 APP 导入",
+          "source": "zip-import"
+        },
+        {
+          "model_id": 1050,
+          "name": "最小 Submit 双总线示例",
+          "source": "manual-zip-import"
+        },
+        {
+          "model_id": 1051,
+          "name": "工作区管理器",
+          "source": "Workspace-Manager-DE"
         }
       ]
     },
