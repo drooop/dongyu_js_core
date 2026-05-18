@@ -1,12 +1,12 @@
 ---
 title: "0382 - Workspace Entry Cleanup Plan"
 doc_type: iteration-plan
-status: approved
+status: completed
 updated: 2026-05-19
 source: ai
 iteration_id: 0382-workspace-entry-cleanup
 id: 0382-workspace-entry-cleanup
-phase: approved
+phase: completed
 ---
 
 # Iteration 0382-workspace-entry-cleanup Plan
