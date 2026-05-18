@@ -148,7 +148,7 @@ LAST_RUNNING_UI_SERVER_POD=""
 exec_in_running_ui_server_pod() {
   local command="$1"
   local purpose="${2:-ui-server exec}"
-  local max_attempts="${3:-8}"
+  local max_attempts="${3:-30}"
   local attempt=1
   local pod out
 
