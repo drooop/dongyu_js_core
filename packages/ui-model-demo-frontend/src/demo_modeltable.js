@@ -57,6 +57,7 @@ import {
   MATRIX_DEBUG_MODEL_ID,
   PROMPT_CATALOG_MODEL_ID,
   SYSTEM_MODEL_ID,
+  WORKSPACE_ENTRY_MODEL_IDS,
 } from './model_ids.js';
 
 function ensureModel(runtime, { id, name, type }) {
@@ -154,6 +155,7 @@ function readDesktopForegroundFromEnvelope(envelope) {
 function deriveWorkspaceRegistry(runtime) {
   const derived = [];
   const seen = new Set();
+  const allowedWorkspaceEntryIds = new Set(WORKSPACE_ENTRY_MODEL_IDS);
   const excludedModelIds = new Set([
     EDITOR_MODEL_ID,
     EDITOR_STATE_MODEL_ID,
@@ -178,6 +180,7 @@ function deriveWorkspaceRegistry(runtime) {
   for (const [idText, modelSnap] of Object.entries(models)) {
     const modelId = Number(idText);
     if (!Number.isInteger(modelId) || modelId === 0 || seen.has(modelId) || excludedModelIds.has(modelId)) continue;
+    if (!allowedWorkspaceEntryIds.has(modelId)) continue;
     const rootLabels = modelSnap && modelSnap.cells && modelSnap.cells['0,0,0'] && modelSnap.cells['0,0,0'].labels
       ? modelSnap.cells['0,0,0'].labels
       : {};

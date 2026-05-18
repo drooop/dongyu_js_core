@@ -5,6 +5,7 @@ export const EDITOR_MAILBOX_MODEL_ID = -1;
 export const EDITOR_STATE_MODEL_ID = -2;
 export const ACTION_LIFECYCLE_MODEL_ID = EDITOR_MAILBOX_MODEL_ID;
 export const SCENE_CONTEXT_MODEL_ID = -12;
+export const DOCS_CATALOG_MODEL_ID = -23;
 export const WORKSPACE_CATALOG_MODEL_ID = -25;
 export const FLOW_SHELL_CATALOG_MODEL_ID = -27;
 export const DESKTOP_CATALOG_MODEL_ID = -28;
@@ -18,6 +19,20 @@ export const MATRIX_DEBUG_MODEL_ID = -100;
 export const GALLERY_MAILBOX_MODEL_ID = -101;
 export const GALLERY_STATE_MODEL_ID = -102;
 export const GALLERY_CATALOG_MODEL_ID = -103;
+
+// Workspace entry cleanup: only these models are first-class Workspace entries.
+// Other models may still exist as implementation/truth models, but they must not
+// surface in the user-facing asset list.
+export const WORKSPACE_ENTRY_MODEL_IDS = Object.freeze([
+  -103,
+  -23,
+  100,
+  1007,
+  1011,
+  1030,
+  1050,
+  1051,
+]);
 
 // Wave C demo submodel.
 export const WAVE_C_SUBMODEL_ID = 2001;
