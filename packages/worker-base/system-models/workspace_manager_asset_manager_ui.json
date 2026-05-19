@@ -44,7 +44,14 @@
         "owner",
         "owner_worker_id",
         "parent_asset_id",
-        "source_model_id",
+        "provider_worker_id",
+        "provider_model_id",
+        "provider_bundle_pin",
+        "provider_route_kind",
+        "runtime_endpoint_worker_id",
+        "runtime_endpoint_model_id",
+        "runtime_pins",
+        "bundle_sha256",
         "installable",
         "action_label",
         "summary_markdown",
@@ -499,7 +506,7 @@
       "c": 0,
       "k": "detail_markdown",
       "t": "str",
-      "v": "## RemoteWorker R1\n\nR1 是当前测试用普通软件工人。0378 中它上报两项可安装滑动 APP 资产，安装动作由 UI-Server 读取本地源模型并 materialize 成新的本地滑动 APP 实例。\n\n### 当前对外滑动 APP\n\n| 名称 | 源模型 | 安装动作 |\n|---|---:|---|\n| E2E 颜色生成器 | 100 | 可安装 |\n| 最小 Submit 双总线示例 | 1050 | 可安装 |"
+      "v": "## RemoteWorker R1\n\nR1 是当前测试用普通软件工人。0384 后它上报两项可安装滑动 APP 资产，安装动作由 UI-Server 向 R1 的 provider bundle endpoint 请求 ModelTable payload 后再 materialize 成新的本地滑动 APP 实例。\n\n### 当前对外滑动 APP\n\n| 名称 | Bundle endpoint | 运行时 endpoint | 安装动作 |\n|---|---|---|---|\n| E2E 颜色生成器 | R1 / 3100 / bundle_request | R1 / 100 / submit | 可安装 |\n| 最小 Submit 双总线示例 | R1 / 3100 / bundle_request | R1 / 3000 / submit1 | 可安装 |"
     },
     {
       "op": "add_label",
@@ -587,9 +594,71 @@
       "p": 0,
       "r": 5,
       "c": 0,
-      "k": "source_model_id",
+      "k": "provider_worker_id",
+      "t": "str",
+      "v": "R1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "provider_model_id",
+      "t": "int",
+      "v": 3100
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "provider_bundle_pin",
+      "t": "str",
+      "v": "bundle_request"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "provider_route_kind",
+      "t": "str",
+      "v": "control"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "runtime_endpoint_worker_id",
+      "t": "str",
+      "v": "R1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "runtime_endpoint_model_id",
       "t": "int",
       "v": 100
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 5,
+      "c": 0,
+      "k": "runtime_pins",
+      "t": "json",
+      "v": [
+        "submit"
+      ]
     },
     {
       "op": "add_label",
@@ -619,7 +688,7 @@
       "c": 0,
       "k": "summary_markdown",
       "t": "str",
-      "v": "### E2E 颜色生成器\n\n- 提供方：RemoteWorker R1\n- 源模型：100\n- 类型：可安装滑动 APP\n- 功能：点击按钮生成并展示颜色。"
+      "v": "### E2E 颜色生成器\n\n- 提供方：RemoteWorker R1\n- Bundle endpoint：R1 / 3100 / bundle_request\n- 运行时 endpoint：R1 / 100 / submit\n- 类型：可安装滑动 APP\n- 功能：点击按钮生成并展示颜色。"
     },
     {
       "op": "add_label",
@@ -629,7 +698,7 @@
       "c": 0,
       "k": "detail_markdown",
       "t": "str",
-      "v": "## E2E 颜色生成器\n\n这是 R1 提供的滑动 APP 资产。点击安装后，UI-Server 会从源模型 100 导出 ModelTable JSON payload，再使用现有滑动 APP materialize 流程创建一个新的本地模型，并自动挂载到 Workspace 侧边栏。"
+      "v": "## E2E 颜色生成器\n\n这是 R1 提供的滑动 APP 资产。点击安装后，UI-Server 会根据目录行向 R1 / 3100 / bundle_request 请求 bundle；只有 provider 返回并通过校验的 ModelTable payload 才会被 materialize 成新的本地模型，并自动挂载到 Workspace 侧边栏。"
     },
     {
       "op": "add_label",
@@ -717,9 +786,71 @@
       "p": 0,
       "r": 6,
       "c": 0,
-      "k": "source_model_id",
+      "k": "provider_worker_id",
+      "t": "str",
+      "v": "R1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "provider_model_id",
       "t": "int",
-      "v": 1050
+      "v": 3100
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "provider_bundle_pin",
+      "t": "str",
+      "v": "bundle_request"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "provider_route_kind",
+      "t": "str",
+      "v": "control"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "runtime_endpoint_worker_id",
+      "t": "str",
+      "v": "R1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "runtime_endpoint_model_id",
+      "t": "int",
+      "v": 3000
+    },
+    {
+      "op": "add_label",
+      "model_id": 1052,
+      "p": 0,
+      "r": 6,
+      "c": 0,
+      "k": "runtime_pins",
+      "t": "json",
+      "v": [
+        "submit1"
+      ]
     },
     {
       "op": "add_label",
@@ -749,7 +880,7 @@
       "c": 0,
       "k": "summary_markdown",
       "t": "str",
-      "v": "### 最小 Submit 双总线示例\n\n- 提供方：RemoteWorker R1\n- 源模型：1050\n- 类型：可安装滑动 APP\n- 功能：输入内容，Submit 后经双总线回写展示值。"
+      "v": "### 最小 Submit 双总线示例\n\n- 提供方：RemoteWorker R1\n- Bundle endpoint：R1 / 3100 / bundle_request\n- 运行时 endpoint：R1 / 3000 / submit1\n- 类型：可安装滑动 APP\n- 功能：输入内容，Submit 后经双总线回写展示值。"
     },
     {
       "op": "add_label",
@@ -759,7 +890,7 @@
       "c": 0,
       "k": "detail_markdown",
       "t": "str",
-      "v": "## 最小 Submit 双总线示例\n\n这是 R1 提供的最小交互滑动 APP。安装后，UI-Server 会在本地生成新的模型实例；按钮事件仍按滑动 APP 规约进入当前 App 第 0 格，再走 Model 0 的总线通路。"
+      "v": "## 最小 Submit 双总线示例\n\n这是 R1 提供的最小交互滑动 APP。点击安装后，UI-Server 会向 R1 / 3100 / bundle_request 请求 provider-owned bundle；安装完成后，按钮事件仍按滑动 APP 规约进入当前 App 第 0 格，再走 Model 0 的总线通路。"
     },
     {
       "op": "rm_label",
@@ -893,12 +1024,20 @@
           "asset_type": "slide_app",
           "owner": "RemoteWorker R1",
           "owner_worker_id": "R1",
-          "source_model_id": 100,
+          "provider_worker_id": "R1",
+          "provider_model_id": 3100,
+          "provider_bundle_pin": "bundle_request",
+          "provider_route_kind": "control",
+          "runtime_endpoint_worker_id": "R1",
+          "runtime_endpoint_model_id": 100,
+          "runtime_pins": [
+            "submit"
+          ],
           "installable": true,
           "action_label": "安装",
           "action_type": "primary",
-          "summary_markdown": "### E2E 颜色生成器\n\n- 提供方：RemoteWorker R1\n- 源模型：100\n- 点击安装后会在本地生成新的滑动 APP。",
-          "detail_markdown": "## E2E 颜色生成器\n\n安装动作会复用滑动 APP 导出/导入 materialize 流程：源模型 100 先导出为 ModelTable JSON payload，再在 UI-Server 本地创建新模型。"
+          "summary_markdown": "### E2E 颜色生成器\n\n- 提供方：RemoteWorker R1\n- Bundle endpoint：R1 / 3100 / bundle_request\n- 点击安装后由 provider 返回 bundle，再在本地生成新的滑动 APP。",
+          "detail_markdown": "## E2E 颜色生成器\n\n安装动作会向 provider bundle endpoint 请求 ModelTable payload；UI-Server 只在收到并校验 provider 返回后创建新模型。"
         },
         {
           "id": "r1-minimal-submit",
@@ -907,12 +1046,20 @@
           "asset_type": "slide_app",
           "owner": "RemoteWorker R1",
           "owner_worker_id": "R1",
-          "source_model_id": 1050,
+          "provider_worker_id": "R1",
+          "provider_model_id": 3100,
+          "provider_bundle_pin": "bundle_request",
+          "provider_route_kind": "control",
+          "runtime_endpoint_worker_id": "R1",
+          "runtime_endpoint_model_id": 3000,
+          "runtime_pins": [
+            "submit1"
+          ],
           "installable": true,
           "action_label": "安装",
           "action_type": "primary",
-          "summary_markdown": "### 最小 Submit 双总线示例\n\n- 提供方：RemoteWorker R1\n- 源模型：1050\n- 安装后可在本地 Workspace 打开运行。",
-          "detail_markdown": "## 最小 Submit 双总线示例\n\n该示例用于验证 input + submit + 双总线回写的最小完整链路。"
+          "summary_markdown": "### 最小 Submit 双总线示例\n\n- 提供方：RemoteWorker R1\n- Bundle endpoint：R1 / 3100 / bundle_request\n- 安装后可在本地 Workspace 打开运行。",
+          "detail_markdown": "## 最小 Submit 双总线示例\n\n该示例用于验证 input + submit + 双总线回写的最小完整链路。安装 payload 由 R1 provider bundle endpoint 返回。"
         }
       ]
     },

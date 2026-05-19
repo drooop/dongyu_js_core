@@ -1118,6 +1118,27 @@ class ModelTableRuntime {
     return false;
   }
 
+  _hasLegacyPinPayloadMetadataForPinPayloadRecords(value) {
+    const nestedPayload = this._payloadLabel(value, 'payload');
+    if (nestedPayload && nestedPayload.t === 'json' && Array.isArray(nestedPayload.v)) {
+      const nestedKind = this._payloadLabel(nestedPayload.v, '__mt_payload_kind');
+      if (nestedKind && nestedKind.t === 'str' && nestedKind.v === 'slide_app_bundle_response.v1') {
+        const outerRecords = value.map((record) => (record && record.k === 'payload'
+          ? { ...record, v: [] }
+          : record));
+        if (this._hasLegacyPinPayloadMetadata(outerRecords)) return true;
+        for (const nestedRecord of nestedPayload.v) {
+          if (!nestedRecord || typeof nestedRecord.k !== 'string') return true;
+          if (this._isLegacyPinPayloadKey(nestedRecord.k)) return true;
+          if (nestedRecord.k === 'bundle_payload') continue;
+          if (this._valueContainsLegacyPinPayloadMetadata(nestedRecord.v)) return true;
+        }
+        return false;
+      }
+    }
+    return this._hasLegacyPinPayloadMetadata(value);
+  }
+
   _hasInvalidPinPayloadStringMetadata(value, key) {
     const record = this._payloadLabel(value, key);
     return Boolean(record && (record.t !== 'str' || typeof record.v !== 'string' || record.v.trim() !== record.v));
@@ -1197,7 +1218,7 @@ class ModelTableRuntime {
     if (routeKindLabel && (routeKindLabel.t !== 'str' || (routeKind !== 'control' && routeKind !== 'management'))) {
       return { ok: false, code: 'invalid_route_kind' };
     }
-    if (this._hasLegacyPinPayloadMetadata(value)) {
+    if (this._hasLegacyPinPayloadMetadataForPinPayloadRecords(value)) {
       return { ok: false, code: 'legacy_pin_payload_metadata_removed' };
     }
     const endpoint = this._endpointFromPayloadRecords(value, 'endpoint');
@@ -1353,7 +1374,10 @@ class ModelTableRuntime {
         return `bus_in_invalid_write_label_${parsed.code || 'payload'}`;
       }
     }
-    if (this._hasLegacyPinPayloadMetadata(label.v)) {
+    const hasLegacyMetadata = kind && kind.t === 'str' && kind.v === 'pin_payload.v1'
+      ? this._hasLegacyPinPayloadMetadataForPinPayloadRecords(label.v)
+      : this._hasLegacyPinPayloadMetadata(label.v);
+    if (hasLegacyMetadata) {
       return 'legacy_pin_payload_metadata_removed';
     }
     if (kind && kind.t === 'str' && kind.v === 'pin_payload.v1') {
@@ -1397,7 +1421,10 @@ class ModelTableRuntime {
     if (this._isMalformedPinPayloadKind(kind)) {
       return 'invalid_payload_kind';
     }
-    if (this._hasLegacyPinPayloadMetadata(label.v)) {
+    const hasLegacyMetadata = kind && kind.t === 'str' && kind.v === 'pin_payload.v1'
+      ? this._hasLegacyPinPayloadMetadataForPinPayloadRecords(label.v)
+      : this._hasLegacyPinPayloadMetadata(label.v);
+    if (hasLegacyMetadata) {
       return 'legacy_pin_payload_metadata_removed';
     }
     if (kind && kind.t === 'str' && kind.v === 'pin_payload.v1') {

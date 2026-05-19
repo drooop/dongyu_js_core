@@ -10,12 +10,14 @@ source: ai
 
 这份手册说明当前滑动 APP 的完整开发和运行链路。它不是新规约，而是把仓库里已经实现的 current truth 写成开发者可操作说明。
 
+0384 已把 Workspace Manager 的安装按钮从“UI Server 本地复制 source model”改成“从 provider 请求 bundle 后再安装”。provider-owned 安装现在是 current truth：Workspace Manager 只维护资产索引，实际滑动 APP bundle 必须由 provider worker 返回。
+
 ## 1. 先记住四条主线
 
 | 主线 | 解决的问题 | 当前结论 |
 |---|---|---|
 | 编写 | 开发者怎样把 APP 写成模型表 | root metadata、UI 投影层、可选程序层、可选外发层都写成 ModelTable records |
-| 安装 | zip 怎样变成 Workspace 里的一个 APP | `zip -> /api/media/upload -> mxc://... -> importer truth -> importer click pin -> materialize / mount` |
+| 安装 | zip 怎样变成 Workspace 里的一个 APP | 直接 ZIP 走 `zip -> /api/media/upload -> mxc://... -> importer truth -> importer click pin -> materialize / mount`；Workspace Manager 的 provider-owned 安装走 0384 current contract |
 | 运行 | 用户点按钮后怎样到达后端目标单元格 | 前端发 `bus_event_v2`，server 默认写 Model 0 `pin.bus.cb.in`，再由 pin route 进入目标模型 |
 | 外发 | APP 怎样发双总线消息 | app root `pin.out -> host / mount relay -> Model 0 mt_bus_send -> pin.bus.cb.out`；显式管理语义才使用 `pin.bus.mb.out` |
 
@@ -158,7 +160,7 @@ UI 投影层用 `cellwise.ui.v1` 填表。每个 UI node 尽量对应一个 cell
 
 滑动 APP 安装不是把 HTML 放进浏览器，而是把临时 ModelTable records 安装成正式模型。
 
-正式安装链是：
+直接 ZIP 导入链是：
 
 ```text
 zip -> /api/media/upload -> mxc://... -> importer truth -> importer click pin -> materialize / mount
@@ -191,6 +193,41 @@ my-slide-app.zip
 4. 把临时 records materialize 到 runtime。
 5. 在 Model 0 的 Workspace mount 区写 `model.submt`，把 APP 挂到 Workspace。
 6. 如果声明了 host ingress / egress，自动补宿主 adapter。
+
+### 4.1 Workspace Manager 安装 provider-owned APP（0384 current contract）
+
+Workspace Manager 的安装按钮不再从 UI Server 本地模型复制 `source_model_id`。它只读取 Workspace Manager DEM ModelTable 维护的资产索引；实际 APP bundle 必须由 provider worker 返回，并在 UI Server 校验 response 与 pending install 完全匹配后才会 materialize 为本地安装实例。
+
+一个 installable asset row 至少需要这些 provider endpoint 字段：
+
+| 字段 | 含义 |
+|---|---|
+| `asset_id` | Workspace Manager 目录中的稳定资产 id |
+| `provider_worker_id` | 提供 bundle 的 worker，例如 `R1` |
+| `provider_model_id` | provider 上负责返回 bundle 的模型 id |
+| `provider_bundle_pin` | provider 模型 root 的公开 `pin.in`，例如 `bundle_request` |
+| `provider_route_kind` | `control` 或 `management` |
+
+点击安装时，UI Server 会：
+
+1. 只接受目录中的 canonical row，拒绝前端伪造 row。
+2. 从 Model 0 `mqtt_topic_base` 计算请求 topic：`UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<sw_id>/<provider_worker_id>/<provider_model_id>/<provider_bundle_pin>`。
+3. 经 Model 0 bus out 发送 `pin_payload.v1 message_role=request`。
+4. nested `payload` 写成 `slide_app_bundle_request.v1`，至少包含 `asset_id`。
+5. 在本地记录 pending install state：`op_id`、`asset_id`、provider endpoint、computed topic、`route_kind`、`reply_target`。
+
+provider 返回时必须使用同一个 endpoint topic，并把 nested `payload` 写成 `slide_app_bundle_response.v1`：
+
+| label | 类型 | 说明 |
+|---|---|---|
+| `__mt_payload_kind` | `str` | 固定为 `slide_app_bundle_response.v1` |
+| `asset_id` | `str` | 必须与 pending install 一致 |
+| `bundle_payload` | `json` | provider 返回的滑动 APP ModelTable record array |
+| `bundle_sha256` | `str` | 可选，用于审计 |
+
+UI Server 在 materialize 前必须确认 response 和 pending install 完全对应：`op_id` 或 request correlation、`asset_id`、provider endpoint、computed topic、`route_kind`、`reply_target` 都必须匹配。任何过期、错资产、错 endpoint、错 reply target 或 malformed response 都只能写可见失败状态，不能创建新模型。
+
+provider 返回的 `bundle_payload` 和用户上传 ZIP 里的 `app_payload.json` 使用同一套 import validator。bundle 内的 `remote_bus_endpoint_v1` 只描述安装后 APP 运行时的业务外发目标，不描述本次 bundle download request。
 
 ## 5. 安装时哪些引脚会自动建立
 

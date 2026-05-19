@@ -286,6 +286,7 @@ source: ai
 | 0381-cloud-deploy-snapshot-wait | 2026-05-19 | 延长云端部署脚本的 UI Server 启动后 snapshot 自检等待窗口，避免实际已启动但自检过早失败 | 1 | dropx/dev_0381-cloud-deploy-snapshot-wait | Completed | ./docs/iterations/0381-cloud-deploy-snapshot-wait/ |
 | 0382-workspace-entry-cleanup | 2026-05-19 | 清理 Workspace 资产树，只保留 Gallery、E2E 颜色生成器、Three Scene、Static、Docs、滑动 APP 导入、最小 Submit 双总线示例、工作区管理器 | 3 | dropx/dev_0382-workspace-entry-cleanup | Completed | ./docs/iterations/0382-workspace-entry-cleanup/ |
 | 0383-ui-server-matrix-suite-slide-app | 2026-05-19 | 新增 UI Server 自带 Matrix Suite 滑动 App，以 cellwise UI 模型和程序模型实现现代聊天界面与基础通讯动作 | 6 | dropx/dev_0383-ui-server-matrix-suite-slide-app | Completed | ./docs/iterations/0383-ui-server-matrix-suite-slide-app/ |
+| 0384-provider-owned-slide-app-install | 2026-05-19 | 将 Workspace Manager 安装路径改为 provider-owned：目录只做索引，滑动 App payload 由 RemoteWorker R1 通过总线返回后再由 UI Server materialize | 4 | dropx/dev_0384-provider-owned-slide-app-install | Completed | ./docs/iterations/0384-provider-owned-slide-app-install/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
