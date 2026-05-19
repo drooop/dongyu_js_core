@@ -287,6 +287,7 @@ source: ai
 | 0382-workspace-entry-cleanup | 2026-05-19 | 清理 Workspace 资产树，只保留 Gallery、E2E 颜色生成器、Three Scene、Static、Docs、滑动 APP 导入、最小 Submit 双总线示例、工作区管理器 | 3 | dropx/dev_0382-workspace-entry-cleanup | Completed | ./docs/iterations/0382-workspace-entry-cleanup/ |
 | 0383-ui-server-matrix-suite-slide-app | 2026-05-19 | 新增 UI Server 自带 Matrix Suite 滑动 App，以 cellwise UI 模型和程序模型实现现代聊天界面与基础通讯动作 | 6 | dropx/dev_0383-ui-server-matrix-suite-slide-app | Completed | ./docs/iterations/0383-ui-server-matrix-suite-slide-app/ |
 | 0384-provider-owned-slide-app-install | 2026-05-19 | 将 Workspace Manager 安装路径改为 provider-owned：目录只做索引，滑动 App payload 由 RemoteWorker R1 通过总线返回后再由 UI Server materialize | 4 | dropx/dev_0384-provider-owned-slide-app-install | Completed | ./docs/iterations/0384-provider-owned-slide-app-install/ |
+| 0385-matrix-suite-real-comm | 2026-05-20 | 将 Matrix Suite 从本地模拟推进到真实 Matrix 基础通讯，并移除未接通媒体能力的假成功 | 6 | dropx/dev_0385-matrix-suite-real-comm | Completed | ./docs/iterations/0385-matrix-suite-real-comm/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

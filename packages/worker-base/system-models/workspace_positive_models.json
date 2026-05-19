@@ -24925,7 +24925,7 @@
       "k": "handle_matrix_suite_event",
       "t": "func.js",
       "v": {
-        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst now = () => new Date().toLocaleTimeString('en-US', { hour12: false });\nconst readPayload = (key, fallback = null) => {\n  const item = records.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key);\n  return item && Object.prototype.hasOwnProperty.call(item, 'v') ? item.v : fallback;\n};\nconst root = (key, fallback = null) => {\n  const lbl = V1N.readLabel(0, 0, 0, key);\n  return lbl && Object.prototype.hasOwnProperty.call(lbl, 'v') ? lbl.v : fallback;\n};\nconst write = (key, type, value) => V1N.table.addLabel(0, 0, 0, key, type, value);\nconst fail = (code, detail) => {\n  write('status_text', 'str', 'ERR ' + code + ': ' + detail);\n  write('connection_status', 'str', 'error');\n  write('last_error_json', 'json', { code, detail, ts: Date.now() });\n};\nconst safeArray = (value) => Array.isArray(value) ? value : [];\nconst rooms = () => safeArray(root('rooms_json', []));\nconst timeline = () => safeArray(root('timeline_json', []));\nconst activeRoomId = () => String(root('active_room_id', '!digital-sovereignty:ui.local') || '!digital-sovereignty:ui.local');\nconst findRoom = (roomId, list = rooms()) => list.find((room) => room && room.id === roomId && room.archived !== true) || null;\nconst clean = (value) => String(value == null ? '' : value).trim();\nconst slug = (value) => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32) || 'channel';\nconst renderRooms = (list, selected) => list.filter((room) => room && room.archived !== true).map((room) => (room.id === selected ? '> ' : '  ') + (room.kind === 'dm' ? 'DM' : 'ROOM') + '  ' + room.name + '  unread=' + Number(room.unread || 0)).join('\\n');\nconst renderTimeline = (list, selected, roomName) => {\n  const rows = list.filter((event) => event && event.room_id === selected);\n  if (rows.length === 0) return '### ' + roomName + '\\n\\nNo events yet.';\n  const body = rows.map((event) => {\n    const suffix = event.edited ? ' _(edited)_' : '';\n    const type = event.msgtype || event.type || 'event';\n    return '- **' + (event.sender || 'system') + '** · ' + (event.ts || now()) + ' · ' + type + '\\n  ' + (event.body || '') + suffix;\n  }).join('\\n');\n  return '### ' + roomName + '\\n\\n' + body;\n};\nconst syncProjection = (roomList, eventList, selectedId) => {\n  const current = findRoom(selectedId, roomList) || roomList.find((room) => room && room.archived !== true) || { id: selectedId, name: 'No room', members: [] };\n  write('active_room_id', 'str', current.id || selectedId);\n  write('active_room_name', 'str', current.name || 'No room');\n  write('active_room_summary', 'str', (current.kind === 'dm' ? '1v1' : 'Room') + ' · ' + ((current.members || []).length) + ' member(s)');\n  write('rooms_text', 'str', renderRooms(roomList, current.id || selectedId));\n  write('timeline_markdown', 'str', renderTimeline(eventList, current.id || selectedId, current.name || 'No room'));\n  write('room_inspector_markdown', 'str', '## ' + (current.name || 'No room') + '\\n\\n- id: ' + (current.id || selectedId) + '\\n- kind: ' + (current.kind || 'unknown') + '\\n- members: ' + ((current.members || []).join(', ') || 'none') + '\\n- unread: ' + Number(current.unread || 0));\n};\nif (readPayload('__mt_payload_kind', '') !== 'ui_event.v1') { fail('invalid_payload_kind', 'ui_event.v1_required'); return; }\nconst action = clean(readPayload('action', ''));\nlet roomList = rooms();\nlet eventList = timeline();\nlet selectedId = activeRoomId();\ntry {\n  if (action === 'select_filter') {\n    write('status_text', 'str', 'Filter: ' + clean(readPayload('filter', 'all')));\n    write('connection_status', 'str', 'online');\n  } else if (action === 'select_room') {\n    const requested = clean(readPayload('room_id', ''));\n    if (!findRoom(requested, roomList)) { fail('room_not_found', requested); return; }\n    selectedId = requested;\n    write('status_text', 'str', 'Selected ' + findRoom(selectedId, roomList).name);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'send_message') {\n    const text = clean(readPayload('draft_text', root('composer_draft', '')));\n    if (!text) { fail('empty_message', 'composer_draft_required'); return; }\n    const current = findRoom(selectedId, roomList);\n    if (!current) { fail('room_not_found', selectedId); return; }\n    const event = { event_id: '$local_' + Date.now(), room_id: selectedId, sender: 'You', type: 'm.room.message', msgtype: 'm.text', body: text, ts: now(), edited: false };\n    eventList = eventList.concat(event);\n    write('timeline_json', 'json', eventList);\n    write('composer_draft', 'str', '');\n    write('last_editable_event_id', 'str', event.event_id);\n    write('edit_draft', 'str', text);\n    write('status_text', 'str', 'Sent to ' + current.name);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'edit_message') {\n    const target = clean(readPayload('event_id', root('last_editable_event_id', '')));\n    const text = clean(readPayload('edit_text', root('edit_draft', '')));\n    if (!target || !text) { fail('edit_requires_target_and_text', 'missing_event_or_text'); return; }\n    let edited = false;\n    eventList = eventList.map((event) => event && event.event_id === target ? (edited = true, { ...event, body: text, edited: true, edited_at: now(), relation: 'm.replace' }) : event);\n    if (!edited) { fail('event_not_found', target); return; }\n    write('timeline_json', 'json', eventList);\n    write('status_text', 'str', 'Message edited');\n    write('connection_status', 'str', 'online');\n  } else if (action === 'create_channel') {\n    const name = clean(readPayload('channel_name', root('new_channel_name', '')));\n    const kind = clean(readPayload('channel_kind', 'room')) === 'dm' ? 'dm' : 'room';\n    if (!name) { fail('missing_channel_name', 'new_channel_name_required'); return; }\n    const id = kind === 'dm' ? '@' + slug(name) + ':ui.local' : '!' + slug(name) + '-' + Date.now() + ':ui.local';\n    const nextRoom = { id, kind, name, avatar: name.slice(0, 2).toUpperCase(), unread: 0, members: kind === 'dm' ? [name] : ['You'], archived: false };\n    roomList = roomList.concat(nextRoom);\n    write('rooms_json', 'json', roomList);\n    write('new_channel_name', 'str', '');\n    selectedId = id;\n    write('status_text', 'str', 'Created ' + kind + ': ' + name);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'update_channel') {\n    const requested = clean(readPayload('room_id', selectedId)) || selectedId;\n    const name = clean(readPayload('channel_name', root('new_channel_name', '')));\n    if (!name) { fail('missing_channel_name', 'new_channel_name_required'); return; }\n    if (!findRoom(requested, roomList)) { fail('room_not_found', requested); return; }\n    roomList = roomList.map((room) => room && room.id === requested ? { ...room, name, avatar: name.slice(0, 2).toUpperCase() } : room);\n    write('rooms_json', 'json', roomList);\n    write('new_channel_name', 'str', '');\n    selectedId = requested;\n    write('status_text', 'str', 'Renamed channel: ' + name);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'delete_channel') {\n    const requested = clean(readPayload('room_id', selectedId)) || selectedId;\n    const current = findRoom(requested, roomList);\n    if (!current) { fail('room_not_found', requested); return; }\n    roomList = roomList.map((room) => room && room.id === requested ? { ...room, archived: true } : room);\n    write('rooms_json', 'json', roomList);\n    if (selectedId === requested) {\n      const fallback = roomList.find((room) => room && room.archived !== true);\n      selectedId = fallback ? fallback.id : selectedId;\n    }\n    write('status_text', 'str', 'Deleted ' + current.name);\n    write('connection_status', 'str', 'warning');\n  } else if (action === 'start_video' || action === 'start_voice' || action === 'start_screen') {\n    const current = findRoom(selectedId, roomList);\n    if (!current) { fail('room_not_found', selectedId); return; }\n    const map = { start_video: ['m.call.invite', 'video.conference', 'Video conference started'], start_voice: ['m.room.message', 'm.audio', 'Voice message recorded'], start_screen: ['m.call.invite', 'screen.share', 'Screen sharing started'] };\n    const item = map[action];\n    eventList = eventList.concat({ event_id: '$' + action + '_' + Date.now(), room_id: selectedId, sender: 'You', type: item[0], msgtype: item[1], body: item[2], ts: now(), edited: false });\n    write('timeline_json', 'json', eventList);\n    write('call_state', 'str', item[2]);\n    write('status_text', 'str', item[2]);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'share_file') {\n    const uri = clean(readPayload('media_uri', root('pending_file_uri', '')));\n    const fileName = clean(readPayload('file_name', root('pending_file_name', ''))) || 'uploaded-file';\n    if (!uri) { fail('missing_media_uri', 'upload_file_first'); return; }\n    eventList = eventList.concat({ event_id: '$file_' + Date.now(), room_id: selectedId, sender: 'You', type: 'm.room.message', msgtype: 'm.file', body: 'File shared: ' + fileName + ' (' + uri + ')', media_uri: uri, file_name: fileName, ts: now(), edited: false });\n    write('timeline_json', 'json', eventList);\n    write('file_share_status', 'str', 'shared ' + fileName);\n    write('pending_file_uri', 'str', '');\n    write('pending_file_name', 'str', '');\n    write('status_text', 'str', 'File shared: ' + fileName);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'save_settings') {\n    const homeserver = clean(readPayload('homeserver', root('settings_homeserver', '')));\n    const userId = clean(readPayload('user_id', root('settings_user_id', '')));\n    const mode = clean(readPayload('settings_mode', 'save'));\n    write('settings_status', 'str', mode === 'rotate_password' ? 'password maintenance requested for ' + (userId || 'current user') : 'settings saved for ' + (homeserver || 'default homeserver'));\n    write('password_status', 'str', mode === 'rotate_password' ? 'rotation requested; no secret stored' : 'managed outside UI model');\n    write('status_text', 'str', 'Settings updated');\n    write('connection_status', 'str', 'online');\n  } else { fail('unknown_action', action || 'missing'); return; }\n  syncProjection(roomList, eventList, selectedId);\n  write('last_action', 'str', action);\n} catch (err) { fail('exception', err && err.message ? err.message : String(err)); }",
+        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = (key, fallback = '') => {\n  const record = records.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key);\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\nconst root = (key, fallback = '') => {\n  const lbl = V1N.readLabel(0, 0, 0, key);\n  return lbl && Object.prototype.hasOwnProperty.call(lbl, 'v') ? lbl.v : fallback;\n};\nconst write = (key, type, value) => V1N.table.addLabel(0, 0, 0, key, type, value);\nconst fail = (code, detail) => {\n  write('status_text', 'str', 'ERR ' + code + ': ' + detail);\n  write('connection_status', 'str', 'error');\n  write('last_error_json', 'json', { code, detail, ts: Date.now() });\n};\nconst safeArray = (value) => Array.isArray(value) ? value : [];\nconst rooms = () => safeArray(root('rooms_json', []));\nconst timeline = () => safeArray(root('timeline_json', []));\nconst activeRoomId = () => String(root('active_room_id', '!digital-sovereignty:ui.local') || '!digital-sovereignty:ui.local');\nconst findRoom = (roomId, list = rooms()) => list.find((room) => room && room.id === roomId && room.archived !== true) || null;\nconst clean = (value) => String(value == null ? '' : value).trim();\nconst slug = (value) => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32) || 'channel';\nconst renderRooms = (list, selected) => list.filter((room) => room && room.archived !== true).map((room) => (room.id === selected ? '> ' : '  ') + (room.kind === 'dm' ? 'DM' : 'ROOM') + '  ' + room.name + '  unread=' + Number(room.unread || 0)).join('\\n');\nconst renderTimeline = (list, selected, roomName) => {\n  const rows = list.filter((event) => event && event.room_id === selected);\n  if (rows.length === 0) return '### ' + roomName + '\\n\\nNo events yet.';\n  const body = rows.map((event) => {\n    const suffix = event.edited ? ' _(edited)_' : '';\n    const type = event.msgtype || event.type || 'event';\n    const eventId = event.event_id ? '\\n  event: ' + event.event_id : '';\n    return '- **' + (event.sender || 'system') + '** · ' + (event.ts || now()) + ' · ' + type + '\\n  ' + (event.body || '') + suffix + eventId;\n  }).join('\\n');\n  return '### ' + roomName + '\\n\\n' + body;\n};\nconst syncProjection = (roomList, eventList, selectedId) => {\n  const current = findRoom(selectedId, roomList) || roomList.find((room) => room && room.archived !== true) || { id: selectedId, name: 'No room', members: [] };\n  write('active_room_id', 'str', current.id || selectedId);\n  write('active_room_name', 'str', current.name || 'No room');\n  write('active_room_summary', 'str', (current.kind === 'dm' ? '1v1' : 'Room') + ' · ' + ((current.members || []).length) + ' member(s)');\n  write('rooms_text', 'str', renderRooms(roomList, current.id || selectedId));\n  write('timeline_markdown', 'str', renderTimeline(eventList, current.id || selectedId, current.name || 'No room'));\n  write('room_inspector_markdown', 'str', '## ' + (current.name || 'No room') + '\\n\\n- id: ' + (current.id || selectedId) + '\\n- kind: ' + (current.kind || 'unknown') + '\\n- members: ' + ((current.members || []).join(', ') || 'none') + '\\n- unread: ' + Number(current.unread || 0));\n};\nconst now = () => new Date().toISOString().slice(11, 19);\nconst requestHost = (action, payload) => {\n  write('matrix_suite_host_action', 'json', { request_id: action + '_' + Date.now(), action, payload: payload || {} });\n};\nif (readPayload('__mt_payload_kind', '') !== 'ui_event.v1') { fail('invalid_payload_kind', 'ui_event.v1_required'); return; }\nconst action = clean(readPayload('action', ''));\nlet roomList = rooms();\nlet eventList = timeline();\nlet selectedId = activeRoomId();\ntry {\n  if (action === 'select_filter') {\n    write('status_text', 'str', 'Filter: ' + clean(readPayload('filter', 'all')));\n    write('connection_status', 'str', 'online');\n  } else if (action === 'select_room') {\n    const requested = clean(readPayload('room_id', ''));\n    if (!findRoom(requested, roomList)) { fail('room_not_found', requested); return; }\n    selectedId = requested;\n    write('status_text', 'str', 'Selected ' + findRoom(selectedId, roomList).name);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'send_message') {\n    const text = clean(readPayload('draft_text', root('composer_draft', '')));\n    if (!text) { fail('empty_message', 'composer_draft_required'); return; }\n    const current = findRoom(selectedId, roomList);\n    if (!current) { fail('room_not_found', selectedId); return; }\n    write('status_text', 'str', 'Sending via Matrix...');\n    write('connection_status', 'str', 'loading');\n    requestHost('send_message', { room_id: selectedId, body: text });\n  } else if (action === 'edit_message') {\n    const target = clean(readPayload('event_id', root('last_editable_event_id', '')));\n    const text = clean(readPayload('edit_text', root('edit_draft', '')));\n    if (!target || !text) { fail('edit_requires_target_and_text', 'missing_event_or_text'); return; }\n    write('status_text', 'str', 'Editing via Matrix...');\n    write('connection_status', 'str', 'loading');\n    requestHost('edit_message', { room_id: selectedId, event_id: target, body: text });\n  } else if (action === 'create_channel') {\n    const name = clean(readPayload('channel_name', root('new_channel_name', '')));\n    const kind = clean(readPayload('channel_kind', 'room')) === 'dm' ? 'dm' : 'room';\n    if (!name) { fail('missing_channel_name', 'new_channel_name_required'); return; }\n    write('status_text', 'str', 'Creating Matrix ' + kind + '...');\n    write('connection_status', 'str', 'loading');\n    requestHost('create_channel', { name, kind, invite_user_id: kind === 'dm' ? name : '' });\n  } else if (action === 'update_channel') {\n    const requested = clean(readPayload('room_id', selectedId)) || selectedId;\n    const name = clean(readPayload('channel_name', root('new_channel_name', '')));\n    if (!name) { fail('missing_channel_name', 'new_channel_name_required'); return; }\n    if (!findRoom(requested, roomList)) { fail('room_not_found', requested); return; }\n    roomList = roomList.map((room) => room && room.id === requested ? { ...room, name, avatar: name.slice(0, 2).toUpperCase() } : room);\n    write('rooms_json', 'json', roomList);\n    write('new_channel_name', 'str', '');\n    selectedId = requested;\n    write('status_text', 'str', 'Renamed local channel: ' + name);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'delete_channel') {\n    const requested = clean(readPayload('room_id', selectedId)) || selectedId;\n    const current = findRoom(requested, roomList);\n    if (!current) { fail('room_not_found', requested); return; }\n    roomList = roomList.map((room) => room && room.id === requested ? { ...room, archived: true } : room);\n    write('rooms_json', 'json', roomList);\n    if (selectedId === requested) {\n      const fallback = roomList.find((room) => room && room.archived !== true);\n      selectedId = fallback ? fallback.id : selectedId;\n    }\n    write('status_text', 'str', 'Deleted local projection for ' + current.name);\n    write('connection_status', 'str', 'warning');\n  } else if (action === 'start_video' || action === 'start_voice' || action === 'start_screen') {\n    write('call_state', 'str', 'requires_media_capability');\n    write('status_text', 'str', 'requires_media_capability: real voice/video/screen sharing is not connected yet');\n    write('connection_status', 'str', 'warning');\n  } else if (action === 'share_file') {\n    const uri = clean(readPayload('media_uri', root('pending_file_uri', '')));\n    const fileName = clean(readPayload('file_name', root('pending_file_name', ''))) || 'uploaded-file';\n    if (!uri) { fail('missing_media_uri', 'upload_file_first'); return; }\n    write('file_share_status', 'str', 'sharing via Matrix...');\n    write('status_text', 'str', 'Sharing file via Matrix...');\n    write('connection_status', 'str', 'loading');\n    requestHost('share_file', { room_id: selectedId, media_uri: uri, file_name: fileName });\n  } else if (action === 'save_settings') {\n    const homeserver = clean(readPayload('homeserver', root('settings_homeserver', '')));\n    const userId = clean(readPayload('user_id', root('settings_user_id', '')));\n    const password = String(readPayload('password', root('login_password_draft', '')) || '');\n    const mode = clean(readPayload('settings_mode', 'save'));\n    if (mode === 'login') {\n      write('settings_status', 'str', 'logging in...');\n      write('connection_status', 'str', 'loading');\n      requestHost('login', { homeserver, user_id: userId, password });\n    } else if (mode === 'rotate_password') {\n      write('settings_status', 'str', 'password maintenance requested for ' + (userId || 'current user'));\n      write('password_status', 'str', 'rotation requested; no secret stored');\n      write('status_text', 'str', 'Settings updated');\n      write('connection_status', 'str', 'online');\n    } else {\n      write('settings_status', 'str', 'settings saved for ' + (homeserver || 'default homeserver'));\n      write('password_status', 'str', 'managed outside UI model');\n      write('status_text', 'str', 'Settings updated');\n      write('connection_status', 'str', 'online');\n    }\n  } else { fail('unknown_action', action || 'missing'); return; }\n  syncProjection(roomList, eventList, selectedId);\n  write('last_action', 'str', action);\n} catch (err) { fail('exception', err && err.message ? err.message : String(err)); }",
         "modelName": "matrix_suite_slide_app"
       }
     },
@@ -30147,7 +30147,7 @@
       "c": 0,
       "k": "ui_order",
       "t": "int",
-      "v": 3
+      "v": 4
     },
     {
       "op": "add_label",
@@ -30227,7 +30227,7 @@
       "c": 1,
       "k": "ui_label",
       "t": "str",
-      "v": "Save"
+      "v": "Login"
     },
     {
       "op": "add_label",
@@ -30238,7 +30238,7 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Save"
+        "label": "Login"
       }
     },
     {
@@ -30311,9 +30311,26 @@
               "p": 0,
               "r": 0,
               "c": 0,
+              "k": "password",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1080,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "login_password_draft"
+                }
+              }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
               "k": "settings_mode",
               "t": "str",
-              "v": "save"
+              "v": "login"
             }
           ],
           "value_t": "modeltable",
@@ -30501,7 +30518,7 @@
       "c": 0,
       "k": "ui_order",
       "t": "int",
-      "v": 4
+      "v": 5
     },
     {
       "op": "add_label",
@@ -30572,7 +30589,7 @@
       "c": 0,
       "k": "ui_order",
       "t": "int",
-      "v": 5
+      "v": 6
     },
     {
       "op": "add_label",
@@ -30805,6 +30822,148 @@
           ],
           "value_t": "modeltable",
           "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "session_status",
+      "t": "str",
+      "v": "unauthenticated"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "session_user_id",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "session_display_name",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "login_password_draft",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "matrix_suite_host_action",
+      "t": "json",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_suite_password_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_suite_settings_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 3
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Password"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "password",
+        "autocomplete": "current-password"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1080,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "login_password_draft"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1080,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "login_password_draft"
+          },
+          "commit_policy": "on_blur"
         }
       }
     }
