@@ -32,6 +32,7 @@ export const WORKSPACE_ENTRY_MODEL_IDS = Object.freeze([
   1030,
   1050,
   1051,
+  1080,
 ]);
 
 // Wave C demo submodel.
@@ -86,6 +87,9 @@ export const MATRIX_ROOM_DIRECTORY_MODEL_ID = 1018;
 export const MATRIX_ACTIVE_CONVERSATION_MODEL_ID = 1019;
 export const MATRIX_ACTIVE_ROOM_MEMBERS_MODEL_ID = 1020;
 export const MATRIX_CHAT_UI_STATE_MODEL_ID = 1021;
+
+// 0383 UI Server built-in Matrix Suite slide app.
+export const MATRIX_SUITE_APP_MODEL_ID = 1080;
 
 // Model 100 - Dual-bus E2E test model.
 export const MODEL_100_ID = 100;

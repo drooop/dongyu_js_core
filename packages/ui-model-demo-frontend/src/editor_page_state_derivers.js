@@ -318,7 +318,11 @@ export function deriveSlidingFlowShellState(snapshot, editorStateModelId = EDITO
   const selectedModelId = readSelectedWorkspaceModelId(snapshot, editorStateModelId);
   const selectedApp = readFlowAppMeta(snapshot, selectedModelId);
   const flowCapable = isFlowCapableWorkspaceApp(snapshot, selectedModelId);
-  const sceneContext = normalizeSceneContext(snapshot);
+  const rawSceneContext = normalizeSceneContext(snapshot);
+  const sceneContext = {
+    ...rawSceneContext,
+    current_app: selectedModelId ?? rawSceneContext.current_app,
+  };
   const actionLifecycle = normalizeActionLifecycle(snapshot);
   const matrixDebug = deriveMatrixDebugView(snapshot, editorStateModelId);
   const uiState = readFlowUiState(snapshot, editorStateModelId);

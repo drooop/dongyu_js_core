@@ -26,11 +26,11 @@ function labelsAt(patch, modelId, p = 0, r = 0, c = 0) {
 }
 
 function main() {
-  const expectedIds = [-103, -23, 100, 1007, 1011, 1030, 1050, 1051];
+  const expectedIds = [-103, -23, 100, 1007, 1011, 1030, 1050, 1051, 1080];
   assert.deepEqual(
     [...WORKSPACE_ENTRY_MODEL_IDS],
     expectedIds,
-    'Workspace entry allowlist must exactly match the cleanup request',
+    'Workspace entry allowlist must keep the cleanup request plus the 0383 built-in Matrix Suite app',
   );
 
   const docsCatalog = readJson('packages/worker-base/system-models/docs_catalog_ui.json');
@@ -47,7 +47,7 @@ function main() {
   assert.deepEqual(
     registryLabel.v.map((entry) => entry.model_id),
     expectedIds,
-    'seeded Workspace registry must only list the retained entries',
+    'seeded Workspace registry must only list the retained entries plus the 0383 built-in Matrix Suite app',
   );
 
   const serverSource = fs.readFileSync(path.join(repoRoot, 'packages/ui-model-demo-server/server.mjs'), 'utf8');

@@ -5810,11 +5810,16 @@ function createServerState(options) {
       if (!Number.isInteger(modelId) || modelId === 0) continue;
       if (seen.has(modelId)) continue;
       if (excludedModelIds.has(modelId)) continue;
-      if (!allowedWorkspaceEntryIds.has(modelId)) continue;
       const rootLabels = modelSnap && modelSnap.cells && modelSnap.cells['0,0,0'] && modelSnap.cells['0,0,0'].labels
         ? modelSnap.cells['0,0,0'].labels
         : {};
       if (rootLabels.ws_deleted && rootLabels.ws_deleted.v === true) continue;
+      const isAllowedBuiltinEntry = allowedWorkspaceEntryIds.has(modelId);
+      const isInstalledSlideApp = Boolean(
+        rootLabels.deletable && rootLabels.deletable.v === true
+          && rootLabels.slide_capable && rootLabels.slide_capable.v === true,
+      );
+      if (!isAllowedBuiltinEntry && !isInstalledSlideApp) continue;
       const parentInfo = modelId > 0 ? runtime.parentChildMap.get(modelId) : null;
       // For positive models, only surface true top-level apps:
       // explicit app metadata, or a direct Model 0 mount.
