@@ -1,0 +1,2270 @@
+{
+  "version": "mt.v0",
+  "op_id": "remote_worker_r1_slide_app_bundle_provider_v1",
+  "description": "RemoteWorker R1 provider-owned slide app bundle service for Workspace Manager installs",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 3100,
+      "name": "slide_app_bundle_provider_r1",
+      "type": "service"
+    },
+    {
+      "op": "add_label",
+      "model_id": 3100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "Service.SlideAppBundleProvider"
+    },
+    {
+      "op": "add_label",
+      "model_id": 3100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "provider_worker_id",
+      "t": "str",
+      "v": "R1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 3100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "provider_model_id",
+      "t": "int",
+      "v": 3100
+    },
+    {
+      "op": "add_label",
+      "model_id": 3100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "provider_status",
+      "t": "str",
+      "v": "ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": 3100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "bundle_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "bundle_request_route",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "bundle_request",
+          "to": [
+            "provide_slide_app_bundle:in"
+          ]
+        },
+        {
+          "from": "provide_slide_app_bundle:out",
+          "to": [
+            "result"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 3100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "provide_slide_app_bundle",
+      "t": "func.js",
+      "v": {
+        "code": "const inputRecords = Array.isArray(label && label.v) ? label.v : [];\nconst hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);\nconst mt = (k, t, v) => ({ id: 0, p: 0, r: 0, c: 0, k, t, v });\nconst isRecord = (record) => record && typeof record === 'object' && !Array.isArray(record) && Object.keys(record).sort().join(',') === 'c,id,k,p,r,t,v' && Number.isInteger(record.id) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && record.k.length > 0 && typeof record.t === 'string' && record.t.length > 0 && hasOwn(record, 'v');\nconst recordOf = (records, key) => Array.isArray(records) ? records.find((record) => isRecord(record) && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null : null;\nconst readString = (records, key, fallback = '') => { const record = recordOf(records, key); return record && record.t === 'str' && typeof record.v === 'string' && record.v.trim() === record.v ? record.v : fallback; };\nconst readInt = (records, key) => { const record = recordOf(records, key); return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null; };\nconst readJson = (records, key, fallback = null) => { const record = recordOf(records, key); return record && record.t === 'json' ? record.v : fallback; };\nconst safeSegment = (value) => typeof value === 'string' && value.trim() === value && value.length > 0 && !value.includes('/') && !value.includes('+') && !value.includes('#');\nconst endpointFrom = (prefix) => {\n  const endpoint = { worker_id: readString(inputRecords, prefix + '_worker_id'), model_id: readInt(inputRecords, prefix + '_model_id'), pin: readString(inputRecords, prefix + '_pin') };\n  return safeSegment(endpoint.worker_id) && Number.isInteger(endpoint.model_id) && endpoint.model_id > 0 && safeSegment(endpoint.pin) ? endpoint : null;\n};\nconst setStatus = (value) => V1N.table.addLabel(0, 0, 0, 'provider_status', 'str', value);\nconst validRouteTopic = (value) => {\n  if (typeof value !== 'string' || value.includes('+') || value.includes('#')) return false;\n  const parts = value.split('/');\n  return value.trim() === value && parts.length === 9 && parts[0] === 'UIPUT' && parts.every((part) => safeSegment(part)) && /^[1-9][0-9]*$/.test(parts[7]);\n};\nconst validRouteKind = (value) => value === 'control' || value === 'management';\nconst endpoint = endpointFrom('endpoint');\nconst origin = endpointFrom('origin');\nconst replyTarget = endpointFrom('reply_target');\nconst messageRole = readString(inputRecords, 'message_role');\nconst opId = readString(inputRecords, 'op_id', readString(inputRecords, '__mt_request_id', ''));\nconst routeTopic = readString(inputRecords, 'topic');\nconst routeKind = readString(inputRecords, 'route_kind', 'control') || 'control';\nconst requestPayload = readJson(inputRecords, 'payload', []);\nif (readString(inputRecords, '__mt_payload_kind') !== 'pin_payload.v1' || messageRole !== 'request' || !opId || !endpoint || !origin || !replyTarget || endpoint.worker_id !== 'R1' || endpoint.model_id !== 3100 || endpoint.pin !== 'bundle_request' || !validRouteTopic(routeTopic) || !validRouteKind(routeKind) || !Array.isArray(requestPayload) || !requestPayload.every(isRecord)) {\n  setStatus('bundle_request_invalid');\n  return null;\n}\nif (readString(requestPayload, '__mt_payload_kind') !== 'slide_app_bundle_request.v1') {\n  setStatus('bundle_request_invalid_kind');\n  return null;\n}\nconst assetId = readString(requestPayload, 'asset_id');\nconst bundleKeyByAsset = { 'r1-color-generator': 'bundle_payload_r1_color_generator', 'r1-minimal-submit': 'bundle_payload_r1_minimal_submit_dual_bus' };\nconst bundleKey = bundleKeyByAsset[assetId] || '';\nconst bundleLabel = bundleKey ? V1N.readLabel(0, 0, 0, bundleKey) : null;\nconst bundlePayload = bundleLabel && bundleLabel.t === 'json' && Array.isArray(bundleLabel.v) ? bundleLabel.v : null;\nif (!bundlePayload) {\n  setStatus('bundle_asset_not_found');\n  return null;\n}\nconst responsePayload = [\n  mt('__mt_payload_kind', 'str', 'slide_app_bundle_response.v1'),\n  mt('__mt_request_id', 'str', opId),\n  mt('asset_id', 'str', assetId),\n  mt('bundle_payload', 'json', bundlePayload),\n  mt('bundle_sha256', 'str', '')\n];\nsetStatus('bundle_response_ready');\nV1N.table.addLabel(0, 0, 0, 'last_bundle_asset_id', 'str', assetId);\nreturn [\n  mt('__mt_payload_kind', 'str', 'pin_payload.v1'),\n  mt('__mt_request_id', 'str', opId),\n  mt('op_id', 'str', opId),\n  mt('message_role', 'str', 'response'),\n  mt('topic', 'str', routeTopic),\n  mt('route_kind', 'str', routeKind),\n  mt('bus', 'str', routeKind),\n  mt('endpoint_worker_id', 'str', endpoint.worker_id),\n  mt('endpoint_model_id', 'int', endpoint.model_id),\n  mt('endpoint_pin', 'str', endpoint.pin),\n  mt('origin_worker_id', 'str', 'R1'),\n  mt('origin_model_id', 'int', 3100),\n  mt('origin_pin', 'str', 'bundle_request'),\n  mt('reply_target_worker_id', 'str', replyTarget.worker_id),\n  mt('reply_target_model_id', 'int', replyTarget.model_id),\n  mt('reply_target_pin', 'str', replyTarget.pin),\n  mt('payload', 'json', responsePayload),\n  mt('timestamp', 'int', Date.now())\n];",
+        "modelName": "slide_app_bundle_provider_r1"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 3100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "bundle_payload_r1_color_generator",
+      "t": "json",
+      "v": [
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "app_name",
+          "t": "str",
+          "v": "E2E 颜色生成器"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "bg_color",
+          "t": "str",
+          "v": "#FFFFFF"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "bucket_c_cell_routes",
+          "t": "pin.connect.cell",
+          "v": [
+            {
+              "from": [
+                1,
+                0,
+                0,
+                "write_label_req"
+              ],
+              "to": [
+                [
+                  0,
+                  0,
+                  0,
+                  "mt_write_req"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dual_bus_model",
+          "t": "json",
+          "v": {
+            "mode": "imported_host_egress",
+            "egress_pins": [
+              "submit"
+            ]
+          }
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "from_user",
+          "t": "str",
+          "v": "@r1:localhost"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "host_ingress_v1",
+          "t": "json",
+          "v": {
+            "version": "v1",
+            "boundaries": [
+              {
+                "semantic": "submit",
+                "pin_name": "submit_request",
+                "value_t": "modeltable",
+                "locator_kind": "root_relative_cell",
+                "locator_value": {
+                  "p": 0,
+                  "r": 0,
+                  "c": 0
+                },
+                "primary": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "input_value",
+          "t": "str",
+          "v": ""
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "model_type",
+          "t": "model.table",
+          "v": "UI.ColorForm"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "prepare_model100_submit_from_pin",
+          "t": "func.js",
+          "v": {
+            "code": "const eventPayload = Array.isArray(label && label.v) ? label.v : [];\nif (eventPayload.length === 0) return;\nconst readPayload = (key, fallback = null) => {\n  const record = eventPayload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key);\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\nconst readValue = (tp, tr, tc, key, fallback = null) => {\n  const next = V1N.readLabel(tp, tr, tc, key);\n  return next && Object.prototype.hasOwnProperty.call(next, 'v') ? next.v : fallback;\n};\nconst writeRoot = (key, type, value) => V1N.table.addLabel(0, 0, 0, key, type, value);\nconst writeMailbox = (key, type, value) => V1N.table.addLabel(0, 0, 1, key, type, value);\nconst inflight = readValue(0, 0, 0, 'submit_inflight', false) === true;\nconst startedAt = Number(readValue(0, 0, 0, 'submit_inflight_started_at', 0) || 0);\nconst TIMEOUT_MS = 30000;\nconst now = Date.now();\nif (inflight === true) {\n  const stale = !Number.isFinite(startedAt) || (now - startedAt > TIMEOUT_MS);\n  if (stale) {\n    writeRoot('submit_inflight', 'bool', false);\n    writeRoot('submit_inflight_started_at', 'int', 0);\n    writeRoot('status', 'str', 'ready');\n  } else {\n    writeMailbox('bus_event_error', 'json', { code: 'busy', detail: 'model100_submit_inflight' });\n    writeMailbox('bus_event_last_op_id', 'str', '');\n    return;\n  }\n}\nwriteRoot('submit_inflight', 'bool', true);\nwriteRoot('submit_inflight_started_at', 'int', now);\nwriteRoot('status', 'str', 'loading');\nwriteMailbox('bus_event_error', 'json', null);\nconst inputValue = String(readPayload('input_value', ''));\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.single', v: 'Data.RemoteSubmit' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: inputValue },\n  { id: 0, p: 0, r: 0, c: 0, k: 'route_mode', t: 'str', v: 'remote' }\n];\nwriteRoot('submit', 'pin.out', payload);",
+            "modelName": "test_model_100_ui"
+          }
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "remote_bus_endpoint_v1",
+          "t": "json",
+          "v": {
+            "transport": "mqtt",
+            "to": {
+              "worker_id": "R1",
+              "model_id": 100
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "slide_capable",
+          "t": "bool",
+          "v": true
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "slide_surface_type",
+          "t": "str",
+          "v": "workspace.page"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "source_worker",
+          "t": "str",
+          "v": "RemoteWorker R1"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "status",
+          "t": "str",
+          "v": "ready"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "submit",
+          "t": "pin.out",
+          "v": null
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "submit_inflight",
+          "t": "bool",
+          "v": false
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "submit_inflight_started_at",
+          "t": "int",
+          "v": 0
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "submit_request",
+          "t": "pin.in",
+          "v": null
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "submit_request_wiring",
+          "t": "pin.connect.label",
+          "v": [
+            {
+              "from": "submit_request",
+              "to": [
+                "prepare_model100_submit_from_pin:in"
+              ]
+            }
+          ]
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "system_ready",
+          "t": "bool",
+          "v": false
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "to_user",
+          "t": "str",
+          "v": "@mbr:localhost"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "ui_authoring_version",
+          "t": "str",
+          "v": "cellwise.ui.v1"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "ui_root_node_id",
+          "t": "str",
+          "v": "model100_cellwise_root"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "ui_type",
+          "t": "str",
+          "v": "color_form"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 1,
+          "c": 1,
+          "k": "patch",
+          "t": "pin.in",
+          "v": null
+        },
+        {
+          "id": 0,
+          "p": 1,
+          "r": 0,
+          "c": 0,
+          "k": "click",
+          "t": "pin.in",
+          "v": null
+        },
+        {
+          "id": 0,
+          "p": 1,
+          "r": 0,
+          "c": 0,
+          "k": "click_route",
+          "t": "pin.connect.label",
+          "v": [
+            {
+              "from": "click",
+              "to": [
+                "handle_submit_click:in"
+              ]
+            }
+          ]
+        },
+        {
+          "id": 0,
+          "p": 1,
+          "r": 0,
+          "c": 0,
+          "k": "handle_submit_click",
+          "t": "func.js",
+          "v": {
+            "code": "/* rubric: BucketC via write_label_req + bucket_c_cell_routes */\nconst payload = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = (key, fallback = null) => {\n  const record = payload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key);\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\nconst eventPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: String(readPayload('input_value', '')) }\n];\nV1N.writeLabel(0, 0, 0, { k: 'submit_request', t: 'pin.in', v: eventPayload });",
+            "modelName": "model100_submit_button"
+          }
+        },
+        {
+          "id": 0,
+          "p": 1,
+          "r": 0,
+          "c": 0,
+          "k": "input_value",
+          "t": "str",
+          "v": "Input"
+        },
+        {
+          "id": 0,
+          "p": 1,
+          "r": 0,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "write": {
+              "bus_event_v2": true,
+              "bus_in_key": "bus_event_submit_0_0_0_0",
+              "value_ref": [
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "__mt_payload_kind",
+                  "t": "str",
+                  "v": "ui_event.v1"
+                },
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "input_value",
+                  "t": "str",
+                  "v": {
+                    "$label": {
+                      "model_id": -2,
+                      "p": 0,
+                      "r": 0,
+                      "c": 0,
+                      "k": "model100_input_draft"
+                    }
+                  }
+                }
+              ],
+              "value_t": "modeltable",
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 1,
+          "r": 0,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Button"
+        },
+        {
+          "id": 0,
+          "p": 1,
+          "r": 0,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "Generate Color"
+        },
+        {
+          "id": 0,
+          "p": 1,
+          "r": 0,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "submit_button"
+        },
+        {
+          "id": 0,
+          "p": 1,
+          "r": 0,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 1,
+          "r": 0,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_input_row"
+        },
+        {
+          "id": 0,
+          "p": 1,
+          "r": 0,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "disabled": {
+              "$label": {
+                "model_id": 0,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "submit_inflight"
+              }
+            },
+            "loading": {
+              "$label": {
+                "model_id": 0,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "submit_inflight"
+              }
+            },
+            "singleFlight": {
+              "key": "model100_submit",
+              "releaseRef": {
+                "model_id": -1,
+                "p": 0,
+                "r": 0,
+                "c": 1,
+                "k": "bus_event_last_op_id"
+              }
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 1,
+          "r": 0,
+          "c": 0,
+          "k": "ui_size",
+          "t": "str",
+          "v": "large"
+        },
+        {
+          "id": 0,
+          "p": 1,
+          "r": 0,
+          "c": 0,
+          "k": "ui_variant",
+          "t": "str",
+          "v": "primary"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 12
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "column"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_cellwise_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_style_width",
+          "t": "str",
+          "v": "100%"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Text"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_title"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_cellwise_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_style_font_size",
+          "t": "str",
+          "v": "20px"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_style_font_weight",
+          "t": "str",
+          "v": "700"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_text",
+          "t": "str",
+          "v": "E2E 颜色生成器"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_variant",
+          "t": "str",
+          "v": "title"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_route_card"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_cellwise_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "column"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 8
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "style": {
+              "background": "linear-gradient(135deg, #eff6ff 0%, #f8fafc 55%, #ecfeff 100%)",
+              "border": "1px solid #dbeafe",
+              "borderRadius": "18px",
+              "boxShadow": "0 12px 28px rgba(15, 23, 42, 0.08)",
+              "padding": "14px 18px"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 1,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Text"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 1,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_route_title"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 1,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_route_card"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 1,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 1,
+          "k": "ui_text",
+          "t": "str",
+          "v": "当前实际消息路径"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 1,
+          "k": "ui_style_font_weight",
+          "t": "str",
+          "v": "700"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 1,
+          "k": "ui_style_color",
+          "t": "str",
+          "v": "#0f172a"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 2,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Markdown"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 2,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_route_steps"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 2,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_route_card"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 2,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 2,
+          "k": "ui_markdown",
+          "t": "str",
+          "v": "| Stage | Path |\n|---|---|\n| 1 | UI event -> UI Server host egress |\n| 2 | Model 0 `mt_bus_send` / `pin.bus.cb.out` -> MBR |\n| 3 | MQTT `UIPUT/.../R1/100/submit` -> RemoteWorker R1 / Model 100 / `submit` |\n| 4 | MQTT response on same endpoint topic -> MBR |\n| 5 | UI Server owner materialization by `reply_target_*` -> Local UI refresh |"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 16
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_color_row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 30
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_cellwise_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_style_align_items",
+          "t": "str",
+          "v": "center"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 1,
+          "k": "ui_bind_read_json",
+          "t": "json",
+          "v": {
+            "model_id": 0,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "bg_color"
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 1,
+          "k": "ui_component",
+          "t": "str",
+          "v": "ColorBox"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 1,
+          "k": "ui_height",
+          "t": "int",
+          "v": 80
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 1,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_color_box"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 1,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 1,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_color_row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 1,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "borderRadius": "12px"
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 1,
+          "k": "ui_width",
+          "t": "str",
+          "v": "120px"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 2,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 2,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 4
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 2,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "column"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 2,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_color_value_column"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 2,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 2,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_color_row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 3,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Text"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 3,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_color_label"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 3,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 3,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_color_value_column"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 3,
+          "k": "ui_text",
+          "t": "str",
+          "v": "颜色值"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 3,
+          "k": "ui_variant",
+          "t": "str",
+          "v": "info"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 4,
+          "k": "ui_bind_read_json",
+          "t": "json",
+          "v": {
+            "model_id": 0,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "bg_color"
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 4,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Text"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 4,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_color_value"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 4,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 4,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_color_value_column"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 4,
+          "k": "ui_style_font_family",
+          "t": "str",
+          "v": "monospace"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 4,
+          "k": "ui_style_font_size",
+          "t": "str",
+          "v": "24px"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 4,
+          "k": "ui_style_font_weight",
+          "t": "str",
+          "v": "bold"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 12
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_input_row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 40
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_cellwise_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_style_align_items",
+          "t": "str",
+          "v": "center"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 1,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "model_id": -2,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "model100_input_draft"
+            },
+            "write": {
+              "action": "label_update",
+              "target_ref": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "model100_input_draft"
+              },
+              "commit_policy": "on_submit"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 1,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Input"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 1,
+          "k": "ui_label",
+          "t": "str",
+          "v": "输入文本"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 1,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_input"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 1,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 1,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_input_row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 1,
+          "k": "ui_placeholder",
+          "t": "str",
+          "v": "Enter any text (optional)"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 1,
+          "k": "ui_style_flex",
+          "t": "str",
+          "v": "1"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 16
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_status_row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 50
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_cellwise_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_wrap",
+          "t": "bool",
+          "v": true
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 1,
+          "k": "ui_bind_read_json",
+          "t": "json",
+          "v": {
+            "model_id": 0,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "system_ready"
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 1,
+          "k": "ui_component",
+          "t": "str",
+          "v": "StatusBadge"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 1,
+          "k": "ui_label",
+          "t": "str",
+          "v": "MBR Ready"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 1,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_mbr_ready"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 1,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 1,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_status_row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 2,
+          "k": "ui_bind_read_json",
+          "t": "json",
+          "v": {
+            "model_id": 0,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "status"
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 2,
+          "k": "ui_component",
+          "t": "str",
+          "v": "StatusBadge"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 2,
+          "k": "ui_label",
+          "t": "str",
+          "v": "颜色状态"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 2,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "model100_status"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 2,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 2,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "model100_status_row"
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 3100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "bundle_payload_r1_minimal_submit_dual_bus",
+      "t": "json",
+      "v": [
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "app_name",
+          "t": "str",
+          "v": "最小 Submit 双总线示例"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "display_text",
+          "t": "str",
+          "v": "Waiting for submit"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dual_bus_model",
+          "t": "json",
+          "v": {
+            "mode": "imported_host_egress",
+            "egress_pins": [
+              "submit1"
+            ]
+          }
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "from_user",
+          "t": "str",
+          "v": "@manual:localhost"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "handle_submit",
+          "t": "func.js",
+          "v": {
+            "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = function(key, fallback) { const rec = records.find(function(item) { return item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key; }); return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback; };\nconst text = String(readPayload('text', '')).trim();\nconst source = String(readPayload('source', 'ui_button'));\nconst payload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'minimal_submit.request.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'text', t: 'str', v: text },\n  { id: 0, p: 0, r: 0, c: 0, k: 'source', t: 'str', v: source }\n];\nV1N.addLabel('input_text', 'str', text);\nV1N.addLabel('last_submit_payload', 'json', payload);\nV1N.addLabel('submit_inflight', 'bool', !!text);\nV1N.addLabel('remote_status', 'str', text ? 'sending' : 'empty_input');\nif (text) V1N.addLabel('submit1', 'pin.out', payload);\nreturn;"
+          }
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "host_ingress_v1",
+          "t": "json",
+          "v": {
+            "version": "v1",
+            "boundaries": [
+              {
+                "semantic": "submit",
+                "pin_name": "submit_request",
+                "value_t": "modeltable",
+                "locator_kind": "root_relative_cell",
+                "locator_value": {
+                  "p": 0,
+                  "r": 0,
+                  "c": 0
+                },
+                "primary": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "input_text",
+          "t": "str",
+          "v": ""
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "last_submit_payload",
+          "t": "json",
+          "v": null
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "model_type",
+          "t": "model.table",
+          "v": "UI.MinimalSubmitDualBusZip"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "remote_bus_endpoint_v1",
+          "t": "json",
+          "v": {
+            "transport": "mqtt",
+            "to": {
+              "worker_id": "R1",
+              "model_id": 3000
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "remote_status",
+          "t": "str",
+          "v": "ready"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "root_routes",
+          "t": "pin.connect.cell",
+          "v": [
+            {
+              "from": [
+                2,
+                3,
+                0,
+                "click_chain"
+              ],
+              "to": [
+                [
+                  0,
+                  0,
+                  0,
+                  "submit_request"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "slide_capable",
+          "t": "bool",
+          "v": true
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "slide_surface_type",
+          "t": "str",
+          "v": "workspace.page"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "source_worker",
+          "t": "str",
+          "v": "manual-zip-import"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "submit_inflight",
+          "t": "bool",
+          "v": false
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "submit_request",
+          "t": "pin.in",
+          "v": null
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "submit_request_wiring",
+          "t": "pin.connect.label",
+          "v": [
+            {
+              "from": "submit_request",
+              "to": [
+                "handle_submit:in"
+              ]
+            }
+          ]
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "submit1",
+          "t": "pin.out",
+          "v": null
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "to_user",
+          "t": "str",
+          "v": "@mbr:localhost"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "ui_authoring_version",
+          "t": "str",
+          "v": "cellwise.ui.v1"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "ui_root_node_id",
+          "t": "str",
+          "v": "minimal_submit_zip_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 14
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "column"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "minimal_submit_zip_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Card"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "minimal_submit_zip_card"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "minimal_submit_zip_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_title",
+          "t": "str",
+          "v": "最小 Submit 双总线示例"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "model_id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "input_text"
+            },
+            "write": {
+              "action": "ui_owner_label_update",
+              "target_ref": {
+                "model_id": 0,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "input_text"
+              },
+              "commit_policy": "on_blur"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Input"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "minimal_submit_zip_input"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "minimal_submit_zip_card"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_placeholder",
+          "t": "str",
+          "v": "输入要发送到 remote-worker R1 的内容"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "click_chain",
+          "t": "pin.out",
+          "v": null
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "click_event",
+          "t": "pin.in",
+          "v": null
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "click_event_wiring",
+          "t": "pin.connect.label",
+          "v": [
+            {
+              "from": "click_event",
+              "to": [
+                "click_chain"
+              ]
+            }
+          ]
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "write": {
+              "pin": "click_event",
+              "value_ref": [
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "__mt_payload_kind",
+                  "t": "str",
+                  "v": "ui_event.v1"
+                },
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "text",
+                  "t": "str",
+                  "v": {
+                    "$label": {
+                      "model_id": 0,
+                      "p": 0,
+                      "r": 0,
+                      "c": 0,
+                      "k": "input_text"
+                    }
+                  }
+                },
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "source",
+                  "t": "str",
+                  "v": "ui_button"
+                }
+              ],
+              "value_t": "modeltable",
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Button"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "Submit"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "minimal_submit_zip_button"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 30
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "minimal_submit_zip_card"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_variant",
+          "t": "str",
+          "v": "primary"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "model_id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "display_text"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Text"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "minimal_submit_zip_display"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 40
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "minimal_submit_zip_card"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_variant",
+          "t": "str",
+          "v": "success"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "StatusBadge"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "REMOTE"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "minimal_submit_zip_status"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 50
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "minimal_submit_zip_card"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_text_ref_c",
+          "t": "int",
+          "v": 0
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_text_ref_k",
+          "t": "str",
+          "v": "remote_status"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_text_ref_model_id",
+          "t": "int",
+          "v": 0
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_text_ref_p",
+          "t": "int",
+          "v": 0
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_text_ref_r",
+          "t": "int",
+          "v": 0
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 31,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": 3100
+    }
+  ]
+}

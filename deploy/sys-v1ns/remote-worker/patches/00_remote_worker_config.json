@@ -75,7 +75,8 @@
         "UIPUT/ws/dam/pic/de/sw/R1/100/submit",
         "UIPUT/ws/dam/pic/de/sw/R1/1010/submit",
         "UIPUT/ws/dam/pic/de/sw/R1/1019/submit",
-        "UIPUT/ws/dam/pic/de/sw/R1/3000/submit1"
+        "UIPUT/ws/dam/pic/de/sw/R1/3000/submit1",
+        "UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request"
       ]
     },
     {
@@ -160,6 +161,22 @@
             1,
             0,
             30,
+            "result"
+          ],
+          "to": [
+            [
+              0,
+              0,
+              0,
+              "remote_result_bus"
+            ]
+          ]
+        },
+        {
+          "from": [
+            1,
+            0,
+            31,
             "result"
           ],
           "to": [

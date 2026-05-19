@@ -45,13 +45,18 @@ function pinPayloadRecords({
   replyTargetModelId = 2000,
   replyTargetPin = 'result',
   messageRole = 'request',
+  topic = null,
   payload = [mt('text', 'str', 'hello')],
 } = {}) {
+  const routeTopic = typeof topic === 'string' && topic.length > 0
+    ? topic
+    : `UIPUT/ws/dam/pic/de/sw/${endpointWorkerId}/${endpointModelId}/${endpointPin}`;
   return [
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
     mt('message_role', 'str', messageRole),
+    mt('topic', 'str', routeTopic),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),
@@ -978,7 +983,7 @@ async function test_split_bus_out_accepts_endpoint_records_and_rejects_route_rec
     v: withRoute,
   });
 
-  assert.equal(valid.applied, true, 'split bus out must accept endpoint_* records without route.to');
+  assert.equal(valid.applied, true, 'split bus out must accept endpoint_* records with explicit topic and without route.to');
   assert.equal(legacy.applied, false, 'split bus out must reject legacy route records');
   assert.equal(model0.getCell(0, 0, 0).labels.has('legacy_route_out'), false, 'legacy route payload must not be stored');
   return { key: 'split_bus_out_accepts_endpoint_records_and_rejects_route_record', status: 'PASS' };
@@ -1054,7 +1059,7 @@ async function test_worker_engine_publishes_response_to_same_remote_endpoint_top
   return { key: 'worker_engine_publishes_response_to_same_remote_endpoint_topic', status: 'PASS' };
 }
 
-async function test_worker_engine_rejects_short_base_outbound_topic() {
+async function test_worker_engine_rejects_short_payload_topic() {
   const rt = new ModelTableRuntime();
   await rt.setRuntimeMode('edit');
   markDem(rt);
@@ -1070,19 +1075,25 @@ async function test_worker_engine_rejects_short_base_outbound_topic() {
   });
 
   rt.addLabel(model0, 0, 0, 0, {
-    k: 'send_to_remote_short_base',
+    k: 'send_to_remote_short_topic',
     t: 'pin.bus.cb.out',
-    v: pinPayloadRecords({ opId: 'req_0375_short_base_publish', endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }),
+    v: pinPayloadRecords({
+      opId: 'req_0375_short_topic_publish',
+      endpointWorkerId: 'R1',
+      endpointModelId: 3000,
+      endpointPin: 'submit',
+      topic: 'UIPUT',
+    }),
   });
   await rt.setRuntimeMode('running');
   engine.tick();
 
-  assert.equal(published.length, 0, 'WorkerEngine must not publish short-base outbound topics');
-  assert.equal(model0.getCell(0, 0, 0).labels.get('split_bus_out_error')?.v?.code, 'missing_split_bus_mqtt_topic');
-  return { key: 'worker_engine_rejects_short_base_outbound_topic', status: 'PASS' };
+  assert.equal(published.length, 0, 'WorkerEngine must not publish short payload topics');
+  assert.equal(model0.getCell(0, 0, 0).labels.get('split_bus_out_error')?.v?.code, 'invalid_split_bus_payload');
+  return { key: 'worker_engine_rejects_short_payload_topic', status: 'PASS' };
 }
 
-async function test_worker_engine_rejects_padded_base_outbound_topic() {
+async function test_worker_engine_rejects_padded_payload_topic() {
   const rt = new ModelTableRuntime();
   await rt.setRuntimeMode('edit');
   markDem(rt);
@@ -1098,16 +1109,22 @@ async function test_worker_engine_rejects_padded_base_outbound_topic() {
   });
 
   rt.addLabel(model0, 0, 0, 0, {
-    k: 'send_to_remote_padded_base',
+    k: 'send_to_remote_padded_topic',
     t: 'pin.bus.cb.out',
-    v: pinPayloadRecords({ opId: 'req_0375_padded_base_publish', endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }),
+    v: pinPayloadRecords({
+      opId: 'req_0375_padded_topic_publish',
+      endpointWorkerId: 'R1',
+      endpointModelId: 3000,
+      endpointPin: 'submit',
+      topic: ' UIPUT/ws/dam/pic/de/sw/R1/3000/submit ',
+    }),
   });
   await rt.setRuntimeMode('running');
   engine.tick();
 
-  assert.equal(published.length, 0, 'WorkerEngine must not trim padded mqtt_topic_base for outbound topics');
-  assert.equal(model0.getCell(0, 0, 0).labels.get('split_bus_out_error')?.v?.code, 'missing_split_bus_mqtt_topic');
-  return { key: 'worker_engine_rejects_padded_base_outbound_topic', status: 'PASS' };
+  assert.equal(published.length, 0, 'WorkerEngine must not trim padded payload topics');
+  assert.equal(model0.getCell(0, 0, 0).labels.get('split_bus_out_error')?.v?.code, 'invalid_split_bus_payload');
+  return { key: 'worker_engine_rejects_padded_payload_topic', status: 'PASS' };
 }
 
 async function test_generic_worker_bootstrap_subscribes_only_unified_endpoint_topics() {
@@ -2454,8 +2471,8 @@ const tests = [
   test_split_bus_out_accepts_endpoint_records_and_rejects_route_record,
   test_worker_engine_publishes_control_bus_to_unified_endpoint_topic,
   test_worker_engine_publishes_response_to_same_remote_endpoint_topic,
-  test_worker_engine_rejects_short_base_outbound_topic,
-  test_worker_engine_rejects_padded_base_outbound_topic,
+  test_worker_engine_rejects_short_payload_topic,
+  test_worker_engine_rejects_padded_payload_topic,
   test_generic_worker_bootstrap_subscribes_only_unified_endpoint_topics,
   test_generic_worker_bootstrap_validates_topic_payload_endpoint_match,
   test_generic_worker_matrix_ingress_validates_strict_pin_payload_packet,

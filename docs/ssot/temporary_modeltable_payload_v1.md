@@ -256,6 +256,33 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
 
 对 imported slide app，远端 worker / model 来自 app root 的 `remote_bus_endpoint_v1`；远端 pin 来自当前被触发的公开 pin。UI Server 本地实例、安装后的本地模型 id、回写目标和请求关联信息必须作为 payload record array 内的 metadata records 传递。
 
+### 2.5a Provider-Owned Slide App Bundle Payload（0384 合同）
+
+provider-owned 安装链路同样只传 Temporary ModelTable records。format is ModelTable-like, persistence is explicit materialization：传输过程中的 request / response 不会自动落表；只有 UI Server installer 在通过校验后才把 provider 返回的 bundle records materialize 成正式模型表。
+
+bundle request 是 `pin_payload.v1 message_role=request` 的 nested `payload`：
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "slide_app_bundle_request.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "asset_id", "t": "str", "v": "r1-color-generator" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "requested_version", "t": "str", "v": "current" }
+]
+```
+
+bundle response 是 `pin_payload.v1 message_role=response` 的 nested `payload`：
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "slide_app_bundle_response.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "asset_id", "t": "str", "v": "r1-color-generator" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bundle_payload", "t": "json", "v": [] },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bundle_sha256", "t": "str", "v": "" }
+]
+```
+
+`bundle_payload.v` 必须是可被 slide-app import validator 接受的 ModelTable record array。UI Server 必须把 pending install state 与 response envelope 一起校验：`op_id` 或 request correlation、`asset_id`、provider endpoint、computed `topic`、`route_kind`、`reply_target` 都必须匹配。任何 stale / mismatched response 都不得 materialize。
+
 合法 `pin_payload.v1` 内部业务值示例：
 
 ```json

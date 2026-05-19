@@ -398,7 +398,29 @@ current v1 已经落地 `submit` 语义和 `root_relative_cell` locator。后续
 
 ## 9. Egress 对称扩展（0322 实装）
 
-0320 ingress 冻结 + 0321 ingress 实装之后，0322 把同样的"声明 + 宿主补 adapter"模式扩展到出站。下列内容是 live code 事实。
+0320 ingress 冻结 + 0321 ingress 实装之后，0322 把同样的"声明 + 宿主补 adapter"模式扩展到出站。0384 起，Workspace Manager provider-owned 安装也已进入 current contract：安装按钮只发出 bundle request，真实 bundle 必须由 provider worker 回包后再 materialize。
+
+### 9.0 Provider-Owned Bundle Install（0384 current contract）
+
+本小节是 0384 已落地的 provider-owned 安装 current truth。Workspace Manager 的安装按钮不得再从 UI Server 本地复制 source model；必须按资产索引发出 provider bundle request，等待 provider response 通过校验后再创建本地安装实例。
+
+滑动 APP 的安装来源分两类：
+
+- 直接 ZIP 导入：用户上传的 ZIP 内含 `app_payload.json`，UI Server 校验后显式 materialize。
+- provider-owned 安装：Workspace Manager 只提供可安装资产索引；实际 bundle payload 由 provider worker 返回。
+
+provider-owned 安装的硬边界如下：
+
+- Workspace Manager DEM ModelTable 是资产索引真源。UI Server 可以投影或缓存索引行，但不能把投影当成 bundle truth。
+- installable asset row 不得把 `source_model_id` 当作安装来源。目录行必须提供 `asset_id`、`provider_worker_id`、`provider_model_id`、`provider_bundle_pin`、`provider_route_kind`。
+- UI Server 从 Model 0 `mqtt_topic_base` 和 provider endpoint 计算请求 `topic`：`UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<sw_id>/<provider_worker_id>/<provider_model_id>/<provider_bundle_pin>`。完整 topic 可以作为 derived projection/status label 展示，但不能成为独立目录真源。
+- 点击安装时，UI Server 经 Model 0 bus out 发送 `pin_payload.v1`，其中 nested `payload` 是 `slide_app_bundle_request.v1` Temporary ModelTable records。
+- UI Server 必须保存 pending install state：`op_id`、`asset_id`、provider endpoint、computed topic、`route_kind`、`reply_target`。
+- provider 返回 `pin_payload.v1 message_role=response`，其中 nested `payload` 是 `slide_app_bundle_response.v1` Temporary ModelTable records，至少包含 `asset_id`、`bundle_payload`，可选包含 `bundle_sha256`。
+- UI Server materialize 之前必须验证 response 与 pending install state 匹配：`op_id` 或 request correlation、`asset_id`、provider endpoint、computed `topic`、`route_kind`、`reply_target` 都必须一致。
+- malformed、stale、wrong asset、wrong endpoint、wrong topic、wrong route_kind、wrong reply target 的 response 必须写 visible failure，不得创建新模型。
+- 返回 bundle 仍必须通过 slide-app import validator；禁止 provider bundle 携带 `pin.bus.*`、`pin.connect.model`、`ui.egress.binding.v1`、`reply_target_*`、`route.reply_to`、legacy object payload 或 secrets。
+- 返回 bundle 内的 `remote_bus_endpoint_v1` 只描述安装后 APP 的正式业务 egress，不描述 bundle download request 自身。
 
 ### 9.1 imported app 侧的 egress 声明
 

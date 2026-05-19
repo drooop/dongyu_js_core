@@ -49,6 +49,12 @@ function labelValue(runtime, modelId, p, r, c, key) {
   return runtime.getCell(model, p, r, c).labels.get(key)?.v;
 }
 
+function buildProviderBundleTopic(runtime, row) {
+  const base = labelValue(runtime, 0, 0, 0, 0, 'mqtt_topic_base') || 'UIPUT/ws/dam/pic/de/sw';
+  if (!row.provider_worker_id || !Number.isInteger(row.provider_model_id) || !row.provider_bundle_pin) return '';
+  return `${base}/${row.provider_worker_id}/${row.provider_model_id}/${row.provider_bundle_pin}`;
+}
+
 function deriveRowsFromCatalogModel(runtime) {
   const maxR = labelValue(runtime, 1052, 0, 0, 0, 'max_r');
   const rows = [];
@@ -58,8 +64,9 @@ function deriveRowsFromCatalogModel(runtime) {
     const name = get('name');
     if (!id || !name) continue;
     const installable = get('installable') === true;
-    const sourceModelId = get('source_model_id');
-    rows.push({
+    const providerModelId = get('provider_model_id');
+    const runtimeEndpointModelId = get('runtime_endpoint_model_id');
+    const rowData = {
       id,
       name,
       kind: get('kind') || '',
@@ -67,13 +74,23 @@ function deriveRowsFromCatalogModel(runtime) {
       owner: get('owner') || '',
       owner_worker_id: get('owner_worker_id') || '',
       parent_asset_id: get('parent_asset_id') || '',
-      ...(Number.isInteger(sourceModelId) ? { source_model_id: sourceModelId } : {}),
+      provider_worker_id: get('provider_worker_id') || '',
+      ...(Number.isInteger(providerModelId) ? { provider_model_id: providerModelId } : {}),
+      provider_bundle_pin: get('provider_bundle_pin') || '',
+      provider_route_kind: get('provider_route_kind') || '',
+      runtime_endpoint_worker_id: get('runtime_endpoint_worker_id') || '',
+      ...(Number.isInteger(runtimeEndpointModelId) ? { runtime_endpoint_model_id: runtimeEndpointModelId } : {}),
+      runtime_pins: Array.isArray(get('runtime_pins')) ? get('runtime_pins') : [],
+      bundle_sha256: get('bundle_sha256') || '',
       installable,
       action_label: get('action_label') || (installable ? '安装' : '详情'),
       action_type: installable ? 'primary' : 'default',
       summary_markdown: get('summary_markdown') || `### ${name}`,
       detail_markdown: get('detail_markdown') || `## ${name}`,
-    });
+    };
+    const topic = buildProviderBundleTopic(runtime, rowData);
+    if (topic) rowData.provider_bundle_topic = topic;
+    rows.push(rowData);
   }
   return rows;
 }
@@ -88,13 +105,21 @@ function test_asset_catalog_patch_is_data_array_one_and_fixed_r1_catalog() {
   assert.ok(Array.isArray(catalog), 'Workspace Manager UI must expose a projected asset_catalog_json array');
   assert.ok(catalog.some((item) => item.id === 'r1' && item.owner_worker_id === 'R1'), 'catalog must include RemoteWorker R1');
   assert.deepEqual(
-    catalog.filter((item) => item.owner_worker_id === 'R1' && item.asset_type === 'slide_app').map((item) => [item.name, item.source_model_id, item.installable]),
+    catalog.filter((item) => item.owner_worker_id === 'R1' && item.asset_type === 'slide_app').map((item) => [
+      item.name,
+      item.provider_worker_id,
+      item.provider_model_id,
+      item.provider_bundle_pin,
+      item.provider_route_kind,
+      item.installable,
+    ]),
     [
-      ['E2E 颜色生成器', 100, true],
-      ['最小 Submit 双总线示例', 1050, true],
+      ['E2E 颜色生成器', 'R1', 3100, 'bundle_request', 'control', true],
+      ['最小 Submit 双总线示例', 'R1', 3100, 'bundle_request', 'control', true],
     ],
-    'RemoteWorker R1 must expose the two installable slide-app assets',
+    'RemoteWorker R1 must expose the two installable slide-app assets through provider bundle endpoints',
   );
+  assert.equal(JSON.stringify(catalog).includes('source_model_id'), false, 'Workspace Manager catalog must not expose local source_model_id install truth');
   return { key: 'asset_catalog_patch_is_data_array_one_and_fixed_r1_catalog', status: 'PASS' };
 }
 
@@ -126,6 +151,8 @@ function test_workspace_asset_manager_patch_has_no_legacy_forms() {
     'pin.connect.model',
     '(self,',
     '(func,',
+    '"source_model_id"',
+    '源模型',
     '"is_DEM"',
     '"v1n_id"',
     '"t": "BUS_IN"',
@@ -138,7 +165,7 @@ function test_workspace_asset_manager_patch_has_no_legacy_forms() {
   return { key: 'workspace_asset_manager_patch_has_no_legacy_forms', status: 'PASS' };
 }
 
-async function test_server_asset_selection_and_install_materializes_slide_app() {
+async function test_server_asset_selection_and_provider_install_sends_provider_bundle_request() {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0378-asset-manager-'));
   process.env.DY_AUTH = '0';
   process.env.DY_PERSISTED_ASSET_ROOT = '';
@@ -170,13 +197,6 @@ async function test_server_asset_selection_and_install_materializes_slide_app() 
     assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'selected_asset_id'), 'r1', 'selection must update selected_asset_id');
     assert.match(labelValue(runtime, 1051, 0, 0, 0, 'selected_asset_summary_markdown'), /RemoteWorker R1/u, 'selection must update summary markdown');
 
-    runtime.addLabel(runtime.getModel(100), 0, 0, 0, { k: 'status', t: 'str', v: 'loading' });
-    runtime.addLabel(runtime.getModel(100), 0, 0, 0, { k: 'submit_inflight', t: 'bool', v: true });
-    runtime.addLabel(runtime.getModel(100), 0, 0, 0, { k: 'submit_inflight_started_at', t: 'int', v: Date.now() });
-    runtime.addLabel(runtime.getModel(100), 0, 0, 0, { k: 'submit', t: 'pin.out', v: [{ id: 0, p: 0, r: 0, c: 0, k: 'stale', t: 'str', v: 'payload' }] });
-    runtime.addLabel(runtime.getModel(100), 0, 0, 0, { k: 'submit_request', t: 'pin.in', v: [{ id: 0, p: 0, r: 0, c: 0, k: 'stale', t: 'str', v: 'request' }] });
-    runtime.addLabel(runtime.getModel(100), 0, 0, 0, { k: '__error_stale_runtime', t: 'json', v: { stale: true } });
-
     const beforeMax = Math.max(...Array.from(runtime.models.keys()).filter((id) => Number.isInteger(id) && id > 0));
     const installResult = await state.submitEnvelope({
       type: 'workspace_asset_primary_action',
@@ -186,30 +206,20 @@ async function test_server_asset_selection_and_install_materializes_slide_app() 
         meta: { op_id: 'it0378_install_color' },
       },
     });
-    assert.equal(installResult.result, 'ok', 'slide-app install action must be consumed');
-    assert.equal(installResult.routed_by, 'workspace_asset_install', 'slide asset action must use the install path');
-    assert.ok(Number.isInteger(installResult.installed_model_id) && installResult.installed_model_id > beforeMax, 'install must allocate a new positive model id');
-    assert.ok(runtime.getModel(installResult.installed_model_id), 'installed model must exist in runtime');
-    assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id'), installResult.installed_model_id, 'Workspace Manager must record installed model id');
-    assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_status'), /installed E2E 颜色生成器 as model/u, 'Workspace Manager must show real install status');
-    assert.equal(labelValue(runtime, installResult.installed_model_id, 0, 0, 0, 'status'), 'ready', 'installed slide app must not inherit source loading status');
-    assert.equal(labelValue(runtime, installResult.installed_model_id, 0, 0, 0, 'submit_inflight'), false, 'installed slide app must not inherit source inflight state');
-    assert.equal(labelValue(runtime, installResult.installed_model_id, 0, 0, 0, 'submit_inflight_started_at'), 0, 'installed slide app must clear source inflight timestamp');
-    assert.equal(labelValue(runtime, installResult.installed_model_id, 0, 0, 0, 'submit'), null, 'installed slide app must export submit pin as a declaration only');
-    assert.equal(labelValue(runtime, installResult.installed_model_id, 0, 0, 0, 'submit_request'), null, 'installed slide app must export submit_request pin as a declaration only');
-    assert.equal(labelValue(runtime, installResult.installed_model_id, 0, 0, 0, '__error_stale_runtime'), undefined, 'installed slide app must not inherit stale error labels');
-    const installedAst = buildAstFromCellwiseModel(runtime.snapshot(), installResult.installed_model_id);
-    const installedSubmitButton = findNode(installedAst, 'submit_button');
-    assert.equal(
-      installedSubmitButton?.bind?.write?.bus_in_key,
-      `imported_host_submit_${installResult.installed_model_id}`,
-      'installed slide app submit button must target its generated host ingress key, not the source model',
-    );
-    const installedHostIngressRoute = labelValue(runtime, 0, 0, 0, 0, `imported_host_submit_${installResult.installed_model_id}_route`);
-    assert.equal(installedHostIngressRoute?.[0]?.from?.[3], `imported_host_submit_${installResult.installed_model_id}`, 'installed slide app must declare its generated Model 0 host ingress key');
-    assert.equal(installedHostIngressRoute?.[0]?.to?.[0]?.[3], '__host_ingress_submit', 'installed slide app host ingress route must target its mounted relay pin');
+    assert.equal(installResult.result, 'ok', 'provider-owned install must send a provider bundle request');
+    assert.equal(installResult.routed_by, 'workspace_asset_bundle_request', 'install must use provider request path, not local-copy');
+    assert.equal(installResult.topic, 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request', 'install result must show computed provider bundle topic');
+    const afterMax = Math.max(...Array.from(runtime.models.keys()).filter((id) => Number.isInteger(id) && id > 0));
+    assert.equal(afterMax, beforeMax, 'install request phase must not allocate a new model before provider bundle response');
+    assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_status'), /requesting E2E 颜色生成器 from UIPUT\/ws\/dam\/pic\/de\/sw\/R1\/3100\/bundle_request/u, 'Workspace Manager must show visible provider request status');
+    assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id'), undefined, 'request phase must not record installed model id');
+    const pending = labelValue(runtime, 1051, 0, 0, 0, 'asset_install_pending');
+    assert.equal(pending?.asset_id, 'r1-color-generator', 'request phase must record pending asset id');
+    assert.deepEqual(pending?.provider_endpoint, { worker_id: 'R1', model_id: 3100, pin: 'bundle_request' }, 'request phase must record provider bundle endpoint');
+    const busLabel = runtime.getCell(runtime.getModel(0), 0, 0, 0).labels.get('workspace_asset_bundle_request_bus');
+    assert.equal(busLabel?.t, 'pin.bus.cb.out', 'request must leave through Model 0 control-bus out');
     const registry = runtime.getLabelValue(runtime.getModel(-2), 0, 0, 0, 'ws_apps_registry');
-    assert.ok(Array.isArray(registry) && registry.some((entry) => entry.model_id === installResult.installed_model_id), 'installed app must appear in Workspace registry');
+    assert.equal(Array.isArray(registry) && registry.some((entry) => entry.model_id > beforeMax), false, 'request phase must not add an app to Workspace registry');
 
     const forgedResult = await state.submitEnvelope({
       type: 'workspace_asset_primary_action',
@@ -237,14 +247,14 @@ async function test_server_asset_selection_and_install_materializes_slide_app() 
     delete process.env.STATIC_PROJECTS_ROOT;
     delete process.env.DY_UI_SERVER_WORKER_ID;
   }
-  return { key: 'server_asset_selection_and_install_materializes_slide_app', status: 'PASS' };
+  return { key: 'server_asset_selection_and_provider_install_sends_provider_bundle_request', status: 'PASS' };
 }
 
 const tests = [
   test_asset_catalog_patch_is_data_array_one_and_fixed_r1_catalog,
   test_workspace_asset_manager_ui_is_cellwise_interactive,
   test_workspace_asset_manager_patch_has_no_legacy_forms,
-  test_server_asset_selection_and_install_materializes_slide_app,
+  test_server_asset_selection_and_provider_install_sends_provider_bundle_request,
 ];
 
 let passed = 0;
