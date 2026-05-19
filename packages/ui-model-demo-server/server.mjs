@@ -1459,6 +1459,24 @@ function containsLegacyPinPayloadMetadata(value, seen = new WeakSet()) {
   return false;
 }
 
+function containsLegacyPinPayloadMetadataInPinPayloadRecords(records) {
+  const nestedPayloadLabel = findTemporaryPayloadRecord(records, 'payload');
+  const nestedPayload = nestedPayloadLabel && nestedPayloadLabel.t === 'json' ? nestedPayloadLabel.v : null;
+  const nestedKind = readTemporaryPayloadString(nestedPayload, '__mt_payload_kind');
+  if (nestedKind !== 'slide_app_bundle_response.v1') {
+    return containsLegacyPinPayloadMetadata(records);
+  }
+  const outerRecords = records.map((record) => (record && record.k === 'payload' ? { ...record, v: [] } : record));
+  if (containsLegacyPinPayloadMetadata(outerRecords)) return true;
+  for (const nestedRecord of nestedPayload) {
+    if (!nestedRecord || typeof nestedRecord.k !== 'string') return true;
+    if (isLegacyPinPayloadKey(nestedRecord.k)) return true;
+    if (nestedRecord.k === 'bundle_payload') continue;
+    if (containsLegacyPinPayloadMetadata(nestedRecord.v)) return true;
+  }
+  return false;
+}
+
 function resolveUiServerWorkerId() {
   const raw = process.env.DY_UI_SERVER_WORKER_ID || 'U1';
   const id = String(raw || '').trim();
@@ -2834,12 +2852,9 @@ function parsePinPayloadRecordEnvelope(content) {
     if (!record || typeof record.k !== 'string') {
       return { ok: false, code: 'invalid_pin_payload_records' };
     }
-    if (isLegacyPinPayloadKey(record.k)) {
-      return { ok: false, code: 'legacy_pin_payload_metadata_removed' };
-    }
-    if (containsLegacyPinPayloadMetadata(record.v)) {
-      return { ok: false, code: 'legacy_pin_payload_metadata_removed' };
-    }
+  }
+  if (containsLegacyPinPayloadMetadataInPinPayloadRecords(records)) {
+    return { ok: false, code: 'legacy_pin_payload_metadata_removed' };
   }
   const endpoint = {
     worker_id: readTemporaryPayloadString(records, 'endpoint_worker_id'),
@@ -3476,6 +3491,131 @@ function readRuntimeCellBool(runtime, modelId, p, r, c, key, fallback = false) {
   return label && typeof label.v === 'boolean' ? label.v : fallback;
 }
 
+function readRuntimeCellJson(runtime, modelId, p, r, c, key, fallback = null) {
+  const label = readRuntimeCellLabel(runtime, modelId, p, r, c, key);
+  return label && label.t === 'json' ? label.v : fallback;
+}
+
+function buildWorkspaceAssetProviderBundleTopic(runtime, row) {
+  if (!row || typeof row !== 'object') return '';
+  return buildRemoteEndpointTopic(runtime, {
+    to: {
+      worker_id: row.provider_worker_id,
+      model_id: row.provider_model_id,
+    },
+  }, row.provider_bundle_pin);
+}
+
+function validateWorkspaceAssetProviderEndpoint(runtime, row) {
+  const routeKind = typeof row?.provider_route_kind === 'string' ? row.provider_route_kind.trim() : '';
+  const topic = buildWorkspaceAssetProviderBundleTopic(runtime, row);
+  const runtimePins = Array.isArray(row?.runtime_pins) ? row.runtime_pins : [];
+  const ok = isSafePinRouteSegment(row?.provider_worker_id)
+    && Number.isInteger(row?.provider_model_id)
+    && row.provider_model_id > 0
+    && isSafePinRouteSegment(row?.provider_bundle_pin)
+    && (routeKind === 'control' || routeKind === 'management')
+    && isValidControlBusEndpointTopic(topic)
+    && isSafePinRouteSegment(row?.runtime_endpoint_worker_id)
+    && Number.isInteger(row?.runtime_endpoint_model_id)
+    && row.runtime_endpoint_model_id > 0
+    && runtimePins.length > 0
+    && runtimePins.every(isSafePinRouteSegment);
+  return {
+    ok,
+    topic,
+    routeKind,
+  };
+}
+
+function buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndpoint) {
+  const now = Date.now();
+  const requestId = typeof opId === 'string' && opId.trim()
+    ? opId.trim()
+    : `workspace_asset_bundle_${now}`;
+  const routeKind = providerEndpoint.routeKind;
+  const endpoint = {
+    worker_id: row.provider_worker_id,
+    model_id: row.provider_model_id,
+    pin: row.provider_bundle_pin,
+  };
+  const origin = {
+    worker_id: resolveUiServerWorkerId(),
+    model_id: WORKSPACE_MANAGER_APP_MODEL_ID,
+    pin: 'workspace_asset_install',
+  };
+  const replyTarget = {
+    worker_id: resolveUiServerWorkerId(),
+    model_id: WORKSPACE_MANAGER_APP_MODEL_ID,
+    pin: SLIDE_IMPORT_REPLY_PIN,
+  };
+  const nestedPayload = [
+    mtPayloadRecord('__mt_payload_kind', 'str', 'slide_app_bundle_request.v1'),
+    mtPayloadRecord('__mt_request_id', 'str', requestId),
+    mtPayloadRecord('asset_id', 'str', row.id),
+    mtPayloadRecord('requested_version', 'str', 'current'),
+  ];
+  const records = [
+    mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mtPayloadRecord('__mt_request_id', 'str', requestId),
+    mtPayloadRecord('op_id', 'str', requestId),
+    mtPayloadRecord('message_role', 'str', 'request'),
+    mtPayloadRecord('topic', 'str', providerEndpoint.topic),
+    mtPayloadRecord('route_kind', 'str', routeKind),
+    mtPayloadRecord('bus', 'str', routeKind),
+    mtPayloadRecord('endpoint_worker_id', 'str', endpoint.worker_id),
+    mtPayloadRecord('endpoint_model_id', 'int', endpoint.model_id),
+    mtPayloadRecord('endpoint_pin', 'str', endpoint.pin),
+    mtPayloadRecord('origin_worker_id', 'str', origin.worker_id),
+    mtPayloadRecord('origin_model_id', 'int', origin.model_id),
+    mtPayloadRecord('origin_pin', 'str', origin.pin),
+    mtPayloadRecord('reply_target_worker_id', 'str', replyTarget.worker_id),
+    mtPayloadRecord('reply_target_model_id', 'int', replyTarget.model_id),
+    mtPayloadRecord('reply_target_pin', 'str', replyTarget.pin),
+    mtPayloadRecord('payload', 'json', nestedPayload),
+    mtPayloadRecord('timestamp', 'int', now),
+  ];
+  return {
+    opId: requestId,
+    routeKind,
+    endpoint,
+    origin,
+    replyTarget,
+    topic: providerEndpoint.topic,
+    records,
+  };
+}
+
+function workspaceAssetProviderEndpointMatches(actual, expected) {
+  return Boolean(actual && expected
+    && actual.worker_id === expected.worker_id
+    && actual.model_id === expected.model_id
+    && actual.pin === expected.pin);
+}
+
+function registerImportedHostEgressBridgeFunctions(programEngine, runtime, imported) {
+  if (!programEngine || !imported) return;
+  const rawKeys = Array.isArray(imported.hostEgressKeys)
+    ? imported.hostEgressKeys
+    : (imported.hostEgressKeys ? [imported.hostEgressKeys] : []);
+  const functionKeys = [];
+  for (const entry of rawKeys) {
+    if (!entry || typeof entry !== 'object') continue;
+    if (typeof entry.bridgeFunc === 'string' && entry.bridgeFunc) functionKeys.push(entry.bridgeFunc);
+    if (typeof entry.forwardFunc === 'string' && entry.forwardFunc) functionKeys.push(entry.forwardFunc);
+  }
+  if (functionKeys.length === 0) return;
+  const sys = firstSystemModel(runtime);
+  if (!sys) return;
+  for (const key of functionKeys) {
+    const code = extractFunctionCode(runtime.getCell(sys, 0, 0, 0).labels.get(key)?.v);
+    if (typeof code === 'string' && code.trim()) {
+      programEngine.functions.set(key, code);
+      sys.registerFunction(key);
+    }
+  }
+}
+
 function deriveWorkspaceAssetCatalogRowsFromDataArrayOne(runtime) {
   const catalog = runtime && typeof runtime.getModel === 'function'
     ? runtime.getModel(WORKSPACE_ASSET_CATALOG_MODEL_ID)
@@ -3490,8 +3630,9 @@ function deriveWorkspaceAssetCatalogRowsFromDataArrayOne(runtime) {
     const name = readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'name', '').trim();
     if (!id || !name) continue;
     const installable = readRuntimeCellBool(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'installable', false);
-    const sourceModelId = readRuntimeCellInt(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'source_model_id', null);
-    rows.push({
+    const providerModelId = readRuntimeCellInt(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'provider_model_id', null);
+    const runtimeEndpointModelId = readRuntimeCellInt(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'runtime_endpoint_model_id', null);
+    const row = {
       id,
       name,
       kind: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'kind', ''),
@@ -3499,13 +3640,23 @@ function deriveWorkspaceAssetCatalogRowsFromDataArrayOne(runtime) {
       owner: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'owner', ''),
       owner_worker_id: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'owner_worker_id', ''),
       parent_asset_id: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'parent_asset_id', ''),
-      ...(Number.isInteger(sourceModelId) ? { source_model_id: sourceModelId } : {}),
+      provider_worker_id: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'provider_worker_id', ''),
+      ...(Number.isInteger(providerModelId) ? { provider_model_id: providerModelId } : {}),
+      provider_bundle_pin: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'provider_bundle_pin', ''),
+      provider_route_kind: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'provider_route_kind', ''),
+      runtime_endpoint_worker_id: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'runtime_endpoint_worker_id', ''),
+      ...(Number.isInteger(runtimeEndpointModelId) ? { runtime_endpoint_model_id: runtimeEndpointModelId } : {}),
+      runtime_pins: readRuntimeCellJson(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'runtime_pins', []),
+      bundle_sha256: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'bundle_sha256', ''),
       installable,
       action_label: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'action_label', installable ? '安装' : '详情'),
       action_type: installable ? 'primary' : 'default',
       summary_markdown: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'summary_markdown', `### ${name}`),
       detail_markdown: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'detail_markdown', `## ${name}`),
-    });
+    };
+    const providerBundleTopic = buildWorkspaceAssetProviderBundleTopic(runtime, row);
+    if (providerBundleTopic) row.provider_bundle_topic = providerBundleTopic;
+    rows.push(row);
   }
   return rows;
 }
@@ -4150,6 +4301,114 @@ class ProgramModelEngine {
     });
   }
 
+  handleWorkspaceAssetBundleResponse(parsedEnvelope, packet, topic = '') {
+    if (!parsedEnvelope || !parsedEnvelope.ok) return { matched: false, handled: false };
+    const nestedKind = readTemporaryPayloadString(parsedEnvelope.nestedPayload, '__mt_payload_kind');
+    if (nestedKind !== 'slide_app_bundle_response.v1') {
+      return { matched: false, handled: false };
+    }
+    const uiServerWorkerId = resolveUiServerWorkerId();
+    const writeStatus = (status, error = null) => {
+      overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_status', 'str', status);
+      if (error) {
+        overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_error', 'json', error);
+      }
+    };
+    if (
+      parsedEnvelope.messageRole !== 'response'
+      || parsedEnvelope.replyTarget.worker_id !== uiServerWorkerId
+      || parsedEnvelope.replyTarget.model_id !== WORKSPACE_MANAGER_APP_MODEL_ID
+      || parsedEnvelope.replyTarget.pin !== SLIDE_IMPORT_REPLY_PIN
+    ) {
+      writeStatus('install failed: bundle_response_route_mismatch', {
+        code: 'bundle_response_route_mismatch',
+        op_id: parsedEnvelope.opId,
+      });
+      return { matched: true, handled: false };
+    }
+    const pending = readRuntimeCellJson(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_pending', null);
+    if (!pending || typeof pending !== 'object' || Array.isArray(pending)) {
+      writeStatus('install failed: bundle_response_without_pending_request', {
+        code: 'bundle_response_without_pending_request',
+        op_id: parsedEnvelope.opId,
+      });
+      return { matched: true, handled: false };
+    }
+    const payloadTopic = readTemporaryPayloadString(parsedEnvelope.records, 'topic');
+    const routeKind = readTemporaryPayloadString(parsedEnvelope.records, 'route_kind');
+    const assetId = readTemporaryPayloadString(parsedEnvelope.nestedPayload, 'asset_id');
+    const bundlePayload = readTemporaryPayloadJson(parsedEnvelope.nestedPayload, 'bundle_payload');
+    const expectedEndpoint = pending.provider_endpoint && typeof pending.provider_endpoint === 'object'
+      ? pending.provider_endpoint
+      : null;
+    const expectedReplyTarget = pending.reply_target && typeof pending.reply_target === 'object'
+      ? pending.reply_target
+      : null;
+    const matches = parsedEnvelope.opId === pending.op_id
+      && assetId === pending.asset_id
+      && payloadTopic === pending.topic
+      && (!topic || topic === pending.topic)
+      && routeKind === pending.route_kind
+      && workspaceAssetProviderEndpointMatches(parsedEnvelope.endpoint, expectedEndpoint)
+      && workspaceAssetProviderEndpointMatches(parsedEnvelope.replyTarget, expectedReplyTarget);
+    if (!matches) {
+      writeStatus(`install failed ${pending.asset_id || assetId || 'unknown'}: bundle_response_mismatch`, {
+        code: 'bundle_response_mismatch',
+        op_id: parsedEnvelope.opId,
+        asset_id: assetId,
+        topic: payloadTopic,
+      });
+      return { matched: true, handled: false };
+    }
+    const validation = validateSlideImportPayload(bundlePayload);
+    if (!validation.ok) {
+      writeStatus(`install failed ${assetId}: ${validation.detail || validation.code || 'invalid_bundle_payload'}`, {
+        code: validation.code || 'invalid_bundle_payload',
+        detail: validation.detail || '',
+        op_id: parsedEnvelope.opId,
+      });
+      return { matched: true, handled: false };
+    }
+    try {
+      const imported = materializeSlideImportPayload(this.runtime, bundlePayload, validation);
+      registerImportedHostEgressBridgeFunctions(this, this.runtime, imported);
+      overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'last_installed_asset_id', 'str', assetId);
+      overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'last_installed_model_id', 'int', imported.rootModelId);
+      overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_pending', 'json', null);
+      overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_error', 'json', null);
+      overwriteRuntimeLabel(
+        this.runtime,
+        WORKSPACE_MANAGER_APP_MODEL_ID,
+        0,
+        0,
+        0,
+        'asset_install_status',
+        'str',
+        `installed ${validation.metadata.appName} as model ${imported.rootModelId}`,
+      );
+      overwriteStateLabel(this.runtime, 'ws_app_selected', 'int', imported.rootModelId);
+      overwriteStateLabel(this.runtime, 'selected_model_id', 'str', String(imported.rootModelId));
+      this._wsRefreshCatalog?.();
+      emitTrace(this.runtime, {
+        hop: 'provider-bundle→server',
+        direction: 'inbound',
+        op_id: parsedEnvelope.opId,
+        model_id: imported.rootModelId,
+        summary: `installed provider bundle asset=${assetId}`,
+        payload: packet,
+      });
+      this.onSnapshotChanged?.();
+      return { matched: true, handled: true };
+    } catch (err) {
+      writeStatus(`install failed ${assetId}: exception`, {
+        code: 'exception',
+        detail: String(err && err.message ? err.message : err),
+        op_id: parsedEnvelope.opId,
+      });
+      return { matched: true, handled: false };
+    }
+  }
+
   async handleControlBusPacket(topic, payload) {
     if (!isValidControlBusEndpointTopic(topic)) return false;
     const parsedEnvelope = parsePinPayloadRecordEnvelope(payload);
@@ -4161,6 +4420,8 @@ class ProgramModelEngine {
     if (parsedEnvelope.messageRole !== 'response') return false;
     const uiServerWorkerId = resolveUiServerWorkerId();
     if (parsedEnvelope.replyTarget.worker_id !== uiServerWorkerId || parsedEnvelope.replyTarget.pin !== 'result') return false;
+    const bundleResponse = this.handleWorkspaceAssetBundleResponse(parsedEnvelope, payload, topic);
+    if (bundleResponse.matched) return bundleResponse.handled;
     const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget.model_id, parsedEnvelope.nestedPayload, parsedEnvelope.opId);
     if (!materialization) return false;
     emitTrace(this.runtime, {
@@ -4413,6 +4674,14 @@ class ProgramModelEngine {
         return;
       }
       if (parsedEnvelope.messageRole !== 'response') {
+        return;
+      }
+      const bundleResponse = this.handleWorkspaceAssetBundleResponse(
+        parsedEnvelope,
+        content,
+        readTemporaryPayloadString(parsedEnvelope.records, 'topic'),
+      );
+      if (bundleResponse.matched) {
         return;
       }
       const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget.model_id, parsedEnvelope.nestedPayload, opId);
@@ -4726,16 +4995,7 @@ class ProgramModelEngine {
             const validation = validateSlideImportPayload(payload);
             if (!validation.ok) return validation;
             const imported = materializeSlideImportPayload(this.runtime, payload, validation);
-            if (programEngine && imported.hostEgressKeys && imported.hostEgressKeys.forwardFunc) {
-              const sys = firstSystemModel(this.runtime);
-              const code = sys
-                ? extractFunctionCode(this.runtime.getCell(sys, 0, 0, 0).labels.get(imported.hostEgressKeys.forwardFunc)?.v)
-                : '';
-              if (sys && typeof code === 'string' && code.trim()) {
-                programEngine.functions.set(imported.hostEgressKeys.forwardFunc, code);
-                sys.registerFunction(imported.hostEgressKeys.forwardFunc);
-              }
-            }
+            registerImportedHostEgressBridgeFunctions(programEngine, this.runtime, imported);
             return {
               ok: true,
               data: {
@@ -6404,16 +6664,7 @@ function createServerState(options) {
         const validation = validateSlideImportPayload(payload);
         if (!validation.ok) return validation;
         const imported = materializeSlideImportPayload(runtime, payload, validation);
-        if (programEngine && imported.hostEgressKeys && imported.hostEgressKeys.forwardFunc) {
-          const sys = firstSystemModel(runtime);
-          const code = sys
-            ? extractFunctionCode(runtime.getCell(sys, 0, 0, 0).labels.get(imported.hostEgressKeys.forwardFunc)?.v)
-            : '';
-          if (sys && typeof code === 'string' && code.trim()) {
-            programEngine.functions.set(imported.hostEgressKeys.forwardFunc, code);
-            sys.registerFunction(imported.hostEgressKeys.forwardFunc);
-          }
-        }
+        registerImportedHostEgressBridgeFunctions(programEngine, runtime, imported);
         return {
           ok: true,
           data: {
@@ -7402,32 +7653,40 @@ function createServerState(options) {
         writeWorkspaceAssetSelection(row, { detailOpen: true, status: `detail ${row.name}` });
         return finishOk({ routed_by: 'workspace_asset_detail' });
       }
-      if (!Number.isInteger(row.source_model_id) || row.source_model_id <= 0) {
-        return finishError('invalid_target', 'missing_source_model_id');
+      const providerEndpoint = validateWorkspaceAssetProviderEndpoint(runtime, row);
+      if (!providerEndpoint.ok) {
+        writeWorkspaceAssetSelection(row, {
+          detailOpen: false,
+          status: `install failed ${row.name}: missing provider bundle endpoint`,
+        });
+        return finishError('invalid_target', 'missing_provider_bundle_endpoint');
       }
-      const exportResult = buildSlideAppExportPayload(runtime, row.source_model_id);
-      if (!exportResult || exportResult.ok !== true) {
-        return finishError(exportResult?.code || 'export_failed', exportResult?.detail || `source_model_id=${row.source_model_id}`);
-      }
-      const importPayload = exportResult.data && Array.isArray(exportResult.data.payload) ? exportResult.data.payload : null;
-      const validation = validateSlideImportPayload(importPayload);
-      if (!validation.ok) {
-        return finishError(validation.code || 'invalid_import_payload', validation.detail || 'source_export_invalid');
-      }
-      const imported = materializeSlideImportPayload(runtime, importPayload, validation);
-      refreshWorkspaceStateCatalog();
-      overwriteStateLabel(runtime, 'ws_app_selected', 'int', imported.rootModelId);
-      overwriteStateLabel(runtime, 'selected_model_id', 'str', String(imported.rootModelId));
-      const status = `installed ${row.name} as model ${imported.rootModelId}`;
+      const request = buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndpoint);
+      overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'asset_install_pending', 'json', {
+        op_id: request.opId,
+        asset_id: row.id,
+        asset_name: row.name,
+        provider_endpoint: request.endpoint,
+        topic: request.topic,
+        route_kind: request.routeKind,
+        reply_target: request.replyTarget,
+        requested_at: Date.now(),
+      });
+      overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'asset_install_error', 'json', null);
       writeWorkspaceAssetSelection(row, {
         detailOpen: false,
-        status,
+        status: `requesting ${row.name} from ${providerEndpoint.topic}`,
       });
-      overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'last_installed_asset_id', 'str', row.id);
-      overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'last_installed_model_id', 'int', imported.rootModelId);
+      const hostPinType = request.routeKind === 'management' ? 'pin.bus.mb.out' : 'pin.bus.cb.out';
+      runtime.addLabel(runtime.getModel(0), 0, 0, 0, {
+        k: 'workspace_asset_bundle_request_bus',
+        t: hostPinType,
+        v: request.records,
+      });
       return finishOk({
-        routed_by: 'workspace_asset_install',
-        installed_model_id: imported.rootModelId,
+        routed_by: 'workspace_asset_bundle_request',
+        topic: request.topic,
+        op_id: request.opId,
       });
     };
 

@@ -38,6 +38,9 @@ export function resolveNavigableRoutePath(snapshot, routePath) {
   if (normalized === '/model100') {
     return ROUTE_WORKSPACE;
   }
+  if (normalized === ROUTE_HOME) {
+    return ROUTE_WORKSPACE;
+  }
   if (catalog.length === 0) {
     return normalized;
   }

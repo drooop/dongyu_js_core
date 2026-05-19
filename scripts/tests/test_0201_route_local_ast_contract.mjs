@@ -80,6 +80,14 @@ const tests = [
       'route normalization must not rewrite a known hash path to home before page catalog is available',
     );
   },
+  function test_root_route_defaults_to_workspace_after_catalog_bootstrap() {
+    const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+    assert.equal(
+      resolveNavigableRoutePath(store.snapshot, '/'),
+      '/workspace',
+      'root hash route must enter workspace instead of rendering No UI AST',
+    );
+  },
   function test_store_route_path_is_modeled_as_reactive_state() {
     const localSource = fs.readFileSync(path.join(repoRoot, 'packages/ui-model-demo-frontend/src/demo_modeltable.js'), 'utf8');
     const remoteSource = fs.readFileSync(path.join(repoRoot, 'packages/ui-model-demo-frontend/src/remote_store.js'), 'utf8');

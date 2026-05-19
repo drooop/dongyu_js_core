@@ -191,6 +191,13 @@ frontend/server current path 只提交 `bus_event_v2`，同工作区业务默认
   - UI Server 安装器在分配本地模型 id 后生成 `ui.egress.binding.v1`
   - UI 可以显示这个公开 `pin.out` 实际通过哪个宿主总线 pin 外发；同工作区默认是控制总线 pin
   - 正式外发 authority 仍来自实际 pin route，不来自 UI 直接发送
+- `0384` 落地 provider-owned 滑动 APP 安装 current contract：
+  - Workspace Manager DEM ModelTable 只维护资产索引，不拥有 provider bundle payload
+  - installable row 使用 `asset_id`、`provider_worker_id`、`provider_model_id`、`provider_bundle_pin`、`provider_route_kind` 指向 provider bundle endpoint
+  - UI Server 从 Model 0 `mqtt_topic_base` 计算请求 `topic`，发出 `slide_app_bundle_request.v1`
+  - provider 回 `slide_app_bundle_response.v1`，其中 `bundle_payload` 必须是 ModelTable record array
+  - UI Server 必须按 pending install state 校验 `op_id` / request correlation、`asset_id`、provider endpoint、computed topic、`route_kind`、`reply_target`
+  - 只有通过校验的 response 才能 materialize；`source_model_id` 不再是 Workspace Manager 安装来源
 - `0308` 之后，对以上 slide/workspace 主线路径，legacy `action` envelope 已正式退役：
   - 会显式返回 `legacy_action_protocol_retired`
   - 不再通过 server 侧 action → ingress 旧映射放行

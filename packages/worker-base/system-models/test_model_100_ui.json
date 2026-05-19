@@ -325,7 +325,7 @@
       "c": 0,
       "k": "source_worker",
       "t": "str",
-      "v": "k8s-worker"
+      "v": "RemoteWorker R1"
     },
     {
       "op": "add_label",
@@ -485,7 +485,7 @@
       "c": 0,
       "k": "ui_node_id",
       "t": "str",
-      "v": "model100_subtitle"
+      "v": "model100_route_card"
     },
     {
       "op": "add_label",
@@ -495,7 +495,7 @@
       "c": 0,
       "k": "ui_component",
       "t": "str",
-      "v": "Text"
+      "v": "Container"
     },
     {
       "op": "add_label",
@@ -523,9 +523,9 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_text",
+      "k": "ui_layout",
       "t": "str",
-      "v": "Local UI -> Control Bus -> MBR -> MQTT -> K8s Worker -> MQTT -> MBR -> Control Bus -> Local UI"
+      "v": "column"
     },
     {
       "op": "add_label",
@@ -533,9 +533,147 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_variant",
+      "k": "ui_gap",
+      "t": "int",
+      "v": 8
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "background": "linear-gradient(135deg, #eff6ff 0%, #f8fafc 55%, #ecfeff 100%)",
+          "border": "1px solid #dbeafe",
+          "borderRadius": "18px",
+          "boxShadow": "0 12px 28px rgba(15, 23, 42, 0.08)",
+          "padding": "14px 18px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_component",
       "t": "str",
-      "v": "info"
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_route_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_route_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_text",
+      "t": "str",
+      "v": "当前实际消息路径"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_style_font_weight",
+      "t": "str",
+      "v": "700"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_style_color",
+      "t": "str",
+      "v": "#0f172a"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "model100_route_steps"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "model100_route_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_markdown",
+      "t": "str",
+      "v": "| Stage | Path |\n|---|---|\n| 1 | UI event -> UI Server host egress |\n| 2 | Model 0 `mt_bus_send` / `pin.bus.cb.out` -> MBR |\n| 3 | MQTT `UIPUT/.../R1/100/submit` -> RemoteWorker R1 / Model 100 / `submit` |\n| 4 | MQTT response on same endpoint topic -> MBR |\n| 5 | UI Server owner materialization by `reply_target_*` -> Local UI refresh |"
     },
     {
       "op": "add_label",

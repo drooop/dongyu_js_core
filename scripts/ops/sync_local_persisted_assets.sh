@@ -83,6 +83,7 @@ role_files = {
         ('deploy/sys-v1ns/remote-worker/patches/11_model1010.json', 'roles/remote-worker/patches/11_model1010.json', '40-role-positive'),
         ('deploy/sys-v1ns/remote-worker/patches/12_model1019.json', 'roles/remote-worker/patches/12_model1019.json', '40-role-positive'),
         ('deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json', 'roles/remote-worker/patches/13_model3000_minimal_submit.json', '40-role-positive'),
+        ('deploy/sys-v1ns/remote-worker/patches/14_model3100_slide_app_bundle_provider.json', 'roles/remote-worker/patches/14_model3100_slide_app_bundle_provider.json', '40-role-positive'),
     ],
     'workspace-manager': [
         ('deploy/sys-v1ns/workspace-manager/patches/00_workspace_manager_dem_config.json', 'roles/workspace-manager/patches/00_workspace_manager_dem_config.json', '20-role-negative'),
