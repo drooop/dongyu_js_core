@@ -512,7 +512,27 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "slide_app_summary",
+      "t": "str",
+      "v": "通过双总线请求 RemoteWorker R1 生成颜色，展示端到端 UI、MBR、Worker 回包链路。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "source_worker",
+      "t": "str",
+      "v": "RemoteWorker R1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_de",
       "t": "str",
       "v": "RemoteWorker R1"
     },
@@ -1940,6 +1960,56 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "slide_app_summary",
+      "t": "str",
+      "v": "Three.js 场景运行示例，用模型表管理实体、选择和 CRUD 投影。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "installed_at",
+      "t": "str",
+      "v": "builtin"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "deletable",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "workspace.page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_capable",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1007,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "source_worker",
       "t": "str",
       "v": "workspace"
@@ -3229,6 +3299,56 @@
       "k": "app_name",
       "t": "str",
       "v": "Static"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_app_summary",
+      "t": "str",
+      "v": "静态项目上传与访问示例，用于发布 HTML/ZIP 并验证静态挂载。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "installed_at",
+      "t": "str",
+      "v": "builtin"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "deletable",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "workspace.page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1011,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_capable",
+      "t": "bool",
+      "v": true
     },
     {
       "op": "add_label",
@@ -13610,6 +13730,16 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "slide_app_summary",
+      "t": "str",
+      "v": "上传 ZIP 并把其中的模型表 JSON patch 安装为本地滑动 APP。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1030,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "source_worker",
       "t": "str",
       "v": "zip-import"
@@ -23435,9 +23565,29 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "slide_app_summary",
+      "t": "str",
+      "v": "Input + Submit + Label 的最小双总线示例，展示按钮触发远端处理与回写。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "source_worker",
       "t": "str",
       "v": "manual-zip-import"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1050,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_de",
+      "t": "str",
+      "v": "RemoteWorker R1"
     },
     {
       "op": "add_label",
@@ -24201,7 +24351,27 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "slide_app_summary",
+      "t": "str",
+      "v": "浏览工作区资产和远端 Worker 提供的滑动 APP，并从索引发起安装。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "source_worker",
+      "t": "str",
+      "v": "Workspace-Manager-DE"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_de",
       "t": "str",
       "v": "Workspace-Manager-DE"
     },
@@ -24214,6 +24384,16 @@
       "k": "slide_capable",
       "t": "bool",
       "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "workspace.page"
     },
     {
       "op": "add_label",
@@ -24825,6 +25005,16 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "slide_app_summary",
+      "t": "str",
+      "v": "UI Server 自带 Matrix 协作套件，提供房间、消息、文件和设置等入口。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "source_worker",
       "t": "str",
       "v": "ui-server"
@@ -24925,7 +25115,7 @@
       "k": "handle_matrix_suite_event",
       "t": "func.js",
       "v": {
-        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst now = () => new Date().toLocaleTimeString('en-US', { hour12: false });\nconst readPayload = (key, fallback = null) => {\n  const item = records.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key);\n  return item && Object.prototype.hasOwnProperty.call(item, 'v') ? item.v : fallback;\n};\nconst root = (key, fallback = null) => {\n  const lbl = V1N.readLabel(0, 0, 0, key);\n  return lbl && Object.prototype.hasOwnProperty.call(lbl, 'v') ? lbl.v : fallback;\n};\nconst write = (key, type, value) => V1N.table.addLabel(0, 0, 0, key, type, value);\nconst fail = (code, detail) => {\n  write('status_text', 'str', 'ERR ' + code + ': ' + detail);\n  write('connection_status', 'str', 'error');\n  write('last_error_json', 'json', { code, detail, ts: Date.now() });\n};\nconst safeArray = (value) => Array.isArray(value) ? value : [];\nconst rooms = () => safeArray(root('rooms_json', []));\nconst timeline = () => safeArray(root('timeline_json', []));\nconst activeRoomId = () => String(root('active_room_id', '!digital-sovereignty:ui.local') || '!digital-sovereignty:ui.local');\nconst findRoom = (roomId, list = rooms()) => list.find((room) => room && room.id === roomId && room.archived !== true) || null;\nconst clean = (value) => String(value == null ? '' : value).trim();\nconst slug = (value) => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32) || 'channel';\nconst renderRooms = (list, selected) => list.filter((room) => room && room.archived !== true).map((room) => (room.id === selected ? '> ' : '  ') + (room.kind === 'dm' ? 'DM' : 'ROOM') + '  ' + room.name + '  unread=' + Number(room.unread || 0)).join('\\n');\nconst renderTimeline = (list, selected, roomName) => {\n  const rows = list.filter((event) => event && event.room_id === selected);\n  if (rows.length === 0) return '### ' + roomName + '\\n\\nNo events yet.';\n  const body = rows.map((event) => {\n    const suffix = event.edited ? ' _(edited)_' : '';\n    const type = event.msgtype || event.type || 'event';\n    return '- **' + (event.sender || 'system') + '** · ' + (event.ts || now()) + ' · ' + type + '\\n  ' + (event.body || '') + suffix;\n  }).join('\\n');\n  return '### ' + roomName + '\\n\\n' + body;\n};\nconst syncProjection = (roomList, eventList, selectedId) => {\n  const current = findRoom(selectedId, roomList) || roomList.find((room) => room && room.archived !== true) || { id: selectedId, name: 'No room', members: [] };\n  write('active_room_id', 'str', current.id || selectedId);\n  write('active_room_name', 'str', current.name || 'No room');\n  write('active_room_summary', 'str', (current.kind === 'dm' ? '1v1' : 'Room') + ' · ' + ((current.members || []).length) + ' member(s)');\n  write('rooms_text', 'str', renderRooms(roomList, current.id || selectedId));\n  write('timeline_markdown', 'str', renderTimeline(eventList, current.id || selectedId, current.name || 'No room'));\n  write('room_inspector_markdown', 'str', '## ' + (current.name || 'No room') + '\\n\\n- id: ' + (current.id || selectedId) + '\\n- kind: ' + (current.kind || 'unknown') + '\\n- members: ' + ((current.members || []).join(', ') || 'none') + '\\n- unread: ' + Number(current.unread || 0));\n};\nif (readPayload('__mt_payload_kind', '') !== 'ui_event.v1') { fail('invalid_payload_kind', 'ui_event.v1_required'); return; }\nconst action = clean(readPayload('action', ''));\nlet roomList = rooms();\nlet eventList = timeline();\nlet selectedId = activeRoomId();\ntry {\n  if (action === 'select_filter') {\n    write('status_text', 'str', 'Filter: ' + clean(readPayload('filter', 'all')));\n    write('connection_status', 'str', 'online');\n  } else if (action === 'select_room') {\n    const requested = clean(readPayload('room_id', ''));\n    if (!findRoom(requested, roomList)) { fail('room_not_found', requested); return; }\n    selectedId = requested;\n    write('status_text', 'str', 'Selected ' + findRoom(selectedId, roomList).name);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'send_message') {\n    const text = clean(readPayload('draft_text', root('composer_draft', '')));\n    if (!text) { fail('empty_message', 'composer_draft_required'); return; }\n    const current = findRoom(selectedId, roomList);\n    if (!current) { fail('room_not_found', selectedId); return; }\n    const event = { event_id: '$local_' + Date.now(), room_id: selectedId, sender: 'You', type: 'm.room.message', msgtype: 'm.text', body: text, ts: now(), edited: false };\n    eventList = eventList.concat(event);\n    write('timeline_json', 'json', eventList);\n    write('composer_draft', 'str', '');\n    write('last_editable_event_id', 'str', event.event_id);\n    write('edit_draft', 'str', text);\n    write('status_text', 'str', 'Sent to ' + current.name);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'edit_message') {\n    const target = clean(readPayload('event_id', root('last_editable_event_id', '')));\n    const text = clean(readPayload('edit_text', root('edit_draft', '')));\n    if (!target || !text) { fail('edit_requires_target_and_text', 'missing_event_or_text'); return; }\n    let edited = false;\n    eventList = eventList.map((event) => event && event.event_id === target ? (edited = true, { ...event, body: text, edited: true, edited_at: now(), relation: 'm.replace' }) : event);\n    if (!edited) { fail('event_not_found', target); return; }\n    write('timeline_json', 'json', eventList);\n    write('status_text', 'str', 'Message edited');\n    write('connection_status', 'str', 'online');\n  } else if (action === 'create_channel') {\n    const name = clean(readPayload('channel_name', root('new_channel_name', '')));\n    const kind = clean(readPayload('channel_kind', 'room')) === 'dm' ? 'dm' : 'room';\n    if (!name) { fail('missing_channel_name', 'new_channel_name_required'); return; }\n    const id = kind === 'dm' ? '@' + slug(name) + ':ui.local' : '!' + slug(name) + '-' + Date.now() + ':ui.local';\n    const nextRoom = { id, kind, name, avatar: name.slice(0, 2).toUpperCase(), unread: 0, members: kind === 'dm' ? [name] : ['You'], archived: false };\n    roomList = roomList.concat(nextRoom);\n    write('rooms_json', 'json', roomList);\n    write('new_channel_name', 'str', '');\n    selectedId = id;\n    write('status_text', 'str', 'Created ' + kind + ': ' + name);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'update_channel') {\n    const requested = clean(readPayload('room_id', selectedId)) || selectedId;\n    const name = clean(readPayload('channel_name', root('new_channel_name', '')));\n    if (!name) { fail('missing_channel_name', 'new_channel_name_required'); return; }\n    if (!findRoom(requested, roomList)) { fail('room_not_found', requested); return; }\n    roomList = roomList.map((room) => room && room.id === requested ? { ...room, name, avatar: name.slice(0, 2).toUpperCase() } : room);\n    write('rooms_json', 'json', roomList);\n    write('new_channel_name', 'str', '');\n    selectedId = requested;\n    write('status_text', 'str', 'Renamed channel: ' + name);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'delete_channel') {\n    const requested = clean(readPayload('room_id', selectedId)) || selectedId;\n    const current = findRoom(requested, roomList);\n    if (!current) { fail('room_not_found', requested); return; }\n    roomList = roomList.map((room) => room && room.id === requested ? { ...room, archived: true } : room);\n    write('rooms_json', 'json', roomList);\n    if (selectedId === requested) {\n      const fallback = roomList.find((room) => room && room.archived !== true);\n      selectedId = fallback ? fallback.id : selectedId;\n    }\n    write('status_text', 'str', 'Deleted ' + current.name);\n    write('connection_status', 'str', 'warning');\n  } else if (action === 'start_video' || action === 'start_voice' || action === 'start_screen') {\n    const current = findRoom(selectedId, roomList);\n    if (!current) { fail('room_not_found', selectedId); return; }\n    const map = { start_video: ['m.call.invite', 'video.conference', 'Video conference started'], start_voice: ['m.room.message', 'm.audio', 'Voice message recorded'], start_screen: ['m.call.invite', 'screen.share', 'Screen sharing started'] };\n    const item = map[action];\n    eventList = eventList.concat({ event_id: '$' + action + '_' + Date.now(), room_id: selectedId, sender: 'You', type: item[0], msgtype: item[1], body: item[2], ts: now(), edited: false });\n    write('timeline_json', 'json', eventList);\n    write('call_state', 'str', item[2]);\n    write('status_text', 'str', item[2]);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'share_file') {\n    const uri = clean(readPayload('media_uri', root('pending_file_uri', '')));\n    const fileName = clean(readPayload('file_name', root('pending_file_name', ''))) || 'uploaded-file';\n    if (!uri) { fail('missing_media_uri', 'upload_file_first'); return; }\n    eventList = eventList.concat({ event_id: '$file_' + Date.now(), room_id: selectedId, sender: 'You', type: 'm.room.message', msgtype: 'm.file', body: 'File shared: ' + fileName + ' (' + uri + ')', media_uri: uri, file_name: fileName, ts: now(), edited: false });\n    write('timeline_json', 'json', eventList);\n    write('file_share_status', 'str', 'shared ' + fileName);\n    write('pending_file_uri', 'str', '');\n    write('pending_file_name', 'str', '');\n    write('status_text', 'str', 'File shared: ' + fileName);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'save_settings') {\n    const homeserver = clean(readPayload('homeserver', root('settings_homeserver', '')));\n    const userId = clean(readPayload('user_id', root('settings_user_id', '')));\n    const mode = clean(readPayload('settings_mode', 'save'));\n    write('settings_status', 'str', mode === 'rotate_password' ? 'password maintenance requested for ' + (userId || 'current user') : 'settings saved for ' + (homeserver || 'default homeserver'));\n    write('password_status', 'str', mode === 'rotate_password' ? 'rotation requested; no secret stored' : 'managed outside UI model');\n    write('status_text', 'str', 'Settings updated');\n    write('connection_status', 'str', 'online');\n  } else { fail('unknown_action', action || 'missing'); return; }\n  syncProjection(roomList, eventList, selectedId);\n  write('last_action', 'str', action);\n} catch (err) { fail('exception', err && err.message ? err.message : String(err)); }",
+        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = (key, fallback = '') => {\n  const record = records.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key);\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\nconst root = (key, fallback = '') => {\n  const lbl = V1N.readLabel(0, 0, 0, key);\n  return lbl && Object.prototype.hasOwnProperty.call(lbl, 'v') ? lbl.v : fallback;\n};\nconst write = (key, type, value) => V1N.table.addLabel(0, 0, 0, key, type, value);\nconst fail = (code, detail) => {\n  write('status_text', 'str', 'ERR ' + code + ': ' + detail);\n  write('connection_status', 'str', 'error');\n  write('last_error_json', 'json', { code, detail, ts: Date.now() });\n};\nconst safeArray = (value) => Array.isArray(value) ? value : [];\nconst rooms = () => safeArray(root('rooms_json', []));\nconst timeline = () => safeArray(root('timeline_json', []));\nconst activeRoomId = () => String(root('active_room_id', '!digital-sovereignty:ui.local') || '!digital-sovereignty:ui.local');\nconst findRoom = (roomId, list = rooms()) => list.find((room) => room && room.id === roomId && room.archived !== true) || null;\nconst clean = (value) => String(value == null ? '' : value).trim();\nconst slug = (value) => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32) || 'channel';\nconst renderRooms = (list, selected) => list.filter((room) => room && room.archived !== true).map((room) => (room.id === selected ? '> ' : '  ') + (room.kind === 'dm' ? 'DM' : 'ROOM') + '  ' + room.name + '  unread=' + Number(room.unread || 0)).join('\\n');\nconst renderTimeline = (list, selected, roomName) => {\n  const rows = list.filter((event) => event && event.room_id === selected);\n  if (rows.length === 0) return '### ' + roomName + '\\n\\nNo events yet.';\n  const body = rows.map((event) => {\n    const suffix = event.edited ? ' _(edited)_' : '';\n    const type = event.msgtype || event.type || 'event';\n    const eventId = event.event_id ? '\\n  event: ' + event.event_id : '';\n    return '- **' + (event.sender || 'system') + '** · ' + (event.ts || now()) + ' · ' + type + '\\n  ' + (event.body || '') + suffix + eventId;\n  }).join('\\n');\n  return '### ' + roomName + '\\n\\n' + body;\n};\nconst syncProjection = (roomList, eventList, selectedId) => {\n  const current = findRoom(selectedId, roomList) || roomList.find((room) => room && room.archived !== true) || { id: selectedId, name: 'No room', members: [] };\n  write('active_room_id', 'str', current.id || selectedId);\n  write('active_room_name', 'str', current.name || 'No room');\n  write('active_room_summary', 'str', (current.kind === 'dm' ? '1v1' : 'Room') + ' · ' + ((current.members || []).length) + ' member(s)');\n  write('rooms_text', 'str', renderRooms(roomList, current.id || selectedId));\n  write('timeline_markdown', 'str', renderTimeline(eventList, current.id || selectedId, current.name || 'No room'));\n  write('room_inspector_markdown', 'str', '## ' + (current.name || 'No room') + '\\n\\n- id: ' + (current.id || selectedId) + '\\n- kind: ' + (current.kind || 'unknown') + '\\n- members: ' + ((current.members || []).join(', ') || 'none') + '\\n- unread: ' + Number(current.unread || 0));\n};\nconst now = () => new Date().toISOString().slice(11, 19);\nconst requestHost = (action, payload) => {\n  write('matrix_suite_host_action', 'json', { request_id: action + '_' + Date.now(), action, payload: payload || {} });\n};\nif (readPayload('__mt_payload_kind', '') !== 'ui_event.v1') { fail('invalid_payload_kind', 'ui_event.v1_required'); return; }\nconst action = clean(readPayload('action', ''));\nlet roomList = rooms();\nlet eventList = timeline();\nlet selectedId = activeRoomId();\ntry {\n  if (action === 'select_filter') {\n    write('status_text', 'str', 'Filter: ' + clean(readPayload('filter', 'all')));\n    write('connection_status', 'str', 'online');\n  } else if (action === 'select_room') {\n    const requested = clean(readPayload('room_id', ''));\n    if (!findRoom(requested, roomList)) { fail('room_not_found', requested); return; }\n    selectedId = requested;\n    write('status_text', 'str', 'Selected ' + findRoom(selectedId, roomList).name);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'send_message') {\n    const text = clean(readPayload('draft_text', root('composer_draft', '')));\n    if (!text) { fail('empty_message', 'composer_draft_required'); return; }\n    const current = findRoom(selectedId, roomList);\n    if (!current) { fail('room_not_found', selectedId); return; }\n    write('status_text', 'str', 'Sending via Matrix...');\n    write('connection_status', 'str', 'loading');\n    requestHost('send_message', { room_id: selectedId, body: text });\n  } else if (action === 'edit_message') {\n    const target = clean(readPayload('event_id', root('last_editable_event_id', '')));\n    const text = clean(readPayload('edit_text', root('edit_draft', '')));\n    if (!target || !text) { fail('edit_requires_target_and_text', 'missing_event_or_text'); return; }\n    write('status_text', 'str', 'Editing via Matrix...');\n    write('connection_status', 'str', 'loading');\n    requestHost('edit_message', { room_id: selectedId, event_id: target, body: text });\n  } else if (action === 'create_channel') {\n    const name = clean(readPayload('channel_name', root('new_channel_name', '')));\n    const kind = clean(readPayload('channel_kind', 'room')) === 'dm' ? 'dm' : 'room';\n    if (!name) { fail('missing_channel_name', 'new_channel_name_required'); return; }\n    write('status_text', 'str', 'Creating Matrix ' + kind + '...');\n    write('connection_status', 'str', 'loading');\n    requestHost('create_channel', { name, kind, invite_user_id: kind === 'dm' ? name : '' });\n  } else if (action === 'update_channel') {\n    const requested = clean(readPayload('room_id', selectedId)) || selectedId;\n    const name = clean(readPayload('channel_name', root('new_channel_name', '')));\n    if (!name) { fail('missing_channel_name', 'new_channel_name_required'); return; }\n    if (!findRoom(requested, roomList)) { fail('room_not_found', requested); return; }\n    roomList = roomList.map((room) => room && room.id === requested ? { ...room, name, avatar: name.slice(0, 2).toUpperCase() } : room);\n    write('rooms_json', 'json', roomList);\n    write('new_channel_name', 'str', '');\n    selectedId = requested;\n    write('status_text', 'str', 'Renamed local channel: ' + name);\n    write('connection_status', 'str', 'online');\n  } else if (action === 'delete_channel') {\n    const requested = clean(readPayload('room_id', selectedId)) || selectedId;\n    const current = findRoom(requested, roomList);\n    if (!current) { fail('room_not_found', requested); return; }\n    roomList = roomList.map((room) => room && room.id === requested ? { ...room, archived: true } : room);\n    write('rooms_json', 'json', roomList);\n    if (selectedId === requested) {\n      const fallback = roomList.find((room) => room && room.archived !== true);\n      selectedId = fallback ? fallback.id : selectedId;\n    }\n    write('status_text', 'str', 'Deleted local projection for ' + current.name);\n    write('connection_status', 'str', 'warning');\n  } else if (action === 'start_video' || action === 'start_voice' || action === 'start_screen') {\n    write('call_state', 'str', 'requires_media_capability');\n    write('status_text', 'str', 'requires_media_capability: real voice/video/screen sharing is not connected yet');\n    write('connection_status', 'str', 'warning');\n  } else if (action === 'share_file') {\n    const uri = clean(readPayload('media_uri', root('pending_file_uri', '')));\n    const fileName = clean(readPayload('file_name', root('pending_file_name', ''))) || 'uploaded-file';\n    if (!uri) { fail('missing_media_uri', 'upload_file_first'); return; }\n    write('file_share_status', 'str', 'sharing via Matrix...');\n    write('status_text', 'str', 'Sharing file via Matrix...');\n    write('connection_status', 'str', 'loading');\n    requestHost('share_file', { room_id: selectedId, media_uri: uri, file_name: fileName });\n  } else if (action === 'save_settings') {\n    const homeserver = clean(readPayload('homeserver', root('settings_homeserver', '')));\n    const userId = clean(readPayload('user_id', root('settings_user_id', '')));\n    const password = String(readPayload('password', root('login_password_draft', '')) || '');\n    const mode = clean(readPayload('settings_mode', 'save'));\n    if (mode === 'login') {\n      write('settings_status', 'str', 'logging in...');\n      write('connection_status', 'str', 'loading');\n      requestHost('login', { homeserver, user_id: userId, password });\n    } else if (mode === 'rotate_password') {\n      write('settings_status', 'str', 'password maintenance requested for ' + (userId || 'current user'));\n      write('password_status', 'str', 'rotation requested; no secret stored');\n      write('status_text', 'str', 'Settings updated');\n      write('connection_status', 'str', 'online');\n    } else {\n      write('settings_status', 'str', 'settings saved for ' + (homeserver || 'default homeserver'));\n      write('password_status', 'str', 'managed outside UI model');\n      write('status_text', 'str', 'Settings updated');\n      write('connection_status', 'str', 'online');\n    }\n  } else { fail('unknown_action', action || 'missing'); return; }\n  syncProjection(roomList, eventList, selectedId);\n  write('last_action', 'str', action);\n} catch (err) { fail('exception', err && err.message ? err.message : String(err)); }",
         "modelName": "matrix_suite_slide_app"
       }
     },
@@ -30147,7 +30337,7 @@
       "c": 0,
       "k": "ui_order",
       "t": "int",
-      "v": 3
+      "v": 4
     },
     {
       "op": "add_label",
@@ -30227,7 +30417,7 @@
       "c": 1,
       "k": "ui_label",
       "t": "str",
-      "v": "Save"
+      "v": "Login"
     },
     {
       "op": "add_label",
@@ -30238,7 +30428,7 @@
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "label": "Save"
+        "label": "Login"
       }
     },
     {
@@ -30311,9 +30501,26 @@
               "p": 0,
               "r": 0,
               "c": 0,
+              "k": "password",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1080,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "login_password_draft"
+                }
+              }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
               "k": "settings_mode",
               "t": "str",
-              "v": "save"
+              "v": "login"
             }
           ],
           "value_t": "modeltable",
@@ -30501,7 +30708,7 @@
       "c": 0,
       "k": "ui_order",
       "t": "int",
-      "v": 4
+      "v": 5
     },
     {
       "op": "add_label",
@@ -30572,7 +30779,7 @@
       "c": 0,
       "k": "ui_order",
       "t": "int",
-      "v": 5
+      "v": 6
     },
     {
       "op": "add_label",
@@ -30805,6 +31012,5109 @@
           ],
           "value_t": "modeltable",
           "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "session_status",
+      "t": "str",
+      "v": "unauthenticated"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "session_user_id",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "session_display_name",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "login_password_draft",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "matrix_suite_host_action",
+      "t": "json",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_suite_password_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_suite_settings_card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 3
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Password"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "password",
+        "autocomplete": "current-password"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1080,
+      "p": 4,
+      "r": 9,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1080,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "login_password_draft"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1080,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "login_password_draft"
+          },
+          "commit_policy": "on_blur"
+        }
+      }
+    },
+    {
+      "op": "create_model",
+      "model_id": 1081,
+      "name": "settings",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.SettingsApp"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "Settings"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_app_summary",
+      "t": "str",
+      "v": "UI Server 自带设置滑动 App，用模型表展示本地运行状态、显示偏好和后续配置入口。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "ui-server"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_origin",
+      "t": "str",
+      "v": "builtin"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_capable",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "workspace.page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "deletable",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "installed_at",
+      "t": "str",
+      "v": "builtin"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "settings_app_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "settings_app_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 14
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "height": "100%",
+          "padding": "24px",
+          "boxSizing": "border-box",
+          "overflow": "auto",
+          "background": "linear-gradient(135deg,#f8fafc,#e0f2fe)"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "settings_app_root_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Heading"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "settings_app_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "Settings"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "level": 1,
+        "style": {
+          "fontSize": "28px",
+          "margin": "0 0 8px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "settings_app_root_body"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "settings_app_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1081,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "## Settings\n\n这里是 UI Server 自带设置滑动 App。当前版本先承接原先的设置入口，后续配置项继续通过模型表扩展。"
+    },
+    {
+      "op": "create_model",
+      "model_id": 1082,
+      "name": "modeltable",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.ModelTableCrudApp"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "ModelTable"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_app_summary",
+      "t": "str",
+      "v": "UI Server 自带模型表维护入口，打开后在 1082 滑动 App 内承载完整模型表编辑界面。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "ui-server"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_origin",
+      "t": "str",
+      "v": "builtin"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_capable",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "workspace.page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "deletable",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "installed_at",
+      "t": "str",
+      "v": "builtin"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "root_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "root_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "layout_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "root_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "txt_home_surface"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": "surface: root_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Card"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_title",
+      "t": "str",
+      "v": "Home Catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "form_home_filters"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_filters"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Model"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_model_query"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "id or name contains..."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_filter_model_query"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_filter_model_query"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sel_home_target_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Select"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "options": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "editor_model_options_json"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Select model"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "selected_model_id"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "selected_model_id"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_refresh"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Refresh"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_refresh",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "selected_model_id"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_filter_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_filters"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Filter"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_p"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_filter_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "p"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_filter_p"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_filter_p"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_r"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_filter_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "r"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_filter_r"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_filter_r"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_c"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_filter_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "c"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_filter_c"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_filter_c"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_ktv"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_filter_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "k|t|v substring..."
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 13,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_filter_ktv"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_filter_ktv"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "txt_home_missing_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "danger"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 14,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "home_missing_model_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "layout_home_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_align",
+      "t": "str",
+      "v": "center"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 15,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "txt_home_selected"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 16,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "home_selected_label_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "txt_home_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 17,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "home_status_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_open_create"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "icon": "plus"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Add Label"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 18,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_open_create",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "selected_model_id"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Table"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "data": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "home_table_rows_json"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_border",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_height",
+      "t": "int",
+      "v": 520
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_row_key",
+      "t": "str",
+      "v": "row_id"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 19,
+      "c": 0,
+      "k": "ui_stripe",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_p"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "p"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "p"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 20,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "70"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_r"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "r"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "r"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 21,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "70"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_c"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "c"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "c"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 22,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "70"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_k"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "k"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "160"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 23,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "k"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_t"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "t"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "t"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 24,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "90"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_v"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 60
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "v"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "260"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 25,
+      "c": 0,
+      "k": "ui_prop",
+      "t": "str",
+      "v": "v_preview"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 26,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "col_home_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 26,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TableColumn"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 26,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "tbl_home_cells"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 26,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 70
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 26,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 26,
+      "c": 0,
+      "k": "ui_min_width",
+      "t": "str",
+      "v": "280"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "home_row_action_bar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "col_home_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 8
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 27,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_select_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "home_row_action_bar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Select"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 28,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_select_row",
+          "target_ref": {
+            "model_id": {
+              "$ref": "row.model_id"
+            },
+            "p": {
+              "$ref": "row.p"
+            },
+            "r": {
+              "$ref": "row.r"
+            },
+            "c": {
+              "$ref": "row.c"
+            },
+            "k": {
+              "$ref": "row.k"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_open_edit"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "home_row_action_bar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "icon": "edit"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Edit"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 29,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_open_edit",
+          "target_ref": {
+            "model_id": {
+              "$ref": "row.model_id"
+            },
+            "p": {
+              "$ref": "row.p"
+            },
+            "r": {
+              "$ref": "row.r"
+            },
+            "c": {
+              "$ref": "row.c"
+            },
+            "k": {
+              "$ref": "row.k"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_view_detail"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "home_row_action_bar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Detail"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_view_detail",
+          "target_ref": {
+            "model_id": {
+              "$ref": "row.model_id"
+            },
+            "p": {
+              "$ref": "row.p"
+            },
+            "r": {
+              "$ref": "row.r"
+            },
+            "c": {
+              "$ref": "row.c"
+            },
+            "k": {
+              "$ref": "row.k"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_delete_label"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "home_row_action_bar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "icon": "trash"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Delete"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_size",
+      "t": "str",
+      "v": "small"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "danger"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_delete_label",
+          "target_ref": {
+            "model_id": {
+              "$ref": "row.model_id"
+            },
+            "p": {
+              "$ref": "row.p"
+            },
+            "r": {
+              "$ref": "row.r"
+            },
+            "c": {
+              "$ref": "row.c"
+            },
+            "k": {
+              "$ref": "row.k"
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "dlg_home_edit"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "home_edit_dialog_title"
+          }
+        },
+        "closeOnClickModal": false
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "680px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 32,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_open"
+        },
+        "write": {
+          "action": "home_close_edit",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_open"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 33,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 33,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Form"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 33,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "dlg_home_edit"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 33,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 34,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_model_id"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 34,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 34,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 34,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 34,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Model"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 35,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_edit_model_id"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 35,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 35,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_model_id"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 35,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 35,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_model_id"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_model_id"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "layout_home_edit_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 36,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 37,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_p"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 37,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 37,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 37,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 37,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "p"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 38,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "num_home_edit_p"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 38,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "NumberInput"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 38,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_p"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 38,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 38,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_p"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_p"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 39,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_r"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 39,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 39,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 39,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 39,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "r"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 40,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "num_home_edit_r"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 40,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "NumberInput"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 40,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_r"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 40,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 40,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_r"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_r"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 41,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_c"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 41,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 41,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_coords"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 41,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 41,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "c"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 42,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "num_home_edit_c"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 42,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "NumberInput"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 42,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_c"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 42,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 42,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_c"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_c"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 43,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_k"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 43,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 43,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 43,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 30
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 43,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "k"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 44,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_edit_k"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 44,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 44,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_k"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 44,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 44,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_k"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_k"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 45,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_t"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 45,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 45,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 45,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 40
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 45,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "t"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "sel_home_edit_t"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Select"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_t"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "filterable": true,
+        "allowCreate": true,
+        "defaultFirstOption": true,
+        "clearable": false
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_options_json",
+      "t": "json",
+      "v": [
+        {
+          "label": "str",
+          "value": "str"
+        },
+        {
+          "label": "int",
+          "value": "int"
+        },
+        {
+          "label": "bool",
+          "value": "bool"
+        },
+        {
+          "label": "json",
+          "value": "json"
+        },
+        {
+          "label": "event",
+          "value": "event"
+        },
+        {
+          "label": "func.js",
+          "value": "func.js"
+        },
+        {
+          "label": "func.python",
+          "value": "func.python"
+        },
+        {
+          "label": "pin.connect.label",
+          "value": "pin.connect.label"
+        },
+        {
+          "label": "pin.connect.cell",
+          "value": "pin.connect.cell"
+        },
+        {
+          "label": "pin.in",
+          "value": "pin.in"
+        },
+        {
+          "label": "pin.out",
+          "value": "pin.out"
+        },
+        {
+          "label": "pin.bus.cb.in",
+          "value": "pin.bus.cb.in"
+        },
+        {
+          "label": "pin.bus.cb.out",
+          "value": "pin.bus.cb.out"
+        },
+        {
+          "label": "pin.bus.mb.in",
+          "value": "pin.bus.mb.in"
+        },
+        {
+          "label": "pin.bus.mb.out",
+          "value": "pin.bus.mb.out"
+        },
+        {
+          "label": "model.single",
+          "value": "model.single"
+        },
+        {
+          "label": "model.table",
+          "value": "model.table"
+        },
+        {
+          "label": "model.matrix",
+          "value": "model.matrix"
+        },
+        {
+          "label": "model.submt",
+          "value": "model.submt"
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 46,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_t"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_t"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 47,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 47,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 47,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 47,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 50
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 47,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Value (text/json/structural)"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "input_home_edit_v_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "rows": 4
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "textarea"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 48,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_v_text"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_v_text"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "layout_home_edit_scalar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 60
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 49,
+      "c": 0,
+      "k": "ui_wrap",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 50,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_v_int"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 50,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 50,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_scalar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 50,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 50,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Value (int)"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 51,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "num_home_edit_v_int"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 51,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "NumberInput"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 51,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_v_int"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 51,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 51,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_v_int"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_v_int"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 52,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "fi_home_edit_v_bool"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 52,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FormItem"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 52,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_scalar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 52,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 52,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Value (bool)"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 53,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "switch_home_edit_v_bool"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 53,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Switch"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 53,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "fi_home_edit_v_bool"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 53,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 53,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_edit_v_bool"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_v_bool"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "layout_home_edit_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 70
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "justify": "flex-end"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 54,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_save_label"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "icon": "check"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Save"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 55,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_save_label",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_model_id"
+          },
+          "value_ref": {
+            "model_id": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_model_id"
+              }
+            },
+            "p": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_p"
+              }
+            },
+            "r": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_r"
+              }
+            },
+            "c": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_c"
+              }
+            },
+            "k": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_k"
+              }
+            },
+            "t": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_t"
+              }
+            },
+            "value_text": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_v_text"
+              }
+            },
+            "value_int": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_v_int"
+              }
+            },
+            "value_bool": {
+              "$label": {
+                "model_id": -2,
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "dt_edit_v_bool"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "txt_home_edit_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "form_home_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 65
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "color": "#b91c1c",
+          "fontWeight": 600
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "info"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 56,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "home_status_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_close_edit"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_edit_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "icon": "close"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Cancel"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 57,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_close_edit",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_edit_open"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 58,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "dlg_home_detail"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 58,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 58,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "card_home_catalog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 58,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 60
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 58,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_detail_title"
+          }
+        },
+        "closeOnClickModal": false
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 58,
+      "c": 0,
+      "k": "ui_width",
+      "t": "str",
+      "v": "720px"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 58,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_detail_open"
+        },
+        "write": {
+          "action": "home_close_detail",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_detail_open"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 58,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "code_home_detail_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 58,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "CodeBlock"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 58,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "dlg_home_detail"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 58,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 58,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dt_detail_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 59,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "layout_home_detail_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 59,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 59,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "dlg_home_detail"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 59,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 20
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 59,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "justify": "flex-end"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 59,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "btn_home_close_detail"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "layout_home_detail_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "icon": "close"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Close"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1082,
+      "p": 2,
+      "r": 60,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "home_close_detail",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "dt_detail_open"
+          }
         }
       }
     }

@@ -53,6 +53,10 @@ function buildZipBuffer(payload) {
   return zip.toBuffer();
 }
 
+function withoutSlideAppSummary(payload) {
+  return payload.filter((record) => !(record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === 'slide_app_summary'));
+}
+
 async function withServerState(fn) {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0361-export-'));
   process.env.DY_AUTH = '0';
@@ -82,6 +86,11 @@ function test_saved_payload_and_zip_shape() {
   const payload = readPayload();
   assertTemporaryRecordArray(payload, 'saved_payload');
   assertNoLegacyPayloadSurface(payload, 'saved_payload');
+  assert.equal(
+    payload.some((record) => record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === 'slide_app_summary' && typeof record.v === 'string' && record.v.trim().length >= 8),
+    true,
+    'saved_payload_must_include_slide_app_summary',
+  );
   const zip = new AdmZip(zipPath);
   const entries = zip.getEntries().filter((entry) => entry && !entry.isDirectory);
   assert.equal(entries.length, 1, 'minimal_submit_zip_must_contain_exactly_one_file');
@@ -89,6 +98,22 @@ function test_saved_payload_and_zip_shape() {
   const zippedPayload = JSON.parse(entries[0].getData().toString('utf8'));
   assert.deepEqual(zippedPayload, payload, 'zip_payload_must_match_saved_payload');
   return { key: 'saved_payload_and_zip_shape', status: 'PASS' };
+}
+
+async function test_import_rejects_slide_capable_payload_missing_summary() {
+  return withServerState(async (state) => {
+    const payload = withoutSlideAppSummary(readPayload());
+    state.cacheUploadedMediaForTest('mxc://localhost/0361-missing-summary', {
+      buffer: buildZipBuffer(payload),
+      contentType: 'application/zip',
+      filename: 'missing_summary.zip',
+      userId: '@manual:localhost',
+    });
+    const importResult = state.runtime.hostApi.slideImportAppFromMxc('mxc://localhost/0361-missing-summary');
+    assert.equal(importResult.ok, false, 'summaryless_slide_payload_must_be_rejected');
+    assert.equal(importResult.detail, 'missing_slide_app_summary', 'summaryless_slide_payload_rejection_must_be_explicit');
+    return { key: 'import_rejects_slide_capable_payload_missing_summary', status: 'PASS' };
+  });
 }
 
 async function test_saved_zip_imports_and_exports_reimportable_zip() {
@@ -173,6 +198,7 @@ function test_docs_explain_generation_and_export_paths() {
 
 const tests = [
   test_saved_payload_and_zip_shape,
+  test_import_rejects_slide_capable_payload_missing_summary,
   test_saved_zip_imports_and_exports_reimportable_zip,
   test_docs_explain_generation_and_export_paths,
 ];

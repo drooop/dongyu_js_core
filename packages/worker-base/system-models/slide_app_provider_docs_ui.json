@@ -6,6 +6,7 @@
     { "op": "create_model", "model_id": 1039, "name": "slide_app_provider_docs_ui", "type": "ui" },
     { "op": "add_label", "model_id": 1039, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.table", "v": "UI.SlideAppProviderDocs" },
     { "op": "add_label", "model_id": 1039, "p": 0, "r": 0, "c": 0, "k": "app_name", "t": "str", "v": "Minimal Submit Dual-Bus Docs" },
+    { "op": "add_label", "model_id": 1039, "p": 0, "r": 0, "c": 0, "k": "slide_app_summary", "t": "str", "v": "Documentation entry for the minimal Submit dual-bus slide app provider workflow." },
     { "op": "add_label", "model_id": 1039, "p": 0, "r": 0, "c": 0, "k": "source_worker", "t": "str", "v": "workspace" },
     { "op": "add_label", "model_id": 1039, "p": 0, "r": 0, "c": 0, "k": "slide_capable", "t": "bool", "v": true },
     { "op": "add_label", "model_id": 1039, "p": 0, "r": 0, "c": 0, "k": "slide_surface_type", "t": "str", "v": "workspace.page" },

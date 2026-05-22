@@ -90,6 +90,7 @@ function buildExecutablePayload() {
   return [
     { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.ExecutableImportedApp' },
     { id: 0, p: 0, r: 0, c: 0, k: 'app_name', t: 'str', v: 'Executable Import App' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'slide_app_summary', t: 'str', v: 'Executable import server-flow fixture with imported functions and pins.' },
     { id: 0, p: 0, r: 0, c: 0, k: 'source_worker', t: 'str', v: 'exec-import' },
     { id: 0, p: 0, r: 0, c: 0, k: 'slide_capable', t: 'bool', v: true },
     { id: 0, p: 0, r: 0, c: 0, k: 'slide_surface_type', t: 'str', v: 'workspace.page' },

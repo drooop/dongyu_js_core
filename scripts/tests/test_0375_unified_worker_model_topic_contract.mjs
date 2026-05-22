@@ -166,6 +166,35 @@ function withDuplicateRecord(records, key, patch = {}) {
   return records.concat([{ ...record, ...patch }]);
 }
 
+function providerBundleResponsePayload() {
+  return [
+    mt('__mt_payload_kind', 'str', 'slide_app_bundle_response.v1'),
+    mt('__mt_request_id', 'str', 'req_0389_provider_bundle'),
+    mt('asset_id', 'str', 'r1-minimal-submit'),
+    mt('bundle_payload', 'json', [
+      mt('app_name', 'str', '最小 Submit 双总线示例'),
+      mt('slide_capable', 'bool', true),
+      mt('model_type', 'model.table', 'UI.MinimalSubmitDualBusZip'),
+      { id: 0, p: 2, r: 3, c: 0, k: 'ui_component', t: 'str', v: 'Button' },
+      {
+        id: 0,
+        p: 2,
+        r: 3,
+        c: 0,
+        k: 'ui_bind_json',
+        t: 'json',
+        v: {
+          write: {
+            pin: 'click_event',
+            value_t: 'modeltable',
+            commit_policy: 'immediate',
+          },
+        },
+      },
+    ]),
+  ];
+}
+
 function malformedPinPayloadV1Records() {
   return [
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
@@ -1138,8 +1167,24 @@ async function test_generic_worker_bootstrap_subscribes_only_unified_endpoint_to
 async function test_generic_worker_bootstrap_validates_topic_payload_endpoint_match() {
   const base = 'UIPUT/ws/dam/pic/de/sw';
   const packet = externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }));
+  const providerBundleResponse = externalPacket(pinPayloadRecords({
+    opId: 'req_0389_provider_bundle',
+    endpointWorkerId: 'R1',
+    endpointModelId: 3100,
+    endpointPin: 'bundle_request',
+    originWorkerId: 'R1',
+    originModelId: 3100,
+    originPin: 'bundle_request',
+    replyTargetWorkerId: 'U1',
+    replyTargetModelId: 1051,
+    replyTargetPin: 'result',
+    messageRole: 'response',
+    topic: `${base}/R1/3100/bundle_request`,
+    payload: providerBundleResponsePayload(),
+  }));
 
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, packet, base).ok, true, 'valid topic and matching endpoint records must pass bootstrap validation');
+  assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3100/bundle_request`, providerBundleResponse, base).ok, true, 'provider-owned slide app bundle response must pass bootstrap validation even when UI labels use write.pin inside bundle payload');
   assert.equal(validateUnifiedEndpointTopicPacket('UIPUT/R1/3000/submit', packet, 'UIPUT').ok, false, 'bootstrap validation must reject short-base unified topic shape');
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, packet, ` ${base} `).ok, false, 'bootstrap validation must reject padded mqtt_topic_base');
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/0/submit`, packet, base).ok, false, 'bootstrap validation must reject model_id=0');

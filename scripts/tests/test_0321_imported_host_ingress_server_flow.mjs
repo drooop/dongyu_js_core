@@ -78,6 +78,7 @@ function payloadWithHostIngress() {
   return [
     { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.HostIngressFlowApp' },
     { id: 0, p: 0, r: 0, c: 0, k: 'app_name', t: 'str', v: 'Host Ingress Flow App' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'slide_app_summary', t: 'str', v: 'Host ingress imported app server-flow fixture for owner event delivery.' },
     { id: 0, p: 0, r: 0, c: 0, k: 'source_worker', t: 'str', v: 'host-ingress-flow' },
     { id: 0, p: 0, r: 0, c: 0, k: 'slide_capable', t: 'bool', v: true },
     { id: 0, p: 0, r: 0, c: 0, k: 'slide_surface_type', t: 'str', v: 'workspace.page' },
@@ -141,7 +142,9 @@ async function test_host_ingress_route_reaches_imported_boundary_and_cleans_up_o
       host: 'localhost',
       port: 1883,
       client_id: '0321-flow',
-      topic_prefix: 'it0321flow',
+      topic_base: 'it0321flow',
+      topic_mode: 'uiput_mm_v1',
+      payload_mode: 'pin_payload_v1',
       transport: 'mock',
     });
     state.cacheUploadedMediaForTest('mxc://localhost/0321-flow', {
@@ -166,7 +169,6 @@ async function test_host_ingress_route_reaches_imported_boundary_and_cleans_up_o
     assert.ok(model0.getCell(0, 0, 0).labels.get(ingressKey), 'model0_ingress_port_must_exist');
     assert.ok(model0.getCell(0, 0, 0).labels.get(routeKey), 'model0_route_label_must_exist');
     assert.equal(state.runtime.busInPorts.has(ingressKey), true, 'imported_host_ingress_must_register_bus_in_port');
-    assert.equal(state.runtime.mqttClient.subscriptions.has(`it0321flow/${ingressKey}`), true, 'imported_host_ingress_must_subscribe_runtime_topic');
 
     const hostIngressResult = await state.submitEnvelope(pinEnvelope(
       { model_id: 0, p: 0, r: 0, c: 0 },
@@ -185,7 +187,6 @@ async function test_host_ingress_route_reaches_imported_boundary_and_cleans_up_o
     assert.ok(!model0AfterDelete.getCell(0, 0, 0).labels.get(ingressKey), 'delete_must_remove_model0_ingress_port');
     assert.ok(!model0AfterDelete.getCell(0, 0, 0).labels.get(routeKey), 'delete_must_remove_model0_route_label');
     assert.equal(state.runtime.busInPorts.has(ingressKey), false, 'delete_must_unregister_bus_in_port');
-    assert.equal(state.runtime.mqttClient.subscriptions.has(`it0321flow/${ingressKey}`), false, 'delete_must_unsubscribe_runtime_topic');
     return { key: 'host_ingress_route_reaches_imported_boundary_and_cleans_up_on_delete', status: 'PASS' };
   });
 }

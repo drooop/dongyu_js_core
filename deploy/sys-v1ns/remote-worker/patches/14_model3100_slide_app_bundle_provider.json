@@ -128,6 +128,15 @@
           "p": 0,
           "r": 0,
           "c": 0,
+          "k": "slide_app_summary",
+          "t": "str",
+          "v": "RemoteWorker R1 提供的端到端颜色生成器，通过控制总线安装到 UI Server 后生成并展示颜色。"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
           "k": "bg_color",
           "t": "str",
           "v": "#FFFFFF"
@@ -1565,6 +1574,15 @@
           "k": "app_name",
           "t": "str",
           "v": "最小 Submit 双总线示例"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "slide_app_summary",
+          "t": "str",
+          "v": "RemoteWorker R1 提供的最小 Submit 双总线示例，通过输入、提交和回写展示完整远端处理链路。"
         },
         {
           "id": 0,

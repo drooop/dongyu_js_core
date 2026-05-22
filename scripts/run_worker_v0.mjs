@@ -150,6 +150,33 @@ function containsLegacyPinPayloadMetadata(value, seen = new WeakSet()) {
   return false;
 }
 
+function isSlideAppBundleResponsePayload(records) {
+  if (!isTemporaryPayloadRecordArray(records)) return false;
+  const kind = records.find((record) => record
+    && record.id === 0
+    && record.p === 0
+    && record.r === 0
+    && record.c === 0
+    && record.k === '__mt_payload_kind');
+  return kind && kind.t === 'str' && kind.v === 'slide_app_bundle_response.v1';
+}
+
+function recordsContainLegacyPinPayloadMetadata(records, options = {}) {
+  if (!isTemporaryPayloadRecordArray(records)) return true;
+  const allowSlideAppBundlePayload = options.allowSlideAppBundlePayload === true
+    && isSlideAppBundleResponsePayload(records);
+  for (const record of records) {
+    if (isLegacyPinPayloadKey(record.k)) return true;
+    if (allowSlideAppBundlePayload && record.k === 'bundle_payload') {
+      if (!isTemporaryPayloadRecordArray(record.v)) return true;
+      if (record.v.some((bundleRecord) => isLegacyPinPayloadKey(bundleRecord.k))) return true;
+      continue;
+    }
+    if (containsLegacyPinPayloadMetadata(record.v)) return true;
+  }
+  return false;
+}
+
 function pinPayloadRecord(payload, key) {
   if (!payload || !Array.isArray(payload.payload)) return null;
   return payload.payload.find((item) => item
@@ -249,7 +276,7 @@ function validatePinPayloadRecordEnvelope(payload) {
     if (isLegacyPinPayloadKey(record.k)) {
       return { ok: false, reason: 'legacy_pin_payload_metadata_removed' };
     }
-    if (containsLegacyPinPayloadMetadata(record.v)) {
+    if (record.k !== 'payload' && containsLegacyPinPayloadMetadata(record.v)) {
       return { ok: false, reason: 'legacy_pin_payload_metadata_removed' };
     }
   }
@@ -281,6 +308,9 @@ function validatePinPayloadRecordEnvelope(payload) {
     || !isTemporaryPayloadRecordArray(nestedPayload.v)
   ) {
     return { ok: false, reason: 'invalid_pin_payload_records' };
+  }
+  if (recordsContainLegacyPinPayloadMetadata(nestedPayload.v, { allowSlideAppBundlePayload: true })) {
+    return { ok: false, reason: 'legacy_pin_payload_metadata_removed' };
   }
   return {
     ok: true,

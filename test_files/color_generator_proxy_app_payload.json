@@ -22,6 +22,15 @@
     "p": 0,
     "r": 0,
     "c": 0,
+    "k": "slide_app_summary",
+    "t": "str",
+    "v": "Imported color generator proxy that forwards submit events through the bus."
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
     "k": "source_worker",
     "t": "str",
     "v": "model100-proxy"

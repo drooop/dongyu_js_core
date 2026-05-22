@@ -22,6 +22,12 @@ import { buildAstFromCellwiseModel } from '../ui-model-demo-frontend/src/ui_cell
 import { buildAstFromSchema } from '../ui-model-demo-frontend/src/ui_schema_projection.js';
 import { resolvePageAsset } from '../ui-model-demo-frontend/src/page_asset_resolver.js';
 import {
+  DESKTOP_APP_DETAIL_DRAWER_OPEN_LABEL,
+  DESKTOP_APP_MANAGE_MODE_LABEL,
+  DESKTOP_APP_VIEW_MODE_LABEL,
+  DESKTOP_DELETE_CONFIRM_OPEN_LABEL,
+  DESKTOP_DELETE_CONFIRM_TARGET_LABEL,
+  DESKTOP_DELETE_RESULT_OPEN_LABEL,
   DESKTOP_FOREGROUND_APP_LABEL,
   DESKTOP_TASK_STACK_LABEL,
   DESKTOP_TASK_SWITCHER_OPEN_LABEL,
@@ -43,6 +49,7 @@ import {
   deriveWorkspaceSelected,
 } from '../ui-model-demo-frontend/src/editor_page_state_derivers.js';
 import {
+  BUILTIN_WORKSPACE_APP_MODEL_IDS,
   DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID,
   FLOW_SHELL_DEFAULT_TAB,
   FLOW_SHELL_TAB_LABEL,
@@ -55,6 +62,7 @@ import {
   makeSetCookieHeader, makeClearCookieHeader,
   loadHomeservers, addHomeserver, removeHomeserver,
   checkLoginRateLimit,
+  validateHomeserverUrl,
 } from './auth.mjs';
 import {
   normalizeFilltablePolicy,
@@ -70,12 +78,14 @@ const { loadProgramModelFromSqlite } = require('../worker-base/src/program_model
 const { createSqlitePersister } = require('../worker-base/src/modeltable_persistence_sqlite.js');
 const { initDataModel } = require('../worker-base/src/data_models.js');
 const { createMatrixLiveAdapter } = require('../worker-base/src/matrix_live.js');
+const matrixSdk = require('matrix-js-sdk');
 const mqtt = require('mqtt');
 
 const EDITOR_MODEL_ID = -1;
 const EDITOR_STATE_MODEL_ID = -2;
 const WORKSPACE_MANAGER_APP_MODEL_ID = 1051;
 const WORKSPACE_ASSET_CATALOG_MODEL_ID = 1052;
+const MATRIX_SUITE_APP_MODEL_ID = 1080;
 const BUS_EVENT_KEY = 'bus_event';
 const BUS_EVENT_LAST_OP_KEY = 'bus_event_last_op_id';
 const BUS_EVENT_ERROR_KEY = 'bus_event_error';
@@ -104,6 +114,107 @@ const MGMT_BUS_CONSOLE_LOCAL_STATE_KEYS = new Set([
 let _traceSeq = 0;
 const MEDIA_CACHE_TTL_MS = 15 * 60 * 1000;
 const mediaUploadCache = new Map();
+
+function deriveWorkspaceRegistryFromSnapshot({ snapshot, getParentInfo } = {}) {
+  const derived = [];
+  const seen = new Set();
+  const allowedWorkspaceEntryIds = new Set(WORKSPACE_ENTRY_MODEL_IDS);
+  const excludedModelIds = new Set([
+    EDITOR_MODEL_ID,
+    EDITOR_STATE_MODEL_ID,
+    LOGIN_MODEL_ID,
+    -10,
+    GALLERY_MAILBOX_MODEL_ID,
+    GALLERY_STATE_MODEL_ID,
+  ]);
+
+  const addOrReplace = (entry) => {
+    if (!entry || !Number.isInteger(entry.model_id)) return;
+    if (entry.model_id === 0) return;
+    if (excludedModelIds.has(entry.model_id)) return;
+    const existing = derived.find((item) => item.model_id === entry.model_id);
+    if (existing) {
+      Object.assign(existing, entry);
+      return;
+    }
+    derived.push(entry);
+    seen.add(entry.model_id);
+  };
+
+  const models = snapshot && snapshot.models ? snapshot.models : {};
+  for (const [idText, modelSnap] of Object.entries(models)) {
+    const modelId = Number(idText);
+    if (!Number.isInteger(modelId) || modelId === 0) continue;
+    if (seen.has(modelId)) continue;
+    if (excludedModelIds.has(modelId)) continue;
+    const rootLabels = modelSnap && modelSnap.cells && modelSnap.cells['0,0,0'] && modelSnap.cells['0,0,0'].labels
+      ? modelSnap.cells['0,0,0'].labels
+      : {};
+    if (rootLabels.ws_deleted && rootLabels.ws_deleted.v === true) continue;
+    const isAllowedBuiltinEntry = allowedWorkspaceEntryIds.has(modelId);
+    const isInstalledSlideApp = Boolean(
+      rootLabels.deletable && rootLabels.deletable.v === true
+        && rootLabels.slide_capable && rootLabels.slide_capable.v === true,
+    );
+    if (!isAllowedBuiltinEntry && !isInstalledSlideApp) continue;
+    const parentInfo = typeof getParentInfo === 'function' && modelId > 0 ? getParentInfo(modelId) : null;
+    const hasAppSignals = modelId > 0
+      ? Boolean(rootLabels.app_name || rootLabels.source_worker || (parentInfo && parentInfo.parentModelId === 0))
+      : Boolean(rootLabels.app_name);
+    if (!hasAppSignals) continue;
+    const name = rootLabels.app_name && typeof rootLabels.app_name.v === 'string' && rootLabels.app_name.v.trim()
+      ? rootLabels.app_name.v
+      : (modelSnap && typeof modelSnap.name === 'string' && modelSnap.name.trim()
+        ? modelSnap.name
+        : `App ${modelId}`);
+    const source = rootLabels.source_worker && typeof rootLabels.source_worker.v === 'string'
+      ? rootLabels.source_worker.v
+      : '';
+    const appOrigin = BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(modelId) ? 'builtin' : 'slid_in';
+    const sourceDE = appOrigin === 'slid_in'
+      ? String(rootLabels.source_de?.v || 'source unknown').trim() || 'source unknown'
+      : '';
+    const summary = rootLabels.slide_app_summary && typeof rootLabels.slide_app_summary.v === 'string'
+      ? rootLabels.slide_app_summary.v
+      : '';
+    const deletable = rootLabels.deletable ? rootLabels.deletable.v === true : false;
+    const slideCapable = rootLabels.slide_capable ? rootLabels.slide_capable.v === true : false;
+    if (slideCapable && !summary.trim()) {
+      throw new Error(`slide_capable workspace app ${modelId} missing required slide_app_summary`);
+    }
+    const slideSurfaceType = rootLabels.slide_surface_type && typeof rootLabels.slide_surface_type.v === 'string'
+      ? rootLabels.slide_surface_type.v
+      : '';
+    const installedAt = rootLabels.installed_at && typeof rootLabels.installed_at.v === 'string'
+      ? rootLabels.installed_at.v
+      : '';
+    const fromUser = rootLabels.from_user && typeof rootLabels.from_user.v === 'string'
+      ? rootLabels.from_user.v
+      : '';
+    const toUser = rootLabels.to_user && typeof rootLabels.to_user.v === 'string'
+      ? rootLabels.to_user.v
+      : '';
+    addOrReplace({
+      model_id: modelId,
+      name,
+      summary,
+      source,
+      app_origin: appOrigin,
+      source_de: sourceDE,
+      deletable,
+      delete_disabled: !deletable,
+      slide_capable: slideCapable,
+      slide_surface_type: slideSurfaceType,
+      installed_at: installedAt,
+      from_user: fromUser,
+      to_user: toUser,
+      export_url: slideCapable ? `/api/slide-apps/${modelId}/export.zip` : '',
+      export_label: slideCapable ? 'Zip' : '',
+    });
+  }
+  derived.sort((a, b) => a.model_id - b.model_id);
+  return derived;
+}
 
 /**
  * Emit a trace event into the Bus Trace model's mailbox.
@@ -211,6 +322,97 @@ async function uploadMatrixMedia({ homeserverUrl, accessToken, filename, content
     throw new Error(data && data.errcode ? String(data.errcode) : 'matrix_upload_failed');
   }
   return data.content_uri;
+}
+
+function matrixSuiteTxnId(prefix = 'dy') {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function matrixSuiteLoginWithPassword({ homeserverUrl, userId, password }) {
+  const rawHomeserver = String(homeserverUrl || '').trim();
+  const user = String(userId || '').trim();
+  const pass = String(password || '');
+  if (!rawHomeserver) return { ok: false, code: 'missing_homeserver', detail: 'homeserver_required' };
+  if (!user || !pass) return { ok: false, code: 'missing_credentials', detail: 'user_id_and_password_required' };
+  const internalHomeserver = readAuthString(process.env.MATRIX_HOMESERVER_INTERNAL_URL) || 'http://synapse.dongyu.svc.cluster.local:8008';
+  const resolvedHomeserver = rawHomeserver.includes('matrix.localhost') ? internalHomeserver : rawHomeserver;
+  const validatedHomeserver = validateHomeserverUrl(resolvedHomeserver);
+  const fetchFn = validatedHomeserver.startsWith('https:') && process.env.DY_SKIP_TLS === '1'
+    ? (url, opts) => fetch(url, { ...opts, tls: { rejectUnauthorized: false } })
+    : undefined;
+  const client = matrixSdk.createClient({ baseUrl: validatedHomeserver, fetchFn });
+  const login = await client.login('m.login.password', {
+    identifier: { type: 'm.id.user', user },
+    password: pass,
+  });
+  return {
+    ok: true,
+    userId: login.user_id || user,
+    displayName: login.display_name || login.user_id || user,
+    homeserverUrl: validatedHomeserver,
+    accessToken: login.access_token,
+  };
+}
+
+async function matrixSuiteSendRoomEvent(session, roomId, eventType, content) {
+  if (!session || !session.homeserverUrl || !session.accessToken) {
+    return { ok: false, code: 'matrix_session_missing', detail: 'login_required' };
+  }
+  const room = String(roomId || '').trim();
+  if (!room) return { ok: false, code: 'missing_room_id', detail: 'room_id_required' };
+  const txnId = matrixSuiteTxnId('matrix_suite');
+  const url = `${String(session.homeserverUrl).replace(/\/+$/, '')}/_matrix/client/v3/rooms/${encodeURIComponent(room)}/send/${encodeURIComponent(eventType)}/${encodeURIComponent(txnId)}`;
+  const resp = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      authorization: `Bearer ${session.accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(content || {}),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok || !data || typeof data.event_id !== 'string') {
+    return {
+      ok: false,
+      code: data && data.errcode ? String(data.errcode) : 'matrix_send_failed',
+      detail: data && data.error ? String(data.error) : `status=${resp.status}`,
+    };
+  }
+  return { ok: true, eventId: data.event_id, ts: new Date().toISOString().slice(11, 16) };
+}
+
+async function matrixSuiteCreateRoomWithSession(session, input) {
+  if (!session || !session.homeserverUrl || !session.accessToken) {
+    return { ok: false, code: 'matrix_session_missing', detail: 'login_required' };
+  }
+  const name = String(input && input.name ? input.name : '').trim();
+  if (!name) return { ok: false, code: 'missing_room_name', detail: 'name_required' };
+  const kind = String(input && input.kind ? input.kind : 'room') === 'dm' ? 'dm' : 'room';
+  const body = {
+    name,
+    preset: kind === 'dm' ? 'trusted_private_chat' : 'private_chat',
+    is_direct: kind === 'dm',
+  };
+  const invite = String(input && input.inviteUserId ? input.inviteUserId : '').trim();
+  if (invite) body.invite = [invite];
+  const url = `${String(session.homeserverUrl).replace(/\/+$/, '')}/_matrix/client/v3/createRoom`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${session.accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok || !data || typeof data.room_id !== 'string') {
+    return {
+      ok: false,
+      code: data && data.errcode ? String(data.errcode) : 'matrix_create_room_failed',
+      detail: data && data.error ? String(data.error) : `status=${resp.status}`,
+    };
+  }
+  return { ok: true, roomId: data.room_id, name, kind };
 }
 
 async function handleMediaUploadRequest(req, res, state, corsOrigin = null) {
@@ -1976,6 +2178,7 @@ function validateSlideImportPayload(payload) {
       return { ok: false, code: 'invalid_target', detail: 'slide_root_must_be_model_table' };
     }
     const appName = readRootPayloadString(records, 'app_name');
+    const slideSummary = readRootPayloadString(records, 'slide_app_summary');
     const sourceWorker = readRootPayloadString(records, 'source_worker');
     const slideSurfaceType = readRootPayloadString(records, 'slide_surface_type');
     const fromUser = readRootPayloadString(records, 'from_user');
@@ -1984,6 +2187,9 @@ function validateSlideImportPayload(payload) {
     const rootNodeId = readRootPayloadString(records, 'ui_root_node_id');
     if (!appName || !sourceWorker || !slideSurfaceType || !fromUser || !toUser || !rootNodeId) {
       return { ok: false, code: 'invalid_target', detail: 'missing_slide_root_metadata' };
+    }
+    if (!slideSummary || slideSummary.trim().length < 8) {
+      return { ok: false, code: 'invalid_target', detail: 'missing_slide_app_summary' };
     }
     if (authoringVersion !== SLIDE_IMPORT_ALLOWED_UI_AUTHORING_VERSION) {
       return { ok: false, code: 'invalid_target', detail: 'unsupported_ui_authoring_version' };
@@ -2009,6 +2215,7 @@ function validateSlideImportPayload(payload) {
     rootCandidates.push({
       tempId,
       appName,
+      slideSummary,
       sourceWorker,
       slideSurfaceType,
       fromUser,
@@ -2472,9 +2679,15 @@ function buildFilltableCreatedSlidePayload(spec) {
   const slideSurfaceType = String(spec && spec.slideSurfaceType ? spec.slideSurfaceType : 'workspace.page').trim() || 'workspace.page';
   const headline = String(spec && spec.headline ? spec.headline : '').trim();
   const bodyText = String(spec && spec.bodyText ? spec.bodyText : '').trim();
+  const summary = String(
+    spec && spec.summary
+      ? spec.summary
+      : (bodyText || headline || `${appName} created from the fill-table slide app creator.`),
+  ).trim();
   return [
     { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.FilltableCreatedSlideApp' },
     { id: 0, p: 0, r: 0, c: 0, k: 'app_name', t: 'str', v: appName },
+    { id: 0, p: 0, r: 0, c: 0, k: 'slide_app_summary', t: 'str', v: summary },
     { id: 0, p: 0, r: 0, c: 0, k: 'source_worker', t: 'str', v: sourceWorker },
     { id: 0, p: 0, r: 0, c: 0, k: 'slide_capable', t: 'bool', v: true },
     { id: 0, p: 0, r: 0, c: 0, k: 'slide_surface_type', t: 'str', v: slideSurfaceType },
@@ -4141,6 +4354,9 @@ class ProgramModelEngine {
     this.failedBusOutPorts = new Map();
     this.outboundMatrixOps = [];
     this.ignoredMatrixReturnOpIds = new Set();
+    this.matrixSuiteMatrixImpl = null;
+    this.matrixSuiteSession = null;
+    this.matrixSuiteHandledRequests = new Set();
   }
 
   refreshMatrixBootstrapConfig() {
@@ -4190,6 +4406,309 @@ class ProgramModelEngine {
       console.warn('[ProgramModelEngine] Matrix init failed (non-fatal):', err.message || err);
       console.warn('[ProgramModelEngine] Program engine will run without Matrix. UI events won\'t reach MBR/MQTT.');
       this.matrixAdapter = null;
+    }
+  }
+
+  matrixSuiteReadRoot(key, fallback = null) {
+    const model = this.runtime.getModel(MATRIX_SUITE_APP_MODEL_ID);
+    if (!model) return fallback;
+    const value = this.runtime.getLabelValue(model, 0, 0, 0, key);
+    return value === undefined || value === null ? fallback : value;
+  }
+
+  matrixSuiteWriteRoot(key, type, value) {
+    const model = this.runtime.getModel(MATRIX_SUITE_APP_MODEL_ID);
+    if (!model) return;
+    this.runtime.addLabel(model, 0, 0, 0, { k: key, t: type, v: value });
+  }
+
+  matrixSuiteRooms() {
+    const rooms = this.matrixSuiteReadRoot('rooms_json', []);
+    return Array.isArray(rooms) ? rooms : [];
+  }
+
+  matrixSuiteTimeline() {
+    const events = this.matrixSuiteReadRoot('timeline_json', []);
+    return Array.isArray(events) ? events : [];
+  }
+
+  matrixSuiteFindRoom(roomId, rooms = this.matrixSuiteRooms()) {
+    return rooms.find((room) => room && room.id === roomId && room.archived !== true) || null;
+  }
+
+  matrixSuiteNow() {
+    return new Date().toISOString().slice(11, 16);
+  }
+
+  matrixSuiteRenderRooms(rooms, selectedId) {
+    return rooms
+      .filter((room) => room && room.archived !== true)
+      .map((room) => `${room.id === selectedId ? '> ' : '  '}${room.kind === 'dm' ? 'DM' : 'ROOM'}  ${room.name}  unread=${Number(room.unread || 0)}`)
+      .join('\n');
+  }
+
+  matrixSuiteRenderTimeline(events, selectedId, roomName) {
+    const rows = events.filter((event) => event && event.room_id === selectedId);
+    if (rows.length === 0) return `### ${roomName}\n\nNo events yet.`;
+    const body = rows.map((event) => {
+      const suffix = event.edited ? ' _(edited)_' : '';
+      const type = event.msgtype || event.type || 'event';
+      const eventId = event.event_id ? `\n  event: ${event.event_id}` : '';
+      const editEventId = event.edit_event_id ? `\n  edit_event: ${event.edit_event_id}` : '';
+      return `- **${event.sender || 'system'}** · ${event.ts || this.matrixSuiteNow()} · ${type}\n  ${event.body || ''}${suffix}${eventId}${editEventId}`;
+    }).join('\n');
+    return `### ${roomName}\n\n${body}`;
+  }
+
+  matrixSuiteSyncProjection(rooms, events, selectedId) {
+    const current = this.matrixSuiteFindRoom(selectedId, rooms)
+      || rooms.find((room) => room && room.archived !== true)
+      || { id: selectedId, name: 'No room', members: [] };
+    this.matrixSuiteWriteRoot('active_room_id', 'str', current.id || selectedId);
+    this.matrixSuiteWriteRoot('active_room_name', 'str', current.name || 'No room');
+    this.matrixSuiteWriteRoot('active_room_summary', 'str', `${current.kind === 'dm' ? '1v1' : 'Room'} · ${((current.members || []).length)} member(s)`);
+    this.matrixSuiteWriteRoot('rooms_text', 'str', this.matrixSuiteRenderRooms(rooms, current.id || selectedId));
+    this.matrixSuiteWriteRoot('timeline_markdown', 'str', this.matrixSuiteRenderTimeline(events, current.id || selectedId, current.name || 'No room'));
+    this.matrixSuiteWriteRoot('room_inspector_markdown', 'str', `## ${current.name || 'No room'}\n\n- id: ${current.id || selectedId}\n- kind: ${current.kind || 'unknown'}\n- members: ${((current.members || []).join(', ') || 'none')}\n- unread: ${Number(current.unread || 0)}`);
+  }
+
+  matrixSuiteSessionFromRuntime() {
+    if (this.matrixSuiteSession && this.matrixSuiteSession.accessToken && this.matrixSuiteSession.homeserverUrl) {
+      return this.matrixSuiteSession;
+    }
+    const matrixConfig = readMatrixBootstrapConfig(this.runtime);
+    const homeserverUrl = firstValidValue(matrixConfig.homeserverUrl, process.env.MATRIX_HOMESERVER_URL);
+    const accessToken = firstValidValue(matrixConfig.accessToken, process.env.MATRIX_MBR_BOT_ACCESS_TOKEN, process.env.MATRIX_MBR_ACCESS_TOKEN);
+    const userId = firstValidValue(matrixConfig.userId, process.env.MATRIX_MBR_BOT_USER, process.env.MATRIX_MBR_USER);
+    if (!homeserverUrl || !accessToken) return null;
+    return { homeserverUrl, accessToken, userId, displayName: userId };
+  }
+
+  async matrixSuiteDefaultCall(action, input) {
+    if (action === 'login') {
+      const result = await matrixSuiteLoginWithPassword(input || {});
+      if (result && result.ok) {
+        this.matrixSuiteSession = {
+          homeserverUrl: result.homeserverUrl,
+          accessToken: result.accessToken,
+          userId: result.userId,
+          displayName: result.displayName || result.userId,
+        };
+      }
+      return result;
+    }
+    const session = this.matrixSuiteSessionFromRuntime();
+    if (action === 'sendMessage') {
+      return matrixSuiteSendRoomEvent(session, input && input.roomId, 'm.room.message', {
+        msgtype: 'm.text',
+        body: String(input && input.body ? input.body : ''),
+      });
+    }
+    if (action === 'editMessage') {
+      const body = String(input && input.body ? input.body : '');
+      return matrixSuiteSendRoomEvent(session, input && input.roomId, 'm.room.message', {
+        msgtype: 'm.text',
+        body: `* ${body}`,
+        'm.new_content': { msgtype: 'm.text', body },
+        'm.relates_to': { rel_type: 'm.replace', event_id: String(input && input.eventId ? input.eventId : '') },
+      });
+    }
+    if (action === 'createRoom') {
+      return matrixSuiteCreateRoomWithSession(session, input || {});
+    }
+    if (action === 'shareFile') {
+      return matrixSuiteSendRoomEvent(session, input && input.roomId, 'm.room.message', {
+        msgtype: 'm.file',
+        body: String(input && input.fileName ? input.fileName : 'uploaded-file'),
+        url: String(input && input.mediaUri ? input.mediaUri : ''),
+      });
+    }
+    return { ok: false, code: 'unsupported_action', detail: action || 'missing' };
+  }
+
+  async runMatrixSuiteHostAction(request) {
+    const req = request && typeof request === 'object' ? request : {};
+    const requestId = String(req.request_id || req.requestId || '').trim() || matrixSuiteTxnId('matrix_suite_req');
+    if (this.matrixSuiteHandledRequests.has(requestId)) return;
+    this.matrixSuiteHandledRequests.add(requestId);
+    const action = String(req.action || '').trim();
+    const payload = req.payload && typeof req.payload === 'object' ? req.payload : {};
+    const impl = this.matrixSuiteMatrixImpl || {};
+    const call = async (method, input) => (typeof impl[method] === 'function'
+      ? impl[method](input)
+      : this.matrixSuiteDefaultCall(method, input));
+    const rooms = this.matrixSuiteRooms();
+    let events = this.matrixSuiteTimeline();
+    let selectedId = String(this.matrixSuiteReadRoot('active_room_id', '!digital-sovereignty:ui.local') || '!digital-sovereignty:ui.local');
+    const currentRoom = this.matrixSuiteFindRoom(selectedId, rooms);
+    const fail = (code, detail) => {
+      this.matrixSuiteWriteRoot('connection_status', 'str', 'error');
+      this.matrixSuiteWriteRoot('status_text', 'str', `ERR ${code}: ${detail}`);
+      this.matrixSuiteWriteRoot('last_error_json', 'json', { code, detail, request_id: requestId, ts: Date.now() });
+    };
+    try {
+      if (action === 'login') {
+        const result = await call('login', {
+          homeserverUrl: String(payload.homeserver || payload.homeserverUrl || ''),
+          userId: String(payload.user_id || payload.userId || ''),
+          password: String(payload.password || ''),
+        });
+        if (!result || result.ok === false) {
+          fail(result && result.code ? result.code : 'login_failed', result && result.detail ? result.detail : 'login_failed');
+          this.matrixSuiteWriteRoot('session_status', 'str', 'login_failed');
+          this.matrixSuiteWriteRoot('login_password_draft', 'str', '');
+          return;
+        }
+        if (result.accessToken && result.homeserverUrl) {
+          this.matrixSuiteSession = {
+            homeserverUrl: result.homeserverUrl,
+            accessToken: result.accessToken,
+            userId: result.userId || payload.user_id || '',
+            displayName: result.displayName || result.userId || payload.user_id || '',
+          };
+        }
+        this.matrixSuiteWriteRoot('session_status', 'str', 'authenticated');
+        this.matrixSuiteWriteRoot('session_user_id', 'str', result.userId || payload.user_id || '');
+        this.matrixSuiteWriteRoot('session_display_name', 'str', result.displayName || result.userId || payload.user_id || '');
+        this.matrixSuiteWriteRoot('settings_homeserver', 'str', result.homeserverUrl || payload.homeserver || '');
+        this.matrixSuiteWriteRoot('settings_status', 'str', `logged in as ${result.userId || payload.user_id || ''}`);
+        this.matrixSuiteWriteRoot('login_password_draft', 'str', '');
+        this.matrixSuiteWriteRoot('connection_status', 'str', 'online');
+        this.matrixSuiteWriteRoot('status_text', 'str', 'Matrix login succeeded');
+        return;
+      }
+
+      if (action === 'send_message') {
+        const body = String(payload.body || '').trim();
+        if (!currentRoom || !body) {
+          fail('invalid_send_request', !currentRoom ? selectedId : 'empty_body');
+          return;
+        }
+        const result = await call('sendMessage', { roomId: selectedId, body });
+        if (!result || result.ok === false) {
+          fail(result && result.code ? result.code : 'matrix_send_failed', result && result.detail ? result.detail : 'matrix_send_failed');
+          return;
+        }
+        events = events.concat({
+          event_id: result.eventId || `$matrix_suite_${Date.now()}`,
+          room_id: selectedId,
+          sender: 'You',
+          type: 'm.room.message',
+          msgtype: 'm.text',
+          body,
+          ts: result.ts || this.matrixSuiteNow(),
+          edited: false,
+        });
+        this.matrixSuiteWriteRoot('timeline_json', 'json', events);
+        this.matrixSuiteWriteRoot('last_editable_event_id', 'str', result.eventId || '');
+        this.matrixSuiteWriteRoot('edit_draft', 'str', body);
+        this.matrixSuiteWriteRoot('composer_draft', 'str', '');
+        this.matrixSuiteWriteRoot('status_text', 'str', `Sent via Matrix: ${result.eventId || 'ok'}`);
+        this.matrixSuiteWriteRoot('connection_status', 'str', 'online');
+        this.matrixSuiteSyncProjection(rooms, events, selectedId);
+        return;
+      }
+
+      if (action === 'edit_message') {
+        const eventId = String(payload.event_id || '').trim();
+        const body = String(payload.body || '').trim();
+        if (!eventId || !body || !currentRoom) {
+          fail('invalid_edit_request', !eventId ? 'missing_event_id' : (!body ? 'empty_body' : selectedId));
+          return;
+        }
+        const result = await call('editMessage', { roomId: selectedId, eventId, body });
+        if (!result || result.ok === false) {
+          fail(result && result.code ? result.code : 'matrix_edit_failed', result && result.detail ? result.detail : 'matrix_edit_failed');
+          return;
+        }
+        let edited = false;
+        events = events.map((event) => event && event.event_id === eventId
+          ? (edited = true, { ...event, body, edited: true, edited_at: result.ts || this.matrixSuiteNow(), edit_event_id: result.eventId || '' })
+          : event);
+        if (!edited) {
+          events = events.concat({
+            event_id: result.eventId || `$matrix_suite_edit_${Date.now()}`,
+            room_id: selectedId,
+            sender: 'You',
+            type: 'm.room.message',
+            msgtype: 'm.text',
+            body,
+            ts: result.ts || this.matrixSuiteNow(),
+            edited: true,
+          });
+        }
+        this.matrixSuiteWriteRoot('timeline_json', 'json', events);
+        this.matrixSuiteWriteRoot('status_text', 'str', `Edited via Matrix: ${result.eventId || 'ok'}`);
+        this.matrixSuiteWriteRoot('connection_status', 'str', 'online');
+        this.matrixSuiteSyncProjection(rooms, events, selectedId);
+        return;
+      }
+
+      if (action === 'create_channel') {
+        const name = String(payload.name || '').trim();
+        const kind = String(payload.kind || 'room') === 'dm' ? 'dm' : 'room';
+        const result = await call('createRoom', { name, kind, inviteUserId: String(payload.invite_user_id || '') });
+        if (!result || result.ok === false) {
+          fail(result && result.code ? result.code : 'matrix_create_room_failed', result && result.detail ? result.detail : 'matrix_create_room_failed');
+          return;
+        }
+        const roomId = result.roomId || `!matrix-suite-${Date.now()}:local`;
+        const nextRoom = {
+          id: roomId,
+          kind: result.kind || kind,
+          name: result.name || name || roomId,
+          avatar: (result.name || name || roomId).slice(0, 2).toUpperCase(),
+          unread: 0,
+          members: kind === 'dm' ? [result.name || name || roomId] : ['You'],
+          archived: false,
+        };
+        const nextRooms = rooms.concat(nextRoom);
+        this.matrixSuiteWriteRoot('rooms_json', 'json', nextRooms);
+        this.matrixSuiteWriteRoot('new_channel_name', 'str', '');
+        this.matrixSuiteWriteRoot('status_text', 'str', `Created Matrix ${kind}: ${nextRoom.name}`);
+        this.matrixSuiteWriteRoot('connection_status', 'str', 'online');
+        selectedId = roomId;
+        this.matrixSuiteSyncProjection(nextRooms, events, selectedId);
+        return;
+      }
+
+      if (action === 'share_file') {
+        const mediaUri = String(payload.media_uri || '').trim();
+        const fileName = String(payload.file_name || 'uploaded-file').trim() || 'uploaded-file';
+        if (!mediaUri || !currentRoom) {
+          fail('invalid_file_request', !mediaUri ? 'missing_media_uri' : selectedId);
+          return;
+        }
+        const result = await call('shareFile', { roomId: selectedId, mediaUri, fileName });
+        if (!result || result.ok === false) {
+          fail(result && result.code ? result.code : 'matrix_file_send_failed', result && result.detail ? result.detail : 'matrix_file_send_failed');
+          return;
+        }
+        events = events.concat({
+          event_id: result.eventId || `$matrix_suite_file_${Date.now()}`,
+          room_id: selectedId,
+          sender: 'You',
+          type: 'm.room.message',
+          msgtype: 'm.file',
+          body: `File shared: ${fileName} (${mediaUri})`,
+          media_uri: mediaUri,
+          file_name: fileName,
+          ts: result.ts || this.matrixSuiteNow(),
+          edited: false,
+        });
+        this.matrixSuiteWriteRoot('timeline_json', 'json', events);
+        this.matrixSuiteWriteRoot('file_share_status', 'str', `shared via Matrix: ${result.eventId || 'ok'}`);
+        this.matrixSuiteWriteRoot('pending_file_uri', 'str', '');
+        this.matrixSuiteWriteRoot('pending_file_name', 'str', '');
+        this.matrixSuiteWriteRoot('status_text', 'str', `File shared via Matrix: ${result.eventId || 'ok'}`);
+        this.matrixSuiteWriteRoot('connection_status', 'str', 'online');
+        this.matrixSuiteSyncProjection(rooms, events, selectedId);
+        return;
+      }
+
+      fail('unsupported_matrix_suite_action', action || 'missing');
+    } catch (err) {
+      fail('matrix_suite_host_exception', err && err.message ? err.message : String(err));
     }
   }
 
@@ -4255,6 +4774,36 @@ class ProgramModelEngine {
     return true;
   }
 
+  async sendControlBus(topic, payload) {
+    emitTrace(this.runtime, {
+      hop: 'server→mqtt',
+      direction: 'outbound',
+      op_id: payload && Array.isArray(payload.payload)
+        ? readTemporaryPayloadString(payload.payload, 'op_id', readTemporaryPayloadString(payload.payload, '__mt_request_id'))
+        : '',
+      model_id: payload && Array.isArray(payload.payload)
+        ? readTemporaryPayloadInt(payload.payload, 'origin_model_id')
+        : '',
+      summary: `topic=${topic || '?'}`,
+      payload,
+    });
+    if ((typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive())
+      || !this.controlBusClient
+      || !this.controlBusClient.connected
+      || !isValidControlBusEndpointTopic(topic)) {
+      return null;
+    }
+    return new Promise((resolve, reject) => {
+      this.controlBusClient.publish(topic, JSON.stringify(payload), (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(true);
+      });
+    });
+  }
+
   ensureControlBusAdapter() {
     if (typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive()) {
       return;
@@ -4312,6 +4861,7 @@ class ProgramModelEngine {
       overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_status', 'str', status);
       if (error) {
         overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_error', 'json', error);
+        overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_dialog_open', 'bool', false);
       }
     };
     if (
@@ -4328,6 +4878,10 @@ class ProgramModelEngine {
     }
     const pending = readRuntimeCellJson(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_pending', null);
     if (!pending || typeof pending !== 'object' || Array.isArray(pending)) {
+      const lastInstalledOpId = readRuntimeCellString(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'last_installed_op_id', '');
+      if (parsedEnvelope.opId && parsedEnvelope.opId === lastInstalledOpId) {
+        return { matched: true, handled: true };
+      }
       writeStatus('install failed: bundle_response_without_pending_request', {
         code: 'bundle_response_without_pending_request',
         op_id: parsedEnvelope.opId,
@@ -4372,10 +4926,19 @@ class ProgramModelEngine {
     try {
       const imported = materializeSlideImportPayload(this.runtime, bundlePayload, validation);
       registerImportedHostEgressBridgeFunctions(this, this.runtime, imported);
+      overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'last_installed_op_id', 'str', parsedEnvelope.opId);
       overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'last_installed_asset_id', 'str', assetId);
       overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'last_installed_model_id', 'int', imported.rootModelId);
       overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_pending', 'json', null);
       overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_error', 'json', null);
+      const launchPayload = {
+        id: `workspace:${imported.rootModelId}`,
+        kind: 'workspace',
+        page: 'workspace',
+        path: '/workspace',
+        model_id: imported.rootModelId,
+        title: validation.metadata.appName,
+      };
       overwriteRuntimeLabel(
         this.runtime,
         WORKSPACE_MANAGER_APP_MODEL_ID,
@@ -4386,6 +4949,19 @@ class ProgramModelEngine {
         'str',
         `installed ${validation.metadata.appName} as model ${imported.rootModelId}`,
       );
+      overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_dialog_open', 'bool', true);
+      overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_dialog_title', 'str', '安装完毕');
+      overwriteRuntimeLabel(
+        this.runtime,
+        WORKSPACE_MANAGER_APP_MODEL_ID,
+        0,
+        0,
+        0,
+        'asset_install_dialog_text',
+        'str',
+        `${validation.metadata.appName} 已安装为 model ${imported.rootModelId}。是否现在打开？`,
+      );
+      overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_dialog_target_json', 'json', launchPayload);
       overwriteStateLabel(this.runtime, 'ws_app_selected', 'int', imported.rootModelId);
       overwriteStateLabel(this.runtime, 'selected_model_id', 'str', String(imported.rootModelId));
       this._wsRefreshCatalog?.();
@@ -5081,11 +5657,20 @@ class ProgramModelEngine {
             return { ok: false, code: 'invalid_target', detail: 'empty_app_name' };
           }
           try {
-            const nextId = resolveNextWorkspaceModelId(this.runtime);
-            const model = this.runtime.createModel({ id: nextId, name: appName, type: 'sliding_ui' });
-            this.runtime.addLabel(model, 0, 0, 0, { k: 'app_name', t: 'str', v: appName });
-            this.runtime.addLabel(model, 0, 0, 0, { k: 'ws_deleted', t: 'bool', v: false });
-            return { ok: true, data: { model_id: nextId, name: appName } };
+        const nextId = resolveNextWorkspaceModelId(this.runtime);
+        const model = this.runtime.createModel({ id: nextId, name: appName, type: 'sliding_ui' });
+        this.runtime.addLabel(model, 0, 0, 0, { k: 'app_name', t: 'str', v: appName });
+        this.runtime.addLabel(model, 0, 0, 0, { k: 'slide_app_summary', t: 'str', v: `Blank workspace slide app named ${appName}.` });
+        this.runtime.addLabel(model, 0, 0, 0, { k: 'slide_capable', t: 'bool', v: true });
+        this.runtime.addLabel(model, 0, 0, 0, { k: 'slide_surface_type', t: 'str', v: 'workspace.page' });
+        this.runtime.addLabel(model, 0, 0, 0, { k: 'ui_authoring_version', t: 'str', v: 'cellwise.ui.v1' });
+        this.runtime.addLabel(model, 0, 0, 0, { k: 'ui_root_node_id', t: 'str', v: 'ws_added_root' });
+        this.runtime.addLabel(model, 0, 0, 0, { k: 'deletable', t: 'bool', v: true });
+        this.runtime.addLabel(model, 0, 0, 0, { k: 'ws_deleted', t: 'bool', v: false });
+        this.runtime.addLabel(model, 2, 0, 0, { k: 'ui_node_id', t: 'str', v: 'ws_added_root' });
+        this.runtime.addLabel(model, 2, 0, 0, { k: 'ui_component', t: 'str', v: 'Text' });
+        this.runtime.addLabel(model, 2, 0, 0, { k: 'ui_text', t: 'str', v: appName });
+        return { ok: true, data: { model_id: nextId, name: appName } };
           } catch (err) {
             return {
               ok: false,
@@ -5529,6 +6114,21 @@ class ProgramModelEngine {
         continue;
       }
 
+      if (event.cell && event.cell.model_id === MATRIX_SUITE_APP_MODEL_ID &&
+          event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
+          event.label && event.label.k === 'matrix_suite_host_action' &&
+          event.label.t === 'json' && event.label.v) {
+        this.runMatrixSuiteHostAction(event.label.v)
+          .then(() => {
+            if (typeof this.onSnapshotChanged === 'function') this.onSnapshotChanged();
+          })
+          .catch((err) => {
+            this.matrixSuiteWriteRoot('connection_status', 'str', 'error');
+            this.matrixSuiteWriteRoot('status_text', 'str', `ERR matrix_suite_host_exception: ${err && err.message ? err.message : String(err)}`);
+          });
+        continue;
+      }
+
       // Generic dual-bus model: bus_event at Cell(model_id, 0, 0, 2) → trigger forward function
       // Driven by `dual_bus_model` label on the model's Cell(0,0,0)
       if (event.cell && event.cell.model_id > 0 &&
@@ -5608,38 +6208,58 @@ class ProgramModelEngine {
       if (!label || !isSplitBusOutLabelType(label.t) || !packet || typeof packet !== 'object' || packet.type !== 'pin_payload') {
         continue;
       }
-      const opIdentity = readTemporaryPayloadString(packet.payload, 'op_id', readTemporaryPayloadString(packet.payload, '__mt_request_id')).trim()
-        || `${readTemporaryPayloadString(packet.payload, 'endpoint_worker_id')}:${readTemporaryPayloadInt(packet.payload, 'endpoint_model_id')}:${readTemporaryPayloadString(packet.payload, 'endpoint_pin')}`;
+      const opId = readTemporaryPayloadString(packet.payload, 'op_id', readTemporaryPayloadString(packet.payload, '__mt_request_id')).trim();
+      const messageRole = readTemporaryPayloadString(packet.payload, 'message_role', 'unknown').trim() || 'unknown';
+      const opIdentity = opId
+        ? `${messageRole}:${opId}`
+        : `${messageRole}:${readTemporaryPayloadString(packet.payload, 'endpoint_worker_id')}:${readTemporaryPayloadInt(packet.payload, 'endpoint_model_id')}:${readTemporaryPayloadString(packet.payload, 'endpoint_pin')}`;
       const bridgeKey = `${label.t}:${key}:${opIdentity}`;
       if (alreadyScheduled.has(bridgeKey)) continue;
       if (this.bridgedBusOutPorts.get(key) === opIdentity) continue;
       if (this.pendingBusOutPorts.get(key) === opIdentity) continue;
       const previousFailure = this.failedBusOutPorts.get(key);
       if (previousFailure && previousFailure.opIdentity === opIdentity) {
-        const matrixReady = this.matrixAdapter && this.matrixRoomId && this.matrixDmPeerUserId;
-        const sameRejectingAdapter = previousFailure.adapter === this.matrixAdapter;
-        if (previousFailure.code === 'missing_split_bus_matrix_adapter' && !matrixReady) continue;
-        if (previousFailure.code === 'split_bus_matrix_publish_failed' && sameRejectingAdapter) continue;
+        if (label.t === 'pin.bus.cb.out') {
+          const mqttReady = this.controlBusClient && this.controlBusClient.connected;
+          const sameRejectingAdapter = previousFailure.adapter === this.controlBusClient;
+          if (previousFailure.code === 'missing_split_bus_mqtt_adapter' && !mqttReady) continue;
+          if (previousFailure.code === 'split_bus_mqtt_publish_failed' && sameRejectingAdapter) continue;
+        } else {
+          const matrixReady = this.matrixAdapter && this.matrixRoomId && this.matrixDmPeerUserId;
+          const sameRejectingAdapter = previousFailure.adapter === this.matrixAdapter;
+          if (previousFailure.code === 'missing_split_bus_matrix_adapter' && !matrixReady) continue;
+          if (previousFailure.code === 'split_bus_matrix_publish_failed' && sameRejectingAdapter) continue;
+        }
       }
       alreadyScheduled.add(bridgeKey);
       const markSuccess = () => {
         this.pendingBusOutPorts.delete(key);
         this.failedBusOutPorts.delete(key);
         this.bridgedBusOutPorts.set(key, opIdentity);
+        const model0ForErrorClear = this.runtime.getModel(0);
+        if (model0ForErrorClear) {
+          this.runtime.rmLabel(model0ForErrorClear, 0, 0, 0, 'split_bus_out_error');
+        }
       };
-      const markFailure = (code, detail) => {
+      const markFailure = (code, detail, adapter = null) => {
         this.pendingBusOutPorts.delete(key);
         this.failedBusOutPorts.set(key, {
           opIdentity,
           code,
-          adapter: this.matrixAdapter,
+          adapter,
         });
         this.writeSplitBusOutError(code, detail, key, label);
       };
       try {
-        const maybePromise = this.sendMatrix(packet);
+        const maybePromise = label.t === 'pin.bus.cb.out'
+          ? this.sendControlBus(readTemporaryPayloadString(packet.payload, 'topic').trim(), packet)
+          : this.sendMatrix(packet);
         if (!maybePromise) {
-          markFailure('missing_split_bus_matrix_adapter', 'sendMatrix returned no result');
+          if (label.t === 'pin.bus.cb.out') {
+            markFailure('missing_split_bus_mqtt_adapter', 'Control bus adapter, topic, or MQTT connection is required', this.controlBusClient);
+          } else {
+            markFailure('missing_split_bus_matrix_adapter', 'sendMatrix returned no result', this.matrixAdapter);
+          }
           continue;
         }
         if (typeof maybePromise.then === 'function') {
@@ -5647,25 +6267,47 @@ class ProgramModelEngine {
           maybePromise
             .then((result) => {
               if (result === null || result === false) {
-                markFailure('missing_split_bus_matrix_adapter', 'Matrix adapter, room, or peer user is required');
+                if (label.t === 'pin.bus.cb.out') {
+                  markFailure('missing_split_bus_mqtt_adapter', 'Control bus adapter, topic, or MQTT connection is required', this.controlBusClient);
+                } else {
+                  markFailure('missing_split_bus_matrix_adapter', 'Matrix adapter, room, or peer user is required', this.matrixAdapter);
+                }
                 return;
               }
               markSuccess();
             })
             .catch((err) => {
-              markFailure(
-                'split_bus_matrix_publish_failed',
-                err && err.message ? err.message : String(err),
-              );
+              if (label.t === 'pin.bus.cb.out') {
+                markFailure(
+                  'split_bus_mqtt_publish_failed',
+                  err && err.message ? err.message : String(err),
+                  this.controlBusClient,
+                );
+              } else {
+                markFailure(
+                  'split_bus_matrix_publish_failed',
+                  err && err.message ? err.message : String(err),
+                  this.matrixAdapter,
+                );
+              }
             });
           continue;
         }
         markSuccess();
       } catch (err) {
-        markFailure(
-          'split_bus_matrix_publish_failed',
-          err && err.message ? err.message : String(err),
-        );
+        if (label.t === 'pin.bus.cb.out') {
+          markFailure(
+            'split_bus_mqtt_publish_failed',
+            err && err.message ? err.message : String(err),
+            this.controlBusClient,
+          );
+        } else {
+          markFailure(
+            'split_bus_matrix_publish_failed',
+            err && err.message ? err.message : String(err),
+            this.matrixAdapter,
+          );
+        }
       }
     }
   }
@@ -5837,6 +6479,9 @@ function createServerState(options) {
   const matrixUserLoginImpl = options && typeof options.matrixUserLoginImpl === 'function'
     ? options.matrixUserLoginImpl
     : null;
+  const matrixSuiteMatrixImpl = options && options.matrixSuiteMatrixImpl && typeof options.matrixSuiteMatrixImpl === 'object'
+    ? options.matrixSuiteMatrixImpl
+    : null;
   const runtime = new ModelTableRuntime();
   runtime.addLabel(runtime.getModel(0), 0, 0, 0, {
     k: 'sys_worker_id',
@@ -5959,6 +6604,16 @@ function createServerState(options) {
   ensureStateLabel(runtime, 'dt_filter_ktv', 'str', '');
   ensureStateLabel(runtime, 'ui_page', 'str', 'desktop');
   ensureStateLabel(runtime, DESKTOP_FOREGROUND_APP_LABEL, 'json', null);
+  ensureStateLabel(runtime, DESKTOP_APP_DETAIL_DRAWER_OPEN_LABEL, 'bool', false);
+  ensureStateLabel(runtime, DESKTOP_APP_VIEW_MODE_LABEL, 'str', 'cards');
+  ensureStateLabel(runtime, DESKTOP_APP_MANAGE_MODE_LABEL, 'bool', false);
+  ensureStateLabel(runtime, DESKTOP_DELETE_CONFIRM_OPEN_LABEL, 'bool', false);
+  ensureStateLabel(runtime, 'desktop_delete_confirm_title', 'str', '删除滑动 App？');
+  ensureStateLabel(runtime, 'desktop_delete_confirm_text', 'str', '');
+  ensureStateLabel(runtime, DESKTOP_DELETE_CONFIRM_TARGET_LABEL, 'json', null);
+  ensureStateLabel(runtime, DESKTOP_DELETE_RESULT_OPEN_LABEL, 'bool', false);
+  ensureStateLabel(runtime, 'desktop_delete_result_title', 'str', '删除成功');
+  ensureStateLabel(runtime, 'desktop_delete_result_text', 'str', '');
   ensureStateLabel(runtime, DESKTOP_TASK_STACK_LABEL, 'json', []);
   ensureStateLabel(runtime, DESKTOP_TASK_SWITCHER_OPEN_LABEL, 'bool', false);
   ensureStateLabel(runtime, 'dt_pause_sse', 'bool', false);
@@ -6038,95 +6693,10 @@ function createServerState(options) {
   let programEngine = null;
 
   const deriveWorkspaceRegistry = () => {
-    const derived = [];
-    const seen = new Set();
-    const allowedWorkspaceEntryIds = new Set(WORKSPACE_ENTRY_MODEL_IDS);
-    const excludedModelIds = new Set([
-      EDITOR_MODEL_ID,
-      EDITOR_STATE_MODEL_ID,
-      LOGIN_MODEL_ID,
-      -10, // system model (functions / mgmt), never a Workspace app
-      GALLERY_MAILBOX_MODEL_ID,
-      GALLERY_STATE_MODEL_ID,
-    ]);
-
-    const addOrReplace = (entry) => {
-      if (!entry || !Number.isInteger(entry.model_id)) return;
-      if (entry.model_id === 0) return;
-      if (excludedModelIds.has(entry.model_id)) return;
-      const existing = derived.find((item) => item.model_id === entry.model_id);
-      if (existing) {
-        Object.assign(existing, entry);
-        return;
-      }
-      derived.push(entry);
-      seen.add(entry.model_id);
-    };
-
-    const snap = runtime.snapshot();
-    const models = snap && snap.models ? snap.models : {};
-    for (const [idText, modelSnap] of Object.entries(models)) {
-      const modelId = Number(idText);
-      if (!Number.isInteger(modelId) || modelId === 0) continue;
-      if (seen.has(modelId)) continue;
-      if (excludedModelIds.has(modelId)) continue;
-      const rootLabels = modelSnap && modelSnap.cells && modelSnap.cells['0,0,0'] && modelSnap.cells['0,0,0'].labels
-        ? modelSnap.cells['0,0,0'].labels
-        : {};
-      if (rootLabels.ws_deleted && rootLabels.ws_deleted.v === true) continue;
-      const isAllowedBuiltinEntry = allowedWorkspaceEntryIds.has(modelId);
-      const isInstalledSlideApp = Boolean(
-        rootLabels.deletable && rootLabels.deletable.v === true
-          && rootLabels.slide_capable && rootLabels.slide_capable.v === true,
-      );
-      if (!isAllowedBuiltinEntry && !isInstalledSlideApp) continue;
-      const parentInfo = modelId > 0 ? runtime.parentChildMap.get(modelId) : null;
-      // For positive models, only surface true top-level apps:
-      // explicit app metadata, or a direct Model 0 mount.
-      // Child truth models like 1010 must not appear as sidebar apps.
-      const hasAppSignals = modelId > 0
-        ? Boolean(rootLabels.app_name || rootLabels.source_worker || (parentInfo && parentInfo.parentModelId === 0))
-        : Boolean(rootLabels.app_name);
-      if (!hasAppSignals) continue;
-      const name = rootLabels.app_name && typeof rootLabels.app_name.v === 'string' && rootLabels.app_name.v.trim()
-        ? rootLabels.app_name.v
-        : (modelSnap && typeof modelSnap.name === 'string' && modelSnap.name.trim()
-          ? modelSnap.name
-          : `App ${modelId}`);
-      const source = rootLabels.source_worker && typeof rootLabels.source_worker.v === 'string'
-        ? rootLabels.source_worker.v
-        : '';
-      const deletable = rootLabels.deletable ? rootLabels.deletable.v === true : false;
-      const slideCapable = rootLabels.slide_capable ? rootLabels.slide_capable.v === true : false;
-      const slideSurfaceType = rootLabels.slide_surface_type && typeof rootLabels.slide_surface_type.v === 'string'
-        ? rootLabels.slide_surface_type.v
-        : '';
-      const installedAt = rootLabels.installed_at && typeof rootLabels.installed_at.v === 'string'
-        ? rootLabels.installed_at.v
-        : '';
-      const fromUser = rootLabels.from_user && typeof rootLabels.from_user.v === 'string'
-        ? rootLabels.from_user.v
-        : '';
-      const toUser = rootLabels.to_user && typeof rootLabels.to_user.v === 'string'
-        ? rootLabels.to_user.v
-        : '';
-      addOrReplace({
-        model_id: modelId,
-        name,
-        source,
-        deletable,
-        delete_disabled: !deletable,
-        slide_capable: slideCapable,
-        slide_surface_type: slideSurfaceType,
-        installed_at: installedAt,
-        from_user: fromUser,
-        to_user: toUser,
-        export_url: slideCapable ? `/api/slide-apps/${modelId}/export.zip` : '',
-        export_label: slideCapable ? 'Zip' : '',
-      });
-    }
-    derived.sort((a, b) => a.model_id - b.model_id);
-    return derived;
+    return deriveWorkspaceRegistryFromSnapshot({
+      snapshot: runtime.snapshot(),
+      getParentInfo: (modelId) => runtime.parentChildMap.get(modelId),
+    });
   };
 
   const normalizeIntState = (value, fallback) => {
@@ -6619,6 +7189,7 @@ function createServerState(options) {
     });
   });
   programEngine.matrixUserLoginImpl = matrixUserLoginImpl;
+  programEngine.matrixSuiteMatrixImpl = matrixSuiteMatrixImpl;
   programEngine._matrixDebugRefresh = (subjectId) => {
     const selected = String(subjectId ?? '').trim() || 'trace';
     overwriteStateLabel(runtime, 'matrix_debug_subject_selected', 'str', selected);
@@ -6739,7 +7310,16 @@ function createServerState(options) {
         const nextId = resolveNextWorkspaceModelId(runtime);
         const model = runtime.createModel({ id: nextId, name: appName, type: 'sliding_ui' });
         runtime.addLabel(model, 0, 0, 0, { k: 'app_name', t: 'str', v: appName });
+        runtime.addLabel(model, 0, 0, 0, { k: 'slide_app_summary', t: 'str', v: `Blank workspace slide app named ${appName}.` });
+        runtime.addLabel(model, 0, 0, 0, { k: 'slide_capable', t: 'bool', v: true });
+        runtime.addLabel(model, 0, 0, 0, { k: 'slide_surface_type', t: 'str', v: 'workspace.page' });
+        runtime.addLabel(model, 0, 0, 0, { k: 'ui_authoring_version', t: 'str', v: 'cellwise.ui.v1' });
+        runtime.addLabel(model, 0, 0, 0, { k: 'ui_root_node_id', t: 'str', v: 'ws_added_root' });
+        runtime.addLabel(model, 0, 0, 0, { k: 'deletable', t: 'bool', v: true });
         runtime.addLabel(model, 0, 0, 0, { k: 'ws_deleted', t: 'bool', v: false });
+        runtime.addLabel(model, 2, 0, 0, { k: 'ui_node_id', t: 'str', v: 'ws_added_root' });
+        runtime.addLabel(model, 2, 0, 0, { k: 'ui_component', t: 'str', v: 'Text' });
+        runtime.addLabel(model, 2, 0, 0, { k: 'ui_text', t: 'str', v: appName });
         return { ok: true, data: { model_id: nextId, name: appName } };
       } catch (err) {
         return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
@@ -7673,12 +8253,16 @@ function createServerState(options) {
         requested_at: Date.now(),
       });
       overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'asset_install_error', 'json', null);
+      overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'asset_install_dialog_open', 'bool', false);
+      overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'asset_install_dialog_target_json', 'json', null);
       writeWorkspaceAssetSelection(row, {
         detailOpen: false,
         status: `requesting ${row.name} from ${providerEndpoint.topic}`,
       });
       const hostPinType = request.routeKind === 'management' ? 'pin.bus.mb.out' : 'pin.bus.cb.out';
-      runtime.addLabel(runtime.getModel(0), 0, 0, 0, {
+      const model0 = runtime.getModel(0);
+      runtime.rmLabel(model0, 0, 0, 0, 'workspace_asset_bundle_request_bus');
+      runtime.addLabel(model0, 0, 0, 0, {
         k: 'workspace_asset_bundle_request_bus',
         t: hostPinType,
         v: request.records,
@@ -7695,6 +8279,23 @@ function createServerState(options) {
         overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'asset_detail_dialog_open', 'bool', false);
         return finishOk({ routed_by: 'workspace_asset_dialog' });
       }
+      if (action === 'workspace_asset_close_install_dialog') {
+        overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'asset_install_dialog_open', 'bool', false);
+        return finishOk({ routed_by: 'workspace_asset_install_dialog' });
+      }
+      if (action === 'workspace_asset_open_installed_app') {
+        const launchPayload = readRuntimeCellJson(runtime, 1051, 0, 0, 0, 'asset_install_dialog_target_json', null);
+        const normalized = normalizeDesktopForegroundApp(launchPayload);
+        if (!normalized || !Number.isInteger(normalized.model_id)) {
+          return finishError('invalid_target', 'missing_installed_app_launch_payload');
+        }
+        overwriteStateLabel(runtime, DESKTOP_FOREGROUND_APP_LABEL, 'json', normalized);
+        overwriteStateLabel(runtime, 'ws_app_selected', 'int', normalized.model_id);
+        overwriteStateLabel(runtime, 'selected_model_id', 'str', String(normalized.model_id));
+        overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'asset_install_dialog_open', 'bool', false);
+        updateDerived();
+        return finishOk({ routed_by: 'workspace_asset_open_installed_app', model_id: normalized.model_id });
+      }
       const row = normalizeWorkspaceAssetRow(payload && Object.prototype.hasOwnProperty.call(payload, 'value') ? payload.value : null);
       if (!row) return finishError('invalid_target', 'workspace_asset_row_required');
       if (action === 'workspace_asset_select') {
@@ -7703,6 +8304,105 @@ function createServerState(options) {
       }
       if (action === 'workspace_asset_primary_action') {
         return installWorkspaceSlideAsset(row);
+      }
+      return finishError('unknown_action', action);
+    };
+
+    const unwrapDesktopAppActionValue = (raw) => {
+      if (raw && typeof raw === 'object' && !Array.isArray(raw) && Object.prototype.hasOwnProperty.call(raw, 'v') && typeof raw.t === 'string') {
+        return raw.v;
+      }
+      return raw;
+    };
+
+    const normalizeDesktopDeleteTarget = (raw) => {
+      const value = unwrapDesktopAppActionValue(raw);
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+      const modelId = Number.isInteger(value.model_id)
+        ? value.model_id
+        : (typeof value.model_id === 'string' && /^-?\d+$/.test(value.model_id.trim()) ? Number(value.model_id.trim()) : null);
+      if (!Number.isInteger(modelId)) return null;
+      const title = typeof value.title === 'string' && value.title.trim() ? value.title.trim() : `App ${modelId}`;
+      return { model_id: modelId, title };
+    };
+
+    const deleteWorkspaceAppById = (targetId) => {
+      if (!Number.isInteger(targetId)) return { ok: false, code: 'invalid_target', detail: 'invalid_model_id' };
+      if (BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(targetId) || targetId < 100) {
+        return { ok: false, code: 'protected_model', detail: 'protected_model' };
+      }
+      const targetModel = runtime.getModel(targetId);
+      if (!targetModel) return { ok: false, code: 'invalid_target', detail: 'model_not_found' };
+      const rootCell = targetModel.getCell(0, 0, 0);
+      const deletable = rootCell.labels.get('deletable');
+      const slideCapable = rootCell.labels.get('slide_capable');
+      if (!deletable || deletable.v !== true || !slideCapable || slideCapable.v !== true) {
+        return { ok: false, code: 'protected_model', detail: 'protected_model' };
+      }
+      try {
+        const removed = removeImportedBundleFromRuntime(runtime, targetId);
+        if (!removed.ok) return { ok: false, code: 'invalid_target', detail: removed.code };
+        if (programEngine && Array.isArray(removed.systemLabels)) {
+          const sys = firstSystemModel(runtime);
+          for (const key of removed.systemLabels) {
+            programEngine.functions.delete(key);
+            if (sys && sys.functions instanceof Map) sys.functions.delete(key);
+          }
+        }
+        const runtimePersister = runtime && runtime.persistence ? runtime.persistence : null;
+        if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
+          const stmt = runtimePersister.db.prepare('delete from mt_data where mt_id = ?');
+          for (const modelIdToDelete of removed.modelIds) stmt.run(modelIdToDelete);
+        }
+        return { ok: true, removed_model_ids: removed.modelIds };
+      } catch (err) {
+        return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
+      }
+    };
+
+    const executeDesktopAppAction = async () => {
+      if (action === 'desktop_app_cancel_delete') {
+        overwriteStateLabel(runtime, DESKTOP_DELETE_CONFIRM_OPEN_LABEL, 'bool', false);
+        overwriteStateLabel(runtime, DESKTOP_DELETE_CONFIRM_TARGET_LABEL, 'json', null);
+        return finishOk({ routed_by: 'desktop_app_delete_dialog' });
+      }
+      if (action === 'desktop_app_close_delete_result') {
+        overwriteStateLabel(runtime, DESKTOP_DELETE_RESULT_OPEN_LABEL, 'bool', false);
+        return finishOk({ routed_by: 'desktop_app_delete_result' });
+      }
+      if (action === 'desktop_app_request_delete') {
+        const targetInfo = normalizeDesktopDeleteTarget(payload && Object.prototype.hasOwnProperty.call(payload, 'value') ? payload.value : null);
+        if (!targetInfo) return finishError('invalid_target', 'desktop_delete_target_required');
+        const targetModel = runtime.getModel(targetInfo.model_id);
+        const rootCell = targetModel ? targetModel.getCell(0, 0, 0) : null;
+        const deletable = rootCell ? rootCell.labels.get('deletable') : null;
+        if (!targetModel || !deletable || deletable.v !== true || BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(targetInfo.model_id)) {
+          return finishError('protected_model', 'protected_model');
+        }
+        overwriteStateLabel(runtime, 'desktop_delete_confirm_title', 'str', '删除滑动 App？');
+        overwriteStateLabel(runtime, 'desktop_delete_confirm_text', 'str', `确定删除 ${targetInfo.title} 吗？删除后这个本地安装实例会从桌面移除。`);
+        overwriteStateLabel(runtime, DESKTOP_DELETE_CONFIRM_TARGET_LABEL, 'json', targetInfo);
+        overwriteStateLabel(runtime, DESKTOP_DELETE_RESULT_OPEN_LABEL, 'bool', false);
+        overwriteStateLabel(runtime, DESKTOP_DELETE_CONFIRM_OPEN_LABEL, 'bool', true);
+        return finishOk({ routed_by: 'desktop_app_delete_request', model_id: targetInfo.model_id });
+      }
+      if (action === 'desktop_app_confirm_delete') {
+        const targetInfo = normalizeDesktopDeleteTarget(readStateValue(DESKTOP_DELETE_CONFIRM_TARGET_LABEL));
+        if (!targetInfo) return finishError('invalid_target', 'desktop_delete_target_required');
+        const removed = deleteWorkspaceAppById(targetInfo.model_id);
+        if (!removed.ok) return finishError(removed.code || 'invalid_target', removed.detail || 'delete_failed');
+        overwriteStateLabel(runtime, DESKTOP_DELETE_CONFIRM_OPEN_LABEL, 'bool', false);
+        overwriteStateLabel(runtime, DESKTOP_DELETE_CONFIRM_TARGET_LABEL, 'json', null);
+        overwriteStateLabel(runtime, DESKTOP_DELETE_RESULT_OPEN_LABEL, 'bool', true);
+        overwriteStateLabel(runtime, 'desktop_delete_result_title', 'str', '删除成功');
+        overwriteStateLabel(runtime, 'desktop_delete_result_text', 'str', `已删除 ${targetInfo.title}。`);
+        overwriteStateLabel(runtime, DESKTOP_APP_MANAGE_MODE_LABEL, 'bool', false);
+        const foreground = normalizeDesktopForegroundApp(readStateValue(DESKTOP_FOREGROUND_APP_LABEL));
+        if (foreground && foreground.model_id === targetInfo.model_id) {
+          overwriteStateLabel(runtime, DESKTOP_FOREGROUND_APP_LABEL, 'json', null);
+        }
+        refreshWorkspaceStateCatalog();
+        return finishOk({ routed_by: 'desktop_app_delete_confirm', model_id: targetInfo.model_id, removed_model_ids: removed.removed_model_ids });
       }
       return finishError('unknown_action', action);
     };
@@ -7766,8 +8466,18 @@ function createServerState(options) {
       action === 'workspace_asset_select'
       || action === 'workspace_asset_primary_action'
       || action === 'workspace_asset_close_detail'
+      || action === 'workspace_asset_close_install_dialog'
+      || action === 'workspace_asset_open_installed_app'
     )) {
       return executeWorkspaceAssetAction();
+    }
+    if (envelopeOrNull && (
+      action === 'desktop_app_request_delete'
+      || action === 'desktop_app_cancel_delete'
+      || action === 'desktop_app_confirm_delete'
+      || action === 'desktop_app_close_delete_result'
+    )) {
+      return executeDesktopAppAction();
     }
     const allowUiLocalMutation = isUiLocalMutableTarget(target, action);
     if (envelopeOrNull && isDirectModelMutationAction(action) && !(action !== 'submodel_create' && allowUiLocalMutation)) {
@@ -8844,7 +9554,15 @@ export function buildCrossModelHostApiMethods(runtime) {
   return { writeCrossModel, readCrossModel, rmCrossModel, setMqttTargetConfig };
 }
 
-export { buildClientSnapshot, buildSlideAppExportPayload, buildSlideAppExportZip, createServerState, handleMediaUploadRequest, startServer };
+export {
+  buildClientSnapshot,
+  buildSlideAppExportPayload,
+  buildSlideAppExportZip,
+  createServerState,
+  deriveWorkspaceRegistryFromSnapshot,
+  handleMediaUploadRequest,
+  startServer,
+};
 
 const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMainModule) {

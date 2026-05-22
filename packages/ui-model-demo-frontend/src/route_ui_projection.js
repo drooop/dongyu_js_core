@@ -2,8 +2,21 @@ import { normalizeHashPath } from './router.js';
 import { deriveSlidingFlowShellState, deriveWorkspaceSelected } from './editor_page_state_derivers.js';
 import { findPageEntryByPath, resolvePageAsset } from './page_asset_resolver.js';
 import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
-import { EDITOR_STATE_MODEL_ID, FLOW_SHELL_CATALOG_MODEL_ID } from './model_ids.js';
-import { DESKTOP_FOREGROUND_APP_LABEL } from './desktop_app_state.js';
+import {
+  BUILTIN_WORKSPACE_APP_MODEL_IDS,
+  DOCS_CATALOG_MODEL_ID,
+  EDITOR_STATE_MODEL_ID,
+  FLOW_SHELL_CATALOG_MODEL_ID,
+  MATRIX_SUITE_APP_MODEL_ID,
+  MODELTABLE_APP_MODEL_ID,
+  SETTINGS_APP_MODEL_ID,
+} from './model_ids.js';
+import {
+  DESKTOP_APP_MANAGE_MODE_LABEL,
+  DESKTOP_APP_VIEW_MODE_LABEL,
+  DESKTOP_FOREGROUND_APP_LABEL,
+  DESKTOP_TASK_SWITCHER_OPEN_LABEL,
+} from './desktop_app_state.js';
 
 function cloneAst(ast) {
   return ast && typeof ast === 'object' ? JSON.parse(JSON.stringify(ast)) : null;
@@ -93,6 +106,10 @@ function readEditorStateLabel(snapshot, key) {
   return snapshot?.models?.[String(EDITOR_STATE_MODEL_ID)]?.cells?.['0,0,0']?.labels?.[key]?.v;
 }
 
+function isHostBuiltinWorkspaceApp(modelId) {
+  return BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(modelId);
+}
+
 function normalizeDesktopWorkspaceApps(snapshot) {
   const registry = readEditorStateLabel(snapshot, 'ws_apps_registry');
   if (!Array.isArray(registry)) return [];
@@ -100,46 +117,109 @@ function normalizeDesktopWorkspaceApps(snapshot) {
   const seen = new Set();
   for (const entry of registry) {
     const modelId = entry && Number.isInteger(entry.model_id) ? entry.model_id : null;
-    if (!Number.isInteger(modelId) || modelId <= 0 || seen.has(modelId)) continue;
-    if (entry.slide_capable !== true) continue;
+    if (!Number.isInteger(modelId) || modelId === 0 || seen.has(modelId)) continue;
     seen.add(modelId);
     const title = typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : `App ${modelId}`;
+    const summary = typeof entry.summary === 'string' && entry.summary.trim() ? entry.summary.trim() : '';
+    const origin = isHostBuiltinWorkspaceApp(modelId) ? 'builtin' : 'slid_in';
+    if (entry.slide_capable === true && !summary) {
+      throw new Error(`slide_capable workspace app ${modelId} missing required slide_app_summary`);
+    }
+    const sourceDE = origin === 'slid_in'
+      ? String(entry.source_de || 'source unknown').trim() || 'source unknown'
+      : '';
     apps.push({
       modelId,
       title,
+      summary: summary || (origin === 'builtin' ? `${title} built-in app.` : ''),
+      origin,
+      sourceDE,
+      deletable: entry.deletable === true,
       surface: typeof entry.slide_surface_type === 'string' && entry.slide_surface_type.trim()
         ? entry.slide_surface_type.trim()
-        : 'workspace.page',
+        : (modelId < 0 ? 'system.page' : 'workspace.page'),
     });
   }
   return apps;
 }
 
-function buildDesktopWorkspaceAppNode(app) {
+function desktopLaunchValueForApp(app) {
+  if (app.modelId === DOCS_CATALOG_MODEL_ID || app.title === 'Docs') {
+    return {
+      id: 'docs',
+      kind: 'system',
+      page: 'docs',
+      path: '/docs',
+      model_id: DOCS_CATALOG_MODEL_ID,
+      title: 'Docs',
+    };
+  }
+  return {
+    id: `workspace:${app.modelId}`,
+    kind: 'workspace',
+    page: 'workspace',
+    path: '/workspace',
+    model_id: app.modelId,
+    title: app.title,
+    summary: app.summary,
+  };
+}
+
+function desktopDeleteValueForApp(app) {
+  return {
+    model_id: app.modelId,
+    title: app.title,
+  };
+}
+
+function buildDesktopWorkspaceAppNode(app, displayMode = 'cards', manageMode = false) {
+  const deletable = app.origin === 'slid_in' && app.deletable === true;
   return {
     id: `desktop_slide_app_${app.modelId}`,
-    type: 'Button',
+    type: 'AppCard',
     props: {
+      title: app.title,
       label: app.title,
+      summary: app.summary,
+      mark: app.title,
+      accent: app.origin === 'builtin' ? '#0ea5e9' : (app.modelId === 100 ? '#14b8a6' : '#64748b'),
       desktopApp: true,
       appKind: 'workspace',
+      appOrigin: app.origin,
+      sourceDE: app.origin === 'slid_in' ? app.sourceDE : '',
       modelId: app.modelId,
       surface: app.surface,
+      displayMode,
+      density: 'compact',
+      sourcePlacement: 'cornerBadge',
+      manageMode,
+      deletable,
     },
     bind: {
+      contextmenu: deletable ? {
+        write: {
+          action: 'desktop_app_request_delete',
+          value_ref: {
+            t: 'json',
+            v: desktopDeleteValueForApp(app),
+          },
+        },
+      } : null,
+      delete: deletable ? {
+        write: {
+          action: 'desktop_app_request_delete',
+          value_ref: {
+            t: 'json',
+            v: desktopDeleteValueForApp(app),
+          },
+        },
+      } : null,
       write: {
         action: 'label_update',
         target_ref: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: DESKTOP_FOREGROUND_APP_LABEL },
         value_ref: {
           t: 'json',
-          v: {
-            id: `workspace:${app.modelId}`,
-            kind: 'workspace',
-            page: 'workspace',
-            path: '/workspace',
-            title: app.title,
-            model_id: app.modelId,
-          },
+          v: desktopLaunchValueForApp(app),
         },
       },
     },
@@ -148,28 +228,55 @@ function buildDesktopWorkspaceAppNode(app) {
 }
 
 function composeDesktopProjection(snapshot, desktopAst) {
-  const ast = cloneAst(desktopAst);
   const apps = normalizeDesktopWorkspaceApps(snapshot);
-  if (!ast || typeof ast !== 'object') return ast;
-  const appNodes = apps.map(buildDesktopWorkspaceAppNode);
+  const requestedViewMode = String(readEditorStateLabel(snapshot, DESKTOP_APP_VIEW_MODE_LABEL) || 'cards').trim().toLowerCase();
+  const displayMode = requestedViewMode === 'list' ? 'list' : 'cards';
+  const manageMode = readEditorStateLabel(snapshot, DESKTOP_APP_MANAGE_MODE_LABEL) === true;
+  if (!desktopAst || typeof desktopAst !== 'object') {
+    return {
+      id: 'desktop_catalog_missing',
+      type: 'Text',
+      props: { type: 'warning', text: 'Desktop shell cellwise model missing.' },
+    };
+  }
+  const builtinApps = apps.filter((app) => app.origin === 'builtin');
+  const slidInApps = apps.filter((app) => app.origin !== 'builtin');
+  const matrixApp = apps.find((app) => app.modelId === MATRIX_SUITE_APP_MODEL_ID) || {
+    modelId: MATRIX_SUITE_APP_MODEL_ID,
+    title: 'Matrix Suite',
+    summary: '',
+    origin: 'builtin',
+    surface: 'workspace.page',
+  };
 
   const visit = (node) => {
     if (!node || typeof node !== 'object') return node;
     const next = {
       ...node,
       props: node.props && typeof node.props === 'object' ? { ...node.props } : node.props,
+      bind: node.bind && typeof node.bind === 'object' ? cloneAst(node.bind) : node.bind,
       children: Array.isArray(node.children) ? node.children.map(visit) : node.children,
     };
-    if (next.id === 'desktop_slide_apps') {
-      return {
-        ...next,
-        children: appNodes,
+    if (next.id === 'desktop_builtin_grid') {
+      next.props = {
+        ...(next.props && typeof next.props === 'object' ? next.props : {}),
+        variant: displayMode === 'list' ? 'list' : 'grid',
       };
+      next.children = builtinApps.map((app) => buildDesktopWorkspaceAppNode(app, displayMode, manageMode));
+    }
+    if (next.id === 'desktop_slid_in_grid') {
+      next.props = {
+        ...(next.props && typeof next.props === 'object' ? next.props : {}),
+        variant: displayMode === 'list' ? 'list' : 'grid',
+      };
+      next.children = slidInApps.map((app) => buildDesktopWorkspaceAppNode(app, displayMode, manageMode));
+    }
+    if (next.id === 'desktop_taskbar_mb' && next.bind?.write?.value_ref) {
+      next.bind.write.value_ref.v = desktopLaunchValueForApp(matrixApp);
     }
     return next;
   };
-
-  return visit(ast);
+  return visit(cloneAst(desktopAst));
 }
 
 export function resolveRouteUiAst(snapshot, routePath, options = {}) {

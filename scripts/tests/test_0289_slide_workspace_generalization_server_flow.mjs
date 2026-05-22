@@ -104,6 +104,7 @@ function buildImportZipBuffer() {
   const payload = [
     { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.SlideZipImportedApp' },
     { id: 0, p: 0, r: 0, c: 0, k: 'app_name', t: 'str', v: 'Imported Zip App' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'slide_app_summary', t: 'str', v: 'Workspace generalization fixture for imported slide app registry projection.' },
     { id: 0, p: 0, r: 0, c: 0, k: 'source_worker', t: 'str', v: 'zip-import' },
     { id: 0, p: 0, r: 0, c: 0, k: 'slide_capable', t: 'bool', v: true },
     { id: 0, p: 0, r: 0, c: 0, k: 'slide_surface_type', t: 'str', v: 'workspace.page' },
