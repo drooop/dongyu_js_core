@@ -3860,6 +3860,7 @@ function deriveWorkspaceAssetCatalogRowsFromDataArrayOne(runtime) {
       runtime_endpoint_worker_id: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'runtime_endpoint_worker_id', ''),
       ...(Number.isInteger(runtimeEndpointModelId) ? { runtime_endpoint_model_id: runtimeEndpointModelId } : {}),
       runtime_pins: readRuntimeCellJson(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'runtime_pins', []),
+      bundle_resource_uri: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'bundle_resource_uri', ''),
       bundle_sha256: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'bundle_sha256', ''),
       installable,
       action_label: readRuntimeCellString(runtime, WORKSPACE_ASSET_CATALOG_MODEL_ID, 0, rowIndex, 0, 'action_label', installable ? '安装' : '详情'),

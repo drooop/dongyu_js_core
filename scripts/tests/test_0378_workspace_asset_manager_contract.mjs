@@ -81,6 +81,7 @@ function deriveRowsFromCatalogModel(runtime) {
       runtime_endpoint_worker_id: get('runtime_endpoint_worker_id') || '',
       ...(Number.isInteger(runtimeEndpointModelId) ? { runtime_endpoint_model_id: runtimeEndpointModelId } : {}),
       runtime_pins: Array.isArray(get('runtime_pins')) ? get('runtime_pins') : [],
+      bundle_resource_uri: get('bundle_resource_uri') || '',
       bundle_sha256: get('bundle_sha256') || '',
       installable,
       action_label: get('action_label') || (installable ? '安装' : '详情'),
