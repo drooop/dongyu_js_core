@@ -99,6 +99,29 @@ function readMarkdownText(node, snapshot, host, ctx) {
   return '';
 }
 
+const SHELL_TEXT = {
+  ink: '#102033',
+  muted: '#64748b',
+  soft: '#94a3b8',
+  line: 'rgba(148, 163, 184, 0.34)',
+  glass: 'rgba(255, 255, 255, 0.72)',
+  glassStrong: 'rgba(255, 255, 255, 0.88)',
+};
+
+function mergeShellStyle(base, props) {
+  return {
+    ...base,
+    ...((props && props.style) || {}),
+  };
+}
+
+function cleanShellProps(props, extraKeys = []) {
+  const next = { ...(props || {}) };
+  delete next.style;
+  for (const key of extraKeys) delete next[key];
+  return next;
+}
+
 function renderInlineMarkdown(text, h, keyPrefix) {
   const input = String(text ?? '');
   const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
@@ -428,6 +451,100 @@ function singleFlightValueKey(value) {
   }
 }
 
+function closeAppContextMenu() {
+  if (typeof document === 'undefined' || !document.body) return;
+  for (const menu of Array.from(document.querySelectorAll('.dy-app-context-menu'))) {
+    if (typeof menu.__dyContextMenuCleanup === 'function') menu.__dyContextMenuCleanup();
+    menu.remove();
+  }
+}
+
+function openAppContextMenu(event, options) {
+  if (typeof document === 'undefined' || !document.body) return;
+  if (!event || !options || typeof options.dispatchDelete !== 'function') return;
+  if (typeof event.preventDefault === 'function') event.preventDefault();
+  if (typeof event.stopPropagation === 'function') event.stopPropagation();
+  closeAppContextMenu();
+  const x = Number.isFinite(event.clientX) ? event.clientX : 24;
+  const y = Number.isFinite(event.clientY) ? event.clientY : 24;
+  const width = typeof window !== 'undefined' && Number.isFinite(window.innerWidth) ? window.innerWidth : 1024;
+  const height = typeof window !== 'undefined' && Number.isFinite(window.innerHeight) ? window.innerHeight : 768;
+  const menu = document.createElement('div');
+  menu.className = 'dy-app-context-menu';
+  menu.setAttribute('role', 'menu');
+  menu.style.cssText = [
+    'position:fixed',
+    `left:${Math.max(12, Math.min(x, width - 188))}px`,
+    `top:${Math.max(12, Math.min(y, height - 64))}px`,
+    'z-index:2147483647',
+    'min-width:176px',
+    'padding:8px',
+    'border-radius:18px',
+    'background:rgba(255,255,255,0.96)',
+    'border:1px solid rgba(148,163,184,0.28)',
+    'box-shadow:0 22px 60px rgba(15,23,42,0.18)',
+    'backdrop-filter:blur(18px)',
+    'font-family:inherit',
+  ].join(';');
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.setAttribute('role', 'menuitem');
+  item.setAttribute('aria-label', `删除 ${options.title || 'App'}`);
+  item.style.cssText = [
+    'width:100%',
+    'display:flex',
+    'align-items:center',
+    'gap:10px',
+    'border:0',
+    'border-radius:12px',
+    'padding:10px 12px',
+    'background:transparent',
+    'color:#b91c1c',
+    'font-size:14px',
+    'font-weight:750',
+    'text-align:left',
+    'cursor:pointer',
+  ].join(';');
+  item.innerHTML = '<span aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:18px;font-weight:900;line-height:1">−</span><span>删除</span>';
+  item.addEventListener('mouseenter', () => { item.style.background = '#fef2f2'; });
+  item.addEventListener('mouseleave', () => { item.style.background = 'transparent'; });
+  const activate = (clickEvent) => {
+    if (clickEvent && typeof clickEvent.preventDefault === 'function') clickEvent.preventDefault();
+    if (clickEvent && typeof clickEvent.stopPropagation === 'function') clickEvent.stopPropagation();
+    closeAppContextMenu();
+    cleanupDocumentListeners();
+    options.dispatchDelete();
+  };
+  item.addEventListener('click', activate);
+  menu.appendChild(item);
+  document.body.appendChild(menu);
+  const cleanupDocumentListeners = () => {
+    document.removeEventListener('keydown', onKeydown, true);
+    document.removeEventListener('click', onDocumentClick);
+    if (typeof window !== 'undefined') window.removeEventListener('blur', onWindowBlur, true);
+    menu.__dyContextMenuCleanup = null;
+  };
+  const onKeydown = (keyEvent) => {
+    if (keyEvent && keyEvent.key !== 'Escape') return;
+    closeAppContextMenu();
+    cleanupDocumentListeners();
+  };
+  const onDocumentClick = (clickEvent) => {
+    const path = clickEvent && typeof clickEvent.composedPath === 'function' ? clickEvent.composedPath() : [];
+    if ((path && path.includes(menu)) || (clickEvent && menu.contains(clickEvent.target))) return;
+    closeAppContextMenu();
+    cleanupDocumentListeners();
+  };
+  const onWindowBlur = () => {
+    closeAppContextMenu();
+    cleanupDocumentListeners();
+  };
+  document.addEventListener('keydown', onKeydown, true);
+  document.addEventListener('click', onDocumentClick);
+  if (typeof window !== 'undefined') window.addEventListener('blur', onWindowBlur, true);
+  menu.__dyContextMenuCleanup = cleanupDocumentListeners;
+}
+
 function nextEventId() {
   eventCounter += 1;
   return `evt_${Date.now()}_${eventCounter}`;
@@ -600,7 +717,24 @@ function renderTreeNode(node, snapshot, registry) {
     || runtimeNode.type === 'Form'
     || runtimeNode.type === 'FormItem'
     || runtimeNode.type === 'TabPane'
+    || runtimeNode.type === 'StatusBar'
+    || runtimeNode.type === 'Taskbar'
+    || runtimeNode.type === 'NavigationRail'
+    || runtimeNode.type === 'DesktopGrid'
+    || runtimeNode.type === 'WidgetPanel'
+    || runtimeNode.type === 'QuickSettingsPanel'
+    || runtimeNode.type === 'AppWindow'
+    || runtimeNode.type === 'SplitPaneWindow'
+    || runtimeNode.type === 'AppSwitcher'
+    || runtimeNode.type === 'Drawer'
   ) {
+    base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
+    return base;
+  }
+
+  if (runtimeNode.type === 'AppCard') {
+    base.title = (runtimeNode.props && (runtimeNode.props.title || runtimeNode.props.label)) || '';
+    base.summary = (runtimeNode.props && runtimeNode.props.summary) || '';
     base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
     return base;
   }
@@ -733,6 +867,14 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       return h('div', fallbackText);
     }
     return buildVueNode(fragment, snapshot, vue, host, registry, ctx);
+  }
+
+  if (node.type === 'HostSlot') {
+    const slotName = props && typeof props.name === 'string' ? props.name : '';
+    const slots = ctx && ctx.slots && typeof ctx.slots === 'object' ? ctx.slots : {};
+    const slot = slotName ? slots[slotName] : null;
+    if (typeof slot === 'function') return slot();
+    return slot || null;
   }
 
   if (node.type === 'Text') {
@@ -1895,6 +2037,340 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     ]);
   }
 
+  if (node.type === 'StatusBar') {
+    const title = typeof props.title === 'string' ? props.title : 'Dongyu OS';
+    const subtitle = typeof props.subtitle === 'string' ? props.subtitle : '';
+    const time = typeof props.time === 'string' ? props.time : '';
+    const status = typeof props.status === 'string' ? props.status : 'online';
+    const statusBarProps = cleanShellProps(props, ['title', 'subtitle', 'time', 'status']);
+    return h('header', { ...statusBarProps, style: mergeShellStyle({
+      minHeight: '52px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '16px',
+      padding: '10px 18px',
+      border: `1px solid ${SHELL_TEXT.line}`,
+      borderRadius: '24px',
+      background: 'linear-gradient(135deg, rgba(255,255,255,0.9), rgba(223,244,238,0.72))',
+      boxShadow: '0 18px 44px rgba(15, 23, 42, 0.10)',
+      backdropFilter: 'blur(18px)',
+      boxSizing: 'border-box',
+    }, props) }, [
+      h('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 } }, [
+        h('div', { style: { color: SHELL_TEXT.ink, fontSize: '16px', fontWeight: 800, letterSpacing: '-0.02em' } }, title),
+        subtitle ? h('div', { style: { color: SHELL_TEXT.muted, fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, subtitle) : null,
+      ].filter(Boolean)),
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', color: SHELL_TEXT.muted, fontSize: '12px', fontWeight: 700 } }, [
+        h('span', { style: { display: 'inline-flex', width: '8px', height: '8px', borderRadius: '999px', background: status === 'online' ? '#10b981' : '#f59e0b', boxShadow: '0 0 0 4px rgba(16,185,129,0.12)' } }),
+        h('span', status),
+        time ? h('span', { style: { color: SHELL_TEXT.ink } }, time) : null,
+        ...children,
+      ].filter(Boolean)),
+    ]);
+  }
+
+  if (node.type === 'Taskbar') {
+    const taskbarProps = cleanShellProps(props);
+    return h('nav', { ...taskbarProps, style: mergeShellStyle({
+      minHeight: '72px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '12px',
+      padding: '12px 18px',
+      border: `1px solid ${SHELL_TEXT.line}`,
+      borderRadius: '28px',
+      background: 'rgba(248, 250, 252, 0.78)',
+      boxShadow: '0 22px 60px rgba(15, 23, 42, 0.14)',
+      backdropFilter: 'blur(20px)',
+      boxSizing: 'border-box',
+    }, props) }, children);
+  }
+
+  if (node.type === 'NavigationRail') {
+    const railProps = cleanShellProps(props);
+    return h('aside', { ...railProps, style: mergeShellStyle({
+      width: '88px',
+      minWidth: '88px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: '14px',
+      padding: '18px 12px',
+      border: `1px solid ${SHELL_TEXT.line}`,
+      borderRadius: '32px',
+      background: 'rgba(255, 255, 255, 0.7)',
+      boxShadow: '0 20px 48px rgba(15, 23, 42, 0.10)',
+      backdropFilter: 'blur(18px)',
+      boxSizing: 'border-box',
+    }, props) }, children);
+  }
+
+  if (node.type === 'DesktopGrid') {
+    const minColumnWidth = props.minColumnWidth || '176px';
+    const variant = props.variant === 'list' ? 'list' : 'grid';
+    const gridProps = cleanShellProps(props, ['minColumnWidth', 'variant']);
+    if (variant === 'list') {
+      return h('section', { ...gridProps, style: mergeShellStyle({
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        alignItems: 'stretch',
+        width: '100%',
+      }, props) }, children);
+    }
+    return h('section', { ...gridProps, style: mergeShellStyle({
+      display: 'grid',
+      gridTemplateColumns: `repeat(auto-fill, minmax(${minColumnWidth}, 1fr))`,
+      gap: '16px',
+      alignItems: 'stretch',
+      width: '100%',
+    }, props) }, children);
+  }
+
+  if (node.type === 'AppCard') {
+    const title = typeof props.title === 'string' && props.title.trim() ? props.title.trim() : (typeof props.label === 'string' ? props.label : 'App');
+    const summary = typeof props.summary === 'string' ? props.summary : '';
+    const appOrigin = typeof props.appOrigin === 'string' ? props.appOrigin : '';
+    const sourceDE = typeof props.sourceDE === 'string' && props.sourceDE.trim() ? props.sourceDE.trim() : '';
+    const sourceText = appOrigin === 'slid_in' ? `From ${sourceDE || 'source unknown'}` : (appOrigin === 'builtin' ? 'Built-in' : '');
+    const accent = typeof props.accent === 'string' && props.accent.trim() ? props.accent : '#14b8a6';
+    const mark = typeof props.mark === 'string' && props.mark.trim() ? props.mark.trim().slice(0, 2) : title.trim().slice(0, 2).toUpperCase();
+    const target = node.bind && node.bind.write;
+    const displayMode = props.displayMode === 'list' ? 'list' : 'cards';
+    const compact = props.density === 'compact';
+    const manageMode = props.manageMode === true;
+    const deletable = props.deletable === true;
+    const deleteTarget = node.bind && node.bind.delete ? (node.bind.delete.write || node.bind.delete) : null;
+    const contextMenuTarget = node.bind && node.bind.contextmenu ? (node.bind.contextmenu.write || node.bind.contextmenu) : deleteTarget;
+    let suppressNextClick = false;
+    const dispatchDelete = () => {
+      if (!deleteTarget) return;
+      dispatchEvent(node, deleteTarget, { delete: true, value: { model_id: props.modelId, title } }, host, undefined, ctx);
+    };
+    const openContextMenu = (event) => {
+      if (!deletable || !contextMenuTarget) return;
+      openAppContextMenu(event, {
+        title,
+        dispatchDelete: () => {
+          dispatchEvent(node, contextMenuTarget, { delete: true, value: { model_id: props.modelId, title } }, host, undefined, ctx);
+        },
+      });
+    };
+    const appCardProps = cleanShellProps(props, ['title', 'label', 'summary', 'accent', 'mark', 'appOrigin', 'sourceDE', 'displayMode', 'density', 'sourcePlacement', 'manageMode', 'deletable']);
+    if (target) {
+      appCardProps.role = 'button';
+      appCardProps.tabindex = 0;
+      appCardProps.onClick = (event) => {
+        const eventTarget = event && event.currentTarget ? event.currentTarget : null;
+        if (suppressNextClick || (eventTarget && eventTarget.__dyAppCardContextMenuFired === true)) {
+          suppressNextClick = false;
+          if (eventTarget) eventTarget.__dyAppCardContextMenuFired = false;
+          if (event && typeof event.preventDefault === 'function') event.preventDefault();
+          if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+          return;
+        }
+        dispatchEvent(node, target, { click: true }, host, undefined, ctx);
+      };
+      appCardProps.onKeydown = (event) => {
+        if (!event || (event.key !== 'Enter' && event.key !== ' ')) return;
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+        dispatchEvent(node, target, { click: true }, host, undefined, ctx);
+      };
+    }
+    if (deletable && contextMenuTarget) {
+      appCardProps.onContextmenu = openContextMenu;
+      appCardProps.onContextMenu = openContextMenu;
+      appCardProps.ref = (el) => {
+        if (!el || typeof el.addEventListener !== 'function') return;
+        if (typeof el.__dyAppCardContextMenuCleanup === 'function') {
+          el.__dyAppCardContextMenuCleanup();
+        }
+        const nativeContextMenu = (event) => {
+          suppressNextClick = true;
+          el.__dyAppCardContextMenuFired = true;
+          openContextMenu(event);
+        };
+        el.addEventListener('contextmenu', nativeContextMenu);
+        el.__dyAppCardContextMenuCleanup = () => {
+          el.removeEventListener('contextmenu', nativeContextMenu);
+        };
+      };
+    }
+    const badge = sourceText ? h('div', { style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '4px 8px',
+      borderRadius: '999px',
+      color: appOrigin === 'slid_in' ? '#0f766e' : '#475569',
+      background: appOrigin === 'slid_in' ? 'rgba(20,184,166,0.12)' : 'rgba(148,163,184,0.16)',
+      fontSize: '10px',
+      fontWeight: 900,
+      letterSpacing: '0.03em',
+      textTransform: 'uppercase',
+      whiteSpace: 'nowrap',
+    } }, sourceText) : null;
+    const deleteButton = manageMode && deletable && deleteTarget ? h('button', {
+      type: 'button',
+      title: '删除',
+      'aria-label': `删除 ${title}`,
+      onClick: (event) => {
+        if (event && typeof event.preventDefault === 'function') event.preventDefault();
+        if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+        dispatchDelete();
+      },
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: displayMode === 'list' ? '30px' : '26px',
+        height: displayMode === 'list' ? '30px' : '26px',
+        border: '1px solid rgba(239,68,68,0.28)',
+        borderRadius: '999px',
+        color: '#ffffff',
+        background: 'linear-gradient(180deg, #fb7185 0%, #ef4444 100%)',
+        boxShadow: '0 10px 22px rgba(239,68,68,0.20)',
+        fontSize: '20px',
+        fontWeight: 900,
+        lineHeight: 1,
+        cursor: 'pointer',
+      },
+    }, '−') : null;
+    if (displayMode === 'list') {
+      return h('article', { ...appCardProps, style: mergeShellStyle({
+        minHeight: '72px',
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) auto auto',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '10px 14px',
+        border: `1px solid ${SHELL_TEXT.line}`,
+        borderRadius: '20px',
+        background: 'rgba(255,255,255,0.82)',
+        boxShadow: '0 14px 34px rgba(15, 23, 42, 0.08)',
+        cursor: target ? 'pointer' : 'default',
+        textAlign: 'left',
+        boxSizing: 'border-box',
+        transition: 'transform 160ms ease, box-shadow 160ms ease',
+      }, props) }, [
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 } }, [
+          h('div', { style: { color: SHELL_TEXT.ink, fontSize: '16px', fontWeight: 900, lineHeight: '1.2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, title),
+          summary ? h('div', { style: { color: SHELL_TEXT.muted, fontSize: '12px', lineHeight: '1.35', overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 } }, summary) : null,
+        ].filter(Boolean)),
+        badge,
+        deleteButton,
+        ...children,
+      ].filter(Boolean));
+    }
+    return h('article', { ...appCardProps, style: mergeShellStyle({
+      minHeight: compact ? '108px' : '140px',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'flex-start',
+      gap: compact ? '8px' : '12px',
+      padding: compact ? '14px' : '18px',
+      border: `1px solid ${SHELL_TEXT.line}`,
+      borderRadius: compact ? '22px' : '28px',
+      position: 'relative',
+      background: 'linear-gradient(145deg, rgba(255,255,255,0.88), rgba(241,245,249,0.72))',
+      boxShadow: '0 20px 46px rgba(15, 23, 42, 0.10)',
+      cursor: target ? 'pointer' : 'default',
+      textAlign: 'left',
+      boxSizing: 'border-box',
+      transition: 'transform 160ms ease, box-shadow 160ms ease',
+    }, props) }, [
+      badge ? h('div', { style: { position: 'absolute', top: '10px', right: deleteButton ? '44px' : '10px' } }, badge) : null,
+      deleteButton ? h('div', { style: { position: 'absolute', top: '10px', right: '10px' } }, deleteButton) : null,
+      h('div', { style: { display: 'flex', flexDirection: 'column', gap: '7px', minWidth: 0 } }, [
+        h('div', { style: { color: SHELL_TEXT.ink, fontSize: compact ? '18px' : '20px', fontWeight: 900, lineHeight: '1.15', paddingRight: deleteButton ? (sourceText ? '118px' : '38px') : (sourceText ? '74px' : 0) } }, title),
+        summary ? h('div', { style: { color: SHELL_TEXT.muted, fontSize: '12px', lineHeight: '1.45', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: compact ? 3 : 4, overflow: 'hidden' } }, summary) : null,
+      ].filter(Boolean)),
+      ...children,
+    ]);
+  }
+
+  if (node.type === 'WidgetPanel') {
+    const title = typeof props.title === 'string' ? props.title : '';
+    const panelProps = cleanShellProps(props, ['title']);
+    return h('section', { ...panelProps, style: mergeShellStyle({
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+      padding: '18px',
+      border: `1px solid ${SHELL_TEXT.line}`,
+      borderRadius: '30px',
+      background: 'rgba(255, 255, 255, 0.70)',
+      boxShadow: '0 20px 48px rgba(15, 23, 42, 0.10)',
+      backdropFilter: 'blur(18px)',
+      boxSizing: 'border-box',
+    }, props) }, [
+      title ? h('div', { style: { color: SHELL_TEXT.ink, fontSize: '15px', fontWeight: 850 } }, title) : null,
+      ...children,
+    ].filter(Boolean));
+  }
+
+  if (node.type === 'QuickSettingsPanel') {
+    const title = typeof props.title === 'string' ? props.title : 'Quick Settings';
+    const panelProps = cleanShellProps(props, ['title']);
+    return h('section', { ...panelProps, style: mergeShellStyle({
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+      padding: '16px',
+      border: `1px solid ${SHELL_TEXT.line}`,
+      borderRadius: '28px',
+      background: 'linear-gradient(160deg, rgba(15,23,42,0.88), rgba(14,116,144,0.78))',
+      color: '#f8fafc',
+      boxShadow: '0 26px 70px rgba(15, 23, 42, 0.22)',
+      backdropFilter: 'blur(18px)',
+      boxSizing: 'border-box',
+    }, props) }, [
+      h('div', { style: { fontSize: '14px', fontWeight: 850 } }, title),
+      ...children,
+    ]);
+  }
+
+  if (node.type === 'AppWindow') {
+    const title = typeof props.title === 'string' ? props.title : '';
+    const windowProps = cleanShellProps(props, ['title']);
+    return h('section', { ...windowProps, style: mergeShellStyle({
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: '0',
+      border: `1px solid ${SHELL_TEXT.line}`,
+      borderRadius: '30px',
+      overflow: 'hidden',
+      background: '#ffffff',
+      boxShadow: '0 28px 70px rgba(15, 23, 42, 0.14)',
+    }, props) }, [
+      title ? h('div', { style: { minHeight: '48px', display: 'flex', alignItems: 'center', padding: '0 18px', borderBottom: `1px solid ${SHELL_TEXT.line}`, color: SHELL_TEXT.ink, fontWeight: 850 } }, title) : null,
+      h('div', { style: { minHeight: 0, flex: 1, overflow: 'auto' } }, children),
+    ].filter(Boolean));
+  }
+
+  if (node.type === 'SplitPaneWindow') {
+    const splitProps = cleanShellProps(props, ['columns']);
+    return h('section', { ...splitProps, style: mergeShellStyle({
+      display: 'grid',
+      gridTemplateColumns: props.columns || 'minmax(0, 1fr) minmax(240px, 34%)',
+      gap: '14px',
+      minHeight: '0',
+      width: '100%',
+    }, props) }, children);
+  }
+
+  if (node.type === 'AppSwitcher') {
+    const switcherProps = cleanShellProps(props);
+    return h('section', { ...switcherProps, style: mergeShellStyle({
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+      gap: '12px',
+      width: '100%',
+    }, props) }, children);
+  }
+
   // NEW COMPONENTS: ProgressBar, Divider, Breadcrumb
   // ================================================
 
@@ -2087,16 +2563,17 @@ function createRenderer(options) {
   ensureHostAdapter(host);
 
   return {
-    renderTree(ast) {
+    renderTree(ast, context) {
       const snapshot = host.getSnapshot();
+      void context;
       return renderTreeNode(ast, snapshot, registry);
     },
-    renderVNode(ast) {
+    renderVNode(ast, context) {
       if (!vue || typeof vue.h !== 'function') {
         throw new Error('Vue bridge not provided');
       }
       const snapshot = host.getSnapshot();
-      return buildVueNode(ast, snapshot, vue, host, registry);
+      return buildVueNode(ast, snapshot, vue, host, registry, context || null);
     },
     dispatchEvent(node, payload, overrideType) {
       const target = node.bind && node.bind.write;

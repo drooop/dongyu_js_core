@@ -2,6 +2,8 @@ import { computed, h, onBeforeUnmount, onMounted, ref, resolveComponent, watch }
 import { createRenderer } from '@ui-renderer/index.mjs';
 import { readAppShellRouteSyncState, resolveNavigableRoutePath } from './app_shell_route_sync.js';
 import { dispatchAppShellStateUpdate } from './app_shell_state_dispatch.js';
+import { buildFocusedWorkspaceAppContentAst } from './desktop_focused_app_content.js';
+import { buildForegroundShellAst } from './desktop_foreground_shell_ast.js';
 import { findPageEntryByPath, readPageCatalog } from './page_asset_resolver.js';
 import {
   DESKTOP_FOREGROUND_APP_LABEL,
@@ -20,7 +22,7 @@ import {
   subscribeHashPath,
 } from './router.js';
 
-export function createDemoRoot(store) {
+export function createDemoRoot(store, options = {}) {
   let consumeScheduled = false;
   function scheduleConsumeOnce() {
     if (consumeScheduled) return;
@@ -75,7 +77,8 @@ export function createDemoRoot(store) {
         const { models, v1nConfig } = store.snapshot;
         void models;
         void v1nConfig;
-        return store.getUiAst();
+        const routePath = typeof options.routePath === 'function' ? options.routePath() : options.routePath;
+        return store.getUiAst(routePath);
       });
       return () => {
         if (!ast.value || typeof ast.value !== 'object') {
@@ -88,7 +91,8 @@ export function createDemoRoot(store) {
           ].join('\n');
           return h('pre', { style: { padding: '12px', whiteSpace: 'pre-wrap' } }, hint);
         }
-        return renderer.renderVNode(ast.value);
+        const slots = typeof options.slots === 'function' ? options.slots() : options.slots;
+        return renderer.renderVNode(ast.value, slots && typeof slots === 'object' ? { slots } : undefined);
       };
     },
   };
@@ -104,6 +108,52 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       const ElButton = resolveComponent('ElButton');
       const ElDivider = resolveComponent('ElDivider');
       const ElSpace = resolveComponent('ElSpace');
+      const shellRenderer = createRenderer({
+        host: {
+          getSnapshot: () => mainStore?.snapshot ?? { models: {} },
+          getEffectiveLabelValue: (ref) => {
+            if (mainStore && typeof mainStore.getEffectiveLabelValue === 'function') {
+              return mainStore.getEffectiveLabelValue(ref);
+            }
+            return undefined;
+          },
+          dispatchAddLabel: (label) => {
+            if (mainStore && typeof mainStore.dispatchAddLabel === 'function') {
+              mainStore.dispatchAddLabel(label);
+            }
+            if (mainStore && typeof mainStore.consumeOnce === 'function') {
+              queueMicrotask(() => mainStore.consumeOnce());
+            }
+          },
+          dispatchRmLabel: (labelRef) => {
+            if (mainStore && typeof mainStore.dispatchRmLabel === 'function') {
+              mainStore.dispatchRmLabel(labelRef);
+            }
+            if (mainStore && typeof mainStore.consumeOnce === 'function') {
+              queueMicrotask(() => mainStore.consumeOnce());
+            }
+          },
+          stageOverlayValue: (payload) => {
+            if (mainStore && typeof mainStore.stageOverlayValue === 'function') {
+              return mainStore.stageOverlayValue(payload);
+            }
+            return undefined;
+          },
+          commitOverlayValue: (payload) => {
+            if (mainStore && typeof mainStore.commitOverlayValue === 'function') {
+              return mainStore.commitOverlayValue(payload);
+            }
+            return undefined;
+          },
+          uploadMedia: async (input) => {
+            if (mainStore && typeof mainStore.uploadMedia === 'function') {
+              return mainStore.uploadMedia(input);
+            }
+            throw new Error('upload_media_not_supported');
+          },
+        },
+        vue: { h, resolveComponent },
+      });
       const path = ref(getHashPath());
       let unsubscribe = null;
 
@@ -162,9 +212,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       function syncWorkspaceSelection(routePath) {
         const page = findRouteEntry(routePath)?.page || 'home';
         if (page !== 'workspace') return;
-        queueMicrotask(() => {
-          selectWorkspaceModel(resolveWorkspaceModelId());
-        });
+        selectWorkspaceModel(resolveWorkspaceModelId());
       }
 
       function syncGalleryRoute(routePath) {
@@ -211,6 +259,9 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       const currentRouteEntry = computed(() => findRouteEntry(path.value));
       const routeSyncState = computed(() => readAppShellRouteSyncState(mainStore?.snapshot ?? {}, path.value));
       const desktopForegroundApp = computed(() => readDesktopForegroundApp(mainStore?.snapshot ?? {}));
+      const ForegroundRouteRoot = createDemoRoot(mainStore, {
+        routePath: () => desktopForegroundApp.value?.path || '/',
+      });
       const desktopForegroundKey = computed(() => JSON.stringify(desktopForegroundApp.value || null));
       const desktopTasks = computed(() => readDesktopTaskStack(mainStore?.snapshot ?? {}));
       const desktopTaskSwitcherOpen = computed(() => readDesktopTaskSwitcherOpen(mainStore?.snapshot ?? {}));
@@ -259,16 +310,16 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
 
       function activateDesktopTask(task) {
         if (!task || typeof task !== 'object') return;
-        if (path.value !== ROUTE_HOME) {
-          setHashPath(ROUTE_HOME);
-          path.value = ROUTE_HOME;
-        }
         dispatchAppShellStateUpdate(mainStore, {
           target: { model_id: -2, p: 0, r: 0, c: 0, k: DESKTOP_FOREGROUND_APP_LABEL },
           value: { t: 'json', v: task },
         });
         setTaskSwitcherOpen(false);
         syncDesktopForeground(task);
+        if (path.value !== ROUTE_HOME) {
+          setHashPath(ROUTE_HOME);
+          path.value = ROUTE_HOME;
+        }
       }
 
       function closeDesktopTask(task) {
@@ -299,60 +350,118 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
 
       watch(desktopForegroundKey, () => {
         syncDesktopForeground(desktopForegroundApp.value);
+        if (desktopForegroundApp.value && path.value !== ROUTE_HOME) {
+          setHashPath(ROUTE_HOME);
+          path.value = ROUTE_HOME;
+        }
       });
+
+      function localLabelUpdate(key, t, v) {
+        return {
+          action: 'label_update',
+          target_ref: { model_id: -2, p: 0, r: 0, c: 0, k: key },
+          value_ref: { t, v },
+        };
+      }
+
+      function buildTaskSwitcherShellAst() {
+        return {
+          id: 'desktop_task_switcher_shell_model',
+          type: 'Container',
+          props: {
+            'data-testid': 'desktop-task-switcher-panel',
+            style: {
+              width: 'min(560px, 94vw)',
+              height: '100%',
+              background: 'rgba(248, 250, 252, 0.92)',
+              borderLeft: '1px solid rgba(148, 163, 184, 0.36)',
+              boxShadow: '-24px 0 62px rgba(15, 23, 42, 0.18)',
+              padding: '22px',
+              boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              backdropFilter: 'blur(18px)',
+            },
+          },
+          children: [
+            {
+              id: 'desktop_task_switcher_header',
+              type: 'Container',
+              props: { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+              children: [
+                { id: 'desktop_task_switcher_title', type: 'Heading', props: { level: 2, text: '最近任务', style: { fontSize: '18px', fontWeight: 850 } } },
+                {
+                  id: 'desktop_task_switcher_close_model',
+                  type: 'Button',
+                  props: { label: '关闭', size: 'small', round: true, 'data-testid': 'desktop-task-switcher-close' },
+                  bind: { write: localLabelUpdate(DESKTOP_TASK_SWITCHER_OPEN_LABEL, 'bool', false) },
+                },
+              ],
+            },
+            {
+              id: 'desktop_task_switcher_grid_model',
+              type: 'AppSwitcher',
+              children: [{ id: 'desktop_task_cards_slot', type: 'HostSlot', props: { name: 'taskCards' } }],
+            },
+          ],
+        };
+      }
 
       function ForegroundPlayer() {
         const app = desktopForegroundApp.value;
         if (!app) return null;
-        const content = app.page === 'gallery' ? h(GalleryRoot) : h(HomeRoot);
-        return h('div', {
-          'data-testid': 'desktop-foreground-player',
+        const focusedAppContentAst = buildFocusedWorkspaceAppContentAst(app, mainStore?.snapshot);
+        const content = app.page === 'gallery'
+          ? h(GalleryRoot)
+          : (
+            focusedAppContentAst
+              ? shellRenderer.renderVNode(focusedAppContentAst)
+              : h(ForegroundRouteRoot)
+          );
+        return shellRenderer.renderVNode(buildForegroundShellAst(app, mainStore?.snapshot), {
+          slots: {
+            appContent: () => content,
+          },
+        });
+      }
+
+      function renderTaskCard(task) {
+        return h('article', {
+          key: task.id,
           style: {
-            minHeight: '100vh',
-            background: '#edf2f8',
+            minHeight: '124px',
             display: 'flex',
             flexDirection: 'column',
+            justifyContent: 'space-between',
+            gap: '10px',
+            padding: '14px',
+            borderRadius: '24px',
+            border: '1px solid rgba(148, 163, 184, 0.34)',
+            background: '#ffffff',
+            boxShadow: '0 18px 40px rgba(15, 23, 42, 0.10)',
           },
         }, [
-          h('div', {
-            style: {
-              height: '52px',
-              padding: '0 14px',
-              borderBottom: '1px solid #d7dee8',
-              background: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              boxSizing: 'border-box',
-            },
-          }, [
-            h(ElButton, {
-              size: 'small',
-              'data-testid': 'desktop-foreground-back',
-              onClick: clearDesktopForeground,
-            }, { default: () => '桌面' }),
-            h(ElButton, {
-              size: 'small',
-              'data-testid': 'desktop-task-switcher-open',
-              onClick: () => setTaskSwitcherOpen(true),
-            }, { default: () => '任务' }),
-            h('div', {
-              style: {
-                fontSize: '14px',
-                fontWeight: 600,
-                color: '#172033',
-              },
-            }, app.title || app.id),
-            h('div', { style: { width: '58px' } }),
+          h('div', { style: { display: 'flex', flexDirection: 'column', gap: '4px' } }, [
+            h('div', { style: { fontSize: '15px', fontWeight: 850, color: '#102033' } }, task.title || task.id),
+            h('div', { style: { fontSize: '12px', color: '#64748b' } }, task.kind === 'workspace' && Number.isInteger(task.model_id) ? `Workspace · model ${task.model_id}` : 'System app'),
           ]),
-          h('div', {
-            style: {
-              flex: 1,
-              minHeight: 0,
-              overflow: 'auto',
-              background: '#ffffff',
-            },
-          }, [content]),
+          h('div', { style: { display: 'flex', gap: '8px' } }, [
+            h(ElButton, {
+              'data-testid': `desktop-task-${task.id}`,
+              round: true,
+              onClick: () => activateDesktopTask(task),
+            }, { default: () => '打开' }),
+            h(ElButton, {
+              'data-testid': `desktop-task-close-${task.id}`,
+              size: 'small',
+              round: true,
+              onClick: (event) => {
+                event.stopPropagation();
+                closeDesktopTask(task);
+              },
+            }, { default: () => '关闭' }),
+          ]),
         ]);
       }
 
@@ -372,76 +481,14 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           onClick: () => setTaskSwitcherOpen(false),
         }, [
           h('div', {
-            style: {
-              width: 'min(360px, 92vw)',
-              height: '100%',
-              background: '#ffffff',
-              borderLeft: '1px solid #d9e1ea',
-              boxShadow: '-12px 0 28px rgba(15, 23, 42, 0.16)',
-              padding: '16px',
-              boxSizing: 'border-box',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px',
-            },
             onClick: (event) => event.stopPropagation(),
-          }, [
-            h('div', {
-              style: {
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              },
-            }, [
-              h('div', { style: { fontWeight: 700, color: '#172033' } }, '任务'),
-              h(ElButton, {
-                size: 'small',
-                'data-testid': 'desktop-task-switcher-close',
-                onClick: () => setTaskSwitcherOpen(false),
-              }, { default: () => '关闭' }),
-            ]),
-            tasks.length === 0
-              ? h('div', { style: { color: '#64748b', lineHeight: '1.6' } }, '暂无后台任务')
-              : h('div', {
-                style: {
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                },
-              }, tasks.map((task) => h('div', {
-                key: task.id,
-                style: {
-                  display: 'grid',
-                  gridTemplateColumns: 'minmax(0, 1fr) auto',
-                  gap: '8px',
-                  alignItems: 'stretch',
-                },
-              }, [
-                h(ElButton, {
-                  'data-testid': `desktop-task-${task.id}`,
-                  style: {
-                    justifyContent: 'flex-start',
-                    minHeight: '44px',
-                    whiteSpace: 'normal',
-                    textAlign: 'left',
-                  },
-                  onClick: () => activateDesktopTask(task),
-                }, {
-                  default: () => `${task.title || task.id}${task.kind === 'workspace' && Number.isInteger(task.model_id) ? ` · ${task.model_id}` : ''}`,
-                }),
-                h(ElButton, {
-                  'data-testid': `desktop-task-close-${task.id}`,
-                  size: 'small',
-                  style: {
-                    minHeight: '44px',
-                  },
-                  onClick: (event) => {
-                    event.stopPropagation();
-                    closeDesktopTask(task);
-                  },
-                }, { default: () => '关闭' }),
-              ]))),
-          ]),
+          }, shellRenderer.renderVNode(buildTaskSwitcherShellAst(), {
+            slots: {
+              taskCards: () => (tasks.length === 0
+                ? h('div', { style: { color: '#64748b', lineHeight: '1.6' } }, '暂无后台任务')
+                : tasks.map((task) => renderTaskCard(task))),
+            },
+          })),
         ]);
       }
 

@@ -55,6 +55,13 @@ function slideCreateClickPayload() {
   ]);
 }
 
+function wsDeleteClickPayload(modelId) {
+  return [
+    { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ws_delete_app.v1' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'model_id', t: 'int', v: modelId },
+  ];
+}
+
 async function withServerState(fn) {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0290-filltable-'));
   process.env.DY_AUTH = '0';
@@ -106,12 +113,16 @@ async function test_filltable_create_materializes_workspace_app_and_delete_clean
     assert.equal(createdEntry.slide_surface_type, 'workspace.page', 'created_filltable_app_must_publish_surface_type');
     assert.equal(createdEntry.delete_disabled, false, 'created_filltable_app_must_be_deletable');
     assert.equal(createdEntry.source, 'filltable-create', 'created_filltable_app_must_publish_source_worker');
+    assert.equal(typeof createdEntry.summary, 'string', 'created_filltable_app_must_publish_summary');
+    assert.ok(createdEntry.summary.trim().length >= 8, 'created_filltable_app_summary_must_be_non_empty');
 
     const createdModelId = createdEntry.model_id;
     const createdTruthId = createdModelId + 1;
     const createdRoot = snapAfterCreate.models[String(createdModelId)]?.cells?.['0,0,0']?.labels || {};
     assert.equal(createdRoot.app_name?.v, 'Filltable Created App', 'created_root_must_materialize_app_name');
     assert.equal(createdRoot.source_worker?.v, 'filltable-create', 'created_root_must_materialize_source_worker');
+    assert.equal(typeof createdRoot.slide_app_summary?.v, 'string', 'created_root_must_materialize_summary');
+    assert.ok(createdRoot.slide_app_summary.v.trim().length >= 8, 'created_root_summary_must_be_non_empty');
     assert.equal(createdRoot.slide_capable?.v, true, 'created_root_must_materialize_slide_capable');
     assert.equal(createdRoot.slide_surface_type?.v, 'workspace.page', 'created_root_must_materialize_surface_type');
 
@@ -133,7 +144,7 @@ async function test_filltable_create_materializes_workspace_app_and_delete_clean
     const deleteResult = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 1 },
       'click',
-      createdModelId,
+      wsDeleteClickPayload(createdModelId),
     ));
     assert.equal(deleteResult.result, 'ok', 'delete_created_filltable_app_pin_must_succeed');
     await wait();

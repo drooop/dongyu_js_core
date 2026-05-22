@@ -198,6 +198,10 @@ my-slide-app.zip
 
 Workspace Manager 的安装按钮不再从 UI Server 本地模型复制 `source_model_id`。它只读取 Workspace Manager DEM ModelTable 维护的资产索引；实际 APP bundle 必须由 provider worker 返回，并在 UI Server 校验 response 与 pending install 完全匹配后才会 materialize 为本地安装实例。
 
+当前实现中，工作区管理器页面展示的“可安装滑动 APP”来自 Workspace Manager DEM 模型表中的 `asset_catalog_json`。这份目录只是索引：它说明某个资产由哪个 DE / Worker 提供、安装时应向哪个 provider endpoint 请求 bundle、安装后运行时应走哪个业务 endpoint。UI Server 不把这份目录当成 APP payload truth。
+
+如果新开发了一个 DE（包含 DEM 和若干 V1N），在当前阶段要先让 Workspace Manager DEM 的资产目录出现对应记录，UI Server 才能在工作区管理器里看到它。换句话说，当前是“目录发布”机制，不是自动全网扫描。后续更完整的方向是：每个 DE / Worker 在自己的 ModelTable 中维护可公开资产记录；Workspace Manager 通过控制总线拉取或接收这些资产记录，再把通过校验的记录 materialize 到自己的 `asset_catalog_json` 投影中。这样 Workspace Manager 仍然只做索引，provider 仍然拥有实际 bundle payload。
+
 一个 installable asset row 至少需要这些 provider endpoint 字段：
 
 | 字段 | 含义 |

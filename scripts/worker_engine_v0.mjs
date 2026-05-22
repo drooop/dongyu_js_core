@@ -243,7 +243,8 @@ export class WorkerEngineV0 {
 
   _splitBusOpKey(event, packet) {
     const opId = payloadString(packet && packet.payload, 'op_id') || payloadString(packet && packet.payload, '__mt_request_id');
-    if (opId && event && event.label && event.label.t) return `${event.label.t}:${opId}`;
+    const messageRole = payloadString(packet && packet.payload, 'message_role') || 'unknown';
+    if (opId && event && event.label && event.label.t) return `${event.label.t}:${messageRole}:${opId}`;
     if (!event || !event.cell || !event.label) return '';
     return `${event.label.t}:${event.cell.model_id}:${event.cell.p}:${event.cell.r}:${event.cell.c}:${event.label.k}`;
   }

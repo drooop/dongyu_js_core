@@ -22,6 +22,15 @@
     "p": 0,
     "r": 0,
     "c": 0,
+    "k": "slide_app_summary",
+    "t": "str",
+    "v": "Input plus Submit button example that sends through the dual bus and updates through returned ModelTable labels."
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
     "k": "source_worker",
     "t": "str",
     "v": "manual-zip-import"

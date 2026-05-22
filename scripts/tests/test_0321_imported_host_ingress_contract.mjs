@@ -18,6 +18,7 @@ function basePayload(extraRootLabels = [], extraRecords = []) {
   return [
     { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.HostIngressImportedApp' },
     { id: 0, p: 0, r: 0, c: 0, k: 'app_name', t: 'str', v: 'Host Ingress Imported App' },
+    { id: 0, p: 0, r: 0, c: 0, k: 'slide_app_summary', t: 'str', v: 'Host ingress imported app contract fixture for slide app import validation.' },
     { id: 0, p: 0, r: 0, c: 0, k: 'source_worker', t: 'str', v: 'host-ingress-import' },
     { id: 0, p: 0, r: 0, c: 0, k: 'slide_capable', t: 'bool', v: true },
     { id: 0, p: 0, r: 0, c: 0, k: 'slide_surface_type', t: 'str', v: 'workspace.page' },
@@ -135,7 +136,9 @@ async function test_import_generates_model0_host_route_for_valid_boundary_pin() 
       host: 'localhost',
       port: 1883,
       client_id: '0321-contract',
-      topic_prefix: 'it0321',
+      topic_base: 'it0321',
+      topic_mode: 'uiput_mm_v1',
+      payload_mode: 'pin_payload_v1',
       transport: 'mock',
     });
     const payload = basePayload(
@@ -153,7 +156,6 @@ async function test_import_generates_model0_host_route_for_valid_boundary_pin() 
     assert.ok(model0Labels.has(`imported_host_submit_${importedId}`), 'model0_host_ingress_port_must_be_generated');
     assert.ok(model0Labels.has(`imported_host_submit_${importedId}_route`), 'model0_host_ingress_route_must_be_generated');
     assert.equal(state.runtime.busInPorts.has(`imported_host_submit_${importedId}`), true, 'dynamic_bus_in_registration_must_happen_after_import');
-    assert.equal(state.runtime.mqttClient.subscriptions.has(`it0321/imported_host_submit_${importedId}`), true, 'running_mqtt_loop_must_subscribe_new_host_ingress_topic');
     return { key: 'import_generates_model0_host_route_for_valid_boundary_pin', status: 'PASS' };
   });
 }

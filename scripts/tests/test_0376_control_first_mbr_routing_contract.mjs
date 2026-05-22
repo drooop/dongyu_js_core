@@ -76,6 +76,35 @@ function tempPayload(text = 'hello control first') {
   ];
 }
 
+function providerBundleResponsePayload() {
+  return [
+    mt('__mt_payload_kind', 'str', 'slide_app_bundle_response.v1'),
+    mt('__mt_request_id', 'str', 'req_0389_provider_bundle'),
+    mt('asset_id', 'str', 'r1-minimal-submit'),
+    mt('bundle_payload', 'json', [
+      mt('app_name', 'str', '最小 Submit 双总线示例'),
+      mt('slide_capable', 'bool', true),
+      mt('model_type', 'model.table', 'UI.MinimalSubmitDualBusZip'),
+      { id: 0, p: 2, r: 3, c: 0, k: 'ui_component', t: 'str', v: 'Button' },
+      {
+        id: 0,
+        p: 2,
+        r: 3,
+        c: 0,
+        k: 'ui_bind_json',
+        t: 'json',
+        v: {
+          write: {
+            pin: 'click_event',
+            value_t: 'modeltable',
+            commit_policy: 'immediate',
+          },
+        },
+      },
+    ]),
+  ];
+}
+
 function pinPayloadRecords({
   opId = '0376_control_first',
   topic = 'UIPUT/ws/dam/pic/de/sw/R2/999/submit',
@@ -156,6 +185,96 @@ async function withServerState(fn) {
     delete process.env.DY_PERSISTED_ASSET_ROOT;
     delete process.env.DY_UI_SERVER_WORKER_ID;
   }
+}
+
+async function test_ui_server_cb_out_publishes_control_bus_not_matrix() {
+  return withServerState(async (state) => {
+    const published = [];
+    let matrixCalled = false;
+    if (state.programEngine.controlBusClient && typeof state.programEngine.controlBusClient.end === 'function') {
+      state.programEngine.controlBusClient.end(true);
+    }
+    state.programEngine.controlBusClient = {
+      connected: true,
+      publish: (topic, payload, cb) => {
+        published.push({ topic, payload: JSON.parse(payload) });
+        cb && cb(null);
+      },
+    };
+    state.programEngine.matrixAdapter = {
+      publish: async () => {
+        matrixCalled = true;
+        return true;
+      },
+    };
+    state.programEngine.matrixRoomId = '!room:local';
+    state.programEngine.matrixDmPeerUserId = '@mbr:local';
+    const model0 = state.runtime.getModel(0);
+    const records = pinPayloadRecords({
+      opId: 'ui_server_cb_out_0376',
+      topic: 'UIPUT/ws/dam/pic/de/sw/R1/100/submit',
+      routeKind: 'control',
+      endpointWorkerId: 'R1',
+      endpointModelId: 100,
+      endpointPin: 'submit',
+    });
+    state.runtime.addLabel(model0, 0, 0, 0, {
+      k: 'ui_server_test_cb_out',
+      t: 'pin.bus.cb.out',
+      v: records,
+    });
+    state.programEngine.schedulePendingModel0Egress();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(published.length, 1, 'ui-server pin.bus.cb.out must publish exactly once to MQTT control bus');
+    assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/100/submit', 'ui-server control publish must use payload topic record');
+    assert.equal(matrixCalled, false, 'ui-server pin.bus.cb.out must not use Matrix management adapter');
+    return { key: 'ui_server_cb_out_publishes_control_bus_not_matrix', status: 'PASS' };
+  });
+}
+
+async function test_ui_server_cb_out_dedup_distinguishes_request_and_response_for_same_op_id() {
+  return withServerState(async (state) => {
+    const published = [];
+    if (state.programEngine.controlBusClient && typeof state.programEngine.controlBusClient.end === 'function') {
+      state.programEngine.controlBusClient.end(true);
+    }
+    state.programEngine.controlBusClient = {
+      connected: true,
+      publish: (topic, payload, cb) => {
+        published.push({ topic, payload: JSON.parse(payload) });
+        cb && cb(null);
+      },
+    };
+    const model0 = state.runtime.getModel(0);
+    const common = {
+      opId: 'same_op_ui_server_0376',
+      topic: 'UIPUT/ws/dam/pic/de/sw/R1/100/submit',
+      routeKind: 'control',
+      endpointWorkerId: 'R1',
+      endpointModelId: 100,
+      endpointPin: 'submit',
+    };
+    state.runtime.addLabel(model0, 0, 0, 0, {
+      k: 'ui_server_same_op_cb_out',
+      t: 'pin.bus.cb.out',
+      v: pinPayloadRecords({ ...common, messageRole: 'request' }),
+    });
+    state.programEngine.schedulePendingModel0Egress();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    state.runtime.addLabel(model0, 0, 0, 0, {
+      k: 'ui_server_same_op_cb_out',
+      t: 'pin.bus.cb.out',
+      v: pinPayloadRecords({ ...common, messageRole: 'response' }),
+    });
+    state.programEngine.schedulePendingModel0Egress();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(published.length, 2, 'ui-server must publish request and response even when op_id and bus key match');
+    assert.equal(payloadString(published[0].payload.payload, 'message_role'), 'request', 'first ui-server publish must be request');
+    assert.equal(payloadString(published[1].payload.payload, 'message_role'), 'response', 'second ui-server publish must be response');
+    return { key: 'ui_server_cb_out_dedup_distinguishes_request_and_response_for_same_op_id', status: 'PASS' };
+  });
 }
 
 function wait(ms = 160) {
@@ -354,6 +473,108 @@ async function test_mbr_cb_dispatch_routes_explicit_management_and_rejects_inval
   return { key: 'mbr_cb_dispatch_routes_explicit_management_and_rejects_invalid_route_fields', status: 'PASS' };
 }
 
+async function test_mbr_cb_dispatch_accepts_provider_bundle_response_modeltable_payload() {
+  const rt = loadMbrRuntime();
+  const model0 = rt.getModel(0);
+  const topic = 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request';
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'mbr_cb_in',
+    t: 'pin.bus.cb.in',
+    v: pinPayloadRecords({
+      opId: 'req_0389_provider_bundle_response',
+      topic,
+      routeKind: 'control',
+      endpointWorkerId: 'R1',
+      endpointModelId: 3100,
+      endpointPin: 'bundle_request',
+      messageRole: 'response',
+    }).map((record) => record.k === 'payload' ? { ...record, v: providerBundleResponsePayload() } : record),
+  });
+  const cbOut = await waitUntil(() => {
+    const label = rt.getCell(model0, 0, 0, 0).labels.get('mbr_cb_out');
+    return payloadString(label?.v, 'op_id') === 'req_0389_provider_bundle_response' ? label : null;
+  });
+  assert.equal(cbOut?.t, 'pin.bus.cb.out', 'valid provider bundle response must be forwarded by MBR');
+  assert.equal(payloadString(cbOut?.v, 'topic'), topic, 'provider bundle response must preserve same endpoint topic');
+  assert.equal(rt.getCell(model0, 0, 0, 0).labels.get('mbr_cb_error')?.v ?? null, null, 'valid provider bundle response must not be rejected as legacy metadata');
+  return { key: 'mbr_cb_dispatch_accepts_provider_bundle_response_modeltable_payload', status: 'PASS' };
+}
+
+async function test_mbr_cb_dispatch_rejects_legacy_label_inside_provider_bundle_payload() {
+  const rt = loadMbrRuntime();
+  const model0 = rt.getModel(0);
+  const topic = 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request';
+  const payload = providerBundleResponsePayload().map((record) => {
+    if (record.k !== 'bundle_payload') return record;
+    return {
+      ...record,
+      v: [
+        mt('app_name', 'str', 'must_not_forward_legacy_bundle_label'),
+        mt('source_model_id', 'int', 100),
+      ],
+    };
+  });
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'mbr_cb_in',
+    t: 'pin.bus.cb.in',
+    v: pinPayloadRecords({
+      opId: 'req_0389_provider_bundle_legacy_label',
+      topic,
+      routeKind: 'control',
+      endpointWorkerId: 'R1',
+      endpointModelId: 3100,
+      endpointPin: 'bundle_request',
+      messageRole: 'response',
+    }).map((record) => record.k === 'payload' ? { ...record, v: payload } : record),
+  });
+  await waitUntil(() => rt.getCell(model0, 0, 0, 0).labels.get('mbr_cb_error') || lastRejectedReason(rt));
+  const root = rt.getCell(model0, 0, 0, 0).labels;
+  assert.equal(root.get('mbr_cb_out')?.v ?? null, null, 'provider bundle response with legacy bundle label must not be forwarded');
+  assert.equal(root.get('mbr_cb_error')?.v?.detail || lastRejectedReason(rt), 'legacy_pin_payload_metadata_removed', 'legacy bundle label key must be rejected explicitly');
+  return { key: 'mbr_cb_dispatch_rejects_legacy_label_inside_provider_bundle_payload', status: 'PASS' };
+}
+
+async function test_split_bus_dedup_distinguishes_request_and_response_for_same_op_id() {
+  const rt = loadMbrRuntime();
+  const model0 = rt.getModel(0);
+  const mqttPublished = [];
+  const engine = new WorkerEngineV0({
+    runtime: rt,
+    mqttPublish: (topic, payload) => mqttPublished.push({ topic, payload }),
+    mgmtAdapter: { publish: async () => {} },
+  });
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'mbr_cb_out',
+    t: 'pin.bus.cb.out',
+    v: pinPayloadRecords({
+      opId: '0376_same_op_request_response',
+      topic: 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request',
+      endpointWorkerId: 'R1',
+      endpointModelId: 3100,
+      endpointPin: 'bundle_request',
+      messageRole: 'request',
+    }),
+  });
+  engine.tick();
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'mbr_cb_out',
+    t: 'pin.bus.cb.out',
+    v: pinPayloadRecords({
+      opId: '0376_same_op_request_response',
+      topic: 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request',
+      endpointWorkerId: 'R1',
+      endpointModelId: 3100,
+      endpointPin: 'bundle_request',
+      messageRole: 'response',
+    }).map((record) => record.k === 'payload' ? { ...record, v: providerBundleResponsePayload() } : record),
+  });
+  engine.tick();
+  assert.equal(mqttPublished.length, 2, 'request and response with the same op_id must both be published');
+  assert.equal(payloadString(mqttPublished[0]?.payload?.payload, 'message_role'), 'request', 'first publish must be request');
+  assert.equal(payloadString(mqttPublished[1]?.payload?.payload, 'message_role'), 'response', 'second publish must be response');
+  return { key: 'split_bus_dedup_distinguishes_request_and_response_for_same_op_id', status: 'PASS' };
+}
+
 async function test_imported_slide_app_default_binding_is_control_bus() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
@@ -516,7 +737,12 @@ const tests = [
   test_worker_engine_rejects_unsafe_payload_topics,
   test_mbr_cb_dispatch_defaults_to_control_and_routes_by_topic,
   test_mbr_cb_dispatch_routes_explicit_management_and_rejects_invalid_route_fields,
+  test_mbr_cb_dispatch_accepts_provider_bundle_response_modeltable_payload,
+  test_mbr_cb_dispatch_rejects_legacy_label_inside_provider_bundle_payload,
+  test_split_bus_dedup_distinguishes_request_and_response_for_same_op_id,
   test_imported_slide_app_default_binding_is_control_bus,
+  test_ui_server_cb_out_publishes_control_bus_not_matrix,
+  test_ui_server_cb_out_dedup_distinguishes_request_and_response_for_same_op_id,
   test_ui_server_control_bus_response_materializes_reply_target,
   test_ui_server_control_bus_response_rejects_non_strict_packets,
   test_user_guide_documents_payload_topic_as_route_truth,

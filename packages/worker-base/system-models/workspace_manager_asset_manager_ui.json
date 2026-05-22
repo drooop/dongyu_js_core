@@ -1902,6 +1902,382 @@
           "k": "selected_asset_detail_markdown"
         }
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "asset_install_dialog_open",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "asset_install_dialog_title",
+      "t": "str",
+      "v": "安装完毕"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "asset_install_dialog_text",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "asset_install_dialog_target_json",
+      "t": "json",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_install_complete_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_manager_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 95
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": {
+          "$label": {
+            "model_id": 1051,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "asset_install_dialog_title"
+          }
+        },
+        "width": "460px",
+        "closeOnClickModal": false
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1051,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "asset_install_dialog_open"
+        },
+        "write": {
+          "action": "workspace_asset_close_install_dialog"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_install_complete_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_asset_install_complete_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1051,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "asset_install_dialog_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_install_complete_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_asset_install_complete_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 2,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "display": "flex",
+          "justifyContent": "flex-end",
+          "gap": "10px",
+          "marginTop": "18px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_close_install_complete_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_asset_install_complete_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 3,
+      "k": "ui_label",
+      "t": "str",
+      "v": "稍后"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 3,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "workspace_asset_close_install_dialog"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "workspace_asset_open_installed_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "workspace_asset_install_complete_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 4,
+      "k": "ui_label",
+      "t": "str",
+      "v": "打开"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 4,
+      "k": "ui_variant",
+      "t": "str",
+      "v": "primary"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1051,
+      "p": 2,
+      "r": 11,
+      "c": 4,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "workspace_asset_open_installed_app"
+        }
+      }
     }
   ]
 }

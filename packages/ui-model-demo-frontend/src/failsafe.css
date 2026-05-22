@@ -8,12 +8,18 @@ html,
 body {
   background: var(--el-bg-color, var(--dy-fallback-bg));
   color: var(--el-text-color-primary, var(--dy-fallback-text));
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
 }
 
 #app {
-  min-height: 100vh;
+  width: 100%;
+  height: 100vh;
   box-sizing: border-box;
-  padding: 12px;
+  padding: 0;
+  overflow: hidden;
 }
 
 /*

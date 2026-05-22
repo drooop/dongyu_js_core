@@ -1,7 +1,7 @@
 {
   "version": "mt.v0",
-  "op_id": "0374_desktop_catalog_ui_v1",
-  "description": "Tablet-style desktop launcher surface",
+  "op_id": "0390_focused_app_shell_settings_desktop_catalog_v2",
+  "description": "Model-driven Android tablet launcher and foreground shell templates",
   "records": [
     {
       "op": "create_model",
@@ -18,16 +18,6 @@
       "k": "model_type",
       "t": "model.single",
       "v": "UI.DesktopCatalog"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "ui_surface_role",
-      "t": "str",
-      "v": "desktop.launcher"
     },
     {
       "op": "add_label",
@@ -52,6 +42,16 @@
     {
       "op": "add_label",
       "model_id": -28,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_surface_role",
+      "t": "str",
+      "v": "desktop.launcher"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
       "p": 2,
       "r": 0,
       "c": 0,
@@ -68,6 +68,16 @@
       "k": "ui_component",
       "t": "str",
       "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
     },
     {
       "op": "add_label",
@@ -85,35 +95,20 @@
       "p": 2,
       "r": 0,
       "c": 0,
-      "k": "ui_layout",
-      "t": "str",
-      "v": "column"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 0,
-      "c": 0,
-      "k": "ui_gap",
-      "t": "int",
-      "v": 18
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 0,
-      "c": 0,
       "k": "ui_props_json",
       "t": "json",
       "v": {
+        "data-testid": "desktop-root",
         "style": {
           "width": "100%",
-          "minHeight": "720px",
-          "padding": "24px",
-          "background": "#f4f7fb",
-          "boxSizing": "border-box"
+          "height": "100vh",
+          "overflow": "hidden",
+          "boxSizing": "border-box",
+          "display": "grid",
+          "gridTemplateRows": "auto minmax(0, 1fr) auto",
+          "gap": "14px",
+          "padding": "18px",
+          "background": "radial-gradient(circle at 12% 8%, #d9f99d 0, transparent 25%), radial-gradient(circle at 82% 12%, #99f6e4 0, transparent 28%), linear-gradient(135deg, #f8fafc 0%, #e2ecf5 48%, #f1f5f9 100%)"
         }
       }
     },
@@ -125,7 +120,7 @@
       "c": 0,
       "k": "ui_node_id",
       "t": "str",
-      "v": "desktop_title"
+      "v": "desktop_status_bar"
     },
     {
       "op": "add_label",
@@ -135,7 +130,17 @@
       "c": 0,
       "k": "ui_component",
       "t": "str",
-      "v": "Text"
+      "v": "StatusBar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
     },
     {
       "op": "add_label",
@@ -153,34 +158,12 @@
       "p": 2,
       "r": 1,
       "c": 0,
-      "k": "ui_order",
-      "t": "int",
-      "v": 10
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 1,
-      "c": 0,
-      "k": "ui_text",
-      "t": "str",
-      "v": "工作台"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 1,
-      "c": 0,
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "style": {
-          "fontSize": "26px",
-          "fontWeight": 700,
-          "color": "#18233a"
-        }
+        "title": "Dongyu Tablet",
+        "subtitle": "ModelTable powered launcher",
+        "status": "ready"
       }
     },
     {
@@ -191,7 +174,7 @@
       "c": 0,
       "k": "ui_node_id",
       "t": "str",
-      "v": "desktop_subtitle"
+      "v": "desktop_app_list_surface"
     },
     {
       "op": "add_label",
@@ -201,7 +184,17 @@
       "c": 0,
       "k": "ui_component",
       "t": "str",
-      "v": "Text"
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
     },
     {
       "op": "add_label",
@@ -219,31 +212,248 @@
       "p": 2,
       "r": 2,
       "c": 0,
-      "k": "ui_order",
-      "t": "int",
-      "v": 20
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 2,
-      "c": 0,
-      "k": "ui_text",
-      "t": "str",
-      "v": "所有可运行应用以平板桌面方式进入"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 2,
-      "c": 0,
       "k": "ui_props_json",
       "t": "json",
       "v": {
         "style": {
-          "color": "#5d6a7d"
+          "minHeight": 0,
+          "overflow": "auto",
+          "display": "flex",
+          "flexDirection": "column",
+          "gap": "16px",
+          "padding": "2px 2px 10px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_view_toolbar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_app_list_surface"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "display": "flex",
+          "alignItems": "center",
+          "justifyContent": "flex-end",
+          "gap": "8px",
+          "flex": "0 0 auto"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_view_cards_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_view_toolbar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_label",
+      "t": "str",
+      "v": "卡片"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "size": "small"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_app_view_mode"
+          },
+          "value_ref": {
+            "t": "str",
+            "v": "cards"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_view_list_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_view_toolbar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 3,
+      "k": "ui_label",
+      "t": "str",
+      "v": "列表"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 3,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "size": "small"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 3,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_app_view_mode"
+          },
+          "value_ref": {
+            "t": "str",
+            "v": "list"
+          }
         }
       }
     },
@@ -255,7 +465,7 @@
       "c": 0,
       "k": "ui_node_id",
       "t": "str",
-      "v": "desktop_system_apps"
+      "v": "desktop_builtin_section"
     },
     {
       "op": "add_label",
@@ -273,9 +483,9 @@
       "p": 2,
       "r": 3,
       "c": 0,
-      "k": "ui_parent",
-      "t": "str",
-      "v": "desktop_root"
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
     },
     {
       "op": "add_label",
@@ -283,424 +493,135 @@
       "p": 2,
       "r": 3,
       "c": 0,
-      "k": "ui_order",
-      "t": "int",
-      "v": 30
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_app_list_surface"
     },
     {
       "op": "add_label",
       "model_id": -28,
       "p": 2,
       "r": 3,
-      "c": 0,
-      "k": "ui_layout",
-      "t": "str",
-      "v": "row"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 3,
-      "c": 0,
-      "k": "ui_gap",
-      "t": "int",
-      "v": 12
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 3,
-      "c": 0,
-      "k": "ui_wrap",
-      "t": "bool",
-      "v": true
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 0,
-      "k": "ui_node_id",
-      "t": "str",
-      "v": "desktop_app_gallery"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 0,
-      "k": "ui_component",
-      "t": "str",
-      "v": "Button"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 0,
-      "k": "ui_parent",
-      "t": "str",
-      "v": "desktop_system_apps"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 0,
-      "k": "ui_order",
-      "t": "int",
-      "v": 10
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 0,
-      "k": "ui_label",
-      "t": "str",
-      "v": "Gallery"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 0,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "desktopApp": true,
-        "appKind": "system",
-        "targetPage": "gallery"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 1,
-      "k": "ui_node_id",
-      "t": "str",
-      "v": "desktop_app_docs"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 1,
-      "k": "ui_component",
-      "t": "str",
-      "v": "Button"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 1,
-      "k": "ui_parent",
-      "t": "str",
-      "v": "desktop_system_apps"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 1,
-      "k": "ui_order",
-      "t": "int",
-      "v": 20
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 1,
-      "k": "ui_label",
-      "t": "str",
-      "v": "Docs"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 1,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "desktopApp": true,
-        "appKind": "system",
-        "targetPage": "docs"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 2,
-      "k": "ui_node_id",
-      "t": "str",
-      "v": "desktop_app_modeltable"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 2,
-      "k": "ui_component",
-      "t": "str",
-      "v": "Button"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 2,
-      "k": "ui_parent",
-      "t": "str",
-      "v": "desktop_system_apps"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 2,
-      "k": "ui_order",
-      "t": "int",
-      "v": 30
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 2,
-      "k": "ui_label",
-      "t": "str",
-      "v": "ModelTable"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 2,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "desktopApp": true,
-        "appKind": "system",
-        "targetPage": "home"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 3,
-      "k": "ui_node_id",
-      "t": "str",
-      "v": "desktop_app_prompt"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 3,
-      "k": "ui_component",
-      "t": "str",
-      "v": "Button"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 3,
-      "k": "ui_parent",
-      "t": "str",
-      "v": "desktop_system_apps"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 3,
-      "k": "ui_order",
-      "t": "int",
-      "v": 40
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 3,
-      "k": "ui_label",
-      "t": "str",
-      "v": "Prompt"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 3,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "desktopApp": true,
-        "appKind": "system",
-        "targetPage": "prompt"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 4,
-      "k": "ui_node_id",
-      "t": "str",
-      "v": "desktop_app_static"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 4,
-      "k": "ui_component",
-      "t": "str",
-      "v": "Button"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 4,
-      "k": "ui_parent",
-      "t": "str",
-      "v": "desktop_system_apps"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 4,
-      "k": "ui_order",
-      "t": "int",
-      "v": 50
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 4,
-      "k": "ui_label",
-      "t": "str",
-      "v": "Static"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 4,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "desktopApp": true,
-        "appKind": "system",
-        "targetPage": "static"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 5,
-      "c": 0,
-      "k": "ui_node_id",
-      "t": "str",
-      "v": "desktop_workspace_title"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 5,
-      "c": 0,
-      "k": "ui_component",
-      "t": "str",
-      "v": "Text"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 5,
-      "c": 0,
-      "k": "ui_parent",
-      "t": "str",
-      "v": "desktop_root"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 5,
-      "c": 0,
-      "k": "ui_order",
-      "t": "int",
-      "v": 40
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 5,
-      "c": 0,
-      "k": "ui_text",
-      "t": "str",
-      "v": "Workspace Apps"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 5,
       "c": 0,
       "k": "ui_props_json",
       "t": "json",
       "v": {
         "style": {
+          "flex": "0 0 auto",
+          "display": "flex",
+          "flexDirection": "column",
+          "gap": "10px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_builtin_heading"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Heading"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_builtin_section"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 4,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "level": 2,
+        "text": "Built-in",
+        "style": {
+          "margin": 0,
           "fontSize": "18px",
-          "fontWeight": 600,
-          "color": "#24314a"
+          "fontWeight": 850
         }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_builtin_grid"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "DesktopGrid"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_builtin_section"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 5,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "minColumnWidth": "184px"
       }
     },
     {
@@ -711,7 +632,7 @@
       "c": 0,
       "k": "ui_node_id",
       "t": "str",
-      "v": "desktop_slide_apps"
+      "v": "desktop_slid_in_section"
     },
     {
       "op": "add_label",
@@ -729,6 +650,183 @@
       "p": 2,
       "r": 6,
       "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_app_list_surface"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 6,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "flex": "0 0 auto",
+          "display": "flex",
+          "flexDirection": "column",
+          "gap": "10px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_slid_in_heading"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Heading"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_slid_in_section"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 7,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "level": 2,
+        "text": "Slid in from DE",
+        "style": {
+          "margin": 0,
+          "fontSize": "18px",
+          "fontWeight": 850
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_slid_in_grid"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "DesktopGrid"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_slid_in_section"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 8,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "minColumnWidth": "184px"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_taskbar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Taskbar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 9,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 9,
+      "c": 0,
       "k": "ui_parent",
       "t": "str",
       "v": "desktop_root"
@@ -737,57 +835,17 @@
       "op": "add_label",
       "model_id": -28,
       "p": 2,
-      "r": 6,
-      "c": 0,
-      "k": "ui_order",
-      "t": "int",
-      "v": 50
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 6,
-      "c": 0,
-      "k": "ui_layout",
-      "t": "str",
-      "v": "row"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 6,
-      "c": 0,
-      "k": "ui_gap",
-      "t": "int",
-      "v": 12
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 6,
-      "c": 0,
-      "k": "ui_wrap",
-      "t": "bool",
-      "v": true
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
+      "r": 10,
       "c": 0,
       "k": "ui_node_id",
       "t": "str",
-      "v": "desktop_slide_app_100"
+      "v": "desktop_taskbar_home"
     },
     {
       "op": "add_label",
       "model_id": -28,
       "p": 2,
-      "r": 7,
+      "r": 10,
       "c": 0,
       "k": "ui_component",
       "t": "str",
@@ -797,182 +855,40 @@
       "op": "add_label",
       "model_id": -28,
       "p": 2,
-      "r": 7,
-      "c": 0,
-      "k": "ui_parent",
-      "t": "str",
-      "v": "desktop_slide_apps"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
+      "r": 10,
       "c": 0,
       "k": "ui_order",
       "t": "int",
-      "v": 10
+      "v": 0
     },
     {
       "op": "add_label",
       "model_id": -28,
       "p": 2,
-      "r": 7,
+      "r": 10,
       "c": 0,
-      "k": "ui_label",
+      "k": "ui_parent",
       "t": "str",
-      "v": "Color E2E"
+      "v": "desktop_taskbar"
     },
     {
       "op": "add_label",
       "model_id": -28,
       "p": 2,
-      "r": 7,
+      "r": 10,
       "c": 0,
       "k": "ui_props_json",
       "t": "json",
       "v": {
-        "desktopApp": true,
-        "appKind": "workspace",
-        "modelId": 100,
-        "surface": "slide"
+        "label": "Home",
+        "round": true
       }
     },
     {
       "op": "add_label",
       "model_id": -28,
       "p": 2,
-      "r": 7,
-      "c": 1,
-      "k": "ui_node_id",
-      "t": "str",
-      "v": "desktop_slide_app_1030"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
-      "c": 1,
-      "k": "ui_component",
-      "t": "str",
-      "v": "Button"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
-      "c": 1,
-      "k": "ui_parent",
-      "t": "str",
-      "v": "desktop_slide_apps"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
-      "c": 1,
-      "k": "ui_order",
-      "t": "int",
-      "v": 20
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
-      "c": 1,
-      "k": "ui_label",
-      "t": "str",
-      "v": "Slide Importer"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
-      "c": 1,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "desktopApp": true,
-        "appKind": "workspace",
-        "modelId": 1030,
-        "surface": "slide"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
-      "c": 2,
-      "k": "ui_node_id",
-      "t": "str",
-      "v": "desktop_slide_app_1034"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
-      "c": 2,
-      "k": "ui_component",
-      "t": "str",
-      "v": "Button"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
-      "c": 2,
-      "k": "ui_parent",
-      "t": "str",
-      "v": "desktop_slide_apps"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
-      "c": 2,
-      "k": "ui_order",
-      "t": "int",
-      "v": 30
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
-      "c": 2,
-      "k": "ui_label",
-      "t": "str",
-      "v": "Slide Creator"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
-      "c": 2,
-      "k": "ui_props_json",
-      "t": "json",
-      "v": {
-        "desktopApp": true,
-        "appKind": "workspace",
-        "modelId": 1034,
-        "surface": "slide"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
+      "r": 10,
       "c": 0,
       "k": "ui_bind_json",
       "t": "json",
@@ -988,13 +904,7 @@
           },
           "value_ref": {
             "t": "json",
-            "v": {
-              "id": "gallery",
-              "kind": "system",
-              "page": "gallery",
-              "path": "/gallery",
-              "title": "Gallery"
-            }
+            "v": null
           }
         }
       }
@@ -1003,238 +913,18 @@
       "op": "add_label",
       "model_id": -28,
       "p": 2,
-      "r": 4,
-      "c": 1,
-      "k": "ui_bind_json",
-      "t": "json",
-      "v": {
-        "write": {
-          "action": "label_update",
-          "target_ref": {
-            "model_id": -2,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "desktop_foreground_app_json"
-          },
-          "value_ref": {
-            "t": "json",
-            "v": {
-              "id": "docs",
-              "kind": "system",
-              "page": "docs",
-              "path": "/docs",
-              "title": "Docs"
-            }
-          }
-        }
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 2,
-      "k": "ui_bind_json",
-      "t": "json",
-      "v": {
-        "write": {
-          "action": "label_update",
-          "target_ref": {
-            "model_id": -2,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "desktop_foreground_app_json"
-          },
-          "value_ref": {
-            "t": "json",
-            "v": {
-              "id": "modeltable",
-              "kind": "system",
-              "page": "home",
-              "path": "/modeltable",
-              "title": "ModelTable"
-            }
-          }
-        }
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 3,
-      "k": "ui_bind_json",
-      "t": "json",
-      "v": {
-        "write": {
-          "action": "label_update",
-          "target_ref": {
-            "model_id": -2,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "desktop_foreground_app_json"
-          },
-          "value_ref": {
-            "t": "json",
-            "v": {
-              "id": "prompt",
-              "kind": "system",
-              "page": "prompt",
-              "path": "/prompt",
-              "title": "Prompt"
-            }
-          }
-        }
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 4,
-      "c": 4,
-      "k": "ui_bind_json",
-      "t": "json",
-      "v": {
-        "write": {
-          "action": "label_update",
-          "target_ref": {
-            "model_id": -2,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "desktop_foreground_app_json"
-          },
-          "value_ref": {
-            "t": "json",
-            "v": {
-              "id": "static",
-              "kind": "system",
-              "page": "static",
-              "path": "/static",
-              "title": "Static"
-            }
-          }
-        }
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
+      "r": 11,
       "c": 0,
-      "k": "ui_bind_json",
-      "t": "json",
-      "v": {
-        "write": {
-          "action": "label_update",
-          "target_ref": {
-            "model_id": -2,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "desktop_foreground_app_json"
-          },
-          "value_ref": {
-            "t": "json",
-            "v": {
-              "id": "workspace:100",
-              "kind": "workspace",
-              "page": "workspace",
-              "path": "/workspace",
-              "title": "Color E2E",
-              "model_id": 100
-            }
-          }
-        }
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
-      "c": 1,
-      "k": "ui_bind_json",
-      "t": "json",
-      "v": {
-        "write": {
-          "action": "label_update",
-          "target_ref": {
-            "model_id": -2,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "desktop_foreground_app_json"
-          },
-          "value_ref": {
-            "t": "json",
-            "v": {
-              "id": "workspace:1030",
-              "kind": "workspace",
-              "page": "workspace",
-              "path": "/workspace",
-              "title": "Slide Importer",
-              "model_id": 1030
-            }
-          }
-        }
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 7,
-      "c": 2,
-      "k": "ui_bind_json",
-      "t": "json",
-      "v": {
-        "write": {
-          "action": "label_update",
-          "target_ref": {
-            "model_id": -2,
-            "p": 0,
-            "r": 0,
-            "c": 0,
-            "k": "desktop_foreground_app_json"
-          },
-          "value_ref": {
-            "t": "json",
-            "v": {
-              "id": "workspace:1034",
-              "kind": "workspace",
-              "page": "workspace",
-              "path": "/workspace",
-              "title": "Slide Creator",
-              "model_id": 1034
-            }
-          }
-        }
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 2,
-      "c": 1,
       "k": "ui_node_id",
       "t": "str",
-      "v": "desktop_task_switcher_button"
+      "v": "desktop_taskbar_tasks"
     },
     {
       "op": "add_label",
       "model_id": -28,
       "p": 2,
-      "r": 2,
-      "c": 1,
+      "r": 11,
+      "c": 0,
       "k": "ui_component",
       "t": "str",
       "v": "Button"
@@ -1243,38 +933,41 @@
       "op": "add_label",
       "model_id": -28,
       "p": 2,
-      "r": 2,
-      "c": 1,
-      "k": "ui_parent",
-      "t": "str",
-      "v": "desktop_root"
-    },
-    {
-      "op": "add_label",
-      "model_id": -28,
-      "p": 2,
-      "r": 2,
-      "c": 1,
+      "r": 11,
+      "c": 0,
       "k": "ui_order",
       "t": "int",
-      "v": 25
+      "v": 1
     },
     {
       "op": "add_label",
       "model_id": -28,
       "p": 2,
-      "r": 2,
-      "c": 1,
-      "k": "ui_label",
+      "r": 11,
+      "c": 0,
+      "k": "ui_parent",
       "t": "str",
-      "v": "Tasks"
+      "v": "desktop_taskbar"
     },
     {
       "op": "add_label",
       "model_id": -28,
       "p": 2,
-      "r": 2,
-      "c": 1,
+      "r": 11,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Tasks",
+        "round": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 0,
       "k": "ui_bind_json",
       "t": "json",
       "v": {
@@ -1291,6 +984,1781 @@
             "t": "bool",
             "v": true
           }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_taskbar_mb"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_taskbar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "MB",
+        "round": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 12,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "workspace:1080",
+              "kind": "workspace",
+              "page": "workspace",
+              "path": "/workspace",
+              "model_id": 1080,
+              "title": "Matrix Suite",
+              "summary": ""
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "create_model",
+      "model_id": -29,
+      "name": "desktop_foreground_shell",
+      "type": "ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.single",
+      "v": "UI.DesktopForegroundShell"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "desktop_foreground_shell_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_surface_role",
+      "t": "str",
+      "v": "desktop.foreground_shell"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_foreground_shell_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 0,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 0,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "data-testid": "desktop-foreground-player",
+        "style": {
+          "width": "100%",
+          "height": "100vh",
+          "overflow": "hidden",
+          "background": "radial-gradient(circle at 12% 10%, #ccfbf1 0, transparent 24%), radial-gradient(circle at 86% 12%, #dbeafe 0, transparent 28%), linear-gradient(135deg, #eef6f5 0%, #e6edf7 54%, #f8fafc 100%)",
+          "display": "flex",
+          "flexDirection": "column",
+          "padding": "16px",
+          "boxSizing": "border-box",
+          "gap": "14px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_foreground_statusbar_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "StatusBar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_foreground_shell_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "data-testid": "desktop-foreground-statusbar",
+        "title": "App",
+        "subtitle": "System app",
+        "status": "ready"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_foreground_back_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_foreground_statusbar_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 2,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "桌面",
+        "size": "small",
+        "round": true,
+        "data-testid": "desktop-foreground-back"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 2,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": null
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_settings_app_button_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_foreground_statusbar_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 3,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "设置",
+        "size": "small",
+        "round": true,
+        "data-testid": "desktop-settings-app-open"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 3,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": {
+              "id": "workspace:1081",
+              "kind": "workspace",
+              "page": "workspace",
+              "path": "/workspace",
+              "title": "Settings",
+              "model_id": 1081
+            }
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 4,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_app_detail_drawer_button_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 4,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 4,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 4,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_foreground_statusbar_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 4,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "详情",
+        "size": "small",
+        "round": true,
+        "data-testid": "desktop-app-detail-drawer-open"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 4,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_app_detail_drawer_open"
+          },
+          "value_ref": {
+            "t": "bool",
+            "v": true
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 5,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_task_switcher_button_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 5,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 5,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 3
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 5,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_foreground_statusbar_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 5,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "任务",
+        "size": "small",
+        "round": true,
+        "data-testid": "desktop-task-switcher-open"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 5,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_task_switcher_open"
+          },
+          "value_ref": {
+            "t": "bool",
+            "v": true
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 6,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_focused_app_window_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 6,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "AppWindow"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 6,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 6,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_foreground_shell_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 6,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "",
+        "data-testid": "desktop-focused-app-window",
+        "style": {
+          "flex": 1,
+          "minHeight": 0,
+          "overflow": "hidden"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 7,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_app_content_slot"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 7,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "HostSlot"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 7,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 7,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_focused_app_window_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 7,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "name": "appContent"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 8,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_app_detail_drawer_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 8,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Drawer"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 8,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 8,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_foreground_shell_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 8,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "App Window",
+        "modelValue": false,
+        "placement": "right",
+        "size": "360px",
+        "data-testid": "desktop-app-detail-drawer"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 8,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "desktop_app_detail_drawer_open"
+        },
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_app_detail_drawer_open"
+          },
+          "value_ref": {
+            "t": "bool",
+            "v": false
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 9,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_app_detail_drawer_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 9,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Paragraph"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 9,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 9,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_app_detail_drawer_model"
+    },
+    {
+      "op": "add_label",
+      "model_id": -29,
+      "p": 3,
+      "r": 9,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "text": "id: unknown\nSystem app",
+        "style": {
+          "whiteSpace": "pre-wrap",
+          "color": "#64748b",
+          "lineHeight": 1.6
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_manage_enter_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_view_toolbar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 4,
+      "k": "ui_label",
+      "t": "str",
+      "v": "管理"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 4,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "size": "small"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 4,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_app_manage_mode"
+          },
+          "value_ref": {
+            "t": "bool",
+            "v": true
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 5,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_manage_done_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 5,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 5,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_view_toolbar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 5,
+      "k": "ui_order",
+      "t": "int",
+      "v": 3
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 5,
+      "k": "ui_label",
+      "t": "str",
+      "v": "完成"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 5,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "size": "small",
+        "type": "primary"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 2,
+      "c": 5,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_app_manage_mode"
+          },
+          "value_ref": {
+            "t": "bool",
+            "v": false
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_delete_confirm_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_delete_confirm_title"
+          }
+        },
+        "width": "420px"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "desktop_delete_confirm_open"
+        },
+        "write": {
+          "action": "desktop_app_cancel_delete"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_delete_confirm_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_delete_confirm_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "desktop_delete_confirm_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_delete_confirm_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_delete_confirm_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 2,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 2,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "justifyContent": "flex-end",
+          "gap": "10px",
+          "marginTop": "16px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_delete_cancel_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_delete_confirm_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 3,
+      "k": "ui_label",
+      "t": "str",
+      "v": "取消"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 3,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "desktop_app_cancel_delete"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_delete_confirm_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_delete_confirm_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 4,
+      "k": "ui_label",
+      "t": "str",
+      "v": "删除"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 4,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "danger"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 4,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "desktop_app_confirm_delete"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_delete_result_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 11
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": {
+          "$label": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_delete_result_title"
+          }
+        },
+        "width": "420px"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "desktop_delete_result_open"
+        },
+        "write": {
+          "action": "desktop_app_close_delete_result"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_delete_result_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_delete_result_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "desktop_delete_result_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_delete_result_close_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_delete_result_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 2,
+      "k": "ui_label",
+      "t": "str",
+      "v": "知道了"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 11,
+      "c": 2,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "desktop_app_close_delete_result"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_taskbar_home_restore"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_taskbar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Home",
+        "round": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 30,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_foreground_app_json"
+          },
+          "value_ref": {
+            "t": "json",
+            "v": null
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_taskbar_tasks_restore"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_taskbar"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Tasks",
+        "round": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 31,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "label_update",
+          "target_ref": {
+            "model_id": -2,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "desktop_task_switcher_open"
+          },
+          "value_ref": {
+            "t": "bool",
+            "v": true
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 5,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "desktop_delete_confirm_target_echo"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 5,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 5,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "desktop_delete_confirm_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 5,
+      "k": "ui_order",
+      "t": "int",
+      "v": 99
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 5,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "display": "none"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -28,
+      "p": 2,
+      "r": 10,
+      "c": 5,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": -2,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "desktop_delete_confirm_target_json"
         }
       }
     }
