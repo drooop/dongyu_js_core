@@ -80,12 +80,12 @@ const tests = [
       'route normalization must not rewrite a known hash path to home before page catalog is available',
     );
   },
-  function test_root_route_defaults_to_workspace_after_catalog_bootstrap() {
+  function test_root_route_defaults_to_desktop_after_catalog_bootstrap() {
     const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
     assert.equal(
       resolveNavigableRoutePath(store.snapshot, '/'),
-      '/workspace',
-      'root hash route must enter workspace instead of rendering No UI AST',
+      '/',
+      'root hash route must stay on desktop OS shell after catalog bootstrap',
     );
   },
   function test_store_route_path_is_modeled_as_reactive_state() {

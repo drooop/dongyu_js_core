@@ -11,6 +11,7 @@ import { createRenderer } from '../../packages/ui-renderer/src/renderer.mjs';
 import { DESKTOP_CATALOG_MODEL_ID } from '../../packages/ui-model-demo-frontend/src/model_ids.js';
 import { dispatchAppShellStateUpdate } from '../../packages/ui-model-demo-frontend/src/app_shell_state_dispatch.js';
 import { createRemoteStore } from '../../packages/ui-model-demo-frontend/src/remote_store.js';
+import { resolveNavigableRoutePath } from '../../packages/ui-model-demo-frontend/src/app_shell_route_sync.js';
 import {
   DESKTOP_FOREGROUND_APP_LABEL,
   DESKTOP_TASK_STACK_LABEL,
@@ -115,13 +116,12 @@ function test_desktop_catalog_model_is_cellwise_ui_surface() {
 
 function test_desktop_exposes_required_system_app_icons() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
-  const ast = buildAstFromCellwiseModel(store.snapshot, DESKTOP_CATALOG_MODEL_ID);
+  const ast = resolveRouteUiAst(store.snapshot, '/')?.ast;
 
-  for (const appId of ['gallery', 'docs', 'modeltable', 'prompt', 'static']) {
-    const node = findNodeById(ast, `desktop_app_${appId}`);
-    assert.ok(node, `desktop_missing_${appId}_app_icon`);
-    assert.equal(node.type, 'Button', `${appId}_app_icon_must_be_button`);
-    assert.ok(String(node.props?.label ?? '').trim(), `${appId}_app_icon_must_have_label`);
+  for (const title of ['Gallery', 'Docs', 'ModelTable', 'Static']) {
+    const node = collectNodes(ast, (item) => item.type === 'AppCard' && item.props?.title === title)[0];
+    assert.ok(node, `desktop_missing_${title}_app_card`);
+    assert.ok(String(node.props?.summary ?? '').trim(), `${title}_app_card_must_have_summary`);
   }
 
   return { key: 'desktop_exposes_required_system_app_icons', status: 'PASS' };
@@ -131,20 +131,20 @@ function test_desktop_exposes_workspace_slide_app_icons_from_registry() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
   const ast = resolveRouteUiAst(store.snapshot, '/')?.ast;
   const registry = getEditorStateValue(store.snapshot, 'ws_apps_registry');
-  const slideAppIds = Array.isArray(registry)
+  const appIds = Array.isArray(registry)
     ? registry
-      .filter((entry) => entry && entry.slide_capable === true && Number.isInteger(entry.model_id) && entry.model_id > 0)
+      .filter((entry) => entry && Number.isInteger(entry.model_id) && (entry.slide_capable === true || entry.app_origin === 'builtin'))
       .map((entry) => entry.model_id)
     : [];
   const slideButtons = collectNodes(ast, (node) => (
-    node.type === 'Button'
+    (node.type === 'Button' || node.type === 'AppCard')
     && typeof node.id === 'string'
     && node.id.startsWith('desktop_slide_app_')
   ));
 
-  assert.ok(slideAppIds.length >= 3, 'workspace_registry_must_have_slide_apps_for_desktop_contract');
-  assert.equal(slideButtons.length, slideAppIds.length, 'desktop_must_project_every_slide_capable_workspace_app');
-  for (const modelId of slideAppIds) {
+  assert.ok(appIds.length >= 3, 'workspace_registry_must_have_apps_for_desktop_contract');
+  assert.equal(slideButtons.length, appIds.length, 'desktop_must_project_every_registry_app');
+  for (const modelId of appIds) {
     const node = findNodeById(ast, `desktop_slide_app_${modelId}`);
     assert.ok(node, `desktop_must_include_slide_app_${modelId}`);
     assert.equal(node?.props?.modelId, modelId, `desktop_slide_app_${modelId}_must_keep_model_id`);
@@ -161,7 +161,7 @@ function test_desktop_does_not_fallback_to_static_workspace_icons_without_regist
   delete stateLabels.ws_apps_registry;
   const ast = resolveRouteUiAst(store.snapshot, '/')?.ast;
   const slideButtons = collectNodes(ast, (node) => (
-    node.type === 'Button'
+    (node.type === 'Button' || node.type === 'AppCard')
     && typeof node.id === 'string'
     && node.id.startsWith('desktop_slide_app_')
   ));
@@ -187,8 +187,8 @@ function test_root_route_resolves_desktop_and_nav_links_are_hidden() {
   assert.equal(rootEntry?.page, 'desktop', 'root_route_must_be_desktop_page');
   assert.equal(rootEntry?.model_id, DESKTOP_CATALOG_MODEL_ID, 'root_route_must_use_desktop_model');
   assert.equal(rootEntry?.asset_type, 'cellwise_model', 'desktop_route_must_use_cellwise_model');
-  assert.equal(modelTableEntry?.page, 'home', 'modeltable_deeplink_must_preserve_existing_editor_page');
-  assert.equal(modelTableEntry?.model_id, -22, 'modeltable_deeplink_must_use_existing_home_model');
+  assert.equal(modelTableEntry, null, 'modeltable_deeplink_must_not_resolve_to_legacy_home_model');
+  assert.equal(resolveNavigableRoutePath(store.snapshot, '/modeltable'), '/', 'modeltable_deeplink_must_return_to_desktop_launcher');
   assert.deepEqual(visiblePages, [], 'tablet_desktop_shell_must_not_expose_top_nav_links');
 
   const resolved = resolveRouteUiAst(store.snapshot, '/');
@@ -202,21 +202,14 @@ function test_root_route_resolves_desktop_and_nav_links_are_hidden() {
 function test_desktop_icon_launches_single_foreground_app_state() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
   const ast = resolveRouteUiAst(store.snapshot, '/')?.ast;
-  const docsButton = findNodeById(ast, 'desktop_app_docs');
+  const docsButton = findNodeById(ast, 'desktop_slide_app_-23');
   assert.ok(docsButton?.bind?.write, 'desktop_docs_button_must_have_launch_write');
 
   const foreground = dispatchDesktopButton(store, docsButton);
-  assert.deepEqual(
-    foreground,
-    {
-      id: 'docs',
-      kind: 'system',
-      page: 'docs',
-      path: '/docs',
-      title: 'Docs',
-    },
-    'desktop_docs_button_must_open_docs_as_foreground_app',
-  );
+  assert.equal(foreground?.id, 'docs', 'desktop_docs_button_must_open_docs_id');
+  assert.equal(foreground?.kind, 'system', 'desktop_docs_button_must_open_docs_kind');
+  assert.equal(foreground?.page, 'docs', 'desktop_docs_button_must_open_docs_page');
+  assert.equal(foreground?.path, '/docs', 'desktop_docs_button_must_open_docs_path');
 
   return { key: 'desktop_icon_launches_single_foreground_app_state', status: 'PASS' };
 }
@@ -230,18 +223,12 @@ function test_workspace_icon_launches_foreground_and_selects_workspace_model() {
   assert.ok(model100Entry, 'workspace_registry_must_include_model100');
 
   const foreground = dispatchDesktopButton(store, model100Button);
-  assert.deepEqual(
-    foreground,
-    {
-      id: 'workspace:100',
-      kind: 'workspace',
-      page: 'workspace',
-      path: '/workspace',
-      title: model100Entry.name,
-      model_id: 100,
-    },
-    'desktop_workspace_button_must_open_model100_as_foreground_app',
-  );
+  assert.equal(foreground?.id, 'workspace:100', 'desktop_workspace_button_must_open_model100_id');
+  assert.equal(foreground?.kind, 'workspace', 'desktop_workspace_button_must_open_workspace_kind');
+  assert.equal(foreground?.page, 'workspace', 'desktop_workspace_button_must_open_workspace_page');
+  assert.equal(foreground?.path, '/workspace', 'desktop_workspace_button_must_open_workspace_path');
+  assert.equal(foreground?.title, model100Entry.name, 'desktop_workspace_button_must_keep_title');
+  assert.equal(foreground?.model_id, 100, 'desktop_workspace_button_must_keep_model_id');
   assert.equal(getEditorStateValue(store.snapshot, 'ws_app_selected'), 100, 'workspace_foreground_must_select_model100');
 
   return { key: 'workspace_icon_launches_foreground_and_selects_workspace_model', status: 'PASS' };
@@ -251,12 +238,12 @@ function test_desktop_launch_records_task_stack_and_switcher_state() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
   const ast = resolveRouteUiAst(store.snapshot, '/')?.ast;
 
-  dispatchDesktopButton(store, findNodeById(ast, 'desktop_app_docs'));
+  dispatchDesktopButton(store, findNodeById(ast, 'desktop_slide_app_-23'));
   dispatchDesktopButton(store, findNodeById(ast, 'desktop_slide_app_100'));
 
   const foreground = getEditorStateValue(store.snapshot, 'desktop_foreground_app_json');
   const taskStack = readDesktopTaskStack(store.snapshot);
-  const taskSwitcherButton = findNodeById(ast, 'desktop_task_switcher_button');
+  const taskSwitcherButton = findNodeById(ast, 'desktop_taskbar_tasks');
 
   assert.equal(foreground?.id, 'workspace:100', 'desktop_must_keep_single_latest_foreground_app');
   assert.deepEqual(
@@ -367,7 +354,7 @@ async function test_remote_store_flushes_derived_task_stack_for_fast_foreground_
     await wait(260);
 
     const uiEventBodies = requests
-      .filter((request) => request.method === 'POST' && request.url.endsWith('/ui_event'))
+      .filter((request) => request.method === 'POST' && request.url.endsWith('/bus_event'))
       .map((request) => JSON.parse(request.body));
     const taskStackBody = uiEventBodies.find((body) => body?.payload?.target?.k === DESKTOP_TASK_STACK_LABEL);
 

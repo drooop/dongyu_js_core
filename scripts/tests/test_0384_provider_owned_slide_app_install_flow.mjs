@@ -184,6 +184,25 @@ async function test_install_action_sends_provider_bundle_request_without_materia
     const nested = payloadJson(busLabel?.v, 'payload');
     assert.equal(payloadString(nested, '__mt_payload_kind'), 'slide_app_bundle_request.v1', 'nested payload must be slide app bundle request');
     assert.equal(payloadString(nested, 'asset_id'), 'r1-color-generator', 'nested payload must carry selected asset_id');
+    const beforeRetryEvents = runtime.eventLog.list().length;
+    const retryResult = await state.submitEnvelope({
+      type: 'workspace_asset_primary_action',
+      payload: {
+        action: 'workspace_asset_primary_action',
+        value: slide,
+        meta: { op_id: '0384_install_request_color_retry' },
+      },
+    });
+    assert.equal(retryResult.result, 'ok', 'retry install action must send a fresh provider bundle request');
+    const retryEvents = runtime.eventLog.list().slice(beforeRetryEvents);
+    assert.ok(
+      retryEvents.some((event) => event.op === 'rm_label' && event.cell?.model_id === 0 && event.label?.k === 'workspace_asset_bundle_request_bus'),
+      'retry install request must remove the old one-shot bus output before sending a new request',
+    );
+    assert.ok(
+      retryEvents.some((event) => event.op === 'add_label' && event.cell?.model_id === 0 && event.label?.k === 'workspace_asset_bundle_request_bus' && event.label?.t === 'pin.bus.cb.out'),
+      'retry install request must add a fresh control-bus output label',
+    );
     return { key: 'install_action_sends_provider_bundle_request_without_materializing', status: 'PASS' };
   });
 }
@@ -299,6 +318,31 @@ async function test_provider_bundle_response_materializes_new_workspace_app_and_
     assert.equal(labelValue(runtime, installedId, 0, 0, 0, 'app_name'), 'E2E 颜色生成器', 'installed app must use provider bundle payload');
     assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_pending'), null, 'successful install must clear pending install state');
     assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_status'), /installed E2E 颜色生成器 as model/u, 'successful install must write visible status');
+    assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_open'), true, 'successful install must open a UI-model install-complete dialog');
+    assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_title'), '安装完毕', 'install dialog must use the required title');
+    assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_text'), /E2E 颜色生成器.*model/u, 'install dialog body must mention the installed app and model id');
+    assert.deepEqual(
+      labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_target_json'),
+      {
+        id: `workspace:${installedId}`,
+        kind: 'workspace',
+        page: 'workspace',
+        path: '/workspace',
+        model_id: installedId,
+        title: 'E2E 颜色生成器',
+      },
+      'install dialog must store the exact launch payload for the installed app',
+    );
+    const registry = labelValue(runtime, -2, 0, 0, 0, 'ws_apps_registry');
+    assert.ok(
+      Array.isArray(registry) && registry.some((entry) => entry?.model_id === installedId && entry?.name === 'E2E 颜色生成器'),
+      'successful install must refresh ws_apps_registry so desktop list sees the new app without reload',
+    );
+    const duplicateHandled = await state.programEngine.handleControlBusPacket(pending.topic, goodResponse);
+    assert.equal(duplicateHandled, true, 'duplicate provider response with the same op_id must be handled idempotently');
+    assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id'), installedId, 'duplicate response must not create or switch to another model');
+    assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_open'), true, 'duplicate response must not close the success dialog');
+    assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_status'), /installed E2E 颜色生成器 as model/u, 'duplicate response must not overwrite success status with an error');
     return { key: 'provider_bundle_response_materializes_new_workspace_app_and_rejects_mismatches', status: 'PASS' };
   });
 }
@@ -325,6 +369,10 @@ async function test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bu
     assert.equal(payloadString(nested, 'asset_id'), assetId, 'provider response must preserve catalog asset_id');
     const bundlePayload = payloadJson(nested, 'bundle_payload');
     assert.ok(Array.isArray(bundlePayload) && bundlePayload.some((record) => record.k === 'app_name' && record.v === appName), `provider response must include ${appName} ModelTable bundle payload`);
+    assert.ok(
+      bundlePayload.some((record) => record.k === 'slide_app_summary' && record.t === 'str' && record.v.length >= 8),
+      `provider response for ${appName} must include slide_app_summary required by the OS shell`,
+    );
   }
   return { key: 'remote_worker_r1_bundle_provider_patch_returns_modeltable_bundle_response', status: 'PASS' };
 }
@@ -367,7 +415,94 @@ async function test_bundle_payload_exception_is_scoped_to_slide_app_response() {
     assert.equal(nestedHandled, false, 'non slide-app response bundle_payload with legacy metadata must be rejected');
     assert.equal(labelValue(state.runtime, targetModelId, 0, 0, 0, 'bundle_payload'), undefined, 'non slide-app legacy bundle_payload must not materialize');
 
+    const slideResponseWithLegacyBundleLabel = pinPayloadPacket({
+      opId: '0384_slide_response_legacy_bundle_label_must_reject',
+      topic: 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request',
+      routeKind: 'control',
+      endpoint: { worker_id: 'R1', model_id: 3100, pin: 'bundle_request' },
+      origin: { worker_id: 'R1', model_id: 3100, pin: 'bundle_request' },
+      replyTarget: { worker_id: 'U1', model_id: targetModelId, pin: 'result' },
+      messageRole: 'response',
+      payload: [
+        mt('__mt_payload_kind', 'str', 'slide_app_bundle_response.v1'),
+        mt('asset_id', 'str', 'r1-color-generator'),
+        mt('bundle_payload', 'json', [
+          mt('app_name', 'str', 'must_not_install_legacy_bundle_label'),
+          mt('source_model_id', 'int', 100),
+        ]),
+      ],
+    });
+    const legacyBundleHandled = await state.programEngine.handleControlBusPacket('UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request', slideResponseWithLegacyBundleLabel);
+    assert.equal(legacyBundleHandled, false, 'slide-app response bundle_payload with legacy ModelTable label key must be rejected');
+    assert.equal(labelValue(state.runtime, targetModelId, 0, 0, 0, 'source_model_id'), undefined, 'legacy bundle label key must not materialize');
+
     return { key: 'bundle_payload_exception_is_scoped_to_slide_app_response', status: 'PASS' };
+  });
+}
+
+async function test_desktop_management_delete_removes_installed_slide_app() {
+  return withServerState(async (state, buildSlideAppExportPayload) => {
+    const runtime = state.runtime;
+    const rows = labelValue(runtime, 1051, 0, 0, 0, 'asset_catalog_json');
+    const slide = rows.find((row) => row.id === 'r1-color-generator');
+    const requestResult = await state.submitEnvelope({
+      type: 'workspace_asset_primary_action',
+      payload: {
+        action: 'workspace_asset_primary_action',
+        value: slide,
+        meta: { op_id: '0384_desktop_delete_install' },
+      },
+    });
+    assert.equal(requestResult.result, 'ok', 'install request must be accepted before desktop delete');
+    const pending = labelValue(runtime, 1051, 0, 0, 0, 'asset_install_pending');
+    const exportResult = buildSlideAppExportPayload(runtime, 100);
+    const goodResponse = makeBundleResponse({
+      opId: pending.op_id,
+      topic: pending.topic,
+      endpoint: pending.provider_endpoint,
+      replyTarget: pending.reply_target,
+      bundlePayload: exportResult.data.payload,
+    });
+    const handled = await state.programEngine.handleControlBusPacket(pending.topic, goodResponse);
+    assert.equal(handled, true, 'matched provider bundle response must install fixture app');
+    await wait();
+
+    const installedId = labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id');
+    assert.ok(Number.isInteger(installedId), 'installed model id must be available before deletion');
+    assert.ok(runtime.getModel(installedId), 'installed model must exist before deletion');
+
+    const requestDelete = await state.submitEnvelope({
+      type: 'desktop_app_request_delete',
+      payload: {
+        action: 'desktop_app_request_delete',
+        value: { model_id: installedId, title: 'E2E 颜色生成器' },
+        meta: { op_id: '0384_desktop_delete_request' },
+      },
+    });
+    assert.equal(requestDelete.result, 'ok', 'desktop delete request must open confirmation dialog');
+    assert.equal(labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_confirm_open'), true, 'delete request must open confirm dialog');
+    assert.match(labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_confirm_text'), /E2E 颜色生成器/u, 'confirm dialog must mention selected app');
+    assert.deepEqual(
+      labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_confirm_target_json'),
+      { model_id: installedId, title: 'E2E 颜色生成器' },
+      'confirm dialog must store exact delete target',
+    );
+
+    const confirmDelete = await state.submitEnvelope({
+      type: 'desktop_app_confirm_delete',
+      payload: {
+        action: 'desktop_app_confirm_delete',
+        meta: { op_id: '0384_desktop_delete_confirm' },
+      },
+    });
+    assert.equal(confirmDelete.result, 'ok', 'desktop confirm delete must succeed');
+    assert.equal(runtime.getModel(installedId), undefined, 'confirmed desktop delete must remove installed model');
+    assert.equal(labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_confirm_open'), false, 'confirm dialog must close after deletion');
+    assert.equal(labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_result_open'), true, 'delete success dialog must open');
+    assert.match(labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_result_text'), /已删除 E2E 颜色生成器/u, 'delete success dialog must tell user the app was deleted');
+    const registry = labelValue(runtime, -2, 0, 0, 0, 'ws_apps_registry');
+    assert.ok(Array.isArray(registry) && !registry.some((entry) => entry?.model_id === installedId), 'desktop registry must refresh after deletion');
+    return { key: 'desktop_management_delete_removes_installed_slide_app', status: 'PASS' };
   });
 }
 
@@ -376,6 +511,7 @@ const tests = [
   test_provider_bundle_response_materializes_new_workspace_app_and_rejects_mismatches,
   test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bundle_response,
   test_bundle_payload_exception_is_scoped_to_slide_app_response,
+  test_desktop_management_delete_removes_installed_slide_app,
 ];
 
 let passed = 0;

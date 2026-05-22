@@ -37,6 +37,7 @@ system_negative_full = [
     'cognition_lifecycle_model.json',
     'cognition_scene_model.json',
     'docs_catalog_ui.json',
+    'desktop_catalog_ui.json',
     'editor_test_catalog_ui.json',
     'gallery_catalog_ui.json',
     'home_catalog_ui.json',

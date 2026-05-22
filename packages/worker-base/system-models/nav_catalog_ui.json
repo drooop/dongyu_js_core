@@ -23,16 +23,6 @@
           "legacy_fallback": false
         },
         {
-          "page": "home",
-          "path": "/modeltable",
-          "label": "ModelTable",
-          "nav_visible": false,
-          "view": "main",
-          "asset_type": "cellwise_model",
-          "model_id": -22,
-          "legacy_fallback": false
-        },
-        {
           "page": "gallery",
           "path": "/gallery",
           "label": "Gallery",

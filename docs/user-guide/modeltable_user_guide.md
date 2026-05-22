@@ -119,29 +119,38 @@ source: ai
 - 一个 Workspace app 进入 slide-capable 主线，至少要在 `(0,0,0)` 明确带上：
   - `app_name`
   - `slide_capable = true`
+  - `slide_app_summary`
   - `slide_surface_type`
   - `ui_authoring_version`
   - `ui_root_node_id`
 - 新增 `slide_surface_type` 枚举值时，必须先更新现行规约，再进入实现。
 
-## 2.5 Web Tablet Desktop (0374)
+## 2.5 Web Tablet Desktop / Android Tablet OS Shell (0374 / 0387 / 0390)
 
-当前 Web 根入口 `/` 是平板式桌面，不再把顶部 Navigate 链接作为主入口。
+当前 Web 根入口 `/` 是类 Android 平板系统桌面，不再把顶部 Navigate 链接作为主入口。0390 后桌面进一步收敛为全屏 app launcher：顶部状态栏、中间滑动 App 列表、底部 Dock，以及隐藏式任务/详情面板。
 
 用户入口：
 
-- `Gallery`、`Docs`、`ModelTable`、`Prompt`、`Static` 以桌面 app 图标进入。
-- Workspace 下所有 `slide_capable=true` 且 `model_id > 0` 的滑动 app，会从 `ws_apps_registry` 投影为桌面 app 图标。
-- ModelTable 编辑界面保留为普通桌面 app，同时保留深链接 `/modeltable`。
+- `Gallery`、`Docs`、`ModelTable`、`Static`、`Settings`、`Matrix Suite` 等内置入口以桌面 app card 进入。
+- `Docs` 不再是 Dock 专属入口，而是普通 app card。
+- `ModelTable` 不再依赖桌面侧边栏；它是 `Model 1082` 上的 UI Server built-in slide app。打开卡片时先进入 1082 的滑动 App，再由 1082 的 UI 模型挂载完整模型表编辑界面，用于查看、新增、编辑、删除和详情查看。
+- Workspace 下所有 `slide_capable=true` 且属于用户可见入口的滑动 app，会从 `ws_apps_registry` 投影为桌面 app card。
+- App card 的短说明来自滑动 app 根单元格的 `slide_app_summary` 标签；这让用户打开前就能知道 app 的作用。
+- app list 分为 `Built-in` 和 `Slid in from DE` 两组。
+- `Slid in from DE` 里的每个 app card 必须显示来源 DE；如果来源缺失，必须显示 `source unknown`，不能静默省略。
 - 原有 `/gallery`、`/docs`、`/workspace`、`/prompt`、`/static` 等深链接仍可直接访问。
 
 运行口径：
 
 - Web 桌面一次只显示一个前台 app。
-- 任务切换器保存最近打开的 app，提供伪后台恢复；它不同时渲染多个 app，也不是分屏。
-- 任务状态、前台 app、任务切换器开关都是 Model `-2` 上的本地 UI 状态，不是业务真值。
+- 任务切换器保存最近打开的 app，提供伪后台恢复；它不同时渲染多个 app。
+- 前台窗口默认只显示 app 本身；辅助信息进入右侧 `Drawer`，默认隐藏。
+- `Settings` 是普通内置 app，不再是桌面里的展开/收起区域。
+- 桌面外层占满浏览器视口，不允许最外层页面出现横向或纵向滚动；需要滚动时只能在 app list 或 app 内部区域发生。
+- 任务状态、前台 app、任务切换器开关、详情 Drawer 开关都是 Model `-2` 上的本地 UI 状态，不是业务真值。
 - Workspace app 的桌面入口只写 `desktop_foreground_app_json`；实际 Workspace 选择继续由现有投影/状态链路处理。
 - 如果 `ws_apps_registry` 缺失或为空，桌面不显示旧的硬编码 Workspace app 兜底入口，避免展示过期 app。
+- Dock 当前只保留 `Home`、`Tasks`、`MB`。`MB` 暂时打开 `Matrix Suite`，后续再替换为专门的管理总线通讯 app。
 
 后续移动端可以沿用同一产品边界：最终用户先看到 app 桌面，通过单前台运行和任务切换完成常规使用；分屏、多实例和更复杂后台属于后续阶段。
 

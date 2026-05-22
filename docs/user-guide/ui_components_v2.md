@@ -45,6 +45,7 @@ These labels usually live on `0,0,0`.
 |---|---|---|---|
 | `app_name` | `str` | for Workspace apps | Name shown in the Workspace app list. |
 | `slide_capable` | `bool` | for slide apps | Marks the model as runnable from Workspace and the Web tablet desktop. |
+| `slide_app_summary` | `str` | for OS shell apps | Short description shown by the OS shell before opening the app. Required for positive `slide_capable` Workspace apps. |
 | `slide_surface_type` | `str` | recommended | Describes the host surface, for example `workspace.page` or `flow.shell`. |
 | `ui_authoring_version` | `str` | yes | Must be `cellwise.ui.v1`. |
 | `ui_root_node_id` | `str` | yes | Points to an existing `ui_node_id`. |
@@ -117,6 +118,34 @@ Use `Card` for panels, `Form` for grouped input, and `FormItem` for labeled fiel
 | `Card` | `ui_title`, `ui_style_width`, `ui_style_flex` |
 | `Form` | `ui_parent`, `ui_order` |
 | `FormItem` | `ui_label` |
+
+#### OS Shell Components
+
+The Android tablet shell uses the same cellwise model contract. These components are reusable visual primitives built from basic HTML/CSS in the renderer.
+
+| component | purpose |
+|---|---|
+| `StatusBar` | Top system status surface. Common props: `title`, `subtitle`, `status`, `time`. |
+| `DesktopGrid` | Responsive app-card grid. Common prop: `minColumnWidth`. |
+| `AppCard` | Launchable app card. Common props: `title`, `summary`, `mark`, `accent`, `appOrigin`, `sourceDE`; can use the same `ui_bind_json.write` as a `Button`. |
+| `WidgetPanel` | Desktop widget/card region. |
+| `Taskbar` | Bottom dock/taskbar surface. |
+| `AppWindow` | Foreground app frame. |
+| `SplitPaneWindow` | Foreground split-pane frame. |
+| `AppSwitcher` | Recent task grid. |
+| `Drawer` | Hidden side panel for secondary information. Common props: `title`, `placement`, `size`; bind `modelValue` through `ui_bind_json`. |
+| `Dialog` | Modal panel for confirmation, details, or form flows. Common props: `title`, `width`; bind `modelValue` through `ui_bind_json`. |
+| `HostSlot` | Internal host insertion point used by UI Server built-in shell frames; ordinary slide app authors should not use it. |
+
+For app cards, do not duplicate app descriptions in frontend code. Store the short text in the app model root as `slide_app_summary`, then let `ws_apps_registry` project it into the desktop card.
+
+Current desktop shell contract:
+
+- The desktop shell itself is a cellwise UI model (`desktop_catalog_ui.json`).
+- The root shell fills the browser viewport and prevents outer page scrolling.
+- The desktop no longer uses a visible `NavigationRail`, desktop `QuickSettingsPanel`, or always-visible split pane.
+- The Dock contains only `Home`, `Tasks`, and `MB`; `MB` opens Matrix Suite until the dedicated management-bus app is completed.
+- Built-in apps and slid-in apps are shown in separate grids. Slid-in cards must visibly show their source DE, or `source unknown` if the source is missing.
 
 ### Display
 
@@ -317,7 +346,7 @@ Run the compliance audit before shipping a UI model.
 
 | check | pass condition |
 |---|---|
-| Discoverable | Workspace apps have `app_name`; slide apps have `slide_capable=true` so they can appear in Workspace and on the Web tablet desktop. |
+| Discoverable | Workspace apps have `app_name`; positive slide apps have `slide_capable=true`, `slide_surface_type`, and non-empty `slide_app_summary` so they can appear in Workspace and on the OS shell desktop. |
 | Cellwise | `ui_authoring_version=cellwise.ui.v1`. |
 | Root valid | `ui_root_node_id` points to an existing `ui_node_id`. |
 | Granular | Each visible component is a cell. |

@@ -1,6 +1,12 @@
 export const DESKTOP_FOREGROUND_APP_LABEL = 'desktop_foreground_app_json';
 export const DESKTOP_TASK_STACK_LABEL = 'desktop_task_stack_json';
 export const DESKTOP_TASK_SWITCHER_OPEN_LABEL = 'desktop_task_switcher_open';
+export const DESKTOP_APP_DETAIL_DRAWER_OPEN_LABEL = 'desktop_app_detail_drawer_open';
+export const DESKTOP_APP_VIEW_MODE_LABEL = 'desktop_app_view_mode';
+export const DESKTOP_APP_MANAGE_MODE_LABEL = 'desktop_app_manage_mode';
+export const DESKTOP_DELETE_CONFIRM_OPEN_LABEL = 'desktop_delete_confirm_open';
+export const DESKTOP_DELETE_CONFIRM_TARGET_LABEL = 'desktop_delete_confirm_target_json';
+export const DESKTOP_DELETE_RESULT_OPEN_LABEL = 'desktop_delete_result_open';
 
 function getStateRootLabels(snapshot) {
   return snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels ?? {};

@@ -7,6 +7,7 @@ import {
   DESKTOP_FOREGROUND_APP_LABEL,
   DESKTOP_TASK_STACK_LABEL,
   deriveDesktopTaskStack,
+  normalizeDesktopForegroundApp,
 } from './desktop_app_state.js';
 
 export function createRemoteStore(options) {
@@ -15,7 +16,6 @@ export function createRemoteStore(options) {
   const snapshot = reactive({ models: {}, v1nConfig: { local_mqtt: null, global_mqtt: null } });
 const overlayStore = reactive(new Map());
 const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
-const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
 
   const EDITOR_MODEL_ID = -1;
   const EDITOR_STATE_MODEL_ID = -2;
@@ -39,6 +39,7 @@ const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
   let pendingSseSnapshot = null;
   let runtimeActivationPromise = null;
   const routeState = reactive({ path: '/' });
+  const pendingLocalStateByKey = new Map();
 
   function labelRefKey(ref) {
     if (!ref || !Number.isInteger(ref.model_id) || !Number.isInteger(ref.p) || !Number.isInteger(ref.r) || !Number.isInteger(ref.c) || typeof ref.k !== 'string') {
@@ -155,6 +156,7 @@ const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
 
   function applySnapshot(next) {
     if (!next || !next.models) return;
+    overlayPendingLocalState(next);
     snapshot.models = next.models;
     snapshot.v1nConfig = next.v1nConfig;
     reconcileOverlayStore();
@@ -166,8 +168,8 @@ const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
     }
   }
 
-  function getUiAst() {
-    const resolved = resolveRouteUiAst(snapshot, routeState.path, { projectSchemaModel: buildAstFromSchema });
+  function getUiAst(routePathOverride) {
+    const resolved = resolveRouteUiAst(snapshot, routePathOverride || routeState.path, { projectSchemaModel: buildAstFromSchema });
     return resolved && resolved.ast && typeof resolved.ast === 'object' ? resolved.ast : null;
   }
 
@@ -208,6 +210,47 @@ const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
     return `${target.model_id}:${target.p}:${target.r}:${target.c}:${target.k}`;
   }
 
+  function patchSnapshotLocalStateLabel(target, value, targetSnapshot = snapshot) {
+    const modelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
+    if (modelId === null) return null;
+    if (!target || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c) || typeof target.k !== 'string') {
+      return null;
+    }
+    if (!value || typeof value.t !== 'string' || !Object.prototype.hasOwnProperty.call(value, 'v')) {
+      return null;
+    }
+
+    if (!targetSnapshot.models) targetSnapshot.models = {};
+    let model = getSnapshotModel(targetSnapshot, modelId);
+    if (!model) {
+      targetSnapshot.models[String(modelId)] = { cells: {} };
+      model = targetSnapshot.models[String(modelId)];
+    }
+    if (!model.cells) model.cells = {};
+    const cellKey = `${target.p},${target.r},${target.c}`;
+    if (!model.cells[cellKey]) model.cells[cellKey] = { labels: {} };
+    const cell = model.cells[cellKey];
+    if (!cell.labels) cell.labels = {};
+    cell.labels[target.k] = { k: target.k, t: value.t, v: value.v };
+    return cell;
+  }
+
+  function overlayPendingLocalState(next) {
+    if (!next || !next.models || pendingLocalStateByKey.size === 0) return;
+    for (const [key, entry] of Array.from(pendingLocalStateByKey.entries())) {
+      if (!entry?.target || !entry?.value) {
+        pendingLocalStateByKey.delete(key);
+        continue;
+      }
+      const committed = getSnapshotLabelValue(next, entry.target);
+      if (stableValueKey(committed) === stableValueKey(entry.value.v)) {
+        pendingLocalStateByKey.delete(key);
+        continue;
+      }
+      patchSnapshotLocalStateLabel(entry.target, entry.value, next);
+    }
+  }
+
   function buildDerivedLocalStateEnvelope(rawEnvelope, target, value, suffix) {
     const payload = rawEnvelope && typeof rawEnvelope === 'object' ? rawEnvelope.payload : null;
     const meta = payload && typeof payload.meta === 'object' && payload.meta ? payload.meta : {};
@@ -233,30 +276,8 @@ const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
   function patchNegativeLocalStateLabel(target, value) {
     const modelId = target && Number.isInteger(target.model_id) ? target.model_id : null;
     if (!isNegativeLocalStateTarget(target)) return [];
-    if (!target || !Number.isInteger(target.p) || !Number.isInteger(target.r) || !Number.isInteger(target.c) || typeof target.k !== 'string') {
-      return [];
-    }
-    if (!value || typeof value.t !== 'string' || !Object.prototype.hasOwnProperty.call(value, 'v')) {
-      return [];
-    }
-
-    let model = getSnapshotModel(snapshot, modelId);
-    if (!model) {
-      snapshot.models[String(modelId)] = { cells: {} };
-      model = snapshot.models[String(modelId)];
-    }
-    if (!model.cells) {
-      model.cells = {};
-    }
-    const cellKey = `${target.p},${target.r},${target.c}`;
-    if (!model.cells[cellKey]) {
-      model.cells[cellKey] = { labels: {} };
-    }
-    const cell = model.cells[cellKey];
-    if (!cell.labels) {
-      cell.labels = {};
-    }
-    cell.labels[target.k] = { k: target.k, t: value.t, v: value.v };
+    const cell = patchSnapshotLocalStateLabel(target, value, snapshot);
+    if (!cell) return [];
     if (modelId === EDITOR_STATE_MODEL_ID && target.k === DESKTOP_FOREGROUND_APP_LABEL) {
       const currentStack = cell.labels[DESKTOP_TASK_STACK_LABEL]?.v;
       const nextStack = deriveDesktopTaskStack(currentStack, value.v);
@@ -272,6 +293,28 @@ const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
       }];
     }
     return [];
+  }
+
+  function deriveShellLocalStateWrites(rawTarget, rawValue) {
+    const writes = [];
+    if (!rawTarget || !rawValue || rawTarget.model_id !== EDITOR_STATE_MODEL_ID || rawTarget.k !== DESKTOP_FOREGROUND_APP_LABEL) {
+      return writes;
+    }
+    const app = normalizeDesktopForegroundApp(rawValue.v);
+    if (!app || app.page !== 'workspace' || !Number.isInteger(app.model_id)) {
+      return writes;
+    }
+    writes.push({
+      target: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
+      value: { t: 'int', v: app.model_id },
+      suffix: 'desktop_ws_app_selected',
+    });
+    writes.push({
+      target: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_model_id' },
+      value: { t: 'str', v: String(app.model_id) },
+      suffix: 'desktop_selected_model_id',
+    });
+    return writes;
   }
 
   function buildOverlayCommitEnvelope(entry, explicitValue) {
@@ -536,7 +579,10 @@ const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
     const drafts = Array.from(pendingDraftByKey.values());
     pendingDraftByKey.clear();
     for (const env of drafts) {
-      sendQueue = sendQueue.then(() => postEnvelope(env, { endpointPath: LOCAL_UI_EVENT_ENDPOINT_PATH })).catch(() => {
+      sendQueue = sendQueue.then(() => postEnvelope(env)).then((data) => {
+        if (data && data.result === 'error') return data;
+        return data;
+      }).catch(() => {
         // keep queue alive
       });
     }
@@ -569,16 +615,24 @@ const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
     // - Still sync to server in the background to keep remote runtime state aligned.
     // - Coalesce per-target writes to reduce per-keystroke/per-drag network chatter.
     if (rawAction === 'label_update' && rawTarget && isNegativeLocalStateTarget(rawTarget)) {
-      const derivedWrites = patchNegativeLocalStateLabel(rawTarget, rawPayload.value);
+      const derivedWrites = [
+        ...patchNegativeLocalStateLabel(rawTarget, rawPayload.value),
+        ...deriveShellLocalStateWrites(rawTarget, rawPayload.value),
+      ];
       if (rawTarget && typeof rawTarget.k === 'string') {
-        pendingDraftByKey.set(localStateKey(rawTarget), rawEnvelope);
+        const key = localStateKey(rawTarget);
+        pendingDraftByKey.set(key, rawEnvelope);
+        pendingLocalStateByKey.set(key, { target: rawTarget, value: rawPayload.value });
       }
       for (const derivedWrite of derivedWrites) {
         if (!derivedWrite?.target || !derivedWrite?.value) continue;
+        patchSnapshotLocalStateLabel(derivedWrite.target, derivedWrite.value, snapshot);
+        const key = localStateKey(derivedWrite.target);
         pendingDraftByKey.set(
-          localStateKey(derivedWrite.target),
+          key,
           buildDerivedLocalStateEnvelope(rawEnvelope, derivedWrite.target, derivedWrite.value, derivedWrite.suffix || 'derived'),
         );
+        pendingLocalStateByKey.set(key, { target: derivedWrite.target, value: derivedWrite.value });
       }
       scheduleDraftFlush();
       return;
@@ -676,7 +730,9 @@ const LOCAL_UI_EVENT_ENDPOINT_PATH = '/ui_event';
     }
   }
 
-  bootstrap();
+  if (!options || options.autoBootstrap !== false) {
+    bootstrap();
+  }
 
   return {
     snapshot,

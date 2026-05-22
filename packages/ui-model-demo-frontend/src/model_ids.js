@@ -9,6 +9,7 @@ export const DOCS_CATALOG_MODEL_ID = -23;
 export const WORKSPACE_CATALOG_MODEL_ID = -25;
 export const FLOW_SHELL_CATALOG_MODEL_ID = -27;
 export const DESKTOP_CATALOG_MODEL_ID = -28;
+export const DESKTOP_FOREGROUND_SHELL_MODEL_ID = -29;
 
 // System/internal (currently used for pin demo actions).
 export const SYSTEM_MODEL_ID = -10;
@@ -33,6 +34,19 @@ export const WORKSPACE_ENTRY_MODEL_IDS = Object.freeze([
   1050,
   1051,
   1080,
+  1081,
+  1082,
+]);
+
+export const BUILTIN_WORKSPACE_APP_MODEL_IDS = Object.freeze([
+  -103,
+  -23,
+  1007,
+  1011,
+  1030,
+  1080,
+  1081,
+  1082,
 ]);
 
 // Wave C demo submodel.
@@ -90,6 +104,8 @@ export const MATRIX_CHAT_UI_STATE_MODEL_ID = 1021;
 
 // 0383 UI Server built-in Matrix Suite slide app.
 export const MATRIX_SUITE_APP_MODEL_ID = 1080;
+export const SETTINGS_APP_MODEL_ID = 1081;
+export const MODELTABLE_APP_MODEL_ID = 1082;
 
 // Model 100 - Dual-bus E2E test model.
 export const MODEL_100_ID = 100;

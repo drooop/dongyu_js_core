@@ -87,6 +87,7 @@ async function dispatch(state, action, extra = []) {
   });
   assert.equal(result.result, 'ok', `${action} must route through Model 0 bus_event_v2`);
   assert.equal(result.routed_by, 'model0_busin', `${action} must enter through Model 0 pin.bus.cb.in`);
+  await new Promise((resolve) => setTimeout(resolve, 160));
   return result;
 }
 
@@ -166,7 +167,15 @@ async function test_program_actions_route_and_update_modeltable() {
   process.env.DY_UI_SERVER_WORKER_ID = 'U1';
   try {
     const { createServerState } = await import(new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url));
-    const state = createServerState({ dbPath: null });
+    const state = createServerState({
+      dbPath: null,
+      matrixSuiteMatrixImpl: {
+        sendMessage: async (input) => ({ ok: true, eventId: '$0383_send_' + Date.now(), ts: '12:00', input }),
+        editMessage: async (input) => ({ ok: true, eventId: '$0383_edit_' + Date.now(), ts: '12:01', input }),
+        createRoom: async (input) => ({ ok: true, roomId: '!0383-' + Date.now() + ':example', name: input.name, kind: input.kind || 'room' }),
+        shareFile: async (input) => ({ ok: true, eventId: '$0383_file_' + Date.now(), ts: '12:02', input }),
+      },
+    });
     await state.activateRuntimeMode('running');
     const runtime = state.runtime;
 
@@ -200,11 +209,12 @@ async function test_program_actions_route_and_update_modeltable() {
     assert.equal(labelValue(runtime, MODEL_ID, 0, 0, 0, 'active_room_name'), 'Project atrium');
 
     await dispatch(state, 'start_video');
-    assert.match(labelValue(runtime, MODEL_ID, 0, 0, 0, 'timeline_markdown'), /Video conference started/u);
+    assert.equal(labelValue(runtime, MODEL_ID, 0, 0, 0, 'call_state'), 'requires_media_capability');
     await dispatch(state, 'start_voice');
-    assert.match(labelValue(runtime, MODEL_ID, 0, 0, 0, 'timeline_markdown'), /Voice message recorded/u);
+    assert.equal(labelValue(runtime, MODEL_ID, 0, 0, 0, 'call_state'), 'requires_media_capability');
     await dispatch(state, 'start_screen');
-    assert.match(labelValue(runtime, MODEL_ID, 0, 0, 0, 'timeline_markdown'), /Screen sharing started/u);
+    assert.equal(labelValue(runtime, MODEL_ID, 0, 0, 0, 'call_state'), 'requires_media_capability');
+    assert.doesNotMatch(labelValue(runtime, MODEL_ID, 0, 0, 0, 'timeline_markdown'), /Video conference started|Voice message recorded|Screen sharing started/u);
 
     runtime.addLabel(runtime.getModel(MODEL_ID), 0, 0, 0, { k: 'pending_file_uri', t: 'str', v: 'mxc://local/test-file' });
     runtime.addLabel(runtime.getModel(MODEL_ID), 0, 0, 0, { k: 'pending_file_name', t: 'str', v: 'contract.txt' });

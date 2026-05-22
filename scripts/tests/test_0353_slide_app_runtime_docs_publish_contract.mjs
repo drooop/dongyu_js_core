@@ -73,8 +73,8 @@ function test_publish_script_copies_docs_and_static_project() {
     const staticRoot = join(root, 'static_projects/slide-app-runtime-minimal-submit-provider');
     assert.match(readFileSync(join(docsRoot, 'minimal_submit_app_provider_guide.md'), 'utf8'), /最小 Submit 双总线示例/u);
     assert.match(readFileSync(join(docsRoot, 'minimal_submit_app_provider_visualized.md'), 'utf8'), /remote-worker R1/u);
-    assert.match(readFileSync(join(staticRoot, 'index.html'), 'utf8'), /demoInput/u);
-    assert.match(readFileSync(join(staticRoot, 'minimal_submit_app_provider_interactive.html'), 'utf8'), /demoSubmit/u);
+    assert.match(readFileSync(join(staticRoot, 'index.html'), 'utf8'), /最小 Submit 双总线示例/u);
+    assert.match(readFileSync(join(staticRoot, 'minimal_submit_app_provider_interactive.html'), 'utf8'), /Submit 类提交按钮/u);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

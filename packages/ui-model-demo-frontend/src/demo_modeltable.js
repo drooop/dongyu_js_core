@@ -3,6 +3,7 @@ import { ModelTableRuntime } from '../../worker-base/src/index.mjs';
 import { createLocalBusAdapter } from './local_bus_adapter.js';
 import { createLocalStoragePersister } from './local_persistence.js';
 import homeCatalogPatch from '../../worker-base/system-models/home_catalog_ui.json' with { type: 'json' };
+import galleryCatalogPatch from '../../worker-base/system-models/gallery_catalog_ui.json' with { type: 'json' };
 import docsCatalogPatch from '../../worker-base/system-models/docs_catalog_ui.json' with { type: 'json' };
 import staticCatalogPatch from '../../worker-base/system-models/static_catalog_ui.json' with { type: 'json' };
 import navCatalogPatch from '../../worker-base/system-models/nav_catalog_ui.json' with { type: 'json' };
@@ -10,6 +11,7 @@ import desktopCatalogPatch from '../../worker-base/system-models/desktop_catalog
 import workspaceCatalogPatch from '../../worker-base/system-models/workspace_catalog_ui.json' with { type: 'json' };
 import slidingFlowShellPatch from '../../worker-base/system-models/sliding_flow_shell_ui.json' with { type: 'json' };
 import workspacePositiveModelsPatch from '../../worker-base/system-models/workspace_positive_models.json' with { type: 'json' };
+import workspaceManagerAssetManagerUiPatch from '../../worker-base/system-models/workspace_manager_asset_manager_ui.json' with { type: 'json' };
 import docPageFilltableExampleMinimalPatch from '../../worker-base/system-models/doc_page_filltable_example_minimal.json' with { type: 'json' };
 import slideAppProviderDocsUiPatch from '../../worker-base/system-models/slide_app_provider_docs_ui.json' with { type: 'json' };
 import runtimeHierarchyMountsPatch from '../../worker-base/system-models/runtime_hierarchy_mounts.json' with { type: 'json' };
@@ -23,6 +25,12 @@ import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
 import { resolvePageAsset } from './page_asset_resolver.js';
 import { resolveRouteUiAst } from './route_ui_projection.js';
 import {
+  DESKTOP_APP_DETAIL_DRAWER_OPEN_LABEL,
+  DESKTOP_APP_MANAGE_MODE_LABEL,
+  DESKTOP_APP_VIEW_MODE_LABEL,
+  DESKTOP_DELETE_CONFIRM_OPEN_LABEL,
+  DESKTOP_DELETE_CONFIRM_TARGET_LABEL,
+  DESKTOP_DELETE_RESULT_OPEN_LABEL,
   DESKTOP_FOREGROUND_APP_LABEL,
   DESKTOP_TASK_STACK_LABEL,
   DESKTOP_TASK_SWITCHER_OPEN_LABEL,
@@ -46,6 +54,7 @@ import {
 } from './editor_page_state_derivers.js';
 
 import {
+  BUILTIN_WORKSPACE_APP_MODEL_IDS,
   DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID,
   EDITOR_MAILBOX_MODEL_ID as EDITOR_MODEL_ID,
   EDITOR_STATE_MODEL_ID,
@@ -202,15 +211,28 @@ function deriveWorkspaceRegistry(runtime) {
     const source = rootLabels.source_worker && typeof rootLabels.source_worker.v === 'string'
       ? rootLabels.source_worker.v
       : '';
+    const appOrigin = BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(modelId) ? 'builtin' : 'slid_in';
+    const sourceDE = appOrigin === 'slid_in'
+      ? String(rootLabels.source_de?.v || 'source unknown').trim() || 'source unknown'
+      : '';
+    const summary = rootLabels.slide_app_summary && typeof rootLabels.slide_app_summary.v === 'string'
+      ? rootLabels.slide_app_summary.v
+      : '';
     const deletable = rootLabels.deletable ? rootLabels.deletable.v === true : false;
     const slideCapable = rootLabels.slide_capable ? rootLabels.slide_capable.v === true : false;
+    if (slideCapable && !summary.trim()) {
+      throw new Error(`slide_capable workspace app ${modelId} missing required slide_app_summary`);
+    }
     const slideSurfaceType = rootLabels.slide_surface_type && typeof rootLabels.slide_surface_type.v === 'string'
       ? rootLabels.slide_surface_type.v
       : '';
     addOrReplace({
       model_id: modelId,
       name,
+      summary,
       source,
+      app_origin: appOrigin,
+      source_de: sourceDE,
       deletable,
       delete_disabled: !deletable,
       slide_capable: slideCapable,
@@ -263,11 +285,13 @@ export function createDemoStore() {
   applyUiPatch(runtime, navCatalogPatch);
   applyUiPatch(runtime, desktopCatalogPatch);
   applyUiPatch(runtime, homeCatalogPatch);
+  applyUiPatch(runtime, galleryCatalogPatch);
   applyUiPatch(runtime, docsCatalogPatch);
   applyUiPatch(runtime, staticCatalogPatch);
   applyUiPatch(runtime, workspaceCatalogPatch);
   applyUiPatch(runtime, slidingFlowShellPatch);
   applyUiPatch(runtime, workspacePositiveModelsPatch);
+  applyUiPatch(runtime, workspaceManagerAssetManagerUiPatch);
   applyUiPatch(runtime, docPageFilltableExampleMinimalPatch);
   applyUiPatch(runtime, slideAppProviderDocsUiPatch);
   applyUiPatch(runtime, runtimeHierarchyMountsPatch);
@@ -280,6 +304,16 @@ export function createDemoStore() {
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'selected_model_id', t: 'str', v: '0' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'ui_page', t: 'str', v: 'desktop' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_FOREGROUND_APP_LABEL, t: 'json', v: null });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_APP_DETAIL_DRAWER_OPEN_LABEL, t: 'bool', v: false });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_APP_VIEW_MODE_LABEL, t: 'str', v: 'cards' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_APP_MANAGE_MODE_LABEL, t: 'bool', v: false });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_DELETE_CONFIRM_OPEN_LABEL, t: 'bool', v: false });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'desktop_delete_confirm_title', t: 'str', v: '删除滑动 App？' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'desktop_delete_confirm_text', t: 'str', v: '' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_DELETE_CONFIRM_TARGET_LABEL, t: 'json', v: null });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_DELETE_RESULT_OPEN_LABEL, t: 'bool', v: false });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'desktop_delete_result_title', t: 'str', v: '删除成功' });
+  ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'desktop_delete_result_text', t: 'str', v: '' });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_TASK_STACK_LABEL, t: 'json', v: [] });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: DESKTOP_TASK_SWITCHER_OPEN_LABEL, t: 'bool', v: false });
   ensureLabel(runtime, stateModel, 0, 0, 0, { k: 'draft_p', t: 'str', v: '0' });
@@ -456,8 +490,8 @@ export function createDemoStore() {
     });
   }
 
-  function getUiAst() {
-    const resolved = resolveRouteUiAst(snapshot, routeState.path, { projectSchemaModel: buildAstFromSchema });
+  function getUiAst(routePathOverride) {
+    const resolved = resolveRouteUiAst(snapshot, routePathOverride || routeState.path, { projectSchemaModel: buildAstFromSchema });
     return resolved && resolved.ast && typeof resolved.ast === 'object' ? resolved.ast : null;
   }
 
