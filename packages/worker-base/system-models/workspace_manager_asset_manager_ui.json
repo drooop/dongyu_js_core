@@ -51,6 +51,7 @@
         "runtime_endpoint_worker_id",
         "runtime_endpoint_model_id",
         "runtime_pins",
+        "bundle_resource_uri",
         "bundle_sha256",
         "installable",
         "action_label",
