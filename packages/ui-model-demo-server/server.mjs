@@ -90,8 +90,8 @@ const BUS_EVENT_KEY = 'bus_event';
 const BUS_EVENT_LAST_OP_KEY = 'bus_event_last_op_id';
 const BUS_EVENT_ERROR_KEY = 'bus_event_error';
 const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
-const LEGACY_EVENT_TYPE = ['ui', 'event'].join('_');
-const LEGACY_EVENT_ENDPOINT_PATH = `/${LEGACY_EVENT_TYPE}`;
+const UI_EVENT_TYPE = 'ui_event';
+const UI_EVENT_ENDPOINT_PATH = '/ui_event';
 const LOGIN_MODEL_ID = -3;
 const TRACE_MODEL_ID = -100; // Registered by 0213 as the Matrix debug / bus trace model id.
 const MGMT_BUS_CONSOLE_MODEL_ID = 1036;
@@ -322,6 +322,95 @@ async function uploadMatrixMedia({ homeserverUrl, accessToken, filename, content
     throw new Error(data && data.errcode ? String(data.errcode) : 'matrix_upload_failed');
   }
   return data.content_uri;
+}
+
+function matrixClientV3Url(homeserverUrl, suffix) {
+  const base = String(homeserverUrl || '').replace(/\/+$/, '');
+  const pathSuffix = String(suffix || '').startsWith('/') ? String(suffix) : `/${String(suffix || '')}`;
+  return `${base}/_matrix/client/v3${pathSuffix}`;
+}
+
+async function fetchMatrixJson(session, suffix, {
+  fetchImpl = fetch,
+  allowNotFound = false,
+  timeoutMs = 5000,
+} = {}) {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller && Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : null;
+  let resp;
+  try {
+    resp = await fetchImpl(matrixClientV3Url(session.homeserverUrl, suffix), {
+      signal: controller ? controller.signal : undefined,
+      headers: {
+        authorization: `Bearer ${session.accessToken}`,
+        accept: 'application/json',
+      },
+    });
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+  const data = await resp.json().catch(() => ({}));
+  if (allowNotFound && resp.status === 404) return null;
+  if (!resp.ok) {
+    const err = new Error(data && data.errcode ? String(data.errcode) : `matrix_http_${resp.status}`);
+    err.status = resp.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+export function resolveMgmtBusConsoleMatrixSession(runtime, env = process.env) {
+  const matrixConfig = readMatrixBootstrapConfig(runtime);
+  const homeserverUrl = firstValidValue(
+    matrixConfig && matrixConfig.homeserverUrl,
+    env.MATRIX_HOMESERVER_URL,
+  );
+  const accessToken = firstValidValue(matrixConfig && matrixConfig.accessToken);
+  const userId = firstValidValue(matrixConfig && matrixConfig.userId);
+  if (!homeserverUrl || !accessToken) {
+    return {
+      ok: false,
+      code: 'matrix_session_missing',
+      detail: !homeserverUrl ? 'missing_homeserver' : 'missing_access_token',
+    };
+  }
+  return {
+    ok: true,
+    data: {
+      homeserverUrl,
+      accessToken,
+      userId,
+    },
+  };
+}
+
+export async function fetchMgmtBusConsoleJoinedRooms(session, options = {}) {
+  const normalized = session && typeof session === 'object' ? session : {};
+  if (!normalized.homeserverUrl || !normalized.accessToken) {
+    return { ok: false, code: 'matrix_session_missing', rooms: [] };
+  }
+  const fetchImpl = typeof options.fetchImpl === 'function' ? options.fetchImpl : fetch;
+  const timeoutMs = Number.isFinite(options.timeoutMs) && options.timeoutMs > 0 ? options.timeoutMs : 5000;
+  const joined = await fetchMatrixJson(normalized, '/joined_rooms', { fetchImpl, timeoutMs });
+  const roomIds = Array.isArray(joined?.joined_rooms)
+    ? joined.joined_rooms.filter((roomId) => typeof roomId === 'string' && roomId.trim())
+    : [];
+  const rooms = await Promise.all(roomIds.map(async (roomId) => {
+    const encoded = encodeURIComponent(roomId);
+    const [nameState, aliasState] = await Promise.all([
+      fetchMatrixJson(normalized, `/rooms/${encoded}/state/m.room.name`, { fetchImpl, allowNotFound: true, timeoutMs }).catch(() => null),
+      fetchMatrixJson(normalized, `/rooms/${encoded}/state/m.room.canonical_alias`, { fetchImpl, allowNotFound: true, timeoutMs }).catch(() => null),
+    ]);
+    return {
+      room_id: roomId,
+      name: typeof nameState?.name === 'string' ? nameState.name : '',
+      canonical_alias: typeof aliasState?.alias === 'string' ? aliasState.alias : '',
+    };
+  }));
+  return { ok: true, rooms };
 }
 
 function matrixSuiteTxnId(prefix = 'dy') {
@@ -5284,7 +5373,7 @@ class ProgramModelEngine {
       return;
     }
     
-    if (content.type === LEGACY_EVENT_TYPE) {
+    if (content.type === UI_EVENT_TYPE) {
       // Echo of our own Matrix send — ignore in server return path.
       return;
     }
@@ -6067,6 +6156,22 @@ class ProgramModelEngine {
 
       if (event.cell && event.cell.model_id === -10 &&
           event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
+          event.label && event.label.k === 'mgmt_bus_console_refresh_intent' &&
+          event.label.t === 'pin.in') {
+        if (typeof this._mgmtBusConsoleRefreshChannels === 'function') {
+          this._mgmtBusConsoleRefreshChannels()
+            .then(() => {
+              if (typeof this.onSnapshotChanged === 'function') this.onSnapshotChanged();
+            })
+            .catch((err) => {
+              console.warn('[ProgramModelEngine] mgmt_bus_console channel refresh failed:', err && err.message ? err.message : err);
+            });
+        }
+        continue;
+      }
+
+      if (event.cell && event.cell.model_id === -10 &&
+          event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
           event.label && event.label.k === 'mgmt_bus_console_intent' &&
           event.label.t === 'pin.in') {
         if (event.label.v === null || event.label.v === undefined) {
@@ -6483,6 +6588,9 @@ function createServerState(options) {
   const matrixSuiteMatrixImpl = options && options.matrixSuiteMatrixImpl && typeof options.matrixSuiteMatrixImpl === 'object'
     ? options.matrixSuiteMatrixImpl
     : null;
+  const mgmtBusConsoleJoinedRoomsImpl = options && typeof options.mgmtBusConsoleJoinedRoomsImpl === 'function'
+    ? options.mgmtBusConsoleJoinedRoomsImpl
+    : null;
   const runtime = new ModelTableRuntime();
   runtime.addLabel(runtime.getModel(0), 0, 0, 0, {
     k: 'sys_worker_id',
@@ -6501,6 +6609,11 @@ function createServerState(options) {
   ]);
   let lastBusEventOpId = '';
   let busEventErrorValue = null;
+  let mgmtBusConsoleJoinedRooms = [];
+  let mgmtBusConsoleChannelDiscovery = {
+    status: 'pending',
+    text: '',
+  };
 
   ensureDir(DOCS_ROOT);
   ensureDir(STATIC_PROJECTS_ROOT);
@@ -6765,9 +6878,41 @@ function createServerState(options) {
     const selectedEventId = consoleModel
       ? runtime.getLabelValue(consoleModel, 0, 0, 0, 'selected_event_id')
       : '';
+    const selectedSubjectId = consoleModel
+      ? readAuthString(
+        runtime.getLabelValue(consoleModel, 0, 0, 0, 'selected_subject_id')
+        || runtime.getLabelValue(consoleModel, 0, 0, 0, 'selected_subject'),
+      )
+      : '';
+    const sourceProjection = matrixProjection && typeof matrixProjection === 'object'
+      ? { ...matrixProjection }
+      : {};
+    if (mgmtBusConsoleChannelDiscovery.status === 'ready') {
+      if (mgmtBusConsoleJoinedRooms.length > 0) {
+        delete sourceProjection.subjects;
+        sourceProjection.joinedRooms = mgmtBusConsoleJoinedRooms;
+        sourceProjection.selected = selectedSubjectId || sourceProjection.selected || '';
+      } else {
+        sourceProjection.subjects = [{
+          label: 'No Matrix channels joined by drop',
+          value: 'matrix.joined_rooms_empty',
+          status: 'empty',
+        }];
+      }
+    } else if (mgmtBusConsoleChannelDiscovery.status === 'error') {
+      sourceProjection.subjects = [{
+        label: `Matrix channels unavailable: ${mgmtBusConsoleChannelDiscovery.text || 'unknown error'}`,
+        value: 'matrix.joined_rooms_unavailable',
+        status: 'error',
+      }];
+    }
+    sourceProjection.readinessText = [
+      sourceProjection.readinessText,
+      mgmtBusConsoleChannelDiscovery.text,
+    ].filter(Boolean).join('\n');
     const projection = deriveMgmtBusConsoleProjection({
       matrixProjection: {
-        ...(matrixProjection && typeof matrixProjection === 'object' ? matrixProjection : {}),
+        ...sourceProjection,
         selectedEventId,
       },
       readRootLabel: (modelId, key) => {
@@ -6786,6 +6931,43 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'mgmt_bus_console_composer_actions_json', 'json', projection.composerActions);
     overwriteStateLabel(runtime, 'mgmt_bus_console_message_transcript', 'str', projection.messageTranscript);
     return projection;
+  };
+
+  const refreshMgmtBusConsoleChannels = async () => {
+    const sessionResult = resolveMgmtBusConsoleMatrixSession(runtime);
+    if (!sessionResult.ok) {
+      mgmtBusConsoleJoinedRooms = [];
+      mgmtBusConsoleChannelDiscovery = {
+        status: 'error',
+        text: `drop Matrix channels unavailable: ${sessionResult.detail || sessionResult.code}`,
+      };
+      syncMatrixDebugDerivedState();
+      return { ok: false, code: sessionResult.code, detail: sessionResult.detail, rooms: [] };
+    }
+    try {
+      const result = mgmtBusConsoleJoinedRoomsImpl
+        ? await mgmtBusConsoleJoinedRoomsImpl(sessionResult.data)
+        : await fetchMgmtBusConsoleJoinedRooms(sessionResult.data);
+      const rooms = Array.isArray(result)
+        ? result
+        : (Array.isArray(result?.rooms) ? result.rooms : []);
+      mgmtBusConsoleJoinedRooms = rooms;
+      mgmtBusConsoleChannelDiscovery = {
+        status: 'ready',
+        text: `drop Matrix channels=${rooms.length}`,
+      };
+      syncMatrixDebugDerivedState();
+      return { ok: true, rooms };
+    } catch (err) {
+      const detail = err && err.message ? err.message : String(err);
+      mgmtBusConsoleJoinedRooms = [];
+      mgmtBusConsoleChannelDiscovery = {
+        status: 'error',
+        text: `drop Matrix channels unavailable: ${detail}`,
+      };
+      syncMatrixDebugDerivedState();
+      return { ok: false, code: 'matrix_joined_rooms_failed', detail, rooms: [] };
+    }
   };
 
   const syncMatrixDebugDerivedState = () => {
@@ -7165,6 +7347,7 @@ function createServerState(options) {
       overwriteStateLabel(runtime, 'static_status', 'str', 'static list failed');
     }
     try {
+      await refreshMgmtBusConsoleChannels();
       refreshWorkspaceStateCatalog();
       reconcileWorkspaceSelectionState();
       syncDerivedPageState();
@@ -7191,6 +7374,7 @@ function createServerState(options) {
   });
   programEngine.matrixUserLoginImpl = matrixUserLoginImpl;
   programEngine.matrixSuiteMatrixImpl = matrixSuiteMatrixImpl;
+  programEngine._mgmtBusConsoleRefreshChannels = refreshMgmtBusConsoleChannels;
   programEngine._matrixDebugRefresh = (subjectId) => {
     const selected = String(subjectId ?? '').trim() || 'trace';
     overwriteStateLabel(runtime, 'matrix_debug_subject_selected', 'str', selected);
@@ -7659,7 +7843,7 @@ function createServerState(options) {
 
     const isLegacyUiEventShape = Boolean(
       envelopeOrNull
-      && envelopeOrNull.type === LEGACY_EVENT_TYPE
+      && envelopeOrNull.type === UI_EVENT_TYPE
       && payload
       && typeof payload === 'object'
     );
@@ -9012,6 +9196,7 @@ function createServerState(options) {
     applyModelTablePatch,
     activateRuntimeMode,
     updateDerived,
+    refreshMgmtBusConsoleChannels,
     getRuntimeMode: () => runtime.getRuntimeMode(),
     getLastOpId: () => getLastBusEventOpId(),
     getEventError: () => getBusEventErrorValue(),
@@ -9350,7 +9535,7 @@ function startServer(options) {
       return;
     }
 
-    if (req.method === 'POST' && (url.pathname === BUS_EVENT_ENDPOINT_PATH || url.pathname === LEGACY_EVENT_ENDPOINT_PATH)) {
+    if (req.method === 'POST' && (url.pathname === BUS_EVENT_ENDPOINT_PATH || url.pathname === UI_EVENT_ENDPOINT_PATH)) {
       try {
         const body = await readJsonBody(req);
         let envelope = body;

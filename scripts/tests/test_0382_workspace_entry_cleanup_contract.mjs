@@ -26,11 +26,11 @@ function labelsAt(patch, modelId, p = 0, r = 0, c = 0) {
 }
 
 function main() {
-  const expectedIds = [-103, -23, 100, 1007, 1011, 1030, 1050, 1051, 1080];
+  const expectedIds = [-103, -23, 100, 1007, 1011, 1030, 1036, 1050, 1051, 1080, 1081, 1082];
   assert.deepEqual(
     [...WORKSPACE_ENTRY_MODEL_IDS],
     expectedIds,
-    'Workspace entry allowlist must keep the cleanup request plus the 0383 built-in Matrix Suite app',
+    'Workspace entry allowlist must keep the cleanup request plus built-in Mgmt Bus Console, Matrix Suite, Settings, and ModelTable apps',
   );
 
   const docsCatalog = readJson('packages/worker-base/system-models/docs_catalog_ui.json');
@@ -47,7 +47,7 @@ function main() {
   assert.deepEqual(
     registryLabel.v.map((entry) => entry.model_id),
     expectedIds,
-    'seeded Workspace registry must only list the retained entries plus the 0383 built-in Matrix Suite app',
+    'seeded Workspace registry must only list the retained entries plus built-in Mgmt Bus Console, Matrix Suite, Settings, and ModelTable apps',
   );
 
   const serverSource = fs.readFileSync(path.join(repoRoot, 'packages/ui-model-demo-server/server.mjs'), 'utf8');

@@ -21,6 +21,7 @@ const SENSITIVE_VALUE_RE = /(syt_[A-Za-z0-9._=-]+|ChangeMeLocal2026|SECRET_SHOUL
 const VALID_DIRECTIONS = new Set(['inbound', 'outbound', 'internal', 'error']);
 const VALID_SOURCES = new Set(['matrix', 'model0', 'mbr', 'remote-worker', 'ui', 'runtime']);
 const VALID_STATUSES = new Set(['queued', 'sent', 'received', 'applied', 'rejected', 'error', 'unknown']);
+const VALID_SUBJECT_STATUSES = new Set(['selected', 'available', 'joined', 'empty', 'error', 'ready', 'monitoring', 'unavailable']);
 
 function sanitizeString(value, fallback = '') {
   const text = value === undefined || value === null ? fallback : String(value);
@@ -259,18 +260,54 @@ function buildMessageTranscript(eventRows) {
   }).join('\n');
 }
 
+function firstDisplayString(...values) {
+  for (const value of values) {
+    const text = sanitizeString(value || '').trim();
+    if (text) return text;
+  }
+  return '';
+}
+
+export function buildMgmtBusConsoleSubjectsFromJoinedRooms(rooms, selected = '') {
+  const selectedValue = sanitizeString(selected || '').trim();
+  return (Array.isArray(rooms) ? rooms : [])
+    .map((entry) => {
+      const source = entry && typeof entry === 'object' ? entry : {};
+      const roomId = typeof entry === 'string'
+        ? firstDisplayString(entry)
+        : firstDisplayString(source.room_id, source.roomId, source.id, source.value);
+      if (!roomId) return null;
+      const alias = firstDisplayString(source.canonical_alias, source.canonicalAlias, source.alias);
+      return {
+        label: firstDisplayString(source.name, source.room_name, source.roomName, alias, roomId),
+        value: roomId,
+        status: roomId === selectedValue ? 'selected' : 'joined',
+        room_id: roomId,
+        alias,
+        source: 'matrix.joined_room',
+      };
+    })
+    .filter(Boolean);
+}
+
 export function deriveMgmtBusConsoleProjection({ matrixProjection, readRootLabel } = {}) {
   const readLabel = typeof readRootLabel === 'function' ? readRootLabel : () => undefined;
   const source = matrixProjection && typeof matrixProjection === 'object' ? matrixProjection : {};
   const selected = String(source.selected || 'trace');
-  const subjects = (Array.isArray(source.subjects) ? source.subjects : []).map((entry) => {
-    const value = String(entry?.value || '');
-    return {
-      label: String(entry?.label || value),
-      value,
-      status: value === selected ? 'selected' : 'available',
-    };
-  });
+  const hasSourceSubjects = Array.isArray(source.subjects);
+  const subjects = hasSourceSubjects
+    ? source.subjects.map((entry) => {
+      const value = sanitizeString(entry?.value || '');
+      const status = sanitizeString(entry?.status || '').trim();
+      return {
+        label: sanitizeString(entry?.label || value),
+        value,
+        status: VALID_SUBJECT_STATUSES.has(status)
+          ? status
+          : (value === sanitizeString(selected) ? 'selected' : 'available'),
+      };
+    })
+    : buildMgmtBusConsoleSubjectsFromJoinedRooms(source.joinedRooms, selected);
   const modelRoutes = MODEL_ROUTE_KEYS.map((routeKey) => (
     describeModelRoute(routeKey, readLabel(0, routeKey))
   ));
