@@ -8,6 +8,7 @@ const files = {
   readme: 'docs/user-guide/README.md',
   server: 'packages/ui-model-demo-server/server.mjs',
   assetManager: 'packages/worker-base/system-models/workspace_manager_asset_manager_ui.json',
+  syncPublicDocs: 'scripts/ops/sync_ui_public_docs.sh',
 };
 
 function read(pathname) {
@@ -70,11 +71,18 @@ function test_runtime_projection_supports_resource_uri_metadata() {
   return { key: 'runtime_projection_supports_resource_uri_metadata', status: 'PASS' };
 }
 
+function test_public_docs_sync_includes_workspace_manager_guide() {
+  const text = read(files.syncPublicDocs);
+  assertIncludes(text, 'workspace_manager_interaction_guide.md', files.syncPublicDocs);
+  return { key: 'public_docs_sync_includes_workspace_manager_guide', status: 'PASS' };
+}
+
 const tests = [
   test_guide_documents_topic_composition_contract,
   test_guide_documents_workspace_manager_asset_publication,
   test_user_guide_index_links_new_guide,
   test_runtime_projection_supports_resource_uri_metadata,
+  test_public_docs_sync_includes_workspace_manager_guide,
 ];
 
 let passed = 0;
