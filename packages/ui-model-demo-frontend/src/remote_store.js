@@ -16,6 +16,7 @@ export function createRemoteStore(options) {
   const snapshot = reactive({ models: {}, v1nConfig: { local_mqtt: null, global_mqtt: null } });
 const overlayStore = reactive(new Map());
 const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
+const UI_EVENT_ENDPOINT_PATH = '/ui_event';
 
   const EDITOR_MODEL_ID = -1;
   const EDITOR_STATE_MODEL_ID = -2;
@@ -579,7 +580,7 @@ const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
     const drafts = Array.from(pendingDraftByKey.values());
     pendingDraftByKey.clear();
     for (const env of drafts) {
-      sendQueue = sendQueue.then(() => postEnvelope(env)).then((data) => {
+      sendQueue = sendQueue.then(() => postEnvelope(env, { endpointPath: UI_EVENT_ENDPOINT_PATH })).then((data) => {
         if (data && data.result === 'error') return data;
         return data;
       }).catch(() => {

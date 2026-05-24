@@ -295,6 +295,7 @@ source: ai
 | 0390-focused-app-shell-settings | 2026-05-21 | 收敛 Android tablet shell：前台 App 专注展示、桌面简化、Dock 重定、Drawer/Dialog、Settings 与 ModelTable CRUD 内置滑动 App | 5 | dropx/dev_0390-focused-app-shell-settings | In Progress | ./docs/iterations/0390-focused-app-shell-settings/ |
 | 0391-workspace-manager-interaction-guide | 2026-05-23 | 审查 Workspace Manager topic 拼接合同，并补充开发者发布滑动 APP 索引的交互文档 | 2 | dropx/dev_0391-workspace-manager-interaction-guide | Completed | ./docs/iterations/0391-workspace-manager-interaction-guide/ |
 | 0392-workspace-manager-guide-public-docs | 2026-05-24 | 将 Workspace Manager 交互指南纳入远端公开 docs 同步，确保部署后可在 UI Server Docs 中访问 | 1 | dropx/dev_0392-workspace-manager-guide-public-docs | Completed | ./docs/iterations/0392-workspace-manager-guide-public-docs/ |
+| 0393-mgmt-bus-console-drop-channels | 2026-05-24 | 让 Mgmt Bus Console 默认使用 `drop` Matrix 身份，并展示 `drop` 已加入的所有 channel/room | 3 | dropx/dev_0393-mgmt-bus-console-drop-channels | Completed | ./docs/iterations/0393-mgmt-bus-console-drop-channels/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
