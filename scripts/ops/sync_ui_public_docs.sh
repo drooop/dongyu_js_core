@@ -21,10 +21,12 @@ mkdir -p "$DOC_DEST" "$STATIC_DEST"
 
 cp "$SOURCE_DIR/minimal_submit_app_provider_guide.md" "$DOC_DEST/minimal_submit_app_provider_guide.md"
 cp "$SOURCE_DIR/minimal_submit_app_provider_visualized.md" "$DOC_DEST/minimal_submit_app_provider_visualized.md"
+cp "$SOURCE_DIR/workspace_manager_interaction_guide.md" "$DOC_DEST/workspace_manager_interaction_guide.md"
 cp "$SOURCE_DIR/minimal_submit_app_provider_interactive.html" "$STATIC_DEST/index.html"
 cp "$SOURCE_DIR/minimal_submit_app_provider_interactive.html" "$STATIC_DEST/minimal_submit_app_provider_interactive.html"
 cp "$SOURCE_DIR/minimal_submit_app_provider_guide.md" "$STATIC_DEST/minimal_submit_app_provider_guide.md"
 cp "$SOURCE_DIR/minimal_submit_app_provider_visualized.md" "$STATIC_DEST/minimal_submit_app_provider_visualized.md"
+cp "$SOURCE_DIR/workspace_manager_interaction_guide.md" "$STATIC_DEST/workspace_manager_interaction_guide.md"
 
 echo "[sync-ui-public-docs] docs synced to: $DOC_DEST"
 echo "[sync-ui-public-docs] static project synced to: $STATIC_DEST"
