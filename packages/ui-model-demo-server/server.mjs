@@ -4640,7 +4640,14 @@ class ProgramModelEngine {
   matrixSuiteRenderRooms(rooms, selectedId) {
     return rooms
       .filter((room) => room && room.archived !== true)
-      .map((room) => `${room.id === selectedId ? '> ' : '  '}${room.kind === 'dm' ? 'DM' : 'ROOM'}  ${room.name}  unread=${Number(room.unread || 0)}`)
+      .map((room) => {
+        const marker = room.id === selectedId ? '> ' : '  ';
+        const name = String(room.name || room.alias || '').trim() || 'Unnamed room';
+        const unread = Number(room.unread || 0);
+        const visible = `${marker}${name}${unread > 0 ? ` · unread=${unread}` : ''}`;
+        const hover = `room id: ${room.id || ''}`;
+        return `${visible}\x01${hover}`;
+      })
       .join('\n');
   }
 
@@ -4882,7 +4889,7 @@ class ProgramModelEngine {
           .map((room, index) => {
             const roomId = String(room && (room.room_id || room.id) ? (room.room_id || room.id) : '').trim();
             if (!roomId) return null;
-            const name = String(room.name || room.canonical_alias || room.alias || roomId).trim() || roomId;
+            const name = String(room.name || room.canonical_alias || room.alias || '').trim() || 'Unnamed room';
             return {
               id: roomId,
               kind: room.kind === 'dm' || room.is_direct === true ? 'dm' : 'room',
