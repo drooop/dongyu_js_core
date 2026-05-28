@@ -54,7 +54,8 @@ source: ai
 | 类型 | 当前记录 | 来源 | 说明 |
 |---|---|---|---|
 | Kubernetes namespace | `dongyu` | `deploy/env/local.env.example` / `deploy/env/cloud.env.example` / `k8s/*` | 本地和 cloud manifest 当前都使用该 namespace。 |
-| Local Matrix server name | `localhost` | `deploy/env/local.env.example` / `k8s/local/synapse.yaml` | 本地 baseline 口径。 |
+| Local test Matrix homeserver | `https://matrix.dongyudigital.com` | `deploy/env/local.env.example` / `0395` | 本地测试默认通过远端 Matrix server 传输。 |
+| Local test Matrix server name | `synapse.dongyudigital.com` | `deploy/env/local.env.example` / `0395` | 本地测试默认 Matrix user id 后缀。 |
 | Cloud Matrix server name | `dongyu.local` | `deploy/env/cloud.env.example` / `0165` runlog Matrix Room | cloud baseline 口径。 |
 
 ## 6. 使用建议

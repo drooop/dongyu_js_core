@@ -114,9 +114,13 @@ echo ""
 echo "=== Step 3: Deploy infrastructure ==="
 kubectl apply -f "$REPO_DIR/k8s/local/namespace.yaml"
 kubectl apply -f "$REPO_DIR/k8s/local/mosquitto.yaml"
-kubectl apply -f "$REPO_DIR/k8s/local/synapse.yaml"
-echo "  Waiting for Synapse rollout..."
-kubectl -n "$NAMESPACE" rollout status deployment/synapse --timeout=180s
+if is_remote_matrix_homeserver; then
+  echo "  Skipping local Synapse: Matrix transport uses $(matrix_homeserver_url)"
+else
+  kubectl apply -f "$REPO_DIR/k8s/local/synapse.yaml"
+  echo "  Waiting for Synapse rollout..."
+  kubectl -n "$NAMESPACE" rollout status deployment/synapse --timeout=180s
+fi
 kubectl -n "$NAMESPACE" rollout status deployment/mosquitto --timeout=60s
 echo "  Infrastructure: OK"
 echo ""
@@ -124,10 +128,18 @@ echo ""
 # ── Initialize Synapse users & room ──────────────────────
 echo "=== Step 4: Initialize Synapse ==="
 if [ "$SKIP_IMAGE_BUILD" = "1" ] && [ -f "$GENERATED_ENV_FILE" ] && [ "$SKIP_MATRIX_BOOTSTRAP" = "0" ]; then
-  SKIP_MATRIX_BOOTSTRAP=1
+  if validate_generated_matrix_bootstrap "$GENERATED_ENV_FILE"; then
+    SKIP_MATRIX_BOOTSTRAP=1
+  else
+    echo "  Generated Matrix bootstrap does not match current homeserver; refreshing."
+  fi
 fi
 
 if [ "$SKIP_MATRIX_BOOTSTRAP" = "1" ]; then
+  if ! validate_generated_matrix_bootstrap "$GENERATED_ENV_FILE"; then
+    echo "ERROR: generated Matrix bootstrap does not match current Matrix configuration: $GENERATED_ENV_FILE" >&2
+    exit 1
+  fi
   echo "  Reusing generated Matrix bootstrap from $GENERATED_ENV_FILE"
   # shellcheck disable=SC1090
   source "$GENERATED_ENV_FILE"
@@ -146,7 +158,11 @@ if [ "$SKIP_MATRIX_BOOTSTRAP" = "1" ]; then
   echo "  Server token: ${SERVER_TOKEN:0:10}..."
   echo "  MBR token: ${MBR_TOKEN:0:10}..."
 else
-  register_synapse_users
+  if is_remote_matrix_homeserver; then
+    echo "  Using remote Matrix homeserver: $(matrix_homeserver_url)"
+  else
+    register_synapse_users
+  fi
 
   echo "  Getting access token for @${SERVER_USER}..."
   SERVER_TOKEN=$(get_matrix_token "$SERVER_USER" "$SERVER_PASSWORD")
@@ -214,7 +230,11 @@ echo ""
 
 # ── Wait for rollout ─────────────────────────────────────
 echo "=== Step 10: Wait for rollout ==="
-wait_for_rollout mosquitto synapse remote-worker workspace-manager mbr-worker ui-server
+if is_remote_matrix_homeserver; then
+  wait_for_rollout mosquitto remote-worker workspace-manager mbr-worker ui-server
+else
+  wait_for_rollout mosquitto synapse remote-worker workspace-manager mbr-worker ui-server
+fi
 echo "  Waiting for old app pods to terminate..."
 wait_for_no_terminating_pods remote-worker workspace-manager mbr-worker ui-server
 echo ""

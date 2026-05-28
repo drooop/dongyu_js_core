@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import random
+import re
 import subprocess
 import sys
 import time
@@ -25,10 +26,30 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOCAL_ENV = REPO_ROOT / "deploy" / "env" / "local.env"
 DEFAULT_GENERATED_ENV = REPO_ROOT / "deploy" / "env" / "local.generated.env"
+DEFAULT_REMOTE_HOMESERVER = "https://matrix.dongyudigital.com"
+DEFAULT_REMOTE_SERVER_NAME = "synapse.dongyudigital.com"
+ENV_EXPR_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::([?-])(.*?))?\}")
 
 
 class MatrixCheckError(RuntimeError):
     pass
+
+
+def expand_env_value(value: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        name = match.group(1)
+        op = match.group(2) or ""
+        arg = match.group(3) or ""
+        resolved = os.environ.get(name, "")
+        if resolved:
+            return resolved
+        if op == "-":
+            return arg
+        if op == "?":
+            raise MatrixCheckError(f"env_required:{name}:{arg}")
+        return ""
+
+    return ENV_EXPR_RE.sub(replace, value)
 
 
 def read_env_file(path: Path) -> dict[str, str]:
@@ -41,7 +62,7 @@ def read_env_file(path: Path) -> dict[str, str]:
             continue
         key, value = line.split("=", 1)
         key = key.strip()
-        value = value.strip().strip("'").strip('"')
+        value = expand_env_value(value.strip().strip("'").strip('"'))
         if key:
             values[key] = value
     return values
@@ -80,16 +101,24 @@ def normalize_base_url(url: str) -> str:
 
 
 def discover_homeserver(args: argparse.Namespace, env: dict[str, str]) -> str:
+    if str(args.homeserver or "").strip().lower() == "k8s":
+        return discover_k8s_homeserver(args, env)
+
     for value in [
         args.homeserver,
         env.get("MATRIX_HOMESERVER_URL", ""),
         env.get("HOMESERVER_URL", ""),
         env.get("SYNAPSE_HOMESERVER_URL", ""),
+        DEFAULT_REMOTE_HOMESERVER,
     ]:
         normalized = normalize_base_url(value)
         if normalized:
             return normalized
 
+    return discover_k8s_homeserver(args, env)
+
+
+def discover_k8s_homeserver(args: argparse.Namespace, env: dict[str, str]) -> str:
     namespace = args.namespace or env.get("NAMESPACE") or "dongyu"
     cluster_ip = run_text([
         "kubectl",
@@ -104,6 +133,14 @@ def discover_homeserver(args: argparse.Namespace, env: dict[str, str]) -> str:
     if not cluster_ip:
         raise MatrixCheckError("synapse_service_ip_missing")
     return f"http://{cluster_ip}:8008"
+
+
+def should_allow_port_forward(args: argparse.Namespace) -> bool:
+    if args.no_port_forward:
+        return False
+    if args.allow_port_forward:
+        return True
+    return str(args.homeserver or "").strip().lower() == "k8s"
 
 
 def matrix_url(base_url: str, path: str, query: dict[str, str] | None = None) -> str:
@@ -176,7 +213,7 @@ def ensure_reachable_homeserver(
 ) -> tuple[str, subprocess.Popen | None]:
     if ping_homeserver(base_url, args.timeout):
         return base_url, None
-    if args.no_port_forward:
+    if not should_allow_port_forward(args):
         raise MatrixCheckError(f"homeserver_unreachable:{base_url}")
 
     namespace = args.namespace or env.get("NAMESPACE") or "dongyu"
@@ -200,6 +237,15 @@ def user_id(localpart: str, server_name: str) -> str:
     if text.startswith("@"):
         return text
     return f"@{text}:{server_name}"
+
+
+def login_identifiers(localpart_or_user_id: str, server_name: str) -> list[str]:
+    text = str(localpart_or_user_id or "").strip()
+    if not text:
+        return []
+    if text.startswith("@"):
+        return [text]
+    return [text, user_id(text, server_name)]
 
 
 def login(base_url: str, localpart_or_user_id: str, password: str, timeout: float) -> tuple[str, str]:
@@ -237,7 +283,7 @@ def resolve_auth(
     env: dict[str, str],
     args: argparse.Namespace,
 ) -> tuple[dict[str, str], dict[str, str]]:
-    server_name = env.get("SYNAPSE_SERVER_NAME", "localhost")
+    server_name = env.get("SYNAPSE_SERVER_NAME", DEFAULT_REMOTE_SERVER_NAME)
     drop_local = args.drop_user or env.get("SERVER_USER", "drop")
     mbr_local = args.mbr_user or env.get("MBR_USER", "mbr")
     drop_user_id = user_id(drop_local, server_name)
@@ -252,7 +298,15 @@ def resolve_auth(
         except MatrixCheckError:
             drop_token = ""
     if not drop_token:
-        drop_token, drop_user_id = login(base_url, drop_user_id, env.get("SERVER_PASSWORD", ""), args.timeout)
+        last_error: MatrixCheckError | None = None
+        for identifier in login_identifiers(drop_local, server_name):
+            try:
+                drop_token, drop_user_id = login(base_url, identifier, env.get("SERVER_PASSWORD", ""), args.timeout)
+                break
+            except MatrixCheckError as exc:
+                last_error = exc
+        if not drop_token:
+            raise last_error or MatrixCheckError(f"matrix_login_failed:{drop_user_id}")
 
     if mbr_token:
         try:
@@ -260,7 +314,15 @@ def resolve_auth(
         except MatrixCheckError:
             mbr_token = ""
     if not mbr_token:
-        mbr_token, mbr_user_id = login(base_url, mbr_user_id, env.get("MBR_PASSWORD", ""), args.timeout)
+        last_error = None
+        for identifier in login_identifiers(mbr_local, server_name):
+            try:
+                mbr_token, mbr_user_id = login(base_url, identifier, env.get("MBR_PASSWORD", ""), args.timeout)
+                break
+            except MatrixCheckError as exc:
+                last_error = exc
+        if not mbr_token:
+            raise last_error or MatrixCheckError(f"matrix_login_failed:{mbr_user_id}")
 
     return (
         {"user_id": drop_user_id, "token": drop_token},
@@ -298,6 +360,62 @@ def room_display(base_url: str, token: str, room_id: str, timeout: float) -> dic
 def ensure_joined(base_url: str, token: str, room_id: str, timeout: float) -> None:
     room = urllib.parse.quote(room_id, safe="")
     http_json("POST", matrix_url(base_url, f"/join/{room}"), token=token, payload={}, timeout=timeout)
+
+
+def create_direct_room(
+    base_url: str,
+    drop_token: str,
+    mbr_token: str,
+    mbr_user_id: str,
+    timeout: float,
+) -> str:
+    _status, body = http_json(
+        "POST",
+        matrix_url(base_url, "/createRoom"),
+        token=drop_token,
+        payload={
+            "preset": "trusted_private_chat",
+            "name": "Remote Matrix Check",
+            "topic": "temporary drop to mbr verification room",
+            "invite": [mbr_user_id],
+            "is_direct": True,
+        },
+        timeout=timeout,
+    )
+    room_id = str(body.get("room_id") or "")
+    if not room_id.startswith("!"):
+        raise MatrixCheckError("create_room_missing_room_id")
+    try:
+        ensure_joined(base_url, mbr_token, room_id, timeout)
+    except MatrixCheckError:
+        pass
+    return room_id
+
+
+def room_matches_server_name(room_id: str, server_name: str) -> bool:
+    text = str(room_id or "").strip()
+    expected = str(server_name or "").strip()
+    return bool(text.startswith("!") and expected and text.endswith(f":{expected}"))
+
+
+def ensure_test_room(
+    base_url: str,
+    env: dict[str, str],
+    args: argparse.Namespace,
+    drop_auth: dict[str, str],
+    mbr_auth: dict[str, str],
+) -> str:
+    room_id = args.room_id or env.get("DY_MATRIX_ROOM_ID", "")
+    server_name = env.get("SYNAPSE_SERVER_NAME", DEFAULT_REMOTE_SERVER_NAME)
+    if room_id and room_matches_server_name(room_id, server_name):
+        return room_id
+    return create_direct_room(
+        base_url,
+        drop_auth["token"],
+        mbr_auth["token"],
+        mbr_auth["user_id"],
+        args.timeout,
+    )
 
 
 def send_text(base_url: str, token: str, room_id: str, message: str, timeout: float) -> str:
@@ -374,6 +492,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout", type=float, default=20.0, help="network/poll timeout seconds")
     parser.add_argument("--list-limit", type=int, default=30, help="number of joined channels to print; 0 means all")
     parser.add_argument("--port-forward-port", type=int, default=18008, help="fallback local port for kubectl port-forward")
+    parser.add_argument("--allow-port-forward", action="store_true", help="allow fallback kubectl port-forward for --homeserver k8s")
     parser.add_argument("--no-port-forward", action="store_true", help="do not fallback to kubectl port-forward")
     return parser.parse_args()
 
@@ -384,9 +503,7 @@ def main() -> int:
     base_url, port_forward = ensure_reachable_homeserver(discover_homeserver(args, env), args, env)
     try:
         drop_auth, mbr_auth = resolve_auth(base_url, env, args)
-        room_id = args.room_id or env.get("DY_MATRIX_ROOM_ID", "")
-        if not room_id:
-            raise MatrixCheckError("room_id_missing")
+        room_id = ensure_test_room(base_url, env, args, drop_auth, mbr_auth)
 
         drop_rooms = joined_rooms(base_url, drop_auth["token"], args.timeout)
         channel_details = [room_display(base_url, drop_auth["token"], room, args.timeout) for room in drop_rooms]
