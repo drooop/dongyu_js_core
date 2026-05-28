@@ -90,7 +90,7 @@ function test_mbr_and_remote_config_use_route_topics() {
   const subscriptions = find(records('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json'), (record) => record.k === 'remote_subscriptions')?.v || [];
   assert.equal(mbrText.includes('mbr_route_'), false, 'MBR patch must not use static mbr_route');
   assert.equal(systemText.includes('mbr_route_'), false, 'system models must not seed static mbr_route');
-  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1'), 'remote config must subscribe provider endpoint topic');
+  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/R1/3000/submit1'), 'remote config must subscribe provider endpoint topic');
   assert.equal(subscriptions.some((topic) => String(topic).includes('/1050/')), false, 'remote config must not include old 1050 topics');
   return { key: 'mbr_and_remote_config_use_route_topics', status: 'PASS' };
 }

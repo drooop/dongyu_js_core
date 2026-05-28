@@ -58,7 +58,7 @@ function requestPayload() {
     mt('__mt_request_id', 'str', '0377_wm_refresh'),
     mt('op_id', 'str', '0377_wm_refresh'),
     mt('message_role', 'str', 'request'),
-    mt('topic', 'str', 'UIPUT/ws/dam/pic/de/sw/WM1/4000/refresh'),
+    mt('topic', 'str', 'UIPUT/ws/dam/pic/de/WM1/4000/refresh'),
     mt('route_kind', 'str', 'control'),
     mt('bus', 'str', 'control'),
     mt('endpoint_worker_id', 'str', 'WM1'),
@@ -141,7 +141,7 @@ function test_workspace_manager_dem_patch_identity_and_bus_pins() {
   const systemSubscriptions = records.filter((item) => item.model_id === -10 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === 'remote_subscriptions');
   assert.equal(systemSubscriptions.length, 1, 'workspace manager runner reads remote_subscriptions from system model -10');
   assert.deepEqual(systemSubscriptions[0].v, [
-    'UIPUT/ws/dam/pic/de/sw/WM1/4000/refresh',
+    'UIPUT/ws/dam/pic/de/WM1/4000/refresh',
   ], 'system model remote_subscriptions must contain the Workspace Manager endpoint topic');
   assert.equal(byKey.get('wm_cb_in')?.t, 'pin.bus.cb.in', 'DEM must expose control bus input');
   assert.equal(byKey.get('wm_cb_out')?.t, 'pin.bus.cb.out', 'DEM must expose control bus output');
@@ -204,7 +204,7 @@ async function test_workspace_manager_control_bus_out_publishes_to_payload_topic
   await wait();
   const { mqttPublished, mgmtPublished } = drainWorkerEngine(rt);
   assert.equal(mqttPublished.length, 1, 'worker engine must publish one control-bus response');
-  assert.equal(mqttPublished[0].topic, 'UIPUT/ws/dam/pic/de/sw/WM1/4000/refresh', 'publish topic must come from payload topic');
+  assert.equal(mqttPublished[0].topic, 'UIPUT/ws/dam/pic/de/WM1/4000/refresh', 'publish topic must come from payload topic');
   assert.equal(mgmtPublished.length, 0, 'control refresh must not publish management bus event');
   return { key: 'workspace_manager_control_bus_out_publishes_to_payload_topic', status: 'PASS' };
 }
@@ -218,14 +218,14 @@ async function test_workspace_manager_runtime_accepts_endpoint_topic_via_model0_
   rt.startMqttLoop({ transport: 'mock' });
   rt.setRuntimeMode('running');
   const packet = { version: 'v1', type: 'pin_payload', payload: requestPayload() };
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/WM1/4000/refresh', packet);
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/WM1/4000/refresh', packet);
   await wait();
   assert.equal(accepted, true, 'workspace-manager runtime must accept WM1/4000/refresh endpoint topic');
   assert.equal(model0.getCell(0, 0, 0).labels.get('wm_cb_in')?.t, 'pin.bus.cb.in', 'endpoint topic must first enter Model 0 control-bus boundary');
   assert.deepEqual(model0.getCell(0, 0, 0).labels.get('wm_cb_in')?.v, packet.payload, 'Model 0 control-bus boundary must receive the strict pin payload records');
   const service = rt.getModel(4000);
   assert.equal(service.getCell(0, 0, 0).labels.get('refresh')?.t, 'pin.in', 'Model 0 wm_cb_in route must deliver to model 4000 refresh pin');
-  const publish = rt.mqttTrace.list().find((entry) => entry.type === 'publish' && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/WM1/4000/refresh');
+  const publish = rt.mqttTrace.list().find((entry) => entry.type === 'publish' && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/WM1/4000/refresh');
   assert.ok(publish, 'workspace-manager response must publish on the payload topic');
   assert.equal(publish.payload?.payload?.type, 'pin_payload', 'published response must use strict pin_payload packet');
   return { key: 'workspace_manager_runtime_accepts_endpoint_topic_via_model0_boundary', status: 'PASS' };

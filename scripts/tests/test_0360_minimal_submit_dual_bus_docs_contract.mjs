@@ -162,7 +162,7 @@ function test_model0_mbr_remote_worker_contract_is_complete() {
   assert.equal(systemRecords.some((record) => String(record.k || '').startsWith('mbr_route_')), false, 'system models must not seed static MBR routes');
   assert.equal(mbrRecords.some((record) => record.k === 'mbr_mqtt_model_ids'), false, 'MBR must not use static MQTT model id list');
   assert.ok(readText('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json').includes('endpoint_worker_id'), 'MBR function must derive destination from endpoint records');
-  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1'), 'remote-worker must subscribe provider submit1 endpoint topic');
+  assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/R1/3000/submit1'), 'remote-worker must subscribe provider submit1 endpoint topic');
   assert.equal(subscriptions.some((topic) => String(topic).includes('/1050/')), false, 'remote-worker must not subscribe old 1050 topics');
   return { key: 'model0_mbr_remote_worker_contract_is_complete', status: 'PASS' };
 }

@@ -197,9 +197,9 @@ V1N.addLabel('submit', 'pin.out', payload);
 MBR Worker 监听 Matrix room 的消息，解析 `pin_payload.v1` Temporary ModelTable records，然后：
 1. 读取消息内 `topic` record
 2. 校验 `message_role=request` 和可选 `route_kind`
-3. 校验 topic 正好是 `UIPUT/<ws>/<dam>/<pic>/<de>/<sw>/<worker_id>/<model_id>/<pin>`
+3. 校验 topic 正好是 `UIPUT/<ws>/<dam>/<pic>/<de>/<worker_id>/<model_id>/<pin>`
 4. 发布到 MQTT broker；默认控制总线转控制总线，显式 `route_kind=management` 才转管理总线
-5. remote-worker 通过 `pin.bus.cb.in` / root route 接收；remote-worker 回包时仍发布到同一个 endpoint topic，但 `message_role=response`
+5. remote-worker 通过 `pin.bus.cb.in` / root route 接收；remote-worker 回包时发布到 request payload 中的 `response_topic`，且 `message_role=response`
 
 **现行 product path 约束**：
 - Matrix / MQTT bootstrap 只从 Model 0 `(0,0,0)` 读取，不再使用 `mbr_matrix_room_id` / `mbr_mqtt_host` 这类负数模型旧 transport config。
@@ -207,8 +207,8 @@ MBR Worker 监听 Matrix room 的消息，解析 `pin_payload.v1` Temporary Mode
 - `mbr_route_<source_model_id>` 不再是当前规约输入面，也不得作为兼容兜底恢复。
 - `runtime_mode=edit` 时，MBR 可以建立 Matrix/MQTT 连接，但入站 Matrix/MQTT 消息必须直接丢弃，不得先写 inbox 再等到 `running` 后补处理。
 - 当前 canonical 业务桥接是 endpoint-addressed `pin_payload.v1`：
-  - Control bus packet -> MBR -> MQTT `UIPUT/<ws>/<dam>/<pic>/<de>/<sw>/<worker_id>/<model_id>/<pin>`
-  - MQTT control bus result -> MBR -> control bus packet -> owner materialization
+  - Control bus packet -> MBR -> MQTT `UIPUT/<ws>/<dam>/<pic>/<de>/<worker_id>/<model_id>/<pin>`
+  - MQTT control bus response topic -> MBR / UI Server control bus packet -> owner materialization
 
 ## 疏通检查清单
 

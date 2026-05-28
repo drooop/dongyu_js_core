@@ -21,11 +21,15 @@ function withoutRecords(records, keys) {
 }
 
 function pinPayload({ requestId = 'req_0364', messageRole = 'request', workerId = 'R1', modelId = 3000, pin = 'submit', nested = payload() } = {}) {
+  const topic = `UIPUT/ws/dam/pic/de/${workerId}/${modelId}/${pin}`;
+  const responseTopic = 'UIPUT/ws/dam/pic/de/ui-server-test/100/result';
   const records = [
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', requestId),
     mt('op_id', 'str', requestId),
     mt('message_role', 'str', messageRole),
+    mt('topic', 'str', topic),
+    mt('response_topic', 'str', responseTopic),
     mt('endpoint_worker_id', 'str', workerId),
     mt('endpoint_model_id', 'int', modelId),
     mt('endpoint_pin', 'str', pin),
@@ -42,10 +46,15 @@ function pinPayload({ requestId = 'req_0364', messageRole = 'request', workerId 
 }
 
 function busSendPayload({ bus = null, requestId = 'req_bus_send_0364', busOutKey = 'submit_bus', pin = 'submit', messageRole = 'request' } = {}) {
+  const topic = `UIPUT/ws/dam/pic/de/R1/3000/${pin}`;
+  const responseTopic = 'UIPUT/ws/dam/pic/de/ui-server-test/100/result';
   const records = [
     mt('__mt_payload_kind', 'str', 'bus_send.v1'),
     mt('__mt_request_id', 'str', requestId),
     mt('message_role', 'str', messageRole),
+    mt('topic', 'str', topic),
+    mt('response_topic', 'str', responseTopic),
+    mt('route_kind', 'str', bus || 'control'),
     mt('endpoint_worker_id', 'str', 'R1'),
     mt('endpoint_model_id', 'int', 3000),
     mt('endpoint_pin', 'str', pin),

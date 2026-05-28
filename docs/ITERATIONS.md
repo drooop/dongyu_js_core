@@ -298,6 +298,7 @@ source: ai
 | 0393-mgmt-bus-console-drop-channels | 2026-05-24 | 让 Mgmt Bus Console 默认使用 `drop` Matrix 身份，并展示 `drop` 已加入的所有 channel/room | 3 | dropx/dev_0393-mgmt-bus-console-drop-channels | Completed | ./docs/iterations/0393-mgmt-bus-console-drop-channels/ |
 | 0394-matrix-connection-check-script | 2026-05-26 | 新增 Python Matrix 连接检查脚本，验证 drop 到 mbr 的 channel 列表、发送和接收 | 1 | dropx/dev_0394-matrix-connection-check | Completed | ./docs/iterations/0394-matrix-connection-check-script/ |
 | 0395-local-tests-remote-matrix-default | 2026-05-26 | 将本地测试与本地部署默认 Matrix 传输切到远端 `matrix.dongyudigital.com`，避免继续默认使用本地 Synapse | 3 | dropx/dev_0395-local-tests-remote-matrix | Completed | ./docs/iterations/0395-local-tests-remote-matrix-default/ |
+| 0396-dual-topic-submit-response | 2026-05-28 | 修正双总线 endpoint topic：移除冗余 `/sw/` 段，并把 submit request 与 response 拆成两个 topic | 4 | dropx/dev_0396-dual-topic-submit-response | Approved | ./docs/iterations/0396-dual-topic-submit-response/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

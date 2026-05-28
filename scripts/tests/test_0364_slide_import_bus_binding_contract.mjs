@@ -88,7 +88,7 @@ async function test_import_generates_host_owned_binding_and_split_bus_pins() {
         worker_id: 'R1',
         model_id: 3000,
         pin: 'submit1',
-        topic: 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1',
+        topic: 'UIPUT/ws/dam/pic/de/R1/3000/submit1',
       },
       reply_pin: 'result',
       owned_by: 'ui-server-installer',

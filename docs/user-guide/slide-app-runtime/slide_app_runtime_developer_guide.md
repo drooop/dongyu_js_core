@@ -215,12 +215,12 @@ Workspace Manager 的安装按钮不再从 UI Server 本地模型复制 `source_
 点击安装时，UI Server 会：
 
 1. 只接受目录中的 canonical row，拒绝前端伪造 row。
-2. 从 Model 0 `mqtt_topic_base` 计算请求 topic：`UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<sw_id>/<provider_worker_id>/<provider_model_id>/<provider_bundle_pin>`。
+2. 从 Model 0 `mqtt_topic_base` 计算请求 topic：`UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<provider_worker_id>/<provider_model_id>/<provider_bundle_pin>`，并从 `reply_target_*` 计算 `response_topic`。
 3. 经 Model 0 bus out 发送 `pin_payload.v1 message_role=request`。
 4. nested `payload` 写成 `slide_app_bundle_request.v1`，至少包含 `asset_id`。
 5. 在本地记录 pending install state：`op_id`、`asset_id`、provider endpoint、computed topic、`route_kind`、`reply_target`。
 
-provider 返回时必须使用同一个 endpoint topic，并把 nested `payload` 写成 `slide_app_bundle_response.v1`：
+provider 返回时必须把 response packet 的 `topic` 改为 request 中的 `response_topic`，并把 nested `payload` 写成 `slide_app_bundle_response.v1`：
 
 | label | 类型 | 说明 |
 |---|---|---|

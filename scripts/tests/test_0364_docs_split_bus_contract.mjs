@@ -87,7 +87,7 @@ function test_ssot_freezes_0364_as_current_contract() {
     assertNotIncludes(text, 'current window', name);
     assertNotIncludes(text, 'current migration surface', name);
   }
-  assertIncludes(runtime, 'bus_event_v2 -> Model 0 (0,0,0) pin.bus.mb.in', 'runtime_semantics');
+  assertIncludes(runtime, 'bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in', 'runtime_semantics');
   assertIncludes(payload, 'pin.bus.cb.in` / `pin.bus.cb.out` / `pin.bus.mb.in` / `pin.bus.mb.out', 'temporary_modeltable_payload');
   return { key: 'ssot_freezes_0364_as_current_contract', status: 'PASS' };
 }
@@ -113,14 +113,14 @@ function test_provider_import_docs_forbid_all_host_owned_bus_surface() {
 }
 
 function test_public_guides_use_canonical_worker_topic_shape() {
-  const canonicalTopic = 'UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<sw_id>/<worker_id>/<model_id>/<pin>';
-  const wrongTopic = 'UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<sw_id>/worker/<worker_id>/model/<model_id>/pin/<pin>';
+  const canonicalTopic = 'UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<worker_id>/<model_id>/<pin>';
+  const wrongTopic = 'UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/worker/<worker_id>/model/<model_id>/pin/<pin>';
   const runtime = read('docs/ssot/runtime_semantics_modeltable_driven.md');
   const userGuide = read('docs/user-guide/modeltable_user_guide.md');
 
   assertIncludes(runtime, canonicalTopic, 'runtime_semantics');
   assertIncludes(userGuide, canonicalTopic, 'modeltable_user_guide');
-  assert.match(runtime, /旧格式 `UIPUT\/\.\.\.\/worker\/<worker_id>\/model\/<model_id>\/pin\/<pin>`.*必须 fail closed/u, 'runtime_semantics must mention old topic only as forbidden');
+  assert.match(runtime, /旧.*`UIPUT\/\.\.\.\/worker\/<worker_id>\/model\/<model_id>\/pin\/<pin>`.*必须 fail closed/u, 'runtime_semantics must mention old topic only as forbidden');
   assert.match(userGuide, /旧的 `UIPUT\/\.\.\.\/worker\/<worker_id>\/model\/<model_id>\/pin\/<pin>`/u, 'modeltable_user_guide must mention old topic only as forbidden');
   return { key: 'public_guides_use_canonical_worker_topic_shape', status: 'PASS' };
 }

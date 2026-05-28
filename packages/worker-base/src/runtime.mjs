@@ -978,6 +978,7 @@ class ModelTableRuntime {
     const busLabel = this._payloadLabel(payload, 'bus');
     const routeKindLabel = this._payloadLabel(payload, 'route_kind');
     const topicLabel = this._payloadLabel(payload, 'topic');
+    const responseTopicLabel = this._payloadLabel(payload, 'response_topic');
     const messageRoleLabel = this._payloadLabel(payload, 'message_role');
     for (const key of ['source_model_id', 'pin', 'route', 'reply_to', 'route.reply_to', 'return_topic', 'returnTopic', 'result_topic']) {
       if (this._payloadLabel(payload, key)) {
@@ -1003,6 +1004,9 @@ class ModelTableRuntime {
     const topic = topicLabel && topicLabel.t === 'str' && typeof topicLabel.v === 'string'
       ? topicLabel.v.trim()
       : '';
+    const responseTopic = responseTopicLabel && responseTopicLabel.t === 'str' && typeof responseTopicLabel.v === 'string'
+      ? responseTopicLabel.v.trim()
+      : '';
     const messageRole = messageRoleLabel && messageRoleLabel.t === 'str' && typeof messageRoleLabel.v === 'string'
       ? messageRoleLabel.v
       : '';
@@ -1024,6 +1028,16 @@ class ModelTableRuntime {
     if (!this._isValidPayloadTopic(topic)) {
       return { ok: false, code: 'invalid_topic', requestId };
     }
+    const topicContractError = this._validatePinPayloadTopicContract({
+      messageRole,
+      topic,
+      responseTopic,
+      endpoint,
+      replyTarget,
+    });
+    if (topicContractError) {
+      return { ok: false, code: topicContractError, requestId };
+    }
     return {
       ok: true,
       requestId,
@@ -1035,6 +1049,7 @@ class ModelTableRuntime {
       bus,
       routeKind,
       topic,
+      responseTopic,
       messageRole,
     };
   }
@@ -1055,7 +1070,7 @@ class ModelTableRuntime {
   _isValidUnifiedTopicBase(value) {
     if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
     const parts = value.split('/');
-    return parts.length === 6
+    return parts.length === 5
       && parts[0] === 'UIPUT'
       && parts.every((part) => this._isSafePinRouteSegment(part));
   }
@@ -1063,10 +1078,62 @@ class ModelTableRuntime {
   _isValidPayloadTopic(value) {
     if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
     const parts = value.split('/');
-    return parts.length === 9
+    return parts.length === 8
       && parts[0] === 'UIPUT'
       && parts.every((part) => this._isSafePinRouteSegment(part))
-      && this._isCanonicalPositiveIntSegment(parts[7]);
+      && this._isCanonicalPositiveIntSegment(parts[6]);
+  }
+
+  _payloadTopicParts(value) {
+    if (!this._isValidPayloadTopic(value)) return null;
+    const parts = value.split('/');
+    return {
+      base: parts.slice(0, 5).join('/'),
+      endpoint: {
+        worker_id: parts[5],
+        model_id: Number(parts[6]),
+        pin: parts[7],
+      },
+    };
+  }
+
+  _topicForEndpointFromBase(base, endpoint) {
+    if (!this._isValidUnifiedTopicBase(base) || !endpoint) return '';
+    if (!this._isSafePinRouteSegment(endpoint.worker_id)) return '';
+    if (!Number.isInteger(endpoint.model_id) || endpoint.model_id <= 0) return '';
+    if (!this._isSafePinRouteSegment(endpoint.pin)) return '';
+    return `${base}/${endpoint.worker_id}/${endpoint.model_id}/${endpoint.pin}`;
+  }
+
+  _endpointMatches(left, right) {
+    return Boolean(left && right
+      && left.worker_id === right.worker_id
+      && left.model_id === right.model_id
+      && left.pin === right.pin);
+  }
+
+  _validatePinPayloadTopicContract({ messageRole, topic, responseTopic, endpoint, replyTarget }) {
+    const topicParts = this._payloadTopicParts(topic);
+    if (!topicParts) return 'invalid_topic';
+    const responseTopicParts = this._payloadTopicParts(responseTopic);
+    if (!responseTopicParts) return 'invalid_response_topic';
+    if (responseTopicParts.base !== topicParts.base) return 'response_topic_mismatch';
+    const expectedResponseTopic = this._topicForEndpointFromBase(topicParts.base, replyTarget);
+    if (!expectedResponseTopic || responseTopic !== expectedResponseTopic) {
+      return 'response_topic_mismatch';
+    }
+    if (messageRole === 'request') {
+      if (topic === responseTopic) return 'response_topic_mismatch';
+      if (!this._endpointMatches(topicParts.endpoint, endpoint)) return 'endpoint_mismatch';
+      return null;
+    }
+    if (messageRole === 'response') {
+      if (topic !== responseTopic) return 'response_topic_mismatch';
+      if (!this._endpointMatches(endpoint, replyTarget)) return 'endpoint_mismatch';
+      if (!this._endpointMatches(topicParts.endpoint, replyTarget)) return 'endpoint_mismatch';
+      return null;
+    }
+    return 'invalid_message_role';
   }
 
   _endpointFromPayloadRecords(payload, prefix) {
@@ -1169,6 +1236,7 @@ class ModelTableRuntime {
       'op_id',
       'message_role',
       'topic',
+      'response_topic',
       'endpoint_worker_id',
       'endpoint_pin',
       'origin_worker_id',
@@ -1187,6 +1255,7 @@ class ModelTableRuntime {
       'bus',
       'route_kind',
       'topic',
+      'response_topic',
     ]);
     if (this._hasDuplicatePayloadRecordKeys(value, metadataKeys)) {
       return { ok: false, code: 'invalid_pin_payload_records' };
@@ -1213,6 +1282,10 @@ class ModelTableRuntime {
     if (!this._isValidPayloadTopic(topic)) {
       return { ok: false, code: 'invalid_topic' };
     }
+    const responseTopic = this._payloadString(value, 'response_topic');
+    if (!this._isValidPayloadTopic(responseTopic)) {
+      return { ok: false, code: 'invalid_response_topic' };
+    }
     const routeKindLabel = this._payloadLabel(value, 'route_kind');
     const routeKind = this._payloadString(value, 'route_kind') || 'control';
     if (routeKindLabel && (routeKindLabel.t !== 'str' || (routeKind !== 'control' && routeKind !== 'management'))) {
@@ -1226,6 +1299,16 @@ class ModelTableRuntime {
     const replyTarget = this._endpointFromPayloadRecords(value, 'reply_target');
     if (!endpoint || !origin || !replyTarget) {
       return { ok: false, code: 'invalid_pin_payload_records' };
+    }
+    const topicContractError = this._validatePinPayloadTopicContract({
+      messageRole,
+      topic,
+      responseTopic,
+      endpoint,
+      replyTarget,
+    });
+    if (topicContractError) {
+      return { ok: false, code: topicContractError };
     }
     const nestedPayloadLabel = this._payloadLabel(value, 'payload');
     const nestedPayload = nestedPayloadLabel && nestedPayloadLabel.t === 'json' ? nestedPayloadLabel.v : null;
@@ -1242,10 +1325,10 @@ class ModelTableRuntime {
         return { ok: false, code: 'endpoint_mismatch' };
       }
     }
-    return { ok: true, endpoint, origin, replyTarget, nestedPayload, messageRole, topic, routeKind };
+    return { ok: true, endpoint, origin, replyTarget, nestedPayload, messageRole, topic, responseTopic, routeKind };
   }
 
-  _buildPinPayloadValue({ opId, payload, timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null, messageRole = 'request', topic = '', routeKind = null, bus = null }) {
+  _buildPinPayloadValue({ opId, payload, timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null, messageRole = 'request', topic = '', responseTopic = '', routeKind = null, bus = null }) {
     const requestId = opId || `pin_payload_${Date.now()}`;
     const records = [
       this._mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
@@ -1265,6 +1348,7 @@ class ModelTableRuntime {
       this._mtPayloadRecord('timestamp', 'int', timestamp),
     ];
     if (typeof topic === 'string' && topic) records.push(this._mtPayloadRecord('topic', 'str', topic));
+    if (typeof responseTopic === 'string' && responseTopic) records.push(this._mtPayloadRecord('response_topic', 'str', responseTopic));
     if (typeof routeKind === 'string' && routeKind) records.push(this._mtPayloadRecord('route_kind', 'str', routeKind));
     if (typeof bus === 'string' && bus) records.push(this._mtPayloadRecord('bus', 'str', bus));
     return records;
@@ -1457,6 +1541,7 @@ class ModelTableRuntime {
       replyTarget: parsed.replyTarget,
       messageRole: parsed.messageRole,
       topic: parsed.topic,
+      responseTopic: parsed.responseTopic,
       routeKind: parsed.routeKind,
       bus: parsed.bus,
     });

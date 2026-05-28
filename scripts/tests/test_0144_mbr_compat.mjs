@@ -141,7 +141,7 @@ function test_mbr_mgmt_to_mqtt_execute_model100() {
   assertStrictPacket(packet, 'control bus out');
   const published = drainMqtt(rt);
   assert.equal(published.length, 1, 'control bus out must publish once through engine');
-  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/100/submit');
+  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/R1/100/submit');
   assertStrictPacket(published[0].payload, 'published payload');
   assert.equal(payloadValue(published[0].payload.payload, 'message_role'), 'request');
   assert.equal(payloadValue(published[0].payload.payload, 'endpoint_worker_id'), 'R1');
@@ -169,7 +169,7 @@ function test_mbr_mqtt_to_mgmt_execute() {
     replyTargetPin: 'result',
     payloadRecords: [{ id: 0, p: 0, r: 0, c: 0, k: 'bg_color', t: 'str', v: '#FF0000' }],
   }));
-  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mqtt_inbox', t: 'json', v: { topic: 'UIPUT/ws/dam/pic/de/sw/R1/100/submit', payload: busPacket } });
+  rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mqtt_inbox', t: 'json', v: { topic: 'UIPUT/ws/dam/pic/de/R1/100/submit', payload: busPacket } });
   runMbrFunction(rt, 'mbr_mqtt_to_mgmt');
   const packet = toExternalPacket(rt, 'mbr_mb_out');
   assertStrictPacket(packet, 'management bus out');

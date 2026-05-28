@@ -331,10 +331,10 @@ v1 只允许声明远端默认目标：
 - `to.model_id` 是远端提供方 worker 内部的 provider model id。
 - `route_kind` 可省略，省略等同 `"control"`；只允许 `"control"` 或 `"management"`。`"control"` 表示 UI Server 直接写 `pin.bus.cb.out`；`"management"` 表示 UI Server 写 `pin.bus.mb.out`，由 MBR 再按 payload `topic` 转为目标控制总线。
 - `to.pin` 不写在 `remote_bus_endpoint_v1` 中；运行时必须由触发动作的公开 pin 名补齐，例如 `submit1`。
-- UI Server 运行时必须把消息方向、transport topic、总线路径、endpoint / origin / reply target 写成 Temporary ModelTable record array 中的 metadata records，例如 `message_role`、`topic`、`bus`、`route_kind`、`endpoint_worker_id`、`endpoint_model_id`、`endpoint_pin`、`origin_worker_id`、`origin_model_id`、`reply_target_worker_id`、`reply_target_model_id`、`reply_target_pin`。
+- UI Server 运行时必须把消息方向、transport topic、response topic、总线路径、endpoint / origin / reply target 写成 Temporary ModelTable record array 中的 metadata records，例如 `message_role`、`topic`、`response_topic`、`bus`、`route_kind`、`endpoint_worker_id`、`endpoint_model_id`、`endpoint_pin`、`origin_worker_id`、`origin_model_id`、`reply_target_worker_id`、`reply_target_model_id`、`reply_target_pin`。
 - `route.reply_to`、`return_topic`、`returnTopic`、`result_topic` 与旧 result topic 不允许由 ZIP / imported records 提供或覆盖；它们不是当前输入面。
 - MBR 不得要求为每个 imported app 写入静态 per-app route label；跨 worker transport 目的地只能来自运行时消息 payload records 中的 `topic` record。
-- 唯一合法 endpoint topic 形态是 `UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<sw_id>/<worker_id>/<model_id>/<pin>`。旧 `worker/<worker_id>/model/<model_id>/pin/<pin>` 与旧 `<model_id>/<pin>` 形态必须失败。
+- 唯一合法 endpoint topic 形态是 `UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<worker_id>/<model_id>/<pin>`。含冗余 software-worker 段的旧 topic、旧 `worker/<worker_id>/model/<model_id>/pin/<pin>` 与旧 `<model_id>/<pin>` 形态必须失败。
 
 与之配套的 `dual_bus_model` 必须显式列出可外发的公开 pin：
 
@@ -367,13 +367,13 @@ value 必须至少包含：
 - `host_cell`: 目标为 `[0,0,0]`。
 - `host_pin_type`: 必须是 `pin.bus.mb.out` 或 `pin.bus.cb.out`。
 - `host_pin_key`: 宿主生成的系统总线出口 key。
-- `target`: `{ transport, route_kind, worker_id, model_id, pin, topic }`，由 `remote_bus_endpoint_v1`、当前公开出口 pin 与 Model 0 `mqtt_topic_base` 合成；`topic` 是 MBR 转发 truth，不包含 return topic。
+- `target`: `{ transport, route_kind, worker_id, model_id, pin, topic, response_topic }`，由 `remote_bus_endpoint_v1`、当前公开出口 pin、`reply_pin` 与 Model 0 `mqtt_topic_base` 合成；`topic` 是请求投递 truth，`response_topic` 是回包投递 truth。
 - `reply_pin`: 回包进入本地 imported app 的公开 pin。
 - `owned_by`: 必须是 `"ui-server-installer"`。
 
 约束：
 
 - `ui.egress.binding.v1` 只能描述安装后的接线事实；不能授权 UI 绕过 pin route 直接发 bus 消息。
-- `ui.egress.binding.v1` 不能包含 `route.reply_to`、`return_topic`、`returnTopic`、`result_topic` 或旧 result topic。安装器生成消息时，必须把 `message_role=request` 和本地回写目标写入 Temporary ModelTable payload records。
+- `ui.egress.binding.v1` 不能包含 `route.reply_to`、`return_topic`、`returnTopic`、`result_topic` 或旧 result topic。安装器生成消息时，必须把 `message_role=request`、`response_topic` 和本地回写目标写入 Temporary ModelTable payload records。
 - 若 binding 存在但对应 `pin.connect.*` 或系统总线出口缺失，安装状态必须判为不完整。
 - 删除 imported app 时，宿主必须同步删除 binding 记录。

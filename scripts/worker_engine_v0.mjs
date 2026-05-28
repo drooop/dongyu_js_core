@@ -46,7 +46,7 @@ function isSafeTopicSegment(value) {
 function isValidUnifiedTopicBase(value) {
   if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
   const parts = value.split('/');
-  return parts.length === 6
+  return parts.length === 5
     && parts[0] === 'UIPUT'
     && parts.every((part) => isSafeTopicSegment(part));
 }
@@ -54,10 +54,10 @@ function isValidUnifiedTopicBase(value) {
 function isValidPayloadTopic(value) {
   if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
   const parts = value.split('/');
-  return parts.length === 9
+  return parts.length === 8
     && parts[0] === 'UIPUT'
     && parts.every((part) => isSafeTopicSegment(part))
-    && /^[1-9][0-9]*$/.test(parts[7]);
+    && /^[1-9][0-9]*$/.test(parts[6]);
 }
 
 function payloadRecord(payload, key) {

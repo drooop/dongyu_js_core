@@ -131,7 +131,7 @@ function test_model100_pin_payload_writes_control_bus_out() {
   assertStrictPacket(packet, 'control bus out');
   const published = drainMqtt(rt);
   assert.equal(published.length, 1);
-  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/100/submit');
+  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/R1/100/submit');
   assertStrictPacket(published[0].payload, 'published payload');
   assert.equal(payloadValue(published[0].payload.payload, 'endpoint_worker_id'), 'R1');
   assert.equal(payloadValue(published[0].payload.payload, 'endpoint_model_id'), 100);

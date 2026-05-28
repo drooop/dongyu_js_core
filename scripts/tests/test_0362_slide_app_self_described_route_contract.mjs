@@ -31,6 +31,15 @@ function payloadValue(packet, key) {
   return Array.isArray(packet?.payload) ? packet.payload.find((record) => record && record.k === key)?.v : undefined;
 }
 
+function controlBusPackets(state) {
+  const model0 = state.runtime.getModel(0);
+  const root = model0 ? state.runtime.getCell(model0, 0, 0, 0) : null;
+  if (!root) return [];
+  return Array.from(root.labels.values())
+    .filter((label) => label && label.t === 'pin.bus.cb.out' && Array.isArray(label.v))
+    .map((label) => ({ version: 'v1', type: 'pin_payload', payload: label.v }));
+}
+
 function buildNamedZipBuffer(entries) {
   const zip = new AdmZip();
   for (const entry of entries) {
@@ -106,8 +115,8 @@ function test_user_docs_explain_provider_local_identity_split_and_re_wiring() {
     assertIncludes(text, 'submit1', name);
     assertIncludes(text, '3000', name);
     assertIncludes(text, '2000', name);
-    assert.equal(text.includes('UIPUT/ws/dam/pic/de/sw/1050/submit'), false, `${name}_must_not_teach_old_local_id_submit_topic`);
-    assert.equal(text.includes('UIPUT/ws/dam/pic/de/sw/1050/result'), false, `${name}_must_not_teach_old_local_id_result_topic`);
+    assert.equal(text.includes('UIPUT/ws/dam/pic/de/1050/submit'), false, `${name}_must_not_teach_old_local_id_submit_topic`);
+    assert.equal(text.includes('UIPUT/ws/dam/pic/de/1050/result'), false, `${name}_must_not_teach_old_local_id_result_topic`);
     assert.equal(text.includes('bus_event_submit_1050_0_0_0'), false, `${name}_must_not_teach_old_fixed_bus_event_key`);
     assert.equal(text.includes('on_minimal_submit_matrix_remote_submit'), false, `${name}_must_not_teach_old_single_cell_remote_handler`);
   }
@@ -291,14 +300,6 @@ async function test_seeded_minimal_submit_app_materializes_server_owned_route() 
     await withServerState(async (state) => {
       const model = state.runtime.getModel(1050);
       assert.ok(model, 'seeded_minimal_model_1050_must_exist');
-      const published = [];
-      state.programEngine.matrixAdapter = {
-        publish: async (packet) => {
-          published.push(packet);
-        },
-      };
-      state.programEngine.matrixRoomId = '!seeded-minimal:localhost';
-      state.programEngine.matrixDmPeerUserId = '@mbr:localhost';
       state.runtime.addLabel(model, 0, 0, 0, {
         k: 'submit1',
         t: 'pin.out',
@@ -309,6 +310,7 @@ async function test_seeded_minimal_submit_app_materializes_server_owned_route() 
       });
       await state.programEngine.tick();
       await new Promise((resolve) => setTimeout(resolve, 450));
+      const published = controlBusPackets(state).filter((packet) => payloadValue(packet, 'origin_model_id') === 1050);
       assert.equal(published.length, 1, 'seeded_minimal_app_must_publish_once_through_generated_adapter');
       assert.deepEqual(Object.keys(published[0]).sort(), ['payload', 'type', 'version'], 'seeded_minimal_app_packet_must_not_keep_loose_fields');
       assert.equal(payloadValue(published[0], 'origin_pin'), 'submit1', 'seeded_minimal_app_must_publish_public_pin');
@@ -334,14 +336,6 @@ async function test_all_seeded_dual_bus_apps_materialize_server_owned_routes() {
   process.env.DY_UI_SERVER_WORKER_ID = 'ui-server-0362-all-seed';
   try {
     await withServerState(async (state) => {
-      const published = [];
-      state.programEngine.matrixAdapter = {
-        publish: async (packet) => {
-          published.push(packet);
-        },
-      };
-      state.programEngine.matrixRoomId = '!seeded-dual-bus:localhost';
-      state.programEngine.matrixDmPeerUserId = '@mbr:localhost';
       for (const modelId of [100, 1010, 1019]) {
         const model = state.runtime.getModel(modelId);
         assert.ok(model, `seeded_model_${modelId}_must_exist`);
@@ -357,7 +351,7 @@ async function test_all_seeded_dual_bus_apps_materialize_server_owned_routes() {
         await new Promise((resolve) => setTimeout(resolve, 120));
       }
 
-      const byModel = new Map(published.map((packet) => [payloadValue(packet, 'origin_model_id'), packet]));
+      const byModel = new Map(controlBusPackets(state).map((packet) => [payloadValue(packet, 'origin_model_id'), packet]));
       for (const modelId of [100, 1010, 1019]) {
         const packet = byModel.get(modelId);
         assert.ok(packet, `model_${modelId}_must_publish_through_generated_adapter`);

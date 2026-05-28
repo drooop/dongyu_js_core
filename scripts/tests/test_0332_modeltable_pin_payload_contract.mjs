@@ -67,7 +67,7 @@ function busSendPayload({
   busOutKey = 'model100_submit_bus',
   payload = [mt('message_text', 'str', 'hello_bus')],
   requestId = 'req_bus_send_0332',
-  topic = `UIPUT/ws/dam/pic/de/sw/R1/3000/${pin}`,
+  topic = `UIPUT/ws/dam/pic/de/R1/3000/${pin}`,
   routeKind = 'control',
 } = {}) {
   return [
@@ -502,7 +502,7 @@ async function test_mt_bus_send_uses_temporary_payload_and_externalizes_bus_out(
   await rt.setRuntimeMode('edit');
   const model0 = rt.getModel(0);
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'ui-server-test' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
   rt.startMqttLoop({
@@ -541,7 +541,7 @@ async function test_mt_bus_send_uses_temporary_payload_and_externalizes_bus_out(
 
   const publish = rt.mqttTrace.list().find((entry) =>
     entry.type === 'publish' &&
-    entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit'
+    entry.payload?.topic === 'UIPUT/ws/dam/pic/de/R1/3000/submit'
   );
 	  assert.ok(publish, 'pin.bus.cb.out must publish an external transport packet to endpoint topic');
 	  assert.equal(publish.payload?.payload?.type, 'pin_payload', 'external transport packet must stay pin_payload');
@@ -808,14 +808,14 @@ async function test_uiput_mm_v1_bus_in_pin_payload_v1_converts_to_temporary_payl
   await rt.setRuntimeMode('edit');
   const model0 = rt.getModel(0);
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.cb.in', v: null });
   rt.startMqttLoop({
     host: 'localhost',
     port: 1883,
     client_id: '0332-bus-in-mqtt-mm',
-    topic_base: 'UIPUT/ws/dam/pic/de/sw',
+    topic_base: 'UIPUT/ws/dam/pic/de',
     topic_mode: 'uiput_mm_v1',
     payload_mode: 'pin_payload_v1',
     transport: 'mock',
@@ -827,7 +827,7 @@ async function test_uiput_mm_v1_bus_in_pin_payload_v1_converts_to_temporary_payl
     label: { k: 'submit_request', t: 'pin.in', v: [mt('event_text', 'str', 'from_mqtt_mm')] },
     requestId: 'req_bus_in_mqtt_mm_0332',
   });
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/worker/ui-server-local/model/0/pin/ui_submit', {
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/worker/ui-server-local/model/0/pin/ui_submit', {
     version: 'v1',
     type: 'pin_payload',
     op_id: 'req_bus_in_mqtt_mm_transport_0332',
@@ -848,7 +848,7 @@ async function test_uiput_mm_v1_rejects_legacy_two_segment_topic() {
   await rt.setRuntimeMode('edit');
   const model0 = rt.getModel(0);
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'ui_submit', t: 'pin.bus.cb.in', v: null });
   await rt.setRuntimeMode('running');
@@ -858,7 +858,7 @@ async function test_uiput_mm_v1_rejects_legacy_two_segment_topic() {
     label: { k: 'submit_request', t: 'pin.in', v: [mt('event_text', 'str', 'legacy_topic')] },
     requestId: 'req_bus_in_mqtt_mm_legacy_0332',
   });
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/0/ui_submit', {
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/0/ui_submit', {
     version: 'v1',
     type: 'pin_payload',
     op_id: 'req_bus_in_mqtt_mm_legacy_transport_0332',
@@ -881,13 +881,13 @@ async function test_uiput_mm_v1_rejects_mismatched_worker_id() {
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'WorkerGuard' });
   rt.addLabel(model, 0, 0, 0, { k: 'submit1', t: 'pin.in', v: null });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'R1' });
   await rt.setRuntimeMode('running');
 
   const nestedPayload = [mt('text', 'str', 'wrong worker')];
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/OTHER/33300/submit1', {
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/OTHER/33300/submit1', {
     version: 'v1',
     type: 'pin_payload',
     payload: [

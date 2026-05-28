@@ -69,7 +69,7 @@
   <header>
     <h1>最小 Submit 双总线示例</h1>
     <p class="lead">这份交互式文档说明 provider 如何准备一个只含 <code>app_payload.json</code> 的 Zip，UI Server 如何安装它，以及 Submit 如何经 <code>message_role</code> / <code>endpoint_worker_id</code> / <code>origin_worker_id</code> / <code>reply_target_worker_id</code> records 完成真实双总线回流。</p>
-    <p><span class="pill">topic: UIPUT/ws/dam/pic/de/sw/R1/3000/submit1</span><span class="pill">visible result: Submitted: &lt;输入内容&gt;</span></p>
+    <p><span class="pill">request: UIPUT/ws/dam/pic/de/R1/3000/submit1</span><span class="pill">response: UIPUT/ws/dam/pic/de/U1/2000/result</span><span class="pill">visible result: Submitted: &lt;输入内容&gt;</span></p>
   </header>
 
   <main class="wrap">
@@ -87,19 +87,20 @@
       <div class="grid">
         <div class="card full">
           <h2>真实链路</h2>
-          <div class="node">UI click -> Model 0 control bus -> MBR -> remote provider public pin -> same endpoint topic response -> reply_target records -> ui-server -> local UI model</div>
+          <div class="node">UI click -> Model 0 control bus -> MBR -> remote provider public pin -> response_topic -> reply_target records -> ui-server -> local UI model</div>
           <div class="arrow">ui_bind_json writes value_ref to click_event</div>
           <div class="node amber">click_event -> click_event_wiring -> click_chain -> root_routes -> submit_request -> submit_request_wiring -> handle_submit:in</div>
           <div class="arrow">handle_submit writes business records to submit1 pin.out</div>
           <div class="node blue">generated host egress adapter writes mt_bus_send_in and pin.bus.cb.out</div>
           <div class="arrow">MBR publishes endpoint topic</div>
-          <div class="node">UIPUT/ws/dam/pic/de/sw/R1/3000/submit1</div>
-          <div class="arrow">R1 returns pin_payload.v1 on the same endpoint topic with message_role=response</div>
+          <div class="node">request topic: UIPUT/ws/dam/pic/de/R1/3000/submit1</div>
+          <div class="arrow">R1 returns pin_payload.v1 on response_topic with message_role=response</div>
+          <div class="node">response topic: UIPUT/ws/dam/pic/de/U1/2000/result</div>
           <div class="node amber">UI Server materializes display_text / remote_status / last_submit_payload / submit_inflight</div>
         </div>
         <div class="card">
-          <h3>topic 只表达 endpoint</h3>
-          <p><code>R1 / 3000 / submit1</code> 是远端 worker、远端 model、远端公开 pin。请求和回包都用这个 topic；UI Server 本地 model <code>2000</code> 不在 topic 中。</p>
+          <h3>request topic 表达远端 endpoint</h3>
+          <p><code>R1 / 3000 / submit1</code> 是远端 worker、远端 model、远端公开 pin。回包投递到独立的 <code>response_topic</code>，例如 <code>U1 / 2000 / result</code>。</p>
         </div>
         <div class="card">
           <h3>方向和回包目标在 payload records</h3>
@@ -184,7 +185,7 @@
           <h2>Remote worker R1 的 Model 3000</h2>
           <p>R1 需要填 <code>submit1_route</code>：root <code>submit1</code> -> <code>(1,1,1).submit1_in</code> -> <code>submit1:in</code>，再由 <code>submit1:out</code> -> <code>(1,1,1).submit1_out</code> -> root <code>result</code>。</p>
           <pre>root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in`</pre>
-          <p>程序只处理 <code>message_role=request</code> 的 payload。它读取 <code>payload</code> record 内的 <code>text</code>，返回 <code>message_role=response</code> 的 <code>pin_payload.v1</code>。返回 records 的 <code>endpoint_*</code> 仍保持 <code>R1 / 3000 / submit1</code>，<code>reply_target_*</code> 才指向 UI Server 本地模型。</p>
+          <p>程序只处理 <code>message_role=request</code> 的 payload。它读取 <code>payload</code> record 内的 <code>text</code>，返回 <code>message_role=response</code> 的 <code>pin_payload.v1</code>。返回 records 的 <code>topic</code> 必须改为 request 中的 <code>response_topic</code>，且 <code>endpoint_*</code> 必须与 <code>reply_target_*</code> 一致。</p>
         </div>
       </div>
     </section>
@@ -193,8 +194,8 @@
       <div class="card full">
         <h2>Topic 收发测试</h2>
         <p>观察 Submit 请求：</p>
-        <pre>UIPUT/ws/dam/pic/de/sw/R1/3000/submit1</pre>
-        <p>手动模拟回包时仍然往同一个 topic 发送 <code>pin_payload.v1</code>，不要构造 result topic。示例回包的 <code>op_id</code> 是 <code>manual_result_2000_001</code>：</p>
+        <pre>UIPUT/ws/dam/pic/de/R1/3000/submit1</pre>
+        <p>手动模拟回包时，必须向 request payload 中的 <code>response_topic</code> 发送 <code>pin_payload.v1</code>。示例回包的 <code>op_id</code> 是 <code>manual_result_2000_001</code>：</p>
         <pre>{
   "version": "v1",
   "type": "pin_payload",
@@ -202,12 +203,13 @@
     { "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
     { "k": "op_id", "t": "str", "v": "manual_result_2000_001" },
     { "k": "message_role", "t": "str", "v": "response" },
-    { "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/sw/R1/3000/submit1" },
+    { "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/2000/result" },
+    { "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/2000/result" },
     { "k": "route_kind", "t": "str", "v": "control" },
     { "k": "bus", "t": "str", "v": "control" },
-    { "k": "endpoint_worker_id", "t": "str", "v": "R1" },
-    { "k": "endpoint_model_id", "t": "int", "v": 3000 },
-    { "k": "endpoint_pin", "t": "str", "v": "submit1" },
+    { "k": "endpoint_worker_id", "t": "str", "v": "U1" },
+    { "k": "endpoint_model_id", "t": "int", "v": 2000 },
+    { "k": "endpoint_pin", "t": "str", "v": "result" },
     { "k": "origin_worker_id", "t": "str", "v": "R1" },
     { "k": "origin_model_id", "t": "int", "v": 3000 },
     { "k": "origin_pin", "t": "str", "v": "submit1" },

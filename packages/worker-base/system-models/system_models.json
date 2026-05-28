@@ -20,7 +20,7 @@
       "c": 0,
       "k": "mqtt_topic_base",
       "t": "str",
-      "v": "UIPUT/ws/dam/pic/de/sw"
+      "v": "UIPUT/ws/dam/pic/de"
     },
     {
       "op": "add_label",

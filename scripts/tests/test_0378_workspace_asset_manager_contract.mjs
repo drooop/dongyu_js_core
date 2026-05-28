@@ -50,7 +50,7 @@ function labelValue(runtime, modelId, p, r, c, key) {
 }
 
 function buildProviderBundleTopic(runtime, row) {
-  const base = labelValue(runtime, 0, 0, 0, 0, 'mqtt_topic_base') || 'UIPUT/ws/dam/pic/de/sw';
+  const base = labelValue(runtime, 0, 0, 0, 0, 'mqtt_topic_base') || 'UIPUT/ws/dam/pic/de';
   if (!row.provider_worker_id || !Number.isInteger(row.provider_model_id) || !row.provider_bundle_pin) return '';
   return `${base}/${row.provider_worker_id}/${row.provider_model_id}/${row.provider_bundle_pin}`;
 }
@@ -209,7 +209,7 @@ async function test_server_asset_selection_and_provider_install_sends_provider_b
     });
     assert.equal(installResult.result, 'ok', 'provider-owned install must send a provider bundle request');
     assert.equal(installResult.routed_by, 'workspace_asset_bundle_request', 'install must use provider request path, not local-copy');
-    assert.equal(installResult.topic, 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request', 'install result must show computed provider bundle topic');
+    assert.equal(installResult.topic, 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request', 'install result must show computed provider bundle topic');
     const afterMax = Math.max(...Array.from(runtime.models.keys()).filter((id) => Number.isInteger(id) && id > 0));
     assert.equal(afterMax, beforeMax, 'install request phase must not allocate a new model before provider bundle response');
     assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_status'), /requesting E2E 颜色生成器 from UIPUT\/ws\/dam\/pic\/de\/sw\/R1\/3100\/bundle_request/u, 'Workspace Manager must show visible provider request status');

@@ -44,7 +44,8 @@ function pinPayloadRecords({
   messageRole = 'request',
   payload = tempPayload(),
   timestamp = 1700000000000,
-  topic = `UIPUT/ws/dam/pic/de/sw/${endpointWorkerId}/${endpointModelId}/${endpointPin}`,
+  topic = `UIPUT/ws/dam/pic/de/${endpointWorkerId}/${endpointModelId}/${endpointPin}`,
+  responseTopic = `UIPUT/ws/dam/pic/de/${replyTargetWorkerId}/${replyTargetModelId}/${replyTargetPin}`,
   routeKind = 'control',
 } = {}) {
   return [
@@ -53,6 +54,7 @@ function pinPayloadRecords({
     mt('op_id', 'str', opId),
     mt('message_role', 'str', messageRole),
     mt('topic', 'str', topic),
+    mt('response_topic', 'str', responseTopic),
     mt('route_kind', 'str', routeKind),
     mt('bus', 'str', routeKind),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
@@ -166,10 +168,11 @@ function test_no_static_mbr_route_or_model_subscription_residue() {
   assert.equal(mbrText.includes('mbr_mqtt_model_ids'), false, 'MBR patch must not seed static MQTT model ids');
   assert.equal(workerId, 'R1', 'remote-worker runtime must declare its worker id for topic guard');
   assert.deepEqual(subscriptions, [
-    'UIPUT/ws/dam/pic/de/sw/R1/100/submit',
-    'UIPUT/ws/dam/pic/de/sw/R1/1010/submit',
-    'UIPUT/ws/dam/pic/de/sw/R1/1019/submit',
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1',
+    'UIPUT/ws/dam/pic/de/R1/100/submit',
+    'UIPUT/ws/dam/pic/de/R1/1010/submit',
+    'UIPUT/ws/dam/pic/de/R1/1019/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit1',
+    'UIPUT/ws/dam/pic/de/R1/3100/bundle_request',
   ], 'remote-worker subscriptions must be unified worker/model/pin endpoint topics only');
   assert.equal(
     workerBootstrap.includes('$' + '{base}/+/+/+'),
@@ -200,9 +203,9 @@ function test_remote_worker_patches_do_not_keep_raw_result_fallbacks() {
     assert.equal(text.includes('return resultPayload;'), false, pathname + ' must not return raw public result payload');
     assert.equal(text.includes('return payload;'), false, pathname + ' must not return raw public input payload');
     assert.equal(text.includes('parts.every((part) => part.length > 0)'), false, pathname + ' must not keep weaker topic segment validation');
-    assert.equal(text.includes("value.trim() === value && parts.length === 9"), true, pathname + ' must reject untrimmed topic strings');
+    assert.equal(text.includes("value.trim() === value && parts.length === 8"), true, pathname + ' must reject untrimmed topic strings');
     assert.equal(text.includes('parts.every((part) => safeSegment(part))'), true, pathname + ' must validate every topic segment with safeSegment');
-    assert.equal(text.includes('/^[1-9][0-9]*$/.test(parts[7])'), true, pathname + ' must require canonical positive model id in topic');
+    assert.equal(text.includes('/^[1-9][0-9]*$/.test(parts[6])'), true, pathname + ' must require canonical positive model id in topic');
   }
   return { key: 'remote_worker_patches_do_not_keep_raw_result_fallbacks', status: 'PASS' };
 }
@@ -224,7 +227,7 @@ function test_mbr_routes_by_topic_and_rejects_missing_endpoint_metadata() {
   assert.deepEqual(Object.keys(packet).sort(), ['payload', 'type', 'version'], 'MBR transport packet must not carry loose route/source/pin fields');
   const { mqttPublished: published } = drainWorkerEngine(rt);
   assert.equal(published.length, 1, 'MBR must publish endpoint-addressed packet');
-  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', 'MBR topic must come from payload topic record');
+  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/R1/3000/submit1', 'MBR topic must come from payload topic record');
   assert.equal(payloadString(published[0].payload.payload, 'origin_worker_id'), 'U1', 'MBR must preserve local origin worker id');
   assert.equal(payloadInt(published[0].payload.payload, 'origin_model_id'), 2000, 'MBR must preserve local origin model id');
   assert.equal(payloadString(published[0].payload.payload, 'reply_target_worker_id'), 'U1', 'MBR must preserve server-owned reply target');
@@ -272,9 +275,11 @@ function test_mbr_mqtt_inbound_bridges_remote_reply_to_control_bus_by_default() 
   const replyRecords = pinPayloadRecords({
     opId: '0362_remote_reply',
     messageRole: 'response',
-    endpointWorkerId: 'R1',
-    endpointModelId: 3000,
-    endpointPin: 'submit1',
+    topic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
+    responseTopic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
+    endpointWorkerId: 'U1',
+    endpointModelId: 2000,
+    endpointPin: 'result',
     originWorkerId: 'R1',
     originModelId: 3000,
     originPin: 'submit1',
@@ -286,26 +291,27 @@ function test_mbr_mqtt_inbound_bridges_remote_reply_to_control_bus_by_default() 
   rt.addLabel(sys, 0, 0, 0, {
     k: 'mbr_mqtt_inbox',
     t: 'json',
-    v: { topic: 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', payload: externalPacket(replyRecords) },
+    v: { topic: 'UIPUT/ws/dam/pic/de/R1/3000/submit1', payload: externalPacket(replyRecords) },
   });
   mqttFn({ hostApi: buildWorkerHostApi(rt) });
   const cbOut = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_cb_out');
   const packet = toExternalPinPacket(rt, cbOut);
   assert.equal(cbOut?.t, 'pin.bus.cb.out', 'MBR must bridge remote replies to control-bus out pin by default');
   assert.equal(payloadString(packet.payload, 'message_role'), 'response', 'remote reply role must be preserved');
-  assert.equal(payloadString(packet.payload, 'topic'), 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', 'remote reply topic must be preserved');
+  assert.equal(payloadString(packet.payload, 'topic'), 'UIPUT/ws/dam/pic/de/U1/2000/result', 'remote reply must publish on response_topic');
+  assert.equal(payloadString(packet.payload, 'response_topic'), 'UIPUT/ws/dam/pic/de/U1/2000/result', 'remote reply must preserve response_topic');
   assert.equal(payloadString(packet.payload, 'route_kind'), 'control', 'remote reply default route_kind must be preserved');
-  assert.equal(payloadString(packet.payload, 'endpoint_worker_id'), 'R1', 'remote reply endpoint remains the remote endpoint');
+  assert.equal(payloadString(packet.payload, 'endpoint_worker_id'), 'U1', 'remote reply endpoint must match reply_target');
   assert.equal(payloadString(packet.payload, 'reply_target_worker_id'), 'U1', 'remote reply UI Server target stays in payload records');
   assert.equal(payloadJson(packet.payload, 'payload')?.find((record) => record.k === 'display_text')?.v, 'Submitted: from remote', 'remote reply payload must be preserved');
   return { key: 'mbr_mqtt_inbound_bridges_remote_reply_to_control_bus_by_default', status: 'PASS' };
 }
 
-async function test_remote_worker_submit1_receives_endpoint_and_replies_on_same_endpoint_topic() {
+async function test_remote_worker_submit1_receives_endpoint_and_replies_on_response_topic() {
   const rt = loadRemoteRuntime();
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', externalPacket(pinPayloadRecords({
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3000/submit1', externalPacket(pinPayloadRecords({
     opId: '0362_remote_submit',
     payload: tempPayload('browser submit'),
   })));
@@ -317,20 +323,20 @@ async function test_remote_worker_submit1_receives_endpoint_and_replies_on_same_
   assert.equal(payloadJson(resultValue, 'payload')?.find((record) => record.k === 'display_text')?.v, 'Submitted: browser submit', 'remote submit handler must emit provider result pin payload');
   const { mqttPublished: published } = drainWorkerEngine(rt);
   assert.equal(published.length, 1, 'remote submit handler must publish one reply');
-  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', 'reply topic must remain the same remote endpoint topic');
+  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/U1/2000/result', 'reply topic must use response_topic');
   assert.equal(payloadString(published[0].payload.payload, 'message_role'), 'response', 'reply payload must mark response role');
-  assert.equal(payloadString(published[0].payload.payload, 'endpoint_worker_id'), 'R1', 'reply payload endpoint must remain remote worker endpoint');
+  assert.equal(payloadString(published[0].payload.payload, 'endpoint_worker_id'), 'U1', 'reply payload endpoint must match reply target');
   assert.equal(payloadString(published[0].payload.payload, 'reply_target_worker_id'), 'U1', 'reply payload carries UI Server target in records');
   assert.equal(payloadString(published[0].payload.payload, 'origin_worker_id'), 'R1', 'reply payload origin must be remote worker');
   assert.equal(payloadJson(published[0].payload.payload, 'payload')?.find((record) => record.k === 'display_text')?.v, 'Submitted: browser submit', 'reply payload must carry display_text');
-  return { key: 'remote_worker_submit1_receives_endpoint_and_replies_on_same_endpoint_topic', status: 'PASS' };
+  return { key: 'remote_worker_submit1_receives_endpoint_and_replies_on_response_topic', status: 'PASS' };
 }
 
 async function test_runtime_rejects_legacy_business_route_record() {
   const rt = loadRemoteRuntime();
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', externalPacket(pinPayloadRecords({
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3000/submit1', externalPacket(pinPayloadRecords({
     opId: '0362_reject_business_route',
     payload: [
       mt('route', 'json', { to: { worker_id: 'R1', model_id: 3000, pin: 'submit1' } }),
@@ -347,7 +353,7 @@ async function test_remote_worker_rejects_missing_reply_target_without_public_re
   const rt = loadRemoteRuntime();
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', externalPacket(withoutRecords(pinPayloadRecords({
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3000/submit1', externalPacket(withoutRecords(pinPayloadRecords({
     opId: '0362_missing_reply_target',
     payload: tempPayload('missing reply target'),
   }), ['reply_target_worker_id', 'reply_target_model_id', 'reply_target_pin'])));
@@ -364,7 +370,7 @@ async function test_remote_worker_rejects_invalid_reply_target_without_public_re
   const rt = loadRemoteRuntime();
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', externalPacket(pinPayloadRecords({
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3000/submit1', externalPacket(pinPayloadRecords({
     opId: '0362_invalid_reply_target',
     replyTargetWorkerId: '',
     replyTargetModelId: -1,
@@ -388,13 +394,15 @@ function test_mbr_mqtt_inbound_rejects_invalid_temporary_modeltable_records() {
     k: 'mbr_mqtt_inbox',
     t: 'json',
     v: {
-      topic: 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1',
+      topic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
       payload: externalPacket(pinPayloadRecords({
         opId: '0362_bad_mqtt_payload',
         messageRole: 'response',
-        endpointWorkerId: 'R1',
-        endpointModelId: 3000,
-        endpointPin: 'submit1',
+        topic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
+        responseTopic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
+        endpointWorkerId: 'U1',
+        endpointModelId: 2000,
+        endpointPin: 'result',
         originWorkerId: 'R1',
         originModelId: 3000,
         originPin: 'submit1',
@@ -421,7 +429,7 @@ const tests = [
   test_mbr_routes_by_topic_and_rejects_missing_endpoint_metadata,
   test_mbr_does_not_echo_own_control_publish_to_management_bus,
   test_mbr_mqtt_inbound_bridges_remote_reply_to_control_bus_by_default,
-  test_remote_worker_submit1_receives_endpoint_and_replies_on_same_endpoint_topic,
+  test_remote_worker_submit1_receives_endpoint_and_replies_on_response_topic,
   test_runtime_rejects_legacy_business_route_record,
   test_remote_worker_rejects_missing_reply_target_without_public_result,
   test_remote_worker_rejects_invalid_reply_target_without_public_result,

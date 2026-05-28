@@ -16201,7 +16201,7 @@
       "c": 2,
       "k": "ui_markdown",
       "t": "str",
-      "v": "| Stage | Path |\n|---|---|\n| 1 | UI event -> UI Server host egress |\n| 2 | Model 0 `mt_bus_send` / `pin.bus.cb.out` -> MBR |\n| 3 | MQTT `UIPUT/.../R1/100/submit` -> RemoteWorker R1 / Model 100 / `submit` |\n| 4 | MQTT response on same endpoint topic -> MBR |\n| 5 | UI Server owner materialization by `reply_target_*` -> Local UI refresh |"
+      "v": "| Stage | Path |\n|---|---|\n| 1 | UI event -> UI Server host egress |\n| 2 | Model 0 `mt_bus_send` / `pin.bus.cb.out` -> MBR |\n| 3 | MQTT `UIPUT/.../R1/100/submit` -> RemoteWorker R1 / Model 100 / `submit` |\n| 4 | MQTT response on response_topic -> MBR |\n| 5 | UI Server owner materialization by `reply_target_*` -> Local UI refresh |"
     },
     {
       "op": "add_label",

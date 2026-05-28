@@ -170,13 +170,13 @@ async function test_model100_full_flow() {
   // Configure MQTT topic mode
   const model0 = rt.getModel(0);
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'R1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
 
-  const topic = 'UIPUT/ws/dam/pic/de/sw/R1/100/submit';
+  const topic = 'UIPUT/ws/dam/pic/de/R1/100/submit';
   const payload = externalPacket(pinPayloadRecords({
     opId: 'test_0143_submit_001',
     payload: [

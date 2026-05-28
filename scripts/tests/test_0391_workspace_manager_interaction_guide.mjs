@@ -27,7 +27,7 @@ function test_guide_documents_topic_composition_contract() {
     '<mqtt_topic_base>/<remote_worker_id>/<remote_model_id>/<current_public_pin>',
     'provider_bundle_topic',
     '不能把 `provider_bundle_topic` 当作目录真源',
-    '完整 endpoint topic 必须是 9 段',
+    '完整 endpoint topic 必须是 8 段',
     '任何段都不能包含 `/`、`+`、`#`',
   ]) {
     assertIncludes(text, needle, files.guide);

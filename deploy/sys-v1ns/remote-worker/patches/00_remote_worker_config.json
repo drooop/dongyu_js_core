@@ -61,7 +61,7 @@
       "c": 0,
       "k": "mqtt_topic_base",
       "t": "str",
-      "v": "UIPUT/ws/dam/pic/de/sw"
+      "v": "UIPUT/ws/dam/pic/de"
     },
     {
       "op": "add_label",
@@ -72,11 +72,11 @@
       "k": "remote_subscriptions",
       "t": "json",
       "v": [
-        "UIPUT/ws/dam/pic/de/sw/R1/100/submit",
-        "UIPUT/ws/dam/pic/de/sw/R1/1010/submit",
-        "UIPUT/ws/dam/pic/de/sw/R1/1019/submit",
-        "UIPUT/ws/dam/pic/de/sw/R1/3000/submit1",
-        "UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request"
+        "UIPUT/ws/dam/pic/de/R1/100/submit",
+        "UIPUT/ws/dam/pic/de/R1/1010/submit",
+        "UIPUT/ws/dam/pic/de/R1/1019/submit",
+        "UIPUT/ws/dam/pic/de/R1/3000/submit1",
+        "UIPUT/ws/dam/pic/de/R1/3100/bundle_request"
       ]
     },
     {
