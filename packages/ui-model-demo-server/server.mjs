@@ -504,6 +504,13 @@ async function matrixSuiteCreateRoomWithSession(session, input) {
   return { ok: true, roomId: data.room_id, name, kind };
 }
 
+async function matrixSuiteRefreshRoomsWithSession(session) {
+  if (!session || !session.homeserverUrl || !session.accessToken) {
+    return { ok: false, code: 'matrix_session_missing', detail: 'login_required' };
+  }
+  return fetchMgmtBusConsoleJoinedRooms(session);
+}
+
 async function handleMediaUploadRequest(req, res, state, corsOrigin = null) {
   const url = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
   const cors = corsHeaders(req, corsOrigin);
@@ -4706,6 +4713,9 @@ class ProgramModelEngine {
     if (action === 'createRoom') {
       return matrixSuiteCreateRoomWithSession(session, input || {});
     }
+    if (action === 'refreshRooms') {
+      return matrixSuiteRefreshRoomsWithSession(session);
+    }
     if (action === 'shareFile') {
       return matrixSuiteSendRoomEvent(session, input && input.roomId, 'm.room.message', {
         msgtype: 'm.file',
@@ -4858,6 +4868,51 @@ class ProgramModelEngine {
         this.matrixSuiteWriteRoot('status_text', 'str', `Created Matrix ${kind}: ${nextRoom.name}`);
         this.matrixSuiteWriteRoot('connection_status', 'str', 'online');
         selectedId = roomId;
+        this.matrixSuiteSyncProjection(nextRooms, events, selectedId);
+        return;
+      }
+
+      if (action === 'refresh_rooms') {
+        const result = await call('refreshRooms', {});
+        if (!result || result.ok === false) {
+          fail(result && result.code ? result.code : 'matrix_rooms_refresh_failed', result && result.detail ? result.detail : 'matrix_rooms_refresh_failed');
+          return;
+        }
+        const nextRooms = (Array.isArray(result.rooms) ? result.rooms : [])
+          .map((room, index) => {
+            const roomId = String(room && (room.room_id || room.id) ? (room.room_id || room.id) : '').trim();
+            if (!roomId) return null;
+            const name = String(room.name || room.canonical_alias || room.alias || roomId).trim() || roomId;
+            return {
+              id: roomId,
+              kind: room.kind === 'dm' || room.is_direct === true ? 'dm' : 'room',
+              name,
+              alias: String(room.canonical_alias || room.alias || ''),
+              avatar: name.slice(0, 2).toUpperCase(),
+              unread: Number.isFinite(Number(room.unread)) ? Number(room.unread) : 0,
+              members: Array.isArray(room.members) ? room.members : [],
+              archived: false,
+              source: 'matrix.joined_room',
+              order: index,
+            };
+          })
+          .filter(Boolean);
+        if (nextRooms.length === 0) {
+          this.matrixSuiteWriteRoot('rooms_json', 'json', []);
+          this.matrixSuiteWriteRoot('rooms_text', 'str', 'No joined Matrix rooms visible for this session.');
+          this.matrixSuiteWriteRoot('status_text', 'str', 'Matrix rooms refreshed: 0');
+          this.matrixSuiteWriteRoot('connection_status', 'str', 'warning');
+          return;
+        }
+        const requested = String(this.matrixSuiteReadRoot('target_room_id', '') || '').trim();
+        const active = nextRooms.find((room) => room.id === selectedId)
+          || nextRooms.find((room) => room.id === requested)
+          || nextRooms[0];
+        selectedId = active.id;
+        this.matrixSuiteWriteRoot('rooms_json', 'json', nextRooms);
+        this.matrixSuiteWriteRoot('target_room_id', 'str', selectedId);
+        this.matrixSuiteWriteRoot('status_text', 'str', `Matrix rooms refreshed: ${nextRooms.length}`);
+        this.matrixSuiteWriteRoot('connection_status', 'str', 'online');
         this.matrixSuiteSyncProjection(nextRooms, events, selectedId);
         return;
       }
