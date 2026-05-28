@@ -72,6 +72,15 @@ function payloadValue(packet, key) {
   return record ? record.v : undefined;
 }
 
+function controlBusPackets(state) {
+  const model0 = state.runtime.getModel(0);
+  const root = model0 ? state.runtime.getCell(model0, 0, 0, 0) : null;
+  if (!root) return [];
+  return Array.from(root.labels.values())
+    .filter((label) => label && label.t === 'pin.bus.cb.out' && Array.isArray(label.v))
+    .map((label) => ({ version: 'v1', type: 'pin_payload', payload: label.v }));
+}
+
 async function test_seeded_dual_bus_contract_overrides_persisted_removed_pin_type() {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0362-persist-db-'));
   const dbPath = join(tempRoot, 'modeltable.sqlite');
@@ -85,11 +94,6 @@ async function test_seeded_dual_bus_contract_overrides_persisted_removed_pin_typ
     }, { activate: false });
 
     await withServerState(dbPath, async (state) => {
-      const published = [];
-      state.programEngine.matrixAdapter = { publish: async (packet) => published.push(packet) };
-      state.programEngine.matrixRoomId = '!persisted-canonical:localhost';
-      state.programEngine.matrixDmPeerUserId = '@mbr:localhost';
-
       for (const modelId of [100, 1010, 1019]) {
         const model = state.runtime.getModel(modelId);
         assert.ok(model, `model_${modelId}_missing_after_reload`);
@@ -104,7 +108,7 @@ async function test_seeded_dual_bus_contract_overrides_persisted_removed_pin_typ
         await wait();
       }
 
-      const byModel = new Map(published.map((packet) => [payloadValue(packet, 'origin_model_id'), packet]));
+      const byModel = new Map(controlBusPackets(state).map((packet) => [payloadValue(packet, 'origin_model_id'), packet]));
       for (const modelId of [100, 1010, 1019]) {
         const packet = byModel.get(modelId);
         assert.ok(packet, `model_${modelId}_must_publish_after_persisted_reload`);

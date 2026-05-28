@@ -130,7 +130,7 @@ assert.equal(payloadValue(packet.payload, 'endpoint_pin'), 'submit');
 assert.equal(payloadValue(packet.payload, 'origin_model_id'), 100);
 const published = drainMqtt(rt);
 assert.equal(published.length, 1);
-assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/100/submit');
+assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/R1/100/submit');
 assertStrictPacket(published[0].payload, 'published payload');
 assert.equal(payloadValue(payloadValue(published[0].payload.payload, 'payload'), 'input_value'), 'hello');
 assert.equal(published[0].payload.records, undefined);

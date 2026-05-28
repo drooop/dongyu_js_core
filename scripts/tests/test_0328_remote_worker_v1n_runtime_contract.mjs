@@ -62,7 +62,7 @@ async function waitForSettle(ms = 1200) {
 async function test_model100_submit_updates_root_state() {
   const rt = createConfiguredRuntime();
   const handled = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/100/submit',
+    'UIPUT/ws/dam/pic/de/R1/100/submit',
     pinPayload({
       endpointModelId: 100,
       payload: [
@@ -95,7 +95,7 @@ function test_remote_worker_patches_stop_using_legacy_ctx_mutators() {
 async function test_model1010_submit_updates_root_state() {
   const rt = createConfiguredRuntime();
   const handled = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/1010/submit',
+    'UIPUT/ws/dam/pic/de/R1/1010/submit',
     pinPayload({
       endpointModelId: 1010,
       payload: [

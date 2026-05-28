@@ -56,7 +56,7 @@ function pinPayloadRecords({
   endpointWorkerId = 'R1',
   endpointModelId = 100,
   endpointPin = 'submit',
-  topic = 'UIPUT/ws/dam/pic/de/sw/R1/100/submit',
+  topic = 'UIPUT/ws/dam/pic/de/R1/100/submit',
   routeKind = 'control',
   originWorkerId = 'ui-server-test',
   originModelId = 100,
@@ -97,7 +97,7 @@ function payloadValue(records, key) {
 }
 
 async function main() {
-  const base = 'UIPUT/ws/dam/pic/de/sw';
+  const base = 'UIPUT/ws/dam/pic/de';
   const mbrPatchPath = path.resolve('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json');
   const remoteWorkerPatchDir = path.resolve('deploy/sys-v1ns/remote-worker/patches');
 

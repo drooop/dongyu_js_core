@@ -100,8 +100,8 @@ function test_remote_mode_role_patches_cover_model1010() {
 
   assert.equal(systemPatch.some((record) => String(record?.k || '').startsWith('mbr_route_')), false, 'system_models_must_not_seed_static_mbr_routes');
   assert.equal(mbrPatch.some((record) => record?.k === 'mbr_mqtt_model_ids'), false, 'mbr_role_must_not_seed_static_model_ids');
-  assert.ok(findRecord(remoteCfg, (record) => record?.k === 'remote_subscriptions' && Array.isArray(record?.v) && record.v.includes('UIPUT/ws/dam/pic/de/sw/R1/1010/submit')), 'remote_worker_config_missing_1010_route_topic');
-  assert.ok(findRecord(remoteTruth, (record) => record?.model_id === 1010 && record?.k === 'mqtt_topic_base' && record?.v === 'UIPUT/ws/dam/pic/de/sw'), 'remote_truth_missing_mqtt_topic_base');
+  assert.ok(findRecord(remoteCfg, (record) => record?.k === 'remote_subscriptions' && Array.isArray(record?.v) && record.v.includes('UIPUT/ws/dam/pic/de/R1/1010/submit')), 'remote_worker_config_missing_1010_route_topic');
+  assert.ok(findRecord(remoteTruth, (record) => record?.model_id === 1010 && record?.k === 'mqtt_topic_base' && record?.v === 'UIPUT/ws/dam/pic/de'), 'remote_truth_missing_mqtt_topic_base');
   assert.equal(findRecord(remoteTruth, (record) => record?.model_id === 1010 && record?.k === 'result_out_topic'), null, 'remote_truth_must_not_use_static_result_out_topic');
   return { key: 'remote_mode_role_patches_cover_model1010', status: 'PASS' };
 }

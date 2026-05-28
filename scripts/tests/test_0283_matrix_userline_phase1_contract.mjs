@@ -105,7 +105,7 @@ function test_system_and_remote_patches_cover_model1019_route() {
     findRecord(remoteConfigRecords, (record) => (
       record?.k === 'remote_subscriptions'
       && Array.isArray(record?.v)
-      && record.v.includes('UIPUT/ws/dam/pic/de/sw/R1/1019/submit')
+      && record.v.includes('UIPUT/ws/dam/pic/de/R1/1019/submit')
       && !record.v.some((topic) => String(topic).endsWith('/1019/result'))
     )),
     'remote_worker_config_must_subscribe_new_model1019_submit_topic_only',
