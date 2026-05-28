@@ -28,7 +28,7 @@ function markDem(rt) {
 function configureUnifiedMqtt(rt, workerId = 'R1') {
   const model0 = root(rt);
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: workerId });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
 }
@@ -46,17 +46,22 @@ function pinPayloadRecords({
   replyTargetPin = 'result',
   messageRole = 'request',
   topic = null,
+  responseTopic = null,
   payload = [mt('text', 'str', 'hello')],
 } = {}) {
   const routeTopic = typeof topic === 'string' && topic.length > 0
     ? topic
-    : `UIPUT/ws/dam/pic/de/sw/${endpointWorkerId}/${endpointModelId}/${endpointPin}`;
+    : `UIPUT/ws/dam/pic/de/${endpointWorkerId}/${endpointModelId}/${endpointPin}`;
+  const routeResponseTopic = typeof responseTopic === 'string' && responseTopic.length > 0
+    ? responseTopic
+    : `UIPUT/ws/dam/pic/de/${replyTargetWorkerId}/${replyTargetModelId}/${replyTargetPin}`;
   return [
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
     mt('message_role', 'str', messageRole),
     mt('topic', 'str', routeTopic),
+    mt('response_topic', 'str', routeResponseTopic),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),
@@ -116,7 +121,7 @@ function legacyReplyToRecord(key = 'reply_to') {
 }
 
 function legacyReturnTopicRecord(key = 'return_topic') {
-  return mt(key, 'str', 'UIPUT/ws/dam/pic/de/sw/U1/2000/result');
+  return mt(key, 'str', 'UIPUT/ws/dam/pic/de/U1/2000/result');
 }
 
 function nestedLegacyPayloadRecords(key = 'source_model_id') {
@@ -254,7 +259,7 @@ async function test_runtime_topic_for_builds_unified_worker_model_topic() {
 
   const topic = rt._topicFor(3000, 'submit', 'in');
 
-  assert.equal(topic, 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit');
+  assert.equal(topic, 'UIPUT/ws/dam/pic/de/R1/3000/submit');
   return { key: 'runtime_topic_for_builds_unified_worker_model_topic', status: 'PASS' };
 }
 
@@ -267,7 +272,7 @@ async function test_runtime_mqtt_incoming_accepts_unified_endpoint_topic_without
   await rt.setRuntimeMode('running');
 
   const records = pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' });
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit', externalPacket(records));
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3000/submit', externalPacket(records));
   const stored = model.getCell(0, 0, 0).labels.get('submit');
 
   assert.equal(accepted, true, 'unified 9-segment endpoint topic must be accepted');
@@ -287,7 +292,7 @@ async function test_runtime_mqtt_incoming_ignores_response_role_on_endpoint_topi
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'RemoteApp' });
   await rt.setRuntimeMode('running');
 
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit', externalPacket(pinPayloadRecords({
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3000/submit', externalPacket(pinPayloadRecords({
     messageRole: 'response',
     endpointWorkerId: 'R1',
     endpointModelId: 3000,
@@ -304,9 +309,9 @@ async function test_runtime_mqtt_incoming_ignores_response_role_on_endpoint_topi
   assert.equal(accepted, false, 'remote runtime must ignore response packets echoed on its endpoint topic');
   assert.equal(model.getCell(0, 0, 0).labels.get('submit'), undefined, 'response echo must not trigger submit again');
   assert.equal(
-    rt.mqttTrace.list().some((entry) => entry.type === 'inbound_ignored' && entry.payload?.reason === 'response_packet_not_delivered_to_endpoint_runtime'),
+    rt.mqttTrace.list().some((entry) => entry.type === 'inbound_rejected' && entry.payload?.reason === 'invalid_pin_payload_records'),
     true,
-    'ignored response echo must be traceable',
+    'rejected response echo must be traceable',
   );
   return { key: 'runtime_mqtt_incoming_ignores_response_role_on_endpoint_topic', status: 'PASS' };
 }
@@ -320,7 +325,7 @@ async function test_runtime_rejects_legacy_worker_model_pin_topic_even_with_lega
   await rt.setRuntimeMode('running');
 
   const accepted = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/worker/R1/model/3000/pin/submit',
+    'UIPUT/ws/dam/pic/de/worker/R1/model/3000/pin/submit',
     externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' })),
   );
 
@@ -343,9 +348,9 @@ async function test_runtime_rejects_missing_extra_and_old_two_segment_topic_form
   await rt.setRuntimeMode('running');
 
   const packet = externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }));
-  const missing = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000', packet);
-  const extra = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit/extra', packet);
-  const oldTwoSegment = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/3000/submit', packet);
+  const missing = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3000', packet);
+  const extra = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3000/submit/extra', packet);
+  const oldTwoSegment = rt.mqttIncoming('UIPUT/ws/dam/pic/de/3000/submit', packet);
 
   assert.equal(missing, false, 'missing pin segment must fail closed');
   assert.equal(extra, false, 'extra segment must fail closed');
@@ -377,7 +382,7 @@ async function test_runtime_rejects_short_base_unified_topic_shape() {
     endpointPin: 'submit',
   })));
 
-  assert.equal(accepted, false, 'runtime must reject topics that do not have the full UIPUT/ws/dam/pic/de/sw/<worker>/<model>/<pin> shape');
+  assert.equal(accepted, false, 'runtime must reject topics that do not have the full UIPUT/ws/dam/pic/de/<worker>/<model>/<pin> shape');
   assert.equal(model.getCell(0, 0, 0).labels.get('submit'), undefined, 'short-base topic must not write endpoint pin');
   return { key: 'runtime_rejects_short_base_unified_topic_shape', status: 'PASS' };
 }
@@ -393,9 +398,9 @@ async function test_runtime_rejects_model0_and_invalid_model_endpoint_topics() {
   await rt.setRuntimeMode('running');
 
   const packet = externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'inbox' }));
-  const model0Accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/0/inbox', packet);
-  const nonIntegerAccepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/not-a-model/inbox', packet);
-  const mismatchAccepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3001/inbox', packet);
+  const model0Accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/0/inbox', packet);
+  const nonIntegerAccepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/not-a-model/inbox', packet);
+  const mismatchAccepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3001/inbox', packet);
 
   assert.equal(model0Accepted, false, 'unified endpoint topic must reject model_id=0 and must not enter Model 0 bus.in directly');
   assert.equal(nonIntegerAccepted, false, 'unified endpoint topic must reject non-integer model_id');
@@ -414,7 +419,7 @@ async function test_runtime_rejects_nonnormalized_model_id_topic_segments() {
 
   for (const segment of ['1e3', '01000', '1000.0', '0x3e8']) {
     const accepted = rt.mqttIncoming(
-      `UIPUT/ws/dam/pic/de/sw/R1/${segment}/submit`,
+      `UIPUT/ws/dam/pic/de/R1/${segment}/submit`,
       externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 1000, endpointPin: 'submit', opId: `req_0375_${segment}` })),
     );
     assert.equal(accepted, false, `unified endpoint topic must reject non-canonical model_id segment ${segment}`);
@@ -431,7 +436,7 @@ async function test_runtime_rejects_loose_top_level_fields_on_unified_topic() {
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'RemoteApp' });
   await rt.setRuntimeMode('running');
 
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit', {
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3000/submit', {
     version: 'v1',
     type: 'pin_payload',
     pin: 'submit',
@@ -461,7 +466,7 @@ async function test_runtime_rejects_unknown_top_level_fields_on_unified_topic() 
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'RemoteApp' });
   await rt.setRuntimeMode('running');
 
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit', {
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3000/submit', {
     ...externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' })),
     reply_to: { worker_id: 'U1', model_id: 2000, pin: 'result' },
   });
@@ -509,7 +514,7 @@ async function assertMissingMetadataRejected({ missingKey, label }) {
   await rt.setRuntimeMode('running');
 
   const missing = withoutRecords(pinPayloadRecords(), [missingKey]);
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit', externalPacket(missing));
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3000/submit', externalPacket(missing));
 
   assert.equal(accepted, false, `pin_payload.v1 must reject missing ${label}`);
   assert.equal(model.getCell(0, 0, 0).labels.get('submit'), undefined, `missing ${label} must not write endpoint pin`);
@@ -544,11 +549,11 @@ async function test_runtime_rejects_missing_or_invalid_message_role() {
   await rt.setRuntimeMode('running');
 
   const missing = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(withoutRecords(pinPayloadRecords(), ['message_role'])),
   );
   const invalid = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(withRecordOverride(pinPayloadRecords({ opId: 'req_0375_bad_role' }), 'message_role', { v: 'ack' })),
   );
 
@@ -566,7 +571,7 @@ async function test_runtime_rejects_duplicate_required_pin_payload_metadata() {
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'RemoteApp' });
   await rt.setRuntimeMode('running');
 
-  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3000/submit', externalPacket(withDuplicateRecord(
+  const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3000/submit', externalPacket(withDuplicateRecord(
     pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }),
     'endpoint_worker_id',
     { v: ' R1 ' },
@@ -655,51 +660,51 @@ async function test_runtime_rejects_legacy_reply_to_records() {
   await rt.setRuntimeMode('running');
 
   const replyTo = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }).concat([legacyReplyToRecord()])),
   );
   const routeReplyTo = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit', opId: 'req_0375_route_reply_key' }).concat([legacyReplyToRecord('route.reply_to')])),
   );
   const nestedRouteReplyTo = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit', opId: 'req_0375_nested_route_reply' }).concat([
       mt('legacy_container', 'json', { route: { reply_to: { worker_id: 'U1', model_id: 2000, pin: 'result' } } }),
     ])),
   );
   const deeplyNestedRouteReplyTo = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit', opId: 'req_0375_deep_route_reply' }).concat([
       mt('legacy_deep_container', 'json', { meta: { nested: [{ route: { reply_to: { worker_id: 'U1', model_id: 2000, pin: 'result' } } }] } }),
     ])),
   );
   const nestedSourceModelId = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(nestedLegacyPayloadRecords('source_model_id')),
   );
   const deeplyNestedSourceModelId = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(pinPayloadRecords({ opId: 'req_0375_deep_nested_source_model_id', payload: deeplyNestedLegacyRecord(24, 'source_model_id') })),
   );
   const plainJsonSourceModelId = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(plainJsonLegacyPayloadRecords('source_model_id')),
   );
   const plainJsonPin = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(plainJsonLegacyPayloadRecords('pin')),
   );
   const plainJsonRoute = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(plainJsonLegacyPayloadRecords('route')),
   );
   const extraSourceModelId = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(withLegacyOwnProperty(pinPayloadRecords({ opId: 'req_0375_extra_source_model_id' }), 'source_model_id')),
   );
   const returnTopicRecords = removedReturnTopicKeys.map((key) => rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(pinPayloadRecords({
       endpointWorkerId: 'R1',
       endpointModelId: 3000,
@@ -708,23 +713,23 @@ async function test_runtime_rejects_legacy_reply_to_records() {
     }).concat([legacyReturnTopicRecord(key)])),
   ));
   const nestedReturnTopics = removedReturnTopicKeys.map((key) => rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(nestedLegacyPayloadRecords(key)),
   ));
   const plainJsonReturnTopics = removedReturnTopicKeys.map((key) => rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(plainJsonLegacyPayloadRecords(key)),
   ));
   const extraReturnTopics = removedReturnTopicKeys.map((key) => rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(withLegacyOwnProperty(pinPayloadRecords({ opId: `req_0375_extra_${key}` }), key)),
   ));
   const wrongOpIdType = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(withRecordOverride(pinPayloadRecords({ opId: 'req_0375_wrong_op_id_type' }), 'op_id', { t: 'json', v: 'req_0375_wrong_op_id_type' })),
   );
   const missingRequestCorrelation = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(withoutRecords(pinPayloadRecords(), ['__mt_request_id', 'op_id'])),
   );
 
@@ -1039,7 +1044,7 @@ async function test_worker_engine_publishes_control_bus_to_unified_endpoint_topi
   engine.tick();
 
   assert.equal(published.length, 1, 'control bus out must publish exactly once');
-  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit');
+  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/R1/3000/submit');
   assert.equal(Object.prototype.hasOwnProperty.call(published[0].payload, 'pin'), false, 'transport packet must not carry loose pin');
   assert.equal(Object.prototype.hasOwnProperty.call(published[0].payload, 'source_model_id'), false, 'transport packet must not carry loose source_model_id');
   assert.equal(Object.prototype.hasOwnProperty.call(published[0].payload, 'route'), false, 'transport packet must not carry legacy route');
@@ -1047,7 +1052,7 @@ async function test_worker_engine_publishes_control_bus_to_unified_endpoint_topi
   return { key: 'worker_engine_publishes_control_bus_to_unified_endpoint_topic', status: 'PASS' };
 }
 
-async function test_worker_engine_publishes_response_to_same_remote_endpoint_topic() {
+async function test_worker_engine_publishes_response_to_response_topic() {
   const rt = new ModelTableRuntime();
   await rt.setRuntimeMode('edit');
   markDem(rt);
@@ -1062,19 +1067,21 @@ async function test_worker_engine_publishes_response_to_same_remote_endpoint_top
   const records = pinPayloadRecords({
     opId: 'resp_0375_publish',
     messageRole: 'response',
-    endpointWorkerId: 'R1',
-    endpointModelId: 3000,
-    endpointPin: 'submit1',
+    endpointWorkerId: 'U1',
+    endpointModelId: 2000,
+    endpointPin: 'result',
     originWorkerId: 'R1',
     originModelId: 3000,
     originPin: 'submit1',
     replyTargetWorkerId: 'U1',
     replyTargetModelId: 2000,
     replyTargetPin: 'result',
-    payload: [mt('display_text', 'str', 'Submitted: same topic')],
+    topic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
+    responseTopic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
+    payload: [mt('display_text', 'str', 'Submitted: response topic')],
   });
   rt.addLabel(model0, 0, 0, 0, {
-    k: 'send_response_same_endpoint',
+    k: 'send_response_topic',
     t: 'pin.bus.cb.out',
     v: records,
   });
@@ -1082,10 +1089,10 @@ async function test_worker_engine_publishes_response_to_same_remote_endpoint_top
   engine.tick();
 
   assert.equal(published.length, 1, 'response control bus out must publish exactly once');
-  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', 'response topic must remain the remote endpoint topic');
+  assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/U1/2000/result', 'response control bus publish must use response_topic');
   assert.equal(readPayloadValue(published[0].payload.payload, 'message_role'), 'response', 'response packet carries message_role=response');
   assert.equal(readPayloadValue(published[0].payload.payload, 'reply_target_worker_id'), 'U1', 'UI Server target remains payload metadata only');
-  return { key: 'worker_engine_publishes_response_to_same_remote_endpoint_topic', status: 'PASS' };
+  return { key: 'worker_engine_publishes_response_to_response_topic', status: 'PASS' };
 }
 
 async function test_worker_engine_rejects_short_payload_topic() {
@@ -1128,7 +1135,7 @@ async function test_worker_engine_rejects_padded_payload_topic() {
   markDem(rt);
   const model0 = root(rt);
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: ' UIPUT/ws/dam/pic/de/sw ' });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: ' UIPUT/ws/dam/pic/de ' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'R1' });
   rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
   const published = [];
@@ -1145,7 +1152,7 @@ async function test_worker_engine_rejects_padded_payload_topic() {
       endpointWorkerId: 'R1',
       endpointModelId: 3000,
       endpointPin: 'submit',
-      topic: ' UIPUT/ws/dam/pic/de/sw/R1/3000/submit ',
+      topic: ' UIPUT/ws/dam/pic/de/R1/3000/submit ',
     }),
   });
   await rt.setRuntimeMode('running');
@@ -1165,13 +1172,13 @@ async function test_generic_worker_bootstrap_subscribes_only_unified_endpoint_to
 }
 
 async function test_generic_worker_bootstrap_validates_topic_payload_endpoint_match() {
-  const base = 'UIPUT/ws/dam/pic/de/sw';
+  const base = 'UIPUT/ws/dam/pic/de';
   const packet = externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }));
   const providerBundleResponse = externalPacket(pinPayloadRecords({
     opId: 'req_0389_provider_bundle',
-    endpointWorkerId: 'R1',
-    endpointModelId: 3100,
-    endpointPin: 'bundle_request',
+    endpointWorkerId: 'U1',
+    endpointModelId: 1051,
+    endpointPin: 'result',
     originWorkerId: 'R1',
     originModelId: 3100,
     originPin: 'bundle_request',
@@ -1179,12 +1186,13 @@ async function test_generic_worker_bootstrap_validates_topic_payload_endpoint_ma
     replyTargetModelId: 1051,
     replyTargetPin: 'result',
     messageRole: 'response',
-    topic: `${base}/R1/3100/bundle_request`,
+    topic: `${base}/U1/1051/result`,
+    responseTopic: `${base}/U1/1051/result`,
     payload: providerBundleResponsePayload(),
   }));
 
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, packet, base).ok, true, 'valid topic and matching endpoint records must pass bootstrap validation');
-  assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3100/bundle_request`, providerBundleResponse, base).ok, true, 'provider-owned slide app bundle response must pass bootstrap validation even when UI labels use write.pin inside bundle payload');
+  assert.equal(validateUnifiedEndpointTopicPacket(`${base}/U1/1051/result`, providerBundleResponse, base).ok, true, 'provider-owned slide app bundle response must pass bootstrap validation even when UI labels use write.pin inside bundle payload');
   assert.equal(validateUnifiedEndpointTopicPacket('UIPUT/R1/3000/submit', packet, 'UIPUT').ok, false, 'bootstrap validation must reject short-base unified topic shape');
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, packet, ` ${base} `).ok, false, 'bootstrap validation must reject padded mqtt_topic_base');
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/0/submit`, packet, base).ok, false, 'bootstrap validation must reject model_id=0');
@@ -1304,7 +1312,7 @@ async function test_runtime_start_mqtt_loop_does_not_subscribe_model0_bus_in_top
   await rt.setRuntimeMode('running');
 
   assert.equal(startResult.status, 'running', 'mock MQTT runtime must start for subscription test');
-  assert.equal(rt.mqttClient.subscriptions.has('UIPUT/ws/dam/pic/de/sw/U1/0/ui_submit'), false, 'runtime must not subscribe disallowed Model 0 bus-in endpoint topics');
+  assert.equal(rt.mqttClient.subscriptions.has('UIPUT/ws/dam/pic/de/U1/0/ui_submit'), false, 'runtime must not subscribe disallowed Model 0 bus-in endpoint topics');
   return { key: 'runtime_start_mqtt_loop_does_not_subscribe_model0_bus_in_topics', status: 'PASS' };
 }
 
@@ -1338,14 +1346,14 @@ async function test_runtime_direct_bus_out_publishes_endpoint_topic() {
 
   const publish = rt.mqttTrace.list().find((entry) =>
     entry.type === 'publish'
-    && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit');
+    && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/R1/3000/submit');
   assert.ok(publish, 'direct runtime bus out must publish to endpoint worker/model/pin topic');
   assert.deepEqual(Object.keys(publish.payload.payload).sort(), ['payload', 'type', 'version'], 'direct runtime packet must expose only version/type/payload');
   assert.equal(readPayloadValue(publish.payload.payload.payload, 'endpoint_worker_id'), 'R1');
   assert.equal(readPayloadValue(publish.payload.payload.payload, 'origin_worker_id'), 'U1');
   assert.equal(readPayloadValue(publish.payload.payload.payload, 'reply_target_worker_id'), 'U1');
   assert.equal(
-    rt.mqttTrace.list().some((entry) => entry.type === 'publish' && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/U1/0/direct_runtime_out'),
+    rt.mqttTrace.list().some((entry) => entry.type === 'publish' && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/U1/0/direct_runtime_out'),
     false,
     'direct runtime bus out must not publish to local worker/model0/bus-key topic',
   );
@@ -1400,7 +1408,7 @@ async function test_runtime_rejects_padded_configured_worker_id() {
 
   const outboundTopic = rt._topicFor(3000, 'submit');
   const accepted = rt.mqttIncoming(
-    'UIPUT/ws/dam/pic/de/sw/R1/3000/submit',
+    'UIPUT/ws/dam/pic/de/R1/3000/submit',
     externalPacket(pinPayloadRecords({
       endpointWorkerId: 'R1',
       endpointModelId: 3000,
@@ -1432,9 +1440,11 @@ async function test_server_pin_payload_return_materializes_by_reply_target_recor
       payload: pinPayloadRecords({
         opId: 'req_0375_result',
         messageRole: 'response',
-        endpointWorkerId: 'R1',
-        endpointModelId: 3000,
-        endpointPin: 'submit1',
+        topic: `UIPUT/ws/dam/pic/de/U1/${replyTargetModelId}/result`,
+        responseTopic: `UIPUT/ws/dam/pic/de/U1/${replyTargetModelId}/result`,
+        endpointWorkerId: 'U1',
+        endpointModelId: replyTargetModelId,
+        endpointPin: 'result',
         originWorkerId: 'R1',
         originModelId: 3000,
         originPin: 'submit1',
@@ -1460,7 +1470,7 @@ async function test_server_pin_payload_return_materializes_by_reply_target_recor
   return { key: 'server_pin_payload_return_materializes_by_reply_target_records', status: 'PASS' };
 }
 
-async function test_server_rejects_local_ui_result_endpoint_response() {
+async function test_server_rejects_remote_endpoint_response() {
   await withServerState(async (state) => {
     const targetModelId = 1068;
     const targetModel = state.runtime.createModel({ id: targetModelId, name: 'it0375_local_endpoint_result_rejected', type: 'test' });
@@ -1473,9 +1483,11 @@ async function test_server_rejects_local_ui_result_endpoint_response() {
       payload: pinPayloadRecords({
         opId: 'req_0375_local_endpoint_result',
         messageRole: 'response',
-        endpointWorkerId: 'U1',
-        endpointModelId: targetModelId,
-        endpointPin: 'result',
+        topic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
+        responseTopic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
+        endpointWorkerId: 'R1',
+        endpointModelId: 3000,
+        endpointPin: 'submit1',
         originWorkerId: 'R1',
         originModelId: 3000,
         originPin: 'submit1',
@@ -1490,10 +1502,10 @@ async function test_server_rejects_local_ui_result_endpoint_response() {
     assert.equal(
       state.runtime.getCell(targetModel, 0, 0, 0).labels.get('display_text'),
       undefined,
-      'response packets must not materialize when endpoint is the local UI/result endpoint',
+      'response packets must not materialize when endpoint does not match reply_target_*',
     );
   });
-  return { key: 'server_rejects_local_ui_result_endpoint_response', status: 'PASS' };
+  return { key: 'server_rejects_remote_endpoint_response', status: 'PASS' };
 }
 
 async function test_server_pin_payload_result_without_reply_target_is_rejected() {
@@ -1509,9 +1521,11 @@ async function test_server_pin_payload_result_without_reply_target_is_rejected()
       payload: withoutRecords(pinPayloadRecords({
         opId: 'req_0375_missing_reply',
         messageRole: 'response',
-        endpointWorkerId: 'R1',
-        endpointModelId: 3000,
-        endpointPin: 'submit1',
+        topic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
+        responseTopic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
+        endpointWorkerId: 'U1',
+        endpointModelId: targetModelId,
+        endpointPin: 'result',
         originWorkerId: 'R1',
         originModelId: 3000,
         originPin: 'submit1',
@@ -2346,9 +2360,11 @@ async function test_server_return_accepts_safe_numeric_origin_segments() {
       payload: pinPayloadRecords({
         opId: 'req_0375_numeric_origin_segments',
         messageRole: 'response',
-        endpointWorkerId: 'R1',
-        endpointModelId: 3000,
-        endpointPin: 'submit1',
+        topic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
+        responseTopic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
+        endpointWorkerId: 'U1',
+        endpointModelId: targetModelId,
+        endpointPin: 'result',
         originWorkerId: '1',
         originModelId: 3000,
         originPin: '9',
@@ -2515,7 +2531,7 @@ const tests = [
   test_pin_bus_externalization_uses_only_record_array_payload_metadata,
   test_split_bus_out_accepts_endpoint_records_and_rejects_route_record,
   test_worker_engine_publishes_control_bus_to_unified_endpoint_topic,
-  test_worker_engine_publishes_response_to_same_remote_endpoint_topic,
+  test_worker_engine_publishes_response_to_response_topic,
   test_worker_engine_rejects_short_payload_topic,
   test_worker_engine_rejects_padded_payload_topic,
   test_generic_worker_bootstrap_subscribes_only_unified_endpoint_topics,
@@ -2526,7 +2542,7 @@ const tests = [
   test_runtime_direct_bus_out_rejects_short_base_topic,
   test_runtime_rejects_padded_configured_worker_id,
   test_server_pin_payload_return_materializes_by_reply_target_records,
-  test_server_rejects_local_ui_result_endpoint_response,
+  test_server_rejects_remote_endpoint_response,
   test_server_pin_payload_result_without_reply_target_is_rejected,
   test_server_pin_payload_extra_top_level_field_is_rejected,
   test_server_direct_pin_rejects_legacy_reply_to_records_inside_arrays,

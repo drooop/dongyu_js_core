@@ -94,7 +94,7 @@ function test_remote_subscription_config_registered() {
   assert(subs, 'remote_subscriptions label should exist');
   assert.strictEqual(subs.t, 'json');
   assert(Array.isArray(subs.v), 'remote_subscriptions must be an array');
-  assert(subs.v.includes('UIPUT/ws/dam/pic/de/sw/R1/100/submit'), 'remote_subscriptions must include model 100 submit endpoint topic');
+  assert(subs.v.includes('UIPUT/ws/dam/pic/de/R1/100/submit'), 'remote_subscriptions must include model 100 submit endpoint topic');
   assert.equal(subs.v.some((topic) => String(topic).includes('100/result')), false, 'remote_subscriptions must not include model 100 result topic');
 
   return { key: 'remote_subscription_config_registered', status: 'PASS' };
@@ -130,7 +130,7 @@ function test_mqtt_incoming_routes_to_model100() {
   const rt = createConfiguredRuntime();
 
   // Simulate MQTT message arriving on Model 100 event topic
-  const topic = 'UIPUT/ws/dam/pic/de/sw/R1/100/submit';
+  const topic = 'UIPUT/ws/dam/pic/de/R1/100/submit';
   const payload = externalPacket(pinPayloadRecords({
     opId: 'test_0144_mqtt_001',
     payload: [
@@ -172,7 +172,7 @@ async function test_full_chain_async() {
   const rt = createConfiguredRuntime();
 
   // Simulate MQTT incoming → full chain
-  const topic = 'UIPUT/ws/dam/pic/de/sw/R1/100/submit';
+  const topic = 'UIPUT/ws/dam/pic/de/R1/100/submit';
   const payload = externalPacket(pinPayloadRecords({
     opId: 'test_0144_full_001',
     payload: [

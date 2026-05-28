@@ -13,17 +13,18 @@ source: ai
 一句话链路：
 
 ```text
-UI click -> Model 0 control bus -> MBR -> remote provider public pin -> same endpoint topic response -> reply_target records -> ui-server -> local UI model
+UI click -> Model 0 control bus -> MBR -> remote provider public pin -> response_topic -> reply_target records -> ui-server -> local UI model
 ```
 
 当前规约的关键点是：
 
 | 项 | 当前写法 |
 |---|---|
-| MQTT topic | `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1` |
-| topic 含义 | 请求和回包都使用同一个远端 endpoint：worker `R1`、model `3000`、pin `submit1` |
+| request topic | `UIPUT/ws/dam/pic/de/R1/3000/submit1` |
+| response topic | `UIPUT/ws/dam/pic/de/U1/2000/result` |
+| topic 含义 | `topic` 表示当前这条消息实际投递到哪里；请求投递到远端 endpoint，回包投递到 `response_topic` |
 | 默认总线 | 同工作区请求默认走控制总线：`pin.bus.cb.out` -> MBR -> MQTT topic |
-| 回包目标 | 不放在 topic；放在 payload records：`reply_target_worker_id = U1`、`reply_target_model_id = 2000`、`reply_target_pin = result` |
+| 回包目标 | 由 UI Server 写入 `response_topic` 与 `reply_target_*`：`reply_target_worker_id = U1`、`reply_target_model_id = 2000`、`reply_target_pin = result` |
 | 请求来源 | 放在 payload records：`origin_worker_id`、`origin_model_id`、`origin_pin` |
 | 消息方向 | 放在 payload records：`message_role = request` 或 `message_role = response` |
 | 业务数据 | 放在嵌套 `payload` record 中，仍是 ModelTable records array |
@@ -111,13 +112,19 @@ const replyTarget = {
 };
 const messageRole = readString(inputRecords, 'message_role');
 const routeTopic = readString(inputRecords, 'topic');
+const responseTopic = readString(inputRecords, 'response_topic');
 const routeKind = readString(inputRecords, 'route_kind', 'control') || 'control';
 const validRouteTopic = (value) => {
   if (typeof value !== 'string' || value.includes('+') || value.includes('#')) return false;
   const parts = value.split('/');
-  return value.trim() === value && parts.length === 9 && parts[0] === 'UIPUT' && parts.every((part) => safeSegment(part)) && /^[1-9][0-9]*$/.test(parts[7]);
+  return value.trim() === value && parts.length === 8 && parts[0] === 'UIPUT' && parts.every((part) => safeSegment(part)) && /^[1-9][0-9]*$/.test(parts[6]);
 };
 const validRouteKind = (value) => value === 'control' || value === 'management';
+const topicForEndpoint = (target) => {
+  if (!validEndpoint(target) || !validRouteTopic(routeTopic)) return '';
+  const parts = routeTopic.split('/');
+  return parts.slice(0, 5).concat([target.worker_id, String(target.model_id), target.pin]).join('/');
+};
 const businessPayload = readJson(inputRecords, 'payload', []);
 
 if (
@@ -127,6 +134,9 @@ if (
   || !validEndpoint(origin)
   || !validEndpoint(replyTarget)
   || !validRouteTopic(routeTopic)
+  || !validRouteTopic(responseTopic)
+  || responseTopic !== topicForEndpoint(replyTarget)
+  || responseTopic === routeTopic
   || !validRouteKind(routeKind)
   || !Array.isArray(businessPayload)
   || !businessPayload.every(isRecord)
@@ -156,12 +166,13 @@ return [
   mt('__mt_request_id', 'str', opId),
   mt('op_id', 'str', opId),
   mt('message_role', 'str', 'response'),
-  mt('topic', 'str', routeTopic),
+  mt('topic', 'str', responseTopic),
+  mt('response_topic', 'str', responseTopic),
   mt('route_kind', 'str', routeKind),
   mt('bus', 'str', routeKind),
-  mt('endpoint_worker_id', 'str', endpoint.worker_id),
-  mt('endpoint_model_id', 'int', endpoint.model_id),
-  mt('endpoint_pin', 'str', endpoint.pin),
+  mt('endpoint_worker_id', 'str', replyTarget.worker_id),
+  mt('endpoint_model_id', 'int', replyTarget.model_id),
+  mt('endpoint_pin', 'str', replyTarget.pin),
   mt('origin_worker_id', 'str', 'R1'),
   mt('origin_model_id', 'int', 3000),
   mt('origin_pin', 'str', 'submit1'),
@@ -266,7 +277,7 @@ handle_submit writes input_text / last_submit_payload / submit_inflight / remote
 handle_submit writes business payload to submit1 pin.out
 dual_bus_model.egress_pins contains submit1
 generated host egress adapter wraps topic / route_kind / message_role / endpoint_worker_id / origin_worker_id / reply_target_worker_id
-Model 0 mt_bus_send_in -> pin.bus.cb.out -> MBR -> UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
+Model 0 mt_bus_send_in -> pin.bus.cb.out -> MBR -> UIPUT/ws/dam/pic/de/R1/3000/submit1
 ```
 
 `handle_submit` 只准备业务 payload：
@@ -327,7 +338,7 @@ imported root submit1 pin.out -> Model 0 mount cell relay -> Model 0 (0,0,0) bri
 -> Remote Worker
 ```
 
-这不会改变远端 topic，也不会增加 return topic；MBR 仍只读取 payload records 中的 `topic` record。
+这不会改变远端 request topic，但会增加独立的 `response_topic`；MBR 仍只按当前 payload records 中的 `topic` record 转发当前消息。
 
 host bridge 写入的 `bus_send.v1` records 形态如下：
 
@@ -337,7 +348,8 @@ host bridge 写入的 `bus_send.v1` records 形态如下：
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus_out_key", "t": "str", "v": "imported_submit1_2000_bus" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/sw/R1/3000/submit1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/R1/3000/submit1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/2000/result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
@@ -357,7 +369,7 @@ host bridge 写入的 `bus_send.v1` records 形态如下：
 观察请求时订阅：
 
 ```text
-UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
+UIPUT/ws/dam/pic/de/R1/3000/submit1
 ```
 
 这条消息的外层只有：
@@ -366,13 +378,13 @@ UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
 { "version": "v1", "type": "pin_payload", "payload": "ModelTable records array" }
 ```
 
-要模拟 `R1` 回包，不要发布到所谓 result topic。仍然发布到同一个 endpoint topic：
+要模拟 `R1` 回包，必须发布到请求 payload 里的 `response_topic`：
 
 ```text
-UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
+UIPUT/ws/dam/pic/de/U1/2000/result
 ```
 
-回包 records 的 `endpoint_*` 仍指向 `R1 / 3000 / submit1`，并通过 `message_role = response` 表示这不是再次触发远端程序的请求。UI Server 本地目标只放在 `reply_target_*` records：
+回包 records 的 `topic` 和 `response_topic` 都应等于这条 response topic。回包 records 的 `endpoint_*` 指向本地 `reply_target_*`，表示当前消息投递目标；`origin_*` 仍记录远端 provider，即 `R1 / 3000 / submit1`：
 
 ```json
 {
@@ -383,9 +395,11 @@ UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "manual_result_2000_001" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "manual_result_2000_001" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "submit1" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/2000/result" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/2000/result" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "U1" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 2000 },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "result" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "R1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_model_id", "t": "int", "v": 3000 },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_pin", "t": "str", "v": "submit1" },
@@ -405,7 +419,7 @@ UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
 }
 ```
 
-MBR 收到 `message_role=response` 后仍按同一个 `topic` record 转发；UI Server 只按 `reply_target_*` records materialize 到本地 UI 模型，不从 topic 推断本地 model id。远端 runtime 收到同一 topic 上的 `response` 时会忽略它，避免二次触发 `submit1` 程序。
+MBR 收到 `message_role=response` 后仍按当前 `topic` record 转发；因为这个 `topic` 已经等于 `response_topic`，所以消息会投递回本地 UI Server。UI Server 仍以 `reply_target_*` records 作为正式写回目标，不从 request topic 推断本地 model id。
 
 ## 6. 导出与交付
 
@@ -425,6 +439,6 @@ MBR 收到 `message_role=response` 后仍按同一个 `topic` record 转发；UI
 |---|---|
 | `route.reply_to` in zip | 回包目标必须由 UI Server 写入 `reply_target_*` records。 |
 | `source_model_id` | 已被 `origin_model_id` / `reply_target_model_id` 取代。 |
-| `worker/R1/model/3000/pin/submit1` 旧 topic | 当前只允许 `UIPUT/ws/dam/pic/de/sw/R1/3000/submit1`。 |
+| `worker/R1/model/3000/pin/submit1` 旧 topic | 当前只允许 `UIPUT/ws/dam/pic/de/R1/3000/submit1`。 |
 | `pin.connect.model` | 跨模型连接使用 `model.submt` + `pin.connect.cell`。 |
 | `ctx.writeLabel/getLabel/rmLabel` | 当前业务副作用只能走模型表运行时允许的 pin / V1N API。 |

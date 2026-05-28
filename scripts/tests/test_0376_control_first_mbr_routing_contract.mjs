@@ -42,13 +42,15 @@ function payloadJson(records, key) {
   return record && record.t === 'json' ? record.v : null;
 }
 
-function pinPayloadPacket({ opId, endpoint, origin, replyTarget, payload, messageRole = 'response', topic = 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', routeKind = 'control' }) {
+function pinPayloadPacket({ opId, endpoint, origin, replyTarget, payload, messageRole = 'response', topic = 'UIPUT/ws/dam/pic/de/R1/3000/submit1', responseTopic = null, routeKind = 'control' }) {
+  const routeResponseTopic = responseTopic || `UIPUT/ws/dam/pic/de/${replyTarget.worker_id}/${replyTarget.model_id}/${replyTarget.pin}`;
   const records = [
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
     mt('message_role', 'str', messageRole),
     mt('topic', 'str', topic),
+    mt('response_topic', 'str', routeResponseTopic),
     mt('endpoint_worker_id', 'str', endpoint.worker_id),
     mt('endpoint_model_id', 'int', endpoint.model_id),
     mt('endpoint_pin', 'str', endpoint.pin),
@@ -107,7 +109,8 @@ function providerBundleResponsePayload() {
 
 function pinPayloadRecords({
   opId = '0376_control_first',
-  topic = 'UIPUT/ws/dam/pic/de/sw/R2/999/submit',
+  topic = 'UIPUT/ws/dam/pic/de/R2/999/submit',
+  responseTopic = 'UIPUT/ws/dam/pic/de/U1/2000/result',
   routeKind,
   endpointWorkerId = 'R1',
   endpointModelId = 3000,
@@ -120,6 +123,7 @@ function pinPayloadRecords({
     mt('op_id', 'str', opId),
     mt('message_role', 'str', messageRole),
     mt('topic', 'str', topic),
+    mt('response_topic', 'str', responseTopic),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),
@@ -212,7 +216,7 @@ async function test_ui_server_cb_out_publishes_control_bus_not_matrix() {
     const model0 = state.runtime.getModel(0);
     const records = pinPayloadRecords({
       opId: 'ui_server_cb_out_0376',
-      topic: 'UIPUT/ws/dam/pic/de/sw/R1/100/submit',
+      topic: 'UIPUT/ws/dam/pic/de/R1/100/submit',
       routeKind: 'control',
       endpointWorkerId: 'R1',
       endpointModelId: 100,
@@ -227,7 +231,7 @@ async function test_ui_server_cb_out_publishes_control_bus_not_matrix() {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.equal(published.length, 1, 'ui-server pin.bus.cb.out must publish exactly once to MQTT control bus');
-    assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/100/submit', 'ui-server control publish must use payload topic record');
+    assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/R1/100/submit', 'ui-server control publish must use payload topic record');
     assert.equal(matrixCalled, false, 'ui-server pin.bus.cb.out must not use Matrix management adapter');
     return { key: 'ui_server_cb_out_publishes_control_bus_not_matrix', status: 'PASS' };
   });
@@ -249,7 +253,7 @@ async function test_ui_server_cb_out_dedup_distinguishes_request_and_response_fo
     const model0 = state.runtime.getModel(0);
     const common = {
       opId: 'same_op_ui_server_0376',
-      topic: 'UIPUT/ws/dam/pic/de/sw/R1/100/submit',
+      topic: 'UIPUT/ws/dam/pic/de/R1/100/submit',
       routeKind: 'control',
       endpointWorkerId: 'R1',
       endpointModelId: 100,
@@ -265,7 +269,15 @@ async function test_ui_server_cb_out_dedup_distinguishes_request_and_response_fo
     state.runtime.addLabel(model0, 0, 0, 0, {
       k: 'ui_server_same_op_cb_out',
       t: 'pin.bus.cb.out',
-      v: pinPayloadRecords({ ...common, messageRole: 'response' }),
+      v: pinPayloadRecords({
+        ...common,
+        messageRole: 'response',
+        topic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
+        responseTopic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
+        endpointWorkerId: 'U1',
+        endpointModelId: 2000,
+        endpointPin: 'result',
+      }),
     });
     state.programEngine.schedulePendingModel0Egress();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -331,15 +343,15 @@ function test_worker_engine_publishes_cb_out_to_payload_topic_without_endpoint_f
       t: 'pin.bus.cb.out',
       v: pinPayloadRecords({
         opId: '0376_engine_topic_truth',
-        topic: 'UIPUT/ws/dam/pic/de/sw/R2/999/submit',
-        endpointWorkerId: 'R1',
-        endpointModelId: 3000,
-        endpointPin: 'submit1',
+        topic: 'UIPUT/ws/dam/pic/de/R2/999/submit',
+        endpointWorkerId: 'R2',
+        endpointModelId: 999,
+        endpointPin: 'submit',
       }),
     });
     const { mqttPublished } = drainWorkerEngine(rt);
     assert.equal(mqttPublished.length, 1, 'control bus out must publish once');
-    assert.equal(mqttPublished[0].topic, 'UIPUT/ws/dam/pic/de/sw/R2/999/submit', 'published topic must come from payload topic record, not endpoint records');
+    assert.equal(mqttPublished[0].topic, 'UIPUT/ws/dam/pic/de/R2/999/submit', 'published topic must come from payload topic record, not endpoint records');
   }
 
   {
@@ -363,12 +375,12 @@ function test_worker_engine_rejects_unsafe_payload_topics() {
     ['empty', ''],
     ['not_uiput', 'not-uiput'],
     ['wrong_prefix', 'NOPE/ws/dam/pic/de/sw/R2/999/submit'],
-    ['wrong_segment_count', 'UIPUT/ws/dam/pic/de/sw/R2/999'],
-    ['wildcard_plus', 'UIPUT/ws/dam/pic/de/sw/R2/999/+'],
-    ['wildcard_hash', 'UIPUT/ws/dam/pic/de/sw/R2/999/#'],
-    ['empty_segment', 'UIPUT/ws/dam/pic/de/sw//999/submit'],
-    ['zero_model', 'UIPUT/ws/dam/pic/de/sw/R2/0/submit'],
-    ['leading_zero_model', 'UIPUT/ws/dam/pic/de/sw/R2/0999/submit'],
+    ['wrong_segment_count', 'UIPUT/ws/dam/pic/de/R2/999'],
+    ['wildcard_plus', 'UIPUT/ws/dam/pic/de/R2/999/+'],
+    ['wildcard_hash', 'UIPUT/ws/dam/pic/de/R2/999/#'],
+    ['empty_segment', 'UIPUT/ws/dam/pic/de//999/submit'],
+    ['zero_model', 'UIPUT/ws/dam/pic/de/R2/0/submit'],
+    ['leading_zero_model', 'UIPUT/ws/dam/pic/de/R2/0999/submit'],
   ]) {
     const rt = loadMbrRuntime();
     const model0 = rt.getModel(0);
@@ -396,13 +408,13 @@ async function test_mbr_cb_dispatch_defaults_to_control_and_routes_by_topic() {
     t: 'pin.bus.cb.in',
     v: pinPayloadRecords({
       opId: '0376_mbr_default_control',
-      topic: 'UIPUT/ws/dam/pic/de/sw/R2/999/submit',
-      endpointWorkerId: 'R1',
-      endpointModelId: 3000,
-      endpointPin: 'submit1',
+      topic: 'UIPUT/ws/dam/pic/de/R2/999/submit',
+      endpointWorkerId: 'R2',
+      endpointModelId: 999,
+      endpointPin: 'submit',
     }),
   });
-  const expectedTopic = 'UIPUT/ws/dam/pic/de/sw/R2/999/submit';
+  const expectedTopic = 'UIPUT/ws/dam/pic/de/R2/999/submit';
   const cbOut = await waitUntil(() => {
     const label = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_cb_out');
     return payloadString(label?.v, 'topic') === expectedTopic ? label : null;
@@ -411,7 +423,7 @@ async function test_mbr_cb_dispatch_defaults_to_control_and_routes_by_topic() {
   assert.equal(payloadString(cbOut?.v, 'topic'), expectedTopic, 'MBR must preserve payload topic as route truth');
   assert.equal(payloadString(cbOut?.v, 'route_kind'), '', 'missing route_kind remains omitted while dispatch treats it as control');
   const { mqttPublished } = drainWorkerEngine(rt);
-  assert.equal(mqttPublished[0]?.topic, 'UIPUT/ws/dam/pic/de/sw/R2/999/submit', 'MBR control output must publish to payload topic');
+  assert.equal(mqttPublished[0]?.topic, 'UIPUT/ws/dam/pic/de/R2/999/submit', 'MBR control output must publish to payload topic');
   return { key: 'mbr_cb_dispatch_defaults_to_control_and_routes_by_topic', status: 'PASS' };
 }
 
@@ -424,7 +436,10 @@ async function test_mbr_cb_dispatch_routes_explicit_management_and_rejects_inval
       v: pinPayloadRecords({
         opId: '0376_mbr_management',
         routeKind: 'management',
-        topic: 'UIPUT/ws/dam/pic/de/sw/R2/999/submit',
+        topic: 'UIPUT/ws/dam/pic/de/R2/999/submit',
+        endpointWorkerId: 'R2',
+        endpointModelId: 999,
+        endpointPin: 'submit',
       }),
     });
     const root = rt.getCell(rt.getModel(0), 0, 0, 0).labels;
@@ -441,17 +456,17 @@ async function test_mbr_cb_dispatch_routes_explicit_management_and_rejects_inval
   for (const [name, records, detail] of [
     ['missing_topic', withoutRecords(pinPayloadRecords({ opId: '0376_missing_topic' }), ['topic']), 'bus_in_invalid_topic'],
     ['invalid_route_kind', pinPayloadRecords({ opId: '0376_invalid_route_kind', routeKind: 'legacy' }), 'bus_in_invalid_route_kind'],
-    ['legacy_return_topic', [...pinPayloadRecords({ opId: '0376_legacy_return_topic' }), mt('return_topic', 'str', 'UIPUT/ws/dam/pic/de/sw/R2/999/submit')], 'legacy_pin_payload_metadata_removed'],
-    ['legacy_route_reply_to', [...pinPayloadRecords({ opId: '0376_legacy_route_reply_to' }), mt('route.reply_to', 'str', 'UIPUT/ws/dam/pic/de/sw/R2/999/result')], 'legacy_pin_payload_metadata_removed'],
-    ['legacy_result_topic', [...pinPayloadRecords({ opId: '0376_legacy_result_topic' }), mt('result_topic', 'str', 'UIPUT/ws/dam/pic/de/sw/R2/999/result')], 'legacy_pin_payload_metadata_removed'],
+    ['legacy_return_topic', [...pinPayloadRecords({ opId: '0376_legacy_return_topic' }), mt('return_topic', 'str', 'UIPUT/ws/dam/pic/de/R2/999/submit')], 'legacy_pin_payload_metadata_removed'],
+    ['legacy_route_reply_to', [...pinPayloadRecords({ opId: '0376_legacy_route_reply_to' }), mt('route.reply_to', 'str', 'UIPUT/ws/dam/pic/de/R2/999/result')], 'legacy_pin_payload_metadata_removed'],
+    ['legacy_result_topic', [...pinPayloadRecords({ opId: '0376_legacy_result_topic' }), mt('result_topic', 'str', 'UIPUT/ws/dam/pic/de/R2/999/result')], 'legacy_pin_payload_metadata_removed'],
     ['unsafe_empty_topic', pinPayloadRecords({ opId: '0376_unsafe_empty_topic', topic: '' }), 'bus_in_invalid_topic'],
-    ['unsafe_plus_topic', pinPayloadRecords({ opId: '0376_unsafe_plus_topic', topic: 'UIPUT/ws/dam/pic/de/sw/R2/999/+' }), 'bus_in_invalid_topic'],
-    ['unsafe_hash_topic', pinPayloadRecords({ opId: '0376_unsafe_hash_topic', topic: 'UIPUT/ws/dam/pic/de/sw/R2/999/#' }), 'bus_in_invalid_topic'],
-    ['unsafe_empty_segment_topic', pinPayloadRecords({ opId: '0376_unsafe_empty_segment_topic', topic: 'UIPUT/ws/dam/pic/de/sw//999/submit' }), 'bus_in_invalid_topic'],
-    ['unsafe_leading_slash_topic', pinPayloadRecords({ opId: '0376_unsafe_leading_slash_topic', topic: '/UIPUT/ws/dam/pic/de/sw/R2/999/submit' }), 'bus_in_invalid_topic'],
-    ['unsafe_trailing_slash_topic', pinPayloadRecords({ opId: '0376_unsafe_trailing_slash_topic', topic: 'UIPUT/ws/dam/pic/de/sw/R2/999/submit/' }), 'bus_in_invalid_topic'],
-    ['unsafe_zero_model_topic', pinPayloadRecords({ opId: '0376_unsafe_zero_model_topic', topic: 'UIPUT/ws/dam/pic/de/sw/R2/0/submit' }), 'bus_in_invalid_topic'],
-    ['unsafe_leading_zero_model_topic', pinPayloadRecords({ opId: '0376_unsafe_leading_zero_model_topic', topic: 'UIPUT/ws/dam/pic/de/sw/R2/0999/submit' }), 'bus_in_invalid_topic'],
+    ['unsafe_plus_topic', pinPayloadRecords({ opId: '0376_unsafe_plus_topic', topic: 'UIPUT/ws/dam/pic/de/R2/999/+' }), 'bus_in_invalid_topic'],
+    ['unsafe_hash_topic', pinPayloadRecords({ opId: '0376_unsafe_hash_topic', topic: 'UIPUT/ws/dam/pic/de/R2/999/#' }), 'bus_in_invalid_topic'],
+    ['unsafe_empty_segment_topic', pinPayloadRecords({ opId: '0376_unsafe_empty_segment_topic', topic: 'UIPUT/ws/dam/pic/de//999/submit' }), 'bus_in_invalid_topic'],
+    ['unsafe_leading_slash_topic', pinPayloadRecords({ opId: '0376_unsafe_leading_slash_topic', topic: '/UIPUT/ws/dam/pic/de/R2/999/submit' }), 'bus_in_invalid_topic'],
+    ['unsafe_trailing_slash_topic', pinPayloadRecords({ opId: '0376_unsafe_trailing_slash_topic', topic: 'UIPUT/ws/dam/pic/de/R2/999/submit/' }), 'bus_in_invalid_topic'],
+    ['unsafe_zero_model_topic', pinPayloadRecords({ opId: '0376_unsafe_zero_model_topic', topic: 'UIPUT/ws/dam/pic/de/R2/0/submit' }), 'bus_in_invalid_topic'],
+    ['unsafe_leading_zero_model_topic', pinPayloadRecords({ opId: '0376_unsafe_leading_zero_model_topic', topic: 'UIPUT/ws/dam/pic/de/R2/0999/submit' }), 'bus_in_invalid_topic'],
   ]) {
     const rt = loadMbrRuntime();
     const model0 = rt.getModel(0);
@@ -476,26 +491,27 @@ async function test_mbr_cb_dispatch_routes_explicit_management_and_rejects_inval
 async function test_mbr_cb_dispatch_accepts_provider_bundle_response_modeltable_payload() {
   const rt = loadMbrRuntime();
   const model0 = rt.getModel(0);
-  const topic = 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request';
+  const topic = 'UIPUT/ws/dam/pic/de/U1/2000/result';
   rt.addLabel(model0, 0, 0, 0, {
     k: 'mbr_cb_in',
     t: 'pin.bus.cb.in',
-    v: pinPayloadRecords({
-      opId: 'req_0389_provider_bundle_response',
-      topic,
-      routeKind: 'control',
-      endpointWorkerId: 'R1',
-      endpointModelId: 3100,
-      endpointPin: 'bundle_request',
-      messageRole: 'response',
-    }).map((record) => record.k === 'payload' ? { ...record, v: providerBundleResponsePayload() } : record),
+      v: pinPayloadRecords({
+        opId: 'req_0389_provider_bundle_response',
+        topic,
+        responseTopic: topic,
+        routeKind: 'control',
+        endpointWorkerId: 'U1',
+        endpointModelId: 2000,
+        endpointPin: 'result',
+        messageRole: 'response',
+      }).map((record) => record.k === 'payload' ? { ...record, v: providerBundleResponsePayload() } : record),
   });
   const cbOut = await waitUntil(() => {
     const label = rt.getCell(model0, 0, 0, 0).labels.get('mbr_cb_out');
     return payloadString(label?.v, 'op_id') === 'req_0389_provider_bundle_response' ? label : null;
   });
   assert.equal(cbOut?.t, 'pin.bus.cb.out', 'valid provider bundle response must be forwarded by MBR');
-  assert.equal(payloadString(cbOut?.v, 'topic'), topic, 'provider bundle response must preserve same endpoint topic');
+  assert.equal(payloadString(cbOut?.v, 'topic'), topic, 'provider bundle response must publish on response_topic');
   assert.equal(rt.getCell(model0, 0, 0, 0).labels.get('mbr_cb_error')?.v ?? null, null, 'valid provider bundle response must not be rejected as legacy metadata');
   return { key: 'mbr_cb_dispatch_accepts_provider_bundle_response_modeltable_payload', status: 'PASS' };
 }
@@ -503,7 +519,7 @@ async function test_mbr_cb_dispatch_accepts_provider_bundle_response_modeltable_
 async function test_mbr_cb_dispatch_rejects_legacy_label_inside_provider_bundle_payload() {
   const rt = loadMbrRuntime();
   const model0 = rt.getModel(0);
-  const topic = 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request';
+  const topic = 'UIPUT/ws/dam/pic/de/U1/2000/result';
   const payload = providerBundleResponsePayload().map((record) => {
     if (record.k !== 'bundle_payload') return record;
     return {
@@ -517,15 +533,16 @@ async function test_mbr_cb_dispatch_rejects_legacy_label_inside_provider_bundle_
   rt.addLabel(model0, 0, 0, 0, {
     k: 'mbr_cb_in',
     t: 'pin.bus.cb.in',
-    v: pinPayloadRecords({
-      opId: 'req_0389_provider_bundle_legacy_label',
-      topic,
-      routeKind: 'control',
-      endpointWorkerId: 'R1',
-      endpointModelId: 3100,
-      endpointPin: 'bundle_request',
-      messageRole: 'response',
-    }).map((record) => record.k === 'payload' ? { ...record, v: payload } : record),
+      v: pinPayloadRecords({
+        opId: 'req_0389_provider_bundle_legacy_label',
+        topic,
+        responseTopic: topic,
+        routeKind: 'control',
+        endpointWorkerId: 'U1',
+        endpointModelId: 2000,
+        endpointPin: 'result',
+        messageRole: 'response',
+      }).map((record) => record.k === 'payload' ? { ...record, v: payload } : record),
   });
   await waitUntil(() => rt.getCell(model0, 0, 0, 0).labels.get('mbr_cb_error') || lastRejectedReason(rt));
   const root = rt.getCell(model0, 0, 0, 0).labels;
@@ -548,7 +565,7 @@ async function test_split_bus_dedup_distinguishes_request_and_response_for_same_
     t: 'pin.bus.cb.out',
     v: pinPayloadRecords({
       opId: '0376_same_op_request_response',
-      topic: 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request',
+      topic: 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request',
       endpointWorkerId: 'R1',
       endpointModelId: 3100,
       endpointPin: 'bundle_request',
@@ -561,10 +578,11 @@ async function test_split_bus_dedup_distinguishes_request_and_response_for_same_
     t: 'pin.bus.cb.out',
     v: pinPayloadRecords({
       opId: '0376_same_op_request_response',
-      topic: 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request',
-      endpointWorkerId: 'R1',
-      endpointModelId: 3100,
-      endpointPin: 'bundle_request',
+      topic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
+      responseTopic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
+      endpointWorkerId: 'U1',
+      endpointModelId: 2000,
+      endpointPin: 'result',
       messageRole: 'response',
     }).map((record) => record.k === 'payload' ? { ...record, v: providerBundleResponsePayload() } : record),
   });
@@ -606,7 +624,7 @@ async function test_imported_slide_app_default_binding_is_control_bus() {
     const emittedHostPin = state.runtime.getCell(model0, 0, 0, 0).labels.get(binding.v.host_pin_key);
     assert.equal(emittedHostPin?.t, 'pin.bus.cb.out', 'runtime egress must write the control bus out pin');
     assert.equal(payloadString(emittedHostPin?.v, 'route_kind'), 'control', 'runtime egress payload must carry route_kind control');
-    assert.equal(payloadString(emittedHostPin?.v, 'topic'), 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', 'runtime egress payload must carry full topic record');
+    assert.equal(payloadString(emittedHostPin?.v, 'topic'), 'UIPUT/ws/dam/pic/de/R1/3000/submit1', 'runtime egress payload must carry full topic record');
     assert.equal(payloadString(emittedHostPin?.v, 'bus'), 'control', 'runtime egress payload must carry bus control');
     const emittedBusinessPayload = payloadJson(emittedHostPin?.v, 'payload');
     assert.equal(payloadString(emittedBusinessPayload, 'text'), 'runtime egress payload', 'runtime egress must carry the business payload emitted by this submit1 write');
@@ -623,11 +641,14 @@ async function test_ui_server_control_bus_response_materializes_reply_target() {
     const importResult = state.runtime.hostApi.slideImportAppFromMxc('mxc://localhost/0376-control-return');
     assert.equal(importResult.ok, true, 'valid provider zip must import');
     const importedId = importResult.data?.model_id;
+    const responseTopic = `UIPUT/ws/dam/pic/de/ui-server-0376/${importedId}/result`;
     const handled = await state.programEngine.handleControlBusPacket(
-      'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1',
+      responseTopic,
       pinPayloadPacket({
         opId: '0376_control_return_materialize',
-        endpoint: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
+        topic: responseTopic,
+        responseTopic,
+        endpoint: { worker_id: 'ui-server-0376', model_id: importedId, pin: 'result' },
         origin: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
         replyTarget: { worker_id: 'ui-server-0376', model_id: importedId, pin: 'result' },
         payload: [
@@ -651,10 +672,10 @@ async function test_ui_server_control_bus_response_rejects_non_strict_packets() 
     const importResult = state.runtime.hostApi.slideImportAppFromMxc('mxc://localhost/0376-control-return-strict');
     assert.equal(importResult.ok, true, 'valid provider zip must import');
     const importedId = importResult.data?.model_id;
-    const topic = 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1';
+    const topic = `UIPUT/ws/dam/pic/de/ui-server-0376/${importedId}/result`;
     const basePacket = (overrides = {}) => pinPayloadPacket({
       opId: overrides.opId || '0376_control_return_reject',
-      endpoint: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
+      endpoint: { worker_id: 'ui-server-0376', model_id: importedId, pin: 'result' },
       origin: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
       replyTarget: { worker_id: 'ui-server-0376', model_id: importedId, pin: 'result' },
       payload: [
@@ -665,6 +686,7 @@ async function test_ui_server_control_bus_response_rejects_non_strict_packets() 
       messageRole: overrides.messageRole || 'response',
       routeKind: Object.prototype.hasOwnProperty.call(overrides, 'routeKind') ? overrides.routeKind : 'control',
       topic,
+      responseTopic: topic,
     });
     const cases = [
       ['missing_route_kind', basePacket({ opId: '0376_missing_route_kind', routeKind: null })],
@@ -713,7 +735,7 @@ function test_user_guide_documents_payload_topic_as_route_truth() {
   );
   const resultSection = text.slice(text.indexOf('### 9.2 Result'), text.indexOf('## 10.', text.indexOf('### 9.2 Result')) > 0 ? text.indexOf('## 10.', text.indexOf('### 9.2 Result')) : undefined);
   assert.ok(
-    resultSection.includes('"k": "topic"') && resultSection.includes('"v": "UIPUT/ws/dam/pic/de/sw/R1/3000/submit1"'),
+    resultSection.includes('"k": "topic"') && resultSection.includes('"v": "UIPUT/ws/dam/pic/de/U1/1055/result"'),
     'result example must include the required topic record',
   );
   return { key: 'user_guide_documents_payload_topic_as_route_truth', status: 'PASS' };

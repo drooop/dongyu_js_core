@@ -42,13 +42,15 @@ function externalPacket(records) {
   return { version: 'v1', type: 'pin_payload', payload: records };
 }
 
-function pinPayloadPacket({ opId, topic, routeKind, endpoint, origin, replyTarget, payload, messageRole = 'response' }) {
+function pinPayloadPacket({ opId, topic, responseTopic = null, routeKind, endpoint, origin, replyTarget, payload, messageRole = 'response' }) {
+  const actualResponseTopic = responseTopic || `UIPUT/ws/dam/pic/de/${replyTarget.worker_id}/${replyTarget.model_id}/${replyTarget.pin}`;
   return externalPacket([
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
     mt('message_role', 'str', messageRole),
     mt('topic', 'str', topic),
+    mt('response_topic', 'str', actualResponseTopic),
     mt('route_kind', 'str', routeKind),
     mt('bus', 'str', routeKind),
     mt('endpoint_worker_id', 'str', endpoint.worker_id),
@@ -120,7 +122,7 @@ function loadRemoteWorkerRuntime() {
 function remoteBundleRequestPacket(assetId = 'r1-color-generator') {
   return pinPayloadPacket({
     opId: `0384_bundle_request_${assetId}`,
-    topic: 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request',
+    topic: 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request',
     routeKind: 'control',
     endpoint: { worker_id: 'R1', model_id: 3100, pin: 'bundle_request' },
     origin: { worker_id: 'U1', model_id: 1051, pin: 'workspace_asset_install' },
@@ -138,8 +140,9 @@ function makeBundleResponse({ opId, topic, endpoint, replyTarget, bundlePayload,
   return pinPayloadPacket({
     opId,
     topic,
+    responseTopic: topic,
     routeKind,
-    endpoint,
+    endpoint: replyTarget,
     origin: { worker_id: endpoint.worker_id, model_id: endpoint.model_id, pin: endpoint.pin },
     replyTarget,
     messageRole: 'response',
@@ -169,18 +172,18 @@ async function test_install_action_sends_provider_bundle_request_without_materia
     });
     assert.equal(result.result, 'ok', 'install action must send a provider bundle request');
     assert.equal(result.routed_by, 'workspace_asset_bundle_request', 'install action must use provider request path');
-    assert.equal(result.topic, 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request', 'install request must use computed provider topic');
+    assert.equal(result.topic, 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request', 'install request must use computed provider topic');
     const afterMax = Math.max(...Array.from(runtime.models.keys()).filter((id) => Number.isInteger(id) && id > 0));
     assert.equal(afterMax, beforeMax, 'request phase must not create a local model');
     const pending = labelValue(runtime, 1051, 0, 0, 0, 'asset_install_pending');
     assert.equal(pending?.asset_id, 'r1-color-generator', 'pending install state must record asset_id');
-    assert.equal(pending?.topic, 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request', 'pending install state must record computed topic');
+    assert.equal(pending?.topic, 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request', 'pending install state must record computed topic');
     assert.deepEqual(pending?.provider_endpoint, { worker_id: 'R1', model_id: 3100, pin: 'bundle_request' }, 'pending install state must record provider endpoint');
     const busLabel = runtime.getCell(runtime.getModel(0), 0, 0, 0).labels.get('workspace_asset_bundle_request_bus');
     assert.equal(busLabel?.t, 'pin.bus.cb.out', 'install request must leave through Model 0 control bus out');
     assert.equal(payloadString(busLabel?.v, '__mt_payload_kind'), 'pin_payload.v1', 'request bus payload must be pin_payload.v1');
     assert.equal(payloadString(busLabel?.v, 'message_role'), 'request', 'request bus payload must mark message_role=request');
-    assert.equal(payloadString(busLabel?.v, 'topic'), 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request', 'request bus payload must carry provider topic');
+    assert.equal(payloadString(busLabel?.v, 'topic'), 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request', 'request bus payload must carry provider topic');
     const nested = payloadJson(busLabel?.v, 'payload');
     assert.equal(payloadString(nested, '__mt_payload_kind'), 'slide_app_bundle_request.v1', 'nested payload must be slide app bundle request');
     assert.equal(payloadString(nested, 'asset_id'), 'r1-color-generator', 'nested payload must carry selected asset_id');
@@ -232,69 +235,69 @@ async function test_provider_bundle_response_materializes_new_workspace_app_and_
         name: 'asset',
         packet: makeBundleResponse({
           opId: pending.op_id,
-          topic: pending.topic,
+          topic: pending.response_topic,
           endpoint: pending.provider_endpoint,
           replyTarget: pending.reply_target,
           assetId: 'wrong-asset',
           bundlePayload: exportResult.data.payload,
         }),
-        topic: pending.topic,
+        topic: pending.response_topic,
       },
       {
         name: 'op_id',
         packet: makeBundleResponse({
           opId: `${pending.op_id}_wrong`,
-          topic: pending.topic,
+          topic: pending.response_topic,
           endpoint: pending.provider_endpoint,
           replyTarget: pending.reply_target,
           bundlePayload: exportResult.data.payload,
         }),
-        topic: pending.topic,
+        topic: pending.response_topic,
       },
       {
         name: 'topic',
         packet: makeBundleResponse({
           opId: pending.op_id,
-          topic: 'UIPUT/ws/dam/pic/de/sw/R1/3100/wrong_bundle_request',
+          topic: 'UIPUT/ws/dam/pic/de/R1/3100/wrong_bundle_request',
           endpoint: pending.provider_endpoint,
           replyTarget: pending.reply_target,
           bundlePayload: exportResult.data.payload,
         }),
-        topic: pending.topic,
+        topic: pending.response_topic,
       },
       {
         name: 'route_kind',
         packet: makeBundleResponse({
           opId: pending.op_id,
-          topic: pending.topic,
+          topic: pending.response_topic,
           routeKind: 'management',
           endpoint: pending.provider_endpoint,
           replyTarget: pending.reply_target,
           bundlePayload: exportResult.data.payload,
         }),
-        topic: pending.topic,
+        topic: pending.response_topic,
       },
       {
         name: 'endpoint',
         packet: makeBundleResponse({
           opId: pending.op_id,
-          topic: pending.topic,
+          topic: pending.response_topic,
           endpoint: { ...pending.provider_endpoint, model_id: 3101 },
           replyTarget: pending.reply_target,
           bundlePayload: exportResult.data.payload,
         }),
-        topic: pending.topic,
+        topic: pending.response_topic,
       },
       {
         name: 'reply_target',
         packet: makeBundleResponse({
           opId: pending.op_id,
-          topic: pending.topic,
+          topic: pending.response_topic,
           endpoint: pending.provider_endpoint,
           replyTarget: { ...pending.reply_target, model_id: 1052 },
           bundlePayload: exportResult.data.payload,
         }),
-        topic: pending.topic,
+        topic: pending.response_topic,
       },
     ];
     for (const mismatch of mismatches) {
@@ -305,12 +308,12 @@ async function test_provider_bundle_response_materializes_new_workspace_app_and_
 
     const goodResponse = makeBundleResponse({
       opId: pending.op_id,
-      topic: pending.topic,
+      topic: pending.response_topic,
       endpoint: pending.provider_endpoint,
       replyTarget: pending.reply_target,
       bundlePayload: exportResult.data.payload,
     });
-    const handled = await state.programEngine.handleControlBusPacket(pending.topic, goodResponse);
+    const handled = await state.programEngine.handleControlBusPacket(pending.response_topic, goodResponse);
     assert.equal(handled, true, 'matched provider bundle response must be handled');
     await wait();
     const installedId = labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id');
@@ -338,7 +341,7 @@ async function test_provider_bundle_response_materializes_new_workspace_app_and_
       Array.isArray(registry) && registry.some((entry) => entry?.model_id === installedId && entry?.name === 'E2E 颜色生成器'),
       'successful install must refresh ws_apps_registry so desktop list sees the new app without reload',
     );
-    const duplicateHandled = await state.programEngine.handleControlBusPacket(pending.topic, goodResponse);
+    const duplicateHandled = await state.programEngine.handleControlBusPacket(pending.response_topic, goodResponse);
     assert.equal(duplicateHandled, true, 'duplicate provider response with the same op_id must be handled idempotently');
     assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id'), installedId, 'duplicate response must not create or switch to another model');
     assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_open'), true, 'duplicate response must not close the success dialog');
@@ -356,8 +359,8 @@ async function test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bu
     const rt = loadRemoteWorkerRuntime();
     const sys = rt.getModel(-10);
     const subs = sys ? rt.getLabelValue(sys, 0, 0, 0, 'remote_subscriptions') : [];
-    assert.ok(Array.isArray(subs) && subs.includes('UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request'), 'R1 must subscribe to provider bundle endpoint');
-    const handled = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request', remoteBundleRequestPacket(assetId));
+    assert.ok(Array.isArray(subs) && subs.includes('UIPUT/ws/dam/pic/de/R1/3100/bundle_request'), 'R1 must subscribe to provider bundle endpoint');
+    const handled = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3100/bundle_request', remoteBundleRequestPacket(assetId));
     assert.equal(handled, true, `R1 runtime must accept provider bundle request topic for ${assetId}`);
     await wait(120);
     const response = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('remote_result_bus')?.v;
@@ -385,24 +388,26 @@ async function test_bundle_payload_exception_is_scoped_to_slide_app_response() {
 
     const topLevelBundlePayload = pinPayloadPacket({
       opId: '0384_top_level_bundle_payload_must_reject',
-      topic: 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request',
+      topic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
+      responseTopic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
       routeKind: 'control',
-      endpoint: { worker_id: 'R1', model_id: 3100, pin: 'bundle_request' },
+      endpoint: { worker_id: 'U1', model_id: targetModelId, pin: 'result' },
       origin: { worker_id: 'R1', model_id: 3100, pin: 'bundle_request' },
       replyTarget: { worker_id: 'U1', model_id: targetModelId, pin: 'result' },
       messageRole: 'response',
       payload: [mt('display_text', 'str', 'must_not_materialize_top_bundle_payload')],
     });
     topLevelBundlePayload.payload.push(mt('bundle_payload', 'json', [{ source_model_id: 100 }]));
-    const topHandled = await state.programEngine.handleControlBusPacket('UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request', topLevelBundlePayload);
+    const topHandled = await state.programEngine.handleControlBusPacket(`UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`, topLevelBundlePayload);
     assert.equal(topHandled, false, 'top-level bundle_payload with legacy metadata must be rejected');
     assert.equal(labelValue(state.runtime, targetModelId, 0, 0, 0, 'display_text'), undefined, 'top-level legacy bundle_payload must not materialize');
 
     const nestedPlainBundlePayload = pinPayloadPacket({
       opId: '0384_nested_plain_bundle_payload_must_reject',
-      topic: 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request',
+      topic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
+      responseTopic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
       routeKind: 'control',
-      endpoint: { worker_id: 'R1', model_id: 3100, pin: 'bundle_request' },
+      endpoint: { worker_id: 'U1', model_id: targetModelId, pin: 'result' },
       origin: { worker_id: 'R1', model_id: 3100, pin: 'bundle_request' },
       replyTarget: { worker_id: 'U1', model_id: targetModelId, pin: 'result' },
       messageRole: 'response',
@@ -411,13 +416,13 @@ async function test_bundle_payload_exception_is_scoped_to_slide_app_response() {
         mt('bundle_payload', 'json', [{ pin: 'legacy' }]),
       ],
     });
-    const nestedHandled = await state.programEngine.handleControlBusPacket('UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request', nestedPlainBundlePayload);
+    const nestedHandled = await state.programEngine.handleControlBusPacket(`UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`, nestedPlainBundlePayload);
     assert.equal(nestedHandled, false, 'non slide-app response bundle_payload with legacy metadata must be rejected');
     assert.equal(labelValue(state.runtime, targetModelId, 0, 0, 0, 'bundle_payload'), undefined, 'non slide-app legacy bundle_payload must not materialize');
 
     const slideResponseWithLegacyBundleLabel = pinPayloadPacket({
       opId: '0384_slide_response_legacy_bundle_label_must_reject',
-      topic: 'UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request',
+      topic: 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request',
       routeKind: 'control',
       endpoint: { worker_id: 'R1', model_id: 3100, pin: 'bundle_request' },
       origin: { worker_id: 'R1', model_id: 3100, pin: 'bundle_request' },
@@ -432,7 +437,7 @@ async function test_bundle_payload_exception_is_scoped_to_slide_app_response() {
         ]),
       ],
     });
-    const legacyBundleHandled = await state.programEngine.handleControlBusPacket('UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request', slideResponseWithLegacyBundleLabel);
+    const legacyBundleHandled = await state.programEngine.handleControlBusPacket('UIPUT/ws/dam/pic/de/R1/3100/bundle_request', slideResponseWithLegacyBundleLabel);
     assert.equal(legacyBundleHandled, false, 'slide-app response bundle_payload with legacy ModelTable label key must be rejected');
     assert.equal(labelValue(state.runtime, targetModelId, 0, 0, 0, 'source_model_id'), undefined, 'legacy bundle label key must not materialize');
 
@@ -458,12 +463,12 @@ async function test_desktop_management_delete_removes_installed_slide_app() {
     const exportResult = buildSlideAppExportPayload(runtime, 100);
     const goodResponse = makeBundleResponse({
       opId: pending.op_id,
-      topic: pending.topic,
+      topic: pending.response_topic,
       endpoint: pending.provider_endpoint,
       replyTarget: pending.reply_target,
       bundlePayload: exportResult.data.payload,
     });
-    const handled = await state.programEngine.handleControlBusPacket(pending.topic, goodResponse);
+    const handled = await state.programEngine.handleControlBusPacket(pending.response_topic, goodResponse);
     assert.equal(handled, true, 'matched provider bundle response must install fixture app');
     await wait();
 

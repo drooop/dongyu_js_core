@@ -19,6 +19,49 @@ load_env() {
   echo "  Loaded env: $env_file"
 }
 
+# ── matrix_homeserver_url ─────────────────────────────────
+# Returns the Matrix homeserver that local/cloud bootstrap should write into
+# ModelTable labels. When MATRIX_HOMESERVER_URL is set, it is authoritative.
+matrix_homeserver_url() {
+  if [ -n "${MATRIX_HOMESERVER_URL:-}" ]; then
+    printf '%s\n' "${MATRIX_HOMESERVER_URL%/}"
+    return 0
+  fi
+  local ns="${NAMESPACE:?NAMESPACE not set}"
+  printf 'http://synapse.%s.svc.cluster.local:8008\n' "$ns"
+}
+
+is_remote_matrix_homeserver() {
+  local url
+  url="$(matrix_homeserver_url)"
+  [[ "$url" =~ ^https?:// ]] && [[ "$url" != http://synapse.*.svc.cluster.local:8008 ]]
+}
+
+validate_generated_matrix_bootstrap() {
+  local generated_env_file="${1:-${GENERATED_ENV_FILE:-}}"
+  [ -n "$generated_env_file" ] || return 1
+  [ -f "$generated_env_file" ] || return 1
+
+  local MATRIX_BOOTSTRAP_HOMESERVER_URL=""
+  local MATRIX_BOOTSTRAP_SERVER_USER=""
+  local MATRIX_BOOTSTRAP_MBR_USER=""
+  local DY_MATRIX_ROOM_ID=""
+  local SERVER_ACCESS_TOKEN=""
+  local MBR_ACCESS_TOKEN=""
+  # shellcheck disable=SC1090
+  source "$generated_env_file"
+
+  [ "$MATRIX_BOOTSTRAP_HOMESERVER_URL" = "$(matrix_homeserver_url)" ] || return 1
+  [ "$MATRIX_BOOTSTRAP_SERVER_USER" = "$SERVER_USER" ] || return 1
+  [ "$MATRIX_BOOTSTRAP_MBR_USER" = "$MBR_USER" ] || return 1
+  is_valid_matrix_room_id "$DY_MATRIX_ROOM_ID" || return 1
+  [ -n "$SERVER_ACCESS_TOKEN" ] || return 1
+  [ -n "$MBR_ACCESS_TOKEN" ] || return 1
+
+  local room_server="${DY_MATRIX_ROOM_ID##*:}"
+  [ "$room_server" = "$SYNAPSE_SERVER_NAME" ] || return 1
+}
+
 # ── ensure_namespace ──────────────────────────────────────
 ensure_namespace() {
   local ns="${NAMESPACE:?NAMESPACE not set}"
@@ -98,6 +141,35 @@ print('  Passwords reset for ${SERVER_USER} and ${MBR_USER}')
 # Usage: TOKEN=$(get_matrix_token <username> <password>)
 get_matrix_token() {
   local user="$1" pass="$2"
+  if is_remote_matrix_homeserver; then
+    MATRIX_LOGIN_USER="$user" \
+      MATRIX_LOGIN_PASSWORD="$pass" \
+      MATRIX_LOGIN_URL="$(matrix_homeserver_url)" \
+      python3 - <<'PY'
+import json
+import os
+import urllib.request
+
+base = os.environ["MATRIX_LOGIN_URL"].rstrip("/")
+user = os.environ["MATRIX_LOGIN_USER"]
+password = os.environ["MATRIX_LOGIN_PASSWORD"]
+payload = json.dumps({
+    "type": "m.login.password",
+    "identifier": {"type": "m.id.user", "user": user},
+    "password": password,
+}).encode()
+request = urllib.request.Request(
+    f"{base}/_matrix/client/v3/login",
+    data=payload,
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+with urllib.request.urlopen(request, timeout=20) as response:
+    print(json.loads(response.read().decode())["access_token"])
+PY
+    return 0
+  fi
+
   local ns="${NAMESPACE:?}"
   local pod
   pod=$(kubectl -n "$ns" get pods -l app=synapse -o jsonpath='{.items[0].metadata.name}')
@@ -115,6 +187,47 @@ print(json.loads(resp.read())['access_token'])
 # Usage: ROOM_ID=$(create_matrix_room_and_join <server_token> <mbr_token>)
 create_matrix_room_and_join() {
   local server_token="$1" mbr_token="$2"
+  if is_remote_matrix_homeserver; then
+    MATRIX_SERVER_TOKEN="$server_token" \
+      MATRIX_MBR_TOKEN="$mbr_token" \
+      MATRIX_HS_URL="$(matrix_homeserver_url)" \
+      MATRIX_MBR_USER_ID="@${MBR_USER}:${SYNAPSE_SERVER_NAME}" \
+      python3 - <<'PY'
+import json
+import os
+import urllib.parse
+import urllib.request
+
+base = os.environ["MATRIX_HS_URL"].rstrip("/")
+server_token = os.environ["MATRIX_SERVER_TOKEN"]
+mbr_token = os.environ["MATRIX_MBR_TOKEN"]
+mbr_user_id = os.environ["MATRIX_MBR_USER_ID"]
+
+def call(method, path, token, payload=None):
+    data = None
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {token}"}
+    if payload is not None:
+        data = json.dumps(payload).encode()
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(f"{base}/_matrix/client/v3{path}", data=data, headers=headers, method=method)
+    with urllib.request.urlopen(request, timeout=20) as response:
+        return json.loads(response.read().decode() or "{}")
+
+room_id = call("POST", "/createRoom", server_token, {
+    "preset": "trusted_private_chat",
+    "invite": [mbr_user_id],
+    "is_direct": True,
+    "name": "Dongyu Local Test",
+})["room_id"]
+try:
+    call("POST", f"/join/{urllib.parse.quote(room_id, safe='')}", mbr_token, {})
+except Exception:
+    pass
+print(room_id)
+PY
+    return 0
+  fi
+
   local ns="${NAMESPACE:?}"
   local server_name="${SYNAPSE_SERVER_NAME:?}"
   local pod
@@ -184,7 +297,7 @@ update_k8s_secrets() {
   tmp_mbr=$(mktemp)
   ui_patch="$(
     ROOM_ID="$room_id" \
-    HOMESERVER_URL="http://synapse.${ns}.svc.cluster.local:8008" \
+    HOMESERVER_URL="$(matrix_homeserver_url)" \
     MATRIX_USER="@${SERVER_USER}:${SYNAPSE_SERVER_NAME}" \
     MATRIX_PASSWORD="$SERVER_PASSWORD" \
     MATRIX_TOKEN="$server_token" \
@@ -214,7 +327,7 @@ PY
   )"
   mbr_patch="$(
     ROOM_ID="$room_id" \
-    HOMESERVER_URL="http://synapse.${ns}.svc.cluster.local:8008" \
+    HOMESERVER_URL="$(matrix_homeserver_url)" \
     MATRIX_USER="@${MBR_USER}:${SYNAPSE_SERVER_NAME}" \
     MATRIX_TOKEN="$mbr_token" \
     MATRIX_CONTUSER="@${SERVER_USER}:${SYNAPSE_SERVER_NAME}" \
@@ -354,6 +467,9 @@ save_generated_env() {
   cat > "$file" <<GENEOF
 # Auto-generated by deploy script — $(date -Iseconds)
 # Do NOT commit this file.
+MATRIX_BOOTSTRAP_HOMESERVER_URL=$(matrix_homeserver_url)
+MATRIX_BOOTSTRAP_SERVER_USER=${SERVER_USER}
+MATRIX_BOOTSTRAP_MBR_USER=${MBR_USER}
 DY_MATRIX_ROOM_ID=$room_id
 SERVER_ACCESS_TOKEN=$server_token
 MBR_ACCESS_TOKEN=$mbr_token

@@ -17,6 +17,7 @@ const EXPECTED_BUILTIN_APPS = Object.freeze({
   Settings: { id: 'workspace:1081', kind: 'workspace', page: 'workspace', path: '/workspace', model_id: 1081 },
   ModelTable: { id: 'workspace:1082', kind: 'workspace', page: 'workspace', path: '/workspace', model_id: 1082 },
   'Matrix Suite': { id: 'workspace:1080', kind: 'workspace', page: 'workspace', path: '/workspace', model_id: 1080 },
+  'Mgmt Bus Console': { id: 'workspace:1036', kind: 'workspace', page: 'workspace', path: '/workspace', model_id: 1036 },
 });
 
 function cloneJson(value) {
@@ -266,10 +267,12 @@ function test_settings_mt_matrix_docs_registry_contract() {
   assert.equal(byName.get('Settings')?.app_origin, 'builtin', 'settings_must_be_builtin_slide_app');
   assert.equal(byName.get('ModelTable')?.app_origin, 'builtin', 'modeltable_must_be_builtin_slide_app');
   assert.equal(byName.get('Matrix Suite')?.app_origin, 'builtin', 'matrix_suite_must_be_builtin_mb_target');
+  assert.equal(byName.get('Mgmt Bus Console')?.app_origin, 'builtin', 'mgmt_bus_console_must_be_builtin_slide_app');
+  assert.equal(byName.get('Mgmt Bus Console')?.source, 'ui-server', 'mgmt_bus_console_must_be_owned_by_ui_server');
 
   const ast = desktopAst();
   const cards = collectNodes(ast, (node) => node.type === 'AppCard');
-  for (const title of ['Docs', 'Settings', 'ModelTable', 'Matrix Suite']) {
+  for (const title of ['Docs', 'Settings', 'ModelTable', 'Matrix Suite', 'Mgmt Bus Console']) {
     const card = cards.find((node) => node.props?.title === title);
     assert.ok(card, `${title}_app_card_missing`);
     assert.equal(card.bind?.write?.action, 'label_update', `${title}_must_launch_through_label_update`);

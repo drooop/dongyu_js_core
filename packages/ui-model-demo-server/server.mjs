@@ -90,8 +90,8 @@ const BUS_EVENT_KEY = 'bus_event';
 const BUS_EVENT_LAST_OP_KEY = 'bus_event_last_op_id';
 const BUS_EVENT_ERROR_KEY = 'bus_event_error';
 const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
-const LEGACY_EVENT_TYPE = ['ui', 'event'].join('_');
-const LEGACY_EVENT_ENDPOINT_PATH = `/${LEGACY_EVENT_TYPE}`;
+const UI_EVENT_TYPE = 'ui_event';
+const UI_EVENT_ENDPOINT_PATH = '/ui_event';
 const LOGIN_MODEL_ID = -3;
 const TRACE_MODEL_ID = -100; // Registered by 0213 as the Matrix debug / bus trace model id.
 const MGMT_BUS_CONSOLE_MODEL_ID = 1036;
@@ -322,6 +322,95 @@ async function uploadMatrixMedia({ homeserverUrl, accessToken, filename, content
     throw new Error(data && data.errcode ? String(data.errcode) : 'matrix_upload_failed');
   }
   return data.content_uri;
+}
+
+function matrixClientV3Url(homeserverUrl, suffix) {
+  const base = String(homeserverUrl || '').replace(/\/+$/, '');
+  const pathSuffix = String(suffix || '').startsWith('/') ? String(suffix) : `/${String(suffix || '')}`;
+  return `${base}/_matrix/client/v3${pathSuffix}`;
+}
+
+async function fetchMatrixJson(session, suffix, {
+  fetchImpl = fetch,
+  allowNotFound = false,
+  timeoutMs = 5000,
+} = {}) {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller && Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : null;
+  let resp;
+  try {
+    resp = await fetchImpl(matrixClientV3Url(session.homeserverUrl, suffix), {
+      signal: controller ? controller.signal : undefined,
+      headers: {
+        authorization: `Bearer ${session.accessToken}`,
+        accept: 'application/json',
+      },
+    });
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+  const data = await resp.json().catch(() => ({}));
+  if (allowNotFound && resp.status === 404) return null;
+  if (!resp.ok) {
+    const err = new Error(data && data.errcode ? String(data.errcode) : `matrix_http_${resp.status}`);
+    err.status = resp.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+export function resolveMgmtBusConsoleMatrixSession(runtime, env = process.env) {
+  const matrixConfig = readMatrixBootstrapConfig(runtime);
+  const homeserverUrl = firstValidValue(
+    matrixConfig && matrixConfig.homeserverUrl,
+    env.MATRIX_HOMESERVER_URL,
+  );
+  const accessToken = firstValidValue(matrixConfig && matrixConfig.accessToken);
+  const userId = firstValidValue(matrixConfig && matrixConfig.userId);
+  if (!homeserverUrl || !accessToken) {
+    return {
+      ok: false,
+      code: 'matrix_session_missing',
+      detail: !homeserverUrl ? 'missing_homeserver' : 'missing_access_token',
+    };
+  }
+  return {
+    ok: true,
+    data: {
+      homeserverUrl,
+      accessToken,
+      userId,
+    },
+  };
+}
+
+export async function fetchMgmtBusConsoleJoinedRooms(session, options = {}) {
+  const normalized = session && typeof session === 'object' ? session : {};
+  if (!normalized.homeserverUrl || !normalized.accessToken) {
+    return { ok: false, code: 'matrix_session_missing', rooms: [] };
+  }
+  const fetchImpl = typeof options.fetchImpl === 'function' ? options.fetchImpl : fetch;
+  const timeoutMs = Number.isFinite(options.timeoutMs) && options.timeoutMs > 0 ? options.timeoutMs : 5000;
+  const joined = await fetchMatrixJson(normalized, '/joined_rooms', { fetchImpl, timeoutMs });
+  const roomIds = Array.isArray(joined?.joined_rooms)
+    ? joined.joined_rooms.filter((roomId) => typeof roomId === 'string' && roomId.trim())
+    : [];
+  const rooms = await Promise.all(roomIds.map(async (roomId) => {
+    const encoded = encodeURIComponent(roomId);
+    const [nameState, aliasState] = await Promise.all([
+      fetchMatrixJson(normalized, `/rooms/${encoded}/state/m.room.name`, { fetchImpl, allowNotFound: true, timeoutMs }).catch(() => null),
+      fetchMatrixJson(normalized, `/rooms/${encoded}/state/m.room.canonical_alias`, { fetchImpl, allowNotFound: true, timeoutMs }).catch(() => null),
+    ]);
+    return {
+      room_id: roomId,
+      name: typeof nameState?.name === 'string' ? nameState.name : '',
+      canonical_alias: typeof aliasState?.alias === 'string' ? aliasState.alias : '',
+    };
+  }));
+  return { ok: true, rooms };
 }
 
 function matrixSuiteTxnId(prefix = 'dy') {
@@ -1605,7 +1694,7 @@ function isSafePinRouteSegment(value) {
 function isValidControlBusTopicBase(value) {
   if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
   const parts = value.split('/');
-  return parts.length === 6
+  return parts.length === 5
     && parts[0] === 'UIPUT'
     && parts.every((part) => isSafePinRouteSegment(part));
 }
@@ -1613,10 +1702,60 @@ function isValidControlBusTopicBase(value) {
 function isValidControlBusEndpointTopic(value) {
   if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
   const parts = value.split('/');
-  return parts.length === 9
+  return parts.length === 8
     && parts[0] === 'UIPUT'
     && parts.every((part) => isSafePinRouteSegment(part))
-    && /^[1-9][0-9]*$/u.test(parts[7]);
+    && /^[1-9][0-9]*$/u.test(parts[6]);
+}
+
+function controlBusEndpointTopicParts(value) {
+  if (!isValidControlBusEndpointTopic(value)) return null;
+  const parts = value.split('/');
+  return {
+    base: parts.slice(0, 5).join('/'),
+    endpoint: {
+      worker_id: parts[5],
+      model_id: Number(parts[6]),
+      pin: parts[7],
+    },
+  };
+}
+
+function controlBusEndpointMatches(left, right) {
+  return Boolean(left && right
+    && left.worker_id === right.worker_id
+    && left.model_id === right.model_id
+    && left.pin === right.pin);
+}
+
+function buildControlBusEndpointTopicFromBase(base, endpoint) {
+  if (!isValidControlBusTopicBase(base) || !endpoint) return '';
+  if (!isSafePinRouteSegment(endpoint.worker_id)) return '';
+  if (!Number.isInteger(endpoint.model_id) || endpoint.model_id <= 0) return '';
+  if (!isSafePinRouteSegment(endpoint.pin)) return '';
+  return `${base}/${endpoint.worker_id}/${endpoint.model_id}/${endpoint.pin}`;
+}
+
+function validatePinPayloadTopicContract({ messageRole, topic, responseTopic, endpoint, replyTarget }) {
+  const topicParts = controlBusEndpointTopicParts(topic);
+  if (!topicParts) return 'invalid_topic';
+  const responseTopicParts = controlBusEndpointTopicParts(responseTopic);
+  if (!responseTopicParts) return 'invalid_response_topic';
+  if (responseTopicParts.base !== topicParts.base) return 'response_topic_mismatch';
+  const expectedResponseTopic = buildControlBusEndpointTopicFromBase(topicParts.base, replyTarget);
+  if (!expectedResponseTopic || responseTopic !== expectedResponseTopic) return 'response_topic_mismatch';
+  if (messageRole === 'request') {
+    if (topic === responseTopic) return 'response_topic_mismatch';
+    if (!controlBusEndpointMatches(topicParts.endpoint, endpoint)) return 'endpoint_mismatch';
+    return null;
+  }
+  if (messageRole === 'response') {
+    if (topic !== responseTopic) return 'response_topic_mismatch';
+    if (!controlBusEndpointMatches(endpoint, replyTarget)) return 'endpoint_mismatch';
+    if (!controlBusEndpointMatches(topicParts.endpoint, replyTarget)) return 'endpoint_mismatch';
+    return null;
+  }
+  return 'invalid_message_role';
 }
 
 function containsRouteReplyTo(value) {
@@ -1688,15 +1827,18 @@ function resolveUiServerWorkerId() {
 function readModel0MqttTopicBase(runtime) {
   const model0 = runtime && typeof runtime.getModel === 'function' ? runtime.getModel(0) : null;
   const label = model0 ? runtime.getCell(model0, 0, 0, 0).labels.get('mqtt_topic_base') : null;
-  return typeof label?.v === 'string' ? label.v.trim() : 'UIPUT/ws/dam/pic/de/sw';
+  return typeof label?.v === 'string' ? label.v.trim() : 'UIPUT/ws/dam/pic/de';
+}
+
+function buildEndpointTopic(runtime, endpoint) {
+  const base = readModel0MqttTopicBase(runtime);
+  return buildControlBusEndpointTopicFromBase(base, endpoint);
 }
 
 function buildRemoteEndpointTopic(runtime, remoteEndpoint, pinName) {
-  const base = readModel0MqttTopicBase(runtime);
   const workerId = remoteEndpoint && remoteEndpoint.to ? remoteEndpoint.to.worker_id : '';
   const modelId = remoteEndpoint && remoteEndpoint.to ? remoteEndpoint.to.model_id : null;
-  if (!base || !isSafePinRouteSegment(workerId) || !Number.isInteger(modelId) || modelId <= 0 || !isSafePinRouteSegment(pinName)) return '';
-  return `${base}/${workerId}/${modelId}/${pinName}`;
+  return buildEndpointTopic(runtime, { worker_id: workerId, model_id: modelId, pin: pinName });
 }
 
 function normalizeRemoteEndpointRouteKind(value) {
@@ -2402,6 +2544,11 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
   if (!remoteEndpoint || !remoteEndpoint.to) return null;
   const keys = buildImportedHostEgressKeys(rootModelId, hostEgress.semantic);
   const routeTopic = buildRemoteEndpointTopic(runtime, remoteEndpoint, hostEgress.pinName);
+  const responseTopic = buildEndpointTopic(runtime, {
+    worker_id: resolveUiServerWorkerId(),
+    model_id: rootModelId,
+    pin: SLIDE_IMPORT_REPLY_PIN,
+  });
   const routeKind = normalizeRemoteEndpointRouteKind(remoteEndpoint) || 'control';
   const hostPinType = routeKind === 'management' ? 'pin.bus.mb.out' : 'pin.bus.cb.out';
   const rootCell = runtime.getCell(rootModel, 0, 0, 0);
@@ -2431,6 +2578,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
         `  mt('bus', 'str', ${JSON.stringify(routeKind)}),`,
         `  mt('route_kind', 'str', ${JSON.stringify(routeKind)}),`,
         `  mt('topic', 'str', ${JSON.stringify(routeTopic)}),`,
+        `  mt('response_topic', 'str', ${JSON.stringify(responseTopic)}),`,
         `  mt('bus_out_key', 'str', ${JSON.stringify(keys.busOutKey)}),`,
         `  mt('endpoint_worker_id', 'str', ${JSON.stringify(remoteEndpoint.to.worker_id)}),`,
         `  mt('endpoint_model_id', 'int', ${remoteEndpoint.to.model_id}),`,
@@ -3021,6 +3169,7 @@ function parsePinPayloadRecordEnvelope(content) {
     'op_id',
     'message_role',
     'topic',
+    'response_topic',
     'route_kind',
     'endpoint_worker_id',
     'endpoint_pin',
@@ -3061,6 +3210,14 @@ function parsePinPayloadRecordEnvelope(content) {
   if (messageRole !== 'request' && messageRole !== 'response') {
     return { ok: false, code: 'invalid_message_role' };
   }
+  const topicValue = readTemporaryPayloadString(records, 'topic');
+  const responseTopic = readTemporaryPayloadString(records, 'response_topic');
+  if (!isValidControlBusEndpointTopic(topicValue)) {
+    return { ok: false, code: 'invalid_topic' };
+  }
+  if (!isValidControlBusEndpointTopic(responseTopic)) {
+    return { ok: false, code: 'invalid_response_topic' };
+  }
   for (const record of records) {
     if (!record || typeof record.k !== 'string') {
       return { ok: false, code: 'invalid_pin_payload_records' };
@@ -3091,8 +3248,18 @@ function parsePinPayloadRecordEnvelope(content) {
   if (!validEndpoint || !validOrigin || !validReplyTarget || !isTemporaryPayloadRecordArray(nestedPayload)) {
     return { ok: false, code: 'invalid_pin_payload_records' };
   }
+  const topicContractError = validatePinPayloadTopicContract({
+    messageRole,
+    topic: topicValue,
+    responseTopic,
+    endpoint,
+    replyTarget,
+  });
+  if (topicContractError) {
+    return { ok: false, code: topicContractError };
+  }
   const opId = opIdLabel || requestId;
-  return { ok: true, records, endpoint, origin, replyTarget, nestedPayload, opId, messageRole };
+  return { ok: true, records, endpoint, origin, replyTarget, nestedPayload, opId, messageRole, topic: topicValue, responseTopic };
 }
 
 function upsertTemporaryPayloadRecord(payload, record) {
@@ -3157,6 +3324,21 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
   }
   const now = Date.now();
   const opId = `mgmt_bus_console_${now}`;
+  const endpoint = {
+    worker_id: targetWorkerId,
+    model_id: MGMT_BUS_CONSOLE_MODEL_ID,
+    pin: 'submit',
+  };
+  const replyTarget = {
+    worker_id: resolveUiServerWorkerId(),
+    model_id: MGMT_BUS_CONSOLE_MODEL_ID,
+    pin: 'result',
+  };
+  const routeTopic = buildEndpointTopic(options.runtime || null, endpoint);
+  const responseTopic = buildEndpointTopic(options.runtime || null, replyTarget);
+  if (!routeTopic || !responseTopic || routeTopic === responseTopic) {
+    return { ok: false, code: 'invalid_topic', detail: 'topic_and_response_topic_required' };
+  }
   let normalizedPayload = upsertTemporaryPayloadRecord(payload, {
     id: 0,
     p: 0,
@@ -3185,15 +3367,19 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
         mtPayloadRecord('__mt_request_id', 'str', opId),
         mtPayloadRecord('op_id', 'str', opId),
         mtPayloadRecord('message_role', 'str', 'request'),
-        mtPayloadRecord('endpoint_worker_id', 'str', targetWorkerId),
-        mtPayloadRecord('endpoint_model_id', 'int', MGMT_BUS_CONSOLE_MODEL_ID),
-        mtPayloadRecord('endpoint_pin', 'str', 'submit'),
+        mtPayloadRecord('topic', 'str', routeTopic),
+        mtPayloadRecord('response_topic', 'str', responseTopic),
+        mtPayloadRecord('route_kind', 'str', 'management'),
+        mtPayloadRecord('bus', 'str', 'management'),
+        mtPayloadRecord('endpoint_worker_id', 'str', endpoint.worker_id),
+        mtPayloadRecord('endpoint_model_id', 'int', endpoint.model_id),
+        mtPayloadRecord('endpoint_pin', 'str', endpoint.pin),
         mtPayloadRecord('origin_worker_id', 'str', resolveUiServerWorkerId()),
         mtPayloadRecord('origin_model_id', 'int', MGMT_BUS_CONSOLE_MODEL_ID),
         mtPayloadRecord('origin_pin', 'str', 'submit'),
-        mtPayloadRecord('reply_target_worker_id', 'str', resolveUiServerWorkerId()),
-        mtPayloadRecord('reply_target_model_id', 'int', MGMT_BUS_CONSOLE_MODEL_ID),
-        mtPayloadRecord('reply_target_pin', 'str', 'result'),
+        mtPayloadRecord('reply_target_worker_id', 'str', replyTarget.worker_id),
+        mtPayloadRecord('reply_target_model_id', 'int', replyTarget.model_id),
+        mtPayloadRecord('reply_target_pin', 'str', replyTarget.pin),
         mtPayloadRecord('payload', 'json', normalizedPayload),
         mtPayloadRecord('timestamp', 'int', now),
       ],
@@ -3762,6 +3948,7 @@ function buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndp
     model_id: WORKSPACE_MANAGER_APP_MODEL_ID,
     pin: SLIDE_IMPORT_REPLY_PIN,
   };
+  const responseTopic = buildEndpointTopic(runtime, replyTarget);
   const nestedPayload = [
     mtPayloadRecord('__mt_payload_kind', 'str', 'slide_app_bundle_request.v1'),
     mtPayloadRecord('__mt_request_id', 'str', requestId),
@@ -3774,6 +3961,7 @@ function buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndp
     mtPayloadRecord('op_id', 'str', requestId),
     mtPayloadRecord('message_role', 'str', 'request'),
     mtPayloadRecord('topic', 'str', providerEndpoint.topic),
+    mtPayloadRecord('response_topic', 'str', responseTopic),
     mtPayloadRecord('route_kind', 'str', routeKind),
     mtPayloadRecord('bus', 'str', routeKind),
     mtPayloadRecord('endpoint_worker_id', 'str', endpoint.worker_id),
@@ -3795,6 +3983,7 @@ function buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndp
     origin,
     replyTarget,
     topic: providerEndpoint.topic,
+    responseTopic,
     records,
   };
 }
@@ -4890,6 +5079,7 @@ class ProgramModelEngine {
       return { matched: true, handled: false };
     }
     const payloadTopic = readTemporaryPayloadString(parsedEnvelope.records, 'topic');
+    const responseTopic = readTemporaryPayloadString(parsedEnvelope.records, 'response_topic');
     const routeKind = readTemporaryPayloadString(parsedEnvelope.records, 'route_kind');
     const assetId = readTemporaryPayloadString(parsedEnvelope.nestedPayload, 'asset_id');
     const bundlePayload = readTemporaryPayloadJson(parsedEnvelope.nestedPayload, 'bundle_payload');
@@ -4901,10 +5091,12 @@ class ProgramModelEngine {
       : null;
     const matches = parsedEnvelope.opId === pending.op_id
       && assetId === pending.asset_id
-      && payloadTopic === pending.topic
-      && (!topic || topic === pending.topic)
+      && payloadTopic === pending.response_topic
+      && responseTopic === pending.response_topic
+      && (!topic || topic === pending.response_topic)
       && routeKind === pending.route_kind
-      && workspaceAssetProviderEndpointMatches(parsedEnvelope.endpoint, expectedEndpoint)
+      && workspaceAssetProviderEndpointMatches(parsedEnvelope.origin, expectedEndpoint)
+      && workspaceAssetProviderEndpointMatches(parsedEnvelope.endpoint, expectedReplyTarget)
       && workspaceAssetProviderEndpointMatches(parsedEnvelope.replyTarget, expectedReplyTarget);
     if (!matches) {
       writeStatus(`install failed ${pending.asset_id || assetId || 'unknown'}: bundle_response_mismatch`, {
@@ -4912,6 +5104,7 @@ class ProgramModelEngine {
         op_id: parsedEnvelope.opId,
         asset_id: assetId,
         topic: payloadTopic,
+        response_topic: responseTopic,
       });
       return { matched: true, handled: false };
     }
@@ -5217,9 +5410,6 @@ class ProgramModelEngine {
         return;
       }
       const uiServerWorkerId = resolveUiServerWorkerId();
-      if (parsedEnvelope.messageRole === 'response' && parsedEnvelope.endpoint.worker_id === uiServerWorkerId) {
-        return;
-      }
       const ackValidation = parsedEnvelope.replyTarget.model_id === MGMT_BUS_CONSOLE_MODEL_ID
         && parsedEnvelope.replyTarget.worker_id === uiServerWorkerId
         && parsedEnvelope.replyTarget.pin === 'result'
@@ -5284,7 +5474,7 @@ class ProgramModelEngine {
       return;
     }
     
-    if (content.type === LEGACY_EVENT_TYPE) {
+    if (content.type === UI_EVENT_TYPE) {
       // Echo of our own Matrix send — ignore in server return path.
       return;
     }
@@ -6067,6 +6257,22 @@ class ProgramModelEngine {
 
       if (event.cell && event.cell.model_id === -10 &&
           event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
+          event.label && event.label.k === 'mgmt_bus_console_refresh_intent' &&
+          event.label.t === 'pin.in') {
+        if (typeof this._mgmtBusConsoleRefreshChannels === 'function') {
+          this._mgmtBusConsoleRefreshChannels()
+            .then(() => {
+              if (typeof this.onSnapshotChanged === 'function') this.onSnapshotChanged();
+            })
+            .catch((err) => {
+              console.warn('[ProgramModelEngine] mgmt_bus_console channel refresh failed:', err && err.message ? err.message : err);
+            });
+        }
+        continue;
+      }
+
+      if (event.cell && event.cell.model_id === -10 &&
+          event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
           event.label && event.label.k === 'mgmt_bus_console_intent' &&
           event.label.t === 'pin.in') {
         if (event.label.v === null || event.label.v === undefined) {
@@ -6074,6 +6280,7 @@ class ProgramModelEngine {
         }
         const consoleModel = this.runtime.getModel(MGMT_BUS_CONSOLE_MODEL_ID);
         const packetResult = buildMgmtBusConsoleMatrixPacket(event.label.v, {
+          runtime: this.runtime,
           peerUserId: this.matrixDmPeerUserId,
         });
         if (!packetResult || packetResult.ok !== true) {
@@ -6483,6 +6690,9 @@ function createServerState(options) {
   const matrixSuiteMatrixImpl = options && options.matrixSuiteMatrixImpl && typeof options.matrixSuiteMatrixImpl === 'object'
     ? options.matrixSuiteMatrixImpl
     : null;
+  const mgmtBusConsoleJoinedRoomsImpl = options && typeof options.mgmtBusConsoleJoinedRoomsImpl === 'function'
+    ? options.mgmtBusConsoleJoinedRoomsImpl
+    : null;
   const runtime = new ModelTableRuntime();
   runtime.addLabel(runtime.getModel(0), 0, 0, 0, {
     k: 'sys_worker_id',
@@ -6501,6 +6711,11 @@ function createServerState(options) {
   ]);
   let lastBusEventOpId = '';
   let busEventErrorValue = null;
+  let mgmtBusConsoleJoinedRooms = [];
+  let mgmtBusConsoleChannelDiscovery = {
+    status: 'pending',
+    text: '',
+  };
 
   ensureDir(DOCS_ROOT);
   ensureDir(STATIC_PROJECTS_ROOT);
@@ -6765,9 +6980,41 @@ function createServerState(options) {
     const selectedEventId = consoleModel
       ? runtime.getLabelValue(consoleModel, 0, 0, 0, 'selected_event_id')
       : '';
+    const selectedSubjectId = consoleModel
+      ? readAuthString(
+        runtime.getLabelValue(consoleModel, 0, 0, 0, 'selected_subject_id')
+        || runtime.getLabelValue(consoleModel, 0, 0, 0, 'selected_subject'),
+      )
+      : '';
+    const sourceProjection = matrixProjection && typeof matrixProjection === 'object'
+      ? { ...matrixProjection }
+      : {};
+    if (mgmtBusConsoleChannelDiscovery.status === 'ready') {
+      if (mgmtBusConsoleJoinedRooms.length > 0) {
+        delete sourceProjection.subjects;
+        sourceProjection.joinedRooms = mgmtBusConsoleJoinedRooms;
+        sourceProjection.selected = selectedSubjectId || sourceProjection.selected || '';
+      } else {
+        sourceProjection.subjects = [{
+          label: 'No Matrix channels joined by drop',
+          value: 'matrix.joined_rooms_empty',
+          status: 'empty',
+        }];
+      }
+    } else if (mgmtBusConsoleChannelDiscovery.status === 'error') {
+      sourceProjection.subjects = [{
+        label: `Matrix channels unavailable: ${mgmtBusConsoleChannelDiscovery.text || 'unknown error'}`,
+        value: 'matrix.joined_rooms_unavailable',
+        status: 'error',
+      }];
+    }
+    sourceProjection.readinessText = [
+      sourceProjection.readinessText,
+      mgmtBusConsoleChannelDiscovery.text,
+    ].filter(Boolean).join('\n');
     const projection = deriveMgmtBusConsoleProjection({
       matrixProjection: {
-        ...(matrixProjection && typeof matrixProjection === 'object' ? matrixProjection : {}),
+        ...sourceProjection,
         selectedEventId,
       },
       readRootLabel: (modelId, key) => {
@@ -6786,6 +7033,43 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'mgmt_bus_console_composer_actions_json', 'json', projection.composerActions);
     overwriteStateLabel(runtime, 'mgmt_bus_console_message_transcript', 'str', projection.messageTranscript);
     return projection;
+  };
+
+  const refreshMgmtBusConsoleChannels = async () => {
+    const sessionResult = resolveMgmtBusConsoleMatrixSession(runtime);
+    if (!sessionResult.ok) {
+      mgmtBusConsoleJoinedRooms = [];
+      mgmtBusConsoleChannelDiscovery = {
+        status: 'error',
+        text: `drop Matrix channels unavailable: ${sessionResult.detail || sessionResult.code}`,
+      };
+      syncMatrixDebugDerivedState();
+      return { ok: false, code: sessionResult.code, detail: sessionResult.detail, rooms: [] };
+    }
+    try {
+      const result = mgmtBusConsoleJoinedRoomsImpl
+        ? await mgmtBusConsoleJoinedRoomsImpl(sessionResult.data)
+        : await fetchMgmtBusConsoleJoinedRooms(sessionResult.data);
+      const rooms = Array.isArray(result)
+        ? result
+        : (Array.isArray(result?.rooms) ? result.rooms : []);
+      mgmtBusConsoleJoinedRooms = rooms;
+      mgmtBusConsoleChannelDiscovery = {
+        status: 'ready',
+        text: `drop Matrix channels=${rooms.length}`,
+      };
+      syncMatrixDebugDerivedState();
+      return { ok: true, rooms };
+    } catch (err) {
+      const detail = err && err.message ? err.message : String(err);
+      mgmtBusConsoleJoinedRooms = [];
+      mgmtBusConsoleChannelDiscovery = {
+        status: 'error',
+        text: `drop Matrix channels unavailable: ${detail}`,
+      };
+      syncMatrixDebugDerivedState();
+      return { ok: false, code: 'matrix_joined_rooms_failed', detail, rooms: [] };
+    }
   };
 
   const syncMatrixDebugDerivedState = () => {
@@ -7165,6 +7449,7 @@ function createServerState(options) {
       overwriteStateLabel(runtime, 'static_status', 'str', 'static list failed');
     }
     try {
+      await refreshMgmtBusConsoleChannels();
       refreshWorkspaceStateCatalog();
       reconcileWorkspaceSelectionState();
       syncDerivedPageState();
@@ -7191,6 +7476,7 @@ function createServerState(options) {
   });
   programEngine.matrixUserLoginImpl = matrixUserLoginImpl;
   programEngine.matrixSuiteMatrixImpl = matrixSuiteMatrixImpl;
+  programEngine._mgmtBusConsoleRefreshChannels = refreshMgmtBusConsoleChannels;
   programEngine._matrixDebugRefresh = (subjectId) => {
     const selected = String(subjectId ?? '').trim() || 'trace';
     overwriteStateLabel(runtime, 'matrix_debug_subject_selected', 'str', selected);
@@ -7659,7 +7945,7 @@ function createServerState(options) {
 
     const isLegacyUiEventShape = Boolean(
       envelopeOrNull
-      && envelopeOrNull.type === LEGACY_EVENT_TYPE
+      && envelopeOrNull.type === UI_EVENT_TYPE
       && payload
       && typeof payload === 'object'
     );
@@ -8249,6 +8535,7 @@ function createServerState(options) {
         asset_name: row.name,
         provider_endpoint: request.endpoint,
         topic: request.topic,
+        response_topic: request.responseTopic,
         route_kind: request.routeKind,
         reply_target: request.replyTarget,
         requested_at: Date.now(),
@@ -9012,6 +9299,7 @@ function createServerState(options) {
     applyModelTablePatch,
     activateRuntimeMode,
     updateDerived,
+    refreshMgmtBusConsoleChannels,
     getRuntimeMode: () => runtime.getRuntimeMode(),
     getLastOpId: () => getLastBusEventOpId(),
     getEventError: () => getBusEventErrorValue(),
@@ -9350,7 +9638,7 @@ function startServer(options) {
       return;
     }
 
-    if (req.method === 'POST' && (url.pathname === BUS_EVENT_ENDPOINT_PATH || url.pathname === LEGACY_EVENT_ENDPOINT_PATH)) {
+    if (req.method === 'POST' && (url.pathname === BUS_EVENT_ENDPOINT_PATH || url.pathname === UI_EVENT_ENDPOINT_PATH)) {
       try {
         const body = await readJsonBody(req);
         let envelope = body;

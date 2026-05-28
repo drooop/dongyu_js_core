@@ -62,7 +62,7 @@ Purpose: Record project-level todos and directions that are important in the cur
 两个本地实例可以请求同一个 Remote Worker 服务，例如都发到：
 
 ```text
-UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<sw_id>/R1/100/submit
+UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/R1/100/submit
 ```
 
 但请求模型表 payload 中会携带本地实例身份：
@@ -266,7 +266,7 @@ UI Server
 | UI Server 出站 | `control` 接到 `pin.bus.cb.out`；`management` 接到 `pin.bus.mb.out` |
 | MBR 转发 | 管理总线请求进入 MBR 后，按 payload `topic` 转为控制总线 / MQTT |
 | topic truth | 仍只使用 payload records 中的 `topic` record，不做 per-app route registration |
-| 回包 | 仍使用同一 endpoint topic，并按 `reply_target_*` 写回本地实例 |
+| 回包 | 使用独立 `response_topic` 投递，并按 `reply_target_*` 写回本地实例 |
 
 ### 2.6 已实现点
 
@@ -275,7 +275,7 @@ UI Server
 | 1 | 扩展 `remote_bus_endpoint_v1` | 已支持声明默认 `route_kind` |
 | 2 | 扩展 UI Server 出站逻辑 | 已根据 `route_kind` 选择控制总线或管理总线 |
 | 3 | 扩展 MBR 转发逻辑 | 已接收管理总线请求后，按 payload topic 转发到控制总线 |
-| 4 | 扩展回包路径 | 已明确仍按同一 endpoint topic 和 `reply_target_*` 回流 |
+| 4 | 扩展回包路径 | 已明确按独立 `response_topic` 和 `reply_target_*` 回流 |
 | 5 | 增加测试 | 已覆盖 control 默认路径和 management 显式路径 |
 | 6 | 增加浏览器实测 | 0379 已使用显式 management 的最小 Submit 滑动 APP 完成安装、按钮提交和回包显示验证 |
 

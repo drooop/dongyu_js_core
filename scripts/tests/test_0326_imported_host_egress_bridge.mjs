@@ -148,7 +148,7 @@ async function test_imported_egress_uses_bus_out_bridge_without_forward_func() {
     };
     const model0 = state.runtime.getModel(0);
     state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
-    state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de/sw' });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de' });
     state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'ui-server-it0326' });
     state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
     state.runtime.startMqttLoop({
@@ -190,7 +190,7 @@ async function test_imported_egress_uses_bus_out_bridge_without_forward_func() {
       const mqttPublish = await pollUntil(() => state.runtime.mqttTrace.list().find((entry) =>
         entry.type === 'publish'
         && entry.payload?.payload?.type === 'pin_payload'
-        && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1'
+        && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/R1/3000/submit1'
         && payloadString(entry.payload.payload.payload, 'message_role') === 'request'
         && payloadString(entry.payload.payload.payload, 'endpoint_worker_id') === 'R1'
         && payloadInt(entry.payload.payload.payload, 'endpoint_model_id') === 3000

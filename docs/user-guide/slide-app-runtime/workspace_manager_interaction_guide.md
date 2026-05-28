@@ -46,7 +46,7 @@ Workspace Manager 目录行保存这些 label：
 UI Server 读取 Model 0 第 0 格的：
 
 ```text
-mqtt_topic_base = UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<sw_id>
+mqtt_topic_base = UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>
 ```
 
 然后拼接出安装请求 topic：
@@ -58,10 +58,10 @@ mqtt_topic_base = UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<sw_id>
 例如：
 
 ```text
-UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request
+UIPUT/ws/dam/pic/de/R1/3100/bundle_request
 ```
 
-这个完整 topic 会写入临时 ModelTable payload 的 `topic` label，用于 MBR 转发和回包校验。它也可以投影成 `provider_bundle_topic` 给界面显示，但不能把 `provider_bundle_topic` 当作目录真源。
+这个完整 topic 会写入临时 ModelTable payload 的 `topic` label，用于 MBR 转发。UI Server 同时生成 `response_topic = <mqtt_topic_base>/<reply_target_worker_id>/<reply_target_model_id>/<reply_target_pin>` 用于回包投递。完整 topic 可以投影成 `provider_bundle_topic` 给界面显示，但不能把 `provider_bundle_topic` 当作目录真源。
 
 ### 2.2 安装后业务运行 topic
 
@@ -87,21 +87,21 @@ UIPUT/ws/dam/pic/de/sw/R1/3100/bundle_request
 例如：
 
 ```text
-UIPUT/ws/dam/pic/de/sw/R1/3000/submit1
+UIPUT/ws/dam/pic/de/R1/3000/submit1
 ```
 
 ### 2.3 拼接格式要求
 
-完整 endpoint topic 必须是 9 段：
+完整 endpoint topic 必须是 8 段：
 
 ```text
-UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<sw_id>/<worker_id>/<model_id>/<pin>
+UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<worker_id>/<model_id>/<pin>
 ```
 
 验证规则：
 
-- `mqtt_topic_base` 必须是 6 段。
-- 完整 topic 必须是 9 段。
+- `mqtt_topic_base` 必须是 5 段。
+- 完整 topic 必须是 8 段。
 - 第一段必须是 `UIPUT`。
 - 每一段都不能为空。
 - 任何段都不能包含 `/`、`+`、`#`。

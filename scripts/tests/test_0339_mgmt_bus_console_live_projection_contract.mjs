@@ -5,7 +5,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { buildAstFromCellwiseModel } from '../../packages/ui-model-demo-frontend/src/ui_cellwise_projection.js';
-import { deriveMgmtBusConsoleProjection } from '../../packages/ui-model-demo-server/mgmt_bus_console_projection.mjs';
+import * as mgmtBusConsoleProjection from '../../packages/ui-model-demo-server/mgmt_bus_console_projection.mjs';
+
+const { deriveMgmtBusConsoleProjection } = mgmtBusConsoleProjection;
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..');
 const require = createRequire(import.meta.url);
@@ -399,6 +401,121 @@ function test_server_projection_deriver_includes_mbr_health_and_sanitizes_routes
   return { key: 'server_projection_deriver_includes_mbr_health_and_sanitizes_routes', status: 'PASS' };
 }
 
+function test_joined_matrix_rooms_project_to_subject_rows_without_secrets() {
+  assert.equal(
+    typeof mgmtBusConsoleProjection.buildMgmtBusConsoleSubjectsFromJoinedRooms,
+    'function',
+    'Mgmt Bus Console projection must expose a joined-room subject builder',
+  );
+  const subjects = mgmtBusConsoleProjection.buildMgmtBusConsoleSubjectsFromJoinedRooms([
+    {
+      room_id: '!drop-channel:matrix.local',
+      name: 'Drop Operations',
+      canonical_alias: '#ops:matrix.local',
+      access_token: 'SECRET_SHOULD_NOT_RENDER',
+    },
+    {
+      roomId: '!nameless:matrix.local',
+      password: 'SECRET_SHOULD_NOT_RENDER',
+    },
+    '!string-room:matrix.local',
+  ], '!drop-channel:matrix.local');
+
+  assert.deepEqual(subjects, [
+    {
+      label: 'Drop Operations',
+      value: '!drop-channel:matrix.local',
+      status: 'selected',
+      room_id: '!drop-channel:matrix.local',
+      alias: '#ops:matrix.local',
+      source: 'matrix.joined_room',
+    },
+    {
+      label: '!nameless:matrix.local',
+      value: '!nameless:matrix.local',
+      status: 'joined',
+      room_id: '!nameless:matrix.local',
+      alias: '',
+      source: 'matrix.joined_room',
+    },
+    {
+      label: '!string-room:matrix.local',
+      value: '!string-room:matrix.local',
+      status: 'joined',
+      room_id: '!string-room:matrix.local',
+      alias: '',
+      source: 'matrix.joined_room',
+    },
+  ]);
+  assert.doesNotMatch(
+    JSON.stringify(subjects),
+    /SECRET_SHOULD_NOT_RENDER|access_token|password/u,
+    'joined-room subject rows must not expose Matrix credentials',
+  );
+
+  const projection = deriveMgmtBusConsoleProjection({
+    matrixProjection: {
+      selected: '!drop-channel:matrix.local',
+      joinedRooms: [
+        { room_id: '!drop-channel:matrix.local', name: 'Drop Operations' },
+      ],
+    },
+    readRootLabel: () => undefined,
+  });
+  assert.deepEqual(
+    projection.subjects,
+    [{
+      label: 'Drop Operations',
+      value: '!drop-channel:matrix.local',
+      status: 'selected',
+      room_id: '!drop-channel:matrix.local',
+      alias: '',
+      source: 'matrix.joined_room',
+    }],
+    'deriveMgmtBusConsoleProjection must use joined rooms as the default subject list',
+  );
+  const explicitEmptyProjection = deriveMgmtBusConsoleProjection({
+    matrixProjection: {
+      selected: '!drop-channel:matrix.local',
+      subjects: [],
+      joinedRooms: [
+        { room_id: '!drop-channel:matrix.local', name: 'Drop Operations' },
+      ],
+    },
+    readRootLabel: () => undefined,
+  });
+  assert.deepEqual(
+    explicitEmptyProjection.subjects,
+    [],
+    'explicit source.subjects=[] must remain an explicit empty subject list',
+  );
+
+  const explicitSubjectProjection = deriveMgmtBusConsoleProjection({
+    matrixProjection: {
+      selected: 'syt_SECRET_SELECTED',
+      subjects: [
+        {
+          label: 'Secret syt_SECRET_IN_LABEL',
+          value: 'syt_SECRET_VALUE',
+          status: 'error',
+        },
+      ],
+    },
+    readRootLabel: () => undefined,
+  });
+  assert.equal(
+    explicitSubjectProjection.subjects[0]?.status,
+    'error',
+    'explicit source.subjects status must be preserved for unavailable/empty states',
+  );
+  assert.doesNotMatch(
+    JSON.stringify(explicitSubjectProjection.subjects),
+    /syt_SECRET|SECRET_SHOULD_NOT_RENDER|ChangeMeLocal2026/u,
+    'explicit source.subject label/value strings must be value-redacted',
+  );
+  return { key: 'joined_matrix_rooms_project_to_subject_rows_without_secrets', status: 'PASS' };
+}
+
 async function main() {
   const tests = [
     test_live_projection_reads_source_owned_labels_and_updates_when_source_changes,
@@ -406,6 +523,7 @@ async function main() {
     test_refresh_button_targets_model0_bus_event_v2,
     test_model0_server_and_runtime_accept_refresh_payload_only_as_modeltable,
     test_server_projection_deriver_includes_mbr_health_and_sanitizes_routes,
+    test_joined_matrix_rooms_project_to_subject_rows_without_secrets,
   ];
   const results = [];
   for (const test of tests) {

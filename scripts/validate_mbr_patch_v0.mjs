@@ -10,7 +10,7 @@ const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
 
 const PATCH_PATH = path.resolve('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json');
 const RUN_WORKER_PATH = path.resolve('scripts/run_worker_v0.mjs');
-const TOPIC_BASE = 'UIPUT/ws/dam/pic/de/sw';
+const TOPIC_BASE = 'UIPUT/ws/dam/pic/de';
 const LEGACY_KEYS = ['source_model_id', 'pin', 'route', 'reply_to', 'route.reply_to', 'return_topic', 'returnTopic', 'result_topic'];
 
 let pass = 0;

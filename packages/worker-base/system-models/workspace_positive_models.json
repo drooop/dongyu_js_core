@@ -7603,6 +7603,11 @@
           "source": "zip-import"
         },
         {
+          "model_id": 1036,
+          "name": "Mgmt Bus Console",
+          "source": "ui-server"
+        },
+        {
           "model_id": 1050,
           "name": "最小 Submit 双总线示例",
           "source": "manual-zip-import"
@@ -7615,6 +7620,16 @@
         {
           "model_id": 1080,
           "name": "Matrix Suite",
+          "source": "ui-server"
+        },
+        {
+          "model_id": 1081,
+          "name": "Settings",
+          "source": "ui-server"
+        },
+        {
+          "model_id": 1082,
+          "name": "ModelTable",
           "source": "ui-server"
         }
       ]
@@ -16186,7 +16201,7 @@
       "c": 2,
       "k": "ui_markdown",
       "t": "str",
-      "v": "| Stage | Path |\n|---|---|\n| 1 | UI event -> UI Server host egress |\n| 2 | Model 0 `mt_bus_send` / `pin.bus.cb.out` -> MBR |\n| 3 | MQTT `UIPUT/.../R1/100/submit` -> RemoteWorker R1 / Model 100 / `submit` |\n| 4 | MQTT response on same endpoint topic -> MBR |\n| 5 | UI Server owner materialization by `reply_target_*` -> Local UI refresh |"
+      "v": "| Stage | Path |\n|---|---|\n| 1 | UI event -> UI Server host egress |\n| 2 | Model 0 `mt_bus_send` / `pin.bus.cb.out` -> MBR |\n| 3 | MQTT `UIPUT/.../R1/100/submit` -> RemoteWorker R1 / Model 100 / `submit` |\n| 4 | MQTT response on response_topic -> MBR |\n| 5 | UI Server owner materialization by `reply_target_*` -> Local UI refresh |"
     },
     {
       "op": "add_label",
@@ -17111,7 +17126,17 @@
       "c": 0,
       "k": "source_worker",
       "t": "str",
-      "v": "k8s-worker"
+      "v": "ui-server"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_app_summary",
+      "t": "str",
+      "v": "UI Server 自带管理总线通讯界面，默认以 drop Matrix 身份展示其已加入的 channel/room。"
     },
     {
       "op": "add_label",
@@ -17172,6 +17197,16 @@
       "k": "selected_subject_id",
       "t": "str",
       "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "selected_subject_tab",
+      "t": "str",
+      "v": "subjects"
     },
     {
       "op": "add_label",
@@ -17412,6 +17447,56 @@
       "k": "ui_order",
       "t": "int",
       "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_read_model_id",
+      "t": "int",
+      "v": 1036
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_read_p",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_read_r",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_read_c",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1036,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_read_k",
+      "t": "str",
+      "v": "selected_subject_tab"
     },
     {
       "op": "add_label",

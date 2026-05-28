@@ -97,9 +97,68 @@ function isCanonicalPositiveIntSegment(value) {
 function isValidUnifiedTopicBase(value) {
   if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
   const parts = value.split('/');
-  return parts.length === 6
+  return parts.length === 5
     && parts[0] === 'UIPUT'
     && parts.every((part) => isSafeTopicSegment(part));
+}
+
+function isValidPayloadTopic(value) {
+  if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
+  const parts = value.split('/');
+  return parts.length === 8
+    && parts[0] === 'UIPUT'
+    && parts.every((part) => isSafeTopicSegment(part))
+    && isCanonicalPositiveIntSegment(parts[6]);
+}
+
+function payloadTopicParts(value) {
+  if (!isValidPayloadTopic(value)) return null;
+  const parts = value.split('/');
+  return {
+    base: parts.slice(0, 5).join('/'),
+    endpoint: {
+      worker_id: parts[5],
+      model_id: Number(parts[6]),
+      pin: parts[7],
+    },
+  };
+}
+
+function endpointMatches(left, right) {
+  return Boolean(left && right
+    && left.worker_id === right.worker_id
+    && left.model_id === right.model_id
+    && left.pin === right.pin);
+}
+
+function endpointTopicFromBase(base, endpoint) {
+  if (!isValidUnifiedTopicBase(base) || !endpoint) return '';
+  if (!isSafeTopicSegment(endpoint.worker_id)) return '';
+  if (!Number.isInteger(endpoint.model_id) || endpoint.model_id <= 0) return '';
+  if (!isSafeTopicSegment(endpoint.pin)) return '';
+  return `${base}/${endpoint.worker_id}/${endpoint.model_id}/${endpoint.pin}`;
+}
+
+function validatePinPayloadTopicContract({ messageRole, topic, responseTopic, endpoint, replyTarget }) {
+  const topicParts = payloadTopicParts(topic);
+  if (!topicParts) return 'invalid_topic';
+  const responseTopicParts = payloadTopicParts(responseTopic);
+  if (!responseTopicParts) return 'invalid_response_topic';
+  if (responseTopicParts.base !== topicParts.base) return 'response_topic_mismatch';
+  const expectedResponseTopic = endpointTopicFromBase(topicParts.base, replyTarget);
+  if (!expectedResponseTopic || responseTopic !== expectedResponseTopic) return 'response_topic_mismatch';
+  if (messageRole === 'request') {
+    if (topic === responseTopic) return 'response_topic_mismatch';
+    if (!endpointMatches(topicParts.endpoint, endpoint)) return 'endpoint_mismatch';
+    return null;
+  }
+  if (messageRole === 'response') {
+    if (topic !== responseTopic) return 'response_topic_mismatch';
+    if (!endpointMatches(endpoint, replyTarget)) return 'endpoint_mismatch';
+    if (!endpointMatches(topicParts.endpoint, replyTarget)) return 'endpoint_mismatch';
+    return null;
+  }
+  return 'invalid_message_role';
 }
 
 function isTemporaryPayloadRecord(record) {
@@ -233,6 +292,8 @@ function validatePinPayloadRecordEnvelope(payload) {
     '__mt_request_id',
     'op_id',
     'message_role',
+    'topic',
+    'response_topic',
     'endpoint_worker_id',
     'endpoint_pin',
     'origin_worker_id',
@@ -249,6 +310,7 @@ function validatePinPayloadRecordEnvelope(payload) {
     'timestamp',
     'bus_out_key',
     'bus',
+    'route_kind',
   ]);
   if (hasDuplicatePinPayloadRecordKeys(payload, metadataKeys)) {
     return { ok: false, reason: 'invalid_pin_payload_records' };
@@ -271,6 +333,14 @@ function validatePinPayloadRecordEnvelope(payload) {
   const messageRole = pinPayloadString(payload, 'message_role');
   if (messageRole !== 'request' && messageRole !== 'response') {
     return { ok: false, reason: 'invalid_message_role' };
+  }
+  const topicValue = pinPayloadString(payload, 'topic');
+  const responseTopicValue = pinPayloadString(payload, 'response_topic');
+  if (!isValidPayloadTopic(topicValue)) {
+    return { ok: false, reason: 'invalid_topic' };
+  }
+  if (!isValidPayloadTopic(responseTopicValue)) {
+    return { ok: false, reason: 'invalid_response_topic' };
   }
   for (const record of payload.payload) {
     if (isLegacyPinPayloadKey(record.k)) {
@@ -312,9 +382,21 @@ function validatePinPayloadRecordEnvelope(payload) {
   if (recordsContainLegacyPinPayloadMetadata(nestedPayload.v, { allowSlideAppBundlePayload: true })) {
     return { ok: false, reason: 'legacy_pin_payload_metadata_removed' };
   }
+  const topicContractError = validatePinPayloadTopicContract({
+    messageRole,
+    topic: topicValue,
+    responseTopic: responseTopicValue,
+    endpoint: { worker_id: endpointWorkerId, model_id: endpointModelId, pin: endpointPin },
+    replyTarget: { worker_id: replyTargetWorkerId, model_id: replyTargetModelId, pin: replyTargetPin },
+  });
+  if (topicContractError) {
+    return { ok: false, reason: topicContractError };
+  }
   return {
     ok: true,
     message_role: messageRole,
+    topic: topicValue,
+    response_topic: responseTopicValue,
     endpoint: { worker_id: endpointWorkerId, model_id: endpointModelId, pin: endpointPin },
     origin: { worker_id: originWorkerId, model_id: originModelId, pin: originPin },
     reply_target: { worker_id: replyTargetWorkerId, model_id: replyTargetModelId, pin: replyTargetPin },
@@ -347,6 +429,9 @@ export function validateUnifiedEndpointTopicPacket(topic, payload, base) {
   const { endpoint } = parsed;
   if (endpoint.worker_id !== workerId || endpoint.model_id !== modelId || endpoint.pin !== pin) {
     return { ok: false, reason: 'endpoint_mismatch' };
+  }
+  if (parsed.topic !== topic) {
+    return { ok: false, reason: 'topic_mismatch' };
   }
   return { ok: true, worker_id: workerId, model_id: modelId, pin };
 }

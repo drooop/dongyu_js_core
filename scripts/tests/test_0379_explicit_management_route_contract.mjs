@@ -54,7 +54,7 @@ function pinPayloadRecords({
   opId = '0379_mgmt_request',
   routeKind = 'management',
   bus = routeKind,
-  topic = 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1',
+  topic = 'UIPUT/ws/dam/pic/de/R1/3000/submit1',
   endpointWorkerId = 'R1',
   endpointModelId = 3000,
   endpointPin = 'submit1',
@@ -208,7 +208,7 @@ async function test_imported_app_route_kind_management_generates_management_bus_
     assert.equal(binding?.v?.bus, 'management', 'host-owned binding must mark management route');
     assert.equal(binding?.v?.host_pin_type, 'pin.bus.mb.out', 'host-owned binding must use management bus out');
     assert.equal(binding?.v?.target?.route_kind, 'management', 'binding target must expose route_kind for introspection');
-    assert.equal(binding?.v?.target?.topic, 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', 'binding target must expose payload topic truth');
+    assert.equal(binding?.v?.target?.topic, 'UIPUT/ws/dam/pic/de/R1/3000/submit1', 'binding target must expose payload topic truth');
     assert.equal(state.runtime.getCell(model0, 0, 0, 0).labels.get(binding.v.host_pin_key)?.t, 'pin.bus.mb.out', 'generated Model 0 bus pin must be management out');
 
     state.runtime.addLabel(state.runtime.getModel(importedId), 0, 0, 0, {
@@ -222,7 +222,7 @@ async function test_imported_app_route_kind_management_generates_management_bus_
     assert.equal(emitted?.t, 'pin.bus.mb.out', 'runtime egress must write management bus out');
     assert.equal(payloadString(emitted?.v, 'bus'), 'management', 'runtime egress must carry bus=management');
     assert.equal(payloadString(emitted?.v, 'route_kind'), 'management', 'runtime egress must carry route_kind=management');
-    assert.equal(payloadString(emitted?.v, 'topic'), 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', 'runtime egress must still route by payload topic');
+    assert.equal(payloadString(emitted?.v, 'topic'), 'UIPUT/ws/dam/pic/de/R1/3000/submit1', 'runtime egress must still route by payload topic');
     assert.equal(payloadInt(emitted?.v, 'reply_target_model_id'), importedId, 'runtime egress must return to the local imported model id');
     assert.equal(payloadString(payloadJson(emitted?.v, 'payload'), 'text'), '0379 management route', 'runtime egress must preserve submitted business payload');
 
@@ -264,13 +264,13 @@ function test_mbr_management_ingress_forwards_to_control_bus_topic() {
   const cbOut = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_cb_out');
   assert.equal(cbOut?.t, 'pin.bus.cb.out', 'MBR management ingress must forward request to control bus out');
   assert.equal(payloadString(cbOut?.v, 'route_kind'), 'management', 'MBR must preserve management route_kind in forwarded payload');
-  assert.equal(payloadString(cbOut?.v, 'topic'), 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', 'MBR forwarded control-bus packet must keep payload topic truth');
+  assert.equal(payloadString(cbOut?.v, 'topic'), 'UIPUT/ws/dam/pic/de/R1/3000/submit1', 'MBR forwarded control-bus packet must keep payload topic truth');
   assert.equal(payloadString(cbOut?.v, 'endpoint_worker_id'), 'R1', 'MBR must not reinterpret endpoint worker id');
   assert.equal(payloadInt(cbOut?.v, 'endpoint_model_id'), 3000, 'MBR must not reinterpret endpoint model id');
   assert.equal(rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_mb_out')?.v ?? null, null, 'management ingress request must not echo to management out');
   const { mqttPublished, mgmtPublished } = drainWorkerEngine(rt);
   assert.equal(mqttPublished.length, 1, 'MBR forwarded packet must publish to MQTT control bus');
-  assert.equal(mqttPublished[0].topic, 'UIPUT/ws/dam/pic/de/sw/R1/3000/submit1', 'MQTT publish topic must come from payload topic');
+  assert.equal(mqttPublished[0].topic, 'UIPUT/ws/dam/pic/de/R1/3000/submit1', 'MQTT publish topic must come from payload topic');
   assert.equal(payloadString(mqttPublished[0].payload.payload, 'route_kind'), 'management', 'MQTT payload must preserve explicit management route_kind');
   assert.equal(mgmtPublished.length, 0, 'management-ingress forwarding must not re-publish to management bus');
   return { key: 'mbr_management_ingress_forwards_to_control_bus_topic', status: 'PASS' };

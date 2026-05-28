@@ -62,7 +62,7 @@ function pinPayloadRecords({
   ];
 }
 
-const handled = rt.mqttIncoming('UIPUT/ws/dam/pic/de/sw/R1/100/submit', {
+const handled = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/100/submit', {
   version: 'v1',
   type: 'pin_payload',
   payload: pinPayloadRecords({
