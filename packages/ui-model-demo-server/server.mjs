@@ -86,6 +86,8 @@ const EDITOR_STATE_MODEL_ID = -2;
 const WORKSPACE_MANAGER_APP_MODEL_ID = 1051;
 const WORKSPACE_ASSET_CATALOG_MODEL_ID = 1052;
 const MATRIX_SUITE_APP_MODEL_ID = 1080;
+const MATRIX_CHAT_APP_MODEL_ID = 1083;
+const MATRIX_CHAT_BUS_EVENT_KEY = 'matrix_chat_1083_bus_event';
 const BUS_EVENT_KEY = 'bus_event';
 const BUS_EVENT_LAST_OP_KEY = 'bus_event_last_op_id';
 const BUS_EVENT_ERROR_KEY = 'bus_event_error';
@@ -4554,6 +4556,7 @@ class ProgramModelEngine {
     this.matrixSuiteMatrixImpl = null;
     this.matrixSuiteSession = null;
     this.matrixSuiteHandledRequests = new Set();
+    this.matrixChatHandledRequests = new Set();
   }
 
   refreshMatrixBootstrapConfig() {
@@ -4674,6 +4677,45 @@ class ProgramModelEngine {
     this.matrixSuiteWriteRoot('rooms_text', 'str', this.matrixSuiteRenderRooms(rooms, current.id || selectedId));
     this.matrixSuiteWriteRoot('timeline_markdown', 'str', this.matrixSuiteRenderTimeline(events, current.id || selectedId, current.name || 'No room'));
     this.matrixSuiteWriteRoot('room_inspector_markdown', 'str', `## ${current.name || 'No room'}\n\n- id: ${current.id || selectedId}\n- kind: ${current.kind || 'unknown'}\n- members: ${((current.members || []).join(', ') || 'none')}\n- unread: ${Number(current.unread || 0)}`);
+  }
+
+  matrixChatReadRoot(key, fallback = null) {
+    const model = this.runtime.getModel(MATRIX_CHAT_APP_MODEL_ID);
+    if (!model) return fallback;
+    const value = this.runtime.getLabelValue(model, 0, 0, 0, key);
+    return value === undefined || value === null ? fallback : value;
+  }
+
+  matrixChatWriteRoot(key, type, value) {
+    const model = this.runtime.getModel(MATRIX_CHAT_APP_MODEL_ID);
+    if (!model) return;
+    this.runtime.addLabel(model, 0, 0, 0, { k: key, t: type, v: value });
+  }
+
+  matrixChatRooms() {
+    const rooms = this.matrixChatReadRoot('rooms_json', []);
+    return Array.isArray(rooms) ? rooms : [];
+  }
+
+  matrixChatTimeline() {
+    const events = this.matrixChatReadRoot('timeline_json', []);
+    return Array.isArray(events) ? events : [];
+  }
+
+  matrixChatFindRoom(roomId, rooms = this.matrixChatRooms()) {
+    return rooms.find((room) => room && room.id === roomId && room.archived !== true) || null;
+  }
+
+  matrixChatSyncProjection(rooms, events, selectedId) {
+    void events;
+    const current = this.matrixChatFindRoom(selectedId, rooms)
+      || rooms.find((room) => room && room.archived !== true)
+      || { id: selectedId, name: 'No room', members: [] };
+    this.matrixChatWriteRoot('active_room_id', 'str', current.id || selectedId);
+    this.matrixChatWriteRoot('target_room_id', 'str', current.id || selectedId);
+    this.matrixChatWriteRoot('active_room_name', 'str', current.name || 'No room');
+    this.matrixChatWriteRoot('active_room_summary', 'str', `${current.kind === 'dm' ? 'DM' : 'Room'} · ${((current.members || []).length)} member(s)`);
+    this.matrixChatWriteRoot('room_detail_markdown', 'str', `## ${current.name || 'No room'}\n\n- id: ${current.id || selectedId}\n- kind: ${current.kind || 'unknown'}\n- members: ${((current.members || []).join(', ') || 'none')}\n- unread: ${Number(current.unread || 0)}`);
   }
 
   matrixSuiteSessionFromRuntime() {
@@ -4961,6 +5003,209 @@ class ProgramModelEngine {
       fail('unsupported_matrix_suite_action', action || 'missing');
     } catch (err) {
       fail('matrix_suite_host_exception', err && err.message ? err.message : String(err));
+    }
+  }
+
+  async runMatrixChatHostAction(request) {
+    const req = request && typeof request === 'object' ? request : {};
+    const requestId = String(req.request_id || req.requestId || '').trim() || matrixSuiteTxnId('matrix_chat_req');
+    if (this.matrixChatHandledRequests.has(requestId)) return;
+    this.matrixChatHandledRequests.add(requestId);
+    const action = String(req.action || '').trim();
+    const payload = req.payload && typeof req.payload === 'object' ? req.payload : {};
+    const impl = this.matrixSuiteMatrixImpl || {};
+    const call = async (method, input) => (typeof impl[method] === 'function'
+      ? impl[method](input)
+      : this.matrixSuiteDefaultCall(method, input));
+    const rooms = this.matrixChatRooms();
+    let events = this.matrixChatTimeline();
+    let selectedId = String(this.matrixChatReadRoot('active_room_id', '!digital-sovereignty:ui.local') || '!digital-sovereignty:ui.local');
+    const currentRoom = this.matrixChatFindRoom(selectedId, rooms);
+    const fail = (code, detail) => {
+      this.matrixChatWriteRoot('connection_status', 'str', 'error');
+      this.matrixChatWriteRoot('status_text', 'str', `ERR ${code}: ${detail}`);
+      this.matrixChatWriteRoot('last_error_json', 'json', { code, detail, request_id: requestId, ts: Date.now() });
+    };
+    try {
+      if (action === 'refresh_rooms') {
+        const result = await call('refreshRooms', {});
+        if (!result || result.ok === false) {
+          fail(result && result.code ? result.code : 'matrix_rooms_refresh_failed', result && result.detail ? result.detail : 'matrix_rooms_refresh_failed');
+          return;
+        }
+        const nextRooms = (Array.isArray(result.rooms) ? result.rooms : [])
+          .map((room, index) => {
+            const roomId = String(room && (room.room_id || room.id) ? (room.room_id || room.id) : '').trim();
+            if (!roomId) return null;
+            const name = String(room.name || room.canonical_alias || room.alias || '').trim() || 'Unnamed room';
+            return {
+              id: roomId,
+              kind: room.kind === 'dm' || room.is_direct === true ? 'dm' : 'room',
+              name,
+              alias: String(room.canonical_alias || room.alias || ''),
+              avatar: name.slice(0, 2).toUpperCase(),
+              unread: Number.isFinite(Number(room.unread)) ? Number(room.unread) : 0,
+              members: Array.isArray(room.members) ? room.members : [],
+              last_message: String(room.last_message || room.topic || ''),
+              archived: false,
+              source: 'matrix.joined_room',
+              order: index,
+            };
+          })
+          .filter(Boolean);
+        if (nextRooms.length === 0) {
+          this.matrixChatWriteRoot('rooms_json', 'json', []);
+          this.matrixChatWriteRoot('status_text', 'str', 'Matrix rooms refreshed: 0');
+          this.matrixChatWriteRoot('connection_status', 'str', 'warning');
+          return;
+        }
+        const active = nextRooms.find((room) => room.id === selectedId)
+          || nextRooms.find((room) => room.id === String(this.matrixChatReadRoot('target_room_id', '') || '').trim())
+          || nextRooms[0];
+        selectedId = active.id;
+        this.matrixChatWriteRoot('rooms_json', 'json', nextRooms);
+        this.matrixChatWriteRoot('target_room_id', 'str', selectedId);
+        this.matrixChatWriteRoot('status_text', 'str', `Matrix rooms refreshed: ${nextRooms.length}`);
+        this.matrixChatWriteRoot('connection_status', 'str', 'online');
+        this.matrixChatSyncProjection(nextRooms, events, selectedId);
+        return;
+      }
+
+      if (action === 'send_message') {
+        const body = String(payload.body || '').trim();
+        if (!currentRoom || !body) {
+          fail('invalid_send_request', !currentRoom ? selectedId : 'empty_body');
+          return;
+        }
+        const result = await call('sendMessage', { roomId: selectedId, body });
+        if (!result || result.ok === false) {
+          fail(result && result.code ? result.code : 'matrix_send_failed', result && result.detail ? result.detail : 'matrix_send_failed');
+          return;
+        }
+        events = events.concat({
+          event_id: result.eventId || `$matrix_chat_${Date.now()}`,
+          room_id: selectedId,
+          sender: 'You',
+          type: 'm.room.message',
+          msgtype: 'm.text',
+          body,
+          ts: result.ts || this.matrixSuiteNow(),
+          edited: false,
+        });
+        this.matrixChatWriteRoot('timeline_json', 'json', events);
+        this.matrixChatWriteRoot('last_editable_event_id', 'str', result.eventId || '');
+        this.matrixChatWriteRoot('edit_draft', 'str', body);
+        this.matrixChatWriteRoot('composer_draft', 'str', '');
+        this.matrixChatWriteRoot('status_text', 'str', `Sent via Matrix: ${result.eventId || 'ok'}`);
+        this.matrixChatWriteRoot('connection_status', 'str', 'online');
+        this.matrixChatSyncProjection(rooms, events, selectedId);
+        return;
+      }
+
+      if (action === 'edit_message') {
+        const eventId = String(payload.event_id || '').trim();
+        const body = String(payload.body || '').trim();
+        if (!eventId || !body || !currentRoom) {
+          fail('invalid_edit_request', !eventId ? 'missing_event_id' : (!body ? 'empty_body' : selectedId));
+          return;
+        }
+        const result = await call('editMessage', { roomId: selectedId, eventId, body });
+        if (!result || result.ok === false) {
+          fail(result && result.code ? result.code : 'matrix_edit_failed', result && result.detail ? result.detail : 'matrix_edit_failed');
+          return;
+        }
+        let edited = false;
+        events = events.map((event) => event && event.event_id === eventId
+          ? (edited = true, { ...event, body, edited: true, edited_at: result.ts || this.matrixSuiteNow(), edit_event_id: result.eventId || '' })
+          : event);
+        if (!edited) {
+          events = events.concat({
+            event_id: result.eventId || `$matrix_chat_edit_${Date.now()}`,
+            room_id: selectedId,
+            sender: 'You',
+            type: 'm.room.message',
+            msgtype: 'm.text',
+            body,
+            ts: result.ts || this.matrixSuiteNow(),
+            edited: true,
+          });
+        }
+        this.matrixChatWriteRoot('timeline_json', 'json', events);
+        this.matrixChatWriteRoot('edit_draft', 'str', body);
+        this.matrixChatWriteRoot('edit_dialog_open', 'bool', false);
+        this.matrixChatWriteRoot('status_text', 'str', `Edited via Matrix: ${result.eventId || 'ok'}`);
+        this.matrixChatWriteRoot('connection_status', 'str', 'online');
+        this.matrixChatSyncProjection(rooms, events, selectedId);
+        return;
+      }
+
+      if (action === 'share_file') {
+        const mediaUri = String(payload.media_uri || '').trim();
+        const fileName = String(payload.file_name || 'uploaded-file').trim() || 'uploaded-file';
+        if (!mediaUri || !currentRoom) {
+          fail('invalid_file_request', !mediaUri ? 'missing_media_uri' : selectedId);
+          return;
+        }
+        const result = await call('shareFile', { roomId: selectedId, mediaUri, fileName });
+        if (!result || result.ok === false) {
+          fail(result && result.code ? result.code : 'matrix_file_send_failed', result && result.detail ? result.detail : 'matrix_file_send_failed');
+          return;
+        }
+        events = events.concat({
+          event_id: result.eventId || `$matrix_chat_file_${Date.now()}`,
+          room_id: selectedId,
+          sender: 'You',
+          type: 'm.room.message',
+          msgtype: 'm.file',
+          body: fileName,
+          media_uri: mediaUri,
+          file_name: fileName,
+          ts: result.ts || this.matrixSuiteNow(),
+          edited: false,
+        });
+        this.matrixChatWriteRoot('timeline_json', 'json', events);
+        this.matrixChatWriteRoot('file_share_status', 'str', `shared via Matrix: ${result.eventId || 'ok'}`);
+        this.matrixChatWriteRoot('pending_file_uri', 'str', '');
+        this.matrixChatWriteRoot('pending_file_name', 'str', '');
+        this.matrixChatWriteRoot('status_text', 'str', `File shared via Matrix: ${result.eventId || 'ok'}`);
+        this.matrixChatWriteRoot('connection_status', 'str', 'online');
+        this.matrixChatSyncProjection(rooms, events, selectedId);
+        return;
+      }
+
+      if (action === 'create_channel') {
+        const name = String(payload.name || '').trim();
+        const kind = String(payload.kind || 'room') === 'dm' ? 'dm' : 'room';
+        const result = await call('createRoom', { name, kind, inviteUserId: String(payload.invite_user_id || '') });
+        if (!result || result.ok === false) {
+          fail(result && result.code ? result.code : 'matrix_create_room_failed', result && result.detail ? result.detail : 'matrix_create_room_failed');
+          return;
+        }
+        const roomId = result.roomId || `!matrix-chat-${Date.now()}:local`;
+        const nextRoom = {
+          id: roomId,
+          kind: result.kind || kind,
+          name: result.name || name || roomId,
+          avatar: (result.name || name || roomId).slice(0, 2).toUpperCase(),
+          unread: 0,
+          members: kind === 'dm' ? [result.name || name || roomId] : ['You'],
+          last_message: '',
+          archived: false,
+        };
+        const nextRooms = rooms.concat(nextRoom);
+        this.matrixChatWriteRoot('rooms_json', 'json', nextRooms);
+        this.matrixChatWriteRoot('new_channel_name', 'str', '');
+        this.matrixChatWriteRoot('create_dialog_open', 'bool', false);
+        this.matrixChatWriteRoot('status_text', 'str', `Created Matrix ${kind}: ${nextRoom.name}`);
+        this.matrixChatWriteRoot('connection_status', 'str', 'online');
+        selectedId = roomId;
+        this.matrixChatSyncProjection(nextRooms, events, selectedId);
+        return;
+      }
+
+      fail('unsupported_matrix_chat_action', action || 'missing');
+    } catch (err) {
+      fail('matrix_chat_host_exception', err && err.message ? err.message : String(err));
     }
   }
 
@@ -6395,6 +6640,21 @@ class ProgramModelEngine {
           .catch((err) => {
             this.matrixSuiteWriteRoot('connection_status', 'str', 'error');
             this.matrixSuiteWriteRoot('status_text', 'str', `ERR matrix_suite_host_exception: ${err && err.message ? err.message : String(err)}`);
+          });
+        continue;
+      }
+
+      if (event.cell && event.cell.model_id === MATRIX_CHAT_APP_MODEL_ID &&
+          event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
+          event.label && event.label.k === 'matrix_chat_host_action' &&
+          event.label.t === 'json' && event.label.v) {
+        this.runMatrixChatHostAction(event.label.v)
+          .then(() => {
+            if (typeof this.onSnapshotChanged === 'function') this.onSnapshotChanged();
+          })
+          .catch((err) => {
+            this.matrixChatWriteRoot('connection_status', 'str', 'error');
+            this.matrixChatWriteRoot('status_text', 'str', `ERR matrix_chat_host_exception: ${err && err.message ? err.message : String(err)}`);
           });
         continue;
       }

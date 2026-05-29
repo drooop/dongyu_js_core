@@ -7631,6 +7631,11 @@
           "model_id": 1082,
           "name": "ModelTable",
           "source": "ui-server"
+        },
+        {
+          "model_id": 1083,
+          "name": "Matrix Chat",
+          "source": "ui-server"
         }
       ]
     },
@@ -36629,6 +36634,4550 @@
           "value_t": "modeltable",
           "commit_policy": "immediate"
         }
+      }
+    },
+    {
+      "op": "create_model",
+      "model_id": 1083,
+      "name": "matrix_chat",
+      "type": "sliding_ui"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.table",
+      "v": "UI.MatrixChat"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_name",
+      "t": "str",
+      "v": "Matrix Chat"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_app_summary",
+      "t": "str",
+      "v": "UI Server 自带正式 Matrix 聊天滑动 App，提供会话列表、消息历史、底部输入区、单文件发送入口与分层设置。"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "source_worker",
+      "t": "str",
+      "v": "ui-server"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "app_origin",
+      "t": "str",
+      "v": "builtin"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_capable",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "slide_surface_type",
+      "t": "str",
+      "v": "workspace.page"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "deletable",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "installed_at",
+      "t": "str",
+      "v": "builtin"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_authoring_version",
+      "t": "str",
+      "v": "cellwise.ui.v1"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui_root_node_id",
+      "t": "str",
+      "v": "matrix_chat_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "matrix_chat_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "matrix_chat_request_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "matrix_chat_request",
+          "to": [
+            "handle_matrix_chat_event:in"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "handle_matrix_chat_event",
+      "t": "func.js",
+      "v": {
+        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = (key, fallback = '') => { const record = records.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key); return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback; };\nconst root = (key, fallback = '') => { const lbl = V1N.readLabel(0, 0, 0, key); return lbl && Object.prototype.hasOwnProperty.call(lbl, 'v') ? lbl.v : fallback; };\nconst write = (key, type, value) => V1N.table.addLabel(0, 0, 0, key, type, value);\nconst clean = (value) => String(value == null ? '' : value).trim();\nconst safeArray = (value) => Array.isArray(value) ? value : [];\nconst rooms = () => safeArray(root('rooms_json', []));\nconst timeline = () => safeArray(root('timeline_json', []));\nconst activeRoomId = () => clean(root('active_room_id', '!digital-sovereignty:ui.local')) || '!digital-sovereignty:ui.local';\nconst findRoom = (roomId, list = rooms()) => list.find((room) => room && room.id === roomId && room.archived !== true) || null;\nconst fail = (code, detail) => { write('status_text', 'str', 'ERR ' + code + ': ' + detail); write('connection_status', 'str', 'error'); write('last_error_json', 'json', { code, detail, ts: Date.now() }); };\nconst syncProjection = (roomList, selectedId) => { const current = findRoom(selectedId, roomList) || roomList.find((room) => room && room.archived !== true) || { id: selectedId, name: 'No room', members: [] }; write('active_room_id', 'str', current.id || selectedId); write('target_room_id', 'str', current.id || selectedId); write('active_room_name', 'str', current.name || 'No room'); write('active_room_summary', 'str', (current.kind === 'dm' ? 'DM' : 'Room') + ' · ' + ((current.members || []).length) + ' member(s)'); write('room_detail_markdown', 'str', '## ' + (current.name || 'No room') + '\\n\\n- id: ' + (current.id || selectedId) + '\\n- kind: ' + (current.kind || 'unknown') + '\\n- members: ' + ((current.members || []).join(', ') || 'none') + '\\n- unread: ' + Number(current.unread || 0)); };\nconst requestHost = (action, payload) => { write('matrix_chat_host_action', 'json', { request_id: action + '_' + Date.now(), action, payload: payload || {} }); };\nif (readPayload('__mt_payload_kind', '') !== 'ui_event.v1') { fail('invalid_payload_kind', 'ui_event.v1_required'); return; }\nconst action = clean(readPayload('action', ''));\nlet roomList = rooms();\nlet selectedId = activeRoomId();\ntry {\n  if (action === 'select_room') { const requested = clean(readPayload('room_id', '')); if (!findRoom(requested, roomList)) { fail('room_not_found', requested); return; } selectedId = requested; write('status_text', 'str', 'Selected ' + findRoom(selectedId, roomList).name); write('connection_status', 'str', 'online'); }\n  else if (action === 'refresh_rooms') { write('status_text', 'str', 'Refreshing Matrix rooms...'); write('connection_status', 'str', 'loading'); requestHost('refresh_rooms', {}); }\n  else if (action === 'send_message') { const text = clean(readPayload('draft_text', root('composer_draft', ''))); if (!text) { fail('empty_message', 'composer_draft_required'); return; } if (!findRoom(selectedId, roomList)) { fail('room_not_found', selectedId); return; } write('status_text', 'str', 'Sending via Matrix...'); write('connection_status', 'str', 'loading'); requestHost('send_message', { room_id: selectedId, body: text }); }\n  else if (action === 'edit_message') { const target = clean(readPayload('event_id', root('last_editable_event_id', ''))); const text = clean(readPayload('edit_text', root('edit_draft', ''))); if (!target || !text) { fail('edit_requires_target_and_text', 'missing_event_or_text'); return; } write('status_text', 'str', 'Editing via Matrix...'); write('connection_status', 'str', 'loading'); requestHost('edit_message', { room_id: selectedId, event_id: target, body: text }); }\n  else if (action === 'share_file') { const uri = clean(readPayload('media_uri', root('pending_file_uri', ''))); const fileName = clean(readPayload('file_name', root('pending_file_name', ''))) || 'uploaded-file'; if (!uri) { fail('missing_media_uri', 'upload_file_first'); return; } write('file_share_status', 'str', 'sharing via Matrix...'); write('status_text', 'str', 'Sharing file via Matrix...'); write('connection_status', 'str', 'loading'); requestHost('share_file', { room_id: selectedId, media_uri: uri, file_name: fileName }); }\n  else if (action === 'create_channel') { const name = clean(readPayload('channel_name', root('new_channel_name', ''))); const kind = clean(readPayload('channel_kind', root('create_kind', 'room'))) === 'dm' ? 'dm' : 'room'; if (!name) { fail('missing_channel_name', 'new_channel_name_required'); return; } write('status_text', 'str', 'Creating Matrix ' + kind + '...'); write('connection_status', 'str', 'loading'); requestHost('create_channel', { name, kind, invite_user_id: kind === 'dm' ? name : '' }); }\n  else if (action === 'start_voice') { write('status_text', 'str', 'Voice recording requires browser media capability wiring; not sent.'); write('connection_status', 'str', 'warning'); }\n  else { fail('unknown_action', action || 'missing'); return; }\n  syncProjection(roomList, selectedId); write('last_action', 'str', action);\n} catch (err) { fail('exception', err && err.message ? err.message : String(err)); }"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "rooms_json",
+      "t": "json",
+      "v": [
+        {
+          "id": "!digital-sovereignty:ui.local",
+          "kind": "room",
+          "name": "Digital sovereignty",
+          "avatar": "DS",
+          "unread": 4,
+          "members": [
+            "Alice",
+            "Charlie",
+            "Jessie"
+          ],
+          "last_message": "Matrix gives us decentralization without losing product clarity.",
+          "archived": false
+        },
+        {
+          "id": "@bob:ui.local",
+          "kind": "dm",
+          "name": "Bob",
+          "avatar": "BO",
+          "unread": 1,
+          "members": [
+            "Bob"
+          ],
+          "last_message": "Can you review the draft?",
+          "archived": false
+        },
+        {
+          "id": "!compliance:ui.local",
+          "kind": "room",
+          "name": "Compliance",
+          "avatar": "CO",
+          "unread": 0,
+          "members": [
+            "Alice",
+            "Drop"
+          ],
+          "last_message": "Policy update is ready.",
+          "archived": false
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "timeline_json",
+      "t": "json",
+      "v": [
+        {
+          "event_id": "$evt_alice_1",
+          "room_id": "!digital-sovereignty:ui.local",
+          "sender": "Alice",
+          "type": "m.room.message",
+          "msgtype": "m.text",
+          "body": "Matrix gives us decentralization without losing product clarity.",
+          "ts": "09:41",
+          "edited": false
+        },
+        {
+          "event_id": "$evt_you_1",
+          "room_id": "!digital-sovereignty:ui.local",
+          "sender": "You",
+          "type": "m.room.message",
+          "msgtype": "m.text",
+          "body": "Agreed. The UX should feel like a normal chat client first.",
+          "ts": "09:43",
+          "edited": false
+        },
+        {
+          "event_id": "$evt_file_1",
+          "room_id": "!digital-sovereignty:ui.local",
+          "sender": "Charlie",
+          "type": "m.room.message",
+          "msgtype": "m.file",
+          "body": "launch-plan.pdf",
+          "file_name": "launch-plan.pdf",
+          "media_uri": "mxc://ui.local/launch-plan",
+          "ts": "09:45",
+          "edited": false
+        },
+        {
+          "event_id": "$evt_bob_1",
+          "room_id": "@bob:ui.local",
+          "sender": "Bob",
+          "type": "m.room.message",
+          "msgtype": "m.text",
+          "body": "Can you review the draft?",
+          "ts": "10:05",
+          "edited": false
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "active_room_id",
+      "t": "str",
+      "v": "!digital-sovereignty:ui.local"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "target_room_id",
+      "t": "str",
+      "v": "!digital-sovereignty:ui.local"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "active_room_name",
+      "t": "str",
+      "v": "Digital sovereignty"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "active_room_summary",
+      "t": "str",
+      "v": "Room · 3 member(s)"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "room_detail_markdown",
+      "t": "str",
+      "v": "## Digital sovereignty\n\n- id: !digital-sovereignty:ui.local\n- kind: room\n- members: Alice, Charlie, Jessie\n- unread: 4"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "composer_draft",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "pending_file_uri",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "pending_file_name",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "file_share_status",
+      "t": "str",
+      "v": "waiting for upload"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "connection_status",
+      "t": "str",
+      "v": "online"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "status_text",
+      "t": "str",
+      "v": "ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "last_action",
+      "t": "str",
+      "v": "init"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "last_error_json",
+      "t": "json",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "search_query",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "settings_dialog_open",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "settings_tab",
+      "t": "str",
+      "v": "general"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "create_dialog_open",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "room_detail_dialog_open",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "new_channel_name",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "create_kind",
+      "t": "str",
+      "v": "room"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "settings_homeserver",
+      "t": "str",
+      "v": "https://matrix.dongyudigital.com"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "settings_user_id",
+      "t": "str",
+      "v": "@drop:matrix.dongyudigital.com"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "settings_status",
+      "t": "str",
+      "v": "managed by UI Server runtime"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "password_status",
+      "t": "str",
+      "v": "managed in Security settings; no secret stored in UI model"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "edit_dialog_open",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "edit_draft",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "last_editable_event_id",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "matrix_chat_host_action",
+      "t": "json",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 9,
+      "r": 0,
+      "c": 1083,
+      "k": "matrix_chat_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "matrix_chat_1083_ingress_route",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [
+            0,
+            0,
+            0,
+            "matrix_chat_1083_bus_event"
+          ],
+          "to": [
+            [
+              9,
+              0,
+              1083,
+              "matrix_chat_request"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "minHeight": "760px",
+          "height": "78vh",
+          "width": "100%",
+          "borderRadius": "28px",
+          "overflow": "hidden",
+          "border": "1px solid #dbe4ef",
+          "background": "linear-gradient(135deg,#f8fbff 0%,#eef6ff 52%,#e8fff7 100%)",
+          "boxShadow": "0 24px 70px rgba(15,23,42,0.14)"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_sidebar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "width": "330px",
+          "flex": "0 0 330px",
+          "padding": "22px 18px",
+          "background": "rgba(255,255,255,0.92)",
+          "borderRight": "1px solid #dbe4ef",
+          "boxSizing": "border-box"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_main"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 1,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 1,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 0
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 1,
+      "r": 1,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "flex": "1 1 auto",
+          "minWidth": "0",
+          "display": "flex",
+          "minHeight": "0"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_user_header"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_sidebar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "alignItems": "center",
+          "justifyContent": "space-between"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_user_title"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_user_header"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 1,
+      "k": "ui_text",
+      "t": "str",
+      "v": "Drop"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "fontSize": "22px",
+          "fontWeight": 850,
+          "color": "#0f172a"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_refresh_rooms"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_user_header"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 2,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Refresh"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 2,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "bus_event_v2": true,
+          "bus_in_key": "matrix_chat_1083_bus_event",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ui_event.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "action",
+              "t": "str",
+              "v": "refresh_rooms"
+            }
+          ],
+          "value_t": "modeltable",
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 2,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "primary",
+        "plain": true,
+        "round": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_search"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_sidebar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Search conversations"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "search_query"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "search_query"
+          },
+          "commit_policy": "on_blur"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "size": "large",
+        "style": {
+          "borderRadius": "999px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_filter_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_sidebar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 3
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "modelValue": "all",
+        "style": {
+          "--el-tabs-header-height": "34px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_tab_all"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TabPane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_filter_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "All",
+        "name": "all"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_tab_dms"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TabPane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_filter_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 2,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "DMs",
+        "name": "dm"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_tab_rooms"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TabPane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_filter_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 3
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 2,
+      "c": 3,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Rooms",
+        "name": "room"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_conversation_list"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "ConversationList"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_sidebar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 4
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "bus_event_v2": true,
+          "bus_in_key": "matrix_chat_1083_bus_event",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ui_event.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "action",
+              "t": "str",
+              "v": "select_room"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "room_id",
+              "t": "str",
+              "v": {
+                "$ref": "payload.value"
+              }
+            }
+          ],
+          "value_t": "modeltable",
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 3,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "itemsRef": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "rooms_json"
+        },
+        "activeIdRef": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "active_room_id"
+        },
+        "idField": "id",
+        "primaryField": "name",
+        "secondaryField": "last_message",
+        "badgeField": "unread",
+        "showId": false,
+        "fallbackLabel": "Unnamed room",
+        "emptyText": "No joined Matrix rooms visible yet",
+        "style": {
+          "flex": "1 1 auto",
+          "minHeight": "0",
+          "overflowY": "auto",
+          "paddingRight": "2px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_room_header"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_main"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 0,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 0,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "minHeight": "78px",
+          "padding": "18px 22px",
+          "alignItems": "center",
+          "justifyContent": "space-between",
+          "background": "rgba(255,255,255,0.78)",
+          "borderBottom": "1px solid #dbe4ef",
+          "boxSizing": "border-box"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_room_title_group"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_room_header"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 1,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "column"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 1,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 3
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "minWidth": "0"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_active_room_name"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_room_title_group"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 2,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "active_room_name"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 2,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "fontSize": "24px",
+          "fontWeight": 850,
+          "color": "#0f172a"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_active_room_summary"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_room_title_group"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 3,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "active_room_summary"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 3,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "fontSize": "13px",
+          "color": "#64748b"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_header_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_room_header"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 4,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 4,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 8
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 4,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "alignItems": "center"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 5,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_new_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 5,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 5,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_header_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 5,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 5,
+      "k": "ui_label",
+      "t": "str",
+      "v": "New"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 5,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "create_dialog_open"
+          },
+          "value_ref": {
+            "t": "bool",
+            "v": true
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 5,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "round": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 8,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_edit_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 8,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 8,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_header_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 8,
+      "k": "ui_order",
+      "t": "int",
+      "v": 4
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 8,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Edit last"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 8,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "edit_dialog_open"
+          },
+          "value_ref": {
+            "t": "bool",
+            "v": true
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 8,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "round": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 6,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_detail_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 6,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 6,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_header_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 6,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 6,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Details"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 6,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "room_detail_dialog_open"
+          },
+          "value_ref": {
+            "t": "bool",
+            "v": true
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 6,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "round": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 7,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_settings_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 7,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 7,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_header_actions"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 7,
+      "k": "ui_order",
+      "t": "int",
+      "v": 3
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 7,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Settings"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 7,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "settings_dialog_open"
+          },
+          "value_ref": {
+            "t": "bool",
+            "v": true
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 0,
+      "c": 7,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "round": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 1,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_timeline"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 1,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "MessageTimeline"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 1,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_main"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 1,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 1,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "eventsRef": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "timeline_json"
+        },
+        "activeRoomIdRef": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "active_room_id"
+        },
+        "currentUser": "You",
+        "emptyText": "No messages in this room yet",
+        "style": {
+          "flex": "1 1 auto"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_composer"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "ComposerBar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_main"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 3
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "flex": "0 0 auto"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_attachment_preview"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "AttachmentPreview"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_composer"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "uriRef": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "pending_file_uri"
+        },
+        "nameRef": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "pending_file_name"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_composer_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Container"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_composer"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 2,
+      "k": "ui_layout",
+      "t": "str",
+      "v": "row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 2,
+      "k": "ui_gap",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 2,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "alignItems": "flex-end"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_file_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "FileInput"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_composer_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 3,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "pending_file_uri"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 3,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "multiple": false,
+        "accept": "image/*,audio/*,.pdf,.txt,.md,.zip,.json",
+        "buttonLabel": "Attach",
+        "emptyText": "",
+        "valueRef": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "pending_file_uri"
+        },
+        "nameTargetRef": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "pending_file_name"
+        },
+        "style": {
+          "flex": "0 0 auto"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_voice_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_composer_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 4,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Voice"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 4,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "bus_event_v2": true,
+          "bus_in_key": "matrix_chat_1083_bus_event",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ui_event.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "action",
+              "t": "str",
+              "v": "start_voice"
+            }
+          ],
+          "value_t": "modeltable",
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 4,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "round": true
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 5,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_text_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 5,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 5,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_composer_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 5,
+      "k": "ui_order",
+      "t": "int",
+      "v": 3
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 5,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Message"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 5,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "composer_draft"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "composer_draft"
+          },
+          "commit_policy": "on_blur"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 5,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "textarea",
+        "autosize": {
+          "minRows": 2,
+          "maxRows": 5
+        },
+        "resize": "none",
+        "style": {
+          "flex": "1 1 auto"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 6,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_send_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 6,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 6,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_composer_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 6,
+      "k": "ui_order",
+      "t": "int",
+      "v": 4
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 6,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Send"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 6,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "bus_event_v2": true,
+          "bus_in_key": "matrix_chat_1083_bus_event",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ui_event.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "action",
+              "t": "str",
+              "v": "send_message"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "draft_text",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1083,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "composer_draft"
+                }
+              }
+            }
+          ],
+          "value_t": "modeltable",
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 6,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "primary",
+        "size": "large",
+        "style": {
+          "minWidth": "92px"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 7,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_file_send_button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 7,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 7,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_composer_row"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 7,
+      "k": "ui_order",
+      "t": "int",
+      "v": 5
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 7,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Send File"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 7,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "bus_event_v2": true,
+          "bus_in_key": "matrix_chat_1083_bus_event",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ui_event.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "action",
+              "t": "str",
+              "v": "share_file"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "media_uri",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1083,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "pending_file_uri"
+                }
+              }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "file_name",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1083,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "pending_file_name"
+                }
+              }
+            }
+          ],
+          "value_t": "modeltable",
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 3,
+      "r": 2,
+      "c": 7,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "plain": true,
+        "size": "large"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_settings_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 10
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "settings_dialog_open"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "settings_dialog_open"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "Matrix Chat Settings",
+        "width": "720px"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_settings_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_settings_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "settings_tab"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "settings_tab"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "border-card"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_settings_general"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TabPane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_settings_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 2,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "General",
+        "name": "general"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_settings_general_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_settings_general"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 3,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "markdown": "Current homeserver and user are supplied by the UI Server runtime. This chat app does not store secrets in the UI model."
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_settings_security"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TabPane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_settings_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 4,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Security",
+        "name": "security"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 5,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_settings_security_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 5,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 5,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_settings_security"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 5,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 5,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "password_status"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 6,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_settings_account"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 6,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TabPane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 6,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_settings_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 6,
+      "k": "ui_order",
+      "t": "int",
+      "v": 3
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 6,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Account",
+        "name": "account"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 7,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_settings_account_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 7,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 7,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_settings_account"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 7,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 7,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "markdown": "Account actions are layered here so the main chat screen stays focused on conversations."
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 8,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_settings_advanced"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 8,
+      "k": "ui_component",
+      "t": "str",
+      "v": "TabPane"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 8,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_settings_tabs"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 8,
+      "k": "ui_order",
+      "t": "int",
+      "v": 4
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 8,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "Advanced",
+        "name": "advanced"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 9,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_settings_status"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 9,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 9,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_settings_advanced"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 9,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 4,
+      "r": 0,
+      "c": 9,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "status_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_create_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 11
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "create_dialog_open"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "create_dialog_open"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "New conversation",
+        "width": "520px"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_create_name"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_create_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 1,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Room name or Matrix user id"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "new_channel_name"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "new_channel_name"
+          },
+          "commit_policy": "on_blur"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "size": "large"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_create_kind"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "RadioGroup"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_create_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 2,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "create_kind"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "create_kind"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_create_kind_room"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Radio"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_create_kind"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 3,
+      "k": "ui_label",
+      "t": "str",
+      "v": "room"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 3,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "room"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 4,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_create_kind_dm"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 4,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Radio"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 4,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_create_kind"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 4,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 4,
+      "k": "ui_label",
+      "t": "str",
+      "v": "dm"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 4,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "label": "dm"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 5,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_create_confirm"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 5,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 5,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_create_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 5,
+      "k": "ui_order",
+      "t": "int",
+      "v": 3
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 5,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Create"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 5,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "bus_event_v2": true,
+          "bus_in_key": "matrix_chat_1083_bus_event",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ui_event.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "action",
+              "t": "str",
+              "v": "create_channel"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "channel_name",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1083,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "new_channel_name"
+                }
+              }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "channel_kind",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1083,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "create_kind"
+                }
+              }
+            }
+          ],
+          "value_t": "modeltable",
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 5,
+      "r": 0,
+      "c": 5,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "primary"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 6,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_room_detail_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 6,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 6,
+      "r": 0,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 6,
+      "r": 0,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 12
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 6,
+      "r": 0,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "room_detail_dialog_open"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "room_detail_dialog_open"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 6,
+      "r": 0,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "Room details",
+        "width": "560px"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 6,
+      "r": 0,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_room_detail_markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 6,
+      "r": 0,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Markdown"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 6,
+      "r": 0,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_room_detail_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 6,
+      "r": 0,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 6,
+      "r": 0,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "room_detail_markdown"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 0,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 0,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 0,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_root"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 0,
+      "k": "ui_order",
+      "t": "int",
+      "v": 13
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 0,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "edit_dialog_open"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "edit_dialog_open"
+          }
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 0,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "title": "Edit message",
+        "width": "560px"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 1,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_edit_input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 1,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Input"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 1,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 1,
+      "k": "ui_order",
+      "t": "int",
+      "v": 1
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 1,
+      "k": "ui_placeholder",
+      "t": "str",
+      "v": "Edit the latest message you sent"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 1,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "edit_draft"
+        },
+        "write": {
+          "action": "ui_owner_label_update",
+          "target_ref": {
+            "model_id": 1083,
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "edit_draft"
+          },
+          "commit_policy": "on_blur"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 1,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "textarea",
+        "rows": 3
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 2,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_edit_confirm"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 2,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Button"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 2,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_edit_dialog"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 2,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 2,
+      "k": "ui_label",
+      "t": "str",
+      "v": "Save edit"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 2,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "write": {
+          "bus_event_v2": true,
+          "bus_in_key": "matrix_chat_1083_bus_event",
+          "value_ref": [
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "__mt_payload_kind",
+              "t": "str",
+              "v": "ui_event.v1"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "action",
+              "t": "str",
+              "v": "edit_message"
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "event_id",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1083,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "last_editable_event_id"
+                }
+              }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "edit_text",
+              "t": "str",
+              "v": {
+                "$label": {
+                  "model_id": 1083,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "edit_draft"
+                }
+              }
+            }
+          ],
+          "value_t": "modeltable",
+          "commit_policy": "immediate"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 7,
+      "r": 0,
+      "c": 2,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "type": "primary"
       }
     }
   ]

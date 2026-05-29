@@ -37,6 +37,7 @@ export const WORKSPACE_ENTRY_MODEL_IDS = Object.freeze([
   1080,
   1081,
   1082,
+  1083,
 ]);
 
 export const BUILTIN_WORKSPACE_APP_MODEL_IDS = Object.freeze([
@@ -49,6 +50,7 @@ export const BUILTIN_WORKSPACE_APP_MODEL_IDS = Object.freeze([
   1080,
   1081,
   1082,
+  1083,
 ]);
 
 // Wave C demo submodel.

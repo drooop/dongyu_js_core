@@ -301,6 +301,7 @@ source: ai
 | 0396-dual-topic-submit-response | 2026-05-28 | 修正双总线 endpoint topic：移除冗余 `/sw/` 段，并把 submit request 与 response 拆成两个 topic | 4 | dropx/dev_0396-dual-topic-submit-response | Completed | ./docs/iterations/0396-dual-topic-submit-response/ |
 | 0397-matrix-suite-live-test-slide-app | 2026-05-28 | 将 Matrix Suite 收口为可真实测试的滑动 App：刷新远端 Matrix channel、选择真实 room、发送真实消息并浏览器验收 | 5 | dropx/dev_0397-matrix-suite-live-test-slide-app | Completed | ./docs/iterations/0397-matrix-suite-live-test-slide-app/ |
 | 0398-matrix-suite-room-name-display | 2026-05-29 | Matrix Suite 房间列表默认显示房间名称，room id 仅在 hover 或详情中展示 | 3 | dropx/dev_0398-matrix-suite-room-name-display | Completed | ./docs/iterations/0398-matrix-suite-room-name-display/ |
+| 0399-matrix-chat-app-ux | 2026-05-29 | 新增正式聊天软件形态的 Matrix Chat 滑动 APP，保留 Matrix Suite 作为测试界面并重构会话列表、消息流、输入区和弹窗分层 | 7 | dropx/dev_0399-matrix-chat-app-ux | Completed | ./docs/iterations/0399-matrix-chat-app-ux/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

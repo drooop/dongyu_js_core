@@ -399,6 +399,55 @@ function readPropValueFromSnapshot(snapshot, props, valueKey, refKey) {
   return undefined;
 }
 
+function readComponentValue(snapshot, props, valueKey, refKey, host) {
+  if (!isPlainObject(props)) return undefined;
+  if (Object.prototype.hasOwnProperty.call(props, valueKey)) {
+    return props[valueKey];
+  }
+  const ref = props[refKey];
+  if (isPlainObject(ref)) {
+    return getEffectiveLabelValue(snapshot, ref, host);
+  }
+  return undefined;
+}
+
+function normalizeArrayValue(value) {
+  return Array.isArray(value) ? value.filter((item) => item && typeof item === 'object') : [];
+}
+
+function fieldText(item, field, fallback = '') {
+  if (!item || typeof item !== 'object') return fallback;
+  if (typeof field === 'string' && field) {
+    const value = item[field];
+    if (value !== undefined && value !== null && String(value).trim()) return String(value);
+  }
+  return fallback;
+}
+
+function extensionKind(name, uri = '') {
+  const target = `${String(name || '')} ${String(uri || '')}`.toLowerCase();
+  if (/\.(png|jpe?g|gif|webp|avif|bmp|svg)(\?|#|\s|$)/u.test(target)) return 'image';
+  if (/\.(mp3|wav|ogg|m4a|aac|flac|opus)(\?|#|\s|$)/u.test(target)) return 'audio';
+  if (/\.(mp4|webm|mov|m4v)(\?|#|\s|$)/u.test(target)) return 'video';
+  return 'file';
+}
+
+function cleanComponentProps(props, extraKeys = []) {
+  const next = { ...(props || {}) };
+  delete next.items;
+  delete next.itemsRef;
+  delete next.events;
+  delete next.eventsRef;
+  delete next.uri;
+  delete next.uriRef;
+  delete next.name;
+  delete next.nameRef;
+  delete next.activeId;
+  delete next.activeIdRef;
+  for (const key of extraKeys) delete next[key];
+  return next;
+}
+
 function inferThreeSceneModelId(props) {
   if (!isPlainObject(props)) return null;
   if (Number.isInteger(props.sceneModelId)) return props.sceneModelId;
@@ -793,6 +842,29 @@ function renderTreeNode(node, snapshot, registry) {
     const bind = runtimeNode.bind && runtimeNode.bind.read;
     const value = bind ? getLabelValue(snapshot, bind) : undefined;
     base.value = value !== undefined ? Boolean(value) : false;
+    base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
+    return base;
+  }
+
+  if (runtimeNode.type === 'ConversationList') {
+    base.items = normalizeArrayValue(readComponentValue(snapshot, runtimeNode.props || {}, 'items', 'itemsRef'));
+    base.activeId = readComponentValue(snapshot, runtimeNode.props || {}, 'activeId', 'activeIdRef') || '';
+    return base;
+  }
+
+  if (runtimeNode.type === 'MessageTimeline') {
+    base.events = normalizeArrayValue(readComponentValue(snapshot, runtimeNode.props || {}, 'events', 'eventsRef'));
+    base.activeRoomId = readComponentValue(snapshot, runtimeNode.props || {}, 'activeRoomId', 'activeRoomIdRef') || '';
+    return base;
+  }
+
+  if (runtimeNode.type === 'AttachmentPreview') {
+    base.uri = readComponentValue(snapshot, runtimeNode.props || {}, 'uri', 'uriRef') || '';
+    base.name = readComponentValue(snapshot, runtimeNode.props || {}, 'name', 'nameRef') || '';
+    return base;
+  }
+
+  if (runtimeNode.type === 'ComposerBar') {
     base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
     return base;
   }
@@ -1801,6 +1873,273 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         }),
       ]),
     ].filter(Boolean));
+  }
+
+  if (node.type === 'ConversationList') {
+    const items = normalizeArrayValue(readComponentValue(snapshot, props, 'items', 'itemsRef', host));
+    const activeId = String(readComponentValue(snapshot, props, 'activeId', 'activeIdRef', host) || '');
+    const idField = props.idField || 'id';
+    const primaryField = props.primaryField || 'name';
+    const secondaryField = props.secondaryField || 'last_message';
+    const badgeField = props.badgeField || 'unread';
+    const fallbackLabel = props.fallbackLabel || 'Unnamed room';
+    const showId = props.showId === true;
+    const target = node.bind && node.bind.write;
+    const listProps = cleanComponentProps(props, ['idField', 'primaryField', 'secondaryField', 'badgeField', 'fallbackLabel', 'showId', 'emptyText']);
+    const emptyText = props.emptyText || 'No conversations yet';
+    return h('div', {
+      ...listProps,
+      role: 'listbox',
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        width: '100%',
+        ...(props.style || {}),
+      },
+    }, items.length > 0 ? items.map((item, index) => {
+      const id = fieldText(item, idField, `item-${index}`);
+      const primary = fieldText(item, primaryField, fallbackLabel);
+      const secondary = fieldText(item, secondaryField, '');
+      const unread = Number(item && item[badgeField] ? item[badgeField] : 0);
+      const selected = id === activeId;
+      const rowPayload = { value: id, row: item, item };
+      return h('button', {
+        key: id,
+        type: 'button',
+        role: 'option',
+        'aria-selected': selected,
+        title: showId ? primary : `room id: ${id}`,
+        onClick: () => {
+          if (!target) return;
+          dispatchEvent(node, target, rowPayload, host, undefined, { value: id, row: item, payload: rowPayload });
+        },
+        style: {
+          width: '100%',
+          display: 'grid',
+          gridTemplateColumns: '42px minmax(0, 1fr) auto',
+          alignItems: 'center',
+          gap: '10px',
+          border: selected ? '1px solid rgba(59, 130, 246, 0.42)' : '1px solid transparent',
+          background: selected ? 'linear-gradient(135deg, rgba(219,234,254,0.92), rgba(240,249,255,0.92))' : 'transparent',
+          borderRadius: '16px',
+          padding: '10px 12px',
+          cursor: 'pointer',
+          textAlign: 'left',
+          color: '#0f172a',
+        },
+      }, [
+        h('span', {
+          style: {
+            width: '42px',
+            height: '42px',
+            borderRadius: '14px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: selected ? '#2563eb' : '#e2e8f0',
+            color: selected ? '#ffffff' : '#334155',
+            fontWeight: 800,
+            letterSpacing: '-0.03em',
+          },
+        }, primary.slice(0, 2).toUpperCase()),
+        h('span', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' } }, [
+          h('span', {
+            style: {
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontSize: '15px',
+              fontWeight: selected ? 800 : 700,
+            },
+          }, primary),
+          secondary ? h('span', {
+            style: {
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontSize: '12px',
+              color: '#64748b',
+            },
+          }, secondary) : null,
+          showId ? h('span', { style: { fontSize: '11px', color: '#94a3b8' } }, id) : null,
+        ].filter(Boolean)),
+        unread > 0 ? h('span', {
+          style: {
+            minWidth: '24px',
+            height: '24px',
+            borderRadius: '999px',
+            background: '#0f766e',
+            color: '#ffffff',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '12px',
+            fontWeight: 800,
+          },
+        }, String(unread)) : null,
+      ].filter(Boolean));
+    }) : [
+      h('div', {
+        style: {
+          color: '#64748b',
+          border: '1px dashed #cbd5e1',
+          borderRadius: '16px',
+          padding: '18px',
+          textAlign: 'center',
+          fontSize: '13px',
+        },
+      }, emptyText),
+    ]);
+  }
+
+  if (node.type === 'MessageTimeline') {
+    const events = normalizeArrayValue(readComponentValue(snapshot, props, 'events', 'eventsRef', host));
+    const activeRoomId = String(readComponentValue(snapshot, props, 'activeRoomId', 'activeRoomIdRef', host) || '');
+    const currentUser = String(props.currentUser || 'You');
+    const filtered = events.filter((event) => !activeRoomId || String(event.room_id || event.roomId || '') === activeRoomId);
+    const timelineProps = cleanComponentProps(props, ['activeRoomIdRef', 'currentUser', 'emptyText']);
+    const emptyText = props.emptyText || 'No messages yet';
+    return h('section', {
+      ...timelineProps,
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        overflowY: 'auto',
+        padding: '18px 20px',
+        minHeight: 0,
+        ...(props.style || {}),
+      },
+    }, filtered.length > 0 ? filtered.map((event, index) => {
+      const sender = fieldText(event, 'sender', 'system');
+      const mine = event.mine === true || sender === currentUser || sender === 'You';
+      const body = fieldText(event, 'body', '');
+      const fileName = fieldText(event, 'file_name', fieldText(event, 'filename', body));
+      const mediaUri = fieldText(event, 'media_uri', fieldText(event, 'url', ''));
+      const msgtype = fieldText(event, 'msgtype', fieldText(event, 'type', 'm.text'));
+      const kind = msgtype === 'm.image' ? 'image' : (msgtype === 'm.audio' ? 'audio' : (msgtype === 'm.file' ? extensionKind(fileName, mediaUri) : 'text'));
+      const bubbleBg = mine ? '#2563eb' : '#ffffff';
+      const bubbleColor = mine ? '#ffffff' : '#0f172a';
+      const bubbleBorder = mine ? '1px solid rgba(37,99,235,0.10)' : '1px solid #e2e8f0';
+      const attachment = kind !== 'text'
+        ? h('div', {
+          style: {
+            marginTop: body && body !== fileName ? '8px' : '0',
+            border: mine ? '1px solid rgba(255,255,255,0.28)' : '1px solid #dbe4ef',
+            borderRadius: '14px',
+            padding: kind === 'image' ? '8px' : '10px 12px',
+            background: mine ? 'rgba(255,255,255,0.12)' : '#f8fafc',
+          },
+        }, kind === 'image'
+          ? [
+            h('div', { style: { width: '220px', maxWidth: '100%', aspectRatio: '16/10', borderRadius: '10px', background: 'linear-gradient(135deg,#dbeafe,#ccfbf1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: mine ? '#ffffff' : '#0f766e', fontWeight: 800 } }, 'Image'),
+            h('div', { style: { marginTop: '7px', fontSize: '12px', color: mine ? 'rgba(255,255,255,0.82)' : '#475569' } }, fileName || mediaUri || 'image'),
+          ]
+          : [
+            h('div', { style: { fontWeight: 800, color: mine ? '#ffffff' : '#0f172a' } }, kind === 'audio' ? 'Audio message' : 'File'),
+            h('div', { style: { marginTop: '3px', fontSize: '12px', color: mine ? 'rgba(255,255,255,0.82)' : '#475569', wordBreak: 'break-word' } }, fileName || mediaUri || 'attachment'),
+          ])
+        : null;
+      return h('article', {
+        key: event.event_id || event.id || `${index}`,
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: mine ? 'flex-end' : 'flex-start',
+          gap: '4px',
+        },
+      }, [
+        h('div', { style: { fontSize: '11px', color: '#94a3b8', padding: mine ? '0 8px 0 0' : '0 0 0 8px' } }, `${sender} · ${event.ts || ''}${event.edited ? ' · edited' : ''}`),
+        h('div', {
+          style: {
+            maxWidth: 'min(680px, 78%)',
+            borderRadius: mine ? '18px 18px 6px 18px' : '18px 18px 18px 6px',
+            background: bubbleBg,
+            color: bubbleColor,
+            border: bubbleBorder,
+            boxShadow: mine ? '0 16px 36px rgba(37, 99, 235, 0.18)' : '0 14px 30px rgba(15, 23, 42, 0.06)',
+            padding: '12px 14px',
+            lineHeight: 1.55,
+            wordBreak: 'break-word',
+          },
+        }, [
+          body && kind === 'text' ? h('div', body) : null,
+          body && kind !== 'text' && body !== fileName ? h('div', body) : null,
+          attachment,
+        ].filter(Boolean)),
+      ]);
+    }) : [
+      h('div', {
+        style: {
+          margin: 'auto',
+          color: '#64748b',
+          border: '1px dashed #cbd5e1',
+          borderRadius: '18px',
+          padding: '24px',
+          textAlign: 'center',
+          background: '#f8fafc',
+        },
+      }, emptyText),
+    ]);
+  }
+
+  if (node.type === 'AttachmentPreview') {
+    const uri = String(readComponentValue(snapshot, props, 'uri', 'uriRef', host) || '').trim();
+    const name = String(readComponentValue(snapshot, props, 'name', 'nameRef', host) || '').trim();
+    const previewProps = cleanComponentProps(props, ['emptyText']);
+    if (!uri && !name) {
+      return h('div', { ...previewProps, style: { display: 'none', ...(props.style || {}) } });
+    }
+    const kind = extensionKind(name, uri);
+    return h('div', {
+      ...previewProps,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        border: '1px solid #dbe4ef',
+        background: '#f8fafc',
+        borderRadius: '16px',
+        padding: '10px 12px',
+        color: '#0f172a',
+        ...(props.style || {}),
+      },
+    }, [
+      h('span', {
+        style: {
+          width: '42px',
+          height: '42px',
+          borderRadius: '12px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: kind === 'image' ? 'linear-gradient(135deg,#bfdbfe,#99f6e4)' : '#e2e8f0',
+          color: '#0f172a',
+          fontWeight: 900,
+        },
+      }, kind === 'image' ? 'IMG' : (kind === 'audio' ? 'AUD' : 'FILE')),
+      h('span', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' } }, [
+        h('span', { style: { fontSize: '13px', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, name || 'Selected file'),
+        h('span', { style: { fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, uri),
+      ]),
+    ]);
+  }
+
+  if (node.type === 'ComposerBar') {
+    const composerProps = cleanComponentProps(props);
+    return h('section', {
+      ...composerProps,
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+        borderTop: '1px solid #e2e8f0',
+        background: 'rgba(255,255,255,0.94)',
+        padding: '14px 16px',
+        ...(props.style || {}),
+      },
+    }, children);
   }
 
   if (node.type === 'Form') {
