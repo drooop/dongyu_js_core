@@ -323,15 +323,23 @@ echo ""
 
 # ── Deploy infrastructure ────────────────────────────────
 echo "=== Step 3: Deploy Synapse ==="
-kubectl apply -f "$REPO_DIR/k8s/cloud/synapse.yaml"
-echo "  Waiting for Synapse rollout..."
-kubectl -n "$NAMESPACE" rollout status deployment/synapse --timeout=180s
-echo "  Synapse: OK"
+if is_remote_matrix_homeserver; then
+  echo "  Skipping cloud Synapse: Matrix transport uses $(matrix_homeserver_url)"
+else
+  kubectl apply -f "$REPO_DIR/k8s/cloud/synapse.yaml"
+  echo "  Waiting for Synapse rollout..."
+  kubectl -n "$NAMESPACE" rollout status deployment/synapse --timeout=180s
+  echo "  Synapse: OK"
+fi
 echo ""
 
 # ── Initialize Synapse users & room ──────────────────────
 echo "=== Step 4: Initialize Synapse ==="
-register_synapse_users
+if is_remote_matrix_homeserver; then
+  echo "  Skipping local Synapse user bootstrap for remote Matrix."
+else
+  register_synapse_users
+fi
 
 echo "  Getting access token for @${SERVER_USER}..."
 SERVER_TOKEN=$(get_matrix_token "$SERVER_USER" "$SERVER_PASSWORD")
