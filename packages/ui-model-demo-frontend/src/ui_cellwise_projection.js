@@ -73,6 +73,7 @@ function parseCellCoord(coord) {
 
 function inferWriteTrigger(componentType, commitPolicy = 'immediate') {
   if (componentType === 'Button') return 'click';
+  if (componentType === 'AudioRecorder') return 'finish';
   if (commitPolicy === 'on_blur') return 'blur';
   if (commitPolicy === 'on_submit') return 'submit';
   return 'change';
