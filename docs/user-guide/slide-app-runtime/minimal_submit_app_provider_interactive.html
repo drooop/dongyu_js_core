@@ -124,6 +124,10 @@
             <tr><td>bindings</td><td><code>click_event</code>, <code>click_event_wiring</code>, <code>click_chain</code></td><td>按钮事件从浏览器进入按钮 Cell，再转到 root 入口。</td></tr>
           </tbody>
         </table>
+        <h3>同模型引用省略 model_id</h3>
+        <p>Provider 写 <code>app_payload.json</code> 时不知道 UI Server 会分配哪个正式 model id。凡是读取或写入当前 App 自己的 label，都只写 <code>p/r/c/k</code>，不要写 <code>model_id</code>，也不要用 <code>model_id: 0</code> 作为当前模型占位。</p>
+        <pre>{ "p": 0, "r": 0, "c": 0, "k": "input_text" }</pre>
+        <p><code>ui_bind_json.read</code>、<code>ui_bind_json.write.target_ref</code>、<code>ui_bind_read_json</code>、<code>$label</code>、<code>ui_props_json.tasksRef</code> 都遵守这条规则。只有确实跨模型读取时才显式写 <code>model_id</code>。</p>
       </div>
     </section>
 

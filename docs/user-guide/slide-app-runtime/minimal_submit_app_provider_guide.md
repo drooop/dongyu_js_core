@@ -234,6 +234,26 @@ return [
 | `click_event_wiring` | `pin.connect.label` | 同一个按钮 Cell 内把 `click_event` 转给 `click_chain`。 |
 | `click_chain` | `pin.out` | Submit 按钮 Cell 对外发送事件的出口。 |
 
+### 2.1 同模型引用如何省略 `model_id`
+
+Provider 准备 ZIP 时不知道 UI Server 会分配哪个正式 model id，所以 `app_payload.json` 里的同模型引用必须省略 `model_id`。
+
+正确写法：
+
+```json
+{ "p": 0, "r": 0, "c": 0, "k": "input_text" }
+```
+
+错误写法：
+
+```json
+{ "model_id": 4100, "p": 0, "r": 0, "c": 0, "k": "input_text" }
+```
+
+不要把 `model_id: 0` 当作“当前模型”。在 ZIP record 中，外层 `id: 0` 表示临时模型 id；安装器会把这个临时模型 materialize 成正式 model id。`ui_bind_json.read`、`ui_bind_json.write.target_ref`、`ui_bind_read_json`、`$label`、`ui_props_json.tasksRef` 都遵守这条规则。
+
+只有显式读取其他模型时才写 `model_id`，例如系统 overlay 模型或另一个已知模型。
+
 ## 3. Submit 类提交按钮怎么填
 
 Submit 类提交按钮由三段组成：按钮 Cell labels、Root 入口、业务程序。

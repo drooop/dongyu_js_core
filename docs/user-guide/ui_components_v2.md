@@ -309,6 +309,14 @@ Both components read task records from a label such as `tasks_json`. A task reco
 ]
 ```
 
+The example above is the built-in Model 1086 form, where Model 0 already declares `todo_1086_bus_event`. For a ZIP provider payload, use temporary records without `op` / `model_id`, declare root `host_ingress_v1`, and set the component write key to:
+
+```json
+{ "write": { "bus_event_v2": true, "bus_in_key": "bus_event_submit_0_0_0_0", "commit_policy": "immediate" } }
+```
+
+During installation, UI Server rewrites `bus_event_submit_0_0_0_0` to `imported_host_submit_<actualModelId>`. Do not hard-code `1086`, `4100`, or `model_id: 0` in a provider ZIP.
+
 The component generates temporary ModelTable event payloads automatically. It never writes final task truth directly. For example:
 
 | user action | emitted `todo_action` | extra records |
@@ -328,6 +336,8 @@ Use `ui_bind_read_json` when a component only reads from a label in the same mod
 ```json
 { "p": 0, "r": 0, "c": 0, "k": "bg_color" }
 ```
+
+This same rule applies to `ui_bind_json.read`, `ui_bind_json.write.target_ref`, `$label`, `tasksRef`, and `filterRef`: when the target label is in the current model, omit `model_id`. The deployment model id is assigned by UI Server during installation.
 
 For a deliberate cross-model read, keep `model_id` explicit:
 

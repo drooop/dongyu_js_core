@@ -56,6 +56,14 @@ flowchart LR
 
 Submit 类提交按钮需要 `value_t=modeltable` 与 `value_ref`。`value_ref` 里至少包含 `__mt_payload_kind=ui_event.v1`、`text`、`source`。按钮点击先写 `click_event pin.in`，再由 `click_event_wiring` 转到 `click_chain pin.out`。`handle_submit` 只读取 `text`，不读取旧 `input_value` 或 `message_text` 兜底。
 
+同模型引用只写 `p/r/c/k`，不要写 `model_id`。例如按钮读取 root 的 `input_text` 时写：
+
+```json
+{ "p": 0, "r": 0, "c": 0, "k": "input_text" }
+```
+
+Provider ZIP 阶段不知道安装后的正式 model id，`model_id: 0` 也不是“当前模型”占位。
+
 ## 安装后自动生成
 
 ```mermaid
