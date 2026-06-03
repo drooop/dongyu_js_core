@@ -386,8 +386,10 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
 
   async function flushSubmitOverlaysForEnvelope(rawEnvelope) {
     const payload = rawEnvelope && rawEnvelope.payload ? rawEnvelope.payload : null;
-    if (!payload || typeof payload.action !== 'string') return;
-    const action = payload.action;
+    const action = payload && typeof payload.action === 'string' ? payload.action : '';
+    const pin = payload && typeof payload.pin === 'string' ? payload.pin : '';
+    const isBusEventV2 = rawEnvelope && rawEnvelope.type === 'bus_event_v2';
+    if (!action && !pin && !isBusEventV2) return;
     if (action === 'label_update' || action === 'label_add') return;
     for (const [key, entry] of overlayStore.entries()) {
       if (!entry || entry.pending) continue;
@@ -602,7 +604,10 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
 
     const rawEnvelope = label.v;
     if (rawEnvelope && rawEnvelope.type === 'bus_event_v2') {
-      sendQueue = sendQueue.then(() => postEnvelope(rawEnvelope)).catch(() => {
+      sendQueue = sendQueue.then(async () => {
+        await flushSubmitOverlaysForEnvelope(rawEnvelope);
+        return postEnvelope(rawEnvelope);
+      }).catch(() => {
         // keep queue alive
       });
       return sendQueue;

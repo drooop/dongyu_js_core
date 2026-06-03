@@ -26,11 +26,11 @@ function labelsAt(patch, modelId, p = 0, r = 0, c = 0) {
 }
 
 function main() {
-  const expectedIds = [-103, -23, 100, 1007, 1011, 1030, 1036, 1050, 1051, 1080, 1081, 1082];
+  const expectedIds = [-103, -23, 100, 1007, 1011, 1030, 1036, 1050, 1051, 1080, 1081, 1082, 1083];
   assert.deepEqual(
     [...WORKSPACE_ENTRY_MODEL_IDS],
     expectedIds,
-    'Workspace entry allowlist must keep the cleanup request plus built-in Mgmt Bus Console, Matrix Suite, Settings, and ModelTable apps',
+    'Workspace entry allowlist must keep the cleanup request plus built-in Mgmt Bus Console, Matrix Suite, Settings, ModelTable, and Matrix Chat apps',
   );
 
   const docsCatalog = readJson('packages/worker-base/system-models/docs_catalog_ui.json');

@@ -1161,14 +1161,14 @@
         "data-testid": "desktop-foreground-player",
         "style": {
           "width": "100%",
-          "height": "100vh",
+          "height": "100dvh",
           "overflow": "hidden",
           "background": "radial-gradient(circle at 12% 10%, #ccfbf1 0, transparent 24%), radial-gradient(circle at 86% 12%, #dbeafe 0, transparent 28%), linear-gradient(135deg, #eef6f5 0%, #e6edf7 54%, #f8fafc 100%)",
           "display": "flex",
           "flexDirection": "column",
-          "padding": "16px",
+          "padding": "12px",
           "boxSizing": "border-box",
-          "gap": "14px"
+          "gap": "10px"
         }
       }
     },
@@ -1604,6 +1604,7 @@
       "t": "json",
       "v": {
         "title": "",
+        "contentOverflow": "hidden",
         "data-testid": "desktop-focused-app-window",
         "style": {
           "flex": 1,

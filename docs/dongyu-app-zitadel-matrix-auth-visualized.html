@@ -1,0 +1,1138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dongyu App 用户登录与 Matrix 能力架构</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fb;
+      --ink: #172033;
+      --muted: #5d6b82;
+      --soft: #eef2f7;
+      --line: #d7dee9;
+      --panel: #ffffff;
+      --blue: #2563eb;
+      --teal: #0f766e;
+      --amber: #b45309;
+      --green: #15803d;
+      --red: #b91c1c;
+      --violet: #6d28d9;
+      --shadow: 0 14px 34px rgba(21, 32, 51, 0.08);
+      --radius: 8px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 16px;
+      line-height: 1.58;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 272px minmax(0, 1fr);
+    }
+
+    .side {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 28px 22px;
+      background: #111827;
+      color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .brand {
+      display: grid;
+      gap: 8px;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      background: linear-gradient(135deg, #0f766e, #2563eb);
+      font-weight: 800;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.28;
+      font-weight: 760;
+    }
+
+    .brand p {
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .side nav {
+      display: grid;
+      gap: 5px;
+    }
+
+    .side nav a {
+      padding: 9px 10px;
+      border-radius: 7px;
+      color: #dbe4ef;
+      font-size: 14px;
+      border: 1px solid transparent;
+    }
+
+    .side nav a:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .side-note {
+      margin-top: auto;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: #cbd5e1;
+      font-size: 12px;
+      line-height: 1.55;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    main {
+      min-width: 0;
+      padding: 40px min(5vw, 64px) 64px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 30px;
+      align-items: stretch;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-copy {
+      display: grid;
+      align-content: center;
+      gap: 18px;
+    }
+
+    .hero h2 {
+      margin: 0;
+      max-width: 860px;
+      font-size: 42px;
+      line-height: 1.12;
+      font-weight: 800;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 780px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .decision-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 4px;
+      max-width: 900px;
+    }
+
+    .decision {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: 0 8px 22px rgba(21, 32, 51, 0.05);
+    }
+
+    .decision strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .decision span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .hero-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 12px;
+    }
+
+    .status-row {
+      display: grid;
+      grid-template-columns: 112px minmax(0, 1fr);
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fbfcfe;
+      align-items: center;
+    }
+
+    .status-row b {
+      font-size: 13px;
+    }
+
+    .status-row span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .ok {
+      color: var(--green);
+    }
+
+    .section {
+      padding: 40px 0 0;
+    }
+
+    .section-head {
+      display: grid;
+      gap: 8px;
+      max-width: 860px;
+      margin-bottom: 18px;
+    }
+
+    .section h3 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.18;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .architecture-map {
+      display: grid;
+      gap: 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .layer {
+      display: grid;
+      grid-template-columns: 160px minmax(0, 1fr);
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .layer-title {
+      border-radius: 7px;
+      padding: 14px;
+      display: grid;
+      align-content: center;
+      font-weight: 780;
+      color: #fff;
+      min-height: 88px;
+    }
+
+    .identity {
+      background: var(--teal);
+    }
+
+    .app {
+      background: var(--blue);
+    }
+
+    .capability {
+      background: var(--amber);
+    }
+
+    .transport {
+      background: var(--violet);
+    }
+
+    .layer-cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .node {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fbfcfe;
+      padding: 14px;
+      min-height: 88px;
+    }
+
+    .node strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 15px;
+    }
+
+    .node p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .step {
+      position: relative;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 15px;
+      min-height: 150px;
+      box-shadow: 0 8px 22px rgba(21, 32, 51, 0.05);
+    }
+
+    .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: -9px;
+      top: 50%;
+      width: 16px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .step-index {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      background: #e0f2fe;
+      color: #075985;
+      font-weight: 800;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .step strong {
+      display: block;
+      font-size: 15px;
+      margin-bottom: 7px;
+    }
+
+    .step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .tabs {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--line);
+      background: #f9fbfd;
+      overflow-x: auto;
+    }
+
+    .tab-button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      padding: 13px 16px;
+      font: inherit;
+      font-size: 14px;
+      color: var(--muted);
+      cursor: pointer;
+      border-right: 1px solid var(--line);
+      white-space: nowrap;
+    }
+
+    .tab-button[aria-selected="true"] {
+      color: var(--ink);
+      background: var(--panel);
+      font-weight: 760;
+    }
+
+    .tab-panel {
+      display: none;
+      padding: 20px;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    .callout {
+      border-left: 4px solid var(--blue);
+      background: #f8fbff;
+      border-radius: 7px;
+      padding: 14px 16px;
+    }
+
+    .callout h4,
+    .plain-card h4 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .callout p,
+    .plain-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .plain-card {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 14px;
+      background: #fbfcfe;
+    }
+
+    .matrix-binding {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr) 72px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .binding-box {
+      min-height: 116px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fbfcfe;
+      padding: 14px;
+    }
+
+    .binding-box strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .binding-box span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .arrow {
+      height: 2px;
+      background: var(--line);
+      position: relative;
+    }
+
+    .arrow::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: -4px;
+      width: 0;
+      height: 0;
+      border-left: 8px solid var(--line);
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+    }
+
+    .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .rule {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: 0 8px 22px rgba(21, 32, 51, 0.05);
+      min-height: 180px;
+    }
+
+    .rule h4 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .rule p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+
+    th,
+    td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f8fafc;
+      font-size: 13px;
+      color: #334155;
+      font-weight: 760;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .timeline {
+      display: grid;
+      gap: 12px;
+    }
+
+    .phase {
+      display: grid;
+      grid-template-columns: 140px minmax(0, 1fr);
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .phase-key {
+      border-radius: 7px;
+      background: #e2e8f0;
+      padding: 14px;
+      font-weight: 800;
+      color: #263244;
+    }
+
+    .phase-body {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+      padding: 14px;
+    }
+
+    .phase-body strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .phase-body p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .risk-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .risk-list li {
+      display: grid;
+      grid-template-columns: 132px minmax(0, 1fr);
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 12px;
+      background: #fbfcfe;
+    }
+
+    .risk-list b {
+      color: var(--red);
+      font-size: 13px;
+    }
+
+    .risk-list span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    footer {
+      margin-top: 44px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1100px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .side {
+        position: static;
+        height: auto;
+      }
+
+      .side nav {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .side-note {
+        margin-top: 0;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .step:not(:last-child)::after {
+        display: none;
+      }
+
+      .layer {
+        grid-template-columns: 1fr;
+      }
+
+      .layer-cards,
+      .decision-strip,
+      .rules-grid,
+      .split {
+        grid-template-columns: 1fr;
+      }
+
+      .matrix-binding {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        width: 2px;
+        height: 28px;
+        justify-self: center;
+      }
+
+      .arrow::after {
+        right: -4px;
+        top: auto;
+        bottom: -1px;
+        border-top: 8px solid var(--line);
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-bottom: 0;
+      }
+    }
+
+    @media (max-width: 640px) {
+      main {
+        padding: 28px 16px 44px;
+      }
+
+      .side {
+        padding: 22px 16px;
+      }
+
+      .side nav {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .hero h2 {
+        font-size: 30px;
+      }
+
+      .hero p {
+        font-size: 16px;
+      }
+
+      .section h3 {
+        font-size: 23px;
+      }
+
+      .phase,
+      .risk-list li {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand">
+        <div class="brand-mark">DY</div>
+        <h1>Dongyu App 用户登录与 Matrix 能力架构</h1>
+        <p>推荐方案：Zitadel 做主身份源，Dongyu App 做业务会话与权限，MAS 继续服务 Matrix。</p>
+      </div>
+      <nav aria-label="页面导航">
+        <a href="#summary">结论</a>
+        <a href="#map">系统地图</a>
+        <a href="#login">登录流程</a>
+        <a href="#matrix">Matrix 能力</a>
+        <a href="#bus">管理总线</a>
+        <a href="#roles">职责边界</a>
+        <a href="#roadmap">落地路径</a>
+        <a href="#risks">关键风险</a>
+      </nav>
+      <div class="side-note">
+        本页是设计说明，不是运行配置。它描述推荐边界：Dongyu App 不重做 MAS，也不把 Matrix 当成总权限源。
+      </div>
+    </aside>
+
+    <main>
+      <section id="summary" class="hero">
+        <div class="hero-copy">
+          <h2>Zitadel 负责登录身份，Dongyu App 负责业务权限，Matrix 作为可授予的通讯能力。</h2>
+          <p>
+            推荐方式不是让 Dongyu App 变成新的 SSO 平台，也不是让 Matrix 决定所有权限。
+            Dongyu App 只需要成为自己的 OIDC client，并把登录后的用户映射到 Workspace、角色、Matrix 绑定和管理总线能力。
+          </p>
+          <div class="decision-strip">
+            <div class="decision">
+              <strong>主身份源</strong>
+              <span>Zitadel 证明用户是谁，处理账号、组织、登录策略和多因素登录。</span>
+            </div>
+            <div class="decision">
+              <strong>主权限源</strong>
+              <span>Dongyu App 决定用户能看什么、改什么、触发什么。</span>
+            </div>
+            <div class="decision">
+              <strong>能力基础设施</strong>
+              <span>Matrix/MAS 提供聊天、通知、管理总线和 Matrix token。</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-panel" aria-label="当前远端事实">
+          <div class="status-row">
+            <b>Zitadel</b>
+            <span><span class="ok">可用</span>，入口为 sso.dongyudigital.com</span>
+          </div>
+          <div class="status-row">
+            <b>MAS</b>
+            <span><span class="ok">可用</span>，入口为 mas.dongyudigital.com</span>
+          </div>
+          <div class="status-row">
+            <b>Matrix SSO</b>
+            <span><span class="ok">已开启</span>，支持 m.login.sso 与 m.login.token</span>
+          </div>
+          <div class="status-row">
+            <b>Dongyu App</b>
+            <span>应新增自己的 Zitadel OIDC 登录与业务 session</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="map" class="section">
+        <div class="section-head">
+          <h3>系统地图</h3>
+          <p>把“身份”“业务权限”“Matrix 能力”“消息传输”拆开，后续替换任一层都不会牵动整套系统。</p>
+        </div>
+        <div class="architecture-map">
+          <div class="layer">
+            <div class="layer-title identity">身份层</div>
+            <div class="layer-cards">
+              <div class="node">
+                <strong>Zitadel</strong>
+                <p>账号、组织、登录策略、MFA、OIDC issuer。</p>
+              </div>
+              <div class="node">
+                <strong>OIDC token</strong>
+                <p>只证明登录身份，不直接代表 Dongyu App 权限。</p>
+              </div>
+              <div class="node">
+                <strong>用户目录</strong>
+                <p>以 Zitadel subject 或 email 映射到 Dongyu App 用户。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="layer">
+            <div class="layer-title app">Dongyu App 层</div>
+            <div class="layer-cards">
+              <div class="node">
+                <strong>App session</strong>
+                <p>Dongyu App 自己签发 cookie，代表当前浏览器已登录。</p>
+              </div>
+              <div class="node">
+                <strong>权限模型</strong>
+                <p>Workspace、角色、资源、操作策略都由 Dongyu App 判定。</p>
+              </div>
+              <div class="node">
+                <strong>能力发放</strong>
+                <p>按权限决定是否绑定 Matrix、上传文件、发管理总线消息。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="layer">
+            <div class="layer-title capability">Matrix 能力层</div>
+            <div class="layer-cards">
+              <div class="node">
+                <strong>MAS</strong>
+                <p>Matrix 专用认证桥，负责把 Zitadel 登录变成 Matrix 登录。</p>
+              </div>
+              <div class="node">
+                <strong>Matrix account</strong>
+                <p>用户在 Matrix 的身份，例如 @user:synapse.dongyudigital.com。</p>
+              </div>
+              <div class="node">
+                <strong>Matrix token</strong>
+                <p>调用 Matrix API 所需凭据，由 MAS/Synapse 负责发放。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="layer">
+            <div class="layer-title transport">通讯与总线层</div>
+            <div class="layer-cards">
+              <div class="node">
+                <strong>聊天/通知</strong>
+                <p>用户消息、房间、通知和文件能力走 Matrix。</p>
+              </div>
+              <div class="node">
+                <strong>管理总线</strong>
+                <p>受控的系统指令通道，不等同于普通聊天权限。</p>
+              </div>
+              <div class="node">
+                <strong>Workers/MBR</strong>
+                <p>只处理通过 Dongyu App 授权后的受控消息。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="login" class="section">
+        <div class="section-head">
+          <h3>推荐登录流程</h3>
+          <p>Dongyu App 做 OIDC client，只为自己建立 session。它不是新的全局 SSO，也不负责给 Matrix 发 token。</p>
+        </div>
+        <div class="flow" aria-label="登录流程图">
+          <div class="step">
+            <div class="step-index">1</div>
+            <strong>访客打开 App</strong>
+            <p>可以浏览公开页面。敏感写入、上传、管理动作保持不可用或提示登录。</p>
+          </div>
+          <div class="step">
+            <div class="step-index">2</div>
+            <strong>跳转 Zitadel</strong>
+            <p>点击登录后，Dongyu App 发起 OIDC authorization code flow。</p>
+          </div>
+          <div class="step">
+            <div class="step-index">3</div>
+            <strong>回到 callback</strong>
+            <p>Dongyu App 后端校验 code、state、nonce，再读取用户身份。</p>
+          </div>
+          <div class="step">
+            <div class="step-index">4</div>
+            <strong>建立 App session</strong>
+            <p>写入 Dongyu App 自己的 session cookie，后续页面请求只认这个会话。</p>
+          </div>
+          <div class="step">
+            <div class="step-index">5</div>
+            <strong>加载业务权限</strong>
+            <p>按用户、组织、Workspace 和角色计算可见资源与可执行动作。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="matrix" class="section">
+        <div class="section-head">
+          <h3>从 Dongyu App session 到 Matrix token</h3>
+          <p>Matrix token 是一项可发放能力，不是 App 登录本身。用户可以先登录 Dongyu App，再按需绑定 Matrix。</p>
+        </div>
+        <div class="tabs">
+          <div class="tab-bar" role="tablist" aria-label="Matrix 绑定方式">
+            <button class="tab-button" type="button" role="tab" aria-selected="true" aria-controls="tab-bind" id="tab-bind-button">推荐：按需绑定</button>
+            <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-service" id="tab-service-button">服务端代理</button>
+            <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-auto" id="tab-auto-button">未来：自动供应</button>
+          </div>
+
+          <div class="tab-panel active" role="tabpanel" id="tab-bind" aria-labelledby="tab-bind-button">
+            <div class="split">
+              <div class="callout">
+                <h4>什么时候触发</h4>
+                <p>用户第一次进入聊天、房间、文件上传、Matrix Suite 或需要个人 Matrix 身份的功能时触发。</p>
+              </div>
+              <div class="plain-card">
+                <h4>为什么推荐</h4>
+                <p>复用现有 MAS 和 Matrix SSO，用户通常已经在 Zitadel 登录，第二跳可以近似无感完成。</p>
+              </div>
+            </div>
+            <div class="matrix-binding" aria-label="按需绑定流程">
+              <div class="binding-box">
+                <strong>Dongyu App session</strong>
+                <span>用户已经通过 Zitadel 登录，App 知道这个人是谁。</span>
+              </div>
+              <div class="arrow" aria-hidden="true"></div>
+              <div class="binding-box">
+                <strong>Matrix SSO redirect</strong>
+                <span>跳到 matrix.dongyudigital.com，由 MAS 接 Zitadel。</span>
+              </div>
+              <div class="arrow" aria-hidden="true"></div>
+              <div class="binding-box">
+                <strong>Matrix token</strong>
+                <span>回调带 loginToken，后端换取 Matrix access token 并存储绑定。</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" role="tabpanel" id="tab-service" aria-labelledby="tab-service-button">
+            <div class="split">
+              <div class="callout">
+                <h4>适用场景</h4>
+                <p>管理总线、系统通知、审计投递等不需要代表某个自然人直接发言的能力。</p>
+              </div>
+              <div class="plain-card">
+                <h4>边界</h4>
+                <p>服务端可以用受控 Matrix 身份发消息，但必须先通过 Dongyu App 权限判断，不能让前端直接拿总线凭据。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" role="tabpanel" id="tab-auto" aria-labelledby="tab-auto-button">
+            <div class="split">
+              <div class="callout">
+                <h4>未来能力</h4>
+                <p>登录后自动创建或关联 Matrix 账号，减少用户感知到的绑定步骤。</p>
+              </div>
+              <div class="plain-card">
+                <h4>前置条件</h4>
+                <p>需要明确 Matrix 用户生命周期、停用策略、账号命名、组织隔离、数据删除和审计规则。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="bus" class="section">
+        <div class="section-head">
+          <h3>管理总线能力如何发放</h3>
+          <p>管理总线不是“有 Matrix token 就能发”。它应由 Dongyu App 授权后再转成受控消息。</p>
+        </div>
+        <div class="rules-grid">
+          <div class="rule">
+            <h4>先判断 App 权限</h4>
+            <p>用户是否属于这个 Workspace，是否能安装 App、删除资源、触发 Worker、查看调试信息，都由 Dongyu App 判断。</p>
+          </div>
+          <div class="rule">
+            <h4>再生成总线消息</h4>
+            <p>通过权限判断后，后端生成标准管理总线消息，附带操作者、资源、动作和审计信息。</p>
+          </div>
+          <div class="rule">
+            <h4>最后使用 Matrix 投递</h4>
+            <p>Matrix 只负责传输。可以使用用户绑定身份，也可以使用受控服务身份，取决于动作是否需要以用户名义发出。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="roles" class="section">
+        <div class="section-head">
+          <h3>职责边界</h3>
+          <p>这张表是整个方案的核心：Dongyu App 不做 MAS，MAS 也不替 Dongyu App 决定业务权限。</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>组件</th>
+                <th>应该负责</th>
+                <th>不应该负责</th>
+                <th>Dongyu App 需要保存什么</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Zitadel</strong></td>
+                <td>账号、组织、登录策略、OIDC、MFA、用户生命周期。</td>
+                <td>Workspace 内部权限、管理总线动作、Matrix 房间策略。</td>
+                <td><p>保存 Zitadel user id 到 Dongyu 用户的映射。</p></td>
+              </tr>
+              <tr>
+                <td><strong>Dongyu App</strong></td>
+                <td>App session、Workspace 权限、资源授权、审计、能力发放。</td>
+                <td>成为全局 SSO 平台，或直接给 Matrix 发行认证 token。</td>
+                <td><p>保存 session、用户、角色、Workspace membership、Matrix 绑定状态。</p></td>
+              </tr>
+              <tr>
+                <td><strong>MAS</strong></td>
+                <td>Matrix 专用 OIDC 桥接，处理 Matrix loginToken 和 Matrix 登录兼容。</td>
+                <td>决定 Dongyu App 业务权限，或替 App 做 Workspace 权限管理。</td>
+                <td><p>Dongyu App 不直接保存 MAS 内部状态，只保存 Matrix 绑定结果。</p></td>
+              </tr>
+              <tr>
+                <td><strong>Matrix</strong></td>
+                <td>聊天、通知、房间、文件、管理总线传输。</td>
+                <td>成为 Dongyu App 的唯一用户权限系统。</td>
+                <td><p>保存 matrix_user_id、token metadata、可用能力范围和更新时间。</p></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="roadmap" class="section">
+        <div class="section-head">
+          <h3>分阶段落地路径</h3>
+          <p>先让 Dongyu App 拥有自己的登录态，再把 Matrix 作为能力逐步接上。</p>
+        </div>
+        <div class="timeline">
+          <div class="phase">
+            <div class="phase-key">Phase 1</div>
+            <div class="phase-body">
+              <strong>Zitadel OIDC 登录</strong>
+              <p>新增 Dongyu App 登录、callback、session、退出；前端右上角显示访客/已登录用户菜单。</p>
+            </div>
+          </div>
+          <div class="phase">
+            <div class="phase-key">Phase 2</div>
+            <div class="phase-body">
+              <strong>业务权限模型</strong>
+              <p>建立用户、组织、Workspace、角色、操作权限。敏感动作统一经过后端授权。</p>
+            </div>
+          </div>
+          <div class="phase">
+            <div class="phase-key">Phase 3</div>
+            <div class="phase-body">
+              <strong>Matrix 按需绑定</strong>
+              <p>用户进入聊天或 Matrix 能力时，通过 Matrix SSO 绑定 Matrix account，后端安全保存 token。</p>
+            </div>
+          </div>
+          <div class="phase">
+            <div class="phase-key">Phase 4</div>
+            <div class="phase-body">
+              <strong>管理总线授权网关</strong>
+              <p>所有管理总线动作先过 Dongyu App 权限，再由后端生成受控总线消息并投递。</p>
+            </div>
+          </div>
+          <div class="phase">
+            <div class="phase-key">Phase 5</div>
+            <div class="phase-body">
+              <strong>生命周期与审计</strong>
+              <p>补齐 token 失效、用户停用、组织隔离、审计日志、账号回收和紧急封禁策略。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="risks" class="section">
+        <div class="section-head">
+          <h3>关键风险与设计原则</h3>
+          <p>最重要的原则是：登录、业务授权、Matrix token、管理总线指令必须分层。</p>
+        </div>
+        <ul class="risk-list">
+          <li>
+            <b>不要重做 MAS</b>
+            <span>Dongyu App 不应自己实现 Matrix 登录兼容、Matrix token 发行或 Matrix 认证桥。</span>
+          </li>
+          <li>
+            <b>不要信任前端</b>
+            <span>前端只能提交意图。上传、总线、安装、删除、调试等动作必须由后端按 session 和权限判断。</span>
+          </li>
+          <li>
+            <b>不要混淆 token</b>
+            <span>Zitadel token 证明登录身份，Dongyu App session 证明 App 登录，Matrix token 证明可调用 Matrix。</span>
+          </li>
+          <li>
+            <b>不要让 Matrix 定义业务角色</b>
+            <span>Matrix room 成员关系可以作为辅助信号，但 Workspace 管理员、资源 owner、操作权限应由 Dongyu App 管。</span>
+          </li>
+          <li>
+            <b>保留替换空间</b>
+            <span>未来如果 Matrix 只作为一个 app 或者被替换，Dongyu App 的登录与权限体系仍应继续成立。</span>
+          </li>
+        </ul>
+      </section>
+
+      <footer>
+        版本：2026-05-29。建议把本页作为方案沟通稿，后续若进入实现，再拆成正式设计文档、接口清单和分阶段验收项。
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    const buttons = Array.from(document.querySelectorAll('.tab-button'));
+    const panels = Array.from(document.querySelectorAll('.tab-panel'));
+
+    function activateTab(button) {
+      for (const item of buttons) {
+        item.setAttribute('aria-selected', String(item === button));
+      }
+      for (const panel of panels) {
+        panel.classList.toggle('active', panel.id === button.getAttribute('aria-controls'));
+      }
+    }
+
+    for (const button of buttons) {
+      button.addEventListener('click', () => activateTab(button));
+    }
+  </script>
+</body>
+</html>

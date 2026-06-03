@@ -399,6 +399,293 @@ function readPropValueFromSnapshot(snapshot, props, valueKey, refKey) {
   return undefined;
 }
 
+function readComponentValue(snapshot, props, valueKey, refKey, host) {
+  if (!isPlainObject(props)) return undefined;
+  if (Object.prototype.hasOwnProperty.call(props, valueKey)) {
+    return props[valueKey];
+  }
+  const ref = props[refKey];
+  if (isPlainObject(ref)) {
+    return getEffectiveLabelValue(snapshot, ref, host);
+  }
+  return undefined;
+}
+
+function normalizeArrayValue(value) {
+  return Array.isArray(value) ? value.filter((item) => item && typeof item === 'object') : [];
+}
+
+const TODO_STATUS_DEFS = Object.freeze([
+  { value: 'todo', label: '还未开始', tone: '#2563eb', bg: '#eff6ff' },
+  { value: 'doing', label: '正在进行', tone: '#d97706', bg: '#fffbeb' },
+  { value: 'done', label: '已完成', tone: '#16a34a', bg: '#f0fdf4' },
+  { value: 'archived', label: '已归档', tone: '#64748b', bg: '#f8fafc' },
+]);
+
+function normalizeTodoColumns(value) {
+  const raw = Array.isArray(value) && value.length > 0 ? value : TODO_STATUS_DEFS;
+  return raw
+    .map((column, index) => {
+      if (!column || typeof column !== 'object') return null;
+      const fallback = TODO_STATUS_DEFS[index] || TODO_STATUS_DEFS[0];
+      const statusValue = typeof column.value === 'string' && column.value.trim() ? column.value.trim() : fallback.value;
+      return {
+        value: statusValue,
+        label: typeof column.label === 'string' && column.label.trim() ? column.label.trim() : statusValue,
+        tone: typeof column.tone === 'string' && column.tone.trim() ? column.tone.trim() : fallback.tone,
+        bg: typeof column.bg === 'string' && column.bg.trim() ? column.bg.trim() : fallback.bg,
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeTodoTasks(value) {
+  let source = value;
+  if (typeof source === 'string') {
+    try {
+      source = JSON.parse(source);
+    } catch (_) {
+      source = [];
+    }
+  }
+  return normalizeArrayValue(source)
+    .map((task, index) => {
+      const status = typeof task.status === 'string' && task.status.trim() ? task.status.trim() : 'todo';
+      const id = typeof task.id === 'string' && task.id.trim() ? task.id.trim() : `task_${index + 1}`;
+      return {
+        ...task,
+        id,
+        status,
+        title: typeof task.title === 'string' && task.title.trim() ? task.title.trim() : 'Untitled task',
+        body: typeof task.body === 'string' ? task.body : '',
+      };
+    });
+}
+
+function readTodoTasks(node, snapshot, props, host) {
+  const direct = readComponentValue(snapshot, props, 'tasks', 'tasksRef', host);
+  if (direct !== undefined) return normalizeTodoTasks(direct);
+  const bind = node.bind && node.bind.read;
+  if (bind) return normalizeTodoTasks(getEffectiveLabelValue(snapshot, bind, host));
+  return [];
+}
+
+function todoRecord(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function todoActionPayload(action, extras = {}) {
+  const records = [
+    todoRecord('__mt_payload_kind', 'str', 'ui_event.v1'),
+    todoRecord('todo_action', 'str', action),
+  ];
+  for (const [key, value] of Object.entries(extras || {})) {
+    if (value === undefined || value === null) continue;
+    let type = 'str';
+    if (typeof value === 'boolean') type = 'bool';
+    else if (typeof value === 'number' && Number.isSafeInteger(value)) type = 'int';
+    else if (typeof value === 'object') type = 'json';
+    records.push(todoRecord(key, type, value));
+  }
+  return records;
+}
+
+function dispatchTodoAction(node, host, target, action, extras, ctx) {
+  const writeTarget = target || (node.bind && node.bind.write);
+  if (!writeTarget) return null;
+  return dispatchEvent(node, writeTarget, { value: todoActionPayload(action, extras) }, host, undefined, ctx);
+}
+
+function todoStatusMeta(columns, status) {
+  return columns.find((column) => column.value === status) || { value: status, label: status, tone: '#64748b', bg: '#f8fafc' };
+}
+
+function truncateText(text, limit) {
+  const source = String(text || '').trim();
+  if (source.length <= limit) return source;
+  return `${source.slice(0, Math.max(0, limit - 1))}…`;
+}
+
+function fieldText(item, field, fallback = '') {
+  if (!item || typeof item !== 'object') return fallback;
+  if (typeof field === 'string' && field) {
+    const value = item[field];
+    if (value !== undefined && value !== null && String(value).trim()) return String(value);
+  }
+  return fallback;
+}
+
+function extensionKind(name, uri = '') {
+  const target = `${String(name || '')} ${String(uri || '')}`.toLowerCase();
+  if (/\.(png|jpe?g|gif|webp|avif|bmp|svg)(\?|#|\s|$)/u.test(target)) return 'image';
+  if (/\.(mp3|wav|ogg|m4a|aac|flac|opus)(\?|#|\s|$)/u.test(target)) return 'audio';
+  if (/\.(mp4|webm|mov|m4v)(\?|#|\s|$)/u.test(target)) return 'video';
+  return 'file';
+}
+
+function messageCardKind(event) {
+  const explicit = fieldText(event, 'card_kind', '');
+  if (['text', 'file', 'image', 'audio', 'video'].includes(explicit)) return explicit;
+  const msgtype = fieldText(event, 'msgtype', fieldText(event, 'type', 'm.text')).toLowerCase();
+  const mime = fieldText(event, 'mime_type', fieldText(event, 'mimetype', '')).toLowerCase();
+  const fileName = fieldText(event, 'file_name', fieldText(event, 'filename', fieldText(event, 'body', '')));
+  const mediaUri = fieldText(event, 'media_uri', fieldText(event, 'url', ''));
+  if (msgtype === 'm.image' || mime.startsWith('image/')) return 'image';
+  if (msgtype === 'm.audio' || mime.startsWith('audio/')) return 'audio';
+  if (msgtype === 'm.file') return extensionKind(fileName, mediaUri);
+  return 'text';
+}
+
+function normalizeMessageTimelineEvents(events) {
+  return normalizeArrayValue(events).map((event) => {
+    const fileName = fieldText(event, 'file_name', fieldText(event, 'filename', fieldText(event, 'body', '')));
+    const mediaUri = fieldText(event, 'media_uri', fieldText(event, 'url', ''));
+    const downloadUrl = fieldText(event, 'download_url', '');
+    const thumbnailUrl = fieldText(event, 'thumbnail_url', '');
+    const kind = messageCardKind(event);
+    const actions = kind === 'text' ? [] : [
+      {
+        kind: kind === 'image' ? 'open' : 'download',
+        label: kind === 'image' ? 'Open image' : (kind === 'audio' ? 'Download audio' : 'Download file'),
+        href: downloadUrl,
+      },
+    ].filter((action) => action.href);
+    return {
+      ...event,
+      file_name: fileName,
+      media_uri: mediaUri,
+      card_kind: kind,
+      download_url: downloadUrl,
+      thumbnail_url: thumbnailUrl,
+      actions,
+    };
+  });
+}
+
+function chooseAudioMimeType() {
+  const recorder = typeof globalThis !== 'undefined' ? globalThis.MediaRecorder : null;
+  const candidates = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/webm', 'audio/ogg'];
+  if (recorder && typeof recorder.isTypeSupported === 'function') {
+    const supported = candidates.find((candidate) => recorder.isTypeSupported(candidate));
+    if (supported) return supported;
+  }
+  return 'audio/webm';
+}
+
+function audioFilenameExtension(mimeType) {
+  const mime = String(mimeType || '').toLowerCase();
+  if (mime.includes('ogg')) return 'ogg';
+  if (mime.includes('webm')) return 'webm';
+  if (mime.includes('mpeg') || mime.includes('mp3')) return 'mp3';
+  if (mime.includes('wav')) return 'wav';
+  return 'webm';
+}
+
+function waitForMs(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function recordAudioUpload(host, props) {
+  if (!host || typeof host.uploadMedia !== 'function') {
+    throw new Error('upload_media_unavailable');
+  }
+  const nav = typeof globalThis !== 'undefined' ? globalThis.navigator : null;
+  const mediaDevices = nav && nav.mediaDevices;
+  if (!mediaDevices || typeof mediaDevices.getUserMedia !== 'function') {
+    throw new Error('browser_audio_capture_unavailable');
+  }
+  const Recorder = typeof globalThis !== 'undefined' ? globalThis.MediaRecorder : null;
+  if (typeof Recorder !== 'function') {
+    throw new Error('media_recorder_unavailable');
+  }
+  const stream = await mediaDevices.getUserMedia({ audio: true });
+  try {
+    const mimeType = chooseAudioMimeType();
+    const chunks = [];
+    const recorder = new Recorder(stream, { mimeType });
+    recorder.ondataavailable = (event) => {
+      if (event && event.data && Number(event.data.size || 0) !== 0) chunks.push(event.data);
+    };
+    const stopped = new Promise((resolve) => {
+      recorder.onstop = () => resolve();
+    });
+    recorder.start();
+    const recordMs = Number.isFinite(Number(props.audioRecordMs))
+      ? Math.max(200, Number(props.audioRecordMs))
+      : 1200;
+    await waitForMs(recordMs);
+    if (recorder.state !== 'inactive') recorder.stop();
+    await stopped;
+    if (chunks.length === 0) {
+      throw new Error('empty_audio_recording');
+    }
+    const uploadType = recorder.mimeType || mimeType;
+    const blob = new Blob(chunks, { type: uploadType });
+    const prefix = String(props.audioFilenamePrefix || 'voice-message').replace(/[^a-z0-9_-]+/giu, '-').replace(/^-+|-+$/gu, '') || 'voice-message';
+    const filename = `${prefix}-${Date.now()}.${audioFilenameExtension(uploadType)}`;
+    const result = await host.uploadMedia({
+      file: blob,
+      filename,
+      contentType: uploadType,
+      meta: { media_action: 'record_audio' },
+    });
+    const uri = result && typeof result.uri === 'string' ? result.uri : '';
+    if (!uri) throw new Error('audio_upload_failed');
+    return {
+      media_uri: uri,
+      file_name: result && typeof result.name === 'string' && result.name ? result.name : filename,
+      mime_type: uploadType,
+    };
+  } finally {
+    for (const track of typeof stream.getTracks === 'function' ? stream.getTracks() : []) {
+      if (track && typeof track.stop === 'function') track.stop();
+    }
+  }
+}
+
+function cleanComponentProps(props, extraKeys = []) {
+  const next = { ...(props || {}) };
+  delete next.items;
+  delete next.itemsRef;
+  delete next.events;
+  delete next.eventsRef;
+  delete next.uri;
+  delete next.uriRef;
+  delete next.name;
+  delete next.nameRef;
+  delete next.activeId;
+  delete next.activeIdRef;
+  for (const key of extraKeys) delete next[key];
+  return next;
+}
+
+function visibilityValueIsOn(value) {
+  if (value === false || value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim() !== '' && value.trim() !== 'false';
+  if (typeof value === 'number') return Number.isFinite(value) && value !== 0;
+  return true;
+}
+
+function shouldRenderVisibleNode(props, snapshot, host) {
+  if (!props || typeof props !== 'object') return true;
+  if (props.visibleRef && typeof props.visibleRef === 'object') {
+    const visibleValue = getEffectiveLabelValue(snapshot, props.visibleRef, host);
+    if (!visibilityValueIsOn(visibleValue)) return false;
+  }
+  if (props.hiddenRef && typeof props.hiddenRef === 'object') {
+    const hiddenValue = getEffectiveLabelValue(snapshot, props.hiddenRef, host);
+    if (visibilityValueIsOn(hiddenValue)) return false;
+  }
+  return true;
+}
+
+function stripVisibilityProps(props) {
+  if (!props || typeof props !== 'object') return props;
+  delete props.visibleRef;
+  delete props.hiddenRef;
+  return props;
+}
+
 function inferThreeSceneModelId(props) {
   if (!isPlainObject(props)) return null;
   if (Number.isInteger(props.sceneModelId)) return props.sceneModelId;
@@ -439,6 +726,214 @@ function ensureSingleFlightStore(host) {
     host.__dySingleFlightStore = new Map();
   }
   return host.__dySingleFlightStore;
+}
+
+function ensureAudioRecorderStore(host) {
+  if (!host) return null;
+  if (!host.__dyAudioRecorderStore || !(host.__dyAudioRecorderStore instanceof Map)) {
+    host.__dyAudioRecorderStore = new Map();
+  }
+  return host.__dyAudioRecorderStore;
+}
+
+function audioRecorderKey(node, props) {
+  return String((props && (props.recorderKey || props.recorder_key)) || (node && node.id) || 'audio-recorder');
+}
+
+function dispatchOwnerLabelUpdate(node, host, ref, value) {
+  if (!ref || typeof ref !== 'object') return null;
+  return dispatchEvent(node, { action: 'ui_owner_label_update', target_ref: ref }, {
+    value,
+  }, host);
+}
+
+function audioRecorderMaxMs(props) {
+  const value = Number(props && (props.maxRecordMs ?? props.max_record_ms));
+  if (!Number.isFinite(value) || value <= 0) return 60000;
+  return Math.min(60000, Math.max(1, value));
+}
+
+function isEditableKeyTarget(target) {
+  const tag = String(target && target.tagName ? target.tagName : '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+  return Boolean(target && target.isContentEditable);
+}
+
+function cleanupAudioRecorderSession(session) {
+  if (!session) return;
+  if (session.timeoutId) clearTimeout(session.timeoutId);
+  if (session.intervalId) clearInterval(session.intervalId);
+  if (session.keydownHandler && typeof globalThis !== 'undefined' && typeof globalThis.removeEventListener === 'function') {
+    globalThis.removeEventListener('keydown', session.keydownHandler);
+  }
+  const tracks = session.stream && typeof session.stream.getTracks === 'function' ? session.stream.getTracks() : [];
+  for (const track of tracks) {
+    if (track && typeof track.stop === 'function') track.stop();
+  }
+}
+
+async function startManualAudioRecording(node, props, host) {
+  const store = ensureAudioRecorderStore(host);
+  if (!store) throw new Error('audio_recorder_store_unavailable');
+  const key = audioRecorderKey(node, props);
+  const existing = store.get(key);
+  if (existing && existing.state === 'pending_start' && existing.startPromise) return existing.startPromise;
+  if (existing && (existing.state === 'recording' || existing.state === 'uploading')) return existing;
+  if (!host || typeof host.uploadMedia !== 'function') {
+    throw new Error('upload_media_unavailable');
+  }
+  const nav = typeof globalThis !== 'undefined' ? globalThis.navigator : null;
+  const mediaDevices = nav && nav.mediaDevices;
+  if (!mediaDevices || typeof mediaDevices.getUserMedia !== 'function') {
+    throw new Error('browser_audio_capture_unavailable');
+  }
+  const Recorder = typeof globalThis !== 'undefined' ? globalThis.MediaRecorder : null;
+  if (typeof Recorder !== 'function') {
+    throw new Error('media_recorder_unavailable');
+  }
+  const pending = { key, state: 'pending_start', startPromise: null };
+  store.set(key, pending);
+  dispatchOwnerLabelUpdate(node, host, props.statusTargetRef || props.statusRef, 'starting');
+  const startPromise = (async () => {
+    const stream = await mediaDevices.getUserMedia({ audio: true });
+    if (pending.cancelled || store.get(key) !== pending) {
+      const tracks = stream && typeof stream.getTracks === 'function' ? stream.getTracks() : [];
+      for (const track of tracks) {
+        if (track && typeof track.stop === 'function') track.stop();
+      }
+      return null;
+    }
+  try {
+    const mimeType = chooseAudioMimeType();
+    const chunks = [];
+    const recorder = new Recorder(stream, { mimeType });
+    const session = {
+      key,
+      state: 'recording',
+      stream,
+      recorder,
+      chunks,
+      startedAt: Date.now(),
+      mimeType,
+      finishing: false,
+    };
+    recorder.ondataavailable = (event) => {
+      if (event && event.data && Number(event.data.size || 0) !== 0) chunks.push(event.data);
+    };
+    session.stopped = new Promise((resolve) => {
+      recorder.onstop = () => resolve();
+    });
+    recorder.start();
+    store.set(key, session);
+    dispatchOwnerLabelUpdate(node, host, props.statusTargetRef || props.statusRef, 'recording');
+    dispatchOwnerLabelUpdate(node, host, props.errorTargetRef || props.errorRef, '');
+    dispatchOwnerLabelUpdate(node, host, props.elapsedTargetRef || props.elapsedRef, 0);
+    const maxMs = audioRecorderMaxMs(props);
+    session.intervalId = setInterval(() => {
+      const elapsed = Math.min(maxMs, Date.now() - session.startedAt);
+      dispatchOwnerLabelUpdate(node, host, props.elapsedTargetRef || props.elapsedRef, Math.round(elapsed));
+    }, 1000);
+    session.timeoutId = setTimeout(() => {
+      void finishManualAudioRecording(node, props, host);
+    }, maxMs);
+    if (props.finishOnEnter !== false && typeof globalThis !== 'undefined' && typeof globalThis.addEventListener === 'function') {
+      session.keydownHandler = (event) => {
+        if (!event || event.key !== 'Enter' || isEditableKeyTarget(event.target)) return;
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+        void finishManualAudioRecording(node, props, host);
+      };
+      globalThis.addEventListener('keydown', session.keydownHandler);
+    }
+    return session;
+  } catch (err) {
+    const tracks = stream && typeof stream.getTracks === 'function' ? stream.getTracks() : [];
+    for (const track of tracks) {
+      if (track && typeof track.stop === 'function') track.stop();
+    }
+    throw err;
+  }
+  })();
+  pending.startPromise = startPromise;
+  try {
+    return await startPromise;
+  } catch (err) {
+    if (store.get(key) === pending) store.delete(key);
+    dispatchOwnerLabelUpdate(node, host, props.statusTargetRef || props.statusRef, 'error');
+    dispatchOwnerLabelUpdate(node, host, props.errorTargetRef || props.errorRef, err && err.message ? err.message : String(err));
+    throw err;
+  }
+}
+
+async function finishManualAudioRecording(node, props, host) {
+  const store = ensureAudioRecorderStore(host);
+  const key = audioRecorderKey(node, props);
+  const session = store && store.get(key);
+  if (!session || session.finishing) return null;
+  session.finishing = true;
+  session.state = 'uploading';
+  dispatchOwnerLabelUpdate(node, host, props.statusTargetRef || props.statusRef, 'uploading');
+  try {
+    const recorder = session.recorder;
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+    if (session.stopped) await session.stopped;
+    if (!session.chunks || session.chunks.length === 0) {
+      throw new Error('empty_audio_recording');
+    }
+    const uploadType = (recorder && recorder.mimeType) || session.mimeType || chooseAudioMimeType();
+    const blob = new Blob(session.chunks, { type: uploadType });
+    const prefix = String(props.audioFilenamePrefix || 'voice-message').replace(/[^a-z0-9_-]+/giu, '-').replace(/^-+|-+$/gu, '') || 'voice-message';
+    const filename = `${prefix}-${Date.now()}.${audioFilenameExtension(uploadType)}`;
+    const result = await host.uploadMedia({
+      file: blob,
+      filename,
+      contentType: uploadType,
+      meta: { media_action: 'record_audio', recorder_key: key },
+    });
+    const uri = result && typeof result.uri === 'string' ? result.uri : '';
+    if (!uri) throw new Error('audio_upload_failed');
+    const payload = {
+      media_uri: uri,
+      file_name: result && typeof result.name === 'string' && result.name ? result.name : filename,
+      mime_type: uploadType,
+      media_error: '',
+    };
+    const target = node.bind && node.bind.write;
+    if (target) dispatchEvent(node, target, payload, host);
+    dispatchOwnerLabelUpdate(node, host, props.statusTargetRef || props.statusRef, 'idle');
+    dispatchOwnerLabelUpdate(node, host, props.elapsedTargetRef || props.elapsedRef, 0);
+    return payload;
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    dispatchOwnerLabelUpdate(node, host, props.statusTargetRef || props.statusRef, 'error');
+    dispatchOwnerLabelUpdate(node, host, props.errorTargetRef || props.errorRef, message);
+    const target = node.bind && node.bind.write;
+    if (target) {
+      dispatchEvent(node, target, {
+        media_uri: '',
+        file_name: '',
+        mime_type: '',
+        media_error: message,
+      }, host);
+    }
+    return null;
+  } finally {
+    cleanupAudioRecorderSession(session);
+    if (store) store.delete(key);
+  }
+}
+
+async function cancelManualAudioRecording(node, props, host) {
+  const store = ensureAudioRecorderStore(host);
+  const key = audioRecorderKey(node, props);
+  const session = store && store.get(key);
+  if (session) {
+    session.cancelled = true;
+    cleanupAudioRecorderSession(session);
+    store.delete(key);
+  }
+  dispatchOwnerLabelUpdate(node, host, props.statusTargetRef || props.statusRef, 'idle');
+  dispatchOwnerLabelUpdate(node, host, props.elapsedTargetRef || props.elapsedRef, 0);
+  dispatchOwnerLabelUpdate(node, host, props.errorTargetRef || props.errorRef, '');
 }
 
 function singleFlightValueKey(value) {
@@ -797,6 +1292,36 @@ function renderTreeNode(node, snapshot, registry) {
     return base;
   }
 
+  if (runtimeNode.type === 'ConversationList') {
+    const conversationProps = runtimeNode.props || {};
+    const rawItems = normalizeArrayValue(readComponentValue(snapshot, conversationProps, 'items', 'itemsRef'));
+    const filterValue = String(readComponentValue(snapshot, conversationProps, 'filter', 'filterRef') || '').trim();
+    const filterAllValue = String(conversationProps.filterAllValue || 'all');
+    const filterField = String(conversationProps.filterField || 'kind');
+    base.items = filterValue && filterValue !== filterAllValue
+      ? rawItems.filter((item) => String(item && item[filterField] != null ? item[filterField] : '') === filterValue)
+      : rawItems;
+    base.activeId = readComponentValue(snapshot, runtimeNode.props || {}, 'activeId', 'activeIdRef') || '';
+    return base;
+  }
+
+  if (runtimeNode.type === 'MessageTimeline') {
+    base.events = normalizeMessageTimelineEvents(readComponentValue(snapshot, runtimeNode.props || {}, 'events', 'eventsRef'));
+    base.activeRoomId = readComponentValue(snapshot, runtimeNode.props || {}, 'activeRoomId', 'activeRoomIdRef') || '';
+    return base;
+  }
+
+  if (runtimeNode.type === 'AttachmentPreview') {
+    base.uri = readComponentValue(snapshot, runtimeNode.props || {}, 'uri', 'uriRef') || '';
+    base.name = readComponentValue(snapshot, runtimeNode.props || {}, 'name', 'nameRef') || '';
+    return base;
+  }
+
+  if (runtimeNode.type === 'ComposerBar') {
+    base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
+    return base;
+  }
+
   if (runtimeNode.type === 'Pagination') {
     const models = runtimeNode.bind && runtimeNode.bind.models;
     const currentRead = models && models.currentPage && models.currentPage.read;
@@ -828,6 +1353,18 @@ function renderTreeNode(node, snapshot, registry) {
     return base;
   }
 
+  if (runtimeNode.type === 'AudioRecorder') {
+    const recorderProps = runtimeNode.props || {};
+    const status = readComponentValue(snapshot, recorderProps, 'status', 'statusRef') || 'idle';
+    const elapsed = readComponentValue(snapshot, recorderProps, 'elapsed', 'elapsedRef') || 0;
+    const error = readComponentValue(snapshot, recorderProps, 'error', 'errorRef') || '';
+    base.status = status;
+    base.elapsed = elapsed;
+    base.error = error;
+    base.maxRecordMs = audioRecorderMaxMs(recorderProps);
+    return base;
+  }
+
   if (runtimeNode.type === 'ThreeScene') {
     base.props = normalizeThreeSceneHostProps(snapshot, runtimeNode.props || {});
     return base;
@@ -853,8 +1390,10 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   node = adaptNodeType(node, 'vnode_kind', spec);
   const h = vue.h;
   const resolve = vue.resolveComponent || ((name) => name);
-  const children = (node.children || []).map((child) => buildVueNode(child, snapshot, vue, host, registry, ctx));
   const props = resolveRefsDeep({ ...(node.props || {}) }, ctx, snapshot);
+  if (!shouldRenderVisibleNode(props, snapshot, host)) return null;
+  stripVisibilityProps(props);
+  const children = (node.children || []).map((child) => buildVueNode(child, snapshot, vue, host, registry, ctx));
 
   if (node.type === 'Include') {
     const ref = props && Object.prototype.hasOwnProperty.call(props, 'ref') ? props.ref : null;
@@ -1303,7 +1842,8 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     }
     const optionNodes = options.map((opt, idx) => h(resolve('ElRadio'), {
       key: opt && Object.prototype.hasOwnProperty.call(opt, 'value') ? opt.value : idx,
-      label: opt && Object.prototype.hasOwnProperty.call(opt, 'value') ? opt.value : undefined,
+      value: opt && Object.prototype.hasOwnProperty.call(opt, 'value') ? opt.value : undefined,
+      label: opt && Object.prototype.hasOwnProperty.call(opt, 'label') ? opt.label : undefined,
       disabled: opt && Object.prototype.hasOwnProperty.call(opt, 'disabled') ? opt.disabled : undefined,
     }, {
       default: () => (opt && Object.prototype.hasOwnProperty.call(opt, 'label') ? opt.label : ''),
@@ -1312,12 +1852,14 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   }
 
   if (node.type === 'Radio') {
-    const labelText = Object.prototype.hasOwnProperty.call(props, 'text') ? props.text : '';
+    const labelText = Object.prototype.hasOwnProperty.call(props, 'text')
+      ? props.text
+      : (Object.prototype.hasOwnProperty.call(props, 'label') ? props.label : '');
     if (Object.prototype.hasOwnProperty.call(props, 'text')) {
       delete props.text;
     }
-    if (!Object.prototype.hasOwnProperty.call(props, 'label') && Object.prototype.hasOwnProperty.call(props, 'value')) {
-      props.label = props.value;
+    if (!Object.prototype.hasOwnProperty.call(props, 'value') && Object.prototype.hasOwnProperty.call(props, 'label')) {
+      props.value = props.label;
     }
     return h(resolve('ElRadio'), props, {
       default: () => (children.length > 0 ? children : labelText),
@@ -1382,6 +1924,157 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     return h(resolve('ElTabPane'), props, { default: () => children });
   }
 
+  if (node.type === 'AudioRecorder') {
+    const store = ensureAudioRecorderStore(host);
+    const key = audioRecorderKey(node, props);
+    const session = store ? store.get(key) : null;
+    const rawStatus = String(readComponentValue(snapshot, props, 'status', 'statusRef', host) || 'idle');
+    const status = session && session.state ? session.state : rawStatus;
+    const maxMs = audioRecorderMaxMs(props);
+    const elapsedValue = session && session.startedAt
+      ? Math.min(maxMs, Date.now() - session.startedAt)
+      : Number(readComponentValue(snapshot, props, 'elapsed', 'elapsedRef', host) || 0);
+    const errorText = String(readComponentValue(snapshot, props, 'error', 'errorRef', host) || '');
+    const startLabel = String(props.startLabel || props.label || 'Voice');
+    const finishLabel = String(props.finishLabel || 'Finish');
+    const cancelLabel = String(props.cancelLabel || 'Cancel');
+    const recordingTitle = String(props.recordingTitle || 'Recording voice message');
+    const recordingHint = String(props.recordingHint || 'Speak now. Click Finish or press Enter to send.');
+    const maxLabel = `${Math.ceil(maxMs / 1000)}s max`;
+    const elapsedLabel = `${Math.max(0, Math.floor(Number(elapsedValue || 0) / 1000))}s`;
+    const rootProps = cleanComponentProps(props, [
+      'status',
+      'statusRef',
+      'statusTargetRef',
+      'elapsed',
+      'elapsedRef',
+      'elapsedTargetRef',
+      'error',
+      'errorRef',
+      'errorTargetRef',
+      'startLabel',
+      'finishLabel',
+      'cancelLabel',
+      'recordingTitle',
+      'recordingHint',
+      'maxRecordMs',
+      'max_record_ms',
+      'finishOnEnter',
+      'audioFilenamePrefix',
+      'recorderKey',
+      'recorder_key',
+      'label',
+    ]);
+    const start = async () => {
+      try {
+        await startManualAudioRecording(node, props, host);
+      } catch (err) {
+        dispatchOwnerLabelUpdate(node, host, props.statusTargetRef || props.statusRef, 'error');
+        dispatchOwnerLabelUpdate(node, host, props.errorTargetRef || props.errorRef, err && err.message ? err.message : String(err));
+      }
+    };
+    const finish = async () => {
+      await finishManualAudioRecording(node, props, host);
+    };
+    const cancel = async () => {
+      await cancelManualAudioRecording(node, props, host);
+    };
+    const isStartingState = status === 'starting' || status === 'pending_start';
+    const onKeydown = async (event) => {
+      if (!event || event.key !== 'Enter' || isEditableKeyTarget(event.target)) return;
+      if (isStartingState) return;
+      if (typeof event.preventDefault === 'function') event.preventDefault();
+      await finish();
+    };
+    const baseStyle = {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      flexWrap: 'wrap',
+      ...(props.style || {}),
+    };
+    if (isStartingState || status === 'recording' || status === 'uploading') {
+      const uploading = status === 'uploading';
+      const starting = isStartingState;
+      return h('div', {
+        ...rootProps,
+        role: 'region',
+        'aria-label': recordingTitle,
+        tabindex: 0,
+        onKeydown,
+        style: {
+          ...baseStyle,
+          width: '100%',
+          padding: '10px 12px',
+          border: '1px solid rgba(239,68,68,0.32)',
+          borderRadius: '16px',
+          background: 'linear-gradient(135deg, rgba(254,242,242,0.96), rgba(255,247,237,0.94))',
+        },
+      }, [
+        h('span', {
+          style: {
+            width: '10px',
+            height: '10px',
+            borderRadius: '999px',
+            background: uploading || starting ? '#f97316' : '#ef4444',
+            boxShadow: uploading || starting ? '0 0 0 6px rgba(249,115,22,0.12)' : '0 0 0 6px rgba(239,68,68,0.12)',
+          },
+        }),
+        h('span', { style: { minWidth: 0, flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: '2px' } }, [
+          h('strong', { style: { color: '#111827', fontSize: '14px' } }, uploading ? 'Uploading voice message' : (starting ? 'Starting voice recording' : recordingTitle)),
+          h('span', { style: { color: '#64748b', fontSize: '12px' } }, uploading ? 'Preparing Matrix audio message...' : (starting ? 'Waiting for microphone permission...' : `${recordingHint} · ${elapsedLabel} / ${maxLabel}`)),
+        ]),
+        h('button', {
+          type: 'button',
+          disabled: uploading || starting,
+          onClick: finish,
+          style: {
+            border: '0',
+            borderRadius: '999px',
+            padding: '8px 16px',
+            background: uploading || starting ? '#cbd5e1' : '#16a34a',
+            color: '#ffffff',
+            fontWeight: 800,
+            cursor: uploading || starting ? 'not-allowed' : 'pointer',
+          },
+        }, finishLabel),
+        h('button', {
+          type: 'button',
+          disabled: uploading,
+          onClick: cancel,
+          style: {
+            border: '1px solid #fecaca',
+            borderRadius: '999px',
+            padding: '8px 14px',
+            background: '#ffffff',
+            color: '#dc2626',
+            fontWeight: 700,
+            cursor: uploading ? 'not-allowed' : 'pointer',
+          },
+        }, cancelLabel),
+      ]);
+    }
+    return h('div', {
+      ...rootProps,
+      style: baseStyle,
+    }, [
+      h('button', {
+        type: 'button',
+        onClick: start,
+        style: {
+          border: '1px solid #d0d7de',
+          borderRadius: '999px',
+          padding: '8px 16px',
+          background: '#ffffff',
+          color: '#111827',
+          fontWeight: 750,
+          cursor: 'pointer',
+        },
+      }, startLabel),
+      status === 'error' && errorText ? h('span', { style: { color: '#dc2626', fontSize: '12px' } }, errorText) : null,
+    ].filter(Boolean));
+  }
+
   if (node.type === 'Button') {
     const bind = node.bind && node.bind.read;
     if (bind) {
@@ -1390,6 +2083,18 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         props.disabled = true;
       } else if (value === true) {
         props.disabled = false;
+      }
+    }
+    if (props.enabledRef && typeof props.enabledRef === 'object') {
+      const enabledValue = getLabelValue(snapshot, props.enabledRef);
+      if (enabledValue === false || enabledValue == null || String(enabledValue).trim() === '') {
+        props.disabled = true;
+      }
+    }
+    if (props.disabledRef && typeof props.disabledRef === 'object') {
+      const disabledValue = getLabelValue(snapshot, props.disabledRef);
+      if (disabledValue === true || (typeof disabledValue === 'string' && disabledValue.trim() !== '')) {
+        props.disabled = true;
       }
     }
     const singleFlight = props && props.singleFlight;
@@ -1430,7 +2135,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       props.disabled = true;
     }
 
-    props.onClick = () => {
+    props.onClick = async () => {
       if (singleFlightEnabled && flightState && flightState.pending) {
         return;
       }
@@ -1446,7 +2151,19 @@ function buildVueNode(node, snapshot, vue, host, registry) {
 
       const target = node.bind && node.bind.write;
       if (!target) return;
-      const result = dispatchEvent(node, target, { click: true }, host, undefined, ctx);
+      let clickPayload = { click: true };
+      if (props.mediaAction === 'record_audio') {
+        clickPayload = { ...clickPayload, media_uri: '', file_name: '', mime_type: '', media_error: '' };
+        try {
+          clickPayload = { ...clickPayload, ...(await recordAudioUpload(host, props)) };
+        } catch (err) {
+          clickPayload = {
+            ...clickPayload,
+            media_error: err && err.message ? err.message : String(err),
+          };
+        }
+      }
+      const result = dispatchEvent(node, target, clickPayload, host, undefined, ctx);
       if (singleFlightEnabled && singleFlightStore && result && result.skipped) {
         const recoverState = {
           pending: false,
@@ -1480,6 +2197,8 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     delete buttonProps.iconPosition;
     delete buttonProps.label;
     delete buttonProps.singleFlight;
+    delete buttonProps.enabledRef;
+    delete buttonProps.disabledRef;
 
     // Icon mapping (simple emoji/symbol icons for now)
     const iconMap = {
@@ -1801,6 +2520,523 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         }),
       ]),
     ].filter(Boolean));
+  }
+
+  if (node.type === 'ConversationList') {
+    const rawItems = normalizeArrayValue(readComponentValue(snapshot, props, 'items', 'itemsRef', host));
+    const filterValue = String(readComponentValue(snapshot, props, 'filter', 'filterRef', host) || '').trim();
+    const filterAllValue = String(props.filterAllValue || 'all');
+    const filterField = String(props.filterField || 'kind');
+    const items = filterValue && filterValue !== filterAllValue
+      ? rawItems.filter((item) => String(item && item[filterField] != null ? item[filterField] : '') === filterValue)
+      : rawItems;
+    const activeId = String(readComponentValue(snapshot, props, 'activeId', 'activeIdRef', host) || '');
+    const idField = props.idField || 'id';
+    const primaryField = props.primaryField || 'name';
+    const secondaryField = props.secondaryField || 'last_message';
+    const badgeField = props.badgeField || 'unread';
+    const fallbackLabel = props.fallbackLabel || 'Unnamed room';
+    const showId = props.showId === true;
+    const target = node.bind && node.bind.write;
+    const listProps = cleanComponentProps(props, ['idField', 'primaryField', 'secondaryField', 'badgeField', 'fallbackLabel', 'showId', 'emptyText', 'filter', 'filterRef', 'filterField', 'filterAllValue', 'itemsRef', 'activeIdRef']);
+    const emptyText = props.emptyText || 'No conversations yet';
+    return h('div', {
+      ...listProps,
+      role: 'listbox',
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        width: '100%',
+        ...(props.style || {}),
+      },
+    }, items.length > 0 ? items.map((item, index) => {
+      const id = fieldText(item, idField, `item-${index}`);
+      const primary = fieldText(item, primaryField, '') || fieldText(item, 'name', fallbackLabel);
+      const secondary = fieldText(item, secondaryField, '');
+      const unread = Number(item && item[badgeField] ? item[badgeField] : 0);
+      const selected = id === activeId;
+      const rowPayload = { value: id, row: item, item };
+      return h('button', {
+        key: id,
+        type: 'button',
+        role: 'option',
+        'aria-selected': selected,
+        title: showId ? primary : `room id: ${id}`,
+        onClick: () => {
+          if (!target) return;
+          dispatchEvent(node, target, rowPayload, host, undefined, { value: id, row: item, payload: rowPayload });
+        },
+        style: {
+          width: '100%',
+          display: 'grid',
+          gridTemplateColumns: '42px minmax(0, 1fr) auto',
+          alignItems: 'center',
+          gap: '10px',
+          border: selected ? '1px solid rgba(59, 130, 246, 0.42)' : '1px solid transparent',
+          background: selected ? 'linear-gradient(135deg, rgba(219,234,254,0.92), rgba(240,249,255,0.92))' : 'transparent',
+          borderRadius: '16px',
+          padding: '10px 12px',
+          cursor: 'pointer',
+          textAlign: 'left',
+          color: '#0f172a',
+        },
+      }, [
+        h('span', {
+          style: {
+            width: '42px',
+            height: '42px',
+            borderRadius: '14px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: selected ? '#2563eb' : '#e2e8f0',
+            color: selected ? '#ffffff' : '#334155',
+            fontWeight: 800,
+            letterSpacing: '-0.03em',
+          },
+        }, primary.slice(0, 2).toUpperCase()),
+        h('span', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' } }, [
+          h('span', {
+            style: {
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontSize: '15px',
+              fontWeight: selected ? 800 : 700,
+            },
+          }, primary),
+          secondary ? h('span', {
+            style: {
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontSize: '12px',
+              color: '#64748b',
+            },
+          }, secondary) : null,
+          showId ? h('span', { style: { fontSize: '11px', color: '#94a3b8' } }, id) : null,
+        ].filter(Boolean)),
+        unread > 0 ? h('span', {
+          style: {
+            minWidth: '24px',
+            height: '24px',
+            borderRadius: '999px',
+            background: '#0f766e',
+            color: '#ffffff',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '12px',
+            fontWeight: 800,
+          },
+        }, String(unread)) : null,
+      ].filter(Boolean));
+    }) : [
+      h('div', {
+        style: {
+          color: '#64748b',
+          border: '1px dashed #cbd5e1',
+          borderRadius: '16px',
+          padding: '18px',
+          textAlign: 'center',
+          fontSize: '13px',
+        },
+      }, emptyText),
+    ]);
+  }
+
+  if (node.type === 'MessageTimeline') {
+    const events = normalizeMessageTimelineEvents(readComponentValue(snapshot, props, 'events', 'eventsRef', host));
+    const activeRoomId = String(readComponentValue(snapshot, props, 'activeRoomId', 'activeRoomIdRef', host) || '');
+    const currentUser = String(props.currentUser || 'You');
+    const filtered = events.filter((event) => !activeRoomId || String(event.room_id || event.roomId || '') === activeRoomId);
+    const timelineProps = cleanComponentProps(props, ['activeRoomIdRef', 'currentUser', 'emptyText']);
+    const emptyText = props.emptyText || 'No messages yet';
+    return h('section', {
+      ...timelineProps,
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        overflowY: 'auto',
+        padding: '18px 20px',
+        minHeight: 0,
+        ...(props.style || {}),
+      },
+    }, filtered.length > 0 ? filtered.map((event, index) => {
+      const sender = fieldText(event, 'sender', 'system');
+      const mine = event.mine === true || sender === currentUser || sender === 'You';
+      const body = fieldText(event, 'body', '');
+      const fileName = fieldText(event, 'file_name', fieldText(event, 'filename', body));
+      const mediaUri = fieldText(event, 'media_uri', fieldText(event, 'url', ''));
+      const kind = messageCardKind(event);
+      const downloadUrl = fieldText(event, 'download_url', '');
+      const thumbnailUrl = fieldText(event, 'thumbnail_url', '');
+      const metaParts = [
+        fieldText(event, 'mime_type', ''),
+        fieldText(event, 'size', '') ? `${Math.round(Number(event.size) / 1024)} KB` : '',
+      ].filter(Boolean);
+      const actionLink = downloadUrl
+        ? h('a', {
+          href: downloadUrl,
+          target: '_blank',
+          rel: 'noopener noreferrer',
+          download: fileName || undefined,
+          style: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: '9px',
+            minHeight: '30px',
+            padding: '0 10px',
+            borderRadius: '999px',
+            background: mine ? 'rgba(255,255,255,0.22)' : '#e0f2fe',
+            color: mine ? '#ffffff' : '#075985',
+            textDecoration: 'none',
+            fontSize: '12px',
+            fontWeight: 850,
+          },
+        }, kind === 'image' ? 'Open / download' : (kind === 'audio' ? 'Download audio' : 'Download file'))
+        : null;
+      const bubbleBg = mine ? '#2563eb' : '#ffffff';
+      const bubbleColor = mine ? '#ffffff' : '#0f172a';
+      const bubbleBorder = mine ? '1px solid rgba(37,99,235,0.10)' : '1px solid #e2e8f0';
+      const attachment = kind !== 'text'
+        ? h('div', {
+          style: {
+            marginTop: body && body !== fileName ? '8px' : '0',
+            border: mine ? '1px solid rgba(255,255,255,0.28)' : '1px solid #dbe4ef',
+            borderRadius: '14px',
+            padding: kind === 'image' ? '8px' : '10px 12px',
+            background: mine ? 'rgba(255,255,255,0.12)' : '#f8fafc',
+          },
+        }, kind === 'image'
+          ? [
+            thumbnailUrl
+              ? h('img', {
+                src: thumbnailUrl,
+                alt: fileName || body || 'image',
+                style: { width: '240px', maxWidth: '100%', aspectRatio: '16/10', objectFit: 'cover', borderRadius: '10px', display: 'block', background: '#e2e8f0' },
+              })
+              : h('div', { style: { width: '220px', maxWidth: '100%', aspectRatio: '16/10', borderRadius: '10px', background: 'linear-gradient(135deg,#dbeafe,#ccfbf1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: mine ? '#ffffff' : '#0f766e', fontWeight: 800 } }, 'Image'),
+            h('div', { style: { marginTop: '7px', fontSize: '12px', color: mine ? 'rgba(255,255,255,0.82)' : '#475569' } }, fileName || mediaUri || 'image'),
+            metaParts.length ? h('div', { style: { marginTop: '2px', fontSize: '11px', color: mine ? 'rgba(255,255,255,0.70)' : '#64748b' } }, metaParts.join(' · ')) : null,
+            actionLink,
+          ]
+          : [
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } }, [
+              h('span', { style: { width: '36px', height: '36px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto', background: mine ? 'rgba(255,255,255,0.18)' : '#dbeafe', color: mine ? '#ffffff' : '#1d4ed8', fontSize: '11px', fontWeight: 900 } }, kind === 'audio' ? 'AUD' : 'FILE'),
+              h('span', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' } }, [
+                h('span', { style: { fontWeight: 850, color: mine ? '#ffffff' : '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, kind === 'audio' ? 'Audio message' : 'File'),
+                h('span', { style: { fontSize: '12px', color: mine ? 'rgba(255,255,255,0.82)' : '#475569', wordBreak: 'break-word' } }, fileName || mediaUri || 'attachment'),
+                metaParts.length ? h('span', { style: { fontSize: '11px', color: mine ? 'rgba(255,255,255,0.70)' : '#64748b' } }, metaParts.join(' · ')) : null,
+              ].filter(Boolean)),
+            ]),
+            kind === 'audio' && downloadUrl ? h('audio', { controls: true, preload: 'metadata', src: downloadUrl, style: { width: '260px', maxWidth: '100%', marginTop: '9px' } }) : null,
+            actionLink,
+          ].filter(Boolean))
+        : null;
+      return h('article', {
+        key: event.event_id || event.id || `${index}`,
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: mine ? 'flex-end' : 'flex-start',
+          gap: '4px',
+        },
+      }, [
+        h('div', { style: { fontSize: '11px', color: '#94a3b8', padding: mine ? '0 8px 0 0' : '0 0 0 8px' } }, `${sender} · ${event.ts || ''}${event.edited ? ' · edited' : ''}`),
+        h('div', {
+          style: {
+            maxWidth: 'min(680px, 78%)',
+            borderRadius: mine ? '18px 18px 6px 18px' : '18px 18px 18px 6px',
+            background: bubbleBg,
+            color: bubbleColor,
+            border: bubbleBorder,
+            boxShadow: mine ? '0 16px 36px rgba(37, 99, 235, 0.18)' : '0 14px 30px rgba(15, 23, 42, 0.06)',
+            padding: '12px 14px',
+            lineHeight: 1.55,
+            wordBreak: 'break-word',
+          },
+        }, [
+          body && kind === 'text' ? h('div', body) : null,
+          body && kind !== 'text' && body !== fileName ? h('div', body) : null,
+          attachment,
+        ].filter(Boolean)),
+      ]);
+    }) : [
+      h('div', {
+        style: {
+          margin: 'auto',
+          color: '#64748b',
+          border: '1px dashed #cbd5e1',
+          borderRadius: '18px',
+          padding: '24px',
+          textAlign: 'center',
+          background: '#f8fafc',
+        },
+      }, emptyText),
+    ]);
+  }
+
+  if (node.type === 'AttachmentPreview') {
+    const uri = String(readComponentValue(snapshot, props, 'uri', 'uriRef', host) || '').trim();
+    const name = String(readComponentValue(snapshot, props, 'name', 'nameRef', host) || '').trim();
+    const previewProps = cleanComponentProps(props, ['emptyText']);
+    if (!uri && !name) {
+      return h('div', { ...previewProps, style: { display: 'none', ...(props.style || {}) } });
+    }
+    const kind = extensionKind(name, uri);
+    return h('div', {
+      ...previewProps,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        border: '1px solid #dbe4ef',
+        background: '#f8fafc',
+        borderRadius: '16px',
+        padding: '10px 12px',
+        color: '#0f172a',
+        ...(props.style || {}),
+      },
+    }, [
+      h('span', {
+        style: {
+          width: '42px',
+          height: '42px',
+          borderRadius: '12px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: kind === 'image' ? 'linear-gradient(135deg,#bfdbfe,#99f6e4)' : '#e2e8f0',
+          color: '#0f172a',
+          fontWeight: 900,
+        },
+      }, kind === 'image' ? 'IMG' : (kind === 'audio' ? 'AUD' : 'FILE')),
+      h('span', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' } }, [
+        h('span', { style: { fontSize: '13px', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, name || 'Selected file'),
+        h('span', { style: { fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, uri),
+      ]),
+    ]);
+  }
+
+  if (node.type === 'TodoBoard') {
+    const tasks = readTodoTasks(node, snapshot, props, host);
+    const columns = normalizeTodoColumns(props.columns);
+    const writeTarget = node.bind && node.bind.write;
+    const boardProps = cleanComponentProps(props, ['tasks', 'tasksRef', 'columns', 'emptyText']);
+    const emptyText = typeof props.emptyText === 'string' ? props.emptyText : '没有任务';
+    const actionButton = (task, action, status, label, tone) => h('button', {
+      type: 'button',
+      onClick: (event) => {
+        if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+        dispatchTodoAction(node, host, writeTarget, action, { task_id: task.id, status }, ctx);
+      },
+      style: {
+        border: `1px solid ${tone}22`,
+        borderRadius: '999px',
+        background: `${tone}12`,
+        color: tone,
+        padding: '5px 9px',
+        fontSize: '12px',
+        fontWeight: 800,
+        cursor: 'pointer',
+      },
+    }, label);
+    const renderTask = (task) => {
+      const current = todoStatusMeta(columns, task.status);
+      return h('article', {
+        key: task.id,
+        draggable: true,
+        onDragstart: (event) => {
+          if (event && event.dataTransfer && typeof event.dataTransfer.setData === 'function') {
+            event.dataTransfer.setData('text/plain', task.id);
+          }
+        },
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          padding: '13px',
+          borderRadius: '18px',
+          background: '#ffffff',
+          border: '1px solid rgba(148,163,184,0.24)',
+          boxShadow: '0 14px 34px rgba(15,23,42,0.08)',
+          cursor: 'grab',
+        },
+      }, [
+        h('div', { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' } }, [
+          h('strong', { style: { color: '#0f172a', fontSize: '15px', lineHeight: '1.28' } }, truncateText(task.title, 64)),
+          h('button', {
+            type: 'button',
+            onClick: (event) => {
+              if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+              dispatchTodoAction(node, host, writeTarget, 'open_edit', { task_id: task.id }, ctx);
+            },
+            style: {
+              border: '0',
+              borderRadius: '999px',
+              background: '#f1f5f9',
+              color: '#334155',
+              padding: '5px 8px',
+              fontSize: '12px',
+              fontWeight: 800,
+              cursor: 'pointer',
+            },
+          }, '编辑'),
+        ]),
+        task.body ? h('p', { style: { margin: 0, color: '#64748b', fontSize: '13px', lineHeight: '1.52' } }, truncateText(task.body, 118)) : null,
+        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' } }, [
+          h('span', {
+            style: {
+              display: 'inline-flex',
+              alignItems: 'center',
+              borderRadius: '999px',
+              padding: '5px 9px',
+              color: current.tone,
+              background: current.bg,
+              fontSize: '11px',
+              fontWeight: 900,
+            },
+          }, current.label),
+          h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' } }, [
+            task.status !== 'doing' ? actionButton(task, 'move_status', 'doing', '开始', '#d97706') : null,
+            task.status !== 'done' ? actionButton(task, 'move_status', 'done', '完成', '#16a34a') : null,
+            task.status !== 'archived' ? actionButton(task, 'move_status', 'archived', '归档', '#64748b') : null,
+          ].filter(Boolean)),
+        ]),
+      ].filter(Boolean));
+    };
+    const columnNodes = columns.map((column) => {
+      const columnTasks = tasks.filter((task) => task.status === column.value);
+      return h('section', {
+        key: column.value,
+        'data-status': column.value,
+        onDragover: (event) => {
+          if (event && typeof event.preventDefault === 'function') event.preventDefault();
+        },
+        onDrop: (event) => {
+          if (event && typeof event.preventDefault === 'function') event.preventDefault();
+          const taskId = event && event.dataTransfer && typeof event.dataTransfer.getData === 'function'
+            ? event.dataTransfer.getData('text/plain')
+            : '';
+          if (!taskId) return;
+          dispatchTodoAction(node, host, writeTarget, 'move_status', { task_id: taskId, status: column.value }, ctx);
+        },
+        style: {
+          minWidth: '230px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          borderRadius: '24px',
+          padding: '14px',
+          background: `linear-gradient(180deg, ${column.bg}, rgba(255,255,255,0.84))`,
+          border: '1px solid rgba(148,163,184,0.28)',
+          boxSizing: 'border-box',
+        },
+      }, [
+        h('header', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' } }, [
+          h('span', { style: { color: '#0f172a', fontSize: '14px', fontWeight: 900 } }, column.label),
+          h('span', { style: { minWidth: '26px', height: '24px', borderRadius: '999px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', color: column.tone, fontSize: '12px', fontWeight: 900 } }, String(columnTasks.length)),
+        ]),
+        columnTasks.length
+          ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } }, columnTasks.map(renderTask))
+          : h('div', { style: { border: '1px dashed rgba(148,163,184,0.44)', borderRadius: '16px', color: '#94a3b8', padding: '16px', fontSize: '13px', textAlign: 'center' } }, emptyText),
+      ]);
+    });
+    return h('section', {
+      ...boardProps,
+      style: {
+        display: 'grid',
+        gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, minmax(230px, 1fr))`,
+        gap: '14px',
+        width: '100%',
+        overflowX: 'auto',
+        paddingBottom: '4px',
+        ...(props.style || {}),
+      },
+    }, columnNodes);
+  }
+
+  if (node.type === 'TodoFocusList') {
+    const tasks = readTodoTasks(node, snapshot, props, host);
+    const columns = normalizeTodoColumns(props.columns);
+    const writeTarget = node.bind && node.bind.write;
+    const filterText = String(readComponentValue(snapshot, props, 'filterText', 'filterRef', host) || '').trim().toLowerCase();
+    const listProps = cleanComponentProps(props, ['tasks', 'tasksRef', 'columns', 'filterText', 'filterRef', 'emptyText']);
+    const visibleTasks = tasks
+      .filter((task) => task.status !== 'done' && task.status !== 'archived')
+      .filter((task) => {
+        if (!filterText) return true;
+        return `${task.title} ${task.body}`.toLowerCase().includes(filterText);
+      });
+    const emptyText = typeof props.emptyText === 'string' ? props.emptyText : '没有匹配的未完成任务';
+    return h('section', {
+      ...listProps,
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        width: '100%',
+        ...(props.style || {}),
+      },
+    }, visibleTasks.length ? visibleTasks.map((task) => {
+      const current = todoStatusMeta(columns, task.status);
+      return h('article', {
+        key: task.id,
+        style: {
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) auto',
+          gap: '16px',
+          alignItems: 'start',
+          padding: '16px',
+          borderRadius: '22px',
+          background: '#ffffff',
+          border: '1px solid rgba(148,163,184,0.24)',
+          boxShadow: '0 16px 38px rgba(15,23,42,0.08)',
+        },
+      }, [
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 } }, [
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' } }, [
+            h('span', { style: { color: '#0f172a', fontSize: '17px', fontWeight: 900, lineHeight: '1.25' } }, task.title),
+            h('span', { style: { borderRadius: '999px', padding: '4px 8px', color: current.tone, background: current.bg, fontSize: '11px', fontWeight: 900 } }, current.label),
+          ]),
+          task.body ? h('p', { style: { margin: 0, color: '#475569', fontSize: '14px', lineHeight: '1.62' } }, task.body) : null,
+        ]),
+        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' } }, [
+          h('button', {
+            type: 'button',
+            onClick: () => dispatchTodoAction(node, host, writeTarget, 'open_edit', { task_id: task.id }, ctx),
+            style: { border: '0', borderRadius: '999px', background: '#f1f5f9', color: '#334155', padding: '8px 12px', fontSize: '13px', fontWeight: 850, cursor: 'pointer' },
+          }, '编辑'),
+          h('button', {
+            type: 'button',
+            onClick: () => dispatchTodoAction(node, host, writeTarget, 'move_status', { task_id: task.id, status: 'done' }, ctx),
+            style: { border: '0', borderRadius: '999px', background: '#dcfce7', color: '#15803d', padding: '8px 12px', fontSize: '13px', fontWeight: 850, cursor: 'pointer' },
+          }, '完成'),
+        ]),
+      ].filter(Boolean));
+    }) : [
+      h('div', { style: { border: '1px dashed rgba(148,163,184,0.44)', borderRadius: '18px', color: '#94a3b8', padding: '24px', fontSize: '14px', textAlign: 'center', background: '#f8fafc' } }, emptyText),
+    ]);
+  }
+
+  if (node.type === 'ComposerBar') {
+    const composerProps = cleanComponentProps(props);
+    return h('section', {
+      ...composerProps,
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+        borderTop: '1px solid #e2e8f0',
+        background: 'rgba(255,255,255,0.94)',
+        padding: '14px 16px',
+        ...(props.style || {}),
+      },
+    }, children);
   }
 
   if (node.type === 'Form') {
@@ -2334,7 +3570,8 @@ function buildVueNode(node, snapshot, vue, host, registry) {
 
   if (node.type === 'AppWindow') {
     const title = typeof props.title === 'string' ? props.title : '';
-    const windowProps = cleanShellProps(props, ['title']);
+    const contentOverflow = typeof props.contentOverflow === 'string' ? props.contentOverflow : 'auto';
+    const windowProps = cleanShellProps(props, ['title', 'contentOverflow']);
     return h('section', { ...windowProps, style: mergeShellStyle({
       display: 'flex',
       flexDirection: 'column',
@@ -2346,7 +3583,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       boxShadow: '0 28px 70px rgba(15, 23, 42, 0.14)',
     }, props) }, [
       title ? h('div', { style: { minHeight: '48px', display: 'flex', alignItems: 'center', padding: '0 18px', borderBottom: `1px solid ${SHELL_TEXT.line}`, color: SHELL_TEXT.ink, fontWeight: 850 } }, title) : null,
-      h('div', { style: { minHeight: 0, flex: 1, overflow: 'auto' } }, children),
+      h('div', { style: { minHeight: 0, flex: 1, overflow: contentOverflow } }, children),
     ].filter(Boolean));
   }
 

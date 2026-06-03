@@ -1,0 +1,24 @@
+Reference audit:
+
+Siemens Industrial Copilot:
+- Useful: industrial AI is described through human-machine collaboration, automation code, simulation, maintenance assistance, and data control.
+- PPT implication: do not sell "AI magic"; show controlled workflows and domain boundaries.
+
+WEF Global Lighthouse Network:
+- Useful: the credible manufacturing story is pilot to scale, replication, network learning, and proven use cases.
+- PPT implication: roadmap slides should emphasize sample-to-replication-to-network, not a pure technology roadmap.
+
+Schneider Electric EcoStruxure:
+- Useful: platform story connects shop floor, sensors, cloud, analytics, and business logic.
+- PPT implication: Wantai Network can be shown as business network between field execution and cloud intelligence.
+
+IBM / Carbon:
+- Useful: enterprise palette, contrast, data palette sequence, strong neutrals plus deliberate accent.
+- PPT implication: use restrained industrial colors and avoid AI-purple templates.
+
+Anti-patterns to avoid:
+- Generic SaaS dashboard card grid.
+- AI purple-blue gradients.
+- Brain / robot / chip imagery.
+- Decorative arrows that do not carry business logic.
+- Investor slides that read as internal Q&A.

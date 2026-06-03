@@ -1,0 +1,76 @@
+Design name: Industrial Strategy Brief
+
+Slide size:
+- 1280 x 720 px, widescreen.
+
+Background system:
+- Main background: #F7F8F6 cold paper.
+- Content surfaces: #FFFFFF only when a real grouping is required.
+- Fine separators: #D9DEE2 hairlines.
+- No gradients, glows, bokeh, or decorative texture.
+
+Typography:
+- Title / claims: Noto Sans CJK SC / PingFang SC fallback, semibold.
+- Labels / body: Noto Sans CJK SC / PingFang SC fallback, regular.
+- Numbers and English: IBM Plex Sans / Inter fallback.
+- Claim title: 34-46 px.
+- Cover title: 52-66 px.
+- Body: 18-23 px.
+- Table labels: 13-16 px.
+- Footer/source: 9-11 px.
+
+Color palette:
+- Ink: #18212F for primary text.
+- Steel blue: #234E5F for chapter / structural emphasis.
+- Oxidized teal: #0B7774 for ODS order delivery, channel, flow, traffic.
+- Dark copper: #B36B2C for investment, asset formation, audit evidence.
+- Oxide red: #9B3F36 for risk / blocked execution.
+- Cool gray: #657180 for secondary labels.
+- Line gray: #D9DEE2.
+- Mist gray: #EBEFF2.
+
+Color use:
+- 75% white/cold paper, 15% ink/gray, 7% steel blue/teal, 3% copper/red.
+- Teal means order delivery flow or ODS traffic.
+- Copper means capital, asset, audit, or conversion to value.
+- Red only means risk/intercept/non-execution.
+
+Chart grammar:
+- Prefer editable shape charts with direct labels.
+- No heavy legends when direct labels work.
+- Use hairline axes and small tick labels only when needed.
+- Numbers must be sourced from BP or clearly labeled as planning target.
+
+Diagram grammar:
+- Rectangles and lanes encode systems/stages; thin connectors encode actual flow.
+- Arrows only when direction matters.
+- Equal-role boxes share exact dimensions and padding.
+- Network nodes are small numbered squares or dots, never glowing circles.
+
+Container grammar:
+- Do not put cards inside cards.
+- Do not wrap prose in boxes unless it is a metric, asset, stage, or table cell.
+- Border radius: 0 to 4 px only.
+- Shadows are forbidden.
+
+Footer/page marker:
+- Left footer: source note where needed.
+- Right marker: two-digit slide number.
+- Footer text #657180 at 10 px.
+
+Kicker grammar:
+- Upper-left small label, uppercase English or concise Chinese.
+- Kicker marker is a 12 px horizontal rule in slide accent color; text vertically centered with marker.
+
+Allowed layout families:
+- Cover with metric rail.
+- Bridge diagram.
+- Transformation table.
+- Architecture split.
+- Operating loop.
+- Matrix / route map.
+- Funding-to-asset allocation.
+- Closing ladder.
+
+Banned motifs:
+- AI brain, robot silhouette, chip circuit background, purple-blue gradient, glassmorphism, glowing nodes, decorative orbit lines, default rounded SaaS cards, fake logos, pseudo product UI.
