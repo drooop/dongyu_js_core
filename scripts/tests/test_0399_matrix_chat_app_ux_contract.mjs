@@ -152,6 +152,7 @@ function test_formal_chat_app_projects_normal_chat_layout() {
   assert.equal(ast.id, 'matrix_chat_root', 'root id must match model root label');
 
   const conversationList = findNode(ast, 'matrix_chat_conversation_list');
+  const filterTabs = findNode(ast, 'matrix_chat_filter_tabs');
   const timeline = findNode(ast, 'matrix_chat_timeline');
   const composer = findNode(ast, 'matrix_chat_composer');
   const settingsDialog = findNode(ast, 'matrix_chat_settings_dialog');
@@ -171,6 +172,7 @@ function test_formal_chat_app_projects_normal_chat_layout() {
   assert.equal(editDialog?.type, 'Dialog', 'message editing must be layered in a Dialog');
 
   assertBusEventTarget(conversationList, 'conversation selection');
+  assertBusEventTarget(filterTabs, 'conversation filter tabs');
   assertBusEventTarget(findNode(ast, 'matrix_chat_send_button'), 'send button');
   assertBusEventTarget(editConfirm, 'edit button');
   assertBusEventTarget(findNode(ast, 'matrix_chat_file_send_button'), 'file send button');
@@ -178,7 +180,15 @@ function test_formal_chat_app_projects_normal_chat_layout() {
   assertBusEventTarget(findNode(ast, 'matrix_chat_create_confirm'), 'create room/dm');
   assert.match(JSON.stringify(editConfirm?.bind?.write?.value_ref || []), /edit_message/u, 'edit dialog confirm must emit an edit_message action');
 
-  assert.equal(conversationList?.props?.primaryField, 'name', 'conversation list must use room name as primary text');
+  assert.equal(filterTabs?.bind?.read?.k, 'conversation_filter', 'People/room tabs must read a model-backed filter');
+  assert.match(JSON.stringify(filterTabs?.bind?.write?.value_ref || []), /select_filter/u, 'People/room tabs must write a select_filter event');
+  assert.ok((filterTabs?.children || []).some((tab) => tab?.props?.label === 'People' && tab?.props?.name === 'people'), 'one-to-one rooms must be shown as People, not as formal Matrix DMs');
+  assert.ok((filterTabs?.children || []).some((tab) => tab?.props?.label === 'Rooms' && tab?.props?.name === 'rooms'), 'Rooms tab must send the accepted rooms filter value');
+  assert.equal(conversationList?.props?.filterRef?.k, 'conversation_filter', 'conversation list must filter from a model-backed filter label');
+  assert.equal(conversationList?.props?.filterField, 'conversation_group', 'conversation list must filter by user-facing conversation group');
+  assert.equal(conversationList?.props?.filterAllValue, 'all', 'conversation list must keep an all-filter escape hatch');
+  assert.equal(conversationList?.props?.primaryField, 'list_title', 'conversation list must use projected display title as primary text');
+  assert.equal(conversationList?.props?.secondaryField, 'list_subtitle', 'conversation list must use projected subtitle as secondary text');
   assert.equal(conversationList?.props?.idField, 'id', 'conversation list must keep room id as metadata/id');
   assert.equal(conversationList?.props?.showId, false, 'conversation list must not show Matrix room id as primary text');
   assert.equal(conversationList?.props?.fallbackLabel, 'Unnamed room', 'nameless rooms must use a safe display fallback');
@@ -292,6 +302,8 @@ function test_formal_chat_app_has_single_file_pick_and_preview_binding() {
   assert.equal(fileInput?.props?.multiple, false, 'Matrix Chat must only allow one pending file per send');
   assert.equal(fileInput?.bind?.write?.target_ref?.k, 'pending_file_uri', 'file picker must write uploaded media uri');
   assert.equal(fileInput?.props?.nameTargetRef?.k, 'pending_file_name', 'file picker must write uploaded file name');
+  const sendFile = findNode(ast, 'matrix_chat_file_send_button');
+  assert.equal(sendFile?.props?.enabledRef?.k, 'pending_file_uri', 'file send must stay disabled until uploaded media uri reaches the model');
   assert.equal(filePreview?.props?.uriRef?.k, 'pending_file_uri', 'file preview must read pending media uri');
   assert.equal(filePreview?.props?.nameRef?.k, 'pending_file_name', 'file preview must read pending file name');
   return { key: 'formal_chat_app_has_single_file_pick_and_preview_binding', status: 'PASS' };
