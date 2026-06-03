@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>上海洞宇与合肥洞宇联合商业计划书</title>
+  <style>
+    :root {
+      --ink: #18212f;
+      --muted: #667085;
+      --line: #d9e1ea;
+      --paper: #ffffff;
+      --soft: #f5f7fa;
+      --green: #177c63;
+      --teal: #1b7895;
+      --amber: #b86b21;
+      --red: #a13d44;
+      --navy: #26384f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #eef2f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.65;
+    }
+
+    a {
+      color: var(--teal);
+    }
+
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--paper);
+      min-height: 100vh;
+      box-shadow: 0 0 0 1px rgba(24, 33, 47, 0.06);
+    }
+
+    .hero {
+      padding: 48px 56px 36px;
+      background: #f7f9fb;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 28px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .tag {
+      border: 1px solid var(--line);
+      background: #ffffff;
+      padding: 4px 10px;
+      border-radius: 4px;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 920px;
+      font-size: 44px;
+      line-height: 1.15;
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 20px 0 0;
+      max-width: 840px;
+      color: #38465a;
+      font-size: 20px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 32px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 16px;
+      min-height: 110px;
+    }
+
+    .metric b {
+      display: block;
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 8px;
+      font-size: 20px;
+      line-height: 1.3;
+      font-weight: 740;
+    }
+
+    section {
+      padding: 38px 56px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 26px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 26px 0 12px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 14px;
+      color: #364356;
+    }
+
+    .lead {
+      max-width: 920px;
+      font-size: 18px;
+      color: #2d3a4d;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      background: #ffffff;
+    }
+
+    .panel h3 {
+      margin-top: 0;
+    }
+
+    .panel ul {
+      margin: 10px 0 0;
+      padding-left: 20px;
+      color: #405066;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 22px;
+      align-items: stretch;
+    }
+
+    .step {
+      min-height: 126px;
+      border: 1px solid var(--line);
+      border-top: 5px solid var(--teal);
+      border-radius: 8px;
+      padding: 12px;
+      background: #ffffff;
+    }
+
+    .step:nth-child(2) { border-top-color: var(--green); }
+    .step:nth-child(3) { border-top-color: var(--amber); }
+    .step:nth-child(4) { border-top-color: var(--navy); }
+    .step:nth-child(5) { border-top-color: var(--red); }
+    .step:nth-child(6) { border-top-color: var(--green); }
+    .step:nth-child(7) { border-top-color: var(--teal); }
+
+    .step strong {
+      display: block;
+      font-size: 15px;
+      line-height: 1.3;
+    }
+
+    .step span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #f2f5f8;
+      font-weight: 700;
+    }
+
+    .map {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .role {
+      border-left: 5px solid var(--green);
+    }
+
+    .role:nth-child(2) {
+      border-left-color: var(--amber);
+    }
+
+    .asset-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .asset {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      background: #ffffff;
+      min-height: 144px;
+    }
+
+    .asset b {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--ink);
+    }
+
+    .asset span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .phase {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      background: #ffffff;
+    }
+
+    .phase small {
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    .footer {
+      padding: 28px 56px 44px;
+      color: var(--muted);
+      font-size: 13px;
+      background: #f7f9fb;
+    }
+
+    @media (max-width: 900px) {
+      .hero,
+      section,
+      .footer {
+        padding-left: 24px;
+        padding-right: 24px;
+      }
+
+      h1 {
+        font-size: 32px;
+      }
+
+      .hero-grid,
+      .three-col,
+      .asset-grid,
+      .timeline,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .two-col,
+      .map {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+      }
+
+      .page {
+        box-shadow: none;
+      }
+
+      section {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="meta">
+        <span class="tag">正式商业计划书 V1.6</span>
+        <span class="tag">2026-06-02</span>
+        <span class="tag">上海洞宇 + 合肥洞宇</span>
+        <span class="tag">商业机密</span>
+      </div>
+      <h1>万态网工业 AI 服务网络</h1>
+      <p class="subtitle">面向智能制造的工业业务网络，用白箱模型化底座把黑箱 AI 意图转化为可交付、可验收、可审计、可结算的工业服务网络。</p>
+      <div class="hero-grid">
+        <div class="metric"><b>项目定位</b><span>AI 到工业服务的渠道</span></div>
+        <div class="metric"><b>核心系统</b><span>ODS 订单交付系统</span></div>
+        <div class="metric"><b>方法论</b><span>黑箱智能 + 白箱落地</span></div>
+        <div class="metric"><b>首期投资</b><span>5,000 万元</span></div>
+      </div>
+    </header>
+
+    <section>
+      <h2>一、商业结论</h2>
+      <p class="lead">工业是 AI 从信息能力进入实体生产的关键场景，也是最难落地的场景。万态网就是工业业务网络；销售流量，就是销售进入 ODS 后形成的订单、交付任务、验收记录、审计账本和结算权益。</p>
+      <div class="flow">
+        <div class="step"><strong>需求进入</strong><span>工厂、客户、劳务市场或 AI Agent 提出任务</span></div>
+        <div class="step"><strong>订单目录</strong><span>工种、工位、设备和机器人登记为可履约订单项</span></div>
+        <div class="step"><strong>智慧模型</strong><span>校验工艺、参数、权限、异常和审计字段</span></div>
+        <div class="step"><strong>现场智脑</strong><span>裁决 AI 意图能否进入现场执行</span></div>
+        <div class="step"><strong>PIC 接入</strong><span>连接工位、设备、机器人和人员确认</span></div>
+        <div class="step"><strong>DE/V1N 执行</strong><span>数字员工承接职责，软件工人执行任务</span></div>
+        <div class="step"><strong>交付结算</strong><span>形成 ODS 交付记录、审计账本和渠道收益</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>二、ODS 订单交付系统</h2>
+      <p>ODS 在本项目中指订单交付系统（Order Delivery System）。它把外部需求转成明确订单，把订单拆成现场任务，再把交付结果沉淀为验收、审计、结算和渠道分成依据。</p>
+      <table>
+        <thead>
+          <tr>
+            <th>组成</th>
+            <th>含义</th>
+            <th>示例</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Order</td><td>订单入口</td><td>客户需求、工种服务、价格、时限、验收口径、责任边界</td></tr>
+          <tr><td>Delivery</td><td>交付闭环</td><td>派工、执行、异常处理、结果回写、验收确认</td></tr>
+          <tr><td>System</td><td>系统账本</td><td>状态流转、权限记录、审计留痕、计费、结算和渠道分成</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>三、黑箱 AI 与白箱万态网方法论</h2>
+      <div class="three-col">
+        <div class="panel">
+          <h3>黑箱 AI</h3>
+          <p>云端大模型负责需求理解、自然语言交互、方案生成、异常解释和跨场景知识复用。</p>
+        </div>
+        <div class="panel">
+          <h3>白箱底座</h3>
+          <p>ModelTable、智慧模型、现场智脑、ODS、PIC、DE/V1N 将订单、工位、权限、工艺和审计字段模型化。</p>
+        </div>
+        <div class="panel">
+          <h3>工业落地</h3>
+          <p>AI 输出必须经过白箱校验，才能进入现场执行、交付验收、审计追溯和结算分成。</p>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>黑箱输出状态</th>
+            <th>白箱模型化处理</th>
+            <th>结果</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>匹配订单目录、参数合法、权限满足</td><td>进入现场智脑裁决</td><td>可执行</td></tr>
+          <tr><td>订单项存在但参数不完整</td><td>补充询问或人工确认</td><td>待确认</td></tr>
+          <tr><td>参数超出工艺边界</td><td>拦截并返回原因</td><td>不执行</td></tr>
+          <tr><td>订单目录中不存在</td><td>转为需求记录或新订单项开发线索</td><td>不直接执行</td></tr>
+          <tr><td>涉及安全、质量、责任风险</td><td>强制人工确认或升级审批</td><td>受控执行</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>四、首期落地路径</h2>
+      <p>第一阶段以帮立及其他劳务市场中的工种落地为入口，以现场智能和基本工位建设为抓手，形成简单工位的生产集成方式。</p>
+      <table>
+        <thead>
+          <tr>
+            <th>能力</th>
+            <th>内容</th>
+            <th>形成结果</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>工种服务化</td><td>包装、分拣、搬运、巡检、质检、上下料等工种转成订单目录和服务目录</td><td>形成可被 AI 和客户下单、可被现场履约的服务货架</td></tr>
+          <tr><td>现场智能</td><td>现场智脑、基础传感、扫码、称重、视觉、人员确认和异常回退</td><td>形成现场状态感知和受控执行边界</td></tr>
+          <tr><td>基本工位</td><td>PIC 接入、DE 岗位职责、V1N 任务单元和审计字段</td><td>形成可复制的简单生产集成方式</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>五、联合结构</h2>
+      <p>项目形成“上海平台研发 + 合肥场景落地”的双中心结构，并由联合项目公司承接资金、合同、样板资产、区域运营和后续融资权益。</p>
+      <div class="map">
+        <div class="panel role">
+          <h3>上海洞宇</h3>
+          <ul>
+            <li>万态网业务网络、ODS 订单交付和产品标准</li>
+            <li>ModelTable、智慧模型和现场智脑</li>
+            <li>V1N 软件工人与 DE 数字员工能力</li>
+            <li>PIC 标准、AI Agent 受控接口与核心知识产权</li>
+          </ul>
+        </div>
+        <div class="panel role">
+          <h3>合肥洞宇</h3>
+          <ul>
+            <li>工厂场景、帮立及劳务市场工种落地</li>
+            <li>客户运营、现场协同与试点验收</li>
+            <li>政府、园区、产业基金与产业伙伴对接</li>
+            <li>行业应用包沉淀与区域复制</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>六、四阶段路径</h2>
+      <div class="timeline">
+        <div class="phase">
+          <small>第一阶段</small>
+          <h3>工种与基本工位</h3>
+          <p>帮立及劳务市场工种落地，建立现场智能和基本工位，形成简单工位生产集成方式。</p>
+        </div>
+        <div class="phase">
+          <small>第二阶段</small>
+          <h3>智能生产线</h3>
+          <p>引入云端大模型，完成完整智能现场生产线，建立安装服务体系。</p>
+        </div>
+        <div class="phase">
+          <small>第三阶段</small>
+          <h3>渠道与订单流量运营</h3>
+          <p>建成完整渠道和 ODS 订单交付销售、结算、运营系统。</p>
+        </div>
+        <div class="phase">
+          <small>第四阶段</small>
+          <h3>业务网络生态</h3>
+          <p>形成跨区域、跨行业、跨服务商的工业业务网络和服务市场。</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>七、资本形成资产</h2>
+      <p>第一阶段规划投资 5,000 万元，资金进入联合项目公司，用于完成工种落地、现场智能、基本工位、简单生产集成和首批 ODS 订单交付系统建设。</p>
+      <div class="asset-grid">
+        <div class="asset"><b>业务网络资产</b><span>可演示、可部署、可运维的万态网工业业务网络。</span></div>
+        <div class="asset"><b>ODS 订单资产</b><span>工种、工位、订单、交付、验收和审计记录形成标准资产。</span></div>
+        <div class="asset"><b>现场智脑资产</b><span>现场状态、服务目录、权限、安全和执行确认能力。</span></div>
+        <div class="asset"><b>智慧模型资产</b><span>工艺规则、参数范围、异常分支和审计字段。</span></div>
+        <div class="asset"><b>PIC/DE/V1N 资产</b><span>现场节点、数字员工岗位和软件工人任务单元。</span></div>
+        <div class="asset"><b>区域运营资产</b><span>合肥示范中心、产业客户池和渠道伙伴网络。</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>八、流量销售方式</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>销售路径</th>
+            <th>客户对象</th>
+            <th>计费方式</th>
+            <th>商业作用</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>工种流量</td><td>劳务市场、制造企业、园区</td><td>按工种订单、订单量或岗位服务费</td><td>把劳务能力转成标准订单交付流量</td></tr>
+          <tr><td>工位流量</td><td>工厂、产线、车间</td><td>按工位订阅、任务量、运行时长</td><td>建立可复制的工位服务收入</td></tr>
+          <tr><td>DE 流量</td><td>质检、包装、巡检、物流等岗位</td><td>按数字员工部署和月服务费</td><td>把软件服务包装成岗位服务</td></tr>
+          <tr><td>PIC 流量</td><td>设备商、集成商、工厂</td><td>按节点接入、运维、审计计费</td><td>建立现场入口收入</td></tr>
+          <tr><td>渠道流量</td><td>园区、劳务平台、设备商、集成商</td><td>按导入订单、服务交易或区域收益分成</td><td>扩大需求入口和销售半径</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>九、第一阶段资金使用</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>使用方向</th>
+            <th>资金占比</th>
+            <th>形成资产</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>工种服务化与渠道入口</td><td>15% 到 20%</td><td>帮立及劳务市场工种服务目录、需求入口、服务货架</td></tr>
+          <tr><td>现场智能与现场智脑</td><td>20% 到 25%</td><td>现场智脑最小单元、智慧模型配置、现场状态与安全边界</td></tr>
+          <tr><td>基本工位与 PIC 接入</td><td>20% 到 25%</td><td>PIC 基本节点、扫码、称重、视觉、人员确认、简单工位接入</td></tr>
+          <tr><td>样板项目实施</td><td>15% 到 20%</td><td>主样板、备选样板、客户确认、验收材料</td></tr>
+          <tr><td>DE/V1N 服务包</td><td>10% 到 15%</td><td>数字员工岗位模板、任务单元、异常分支、审计字段、部署文档</td></tr>
+          <tr><td>团队、商务与运营周转</td><td>10% 到 15%</td><td>产品、现场实施、售前、运维、渠道运营和资金周转</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>十、竞争壁垒</h2>
+      <div class="asset-grid">
+        <div class="asset"><b>流量壁垒</b><span>ODS 订单交付流量直接对应客户需求、订单履约、现场交付、验收结果和审计记录。</span></div>
+        <div class="asset"><b>渠道壁垒</b><span>工厂、劳务市场、园区、设备商和服务商被组织成业务网络。</span></div>
+        <div class="asset"><b>智慧模型壁垒</b><span>工艺规则、参数范围、异常分支和审计字段被模型化。</span></div>
+        <div class="asset"><b>现场智脑壁垒</b><span>云端大模型意图必须经过现场状态和安全边界裁决。</span></div>
+        <div class="asset"><b>执行单元壁垒</b><span>V1N 软件工人把复杂业务拆成可运行、可审计的任务单元。</span></div>
+        <div class="asset"><b>数字员工壁垒</b><span>DE 数字员工让客户以岗位和职责理解软件服务。</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>十一、风险治理</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>风险</th>
+            <th>表现</th>
+            <th>治理方式</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>工种服务化风险</td><td>劳务工种边界不清、验收口径不统一</td><td>先选择高频、边界清晰、可计量工种，形成 ODS 订单模板</td></tr>
+          <tr><td>AI 幻觉风险</td><td>云端大模型输出不符合现场工艺或权限边界</td><td>用智慧模型和现场智脑拦截、修正或转人工确认</td></tr>
+          <tr><td>现场安全风险</td><td>AI 或自动化系统触碰设备安全边界</td><td>权限校验、人工确认、异常回退和审计记录</td></tr>
+          <tr><td>渠道运营风险</td><td>需求来源和服务供给难以匹配</td><td>建立 ODS 订单统计、渠道分成和客户成功机制</td></tr>
+          <tr><td>商业复制风险</td><td>单个样板成功但难以复制</td><td>所有样板沉淀服务包、部署文档和复用指标</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer class="footer">
+      <p>参考：国务院<a href="https://www.cac.gov.cn/2025-08/27/c_1758018277755538.htm">《关于深入实施“人工智能+”行动的意见》</a>；工业和信息化部<a href="https://www.miit.gov.cn/jgsj/kjs/wjfb/art/2025/art_a8465500de45444dbea19e8064d97ffc.html">《关于开展 2025 年人工智能产业及赋能新型工业化创新任务揭榜挂帅工作的通知》</a>；上海洞宇技术体系及产品资料：万态网业务网络、ODS 订单交付系统、现场智脑、智慧模型、ModelTable、V1N 软件工人、DE 数字员工、PIC 现场节点。</p>
+    </footer>
+  </main>
+</body>
+</html>

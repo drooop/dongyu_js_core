@@ -1,0 +1,1549 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/nw3rlt",
+    "id": "nw3rlt",
+    "slide": 11,
+    "layoutId": "b1000c6b-00bb-4015-80e4-56ba48dd5777",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "6cf337a6-c781-4d4f-8601-5dfd5860cdb0",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "IBM Plex Sans",
+      "Noto Sans CJK SC"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "b1000c6b-00bb-4015-80e4-56ba48dd5777",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "6cf337a6-c781-4d4f-8601-5dfd5860cdb0",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "6cf337a6-c781-4d4f-8601-5dfd5860cdb0",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4zidonyd",
+      "id": "1",
+      "name": "background",
+      "bbox": [
+        0,
+        0,
+        1280,
+        720
+      ],
+      "geometry": "rect",
+      "fillColor": "#F7F8F6",
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fepkzupw",
+      "id": "2",
+      "name": "kicker-marker",
+      "bbox": [
+        76,
+        58,
+        38,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#234E5F",
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/mtwra5gb",
+      "id": "3",
+      "name": "kicker-label",
+      "bbox": [
+        124,
+        48,
+        360,
+        24
+      ],
+      "geometry": "rect",
+      "text": "JOINT STRUCTURE",
+      "textPreview": "JOINT STRUCTURE",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 12,
+        "typeface": "IBM Plex Sans",
+        "color": "#657180",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "JOINT STRUCTURE"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "JOINT STRUCTURE",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "IBM Plex Sans",
+            "color": "#657180",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "JOINT STRUCTURE",
+              "fontSize": 12,
+              "typeface": "IBM Plex Sans",
+              "color": "#657180",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/xc3ylc7u",
+      "id": "4",
+      "name": "page-marker",
+      "bbox": [
+        1138,
+        48,
+        70,
+        24
+      ],
+      "geometry": "rect",
+      "text": "11",
+      "textPreview": "11",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 12,
+        "typeface": "IBM Plex Sans",
+        "color": "#657180",
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "11"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "11",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "IBM Plex Sans",
+            "color": "#657180",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "11",
+              "fontSize": 12,
+              "typeface": "IBM Plex Sans",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4r65wjud",
+      "id": "5",
+      "name": "claim-title",
+      "bbox": [
+        76,
+        88,
+        880,
+        106
+      ],
+      "geometry": "rect",
+      "text": "上海洞宇建平台，\n合肥洞宇建场景和区域复制入口。",
+      "textPreview": "上海洞宇建平台， | 合肥洞宇建场景和区域复制入口。",
+      "resolvedFontSize": 38,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 38,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "上海洞宇建平台，"
+          },
+          {
+            "index": 2,
+            "text": "合肥洞宇建场景和区域复制入口。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "上海洞宇建平台，",
+          "resolvedTextStyle": {
+            "fontSize": 38,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "上海洞宇建平台，",
+              "fontSize": 38,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "合肥洞宇建场景和区域复制入口。",
+          "resolvedTextStyle": {
+            "fontSize": 38,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "合肥洞宇建场景和区域复制入口。",
+              "fontSize": 38,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/f6dcbulw",
+      "id": "6",
+      "name": "support-note",
+      "bbox": [
+        78,
+        214,
+        900,
+        58
+      ],
+      "geometry": "rect",
+      "text": "联合项目公司承接资金、合同、样板资产、区域运营和后续融资权益，形成“上海平台研发 + 合肥场景落地”的双中心结构。",
+      "textPreview": "联合项目公司承接资金、合同、样板资产、区域运营和后续融资权益，形成“上海平台研发 + 合肥场景落地”的双中心结构。",
+      "resolvedFontSize": 19,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 19,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#657180",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "联合项目公司承接资金、合同、样板资产、区域运营和后续融资权益，形成“上海平台研发 +"
+          },
+          {
+            "index": 2,
+            "text": "合肥场景落地”的双中心结构。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "联合项目公司承接资金、合同、样板资产、区域运营和后续融资权益，形成“上海平台研发 + 合肥场景落地”的双中心结构。",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "联合项目公司承接资金、合同、样板资产、区域运营和后续融资权益，形成“上海平台研发 + 合肥场景落地”的双中心结构。",
+              "fontSize": 19,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/mlkjm1cf",
+      "id": "7",
+      "name": "shanghai",
+      "bbox": [
+        92,
+        286,
+        360,
+        264
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#234E5F",
+      "lineWidth": 1
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/x0nuxc3y",
+      "id": "8",
+      "name": "text",
+      "bbox": [
+        124,
+        320,
+        180,
+        40
+      ],
+      "geometry": "rect",
+      "text": "上海洞宇",
+      "textPreview": "上海洞宇",
+      "resolvedFontSize": 27,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 27,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "上海洞宇"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "上海洞宇",
+          "resolvedTextStyle": {
+            "fontSize": 27,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "上海洞宇",
+              "fontSize": 27,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4fu18jqh",
+      "id": "9",
+      "name": "text",
+      "bbox": [
+        124,
+        360,
+        210,
+        22
+      ],
+      "geometry": "rect",
+      "text": "平台技术方 / 标准建设方",
+      "textPreview": "平台技术方 / 标准建设方",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#234E5F",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "平台技术方 / 标准建设方"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "平台技术方 / 标准建设方",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#234E5F",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "平台技术方 / 标准建设方",
+              "fontSize": 16,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#234E5F",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6dcbulwv",
+      "id": "10",
+      "name": "text",
+      "bbox": [
+        124,
+        404,
+        260,
+        116
+      ],
+      "geometry": "rect",
+      "text": "万态网业务网络\nODS 订单交付标准\nModelTable 与智慧模型\n现场智脑与 AI Agent 接口\nPIC / DE / V1N 产品体系",
+      "textPreview": "万态网业务网络 | ODS 订单交付标准 | ModelTable 与智慧模型 | 现场智脑与 AI Agent 接口 | PIC / DE / V1N 产品体系",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#657180",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 5,
+        "lines": [
+          {
+            "index": 1,
+            "text": "万态网业务网络"
+          },
+          {
+            "index": 2,
+            "text": "ODS 订单交付标准"
+          },
+          {
+            "index": 3,
+            "text": "ModelTable 与智慧模型"
+          },
+          {
+            "index": 4,
+            "text": "现场智脑与 AI Agent 接口"
+          },
+          {
+            "index": 5,
+            "text": "PIC / DE / V1N 产品体系"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "万态网业务网络",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "万态网业务网络",
+              "fontSize": 16,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "ODS 订单交付标准",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "ODS 订单交付标准",
+              "fontSize": 16,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 3,
+          "text": "ModelTable 与智慧模型",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "ModelTable 与智慧模型",
+              "fontSize": 16,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 4,
+          "text": "现场智脑与 AI Agent 接口",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "现场智脑与 AI Agent 接口",
+              "fontSize": 16,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 5,
+          "text": "PIC / DE / V1N 产品体系",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "PIC / DE / V1N 产品体系",
+              "fontSize": 16,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vy90je9c",
+      "id": "11",
+      "name": "hefei",
+      "bbox": [
+        796,
+        286,
+        360,
+        264
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#0B7774",
+      "lineWidth": 1
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/oj2t83it",
+      "id": "12",
+      "name": "text",
+      "bbox": [
+        828,
+        320,
+        180,
+        40
+      ],
+      "geometry": "rect",
+      "text": "合肥洞宇",
+      "textPreview": "合肥洞宇",
+      "resolvedFontSize": 27,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 27,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "合肥洞宇"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "合肥洞宇",
+          "resolvedTextStyle": {
+            "fontSize": 27,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "合肥洞宇",
+              "fontSize": 27,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/d4vmtwra",
+      "id": "13",
+      "name": "text",
+      "bbox": [
+        828,
+        360,
+        230,
+        22
+      ],
+      "geometry": "rect",
+      "text": "应用场景方 / 区域运营方",
+      "textPreview": "应用场景方 / 区域运营方",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#0B7774",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "应用场景方 / 区域运营方"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "应用场景方 / 区域运营方",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#0B7774",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "应用场景方 / 区域运营方",
+              "fontSize": 16,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#0B7774",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/61032lsz",
+      "id": "14",
+      "name": "text",
+      "bbox": [
+        828,
+        404,
+        270,
+        116
+      ],
+      "geometry": "rect",
+      "text": "工厂场景与机器人落地\n帮立及劳务工种入口\n客户运营与项目交付\n政府、园区、产业基金对接\n行业应用包与区域复制",
+      "textPreview": "工厂场景与机器人落地 | 帮立及劳务工种入口 | 客户运营与项目交付 | 政府、园区、产业基金对接 | 行业应用包与区域复制",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#657180",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 5,
+        "lines": [
+          {
+            "index": 1,
+            "text": "工厂场景与机器人落地"
+          },
+          {
+            "index": 2,
+            "text": "帮立及劳务工种入口"
+          },
+          {
+            "index": 3,
+            "text": "客户运营与项目交付"
+          },
+          {
+            "index": 4,
+            "text": "政府、园区、产业基金对接"
+          },
+          {
+            "index": 5,
+            "text": "行业应用包与区域复制"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "工厂场景与机器人落地",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "工厂场景与机器人落地",
+              "fontSize": 16,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "帮立及劳务工种入口",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "帮立及劳务工种入口",
+              "fontSize": 16,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 3,
+          "text": "客户运营与项目交付",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "客户运营与项目交付",
+              "fontSize": 16,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 4,
+          "text": "政府、园区、产业基金对接",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "政府、园区、产业基金对接",
+              "fontSize": 16,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 5,
+          "text": "行业应用包与区域复制",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "行业应用包与区域复制",
+              "fontSize": 16,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vmtwra5g",
+      "id": "15",
+      "name": "jv",
+      "bbox": [
+        516,
+        330,
+        206,
+        172
+      ],
+      "geometry": "rect",
+      "fillColor": "#F5EEE6",
+      "lineColor": "#B36B2C",
+      "lineWidth": 1
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/o7qpg3ex",
+      "id": "16",
+      "name": "text",
+      "bbox": [
+        544,
+        360,
+        152,
+        26
+      ],
+      "geometry": "rect",
+      "text": "联合项目公司",
+      "textPreview": "联合项目公司",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 22,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "bold": true,
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "联合项目公司"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "联合项目公司",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "联合项目公司",
+              "fontSize": 22,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/dsji5sne",
+      "id": "17",
+      "name": "text",
+      "bbox": [
+        558,
+        406,
+        120,
+        78
+      ],
+      "geometry": "rect",
+      "text": "承接资金\n承接合同\n承接样板资产\n承接区域运营",
+      "textPreview": "承接资金 | 承接合同 | 承接样板资产 | 承接区域运营",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#657180",
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "承接资金"
+          },
+          {
+            "index": 2,
+            "text": "承接合同"
+          },
+          {
+            "index": 3,
+            "text": "承接样板资产"
+          },
+          {
+            "index": 4,
+            "text": "承接区域运营"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "承接资金",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "承接资金",
+              "fontSize": 15,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "承接合同",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "承接合同",
+              "fontSize": 15,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 3,
+          "text": "承接样板资产",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "承接样板资产",
+              "fontSize": 15,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 4,
+          "text": "承接区域运营",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "承接区域运营",
+              "fontSize": 15,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6tovahoz",
+      "id": "18",
+      "name": "hairline",
+      "bbox": [
+        452,
+        404,
+        64,
+        2
+      ],
+      "geometry": "rect",
+      "fillColor": "#B36B2C",
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vahoza1g",
+      "id": "19",
+      "name": "hairline",
+      "bbox": [
+        722,
+        404,
+        74,
+        2
+      ],
+      "geometry": "rect",
+      "fillColor": "#B36B2C",
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/r65wjudg",
+      "id": "20",
+      "name": "text",
+      "bbox": [
+        456,
+        376,
+        78,
+        18
+      ],
+      "geometry": "rect",
+      "text": "授权与产品",
+      "textPreview": "授权与产品",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#B36B2C",
+        "bold": true,
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "授权与产品"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "授权与产品",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#B36B2C",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "授权与产品",
+              "fontSize": 12,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#B36B2C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ylc7u54z",
+      "id": "21",
+      "name": "text",
+      "bbox": [
+        736,
+        376,
+        86,
+        18
+      ],
+      "geometry": "rect",
+      "text": "场景与运营",
+      "textPreview": "场景与运营",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#B36B2C",
+        "bold": true,
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "场景与运营"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "场景与运营",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#B36B2C",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "场景与运营",
+              "fontSize": 12,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#B36B2C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9cvixcze",
+      "id": "22",
+      "name": "hairline",
+      "bbox": [
+        76,
+        670,
+        1060,
+        1
+      ],
+      "geometry": "rect",
+      "fillColor": "#D9DEE2",
+      "lineWidth": 0
+    },
+    {
+      "order": 23,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gr2p8nqx",
+      "id": "23",
+      "name": "footer-source",
+      "bbox": [
+        76,
+        682,
+        700,
+        18
+      ],
+      "geometry": "rect",
+      "text": "Source: 上海洞宇与合肥洞宇联合商业计划书 V1.6",
+      "textPreview": "Source: 上海洞宇与合肥洞宇联合商业计划书 V1.6",
+      "resolvedFontSize": 10,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 10,
+        "typeface": "IBM Plex Sans",
+        "color": "#657180",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Source: 上海洞宇与合肥洞宇联合商业计划书 V1.6"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Source: 上海洞宇与合肥洞宇联合商业计划书 V1.6",
+          "resolvedTextStyle": {
+            "fontSize": 10,
+            "typeface": "IBM Plex Sans",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Source: 上海洞宇与合肥洞宇联合商业计划书 V1.6",
+              "fontSize": 10,
+              "typeface": "IBM Plex Sans",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 24,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nih4byhg",
+      "id": "24",
+      "name": "footer-page",
+      "bbox": [
+        1120,
+        682,
+        60,
+        18
+      ],
+      "geometry": "rect",
+      "text": "11",
+      "textPreview": "11",
+      "resolvedFontSize": 10,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 10,
+        "typeface": "IBM Plex Sans",
+        "color": "#657180",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "11"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "11",
+          "resolvedTextStyle": {
+            "fontSize": 10,
+            "typeface": "IBM Plex Sans",
+            "color": "#657180",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "11",
+              "fontSize": 10,
+              "typeface": "IBM Plex Sans",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

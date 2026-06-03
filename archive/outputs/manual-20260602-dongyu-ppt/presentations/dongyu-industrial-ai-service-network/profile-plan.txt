@@ -1,0 +1,38 @@
+task mode: create
+primary deck-profile: strategy-leadership by task intent; use product-platform gates because the installed profile set does not include strategy-leadership.
+secondary gates: product-platform, appendix-light investor materials
+
+audience:
+- Industrial investors,产业基金,政府产业部门,strategic partners.
+
+required proof objects:
+- Investor conclusion page.
+- Market shift frame for AI entering industry through service channels.
+- ODS order delivery system definition.
+- AI-to-industrial-service channel map.
+- Site brain / cloud LLM control split.
+- Wisdom model hallucination-control matrix.
+- Shanghai/Hefei role split.
+- First-stage landing path around Banli and labor-market work types.
+- Four-stage route.
+- Product-to-financial linkage and first-stage asset formation.
+
+source / asset requirements:
+- Primary source is the approved Markdown BP.
+- Use official public cases only as citation/context, not as deck metrics unless cited.
+- No unverified logos, partner marks, product screenshots, or fake industrial UI.
+
+brand authenticity constraints:
+- Do not invent a Dongyu logo.
+- Use text identity only: 上海洞宇 + 合肥洞宇 / 万态网工业 AI 服务网络.
+- Generic diagrams must be editable shapes and lines, not pseudo-branded icons.
+
+profile-specific QA gates:
+- Each slide must have a claim title, not a topic label.
+- Product diagrams must connect capability to monetization, risk control, or scaling.
+- No generic feature-card grids.
+- No AI-purple gradient, glowing nodes, floating spheres, brain icons, robot silhouettes, or decorative chip patterns.
+- External deck must only state first-stage 5,000万元; no second/third-stage concrete investment amount.
+
+known missing inputs:
+- No confirmed customer logos, site photos, or exact workstation photos are available; the deck therefore uses abstract, editable industrial diagrams and source-backed references.

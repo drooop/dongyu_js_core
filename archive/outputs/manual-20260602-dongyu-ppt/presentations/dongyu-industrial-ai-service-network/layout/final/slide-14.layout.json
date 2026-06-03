@@ -1,0 +1,2037 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/3gzaph",
+    "id": "3gzaph",
+    "slide": 14,
+    "layoutId": "b1000c6b-00bb-4015-80e4-56ba48dd5777",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "6cf337a6-c781-4d4f-8601-5dfd5860cdb0",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "IBM Plex Sans",
+      "Noto Sans CJK SC"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "b1000c6b-00bb-4015-80e4-56ba48dd5777",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "6cf337a6-c781-4d4f-8601-5dfd5860cdb0",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "6cf337a6-c781-4d4f-8601-5dfd5860cdb0",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3ylc7u54",
+      "id": "1",
+      "name": "background",
+      "bbox": [
+        0,
+        0,
+        1280,
+        720
+      ],
+      "geometry": "rect",
+      "fillColor": "#F7F8F6",
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/sji5snel",
+      "id": "2",
+      "name": "kicker-marker",
+      "bbox": [
+        76,
+        58,
+        38,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#0B7774",
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/h4byhgn2",
+      "id": "3",
+      "name": "kicker-label",
+      "bbox": [
+        124,
+        48,
+        360,
+        24
+      ],
+      "geometry": "rect",
+      "text": "BUSINESS MODEL",
+      "textPreview": "BUSINESS MODEL",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 12,
+        "typeface": "IBM Plex Sans",
+        "color": "#657180",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "BUSINESS MODEL"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "BUSINESS MODEL",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "IBM Plex Sans",
+            "color": "#657180",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "BUSINESS MODEL",
+              "fontSize": 12,
+              "typeface": "IBM Plex Sans",
+              "color": "#657180",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/a5gbq1or",
+      "id": "4",
+      "name": "page-marker",
+      "bbox": [
+        1138,
+        48,
+        70,
+        24
+      ],
+      "geometry": "rect",
+      "text": "14",
+      "textPreview": "14",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 12,
+        "typeface": "IBM Plex Sans",
+        "color": "#657180",
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "14"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "14",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "IBM Plex Sans",
+            "color": "#657180",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "14",
+              "fontSize": 12,
+              "typeface": "IBM Plex Sans",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3m94fu18",
+      "id": "5",
+      "name": "claim-title",
+      "bbox": [
+        76,
+        88,
+        980,
+        106
+      ],
+      "geometry": "rect",
+      "text": "收入从项目交付升级为 ODS 订单交付、\n节点、数字员工和渠道分成。",
+      "textPreview": "收入从项目交付升级为 ODS 订单交付、 | 节点、数字员工和渠道分成。",
+      "resolvedFontSize": 38,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 38,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "收入从项目交付升级为 ODS 订单交付、"
+          },
+          {
+            "index": 2,
+            "text": "节点、数字员工和渠道分成。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "收入从项目交付升级为 ODS 订单交付、",
+          "resolvedTextStyle": {
+            "fontSize": 38,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "收入从项目交付升级为 ODS 订单交付、",
+              "fontSize": 38,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "节点、数字员工和渠道分成。",
+          "resolvedTextStyle": {
+            "fontSize": 38,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "节点、数字员工和渠道分成。",
+              "fontSize": 38,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/s72x4nap",
+      "id": "6",
+      "name": "support-note",
+      "bbox": [
+        78,
+        214,
+        930,
+        58
+      ],
+      "geometry": "rect",
+      "text": "首期通过样板项目和服务包交付取得收入，中长期通过 ODS 订单交付、平台订阅、渠道分成和生态交易形成持续收入。",
+      "textPreview": "首期通过样板项目和服务包交付取得收入，中长期通过 ODS 订单交付、平台订阅、渠道分成和生态交易形成持续收入。",
+      "resolvedFontSize": 19,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 19,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#657180",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "首期通过样板项目和服务包交付取得收入，中长期通过 ODS"
+          },
+          {
+            "index": 2,
+            "text": "订单交付、平台订阅、渠道分成和生态交易形成持续收入。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "首期通过样板项目和服务包交付取得收入，中长期通过 ODS 订单交付、平台订阅、渠道分成和生态交易形成持续收入。",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "首期通过样板项目和服务包交付取得收入，中长期通过 ODS 订单交付、平台订阅、渠道分成和生态交易形成持续收入。",
+              "fontSize": 19,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lszqtcj6",
+      "id": "7",
+      "name": "revenue-header",
+      "bbox": [
+        86,
+        286,
+        230,
+        42
+      ],
+      "geometry": "rect",
+      "fillColor": "#234E5F",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/a1gvy90j",
+      "id": "8",
+      "name": "text",
+      "bbox": [
+        104,
+        298,
+        202,
+        18
+      ],
+      "geometry": "rect",
+      "text": "收入类型",
+      "textPreview": "收入类型",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#FFFFFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "收入类型"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "收入类型",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#FFFFFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "收入类型",
+              "fontSize": 15,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#FFFFFF",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zidonyd0",
+      "id": "9",
+      "name": "revenue-header",
+      "bbox": [
+        316,
+        286,
+        360,
+        42
+      ],
+      "geometry": "rect",
+      "fillColor": "#234E5F",
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/re1w7mp0",
+      "id": "10",
+      "name": "text",
+      "bbox": [
+        334,
+        298,
+        332,
+        18
+      ],
+      "geometry": "rect",
+      "text": "收入内容",
+      "textPreview": "收入内容",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#FFFFFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "收入内容"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "收入内容",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#FFFFFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "收入内容",
+              "fontSize": 15,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#FFFFFF",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2t83itgf",
+      "id": "11",
+      "name": "revenue-header",
+      "bbox": [
+        676,
+        286,
+        320,
+        42
+      ],
+      "geometry": "rect",
+      "fillColor": "#234E5F",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9knih4by",
+      "id": "12",
+      "name": "text",
+      "bbox": [
+        694,
+        298,
+        292,
+        18
+      ],
+      "geometry": "rect",
+      "text": "商业作用",
+      "textPreview": "商业作用",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#FFFFFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "商业作用"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "商业作用",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#FFFFFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "商业作用",
+              "fontSize": 15,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#FFFFFF",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kzupwb2h",
+      "id": "13",
+      "name": "revenue-cell",
+      "bbox": [
+        86,
+        328,
+        230,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#EAF4F3",
+      "lineColor": "#0B7774",
+      "lineWidth": 1
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rqd4vmtw",
+      "id": "14",
+      "name": "text",
+      "bbox": [
+        104,
+        338,
+        200,
+        34
+      ],
+      "geometry": "rect",
+      "text": "ODS 订单交付收入",
+      "textPreview": "ODS 订单交付收入",
+      "resolvedFontSize": 15.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#0B7774",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "ODS 订单交付收入"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "ODS 订单交付收入",
+          "resolvedTextStyle": {
+            "fontSize": 15.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#0B7774",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "ODS 订单交付收入",
+              "fontSize": 15.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#0B7774",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/25kb6xkf",
+      "id": "15",
+      "name": "revenue-cell",
+      "bbox": [
+        316,
+        328,
+        360,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#EAF4F3",
+      "lineColor": "#0B7774",
+      "lineWidth": 1
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9w3m94fu",
+      "id": "16",
+      "name": "text",
+      "bbox": [
+        334,
+        338,
+        330,
+        34
+      ],
+      "geometry": "rect",
+      "text": "按订单、工单、验收结果和渠道分成计费",
+      "textPreview": "按订单、工单、验收结果和渠道分成计费",
+      "resolvedFontSize": 13.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 13.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "按订单、工单、验收结果和渠道分成计费"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "按订单、工单、验收结果和渠道分成计费",
+          "resolvedTextStyle": {
+            "fontSize": 13.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "按订单、工单、验收结果和渠道分成计费",
+              "fontSize": 13.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kb6xkf6d",
+      "id": "17",
+      "name": "revenue-cell",
+      "bbox": [
+        676,
+        328,
+        320,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#EAF4F3",
+      "lineColor": "#0B7774",
+      "lineWidth": 1
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/r2p8nqxs",
+      "id": "18",
+      "name": "text",
+      "bbox": [
+        694,
+        338,
+        290,
+        34
+      ],
+      "geometry": "rect",
+      "text": "工业服务交易的核心收入",
+      "textPreview": "工业服务交易的核心收入",
+      "resolvedFontSize": 13.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 13.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "工业服务交易的核心收入"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "工业服务交易的核心收入",
+          "resolvedTextStyle": {
+            "fontSize": 13.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "工业服务交易的核心收入",
+              "fontSize": 13.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2hwfyxob",
+      "id": "19",
+      "name": "revenue-cell",
+      "bbox": [
+        86,
+        390,
+        230,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9DEE2",
+      "lineWidth": 1
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/q1orytsv",
+      "id": "20",
+      "name": "text",
+      "bbox": [
+        104,
+        400,
+        200,
+        34
+      ],
+      "geometry": "rect",
+      "text": "PIC 节点收入",
+      "textPreview": "PIC 节点收入",
+      "resolvedFontSize": 15.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "PIC 节点收入"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "PIC 节点收入",
+          "resolvedTextStyle": {
+            "fontSize": 15.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "PIC 节点收入",
+              "fontSize": 15.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fmlkjm1c",
+      "id": "21",
+      "name": "revenue-cell",
+      "bbox": [
+        316,
+        390,
+        360,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9DEE2",
+      "lineWidth": 1
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/87ed8bat",
+      "id": "22",
+      "name": "text",
+      "bbox": [
+        334,
+        400,
+        330,
+        34
+      ],
+      "geometry": "rect",
+      "text": "PIC 节点销售、租赁或服务化交付",
+      "textPreview": "PIC 节点销售、租赁或服务化交付",
+      "resolvedFontSize": 13.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 13.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "PIC 节点销售、租赁或服务化交付"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "PIC 节点销售、租赁或服务化交付",
+          "resolvedTextStyle": {
+            "fontSize": 13.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "PIC 节点销售、租赁或服务化交付",
+              "fontSize": 13.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 23,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/xs72x4na",
+      "id": "23",
+      "name": "revenue-cell",
+      "bbox": [
+        676,
+        390,
+        320,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9DEE2",
+      "lineWidth": 1
+    },
+    {
+      "order": 24,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qtcj6tov",
+      "id": "24",
+      "name": "text",
+      "bbox": [
+        694,
+        400,
+        290,
+        34
+      ],
+      "geometry": "rect",
+      "text": "每个工位的标准入口",
+      "textPreview": "每个工位的标准入口",
+      "resolvedFontSize": 13.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 13.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "每个工位的标准入口"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "每个工位的标准入口",
+          "resolvedTextStyle": {
+            "fontSize": 13.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "每个工位的标准入口",
+              "fontSize": 13.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 25,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/je9cvixc",
+      "id": "25",
+      "name": "revenue-cell",
+      "bbox": [
+        86,
+        452,
+        230,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9DEE2",
+      "lineWidth": 1
+    },
+    {
+      "order": 26,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/8z25kb6x",
+      "id": "26",
+      "name": "text",
+      "bbox": [
+        104,
+        462,
+        200,
+        34
+      ],
+      "geometry": "rect",
+      "text": "DE 数字员工收入",
+      "textPreview": "DE 数字员工收入",
+      "resolvedFontSize": 15.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "DE 数字员工收入"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "DE 数字员工收入",
+          "resolvedTextStyle": {
+            "fontSize": 15.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "DE 数字员工收入",
+              "fontSize": 15.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 27,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/1gvy90je",
+      "id": "27",
+      "name": "revenue-cell",
+      "bbox": [
+        316,
+        452,
+        360,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9DEE2",
+      "lineWidth": 1
+    },
+    {
+      "order": 28,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qpg3ex0n",
+      "id": "28",
+      "name": "text",
+      "bbox": [
+        334,
+        462,
+        330,
+        34
+      ],
+      "geometry": "rect",
+      "text": "数字员工部署、岗位服务费、持续运维",
+      "textPreview": "数字员工部署、岗位服务费、持续运维",
+      "resolvedFontSize": 13.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 13.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "数字员工部署、岗位服务费、持续运维"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "数字员工部署、岗位服务费、持续运维",
+          "resolvedTextStyle": {
+            "fontSize": 13.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "数字员工部署、岗位服务费、持续运维",
+              "fontSize": 13.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 29,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fa9w3m94",
+      "id": "29",
+      "name": "revenue-cell",
+      "bbox": [
+        676,
+        452,
+        320,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9DEE2",
+      "lineWidth": 1
+    },
+    {
+      "order": 30,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/58z25kb6",
+      "id": "30",
+      "name": "text",
+      "bbox": [
+        694,
+        462,
+        290,
+        34
+      ],
+      "geometry": "rect",
+      "text": "客户可理解的岗位化服务",
+      "textPreview": "客户可理解的岗位化服务",
+      "resolvedFontSize": 13.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 13.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "客户可理解的岗位化服务"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "客户可理解的岗位化服务",
+          "resolvedTextStyle": {
+            "fontSize": 13.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "客户可理解的岗位化服务",
+              "fontSize": 13.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 31,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gn29gr2p",
+      "id": "31",
+      "name": "revenue-cell",
+      "bbox": [
+        86,
+        514,
+        230,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9DEE2",
+      "lineWidth": 1
+    },
+    {
+      "order": 32,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/n29gr2p8",
+      "id": "32",
+      "name": "text",
+      "bbox": [
+        104,
+        524,
+        200,
+        34
+      ],
+      "geometry": "rect",
+      "text": "渠道运营收入",
+      "textPreview": "渠道运营收入",
+      "resolvedFontSize": 15.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "渠道运营收入"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "渠道运营收入",
+          "resolvedTextStyle": {
+            "fontSize": 15.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "渠道运营收入",
+              "fontSize": 15.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 33,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/yhgn29gr",
+      "id": "33",
+      "name": "revenue-cell",
+      "bbox": [
+        316,
+        514,
+        360,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9DEE2",
+      "lineWidth": 1
+    },
+    {
+      "order": 34,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5wjudg7a",
+      "id": "34",
+      "name": "text",
+      "bbox": [
+        334,
+        524,
+        330,
+        34
+      ],
+      "geometry": "rect",
+      "text": "劳务市场、园区、设备商、集成商导入订单后的服务分成",
+      "textPreview": "劳务市场、园区、设备商、集成商导入订单后的服务分成",
+      "resolvedFontSize": 13.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 13.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "劳务市场、园区、设备商、集成商导入订单后的服务分"
+          },
+          {
+            "index": 2,
+            "text": "成"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "劳务市场、园区、设备商、集成商导入订单后的服务分成",
+          "resolvedTextStyle": {
+            "fontSize": 13.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "劳务市场、园区、设备商、集成商导入订单后的服务分成",
+              "fontSize": 13.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 35,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gbq1oryt",
+      "id": "35",
+      "name": "revenue-cell",
+      "bbox": [
+        676,
+        514,
+        320,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9DEE2",
+      "lineWidth": 1
+    },
+    {
+      "order": 36,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nuxc3ylc",
+      "id": "36",
+      "name": "text",
+      "bbox": [
+        694,
+        524,
+        290,
+        34
+      ],
+      "geometry": "rect",
+      "text": "销售订单交付流量的渠道收益",
+      "textPreview": "销售订单交付流量的渠道收益",
+      "resolvedFontSize": 13.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 13.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "销售订单交付流量的渠道收益"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "销售订单交付流量的渠道收益",
+          "resolvedTextStyle": {
+            "fontSize": 13.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "销售订单交付流量的渠道收益",
+              "fontSize": 13.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 37,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/y90je9cv",
+      "id": "37",
+      "name": "revenue-cell",
+      "bbox": [
+        86,
+        576,
+        230,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9DEE2",
+      "lineWidth": 1
+    },
+    {
+      "order": 38,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5sneloj2",
+      "id": "38",
+      "name": "text",
+      "bbox": [
+        104,
+        586,
+        200,
+        34
+      ],
+      "geometry": "rect",
+      "text": "行业应用包收入",
+      "textPreview": "行业应用包收入",
+      "resolvedFontSize": 15.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "行业应用包收入"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "行业应用包收入",
+          "resolvedTextStyle": {
+            "fontSize": 15.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "行业应用包收入",
+              "fontSize": 15.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 39,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cbulwval",
+      "id": "39",
+      "name": "revenue-cell",
+      "bbox": [
+        316,
+        576,
+        360,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9DEE2",
+      "lineWidth": 1
+    },
+    {
+      "order": 40,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0je9cvix",
+      "id": "40",
+      "name": "text",
+      "bbox": [
+        334,
+        586,
+        330,
+        34
+      ],
+      "geometry": "rect",
+      "text": "应用包授权、部署、升级、运维",
+      "textPreview": "应用包授权、部署、升级、运维",
+      "resolvedFontSize": 13.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 13.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "应用包授权、部署、升级、运维"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "应用包授权、部署、升级、运维",
+          "resolvedTextStyle": {
+            "fontSize": 13.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "应用包授权、部署、升级、运维",
+              "fontSize": 13.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 41,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/t47y1kre",
+      "id": "41",
+      "name": "revenue-cell",
+      "bbox": [
+        676,
+        576,
+        320,
+        58
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D9DEE2",
+      "lineWidth": 1
+    },
+    {
+      "order": 42,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/idonyd0z",
+      "id": "42",
+      "name": "text",
+      "bbox": [
+        694,
+        586,
+        290,
+        34
+      ],
+      "geometry": "rect",
+      "text": "形成行业复制能力",
+      "textPreview": "形成行业复制能力",
+      "resolvedFontSize": 13.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 13.51,
+        "typeface": "Noto Sans CJK SC",
+        "color": "#18212F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "形成行业复制能力"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "形成行业复制能力",
+          "resolvedTextStyle": {
+            "fontSize": 13.51,
+            "typeface": "Noto Sans CJK SC",
+            "color": "#18212F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "形成行业复制能力",
+              "fontSize": 13.51,
+              "typeface": "Noto Sans CJK SC",
+              "color": "#18212F"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 43,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/byhgn29g",
+      "id": "43",
+      "name": "hairline",
+      "bbox": [
+        76,
+        670,
+        1060,
+        1
+      ],
+      "geometry": "rect",
+      "fillColor": "#D9DEE2",
+      "lineWidth": 0
+    },
+    {
+      "order": 44,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0rqd4vmt",
+      "id": "44",
+      "name": "footer-source",
+      "bbox": [
+        76,
+        682,
+        700,
+        18
+      ],
+      "geometry": "rect",
+      "text": "Source: 上海洞宇与合肥洞宇联合商业计划书 V1.6",
+      "textPreview": "Source: 上海洞宇与合肥洞宇联合商业计划书 V1.6",
+      "resolvedFontSize": 10,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 10,
+        "typeface": "IBM Plex Sans",
+        "color": "#657180",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Source: 上海洞宇与合肥洞宇联合商业计划书 V1.6"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Source: 上海洞宇与合肥洞宇联合商业计划书 V1.6",
+          "resolvedTextStyle": {
+            "fontSize": 10,
+            "typeface": "IBM Plex Sans",
+            "color": "#657180",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Source: 上海洞宇与合肥洞宇联合商业计划书 V1.6",
+              "fontSize": 10,
+              "typeface": "IBM Plex Sans",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 45,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tcj6tova",
+      "id": "45",
+      "name": "footer-page",
+      "bbox": [
+        1120,
+        682,
+        60,
+        18
+      ],
+      "geometry": "rect",
+      "text": "14",
+      "textPreview": "14",
+      "resolvedFontSize": 10,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 10,
+        "typeface": "IBM Plex Sans",
+        "color": "#657180",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "14"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "14",
+          "resolvedTextStyle": {
+            "fontSize": 10,
+            "typeface": "IBM Plex Sans",
+            "color": "#657180",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "14",
+              "fontSize": 10,
+              "typeface": "IBM Plex Sans",
+              "color": "#657180"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

@@ -1,0 +1,24 @@
+Contact-sheet plan:
+
+01 Cover with metric rail.
+02 Capital-to-asset bridge.
+03 Transformation table with one emphasized industrial row.
+04 Gap diagram / channel missing link.
+05 Business network map.
+06 ODS comparison matrix.
+07 Operating loop.
+08 Cloud-vs-site split architecture.
+09 Control matrix.
+10 Product stack and revenue link.
+11 Two-center operating model.
+12 First-stage landing map.
+13 Four-stage horizontal route.
+14 Revenue pathway table.
+15 Funding-to-assets allocation matrix.
+16 Closing ladder.
+
+Rhythm rules:
+- No three consecutive slides use the same macro layout.
+- No more than two simple card-grid slides.
+- Every diagram carries a specific business relationship.
+- Contact sheet should show industrial consulting discipline, not a template pack.
