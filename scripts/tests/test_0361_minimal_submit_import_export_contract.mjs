@@ -136,7 +136,8 @@ async function test_saved_zip_imports_and_exports_reimportable_zip() {
     assert.deepEqual(root.get('dual_bus_model')?.v, { mode: 'imported_host_egress', egress_pins: ['submit1'] }, 'dual_bus_must_declare_public_egress_pin');
     assert.ok(root.has('host_egress_generated_model0_labels'), 'host_egress_adapter_must_be_generated');
     const statusCell = state.runtime.getCell(state.runtime.getModel(importedId), 2, 5, 0).labels;
-    assert.equal(statusCell.get('ui_text_ref_model_id')?.v, importedId, 'scalar_ui_ref_model_id_must_remap_to_imported_model');
+    assert.deepEqual(statusCell.get('ui_bind_read_json')?.v, { p: 0, r: 0, c: 0, k: 'remote_status' }, 'status_badge_must_use_current_model_bind_read_without_model_id');
+    assert.equal([...statusCell.keys()].some((key) => String(key).startsWith('ui_text_ref_')), false, 'status_badge_must_not_keep_scalar_ui_text_ref_bindings');
     state.runtime.addLabel(importedModel, 0, 0, 0, { k: 'owner_request', t: 'pin.in', v: [] });
     state.runtime.addLabel(importedModel, 0, 0, 0, { k: 'owner_route', t: 'pin.connect.label', v: [{ from: 'owner_request', to: ['owner_materialize:in'] }] });
     state.runtime.addLabel(importedModel, 0, 0, 0, { k: '__owner_last_action', t: 'str', v: 'pin_payload_result' });
@@ -162,7 +163,8 @@ async function test_saved_zip_imports_and_exports_reimportable_zip() {
     assert.equal(exportedPayload.some((record) => record.k === 'ui_bind_json' && record.p === 2 && record.r === 3 && record.v?.write?.pin === 'click_event'), true, 'exported_payload_must_keep_button_write_binding_to_click_event');
     assert.equal(exportedPayload.some((record) => record.k === 'submit1' && record.t === 'pin.out'), true, 'exported_payload_must_keep_submit1_pin_out');
     assert.equal(exportedPayload.some((record) => record.k === 'submit' && record.t === 'pin.out'), false, 'exported_payload_must_not_recreate_legacy_submit_pin');
-    assert.equal(exportedPayload.find((record) => record.k === 'ui_text_ref_model_id')?.v, 0, 'scalar_ui_ref_model_id_must_export_as_temp_id');
+    assert.deepEqual(exportedPayload.find((record) => record.k === 'ui_bind_read_json' && record.p === 2 && record.r === 5 && record.c === 0)?.v, { p: 0, r: 0, c: 0, k: 'remote_status' }, 'exported_payload_must_keep_current_model_bind_read_without_model_id');
+    assert.equal(exportedPayload.some((record) => String(record.k || '').startsWith('ui_text_ref_')), false, 'exported_payload_must_not_recreate_scalar_ui_text_ref_bindings');
 
     state.cacheUploadedMediaForTest('mxc://localhost/0361-reimported-export', {
       buffer: exportResult.data.buffer,

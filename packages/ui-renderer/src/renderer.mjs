@@ -42,6 +42,35 @@ function getLabelValue(snapshot, ref) {
   return label.v;
 }
 
+function currentModelIdForNode(node) {
+  const modelId = node && node.cell_ref && Number.isInteger(node.cell_ref.model_id)
+    ? node.cell_ref.model_id
+    : null;
+  return modelId;
+}
+
+function resolveRefForNode(ref, node) {
+  if (!isPlainObject(ref)) return ref;
+  if (Object.prototype.hasOwnProperty.call(ref, 'model_id')) return ref;
+  if (!Number.isInteger(ref.p) || !Number.isInteger(ref.r) || !Number.isInteger(ref.c)) return ref;
+  if (Object.prototype.hasOwnProperty.call(ref, 'k') && typeof ref.k !== 'string') return ref;
+  const modelId = currentModelIdForNode(node);
+  if (!Number.isInteger(modelId)) return ref;
+  return { ...ref, model_id: modelId };
+}
+
+function resolveWriteTargetForNode(target, node) {
+  if (!isPlainObject(target)) return target;
+  const next = { ...target };
+  if (isPlainObject(next.target_ref)) {
+    next.target_ref = resolveRefForNode(next.target_ref, node);
+  }
+  if (isPlainObject(next.commit_target_ref)) {
+    next.commit_target_ref = resolveRefForNode(next.commit_target_ref, node);
+  }
+  return next;
+}
+
 function toCssLength(value, fallback) {
   if (typeof value === 'number' && Number.isFinite(value)) return `${value}px`;
   if (typeof value === 'string' && value.trim()) return value;
@@ -65,12 +94,13 @@ function normalizeSelectModelValue(value, options) {
   return value;
 }
 
-function getEffectiveLabelValue(snapshot, ref, host) {
+function getEffectiveLabelValue(snapshot, ref, host, node = null) {
+  const resolvedRef = resolveRefForNode(ref, node);
   if (host && typeof host.getEffectiveLabelValue === 'function') {
-    const value = host.getEffectiveLabelValue(ref);
+    const value = host.getEffectiveLabelValue(resolvedRef);
     if (value !== undefined) return value;
   }
-  return getLabelValue(snapshot, ref);
+  return getLabelValue(snapshot, resolvedRef);
 }
 
 function isPlainObject(value) {
@@ -91,7 +121,7 @@ function stringifyForCodeBlock(value) {
 function readMarkdownText(node, snapshot, host, ctx) {
   const bind = node.bind && node.bind.read;
   const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-  const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host)) : undefined;
+  const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
   if (value !== undefined) return String(value);
   const props = node.props || {};
   if (Object.prototype.hasOwnProperty.call(props, 'markdown')) return String(props.markdown ?? '');
@@ -364,49 +394,49 @@ function resolveRefValue(ref, ctx) {
   return undefined;
 }
 
-function resolveRefsDeep(value, ctx, snapshot, host) {
+function resolveRefsDeep(value, ctx, snapshot, host, node = null) {
   if (!value) return value;
   if (isPlainObject(value) && Object.keys(value).length === 1 && Object.prototype.hasOwnProperty.call(value, '$label')) {
-    const ref = resolveRefsDeep(value.$label, ctx, snapshot, host);
-    return snapshot ? getEffectiveLabelValue(snapshot, ref, host) : undefined;
+    const ref = resolveRefForNode(resolveRefsDeep(value.$label, ctx, snapshot, host, node), node);
+    return snapshot ? getEffectiveLabelValue(snapshot, ref, host, node) : undefined;
   }
   if (isPlainObject(value) && typeof value.$ref === 'string' && Object.keys(value).length === 1) {
     if (!ctx) return value;
     return resolveRefValue(value.$ref, ctx);
   }
   if (Array.isArray(value)) {
-    return value.map((v) => resolveRefsDeep(v, ctx, snapshot, host));
+    return value.map((v) => resolveRefsDeep(v, ctx, snapshot, host, node));
   }
   if (isPlainObject(value)) {
     const out = {};
     for (const [k, v] of Object.entries(value)) {
-      out[k] = resolveRefsDeep(v, ctx, snapshot, host);
+      out[k] = resolveRefsDeep(v, ctx, snapshot, host, node);
     }
     return out;
   }
   return value;
 }
 
-function readPropValueFromSnapshot(snapshot, props, valueKey, refKey) {
+function readPropValueFromSnapshot(snapshot, props, valueKey, refKey, node = null) {
   if (!isPlainObject(props)) return undefined;
   if (Object.prototype.hasOwnProperty.call(props, valueKey)) {
     return props[valueKey];
   }
   const ref = props[refKey];
   if (isPlainObject(ref)) {
-    return getLabelValue(snapshot, ref);
+    return getLabelValue(snapshot, resolveRefForNode(ref, node));
   }
   return undefined;
 }
 
-function readComponentValue(snapshot, props, valueKey, refKey, host) {
+function readComponentValue(snapshot, props, valueKey, refKey, host, node = null) {
   if (!isPlainObject(props)) return undefined;
   if (Object.prototype.hasOwnProperty.call(props, valueKey)) {
     return props[valueKey];
   }
   const ref = props[refKey];
   if (isPlainObject(ref)) {
-    return getEffectiveLabelValue(snapshot, ref, host);
+    return getEffectiveLabelValue(snapshot, ref, host, node);
   }
   return undefined;
 }
@@ -463,10 +493,10 @@ function normalizeTodoTasks(value) {
 }
 
 function readTodoTasks(node, snapshot, props, host) {
-  const direct = readComponentValue(snapshot, props, 'tasks', 'tasksRef', host);
+  const direct = readComponentValue(snapshot, props, 'tasks', 'tasksRef', host, node);
   if (direct !== undefined) return normalizeTodoTasks(direct);
   const bind = node.bind && node.bind.read;
-  if (bind) return normalizeTodoTasks(getEffectiveLabelValue(snapshot, bind, host));
+  if (bind) return normalizeTodoTasks(getEffectiveLabelValue(snapshot, bind, host, node));
   return [];
 }
 
@@ -666,14 +696,14 @@ function visibilityValueIsOn(value) {
   return true;
 }
 
-function shouldRenderVisibleNode(props, snapshot, host) {
+function shouldRenderVisibleNode(props, snapshot, host, node = null) {
   if (!props || typeof props !== 'object') return true;
   if (props.visibleRef && typeof props.visibleRef === 'object') {
-    const visibleValue = getEffectiveLabelValue(snapshot, props.visibleRef, host);
+    const visibleValue = getEffectiveLabelValue(snapshot, props.visibleRef, host, node);
     if (!visibilityValueIsOn(visibleValue)) return false;
   }
   if (props.hiddenRef && typeof props.hiddenRef === 'object') {
-    const hiddenValue = getEffectiveLabelValue(snapshot, props.hiddenRef, host);
+    const hiddenValue = getEffectiveLabelValue(snapshot, props.hiddenRef, host, node);
     if (visibilityValueIsOn(hiddenValue)) return false;
   }
   return true;
@@ -699,12 +729,12 @@ function inferThreeSceneModelId(props) {
   return null;
 }
 
-function normalizeThreeSceneHostProps(snapshot, props) {
-  const sceneGraph = readPropValueFromSnapshot(snapshot, props, 'sceneGraph', 'sceneGraphRef');
-  const cameraState = readPropValueFromSnapshot(snapshot, props, 'cameraState', 'cameraStateRef');
-  const selectedEntityId = readPropValueFromSnapshot(snapshot, props, 'selectedEntityId', 'selectedEntityIdRef');
-  const sceneStatus = readPropValueFromSnapshot(snapshot, props, 'sceneStatus', 'sceneStatusRef');
-  const auditLog = readPropValueFromSnapshot(snapshot, props, 'auditLog', 'auditLogRef');
+function normalizeThreeSceneHostProps(snapshot, props, node = null) {
+  const sceneGraph = readPropValueFromSnapshot(snapshot, props, 'sceneGraph', 'sceneGraphRef', node);
+  const cameraState = readPropValueFromSnapshot(snapshot, props, 'cameraState', 'cameraStateRef', node);
+  const selectedEntityId = readPropValueFromSnapshot(snapshot, props, 'selectedEntityId', 'selectedEntityIdRef', node);
+  const sceneStatus = readPropValueFromSnapshot(snapshot, props, 'sceneStatus', 'sceneStatusRef', node);
+  const auditLog = readPropValueFromSnapshot(snapshot, props, 'auditLog', 'auditLogRef', node);
   const nextProps = {
     ...props,
     sceneModelId: inferThreeSceneModelId(props),
@@ -1158,7 +1188,7 @@ function normalizeCommitPolicy(target) {
 
 function shouldUseOverlay(host, node, target) {
   if (!host || typeof host.stageOverlayValue !== 'function') return false;
-  const readRef = node && node.bind && node.bind.read;
+  const readRef = resolveRefForNode(node && node.bind && node.bind.read, node);
   if (!readRef || !isPlainObject(readRef) || !Number.isInteger(readRef.model_id)) return false;
   if (readRef.model_id === 0 || readRef.model_id === -1) return false;
   return normalizeCommitPolicy(target) !== 'immediate';
@@ -1166,14 +1196,14 @@ function shouldUseOverlay(host, node, target) {
 
 function stageOverlay(node, target, value, host) {
   if (!host || typeof host.stageOverlayValue !== 'function') return;
-  const readRef = node && node.bind && node.bind.read;
-  host.stageOverlayValue({ ref: readRef, value, writeTarget: target });
+  const readRef = resolveRefForNode(node && node.bind && node.bind.read, node);
+  host.stageOverlayValue({ ref: readRef, value, writeTarget: resolveWriteTargetForNode(target, node) });
 }
 
 function commitOverlay(node, target, value, host) {
   if (!host || typeof host.commitOverlayValue !== 'function') return;
-  const readRef = node && node.bind && node.bind.read;
-  host.commitOverlayValue({ ref: readRef, value, writeTarget: target });
+  const readRef = resolveRefForNode(node && node.bind && node.bind.read, node);
+  host.commitOverlayValue({ ref: readRef, value, writeTarget: resolveWriteTargetForNode(target, node) });
 }
 
 function resolveComponentSpec(registry, type) {
@@ -1236,7 +1266,7 @@ function renderTreeNode(node, snapshot, registry) {
 
   if (runtimeNode.type === 'Card') {
     const title = runtimeNode.props && Object.prototype.hasOwnProperty.call(runtimeNode.props, 'title')
-      ? resolveRefsDeep(runtimeNode.props.title, null, snapshot)
+      ? resolveRefsDeep(runtimeNode.props.title, null, snapshot, null, runtimeNode)
       : '';
     base.title = title === undefined ? '' : title;
     base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
@@ -1245,14 +1275,14 @@ function renderTreeNode(node, snapshot, registry) {
 
   if (runtimeNode.type === 'Text') {
     const bind = runtimeNode.bind && runtimeNode.bind.read;
-    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    const value = bind ? getEffectiveLabelValue(snapshot, bind, null, runtimeNode) : undefined;
     base.text = value !== undefined ? String(value) : (runtimeNode.props && runtimeNode.props.text) || '';
     return base;
   }
 
   if (runtimeNode.type === 'CodeBlock') {
     const bind = runtimeNode.bind && runtimeNode.bind.read;
-    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    const value = bind ? getEffectiveLabelValue(snapshot, bind, null, runtimeNode) : undefined;
     base.text = value !== undefined ? stringifyForCodeBlock(value) : (runtimeNode.props && runtimeNode.props.text) || '';
     return base;
   }
@@ -1264,21 +1294,21 @@ function renderTreeNode(node, snapshot, registry) {
 
   if (runtimeNode.type === 'Input') {
     const bind = runtimeNode.bind && runtimeNode.bind.read;
-    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    const value = bind ? getEffectiveLabelValue(snapshot, bind, null, runtimeNode) : undefined;
     base.value = value !== undefined ? value : '';
     return base;
   }
 
   if (runtimeNode.type === 'DatePicker' || runtimeNode.type === 'TimePicker') {
     const bind = runtimeNode.bind && runtimeNode.bind.read;
-    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    const value = bind ? getEffectiveLabelValue(snapshot, bind, null, runtimeNode) : undefined;
     base.value = value !== undefined ? value : '';
     return base;
   }
 
   if (runtimeNode.type === 'Tabs') {
     const bind = runtimeNode.bind && runtimeNode.bind.read;
-    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    const value = bind ? getEffectiveLabelValue(snapshot, bind, null, runtimeNode) : undefined;
     base.value = value !== undefined ? value : '';
     base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
     return base;
@@ -1286,7 +1316,7 @@ function renderTreeNode(node, snapshot, registry) {
 
   if (runtimeNode.type === 'Dialog') {
     const bind = runtimeNode.bind && runtimeNode.bind.read;
-    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    const value = bind ? getEffectiveLabelValue(snapshot, bind, null, runtimeNode) : undefined;
     base.value = value !== undefined ? Boolean(value) : false;
     base.children = (runtimeNode.children || []).map((child) => renderTreeNode(child, snapshot, registry));
     return base;
@@ -1294,26 +1324,26 @@ function renderTreeNode(node, snapshot, registry) {
 
   if (runtimeNode.type === 'ConversationList') {
     const conversationProps = runtimeNode.props || {};
-    const rawItems = normalizeArrayValue(readComponentValue(snapshot, conversationProps, 'items', 'itemsRef'));
-    const filterValue = String(readComponentValue(snapshot, conversationProps, 'filter', 'filterRef') || '').trim();
+    const rawItems = normalizeArrayValue(readComponentValue(snapshot, conversationProps, 'items', 'itemsRef', null, runtimeNode));
+    const filterValue = String(readComponentValue(snapshot, conversationProps, 'filter', 'filterRef', null, runtimeNode) || '').trim();
     const filterAllValue = String(conversationProps.filterAllValue || 'all');
     const filterField = String(conversationProps.filterField || 'kind');
     base.items = filterValue && filterValue !== filterAllValue
       ? rawItems.filter((item) => String(item && item[filterField] != null ? item[filterField] : '') === filterValue)
       : rawItems;
-    base.activeId = readComponentValue(snapshot, runtimeNode.props || {}, 'activeId', 'activeIdRef') || '';
+    base.activeId = readComponentValue(snapshot, runtimeNode.props || {}, 'activeId', 'activeIdRef', null, runtimeNode) || '';
     return base;
   }
 
   if (runtimeNode.type === 'MessageTimeline') {
-    base.events = normalizeMessageTimelineEvents(readComponentValue(snapshot, runtimeNode.props || {}, 'events', 'eventsRef'));
-    base.activeRoomId = readComponentValue(snapshot, runtimeNode.props || {}, 'activeRoomId', 'activeRoomIdRef') || '';
+    base.events = normalizeMessageTimelineEvents(readComponentValue(snapshot, runtimeNode.props || {}, 'events', 'eventsRef', null, runtimeNode));
+    base.activeRoomId = readComponentValue(snapshot, runtimeNode.props || {}, 'activeRoomId', 'activeRoomIdRef', null, runtimeNode) || '';
     return base;
   }
 
   if (runtimeNode.type === 'AttachmentPreview') {
-    base.uri = readComponentValue(snapshot, runtimeNode.props || {}, 'uri', 'uriRef') || '';
-    base.name = readComponentValue(snapshot, runtimeNode.props || {}, 'name', 'nameRef') || '';
+    base.uri = readComponentValue(snapshot, runtimeNode.props || {}, 'uri', 'uriRef', null, runtimeNode) || '';
+    base.name = readComponentValue(snapshot, runtimeNode.props || {}, 'name', 'nameRef', null, runtimeNode) || '';
     return base;
   }
 
@@ -1326,8 +1356,8 @@ function renderTreeNode(node, snapshot, registry) {
     const models = runtimeNode.bind && runtimeNode.bind.models;
     const currentRead = models && models.currentPage && models.currentPage.read;
     const sizeRead = models && models.pageSize && models.pageSize.read;
-    const currentValue = currentRead ? getLabelValue(snapshot, currentRead) : undefined;
-    const sizeValue = sizeRead ? getLabelValue(snapshot, sizeRead) : undefined;
+    const currentValue = currentRead ? getEffectiveLabelValue(snapshot, currentRead, null, runtimeNode) : undefined;
+    const sizeValue = sizeRead ? getEffectiveLabelValue(snapshot, sizeRead, null, runtimeNode) : undefined;
     if (currentValue !== undefined) base.currentPage = currentValue;
     if (sizeValue !== undefined) base.pageSize = sizeValue;
     return base;
@@ -1343,7 +1373,7 @@ function renderTreeNode(node, snapshot, registry) {
     || runtimeNode.type === 'Slider'
   ) {
     const bind = runtimeNode.bind && runtimeNode.bind.read;
-    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    const value = bind ? getEffectiveLabelValue(snapshot, bind, null, runtimeNode) : undefined;
     base.value = value !== undefined ? value : '';
     return base;
   }
@@ -1355,9 +1385,9 @@ function renderTreeNode(node, snapshot, registry) {
 
   if (runtimeNode.type === 'AudioRecorder') {
     const recorderProps = runtimeNode.props || {};
-    const status = readComponentValue(snapshot, recorderProps, 'status', 'statusRef') || 'idle';
-    const elapsed = readComponentValue(snapshot, recorderProps, 'elapsed', 'elapsedRef') || 0;
-    const error = readComponentValue(snapshot, recorderProps, 'error', 'errorRef') || '';
+    const status = readComponentValue(snapshot, recorderProps, 'status', 'statusRef', null, runtimeNode) || 'idle';
+    const elapsed = readComponentValue(snapshot, recorderProps, 'elapsed', 'elapsedRef', null, runtimeNode) || 0;
+    const error = readComponentValue(snapshot, recorderProps, 'error', 'errorRef', null, runtimeNode) || '';
     base.status = status;
     base.elapsed = elapsed;
     base.error = error;
@@ -1366,13 +1396,13 @@ function renderTreeNode(node, snapshot, registry) {
   }
 
   if (runtimeNode.type === 'ThreeScene') {
-    base.props = normalizeThreeSceneHostProps(snapshot, runtimeNode.props || {});
+    base.props = normalizeThreeSceneHostProps(snapshot, runtimeNode.props || {}, runtimeNode);
     return base;
   }
 
   if (runtimeNode.type === 'ProgressBar') {
     const bind = runtimeNode.bind && runtimeNode.bind.read;
-    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    const value = bind ? getEffectiveLabelValue(snapshot, bind, null, runtimeNode) : undefined;
     base.percentage = value !== undefined ? Number(value) : (runtimeNode.props && runtimeNode.props.percentage) || 0;
     return base;
   }
@@ -1390,8 +1420,8 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   node = adaptNodeType(node, 'vnode_kind', spec);
   const h = vue.h;
   const resolve = vue.resolveComponent || ((name) => name);
-  const props = resolveRefsDeep({ ...(node.props || {}) }, ctx, snapshot);
-  if (!shouldRenderVisibleNode(props, snapshot, host)) return null;
+  const props = resolveRefsDeep({ ...(node.props || {}) }, ctx, snapshot, host, node);
+  if (!shouldRenderVisibleNode(props, snapshot, host, node)) return null;
   stripVisibilityProps(props);
   const children = (node.children || []).map((child) => buildVueNode(child, snapshot, vue, host, registry, ctx));
 
@@ -1401,7 +1431,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     if (!ref || typeof ref !== 'object') {
       return h('div', fallbackText);
     }
-    const fragment = getLabelValue(snapshot, ref);
+    const fragment = getEffectiveLabelValue(snapshot, ref, host, node);
     if (!fragment || typeof fragment !== 'object') {
       return h('div', fallbackText);
     }
@@ -1419,7 +1449,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'Text') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
     const text = value !== undefined ? String(value) : (props && Object.prototype.hasOwnProperty.call(props, 'text') ? props.text : '');
 
     // Size variants mapping
@@ -1462,7 +1492,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'CodeBlock') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
     const text = value !== undefined ? stringifyForCodeBlock(value) : (props && Object.prototype.hasOwnProperty.call(props, 'text') ? props.text : '');
     return h('pre', props, text);
   }
@@ -1631,7 +1661,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'Input') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
     props.modelValue = value !== undefined ? value : '';
     let lastEmittedValue = props.modelValue;
     const emitValue = (ev) => {
@@ -1678,7 +1708,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'DatePicker') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
     props.modelValue = value !== undefined ? value : '';
     const onValue = (v) => {
       const target = node.bind && node.bind.write;
@@ -1698,7 +1728,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'TimePicker') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
     props.modelValue = value !== undefined ? value : '';
     const onValue = (v) => {
       const target = node.bind && node.bind.write;
@@ -1718,7 +1748,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'Select') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
     const options = Array.isArray(props.options) ? props.options : [];
     delete props.options;
     props.modelValue = value !== undefined ? normalizeSelectModelValue(value, options) : '';
@@ -1739,7 +1769,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'NumberInput') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
     props.modelValue = value !== undefined ? value : null;
     const onValue = (v) => {
       const target = node.bind && node.bind.write;
@@ -1764,7 +1794,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'Switch') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
     if (value === true || value === false) {
       props.modelValue = value;
     } else if (typeof value === 'string') {
@@ -1787,7 +1817,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'Checkbox') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
     if (Array.isArray(value)) {
       props.modelValue = value;
     } else if (value === true || value === false) {
@@ -1824,7 +1854,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'RadioGroup') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
     const options = Array.isArray(props.options) ? props.options : [];
     delete props.options;
     props.modelValue = value !== undefined ? value : '';
@@ -1869,7 +1899,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'Slider') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
     props.modelValue = value !== undefined ? value : 0;
     const onValue = (v) => {
       const target = node.bind && node.bind.write;
@@ -1903,7 +1933,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'Tabs') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const value = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const value = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
     props.modelValue = value !== undefined ? value : '';
     const onValue = (v) => {
       const target = node.bind && node.bind.write;
@@ -1928,13 +1958,13 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const store = ensureAudioRecorderStore(host);
     const key = audioRecorderKey(node, props);
     const session = store ? store.get(key) : null;
-    const rawStatus = String(readComponentValue(snapshot, props, 'status', 'statusRef', host) || 'idle');
+    const rawStatus = String(readComponentValue(snapshot, props, 'status', 'statusRef', host, node) || 'idle');
     const status = session && session.state ? session.state : rawStatus;
     const maxMs = audioRecorderMaxMs(props);
     const elapsedValue = session && session.startedAt
       ? Math.min(maxMs, Date.now() - session.startedAt)
-      : Number(readComponentValue(snapshot, props, 'elapsed', 'elapsedRef', host) || 0);
-    const errorText = String(readComponentValue(snapshot, props, 'error', 'errorRef', host) || '');
+      : Number(readComponentValue(snapshot, props, 'elapsed', 'elapsedRef', host, node) || 0);
+    const errorText = String(readComponentValue(snapshot, props, 'error', 'errorRef', host, node) || '');
     const startLabel = String(props.startLabel || props.label || 'Voice');
     const finishLabel = String(props.finishLabel || 'Finish');
     const cancelLabel = String(props.cancelLabel || 'Cancel');
@@ -2078,7 +2108,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'Button') {
     const bind = node.bind && node.bind.read;
     if (bind) {
-      const value = getLabelValue(snapshot, bind);
+      const value = getEffectiveLabelValue(snapshot, bind, host, node);
       if (value === false) {
         props.disabled = true;
       } else if (value === true) {
@@ -2086,13 +2116,13 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       }
     }
     if (props.enabledRef && typeof props.enabledRef === 'object') {
-      const enabledValue = getLabelValue(snapshot, props.enabledRef);
+      const enabledValue = getEffectiveLabelValue(snapshot, props.enabledRef, host, node);
       if (enabledValue === false || enabledValue == null || String(enabledValue).trim() === '') {
         props.disabled = true;
       }
     }
     if (props.disabledRef && typeof props.disabledRef === 'object') {
-      const disabledValue = getLabelValue(snapshot, props.disabledRef);
+      const disabledValue = getEffectiveLabelValue(snapshot, props.disabledRef, host, node);
       if (disabledValue === true || (typeof disabledValue === 'string' && disabledValue.trim() !== '')) {
         props.disabled = true;
       }
@@ -2104,7 +2134,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       ? (singleFlight.key || node.id || `${node.type}`)
       : null;
     const releaseRef = singleFlightEnabled ? (singleFlight.releaseRef || singleFlight.release_ref || null) : null;
-    const releaseVal = releaseRef ? getLabelValue(snapshot, releaseRef) : null;
+    const releaseVal = releaseRef ? getEffectiveLabelValue(snapshot, releaseRef, host, node) : null;
     const releaseKey = singleFlightValueKey(releaseVal);
     const releaseWhenValue = singleFlightEnabled && Object.prototype.hasOwnProperty.call(singleFlight, 'releaseWhen')
       ? singleFlight.releaseWhen
@@ -2219,7 +2249,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
 
   if (node.type === 'Drawer') {
     const bind = node.bind && node.bind.read;
-    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    const value = bind ? getEffectiveLabelValue(snapshot, bind, host, node) : undefined;
     props.modelValue = value === true;
     props['onUpdate:modelValue'] = (v) => {
       const target = node.bind && node.bind.write;
@@ -2231,7 +2261,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
 
   if (node.type === 'Dialog') {
     const bind = node.bind && node.bind.read;
-    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    const value = bind ? getEffectiveLabelValue(snapshot, bind, host, node) : undefined;
     props.modelValue = value === true;
     props['onUpdate:modelValue'] = (v) => {
       const target = node.bind && node.bind.write;
@@ -2245,8 +2275,8 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const models = node.bind && node.bind.models;
     const currentRead = models && models.currentPage && models.currentPage.read;
     const sizeRead = models && models.pageSize && models.pageSize.read;
-    const currentValue = currentRead ? getLabelValue(snapshot, currentRead) : undefined;
-    const sizeValue = sizeRead ? getLabelValue(snapshot, sizeRead) : undefined;
+    const currentValue = currentRead ? getEffectiveLabelValue(snapshot, currentRead, host, node) : undefined;
+    const sizeValue = sizeRead ? getEffectiveLabelValue(snapshot, sizeRead, host, node) : undefined;
     if (currentValue !== undefined) {
       props.currentPage = currentValue;
     }
@@ -2328,7 +2358,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
 
   if (node.type === 'ColorBox') {
     const bind = node.bind && node.bind.read;
-    const colorValue = bind ? getLabelValue(snapshot, bind) : undefined;
+    const colorValue = bind ? getEffectiveLabelValue(snapshot, bind, host, node) : undefined;
     const bgColor = typeof colorValue === 'string' && colorValue.startsWith('#') ? colorValue : '#FFFFFF';
     const boxStyle = {
       backgroundColor: bgColor,
@@ -2377,7 +2407,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
 
   if (node.type === 'Html') {
     const bind = node.bind && node.bind.read;
-    const value = bind ? getLabelValue(snapshot, bind) : undefined;
+    const value = bind ? getEffectiveLabelValue(snapshot, bind, host, node) : undefined;
     const html = value !== undefined ? String(value) : (node.props && Object.prototype.hasOwnProperty.call(node.props, 'html') ? String(node.props.html) : '');
     const divProps = { ...props };
     delete divProps.html;
@@ -2386,7 +2416,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   }
 
   if (node.type === 'ThreeSceneHost') {
-    return h(resolve('ThreeSceneHost'), normalizeThreeSceneHostProps(snapshot, props));
+    return h(resolve('ThreeSceneHost'), normalizeThreeSceneHostProps(snapshot, props, node));
   }
 
   if (node.type === 'Link') {
@@ -2523,14 +2553,14 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   }
 
   if (node.type === 'ConversationList') {
-    const rawItems = normalizeArrayValue(readComponentValue(snapshot, props, 'items', 'itemsRef', host));
-    const filterValue = String(readComponentValue(snapshot, props, 'filter', 'filterRef', host) || '').trim();
+    const rawItems = normalizeArrayValue(readComponentValue(snapshot, props, 'items', 'itemsRef', host, node));
+    const filterValue = String(readComponentValue(snapshot, props, 'filter', 'filterRef', host, node) || '').trim();
     const filterAllValue = String(props.filterAllValue || 'all');
     const filterField = String(props.filterField || 'kind');
     const items = filterValue && filterValue !== filterAllValue
       ? rawItems.filter((item) => String(item && item[filterField] != null ? item[filterField] : '') === filterValue)
       : rawItems;
-    const activeId = String(readComponentValue(snapshot, props, 'activeId', 'activeIdRef', host) || '');
+    const activeId = String(readComponentValue(snapshot, props, 'activeId', 'activeIdRef', host, node) || '');
     const idField = props.idField || 'id';
     const primaryField = props.primaryField || 'name';
     const secondaryField = props.secondaryField || 'last_message';
@@ -2647,8 +2677,8 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   }
 
   if (node.type === 'MessageTimeline') {
-    const events = normalizeMessageTimelineEvents(readComponentValue(snapshot, props, 'events', 'eventsRef', host));
-    const activeRoomId = String(readComponentValue(snapshot, props, 'activeRoomId', 'activeRoomIdRef', host) || '');
+    const events = normalizeMessageTimelineEvents(readComponentValue(snapshot, props, 'events', 'eventsRef', host, node));
+    const activeRoomId = String(readComponentValue(snapshot, props, 'activeRoomId', 'activeRoomIdRef', host, node) || '');
     const currentUser = String(props.currentUser || 'You');
     const filtered = events.filter((event) => !activeRoomId || String(event.room_id || event.roomId || '') === activeRoomId);
     const timelineProps = cleanComponentProps(props, ['activeRoomIdRef', 'currentUser', 'emptyText']);
@@ -2781,8 +2811,8 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   }
 
   if (node.type === 'AttachmentPreview') {
-    const uri = String(readComponentValue(snapshot, props, 'uri', 'uriRef', host) || '').trim();
-    const name = String(readComponentValue(snapshot, props, 'name', 'nameRef', host) || '').trim();
+    const uri = String(readComponentValue(snapshot, props, 'uri', 'uriRef', host, node) || '').trim();
+    const name = String(readComponentValue(snapshot, props, 'name', 'nameRef', host, node) || '').trim();
     const previewProps = cleanComponentProps(props, ['emptyText']);
     if (!uri && !name) {
       return h('div', { ...previewProps, style: { display: 'none', ...(props.style || {}) } });
@@ -2964,7 +2994,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const tasks = readTodoTasks(node, snapshot, props, host);
     const columns = normalizeTodoColumns(props.columns);
     const writeTarget = node.bind && node.bind.write;
-    const filterText = String(readComponentValue(snapshot, props, 'filterText', 'filterRef', host) || '').trim().toLowerCase();
+    const filterText = String(readComponentValue(snapshot, props, 'filterText', 'filterRef', host, node) || '').trim().toLowerCase();
     const listProps = cleanComponentProps(props, ['tasks', 'tasksRef', 'columns', 'filterText', 'filterRef', 'emptyText']);
     const visibleTasks = tasks
       .filter((task) => task.status !== 'done' && task.status !== 'archived')
@@ -3087,7 +3117,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'StatCard') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const boundValue = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const boundValue = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
 
     const label = (node.props && node.props.label) || '';
     const value = boundValue !== undefined ? boundValue : (node.props && node.props.value) || '—';
@@ -3136,7 +3166,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
 
   if (node.type === 'StatusBadge') {
     const bind = node.bind && node.bind.read;
-    const boundStatus = bind ? getLabelValue(snapshot, bind) : undefined;
+    const boundStatus = bind ? getEffectiveLabelValue(snapshot, bind, host, node) : undefined;
 
     const label = props.label || 'STATUS';
     const status = boundStatus !== undefined ? boundStatus : props.status || 'idle';
@@ -3174,7 +3204,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
 
   if (node.type === 'Terminal') {
     const bind = node.bind && node.bind.read;
-    const boundContent = bind ? getLabelValue(snapshot, bind) : undefined;
+    const boundContent = bind ? getEffectiveLabelValue(snapshot, bind, host, node) : undefined;
 
     const title = (node.props && node.props.title) || 'terminal';
     const content = boundContent !== undefined ? String(boundContent) : (node.props && node.props.content) || '';
@@ -3614,7 +3644,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
   if (node.type === 'ProgressBar') {
     const bind = node.bind && node.bind.read;
     const direct = bind && isPlainObject(bind) && typeof bind.$ref === 'string' ? resolveRefValue(bind.$ref, ctx) : undefined;
-    const boundValue = bind ? (direct !== undefined ? direct : getLabelValue(snapshot, bind)) : undefined;
+    const boundValue = bind ? (direct !== undefined ? direct : getEffectiveLabelValue(snapshot, bind, host, node)) : undefined;
 
     const percentage = boundValue !== undefined ? Number(boundValue) : props.percentage || 0;
     const label = props.label || '';
@@ -3674,11 +3704,11 @@ function dispatchEvent(node, target, payload, host, overrideType) {
     const snapshot = host.getSnapshot();
     const busInKey = typeof target.bus_in_key === 'string' ? target.bus_in_key.trim() : '';
     const value = target.value_ref !== undefined
-      ? resolveRefsDeep(target.value_ref, eventCtx, snapshot, host)
+      ? resolveRefsDeep(target.value_ref, eventCtx, snapshot, host, node)
       : (payload && Object.prototype.hasOwnProperty.call(payload, 'value') ? payload.value : payload);
     const meta = target.meta_ref !== undefined
-      ? resolveRefsDeep(target.meta_ref, eventCtx, snapshot, host)
-      : (target.meta !== undefined ? resolveRefsDeep(target.meta, eventCtx, snapshot, host) : {});
+      ? resolveRefsDeep(target.meta_ref, eventCtx, snapshot, host, node)
+      : (target.meta !== undefined ? resolveRefsDeep(target.meta, eventCtx, snapshot, host, node) : {});
     const envelope = {
       type: 'bus_event_v2',
       bus_in_key: busInKey,
@@ -3696,23 +3726,23 @@ function dispatchEvent(node, target, payload, host, overrideType) {
   if (target && Object.prototype.hasOwnProperty.call(target, 'pin')) {
     const snapshot = host.getSnapshot();
     const out = { pin: target.pin };
-    const resolvedTarget = resolveRefsDeep(target.target_ref, eventCtx, snapshot);
+    const resolvedTarget = resolveRefForNode(resolveRefsDeep(target.target_ref, eventCtx, snapshot, host, node), node);
     if (resolvedTarget !== undefined) {
       out.target = resolvedTarget;
     } else if (node.cell_ref && Number.isInteger(node.cell_ref.model_id)) {
       out.target = { model_id: node.cell_ref.model_id, p: node.cell_ref.p, r: node.cell_ref.r, c: node.cell_ref.c };
     }
     if (target.value_ref !== undefined) {
-      out.value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host);
+      out.value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host, node);
     } else if (payload && Object.prototype.hasOwnProperty.call(payload, 'value')) {
       out.value = payload.value;
     } else if (payload !== undefined) {
       out.value = payload;
     }
     if (target.meta_ref !== undefined) {
-      out.meta = resolveRefsDeep(target.meta_ref, eventCtx, snapshot, host);
+      out.meta = resolveRefsDeep(target.meta_ref, eventCtx, snapshot, host, node);
     } else if (target.meta !== undefined) {
-      out.meta = resolveRefsDeep(target.meta, eventCtx, snapshot, host);
+      out.meta = resolveRefsDeep(target.meta, eventCtx, snapshot, host, node);
     }
     const envelope = normalizeEditorPinEvent(out);
     if (out.meta && typeof out.meta === 'object' && !Array.isArray(out.meta)) {
@@ -3730,7 +3760,7 @@ function dispatchEvent(node, target, payload, host, overrideType) {
     const action = target.action;
     const out = { action };
     if (action !== 'submodel_create') {
-      const resolvedTarget = resolveRefsDeep(target.target_ref, eventCtx, snapshot);
+      const resolvedTarget = resolveRefForNode(resolveRefsDeep(target.target_ref, eventCtx, snapshot, host, node), node);
       if (resolvedTarget !== undefined) {
         out.target = resolvedTarget;
       } else if (node.cell_ref && Number.isInteger(node.cell_ref.model_id)) {
@@ -3740,7 +3770,7 @@ function dispatchEvent(node, target, payload, host, overrideType) {
 
     if (action === 'label_add' || action === 'label_update' || action === 'ui_owner_label_update') {
       if (target.value_ref !== undefined) {
-        out.value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host);
+        out.value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host, node);
       } else {
         const raw = payload && payload.value !== undefined ? payload.value : '';
         let t = 'str';
@@ -3754,15 +3784,15 @@ function dispatchEvent(node, target, payload, host, overrideType) {
         out.value = { t, v: raw };
       }
     } else if (action === 'submodel_create') {
-      out.value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host);
+      out.value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host, node);
     } else if (target.value_ref !== undefined) {
-      out.value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host);
+      out.value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host, node);
     }
 
     if (target.meta_ref !== undefined) {
-      out.meta = resolveRefsDeep(target.meta_ref, eventCtx, snapshot, host);
+      out.meta = resolveRefsDeep(target.meta_ref, eventCtx, snapshot, host, node);
     } else if (target.meta !== undefined) {
-      out.meta = resolveRefsDeep(target.meta, eventCtx, snapshot, host);
+      out.meta = resolveRefsDeep(target.meta, eventCtx, snapshot, host, node);
     }
 
     const envelope = normalizeEditorEvent(out);

@@ -12,6 +12,8 @@ This guide explains how to build Workspace / slide app interfaces by filling Mod
 
 The current authoring contract is `cellwise.ui.v1`: every visible component is a cell, and labels on that cell describe its component type, placement, text, data binding, and event intent. Do not store a full page as an HTML string or as one large JSON object.
 
+Current-model references inside UI labels omit `model_id`. For example, if a component reads `0,0,0 / result_text` from the same slide app model, write `{ "p": 0, "r": 0, "c": 0, "k": "result_text" }`. Only cross-model references should include `model_id`, such as system overlay model `-2`, runtime model `-1`, or a deliberately referenced positive model.
+
 ## Quick Start
 
 Create a minimal page with a root container and one title.
@@ -255,17 +257,85 @@ Explicit management semantics use `pin.bus.mb.in` / `pin.bus.mb.out`; they are n
 | `Terminal` | Logs and traces. |
 | `ColorBox` | Color preview bound to a color label. |
 
+### Task Components
+
+`To Do Board` uses two registered task-specific renderer extensions. They are still authored through `cellwise.ui.v1` labels, but they are not basic layout components. Use them when a page needs a reusable task-board interaction instead of manually composing every card and drop target with ordinary `Container` nodes.
+
+| component | purpose | common labels |
+|---|---|---|
+| `TodoBoard` | Multi-column task board. It renders one column per status, task cards, edit buttons, status buttons, and drag/drop status changes. | `ui_props_json.tasksRef`, `ui_props_json.columns`, `ui_props_json.emptyText`, `ui_bind_json.write` |
+| `TodoFocusList` | Focus view for unfinished tasks. It hides `done` / `archived` tasks and can filter by text. | `ui_props_json.tasksRef`, `ui_props_json.filterRef`, `ui_props_json.columns`, `ui_props_json.emptyText`, `ui_bind_json.write` |
+
+Both components read task records from a label such as `tasks_json`. A task record should have at least:
+
+| field | meaning |
+|---|---|
+| `id` | Stable task id. |
+| `title` | Task title shown on cards and focus rows. |
+| `body` | Longer task text. |
+| `status` | Status value, for example `todo`, `doing`, `done`, or `archived`. |
+
+`columns` is an array in `ui_props_json`. Each item controls one board column and status badge.
+
+```json
+[
+  { "value": "todo", "label": "还未开始", "tone": "#2563eb", "bg": "#eff6ff" },
+  { "value": "doing", "label": "正在进行", "tone": "#d97706", "bg": "#fffbeb" },
+  { "value": "done", "label": "已完成", "tone": "#16a34a", "bg": "#f0fdf4" },
+  { "value": "archived", "label": "已归档", "tone": "#64748b", "bg": "#f8fafc" }
+]
+```
+
+`TodoBoard` example node:
+
+```json
+[
+  { "op": "add_label", "model_id": 1086, "p": 2, "r": 11, "c": 0, "k": "ui_node_id", "t": "str", "v": "todo_board" },
+  { "op": "add_label", "model_id": 1086, "p": 2, "r": 11, "c": 0, "k": "ui_component", "t": "str", "v": "TodoBoard" },
+  { "op": "add_label", "model_id": 1086, "p": 2, "r": 11, "c": 0, "k": "ui_parent", "t": "str", "v": "todo_board_tab" },
+  { "op": "add_label", "model_id": 1086, "p": 2, "r": 11, "c": 0, "k": "ui_props_json", "t": "json", "v": {
+    "tasksRef": { "p": 0, "r": 0, "c": 0, "k": "tasks_json" },
+    "columns": [
+      { "value": "todo", "label": "还未开始", "tone": "#2563eb", "bg": "#eff6ff" },
+      { "value": "doing", "label": "正在进行", "tone": "#d97706", "bg": "#fffbeb" },
+      { "value": "done", "label": "已完成", "tone": "#16a34a", "bg": "#f0fdf4" },
+      { "value": "archived", "label": "已归档", "tone": "#64748b", "bg": "#f8fafc" }
+    ],
+    "emptyText": "把任务拖到这里"
+  } },
+  { "op": "add_label", "model_id": 1086, "p": 2, "r": 11, "c": 0, "k": "ui_bind_json", "t": "json", "v": {
+    "write": { "bus_event_v2": true, "bus_in_key": "todo_1086_bus_event", "commit_policy": "immediate" }
+  } }
+]
+```
+
+The component generates temporary ModelTable event payloads automatically. It never writes final task truth directly. For example:
+
+| user action | emitted `todo_action` | extra records |
+|---|---|---|
+| Click card edit | `open_edit` | `task_id` |
+| Click start / finish / archive | `move_status` | `task_id`, `status` |
+| Drag a card to another column | `move_status` | `task_id`, `status` |
+
+`TodoFocusList` uses the same write target and emits `open_edit` / `move_status`. It additionally reads `filterRef` to hide tasks whose title/body do not match the current filter text.
+
 ## Binding Patterns
 
 ### Read Binding
 
-Use `ui_bind_read_json` when a component only reads.
+Use `ui_bind_read_json` when a component only reads from a label in the same model.
+
+```json
+{ "p": 0, "r": 0, "c": 0, "k": "bg_color" }
+```
+
+For a deliberate cross-model read, keep `model_id` explicit:
 
 ```json
 { "model_id": 100, "p": 0, "r": 0, "c": 0, "k": "bg_color" }
 ```
 
-Use split labels if JSON is not convenient:
+Prefer `ui_bind_read_json` for new apps. Split read labels exist only for older fill-table surfaces that cannot write JSON conveniently:
 
 | label | v |
 |---|---|
@@ -281,11 +351,11 @@ UI drafts can use `label_update` or `ui_owner_label_update` through the renderer
 
 ```json
 {
-  "read": { "model_id": 1001, "p": 0, "r": 0, "c": 0, "k": "applicant" },
+  "read": { "p": 0, "r": 0, "c": 0, "k": "applicant" },
   "write": {
     "action": "ui_owner_label_update",
     "mode": "intent",
-    "target_ref": { "model_id": 1001, "p": 0, "r": 0, "c": 0, "k": "applicant" },
+    "target_ref": { "p": 0, "r": 0, "c": 0, "k": "applicant" },
     "commit_policy": "on_blur"
   }
 }

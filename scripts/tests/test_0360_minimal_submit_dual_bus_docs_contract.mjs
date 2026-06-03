@@ -17,6 +17,7 @@ const PATCH_FILES = [
 const MINIMAL_SUBMIT_PATCH_KEYS = [
   'model_type',
   'app_name',
+  'slide_app_summary',
   'source_worker',
   'slide_capable',
   'slide_surface_type',
@@ -46,16 +47,12 @@ const MINIMAL_SUBMIT_PATCH_KEYS = [
   'ui_title',
   'ui_placeholder',
   'ui_bind_json',
+  'ui_bind_read_json',
   'ui_label',
   'ui_variant',
   'click_event',
   'click_event_wiring',
   'click_chain',
-  'ui_text_ref_model_id',
-  'ui_text_ref_p',
-  'ui_text_ref_r',
-  'ui_text_ref_c',
-  'ui_text_ref_k',
 ];
 
 function readText(path) { return fs.readFileSync(resolve(repoRoot, path), 'utf8'); }
@@ -102,7 +99,7 @@ function test_provider_assets_have_no_compatibility_route() {
   for (const path of PATCH_FILES) assertNoOld(readText(path), path);
   const uiPayload = readJson('test_files/minimal_submit_dual_bus_app_payload.json');
   assert.equal(Array.isArray(uiPayload), true, 'minimal submit JSON patch must be a ModelTable record array');
-  assert.equal(uiPayload.length, 63, 'minimal submit JSON patch must keep the reviewed 63-label shape');
+  assert.equal(uiPayload.length, 60, 'minimal submit JSON patch must keep the reviewed 60-label shape');
   assert.equal(JSON.stringify(uiPayload).includes('route.reply_to'), false, 'minimal submit JSON patch must not include server-owned route.reply_to');
   assert.equal(uiPayload.some((record) => record && record.k === 'remote_bus_endpoint_v1' && record.v?.to?.worker_id === 'R1' && record.v?.to?.model_id === 3000 && !Object.prototype.hasOwnProperty.call(record.v.to, 'pin')), true, 'minimal submit JSON patch must declare remote endpoint without to.pin');
   assert.equal(uiPayload.some((record) => record && record.k === 'dual_bus_model' && Array.isArray(record.v?.egress_pins) && record.v.egress_pins.includes('submit1')), true, 'minimal submit JSON patch must declare submit1 as public egress pin');
@@ -127,7 +124,7 @@ function test_provider_assets_have_no_compatibility_route() {
   const model1050 = (readJson('packages/worker-base/system-models/workspace_positive_models.json').records || [])
     .filter((record) => record && record.model_id === 1050);
   const model1050SubmitCode = findRecord(model1050, (record) => record.k === 'handle_submit' && record.t === 'func.js')?.v?.code || '';
-  const model1050StatusRef = findRecord(model1050, (record) => record.p === 2 && record.r === 5 && record.c === 0 && record.k === 'ui_text_ref_model_id');
+  const model1050StatusRead = findRecord(model1050, (record) => record.p === 2 && record.r === 5 && record.c === 0 && record.k === 'ui_bind_read_json');
   const model1050ClickEvent = findRecord(model1050, (record) => record.p === 2 && record.r === 3 && record.c === 0 && record.k === 'click_event');
   const model1050ClickChain = findRecord(model1050, (record) => record.p === 2 && record.r === 3 && record.c === 0 && record.k === 'click_chain');
   const model1050ClickEventWiring = findRecord(model1050, (record) => record.p === 2 && record.r === 3 && record.c === 0 && record.k === 'click_event_wiring');
@@ -143,7 +140,8 @@ function test_provider_assets_have_no_compatibility_route() {
   assert.match(model1050SubmitCode, /readPayload\('text', ''\)/u, 'workspace seed Model 1050 handler must read only text record');
   assert.match(model1050SubmitCode, /readPayload\('source', 'ui_button'\)/u, 'workspace seed Model 1050 handler must read source record with fixed default');
   assert.equal(workspaceSeedText.includes("readPayload('text', nestedValue"), false, 'workspace seed must not keep nested text fallback text');
-  assert.equal(model1050StatusRef?.v, 1050, 'workspace seed Model 1050 status badge must read its own remote_status, not Model 0');
+  assert.deepEqual(model1050StatusRead?.v, { p: 0, r: 0, c: 0, k: 'remote_status' }, 'workspace seed Model 1050 status badge must read own remote_status via current-model binding');
+  assert.equal(model1050.some((record) => record.p === 2 && record.r === 5 && record.c === 0 && String(record.k || '').startsWith('ui_text_ref_')), false, 'workspace seed Model 1050 must not keep old ui_text_ref_* bindings');
   assert.match(uiPayloadText, /"host_ingress_v1"/u, 'minimal submit UI payload must declare host_ingress_v1');
   assert.match(uiPayloadText, /"submit_request"/u, 'minimal submit UI payload must declare submit_request pin');
   assert.match(uiPayloadText, /"click_event"/u, 'minimal submit UI payload must declare button click_event pin');
@@ -196,7 +194,7 @@ function test_minimal_submit_docs_explain_full_patch_labels_and_submit_chain() {
     ['minimal_submit_app_provider_guide.md', guide],
     ['minimal_submit_app_provider_interactive.html', interactive],
   ]) {
-    assert.match(text, /63 条 record/u, path + ' must state the reviewed patch record count');
+    assert.match(text, /60 条 record/u, path + ' must state the reviewed patch record count');
     assert.match(text, /完整 patch label/u, path + ' must include a full patch label explanation section');
     for (const key of MINIMAL_SUBMIT_PATCH_KEYS) {
       assert.ok(text.includes(key), `${path} must explain patch label ${key}`);

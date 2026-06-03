@@ -113,15 +113,15 @@
     <section id="patch" class="section">
       <div class="card full">
         <h2>完整 patch label 说明</h2>
-        <p><code>test_files/minimal_submit_dual_bus_app_payload.json</code> 是一个 63 条 record 的 ModelTable records array；<code>test_files/minimal_submit_dual_bus.zip</code> 内只有 <code>app_payload.json</code>。</p>
+        <p><code>test_files/minimal_submit_dual_bus_app_payload.json</code> 是一个 60 条 record 的 ModelTable records array；<code>test_files/minimal_submit_dual_bus.zip</code> 内只有 <code>app_payload.json</code>。</p>
         <table>
           <thead><tr><th>类别</th><th>labels</th><th>作用</th></tr></thead>
           <tbody>
-            <tr><td>metadata</td><td><code>model_type</code>, <code>app_name</code>, <code>source_worker</code>, <code>slide_capable</code>, <code>slide_surface_type</code>, <code>from_user</code>, <code>to_user</code>, <code>ui_authoring_version</code>, <code>ui_root_node_id</code></td><td>让 Workspace 识别并显示这个滑动 App。</td></tr>
+            <tr><td>metadata</td><td><code>model_type</code>, <code>app_name</code>, <code>slide_app_summary</code>, <code>source_worker</code>, <code>slide_capable</code>, <code>slide_surface_type</code>, <code>from_user</code>, <code>to_user</code>, <code>ui_authoring_version</code>, <code>ui_root_node_id</code></td><td>让 Workspace 识别并显示这个滑动 App。</td></tr>
             <tr><td>state</td><td><code>input_text</code>, <code>display_text</code>, <code>remote_status</code>, <code>submit_inflight</code>, <code>last_submit_payload</code></td><td>页面状态与回包结果。</td></tr>
             <tr><td>bus</td><td><code>host_ingress_v1</code>, <code>remote_bus_endpoint_v1</code>, <code>dual_bus_model</code>, <code>submit_request</code>, <code>submit1</code>, <code>submit_request_wiring</code>, <code>root_routes</code>, <code>handle_submit</code></td><td>声明 ingress、egress 与程序链路。</td></tr>
-            <tr><td>UI</td><td><code>ui_node_id</code>, <code>ui_component</code>, <code>ui_layout</code>, <code>ui_gap</code>, <code>ui_parent</code>, <code>ui_order</code>, <code>ui_title</code>, <code>ui_placeholder</code>, <code>ui_bind_json</code>, <code>ui_label</code>, <code>ui_variant</code></td><td>把模型表渲染成页面。</td></tr>
-            <tr><td>bindings</td><td><code>click_event</code>, <code>click_event_wiring</code>, <code>click_chain</code>, <code>ui_text_ref_model_id</code>, <code>ui_text_ref_p</code>, <code>ui_text_ref_r</code>, <code>ui_text_ref_c</code>, <code>ui_text_ref_k</code></td><td>按钮事件与显示文字读取。</td></tr>
+            <tr><td>UI</td><td><code>ui_node_id</code>, <code>ui_component</code>, <code>ui_layout</code>, <code>ui_gap</code>, <code>ui_parent</code>, <code>ui_order</code>, <code>ui_title</code>, <code>ui_placeholder</code>, <code>ui_bind_json</code>, <code>ui_bind_read_json</code>, <code>ui_label</code>, <code>ui_variant</code></td><td>把模型表渲染成页面；<code>ui_bind_read_json</code> 用于只读显示同模型 label，引用省略 <code>model_id</code>。</td></tr>
+            <tr><td>bindings</td><td><code>click_event</code>, <code>click_event_wiring</code>, <code>click_chain</code></td><td>按钮事件从浏览器进入按钮 Cell，再转到 root 入口。</td></tr>
           </tbody>
         </table>
       </div>

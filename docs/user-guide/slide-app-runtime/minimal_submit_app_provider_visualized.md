@@ -60,7 +60,7 @@ Submit 类提交按钮需要 `value_t=modeltable` 与 `value_ref`。`value_ref` 
 
 ```mermaid
 flowchart TB
-  Zip["ZIP: app_payload.json<br/>63 条 record"]
+  Zip["ZIP: app_payload.json<br/>60 条 record"]
   Install["UI Server 安装"]
   Side["Workspace 侧边栏"]
   Submt["Model 0 mount cell<br/>model.submt -> local model 2000"]

@@ -60,8 +60,8 @@ function test_proxy_payload_binds_to_existing_model100_and_overlay_state() {
   assert.equal(inputBind?.v?.write?.target_ref?.model_id, -2, 'proxy_input_bind_must_write_overlay_state');
   assert.equal(inputBind?.v?.write?.commit_policy, 'on_submit', 'proxy_input_bind_must_keep_submit_commit_policy');
 
-  const submitBind = findRecord(payload, (record) => record?.k === 'ui_bind_json' && record?.v?.write?.action === 'submit');
-  assert.equal(submitBind?.v?.write?.meta?.model_id, 100, 'proxy_submit_must_target_model100');
+  const submitBind = findRecord(payload, (record) => record?.k === 'ui_bind_json' && record?.v?.write?.pin === 'click');
+  assert.equal(submitBind?.v?.write?.pin, 'click', 'proxy_submit_must_use_current_click_pin_chain');
   assert.equal(
     submitBind?.v?.write?.value_ref?.v?.input_value?.$label?.model_id,
     -2,

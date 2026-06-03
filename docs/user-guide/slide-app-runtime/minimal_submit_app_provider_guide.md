@@ -188,7 +188,7 @@ return [
 
 ## 2. UI App JSON patch
 
-当前基准文件是 `test_files/minimal_submit_dual_bus_app_payload.json`。它是一个 63 条 record 的 ModelTable records array。对应 ZIP 是 `test_files/minimal_submit_dual_bus.zip`，内部只有一个文件：`app_payload.json`。
+当前基准文件是 `test_files/minimal_submit_dual_bus_app_payload.json`。它是一个 60 条 record 的 ModelTable records array。对应 ZIP 是 `test_files/minimal_submit_dual_bus.zip`，内部只有一个文件：`app_payload.json`。
 
 这份 JSON patch 只包含 provider 可交付的 UI 模型，不包含安装后的正式 model id，不包含 Model 0 自动 labels，也不包含任何 `route.reply_to`。
 
@@ -198,6 +198,7 @@ return [
 |---|---|---|
 | `model_type` | `model.table` | 声明这是一个可安装的 UI 模型。 |
 | `app_name` | `str` | Workspace 侧边栏显示名。 |
+| `slide_app_summary` | `str` | 滑动 App 简介，用于桌面/资产列表展示。 |
 | `source_worker` | `str` | 交付来源说明。 |
 | `slide_capable` | `bool` | 标记它是滑动 App。 |
 | `slide_surface_type` | `str` | 表示页面挂载到 `workspace.page`。 |
@@ -226,12 +227,12 @@ return [
 | `ui_title` | `str` | Card 标题。 |
 | `ui_placeholder` | `str` | Input 占位提示。 |
 | `ui_bind_json` | `json` | 输入、点击、读写绑定。 |
+| `ui_bind_read_json` | `json` | 只读绑定。本示例的 `StatusBadge` 用它读取同模型 `remote_status`，引用省略 `model_id`。 |
 | `ui_label` | `str` | Button 显示文字。 |
 | `ui_variant` | `str` | Button / Badge 样式。 |
 | `click_event` | `pin.in` | Submit 按钮接收浏览器写入的 Cell 入口。 |
 | `click_event_wiring` | `pin.connect.label` | 同一个按钮 Cell 内把 `click_event` 转给 `click_chain`。 |
 | `click_chain` | `pin.out` | Submit 按钮 Cell 对外发送事件的出口。 |
-| `ui_text_ref_model_id` / `ui_text_ref_p` / `ui_text_ref_r` / `ui_text_ref_c` / `ui_text_ref_k` | scalar labels | Text / Badge 节点读取哪个 label。 |
 
 ## 3. Submit 类提交按钮怎么填
 

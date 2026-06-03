@@ -547,7 +547,6 @@
           "v": {
             "disabled": {
               "$label": {
-                "model_id": 0,
                 "p": 0,
                 "r": 0,
                 "c": 0,
@@ -556,7 +555,6 @@
             },
             "loading": {
               "$label": {
-                "model_id": 0,
                 "p": 0,
                 "r": 0,
                 "c": 0,
@@ -960,7 +958,6 @@
           "k": "ui_bind_read_json",
           "t": "json",
           "v": {
-            "model_id": 0,
             "p": 0,
             "r": 0,
             "c": 0,
@@ -1148,7 +1145,6 @@
           "k": "ui_bind_read_json",
           "t": "json",
           "v": {
-            "model_id": 0,
             "p": 0,
             "r": 0,
             "c": 0,
@@ -1443,7 +1439,6 @@
           "k": "ui_bind_read_json",
           "t": "json",
           "v": {
-            "model_id": 0,
             "p": 0,
             "r": 0,
             "c": 0,
@@ -1503,7 +1498,6 @@
           "k": "ui_bind_read_json",
           "t": "json",
           "v": {
-            "model_id": 0,
             "p": 0,
             "r": 0,
             "c": 0,
@@ -1916,7 +1910,6 @@
           "t": "json",
           "v": {
             "read": {
-              "model_id": 0,
               "p": 0,
               "r": 0,
               "c": 0,
@@ -1925,7 +1918,6 @@
             "write": {
               "action": "ui_owner_label_update",
               "target_ref": {
-                "model_id": 0,
                 "p": 0,
                 "r": 0,
                 "c": 0,
@@ -2043,7 +2035,6 @@
                   "t": "str",
                   "v": {
                     "$label": {
-                      "model_id": 0,
                       "p": 0,
                       "r": 0,
                       "c": 0,
@@ -2129,7 +2120,6 @@
           "t": "json",
           "v": {
             "read": {
-              "model_id": 0,
               "p": 0,
               "r": 0,
               "c": 0,
@@ -2232,45 +2222,14 @@
           "p": 2,
           "r": 5,
           "c": 0,
-          "k": "ui_text_ref_c",
-          "t": "int",
-          "v": 0
-        },
-        {
-          "id": 0,
-          "p": 2,
-          "r": 5,
-          "c": 0,
-          "k": "ui_text_ref_k",
-          "t": "str",
-          "v": "remote_status"
-        },
-        {
-          "id": 0,
-          "p": 2,
-          "r": 5,
-          "c": 0,
-          "k": "ui_text_ref_model_id",
-          "t": "int",
-          "v": 0
-        },
-        {
-          "id": 0,
-          "p": 2,
-          "r": 5,
-          "c": 0,
-          "k": "ui_text_ref_p",
-          "t": "int",
-          "v": 0
-        },
-        {
-          "id": 0,
-          "p": 2,
-          "r": 5,
-          "c": 0,
-          "k": "ui_text_ref_r",
-          "t": "int",
-          "v": 0
+          "k": "ui_bind_read_json",
+          "t": "json",
+          "v": {
+            "p": 0,
+            "r": 0,
+            "c": 0,
+            "k": "remote_status"
+          }
         }
       ]
     },

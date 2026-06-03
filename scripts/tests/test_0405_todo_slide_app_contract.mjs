@@ -80,6 +80,43 @@ function walkNodes(node, out = []) {
   return out;
 }
 
+function collectSameModelUiRefs(value, currentModelId, path = []) {
+  const hits = [];
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      hits.push(...collectSameModelUiRefs(item, currentModelId, path.concat(index)));
+    });
+    return hits;
+  }
+  if (value && typeof value === 'object') {
+    if (
+      value.model_id === currentModelId
+      && Number.isInteger(value.p)
+      && Number.isInteger(value.r)
+      && Number.isInteger(value.c)
+      && typeof value.k === 'string'
+    ) {
+      hits.push(path.join('.'));
+    }
+    for (const [key, child] of Object.entries(value)) {
+      hits.push(...collectSameModelUiRefs(child, currentModelId, path.concat(key)));
+    }
+  }
+  return hits;
+}
+
+function assertNoSameModelUiRefs(ast) {
+  const hits = [];
+  for (const node of walkNodes(ast)) {
+    for (const field of ['bind', 'props']) {
+      for (const path of collectSameModelUiRefs(node[field], MODEL_ID, [node.id, field])) {
+        hits.push(path);
+      }
+    }
+  }
+  assert.deepEqual(hits, [], `same-model UI refs must omit model_id: ${hits.join(', ')}`);
+}
+
 function test_workspace_entry_mount_and_route_contract() {
   const workspace = recordsOf(workspacePath);
   const hierarchy = recordsOf(hierarchyPath);
@@ -111,6 +148,7 @@ function test_cellwise_ui_fragmentation_and_sync_policy() {
   assert.ok(ast, 'To Do Board must build a cellwise UI AST');
   const nodes = walkNodes(ast);
   assert.ok(nodes.length >= 24, `To Do Board must be fragmented enough, got ${nodes.length} nodes`);
+  assertNoSameModelUiRefs(ast);
 
   for (const id of [
     'todo_root',

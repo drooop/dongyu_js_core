@@ -308,6 +308,8 @@ source: ai
 | 0403-zitadel-sso-authz-gateway | 2026-06-02 | 以 ZITADEL OIDC 为主实现 Dongyu App login/session/capability gate，访客只读，已登录用户按角色使用滑动 App 与 Matrix/管理总线能力 | 6 | dropx/dev_0403-zitadel-sso-authz-gateway | Planned | ./docs/iterations/0403-zitadel-sso-authz-gateway/ |
 | 0404-ui-basic-filltable-guide | 2026-06-02 | 撰写基础 UI 模型填表说明，让开发者可手工填写 layout、Button/Input/Text/Dialog/Tabs 与局部页面切换 | 3 | dropx/dev_0404-ui-basic-filltable-guide | Completed | ./docs/iterations/0404-ui-basic-filltable-guide/ |
 | 0405-todo-slide-app-validation | 2026-06-03 | 用基础 UI 模型文档实现一个分状态 To Do 滑动 App，验证动态任务、双视图、弹窗表单、输入同步策略和本地浏览器体验 | 6 | dropx/dev_0405-todo-slide-app-validation | Completed | ./docs/iterations/0405-todo-slide-app-validation/ |
+| 0406-todo-ui-extension-docs | 2026-06-03 | 审查 To Do Board 使用的 UI 模型，明确基础组件与扩展组件边界，并补充开发者文档 | 3 | dropx/dev_0406-todo-ui-extension-docs | Completed | ./docs/iterations/0406-todo-ui-extension-docs/ |
+| 0407-current-model-ref | 2026-06-03 | 允许 UI 模型同模型引用省略部署后 model_id，重填 To Do Board 与非自带滑动 App 示例并更新开发者文档 | 5 | dropx/dev_0407-current-model-ref | Completed | ./docs/iterations/0407-current-model-ref/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

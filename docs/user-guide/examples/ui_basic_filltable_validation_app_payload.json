@@ -1,155 +1,1353 @@
 [
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.table", "v": "UI.BasicFilltableValidation" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "app_name", "t": "str", "v": "UI 基础填表验证" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "slide_app_summary", "t": "str", "v": "用基础 UI 模型填表文档创建的验证滑动 APP。" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "source_worker", "t": "str", "v": "ui-basic-guide-validation" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "slide_capable", "t": "bool", "v": true },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "slide_surface_type", "t": "str", "v": "workspace.page" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "from_user", "t": "str", "v": "@developer:localhost" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "to_user", "t": "str", "v": "@ui-server:localhost" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "ui_authoring_version", "t": "str", "v": "cellwise.ui.v1" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "ui_root_node_id", "t": "str", "v": "basic_validation_root" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "draft_text", "t": "str", "v": "" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "result_text", "t": "str", "v": "等待输入" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "dialog_open", "t": "bool", "v": false },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "show_detail", "t": "bool", "v": false },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "active_tab", "t": "str", "v": "form" },
-
-  { "id": 0, "p": 2, "r": 0, "c": 0, "k": "ui_node_id", "t": "str", "v": "basic_validation_root" },
-  { "id": 0, "p": 2, "r": 0, "c": 0, "k": "ui_component", "t": "str", "v": "Container" },
-  { "id": 0, "p": 2, "r": 0, "c": 0, "k": "ui_layout", "t": "str", "v": "column" },
-  { "id": 0, "p": 2, "r": 0, "c": 0, "k": "ui_gap", "t": "int", "v": 16 },
-  { "id": 0, "p": 2, "r": 0, "c": 0, "k": "ui_style_padding", "t": "str", "v": "24px" },
-  { "id": 0, "p": 2, "r": 0, "c": 0, "k": "ui_style_max_width", "t": "str", "v": "900px" },
-
-  { "id": 0, "p": 2, "r": 1, "c": 0, "k": "ui_node_id", "t": "str", "v": "validation_title" },
-  { "id": 0, "p": 2, "r": 1, "c": 0, "k": "ui_component", "t": "str", "v": "Text" },
-  { "id": 0, "p": 2, "r": 1, "c": 0, "k": "ui_parent", "t": "str", "v": "basic_validation_root" },
-  { "id": 0, "p": 2, "r": 1, "c": 0, "k": "ui_order", "t": "int", "v": 10 },
-  { "id": 0, "p": 2, "r": 1, "c": 0, "k": "ui_text", "t": "str", "v": "UI 基础填表验证" },
-  { "id": 0, "p": 2, "r": 1, "c": 0, "k": "ui_style_font_size", "t": "str", "v": "24px" },
-  { "id": 0, "p": 2, "r": 1, "c": 0, "k": "ui_style_font_weight", "t": "str", "v": "700" },
-
-  { "id": 0, "p": 2, "r": 2, "c": 0, "k": "ui_node_id", "t": "str", "v": "validation_tabs" },
-  { "id": 0, "p": 2, "r": 2, "c": 0, "k": "ui_component", "t": "str", "v": "Tabs" },
-  { "id": 0, "p": 2, "r": 2, "c": 0, "k": "ui_parent", "t": "str", "v": "basic_validation_root" },
-  { "id": 0, "p": 2, "r": 2, "c": 0, "k": "ui_order", "t": "int", "v": 20 },
-  { "id": 0, "p": 2, "r": 2, "c": 0, "k": "ui_bind_json", "t": "json", "v": { "read": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "active_tab" }, "write": { "action": "ui_owner_label_update", "target_ref": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "active_tab" } } } },
-
-  { "id": 0, "p": 2, "r": 2, "c": 1, "k": "ui_node_id", "t": "str", "v": "validation_tab_form" },
-  { "id": 0, "p": 2, "r": 2, "c": 1, "k": "ui_component", "t": "str", "v": "TabPane" },
-  { "id": 0, "p": 2, "r": 2, "c": 1, "k": "ui_parent", "t": "str", "v": "validation_tabs" },
-  { "id": 0, "p": 2, "r": 2, "c": 1, "k": "ui_order", "t": "int", "v": 10 },
-  { "id": 0, "p": 2, "r": 2, "c": 1, "k": "ui_props_json", "t": "json", "v": { "label": "表单", "name": "form" } },
-
-  { "id": 0, "p": 2, "r": 2, "c": 2, "k": "ui_node_id", "t": "str", "v": "validation_tab_help" },
-  { "id": 0, "p": 2, "r": 2, "c": 2, "k": "ui_component", "t": "str", "v": "TabPane" },
-  { "id": 0, "p": 2, "r": 2, "c": 2, "k": "ui_parent", "t": "str", "v": "validation_tabs" },
-  { "id": 0, "p": 2, "r": 2, "c": 2, "k": "ui_order", "t": "int", "v": 20 },
-  { "id": 0, "p": 2, "r": 2, "c": 2, "k": "ui_props_json", "t": "json", "v": { "label": "帮助", "name": "help" } },
-
-  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_node_id", "t": "str", "v": "form_row" },
-  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_component", "t": "str", "v": "Container" },
-  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_parent", "t": "str", "v": "validation_tab_form" },
-  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_order", "t": "int", "v": 10 },
-  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_layout", "t": "str", "v": "row" },
-  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_gap", "t": "int", "v": 12 },
-  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_style_align_items", "t": "str", "v": "center" },
-
-  { "id": 0, "p": 2, "r": 3, "c": 1, "k": "ui_node_id", "t": "str", "v": "validation_input" },
-  { "id": 0, "p": 2, "r": 3, "c": 1, "k": "ui_component", "t": "str", "v": "Input" },
-  { "id": 0, "p": 2, "r": 3, "c": 1, "k": "ui_parent", "t": "str", "v": "form_row" },
-  { "id": 0, "p": 2, "r": 3, "c": 1, "k": "ui_order", "t": "int", "v": 10 },
-  { "id": 0, "p": 2, "r": 3, "c": 1, "k": "ui_placeholder", "t": "str", "v": "输入验证文字" },
-  { "id": 0, "p": 2, "r": 3, "c": 1, "k": "ui_style_flex", "t": "str", "v": "1" },
-  { "id": 0, "p": 2, "r": 3, "c": 1, "k": "ui_bind_json", "t": "json", "v": { "read": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "draft_text" }, "write": { "action": "ui_owner_label_update", "target_ref": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "draft_text" }, "commit_policy": "on_blur" } } },
-
-  { "id": 0, "p": 2, "r": 3, "c": 2, "k": "ui_node_id", "t": "str", "v": "validation_submit" },
-  { "id": 0, "p": 2, "r": 3, "c": 2, "k": "ui_component", "t": "str", "v": "Button" },
-  { "id": 0, "p": 2, "r": 3, "c": 2, "k": "ui_parent", "t": "str", "v": "form_row" },
-  { "id": 0, "p": 2, "r": 3, "c": 2, "k": "ui_order", "t": "int", "v": 20 },
-  { "id": 0, "p": 2, "r": 3, "c": 2, "k": "ui_label", "t": "str", "v": "提交" },
-  { "id": 0, "p": 2, "r": 3, "c": 2, "k": "ui_variant", "t": "str", "v": "primary" },
-  { "id": 0, "p": 2, "r": 3, "c": 2, "k": "ui_bind_json", "t": "json", "v": { "write": { "action": "ui_owner_label_update", "target_ref": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "result_text" }, "value_ref": { "t": "str", "v": { "$label": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "draft_text" } } } } } },
-
-  { "id": 0, "p": 2, "r": 4, "c": 0, "k": "ui_node_id", "t": "str", "v": "result_display" },
-  { "id": 0, "p": 2, "r": 4, "c": 0, "k": "ui_component", "t": "str", "v": "Text" },
-  { "id": 0, "p": 2, "r": 4, "c": 0, "k": "ui_parent", "t": "str", "v": "validation_tab_form" },
-  { "id": 0, "p": 2, "r": 4, "c": 0, "k": "ui_order", "t": "int", "v": 20 },
-  { "id": 0, "p": 2, "r": 4, "c": 0, "k": "ui_bind_read_json", "t": "json", "v": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "result_text" } },
-
-  { "id": 0, "p": 2, "r": 5, "c": 0, "k": "ui_node_id", "t": "str", "v": "button_row" },
-  { "id": 0, "p": 2, "r": 5, "c": 0, "k": "ui_component", "t": "str", "v": "Container" },
-  { "id": 0, "p": 2, "r": 5, "c": 0, "k": "ui_parent", "t": "str", "v": "validation_tab_form" },
-  { "id": 0, "p": 2, "r": 5, "c": 0, "k": "ui_order", "t": "int", "v": 30 },
-  { "id": 0, "p": 2, "r": 5, "c": 0, "k": "ui_layout", "t": "str", "v": "row" },
-  { "id": 0, "p": 2, "r": 5, "c": 0, "k": "ui_gap", "t": "int", "v": 8 },
-
-  { "id": 0, "p": 2, "r": 5, "c": 1, "k": "ui_node_id", "t": "str", "v": "open_dialog_button" },
-  { "id": 0, "p": 2, "r": 5, "c": 1, "k": "ui_component", "t": "str", "v": "Button" },
-  { "id": 0, "p": 2, "r": 5, "c": 1, "k": "ui_parent", "t": "str", "v": "button_row" },
-  { "id": 0, "p": 2, "r": 5, "c": 1, "k": "ui_order", "t": "int", "v": 10 },
-  { "id": 0, "p": 2, "r": 5, "c": 1, "k": "ui_label", "t": "str", "v": "打开提示" },
-  { "id": 0, "p": 2, "r": 5, "c": 1, "k": "ui_bind_json", "t": "json", "v": { "write": { "action": "ui_owner_label_update", "target_ref": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "dialog_open" }, "value_ref": { "t": "bool", "v": true } } } },
-
-  { "id": 0, "p": 2, "r": 5, "c": 2, "k": "ui_node_id", "t": "str", "v": "show_detail_button" },
-  { "id": 0, "p": 2, "r": 5, "c": 2, "k": "ui_component", "t": "str", "v": "Button" },
-  { "id": 0, "p": 2, "r": 5, "c": 2, "k": "ui_parent", "t": "str", "v": "button_row" },
-  { "id": 0, "p": 2, "r": 5, "c": 2, "k": "ui_order", "t": "int", "v": 20 },
-  { "id": 0, "p": 2, "r": 5, "c": 2, "k": "ui_label", "t": "str", "v": "显示详情" },
-  { "id": 0, "p": 2, "r": 5, "c": 2, "k": "ui_bind_json", "t": "json", "v": { "write": { "action": "ui_owner_label_update", "target_ref": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "show_detail" }, "value_ref": { "t": "bool", "v": true } } } },
-
-  { "id": 0, "p": 2, "r": 6, "c": 0, "k": "ui_node_id", "t": "str", "v": "main_hint" },
-  { "id": 0, "p": 2, "r": 6, "c": 0, "k": "ui_component", "t": "str", "v": "Text" },
-  { "id": 0, "p": 2, "r": 6, "c": 0, "k": "ui_parent", "t": "str", "v": "validation_tab_form" },
-  { "id": 0, "p": 2, "r": 6, "c": 0, "k": "ui_order", "t": "int", "v": 40 },
-  { "id": 0, "p": 2, "r": 6, "c": 0, "k": "ui_text", "t": "str", "v": "当前是主内容区。" },
-  { "id": 0, "p": 2, "r": 6, "c": 0, "k": "ui_props_json", "t": "json", "v": { "hiddenRef": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "show_detail" } } },
-
-  { "id": 0, "p": 2, "r": 7, "c": 0, "k": "ui_node_id", "t": "str", "v": "detail_panel" },
-  { "id": 0, "p": 2, "r": 7, "c": 0, "k": "ui_component", "t": "str", "v": "Container" },
-  { "id": 0, "p": 2, "r": 7, "c": 0, "k": "ui_parent", "t": "str", "v": "validation_tab_form" },
-  { "id": 0, "p": 2, "r": 7, "c": 0, "k": "ui_order", "t": "int", "v": 50 },
-  { "id": 0, "p": 2, "r": 7, "c": 0, "k": "ui_layout", "t": "str", "v": "column" },
-  { "id": 0, "p": 2, "r": 7, "c": 0, "k": "ui_gap", "t": "int", "v": 8 },
-  { "id": 0, "p": 2, "r": 7, "c": 0, "k": "ui_props_json", "t": "json", "v": { "visibleRef": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "show_detail" } } },
-
-  { "id": 0, "p": 2, "r": 7, "c": 1, "k": "ui_node_id", "t": "str", "v": "detail_text" },
-  { "id": 0, "p": 2, "r": 7, "c": 1, "k": "ui_component", "t": "str", "v": "Text" },
-  { "id": 0, "p": 2, "r": 7, "c": 1, "k": "ui_parent", "t": "str", "v": "detail_panel" },
-  { "id": 0, "p": 2, "r": 7, "c": 1, "k": "ui_order", "t": "int", "v": 10 },
-  { "id": 0, "p": 2, "r": 7, "c": 1, "k": "ui_text", "t": "str", "v": "详情内容已经显示。" },
-
-  { "id": 0, "p": 2, "r": 7, "c": 2, "k": "ui_node_id", "t": "str", "v": "hide_detail_button" },
-  { "id": 0, "p": 2, "r": 7, "c": 2, "k": "ui_component", "t": "str", "v": "Button" },
-  { "id": 0, "p": 2, "r": 7, "c": 2, "k": "ui_parent", "t": "str", "v": "detail_panel" },
-  { "id": 0, "p": 2, "r": 7, "c": 2, "k": "ui_order", "t": "int", "v": 20 },
-  { "id": 0, "p": 2, "r": 7, "c": 2, "k": "ui_label", "t": "str", "v": "返回主内容" },
-  { "id": 0, "p": 2, "r": 7, "c": 2, "k": "ui_bind_json", "t": "json", "v": { "write": { "action": "ui_owner_label_update", "target_ref": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "show_detail" }, "value_ref": { "t": "bool", "v": false } } } },
-
-  { "id": 0, "p": 2, "r": 8, "c": 0, "k": "ui_node_id", "t": "str", "v": "help_markdown" },
-  { "id": 0, "p": 2, "r": 8, "c": 0, "k": "ui_component", "t": "str", "v": "Markdown" },
-  { "id": 0, "p": 2, "r": 8, "c": 0, "k": "ui_parent", "t": "str", "v": "validation_tab_help" },
-  { "id": 0, "p": 2, "r": 8, "c": 0, "k": "ui_order", "t": "int", "v": 10 },
-  { "id": 0, "p": 2, "r": 8, "c": 0, "k": "ui_markdown", "t": "str", "v": "## 帮助\n\n这个 tab 验证 Markdown 与 Tabs。\n\n- 表单 tab 验证 Input/Button/Text/Dialog\n- 详情切换验证 visibleRef/hiddenRef" },
-
-  { "id": 0, "p": 2, "r": 9, "c": 0, "k": "ui_node_id", "t": "str", "v": "notice_dialog" },
-  { "id": 0, "p": 2, "r": 9, "c": 0, "k": "ui_component", "t": "str", "v": "Dialog" },
-  { "id": 0, "p": 2, "r": 9, "c": 0, "k": "ui_parent", "t": "str", "v": "basic_validation_root" },
-  { "id": 0, "p": 2, "r": 9, "c": 0, "k": "ui_order", "t": "int", "v": 90 },
-  { "id": 0, "p": 2, "r": 9, "c": 0, "k": "ui_props_json", "t": "json", "v": { "title": "提示", "width": "420px" } },
-  { "id": 0, "p": 2, "r": 9, "c": 0, "k": "ui_bind_json", "t": "json", "v": { "read": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "dialog_open" }, "write": { "action": "ui_owner_label_update", "target_ref": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "dialog_open" } } } },
-
-  { "id": 0, "p": 2, "r": 9, "c": 1, "k": "ui_node_id", "t": "str", "v": "notice_text" },
-  { "id": 0, "p": 2, "r": 9, "c": 1, "k": "ui_component", "t": "str", "v": "Text" },
-  { "id": 0, "p": 2, "r": 9, "c": 1, "k": "ui_parent", "t": "str", "v": "notice_dialog" },
-  { "id": 0, "p": 2, "r": 9, "c": 1, "k": "ui_order", "t": "int", "v": 10 },
-  { "id": 0, "p": 2, "r": 9, "c": 1, "k": "ui_text", "t": "str", "v": "弹出式提示框工作正常。" },
-
-  { "id": 0, "p": 2, "r": 9, "c": 2, "k": "ui_node_id", "t": "str", "v": "close_dialog_button" },
-  { "id": 0, "p": 2, "r": 9, "c": 2, "k": "ui_component", "t": "str", "v": "Button" },
-  { "id": 0, "p": 2, "r": 9, "c": 2, "k": "ui_parent", "t": "str", "v": "notice_dialog" },
-  { "id": 0, "p": 2, "r": 9, "c": 2, "k": "ui_order", "t": "int", "v": 20 },
-  { "id": 0, "p": 2, "r": 9, "c": 2, "k": "ui_label", "t": "str", "v": "关闭" },
-  { "id": 0, "p": 2, "r": 9, "c": 2, "k": "ui_bind_json", "t": "json", "v": { "write": { "action": "ui_owner_label_update", "target_ref": { "model_id": 0, "p": 0, "r": 0, "c": 0, "k": "dialog_open" }, "value_ref": { "t": "bool", "v": false } } } }
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "model_type",
+    "t": "model.table",
+    "v": "UI.BasicFilltableValidation"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "app_name",
+    "t": "str",
+    "v": "UI 基础填表验证"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "slide_app_summary",
+    "t": "str",
+    "v": "用基础 UI 模型填表文档创建的验证滑动 APP。"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "source_worker",
+    "t": "str",
+    "v": "ui-basic-guide-validation"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "slide_capable",
+    "t": "bool",
+    "v": true
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "slide_surface_type",
+    "t": "str",
+    "v": "workspace.page"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "from_user",
+    "t": "str",
+    "v": "@developer:localhost"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "to_user",
+    "t": "str",
+    "v": "@ui-server:localhost"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "ui_authoring_version",
+    "t": "str",
+    "v": "cellwise.ui.v1"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "ui_root_node_id",
+    "t": "str",
+    "v": "basic_validation_root"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "draft_text",
+    "t": "str",
+    "v": ""
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "result_text",
+    "t": "str",
+    "v": "等待输入"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "dialog_open",
+    "t": "bool",
+    "v": false
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "show_detail",
+    "t": "bool",
+    "v": false
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "active_tab",
+    "t": "str",
+    "v": "form"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "basic_validation_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Container"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_layout",
+    "t": "str",
+    "v": "column"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_gap",
+    "t": "int",
+    "v": 16
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_style_padding",
+    "t": "str",
+    "v": "24px"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_style_max_width",
+    "t": "str",
+    "v": "900px"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "validation_title"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Text"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "basic_validation_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 10
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_text",
+    "t": "str",
+    "v": "UI 基础填表验证"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_style_font_size",
+    "t": "str",
+    "v": "24px"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_style_font_weight",
+    "t": "str",
+    "v": "700"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "validation_tabs"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Tabs"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "basic_validation_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 20
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "read": {
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "active_tab"
+      },
+      "write": {
+        "action": "ui_owner_label_update",
+        "target_ref": {
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "active_tab"
+        }
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 1,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "validation_tab_form"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 1,
+    "k": "ui_component",
+    "t": "str",
+    "v": "TabPane"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 1,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "validation_tabs"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 1,
+    "k": "ui_order",
+    "t": "int",
+    "v": 10
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 1,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "label": "表单",
+      "name": "form"
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 2,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "validation_tab_help"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 2,
+    "k": "ui_component",
+    "t": "str",
+    "v": "TabPane"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 2,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "validation_tabs"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 2,
+    "k": "ui_order",
+    "t": "int",
+    "v": 20
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 2,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "label": "帮助",
+      "name": "help"
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "form_row"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Container"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "validation_tab_form"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 10
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_layout",
+    "t": "str",
+    "v": "row"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_gap",
+    "t": "int",
+    "v": 12
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_style_align_items",
+    "t": "str",
+    "v": "center"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 1,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "validation_input"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 1,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Input"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 1,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "form_row"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 1,
+    "k": "ui_order",
+    "t": "int",
+    "v": 10
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 1,
+    "k": "ui_placeholder",
+    "t": "str",
+    "v": "输入验证文字"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 1,
+    "k": "ui_style_flex",
+    "t": "str",
+    "v": "1"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 1,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "read": {
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "draft_text"
+      },
+      "write": {
+        "action": "ui_owner_label_update",
+        "target_ref": {
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "draft_text"
+        },
+        "commit_policy": "on_blur"
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 2,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "validation_submit"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 2,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Button"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 2,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "form_row"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 2,
+    "k": "ui_order",
+    "t": "int",
+    "v": 20
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 2,
+    "k": "ui_label",
+    "t": "str",
+    "v": "提交"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 2,
+    "k": "ui_variant",
+    "t": "str",
+    "v": "primary"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 2,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "write": {
+        "action": "ui_owner_label_update",
+        "target_ref": {
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "result_text"
+        },
+        "value_ref": {
+          "t": "str",
+          "v": {
+            "$label": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "draft_text"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 4,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "result_display"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 4,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Text"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 4,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "validation_tab_form"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 4,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 20
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 4,
+    "c": 0,
+    "k": "ui_bind_read_json",
+    "t": "json",
+    "v": {
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "result_text"
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "button_row"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Container"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "validation_tab_form"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 30
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 0,
+    "k": "ui_layout",
+    "t": "str",
+    "v": "row"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 0,
+    "k": "ui_gap",
+    "t": "int",
+    "v": 8
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 1,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "open_dialog_button"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 1,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Button"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 1,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "button_row"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 1,
+    "k": "ui_order",
+    "t": "int",
+    "v": 10
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 1,
+    "k": "ui_label",
+    "t": "str",
+    "v": "打开提示"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 1,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "write": {
+        "action": "ui_owner_label_update",
+        "target_ref": {
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dialog_open"
+        },
+        "value_ref": {
+          "t": "bool",
+          "v": true
+        }
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 2,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "show_detail_button"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 2,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Button"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 2,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "button_row"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 2,
+    "k": "ui_order",
+    "t": "int",
+    "v": 20
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 2,
+    "k": "ui_label",
+    "t": "str",
+    "v": "显示详情"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 2,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "write": {
+        "action": "ui_owner_label_update",
+        "target_ref": {
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "show_detail"
+        },
+        "value_ref": {
+          "t": "bool",
+          "v": true
+        }
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 6,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "main_hint"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 6,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Text"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 6,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "validation_tab_form"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 6,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 40
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 6,
+    "c": 0,
+    "k": "ui_text",
+    "t": "str",
+    "v": "当前是主内容区。"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 6,
+    "c": 0,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "hiddenRef": {
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "show_detail"
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "detail_panel"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Container"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "validation_tab_form"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 50
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 0,
+    "k": "ui_layout",
+    "t": "str",
+    "v": "column"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 0,
+    "k": "ui_gap",
+    "t": "int",
+    "v": 8
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 0,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "visibleRef": {
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "show_detail"
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 1,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "detail_text"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 1,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Text"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 1,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "detail_panel"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 1,
+    "k": "ui_order",
+    "t": "int",
+    "v": 10
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 1,
+    "k": "ui_text",
+    "t": "str",
+    "v": "详情内容已经显示。"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 2,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "hide_detail_button"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 2,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Button"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 2,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "detail_panel"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 2,
+    "k": "ui_order",
+    "t": "int",
+    "v": 20
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 2,
+    "k": "ui_label",
+    "t": "str",
+    "v": "返回主内容"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 7,
+    "c": 2,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "write": {
+        "action": "ui_owner_label_update",
+        "target_ref": {
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "show_detail"
+        },
+        "value_ref": {
+          "t": "bool",
+          "v": false
+        }
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 8,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "help_markdown"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 8,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Markdown"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 8,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "validation_tab_help"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 8,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 10
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 8,
+    "c": 0,
+    "k": "ui_markdown",
+    "t": "str",
+    "v": "## 帮助\n\n这个 tab 验证 Markdown 与 Tabs。\n\n- 表单 tab 验证 Input/Button/Text/Dialog\n- 详情切换验证 visibleRef/hiddenRef"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "notice_dialog"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Dialog"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "basic_validation_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 0,
+    "k": "ui_order",
+    "t": "int",
+    "v": 90
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 0,
+    "k": "ui_props_json",
+    "t": "json",
+    "v": {
+      "title": "提示",
+      "width": "420px"
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "read": {
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "dialog_open"
+      },
+      "write": {
+        "action": "ui_owner_label_update",
+        "target_ref": {
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dialog_open"
+        }
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 1,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "notice_text"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 1,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Text"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 1,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "notice_dialog"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 1,
+    "k": "ui_order",
+    "t": "int",
+    "v": 10
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 1,
+    "k": "ui_text",
+    "t": "str",
+    "v": "弹出式提示框工作正常。"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 2,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "close_dialog_button"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 2,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Button"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 2,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "notice_dialog"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 2,
+    "k": "ui_order",
+    "t": "int",
+    "v": 20
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 2,
+    "k": "ui_label",
+    "t": "str",
+    "v": "关闭"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 9,
+    "c": 2,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "write": {
+        "action": "ui_owner_label_update",
+        "target_ref": {
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "dialog_open"
+        },
+        "value_ref": {
+          "t": "bool",
+          "v": false
+        }
+      }
+    }
+  }
 ]
