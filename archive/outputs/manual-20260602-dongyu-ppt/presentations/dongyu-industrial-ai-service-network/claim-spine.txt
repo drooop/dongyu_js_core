@@ -1,0 +1,94 @@
+Thesis:
+Wantai Network creates the business channel for AI to enter industrial services by converting AI intent, field capability, workstation service, delivery acceptance, audit records, and settlement basis into the ODS order delivery system.
+
+Audience:
+Industrial investors,产业基金,government industry departments, strategic partners.
+
+One-line arc:
+AI cannot directly control factories; it needs a business network, field decision boundary, and order-delivery economy that turns model intent into auditable industrial operations.
+
+Slide list:
+01 Cover
+Claim: 万态网工业 AI 服务网络把 AI 进入工业的入口做成可运营渠道。
+Proof object: subdued cover with metric rail.
+Source: approved BP.
+
+02 Investor conclusion
+Claim: 第一阶段资金形成的是渠道资产，不是单点试点费用。
+Proof object: capital-to-assets bridge.
+Source: approved BP.
+
+03 Market shift
+Claim: AI 真正进入工业，前提是把生产过程变成可交付订单流量。
+Proof object: four-object transformation table.
+Source: approved BP.
+
+04 Channel problem
+Claim: 工业 AI 的机会很大，困难在黑箱不能直接进入现场。
+Proof object: gap diagram from cloud LLM to field service.
+Source: approved BP; Siemens / Schneider contextual references.
+
+05 Wantai Network definition
+Claim: 万态网就是 AI 到工业服务的业务网络。
+Proof object: node-and-flow network map.
+Source: approved BP.
+
+06 ODS order delivery system
+Claim: ODS 是订单交付系统，比 Token、点击和字节更接近工业价值。
+Proof object: Order / Delivery / System definition and comparison matrix.
+Source: approved BP.
+
+07 Channel operating loop
+Claim: 万态网把需求、订单、交付、验收和结算组织成可销售流量。
+Proof object: seven-step operating loop.
+Source: approved BP.
+
+08 Site brain / cloud LLM
+Claim: 黑箱负责智能生成，白箱负责工业落地。
+Proof object: split-control architecture.
+Source: approved BP.
+
+09 Wisdom model
+Claim: 白箱方法论不是解释黑箱，而是把黑箱输出约束成可审计操作。
+Proof object: decision-state matrix.
+Source: approved BP.
+
+10 Product system
+Claim: PIC、DE、V1N 把平台能力变成客户可购买的现场服务。
+Proof object: product stack linked to revenue modes.
+Source: approved BP.
+
+11 Joint structure
+Claim: 上海洞宇建平台，合肥洞宇建场景和区域复制入口。
+Proof object: two-center operating model.
+Source: approved BP.
+
+12 First-stage landing
+Claim: 首期从劳务工种和基本工位切入，避开未确认具体工位的过度承诺。
+Proof object: Banli / labor work-type landing map.
+Source: approved BP and internal boundary note.
+
+13 Four-stage route
+Claim: 项目从工种样板走向智能生产线、渠道运营和工业业务网络生态。
+Proof object: four-stage timeline; later capital amounts omitted.
+Source: approved BP.
+
+14 Business model
+Claim: 收入从项目交付升级为 ODS 订单交付、节点、数字员工和渠道分成。
+Proof object: revenue pathway table.
+Source: approved BP.
+
+15 First-stage asset formation
+Claim: 5,000万元形成六类可尽调资产。
+Proof object: funding-to-assets allocation matrix.
+Source: approved BP.
+
+16 Closing position
+Claim: 首位产业投资人的价值在于提前进入工业 AI 服务渠道位置。
+Proof object: closing ladder from technology to channel to capital continuation.
+Source: approved BP.
+
+Omissions:
+- No Stage 2/3 concrete investment amounts.
+- No specific unconfirmed workstation/customer names.
+- No unverified logos.

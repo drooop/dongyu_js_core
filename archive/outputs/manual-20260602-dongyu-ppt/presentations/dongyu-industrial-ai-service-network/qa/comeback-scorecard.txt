@@ -1,0 +1,41 @@
+Dongyu Industrial AI Service Network PPT - Final QA Scorecard
+Date: 2026-06-02
+
+Artifact:
+- output/wantai-industrial-ai-service-network.pptx
+- 16 slides, 1280 x 720
+
+Done criteria:
+- Consulting-style investor deck, not an internal memo or AI template.
+- Covers Wantai as business network/channel, ODS order delivery system, site brain, wisdom model, Shanghai/Hefei division, first-stage investment conclusion.
+- Uses V1N software worker, DE digital employee, PIC site node language.
+- External-facing funding language includes only first-stage 5,000 万元; later stages are qualitative.
+- No forbidden old/internal language in the slide sources.
+- Full rendered layout check passes with 0 errors and 0 warnings.
+- Sub-agent final review approves the deck.
+- ODS is consistently treated as Order Delivery System / 订单交付系统, not Object / Decision / Service.
+- V1.6 emphasizes why industrial AI is important and difficult, and frames the methodology as black-box AI plus white-box Wantai modelized foundation.
+
+Verification:
+- Full deck export: passed.
+- Slide count in PPTX package: 16.
+- Layout quality: 16/16 slides, 0 error, 0 warning.
+- Forbidden term scan: no matches for 4000/4,000/四千万, second-stage 2亿元, third-stage 20亿元, Software Worker, 工业AI盒子, 数字工人, internal-work headings.
+- ODS concept scan: no matches for Object / Decision / Service, ODS 服务流量, ODS 流量, ODS 服务调用, or ODS 服务 in external MD, HTML, or slide sources.
+- Visual inspection: contact sheet and slide 13 reviewed after final readability polish.
+
+Review score:
+- Strategic story: 9/9
+- Investor conclusion clarity: 8/9
+- Visual coherence: 9/9
+- External wording discipline: 9/9
+- Presentation readability: 8/9
+- Total: 43/45
+
+Sub-agent review:
+- Stage 1: change requested, fixed, approved.
+- Stage 2: change requested, fixed, approved.
+- Final full-deck review: approved at 43/45.
+- Final polish after review: stage route readability improved, layout rechecked.
+- ODS correction review: concept rebuilt around demand -> order -> delivery task -> site execution -> acceptance -> audit -> settlement; sub-agent approved.
+- V1.6 narrative review: industrial AI difficulty and black-box/white-box methodology reviewed by sub-agent; approved.

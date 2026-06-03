@@ -1024,6 +1024,9 @@ slide-capable app 的最小根标签：
 - `Model 100` → `flow.shell`
 - `Model 1030` → `workspace.importer`
 - `Model 1034` → `workspace.page`
+- `Model 1082` → `workspace.page`
+- `Model 1083` → `workspace.page`
+- `Model 1086` → `workspace.page`
 
 新增枚举值或改变既有语义时：
 

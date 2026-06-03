@@ -34,6 +34,7 @@ source: ai
 |---|---|---|
 | `ui_binding_conversational.md` | current explanation | “看似双向绑定”的现状、边界和真实链路。 |
 | `ui_components_v2.md` | current authoring guide | `cellwise.ui.v1` 填表、label、布局、绑定、事件触发。 |
+| `ui_model_basic_filltable_guide.md` | current authoring guide | 基础 UI 模型手工填表指南，覆盖 layout、Button/Input/Text/Dialog/Tabs 与局部页面切换。 |
 | `ui_event_matrix_mqtt_configuration.md` | current configuration guide | UI 事件经 Matrix/MQTT 到设备或模型 PIN 的配置。 |
 | `ui_model_filltable_workspace_example.md` | current/example | Home 中逐条填写 label 并修改正数 UI model 显示结果。 |
 | `workspace_ui_filltable_example.md` | current/example | 0270 Workspace UI 填表示例。 |
@@ -71,6 +72,7 @@ source: ai
 | `slide_ui_evidence_runbook.md` | evidence runbook | 本地/远端 Slide UI 取证路径和 cloud deploy 后验证。 |
 | `matrix_userline_phase1.md` | phase runbook | 0283 Matrix 用户线最小登录和单会话闭环。 |
 | `matrix_userline_phase2.md` | phase runbook | 0284 基础聊天界面、房间切换、时间线、输入和成员面板。 |
+| `matrix_chat_feature_matrix.md` | feature checklist | Matrix Chat 已实现功能、交互动作和验证清单。 |
 
 ## Visualized / Interactive HTML
 

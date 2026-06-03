@@ -1,0 +1,19 @@
+Primary internal sources:
+- docs/business/shanghai-hefei-dongyu-joint-business-plan.md
+- docs/business/shanghai-hefei-dongyu-joint-business-plan-internal-notes.md
+
+Public reference sources used as contextual analogues:
+- Siemens and Microsoft Industrial Copilot official press release, 2023. Used for the principle that industrial AI is framed around human-machine collaboration, industrial software, and controlled industrial workflows. URL: https://press.siemens.com/global/en/pressrelease/siemens-and-microsoft-partner-drive-cross-industry-ai-adoption
+- World Economic Forum Global Lighthouse Network page. Used for the principle that advanced manufacturing value is shown through scaling, replication, and proven use cases rather than isolated pilots. URL: https://www.weforum.org/impact/advanced-tecnologies-manufacturing-factories-scaling-innovations/
+- Schneider Electric EcoStruxure Platform official page. Used for the platform framing from shop floor to top floor, connectivity, data, and business logic. URL: https://www.se.com/ww/en/work/campaign/innovation/platform/
+- IBM Design Language Color page and Carbon data-visualization palette. Used for color discipline, contrast, and restrained enterprise data visualization. URLs: https://www.ibm.com/design/language/color/ ; https://v10.carbondesignsystem.com/data-visualization/color-palettes/
+
+Metrics and capital amounts:
+- First-stage investment: 5,000万元 from approved BP.
+- Stage 2 and Stage 3 concrete capital estimates are internal only and must not appear in the external PPT.
+- External deck may refer to later stages as 后续专项融资, 后续平台化融资, 后续生态扩张融资 only.
+
+Identity assets:
+- No official logos embedded.
+- No partner/customer marks embedded.
+- No generated product UI, official app icon, mascot, or pseudo-logo embedded.

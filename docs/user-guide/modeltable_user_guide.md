@@ -104,6 +104,12 @@ source: ai
   - `滑动 APP 创建` host
 - `Model 1035`
   - 填表创建器 truth
+- `Model 1082`
+  - `ModelTable` 内置模型表编辑滑动 app
+- `Model 1083`
+  - `Matrix Chat` 内置 Matrix 聊天滑动 app
+- `Model 1086`
+  - `To Do Board` 内置分状态任务看板滑动 app
 
 当前 `slide_surface_type` 正式枚举：
 
@@ -131,7 +137,7 @@ source: ai
 
 用户入口：
 
-- `Gallery`、`Docs`、`ModelTable`、`Static`、`Settings`、`Matrix Suite` 等内置入口以桌面 app card 进入。
+- `Gallery`、`Docs`、`ModelTable`、`Static`、`Settings`、`Matrix Suite`、`Matrix Chat`、`To Do Board` 等内置入口以桌面 app card 进入。
 - `Docs` 不再是 Dock 专属入口，而是普通 app card。
 - `ModelTable` 不再依赖桌面侧边栏；它是 `Model 1082` 上的 UI Server built-in slide app。打开卡片时先进入 1082 的滑动 App，再由 1082 的 UI 模型挂载完整模型表编辑界面，用于查看、新增、编辑、删除和详情查看。
 - Workspace 下所有 `slide_capable=true` 且属于用户可见入口的滑动 app，会从 `ws_apps_registry` 投影为桌面 app card。
