@@ -25,7 +25,7 @@ phase: phase1
 
 | Step | Title | Scope (Short) | Files (Key) | Validation (Executable) | Acceptance Criteria | Rollback |
 |------|-------|---------------|-------------|--------------------------|--------------------|----------|
-| 1 | ZITADEL provisioning and account | Create/verify OIDC app and human account | ZITADEL Console/API only, runlog | Public OIDC metadata check; Console/API readback | Account and roles exist; redirect URLs registered; no secret in repo | Remove created account/app or disable role assignment |
+| 1 | ZITADEL provisioning and account | Verify OIDC app and existing human account | ZITADEL Console/API only, runlog | Public OIDC metadata check; SSO login proof | Existing account works for SSO; redirect URLs known; no secret in repo | Disable role assignment if changed |
 | 2 | OIDC session gateway | ZITADEL login/callback/logout/me and session model | `packages/ui-model-demo-server/auth.mjs`, `server.mjs`, package deps if needed | Unit/mock OIDC test; `/auth/me` guest/login contract checks | Dongyu session created from validated ZITADEL identity | Revert auth files and deps |
 | 3 | Principal-aware authorization | Guest read-only filtering and server-side write/capability gates | `server.mjs`, auth helpers, tests | Snapshot/filter tests; unauthorized write tests | Guest reads only public data; writes/Matrix/management denied | Revert guard/filter changes |
 | 4 | Frontend auth UX | Remote auth store, account dropdown, login/logout/permission views | `main.js`, `demo_app.js`, auth UI files, optional renderer registry | Frontend tests/build; browser guest/login/logout smoke | Clear polished UI states; return URL preserved | Revert frontend auth UI changes |
@@ -36,14 +36,15 @@ phase: phase1
 
 ### Step 1 — ZITADEL provisioning and account
 **Goal**
-- Use the user's logged-in ZITADEL permission to create or verify the Dongyu App OIDC application and create the requested human account.
+- Use the existing ZITADEL account `drop.yang@dongyudigital.com` as the SSO verification subject and verify the Dongyu App OIDC configuration needed by implementation.
 
 **Scope**
 - Confirm issuer, authorization endpoint, token endpoint, userinfo endpoint, and logout endpoint.
 - Configure redirect URIs for local and remote Dongyu App callback.
 - Configure post logout redirect URIs.
-- Create the new human account using the provided email/display name/username/login method.
-- Create or assign Dongyu App roles for the account.
+- Do not create the previously requested `nwpuyyc@163.com` account in this iteration unless the user explicitly reopens that requirement.
+- Verify the existing account can complete ZITADEL login and capture only non-sensitive identity/claim facts.
+- If role/capability claims are missing, record the exact missing role/capability and stop before any ZITADEL write operation.
 
 **Files**
 - Create/Update:
@@ -59,19 +60,19 @@ phase: phase1
   - `curl -fsS https://matrix.dongyudigital.com/_matrix/client/v3/login`
 - Browser/Console checks:
   - Confirm Dongyu App OIDC application exists.
-  - Confirm new account exists and has intended role assignment.
+  - Confirm the existing account can complete SSO login.
 - Expected signals:
   - OIDC metadata includes issuer, authorize, token, userinfo, end_session endpoints.
   - Matrix login flows include `m.login.sso` and `m.login.token`.
-  - Account and role assignment are visible without exposing secrets.
+  - Existing account identity and claim shape are visible to Dongyu App without exposing secrets.
 
 **Acceptance Criteria**
 - ZITADEL app/client information needed by server env is known.
-- New account exists and is assigned the intended Dongyu App role.
+- Existing account can be used as the real SSO test account.
 - Sub-agent review Approved.
 
 **Rollback Strategy**
-- Disable or delete the created role assignment/account/app through ZITADEL Console/API.
+- Disable any role assignment made during this step. If no ZITADEL write operation occurred, no remote rollback is required.
 
 ---
 

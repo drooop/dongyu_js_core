@@ -103,10 +103,13 @@ async function test_fetches_joined_rooms_and_room_display_metadata() {
   }, { fetchImpl });
 
   assert.equal(result.ok, true, 'joined-room fetch must succeed');
-  assert.deepEqual(result.rooms, [
-    { room_id: '!ops:localhost', name: 'Drop Operations', canonical_alias: '#ops:localhost' },
-    { room_id: '!nameless:localhost', name: '', canonical_alias: '' },
-  ]);
+  assert.equal(result.rooms.length, 2, 'joined-room fetch must project both joined rooms');
+  assert.equal(result.rooms[0].room_id, '!ops:localhost');
+  assert.equal(result.rooms[0].name, 'Drop Operations');
+  assert.equal(result.rooms[0].canonical_alias, '#ops:localhost');
+  assert.equal(result.rooms[1].room_id, '!nameless:localhost');
+  assert.equal(result.rooms[1].name, '');
+  assert.equal(result.rooms[1].canonical_alias, '');
   assert.ok(calls.some((url) => url.includes('/joined_rooms')), 'fetcher must call Matrix joined_rooms');
   assert.ok(calls.some((url) => url.includes('/state/m.room.name')), 'fetcher must read room name state');
   assert.doesNotMatch(JSON.stringify(result.rooms), /SECRET_SHOULD_NOT_RENDER|access_token|password/u);
@@ -236,7 +239,9 @@ async function test_server_refresh_writes_drop_channels_to_mgmt_console_projecti
       },
     });
     assert.equal(typeof state.refreshMgmtBusConsoleChannels, 'function', 'server state must expose an explicit channel refresh hook');
-    const refresh = await state.refreshMgmtBusConsoleChannels();
+    const session = resolveMgmtBusConsoleMatrixSession(state.runtime, {});
+    assert.equal(session.ok, true, 'test setup must provide a drop Matrix session');
+    const refresh = await state.refreshMgmtBusConsoleChannels(session.data);
     assert.equal(refresh.ok, true, 'channel refresh must succeed with injected Matrix fetcher');
     const snapshot = state.clientSnap();
     const subjectRows = rootLabel(snapshot, -2, 'mgmt_bus_console_subject_rows_json');

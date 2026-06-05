@@ -55,14 +55,27 @@ import {
   FLOW_SHELL_TAB_LABEL,
   GALLERY_MAILBOX_MODEL_ID,
   GALLERY_STATE_MODEL_ID,
+  MATRIX_ACTIVE_CONVERSATION_MODEL_ID,
+  MATRIX_ACTIVE_ROOM_MEMBERS_MODEL_ID,
+  MATRIX_CHAT_UI_STATE_MODEL_ID,
+  MATRIX_ROOM_DIRECTORY_MODEL_ID,
+  MATRIX_SESSION_MODEL_ID,
+  MATRIX_WORKSPACE_APP_MODEL_ID,
   WORKSPACE_ENTRY_MODEL_IDS,
 } from '../ui-model-demo-frontend/src/model_ids.js';
 import {
   getSession, getSessionWithToken, isAuthenticated, loginWithMatrix, logout,
   makeSetCookieHeader, makeClearCookieHeader,
+  makeClearOidcStateCookieHeader,
   loadHomeservers, addHomeserver, removeHomeserver,
   checkLoginRateLimit,
   validateHomeserverUrl,
+  startOidcLogin,
+  completeOidcLogin,
+  startMatrixSso,
+  completeMatrixSso,
+  getMatrixStatus,
+  disconnectMatrix,
 } from './auth.mjs';
 import {
   normalizeFilltablePolicy,
@@ -1107,7 +1120,7 @@ async function handleMediaUploadRequest(req, res, state, corsOrigin = null) {
     ? {
       homeserverUrl: session.homeserverUrl,
       accessToken: session.accessToken,
-      userId: session.userId || '',
+      userId: session.matrixUserId || session.userId || '',
     }
     : (!AUTH_ENABLED
       ? {
@@ -1193,7 +1206,7 @@ function resolveMatrixMediaIdentity(req, state) {
     return {
       homeserverUrl: session.homeserverUrl,
       accessToken: session.accessToken,
-      userId: session.userId || '',
+      userId: session.matrixUserId || session.userId || '',
     };
   }
   if (AUTH_ENABLED) return null;
@@ -1213,6 +1226,17 @@ function resolveMatrixMediaIdentity(req, state) {
       process.env.MATRIX_MBR_BOT_USER,
       process.env.MATRIX_MBR_USER,
     ),
+  };
+}
+
+function resolveRequestMatrixSession(req) {
+  const session = getSessionWithToken(req);
+  if (!session || !session.accessToken || !session.homeserverUrl) return null;
+  return {
+    homeserverUrl: session.homeserverUrl,
+    accessToken: session.accessToken,
+    userId: session.matrixUserId || session.userId || '',
+    displayName: session.matrixUserId || session.displayName || session.userId || '',
   };
 }
 
@@ -4350,9 +4374,45 @@ const CLIENT_SECRET_LABEL_TYPES = new Set([
   'matrix.token',
   'matrix.passwd',
 ]);
+const CLIENT_REDACTED_LABEL_TYPES = new Set([
+  'func.js',
+  'func.python',
+]);
 const CLIENT_SECRET_STRING_PATTERNS = [
   /syt_[A-Za-z0-9._=-]{8,}/u,
   /ChangeMeLocal2026/u,
+];
+const ALWAYS_RESTRICTED_CLIENT_MODEL_IDS = new Set([
+  String(LOGIN_MODEL_ID),
+  String(-10),
+]);
+const MATRIX_RESTRICTED_CLIENT_MODEL_IDS = new Set([
+  String(MATRIX_WORKSPACE_APP_MODEL_ID),
+  String(MATRIX_SESSION_MODEL_ID),
+  String(MATRIX_ROOM_DIRECTORY_MODEL_ID),
+  String(MATRIX_ACTIVE_CONVERSATION_MODEL_ID),
+  String(MATRIX_ACTIVE_ROOM_MEMBERS_MODEL_ID),
+  String(MATRIX_CHAT_UI_STATE_MODEL_ID),
+  String(TRACE_MODEL_ID),
+  String(MATRIX_SUITE_APP_MODEL_ID),
+  String(MATRIX_CHAT_APP_MODEL_ID),
+]);
+const MANAGEMENT_RESTRICTED_CLIENT_MODEL_IDS = new Set([
+  String(MGMT_BUS_CONSOLE_MODEL_ID),
+]);
+const APP_WRITE_RESTRICTED_CLIENT_MODEL_IDS = new Set([
+  String(1050),
+  String(WORKSPACE_MANAGER_APP_MODEL_ID),
+  String(WORKSPACE_ASSET_CATALOG_MODEL_ID),
+]);
+const PRINCIPAL_RESTRICTED_LABEL_KEY_PATTERNS = [
+  /^matrix_/iu,
+  /^mgmt_/iu,
+  /^management_/iu,
+  /^mqtt_target_/iu,
+  /access_token/iu,
+  /passwd/iu,
+  /password/iu,
 ];
 
 function containsClientSecretValue(value, seen = new WeakSet()) {
@@ -4383,6 +4443,164 @@ function isClientSecretLabel(labelKey, labelValue) {
     || containsClientSecretValue(labelValue?.v);
 }
 
+function principalCapabilities(principal) {
+  return new Set(principal && Array.isArray(principal.capabilities) ? principal.capabilities : []);
+}
+
+function principalHasCapability(principal, capability) {
+  if (!capability) return true;
+  return principalCapabilities(principal).has(capability);
+}
+
+function requiredCapabilityForClientModel(modelIdText) {
+  const key = String(modelIdText);
+  if (ALWAYS_RESTRICTED_CLIENT_MODEL_IDS.has(key)) return 'never';
+  if (MATRIX_RESTRICTED_CLIENT_MODEL_IDS.has(key)) return 'matrix:connect';
+  if (MANAGEMENT_RESTRICTED_CLIENT_MODEL_IDS.has(key)) return 'management_bus:use';
+  if (APP_WRITE_RESTRICTED_CLIENT_MODEL_IDS.has(key)) return 'app:write';
+  return '';
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function restrictedClientModelIdsForPrincipal(principal) {
+  const ids = new Set(ALWAYS_RESTRICTED_CLIENT_MODEL_IDS);
+  for (const id of MATRIX_RESTRICTED_CLIENT_MODEL_IDS) {
+    if (!principalHasCapability(principal, 'matrix:connect')) ids.add(id);
+  }
+  for (const id of MANAGEMENT_RESTRICTED_CLIENT_MODEL_IDS) {
+    if (!principalHasCapability(principal, 'management_bus:use')) ids.add(id);
+  }
+  for (const id of APP_WRITE_RESTRICTED_CLIENT_MODEL_IDS) {
+    if (!principalHasCapability(principal, 'app:write')) ids.add(id);
+  }
+  return ids;
+}
+
+function isRestrictedClientModelReference(value, principal) {
+  const modelId = typeof value === 'number' && Number.isInteger(value)
+    ? String(value)
+    : (typeof value === 'string' && /^-?\d+$/u.test(value.trim()) ? value.trim() : '');
+  if (!modelId) return false;
+  const requiredCapability = requiredCapabilityForClientModel(modelId);
+  return requiredCapability === 'never'
+    || (requiredCapability && !principalHasCapability(principal, requiredCapability));
+}
+
+function containsRestrictedClientModelReference(value, principal) {
+  if (typeof value !== 'string') return false;
+  for (const modelId of restrictedClientModelIdsForPrincipal(principal)) {
+    const escaped = escapeRegExp(modelId);
+    const prefix = modelId.startsWith('-') ? '(^|[^0-9-])' : '(^|[^0-9])';
+    const pattern = new RegExp(`${prefix}${escaped}(?![0-9])`, 'u');
+    if (pattern.test(value)) return true;
+  }
+  return false;
+}
+
+function restrictedTextPatternForPrincipal(principal) {
+  const patterns = [/password/iu];
+  if (!principalHasCapability(principal, 'matrix:connect')) {
+    patterns.push(/matrix chat/iu, /matrix suite/iu, /matrix debug/iu, /matrix_userline/iu);
+  }
+  if (!principalHasCapability(principal, 'management_bus:use')) {
+    patterns.push(/mgmt_bus/iu, /management bus/iu, /mgmt bus/iu);
+  }
+  if (!principalHasCapability(principal, 'app:write')) {
+    patterns.push(/func\.js/iu, /func\.python/iu);
+  }
+  return patterns;
+}
+
+function sanitizePrincipalLabelValue(value, principal) {
+  if (typeof value === 'string') {
+    if (containsRestrictedClientModelReference(value, principal)
+      || restrictedTextPatternForPrincipal(principal).some((pattern) => pattern.test(value))) {
+      return undefined;
+    }
+    return value;
+  }
+  if (typeof value === 'number') {
+    return isRestrictedClientModelReference(value, principal) ? undefined : value;
+  }
+  if (Array.isArray(value)) {
+    const sanitized = [];
+    const objectList = value.every((item) => item && typeof item === 'object' && !Array.isArray(item));
+    let dropped = false;
+    for (const item of value) {
+      const next = sanitizePrincipalLabelValue(item, principal);
+      if (next !== undefined) {
+        sanitized.push(next);
+      } else {
+        dropped = true;
+      }
+    }
+    if (dropped && !objectList) return undefined;
+    return sanitized;
+  }
+  if (!value || typeof value !== 'object') return value;
+
+  if (isRestrictedClientModelReference(value.model_id, principal)
+    || isRestrictedClientModelReference(value.value, principal)) {
+    return undefined;
+  }
+
+  const sanitized = {};
+  let droppedProperty = false;
+  for (const [key, nested] of Object.entries(value)) {
+    if (containsRestrictedClientModelReference(key, principal)) {
+      droppedProperty = true;
+      continue;
+    }
+    const next = sanitizePrincipalLabelValue(nested, principal);
+    if (next !== undefined) {
+      sanitized[key] = next;
+    } else {
+      droppedProperty = true;
+    }
+  }
+  if (droppedProperty) return undefined;
+  return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+}
+
+function shouldFilterPrincipalLabel(labelKey, labelValue, principal) {
+  const normalizedType = labelValue && typeof labelValue.t === 'string'
+    ? labelValue.t.trim().toLowerCase()
+    : '';
+  if (CLIENT_REDACTED_LABEL_TYPES.has(normalizedType)) return true;
+  if (isClientSecretLabel(labelKey, labelValue)) return true;
+  if (containsRestrictedClientModelReference(labelKey, principal)) return true;
+  if (labelValue && typeof labelValue.k === 'string' && containsRestrictedClientModelReference(labelValue.k, principal)) {
+    return true;
+  }
+  if (
+    (!principalHasCapability(principal, 'matrix:connect') || !principalHasCapability(principal, 'management_bus:use'))
+    && PRINCIPAL_RESTRICTED_LABEL_KEY_PATTERNS.some((pattern) => pattern.test(labelKey))
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function shouldFilterClientBaseLabel(labelKey, labelValue) {
+  const normalizedType = labelValue && typeof labelValue.t === 'string'
+    ? labelValue.t.trim().toLowerCase()
+    : '';
+  return CLIENT_REDACTED_LABEL_TYPES.has(normalizedType)
+    || isClientSecretLabel(labelKey, labelValue);
+}
+
+function shouldFilterPrincipalCell(modelIdText, cellKey, cell, principal) {
+  if (String(modelIdText) !== '0') return false;
+  if (containsRestrictedClientModelReference(String(cellKey || ''), principal)) return true;
+  if (isRestrictedClientModelReference(cell?.c, principal)) return true;
+  const modelTypeLabel = cell && cell.labels ? cell.labels.model_type : null;
+  if (isRestrictedClientModelReference(modelTypeLabel?.v, principal)) return true;
+  return false;
+}
+
 function buildClientSnapshot(runtime) {
   const snap = runtime.snapshot();
   if (!snap || !snap.models) return snap;
@@ -4404,7 +4622,7 @@ function buildClientSnapshot(runtime) {
       const filterCell = (cell) => {
         const filteredLabels = {};
         for (const [lk, lv] of Object.entries(cell?.labels || {})) {
-          if (isClientSecretLabel(lk, lv)) continue;
+          if (shouldFilterClientBaseLabel(lk, lv)) continue;
           filteredLabels[lk] = lv;
         }
         return { ...cell, labels: filteredLabels };
@@ -4426,7 +4644,7 @@ function buildClientSnapshot(runtime) {
         const filteredLabels = {};
         for (const [lk, lv] of Object.entries(cell.labels || {})) {
           if (excludeTypes.has(lv.t)) continue;
-          if (isClientSecretLabel(lk, lv)) continue;
+          if (shouldFilterClientBaseLabel(lk, lv)) continue;
           filteredLabels[lk] = lv;
         }
         filteredCells[ck] = { ...cell, labels: filteredLabels };
@@ -4441,7 +4659,7 @@ function buildClientSnapshot(runtime) {
         const filteredLabels = {};
         for (const [lk, lv] of Object.entries(cell.labels || {})) {
           if (excludeKeys.has(lk)) continue;
-          if (isClientSecretLabel(lk, lv)) continue;
+          if (shouldFilterClientBaseLabel(lk, lv)) continue;
           filteredLabels[lk] = lv;
         }
         filteredCells[ck] = { ...cell, labels: filteredLabels };
@@ -4453,7 +4671,7 @@ function buildClientSnapshot(runtime) {
     for (const [ck, cell] of Object.entries(model.cells || {})) {
       const filteredLabels = {};
       for (const [lk, lv] of Object.entries(cell.labels || {})) {
-        if (isClientSecretLabel(lk, lv)) continue;
+        if (shouldFilterClientBaseLabel(lk, lv)) continue;
         filteredLabels[lk] = lv;
       }
       filteredCells[ck] = { ...cell, labels: filteredLabels };
@@ -4461,6 +4679,34 @@ function buildClientSnapshot(runtime) {
     models[id] = { ...model, cells: filteredCells };
   }
   return { models, v1nConfig: snap.v1nConfig };
+}
+
+function buildClientSnapshotForPrincipal(snapshot, principal = null) {
+  if (!snapshot || !snapshot.models) return snapshot;
+  const models = {};
+  for (const [id, model] of Object.entries(snapshot.models)) {
+    const requiredCapability = requiredCapabilityForClientModel(id);
+    if (requiredCapability === 'never') continue;
+    if (requiredCapability && !principalHasCapability(principal, requiredCapability)) continue;
+    const filteredCells = {};
+    for (const [ck, cell] of Object.entries(model.cells || {})) {
+      if (shouldFilterPrincipalCell(id, ck, cell, principal)) continue;
+      const filteredLabels = {};
+      for (const [lk, lv] of Object.entries(cell.labels || {})) {
+        if (shouldFilterPrincipalLabel(lk, lv, principal)) continue;
+        const sanitizedValue = sanitizePrincipalLabelValue(lv?.v, principal);
+        if (sanitizedValue === undefined) continue;
+        filteredLabels[lk] = sanitizedValue === lv?.v ? lv : { ...lv, v: sanitizedValue };
+      }
+      filteredCells[ck] = { ...cell, labels: filteredLabels };
+    }
+    models[id] = { ...model, cells: filteredCells };
+  }
+  return { models, v1nConfig: snapshot.v1nConfig };
+}
+
+function buildGuestClientSnapshot(snapshot) {
+  return buildClientSnapshotForPrincipal(snapshot, null);
 }
 
 function resolveDbPath() {
@@ -5235,6 +5481,8 @@ class ProgramModelEngine {
     this.ignoredMatrixReturnOpIds = new Set();
     this.matrixSuiteMatrixImpl = null;
     this.matrixSuiteSession = null;
+    this.currentRequestMatrixSession = null;
+    this.pendingMatrixHostActions = new Set();
     this.matrixSuiteHandledRequests = new Set();
     this.matrixChatHandledRequests = new Set();
   }
@@ -6129,6 +6377,23 @@ class ProgramModelEngine {
     } catch (err) {
       fail('matrix_chat_host_exception', err && err.message ? err.message : String(err));
     }
+  }
+
+  trackMatrixHostAction(promise) {
+    const tracked = Promise.resolve(promise)
+      .catch((err) => {
+        console.warn('[ProgramModelEngine] Matrix host action failed:', err && err.message ? err.message : err);
+      })
+      .finally(() => {
+        this.pendingMatrixHostActions.delete(tracked);
+      });
+    this.pendingMatrixHostActions.add(tracked);
+    return tracked;
+  }
+
+  async flushMatrixHostActions() {
+    if (!this.pendingMatrixHostActions || this.pendingMatrixHostActions.size === 0) return;
+    await Promise.allSettled(Array.from(this.pendingMatrixHostActions));
   }
 
   async init() {
@@ -7489,13 +7754,13 @@ class ProgramModelEngine {
           event.label && event.label.k === 'mgmt_bus_console_refresh_intent' &&
           event.label.t === 'pin.in') {
         if (typeof this._mgmtBusConsoleRefreshChannels === 'function') {
-          this._mgmtBusConsoleRefreshChannels()
+          this.trackMatrixHostAction(this._mgmtBusConsoleRefreshChannels(this.currentRequestMatrixSession)
             .then(() => {
               if (typeof this.onSnapshotChanged === 'function') this.onSnapshotChanged();
             })
             .catch((err) => {
               console.warn('[ProgramModelEngine] mgmt_bus_console channel refresh failed:', err && err.message ? err.message : err);
-            });
+            }));
         }
         continue;
       }
@@ -7555,14 +7820,14 @@ class ProgramModelEngine {
           event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
           event.label && event.label.k === 'matrix_suite_host_action' &&
           event.label.t === 'json' && event.label.v) {
-        this.runMatrixSuiteHostAction(event.label.v)
+        this.trackMatrixHostAction(this.runMatrixSuiteHostAction(event.label.v)
           .then(() => {
             if (typeof this.onSnapshotChanged === 'function') this.onSnapshotChanged();
           })
           .catch((err) => {
             this.matrixSuiteWriteRoot('connection_status', 'str', 'error');
             this.matrixSuiteWriteRoot('status_text', 'str', `ERR matrix_suite_host_exception: ${err && err.message ? err.message : String(err)}`);
-          });
+          }));
         continue;
       }
 
@@ -7570,14 +7835,14 @@ class ProgramModelEngine {
           event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
           event.label && event.label.k === 'matrix_chat_host_action' &&
           event.label.t === 'json' && event.label.v) {
-        this.runMatrixChatHostAction(event.label.v)
+        this.trackMatrixHostAction(this.runMatrixChatHostAction(event.label.v)
           .then(() => {
             if (typeof this.onSnapshotChanged === 'function') this.onSnapshotChanged();
           })
           .catch((err) => {
             this.matrixChatWriteRoot('connection_status', 'str', 'error');
             this.matrixChatWriteRoot('status_text', 'str', `ERR matrix_chat_host_exception: ${err && err.message ? err.message : String(err)}`);
-          });
+          }));
         continue;
       }
 
@@ -7821,6 +8086,7 @@ class ProgramModelEngine {
 
         this.processEventsSnapshot(eventEnd);
         await this.processInterceptsSnapshot(interceptEnd);
+        await this.flushMatrixHostActions();
 
         // If new work appeared during this round, schedule another round.
         if (this.hasPendingWork()) {
@@ -8279,8 +8545,33 @@ function createServerState(options) {
     return projection;
   };
 
-  const refreshMgmtBusConsoleChannels = async () => {
-    const sessionResult = resolveMgmtBusConsoleMatrixSession(runtime);
+  const refreshMgmtBusConsoleChannels = async (matrixSession = undefined) => {
+    const hasExplicitSession = matrixSession !== undefined;
+    const sessionResult = hasExplicitSession
+      ? (
+        matrixSession && matrixSession.homeserverUrl && matrixSession.accessToken
+          ? {
+            ok: true,
+            data: {
+              homeserverUrl: matrixSession.homeserverUrl,
+              accessToken: matrixSession.accessToken,
+              userId: matrixSession.userId || '',
+              displayName: matrixSession.displayName || matrixSession.userId || '',
+            },
+          }
+          : {
+            ok: false,
+            code: 'matrix_session_missing',
+            detail: 'missing_session_matrix_token',
+          }
+      )
+      : (AUTH_ENABLED
+        ? {
+          ok: false,
+          code: 'matrix_session_missing',
+          detail: 'missing_explicit_matrix_session',
+        }
+        : resolveMgmtBusConsoleMatrixSession(runtime));
     if (!sessionResult.ok) {
       mgmtBusConsoleJoinedRooms = [];
       mgmtBusConsoleChannelDiscovery = {
@@ -9138,7 +9429,24 @@ function createServerState(options) {
     return { error: 'invalid_bus_payload' };
   }
 
-  async function submitEnvelope(envelopeOrNull) {
+  let submitEnvelopeQueue = Promise.resolve();
+  async function submitEnvelope(envelopeOrNull, options = {}) {
+    const previous = submitEnvelopeQueue;
+    let releaseQueue = () => {};
+    submitEnvelopeQueue = new Promise((resolve) => { releaseQueue = resolve; });
+    await previous;
+    try {
+      return await submitEnvelopeCore(envelopeOrNull, options);
+    } finally {
+      if (options && Object.prototype.hasOwnProperty.call(options, 'matrixSession')) {
+        programEngine.currentRequestMatrixSession = null;
+        programEngine.matrixSuiteSession = null;
+      }
+      releaseQueue();
+    }
+  }
+
+  async function submitEnvelopeCore(envelopeOrNull, options = {}) {
     const envelope = envelopeOrNull;
     const payload = envelope && envelope.payload ? envelope.payload : null;
     const action = payload && typeof payload.action === 'string' ? payload.action : '';
@@ -9150,6 +9458,19 @@ function createServerState(options) {
 
     if (envelopeOrNull) {
       await programEngineReady;
+    }
+
+    if (options && Object.prototype.hasOwnProperty.call(options, 'matrixSession')) {
+      const requestMatrixSession = options.matrixSession && options.matrixSession.accessToken && options.matrixSession.homeserverUrl
+        ? {
+        homeserverUrl: options.matrixSession.homeserverUrl,
+        accessToken: options.matrixSession.accessToken,
+        userId: options.matrixSession.userId || '',
+        displayName: options.matrixSession.displayName || options.matrixSession.userId || '',
+          }
+        : null;
+      programEngine.currentRequestMatrixSession = requestMatrixSession;
+      programEngine.matrixSuiteSession = requestMatrixSession;
     }
 
     if (envelopeOrNull) {
@@ -10557,41 +10878,56 @@ function startServer(options) {
   const corsOrigin = options && options.corsOrigin ? String(options.corsOrigin) : null;
 
   const distDir = new URL('../ui-model-demo-frontend/dist/', import.meta.url).pathname;
-  const buildInfo = maybeEnsureFrontendBuild(distDir);
+  const buildInfo = options && options.skipFrontendBuild
+    ? { ok: true, skipped: true }
+    : maybeEnsureFrontendBuild(distDir);
 
-  const state = createServerState({ dbPath: resolveDbPath() });
+  const state = createServerState({
+    dbPath: options && Object.prototype.hasOwnProperty.call(options, 'dbPath') ? options.dbPath : resolveDbPath(),
+  });
   const clients = new Set();
 
   // SSE sends filtered client snapshot (excludes snapshot_json, trace entries, function code)
   let _cachedClientSnap = null;
-  let _cachedClientSnapJson = null;
+  let _cachedClientSnapJsonByKey = new Map();
 
-  function getClientSnapJson() {
+  function clientSnapshotCacheKey(principal = null) {
+    const caps = Array.isArray(principal?.capabilities) ? [...principal.capabilities].sort() : [];
+    return caps.length > 0 ? caps.join('|') : 'guest';
+  }
+
+  function getClientSnapJson(principal = null) {
     const snap = state.clientSnap();
-    if (snap === _cachedClientSnap && _cachedClientSnapJson) return _cachedClientSnapJson;
-    _cachedClientSnap = snap;
-    _cachedClientSnapJson = JSON.stringify({ snapshot: snap });
-    return _cachedClientSnapJson;
+    if (snap !== _cachedClientSnap) {
+      _cachedClientSnap = snap;
+      _cachedClientSnapJsonByKey = new Map();
+    }
+    const cacheKey = clientSnapshotCacheKey(principal);
+    const cached = _cachedClientSnapJsonByKey.get(cacheKey);
+    if (cached) return cached;
+    const json = JSON.stringify({ snapshot: buildClientSnapshotForPrincipal(snap, principal) });
+    _cachedClientSnapJsonByKey.set(cacheKey, json);
+    return json;
   }
 
   function invalidateClientSnapCache() {
     _cachedClientSnap = null;
-    _cachedClientSnapJson = null;
+    _cachedClientSnapJsonByKey = new Map();
   }
 
-  function sendSnapshot(res) {
-    const data = getClientSnapJson();
+  function sendSnapshot(res, principal = null) {
+    const data = getClientSnapJson(principal);
     res.write(`event: snapshot\n`);
     res.write(`data: ${data}\n\n`);
   }
 
   function broadcastSnapshot() {
     invalidateClientSnapCache();
-    for (const res of clients) {
+    for (const client of clients) {
       try {
-        sendSnapshot(res);
+        sendSnapshot(client.res, getSession(client.req));
       } catch (_) {
-        clients.delete(res);
+        clients.delete(client);
       }
     }
   }
@@ -10606,6 +10942,37 @@ function startServer(options) {
     const url = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
     const cors = corsHeaders(req, corsOrigin);
 
+    function returnTo() {
+      return `${url.pathname}${url.search || ''}`;
+    }
+
+    function writeLoginRequired() {
+      writeJson(res, 401, { ok: false, error: 'login_required', returnTo: returnTo() }, cors);
+    }
+
+    function writePermissionDenied(requiredCapability) {
+      writeJson(res, 403, {
+        ok: false,
+        error: 'permission_denied',
+        requiredCapability,
+        returnTo: returnTo(),
+      }, cors);
+    }
+
+    function requireCapability(requiredCapability) {
+      const session = getSession(req);
+      if (!session) {
+        writeLoginRequired();
+        return null;
+      }
+      const capabilities = Array.isArray(session.capabilities) ? session.capabilities : [];
+      if (requiredCapability && !capabilities.includes(requiredCapability)) {
+        writePermissionDenied(requiredCapability);
+        return null;
+      }
+      return session;
+    }
+
     if (req.method === 'OPTIONS') {
       res.writeHead(204, cors);
       res.end();
@@ -10613,6 +10980,88 @@ function startServer(options) {
     }
 
     // ── Auth endpoints ───────────────────────────────────────────────────
+    if (req.method === 'GET' && url.pathname === '/auth/sso/start') {
+      try {
+        const started = await startOidcLogin({ req, returnTo: url.searchParams.get('returnTo') || '/' });
+        res.writeHead(302, {
+          ...cors,
+          location: started.authorizationUrl,
+          'cache-control': 'no-cache',
+          'set-cookie': started.stateCookie,
+        });
+        res.end();
+      } catch (err) {
+        const error = err && err.message ? err.message : 'oidc_start_failed';
+        writeJson(res, error === 'oidc_not_configured' ? 503 : 500, { ok: false, error }, cors);
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/auth/sso/callback') {
+      const code = url.searchParams.get('code') || '';
+      const stateParam = url.searchParams.get('state') || '';
+      try {
+        const completed = await completeOidcLogin({ req, code, state: stateParam });
+        res.writeHead(302, {
+          ...cors,
+          location: completed.returnTo || '/',
+          'cache-control': 'no-cache',
+          'set-cookie': [makeSetCookieHeader(completed.token, undefined, req), makeClearOidcStateCookieHeader(req)],
+        });
+        res.end();
+      } catch (err) {
+        const error = err && err.message ? err.message : 'oidc_callback_failed';
+        const status = error === 'invalid_oidc_state' || error === 'missing_oidc_callback_fields' ? 400 : 401;
+        writeJson(res, status, { ok: false, error }, { ...cors, 'set-cookie': makeClearOidcStateCookieHeader(req) });
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/auth/matrix/start') {
+      if (!requireCapability('matrix:connect')) return;
+      try {
+        const started = await startMatrixSso({
+          req,
+          homeserverUrl: url.searchParams.get('homeserverUrl') || process.env.MATRIX_HOMESERVER_URL || '',
+          returnTo: url.searchParams.get('returnTo') || '/',
+        });
+        res.writeHead(302, {
+          ...cors,
+          location: started.redirectUrl,
+          'cache-control': 'no-cache',
+        });
+        res.end();
+      } catch (err) {
+        const error = err && err.message ? err.message : 'matrix_sso_start_failed';
+        const status = error === 'missing_homeserver_url' || error === 'homeserver_not_allowed' || error.startsWith('invalid_homeserver') || error === 'blocked_internal_url'
+          ? 400
+          : (error === 'matrix_sso_not_supported' || error === 'matrix_token_login_not_supported' || error === 'matrix_login_flows_failed' ? 502 : 500);
+        writeJson(res, status, { ok: false, error }, cors);
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/auth/matrix/callback') {
+      const stateParam = url.searchParams.get('state') || '';
+      const loginToken = url.searchParams.get('loginToken') || '';
+      try {
+        const completed = await completeMatrixSso({ state: stateParam, loginToken });
+        res.writeHead(302, {
+          ...cors,
+          location: completed.returnTo || '/',
+          'cache-control': 'no-cache',
+        });
+        res.end();
+      } catch (err) {
+        const error = err && err.message ? err.message : 'matrix_sso_callback_failed';
+        const status = error === 'invalid_matrix_sso_state' || error === 'missing_matrix_sso_callback_fields'
+          ? 400
+          : (error === 'matrix_session_missing' ? 401 : (error === 'permission_denied' ? 403 : 502));
+        writeJson(res, status, { ok: false, error }, cors);
+      }
+      return;
+    }
+
     if (req.method === 'POST' && url.pathname === '/auth/login') {
       const clientIp = req.socket.remoteAddress || '127.0.0.1';
       if (!checkLoginRateLimit(clientIp)) {
@@ -10630,7 +11079,7 @@ function startServer(options) {
         res.writeHead(200, {
           ...cors,
           'content-type': 'application/json; charset=utf-8',
-          'set-cookie': makeSetCookieHeader(session.token),
+          'set-cookie': makeSetCookieHeader(session.token, undefined, req),
         });
         res.end(JSON.stringify({
           ok: true,
@@ -10645,12 +11094,29 @@ function startServer(options) {
       return;
     }
 
+    if (req.method === 'GET' && url.pathname === '/auth/matrix/status') {
+      if (!requireCapability('matrix:connect')) return;
+      writeJson(res, 200, getMatrixStatus(req), cors);
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/auth/matrix/disconnect') {
+      if (!requireCapability('matrix:connect')) return;
+      try {
+        writeJson(res, 200, disconnectMatrix(req), cors);
+      } catch (err) {
+        const error = err && err.message ? err.message : 'matrix_disconnect_failed';
+        writeJson(res, error === 'matrix_session_missing' ? 401 : 500, { ok: false, error }, cors);
+      }
+      return;
+    }
+
     if (req.method === 'POST' && url.pathname === '/auth/logout') {
       logout(req);
       res.writeHead(200, {
         ...cors,
         'content-type': 'application/json; charset=utf-8',
-        'set-cookie': makeClearCookieHeader(),
+        'set-cookie': makeClearCookieHeader(req),
       });
       res.end(JSON.stringify({ ok: true }));
       return;
@@ -10664,9 +11130,17 @@ function startServer(options) {
       }
       writeJson(res, 200, {
         ok: true,
+        provider: session.provider,
         userId: session.userId,
+        subject: session.subject,
+        email: session.email,
+        username: session.username,
         displayName: session.displayName,
         homeserverUrl: session.homeserverUrl,
+        matrixUserId: session.matrixUserId || '',
+        roles: session.roles,
+        capabilities: session.capabilities,
+        matrixConnected: session.matrixConnected,
       }, cors);
       return;
     }
@@ -10689,10 +11163,7 @@ function startServer(options) {
     }
 
     if (req.method === 'DELETE' && url.pathname === '/auth/homeservers') {
-      if (!isAuthenticated(req)) {
-        writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
-        return;
-      }
+      if (!requireCapability('matrix:connect')) return;
       const hsUrl = url.searchParams.get('url');
       if (!hsUrl) {
         writeJson(res, 400, { ok: false, error: 'missing_url' }, cors);
@@ -10705,16 +11176,19 @@ function startServer(options) {
 
     // ── Matrix media upload (UI upload_media primitive) ─────────────────
     if (req.method === 'POST' && url.pathname === '/api/media/upload') {
+      if (!requireCapability('matrix:connect')) return;
       await handleMediaUploadRequest(req, res, state, corsOrigin);
       return;
     }
 
     if (req.method === 'GET' && url.pathname === '/api/media/download') {
+      if (!requireCapability('matrix:connect')) return;
       await handleMatrixMediaProxyRequest(req, res, state, corsOrigin, 'download');
       return;
     }
 
     if (req.method === 'GET' && url.pathname === '/api/media/thumbnail') {
+      if (!requireCapability('matrix:connect')) return;
       await handleMatrixMediaProxyRequest(req, res, state, corsOrigin, 'thumbnail');
       return;
     }
@@ -10723,24 +11197,28 @@ function startServer(options) {
     function isPublicPath(method, pathname) {
       if (!AUTH_ENABLED) return true;
       if (pathname === '/auth/login' || pathname === '/auth/me') return true;
+      if (method === 'GET' && (pathname === '/auth/sso/start' || pathname === '/auth/sso/callback')) return true;
+      if (method === 'GET' && pathname === '/auth/matrix/callback') return true;
       if (method === 'GET' && pathname === '/auth/homeservers') return true;
       if (method === 'GET' && pathname === '/auth/login-model') return true;
       if (method === 'GET' && (pathname === '/' || pathname === '/index.html'
           || pathname === '/favicon.ico'
           || pathname.startsWith('/assets/')
           || pathname.startsWith('/p/'))) return true;
+      if (method === 'GET' && (pathname === '/snapshot' || pathname === '/stream')) return true;
       if (method === 'OPTIONS') return true;
       return false;
     }
 
     if (!isPublicPath(req.method, url.pathname) && !isAuthenticated(req)) {
-      writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
+      writeLoginRequired();
       return;
     }
 
     if (req.method === 'GET') {
       const exportMatch = url.pathname.match(/^\/api\/slide-apps\/(\d+)\/export\.zip$/);
       if (exportMatch) {
+        if (!requireCapability('slide_app:use')) return;
         const modelId = Number(exportMatch[1]);
         const result = buildSlideAppExportZip(state.runtime, modelId);
         if (!result || result.ok !== true) {
@@ -10865,11 +11343,13 @@ function startServer(options) {
     }
 
     if (req.method === 'GET' && url.pathname === '/snapshot') {
-      writeJson(res, 200, { snapshot: state.clientSnap() }, cors);
+      const principal = getSession(req);
+      writeJson(res, 200, { snapshot: buildClientSnapshotForPrincipal(state.clientSnap(), principal) }, cors);
       return;
     }
 
     if (req.method === 'GET' && url.pathname === '/stream') {
+      const principal = getSession(req);
       res.writeHead(200, {
         ...cors,
         'content-type': 'text/event-stream; charset=utf-8',
@@ -10877,22 +11357,24 @@ function startServer(options) {
         connection: 'keep-alive',
       });
       res.write(`retry: 1000\n\n`);
-      clients.add(res);
+      const client = { res, req };
+      clients.add(client);
       try {
-        sendSnapshot(res);
+        sendSnapshot(res, principal);
       } catch (_) {
-        clients.delete(res);
+        clients.delete(client);
         try { res.end(); } catch (_) {}
         return;
       }
 
       req.on('close', () => {
-        clients.delete(res);
+        clients.delete(client);
       });
       return;
     }
 
     if (req.method === 'POST' && (url.pathname === BUS_EVENT_ENDPOINT_PATH || url.pathname === UI_EVENT_ENDPOINT_PATH)) {
+      if (!requireCapability('app:write')) return;
       try {
         const body = await readJsonBody(req);
         let envelope = body;
@@ -10906,7 +11388,9 @@ function startServer(options) {
         if (body && body.envelope) {
           envelope = body.envelope;
         }
-        const consumeResult = await state.submitEnvelope(envelope);
+        const consumeResult = await state.submitEnvelope(envelope, {
+          matrixSession: resolveRequestMatrixSession(req),
+        });
         broadcastSnapshot();
         // Snapshot omitted from response — SSE broadcastSnapshot() delivers it.
         // This halves bandwidth per bus-event (was sending 2MB snapshot twice).
@@ -10934,6 +11418,7 @@ function startServer(options) {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/runtime/mode') {
+      if (!requireCapability('app:write')) return;
       try {
         const body = await readJsonBody(req);
         const nextMode = body && typeof body.mode === 'string' ? body.mode : '';
@@ -10965,7 +11450,9 @@ function startServer(options) {
 
   const host = process.env.HOST || '127.0.0.1';
   server.listen(port, host, () => {
-    process.stdout.write(`ui-model-demo-server listening on http://${host}:${port}\n`);
+    const address = server.address();
+    const actualPort = address && typeof address === 'object' ? address.port : port;
+    process.stdout.write(`ui-model-demo-server listening on http://${host}:${actualPort}\n`);
   });
 
   return server;

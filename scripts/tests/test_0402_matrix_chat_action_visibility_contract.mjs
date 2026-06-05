@@ -182,6 +182,33 @@ function test_matrix_chat_declares_dedicated_invite_panel() {
   return { key: 'matrix_chat_declares_dedicated_invite_panel', status: 'PASS' };
 }
 
+function test_matrix_chat_renders_visible_status_text() {
+  const rt = loadRuntime();
+  const ast = buildAstFromCellwiseModel(rt.snapshot(), CHAT_APP_MODEL_ID);
+  const status = findNode(ast, 'matrix_chat_status_text');
+  const search = findNode(ast, 'matrix_chat_search');
+  assert.equal(status?.type, 'Text', 'Matrix Chat must render status_text as visible text');
+  assert.equal(status?.bind?.read?.model_id, CHAT_APP_MODEL_ID, 'status text must read from Matrix Chat root model');
+  assert.equal(status?.bind?.read?.p, 0, 'status text must read from root p');
+  assert.equal(status?.bind?.read?.r, 0, 'status text must read from root r');
+  assert.equal(status?.bind?.read?.c, 0, 'status text must read from root c');
+  assert.equal(status?.bind?.read?.k, 'status_text', 'status text must bind to status_text');
+  assert.equal(status?.__parent || status?.parent, undefined, 'rendered AST should strip internal parent metadata');
+  assert.equal(status?.props?.style?.fontSize, '12px', 'status text should stay compact');
+  assert.equal(search?.props?.placeholder, 'Search conversations', 'search input must remain present after status row insertion');
+  return { key: 'matrix_chat_renders_visible_status_text', status: 'PASS' };
+}
+
+function test_matrix_chat_seed_state_keeps_normal_composer_visible() {
+  const rt = loadRuntime();
+  const root = rt.snapshot().models[String(CHAT_APP_MODEL_ID)].cells['0,0,0'].labels;
+  assert.equal(root.active_can_send_messages?.v, true, 'seed normal room must render the composer before first refresh');
+  assert.equal(root.active_can_accept_invite?.v, false, 'seed normal room must not render invite controls');
+  assert.equal(root.active_can_leave_room?.v, true, 'seed normal room must allow the room-level leave control');
+  assert.equal(root.active_invite_notice_markdown?.v, '', 'seed normal room must not show invite notice');
+  return { key: 'matrix_chat_seed_state_keeps_normal_composer_visible', status: 'PASS' };
+}
+
 async function test_matrix_chat_projection_writes_action_visibility_state() {
   await withServerState(async (state) => {
     const normalRoom = {
@@ -473,6 +500,8 @@ async function test_renderer_supports_model_driven_visibility_refs() {
 const tests = [
   test_matrix_chat_action_controls_declare_visibility_refs,
   test_matrix_chat_declares_dedicated_invite_panel,
+  test_matrix_chat_renders_visible_status_text,
+  test_matrix_chat_seed_state_keeps_normal_composer_visible,
   test_matrix_chat_projection_writes_action_visibility_state,
   test_decline_invite_rejects_matrix_invite_and_refreshes_projection,
   test_accept_invite_prefers_joined_room_over_stale_invite_projection,

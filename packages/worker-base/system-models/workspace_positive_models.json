@@ -36834,6 +36834,76 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "active_can_invite_members",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "active_can_remove_members",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "active_can_leave_room",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "active_can_leave_people",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "active_can_accept_invite",
+      "t": "bool",
+      "v": false
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "active_can_send_messages",
+      "t": "bool",
+      "v": true
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "active_invite_notice_markdown",
+      "t": "str",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "composer_draft",
       "t": "str",
       "v": ""
@@ -37575,6 +37645,95 @@
       "op": "add_label",
       "model_id": 1083,
       "p": 2,
+      "r": 0,
+      "c": 3,
+      "k": "ui_node_id",
+      "t": "str",
+      "v": "matrix_chat_status_text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 3,
+      "k": "ui_component",
+      "t": "str",
+      "v": "Text"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 3,
+      "k": "ui_parent",
+      "t": "str",
+      "v": "matrix_chat_sidebar"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 3,
+      "k": "ui_order",
+      "t": "int",
+      "v": 2
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 3,
+      "k": "ui_text",
+      "t": "str",
+      "v": "ready"
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 3,
+      "k": "ui_bind_json",
+      "t": "json",
+      "v": {
+        "read": {
+          "model_id": 1083,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "status_text"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
+      "r": 0,
+      "c": 3,
+      "k": "ui_props_json",
+      "t": "json",
+      "v": {
+        "style": {
+          "minHeight": "18px",
+          "lineHeight": "18px",
+          "fontSize": "12px",
+          "fontWeight": 650,
+          "color": "#64748b",
+          "whiteSpace": "nowrap",
+          "overflow": "hidden",
+          "textOverflow": "ellipsis"
+        }
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 1083,
+      "p": 2,
       "r": 1,
       "c": 0,
       "k": "ui_node_id",
@@ -37609,7 +37768,7 @@
       "c": 0,
       "k": "ui_order",
       "t": "int",
-      "v": 2
+      "v": 3
     },
     {
       "op": "add_label",
@@ -37701,7 +37860,7 @@
       "c": 0,
       "k": "ui_order",
       "t": "int",
-      "v": 3
+      "v": 4
     },
     {
       "op": "add_label",
@@ -37968,7 +38127,7 @@
       "c": 0,
       "k": "ui_order",
       "t": "int",
-      "v": 4
+      "v": 5
     },
     {
       "op": "add_label",

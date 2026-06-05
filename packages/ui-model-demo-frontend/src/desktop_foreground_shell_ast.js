@@ -29,6 +29,17 @@ export function buildForegroundShellAst(app, snapshot) {
     if (next.id === 'desktop_foreground_statusbar_model') {
       next.props = { ...(next.props || {}), title, subtitle };
     }
+    if (next.id === 'desktop_foreground_shell_model') {
+      next.props = {
+        ...(next.props || {}),
+        style: {
+          ...((next.props && next.props.style) || {}),
+          height: '100%',
+          minHeight: 0,
+          maxHeight: '100%',
+        },
+      };
+    }
     if (next.id === 'desktop_app_detail_drawer_text') {
       next.props = {
         ...(next.props || {}),
