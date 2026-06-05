@@ -672,3 +672,64 @@ Review Gate Record
   - `/auth/sso/start` returns `302`, sets `dy_oidc_state`, and sends a sealed `state` to `https://sso.dongyudigital.com/oauth/v2/authorize`.
   - Local live callback probe returned `401 {"ok":false,"error":"invalid_request"}` instead of `400 invalid_oidc_state`, proving loopback callback state recovery passed and the remaining rejection was the intentionally invalid code.
 - Result: PASS for local OIDC callback state recovery; user must start a fresh login from `/auth/sso/start` because old callback URLs are one-time and already invalid.
+
+---
+
+## Step 10 — Local and cloud deploy SSO env wiring
+- Start time: 2026-06-05 15:35 CST
+- End time: 2026-06-05 21:24 CST
+- Branch: `main` working tree before integration commit
+- Trigger:
+  - Local `30900` deployment initially served the new code but `k8s/local/workers.yaml` still hardcoded `DY_AUTH=0`.
+  - Remote `k8s/cloud/workers.yaml` had the same hardcoded setting, so a cloud deploy would not reliably enable ZITADEL SSO.
+- Secret handling:
+  - No Matrix token, ZITADEL token, OIDC authorization code, client secret, password, or generated state secret was written to this runlog.
+  - `deploy/env/local.env` and generated env files remain ignored.
+- Code/test changes made during this step:
+  - `_deploy_common.sh` now writes `DY_AUTH`, `DY_OIDC_*`, session/auth secret keys, and `MATRIX_HOMESERVER_URL` into `ui-server-secret`.
+  - `k8s/local/workers.yaml` and `k8s/cloud/workers.yaml` now read those values from `ui-server-secret`.
+  - The manifests explicitly clear previous literal env values with `value: null` so `kubectl apply` can migrate a live deployment from `value` to `valueFrom`.
+  - `deploy/env/local.env.example` and `deploy/env/cloud.env.example` document the required OIDC keys; `DY_OIDC_SCOPE` is quoted because it contains spaces.
+  - `scripts/tests/test_0403_deploy_sso_env_contract.mjs` guards the deploy secret and manifest contract.
+- Review loop:
+  - Initial review by Dalton: CHANGE_REQUESTED.
+  - Required fixes: avoid hand-written YAML quoting for secrets, avoid persistent secret temp files, avoid public fixed remote state/session secret placeholders, strengthen deploy contract tests.
+  - Fixes applied: `_deploy_common.sh` now generates Secret manifests through Python `json.dumps` and pipes them to `kubectl apply -f -`; secret temp YAML files were removed; remote state/session secrets are documented as required env indirections; deploy contract tests now verify secret name, `value: null`, JSON manifest generation, and placeholder policy.
+  - Second review by Dalton: CHANGE_REQUESTED.
+  - Required fixes: protect `deploy_cloud_app.sh --target ui-server` from applying a manifest that requires missing secret keys, and avoid unconditional `${...:?}` placeholders in `cloud.env.example`.
+  - Fixes applied: `deploy_cloud_app.sh` now verifies `ui-server-secret` has all keys required by `k8s/cloud/workers.yaml` before apply; `cloud.env.example` uses empty state/session secret placeholders with an explicit non-loopback `DY_AUTH=1` warning.
+  - Third review by Dalton: CHANGE_REQUESTED.
+  - Required fixes: avoid a stdin conflict in the secret-key verifier, and run the verifier before any cloud workers manifest apply, not only when target is `ui-server`.
+  - Fixes applied: `deploy_cloud_app.sh` now reads the Secret JSON before passing it to Python through an environment variable, and verifies `ui-server-secret` for all targets because the script applies the full cloud workers manifest.
+  - Fourth review by Pauli: CHANGE_REQUESTED.
+  - Required fixes: avoid persisting plaintext secret values in the `kubectl.kubernetes.io/last-applied-configuration` annotation.
+  - Fixes applied: `_deploy_common.sh` now replaces or creates Kubernetes Secrets through `kubectl create secret generic --from-literal ... --dry-run=client -o yaml | kubectl replace -f -` for existing secrets and plain `kubectl create secret generic` for new secrets, avoiding `kubectl apply` and `stringData`.
+  - Fifth review by Pauli: APPROVED.
+  - Findings: none.
+  - Verification gaps: none.
+- Commands executed:
+  - `node scripts/tests/test_0403_deploy_sso_env_contract.mjs`
+  - `node --check scripts/tests/test_0403_deploy_sso_env_contract.mjs`
+  - `bash -n scripts/ops/_deploy_common.sh scripts/ops/deploy_local.sh scripts/ops/deploy_cloud_full.sh scripts/ops/deploy_cloud_app.sh`
+  - `kubectl apply --dry-run=client -f k8s/local/workers.yaml`
+  - `kubectl apply --dry-run=client -f k8s/cloud/workers.yaml`
+  - `git diff --check`
+  - `node scripts/tests/test_0403_oidc_session_gateway.mjs`
+  - `node scripts/tests/test_0403_principal_authorization.mjs`
+  - `node scripts/tests/test_0403_matrix_sso_bridge.mjs`
+  - `SKIP_IMAGE_BUILD=1 SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
+  - Local verifier script against `http://localhost:30900/auth/sso/start`, `kubectl -n dongyu get secret ... -o json`, and `kubectl -n dongyu get pods -o json`
+  - `kubectl -n dongyu delete pod remote-worker-7bb488848d-c9pcq --ignore-not-found=true`
+  - `curl -sS -i --max-time 10 'http://localhost:30900/auth/sso/start?returnTo=%2F%23%2F'`
+- Key outputs:
+  - Deploy SSO env contract: PASS.
+  - Shell syntax and local/cloud manifest dry-run checks: PASS.
+  - Git whitespace check: PASS.
+  - OIDC session gateway: `9 passed, 0 failed`.
+  - Principal authorization: `5 passed, 0 failed`.
+  - Matrix SSO bridge: `11 passed, 0 failed`.
+  - Local deploy script completed successfully without rebuilding images.
+  - Local verifier: PASS for `302` redirect, local OIDC client id `375920990745592038`, no secret `last-applied-configuration` annotation, and all local pods Running.
+  - Local `ui-server` deployment now reads OIDC/auth env from `ui-server-secret`.
+  - `http://localhost:30900/auth/sso/start` returned `302` to `https://sso.dongyudigital.com/oauth/v2/authorize` with client id `375920990745592038`, redirect URI `http://localhost:30900/auth/sso/callback`, and ZITADEL roles scope.
+- Result: PASS for repeatable local deploy SSO wiring; ready for integration commit and cloud deploy using remote OIDC client `376055905181040870` with redirect URI `https://app.dongyudigital.com/auth/sso/callback`.

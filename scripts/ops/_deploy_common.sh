@@ -287,14 +287,24 @@ escape_sed_replacement() {
 
 # ── update_k8s_secrets ────────────────────────────────────
 # Creates/updates ui-server-secret and mbr-worker-secret.
+replace_or_create_secret_from_literals() {
+  local ns="$1"
+  local secret_name="$2"
+  shift 2
+  if kubectl -n "$ns" get secret "$secret_name" >/dev/null 2>&1; then
+    kubectl -n "$ns" create secret generic "$secret_name" "$@" \
+      --dry-run=client -o yaml | kubectl -n "$ns" replace -f -
+  else
+    kubectl -n "$ns" create secret generic "$secret_name" "$@"
+  fi
+}
+
 update_k8s_secrets() {
   local server_token="$1"
   local mbr_token="$2"
   local room_id="$3"
   local ns="${NAMESPACE:?}"
-  local tmp_ui tmp_mbr ui_patch mbr_patch secret_name
-  tmp_ui=$(mktemp)
-  tmp_mbr=$(mktemp)
+  local ui_patch mbr_patch secret_name
   ui_patch="$(
     ROOM_ID="$room_id" \
     HOMESERVER_URL="$(matrix_homeserver_url)" \
@@ -354,37 +364,23 @@ print(json.dumps(patch, separators=(',', ':')))
 PY
   )"
 
-  cat > "$tmp_ui" <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: ui-server-secret
-  namespace: ${ns}
-type: Opaque
-stringData:
-  MODELTABLE_PATCH_JSON: >-
-    ${ui_patch}
-EOF
   secret_name="ui-server-secret"
-  kubectl delete secret "$secret_name" -n "$ns" --ignore-not-found >/dev/null 2>&1 || true
-  kubectl apply -f "$tmp_ui"
+  replace_or_create_secret_from_literals "$ns" "$secret_name" \
+    --from-literal="MODELTABLE_PATCH_JSON=$ui_patch" \
+    --from-literal="DY_AUTH=${DY_AUTH:-0}" \
+    --from-literal="DY_OIDC_ISSUER=${DY_OIDC_ISSUER:-}" \
+    --from-literal="DY_OIDC_CLIENT_ID=${DY_OIDC_CLIENT_ID:-}" \
+    --from-literal="DY_OIDC_CLIENT_SECRET=${DY_OIDC_CLIENT_SECRET:-}" \
+    --from-literal="DY_OIDC_REDIRECT_URI=${DY_OIDC_REDIRECT_URI:-}" \
+    --from-literal="DY_OIDC_SCOPE=${DY_OIDC_SCOPE:-openid profile email urn:zitadel:iam:org:project:id:zitadel:aud urn:zitadel:iam:org:projects:roles}" \
+    --from-literal="DY_OIDC_STATE_SECRET=${DY_OIDC_STATE_SECRET:-}" \
+    --from-literal="DY_SESSION_SECRET=${DY_SESSION_SECRET:-}" \
+    --from-literal="DY_AUTH_SECRET=${DY_AUTH_SECRET:-}" \
+    --from-literal="MATRIX_HOMESERVER_URL=$(matrix_homeserver_url)"
 
-  cat > "$tmp_mbr" <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: mbr-worker-secret
-  namespace: ${ns}
-type: Opaque
-stringData:
-  MODELTABLE_PATCH_JSON: >-
-    ${mbr_patch}
-EOF
   secret_name="mbr-worker-secret"
-  kubectl delete secret "$secret_name" -n "$ns" --ignore-not-found >/dev/null 2>&1 || true
-  kubectl apply -f "$tmp_mbr"
-
-  rm -f "$tmp_ui" "$tmp_mbr"
+  replace_or_create_secret_from_literals "$ns" "$secret_name" \
+    --from-literal="MODELTABLE_PATCH_JSON=$mbr_patch"
 
   echo "  Secrets updated."
 }
