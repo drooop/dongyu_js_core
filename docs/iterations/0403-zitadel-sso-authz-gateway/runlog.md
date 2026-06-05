@@ -733,3 +733,61 @@ Review Gate Record
   - Local `ui-server` deployment now reads OIDC/auth env from `ui-server-secret`.
   - `http://localhost:30900/auth/sso/start` returned `302` to `https://sso.dongyudigital.com/oauth/v2/authorize` with client id `375920990745592038`, redirect URI `http://localhost:30900/auth/sso/callback`, and ZITADEL roles scope.
 - Result: PASS for repeatable local deploy SSO wiring; ready for integration commit and cloud deploy using remote OIDC client `376055905181040870` with redirect URI `https://app.dongyudigital.com/auth/sso/callback`.
+
+---
+
+## Step 11 — Remote deployment with SSO env wiring
+- Start time: 2026-06-05 21:35 CST
+- End time: 2026-06-05 22:10 CST
+- Branches:
+  - `dev`
+  - `main`
+- Commits:
+  - `ca2644f` — `fix(deploy): wire SSO env for ui-server [0403]`
+  - `f581739` — `fix(deploy): stop legacy MBR secret apply [0403]`
+  - `64019c0` — final merged `main`/`dev` head deployed to cloud
+- Secret handling:
+  - Remote `deploy/env/cloud.env` was updated on the server only; it remains ignored and was not committed.
+  - `DY_OIDC_STATE_SECRET` and `DY_SESSION_SECRET` were generated when missing and were not printed.
+  - No Matrix token, OIDC token, client secret, password, or generated state/session secret was written to this runlog.
+- Review loop:
+  - Review by Pauli: APPROVED for SSO env deploy wiring after local deploy verification.
+  - Follow-up remote deploy exposed legacy `mbr-update.yaml` using `stringData` and `kubectl apply` for `mbr-worker-secret`.
+  - Review by Pauli: CHANGE_REQUESTED because `test_0168_update_k8s_secrets_manifest.mjs` still required the old unsafe `stringData` path.
+  - Fixes applied: removed the `mbr-update.yaml` apply block from `deploy_cloud_full.sh`, updated 0168/0403 contract tests to forbid the legacy path, and re-reviewed with Pauli.
+  - Final review by Pauli: APPROVED.
+- Commands executed:
+  - `git switch -c dropx/dev_0403-sso-deploy-env`
+  - `git commit -m "fix(deploy): wire SSO env for ui-server [0403]"`
+  - `git switch dev && git merge --no-ff dropx/dev_0403-sso-deploy-env`
+  - `git push origin dev`
+  - `git switch main && git merge --ff-only dev`
+  - `git push origin main`
+  - `node scripts/tests/test_0168_update_k8s_secrets_manifest.mjs`
+  - `node scripts/tests/test_0403_deploy_sso_env_contract.mjs`
+  - `bash -n scripts/ops/_deploy_common.sh scripts/ops/deploy_local.sh scripts/ops/deploy_cloud_full.sh scripts/ops/deploy_cloud_app.sh`
+  - `kubectl apply --dry-run=client -f k8s/cloud/workers.yaml`
+  - `git switch -c dropx/dev_0403-mbr-secret-annotation`
+  - `git commit -m "fix(deploy): stop legacy MBR secret apply [0403]"`
+  - `git switch dev && git merge --no-ff dropx/dev_0403-mbr-secret-annotation`
+  - `git push origin dev`
+  - `git switch main && git merge --ff-only dev`
+  - `git push origin main`
+  - `bash scripts/ops/sync_cloud_source.sh --ssh-user wwpic --ssh-host dy-cloud --remote-repo /home/wwpic/dongyuapp --remote-repo-owner wwpic --revision 64019c0`
+  - `ssh dy-cloud-drop 'sudo bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_full.sh --revision 64019c0 --rebuild'`
+  - `curl -sS -D - -o /dev/null --max-time 20 'https://app.dongyudigital.com/auth/sso/start?returnTo=%2F%23%2F'`
+  - `curl -sS --max-time 20 'https://app.dongyudigital.com/auth/me'`
+  - Remote read-only Kubernetes checks for Secret annotations and deployment readiness.
+- Key outputs:
+  - `origin/dev` and `origin/main` were pushed to `64019c0`.
+  - Source sync wrote remote `.deploy-source-revision` as `64019c0`; remote git checkout fell back to archive sync because the remote worktree did not know the short SHA.
+  - Cloud deploy completed with source revision `64019c0`.
+  - Remote OIDC start returned `302` to `https://sso.dongyudigital.com/oauth/v2/authorize`.
+  - Remote OIDC redirect URI was `https://app.dongyudigital.com/auth/sso/callback`.
+  - Remote OIDC client id was `376055905181040870`.
+  - Remote OIDC scope included ZITADEL project roles.
+  - `https://app.dongyudigital.com/auth/me` returned `{"ok":false,"error":"not_authenticated"}` for an unauthenticated request.
+  - `ui-server-secret`: no `kubectl.kubernetes.io/last-applied-configuration` annotation.
+  - `mbr-worker-secret`: no `kubectl.kubernetes.io/last-applied-configuration` annotation after the second deploy.
+  - Deployments ready: `ui-server`, `mbr-worker`, `remote-worker`, and `workspace-manager` all `1/1`.
+- Result: PASS for remote deployment using the remote ZITADEL OIDC app.
