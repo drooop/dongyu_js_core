@@ -424,18 +424,6 @@ echo ""
 # ── Apply manifests (with placeholder replacement) ───────
 echo "=== Step 9: Apply manifests ==="
 patch_manifest "$REPO_DIR/k8s/cloud/workers.yaml" "$ROOM_ID" "$SERVER_PASSWORD"
-
-# Also patch mbr-update.yaml if it exists
-if [ -f "$REPO_DIR/k8s/cloud/mbr-update.yaml" ]; then
-  ROOM_ID_ESCAPED="$(escape_sed_replacement "$ROOM_ID")"
-  MBR_TOKEN_ESCAPED="$(escape_sed_replacement "$MBR_TOKEN")"
-  local_tmp=$(mktemp)
-  sed -e "s|placeholder-roomid-update-after-synapse-setup|$ROOM_ID_ESCAPED|g" \
-      -e "s|placeholder-will-update-after-synapse-setup|$MBR_TOKEN_ESCAPED|g" \
-      "$REPO_DIR/k8s/cloud/mbr-update.yaml" > "$local_tmp"
-  kubectl apply -f "$local_tmp"
-  rm -f "$local_tmp"
-fi
 echo ""
 
 # ── Cleanup stuck pods ────────────────────────────────────
