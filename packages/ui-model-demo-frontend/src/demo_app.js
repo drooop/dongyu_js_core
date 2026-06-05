@@ -14,6 +14,7 @@ import {
   readDesktopTaskSwitcherOpen,
   removeDesktopTaskFromStack,
 } from './desktop_app_state.js';
+import { MATRIX_CHAT_APP_MODEL_ID } from './model_ids.js';
 
 import {
   ROUTE_HOME,
@@ -21,6 +22,12 @@ import {
   setHashPath,
   subscribeHashPath,
 } from './router.js';
+
+const MATRIX_CHAT_BUS_KEY = 'matrix_chat_1083_bus_event';
+const MATRIX_CHAT_REFRESH_PAYLOAD = Object.freeze([
+  Object.freeze({ id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' }),
+  Object.freeze({ id: 0, p: 0, r: 0, c: 0, k: 'action', t: 'str', v: 'refresh_rooms' }),
+]);
 
 export function createDemoRoot(store, options = {}) {
   let consumeScheduled = false;
@@ -82,14 +89,14 @@ export function createDemoRoot(store, options = {}) {
       });
       return () => {
         if (!ast.value || typeof ast.value !== 'object') {
-          const hint = [
-            'No UI AST.',
-            'If you are using Vite (5173) with remote server (9000), start the backend with CORS enabled:',
-            '  CORS_ORIGIN=http://127.0.0.1:5173 bun packages/ui-model-demo-server/server.mjs',
-            'Or open the backend-served UI directly:',
-            '  http://127.0.0.1:9000/#/',
-          ].join('\n');
-          return h('pre', { style: { padding: '12px', whiteSpace: 'pre-wrap' } }, hint);
+          const hasSnapshotModels = store?.snapshot?.models && Object.keys(store.snapshot.models).length > 0;
+          return h('div', {
+            style: {
+              padding: '24px 16px',
+              color: '#64748b',
+              fontSize: '14px',
+            },
+          }, hasSnapshotModels ? '页面暂不可用' : '加载中');
         }
         const slots = typeof options.slots === 'function' ? options.slots() : options.slots;
         return renderer.renderVNode(ast.value, slots && typeof slots === 'object' ? { slots } : undefined);
@@ -107,7 +114,11 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
     setup() {
       const ElButton = resolveComponent('ElButton');
       const ElDivider = resolveComponent('ElDivider');
+      const ElDropdown = resolveComponent('ElDropdown');
+      const ElDropdownMenu = resolveComponent('ElDropdownMenu');
+      const ElDropdownItem = resolveComponent('ElDropdownItem');
       const ElSpace = resolveComponent('ElSpace');
+      const ElTag = resolveComponent('ElTag');
       const shellRenderer = createRenderer({
         host: {
           getSnapshot: () => mainStore?.snapshot ?? { models: {} },
@@ -258,6 +269,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
 
       const currentRouteEntry = computed(() => findRouteEntry(path.value));
       const routeSyncState = computed(() => readAppShellRouteSyncState(mainStore?.snapshot ?? {}, path.value));
+      const authIssue = computed(() => (authStore && authStore.state ? authStore.state.authIssue : null));
       const desktopForegroundApp = computed(() => readDesktopForegroundApp(mainStore?.snapshot ?? {}));
       const ForegroundRouteRoot = createDemoRoot(mainStore, {
         routePath: () => desktopForegroundApp.value?.path || '/',
@@ -265,10 +277,25 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       const desktopForegroundKey = computed(() => JSON.stringify(desktopForegroundApp.value || null));
       const desktopTasks = computed(() => readDesktopTaskStack(mainStore?.snapshot ?? {}));
       const desktopTaskSwitcherOpen = computed(() => readDesktopTaskSwitcherOpen(mainStore?.snapshot ?? {}));
+      const matrixChatAutoRefreshKeys = new Set();
       const galleryNavTarget = computed(() => {
         const labels = mainStore?.snapshot?.models?.['-102']?.cells?.['0,0,0']?.labels ?? {};
         const raw = labels.nav_to?.v;
         return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : '';
+      });
+      const matrixChatAutoRefreshKey = computed(() => {
+        if (path.value !== ROUTE_HOME) return '';
+        if (!isMatrixChatForeground()) return '';
+        const state = authStore && authStore.state ? authStore.state : null;
+        if (!state || state.authenticated !== true || state.matrixConnected !== true) return '';
+        const capabilities = Array.isArray(state.capabilities) ? state.capabilities : [];
+        if (!capabilities.includes('matrix:connect')) return '';
+        return [
+          state.subject || state.userId || '',
+          state.matrixUserId || '',
+          state.homeserverUrl || '',
+          MATRIX_CHAT_APP_MODEL_ID,
+        ].join('|');
       });
 
       function syncDesktopForeground(app) {
@@ -355,6 +382,43 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           path.value = ROUTE_HOME;
         }
       });
+
+      function dispatchMatrixChatAutoRefresh(key) {
+        if (!key || matrixChatAutoRefreshKeys.has(key)) return;
+        if (!mainStore
+          || typeof mainStore.buildUiEventV2 !== 'function'
+          || typeof mainStore.buildDispatchLabel !== 'function'
+          || typeof mainStore.dispatchAddLabel !== 'function') {
+          return;
+        }
+        matrixChatAutoRefreshKeys.add(key);
+        const envelope = mainStore.buildUiEventV2({
+          busInKey: MATRIX_CHAT_BUS_KEY,
+          value: MATRIX_CHAT_REFRESH_PAYLOAD.map((record) => ({ ...record })),
+          opId: `matrix_chat_auto_refresh_${Date.now()}`,
+          source: 'app_shell_auto_refresh',
+        });
+        const label = mainStore.buildDispatchLabel(envelope);
+        try {
+          const result = mainStore.dispatchAddLabel(label);
+          if (result && typeof result.catch === 'function') result.catch(() => {});
+        } catch (_) {
+          // AuthIssuePanel and Matrix status text cover visible failures.
+        }
+        if (typeof mainStore.consumeOnce === 'function') {
+          queueMicrotask(() => mainStore.consumeOnce());
+        }
+      }
+
+      watch(matrixChatAutoRefreshKey, (key) => {
+        dispatchMatrixChatAutoRefresh(key);
+      }, { immediate: true });
+
+      if (authStore && authStore.state) {
+        watch(() => authStore.state.matrixConnected, (connected) => {
+          if (connected === false) matrixChatAutoRefreshKeys.clear();
+        });
+      }
 
       function localLabelUpdate(key, t, v) {
         return {
@@ -499,6 +563,161 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         ]);
       }
 
+      function currentReturnTo() {
+        if (typeof window === 'undefined' || !window.location) return '/';
+        return `${window.location.pathname || '/'}${window.location.search || ''}${window.location.hash || ''}`;
+      }
+
+      function capabilityLabel(capability) {
+        const labels = {
+          'app:read': '只读',
+          'app:write': '编辑',
+          'workspace:read': '工作区只读',
+          'workspace:write': '工作区编辑',
+          'slide_app:use': '滑动 App',
+          'matrix:connect': 'Matrix',
+          'management_bus:use': '管理总线',
+        };
+        return labels[capability] || capability;
+      }
+
+      function authDisplayName() {
+        const state = authStore && authStore.state ? authStore.state : {};
+        return state.displayName || state.username || state.email || state.userId || 'Dongyu User';
+      }
+
+      function startSso(returnTo = currentReturnTo()) {
+        if (authStore && typeof authStore.loginWithSso === 'function') {
+          authStore.loginWithSso({ returnTo });
+        }
+      }
+
+      function startMatrixSso() {
+        if (authStore && typeof authStore.connectMatrix === 'function') {
+          authStore.connectMatrix({ returnTo: currentReturnTo() });
+        }
+      }
+
+      function disconnectMatrixSession() {
+        if (authStore && typeof authStore.disconnectMatrix === 'function') {
+          authStore.disconnectMatrix();
+        }
+      }
+
+      function isMatrixChatForeground() {
+        return Number(desktopForegroundApp.value?.model_id) === MATRIX_CHAT_APP_MODEL_ID;
+      }
+
+      function MatrixConnectionPanel() {
+        if (path.value !== ROUTE_HOME) return null;
+        if (!authStore || !authStore.state || !authStore.state.authenticated || !isMatrixChatForeground()) return null;
+        const capabilities = Array.isArray(authStore.state.capabilities) ? authStore.state.capabilities : [];
+        if (authStore.state.matrixConnected) return null;
+        if (!capabilities.includes('matrix:connect')) return null;
+        return h('div', {
+          'data-testid': 'auth-matrix-required-panel',
+          style: {
+            margin: '0 16px 12px',
+            border: '1px solid #bfdbfe',
+            background: '#eff6ff',
+            borderRadius: '14px',
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            color: '#1e3a8a',
+          },
+        }, [
+          h('div', { style: { minWidth: 0 } }, [
+            h('div', { style: { fontSize: '14px', fontWeight: 850 } }, 'Matrix 尚未连接'),
+            h('div', {
+              style: {
+                marginTop: '3px',
+                fontSize: '13px',
+                lineHeight: 1.45,
+                color: '#1d4ed8',
+              },
+            }, '当前列表是本地初始视图；连接 Matrix 后可刷新为你的远端会话。'),
+          ]),
+          h(ElButton, {
+            'data-testid': 'auth-matrix-connect-primary',
+            type: 'primary',
+            size: 'small',
+            onClick: startMatrixSso,
+            style: { flexShrink: 0 },
+          }, { default: () => '连接 Matrix' }),
+        ]);
+      }
+
+      function AuthIssuePanel() {
+        const issue = authIssue.value;
+        if (!issue) return null;
+        const isLogin = issue.kind === 'login_required';
+        const title = isLogin ? '需要登录' : '权限不足';
+        const detail = isLogin
+          ? '登录后可以继续当前操作。'
+          : `当前账号不能使用该操作${issue.requiredCapability ? `：${capabilityLabel(issue.requiredCapability)}` : ''}`;
+        return h('div', {
+          'data-testid': 'auth-permission-panel',
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '14px',
+            padding: '12px 16px',
+            borderBottom: '1px solid #fecaca',
+            background: '#fff7ed',
+            color: '#7c2d12',
+          },
+        }, [
+          h('div', { style: { minWidth: 0 } }, [
+            h('div', { style: { fontSize: '14px', fontWeight: 800 } }, title),
+            h('div', { style: { marginTop: '2px', fontSize: '13px', color: '#9a3412' } }, detail),
+          ]),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 } }, [
+            h(ElButton, {
+              size: 'small',
+              type: 'primary',
+              onClick: () => startSso(issue.returnTo || currentReturnTo()),
+            }, { default: () => (isLogin ? '登录' : '重新登录') }),
+            h(ElButton, {
+              size: 'small',
+              text: true,
+              onClick: () => {
+                if (authStore && typeof authStore.clearAuthIssue === 'function') authStore.clearAuthIssue();
+              },
+            }, { default: () => '关闭' }),
+          ]),
+        ]);
+      }
+
+      function appLayout(content, options = {}) {
+        const children = [h(Header), h(AuthIssuePanel), h(MatrixConnectionPanel)];
+        if (options.divider) children.push(h(ElDivider, { style: { margin: '12px 0' } }));
+        if (options.foreground === true) {
+          children.push(h('div', {
+            'data-testid': 'foreground-content-slot',
+            style: {
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+            },
+          }, content));
+          return h('div', {
+            'data-testid': 'foreground-app-layout',
+            style: {
+              height: '100dvh',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            },
+          }, children);
+        }
+        children.push(content);
+        return h('div', children);
+      }
+
       function Header() {
         const catalog = readCatalog().filter((entry) => entry && entry.nav_visible === true && typeof entry.path === 'string');
         const navButtons = catalog.map((entry) => h(
@@ -511,19 +730,109 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         ));
 
         const userSection = [];
-        if (authStore && authStore.state && authStore.state.authenticated) {
+        if (authStore && authStore.state && !authStore.state.authenticated) {
           userSection.push(
-            h('span', { style: { fontSize: '13px', color: '#606266' } }, authStore.state.userId),
+            h(ElTag, {
+              'data-testid': 'auth-readonly-badge',
+              effect: 'plain',
+              type: 'info',
+              round: true,
+            }, { default: () => '访客只读' }),
             h(ElButton, {
+              'data-testid': 'auth-login-button',
+              type: 'primary',
               size: 'small',
-              onClick: () => {
-                authStore.logout().then(() => { window.location.reload(); });
-              },
-            }, { default: () => 'Logout' }),
+              onClick: () => startSso(),
+            }, { default: () => '登录' }),
+          );
+        } else if (authStore && authStore.state && authStore.state.authenticated) {
+          const capabilities = Array.isArray(authStore.state.capabilities) ? authStore.state.capabilities : [];
+          const roles = Array.isArray(authStore.state.roles) ? authStore.state.roles : [];
+          const canUseMatrix = capabilities.includes('matrix:connect');
+          const matrixStatusText = authStore.state.matrixConnected
+            ? `Matrix：已连接${authStore.state.matrixUserId ? ` · ${authStore.state.matrixUserId}` : ''}`
+            : 'Matrix：未连接';
+          const matrixActions = [];
+          if (canUseMatrix && !authStore.state.matrixConnected) {
+            matrixActions.push(h(ElDropdownItem, {
+              'data-testid': 'auth-matrix-connect-button',
+              divided: true,
+              onClick: startMatrixSso,
+            }, { default: () => '连接 Matrix' }));
+          }
+          if (canUseMatrix && authStore.state.matrixConnected) {
+            matrixActions.push(h(ElDropdownItem, {
+              'data-testid': 'auth-matrix-disconnect-button',
+              divided: true,
+              onClick: disconnectMatrixSession,
+            }, { default: () => '断开 Matrix' }));
+          }
+          userSection.push(
+            h(ElDropdown, {
+              trigger: 'click',
+              placement: 'bottom-end',
+            }, {
+              default: () => h(ElButton, {
+                'data-testid': 'auth-user-menu',
+                size: 'small',
+                round: true,
+                title: authDisplayName(),
+                style: {
+                  maxWidth: '220px',
+                  minWidth: '0',
+                  overflow: 'hidden',
+                },
+              }, {
+                default: () => h('span', {
+                  style: {
+                    display: 'block',
+                    maxWidth: '180px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  },
+                }, authDisplayName()),
+              }),
+              dropdown: () => h(ElDropdownMenu, null, {
+                default: () => [
+                  h(ElDropdownItem, { disabled: true }, {
+                    default: () => h('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px', minWidth: '220px' } }, [
+                      h('strong', { style: { color: '#111827' } }, authDisplayName()),
+                      h('span', { style: { color: '#64748b', fontSize: '12px' } }, authStore.state.email || authStore.state.userId || authStore.state.subject || ''),
+                    ]),
+                  }),
+                  h(ElDropdownItem, { disabled: true, divided: true }, {
+                    default: () => `权限：${capabilities.length > 0 ? capabilities.slice(0, 4).map(capabilityLabel).join(' / ') : '只读'}`,
+                  }),
+                  h(ElDropdownItem, { disabled: true }, {
+                    default: () => `角色：${roles.length > 0 ? roles.slice(0, 3).join(' / ') : '未声明'}`,
+                  }),
+                  h(ElDropdownItem, { disabled: true }, {
+                    default: () => matrixStatusText,
+                  }),
+                  ...matrixActions,
+                  h(ElDropdownItem, {
+                    'data-testid': 'auth-logout-button',
+                    divided: matrixActions.length === 0,
+                    onClick: () => {
+                      authStore.logout().then(() => {
+                        if (mainStore && typeof mainStore.refreshSnapshot === 'function') {
+                          return mainStore.refreshSnapshot('logout');
+                        }
+                        if (mainStore && typeof mainStore.setRoutePath === 'function') {
+                          mainStore.setRoutePath(path.value);
+                        }
+                        return null;
+                      });
+                    },
+                  }, { default: () => '退出登录' }),
+                ],
+              }),
+            }),
           );
         }
 
-        if (navButtons.length === 0 && userSection.length === 0) {
+        if (navButtons.length === 0 && userSection.length === 0 && !authStore) {
           return null;
         }
 
@@ -534,26 +843,25 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            gap: '12px',
           },
         }, [
           h(ElSpace, { wrap: true }, { default: () => navButtons }),
           userSection.length > 0
-            ? h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, userSection)
+            ? h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' } }, userSection)
             : null,
         ]);
       }
 
       return () => {
         if (desktopForegroundApp.value && path.value === ROUTE_HOME) {
-          return withTaskSwitcher(h(ForegroundPlayer));
+          return withTaskSwitcher(appLayout(h(ForegroundPlayer), { foreground: true }));
         }
         if (currentRouteEntry.value?.page === 'gallery') {
-          return withTaskSwitcher(h('div', [h(Header), h(GalleryRoot)]));
+          return withTaskSwitcher(appLayout(h(GalleryRoot)));
         }
         if (routeSyncState.value.pending) {
-          return withTaskSwitcher(h('div', [
-            h(Header),
-            h('div', {
+          return withTaskSwitcher(appLayout(h('div', {
               style: {
                 padding: '24px 16px',
               },
@@ -573,16 +881,12 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
                 h('div', { style: { color: '#475569', lineHeight: '1.6' } }, `正在切换到 ${routeSyncState.value.targetPage}，等待本地表状态完成同步。`),
               ]),
             ]),
-          ]));
+          ));
         }
         if (currentRouteEntry.value && currentRouteEntry.value.page !== 'gallery') {
-          return withTaskSwitcher(h('div', [h(Header), h(HomeRoot)]));
+          return withTaskSwitcher(appLayout(h(HomeRoot)));
         }
-        return withTaskSwitcher(h('div', [
-          h(Header),
-          h(ElDivider, { style: { margin: '12px 0' } }),
-          h(HomeRoot),
-        ]));
+        return withTaskSwitcher(appLayout(h(HomeRoot), { divider: true }));
       };
     },
   };

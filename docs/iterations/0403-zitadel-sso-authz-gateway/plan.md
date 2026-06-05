@@ -19,7 +19,7 @@ phase: phase1
 - Related:
   - ZITADEL OIDC Authorization Code + PKCE: https://zitadel.com/docs/guides/integrate/login/oidc/login-users
   - ZITADEL role retrieval: https://zitadel.com/docs/guides/integrate/retrieve-user-roles
-  - ZITADEL create human user: https://zitadel.com/docs/guides/manage/user/reg-create-user
+  - ZITADEL create/verify human user: https://zitadel.com/docs/guides/manage/user/reg-create-user
   - ZITADEL logout: https://zitadel.com/docs/guides/integrate/login/oidc/logout
   - Matrix Client-Server API login and SSO/token flow: https://spec.matrix.org/latest/client-server-api/
   - Matrix SSO client login older guide, supplemental: https://matrix.org/docs/older/client-sso-guide/
@@ -46,7 +46,8 @@ phase: phase1
 
 ## 4. Scope
 ### 4.1 In Scope
-- 在 ZITADEL 中创建一个新 human account，并给它分配本次验证所需的 Dongyu App role。
+- 复用现有 ZITADEL human account `drop.yang@dongyudigital.com` 作为本次 SSO 验证账号；不再阻塞于创建 `nwpuyyc@163.com`。
+- 如后续权限不足，只记录缺口并要求在 ZITADEL 中补齐角色/授权；不通过浏览器 token 抽取或猜测 API 凭据绕过。
 - 确认或创建 Dongyu App OIDC application，登记本地与远端 callback/logout URL。
 - 实现 Dongyu App 的 ZITADEL OIDC login/callback/logout/me flow，并生成 `dy_session`。
 - 从 ZITADEL token/userinfo 中读取用户身份、email、roles，并映射为 Dongyu capability。
@@ -70,7 +71,7 @@ phase: phase1
 - 不引入兼容旧 result topic 或旧 bus 绕线路径。
 
 ## 6. Success Criteria (Definition of Done)
-- ZITADEL 中存在新 human account，已被分配 Dongyu App 验证角色；账号创建证据只记录非敏感字段。
+- ZITADEL 中已有 human account `drop.yang@dongyudigital.com` 可完成本次 SSO；账号验证证据只记录非敏感字段。
 - 未登录访问 Dongyu App 可以看到公开只读内容；尝试写入、打开受限滑动 App、Matrix 或管理总线动作时，被 server 拒绝并在 UI 中得到合适的登录/权限提示。
 - 已登录用户通过 `https://sso.dongyudigital.com/oauth/v2/authorize` 完成 SSO，回到 Dongyu App 后 `/auth/me` 返回身份、roles 和 capabilities。
 - 登录后右上角下拉显示当前用户、权限范围、Matrix connect 状态和 Logout；Logout 后本地 session 清除，并按 ZITADEL logout 规则跳转或回到访客态。
@@ -96,7 +97,7 @@ phase: phase1
   - Mitigation: Phase 3 前切换到独立 0403 分支或独立 worktree，并在每个 step diff review 中只接受 0403 相关文件。
 
 ## 8. Open Questions
-- 新账户的 email、display name、username、初始登录方式和目标 role 需要用户确认后才能创建。
+- 现有账号 `drop.yang@dongyudigital.com` 的角色 claim 是否已覆盖 Dongyu App、Matrix 和管理总线能力；如果没有，需要在 ZITADEL Console 中补授权。
 - 如果 ZITADEL 中已存在 Dongyu App project/application，需要确认是否复用；否则按本计划创建新的 application。
 - 访客公开范围默认按 Home/Public docs/Static 只读处理，Workspace、Matrix、管理总线和 slide app 写入均受限；如需更窄或更宽，需要在实施前调整。
 

@@ -112,6 +112,7 @@ export const MATRIX_CHAT_UI_STATE_MODEL_ID = 1021;
 export const MATRIX_SUITE_APP_MODEL_ID = 1080;
 export const SETTINGS_APP_MODEL_ID = 1081;
 export const MODELTABLE_APP_MODEL_ID = 1082;
+export const MATRIX_CHAT_APP_MODEL_ID = 1083;
 export const TODO_BOARD_APP_MODEL_ID = 1086;
 
 // Model 100 - Dual-bus E2E test model.

@@ -13,6 +13,7 @@ import {
 export function createRemoteStore(options) {
   const defaultBaseUrl = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'http://127.0.0.1:9000';
   const baseUrl = options && options.baseUrl ? String(options.baseUrl).replace(/\/$/, '') : defaultBaseUrl;
+  const authStore = options && options.authStore ? options.authStore : null;
   const snapshot = reactive({ models: {}, v1nConfig: { local_mqtt: null, global_mqtt: null } });
 const overlayStore = reactive(new Map());
 const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
@@ -166,6 +167,43 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
       const pending = pendingSseSnapshot;
       pendingSseSnapshot = null;
       if (pending && pending !== next) applySnapshot(pending);
+    }
+  }
+
+  function notifyAuthFailure(resp, data, returnTo) {
+    const error = data && (data.error || data.code) ? (data.error || data.code) : '';
+    if (resp && (
+      resp.status === 401
+      || resp.status === 403
+      || error === 'login_required'
+      || error === 'not_authenticated'
+      || error === 'permission_denied'
+      || error === 'matrix_session_missing'
+    )) {
+      if (authStore && typeof authStore.handleAuthFailure === 'function') {
+        authStore.handleAuthFailure({
+          error: error || (resp.status === 401 ? 'login_required' : 'permission_denied'),
+          returnTo: data && data.returnTo ? data.returnTo : returnTo,
+          requiredCapability: data && data.requiredCapability ? data.requiredCapability : '',
+        });
+      }
+      return true;
+    }
+    return false;
+  }
+
+  function canSyncLocalState() {
+    if (!authStore || !authStore.state) return true;
+    return authStore.state.authenticated === true;
+  }
+
+  async function readJsonOrText(resp) {
+    const text = await resp.text().catch(() => '');
+    if (!text) return { data: {}, detail: '' };
+    try {
+      return { data: JSON.parse(text), detail: text };
+    } catch (_) {
+      return { data: {}, detail: text };
     }
   }
 
@@ -487,6 +525,10 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     }
   }
 
+  function refreshSnapshot(context = 'manual refresh') {
+    return fetchSnapshotAndApply(context);
+  }
+
   async function ensureRuntimeRunning() {
     if (runtimeActivationPromise) return runtimeActivationPromise;
     runtimeActivationPromise = (async () => {
@@ -498,12 +540,8 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
           credentials: 'same-origin',
         });
         if (!resp.ok) {
-          let detail = '';
-          try {
-            detail = await resp.text();
-          } catch (_) {
-            // ignore
-          }
+          const { data, detail } = await readJsonOrText(resp);
+          notifyAuthFailure(resp, data, '/api/runtime/mode');
           console.error('runtime activation failed', { status: resp.status, statusText: resp.statusText, detail });
         }
       } catch (err) {
@@ -535,13 +573,9 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     }
 
     if (!resp.ok) {
-      let detail = '';
-      try {
-        const t = await resp.text();
-        detail = t.length > 800 ? `${t.slice(0, 800)}…` : t;
-      } catch (_) {
-        // ignore
-      }
+      const { data, detail: rawDetail } = await readJsonOrText(resp);
+      notifyAuthFailure(resp, data, data.returnTo || endpointPath);
+      const detail = rawDetail.length > 800 ? `${rawDetail.slice(0, 800)}…` : rawDetail;
       console.error('bus event response not ok', { status: resp.status, statusText: resp.statusText, detail });
       await fetchSnapshotAndApply('bus event response not ok');
       return null;
@@ -562,11 +596,32 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
       await fetchSnapshotAndApply('bus event response json parse error');
       return null;
     }
+    if (data && data.result === 'error') {
+      if (data.code === 'matrix_session_missing' && authStore && typeof authStore.fetchMatrixStatus === 'function') {
+        const refreshed = await authStore.fetchMatrixStatus();
+        if (!refreshed && authStore && typeof authStore.handleAuthFailure === 'function') {
+          authStore.handleAuthFailure({ error: data.code, returnTo: endpointPath });
+        }
+      } else {
+        notifyAuthFailure(resp, data, endpointPath);
+      }
+    }
     if (data && data.code === 'runtime_not_running' && options.retried !== true) {
       await ensureRuntimeRunning();
       return postEnvelope(envelope, { ...options, retried: true });
     }
-    if (data && data.snapshot) applySnapshot(data.snapshot);
+    if (data && data.snapshot) {
+      applySnapshot(data.snapshot);
+    } else if (
+      endpointPath === BUS_EVENT_ENDPOINT_PATH
+      && envelope
+      && envelope.type === 'bus_event_v2'
+      && data
+    ) {
+      await fetchSnapshotAndApply(data.result === 'error'
+        ? 'bus event v2 error fallback'
+        : 'bus event v2 response fallback');
+    }
     return data;
   }
 
@@ -621,11 +676,12 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     // - Still sync to server in the background to keep remote runtime state aligned.
     // - Coalesce per-target writes to reduce per-keystroke/per-drag network chatter.
     if (rawAction === 'label_update' && rawTarget && isNegativeLocalStateTarget(rawTarget)) {
+      const syncLocalState = canSyncLocalState();
       const derivedWrites = [
         ...patchNegativeLocalStateLabel(rawTarget, rawPayload.value),
         ...deriveShellLocalStateWrites(rawTarget, rawPayload.value),
       ];
-      if (rawTarget && typeof rawTarget.k === 'string') {
+      if (syncLocalState && rawTarget && typeof rawTarget.k === 'string') {
         const key = localStateKey(rawTarget);
         pendingDraftByKey.set(key, rawEnvelope);
         pendingLocalStateByKey.set(key, { target: rawTarget, value: rawPayload.value });
@@ -633,6 +689,7 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
       for (const derivedWrite of derivedWrites) {
         if (!derivedWrite?.target || !derivedWrite?.value) continue;
         patchSnapshotLocalStateLabel(derivedWrite.target, derivedWrite.value, snapshot);
+        if (!syncLocalState) continue;
         const key = localStateKey(derivedWrite.target);
         pendingDraftByKey.set(
           key,
@@ -640,7 +697,7 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
         );
         pendingLocalStateByKey.set(key, { target: derivedWrite.target, value: derivedWrite.value });
       }
-      scheduleDraftFlush();
+      if (syncLocalState) scheduleDraftFlush();
       return;
     }
 
@@ -688,6 +745,7 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     });
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok || !data || data.ok !== true || typeof data.uri !== 'string' || data.uri.length === 0) {
+      notifyAuthFailure(resp, data, '/api/media/upload');
       throw new Error(data && data.error ? String(data.error) : 'upload_media_failed');
     }
     return {
@@ -706,8 +764,6 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     } catch (_) {
       // allow SSE to recover later
     }
-
-    await ensureRuntimeRunning();
 
     try {
       const es = new EventSource(`${baseUrl}/stream`, { withCredentials: true });
@@ -751,6 +807,8 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     dispatchRmLabel,
     consumeOnce,
     uploadMedia,
+    ensureRuntimeRunning,
+    refreshSnapshot,
     buildDispatchLabel: buildBusDispatchLabel,
     buildUiEventV2: buildBusEventV2,
   };

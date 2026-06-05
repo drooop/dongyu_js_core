@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 
 import { createRenderer as createRendererMjs } from '../../packages/ui-renderer/src/renderer.mjs';
+import { buildForegroundShellAst } from '../../packages/ui-model-demo-frontend/src/desktop_foreground_shell_ast.js';
 
 const require = createRequire(import.meta.url);
 const { createRenderer: createRendererCjs } = require('../../packages/ui-renderer/src/renderer.js');
@@ -68,7 +69,7 @@ function test_matrix_chat_root_uses_viewport_safe_sizing() {
 function test_foreground_shell_keeps_app_content_internal() {
   const allRecords = records(desktopPath);
   const shellStyle = styleOf(allRecords, -29, 3, 0, 0);
-  assert.equal(shellStyle.height, '100dvh', 'foreground shell must lock to the visible viewport height');
+  assert.equal(shellStyle.height, '100dvh', 'foreground shell template may describe a full viewport shell');
   assert.equal(shellStyle.overflow, 'hidden', 'foreground shell must prevent outer document scrolling');
   assert.ok(Number.parseInt(shellStyle.padding, 10) <= 12, 'foreground shell padding must not consume excessive small-screen height');
 
@@ -77,6 +78,21 @@ function test_foreground_shell_keeps_app_content_internal() {
   assert.equal(appWindowProps.style?.overflow, 'hidden', 'focused AppWindow frame must clip to viewport');
   assert.equal(appWindowProps.style?.minHeight, 0, 'focused AppWindow must be shrinkable inside shell');
   return { key: 'foreground_shell_keeps_app_content_internal', status: 'PASS' };
+}
+
+async function test_foreground_shell_embedded_output_uses_parent_height() {
+  const { createServerState } = await import(new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url));
+  const state = createServerState({ dbPath: null });
+  const shellAst = buildForegroundShellAst(
+    { id: 'matrix-chat', title: 'Matrix Chat', kind: 'workspace', model_id: CHAT_APP_MODEL_ID },
+    state.snapshot(),
+  );
+  assert.equal(shellAst.id, 'desktop_foreground_shell_model', 'foreground shell ast must render the expected root');
+  assert.equal(shellAst.props?.style?.height, '100%', 'embedded foreground shell must fill the AppShell content slot');
+  assert.equal(shellAst.props?.style?.minHeight, 0, 'embedded foreground shell must be shrinkable');
+  assert.equal(shellAst.props?.style?.maxHeight, '100%', 'embedded foreground shell must not exceed the AppShell content slot');
+  assert.notEqual(shellAst.props?.style?.height, '100dvh', 'embedded shell must not add a second viewport height below the auth header');
+  return { key: 'foreground_shell_embedded_output_uses_parent_height', status: 'PASS' };
 }
 
 function test_renderer_supports_appwindow_content_overflow_contract() {
@@ -138,6 +154,7 @@ function test_playwright_guard_is_safe_and_project_scoped() {
 const tests = [
   test_matrix_chat_root_uses_viewport_safe_sizing,
   test_foreground_shell_keeps_app_content_internal,
+  test_foreground_shell_embedded_output_uses_parent_height,
   test_renderer_supports_appwindow_content_overflow_contract,
   test_renderer_conversation_list_filter_contract,
   test_playwright_guard_is_safe_and_project_scoped,
@@ -147,7 +164,7 @@ let passed = 0;
 let failed = 0;
 for (const test of tests) {
   try {
-    const result = test();
+    const result = await test();
     console.log(`[${result.status}] ${result.key}`);
     passed += 1;
   } catch (error) {
