@@ -205,6 +205,42 @@ apply_target_manifest() {
   esac
 }
 
+verify_ui_server_secret_contract() {
+  echo "=== Verify ui-server secret contract ==="
+  local secret_json
+  secret_json="$(kubectl -n "$NAMESPACE" get secret ui-server-secret -o json)"
+  SECRET_JSON="$secret_json" python3 - <<'PY'
+import json
+import sys
+import os
+
+required = [
+    "MODELTABLE_PATCH_JSON",
+    "DY_AUTH",
+    "DY_OIDC_ISSUER",
+    "DY_OIDC_CLIENT_ID",
+    "DY_OIDC_CLIENT_SECRET",
+    "DY_OIDC_REDIRECT_URI",
+    "DY_OIDC_SCOPE",
+    "DY_OIDC_STATE_SECRET",
+    "DY_SESSION_SECRET",
+    "DY_AUTH_SECRET",
+    "MATRIX_HOMESERVER_URL",
+]
+
+secret = json.loads(os.environ["SECRET_JSON"])
+data = secret.get("data") or {}
+missing = [key for key in required if key not in data]
+if missing:
+    print("ERROR: ui-server-secret is missing keys required by k8s/cloud/workers.yaml:", file=sys.stderr)
+    for key in missing:
+        print(f"  - {key}", file=sys.stderr)
+    print("Run deploy_cloud_full.sh once to refresh ui-server-secret before deploy_cloud_app.sh --target ui-server.", file=sys.stderr)
+    sys.exit(1)
+print("  ui-server-secret: OK")
+PY
+}
+
 load_target_spec
 
 if [ -f "$REPO_DIR/deploy/env/cloud.env" ]; then
@@ -279,6 +315,7 @@ docker build "${BUILD_ARGS[@]}" \
 docker save "$IMAGE_TAG" | "$CTR" --address "$CONTAINERD_SOCK" -n k8s.io images import -
 
 echo "=== Apply target runtime manifest ==="
+verify_ui_server_secret_contract
 apply_target_manifest
 
 kubectl -n "$NAMESPACE" rollout restart "deployment/${DEPLOYMENT}"
