@@ -310,6 +310,7 @@ source: ai
 | 0405-todo-slide-app-validation | 2026-06-03 | 用基础 UI 模型文档实现一个分状态 To Do 滑动 App，验证动态任务、双视图、弹窗表单、输入同步策略和本地浏览器体验 | 6 | dropx/dev_0405-todo-slide-app-validation | Completed | ./docs/iterations/0405-todo-slide-app-validation/ |
 | 0406-todo-ui-extension-docs | 2026-06-03 | 审查 To Do Board 使用的 UI 模型，明确基础组件与扩展组件边界，并补充开发者文档 | 3 | dropx/dev_0406-todo-ui-extension-docs | Completed | ./docs/iterations/0406-todo-ui-extension-docs/ |
 | 0407-current-model-ref | 2026-06-03 | 允许 UI 模型同模型引用省略部署后 model_id，重填 To Do Board 与非自带滑动 App 示例并更新开发者文档 | 5 | dropx/dev_0407-current-model-ref | Completed | ./docs/iterations/0407-current-model-ref/ |
+| 0409-todo-mqtt-egress-docs | 2026-06-04 | 修正 To Do 保存按钮外发 MQTT 的开发者写法，补完整 ModelTable 示例与导入后 MQTT publish 验证 | 3 | dropx/dev_0409-todo-mqtt-egress-docs | Completed | ./docs/iterations/0409-todo-mqtt-egress-docs/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
