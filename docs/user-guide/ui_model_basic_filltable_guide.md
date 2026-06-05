@@ -426,27 +426,67 @@ ZIP root `(0,0,0)` 还必须补齐安装 metadata：
 
 如果按钮要触发后端程序模型、总线消息或远端 worker，不要直接把最终业务结果写到界面 label。正确做法是让按钮发出 `bus_event_v2`，内容必须是 ModelTable-like record array。
 
-示例：
+注意这里的 `bus_in_key` 必须是 UI Server `Model 0 (0,0,0)` 已声明的入口，而不是 App 内部的 `pin.in`。常见写法如下：
+
+| 场景 | `bus_in_key` 应填写 |
+|---|---|
+| ZIP 形式交给 UI Server 安装的滑动 App | `bus_event_submit_0_0_0_0`，安装器会在安装后改成 `imported_host_submit_<modelId>`。 |
+| 内置模型，且 Model 0 已有固定 route | 该内置 route key，例如 To Do Board 内置模型使用 `todo_1086_bus_event`。 |
+
+不要把 App 内部入口如 `submit_request`、`todo_request` 写成 `bus_in_key`。这些入口只存在于 App 自己的 root `(0,0,0)` 内，浏览器事件不能直接用它们进入 Model 0。
+
+ZIP App 的保存按钮示例：
 
 ```json
 {
   "write": {
     "bus_event_v2": true,
-    "bus_in_key": "submit_request",
+    "bus_in_key": "bus_event_submit_0_0_0_0",
     "value_t": "modeltable",
     "value_ref": [
       { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "ui_event.v1" },
-      { "id": 0, "p": 0, "r": 0, "c": 0, "k": "event_name", "t": "str", "v": "submit" },
-      { "id": 0, "p": 0, "r": 0, "c": 0, "k": "input_text", "t": "str", "v": { "$label": { "p": 0, "r": 0, "c": 0, "k": "draft_text" } } }
+      { "id": 0, "p": 0, "r": 0, "c": 0, "k": "todo_action", "t": "str", "v": "save_task" },
+      { "id": 0, "p": 0, "r": 0, "c": 0, "k": "title", "t": "str", "v": { "$label": { "p": 0, "r": 0, "c": 0, "k": "draft_title" } } },
+      { "id": 0, "p": 0, "r": 0, "c": 0, "k": "body", "t": "str", "v": { "$label": { "p": 0, "r": 0, "c": 0, "k": "draft_body" } } },
+      { "id": 0, "p": 0, "r": 0, "c": 0, "k": "status", "t": "str", "v": { "$label": { "p": 0, "r": 0, "c": 0, "k": "draft_status" } } }
     ],
     "meta": {
-      "source": "basic_ui_example"
+      "source": "todo_save_mqtt_example"
     }
   }
 }
 ```
 
 这类正式业务链路的结果应该由后端程序模型或总线回包写回 ModelTable，然后 Text/Input/Dialog 再读取新的 labels 显示。
+
+### 6.5 让按钮最终发出 MQTT
+
+按钮本身只负责提交业务事件；它不直接发 MQTT。要让保存任务按钮最终发出 MQTT，还必须让 App root `(0,0,0)` 声明并接通外发链：
+
+| label | type | 必填原因 |
+|---|---|---|
+| `host_ingress_v1` | `json` | 告诉安装器如何把 Model 0 的 submit 入口接到本 App 内部入口，例如 `todo_request`。 |
+| `todo_request` | `pin.in` | App 内部接收按钮事件的入口。 |
+| `todo_request_wiring` | `pin.connect.label` | 把 `todo_request` 接到程序模型 `handle_todo_save:in`。 |
+| `handle_todo_save` | `func.js` | 读取按钮 payload，校验 `todo_action`，组装业务 ModelTable records。 |
+| `submit1` | `pin.out` | App 对外提交出口。程序模型写入这个 pin 后才会进入 host egress adapter。 |
+| `dual_bus_model` | `json` | 声明哪些 root `pin.out` 是外发 pin，例如 `egress_pins=["submit1"]`。 |
+| `remote_bus_endpoint_v1` | `json` | 声明远端 worker / model，例如 `R1 / 3000`。topic 的最后一段来自当前外发 pin：`submit1`。 |
+
+最短链路是：
+
+```text
+Button ui_bind_json
+-> Model 0 imported_host_submit_<modelId>
+-> App root todo_request
+-> handle_todo_save
+-> App root submit1 pin.out
+-> host egress adapter
+-> Model 0 pin.bus.cb.out
+-> MQTT topic UIPUT/ws/dam/pic/de/R1/3000/submit1
+```
+
+完整可安装示例见 `test_files/todo_save_mqtt_event_app_payload.json`，配套说明见 `docs/user-guide/slide-app-runtime/todo_save_mqtt_event_example.md`。
 
 ## 7. Dialog：弹出式提示框
 

@@ -1,0 +1,204 @@
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.table", "v": "UI.TodoSaveMqttExampleZip" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "app_name", "t": "str", "v": "To Do Save MQTT Example" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "slide_app_summary", "t": "str", "v": "最小任务保存按钮示例：按钮先触发本地程序模型，再由 root pin.out 通过 host egress adapter 发出 MQTT。" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "source_worker", "t": "str", "v": "R1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "slide_capable", "t": "bool", "v": true },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "slide_surface_type", "t": "str", "v": "workspace.page" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "from_user", "t": "str", "v": "@drop:matrix.dongyudigital.com" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "to_user", "t": "str", "v": "@mbr:matrix.dongyudigital.com" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "ui_authoring_version", "t": "str", "v": "cellwise.ui.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "ui_root_node_id", "t": "str", "v": "todo_save_mqtt_root" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "draft_title", "t": "str", "v": "" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "draft_body", "t": "str", "v": "" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "draft_status", "t": "str", "v": "todo" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "todo_save_status", "t": "str", "v": "idle" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit_inflight", "t": "bool", "v": false },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "last_submit_payload", "t": "json", "v": null },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "last_error_json", "t": "json", "v": null },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "host_ingress_v1",
+    "t": "json",
+    "v": {
+      "version": "v1",
+      "boundaries": [
+        {
+          "semantic": "submit",
+          "pin_name": "todo_request",
+          "value_t": "modeltable",
+          "locator_kind": "root_relative_cell",
+          "locator_value": { "p": 0, "r": 0, "c": 0 },
+          "primary": true
+        }
+      ]
+    }
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "remote_bus_endpoint_v1",
+    "t": "json",
+    "v": {
+      "transport": "mqtt",
+      "to": {
+        "worker_id": "R1",
+        "model_id": 3000
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "dual_bus_model",
+    "t": "json",
+    "v": {
+      "mode": "imported_host_egress",
+      "egress_pins": ["submit1"]
+    }
+  },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "todo_request", "t": "pin.in", "v": null },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit1", "t": "pin.out", "v": null },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "todo_request_wiring",
+    "t": "pin.connect.label",
+    "v": [{ "from": "todo_request", "to": ["handle_todo_save:in"] }]
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "handle_todo_save",
+    "t": "func.js",
+    "v": {
+      "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = (key, fallback = '') => {\n  const rec = records.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key);\n  return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback;\n};\nconst mt = (k, t, v) => ({ id: 0, p: 0, r: 0, c: 0, k, t, v });\nconst clean = (value) => String(value == null ? '' : value).trim();\nconst validStatus = (value) => ['todo', 'doing', 'done', 'archived'].includes(value) ? value : 'todo';\nconst fail = (code, detail) => {\n  V1N.addLabel('todo_save_status', 'str', 'ERR ' + code + ': ' + detail);\n  V1N.addLabel('last_error_json', 'json', { code, detail, ts: Date.now() });\n  V1N.addLabel('submit_inflight', 'bool', false);\n};\nif (readPayload('__mt_payload_kind', '') !== 'ui_event.v1') { fail('invalid_payload_kind', 'ui_event.v1_required'); return; }\nconst action = clean(readPayload('todo_action', ''));\nif (action !== 'save_task') { fail('unknown_action', action || 'missing'); return; }\nconst title = clean(readPayload('title', ''));\nif (!title) { fail('missing_title', 'title_required'); return; }\nconst body = clean(readPayload('body', ''));\nconst status = validStatus(clean(readPayload('status', 'todo')));\nconst taskPayload = [\n  mt('__mt_payload_kind', 'str', 'todo_save.request.v1'),\n  mt('todo_action', 'str', 'save_task'),\n  mt('title', 'str', title),\n  mt('body', 'str', body),\n  mt('status', 'str', status),\n  mt('source', 'str', 'todo_save_mqtt_example')\n];\nV1N.addLabel('draft_title', 'str', title);\nV1N.addLabel('draft_body', 'str', body);\nV1N.addLabel('draft_status', 'str', status);\nV1N.addLabel('last_submit_payload', 'json', taskPayload);\nV1N.addLabel('last_error_json', 'json', null);\nV1N.addLabel('todo_save_status', 'str', 'sending: ' + title);\nV1N.addLabel('submit_inflight', 'bool', true);\nV1N.addLabel('submit1', 'pin.out', taskPayload);\nreturn;"
+    }
+  },
+  { "id": 0, "p": 2, "r": 0, "c": 0, "k": "ui_node_id", "t": "str", "v": "todo_save_mqtt_root" },
+  { "id": 0, "p": 2, "r": 0, "c": 0, "k": "ui_component", "t": "str", "v": "Container" },
+  { "id": 0, "p": 2, "r": 0, "c": 0, "k": "ui_layout", "t": "str", "v": "column" },
+  { "id": 0, "p": 2, "r": 0, "c": 0, "k": "ui_gap", "t": "int", "v": 12 },
+  { "id": 0, "p": 2, "r": 1, "c": 0, "k": "ui_node_id", "t": "str", "v": "todo_save_card" },
+  { "id": 0, "p": 2, "r": 1, "c": 0, "k": "ui_component", "t": "str", "v": "Card" },
+  { "id": 0, "p": 2, "r": 1, "c": 0, "k": "ui_parent", "t": "str", "v": "todo_save_mqtt_root" },
+  { "id": 0, "p": 2, "r": 1, "c": 0, "k": "ui_order", "t": "int", "v": 10 },
+  { "id": 0, "p": 2, "r": 1, "c": 0, "k": "ui_title", "t": "str", "v": "保存任务并外发 MQTT" },
+  { "id": 0, "p": 2, "r": 2, "c": 0, "k": "ui_node_id", "t": "str", "v": "todo_title_input" },
+  { "id": 0, "p": 2, "r": 2, "c": 0, "k": "ui_component", "t": "str", "v": "Input" },
+  { "id": 0, "p": 2, "r": 2, "c": 0, "k": "ui_parent", "t": "str", "v": "todo_save_card" },
+  { "id": 0, "p": 2, "r": 2, "c": 0, "k": "ui_order", "t": "int", "v": 20 },
+  { "id": 0, "p": 2, "r": 2, "c": 0, "k": "ui_placeholder", "t": "str", "v": "任务标题" },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "read": { "p": 0, "r": 0, "c": 0, "k": "draft_title" },
+      "write": {
+        "action": "ui_owner_label_update",
+        "target_ref": { "p": 0, "r": 0, "c": 0, "k": "draft_title" },
+        "commit_policy": "on_blur"
+      }
+    }
+  },
+  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_node_id", "t": "str", "v": "todo_body_input" },
+  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_component", "t": "str", "v": "Input" },
+  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_parent", "t": "str", "v": "todo_save_card" },
+  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_order", "t": "int", "v": 30 },
+  { "id": 0, "p": 2, "r": 3, "c": 0, "k": "ui_placeholder", "t": "str", "v": "任务内容" },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 3,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "read": { "p": 0, "r": 0, "c": 0, "k": "draft_body" },
+      "write": {
+        "action": "ui_owner_label_update",
+        "target_ref": { "p": 0, "r": 0, "c": 0, "k": "draft_body" },
+        "commit_policy": "on_blur"
+      }
+    }
+  },
+  { "id": 0, "p": 2, "r": 4, "c": 0, "k": "ui_node_id", "t": "str", "v": "todo_status_input" },
+  { "id": 0, "p": 2, "r": 4, "c": 0, "k": "ui_component", "t": "str", "v": "Input" },
+  { "id": 0, "p": 2, "r": 4, "c": 0, "k": "ui_parent", "t": "str", "v": "todo_save_card" },
+  { "id": 0, "p": 2, "r": 4, "c": 0, "k": "ui_order", "t": "int", "v": 40 },
+  { "id": 0, "p": 2, "r": 4, "c": 0, "k": "ui_placeholder", "t": "str", "v": "状态：todo / doing / done / archived" },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 4,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "read": { "p": 0, "r": 0, "c": 0, "k": "draft_status" },
+      "write": {
+        "action": "ui_owner_label_update",
+        "target_ref": { "p": 0, "r": 0, "c": 0, "k": "draft_status" },
+        "commit_policy": "on_blur"
+      }
+    }
+  },
+  { "id": 0, "p": 2, "r": 5, "c": 0, "k": "ui_node_id", "t": "str", "v": "todo_save_button" },
+  { "id": 0, "p": 2, "r": 5, "c": 0, "k": "ui_component", "t": "str", "v": "Button" },
+  { "id": 0, "p": 2, "r": 5, "c": 0, "k": "ui_parent", "t": "str", "v": "todo_save_card" },
+  { "id": 0, "p": 2, "r": 5, "c": 0, "k": "ui_order", "t": "int", "v": 50 },
+  { "id": 0, "p": 2, "r": 5, "c": 0, "k": "ui_label", "t": "str", "v": "保存任务并发送" },
+  { "id": 0, "p": 2, "r": 5, "c": 0, "k": "ui_variant", "t": "str", "v": "primary" },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 5,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "write": {
+        "bus_event_v2": true,
+        "bus_in_key": "bus_event_submit_0_0_0_0",
+        "value_t": "modeltable",
+        "value_ref": [
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "ui_event.v1" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "todo_action", "t": "str", "v": "save_task" },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "title", "t": "str", "v": { "$label": { "p": 0, "r": 0, "c": 0, "k": "draft_title" } } },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "body", "t": "str", "v": { "$label": { "p": 0, "r": 0, "c": 0, "k": "draft_body" } } },
+          { "id": 0, "p": 0, "r": 0, "c": 0, "k": "status", "t": "str", "v": { "$label": { "p": 0, "r": 0, "c": 0, "k": "draft_status" } } }
+        ],
+        "meta": { "source": "todo_save_mqtt_example" }
+      }
+    }
+  },
+  { "id": 0, "p": 2, "r": 6, "c": 0, "k": "ui_node_id", "t": "str", "v": "todo_save_status_badge" },
+  { "id": 0, "p": 2, "r": 6, "c": 0, "k": "ui_component", "t": "str", "v": "StatusBadge" },
+  { "id": 0, "p": 2, "r": 6, "c": 0, "k": "ui_parent", "t": "str", "v": "todo_save_card" },
+  { "id": 0, "p": 2, "r": 6, "c": 0, "k": "ui_order", "t": "int", "v": 60 },
+  { "id": 0, "p": 2, "r": 6, "c": 0, "k": "ui_label", "t": "str", "v": "外发状态" },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 6,
+    "c": 0,
+    "k": "ui_bind_read_json",
+    "t": "json",
+    "v": { "p": 0, "r": 0, "c": 0, "k": "todo_save_status" }
+  }
+]
