@@ -96,6 +96,15 @@ function assertCloudAppDeployGuardsUiServerSecret() {
   assert.match(source, /deploy_cloud_full\.sh once to refresh ui-server-secret/, 'cloud_app_deploy_guard_must_tell_operator_to_refresh_secret');
 }
 
+function assertCloudFullDoesNotApplyLegacyMbrSecretUpdate() {
+  const source = read('scripts/ops/deploy_cloud_full.sh');
+  assert.doesNotMatch(
+    source,
+    /mbr-update\.yaml/,
+    'cloud_full_deploy_must_not_apply_legacy_mbr_update_secret_with_stringData',
+  );
+}
+
 function extractBashFunction(source, name) {
   const marker = `${name}() {`;
   const start = source.indexOf(marker);
@@ -145,6 +154,7 @@ async function main() {
   assertEnvExampleDocumentsOidc('deploy/env/local.env.example', 'http://localhost:30900/auth/sso/callback');
   assertEnvExampleDocumentsOidc('deploy/env/cloud.env.example', 'https://app.dongyudigital.com/auth/sso/callback');
   assertCloudAppDeployGuardsUiServerSecret();
+  assertCloudFullDoesNotApplyLegacyMbrSecretUpdate();
   assertCloudAppDeployGuardExecutes();
   console.log('test_0403_deploy_sso_env_contract: PASS');
 }
