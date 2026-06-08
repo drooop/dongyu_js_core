@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import http from 'node:http';
+import { Buffer } from 'node:buffer';
 import path from 'node:path';
 
 function base64url(input) {
@@ -412,12 +413,59 @@ async function test_sse_rechecks_existing_session_after_logout_before_broadcast(
   return { key: 'sse_rechecks_existing_session_after_logout_before_broadcast', status: 'PASS' };
 }
 
+async function test_dongyu_admin_can_upload_slide_import_zip_without_matrix_session() {
+  const provider = await createMockOidcProvider({ roles: ['dongyu.admin'] });
+  try {
+    await withServerEnv({
+      DY_AUTH: '1',
+      DY_OIDC_ISSUER: provider.issuer,
+      DY_OIDC_CLIENT_ID: 'dongyu-app',
+    }, async ({ startServer }) => {
+      const appServer = startServer({ port: 0, dbPath: null, skipFrontendBuild: true });
+      await waitListening(appServer);
+      const appBase = serverBaseUrl(appServer);
+      try {
+        const cookie = await loginViaMockOidc(appBase, provider);
+        const meResp = await fetch(`${appBase}/auth/me`, { headers: { cookie } });
+        const meBody = await readJson(meResp);
+        assert.equal(meBody.matrixConnected, false, 'admin_fixture_must_not_have_matrix_session');
+        assert.ok(meBody.capabilities.includes('slide_app:use'), 'admin_fixture_must_have_slide_import_capability');
+
+        const genericUploadResp = await fetch(`${appBase}/api/media/upload?filename=generic.zip`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/zip', cookie },
+          body: Buffer.from('generic zip body'),
+        });
+        const genericUploadBody = await readJson(genericUploadResp);
+        assert.equal(genericUploadResp.status, 401, 'generic_media_upload_without_matrix_must_still_require_matrix_session');
+        assert.equal(genericUploadBody.error, 'matrix_session_missing');
+
+        const slideUploadResp = await fetch(`${appBase}/api/media/upload?filename=slide-import.zip&purpose=slide-import`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/zip', cookie },
+          body: Buffer.from('slide import zip body'),
+        });
+        const slideUploadBody = await readJson(slideUploadResp);
+        assert.equal(slideUploadResp.status, 200, 'slide_import_upload_must_not_require_matrix_session');
+        assert.equal(slideUploadBody.ok, true, 'slide_import_upload_must_return_ok');
+        assert.match(slideUploadBody.uri, /^mxc:\/\/dongyu-local\/slide-import-/u, 'slide_import_upload_must_return_local_cache_mxc_uri');
+      } finally {
+        appServer.close();
+      }
+    });
+  } finally {
+    provider.server.close();
+  }
+  return { key: 'dongyu_admin_can_upload_slide_import_zip_without_matrix_session', status: 'PASS' };
+}
+
 const tests = [
   test_guest_can_read_filtered_snapshot_but_cannot_write,
   test_authenticated_viewer_gets_permission_denied_for_restricted_actions,
   test_dongyu_admin_can_pass_write_gate,
   test_dongyu_admin_snapshot_keeps_matrix_chat_refresh_binding,
   test_sse_rechecks_existing_session_after_logout_before_broadcast,
+  test_dongyu_admin_can_upload_slide_import_zip_without_matrix_session,
 ];
 
 let passed = 0;

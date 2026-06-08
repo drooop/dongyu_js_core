@@ -23,7 +23,7 @@ function test_fileinput_uses_explicit_trigger_button_and_hidden_input() {
 function test_slide_import_fileinput_dispatches_uploaded_uri_through_model0_bus_event() {
   assert.match(rendererSource, /dispatchEvent\(node, target, \{ value: uploaded\[0\]\.uri \}/, 'fileinput_must_dispatch_uploaded_uri_as_value');
   assert.match(rendererSource, /if \(target && target\.bus_event_v2 === true\)/, 'renderer_must_support_bus_event_v2_fileinput_bind');
-  assert.match(rendererSource, /resolveRefsDeep\(target\.value_ref, eventCtx, snapshot, host\)/, 'bus_event_v2_must_resolve_value_ref_from_upload_context');
+  assert.match(rendererSource, /resolveRefsDeep\(target\.value_ref, eventCtx, snapshot, host(?:, node)?\)/, 'bus_event_v2_must_resolve_value_ref_from_upload_context');
 
   const fileInputBind = findRecord((record) => (
     record?.model_id === 1030
