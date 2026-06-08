@@ -1,4 +1,5 @@
 import http from 'node:http';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { URL, fileURLToPath } from 'node:url';
@@ -309,6 +310,19 @@ function cacheUploadedMedia(uri, item) {
     ...item,
     createdAt: Date.now(),
   });
+}
+
+function normalizeMediaUploadPurpose(value) {
+  const purpose = String(value || '').trim().toLowerCase();
+  return purpose === 'slide-import' ? 'slide-import' : '';
+}
+
+function buildLocalCachedMediaUri(purpose) {
+  const safePurpose = normalizeMediaUploadPurpose(purpose) || 'upload';
+  const id = typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : crypto.randomBytes(16).toString('hex');
+  return `mxc://dongyu-local/${safePurpose}-${id}`;
 }
 
 function getCachedUploadedMedia(uri) {
@@ -1110,6 +1124,7 @@ async function matrixSuiteRefreshRoomsWithSession(session) {
 async function handleMediaUploadRequest(req, res, state, corsOrigin = null) {
   const url = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
   const cors = corsHeaders(req, corsOrigin);
+  const uploadPurpose = normalizeMediaUploadPurpose(url.searchParams.get('purpose'));
   if (AUTH_ENABLED && !isAuthenticated(req)) {
     writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
     return;
@@ -1140,7 +1155,8 @@ async function handleMediaUploadRequest(req, res, state, corsOrigin = null) {
         ),
       }
       : null);
-  if (!uploadIdentity || !uploadIdentity.accessToken || !uploadIdentity.homeserverUrl) {
+  const canUseLocalSlideImportCache = AUTH_ENABLED && uploadPurpose === 'slide-import';
+  if ((!uploadIdentity || !uploadIdentity.accessToken || !uploadIdentity.homeserverUrl) && !canUseLocalSlideImportCache) {
     writeJson(res, 401, { ok: false, error: 'matrix_session_missing' }, cors);
     return;
   }
@@ -1171,6 +1187,23 @@ async function handleMediaUploadRequest(req, res, state, corsOrigin = null) {
     const buf = Buffer.concat(chunks);
     if (buf.length === 0) {
       writeJson(res, 400, { ok: false, error: 'empty_body' }, cors);
+      return;
+    }
+    if (canUseLocalSlideImportCache && (!uploadIdentity || !uploadIdentity.accessToken || !uploadIdentity.homeserverUrl)) {
+      const uri = buildLocalCachedMediaUri(uploadPurpose);
+      cacheUploadedMedia(uri, {
+        buffer: buf,
+        contentType,
+        filename,
+        userId: session ? (session.userId || session.subject || '') : '',
+      });
+      writeJson(res, 200, {
+        ok: true,
+        uri,
+        name: filename,
+        size: buf.length,
+        mime: contentType,
+      }, cors);
       return;
     }
     const uri = await uploadMatrixMedia({
@@ -11202,7 +11235,8 @@ function startServer(options) {
 
     // ── Matrix media upload (UI upload_media primitive) ─────────────────
     if (req.method === 'POST' && url.pathname === '/api/media/upload') {
-      if (!requireCapability('matrix:connect')) return;
+      const uploadPurpose = normalizeMediaUploadPurpose(url.searchParams.get('purpose'));
+      if (!requireCapability(uploadPurpose === 'slide-import' ? 'slide_app:use' : 'matrix:connect')) return;
       await handleMediaUploadRequest(req, res, state, corsOrigin);
       return;
     }
