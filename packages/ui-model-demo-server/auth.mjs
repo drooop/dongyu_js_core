@@ -345,6 +345,7 @@ export function getOidcConfig({ env = process.env, req = null } = {}) {
     clientId,
     clientSecret: env.DY_OIDC_CLIENT_SECRET || '',
     redirectUri: env.DY_OIDC_REDIRECT_URI || (origin ? `${origin}/auth/sso/callback` : ''),
+    postLogoutRedirectUri: env.DY_OIDC_POST_LOGOUT_REDIRECT_URI || (origin ? `${origin}/` : ''),
     scope: env.DY_OIDC_SCOPE || 'openid profile email urn:zitadel:iam:org:project:id:zitadel:aud',
   };
 }
@@ -615,6 +616,46 @@ export async function completeOidcLogin({ req, code, state, fetchFn = fetch } = 
   };
 }
 
+async function buildOidcLogoutUrl({ req, session, fetchFn = fetch } = {}) {
+  if (!session || session.provider !== 'zitadel') return '';
+  let config = null;
+  let metadata = null;
+  try {
+    config = getOidcConfig({ req });
+    metadata = await fetchOidcMetadata(config, fetchFn);
+  } catch (_) {
+    return '';
+  }
+  const endpoint = typeof metadata.end_session_endpoint === 'string'
+    ? metadata.end_session_endpoint.trim()
+    : '';
+  if (!endpoint) return '';
+  let parsedEndpoint = null;
+  let parsedIssuer = null;
+  try {
+    parsedEndpoint = new URL(endpoint);
+    parsedIssuer = new URL(config.issuer);
+  } catch (_) {
+    return '';
+  }
+  if (!['http:', 'https:'].includes(parsedEndpoint.protocol)) return '';
+  if (
+    parsedEndpoint.protocol !== 'https:'
+    && !isLoopbackHostname(parsedEndpoint.hostname)
+  ) {
+    return '';
+  }
+  if (parsedEndpoint.origin !== parsedIssuer.origin) return '';
+  const params = new URLSearchParams();
+  if (session.idToken) params.set('id_token_hint', session.idToken);
+  params.set('client_id', config.clientId);
+  if (config.postLogoutRedirectUri) {
+    params.set('post_logout_redirect_uri', config.postLogoutRedirectUri);
+  }
+  parsedEndpoint.search = params.toString();
+  return parsedEndpoint.toString();
+}
+
 // ── Rate Limiting ──────────────────────────────────────────────────────────
 
 const loginAttempts = new Map(); // ip → { count, resetAt }
@@ -863,10 +904,14 @@ export async function loginWithMatrix(homeserverUrl, username, password) {
   return { token, userId: session.userId, homeserverUrl: session.homeserverUrl, displayName: session.displayName };
 }
 
-export function logout(req) {
+export async function logout(req, { fetchFn = fetch, includeOidcLogoutUrl = true } = {}) {
   const cookies = parseCookies(req.headers.cookie);
   const token = cookies.get('dy_session');
+  const session = token ? getValidSessionRecordByToken(token) : null;
   if (token) sessions.delete(token);
+  if (!includeOidcLogoutUrl) return { logoutUrl: '' };
+  const logoutUrl = await buildOidcLogoutUrl({ req, session, fetchFn });
+  return { logoutUrl };
 }
 
 // ── Homeserver history persistence ─────────────────────────────────────────

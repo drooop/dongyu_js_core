@@ -11170,12 +11170,23 @@ function startServer(options) {
       return;
     }
 
-    if (req.method === 'POST' && url.pathname === '/auth/logout') {
-      logout(req);
+    if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/auth/logout') {
+      const result = await logout(req, { includeOidcLogoutUrl: req.method === 'GET' });
+      const clearSessionCookie = makeClearCookieHeader(req);
+      if (req.method === 'GET') {
+        res.writeHead(302, {
+          ...cors,
+          location: result && result.logoutUrl ? result.logoutUrl : '/',
+          'cache-control': 'no-cache',
+          'set-cookie': clearSessionCookie,
+        });
+        res.end();
+        return;
+      }
       res.writeHead(200, {
         ...cors,
         'content-type': 'application/json; charset=utf-8',
-        'set-cookie': makeClearCookieHeader(req),
+        'set-cookie': clearSessionCookie,
       });
       res.end(JSON.stringify({ ok: true }));
       return;

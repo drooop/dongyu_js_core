@@ -815,7 +815,8 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
                     'data-testid': 'auth-logout-button',
                     divided: matrixActions.length === 0,
                     onClick: () => {
-                      authStore.logout().then(() => {
+                      authStore.logout().then((result) => {
+                        if (result && result.logoutUrl) return null;
                         if (mainStore && typeof mainStore.refreshSnapshot === 'function') {
                           return mainStore.refreshSnapshot('logout');
                         }
