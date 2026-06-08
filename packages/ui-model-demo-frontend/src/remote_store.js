@@ -736,8 +736,13 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     const contentType = input && typeof input.contentType === 'string' && input.contentType.trim().length > 0
       ? input.contentType.trim()
       : 'application/octet-stream';
+    const uploadPurpose = input && input.meta && typeof input.meta.upload_purpose === 'string'
+      ? input.meta.upload_purpose.trim()
+      : '';
+    const query = new URLSearchParams({ filename });
+    if (uploadPurpose) query.set('purpose', uploadPurpose);
 
-    const resp = await fetch(`${baseUrl}/api/media/upload?filename=${encodeURIComponent(filename)}`, {
+    const resp = await fetch(`${baseUrl}/api/media/upload?${query.toString()}`, {
       method: 'POST',
       body: file,
       headers: { 'content-type': contentType },

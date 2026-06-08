@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const CHAT_BUS_KEY = 'matrix_chat_1083_bus_event';
+const SUITE_BUS_KEY = 'matrix_suite_1080_bus_event';
 
 function base64url(input) {
   return Buffer.from(input)
@@ -500,9 +501,13 @@ async function test_matrix_sso_disconnect_clears_session_matrix_identity() {
 }
 
 async function test_matrix_chat_does_not_reuse_previous_session_token_when_current_session_has_none() {
+  let seenSession = undefined;
   await withIsolatedServerState({
     matrixSuiteMatrixImpl: {
-      refreshRooms: async () => ({ ok: true, rooms: [], events: [] }),
+      refreshRooms: async (_input, context = {}) => {
+        seenSession = context.session ?? null;
+        return { ok: true, rooms: [], events: [] };
+      },
     },
   }, async (state) => {
     state.programEngine.matrixSuiteSession = {
@@ -511,15 +516,47 @@ async function test_matrix_chat_does_not_reuse_previous_session_token_when_curre
       userId: '@previous:example',
       displayName: '@previous:example',
     };
+    const model0 = state.runtime.getModel(0);
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'matrix_server', t: 'matrix.server', v: 'https://matrix.example' });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'matrix_user', t: 'matrix.user', v: '@runtime:matrix.example' });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'matrix_token', t: 'matrix.token', v: 'runtime-token-should-not-render' });
     await state.submitEnvelope({
       type: 'bus_event_v2',
       bus_in_key: CHAT_BUS_KEY,
       value: uiPayload('refresh_rooms'),
       meta: { op_id: `it0403_no_leak_${Date.now()}` },
     }, { matrixSession: null });
+    await delayMs(50);
     assert.equal(state.programEngine.matrixSuiteSession, null, 'current request without Matrix session must clear stale Matrix identity');
+    assert.equal(seenSession, null, 'current Matrix Chat request without session must not fall back to runtime Matrix token');
   });
   return { key: 'matrix_chat_does_not_reuse_previous_session_token_when_current_session_has_none', status: 'PASS' };
+}
+
+async function test_matrix_suite_request_without_session_does_not_use_runtime_token() {
+  let seenSession = undefined;
+  await withIsolatedServerState({
+    matrixSuiteMatrixImpl: {
+      refreshRooms: async (_input, context = {}) => {
+        seenSession = context.session ?? null;
+        return { ok: true, rooms: [], events: [] };
+      },
+    },
+  }, async (state) => {
+    const model0 = state.runtime.getModel(0);
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'matrix_server', t: 'matrix.server', v: 'https://matrix.example' });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'matrix_user', t: 'matrix.user', v: '@runtime:matrix.example' });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'matrix_token', t: 'matrix.token', v: 'runtime-token-should-not-render' });
+    await state.submitEnvelope({
+      type: 'bus_event_v2',
+      bus_in_key: SUITE_BUS_KEY,
+      value: uiPayload('refresh_rooms'),
+      meta: { op_id: `it0403_suite_no_runtime_token_${Date.now()}` },
+    }, { matrixSession: null });
+    await delayMs(50);
+  });
+  assert.equal(seenSession, null, 'current Matrix Suite request without session must not fall back to runtime Matrix token');
+  return { key: 'matrix_suite_request_without_session_does_not_use_runtime_token', status: 'PASS' };
 }
 
 async function test_mgmt_bus_refresh_uses_explicit_session_matrix_identity() {
@@ -548,22 +585,20 @@ async function test_concurrent_matrix_chat_actions_keep_each_request_session() {
   const observations = [];
   let firstStartedResolve = null;
   const firstStarted = new Promise((resolve) => { firstStartedResolve = resolve; });
-  let stateRef = null;
   await withIsolatedServerState({
     matrixSuiteMatrixImpl: {
-      refreshRooms: async () => {
-        const before = stateRef.programEngine.matrixSuiteSession?.accessToken || '';
+      refreshRooms: async (_input, context = {}) => {
+        const before = context.session?.accessToken || '';
         if (observations.length === 0 && typeof firstStartedResolve === 'function') {
           firstStartedResolve();
           await delayMs(30);
         }
-        const after = stateRef.programEngine.matrixSuiteSession?.accessToken || '';
+        const after = context.session?.accessToken || '';
         observations.push({ before, after });
         return { ok: true, rooms: [], events: [] };
       },
     },
   }, async (state) => {
-    stateRef = state;
     const first = state.submitEnvelope({
       type: 'bus_event_v2',
       bus_in_key: CHAT_BUS_KEY,
@@ -628,6 +663,7 @@ const tests = [
   test_matrix_sso_callback_rejects_expired_state,
   test_matrix_sso_disconnect_clears_session_matrix_identity,
   test_matrix_chat_does_not_reuse_previous_session_token_when_current_session_has_none,
+  test_matrix_suite_request_without_session_does_not_use_runtime_token,
   test_mgmt_bus_refresh_uses_explicit_session_matrix_identity,
   test_concurrent_matrix_chat_actions_keep_each_request_session,
   test_mgmt_bus_refresh_without_explicit_session_does_not_use_runtime_token_when_auth_enabled,

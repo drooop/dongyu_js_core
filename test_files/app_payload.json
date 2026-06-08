@@ -1,0 +1,262 @@
+[
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "model_type",
+    "t": "model.table",
+    "v": "UI.SlideZipImportedApp"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "app_name",
+    "t": "str",
+    "v": "Imported Zip App"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "slide_app_summary",
+    "t": "str",
+    "v": "Imported zip app fixture for validating slide app materialization and cleanup."
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "source_worker",
+    "t": "str",
+    "v": "zip-import"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "slide_capable",
+    "t": "bool",
+    "v": true
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "slide_surface_type",
+    "t": "str",
+    "v": "workspace.page"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "from_user",
+    "t": "str",
+    "v": "@test-user:localhost"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "to_user",
+    "t": "str",
+    "v": "@drop:localhost"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "ui_authoring_version",
+    "t": "str",
+    "v": "cellwise.ui.v1"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "ui_root_node_id",
+    "t": "str",
+    "v": "zip_root"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 2,
+    "c": 0,
+    "k": "model_type",
+    "t": "model.submt",
+    "v": 1
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "zip_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Container"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_layout",
+    "t": "str",
+    "v": "column"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 0,
+    "c": 0,
+    "k": "ui_gap",
+    "t": "int",
+    "v": 12
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "zip_title"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Text"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "zip_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 1,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "read": {
+        "model_id": 1,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "headline"
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_node_id",
+    "t": "str",
+    "v": "zip_input"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_component",
+    "t": "str",
+    "v": "Input"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_parent",
+    "t": "str",
+    "v": "zip_root"
+  },
+  {
+    "id": 0,
+    "p": 2,
+    "r": 2,
+    "c": 0,
+    "k": "ui_bind_json",
+    "t": "json",
+    "v": {
+      "read": {
+        "model_id": 1,
+        "p": 0,
+        "r": 0,
+        "c": 0,
+        "k": "input_value"
+      },
+      "write": {
+        "action": "ui_owner_label_update",
+        "target_ref": {
+          "model_id": 1,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "input_value"
+        }
+      }
+    }
+  },
+  {
+    "id": 1,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "model_type",
+    "t": "model.table",
+    "v": "UI.SlideZipImportedTruth"
+  },
+  {
+    "id": 1,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "headline",
+    "t": "str",
+    "v": "Imported Zip Headline"
+  },
+  {
+    "id": 1,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "input_value",
+    "t": "str",
+    "v": "Editable from imported app"
+  }
+]

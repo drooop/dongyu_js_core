@@ -1,4 +1,5 @@
 import http from 'node:http';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { URL, fileURLToPath } from 'node:url';
@@ -309,6 +310,19 @@ function cacheUploadedMedia(uri, item) {
     ...item,
     createdAt: Date.now(),
   });
+}
+
+function normalizeMediaUploadPurpose(value) {
+  const purpose = String(value || '').trim().toLowerCase();
+  return purpose === 'slide-import' ? 'slide-import' : '';
+}
+
+function buildLocalCachedMediaUri(purpose) {
+  const safePurpose = normalizeMediaUploadPurpose(purpose) || 'upload';
+  const id = typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : crypto.randomBytes(16).toString('hex');
+  return `mxc://dongyu-local/${safePurpose}-${id}`;
 }
 
 function getCachedUploadedMedia(uri) {
@@ -1110,6 +1124,7 @@ async function matrixSuiteRefreshRoomsWithSession(session) {
 async function handleMediaUploadRequest(req, res, state, corsOrigin = null) {
   const url = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
   const cors = corsHeaders(req, corsOrigin);
+  const uploadPurpose = normalizeMediaUploadPurpose(url.searchParams.get('purpose'));
   if (AUTH_ENABLED && !isAuthenticated(req)) {
     writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
     return;
@@ -1140,7 +1155,8 @@ async function handleMediaUploadRequest(req, res, state, corsOrigin = null) {
         ),
       }
       : null);
-  if (!uploadIdentity || !uploadIdentity.accessToken || !uploadIdentity.homeserverUrl) {
+  const canUseLocalSlideImportCache = AUTH_ENABLED && uploadPurpose === 'slide-import';
+  if ((!uploadIdentity || !uploadIdentity.accessToken || !uploadIdentity.homeserverUrl) && !canUseLocalSlideImportCache) {
     writeJson(res, 401, { ok: false, error: 'matrix_session_missing' }, cors);
     return;
   }
@@ -1171,6 +1187,23 @@ async function handleMediaUploadRequest(req, res, state, corsOrigin = null) {
     const buf = Buffer.concat(chunks);
     if (buf.length === 0) {
       writeJson(res, 400, { ok: false, error: 'empty_body' }, cors);
+      return;
+    }
+    if (canUseLocalSlideImportCache && (!uploadIdentity || !uploadIdentity.accessToken || !uploadIdentity.homeserverUrl)) {
+      const uri = buildLocalCachedMediaUri(uploadPurpose);
+      cacheUploadedMedia(uri, {
+        buffer: buf,
+        contentType,
+        filename,
+        userId: session ? (session.userId || session.subject || '') : '',
+      });
+      writeJson(res, 200, {
+        ok: true,
+        uri,
+        name: filename,
+        size: buf.length,
+        mime: contentType,
+      }, cors);
       return;
     }
     const uri = await uploadMatrixMedia({
@@ -5482,6 +5515,7 @@ class ProgramModelEngine {
     this.matrixSuiteMatrixImpl = null;
     this.matrixSuiteSession = null;
     this.currentRequestMatrixSession = null;
+    this.currentRequestMatrixSessionProvided = false;
     this.pendingMatrixHostActions = new Set();
     this.matrixSuiteHandledRequests = new Set();
     this.matrixChatHandledRequests = new Set();
@@ -5693,7 +5727,16 @@ class ProgramModelEngine {
     this.matrixChatWriteRoot('room_detail_markdown', 'str', `## ${displayName}\n\n- room name: ${current.name || 'none'}\n- id: ${current.id || selectedId}\n- kind: ${current.kind || 'unknown'}\n- alias: ${current.alias || 'none'}\n- topic: ${current.topic || 'none'}\n- members: ${members.join(', ') || 'none'}\n- member status: ${current.member_status || 'unknown'}\n- history status: ${current.history_status || 'unknown'}\n- permission status: ${current.power_status || 'unknown'}\n- permissions: ${permissions}\n- unread: ${Number(current.unread || 0)}${roomErrors.length > 0 ? `\n\n### Room API warnings\n\n${roomErrors.map((item) => `- ${item}`).join('\n')}` : ''}`);
   }
 
-  matrixSuiteSessionFromRuntime() {
+  matrixSuiteSessionFromRuntime(explicitSession = undefined) {
+    if (explicitSession !== undefined) {
+      if (!explicitSession || !explicitSession.accessToken || !explicitSession.homeserverUrl) return null;
+      return {
+        homeserverUrl: explicitSession.homeserverUrl,
+        accessToken: explicitSession.accessToken,
+        userId: explicitSession.userId || '',
+        displayName: explicitSession.displayName || explicitSession.userId || '',
+      };
+    }
     if (this.matrixSuiteSession && this.matrixSuiteSession.accessToken && this.matrixSuiteSession.homeserverUrl) {
       return this.matrixSuiteSession;
     }
@@ -5705,7 +5748,7 @@ class ProgramModelEngine {
     return { homeserverUrl, accessToken, userId, displayName: userId };
   }
 
-  async matrixSuiteDefaultCall(action, input) {
+  async matrixSuiteDefaultCall(action, input, explicitSession = undefined) {
     if (action === 'login') {
       const result = await matrixSuiteLoginWithPassword(input || {});
       if (result && result.ok) {
@@ -5718,7 +5761,7 @@ class ProgramModelEngine {
       }
       return result;
     }
-    const session = this.matrixSuiteSessionFromRuntime();
+    const session = this.matrixSuiteSessionFromRuntime(explicitSession);
     if (action === 'sendMessage') {
       return matrixSuiteSendRoomEvent(session, input && input.roomId, 'm.room.message', {
         msgtype: 'm.text',
@@ -5759,7 +5802,7 @@ class ProgramModelEngine {
     return { ok: false, code: 'unsupported_action', detail: action || 'missing' };
   }
 
-  async runMatrixSuiteHostAction(request) {
+  async runMatrixSuiteHostAction(request, explicitSession = undefined) {
     const req = request && typeof request === 'object' ? request : {};
     const requestId = String(req.request_id || req.requestId || '').trim() || matrixSuiteTxnId('matrix_suite_req');
     if (this.matrixSuiteHandledRequests.has(requestId)) return;
@@ -5767,9 +5810,10 @@ class ProgramModelEngine {
     const action = String(req.action || '').trim();
     const payload = req.payload && typeof req.payload === 'object' ? req.payload : {};
     const impl = this.matrixSuiteMatrixImpl || {};
+    const session = this.matrixSuiteSessionFromRuntime(explicitSession);
     const call = async (method, input) => (typeof impl[method] === 'function'
-      ? impl[method](input)
-      : this.matrixSuiteDefaultCall(method, input));
+      ? impl[method](input, { session })
+      : this.matrixSuiteDefaultCall(method, input, session));
     const rooms = this.matrixSuiteRooms();
     let events = this.matrixSuiteTimeline();
     let selectedId = String(this.matrixSuiteReadRoot('active_room_id', '!digital-sovereignty:ui.local') || '!digital-sovereignty:ui.local');
@@ -5986,7 +6030,7 @@ class ProgramModelEngine {
     }
   }
 
-  async runMatrixChatHostAction(request) {
+  async runMatrixChatHostAction(request, explicitSession = undefined) {
     const req = request && typeof request === 'object' ? request : {};
     const requestId = String(req.request_id || req.requestId || '').trim() || matrixSuiteTxnId('matrix_chat_req');
     if (this.matrixChatHandledRequests.has(requestId)) return;
@@ -5994,9 +6038,10 @@ class ProgramModelEngine {
     const action = String(req.action || '').trim();
     const payload = req.payload && typeof req.payload === 'object' ? req.payload : {};
     const impl = this.matrixSuiteMatrixImpl || {};
+    const session = this.matrixSuiteSessionFromRuntime(explicitSession);
     const call = async (method, input) => (typeof impl[method] === 'function'
-      ? impl[method](input)
-      : this.matrixSuiteDefaultCall(method, input));
+      ? impl[method](input, { session })
+      : this.matrixSuiteDefaultCall(method, input, session));
     const rooms = this.matrixChatRooms();
     let events = this.matrixChatTimeline();
     let selectedId = String(this.matrixChatReadRoot('active_room_id', '!digital-sovereignty:ui.local') || '!digital-sovereignty:ui.local');
@@ -7754,7 +7799,10 @@ class ProgramModelEngine {
           event.label && event.label.k === 'mgmt_bus_console_refresh_intent' &&
           event.label.t === 'pin.in') {
         if (typeof this._mgmtBusConsoleRefreshChannels === 'function') {
-          this.trackMatrixHostAction(this._mgmtBusConsoleRefreshChannels(this.currentRequestMatrixSession)
+          const requestMatrixSession = this.currentRequestMatrixSessionProvided
+            ? this.currentRequestMatrixSession
+            : undefined;
+          this.trackMatrixHostAction(this._mgmtBusConsoleRefreshChannels(requestMatrixSession)
             .then(() => {
               if (typeof this.onSnapshotChanged === 'function') this.onSnapshotChanged();
             })
@@ -7820,7 +7868,10 @@ class ProgramModelEngine {
           event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
           event.label && event.label.k === 'matrix_suite_host_action' &&
           event.label.t === 'json' && event.label.v) {
-        this.trackMatrixHostAction(this.runMatrixSuiteHostAction(event.label.v)
+        const requestMatrixSession = this.currentRequestMatrixSessionProvided
+          ? this.currentRequestMatrixSession
+          : undefined;
+        this.trackMatrixHostAction(this.runMatrixSuiteHostAction(event.label.v, requestMatrixSession)
           .then(() => {
             if (typeof this.onSnapshotChanged === 'function') this.onSnapshotChanged();
           })
@@ -7835,7 +7886,10 @@ class ProgramModelEngine {
           event.cell.p === 0 && event.cell.r === 0 && event.cell.c === 0 &&
           event.label && event.label.k === 'matrix_chat_host_action' &&
           event.label.t === 'json' && event.label.v) {
-        this.trackMatrixHostAction(this.runMatrixChatHostAction(event.label.v)
+        const requestMatrixSession = this.currentRequestMatrixSessionProvided
+          ? this.currentRequestMatrixSession
+          : undefined;
+        this.trackMatrixHostAction(this.runMatrixChatHostAction(event.label.v, requestMatrixSession)
           .then(() => {
             if (typeof this.onSnapshotChanged === 'function') this.onSnapshotChanged();
           })
@@ -8086,7 +8140,10 @@ class ProgramModelEngine {
 
         this.processEventsSnapshot(eventEnd);
         await this.processInterceptsSnapshot(interceptEnd);
-        await this.flushMatrixHostActions();
+        // Host actions perform external Matrix/management-bus I/O and report
+        // completion through their own status writes + snapshot callbacks.
+        // Waiting here makes every unrelated UI event inherit external network
+        // latency, because submitEnvelope and tick are serialized globally.
 
         // If new work appeared during this round, schedule another round.
         if (this.hasPendingWork()) {
@@ -9440,6 +9497,7 @@ function createServerState(options) {
     } finally {
       if (options && Object.prototype.hasOwnProperty.call(options, 'matrixSession')) {
         programEngine.currentRequestMatrixSession = null;
+        programEngine.currentRequestMatrixSessionProvided = false;
         programEngine.matrixSuiteSession = null;
       }
       releaseQueue();
@@ -9463,13 +9521,14 @@ function createServerState(options) {
     if (options && Object.prototype.hasOwnProperty.call(options, 'matrixSession')) {
       const requestMatrixSession = options.matrixSession && options.matrixSession.accessToken && options.matrixSession.homeserverUrl
         ? {
-        homeserverUrl: options.matrixSession.homeserverUrl,
-        accessToken: options.matrixSession.accessToken,
-        userId: options.matrixSession.userId || '',
-        displayName: options.matrixSession.displayName || options.matrixSession.userId || '',
-          }
+          homeserverUrl: options.matrixSession.homeserverUrl,
+          accessToken: options.matrixSession.accessToken,
+          userId: options.matrixSession.userId || '',
+          displayName: options.matrixSession.displayName || options.matrixSession.userId || '',
+        }
         : null;
       programEngine.currentRequestMatrixSession = requestMatrixSession;
+      programEngine.currentRequestMatrixSessionProvided = true;
       programEngine.matrixSuiteSession = requestMatrixSession;
     }
 
@@ -11176,7 +11235,8 @@ function startServer(options) {
 
     // ── Matrix media upload (UI upload_media primitive) ─────────────────
     if (req.method === 'POST' && url.pathname === '/api/media/upload') {
-      if (!requireCapability('matrix:connect')) return;
+      const uploadPurpose = normalizeMediaUploadPurpose(url.searchParams.get('purpose'));
+      if (!requireCapability(uploadPurpose === 'slide-import' ? 'slide_app:use' : 'matrix:connect')) return;
       await handleMediaUploadRequest(req, res, state, corsOrigin);
       return;
     }

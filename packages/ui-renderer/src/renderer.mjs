@@ -2485,6 +2485,9 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       try {
         const list = Array.from(files);
         const uploaded = [];
+        const uploadPurpose = target && target.bus_in_key === 'slide_import_media_uri_update'
+          ? 'slide-import'
+          : '';
         for (const file of list) {
           const result = await host.uploadMedia({
             file,
@@ -2493,6 +2496,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
             meta: {
               node_id: node.id,
               node_type: node.origin_type || node.type,
+              upload_purpose: uploadPurpose,
             },
           });
           const uri = result && typeof result.uri === 'string' ? result.uri : '';
