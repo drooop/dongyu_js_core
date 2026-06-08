@@ -63,6 +63,7 @@ Review Gate Record
   - Browser logout now navigates through server-side `/auth/logout`.
   - Server validates `end_session_endpoint` protocol and issuer origin before redirecting.
   - `POST /auth/logout` no longer resolves OIDC metadata and only clears local session.
+  - Static frontend assets now use `no-cache` so deployed auth hotfixes are not hidden by old immutable browser cache.
 
 ## Step 3 — Regression
 - Result: PASS
@@ -73,4 +74,4 @@ Review Gate Record
   - `node scripts/tests/test_0403_matrix_sso_bridge.mjs`: 12 passed
   - `npm -C packages/ui-model-demo-frontend run build`: PASS
   - `git diff --check -- packages/ui-model-demo-server/auth.mjs packages/ui-model-demo-server/server.mjs packages/ui-model-demo-frontend/src/auth_store.js packages/ui-model-demo-frontend/src/demo_app.js scripts/tests/test_0403_oidc_session_gateway.mjs scripts/tests/test_0403_frontend_auth_ux_contract.mjs`: PASS
-
+  - After deployment, `https://app.dongyudigital.com/assets/index-CcZN3JsV.js` returned `cache-control: no-cache`.

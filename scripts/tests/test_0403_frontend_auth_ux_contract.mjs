@@ -9,6 +9,7 @@ const files = {
   remoteStore: fs.readFileSync('packages/ui-model-demo-frontend/src/remote_store.js', 'utf8'),
   appShell: fs.readFileSync('packages/ui-model-demo-frontend/src/demo_app.js', 'utf8'),
   modelIds: fs.readFileSync('packages/ui-model-demo-frontend/src/model_ids.js', 'utf8'),
+  server: fs.readFileSync('packages/ui-model-demo-server/server.mjs', 'utf8'),
 };
 
 function assertIncludes(source, needle, message) {
@@ -41,6 +42,8 @@ function test_auth_store_exposes_sso_session_and_permission_state() {
   assertIncludes(files.authStore, '/auth/logout', 'auth_store_must_use_server_logout_endpoint');
   assertIncludes(files.authStore, 'window.location.assign(logoutUrl)', 'auth_store_logout_must_redirect_browser_through_server');
   assert.equal(files.authStore.includes('data.logoutUrl'), false, 'auth_store_must_not_read_upstream_logout_url_in_page_js');
+  assert.equal(files.server.includes("max-age=31536000, immutable"), false, 'server_must_not_pin_frontend_assets_across_auth_hotfixes');
+  assertIncludes(files.server, "'cache-control': 'no-cache'", 'server_must_revalidate_frontend_assets');
   return { key: 'auth_store_exposes_sso_session_and_permission_state', status: 'PASS' };
 }
 
