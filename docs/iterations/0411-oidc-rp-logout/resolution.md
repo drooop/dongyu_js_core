@@ -16,6 +16,7 @@ Implemented server-side OIDC RP-initiated logout for Zitadel sessions. The brows
 - Keep `POST /auth/logout` as local-session-only cleanup for compatibility.
 - Do not expose the upstream logout URL or `id_token_hint` to frontend JavaScript.
 - Reject unsafe `end_session_endpoint` values by requiring http/https, HTTPS unless loopback, and the same origin as the configured issuer.
+- Revalidate frontend assets rather than serving them as long-lived immutable files, because the current build can keep the same asset URL while changing auth behavior.
 
 ## Validation
 - `node scripts/tests/test_0403_oidc_session_gateway.mjs`: PASS
@@ -23,8 +24,8 @@ Implemented server-side OIDC RP-initiated logout for Zitadel sessions. The brows
 - `node scripts/tests/test_0403_principal_authorization.mjs`: PASS
 - `node scripts/tests/test_0403_matrix_sso_bridge.mjs`: PASS
 - `npm -C packages/ui-model-demo-frontend run build`: PASS
+- Remote asset cache header check: PASS
 - Sub-agent review: ACCEPTED
 
 ## Rollback
 Revert the 0411 commit. The previous behavior will return to local session cleanup only, which is safe but leaves Zitadel SSO session reuse unresolved.
-

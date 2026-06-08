@@ -11407,7 +11407,7 @@ function startServer(options) {
       const buf = fs.readFileSync(fp);
       res.writeHead(200, {
         'content-type': t,
-        'cache-control': url.pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
+        'cache-control': 'no-cache',
       });
       res.end(buf);
       return;

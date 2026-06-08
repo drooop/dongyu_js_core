@@ -27,6 +27,7 @@ source: ai
 - 服务端 `GET /auth/logout` 清本地 session 后，按 OIDC RP-initiated logout 跳转 Zitadel `end_session_endpoint`。
 - `POST /auth/logout` 保留为只清本地 session 的非浏览器兼容入口。
 - 补充回归测试，覆盖正常 end-session、unsafe endpoint 回退、前端不读取上游 logout URL。
+- 前端静态 asset 使用 `no-cache`，避免同名构建产物被浏览器长期缓存后继续执行旧 logout 逻辑。
 
 ## 4. Non-goals
 - 不重做登录 UI。
@@ -37,5 +38,5 @@ source: ai
 - 再次登录前会先完成 Zitadel logout 流程，不直接复用退出前身份。
 - 前端 JS 不接触 `id_token_hint`。
 - unsafe `end_session_endpoint` 不会把浏览器跳到外部地址。
+- 部署后浏览器会重新验证前端 asset，不会被旧 immutable 缓存卡住。
 - Auth、permission、Matrix SSO 代表性回归通过。
-
