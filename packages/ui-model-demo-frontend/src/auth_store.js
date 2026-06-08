@@ -174,16 +174,22 @@ export function createAuthStore({ baseUrl }) {
   }
 
   async function logoutUser() {
+    const logoutUrl = `${normalizedBaseUrl}/auth/logout`;
+    clearPrincipal();
+    clearAuthIssue();
+    if (typeof window !== 'undefined' && window.location) {
+      window.location.assign(logoutUrl);
+      return { logoutUrl };
+    }
     try {
-      await fetch(`${normalizedBaseUrl}/auth/logout`, {
+      await fetch(logoutUrl, {
         method: 'POST',
         credentials: 'same-origin',
       });
     } catch (_) {
       // best-effort
     }
-    clearPrincipal();
-    clearAuthIssue();
+    return { logoutUrl: '' };
   }
 
   function connectMatrix(options = {}) {

@@ -379,6 +379,229 @@ async function test_valid_sso_callback_creates_dongyu_session() {
   return { key: 'valid_sso_callback_creates_dongyu_session', status: 'PASS' };
 }
 
+async function test_oidc_logout_returns_zitadel_end_session_url_and_clears_local_session() {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const kid = 'test-key';
+  let issuer = '';
+  let issuedNonce = null;
+  const publicJwk = publicKey.export({ format: 'jwk' });
+  publicJwk.kid = kid;
+  publicJwk.alg = 'RS256';
+  publicJwk.use = 'sig';
+
+  const oidcServer = await createJsonServer(async (req, res) => {
+    const url = new URL(req.url || '/', issuer);
+    if (url.pathname === '/.well-known/openid-configuration') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        issuer,
+        authorization_endpoint: `${issuer}/authorize`,
+        token_endpoint: `${issuer}/token`,
+        userinfo_endpoint: `${issuer}/userinfo`,
+        jwks_uri: `${issuer}/keys`,
+        end_session_endpoint: `${issuer}/oauth/v2/end_session`,
+      }));
+      return;
+    }
+    if (url.pathname === '/keys') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ keys: [publicJwk] }));
+      return;
+    }
+    if (url.pathname === '/token') {
+      const idToken = signJwt({}, {
+        privateKey,
+        kid,
+        issuer,
+        audience: 'dongyu-app',
+        nonce: issuedNonce,
+      });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        access_token: 'mock-access-token',
+        token_type: 'Bearer',
+        expires_in: 300,
+        id_token: idToken,
+      }));
+      return;
+    }
+    if (url.pathname === '/userinfo') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        sub: '268746183297-drop',
+        email: 'drop.yang@dongyudigital.com',
+        name: 'drop',
+        preferred_username: 'drop',
+        'urn:zitadel:iam:org:project:375910753992966374:roles': {
+          'dongyu.admin': { 'org:primary': 'Dongyu' },
+        },
+      }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  issuer = serverBaseUrl(oidcServer);
+
+  try {
+    await withServerEnv({
+      DY_AUTH: '1',
+      DY_OIDC_ISSUER: issuer,
+      DY_OIDC_CLIENT_ID: 'dongyu-app',
+      DY_OIDC_REDIRECT_URI: 'http://127.0.0.1:0/auth/sso/callback',
+    }, async ({ startServer }) => {
+      const appServer = startServer({ port: 0, dbPath: null, skipFrontendBuild: true });
+      await waitListening(appServer);
+      const appBase = serverBaseUrl(appServer);
+      try {
+        const startResp = await fetch(`${appBase}/auth/sso/start?returnTo=%2Fworkspace`, { redirect: 'manual' });
+        const authorizeUrl = new URL(startResp.headers.get('location'));
+        issuedNonce = authorizeUrl.searchParams.get('nonce');
+        const state = authorizeUrl.searchParams.get('state');
+        const oidcCookie = startResp.headers.get('set-cookie') || '';
+        const callbackResp = await fetch(`${appBase}/auth/sso/callback?code=valid-code&state=${encodeURIComponent(state)}`, {
+          redirect: 'manual',
+          headers: { cookie: oidcCookie },
+        });
+        assert.equal(callbackResp.status, 302, 'valid_callback_must_succeed_before_logout');
+        const sessionCookie = callbackResp.headers.get('set-cookie') || '';
+        assert.match(sessionCookie, /dy_session=/, 'callback_must_set_session_cookie_before_logout');
+
+        const logoutResp = await fetch(`${appBase}/auth/logout`, {
+          redirect: 'manual',
+          headers: { cookie: sessionCookie },
+        });
+        assert.equal(logoutResp.status, 302, 'oidc_logout_must_redirect_browser_to_upstream_logout');
+        const logoutUrl = new URL(logoutResp.headers.get('location') || '');
+        assert.equal(`${logoutUrl.origin}${logoutUrl.pathname}`, `${issuer}/oauth/v2/end_session`);
+        assert.equal(logoutUrl.searchParams.get('client_id'), 'dongyu-app');
+        assert.ok(logoutUrl.searchParams.get('id_token_hint'), 'oidc_logout_must_send_id_token_hint');
+        assert.equal(logoutUrl.searchParams.get('post_logout_redirect_uri'), `${appBase}/`);
+        assert.match(logoutResp.headers.get('set-cookie') || '', /dy_session=;/, 'logout_must_clear_session_cookie');
+
+        const meResp = await fetch(`${appBase}/auth/me`, { headers: { cookie: sessionCookie } });
+        assert.equal(meResp.status, 401, 'logout_must_remove_local_session_record');
+      } finally {
+        appServer.close();
+      }
+    });
+  } finally {
+    oidcServer.close();
+  }
+  return { key: 'oidc_logout_returns_zitadel_end_session_url_and_clears_local_session', status: 'PASS' };
+}
+
+async function withLoggedInOidcSessionForLogout({ endSessionEndpoint }, fn) {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const kid = 'test-key';
+  let issuer = '';
+  let issuedNonce = null;
+  const publicJwk = publicKey.export({ format: 'jwk' });
+  publicJwk.kid = kid;
+  publicJwk.alg = 'RS256';
+  publicJwk.use = 'sig';
+
+  const oidcServer = await createJsonServer(async (req, res) => {
+    const url = new URL(req.url || '/', issuer);
+    if (url.pathname === '/.well-known/openid-configuration') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        issuer,
+        authorization_endpoint: `${issuer}/authorize`,
+        token_endpoint: `${issuer}/token`,
+        userinfo_endpoint: `${issuer}/userinfo`,
+        jwks_uri: `${issuer}/keys`,
+        end_session_endpoint: endSessionEndpoint,
+      }));
+      return;
+    }
+    if (url.pathname === '/keys') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ keys: [publicJwk] }));
+      return;
+    }
+    if (url.pathname === '/token') {
+      const idToken = signJwt({}, {
+        privateKey,
+        kid,
+        issuer,
+        audience: 'dongyu-app',
+        nonce: issuedNonce,
+      });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        access_token: 'mock-access-token',
+        token_type: 'Bearer',
+        expires_in: 300,
+        id_token: idToken,
+      }));
+      return;
+    }
+    if (url.pathname === '/userinfo') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        sub: '268746183297-drop',
+        email: 'drop.yang@dongyudigital.com',
+        name: 'drop',
+        preferred_username: 'drop',
+      }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  issuer = serverBaseUrl(oidcServer);
+
+  try {
+    await withServerEnv({
+      DY_AUTH: '1',
+      DY_OIDC_ISSUER: issuer,
+      DY_OIDC_CLIENT_ID: 'dongyu-app',
+      DY_OIDC_REDIRECT_URI: 'http://127.0.0.1:0/auth/sso/callback',
+    }, async ({ startServer }) => {
+      const appServer = startServer({ port: 0, dbPath: null, skipFrontendBuild: true });
+      await waitListening(appServer);
+      const appBase = serverBaseUrl(appServer);
+      try {
+        const startResp = await fetch(`${appBase}/auth/sso/start?returnTo=%2Fworkspace`, { redirect: 'manual' });
+        const authorizeUrl = new URL(startResp.headers.get('location'));
+        issuedNonce = authorizeUrl.searchParams.get('nonce');
+        const state = authorizeUrl.searchParams.get('state');
+        const oidcCookie = startResp.headers.get('set-cookie') || '';
+        const callbackResp = await fetch(`${appBase}/auth/sso/callback?code=valid-code&state=${encodeURIComponent(state)}`, {
+          redirect: 'manual',
+          headers: { cookie: oidcCookie },
+        });
+        assert.equal(callbackResp.status, 302, 'valid_callback_must_succeed_before_logout');
+        const sessionCookie = callbackResp.headers.get('set-cookie') || '';
+        assert.match(sessionCookie, /dy_session=/, 'callback_must_set_session_cookie_before_logout');
+        await fn({ appBase, issuer, sessionCookie });
+      } finally {
+        appServer.close();
+      }
+    });
+  } finally {
+    oidcServer.close();
+  }
+}
+
+async function test_oidc_logout_rejects_unsafe_end_session_endpoint() {
+  await withLoggedInOidcSessionForLogout({
+    endSessionEndpoint: 'https://evil.example.test/logout',
+  }, async ({ appBase, sessionCookie }) => {
+    const logoutResp = await fetch(`${appBase}/auth/logout`, {
+      redirect: 'manual',
+      headers: { cookie: sessionCookie },
+    });
+    assert.equal(logoutResp.status, 302, 'unsafe_oidc_logout_must_still_redirect_after_clearing_local_session');
+    assert.equal(logoutResp.headers.get('location'), '/', 'unsafe_oidc_logout_must_not_redirect_to_external_endpoint');
+    assert.match(logoutResp.headers.get('set-cookie') || '', /dy_session=;/, 'unsafe_oidc_logout_must_clear_session_cookie');
+    const meResp = await fetch(`${appBase}/auth/me`, { headers: { cookie: sessionCookie } });
+    assert.equal(meResp.status, 401, 'unsafe_oidc_logout_must_remove_local_session_record');
+  });
+  return { key: 'oidc_logout_rejects_unsafe_end_session_endpoint', status: 'PASS' };
+}
+
 async function test_role_mapping_requires_dongyu_scoped_roles() {
   const { deriveCapabilitiesFromRoles } = await import(`../../packages/ui-model-demo-server/auth.mjs?t=${Date.now()}-${Math.random()}`);
   const unrelatedAdmin = deriveCapabilitiesFromRoles(['billing.admin']);
@@ -736,6 +959,8 @@ const tests = [
   test_sso_start_redirects_to_zitadel_authorize_with_pkce,
   test_sso_callback_rejects_unknown_state,
   test_valid_sso_callback_creates_dongyu_session,
+  test_oidc_logout_returns_zitadel_end_session_url_and_clears_local_session,
+  test_oidc_logout_rejects_unsafe_end_session_endpoint,
   test_role_mapping_requires_dongyu_scoped_roles,
   test_sso_callback_survives_server_restart_with_correlation_cookie,
   test_non_loopback_callback_without_cookie_is_rejected,
