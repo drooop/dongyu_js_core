@@ -38,6 +38,9 @@ function test_auth_store_exposes_sso_session_and_permission_state() {
   assertIncludes(files.authStore, '/auth/matrix/start', 'auth_store_must_use_matrix_sso_start_endpoint');
   assertIncludes(files.authStore, 'disconnectMatrix', 'auth_store_must_expose_matrix_disconnect');
   assertIncludes(files.authStore, '/auth/matrix/disconnect', 'auth_store_must_use_matrix_disconnect_endpoint');
+  assertIncludes(files.authStore, '/auth/logout', 'auth_store_must_use_server_logout_endpoint');
+  assertIncludes(files.authStore, 'window.location.assign(logoutUrl)', 'auth_store_logout_must_redirect_browser_through_server');
+  assert.equal(files.authStore.includes('data.logoutUrl'), false, 'auth_store_must_not_read_upstream_logout_url_in_page_js');
   return { key: 'auth_store_exposes_sso_session_and_permission_state', status: 'PASS' };
 }
 
