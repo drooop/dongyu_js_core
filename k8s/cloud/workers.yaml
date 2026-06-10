@@ -342,3 +342,121 @@ spec:
             name: ui-server
             port:
               number: 9000
+---
+# UI Server 1 Deployment (isolated app1 debug surface)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ui-server-1
+  namespace: dongyu
+  labels:
+    app: ui-server-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ui-server-1
+  template:
+    metadata:
+      labels:
+        app: ui-server-1
+    spec:
+      terminationGracePeriodSeconds: 15
+      containers:
+      - name: server
+        image: dy-ui-server:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 9000
+        env:
+        - name: HOST
+          value: "0.0.0.0"
+        - name: MODELTABLE_PATCH_JSON
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: MODELTABLE_PATCH_JSON
+        - name: SEED_POSITIVE_MODELS_ON_BOOT
+          value: "0"
+        - name: DY_UI_SERVER_WORKER_ID
+          value: "U1D"
+        - name: DY_AUTH
+          value: "0"
+        - name: MATRIX_HOMESERVER_URL
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: MATRIX_HOMESERVER_URL
+        - name: NODE_TLS_REJECT_UNAUTHORIZED
+          value: "0"
+        - name: DY_LLM_ENABLED
+          value: "0"
+        - name: DY_PERSIST_ROOT
+          value: /app/.dy_persist
+        - name: DY_PERSISTED_ASSET_ROOT
+          value: /app/persisted-assets
+        volumeMounts:
+        - name: persist-data
+          mountPath: /app/.dy_persist
+        - name: persisted-assets
+          mountPath: /app/persisted-assets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: persist-data
+        hostPath:
+          path: /home/wwpic/dongyu/volume/persist/ui-server-1
+          type: DirectoryOrCreate
+      - name: persisted-assets
+        hostPath:
+          path: /home/wwpic/dongyu/volume/persist/assets
+          type: DirectoryOrCreate
+---
+# UI Server 1 Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ui-server-1
+  namespace: dongyu
+spec:
+  selector:
+    app: ui-server-1
+  ports:
+  - port: 9000
+    targetPort: 9000
+---
+# UI Server 1 Ingress with TLS
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ui-server-1
+  namespace: dongyu
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - app1.dongyudigital.com
+    secretName: ui-server-1-tls
+  rules:
+  - host: app1.dongyudigital.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ui-server-1
+            port:
+              number: 9000

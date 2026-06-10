@@ -101,7 +101,7 @@
       "k": "provide_slide_app_bundle",
       "t": "func.js",
       "v": {
-        "code": "const inputRecords = Array.isArray(label && label.v) ? label.v : [];\nconst hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);\nconst mt = (k, t, v) => ({ id: 0, p: 0, r: 0, c: 0, k, t, v });\nconst isRecord = (record) => record && typeof record === 'object' && !Array.isArray(record) && Object.keys(record).sort().join(',') === 'c,id,k,p,r,t,v' && Number.isInteger(record.id) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && record.k.length > 0 && typeof record.t === 'string' && record.t.length > 0 && hasOwn(record, 'v');\nconst recordOf = (records, key) => Array.isArray(records) ? records.find((record) => isRecord(record) && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null : null;\nconst readString = (records, key, fallback = '') => { const record = recordOf(records, key); return record && record.t === 'str' && typeof record.v === 'string' && record.v.trim() === record.v ? record.v : fallback; };\nconst readInt = (records, key) => { const record = recordOf(records, key); return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null; };\nconst readJson = (records, key, fallback = null) => { const record = recordOf(records, key); return record && record.t === 'json' ? record.v : fallback; };\nconst safeSegment = (value) => typeof value === 'string' && value.trim() === value && value.length > 0 && !value.includes('/') && !value.includes('+') && !value.includes('#');\nconst endpointFrom = (prefix) => {\n  const endpoint = { worker_id: readString(inputRecords, prefix + '_worker_id'), model_id: readInt(inputRecords, prefix + '_model_id'), pin: readString(inputRecords, prefix + '_pin') };\n  return safeSegment(endpoint.worker_id) && Number.isInteger(endpoint.model_id) && endpoint.model_id > 0 && safeSegment(endpoint.pin) ? endpoint : null;\n};\nconst setStatus = (value) => V1N.table.addLabel(0, 0, 0, 'provider_status', 'str', value);\nconst validRouteTopic = (value) => {\n  if (typeof value !== 'string' || value.includes('+') || value.includes('#')) return false;\n  const parts = value.split('/');\n  return value.trim() === value && parts.length === 8 && parts[0] === 'UIPUT' && parts.every((part) => safeSegment(part)) && /^[1-9][0-9]*$/.test(parts[6]);\n};\nconst validRouteKind = (value) => value === 'control' || value === 'management';\nconst topicForEndpoint = (target) => {\n  if (!target || !validRouteTopic(routeTopic)) return '';\n  const parts = routeTopic.split('/');\n  return parts.slice(0, 5).concat([target.worker_id, String(target.model_id), target.pin]).join('/');\n};\nconst endpoint = endpointFrom('endpoint');\nconst origin = endpointFrom('origin');\nconst replyTarget = endpointFrom('reply_target');\nconst messageRole = readString(inputRecords, 'message_role');\nconst opId = readString(inputRecords, 'op_id', readString(inputRecords, '__mt_request_id', ''));\nconst routeTopic = readString(inputRecords, 'topic');\nconst responseTopic = readString(inputRecords, 'response_topic');\nconst routeKind = readString(inputRecords, 'route_kind', 'control') || 'control';\nconst requestPayload = readJson(inputRecords, 'payload', []);\nif (readString(inputRecords, '__mt_payload_kind') !== 'pin_payload.v1' || messageRole !== 'request' || !opId || !endpoint || !origin || !replyTarget || endpoint.worker_id !== 'R1' || endpoint.model_id !== 3100 || endpoint.pin !== 'bundle_request' || !validRouteTopic(routeTopic) || !validRouteTopic(responseTopic) || responseTopic !== topicForEndpoint(replyTarget) || responseTopic === routeTopic || !validRouteKind(routeKind) || !Array.isArray(requestPayload) || !requestPayload.every(isRecord)) {\n  setStatus('bundle_request_invalid');\n  return null;\n}\nif (readString(requestPayload, '__mt_payload_kind') !== 'slide_app_bundle_request.v1') {\n  setStatus('bundle_request_invalid_kind');\n  return null;\n}\nconst assetId = readString(requestPayload, 'asset_id');\nconst bundleKeyByAsset = { 'r1-color-generator': 'bundle_payload_r1_color_generator', 'r1-minimal-submit': 'bundle_payload_r1_minimal_submit_dual_bus' };\nconst bundleKey = bundleKeyByAsset[assetId] || '';\nconst bundleLabel = bundleKey ? V1N.readLabel(0, 0, 0, bundleKey) : null;\nconst bundlePayload = bundleLabel && bundleLabel.t === 'json' && Array.isArray(bundleLabel.v) ? bundleLabel.v : null;\nif (!bundlePayload) {\n  setStatus('bundle_asset_not_found');\n  return null;\n}\nconst responsePayload = [\n  mt('__mt_payload_kind', 'str', 'slide_app_bundle_response.v1'),\n  mt('__mt_request_id', 'str', opId),\n  mt('asset_id', 'str', assetId),\n  mt('bundle_payload', 'json', bundlePayload),\n  mt('bundle_sha256', 'str', '')\n];\nsetStatus('bundle_response_ready');\nV1N.table.addLabel(0, 0, 0, 'last_bundle_asset_id', 'str', assetId);\nreturn [\n  mt('__mt_payload_kind', 'str', 'pin_payload.v1'),\n  mt('__mt_request_id', 'str', opId),\n  mt('op_id', 'str', opId),\n  mt('message_role', 'str', 'response'),\n  mt('topic', 'str', responseTopic),\n  mt('response_topic', 'str', responseTopic),\n  mt('route_kind', 'str', routeKind),\n  mt('bus', 'str', routeKind),\n  mt('endpoint_worker_id', 'str', replyTarget.worker_id),\n  mt('endpoint_model_id', 'int', replyTarget.model_id),\n  mt('endpoint_pin', 'str', replyTarget.pin),\n  mt('origin_worker_id', 'str', 'R1'),\n  mt('origin_model_id', 'int', 3100),\n  mt('origin_pin', 'str', 'bundle_request'),\n  mt('reply_target_worker_id', 'str', replyTarget.worker_id),\n  mt('reply_target_model_id', 'int', replyTarget.model_id),\n  mt('reply_target_pin', 'str', replyTarget.pin),\n  mt('payload', 'json', responsePayload),\n  mt('timestamp', 'int', Date.now())\n];",
+        "code": "const inputRecords = Array.isArray(label && label.v) ? label.v : [];\nconst hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);\nconst mt = (k, t, v) => ({ id: 0, p: 0, r: 0, c: 0, k, t, v });\nconst isRecord = (record) => record && typeof record === 'object' && !Array.isArray(record) && Object.keys(record).sort().join(',') === 'c,id,k,p,r,t,v' && Number.isInteger(record.id) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && record.k.length > 0 && typeof record.t === 'string' && record.t.length > 0 && hasOwn(record, 'v');\nconst recordOf = (records, key) => Array.isArray(records) ? records.find((record) => isRecord(record) && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null : null;\nconst readString = (records, key, fallback = '') => { const record = recordOf(records, key); return record && record.t === 'str' && typeof record.v === 'string' && record.v.trim() === record.v ? record.v : fallback; };\nconst readInt = (records, key) => { const record = recordOf(records, key); return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null; };\nconst readJson = (records, key, fallback = null) => { const record = recordOf(records, key); return record && record.t === 'json' ? record.v : fallback; };\nconst safeSegment = (value) => typeof value === 'string' && value.trim() === value && value.length > 0 && !value.includes('/') && !value.includes('+') && !value.includes('#');\nconst endpointFrom = (prefix) => {\n  const endpoint = { worker_id: readString(inputRecords, prefix + '_worker_id'), model_id: readInt(inputRecords, prefix + '_model_id'), pin: readString(inputRecords, prefix + '_pin') };\n  return safeSegment(endpoint.worker_id) && Number.isInteger(endpoint.model_id) && endpoint.model_id > 0 && safeSegment(endpoint.pin) ? endpoint : null;\n};\nconst setStatus = (value) => V1N.table.addLabel(0, 0, 0, 'provider_status', 'str', value);\nconst validRouteTopic = (value) => {\n  if (typeof value !== 'string' || value.includes('+') || value.includes('#')) return false;\n  const parts = value.split('/');\n  return value.trim() === value && parts.length === 8 && parts[0] === 'UIPUT' && parts.every((part) => safeSegment(part)) && /^[1-9][0-9]*$/.test(parts[6]);\n};\nconst validRouteKind = (value) => value === 'control' || value === 'management';\nconst topicForEndpoint = (target) => {\n  if (!target || !validRouteTopic(routeTopic)) return '';\n  const parts = routeTopic.split('/');\n  return parts.slice(0, 5).concat([target.worker_id, String(target.model_id), target.pin]).join('/');\n};\nconst endpoint = endpointFrom('endpoint');\nconst origin = endpointFrom('origin');\nconst replyTarget = endpointFrom('reply_target');\nconst messageRole = readString(inputRecords, 'message_role');\nconst opId = readString(inputRecords, 'op_id', readString(inputRecords, '__mt_request_id', ''));\nconst routeTopic = readString(inputRecords, 'topic');\nconst responseTopic = readString(inputRecords, 'response_topic');\nconst routeKind = readString(inputRecords, 'route_kind', 'control') || 'control';\nconst requestPayload = readJson(inputRecords, 'payload', []);\nif (readString(inputRecords, '__mt_payload_kind') !== 'pin_payload.v1' || messageRole !== 'request' || !opId || !endpoint || !origin || !replyTarget || endpoint.worker_id !== 'R1' || endpoint.model_id !== 3100 || endpoint.pin !== 'bundle_request' || !validRouteTopic(routeTopic) || !validRouteTopic(responseTopic) || responseTopic !== topicForEndpoint(replyTarget) || responseTopic === routeTopic || !validRouteKind(routeKind) || !Array.isArray(requestPayload) || !requestPayload.every(isRecord)) {\n  setStatus('bundle_request_invalid');\n  return null;\n}\nif (readString(requestPayload, '__mt_payload_kind') !== 'slide_app_bundle_request.v1') {\n  setStatus('bundle_request_invalid_kind');\n  return null;\n}\nconst assetId = readString(requestPayload, 'asset_id');\nconst bundleKeyByAsset = { 'r1-color-generator': 'bundle_payload_r1_color_generator', 'r1-minimal-submit': 'bundle_payload_r1_minimal_submit_dual_bus', 'r1-todo-app-1': 'bundle_payload_r1_todo_app_1' };\nconst bundleKey = bundleKeyByAsset[assetId] || '';\nconst bundleLabel = bundleKey ? V1N.readLabel(0, 0, 0, bundleKey) : null;\nconst bundlePayload = bundleLabel && bundleLabel.t === 'json' && Array.isArray(bundleLabel.v) ? bundleLabel.v : null;\nif (!bundlePayload) {\n  setStatus('bundle_asset_not_found');\n  return null;\n}\nconst responsePayload = [\n  mt('__mt_payload_kind', 'str', 'slide_app_bundle_response.v1'),\n  mt('__mt_request_id', 'str', opId),\n  mt('asset_id', 'str', assetId),\n  mt('bundle_payload', 'json', bundlePayload),\n  mt('bundle_sha256', 'str', '')\n];\nsetStatus('bundle_response_ready');\nV1N.table.addLabel(0, 0, 0, 'last_bundle_asset_id', 'str', assetId);\nreturn [\n  mt('__mt_payload_kind', 'str', 'pin_payload.v1'),\n  mt('__mt_request_id', 'str', opId),\n  mt('op_id', 'str', opId),\n  mt('message_role', 'str', 'response'),\n  mt('topic', 'str', responseTopic),\n  mt('response_topic', 'str', responseTopic),\n  mt('route_kind', 'str', routeKind),\n  mt('bus', 'str', routeKind),\n  mt('endpoint_worker_id', 'str', replyTarget.worker_id),\n  mt('endpoint_model_id', 'int', replyTarget.model_id),\n  mt('endpoint_pin', 'str', replyTarget.pin),\n  mt('origin_worker_id', 'str', 'R1'),\n  mt('origin_model_id', 'int', 3100),\n  mt('origin_pin', 'str', 'bundle_request'),\n  mt('reply_target_worker_id', 'str', replyTarget.worker_id),\n  mt('reply_target_model_id', 'int', replyTarget.model_id),\n  mt('reply_target_pin', 'str', replyTarget.pin),\n  mt('payload', 'json', responsePayload),\n  mt('timestamp', 'int', Date.now())\n];",
         "modelName": "slide_app_bundle_provider_r1"
       }
     },
@@ -2242,6 +2242,3051 @@
       "k": "model_type",
       "t": "model.submt",
       "v": 3100
+    },
+    {
+      "op": "add_label",
+      "model_id": 3100,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "bundle_payload_r1_todo_app_1",
+      "t": "json",
+      "v": [
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "active_view",
+          "t": "str",
+          "v": "board"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "app_name",
+          "t": "str",
+          "v": "To Do Board"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "create_dialog_open",
+          "t": "bool",
+          "v": false
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "draft_body",
+          "t": "str",
+          "v": ""
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "draft_status",
+          "t": "str",
+          "v": "todo"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "draft_title",
+          "t": "str",
+          "v": ""
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "edit_body",
+          "t": "str",
+          "v": ""
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "edit_dialog_open",
+          "t": "bool",
+          "v": false
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "edit_status",
+          "t": "str",
+          "v": "todo"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "edit_title",
+          "t": "str",
+          "v": ""
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "filter_text",
+          "t": "str",
+          "v": ""
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "from_user",
+          "t": "str",
+          "v": "@todo-provider:localhost"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "handle_todo_event",
+          "t": "func.js",
+          "v": {
+            "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst readPayload = (key, fallback = '') => {\n  const rec = records.find((item) => item && item.id === 0 && item.p === 0 && item.r === 0 && item.c === 0 && item.k === key);\n  return rec && Object.prototype.hasOwnProperty.call(rec, 'v') ? rec.v : fallback;\n};\nconst read = (key, fallback = '') => {\n  const lbl = V1N.readLabel(0, 0, 0, key);\n  return lbl && Object.prototype.hasOwnProperty.call(lbl, 'v') ? lbl.v : fallback;\n};\nconst write = (key, type, value) => V1N.table.addLabel(0, 0, 0, key, type, value);\nconst tasks = () => Array.isArray(read('tasks_json', [])) ? read('tasks_json', []) : [];\nconst clean = (value) => String(value == null ? '' : value).trim();\nconst validStatus = (value) => ['todo', 'doing', 'done', 'archived'].includes(value) ? value : 'todo';\nconst stamp = () => new Date().toISOString();\nconst fail = (code, detail) => { write('todo_status', 'str', 'ERR ' + code + ': ' + detail); write('last_error_json', 'json', { code, detail, ts: Date.now() }); };\nif (readPayload('__mt_payload_kind', '') !== 'ui_event.v1') { fail('invalid_payload_kind', 'ui_event.v1_required'); return; }\nconst action = clean(readPayload('todo_action', ''));\nlet list = tasks();\ntry {\n  if (action === 'open_create') {\n    write('draft_title', 'str', '');\n    write('draft_body', 'str', '');\n    write('draft_status', 'str', 'todo');\n    write('create_dialog_open', 'bool', true);\n    write('todo_status', 'str', 'ready to create');\n  } else if (action === 'close_create') {\n    write('create_dialog_open', 'bool', false);\n  } else if (action === 'create_task') {\n    const title = clean(readPayload('title', read('draft_title', '')));\n    if (!title) { fail('missing_title', 'draft_title_required'); return; }\n    const body = String(readPayload('body', read('draft_body', '')) || '').trim();\n    const status = validStatus(clean(readPayload('status', read('draft_status', 'todo'))));\n    const id = 'task_' + Date.now() + '_' + Math.random().toString(16).slice(2, 7);\n    const ts = stamp();\n    list = [{ id, title, body, status, created_at: ts, updated_at: ts }, ...list];\n    write('tasks_json', 'json', list);\n    write('draft_title', 'str', '');\n    write('draft_body', 'str', '');\n    write('draft_status', 'str', 'todo');\n    write('create_dialog_open', 'bool', false);\n    write('todo_status', 'str', 'created: ' + title);\n  } else if (action === 'open_edit') {\n    const taskId = clean(readPayload('task_id', ''));\n    const task = list.find((item) => item && item.id === taskId);\n    if (!task) { fail('task_not_found', taskId); return; }\n    write('selected_task_id', 'str', task.id);\n    write('edit_title', 'str', task.title || '');\n    write('edit_body', 'str', task.body || '');\n    write('edit_status', 'str', validStatus(task.status));\n    write('edit_dialog_open', 'bool', true);\n    write('todo_status', 'str', 'editing: ' + task.title);\n  } else if (action === 'close_edit') {\n    write('edit_dialog_open', 'bool', false);\n  } else if (action === 'save_edit') {\n    const taskId = clean(readPayload('task_id', read('selected_task_id', '')));\n    const title = clean(readPayload('title', read('edit_title', '')));\n    if (!taskId || !title) { fail('missing_edit_target', 'selected_task_id_and_title_required'); return; }\n    const body = String(readPayload('body', read('edit_body', '')) || '').trim();\n    const status = validStatus(clean(readPayload('status', read('edit_status', 'todo'))));\n    let changed = false;\n    const ts = stamp();\n    list = list.map((task) => {\n      if (!task || task.id !== taskId) return task;\n      changed = true;\n      return { ...task, title, body, status, updated_at: ts };\n    });\n    if (!changed) { fail('task_not_found', taskId); return; }\n    write('tasks_json', 'json', list);\n    write('edit_dialog_open', 'bool', false);\n    write('todo_status', 'str', 'saved: ' + title);\n  } else if (action === 'move_status') {\n    const taskId = clean(readPayload('task_id', ''));\n    const status = validStatus(clean(readPayload('status', 'todo')));\n    let changed = false;\n    const ts = stamp();\n    list = list.map((task) => {\n      if (!task || task.id !== taskId) return task;\n      changed = true;\n      return { ...task, status, updated_at: ts };\n    });\n    if (!changed) { fail('task_not_found', taskId); return; }\n    write('tasks_json', 'json', list);\n    write('todo_status', 'str', 'moved to ' + status);\n  } else if (action === 'filter_focus') {\n    write('filter_text', 'str', clean(readPayload('filter_text', read('filter_text', ''))));\n    write('todo_status', 'str', 'filter updated');\n  } else {\n    fail('unknown_action', action || 'missing'); return;\n  }\n  write('last_action', 'str', action);\n  write('last_error_json', 'json', null);\n} catch (err) { fail('exception', err && err.message ? err.message : String(err)); }",
+            "modelName": "todo_board"
+          }
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "host_ingress_v1",
+          "t": "json",
+          "v": {
+            "version": "v1",
+            "boundaries": [
+              {
+                "semantic": "submit",
+                "pin_name": "todo_request",
+                "value_t": "modeltable",
+                "locator_kind": "root_relative_cell",
+                "locator_value": {
+                  "p": 0,
+                  "r": 0,
+                  "c": 0
+                },
+                "primary": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "last_action",
+          "t": "str",
+          "v": "idle"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "last_error_json",
+          "t": "json",
+          "v": null
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "model_type",
+          "t": "model.table",
+          "v": "UI.TodoBoardZip"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "selected_task_id",
+          "t": "str",
+          "v": ""
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "slide_app_summary",
+          "t": "str",
+          "v": "分状态管理任务的 To Do 滑动 App，包含看板视图、未完成专注视图、新增/编辑弹窗和状态切换。"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "slide_capable",
+          "t": "bool",
+          "v": true
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "slide_surface_type",
+          "t": "str",
+          "v": "workspace.page"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "source_worker",
+          "t": "str",
+          "v": "todo-board-provider"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "tasks_json",
+          "t": "json",
+          "v": [
+            {
+              "id": "task_seed_1",
+              "title": "验证 UI 模型文档",
+              "body": "用基础组件说明手工填出一个真实可交互的滑动 App。",
+              "status": "todo",
+              "created_at": "2026-06-03T00:00:00.000Z",
+              "updated_at": "2026-06-03T00:00:00.000Z"
+            },
+            {
+              "id": "task_seed_2",
+              "title": "实现看板视图",
+              "body": "四列状态、卡片预览、状态切换和拖放增强。",
+              "status": "doing",
+              "created_at": "2026-06-03T00:00:00.000Z",
+              "updated_at": "2026-06-03T00:00:00.000Z"
+            },
+            {
+              "id": "task_seed_3",
+              "title": "浏览器实测新增任务",
+              "body": "快速输入后立刻保存，必须提交可见草稿。",
+              "status": "done",
+              "created_at": "2026-06-03T00:00:00.000Z",
+              "updated_at": "2026-06-03T00:00:00.000Z"
+            },
+            {
+              "id": "task_seed_4",
+              "title": "归档旧草稿",
+              "body": "归档内容不进入未完成专注视图。",
+              "status": "archived",
+              "created_at": "2026-06-03T00:00:00.000Z",
+              "updated_at": "2026-06-03T00:00:00.000Z"
+            }
+          ]
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "to_user",
+          "t": "str",
+          "v": "@drop:localhost"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "todo_request",
+          "t": "pin.in",
+          "v": null
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "todo_request_wiring",
+          "t": "pin.connect.label",
+          "v": [
+            {
+              "from": "todo_request",
+              "to": [
+                "handle_todo_event:in"
+              ]
+            }
+          ]
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "todo_status",
+          "t": "str",
+          "v": "ready"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "ui_authoring_version",
+          "t": "str",
+          "v": "cellwise.ui.v1"
+        },
+        {
+          "id": 0,
+          "p": 0,
+          "r": 0,
+          "c": 0,
+          "k": "ui_root_node_id",
+          "t": "str",
+          "v": "todo_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 16
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "column"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 0
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 0,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "style": {
+              "minHeight": "100%",
+              "padding": "24px",
+              "boxSizing": "border-box",
+              "overflow": "hidden",
+              "background": "radial-gradient(circle at top left,#dff7ee 0,#f8fafc 36%,#eef2ff 100%)"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 14
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_header"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "style": {
+              "alignItems": "center",
+              "justifyContent": "space-between"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 1,
+          "c": 0,
+          "k": "ui_wrap",
+          "t": "bool",
+          "v": true
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 4
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "column"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_title_stack"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 2,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_header"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Heading"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_title"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_title_stack"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "level": 1,
+            "style": {
+              "fontSize": "32px",
+              "letterSpacing": "-0.04em"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 3,
+          "c": 0,
+          "k": "ui_text",
+          "t": "str",
+          "v": "To Do Board"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Text"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_subtitle"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_title_stack"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "style": {
+              "color": "#64748b"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_size",
+          "t": "str",
+          "v": "md"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 4,
+          "c": 0,
+          "k": "ui_text",
+          "t": "str",
+          "v": "按状态管理任务：看板总览 + 未完成专注视图"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_header_actions"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_header"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 5,
+          "c": 0,
+          "k": "ui_wrap",
+          "t": "bool",
+          "v": true
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 6,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "todo_status"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 6,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "StatusBadge"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 6,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "STATUS"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 6,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_status_badge"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 6,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 6,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_header_actions"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 7,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "write": {
+              "bus_event_v2": true,
+              "bus_in_key": "bus_event_submit_0_0_0_0",
+              "value_ref": [
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "__mt_payload_kind",
+                  "t": "str",
+                  "v": "ui_event.v1"
+                },
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "todo_action",
+                  "t": "str",
+                  "v": "open_create"
+                }
+              ],
+              "value_t": "modeltable",
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 7,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Button"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 7,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "新增任务"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 7,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_create_button"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 7,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 7,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_header_actions"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 7,
+          "c": 0,
+          "k": "ui_variant",
+          "t": "str",
+          "v": "primary"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 8,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "active_view"
+            },
+            "write": {
+              "action": "ui_owner_label_update",
+              "target_ref": {
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "active_view"
+              },
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 8,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Tabs"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 8,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_tabs"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 8,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 8,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 8,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "type": "border-card",
+            "style": {
+              "borderRadius": "24px",
+              "overflow": "hidden",
+              "boxShadow": "0 20px 60px rgba(15,23,42,0.10)"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 9,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "TabPane"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 9,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "多列看板"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 9,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_board_tab"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 9,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 9,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_tabs"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 9,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "name": "board"
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 10,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Text"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 10,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_board_intro"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 10,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 10,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_board_tab"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 10,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "style": {
+              "color": "#64748b",
+              "marginBottom": "10px"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 10,
+          "c": 0,
+          "k": "ui_size",
+          "t": "str",
+          "v": "sm"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 10,
+          "c": 0,
+          "k": "ui_text",
+          "t": "str",
+          "v": "拖动卡片或使用卡片按钮切换状态。"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 11,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "write": {
+              "bus_event_v2": true,
+              "bus_in_key": "bus_event_submit_0_0_0_0",
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 11,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "TodoBoard"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 11,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_board"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 11,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 11,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_board_tab"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 11,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "tasksRef": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "tasks_json"
+            },
+            "columns": [
+              {
+                "value": "todo",
+                "label": "还未开始",
+                "tone": "#2563eb",
+                "bg": "#eff6ff"
+              },
+              {
+                "value": "doing",
+                "label": "正在进行",
+                "tone": "#d97706",
+                "bg": "#fffbeb"
+              },
+              {
+                "value": "done",
+                "label": "已完成",
+                "tone": "#16a34a",
+                "bg": "#f0fdf4"
+              },
+              {
+                "value": "archived",
+                "label": "已归档",
+                "tone": "#64748b",
+                "bg": "#f8fafc"
+              }
+            ],
+            "emptyText": "把任务拖到这里"
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 12,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "TabPane"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 12,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "未完成专注"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 12,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_focus_tab"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 12,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 12,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_tabs"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 12,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "name": "focus"
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 13,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 13,
+          "c": 0,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 12
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 13,
+          "c": 0,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 13,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_focus_header"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 13,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 13,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_focus_tab"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 13,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "style": {
+              "alignItems": "center",
+              "marginBottom": "12px"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 13,
+          "c": 0,
+          "k": "ui_wrap",
+          "t": "bool",
+          "v": true
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 14,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "filter_text"
+            },
+            "write": {
+              "action": "ui_owner_label_update",
+              "target_ref": {
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "filter_text"
+              },
+              "commit_policy": "on_blur"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 14,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Input"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 14,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_focus_filter"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 14,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 14,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_focus_header"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 14,
+          "c": 0,
+          "k": "ui_placeholder",
+          "t": "str",
+          "v": "筛选未完成任务"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 14,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "style": {
+              "maxWidth": "360px"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 15,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "write": {
+              "bus_event_v2": true,
+              "bus_in_key": "bus_event_submit_0_0_0_0",
+              "value_ref": [
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "__mt_payload_kind",
+                  "t": "str",
+                  "v": "ui_event.v1"
+                },
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "todo_action",
+                  "t": "str",
+                  "v": "filter_focus"
+                },
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "filter_text",
+                  "t": "str",
+                  "v": {
+                    "$label": {
+                      "p": 0,
+                      "r": 0,
+                      "c": 0,
+                      "k": "filter_text"
+                    }
+                  }
+                }
+              ],
+              "value_t": "modeltable",
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 15,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Button"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 15,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "应用筛选"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 15,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_focus_apply_filter"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 15,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 15,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_focus_header"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 16,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "write": {
+              "bus_event_v2": true,
+              "bus_in_key": "bus_event_submit_0_0_0_0",
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 16,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "TodoFocusList"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 16,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_focus_list"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 16,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 16,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_focus_tab"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 16,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "tasksRef": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "tasks_json"
+            },
+            "filterRef": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "filter_text"
+            },
+            "columns": [
+              {
+                "value": "todo",
+                "label": "还未开始",
+                "tone": "#2563eb",
+                "bg": "#eff6ff"
+              },
+              {
+                "value": "doing",
+                "label": "正在进行",
+                "tone": "#d97706",
+                "bg": "#fffbeb"
+              },
+              {
+                "value": "done",
+                "label": "已完成",
+                "tone": "#16a34a",
+                "bg": "#f0fdf4"
+              },
+              {
+                "value": "archived",
+                "label": "已归档",
+                "tone": "#64748b",
+                "bg": "#f8fafc"
+              }
+            ],
+            "emptyText": "没有匹配的未完成任务"
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 17,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "create_dialog_open"
+            },
+            "write": {
+              "action": "ui_owner_label_update",
+              "target_ref": {
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "create_dialog_open"
+              },
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 17,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Dialog"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 17,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_create_dialog"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 17,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 30
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 17,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 17,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "width": "560px"
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 17,
+          "c": 0,
+          "k": "ui_title",
+          "t": "str",
+          "v": "新增任务"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 18,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Form"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 18,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_create_form"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 18,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 18,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_create_dialog"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 18,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "labelPosition": "top"
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 19,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "FormItem"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 19,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "事件标题"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 19,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_create_title_item"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 19,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 19,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_create_form"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 20,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "draft_title"
+            },
+            "write": {
+              "action": "ui_owner_label_update",
+              "target_ref": {
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "draft_title"
+              },
+              "commit_policy": "on_submit"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 20,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Input"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 20,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_create_title"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 20,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 20,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_create_title_item"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 20,
+          "c": 0,
+          "k": "ui_placeholder",
+          "t": "str",
+          "v": "例如：整理本周任务"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 21,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "FormItem"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 21,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "事件内容"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 21,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_create_body_item"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 21,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 21,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_create_form"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 22,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "draft_body"
+            },
+            "write": {
+              "action": "ui_owner_label_update",
+              "target_ref": {
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "draft_body"
+              },
+              "commit_policy": "on_submit"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 22,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Input"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 22,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_create_body"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 22,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 22,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_create_body_item"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 22,
+          "c": 0,
+          "k": "ui_placeholder",
+          "t": "str",
+          "v": "补充上下文、验收标准或备注"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 22,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "type": "textarea",
+            "rows": 4
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 23,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "FormItem"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 23,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "事件状态"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 23,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_create_status_item"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 23,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 30
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 23,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_create_form"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 24,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "draft_status"
+            },
+            "write": {
+              "action": "ui_owner_label_update",
+              "target_ref": {
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "draft_status"
+              },
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 24,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Select"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 24,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_create_status"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 24,
+          "c": 0,
+          "k": "ui_options_json",
+          "t": "json",
+          "v": [
+            {
+              "label": "还未开始",
+              "value": "todo"
+            },
+            {
+              "label": "正在进行",
+              "value": "doing"
+            },
+            {
+              "label": "已完成",
+              "value": "done"
+            },
+            {
+              "label": "已归档",
+              "value": "archived"
+            }
+          ]
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 24,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 24,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_create_status_item"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 25,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 25,
+          "c": 0,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 25,
+          "c": 0,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 25,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_create_actions"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 25,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 25,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_create_dialog"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 25,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "style": {
+              "justifyContent": "flex-end"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 26,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "write": {
+              "bus_event_v2": true,
+              "bus_in_key": "bus_event_submit_0_0_0_0",
+              "value_ref": [
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "__mt_payload_kind",
+                  "t": "str",
+                  "v": "ui_event.v1"
+                },
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "todo_action",
+                  "t": "str",
+                  "v": "close_create"
+                }
+              ],
+              "value_t": "modeltable",
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 26,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Button"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 26,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "取消"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 26,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_create_cancel"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 26,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 26,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_create_actions"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 27,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "write": {
+              "bus_event_v2": true,
+              "bus_in_key": "bus_event_submit_0_0_0_0",
+              "value_ref": [
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "__mt_payload_kind",
+                  "t": "str",
+                  "v": "ui_event.v1"
+                },
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "todo_action",
+                  "t": "str",
+                  "v": "create_task"
+                }
+              ],
+              "value_t": "modeltable",
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 27,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Button"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 27,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "保存任务"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 27,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_create_save"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 27,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 27,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_create_actions"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 27,
+          "c": 0,
+          "k": "ui_variant",
+          "t": "str",
+          "v": "primary"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 28,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "edit_dialog_open"
+            },
+            "write": {
+              "action": "ui_owner_label_update",
+              "target_ref": {
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "edit_dialog_open"
+              },
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 28,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Dialog"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 28,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_edit_dialog"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 28,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 40
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 28,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_root"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 28,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "width": "560px"
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 28,
+          "c": 0,
+          "k": "ui_title",
+          "t": "str",
+          "v": "编辑任务"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 29,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Form"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 29,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_edit_form"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 29,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 29,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_edit_dialog"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 29,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "labelPosition": "top"
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 30,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "FormItem"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 30,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "事件标题"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 30,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_edit_title_item"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 30,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 30,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_edit_form"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 31,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "edit_title"
+            },
+            "write": {
+              "action": "ui_owner_label_update",
+              "target_ref": {
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "edit_title"
+              },
+              "commit_policy": "on_submit"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 31,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Input"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 31,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_edit_title"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 31,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 31,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_edit_title_item"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 32,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "FormItem"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 32,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "事件内容"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 32,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_edit_body_item"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 32,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 32,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_edit_form"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 33,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "edit_body"
+            },
+            "write": {
+              "action": "ui_owner_label_update",
+              "target_ref": {
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "edit_body"
+              },
+              "commit_policy": "on_submit"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 33,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Input"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 33,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_edit_body"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 33,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 33,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_edit_body_item"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 33,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "type": "textarea",
+            "rows": 4
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 34,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "FormItem"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 34,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "事件状态"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 34,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_edit_status_item"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 34,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 30
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 34,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_edit_form"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 35,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "read": {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "edit_status"
+            },
+            "write": {
+              "action": "ui_owner_label_update",
+              "target_ref": {
+                "p": 0,
+                "r": 0,
+                "c": 0,
+                "k": "edit_status"
+              },
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 35,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Select"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 35,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_edit_status"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 35,
+          "c": 0,
+          "k": "ui_options_json",
+          "t": "json",
+          "v": [
+            {
+              "label": "还未开始",
+              "value": "todo"
+            },
+            {
+              "label": "正在进行",
+              "value": "doing"
+            },
+            {
+              "label": "已完成",
+              "value": "done"
+            },
+            {
+              "label": "已归档",
+              "value": "archived"
+            }
+          ]
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 35,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 35,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_edit_status_item"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 36,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Container"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 36,
+          "c": 0,
+          "k": "ui_gap",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 36,
+          "c": 0,
+          "k": "ui_layout",
+          "t": "str",
+          "v": "row"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 36,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_edit_actions"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 36,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 36,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_edit_dialog"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 36,
+          "c": 0,
+          "k": "ui_props_json",
+          "t": "json",
+          "v": {
+            "style": {
+              "justifyContent": "flex-end"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 37,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "write": {
+              "bus_event_v2": true,
+              "bus_in_key": "bus_event_submit_0_0_0_0",
+              "value_ref": [
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "__mt_payload_kind",
+                  "t": "str",
+                  "v": "ui_event.v1"
+                },
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "todo_action",
+                  "t": "str",
+                  "v": "close_edit"
+                }
+              ],
+              "value_t": "modeltable",
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 37,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Button"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 37,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "取消"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 37,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_edit_cancel"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 37,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 10
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 37,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_edit_actions"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 38,
+          "c": 0,
+          "k": "ui_bind_json",
+          "t": "json",
+          "v": {
+            "write": {
+              "bus_event_v2": true,
+              "bus_in_key": "bus_event_submit_0_0_0_0",
+              "value_ref": [
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "__mt_payload_kind",
+                  "t": "str",
+                  "v": "ui_event.v1"
+                },
+                {
+                  "id": 0,
+                  "p": 0,
+                  "r": 0,
+                  "c": 0,
+                  "k": "todo_action",
+                  "t": "str",
+                  "v": "save_edit"
+                }
+              ],
+              "value_t": "modeltable",
+              "commit_policy": "immediate"
+            }
+          }
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 38,
+          "c": 0,
+          "k": "ui_component",
+          "t": "str",
+          "v": "Button"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 38,
+          "c": 0,
+          "k": "ui_label",
+          "t": "str",
+          "v": "保存修改"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 38,
+          "c": 0,
+          "k": "ui_node_id",
+          "t": "str",
+          "v": "todo_edit_save"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 38,
+          "c": 0,
+          "k": "ui_order",
+          "t": "int",
+          "v": 20
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 38,
+          "c": 0,
+          "k": "ui_parent",
+          "t": "str",
+          "v": "todo_edit_actions"
+        },
+        {
+          "id": 0,
+          "p": 2,
+          "r": 38,
+          "c": 0,
+          "k": "ui_variant",
+          "t": "str",
+          "v": "primary"
+        }
+      ]
     }
   ]
 }

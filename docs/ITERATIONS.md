@@ -313,6 +313,7 @@ source: ai
 | 0409-todo-mqtt-egress-docs | 2026-06-04 | 修正 To Do 保存按钮外发 MQTT 的开发者写法，补完整 ModelTable 示例与导入后 MQTT publish 验证 | 3 | dropx/dev_0409-todo-mqtt-egress-docs | Completed | ./docs/iterations/0409-todo-mqtt-egress-docs/ |
 | 0410-slide-import-async-host-actions | 2026-06-08 | 修复滑动 App 导入入口，并让慢速 Matrix/管理总线 host action 不再阻塞普通 UI 按钮 | 3 | dropx/dev_0410-slide-import-async-host-actions | Done | ./docs/iterations/0410-slide-import-async-host-actions/ |
 | 0411-oidc-rp-logout | 2026-06-09 | 修复退出登录后 Zitadel SSO session 残留导致再次登录直接复用旧身份的问题 | 3 | dropx/dev_0411-oidc-rp-logout | Completed | ./docs/iterations/0411-oidc-rp-logout/ |
+| 0412-app1-todo-latency-debug | 2026-06-10 | 隔离部署 app1/ui-server-1，安装 R1 To Do app 1，并定位新增任务往返耗时 | 7 | dropx/dev_0412-app1-todo-latency-debug | In Progress | ./docs/iterations/0412-app1-todo-latency-debug/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
