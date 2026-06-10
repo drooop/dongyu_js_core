@@ -381,7 +381,45 @@ spec:
         - name: DY_UI_SERVER_WORKER_ID
           value: "U1D"
         - name: DY_AUTH
-          value: "0"
+          value: "1"
+        - name: DY_OIDC_ISSUER
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: DY_OIDC_ISSUER
+        - name: DY_OIDC_CLIENT_ID
+          value: "376760835093102822"
+        - name: DY_OIDC_CLIENT_SECRET
+          value: ""
+        - name: DY_OIDC_REDIRECT_URI
+          value: "https://app1.dongyudigital.com/auth/sso/callback"
+        - name: DY_OIDC_POST_LOGOUT_REDIRECT_URI
+          value: "https://app1.dongyudigital.com/"
+        - name: DY_OIDC_SCOPE
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: DY_OIDC_SCOPE
+        - name: DY_OIDC_STATE_SECRET
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: DY_OIDC_STATE_SECRET
+        - name: DY_SESSION_SECRET
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: DY_SESSION_SECRET
+        - name: DY_AUTH_SECRET
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: DY_AUTH_SECRET
         - name: MATRIX_HOMESERVER_URL
           value: null
           valueFrom:

@@ -186,10 +186,16 @@ function test_cloud_manifest_declares_isolated_ui_server_1() {
     'secretName: ui-server-1-tls',
     'DY_UI_SERVER_WORKER_ID',
     'value: "U1D"',
+    'value: "376760835093102822"',
+    'value: "https://app1.dongyudigital.com/auth/sso/callback"',
+    'value: "https://app1.dongyudigital.com/"',
     'path: /home/wwpic/dongyu/volume/persist/ui-server-1',
   ]) {
     assert.ok(text.includes(required), `cloud manifest must include ${required}`);
   }
+  const uiServer1Section = text.slice(text.indexOf('name: ui-server-1'));
+  assert.match(uiServer1Section, /name: DY_AUTH\s+value: "1"/u, 'ui-server-1 must keep SSO enabled');
+  assert.match(uiServer1Section, /name: DY_OIDC_CLIENT_SECRET\s+value: ""/u, 'ui-server-1 must use the PKCE public client without a static client secret');
   assert.ok(!/name: ui-server-1[\s\S]*app=ui-server\n/u.test(text), 'ui-server-1 selectors must not target the production ui-server pods');
   return { key: 'cloud_manifest_declares_isolated_ui_server_1', status: 'PASS' };
 }
