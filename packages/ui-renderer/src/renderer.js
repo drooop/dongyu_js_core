@@ -2247,6 +2247,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const value = bind ? getEffectiveLabelValue(snapshot, bind, host, node) : undefined;
     props.modelValue = value === true;
     props['onUpdate:modelValue'] = (v) => {
+      if (Boolean(v) === props.modelValue) return;
       const target = node.bind && node.bind.write;
       if (!target) return;
       dispatchEvent(node, target, { value: Boolean(v) }, host, undefined, ctx);
@@ -2259,6 +2260,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const value = bind ? getEffectiveLabelValue(snapshot, bind, host, node) : undefined;
     props.modelValue = value === true;
     props['onUpdate:modelValue'] = (v) => {
+      if (Boolean(v) === props.modelValue) return;
       const target = node.bind && node.bind.write;
       if (!target) return;
       dispatchEvent(node, target, { value: Boolean(v) }, host, undefined, ctx);

@@ -132,7 +132,7 @@ function test_drawer_and_dialog_are_model_components() {
   assert.equal(vnode.props.placement, 'right', 'drawer_vnode_placement_missing');
   assert.equal(vnode.props.size, '360px', 'drawer_vnode_size_missing');
   assert.equal(typeof vnode.props['onUpdate:modelValue'], 'function', 'drawer_vnode_update_binding_missing');
-  vnode.props['onUpdate:modelValue'](false);
+  vnode.props['onUpdate:modelValue'](true);
   assert.equal(emitted.at(-1)?.v?.payload?.target?.k, 'drawer_open', 'drawer_update_must_dispatch_bound_label');
 
   const dialogVNode = vnodeRenderer.renderVNode({
@@ -149,7 +149,7 @@ function test_drawer_and_dialog_are_model_components() {
   assert.equal(dialogVNode.props.title, 'Confirm action', 'dialog_vnode_title_missing');
   assert.equal(dialogVNode.props.width, '420px', 'dialog_vnode_width_missing');
   assert.equal(typeof dialogVNode.props['onUpdate:modelValue'], 'function', 'dialog_vnode_update_binding_missing');
-  dialogVNode.props['onUpdate:modelValue'](false);
+  dialogVNode.props['onUpdate:modelValue'](true);
   assert.equal(emitted.at(-1)?.v?.payload?.target?.k, 'dialog_open', 'dialog_update_must_dispatch_bound_label');
   return { key: 'drawer_and_dialog_are_model_components', status: 'PASS' };
 }
