@@ -82,6 +82,7 @@ function ensureLabel(runtime, model, p, r, c, label) {
 }
 
 const MAILBOX_EVENT_KEY = 'bus_event';
+const DERIVED_REFRESH_SCOPES = new Set(['business', 'home_or_editor', 'app_index', 'full']);
 
 function overwriteLabel(runtime, model, p, r, c, label) {
   const cell = runtime.getCell(model, p, r, c);
@@ -89,6 +90,13 @@ function overwriteLabel(runtime, model, p, r, c, label) {
     runtime.rmLabel(model, p, r, c, label.k);
   }
   runtime.addLabel(model, p, r, c, label);
+}
+
+function normalizeDerivedRefreshScope(scopeOrOptions = 'business') {
+  const raw = typeof scopeOrOptions === 'string'
+    ? scopeOrOptions
+    : (scopeOrOptions && typeof scopeOrOptions.scope === 'string' ? scopeOrOptions.scope : 'business');
+  return DERIVED_REFRESH_SCOPES.has(raw) ? raw : 'business';
 }
 
 function ensureLocalDemRole(runtime) {
@@ -422,27 +430,34 @@ export function createDemoStore() {
     runtime.addLabel(model, 0, 0, 1, { k: MAILBOX_EVENT_KEY, t: 'event', v: envelopeOrNull });
   }
 
-  function updateDerived() {
+  function updateDerived(scopeOrOptions = 'business') {
+    const scope = normalizeDerivedRefreshScope(scopeOrOptions);
+    const refreshHomeEditor = scope === 'full' || scope === 'home_or_editor';
+    const refreshWorkspaceIndex = scope === 'full' || scope === 'app_index';
     const snap = runtime.snapshot();
     const stateModelLive = runtime.getModel(EDITOR_STATE_MODEL_ID);
     if (stateModelLive) {
-      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'editor_model_options_json', t: 'json', v: deriveEditorModelOptions(snap, EDITOR_STATE_MODEL_ID) });
-      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_table_rows_json', t: 'json', v: deriveHomeTableRows(snap, EDITOR_STATE_MODEL_ID) });
-      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_missing_model_text', t: 'str', v: deriveHomeMissingModelText(snap, EDITOR_STATE_MODEL_ID) });
-      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_selected_label_text', t: 'str', v: deriveHomeSelectedLabelText(snap, EDITOR_STATE_MODEL_ID) });
-      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_edit_dialog_title', t: 'str', v: deriveHomeEditDialogTitle(snap, EDITOR_STATE_MODEL_ID) });
-      const workspaceApps = deriveWorkspaceRegistry(runtime);
-      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: workspaceApps });
-      const foregroundWorkspaceModelId = readDesktopForegroundWorkspaceModelId(snap);
-      const validWorkspaceApp = resolveWorkspaceSelection(
-        workspaceApps,
-        Number.isInteger(foregroundWorkspaceModelId)
-          ? foregroundWorkspaceModelId
-          : runtime.getLabelValue(stateModelLive, 0, 0, 0, 'ws_app_selected'),
-        resolveDefaultWorkspaceAppId(workspaceApps),
-      );
-      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: Number(validWorkspaceApp) });
-      overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: resolveNextWorkspaceModelId(runtime) });
+      if (refreshHomeEditor) {
+        overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'editor_model_options_json', t: 'json', v: deriveEditorModelOptions(snap, EDITOR_STATE_MODEL_ID) });
+        overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_table_rows_json', t: 'json', v: deriveHomeTableRows(snap, EDITOR_STATE_MODEL_ID) });
+        overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_missing_model_text', t: 'str', v: deriveHomeMissingModelText(snap, EDITOR_STATE_MODEL_ID) });
+        overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_selected_label_text', t: 'str', v: deriveHomeSelectedLabelText(snap, EDITOR_STATE_MODEL_ID) });
+        overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'home_edit_dialog_title', t: 'str', v: deriveHomeEditDialogTitle(snap, EDITOR_STATE_MODEL_ID) });
+      }
+      if (refreshWorkspaceIndex) {
+        const workspaceApps = deriveWorkspaceRegistry(runtime);
+        overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_apps_registry', t: 'json', v: workspaceApps });
+        const foregroundWorkspaceModelId = readDesktopForegroundWorkspaceModelId(snap);
+        const validWorkspaceApp = resolveWorkspaceSelection(
+          workspaceApps,
+          Number.isInteger(foregroundWorkspaceModelId)
+            ? foregroundWorkspaceModelId
+            : runtime.getLabelValue(stateModelLive, 0, 0, 0, 'ws_app_selected'),
+          resolveDefaultWorkspaceAppId(workspaceApps),
+        );
+        overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_selected', t: 'int', v: Number(validWorkspaceApp) });
+        overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'ws_app_next_id', t: 'int', v: resolveNextWorkspaceModelId(runtime) });
+      }
       const matrixDebug = deriveMatrixDebugView(snap, EDITOR_STATE_MODEL_ID);
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_subjects_json', t: 'json', v: matrixDebug.subjects });
       overwriteLabel(runtime, stateModelLive, 0, 0, 0, { k: 'matrix_debug_subject_selected', t: 'str', v: matrixDebug.selected });
@@ -525,7 +540,7 @@ export function createDemoStore() {
       if (!addResult || !addResult.applied) {
         throw new Error('invalid_bus_payload');
       }
-      updateDerived();
+      updateDerived({ scope: 'business' });
       refreshSnapshot();
       return;
     }
@@ -570,14 +585,14 @@ export function createDemoStore() {
         v: deriveDesktopTaskStack(currentStack, foregroundApp),
       });
     }
-    updateDerived();
+    updateDerived({ scope: shouldResetHomeSelectionFromEnvelope(pendingEnvelope) ? 'home_or_editor' : 'business' });
     refreshSnapshot();
     return result;
   }
 
   setMailboxValue(null);
   reconcileHomeSelectionState(true);
-  updateDerived();
+  updateDerived({ scope: 'full' });
   refreshSnapshot();
 
   return {

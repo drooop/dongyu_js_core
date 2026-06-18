@@ -12,6 +12,7 @@ const sdk = require('matrix-js-sdk');
 const sessions = new Map(); // token → { userId, homeserverUrl, displayName, accessToken, createdAt }
 const oidcPendingStates = new Map(); // state → { codeVerifier, nonce, returnTo, redirectUri, createdAt }
 const oidcConsumedStates = new Map(); // state → expiresAt
+const oidcInflightStates = new Map(); // state → expiresAt
 const matrixSsoPendingStates = new Map(); // state → { sessionToken, homeserverUrl, returnTo, createdAt }
 const oidcMetadataCache = new Map(); // issuer → metadata
 const SESSION_MAX_AGE_S = 7 * 24 * 60 * 60; // 7 days
@@ -374,6 +375,21 @@ function cleanupOidcPendingStates() {
   for (const [state, expiresAt] of oidcConsumedStates) {
     if (now > expiresAt) oidcConsumedStates.delete(state);
   }
+  for (const [state, expiresAt] of oidcInflightStates) {
+    if (now > expiresAt) oidcInflightStates.delete(state);
+  }
+}
+
+function finalizeOidcState(stateKey) {
+  oidcPendingStates.delete(stateKey);
+  oidcConsumedStates.set(stateKey, Date.now() + OIDC_PENDING_TTL_MS);
+  oidcInflightStates.delete(stateKey);
+}
+
+function markOidcStateFinalized(error) {
+  const err = error instanceof Error ? error : new Error(String(error || 'oidc_callback_failed'));
+  err.oidcStateFinalized = true;
+  return err;
 }
 
 export async function startOidcLogin({ req, returnTo, fetchFn = fetch } = {}) {
@@ -558,16 +574,23 @@ export async function completeOidcLogin({ req, code, state, fetchFn = fetch } = 
   if (!pending) throw new Error('invalid_oidc_state');
   if (Date.now() - Number(pending.createdAt) > OIDC_PENDING_TTL_MS) {
     oidcPendingStates.delete(stateKey);
+    oidcInflightStates.delete(stateKey);
     throw new Error('invalid_oidc_state');
   }
   if (oidcConsumedStates.has(stateKey)) throw new Error('invalid_oidc_state');
-  oidcPendingStates.delete(stateKey);
+  if (oidcInflightStates.has(stateKey)) throw new Error('invalid_oidc_state');
   const config = getOidcConfig({ req });
   if (pending.issuer !== config.issuer || pending.clientId !== config.clientId || pending.redirectUri !== config.redirectUri) {
       throw new Error('invalid_oidc_state');
   }
-  oidcConsumedStates.set(stateKey, Date.now() + OIDC_PENDING_TTL_MS);
-  const metadata = await fetchOidcMetadata(config, fetchFn);
+  oidcInflightStates.set(stateKey, Date.now() + OIDC_PENDING_TTL_MS);
+  let metadata = null;
+  try {
+    metadata = await fetchOidcMetadata(config, fetchFn);
+  } catch (error) {
+    oidcInflightStates.delete(stateKey);
+    throw error;
+  }
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
     code,
@@ -576,44 +599,61 @@ export async function completeOidcLogin({ req, code, state, fetchFn = fetch } = 
     code_verifier: pending.codeVerifier,
   });
   if (config.clientSecret) body.set('client_secret', config.clientSecret);
-  const tokenResp = await fetchFn(metadata.token_endpoint, {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body,
-  });
+  let tokenResp = null;
+  try {
+    tokenResp = await fetchFn(metadata.token_endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+  } catch (error) {
+    oidcInflightStates.delete(stateKey);
+    throw error;
+  }
   const tokenJson = await tokenResp.json().catch(() => ({}));
-  if (!tokenResp.ok || !tokenJson.access_token || !tokenJson.id_token) {
+  if (!tokenResp.ok) {
+    oidcInflightStates.delete(stateKey);
     throw new Error(tokenJson.error || tokenJson.message || 'oidc_token_exchange_failed');
   }
-  const idClaims = await verifyJwtWithJwks(tokenJson.id_token, {
-    metadata,
-    clientId: config.clientId,
-    issuer: config.issuer,
-    nonce: pending.nonce,
-    fetchFn,
-  });
-  const userinfoResp = await fetchFn(metadata.userinfo_endpoint, {
-    headers: { authorization: `Bearer ${tokenJson.access_token}` },
-  });
-  const userinfo = userinfoResp.ok ? await userinfoResp.json().catch(() => ({})) : {};
-  if (userinfo.sub && userinfo.sub !== idClaims.sub) throw new Error('oidc_userinfo_subject_mismatch');
-  const safeUserinfo = { ...userinfo };
-  for (const key of ['iss', 'aud', 'nonce', 'sub', 'exp', 'iat']) {
-    delete safeUserinfo[key];
+  if (!tokenJson.access_token || !tokenJson.id_token) {
+    finalizeOidcState(stateKey);
+    throw markOidcStateFinalized(new Error(tokenJson.error || tokenJson.message || 'oidc_token_exchange_failed'));
   }
-  const principal = normalizeOidcPrincipal({ ...idClaims, ...safeUserinfo });
-  const token = createSessionRecord({
-    ...principal,
-    homeserverUrl: '',
-    accessToken: '',
-    idToken: tokenJson.id_token,
-    oidcAccessToken: tokenJson.access_token,
-  });
-  return {
-    token,
-    returnTo: pending.returnTo,
-    session: toPublicSession(sessions.get(token)),
-  };
+  try {
+    const idClaims = await verifyJwtWithJwks(tokenJson.id_token, {
+      metadata,
+      clientId: config.clientId,
+      issuer: config.issuer,
+      nonce: pending.nonce,
+      fetchFn,
+    });
+    const userinfoResp = await fetchFn(metadata.userinfo_endpoint, {
+      headers: { authorization: `Bearer ${tokenJson.access_token}` },
+    });
+    const userinfo = userinfoResp.ok ? await userinfoResp.json().catch(() => ({})) : {};
+    if (userinfo.sub && userinfo.sub !== idClaims.sub) throw new Error('oidc_userinfo_subject_mismatch');
+    const safeUserinfo = { ...userinfo };
+    for (const key of ['iss', 'aud', 'nonce', 'sub', 'exp', 'iat']) {
+      delete safeUserinfo[key];
+    }
+    const principal = normalizeOidcPrincipal({ ...idClaims, ...safeUserinfo });
+    const token = createSessionRecord({
+      ...principal,
+      homeserverUrl: '',
+      accessToken: '',
+      idToken: tokenJson.id_token,
+      oidcAccessToken: tokenJson.access_token,
+    });
+    finalizeOidcState(stateKey);
+    return {
+      token,
+      returnTo: pending.returnTo,
+      session: toPublicSession(sessions.get(token)),
+    };
+  } catch (error) {
+    finalizeOidcState(stateKey);
+    throw markOidcStateFinalized(error);
+  }
 }
 
 async function buildOidcLogoutUrl({ req, session, fetchFn = fetch } = {}) {

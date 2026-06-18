@@ -2,7 +2,7 @@
 title: "User Guide Index"
 doc_type: user-guide
 status: active
-updated: 2026-05-12
+updated: 2026-06-10
 source: ai
 ---
 
@@ -49,6 +49,7 @@ source: ai
 |---|---|---|
 | `slide-app-runtime/README.md` | current entrypoint | 滑动 APP 运行链路子目录入口。 |
 | `slide-app-runtime/slide_app_runtime_developer_guide.md` | current developer guide | 当前滑动 APP 的开发、安装、运行和外发链路。 |
+| `slide-app-runtime/function_port_collision_repair_guide.md` | current repair guide | 对比并修正 `{funcName}:in/out/logout` 函数自动端口与显式普通 pin 的同名冲突。 |
 | `slide-app-runtime/workspace_manager_interaction_guide.md` | current provider guide | 如何上传滑动 APP ZIP、记录资源路径、发布 Workspace Manager 可安装索引，以及 topic 拼接规则。 |
 | `slide-app-runtime/minimal_submit_app_provider_guide.md` | current provider guide | 最小 Submit 双总线示例、R1 填表、zip 导入、外部 Matrix/MQTT 测试。 |
 | `slide-app-runtime/minimal_submit_app_provider_visualized.md` | visualized Markdown companion | 最小 Submit 示例的图解说明。 |

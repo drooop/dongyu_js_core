@@ -1,3 +1,17 @@
+function nowPerfMs() {
+  const perf = globalThis && globalThis.performance && typeof globalThis.performance.now === 'function'
+    ? globalThis.performance.now()
+    : NaN;
+  return Number.isFinite(perf) ? perf : Date.now();
+}
+
+function clientDispatchTimingMeta() {
+  return {
+    client_dispatch_ts: Date.now(),
+    client_dispatch_perf_ms: nowPerfMs(),
+  };
+}
+
 export function buildBusEventV2({ busInKey, value, opId, source = 'ui_renderer' }) {
   return {
     type: 'bus_event_v2',
@@ -6,6 +20,7 @@ export function buildBusEventV2({ busInKey, value, opId, source = 'ui_renderer' 
     meta: {
       op_id: opId || `bus_v2_${Date.now()}_${Math.random().toString(16).slice(2)}`,
       source,
+      ...clientDispatchTimingMeta(),
     },
   };
 }

@@ -2,7 +2,7 @@
 title: "Slide App Runtime User Guide"
 doc_type: user-guide
 status: active
-updated: 2026-05-10
+updated: 2026-06-10
 source: ai
 ---
 
@@ -24,6 +24,7 @@ Current boundary:
 | File | Role | Use when |
 |---|---|---|
 | `slide_app_runtime_developer_guide.md` | main developer guide | 需要理解完整开发、安装、运行、事件和外发链路。 |
+| `function_port_collision_repair_guide.md` | repair guide | 需要对比 `func.js` 自动端口与显式 `pin.*` 同名冲突，并修正导入包或已安装实例。 |
 | `minimal_submit_app_provider_guide.md` | provider cookbook | 需要做一个最小 Submit 双总线 APP 或 remote-worker provider 示例。 |
 | `todo_save_mqtt_event_example.md` | task-save MQTT cookbook | 需要让 To Do / 表单类按钮先触发程序模型，再通过 root `pin.out` 发出 MQTT。 |
 | `mqtt_response_to_ui_materialization.md` | MQTT response cookbook | 需要理解 remote-worker 回包如何通过 `response_topic` 回到 UI Server，并 materialize 成界面 labels。 |

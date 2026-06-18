@@ -54,7 +54,10 @@ async function main() {
     const envelope = pinEnvelope(
       { model_id: 100, p: 1, r: 0, c: 0 },
       'click',
-      { input_value: 'snapshot-release-check' },
+      [
+        { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+        { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'snapshot-release-check' },
+      ],
     );
     const expectedOpId = envelope.payload.meta.op_id;
     const result = await state.submitEnvelope(envelope);
