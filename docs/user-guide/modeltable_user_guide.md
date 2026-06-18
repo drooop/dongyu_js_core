@@ -2,7 +2,7 @@
 title: "ModelTable User Guide (Living Doc)"
 doc_type: user-guide
 status: active
-updated: 2026-05-12
+updated: 2026-06-10
 source: ai
 ---
 
@@ -157,6 +157,14 @@ source: ai
 - Workspace app 的桌面入口只写 `desktop_foreground_app_json`；实际 Workspace 选择继续由现有投影/状态链路处理。
 - 如果 `ws_apps_registry` 缺失或为空，桌面不显示旧的硬编码 Workspace app 兜底入口，避免展示过期 app。
 - Dock 当前只保留 `Home`、`Tasks`、`MB`。`MB` 暂时打开 `Matrix Suite`，后续再替换为专门的管理总线通讯 app。
+
+0418 起，浏览器端按 profile 加载 client-visible snapshot：
+
+- 默认启动只拉取 `bootstrap` profile，用于渲染桌面 shell、app registry、route state 和必要系统模型。
+- `ws_apps_registry` 只负责让桌面知道“有哪些 app 可以打开”，不要求把每个 app 的完整 UI 模型体也放进首屏 snapshot。
+- 用户打开某个滑动 app 时，前端按该 app 的正式 `model_id` 拉取 `visible` profile，再渲染 app 内容。
+- 需要诊断或恢复时可以显式使用 `full` profile；它不是常规启动和常规 stream 的默认路径。
+- `snapshot_patch` 必须按当前 profile 的可见范围生成，不能通过普通 patch 把隐藏 app body 悄悄推给 bootstrap client。
 
 后续移动端可以沿用同一产品边界：最终用户先看到 app 桌面，通过单前台运行和任务切换完成常规使用；分屏、多实例和更复杂后台属于后续阶段。
 
@@ -355,6 +363,13 @@ V1N.writeLabel(2, 2, 2, { k: 'testk', t: 'str', v: 'testv' })
 
 - 当前 v1 的 `js` 代码片段，指 runtime 中执行的 `func.js`
 - 不指浏览器侧任意 `eval`
+
+函数端口说明：
+
+- 对 `func.js` / `func.python` 来说，`{funcName}:in`、`{funcName}:out`、`{funcName}:logout` 是函数自动拥有的端口。
+- APP 作者不需要再把这些端口显式声明成普通 `pin.in` / `pin.out` / `pin.logout`。
+- 公开业务入口应使用独立 pin，例如 `todo_request` / `submit_request`，再用 `pin.connect.label` 接到 `{funcName}:in`。
+- 同名冲突的修正方法见 `docs/user-guide/slide-app-runtime/function_port_collision_repair_guide.md`。
 
 参考合同：`docs/iterations/0129-modeltable-editor-v0/contract_event_mailbox.md`
 

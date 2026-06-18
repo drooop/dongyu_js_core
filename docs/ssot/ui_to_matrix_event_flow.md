@@ -80,7 +80,9 @@ if (req.method === 'POST' && url.pathname === '/ui_event') {
 **关键点**:
 - 前端发送 envelope（包含 payload 和 type）
 - 后端调用 `submitEnvelope()` 处理
-- 成功后广播 snapshot 给所有 SSE 客户端
+- 成功后触发 client snapshot 投影更新：`/stream` 默认以 `bootstrap` profile 连接，初始事件只发送该 profile 的 `snapshot`；打开滑动 APP 后，客户端用 `visible_model_id` 明确订阅已加载模型，后续在同一会话和同一 profile 可见范围内优先发送 `snapshot_patch`。
+- 权限变化、patch 过大、profile baseline 缺失或序列不匹配时，服务端必须发送可观察的 reset/recovery，或客户端重新拉取当前 profile 的 `/snapshot`；不得静默扩展为完整模型全集。
+- 无论传输的是完整 `snapshot` 还是 `snapshot_patch`，它们都只是 ModelTable truth 的前端投影，不得作为绕过 ModelTable 的业务写入通道。
 
 ### 2. Mailbox 写入 (`submitEnvelope`)
 

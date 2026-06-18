@@ -1093,6 +1093,47 @@ slide-capable app 的最小根标签：
 - 只有显式声明 `commit_policy != immediate` 的 label 才启用 overlay。
 - 不得用 debounce/throttle 替代语义定义；它们最多是实现层优化参数。
 
+#### 7.5g Client Snapshot 传输规则
+
+Client-visible snapshot 是 UI 投影缓存，不是新的 truth 层。正式业务状态仍以 ModelTable 为准。
+
+当前传输面按 client-visible profile 工作：
+- `bootstrap`：默认启动 profile，只返回桌面 shell、app registry、route state 和必要系统模型的最小可见投影。
+- `visible`：按需加载一个或多个当前用户可见的模型 body，例如用户打开的滑动 APP 模型。
+- `full`：只用于显式诊断或恢复，不是默认启动路径。
+
+`GET /snapshot` 默认返回 `bootstrap` profile，并带 `snapshot_seq`。显式 `GET /snapshot?profile=full` 才返回当前会话可见的完整 snapshot。
+
+`GET /stream` 默认建立 `bootstrap` profile 的 SSE。SSE 初始事件必须按同一 profile 发送 snapshot；若客户端已加载某些模型，必须用 `visible_model_id` 明确订阅这些模型的后续 patch，不得把默认 stream 扩回完整 snapshot。
+
+同一 SSE 连接后续变化优先发送 `snapshot_patch`，patch 内必须带 `snapshot_seq`、`base_snapshot_seq` 和可选 `op_id`。
+
+`snapshot_patch` 只能在同一个会话可见范围内生成：
+- 服务端必须先按当前 session / principal / capability 过滤出 client snapshot，再对过滤后的 snapshot 做差异。
+- 服务端必须先应用 profile 边界，再对该 profile 内的 client-visible snapshot 做差异。`bootstrap` client 不得收到隐藏滑动 APP model body 的普通 patch；订阅 `visible_model_id=A` 的 client 可收到 A 的 patch，但不得收到未订阅的隐藏 model B。
+- 若同一 SSE client 的 principal 或 capability key 改变，必须发送完整 `snapshot` reset，不得跨权限基线发送 patch。
+- 若 patch 过大或无法安全表达，必须回退为完整 `snapshot` reset。
+- profile baseline 缺失或需要恢复时，必须以可观察的 `patch_kind=reset` 发送 snapshot；不得静默扩展为 full profile。
+
+客户端应用规则：
+- 客户端必须校验 `base_snapshot_seq`。不匹配时，不得猜测合并，必须重新拉取当前 profile 的 `/snapshot`。
+- 可见模型的按需加载响应不得删除已经加载的其他可见模型；乱序响应也不得让有效 `snapshot_seq` 回退。
+- `pauseSse` / overlay 期间收到的 `snapshot_patch` 只能更新 pending committed cache，不得直接覆盖用户当前交互显示。
+- `bus_event_v2` 的本地 waiting 状态只能在“已应用后的可见 snapshot”中出现匹配的 `bus_event_last_op_id` 后释放；`snapshot_patch` envelope 上的 `op_id` 只能作为诊断 metadata，不能单独释放本地 waiting 状态。
+
+#### 7.5h 前端响应式投影缓存
+
+前端可以把 client-visible snapshot / snapshot_patch 投影成 label 级响应式缓存，用于降低 UI 更新范围。
+
+约束：
+- 响应式投影缓存只是浏览器内的读取缓存，不是业务 truth。
+- 缓存 key 必须仍然使用 ModelTable 地址：`model_id / p / r / c / k`。
+- 完整 `/snapshot` 进入前端时，必须能重建该缓存。
+- `snapshot_patch` 进入前端时，可以只更新对应 label / cell / model atom。
+- overlay 仍优先于投影缓存；用户正在交互的未提交值不得被服务端回流覆盖。
+- patch 解析失败、`base_snapshot_seq` 不匹配、权限变化或重连时，必须回到完整 `/snapshot` 恢复。
+- 不允许让投影缓存绕过 `bus_event_v2`、Model 0 ingress、ModelTable materialization 或权限过滤。
+
 ---
 
 ## 10. v0 强约束（为了可裁决性）

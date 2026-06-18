@@ -3,25 +3,29 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dongyu App 用户登录与 Matrix 能力架构</title>
+  <title>Dongyu Workspace SSO 与 Matrix 管理总线架构</title>
   <link rel="icon" href="data:,">
   <style>
     :root {
       color-scheme: light;
-      --bg: #f7f8fb;
+      --canvas: #f4f7fb;
       --ink: #172033;
-      --muted: #5d6b82;
-      --soft: #eef2f7;
-      --line: #d7dee9;
+      --muted: #5e6c82;
       --panel: #ffffff;
-      --blue: #2563eb;
+      --panel-2: #f9fbfd;
+      --line: #d7dee8;
+      --line-strong: #bac6d6;
+      --nav: #111827;
       --teal: #0f766e;
+      --blue: #2563eb;
       --amber: #b45309;
       --green: #15803d;
       --red: #b91c1c;
       --violet: #6d28d9;
-      --shadow: 0 14px 34px rgba(21, 32, 51, 0.08);
+      --slate: #334155;
+      --shadow: 0 16px 38px rgba(23, 32, 51, 0.09);
       --radius: 8px;
+      --content-max: 1180px;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     }
 
@@ -29,36 +33,41 @@
       box-sizing: border-box;
     }
 
-    html {
-      scroll-behavior: smooth;
-    }
-
+    html,
     body {
+      width: 100vw;
+      height: 100dvh;
       margin: 0;
-      background: var(--bg);
+      overflow: hidden;
+      background: var(--canvas);
       color: var(--ink);
       font-size: 16px;
-      line-height: 1.58;
+      line-height: 1.55;
     }
 
     a {
       color: inherit;
-      text-decoration: none;
     }
 
-    .shell {
-      min-height: 100vh;
+    button,
+    input {
+      font: inherit;
+    }
+
+    .app-shell {
+      width: 100vw;
+      height: 100dvh;
       display: grid;
-      grid-template-columns: 272px minmax(0, 1fr);
+      grid-template-columns: 286px minmax(0, 1fr);
+      overflow: hidden;
     }
 
     .side {
-      position: sticky;
-      top: 0;
-      height: 100vh;
-      padding: 28px 22px;
-      background: #111827;
+      min-height: 0;
+      overflow-y: auto;
+      background: var(--nav);
       color: #f8fafc;
+      padding: 26px 20px;
       display: flex;
       flex-direction: column;
       gap: 24px;
@@ -66,7 +75,7 @@
 
     .brand {
       display: grid;
-      gap: 8px;
+      gap: 10px;
     }
 
     .brand-mark {
@@ -75,19 +84,22 @@
       display: grid;
       place-items: center;
       border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 8px;
+      border-radius: var(--radius);
       background: linear-gradient(135deg, #0f766e, #2563eb);
-      font-weight: 800;
+      font-weight: 850;
+      letter-spacing: 0;
     }
 
     .brand h1 {
       margin: 0;
       font-size: 18px;
-      line-height: 1.28;
-      font-weight: 760;
+      line-height: 1.25;
+      font-weight: 800;
+      letter-spacing: 0;
     }
 
-    .brand p {
+    .brand p,
+    .side-note {
       margin: 0;
       color: #cbd5e1;
       font-size: 13px;
@@ -99,246 +111,401 @@
       gap: 5px;
     }
 
-    .side nav a {
-      padding: 9px 10px;
-      border-radius: 7px;
+    .nav-link {
+      text-decoration: none;
       color: #dbe4ef;
-      font-size: 14px;
       border: 1px solid transparent;
+      border-radius: 7px;
+      padding: 9px 10px;
+      font-size: 14px;
+      line-height: 1.3;
     }
 
-    .side nav a:hover {
+    .nav-link:hover,
+    .nav-link.active {
       background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.14);
     }
 
     .side-note {
       margin-top: auto;
       padding: 14px;
       border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 8px;
-      color: #cbd5e1;
-      font-size: 12px;
-      line-height: 1.55;
+      border-radius: var(--radius);
       background: rgba(255, 255, 255, 0.05);
     }
 
-    main {
+    .page {
       min-width: 0;
-      padding: 40px min(5vw, 64px) 64px;
+      min-height: 0;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .topbar {
+      flex: 0 0 auto;
+      border-bottom: 1px solid var(--line);
+      background: rgba(244, 247, 251, 0.92);
+      backdrop-filter: blur(14px);
+      padding: 14px clamp(18px, 4vw, 48px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .topbar strong {
+      font-size: 14px;
+      color: var(--slate);
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: var(--muted);
+      background: var(--panel);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .chip.good {
+      color: var(--green);
+      border-color: #bbdfc6;
+      background: #f2fbf5;
+    }
+
+    .content-pane {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior: contain;
+      padding: 34px clamp(18px, 4vw, 56px) 72px;
+      scroll-padding-top: 24px;
+    }
+
+    .content-inner {
+      width: min(100%, var(--content-max));
+      margin: 0 auto;
+      display: grid;
+      gap: 38px;
     }
 
     .hero {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 360px;
-      gap: 30px;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 24px;
       align-items: stretch;
-      padding-bottom: 24px;
-      border-bottom: 1px solid var(--line);
     }
 
     .hero-copy {
       display: grid;
       align-content: center;
       gap: 18px;
+      min-width: 0;
     }
 
     .hero h2 {
       margin: 0;
       max-width: 860px;
-      font-size: 42px;
-      line-height: 1.12;
-      font-weight: 800;
+      font-size: clamp(30px, 4vw, 46px);
+      line-height: 1.1;
+      font-weight: 850;
+      letter-spacing: 0;
     }
 
     .hero p {
+      max-width: 820px;
       margin: 0;
-      max-width: 780px;
       color: var(--muted);
-      font-size: 18px;
+      font-size: 17px;
     }
 
-    .decision-strip {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 4px;
-      max-width: 900px;
-    }
-
-    .decision {
-      background: var(--panel);
+    .hero-panel,
+    .panel,
+    .detail-panel,
+    .decision-card,
+    .lane,
+    .flow-step,
+    .rule-row,
+    .source-box {
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      padding: 14px;
-      box-shadow: 0 8px 22px rgba(21, 32, 51, 0.05);
-    }
-
-    .decision strong {
-      display: block;
-      font-size: 14px;
-      margin-bottom: 4px;
-    }
-
-    .decision span {
-      display: block;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.45;
+      background: var(--panel);
+      box-shadow: var(--shadow);
     }
 
     .hero-panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
       padding: 18px;
-      box-shadow: var(--shadow);
       display: grid;
-      gap: 12px;
+      gap: 10px;
     }
 
-    .status-row {
+    .verdict {
       display: grid;
-      grid-template-columns: 112px minmax(0, 1fr);
-      gap: 10px;
-      padding: 10px;
+      gap: 4px;
       border: 1px solid var(--line);
       border-radius: 7px;
-      background: #fbfcfe;
-      align-items: center;
+      background: var(--panel-2);
+      padding: 12px;
     }
 
-    .status-row b {
+    .verdict b {
       font-size: 13px;
     }
 
-    .status-row span {
+    .verdict span {
       color: var(--muted);
       font-size: 13px;
     }
 
-    .ok {
-      color: var(--green);
-    }
-
     .section {
-      padding: 40px 0 0;
+      display: grid;
+      gap: 16px;
     }
 
     .section-head {
       display: grid;
-      gap: 8px;
-      max-width: 860px;
-      margin-bottom: 18px;
+      gap: 7px;
+      max-width: 880px;
     }
 
     .section h3 {
       margin: 0;
-      font-size: 28px;
+      font-size: 27px;
       line-height: 1.18;
+      font-weight: 820;
+      letter-spacing: 0;
     }
 
     .section-head p {
       margin: 0;
       color: var(--muted);
+    }
+
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .decision-card {
+      padding: 16px;
+      box-shadow: 0 10px 26px rgba(23, 32, 51, 0.06);
+      min-height: 162px;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+
+    .decision-card h4 {
+      margin: 0;
       font-size: 16px;
     }
 
-    .architecture-map {
-      display: grid;
-      gap: 16px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 18px;
-      box-shadow: var(--shadow);
+    .decision-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
     }
 
-    .layer {
+    .decision-tag {
+      width: fit-content;
+      border-radius: 999px;
+      padding: 4px 9px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .decision-tag.warn {
+      background: #fff7ed;
+      color: var(--amber);
+    }
+
+    .decision-tag.stop {
+      background: #fef2f2;
+      color: var(--red);
+    }
+
+    .map-shell {
       display: grid;
-      grid-template-columns: 160px minmax(0, 1fr);
-      gap: 14px;
+      grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .map {
+      display: grid;
+      gap: 12px;
+    }
+
+    .lane {
+      box-shadow: 0 10px 26px rgba(23, 32, 51, 0.06);
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 154px minmax(0, 1fr);
+      gap: 12px;
       align-items: stretch;
     }
 
-    .layer-title {
+    .lane-title {
       border-radius: 7px;
+      color: #fff;
       padding: 14px;
       display: grid;
       align-content: center;
-      font-weight: 780;
-      color: #fff;
-      min-height: 88px;
+      font-weight: 820;
+      line-height: 1.3;
     }
 
-    .identity {
+    .lane-title.portal {
+      background: var(--slate);
+    }
+
+    .lane-title.local {
       background: var(--teal);
     }
 
-    .app {
+    .lane-title.app {
       background: var(--blue);
     }
 
-    .capability {
-      background: var(--amber);
-    }
-
-    .transport {
+    .lane-title.cross {
       background: var(--violet);
     }
 
-    .layer-cards {
+    .lane-title.data {
+      background: var(--green);
+    }
+
+    .node-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
+      gap: 9px;
     }
 
-    .node {
+    .node-button {
+      appearance: none;
       border: 1px solid var(--line);
       border-radius: 7px;
-      background: #fbfcfe;
-      padding: 14px;
-      min-height: 88px;
+      background: var(--panel-2);
+      padding: 12px;
+      text-align: left;
+      cursor: pointer;
+      display: grid;
+      gap: 5px;
+      min-height: 98px;
+      color: var(--ink);
     }
 
-    .node strong {
-      display: block;
-      margin-bottom: 5px;
-      font-size: 15px;
+    .node-button strong {
+      font-size: 14px;
     }
 
-    .node p {
+    .node-button span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.42;
+    }
+
+    .node-button:hover,
+    .node-button.active {
+      border-color: #8fb7ff;
+      background: #f5f9ff;
+    }
+
+    .detail-panel {
+      position: sticky;
+      top: 18px;
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+      box-shadow: 0 10px 26px rgba(23, 32, 51, 0.07);
+    }
+
+    .detail-panel h4 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .detail-panel p {
       margin: 0;
       color: var(--muted);
-      font-size: 13px;
-      line-height: 1.5;
+      font-size: 14px;
     }
 
-    .flow {
+    .mini-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .mini-list li {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel-2);
+      padding: 9px 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .flow-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .flow-grid {
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 10px;
-      align-items: stretch;
     }
 
-    .step {
+    .flow-step {
+      appearance: none;
       position: relative;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 15px;
+      padding: 14px;
+      text-align: left;
+      cursor: pointer;
       min-height: 150px;
-      box-shadow: 0 8px 22px rgba(21, 32, 51, 0.05);
+      color: var(--ink);
+      box-shadow: 0 10px 26px rgba(23, 32, 51, 0.06);
     }
 
-    .step:not(:last-child)::after {
+    .flow-step:not(:last-child)::after {
       content: "";
       position: absolute;
       right: -9px;
-      top: 50%;
+      top: 52px;
       width: 16px;
       height: 2px;
-      background: var(--line);
+      background: var(--line-strong);
+    }
+
+    .flow-step:hover,
+    .flow-step.active {
+      border-color: #8fb7ff;
+      background: #f7fbff;
     }
 
     .step-index {
@@ -349,173 +516,196 @@
       border-radius: 7px;
       background: #e0f2fe;
       color: #075985;
-      font-weight: 800;
+      font-weight: 850;
       font-size: 13px;
       margin-bottom: 10px;
     }
 
-    .step strong {
+    .flow-step strong {
       display: block;
-      font-size: 15px;
-      margin-bottom: 7px;
+      font-size: 14px;
+      margin-bottom: 6px;
     }
 
-    .step p {
-      margin: 0;
+    .flow-step span {
+      display: block;
       color: var(--muted);
-      font-size: 13px;
-      line-height: 1.5;
+      font-size: 12px;
+      line-height: 1.45;
     }
 
     .tabs {
-      background: var(--panel);
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      box-shadow: var(--shadow);
       overflow: hidden;
+      background: var(--panel);
+      box-shadow: var(--shadow);
     }
 
     .tab-bar {
       display: flex;
-      gap: 0;
-      border-bottom: 1px solid var(--line);
-      background: #f9fbfd;
       overflow-x: auto;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--line);
     }
 
     .tab-button {
       appearance: none;
       border: 0;
+      border-right: 1px solid var(--line);
       background: transparent;
       padding: 13px 16px;
-      font: inherit;
-      font-size: 14px;
       color: var(--muted);
       cursor: pointer;
-      border-right: 1px solid var(--line);
       white-space: nowrap;
+      font-size: 14px;
     }
 
     .tab-button[aria-selected="true"] {
       color: var(--ink);
       background: var(--panel);
-      font-weight: 760;
+      font-weight: 780;
     }
 
     .tab-panel {
       display: none;
-      padding: 20px;
+      padding: 18px;
     }
 
     .tab-panel.active {
       display: block;
     }
 
-    .split {
+    .scenario-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: 220px minmax(0, 1fr);
       gap: 16px;
+      align-items: stretch;
     }
 
-    .callout {
-      border-left: 4px solid var(--blue);
-      background: #f8fbff;
+    .scenario-list {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+
+    .scenario-button {
+      appearance: none;
+      border: 1px solid var(--line);
       border-radius: 7px;
-      padding: 14px 16px;
+      background: var(--panel-2);
+      padding: 11px 12px;
+      text-align: left;
+      cursor: pointer;
+      color: var(--ink);
+      font-size: 14px;
     }
 
-    .callout h4,
-    .plain-card h4 {
-      margin: 0 0 8px;
-      font-size: 16px;
+    .scenario-button.active {
+      border-color: #8fb7ff;
+      background: #eff6ff;
+      font-weight: 760;
     }
 
-    .callout p,
-    .plain-card p {
+    .scenario-card {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel-2);
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      min-height: 280px;
+    }
+
+    .scenario-card h4 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .scenario-card p {
       margin: 0;
       color: var(--muted);
       font-size: 14px;
     }
 
-    .plain-card {
-      border: 1px solid var(--line);
-      border-radius: 7px;
-      padding: 14px;
-      background: #fbfcfe;
-    }
-
-    .matrix-binding {
+    .sequence {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr) 72px minmax(0, 1fr);
-      gap: 10px;
-      align-items: center;
-      margin-top: 14px;
+      gap: 8px;
+      margin-top: 4px;
     }
 
-    .binding-box {
-      min-height: 116px;
+    .sequence-row {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+
+    .sequence-row b {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      color: #fff;
+      background: var(--blue);
+      font-size: 12px;
+    }
+
+    .sequence-row span {
       border: 1px solid var(--line);
       border-radius: 7px;
-      background: #fbfcfe;
-      padding: 14px;
-    }
-
-    .binding-box strong {
-      display: block;
-      margin-bottom: 6px;
-    }
-
-    .binding-box span {
-      display: block;
+      padding: 8px 10px;
+      background: #fff;
       color: var(--muted);
       font-size: 13px;
     }
 
-    .arrow {
-      height: 2px;
-      background: var(--line);
-      position: relative;
-    }
-
-    .arrow::after {
-      content: "";
-      position: absolute;
-      right: -1px;
-      top: -4px;
-      width: 0;
-      height: 0;
-      border-left: 8px solid var(--line);
-      border-top: 5px solid transparent;
-      border-bottom: 5px solid transparent;
-    }
-
-    .rules-grid {
+    .assertion-shell {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 16px;
+      align-items: start;
     }
 
-    .rule {
-      background: var(--panel);
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .field-button {
+      appearance: none;
+      min-height: 70px;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 16px;
-      box-shadow: 0 8px 22px rgba(21, 32, 51, 0.05);
-      min-height: 180px;
+      border-radius: 7px;
+      background: var(--panel);
+      cursor: pointer;
+      padding: 11px;
+      text-align: left;
+      display: grid;
+      gap: 4px;
+      color: var(--ink);
     }
 
-    .rule h4 {
-      margin: 0 0 8px;
-      font-size: 16px;
+    .field-button:hover,
+    .field-button.active {
+      border-color: #8fb7ff;
+      background: #f5f9ff;
     }
 
-    .rule p {
-      margin: 0;
+    .field-button code {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--slate);
+    }
+
+    .field-button span {
       color: var(--muted);
-      font-size: 14px;
+      font-size: 12px;
     }
 
-    .table-wrap {
+    .boundary-table {
       overflow-x: auto;
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -525,14 +715,14 @@
 
     table {
       width: 100%;
+      min-width: 800px;
       border-collapse: collapse;
-      min-width: 760px;
     }
 
     th,
     td {
-      padding: 13px 14px;
       border-bottom: 1px solid var(--line);
+      padding: 13px 14px;
       vertical-align: top;
       text-align: left;
       font-size: 14px;
@@ -540,9 +730,9 @@
 
     th {
       background: #f8fafc;
+      color: var(--slate);
       font-size: 13px;
-      color: #334155;
-      font-weight: 760;
+      font-weight: 800;
     }
 
     tr:last-child td {
@@ -554,585 +744,976 @@
       color: var(--muted);
     }
 
-    .timeline {
+    .rules {
       display: grid;
+      gap: 10px;
+    }
+
+    .rule-row {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr) 180px;
       gap: 12px;
-    }
-
-    .phase {
-      display: grid;
-      grid-template-columns: 140px minmax(0, 1fr);
-      gap: 14px;
-      align-items: stretch;
-    }
-
-    .phase-key {
-      border-radius: 7px;
-      background: #e2e8f0;
       padding: 14px;
-      font-weight: 800;
-      color: #263244;
+      box-shadow: 0 10px 26px rgba(23, 32, 51, 0.05);
+      align-items: start;
     }
 
-    .phase-body {
-      border: 1px solid var(--line);
-      border-radius: 7px;
-      background: var(--panel);
-      padding: 14px;
+    .rule-row b {
+      color: var(--slate);
+      font-size: 14px;
     }
 
-    .phase-body strong {
-      display: block;
-      margin-bottom: 5px;
-    }
-
-    .phase-body p {
-      margin: 0;
+    .rule-row span {
       color: var(--muted);
       font-size: 14px;
     }
 
-    .risk-list {
+    .rule-row em {
+      color: var(--red);
+      font-style: normal;
+      font-size: 13px;
+    }
+
+    .scroll-check {
       display: grid;
-      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .check-list {
+      display: grid;
+      gap: 9px;
       margin: 0;
       padding: 0;
       list-style: none;
     }
 
-    .risk-list li {
+    .check-list label {
       display: grid;
-      grid-template-columns: 132px minmax(0, 1fr);
-      gap: 12px;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
       border: 1px solid var(--line);
       border-radius: 7px;
+      background: var(--panel);
       padding: 12px;
-      background: #fbfcfe;
+      cursor: pointer;
     }
 
-    .risk-list b {
-      color: var(--red);
-      font-size: 13px;
+    .check-list input {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      accent-color: var(--blue);
     }
 
-    .risk-list span {
-      color: var(--muted);
+    .check-list strong {
+      display: block;
+      margin-bottom: 3px;
       font-size: 14px;
     }
 
+    .check-list span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .progress-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 12px;
+    }
+
+    .meter {
+      height: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e2e8f0;
+    }
+
+    .meter span {
+      display: block;
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--blue), var(--green));
+      transition: width 160ms ease;
+    }
+
+    .progress-card strong {
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .progress-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .source-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .source-box {
+      padding: 14px;
+      box-shadow: 0 10px 26px rgba(23, 32, 51, 0.05);
+      display: grid;
+      gap: 6px;
+    }
+
+    .source-box h4 {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .source-box a {
+      color: var(--blue);
+      font-size: 13px;
+      word-break: break-word;
+    }
+
     footer {
-      margin-top: 44px;
-      padding-top: 20px;
+      padding-top: 18px;
       border-top: 1px solid var(--line);
       color: var(--muted);
       font-size: 13px;
     }
 
-    @media (max-width: 1100px) {
-      .shell {
+    @media (max-width: 1160px) {
+      .app-shell {
         grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
       }
 
       .side {
-        position: static;
-        height: auto;
+        min-height: 168px;
+        max-height: 34dvh;
+      }
+
+      .page {
+        height: 100%;
       }
 
       .side nav {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
       }
 
       .side-note {
         margin-top: 0;
       }
 
-      .hero {
+      .hero,
+      .map-shell,
+      .flow-shell,
+      .assertion-shell,
+      .scroll-check {
         grid-template-columns: 1fr;
       }
 
-      .flow {
+      .detail-panel {
+        position: static;
+      }
+
+      .flow-grid {
         grid-template-columns: 1fr;
       }
 
-      .step:not(:last-child)::after {
+      .flow-step:not(:last-child)::after {
         display: none;
       }
 
-      .layer {
-        grid-template-columns: 1fr;
-      }
-
-      .layer-cards,
-      .decision-strip,
-      .rules-grid,
-      .split {
-        grid-template-columns: 1fr;
-      }
-
-      .matrix-binding {
-        grid-template-columns: 1fr;
-      }
-
-      .arrow {
-        width: 2px;
-        height: 28px;
-        justify-self: center;
-      }
-
-      .arrow::after {
-        right: -4px;
-        top: auto;
-        bottom: -1px;
-        border-top: 8px solid var(--line);
-        border-left: 5px solid transparent;
-        border-right: 5px solid transparent;
-        border-bottom: 0;
+      .node-grid,
+      .decision-grid,
+      .field-grid,
+      .source-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
-    @media (max-width: 640px) {
-      main {
-        padding: 28px 16px 44px;
+    @media (max-width: 720px) {
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
       }
 
-      .side {
-        padding: 22px 16px;
-      }
-
-      .side nav {
-        grid-template-columns: 1fr 1fr;
-      }
-
-      .hero h2 {
-        font-size: 30px;
-      }
-
-      .hero p {
-        font-size: 16px;
-      }
-
-      .section h3 {
-        font-size: 23px;
-      }
-
-      .phase,
-      .risk-list li {
+      .side nav,
+      .node-grid,
+      .decision-grid,
+      .field-grid,
+      .source-grid,
+      .scenario-grid {
         grid-template-columns: 1fr;
+      }
+
+      .content-pane {
+        padding: 24px 14px 54px;
+      }
+
+      .lane {
+        grid-template-columns: 1fr;
+      }
+
+      .rule-row {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        min-width: 720px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <aside class="side">
+  <div class="app-shell" data-app-shell>
+    <aside class="side" aria-label="文档导航">
       <div class="brand">
         <div class="brand-mark">DY</div>
-        <h1>Dongyu App 用户登录与 Matrix 能力架构</h1>
-        <p>推荐方案：Zitadel 做主身份源，Dongyu App 做业务会话与权限，MAS 继续服务 Matrix。</p>
+        <h1>Dongyu Workspace SSO 与 Matrix 管理总线架构</h1>
+        <p>ZITADEL 可做组织内 SSO；跨工作区身份走 Matrix 管理总线上的短期 assertion / capability。</p>
       </div>
-      <nav aria-label="页面导航">
-        <a href="#summary">结论</a>
-        <a href="#map">系统地图</a>
-        <a href="#login">登录流程</a>
-        <a href="#matrix">Matrix 能力</a>
-        <a href="#bus">管理总线</a>
-        <a href="#roles">职责边界</a>
-        <a href="#roadmap">落地路径</a>
-        <a href="#risks">关键风险</a>
+      <nav>
+        <a class="nav-link active" href="#summary">结论</a>
+        <a class="nav-link" href="#decisions">判断</a>
+        <a class="nav-link" href="#architecture">架构地图</a>
+        <a class="nav-link" href="#federation">联邦差异</a>
+        <a class="nav-link" href="#flow">跨工作区流程</a>
+        <a class="nav-link" href="#assertion">断言字段</a>
+        <a class="nav-link" href="#boundaries">职责边界</a>
+        <a class="nav-link" href="#ui-check">UI 验收</a>
+        <a class="nav-link" href="#sources">来源</a>
       </nav>
-      <div class="side-note">
-        本页是设计说明，不是运行配置。它描述推荐边界：Dongyu App 不重做 MAS，也不把 Matrix 当成总权限源。
-      </div>
+      <p class="side-note">
+        本页是可互动分析稿，不是 SSOT。若要成为执行规则，应同步进 0403 plan / resolution 或对应 SSOT。
+      </p>
     </aside>
 
-    <main>
-      <section id="summary" class="hero">
-        <div class="hero-copy">
-          <h2>Zitadel 负责登录身份，Dongyu App 负责业务权限，Matrix 作为可授予的通讯能力。</h2>
-          <p>
-            推荐方式不是让 Dongyu App 变成新的 SSO 平台，也不是让 Matrix 决定所有权限。
-            Dongyu App 只需要成为自己的 OIDC client，并把登录后的用户映射到 Workspace、角色、Matrix 绑定和管理总线能力。
-          </p>
-          <div class="decision-strip">
-            <div class="decision">
-              <strong>主身份源</strong>
-              <span>Zitadel 证明用户是谁，处理账号、组织、登录策略和多因素登录。</span>
-            </div>
-            <div class="decision">
-              <strong>主权限源</strong>
-              <span>Dongyu App 决定用户能看什么、改什么、触发什么。</span>
-            </div>
-            <div class="decision">
-              <strong>能力基础设施</strong>
-              <span>Matrix/MAS 提供聊天、通知、管理总线和 Matrix token。</span>
-            </div>
-          </div>
+    <section class="page">
+      <header class="topbar">
+        <strong>交互提示：点击地图节点、流程步骤、场景标签和字段块查看细节。</strong>
+        <div class="top-actions" aria-label="页面状态">
+          <span class="chip good">document 外层 overflow: hidden</span>
+          <span class="chip">content pane 内部滚动</span>
+          <span class="chip">单文件 HTML</span>
         </div>
+      </header>
 
-        <div class="hero-panel" aria-label="当前远端事实">
-          <div class="status-row">
-            <b>Zitadel</b>
-            <span><span class="ok">可用</span>，入口为 sso.dongyudigital.com</span>
-          </div>
-          <div class="status-row">
-            <b>MAS</b>
-            <span><span class="ok">可用</span>，入口为 mas.dongyudigital.com</span>
-          </div>
-          <div class="status-row">
-            <b>Matrix SSO</b>
-            <span><span class="ok">已开启</span>，支持 m.login.sso 与 m.login.token</span>
-          </div>
-          <div class="status-row">
-            <b>Dongyu App</b>
-            <span>应新增自己的 Zitadel OIDC 登录与业务 session</span>
-          </div>
-        </div>
-      </section>
+      <main class="content-pane" id="contentPane" tabindex="-1">
+        <div class="content-inner">
+          <section id="summary" class="hero" data-section>
+            <div class="hero-copy">
+              <h2>ZITADEL 不做 Dongyu 全局身份中心；跨工作区身份走 Matrix 管理总线上的短期能力。</h2>
+              <p>
+                推荐结构是三层：每个 workspace 有自己的本地认证域；Matrix 承担跨 workspace 管理总线通讯；
+                跨 workspace 请求传短期、带 audience、nonce、expiry、policy 的 assertion 或 capability，不转发普通登录 token。
+              </p>
+            </div>
+            <aside class="hero-panel" aria-label="最终判断">
+              <div class="verdict">
+                <b>可以保留</b>
+                <span>ZITADEL 用于官网账号、购买、组织内 SSO、workspace 内登录。</span>
+              </div>
+              <div class="verdict">
+                <b>需要避免</b>
+                <span>把 ZITADEL 设计成覆盖所有 VPN、所有 workspace 的唯一身份中心。</span>
+              </div>
+              <div class="verdict">
+                <b>应当新增</b>
+                <span>Matrix 管理总线上的跨 workspace assertion / capability bridge。</span>
+              </div>
+            </aside>
+          </section>
 
-      <section id="map" class="section">
-        <div class="section-head">
-          <h3>系统地图</h3>
-          <p>把“身份”“业务权限”“Matrix 能力”“消息传输”拆开，后续替换任一层都不会牵动整套系统。</p>
-        </div>
-        <div class="architecture-map">
-          <div class="layer">
-            <div class="layer-title identity">身份层</div>
-            <div class="layer-cards">
-              <div class="node">
-                <strong>Zitadel</strong>
-                <p>账号、组织、登录策略、MFA、OIDC issuer。</p>
+          <section id="decisions" class="section" data-section>
+            <div class="section-head">
+              <h3>设计判断</h3>
+              <p>把身份登录、业务权限、Matrix 认证和跨 workspace 授权拆开，后续每一层才能独立演进。</p>
+            </div>
+            <div class="decision-grid">
+              <article class="decision-card">
+                <span class="decision-tag">保留</span>
+                <h4>ZITADEL 作为 workspace 内 SSO</h4>
+                <p>ZITADEL 适合做组织内登录、外部 IdP broker、MFA、角色 claim 和账号生命周期。</p>
+              </article>
+              <article class="decision-card">
+                <span class="decision-tag warn">收窄</span>
+                <h4>Dongyu App session 只属于当前 workspace</h4>
+                <p>一个浏览器可以同时登录多个 workspace，但 issuer、homeserver、数据权限和 session 要彼此独立。</p>
+              </article>
+              <article class="decision-card">
+                <span class="decision-tag stop">禁止</span>
+                <h4>Matrix 不转发普通登录 token</h4>
+                <p>不要通过 Matrix 中转 ZITADEL access token / refresh token，也不要让中转 workspace 代持用户登录令牌。</p>
+              </article>
+            </div>
+          </section>
+
+          <section id="architecture" class="section" data-section>
+            <div class="section-head">
+              <h3>可点击架构地图</h3>
+              <p>点击任一节点，右侧会显示它的职责、边界和错误用法。</p>
+            </div>
+            <div class="map-shell">
+              <div class="map" aria-label="架构地图">
+                <div class="lane">
+                  <div class="lane-title portal">公共门户</div>
+                  <div class="node-grid">
+                    <button class="node-button active" type="button" data-layer="portal">
+                      <strong>官网账号</strong>
+                      <span>购买、文档、下载、workspace discovery。</span>
+                    </button>
+                    <button class="node-button" type="button" data-layer="public-zitadel">
+                      <strong>公共 ZITADEL</strong>
+                      <span>可用于门户 SSO，不直接读 workspace 数据。</span>
+                    </button>
+                    <button class="node-button" type="button" data-layer="directory">
+                      <strong>Workspace 目录</strong>
+                      <span>告诉用户有哪些可访问 workspace。</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="lane">
+                  <div class="lane-title local">本地认证域</div>
+                  <div class="node-grid">
+                    <button class="node-button" type="button" data-layer="local-idp">
+                      <strong>本地 IdP</strong>
+                      <span>ZITADEL、Keycloak、MAS upstream OIDC 或 Auth Worker。</span>
+                    </button>
+                    <button class="node-button" type="button" data-layer="workspace-session">
+                      <strong>Workspace session</strong>
+                      <span>当前 workspace 的浏览器会话。</span>
+                    </button>
+                    <button class="node-button" type="button" data-layer="workspace-policy">
+                      <strong>本地 policy</strong>
+                      <span>资源、角色、动作和审计策略。</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="lane">
+                  <div class="lane-title app">Dongyu App</div>
+                  <div class="node-grid">
+                    <button class="node-button" type="button" data-layer="app">
+                      <strong>Workspace App</strong>
+                      <span>按 workspace 登录，加载本地数据权限。</span>
+                    </button>
+                    <button class="node-button" type="button" data-layer="matrix-connect">
+                      <strong>Matrix connect</strong>
+                      <span>用于当前 workspace 的 Matrix 绑定。</span>
+                    </button>
+                    <button class="node-button" type="button" data-layer="local-data">
+                      <strong>本地数据</strong>
+                      <span>只由当前 workspace policy 授权访问。</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="lane">
+                  <div class="lane-title cross">跨工作区</div>
+                  <div class="node-grid">
+                    <button class="node-button" type="button" data-layer="mgmt-bus">
+                      <strong>Matrix 管理总线</strong>
+                      <span>传递请求、回包、审计和 assertion。</span>
+                    </button>
+                    <button class="node-button" type="button" data-layer="capability">
+                      <strong>短期 capability</strong>
+                      <span>带 audience、nonce、expiry、policy。</span>
+                    </button>
+                    <button class="node-button" type="button" data-layer="trust-registry">
+                      <strong>Trust registry</strong>
+                      <span>公钥目录、issuer 列表、workspace policy broker。</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="lane">
+                  <div class="lane-title data">目标工作区</div>
+                  <div class="node-grid">
+                    <button class="node-button" type="button" data-layer="target-verify">
+                      <strong>目标侧验证</strong>
+                      <span>校验 issuer / aud / nonce / expiry / policy。</span>
+                    </button>
+                    <button class="node-button" type="button" data-layer="target-action">
+                      <strong>执行动作</strong>
+                      <span>只执行被 capability 覆盖的动作。</span>
+                    </button>
+                    <button class="node-button" type="button" data-layer="audit">
+                      <strong>审计记录</strong>
+                      <span>记录请求方、目标、动作和结果。</span>
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div class="node">
-                <strong>OIDC token</strong>
-                <p>只证明登录身份，不直接代表 Dongyu App 权限。</p>
+
+              <aside class="detail-panel" aria-live="polite">
+                <h4 id="layerTitle">官网账号</h4>
+                <p id="layerBody">用于购买、文档、下载和 workspace discovery。它可以是中心化账号，但不能因为用户在官网登录了，就直接读取所有 workspace 数据。</p>
+                <ul class="mini-list" id="layerFacts">
+                  <li>适合：公共门户、账单、帮助中心。</li>
+                  <li>不适合：直接授予 workspace 内数据权限。</li>
+                  <li>验证点：进入 App 前必须选择具体 workspace。</li>
+                </ul>
+              </aside>
+            </div>
+          </section>
+
+          <section id="federation" class="section" data-section>
+            <div class="section-head">
+              <h3>两种 federation 不要混用</h3>
+              <p>ZITADEL 的 federation 是 IAM / SSO federation；Matrix 的 federation 是协议级跨 homeserver 通讯。它们可以配合，但不是同一种东西。</p>
+            </div>
+            <div class="tabs">
+              <div class="tab-bar" role="tablist" aria-label="联邦差异">
+                <button class="tab-button" type="button" role="tab" aria-selected="true" aria-controls="tab-iam" id="tab-iam-button">ZITADEL federation</button>
+                <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-matrix" id="tab-matrix-button">Matrix federation</button>
+                <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-mas" id="tab-mas-button">MAS 的位置</button>
               </div>
-              <div class="node">
-                <strong>用户目录</strong>
-                <p>以 Zitadel subject 或 email 映射到 Dongyu App 用户。</p>
+              <div class="tab-panel active" role="tabpanel" id="tab-iam" aria-labelledby="tab-iam-button">
+                <div class="scenario-grid">
+                  <div class="scenario-list">
+                    <button class="scenario-button active" type="button" data-scenario="iam-good">适合用法</button>
+                    <button class="scenario-button" type="button" data-scenario="iam-bad">错误外推</button>
+                    <button class="scenario-button" type="button" data-scenario="iam-boundary">边界</button>
+                  </div>
+                  <article class="scenario-card" id="scenarioCard">
+                    <h4>ZITADEL 适合做组织内 SSO 和 IdP brokering</h4>
+                    <p>它可以按 organization 配置不同外部 IdP，让用户通过 Entra ID、Okta、Google Workspace 等登录。</p>
+                    <div class="sequence">
+                      <div class="sequence-row"><b>1</b><span>用户进入当前 workspace 的 Dongyu App。</span></div>
+                      <div class="sequence-row"><b>2</b><span>App 跳转到该 workspace 选定的 ZITADEL / IdP。</span></div>
+                      <div class="sequence-row"><b>3</b><span>App 用返回的身份建立当前 workspace session。</span></div>
+                    </div>
+                  </article>
+                </div>
+              </div>
+              <div class="tab-panel" role="tabpanel" id="tab-matrix" aria-labelledby="tab-matrix-button">
+                <div class="scenario-card">
+                  <h4>Matrix 适合承担跨 workspace 管理总线</h4>
+                  <p>每个 workspace 可以有自己的 homeserver 或管理房间。跨 workspace 通讯由 Matrix transport 承载，但业务授权仍由目标 workspace 验证。</p>
+                  <div class="sequence">
+                    <div class="sequence-row"><b>A</b><span>源 workspace 生成短期 assertion。</span></div>
+                    <div class="sequence-row"><b>B</b><span>Matrix 管理总线转发请求。</span></div>
+                    <div class="sequence-row"><b>C</b><span>目标 workspace 依据 policy 决定是否执行。</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="tab-panel" role="tabpanel" id="tab-mas" aria-labelledby="tab-mas-button">
+                <div class="scenario-card">
+                  <h4>MAS 是 Matrix 登录层，不是 Dongyu 通用 IAM</h4>
+                  <p>MAS 可以接 upstream OIDC provider，并服务 Matrix homeserver 登录。Dongyu App 可以通过 Matrix SSO connect 获取 Matrix 能力，但不应把 MAS 当成所有业务系统的权限中心。</p>
+                  <div class="sequence">
+                    <div class="sequence-row"><b>1</b><span>Dongyu App session 已经存在。</span></div>
+                    <div class="sequence-row"><b>2</b><span>用户需要 Matrix 能力时触发 Matrix SSO。</span></div>
+                    <div class="sequence-row"><b>3</b><span>后端换取 Matrix token 并仅保存在受控 session 中。</span></div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div class="layer">
-            <div class="layer-title app">Dongyu App 层</div>
-            <div class="layer-cards">
-              <div class="node">
-                <strong>App session</strong>
-                <p>Dongyu App 自己签发 cookie，代表当前浏览器已登录。</p>
+          <section id="flow" class="section" data-section>
+            <div class="section-head">
+              <h3>跨工作区请求流程</h3>
+              <p>点击步骤查看它应校验什么。关键点是：中转只做目录、信任和策略辅助，不转发原始登录 token。</p>
+            </div>
+            <div class="flow-shell">
+              <div class="flow-grid" aria-label="跨工作区流程">
+                <button class="flow-step active" type="button" data-step="login">
+                  <div class="step-index">1</div>
+                  <strong>用户登录本工作区</strong>
+                  <span>建立 source workspace session。</span>
+                </button>
+                <button class="flow-step" type="button" data-step="issue">
+                  <div class="step-index">2</div>
+                  <strong>签发短期断言</strong>
+                  <span>包含 audience、nonce、expiry、policy。</span>
+                </button>
+                <button class="flow-step" type="button" data-step="bus">
+                  <div class="step-index">3</div>
+                  <strong>Matrix 管理总线发送</strong>
+                  <span>仅传请求和 assertion，不传 refresh token。</span>
+                </button>
+                <button class="flow-step" type="button" data-step="verify">
+                  <div class="step-index">4</div>
+                  <strong>目标工作区验证</strong>
+                  <span>校验 issuer、aud、nonce、expiry、policy。</span>
+                </button>
+                <button class="flow-step" type="button" data-step="execute">
+                  <div class="step-index">5</div>
+                  <strong>执行或签发 capability</strong>
+                  <span>只授权目标侧临时动作。</span>
+                </button>
               </div>
-              <div class="node">
-                <strong>权限模型</strong>
-                <p>Workspace、角色、资源、操作策略都由 Dongyu App 判定。</p>
+              <aside class="detail-panel" aria-live="polite">
+                <h4 id="stepTitle">用户登录本工作区</h4>
+                <p id="stepBody">用户只在 source workspace 建立本地 session。这个 session 不应自动变成访问其他 workspace 的通行证。</p>
+                <ul class="mini-list" id="stepFacts">
+                  <li>校验：本地 IdP 与 workspace membership。</li>
+                  <li>输出：source workspace session。</li>
+                  <li>禁止：直接把官网登录态当成所有 workspace 权限。</li>
+                </ul>
+              </aside>
+            </div>
+          </section>
+
+          <section id="assertion" class="section" data-section>
+            <div class="section-head">
+              <h3>短期 assertion / capability 字段检查器</h3>
+              <p>点击字段查看它解决什么问题。字段越少越危险，尤其不能缺 audience、nonce、expiry 和签名。</p>
+            </div>
+            <div class="assertion-shell">
+              <div class="field-grid">
+                <button class="field-button active" type="button" data-field="iss"><code>iss</code><span>签发方</span></button>
+                <button class="field-button" type="button" data-field="sub"><code>sub</code><span>用户主体</span></button>
+                <button class="field-button" type="button" data-field="workspace"><code>workspace_id</code><span>来源工作区</span></button>
+                <button class="field-button" type="button" data-field="aud"><code>aud</code><span>目标受众</span></button>
+                <button class="field-button" type="button" data-field="action"><code>action</code><span>请求动作</span></button>
+                <button class="field-button" type="button" data-field="resource"><code>resource</code><span>目标资源</span></button>
+                <button class="field-button" type="button" data-field="caps"><code>capabilities</code><span>能力范围</span></button>
+                <button class="field-button" type="button" data-field="nonce"><code>nonce</code><span>一次性随机数</span></button>
+                <button class="field-button" type="button" data-field="jti"><code>jti</code><span>唯一请求 ID</span></button>
+                <button class="field-button" type="button" data-field="iat"><code>iat / nbf</code><span>生效时间</span></button>
+                <button class="field-button" type="button" data-field="exp"><code>exp</code><span>过期时间</span></button>
+                <button class="field-button" type="button" data-field="sig"><code>signature</code><span>签名</span></button>
               </div>
-              <div class="node">
-                <strong>能力发放</strong>
-                <p>按权限决定是否绑定 Matrix、上传文件、发管理总线消息。</p>
+              <aside class="detail-panel" aria-live="polite">
+                <h4 id="fieldTitle">iss</h4>
+                <p id="fieldBody">声明由哪个 workspace 或 policy broker 签发。目标 workspace 必须在 trust registry 中找到该 issuer 的公钥和允许范围。</p>
+                <ul class="mini-list" id="fieldFacts">
+                  <li>防止来源不明的请求被执行。</li>
+                  <li>必须与签名公钥、policy 版本和审计记录关联。</li>
+                  <li>失败处理：fail closed，并写可审计拒绝原因。</li>
+                </ul>
+              </aside>
+            </div>
+          </section>
+
+          <section id="boundaries" class="section" data-section>
+            <div class="section-head">
+              <h3>职责边界表</h3>
+              <p>这张表用于修正 0403 当前措辞：ZITADEL 是当前 workspace 的 SSO source，不是全 Dongyu 的唯一身份中心。</p>
+            </div>
+            <div class="boundary-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>层</th>
+                    <th>应该负责</th>
+                    <th>不应该负责</th>
+                    <th>0403 文档应改的方向</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>官网 / 公共门户</strong></td>
+                    <td>购买、账号、文档、下载、workspace 发现。</td>
+                    <td>直接读取所有 workspace 数据。</td>
+                    <td><p>把公共账号和 App workspace session 分开。</p></td>
+                  </tr>
+                  <tr>
+                    <td><strong>ZITADEL</strong></td>
+                    <td>组织内 SSO、IdP brokering、MFA、OIDC claims。</td>
+                    <td>覆盖所有 workspace 的全局身份总线。</td>
+                    <td><p>改成 workspace-scoped SSO source。</p></td>
+                  </tr>
+                  <tr>
+                    <td><strong>Dongyu App</strong></td>
+                    <td>本 workspace session、角色、资源权限、审计。</td>
+                    <td>转发普通登录 token 给其他 workspace。</td>
+                    <td><p>增加多 workspace session 独立性。</p></td>
+                  </tr>
+                  <tr>
+                    <td><strong>Matrix / MAS</strong></td>
+                    <td>Matrix 登录、homeserver 通讯、管理总线 transport。</td>
+                    <td>替代 Dongyu App 通用 IAM。</td>
+                    <td><p>Matrix connect 与跨 workspace assertion bridge 分开。</p></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="rules" class="section" data-section>
+            <div class="section-head">
+              <h3>落地规则</h3>
+              <p>这些规则可以直接拆进后续 plan / resolution 的验收项。</p>
+            </div>
+            <div class="rules">
+              <div class="rule-row">
+                <b>Token 规则</b>
+                <span>Matrix 中只传短期 assertion / capability，不传普通 access token / refresh token。</span>
+                <em>缺 signature / aud / exp 时拒绝。</em>
+              </div>
+              <div class="rule-row">
+                <b>Session 规则</b>
+                <span>同一浏览器可以有多个 workspace session，每个 session 独立绑定 issuer、homeserver 和数据权限。</span>
+                <em>官网登录不等于全部 workspace 已授权。</em>
+              </div>
+              <div class="rule-row">
+                <b>中转规则</b>
+                <span>中转 workspace 只做 trust registry、policy broker、公钥目录或 workspace 目录。</span>
+                <em>不能代持用户原始登录令牌。</em>
+              </div>
+              <div class="rule-row">
+                <b>目标侧规则</b>
+                <span>目标 workspace 自己校验 issuer、audience、nonce、expiry、policy 和 capability。</span>
+                <em>不能只因为来自 Matrix room 就执行。</em>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div class="layer">
-            <div class="layer-title capability">Matrix 能力层</div>
-            <div class="layer-cards">
-              <div class="node">
-                <strong>MAS</strong>
-                <p>Matrix 专用认证桥，负责把 Zitadel 登录变成 Matrix 登录。</p>
-              </div>
-              <div class="node">
-                <strong>Matrix account</strong>
-                <p>用户在 Matrix 的身份，例如 @user:synapse.dongyudigital.com。</p>
-              </div>
-              <div class="node">
-                <strong>Matrix token</strong>
-                <p>调用 Matrix API 所需凭据，由 MAS/Synapse 负责发放。</p>
-              </div>
+          <section id="ui-check" class="section" data-section>
+            <div class="section-head">
+              <h3>UI 滚动常规验收</h3>
+              <p>这个页面本身也按 100dvh/100vw + 内部 content pane 滚动实现，避免浏览器 body 出现双滚动条。</p>
             </div>
-          </div>
-
-          <div class="layer">
-            <div class="layer-title transport">通讯与总线层</div>
-            <div class="layer-cards">
-              <div class="node">
-                <strong>聊天/通知</strong>
-                <p>用户消息、房间、通知和文件能力走 Matrix。</p>
-              </div>
-              <div class="node">
-                <strong>管理总线</strong>
-                <p>受控的系统指令通道，不等同于普通聊天权限。</p>
-              </div>
-              <div class="node">
-                <strong>Workers/MBR</strong>
-                <p>只处理通过 Dongyu App 授权后的受控消息。</p>
-              </div>
+            <div class="scroll-check">
+              <ul class="check-list" aria-label="滚动验收项">
+                <li>
+                  <label>
+                    <input class="check-input" type="checkbox" checked>
+                    <span><strong>document 无外层 overflow</strong>html/body 固定 100dvh/100vw，body 不产生横向或纵向滚动。</span>
+                  </label>
+                </li>
+                <li>
+                  <label>
+                    <input class="check-input" type="checkbox" checked>
+                    <span><strong>App content pane 可纵向滚动</strong>主要内容区是内部滚动容器，底部内容可以滚到底。</span>
+                  </label>
+                </li>
+                <li>
+                  <label>
+                    <input class="check-input" type="checkbox">
+                    <span><strong>底部不被 dock / taskbar 遮挡</strong>内容区保留底部 padding，最后一段和 footer 可完整露出。</span>
+                  </label>
+                </li>
+                <li>
+                  <label>
+                    <input class="check-input" type="checkbox">
+                    <span><strong>切换 App 后不跳回错误位置</strong>切换或导航只滚动内部 pane，不让 body 参与滚动。</span>
+                  </label>
+                </li>
+                <li>
+                  <label>
+                    <input class="check-input" type="checkbox">
+                    <span><strong>无双滚动条，无横向溢出</strong>桌面和移动宽度都不出现 document 级横向滚动。</span>
+                  </label>
+                </li>
+              </ul>
+              <aside class="progress-card" aria-live="polite">
+                <strong id="checkScore">2 / 5</strong>
+                <div class="meter"><span id="checkMeter"></span></div>
+                <p id="checkText">已勾选 2 项。浏览器实测时应全部通过。</p>
+              </aside>
             </div>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      <section id="login" class="section">
-        <div class="section-head">
-          <h3>推荐登录流程</h3>
-          <p>Dongyu App 做 OIDC client，只为自己建立 session。它不是新的全局 SSO，也不负责给 Matrix 发 token。</p>
-        </div>
-        <div class="flow" aria-label="登录流程图">
-          <div class="step">
-            <div class="step-index">1</div>
-            <strong>访客打开 App</strong>
-            <p>可以浏览公开页面。敏感写入、上传、管理动作保持不可用或提示登录。</p>
-          </div>
-          <div class="step">
-            <div class="step-index">2</div>
-            <strong>跳转 Zitadel</strong>
-            <p>点击登录后，Dongyu App 发起 OIDC authorization code flow。</p>
-          </div>
-          <div class="step">
-            <div class="step-index">3</div>
-            <strong>回到 callback</strong>
-            <p>Dongyu App 后端校验 code、state、nonce，再读取用户身份。</p>
-          </div>
-          <div class="step">
-            <div class="step-index">4</div>
-            <strong>建立 App session</strong>
-            <p>写入 Dongyu App 自己的 session cookie，后续页面请求只认这个会话。</p>
-          </div>
-          <div class="step">
-            <div class="step-index">5</div>
-            <strong>加载业务权限</strong>
-            <p>按用户、组织、Workspace 和角色计算可见资源与可执行动作。</p>
-          </div>
-        </div>
-      </section>
-
-      <section id="matrix" class="section">
-        <div class="section-head">
-          <h3>从 Dongyu App session 到 Matrix token</h3>
-          <p>Matrix token 是一项可发放能力，不是 App 登录本身。用户可以先登录 Dongyu App，再按需绑定 Matrix。</p>
-        </div>
-        <div class="tabs">
-          <div class="tab-bar" role="tablist" aria-label="Matrix 绑定方式">
-            <button class="tab-button" type="button" role="tab" aria-selected="true" aria-controls="tab-bind" id="tab-bind-button">推荐：按需绑定</button>
-            <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-service" id="tab-service-button">服务端代理</button>
-            <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-auto" id="tab-auto-button">未来：自动供应</button>
-          </div>
-
-          <div class="tab-panel active" role="tabpanel" id="tab-bind" aria-labelledby="tab-bind-button">
-            <div class="split">
-              <div class="callout">
-                <h4>什么时候触发</h4>
-                <p>用户第一次进入聊天、房间、文件上传、Matrix Suite 或需要个人 Matrix 身份的功能时触发。</p>
-              </div>
-              <div class="plain-card">
-                <h4>为什么推荐</h4>
-                <p>复用现有 MAS 和 Matrix SSO，用户通常已经在 Zitadel 登录，第二跳可以近似无感完成。</p>
-              </div>
+          <section id="sources" class="section" data-section>
+            <div class="section-head">
+              <h3>来源与仓库对齐点</h3>
+              <p>外部来源用于判断产品定位；仓库对齐点用于判断 0403 的具体修正方向。</p>
             </div>
-            <div class="matrix-binding" aria-label="按需绑定流程">
-              <div class="binding-box">
-                <strong>Dongyu App session</strong>
-                <span>用户已经通过 Zitadel 登录，App 知道这个人是谁。</span>
-              </div>
-              <div class="arrow" aria-hidden="true"></div>
-              <div class="binding-box">
-                <strong>Matrix SSO redirect</strong>
-                <span>跳到 matrix.dongyudigital.com，由 MAS 接 Zitadel。</span>
-              </div>
-              <div class="arrow" aria-hidden="true"></div>
-              <div class="binding-box">
-                <strong>Matrix token</strong>
-                <span>回调带 loginToken，后端换取 Matrix access token 并存储绑定。</span>
-              </div>
+            <div class="source-grid">
+              <article class="source-box">
+                <h4>ZITADEL Identity Brokering</h4>
+                <a href="https://zitadel.com/docs/concepts/features/identity-brokering">https://zitadel.com/docs/concepts/features/identity-brokering</a>
+              </article>
+              <article class="source-box">
+                <h4>ZITADEL Organizations</h4>
+                <a href="https://zitadel.com/docs/guides/manage/console/organizations-overview">https://zitadel.com/docs/guides/manage/console/organizations-overview</a>
+              </article>
+              <article class="source-box">
+                <h4>Matrix Authentication Service upstream SSO</h4>
+                <a href="https://element-hq.github.io/matrix-authentication-service/setup/sso.html">https://element-hq.github.io/matrix-authentication-service/setup/sso.html</a>
+              </article>
+              <article class="source-box">
+                <h4>0403 当前计划需收窄</h4>
+                <a href="docs/iterations/0403-zitadel-sso-authz-gateway/plan.md">docs/iterations/0403-zitadel-sso-authz-gateway/plan.md</a>
+              </article>
             </div>
-          </div>
+          </section>
 
-          <div class="tab-panel" role="tabpanel" id="tab-service" aria-labelledby="tab-service-button">
-            <div class="split">
-              <div class="callout">
-                <h4>适用场景</h4>
-                <p>管理总线、系统通知、审计投递等不需要代表某个自然人直接发言的能力。</p>
-              </div>
-              <div class="plain-card">
-                <h4>边界</h4>
-                <p>服务端可以用受控 Matrix 身份发消息，但必须先通过 Dongyu App 权限判断，不能让前端直接拿总线凭据。</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="tab-panel" role="tabpanel" id="tab-auto" aria-labelledby="tab-auto-button">
-            <div class="split">
-              <div class="callout">
-                <h4>未来能力</h4>
-                <p>登录后自动创建或关联 Matrix 账号，减少用户感知到的绑定步骤。</p>
-              </div>
-              <div class="plain-card">
-                <h4>前置条件</h4>
-                <p>需要明确 Matrix 用户生命周期、停用策略、账号命名、组织隔离、数据删除和审计规则。</p>
-              </div>
-            </div>
-          </div>
+          <footer>
+            版本：2026-06-05。交互状态仅用于阅读；正式规则仍应写入 iteration plan / resolution 或 SSOT。
+          </footer>
         </div>
-      </section>
-
-      <section id="bus" class="section">
-        <div class="section-head">
-          <h3>管理总线能力如何发放</h3>
-          <p>管理总线不是“有 Matrix token 就能发”。它应由 Dongyu App 授权后再转成受控消息。</p>
-        </div>
-        <div class="rules-grid">
-          <div class="rule">
-            <h4>先判断 App 权限</h4>
-            <p>用户是否属于这个 Workspace，是否能安装 App、删除资源、触发 Worker、查看调试信息，都由 Dongyu App 判断。</p>
-          </div>
-          <div class="rule">
-            <h4>再生成总线消息</h4>
-            <p>通过权限判断后，后端生成标准管理总线消息，附带操作者、资源、动作和审计信息。</p>
-          </div>
-          <div class="rule">
-            <h4>最后使用 Matrix 投递</h4>
-            <p>Matrix 只负责传输。可以使用用户绑定身份，也可以使用受控服务身份，取决于动作是否需要以用户名义发出。</p>
-          </div>
-        </div>
-      </section>
-
-      <section id="roles" class="section">
-        <div class="section-head">
-          <h3>职责边界</h3>
-          <p>这张表是整个方案的核心：Dongyu App 不做 MAS，MAS 也不替 Dongyu App 决定业务权限。</p>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>组件</th>
-                <th>应该负责</th>
-                <th>不应该负责</th>
-                <th>Dongyu App 需要保存什么</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Zitadel</strong></td>
-                <td>账号、组织、登录策略、OIDC、MFA、用户生命周期。</td>
-                <td>Workspace 内部权限、管理总线动作、Matrix 房间策略。</td>
-                <td><p>保存 Zitadel user id 到 Dongyu 用户的映射。</p></td>
-              </tr>
-              <tr>
-                <td><strong>Dongyu App</strong></td>
-                <td>App session、Workspace 权限、资源授权、审计、能力发放。</td>
-                <td>成为全局 SSO 平台，或直接给 Matrix 发行认证 token。</td>
-                <td><p>保存 session、用户、角色、Workspace membership、Matrix 绑定状态。</p></td>
-              </tr>
-              <tr>
-                <td><strong>MAS</strong></td>
-                <td>Matrix 专用 OIDC 桥接，处理 Matrix loginToken 和 Matrix 登录兼容。</td>
-                <td>决定 Dongyu App 业务权限，或替 App 做 Workspace 权限管理。</td>
-                <td><p>Dongyu App 不直接保存 MAS 内部状态，只保存 Matrix 绑定结果。</p></td>
-              </tr>
-              <tr>
-                <td><strong>Matrix</strong></td>
-                <td>聊天、通知、房间、文件、管理总线传输。</td>
-                <td>成为 Dongyu App 的唯一用户权限系统。</td>
-                <td><p>保存 matrix_user_id、token metadata、可用能力范围和更新时间。</p></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section id="roadmap" class="section">
-        <div class="section-head">
-          <h3>分阶段落地路径</h3>
-          <p>先让 Dongyu App 拥有自己的登录态，再把 Matrix 作为能力逐步接上。</p>
-        </div>
-        <div class="timeline">
-          <div class="phase">
-            <div class="phase-key">Phase 1</div>
-            <div class="phase-body">
-              <strong>Zitadel OIDC 登录</strong>
-              <p>新增 Dongyu App 登录、callback、session、退出；前端右上角显示访客/已登录用户菜单。</p>
-            </div>
-          </div>
-          <div class="phase">
-            <div class="phase-key">Phase 2</div>
-            <div class="phase-body">
-              <strong>业务权限模型</strong>
-              <p>建立用户、组织、Workspace、角色、操作权限。敏感动作统一经过后端授权。</p>
-            </div>
-          </div>
-          <div class="phase">
-            <div class="phase-key">Phase 3</div>
-            <div class="phase-body">
-              <strong>Matrix 按需绑定</strong>
-              <p>用户进入聊天或 Matrix 能力时，通过 Matrix SSO 绑定 Matrix account，后端安全保存 token。</p>
-            </div>
-          </div>
-          <div class="phase">
-            <div class="phase-key">Phase 4</div>
-            <div class="phase-body">
-              <strong>管理总线授权网关</strong>
-              <p>所有管理总线动作先过 Dongyu App 权限，再由后端生成受控总线消息并投递。</p>
-            </div>
-          </div>
-          <div class="phase">
-            <div class="phase-key">Phase 5</div>
-            <div class="phase-body">
-              <strong>生命周期与审计</strong>
-              <p>补齐 token 失效、用户停用、组织隔离、审计日志、账号回收和紧急封禁策略。</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="risks" class="section">
-        <div class="section-head">
-          <h3>关键风险与设计原则</h3>
-          <p>最重要的原则是：登录、业务授权、Matrix token、管理总线指令必须分层。</p>
-        </div>
-        <ul class="risk-list">
-          <li>
-            <b>不要重做 MAS</b>
-            <span>Dongyu App 不应自己实现 Matrix 登录兼容、Matrix token 发行或 Matrix 认证桥。</span>
-          </li>
-          <li>
-            <b>不要信任前端</b>
-            <span>前端只能提交意图。上传、总线、安装、删除、调试等动作必须由后端按 session 和权限判断。</span>
-          </li>
-          <li>
-            <b>不要混淆 token</b>
-            <span>Zitadel token 证明登录身份，Dongyu App session 证明 App 登录，Matrix token 证明可调用 Matrix。</span>
-          </li>
-          <li>
-            <b>不要让 Matrix 定义业务角色</b>
-            <span>Matrix room 成员关系可以作为辅助信号，但 Workspace 管理员、资源 owner、操作权限应由 Dongyu App 管。</span>
-          </li>
-          <li>
-            <b>保留替换空间</b>
-            <span>未来如果 Matrix 只作为一个 app 或者被替换，Dongyu App 的登录与权限体系仍应继续成立。</span>
-          </li>
-        </ul>
-      </section>
-
-      <footer>
-        版本：2026-05-29。建议把本页作为方案沟通稿，后续若进入实现，再拆成正式设计文档、接口清单和分阶段验收项。
-      </footer>
-    </main>
+      </main>
+    </section>
   </div>
 
   <script>
-    const buttons = Array.from(document.querySelectorAll('.tab-button'));
-    const panels = Array.from(document.querySelectorAll('.tab-panel'));
+    const contentPane = document.getElementById('contentPane');
+    const navLinks = Array.from(document.querySelectorAll('.nav-link'));
+
+    for (const link of navLinks) {
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        const target = document.querySelector(link.getAttribute('href'));
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        for (const item of navLinks) item.classList.toggle('active', item === link);
+      });
+    }
+
+    const layerData = {
+      portal: {
+        title: '官网账号',
+        body: '用于购买、文档、下载和 workspace discovery。它可以是中心化账号，但不能因为用户在官网登录了，就直接读取所有 workspace 数据。',
+        facts: ['适合：公共门户、账单、帮助中心。', '不适合：直接授予 workspace 内数据权限。', '验证点：进入 App 前必须选择具体 workspace。']
+      },
+      'public-zitadel': {
+        title: '公共 ZITADEL',
+        body: '公共门户可以使用 ZITADEL 统一登录，但这个登录态只服务公共门户，不自动变成 workspace 内业务权限。',
+        facts: ['适合：官网、购买、下载、文档。', '边界：workspace App 必须重新建立 workspace-scoped session。', '风险：把公共账号误用成所有数据的全局钥匙。']
+      },
+      directory: {
+        title: 'Workspace 目录',
+        body: '目录只告诉用户有哪些 workspace 可发现或可申请访问，不代表目标 workspace 已经授权数据读取。',
+        facts: ['输出：workspace metadata 和入口。', '不输出：目标 workspace 的业务数据。', '验证点：进入目标 workspace 后仍需目标侧授权。']
+      },
+      'local-idp': {
+        title: '本地 IdP',
+        body: '每个 workspace 可以选择自己的 ZITADEL、Keycloak、MAS upstream OIDC 或未来自研 Auth Worker。',
+        facts: ['允许：不同 workspace 使用不同 IdP。', '要求：issuer 必须记录到 session。', '风险：跨 workspace 混用同一个 session。']
+      },
+      'workspace-session': {
+        title: 'Workspace session',
+        body: 'session 只代表当前 workspace 登录，不代表其他 workspace、其他 homeserver 或公共门户权限。',
+        facts: ['包含：issuer、subject、workspace_id、roles。', '隔离：不同 workspace 独立 cookie 或独立 session namespace。', '退出：只清理对应 workspace 会话。']
+      },
+      'workspace-policy': {
+        title: '本地 policy',
+        body: '资源、角色、动作和审计策略属于目标 workspace 本地决策，不由 Matrix room 成员关系直接替代。',
+        facts: ['校验：resource、action、role、owner。', '输出：allow / deny 和审计原因。', '禁止：只因用户在 Matrix room 内就执行管理动作。']
+      },
+      app: {
+        title: 'Workspace App',
+        body: '浏览器 Dongyu App 按 workspace 登录，可支持多 workspace session，但每个 session 的 issuer、homeserver 和权限独立。',
+        facts: ['适合：本地数据访问和 App UI。', '要求：写操作必须 server-side 授权。', '边界：官网登录不直接读 workspace 数据。']
+      },
+      'matrix-connect': {
+        title: 'Matrix connect',
+        body: 'Matrix token 是当前 workspace 的一项能力。它可以通过 MAS / Matrix SSO 获取，但不等同于 Dongyu App 登录本身。',
+        facts: ['触发：进入聊天、管理总线或 Matrix-backed 能力。', '保存：后端 session 内受控保存。', '禁止：把 Matrix token 暴露给前端或跨 workspace 转发。']
+      },
+      'local-data': {
+        title: '本地数据',
+        body: 'workspace 数据只由本 workspace policy 授权。跨 workspace 访问必须走管理总线请求和目标侧验证。',
+        facts: ['默认：本地 session 只能读本地授权数据。', '跨域：必须生成 assertion / capability。', '审计：记录谁请求、为什么请求、执行结果。']
+      },
+      'mgmt-bus': {
+        title: 'Matrix 管理总线',
+        body: 'Matrix 管理总线负责跨 workspace 请求、回包和审计传播。它是 transport，不是最终授权源。',
+        facts: ['承载：request、response、assertion、trace。', '不承载：普通登录 access token / refresh token。', '验证：目标 workspace 自己校验 capability。']
+      },
+      capability: {
+        title: '短期 capability',
+        body: 'capability 是目标受众限定、一次性或短期有效的授权材料，只覆盖某个动作或资源范围。',
+        facts: ['必须有：aud、nonce、exp、signature。', '建议有：jti、policy_version、resource、action。', '失败：缺字段或过期必须 fail closed。']
+      },
+      'trust-registry': {
+        title: 'Trust registry',
+        body: '中转 workspace 可以维护公钥目录、issuer 列表、workspace 目录和 policy broker，但不能转发用户原始登录令牌。',
+        facts: ['适合：公钥目录、组织信任、policy 发现。', '边界：不代持 refresh token。', '审计：记录信任链和 policy version。']
+      },
+      'target-verify': {
+        title: '目标侧验证',
+        body: '目标 workspace 必须验证 issuer、audience、nonce、expiry、policy 和 capability，再决定是否执行。',
+        facts: ['校验：签名、公钥、aud、jti、exp。', '防重放：nonce / jti 进入短期缓存。', '拒绝：不写业务状态，写审计原因。']
+      },
+      'target-action': {
+        title: '执行动作',
+        body: '目标侧只执行 capability 覆盖的动作。需要持续能力时，由目标侧签发自己的临时 capability。',
+        facts: ['执行：最小权限、最短时效。', '回包：通过 response topic 或管理总线返回。', '禁止：把 source session 扩大成长期目标侧 session。']
+      },
+      audit: {
+        title: '审计记录',
+        body: '跨 workspace 动作必须记录 source、target、subject、resource、action、policy_version、decision 和 request id。',
+        facts: ['来源：assertion claims。', '目标：执行决策与结果。', '用途：追踪误授权、重放攻击和跨组织争议。']
+      }
+    };
+
+    const layerTitle = document.getElementById('layerTitle');
+    const layerBody = document.getElementById('layerBody');
+    const layerFacts = document.getElementById('layerFacts');
+
+    function renderList(list, target) {
+      target.innerHTML = '';
+      for (const item of list) {
+        const li = document.createElement('li');
+        li.textContent = item;
+        target.appendChild(li);
+      }
+    }
+
+    function activateLayer(button) {
+      const data = layerData[button.dataset.layer];
+      if (!data) return;
+      document.querySelectorAll('.node-button').forEach((item) => item.classList.toggle('active', item === button));
+      layerTitle.textContent = data.title;
+      layerBody.textContent = data.body;
+      renderList(data.facts, layerFacts);
+    }
+
+    document.querySelectorAll('.node-button').forEach((button) => {
+      button.addEventListener('click', () => activateLayer(button));
+    });
+
+    const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
+    const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
 
     function activateTab(button) {
-      for (const item of buttons) {
-        item.setAttribute('aria-selected', String(item === button));
-      }
-      for (const panel of panels) {
-        panel.classList.toggle('active', panel.id === button.getAttribute('aria-controls'));
-      }
+      for (const item of tabButtons) item.setAttribute('aria-selected', String(item === button));
+      for (const panel of tabPanels) panel.classList.toggle('active', panel.id === button.getAttribute('aria-controls'));
     }
 
-    for (const button of buttons) {
+    for (const button of tabButtons) {
       button.addEventListener('click', () => activateTab(button));
     }
+
+    const scenarioData = {
+      'iam-good': {
+        title: 'ZITADEL 适合做组织内 SSO 和 IdP brokering',
+        body: '它可以按 organization 配置不同外部 IdP，让用户通过 Entra ID、Okta、Google Workspace 等登录。',
+        rows: ['用户进入当前 workspace 的 Dongyu App。', 'App 跳转到该 workspace 选定的 ZITADEL / IdP。', 'App 用返回的身份建立当前 workspace session。']
+      },
+      'iam-bad': {
+        title: '错误外推：把 ZITADEL 当成 Matrix-style 全局总线',
+        body: 'ZITADEL 的 multi-tenancy 不等于每个 workspace 一个 homeserver 的协议级 federation。不要让它直接承诺所有 workspace 之间的去中心化互认。',
+        rows: ['用户在公共门户登录。', '系统错误地把该 token 转给其他 workspace。', '目标 workspace 被迫信任不属于自己的登录态。']
+      },
+      'iam-boundary': {
+        title: '边界：身份可以 broker，权限仍要本地验证',
+        body: 'ZITADEL 可以证明某个组织内用户是谁，但目标 workspace 仍要决定这个人能不能操作某个资源。',
+        rows: ['读取 issuer、subject、roles。', '映射成本 workspace principal。', '按本地 policy 决定 allow / deny。']
+      }
+    };
+
+    const scenarioCard = document.getElementById('scenarioCard');
+
+    function activateScenario(button) {
+      const data = scenarioData[button.dataset.scenario];
+      if (!data || !scenarioCard) return;
+      document.querySelectorAll('.scenario-button').forEach((item) => item.classList.toggle('active', item === button));
+      const rows = data.rows.map((row, index) => `<div class="sequence-row"><b>${index + 1}</b><span>${row}</span></div>`).join('');
+      scenarioCard.innerHTML = `<h4>${data.title}</h4><p>${data.body}</p><div class="sequence">${rows}</div>`;
+    }
+
+    document.querySelectorAll('.scenario-button').forEach((button) => {
+      button.addEventListener('click', () => activateScenario(button));
+    });
+
+    const stepData = {
+      login: {
+        title: '用户登录本工作区',
+        body: '用户只在 source workspace 建立本地 session。这个 session 不应自动变成访问其他 workspace 的通行证。',
+        facts: ['校验：本地 IdP 与 workspace membership。', '输出：source workspace session。', '禁止：直接把官网登录态当成所有 workspace 权限。']
+      },
+      issue: {
+        title: '签发短期断言',
+        body: 'source workspace 根据本地 session 和 policy 生成短期 assertion。它只覆盖目标 audience 和请求动作。',
+        facts: ['必须：iss、sub、aud、nonce、exp、signature。', '建议：jti、resource、policy_version。', '禁止：附带 refresh token 或长期登录 token。']
+      },
+      bus: {
+        title: 'Matrix 管理总线发送',
+        body: 'Matrix 只负责传输请求和断言，不决定业务权限。中转节点可以辅助目录和公钥发现。',
+        facts: ['承载：request + assertion。', '不承载：普通 access token / refresh token。', '审计：记录 event id、source、target。']
+      },
+      verify: {
+        title: '目标工作区验证',
+        body: '目标 workspace 自己校验签名、issuer、audience、nonce、expiry 和 policy，再决定是否执行。',
+        facts: ['防重放：nonce / jti 缓存。', '授权：resource + action 最小范围。', '失败：拒绝并写审计，不做业务写入。']
+      },
+      execute: {
+        title: '执行或签发 capability',
+        body: '目标侧执行一次动作，或签发目标侧临时 capability。source workspace 的原始 session 不进入目标侧。',
+        facts: ['执行：只覆盖声明动作。', '回包：走 response 或管理总线。', '收尾：记录结果和过期时间。']
+      }
+    };
+
+    const stepTitle = document.getElementById('stepTitle');
+    const stepBody = document.getElementById('stepBody');
+    const stepFacts = document.getElementById('stepFacts');
+
+    function activateStep(button) {
+      const data = stepData[button.dataset.step];
+      if (!data) return;
+      document.querySelectorAll('.flow-step').forEach((item) => item.classList.toggle('active', item === button));
+      stepTitle.textContent = data.title;
+      stepBody.textContent = data.body;
+      renderList(data.facts, stepFacts);
+    }
+
+    document.querySelectorAll('.flow-step').forEach((button) => {
+      button.addEventListener('click', () => activateStep(button));
+    });
+
+    const fieldData = {
+      iss: ['iss', '声明由哪个 workspace 或 policy broker 签发。目标 workspace 必须在 trust registry 中找到该 issuer 的公钥和允许范围。', ['防止来源不明的请求被执行。', '必须与签名公钥、policy 版本和审计记录关联。', '失败处理：fail closed，并写可审计拒绝原因。']],
+      sub: ['sub', '请求代表哪个用户或服务主体。它不自动等于目标 workspace 用户，需要经过本地映射或 policy 判断。', ['用于审计和主体映射。', '可配合 matrix_user_id 或 external_subject。', '不能单独作为授权依据。']],
+      workspace: ['workspace_id', '说明 source workspace。目标侧可以据此查 trust registry、组织关系和允许的跨 workspace 策略。', ['区分同一用户在不同 workspace 的身份。', '用于审计和目录匹配。', '缺失时目标侧难以判断信任边界。']],
+      aud: ['aud', '声明目标 workspace、目标 service 或目标 resource。只有匹配 audience 的目标方可以接受。', ['防止断言被转用到其他 workspace。', '必须精确到 workspace 或 service。', 'aud 不匹配时直接拒绝。']],
+      action: ['action', '声明请求动作，例如 read、install、execute、invite 或 export。', ['用于最小权限授权。', '应与 resource 一起判断。', '不能用 broad admin 替代具体 action。']],
+      resource: ['resource', '声明目标资源，例如 workspace、room、model、file、worker 或 app id。', ['避免 capability 被扩大到其他资源。', '目标侧要验证资源存在和本地 policy。', '资源范围为空时只允许极窄的默认动作。']],
+      caps: ['capabilities', '声明能力范围，可以是一个或多个短期 capability，但必须清楚绑定 action、resource 和 audience。', ['用于表达目标侧可执行范围。', '过宽能力需要更短 TTL 和更强审计。', '不能等价于完整登录 session。']],
+      nonce: ['nonce', '一次性随机数，用于防重放。目标侧应在短期缓存中记录已使用 nonce。', ['防止同一请求被重复发送。', '应与 aud 和 jti 一起校验。', '重复 nonce 必须拒绝。']],
+      jti: ['jti', '唯一请求 ID，用于审计、幂等和重放检测。', ['方便串联 source、Matrix event 和 target log。', '可用于幂等处理。', '重复 jti 需要按 policy 判断是否拒绝或返回已有结果。']],
+      iat: ['iat / nbf', '声明签发时间和最早生效时间。目标侧用它判断时钟漂移和过早使用。', ['限制过早使用。', '辅助检测异常时钟。', '和 exp 共同控制有效窗口。']],
+      exp: ['exp', '声明过期时间。跨 workspace capability 必须短期有效。', ['建议以分钟级 TTL 起步。', '过期后必须拒绝。', '不能用长期 refresh token 替代。']],
+      sig: ['signature', '对断言签名，目标侧用 trust registry 中的公钥验证。', ['防篡改。', '绑定 issuer 和 policy_version。', '签名无效时 fail closed。']]
+    };
+
+    const fieldTitle = document.getElementById('fieldTitle');
+    const fieldBody = document.getElementById('fieldBody');
+    const fieldFacts = document.getElementById('fieldFacts');
+
+    function activateField(button) {
+      const data = fieldData[button.dataset.field];
+      if (!data) return;
+      document.querySelectorAll('.field-button').forEach((item) => item.classList.toggle('active', item === button));
+      fieldTitle.textContent = data[0];
+      fieldBody.textContent = data[1];
+      renderList(data[2], fieldFacts);
+    }
+
+    document.querySelectorAll('.field-button').forEach((button) => {
+      button.addEventListener('click', () => activateField(button));
+    });
+
+    const checkInputs = Array.from(document.querySelectorAll('.check-input'));
+    const checkScore = document.getElementById('checkScore');
+    const checkMeter = document.getElementById('checkMeter');
+    const checkText = document.getElementById('checkText');
+
+    function updateChecks() {
+      const done = checkInputs.filter((input) => input.checked).length;
+      const total = checkInputs.length;
+      const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+      checkScore.textContent = `${done} / ${total}`;
+      checkMeter.style.width = `${percent}%`;
+      checkText.textContent = done === total ? '全部通过。可以作为本轮浏览器验收记录。' : `已勾选 ${done} 项。浏览器实测时应全部通过。`;
+    }
+
+    for (const input of checkInputs) {
+      input.addEventListener('change', updateChecks);
+    }
+    updateChecks();
+
+    const sections = Array.from(document.querySelectorAll('[data-section]'));
+    contentPane.addEventListener('scroll', () => {
+      const paneTop = contentPane.getBoundingClientRect().top;
+      let current = sections[0];
+      for (const section of sections) {
+        const top = section.getBoundingClientRect().top - paneTop;
+        if (top <= 90) current = section;
+      }
+      for (const link of navLinks) {
+        link.classList.toggle('active', link.getAttribute('href') === `#${current.id}`);
+      }
+    }, { passive: true });
   </script>
 </body>
 </html>

@@ -145,6 +145,70 @@ source: ai
 - Rollback:
   - Follow Step 5 rollback if debug service should not remain.
 
+## Step 8 — Local Trace Contract And OIDC Config Guard
+
+- Scope:
+  - Add deterministic tests for local SSO configuration and timing trace metadata.
+  - Keep tests focused on official paths: renderer `bus_event_v2`, remote store `/bus_event`, server Model 0 bus ingress, and response materialization.
+- Files:
+  - `scripts/tests/test_0412_local_latency_trace_contract.mjs` (new)
+  - `deploy/env/local.env.example`
+  - `packages/ui-model-demo-frontend/src/bus_event_v2.js`
+  - `packages/ui-renderer/src/renderer.mjs`
+  - `packages/ui-renderer/src/renderer.js`
+  - `packages/ui-model-demo-frontend/src/remote_store.js`
+  - `packages/ui-model-demo-server/server.mjs`
+- Verification:
+  - RED then GREEN: `node scripts/tests/test_0412_local_latency_trace_contract.mjs`
+  - `git diff --check -- scripts/tests/test_0412_local_latency_trace_contract.mjs deploy/env/local.env.example packages/ui-model-demo-frontend/src/bus_event_v2.js packages/ui-model-demo-frontend/src/remote_store.js packages/ui-model-demo-server/server.mjs`
+- Acceptance:
+  - Test proves local env example uses remote SSO with `DY_OIDC_CLIENT_ID=375920990745592038`.
+  - Test proves `bus_event_v2` meta carries client dispatch timing.
+  - Test proves the authenticated `POST /bus_event` HTTP route returns a timing object for the same `op_id`, after route auth/capability checks and runtime-mode activation.
+- Review:
+  - Use a sub-agent with `codex-code-review` to review this stage before Step 9.
+- Rollback:
+  - Remove the new test and timing-only code/config edits.
+
+## Step 9 — Local Runtime And Browser Trace Verification
+
+- Scope:
+  - Deploy or restart local stack before browser claims.
+  - Use remote SSO configuration locally; do not mutate remote ZITADEL.
+  - Exercise ToDo request/response locally or through representative local MQTT publishing when remote worker is not locally present.
+- Files:
+  - `docs/iterations/0412-app1-todo-latency-debug/runlog.md`
+  - Optional assets under `docs/iterations/0412-app1-todo-latency-debug/assets/`
+- Verification:
+  - local deployment/status command for `ui-server`.
+  - `curl -I http://localhost:30900/auth/sso/start?...` verifies redirect contains client id `375920990745592038`.
+  - Browser opens `http://localhost:30900/#/` after local deploy/restart.
+  - A ToDo or representative `bus_event_v2` action produces trace evidence with timing stages.
+- Acceptance:
+  - runlog contains exact commands, timing output, and PASS/FAIL.
+- Review:
+  - Use a sub-agent with `codex-code-review` to review verification evidence and trace conformance before Step 10.
+- Rollback:
+  - Stop/revert only local runtime changes made for this test; source code rollback follows Step 8.
+
+## Step 10 — Optimize From Evidence And Final Review
+
+- Scope:
+  - Apply only low-risk optimizations proven by Step 9 evidence.
+  - Candidate optimizations: remove unnecessary fallback snapshot fetch when SSE is expected, add explicit timing response instead of full snapshot, fix response payload/state mismatch if reproduced locally.
+- Files:
+  - To be limited to the exact evidence-backed files from Step 9.
+- Verification:
+  - Re-run Step 8 tests and targeted existing tests that cover touched paths.
+  - Re-run local browser trace and compare before/after timing.
+- Acceptance:
+  - Any optimization has before/after evidence.
+  - No UI business event bypasses Model 0 / pin bus / owner materialization.
+- Review:
+  - Final sub-agent `codex-code-review`; all findings fixed or explicitly recorded.
+- Rollback:
+  - Revert optimization patch while keeping trace diagnostics if they remain useful and reviewed.
+
 ## Notes
 
 - Generated at: 2026-06-10

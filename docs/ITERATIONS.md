@@ -313,7 +313,12 @@ source: ai
 | 0409-todo-mqtt-egress-docs | 2026-06-04 | 修正 To Do 保存按钮外发 MQTT 的开发者写法，补完整 ModelTable 示例与导入后 MQTT publish 验证 | 3 | dropx/dev_0409-todo-mqtt-egress-docs | Completed | ./docs/iterations/0409-todo-mqtt-egress-docs/ |
 | 0410-slide-import-async-host-actions | 2026-06-08 | 修复滑动 App 导入入口，并让慢速 Matrix/管理总线 host action 不再阻塞普通 UI 按钮 | 3 | dropx/dev_0410-slide-import-async-host-actions | Done | ./docs/iterations/0410-slide-import-async-host-actions/ |
 | 0411-oidc-rp-logout | 2026-06-09 | 修复退出登录后 Zitadel SSO session 残留导致再次登录直接复用旧身份的问题 | 3 | dropx/dev_0411-oidc-rp-logout | Completed | ./docs/iterations/0411-oidc-rp-logout/ |
-| 0412-app1-todo-latency-debug | 2026-06-10 | 隔离部署 app1/ui-server-1，安装 R1 To Do app 1，并定位新增任务往返耗时 | 7 | dropx/dev_0412-app1-todo-latency-debug | In Progress | ./docs/iterations/0412-app1-todo-latency-debug/ |
+| 0412-app1-todo-latency-debug | 2026-06-10 | 隔离部署 app1/ui-server-1，安装 R1 To Do app 1，并定位新增任务往返耗时 | 10 | dropx/dev_0412-app1-todo-latency-debug | In Progress | ./docs/iterations/0412-app1-todo-latency-debug/ |
+| 0414-snapshot-delta-sse | 2026-06-10 | 将 SSE 从完整 snapshot 优先推进为 snapshot_patch 优先，降低滑动 App 交互后的刷新成本 | 5 | dropx/dev_0414-snapshot-delta-sse | Completed | ./docs/iterations/0414-snapshot-delta-sse/ |
+| 0415-reactive-projection-store | 2026-06-10 | 本地试点 Vue/React-like 响应式投影层：label 级 atom 驱动 UI 读取，full snapshot 仅作 bootstrap/recovery | 5 | dropx/dev_0415-reactive-projection-store | Completed | ./docs/iterations/0415-reactive-projection-store/ |
+| 0416-post-load-projection-latency | 2026-06-11 | 加载完成后的普通交互响应优化：限制大派生字段污染普通 snapshot_patch，并补充 patch 体积观测 | 5 | dropx/dev_0416-post-load-projection-latency | Completed | ./docs/iterations/0416-post-load-projection-latency/ |
+| 0417-user-isolated-ui-state-projection | 2026-06-11 | 多用户 UI Server 数据隔离、Input/Dialog 等本地交互状态合同、submit 读取本地可见值、loading 锁定与更细粒度投影更新 | 6 | dropx/dev_0417-user-isolated-ui-state-projection | In Progress | ./docs/iterations/0417-user-isolated-ui-state-projection/ |
+| 0418-visible-snapshot-projection-latency | 2026-06-18 | 首屏按可见面加载：bootstrap shell snapshot、滑动 App 模型按需加载、profile-aware patch 与本地浏览器延时验证 | 5 | dropx/dev_0418-visible-snapshot-projection-latency | Completed | ./docs/iterations/0418-visible-snapshot-projection-latency/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
