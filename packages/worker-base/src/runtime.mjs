@@ -980,6 +980,7 @@ class ModelTableRuntime {
     const topicLabel = this._payloadLabel(payload, 'topic');
     const responseTopicLabel = this._payloadLabel(payload, 'response_topic');
     const messageRoleLabel = this._payloadLabel(payload, 'message_role');
+    const replyTargetPrincipalKeyLabel = this._payloadLabel(payload, 'reply_target_principal_key');
     for (const key of ['source_model_id', 'pin', 'route', 'reply_to', 'route.reply_to', 'return_topic', 'returnTopic', 'result_topic']) {
       if (this._payloadLabel(payload, key)) {
         return { ok: false, code: 'legacy_pin_payload_metadata_removed', requestId };
@@ -1010,6 +1011,16 @@ class ModelTableRuntime {
     const messageRole = messageRoleLabel && messageRoleLabel.t === 'str' && typeof messageRoleLabel.v === 'string'
       ? messageRoleLabel.v
       : '';
+    const replyTargetPrincipalKey = replyTargetPrincipalKeyLabel && replyTargetPrincipalKeyLabel.t === 'str' && typeof replyTargetPrincipalKeyLabel.v === 'string'
+      ? replyTargetPrincipalKeyLabel.v.trim()
+      : '';
+    if (replyTargetPrincipalKeyLabel && (
+      replyTargetPrincipalKeyLabel.t !== 'str'
+      || typeof replyTargetPrincipalKeyLabel.v !== 'string'
+      || replyTargetPrincipalKeyLabel.v !== replyTargetPrincipalKey
+    )) {
+      return { ok: false, code: 'invalid_pin_payload_records', requestId };
+    }
     if (messageRole !== 'request' && messageRole !== 'response') {
       return { ok: false, code: 'invalid_message_role', requestId };
     }
@@ -1050,6 +1061,7 @@ class ModelTableRuntime {
       routeKind,
       topic,
       responseTopic,
+      replyTargetPrincipalKey,
       messageRole,
     };
   }
@@ -1328,7 +1340,7 @@ class ModelTableRuntime {
     return { ok: true, endpoint, origin, replyTarget, nestedPayload, messageRole, topic, responseTopic, routeKind };
   }
 
-  _buildPinPayloadValue({ opId, payload, timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null, messageRole = 'request', topic = '', responseTopic = '', routeKind = null, bus = null }) {
+  _buildPinPayloadValue({ opId, payload, timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null, replyTargetPrincipalKey = '', messageRole = 'request', topic = '', responseTopic = '', routeKind = null, bus = null }) {
     const requestId = opId || `pin_payload_${Date.now()}`;
     const records = [
       this._mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
@@ -1347,6 +1359,9 @@ class ModelTableRuntime {
       this._mtPayloadRecord('payload', 'json', payload),
       this._mtPayloadRecord('timestamp', 'int', timestamp),
     ];
+    if (typeof replyTargetPrincipalKey === 'string' && replyTargetPrincipalKey) {
+      records.push(this._mtPayloadRecord('reply_target_principal_key', 'str', replyTargetPrincipalKey));
+    }
     if (typeof topic === 'string' && topic) records.push(this._mtPayloadRecord('topic', 'str', topic));
     if (typeof responseTopic === 'string' && responseTopic) records.push(this._mtPayloadRecord('response_topic', 'str', responseTopic));
     if (typeof routeKind === 'string' && routeKind) records.push(this._mtPayloadRecord('route_kind', 'str', routeKind));
@@ -1539,6 +1554,7 @@ class ModelTableRuntime {
       endpoint: parsed.endpoint,
       origin: parsed.origin,
       replyTarget: parsed.replyTarget,
+      replyTargetPrincipalKey: parsed.replyTargetPrincipalKey,
       messageRole: parsed.messageRole,
       topic: parsed.topic,
       responseTopic: parsed.responseTopic,
@@ -2082,6 +2098,10 @@ class ModelTableRuntime {
     const resolvedType = this._resolveLabelType(label.t);
     if (resolvedType === 'func.js' || resolvedType === 'func.python') {
       model.registerFunction(label.k);
+      const cellKey = `${model.id}|${p}|${r}|${c}`;
+      if (this.cellConnectGraph.has(cellKey)) {
+        this._rebuildCellConnectForCell(model, p, r, c);
+      }
     }
   }
 
@@ -2323,11 +2343,14 @@ class ModelTableRuntime {
     if (this._isRemovedEndpointSyntax(trimmed)) {
       return { ok: false, reason: 'cell_connect_removed_endpoint_syntax' };
     }
+    const funcName = this._functionEndpointBase(trimmed);
+    if (funcName && this._hasSameCellFunction(model, p, r, c, funcName)) {
+      return { ok: true, endpoint: { prefix: 'func', port: trimmed } };
+    }
     const label = this._cellEndpointLabel(model, p, r, c, trimmed);
     if (label && this._isCellPinResolvedType(this._resolveLabelType(label.t))) {
       return { ok: true, endpoint: { prefix: 'self', port: trimmed } };
     }
-    const funcName = this._functionEndpointBase(trimmed);
     if (funcName) {
       return { ok: true, endpoint: { prefix: 'func', port: trimmed } };
     }

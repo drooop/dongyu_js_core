@@ -34,9 +34,9 @@ export function buildForegroundShellAst(app, snapshot) {
         ...(next.props || {}),
         style: {
           ...((next.props && next.props.style) || {}),
-          height: '100%',
+          height: '100vh',
           minHeight: 0,
-          maxHeight: '100%',
+          maxHeight: '100vh',
         },
       };
     }

@@ -117,8 +117,9 @@ function test_asset_catalog_patch_is_data_array_one_and_fixed_r1_catalog() {
     [
       ['E2E 颜色生成器', 'R1', 3100, 'bundle_request', 'control', true],
       ['最小 Submit 双总线示例', 'R1', 3100, 'bundle_request', 'control', true],
+      ['To Do app 1', 'R1', 3100, 'bundle_request', 'control', true],
     ],
-    'RemoteWorker R1 must expose the two installable slide-app assets through provider bundle endpoints',
+    'RemoteWorker R1 must expose installable slide-app assets through provider bundle endpoints',
   );
   assert.equal(JSON.stringify(catalog).includes('source_model_id'), false, 'Workspace Manager catalog must not expose local source_model_id install truth');
   return { key: 'asset_catalog_patch_is_data_array_one_and_fixed_r1_catalog', status: 'PASS' };
@@ -212,7 +213,7 @@ async function test_server_asset_selection_and_provider_install_sends_provider_b
     assert.equal(installResult.topic, 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request', 'install result must show computed provider bundle topic');
     const afterMax = Math.max(...Array.from(runtime.models.keys()).filter((id) => Number.isInteger(id) && id > 0));
     assert.equal(afterMax, beforeMax, 'install request phase must not allocate a new model before provider bundle response');
-    assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_status'), /requesting E2E 颜色生成器 from UIPUT\/ws\/dam\/pic\/de\/sw\/R1\/3100\/bundle_request/u, 'Workspace Manager must show visible provider request status');
+    assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_status'), /requesting E2E 颜色生成器 from UIPUT\/ws\/dam\/pic\/de\/R1\/3100\/bundle_request/u, 'Workspace Manager must show visible provider request status');
     assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id'), undefined, 'request phase must not record installed model id');
     const pending = labelValue(runtime, 1051, 0, 0, 0, 'asset_install_pending');
     assert.equal(pending?.asset_id, 'r1-color-generator', 'request phase must record pending asset id');
