@@ -7,6 +7,20 @@ const DEFAULT_REGISTRY = registryModule && registryModule.components
   ? registryModule
   : (registryModule && registryModule.default && registryModule.default.components ? registryModule.default : { version: 'ui.component_registry.v1', components: {} });
 
+function nowClientPerfMs() {
+  const perf = globalThis && globalThis.performance && typeof globalThis.performance.now === 'function'
+    ? globalThis.performance.now()
+    : NaN;
+  return Number.isFinite(perf) ? perf : Date.now();
+}
+
+function clientDispatchTimingMeta() {
+  return {
+    client_dispatch_ts: Date.now(),
+    client_dispatch_perf_ms: nowClientPerfMs(),
+  };
+}
+
 function ensureHostAdapter(host) {
   if (!host || typeof host.getSnapshot !== 'function') {
     throw new Error('Host adapter must provide getSnapshot()');
@@ -1176,28 +1190,39 @@ function normalizeRegistry(registry) {
   return registry;
 }
 
-function normalizeCommitPolicy(target) {
+function normalizeCommitPolicy(target, fallback = 'immediate') {
+  const persistRaw = target && typeof target.persist_policy === 'string'
+    ? target.persist_policy.trim()
+    : '';
+  if (persistRaw === 'never' || persistRaw === 'submit') return 'on_submit';
+  if (persistRaw === 'debounce') return 'on_change';
+  if (persistRaw === 'realtime') return 'immediate';
   const raw = target && typeof target.commit_policy === 'string'
     ? target.commit_policy.trim()
     : '';
   if (raw === 'on_change' || raw === 'on_blur' || raw === 'on_submit' || raw === 'immediate') {
     return raw;
   }
-  return 'immediate';
+  return fallback;
 }
 
-function shouldUseOverlay(host, node, target) {
+function shouldUseOverlay(host, node, target, fallback = 'immediate') {
   if (!host || typeof host.stageOverlayValue !== 'function') return false;
   const readRef = resolveRefForNode(node && node.bind && node.bind.read, node);
   if (!readRef || !isPlainObject(readRef) || !Number.isInteger(readRef.model_id)) return false;
   if (readRef.model_id === 0 || readRef.model_id === -1) return false;
-  return normalizeCommitPolicy(target) !== 'immediate';
+  return normalizeCommitPolicy(target, fallback) !== 'immediate';
 }
 
-function stageOverlay(node, target, value, host) {
+function stageOverlay(node, target, value, host, fallbackCommitPolicy = 'immediate') {
   if (!host || typeof host.stageOverlayValue !== 'function') return;
   const readRef = resolveRefForNode(node && node.bind && node.bind.read, node);
-  host.stageOverlayValue({ ref: readRef, value, writeTarget: resolveWriteTargetForNode(target, node) });
+  host.stageOverlayValue({
+    ref: readRef,
+    value,
+    writeTarget: resolveWriteTargetForNode(target, node),
+    fallbackCommitPolicy,
+  });
 }
 
 function commitOverlay(node, target, value, host) {
@@ -1674,8 +1699,8 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       }
       if (nextValue === lastEmittedValue) return;
       lastEmittedValue = nextValue;
-      if (shouldUseOverlay(host, node, target)) {
-        stageOverlay(node, target, nextValue, host);
+      if (shouldUseOverlay(host, node, target, 'on_submit')) {
+        stageOverlay(node, target, nextValue, host, 'on_submit');
         return;
       }
       const payload = { value: nextValue };
@@ -1683,7 +1708,7 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     };
     props['onUpdate:modelValue'] = emitValue;
     props.onInput = emitValue;
-    const commitPolicy = normalizeCommitPolicy(node.bind && node.bind.write);
+    const commitPolicy = normalizeCommitPolicy(node.bind && node.bind.write, 'on_submit');
     if (commitPolicy === 'on_blur') {
       props.onBlur = () => {
         const target = node.bind && node.bind.write;
@@ -1933,6 +1958,10 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const onValue = (v) => {
       const target = node.bind && node.bind.write;
       if (!target) return;
+      if (shouldUseOverlay(host, node, target)) {
+        stageOverlay(node, target, v, host);
+        return;
+      }
       dispatchEvent(node, target, { value: v }, host, undefined, ctx);
     };
     props['onUpdate:modelValue'] = onValue;
@@ -2122,7 +2151,33 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         props.disabled = true;
       }
     }
-    const singleFlight = node.props && node.props.singleFlight;
+    const pendingConfig = props && isPlainObject(props.pending) ? props.pending : null;
+    const pendingStateId = pendingConfig
+      ? String(pendingConfig.pending_state_id || pendingConfig.state_id || pendingConfig.id || node.id || `${node.type}`).trim()
+      : '';
+    const pendingDisableWhilePending = !pendingConfig || pendingConfig.disable_while_pending !== false;
+    const readPendingState = () => (pendingConfig && pendingStateId && host && typeof host.getPendingState === 'function'
+      ? host.getPendingState(pendingStateId)
+      : null);
+    const writePendingState = (value) => {
+      if (pendingConfig && pendingStateId && host && typeof host.setPendingState === 'function') {
+        host.setPendingState(pendingStateId, value);
+      }
+    };
+    const declaredPendingActive = () => {
+      const state = readPendingState();
+      return Boolean(state && state.pending === true);
+    };
+    let renderedButtonProps = null;
+    const setPendingVisualState = (active) => {
+      props.loading = Boolean(active);
+      if (pendingDisableWhilePending) props.disabled = Boolean(active);
+      if (renderedButtonProps) {
+        renderedButtonProps.loading = props.loading;
+        if (pendingDisableWhilePending) renderedButtonProps.disabled = props.disabled;
+      }
+    };
+    const singleFlight = props && props.singleFlight;
     const singleFlightEnabled = Boolean(singleFlight);
     const singleFlightStore = singleFlightEnabled ? ensureSingleFlightStore(host) : null;
     const singleFlightKey = singleFlightEnabled
@@ -2154,13 +2209,19 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       }
     }
     const pendingLocal = Boolean(singleFlightEnabled && flightState && flightState.pending);
+    const pendingDeclared = declaredPendingActive();
     const schemaLoading = Object.prototype.hasOwnProperty.call(props, 'loading') ? Boolean(props.loading) : false;
-    props.loading = pendingLocal || schemaLoading;
-    if (pendingLocal) {
+    props.loading = pendingLocal || pendingDeclared || schemaLoading;
+    if (pendingLocal || (pendingDeclared && pendingDisableWhilePending)) {
       props.disabled = true;
+    } else if (pendingConfig && pendingDisableWhilePending && props.disabled !== true) {
+      props.disabled = false;
     }
 
     props.onClick = async () => {
+      if (declaredPendingActive()) {
+        return;
+      }
       if (singleFlightEnabled && flightState && flightState.pending) {
         return;
       }
@@ -2176,6 +2237,18 @@ function buildVueNode(node, snapshot, vue, host, registry) {
 
       const target = node.bind && node.bind.write;
       if (!target) return;
+      if (pendingConfig && pendingStateId) {
+        writePendingState({
+          pending: true,
+          status: 'pending',
+          pending_state_id: pendingStateId,
+          pending_until: pendingConfig.pending_until || '',
+          lock_scope: pendingConfig.lock_scope || 'button',
+          timeout_ms: Number.isFinite(pendingConfig.timeout_ms) ? pendingConfig.timeout_ms : null,
+          started_at: Date.now(),
+        });
+        setPendingVisualState(true);
+      }
       let clickPayload = { click: true };
       if (props.mediaAction === 'record_audio') {
         clickPayload = { ...clickPayload, media_uri: '', file_name: '', mime_type: '', media_error: '' };
@@ -2197,10 +2270,14 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         flightState = recoverState;
         singleFlightStore.set(singleFlightKey, recoverState);
       }
+      if (pendingConfig && pendingStateId && result && result.skipped && host && typeof host.resolvePendingState === 'function') {
+        host.resolvePendingState(pendingStateId, { status: 'skipped' });
+        setPendingVisualState(false);
+      }
     };
 
     // Variant support: pill (capsule button), text, link
-    const variant = node.props && node.props.variant;
+    const variant = props && props.variant;
     if (variant === 'pill') {
       props.round = true;
       props.style = { borderRadius: '9999px', paddingLeft: '24px', paddingRight: '24px', ...(props.style || {}) };
@@ -2211,17 +2288,19 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     }
 
     // Icon support
-    const icon = node.props && node.props.icon;
-    const iconPosition = (node.props && node.props.iconPosition) || 'left';
-    const label = (node.props && node.props.label) || '';
+    const icon = props && props.icon;
+    const iconPosition = (props && props.iconPosition) || 'left';
+    const label = (props && props.label) || '';
 
     // Clean up custom props from ElButton
     const buttonProps = { ...props };
+    renderedButtonProps = buttonProps;
     delete buttonProps.variant;
     delete buttonProps.icon;
     delete buttonProps.iconPosition;
     delete buttonProps.label;
     delete buttonProps.singleFlight;
+    delete buttonProps.pending;
     delete buttonProps.enabledRef;
     delete buttonProps.disabledRef;
 
@@ -2250,6 +2329,10 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       if (Boolean(v) === props.modelValue) return;
       const target = node.bind && node.bind.write;
       if (!target) return;
+      if (shouldUseOverlay(host, node, target)) {
+        stageOverlay(node, target, Boolean(v), host);
+        return;
+      }
       dispatchEvent(node, target, { value: Boolean(v) }, host, undefined, ctx);
     };
     return h(resolve('ElDrawer'), props, { default: () => children });
@@ -2263,6 +2346,10 @@ function buildVueNode(node, snapshot, vue, host, registry) {
       if (Boolean(v) === props.modelValue) return;
       const target = node.bind && node.bind.write;
       if (!target) return;
+      if (shouldUseOverlay(host, node, target)) {
+        stageOverlay(node, target, Boolean(v), host);
+        return;
+      }
       dispatchEvent(node, target, { value: Boolean(v) }, host, undefined, ctx);
     };
     return h(resolve('ElDialog'), props, { default: () => children });
@@ -3675,6 +3762,7 @@ function dispatchEvent(node, target, payload, host, overrideType) {
         op_id: nextEditorOpId(),
         source: 'ui_renderer',
         ...(meta && typeof meta === 'object' && !Array.isArray(meta) ? meta : {}),
+        ...clientDispatchTimingMeta(),
       },
     };
     const label = buildBusDispatchLabel(envelope);

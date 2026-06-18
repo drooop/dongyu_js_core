@@ -2,7 +2,7 @@
   "name": "dongyuapp_elysia_based",
   "version": "1.0.0",
   "packageManager": "bun@1.3.8",
-  "description": "",
+  "description": "- 最高执行约束：`CLAUDE.md` - 仓库导航与协作提示：`AGENTS.md` - 运行、规约与迭代文档：`docs/`（仓库内权威源；vault 路径 `~/Documents/drip/Projects/dongyuapp` 指向这里） - 运维一键命令（本次新增并要求持续维护）：`scripts/ops/README.md`",
   "main": "index.js",
   "directories": {
     "doc": "docs"
@@ -38,5 +38,6 @@
   },
   "devDependencies": {
     "jsdom": "^27.0.1"
-  }
+  },
+  "type": "commonjs"
 }

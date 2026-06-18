@@ -3,6 +3,7 @@ import { getSnapshotModel, getSnapshotLabelValue, parseSafeInt } from './snapsho
 import { buildAstFromSchema } from './ui_schema_projection.js';
 import { resolveRouteUiAst } from './route_ui_projection.js';
 import { buildBusDispatchLabel, buildBusEventV2 } from './bus_event_v2.js';
+import { createProjectionStore } from './projection_store.js';
 import {
   DESKTOP_FOREGROUND_APP_LABEL,
   DESKTOP_TASK_STACK_LABEL,
@@ -10,14 +11,94 @@ import {
   normalizeDesktopForegroundApp,
 } from './desktop_app_state.js';
 
+const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
+const UI_EVENT_ENDPOINT_PATH = '/ui_event';
+
+function cloneSnapshotJson(value) {
+  if (value === undefined) return undefined;
+  return JSON.parse(JSON.stringify(value));
+}
+
+function parseCellKey(cellKey) {
+  const parts = String(cellKey || '').split(',').map((part) => Number.parseInt(part, 10));
+  if (parts.length !== 3 || parts.some((part) => !Number.isInteger(part))) return { p: 0, r: 0, c: 0 };
+  return { p: parts[0], r: parts[1], c: parts[2] };
+}
+
+function ensurePatchModel(snapshot, modelId) {
+  const modelKey = String(modelId);
+  if (!snapshot.models[modelKey]) {
+    snapshot.models[modelKey] = { id: Number.isInteger(Number(modelKey)) ? Number(modelKey) : modelId, cells: {} };
+  }
+  if (!snapshot.models[modelKey].cells) snapshot.models[modelKey].cells = {};
+  return snapshot.models[modelKey];
+}
+
+function ensurePatchCell(model, cellKey) {
+  if (!model.cells[cellKey]) {
+    model.cells[cellKey] = { ...parseCellKey(cellKey), labels: {} };
+  }
+  if (!model.cells[cellKey].labels) model.cells[cellKey].labels = {};
+  return model.cells[cellKey];
+}
+
+export function applyClientSnapshotPatch(baseSnapshot, patch) {
+  if (!patch || patch.patch_kind !== 'json_replace_v1' || !Array.isArray(patch.ops)) {
+    throw new Error('invalid_snapshot_patch');
+  }
+  const next = cloneSnapshotJson(baseSnapshot && baseSnapshot.models ? baseSnapshot : { models: {}, v1nConfig: {} });
+  if (!next.models) next.models = {};
+  for (const op of patch.ops) {
+    if (!op || typeof op.op !== 'string') throw new Error('invalid_snapshot_patch_op');
+    if (op.op === 'replace_v1n_config') {
+      next.v1nConfig = cloneSnapshotJson(op.value);
+      continue;
+    }
+    const modelKey = String(op.model_id);
+    if (op.op === 'delete_model') {
+      delete next.models[modelKey];
+      continue;
+    }
+    if (op.op === 'replace_model') {
+      next.models[modelKey] = cloneSnapshotJson(op.value);
+      continue;
+    }
+    const model = ensurePatchModel(next, op.model_id);
+    const cellKey = String(op.cell_key || '');
+    if (!cellKey) throw new Error('invalid_snapshot_patch_cell');
+    if (op.op === 'delete_cell') {
+      delete model.cells[cellKey];
+      continue;
+    }
+    if (op.op === 'replace_cell') {
+      model.cells[cellKey] = cloneSnapshotJson(op.value);
+      continue;
+    }
+    const labelKey = String(op.label_key || '');
+    if (!labelKey) throw new Error('invalid_snapshot_patch_label');
+    const cell = ensurePatchCell(model, cellKey);
+    if (op.op === 'delete_label') {
+      delete cell.labels[labelKey];
+      continue;
+    }
+    if (op.op === 'replace_label') {
+      cell.labels[labelKey] = cloneSnapshotJson(op.value);
+      continue;
+    }
+    throw new Error(`unsupported_snapshot_patch_op:${op.op}`);
+  }
+  if (!Object.prototype.hasOwnProperty.call(next, 'v1nConfig')) next.v1nConfig = {};
+  return next;
+}
+
 export function createRemoteStore(options) {
   const defaultBaseUrl = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'http://127.0.0.1:9000';
   const baseUrl = options && options.baseUrl ? String(options.baseUrl).replace(/\/$/, '') : defaultBaseUrl;
   const authStore = options && options.authStore ? options.authStore : null;
   const snapshot = reactive({ models: {}, v1nConfig: { local_mqtt: null, global_mqtt: null } });
-const overlayStore = reactive(new Map());
-const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
-const UI_EVENT_ENDPOINT_PATH = '/ui_event';
+  const projectionStore = createProjectionStore();
+  const overlayStore = reactive(new Map());
+  const pendingUiStateById = reactive(new Map());
 
   const EDITOR_MODEL_ID = -1;
   const EDITOR_STATE_MODEL_ID = -2;
@@ -42,6 +123,62 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
   let runtimeActivationPromise = null;
   const routeState = reactive({ path: '/' });
   const pendingLocalStateByKey = new Map();
+  let deferredSnapshotFallbackTimer = null;
+  let deferredSnapshotFallbackContext = '';
+  let deferredSnapshotFallbackExpectedOpId = '';
+  let lastSnapshotBusEventOpId = '';
+  let currentSnapshotSeq = 0;
+  let eventSource = null;
+  let eventSourceUrl = '';
+  const visibleModelIds = new Set();
+  const snapshotFallbackDelayMs = Number.isFinite(options && options.snapshotFallbackDelayMs)
+    ? Math.max(0, Number(options.snapshotFallbackDelayMs))
+    : 300;
+
+  function visibleModelIdList() {
+    return [...visibleModelIds].filter((modelId) => Number.isInteger(modelId)).sort((a, b) => a - b);
+  }
+
+  function normalizeVisibleModelId(modelId) {
+    if (Number.isInteger(modelId)) return modelId;
+    const parsed = Number.parseInt(String(modelId ?? '').trim(), 10);
+    return Number.isInteger(parsed) ? parsed : null;
+  }
+
+  function buildSnapshotUrl({ profile = 'bootstrap', modelIds = null } = {}) {
+    const query = new URLSearchParams();
+    query.set('profile', profile);
+    const ids = Array.isArray(modelIds) ? modelIds : visibleModelIdList();
+    const key = profile === 'visible' ? 'model_id' : 'visible_model_id';
+    for (const modelId of ids) {
+      if (Number.isInteger(modelId)) query.append(key, String(modelId));
+    }
+    return `${baseUrl}/snapshot?${query.toString()}`;
+  }
+
+  function buildStreamUrl() {
+    const query = new URLSearchParams();
+    query.set('profile', 'bootstrap');
+    for (const modelId of visibleModelIdList()) {
+      query.append('visible_model_id', String(modelId));
+    }
+    return `${baseUrl}/stream?${query.toString()}`;
+  }
+
+  function hasSnapshotModel(modelId) {
+    const normalized = normalizeVisibleModelId(modelId);
+    if (!Number.isInteger(normalized)) return false;
+    return Boolean(snapshot.models && snapshot.models[String(normalized)]);
+  }
+
+  function getVisibleSubscriptionState() {
+    return {
+      visibleModelIds: visibleModelIdList(),
+      expectedStreamUrl: buildStreamUrl(),
+      eventSourceUrl,
+      eventSourceReadyState: eventSource && Number.isInteger(eventSource.readyState) ? eventSource.readyState : null,
+    };
+  }
 
   function labelRefKey(ref) {
     if (!ref || !Number.isInteger(ref.model_id) || !Number.isInteger(ref.p) || !Number.isInteger(ref.r) || !Number.isInteger(ref.c) || typeof ref.k !== 'string') {
@@ -60,22 +197,74 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     }
   }
 
-  function normalizeCommitPolicy(writeTarget) {
+  function readBusEventLastOpIdFromSnapshot(targetSnapshot) {
+    const value = getSnapshotLabelValue(targetSnapshot, {
+      model_id: EDITOR_MODEL_ID,
+      p: 0,
+      r: 0,
+      c: 1,
+      k: 'bus_event_last_op_id',
+    });
+    return typeof value === 'string' ? value.trim() : '';
+  }
+
+  function readEnvelopeOpId(envelope) {
+    const payload = envelope && envelope.payload && typeof envelope.payload === 'object'
+      ? envelope.payload
+      : null;
+    const meta = payload && payload.meta && typeof payload.meta === 'object'
+      ? payload.meta
+      : (envelope && envelope.meta && typeof envelope.meta === 'object' ? envelope.meta : null);
+    const opId = meta && typeof meta.op_id === 'string' ? meta.op_id.trim() : '';
+    return opId;
+  }
+
+  function nowClientPerfMs() {
+    const perf = globalThis && globalThis.performance && typeof globalThis.performance.now === 'function'
+      ? globalThis.performance.now()
+      : NaN;
+    return Number.isFinite(perf) ? perf : Date.now();
+  }
+
+  function augmentResponseTiming(data, startedAt, startedPerfMs) {
+    if (!data || typeof data !== 'object' || !data.timing || typeof data.timing !== 'object') return data;
+    const receivedAt = Date.now();
+    const receivedPerfMs = nowClientPerfMs();
+    data.timing = {
+      ...data.timing,
+      client_post_started_at: Number.isFinite(startedAt) ? startedAt : null,
+      client_post_started_perf_ms: Number.isFinite(startedPerfMs) ? startedPerfMs : null,
+      client_response_received_at: receivedAt,
+      client_response_received_perf_ms: receivedPerfMs,
+      client_roundtrip_ms: Number.isFinite(startedPerfMs)
+        ? Math.max(0, Math.round((receivedPerfMs - startedPerfMs) * 1000) / 1000)
+        : null,
+    };
+    return data;
+  }
+
+  function normalizeCommitPolicy(writeTarget, fallback = 'immediate') {
+    const persistRaw = writeTarget && typeof writeTarget.persist_policy === 'string'
+      ? writeTarget.persist_policy.trim()
+      : '';
+    if (persistRaw === 'never' || persistRaw === 'submit') return 'on_submit';
+    if (persistRaw === 'debounce') return 'on_change';
+    if (persistRaw === 'realtime') return 'immediate';
     const raw = writeTarget && typeof writeTarget.commit_policy === 'string'
       ? writeTarget.commit_policy.trim()
       : '';
     if (raw === 'on_change' || raw === 'on_blur' || raw === 'on_submit' || raw === 'immediate') {
       return raw;
     }
-    return 'immediate';
+    return fallback;
   }
 
-  function inferInteractionMode(writeTarget) {
+  function inferInteractionMode(writeTarget, fallback = 'immediate') {
     const explicit = writeTarget && typeof writeTarget.interaction_mode === 'string'
       ? writeTarget.interaction_mode.trim()
       : '';
     if (explicit === 'overlay_then_commit' || explicit === 'committed_direct') return explicit;
-    const policy = normalizeCommitPolicy(writeTarget);
+    const policy = normalizeCommitPolicy(writeTarget, fallback);
     return policy === 'immediate' ? 'committed_direct' : 'overlay_then_commit';
   }
 
@@ -115,17 +304,18 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     if (key && overlayStore.has(key)) {
       return overlayStore.get(key).value;
     }
-    return getSnapshotLabelValue(snapshot, ref);
+    const projected = projectionStore.getLabelValue(ref);
+    return projected !== undefined ? projected : getSnapshotLabelValue(snapshot, ref);
   }
 
-  function stageOverlayValue({ ref, value, writeTarget }) {
+  function stageOverlayValue({ ref, value, writeTarget, fallbackCommitPolicy = 'immediate' }) {
     if (!ref || !labelRefKey(ref)) return;
     if (!Number.isInteger(ref.model_id) || ref.model_id === 0 || ref.model_id === EDITOR_MODEL_ID) return;
-    if (inferInteractionMode(writeTarget) !== 'overlay_then_commit') return;
+    if (inferInteractionMode(writeTarget, fallbackCommitPolicy) !== 'overlay_then_commit') return;
     overlayStore.set(labelRefKey(ref), {
       ref,
       value,
-      commitPolicy: normalizeCommitPolicy(writeTarget),
+      commitPolicy: normalizeCommitPolicy(writeTarget, fallbackCommitPolicy),
       writeTarget: writeTarget || null,
       commitTargetRef: getCommitTargetRef(ref, writeTarget),
       pending: false,
@@ -133,6 +323,50 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
       committedValueKey: null,
       updatedAt: Date.now(),
     });
+  }
+
+  function pendingStateKey(stateId) {
+    const key = String(stateId || '').trim();
+    return key || '';
+  }
+
+  function setPendingState(stateId, value) {
+    const key = pendingStateKey(stateId);
+    if (!key) return null;
+    const next = {
+      ...(value && typeof value === 'object' ? value : {}),
+      pending: Boolean(value && value.pending === true),
+      updatedAt: Date.now(),
+    };
+    pendingUiStateById.set(key, next);
+    return next;
+  }
+
+  function getPendingState(stateId) {
+    const key = pendingStateKey(stateId);
+    if (!key) return null;
+    return pendingUiStateById.get(key) || null;
+  }
+
+  function resolvePendingState(stateId, result = null) {
+    const key = pendingStateKey(stateId);
+    if (!key) return null;
+    const current = pendingUiStateById.get(key) || {};
+    const next = {
+      ...current,
+      pending: false,
+      result,
+      resolvedAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    pendingUiStateById.set(key, next);
+    return next;
+  }
+
+  function clearPendingState(stateId) {
+    const key = pendingStateKey(stateId);
+    if (!key) return false;
+    return pendingUiStateById.delete(key);
   }
 
   function reconcileOverlayStore() {
@@ -156,18 +390,99 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     return false;
   }
 
-  function applySnapshot(next) {
+  function applySnapshot(next, metadata = {}) {
     if (!next || !next.models) return;
+    if (deferredSnapshotFallbackTimer) {
+      const nextOpId = readBusEventLastOpIdFromSnapshot(next);
+      if (deferredSnapshotFallbackExpectedOpId && nextOpId === deferredSnapshotFallbackExpectedOpId) {
+        clearTimeout(deferredSnapshotFallbackTimer);
+        deferredSnapshotFallbackTimer = null;
+        deferredSnapshotFallbackContext = '';
+        deferredSnapshotFallbackExpectedOpId = '';
+      }
+    }
+    lastSnapshotBusEventOpId = readBusEventLastOpIdFromSnapshot(next);
+    if (metadata && metadata.snapshot_patch) {
+      projectionStore.applySnapshotPatch(metadata.snapshot_patch);
+    } else {
+      projectionStore.hydrateSnapshot(next, metadata);
+    }
     overlayPendingLocalState(next);
     snapshot.models = next.models;
     snapshot.v1nConfig = next.v1nConfig;
+    if (Number.isInteger(metadata?.snapshot_seq)) {
+      currentSnapshotSeq = metadata.snapshot_seq;
+    }
     reconcileOverlayStore();
     pauseSse = computePauseSse(next);
     if (!pauseSse) {
       const pending = pendingSseSnapshot;
       pendingSseSnapshot = null;
-      if (pending && pending !== next) applySnapshot(pending);
+      if (pending && pending !== next) {
+        if (pending.snapshot) applySnapshot(pending.snapshot, pending.metadata || {});
+        else applySnapshot(pending);
+      }
     }
+  }
+
+  function mergeSnapshotWithCurrentModels(next, options = {}) {
+    if (!next || !next.models) return next;
+    const preserveExistingModels = Boolean(options && options.preserveExistingModels);
+    const mergedModels = { ...(snapshot.models || {}) };
+    for (const [modelId, model] of Object.entries(next.models || {})) {
+      if (preserveExistingModels && Object.prototype.hasOwnProperty.call(mergedModels, modelId)) continue;
+      mergedModels[modelId] = model;
+    }
+    return {
+      ...next,
+      models: mergedModels,
+      v1nConfig: Object.prototype.hasOwnProperty.call(next, 'v1nConfig') ? next.v1nConfig : snapshot.v1nConfig,
+    };
+  }
+
+  function forgetSnapshotModel(modelId) {
+    const normalized = normalizeVisibleModelId(modelId);
+    if (!Number.isInteger(normalized)) return;
+    const modelKey = String(normalized);
+    if (!snapshot.models || !Object.prototype.hasOwnProperty.call(snapshot.models, modelKey)) return;
+    const nextModels = { ...snapshot.models };
+    delete nextModels[modelKey];
+    snapshot.models = nextModels;
+    try {
+      projectionStore.applySnapshotPatch({
+        patch_kind: 'json_replace_v1',
+        snapshot_seq: currentSnapshotSeq,
+        ops: [{ op: 'delete_model', model_id: normalized }],
+      });
+    } catch (err) {
+      console.warn('failed to forget stale visible model from projection store', { modelId: normalized, err });
+    }
+  }
+
+  function applySnapshotPatchEnvelope(patch) {
+    if (!patch || patch.patch_kind !== 'json_replace_v1') throw new Error('invalid_snapshot_patch');
+    if (!Number.isInteger(patch.snapshot_seq) || !Number.isInteger(patch.base_snapshot_seq)) {
+      throw new Error('invalid_snapshot_patch_seq');
+    }
+    const baseSnapshot = pendingSseSnapshot && pendingSseSnapshot.snapshot
+      ? pendingSseSnapshot.snapshot
+      : { models: snapshot.models, v1nConfig: snapshot.v1nConfig };
+    const baseSnapshotSeq = pendingSseSnapshot && pendingSseSnapshot.metadata && Number.isInteger(pendingSseSnapshot.metadata.snapshot_seq)
+      ? pendingSseSnapshot.metadata.snapshot_seq
+      : currentSnapshotSeq;
+    if (baseSnapshotSeq <= 0 || patch.base_snapshot_seq !== baseSnapshotSeq) {
+      throw new Error('snapshot_patch_base_mismatch');
+    }
+    const next = applyClientSnapshotPatch(baseSnapshot, patch);
+    if (pauseSse) {
+      const nextPause = computePauseSse(next);
+      if (nextPause) {
+        pendingSseSnapshot = { snapshot: next, metadata: { snapshot_seq: patch.snapshot_seq } };
+        return;
+      }
+      pendingSseSnapshot = null;
+    }
+    applySnapshot(next, { snapshot_seq: patch.snapshot_seq, snapshot_patch: patch });
   }
 
   function notifyAuthFailure(resp, data, returnTo) {
@@ -271,6 +586,18 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     const cell = model.cells[cellKey];
     if (!cell.labels) cell.labels = {};
     cell.labels[target.k] = { k: target.k, t: value.t, v: value.v };
+    projectionStore.applySnapshotPatch({
+      patch_kind: 'json_replace_v1',
+      snapshot_seq: currentSnapshotSeq,
+      base_snapshot_seq: currentSnapshotSeq,
+      ops: [{
+        op: 'replace_label',
+        model_id: target.model_id,
+        cell_key: cellKey,
+        label_key: target.k,
+        value: cell.labels[target.k],
+      }],
+    });
     return cell;
   }
 
@@ -507,26 +834,127 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     return envelope;
   }
 
-  async function fetchSnapshotAndApply(context) {
+  async function fetchSnapshotAndApply(context, options = {}) {
     try {
-      const resp = await fetch(`${baseUrl}/snapshot`, { credentials: 'same-origin' });
+      const resp = await fetch(buildSnapshotUrl(options), { credentials: 'same-origin' });
       if (!resp.ok) {
-        console.error('snapshot fetch failed', { context, status: resp.status, statusText: resp.statusText });
-        return;
+        const failureBody = await resp.json().catch(() => ({}));
+        if (options && typeof options.onFailure === 'function') {
+          options.onFailure({ status: resp.status, statusText: resp.statusText, body: failureBody });
+        }
+        console.error('snapshot fetch failed', {
+          context,
+          status: resp.status,
+          statusText: resp.statusText,
+          error: failureBody && (failureBody.error || failureBody.code) ? (failureBody.error || failureBody.code) : '',
+        });
+        return false;
       }
       const data = await resp.json();
       if (data && data.snapshot) {
-        applySnapshot(data.snapshot);
+        const mergeWithCurrentModels = Boolean(options && options.mergeWithCurrentModels);
+        const staleMergedSnapshot = mergeWithCurrentModels
+          && Number.isInteger(data.snapshot_seq)
+          && data.snapshot_seq < currentSnapshotSeq;
+        const nextSnapshot = mergeWithCurrentModels
+          ? mergeSnapshotWithCurrentModels(data.snapshot, { preserveExistingModels: staleMergedSnapshot })
+          : data.snapshot;
+        const nextMetadata = staleMergedSnapshot
+          ? { ...data, snapshot_seq: currentSnapshotSeq, stale_snapshot_seq: data.snapshot_seq }
+          : data;
+        applySnapshot(nextSnapshot, nextMetadata);
+        return true;
       } else {
         console.warn('snapshot response missing snapshot', { context });
       }
     } catch (err) {
       console.error('snapshot fetch error', { context, err });
     }
+    return false;
   }
 
   function refreshSnapshot(context = 'manual refresh') {
     return fetchSnapshotAndApply(context);
+  }
+
+  async function ensureVisibleModelLoaded(modelId) {
+    const normalized = normalizeVisibleModelId(modelId);
+    if (!Number.isInteger(normalized)) {
+      throw new Error('invalid_visible_model_id');
+    }
+    if (hasSnapshotModel(normalized)) {
+      visibleModelIds.add(normalized);
+      connectEventSource();
+      return true;
+    }
+    visibleModelIds.add(normalized);
+    let visibleFailure = null;
+    const ok = await fetchSnapshotAndApply(`visible model lazy load ${normalized}`, {
+      profile: 'visible',
+      modelIds: visibleModelIdList(),
+      mergeWithCurrentModels: true,
+      onFailure: (failure) => { visibleFailure = failure; },
+    });
+    if (!ok) {
+      const hadOtherVisibleIds = visibleModelIds.size > 1;
+      const failureCode = visibleFailure && visibleFailure.body
+        ? (visibleFailure.body.error || visibleFailure.body.code || '')
+        : '';
+      const staleVisibleFailure = visibleFailure?.status === 404
+        || failureCode === 'model_not_found'
+        || failureCode === 'model_not_visible';
+      if (hadOtherVisibleIds && staleVisibleFailure) {
+        const previousVisibleIds = visibleModelIdList().filter((modelId) => modelId !== normalized);
+        const retryOk = await fetchSnapshotAndApply(`visible model lazy load ${normalized} retry target-only after stale ids`, {
+          profile: 'visible',
+          modelIds: [normalized],
+          mergeWithCurrentModels: true,
+        });
+        if (retryOk && hasSnapshotModel(normalized)) {
+          visibleModelIds.clear();
+          for (const previousId of previousVisibleIds) {
+            const keepOk = await fetchSnapshotAndApply(`visible model ${previousId} revalidate after stale ids`, {
+              profile: 'visible',
+              modelIds: [previousId],
+              mergeWithCurrentModels: true,
+            });
+            if (keepOk && hasSnapshotModel(previousId)) {
+              visibleModelIds.add(previousId);
+            } else {
+              forgetSnapshotModel(previousId);
+            }
+          }
+          visibleModelIds.add(normalized);
+          connectEventSource();
+          return true;
+        }
+      }
+      visibleModelIds.delete(normalized);
+      connectEventSource();
+      return false;
+    }
+    connectEventSource();
+    return hasSnapshotModel(normalized);
+  }
+
+  function scheduleSnapshotFallback(context, expectedOpId = '') {
+    deferredSnapshotFallbackContext = context || 'bus event v2 deferred fallback';
+    deferredSnapshotFallbackExpectedOpId = expectedOpId || '';
+    if (deferredSnapshotFallbackTimer) return;
+    deferredSnapshotFallbackTimer = setTimeout(() => {
+      const nextContext = deferredSnapshotFallbackContext || 'bus event v2 deferred fallback';
+      deferredSnapshotFallbackTimer = null;
+      deferredSnapshotFallbackContext = '';
+      deferredSnapshotFallbackExpectedOpId = '';
+      fetchSnapshotAndApply(nextContext);
+    }, snapshotFallbackDelayMs);
+    if (
+      deferredSnapshotFallbackTimer
+      && typeof deferredSnapshotFallbackTimer === 'object'
+      && typeof deferredSnapshotFallbackTimer.unref === 'function'
+    ) {
+      deferredSnapshotFallbackTimer.unref();
+    }
   }
 
   async function ensureRuntimeRunning() {
@@ -559,6 +987,8 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     const endpointPath = typeof options.endpointPath === 'string' && options.endpointPath
       ? options.endpointPath
       : BUS_EVENT_ENDPOINT_PATH;
+    const clientPostStartedAt = Date.now();
+    const clientPostStartedPerfMs = nowClientPerfMs();
     try {
       resp = await fetch(`${baseUrl}${endpointPath}`, {
         method: 'POST',
@@ -596,6 +1026,7 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
       await fetchSnapshotAndApply('bus event response json parse error');
       return null;
     }
+    augmentResponseTiming(data, clientPostStartedAt, clientPostStartedPerfMs);
     if (data && data.result === 'error') {
       if (data.code === 'matrix_session_missing' && authStore && typeof authStore.fetchMatrixStatus === 'function') {
         const refreshed = await authStore.fetchMatrixStatus();
@@ -611,16 +1042,23 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
       return postEnvelope(envelope, { ...options, retried: true });
     }
     if (data && data.snapshot) {
-      applySnapshot(data.snapshot);
+      applySnapshot(data.snapshot, data);
     } else if (
       endpointPath === BUS_EVENT_ENDPOINT_PATH
       && envelope
       && envelope.type === 'bus_event_v2'
       && data
     ) {
-      await fetchSnapshotAndApply(data.result === 'error'
-        ? 'bus event v2 error fallback'
-        : 'bus event v2 response fallback');
+      if (data.result === 'error') {
+        await fetchSnapshotAndApply('bus event v2 error fallback');
+      } else {
+        const expectedOpId = typeof data.bus_event_last_op_id === 'string' && data.bus_event_last_op_id.trim()
+          ? data.bus_event_last_op_id.trim()
+          : readEnvelopeOpId(envelope);
+        if (!expectedOpId || lastSnapshotBusEventOpId !== expectedOpId) {
+          scheduleSnapshotFallback('bus event v2 deferred response fallback', expectedOpId);
+        }
+      }
     }
     return data;
   }
@@ -681,21 +1119,23 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
         ...patchNegativeLocalStateLabel(rawTarget, rawPayload.value),
         ...deriveShellLocalStateWrites(rawTarget, rawPayload.value),
       ];
-      if (syncLocalState && rawTarget && typeof rawTarget.k === 'string') {
+      if (rawTarget && typeof rawTarget.k === 'string') {
         const key = localStateKey(rawTarget);
-        pendingDraftByKey.set(key, rawEnvelope);
         pendingLocalStateByKey.set(key, { target: rawTarget, value: rawPayload.value });
+        if (syncLocalState) {
+          pendingDraftByKey.set(key, rawEnvelope);
+        }
       }
       for (const derivedWrite of derivedWrites) {
         if (!derivedWrite?.target || !derivedWrite?.value) continue;
         patchSnapshotLocalStateLabel(derivedWrite.target, derivedWrite.value, snapshot);
-        if (!syncLocalState) continue;
         const key = localStateKey(derivedWrite.target);
+        pendingLocalStateByKey.set(key, { target: derivedWrite.target, value: derivedWrite.value });
+        if (!syncLocalState) continue;
         pendingDraftByKey.set(
           key,
           buildDerivedLocalStateEnvelope(rawEnvelope, derivedWrite.target, derivedWrite.value, derivedWrite.suffix || 'derived'),
         );
-        pendingLocalStateByKey.set(key, { target: derivedWrite.target, value: derivedWrite.value });
       }
       if (syncLocalState) scheduleDraftFlush();
       return;
@@ -761,17 +1201,26 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     };
   }
 
-  async function bootstrap() {
+  function closeEventSource() {
+    if (!eventSource) return;
     try {
-      const resp = await fetch(`${baseUrl}/snapshot`, { credentials: 'same-origin' });
-      const data = await resp.json();
-      if (data && data.snapshot) applySnapshot(data.snapshot);
+      eventSource.close();
     } catch (_) {
-      // allow SSE to recover later
+      // ignore stale browser EventSource handles
     }
+    eventSource = null;
+    eventSourceUrl = '';
+  }
 
+  function connectEventSource() {
+    if (typeof EventSource !== 'function') return;
+    const nextUrl = buildStreamUrl();
+    if (eventSource && eventSourceUrl === nextUrl && eventSource.readyState !== 2) return;
+    closeEventSource();
     try {
-      const es = new EventSource(`${baseUrl}/stream`, { withCredentials: true });
+      const es = new EventSource(nextUrl, { withCredentials: true });
+      eventSource = es;
+      eventSourceUrl = nextUrl;
       es.addEventListener('snapshot', (evt) => {
         try {
           const data = JSON.parse(evt.data);
@@ -779,14 +1228,25 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
             if (pauseSse) {
               const nextPause = computePauseSse(data.snapshot);
               if (nextPause) {
-                pendingSseSnapshot = data.snapshot;
+                pendingSseSnapshot = { snapshot: data.snapshot, metadata: data };
                 return;
               }
             }
-            applySnapshot(data.snapshot);
+            applySnapshot(data.snapshot, data);
           }
         } catch (err) {
           console.warn('sse snapshot parse error', { err });
+        }
+      });
+      es.addEventListener('snapshot_patch', (evt) => {
+        try {
+          const data = JSON.parse(evt.data);
+          if (data && data.snapshot_patch) {
+            applySnapshotPatchEnvelope(data.snapshot_patch);
+          }
+        } catch (err) {
+          console.warn('sse snapshot_patch apply error', { err });
+          fetchSnapshotAndApply('snapshot patch recovery');
         }
       });
       es.onerror = (err) => {
@@ -797,23 +1257,36 @@ const UI_EVENT_ENDPOINT_PATH = '/ui_event';
     }
   }
 
+  async function bootstrap() {
+    await fetchSnapshotAndApply('bootstrap startup');
+    connectEventSource();
+  }
+
   if (!options || options.autoBootstrap !== false) {
     bootstrap();
   }
 
   return {
     snapshot,
+    projectionStore,
     getUiAst,
     setRoutePath,
     getEffectiveLabelValue,
     stageOverlayValue,
     commitOverlayValue,
+    setPendingState,
+    getPendingState,
+    resolvePendingState,
+    clearPendingState,
     dispatchAddLabel,
     dispatchRmLabel,
     consumeOnce,
     uploadMedia,
     ensureRuntimeRunning,
     refreshSnapshot,
+    hasSnapshotModel,
+    getVisibleSubscriptionState,
+    ensureVisibleModelLoaded,
     buildDispatchLabel: buildBusDispatchLabel,
     buildUiEventV2: buildBusEventV2,
   };

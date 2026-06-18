@@ -105,6 +105,19 @@ export function createDemoRoot(store, options = {}) {
   };
 }
 
+export async function ensureForegroundAppVisibleModelLoaded(mainStore, app) {
+  if (!mainStore || !app || app.page !== 'workspace' || !Number.isInteger(app.model_id)) return false;
+  if (typeof mainStore.ensureVisibleModelLoaded !== 'function') {
+    return typeof mainStore.hasSnapshotModel === 'function' && mainStore.hasSnapshotModel(app.model_id);
+  }
+  try {
+    return await mainStore.ensureVisibleModelLoaded(app.model_id);
+  } catch (err) {
+    console.warn('foreground visible model lazy load failed', { err, model_id: app.model_id });
+    return false;
+  }
+}
+
 export function createAppShell({ mainStore, galleryStore, authStore }) {
   const HomeRoot = createDemoRoot(mainStore);
   const GalleryRoot = createDemoRoot(galleryStore);
@@ -314,6 +327,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         syncGalleryRoute(app.path);
         syncPageLabel(app.path);
         if (app.page === 'workspace' && Number.isInteger(app.model_id)) {
+          void ensureForegroundAppVisibleModelLoaded(mainStore, app);
           selectWorkspaceModel(app.model_id);
         } else {
           syncWorkspaceSelection(app.path);
@@ -475,6 +489,30 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       function ForegroundPlayer() {
         const app = desktopForegroundApp.value;
         if (!app) return null;
+        const waitingForVisibleModel = app.page === 'workspace'
+          && Number.isInteger(app.model_id)
+          && typeof mainStore?.hasSnapshotModel === 'function'
+          && !mainStore.hasSnapshotModel(app.model_id);
+        if (waitingForVisibleModel) {
+          const loading = h('div', {
+            id: 'foreground_visible_model_loading',
+            'data-testid': 'foreground-visible-model-loading',
+            style: {
+              minHeight: '320px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#64748b',
+              fontSize: '15px',
+              fontWeight: 700,
+            },
+          }, '正在加载滑动 APP...');
+          return shellRenderer.renderVNode(buildForegroundShellAst(app, mainStore?.snapshot), {
+            slots: {
+              appContent: () => loading,
+            },
+          });
+        }
         const focusedAppContentAst = buildFocusedWorkspaceAppContentAst(app, mainStore?.snapshot);
         const content = app.page === 'gallery'
           ? h(GalleryRoot)

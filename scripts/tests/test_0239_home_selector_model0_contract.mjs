@@ -64,13 +64,13 @@ function createIsolatedServerState() {
   };
 }
 
-async function test_server_startup_home_selector_contains_model0_and_baseline_zero() {
+async function test_server_startup_desktop_selector_contains_model0_and_baseline_zero() {
   const isolated = createIsolatedServerState();
   try {
     const labels = stateLabels(isolated.state.clientSnap());
-    assert.equal(labels.ui_page?.v, 'home', 'server_home_selector_startup_page_must_be_home');
-    assert.equal(String(labels.selected_model_id?.v), '0', 'server_home_selector_startup_selected_model_must_be_zero');
-    assertHasModel0Option(labels, 'server_home_selector_startup_model0_option_missing');
+    assert.equal(labels.ui_page?.v, 'desktop', 'server_startup_page_must_be_desktop');
+    assert.equal(String(labels.selected_model_id?.v), '0', 'server_startup_selected_model_must_be_zero');
+    assertHasModel0Option(labels, 'server_startup_model0_option_missing');
   } finally {
     isolated.cleanup();
   }
@@ -108,12 +108,12 @@ function sendMailbox(store, envelope) {
   store.consumeOnce();
 }
 
-function test_local_store_startup_home_selector_contains_model0_and_baseline_zero() {
+function test_local_store_startup_desktop_selector_contains_model0_and_baseline_zero() {
   const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
   const labels = stateLabels(store.snapshot);
-  assert.equal(labels.ui_page?.v, 'home', 'local_home_selector_startup_page_must_be_home');
-  assert.equal(String(labels.selected_model_id?.v), '0', 'local_home_selector_startup_selected_model_must_be_zero');
-  assertHasModel0Option(labels, 'local_home_selector_startup_model0_option_missing');
+  assert.equal(labels.ui_page?.v, 'desktop', 'local_startup_page_must_be_desktop');
+  assert.equal(String(labels.selected_model_id?.v), '0', 'local_startup_selected_model_must_be_zero');
+  assertHasModel0Option(labels, 'local_startup_model0_option_missing');
 }
 
 function test_local_store_home_route_reconciles_stray_selected_model_to_zero() {
@@ -179,9 +179,9 @@ function test_renderer_select_coerces_equivalent_option_value_types() {
 }
 
 const tests = [
-  test_server_startup_home_selector_contains_model0_and_baseline_zero,
+  test_server_startup_desktop_selector_contains_model0_and_baseline_zero,
   test_server_home_route_reconciles_stray_selected_model_to_zero,
-  test_local_store_startup_home_selector_contains_model0_and_baseline_zero,
+  test_local_store_startup_desktop_selector_contains_model0_and_baseline_zero,
   test_local_store_home_route_reconciles_stray_selected_model_to_zero,
   test_renderer_select_coerces_equivalent_option_value_types,
 ];

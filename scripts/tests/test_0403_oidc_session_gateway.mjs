@@ -69,6 +69,15 @@ async function readResponseJson(resp) {
   return text ? JSON.parse(text) : {};
 }
 
+async function waitFor(predicate, { timeoutMs = 1000, intervalMs = 10 } = {}) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error('wait_for_timeout');
+}
+
 async function withServerEnv(env, fn) {
   const prior = {};
   for (const key of Object.keys(env)) {
@@ -333,8 +342,16 @@ async function test_valid_sso_callback_creates_dongyu_session() {
           ['bad_signature', { signer: wrongPrivateKey }],
           ['userinfo_sub_mismatch', { sub: 'different-subject' }],
         ]) {
-          const { response } = await callbackWithFreshStart(params);
+          const { response, state: failedState, cookie: failedCookie } = await callbackWithFreshStart(params);
           assert.equal(response.status, 401, `${caseName}_must_fail`);
+          assert.match(response.headers.get('set-cookie') || '', /dy_oidc_state=;/, `${caseName}_must_clear_oidc_state_cookie`);
+          const replayAfterFinalFailure = await fetch(`${appBase}/auth/sso/callback?code=valid-code&state=${encodeURIComponent(failedState)}`, {
+            redirect: 'manual',
+            headers: { cookie: failedCookie },
+          });
+          const replayAfterFinalFailureBody = await readResponseJson(replayAfterFinalFailure);
+          assert.equal(replayAfterFinalFailure.status, 400, `${caseName}_state_must_be_finalized`);
+          assert.equal(replayAfterFinalFailureBody.error, 'invalid_oidc_state');
         }
 
         const { response: callbackResp, state: successState, cookie: successCookie } = await callbackWithFreshStart();
@@ -377,6 +394,452 @@ async function test_valid_sso_callback_creates_dongyu_session() {
     oidcServer.close();
   }
   return { key: 'valid_sso_callback_creates_dongyu_session', status: 'PASS' };
+}
+
+async function test_sso_callback_token_failure_keeps_state_retryable() {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const kid = 'test-key';
+  let issuer = '';
+  let issuedNonce = null;
+  let tokenRequestCount = 0;
+  const publicJwk = publicKey.export({ format: 'jwk' });
+  publicJwk.kid = kid;
+  publicJwk.alg = 'RS256';
+  publicJwk.use = 'sig';
+
+  const oidcServer = await createJsonServer(async (req, res) => {
+    const url = new URL(req.url || '/', issuer);
+    if (url.pathname === '/.well-known/openid-configuration') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        issuer,
+        authorization_endpoint: `${issuer}/authorize`,
+        token_endpoint: `${issuer}/token`,
+        userinfo_endpoint: `${issuer}/userinfo`,
+        jwks_uri: `${issuer}/keys`,
+      }));
+      return;
+    }
+    if (url.pathname === '/keys') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ keys: [publicJwk] }));
+      return;
+    }
+    if (url.pathname === '/token') {
+      tokenRequestCount += 1;
+      for await (const _chunk of req) {
+        // Drain request body so the app sees a normal upstream response.
+      }
+      if (tokenRequestCount === 1) {
+        res.writeHead(503, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'temporarily_unavailable' }));
+        return;
+      }
+      const idToken = signJwt({}, {
+        privateKey,
+        kid,
+        issuer,
+        audience: 'dongyu-app',
+        nonce: issuedNonce,
+      });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        access_token: 'mock-access-token',
+        token_type: 'Bearer',
+        expires_in: 300,
+        id_token: idToken,
+      }));
+      return;
+    }
+    if (url.pathname === '/userinfo') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        sub: '268746183297-drop',
+        email: 'drop.yang@dongyudigital.com',
+        name: 'drop',
+        preferred_username: 'drop',
+        'urn:zitadel:iam:org:project:375910753992966374:roles': {
+          'dongyu.admin': { 'org:primary': 'Dongyu' },
+        },
+      }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  issuer = serverBaseUrl(oidcServer);
+
+  try {
+    await withServerEnv({
+      DY_AUTH: '1',
+      DY_OIDC_ISSUER: issuer,
+      DY_OIDC_CLIENT_ID: 'dongyu-app',
+      DY_OIDC_REDIRECT_URI: 'http://127.0.0.1:0/auth/sso/callback',
+    }, async ({ startServer }) => {
+      const appServer = startServer({ port: 0, dbPath: null, skipFrontendBuild: true });
+      await waitListening(appServer);
+      const appBase = serverBaseUrl(appServer);
+      try {
+        const startResp = await fetch(`${appBase}/auth/sso/start?returnTo=%2Fworkspace`, { redirect: 'manual' });
+        const authorizeUrl = new URL(startResp.headers.get('location'));
+        issuedNonce = authorizeUrl.searchParams.get('nonce');
+        const state = authorizeUrl.searchParams.get('state');
+        const oidcCookie = startResp.headers.get('set-cookie') || '';
+        assert.match(oidcCookie, /dy_oidc_state=/, 'start_must_set_oidc_state_cookie');
+
+        const firstResp = await fetch(`${appBase}/auth/sso/callback?code=valid-code&state=${encodeURIComponent(state)}`, {
+          redirect: 'manual',
+          headers: { cookie: oidcCookie },
+        });
+        const firstBody = await readResponseJson(firstResp);
+        assert.equal(firstResp.status, 401, 'token_failure_must_not_be_reported_as_state_failure');
+        assert.equal(firstBody.error, 'temporarily_unavailable');
+        assert.doesNotMatch(String(firstResp.headers.get('set-cookie') || ''), /dy_oidc_state=;/, 'token_failure_must_keep_oidc_state_cookie_retryable');
+
+        const retryResp = await fetch(`${appBase}/auth/sso/callback?code=valid-code&state=${encodeURIComponent(state)}`, {
+          redirect: 'manual',
+          headers: { cookie: oidcCookie },
+        });
+        assert.equal(retryResp.status, 302, 'retry_after_token_failure_must_succeed');
+        assert.equal(retryResp.headers.get('location'), '/workspace');
+        assert.match(retryResp.headers.get('set-cookie') || '', /dy_session=/, 'retry_success_must_set_session_cookie');
+
+        const replayResp = await fetch(`${appBase}/auth/sso/callback?code=valid-code&state=${encodeURIComponent(state)}`, {
+          redirect: 'manual',
+          headers: { cookie: oidcCookie },
+        });
+        const replayBody = await readResponseJson(replayResp);
+        assert.equal(replayResp.status, 400, 'successful_callback_state_must_still_be_one_time');
+        assert.equal(replayBody.error, 'invalid_oidc_state');
+      } finally {
+        appServer.close();
+      }
+    });
+  } finally {
+    oidcServer.close();
+  }
+
+  return { key: 'sso_callback_token_failure_keeps_state_retryable', status: 'PASS' };
+}
+
+async function test_sso_callback_malformed_token_response_finalizes_state() {
+  const oidcServer = await createJsonServer(async (req, res) => {
+    const issuer = serverBaseUrl(oidcServer);
+    const url = new URL(req.url || '/', issuer);
+    if (url.pathname === '/.well-known/openid-configuration') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        issuer,
+        authorization_endpoint: `${issuer}/authorize`,
+        token_endpoint: `${issuer}/token`,
+        userinfo_endpoint: `${issuer}/userinfo`,
+        jwks_uri: `${issuer}/keys`,
+      }));
+      return;
+    }
+    if (url.pathname === '/keys') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ keys: [] }));
+      return;
+    }
+    if (url.pathname === '/token') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        access_token: 'mock-access-token',
+        token_type: 'Bearer',
+        expires_in: 300,
+      }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  try {
+    await withServerEnv({
+      DY_AUTH: '1',
+      DY_OIDC_ISSUER: serverBaseUrl(oidcServer),
+      DY_OIDC_CLIENT_ID: 'dongyu-app',
+      DY_OIDC_REDIRECT_URI: 'http://127.0.0.1:0/auth/sso/callback',
+    }, async ({ startServer }) => {
+      const appServer = startServer({ port: 0, dbPath: null, skipFrontendBuild: true });
+      await waitListening(appServer);
+      const appBase = serverBaseUrl(appServer);
+      try {
+        const startResp = await fetch(`${appBase}/auth/sso/start?returnTo=%2Fworkspace`, { redirect: 'manual' });
+        const authorizeUrl = new URL(startResp.headers.get('location'));
+        const state = authorizeUrl.searchParams.get('state');
+        const oidcCookie = startResp.headers.get('set-cookie') || '';
+        const callbackResp = await fetch(`${appBase}/auth/sso/callback?code=valid-code&state=${encodeURIComponent(state)}`, {
+          redirect: 'manual',
+          headers: { cookie: oidcCookie },
+        });
+        const callbackBody = await readResponseJson(callbackResp);
+        assert.equal(callbackResp.status, 401, 'malformed_token_response_must_fail');
+        assert.equal(callbackBody.error, 'oidc_token_exchange_failed');
+        assert.match(callbackResp.headers.get('set-cookie') || '', /dy_oidc_state=;/, 'malformed_token_response_must_clear_oidc_state_cookie');
+
+        const replayResp = await fetch(`${appBase}/auth/sso/callback?code=valid-code&state=${encodeURIComponent(state)}`, {
+          redirect: 'manual',
+          headers: { cookie: oidcCookie },
+        });
+        const replayBody = await readResponseJson(replayResp);
+        assert.equal(replayResp.status, 400, 'malformed_token_response_must_finalize_state');
+        assert.equal(replayBody.error, 'invalid_oidc_state');
+      } finally {
+        appServer.close();
+      }
+    });
+  } finally {
+    oidcServer.close();
+  }
+
+  return { key: 'sso_callback_malformed_token_response_finalizes_state', status: 'PASS' };
+}
+
+async function test_sso_callback_concurrent_replay_is_blocked() {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const kid = 'test-key';
+  let issuer = '';
+  let issuedNonce = null;
+  let tokenRequestCount = 0;
+  let releaseTokenRequest = null;
+  const tokenGate = new Promise((resolve) => {
+    releaseTokenRequest = resolve;
+  });
+  const publicJwk = publicKey.export({ format: 'jwk' });
+  publicJwk.kid = kid;
+  publicJwk.alg = 'RS256';
+  publicJwk.use = 'sig';
+
+  const oidcServer = await createJsonServer(async (req, res) => {
+    const url = new URL(req.url || '/', issuer);
+    if (url.pathname === '/.well-known/openid-configuration') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        issuer,
+        authorization_endpoint: `${issuer}/authorize`,
+        token_endpoint: `${issuer}/token`,
+        userinfo_endpoint: `${issuer}/userinfo`,
+        jwks_uri: `${issuer}/keys`,
+      }));
+      return;
+    }
+    if (url.pathname === '/keys') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ keys: [publicJwk] }));
+      return;
+    }
+    if (url.pathname === '/token') {
+      tokenRequestCount += 1;
+      for await (const _chunk of req) {
+        // Drain request body.
+      }
+      if (tokenRequestCount === 1) await tokenGate;
+      const idToken = signJwt({}, {
+        privateKey,
+        kid,
+        issuer,
+        audience: 'dongyu-app',
+        nonce: issuedNonce,
+      });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        access_token: 'mock-access-token',
+        token_type: 'Bearer',
+        expires_in: 300,
+        id_token: idToken,
+      }));
+      return;
+    }
+    if (url.pathname === '/userinfo') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        sub: '268746183297-drop',
+        email: 'drop.yang@dongyudigital.com',
+        name: 'drop',
+        preferred_username: 'drop',
+      }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  issuer = serverBaseUrl(oidcServer);
+
+  try {
+    await withServerEnv({
+      DY_AUTH: '1',
+      DY_OIDC_ISSUER: issuer,
+      DY_OIDC_CLIENT_ID: 'dongyu-app',
+      DY_OIDC_REDIRECT_URI: 'http://127.0.0.1:0/auth/sso/callback',
+    }, async ({ startServer }) => {
+      const appServer = startServer({ port: 0, dbPath: null, skipFrontendBuild: true });
+      await waitListening(appServer);
+      const appBase = serverBaseUrl(appServer);
+      try {
+        const startResp = await fetch(`${appBase}/auth/sso/start?returnTo=%2Fworkspace`, { redirect: 'manual' });
+        const authorizeUrl = new URL(startResp.headers.get('location'));
+        issuedNonce = authorizeUrl.searchParams.get('nonce');
+        const state = authorizeUrl.searchParams.get('state');
+        const oidcCookie = startResp.headers.get('set-cookie') || '';
+        const callbackUrl = `${appBase}/auth/sso/callback?code=valid-code&state=${encodeURIComponent(state)}`;
+
+        const firstCallback = fetch(callbackUrl, {
+          redirect: 'manual',
+          headers: { cookie: oidcCookie },
+        });
+        await waitFor(() => tokenRequestCount === 1, { timeoutMs: 1000 });
+
+        const concurrentResp = await fetch(callbackUrl, {
+          redirect: 'manual',
+          headers: { cookie: oidcCookie },
+        });
+        const concurrentBody = await readResponseJson(concurrentResp);
+        assert.equal(concurrentResp.status, 400, 'concurrent_replay_must_be_rejected_before_second_token_exchange');
+        assert.equal(concurrentBody.error, 'invalid_oidc_state');
+        assert.equal(tokenRequestCount, 1, 'concurrent_replay_must_not_reach_token_endpoint');
+
+        releaseTokenRequest();
+        const firstResp = await firstCallback;
+        assert.equal(firstResp.status, 302, 'first_inflight_callback_must_complete');
+        assert.equal(firstResp.headers.get('location'), '/workspace');
+        assert.match(firstResp.headers.get('set-cookie') || '', /dy_session=/, 'first_inflight_callback_must_set_session');
+      } finally {
+        appServer.close();
+      }
+    });
+  } finally {
+    if (releaseTokenRequest) releaseTokenRequest();
+    oidcServer.close();
+  }
+
+  return { key: 'sso_callback_concurrent_replay_is_blocked', status: 'PASS' };
+}
+
+async function test_sso_callback_concurrent_replay_is_blocked_during_metadata_cache_miss() {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const kid = 'test-key';
+  let issuer = '';
+  let issuedNonce = null;
+  let gateMetadata = false;
+  let metadataRequestCount = 0;
+  let tokenRequestCount = 0;
+  let releaseMetadata = null;
+  const metadataGate = new Promise((resolve) => {
+    releaseMetadata = resolve;
+  });
+  const publicJwk = publicKey.export({ format: 'jwk' });
+  publicJwk.kid = kid;
+  publicJwk.alg = 'RS256';
+  publicJwk.use = 'sig';
+
+  const oidcServer = await createJsonServer(async (req, res) => {
+    const url = new URL(req.url || '/', issuer);
+    if (url.pathname === '/.well-known/openid-configuration') {
+      if (gateMetadata) {
+        metadataRequestCount += 1;
+        await metadataGate;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        issuer,
+        authorization_endpoint: `${issuer}/authorize`,
+        token_endpoint: `${issuer}/token`,
+        userinfo_endpoint: `${issuer}/userinfo`,
+        jwks_uri: `${issuer}/keys`,
+      }));
+      return;
+    }
+    if (url.pathname === '/keys') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ keys: [publicJwk] }));
+      return;
+    }
+    if (url.pathname === '/token') {
+      tokenRequestCount += 1;
+      for await (const _chunk of req) {
+        // Drain request body.
+      }
+      const idToken = signJwt({}, {
+        privateKey,
+        kid,
+        issuer,
+        audience: 'dongyu-app',
+        nonce: issuedNonce,
+      });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        access_token: 'mock-access-token',
+        token_type: 'Bearer',
+        expires_in: 300,
+        id_token: idToken,
+      }));
+      return;
+    }
+    if (url.pathname === '/userinfo') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        sub: '268746183297-drop',
+        email: 'drop.yang@dongyudigital.com',
+        name: 'drop',
+        preferred_username: 'drop',
+      }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  issuer = serverBaseUrl(oidcServer);
+
+  try {
+    await withServerEnv({
+      DY_AUTH: '1',
+      DY_OIDC_ISSUER: issuer,
+      DY_OIDC_CLIENT_ID: 'dongyu-app',
+      DY_OIDC_REDIRECT_URI: 'http://127.0.0.1:9018/auth/sso/callback',
+    }, async () => {
+      const authA = await import(`../../packages/ui-model-demo-server/auth.mjs?metadata-race-a=${Date.now()}-${Math.random()}`);
+      const started = await authA.startOidcLogin({
+        req: { headers: { host: '127.0.0.1:9018' } },
+        returnTo: '/workspace',
+      });
+      const authorizeUrl = new URL(started.authorizationUrl);
+      const state = authorizeUrl.searchParams.get('state');
+      issuedNonce = authorizeUrl.searchParams.get('nonce');
+      const oidcCookie = started.stateCookie;
+      assert.ok(state, 'start_must_issue_state_for_metadata_race');
+      assert.match(oidcCookie, /dy_oidc_state=/, 'start_must_issue_cookie_for_metadata_race');
+
+      const authB = await import(`../../packages/ui-model-demo-server/auth.mjs?metadata-race-b=${Date.now()}-${Math.random()}`);
+      const req = { headers: { host: '127.0.0.1:9018', cookie: oidcCookie } };
+      gateMetadata = true;
+      const firstCallback = authB.completeOidcLogin({ req, code: 'valid-code', state });
+      await waitFor(() => metadataRequestCount === 1, { timeoutMs: 1000 });
+
+      const secondCallback = authB.completeOidcLogin({ req, code: 'valid-code', state })
+        .then(() => ({ ok: true, error: '' }))
+        .catch((error) => ({ ok: false, error: error && error.message ? error.message : String(error) }));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      try {
+        assert.equal(metadataRequestCount, 1, 'concurrent_replay_must_not_start_second_metadata_fetch');
+      } finally {
+        releaseMetadata();
+      }
+
+      const secondResult = await secondCallback;
+      assert.deepEqual(secondResult, { ok: false, error: 'invalid_oidc_state' });
+      const firstResult = await firstCallback;
+      assert.equal(firstResult.returnTo, '/workspace');
+      assert.equal(firstResult.session.provider, 'zitadel');
+      assert.equal(tokenRequestCount, 1, 'metadata_race_must_only_exchange_token_once');
+    });
+  } finally {
+    if (releaseMetadata) releaseMetadata();
+    oidcServer.close();
+  }
+
+  return { key: 'sso_callback_concurrent_replay_is_blocked_during_metadata_cache_miss', status: 'PASS' };
 }
 
 async function test_oidc_logout_returns_zitadel_end_session_url_and_clears_local_session() {
@@ -959,6 +1422,10 @@ const tests = [
   test_sso_start_redirects_to_zitadel_authorize_with_pkce,
   test_sso_callback_rejects_unknown_state,
   test_valid_sso_callback_creates_dongyu_session,
+  test_sso_callback_token_failure_keeps_state_retryable,
+  test_sso_callback_malformed_token_response_finalizes_state,
+  test_sso_callback_concurrent_replay_is_blocked,
+  test_sso_callback_concurrent_replay_is_blocked_during_metadata_cache_miss,
   test_oidc_logout_returns_zitadel_end_session_url_and_clears_local_session,
   test_oidc_logout_rejects_unsafe_end_session_endpoint,
   test_role_mapping_requires_dongyu_scoped_roles,

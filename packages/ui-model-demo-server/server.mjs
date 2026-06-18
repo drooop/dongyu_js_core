@@ -51,9 +51,12 @@ import {
 } from '../ui-model-demo-frontend/src/editor_page_state_derivers.js';
 import {
   BUILTIN_WORKSPACE_APP_MODEL_IDS,
+  DESKTOP_CATALOG_MODEL_ID,
+  DOCS_CATALOG_MODEL_ID,
   DOC_PAGE_FILLTABLE_MINIMAL_MODEL_ID,
   FLOW_SHELL_DEFAULT_TAB,
   FLOW_SHELL_TAB_LABEL,
+  GALLERY_CATALOG_MODEL_ID,
   GALLERY_MAILBOX_MODEL_ID,
   GALLERY_STATE_MODEL_ID,
   MATRIX_ACTIVE_CONVERSATION_MODEL_ID,
@@ -108,10 +111,39 @@ const BUS_EVENT_ERROR_KEY = 'bus_event_error';
 const BUS_EVENT_ENDPOINT_PATH = '/bus_event';
 const UI_EVENT_TYPE = 'ui_event';
 const UI_EVENT_ENDPOINT_PATH = '/ui_event';
+const DERIVED_REFRESH_SCOPES = new Set(['business', 'home_or_editor', 'app_index', 'full']);
 const LOGIN_MODEL_ID = -3;
 const TRACE_MODEL_ID = -100; // Registered by 0213 as the Matrix debug / bus trace model id.
 const MGMT_BUS_CONSOLE_MODEL_ID = 1036;
+const DESKTOP_FOREGROUND_SHELL_MODEL_ID = -29;
 const DEFAULT_UI_SERVER_V1N_ID = '5/10/28/35/13';
+const CLIENT_SNAPSHOT_PROFILES = new Set(['bootstrap', 'visible', 'full']);
+const BOOTSTRAP_MODEL0_LABEL_KEYS = new Set([
+  'sys_worker_id',
+  'sys_worker_role',
+  'runtime_mode',
+]);
+const BOOTSTRAP_EDITOR_STATE_LABEL_KEYS = new Set([
+  'ui_page',
+  'ui_page_catalog_json',
+  'ws_apps_registry',
+  'ws_app_selected',
+  'selected_model_id',
+  DESKTOP_FOREGROUND_APP_LABEL,
+  DESKTOP_TASK_STACK_LABEL,
+  DESKTOP_TASK_SWITCHER_OPEN_LABEL,
+  DESKTOP_APP_DETAIL_DRAWER_OPEN_LABEL,
+  DESKTOP_APP_VIEW_MODE_LABEL,
+  DESKTOP_APP_MANAGE_MODE_LABEL,
+  DESKTOP_DELETE_CONFIRM_OPEN_LABEL,
+  DESKTOP_DELETE_CONFIRM_TARGET_LABEL,
+  'desktop_delete_confirm_title',
+  'desktop_delete_confirm_text',
+  DESKTOP_DELETE_RESULT_OPEN_LABEL,
+  'desktop_delete_result_title',
+  'desktop_delete_result_text',
+]);
+const BOOTSTRAP_GALLERY_STATE_LABEL_KEYS = new Set(['nav_to']);
 const MGMT_BUS_CONSOLE_LOCAL_STATE_KEYS = new Set([
   'selected_subject',
   'selected_subject_id',
@@ -280,6 +312,52 @@ function readIntEnv(name, fallback, minValue = 0) {
   const parsed = Number.parseInt(String(raw), 10);
   if (!Number.isFinite(parsed) || parsed < minValue) return fallback;
   return parsed;
+}
+
+function nowPerfMs() {
+  const perf = globalThis && globalThis.performance && typeof globalThis.performance.now === 'function'
+    ? globalThis.performance.now()
+    : NaN;
+  return Number.isFinite(perf) ? perf : Date.now();
+}
+
+function readEnvelopeMeta(envelopeOrNull) {
+  if (!envelopeOrNull || typeof envelopeOrNull !== 'object') return {};
+  const payload = envelopeOrNull.payload && typeof envelopeOrNull.payload === 'object'
+    ? envelopeOrNull.payload
+    : null;
+  const meta = payload && payload.meta && typeof payload.meta === 'object'
+    ? payload.meta
+    : (envelopeOrNull.meta && typeof envelopeOrNull.meta === 'object' ? envelopeOrNull.meta : {});
+  return meta && typeof meta === 'object' ? meta : {};
+}
+
+function roundMs(value) {
+  return Number.isFinite(value) ? Math.max(0, Math.round(value * 1000) / 1000) : null;
+}
+
+function withSubmitTiming(result, envelopeOrNull, timingStart) {
+  if (!result || typeof result !== 'object') return result;
+  const meta = readEnvelopeMeta(envelopeOrNull);
+  const serverCompletedAt = Date.now();
+  const serverCompletedPerfMs = nowPerfMs();
+  return {
+    ...result,
+    timing: {
+      op_id: typeof meta.op_id === 'string' ? meta.op_id : '',
+      client_dispatch_ts: Number.isFinite(meta.client_dispatch_ts) ? meta.client_dispatch_ts : null,
+      client_dispatch_perf_ms: Number.isFinite(meta.client_dispatch_perf_ms) ? meta.client_dispatch_perf_ms : null,
+      server_received_at: timingStart.serverReceivedAt,
+      server_received_perf_ms: timingStart.serverReceivedPerfMs,
+      server_started_at: timingStart.serverStartedAt,
+      server_started_perf_ms: timingStart.serverStartedPerfMs,
+      server_completed_at: serverCompletedAt,
+      server_completed_perf_ms: serverCompletedPerfMs,
+      server_queue_wait_ms: roundMs(timingStart.serverStartedPerfMs - timingStart.serverReceivedPerfMs),
+      server_duration_ms: roundMs(serverCompletedPerfMs - timingStart.serverStartedPerfMs),
+      server_total_ms: roundMs(serverCompletedPerfMs - timingStart.serverReceivedPerfMs),
+    },
+  };
 }
 
 function readAuthString(value) {
@@ -3317,6 +3395,8 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
         `const opId = 'imported_${rootModelId}_' + Date.now() + '_' + Math.random().toString(16).slice(2);`,
         `const mt = (k, t, v) => ({ id: 0, p: 0, r: 0, c: 0, k, t, v });`,
         `const payload = Array.isArray(label && label.v) ? label.v : [];`,
+        `const principalLabel = V1N.readLabel(0, 0, 0, 'principal_runtime_key');`,
+        `const principalKey = principalLabel && principalLabel.t === 'str' && typeof principalLabel.v === 'string' ? principalLabel.v : '';`,
         `V1N.addLabel('mt_bus_send_in', 'pin.in', [`,
         `  mt('__mt_payload_kind', 'str', 'bus_send.v1'),`,
         `  mt('__mt_request_id', 'str', opId),`,
@@ -3335,6 +3415,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
         `  mt('reply_target_worker_id', 'str', ${JSON.stringify(resolveUiServerWorkerId())}),`,
         `  mt('reply_target_model_id', 'int', ${rootModelId}),`,
         `  mt('reply_target_pin', 'str', ${JSON.stringify(SLIDE_IMPORT_REPLY_PIN)}),`,
+        `  ...(principalKey ? [mt('reply_target_principal_key', 'str', principalKey)] : []),`,
         `  mt('payload', 'json', payload),`,
         `]);`,
         'return;',
@@ -4046,6 +4127,204 @@ function pinPayloadPacketToBusValue(packet) {
   return parsed.ok ? parsed.records : null;
 }
 
+function isValidPrincipalRuntimeControlTopic(value) {
+  if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
+  const parts = value.split('/');
+  return parts.length === 8
+    && parts[0] === 'UIPUT'
+    && parts.every((part) => isSafePinRouteSegment(part))
+    && /^(0|[1-9][0-9]*)$/u.test(parts[6]);
+}
+
+function principalRuntimeControlTopicParts(value) {
+  if (!isValidPrincipalRuntimeControlTopic(value)) return null;
+  const parts = value.split('/');
+  return {
+    worker_id: parts[5],
+    model_id: Number(parts[6]),
+    pin: parts[7],
+  };
+}
+
+function principalIdentity(principal) {
+  if (!principal || typeof principal !== 'object') return null;
+  const ordered = [
+    ['subject', principal.subject],
+    ['userId', principal.userId],
+    ['email', principal.email],
+    ['username', principal.username],
+  ];
+  for (const [source, raw] of ordered) {
+    if (typeof raw !== 'string') continue;
+    const value = raw.trim();
+    if (value) return { source, value };
+  }
+  return null;
+}
+
+function principalRuntimeKey(principal) {
+  const identity = principalIdentity(principal);
+  if (!identity) return '';
+  return `${identity.source}:${identity.value}`;
+}
+
+function parsePrincipalRuntimePinPayload(payload) {
+  let decoded = payload;
+  if (typeof decoded === 'string') {
+    try {
+      decoded = JSON.parse(decoded);
+    } catch (_) {
+      return { ok: false, code: 'invalid_packet' };
+    }
+  }
+  const records = Array.isArray(decoded)
+    ? decoded
+    : (decoded && decoded.type === 'pin_payload' && decoded.version === 'v1' && Array.isArray(decoded.payload) ? decoded.payload : null);
+  if (!isTemporaryPayloadRecordArray(records)) {
+    return { ok: false, code: 'temporary_modeltable_required' };
+  }
+  const kind = readTemporaryPayloadString(records, '__mt_payload_kind');
+  if (kind !== 'pin_payload.v1') return { ok: false, code: 'invalid_payload_kind' };
+  const nestedPayload = readTemporaryPayloadJson(records, 'payload');
+  if (!isTemporaryPayloadRecordArray(nestedPayload)) return { ok: false, code: 'invalid_nested_payload' };
+  const topic = readTemporaryPayloadString(records, 'topic');
+  const responseTopic = readTemporaryPayloadString(records, 'response_topic');
+  if (!isValidPrincipalRuntimeControlTopic(topic)) return { ok: false, code: 'invalid_topic' };
+  if (!isValidPrincipalRuntimeControlTopic(responseTopic)) return { ok: false, code: 'invalid_response_topic' };
+  const endpoint = {
+    worker_id: readTemporaryPayloadString(records, 'endpoint_worker_id'),
+    model_id: readTemporaryPayloadInt(records, 'endpoint_model_id'),
+    pin: readTemporaryPayloadString(records, 'endpoint_pin'),
+  };
+  const topicEndpoint = principalRuntimeControlTopicParts(topic);
+  const endpointMatchesTopic = topicEndpoint
+    && endpoint.worker_id === topicEndpoint.worker_id
+    && endpoint.model_id === topicEndpoint.model_id
+    && endpoint.pin === topicEndpoint.pin;
+  if (!endpointMatchesTopic) return { ok: false, code: 'invalid_endpoint_topic' };
+  const origin = {
+    worker_id: readTemporaryPayloadString(records, 'origin_worker_id'),
+    model_id: readTemporaryPayloadInt(records, 'origin_model_id'),
+    pin: readTemporaryPayloadString(records, 'origin_pin'),
+  };
+  const replyTarget = {
+    worker_id: readTemporaryPayloadString(records, 'reply_target_worker_id'),
+    model_id: readTemporaryPayloadInt(records, 'reply_target_model_id'),
+    pin: readTemporaryPayloadString(records, 'reply_target_pin'),
+  };
+  const validOrigin = isSafePinRouteSegment(origin.worker_id)
+    && Number.isInteger(origin.model_id)
+    && origin.model_id > 0
+    && isSafePinRouteSegment(origin.pin);
+  const validReplyTarget = isSafePinRouteSegment(replyTarget.worker_id)
+    && Number.isInteger(replyTarget.model_id)
+    && replyTarget.model_id > 0
+    && isSafePinRouteSegment(replyTarget.pin);
+  if (!validOrigin || !validReplyTarget) return { ok: false, code: 'invalid_pin_payload_records' };
+  return {
+    ok: true,
+    records,
+    messageRole: readTemporaryPayloadString(records, 'message_role'),
+    topic,
+    responseTopic,
+    routeKind: readTemporaryPayloadString(records, 'route_kind'),
+    replyTargetPrincipalKey: readTemporaryPayloadString(records, 'reply_target_principal_key'),
+    endpoint,
+    origin,
+    replyTarget,
+    nestedPayload,
+  };
+}
+
+function createPrincipalRuntimeRegistry(options = {}) {
+  const createState = typeof options.createState === 'function'
+    ? options.createState
+    : () => createServerState({ dbPath: null });
+  const readOnlyState = options.readOnlyState || null;
+  const runtimes = new Map();
+
+  function resolveMutableRuntime(principal) {
+    const principalKey = principalRuntimeKey(principal);
+    if (!principalKey) {
+      throw new Error('guest_read_only');
+    }
+    let entry = runtimes.get(principalKey);
+    if (!entry) {
+      entry = {
+        principalKey,
+        principal: { ...(principal || {}) },
+        mutable: true,
+        state: createState(principalKey, principal),
+      };
+      runtimes.set(principalKey, entry);
+    }
+    return entry;
+  }
+
+  function resolveReadRuntime(principal) {
+    const principalKey = principalRuntimeKey(principal);
+    if (!principalKey) {
+      return {
+        principalKey: 'guest',
+        principal: null,
+        mutable: false,
+        state: readOnlyState,
+      };
+    }
+    return resolveMutableRuntime(principal);
+  }
+
+  function runtimeByKey(principalKey) {
+    if (typeof principalKey !== 'string' || !principalKey.trim()) return null;
+    return runtimes.get(principalKey.trim()) || null;
+  }
+
+  async function handleControlBusPacket(topic, payload) {
+    const parsed = parsePrincipalRuntimePinPayload(payload);
+    if (!parsed.ok) return false;
+    if (parsed.messageRole !== 'response') return false;
+    if (parsed.topic !== topic || parsed.responseTopic !== topic || parsed.routeKind !== 'control') return false;
+    if (parsed.replyTarget.pin !== 'result') return false;
+    const entry = runtimeByKey(parsed.replyTargetPrincipalKey);
+    if (!entry || !entry.mutable || !entry.state || !entry.state.runtime) return false;
+    const targetModel = entry.state.runtime.getModel(parsed.replyTarget.model_id);
+    if (!targetModel) return false;
+    for (const record of parsed.nestedPayload) {
+      if (
+        !record
+        || !Number.isInteger(record.p)
+        || !Number.isInteger(record.r)
+        || !Number.isInteger(record.c)
+        || typeof record.k !== 'string'
+        || !record.k
+        || typeof record.t !== 'string'
+        || !record.t
+        || !Object.prototype.hasOwnProperty.call(record, 'v')
+      ) {
+        return false;
+      }
+      entry.state.runtime.addLabel(targetModel, record.p, record.r, record.c, {
+        k: record.k,
+        t: record.t,
+        v: record.v,
+      });
+    }
+    if (typeof entry.state.updateDerived === 'function') {
+      entry.state.updateDerived({ scope: 'business' });
+    }
+    return true;
+  }
+
+  return {
+    resolveMutableRuntime,
+    resolveReadRuntime,
+    handleControlBusPacket,
+    runtimeByKey,
+    principalRuntimeKey,
+    runtimes,
+  };
+}
+
 function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
   if (!isTemporaryPayloadRecordArray(payload)) {
     return { ok: false, code: 'invalid_bus_payload', detail: 'temporary_modeltable_required' };
@@ -4082,6 +4361,9 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
   };
   const routeTopic = buildEndpointTopic(options.runtime || null, endpoint);
   const responseTopic = buildEndpointTopic(options.runtime || null, replyTarget);
+  const principalKey = options.runtime
+    ? readRuntimeCellString(options.runtime, 0, 0, 0, 'principal_runtime_key', '')
+    : '';
   if (!routeTopic || !responseTopic || routeTopic === responseTopic) {
     return { ok: false, code: 'invalid_topic', detail: 'topic_and_response_topic_required' };
   }
@@ -4126,6 +4408,7 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
         mtPayloadRecord('reply_target_worker_id', 'str', replyTarget.worker_id),
         mtPayloadRecord('reply_target_model_id', 'int', replyTarget.model_id),
         mtPayloadRecord('reply_target_pin', 'str', replyTarget.pin),
+        ...(principalKey ? [mtPayloadRecord('reply_target_principal_key', 'str', principalKey)] : []),
         mtPayloadRecord('payload', 'json', normalizedPayload),
         mtPayloadRecord('timestamp', 'int', now),
       ],
@@ -4402,6 +4685,11 @@ const CLIENT_SECRET_LABEL_KEYS = new Set([
   'matrix_token',
   'matrix_passwd',
   'access_token',
+  'refresh_token',
+  'password',
+  'passwd',
+  'secret',
+  'token',
 ]);
 const CLIENT_SECRET_LABEL_TYPES = new Set([
   'matrix.token',
@@ -4414,6 +4702,16 @@ const CLIENT_REDACTED_LABEL_TYPES = new Set([
 const CLIENT_SECRET_STRING_PATTERNS = [
   /syt_[A-Za-z0-9._=-]{8,}/u,
   /ChangeMeLocal2026/u,
+];
+const CLIENT_SECRET_KEY_PATTERNS = [
+  /^token$/iu,
+  /_token$/iu,
+  /access_token/iu,
+  /refresh_token/iu,
+  /matrix_token/iu,
+  /password/iu,
+  /passwd/iu,
+  /secret/iu,
 ];
 const ALWAYS_RESTRICTED_CLIENT_MODEL_IDS = new Set([
   String(LOGIN_MODEL_ID),
@@ -4463,7 +4761,7 @@ function containsClientSecretValue(value, seen = new WeakSet()) {
   if (Array.isArray(value)) {
     return value.some((item) => containsClientSecretValue(item, seen));
   }
-  return Object.values(value).some((item) => containsClientSecretValue(item, seen));
+  return Object.entries(value).some(([key, item]) => isClientSecretKey(key) || containsClientSecretValue(item, seen));
 }
 
 function isClientSecretLabel(labelKey, labelValue) {
@@ -4474,6 +4772,39 @@ function isClientSecretLabel(labelKey, labelValue) {
   return CLIENT_SECRET_LABEL_KEYS.has(normalizedKey)
     || CLIENT_SECRET_LABEL_TYPES.has(normalizedType)
     || containsClientSecretValue(labelValue?.v);
+}
+
+function isClientSecretKey(key) {
+  const normalized = String(key || '').trim().toLowerCase();
+  return CLIENT_SECRET_LABEL_KEYS.has(normalized)
+    || CLIENT_SECRET_KEY_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function sanitizeClientVisibleValue(value, seen = new WeakSet()) {
+  if (typeof value === 'string') {
+    return CLIENT_SECRET_STRING_PATTERNS.some((pattern) => pattern.test(value)) ? undefined : value;
+  }
+  if (!value || typeof value !== 'object') return value;
+  if (seen.has(value)) return undefined;
+  seen.add(value);
+  const nestedKey = typeof value.k === 'string' ? value.k.trim().toLowerCase() : '';
+  const nestedType = typeof value.t === 'string' ? value.t.trim().toLowerCase() : '';
+  if (isClientSecretKey(nestedKey) || CLIENT_SECRET_LABEL_TYPES.has(nestedType)) return undefined;
+  if (Array.isArray(value)) {
+    const sanitized = [];
+    for (const item of value) {
+      const next = sanitizeClientVisibleValue(item, seen);
+      if (next !== undefined) sanitized.push(next);
+    }
+    return sanitized;
+  }
+  const sanitized = {};
+  for (const [key, nested] of Object.entries(value)) {
+    if (isClientSecretKey(key)) continue;
+    const next = sanitizeClientVisibleValue(nested, seen);
+    if (next !== undefined) sanitized[key] = next;
+  }
+  return Object.keys(sanitized).length > 0 ? sanitized : undefined;
 }
 
 function principalCapabilities(principal) {
@@ -4622,7 +4953,29 @@ function shouldFilterClientBaseLabel(labelKey, labelValue) {
     ? labelValue.t.trim().toLowerCase()
     : '';
   return CLIENT_REDACTED_LABEL_TYPES.has(normalizedType)
+    || isClientSecretKey(labelKey)
     || isClientSecretLabel(labelKey, labelValue);
+}
+
+function sanitizeClientSnapshotLabel(labelKey, labelValue) {
+  if (shouldFilterClientBaseLabel(labelKey, labelValue)) return null;
+  const sanitizedValue = sanitizeClientVisibleValue(labelValue?.v);
+  if (sanitizedValue === undefined && labelValue && Object.prototype.hasOwnProperty.call(labelValue, 'v')) return null;
+  return sanitizedValue === labelValue?.v ? labelValue : { ...labelValue, v: sanitizedValue };
+}
+
+function buildClientSnapshotLabels(labels = {}) {
+  const filteredLabels = {};
+  for (const [lk, lv] of Object.entries(labels || {})) {
+    const sanitized = sanitizeClientSnapshotLabel(lk, lv);
+    if (sanitized) filteredLabels[lk] = sanitized;
+  }
+  return filteredLabels;
+}
+
+function sanitizeClientSnapshotV1nConfig(value) {
+  const sanitized = sanitizeClientVisibleValue(value);
+  return sanitized === undefined ? {} : sanitized;
 }
 
 function shouldFilterPrincipalCell(modelIdText, cellKey, cell, principal) {
@@ -4653,11 +5006,7 @@ function buildClientSnapshot(runtime) {
     // Trace model: include summary root plus cellwise UI nodes, but still skip bulk trace entry cells.
     if (modelId === TRACE_MODEL_ID) {
       const filterCell = (cell) => {
-        const filteredLabels = {};
-        for (const [lk, lv] of Object.entries(cell?.labels || {})) {
-          if (shouldFilterClientBaseLabel(lk, lv)) continue;
-          filteredLabels[lk] = lv;
-        }
+        const filteredLabels = buildClientSnapshotLabels(cell?.labels || {});
         return { ...cell, labels: filteredLabels };
       };
       const filteredCells = {};
@@ -4677,8 +5026,8 @@ function buildClientSnapshot(runtime) {
         const filteredLabels = {};
         for (const [lk, lv] of Object.entries(cell.labels || {})) {
           if (excludeTypes.has(lv.t)) continue;
-          if (shouldFilterClientBaseLabel(lk, lv)) continue;
-          filteredLabels[lk] = lv;
+          const sanitized = sanitizeClientSnapshotLabel(lk, lv);
+          if (sanitized) filteredLabels[lk] = sanitized;
         }
         filteredCells[ck] = { ...cell, labels: filteredLabels };
       }
@@ -4692,8 +5041,8 @@ function buildClientSnapshot(runtime) {
         const filteredLabels = {};
         for (const [lk, lv] of Object.entries(cell.labels || {})) {
           if (excludeKeys.has(lk)) continue;
-          if (shouldFilterClientBaseLabel(lk, lv)) continue;
-          filteredLabels[lk] = lv;
+          const sanitized = sanitizeClientSnapshotLabel(lk, lv);
+          if (sanitized) filteredLabels[lk] = sanitized;
         }
         filteredCells[ck] = { ...cell, labels: filteredLabels };
       }
@@ -4702,16 +5051,12 @@ function buildClientSnapshot(runtime) {
     }
     const filteredCells = {};
     for (const [ck, cell] of Object.entries(model.cells || {})) {
-      const filteredLabels = {};
-      for (const [lk, lv] of Object.entries(cell.labels || {})) {
-        if (shouldFilterClientBaseLabel(lk, lv)) continue;
-        filteredLabels[lk] = lv;
-      }
+      const filteredLabels = buildClientSnapshotLabels(cell.labels || {});
       filteredCells[ck] = { ...cell, labels: filteredLabels };
     }
     models[id] = { ...model, cells: filteredCells };
   }
-  return { models, v1nConfig: snap.v1nConfig };
+  return { models, v1nConfig: sanitizeClientSnapshotV1nConfig(snap.v1nConfig) };
 }
 
 function buildClientSnapshotForPrincipal(snapshot, principal = null) {
@@ -4726,8 +5071,11 @@ function buildClientSnapshotForPrincipal(snapshot, principal = null) {
       if (shouldFilterPrincipalCell(id, ck, cell, principal)) continue;
       const filteredLabels = {};
       for (const [lk, lv] of Object.entries(cell.labels || {})) {
+        if (shouldFilterClientBaseLabel(lk, lv)) continue;
         if (shouldFilterPrincipalLabel(lk, lv, principal)) continue;
-        const sanitizedValue = sanitizePrincipalLabelValue(lv?.v, principal);
+        const clientSafeValue = sanitizeClientVisibleValue(lv?.v);
+        if (clientSafeValue === undefined && lv && Object.prototype.hasOwnProperty.call(lv, 'v')) continue;
+        const sanitizedValue = sanitizePrincipalLabelValue(clientSafeValue, principal);
         if (sanitizedValue === undefined) continue;
         filteredLabels[lk] = sanitizedValue === lv?.v ? lv : { ...lv, v: sanitizedValue };
       }
@@ -4735,7 +5083,230 @@ function buildClientSnapshotForPrincipal(snapshot, principal = null) {
     }
     models[id] = { ...model, cells: filteredCells };
   }
-  return { models, v1nConfig: snapshot.v1nConfig };
+  return { models, v1nConfig: sanitizeClientSnapshotV1nConfig(snapshot.v1nConfig) };
+}
+
+function readSnapshotRootLabels(snapshot, modelId) {
+  return snapshot?.models?.[String(modelId)]?.cells?.['0,0,0']?.labels || {};
+}
+
+function bootstrapAllowedModelIds(snapshot) {
+  void snapshot;
+  return new Set([
+    0,
+    EDITOR_STATE_MODEL_ID,
+    DESKTOP_CATALOG_MODEL_ID,
+    DESKTOP_FOREGROUND_SHELL_MODEL_ID,
+    GALLERY_STATE_MODEL_ID,
+    DOCS_CATALOG_MODEL_ID,
+    GALLERY_CATALOG_MODEL_ID,
+  ]);
+}
+
+function cloneClientSnapshotModel(model, modelId) {
+  if (!model || typeof model !== 'object') return null;
+  const next = cloneSnapshotJson(model);
+  if (modelId === 0) {
+    const root = next.cells && next.cells['0,0,0'];
+    if (root && root.labels) {
+      root.labels = Object.fromEntries(
+        Object.entries(root.labels).filter(([key]) => BOOTSTRAP_MODEL0_LABEL_KEYS.has(key)),
+      );
+    }
+    if (next.cells) {
+      next.cells = root ? { '0,0,0': root } : {};
+    }
+  }
+  if (modelId === EDITOR_STATE_MODEL_ID) {
+    const root = next.cells && next.cells['0,0,0'];
+    if (root && root.labels) {
+      root.labels = Object.fromEntries(
+        Object.entries(root.labels).filter(([key]) => BOOTSTRAP_EDITOR_STATE_LABEL_KEYS.has(key)),
+      );
+    }
+    if (next.cells) {
+      next.cells = root ? { '0,0,0': root } : {};
+    }
+  }
+  if (modelId === GALLERY_STATE_MODEL_ID) {
+    const root = next.cells && next.cells['0,0,0'];
+    if (root && root.labels) {
+      root.labels = Object.fromEntries(
+        Object.entries(root.labels).filter(([key]) => BOOTSTRAP_GALLERY_STATE_LABEL_KEYS.has(key)),
+      );
+    }
+    if (next.cells) {
+      next.cells = root ? { '0,0,0': root } : {};
+    }
+  }
+  return next;
+}
+
+function buildClientSnapshotProfile(snapshot, options = {}) {
+  const profile = options && typeof options.profile === 'string' ? options.profile : 'bootstrap';
+  if (profile === 'full') {
+    return { ...(snapshot || {}), v1nConfig: sanitizeClientSnapshotV1nConfig(snapshot?.v1nConfig) };
+  }
+  const visibleModelIds = Array.isArray(options.visibleModelIds) ? options.visibleModelIds : [];
+  const allowed = bootstrapAllowedModelIds(snapshot);
+  const models = {};
+  for (const modelId of [...allowed].sort((a, b) => a - b)) {
+    const model = snapshot?.models?.[String(modelId)];
+    if (!model) continue;
+    const cloned = cloneClientSnapshotModel(model, modelId);
+    if (cloned) models[String(modelId)] = cloned;
+  }
+  for (const modelId of visibleModelIds) {
+    if (!Number.isInteger(modelId)) continue;
+    const model = snapshot?.models?.[String(modelId)];
+    if (!model) continue;
+    models[String(modelId)] = cloneSnapshotJson(model);
+  }
+  return { models, v1nConfig: sanitizeClientSnapshotV1nConfig(snapshot?.v1nConfig) };
+}
+
+function cloneSnapshotJson(value) {
+  if (value === undefined) return undefined;
+  return JSON.parse(JSON.stringify(value));
+}
+
+function snapshotJsonEquals(a, b) {
+  if (a === b) return true;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch (_) {
+    return false;
+  }
+}
+
+function normalizeSnapshotModelId(id) {
+  const text = String(id);
+  return /^-?\d+$/u.test(text) ? Number(text) : text;
+}
+
+function buildClientSnapshotPatchOps(previousSnapshot, nextSnapshot) {
+  const prev = previousSnapshot && previousSnapshot.models ? previousSnapshot : { models: {}, v1nConfig: undefined };
+  const next = nextSnapshot && nextSnapshot.models ? nextSnapshot : { models: {}, v1nConfig: undefined };
+  const ops = [];
+  if (!snapshotJsonEquals(prev.v1nConfig, next.v1nConfig)) {
+    ops.push({ op: 'replace_v1n_config', value: cloneSnapshotJson(next.v1nConfig) });
+  }
+  const prevModels = prev.models || {};
+  const nextModels = next.models || {};
+  const modelIds = new Set([...Object.keys(prevModels), ...Object.keys(nextModels)]);
+  for (const modelId of [...modelIds].sort()) {
+    const prevModel = prevModels[modelId];
+    const nextModel = nextModels[modelId];
+    const normalizedModelId = normalizeSnapshotModelId(modelId);
+    if (!nextModel) {
+      ops.push({ op: 'delete_model', model_id: normalizedModelId });
+      continue;
+    }
+    if (!prevModel) {
+      ops.push({ op: 'replace_model', model_id: normalizedModelId, value: cloneSnapshotJson(nextModel) });
+      continue;
+    }
+    const prevCells = prevModel.cells || {};
+    const nextCells = nextModel.cells || {};
+    const cellKeys = new Set([...Object.keys(prevCells), ...Object.keys(nextCells)]);
+    for (const cellKey of [...cellKeys].sort()) {
+      const prevCell = prevCells[cellKey];
+      const nextCell = nextCells[cellKey];
+      if (!nextCell) {
+        ops.push({ op: 'delete_cell', model_id: normalizedModelId, cell_key: cellKey });
+        continue;
+      }
+      if (!prevCell) {
+        ops.push({ op: 'replace_cell', model_id: normalizedModelId, cell_key: cellKey, value: cloneSnapshotJson(nextCell) });
+        continue;
+      }
+      const prevLabels = prevCell.labels || {};
+      const nextLabels = nextCell.labels || {};
+      const labelKeys = new Set([...Object.keys(prevLabels), ...Object.keys(nextLabels)]);
+      for (const labelKey of [...labelKeys].sort()) {
+        const prevLabel = prevLabels[labelKey];
+        const nextLabel = nextLabels[labelKey];
+        if (!nextLabel) {
+          ops.push({ op: 'delete_label', model_id: normalizedModelId, cell_key: cellKey, label_key: labelKey });
+          continue;
+        }
+        if (!prevLabel || !snapshotJsonEquals(prevLabel, nextLabel)) {
+          ops.push({ op: 'replace_label', model_id: normalizedModelId, cell_key: cellKey, label_key: labelKey, value: cloneSnapshotJson(nextLabel) });
+        }
+      }
+    }
+  }
+  return ops;
+}
+
+function buildClientSnapshotPatchMessage({
+  previousSnapshot,
+  nextSnapshot,
+  baseSnapshotSeq,
+  snapshotSeq,
+  opId = '',
+  previousPrincipalKey = '',
+  currentPrincipalKey = '',
+  maxOps = 1000,
+  maxPatchBytes = 32 * 1024,
+} = {}) {
+  const normalizedNext = nextSnapshot && nextSnapshot.models ? nextSnapshot : { models: {}, v1nConfig: undefined };
+  const normalizedSnapshotSeq = Number.isInteger(snapshotSeq) ? snapshotSeq : 0;
+  const normalizedBaseSeq = Number.isInteger(baseSnapshotSeq) ? baseSnapshotSeq : 0;
+  const normalizedOpId = typeof opId === 'string' ? opId : '';
+  const resetData = {
+    snapshot: cloneSnapshotJson(normalizedNext),
+    snapshot_seq: normalizedSnapshotSeq,
+    op_id: normalizedOpId,
+    patch_kind: previousPrincipalKey && currentPrincipalKey && previousPrincipalKey !== currentPrincipalKey
+      ? 'principal_reset'
+      : 'reset',
+  };
+  if (!previousSnapshot || !previousSnapshot.models || previousPrincipalKey !== currentPrincipalKey) {
+    return { event: 'snapshot', data: resetData };
+  }
+  const ops = buildClientSnapshotPatchOps(previousSnapshot, normalizedNext);
+  if (ops.length === 0) {
+    return {
+      event: 'noop',
+      data: {
+        snapshot_seq: normalizedSnapshotSeq,
+        base_snapshot_seq: normalizedBaseSeq,
+        op_id: normalizedOpId,
+        patch_kind: 'noop',
+      },
+    };
+  }
+  const patch = {
+    patch_kind: 'json_replace_v1',
+    snapshot_seq: normalizedSnapshotSeq,
+    base_snapshot_seq: normalizedBaseSeq,
+    op_id: normalizedOpId,
+    ops,
+  };
+  const patchStats = {
+    bytes: Buffer.byteLength(JSON.stringify(patch), 'utf8'),
+    op_count: ops.length,
+  };
+  const data = {
+    snapshot_patch: patch,
+    snapshot_seq: normalizedSnapshotSeq,
+    base_snapshot_seq: normalizedBaseSeq,
+    op_id: normalizedOpId,
+    patch_stats: patchStats,
+  };
+  if (ops.length > maxOps || patchStats.bytes > maxPatchBytes) {
+    return {
+      event: 'snapshot',
+      data: {
+        ...resetData,
+        patch_kind: 'oversize_reset',
+        fallback_reason: ops.length > maxOps ? 'patch_too_many_ops' : 'patch_oversize',
+        patch_stats: patchStats,
+      },
+    };
+  }
+  return { event: 'snapshot_patch', data };
 }
 
 function buildGuestClientSnapshot(snapshot) {
@@ -4916,6 +5487,7 @@ function buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndp
     model_id: WORKSPACE_MANAGER_APP_MODEL_ID,
     pin: SLIDE_IMPORT_REPLY_PIN,
   };
+  const principalKey = readRuntimeCellString(runtime, 0, 0, 0, 'principal_runtime_key', '');
   const responseTopic = buildEndpointTopic(runtime, replyTarget);
   const nestedPayload = [
     mtPayloadRecord('__mt_payload_kind', 'str', 'slide_app_bundle_request.v1'),
@@ -4941,6 +5513,7 @@ function buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndp
     mtPayloadRecord('reply_target_worker_id', 'str', replyTarget.worker_id),
     mtPayloadRecord('reply_target_model_id', 'int', replyTarget.model_id),
     mtPayloadRecord('reply_target_pin', 'str', replyTarget.pin),
+    ...(principalKey ? [mtPayloadRecord('reply_target_principal_key', 'str', principalKey)] : []),
     mtPayloadRecord('payload', 'json', nestedPayload),
     mtPayloadRecord('timestamp', 'int', now),
   ];
@@ -5495,6 +6068,7 @@ class ProgramModelEngine {
     this.controlBusClient = null;
     this.controlBusSubscription = '';
     this.controlBusReady = false;
+    this.disableControlBusInbound = false;
     this.started = false;
 
     // Tick scheduler state.
@@ -5519,6 +6093,7 @@ class ProgramModelEngine {
     this.pendingMatrixHostActions = new Set();
     this.matrixSuiteHandledRequests = new Set();
     this.matrixChatHandledRequests = new Set();
+    this.matrixAdapterInitPromise = null;
   }
 
   refreshMatrixBootstrapConfig() {
@@ -5569,6 +6144,19 @@ class ProgramModelEngine {
       console.warn('[ProgramModelEngine] Program engine will run without Matrix. UI events won\'t reach MBR/MQTT.');
       this.matrixAdapter = null;
     }
+  }
+
+  startMatrixAdapterInit() {
+    if (this.matrixAdapter) return Promise.resolve(this.matrixAdapter);
+    if (this.matrixAdapterInitPromise) return this.matrixAdapterInitPromise;
+    this.matrixAdapterInitPromise = this.ensureMatrixAdapter()
+      .catch((err) => {
+        console.warn('[ProgramModelEngine] Matrix background init failed:', err && err.message ? err.message : err);
+      })
+      .finally(() => {
+        this.matrixAdapterInitPromise = null;
+      });
+    return this.matrixAdapterInitPromise;
   }
 
   matrixSuiteReadRoot(key, fallback = null) {
@@ -6445,15 +7033,15 @@ class ProgramModelEngine {
     this.refreshFunctionRegistry();
     this.refreshMatrixBootstrapConfig();
     if (typeof this.runtime.isRunLoopActive === 'function' && this.runtime.isRunLoopActive()) {
-      await this.ensureMatrixAdapter();
       this.ensureControlBusAdapter();
+      this.startMatrixAdapterInit();
     }
     this.started = true;
   }
 
   async activateRunning() {
-    await this.ensureMatrixAdapter();
     this.ensureControlBusAdapter();
+    this.startMatrixAdapterInit();
   }
 
   refreshFunctionRegistry() {
@@ -6554,6 +7142,10 @@ class ProgramModelEngine {
     this.controlBusClient = client;
     this.controlBusSubscription = subscription;
     client.on('connect', () => {
+      if (this.disableControlBusInbound) {
+        this.controlBusReady = true;
+        return;
+      }
       client.subscribe(subscription, (err) => {
         if (err) {
           console.warn('[ProgramModelEngine] Control bus subscribe failed:', err && err.message ? err.message : err);
@@ -8491,13 +9083,24 @@ function createServerState(options) {
     return fallback;
   };
 
-  const syncDerivedPageState = () => {
+  const normalizeDerivedRefreshScope = (scopeOrOptions = 'business') => {
+    const raw = typeof scopeOrOptions === 'string'
+      ? scopeOrOptions
+      : (scopeOrOptions && typeof scopeOrOptions.scope === 'string' ? scopeOrOptions.scope : 'business');
+    return DERIVED_REFRESH_SCOPES.has(raw) ? raw : 'business';
+  };
+
+  const syncDerivedPageState = (scopeOrOptions = 'business') => {
+    const scope = normalizeDerivedRefreshScope(scopeOrOptions);
+    const refreshHomeEditor = scope === 'full' || scope === 'home_or_editor';
     const snap = runtime.snapshot();
-    overwriteStateLabel(runtime, 'editor_model_options_json', 'json', deriveEditorModelOptions(snap, EDITOR_STATE_MODEL_ID));
-    overwriteStateLabel(runtime, 'home_table_rows_json', 'json', deriveHomeTableRows(snap, EDITOR_STATE_MODEL_ID));
-    overwriteStateLabel(runtime, 'home_missing_model_text', 'str', deriveHomeMissingModelText(snap, EDITOR_STATE_MODEL_ID));
-    overwriteStateLabel(runtime, 'home_selected_label_text', 'str', deriveHomeSelectedLabelText(snap, EDITOR_STATE_MODEL_ID));
-    overwriteStateLabel(runtime, 'home_edit_dialog_title', 'str', deriveHomeEditDialogTitle(snap, EDITOR_STATE_MODEL_ID));
+    if (refreshHomeEditor) {
+      overwriteStateLabel(runtime, 'editor_model_options_json', 'json', deriveEditorModelOptions(snap, EDITOR_STATE_MODEL_ID));
+      overwriteStateLabel(runtime, 'home_table_rows_json', 'json', deriveHomeTableRows(snap, EDITOR_STATE_MODEL_ID));
+      overwriteStateLabel(runtime, 'home_missing_model_text', 'str', deriveHomeMissingModelText(snap, EDITOR_STATE_MODEL_ID));
+      overwriteStateLabel(runtime, 'home_selected_label_text', 'str', deriveHomeSelectedLabelText(snap, EDITOR_STATE_MODEL_ID));
+      overwriteStateLabel(runtime, 'home_edit_dialog_title', 'str', deriveHomeEditDialogTitle(snap, EDITOR_STATE_MODEL_ID));
+    }
     overwriteStateLabel(runtime, 'static_upload_disabled', 'bool', !deriveStaticUploadReady(snap, EDITOR_STATE_MODEL_ID));
     const slideGallery = deriveSlideGalleryView(snap, GALLERY_STATE_MODEL_ID);
     overwriteRuntimeLabel(runtime, GALLERY_STATE_MODEL_ID, 0, 13, 0, 'gallery_slide_summary_text', 'str', slideGallery.summaryText);
@@ -9021,7 +9624,7 @@ function createServerState(options) {
   refreshWorkspaceStateCatalog();
   reconcileHomeSelectionState(true);
   reconcileWorkspaceSelectionState();
-  syncDerivedPageState();
+  syncDerivedPageState({ scope: 'full' });
   refreshStartupCatalogState();
   runtime.setRuntimeMode('edit');
 
@@ -9044,7 +9647,7 @@ function createServerState(options) {
       await refreshMgmtBusConsoleChannels();
       refreshWorkspaceStateCatalog();
       reconcileWorkspaceSelectionState();
-      syncDerivedPageState();
+      syncDerivedPageState({ scope: 'full' });
     } catch (_) {
       overwriteStateLabel(runtime, 'static_status', 'str', 'workspace catalog refresh failed');
     }
@@ -9426,10 +10029,14 @@ function createServerState(options) {
     runtime.addLabel(model100, 0, 0, 0, { k: 'status', t: 'str', v: 'ready' });
   }
 
-  function updateDerived() {
+  function updateDerived(scopeOrOptions = 'business') {
+    const scope = normalizeDerivedRefreshScope(scopeOrOptions);
     repairSlideImporterClickContract(runtime);
     recoverModel100StaleInflight();
-    syncDerivedPageState();
+    if (scope === 'full' || scope === 'app_index') {
+      refreshWorkspaceStateCatalog();
+    }
+    syncDerivedPageState({ scope });
     // Client-visible AST must be derived from the same filtered snapshot surface
     // that /snapshot and SSE expose, otherwise raw labels can leak via ui_ast_v0.
     const uiAst = resolvePageAsset(buildClientSnapshot(runtime), {
@@ -9446,7 +10053,7 @@ function createServerState(options) {
   }
 
   programEngineReady.then(() => {
-    updateDerived();
+    updateDerived({ scope: 'full' });
     if (typeof programEngine.onSnapshotChanged === 'function') {
       programEngine.onSnapshotChanged();
     }
@@ -9488,12 +10095,21 @@ function createServerState(options) {
 
   let submitEnvelopeQueue = Promise.resolve();
   async function submitEnvelope(envelopeOrNull, options = {}) {
+    const timingStart = {
+      serverReceivedAt: Date.now(),
+      serverReceivedPerfMs: nowPerfMs(),
+      serverStartedAt: 0,
+      serverStartedPerfMs: 0,
+    };
     const previous = submitEnvelopeQueue;
     let releaseQueue = () => {};
     submitEnvelopeQueue = new Promise((resolve) => { releaseQueue = resolve; });
     await previous;
+    timingStart.serverStartedAt = Date.now();
+    timingStart.serverStartedPerfMs = nowPerfMs();
     try {
-      return await submitEnvelopeCore(envelopeOrNull, options);
+      const result = await submitEnvelopeCore(envelopeOrNull, options);
+      return withSubmitTiming(result, envelopeOrNull, timingStart);
     } finally {
       if (options && Object.prototype.hasOwnProperty.call(options, 'matrixSession')) {
         programEngine.currentRequestMatrixSession = null;
@@ -9543,13 +10159,31 @@ function createServerState(options) {
       });
     }
 
+    const inferDerivedScopeForResult = (extra = {}) => {
+      if (extra && typeof extra.derived_scope === 'string') {
+        return normalizeDerivedRefreshScope(extra.derived_scope);
+      }
+      if (HOME_PIN_ACTIONS.has(action) || action.startsWith('datatable_')) {
+        return 'home_or_editor';
+      }
+      return 'business';
+    };
+
+    const stripInternalResultFields = (extra = {}) => {
+      const out = { ...(extra || {}) };
+      delete out.derived_scope;
+      return out;
+    };
+
     const finishOk = async (extra = {}) => {
+      const derivedScope = inferDerivedScopeForResult(extra);
+      const responseExtra = stripInternalResultFields(extra);
       setBusEventErrorValue(null);
       setLastBusEventOpId(opId);
       runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
-      updateDerived();
+      updateDerived({ scope: derivedScope });
       await programEngine.tick();
-      return { consumed: true, result: 'ok', ...extra };
+      return { consumed: true, result: 'ok', ...responseExtra };
     };
 
     const finishError = async (code, detail) => {
@@ -9563,7 +10197,7 @@ function createServerState(options) {
       setBusEventErrorValue({ op_id: opId, code, detail });
       setLastBusEventOpId(opId);
       runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
-      updateDerived();
+      updateDerived({ scope: HOME_PIN_ACTIONS.has(action) || action.startsWith('datatable_') ? 'home_or_editor' : 'business' });
       return { consumed: true, result: 'error', code, detail };
     };
 
@@ -10655,7 +11289,7 @@ function createServerState(options) {
         setLastBusEventOpId(opId);
         runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
         editorEventLog.push({ op_id: opId, result: 'ok', note: note || '' });
-        updateDerived();
+        updateDerived({ scope: 'business' });
         await programEngine.tick();
         return { consumed: true, result: 'ok' };
       }
@@ -10664,7 +11298,7 @@ function createServerState(options) {
         setBusEventErrorValue({ op_id: opId, code, detail });
         runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
         editorEventLog.push({ op_id: opId, result: 'error', code, detail });
-        updateDerived();
+        updateDerived({ scope: 'business' });
         await programEngine.tick();
         return { consumed: true, result: 'error', code };
       }
@@ -10732,7 +11366,7 @@ function createServerState(options) {
         setLastBusEventOpId(opId);
         runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
         editorEventLog.push({ op_id: opId, result: 'ok', note: note || '' });
-        updateDerived();
+        updateDerived({ scope: 'home_or_editor' });
         await programEngine.tick();
         return { consumed: true, result: 'ok' };
       }
@@ -10741,7 +11375,7 @@ function createServerState(options) {
         setBusEventErrorValue({ op_id: opId, code, detail });
         runtime.addLabel(runtime.getModel(EDITOR_MODEL_ID), 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: null });
         editorEventLog.push({ op_id: opId, result: 'error', code, detail });
-        updateDerived();
+        updateDerived({ scope: 'home_or_editor' });
         await programEngine.tick();
         return { consumed: true, result: 'error', code };
       }
@@ -10866,7 +11500,7 @@ function createServerState(options) {
     }
     reconcileDesktopTaskStackFromEnvelope(envelope);
     reconcileWorkspaceSelectionState();
-    updateDerived();
+    updateDerived({ scope: forceHomeSelectionReset ? 'home_or_editor' : 'business' });
     await programEngine.tick();
     return result;
     } catch (err) {
@@ -10881,7 +11515,7 @@ function createServerState(options) {
   }
 
   setMailboxEnvelope(runtime, null);
-  updateDerived();
+  updateDerived({ scope: 'full' });
 
   async function applyModelTablePatch(patchOrPatches, options = {}) {
     const patches = Array.isArray(patchOrPatches) ? patchOrPatches : [patchOrPatches];
@@ -10899,7 +11533,7 @@ function createServerState(options) {
       rejected += Number(result && Number.isFinite(result.rejected) ? result.rejected : 0);
     }
     materializeDeclaredHostEgressAdapters(runtime);
-    updateDerived();
+    updateDerived({ scope: 'full' });
     await programEngine.tick();
     return { applied, rejected };
   }
@@ -10907,11 +11541,21 @@ function createServerState(options) {
   async function activateRuntimeMode(mode) {
     runtime.setRuntimeMode(mode);
     if (mode === 'running') {
-      await programEngineReady;
-      await programEngine.activateRunning();
-      await programEngine.tick();
+      programEngine.activateRunning();
+      programEngineReady
+        .then(() => programEngine.activateRunning())
+        .then(() => programEngine.tick())
+        .then(() => {
+          updateDerived({ scope: 'full' });
+          if (typeof programEngine.onSnapshotChanged === 'function') {
+            programEngine.onSnapshotChanged();
+          }
+        })
+        .catch((err) => {
+          console.warn('[ProgramModelEngine] runtime mode background activation failed:', err && err.message ? err.message : err);
+        });
     }
-    updateDerived();
+    updateDerived({ scope: 'full' });
     return { mode: runtime.getRuntimeMode() };
   }
 
@@ -10944,58 +11588,269 @@ function startServer(options) {
   const state = createServerState({
     dbPath: options && Object.prototype.hasOwnProperty.call(options, 'dbPath') ? options.dbPath : resolveDbPath(),
   });
+  const rootDbPath = options && Object.prototype.hasOwnProperty.call(options, 'dbPath') ? options.dbPath : resolveDbPath();
   const clients = new Set();
+  let clientSnapshotSeq = 1;
 
   // SSE sends filtered client snapshot (excludes snapshot_json, trace entries, function code)
-  let _cachedClientSnap = null;
-  let _cachedClientSnapJsonByKey = new Map();
+  let _cachedClientSnapByState = new WeakMap();
+
+  function localDevPrincipal() {
+    return {
+      provider: 'disabled',
+      userId: 'local-dev',
+      subject: 'local-dev',
+      roles: ['local.dev'],
+      capabilities: [
+        'app:read',
+        'app:write',
+        'workspace:read',
+        'workspace:write',
+        'slide_app:use',
+        'matrix:connect',
+        'management_bus:use',
+      ],
+      matrixConnected: false,
+    };
+  }
+
+  function principalDbPath(principalKey) {
+    if (rootDbPath === null) return null;
+    const normalized = typeof principalKey === 'string' && principalKey.trim() ? principalKey.trim() : 'guest';
+    const digest = crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 16);
+    const ext = path.extname(rootDbPath) || '.sqlite';
+    const base = path.basename(rootDbPath, path.extname(rootDbPath));
+    return path.join(path.dirname(rootDbPath), `${base}.principal-${digest}${ext}`);
+  }
+
+  function createPrincipalState(principalKey) {
+    const userState = createServerState({ dbPath: principalDbPath(principalKey) });
+    const model0 = userState.runtime.getModel(0);
+    if (model0 && typeof principalKey === 'string' && principalKey.trim()) {
+      userState.runtime.addLabel(model0, 0, 0, 0, {
+        k: 'principal_runtime_key',
+        t: 'str',
+        v: principalKey.trim(),
+      });
+    }
+    userState.programEngine.disableControlBusInbound = true;
+    attachPrincipalAwareProgramEngine(userState, principalKey, { wrapControlBusInbound: false });
+    return userState;
+  }
+
+  const principalRuntimeRegistry = createPrincipalRuntimeRegistry({
+    readOnlyState: state,
+    createState: createPrincipalState,
+  });
+
+  function attachPrincipalAwareProgramEngine(runtimeState, principalKey = '', options = {}) {
+    if (!runtimeState || !runtimeState.programEngine || runtimeState.programEngine.__principalRuntimeAware) return;
+    const wrapControlBusInbound = options.wrapControlBusInbound !== false;
+    if (wrapControlBusInbound) {
+      const originalHandleControlBusPacket = typeof runtimeState.programEngine.handleControlBusPacket === 'function'
+        ? runtimeState.programEngine.handleControlBusPacket.bind(runtimeState.programEngine)
+        : null;
+      runtimeState.programEngine.handleControlBusPacket = async (topic, payload) => {
+        if (await principalRuntimeRegistry.handleControlBusPacket(topic, payload)) {
+          broadcastSnapshot();
+          return true;
+        }
+        return originalHandleControlBusPacket ? originalHandleControlBusPacket(topic, payload) : false;
+      };
+    }
+    runtimeState.programEngine.onSnapshotChanged = () => {
+      runtimeState.updateDerived();
+      broadcastSnapshot(principalKey);
+    };
+    runtimeState.programEngine.__principalRuntimeAware = true;
+  }
+
+  attachPrincipalAwareProgramEngine(state);
+
+  function readPrincipalForRequest(req) {
+    return AUTH_ENABLED ? getSession(req) : localDevPrincipal();
+  }
+
+  function resolveReadRuntimeForRequest(req) {
+    return principalRuntimeRegistry.resolveReadRuntime(readPrincipalForRequest(req));
+  }
+
+  function resolveMutableRuntimeForPrincipal(principal) {
+    return principalRuntimeRegistry.resolveMutableRuntime(principal);
+  }
 
   function clientSnapshotCacheKey(principal = null) {
     const caps = Array.isArray(principal?.capabilities) ? [...principal.capabilities].sort() : [];
-    return caps.length > 0 ? caps.join('|') : 'guest';
+    const identity = principal && (principal.subject || principal.userId || principal.email || principal.username)
+      ? String(principal.subject || principal.userId || principal.email || principal.username)
+      : 'guest';
+    return `${identity}:${caps.length > 0 ? caps.join('|') : 'guest'}`;
   }
 
-  function getClientSnapJson(principal = null) {
-    const snap = state.clientSnap();
-    if (snap !== _cachedClientSnap) {
-      _cachedClientSnap = snap;
-      _cachedClientSnapJsonByKey = new Map();
+  function getClientSnapForRuntime(entry) {
+    const runtimeState = entry && entry.state ? entry.state : state;
+    const principal = entry && entry.principal ? entry.principal : null;
+    const snap = runtimeState.clientSnap();
+    let cache = _cachedClientSnapByState.get(runtimeState);
+    if (!cache || cache.snap !== snap) {
+      cache = { snap, byKey: new Map() };
+      _cachedClientSnapByState.set(runtimeState, cache);
     }
     const cacheKey = clientSnapshotCacheKey(principal);
-    const cached = _cachedClientSnapJsonByKey.get(cacheKey);
+    const cached = cache.byKey.get(cacheKey);
     if (cached) return cached;
-    const json = JSON.stringify({ snapshot: buildClientSnapshotForPrincipal(snap, principal) });
-    _cachedClientSnapJsonByKey.set(cacheKey, json);
-    return json;
+    const filtered = buildClientSnapshotForPrincipal(snap, principal);
+    cache.byKey.set(cacheKey, filtered);
+    return filtered;
+  }
+
+  function snapshotProfileError(status, error, extra = {}) {
+    return { ok: false, status, body: { ok: false, error, ...extra } };
+  }
+
+  function validateVisibleModelId(rawValue, runtimeEntry) {
+    const text = String(rawValue || '').trim();
+    if (!/^-?\d+$/u.test(text)) {
+      return snapshotProfileError(400, 'invalid_model_id');
+    }
+    const modelId = Number.parseInt(text, 10);
+    if (!Number.isSafeInteger(modelId)) {
+      return snapshotProfileError(400, 'invalid_model_id');
+    }
+    const requiredCapability = requiredCapabilityForClientModel(String(modelId));
+    if (requiredCapability === 'never') {
+      return snapshotProfileError(403, 'model_not_allowed');
+    }
+    const principal = runtimeEntry && runtimeEntry.principal ? runtimeEntry.principal : null;
+    if (requiredCapability && !principalHasCapability(principal, requiredCapability)) {
+      return snapshotProfileError(403, 'permission_denied', { requiredCapability });
+    }
+    const runtimeState = runtimeEntry && runtimeEntry.state ? runtimeEntry.state : state;
+    if (!runtimeState.runtime.getModel(modelId)) {
+      return snapshotProfileError(404, 'model_not_found');
+    }
+    if (!visibleModelIdsForClient(runtimeEntry).has(modelId)) {
+      return snapshotProfileError(403, 'model_not_visible');
+    }
+    return { ok: true, modelId };
+  }
+
+  function visibleModelIdsForClient(runtimeEntry) {
+    const runtimeState = runtimeEntry && runtimeEntry.state ? runtimeEntry.state : state;
+    const runtime = runtimeState && runtimeState.runtime ? runtimeState.runtime : null;
+    const out = new Set();
+    const registry = runtime
+      ? deriveWorkspaceRegistryFromSnapshot({
+        snapshot: runtime.snapshot(),
+        getParentInfo: (modelId) => runtime.parentChildMap.get(modelId),
+      })
+      : [];
+    for (const entry of registry) {
+      if (entry && Number.isInteger(entry.model_id) && entry.model_id > 0) out.add(entry.model_id);
+    }
+    return out;
+  }
+
+  function resolveSnapshotProfileOptions(searchParams, runtimeEntry) {
+    const rawProfile = searchParams.get('profile');
+    const profile = rawProfile && rawProfile.trim() ? rawProfile.trim() : 'bootstrap';
+    if (!CLIENT_SNAPSHOT_PROFILES.has(profile)) {
+      return snapshotProfileError(400, 'invalid_snapshot_profile');
+    }
+    if (profile === 'full') {
+      return { ok: true, options: { profile: 'full', visibleModelIds: [] } };
+    }
+
+    const rawVisibleIds = profile === 'visible'
+      ? [...searchParams.getAll('model_id'), ...searchParams.getAll('visible_model_id')]
+      : searchParams.getAll('visible_model_id');
+    if (profile === 'visible' && rawVisibleIds.length === 0) {
+      return snapshotProfileError(400, 'missing_model_id');
+    }
+    const visibleModelIds = [];
+    const seen = new Set();
+    for (const rawValue of rawVisibleIds) {
+      const validated = validateVisibleModelId(rawValue, runtimeEntry);
+      if (!validated.ok) return validated;
+      if (seen.has(validated.modelId)) continue;
+      seen.add(validated.modelId);
+      visibleModelIds.push(validated.modelId);
+    }
+    return { ok: true, options: { profile: profile === 'visible' ? 'visible' : 'bootstrap', visibleModelIds } };
+  }
+
+  function getProfiledClientSnapForRuntime(entry, profileOptions = {}) {
+    const fullSnap = getClientSnapForRuntime(entry);
+    return buildClientSnapshotProfile(fullSnap, profileOptions);
   }
 
   function invalidateClientSnapCache() {
-    _cachedClientSnap = null;
-    _cachedClientSnapJsonByKey = new Map();
+    _cachedClientSnapByState = new WeakMap();
   }
 
-  function sendSnapshot(res, principal = null) {
-    const data = getClientSnapJson(principal);
+  function sendSseMessage(res, event, data) {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  }
+
+  function updateClientSnapshotBaseline(client, entry, snap, seq) {
+    if (!client) return;
+    client.lastSnapshot = cloneSnapshotJson(snap);
+    client.lastSnapshotSeq = seq;
+    client.principalKey = entry && entry.principalKey ? entry.principalKey : 'guest';
+  }
+
+  function sendSnapshot(res, entry, client = null, patchKind = 'snapshot') {
+    const runtimeState = entry && entry.state ? entry.state : state;
+    const profileOptions = client && client.snapshotProfileOptions ? client.snapshotProfileOptions : { profile: 'bootstrap', visibleModelIds: [] };
+    const snap = getProfiledClientSnapForRuntime(entry, profileOptions);
+    const data = {
+      snapshot: snap,
+      snapshot_seq: clientSnapshotSeq,
+      op_id: runtimeState.getLastOpId(),
+      patch_kind: patchKind,
+      snapshot_profile: profileOptions.profile || 'bootstrap',
+      visible_model_ids: Array.isArray(profileOptions.visibleModelIds) ? profileOptions.visibleModelIds : [],
+    };
     res.write(`event: snapshot\n`);
-    res.write(`data: ${data}\n\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    updateClientSnapshotBaseline(client, entry, snap, clientSnapshotSeq);
   }
 
-  function broadcastSnapshot() {
+  function sendSnapshotPatchOrSnapshot(client, entry) {
+    const runtimeState = entry && entry.state ? entry.state : state;
+    const profileOptions = client && client.snapshotProfileOptions ? client.snapshotProfileOptions : { profile: 'bootstrap', visibleModelIds: [] };
+    const nextSnap = getProfiledClientSnapForRuntime(entry, profileOptions);
+    const currentPrincipalKey = entry && entry.principalKey ? entry.principalKey : 'guest';
+    const message = buildClientSnapshotPatchMessage({
+      previousSnapshot: client.lastSnapshot,
+      nextSnapshot: nextSnap,
+      baseSnapshotSeq: client.lastSnapshotSeq,
+      snapshotSeq: clientSnapshotSeq,
+      opId: runtimeState.getLastOpId(),
+      previousPrincipalKey: client.principalKey || '',
+      currentPrincipalKey,
+    });
+    if (!message || message.event === 'noop') return;
+    sendSseMessage(client.res, message.event, message.data);
+    if (message.event === 'snapshot' || message.event === 'snapshot_patch') {
+      updateClientSnapshotBaseline(client, entry, nextSnap, clientSnapshotSeq);
+    }
+  }
+
+  function broadcastSnapshot(principalKey = '') {
+    clientSnapshotSeq += 1;
     invalidateClientSnapCache();
     for (const client of clients) {
       try {
-        sendSnapshot(client.res, getSession(client.req));
+        const entry = resolveReadRuntimeForRequest(client.req);
+        if (principalKey && entry.principalKey !== principalKey) continue;
+        sendSnapshotPatchOrSnapshot(client, entry);
       } catch (_) {
         clients.delete(client);
       }
     }
   }
-
-  // Rebuild derived UI projection before broadcasting external Matrix/MQTT returns.
-  state.programEngine.onSnapshotChanged = () => {
-    state.updateDerived();
-    broadcastSnapshot();
-  };
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
@@ -11019,6 +11874,9 @@ function startServer(options) {
     }
 
     function requireCapability(requiredCapability) {
+      if (!AUTH_ENABLED) {
+        return localDevPrincipal();
+      }
       const session = getSession(req);
       if (!session) {
         writeLoginRequired();
@@ -11071,7 +11929,9 @@ function startServer(options) {
       } catch (err) {
         const error = err && err.message ? err.message : 'oidc_callback_failed';
         const status = error === 'invalid_oidc_state' || error === 'missing_oidc_callback_fields' ? 400 : 401;
-        writeJson(res, status, { ok: false, error }, { ...cors, 'set-cookie': makeClearOidcStateCookieHeader(req) });
+        const headers = { ...cors };
+        if (status === 400 || (err && err.oidcStateFinalized === true)) headers['set-cookie'] = makeClearOidcStateCookieHeader(req);
+        writeJson(res, status, { ok: false, error }, headers);
       }
       return;
     }
@@ -11247,20 +12107,26 @@ function startServer(options) {
     // ── Matrix media upload (UI upload_media primitive) ─────────────────
     if (req.method === 'POST' && url.pathname === '/api/media/upload') {
       const uploadPurpose = normalizeMediaUploadPurpose(url.searchParams.get('purpose'));
-      if (!requireCapability(uploadPurpose === 'slide-import' ? 'slide_app:use' : 'matrix:connect')) return;
-      await handleMediaUploadRequest(req, res, state, corsOrigin);
+      const principal = requireCapability(uploadPurpose === 'slide-import' ? 'slide_app:use' : 'matrix:connect');
+      if (!principal) return;
+      const runtimeEntry = resolveMutableRuntimeForPrincipal(principal);
+      await handleMediaUploadRequest(req, res, runtimeEntry.state, corsOrigin);
       return;
     }
 
     if (req.method === 'GET' && url.pathname === '/api/media/download') {
-      if (!requireCapability('matrix:connect')) return;
-      await handleMatrixMediaProxyRequest(req, res, state, corsOrigin, 'download');
+      const principal = requireCapability('matrix:connect');
+      if (!principal) return;
+      const runtimeEntry = resolveReadRuntimeForRequest(req);
+      await handleMatrixMediaProxyRequest(req, res, runtimeEntry.state, corsOrigin, 'download');
       return;
     }
 
     if (req.method === 'GET' && url.pathname === '/api/media/thumbnail') {
-      if (!requireCapability('matrix:connect')) return;
-      await handleMatrixMediaProxyRequest(req, res, state, corsOrigin, 'thumbnail');
+      const principal = requireCapability('matrix:connect');
+      if (!principal) return;
+      const runtimeEntry = resolveReadRuntimeForRequest(req);
+      await handleMatrixMediaProxyRequest(req, res, runtimeEntry.state, corsOrigin, 'thumbnail');
       return;
     }
 
@@ -11289,9 +12155,11 @@ function startServer(options) {
     if (req.method === 'GET') {
       const exportMatch = url.pathname.match(/^\/api\/slide-apps\/(\d+)\/export\.zip$/);
       if (exportMatch) {
-        if (!requireCapability('slide_app:use')) return;
+        const principal = requireCapability('slide_app:use');
+        if (!principal) return;
+        const runtimeEntry = resolveReadRuntimeForRequest(req);
         const modelId = Number(exportMatch[1]);
-        const result = buildSlideAppExportZip(state.runtime, modelId);
+        const result = buildSlideAppExportZip(runtimeEntry.state.runtime, modelId);
         if (!result || result.ok !== true) {
           const status = result && result.code === 'model_not_found' ? 404 : 400;
           writeJson(res, status, {
@@ -11414,13 +12282,31 @@ function startServer(options) {
     }
 
     if (req.method === 'GET' && url.pathname === '/snapshot') {
-      const principal = getSession(req);
-      writeJson(res, 200, { snapshot: buildClientSnapshotForPrincipal(state.clientSnap(), principal) }, cors);
+      const runtimeEntry = resolveReadRuntimeForRequest(req);
+      const resolvedProfile = resolveSnapshotProfileOptions(url.searchParams, runtimeEntry);
+      if (!resolvedProfile.ok) {
+        writeJson(res, resolvedProfile.status, resolvedProfile.body, cors);
+        return;
+      }
+      const snap = getProfiledClientSnapForRuntime(runtimeEntry, resolvedProfile.options);
+      writeJson(res, 200, {
+        snapshot: snap,
+        snapshot_seq: clientSnapshotSeq,
+        op_id: runtimeEntry.state.getLastOpId(),
+        patch_kind: 'snapshot',
+        snapshot_profile: resolvedProfile.options.profile,
+        visible_model_ids: resolvedProfile.options.visibleModelIds,
+      }, cors);
       return;
     }
 
     if (req.method === 'GET' && url.pathname === '/stream') {
-      const principal = getSession(req);
+      const runtimeEntry = resolveReadRuntimeForRequest(req);
+      const resolvedProfile = resolveSnapshotProfileOptions(url.searchParams, runtimeEntry);
+      if (!resolvedProfile.ok) {
+        writeJson(res, resolvedProfile.status, resolvedProfile.body, cors);
+        return;
+      }
       res.writeHead(200, {
         ...cors,
         'content-type': 'text/event-stream; charset=utf-8',
@@ -11428,10 +12314,10 @@ function startServer(options) {
         connection: 'keep-alive',
       });
       res.write(`retry: 1000\n\n`);
-      const client = { res, req };
+      const client = { res, req, lastSnapshot: null, lastSnapshotSeq: 0, principalKey: '', snapshotProfileOptions: resolvedProfile.options };
       clients.add(client);
       try {
-        sendSnapshot(res, principal);
+        sendSnapshot(res, runtimeEntry, client);
       } catch (_) {
         clients.delete(client);
         try { res.end(); } catch (_) {}
@@ -11445,8 +12331,10 @@ function startServer(options) {
     }
 
     if (req.method === 'POST' && (url.pathname === BUS_EVENT_ENDPOINT_PATH || url.pathname === UI_EVENT_ENDPOINT_PATH)) {
-      if (!requireCapability('app:write')) return;
+      const principal = requireCapability('app:write');
+      if (!principal) return;
       try {
+        const runtimeEntry = resolveMutableRuntimeForPrincipal(principal);
         const body = await readJsonBody(req);
         let envelope = body;
         if (body && body.payload && typeof body.payload === 'object') {
@@ -11459,10 +12347,10 @@ function startServer(options) {
         if (body && body.envelope) {
           envelope = body.envelope;
         }
-        const consumeResult = await state.submitEnvelope(envelope, {
+        const consumeResult = await runtimeEntry.state.submitEnvelope(envelope, {
           matrixSession: resolveRequestMatrixSession(req),
         });
-        broadcastSnapshot();
+        broadcastSnapshot(runtimeEntry.principalKey);
         // Snapshot omitted from response — SSE broadcastSnapshot() delivers it.
         // This halves bandwidth per bus-event (was sending 2MB snapshot twice).
         writeJson(
@@ -11475,10 +12363,11 @@ function startServer(options) {
             code: consumeResult && consumeResult.code ? consumeResult.code : undefined,
             detail: consumeResult && consumeResult.detail ? consumeResult.detail : undefined,
             routed_by: consumeResult && consumeResult.routed_by ? consumeResult.routed_by : undefined,
+            timing: consumeResult && consumeResult.timing ? consumeResult.timing : undefined,
             confidence: consumeResult && Number.isFinite(consumeResult.confidence) ? consumeResult.confidence : undefined,
             candidates: consumeResult && Array.isArray(consumeResult.candidates) ? consumeResult.candidates : undefined,
-            bus_event_last_op_id: state.getLastOpId(),
-            bus_event_error: state.getEventError(),
+            bus_event_last_op_id: runtimeEntry.state.getLastOpId(),
+            bus_event_error: runtimeEntry.state.getEventError(),
           },
           cors,
         );
@@ -11489,16 +12378,18 @@ function startServer(options) {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/runtime/mode') {
-      if (!requireCapability('app:write')) return;
+      const principal = requireCapability('app:write');
+      if (!principal) return;
       try {
+        const runtimeEntry = resolveMutableRuntimeForPrincipal(principal);
         const body = await readJsonBody(req);
         const nextMode = body && typeof body.mode === 'string' ? body.mode : '';
         if (nextMode !== 'running') {
           writeJson(res, 400, { ok: false, error: 'invalid_mode_transition' }, cors);
           return;
         }
-        const result = await state.activateRuntimeMode(nextMode);
-        broadcastSnapshot();
+        const result = await runtimeEntry.state.activateRuntimeMode(nextMode);
+        broadcastSnapshot(runtimeEntry.principalKey);
         writeJson(res, 200, { ok: true, mode: result.mode }, cors);
       } catch (err) {
         const code = err && err.message === 'invalid_mode_transition' ? 409 : 400;
@@ -11657,8 +12548,12 @@ export function buildCrossModelHostApiMethods(runtime) {
 
 export {
   buildClientSnapshot,
+  buildClientSnapshotForPrincipal,
+  buildClientSnapshotPatchMessage,
+  buildClientSnapshotProfile,
   buildSlideAppExportPayload,
   buildSlideAppExportZip,
+  createPrincipalRuntimeRegistry,
   createServerState,
   deriveWorkspaceRegistryFromSnapshot,
   handleMediaUploadRequest,
