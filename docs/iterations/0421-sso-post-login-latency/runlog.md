@@ -242,3 +242,39 @@ Final run after documentation update:
 - `node scripts/tests/test_0403_principal_authorization.mjs`: PASS, `6 passed, 0 failed`
 - `npm -C packages/ui-model-demo-frontend run build`: PASS, Vite built `dist/assets/index-Dk9_8B-F.js`
 - `bash scripts/ops/check_runtime_baseline.sh`: PASS, baseline ready
+
+### Remote Deployment Follow-up Measurement
+
+- Date: 2026-06-23
+- Remote app: `https://app.dongyudigital.com/#/`
+- Deployed revision: `5caf5a2`
+- Browser surface: Playwright CLI real browser.
+- SSO note: the independent Playwright profile reached ZITADEL login on `登录`; completing the two-step SSO flow requires real user input, so the fully authenticated remote return path was not automated in this run.
+
+Remote guest/read-only desktop path:
+
+| Metric | Result |
+|---|---:|
+| Desktop visible | about `5.55s` |
+| `页面暂不可用` | not seen |
+| `确认登录中` | cleared before desktop visible |
+| Outer scroll overflow | none, `scrollWidth=1200`, `scrollHeight=818` |
+| JS bundle | `/assets/index-Dk9_8B-F.js`, about `2.06MB`, about `3.99s` |
+| CSS bundle | `/assets/index-Cxdet_aj.css`, about `379KB`, about `0.21s` |
+| Bootstrap snapshot | about `155KB`, about `1.19s` |
+
+Remote endpoint checks:
+
+| Endpoint | Result |
+|---|---:|
+| `/` | `200`, about `0.26s`, `397B` |
+| `/snapshot?profile=bootstrap` | `200`, about `1.47s`, `155683B` |
+| `/auth/me` alone | `401`, about `201ms`, `40B` |
+| `/auth/me` parallel with snapshot | `401`, about `38ms`, `40B` |
+| bootstrap snapshot parallel with `/auth/me` | `200`, about `1293ms`, `155683B` |
+
+Interpretation:
+
+- The remote one-minute symptom was not reproduced on the guest/read-only path after deployment.
+- The measured remote first desktop delay is now dominated by static JS transfer and bootstrap snapshot, not by `/auth/me` alone.
+- Next iteration should focus on first-paint bundle size and bootstrap snapshot granularity. The snapshot is not the largest payload, but it is still a synchronous prerequisite for shell data and should be split by first-paint labels versus lazy/visible model labels.

@@ -322,6 +322,7 @@ source: ai
 | 0419-mbr-control-bus-ready | 2026-06-18 | 修复 MBR 控制总线 ready 被 Matrix 管理总线初始化失败阻塞，恢复 Workspace Manager provider-owned 安装回包路由 | 3 | dropx/dev_0419-mbr-control-bus-ready | In Progress | ./docs/iterations/0419-mbr-control-bus-ready/ |
 | 0420-ui-local-state-latency | 2026-06-22 | 优化登录后和加载后 UI 响应延时：本地 UI 状态不阻塞正式业务事件，并记录可复测延时指标 | 5 | dropx/dev_0420-ui-local-state-latency | Completed | ./docs/iterations/0420-ui-local-state-latency/ |
 | 0421-sso-post-login-latency | 2026-06-23 | 修复 SSO 两步登录回跳后桌面长时间停留在确认登录/页面不可用，并补认证与工作区初始化延时指标 | 5 | dropx/dev_0421-sso-post-login-latency | Completed | ./docs/iterations/0421-sso-post-login-latency/ |
+| 0422-cloud-deploy-healthcheck | 2026-06-23 | 修正云端部署健康检查使用旧标签导致的误失败，并记录远端首屏延时与 snapshot 颗粒度线索 | 2 | dropx/dev_0422-cloud-deploy-healthcheck | Completed | ./docs/iterations/0422-cloud-deploy-healthcheck/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
