@@ -33,11 +33,11 @@ The cloud deployment script no longer fails on removed prompt-era labels. It now
   - `ui-server`, `mbr-worker`, `remote-worker`, `workspace-manager`: all `1/1`
   - root HTML: `200`, about `0.237s`
   - bootstrap snapshot: `200`, about `1.879s`, `155683B`
-- Final source/docs sync of revision `38adfa1`: PASS
-  - remote `.deploy-source-revision`: `38adfa1`
+- Final source/docs sync of revision `aefaf22`: PASS
+  - remote `.deploy-source-revision`: `aefaf22`
   - public docs/static sync: PASS
   - runtime deployments remained `1/1`
-  - runtime image content did not change after `1db4d3a`; `38adfa1` records the final review correction and docs/static publication.
+  - runtime image content did not change after `1db4d3a`; `aefaf22` records the review correction and docs/static publication boundary.
 - Real browser remote desktop check: PASS
   - desktop visible about `2.17s`
   - no `页面暂不可用` / `确认登录中` residual state

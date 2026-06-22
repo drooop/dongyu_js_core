@@ -23,6 +23,9 @@ phase: completed
 - Final review correction merged to:
   - `dev` at `9532c0e`
   - `main` at `38adfa1`
+- Final source/docs sync boundary:
+  - Remote `.deploy-source-revision` verified at `aefaf22` after the review-correction notes were merged.
+  - Later doc-only amendments should be verified by the final handoff command output instead of recursively rewriting this runlog with its own commit hash.
 - Remote target:
   - SSH: `drop@124.71.43.80`
   - App URL: `https://app.dongyudigital.com`
@@ -51,10 +54,10 @@ Root cause: `scripts/ops/deploy_cloud_full.sh` still asserted labels that no lon
   - Remote `.deploy-source-revision`: `1db4d3a`
   - Deployments ready: `ui-server`, `mbr-worker`, `remote-worker`, `workspace-manager` all `1/1`
 - Final source/docs sync after review correction:
-  - Remote `.deploy-source-revision`: `38adfa1`
+  - Remote `.deploy-source-revision`: `aefaf22`
   - Public docs/static sync: PASS
   - Runtime deployments still ready: `ui-server`, `mbr-worker`, `remote-worker`, `workspace-manager` all `1/1`
-  - Note: no runtime code changed after `1db4d3a`; the final `38adfa1` sync updates repository/docs evidence and public docs/static assets.
+  - Note: no runtime code changed after `1db4d3a`; the `aefaf22` sync updated repository/docs evidence and public docs/static assets.
 
 ## Remote Browser Measurements
 
