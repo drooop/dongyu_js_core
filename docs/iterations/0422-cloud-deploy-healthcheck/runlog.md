@@ -17,6 +17,9 @@ phase: completed
 - Merged to:
   - `dev` at `37c3c81`
   - `main` at `5caf5a2`
+- Follow-up documentation merged to:
+  - `dev` at `98c6253`
+  - `main` at `1db4d3a`
 - Remote target:
   - SSH: `drop@124.71.43.80`
   - App URL: `https://app.dongyudigital.com`
@@ -40,6 +43,10 @@ Root cause: `scripts/ops/deploy_cloud_full.sh` still asserted labels that no lon
 - Full cloud redeploy:
   - `deploy_cloud_full.sh --revision 5caf5a2 --rebuild`: PASS
   - UI Server: `https://app.dongyudigital.com`
+- Final cloud redeploy after documentation merge:
+  - `deploy_cloud_full.sh --revision 1db4d3a --rebuild`: PASS
+  - Remote `.deploy-source-revision`: `1db4d3a`
+  - Deployments ready: `ui-server`, `mbr-worker`, `remote-worker`, `workspace-manager` all `1/1`
 
 ## Remote Browser Measurements
 
@@ -47,27 +54,27 @@ Measurement surface: Playwright CLI real browser, unauthenticated guest/read-onl
 
 | Check | Result |
 |---|---:|
-| Root HTML curl | `200`, about `0.26s`, `397B` |
-| Bootstrap snapshot curl | `200`, about `1.47s`, `155683B` |
+| Final root HTML curl | `200`, about `0.237s`, `397B` |
+| Final bootstrap snapshot curl | `200`, about `1.879s`, `155683B` |
 | Sequential `/auth/me` curl | `401`, about `201ms`, `40B` |
 | Sequential bootstrap snapshot curl | `200`, about `1149ms`, `155683B` |
 | Parallel `/auth/me` curl | `401`, about `38ms`, `40B` |
 | Parallel bootstrap snapshot curl | `200`, about `1293ms`, `155683B` |
-| Browser desktop visible | about `5.55s` |
+| Final browser desktop visible | about `2.17s` |
 | Browser outer scroll | none, `scrollWidth=1200`, `scrollHeight=818` |
+| `页面暂不可用` / `确认登录中` | not present in final browser result |
 
-Browser resource timing on a successful remote desktop load:
+Final browser resource timing on successful remote desktop load:
 
 | Resource | Duration | Encoded/decoded size |
 |---|---:|---:|
-| `/assets/index-Dk9_8B-F.js` | about `3988ms` | `2060111B` |
-| `/assets/index-Cxdet_aj.css` | about `209ms` | `378914B` |
-| `/snapshot?profile=bootstrap&initial_projection=1` | about `1189ms` | `155683B` |
+| `/assets/index-Dk9_8B-F.js` | about `403ms` | `2060111B` |
+| `/assets/index-Cxdet_aj.css` | about `197ms` | `378914B` |
+| `/snapshot?profile=bootstrap&initial_projection=1` | about `1383ms` | `155683B` |
 
 ## Snapshot Granularity Notes For Next Stage
 
 - The bootstrap snapshot body is about `155KB` for the current guest/read-only desktop projection.
-- The JS bundle is currently much larger than the bootstrap snapshot, about `2.06MB` encoded/decoded in the measured browser session. It dominates first desktop load in the remote browser measurement.
+- The JS bundle is currently much larger than the bootstrap snapshot, about `2.06MB` encoded/decoded in the measured browser session. It can dominate first desktop load under slower transfer conditions, while final warm browser timing showed the bootstrap snapshot taking longer than JS transfer.
 - The snapshot still contains multiple model records for desktop shell and registry state, even for the first guest/read-only desktop. The next stage should inspect which labels are required for first paint and which can move to visible/lazy model fetches.
 - `/auth/me` is fast when measured alone and in parallel curl. If it appears delayed in browser timing, compare against concurrent JS download and snapshot construction before treating auth as the cause.
-

@@ -29,7 +29,14 @@ The cloud deployment script no longer fails on removed prompt-era labels. It now
   - `registry_count=10`
   - `snapshot_bytes=154995`
 - Full cloud deployment of revision `5caf5a2`: PASS
+- Final cloud deployment of revision `1db4d3a`: PASS
+  - `ui-server`, `mbr-worker`, `remote-worker`, `workspace-manager`: all `1/1`
+  - root HTML: `200`, about `0.237s`
+  - bootstrap snapshot: `200`, about `1.879s`, `155683B`
 - Real browser remote desktop check: PASS
+  - desktop visible about `2.17s`
+  - no `页面暂不可用` / `确认登录中` residual state
+  - no outer scroll overflow
 
 ## Follow-up
 
@@ -40,4 +47,3 @@ The deploy path still revealed operational drift:
 - `deploy/env/cloud.env` was missing on the remote server and had to be restored from the current Kubernetes secret/default deployment values.
 
 These are deployment hygiene issues, not runtime correctness failures. They should be cleaned up in a later ops iteration.
-
