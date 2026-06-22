@@ -33,7 +33,70 @@ phase: execution
 
 ### Phase 1: Snapshot Size Instrumentation And Baseline
 
-- Status: pending
+- Status: implemented, pending sub-agent review
+- RED command:
+  - `node scripts/tests/test_0423_snapshot_granularity_contract.mjs`
+- RED result:
+  - `FAIL test_profile_stats_are_computed_after_profile_filtering`
+  - reason: `buildClientSnapshotProfileWithStats(snapshot, options)` was not exported.
+- Implementation:
+  - Added `buildClientSnapshotProfileWithStats`.
+  - Added client-visible `snapshot_stats` helper for total bytes, model/cell/label contributors, and dropped counts.
+  - Added `scripts/tests/test_0423_snapshot_granularity_contract.mjs`.
+  - Added `scripts/ops/report_snapshot_profile_sizes.mjs`.
+- GREEN commands:
+  - `node scripts/tests/test_0423_snapshot_granularity_contract.mjs`
+  - `node scripts/tests/test_0418_visible_snapshot_projection_latency_contract.mjs`
+  - `node scripts/ops/report_snapshot_profile_sizes.mjs --top-models 5 --top-labels 8`
+- GREEN key output:
+  - `PASS test_0423_snapshot_granularity_contract: 2 passed`
+  - `PASS 7/7`
+  - report command printed `bootstrap`, `visible:100`, and `full` contributors.
+- Local baseline command:
+  - `node scripts/ops/report_snapshot_profile_sizes.mjs --top-models 5 --top-labels 8`
+- Local baseline key output:
+  - `bootstrap`: `158415B`, `7` models, `318` cells, `2006` labels.
+  - `visible:100`: `172047B`, `8` models, `338` cells, `2166` labels.
+  - `full`: `722185B`, `58` models, `1220` cells, `8111` labels.
+  - top `bootstrap` model contributors:
+    - `-103`: `119603B`
+    - `-28`: `13892B`
+    - `-23`: `9517B`
+    - `-2`: `8491B`
+    - `-29`: `6381B`
+  - top `bootstrap` label contributors:
+    - `-2/0,0,0/ws_apps_registry`: `5917B`
+    - `-2/0,0,0/ui_page_catalog_json`: `1134B`
+    - `-103/2,198,0/ui_props_json`: `596B`
+    - `-103/2,64,0/ui_bind_json`: `467B`
+    - `-28/2,0,0/ui_props_json`: `451B`
+  - top `bootstrap` cell contributors:
+    - `-2/0,0,0`: `8429B`
+    - `-103/2,198,0`: `993B`
+    - `-103/2,64,0`: `946B`
+    - `-23/2,12,0`: `802B`
+    - `-29/3,3,0`: `752B`
+- Result: PASS
+- Phase 1 review 1:
+  - Agent: `019ef0dd-bb34-7e20-b922-6a08f0e430b4`
+  - Decision: Change Requested
+  - Findings:
+    - Test only covered `bootstrap`, not `visible` and `full`.
+    - Baseline command was elided and not reproducible.
+- Fix after review:
+  - Extended the test to cover `bootstrap`, `visible`, and `full` stats.
+  - Added checked-in report script with exact command.
+  - Re-ran verification commands above.
+- Phase 1 review 2:
+  - Agent: `019ef0dd-bb34-7e20-b922-6a08f0e430b4`
+  - Decision: Change Requested
+  - Finding:
+    - Report script omitted `stats.cells`, so bytes-by-cell was not reproducible.
+- Fix after review 2:
+  - Added `top_cells` to `scripts/ops/report_snapshot_profile_sizes.mjs`.
+  - Added test coverage that report output includes `top_cells` for `bootstrap`, `visible`, and `full`.
+  - Re-ran verification commands above.
+- Commit: pending
 
 ### Phase 2: Strict Bootstrap Contract And Compact App Index
 

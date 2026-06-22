@@ -5319,6 +5319,99 @@ function buildClientSnapshotProfile(snapshot, options = {}) {
   return { models, v1nConfig: sanitizeClientSnapshotV1nConfig(snapshot?.v1nConfig) };
 }
 
+function jsonByteLength(value) {
+  return Buffer.byteLength(JSON.stringify(value), 'utf8');
+}
+
+function normalizeStatsModelId(modelKey) {
+  return /^-?\d+$/u.test(String(modelKey)) ? Number.parseInt(String(modelKey), 10) : modelKey;
+}
+
+function parseStatsCellKey(cellKey) {
+  const parts = String(cellKey || '').split(',').map((part) => Number.parseInt(part, 10));
+  if (parts.length !== 3 || parts.some((part) => !Number.isInteger(part))) return { p: 0, r: 0, c: 0 };
+  return { p: parts[0], r: parts[1], c: parts[2] };
+}
+
+function countSnapshotLabels(snapshot) {
+  let count = 0;
+  for (const model of Object.values(snapshot?.models || {})) {
+    for (const cell of Object.values(model?.cells || {})) {
+      count += Object.keys(cell?.labels || {}).length;
+    }
+  }
+  return count;
+}
+
+function buildClientSnapshotProfileStats(sourceSnapshot, profiledSnapshot, options = {}) {
+  const profile = options && typeof options.profile === 'string' ? options.profile : 'bootstrap';
+  const visibleModelIds = Array.isArray(options?.visibleModelIds) ? options.visibleModelIds.filter(Number.isInteger) : [];
+  const modelStats = [];
+  const cellStats = [];
+  const labelStats = [];
+  const profiledModels = profiledSnapshot?.models || {};
+  for (const [modelKey, model] of Object.entries(profiledModels)) {
+    const modelId = normalizeStatsModelId(modelKey);
+    modelStats.push({
+      model_id: modelId,
+      bytes: jsonByteLength(model),
+      cell_count: Object.keys(model?.cells || {}).length,
+      label_count: countSnapshotLabels({ models: { [modelKey]: model } }),
+    });
+    for (const [cellKey, cell] of Object.entries(model?.cells || {})) {
+      const parsed = parseStatsCellKey(cellKey);
+      cellStats.push({
+        model_id: modelId,
+        p: Number.isInteger(cell?.p) ? cell.p : parsed.p,
+        r: Number.isInteger(cell?.r) ? cell.r : parsed.r,
+        c: Number.isInteger(cell?.c) ? cell.c : parsed.c,
+        bytes: jsonByteLength(cell),
+        label_count: Object.keys(cell?.labels || {}).length,
+      });
+      for (const [labelKey, labelValue] of Object.entries(cell?.labels || {})) {
+        labelStats.push({
+          model_id: modelId,
+          p: Number.isInteger(cell?.p) ? cell.p : parsed.p,
+          r: Number.isInteger(cell?.r) ? cell.r : parsed.r,
+          c: Number.isInteger(cell?.c) ? cell.c : parsed.c,
+          k: labelKey,
+          t: typeof labelValue?.t === 'string' ? labelValue.t : '',
+          bytes: jsonByteLength(labelValue),
+        });
+      }
+    }
+  }
+  modelStats.sort((a, b) => b.bytes - a.bytes || String(a.model_id).localeCompare(String(b.model_id)));
+  cellStats.sort((a, b) => b.bytes - a.bytes || String(a.model_id).localeCompare(String(b.model_id)) || a.p - b.p || a.r - b.r || a.c - b.c);
+  labelStats.sort((a, b) => b.bytes - a.bytes || String(a.model_id).localeCompare(String(b.model_id)) || a.p - b.p || a.r - b.r || a.c - b.c || a.k.localeCompare(b.k));
+
+  const sourceModelCount = Object.keys(sourceSnapshot?.models || {}).length;
+  const sourceLabelCount = countSnapshotLabels(sourceSnapshot);
+  const visibleModelCount = Object.keys(profiledModels).length;
+  const visibleLabelCount = countSnapshotLabels(profiledSnapshot);
+  return {
+    profile,
+    visible_model_ids: visibleModelIds,
+    total_bytes: jsonByteLength(profiledSnapshot || {}),
+    model_count: visibleModelCount,
+    cell_count: cellStats.length,
+    label_count: visibleLabelCount,
+    dropped_model_count: Math.max(0, sourceModelCount - visibleModelCount),
+    dropped_label_count: Math.max(0, sourceLabelCount - visibleLabelCount),
+    models: modelStats,
+    cells: cellStats.slice(0, Number.isInteger(options?.topCellLimit) ? Math.max(0, options.topCellLimit) : 20),
+    top_labels: labelStats.slice(0, Number.isInteger(options?.topLabelLimit) ? Math.max(0, options.topLabelLimit) : 20),
+  };
+}
+
+function buildClientSnapshotProfileWithStats(snapshot, options = {}) {
+  const profiledSnapshot = buildClientSnapshotProfile(snapshot, options);
+  return {
+    snapshot: profiledSnapshot,
+    snapshot_stats: buildClientSnapshotProfileStats(snapshot, profiledSnapshot, options),
+  };
+}
+
 function cloneSnapshotJson(value) {
   if (value === undefined) return undefined;
   return JSON.parse(JSON.stringify(value));
@@ -12915,6 +13008,8 @@ export {
   buildClientSnapshotForPrincipal,
   buildClientSnapshotPatchMessage,
   buildClientSnapshotProfile,
+  buildClientSnapshotProfileStats,
+  buildClientSnapshotProfileWithStats,
   buildSlideAppExportPayload,
   buildSlideAppExportZip,
   createPrincipalRuntimeRegistry,
