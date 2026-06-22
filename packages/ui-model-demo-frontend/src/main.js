@@ -61,7 +61,12 @@ if (mode === 'local') {
   const store = createRemoteStore({ baseUrl: server, authStore });
   const galleryStore = createGalleryStore({ sourceStore: store });
   authStore.checkSession().then(() => {
-    if (authStore.state.authenticated && typeof store.ensureRuntimeRunning === 'function') {
+    const capabilities = Array.isArray(authStore.state.capabilities) ? authStore.state.capabilities : [];
+    if (
+      authStore.state.authenticated
+      && capabilities.includes('app:write')
+      && typeof store.ensureRuntimeRunning === 'function'
+    ) {
       return store.ensureRuntimeRunning();
     }
     return null;

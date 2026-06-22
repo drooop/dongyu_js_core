@@ -45,14 +45,21 @@ function pinPayloadRecords({
   replyTargetModelId = 100,
   replyTargetPin = 'result',
   messageRole = 'request',
+  routeKind = 'control',
   payload,
   timestamp = 1700000000000,
 }) {
+  const topic = `UIPUT/ws/dam/pic/de/${endpointWorkerId}/${endpointModelId}/${endpointPin}`;
+  const responseTopic = `UIPUT/ws/dam/pic/de/${replyTargetWorkerId}/${replyTargetModelId}/${replyTargetPin}`;
   return [
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
     mt('message_role', 'str', messageRole),
+    mt('topic', 'str', topic),
+    mt('response_topic', 'str', responseTopic),
+    mt('route_kind', 'str', routeKind),
+    mt('bus', 'str', routeKind),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),

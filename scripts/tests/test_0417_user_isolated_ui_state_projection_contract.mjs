@@ -49,7 +49,7 @@ function pinPayloadPacket({
   topic,
   includeResponseTopic = true,
   responseTopic = topic,
-  endpoint = { worker_id: 'U1', model_id: 0, pin: 'cb_in' },
+  endpoint = { worker_id: 'U1', model_id: 9417, pin: 'result' },
   origin = { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
   replyTarget = { worker_id: 'U1', model_id: 9417, pin: 'result' },
   replyTargetPrincipalKey = 'alice-sub',
@@ -58,6 +58,7 @@ function pinPayloadPacket({
   const records = [
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
     mt('__mt_request_id', 'str', opId),
+    mt('op_id', 'str', opId),
     mt('message_role', 'str', 'response'),
     mt('topic', 'str', topic),
     mt('route_kind', 'str', 'control'),
@@ -78,7 +79,7 @@ function pinPayloadPacket({
   if (includeResponseTopic) {
     records.splice(4, 0, mt('response_topic', 'str', responseTopic));
   }
-  return JSON.stringify(records);
+  return { version: 'v1', type: 'pin_payload', payload: records };
 }
 
 function ref(modelId, k, p = 0, r = 0, c = 0) {
@@ -414,6 +415,8 @@ async function test_principal_workspace_runtime_isolation() {
     const bob = registry.resolveMutableRuntime({ subject: 'bob-sub', email: 'bob@example.test' });
     const aliceChangedEmail = registry.resolveMutableRuntime({ subject: 'alice-sub', email: 'alice-renamed@example.test' });
     const aliceSameEmailDifferentSubject = registry.resolveMutableRuntime({ subject: 'alice-other-sub', email: 'alice@example.test' });
+    await alice.state.activateRuntimeMode('running');
+    await bob.state.activateRuntimeMode('running');
     assert.notEqual(alice.principalKey, bob.principalKey, 'principal keys must be distinct');
     assert.notEqual(alice.state, bob.state, 'principals must not share mutable runtime state');
     assert.equal(aliceChangedEmail.state, alice.state, 'principal key must use OIDC subject before email');
@@ -423,7 +426,9 @@ async function test_principal_workspace_runtime_isolation() {
     const modelId = 9417;
     const secondModelId = 9517;
     const aliceModel = ensureStateModel(alice.state, modelId);
-    ensureStateModel(alice.state, secondModelId);
+    const aliceSecondModel = ensureStateModel(alice.state, secondModelId);
+    alice.state.runtime.addLabel(aliceModel, 0, 0, 0, label('dual_bus_model', 'json', { mode: 'imported_host_egress', egress_pins: ['submit'] }));
+    alice.state.runtime.addLabel(aliceSecondModel, 0, 0, 0, label('dual_bus_model', 'json', { mode: 'imported_host_egress', egress_pins: ['submit'] }));
     alice.state.runtime.addLabel(aliceModel, 0, 0, 0, label('installed_apps_json', 'json', [{ id: 'todo-alice', title: 'Alice To Do' }]));
     alice.state.runtime.addLabel(aliceModel, 0, 0, 0, label('task_title', 'str', 'Alice private task'));
     alice.state.runtime.addLabel(aliceModel, 0, 0, 0, label('draft_title', 'str', 'Alice draft'));
@@ -431,10 +436,11 @@ async function test_principal_workspace_runtime_isolation() {
     alice.state.runtime.addLabel(aliceModel, 0, 0, 0, label('selected_view', 'str', 'focus'));
 
     const bobModel = ensureStateModel(bob.state, modelId);
+    bob.state.runtime.addLabel(bobModel, 0, 0, 0, label('dual_bus_model', 'json', { mode: 'imported_host_egress', egress_pins: ['submit'] }));
     bob.state.runtime.addLabel(bobModel, 0, 0, 0, label('installed_apps_json', 'json', [{ id: 'todo-bob', title: 'Bob To Do' }]));
     bob.state.runtime.addLabel(bobModel, 0, 0, 0, label('task_title', 'str', 'Bob private task'));
 
-    const responseTopic = 'UIPUT/ws/dam/pic/de/U1/0/cb_in';
+    const responseTopic = 'UIPUT/ws/dam/pic/de/U1/9417/result';
     const wrongPinHandled = await registry.handleControlBusPacket(responseTopic, pinPayloadPacket({
       opId: 'it0417_response_wrong_pin',
       topic: responseTopic,
@@ -448,7 +454,7 @@ async function test_principal_workspace_runtime_isolation() {
     const invalidTopicHandled = await registry.handleControlBusPacket(invalidTopic, pinPayloadPacket({
       opId: 'it0417_response_invalid_topic',
       topic: invalidTopic,
-      endpoint: { worker_id: 'U1', model_id: 0, pin: 'cb_in' },
+      endpoint: { worker_id: 'U1', model_id: 9417, pin: 'result' },
       replyTargetPrincipalKey: alice.principalKey,
       payload: [mt('materialized_result', 'str', 'Invalid topic response')],
     }));
@@ -496,9 +502,11 @@ async function test_principal_workspace_runtime_isolation() {
       payload: [mt('materialized_result', 'str', 'Alice response')],
     }));
     assert.equal(aliceHandled, true, 'registry must accept response for a known principal reply target');
-    const aliceSecondHandled = await registry.handleControlBusPacket(responseTopic, pinPayloadPacket({
+    const secondResponseTopic = 'UIPUT/ws/dam/pic/de/U1/9517/result';
+    const aliceSecondHandled = await registry.handleControlBusPacket(secondResponseTopic, pinPayloadPacket({
       opId: 'it0417_response_alice_second_model',
-      topic: responseTopic,
+      topic: secondResponseTopic,
+      endpoint: { worker_id: 'U1', model_id: secondModelId, pin: 'result' },
       replyTargetPrincipalKey: alice.principalKey,
       replyTarget: { worker_id: 'U1', model_id: secondModelId, pin: 'result' },
       payload: [mt('materialized_result', 'str', 'Alice second model response')],
@@ -522,6 +530,78 @@ async function test_principal_workspace_runtime_isolation() {
     assert.equal(labelValueFromState(bob.state, modelId, 'materialized_result'), 'Bob response', 'response must materialize into bob runtime separately');
     assertConformanceEvidence(conformanceEvidence({ dataChain: aliceHandled === true && aliceSecondHandled === true && bobHandled === true }), 'principal_runtime_isolation');
     return { key: 'principal_workspace_runtime_isolation', status: 'PASS' };
+  });
+}
+
+async function test_principal_response_rejection_does_not_fallback_to_shared_runtime() {
+  return withServerModule(async (mod) => {
+    assert.equal(typeof mod.createPrincipalRuntimeRegistry, 'function', 'server must export createPrincipalRuntimeRegistry');
+    const sharedState = mod.createServerState({ dbPath: null });
+    const registry = mod.createPrincipalRuntimeRegistry({
+      readOnlyState: sharedState,
+      createState(principalKey) {
+        const state = mod.createServerState({ dbPath: null });
+        state.runtime.principalRuntimeKey = principalKey;
+        state.programEngine.disableControlBusInbound = true;
+        return state;
+      },
+    });
+    const sharedModelId = 9417;
+    const sharedModel = ensureStateModel(sharedState, sharedModelId);
+    sharedState.runtime.addLabel(sharedModel, 0, 0, 0, label('dual_bus_model', 'json', {
+      mode: 'imported_host_egress',
+      egress_pins: ['submit'],
+    }));
+
+    const responseTopic = `UIPUT/ws/dam/pic/de/U1/${sharedModelId}/result`;
+    assert.equal(
+      typeof registry.handleControlBusPacketResult,
+      'function',
+      'registry must expose matched/handled result for shared listener routing',
+    );
+
+    async function assertRejectedPrincipalPacketDoesNotFallback(response, context) {
+      let fallbackCalled = false;
+      const originalSharedHandler = async (topic, payload) => {
+        fallbackCalled = true;
+        return sharedState.programEngine.handleControlBusPacket(topic, payload);
+      };
+      const routed = await registry.handleControlBusPacketResult(responseTopic, response);
+      const wrapperHandled = routed.matched
+        ? routed.handled === true
+        : await originalSharedHandler(responseTopic, response);
+      assert.equal(routed.matched, true, `${context}: principal-targeted response must be claimed even when rejected`);
+      assert.equal(routed.handled, false, `${context}: principal runtime response must be rejected`);
+      assert.equal(wrapperHandled, false, `${context}: shared listener wrapper must return rejected for rejected principal response`);
+      assert.equal(fallbackCalled, false, `${context}: rejected principal response must not call shared runtime fallback`);
+    }
+
+    const missingPrincipalResponse = pinPayloadPacket({
+      opId: 'it0417_principal_rejected_must_not_fallback',
+      topic: responseTopic,
+      replyTargetPrincipalKey: 'subject:missing-principal',
+      payload: [mt('materialized_result', 'str', 'must_not_land_in_shared_runtime')],
+    });
+    await assertRejectedPrincipalPacketDoesNotFallback(missingPrincipalResponse, 'missing principal runtime');
+
+    const malformedPrincipalMarkerResponse = pinPayloadPacket({
+      opId: 'it0417_malformed_principal_marker_must_not_fallback',
+      topic: responseTopic,
+      replyTargetPrincipalKey: 'subject:missing-principal',
+      payload: [mt('materialized_result', 'str', 'must_not_land_in_shared_runtime_from_malformed_marker')],
+    });
+    const marker = malformedPrincipalMarkerResponse.payload.find((record) => record && record.k === 'reply_target_principal_key');
+    marker.t = 'json';
+    marker.v = { malformed: true };
+    await assertRejectedPrincipalPacketDoesNotFallback(malformedPrincipalMarkerResponse, 'malformed principal marker');
+
+    assert.equal(
+      labelValueFromState(sharedState, sharedModelId, 'materialized_result'),
+      undefined,
+      'rejected principal response must not materialize into shared runtime',
+    );
+    assertConformanceEvidence(conformanceEvidence({ dataOwnership: true, dataChain: true }), 'principal_rejection_no_shared_fallback');
+    return { key: 'principal_response_rejection_does_not_fallback_to_shared_runtime', status: 'PASS' };
   });
 }
 
@@ -1019,6 +1099,19 @@ async function postJson(url, cookie, body) {
   });
 }
 
+async function waitForRuntimeSnapshotReady(appBase, cookie, timeoutMs = 5000) {
+  const startedAt = Date.now();
+  let last = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    const resp = await fetch(`${appBase}/snapshot?profile=bootstrap`, { headers: { cookie } });
+    const body = await readJsonResponse(resp);
+    last = { status: resp.status, body };
+    if (resp.status === 200 && body && body.snapshot) return last;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`runtime_snapshot_not_ready:${JSON.stringify(last)}`);
+}
+
 async function test_start_server_routes_snapshot_and_events_by_principal_runtime() {
   const provider = await createMockOidcProvider();
   try {
@@ -1049,7 +1142,10 @@ async function test_start_server_routes_snapshot_and_events_by_principal_runtime
         });
         for (const cookie of [aliceCookie, bobCookie]) {
           const modeResp = await postJson(`${appBase}/api/runtime/mode`, cookie, { mode: 'running' });
-          assert.equal(modeResp.status, 200, 'authenticated principal must activate its own runtime');
+          assert.equal(modeResp.status, 202, 'authenticated principal must schedule its own runtime when cold');
+          await waitForRuntimeSnapshotReady(appBase, cookie);
+          const readyModeResp = await postJson(`${appBase}/api/runtime/mode`, cookie, { mode: 'running' });
+          assert.equal(readyModeResp.status, 200, 'authenticated principal must activate its runtime after ready');
         }
         const aliceText = 'alice visible runtime value';
         const bobText = 'bob visible runtime value';
@@ -1086,6 +1182,7 @@ async function test_start_server_routes_snapshot_and_events_by_principal_runtime
 
 const tests = [
   test_principal_workspace_runtime_isolation,
+  test_principal_response_rejection_does_not_fallback_to_shared_runtime,
   test_guest_is_read_only,
   test_default_input_submit_policy_is_local_only,
   test_submit_reads_visible_local_overlay_and_keeps_bus_path,

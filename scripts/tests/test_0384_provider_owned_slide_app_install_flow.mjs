@@ -42,7 +42,18 @@ function externalPacket(records) {
   return { version: 'v1', type: 'pin_payload', payload: records };
 }
 
-function pinPayloadPacket({ opId, topic, responseTopic = null, routeKind, endpoint, origin, replyTarget, payload, messageRole = 'response' }) {
+function pinPayloadPacket({
+  opId,
+  topic,
+  responseTopic = null,
+  routeKind,
+  endpoint,
+  origin,
+  replyTarget,
+  payload,
+  messageRole = 'response',
+  replyTargetPrincipalKey = '',
+}) {
   const actualResponseTopic = responseTopic || `UIPUT/ws/dam/pic/de/${replyTarget.worker_id}/${replyTarget.model_id}/${replyTarget.pin}`;
   return externalPacket([
     mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
@@ -62,6 +73,7 @@ function pinPayloadPacket({ opId, topic, responseTopic = null, routeKind, endpoi
     mt('reply_target_worker_id', 'str', replyTarget.worker_id),
     mt('reply_target_model_id', 'int', replyTarget.model_id),
     mt('reply_target_pin', 'str', replyTarget.pin),
+    ...(replyTargetPrincipalKey ? [mt('reply_target_principal_key', 'str', replyTargetPrincipalKey)] : []),
     mt('payload', 'json', payload),
     mt('timestamp', 'int', 1700000000000),
   ]);
@@ -119,7 +131,7 @@ function loadRemoteWorkerRuntime() {
   return rt;
 }
 
-function remoteBundleRequestPacket(assetId = 'r1-color-generator') {
+function remoteBundleRequestPacket(assetId = 'r1-color-generator', replyTargetPrincipalKey = 'subject:it0384-provider') {
   return pinPayloadPacket({
     opId: `0384_bundle_request_${assetId}`,
     topic: 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request',
@@ -128,6 +140,7 @@ function remoteBundleRequestPacket(assetId = 'r1-color-generator') {
     origin: { worker_id: 'U1', model_id: 1051, pin: 'workspace_asset_install' },
     replyTarget: { worker_id: 'U1', model_id: 1051, pin: 'result' },
     messageRole: 'request',
+    replyTargetPrincipalKey,
     payload: [
       mt('__mt_payload_kind', 'str', 'slide_app_bundle_request.v1'),
       mt('asset_id', 'str', assetId),
@@ -136,7 +149,16 @@ function remoteBundleRequestPacket(assetId = 'r1-color-generator') {
   });
 }
 
-function makeBundleResponse({ opId, topic, endpoint, replyTarget, bundlePayload, assetId = 'r1-color-generator', routeKind = 'control' }) {
+function makeBundleResponse({
+  opId,
+  topic,
+  endpoint,
+  replyTarget,
+  bundlePayload,
+  assetId = 'r1-color-generator',
+  routeKind = 'control',
+  replyTargetPrincipalKey = '',
+}) {
   return pinPayloadPacket({
     opId,
     topic,
@@ -146,6 +168,7 @@ function makeBundleResponse({ opId, topic, endpoint, replyTarget, bundlePayload,
     origin: { worker_id: endpoint.worker_id, model_id: endpoint.model_id, pin: endpoint.pin },
     replyTarget,
     messageRole: 'response',
+    replyTargetPrincipalKey,
     payload: [
       mt('__mt_payload_kind', 'str', 'slide_app_bundle_response.v1'),
       mt('asset_id', 'str', assetId),
@@ -153,6 +176,30 @@ function makeBundleResponse({ opId, topic, endpoint, replyTarget, bundlePayload,
       mt('bundle_sha256', 'str', ''),
     ],
   });
+}
+
+async function withServerModule(fn) {
+  const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0384-provider-registry-'));
+  process.env.DY_AUTH = '0';
+  process.env.DY_PERSISTED_ASSET_ROOT = '';
+  process.env.WORKER_BASE_WORKSPACE = `it0384_registry_${Date.now()}`;
+  process.env.WORKER_BASE_DATA_ROOT = join(tempRoot, 'runtime');
+  process.env.DOCS_ROOT = join(tempRoot, 'docs');
+  process.env.STATIC_PROJECTS_ROOT = join(tempRoot, 'static');
+  process.env.DY_UI_SERVER_WORKER_ID = 'U1';
+  try {
+    const mod = await import(new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url));
+    return await fn(mod);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+    delete process.env.DY_AUTH;
+    delete process.env.DY_PERSISTED_ASSET_ROOT;
+    delete process.env.WORKER_BASE_WORKSPACE;
+    delete process.env.WORKER_BASE_DATA_ROOT;
+    delete process.env.DOCS_ROOT;
+    delete process.env.STATIC_PROJECTS_ROOT;
+    delete process.env.DY_UI_SERVER_WORKER_ID;
+  }
 }
 
 async function test_install_action_sends_provider_bundle_request_without_materializing() {
@@ -207,6 +254,33 @@ async function test_install_action_sends_provider_bundle_request_without_materia
       'retry install request must add a fresh control-bus output label',
     );
     return { key: 'install_action_sends_provider_bundle_request_without_materializing', status: 'PASS' };
+  });
+}
+
+async function test_principal_install_request_preserves_runtime_key_after_model0_label_loss() {
+  return withServerState(async (state) => {
+    const runtime = state.runtime;
+    runtime.principalRuntimeKey = 'subject:it0384-principal';
+    const model0 = runtime.getModel(0);
+    runtime.rmLabel(model0, 0, 0, 0, 'principal_runtime_key');
+    const rows = labelValue(runtime, 1051, 0, 0, 0, 'asset_catalog_json');
+    const slide = rows.find((row) => row.id === 'r1-color-generator');
+    const result = await state.submitEnvelope({
+      type: 'workspace_asset_primary_action',
+      payload: {
+        action: 'workspace_asset_primary_action',
+        value: slide,
+        meta: { op_id: '0384_principal_install_request' },
+      },
+    });
+    assert.equal(result.result, 'ok', 'principal install action must still send provider request');
+    const busLabel = runtime.getCell(model0, 0, 0, 0).labels.get('workspace_asset_bundle_request_bus');
+    assert.equal(
+      payloadString(busLabel?.v, 'reply_target_principal_key'),
+      'subject:it0384-principal',
+      'install request must use runtime principal key even if the Model 0 label is missing',
+    );
+    return { key: 'principal_install_request_preserves_runtime_key_after_model0_label_loss', status: 'PASS' };
   });
 }
 
@@ -366,6 +440,7 @@ async function test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bu
     const response = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('remote_result_bus')?.v;
     assert.equal(payloadString(response, '__mt_payload_kind'), 'pin_payload.v1', 'provider response must be strict pin_payload.v1');
     assert.equal(payloadString(response, 'message_role'), 'response', 'provider response must use message_role=response');
+    assert.equal(payloadString(response, 'reply_target_principal_key'), 'subject:it0384-provider', 'provider response must echo reply_target_principal_key for authenticated UI runtimes');
     assert.equal(payloadInt(response, 'origin_model_id'), 3100, 'provider response must originate from model 3100');
     const nested = payloadJson(response, 'payload');
     assert.equal(payloadString(nested, '__mt_payload_kind'), 'slide_app_bundle_response.v1', 'provider nested payload must be bundle response');
@@ -378,6 +453,63 @@ async function test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bu
     );
   }
   return { key: 'remote_worker_r1_bundle_provider_patch_returns_modeltable_bundle_response', status: 'PASS' };
+}
+
+async function test_principal_registry_delegates_bundle_response_to_user_runtime_installer() {
+  return withServerModule(async ({ createServerState, buildSlideAppExportPayload, createPrincipalRuntimeRegistry }) => {
+    const readOnlyState = createServerState({ dbPath: null });
+    const registry = createPrincipalRuntimeRegistry({
+      readOnlyState,
+      createState(principalKey) {
+        const state = createServerState({ dbPath: null });
+        state.runtime.principalRuntimeKey = principalKey;
+        const model0 = state.runtime.getModel(0);
+        state.runtime.addLabel(model0, 0, 0, 0, { k: 'principal_runtime_key', t: 'str', v: principalKey });
+        state.programEngine.disableControlBusInbound = true;
+        return state;
+      },
+    });
+    const principal = { subject: 'it0384-principal-bundle' };
+    const principalKey = registry.principalRuntimeKey(principal);
+    const entry = registry.resolveMutableRuntime(principal);
+    await entry.state.activateRuntimeMode('running');
+    const runtime = entry.state.runtime;
+    const rows = labelValue(runtime, 1051, 0, 0, 0, 'asset_catalog_json');
+    const slide = rows.find((row) => row.id === 'r1-color-generator');
+    assert.ok(slide, 'principal runtime catalog must include r1-color-generator');
+    const beforeMax = Math.max(...Array.from(runtime.models.keys()).filter((id) => Number.isInteger(id) && id > 0));
+    const requestResult = await entry.state.submitEnvelope({
+      type: 'workspace_asset_primary_action',
+      payload: {
+        action: 'workspace_asset_primary_action',
+        value: slide,
+        meta: { op_id: '0384_principal_bundle_install' },
+      },
+    });
+    assert.equal(requestResult.result, 'ok', 'principal runtime install request must be accepted');
+    const pending = labelValue(runtime, 1051, 0, 0, 0, 'asset_install_pending');
+    assert.equal(pending?.asset_id, 'r1-color-generator', 'principal runtime must record pending install');
+    const exportResult = buildSlideAppExportPayload(runtime, 100);
+    assert.equal(exportResult.ok, true, 'principal runtime fixture must export color app payload');
+    const response = makeBundleResponse({
+      opId: pending.op_id,
+      topic: pending.response_topic,
+      endpoint: pending.provider_endpoint,
+      replyTarget: pending.reply_target,
+      bundlePayload: exportResult.data.payload,
+      replyTargetPrincipalKey: principalKey,
+    });
+    const handled = await registry.handleControlBusPacket(pending.response_topic, response);
+    assert.equal(handled, true, 'principal registry must handle bundle response for the addressed user runtime');
+    await wait();
+    const installedId = labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id');
+    assert.ok(Number.isInteger(installedId) && installedId > beforeMax, 'principal bundle response must materialize a new app model');
+    assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_pending'), null, 'principal bundle install must clear pending state');
+    assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_open'), true, 'principal bundle install must open success dialog');
+    assert.equal(labelValue(runtime, installedId, 0, 0, 0, 'app_name'), 'E2E 颜色生成器', 'principal bundle install must use provider payload');
+    assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'bundle_payload'), undefined, 'principal registry must not materialize raw bundle response labels on workspace manager');
+    return { key: 'principal_registry_delegates_bundle_response_to_user_runtime_installer', status: 'PASS' };
+  });
 }
 
 async function test_bundle_payload_exception_is_scoped_to_slide_app_response() {
@@ -513,8 +645,10 @@ async function test_desktop_management_delete_removes_installed_slide_app() {
 
 const tests = [
   test_install_action_sends_provider_bundle_request_without_materializing,
+  test_principal_install_request_preserves_runtime_key_after_model0_label_loss,
   test_provider_bundle_response_materializes_new_workspace_app_and_rejects_mismatches,
   test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bundle_response,
+  test_principal_registry_delegates_bundle_response_to_user_runtime_installer,
   test_bundle_payload_exception_is_scoped_to_slide_app_response,
   test_desktop_management_delete_removes_installed_slide_app,
 ];

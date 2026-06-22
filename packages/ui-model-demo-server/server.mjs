@@ -4236,29 +4236,78 @@ function parsePrincipalRuntimePinPayload(payload) {
   };
 }
 
+function principalRuntimeMarkerRecord(payload) {
+  let decoded = payload;
+  if (typeof decoded === 'string') {
+    try {
+      decoded = JSON.parse(decoded);
+    } catch (_) {
+      return null;
+    }
+  }
+  const records = Array.isArray(decoded)
+    ? decoded
+    : (decoded && decoded.type === 'pin_payload' && decoded.version === 'v1' && Array.isArray(decoded.payload) ? decoded.payload : null);
+  return findTemporaryPayloadRecord(records, 'reply_target_principal_key');
+}
+
 function createPrincipalRuntimeRegistry(options = {}) {
   const createState = typeof options.createState === 'function'
     ? options.createState
     : () => createServerState({ dbPath: null });
   const readOnlyState = options.readOnlyState || null;
   const runtimes = new Map();
+  const initializationByPrincipalKey = new Map();
+
+  function publicInitializationStatus(principalKey, record = null) {
+    if (runtimes.has(principalKey)) {
+      return {
+        status: 'ready',
+        code: 'workspace_ready',
+        principalKey,
+      };
+    }
+    if (!record) {
+      return {
+        status: 'idle',
+        code: 'workspace_not_started',
+        principalKey,
+      };
+    }
+    const status = record.status || 'initializing';
+    const out = {
+      status,
+      code: record.code || (status === 'failed' ? 'workspace_initialization_failed' : 'workspace_initializing'),
+      principalKey,
+      startedAt: Number.isFinite(record.startedAt) ? record.startedAt : null,
+      finishedAt: Number.isFinite(record.finishedAt) ? record.finishedAt : null,
+      elapsedMs: Number.isFinite(record.startedAt)
+        ? Math.max(0, (record.finishedAt || Date.now()) - record.startedAt)
+        : null,
+    };
+    if (status === 'failed') {
+      out.error = record.error || 'workspace_initialization_failed';
+    }
+    return out;
+  }
+
+  function createRuntimeEntry(principalKey, principal) {
+    const entry = {
+      principalKey,
+      principal: { ...(principal || {}) },
+      mutable: true,
+      state: createState(principalKey, principal),
+    };
+    runtimes.set(principalKey, entry);
+    return entry;
+  }
 
   function resolveMutableRuntime(principal) {
     const principalKey = principalRuntimeKey(principal);
     if (!principalKey) {
       throw new Error('guest_read_only');
     }
-    let entry = runtimes.get(principalKey);
-    if (!entry) {
-      entry = {
-        principalKey,
-        principal: { ...(principal || {}) },
-        mutable: true,
-        state: createState(principalKey, principal),
-      };
-      runtimes.set(principalKey, entry);
-    }
-    return entry;
+    return runtimes.get(principalKey) || createRuntimeEntry(principalKey, principal);
   }
 
   function resolveReadRuntime(principal) {
@@ -4274,51 +4323,158 @@ function createPrincipalRuntimeRegistry(options = {}) {
     return resolveMutableRuntime(principal);
   }
 
+  function readRuntimeIfReady(principal) {
+    const principalKey = principalRuntimeKey(principal);
+    if (!principalKey) {
+      return {
+        principalKey: 'guest',
+        principal: null,
+        mutable: false,
+        state: readOnlyState,
+      };
+    }
+    return runtimes.get(principalKey) || null;
+  }
+
+  function getRuntimeInitializationStatus(principal) {
+    const principalKey = principalRuntimeKey(principal);
+    if (!principalKey) {
+      return {
+        status: 'guest',
+        code: 'guest_read_only',
+        principalKey: 'guest',
+      };
+    }
+    return publicInitializationStatus(principalKey, initializationByPrincipalKey.get(principalKey) || null);
+  }
+
+  function startRuntimeInitialization(principal, options = {}) {
+    const principalKey = principalRuntimeKey(principal);
+    if (!principalKey) {
+      throw new Error('guest_read_only');
+    }
+    const readyEntry = runtimes.get(principalKey);
+    if (readyEntry) {
+      return {
+        ...publicInitializationStatus(principalKey),
+        entry: readyEntry,
+        promise: Promise.resolve(readyEntry),
+      };
+    }
+    const existing = initializationByPrincipalKey.get(principalKey);
+    if (existing) {
+      return {
+        ...publicInitializationStatus(principalKey, existing),
+        promise: existing.promise,
+      };
+    }
+    const record = {
+      status: 'initializing',
+      code: 'workspace_initializing',
+      principal: { ...(principal || {}) },
+      startedAt: Date.now(),
+      finishedAt: null,
+      error: '',
+      entry: null,
+      promise: null,
+    };
+    const configuredDelay = Number.parseInt(String(process.env.DY_PRINCIPAL_RUNTIME_INIT_DELAY_MS || ''), 10);
+    const defaultDelayMs = Number.isInteger(configuredDelay) && configuredDelay >= 0 ? configuredDelay : 500;
+    const delayMs = Number.isFinite(options.delayMs) ? Math.max(0, Number(options.delayMs)) : defaultDelayMs;
+    record.promise = new Promise((resolve, reject) => {
+      const run = () => {
+        try {
+          const entry = runtimes.get(principalKey) || createRuntimeEntry(principalKey, principal);
+          record.status = 'ready';
+          record.code = 'workspace_ready';
+          record.finishedAt = Date.now();
+          record.entry = entry;
+          resolve(entry);
+        } catch (err) {
+          record.status = 'failed';
+          record.code = 'workspace_initialization_failed';
+          record.finishedAt = Date.now();
+          record.error = String(err && err.message ? err.message : err);
+          reject(err);
+        }
+      };
+      if (options.defer === false) {
+        run();
+      } else {
+        setTimeout(run, delayMs);
+      }
+    });
+    record.promise.catch(() => {});
+    initializationByPrincipalKey.set(principalKey, record);
+    return {
+      ...publicInitializationStatus(principalKey, record),
+      promise: record.promise,
+    };
+  }
+
   function runtimeByKey(principalKey) {
     if (typeof principalKey !== 'string' || !principalKey.trim()) return null;
     return runtimes.get(principalKey.trim()) || null;
   }
 
-  async function handleControlBusPacket(topic, payload) {
+  async function handleControlBusPacketResult(topic, payload) {
+    const principalMarker = principalRuntimeMarkerRecord(payload);
     const parsed = parsePrincipalRuntimePinPayload(payload);
-    if (!parsed.ok) return false;
-    if (parsed.messageRole !== 'response') return false;
-    if (parsed.topic !== topic || parsed.responseTopic !== topic || parsed.routeKind !== 'control') return false;
-    if (parsed.replyTarget.pin !== 'result') return false;
-    const entry = runtimeByKey(parsed.replyTargetPrincipalKey);
-    if (!entry || !entry.mutable || !entry.state || !entry.state.runtime) return false;
-    const targetModel = entry.state.runtime.getModel(parsed.replyTarget.model_id);
-    if (!targetModel) return false;
-    for (const record of parsed.nestedPayload) {
-      if (
-        !record
-        || !Number.isInteger(record.p)
-        || !Number.isInteger(record.r)
-        || !Number.isInteger(record.c)
-        || typeof record.k !== 'string'
-        || !record.k
-        || typeof record.t !== 'string'
-        || !record.t
-        || !Object.prototype.hasOwnProperty.call(record, 'v')
-      ) {
-        return false;
-      }
-      entry.state.runtime.addLabel(targetModel, record.p, record.r, record.c, {
-        k: record.k,
-        t: record.t,
-        v: record.v,
-      });
+    if (!parsed.ok) {
+      return {
+        matched: Boolean(principalMarker),
+        handled: false,
+        code: parsed.code || 'invalid_packet',
+      };
     }
-    if (typeof entry.state.updateDerived === 'function') {
+    const hasPrincipalTarget = typeof parsed.replyTargetPrincipalKey === 'string'
+      && parsed.replyTargetPrincipalKey.trim() !== '';
+    if (!hasPrincipalTarget) {
+      return {
+        matched: Boolean(principalMarker),
+        handled: false,
+        code: 'missing_reply_target_principal_key',
+      };
+    }
+    if (parsed.messageRole !== 'response') return { matched: false, handled: false, code: 'not_response' };
+    if (parsed.topic !== topic || parsed.responseTopic !== topic || parsed.routeKind !== 'control') {
+      return { matched: true, handled: false, code: 'invalid_principal_response_route' };
+    }
+    if (parsed.replyTarget.pin !== 'result') {
+      return { matched: true, handled: false, code: 'invalid_principal_reply_target_pin' };
+    }
+    const entry = runtimeByKey(parsed.replyTargetPrincipalKey);
+    if (!entry || !entry.mutable || !entry.state || !entry.state.runtime) {
+      return { matched: true, handled: false, code: 'principal_runtime_not_found' };
+    }
+    const engine = entry.state.programEngine;
+    const handled = engine && typeof engine.handleControlBusPacket === 'function'
+      ? await engine.handleControlBusPacket(topic, payload)
+      : false;
+    if (handled && typeof entry.state.updateDerived === 'function') {
       entry.state.updateDerived({ scope: 'business' });
     }
-    return true;
+    return {
+      matched: true,
+      handled: handled === true,
+      principalKey: entry.principalKey,
+      code: handled === true ? 'handled' : 'principal_runtime_rejected',
+    };
+  }
+
+  async function handleControlBusPacket(topic, payload) {
+    const result = await handleControlBusPacketResult(topic, payload);
+    return result.handled === true;
   }
 
   return {
     resolveMutableRuntime,
     resolveReadRuntime,
+    readRuntimeIfReady,
+    startRuntimeInitialization,
+    getRuntimeInitializationStatus,
     handleControlBusPacket,
+    handleControlBusPacketResult,
     runtimeByKey,
     principalRuntimeKey,
     runtimes,
@@ -4361,9 +4517,7 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
   };
   const routeTopic = buildEndpointTopic(options.runtime || null, endpoint);
   const responseTopic = buildEndpointTopic(options.runtime || null, replyTarget);
-  const principalKey = options.runtime
-    ? readRuntimeCellString(options.runtime, 0, 0, 0, 'principal_runtime_key', '')
-    : '';
+  const principalKey = options.runtime ? readRuntimePrincipalKey(options.runtime) : '';
   if (!routeTopic || !responseTopic || routeTopic === responseTopic) {
     return { ok: false, code: 'invalid_topic', detail: 'topic_and_response_topic_required' };
   }
@@ -5419,6 +5573,14 @@ function readRuntimeCellString(runtime, modelId, p, r, c, key, fallback = '') {
   return label && typeof label.v === 'string' ? label.v : fallback;
 }
 
+function readRuntimePrincipalKey(runtime) {
+  const labelKey = readRuntimeCellString(runtime, 0, 0, 0, 'principal_runtime_key', '');
+  if (labelKey) return labelKey;
+  return runtime && typeof runtime.principalRuntimeKey === 'string'
+    ? runtime.principalRuntimeKey.trim()
+    : '';
+}
+
 function readRuntimeCellInt(runtime, modelId, p, r, c, key, fallback = null) {
   const label = readRuntimeCellLabel(runtime, modelId, p, r, c, key);
   return label && Number.isInteger(label.v) ? label.v : fallback;
@@ -5487,7 +5649,7 @@ function buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndp
     model_id: WORKSPACE_MANAGER_APP_MODEL_ID,
     pin: SLIDE_IMPORT_REPLY_PIN,
   };
-  const principalKey = readRuntimeCellString(runtime, 0, 0, 0, 'principal_runtime_key', '');
+  const principalKey = readRuntimePrincipalKey(runtime);
   const responseTopic = buildEndpointTopic(runtime, replyTarget);
   const nestedPayload = [
     mtPayloadRecord('__mt_payload_kind', 'str', 'slide_app_bundle_request.v1'),
@@ -11579,6 +11741,7 @@ function createServerState(options) {
 function startServer(options) {
   const port = Number.isInteger(options && options.port) ? options.port : 9000;
   const corsOrigin = options && options.corsOrigin ? String(options.corsOrigin) : null;
+  const enablePrincipalRuntimeTestHooks = options && options.enableTestPrincipalRuntimeInitHooks === true;
 
   const distDir = new URL('../ui-model-demo-frontend/dist/', import.meta.url).pathname;
   const buildInfo = options && options.skipFrontendBuild
@@ -11624,13 +11787,29 @@ function startServer(options) {
   }
 
   function createPrincipalState(principalKey) {
+    if (enablePrincipalRuntimeTestHooks && process.env.DY_TEST_PRINCIPAL_RUNTIME_INIT_FAIL === '1') {
+      throw new Error('dy_test_principal_runtime_init_failed');
+    }
+    const testBlockMs = enablePrincipalRuntimeTestHooks
+      ? Number.parseInt(String(process.env.DY_TEST_PRINCIPAL_RUNTIME_INIT_BLOCK_MS || ''), 10)
+      : 0;
+    if (Number.isInteger(testBlockMs) && testBlockMs > 0) {
+      const blockUntil = Date.now() + Math.min(testBlockMs, 5000);
+      while (Date.now() < blockUntil) {
+        // Test-only busy wait to prove auth routes are not queued behind runtime creation.
+      }
+    }
     const userState = createServerState({ dbPath: principalDbPath(principalKey) });
+    const normalizedPrincipalKey = typeof principalKey === 'string' ? principalKey.trim() : '';
+    if (normalizedPrincipalKey) {
+      userState.runtime.principalRuntimeKey = normalizedPrincipalKey;
+    }
     const model0 = userState.runtime.getModel(0);
-    if (model0 && typeof principalKey === 'string' && principalKey.trim()) {
+    if (model0 && normalizedPrincipalKey) {
       userState.runtime.addLabel(model0, 0, 0, 0, {
         k: 'principal_runtime_key',
         t: 'str',
-        v: principalKey.trim(),
+        v: normalizedPrincipalKey,
       });
     }
     userState.programEngine.disableControlBusInbound = true;
@@ -11651,9 +11830,13 @@ function startServer(options) {
         ? runtimeState.programEngine.handleControlBusPacket.bind(runtimeState.programEngine)
         : null;
       runtimeState.programEngine.handleControlBusPacket = async (topic, payload) => {
-        if (await principalRuntimeRegistry.handleControlBusPacket(topic, payload)) {
-          broadcastSnapshot();
-          return true;
+        const principalResult = await principalRuntimeRegistry.handleControlBusPacketResult(topic, payload);
+        if (principalResult.matched) {
+          if (principalResult.handled === true) {
+            broadcastSnapshot(principalResult.principalKey || '');
+            return true;
+          }
+          return false;
         }
         return originalHandleControlBusPacket ? originalHandleControlBusPacket(topic, payload) : false;
       };
@@ -11667,12 +11850,51 @@ function startServer(options) {
 
   attachPrincipalAwareProgramEngine(state);
 
+  let sharedControlBusInboundReadyPromise = null;
+
+  async function ensureSharedControlBusInboundReady() {
+    if (sharedControlBusInboundReadyPromise) return sharedControlBusInboundReadyPromise;
+    sharedControlBusInboundReadyPromise = (async () => {
+      if (
+        state.runtime
+        && typeof state.runtime.isRuntimeRunning === 'function'
+        && state.runtime.isRuntimeRunning()
+      ) {
+        state.programEngine.activateRunning();
+        return;
+      }
+      await state.activateRuntimeMode('running');
+    })().catch((err) => {
+      sharedControlBusInboundReadyPromise = null;
+      console.warn('[ProgramModelEngine] shared control-bus inbound activation failed:', err && err.message ? err.message : err);
+    });
+    return sharedControlBusInboundReadyPromise;
+  }
+
   function readPrincipalForRequest(req) {
     return AUTH_ENABLED ? getSession(req) : localDevPrincipal();
   }
 
   function resolveReadRuntimeForRequest(req) {
     return principalRuntimeRegistry.resolveReadRuntime(readPrincipalForRequest(req));
+  }
+
+  function resolveSnapshotRuntimeForRequest(req) {
+    const principal = readPrincipalForRequest(req);
+    const readyEntry = principalRuntimeRegistry.readRuntimeIfReady(principal);
+    if (readyEntry) {
+      return {
+        status: 'ready',
+        entry: readyEntry,
+        principal,
+      };
+    }
+    const started = principalRuntimeRegistry.startRuntimeInitialization(principal);
+    return {
+      status: started.status || 'initializing',
+      initialization: started,
+      principal,
+    };
   }
 
   function resolveMutableRuntimeForPrincipal(principal) {
@@ -12282,12 +12504,83 @@ function startServer(options) {
     }
 
     if (req.method === 'GET' && url.pathname === '/snapshot') {
-      const runtimeEntry = resolveReadRuntimeForRequest(req);
+      const requestStartedAt = Date.now();
+      const rawProfile = url.searchParams.get('profile');
+      const profile = rawProfile && rawProfile.trim() ? rawProfile.trim() : 'bootstrap';
+      if (!CLIENT_SNAPSHOT_PROFILES.has(profile)) {
+        writeJson(res, 400, { ok: false, error: 'invalid_snapshot_profile' }, cors);
+        return;
+      }
+      const runtimeResolution = profile === 'bootstrap'
+        ? resolveSnapshotRuntimeForRequest(req)
+        : { status: 'ready', entry: resolveReadRuntimeForRequest(req), principal: readPrincipalForRequest(req) };
+      if (runtimeResolution.status === 'failed') {
+        const info = runtimeResolution.initialization || {};
+        writeJson(res, 503, {
+          ok: false,
+          status: 'workspace_initialization_failed',
+          code: 'workspace_initialization_failed',
+          error: info.error || 'workspace_initialization_failed',
+          timing: {
+            request_started_at: requestStartedAt,
+            response_started_at: Date.now(),
+            runtime_status: 'failed',
+            runtime_elapsed_ms: Number.isFinite(info.elapsedMs) ? info.elapsedMs : null,
+          },
+        }, cors);
+        return;
+      }
+      if (runtimeResolution.status !== 'ready') {
+        const info = runtimeResolution.initialization || {};
+        const initializingBody = {
+          ok: false,
+          status: 'workspace_initializing',
+          code: 'workspace_initializing',
+          retry_after_ms: 100,
+          timing: {
+            request_started_at: requestStartedAt,
+            response_started_at: Date.now(),
+            runtime_status: info.status || 'initializing',
+            runtime_elapsed_ms: Number.isFinite(info.elapsedMs) ? info.elapsedMs : null,
+          },
+        };
+        if (url.searchParams.get('initial_projection') === '1') {
+          const initialProjectionEntry = {
+            principalKey: info.principalKey || 'initializing',
+            principal: runtimeResolution.principal || null,
+            mutable: false,
+            state,
+          };
+          const initialProfile = resolveSnapshotProfileOptions(url.searchParams, initialProjectionEntry);
+          if (initialProfile.ok) {
+            const snapshotBuildStartedAt = Date.now();
+            initializingBody.snapshot = getProfiledClientSnapForRuntime(initialProjectionEntry, initialProfile.options);
+            initializingBody.snapshot_seq = clientSnapshotSeq;
+            initializingBody.op_id = state.getLastOpId();
+            initializingBody.patch_kind = 'snapshot';
+            initializingBody.snapshot_profile = initialProfile.options.profile;
+            initializingBody.visible_model_ids = initialProfile.options.visibleModelIds;
+            initializingBody.snapshot_projection = 'read_only_initializing';
+            initializingBody.truth_snapshot = false;
+            initializingBody.workspace_status = {
+              status: 'initializing',
+              code: 'workspace_initializing',
+              message: '',
+            };
+            initializingBody.timing.snapshot_build_started_at = snapshotBuildStartedAt;
+            initializingBody.timing.response_started_at = Date.now();
+          }
+        }
+        writeJson(res, 202, initializingBody, cors);
+        return;
+      }
+      const runtimeEntry = runtimeResolution.entry;
       const resolvedProfile = resolveSnapshotProfileOptions(url.searchParams, runtimeEntry);
       if (!resolvedProfile.ok) {
         writeJson(res, resolvedProfile.status, resolvedProfile.body, cors);
         return;
       }
+      const snapshotBuildStartedAt = Date.now();
       const snap = getProfiledClientSnapForRuntime(runtimeEntry, resolvedProfile.options);
       writeJson(res, 200, {
         snapshot: snap,
@@ -12296,6 +12589,12 @@ function startServer(options) {
         patch_kind: 'snapshot',
         snapshot_profile: resolvedProfile.options.profile,
         visible_model_ids: resolvedProfile.options.visibleModelIds,
+        timing: {
+          request_started_at: requestStartedAt,
+          snapshot_build_started_at: snapshotBuildStartedAt,
+          response_started_at: Date.now(),
+          runtime_status: 'ready',
+        },
       }, cors);
       return;
     }
@@ -12333,8 +12632,40 @@ function startServer(options) {
     if (req.method === 'POST' && (url.pathname === BUS_EVENT_ENDPOINT_PATH || url.pathname === UI_EVENT_ENDPOINT_PATH)) {
       const principal = requireCapability('app:write');
       if (!principal) return;
+      const eventRequestStartedAt = Date.now();
       try {
-        const runtimeEntry = resolveMutableRuntimeForPrincipal(principal);
+        const runtimeEntry = principalRuntimeRegistry.readRuntimeIfReady(principal);
+        if (!runtimeEntry) {
+          const started = principalRuntimeRegistry.startRuntimeInitialization(principal);
+          if (started && started.status === 'failed') {
+            writeJson(res, 503, {
+              ok: false,
+              status: 'workspace_initialization_failed',
+              code: 'workspace_initialization_failed',
+              error: started.error || 'workspace_initialization_failed',
+              timing: {
+                request_started_at: eventRequestStartedAt,
+                response_started_at: Date.now(),
+                runtime_status: started.status,
+                runtime_elapsed_ms: Number.isFinite(started.elapsedMs) ? started.elapsedMs : null,
+              },
+            }, cors);
+            return;
+          }
+          writeJson(res, 202, {
+            ok: false,
+            status: 'workspace_initializing',
+            code: 'workspace_initializing',
+            retry_after_ms: 100,
+            timing: {
+              request_started_at: eventRequestStartedAt,
+              response_started_at: Date.now(),
+              runtime_status: started && started.status ? started.status : 'initializing',
+              runtime_elapsed_ms: started && Number.isFinite(started.elapsedMs) ? started.elapsedMs : null,
+            },
+          }, cors);
+          return;
+        }
         const body = await readJsonBody(req);
         let envelope = body;
         if (body && body.payload && typeof body.payload === 'object') {
@@ -12380,14 +12711,47 @@ function startServer(options) {
     if (req.method === 'POST' && url.pathname === '/api/runtime/mode') {
       const principal = requireCapability('app:write');
       if (!principal) return;
+      const runtimeModeRequestStartedAt = Date.now();
       try {
-        const runtimeEntry = resolveMutableRuntimeForPrincipal(principal);
         const body = await readJsonBody(req);
         const nextMode = body && typeof body.mode === 'string' ? body.mode : '';
         if (nextMode !== 'running') {
           writeJson(res, 400, { ok: false, error: 'invalid_mode_transition' }, cors);
           return;
         }
+        const runtimeEntry = principalRuntimeRegistry.readRuntimeIfReady(principal);
+        if (!runtimeEntry) {
+          const started = principalRuntimeRegistry.startRuntimeInitialization(principal);
+          if (started && started.status === 'failed') {
+            writeJson(res, 503, {
+              ok: false,
+              status: 'workspace_initialization_failed',
+              code: 'workspace_initialization_failed',
+              error: started.error || 'workspace_initialization_failed',
+              timing: {
+                request_started_at: runtimeModeRequestStartedAt,
+                response_started_at: Date.now(),
+                runtime_status: started.status,
+                runtime_elapsed_ms: Number.isFinite(started.elapsedMs) ? started.elapsedMs : null,
+              },
+            }, cors);
+            return;
+          }
+          writeJson(res, 202, {
+            ok: false,
+            status: 'workspace_initializing',
+            code: 'workspace_initializing',
+            retry_after_ms: 100,
+            timing: {
+              request_started_at: runtimeModeRequestStartedAt,
+              response_started_at: Date.now(),
+              runtime_status: started && started.status ? started.status : 'initializing',
+              runtime_elapsed_ms: started && Number.isFinite(started.elapsedMs) ? started.elapsedMs : null,
+            },
+          }, cors);
+          return;
+        }
+        await ensureSharedControlBusInboundReady();
         const result = await runtimeEntry.state.activateRuntimeMode(nextMode);
         broadcastSnapshot(runtimeEntry.principalKey);
         writeJson(res, 200, { ok: true, mode: result.mode }, cors);

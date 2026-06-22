@@ -569,10 +569,9 @@ function main() {
   const engine = new WorkerEngineV0({ runtime: rt, mgmtAdapter: null, mqttPublish });
 
   let mqttReady = false;
-  let matrixReady = !matrixRoomId;
   let runtimeActivated = false;
   const maybeActivateRunning = () => {
-    if (runtimeActivated || !mqttReady || !matrixReady) return;
+    if (runtimeActivated || !mqttReady) return;
     rt.setRuntimeMode('running');
     runtimeActivated = true;
     log(`runtime_mode=${rt.getRuntimeMode()}`);
@@ -620,8 +619,6 @@ function main() {
         });
 
         log(`mgmt READY room_id=${adapter.room_id}`);
-        matrixReady = true;
-        maybeActivateRunning();
       })
       .catch((err) => {
         logErr(`matrix adapter init failed: ${err && err.stack ? err.stack : err}`);

@@ -97,8 +97,8 @@ function test_app_shell_has_polished_auth_controls_and_prompts() {
   assertIncludes(files.appShell, 'disconnectMatrix', 'app_shell_must_disconnect_matrix_session');
   assertIncludes(files.appShell, "marginLeft: 'auto'", 'app_shell_auth_menu_must_stay_right_aligned_without_nav_buttons');
   assertIncludes(files.appShell, 'textOverflow', 'app_shell_auth_menu_must_truncate_long_display_names');
-  assertIncludes(files.appShell, "'data-testid': 'foreground-app-layout'", 'foreground_layout_must_have_stable_test_id');
-  assertIncludes(files.appShell, "'data-testid': 'foreground-content-slot'", 'foreground_content_slot_must_have_stable_test_id');
+  assertIncludes(files.appShell, "'data-testid': isForeground ? 'foreground-app-layout' : 'app-layout'", 'foreground_layout_must_have_stable_test_id');
+  assertIncludes(files.appShell, "'data-testid': isForeground ? 'foreground-content-slot' : 'app-content-slot'", 'foreground_content_slot_must_have_stable_test_id');
   assertIncludes(files.appShell, "height: '100dvh'", 'foreground_layout_must_own_one_viewport_height');
   assertIncludes(files.appShell, "flex: 1", 'foreground_content_slot_must_fill_remaining_height');
   assertIncludes(files.appShell, "minHeight: 0", 'foreground_content_slot_must_be_shrinkable');
