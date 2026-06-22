@@ -210,7 +210,7 @@ verify_ui_server_runtime_source_hashes() {
 verify_ui_server_snapshot_runtime() {
   local out
   out="$(exec_in_running_ui_server_pod \
-    "bun -e \"fetch('http://127.0.0.1:9000/snapshot').then(r=>r.json()).then(j=>{const s=j.snapshot.models['-2'].cells['0,0,0'].labels; console.log('llm_prompt_available='+s.llm_prompt_available.v+' llm_prompt_notice='+s.llm_prompt_notice.v);}).catch(e=>{console.error(String(e&&e.message?e.message:e)); process.exit(2);})\"" \
+    "bun -e \"fetch('http://127.0.0.1:9000/snapshot?profile=bootstrap').then(async r=>{if(!r.ok) throw new Error('http_'+r.status); return r.json();}).then(j=>{const models=j.snapshot&&j.snapshot.models||{}; const model0=models['0']; const shell=models['-2']; const model0Labels=model0&&model0.cells&&model0.cells['0,0,0']&&model0.cells['0,0,0'].labels||{}; const shellLabels=shell&&shell.cells&&shell.cells['0,0,0']&&shell.cells['0,0,0'].labels||{}; const ready=j.timing&&j.timing.runtime_status==='ready'; const workerId=model0Labels.sys_worker_id&&model0Labels.sys_worker_id.v; const workerRole=model0Labels.sys_worker_role&&model0Labels.sys_worker_role.v; const registry=shellLabels.ws_apps_registry&&shellLabels.ws_apps_registry.v; if(!ready) throw new Error('runtime_not_ready'); if(!workerId||!workerRole) throw new Error('missing_worker_identity'); if(!Array.isArray(registry)) throw new Error('missing_ws_apps_registry'); console.log('runtime_status=ready worker_role='+workerRole+' registry_count='+registry.length+' snapshot_bytes='+JSON.stringify(j).length);}).catch(e=>{console.error(String(e&&e.message?e.message:e)); process.exit(2);})\"" \
     "snapshot check")"
   echo "  snapshot runtime: $out"
 }
