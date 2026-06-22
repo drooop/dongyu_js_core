@@ -5252,8 +5252,6 @@ function bootstrapAllowedModelIds(snapshot) {
     DESKTOP_CATALOG_MODEL_ID,
     DESKTOP_FOREGROUND_SHELL_MODEL_ID,
     GALLERY_STATE_MODEL_ID,
-    DOCS_CATALOG_MODEL_ID,
-    GALLERY_CATALOG_MODEL_ID,
   ]);
 }
 
@@ -12062,6 +12060,11 @@ function startServer(options) {
       : [];
     for (const entry of registry) {
       if (entry && Number.isInteger(entry.model_id) && entry.model_id > 0) out.add(entry.model_id);
+    }
+    for (const modelId of BUILTIN_WORKSPACE_APP_MODEL_IDS) {
+      if (Number.isInteger(modelId) && modelId < 0 && runtime.getModel(modelId)) {
+        out.add(modelId);
+      }
     }
     return out;
   }

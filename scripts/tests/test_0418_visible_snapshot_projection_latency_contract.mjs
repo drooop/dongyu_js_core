@@ -437,7 +437,7 @@ function assertNoPositiveWorkspaceAppBodies(snapshot, appModelIds, context) {
 
 function bootstrapAllowedModelIds(fullSnapshot) {
   void fullSnapshot;
-  return new Set([0, -2, -28, -29, -102, -23, -103]);
+  return new Set([0, -2, -28, -29, -102]);
 }
 
 function assertBootstrapModelAllowlist(snapshot, fullSnapshot, context, extraAllowed = []) {
@@ -778,6 +778,31 @@ async function test_visible_profile_rejects_invalid_and_disallowed_targets() {
   });
 
   return { key: 'visible_profile_rejects_invalid_and_disallowed_targets', status: 'PASS' };
+}
+
+async function test_visible_profile_allows_builtin_workspace_apps() {
+  await withAppServer(async (baseUrl) => {
+    for (const modelId of [-103, -23]) {
+      const resp = await fetch(`${baseUrl}/snapshot?profile=visible&model_id=${modelId}`);
+      assert.equal(resp.status, 200, `visible profile must allow built-in workspace app ${modelId}`);
+      const body = await readJson(resp);
+      const snapshot = responseSnapshot(body);
+      assert.equal(Boolean(getModel(snapshot, modelId)), true, `visible profile must include built-in workspace app ${modelId}`);
+      assertNoClientSecrets(snapshot, `visible built-in workspace app ${modelId}`);
+    }
+  });
+
+  await withAppServer(async (baseUrl) => {
+    for (const modelId of [-103, -23]) {
+      const event = await readFirstSseEvent(baseUrl, `?profile=bootstrap&visible_model_id=${modelId}`);
+      assert.equal(event.event, 'snapshot', `stream visible profile must allow built-in workspace app ${modelId}`);
+      const snapshot = responseSnapshot(event.data);
+      assert.equal(Boolean(getModel(snapshot, modelId)), true, `stream visible profile must include built-in workspace app ${modelId}`);
+      assertNoClientSecrets(snapshot, `stream visible built-in workspace app ${modelId}`);
+    }
+  });
+
+  return { key: 'visible_profile_allows_builtin_workspace_apps', status: 'PASS' };
 }
 
 async function test_visible_profile_rejects_existing_capability_disallowed_model() {
@@ -1445,6 +1470,7 @@ function assertDemoAppForegroundLazyLoadSourceContract() {
 const tests = [
   test_snapshot_profiles_expose_bootstrap_and_visible_shapes,
   test_visible_profile_rejects_invalid_and_disallowed_targets,
+  test_visible_profile_allows_builtin_workspace_apps,
   test_visible_profile_rejects_existing_capability_disallowed_model,
   test_stream_bootstrap_initial_event_avoids_full_snapshot_path,
   test_stream_visible_model_id_rejects_invalid_and_disallowed_targets,

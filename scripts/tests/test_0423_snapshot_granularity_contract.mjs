@@ -147,9 +147,54 @@ async function test_profile_size_report_prints_cell_contributors() {
   assert.match(output, /\[full\][\s\S]*top_cells=/u, 'full report must print top_cells');
 }
 
+async function test_bootstrap_excludes_heavy_builtin_catalog_bodies() {
+  const {
+    buildClientSnapshotProfileWithStats,
+    createServerState,
+  } = await import('../../packages/ui-model-demo-server/server.mjs');
+  const state = createServerState({ dbPath: null });
+  const source = state.clientSnap();
+  const bootstrap = buildClientSnapshotProfileWithStats(source, { profile: 'bootstrap' });
+  const visibleGallery = buildClientSnapshotProfileWithStats(source, {
+    profile: 'visible',
+    visibleModelIds: [-103],
+  });
+  const visibleDocs = buildClientSnapshotProfileWithStats(source, {
+    profile: 'visible',
+    visibleModelIds: [-23],
+  });
+
+  assert.equal(
+    bootstrap.snapshot.models['-103'],
+    undefined,
+    'bootstrap must not include full Gallery catalog body; desktop should use compact app index',
+  );
+  assert.equal(
+    bootstrap.snapshot.models['-23'],
+    undefined,
+    'bootstrap must not include full Docs catalog body; Docs should lazy load when opened',
+  );
+  assert.equal(
+    Boolean(visibleGallery.snapshot.models['-103']),
+    true,
+    'visible profile must still be able to load Gallery catalog on demand',
+  );
+  assert.equal(
+    Boolean(visibleDocs.snapshot.models['-23']),
+    true,
+    'visible profile must still be able to load Docs catalog on demand',
+  );
+  assert.equal(
+    bootstrap.snapshot_stats.total_bytes <= 90 * 1024,
+    true,
+    `bootstrap must be <= 90KB after heavy catalog bodies move to visible; actual=${bootstrap.snapshot_stats.total_bytes}`,
+  );
+}
+
 const tests = [
   test_profile_stats_are_computed_after_profile_filtering,
   test_profile_size_report_prints_cell_contributors,
+  test_bootstrap_excludes_heavy_builtin_catalog_bodies,
 ];
 
 let passed = 0;

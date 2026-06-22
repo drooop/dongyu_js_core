@@ -100,7 +100,42 @@ phase: execution
 
 ### Phase 2: Strict Bootstrap Contract And Compact App Index
 
-- Status: pending
+- Status: implemented, pending sub-agent review
+- RED command:
+  - `node scripts/tests/test_0423_snapshot_granularity_contract.mjs`
+- RED result:
+  - `FAIL test_bootstrap_excludes_heavy_builtin_catalog_bodies`
+  - reason: `bootstrap` still included full Gallery catalog model `-103`.
+- Implementation:
+  - Removed full Gallery catalog `-103` and Docs catalog `-23` from the `bootstrap` allowed model set.
+  - Updated existing visible snapshot contract allowlist.
+  - Added 0423 assertions that `bootstrap` excludes full Gallery/Docs bodies while `visible` can still load them on demand.
+- GREEN commands:
+  - `node scripts/tests/test_0423_snapshot_granularity_contract.mjs`
+  - `node scripts/tests/test_0418_visible_snapshot_projection_latency_contract.mjs`
+  - `node scripts/ops/report_snapshot_profile_sizes.mjs --top-models 8 --top-labels 12`
+- GREEN key output:
+  - `PASS test_0423_snapshot_granularity_contract: 3 passed`
+  - `PASS 8/8`
+  - `bootstrap`: `29280B`, `5` models, `42` cells, `237` labels.
+  - `visible:100`: `42912B`, `6` models, `62` cells, `397` labels.
+  - `full`: `722185B`, `58` models, `1220` cells, `8111` labels.
+- Before/after metric:
+  - baseline `bootstrap`: `158415B`
+  - after Phase 2 `bootstrap`: `29280B`
+  - reduction: about `81.5%`
+- Result: PASS
+- Phase 2 review 1:
+  - Agent: `019ef0e8-e450-79d3-8b7f-83f26c2956a4`
+  - Decision: Change Requested
+  - Findings:
+    - Real HTTP visible profile rejected built-in negative workspace apps `-103` and `-23` because `visibleModelIdsForClient` only allowed positive model ids.
+    - Initial 0423 helper-level assertions bypassed endpoint validation.
+- Fix after review:
+  - Added endpoint-level checks in `test_0418_visible_snapshot_projection_latency_contract.mjs` for `/snapshot?profile=visible&model_id=-103`, `/snapshot?profile=visible&model_id=-23`, and matching `/stream?profile=bootstrap&visible_model_id=...`.
+  - Added built-in negative workspace app ids to `visibleModelIdsForClient` when the model exists.
+  - Re-ran verification commands above.
+- Commit: pending
 
 ### Phase 3: App/Model Lazy Load Boundary
 
