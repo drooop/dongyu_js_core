@@ -171,7 +171,7 @@ function test_desktop_is_simplified_fullscreen_launcher() {
 
   const rootStyle = ast.props?.style ?? {};
   assert.equal(rootStyle.width, '100%', 'desktop_root_must_fill_available_width_without_outer_scroll');
-  assert.equal(rootStyle.height, '100vh', 'desktop_root_must_fill_viewport_height');
+  assert.equal(rootStyle.height, '100%', 'desktop_root_must_fill_app_shell_content_slot');
   assert.equal(rootStyle.overflow, 'hidden', 'desktop_root_must_prevent_outer_scroll');
   const desktopCatalog = readFileSync('packages/worker-base/system-models/desktop_catalog_ui.json', 'utf8');
   assert.match(desktopCatalog, /desktop_builtin_grid/, 'desktop_shell_frame_must_be_defined_in_cellwise_model');
@@ -729,7 +729,7 @@ async function test_foreground_shell_contract_ast() {
   assert.equal(visibleAppWindowOutsideDrawer.length, 0, 'foreground_app_window_auxiliary_content_must_not_render_outside_drawer');
   const rootStyle = ast.props?.style ?? {};
   assert.equal(rootStyle.width, '100%', 'foreground_root_must_fill_available_width_without_outer_scroll');
-  assert.equal(rootStyle.height, '100vh', 'foreground_root_must_fill_viewport_height');
+  assert.equal(rootStyle.height, '100%', 'embedded_foreground_root_must_fill_app_shell_content_slot');
   assert.equal(rootStyle.overflow, 'hidden', 'foreground_root_must_prevent_outer_scroll');
   const foregroundSource = readFileSync('packages/ui-model-demo-frontend/src/desktop_foreground_shell_ast.js', 'utf8');
   assert.match(foregroundSource, /buildAstFromCellwiseModel/, 'foreground_shell_must_load_cellwise_model_template');

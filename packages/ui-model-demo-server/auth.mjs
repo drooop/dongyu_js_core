@@ -118,12 +118,12 @@ function assertOidcStateSecretBoundary(req = null, redirectUri = '') {
 export function makeSetCookieHeader(token, maxAge, req = null) {
   const age = typeof maxAge === 'number' ? maxAge : SESSION_MAX_AGE_S;
   const secure = secureCookieAttribute(req);
-  return `dy_session=${token}; HttpOnly; SameSite=Strict; Path=/${secure}; Max-Age=${age}`;
+  return `dy_session=${token}; HttpOnly; SameSite=Lax; Path=/${secure}; Max-Age=${age}`;
 }
 
 export function makeClearCookieHeader(req = null) {
   const secure = secureCookieAttribute(req);
-  return `dy_session=; HttpOnly; SameSite=Strict; Path=/${secure}; Max-Age=0`;
+  return `dy_session=; HttpOnly; SameSite=Lax; Path=/${secure}; Max-Age=0`;
 }
 
 function oidcStateCookieKey() {

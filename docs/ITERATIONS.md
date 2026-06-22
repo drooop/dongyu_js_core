@@ -319,6 +319,9 @@ source: ai
 | 0416-post-load-projection-latency | 2026-06-11 | 加载完成后的普通交互响应优化：限制大派生字段污染普通 snapshot_patch，并补充 patch 体积观测 | 5 | dropx/dev_0416-post-load-projection-latency | Completed | ./docs/iterations/0416-post-load-projection-latency/ |
 | 0417-user-isolated-ui-state-projection | 2026-06-11 | 多用户 UI Server 数据隔离、Input/Dialog 等本地交互状态合同、submit 读取本地可见值、loading 锁定与更细粒度投影更新 | 6 | dropx/dev_0417-user-isolated-ui-state-projection | In Progress | ./docs/iterations/0417-user-isolated-ui-state-projection/ |
 | 0418-visible-snapshot-projection-latency | 2026-06-18 | 首屏按可见面加载：bootstrap shell snapshot、滑动 App 模型按需加载、profile-aware patch 与本地浏览器延时验证 | 5 | dropx/dev_0418-visible-snapshot-projection-latency | Completed | ./docs/iterations/0418-visible-snapshot-projection-latency/ |
+| 0419-mbr-control-bus-ready | 2026-06-18 | 修复 MBR 控制总线 ready 被 Matrix 管理总线初始化失败阻塞，恢复 Workspace Manager provider-owned 安装回包路由 | 3 | dropx/dev_0419-mbr-control-bus-ready | In Progress | ./docs/iterations/0419-mbr-control-bus-ready/ |
+| 0420-ui-local-state-latency | 2026-06-22 | 优化登录后和加载后 UI 响应延时：本地 UI 状态不阻塞正式业务事件，并记录可复测延时指标 | 5 | dropx/dev_0420-ui-local-state-latency | Completed | ./docs/iterations/0420-ui-local-state-latency/ |
+| 0421-sso-post-login-latency | 2026-06-23 | 修复 SSO 两步登录回跳后桌面长时间停留在确认登录/页面不可用，并补认证与工作区初始化延时指标 | 5 | dropx/dev_0421-sso-post-login-latency | Completed | ./docs/iterations/0421-sso-post-login-latency/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

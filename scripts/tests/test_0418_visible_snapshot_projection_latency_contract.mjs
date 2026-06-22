@@ -237,6 +237,31 @@ async function readJson(resp) {
   return text ? JSON.parse(text) : {};
 }
 
+async function ensureWritableRuntimeReady(baseUrl) {
+  const first = await fetch(`${baseUrl}/api/runtime/mode`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ mode: 'running' }),
+  });
+  if (first.status === 200) return;
+  assert.equal(first.status, 202, 'runtime readiness setup must either activate or schedule initialization');
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const snapResp = await fetch(`${baseUrl}/snapshot?profile=bootstrap`);
+    if (snapResp.status === 200) {
+      const second = await fetch(`${baseUrl}/api/runtime/mode`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ mode: 'running' }),
+      });
+      assert.equal(second.status, 200, 'runtime readiness setup must activate after snapshot ready');
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.fail('runtime readiness setup timed out');
+}
+
 function responseSnapshot(body) {
   return body && body.snapshot && body.snapshot.models ? body.snapshot : body;
 }
@@ -426,6 +451,7 @@ function assertBootstrapModelAllowlist(snapshot, fullSnapshot, context, extraAll
 }
 
 async function polluteVisibleAppState(baseUrl, modelId) {
+  await ensureWritableRuntimeReady(baseUrl);
   const polluted = {
     id: `polluted-${modelId}`,
     kind: 'workspace',
@@ -560,6 +586,7 @@ async function polluteUiPageCatalog(baseUrl, modelId) {
 }
 
 async function polluteNestedSecretLabel(baseUrl) {
+  await ensureWritableRuntimeReady(baseUrl);
   const resp = await fetch(`${baseUrl}/ui_event`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -1067,7 +1094,7 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
   globalThis.fetch = async (rawUrl) => {
     const url = String(rawUrl);
     requestedUrls.push(url);
-    if (url.endsWith('/snapshot?profile=bootstrap')) {
+    if (url.endsWith('/snapshot?profile=bootstrap') || url.endsWith('/snapshot?profile=bootstrap&initial_projection=1')) {
       return jsonResponse({ snapshot: bootstrapSnapshot, snapshot_seq: 1, patch_kind: 'snapshot' });
     }
     if (url.endsWith('/snapshot?profile=visible&model_id=4100')) {
@@ -1120,13 +1147,13 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
   try {
     const store = createRemoteStore({ baseUrl: 'http://example.test' });
     await waitUntil(
-      () => requestedUrls.includes('http://example.test/snapshot') || requestedUrls.includes('http://example.test/snapshot?profile=bootstrap'),
+      () => requestedUrls.includes('http://example.test/snapshot') || requestedUrls.includes('http://example.test/snapshot?profile=bootstrap&initial_projection=1'),
       'remote_store startup must fetch a startup snapshot',
     );
     assert.equal(
-      requestedUrls.includes('http://example.test/snapshot?profile=bootstrap'),
+      requestedUrls.includes('http://example.test/snapshot?profile=bootstrap&initial_projection=1'),
       true,
-      'remote_store startup snapshot must request bootstrap profile',
+      'remote_store startup snapshot must request bootstrap profile with initial projection',
     );
     assert.equal(
       requestedUrls.includes('http://example.test/snapshot'),
@@ -1150,9 +1177,9 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
     assertNoImplicitFullProfileRequests(requestedUrls, 'remote_store startup');
     await store.refreshSnapshot('it0418 manual refresh');
     assert.equal(
-      requestedUrls.filter((url) => url === 'http://example.test/snapshot?profile=bootstrap').length >= 2,
+      requestedUrls.includes('http://example.test/snapshot?profile=bootstrap'),
       true,
-      'remote_store refreshSnapshot must keep using bootstrap profile and must not fall back to bare full snapshot',
+      'remote_store refreshSnapshot after initial projection must keep using bootstrap profile without repeating initial projection',
     );
     assert.equal(
       requestedUrls.includes('http://example.test/snapshot'),
