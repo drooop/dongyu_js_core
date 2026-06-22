@@ -64,6 +64,21 @@ async function readJson(resp) {
   return text ? JSON.parse(text) : {};
 }
 
+async function fetchSnapshotWhenReady(appBase, cookie, timeoutMs = 5000, profile = 'bootstrap') {
+  const startedAt = Date.now();
+  let last = null;
+  const snapshotUrl = `${appBase}/snapshot?profile=${encodeURIComponent(profile)}`;
+  while (Date.now() - startedAt < timeoutMs) {
+    const resp = await fetch(snapshotUrl, { headers: { cookie } });
+    const body = await readJson(resp);
+    last = { status: resp.status, body };
+    if (resp.status === 200 && body && body.snapshot) return last;
+    if (resp.status !== 202) return last;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`snapshot_not_ready:${JSON.stringify(last)}`);
+}
+
 function assertSnapshotDoesNotExposeRestrictedContent(snapshot, label) {
   const models = snapshot && snapshot.models ? snapshot.models : {};
   for (const modelId of ['1016', '1020', '1021', '1050', '1080', '1083', '1036', '-100', '-10']) {
@@ -268,9 +283,8 @@ async function test_authenticated_viewer_gets_permission_denied_for_restricted_a
       const appBase = serverBaseUrl(appServer);
       try {
         const cookie = await loginViaMockOidc(appBase, provider);
-        const snapResp = await fetch(`${appBase}/snapshot`, { headers: { cookie } });
-        const snapBody = await readJson(snapResp);
-        assert.equal(snapResp.status, 200, 'viewer_snapshot_must_be_readable');
+        const { status: snapStatus, body: snapBody } = await fetchSnapshotWhenReady(appBase, cookie, 5000, 'full');
+        assert.equal(snapStatus, 200, 'viewer_snapshot_must_be_readable');
         assertSnapshotDoesNotExposeRestrictedContent(snapBody.snapshot, 'viewer');
 
         for (const [label, pathName, body, capability] of [
@@ -349,9 +363,8 @@ async function test_dongyu_admin_snapshot_keeps_matrix_chat_refresh_binding() {
       const appBase = serverBaseUrl(appServer);
       try {
         const cookie = await loginViaMockOidc(appBase, provider);
-        const snapResp = await fetch(`${appBase}/snapshot`, { headers: { cookie } });
-        const snapBody = await readJson(snapResp);
-        assert.equal(snapResp.status, 200, 'admin_snapshot_must_be_readable');
+        const { status: snapStatus, body: snapBody } = await fetchSnapshotWhenReady(appBase, cookie, 5000, 'full');
+        assert.equal(snapStatus, 200, 'admin_snapshot_must_be_readable');
         const refreshLabels = snapBody.snapshot?.models?.['1083']?.cells?.['2,0,2']?.labels || {};
         const writeBind = refreshLabels.ui_bind_json?.v?.write || null;
         assert.equal(writeBind?.bus_event_v2, true, 'admin_snapshot_must_keep_matrix_chat_refresh_bus_event_binding');
@@ -380,7 +393,7 @@ async function test_sse_rechecks_existing_session_after_logout_before_broadcast(
       const appBase = serverBaseUrl(appServer);
       try {
         const cookie = await loginViaMockOidc(appBase, provider);
-        const stream = await fetch(`${appBase}/stream`, { headers: { cookie } });
+        const stream = await fetch(`${appBase}/stream?profile=full`, { headers: { cookie } });
         const sse = createSseSnapshotReader(stream);
         try {
           const firstSnapshot = await sse.next();

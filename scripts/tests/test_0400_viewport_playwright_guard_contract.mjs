@@ -69,7 +69,7 @@ function test_matrix_chat_root_uses_viewport_safe_sizing() {
 function test_foreground_shell_keeps_app_content_internal() {
   const allRecords = records(desktopPath);
   const shellStyle = styleOf(allRecords, -29, 3, 0, 0);
-  assert.equal(shellStyle.height, '100dvh', 'foreground shell template may describe a full viewport shell');
+  assert.equal(shellStyle.height, '100%', 'foreground shell template must fill its AppShell content slot');
   assert.equal(shellStyle.overflow, 'hidden', 'foreground shell must prevent outer document scrolling');
   assert.ok(Number.parseInt(shellStyle.padding, 10) <= 12, 'foreground shell padding must not consume excessive small-screen height');
 

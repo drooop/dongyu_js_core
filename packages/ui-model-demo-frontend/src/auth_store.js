@@ -6,6 +6,7 @@ export function createAuthStore({ baseUrl }) {
     : '';
   const state = reactive({
     loading: false,
+    sessionChecked: false,
     authenticated: false,
     provider: '',
     subject: '',
@@ -71,6 +72,7 @@ export function createAuthStore({ baseUrl }) {
       : 'permission_denied';
     if (kind === 'login_required') {
       clearPrincipal();
+      state.sessionChecked = true;
     } else if (error === 'matrix_session_missing') {
       state.matrixConnected = false;
       state.homeserverUrl = '';
@@ -120,6 +122,7 @@ export function createAuthStore({ baseUrl }) {
     } catch (_) {
       clearPrincipal();
     } finally {
+      state.sessionChecked = true;
       state.loading = false;
     }
   }
@@ -148,6 +151,7 @@ export function createAuthStore({ baseUrl }) {
       });
       const data = await resp.json();
       if (resp.ok && data.ok) {
+        state.sessionChecked = true;
         state.authenticated = true;
         state.provider = data.provider || 'matrix';
         state.subject = data.subject || data.userId || '';
@@ -164,9 +168,11 @@ export function createAuthStore({ baseUrl }) {
         clearAuthIssue();
         await fetchHomeservers();
       } else {
+        state.sessionChecked = true;
         state.loginError = data.error || 'login_failed';
       }
     } catch (err) {
+      state.sessionChecked = true;
       state.loginError = err && err.message ? err.message : 'network_error';
     } finally {
       state.loading = false;
@@ -176,6 +182,7 @@ export function createAuthStore({ baseUrl }) {
   async function logoutUser() {
     const logoutUrl = `${normalizedBaseUrl}/auth/logout`;
     clearPrincipal();
+    state.sessionChecked = true;
     clearAuthIssue();
     if (typeof window !== 'undefined' && window.location) {
       window.location.assign(logoutUrl);

@@ -96,6 +96,14 @@ export function createRemoteStore(options) {
   const baseUrl = options && options.baseUrl ? String(options.baseUrl).replace(/\/$/, '') : defaultBaseUrl;
   const authStore = options && options.authStore ? options.authStore : null;
   const snapshot = reactive({ models: {}, v1nConfig: { local_mqtt: null, global_mqtt: null } });
+  const workspaceStatus = reactive({
+    status: 'idle',
+    code: '',
+    message: '',
+    retryAfterMs: null,
+    timing: null,
+    updatedAt: Date.now(),
+  });
   const projectionStore = createProjectionStore();
   const overlayStore = reactive(new Map());
   const pendingUiStateById = reactive(new Map());
@@ -130,6 +138,10 @@ export function createRemoteStore(options) {
   let currentSnapshotSeq = 0;
   let eventSource = null;
   let eventSourceUrl = '';
+  let initialProjectionRequestAvailable = true;
+  let workspaceInitializationRetryTimer = null;
+  let runtimeActivationRetryPending = false;
+  let runtimeActivationRetryTimer = null;
   const visibleModelIds = new Set();
   const snapshotFallbackDelayMs = Number.isFinite(options && options.snapshotFallbackDelayMs)
     ? Math.max(0, Number(options.snapshotFallbackDelayMs))
@@ -145,9 +157,12 @@ export function createRemoteStore(options) {
     return Number.isInteger(parsed) ? parsed : null;
   }
 
-  function buildSnapshotUrl({ profile = 'bootstrap', modelIds = null } = {}) {
+  function buildSnapshotUrl({ profile = 'bootstrap', modelIds = null, initialProjection = null } = {}) {
     const query = new URLSearchParams();
     query.set('profile', profile);
+    if (profile === 'bootstrap' && initialProjection === true) {
+      query.set('initial_projection', '1');
+    }
     const ids = Array.isArray(modelIds) ? modelIds : visibleModelIdList();
     const key = profile === 'visible' ? 'model_id' : 'visible_model_id';
     for (const modelId of ids) {
@@ -392,6 +407,33 @@ export function createRemoteStore(options) {
 
   function applySnapshot(next, metadata = {}) {
     if (!next || !next.models) return;
+    clearWorkspaceInitializationRetry();
+    const metaWorkspaceStatus = metadata && metadata.workspace_status && typeof metadata.workspace_status === 'object'
+      ? metadata.workspace_status
+      : null;
+    const initializingProjection = Boolean(
+      metadata
+      && metadata.truth_snapshot === false
+      && metaWorkspaceStatus
+      && metaWorkspaceStatus.status === 'initializing',
+    );
+    if (initializingProjection) {
+      setWorkspaceStatus({
+        status: 'initializing',
+        code: metaWorkspaceStatus.code || metadata.code || 'workspace_initializing',
+        message: metaWorkspaceStatus.message || '',
+        retryAfterMs: Number.isFinite(metadata.retry_after_ms) ? Number(metadata.retry_after_ms) : null,
+        timing: metadata && metadata.timing ? metadata.timing : null,
+      });
+    } else {
+      setWorkspaceStatus({
+        status: 'ready',
+        code: 'workspace_ready',
+        message: '',
+        retryAfterMs: null,
+        timing: metadata && metadata.timing ? metadata.timing : null,
+      });
+    }
     if (deferredSnapshotFallbackTimer) {
       const nextOpId = readBusEventLastOpIdFromSnapshot(next);
       if (deferredSnapshotFallbackExpectedOpId && nextOpId === deferredSnapshotFallbackExpectedOpId) {
@@ -423,6 +465,46 @@ export function createRemoteStore(options) {
         else applySnapshot(pending);
       }
     }
+    if (!initializingProjection) {
+      scheduleRuntimeActivationRetryIfPending();
+    }
+  }
+
+  function setWorkspaceStatus(next = {}) {
+    workspaceStatus.status = typeof next.status === 'string' && next.status ? next.status : workspaceStatus.status;
+    workspaceStatus.code = typeof next.code === 'string' ? next.code : '';
+    workspaceStatus.message = typeof next.message === 'string' ? next.message : '';
+    workspaceStatus.retryAfterMs = Number.isFinite(next.retryAfterMs) ? Math.max(0, Number(next.retryAfterMs)) : null;
+    workspaceStatus.timing = next.timing && typeof next.timing === 'object' ? next.timing : null;
+    workspaceStatus.updatedAt = Date.now();
+  }
+
+  function clearWorkspaceInitializationRetry() {
+    if (!workspaceInitializationRetryTimer) return;
+    clearTimeout(workspaceInitializationRetryTimer);
+    workspaceInitializationRetryTimer = null;
+  }
+
+  function scheduleWorkspaceInitializationRetry(context, options = {}, retryAfterMs = 250) {
+    if (typeof window === 'undefined' || !window || typeof window.setTimeout !== 'function') return;
+    if (workspaceInitializationRetryTimer) return;
+    const delay = Number.isFinite(retryAfterMs) ? Math.max(50, Number(retryAfterMs)) : 250;
+    workspaceInitializationRetryTimer = window.setTimeout(async () => {
+      workspaceInitializationRetryTimer = null;
+      const ok = await fetchSnapshotAndApply(context, options);
+      if (ok) connectEventSource();
+    }, delay);
+  }
+
+  function scheduleRuntimeActivationRetryIfPending() {
+    if (!runtimeActivationRetryPending) return;
+    if (runtimeActivationRetryTimer) return;
+    if (typeof window === 'undefined' || !window || typeof window.setTimeout !== 'function') return;
+    runtimeActivationRetryTimer = window.setTimeout(() => {
+      runtimeActivationRetryTimer = null;
+      if (!runtimeActivationRetryPending) return;
+      ensureRuntimeRunning();
+    }, 0);
   }
 
   function mergeSnapshotWithCurrentModels(next, options = {}) {
@@ -509,7 +591,9 @@ export function createRemoteStore(options) {
 
   function canSyncLocalState() {
     if (!authStore || !authStore.state) return true;
-    return authStore.state.authenticated === true;
+    if (authStore.state.authenticated !== true) return false;
+    const capabilities = Array.isArray(authStore.state.capabilities) ? authStore.state.capabilities : [];
+    return capabilities.includes('app:write');
   }
 
   async function readJsonOrText(resp) {
@@ -835,10 +919,62 @@ export function createRemoteStore(options) {
   }
 
   async function fetchSnapshotAndApply(context, options = {}) {
+    let wantsInitialProjection = false;
     try {
-      const resp = await fetch(buildSnapshotUrl(options), { credentials: 'same-origin' });
+      const profile = options && typeof options.profile === 'string' && options.profile ? options.profile : 'bootstrap';
+      wantsInitialProjection = profile === 'bootstrap'
+        && options.initialProjection !== false
+        && initialProjectionRequestAvailable
+        && (!snapshot.models || Object.keys(snapshot.models).length === 0);
+      const requestOptions = {
+        ...options,
+        initialProjection: wantsInitialProjection,
+      };
+      if (wantsInitialProjection) {
+        initialProjectionRequestAvailable = false;
+      }
+      const resp = await fetch(buildSnapshotUrl(requestOptions), { credentials: 'same-origin' });
+      if (resp.status === 202) {
+        const data = await resp.json().catch(() => ({}));
+        const initializingStatus = {
+          status: 'initializing',
+          code: data && (data.code || data.status) ? String(data.code || data.status) : 'workspace_initializing',
+          message: data && typeof data.message === 'string' ? data.message : '',
+          retryAfterMs: Number.isFinite(data && data.retry_after_ms) ? Number(data.retry_after_ms) : 250,
+          timing: data && data.timing && typeof data.timing === 'object' ? data.timing : null,
+        };
+        if (data && data.snapshot && data.snapshot.models) {
+          applySnapshot(data.snapshot, {
+            ...data,
+            workspace_status: data.workspace_status || {
+              status: initializingStatus.status,
+              code: initializingStatus.code,
+              message: initializingStatus.message,
+            },
+          });
+        } else {
+          setWorkspaceStatus(initializingStatus);
+        }
+        scheduleWorkspaceInitializationRetry(context, { ...options, initialProjection: false }, workspaceStatus.retryAfterMs);
+        return false;
+      }
       if (!resp.ok) {
         const failureBody = await resp.json().catch(() => ({}));
+        if (failureBody && (failureBody.code === 'workspace_initialization_failed' || failureBody.status === 'workspace_initialization_failed')) {
+          setWorkspaceStatus({
+            status: 'failed',
+            code: 'workspace_initialization_failed',
+            message: failureBody.error || failureBody.detail || 'workspace_initialization_failed',
+            timing: failureBody.timing && typeof failureBody.timing === 'object' ? failureBody.timing : null,
+          });
+        } else if (notifyAuthFailure(resp, failureBody, '/snapshot')) {
+          setWorkspaceStatus({
+            status: 'auth_failure',
+            code: failureBody.error || failureBody.code || (resp.status === 401 ? 'login_required' : 'permission_denied'),
+            message: failureBody.detail || '',
+            timing: failureBody.timing && typeof failureBody.timing === 'object' ? failureBody.timing : null,
+          });
+        }
         if (options && typeof options.onFailure === 'function') {
           options.onFailure({ status: resp.status, statusText: resp.statusText, body: failureBody });
         }
@@ -848,6 +984,9 @@ export function createRemoteStore(options) {
           statusText: resp.statusText,
           error: failureBody && (failureBody.error || failureBody.code) ? (failureBody.error || failureBody.code) : '',
         });
+        if (wantsInitialProjection && workspaceStatus.status !== 'initializing') {
+          initialProjectionRequestAvailable = true;
+        }
         return false;
       }
       const data = await resp.json();
@@ -869,6 +1008,9 @@ export function createRemoteStore(options) {
       }
     } catch (err) {
       console.error('snapshot fetch error', { context, err });
+      if (wantsInitialProjection && workspaceStatus.status !== 'initializing') {
+        initialProjectionRequestAvailable = true;
+      }
     }
     return false;
   }
@@ -967,7 +1109,11 @@ export function createRemoteStore(options) {
           body: JSON.stringify({ mode: 'running' }),
           credentials: 'same-origin',
         });
-        if (!resp.ok) {
+        if (resp.status === 202) {
+          runtimeActivationRetryPending = true;
+        } else if (resp.ok) {
+          runtimeActivationRetryPending = false;
+        } else if (!resp.ok) {
           const { data, detail } = await readJsonOrText(resp);
           notifyAuthFailure(resp, data, '/api/runtime/mode');
           console.error('runtime activation failed', { status: resp.status, statusText: resp.statusText, detail });
@@ -975,7 +1121,8 @@ export function createRemoteStore(options) {
       } catch (err) {
         console.error('runtime activation fetch error', { err });
       }
-      await fetchSnapshotAndApply('runtime activation');
+      const snapshotReady = await fetchSnapshotAndApply('runtime activation');
+      if (snapshotReady) scheduleRuntimeActivationRetryIfPending();
     })().finally(() => {
       runtimeActivationPromise = null;
     });
@@ -1064,6 +1211,7 @@ export function createRemoteStore(options) {
   }
 
   let sendQueue = Promise.resolve();
+  let localStateSyncQueue = Promise.resolve();
   const pendingDraftByKey = new Map();
   let draftTimer = null;
 
@@ -1075,7 +1223,7 @@ export function createRemoteStore(options) {
     const drafts = Array.from(pendingDraftByKey.values());
     pendingDraftByKey.clear();
     for (const env of drafts) {
-      sendQueue = sendQueue.then(() => postEnvelope(env, { endpointPath: UI_EVENT_ENDPOINT_PATH })).then((data) => {
+      localStateSyncQueue = localStateSyncQueue.then(() => postEnvelope(env, { endpointPath: UI_EVENT_ENDPOINT_PATH })).then((data) => {
         if (data && data.result === 'error') return data;
         return data;
       }).catch(() => {
@@ -1142,8 +1290,8 @@ export function createRemoteStore(options) {
     }
 
     // Non-label_update action (e.g. static_project_upload, docs_search, etc.):
-    // Force-flush all pending draft writes FIRST so the server state is up-to-date
-    // before processing the action. Without this, the action might read stale labels.
+    // send pending UI-local drafts in the background. Formal business events must not
+    // wait for local-only UI state persistence.
     flushDraftsNow();
 
     const envelope = rewriteEditorActionEnvelope(rawEnvelope);
@@ -1212,6 +1360,13 @@ export function createRemoteStore(options) {
     eventSourceUrl = '';
   }
 
+  function registerEventSourceLifecycleCleanup() {
+    if (typeof window === 'undefined' || !window || typeof window.addEventListener !== 'function') return;
+    const closeOnPageExit = () => closeEventSource();
+    window.addEventListener('pagehide', closeOnPageExit, { once: true });
+    window.addEventListener('beforeunload', closeOnPageExit, { once: true });
+  }
+
   function connectEventSource() {
     if (typeof EventSource !== 'function') return;
     const nextUrl = buildStreamUrl();
@@ -1258,16 +1413,19 @@ export function createRemoteStore(options) {
   }
 
   async function bootstrap() {
-    await fetchSnapshotAndApply('bootstrap startup');
-    connectEventSource();
+    const ok = await fetchSnapshotAndApply('bootstrap startup');
+    if (ok) connectEventSource();
   }
 
+  registerEventSourceLifecycleCleanup();
   if (!options || options.autoBootstrap !== false) {
     bootstrap();
   }
 
   return {
     snapshot,
+    workspaceStatus,
+    authState: authStore && authStore.state ? authStore.state : null,
     projectionStore,
     getUiAst,
     setRoutePath,

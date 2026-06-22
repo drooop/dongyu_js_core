@@ -1315,6 +1315,7 @@ async function test_loopback_http_auth_cookies_do_not_require_secure_flag() {
         headers: { host: '127.0.0.1:9018' },
       });
       assert.doesNotMatch(sessionCookie, /;\s*Secure/i, 'loopback_session_cookie_must_work_over_http');
+      assert.match(sessionCookie, /SameSite=Lax/i, 'oidc_callback_session_cookie_must_work_on_top_level_redirect');
     });
   } finally {
     if (priorNodeEnv === undefined) delete process.env.NODE_ENV;

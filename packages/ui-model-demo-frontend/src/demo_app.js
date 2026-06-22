@@ -90,13 +90,28 @@ export function createDemoRoot(store, options = {}) {
       return () => {
         if (!ast.value || typeof ast.value !== 'object') {
           const hasSnapshotModels = store?.snapshot?.models && Object.keys(store.snapshot.models).length > 0;
+          const workspaceStatus = store?.workspaceStatus || null;
+          const authState = store?.authState || null;
+          let fallbackText = hasSnapshotModels ? '页面暂不可用' : '加载中';
+          if (authState && authState.sessionChecked !== true) {
+            fallbackText = '正在确认登录';
+          } else if (workspaceStatus && workspaceStatus.status === 'initializing') {
+            fallbackText = '正在准备工作区';
+          } else if (authState && authState.authenticated === true && workspaceStatus && workspaceStatus.status === 'idle') {
+            fallbackText = '正在准备工作区';
+          } else if (workspaceStatus && workspaceStatus.status === 'failed') {
+            fallbackText = `工作区准备失败${workspaceStatus.message ? `：${workspaceStatus.message}` : ''}`;
+          } else if (workspaceStatus && workspaceStatus.status === 'auth_failure') {
+            fallbackText = '登录状态不可用，请重新登录';
+          }
           return h('div', {
+            'data-testid': 'workspace-status-fallback',
             style: {
               padding: '24px 16px',
               color: '#64748b',
               fontSize: '14px',
             },
-          }, hasSnapshotModels ? '页面暂不可用' : '加载中');
+          }, fallbackText);
         }
         const slots = typeof options.slots === 'function' ? options.slots() : options.slots;
         return renderer.renderVNode(ast.value, slots && typeof slots === 'object' ? { slots } : undefined);
@@ -733,27 +748,25 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       function appLayout(content, options = {}) {
         const children = [h(Header), h(AuthIssuePanel), h(MatrixConnectionPanel)];
         if (options.divider) children.push(h(ElDivider, { style: { margin: '12px 0' } }));
-        if (options.foreground === true) {
-          children.push(h('div', {
-            'data-testid': 'foreground-content-slot',
-            style: {
-              flex: 1,
-              minHeight: 0,
-              overflow: 'hidden',
-            },
-          }, content));
-          return h('div', {
-            'data-testid': 'foreground-app-layout',
-            style: {
-              height: '100dvh',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            },
-          }, children);
-        }
-        children.push(content);
-        return h('div', children);
+        const isForeground = options.foreground === true;
+        const contentOverflow = options.contentOverflow || (isForeground ? 'hidden' : 'auto');
+        children.push(h('div', {
+          'data-testid': isForeground ? 'foreground-content-slot' : 'app-content-slot',
+          style: {
+            flex: 1,
+            minHeight: 0,
+            overflow: contentOverflow,
+          },
+        }, content));
+        return h('div', {
+          'data-testid': isForeground ? 'foreground-app-layout' : 'app-layout',
+          style: {
+            height: '100dvh',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          },
+        }, children);
       }
 
       function Header() {
@@ -768,7 +781,16 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         ));
 
         const userSection = [];
-        if (authStore && authStore.state && !authStore.state.authenticated) {
+        if (authStore && authStore.state && authStore.state.sessionChecked !== true) {
+          userSection.push(
+            h(ElTag, {
+              'data-testid': 'auth-session-checking-badge',
+              effect: 'plain',
+              type: 'info',
+              round: true,
+            }, { default: () => '确认登录中' }),
+          );
+        } else if (authStore && authStore.state && !authStore.state.authenticated) {
           userSection.push(
             h(ElTag, {
               'data-testid': 'auth-readonly-badge',
