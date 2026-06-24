@@ -299,12 +299,57 @@ replace_or_create_secret_from_literals() {
   fi
 }
 
+read_existing_secret_literal() {
+  local ns="$1"
+  local secret_name="$2"
+  local key="$3"
+  local encoded
+  encoded="$(kubectl -n "$ns" get secret "$secret_name" -o "jsonpath={.data.$key}" 2>/dev/null || true)"
+  [ -n "$encoded" ] || return 0
+  SECRET_B64="$encoded" python3 - <<'PY'
+import base64
+import os
+import sys
+
+try:
+    sys.stdout.write(base64.b64decode(os.environ.get("SECRET_B64", "")).decode("utf-8"))
+except Exception:
+    pass
+PY
+}
+
+generate_runtime_secret_literal() {
+  python3 - <<'PY'
+import secrets
+
+print(secrets.token_urlsafe(48), end="")
+PY
+}
+
+resolve_runtime_secret_literal() {
+  local ns="$1"
+  local secret_name="$2"
+  local key="$3"
+  local provided="$4"
+  local existing
+  if [ -n "$provided" ]; then
+    printf '%s' "$provided"
+    return 0
+  fi
+  existing="$(read_existing_secret_literal "$ns" "$secret_name" "$key")"
+  if [ -n "$existing" ]; then
+    printf '%s' "$existing"
+    return 0
+  fi
+  generate_runtime_secret_literal
+}
+
 update_k8s_secrets() {
   local server_token="$1"
   local mbr_token="$2"
   local room_id="$3"
   local ns="${NAMESPACE:?}"
-  local ui_patch mbr_patch secret_name
+  local ui_patch mbr_patch secret_name dy_session_secret dy_auth_secret
   ui_patch="$(
     ROOM_ID="$room_id" \
     HOMESERVER_URL="$(matrix_homeserver_url)" \
@@ -365,6 +410,8 @@ PY
   )"
 
   secret_name="ui-server-secret"
+  dy_session_secret="$(resolve_runtime_secret_literal "$ns" "$secret_name" "DY_SESSION_SECRET" "${DY_SESSION_SECRET:-}")"
+  dy_auth_secret="$(resolve_runtime_secret_literal "$ns" "$secret_name" "DY_AUTH_SECRET" "${DY_AUTH_SECRET:-}")"
   replace_or_create_secret_from_literals "$ns" "$secret_name" \
     --from-literal="MODELTABLE_PATCH_JSON=$ui_patch" \
     --from-literal="DY_AUTH=${DY_AUTH:-0}" \
@@ -374,8 +421,8 @@ PY
     --from-literal="DY_OIDC_REDIRECT_URI=${DY_OIDC_REDIRECT_URI:-}" \
     --from-literal="DY_OIDC_SCOPE=${DY_OIDC_SCOPE:-openid profile email urn:zitadel:iam:org:project:id:zitadel:aud urn:zitadel:iam:org:projects:roles}" \
     --from-literal="DY_OIDC_STATE_SECRET=${DY_OIDC_STATE_SECRET:-}" \
-    --from-literal="DY_SESSION_SECRET=${DY_SESSION_SECRET:-}" \
-    --from-literal="DY_AUTH_SECRET=${DY_AUTH_SECRET:-}" \
+    --from-literal="DY_SESSION_SECRET=$dy_session_secret" \
+    --from-literal="DY_AUTH_SECRET=$dy_auth_secret" \
     --from-literal="MATRIX_HOMESERVER_URL=$(matrix_homeserver_url)"
 
   secret_name="mbr-worker-secret"

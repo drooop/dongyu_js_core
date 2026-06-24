@@ -21,15 +21,22 @@ const OIDC_PENDING_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_MATRIX_SSO_PENDING_TTL_MS = 5 * 60 * 1000;
 const OIDC_STATE_COOKIE = 'dy_oidc_state';
 const OIDC_STATE_COOKIE_VERSION = 'v1';
+const AUTH_SESSION_STORE_VERSION = 1;
+
+let persistedSessionEntries = null; // tokenId -> sealed session
 
 // Periodic cleanup of expired sessions (every 10 minutes).
 setInterval(() => {
   const now = Date.now();
+  let changed = false;
   for (const [token, session] of sessions) {
     if ((now - session.createdAt) / 1000 > SESSION_MAX_AGE_S) {
       sessions.delete(token);
+      deletePersistedSessionRecord(token);
+      changed = true;
     }
   }
+  if (changed) writePersistedSessionEntries();
 }, 10 * 60 * 1000).unref();
 
 // ── Cookie helpers ─────────────────────────────────────────────────────────
@@ -135,6 +142,119 @@ function oidcStateCookieKey() {
     throw new Error('oidc_state_secret_required');
   }
   return crypto.createHash('sha256').update(String(secret || 'dongyu-local-oidc-state-v1')).digest();
+}
+
+function sessionPersistenceEnabled() {
+  return Boolean(
+    process.env.DY_AUTH_SESSION_STORE_FILE
+    || process.env.DY_AUTH_SESSION_STORE_DIR
+    || process.env.DY_PERSIST_ROOT
+  );
+}
+
+function authSessionStoreFile() {
+  if (process.env.DY_AUTH_SESSION_STORE_FILE) return process.env.DY_AUTH_SESSION_STORE_FILE;
+  if (process.env.DY_AUTH_SESSION_STORE_DIR) return path.join(process.env.DY_AUTH_SESSION_STORE_DIR, 'auth', 'sessions.v1.json');
+  if (!process.env.DY_PERSIST_ROOT) return '';
+  return path.join(process.env.DY_PERSIST_ROOT, 'auth', 'sessions.v1.json');
+}
+
+function authSessionSecret() {
+  const secret = process.env.DY_SESSION_SECRET || process.env.DY_AUTH_SECRET || process.env.DY_COOKIE_SECRET;
+  if (!secret && sessionPersistenceEnabled()) {
+    throw new Error('auth_session_secret_required');
+  }
+  return String(secret || 'dongyu-local-auth-session-v1');
+}
+
+function authSessionKey() {
+  return crypto.createHash('sha256').update(authSessionSecret()).digest();
+}
+
+function authSessionTokenId(token) {
+  return crypto.createHmac('sha256', authSessionSecret()).update(String(token || '')).digest('base64url');
+}
+
+function sealSessionRecord(session) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', authSessionKey(), iv);
+  const plaintext = Buffer.from(JSON.stringify(session), 'utf8');
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return [
+    'v1',
+    iv.toString('base64url'),
+    ciphertext.toString('base64url'),
+    tag.toString('base64url'),
+  ].join('.');
+}
+
+function openSessionRecord(value) {
+  const parts = String(value || '').split('.');
+  if (parts.length !== 4 || parts[0] !== 'v1') return null;
+  try {
+    const iv = Buffer.from(parts[1], 'base64url');
+    const ciphertext = Buffer.from(parts[2], 'base64url');
+    const tag = Buffer.from(parts[3], 'base64url');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', authSessionKey(), iv);
+    decipher.setAuthTag(tag);
+    const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+    const parsed = JSON.parse(plaintext);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function loadPersistedSessionEntries() {
+  if (!sessionPersistenceEnabled()) return new Map();
+  if (persistedSessionEntries) return persistedSessionEntries;
+  persistedSessionEntries = new Map();
+  const file = authSessionStoreFile();
+  if (!file) return persistedSessionEntries;
+  try {
+    if (!fs.existsSync(file)) return persistedSessionEntries;
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!parsed || parsed.version !== AUTH_SESSION_STORE_VERSION || !parsed.sessions || typeof parsed.sessions !== 'object') {
+      return persistedSessionEntries;
+    }
+    for (const [tokenId, sealed] of Object.entries(parsed.sessions)) {
+      if (typeof tokenId === 'string' && typeof sealed === 'string') {
+        persistedSessionEntries.set(tokenId, sealed);
+      }
+    }
+  } catch (error) {
+    console.warn('[auth] Failed to load persisted sessions:', error && error.message ? error.message : error);
+  }
+  return persistedSessionEntries;
+}
+
+function writePersistedSessionEntries() {
+  if (!sessionPersistenceEnabled()) return;
+  const file = authSessionStoreFile();
+  if (!file) return;
+  const entries = loadPersistedSessionEntries();
+  ensureDir(path.dirname(file));
+  const body = {
+    version: AUTH_SESSION_STORE_VERSION,
+    sessions: Object.fromEntries([...entries.entries()].sort(([a], [b]) => a.localeCompare(b))),
+  };
+  const tmpFile = `${file}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tmpFile, `${JSON.stringify(body, null, 2)}\n`, 'utf8');
+  fs.renameSync(tmpFile, file);
+}
+
+function persistSessionRecord(token, session) {
+  if (!sessionPersistenceEnabled()) return;
+  const entries = loadPersistedSessionEntries();
+  entries.set(authSessionTokenId(token), sealSessionRecord(session));
+  writePersistedSessionEntries();
+}
+
+function deletePersistedSessionRecord(token) {
+  if (!sessionPersistenceEnabled()) return;
+  const entries = loadPersistedSessionEntries();
+  entries.delete(authSessionTokenId(token));
 }
 
 function sealOidcPendingState(pending) {
@@ -280,11 +400,18 @@ function getSessionTokenFromRequest(req) {
 
 function getValidSessionRecordByToken(token) {
   if (!token) return null;
-  const session = sessions.get(token);
+  let session = sessions.get(token);
+  if (!session && sessionPersistenceEnabled()) {
+    const sealed = loadPersistedSessionEntries().get(authSessionTokenId(token));
+    session = openSessionRecord(sealed);
+    if (session) sessions.set(token, session);
+  }
   if (!session) return null;
   const elapsed = (Date.now() - session.createdAt) / 1000;
   if (elapsed > SESSION_MAX_AGE_S) {
     sessions.delete(token);
+    deletePersistedSessionRecord(token);
+    writePersistedSessionEntries();
     return null;
   }
   return session;
@@ -533,10 +660,16 @@ function createSessionRecord(session) {
     for (const [k, v] of sessions) {
       if (v.createdAt < oldestTime) { oldestTime = v.createdAt; oldestKey = k; }
     }
-    if (oldestKey) sessions.delete(oldestKey);
+    if (oldestKey) {
+      sessions.delete(oldestKey);
+      deletePersistedSessionRecord(oldestKey);
+      writePersistedSessionEntries();
+    }
   }
   const token = crypto.randomBytes(32).toString('hex');
-  sessions.set(token, { ...session, createdAt: Date.now() });
+  const record = { ...session, createdAt: Date.now() };
+  sessions.set(token, record);
+  persistSessionRecord(token, record);
   return token;
 }
 
@@ -862,6 +995,7 @@ export async function completeMatrixSso({ state, loginToken, fetchFn = fetch } =
   session.matrixUserId = data.user_id;
   session.matrixDeviceId = typeof data.device_id === 'string' ? data.device_id : '';
   session.matrixConnectedAt = Date.now();
+  persistSessionRecord(pending.sessionToken, session);
   addHomeserver(pending.homeserverUrl);
   return {
     returnTo: pending.returnTo || '/',
@@ -890,6 +1024,7 @@ export function disconnectMatrix(req) {
   session.matrixUserId = '';
   session.matrixDeviceId = '';
   session.matrixConnectedAt = 0;
+  persistSessionRecord(token, session);
   return getMatrixStatus(req);
 }
 
@@ -948,7 +1083,11 @@ export async function logout(req, { fetchFn = fetch, includeOidcLogoutUrl = true
   const cookies = parseCookies(req.headers.cookie);
   const token = cookies.get('dy_session');
   const session = token ? getValidSessionRecordByToken(token) : null;
-  if (token) sessions.delete(token);
+  if (token) {
+    sessions.delete(token);
+    deletePersistedSessionRecord(token);
+    writePersistedSessionEntries();
+  }
   if (!includeOidcLogoutUrl) return { logoutUrl: '' };
   const logoutUrl = await buildOidcLogoutUrl({ req, session, fetchFn });
   return { logoutUrl };

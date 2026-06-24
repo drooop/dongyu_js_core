@@ -326,6 +326,7 @@ source: ai
 | 0423-snapshot-granularity-impl | 2026-06-23 | 首屏最小 snapshot、按 app/model 懒加载与增量更新本地实施验证 | 6 | dropx/dev_0423-snapshot-granularity-impl | Completed | ./docs/iterations/0423-snapshot-granularity-impl/ |
 | 0424-principal-subtable-ssot | 2026-06-23 | 冻结 principal-scoped 子模型表命名空间：共享负数系统域、用户桌面表、滑动 App 实例表与 table-qualified 引用 | 4 | dropx/dev_0424-principal-subtable-ssot | Completed | ./docs/iterations/0424-principal-subtable-ssot/ |
 | 0425-principal-subtable-impl | 2026-06-23 | 实施 principal-scoped 子模型表基础：table-qualified 引用、visibleModelRefs、用户桌面隔离与滑动 App 实例表边界 | 11 | dropx/dev_0425-principal-subtable-impl | Completed | ./docs/iterations/0425-principal-subtable-impl/ |
+| 0426-remote-session-snapshot-stability | 2026-06-24 | 收口 0425 后远端部署稳定性：SSO session 跨重启保留、persisted asset readiness 与 snapshot patch recovery | 6 | dropx/dev_0426-remote-session-snapshot-stability | In Progress | ./docs/iterations/0426-remote-session-snapshot-stability/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
