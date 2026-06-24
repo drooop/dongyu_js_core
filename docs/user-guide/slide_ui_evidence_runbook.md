@@ -76,9 +76,11 @@ source: ai
 
 ```bash
 bash scripts/ops/remote_preflight_guard.sh
-bash scripts/ops/sync_cloud_source.sh --ssh-user drop --ssh-host 124.71.43.80 --remote-repo /home/wwpic/dongyuapp --remote-repo-owner wwpic --revision \"$(git rev-parse --short HEAD)\"
+bash scripts/ops/sync_cloud_source.sh --ssh-user drop --ssh-host 124.71.43.80 --remote-repo /home/wwpic/dongyuapp --remote-repo-owner drop --revision \"$(git rev-parse --short HEAD)\"
 ssh drop@124.71.43.80 'sudo -n bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_full.sh --rebuild'
 ```
+
+当前 cloud 主机上 `/home/wwpic/dongyuapp` 实际 owner 为 `drop:drop`。如果同步时报权限错误，先用 `ssh drop@124.71.43.80 'ls -ld /home/wwpic/dongyuapp'` 核对 owner，再调整 `--remote-repo-owner`。
 
 ### A. 远端 Gallery
 

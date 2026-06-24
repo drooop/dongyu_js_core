@@ -143,7 +143,7 @@ bash scripts/ops/sync_cloud_source.sh \
   --ssh-user drop \
   --ssh-host dongyudigital.com \
   --remote-repo /home/wwpic/dongyuapp \
-  --remote-repo-owner wwpic \
+  --remote-repo-owner drop \
   --revision "$(git rev-parse --short HEAD)"
 ```
 
@@ -167,7 +167,9 @@ PASS 判定：
 
 说明：
 - canonical SSH deploy user 是 `drop`，不是 `wwpic`。
-- canonical remote repo 路径保持 `/home/wwpic/dongyuapp`，source sync 通过 `drop + sudo -u wwpic` 代持写入。
+- canonical remote repo 路径保持 `/home/wwpic/dongyuapp`。
+- 当前 cloud 主机上该目录实际 owner 为 `drop:drop`；source sync 应使用 `--remote-repo-owner drop`，由 `drop` 用户直接写入。
+- 如果未来远端目录 owner 被调整，先用 `ssh drop@124.71.43.80 'ls -ld /home/wwpic/dongyuapp'` 验证，再把 `--remote-repo-owner` 改为实际 owner。
 - `sync_cloud_source.sh` 成功后会写入 `.deploy-source-revision`；deploy 脚本必须优先读取该 stamp 或实际 git HEAD，并与 `--revision` 做比对，不能直接信任传入参数或 `DEPLOY_SOURCE_REV`。
 - Docker build context 通过仓库根 `.dockerignore` 排除 docs、tests、archive、output、node_modules 等非运行输入。
 - 若 remote git checkout 失败，archive fallback 只同步部署必要路径，并保留远端 `deploy/env`。
@@ -194,7 +196,7 @@ bash scripts/ops/deploy_cloud_public_docs_fast.sh \
   --ssh-user drop \
   --ssh-host dongyudigital.com \
   --remote-repo /home/wwpic/dongyuapp \
-  --remote-repo-owner wwpic \
+  --remote-repo-owner drop \
   --revision "$(git rev-parse --short HEAD)"
 ```
 
@@ -233,12 +235,12 @@ bash scripts/ops/deploy_cloud_ui_server_from_local.sh \
   --ssh-user drop \
   --ssh-host dongyudigital.com \
   --remote-repo /home/wwpic/dongyuapp \
-  --remote-repo-owner wwpic
+  --remote-repo-owner drop
 ```
 
 说明：
 - 脚本会本地 build/save，scp tar 到远端，并通过 `sudo DEPLOY_SOURCE_REV=<local_git_rev> deploy_cloud.sh --image-tar ...` 触发部署。
-- 远端源码同步已统一委托给 `sync_cloud_source.sh`，因此同样遵循 `drop` 登录、`/home/wwpic/dongyuapp` 路径、`sudo -u wwpic` 代持写入。
+- 远端源码同步已统一委托给 `sync_cloud_source.sh`，因此同样遵循 `drop` 登录、`/home/wwpic/dongyuapp` 路径、`--remote-repo-owner drop` 的当前远端 owner 口径。
 
 PASS 判定：
 - 远端 `ui-server` rollout 成功；

@@ -29,9 +29,17 @@ bash scripts/ops/deploy_cloud_public_docs_fast.sh \
   --ssh-user drop \
   --ssh-host dongyudigital.com \
   --remote-repo /home/wwpic/dongyuapp \
-  --remote-repo-owner wwpic \
+  --remote-repo-owner drop \
   --revision "$(git rev-parse --short HEAD)"
 ```
+
+当前 cloud 主机上 `/home/wwpic/dongyuapp` 实际 owner 为 `drop:drop`，因此这里使用 `--remote-repo-owner drop`。若远端目录 owner 未来被调整，先运行：
+
+```bash
+ssh drop@124.71.43.80 'ls -ld /home/wwpic/dongyuapp'
+```
+
+再按实际 owner 调整该参数。
 
 ## 过程
 
