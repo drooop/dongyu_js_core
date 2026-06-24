@@ -33,7 +33,9 @@ import {
   DESKTOP_TASK_STACK_LABEL,
   DESKTOP_TASK_SWITCHER_OPEN_LABEL,
   deriveDesktopTaskStack,
+  desktopAppRefKey,
   normalizeDesktopForegroundApp,
+  normalizeDesktopTaskStack,
   readDesktopForegroundWorkspaceModelId,
 } from '../ui-model-demo-frontend/src/desktop_app_state.js';
 import {
@@ -123,6 +125,10 @@ const BOOTSTRAP_MODEL0_LABEL_KEYS = new Set([
   'sys_worker_role',
   'runtime_mode',
 ]);
+const BOOTSTRAP_EDITOR_MAILBOX_LABEL_KEYS = new Set([
+  BUS_EVENT_LAST_OP_KEY,
+  BUS_EVENT_ERROR_KEY,
+]);
 const BOOTSTRAP_EDITOR_STATE_LABEL_KEYS = new Set([
   'ui_page',
   'ui_page_catalog_json',
@@ -163,6 +169,16 @@ let _traceSeq = 0;
 const MEDIA_CACHE_TTL_MS = 15 * 60 * 1000;
 const mediaUploadCache = new Map();
 
+function slideAppExportUrlForRef(tableId, modelId) {
+  const normalizedTableId = typeof tableId === 'string' && tableId.trim() ? tableId.trim() : 'host';
+  if (!Number.isInteger(modelId)) return '';
+  if (normalizedTableId === 'host') {
+    return modelId > 0 ? `/api/slide-apps/${modelId}/export.zip` : '';
+  }
+  if (!isSafePinRouteSegment(normalizedTableId) || modelId < 0) return '';
+  return `/api/slide-apps/export.zip?table_id=${encodeURIComponent(normalizedTableId)}&model_id=${encodeURIComponent(String(modelId))}`;
+}
+
 function deriveWorkspaceRegistryFromSnapshot({ snapshot, getParentInfo } = {}) {
   const derived = [];
   const seen = new Set();
@@ -178,38 +194,45 @@ function deriveWorkspaceRegistryFromSnapshot({ snapshot, getParentInfo } = {}) {
 
   const addOrReplace = (entry) => {
     if (!entry || !Number.isInteger(entry.model_id)) return;
-    if (entry.model_id === 0) return;
-    if (excludedModelIds.has(entry.model_id)) return;
-    const existing = derived.find((item) => item.model_id === entry.model_id);
+    const tableId = typeof entry.table_id === 'string' && entry.table_id.trim() ? entry.table_id.trim() : 'host';
+    if (tableId === 'host' && entry.model_id === 0) return;
+    if (tableId !== 'host' && entry.model_id < 0) return;
+    if (tableId === 'host' && excludedModelIds.has(entry.model_id)) return;
+    const entryKey = `${tableId}|${entry.model_id}`;
+    const normalizedEntry = { ...entry, table_id: tableId };
+    const existing = derived.find((item) => `${item.table_id || 'host'}|${item.model_id}` === entryKey);
     if (existing) {
-      Object.assign(existing, entry);
+      Object.assign(existing, normalizedEntry);
       return;
     }
-    derived.push(entry);
-    seen.add(entry.model_id);
+    derived.push(normalizedEntry);
+    seen.add(entryKey);
   };
 
-  const models = snapshot && snapshot.models ? snapshot.models : {};
-  for (const [idText, modelSnap] of Object.entries(models)) {
+  const visitModel = (tableId, idText, modelSnap) => {
     const modelId = Number(idText);
-    if (!Number.isInteger(modelId) || modelId === 0) continue;
-    if (seen.has(modelId)) continue;
-    if (excludedModelIds.has(modelId)) continue;
+    if (!Number.isInteger(modelId)) return;
+    const normalizedTableId = typeof tableId === 'string' && tableId.trim() ? tableId.trim() : 'host';
+    if (normalizedTableId === 'host' && modelId === 0) return;
+    if (normalizedTableId !== 'host' && modelId < 0) return;
+    const modelKey = `${normalizedTableId}|${modelId}`;
+    if (seen.has(modelKey)) return;
+    if (normalizedTableId === 'host' && excludedModelIds.has(modelId)) return;
     const rootLabels = modelSnap && modelSnap.cells && modelSnap.cells['0,0,0'] && modelSnap.cells['0,0,0'].labels
       ? modelSnap.cells['0,0,0'].labels
       : {};
-    if (rootLabels.ws_deleted && rootLabels.ws_deleted.v === true) continue;
-    const isAllowedBuiltinEntry = allowedWorkspaceEntryIds.has(modelId);
+    if (rootLabels.ws_deleted && rootLabels.ws_deleted.v === true) return;
+    const isAllowedBuiltinEntry = normalizedTableId === 'host' && allowedWorkspaceEntryIds.has(modelId);
     const isInstalledSlideApp = Boolean(
       rootLabels.deletable && rootLabels.deletable.v === true
         && rootLabels.slide_capable && rootLabels.slide_capable.v === true,
     );
-    if (!isAllowedBuiltinEntry && !isInstalledSlideApp) continue;
-    const parentInfo = typeof getParentInfo === 'function' && modelId > 0 ? getParentInfo(modelId) : null;
-    const hasAppSignals = modelId > 0
+    if (!isAllowedBuiltinEntry && !isInstalledSlideApp) return;
+    const parentInfo = typeof getParentInfo === 'function' && normalizedTableId === 'host' && modelId > 0 ? getParentInfo(modelId) : null;
+    const hasAppSignals = modelId > 0 && normalizedTableId === 'host'
       ? Boolean(rootLabels.app_name || rootLabels.source_worker || (parentInfo && parentInfo.parentModelId === 0))
       : Boolean(rootLabels.app_name);
-    if (!hasAppSignals) continue;
+    if (!hasAppSignals) return;
     const name = rootLabels.app_name && typeof rootLabels.app_name.v === 'string' && rootLabels.app_name.v.trim()
       ? rootLabels.app_name.v
       : (modelSnap && typeof modelSnap.name === 'string' && modelSnap.name.trim()
@@ -218,7 +241,7 @@ function deriveWorkspaceRegistryFromSnapshot({ snapshot, getParentInfo } = {}) {
     const source = rootLabels.source_worker && typeof rootLabels.source_worker.v === 'string'
       ? rootLabels.source_worker.v
       : '';
-    const appOrigin = BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(modelId) ? 'builtin' : 'slid_in';
+    const appOrigin = normalizedTableId === 'host' && BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(modelId) ? 'builtin' : 'slid_in';
     const sourceDE = appOrigin === 'slid_in'
       ? String(rootLabels.source_de?.v || 'source unknown').trim() || 'source unknown'
       : '';
@@ -243,6 +266,7 @@ function deriveWorkspaceRegistryFromSnapshot({ snapshot, getParentInfo } = {}) {
       ? rootLabels.to_user.v
       : '';
     addOrReplace({
+      table_id: normalizedTableId,
       model_id: modelId,
       name,
       summary,
@@ -256,11 +280,24 @@ function deriveWorkspaceRegistryFromSnapshot({ snapshot, getParentInfo } = {}) {
       installed_at: installedAt,
       from_user: fromUser,
       to_user: toUser,
-      export_url: slideCapable ? `/api/slide-apps/${modelId}/export.zip` : '',
+      export_url: slideCapable ? slideAppExportUrlForRef(normalizedTableId, modelId) : '',
       export_label: slideCapable ? 'Zip' : '',
     });
+  };
+
+  const models = snapshot && snapshot.models ? snapshot.models : {};
+  for (const [idText, modelSnap] of Object.entries(models)) {
+    visitModel('host', idText, modelSnap);
   }
-  derived.sort((a, b) => a.model_id - b.model_id);
+  for (const [tableId, table] of Object.entries(snapshot?.tables || {})) {
+    for (const [idText, modelSnap] of Object.entries(table?.models || {})) {
+      visitModel(tableId, idText, modelSnap);
+    }
+  }
+  derived.sort((a, b) => {
+    const tableCmp = String(a.table_id || 'host').localeCompare(String(b.table_id || 'host'));
+    return tableCmp || a.model_id - b.model_id;
+  });
   return derived;
 }
 
@@ -2515,6 +2552,41 @@ function isSafePinRouteSegment(value) {
     && !value.includes('#');
 }
 
+function readPinPayloadTableId(records, key, fallback = 'host') {
+  const record = findTemporaryPayloadRecord(records, key);
+  if (!record) return { ok: true, value: fallback, present: false };
+  if (record.t !== 'str' || typeof record.v !== 'string' || !isSafePinRouteSegment(record.v)) {
+    return { ok: false, code: 'invalid_pin_payload_records' };
+  }
+  return { ok: true, value: record.v, present: true };
+}
+
+function readPinPayloadEndpoint(records, prefix) {
+  const table = readPinPayloadTableId(records, `${prefix}_table_id`, 'host');
+  if (!table.ok) return null;
+  return {
+    worker_id: readTemporaryPayloadString(records, `${prefix}_worker_id`),
+    table_id: table.value,
+    table_id_present: table.present,
+    model_id: readTemporaryPayloadInt(records, `${prefix}_model_id`),
+    pin: readTemporaryPayloadString(records, `${prefix}_pin`),
+  };
+}
+
+function isValidPinPayloadEndpoint(endpoint, options = {}) {
+  if (!endpoint) return false;
+  if (!isSafePinRouteSegment(endpoint.worker_id)) return false;
+  if (!isSafePinRouteSegment(endpoint.table_id)) return false;
+  if (!Number.isInteger(endpoint.model_id)) return false;
+  const allowNonHostModelZero = options.allowNonHostModelZero === true;
+  if (endpoint.table_id === 'host') {
+    if (endpoint.model_id <= 0) return false;
+  } else if (endpoint.model_id < 0 || (!allowNonHostModelZero && endpoint.model_id === 0)) {
+    return false;
+  }
+  return isSafePinRouteSegment(endpoint.pin);
+}
+
 function isValidControlBusTopicBase(value) {
   if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
   const parts = value.split('/');
@@ -2566,8 +2638,11 @@ function validatePinPayloadTopicContract({ messageRole, topic, responseTopic, en
   const responseTopicParts = controlBusEndpointTopicParts(responseTopic);
   if (!responseTopicParts) return 'invalid_response_topic';
   if (responseTopicParts.base !== topicParts.base) return 'response_topic_mismatch';
-  const expectedResponseTopic = buildControlBusEndpointTopicFromBase(topicParts.base, replyTarget);
-  if (!expectedResponseTopic || responseTopic !== expectedResponseTopic) return 'response_topic_mismatch';
+  const replyTargetIsHost = !replyTarget || !replyTarget.table_id || replyTarget.table_id === 'host';
+  if (replyTargetIsHost) {
+    const expectedResponseTopic = buildControlBusEndpointTopicFromBase(topicParts.base, replyTarget);
+    if (!expectedResponseTopic || responseTopic !== expectedResponseTopic) return 'response_topic_mismatch';
+  }
   if (messageRole === 'request') {
     if (topic === responseTopic) return 'response_topic_mismatch';
     if (!controlBusEndpointMatches(topicParts.endpoint, endpoint)) return 'endpoint_mismatch';
@@ -2575,8 +2650,8 @@ function validatePinPayloadTopicContract({ messageRole, topic, responseTopic, en
   }
   if (messageRole === 'response') {
     if (topic !== responseTopic) return 'response_topic_mismatch';
-    if (!controlBusEndpointMatches(endpoint, replyTarget)) return 'endpoint_mismatch';
-    if (!controlBusEndpointMatches(topicParts.endpoint, replyTarget)) return 'endpoint_mismatch';
+    if (!controlBusEndpointMatches(topicParts.endpoint, endpoint)) return 'endpoint_mismatch';
+    if (replyTargetIsHost && !controlBusEndpointMatches(endpoint, replyTarget)) return 'endpoint_mismatch';
     return null;
   }
   return 'invalid_message_role';
@@ -2744,25 +2819,43 @@ function normalizeSlideExportRuntimeStateLabel(label, actualToTempId) {
   };
 }
 
-function collectSlideExportModelIds(runtime, rootModelId) {
-  const ids = [];
+function normalizeSlideExportRootRef(runtime, rootRef) {
+  if (!runtime) return null;
+  if (Number.isInteger(rootRef)) {
+    return rootRef > 0 && runtime.getModel(rootRef) ? { table_id: 'host', model_id: rootRef } : null;
+  }
+  if (!rootRef || typeof rootRef !== 'object') return null;
+  const tableId = typeof rootRef.table_id === 'string' && rootRef.table_id.trim() ? rootRef.table_id.trim() : 'host';
+  const modelId = Number.isInteger(rootRef.model_id) ? rootRef.model_id : null;
+  if (!Number.isInteger(modelId)) return null;
+  if (tableId === 'host' && modelId <= 0) return null;
+  if (tableId !== 'host' && modelId < 0) return null;
+  return runtime.getModel({ table_id: tableId, model_id: modelId }) ? { table_id: tableId, model_id: modelId } : null;
+}
+
+function collectSlideExportModelRefs(runtime, rootRef) {
+  const refs = [];
   const seen = new Set();
   const visit = (modelId) => {
-    if (!Number.isInteger(modelId) || modelId <= 0 || seen.has(modelId)) return;
-    const model = runtime.getModel(modelId);
+    if (!Number.isInteger(modelId)) return;
+    if (rootRef.table_id === 'host' && modelId <= 0) return;
+    if (rootRef.table_id !== 'host' && modelId < 0) return;
+    const key = `${rootRef.table_id}|${modelId}`;
+    if (seen.has(key)) return;
+    const model = runtime.getModel({ table_id: rootRef.table_id, model_id: modelId });
     if (!model) return;
-    seen.add(modelId);
-    ids.push(modelId);
+    seen.add(key);
+    refs.push({ table_id: rootRef.table_id, model_id: modelId });
     for (const cell of model.cells.values()) {
       for (const label of cell.labels.values()) {
-        if (label && label.t === 'model.submt' && Number.isInteger(label.v) && label.v > 0) {
+        if (label && label.t === 'model.submt' && Number.isInteger(label.v)) {
           visit(label.v);
         }
       }
     }
   };
-  visit(rootModelId);
-  return ids;
+  visit(rootRef.model_id);
+  return refs;
 }
 
 function remapSlideExportValue(value, actualToTempId) {
@@ -2815,24 +2908,28 @@ function normalizeSlideExportLabelValue(label, actualToTempId) {
 }
 
 function buildSlideAppExportPayload(runtime, rootModelId) {
-  if (!runtime || !Number.isInteger(rootModelId) || rootModelId <= 0) {
-    return { ok: false, code: 'invalid_target', detail: 'positive_model_id_required' };
+  const rootRef = normalizeSlideExportRootRef(runtime, rootModelId);
+  if (!rootRef) {
+    return { ok: false, code: 'invalid_target', detail: 'valid_slide_app_model_ref_required' };
   }
-  const rootModel = runtime.getModel(rootModelId);
+  const rootModel = runtime.getModel({ table_id: rootRef.table_id, model_id: rootRef.model_id });
   if (!rootModel) {
-    return { ok: false, code: 'model_not_found', detail: `modelId=${rootModelId}` };
+    return { ok: false, code: 'model_not_found', detail: `modelRef=${rootRef.table_id}/${rootRef.model_id}` };
   }
   const rootCell = runtime.getCell(rootModel, 0, 0, 0);
   const rootLabels = rootCell && rootCell.labels ? rootCell.labels : new Map();
   if (!rootLabels.has('slide_capable') || rootLabels.get('slide_capable').v !== true) {
     return { ok: false, code: 'not_exportable', detail: 'slide_capable_required' };
   }
-  const modelIds = collectSlideExportModelIds(runtime, rootModelId);
-  const actualToTempId = new Map(modelIds.map((modelId, index) => [modelId, index]));
+  const modelRefs = collectSlideExportModelRefs(runtime, rootRef);
+  const modelIds = modelRefs.map((ref) => ref.model_id);
+  const actualToTempId = rootRef.table_id === 'host'
+    ? new Map(modelIds.map((modelId, index) => [modelId, index]))
+    : new Map(modelIds.map((modelId) => [modelId, modelId]));
   const records = [];
-  for (const modelId of modelIds) {
-    const tempId = actualToTempId.get(modelId);
-    const model = runtime.getModel(modelId);
+  for (const ref of modelRefs) {
+    const tempId = actualToTempId.get(ref.model_id);
+    const model = runtime.getModel({ table_id: ref.table_id, model_id: ref.model_id });
     if (!model) continue;
     const cells = Array.from(model.cells.values()).sort((a, b) => (
       (a.p - b.p) || (a.r - b.r) || (a.c - b.c)
@@ -2858,13 +2955,14 @@ function buildSlideAppExportPayload(runtime, rootModelId) {
   if (!validation.ok) {
     return { ok: false, code: validation.code || 'invalid_export', detail: validation.detail || 'export_payload_invalid' };
   }
-  return { ok: true, data: { payload: records, modelIds } };
+  return { ok: true, data: { payload: records, modelIds, modelRefs, rootModelRef: rootRef } };
 }
 
 function buildSlideAppExportZip(runtime, rootModelId) {
   const payloadResult = buildSlideAppExportPayload(runtime, rootModelId);
   if (!payloadResult.ok) return payloadResult;
-  const model = runtime.getModel(rootModelId);
+  const rootRef = payloadResult.data.rootModelRef;
+  const model = runtime.getModel(rootRef);
   const appName = runtime.getLabelValue
     ? runtime.getLabelValue(model, 0, 0, 0, 'app_name')
     : '';
@@ -2880,6 +2978,57 @@ function buildSlideAppExportZip(runtime, rootModelId) {
       modelIds: payloadResult.data.modelIds,
     },
   };
+}
+
+function slideAppExportRefFromUrl(url) {
+  const exportMatch = url.pathname.match(/^\/api\/slide-apps\/(\d+)\/export\.zip$/);
+  const queryExport = url.pathname === '/api/slide-apps/export.zip';
+  if (!exportMatch && !queryExport) return null;
+  if (queryExport && !url.searchParams.has('table_id')) {
+    return { ok: false, code: 'table_id_required' };
+  }
+  const tableId = queryExport
+    ? String(url.searchParams.get('table_id') || '').trim()
+    : 'host';
+  const modelIdText = queryExport
+    ? String(url.searchParams.get('model_id') || '').trim()
+    : exportMatch[1];
+  const modelId = /^(0|[1-9][0-9]*)$/u.test(modelIdText) ? Number(modelIdText) : NaN;
+  if (!Number.isInteger(modelId) || !isSafePinRouteSegment(tableId)) {
+    return { ok: false, code: 'invalid_export_ref' };
+  }
+  return { ok: true, ref: { table_id: tableId, model_id: modelId } };
+}
+
+function handleSlideAppExportRequest(req, res, state, corsOrigin = null) {
+  const url = new URL(req.url || '/', 'http://127.0.0.1');
+  const cors = corsHeaders(req, corsOrigin);
+  const parsed = slideAppExportRefFromUrl(url);
+  if (!parsed) return false;
+  if (!parsed.ok) {
+    writeJson(res, 400, { ok: false, error: parsed.code || 'invalid_export_ref' }, cors);
+    return true;
+  }
+  const result = buildSlideAppExportZip(state.runtime, parsed.ref);
+  if (!result || result.ok !== true) {
+    const status = result && result.code === 'model_not_found' ? 404 : 400;
+    writeJson(res, status, {
+      ok: false,
+      error: result && result.code ? result.code : 'export_failed',
+      detail: result && result.detail ? result.detail : '',
+    }, cors);
+    return true;
+  }
+  const filename = result.data.filename || `slide-app-${parsed.ref.model_id}.zip`;
+  res.writeHead(200, {
+    'content-type': 'application/zip',
+    'content-length': result.data.buffer.length,
+    'content-disposition': `attachment; filename="${filename}"`,
+    'cache-control': 'no-cache',
+    ...cors,
+  });
+  res.end(result.data.buffer);
+  return true;
 }
 
 function parseSlideImportPayloadFromZipBuffer(zipBuffer) {
@@ -3261,12 +3410,48 @@ function resolveNextWorkspaceMountCell(runtime) {
   for (const cell of model0.cells.values()) {
     if (cell.p !== 2 || cell.r !== 0) continue;
     for (const label of cell.labels.values()) {
-      if (label && label.t === 'model.submt') {
+      if (label && (label.t === 'model.submt' || label.t === 'model.subtable')) {
         maxC = Math.max(maxC, cell.c);
       }
     }
   }
   return { p: 2, r: 0, c: maxC + 1 };
+}
+
+function sanitizeSlideAppTableSegment(value, fallback = 'slide-app') {
+  const raw = String(value || '').trim().toLowerCase();
+  const ascii = raw
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  return ascii || fallback;
+}
+
+function readRuntimePrincipalOwnerId(runtime) {
+  const direct = runtime && typeof runtime.principalOwnerId === 'string' ? runtime.principalOwnerId.trim() : '';
+  if (direct) return direct;
+  const key = readRuntimePrincipalKey(runtime);
+  if (key.includes(':')) {
+    const [, value] = key.split(/:(.*)/s);
+    if (value && value.trim()) return value.trim();
+  }
+  return key || 'local-dev';
+}
+
+function buildSlideAppInstanceTableId(runtime, validation, mountCell) {
+  const owner = sanitizeSlideAppTableSegment(readRuntimePrincipalOwnerId(runtime), 'local-dev');
+  const app = sanitizeSlideAppTableSegment(validation?.metadata?.appName || 'slide-app');
+  const cellSuffix = mountCell && Number.isInteger(mountCell.p) && Number.isInteger(mountCell.r) && Number.isInteger(mountCell.c)
+    ? `${mountCell.p}-${mountCell.r}-${mountCell.c}`
+    : '0-0-0';
+  const base = `app:${owner}:${app}:${cellSuffix}`;
+  let index = 1;
+  let candidate = `${base}:${index}`;
+  while (runtime && runtime.modelTables instanceof Map && runtime.modelTables.has(candidate)) {
+    index += 1;
+    candidate = `${base}:${index}`;
+  }
+  return candidate;
 }
 
 function buildImportedHostIngressKeys(rootModelId, semantic) {
@@ -3407,12 +3592,15 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
         `  mt('response_topic', 'str', ${JSON.stringify(responseTopic)}),`,
         `  mt('bus_out_key', 'str', ${JSON.stringify(keys.busOutKey)}),`,
         `  mt('endpoint_worker_id', 'str', ${JSON.stringify(remoteEndpoint.to.worker_id)}),`,
+        `  mt('endpoint_table_id', 'str', 'host'),`,
         `  mt('endpoint_model_id', 'int', ${remoteEndpoint.to.model_id}),`,
         `  mt('endpoint_pin', 'str', ${JSON.stringify(hostEgress.pinName)}),`,
         `  mt('origin_worker_id', 'str', ${JSON.stringify(resolveUiServerWorkerId())}),`,
+        `  mt('origin_table_id', 'str', 'host'),`,
         `  mt('origin_model_id', 'int', ${rootModelId}),`,
         `  mt('origin_pin', 'str', ${JSON.stringify(hostEgress.pinName)}),`,
         `  mt('reply_target_worker_id', 'str', ${JSON.stringify(resolveUiServerWorkerId())}),`,
+        `  mt('reply_target_table_id', 'str', 'host'),`,
         `  mt('reply_target_model_id', 'int', ${rootModelId}),`,
         `  mt('reply_target_pin', 'str', ${JSON.stringify(SLIDE_IMPORT_REPLY_PIN)}),`,
         `  ...(principalKey ? [mt('reply_target_principal_key', 'str', principalKey)] : []),`,
@@ -3589,33 +3777,29 @@ function reapplyAuthoritativePositiveSurface(runtime, { assetRoot, systemModelsD
 }
 
 function materializeSlideImportPayload(runtime, payload, validation) {
-  const idMap = new Map();
-  const startModelId = resolveNextWorkspaceModelId(runtime);
-  validation.tempIds.forEach((tempId, index) => {
-    idMap.set(tempId, startModelId + index);
-  });
+  const mountCell = resolveNextWorkspaceMountCell(runtime);
+  const tableId = buildSlideAppInstanceTableId(runtime, validation, mountCell);
+  const ownerPrincipalId = readRuntimePrincipalOwnerId(runtime);
 
   for (const tempId of validation.tempIds) {
-    const actualId = idMap.get(tempId);
     const name = tempId === validation.rootTempId
       ? validation.metadata.appName
       : `${validation.metadata.appName}#${tempId}`;
-    runtime.createModel({ id: actualId, name, type: 'sliding_ui' });
+    runtime.createModel({ table_id: tableId, id: tempId, name, type: 'sliding_ui' });
   }
 
   for (const record of payload) {
-    const actualModelId = idMap.get(record.id);
-    const model = runtime.getModel(actualModelId);
-    const nextValue = remapImportedLabelValue(record, idMap);
+    const model = runtime.getModel({ table_id: tableId, model_id: record.id });
+    const nextValue = record.v;
     runtime.addLabel(model, record.p, record.r, record.c, { k: record.k, t: record.t, v: nextValue });
   }
 
-  const rootModelId = idMap.get(validation.rootTempId);
-  const rootModel = runtime.getModel(rootModelId);
+  const rootModelId = validation.rootTempId;
+  const rootModel = runtime.getModel({ table_id: tableId, model_id: rootModelId });
   const installedAt = new Date().toISOString();
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'deletable', t: 'bool', v: true });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'installed_at', t: 'str', v: installedAt });
-  runtime.addLabel(rootModel, 0, 0, 0, { k: 'imported_bundle_model_ids', t: 'json', v: [...idMap.values()] });
+  runtime.addLabel(rootModel, 0, 0, 0, { k: 'imported_bundle_model_ids', t: 'json', v: [...validation.tempIds] });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'import_root_temp_id', t: 'int', v: validation.rootTempId });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'from_user', t: 'str', v: validation.metadata.fromUser });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'to_user', t: 'str', v: validation.metadata.toUser });
@@ -3629,19 +3813,27 @@ function materializeSlideImportPayload(runtime, payload, validation) {
     runtime.addLabel(rootModel, 0, 0, 0, { k: SLIDE_IMPORT_REMOTE_BUS_ENDPOINT_LABEL, t: 'json', v: validation.remoteEndpoint.declaration });
   }
 
-  const mountCell = resolveNextWorkspaceMountCell(runtime);
   const model0 = runtime.getModel(0);
-  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'model_type', t: 'model.submt', v: rootModelId });
-  const hostIngressKeys = materializeImportedHostIngressAdapter(runtime, rootModelId, mountCell, validation.hostIngress);
-  const hostEgressKeys = validation.hostEgress && Array.isArray(validation.hostEgress.entries)
-    ? validation.hostEgress.entries
-      .map((entry) => materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, entry, validation.remoteEndpoint))
-      .filter(Boolean)
-    : null;
+  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, {
+    k: 'model_type',
+    t: 'model.subtable',
+    v: {
+      table_id: tableId,
+      root_model_id: rootModelId,
+      owner_principal_id: ownerPrincipalId,
+    },
+  });
+  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'app_name', t: 'str', v: validation.metadata.appName });
+  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'slide_app_summary', t: 'str', v: validation.metadata.slideSummary });
+  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'slide_app_table_id', t: 'str', v: tableId });
+  const hostIngressKeys = null;
+  const hostEgressKeys = null;
 
   return {
+    tableId,
     rootModelId,
-    modelIds: [...idMap.values()],
+    rootModelRef: { table_id: tableId, model_id: rootModelId },
+    modelIds: [...validation.tempIds],
     mountCell,
     hostIngressKeys,
     hostEgressKeys,
@@ -3906,14 +4098,27 @@ function setMailboxEnvelope(runtime, envelopeOrNull) {
   runtime.addLabel(model, 0, 0, 1, { k: BUS_EVENT_KEY, t: 'event', v: envelopeOrNull });
 }
 
-function temporaryPayloadToOwnerMaterialization(targetModelId, payload, opId) {
-  if (!Number.isInteger(targetModelId)) return null;
+function normalizePinPayloadTargetRef(targetRef) {
+  if (Number.isInteger(targetRef)) return { table_id: 'host', model_id: targetRef };
+  if (!targetRef || typeof targetRef !== 'object') return null;
+  const tableId = targetRef.table_id === undefined || targetRef.table_id === null
+    ? 'host'
+    : (typeof targetRef.table_id === 'string' && isSafePinRouteSegment(targetRef.table_id) ? targetRef.table_id : null);
+  if (!tableId) return null;
+  if (!Number.isInteger(targetRef.model_id)) return null;
+  return { table_id: tableId, model_id: targetRef.model_id };
+}
+
+function temporaryPayloadToOwnerMaterialization(targetRef, payload, opId) {
+  const target = normalizePinPayloadTargetRef(targetRef);
+  if (!target) return null;
   if (!Array.isArray(payload) || payload.length === 0 || !payload.every(isTemporaryModelTableRecord)) return null;
   const records = [];
   for (const record of payload) {
     records.push({
       op: 'add_label',
-      model_id: targetModelId,
+      table_id: target.table_id,
+      model_id: target.model_id,
       p: record.p,
       r: record.r,
       c: record.c,
@@ -3952,6 +4157,18 @@ function readTemporaryPayloadInt(payload, key) {
 function readTemporaryPayloadJson(payload, key) {
   const record = findTemporaryPayloadRecord(payload, key);
   return record && record.t === 'json' ? record.v : null;
+}
+
+function hasClientAuthoredAuthorityMetadata(records) {
+  if (!Array.isArray(records)) return false;
+  return records.some((record) => record
+    && record.id === 0
+    && record.p === 0
+    && record.r === 0
+    && record.c === 0
+    && (record.k === 'principal_id'
+      || record.k === 'table_id'
+      || record.k === 'owner_principal_id'));
 }
 
 function hasInvalidTemporaryPayloadStringRecord(payload, key) {
@@ -3999,11 +4216,15 @@ function parsePinPayloadRecordEnvelope(content) {
     'response_topic',
     'route_kind',
     'endpoint_worker_id',
+    'endpoint_table_id',
     'endpoint_pin',
     'origin_worker_id',
+    'origin_table_id',
     'origin_pin',
     'reply_target_worker_id',
+    'reply_target_table_id',
     'reply_target_pin',
+    'reply_target_principal_key',
   ];
   const metadataKeys = stringMetadataKeys.concat([
     '__mt_payload_kind',
@@ -4053,27 +4274,21 @@ function parsePinPayloadRecordEnvelope(content) {
   if (containsLegacyPinPayloadMetadataInPinPayloadRecords(records)) {
     return { ok: false, code: 'legacy_pin_payload_metadata_removed' };
   }
-  const endpoint = {
-    worker_id: readTemporaryPayloadString(records, 'endpoint_worker_id'),
-    model_id: readTemporaryPayloadInt(records, 'endpoint_model_id'),
-    pin: readTemporaryPayloadString(records, 'endpoint_pin'),
-  };
-  const origin = {
-    worker_id: readTemporaryPayloadString(records, 'origin_worker_id'),
-    model_id: readTemporaryPayloadInt(records, 'origin_model_id'),
-    pin: readTemporaryPayloadString(records, 'origin_pin'),
-  };
-  const replyTarget = {
-    worker_id: readTemporaryPayloadString(records, 'reply_target_worker_id'),
-    model_id: readTemporaryPayloadInt(records, 'reply_target_model_id'),
-    pin: readTemporaryPayloadString(records, 'reply_target_pin'),
-  };
-  const validEndpoint = isSafePinRouteSegment(endpoint.worker_id) && Number.isInteger(endpoint.model_id) && endpoint.model_id > 0 && isSafePinRouteSegment(endpoint.pin);
-  const validOrigin = isSafePinRouteSegment(origin.worker_id) && Number.isInteger(origin.model_id) && origin.model_id > 0 && isSafePinRouteSegment(origin.pin);
-  const validReplyTarget = isSafePinRouteSegment(replyTarget.worker_id) && Number.isInteger(replyTarget.model_id) && replyTarget.model_id > 0 && isSafePinRouteSegment(replyTarget.pin);
+  if (hasClientAuthoredAuthorityMetadata(records)) {
+    return { ok: false, code: 'client_authority_metadata_rejected' };
+  }
+  const endpoint = readPinPayloadEndpoint(records, 'endpoint');
+  const origin = readPinPayloadEndpoint(records, 'origin');
+  const replyTarget = readPinPayloadEndpoint(records, 'reply_target');
+  const validEndpoint = isValidPinPayloadEndpoint(endpoint) && endpoint.table_id === 'host';
+  const validOrigin = isValidPinPayloadEndpoint(origin, { allowNonHostModelZero: true });
+  const validReplyTarget = isValidPinPayloadEndpoint(replyTarget, { allowNonHostModelZero: true });
   const nestedPayload = readTemporaryPayloadJson(records, 'payload');
   if (!validEndpoint || !validOrigin || !validReplyTarget || !isTemporaryPayloadRecordArray(nestedPayload)) {
     return { ok: false, code: 'invalid_pin_payload_records' };
+  }
+  if (origin.table_id !== 'host' && (!replyTarget.table_id_present || replyTarget.table_id === 'host')) {
+    return { ok: false, code: 'missing_reply_target_table_id' };
   }
   const topicContractError = validatePinPayloadTopicContract({
     messageRole,
@@ -4191,36 +4406,27 @@ function parsePrincipalRuntimePinPayload(payload) {
   const responseTopic = readTemporaryPayloadString(records, 'response_topic');
   if (!isValidPrincipalRuntimeControlTopic(topic)) return { ok: false, code: 'invalid_topic' };
   if (!isValidPrincipalRuntimeControlTopic(responseTopic)) return { ok: false, code: 'invalid_response_topic' };
-  const endpoint = {
-    worker_id: readTemporaryPayloadString(records, 'endpoint_worker_id'),
-    model_id: readTemporaryPayloadInt(records, 'endpoint_model_id'),
-    pin: readTemporaryPayloadString(records, 'endpoint_pin'),
-  };
+  if (hasClientAuthoredAuthorityMetadata(records)) {
+    return { ok: false, code: 'client_authority_metadata_rejected' };
+  }
+  const endpoint = readPinPayloadEndpoint(records, 'endpoint');
+  if (!isValidPinPayloadEndpoint(endpoint) || endpoint.table_id !== 'host') {
+    return { ok: false, code: 'invalid_pin_payload_records' };
+  }
   const topicEndpoint = principalRuntimeControlTopicParts(topic);
   const endpointMatchesTopic = topicEndpoint
     && endpoint.worker_id === topicEndpoint.worker_id
     && endpoint.model_id === topicEndpoint.model_id
     && endpoint.pin === topicEndpoint.pin;
   if (!endpointMatchesTopic) return { ok: false, code: 'invalid_endpoint_topic' };
-  const origin = {
-    worker_id: readTemporaryPayloadString(records, 'origin_worker_id'),
-    model_id: readTemporaryPayloadInt(records, 'origin_model_id'),
-    pin: readTemporaryPayloadString(records, 'origin_pin'),
-  };
-  const replyTarget = {
-    worker_id: readTemporaryPayloadString(records, 'reply_target_worker_id'),
-    model_id: readTemporaryPayloadInt(records, 'reply_target_model_id'),
-    pin: readTemporaryPayloadString(records, 'reply_target_pin'),
-  };
-  const validOrigin = isSafePinRouteSegment(origin.worker_id)
-    && Number.isInteger(origin.model_id)
-    && origin.model_id > 0
-    && isSafePinRouteSegment(origin.pin);
-  const validReplyTarget = isSafePinRouteSegment(replyTarget.worker_id)
-    && Number.isInteger(replyTarget.model_id)
-    && replyTarget.model_id > 0
-    && isSafePinRouteSegment(replyTarget.pin);
+  const origin = readPinPayloadEndpoint(records, 'origin');
+  const replyTarget = readPinPayloadEndpoint(records, 'reply_target');
+  const validOrigin = isValidPinPayloadEndpoint(origin, { allowNonHostModelZero: true });
+  const validReplyTarget = isValidPinPayloadEndpoint(replyTarget, { allowNonHostModelZero: true });
   if (!validOrigin || !validReplyTarget) return { ok: false, code: 'invalid_pin_payload_records' };
+  if (origin.table_id !== 'host' && (!replyTarget.table_id_present || replyTarget.table_id === 'host')) {
+    return { ok: false, code: 'missing_reply_target_table_id' };
+  }
   return {
     ok: true,
     records,
@@ -4507,11 +4713,13 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
   const opId = `mgmt_bus_console_${now}`;
   const endpoint = {
     worker_id: targetWorkerId,
+    table_id: 'host',
     model_id: MGMT_BUS_CONSOLE_MODEL_ID,
     pin: 'submit',
   };
   const replyTarget = {
     worker_id: resolveUiServerWorkerId(),
+    table_id: 'host',
     model_id: MGMT_BUS_CONSOLE_MODEL_ID,
     pin: 'result',
   };
@@ -4554,12 +4762,15 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
         mtPayloadRecord('route_kind', 'str', 'management'),
         mtPayloadRecord('bus', 'str', 'management'),
         mtPayloadRecord('endpoint_worker_id', 'str', endpoint.worker_id),
+        mtPayloadRecord('endpoint_table_id', 'str', endpoint.table_id),
         mtPayloadRecord('endpoint_model_id', 'int', endpoint.model_id),
         mtPayloadRecord('endpoint_pin', 'str', endpoint.pin),
         mtPayloadRecord('origin_worker_id', 'str', resolveUiServerWorkerId()),
+        mtPayloadRecord('origin_table_id', 'str', 'host'),
         mtPayloadRecord('origin_model_id', 'int', MGMT_BUS_CONSOLE_MODEL_ID),
         mtPayloadRecord('origin_pin', 'str', 'submit'),
         mtPayloadRecord('reply_target_worker_id', 'str', replyTarget.worker_id),
+        mtPayloadRecord('reply_target_table_id', 'str', replyTarget.table_id),
         mtPayloadRecord('reply_target_model_id', 'int', replyTarget.model_id),
         mtPayloadRecord('reply_target_pin', 'str', replyTarget.pin),
         ...(principalKey ? [mtPayloadRecord('reply_target_principal_key', 'str', principalKey)] : []),
@@ -5141,6 +5352,36 @@ function shouldFilterPrincipalCell(modelIdText, cellKey, cell, principal) {
   return false;
 }
 
+function principalTableAccessIdentity(principal) {
+  const identity = principalIdentity(principal);
+  return identity ? identity.value : '';
+}
+
+function snapshotSubtableMount(snapshot, tableId) {
+  if (!snapshot || !tableId || tableId === 'host') return { found: true, owner: '' };
+  for (const model of Object.values(snapshot.models || {})) {
+    for (const cell of Object.values(model?.cells || {})) {
+      for (const label of Object.values(cell?.labels || {})) {
+        if (!label || label.t !== 'model.subtable' || !label.v || typeof label.v !== 'object') continue;
+        if (label.v.table_id !== tableId) continue;
+        return {
+          found: true,
+          owner: typeof label.v.owner_principal_id === 'string' ? label.v.owner_principal_id.trim() : '',
+        };
+      }
+    }
+  }
+  return { found: false, owner: '' };
+}
+
+function principalCanAccessSnapshotTable(snapshot, principal, tableId) {
+  if (tableId === 'host') return true;
+  const mount = snapshotSubtableMount(snapshot, tableId);
+  if (!mount.found) return false;
+  if (!mount.owner) return true;
+  return principalTableAccessIdentity(principal) === mount.owner;
+}
+
 function buildClientSnapshot(runtime) {
   const snap = runtime.snapshot();
   if (!snap || !snap.models) return snap;
@@ -5210,7 +5451,26 @@ function buildClientSnapshot(runtime) {
     }
     models[id] = { ...model, cells: filteredCells };
   }
-  return { models, v1nConfig: sanitizeClientSnapshotV1nConfig(snap.v1nConfig) };
+  const tables = {};
+  for (const [tableId, table] of Object.entries(snap.tables || {})) {
+    const tableModels = {};
+    for (const [id, model] of Object.entries(table?.models || {})) {
+      const filteredCells = {};
+      for (const [ck, cell] of Object.entries(model.cells || {})) {
+        const filteredLabels = buildClientSnapshotLabels(cell.labels || {});
+        filteredCells[ck] = { ...cell, labels: filteredLabels };
+      }
+      tableModels[id] = { ...model, cells: filteredCells };
+    }
+    if (Object.keys(tableModels).length > 0) {
+      tables[tableId] = { ...table, table_id: tableId, models: tableModels };
+    }
+  }
+  return {
+    models,
+    ...(Object.keys(tables).length > 0 ? { tables } : {}),
+    v1nConfig: sanitizeClientSnapshotV1nConfig(snap.v1nConfig),
+  };
 }
 
 function buildClientSnapshotForPrincipal(snapshot, principal = null) {
@@ -5237,7 +5497,37 @@ function buildClientSnapshotForPrincipal(snapshot, principal = null) {
     }
     models[id] = { ...model, cells: filteredCells };
   }
-  return { models, v1nConfig: sanitizeClientSnapshotV1nConfig(snapshot.v1nConfig) };
+  const tables = {};
+  for (const [tableId, table] of Object.entries(snapshot.tables || {})) {
+    if (!principalCanAccessSnapshotTable(snapshot, principal, tableId)) continue;
+    const tableModels = {};
+    for (const [id, model] of Object.entries(table?.models || {})) {
+      const filteredCells = {};
+      for (const [ck, cell] of Object.entries(model.cells || {})) {
+        if (shouldFilterPrincipalCell(id, ck, cell, principal)) continue;
+        const filteredLabels = {};
+        for (const [lk, lv] of Object.entries(cell.labels || {})) {
+          if (shouldFilterClientBaseLabel(lk, lv)) continue;
+          if (shouldFilterPrincipalLabel(lk, lv, principal)) continue;
+          const clientSafeValue = sanitizeClientVisibleValue(lv?.v);
+          if (clientSafeValue === undefined && lv && Object.prototype.hasOwnProperty.call(lv, 'v')) continue;
+          const sanitizedValue = sanitizePrincipalLabelValue(clientSafeValue, principal);
+          if (sanitizedValue === undefined) continue;
+          filteredLabels[lk] = sanitizedValue === lv?.v ? lv : { ...lv, v: sanitizedValue };
+        }
+        filteredCells[ck] = { ...cell, labels: filteredLabels };
+      }
+      tableModels[id] = { ...model, cells: filteredCells };
+    }
+    if (Object.keys(tableModels).length > 0) {
+      tables[tableId] = { ...table, table_id: tableId, models: tableModels };
+    }
+  }
+  return {
+    models,
+    ...(Object.keys(tables).length > 0 ? { tables } : {}),
+    v1nConfig: sanitizeClientSnapshotV1nConfig(snapshot.v1nConfig),
+  };
 }
 
 function readSnapshotRootLabels(snapshot, modelId) {
@@ -5248,12 +5538,11 @@ function bootstrapAllowedModelIds(snapshot) {
   void snapshot;
   return new Set([
     0,
+    EDITOR_MODEL_ID,
     EDITOR_STATE_MODEL_ID,
     DESKTOP_CATALOG_MODEL_ID,
     DESKTOP_FOREGROUND_SHELL_MODEL_ID,
     GALLERY_STATE_MODEL_ID,
-    DOCS_CATALOG_MODEL_ID,
-    GALLERY_CATALOG_MODEL_ID,
   ]);
 }
 
@@ -5282,6 +5571,17 @@ function cloneClientSnapshotModel(model, modelId) {
       next.cells = root ? { '0,0,0': root } : {};
     }
   }
+  if (modelId === EDITOR_MODEL_ID) {
+    const cell = next.cells && next.cells['0,0,1'];
+    if (cell && cell.labels) {
+      cell.labels = Object.fromEntries(
+        Object.entries(cell.labels).filter(([key]) => BOOTSTRAP_EDITOR_MAILBOX_LABEL_KEYS.has(key)),
+      );
+    }
+    if (next.cells) {
+      next.cells = cell ? { '0,0,1': cell } : {};
+    }
+  }
   if (modelId === GALLERY_STATE_MODEL_ID) {
     const root = next.cells && next.cells['0,0,0'];
     if (root && root.labels) {
@@ -5301,22 +5601,199 @@ function buildClientSnapshotProfile(snapshot, options = {}) {
   if (profile === 'full') {
     return { ...(snapshot || {}), v1nConfig: sanitizeClientSnapshotV1nConfig(snapshot?.v1nConfig) };
   }
-  const visibleModelIds = Array.isArray(options.visibleModelIds) ? options.visibleModelIds : [];
+  const visibleModelRefs = normalizeVisibleModelRefsFromOptions(options);
   const allowed = bootstrapAllowedModelIds(snapshot);
   const models = {};
+  const tables = {};
   for (const modelId of [...allowed].sort((a, b) => a - b)) {
     const model = snapshot?.models?.[String(modelId)];
     if (!model) continue;
     const cloned = cloneClientSnapshotModel(model, modelId);
     if (cloned) models[String(modelId)] = cloned;
   }
-  for (const modelId of visibleModelIds) {
-    if (!Number.isInteger(modelId)) continue;
-    const model = snapshot?.models?.[String(modelId)];
+  for (const ref of visibleModelRefs) {
+    const model = getSnapshotModelByRef(snapshot, ref);
     if (!model) continue;
-    models[String(modelId)] = cloneSnapshotJson(model);
+    if (ref.table_id === 'host') {
+      models[String(ref.model_id)] = cloneSnapshotJson(model);
+      continue;
+    }
+    if (!tables[ref.table_id]) {
+      tables[ref.table_id] = { table_id: ref.table_id, models: {} };
+    }
+    tables[ref.table_id].models[String(ref.model_id)] = cloneSnapshotJson(model);
   }
-  return { models, v1nConfig: sanitizeClientSnapshotV1nConfig(snapshot?.v1nConfig) };
+  const out = { models, v1nConfig: sanitizeClientSnapshotV1nConfig(snapshot?.v1nConfig) };
+  if (Object.keys(tables).length > 0) out.tables = tables;
+  return out;
+}
+
+function normalizeVisibleModelRef(value) {
+  if (Number.isInteger(value)) return { table_id: 'host', model_id: value };
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const tableId = typeof value.table_id === 'string' && value.table_id.trim()
+    ? value.table_id.trim()
+    : 'host';
+  if (!Number.isInteger(value.model_id)) return null;
+  return { table_id: tableId, model_id: value.model_id };
+}
+
+function normalizeVisibleModelRefsFromOptions(options = {}) {
+  const refs = [];
+  if (Array.isArray(options.visibleModelRefs)) {
+    for (const ref of options.visibleModelRefs) {
+      const normalized = normalizeVisibleModelRef(ref);
+      if (normalized) refs.push(normalized);
+    }
+  }
+  if (Array.isArray(options.visibleModelIds)) {
+    for (const modelId of options.visibleModelIds) {
+      if (Number.isInteger(modelId)) refs.push({ table_id: 'host', model_id: modelId });
+    }
+  }
+  const seen = new Set();
+  const out = [];
+  for (const ref of refs) {
+    const key = `${ref.table_id}|${ref.model_id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(ref);
+  }
+  out.sort((a, b) => a.table_id.localeCompare(b.table_id) || a.model_id - b.model_id);
+  return out;
+}
+
+function getSnapshotModelByRef(snapshot, ref) {
+  const normalized = normalizeVisibleModelRef(ref);
+  if (!normalized) return null;
+  if (normalized.table_id === 'host') {
+    return snapshot?.models?.[String(normalized.model_id)] || null;
+  }
+  return snapshot?.tables?.[normalized.table_id]?.models?.[String(normalized.model_id)] || null;
+}
+
+function snapshotModelEntries(snapshot) {
+  const entries = [];
+  for (const [modelKey, model] of Object.entries(snapshot?.models || {})) {
+    const modelId = normalizeStatsModelId(modelKey);
+    if (Number.isInteger(modelId)) {
+      entries.push({ table_id: 'host', model_id: modelId, key: `host|${modelId}`, modelKey, model });
+    }
+  }
+  for (const [tableId, table] of Object.entries(snapshot?.tables || {})) {
+    for (const [modelKey, model] of Object.entries(table?.models || {})) {
+      const modelId = normalizeStatsModelId(modelKey);
+      if (Number.isInteger(modelId)) {
+        entries.push({ table_id: tableId, model_id: modelId, key: `${tableId}|${modelId}`, modelKey, model });
+      }
+    }
+  }
+  entries.sort((a, b) => a.table_id.localeCompare(b.table_id) || a.model_id - b.model_id);
+  return entries;
+}
+
+function jsonByteLength(value) {
+  return Buffer.byteLength(JSON.stringify(value), 'utf8');
+}
+
+function normalizeStatsModelId(modelKey) {
+  return /^-?\d+$/u.test(String(modelKey)) ? Number.parseInt(String(modelKey), 10) : modelKey;
+}
+
+function parseStatsCellKey(cellKey) {
+  const parts = String(cellKey || '').split(',').map((part) => Number.parseInt(part, 10));
+  if (parts.length !== 3 || parts.some((part) => !Number.isInteger(part))) return { p: 0, r: 0, c: 0 };
+  return { p: parts[0], r: parts[1], c: parts[2] };
+}
+
+function countSnapshotLabels(snapshot) {
+  let count = 0;
+  for (const model of Object.values(snapshot?.models || {})) {
+    for (const cell of Object.values(model?.cells || {})) {
+      count += Object.keys(cell?.labels || {}).length;
+    }
+  }
+  for (const table of Object.values(snapshot?.tables || {})) {
+    for (const model of Object.values(table?.models || {})) {
+      for (const cell of Object.values(model?.cells || {})) {
+        count += Object.keys(cell?.labels || {}).length;
+      }
+    }
+  }
+  return count;
+}
+
+function buildClientSnapshotProfileStats(sourceSnapshot, profiledSnapshot, options = {}) {
+  const profile = options && typeof options.profile === 'string' ? options.profile : 'bootstrap';
+  const visibleModelIds = Array.isArray(options?.visibleModelIds) ? options.visibleModelIds.filter(Number.isInteger) : [];
+  const visibleModelRefs = normalizeVisibleModelRefsFromOptions(options);
+  const modelStats = [];
+  const cellStats = [];
+  const labelStats = [];
+  const profiledEntries = snapshotModelEntries(profiledSnapshot);
+  for (const { table_id: tableId, model_id: modelId, modelKey, model } of profiledEntries) {
+    modelStats.push({
+      table_id: tableId,
+      model_id: modelId,
+      bytes: jsonByteLength(model),
+      cell_count: Object.keys(model?.cells || {}).length,
+      label_count: countSnapshotLabels({ models: { [modelKey]: model } }),
+    });
+    for (const [cellKey, cell] of Object.entries(model?.cells || {})) {
+      const parsed = parseStatsCellKey(cellKey);
+      cellStats.push({
+        table_id: tableId,
+        model_id: modelId,
+        p: Number.isInteger(cell?.p) ? cell.p : parsed.p,
+        r: Number.isInteger(cell?.r) ? cell.r : parsed.r,
+        c: Number.isInteger(cell?.c) ? cell.c : parsed.c,
+        bytes: jsonByteLength(cell),
+        label_count: Object.keys(cell?.labels || {}).length,
+      });
+      for (const [labelKey, labelValue] of Object.entries(cell?.labels || {})) {
+        labelStats.push({
+          table_id: tableId,
+          model_id: modelId,
+          p: Number.isInteger(cell?.p) ? cell.p : parsed.p,
+          r: Number.isInteger(cell?.r) ? cell.r : parsed.r,
+          c: Number.isInteger(cell?.c) ? cell.c : parsed.c,
+          k: labelKey,
+          t: typeof labelValue?.t === 'string' ? labelValue.t : '',
+          bytes: jsonByteLength(labelValue),
+        });
+      }
+    }
+  }
+  modelStats.sort((a, b) => b.bytes - a.bytes || String(a.model_id).localeCompare(String(b.model_id)));
+  cellStats.sort((a, b) => b.bytes - a.bytes || String(a.model_id).localeCompare(String(b.model_id)) || a.p - b.p || a.r - b.r || a.c - b.c);
+  labelStats.sort((a, b) => b.bytes - a.bytes || String(a.model_id).localeCompare(String(b.model_id)) || a.p - b.p || a.r - b.r || a.c - b.c || a.k.localeCompare(b.k));
+
+  const sourceModelCount = snapshotModelEntries(sourceSnapshot).length;
+  const sourceLabelCount = countSnapshotLabels(sourceSnapshot);
+  const visibleModelCount = profiledEntries.length;
+  const visibleLabelCount = countSnapshotLabels(profiledSnapshot);
+  return {
+    profile,
+    visible_model_ids: visibleModelIds,
+    visible_model_refs: visibleModelRefs,
+    total_bytes: jsonByteLength(profiledSnapshot || {}),
+    model_count: visibleModelCount,
+    cell_count: cellStats.length,
+    label_count: visibleLabelCount,
+    dropped_model_count: Math.max(0, sourceModelCount - visibleModelCount),
+    dropped_label_count: Math.max(0, sourceLabelCount - visibleLabelCount),
+    models: modelStats,
+    cells: cellStats.slice(0, Number.isInteger(options?.topCellLimit) ? Math.max(0, options.topCellLimit) : 20),
+    top_labels: labelStats.slice(0, Number.isInteger(options?.topLabelLimit) ? Math.max(0, options.topLabelLimit) : 20),
+  };
+}
+
+function buildClientSnapshotProfileWithStats(snapshot, options = {}) {
+  const profiledSnapshot = buildClientSnapshotProfile(snapshot, options);
+  return {
+    snapshot: profiledSnapshot,
+    snapshot_stats: buildClientSnapshotProfileStats(snapshot, profiledSnapshot, options),
+  };
 }
 
 function cloneSnapshotJson(value) {
@@ -5345,19 +5822,24 @@ function buildClientSnapshotPatchOps(previousSnapshot, nextSnapshot) {
   if (!snapshotJsonEquals(prev.v1nConfig, next.v1nConfig)) {
     ops.push({ op: 'replace_v1n_config', value: cloneSnapshotJson(next.v1nConfig) });
   }
-  const prevModels = prev.models || {};
-  const nextModels = next.models || {};
-  const modelIds = new Set([...Object.keys(prevModels), ...Object.keys(nextModels)]);
-  for (const modelId of [...modelIds].sort()) {
-    const prevModel = prevModels[modelId];
-    const nextModel = nextModels[modelId];
-    const normalizedModelId = normalizeSnapshotModelId(modelId);
+  const prevModels = new Map(snapshotModelEntries(prev).map((entry) => [entry.key, entry]));
+  const nextModels = new Map(snapshotModelEntries(next).map((entry) => [entry.key, entry]));
+  const modelKeys = new Set([...prevModels.keys(), ...nextModels.keys()]);
+  for (const modelKey of [...modelKeys].sort()) {
+    const prevEntry = prevModels.get(modelKey);
+    const nextEntry = nextModels.get(modelKey);
+    const refEntry = nextEntry || prevEntry;
+    const tableId = refEntry.table_id;
+    const normalizedModelId = refEntry.model_id;
+    const withTableId = (op) => tableId === 'host' ? op : { table_id: tableId, ...op };
+    const prevModel = prevEntry && prevEntry.model;
+    const nextModel = nextEntry && nextEntry.model;
     if (!nextModel) {
-      ops.push({ op: 'delete_model', model_id: normalizedModelId });
+      ops.push(withTableId({ op: 'delete_model', model_id: normalizedModelId }));
       continue;
     }
     if (!prevModel) {
-      ops.push({ op: 'replace_model', model_id: normalizedModelId, value: cloneSnapshotJson(nextModel) });
+      ops.push(withTableId({ op: 'replace_model', model_id: normalizedModelId, value: cloneSnapshotJson(nextModel) }));
       continue;
     }
     const prevCells = prevModel.cells || {};
@@ -5367,11 +5849,11 @@ function buildClientSnapshotPatchOps(previousSnapshot, nextSnapshot) {
       const prevCell = prevCells[cellKey];
       const nextCell = nextCells[cellKey];
       if (!nextCell) {
-        ops.push({ op: 'delete_cell', model_id: normalizedModelId, cell_key: cellKey });
+        ops.push(withTableId({ op: 'delete_cell', model_id: normalizedModelId, cell_key: cellKey }));
         continue;
       }
       if (!prevCell) {
-        ops.push({ op: 'replace_cell', model_id: normalizedModelId, cell_key: cellKey, value: cloneSnapshotJson(nextCell) });
+        ops.push(withTableId({ op: 'replace_cell', model_id: normalizedModelId, cell_key: cellKey, value: cloneSnapshotJson(nextCell) }));
         continue;
       }
       const prevLabels = prevCell.labels || {};
@@ -5381,11 +5863,11 @@ function buildClientSnapshotPatchOps(previousSnapshot, nextSnapshot) {
         const prevLabel = prevLabels[labelKey];
         const nextLabel = nextLabels[labelKey];
         if (!nextLabel) {
-          ops.push({ op: 'delete_label', model_id: normalizedModelId, cell_key: cellKey, label_key: labelKey });
+          ops.push(withTableId({ op: 'delete_label', model_id: normalizedModelId, cell_key: cellKey, label_key: labelKey }));
           continue;
         }
         if (!prevLabel || !snapshotJsonEquals(prevLabel, nextLabel)) {
-          ops.push({ op: 'replace_label', model_id: normalizedModelId, cell_key: cellKey, label_key: labelKey, value: cloneSnapshotJson(nextLabel) });
+          ops.push(withTableId({ op: 'replace_label', model_id: normalizedModelId, cell_key: cellKey, label_key: labelKey, value: cloneSnapshotJson(nextLabel) }));
         }
       }
     }
@@ -5403,11 +5885,21 @@ function buildClientSnapshotPatchMessage({
   currentPrincipalKey = '',
   maxOps = 1000,
   maxPatchBytes = 32 * 1024,
+  snapshotProfile = '',
+  visibleModelIds = [],
+  visibleModelRefs = [],
 } = {}) {
   const normalizedNext = nextSnapshot && nextSnapshot.models ? nextSnapshot : { models: {}, v1nConfig: undefined };
   const normalizedSnapshotSeq = Number.isInteger(snapshotSeq) ? snapshotSeq : 0;
   const normalizedBaseSeq = Number.isInteger(baseSnapshotSeq) ? baseSnapshotSeq : 0;
   const normalizedOpId = typeof opId === 'string' ? opId : '';
+  const normalizedProfile = typeof snapshotProfile === 'string' && snapshotProfile.trim()
+    ? snapshotProfile.trim()
+    : '';
+  const normalizedVisibleModelIds = Array.isArray(visibleModelIds)
+    ? [...new Set(visibleModelIds.filter((modelId) => Number.isInteger(modelId)))].sort((a, b) => a - b)
+    : [];
+  const normalizedVisibleModelRefs = normalizeVisibleModelRefsFromOptions({ visibleModelIds: normalizedVisibleModelIds, visibleModelRefs });
   const resetData = {
     snapshot: cloneSnapshotJson(normalizedNext),
     snapshot_seq: normalizedSnapshotSeq,
@@ -5415,6 +5907,9 @@ function buildClientSnapshotPatchMessage({
     patch_kind: previousPrincipalKey && currentPrincipalKey && previousPrincipalKey !== currentPrincipalKey
       ? 'principal_reset'
       : 'reset',
+    ...(normalizedProfile ? { snapshot_profile: normalizedProfile } : {}),
+    ...(normalizedProfile ? { visible_model_ids: normalizedVisibleModelIds } : {}),
+    ...(normalizedProfile ? { visible_model_refs: normalizedVisibleModelRefs } : {}),
   };
   if (!previousSnapshot || !previousSnapshot.models || previousPrincipalKey !== currentPrincipalKey) {
     return { event: 'snapshot', data: resetData };
@@ -5428,6 +5923,9 @@ function buildClientSnapshotPatchMessage({
         base_snapshot_seq: normalizedBaseSeq,
         op_id: normalizedOpId,
         patch_kind: 'noop',
+        ...(normalizedProfile ? { snapshot_profile: normalizedProfile } : {}),
+        ...(normalizedProfile ? { visible_model_ids: normalizedVisibleModelIds } : {}),
+        ...(normalizedProfile ? { visible_model_refs: normalizedVisibleModelRefs } : {}),
       },
     };
   }
@@ -5448,6 +5946,9 @@ function buildClientSnapshotPatchMessage({
     base_snapshot_seq: normalizedBaseSeq,
     op_id: normalizedOpId,
     patch_stats: patchStats,
+    ...(normalizedProfile ? { snapshot_profile: normalizedProfile } : {}),
+    ...(normalizedProfile ? { visible_model_ids: normalizedVisibleModelIds } : {}),
+    ...(normalizedProfile ? { visible_model_refs: normalizedVisibleModelRefs } : {}),
   };
   if (ops.length > maxOps || patchStats.bytes > maxPatchBytes) {
     return {
@@ -5547,6 +6048,53 @@ function resolveWorkspaceSelection(apps, selectedValue, defaultSelected) {
   return defaultSelected;
 }
 
+function normalizeDesktopWorkspaceModelRef(value) {
+  if (!value || typeof value !== 'object' || !Number.isInteger(value.model_id)) return null;
+  const tableId = typeof value.table_id === 'string' && value.table_id.trim()
+    ? value.table_id.trim()
+    : 'host';
+  return { table_id: tableId, model_id: value.model_id };
+}
+
+function runtimeHasDesktopWorkspaceModel(runtime, app) {
+  const ref = normalizeDesktopWorkspaceModelRef(app);
+  if (!ref) return false;
+  return Boolean(runtime.getModel(ref));
+}
+
+function isValidDesktopAppForWorkspaceCatalog(runtime, app, validWorkspaceModelRefs) {
+  const normalized = normalizeDesktopForegroundApp(app);
+  if (!normalized) return false;
+  if (normalized.page !== 'workspace') return true;
+  if (!Number.isInteger(normalized.model_id)) return false;
+  const refKey = desktopAppRefKey(normalized);
+  if (!validWorkspaceModelRefs.has(refKey)) return false;
+  return runtimeHasDesktopWorkspaceModel(runtime, normalized);
+}
+
+function sanitizeDesktopWorkspaceAppState(runtime, apps) {
+  const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+  if (!stateModel) return;
+  const validWorkspaceModelRefs = new Set(
+    (Array.isArray(apps) ? apps : [])
+      .filter((app) => app && Number.isInteger(app.model_id) && runtimeHasDesktopWorkspaceModel(runtime, app))
+      .map((app) => desktopAppRefKey(app)),
+  );
+  const currentForeground = normalizeDesktopForegroundApp(
+    runtime.getLabelValue(stateModel, 0, 0, 0, DESKTOP_FOREGROUND_APP_LABEL),
+  );
+  if (currentForeground && !isValidDesktopAppForWorkspaceCatalog(runtime, currentForeground, validWorkspaceModelRefs)) {
+    overwriteStateLabel(runtime, DESKTOP_FOREGROUND_APP_LABEL, 'json', null);
+  }
+  const currentTaskStack = normalizeDesktopTaskStack(
+    runtime.getLabelValue(stateModel, 0, 0, 0, DESKTOP_TASK_STACK_LABEL),
+  );
+  const nextTaskStack = currentTaskStack.filter((task) => (
+    isValidDesktopAppForWorkspaceCatalog(runtime, task, validWorkspaceModelRefs)
+  ));
+  overwriteStateLabel(runtime, DESKTOP_TASK_STACK_LABEL, 'json', nextTaskStack);
+}
+
 function overwriteRuntimeLabel(runtime, modelId, p, r, c, key, t, v) {
   const model = runtime.getModel(modelId);
   if (!model) return;
@@ -5559,6 +6107,27 @@ function overwriteRuntimeLabel(runtime, modelId, p, r, c, key, t, v) {
     runtime.rmLabel(model, p, r, c, key);
   }
   runtime.addLabel(model, p, r, c, { k: key, t, v });
+}
+
+function withRuntimePersistenceDisabled(runtime, fn) {
+  const persister = runtime && runtime.persistence ? runtime.persistence : null;
+  const canToggle = persister && typeof persister.setEnabled === 'function';
+  if (!canToggle) return fn();
+  const previousEnabled = Boolean(persister.enabled);
+  persister.setEnabled(false);
+  let result;
+  try {
+    result = fn();
+  } catch (err) {
+    persister.setEnabled(previousEnabled);
+    throw err;
+  }
+  if (result && typeof result.then === 'function') {
+    persister.setEnabled(previousEnabled);
+    throw new Error('persistence_disabled_async_callback_forbidden');
+  }
+  persister.setEnabled(previousEnabled);
+  return result;
 }
 
 function readRuntimeCellLabel(runtime, modelId, p, r, c, key) {
@@ -5636,16 +6205,19 @@ function buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndp
   const routeKind = providerEndpoint.routeKind;
   const endpoint = {
     worker_id: row.provider_worker_id,
+    table_id: 'host',
     model_id: row.provider_model_id,
     pin: row.provider_bundle_pin,
   };
   const origin = {
     worker_id: resolveUiServerWorkerId(),
+    table_id: 'host',
     model_id: WORKSPACE_MANAGER_APP_MODEL_ID,
     pin: 'workspace_asset_install',
   };
   const replyTarget = {
     worker_id: resolveUiServerWorkerId(),
+    table_id: 'host',
     model_id: WORKSPACE_MANAGER_APP_MODEL_ID,
     pin: SLIDE_IMPORT_REPLY_PIN,
   };
@@ -5667,12 +6239,15 @@ function buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndp
     mtPayloadRecord('route_kind', 'str', routeKind),
     mtPayloadRecord('bus', 'str', routeKind),
     mtPayloadRecord('endpoint_worker_id', 'str', endpoint.worker_id),
+    mtPayloadRecord('endpoint_table_id', 'str', endpoint.table_id),
     mtPayloadRecord('endpoint_model_id', 'int', endpoint.model_id),
     mtPayloadRecord('endpoint_pin', 'str', endpoint.pin),
     mtPayloadRecord('origin_worker_id', 'str', origin.worker_id),
+    mtPayloadRecord('origin_table_id', 'str', origin.table_id),
     mtPayloadRecord('origin_model_id', 'int', origin.model_id),
     mtPayloadRecord('origin_pin', 'str', origin.pin),
     mtPayloadRecord('reply_target_worker_id', 'str', replyTarget.worker_id),
+    mtPayloadRecord('reply_target_table_id', 'str', replyTarget.table_id),
     mtPayloadRecord('reply_target_model_id', 'int', replyTarget.model_id),
     mtPayloadRecord('reply_target_pin', 'str', replyTarget.pin),
     ...(principalKey ? [mtPayloadRecord('reply_target_principal_key', 'str', principalKey)] : []),
@@ -7416,13 +7991,15 @@ class ProgramModelEngine {
       overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'last_installed_op_id', 'str', parsedEnvelope.opId);
       overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'last_installed_asset_id', 'str', assetId);
       overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'last_installed_model_id', 'int', imported.rootModelId);
+      overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'last_installed_table_id', 'str', imported.tableId);
       overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_pending', 'json', null);
       overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_error', 'json', null);
       const launchPayload = {
-        id: `workspace:${imported.rootModelId}`,
+        id: `workspace:${imported.tableId}:${imported.rootModelId}`,
         kind: 'workspace',
         page: 'workspace',
         path: '/workspace',
+        table_id: imported.tableId,
         model_id: imported.rootModelId,
         title: validation.metadata.appName,
       };
@@ -7434,7 +8011,7 @@ class ProgramModelEngine {
         0,
         'asset_install_status',
         'str',
-        `installed ${validation.metadata.appName} as model ${imported.rootModelId}`,
+        `installed ${validation.metadata.appName} as ${imported.tableId}/${imported.rootModelId}`,
       );
       overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_dialog_open', 'bool', true);
       overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_dialog_title', 'str', '安装完毕');
@@ -7446,11 +8023,9 @@ class ProgramModelEngine {
         0,
         'asset_install_dialog_text',
         'str',
-        `${validation.metadata.appName} 已安装为 model ${imported.rootModelId}。是否现在打开？`,
+        `${validation.metadata.appName} 已安装为 ${imported.tableId}/${imported.rootModelId}。是否现在打开？`,
       );
       overwriteRuntimeLabel(this.runtime, WORKSPACE_MANAGER_APP_MODEL_ID, 0, 0, 0, 'asset_install_dialog_target_json', 'json', launchPayload);
-      overwriteStateLabel(this.runtime, 'ws_app_selected', 'int', imported.rootModelId);
-      overwriteStateLabel(this.runtime, 'selected_model_id', 'str', String(imported.rootModelId));
       this._wsRefreshCatalog?.();
       emitTrace(this.runtime, {
         hop: 'provider-bundle→server',
@@ -7485,12 +8060,13 @@ class ProgramModelEngine {
     if (parsedEnvelope.replyTarget.worker_id !== uiServerWorkerId || parsedEnvelope.replyTarget.pin !== 'result') return false;
     const bundleResponse = this.handleWorkspaceAssetBundleResponse(parsedEnvelope, payload, topic);
     if (bundleResponse.matched) return bundleResponse.handled;
-    const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget.model_id, parsedEnvelope.nestedPayload, parsedEnvelope.opId);
+    const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget, parsedEnvelope.nestedPayload, parsedEnvelope.opId);
     if (!materialization) return false;
     emitTrace(this.runtime, {
       hop: 'mqtt\u2192server',
       direction: 'inbound',
       op_id: parsedEnvelope.opId,
+      table_id: parsedEnvelope.replyTarget.table_id,
       model_id: parsedEnvelope.replyTarget.model_id,
       summary: `control-bus response topic=${topic}`,
       payload,
@@ -7593,21 +8169,19 @@ class ProgramModelEngine {
 
   async routePinPayloadViaOwnerMaterialization(requestEnvelope) {
     const runtime = this.runtime;
-    const sysModel = runtime.getModel(-10);
-    if (!sysModel) return { ok: false, code: 'invalid_target', detail: 'missing_system_model' };
-
-    const requests = [];
-    const targetModelIds = new Set();
+    const hostRequests = [];
+    const appRequests = [];
+    const hostTargetModelIds = new Set();
+    const appTargetRefs = new Map();
     for (const record of requestEnvelope.records) {
       if (!record || typeof record !== 'object' || !Number.isInteger(record.model_id)) continue;
-      const targetModel = runtime.getModel(record.model_id);
-      if (!targetModel) continue;
-      const dbLabel = runtime.getCell(targetModel, 0, 0, 0).labels.get('dual_bus_model');
-      if (!dbLabel || !dbLabel.v || typeof dbLabel.v !== 'object') continue;
-
       if (record.op !== 'add_label' && record.op !== 'rm_label') {
         return { ok: false, code: 'unsupported_op', detail: String(record.op || 'unknown') };
       }
+      const tableId = record.table_id === undefined || record.table_id === null
+        ? 'host'
+        : (typeof record.table_id === 'string' && isSafePinRouteSegment(record.table_id) ? record.table_id : '');
+      if (!tableId) return { ok: false, code: 'invalid_target', detail: 'invalid_table_id' };
 
       const scopedLabel = {
         p: Number.isInteger(record.p) ? record.p : 0,
@@ -7617,62 +8191,103 @@ class ProgramModelEngine {
         t: record.t,
         v: record.v,
       };
-      requests.push({
+
+      if (tableId !== 'host') {
+        if (record.model_id < 0) return { ok: false, code: 'invalid_target', detail: 'app_table_negative_model_forbidden' };
+        const targetModel = runtime.getModel({ table_id: tableId, model_id: record.model_id });
+        if (!targetModel) return { ok: false, code: 'invalid_target', detail: `${tableId}:${record.model_id}` };
+        appRequests.push({ targetModel, record, scopedLabel, table_id: tableId, model_id: record.model_id });
+        appTargetRefs.set(`${tableId}:${record.model_id}`, { table_id: tableId, model_id: record.model_id });
+        continue;
+      }
+
+      const targetModel = runtime.getModel(record.model_id);
+      if (!targetModel) continue;
+      const dbLabel = runtime.getCell(targetModel, 0, 0, 0).labels.get('dual_bus_model');
+      if (!dbLabel || !dbLabel.v || typeof dbLabel.v !== 'object') continue;
+
+      hostRequests.push({
         target_model_id: record.model_id,
-        request_id: `${requestEnvelope.op_id || 'pin_payload'}:${requests.length + 1}`,
+        request_id: `${requestEnvelope.op_id || 'pin_payload'}:${hostRequests.length + 1}`,
         origin_action: 'pin_payload_result',
         write_labels: record.op === 'add_label' ? [scopedLabel] : [],
         remove_labels: record.op === 'rm_label' ? [{ p: scopedLabel.p, r: scopedLabel.r, c: scopedLabel.c, k: scopedLabel.k }] : [],
       });
-      targetModelIds.add(record.model_id);
+      hostTargetModelIds.add(record.model_id);
     }
 
-    if (requests.length === 0) {
+    if (hostRequests.length === 0 && appRequests.length === 0) {
       return { ok: false, code: 'no_dual_bus_target', detail: 'pin_payload_no_owner_route' };
     }
 
-    runtime.addLabel(sysModel, 0, 0, 0, { k: GENERIC_PIN_ERROR_LABEL, t: 'json', v: null });
-    for (const modelId of targetModelIds) {
-      const targetModel = runtime.getModel(modelId);
-      if (!targetModel) return { ok: false, code: 'invalid_target', detail: String(modelId) };
-      if (!ensureGenericOwnerMaterializer(runtime, modelId)) return { ok: false, code: 'target_owner_missing', detail: String(modelId) };
-      if (!ensureGenericOwnerRoute(runtime, modelId)) return { ok: false, code: 'route_missing', detail: String(modelId) };
-      runtime.rmLabel(targetModel, 0, 0, 0, `__error_${GENERIC_OWNER_FUNC}`);
-    }
+    if (hostRequests.length > 0) {
+      const sysModel = runtime.getModel(-10);
+      if (!sysModel) return { ok: false, code: 'invalid_target', detail: 'missing_system_model' };
 
-    for (const request of requests) {
-      runtime.addLabel(sysModel, 0, 0, 0, {
-        k: buildGenericSourceOutPin(request.target_model_id),
-        t: 'pin.out',
-        v: ownerRequestToTemporaryPayload(request, 'owner_request.v1'),
-      });
-    }
+      runtime.addLabel(sysModel, 0, 0, 0, { k: GENERIC_PIN_ERROR_LABEL, t: 'json', v: null });
+      for (const modelId of hostTargetModelIds) {
+        const targetModel = runtime.getModel(modelId);
+        if (!targetModel) return { ok: false, code: 'invalid_target', detail: String(modelId) };
+        if (!ensureGenericOwnerMaterializer(runtime, modelId)) return { ok: false, code: 'target_owner_missing', detail: String(modelId) };
+        if (!ensureGenericOwnerRoute(runtime, modelId)) return { ok: false, code: 'route_missing', detail: String(modelId) };
+        runtime.rmLabel(targetModel, 0, 0, 0, `__error_${GENERIC_OWNER_FUNC}`);
+      }
 
-    await sleepMs(25);
-    await this.tick();
+      for (const request of hostRequests) {
+        runtime.addLabel(sysModel, 0, 0, 0, {
+          k: buildGenericSourceOutPin(request.target_model_id),
+          t: 'pin.out',
+          v: ownerRequestToTemporaryPayload(request, 'owner_request.v1'),
+        });
+      }
 
-    const sourceErr = runtime.getLabelValue(sysModel, 0, 0, 0, GENERIC_PIN_ERROR_LABEL);
-    if (sourceErr && typeof sourceErr === 'object') {
-      return {
-        ok: false,
-        code: typeof sourceErr.code === 'string' ? sourceErr.code : 'source_pin_error',
-        detail: typeof sourceErr.detail === 'string' ? sourceErr.detail : 'unknown',
-      };
-    }
+      await sleepMs(25);
+      await this.tick();
 
-    for (const modelId of targetModelIds) {
-      const targetModel = runtime.getModel(modelId);
-      const errValue = targetModel ? runtime.getLabelValue(targetModel, 0, 0, 0, `__error_${GENERIC_OWNER_FUNC}`) : null;
-      if (errValue && typeof errValue === 'object') {
+      const sourceErr = runtime.getLabelValue(sysModel, 0, 0, 0, GENERIC_PIN_ERROR_LABEL);
+      if (sourceErr && typeof sourceErr === 'object') {
         return {
           ok: false,
-          code: 'target_materialization_failed',
-          detail: typeof errValue.error === 'string' ? errValue.error : 'unknown',
+          code: typeof sourceErr.code === 'string' ? sourceErr.code : 'source_pin_error',
+          detail: typeof sourceErr.detail === 'string' ? sourceErr.detail : 'unknown',
         };
+      }
+
+      for (const modelId of hostTargetModelIds) {
+        const targetModel = runtime.getModel(modelId);
+        const errValue = targetModel ? runtime.getLabelValue(targetModel, 0, 0, 0, `__error_${GENERIC_OWNER_FUNC}`) : null;
+        if (errValue && typeof errValue === 'object') {
+          return {
+            ok: false,
+            code: 'target_materialization_failed',
+            detail: typeof errValue.error === 'string' ? errValue.error : 'unknown',
+          };
+        }
       }
     }
 
-    return { ok: true, request_count: requests.length, target_models: [...targetModelIds] };
+    for (const request of appRequests) {
+      const { targetModel, record, scopedLabel } = request;
+      if (record.op === 'add_label') {
+        runtime.addLabel(targetModel, scopedLabel.p, scopedLabel.r, scopedLabel.c, {
+          k: scopedLabel.k,
+          t: scopedLabel.t,
+          v: scopedLabel.v,
+        });
+      } else {
+        runtime.rmLabel(targetModel, scopedLabel.p, scopedLabel.r, scopedLabel.c, scopedLabel.k);
+      }
+    }
+
+    return {
+      ok: true,
+      request_count: hostRequests.length + appRequests.length,
+      target_models: [...hostTargetModelIds],
+      target_refs: [
+        ...[...hostTargetModelIds].map((modelId) => ({ table_id: 'host', model_id: modelId })),
+        ...appTargetRefs.values(),
+      ],
+    };
   }
 
   handleDyBusEvent(content) {
@@ -7744,7 +8359,7 @@ class ProgramModelEngine {
       if (bundleResponse.matched) {
         return;
       }
-      const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget.model_id, parsedEnvelope.nestedPayload, opId);
+      const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget, parsedEnvelope.nestedPayload, opId);
       if (!materialization) {
         return;
       }
@@ -8059,7 +8674,9 @@ class ProgramModelEngine {
             return {
               ok: true,
               data: {
+                table_id: imported.tableId,
                 model_id: imported.rootModelId,
+                model_ref: imported.rootModelRef,
                 app_name: validation.metadata.appName,
                 from_user: validation.metadata.fromUser,
                 to_user: validation.metadata.toUser,
@@ -8110,8 +8727,10 @@ class ProgramModelEngine {
             return {
               ok: true,
               data: {
+                table_id: created.tableId,
                 model_id: created.rootModelId,
                 truth_model_id: created.rootModelId + 1,
+                model_ref: created.rootModelRef,
                 app_name: appName,
               },
             };
@@ -8200,7 +8819,7 @@ class ProgramModelEngine {
             }
             const runtimePersister = this.runtime && this.runtime.persistence ? this.runtime.persistence : null;
             if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
-              const stmt = runtimePersister.db.prepare('delete from mt_data where mt_id = ?');
+              const stmt = runtimePersister.db.prepare("delete from mt_data where table_id = 'host' and mt_id = ?");
               for (const modelIdToDelete of removed.modelIds) {
                 stmt.run(modelIdToDelete);
               }
@@ -9047,6 +9666,7 @@ function createServerState(options) {
   let persister = null;
   if (dbPath) {
     persister = createSqlitePersister({ dbPath });
+    if (typeof persister.setEnabled === 'function') persister.setEnabled(false);
     runtime.setPersistence(persister);
   }
 
@@ -9108,18 +9728,23 @@ function createServerState(options) {
   }
 
   if (dbPath && fs.existsSync(dbPath)) {
-    loadProgramModelFromSqlite({
+    const sqliteLoadResult = loadProgramModelFromSqlite({
       runtime,
       dbPath,
       includeModelId: (modelId) => Number.isInteger(modelId) && modelId >= 0,
-      includeRecord: ({ modelId, k }) => !(modelId === 0 && bootstrapGeneratedKeys.has(String(k || ''))),
+      includeRecord: ({ table_id: tableId, modelId, k }) => !(
+        tableId === 'host'
+        && modelId === 0
+        && bootstrapGeneratedKeys.has(String(k || ''))
+      ),
     });
-    if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(true);
-    reapplyAuthoritativePositiveSurface(runtime, { assetRoot, systemModelsDir });
-    if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(false);
+    if (sqliteLoadResult && sqliteLoadResult.rows > 0) {
+      withRuntimePersistenceDisabled(runtime, () => {
+        reapplyAuthoritativePositiveSurface(runtime, { assetRoot, systemModelsDir });
+      });
+    }
   }
   materializeDeclaredHostEgressAdapters(runtime);
-  if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(true);
   runtime.setRuntimeMode('edit');
 
   ensureStateLabel(runtime, 'selected_model_id', 'str', '0');
@@ -9234,6 +9859,27 @@ function createServerState(options) {
       snapshot: runtime.snapshot(),
       getParentInfo: (modelId) => runtime.parentChildMap.get(modelId),
     });
+  };
+
+  const currentWorkspaceRegistryForDesktopState = () => {
+    const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+    if (!stateModel) return deriveWorkspaceRegistry();
+    const appsRaw = runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_apps_registry');
+    return Array.isArray(appsRaw) ? appsRaw : deriveWorkspaceRegistry();
+  };
+
+  const isValidDesktopAppForCurrentCatalog = (app) => {
+    const apps = currentWorkspaceRegistryForDesktopState();
+    const validWorkspaceModelRefs = new Set(
+      (Array.isArray(apps) ? apps : [])
+        .filter((entry) => entry && Number.isInteger(entry.model_id) && runtimeHasDesktopWorkspaceModel(runtime, entry))
+        .map((entry) => desktopAppRefKey(entry)),
+    );
+    return isValidDesktopAppForWorkspaceCatalog(runtime, app, validWorkspaceModelRefs);
+  };
+
+  const sanitizeDesktopWorkspaceAppStateFromCurrentCatalog = () => {
+    sanitizeDesktopWorkspaceAppState(runtime, currentWorkspaceRegistryForDesktopState());
   };
 
   const normalizeIntState = (value, fallback) => {
@@ -9367,7 +10013,13 @@ function createServerState(options) {
     return projection;
   };
 
-  const refreshMgmtBusConsoleChannels = async (matrixSession = undefined) => {
+  const refreshMgmtBusConsoleChannels = async (matrixSession = undefined, options = {}) => {
+    const syncAfterChannelRefresh = () => {
+      if (options && options.suppressPersistence === true) {
+        return withRuntimePersistenceDisabled(runtime, () => syncMatrixDebugDerivedState());
+      }
+      return syncMatrixDebugDerivedState();
+    };
     const hasExplicitSession = matrixSession !== undefined;
     const sessionResult = hasExplicitSession
       ? (
@@ -9400,7 +10052,7 @@ function createServerState(options) {
         status: 'error',
         text: `drop Matrix channels unavailable: ${sessionResult.detail || sessionResult.code}`,
       };
-      syncMatrixDebugDerivedState();
+      syncAfterChannelRefresh();
       return { ok: false, code: sessionResult.code, detail: sessionResult.detail, rooms: [] };
     }
     try {
@@ -9415,7 +10067,7 @@ function createServerState(options) {
         status: 'ready',
         text: `drop Matrix channels=${rooms.length}`,
       };
-      syncMatrixDebugDerivedState();
+      syncAfterChannelRefresh();
       return { ok: true, rooms };
     } catch (err) {
       const detail = err && err.message ? err.message : String(err);
@@ -9424,7 +10076,7 @@ function createServerState(options) {
         status: 'error',
         text: `drop Matrix channels unavailable: ${detail}`,
       };
-      syncMatrixDebugDerivedState();
+      syncAfterChannelRefresh();
       return { ok: false, code: 'matrix_joined_rooms_failed', detail, rooms: [] };
     }
   };
@@ -9446,6 +10098,7 @@ function createServerState(options) {
     const apps = deriveWorkspaceRegistry();
     const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
     overwriteStateLabel(runtime, 'ws_apps_registry', 'json', apps);
+    sanitizeDesktopWorkspaceAppState(runtime, apps);
 
     const defaultSelected = resolveDefaultAppId(runtime, apps);
     const foregroundWorkspaceModelId = readDesktopForegroundWorkspaceModelId(buildClientSnapshot(runtime));
@@ -9521,6 +10174,10 @@ function createServerState(options) {
   const reconcileDesktopTaskStackFromEnvelope = (envelope) => {
     const foregroundApp = readDesktopForegroundFromEnvelope(envelope);
     if (!foregroundApp) return;
+    if (!isValidDesktopAppForCurrentCatalog(foregroundApp)) {
+      sanitizeDesktopWorkspaceAppStateFromCurrentCatalog();
+      return;
+    }
     const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
     const currentStack = runtime.getLabelValue(stateModel, 0, 0, 0, DESKTOP_TASK_STACK_LABEL);
     overwriteStateLabel(runtime, DESKTOP_TASK_STACK_LABEL, 'json', deriveDesktopTaskStack(currentStack, foregroundApp));
@@ -9789,36 +10446,47 @@ function createServerState(options) {
   syncDerivedPageState({ scope: 'full' });
   refreshStartupCatalogState();
   runtime.setRuntimeMode('edit');
+  if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(true);
 
   const clearAndRefreshAfterRuntimeBoot = async () => {
-    try {
-      const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
-      if (stateModel) {
-        // Ensure file-backed catalogs are treated as "source of truth"
-        // even if runtime persistence contains legacy data.
-        const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
-        overwriteStateLabel(runtime, 'docs_tree_json', 'json', buildDocsTree(files));
-        overwriteStateLabel(runtime, 'docs_status', 'str', `docs indexed: ${files.length}`);
-        overwriteStateLabel(runtime, 'static_projects_json', 'json', listStaticProjects());
-        overwriteStateLabel(runtime, 'static_status', 'str', '');
+    withRuntimePersistenceDisabled(runtime, () => {
+      try {
+        const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
+        if (stateModel) {
+          // Ensure file-backed catalogs are treated as "source of truth"
+          // even if runtime persistence contains legacy data.
+          const files = listMarkdownFiles(DOCS_ROOT, isAllowedDocRelPath);
+          overwriteStateLabel(runtime, 'docs_tree_json', 'json', buildDocsTree(files));
+          overwriteStateLabel(runtime, 'docs_status', 'str', `docs indexed: ${files.length}`);
+          overwriteStateLabel(runtime, 'static_projects_json', 'json', listStaticProjects());
+          overwriteStateLabel(runtime, 'static_status', 'str', '');
+        }
+      } catch (_) {
+        overwriteStateLabel(runtime, 'static_status', 'str', 'static list failed');
       }
-    } catch (_) {
-      overwriteStateLabel(runtime, 'static_status', 'str', 'static list failed');
-    }
+    });
     try {
-      await refreshMgmtBusConsoleChannels();
-      refreshWorkspaceStateCatalog();
-      reconcileWorkspaceSelectionState();
-      syncDerivedPageState({ scope: 'full' });
+      await refreshMgmtBusConsoleChannels(undefined, { suppressPersistence: true });
+      withRuntimePersistenceDisabled(runtime, () => {
+        refreshWorkspaceStateCatalog();
+        reconcileWorkspaceSelectionState();
+        syncDerivedPageState({ scope: 'full' });
+      });
     } catch (_) {
-      overwriteStateLabel(runtime, 'static_status', 'str', 'workspace catalog refresh failed');
+      withRuntimePersistenceDisabled(runtime, () => {
+        overwriteStateLabel(runtime, 'static_status', 'str', 'workspace catalog refresh failed');
+      });
     }
     try {
       const availability = await probeLlmPromptAvailability(runtime);
-      overwriteLlmPromptAvailabilityState(runtime, availability);
+      withRuntimePersistenceDisabled(runtime, () => {
+        overwriteLlmPromptAvailabilityState(runtime, availability);
+      });
     } catch (_) {
-      overwriteStateLabel(runtime, 'llm_prompt_available', 'bool', false);
-      overwriteStateLabel(runtime, 'llm_prompt_notice', 'str', '当前暂不可用：LLM 服务检测失败。');
+      withRuntimePersistenceDisabled(runtime, () => {
+        overwriteStateLabel(runtime, 'llm_prompt_available', 'bool', false);
+        overwriteStateLabel(runtime, 'llm_prompt_notice', 'str', '当前暂不可用：LLM 服务检测失败。');
+      });
     }
   };
 
@@ -9883,7 +10551,9 @@ function createServerState(options) {
         return {
           ok: true,
           data: {
+            table_id: imported.tableId,
             model_id: imported.rootModelId,
+            model_ref: imported.rootModelRef,
             app_name: validation.metadata.appName,
             from_user: validation.metadata.fromUser,
             to_user: validation.metadata.toUser,
@@ -9921,14 +10591,16 @@ function createServerState(options) {
         const validation = validateSlideImportPayload(payload);
         if (!validation.ok) return validation;
         const created = materializeSlideImportPayload(runtime, payload, validation);
-        return {
-          ok: true,
-          data: {
-            model_id: created.rootModelId,
-            truth_model_id: created.rootModelId + 1,
-            app_name: appName,
-          },
-        };
+            return {
+              ok: true,
+              data: {
+                table_id: created.tableId,
+                model_id: created.rootModelId,
+                truth_model_id: created.rootModelId + 1,
+                model_ref: created.rootModelRef,
+                app_name: appName,
+              },
+            };
       } catch (err) {
         return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
       }
@@ -10006,7 +10678,7 @@ function createServerState(options) {
         }
         const runtimePersister = runtime && runtime.persistence ? runtime.persistence : null;
         if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
-          const stmt = runtimePersister.db.prepare('delete from mt_data where mt_id = ?');
+          const stmt = runtimePersister.db.prepare("delete from mt_data where table_id = 'host' and mt_id = ?");
           for (const modelIdToDelete of removed.modelIds) {
             stmt.run(modelIdToDelete);
           }
@@ -10215,7 +10887,7 @@ function createServerState(options) {
   }
 
   programEngineReady.then(() => {
-    updateDerived({ scope: 'full' });
+    withRuntimePersistenceDisabled(runtime, () => updateDerived({ scope: 'full' }));
     if (typeof programEngine.onSnapshotChanged === 'function') {
       programEngine.onSnapshotChanged();
     }
@@ -10227,6 +10899,7 @@ function createServerState(options) {
 
   function clientSnap() {
     recoverModel100StaleInflight();
+    sanitizeDesktopWorkspaceAppStateFromCurrentCatalog();
     syncMatrixDebugDerivedState();
     return buildClientSnapshot(runtime);
   }
@@ -11030,16 +11703,76 @@ function createServerState(options) {
         ? value.model_id
         : (typeof value.model_id === 'string' && /^-?\d+$/.test(value.model_id.trim()) ? Number(value.model_id.trim()) : null);
       if (!Number.isInteger(modelId)) return null;
+      const tableId = typeof value.table_id === 'string' && value.table_id.trim()
+        ? value.table_id.trim()
+        : 'host';
       const title = typeof value.title === 'string' && value.title.trim() ? value.title.trim() : `App ${modelId}`;
-      return { model_id: modelId, title };
+      return { table_id: tableId, model_id: modelId, title };
     };
 
-    const deleteWorkspaceAppById = (targetId) => {
+    const deleteWorkspaceAppTable = (tableId) => {
+      if (typeof tableId !== 'string' || !tableId.trim() || tableId === 'host') {
+        return { ok: false, code: 'invalid_target', detail: 'invalid_table_id' };
+      }
+      const normalizedTableId = tableId.trim();
+      const tableModels = runtime.modelTables instanceof Map ? runtime.modelTables.get(normalizedTableId) : null;
+      if (!tableModels) return { ok: false, code: 'invalid_target', detail: 'table_not_found' };
+      const removedModelRefs = Array.from(tableModels.keys()).map((modelId) => ({ table_id: normalizedTableId, model_id: modelId }));
+      const routePrefix = `${normalizedTableId}|`;
+      if (runtime.cellConnectGraph instanceof Map) {
+        for (const key of Array.from(runtime.cellConnectGraph.keys())) {
+          if (String(key).startsWith(routePrefix)) runtime.cellConnectGraph.delete(key);
+        }
+      }
+      if (runtime.cellConnectionRoutes instanceof Map) {
+        for (const key of Array.from(runtime.cellConnectionRoutes.keys())) {
+          if (String(key).startsWith(routePrefix)) runtime.cellConnectionRoutes.delete(key);
+        }
+      }
+      runtime.modelTables.delete(normalizedTableId);
+      if (runtime.subtableMounts instanceof Map) runtime.subtableMounts.delete(normalizedTableId);
+      const model0 = runtime.getModel(0);
+      if (model0) {
+        for (const cell of model0.cells.values()) {
+          const mountLabel = Array.from(cell.labels.values()).find((label) => (
+            label && label.t === 'model.subtable' && label.v && label.v.table_id === normalizedTableId
+          ));
+          if (!mountLabel) continue;
+          for (const key of Array.from(cell.labels.keys())) {
+            runtime.rmLabel(model0, cell.p, cell.r, cell.c, key);
+          }
+          if (runtime.subtableMountsByHostCell instanceof Map) {
+            runtime.subtableMountsByHostCell.delete(runtime._subtableHostCellKey(model0, cell.p, cell.r, cell.c));
+          }
+        }
+      }
+      const runtimePersister = runtime && runtime.persistence ? runtime.persistence : null;
+      if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
+        runtimePersister.db.prepare('delete from mt_data where table_id = ?').run(normalizedTableId);
+      }
+      return { ok: true, removed_model_refs: removedModelRefs };
+    };
+
+    const deleteWorkspaceAppByRef = (target) => {
+      if (!target || typeof target !== 'object') return { ok: false, code: 'invalid_target', detail: 'invalid_model_ref' };
+      const tableId = typeof target.table_id === 'string' && target.table_id.trim() ? target.table_id.trim() : 'host';
+      const targetId = target.model_id;
       if (!Number.isInteger(targetId)) return { ok: false, code: 'invalid_target', detail: 'invalid_model_id' };
+      if (tableId !== 'host') {
+        const targetModel = runtime.getModel({ table_id: tableId, model_id: targetId });
+        if (!targetModel) return { ok: false, code: 'invalid_target', detail: 'model_not_found' };
+        const rootCell = targetModel.getCell(0, 0, 0);
+        const deletable = rootCell.labels.get('deletable');
+        const slideCapable = rootCell.labels.get('slide_capable');
+        if (!deletable || deletable.v !== true || !slideCapable || slideCapable.v !== true) {
+          return { ok: false, code: 'protected_model', detail: 'protected_model' };
+        }
+        return deleteWorkspaceAppTable(tableId);
+      }
       if (BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(targetId) || targetId < 100) {
         return { ok: false, code: 'protected_model', detail: 'protected_model' };
       }
-      const targetModel = runtime.getModel(targetId);
+      const targetModel = runtime.getModel({ table_id: tableId, model_id: targetId });
       if (!targetModel) return { ok: false, code: 'invalid_target', detail: 'model_not_found' };
       const rootCell = targetModel.getCell(0, 0, 0);
       const deletable = rootCell.labels.get('deletable');
@@ -11059,7 +11792,7 @@ function createServerState(options) {
         }
         const runtimePersister = runtime && runtime.persistence ? runtime.persistence : null;
         if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
-          const stmt = runtimePersister.db.prepare('delete from mt_data where mt_id = ?');
+          const stmt = runtimePersister.db.prepare("delete from mt_data where table_id = 'host' and mt_id = ?");
           for (const modelIdToDelete of removed.modelIds) stmt.run(modelIdToDelete);
         }
         return { ok: true, removed_model_ids: removed.modelIds };
@@ -11081,10 +11814,10 @@ function createServerState(options) {
       if (action === 'desktop_app_request_delete') {
         const targetInfo = normalizeDesktopDeleteTarget(payload && Object.prototype.hasOwnProperty.call(payload, 'value') ? payload.value : null);
         if (!targetInfo) return finishError('invalid_target', 'desktop_delete_target_required');
-        const targetModel = runtime.getModel(targetInfo.model_id);
+        const targetModel = runtime.getModel({ table_id: targetInfo.table_id, model_id: targetInfo.model_id });
         const rootCell = targetModel ? targetModel.getCell(0, 0, 0) : null;
         const deletable = rootCell ? rootCell.labels.get('deletable') : null;
-        if (!targetModel || !deletable || deletable.v !== true || BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(targetInfo.model_id)) {
+        if (!targetModel || !deletable || deletable.v !== true || (targetInfo.table_id === 'host' && BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(targetInfo.model_id))) {
           return finishError('protected_model', 'protected_model');
         }
         overwriteStateLabel(runtime, 'desktop_delete_confirm_title', 'str', '删除滑动 App？');
@@ -11097,7 +11830,7 @@ function createServerState(options) {
       if (action === 'desktop_app_confirm_delete') {
         const targetInfo = normalizeDesktopDeleteTarget(readStateValue(DESKTOP_DELETE_CONFIRM_TARGET_LABEL));
         if (!targetInfo) return finishError('invalid_target', 'desktop_delete_target_required');
-        const removed = deleteWorkspaceAppById(targetInfo.model_id);
+        const removed = deleteWorkspaceAppByRef(targetInfo);
         if (!removed.ok) return finishError(removed.code || 'invalid_target', removed.detail || 'delete_failed');
         overwriteStateLabel(runtime, DESKTOP_DELETE_CONFIRM_OPEN_LABEL, 'bool', false);
         overwriteStateLabel(runtime, DESKTOP_DELETE_CONFIRM_TARGET_LABEL, 'json', null);
@@ -11106,11 +11839,17 @@ function createServerState(options) {
         overwriteStateLabel(runtime, 'desktop_delete_result_text', 'str', `已删除 ${targetInfo.title}。`);
         overwriteStateLabel(runtime, DESKTOP_APP_MANAGE_MODE_LABEL, 'bool', false);
         const foreground = normalizeDesktopForegroundApp(readStateValue(DESKTOP_FOREGROUND_APP_LABEL));
-        if (foreground && foreground.model_id === targetInfo.model_id) {
+        if (foreground && desktopAppRefKey(foreground) === desktopAppRefKey(targetInfo)) {
           overwriteStateLabel(runtime, DESKTOP_FOREGROUND_APP_LABEL, 'json', null);
         }
         refreshWorkspaceStateCatalog();
-        return finishOk({ routed_by: 'desktop_app_delete_confirm', model_id: targetInfo.model_id, removed_model_ids: removed.removed_model_ids });
+        return finishOk({
+          routed_by: 'desktop_app_delete_confirm',
+          table_id: targetInfo.table_id,
+          model_id: targetInfo.model_id,
+          removed_model_ids: removed.removed_model_ids,
+          removed_model_refs: removed.removed_model_refs,
+        });
       }
       return finishError('unknown_action', action);
     };
@@ -11655,6 +12394,12 @@ function createServerState(options) {
       return fail('unknown_action', action);
     }
 
+    const requestedDesktopForeground = readDesktopForegroundFromEnvelope(envelope);
+    if (requestedDesktopForeground && !isValidDesktopAppForCurrentCatalog(requestedDesktopForeground)) {
+      sanitizeDesktopWorkspaceAppStateFromCurrentCatalog();
+      return finishError('invalid_desktop_app', `workspace_model_unavailable:${requestedDesktopForeground.model_id}`);
+    }
+
     const forceHomeSelectionReset = shouldResetHomeSelectionFromEnvelope(envelope);
     const result = adapter.consumeOnce();
     if (forceHomeSelectionReset) {
@@ -11676,8 +12421,10 @@ function createServerState(options) {
     }
   }
 
-  setMailboxEnvelope(runtime, null);
-  updateDerived({ scope: 'full' });
+  withRuntimePersistenceDisabled(runtime, () => {
+    setMailboxEnvelope(runtime, null);
+    updateDerived({ scope: 'full' });
+  });
 
   async function applyModelTablePatch(patchOrPatches, options = {}) {
     const patches = Array.isArray(patchOrPatches) ? patchOrPatches : [patchOrPatches];
@@ -11909,6 +12656,12 @@ function startServer(options) {
     return `${identity}:${caps.length > 0 ? caps.join('|') : 'guest'}`;
   }
 
+  function snapshotBaselinePrincipalKey(entry) {
+    if (entry && entry.principal) return clientSnapshotCacheKey(entry.principal);
+    if (entry && entry.principalKey) return String(entry.principalKey);
+    return 'guest';
+  }
+
   function getClientSnapForRuntime(entry) {
     const runtimeState = entry && entry.state ? entry.state : state;
     const principal = entry && entry.principal ? entry.principal : null;
@@ -11954,13 +12707,34 @@ function startServer(options) {
     if (!visibleModelIdsForClient(runtimeEntry).has(modelId)) {
       return snapshotProfileError(403, 'model_not_visible');
     }
-    return { ok: true, modelId };
+    return { ok: true, modelId, modelRef: { table_id: 'host', model_id: modelId } };
   }
 
-  function visibleModelIdsForClient(runtimeEntry) {
+  function visibleModelRefKey(ref) {
+    const normalized = normalizeVisibleModelRef(ref);
+    return normalized ? `${normalized.table_id}|${normalized.model_id}` : '';
+  }
+
+  function principalIdentityForTableAccess(principal) {
+    return principal && (principal.subject || principal.userId || principal.email || principal.username)
+      ? String(principal.subject || principal.userId || principal.email || principal.username)
+      : '';
+  }
+
+  function principalCanAccessTable(runtime, principal, tableId) {
+    if (tableId === 'host') return true;
+    const mount = runtime && runtime.subtableMounts instanceof Map ? runtime.subtableMounts.get(tableId) : null;
+    if (!mount) return false;
+    const owner = mount && typeof mount.owner_principal_id === 'string' ? mount.owner_principal_id.trim() : '';
+    if (!owner) return true;
+    return principalIdentityForTableAccess(principal) === owner;
+  }
+
+  function visibleModelRefsForClient(runtimeEntry) {
     const runtimeState = runtimeEntry && runtimeEntry.state ? runtimeEntry.state : state;
     const runtime = runtimeState && runtimeState.runtime ? runtimeState.runtime : null;
-    const out = new Set();
+    const principal = runtimeEntry && runtimeEntry.principal ? runtimeEntry.principal : null;
+    const out = new Map();
     const registry = runtime
       ? deriveWorkspaceRegistryFromSnapshot({
         snapshot: runtime.snapshot(),
@@ -11968,9 +12742,73 @@ function startServer(options) {
       })
       : [];
     for (const entry of registry) {
-      if (entry && Number.isInteger(entry.model_id) && entry.model_id > 0) out.add(entry.model_id);
+      if (!entry || !Number.isInteger(entry.model_id)) continue;
+      const tableId = typeof entry.table_id === 'string' && entry.table_id.trim()
+        ? entry.table_id.trim()
+        : 'host';
+      if (!principalCanAccessTable(runtime, principal, tableId)) continue;
+      if (tableId === 'host' && entry.model_id <= 0) continue;
+      if (tableId !== 'host' && entry.model_id < 0) continue;
+      const ref = { table_id: tableId, model_id: entry.model_id };
+      if (!runtime.getModel(ref)) continue;
+      out.set(visibleModelRefKey(ref), ref);
+    }
+    for (const modelId of BUILTIN_WORKSPACE_APP_MODEL_IDS) {
+      if (Number.isInteger(modelId) && modelId < 0 && runtime.getModel(modelId)) {
+        const ref = { table_id: 'host', model_id: modelId };
+        out.set(visibleModelRefKey(ref), ref);
+      }
+    }
+    const snap = runtime ? runtime.snapshot() : null;
+    for (const [tableId, table] of Object.entries(snap?.tables || {})) {
+      if (!principalCanAccessTable(runtime, principal, tableId)) continue;
+      for (const modelKey of Object.keys(table?.models || {})) {
+        const modelId = Number.parseInt(modelKey, 10);
+        if (!Number.isInteger(modelId)) continue;
+        const ref = { table_id: tableId, model_id: modelId };
+        out.set(visibleModelRefKey(ref), ref);
+      }
     }
     return out;
+  }
+
+  function visibleModelIdsForClient(runtimeEntry) {
+    return new Set([...visibleModelRefsForClient(runtimeEntry).values()]
+      .filter((ref) => ref.table_id === 'host')
+      .map((ref) => ref.model_id));
+  }
+
+  function parseVisibleModelRefParam(rawValue) {
+    const text = String(rawValue || '').trim();
+    if (!text) return null;
+    if (/^-?\d+$/u.test(text)) {
+      return { table_id: 'host', model_id: Number.parseInt(text, 10) };
+    }
+    try {
+      return normalizeVisibleModelRef(JSON.parse(text));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function validateVisibleModelRef(rawValue, runtimeEntry) {
+    const ref = parseVisibleModelRefParam(rawValue);
+    if (!ref || !Number.isSafeInteger(ref.model_id)) {
+      return snapshotProfileError(400, 'invalid_model_ref');
+    }
+    if (ref.table_id === 'host') {
+      return validateVisibleModelId(String(ref.model_id), runtimeEntry);
+    }
+    const runtimeState = runtimeEntry && runtimeEntry.state ? runtimeEntry.state : state;
+    const runtime = runtimeState && runtimeState.runtime ? runtimeState.runtime : null;
+    if (!runtime || !runtime.getModel(ref)) {
+      return snapshotProfileError(404, 'model_not_found');
+    }
+    const visibleRefs = visibleModelRefsForClient(runtimeEntry);
+    if (!visibleRefs.has(visibleModelRefKey(ref))) {
+      return snapshotProfileError(403, 'model_not_visible');
+    }
+    return { ok: true, modelId: ref.model_id, modelRef: ref };
   }
 
   function resolveSnapshotProfileOptions(searchParams, runtimeEntry) {
@@ -11980,25 +12818,38 @@ function startServer(options) {
       return snapshotProfileError(400, 'invalid_snapshot_profile');
     }
     if (profile === 'full') {
-      return { ok: true, options: { profile: 'full', visibleModelIds: [] } };
+      return { ok: true, options: { profile: 'full', visibleModelIds: [], visibleModelRefs: [] } };
     }
 
+    const rawVisibleRefs = [...searchParams.getAll('visible_model_ref'), ...searchParams.getAll('model_ref')];
     const rawVisibleIds = profile === 'visible'
       ? [...searchParams.getAll('model_id'), ...searchParams.getAll('visible_model_id')]
       : searchParams.getAll('visible_model_id');
-    if (profile === 'visible' && rawVisibleIds.length === 0) {
+    if (profile === 'visible' && rawVisibleIds.length === 0 && rawVisibleRefs.length === 0) {
       return snapshotProfileError(400, 'missing_model_id');
     }
     const visibleModelIds = [];
+    const visibleModelRefs = [];
     const seen = new Set();
+    for (const rawValue of rawVisibleRefs) {
+      const validated = validateVisibleModelRef(rawValue, runtimeEntry);
+      if (!validated.ok) return validated;
+      const key = visibleModelRefKey(validated.modelRef);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      visibleModelRefs.push(validated.modelRef);
+      if (validated.modelRef.table_id === 'host') visibleModelIds.push(validated.modelRef.model_id);
+    }
     for (const rawValue of rawVisibleIds) {
       const validated = validateVisibleModelId(rawValue, runtimeEntry);
       if (!validated.ok) return validated;
-      if (seen.has(validated.modelId)) continue;
-      seen.add(validated.modelId);
+      const key = visibleModelRefKey(validated.modelRef);
+      if (seen.has(key)) continue;
+      seen.add(key);
       visibleModelIds.push(validated.modelId);
+      visibleModelRefs.push(validated.modelRef);
     }
-    return { ok: true, options: { profile: profile === 'visible' ? 'visible' : 'bootstrap', visibleModelIds } };
+    return { ok: true, options: { profile: profile === 'visible' ? 'visible' : 'bootstrap', visibleModelIds, visibleModelRefs } };
   }
 
   function getProfiledClientSnapForRuntime(entry, profileOptions = {}) {
@@ -12019,7 +12870,7 @@ function startServer(options) {
     if (!client) return;
     client.lastSnapshot = cloneSnapshotJson(snap);
     client.lastSnapshotSeq = seq;
-    client.principalKey = entry && entry.principalKey ? entry.principalKey : 'guest';
+    client.principalKey = snapshotBaselinePrincipalKey(entry);
   }
 
   function sendSnapshot(res, entry, client = null, patchKind = 'snapshot') {
@@ -12033,6 +12884,7 @@ function startServer(options) {
       patch_kind: patchKind,
       snapshot_profile: profileOptions.profile || 'bootstrap',
       visible_model_ids: Array.isArray(profileOptions.visibleModelIds) ? profileOptions.visibleModelIds : [],
+      visible_model_refs: normalizeVisibleModelRefsFromOptions(profileOptions),
     };
     res.write(`event: snapshot\n`);
     res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -12043,7 +12895,7 @@ function startServer(options) {
     const runtimeState = entry && entry.state ? entry.state : state;
     const profileOptions = client && client.snapshotProfileOptions ? client.snapshotProfileOptions : { profile: 'bootstrap', visibleModelIds: [] };
     const nextSnap = getProfiledClientSnapForRuntime(entry, profileOptions);
-    const currentPrincipalKey = entry && entry.principalKey ? entry.principalKey : 'guest';
+    const currentPrincipalKey = snapshotBaselinePrincipalKey(entry);
     const message = buildClientSnapshotPatchMessage({
       previousSnapshot: client.lastSnapshot,
       nextSnapshot: nextSnap,
@@ -12052,6 +12904,9 @@ function startServer(options) {
       opId: runtimeState.getLastOpId(),
       previousPrincipalKey: client.principalKey || '',
       currentPrincipalKey,
+      snapshotProfile: profileOptions.profile || 'bootstrap',
+      visibleModelIds: Array.isArray(profileOptions.visibleModelIds) ? profileOptions.visibleModelIds : [],
+      visibleModelRefs: Array.isArray(profileOptions.visibleModelRefs) ? profileOptions.visibleModelRefs : [],
     });
     if (!message || message.event === 'noop') return;
     sendSseMessage(client.res, message.event, message.data);
@@ -12275,7 +13130,7 @@ function startServer(options) {
     }
 
     if (req.method === 'GET' && url.pathname === '/auth/me') {
-      const session = getSession(req);
+      const session = AUTH_ENABLED ? getSession(req) : localDevPrincipal();
       if (!session) {
         writeJson(res, 401, { ok: false, error: 'not_authenticated' }, cors);
         return;
@@ -12376,30 +13231,12 @@ function startServer(options) {
 
     if (req.method === 'GET') {
       const exportMatch = url.pathname.match(/^\/api\/slide-apps\/(\d+)\/export\.zip$/);
-      if (exportMatch) {
+      const queryExport = url.pathname === '/api/slide-apps/export.zip';
+      if (exportMatch || queryExport) {
         const principal = requireCapability('slide_app:use');
         if (!principal) return;
         const runtimeEntry = resolveReadRuntimeForRequest(req);
-        const modelId = Number(exportMatch[1]);
-        const result = buildSlideAppExportZip(runtimeEntry.state.runtime, modelId);
-        if (!result || result.ok !== true) {
-          const status = result && result.code === 'model_not_found' ? 404 : 400;
-          writeJson(res, status, {
-            ok: false,
-            error: result && result.code ? result.code : 'export_failed',
-            detail: result && result.detail ? result.detail : '',
-          }, cors);
-          return;
-        }
-        const filename = result.data.filename || `slide-app-${modelId}.zip`;
-        res.writeHead(200, {
-          'content-type': 'application/zip',
-          'content-length': result.data.buffer.length,
-          'content-disposition': `attachment; filename="${filename}"`,
-          'cache-control': 'no-cache',
-          ...cors,
-        });
-        res.end(result.data.buffer);
+        handleSlideAppExportRequest(req, res, runtimeEntry.state, corsOrigin);
         return;
       }
     }
@@ -12511,7 +13348,9 @@ function startServer(options) {
         writeJson(res, 400, { ok: false, error: 'invalid_snapshot_profile' }, cors);
         return;
       }
-      const runtimeResolution = profile === 'bootstrap'
+      const wantsInitialProjection = url.searchParams.get('initial_projection') === '1';
+      const canUseInitialProjection = profile === 'bootstrap' || profile === 'visible';
+      const runtimeResolution = canUseInitialProjection && (profile === 'bootstrap' || wantsInitialProjection)
         ? resolveSnapshotRuntimeForRequest(req)
         : { status: 'ready', entry: resolveReadRuntimeForRequest(req), principal: readPrincipalForRequest(req) };
       if (runtimeResolution.status === 'failed') {
@@ -12544,7 +13383,7 @@ function startServer(options) {
             runtime_elapsed_ms: Number.isFinite(info.elapsedMs) ? info.elapsedMs : null,
           },
         };
-        if (url.searchParams.get('initial_projection') === '1') {
+        if (wantsInitialProjection && canUseInitialProjection) {
           const initialProjectionEntry = {
             principalKey: info.principalKey || 'initializing',
             principal: runtimeResolution.principal || null,
@@ -12560,6 +13399,7 @@ function startServer(options) {
             initializingBody.patch_kind = 'snapshot';
             initializingBody.snapshot_profile = initialProfile.options.profile;
             initializingBody.visible_model_ids = initialProfile.options.visibleModelIds;
+            initializingBody.visible_model_refs = normalizeVisibleModelRefsFromOptions(initialProfile.options);
             initializingBody.snapshot_projection = 'read_only_initializing';
             initializingBody.truth_snapshot = false;
             initializingBody.workspace_status = {
@@ -12589,6 +13429,7 @@ function startServer(options) {
         patch_kind: 'snapshot',
         snapshot_profile: resolvedProfile.options.profile,
         visible_model_ids: resolvedProfile.options.visibleModelIds,
+        visible_model_refs: normalizeVisibleModelRefsFromOptions(resolvedProfile.options),
         timing: {
           request_started_at: requestStartedAt,
           snapshot_build_started_at: snapshotBuildStartedAt,
@@ -12915,13 +13756,17 @@ export {
   buildClientSnapshotForPrincipal,
   buildClientSnapshotPatchMessage,
   buildClientSnapshotProfile,
+  buildClientSnapshotProfileStats,
+  buildClientSnapshotProfileWithStats,
   buildSlideAppExportPayload,
   buildSlideAppExportZip,
   createPrincipalRuntimeRegistry,
   createServerState,
   deriveWorkspaceRegistryFromSnapshot,
+  handleSlideAppExportRequest,
   handleMediaUploadRequest,
   handleMatrixMediaProxyRequest,
+  parsePinPayloadRecordEnvelope,
   startServer,
 };
 

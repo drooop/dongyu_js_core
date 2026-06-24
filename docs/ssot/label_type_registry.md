@@ -12,6 +12,7 @@ source: ai
 > 新增 `label.t` 必须先在本表注册，再实现运行时代码。
 >
 > 0356 起，PIN 连接合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。0357 起，runtime 对 `pin.connect.model`、`pin.log.*`、`(self, ...)` / `(func, ...)` 端点写法执行硬拒绝；它们不是当前输入面，也不得通过兼容层恢复。
+> 0424 起，principal-scoped subtable namespace 目标合同由 `docs/ssot/principal_scoped_subtable_namespace_v1.md` 接管；`model.subtable` 是目标 label type，不是 `model.submt` 的别名。
 
 Authority:
 - Below `CLAUDE.md`, architecture SSOT, and runtime semantics.
@@ -58,6 +59,7 @@ Conflict behavior:
 | `model.matrix` | 矩阵模型根声明 | `model_type` | 类型名（如 `Data.Array.One`） | 矩阵自身相对 `(0,0,0)`；创建必填 |
 | `model.table` | 模型表根声明 | `model_type` | 类型名（如 `Flow`） | 模型 `(0,0,0)`；创建必填 |
 | `model.submt` | 子模型挂载/映射 Cell | `model_type` | 子模型 id | 任意 hosting Cell；该 Cell 仅允许 `model.submt` + `pin.in` / `pin.out` / `pin.login` / `pin.logout` |
+| `model.subtable` | 子模型表挂载 Cell（0424 target） | `model_type` | `{ "table_id": string, "root_model_id": int, "mount_kind": string, "owner_principal_id": string? }` | host table hosting Cell；该 Cell 仅允许 `model.subtable` + 边界 `pin.in` / `pin.out` / `pin.login` / `pin.logout` |
 
 补充约束：
 - `model.submt` 是 single-parent 挂载：同一个 child model 在任一时刻只能被一个父模型 hosting Cell 挂载。
@@ -65,6 +67,12 @@ Conflict behavior:
 - child model 的正式输入/输出仍必须通过 hosting Cell 暴露出来的 pin relay 进入；最终落盘只能由 child root 默认程序（如 `mt_write`）、child owner materializer 或 importer/installer 明确执行。
 - 删除 `model.submt` 仅删除父子挂载关系，不自动删除 child model 数据；只有删除 child model 自己的 `(0,0,0)` 根声明后，才删除整个 child model。
 - 除 Model 0 外，每个模型都必须通过某个父模型 Cell 上的 `model.submt` 显式挂载进入模型层级。
+
+0424 target 补充：
+- `model.subtable` 表示挂载一整张 child ModelTable namespace；它不改变 `model.submt` 的 child-model 语义。
+- `model.subtable` 的 child table 内，`model_id >= 0` 是 table-local；child table root 通常是 `{ table_id, model_id: 0 }`。
+- `model.subtable` 不允许让 child table 直接声明或改写 host negative models；host system capabilities 只能通过 host-owned boundary pins 暴露。
+- `model.subtable` 不恢复 `pin.connect.model`。跨 table 连接只能通过 host hosting Cell 与 child table root boundary pins。
 
 根程序约定：
 - 每个正数 `model.table` root `(0,0,0)` 默认携带 `mt_write` / `mt_bus_receive` / `mt_bus_send` 三类程序入口。
@@ -331,7 +339,7 @@ v1 只允许声明远端默认目标：
 - `to.model_id` 是远端提供方 worker 内部的 provider model id。
 - `route_kind` 可省略，省略等同 `"control"`；只允许 `"control"` 或 `"management"`。`"control"` 表示 UI Server 直接写 `pin.bus.cb.out`；`"management"` 表示 UI Server 写 `pin.bus.mb.out`，由 MBR 再按 payload `topic` 转为目标控制总线。
 - `to.pin` 不写在 `remote_bus_endpoint_v1` 中；运行时必须由触发动作的公开 pin 名补齐，例如 `submit1`。
-- UI Server 运行时必须把消息方向、transport topic、response topic、总线路径、endpoint / origin / reply target 写成 Temporary ModelTable record array 中的 metadata records，例如 `message_role`、`topic`、`response_topic`、`bus`、`route_kind`、`endpoint_worker_id`、`endpoint_model_id`、`endpoint_pin`、`origin_worker_id`、`origin_model_id`、`reply_target_worker_id`、`reply_target_model_id`、`reply_target_pin`。
+- UI Server 运行时必须把消息方向、transport topic、response topic、总线路径、endpoint / origin / reply target 写成 Temporary ModelTable record array 中的 metadata records，例如 `message_role`、`topic`、`response_topic`、`bus`、`route_kind`、`endpoint_worker_id`、`endpoint_table_id`、`endpoint_model_id`、`endpoint_pin`、`origin_worker_id`、`origin_table_id`、`origin_model_id`、`reply_target_worker_id`、`reply_target_table_id`、`reply_target_model_id`、`reply_target_pin`。App instance traffic 不允许只写裸 `origin_model_id` / `reply_target_model_id`。
 - `route.reply_to`、`return_topic`、`returnTopic`、`result_topic` 与旧 result topic 不允许由 ZIP / imported records 提供或覆盖；它们不是当前输入面。
 - MBR 不得要求为每个 imported app 写入静态 per-app route label；跨 worker transport 目的地只能来自运行时消息 payload records 中的 `topic` record。
 - 唯一合法 endpoint topic 形态是 `UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<worker_id>/<model_id>/<pin>`。含冗余 software-worker 段的旧 topic、旧 `worker/<worker_id>/model/<model_id>/pin/<pin>` 与旧 `<model_id>/<pin>` 形态必须失败。

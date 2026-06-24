@@ -16,6 +16,8 @@ import {
   DESKTOP_FOREGROUND_APP_LABEL,
   DESKTOP_TASK_STACK_LABEL,
   DESKTOP_TASK_SWITCHER_OPEN_LABEL,
+  readAvailableDesktopForegroundApp,
+  readAvailableDesktopTaskStack,
   readDesktopTaskStack,
   removeDesktopTaskFromStack,
 } from '../../packages/ui-model-demo-frontend/src/desktop_app_state.js';
@@ -206,10 +208,11 @@ function test_desktop_icon_launches_single_foreground_app_state() {
   assert.ok(docsButton?.bind?.write, 'desktop_docs_button_must_have_launch_write');
 
   const foreground = dispatchDesktopButton(store, docsButton);
-  assert.equal(foreground?.id, 'docs', 'desktop_docs_button_must_open_docs_id');
-  assert.equal(foreground?.kind, 'system', 'desktop_docs_button_must_open_docs_kind');
-  assert.equal(foreground?.page, 'docs', 'desktop_docs_button_must_open_docs_page');
-  assert.equal(foreground?.path, '/docs', 'desktop_docs_button_must_open_docs_path');
+  assert.equal(foreground?.id, 'workspace:-23', 'desktop_docs_button_must_open_docs_workspace_id');
+  assert.equal(foreground?.kind, 'workspace', 'desktop_docs_button_must_open_workspace_kind');
+  assert.equal(foreground?.page, 'workspace', 'desktop_docs_button_must_open_workspace_page');
+  assert.equal(foreground?.path, '/workspace', 'desktop_docs_button_must_open_workspace_path');
+  assert.equal(foreground?.model_id, -23, 'desktop_docs_button_must_keep_docs_model_id');
 
   return { key: 'desktop_icon_launches_single_foreground_app_state', status: 'PASS' };
 }
@@ -243,12 +246,12 @@ function test_desktop_launch_records_task_stack_and_switcher_state() {
 
   const foreground = getEditorStateValue(store.snapshot, 'desktop_foreground_app_json');
   const taskStack = readDesktopTaskStack(store.snapshot);
-  const taskSwitcherButton = findNodeById(ast, 'desktop_taskbar_tasks');
+  const taskSwitcherButton = findNodeById(ast, 'desktop_taskbar_tasks_restore');
 
   assert.equal(foreground?.id, 'workspace:100', 'desktop_must_keep_single_latest_foreground_app');
   assert.deepEqual(
     taskStack.map((task) => task.id),
-    ['workspace:100', 'docs'],
+    ['workspace:100', 'workspace:-23'],
     'desktop_task_stack_must_keep_recent_apps_latest_first',
   );
   assert.equal(getEditorStateValue(store.snapshot, DESKTOP_TASK_SWITCHER_OPEN_LABEL), false, 'task_switcher_must_default_closed');
@@ -260,11 +263,11 @@ function test_desktop_launch_records_task_stack_and_switcher_state() {
 function test_desktop_task_close_removes_only_target_task() {
   const currentStack = [
     { id: 'workspace:100', kind: 'workspace', page: 'workspace', path: '/workspace', title: 'Color E2E', model_id: 100 },
-    { id: 'docs', kind: 'system', page: 'docs', path: '/docs', title: 'Docs' },
+    { id: 'workspace:-23', kind: 'workspace', page: 'workspace', path: '/workspace', title: 'Docs', model_id: -23 },
     { id: 'gallery', kind: 'system', page: 'gallery', path: '/gallery', title: 'Gallery' },
   ];
 
-  const nextStack = removeDesktopTaskFromStack(currentStack, 'docs');
+  const nextStack = removeDesktopTaskFromStack(currentStack, currentStack[1]);
 
   assert.deepEqual(
     nextStack.map((task) => task.id),
@@ -273,6 +276,72 @@ function test_desktop_task_close_removes_only_target_task() {
   );
 
   return { key: 'desktop_task_close_removes_only_target_task', status: 'PASS' };
+}
+
+function test_desktop_ignores_workspace_tasks_absent_from_registry() {
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  const labels = store.snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels;
+  assert.ok(labels, 'editor_state_labels_missing');
+  const staleApp = {
+    id: 'workspace:1087',
+    kind: 'workspace',
+    page: 'workspace',
+    path: '/workspace',
+    title: 'Deleted To Do Board',
+    model_id: 1087,
+  };
+  const validApp = {
+    id: 'workspace:100',
+    kind: 'workspace',
+    page: 'workspace',
+    path: '/workspace',
+    title: 'E2E 颜色生成器',
+    model_id: 100,
+  };
+  labels[DESKTOP_FOREGROUND_APP_LABEL] = { k: DESKTOP_FOREGROUND_APP_LABEL, t: 'json', v: staleApp };
+  labels[DESKTOP_TASK_STACK_LABEL] = { k: DESKTOP_TASK_STACK_LABEL, t: 'json', v: [staleApp, validApp] };
+
+  assert.equal(readAvailableDesktopForegroundApp(store.snapshot), null, 'desktop_foreground_must_ignore_registry_absent_workspace_app');
+  assert.deepEqual(
+    readAvailableDesktopTaskStack(store.snapshot).map((task) => task.id),
+    ['workspace:100'],
+    'desktop_task_switcher_must_not_render_registry_absent_workspace_tasks',
+  );
+
+  return { key: 'desktop_ignores_workspace_tasks_absent_from_registry', status: 'PASS' };
+}
+
+function test_desktop_does_not_restore_workspace_task_when_registry_missing() {
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  const labels = store.snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels;
+  assert.ok(labels, 'editor_state_labels_missing');
+  delete labels.ws_apps_registry;
+  const workspaceApp = {
+    id: 'workspace:100',
+    kind: 'workspace',
+    page: 'workspace',
+    path: '/workspace',
+    title: 'E2E 颜色生成器',
+    model_id: 100,
+  };
+  const systemApp = {
+    id: 'gallery',
+    kind: 'system',
+    page: 'gallery',
+    path: '/gallery',
+    title: 'Gallery',
+  };
+  labels[DESKTOP_FOREGROUND_APP_LABEL] = { k: DESKTOP_FOREGROUND_APP_LABEL, t: 'json', v: workspaceApp };
+  labels[DESKTOP_TASK_STACK_LABEL] = { k: DESKTOP_TASK_STACK_LABEL, t: 'json', v: [workspaceApp, systemApp] };
+
+  assert.equal(readAvailableDesktopForegroundApp(store.snapshot), null, 'desktop_foreground_must_wait_for_registry_before_restoring_workspace_app');
+  assert.deepEqual(
+    readAvailableDesktopTaskStack(store.snapshot).map((task) => task.id),
+    ['gallery'],
+    'desktop_task_switcher_must_not_restore_workspace_tasks_until_registry_is_present',
+  );
+
+  return { key: 'desktop_does_not_restore_workspace_task_when_registry_missing', status: 'PASS' };
 }
 
 function test_app_shell_state_dispatch_sequences_multiple_local_writes() {
@@ -326,7 +395,13 @@ async function test_remote_store_flushes_derived_task_stack_for_fast_foreground_
   globalThis.fetch = async (url, init = {}) => {
     const entry = { url: String(url), method: String(init?.method || 'GET').toUpperCase(), body: init?.body || '' };
     requests.push(entry);
-    const json = entry.url.endsWith('/snapshot')
+    let pathname = '';
+    try {
+      pathname = new URL(entry.url).pathname;
+    } catch (_) {
+      pathname = entry.url;
+    }
+    const json = pathname === '/snapshot'
       ? { snapshot: { models: { '-2': { cells: { '0,0,0': { labels: structuredClone(stateRoot) } } } }, v1nConfig: {} } }
       : { ok: true, result: 'ok' };
     return {
@@ -345,7 +420,7 @@ async function test_remote_store_flushes_derived_task_stack_for_fast_foreground_
     const foregroundTarget = { model_id: -2, p: 0, r: 0, c: 0, k: DESKTOP_FOREGROUND_APP_LABEL };
     store.dispatchAddLabel(localStateMailboxLabel(foregroundTarget, {
       t: 'json',
-      v: { id: 'docs', kind: 'system', page: 'docs', path: '/docs', title: 'Docs' },
+      v: { id: 'workspace:-23', kind: 'workspace', page: 'workspace', path: '/workspace', title: 'Docs', model_id: -23 },
     }, 'it0374_docs'));
     store.dispatchAddLabel(localStateMailboxLabel(foregroundTarget, {
       t: 'json',
@@ -354,14 +429,14 @@ async function test_remote_store_flushes_derived_task_stack_for_fast_foreground_
     await wait(260);
 
     const uiEventBodies = requests
-      .filter((request) => request.method === 'POST' && request.url.endsWith('/bus_event'))
+      .filter((request) => request.method === 'POST' && request.url.endsWith('/ui_event'))
       .map((request) => JSON.parse(request.body));
     const taskStackBody = uiEventBodies.find((body) => body?.payload?.target?.k === DESKTOP_TASK_STACK_LABEL);
 
     assert.ok(taskStackBody, 'remote_fast_launch_must_flush_derived_task_stack_to_server');
     assert.deepEqual(
       taskStackBody.payload.value.v.map((task) => task.id),
-      ['workspace:100', 'docs'],
+      ['workspace:100', 'workspace:-23'],
       'remote_fast_launch_task_stack_must_include_coalesced_foreground_history',
     );
   } finally {
@@ -393,6 +468,8 @@ const tests = [
   test_workspace_icon_launches_foreground_and_selects_workspace_model,
   test_desktop_launch_records_task_stack_and_switcher_state,
   test_desktop_task_close_removes_only_target_task,
+  test_desktop_ignores_workspace_tasks_absent_from_registry,
+  test_desktop_does_not_restore_workspace_task_when_registry_missing,
   test_app_shell_state_dispatch_sequences_multiple_local_writes,
   test_app_shell_state_dispatch_can_open_task_switcher,
   test_remote_store_flushes_derived_task_stack_for_fast_foreground_launches,

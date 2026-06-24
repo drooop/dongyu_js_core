@@ -63,6 +63,106 @@ function recordsToObject(records) {
   return out;
 }
 
+function test_missing_optional_string_label_keeps_modeltable_record_complete() {
+  const modelId = 4322;
+  const snapshot = {
+    models: {
+      [String(modelId)]: {
+        id: modelId,
+        cells: {
+          '0,0,0': {
+            p: 0,
+            r: 0,
+            c: 0,
+            labels: {},
+          },
+        },
+      },
+    },
+  };
+  const calls = [];
+  const host = {
+    getSnapshot: () => snapshot,
+    dispatchAddLabel: (label) => calls.push(label),
+    dispatchRmLabel: () => {},
+  };
+  const renderer = createCjsRenderer({ host, vue: { h: fakeH, resolveComponent: fakeResolve } });
+  const button = renderer.renderVNode({
+    id: 'missing_optional_submit',
+    type: 'Button',
+    cell_ref: hostCellRef(modelId, 2, 1, 0),
+    props: { label: 'Send' },
+    bind: {
+      write: {
+        bus_event_v2: true,
+        bus_in_key: 'ui_submit',
+        value_ref: [
+          { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+          { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: { $label: { p: 0, r: 0, c: 0, k: 'missing_optional_text' } } },
+        ],
+      },
+    },
+  });
+  findButtonByText(button, 'Send').props.onClick();
+  const record = calls.at(-1)?.v?.value?.find((item) => item && item.k === 'input_value');
+  assert.ok(record, 'submit payload must include input_value record');
+  assert.equal(Object.prototype.hasOwnProperty.call(record, 'v'), true, 'renderer must keep the v key on ModelTable records');
+  assert.equal(record.v, '', 'missing optional string label must resolve to empty string, not omitted/undefined');
+  assert.deepEqual(
+    Object.keys(record).sort(),
+    ['c', 'id', 'k', 'p', 'r', 't', 'v'],
+    'renderer must emit a strict temporary ModelTable record',
+  );
+  return { key: 'missing_optional_string_label_keeps_modeltable_record_complete', status: 'PASS' };
+}
+
+function test_invalid_label_ref_does_not_break_modeltable_event() {
+  const modelId = 4323;
+  const snapshot = {
+    models: {
+      [String(modelId)]: {
+        id: modelId,
+        cells: {
+          '0,0,0': {
+            p: 0,
+            r: 0,
+            c: 0,
+            labels: {},
+          },
+        },
+      },
+    },
+  };
+  const calls = [];
+  const host = {
+    getSnapshot: () => snapshot,
+    dispatchAddLabel: (label) => calls.push(label),
+    dispatchRmLabel: () => {},
+  };
+  const renderer = createCjsRenderer({ host, vue: { h: fakeH, resolveComponent: fakeResolve } });
+  const button = renderer.renderVNode({
+    id: 'invalid_label_ref_submit',
+    type: 'Button',
+    cell_ref: hostCellRef(modelId, 2, 2, 0),
+    props: { label: 'Send' },
+    bind: {
+      write: {
+        bus_event_v2: true,
+        bus_in_key: 'ui_submit',
+        value_ref: [
+          { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ui_event.v1' },
+          { id: 0, p: 0, r: 0, c: 0, k: 'safe_value', t: 'str', v: { $label: undefined } },
+        ],
+      },
+    },
+  });
+
+  assert.doesNotThrow(() => findButtonByText(button, 'Send').props.onClick(), 'invalid label refs must not throw during UI event construction');
+  const record = calls.at(-1)?.v?.value?.find((item) => item && item.k === 'safe_value');
+  assert.equal(record?.v, '', 'invalid optional string label ref must resolve to an empty string in strict ModelTable payload');
+  return { key: 'invalid_label_ref_does_not_break_modeltable_event', status: 'PASS' };
+}
+
 function collectModelIdZeroUiRefs(value, path = []) {
   const hits = [];
   if (Array.isArray(value)) {
@@ -171,7 +271,7 @@ function makeSnapshot(modelId = 4321) {
                   id: 'wrong_include_text',
                   type: 'Text',
                   props: { text: 'wrong Model 0 include' },
-                  cell_ref: { model_id: 0, p: 9, r: 9, c: 9 },
+                  cell_ref: hostCellRef(0, 9, 9, 9),
                 },
               },
               current_page: { k: 'current_page', t: 'int', v: 99 },
@@ -193,7 +293,7 @@ function makeSnapshot(modelId = 4321) {
                   id: 'current_include_text',
                   type: 'Text',
                   props: { text: 'current include text' },
-                  cell_ref: { model_id: modelId, p: 3, r: 3, c: 0 },
+                  cell_ref: hostCellRef(modelId, 3, 3, 0),
                 },
               },
               current_page: { k: 'current_page', t: 'int', v: 3 },
@@ -227,6 +327,10 @@ function makeSnapshot(modelId = 4321) {
   };
 }
 
+function hostCellRef(modelId, p, r, c) {
+  return { table_id: 'host', model_id: modelId, p, r, c };
+}
+
 async function rendererVariants() {
   const esm = await import(new URL('../../packages/ui-renderer/src/index.mjs', import.meta.url));
   return [
@@ -253,7 +357,7 @@ async function test_renderer_resolves_omitted_model_id_against_current_node() {
     const input = renderer.renderVNode({
       id: `${variant.name}_current_input`,
       type: 'Input',
-      cell_ref: { model_id: modelId, p: 2, r: 1, c: 0 },
+      cell_ref: hostCellRef(modelId, 2, 1, 0),
       bind: {
         read: { p: 0, r: 0, c: 0, k: 'draft_text' },
         write: {
@@ -267,14 +371,14 @@ async function test_renderer_resolves_omitted_model_id_against_current_node() {
     input.props['onUpdate:modelValue']('typed value');
     assert.deepEqual(
       calls.at(-1).v.payload.target,
-      { model_id: modelId, p: 0, r: 0, c: 0, k: 'draft_text' },
-      `${variant.name}: omitted target_ref.model_id must resolve to current UI model`,
+      { table_id: 'host', model_id: modelId, p: 0, r: 0, c: 0, k: 'draft_text' },
+      `${variant.name}: omitted target_ref.model_id must resolve to current host ModelRef`,
     );
 
     const overlayInput = renderer.renderVNode({
       id: `${variant.name}_overlay_input`,
       type: 'Input',
-      cell_ref: { model_id: modelId, p: 2, r: 9, c: 0 },
+      cell_ref: hostCellRef(modelId, 2, 9, 0),
       bind: {
         read: { p: 0, r: 0, c: 0, k: 'draft_text' },
         write: {
@@ -287,14 +391,14 @@ async function test_renderer_resolves_omitted_model_id_against_current_node() {
     overlayInput.props['onUpdate:modelValue']('overlay text');
     assert.deepEqual(
       overlayCalls.at(-1).payload.writeTarget.target_ref,
-      { model_id: modelId, p: 0, r: 0, c: 0, k: 'result_text' },
-      `${variant.name}: overlay writeTarget.target_ref must resolve current model even when it differs from bind.read`,
+      { table_id: 'host', model_id: modelId, p: 0, r: 0, c: 0, k: 'result_text' },
+      `${variant.name}: overlay writeTarget.target_ref must resolve current host ModelRef even when it differs from bind.read`,
     );
 
     const button = renderer.renderVNode({
       id: `${variant.name}_current_button`,
       type: 'Button',
-      cell_ref: { model_id: modelId, p: 2, r: 2, c: 0 },
+      cell_ref: hostCellRef(modelId, 2, 2, 0),
       props: { label: 'Submit' },
       bind: {
         write: {
@@ -324,7 +428,7 @@ async function test_renderer_resolves_omitted_model_id_against_current_node() {
     const board = renderer.renderVNode({
       id: `${variant.name}_todo_board`,
       type: 'TodoBoard',
-      cell_ref: { model_id: modelId, p: 2, r: 3, c: 0 },
+      cell_ref: hostCellRef(modelId, 2, 3, 0),
       props: {
         tasksRef: { p: 0, r: 0, c: 0, k: 'tasks_json' },
         columns: [{ value: 'todo', label: 'Todo' }, { value: 'doing', label: 'Doing' }],
@@ -336,7 +440,7 @@ async function test_renderer_resolves_omitted_model_id_against_current_node() {
     const focus = renderer.renderVNode({
       id: `${variant.name}_todo_focus`,
       type: 'TodoFocusList',
-      cell_ref: { model_id: modelId, p: 2, r: 4, c: 0 },
+      cell_ref: hostCellRef(modelId, 2, 4, 0),
       props: {
         tasksRef: { p: 0, r: 0, c: 0, k: 'tasks_json' },
         filterRef: { p: 0, r: 0, c: 0, k: 'filter_text' },
@@ -349,7 +453,7 @@ async function test_renderer_resolves_omitted_model_id_against_current_node() {
     const include = renderer.renderVNode({
       id: `${variant.name}_include`,
       type: 'Include',
-      cell_ref: { model_id: modelId, p: 2, r: 5, c: 0 },
+      cell_ref: hostCellRef(modelId, 2, 5, 0),
       props: { ref: { p: 0, r: 0, c: 0, k: 'include_fragment' }, fallbackText: 'fallback include' },
     });
     assert.equal(flattenText(include), 'current include text', `${variant.name}: Include.props.ref must resolve current model`);
@@ -357,7 +461,7 @@ async function test_renderer_resolves_omitted_model_id_against_current_node() {
     const pagination = renderer.renderVNode({
       id: `${variant.name}_pagination`,
       type: 'Pagination',
-      cell_ref: { model_id: modelId, p: 2, r: 6, c: 0 },
+      cell_ref: hostCellRef(modelId, 2, 6, 0),
       bind: {
         models: {
           currentPage: { read: { p: 0, r: 0, c: 0, k: 'current_page' } },
@@ -371,7 +475,7 @@ async function test_renderer_resolves_omitted_model_id_against_current_node() {
     const disabledButton = renderer.renderVNode({
       id: `${variant.name}_disabled_button`,
       type: 'Button',
-      cell_ref: { model_id: modelId, p: 2, r: 7, c: 0 },
+      cell_ref: hostCellRef(modelId, 2, 7, 0),
       props: { label: 'Disabled', disabledRef: { p: 0, r: 0, c: 0, k: 'disabled_flag' } },
       bind: { write: { action: 'ui_owner_label_update', target_ref: { p: 0, r: 0, c: 0, k: 'result_text' } } },
     });
@@ -380,7 +484,7 @@ async function test_renderer_resolves_omitted_model_id_against_current_node() {
     const singleFlightButton = {
       id: `${variant.name}_single_flight_button`,
       type: 'Button',
-      cell_ref: { model_id: modelId, p: 2, r: 8, c: 0 },
+      cell_ref: hostCellRef(modelId, 2, 8, 0),
       props: {
         label: 'SingleFlight',
         singleFlight: {
@@ -435,7 +539,7 @@ async function test_bus_event_v2_reaches_model0_pin_with_resolved_payload() {
     const button = renderer.renderVNode({
       id: 'server_button',
       type: 'Button',
-      cell_ref: { model_id: modelId, p: 2, r: 1, c: 0 },
+      cell_ref: hostCellRef(modelId, 2, 1, 0),
       props: { label: 'Send' },
       bind: {
         write: {
@@ -467,6 +571,8 @@ async function test_bus_event_v2_reaches_model0_pin_with_resolved_payload() {
 const tests = [
   test_renderer_resolves_omitted_model_id_against_current_node,
   test_bus_event_v2_reaches_model0_pin_with_resolved_payload,
+  test_missing_optional_string_label_keeps_modeltable_record_complete,
+  test_invalid_label_ref_does_not_break_modeltable_event,
   test_developer_payload_omits_model_id_zero_placeholder,
   test_provider_bundles_omit_model_id_zero_placeholder,
   test_cross_model_refs_remain_explicit_in_proxy_payload,

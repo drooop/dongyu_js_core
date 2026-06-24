@@ -1,5 +1,11 @@
 import { reactive } from 'vue';
 
+const HOST_TABLE_ID = 'host';
+
+function normalizeTableId(tableId) {
+  return typeof tableId === 'string' && tableId.trim() ? tableId.trim() : HOST_TABLE_ID;
+}
+
 function normalizeModelKey(modelId) {
   return String(modelId);
 }
@@ -18,7 +24,7 @@ function labelRefKey(ref) {
   if (!ref || !Number.isInteger(ref.model_id) || !Number.isInteger(ref.p) || !Number.isInteger(ref.r) || !Number.isInteger(ref.c) || typeof ref.k !== 'string') {
     return '';
   }
-  return `${ref.model_id}:${ref.p}:${ref.r}:${ref.c}:${ref.k}`;
+  return `${normalizeTableId(ref.table_id)}:${ref.model_id}:${ref.p}:${ref.r}:${ref.c}:${ref.k}`;
 }
 
 function cloneJson(value) {
@@ -58,7 +64,7 @@ export function createProjectionStore() {
     const existing = labelAtoms.get(key);
     if (existing) return existing;
     const atom = reactive({
-      ref: { model_id: ref.model_id, p: ref.p, r: ref.r, c: ref.c, k: ref.k },
+      ref: { table_id: normalizeTableId(ref.table_id), model_id: ref.model_id, p: ref.p, r: ref.r, c: ref.c, k: ref.k },
       exists: false,
       label: null,
       value: undefined,
@@ -88,33 +94,33 @@ export function createProjectionStore() {
     return setAtomLabel(ref, null);
   }
 
-  function atomMatchesModel(atom, modelId) {
-    return atom && atom.ref && atom.ref.model_id === modelId;
+  function atomMatchesModel(atom, modelId, tableId = HOST_TABLE_ID) {
+    return atom && atom.ref && atom.ref.model_id === modelId && normalizeTableId(atom.ref.table_id) === normalizeTableId(tableId);
   }
 
-  function atomMatchesCell(atom, modelId, cellKey) {
-    if (!atomMatchesModel(atom, modelId)) return false;
+  function atomMatchesCell(atom, modelId, cellKey, tableId = HOST_TABLE_ID) {
+    if (!atomMatchesModel(atom, modelId, tableId)) return false;
     const parsed = parseCellKey(cellKey);
     return atom.ref.p === parsed.p && atom.ref.r === parsed.r && atom.ref.c === parsed.c;
   }
 
-  function clearKnownModel(modelId) {
+  function clearKnownModel(modelId, tableId = HOST_TABLE_ID) {
     for (const atom of labelAtoms.values()) {
-      if (atomMatchesModel(atom, modelId)) clearAtom(atom.ref);
+      if (atomMatchesModel(atom, modelId, tableId)) clearAtom(atom.ref);
     }
     meta.structuralVersion += 1;
   }
 
-  function clearKnownCell(modelId, cellKey) {
+  function clearKnownCell(modelId, cellKey, tableId = HOST_TABLE_ID) {
     for (const atom of labelAtoms.values()) {
-      if (atomMatchesCell(atom, modelId, cellKey)) clearAtom(atom.ref);
+      if (atomMatchesCell(atom, modelId, cellKey, tableId)) clearAtom(atom.ref);
     }
     meta.structuralVersion += 1;
   }
 
-  function hydrateCell(modelId, cellKey, cell) {
+  function hydrateCell(modelId, cellKey, cell, tableId = HOST_TABLE_ID) {
     if (!cell || !cell.labels) {
-      clearKnownCell(modelId, cellKey);
+      clearKnownCell(modelId, cellKey, tableId);
       return;
     }
     const parsed = parseCellKey(cellKey);
@@ -122,6 +128,7 @@ export function createProjectionStore() {
     for (const [labelKey, label] of Object.entries(cell.labels || {})) {
       seen.add(labelKey);
       setAtomLabel({
+        table_id: normalizeTableId(tableId),
         model_id: modelId,
         p: Number.isInteger(cell.p) ? cell.p : parsed.p,
         r: Number.isInteger(cell.r) ? cell.r : parsed.r,
@@ -130,23 +137,23 @@ export function createProjectionStore() {
       }, label);
     }
     for (const atom of labelAtoms.values()) {
-      if (atomMatchesCell(atom, modelId, cellKey) && !seen.has(atom.ref.k)) {
+      if (atomMatchesCell(atom, modelId, cellKey, tableId) && !seen.has(atom.ref.k)) {
         clearAtom(atom.ref);
       }
     }
   }
 
-  function hydrateModel(modelId, model) {
+  function hydrateModel(modelId, model, tableId = HOST_TABLE_ID) {
     if (!model || !model.cells) {
-      clearKnownModel(modelId);
+      clearKnownModel(modelId, tableId);
       return;
     }
     const seenCells = new Set(Object.keys(model.cells || {}));
     for (const [cellKey, cell] of Object.entries(model.cells || {})) {
-      hydrateCell(modelId, cellKey, cell);
+      hydrateCell(modelId, cellKey, cell, tableId);
     }
     for (const atom of labelAtoms.values()) {
-      if (!atomMatchesModel(atom, modelId)) continue;
+      if (!atomMatchesModel(atom, modelId, tableId)) continue;
       const cellKey = normalizeCellKey(atom.ref.p, atom.ref.r, atom.ref.c);
       if (!seenCells.has(cellKey)) clearAtom(atom.ref);
     }
@@ -158,11 +165,20 @@ export function createProjectionStore() {
     const seenModels = new Set();
     for (const [modelKey, model] of Object.entries(models)) {
       const modelId = /^-?\d+$/u.test(modelKey) ? Number(modelKey) : modelKey;
-      seenModels.add(normalizeModelKey(modelId));
-      hydrateModel(modelId, model);
+      seenModels.add(`${HOST_TABLE_ID}:${normalizeModelKey(modelId)}`);
+      hydrateModel(modelId, model, HOST_TABLE_ID);
+    }
+    for (const [tableId, table] of Object.entries(snapshot?.tables || {})) {
+      for (const [modelKey, model] of Object.entries(table?.models || {})) {
+        const modelId = /^-?\d+$/u.test(modelKey) ? Number(modelKey) : modelKey;
+        const normalizedTableId = normalizeTableId(tableId);
+        seenModels.add(`${normalizedTableId}:${normalizeModelKey(modelId)}`);
+        hydrateModel(modelId, model, normalizedTableId);
+      }
     }
     for (const atom of labelAtoms.values()) {
-      if (!seenModels.has(normalizeModelKey(atom.ref.model_id))) clearAtom(atom.ref);
+      const key = `${normalizeTableId(atom.ref.table_id)}:${normalizeModelKey(atom.ref.model_id)}`;
+      if (!seenModels.has(key)) clearAtom(atom.ref);
     }
     v1nConfig.value = cloneJson(snapshot && Object.prototype.hasOwnProperty.call(snapshot, 'v1nConfig') ? snapshot.v1nConfig : {});
     if (Number.isInteger(metadata.snapshot_seq)) meta.snapshotSeq = metadata.snapshot_seq;
@@ -180,29 +196,30 @@ export function createProjectionStore() {
         v1nConfig.value = cloneJson(op.value);
         continue;
       }
+      const tableId = normalizeTableId(op.table_id);
       if (op.op === 'delete_model') {
-        clearKnownModel(modelId);
+        clearKnownModel(modelId, tableId);
         continue;
       }
       if (op.op === 'replace_model') {
-        hydrateModel(modelId, op.value);
+        hydrateModel(modelId, op.value, tableId);
         continue;
       }
       const cellKey = String(op.cell_key || '');
       if (!cellKey) throw new Error('invalid_projection_patch_cell');
       if (op.op === 'delete_cell') {
-        clearKnownCell(modelId, cellKey);
+        clearKnownCell(modelId, cellKey, tableId);
         continue;
       }
       if (op.op === 'replace_cell') {
-        hydrateCell(modelId, cellKey, op.value);
+        hydrateCell(modelId, cellKey, op.value, tableId);
         meta.structuralVersion += 1;
         continue;
       }
       const labelKey = String(op.label_key || '');
       if (!labelKey) throw new Error('invalid_projection_patch_label');
       const parsed = parseCellKey(cellKey);
-      const ref = { model_id: modelId, p: parsed.p, r: parsed.r, c: parsed.c, k: labelKey };
+      const ref = { table_id: tableId, model_id: modelId, p: parsed.p, r: parsed.r, c: parsed.c, k: labelKey };
       if (op.op === 'delete_label') {
         clearAtom(ref);
         continue;

@@ -25,10 +25,38 @@ function parseCellKey(cellKey) {
   return { p: parts[0], r: parts[1], c: parts[2] };
 }
 
-function ensurePatchModel(snapshot, modelId) {
+function normalizeVisibleModelRef(value) {
+  if (Number.isInteger(value)) return { table_id: 'host', model_id: value };
+  if (typeof value === 'string' && /^-?\d+$/u.test(value.trim())) {
+    return { table_id: 'host', model_id: Number.parseInt(value.trim(), 10) };
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const tableId = typeof value.table_id === 'string' && value.table_id.trim()
+    ? value.table_id.trim()
+    : 'host';
+  if (!Number.isInteger(value.model_id)) return null;
+  return { table_id: tableId, model_id: value.model_id };
+}
+
+function visibleModelRefKey(value) {
+  const ref = normalizeVisibleModelRef(value);
+  return ref ? `${ref.table_id}|${ref.model_id}` : '';
+}
+
+function ensurePatchModel(snapshot, modelId, tableId = 'host') {
   const modelKey = String(modelId);
+  if (tableId !== 'host') {
+    if (!snapshot.tables) snapshot.tables = {};
+    if (!snapshot.tables[tableId]) snapshot.tables[tableId] = { table_id: tableId, models: {} };
+    if (!snapshot.tables[tableId].models) snapshot.tables[tableId].models = {};
+    if (!snapshot.tables[tableId].models[modelKey]) {
+      snapshot.tables[tableId].models[modelKey] = { table_id: tableId, id: Number.isInteger(Number(modelKey)) ? Number(modelKey) : modelId, cells: {} };
+    }
+    if (!snapshot.tables[tableId].models[modelKey].cells) snapshot.tables[tableId].models[modelKey].cells = {};
+    return snapshot.tables[tableId].models[modelKey];
+  }
   if (!snapshot.models[modelKey]) {
-    snapshot.models[modelKey] = { id: Number.isInteger(Number(modelKey)) ? Number(modelKey) : modelId, cells: {} };
+    snapshot.models[modelKey] = { table_id: 'host', id: Number.isInteger(Number(modelKey)) ? Number(modelKey) : modelId, cells: {} };
   }
   if (!snapshot.models[modelKey].cells) snapshot.models[modelKey].cells = {};
   return snapshot.models[modelKey];
@@ -54,16 +82,23 @@ export function applyClientSnapshotPatch(baseSnapshot, patch) {
       next.v1nConfig = cloneSnapshotJson(op.value);
       continue;
     }
+    const tableId = typeof op.table_id === 'string' && op.table_id.trim() ? op.table_id.trim() : 'host';
     const modelKey = String(op.model_id);
     if (op.op === 'delete_model') {
-      delete next.models[modelKey];
+      if (tableId === 'host') delete next.models[modelKey];
+      else if (next.tables && next.tables[tableId] && next.tables[tableId].models) delete next.tables[tableId].models[modelKey];
       continue;
     }
     if (op.op === 'replace_model') {
-      next.models[modelKey] = cloneSnapshotJson(op.value);
+      if (tableId === 'host') next.models[modelKey] = cloneSnapshotJson(op.value);
+      else {
+        if (!next.tables) next.tables = {};
+        if (!next.tables[tableId]) next.tables[tableId] = { table_id: tableId, models: {} };
+        next.tables[tableId].models[modelKey] = cloneSnapshotJson(op.value);
+      }
       continue;
     }
-    const model = ensurePatchModel(next, op.model_id);
+    const model = ensurePatchModel(next, op.model_id, tableId);
     const cellKey = String(op.cell_key || '');
     if (!cellKey) throw new Error('invalid_snapshot_patch_cell');
     if (op.op === 'delete_cell') {
@@ -95,7 +130,7 @@ export function createRemoteStore(options) {
   const defaultBaseUrl = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'http://127.0.0.1:9000';
   const baseUrl = options && options.baseUrl ? String(options.baseUrl).replace(/\/$/, '') : defaultBaseUrl;
   const authStore = options && options.authStore ? options.authStore : null;
-  const snapshot = reactive({ models: {}, v1nConfig: { local_mqtt: null, global_mqtt: null } });
+  const snapshot = reactive({ models: {}, tables: {}, v1nConfig: { local_mqtt: null, global_mqtt: null } });
   const workspaceStatus = reactive({
     status: 'idle',
     code: '',
@@ -138,17 +173,38 @@ export function createRemoteStore(options) {
   let currentSnapshotSeq = 0;
   let eventSource = null;
   let eventSourceUrl = '';
+  let eventSourceGeneration = 0;
   let initialProjectionRequestAvailable = true;
   let workspaceInitializationRetryTimer = null;
   let runtimeActivationRetryPending = false;
   let runtimeActivationRetryTimer = null;
   const visibleModelIds = new Set();
+  const visibleModelRefs = new Map();
   const snapshotFallbackDelayMs = Number.isFinite(options && options.snapshotFallbackDelayMs)
     ? Math.max(0, Number(options.snapshotFallbackDelayMs))
     : 300;
 
   function visibleModelIdList() {
     return [...visibleModelIds].filter((modelId) => Number.isInteger(modelId)).sort((a, b) => a - b);
+  }
+
+  function visibleModelRefList() {
+    return [...visibleModelRefs.values()].sort((a, b) => a.table_id.localeCompare(b.table_id) || a.model_id - b.model_id);
+  }
+
+  function rememberVisibleModelRef(value) {
+    const ref = normalizeVisibleModelRef(value);
+    if (!ref) return null;
+    visibleModelRefs.set(visibleModelRefKey(ref), ref);
+    if (ref.table_id === 'host') visibleModelIds.add(ref.model_id);
+    return ref;
+  }
+
+  function forgetVisibleModelRef(value) {
+    const ref = normalizeVisibleModelRef(value);
+    if (!ref) return;
+    visibleModelRefs.delete(visibleModelRefKey(ref));
+    if (ref.table_id === 'host') visibleModelIds.delete(ref.model_id);
   }
 
   function normalizeVisibleModelId(modelId) {
@@ -160,13 +216,14 @@ export function createRemoteStore(options) {
   function buildSnapshotUrl({ profile = 'bootstrap', modelIds = null, initialProjection = null } = {}) {
     const query = new URLSearchParams();
     query.set('profile', profile);
-    if (profile === 'bootstrap' && initialProjection === true) {
+    if ((profile === 'bootstrap' || profile === 'visible') && initialProjection === true) {
       query.set('initial_projection', '1');
     }
-    const ids = Array.isArray(modelIds) ? modelIds : visibleModelIdList();
+    const refs = Array.isArray(modelIds) ? modelIds.map(normalizeVisibleModelRef).filter(Boolean) : visibleModelRefList();
     const key = profile === 'visible' ? 'model_id' : 'visible_model_id';
-    for (const modelId of ids) {
-      if (Number.isInteger(modelId)) query.append(key, String(modelId));
+    for (const ref of refs) {
+      if (ref.table_id === 'host') query.append(key, String(ref.model_id));
+      else query.append('visible_model_ref', JSON.stringify(ref));
     }
     return `${baseUrl}/snapshot?${query.toString()}`;
   }
@@ -174,21 +231,23 @@ export function createRemoteStore(options) {
   function buildStreamUrl() {
     const query = new URLSearchParams();
     query.set('profile', 'bootstrap');
-    for (const modelId of visibleModelIdList()) {
-      query.append('visible_model_id', String(modelId));
+    for (const ref of visibleModelRefList()) {
+      if (ref.table_id === 'host') query.append('visible_model_id', String(ref.model_id));
+      else query.append('visible_model_ref', JSON.stringify(ref));
     }
     return `${baseUrl}/stream?${query.toString()}`;
   }
 
   function hasSnapshotModel(modelId) {
-    const normalized = normalizeVisibleModelId(modelId);
-    if (!Number.isInteger(normalized)) return false;
-    return Boolean(snapshot.models && snapshot.models[String(normalized)]);
+    const ref = normalizeVisibleModelRef(modelId);
+    if (!ref) return false;
+    return Boolean(getSnapshotModel(snapshot, ref));
   }
 
   function getVisibleSubscriptionState() {
     return {
       visibleModelIds: visibleModelIdList(),
+      visibleModelRefs: visibleModelRefList(),
       expectedStreamUrl: buildStreamUrl(),
       eventSourceUrl,
       eventSourceReadyState: eventSource && Number.isInteger(eventSource.readyState) ? eventSource.readyState : null,
@@ -199,7 +258,8 @@ export function createRemoteStore(options) {
     if (!ref || !Number.isInteger(ref.model_id) || !Number.isInteger(ref.p) || !Number.isInteger(ref.r) || !Number.isInteger(ref.c) || typeof ref.k !== 'string') {
       return '';
     }
-    return `${ref.model_id}:${ref.p}:${ref.r}:${ref.c}:${ref.k}`;
+    const tableId = typeof ref.table_id === 'string' && ref.table_id.trim() ? ref.table_id.trim() : 'host';
+    return `${tableId}:${ref.model_id}:${ref.p}:${ref.r}:${ref.c}:${ref.k}`;
   }
 
   function stableValueKey(value) {
@@ -262,7 +322,8 @@ export function createRemoteStore(options) {
     const persistRaw = writeTarget && typeof writeTarget.persist_policy === 'string'
       ? writeTarget.persist_policy.trim()
       : '';
-    if (persistRaw === 'never' || persistRaw === 'submit') return 'on_submit';
+    if (persistRaw === 'never') return 'never';
+    if (persistRaw === 'submit') return 'on_submit';
     if (persistRaw === 'debounce') return 'on_change';
     if (persistRaw === 'realtime') return 'immediate';
     const raw = writeTarget && typeof writeTarget.commit_policy === 'string'
@@ -325,7 +386,9 @@ export function createRemoteStore(options) {
 
   function stageOverlayValue({ ref, value, writeTarget, fallbackCommitPolicy = 'immediate' }) {
     if (!ref || !labelRefKey(ref)) return;
-    if (!Number.isInteger(ref.model_id) || ref.model_id === 0 || ref.model_id === EDITOR_MODEL_ID) return;
+    const tableId = typeof ref.table_id === 'string' && ref.table_id.trim() ? ref.table_id.trim() : 'host';
+    if (!Number.isInteger(ref.model_id)) return;
+    if (tableId === 'host' && (ref.model_id === 0 || ref.model_id === EDITOR_MODEL_ID)) return;
     if (inferInteractionMode(writeTarget, fallbackCommitPolicy) !== 'overlay_then_commit') return;
     overlayStore.set(labelRefKey(ref), {
       ref,
@@ -386,8 +449,15 @@ export function createRemoteStore(options) {
 
   function reconcileOverlayStore() {
     for (const [key, entry] of overlayStore.entries()) {
-      if (!entry || !entry.pending || !entry.commitTargetRef) continue;
+      if (!entry || !entry.commitTargetRef) continue;
       const committedValue = getSnapshotLabelValue(snapshot, entry.commitTargetRef);
+      if (entry.commitPolicy === 'never') {
+        if (stableValueKey(committedValue) === stableValueKey(entry.value)) {
+          overlayStore.delete(key);
+        }
+        continue;
+      }
+      if (!entry.pending) continue;
       if (stableValueKey(committedValue) === entry.committedValueKey) {
         overlayStore.delete(key);
       }
@@ -451,6 +521,7 @@ export function createRemoteStore(options) {
     }
     overlayPendingLocalState(next);
     snapshot.models = next.models;
+    snapshot.tables = next.tables || {};
     snapshot.v1nConfig = next.v1nConfig;
     if (Number.isInteger(metadata?.snapshot_seq)) {
       currentSnapshotSeq = metadata.snapshot_seq;
@@ -511,33 +582,56 @@ export function createRemoteStore(options) {
     if (!next || !next.models) return next;
     const preserveExistingModels = Boolean(options && options.preserveExistingModels);
     const mergedModels = { ...(snapshot.models || {}) };
+    const mergedTables = cloneSnapshotJson(snapshot.tables || {});
     for (const [modelId, model] of Object.entries(next.models || {})) {
       if (preserveExistingModels && Object.prototype.hasOwnProperty.call(mergedModels, modelId)) continue;
       mergedModels[modelId] = model;
     }
+    for (const [tableId, table] of Object.entries(next.tables || {})) {
+      if (!mergedTables[tableId]) mergedTables[tableId] = { table_id: tableId, models: {} };
+      const mergedTableModels = { ...(mergedTables[tableId].models || {}) };
+      for (const [modelId, model] of Object.entries(table.models || {})) {
+        if (preserveExistingModels && Object.prototype.hasOwnProperty.call(mergedTableModels, modelId)) continue;
+        mergedTableModels[modelId] = model;
+      }
+      mergedTables[tableId] = { ...table, models: mergedTableModels };
+    }
     return {
       ...next,
       models: mergedModels,
+      tables: mergedTables,
       v1nConfig: Object.prototype.hasOwnProperty.call(next, 'v1nConfig') ? next.v1nConfig : snapshot.v1nConfig,
     };
   }
 
-  function forgetSnapshotModel(modelId) {
-    const normalized = normalizeVisibleModelId(modelId);
-    if (!Number.isInteger(normalized)) return;
-    const modelKey = String(normalized);
-    if (!snapshot.models || !Object.prototype.hasOwnProperty.call(snapshot.models, modelKey)) return;
-    const nextModels = { ...snapshot.models };
-    delete nextModels[modelKey];
-    snapshot.models = nextModels;
+  function forgetSnapshotModel(modelIdOrRef) {
+    const ref = normalizeVisibleModelRef(modelIdOrRef);
+    if (!ref) return;
+    const modelKey = String(ref.model_id);
+    if (ref.table_id === 'host') {
+      if (!snapshot.models || !Object.prototype.hasOwnProperty.call(snapshot.models, modelKey)) return;
+      const nextModels = { ...snapshot.models };
+      delete nextModels[modelKey];
+      snapshot.models = nextModels;
+    } else {
+      const table = snapshot.tables && snapshot.tables[ref.table_id];
+      if (!table || !table.models || !Object.prototype.hasOwnProperty.call(table.models, modelKey)) return;
+      snapshot.tables = {
+        ...(snapshot.tables || {}),
+        [ref.table_id]: {
+          ...table,
+          models: Object.fromEntries(Object.entries(table.models).filter(([key]) => key !== modelKey)),
+        },
+      };
+    }
     try {
       projectionStore.applySnapshotPatch({
         patch_kind: 'json_replace_v1',
         snapshot_seq: currentSnapshotSeq,
-        ops: [{ op: 'delete_model', model_id: normalized }],
+        ops: [{ op: 'delete_model', table_id: ref.table_id, model_id: ref.model_id }],
       });
     } catch (err) {
-      console.warn('failed to forget stale visible model from projection store', { modelId: normalized, err });
+      console.warn('failed to forget stale visible model from projection store', { modelRef: ref, err });
     }
   }
 
@@ -548,11 +642,20 @@ export function createRemoteStore(options) {
     }
     const baseSnapshot = pendingSseSnapshot && pendingSseSnapshot.snapshot
       ? pendingSseSnapshot.snapshot
-      : { models: snapshot.models, v1nConfig: snapshot.v1nConfig };
+      : { models: snapshot.models, tables: snapshot.tables, v1nConfig: snapshot.v1nConfig };
     const baseSnapshotSeq = pendingSseSnapshot && pendingSseSnapshot.metadata && Number.isInteger(pendingSseSnapshot.metadata.snapshot_seq)
       ? pendingSseSnapshot.metadata.snapshot_seq
       : currentSnapshotSeq;
-    if (baseSnapshotSeq <= 0 || patch.base_snapshot_seq !== baseSnapshotSeq) {
+    if (baseSnapshotSeq <= 0) {
+      throw new Error('snapshot_patch_base_mismatch');
+    }
+    if (patch.base_snapshot_seq < baseSnapshotSeq) {
+      if (Number.isInteger(patch.snapshot_seq) && patch.snapshot_seq > baseSnapshotSeq) {
+        throw new Error('snapshot_patch_base_mismatch');
+      }
+      return;
+    }
+    if (patch.base_snapshot_seq !== baseSnapshotSeq) {
       throw new Error('snapshot_patch_base_mismatch');
     }
     const next = applyClientSnapshotPatch(baseSnapshot, patch);
@@ -645,7 +748,8 @@ export function createRemoteStore(options) {
   }
 
   function localStateKey(target) {
-    return `${target.model_id}:${target.p}:${target.r}:${target.c}:${target.k}`;
+    const tableId = typeof target.table_id === 'string' && target.table_id.trim() ? target.table_id.trim() : 'host';
+    return `${tableId}:${target.model_id}:${target.p}:${target.r}:${target.c}:${target.k}`;
   }
 
   function patchSnapshotLocalStateLabel(target, value, targetSnapshot = snapshot) {
@@ -658,11 +762,23 @@ export function createRemoteStore(options) {
       return null;
     }
 
+    const tableId = typeof target.table_id === 'string' && target.table_id.trim() ? target.table_id.trim() : 'host';
     if (!targetSnapshot.models) targetSnapshot.models = {};
     let model = getSnapshotModel(targetSnapshot, modelId);
+    if (tableId !== 'host') {
+      if (!targetSnapshot.tables) targetSnapshot.tables = {};
+      if (!targetSnapshot.tables[tableId]) targetSnapshot.tables[tableId] = { table_id: tableId, models: {} };
+      if (!targetSnapshot.tables[tableId].models) targetSnapshot.tables[tableId].models = {};
+      model = targetSnapshot.tables[tableId].models[String(modelId)] || null;
+    }
     if (!model) {
-      targetSnapshot.models[String(modelId)] = { cells: {} };
-      model = targetSnapshot.models[String(modelId)];
+      if (tableId === 'host') {
+        targetSnapshot.models[String(modelId)] = { table_id: 'host', id: modelId, cells: {} };
+        model = targetSnapshot.models[String(modelId)];
+      } else {
+        targetSnapshot.tables[tableId].models[String(modelId)] = { table_id: tableId, id: modelId, cells: {} };
+        model = targetSnapshot.tables[tableId].models[String(modelId)];
+      }
     }
     if (!model.cells) model.cells = {};
     const cellKey = `${target.p},${target.r},${target.c}`;
@@ -676,6 +792,7 @@ export function createRemoteStore(options) {
       base_snapshot_seq: currentSnapshotSeq,
       ops: [{
         op: 'replace_label',
+        table_id: tableId,
         model_id: target.model_id,
         cell_key: cellKey,
         label_key: target.k,
@@ -922,10 +1039,11 @@ export function createRemoteStore(options) {
     let wantsInitialProjection = false;
     try {
       const profile = options && typeof options.profile === 'string' && options.profile ? options.profile : 'bootstrap';
-      wantsInitialProjection = profile === 'bootstrap'
+      const explicitInitialProjection = options && options.initialProjection === true;
+      wantsInitialProjection = explicitInitialProjection || (profile === 'bootstrap'
         && options.initialProjection !== false
         && initialProjectionRequestAvailable
-        && (!snapshot.models || Object.keys(snapshot.models).length === 0);
+        && (!snapshot.models || Object.keys(snapshot.models).length === 0));
       const requestOptions = {
         ...options,
         initialProjection: wantsInitialProjection,
@@ -936,6 +1054,7 @@ export function createRemoteStore(options) {
       const resp = await fetch(buildSnapshotUrl(requestOptions), { credentials: 'same-origin' });
       if (resp.status === 202) {
         const data = await resp.json().catch(() => ({}));
+        const initializingSnapshotApplied = Boolean(data && data.snapshot && data.snapshot.models);
         const initializingStatus = {
           status: 'initializing',
           code: data && (data.code || data.status) ? String(data.code || data.status) : 'workspace_initializing',
@@ -943,7 +1062,7 @@ export function createRemoteStore(options) {
           retryAfterMs: Number.isFinite(data && data.retry_after_ms) ? Number(data.retry_after_ms) : 250,
           timing: data && data.timing && typeof data.timing === 'object' ? data.timing : null,
         };
-        if (data && data.snapshot && data.snapshot.models) {
+        if (initializingSnapshotApplied) {
           applySnapshot(data.snapshot, {
             ...data,
             workspace_status: data.workspace_status || {
@@ -956,7 +1075,7 @@ export function createRemoteStore(options) {
           setWorkspaceStatus(initializingStatus);
         }
         scheduleWorkspaceInitializationRetry(context, { ...options, initialProjection: false }, workspaceStatus.retryAfterMs);
-        return false;
+        return Boolean(options && options.acceptInitializingSnapshot === true && initializingSnapshotApplied);
       }
       if (!resp.ok) {
         const failureBody = await resp.json().catch(() => ({}));
@@ -1019,26 +1138,36 @@ export function createRemoteStore(options) {
     return fetchSnapshotAndApply(context);
   }
 
-  async function ensureVisibleModelLoaded(modelId) {
-    const normalized = normalizeVisibleModelId(modelId);
-    if (!Number.isInteger(normalized)) {
+  function fetchActiveProfileSnapshotAndApply(context = 'active profile fallback') {
+    return fetchSnapshotAndApply(context, {
+      profile: 'bootstrap',
+      modelIds: visibleModelRefList(),
+    });
+  }
+
+  async function ensureVisibleModelLoaded(modelIdOrRef) {
+    const targetRef = normalizeVisibleModelRef(modelIdOrRef);
+    if (!targetRef) {
       throw new Error('invalid_visible_model_id');
     }
-    if (hasSnapshotModel(normalized)) {
-      visibleModelIds.add(normalized);
+    const targetKey = visibleModelRefKey(targetRef);
+    if (hasSnapshotModel(targetRef)) {
+      rememberVisibleModelRef(targetRef);
       connectEventSource();
       return true;
     }
-    visibleModelIds.add(normalized);
+    rememberVisibleModelRef(targetRef);
     let visibleFailure = null;
-    const ok = await fetchSnapshotAndApply(`visible model lazy load ${normalized}`, {
+    const ok = await fetchSnapshotAndApply(`visible model lazy load ${targetKey}`, {
       profile: 'visible',
-      modelIds: visibleModelIdList(),
+      modelIds: visibleModelRefList(),
+      initialProjection: true,
+      acceptInitializingSnapshot: true,
       mergeWithCurrentModels: true,
       onFailure: (failure) => { visibleFailure = failure; },
     });
     if (!ok) {
-      const hadOtherVisibleIds = visibleModelIds.size > 1;
+      const hadOtherVisibleIds = visibleModelRefs.size > 1;
       const failureCode = visibleFailure && visibleFailure.body
         ? (visibleFailure.body.error || visibleFailure.body.code || '')
         : '';
@@ -1046,37 +1175,43 @@ export function createRemoteStore(options) {
         || failureCode === 'model_not_found'
         || failureCode === 'model_not_visible';
       if (hadOtherVisibleIds && staleVisibleFailure) {
-        const previousVisibleIds = visibleModelIdList().filter((modelId) => modelId !== normalized);
-        const retryOk = await fetchSnapshotAndApply(`visible model lazy load ${normalized} retry target-only after stale ids`, {
+        const previousVisibleRefs = visibleModelRefList().filter((ref) => visibleModelRefKey(ref) !== targetKey);
+        const retryOk = await fetchSnapshotAndApply(`visible model lazy load ${targetKey} retry target-only after stale ids`, {
           profile: 'visible',
-          modelIds: [normalized],
+          modelIds: [targetRef],
+          initialProjection: true,
+          acceptInitializingSnapshot: true,
           mergeWithCurrentModels: true,
         });
-        if (retryOk && hasSnapshotModel(normalized)) {
+        if (retryOk && hasSnapshotModel(targetRef)) {
           visibleModelIds.clear();
-          for (const previousId of previousVisibleIds) {
-            const keepOk = await fetchSnapshotAndApply(`visible model ${previousId} revalidate after stale ids`, {
+          visibleModelRefs.clear();
+          for (const previousRef of previousVisibleRefs) {
+            const previousKey = visibleModelRefKey(previousRef);
+            const keepOk = await fetchSnapshotAndApply(`visible model ${previousKey} revalidate after stale ids`, {
               profile: 'visible',
-              modelIds: [previousId],
+              modelIds: [previousRef],
+              initialProjection: true,
+              acceptInitializingSnapshot: true,
               mergeWithCurrentModels: true,
             });
-            if (keepOk && hasSnapshotModel(previousId)) {
-              visibleModelIds.add(previousId);
+            if (keepOk && hasSnapshotModel(previousRef)) {
+              rememberVisibleModelRef(previousRef);
             } else {
-              forgetSnapshotModel(previousId);
+              forgetSnapshotModel(previousRef);
             }
           }
-          visibleModelIds.add(normalized);
+          rememberVisibleModelRef(targetRef);
           connectEventSource();
           return true;
         }
       }
-      visibleModelIds.delete(normalized);
+      forgetVisibleModelRef(targetRef);
       connectEventSource();
       return false;
     }
     connectEventSource();
-    return hasSnapshotModel(normalized);
+    return hasSnapshotModel(targetRef);
   }
 
   function scheduleSnapshotFallback(context, expectedOpId = '') {
@@ -1088,7 +1223,7 @@ export function createRemoteStore(options) {
       deferredSnapshotFallbackTimer = null;
       deferredSnapshotFallbackContext = '';
       deferredSnapshotFallbackExpectedOpId = '';
-      fetchSnapshotAndApply(nextContext);
+      fetchActiveProfileSnapshotAndApply(nextContext);
     }, snapshotFallbackDelayMs);
     if (
       deferredSnapshotFallbackTimer
@@ -1121,7 +1256,7 @@ export function createRemoteStore(options) {
       } catch (err) {
         console.error('runtime activation fetch error', { err });
       }
-      const snapshotReady = await fetchSnapshotAndApply('runtime activation');
+      const snapshotReady = await fetchActiveProfileSnapshotAndApply('runtime activation');
       if (snapshotReady) scheduleRuntimeActivationRetryIfPending();
     })().finally(() => {
       runtimeActivationPromise = null;
@@ -1154,14 +1289,14 @@ export function createRemoteStore(options) {
       notifyAuthFailure(resp, data, data.returnTo || endpointPath);
       const detail = rawDetail.length > 800 ? `${rawDetail.slice(0, 800)}…` : rawDetail;
       console.error('bus event response not ok', { status: resp.status, statusText: resp.statusText, detail });
-      await fetchSnapshotAndApply('bus event response not ok');
+      await fetchActiveProfileSnapshotAndApply('bus event response not ok');
       return null;
     }
 
     const contentType = resp.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
       console.error('bus event response not json', { contentType });
-      await fetchSnapshotAndApply('bus event response not json');
+      await fetchActiveProfileSnapshotAndApply('bus event response not json');
       return null;
     }
 
@@ -1170,7 +1305,7 @@ export function createRemoteStore(options) {
       data = await resp.json();
     } catch (err) {
       console.error('bus event response json parse error', { err });
-      await fetchSnapshotAndApply('bus event response json parse error');
+      await fetchActiveProfileSnapshotAndApply('bus event response json parse error');
       return null;
     }
     augmentResponseTiming(data, clientPostStartedAt, clientPostStartedPerfMs);
@@ -1197,7 +1332,7 @@ export function createRemoteStore(options) {
       && data
     ) {
       if (data.result === 'error') {
-        await fetchSnapshotAndApply('bus event v2 error fallback');
+        await fetchActiveProfileSnapshotAndApply('bus event v2 error fallback');
       } else {
         const expectedOpId = typeof data.bus_event_last_op_id === 'string' && data.bus_event_last_op_id.trim()
           ? data.bus_event_last_op_id.trim()
@@ -1351,6 +1486,7 @@ export function createRemoteStore(options) {
 
   function closeEventSource() {
     if (!eventSource) return;
+    eventSourceGeneration += 1;
     try {
       eventSource.close();
     } catch (_) {
@@ -1373,10 +1509,14 @@ export function createRemoteStore(options) {
     if (eventSource && eventSourceUrl === nextUrl && eventSource.readyState !== 2) return;
     closeEventSource();
     try {
+      eventSourceGeneration += 1;
+      const generation = eventSourceGeneration;
       const es = new EventSource(nextUrl, { withCredentials: true });
       eventSource = es;
       eventSourceUrl = nextUrl;
+      const isCurrentEventSource = () => eventSource === es && generation === eventSourceGeneration;
       es.addEventListener('snapshot', (evt) => {
+        if (!isCurrentEventSource()) return;
         try {
           const data = JSON.parse(evt.data);
           if (data && data.snapshot) {
@@ -1394,6 +1534,7 @@ export function createRemoteStore(options) {
         }
       });
       es.addEventListener('snapshot_patch', (evt) => {
+        if (!isCurrentEventSource()) return;
         try {
           const data = JSON.parse(evt.data);
           if (data && data.snapshot_patch) {
@@ -1405,6 +1546,7 @@ export function createRemoteStore(options) {
         }
       });
       es.onerror = (err) => {
+        if (!isCurrentEventSource()) return;
         console.error('sse error', { err });
       };
     } catch (_) {

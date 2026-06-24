@@ -152,12 +152,15 @@ V1N.addLabel('submit1', 'pin.out', taskPayload);
 |---|---|
 | `message_role` | `request` |
 | `topic` | `UIPUT/ws/dam/pic/de/R1/3000/submit1` |
-| `response_topic` | `UIPUT/ws/dam/pic/de/U1/<installedModelId>/result` |
+| `response_topic` | UI Server 的 host transport endpoint，例如 `UIPUT/ws/dam/pic/de/U1/1087/result` |
 | `endpoint_worker_id` | `R1` |
 | `endpoint_model_id` | `3000` |
 | `endpoint_pin` | `submit1` |
 | `origin_worker_id` | `U1` |
-| `origin_model_id` | 当前安装后的本地 model id |
+| `origin_table_id` | 当前安装后的 App instance table id |
+| `origin_model_id` | App table 内的本地 model id，root 通常是 `0` |
+| `reply_target_table_id` | 回包要写回的 App instance table id |
+| `reply_target_model_id` | 回包要写回的 App table 内 model id，root 通常是 `0` |
 | `origin_pin` | `submit1` |
 | `payload` | 上面的 `taskPayload` |
 

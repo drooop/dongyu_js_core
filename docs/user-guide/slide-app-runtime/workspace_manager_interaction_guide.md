@@ -61,7 +61,7 @@ mqtt_topic_base = UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>
 UIPUT/ws/dam/pic/de/R1/3100/bundle_request
 ```
 
-这个完整 topic 会写入临时 ModelTable payload 的 `topic` label，用于 MBR 转发。UI Server 同时生成 `response_topic = <mqtt_topic_base>/<reply_target_worker_id>/<reply_target_model_id>/<reply_target_pin>` 用于回包投递。完整 topic 可以投影成 `provider_bundle_topic` 给界面显示，但不能把 `provider_bundle_topic` 当作目录真源。
+这个完整 topic 会写入临时 ModelTable payload 的 `topic` label，用于 MBR 转发。UI Server 同时生成 `response_topic = <mqtt_topic_base>/<host-transport-worker>/<host-transport-model>/<reply-pin>` 用于回包投递。若这次请求来自安装后的 App instance，payload 还必须带 `origin_table_id` 与 `reply_target_table_id`；真正 materialize 回哪张 App table 由 `reply_target_table_id + reply_target_model_id` 决定，而不是由 `response_topic` 的 model 段决定。完整 topic 可以投影成 `provider_bundle_topic` 给界面显示，但不能把 `provider_bundle_topic` 当作目录真源。
 
 ### 2.2 安装后业务运行 topic
 

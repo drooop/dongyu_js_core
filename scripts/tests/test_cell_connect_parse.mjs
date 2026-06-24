@@ -53,7 +53,7 @@ function test_cell_connect_label_parse() {
       { from: 'process:out', to: ['result'] },
     ],
   });
-  const cellKey = '999|1|0|0';
+  const cellKey = 'host|999|1|0|0';
   assert(rt.cellConnectGraph.has(cellKey), 'cellConnectGraph should have key');
   const graph = rt.cellConnectGraph.get(cellKey);
   assert(graph.has('self:cmd'), 'should have self:cmd endpoint');
@@ -88,14 +88,14 @@ function test_cell_connection_parse() {
       { from: [1, 0, 0, 'result'], to: [[0, 0, 0, 'output']] },
     ],
   });
-  const key1 = '999|0|0|0|input';
+  const key1 = 'host|999|0|0|0|input';
   assert(rt.cellConnectionRoutes.has(key1), 'should have route for input');
   const targets1 = rt.cellConnectionRoutes.get(key1);
   assert.strictEqual(targets1.length, 1);
   assert.strictEqual(targets1[0].model_id, 999);
   assert.strictEqual(targets1[0].p, 1);
   assert.strictEqual(targets1[0].k, 'cmd');
-  const key2 = '999|1|0|0|result';
+  const key2 = 'host|999|1|0|0|result';
   assert(rt.cellConnectionRoutes.has(key2), 'should have route for result');
   return { key: 'cell_connection_parse', status: 'PASS' };
 }
@@ -120,7 +120,7 @@ function test_multi_target_fanout() {
     t: 'pin.connect.label',
     v: [{ from: 'cmd', to: ['a:in', 'b:in'] }],
   });
-  const graph = rt.cellConnectGraph.get('996|1|0|0');
+  const graph = rt.cellConnectGraph.get('host|996|1|0|0');
   const targets = graph.get('self:cmd');
   assert.strictEqual(targets.length, 2, 'should have 2 targets');
   return { key: 'multi_target_fanout', status: 'PASS' };

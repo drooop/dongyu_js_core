@@ -378,6 +378,27 @@ async function readResponseJson(resp) {
   return text ? JSON.parse(text) : {};
 }
 
+async function activateRuntimeModeRunning(appBase, sessionCookie, message) {
+  const deadline = Date.now() + 5000;
+  let lastStatus = 0;
+  let lastBody = {};
+  while (Date.now() < deadline) {
+    const resp = await fetch(`${appBase}/api/runtime/mode`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: sessionCookie },
+      body: JSON.stringify({ mode: 'running' }),
+    });
+    lastStatus = resp.status;
+    lastBody = await readResponseJson(resp);
+    if (resp.status === 200) return lastBody;
+    if (resp.status !== 202) break;
+    const retryAfter = Number.isFinite(lastBody?.retry_after_ms) ? Math.max(10, Number(lastBody.retry_after_ms)) : 100;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(retryAfter, 250)));
+  }
+  assert.equal(lastStatus, 200, `${message}: ${JSON.stringify(lastBody)}`);
+  return lastBody;
+}
+
 async function test_patch_messages_expose_stats_and_keep_ordinary_patch_under_32kb() {
   const { buildClientSnapshotPatchMessage } = await importFreshServerModule();
   const previous = {
@@ -424,8 +445,12 @@ async function test_patch_messages_expose_stats_and_keep_ordinary_patch_under_32
     opId: 'it0416_helper_patch_stats',
     previousPrincipalKey: 'drop',
     currentPrincipalKey: 'drop',
+    snapshotProfile: 'bootstrap',
+    visibleModelIds: [100, -23],
   });
   assert.equal(message.event, 'snapshot_patch', 'ordinary small change must stay snapshot_patch');
+  assert.equal(message.data.snapshot_profile, 'bootstrap', 'ordinary patch must preserve active snapshot profile');
+  assert.deepEqual(message.data.visible_model_ids, [-23, 100], 'ordinary patch must preserve sorted active visible model ids');
   assertPatchStatsMatch(message.data, 'helper ordinary patch');
   assert.equal(
     message.data.patch_stats.bytes <= POST_LOAD_PATCH_MAX_BYTES,
@@ -467,9 +492,13 @@ async function test_oversize_patch_fallback_records_observable_reason() {
     previousPrincipalKey: 'drop',
     currentPrincipalKey: 'drop',
     maxPatchBytes: 128,
+    snapshotProfile: 'bootstrap',
+    visibleModelIds: [100, -23],
   });
   assert.equal(message.event, 'snapshot', 'oversize patch may fall back to full snapshot');
   assert.equal(message.data.patch_kind, 'oversize_reset', 'oversize fallback must have explicit patch_kind');
+  assert.equal(message.data.snapshot_profile, 'bootstrap', 'oversize fallback reset must preserve the active snapshot profile');
+  assert.deepEqual(message.data.visible_model_ids, [-23, 100], 'oversize fallback reset must preserve sorted active visible model ids');
   assert.equal(
     Number.isInteger(message.data?.patch_stats?.bytes),
     true,
@@ -534,12 +563,7 @@ async function test_ordinary_stream_patch_has_stats_and_no_expensive_derived_lab
   await withAuthenticatedAppServer(async ({ appBase, sessionCookie }) => {
     let sse = null;
     try {
-      const modeResp = await fetch(`${appBase}/api/runtime/mode`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', cookie: sessionCookie },
-        body: JSON.stringify({ mode: 'running' }),
-      });
-      assert.equal(modeResp.status, 200, 'runtime mode activation must succeed');
+      await activateRuntimeModeRunning(appBase, sessionCookie, 'runtime mode activation must succeed');
 
       const streamResp = await fetch(`${appBase}/stream?profile=bootstrap&visible_model_id=100`, { headers: { cookie: sessionCookie } });
       assert.equal(streamResp.status, 200, 'stream must open');
@@ -570,6 +594,8 @@ async function test_ordinary_stream_patch_has_stats_and_no_expensive_derived_lab
       for (let i = 0; i < 4 && !sawBusinessLabel; i += 1) {
         const next = await sse.nextEvent();
         assert.equal(next.event, 'snapshot_patch', 'ordinary post-load event must not silently fall back to full snapshot');
+        assert.equal(next.data.snapshot_profile, 'bootstrap', `ordinary stream patch ${i + 1} must preserve active snapshot profile`);
+        assert.deepEqual(next.data.visible_model_ids, [100], `ordinary stream patch ${i + 1} must preserve active visible model ids`);
         assertPatchStatsMatch(next.data, `ordinary stream patch ${i + 1}`);
         assert.equal(
           next.data.patch_stats.bytes <= POST_LOAD_PATCH_MAX_BYTES,
@@ -598,16 +624,68 @@ async function test_ordinary_stream_patch_has_stats_and_no_expensive_derived_lab
   });
 }
 
+async function test_oversize_stream_reset_preserves_profile_metadata() {
+  await withAuthenticatedAppServer(async ({ appBase, sessionCookie }) => {
+    let sse = null;
+    try {
+      await activateRuntimeModeRunning(appBase, sessionCookie, 'runtime mode activation must succeed');
+
+      const streamResp = await fetch(`${appBase}/stream?profile=bootstrap&visible_model_id=100`, { headers: { cookie: sessionCookie } });
+      assert.equal(streamResp.status, 200, 'stream must open');
+      sse = createSseReader(streamResp);
+      const initial = await sse.nextEvent();
+      assert.equal(initial.event, 'snapshot', 'initial stream event must include subscribed visible app snapshot');
+
+      const largeLabelKey = `it0416_large_${Date.now()}`;
+      const largeValue = `large_${'x'.repeat(40 * 1024)}`;
+      const updateResp = await fetch(`${appBase}/bus_event`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: sessionCookie },
+        body: JSON.stringify({
+          event_id: Date.now(),
+          type: 'ui_owner_label_update',
+          payload: {
+            action: 'ui_owner_label_update',
+            meta: { op_id: 'it0416_oversize_stream_reset' },
+            target: { model_id: 100, p: 0, r: 0, c: 0, k: largeLabelKey },
+            value: { t: 'str', v: largeValue },
+          },
+          source: 'ui_renderer',
+          ts: Date.now(),
+        }),
+      });
+      assert.equal(updateResp.status, 200, 'oversize owner update must be accepted');
+      const updateJson = await readResponseJson(updateResp);
+      assert.equal(updateJson.result, 'ok', 'oversize owner update must report successful result');
+      assert.equal(updateJson.routed_by, 'pin', 'oversize owner update must still use owner pin path');
+
+      const next = await sse.nextEvent();
+      assert.equal(next.event, 'snapshot', 'oversize stream patch must fall back to snapshot reset');
+      assert.equal(next.data.patch_kind, 'oversize_reset', 'oversize stream reset must be explicit');
+      assert.equal(next.data.fallback_reason, 'patch_oversize', 'oversize stream reset must expose fallback reason');
+      assert.equal(next.data.snapshot_profile, 'bootstrap', 'oversize stream reset must preserve active snapshot profile');
+      assert.deepEqual(next.data.visible_model_ids, [100], 'oversize stream reset must preserve active visible model ids');
+      assert.equal(
+        next.data.patch_stats.bytes > POST_LOAD_PATCH_MAX_BYTES,
+        true,
+        'oversize stream reset must report attempted patch bytes above the post-load limit',
+      );
+      assert.equal(
+        next.data.snapshot?.models?.['100']?.cells?.['0,0,0']?.labels?.[largeLabelKey]?.v,
+        largeValue,
+        'oversize stream reset snapshot must include the new visible model label',
+      );
+    } finally {
+      if (sse) await sse.close();
+    }
+  });
+}
+
 async function test_app_index_event_is_allowed_to_patch_ws_apps_registry() {
   await withAuthenticatedAppServer(async ({ appBase, sessionCookie }) => {
     let sse = null;
     try {
-      const modeResp = await fetch(`${appBase}/api/runtime/mode`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', cookie: sessionCookie },
-        body: JSON.stringify({ mode: 'running' }),
-      });
-      assert.equal(modeResp.status, 200, 'runtime mode activation must succeed');
+      await activateRuntimeModeRunning(appBase, sessionCookie, 'runtime mode activation must succeed');
 
       const streamResp = await fetch(`${appBase}/stream?profile=bootstrap`, { headers: { cookie: sessionCookie } });
       assert.equal(streamResp.status, 200, 'stream must open');
@@ -644,14 +722,20 @@ async function test_app_index_event_is_allowed_to_patch_ws_apps_registry() {
       assert.equal(addResp.status, 200, 'workspace add app event must succeed');
       const addJson = await readResponseJson(addResp);
       assert.equal(addJson.result, 'ok', 'workspace add app must report successful result');
-      const next = await sse.nextEvent();
-      assert.equal(next.event, 'snapshot_patch', 'app-index event should use patch when possible');
-      assertPatchStatsMatch(next.data, 'app-index stream patch');
-      const patchedKeys = flattenPatchLabelKeys(next.data.snapshot_patch);
+      let patchedKeys = [];
+      const observedPatchKeys = [];
+      for (let i = 0; i < 4; i += 1) {
+        const next = await sse.nextEvent();
+        assert.equal(next.event, 'snapshot_patch', 'app-index event should use patch when possible');
+        assertPatchStatsMatch(next.data, 'app-index stream patch');
+        patchedKeys = flattenPatchLabelKeys(next.data.snapshot_patch);
+        observedPatchKeys.push(patchedKeys.join(','));
+        if (patchedKeys.includes('ws_apps_registry')) break;
+      }
       assert.equal(
         patchedKeys.includes('ws_apps_registry'),
         true,
-        'app-index event must be allowed to patch ws_apps_registry',
+        `app-index event must be allowed to patch ws_apps_registry; observed patch keys: ${observedPatchKeys.join(' | ')}`,
       );
     } finally {
       if (sse) await sse.close();
@@ -721,6 +805,7 @@ const tests = [
   test_oversize_patch_fallback_records_observable_reason,
   test_default_post_load_patch_limit_is_32kb,
   test_ordinary_stream_patch_has_stats_and_no_expensive_derived_labels,
+  test_oversize_stream_reset_preserves_profile_metadata,
   test_app_index_event_is_allowed_to_patch_ws_apps_registry,
   test_server_explicit_app_index_scope_refreshes_ws_apps_registry,
   test_local_demo_business_scope_does_not_refresh_ws_apps_registry,

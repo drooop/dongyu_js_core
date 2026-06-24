@@ -8,7 +8,10 @@ export function buildFocusedWorkspaceAppContentAst(app, snapshot) {
   if (!app || app.page !== 'workspace' || !Number.isInteger(app.model_id)) {
     return null;
   }
-  const ast = buildAstFromCellwiseModel(snapshot, app.model_id);
+  const modelRef = typeof app.table_id === 'string' && app.table_id.trim()
+    ? { table_id: app.table_id.trim(), model_id: app.model_id }
+    : app.model_id;
+  const ast = buildAstFromCellwiseModel(snapshot, modelRef);
   if (ast && typeof ast === 'object') {
     return cloneAst(ast);
   }
