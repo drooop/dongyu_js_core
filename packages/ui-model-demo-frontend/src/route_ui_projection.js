@@ -4,7 +4,6 @@ import { findPageEntryByPath, resolvePageAsset } from './page_asset_resolver.js'
 import { buildAstFromCellwiseModel } from './ui_cellwise_projection.js';
 import {
   BUILTIN_WORKSPACE_APP_MODEL_IDS,
-  DOCS_CATALOG_MODEL_ID,
   EDITOR_STATE_MODEL_ID,
   FLOW_SHELL_CATALOG_MODEL_ID,
   MATRIX_SUITE_APP_MODEL_ID,
@@ -106,22 +105,37 @@ function readEditorStateLabel(snapshot, key) {
   return snapshot?.models?.[String(EDITOR_STATE_MODEL_ID)]?.cells?.['0,0,0']?.labels?.[key]?.v;
 }
 
-function isHostBuiltinWorkspaceApp(modelId) {
-  return BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(modelId);
+function normalizeWorkspaceAppTableId(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : 'host';
 }
 
-function normalizeDesktopWorkspaceApps(snapshot) {
+function workspaceAppRefKey(tableId, modelId) {
+  return `${normalizeWorkspaceAppTableId(tableId)}|${modelId}`;
+}
+
+function workspaceAppNodeSuffix(app) {
+  if (normalizeWorkspaceAppTableId(app.tableId) === 'host') return String(app.modelId);
+  return `${String(app.tableId || 'host').replace(/[^a-zA-Z0-9_-]+/g, '_')}_${app.modelId}`;
+}
+
+function isHostBuiltinWorkspaceApp(modelId, tableId = 'host') {
+  return normalizeWorkspaceAppTableId(tableId) === 'host' && BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(modelId);
+}
+
+export function normalizeDesktopWorkspaceApps(snapshot) {
   const registry = readEditorStateLabel(snapshot, 'ws_apps_registry');
   if (!Array.isArray(registry)) return [];
   const apps = [];
   const seen = new Set();
   for (const entry of registry) {
     const modelId = entry && Number.isInteger(entry.model_id) ? entry.model_id : null;
-    if (!Number.isInteger(modelId) || modelId === 0 || seen.has(modelId)) continue;
-    seen.add(modelId);
+    const tableId = normalizeWorkspaceAppTableId(entry?.table_id);
+    const appKey = workspaceAppRefKey(tableId, modelId);
+    if (!Number.isInteger(modelId) || (tableId === 'host' && modelId === 0) || seen.has(appKey)) continue;
+    seen.add(appKey);
     const title = typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : `App ${modelId}`;
     const summary = typeof entry.summary === 'string' && entry.summary.trim() ? entry.summary.trim() : '';
-    const origin = isHostBuiltinWorkspaceApp(modelId) ? 'builtin' : 'slid_in';
+    const origin = isHostBuiltinWorkspaceApp(modelId, tableId) ? 'builtin' : 'slid_in';
     if (entry.slide_capable === true && !summary) {
       throw new Error(`slide_capable workspace app ${modelId} missing required slide_app_summary`);
     }
@@ -130,6 +144,7 @@ function normalizeDesktopWorkspaceApps(snapshot) {
       : '';
     apps.push({
       modelId,
+      tableId,
       title,
       summary: summary || (origin === 'builtin' ? `${title} built-in app.` : ''),
       origin,
@@ -144,30 +159,24 @@ function normalizeDesktopWorkspaceApps(snapshot) {
 }
 
 function desktopLaunchValueForApp(app) {
-  if (app.modelId === DOCS_CATALOG_MODEL_ID || app.title === 'Docs') {
-    return {
-      id: 'docs',
-      kind: 'system',
-      page: 'docs',
-      path: '/docs',
-      model_id: DOCS_CATALOG_MODEL_ID,
-      title: 'Docs',
-    };
-  }
+  const tableId = typeof app.tableId === 'string' && app.tableId.trim() ? app.tableId.trim() : 'host';
   return {
-    id: `workspace:${app.modelId}`,
+    id: tableId === 'host' ? `workspace:${app.modelId}` : `workspace:${tableId}:${app.modelId}`,
     kind: 'workspace',
     page: 'workspace',
     path: '/workspace',
     model_id: app.modelId,
+    ...(tableId !== 'host' ? { table_id: tableId } : {}),
     title: app.title,
     summary: app.summary,
   };
 }
 
 function desktopDeleteValueForApp(app) {
+  const tableId = typeof app.tableId === 'string' && app.tableId.trim() ? app.tableId.trim() : 'host';
   return {
     model_id: app.modelId,
+    ...(tableId !== 'host' ? { table_id: tableId } : {}),
     title: app.title,
   };
 }
@@ -175,7 +184,7 @@ function desktopDeleteValueForApp(app) {
 function buildDesktopWorkspaceAppNode(app, displayMode = 'cards', manageMode = false) {
   const deletable = app.origin === 'slid_in' && app.deletable === true;
   return {
-    id: `desktop_slide_app_${app.modelId}`,
+    id: `desktop_slide_app_${workspaceAppNodeSuffix(app)}`,
     type: 'AppCard',
     props: {
       title: app.title,
@@ -188,6 +197,7 @@ function buildDesktopWorkspaceAppNode(app, displayMode = 'cards', manageMode = f
       appOrigin: app.origin,
       sourceDE: app.origin === 'slid_in' ? app.sourceDE : '',
       modelId: app.modelId,
+      tableId: app.tableId,
       surface: app.surface,
       displayMode,
       density: 'compact',

@@ -181,7 +181,7 @@ my-slide-app.zip
 
 | 字段 | 含义 |
 |---|---|
-| `id` | 临时模型 id。导入时会被 remap 成正式正数模型 id |
+| `id` | 包内局部模型 id。导入时保留在新 App instance `table_id` 内，不会被 remap 成宿主全局正数模型 id |
 | `p/r/c` | cell 坐标 |
 | `k` | label key |
 | `t` | label type |
@@ -191,18 +191,20 @@ my-slide-app.zip
 
 1. 从 media cache 读取 `mxc://...` 对应 zip。
 2. 校验 `app_payload.json`。
-3. 为临时模型 id 分配正式正数模型 id。
-4. 把临时 records materialize 到 runtime。
-5. 在 Model 0 的 Workspace mount 区写 `model.submt`，把 APP 挂到 Workspace。
-6. 如果声明了 host ingress / egress，自动补宿主 adapter。
+3. 为本次安装分配 App instance `table_id`。
+4. 把 package records materialize 到这张 App instance table，包内 `model_id` 保持局部。
+5. 在 host Model 0 的 Workspace mount 区写 `model.subtable`，把 APP table 挂到 Workspace。
+6. 把桌面 registry、任务栈和打开状态记录为 table-qualified `ModelRef = { table_id, model_id }`。
 
-安装完成不代表前端启动时就下载了整个 APP 模型体。0418 起，UI Server 的浏览器端默认先加载 `bootstrap` 投影：桌面、app registry、route state 和必要系统模型。用户从桌面打开某个滑动 APP 时，前端才会按该 APP 的正式 `model_id` 请求 `visible` profile，把这个 APP 的模型体加载进浏览器投影缓存。
+安装完成不代表前端启动时就下载了整个 APP 模型体。0418 起，UI Server 的浏览器端默认先加载 `bootstrap` 投影：桌面、app registry、route state 和必要系统模型。0425 起，用户从桌面打开某个滑动 APP 时，前端按 `visible_model_ref={table_id,model_id}` 请求 `visible` profile，把这个 APP instance table 内的模型体加载进浏览器投影缓存。
 
 这条规则对开发者有三个影响：
 
-- ZIP 里仍然只需要写临时 ModelTable records，不需要也不应该写死安装后的正式 `model_id`。
+- ZIP 里仍然只需要写 ModelTable records，不需要也不应该写死安装后的 `table_id` 或宿主分配信息。
 - APP 是否能在桌面列表里出现，取决于安装后 registry / mount 信息是否进入 `bootstrap` profile；APP 的具体 UI cell / label 会在打开时按需加载。
 - 如果打开 APP 时模型体还没回来，宿主应显示加载态；加载完成后再按 `cellwise.ui.v1` 渲染 APP 内容。
+
+同一个 ZIP 可以被同一用户或不同用户安装多次。每次安装都会得到独立 `table_id`；包内 `model_id=0` 仍然是该 App table 的 root。这样同一个颜色生成器安装成两个实例时，两个实例能显示不同颜色而不会互相覆盖。
 
 ### 4.1 Workspace Manager 安装 provider-owned APP（0384 current contract）
 

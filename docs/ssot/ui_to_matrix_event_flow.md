@@ -80,7 +80,7 @@ if (req.method === 'POST' && url.pathname === '/ui_event') {
 **关键点**:
 - 前端发送 envelope（包含 payload 和 type）
 - 后端调用 `submitEnvelope()` 处理
-- 成功后触发 client snapshot 投影更新：`/stream` 默认以 `bootstrap` profile 连接，初始事件只发送该 profile 的 `snapshot`；打开滑动 APP 后，客户端用 `visible_model_id` 明确订阅已加载模型，后续在同一会话和同一 profile 可见范围内优先发送 `snapshot_patch`。
+- 成功后触发 client snapshot 投影更新：`/stream` 默认以 `bootstrap` profile 连接，初始事件只发送该 profile 的 `snapshot`；打开滑动 APP 后，客户端用 table-qualified `visibleModelRefs` 明确订阅已加载模型，后续在同一会话和同一 profile 可见范围内优先发送 `snapshot_patch`。
 - 权限变化、patch 过大、profile baseline 缺失或序列不匹配时，服务端必须发送可观察的 reset/recovery，或客户端重新拉取当前 profile 的 `/snapshot`；不得静默扩展为完整模型全集。
 - 无论传输的是完整 `snapshot` 还是 `snapshot_patch`，它们都只是 ModelTable truth 的前端投影，不得作为绕过 ModelTable 的业务写入通道。
 
@@ -190,7 +190,7 @@ V1N.addLabel('submit', 'pin.out', payload);
 
 **注意**:
 - 不再推荐把 mailbox 中的任意 `ui_event` 直接默认转发到 Matrix。
-- 如果某个动作需要外发，必须先在模型定义中声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`；实际回包目标由 UI Server 根据本地安装模型 id 写入 `reply_target_worker_id` / `reply_target_model_id` / `reply_target_pin` records，ZIP 内不得声明 `route.reply_to` 或 `reply_target_*`。
+- 如果某个动作需要外发，必须先在模型定义中声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`；实际回包目标由 UI Server 根据本地 App instance `ModelRef` 写入 `reply_target_worker_id` / `reply_target_table_id` / `reply_target_model_id` / `reply_target_pin` records，ZIP 内不得声明 `route.reply_to` 或 `reply_target_*`。
 
 ### 5. MBR Worker 接收和转发
 

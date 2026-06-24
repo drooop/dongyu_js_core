@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0423 Snapshot Granularity Implementation Runlog"
 doc_type: iteration-runlog
-status: in-progress
+status: completed
 updated: 2026-06-23
 source: ai
 iteration_id: 0423-snapshot-granularity-impl
 id: 0423-snapshot-granularity-impl
-phase: execution
+phase: completion
 ---
 
 # Iteration 0423-snapshot-granularity-impl Runlog
@@ -17,6 +17,8 @@ phase: execution
 - Branch: `dropx/dev_0423-snapshot-granularity-impl`
 - Runtime target: local OrbStack only
 - Remote deployment: out of scope
+- Browser metric runs used local `DY_AUTH=0` to isolate UI/runtime latency from SSO.
+- Final local cluster state restored `DY_AUTH=1`.
 
 ## Review Gate Record
 
@@ -139,19 +141,282 @@ phase: execution
 
 ### Phase 3: App/Model Lazy Load Boundary
 
-- Status: pending
+- Status: implemented, pending sub-agent review
+- RED command:
+  - `node scripts/tests/test_0418_visible_snapshot_projection_latency_contract.mjs`
+- RED result:
+  - `FAIL frontend_uses_bootstrap_and_visible_model_lazy_load_contract`
+  - reason: desktop `Docs` launch still used the legacy `/docs` route, bypassing the foreground `visible model` lazy-load path.
+- Implementation:
+  - Removed the desktop `Docs` special launch case from `route_ui_projection.js`.
+  - Desktop app launches now consistently use `page: "workspace"`, `path: "/workspace"`, and the app `model_id`, so built-in negative apps and slid-in apps share the same foreground lazy-load boundary.
+  - Added source-level contract assertions that foreground loading calls `ensureVisibleModelLoaded` and desktop app launch no longer routes Docs through `/docs`.
+- GREEN commands:
+  - `node scripts/tests/test_0418_visible_snapshot_projection_latency_contract.mjs`
+  - `node scripts/tests/test_0423_snapshot_granularity_contract.mjs`
+  - `node scripts/ops/report_snapshot_profile_sizes.mjs --top-models 8 --top-labels 12`
+- GREEN key output:
+  - `PASS 8/8`
+  - `PASS test_0423_snapshot_granularity_contract: 3 passed`
+  - `bootstrap`: `29280B`, `5` models, `42` cells, `237` labels.
+  - `visible:100`: `42912B`, `6` models, `62` cells, `397` labels.
+  - `full`: `722185B`, `58` models, `1220` cells, `8111` labels.
+- Result: PASS
+- Phase 3 review 1:
+  - Agent: `019ef0f3-fa94-74b3-9a4d-a121924b3b2b`
+  - Decision: Change Requested
+  - Findings:
+    - `test_0374_web_tablet_desktop_contract.mjs` still expected Docs foreground state to use legacy `id: "docs"`, `page: "docs"`, `path: "/docs"`.
+    - `test_0390_focused_app_shell_settings_contract.mjs` still expected Docs to be a system `/docs` app.
+    - `test_0418_visible_snapshot_projection_latency_contract.mjs` only used source regex and did not verify the actual desktop Docs AppCard payload.
+- Fix after review:
+  - Migrated 0374/0390 Docs expectations to `workspace:-23` / `/workspace` / `model_id: -23`.
+  - Added actual desktop AST AppCard payload assertion for `desktop_slide_app_-23`.
+  - Updated stale 0374 remote-store test assumptions for current startup profile URL and `/ui_event` endpoint.
+- Re-run commands after review fix:
+  - `node scripts/tests/test_0374_web_tablet_desktop_contract.mjs`
+  - `node scripts/tests/test_0390_focused_app_shell_settings_contract.mjs`
+  - `node scripts/tests/test_0418_visible_snapshot_projection_latency_contract.mjs`
+  - `node scripts/tests/test_0423_snapshot_granularity_contract.mjs`
+- Re-run key output:
+  - `13 passed, 0 failed out of 13`
+  - `15 passed, 0 failed out of 15`
+  - `PASS 8/8`
+  - `PASS test_0423_snapshot_granularity_contract: 3 passed`
 
 ### Phase 4: Projection-Driven Rendering
 
-- Status: pending
+- Status: implemented, pending sub-agent review
+- Implementation:
+  - Updated the projection-store contract test to the current `bootstrap&initial_projection=1` startup protocol.
+  - Added assertions that projection-store startup paths do not request implicit full snapshot or full stream.
+  - Kept projection cache as read cache only: label atom updates, overlay precedence, and local UI state behavior remain covered by existing deterministic tests.
+- Verification commands:
+  - `node scripts/tests/test_0415_reactive_projection_store_contract.mjs`
+  - `node scripts/tests/test_0420_ui_local_state_latency_contract.mjs`
+  - `node scripts/tests/test_0423_snapshot_granularity_contract.mjs`
+- Verification key output:
+  - `PASS test_0415_reactive_projection_store_contract: 4 passed`
+  - `PASS test_0420_ui_local_state_latency_contract: 12 passed`
+  - `PASS test_0423_snapshot_granularity_contract: 3 passed`
+- Result: PASS
+- Phase 4 review 1:
+  - Agent: `019ef0fe-deb0-75c1-a672-e205d9619116`
+  - Decision: Change Requested
+  - Finding:
+    - The updated 0415 test accepted `profile=bootstrap` but did not prove startup requested `initial_projection=1`.
+- Fix after review:
+  - Added `assertRequestedInitialProjection` to verify startup fetched `/snapshot?profile=bootstrap&initial_projection=1`.
+  - Applied it to both projection-store startup test cases.
+  - Re-ran all Phase 4 verification commands above.
 
 ### Phase 5: Profile-Scoped Patch And Recovery Hardening
 
-- Status: pending
+- Status: implemented, pending sub-agent review
+- Initial check:
+  - `node scripts/tests/test_0414_snapshot_delta_sse_contract.mjs` initially failed because the test harness still rejected startup `/snapshot?profile=bootstrap&initial_projection=1` and did not wait through runtime initialization `202`.
+  - `node scripts/tests/test_0416_post_load_projection_latency_contract.mjs` initially failed because the server integration test expected `/api/runtime/mode` to return `200` immediately instead of waiting through `202 workspace_initializing`.
+- RED command:
+  - `node scripts/tests/test_0416_post_load_projection_latency_contract.mjs`
+- RED result:
+  - `FAIL test_oversize_patch_fallback_records_observable_reason`
+  - reason: oversize reset did not include active `snapshot_profile` / `visible_model_ids`.
+- Implementation:
+  - Updated 0414/0416 test harnesses to accept current bootstrap initial projection and to wait for runtime mode activation through `202` initialization responses.
+  - Extended `buildClientSnapshotPatchMessage` to accept `snapshotProfile` and `visibleModelIds`.
+  - Server SSE patch/reset path now passes the current client profile key into reset/oversize/principal reset messages.
+  - Oversize reset metadata now preserves `snapshot_profile` and sorted `visible_model_ids` so the client can observe exact profile-scoped recovery.
+- GREEN commands:
+  - `node scripts/tests/test_0414_snapshot_delta_sse_contract.mjs`
+  - `node scripts/tests/test_0416_post_load_projection_latency_contract.mjs`
+  - `node scripts/tests/test_0423_snapshot_granularity_contract.mjs`
+- GREEN key output:
+  - `PASS test_0414_snapshot_delta_sse_contract: 7 passed`
+  - `PASS test_0416_post_load_projection_latency_contract: 8 passed`
+  - `PASS test_0423_snapshot_granularity_contract: 3 passed`
+- Result: PASS
+- Phase 5 review 1:
+  - Agent: `019ef105-4358-7dd0-a52c-186131d36e7b`
+  - Decision: Change Requested
+  - Findings:
+    - Patch mismatch recovery test only checked `profile=bootstrap`; it did not prove that active `visible_model_id` values survive recovery.
+    - Principal reset metadata did not have a direct assertion for `snapshot_profile` and sorted `visible_model_ids`.
+    - Integration-level SSE oversize reset metadata was not covered.
+- Fix after review:
+  - Added helper-level principal reset assertions for `snapshot_profile=bootstrap` and sorted `visible_model_ids`.
+  - Tightened client recovery test so it first loads visible models `200` and `100`, then verifies every invalid patch recovery refetches bootstrap with `visible_model_id=100&visible_model_id=200`.
+  - Added a real authenticated SSE oversize test that writes a `>32KB` visible Model 100 label through `ui_owner_label_update`, then verifies emitted `oversize_reset` preserves profile metadata and includes the updated label in the reset snapshot.
+- Re-run commands after review fix:
+  - `node scripts/tests/test_0414_snapshot_delta_sse_contract.mjs`
+  - `node scripts/tests/test_0416_post_load_projection_latency_contract.mjs`
+  - `node scripts/tests/test_0423_snapshot_granularity_contract.mjs`
+- Re-run key output:
+  - `PASS test_0414_snapshot_delta_sse_contract: 7 passed`
+  - `PASS test_0416_post_load_projection_latency_contract: 8 passed`
+  - `PASS test_0423_snapshot_granularity_contract: 3 passed`
 
 ### Phase 6: Local OrbStack Deployment And Browser Measurement
 
-- Status: pending
+- Status: completed, sub-agent reviewed
+- Implementation:
+  - Rebuilt the frontend and local `dy-ui-server:v1`.
+  - Synced local persisted assets before rollout so mounted ModelTable assets match the repo source.
+  - Restarted only `deployment/ui-server`; `mbr-worker` and `remote-worker` were not rebuilt because this phase only changed UI Server/frontend behavior and UI model definitions.
+  - Hardened client-side SSE patch handling: obsolete lagging patches are ignored, but lagging patches with a newer `snapshot_seq` trigger active-profile recovery instead of being silently dropped.
+  - Fixed bus-event fallback recovery so it refetches the active `bootstrap + visible_model_id[]` profile instead of bare `bootstrap`.
+  - Added deterministic coverage for lagging active-stream patches.
+  - Added deterministic coverage that deferred bus-event fallback preserves the sorted active visible model id set.
+- Local deploy commands:
+  - `npm -C packages/ui-model-demo-frontend run build`
+  - `LOCAL_PERSISTED_ASSET_ROOT=/Users/drop/dongyu/volume/persist/assets bash scripts/ops/sync_local_persisted_assets.sh`
+  - `docker build -f k8s/Dockerfile.ui-server -t dy-ui-server:v1 .`
+  - `kubectl -n dongyu rollout restart deployment/ui-server`
+  - `kubectl -n dongyu rollout status deployment/ui-server --timeout=240s`
+  - `bash scripts/ops/check_runtime_baseline.sh`
+- Local deploy result:
+  - Build: PASS.
+  - Rollout: PASS.
+  - Baseline: PASS after the old ui-server pod left the normal terminating window.
+  - Final auth restore: PASS; `ui-server-secret.DY_AUTH=1`, rollout PASS, baseline PASS.
+- Snapshot profile report:
+  - Command: `node scripts/ops/report_snapshot_profile_sizes.mjs --top-models 8 --top-labels 12`
+  - `bootstrap`: `29511B`, `6` models, `43` cells, `239` labels, dropped `52` models and `7872` labels.
+  - `visible:100`: `43143B`, `7` models, `63` cells, `399` labels.
+  - `full`: `722234B`, `58` models, `1220` cells, `8111` labels.
+  - Remaining top `full` contributors for next-stage snapshot work:
+    - `home_table_rows_json`: `22100B`
+    - `asset_catalog_json`: `7317B`
+    - `ws_apps_registry`: `5917B`
+    - `editor_model_options_json`: `2852B`
+    - `tasks_json`: `906B`
+- HTTP timing after local deploy:
+  - Command: inline Node `fetch` timing against `http://127.0.0.1:30900`.
+  - `/auth/me`: `26.9ms`, `1.9ms`, `0.8ms`; `269B`.
+  - `/snapshot?profile=bootstrap&initial_projection=1`: `370.9ms`, `410.8ms`, `402.2ms`; `30343B`.
+  - `/snapshot?profile=visible&initial_projection=1&model_id=100`: `405.5ms`, `410.6ms`, `458.8ms`; `44754B`.
+  - `/snapshot?profile=visible&initial_projection=1&model_id=100&model_id=1086`: `402.6ms`, `409.9ms`, `403.6ms`; `70822B`.
+  - `/snapshot?profile=visible&initial_projection=1&model_id=1086`: `400.4ms`, `512.4ms`, `500.4ms`; `56408B`.
+  - `/snapshot?profile=full`: `409.2ms`, `392.1ms`, `406.3ms`; `778869B`. This remains diagnostics-only; browser flow below did not request it.
+- Real browser local metrics:
+  - Browser target: `http://127.0.0.1:30900/#/`, fixed Playwright session `dy-0423-final-local`, viewport `1360x900`.
+  - Desktop ready: `39ms`.
+  - Color app open: `7890ms`.
+  - Color generate: `18646ms`; color changed from `#FFFFFF` to `#78fad1`.
+  - Return to desktop: `41ms`.
+  - To Do app open: `10886ms`.
+  - To Do create dialog open: `63ms`.
+  - To Do create dialog network count: `0`.
+  - To Do create task: `22467ms`; created task title `0423 local 1782170444500` appeared in browser.
+  - Browser network result: `full_requests=0`; visible snapshots were `model_id=100` and `model_id=100&model_id=1086`.
+  - Active store subscription after test: `visibleModelIds=[100,1086]`, `eventSourceUrl=/stream?profile=bootstrap&visible_model_id=100&visible_model_id=1086`.
+  - Console result: `0` errors, `0` warnings.
+  - Outer scroll: body/doc width and height both `1360x900`, `overflow=hidden` on `body` and `html`.
+- Final browser rerun after active-profile fallback fix:
+  - Browser target: `http://127.0.0.1:30900/#/`, fixed Playwright session `dy-0423-final-local-after-fallback`, viewport `1360x900`.
+  - Desktop ready: `44ms`.
+  - Color app open: `1328ms`.
+  - Color generate: `11731ms`; color changed from `#FFFFFF` to `#8dbf42`.
+  - To Do app open: `1815ms`.
+  - To Do create dialog open: `52ms`.
+  - To Do create dialog network count: `0`.
+  - To Do create task: `8393ms`.
+  - Browser network result: `profile=full` requests `0`; observed snapshot requests were `bootstrap`, `visible&model_id=100`, and `visible&model_id=100&model_id=1086`.
+  - Active store subscription after test: `visibleModelIds=[100,1086]`, `eventSourceUrl=/stream?profile=bootstrap&visible_model_id=100&visible_model_id=1086`.
+  - Console result: `0` errors, `0` warnings.
+  - Outer scroll: body/doc width and height both `1360x900`, `overflow=hidden` on `body` and `html`.
+- Focused local-only dialog check after latest deploy:
+  - Browser target: `http://127.0.0.1:30900/#/`, fixed Playwright sessions `dy-0423-dialog-focused` and `dy-0423-dialog-click`, viewport `1360x900`.
+  - Purpose: isolate local UI state from pending lazy-load/background requests.
+  - Result: To Do dialog open added `0` browser requests; relevant `/snapshot`, `/stream`, `/api/bus`, `/auth/me` requests after the dialog click were `[]`; `profile=full` requests were `[]`.
+  - Real click result: dialog content was visible within the next `20ms` polling interval (`dialog_click_open_ms=0` under the measurement resolution).
+  - Outer scroll result: body/doc width and height both `1360x900`, `overflow=hidden` on `body` and `html`.
+- Final browser check after overall-review fix:
+  - Browser target: `http://127.0.0.1:30900/#/`, fixed Playwright session `dy-0423-final-focused`, viewport `1280x720`.
+  - Temporary verification state: `DY_AUTH=0` only for browser UI/runtime isolation; final state restored to `DY_AUTH=1`.
+  - Desktop visible, then opened `To Do Board` from the desktop card and opened the create dialog.
+  - Result: To Do dialog open added `0` browser requests; relevant `/snapshot`, `/stream`, `/api/bus`, `/auth/me` requests after the dialog click were `[]`; `profile=full` requests were `[]`.
+  - Real click result: dialog content was visible within the next `20ms` polling interval (`dialog_click_open_ms=0` under the measurement resolution).
+  - Outer scroll result: body/doc width and height both `1280x720`, `overflow=hidden` on `body` and `html`.
+  - Playwright session cleanup: PASS.
+- Verification commands:
+  - `node scripts/tests/test_0374_web_tablet_desktop_contract.mjs`
+  - `node scripts/tests/test_0390_focused_app_shell_settings_contract.mjs`
+  - `node scripts/tests/test_0405_todo_slide_app_contract.mjs`
+  - `node scripts/tests/test_0407_current_model_ref_contract.mjs`
+  - `node scripts/tests/test_0414_snapshot_delta_sse_contract.mjs`
+  - `node scripts/tests/test_0415_reactive_projection_store_contract.mjs`
+  - `node scripts/tests/test_0416_post_load_projection_latency_contract.mjs`
+  - `node scripts/tests/test_0418_visible_snapshot_projection_latency_contract.mjs`
+  - `node scripts/tests/test_0420_ui_local_state_latency_contract.mjs`
+  - `node scripts/tests/test_0423_snapshot_granularity_contract.mjs`
+  - `npm -C packages/ui-model-demo-frontend run build`
+  - `bash scripts/ops/check_runtime_baseline.sh`
+- Verification key output:
+  - `test_0374`: `13 passed, 0 failed out of 13`
+  - `test_0390`: `15 passed, 0 failed out of 15`
+  - `test_0405`: `3 passed, 0 failed out of 3`
+  - `test_0407`: `8 passed, 0 failed out of 8`
+  - `test_0414`: `PASS test_0414_snapshot_delta_sse_contract: 7 passed`
+  - `test_0415`: `PASS test_0415_reactive_projection_store_contract: 6 passed`
+  - `test_0416`: `PASS test_0416_post_load_projection_latency_contract: 8 passed`
+  - `test_0418`: `PASS 8/8`
+  - `test_0420`: `PASS test_0420_ui_local_state_latency_contract: 16 passed`
+  - `test_0423`: `PASS test_0423_snapshot_granularity_contract: 9 passed`
+  - Frontend build: PASS, with existing large bundle warning (`index-*.js` about `2.055MB`, gzip about `495.8KB`).
+  - Local baseline: PASS.
+- Observations:
+  - The snapshot granularity goal is met: bootstrap dropped from the Phase 1 baseline `158415B` to `29511B`, about `81.4%` smaller.
+  - Local-only dialog state is fast and browser-local: To Do create dialog opened in `63ms` and emitted no network request.
+  - After the active-profile fallback fix and redeploy, local-only dialog state stayed fast: To Do create dialog opened in `52ms` and emitted no network request.
+  - The formal business path is still visibly slower than local-only UI state: final browser rerun measured color generation at `11731ms` and To Do create at `8393ms`. This path depends on `/bus_event`, `/ui_event`, and backend materialization, not on `profile=full`.
+  - Direct HTTP snapshot timing is sub-second, so the next latency target should be interaction-chain timing around `/ui_event`, `/bus_event`, and backend owner/materialization ticks.
+- Result: PASS with residual performance follow-up recorded for the next iteration.
+- Phase 6 sub-agent review:
+  - Agent: Kepler `019ef1b9-1e88-7ef2-84f8-878bcc03814b`
+  - Review 1 decision: Change Requested.
+  - Finding:
+    - `packages/ui-model-demo-frontend/src/remote_store.js`: active-stream patches with an older `base_snapshot_seq` were always ignored, even when their `snapshot_seq` was newer than the client. That could silently drop the latest server update and leave UI stale instead of recovering the active profile.
+  - Fix:
+    - Changed patch handling to ignore only obsolete lagging patches whose `snapshot_seq <= current`, while newer lagging patches throw `snapshot_patch_base_mismatch` and recover through active `bootstrap + visible_model_id[]`.
+    - Updated `scripts/tests/test_0415_reactive_projection_store_contract.mjs` to cover both obsolete and fresh-but-lagging active-stream patches.
+    - Re-ran `test_0415`, `test_0414`, `test_0416`, and `test_0423`; all PASS.
+    - Rebuilt and redeployed local `dy-ui-server:v1`; restored `ui-server-secret.DY_AUTH=1`; local baseline PASS.
+  - Re-review decision: Approved.
+  - Re-review output:
+    - Findings: none.
+    - Open questions: none.
+    - Verification gaps: none.
+- Final overall sub-agent review:
+  - Agent: Galileo `019ef30d-342e-7601-bf5b-426c2e70af69`
+  - Review 1 decision: Change Requested.
+  - Finding:
+    - `packages/ui-model-demo-server/server.mjs`: ordinary `snapshot_patch` SSE payloads omitted `snapshot_profile` and sorted `visible_model_ids`; reset/oversize reset frames already included them.
+  - Fix:
+    - Added `snapshot_profile` and sorted `visible_model_ids` to ordinary `snapshot_patch` and `noop` SSE envelope data.
+    - Added helper-level assertions in `test_0414_snapshot_delta_sse_contract.mjs` and `test_0416_post_load_projection_latency_contract.mjs`.
+    - Added real stream assertions in `test_0416_post_load_projection_latency_contract.mjs` for ordinary post-load patch profile metadata.
+  - Re-run commands after fix:
+    - `node scripts/tests/test_0414_snapshot_delta_sse_contract.mjs`
+    - `node scripts/tests/test_0416_post_load_projection_latency_contract.mjs`
+    - `node scripts/tests/test_0423_snapshot_granularity_contract.mjs`
+    - full local regression command list above
+    - `npm -C packages/ui-model-demo-frontend run build`
+    - `docker build -f k8s/Dockerfile.ui-server -t dy-ui-server:v1 .`
+    - `kubectl -n dongyu rollout restart deployment/ui-server`
+    - `bash scripts/ops/check_runtime_baseline.sh`
+  - Re-run result:
+    - `test_0414`: PASS `7 passed`
+    - `test_0416`: PASS `8 passed`
+    - `test_0423`: PASS `9 passed`
+    - Full regression list above: PASS.
+    - Build: PASS with existing large bundle warning.
+    - Local rollout: PASS.
+    - Final local baseline after restoring `DY_AUTH=1`: PASS; `ui-server-7d49559d-dv8jm` running, no terminating pods.
+  - Re-review decision: Approved.
+  - Re-review output:
+    - Findings: none.
+    - Open questions: none.
+    - Verification gaps: none.
 
 ## Docs Updated
 
@@ -162,6 +427,44 @@ phase: execution
 
 ## Living Docs Review
 
-- `docs/ssot/runtime_semantics_modeltable_driven.md`: review required before completion if snapshot profile semantics change.
-- `docs/user-guide/modeltable_user_guide.md`: review required before completion if developer-facing UI model behavior changes.
+- `docs/ssot/runtime_semantics_modeltable_driven.md`: reviewed. Section `7.5g Client Snapshot 传输规则` already states that client snapshot is only a UI projection cache, stream/patch is profile-scoped, recovery must refetch the current profile, and recovery must not silently expand to `full`.
+- `docs/user-guide/modeltable_user_guide.md`: reviewed. Existing 0418 profile-loading section already explains `bootstrap`, `visible`, and explicit `full` usage; no new developer-facing fill-table rule was introduced by this phase.
 - `docs/ssot/execution_governance_ultrawork_doit.md`: no change expected.
+
+## Post-Completion Follow-Up: Stale Foreground Workspace App
+
+- Trigger:
+  - User reported that after refresh / re-login, clicking `To Do Board` still stayed on `正在加载滑动 APP...`.
+  - Live Chrome showed the shell stuck on `Workspace app · model 1087` before the fix.
+  - After the first fix and local rollout, the still-open Chrome tab contained stale desktop DOM with removed `To Do Board` entries (`model 1088` / `model 1089`), and clicking one reproduced loading on a now-missing model.
+- Root cause:
+  - The server only sanitized stale desktop foreground/task-stack state during workspace catalog refresh. Bootstrap / visible snapshot publication could still expose stale `desktop_foreground_app_json` or `desktop_task_stack_json`.
+  - The frontend task switcher / foreground shell trusted stale workspace entries when the current `ws_apps_registry` was missing or no longer contained that model.
+  - Review also found a separate reliability risk: startup refresh used `withRuntimePersistenceDisabled()` around async Matrix/LLM waits, which could keep persistence disabled longer than intended.
+- Fix:
+  - Server now sanitizes desktop foreground/task-stack state before every client snapshot publication.
+  - Server rejects `desktop_foreground_app_json` writes that target a workspace model absent from the current registry/runtime model set, and removes stale task-stack entries.
+  - Frontend now uses registry-aware `readAvailableDesktopForegroundApp()` / `readAvailableDesktopTaskStack()`; registry-missing snapshots no longer restore workspace tasks.
+  - `withRuntimePersistenceDisabled()` is now synchronous-only and throws on async callbacks; startup Matrix/LLM waits happen outside the disabled-persistence window.
+  - Added regression coverage in `test_0423_snapshot_granularity_contract`, `test_0374_web_tablet_desktop_contract`, and updated `test_0418_visible_snapshot_projection_latency_contract` to expect polluted foreground app writes to be rejected.
+- Sub-agent review:
+  - Agent Russell `019ef3e1-db03-7181-820b-96ab35a2a943`: Change Requested. Findings: registry-missing frontend fallback and async persistence-disabled window.
+  - Agent Faraday `019ef3e8-7764-7133-9395-99b8dc18dc76`: Approved / LGTM after fixes.
+- Verification:
+  - `node scripts/tests/test_0423_snapshot_granularity_contract.mjs`: PASS `13 passed`.
+  - `node scripts/tests/test_0374_web_tablet_desktop_contract.mjs`: PASS `15 passed, 0 failed`.
+  - `node scripts/tests/test_0418_visible_snapshot_projection_latency_contract.mjs`: PASS `8/8`.
+  - `node scripts/tests/test_0420_ui_local_state_latency_contract.mjs`: PASS `16 passed`.
+  - `npm -C packages/ui-model-demo-frontend run build`: PASS, with existing large bundle warning.
+  - `LOCAL_PERSISTED_ASSET_ROOT=/Users/drop/dongyu/volume/persist/assets bash scripts/ops/sync_local_persisted_assets.sh`: PASS.
+  - `docker build -f k8s/Dockerfile.ui-server -t dy-ui-server:v1 .`: PASS.
+  - `kubectl -n dongyu rollout restart deployment/ui-server && kubectl -n dongyu rollout status deployment/ui-server --timeout=240s`: PASS.
+  - `bash scripts/ops/check_runtime_baseline.sh`: PASS after old terminating pod exited.
+  - HTTP probe after rollout: bootstrap snapshot has `desktop_foreground_app_json = null`, `desktop_task_stack_json = []`, and current To Do registry only includes `model 1086` (built-in) and `model 1087` (slid-in).
+  - Chrome real-browser verification on `http://localhost:30900/`: PASS.
+    - Reloaded page returned to desktop and stale `model 1088` / `model 1089` cards disappeared.
+    - Clicked the refreshed slid-in `To Do Board` card.
+    - Foreground opened `Workspace app · model 1087`.
+    - The board rendered full content: title, status, `新增任务`, `多列看板`, `未完成专注`, and four status columns.
+    - It no longer stayed on `正在加载滑动 APP...`.
+  - Note: after the local server restart, this Chrome tab showed guest read-only (`/auth/me` from shell returned `401`), so this browser verification validated the stale-model loading fix, not a fresh authenticated SSO round-trip.

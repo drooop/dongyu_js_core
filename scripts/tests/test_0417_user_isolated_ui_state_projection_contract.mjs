@@ -83,7 +83,7 @@ function pinPayloadPacket({
 }
 
 function ref(modelId, k, p = 0, r = 0, c = 0) {
-  return { model_id: modelId, p, r, c, k };
+  return { table_id: 'host', model_id: modelId, p, r, c, k };
 }
 
 function snapshotWithModel(modelId, labels) {

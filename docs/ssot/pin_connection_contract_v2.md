@@ -11,6 +11,8 @@ iteration: 0356-pin-connection-contract-realignment
 
 本文件冻结 0356 后的目标引脚合同。它覆盖早期文档中把跨模型路由声明为 `pin.connect.model`、把同 Cell 端点写成 `(self, pin)` / `(func, func:in)` 的写法。0363 增补控制总线 / 管理总线边界引脚拆分目标合同。
 
+0424 principal-scoped subtable namespace 目标合同见 `docs/ssot/principal_scoped_subtable_namespace_v1.md`。该合同新增跨 ModelTable namespace 的 host-owned boundary 语义，但不恢复 `pin.connect.model`，也不改变 `pin.connect.cell` 只能同表内连接的规则。
+
 0357 已完成 runtime 硬切：当前输入面不再接受旧写法。旧写法只能出现在历史文档或负向测试中，不得作为新模型、新文档或新通过路径的输入面。
 
 Authority:
@@ -187,6 +189,20 @@ Conflict behavior:
 - 子模型非 root Cell 直接连接到父模型 Cell。
 - 父模型通过 `pin.connect.model` 直接按 model id 连到子模型。
 - 在连接端点中写 `[modelId, "pinName"]`。
+
+## 6.1 子模型表边界（0424 target）
+
+`model.subtable` 挂载的是一张 child ModelTable namespace，不是一个 child model。
+
+目标规则：
+
+- child table 内部继续使用本合同的普通 `pin.in` / `pin.out` / `pin.login` / `pin.logout` 与 `pin.connect.label` / `pin.connect.cell`。
+- child table 内的 `pin.connect.cell` 仍只能连接同一个 `table_id` 内的 Cell。
+- host table 到 child table 的连接只能经过 host-owned hosting Cell 和 child table root `(0,0,0)` 的 boundary pins。
+- 任何端点格式都不得在 `pin.connect.cell` 中携带 `table_id`、裸跨表 `model_id` 或 `[modelId, pin]`。
+- durable route diagnostics and payload records that cross this boundary must use table-qualified `ModelRef = { table_id, model_id }`.
+
+这是一条 namespace boundary，不是新增第三种 `pin.connect.*`。
 
 ---
 

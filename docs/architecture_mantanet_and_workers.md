@@ -15,6 +15,8 @@ source: ai
 > 说明：本文档**不以源码路径为中心**（那属于实现导览文档），而以“概念宪法”为中心；实现细节可在独立的 `v1n_concept_and_implement.md` 中维护。
 
 > 0356 PIN 连接目标合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。本文中与引脚连接相关的描述必须以该合同为准；`pin.connect.model`、`pin.log.*` 与 `(self, ...)` / `(func, ...)` 端点写法不再作为新规约输入面。
+>
+> 0424 principal-scoped subtable namespace 目标合同由 `docs/ssot/principal_scoped_subtable_namespace_v1.md` 接管。本文中与多用户滑动 App 实例隔离、`table_id`、table-qualified `ModelRef`、`model.subtable` 相关的目标描述必须与该合同保持一致。
 
 Authority:
 - Below `CLAUDE.md`; above runtime semantics, label registry, charter, workflow, iteration records, user guides, and implementation details.
@@ -35,7 +37,7 @@ Conflict behavior:
 - **模型驱动**：业务能力优先由模型表描述，代码是运行时与扩展，不是唯一事实来源。
 - **应用层扩展**：除模型表核心数据依赖外，基座内的应用层能力应由 ModelTable 的模型能力（数据/程序/流程/UI/文档）提供；系统级扩展通过“系统自带的负数 model_id 模型”承载，避免改动基座核心层语义边界。
 - **三种模型形态**：简单模型（结构性沙箱）、矩阵模型（固定空间维度）、模型表（动态扩展），运行时必须区分并执行对应约束。
-- **模型 id 三层语义**：`model_id > 0` 为用户创建模型空间；`model_id = 0` 为根/中间层；`model_id < 0` 为软件工人系统级能力层。
+- **模型引用二维性**：0424 目标下，持久模型引用是 `ModelRef = { table_id, model_id }`。主表可省略 `table_id` 作为历史/当前实现口径，但目标实现必须在运行时归一化为显式 `table_id`。`model_id < 0` 仍为 host/system 负数系统能力层；`model_id >= 0` 在各自 `table_id` 内独立。`{table_id:"host", model_id:0}` 是软件工人宿主根模型；子模型表也可以有自己的 `{table_id:"app:...", model_id:0}` 作为 App root。
 - **负数模型分层趋势**：`-1..-100` 更靠近基座/系统边界/系统支撑层；`-101..-199` 更靠近内置系统级应用；更深层负数区间需经 iteration 明确分配。
 - **UI 是投影**：滑动 UI 是模型表的投影与交互入口，UI 不应承载业务真相。
 - **执行在工人**：软件工人承担业务逻辑执行、流程推进与状态演进；终端壳负责呈现与交互。
@@ -43,8 +45,8 @@ Conflict behavior:
 - **总线解耦**：消息、指令、状态更新应通过“总线抽象”解耦，不绑定具体实现名。
 - **工作区隔离**：跨网络/跨组织的协作必须在“工作区（Workspace）”边界内进行隔离与加密。
 - **填表优先**：新能力必须优先通过填充模型（JSON patches）实现，运行时代码变更仅限于新增 label.t 解释或修复解释器 bug。
-- **模型类型二维性**：Cell 有效模型标签来自 `model.single / model.matrix / model.table / model.submt`；普通未物化 Cell 在 table/matrix 作用域内默认有效类型为 `model.single`；类型值仍由 `model_type` 的 value 承载。
-- **显式挂载**：除 Model 0 外，每个模型都必须通过某个父模型 Cell 上的 `model.submt` 显式进入层级。
+- **模型类型二维性**：Cell 有效模型标签来自 `model.single / model.matrix / model.table / model.submt`，以及 0424 target 中用于挂载一整张 child ModelTable namespace 的 `model.subtable`。普通未物化 Cell 在 table/matrix 作用域内默认有效类型为 `model.single`；类型值仍由 `model_type` 的 value 承载。
+- **显式挂载**：除 host table 的 Model 0 外，每个 host-table child model 都必须通过父模型 Cell 上的 `model.submt` 显式进入层级；每个已安装滑动 App 实例的 child ModelTable 必须通过 host-owned `model.subtable` hosting Cell 显式进入宿主层级。`model.subtable` 不是 `model.submt` 的别名。
 - **禁止默认兼容**：历史别名/旧 label 类型不构成当前规范输入面；如需兼容保留，必须显式批准。
 - **可审计可验证**：任何关键能力必须有脚本化验收路径；关键变更可回滚、可追踪。
 
@@ -150,7 +152,9 @@ Conflict behavior:
 
 ### 3.4 Model Forms（模型形态）
 
-四种 Cell 有效模型标签，均为 Tier 1 定义，由 `model_type` 标签的 `label.t` 区分。
+Cell 有效模型标签均为 Tier 1 定义，由 `model_type` 标签的 `label.t` 区分。
+当前已冻结的主表模型形态包括 `model.single` / `model.matrix` / `model.table` / `model.submt`。
+0424 target 额外引入 `model.subtable`，用于声明 host-owned hosting Cell 挂载一整张 child ModelTable namespace；它不是 `model.submt` 的别名。
 
 **简单模型（model.single）**
 - 单 Cell 模型，程序只能操作自身 Cell。
@@ -177,9 +181,15 @@ Conflict behavior:
 - 删除 `model.submt` 只解除挂载，不自动删除 child model 数据。
 - child model 挂载采用 single-parent 语义。
 
+**子模型表映射位（model.subtable，0424 target）**
+- 某个 host-owned hosting Cell 的 `model_type` 若声明为 `model.subtable`，则该 Cell 是 child ModelTable namespace 的挂载边界。
+- 该 value 指向 `{table_id, root_model_id, mount_kind, owner_principal_id?}` 这类挂载描述，不是 child model id。
+- child table 内 `model_id >= 0` 独立编号，root 通常是 `{table_id, model_id: 0}`。
+- `model.subtable` 不能当作 `model.submt` 的兼容写法；跨表连接只能经过 hosting Cell 和 child table root pins。
+
 **模型类型二维编码**
-- label.t = 形态（model.single | model.matrix | model.table | model.submt）
-- label.v = 类型（Code.JS | Data.Array.One | Flow | Doc.Markdown | ...），但 `model.submt` 的 value 为 child model id
+- label.t = 形态（model.single | model.matrix | model.table | model.submt | model.subtable）
+- label.v = 类型（Code.JS | Data.Array.One | Flow | Doc.Markdown | ...），但 `model.submt` 的 value 为 child model id，`model.subtable` 的 value 为 child table mount descriptor
 - 无效的形态×类型组合必须在注册时被拒绝。
 
 补充：
@@ -187,6 +197,7 @@ Conflict behavior:
 - 但一个 Cell 可以被多个上层 model scope 派生发现：
   - 父模型可沿 `model.submt` ancestry 逐层看到 descendants
   - `model.matrix` 可看到其范围内的 `model.single` 与更小矩阵
+- host 可通过 `model.subtable` hosting Cell 发现 child table root，但不得跨 table 直接 `pin.connect.cell`
 - 执行时不按“当前处于哪些 scope”分支，而按 pin 链与目标坐标传播。
 
 ---

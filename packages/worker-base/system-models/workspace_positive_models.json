@@ -43606,30 +43606,37 @@
       "t": "json",
       "v": {
         "write": {
-          "bus_event_v2": true,
-          "bus_in_key": "todo_1086_bus_event",
-          "value_ref": [
+          "local_updates": [
             {
-              "id": 0,
               "p": 0,
               "r": 0,
               "c": 0,
-              "k": "__mt_payload_kind",
-              "t": "str",
-              "v": "ui_event.v1"
+              "k": "draft_title",
+              "value_ref": ""
             },
             {
-              "id": 0,
               "p": 0,
               "r": 0,
               "c": 0,
-              "k": "todo_action",
-              "t": "str",
-              "v": "open_create"
+              "k": "draft_body",
+              "value_ref": ""
+            },
+            {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "draft_status",
+              "value_ref": "todo"
+            },
+            {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "create_dialog_open",
+              "value_ref": true
             }
           ],
-          "value_t": "modeltable",
-          "commit_policy": "immediate"
+          "persist_policy": "never"
         }
       }
     },
@@ -43689,14 +43696,14 @@
           "k": "active_view"
         },
         "write": {
-          "action": "ui_owner_label_update",
+          "action": "label_update",
           "target_ref": {
             "p": 0,
             "r": 0,
             "c": 0,
             "k": "active_view"
           },
-          "commit_policy": "immediate"
+          "persist_policy": "never"
         }
       }
     },
@@ -44477,14 +44484,14 @@
           "k": "create_dialog_open"
         },
         "write": {
-          "action": "ui_owner_label_update",
+          "action": "label_update",
           "target_ref": {
             "p": 0,
             "r": 0,
             "c": 0,
             "k": "create_dialog_open"
           },
-          "commit_policy": "immediate"
+          "persist_policy": "never"
         }
       }
     },
@@ -45097,30 +45104,37 @@
       "t": "json",
       "v": {
         "write": {
-          "bus_event_v2": true,
-          "bus_in_key": "todo_1086_bus_event",
-          "value_ref": [
+          "local_updates": [
             {
-              "id": 0,
               "p": 0,
               "r": 0,
               "c": 0,
-              "k": "__mt_payload_kind",
-              "t": "str",
-              "v": "ui_event.v1"
+              "k": "create_dialog_open",
+              "value_ref": false
             },
             {
-              "id": 0,
               "p": 0,
               "r": 0,
               "c": 0,
-              "k": "todo_action",
-              "t": "str",
-              "v": "close_create"
+              "k": "draft_title",
+              "value_ref": ""
+            },
+            {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "draft_body",
+              "value_ref": ""
+            },
+            {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "draft_status",
+              "value_ref": "todo"
             }
           ],
-          "value_t": "modeltable",
-          "commit_policy": "immediate"
+          "persist_policy": "never"
         }
       }
     },
@@ -45217,6 +45231,15 @@
             }
           ],
           "value_t": "modeltable",
+          "local_updates": [
+            {
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "create_dialog_open",
+              "value_ref": false
+            }
+          ],
           "commit_policy": "immediate"
         }
       }

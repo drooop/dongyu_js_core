@@ -1,5 +1,15 @@
 import { getSnapshotModel } from './snapshot_utils.js';
 
+function normalizeProjectionModelRef(modelIdOrRef) {
+  if (Number.isInteger(modelIdOrRef)) return { table_id: 'host', model_id: modelIdOrRef };
+  if (!modelIdOrRef || typeof modelIdOrRef !== 'object' || Array.isArray(modelIdOrRef)) return null;
+  const tableId = typeof modelIdOrRef.table_id === 'string' && modelIdOrRef.table_id.trim()
+    ? modelIdOrRef.table_id.trim()
+    : 'host';
+  if (!Number.isInteger(modelIdOrRef.model_id)) return null;
+  return { table_id: tableId, model_id: modelIdOrRef.model_id };
+}
+
 function getCellLabels(model, p, r, c) {
   const key = `${p},${r},${c}`;
   const cell = model && model.cells ? model.cells[key] : null;
@@ -31,6 +41,7 @@ function readBool(labels, key, fallback = null) {
 }
 
 function readRefSpec(labels, prefix) {
+  const table_id = readString(labels, `${prefix}_table_id`, '');
   const model_id = readInt(labels, `${prefix}_model_id`, null);
   const p = readInt(labels, `${prefix}_p`, null);
   const r = readInt(labels, `${prefix}_r`, null);
@@ -39,7 +50,7 @@ function readRefSpec(labels, prefix) {
   if (!Number.isInteger(model_id) || !Number.isInteger(p) || !Number.isInteger(r) || !Number.isInteger(c) || !k) {
     return null;
   }
-  return { $label: { model_id, p, r, c, k } };
+  return { $label: { ...(table_id ? { table_id } : {}), model_id, p, r, c, k } };
 }
 
 function collectNodeDefs(model) {
@@ -273,7 +284,7 @@ function buildWriteBind(def) {
   return bind;
 }
 
-function buildNodeMap(defs, modelId) {
+function buildNodeMap(defs, modelRef) {
   const map = new Map();
   for (const def of defs) {
     const bindJson = readLabel(def.labels, 'ui_bind_json');
@@ -300,7 +311,8 @@ function buildNodeMap(defs, modelId) {
       __order: def.order,
       ...(cellCoord ? {
         cell_ref: {
-          model_id: modelId,
+          table_id: modelRef.table_id,
+          model_id: modelRef.model_id,
           p: cellCoord.p,
           r: cellCoord.r,
           c: cellCoord.c,
@@ -329,7 +341,9 @@ function stripMeta(node) {
 }
 
 export function buildAstFromCellwiseModel(snapshot, modelId) {
-  const model = getSnapshotModel(snapshot, modelId);
+  const modelRef = normalizeProjectionModelRef(modelId);
+  if (!modelRef) return null;
+  const model = getSnapshotModel(snapshot, modelRef);
   if (!model || !model.cells) return null;
   const rootLabels = getRootLabels(model);
   if (readString(rootLabels, 'ui_authoring_version', '') !== 'cellwise.ui.v1') return null;
@@ -338,7 +352,7 @@ export function buildAstFromCellwiseModel(snapshot, modelId) {
 
   const defs = collectNodeDefs(model);
   if (defs.length === 0) return null;
-  const nodes = buildNodeMap(defs, modelId);
+  const nodes = buildNodeMap(defs, modelRef);
   const root = nodes.get(rootNodeId);
   if (!root) return null;
 
