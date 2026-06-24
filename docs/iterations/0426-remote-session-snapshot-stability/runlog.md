@@ -1,7 +1,7 @@
 ---
 title: "Iteration 0426 Remote Session Snapshot Stability Runlog"
 doc_type: iteration-runlog
-status: in_progress
+status: completed
 updated: 2026-06-24
 source: ai
 iteration_id: 0426-remote-session-snapshot-stability
@@ -174,6 +174,16 @@ Review Gate Record
   `deploy_cloud_app.sh` gates the manifest check to `TARGET=ui-server`, the
   regression test passes, and there are no remaining verification gaps before
   remote deployment.
+
+Review Gate Record
+- Iteration ID: 0426-remote-session-snapshot-stability
+- Review Date: 2026-06-24
+- Review Type: AI-assisted
+- Review Index: 16
+- Decision: Approved
+- Notes: Final review after local verification, merge/push, remote deploy, and
+  remote browser validation found no findings, no open questions, and no
+  verification gaps.
 
 ## Baseline Context
 
@@ -695,6 +705,98 @@ Review Gate Record
 - Key output: no shell syntax or whitespace errors.
 - Result: PASS
 - Commit: pending
+
+### Step 6 - Remote Deployment And Browser Verification
+
+- Command: `git commit -m "fix(runtime): stabilize remote session restore [0426]"`
+- Key output: implementation commit `8eba0ee`.
+- Result: PASS
+- Commit: `8eba0ee`
+
+- Command: `git switch dev && git merge --no-ff dropx/dev_0426-remote-session-snapshot-stability -m "merge: stabilize remote session restore [0426]"`
+- Key output: local `dev` merge commit `c0702fc`.
+- Result: PASS
+- Commit: `c0702fc`
+
+- Command: `git merge --no-ff dev -m "merge: promote dev after 0426 session stability"`
+- Key output: local `main` merge commit `da83996` in worktree
+  `/Users/drop/codebase/cowork/dongyuapp_elysia_based__0403`.
+- Result: PASS
+- Commit: `da83996`
+
+- Command: `git push origin dev` and `git push origin main`
+- Key output: `dev` pushed `789103b..c0702fc`; `main` pushed
+  `674a2ca..da83996`.
+- Result: PASS
+- Commit: `c0702fc`, `da83996`
+
+- Command: `bash scripts/ops/sync_cloud_source.sh --ssh-user drop --ssh-host 124.71.43.80 --remote-repo /home/wwpic/dongyuapp --remote-repo-owner wwpic --revision da83996`
+- Key output: first sync attempt failed because the remote repository directory
+  is owned by `drop:drop`, so the documented `wwpic` owner could not remove
+  `.sync-work`.
+- Result: FAIL, corrected by using actual remote directory owner.
+- Commit: `da83996`
+
+- Command: `bash scripts/ops/sync_cloud_source.sh --ssh-user drop --ssh-host 124.71.43.80 --remote-repo /home/wwpic/dongyuapp --remote-repo-owner drop --revision da83996`
+- Key output: archive fallback succeeded and wrote remote
+  `.deploy-source-revision` as `da83996`.
+- Result: PASS
+- Commit: `da83996`
+
+- Command: `ssh drop@124.71.43.80 'sudo -n bash /home/wwpic/dongyuapp/scripts/ops/deploy_cloud_full.sh --revision da83996 --rebuild'`
+- Key output:
+  - Pre-flight checks passed.
+  - Source revision gate used `da83996`.
+  - Secrets replaced with generated/preserved non-empty runtime auth secrets.
+  - Persisted assets and UI public docs synced.
+  - Built `dy-ui-server:v1`, `dy-mbr-worker:v2`, and
+    `dy-remote-worker:v3`.
+  - Imported images to rke2 containerd.
+  - Rolled out `ui-server`, `mbr-worker`, `remote-worker`, and
+    `workspace-manager`.
+  - UI runtime source hash gate passed, including `server.mjs`,
+    `remote_store.js`, and renderer files.
+  - Persisted asset manifest gate passed with
+    `/app/persisted-assets/manifest.v0.json` size `13658`.
+  - Runtime snapshot gate reported `runtime_status=ready`,
+    `worker_role=DEM`, `registry_count=10`, and `snapshot_bytes=27488`.
+- Result: PASS
+- Commit: `da83996`
+
+- Command: `curl -sk -o /tmp/0426-remote-home.html -w '%{http_code} %{time_total} %{size_download}\n' https://app.dongyudigital.com/`
+- Key output: `200 0.142222 397`.
+- Result: PASS
+- Commit: `da83996`
+
+- Command: `curl -sk -o /tmp/0426-remote-snapshot.json -w '%{http_code} %{time_total} %{size_download}\n' 'https://app.dongyudigital.com/snapshot?profile=bootstrap&initial_projection=1'`
+- Key output: `200 1.085889 28020`.
+- Result: PASS
+- Commit: `da83996`
+
+- Command: `ssh drop@124.71.43.80 'sudo -n env KUBECONFIG=/etc/rancher/rke2/rke2.yaml kubectl -n dongyu get deploy ui-server mbr-worker remote-worker workspace-manager && cat /home/wwpic/dongyuapp/.deploy-source-revision'`
+- Key output: all four deployments `READY 1/1`; remote source revision
+  `da83996`.
+- Result: PASS
+- Commit: `da83996`
+
+- Command: Playwright browser flow on `https://app.dongyudigital.com`
+- Key output:
+  - Visitor desktop loaded first, no app stuck state.
+  - SSO login as test principal `drop-test` reached logged-in desktop and
+    showed the full app list.
+  - Opened provider-owned `E2E 颜色生成器`; app rendered `Workspace app ·
+    model 100` with `ready` state and did not show `正在加载滑动 APP`.
+  - Entered `0426 remote browser`, clicked `Generate Color`; visible color
+    changed from `#FFFFFF` to `#70aeb2`, status became `processed`, and
+    measured elapsed time was about `4019ms`.
+  - Browser reload kept authenticated user `drop-test`, kept `E2E 颜色生成器`
+    foreground state, retained `#70aeb2`, and did not show loading.
+  - Reload navigation timing was about `534ms`; `/auth/me` returned HTTP 200;
+    bootstrap snapshot after reload returned HTTP 200 with `31476` bytes.
+  - Returned to desktop and opened `工作区管理器`; `Asset Tree` rendered with no
+    `正在加载滑动 APP`.
+- Result: PASS
+- Commit: `da83996`
 
 ## Docs Updated
 
