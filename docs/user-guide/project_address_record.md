@@ -38,6 +38,7 @@ source: ai
 |---|---|---|---|
 | 远端目标主机 | `124.71.43.80` | `CLAUDE.md` / `deploy/env/cloud.env.example` | repo 中明确标记为 `dy-cloud` 的 RKE2 目标主机。 |
 | 远端仓库根目录 | `/home/wwpic/dongyuapp` | `scripts/ops/README.md` / `0165`、`0149` runlog | cloud deploy 与远端文件同步都以该目录为基准。 |
+| 远端仓库目录 owner | `drop:drop` | `0426` cloud source sync runlog / `ls -ld /home/wwpic/dongyuapp` | 当前 source sync 应使用 `--remote-repo-owner drop`；如果远端目录 owner 变化，应先核对再调整参数。 |
 | 远端 deploy 脚本绝对路径 | `/home/wwpic/dongyuapp/scripts/ops/deploy_cloud.sh` | `scripts/ops/README.md` / `scripts/ops/deploy_cloud.sh` 注释 | canonical cloud deploy 入口。 |
 | 远端用户态 kubeconfig | `/home/wwpic/.kube/config` | `0149` runlog 多条 `kubectl --kubeconfig` 命令 | repo 中的远端人工排障命令大量使用该路径。 |
 | 远端 root/rke2 kubeconfig | `/etc/rancher/rke2/rke2.yaml` | `deploy/env/cloud.env.example` | 主要出现在 cloud env 样例中，适用于 root/rke2 侧脚本口径。 |
