@@ -183,6 +183,47 @@ export function createRemoteStore(options) {
   const snapshotFallbackDelayMs = Number.isFinite(options && options.snapshotFallbackDelayMs)
     ? Math.max(0, Number(options.snapshotFallbackDelayMs))
     : 300;
+  let activeAuthScopeKey = readAuthScopeKey();
+
+  function readAuthScopeKey() {
+    const state = authStore && authStore.state ? authStore.state : null;
+    if (!state || state.authenticated !== true) return 'anonymous';
+    const identity = String(state.subject || state.userId || state.email || state.username || '').trim() || 'authenticated';
+    const capabilities = Array.isArray(state.capabilities)
+      ? [...state.capabilities].map((capability) => String(capability)).sort()
+      : [];
+    return `auth:${identity}:${capabilities.join('|')}`;
+  }
+
+  function clearPrincipalScopedClientState() {
+    visibleModelIds.clear();
+    visibleModelRefs.clear();
+    overlayStore.clear();
+    pendingUiStateById.clear();
+    pendingLocalStateByKey.clear();
+    pendingSseSnapshot = null;
+    pauseSse = false;
+    currentSnapshotSeq = 0;
+    lastSnapshotBusEventOpId = '';
+    if (deferredSnapshotFallbackTimer) {
+      clearTimeout(deferredSnapshotFallbackTimer);
+      deferredSnapshotFallbackTimer = null;
+      deferredSnapshotFallbackContext = '';
+      deferredSnapshotFallbackExpectedOpId = '';
+    }
+    snapshot.models = {};
+    snapshot.tables = {};
+    snapshot.v1nConfig = { local_mqtt: null, global_mqtt: null };
+    projectionStore.hydrateSnapshot(snapshot, { snapshot_seq: 0 });
+    closeEventSource();
+  }
+
+  function syncAuthScopedClientState() {
+    const nextKey = readAuthScopeKey();
+    if (nextKey === activeAuthScopeKey) return;
+    activeAuthScopeKey = nextKey;
+    clearPrincipalScopedClientState();
+  }
 
   function visibleModelIdList() {
     return [...visibleModelIds].filter((modelId) => Number.isInteger(modelId)).sort((a, b) => a - b);
@@ -567,6 +608,25 @@ export function createRemoteStore(options) {
     }, delay);
   }
 
+  function isPersistedAssetNotReadyPayload(data) {
+    if (!data || typeof data !== 'object') return false;
+    return data.code === 'persisted_asset_not_ready'
+      || data.status === 'persisted_asset_not_ready'
+      || data.error === 'persisted_asset_not_ready';
+  }
+
+  function applyPersistedAssetNotReadyPayload(data, context, options = {}) {
+    const retryAfterMs = Number.isFinite(data && data.retry_after_ms) ? Number(data.retry_after_ms) : 1000;
+    setWorkspaceStatus({
+      status: 'not_ready',
+      code: 'persisted_asset_not_ready',
+      message: data && typeof data.error === 'string' ? data.error : 'persisted_asset_not_ready',
+      retryAfterMs,
+      timing: data && data.timing && typeof data.timing === 'object' ? data.timing : null,
+    });
+    scheduleWorkspaceInitializationRetry(context, { ...options, initialProjection: false }, retryAfterMs);
+  }
+
   function scheduleRuntimeActivationRetryIfPending() {
     if (!runtimeActivationRetryPending) return;
     if (runtimeActivationRetryTimer) return;
@@ -668,6 +728,10 @@ export function createRemoteStore(options) {
       pendingSseSnapshot = null;
     }
     applySnapshot(next, { snapshot_seq: patch.snapshot_seq, snapshot_patch: patch });
+  }
+
+  function isSnapshotPatchBaseMismatchError(err) {
+    return String(err && err.message ? err.message : err || '') === 'snapshot_patch_base_mismatch';
   }
 
   function notifyAuthFailure(resp, data, returnTo) {
@@ -1038,6 +1102,7 @@ export function createRemoteStore(options) {
   async function fetchSnapshotAndApply(context, options = {}) {
     let wantsInitialProjection = false;
     try {
+      syncAuthScopedClientState();
       const profile = options && typeof options.profile === 'string' && options.profile ? options.profile : 'bootstrap';
       const explicitInitialProjection = options && options.initialProjection === true;
       wantsInitialProjection = explicitInitialProjection || (profile === 'bootstrap'
@@ -1079,7 +1144,9 @@ export function createRemoteStore(options) {
       }
       if (!resp.ok) {
         const failureBody = await resp.json().catch(() => ({}));
-        if (failureBody && (failureBody.code === 'workspace_initialization_failed' || failureBody.status === 'workspace_initialization_failed')) {
+        if (isPersistedAssetNotReadyPayload(failureBody)) {
+          applyPersistedAssetNotReadyPayload(failureBody, context, options);
+        } else if (failureBody && (failureBody.code === 'workspace_initialization_failed' || failureBody.status === 'workspace_initialization_failed')) {
           setWorkspaceStatus({
             status: 'failed',
             code: 'workspace_initialization_failed',
@@ -1097,12 +1164,14 @@ export function createRemoteStore(options) {
         if (options && typeof options.onFailure === 'function') {
           options.onFailure({ status: resp.status, statusText: resp.statusText, body: failureBody });
         }
-        console.error('snapshot fetch failed', {
-          context,
-          status: resp.status,
-          statusText: resp.statusText,
-          error: failureBody && (failureBody.error || failureBody.code) ? (failureBody.error || failureBody.code) : '',
-        });
+        if (!isPersistedAssetNotReadyPayload(failureBody)) {
+          console.error('snapshot fetch failed', {
+            context,
+            status: resp.status,
+            statusText: resp.statusText,
+            error: failureBody && (failureBody.error || failureBody.code) ? (failureBody.error || failureBody.code) : '',
+          });
+        }
         if (wantsInitialProjection && workspaceStatus.status !== 'initializing') {
           initialProjectionRequestAvailable = true;
         }
@@ -1146,6 +1215,7 @@ export function createRemoteStore(options) {
   }
 
   async function ensureVisibleModelLoaded(modelIdOrRef) {
+    syncAuthScopedClientState();
     const targetRef = normalizeVisibleModelRef(modelIdOrRef);
     if (!targetRef) {
       throw new Error('invalid_visible_model_id');
@@ -1505,6 +1575,7 @@ export function createRemoteStore(options) {
 
   function connectEventSource() {
     if (typeof EventSource !== 'function') return;
+    syncAuthScopedClientState();
     const nextUrl = buildStreamUrl();
     if (eventSource && eventSourceUrl === nextUrl && eventSource.readyState !== 2) return;
     closeEventSource();
@@ -1541,8 +1612,24 @@ export function createRemoteStore(options) {
             applySnapshotPatchEnvelope(data.snapshot_patch);
           }
         } catch (err) {
-          console.warn('sse snapshot_patch apply error', { err });
-          fetchSnapshotAndApply('snapshot patch recovery');
+          if (!isSnapshotPatchBaseMismatchError(err)) {
+            console.warn('sse snapshot_patch apply error', { err });
+          }
+          fetchSnapshotAndApply(isSnapshotPatchBaseMismatchError(err)
+            ? 'snapshot patch base mismatch recovery'
+            : 'snapshot patch recovery');
+        }
+      });
+      es.addEventListener('persisted_asset_not_ready', (evt) => {
+        if (!isCurrentEventSource()) return;
+        try {
+          const data = JSON.parse(evt.data || '{}');
+          applyPersistedAssetNotReadyPayload(data, 'persisted asset not-ready stream recovery', {
+            profile: 'bootstrap',
+            modelIds: visibleModelRefList(),
+          });
+        } catch (err) {
+          console.warn('sse persisted_asset_not_ready parse error', { err });
         }
       });
       es.onerror = (err) => {

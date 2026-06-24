@@ -215,6 +215,14 @@ verify_ui_server_snapshot_runtime() {
   echo "  snapshot runtime: $out"
 }
 
+verify_persisted_asset_manifest_in_ui_server_pod() {
+  local out
+  out="$(exec_in_running_ui_server_pod \
+    "test -r /app/persisted-assets/manifest.v0.json && grep -q '\"version\"[[:space:]]*:[[:space:]]*\"dy.asset_manifest.v0\"' /app/persisted-assets/manifest.v0.json && bytes=\$(wc -c < /app/persisted-assets/manifest.v0.json | tr -d ' ') && printf 'persisted_asset_manifest=/app/persisted-assets/manifest.v0.json bytes=%s' \"\$bytes\"" \
+    "persisted asset manifest check")"
+  echo "  $out"
+}
+
 echo "=== Cloud Deploy (full stack) ==="
 echo "Cluster type: rke2"
 echo "REPO_DIR=$REPO_DIR"
@@ -456,6 +464,8 @@ echo "=== Step 13: Verify ==="
 verify_pods
 echo "--- UI runtime source gate ---"
 verify_ui_server_runtime_source_hashes "$UI_SRC_HASH_SERVER" "$UI_SRC_HASH_DEMO" "$UI_SRC_HASH_ADAPTER" "$UI_SRC_HASH_REMOTE_STORE" "$UI_SRC_HASH_RENDERER_MJS" "$UI_SRC_HASH_RENDERER_JS"
+echo "--- Persisted asset manifest gate ---"
+verify_persisted_asset_manifest_in_ui_server_pod
 verify_ui_server_snapshot_runtime
 echo ""
 echo "--- Ingress ---"
