@@ -178,7 +178,50 @@ function test_cellwise_ui_fragmentation_and_sync_policy() {
   assert.equal(findNode(ast, 'todo_create_body')?.bind?.write?.commit_policy, 'on_submit', 'create body input must avoid per-keystroke persistence');
   assert.equal(findNode(ast, 'todo_edit_title')?.bind?.write?.commit_policy, 'on_submit', 'edit title input must avoid per-keystroke persistence');
   assert.equal(findNode(ast, 'todo_edit_body')?.bind?.write?.commit_policy, 'on_submit', 'edit body input must avoid per-keystroke persistence');
-  for (const id of ['todo_create_button', 'todo_create_save', 'todo_edit_save', 'todo_board', 'todo_focus_list']) {
+  const createButtonWrite = findNode(ast, 'todo_create_button')?.bind?.write;
+  assert.equal(createButtonWrite?.bus_event_v2, undefined, 'create button must not use formal bus_event_v2');
+  assert.equal(createButtonWrite?.persist_policy, 'never', 'create button local state must not sync to backend');
+  assert.deepEqual(
+    createButtonWrite?.local_updates?.map((item) => ({ p: item.p, r: item.r, c: item.c, k: item.k, value_ref: item.value_ref })),
+    [
+      { p: 0, r: 0, c: 0, k: 'draft_title', value_ref: '' },
+      { p: 0, r: 0, c: 0, k: 'draft_body', value_ref: '' },
+      { p: 0, r: 0, c: 0, k: 'draft_status', value_ref: 'todo' },
+      { p: 0, r: 0, c: 0, k: 'create_dialog_open', value_ref: true },
+    ],
+    'create button must prepare draft state and open the dialog locally',
+  );
+
+  const tabsWrite = findNode(ast, 'todo_tabs')?.bind?.write;
+  assert.equal(tabsWrite?.action, 'label_update', 'view tabs must be local UI state');
+  assert.equal(tabsWrite?.persist_policy, 'never', 'view tabs must not sync to backend on switch');
+  assert.deepEqual(tabsWrite?.target_ref, { p: 0, r: 0, c: 0, k: 'active_view' }, 'view tabs must target active_view');
+
+  const createDialogWrite = findNode(ast, 'todo_create_dialog')?.bind?.write;
+  assert.equal(createDialogWrite?.action, 'label_update', 'create dialog visibility must be local UI state');
+  assert.equal(createDialogWrite?.persist_policy, 'never', 'create dialog visibility must not sync to backend');
+
+  const createCancelWrite = findNode(ast, 'todo_create_cancel')?.bind?.write;
+  assert.equal(createCancelWrite?.persist_policy, 'never', 'create cancel must not sync to backend');
+  assert.deepEqual(
+    createCancelWrite?.local_updates?.map((item) => ({ p: item.p, r: item.r, c: item.c, k: item.k, value_ref: item.value_ref })),
+    [
+      { p: 0, r: 0, c: 0, k: 'create_dialog_open', value_ref: false },
+      { p: 0, r: 0, c: 0, k: 'draft_title', value_ref: '' },
+      { p: 0, r: 0, c: 0, k: 'draft_body', value_ref: '' },
+      { p: 0, r: 0, c: 0, k: 'draft_status', value_ref: 'todo' },
+    ],
+    'create cancel must close the dialog and clear draft state locally',
+  );
+
+  const createSaveWrite = findNode(ast, 'todo_create_save')?.bind?.write;
+  assert.deepEqual(
+    createSaveWrite?.local_updates?.map((item) => ({ p: item.p, r: item.r, c: item.c, k: item.k, value_ref: item.value_ref })),
+    [{ p: 0, r: 0, c: 0, k: 'create_dialog_open', value_ref: false }],
+    'create save must close the dialog locally before formal submit',
+  );
+
+  for (const id of ['todo_create_save', 'todo_edit_save', 'todo_board', 'todo_focus_list']) {
     assert.equal(findNode(ast, id)?.bind?.write?.bus_event_v2, true, `${id} must use bus_event_v2`);
     assert.equal(findNode(ast, id)?.bind?.write?.bus_in_key, BUS_KEY, `${id} must target To Do Model 0 ingress`);
   }

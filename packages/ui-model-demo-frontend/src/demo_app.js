@@ -5,13 +5,15 @@ import { dispatchAppShellStateUpdate } from './app_shell_state_dispatch.js';
 import { buildFocusedWorkspaceAppContentAst } from './desktop_focused_app_content.js';
 import { buildForegroundShellAst } from './desktop_foreground_shell_ast.js';
 import { findPageEntryByPath, readPageCatalog } from './page_asset_resolver.js';
+import { getForegroundModelLoadState } from './foreground_app_load_state.js';
 import {
   DESKTOP_FOREGROUND_APP_LABEL,
   DESKTOP_TASK_STACK_LABEL,
   DESKTOP_TASK_SWITCHER_OPEN_LABEL,
-  readDesktopForegroundApp,
-  readDesktopTaskStack,
+  readAvailableDesktopForegroundApp,
+  readAvailableDesktopTaskStack,
   readDesktopTaskSwitcherOpen,
+  desktopTaskKey,
   removeDesktopTaskFromStack,
 } from './desktop_app_state.js';
 import { MATRIX_CHAT_APP_MODEL_ID } from './model_ids.js';
@@ -50,7 +52,9 @@ export function createDemoRoot(store, options = {}) {
     },
     stageOverlayValue: (payload) => {
       if (store && typeof store.stageOverlayValue === 'function') {
-        return store.stageOverlayValue(payload);
+        const result = store.stageOverlayValue(payload);
+        scheduleConsumeOnce();
+        return result;
       }
       return undefined;
     },
@@ -122,11 +126,14 @@ export function createDemoRoot(store, options = {}) {
 
 export async function ensureForegroundAppVisibleModelLoaded(mainStore, app) {
   if (!mainStore || !app || app.page !== 'workspace' || !Number.isInteger(app.model_id)) return false;
+  const modelRef = typeof app.table_id === 'string' && app.table_id.trim()
+    ? { table_id: app.table_id.trim(), model_id: app.model_id }
+    : app.model_id;
   if (typeof mainStore.ensureVisibleModelLoaded !== 'function') {
-    return typeof mainStore.hasSnapshotModel === 'function' && mainStore.hasSnapshotModel(app.model_id);
+    return typeof mainStore.hasSnapshotModel === 'function' && mainStore.hasSnapshotModel(modelRef);
   }
   try {
-    return await mainStore.ensureVisibleModelLoaded(app.model_id);
+    return await mainStore.ensureVisibleModelLoaded(modelRef);
   } catch (err) {
     console.warn('foreground visible model lazy load failed', { err, model_id: app.model_id });
     return false;
@@ -174,7 +181,11 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           },
           stageOverlayValue: (payload) => {
             if (mainStore && typeof mainStore.stageOverlayValue === 'function') {
-              return mainStore.stageOverlayValue(payload);
+              const result = mainStore.stageOverlayValue(payload);
+              if (mainStore && typeof mainStore.consumeOnce === 'function') {
+                queueMicrotask(() => mainStore.consumeOnce());
+              }
+              return result;
             }
             return undefined;
           },
@@ -298,12 +309,13 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       const currentRouteEntry = computed(() => findRouteEntry(path.value));
       const routeSyncState = computed(() => readAppShellRouteSyncState(mainStore?.snapshot ?? {}, path.value));
       const authIssue = computed(() => (authStore && authStore.state ? authStore.state.authIssue : null));
-      const desktopForegroundApp = computed(() => readDesktopForegroundApp(mainStore?.snapshot ?? {}));
+      const desktopForegroundApp = computed(() => readAvailableDesktopForegroundApp(mainStore?.snapshot ?? {}));
+      const foregroundVisibleLoadTick = ref(0);
       const ForegroundRouteRoot = createDemoRoot(mainStore, {
         routePath: () => desktopForegroundApp.value?.path || '/',
       });
       const desktopForegroundKey = computed(() => JSON.stringify(desktopForegroundApp.value || null));
-      const desktopTasks = computed(() => readDesktopTaskStack(mainStore?.snapshot ?? {}));
+      const desktopTasks = computed(() => readAvailableDesktopTaskStack(mainStore?.snapshot ?? {}));
       const desktopTaskSwitcherOpen = computed(() => readDesktopTaskSwitcherOpen(mainStore?.snapshot ?? {}));
       const matrixChatAutoRefreshKeys = new Set();
       const galleryNavTarget = computed(() => {
@@ -342,7 +354,9 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         syncGalleryRoute(app.path);
         syncPageLabel(app.path);
         if (app.page === 'workspace' && Number.isInteger(app.model_id)) {
-          void ensureForegroundAppVisibleModelLoaded(mainStore, app);
+          void ensureForegroundAppVisibleModelLoaded(mainStore, app).then((loaded) => {
+            if (loaded) foregroundVisibleLoadTick.value += 1;
+          });
           selectWorkspaceModel(app.model_id);
         } else {
           syncWorkspaceSelection(app.path);
@@ -380,12 +394,12 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
 
       function closeDesktopTask(task) {
         if (!task || typeof task.id !== 'string' || !task.id.trim()) return;
-        const nextStack = removeDesktopTaskFromStack(desktopTasks.value, task.id);
+        const nextStack = removeDesktopTaskFromStack(desktopTasks.value, task);
         dispatchAppShellStateUpdate(mainStore, {
           target: { model_id: -2, p: 0, r: 0, c: 0, k: DESKTOP_TASK_STACK_LABEL },
           value: { t: 'json', v: nextStack },
         });
-        if (desktopForegroundApp.value?.id === task.id) {
+        if (desktopTaskKey(desktopForegroundApp.value) === desktopTaskKey(task)) {
           clearDesktopForeground();
           setTaskSwitcherOpen(false);
         }
@@ -504,10 +518,11 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       function ForegroundPlayer() {
         const app = desktopForegroundApp.value;
         if (!app) return null;
-        const waitingForVisibleModel = app.page === 'workspace'
-          && Number.isInteger(app.model_id)
-          && typeof mainStore?.hasSnapshotModel === 'function'
-          && !mainStore.hasSnapshotModel(app.model_id);
+        const visibleLoadTick = foregroundVisibleLoadTick.value;
+        void visibleLoadTick;
+        const {
+          waitingForVisibleModel,
+        } = getForegroundModelLoadState(mainStore, app);
         if (waitingForVisibleModel) {
           const loading = h('div', {
             id: 'foreground_visible_model_loading',

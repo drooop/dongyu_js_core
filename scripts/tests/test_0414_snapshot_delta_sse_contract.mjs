@@ -31,6 +31,16 @@ function jsonResponse(body) {
   };
 }
 
+function isBootstrapSnapshotRequest(rawUrl) {
+  let url;
+  try {
+    url = new URL(String(rawUrl));
+  } catch (_) {
+    return false;
+  }
+  return url.pathname === '/snapshot' && url.searchParams.get('profile') === 'bootstrap';
+}
+
 function snapshotWithBusEventLastOpId(opId) {
   return {
     models: {
@@ -50,6 +60,27 @@ function snapshotWithBusEventLastOpId(opId) {
     },
     v1nConfig: {},
   };
+}
+
+function snapshotWithModels(modelIds = [], opId = '') {
+  const snapshot = snapshotWithBusEventLastOpId(opId);
+  for (const modelId of modelIds) {
+    if (!Number.isInteger(modelId)) continue;
+    snapshot.models[String(modelId)] = {
+      id: modelId,
+      cells: {
+        '0,0,0': {
+          p: 0,
+          r: 0,
+          c: 0,
+          labels: {
+            app_name: { k: 'app_name', t: 'str', v: `Visible ${modelId}` },
+          },
+        },
+      },
+    };
+  }
+  return snapshot;
 }
 
 function base64url(input) {
@@ -300,16 +331,32 @@ async function waitFor(predicate, message, timeoutMs = 1000) {
   assert.fail(message);
 }
 
+async function activateRuntimeModeRunning(appBase, sessionCookie, message) {
+  const deadline = Date.now() + 5000;
+  let lastStatus = 0;
+  let lastBody = {};
+  while (Date.now() < deadline) {
+    const resp = await fetch(`${appBase}/api/runtime/mode`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: sessionCookie },
+      body: JSON.stringify({ mode: 'running' }),
+    });
+    lastStatus = resp.status;
+    lastBody = await readResponseJson(resp);
+    if (resp.status === 200) return lastBody;
+    if (resp.status !== 202) break;
+    const retryAfter = Number.isFinite(lastBody?.retry_after_ms) ? Math.max(10, Number(lastBody.retry_after_ms)) : 100;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(retryAfter, 250)));
+  }
+  assert.equal(lastStatus, 200, `${message}: ${JSON.stringify(lastBody)}`);
+  return lastBody;
+}
+
 async function test_server_stream_emits_patch_after_initial_snapshot() {
   await withAuthenticatedAppServer(async ({ appBase, sessionCookie }) => {
     let sse = null;
     try {
-      const modeResp = await fetch(`${appBase}/api/runtime/mode`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', cookie: sessionCookie },
-        body: JSON.stringify({ mode: 'running' }),
-      });
-      assert.equal(modeResp.status, 200, 'runtime mode activation must succeed before stream test');
+      await activateRuntimeModeRunning(appBase, sessionCookie, 'runtime mode activation must succeed before stream test');
       const streamResp = await fetch(`${appBase}/stream?profile=full`, { headers: { cookie: sessionCookie } });
       assert.equal(streamResp.status, 200, 'stream must open');
       sse = createSseReader(streamResp);
@@ -368,8 +415,12 @@ async function test_snapshot_patch_server_helpers_diff_and_principal_reset() {
     opId: 'it0414_helper_patch',
     previousPrincipalKey: 'guest',
     currentPrincipalKey: 'guest',
+    snapshotProfile: 'bootstrap',
+    visibleModelIds: [200, 100],
   });
   assert.equal(message.event, 'snapshot_patch', 'same-principal small label change must produce patch');
+  assert.equal(message.data.snapshot_profile, 'bootstrap', 'ordinary patch must preserve active snapshot profile');
+  assert.deepEqual(message.data.visible_model_ids, [100, 200], 'ordinary patch must preserve sorted active visible model ids');
   assert.deepEqual(
     message.data.snapshot_patch.ops,
     [
@@ -445,8 +496,12 @@ async function test_snapshot_patch_server_helpers_diff_and_principal_reset() {
     opId: 'it0414_principal_reset',
     previousPrincipalKey: 'admin:app:write|matrix:connect',
     currentPrincipalKey: 'guest',
+    snapshotProfile: 'bootstrap',
+    visibleModelIds: [200, 100],
   });
   assert.equal(resetMessage.event, 'snapshot', 'principal/capability key change must full-reset, not cross-principal patch');
+  assert.equal(resetMessage.data.snapshot_profile, 'bootstrap', 'principal reset must preserve active snapshot profile');
+  assert.deepEqual(resetMessage.data.visible_model_ids, [100, 200], 'principal reset must preserve sorted active visible model ids');
   const resetText = JSON.stringify(resetMessage.data);
   assert.equal(resetText.includes('matrix_token'), false, 'reset payload must not expose restricted key');
   assert.equal(resetText.includes('matrix.token'), false, 'reset payload must not expose restricted type');
@@ -533,6 +588,8 @@ async function test_snapshot_patch_client_apply_helper_matches_full_snapshot() {
 async function test_remote_store_patch_op_id_alone_does_not_cancel_fallback() {
   let patchListener = null;
   let snapshotFetchCount = 0;
+  let lastSnapshotSeq = 0;
+  const snapshotUrls = [];
   globalThis.EventSource = class FakeEventSource {
     constructor() {
       this.readyState = 1;
@@ -544,9 +601,18 @@ async function test_remote_store_patch_op_id_alone_does_not_cancel_fallback() {
   };
   globalThis.fetch = async (url) => {
     const href = String(url);
-    if (href.endsWith('/snapshot') || href.endsWith('/snapshot?profile=bootstrap')) {
+    const parsed = new URL(href);
+    if (parsed.pathname === '/snapshot') {
       snapshotFetchCount += 1;
-      return jsonResponse({ snapshot: { models: {}, v1nConfig: {} }, snapshot_seq: 1 });
+      snapshotUrls.push(href);
+      const ids = [
+        ...parsed.searchParams.getAll('model_id'),
+        ...parsed.searchParams.getAll('visible_model_id'),
+      ]
+        .map((value) => Number.parseInt(value, 10))
+        .filter(Number.isInteger);
+      lastSnapshotSeq += 1;
+      return jsonResponse({ snapshot: snapshotWithModels(ids), snapshot_seq: lastSnapshotSeq });
     }
     if (href.endsWith('/bus_event')) {
       assert.equal(typeof patchListener, 'function', 'test setup must install snapshot_patch listener before bus_event');
@@ -554,8 +620,8 @@ async function test_remote_store_patch_op_id_alone_does_not_cancel_fallback() {
         data: JSON.stringify({
           snapshot_patch: {
             patch_kind: 'json_replace_v1',
-            snapshot_seq: 2,
-            base_snapshot_seq: 1,
+            snapshot_seq: lastSnapshotSeq + 1,
+            base_snapshot_seq: lastSnapshotSeq,
             op_id: 'it0414_op_id_only',
             ops: [],
           },
@@ -580,7 +646,10 @@ async function test_remote_store_patch_op_id_alone_does_not_cancel_fallback() {
       () => typeof patchListener === 'function',
       'remote store must register snapshot_patch listener before bus_event dispatch',
     );
+    await store.ensureVisibleModelLoaded(200);
+    await store.ensureVisibleModelLoaded(100);
     snapshotFetchCount = 0;
+    snapshotUrls.length = 0;
     await store.dispatchAddLabel({
       p: 0,
       r: 0,
@@ -595,6 +664,13 @@ async function test_remote_store_patch_op_id_alone_does_not_cancel_fallback() {
     });
     await new Promise((resolve) => setTimeout(resolve, 10));
     assert.equal(snapshotFetchCount, 1, 'patch envelope op_id alone must not cancel deferred fallback');
+    const fallbackUrl = snapshotUrls[0];
+    assert.ok(isBootstrapSnapshotRequest(fallbackUrl), 'deferred fallback must request bootstrap profile');
+    assert.deepEqual(
+      new URL(fallbackUrl).searchParams.getAll('visible_model_id').map((value) => Number.parseInt(value, 10)),
+      [100, 200],
+      'deferred fallback must preserve the sorted active visible model id set',
+    );
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.EventSource = originalEventSource;
@@ -615,7 +691,7 @@ async function test_remote_store_matching_patch_cancels_fallback() {
   };
   globalThis.fetch = async (url) => {
     const href = String(url);
-    if (href.endsWith('/snapshot') || href.endsWith('/snapshot?profile=bootstrap')) {
+    if (isBootstrapSnapshotRequest(href)) {
       snapshotFetchCount += 1;
       return jsonResponse({ snapshot: { models: {}, v1nConfig: {} }, snapshot_seq: 1 });
     }
@@ -684,6 +760,7 @@ async function test_remote_store_invalid_patch_seq_recovers_bootstrap_snapshot()
   let patchListener = null;
   let snapshotFetchCount = 0;
   let currentOpId = '';
+  const snapshotUrls = [];
   const badPatches = [
     {
       name: 'missing_snapshot_seq',
@@ -736,9 +813,22 @@ async function test_remote_store_invalid_patch_seq_recovers_bootstrap_snapshot()
   };
   globalThis.fetch = async (url) => {
     const href = String(url);
-    if (href.endsWith('/snapshot') || href.endsWith('/snapshot?profile=bootstrap')) {
+    if (isBootstrapSnapshotRequest(href)) {
       snapshotFetchCount += 1;
-      return jsonResponse({ snapshot: snapshotWithBusEventLastOpId(currentOpId), snapshot_seq: 1 });
+      snapshotUrls.push(href);
+      const parsed = new URL(href);
+      const visibleIds = parsed.searchParams.getAll('visible_model_id')
+        .map((value) => Number.parseInt(value, 10))
+        .filter((modelId) => Number.isInteger(modelId));
+      return jsonResponse({ snapshot: snapshotWithModels(visibleIds, currentOpId), snapshot_seq: 1 });
+    }
+    if (href.includes('/snapshot?profile=visible')) {
+      snapshotUrls.push(href);
+      const parsed = new URL(href);
+      const visibleIds = parsed.searchParams.getAll('model_id')
+        .map((value) => Number.parseInt(value, 10))
+        .filter((modelId) => Number.isInteger(modelId));
+      return jsonResponse({ snapshot: snapshotWithModels(visibleIds, currentOpId), snapshot_seq: 1 });
     }
     if (href.endsWith('/bus_event')) {
       const badPatch = badPatches.shift();
@@ -767,7 +857,10 @@ async function test_remote_store_invalid_patch_seq_recovers_bootstrap_snapshot()
       () => typeof patchListener === 'function',
       'remote store must register snapshot_patch listener before mismatch test',
     );
+    assert.equal(await store.ensureVisibleModelLoaded(200), true, 'test setup must load first visible model');
+    assert.equal(await store.ensureVisibleModelLoaded(100), true, 'test setup must load second visible model');
     snapshotFetchCount = 0;
+    snapshotUrls.length = 0;
     for (const expectedFetchCount of [1, 2, 3, 4]) {
       await store.dispatchAddLabel({
         p: 0,
@@ -783,6 +876,14 @@ async function test_remote_store_invalid_patch_seq_recovers_bootstrap_snapshot()
       });
       await new Promise((resolve) => setTimeout(resolve, 10));
       assert.equal(snapshotFetchCount, expectedFetchCount, 'invalid or mismatched patch seq must fetch bootstrap snapshot for recovery');
+      const latestBootstrap = [...snapshotUrls].reverse().find((href) => isBootstrapSnapshotRequest(href));
+      assert.ok(latestBootstrap, 'invalid patch recovery must request bootstrap snapshot');
+      const params = new URL(latestBootstrap).searchParams;
+      assert.deepEqual(
+        params.getAll('visible_model_id').map((value) => Number.parseInt(value, 10)),
+        [100, 200],
+        'invalid patch recovery must preserve the sorted active visible model id set',
+      );
     }
   } finally {
     console.warn = originalWarn;
@@ -805,7 +906,7 @@ async function test_remote_store_paused_patch_does_not_update_visible_state_or_c
   };
   globalThis.fetch = async (url) => {
     const href = String(url);
-    if (href.endsWith('/snapshot') || href.endsWith('/snapshot?profile=bootstrap')) {
+    if (isBootstrapSnapshotRequest(href)) {
       snapshotFetchCount += 1;
       return jsonResponse({
         snapshot: {

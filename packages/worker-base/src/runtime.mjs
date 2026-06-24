@@ -2,6 +2,8 @@
 
 import defaultTableProgramsJson from '../system-models/default_table_programs.json' with { type: 'json' };
 
+const HOST_TABLE_ID = 'host';
+
 class EventLog {
   constructor() {
     this._events = [];
@@ -272,7 +274,8 @@ class MqttClientReal {
 }
 
 class Model {
-  constructor({ id, name, type }) {
+  constructor({ id, name, type, table_id = HOST_TABLE_ID }) {
+    this.table_id = table_id;
     this.id = id;
     this.name = name;
     this.type = type;
@@ -333,15 +336,18 @@ class ModelTableRuntime {
     this.intercepts = new Intercepts();
     this.mqttTrace = new MqttTrace();
     this.models = new Map();
+    this.modelTables = new Map([[HOST_TABLE_ID, this.models]]);
+    this.subtableMounts = new Map();
+    this.subtableMountsByHostCell = new Map();
     this.v1nConfig = { local_mqtt: null, global_mqtt: null };
     this.mqttClient = null;
     // 0141: CELL_CONNECT graph (two-level Map)
-    // outer key: "${modelId}|${p}|${r}|${c}" (pipe-separated)
+    // outer key: "${tableId}|${modelId}|${p}|${r}|${c}" (pipe-separated)
     // inner: Map<"${prefix}:${port}", [{prefix, port}]>
     this.cellConnectGraph = new Map();
     // 0141: cell_connection routing table
-    // key: "${modelId}|${p}|${r}|${c}|${k}" (pipe-separated)
-    // value: [{model_id, p, r, c, k}]
+    // key: "${tableId}|${modelId}|${p}|${r}|${c}|${k}" (pipe-separated)
+    // value: [{table_id, model_id, p, r, c, k}]
     this.cellConnectionRoutes = new Map();
     // 0142: BUS_IN/BUS_OUT port registries (Model 0 only)
     this.busInPorts = new Map();
@@ -357,7 +363,7 @@ class ModelTableRuntime {
     this.runLoopActive = false;
     this.persistence = null;
 
-    const root = new Model({ id: 0, name: 'MT', type: 'main' });
+    const root = new Model({ table_id: HOST_TABLE_ID, id: 0, name: 'MT', type: 'main' });
     this.models.set(root.id, root);
     this.addLabel(root, 0, 0, 0, { k: 'runtime_mode', t: 'str', v: this.runtimeMode });
     this._seedDefaultRootScaffold(root);
@@ -366,6 +372,71 @@ class ModelTableRuntime {
   _resolveLabelType(labelType) {
     if (labelType === 'model.submt') return 'submt';
     return labelType;
+  }
+
+  _normalizeTableId(tableId, { defaultHost = false } = {}) {
+    if (tableId === undefined || tableId === null) {
+      if (defaultHost) return HOST_TABLE_ID;
+      throw new Error('table_id_required');
+    }
+    if (typeof tableId !== 'string' || !tableId.trim()) {
+      throw new Error('invalid_table_id');
+    }
+    return tableId.trim();
+  }
+
+  _tableModels(tableId, { create = false } = {}) {
+    const normalizedTableId = this._normalizeTableId(tableId, { defaultHost: true });
+    if (!this.modelTables.has(normalizedTableId)) {
+      if (!create) return null;
+      this.modelTables.set(normalizedTableId, new Map());
+    }
+    return this.modelTables.get(normalizedTableId);
+  }
+
+  _modelTableId(model) {
+    return model && typeof model.table_id === 'string' && model.table_id.trim()
+      ? model.table_id.trim()
+      : HOST_TABLE_ID;
+  }
+
+  _normalizeModelRef(value, { defaultHost = false } = {}) {
+    if (Number.isInteger(value)) {
+      return { table_id: HOST_TABLE_ID, model_id: value };
+    }
+    if (value && typeof value === 'object') {
+      if (Number.isInteger(value.model_id)) {
+        return {
+          table_id: this._normalizeTableId(value.table_id, { defaultHost }),
+          model_id: value.model_id,
+        };
+      }
+      if (Number.isInteger(value.id)) {
+        return {
+          table_id: this._normalizeTableId(value.table_id, { defaultHost: true }),
+          model_id: value.id,
+        };
+      }
+    }
+    throw new Error('invalid_model_ref');
+  }
+
+  _modelRefKey(value) {
+    const ref = this._normalizeModelRef(value, { defaultHost: true });
+    return `${ref.table_id}|${ref.model_id}`;
+  }
+
+  _cellConnectGraphKey(model, p, r, c) {
+    return `${this._modelTableId(model)}|${model.id}|${p}|${r}|${c}`;
+  }
+
+  _cellConnectionRouteKey(modelRefOrModelId, p, r, c, k) {
+    const ref = this._normalizeModelRef(modelRefOrModelId, { defaultHost: true });
+    return `${ref.table_id}|${ref.model_id}|${p}|${r}|${c}|${k}`;
+  }
+
+  _subtableHostCellKey(model, p, r, c) {
+    return `${this._modelTableId(model)}|${model.id}|${p}|${r}|${c}`;
   }
 
   _isBusInResolvedType(typeName) {
@@ -441,12 +512,17 @@ class ModelTableRuntime {
     }
   }
 
-  createModel({ id, name, type }) {
-    if (this.models.has(id)) {
-      return this.models.get(id);
+  createModel({ table_id, id, name, type }) {
+    const tableId = this._normalizeTableId(table_id, { defaultHost: true });
+    if (tableId !== HOST_TABLE_ID && Number.isInteger(id) && id < 0) {
+      throw new Error('app_table_negative_model_forbidden');
     }
-    const model = new Model({ id, name, type });
-    this.models.set(id, model);
+    const tableModels = this._tableModels(tableId, { create: true });
+    if (tableModels.has(id)) {
+      return tableModels.get(id);
+    }
+    const model = new Model({ table_id: tableId, id, name, type });
+    tableModels.set(id, model);
     if (this.persistence && typeof this.persistence.ensureModel === 'function') {
       this.persistence.ensureModel(model);
     }
@@ -457,14 +533,18 @@ class ModelTableRuntime {
   setPersistence(persister) {
     this.persistence = persister || null;
     if (this.persistence && typeof this.persistence.ensureModel === 'function') {
-      for (const model of this.models.values()) {
-        this.persistence.ensureModel(model);
+      for (const tableModels of this.modelTables.values()) {
+        for (const model of tableModels.values()) {
+          this.persistence.ensureModel(model);
+        }
       }
     }
   }
 
-  getModel(id) {
-    return this.models.get(id);
+  getModel(idOrRef) {
+    const ref = this._normalizeModelRef(idOrRef, { defaultHost: true });
+    const tableModels = this._tableModels(ref.table_id);
+    return tableModels ? tableModels.get(ref.model_id) : undefined;
   }
 
   getRuntimeMode() {
@@ -658,16 +738,21 @@ class ModelTableRuntime {
   }
 
   _isNonSystemModelRoot(model, p, r, c) {
-    return Boolean(model && Number.isInteger(model.id) && model.id !== 0 && this._isRootCell(p, r, c));
+    return Boolean(
+      model
+      && Number.isInteger(model.id)
+      && this._isRootCell(p, r, c)
+      && !(this._modelTableId(model) === HOST_TABLE_ID && model.id === 0),
+    );
   }
 
   _registerRootBoundaryInput(model, p, r, c, label) {
-    this.modelInPorts.set(`${model.id}:${label.k}`, true);
+    this.modelInPorts.set(`${this._modelRefKey(model)}:${label.k}`, true);
     if (label.v !== null && label.v !== undefined) {
-      this._routeViaCellConnection(model.id, 0, 0, 0, label.k, label.v);
-      const cellKey = `${model.id}|0|0|0`;
+      this._routeViaCellConnection(model, 0, 0, 0, label.k, label.v);
+      const cellKey = this._cellConnectGraphKey(model, 0, 0, 0);
       if (this.cellConnectGraph.has(cellKey)) {
-        this._propagateCellConnect(model.id, 0, 0, 0, 'self', label.k, label.v)
+        this._propagateCellConnect(model, 0, 0, 0, 'self', label.k, label.v)
           .catch(() => {
             this._recordError(model, p, r, c, label, 'model_in_propagation_error');
           });
@@ -676,8 +761,20 @@ class ModelTableRuntime {
   }
 
   _registerRootBoundaryOutput(model, p, r, c, label) {
-    this.modelOutPorts.set(`${model.id}:${label.k}`, true);
+    this.modelOutPorts.set(`${this._modelRefKey(model)}:${label.k}`, true);
     if (label.v !== null && label.v !== undefined) {
+      const tableId = this._modelTableId(model);
+      if (tableId !== HOST_TABLE_ID) {
+        const subtableMount = this.subtableMounts.get(tableId);
+        if (subtableMount && subtableMount.root_model_id === model.id) {
+          const parentModel = this.getModel(subtableMount.parent);
+          if (parentModel) {
+            const { p: hp, r: hr, c: hc } = subtableMount.hostingCell;
+            this.addLabel(parentModel, hp, hr, hc, { k: label.k, t: 'pin.out', v: label.v });
+          }
+        }
+        return;
+      }
       const childInfo = this.parentChildMap.get(model.id);
       if (childInfo) {
         const { parentModelId, hostingCell: { p: hp, r: hr, c: hc } } = childInfo;
@@ -685,6 +782,7 @@ class ModelTableRuntime {
         if (parentModel) {
           this.addLabel(parentModel, hp, hr, hc, { k: label.k, t: 'pin.out', v: label.v });
         }
+        return;
       }
     }
   }
@@ -788,6 +886,9 @@ class ModelTableRuntime {
         return 'management_bus_pin_requires_dem';
       }
     }
+    if (resolvedType === 'model.subtable' && this._modelTableId(model) !== HOST_TABLE_ID) {
+      return 'subtable_requires_host_table';
+    }
     return null;
   }
 
@@ -798,6 +899,10 @@ class ModelTableRuntime {
     }
     if (resolvedType === 'pin.connect.cell') {
       const normalized = this._normalizeCellConnectionLabel(model, p, r, c, label);
+      return normalized.ok ? null : normalized.reason;
+    }
+    if (resolvedType === 'model.subtable') {
+      const normalized = this._normalizeSubtableDescriptor(label);
       return normalized.ok ? null : normalized.reason;
     }
     return null;
@@ -989,9 +1094,12 @@ class ModelTableRuntime {
     if (this._hasLegacyPinPayloadMetadata(payload)) {
       return { ok: false, code: 'legacy_pin_payload_metadata_removed', requestId };
     }
+    if (this._hasClientAuthoredAuthorityMetadata(payload)) {
+      return { ok: false, code: 'client_authority_metadata_rejected', requestId };
+    }
     const endpoint = this._endpointFromPayloadRecords(payload, 'endpoint');
-    const origin = this._endpointFromPayloadRecords(payload, 'origin');
-    const replyTarget = this._endpointFromPayloadRecords(payload, 'reply_target');
+    const origin = this._endpointFromPayloadRecords(payload, 'origin', { allowNonHostTable: true, allowNonHostModelZero: true });
+    const replyTarget = this._endpointFromPayloadRecords(payload, 'reply_target', { allowNonHostTable: true, allowNonHostModelZero: true });
     const busOutKey = busOutKeyLabel && busOutKeyLabel.t === 'str' && typeof busOutKeyLabel.v === 'string' && busOutKeyLabel.v.trim()
       ? busOutKeyLabel.v.trim()
       : (endpoint ? endpoint.pin : '');
@@ -1026,6 +1134,9 @@ class ModelTableRuntime {
     }
     if (!endpoint || !origin || !replyTarget || !busOutKey) {
       return { ok: false, code: 'missing_source', requestId };
+    }
+    if (origin.table_id !== HOST_TABLE_ID && (!replyTarget.table_id_present || replyTarget.table_id === HOST_TABLE_ID)) {
+      return { ok: false, code: 'missing_reply_target_table_id', requestId };
     }
     if (!this._isTemporaryModelTablePayload(nestedPayload)) {
       return { ok: false, code: 'invalid_nested_payload', requestId };
@@ -1130,9 +1241,12 @@ class ModelTableRuntime {
     const responseTopicParts = this._payloadTopicParts(responseTopic);
     if (!responseTopicParts) return 'invalid_response_topic';
     if (responseTopicParts.base !== topicParts.base) return 'response_topic_mismatch';
-    const expectedResponseTopic = this._topicForEndpointFromBase(topicParts.base, replyTarget);
-    if (!expectedResponseTopic || responseTopic !== expectedResponseTopic) {
-      return 'response_topic_mismatch';
+    const replyTargetIsHost = !replyTarget || !replyTarget.table_id || replyTarget.table_id === HOST_TABLE_ID;
+    if (replyTargetIsHost) {
+      const expectedResponseTopic = this._topicForEndpointFromBase(topicParts.base, replyTarget);
+      if (!expectedResponseTopic || responseTopic !== expectedResponseTopic) {
+        return 'response_topic_mismatch';
+      }
     }
     if (messageRole === 'request') {
       if (topic === responseTopic) return 'response_topic_mismatch';
@@ -1141,21 +1255,38 @@ class ModelTableRuntime {
     }
     if (messageRole === 'response') {
       if (topic !== responseTopic) return 'response_topic_mismatch';
-      if (!this._endpointMatches(endpoint, replyTarget)) return 'endpoint_mismatch';
-      if (!this._endpointMatches(topicParts.endpoint, replyTarget)) return 'endpoint_mismatch';
+      if (!this._endpointMatches(topicParts.endpoint, endpoint)) return 'endpoint_mismatch';
+      if (replyTargetIsHost && !this._endpointMatches(endpoint, replyTarget)) return 'endpoint_mismatch';
       return null;
     }
     return 'invalid_message_role';
   }
 
-  _endpointFromPayloadRecords(payload, prefix) {
+  _payloadTableId(payload, key) {
+    const label = this._payloadLabel(payload, key);
+    if (!label) return { ok: true, value: HOST_TABLE_ID, present: false };
+    if (label.t !== 'str' || typeof label.v !== 'string' || !this._isSafePinRouteSegment(label.v)) {
+      return { ok: false, code: 'invalid_pin_payload_records' };
+    }
+    return { ok: true, value: label.v, present: true };
+  }
+
+  _endpointFromPayloadRecords(payload, prefix, options = {}) {
     const workerId = this._payloadString(payload, `${prefix}_worker_id`);
+    const table = this._payloadTableId(payload, `${prefix}_table_id`);
+    if (!table.ok) return null;
     const modelId = this._payloadInt(payload, `${prefix}_model_id`);
     const pin = this._payloadString(payload, `${prefix}_pin`);
     if (!this._isSafePinRouteSegment(workerId)) return null;
-    if (!Number.isInteger(modelId) || modelId <= 0) return null;
+    if (table.value !== HOST_TABLE_ID && options.allowNonHostTable !== true) return null;
+    if (!Number.isInteger(modelId)) return null;
+    if (table.value === HOST_TABLE_ID) {
+      if (modelId <= 0) return null;
+    } else if (modelId < 0 || (modelId === 0 && options.allowNonHostModelZero !== true)) {
+      return null;
+    }
     if (!this._isSafePinRouteSegment(pin)) return null;
-    return { worker_id: workerId, model_id: modelId, pin };
+    return { worker_id: workerId, table_id: table.value, table_id_present: table.present, model_id: modelId, pin };
   }
 
   _isLegacyPinPayloadKey(key) {
@@ -1195,6 +1326,18 @@ class ModelTableRuntime {
       if (this._valueContainsLegacyPinPayloadMetadata(record.v)) return true;
     }
     return false;
+  }
+
+  _hasClientAuthoredAuthorityMetadata(value) {
+    if (!Array.isArray(value)) return false;
+    return value.some((record) => record
+      && record.id === 0
+      && record.p === 0
+      && record.r === 0
+      && record.c === 0
+      && (record.k === 'principal_id'
+        || record.k === 'table_id'
+        || record.k === 'owner_principal_id'));
   }
 
   _hasLegacyPinPayloadMetadataForPinPayloadRecords(value) {
@@ -1250,11 +1393,15 @@ class ModelTableRuntime {
       'topic',
       'response_topic',
       'endpoint_worker_id',
+      'endpoint_table_id',
       'endpoint_pin',
       'origin_worker_id',
+      'origin_table_id',
       'origin_pin',
       'reply_target_worker_id',
+      'reply_target_table_id',
       'reply_target_pin',
+      'reply_target_principal_key',
     ];
     const metadataKeys = stringMetadataKeys.concat([
       '__mt_payload_kind',
@@ -1306,11 +1453,17 @@ class ModelTableRuntime {
     if (this._hasLegacyPinPayloadMetadataForPinPayloadRecords(value)) {
       return { ok: false, code: 'legacy_pin_payload_metadata_removed' };
     }
+    if (this._hasClientAuthoredAuthorityMetadata(value)) {
+      return { ok: false, code: 'client_authority_metadata_rejected' };
+    }
     const endpoint = this._endpointFromPayloadRecords(value, 'endpoint');
-    const origin = this._endpointFromPayloadRecords(value, 'origin');
-    const replyTarget = this._endpointFromPayloadRecords(value, 'reply_target');
+    const origin = this._endpointFromPayloadRecords(value, 'origin', { allowNonHostTable: true, allowNonHostModelZero: true });
+    const replyTarget = this._endpointFromPayloadRecords(value, 'reply_target', { allowNonHostTable: true, allowNonHostModelZero: true });
     if (!endpoint || !origin || !replyTarget) {
       return { ok: false, code: 'invalid_pin_payload_records' };
+    }
+    if (origin.table_id !== HOST_TABLE_ID && (!replyTarget.table_id_present || replyTarget.table_id === HOST_TABLE_ID)) {
+      return { ok: false, code: 'missing_reply_target_table_id' };
     }
     const topicContractError = this._validatePinPayloadTopicContract({
       messageRole,
@@ -1331,6 +1484,7 @@ class ModelTableRuntime {
       const expected = options.expectedEndpoint;
       if (
         endpoint.worker_id !== expected.worker_id
+        || (expected.table_id && endpoint.table_id !== expected.table_id)
         || endpoint.model_id !== expected.model_id
         || endpoint.pin !== expected.pin
       ) {
@@ -1348,12 +1502,15 @@ class ModelTableRuntime {
       this._mtPayloadRecord('op_id', 'str', requestId),
       this._mtPayloadRecord('message_role', 'str', messageRole),
       this._mtPayloadRecord('endpoint_worker_id', 'str', endpoint && endpoint.worker_id ? endpoint.worker_id : ''),
+      this._mtPayloadRecord('endpoint_table_id', 'str', endpoint && endpoint.table_id ? endpoint.table_id : HOST_TABLE_ID),
       this._mtPayloadRecord('endpoint_model_id', 'int', endpoint && Number.isInteger(endpoint.model_id) ? endpoint.model_id : 0),
       this._mtPayloadRecord('endpoint_pin', 'str', endpoint && endpoint.pin ? endpoint.pin : ''),
       this._mtPayloadRecord('origin_worker_id', 'str', origin && origin.worker_id ? origin.worker_id : ''),
+      this._mtPayloadRecord('origin_table_id', 'str', origin && origin.table_id ? origin.table_id : HOST_TABLE_ID),
       this._mtPayloadRecord('origin_model_id', 'int', origin && Number.isInteger(origin.model_id) ? origin.model_id : 0),
       this._mtPayloadRecord('origin_pin', 'str', origin && origin.pin ? origin.pin : ''),
       this._mtPayloadRecord('reply_target_worker_id', 'str', replyTarget && replyTarget.worker_id ? replyTarget.worker_id : ''),
+      this._mtPayloadRecord('reply_target_table_id', 'str', replyTarget && replyTarget.table_id ? replyTarget.table_id : HOST_TABLE_ID),
       this._mtPayloadRecord('reply_target_model_id', 'int', replyTarget && Number.isInteger(replyTarget.model_id) ? replyTarget.model_id : 0),
       this._mtPayloadRecord('reply_target_pin', 'str', replyTarget && replyTarget.pin ? replyTarget.pin : ''),
       this._mtPayloadRecord('payload', 'json', payload),
@@ -1589,6 +1746,36 @@ class ModelTableRuntime {
     return null;
   }
 
+  _findSubtableLabel(cell, excludeKey = null) {
+    if (!cell || !cell.labels) return null;
+    for (const [key, label] of cell.labels.entries()) {
+      if (!label || typeof label !== 'object') continue;
+      if (excludeKey && key === excludeKey) continue;
+      if (this._resolveLabelType(label.t) === 'model.subtable') return label;
+    }
+    return null;
+  }
+
+  _normalizeSubtableDescriptor(label) {
+    const value = label && label.v;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return { ok: false, reason: 'subtable_invalid_descriptor' };
+    }
+    let tableId = '';
+    try {
+      tableId = this._normalizeTableId(value.table_id);
+    } catch (_) {
+      return { ok: false, reason: 'subtable_invalid_table_id' };
+    }
+    const rootModelId = value.root_model_id === undefined || value.root_model_id === null
+      ? 0
+      : value.root_model_id;
+    if (!Number.isInteger(rootModelId) || rootModelId < 0) {
+      return { ok: false, reason: 'subtable_invalid_root_model_id' };
+    }
+    return { ok: true, table_id: tableId, root_model_id: rootModelId };
+  }
+
   _getSubmodelChildId(label) {
     if (!label || typeof label !== 'object') return null;
     if (Number.isInteger(label.v)) return label.v;
@@ -1601,6 +1788,14 @@ class ModelTableRuntime {
     const submodelLabel = this._findSubmodelLabel(cell);
     const childModelId = this._getSubmodelChildId(submodelLabel);
     return Number.isInteger(childModelId) ? this.getModel(childModelId) : null;
+  }
+
+  _getHostedSubtableRootForCell(model, p, r, c) {
+    const cell = this.getCell(model, p, r, c);
+    const subtableLabel = this._findSubtableLabel(cell);
+    const normalized = this._normalizeSubtableDescriptor(subtableLabel);
+    if (!normalized.ok) return null;
+    return this.getModel({ table_id: normalized.table_id, model_id: normalized.root_model_id }) || null;
   }
 
   applyScopedPatch(currentModelId, patch) {
@@ -1769,7 +1964,7 @@ class ModelTableRuntime {
   _recordError(model, p, r, c, label, reason) {
     this.eventLog.record({
       op: 'error',
-      cell: { model_id: model.id, p, r, c },
+      cell: { table_id: this._modelTableId(model), model_id: model.id, p, r, c },
       label,
       result: 'rejected',
       reason,
@@ -1943,9 +2138,10 @@ class ModelTableRuntime {
       return { applied: false };
     }
     const existingSubmodel = this._findSubmodelLabel(cell, label.k);
+    const existingSubtable = this._findSubtableLabel(cell, label.k);
 
     if (resolvedType === 'submt') {
-      if (existingSubmodel) {
+      if (existingSubmodel || existingSubtable) {
         this._recordError(model, p, r, c, label, 'submodel_host_cell_already_bound');
         return { applied: false };
       }
@@ -1959,7 +2155,22 @@ class ModelTableRuntime {
       for (const key of purgeKeys) {
         this.rmLabel(model, p, r, c, key);
       }
-    } else if (this._findSubmodelLabel(cell) && !this._isPinLikeResolvedType(resolvedType)) {
+    } else if (resolvedType === 'model.subtable') {
+      if (existingSubmodel || existingSubtable) {
+        this._recordError(model, p, r, c, label, 'subtable_host_cell_already_bound');
+        return { applied: false };
+      }
+      const purgeKeys = [];
+      for (const [key, existingLabel] of cell.labels.entries()) {
+        if (key === label.k) continue;
+        const existingResolvedType = this._resolveLabelType(existingLabel.t);
+        if (this._isPinLikeResolvedType(existingResolvedType)) continue;
+        purgeKeys.push(key);
+      }
+      for (const key of purgeKeys) {
+        this.rmLabel(model, p, r, c, key);
+      }
+    } else if ((this._findSubmodelLabel(cell) || this._findSubtableLabel(cell)) && !this._isPinLikeResolvedType(resolvedType)) {
       this._recordError(model, p, r, c, label, 'submodel_host_cell_forbidden_label');
       return { applied: false };
     }
@@ -2016,6 +2227,23 @@ class ModelTableRuntime {
       const current = Number.isInteger(childModelId) ? this.parentChildMap.get(childModelId) : null;
       if (current && current.parentModelId === model.id && current.hostingCell.p === p && current.hostingCell.r === r && current.hostingCell.c === c) {
         this.parentChildMap.delete(childModelId);
+      }
+    }
+    if (this._resolveLabelType(prevLabel.t) === 'model.subtable') {
+      const currentTableId = this.subtableMountsByHostCell.get(this._subtableHostCellKey(model, p, r, c));
+      if (currentTableId) {
+        const current = this.subtableMounts.get(currentTableId);
+        if (
+          current
+          && current.parent.table_id === this._modelTableId(model)
+          && current.parent.model_id === model.id
+          && current.hostingCell.p === p
+          && current.hostingCell.r === r
+          && current.hostingCell.c === c
+        ) {
+          this.subtableMounts.delete(currentTableId);
+        }
+        this.subtableMountsByHostCell.delete(this._subtableHostCellKey(model, p, r, c));
       }
     }
     const prevResolvedType = this._resolveLabelType(prevLabel.t);
@@ -2098,7 +2326,7 @@ class ModelTableRuntime {
     const resolvedType = this._resolveLabelType(label.t);
     if (resolvedType === 'func.js' || resolvedType === 'func.python') {
       model.registerFunction(label.k);
-      const cellKey = `${model.id}|${p}|${r}|${c}`;
+      const cellKey = this._cellConnectGraphKey(model, p, r, c);
       if (this.cellConnectGraph.has(cellKey)) {
         this._rebuildCellConnectForCell(model, p, r, c);
       }
@@ -2383,7 +2611,7 @@ class ModelTableRuntime {
       this._recordError(model, p, r, c, label, normalized.reason);
       return;
     }
-    const cellKey = `${model.id}|${p}|${r}|${c}`;
+    const cellKey = this._cellConnectGraphKey(model, p, r, c);
     if (!this.cellConnectGraph.has(cellKey)) {
       this.cellConnectGraph.set(cellKey, new Map());
     }
@@ -2396,7 +2624,7 @@ class ModelTableRuntime {
   }
 
   _rebuildCellConnectForCell(model, p, r, c) {
-    const cellKey = `${model.id}|${p}|${r}|${c}`;
+    const cellKey = this._cellConnectGraphKey(model, p, r, c);
     this.cellConnectGraph.delete(cellKey);
     const cell = this.getCell(model, p, r, c);
     for (const [, existingLabel] of cell.labels.entries()) {
@@ -2407,6 +2635,12 @@ class ModelTableRuntime {
   }
 
   _normalizeCellConnectionEndpoint(model, endpoint) {
+    if (Array.isArray(endpoint) && endpoint.length === 5 && typeof endpoint[0] === 'string') {
+      return { ok: false, reason: 'cell_connection_cross_table_endpoint_forbidden' };
+    }
+    if (endpoint && typeof endpoint === 'object' && !Array.isArray(endpoint) && Object.prototype.hasOwnProperty.call(endpoint, 'table_id')) {
+      return { ok: false, reason: 'cell_connection_cross_table_endpoint_forbidden' };
+    }
     if (!Array.isArray(endpoint) || endpoint.length !== 4) {
       return { ok: false, reason: 'cell_connection_bad_endpoint' };
     }
@@ -2452,15 +2686,16 @@ class ModelTableRuntime {
     }
     for (const route of normalized.routes) {
       const from = route.from;
-      const routeKey = `${model.id}|${from.p}|${from.r}|${from.c}|${from.k}`;
-      const targets = route.targets.map((dest) => ({ model_id: model.id, p: dest.p, r: dest.r, c: dest.c, k: dest.k }));
+      const routeKey = this._cellConnectionRouteKey(model, from.p, from.r, from.c, from.k);
+      const tableId = this._modelTableId(model);
+      const targets = route.targets.map((dest) => ({ table_id: tableId, model_id: model.id, p: dest.p, r: dest.r, c: dest.c, k: dest.k }));
       const existing = this.cellConnectionRoutes.get(routeKey) || [];
       this.cellConnectionRoutes.set(routeKey, existing.concat(targets));
     }
   }
 
   _rebuildCellConnectionForCell(model, p, r, c) {
-    const prefix = `${model.id}|`;
+    const prefix = `${this._modelTableId(model)}|${model.id}|`;
     for (const key of Array.from(this.cellConnectionRoutes.keys())) {
       if (key.startsWith(prefix)) this.cellConnectionRoutes.delete(key);
     }
@@ -2472,13 +2707,14 @@ class ModelTableRuntime {
     }
   }
 
-  _routeViaCellConnection(modelId, p, r, c, k, value) {
-    const key = `${modelId}|${p}|${r}|${c}|${k}`;
+  _routeViaCellConnection(modelRefOrId, p, r, c, k, value) {
+    const sourceRef = this._normalizeModelRef(modelRefOrId, { defaultHost: true });
+    const key = this._cellConnectionRouteKey(sourceRef, p, r, c, k);
     const targets = this.cellConnectionRoutes.get(key);
     if (!targets) return;
-    const sourceModel = this.getModel(modelId);
+    const sourceModel = this.getModel(sourceRef);
     for (const t of targets) {
-      const targetModel = this.getModel(t.model_id);
+      const targetModel = this.getModel({ table_id: t.table_id, model_id: t.model_id });
       if (!targetModel) continue;
       const existingTarget = this._cellEndpointLabel(targetModel, t.p, t.r, t.c, t.k);
       if (!existingTarget) {
@@ -2498,8 +2734,10 @@ class ModelTableRuntime {
     }
   }
 
-  async _propagateCellConnect(modelId, p, r, c, prefix, port, value, visited = new Set()) {
-    const cellKey = `${modelId}|${p}|${r}|${c}`;
+  async _propagateCellConnect(modelRefOrId, p, r, c, prefix, port, value, visited = new Set()) {
+    const modelRef = this._normalizeModelRef(modelRefOrId, { defaultHost: true });
+    const modelId = modelRef.model_id;
+    const cellKey = `${modelRef.table_id}|${modelId}|${p}|${r}|${c}`;
     const endpointKey = `${prefix}:${port}`;
     const visitKey = `${cellKey}|${endpointKey}`;
 
@@ -2522,23 +2760,23 @@ class ModelTableRuntime {
 
     const tasks = targets.map((t) => {
       if (t.prefix === 'self') {
-        const targetModel = this.getModel(modelId);
+        const targetModel = this.getModel(modelRef);
         if (!targetModel) return Promise.resolve();
         const existingTarget = this._cellEndpointLabel(targetModel, p, r, c, t.port);
         const targetType = existingTarget && this._isCellPinResolvedType(this._resolveLabelType(existingTarget.t))
           ? this._resolveLabelType(existingTarget.t)
           : 'pin.out';
         this.addLabel(targetModel, p, r, c, { k: t.port, t: targetType, v: value });
-        this._routeViaCellConnection(modelId, p, r, c, t.port, value);
-        return this._propagateCellConnect(modelId, p, r, c, 'self', t.port, value, visited);
+        this._routeViaCellConnection(modelRef, p, r, c, t.port, value);
+        return this._propagateCellConnect(modelRef, p, r, c, 'self', t.port, value, visited);
       }
       if (t.prefix === 'func') {
         if (t.port.endsWith(':in')) {
           const funcName = t.port.slice(0, -3);
-          return this._executeFuncViaCellConnect(modelId, p, r, c, funcName, value, visited, port);
+          return this._executeFuncViaCellConnect(modelRef, p, r, c, funcName, value, visited, port);
         }
         if (t.port.endsWith(':out')) {
-          return this._propagateCellConnect(modelId, p, r, c, 'func', t.port, value, visited);
+          return this._propagateCellConnect(modelRef, p, r, c, 'func', t.port, value, visited);
         }
       }
       return Promise.resolve();
@@ -2546,9 +2784,11 @@ class ModelTableRuntime {
     await Promise.all(tasks);
   }
 
-  async _executeFuncViaCellConnect(modelId, p, r, c, funcName, inputValue, visited, inputSourcePin = null) {
+  async _executeFuncViaCellConnect(modelRefOrId, p, r, c, funcName, inputValue, visited, inputSourcePin = null) {
     if (!this.isRuntimeRunning()) return;
-    const model = this.getModel(modelId);
+    const modelRef = this._normalizeModelRef(modelRefOrId, { defaultHost: true });
+    const modelId = modelRef.model_id;
+    const model = this.getModel(modelRef);
     if (!model) return;
     const cell = this.getCell(model, p, r, c);
     let funcLabel = null;
@@ -2675,7 +2915,7 @@ class ModelTableRuntime {
           { p: tp, r: tr, c: tc },
           { k, t, v },
         );
-        const routeKey = `${model.id}|${p}|${r}|${c}|write_label_req`;
+        const routeKey = runtime._cellConnectionRouteKey(model, p, r, c, 'write_label_req');
         const hasRoute = runtime.cellConnectionRoutes.has(routeKey);
         runtime.addLabel(model, p, r, c, { k: 'write_label_req', t: 'pin.out', v: payload });
         if (!hasRoute) {
@@ -2728,7 +2968,7 @@ class ModelTableRuntime {
         }),
       ]);
       if (result !== undefined) {
-        await this._propagateCellConnect(modelId, p, r, c, 'func', `${funcName}:out`, result, visited);
+        await this._propagateCellConnect(modelRef, p, r, c, 'func', `${funcName}:out`, result, visited);
       }
     } catch (err) {
       this.addLabel(model, p, r, c, {
@@ -2869,6 +3109,34 @@ class ModelTableRuntime {
       }
       return;
     }
+    if (resolvedType === 'model.subtable') {
+      const normalized = this._normalizeSubtableDescriptor(label);
+      if (!normalized.ok) {
+        this._recordError(model, p, r, c, label, normalized.reason);
+        return;
+      }
+      const parent = this._normalizeModelRef(model, { defaultHost: true });
+      const mount = {
+        table_id: normalized.table_id,
+        root_model_id: normalized.root_model_id,
+        owner_principal_id: typeof label.v.owner_principal_id === 'string' && label.v.owner_principal_id.trim()
+          ? label.v.owner_principal_id.trim()
+          : '',
+        parent,
+        hostingCell: { p, r, c },
+      };
+      this.subtableMounts.set(normalized.table_id, mount);
+      this.subtableMountsByHostCell.set(this._subtableHostCellKey(model, p, r, c), normalized.table_id);
+      if (!this.getModel({ table_id: normalized.table_id, model_id: normalized.root_model_id })) {
+        this.createModel({
+          table_id: normalized.table_id,
+          id: normalized.root_model_id,
+          name: (label.v && typeof label.v.alias === 'string' && label.v.alias) || String(normalized.root_model_id),
+          type: 'subtable-root',
+        });
+      }
+      return;
+    }
     if ((resolvedType === 'pin.in' || resolvedType === 'pin.login') && this._isNonSystemModelRoot(model, p, r, c)) {
       this._registerRootBoundaryInput(model, p, r, c, label);
       return;
@@ -2879,12 +3147,17 @@ class ModelTableRuntime {
         this.addLabel(hostedChild, 0, 0, 0, { k: label.k, t: resolvedType, v: label.v });
         return;
       }
+      const hostedSubtableRoot = this._getHostedSubtableRootForCell(model, p, r, c);
+      if (hostedSubtableRoot && label.v !== null && label.v !== undefined) {
+        this.addLabel(hostedSubtableRoot, 0, 0, 0, { k: label.k, t: resolvedType, v: label.v });
+        return;
+      }
       // 0143: Route via cell_connection to propagate IN to target cells
-      this._routeViaCellConnection(model.id, p, r, c, label.k, label.v);
+      this._routeViaCellConnection(model, p, r, c, label.k, label.v);
       // Propagate via CELL_CONNECT if this cell has wiring
-      const cellKey = `${model.id}|${p}|${r}|${c}`;
+      const cellKey = this._cellConnectGraphKey(model, p, r, c);
       if (this.cellConnectGraph.has(cellKey)) {
-        this._propagateCellConnect(model.id, p, r, c, 'self', label.k, label.v)
+        this._propagateCellConnect(model, p, r, c, 'self', label.k, label.v)
           .catch((err) => {
             this._recordError(model, p, r, c, label, 'cell_connect_propagation_error');
           });
@@ -2899,10 +3172,10 @@ class ModelTableRuntime {
       this.busInPorts.set(label.k, resolvedType);
       this._syncBusInSubscription(label.k, true);
       if (label.v !== null && label.v !== undefined) {
-        this._routeViaCellConnection(0, 0, 0, 0, label.k, label.v);
-        const cellKey = '0|0|0|0';
+        this._routeViaCellConnection(model, 0, 0, 0, label.k, label.v);
+        const cellKey = this._cellConnectGraphKey(model, 0, 0, 0);
         if (this.cellConnectGraph.has(cellKey)) {
-          this._propagateCellConnect(0, 0, 0, 0, 'self', label.k, label.v)
+          this._propagateCellConnect(model, 0, 0, 0, 'self', label.k, label.v)
             .catch(() => {
               this._recordError(model, p, r, c, label, 'cell_connect_propagation_error');
             });
@@ -2915,10 +3188,10 @@ class ModelTableRuntime {
       return;
     }
     if (resolvedType === 'pin.out' || resolvedType === 'pin.logout') {
-      this._routeViaCellConnection(model.id, p, r, c, label.k, label.v);
-      const cellKey = `${model.id}|${p}|${r}|${c}`;
+      this._routeViaCellConnection(model, p, r, c, label.k, label.v);
+      const cellKey = this._cellConnectGraphKey(model, p, r, c);
       if (this.cellConnectGraph.has(cellKey)) {
-        this._propagateCellConnect(model.id, p, r, c, 'self', label.k, label.v)
+        this._propagateCellConnect(model, p, r, c, 'self', label.k, label.v)
           .catch(() => {
             this._recordError(model, p, r, c, label, 'cell_connect_propagation_error');
           });
@@ -3023,8 +3296,7 @@ class ModelTableRuntime {
   }
 
   snapshot() {
-    const models = {};
-    for (const [id, model] of this.models.entries()) {
+    const serializeModel = (model) => {
       const cells = {};
       for (const [key, cell] of model.cells.entries()) {
         const labels = {};
@@ -3033,9 +3305,23 @@ class ModelTableRuntime {
         }
         cells[key] = { p: cell.p, r: cell.r, c: cell.c, labels };
       }
-      models[id] = { id: model.id, name: model.name, type: model.type, cells };
+      return { table_id: this._modelTableId(model), id: model.id, name: model.name, type: model.type, cells };
+    };
+
+    const models = {};
+    for (const [id, model] of this.models.entries()) {
+      models[id] = serializeModel(model);
     }
-    return { models, v1nConfig: { ...this.v1nConfig } };
+    const tables = {};
+    for (const [tableId, tableModels] of this.modelTables.entries()) {
+      if (tableId === HOST_TABLE_ID) continue;
+      const tableSnapshot = { table_id: tableId, models: {} };
+      for (const [id, model] of tableModels.entries()) {
+        tableSnapshot.models[id] = serializeModel(model);
+      }
+      tables[tableId] = tableSnapshot;
+    }
+    return { models, tables, v1nConfig: { ...this.v1nConfig } };
   }
 }
 

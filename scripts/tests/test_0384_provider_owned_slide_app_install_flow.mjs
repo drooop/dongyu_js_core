@@ -85,6 +85,12 @@ function labelValue(runtime, modelId, p, r, c, key) {
   return runtime.getCell(model, p, r, c).labels.get(key)?.v;
 }
 
+function labelValueRef(runtime, tableId, modelId, p, r, c, key) {
+  const model = runtime.getModel({ table_id: tableId, model_id: modelId });
+  assert.ok(model, `missing model ${tableId}/${modelId}`);
+  return runtime.getCell(model, p, r, c).labels.get(key)?.v;
+}
+
 async function wait(ms = 60) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -225,7 +231,7 @@ async function test_install_action_sends_provider_bundle_request_without_materia
     const pending = labelValue(runtime, 1051, 0, 0, 0, 'asset_install_pending');
     assert.equal(pending?.asset_id, 'r1-color-generator', 'pending install state must record asset_id');
     assert.equal(pending?.topic, 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request', 'pending install state must record computed topic');
-    assert.deepEqual(pending?.provider_endpoint, { worker_id: 'R1', model_id: 3100, pin: 'bundle_request' }, 'pending install state must record provider endpoint');
+    assert.deepEqual(pending?.provider_endpoint, { worker_id: 'R1', table_id: 'host', model_id: 3100, pin: 'bundle_request' }, 'pending install state must record provider endpoint');
     const busLabel = runtime.getCell(runtime.getModel(0), 0, 0, 0).labels.get('workspace_asset_bundle_request_bus');
     assert.equal(busLabel?.t, 'pin.bus.cb.out', 'install request must leave through Model 0 control bus out');
     assert.equal(payloadString(busLabel?.v, '__mt_payload_kind'), 'pin_payload.v1', 'request bus payload must be pin_payload.v1');
@@ -391,20 +397,23 @@ async function test_provider_bundle_response_materializes_new_workspace_app_and_
     assert.equal(handled, true, 'matched provider bundle response must be handled');
     await wait();
     const installedId = labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id');
-    assert.ok(Number.isInteger(installedId) && installedId > beforeMax, 'provider response must materialize a new app model');
-    assert.equal(labelValue(runtime, installedId, 0, 0, 0, 'app_name'), 'E2E 颜色生成器', 'installed app must use provider bundle payload');
+    const installedTableId = labelValue(runtime, 1051, 0, 0, 0, 'last_installed_table_id');
+    assert.equal(installedId, 0, 'provider response must preserve package-local root model id');
+    assert.ok(typeof installedTableId === 'string' && installedTableId.startsWith('app:local-dev:'), 'provider response must allocate an app instance table');
+    assert.equal(labelValueRef(runtime, installedTableId, installedId, 0, 0, 0, 'app_name'), 'E2E 颜色生成器', 'installed app must use provider bundle payload');
     assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_pending'), null, 'successful install must clear pending install state');
-    assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_status'), /installed E2E 颜色生成器 as model/u, 'successful install must write visible status');
+    assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_status'), /installed E2E 颜色生成器 as app:local-dev:.*\/0/u, 'successful install must write visible status');
     assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_open'), true, 'successful install must open a UI-model install-complete dialog');
     assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_title'), '安装完毕', 'install dialog must use the required title');
-    assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_text'), /E2E 颜色生成器.*model/u, 'install dialog body must mention the installed app and model id');
+    assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_text'), /E2E 颜色生成器.*app:local-dev:.*\/0/u, 'install dialog body must mention the installed app and model ref');
     assert.deepEqual(
       labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_target_json'),
       {
-        id: `workspace:${installedId}`,
+        id: `workspace:${installedTableId}:${installedId}`,
         kind: 'workspace',
         page: 'workspace',
         path: '/workspace',
+        table_id: installedTableId,
         model_id: installedId,
         title: 'E2E 颜色生成器',
       },
@@ -412,14 +421,15 @@ async function test_provider_bundle_response_materializes_new_workspace_app_and_
     );
     const registry = labelValue(runtime, -2, 0, 0, 0, 'ws_apps_registry');
     assert.ok(
-      Array.isArray(registry) && registry.some((entry) => entry?.model_id === installedId && entry?.name === 'E2E 颜色生成器'),
+      Array.isArray(registry) && registry.some((entry) => entry?.table_id === installedTableId && entry?.model_id === installedId && entry?.name === 'E2E 颜色生成器'),
       'successful install must refresh ws_apps_registry so desktop list sees the new app without reload',
     );
     const duplicateHandled = await state.programEngine.handleControlBusPacket(pending.response_topic, goodResponse);
     assert.equal(duplicateHandled, true, 'duplicate provider response with the same op_id must be handled idempotently');
     assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id'), installedId, 'duplicate response must not create or switch to another model');
+    assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'last_installed_table_id'), installedTableId, 'duplicate response must not create or switch to another table');
     assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_open'), true, 'duplicate response must not close the success dialog');
-    assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_status'), /installed E2E 颜色生成器 as model/u, 'duplicate response must not overwrite success status with an error');
+    assert.match(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_status'), /installed E2E 颜色生成器 as app:local-dev:.*\/0/u, 'duplicate response must not overwrite success status with an error');
     return { key: 'provider_bundle_response_materializes_new_workspace_app_and_rejects_mismatches', status: 'PASS' };
   });
 }
@@ -477,7 +487,6 @@ async function test_principal_registry_delegates_bundle_response_to_user_runtime
     const rows = labelValue(runtime, 1051, 0, 0, 0, 'asset_catalog_json');
     const slide = rows.find((row) => row.id === 'r1-color-generator');
     assert.ok(slide, 'principal runtime catalog must include r1-color-generator');
-    const beforeMax = Math.max(...Array.from(runtime.models.keys()).filter((id) => Number.isInteger(id) && id > 0));
     const requestResult = await entry.state.submitEnvelope({
       type: 'workspace_asset_primary_action',
       payload: {
@@ -503,12 +512,83 @@ async function test_principal_registry_delegates_bundle_response_to_user_runtime
     assert.equal(handled, true, 'principal registry must handle bundle response for the addressed user runtime');
     await wait();
     const installedId = labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id');
-    assert.ok(Number.isInteger(installedId) && installedId > beforeMax, 'principal bundle response must materialize a new app model');
+    const installedTableId = labelValue(runtime, 1051, 0, 0, 0, 'last_installed_table_id');
+    assert.equal(installedId, 0, 'principal bundle response must preserve package-local root model id');
+    assert.ok(
+      typeof installedTableId === 'string' && installedTableId.startsWith('app:it0384-principal-bundle:'),
+      `principal bundle response must allocate a principal-owned app instance table, got ${installedTableId}`,
+    );
     assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_pending'), null, 'principal bundle install must clear pending state');
     assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'asset_install_dialog_open'), true, 'principal bundle install must open success dialog');
-    assert.equal(labelValue(runtime, installedId, 0, 0, 0, 'app_name'), 'E2E 颜色生成器', 'principal bundle install must use provider payload');
+    assert.equal(labelValueRef(runtime, installedTableId, installedId, 0, 0, 0, 'app_name'), 'E2E 颜色生成器', 'principal bundle install must use provider payload');
     assert.equal(labelValue(runtime, 1051, 0, 0, 0, 'bundle_payload'), undefined, 'principal registry must not materialize raw bundle response labels on workspace manager');
     return { key: 'principal_registry_delegates_bundle_response_to_user_runtime_installer', status: 'PASS' };
+  });
+}
+
+async function test_two_principals_install_same_provider_app_into_separate_tables() {
+  return withServerModule(async ({ createServerState, buildSlideAppExportPayload, createPrincipalRuntimeRegistry }) => {
+    const readOnlyState = createServerState({ dbPath: null });
+    const registry = createPrincipalRuntimeRegistry({
+      readOnlyState,
+      createState(principalKey) {
+        const state = createServerState({ dbPath: null });
+        state.runtime.principalRuntimeKey = principalKey;
+        const model0 = state.runtime.getModel(0);
+        state.runtime.addLabel(model0, 0, 0, 0, { k: 'principal_runtime_key', t: 'str', v: principalKey });
+        state.programEngine.disableControlBusInbound = true;
+        return state;
+      },
+    });
+
+    async function installForSubject(subject, opId) {
+      const principal = { subject };
+      const principalKey = registry.principalRuntimeKey(principal);
+      const entry = registry.resolveMutableRuntime(principal);
+      await entry.state.activateRuntimeMode('running');
+      const runtime = entry.state.runtime;
+      const rows = labelValue(runtime, 1051, 0, 0, 0, 'asset_catalog_json');
+      const slide = rows.find((row) => row.id === 'r1-color-generator');
+      const requestResult = await entry.state.submitEnvelope({
+        type: 'workspace_asset_primary_action',
+        payload: {
+          action: 'workspace_asset_primary_action',
+          value: slide,
+          meta: { op_id: opId },
+        },
+      });
+      assert.equal(requestResult.result, 'ok', `install request must be accepted for ${subject}`);
+      const pending = labelValue(runtime, 1051, 0, 0, 0, 'asset_install_pending');
+      const exportResult = buildSlideAppExportPayload(runtime, 100);
+      assert.equal(exportResult.ok, true, `fixture export must succeed for ${subject}`);
+      const response = makeBundleResponse({
+        opId: pending.op_id,
+        topic: pending.response_topic,
+        endpoint: pending.provider_endpoint,
+        replyTarget: pending.reply_target,
+        bundlePayload: exportResult.data.payload,
+        replyTargetPrincipalKey: principalKey,
+      });
+      const handled = await registry.handleControlBusPacket(pending.response_topic, response);
+      assert.equal(handled, true, `bundle response must be handled for ${subject}`);
+      await wait();
+      return {
+        runtime,
+        tableId: labelValue(runtime, 1051, 0, 0, 0, 'last_installed_table_id'),
+        modelId: labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id'),
+      };
+    }
+
+    const first = await installForSubject('it0384-principal-alpha', '0384_principal_alpha_install');
+    const second = await installForSubject('it0384-principal-beta', '0384_principal_beta_install');
+    assert.notEqual(first.tableId, second.tableId, 'two principals installing the same provider app must receive different app tables');
+    assert.ok(first.tableId.startsWith('app:it0384-principal-alpha:'), 'first principal table must be owned by alpha');
+    assert.ok(second.tableId.startsWith('app:it0384-principal-beta:'), 'second principal table must be owned by beta');
+    assert.equal(first.modelId, 0, 'first principal app root id must remain package-local 0');
+    assert.equal(second.modelId, 0, 'second principal app root id must remain package-local 0');
+    assert.equal(labelValueRef(first.runtime, first.tableId, 0, 0, 0, 0, 'app_name'), 'E2E 颜色生成器', 'first principal app table must contain provider payload');
+    assert.equal(labelValueRef(second.runtime, second.tableId, 0, 0, 0, 0, 'app_name'), 'E2E 颜色生成器', 'second principal app table must contain provider payload');
+    return { key: 'two_principals_install_same_provider_app_into_separate_tables', status: 'PASS' };
   });
 }
 
@@ -605,14 +685,17 @@ async function test_desktop_management_delete_removes_installed_slide_app() {
     await wait();
 
     const installedId = labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id');
+    const installedTableId = labelValue(runtime, 1051, 0, 0, 0, 'last_installed_table_id');
     assert.ok(Number.isInteger(installedId), 'installed model id must be available before deletion');
-    assert.ok(runtime.getModel(installedId), 'installed model must exist before deletion');
+    assert.ok(typeof installedTableId === 'string' && installedTableId.startsWith('app:local-dev:'), 'installed table id must be available before deletion');
+    assert.ok(runtime.getModel({ table_id: installedTableId, model_id: installedId }), 'installed model must exist before deletion');
+    assert.ok(runtime.getModel({ table_id: 'host', model_id: installedId }), 'host model with same local id must exist before deletion');
 
     const requestDelete = await state.submitEnvelope({
       type: 'desktop_app_request_delete',
       payload: {
         action: 'desktop_app_request_delete',
-        value: { model_id: installedId, title: 'E2E 颜色生成器' },
+        value: { table_id: installedTableId, model_id: installedId, title: 'E2E 颜色生成器' },
         meta: { op_id: '0384_desktop_delete_request' },
       },
     });
@@ -621,7 +704,7 @@ async function test_desktop_management_delete_removes_installed_slide_app() {
     assert.match(labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_confirm_text'), /E2E 颜色生成器/u, 'confirm dialog must mention selected app');
     assert.deepEqual(
       labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_confirm_target_json'),
-      { model_id: installedId, title: 'E2E 颜色生成器' },
+      { table_id: installedTableId, model_id: installedId, title: 'E2E 颜色生成器' },
       'confirm dialog must store exact delete target',
     );
 
@@ -633,12 +716,16 @@ async function test_desktop_management_delete_removes_installed_slide_app() {
       },
     });
     assert.equal(confirmDelete.result, 'ok', 'desktop confirm delete must succeed');
-    assert.equal(runtime.getModel(installedId), undefined, 'confirmed desktop delete must remove installed model');
+    assert.equal(runtime.getModel({ table_id: installedTableId, model_id: installedId }), undefined, 'confirmed desktop delete must remove installed app-table model');
+    assert.ok(runtime.getModel({ table_id: 'host', model_id: installedId }), 'confirmed desktop delete must not remove host model with the same local id');
     assert.equal(labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_confirm_open'), false, 'confirm dialog must close after deletion');
     assert.equal(labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_result_open'), true, 'delete success dialog must open');
     assert.match(labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_result_text'), /已删除 E2E 颜色生成器/u, 'delete success dialog must tell user the app was deleted');
     const registry = labelValue(runtime, -2, 0, 0, 0, 'ws_apps_registry');
-    assert.ok(Array.isArray(registry) && !registry.some((entry) => entry?.model_id === installedId), 'desktop registry must refresh after deletion');
+    assert.ok(
+      Array.isArray(registry) && !registry.some((entry) => entry?.table_id === installedTableId && entry?.model_id === installedId),
+      'desktop registry must refresh after deletion',
+    );
     return { key: 'desktop_management_delete_removes_installed_slide_app', status: 'PASS' };
   });
 }
@@ -649,6 +736,7 @@ const tests = [
   test_provider_bundle_response_materializes_new_workspace_app_and_rejects_mismatches,
   test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bundle_response,
   test_principal_registry_delegates_bundle_response_to_user_runtime_installer,
+  test_two_principals_install_same_provider_app_into_separate_tables,
   test_bundle_payload_exception_is_scoped_to_slide_app_response,
   test_desktop_management_delete_removes_installed_slide_app,
 ];

@@ -323,6 +323,9 @@ source: ai
 | 0420-ui-local-state-latency | 2026-06-22 | 优化登录后和加载后 UI 响应延时：本地 UI 状态不阻塞正式业务事件，并记录可复测延时指标 | 5 | dropx/dev_0420-ui-local-state-latency | Completed | ./docs/iterations/0420-ui-local-state-latency/ |
 | 0421-sso-post-login-latency | 2026-06-23 | 修复 SSO 两步登录回跳后桌面长时间停留在确认登录/页面不可用，并补认证与工作区初始化延时指标 | 5 | dropx/dev_0421-sso-post-login-latency | Completed | ./docs/iterations/0421-sso-post-login-latency/ |
 | 0422-cloud-deploy-healthcheck | 2026-06-23 | 修正云端部署健康检查使用旧标签导致的误失败，并记录远端首屏延时与 snapshot 颗粒度线索 | 2 | dropx/dev_0422-cloud-deploy-healthcheck | Completed | ./docs/iterations/0422-cloud-deploy-healthcheck/ |
+| 0423-snapshot-granularity-impl | 2026-06-23 | 首屏最小 snapshot、按 app/model 懒加载与增量更新本地实施验证 | 6 | dropx/dev_0423-snapshot-granularity-impl | Completed | ./docs/iterations/0423-snapshot-granularity-impl/ |
+| 0424-principal-subtable-ssot | 2026-06-23 | 冻结 principal-scoped 子模型表命名空间：共享负数系统域、用户桌面表、滑动 App 实例表与 table-qualified 引用 | 4 | dropx/dev_0424-principal-subtable-ssot | Completed | ./docs/iterations/0424-principal-subtable-ssot/ |
+| 0425-principal-subtable-impl | 2026-06-23 | 实施 principal-scoped 子模型表基础：table-qualified 引用、visibleModelRefs、用户桌面隔离与滑动 App 实例表边界 | 11 | dropx/dev_0425-principal-subtable-impl | Completed | ./docs/iterations/0425-principal-subtable-impl/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

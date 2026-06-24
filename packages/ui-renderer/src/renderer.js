@@ -6,6 +6,7 @@ let editorOpNonce = 0;
 const DEFAULT_REGISTRY = registryModule && registryModule.components
   ? registryModule
   : (registryModule && registryModule.default && registryModule.default.components ? registryModule.default : { version: 'ui.component_registry.v1', components: {} });
+const HOST_TABLE_ID = 'host';
 
 function nowClientPerfMs() {
   const perf = globalThis && globalThis.performance && typeof globalThis.performance.now === 'function'
@@ -33,11 +34,103 @@ function ensureHostAdapter(host) {
   }
 }
 
-function getModel(snapshot, modelId) {
+function parseSafeModelId(value) {
+  if (Number.isSafeInteger(value)) return value;
+  if (typeof value === 'string' && /^-?\d+$/.test(value.trim())) {
+    const parsed = Number(value.trim());
+    return Number.isSafeInteger(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function normalizeTableId(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function hasOwn(value, key) {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function explicitTableId(value) {
+  if (!hasOwn(value, 'table_id')) return null;
+  const tableId = normalizeTableId(value.table_id);
+  if (!tableId) throw new Error('table_id_required');
+  return tableId;
+}
+
+function normalizeModelRef(value, options = {}) {
+  const allowBareHost = options.allowBareHost !== false;
+  const defaultTableId = normalizeTableId(options.defaultTableId);
+  if (Number.isSafeInteger(value) || typeof value === 'string') {
+    const modelId = parseSafeModelId(value);
+    if (!Number.isSafeInteger(modelId)) throw new Error('model_id_required');
+    if (!allowBareHost && !defaultTableId) throw new Error('table_id_required');
+    return { table_id: defaultTableId || HOST_TABLE_ID, model_id: modelId };
+  }
+  if (!isPlainObject(value)) throw new Error('model_ref_required');
+  const modelId = parseSafeModelId(value.model_id);
+  if (!Number.isSafeInteger(modelId)) throw new Error('model_id_required');
+  const tableId = explicitTableId(value) || defaultTableId || (allowBareHost ? HOST_TABLE_ID : null);
+  if (!tableId) throw new Error('table_id_required');
+  return { table_id: tableId, model_id: modelId };
+}
+
+function currentModelRefForNode(node) {
+  const cellRef = node && node.cell_ref;
+  if (!cellRef || !Number.isInteger(cellRef.model_id)) return null;
+  try {
+    return normalizeModelRef(cellRef, { allowBareHost: false });
+  } catch (_) {
+    return null;
+  }
+}
+
+function normalizeLabelRef(ref, options = {}) {
+  if (!isPlainObject(ref)) throw new Error('label_ref_required');
+  if (!Number.isInteger(ref.p) || !Number.isInteger(ref.r) || !Number.isInteger(ref.c) || typeof ref.k !== 'string') {
+    throw new Error('label_ref_required');
+  }
+  const currentModelRef = options.currentModelRef ? normalizeModelRef(options.currentModelRef, { allowBareHost: false }) : null;
+  const hasExplicitModelId = hasOwn(ref, 'model_id');
+  const modelId = parseSafeModelId(ref.model_id);
+  if (hasExplicitModelId && !Number.isSafeInteger(modelId)) throw new Error('model_id_required');
+  const resolvedModelId = Number.isSafeInteger(modelId)
+    ? modelId
+    : (currentModelRef ? currentModelRef.model_id : null);
+  const explicit = explicitTableId(ref);
+  if (explicit && !hasExplicitModelId) throw new Error('model_id_required');
+  if (!Number.isSafeInteger(resolvedModelId)) throw new Error('current_model_ref_required');
+  const tableId = explicit
+    || (currentModelRef ? currentModelRef.table_id : null)
+    || normalizeTableId(options.defaultTableId)
+    || (options.allowBareHost !== false ? HOST_TABLE_ID : null);
+  if (!tableId) throw new Error('table_id_required');
+  return { table_id: tableId, model_id: resolvedModelId, p: ref.p, r: ref.r, c: ref.c, k: ref.k };
+}
+
+function currentCellRefForNode(node) {
+  const cellRef = node && node.cell_ref;
+  if (!cellRef || !Number.isInteger(cellRef.model_id) || !Number.isInteger(cellRef.p) || !Number.isInteger(cellRef.r) || !Number.isInteger(cellRef.c)) {
+    return null;
+  }
+  try {
+    const modelRef = normalizeModelRef(cellRef, { allowBareHost: false });
+    return { ...modelRef, p: cellRef.p, r: cellRef.r, c: cellRef.c };
+  } catch (_) {
+    return null;
+  }
+}
+
+function getModel(snapshot, modelRef) {
   if (!snapshot) return null;
+  const ref = normalizeModelRef(modelRef === undefined ? 0 : modelRef, { defaultTableId: HOST_TABLE_ID });
+  const table = snapshot.tables && snapshot.tables[ref.table_id];
+  if (table && table.models) {
+    return table.models[ref.model_id] || table.models[String(ref.model_id)] || null;
+  }
+  if (ref.table_id !== HOST_TABLE_ID) return null;
   if (snapshot.models) {
-    const id = modelId === undefined ? 0 : modelId;
-    return snapshot.models[id] || snapshot.models[String(id)] || null;
+    return snapshot.models[ref.model_id] || snapshot.models[String(ref.model_id)] || null;
   }
   if (snapshot.cells) {
     return snapshot;
@@ -45,32 +138,43 @@ function getModel(snapshot, modelId) {
   return null;
 }
 
+function isCompleteLabelRef(ref) {
+  return Boolean(
+    ref
+    && typeof ref.table_id === 'string'
+    && Number.isInteger(ref.model_id)
+    && Number.isInteger(ref.p)
+    && Number.isInteger(ref.r)
+    && Number.isInteger(ref.c)
+    && typeof ref.k === 'string'
+  );
+}
+
 function getLabelValue(snapshot, ref) {
-  const model = getModel(snapshot, ref && typeof ref.model_id === 'number' ? ref.model_id : undefined);
+  const labelRef = isCompleteLabelRef(ref) ? ref : null;
+  if (!labelRef) return undefined;
+  const model = getModel(snapshot, labelRef);
   if (!model || !model.cells) return undefined;
-  const key = `${ref.p},${ref.r},${ref.c}`;
+  const key = `${labelRef.p},${labelRef.r},${labelRef.c}`;
   const cell = model.cells[key];
   if (!cell || !cell.labels) return undefined;
-  const label = cell.labels[ref.k];
+  const label = cell.labels[labelRef.k];
   if (!label) return undefined;
   return label.v;
 }
 
-function currentModelIdForNode(node) {
-  const modelId = node && node.cell_ref && Number.isInteger(node.cell_ref.model_id)
-    ? node.cell_ref.model_id
-    : null;
-  return modelId;
-}
-
 function resolveRefForNode(ref, node) {
   if (!isPlainObject(ref)) return ref;
-  if (Object.prototype.hasOwnProperty.call(ref, 'model_id')) return ref;
   if (!Number.isInteger(ref.p) || !Number.isInteger(ref.r) || !Number.isInteger(ref.c)) return ref;
   if (Object.prototype.hasOwnProperty.call(ref, 'k') && typeof ref.k !== 'string') return ref;
-  const modelId = currentModelIdForNode(node);
-  if (!Number.isInteger(modelId)) return ref;
-  return { ...ref, model_id: modelId };
+  try {
+    return normalizeLabelRef(ref, {
+      currentModelRef: currentModelRefForNode(node),
+      defaultTableId: HOST_TABLE_ID,
+    });
+  } catch (_) {
+    return ref;
+  }
 }
 
 function resolveWriteTargetForNode(target, node) {
@@ -110,6 +214,7 @@ function normalizeSelectModelValue(value, options) {
 
 function getEffectiveLabelValue(snapshot, ref, host, node = null) {
   const resolvedRef = resolveRefForNode(ref, node);
+  if (!isCompleteLabelRef(resolvedRef)) return undefined;
   if (host && typeof host.getEffectiveLabelValue === 'function') {
     const value = host.getEffectiveLabelValue(resolvedRef);
     if (value !== undefined) return value;
@@ -426,9 +531,32 @@ function resolveRefsDeep(value, ctx, snapshot, host, node = null) {
     for (const [k, v] of Object.entries(value)) {
       out[k] = resolveRefsDeep(v, ctx, snapshot, host, node);
     }
+    if (isTemporaryModelTableRecordTemplate(value) && out.v === undefined) {
+      out.v = defaultTemporaryModelTableValue(out.t);
+    }
     return out;
   }
   return value;
+}
+
+function isTemporaryModelTableRecordTemplate(value) {
+  return isPlainObject(value)
+    && Number.isInteger(value.id)
+    && Number.isInteger(value.p)
+    && Number.isInteger(value.r)
+    && Number.isInteger(value.c)
+    && typeof value.k === 'string'
+    && value.k.length > 0
+    && typeof value.t === 'string'
+    && value.t.length > 0
+    && Object.prototype.hasOwnProperty.call(value, 'v');
+}
+
+function defaultTemporaryModelTableValue(typeName) {
+  if (typeName === 'str') return '';
+  if (typeName === 'bool') return false;
+  if (typeName === 'int') return 0;
+  return null;
 }
 
 function readPropValueFromSnapshot(snapshot, props, valueKey, refKey, node = null) {
@@ -1194,7 +1322,8 @@ function normalizeCommitPolicy(target, fallback = 'immediate') {
   const persistRaw = target && typeof target.persist_policy === 'string'
     ? target.persist_policy.trim()
     : '';
-  if (persistRaw === 'never' || persistRaw === 'submit') return 'on_submit';
+  if (persistRaw === 'never') return 'never';
+  if (persistRaw === 'submit') return 'on_submit';
   if (persistRaw === 'debounce') return 'on_change';
   if (persistRaw === 'realtime') return 'immediate';
   const raw = target && typeof target.commit_policy === 'string'
@@ -1208,15 +1337,32 @@ function normalizeCommitPolicy(target, fallback = 'immediate') {
 
 function shouldUseOverlay(host, node, target, fallback = 'immediate') {
   if (!host || typeof host.stageOverlayValue !== 'function') return false;
-  const readRef = resolveRefForNode(node && node.bind && node.bind.read, node);
+  const readRef = overlayRefForNode(node, target);
   if (!readRef || !isPlainObject(readRef) || !Number.isInteger(readRef.model_id)) return false;
-  if (readRef.model_id === 0 || readRef.model_id === -1) return false;
+  const tableId = typeof readRef.table_id === 'string' && readRef.table_id.trim() ? readRef.table_id.trim() : 'host';
+  if (tableId === 'host' && (readRef.model_id === 0 || readRef.model_id === -1)) return false;
   return normalizeCommitPolicy(target, fallback) !== 'immediate';
+}
+
+function overlayRefForNode(node, target) {
+  const readRef = resolveRefForNode(node && node.bind && node.bind.read, node);
+  if (readRef && isPlainObject(readRef) && Number.isInteger(readRef.model_id)) return cleanLabelRef(readRef);
+  const directRef = resolveRefForNode(target, node);
+  if (directRef && isPlainObject(directRef) && Number.isInteger(directRef.model_id) && typeof directRef.k === 'string') return cleanLabelRef(directRef);
+  const targetRef = resolveRefForNode(target && target.target_ref, node);
+  if (targetRef && isPlainObject(targetRef) && Number.isInteger(targetRef.model_id)) return cleanLabelRef(targetRef);
+  const commitRef = resolveRefForNode(target && target.commit_target_ref, node);
+  if (commitRef && isPlainObject(commitRef) && Number.isInteger(commitRef.model_id)) return cleanLabelRef(commitRef);
+  return null;
+}
+
+function cleanLabelRef(ref) {
+  return { table_id: ref.table_id, model_id: ref.model_id, p: ref.p, r: ref.r, c: ref.c, k: ref.k };
 }
 
 function stageOverlay(node, target, value, host, fallbackCommitPolicy = 'immediate') {
   if (!host || typeof host.stageOverlayValue !== 'function') return;
-  const readRef = resolveRefForNode(node && node.bind && node.bind.read, node);
+  const readRef = overlayRefForNode(node, target);
   host.stageOverlayValue({
     ref: readRef,
     value,
@@ -3458,14 +3604,14 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     let suppressNextClick = false;
     const dispatchDelete = () => {
       if (!deleteTarget) return;
-      dispatchEvent(node, deleteTarget, { delete: true, value: { model_id: props.modelId, title } }, host, undefined, ctx);
+        dispatchEvent(node, deleteTarget, { delete: true, value: { model_id: props.modelId, ...(typeof props.tableId === 'string' && props.tableId.trim() ? { table_id: props.tableId.trim() } : {}), title } }, host, undefined, ctx);
     };
     const openContextMenu = (event) => {
       if (!deletable || !contextMenuTarget) return;
       openAppContextMenu(event, {
         title,
         dispatchDelete: () => {
-          dispatchEvent(node, contextMenuTarget, { delete: true, value: { model_id: props.modelId, title } }, host, undefined, ctx);
+          dispatchEvent(node, contextMenuTarget, { delete: true, value: { model_id: props.modelId, ...(typeof props.tableId === 'string' && props.tableId.trim() ? { table_id: props.tableId.trim() } : {}), title } }, host, undefined, ctx);
         },
       });
     };
@@ -3745,6 +3891,16 @@ function dispatchEvent(node, target, payload, host, overrideType) {
   const eventCtx = payload && typeof payload === 'object'
     ? { ...(ctx && typeof ctx === 'object' ? ctx : {}), value: payload.value, payload }
     : ctx;
+  applyLocalUpdates(node, target, eventCtx, host);
+  if (
+    target
+    && Array.isArray(target.local_updates)
+    && target.bus_event_v2 !== true
+    && !Object.prototype.hasOwnProperty.call(target, 'pin')
+    && !Object.prototype.hasOwnProperty.call(target, 'action')
+  ) {
+    return { local: true };
+  }
   if (target && target.bus_event_v2 === true) {
     const snapshot = host.getSnapshot();
     const busInKey = typeof target.bus_in_key === 'string' ? target.bus_in_key.trim() : '';
@@ -3775,8 +3931,9 @@ function dispatchEvent(node, target, payload, host, overrideType) {
     const resolvedTarget = resolveRefForNode(resolveRefsDeep(target.target_ref, eventCtx, snapshot, host, node), node);
     if (resolvedTarget !== undefined) {
       out.target = resolvedTarget;
-    } else if (node.cell_ref && Number.isInteger(node.cell_ref.model_id)) {
-      out.target = { model_id: node.cell_ref.model_id, p: node.cell_ref.p, r: node.cell_ref.r, c: node.cell_ref.c };
+    } else {
+      const currentCellRef = currentCellRefForNode(node);
+      if (currentCellRef) out.target = currentCellRef;
     }
     if (target.value_ref !== undefined) {
       out.value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host, node);
@@ -3804,13 +3961,18 @@ function dispatchEvent(node, target, payload, host, overrideType) {
   if (target && Object.prototype.hasOwnProperty.call(target, 'action')) {
     const snapshot = host.getSnapshot();
     const action = target.action;
+    if ((action === 'label_add' || action === 'label_update' || action === 'ui_owner_label_update') && shouldUseOverlay(host, node, target)) {
+      stageOverlay(node, target, resolveLocalUpdateValue(node, target, eventCtx, snapshot, host, payload), host);
+      return { local: true };
+    }
     const out = { action };
     if (action !== 'submodel_create') {
       const resolvedTarget = resolveRefForNode(resolveRefsDeep(target.target_ref, eventCtx, snapshot, host, node), node);
       if (resolvedTarget !== undefined) {
         out.target = resolvedTarget;
-      } else if (node.cell_ref && Number.isInteger(node.cell_ref.model_id)) {
-        out.target = { model_id: node.cell_ref.model_id, p: node.cell_ref.p, r: node.cell_ref.r, c: node.cell_ref.c };
+      } else {
+        const currentCellRef = currentCellRefForNode(node);
+        if (currentCellRef) out.target = currentCellRef;
       }
     }
 
@@ -3867,6 +4029,38 @@ function dispatchEvent(node, target, payload, host, overrideType) {
 
   host.dispatchAddLabel(label);
   return label;
+}
+
+function resolveLocalUpdateValue(node, target, eventCtx, snapshot, host, payload) {
+  let value;
+  if (target && Object.prototype.hasOwnProperty.call(target, 'value_ref')) {
+    value = resolveRefsDeep(target.value_ref, eventCtx, snapshot, host, node);
+  } else if (payload && Object.prototype.hasOwnProperty.call(payload, 'value')) {
+    value = payload.value;
+  } else if (target && Object.prototype.hasOwnProperty.call(target, 'value')) {
+    value = resolveRefsDeep(target.value, eventCtx, snapshot, host, node);
+  } else {
+    value = '';
+  }
+  if (isPlainObject(value) && typeof value.t === 'string' && Object.prototype.hasOwnProperty.call(value, 'v')) {
+    return value.v;
+  }
+  return value;
+}
+
+function applyLocalUpdates(node, target, eventCtx, host) {
+  if (!target || !Array.isArray(target.local_updates) || target.local_updates.length === 0) return;
+  const snapshot = host.getSnapshot();
+  for (const update of target.local_updates) {
+    if (!isPlainObject(update)) continue;
+    const writeTarget = {
+      action: 'label_update',
+      persist_policy: 'never',
+      ...update,
+    };
+    if (!shouldUseOverlay(host, node, writeTarget)) continue;
+    stageOverlay(node, writeTarget, resolveLocalUpdateValue(node, writeTarget, eventCtx, snapshot, host, null), host);
+  }
 }
 
 function createRenderer(options) {

@@ -529,7 +529,7 @@ MBR Worker（`scripts/run_worker_mbr_v0.mjs`）负责 Matrix ↔ MQTT 桥接：
 
 6. **准备 route metadata**
    - 发往 DAM Worker 的消息必须带 endpoint metadata records：`endpoint_worker_id`、`endpoint_model_id`、`endpoint_pin`
-   - 本地回写目标必须带 reply target metadata records：`reply_target_worker_id`、`reply_target_model_id`、`reply_target_pin`
+   - 本地回写目标必须带 reply target metadata records：`reply_target_worker_id`、`reply_target_table_id`、`reply_target_model_id`、`reply_target_pin`；host-table 目标可显式写 `reply_target_table_id = "host"`，安装后的滑动 App 必须写 App instance `table_id`
    - MBR 不再依赖 per-app 静态 `mbr_route_*` 注册
 
 7. **编写 K8s 软件工人启动脚本**（参照 `run_remote_worker_k8s_v2.mjs`）

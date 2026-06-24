@@ -13,7 +13,7 @@ import { resolveRouteUiAst } from '../../packages/ui-model-demo-frontend/src/rou
 import { buildAstFromCellwiseModel } from '../../packages/ui-model-demo-frontend/src/ui_cellwise_projection.js';
 
 const EXPECTED_BUILTIN_APPS = Object.freeze({
-  Docs: { id: 'docs', kind: 'system', page: 'docs', path: '/docs', model_id: -23 },
+  Docs: { id: 'workspace:-23', kind: 'workspace', page: 'workspace', path: '/workspace', model_id: -23 },
   Settings: { id: 'workspace:1081', kind: 'workspace', page: 'workspace', path: '/workspace', model_id: 1081 },
   ModelTable: { id: 'workspace:1082', kind: 'workspace', page: 'workspace', path: '/workspace', model_id: 1082 },
   'Matrix Suite': { id: 'workspace:1080', kind: 'workspace', page: 'workspace', path: '/workspace', model_id: 1080 },

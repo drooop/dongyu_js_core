@@ -8,13 +8,13 @@ source: ai
 
 # 最小 Submit 双总线示例 - Visualized
 
-这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经控制总线、MBR、MQTT、remote-worker R1，最后由 R1 把 `message_role=response` 回包发到独立 `response_topic`，并根据 `reply_target_worker_id / reply_target_model_id / reply_target_pin` 回到本地 UI 模型，页面显示 `Submitted: <输入内容>`。
+这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经控制总线、MBR、MQTT、remote-worker R1，最后由 R1 把 `message_role=response` 回包发到独立 `response_topic`，并根据 `reply_target_worker_id / reply_target_table_id / reply_target_model_id / reply_target_pin` 回到本地 UI 模型，页面显示 `Submitted: <输入内容>`。
 
 ## 总览
 
 ```mermaid
 sequenceDiagram
-  participant UI as Workspace UI model 2000
+  participant UI as App table app:... model 0
   participant M0 as UI Server Model 0
   participant CB as Control bus
   participant MBR as MBR
@@ -23,15 +23,15 @@ sequenceDiagram
   UI->>UI: ui_bind_json writes value_ref to click_event
   UI->>UI: click_event -> click_event_wiring -> click_chain -> submit_request -> handle_submit:in
   UI->>M0: submit1 pin.out reaches generated host egress adapter
-  M0->>CB: pin_payload.v1 with topic=UIPUT/ws/dam/pic/de/R1/3000/submit1 and response_topic=UIPUT/ws/dam/pic/de/U1/2000/result
+  M0->>CB: pin_payload.v1 with topic=UIPUT/ws/dam/pic/de/R1/3000/submit1 and response_topic=UIPUT/ws/dam/pic/de/U1/1087/result
   CB->>MBR: control bus packet
   MBR->>MQTT: UIPUT/ws/dam/pic/de/R1/3000/submit1
   MQTT->>R1: root submit1 pin.in
   R1->>R1: root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in`
   R1->>MQTT: response_topic pin_payload.v1 message_role=response
   MQTT->>MBR: control bus reply
-  MBR->>CB: topic=UIPUT/ws/dam/pic/de/U1/2000/result
-  CB->>M0: endpoint=U1/2000/result + reply_target=U1/2000/result
+  MBR->>CB: topic=UIPUT/ws/dam/pic/de/U1/1087/result
+  CB->>M0: endpoint=U1/host/1087/result + reply_target=U1/app:.../0/result
   M0->>UI: materialize display_text / remote_status / last_submit_payload / submit_inflight
 ```
 
@@ -71,19 +71,19 @@ flowchart TB
   Zip["ZIP: app_payload.json<br/>60 条 record"]
   Install["UI Server 安装"]
   Side["Workspace 侧边栏"]
-  Submt["Model 0 mount cell<br/>model.submt -> local model 2000"]
-  Ingress["host ingress<br/>imported_host_submit_<id>"]
-  Egress["host egress<br/>ui_egress_submit1_binding<br/>imported_submit1_<id>_bus<br/>bridge_imported_submit1_to_mt_bus_send_<id>"]
+  Subtable["Model 0 mount cell<br/>model.subtable -> app table"]
+  Boundary["table boundary<br/>App table root model 0"]
+  Egress["host bus boundary<br/>table-qualified origin/reply target"]
   Bus["Model 0 (0,0,0)<br/>mt_bus_send_in -> pin.bus.cb.out"]
   Zip --> Install
   Install --> Side
-  Install --> Submt
-  Install --> Ingress
+  Install --> Subtable
+  Subtable --> Boundary
   Install --> Egress
   Egress --> Bus
 ```
 
-安装器会生成 `deletable`、`installed_at`、`imported_bundle_model_ids`、`import_root_temp_id`、`host_ingress_generated_model0_labels`、`host_ingress_generated_mount`、`host_ingress_generated_root_labels`、`host_egress_generated_model0_labels`、`host_egress_generated_mount`。这些不是 provider ZIP 内容。
+安装器会生成 host-owned 安装态和挂载态 labels，例如 `deletable`、`installed_at`、`import_root_temp_id`、`last_installed_table_id`、`last_installed_model_id` 以及 `model.subtable` 边界。这些不是 provider ZIP 内容。
 
 ## Endpoint Topic 与 Payload Records
 
@@ -98,14 +98,14 @@ UIPUT/ws/dam/pic/de/R1/3000/submit1
 | records | 示例 |
 |---|---|
 | `message_role` | 请求为 `request`，回包为 `response` |
-| `topic` | 请求为 `UIPUT/ws/dam/pic/de/R1/3000/submit1`；回包为 `UIPUT/ws/dam/pic/de/U1/2000/result` |
-| `response_topic` | `UIPUT/ws/dam/pic/de/U1/2000/result` |
+| `topic` | 请求为 `UIPUT/ws/dam/pic/de/R1/3000/submit1`；回包为 `UIPUT/ws/dam/pic/de/U1/1087/result` |
+| `response_topic` | `UIPUT/ws/dam/pic/de/U1/1087/result` |
 | `remote_bus_endpoint_v1` -> `endpoint_worker_id` / `endpoint_model_id` / `endpoint_pin` | `R1 / 3000 / submit1` |
-| `origin_worker_id` / `origin_model_id` / `origin_pin` | `U1 / 2000 / submit1` |
-| `reply_target_worker_id` / `reply_target_model_id` / `reply_target_pin` | `U1 / 2000 / result` |
+| `origin_worker_id` / `origin_table_id` / `origin_model_id` / `origin_pin` | `U1 / app:... / 0 / submit1` |
+| `reply_target_worker_id` / `reply_target_table_id` / `reply_target_model_id` / `reply_target_pin` | `U1 / app:... / 0 / result` |
 | nested `payload` | `text`、`source` |
 
-外部客户端模拟回包时，向 `UIPUT/ws/dam/pic/de/U1/2000/result` 发送 `pin_payload.v1`，并把 `message_role` 写成 `response`。手工示例的 `op_id` 可以是 `"manual_result_2000_001"`，嵌套 payload 至少包含：
+外部客户端模拟回包时，向 `UIPUT/ws/dam/pic/de/U1/1087/result` 发送 `pin_payload.v1`，并把 `message_role` 写成 `response`。手工示例的 `op_id` 可以是 `"manual_result_app_table_001"`，嵌套 payload 至少包含：
 
 ```json
 [
@@ -130,17 +130,23 @@ submit1:out -> `(1,1,1).submit1_out` -> root `result`
 | 项 | 当前要求 |
 |---|---|
 | `route.reply_to` | 只能作为禁止项出现；ZIP 和 runtime 输入面都不能使用。 |
-| `source_model_id` | 不再作为传输 metadata；使用 `origin_model_id` / `reply_target_model_id`。 |
+| `source_model_id` | 不再作为传输 metadata；使用 table-qualified `origin_table_id + origin_model_id` / `reply_target_table_id + reply_target_model_id`。 |
 | `worker/R1/model/3000/pin/submit1` | 旧 topic 形态，禁止。 |
 | `pin.connect.model` | 已移除；使用 `pin.connect.cell`。 |
 | raw `resultPayload` | 公开 result path 必须包装成 `pin_payload.v1`。 |
 
 ## 导出
 
-导出文件仍是 Zip，只有 `app_payload.json`。导出接口：
+导出文件仍是 Zip，只有 `app_payload.json`。host table 内置/旧形态 App 的导出接口是：
 
 ```text
 /api/slide-apps/<modelId>/export.zip
+```
+
+对 0425 App instance table，必须使用 table-qualified 导出接口：
+
+```text
+/api/slide-apps/export.zip?table_id=<encoded-table-id>&model_id=0
 ```
 
 交互版文档见：[minimal_submit_app_provider_interactive.html](minimal_submit_app_provider_interactive.html)。

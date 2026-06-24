@@ -7,7 +7,9 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import http from 'node:http';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { createDemoStore } from '../../packages/ui-model-demo-frontend/src/demo_modeltable.js';
 import { createRemoteStore } from '../../packages/ui-model-demo-frontend/src/remote_store.js';
+import { resolveRouteUiAst } from '../../packages/ui-model-demo-frontend/src/route_ui_projection.js';
 
 const originalFetch = globalThis.fetch;
 const originalEventSource = globalThis.EventSource;
@@ -15,6 +17,10 @@ const BOOTSTRAP_MODEL0_LABEL_KEYS = new Set([
   'sys_worker_id',
   'sys_worker_role',
   'runtime_mode',
+]);
+const BOOTSTRAP_EDITOR_MAILBOX_LABEL_KEYS = new Set([
+  'bus_event_last_op_id',
+  'bus_event_error',
 ]);
 
 function base64url(input) {
@@ -437,7 +443,7 @@ function assertNoPositiveWorkspaceAppBodies(snapshot, appModelIds, context) {
 
 function bootstrapAllowedModelIds(fullSnapshot) {
   void fullSnapshot;
-  return new Set([0, -2, -28, -29, -102, -23, -103]);
+  return new Set([0, -1, -2, -28, -29, -102]);
 }
 
 function assertBootstrapModelAllowlist(snapshot, fullSnapshot, context, extraAllowed = []) {
@@ -447,6 +453,18 @@ function assertBootstrapModelAllowlist(snapshot, fullSnapshot, context, extraAll
   }
   for (const modelId of modelIds(snapshot)) {
     assert.equal(allowed.has(modelId), true, `${context} must not include non-bootstrap model ${modelId}`);
+  }
+  const editorMailbox = getModel(snapshot, -1);
+  if (editorMailbox) {
+    assert.deepEqual(Object.keys(editorMailbox.cells || {}), ['0,0,1'], `${context} editor mailbox must expose only release cell`);
+    const labels = editorMailbox.cells['0,0,1']?.labels || {};
+    for (const key of Object.keys(labels)) {
+      assert.equal(
+        BOOTSTRAP_EDITOR_MAILBOX_LABEL_KEYS.has(key),
+        true,
+        `${context} editor mailbox must not expose non-bootstrap label ${key}`,
+      );
+    }
   }
 }
 
@@ -482,16 +500,26 @@ async function polluteVisibleAppState(baseUrl, modelId) {
         },
       }),
     });
-    assert.equal(resp.status, 200, `polluting ${key} must be accepted as local shell state`);
+    assert.equal(resp.status, 200, `polluting ${key} must return a handled UI event response`);
     const body = await readJson(resp);
-    assert.equal(body.result, 'ok', `polluting ${key} must write UI-local state successfully`);
+    if (key === 'desktop_foreground_app_json') {
+      assert.equal(body.result, 'error', `polluting ${key} must be rejected before it can open a missing/hidden app`);
+      assert.equal(body.code, 'invalid_desktop_app', `polluting ${key} must fail with invalid_desktop_app`);
+    } else {
+      assert.equal(body.result, 'ok', `polluting ${key} must write UI-local state successfully`);
+    }
   }
   const fullResp = await fetch(`${baseUrl}/snapshot?profile=full`);
   assert.equal(fullResp.status, 200, 'polluted state readback must be available');
   const fullSnapshot = responseSnapshot(await readJson(fullResp));
   const labels = rootLabels(fullSnapshot, -2);
-  assert.equal(labels.desktop_foreground_app_json?.v?.model_id, modelId, 'polluted foreground must point to disallowed model');
-  assert.equal(labels.desktop_task_stack_json?.v?.[0]?.model_id, modelId, 'polluted task stack must point to disallowed model');
+  assert.notEqual(labels.desktop_foreground_app_json?.v?.model_id, modelId, 'polluted foreground must not point to disallowed model');
+  assert.equal(
+    Array.isArray(labels.desktop_task_stack_json?.v)
+      && labels.desktop_task_stack_json.v.some((task) => task && task.model_id === modelId),
+    false,
+    'polluted task stack must be sanitized before client-visible snapshots publish it',
+  );
   assert.equal(labels.ws_app_selected?.v, modelId, 'polluted workspace selection must point to disallowed model');
 }
 
@@ -778,6 +806,31 @@ async function test_visible_profile_rejects_invalid_and_disallowed_targets() {
   });
 
   return { key: 'visible_profile_rejects_invalid_and_disallowed_targets', status: 'PASS' };
+}
+
+async function test_visible_profile_allows_builtin_workspace_apps() {
+  await withAppServer(async (baseUrl) => {
+    for (const modelId of [-103, -23]) {
+      const resp = await fetch(`${baseUrl}/snapshot?profile=visible&model_id=${modelId}`);
+      assert.equal(resp.status, 200, `visible profile must allow built-in workspace app ${modelId}`);
+      const body = await readJson(resp);
+      const snapshot = responseSnapshot(body);
+      assert.equal(Boolean(getModel(snapshot, modelId)), true, `visible profile must include built-in workspace app ${modelId}`);
+      assertNoClientSecrets(snapshot, `visible built-in workspace app ${modelId}`);
+    }
+  });
+
+  await withAppServer(async (baseUrl) => {
+    for (const modelId of [-103, -23]) {
+      const event = await readFirstSseEvent(baseUrl, `?profile=bootstrap&visible_model_id=${modelId}`);
+      assert.equal(event.event, 'snapshot', `stream visible profile must allow built-in workspace app ${modelId}`);
+      const snapshot = responseSnapshot(event.data);
+      assert.equal(Boolean(getModel(snapshot, modelId)), true, `stream visible profile must include built-in workspace app ${modelId}`);
+      assertNoClientSecrets(snapshot, `stream visible built-in workspace app ${modelId}`);
+    }
+  });
+
+  return { key: 'visible_profile_allows_builtin_workspace_apps', status: 'PASS' };
 }
 
 async function test_visible_profile_rejects_existing_capability_disallowed_model() {
@@ -1097,10 +1150,10 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
     if (url.endsWith('/snapshot?profile=bootstrap') || url.endsWith('/snapshot?profile=bootstrap&initial_projection=1')) {
       return jsonResponse({ snapshot: bootstrapSnapshot, snapshot_seq: 1, patch_kind: 'snapshot' });
     }
-    if (url.endsWith('/snapshot?profile=visible&model_id=4100')) {
+    if (matchesVisibleSnapshotRequest(url, [4100], true)) {
       return jsonResponse({ snapshot: visibleSnapshot, snapshot_seq: 2, patch_kind: 'visible_model' });
     }
-    if (url.endsWith('/snapshot?profile=visible&model_id=4100&model_id=4200')) {
+    if (matchesVisibleSnapshotRequest(url, [4100, 4200], true)) {
       return new Promise((resolve) => {
         visibleResponders.set(4200, () => resolve(jsonResponse({
           snapshot: visibleSnapshot4100And4200,
@@ -1109,7 +1162,7 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
         })));
       });
     }
-    if (url.endsWith('/snapshot?profile=visible&model_id=4100&model_id=4200&model_id=4300')) {
+    if (matchesVisibleSnapshotRequest(url, [4100, 4200, 4300], true)) {
       return new Promise((resolve) => {
         visibleResponders.set(4300, () => resolve(jsonResponse({
           snapshot: visibleSnapshot4100To4300,
@@ -1118,24 +1171,24 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
         })));
       });
     }
-    if (url.endsWith('/snapshot?profile=visible&model_id=4100&model_id=4200&model_id=4300&model_id=4400')) {
+    if (matchesVisibleSnapshotRequest(url, [4100, 4200, 4300, 4400], true)) {
       return jsonErrorResponse(403, { ok: false, error: 'model_not_visible' });
     }
-    if (url.endsWith('/snapshot?profile=visible&model_id=4200')) {
+    if (matchesVisibleSnapshotRequest(url, [4200], true)) {
       return jsonResponse({
         snapshot: visibleSnapshot4200,
         snapshot_seq: 7,
         patch_kind: 'visible_model',
       });
     }
-    if (url.endsWith('/snapshot?profile=visible&model_id=4300')) {
+    if (matchesVisibleSnapshotRequest(url, [4300], true)) {
       return jsonResponse({
         snapshot: visibleSnapshot4300,
         snapshot_seq: 7,
         patch_kind: 'visible_model',
       });
     }
-    if (url.endsWith('/snapshot?profile=visible&model_id=4400')) {
+    if (matchesVisibleSnapshotRequest(url, [4400], true)) {
       return jsonResponse({
         snapshot: visibleSnapshot4400,
         snapshot_seq: 7,
@@ -1190,7 +1243,7 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
     assert.equal(typeof store.ensureVisibleModelLoaded, 'function', 'remote_store must expose ensureVisibleModelLoaded(modelId)');
     assert.equal(store.hasSnapshotModel(4100), false, 'bootstrap fixture must not include lazy app model before visible fetch');
     await store.ensureVisibleModelLoaded(4100);
-    assert.equal(requestedUrls.includes('http://example.test/snapshot?profile=visible&model_id=4100'), true, 'remote_store must fetch visible model on demand');
+    assert.equal(hasRequestedVisibleSnapshot(requestedUrls, [4100], true), true, 'remote_store must fetch visible model on demand with initial projection');
     assert.equal(store.hasSnapshotModel(4100), true, 'visible model fetch must hydrate the requested model');
     assertNoImplicitFullProfileRequests(requestedUrls, 'remote_store visible lazy hydration');
     await waitUntil(
@@ -1266,27 +1319,27 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
     assertVisibleSubscriptionState(store, [4100, 4200, 4300], 'visible subscription state must match every currently visible model id');
     assert.equal(await store.ensureVisibleModelLoaded(4400), true, 'visible lazy load must recover when a stale visible id makes the combined request fail');
     assert.equal(
-      requestedUrls.includes('http://example.test/snapshot?profile=visible&model_id=4100&model_id=4200&model_id=4300&model_id=4400'),
+      hasRequestedVisibleSnapshot(requestedUrls, [4100, 4200, 4300, 4400], true),
       true,
       'test fixture must first reproduce the combined visible request with stale ids',
     );
     assert.equal(
-      requestedUrls.includes('http://example.test/snapshot?profile=visible&model_id=4400'),
+      hasRequestedVisibleSnapshot(requestedUrls, [4400], true),
       true,
       'remote_store must retry target-only visible fetch after stale id model_not_visible',
     );
     assert.equal(
-      requestedUrls.filter((url) => url === 'http://example.test/snapshot?profile=visible&model_id=4100').length >= 2,
+      requestedUrls.filter((url) => matchesVisibleSnapshotRequest(url, [4100], true)).length >= 2,
       true,
       'remote_store must revalidate already hydrated visible model 4100 after stale id recovery',
     );
     assert.equal(
-      requestedUrls.includes('http://example.test/snapshot?profile=visible&model_id=4200'),
+      hasRequestedVisibleSnapshot(requestedUrls, [4200], true),
       true,
       'remote_store must revalidate already hydrated visible model 4200 after stale id recovery',
     );
     assert.equal(
-      requestedUrls.includes('http://example.test/snapshot?profile=visible&model_id=4300'),
+      hasRequestedVisibleSnapshot(requestedUrls, [4300], true),
       true,
       'remote_store must revalidate already hydrated visible model 4300 after stale id recovery',
     );
@@ -1353,6 +1406,26 @@ function hasRequestedStreamWithVisibleModelId(urls, modelId) {
   });
 }
 
+function matchesVisibleSnapshotRequest(rawUrl, modelIds, initialProjection) {
+  let url;
+  try {
+    url = new URL(String(rawUrl));
+  } catch (_) {
+    return false;
+  }
+  if (url.origin !== 'http://example.test' || url.pathname !== '/snapshot') return false;
+  if (url.searchParams.get('profile') !== 'visible') return false;
+  if (initialProjection === true && url.searchParams.get('initial_projection') !== '1') return false;
+  if (initialProjection === false && url.searchParams.has('initial_projection')) return false;
+  const actual = url.searchParams.getAll('model_id').map((value) => Number.parseInt(value, 10)).sort((a, b) => a - b);
+  const expected = [...modelIds].sort((a, b) => a - b);
+  return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
+}
+
+function hasRequestedVisibleSnapshot(urls, modelIds, initialProjection) {
+  return urls.some((url) => matchesVisibleSnapshotRequest(url, modelIds, initialProjection));
+}
+
 function latestRequestedStreamUrl(urls) {
   for (let idx = urls.length - 1; idx >= 0; idx -= 1) {
     const rawUrl = urls[idx];
@@ -1401,6 +1474,20 @@ function assertNoImplicitFullProfileRequests(urls, context) {
   }
 }
 
+function findNodeById(ast, id) {
+  let found = null;
+  const visit = (node) => {
+    if (!node || typeof node !== 'object' || found) return;
+    if (node.id === id) {
+      found = node;
+      return;
+    }
+    for (const child of Array.isArray(node.children) ? node.children : []) visit(child);
+  };
+  visit(ast);
+  return found;
+}
+
 function extractFunctionBody(source, name) {
   const pattern = new RegExp(`function\\s+${name}\\s*\\([^)]*\\)\\s*\\{`, 'u');
   const match = pattern.exec(source);
@@ -1437,14 +1524,51 @@ function assertDemoAppForegroundLazyLoadSourceContract() {
   );
   const syncBody = extractFunctionBody(source, 'syncDesktopForeground');
   assert.match(syncBody, /ensureForegroundAppVisibleModelLoaded\s*\(/u, 'syncDesktopForeground must call ensureForegroundAppVisibleModelLoaded inside its own function body');
+  assert.match(source, /const\s+foregroundVisibleLoadTick\s*=\s*ref\s*\(/u, 'foreground shell must keep a reactive visible-load tick for lazy-loaded app bodies');
+  assert.match(syncBody, /ensureForegroundAppVisibleModelLoaded[\s\S]*\.then\s*\([\s\S]*foregroundVisibleLoadTick\.value/u, 'syncDesktopForeground must tick after visible model lazy-load resolves');
   const playerBody = extractFunctionBody(source, 'ForegroundPlayer');
+  assert.match(playerBody, /foregroundVisibleLoadTick\.value/u, 'ForegroundPlayer must read the visible-load tick so lazy-load completion re-renders the shell');
+  assert.match(playerBody, /snapshot\??\.models/u, 'ForegroundPlayer must read the selected model from the reactive snapshot model map');
   assert.match(playerBody, /hasSnapshotModel\s*\([^)]*app\.model_id[^)]*\)/u, 'ForegroundPlayer must check store.hasSnapshotModel(app.model_id) inside its own function body');
   assert.match(playerBody, /foreground_visible_model_loading/u, 'ForegroundPlayer must render a loading state while foreground workspace model is still lazy-loading');
+
+  const routeSourcePath = new URL('../../packages/ui-model-demo-frontend/src/route_ui_projection.js', import.meta.url);
+  const routeSource = readFileSync(routeSourcePath, 'utf8');
+  const desktopLaunchBody = extractFunctionBody(routeSource, 'desktopLaunchValueForApp');
+  assert.doesNotMatch(
+    desktopLaunchBody,
+    /page:\s*['"]docs['"]|path:\s*['"]\/docs['"]/u,
+    'desktop Docs app launch must use the same workspace foreground lazy-load path as other apps, not the legacy /docs route',
+  );
+  assert.match(
+    desktopLaunchBody,
+    /page:\s*['"]workspace['"]/u,
+    'desktop app launch value must keep every desktop app on the workspace foreground route',
+  );
+
+  const store = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
+  const ast = resolveRouteUiAst(store.snapshot, '/')?.ast;
+  const docsCard = findNodeById(ast, 'desktop_slide_app_-23');
+  const docsLaunchValue = docsCard?.bind?.write?.value_ref?.v;
+  assert.deepEqual(
+    docsLaunchValue,
+    {
+      id: 'workspace:-23',
+      kind: 'workspace',
+      page: 'workspace',
+      path: '/workspace',
+      model_id: -23,
+      title: 'Docs',
+      summary: 'Docs built-in app.',
+    },
+    'desktop Docs AppCard launch payload must target workspace foreground visible-model lazy-load for model -23',
+  );
 }
 
 const tests = [
   test_snapshot_profiles_expose_bootstrap_and_visible_shapes,
   test_visible_profile_rejects_invalid_and_disallowed_targets,
+  test_visible_profile_allows_builtin_workspace_apps,
   test_visible_profile_rejects_existing_capability_disallowed_model,
   test_stream_bootstrap_initial_event_avoids_full_snapshot_path,
   test_stream_visible_model_id_rejects_invalid_and_disallowed_targets,

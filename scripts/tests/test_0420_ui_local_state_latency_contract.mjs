@@ -290,6 +290,125 @@ async function test_dialog_tabs_and_view_state_are_local_only() {
   return { key: 'dialog_tabs_and_view_state_are_local_only', status: 'PASS' };
 }
 
+async function test_button_local_label_update_stages_overlay_without_dispatch() {
+  const openRef = ref(9420, 'create_dialog_open');
+  const snapshot = snapshotWithModel(9420, {
+    create_dialog_open: label('create_dialog_open', 'bool', false),
+  });
+  const host = hostWithSnapshot(snapshot);
+  const renderer = createRenderer({ host, vue: fakeVue() });
+  const button = renderer.renderVNode({
+    id: 'it0420_open_dialog_button',
+    type: 'Button',
+    cell_ref: { model_id: 9420, p: 2, r: 4, c: 0 },
+    props: { label: 'Open' },
+    bind: {
+      write: {
+        action: 'label_update',
+        target_ref: { p: 0, r: 0, c: 0, k: 'create_dialog_open' },
+        value_ref: true,
+        persist_policy: 'never',
+      },
+    },
+  });
+
+  button.props.onClick();
+
+  assert.equal(host.dispatched.length, 0, 'local Button label_update must not dispatch a ModelTable event');
+  assert.deepEqual(
+    host.staged.map((entry) => ({ ref: entry.ref, value: entry.value })),
+    [{ ref: openRef, value: true }],
+    'local Button label_update must stage the target ref overlay',
+  );
+  assert.equal(labelValueFromSnapshot(snapshot, openRef), false, 'local Button label_update must not mutate committed snapshot');
+  return { key: 'button_local_label_update_stages_overlay_without_dispatch', status: 'PASS' };
+}
+
+async function test_button_local_updates_can_close_dialog_before_formal_submit() {
+  const openRef = ref(9420, 'create_dialog_open');
+  const snapshot = snapshotWithModel(9420, {
+    create_dialog_open: label('create_dialog_open', 'bool', true),
+  });
+  const host = hostWithSnapshot(snapshot);
+  const renderer = createRenderer({ host, vue: fakeVue() });
+  const button = renderer.renderVNode({
+    id: 'it0420_save_with_local_close',
+    type: 'Button',
+    cell_ref: { model_id: 9420, p: 2, r: 5, c: 0 },
+    props: { label: 'Save' },
+    bind: {
+      write: {
+        bus_event_v2: true,
+        bus_in_key: 'submit_request',
+        value_t: 'modeltable',
+        value_ref: [
+          mt('__mt_payload_kind', 'str', 'ui_event.v1'),
+          mt('draft_title', 'str', 'formal value'),
+        ],
+        local_updates: [
+          {
+            p: 0,
+            r: 0,
+            c: 0,
+            k: 'create_dialog_open',
+            value_ref: false,
+            persist_policy: 'never',
+          },
+        ],
+      },
+    },
+  });
+
+  button.props.onClick();
+
+  assert.deepEqual(
+    host.staged.map((entry) => ({ ref: entry.ref, value: entry.value })),
+    [{ ref: openRef, value: false }],
+    'formal submit button must be able to stage local dialog close first',
+  );
+  assert.equal(host.dispatched.length, 1, 'formal submit button must still dispatch exactly one bus event');
+  assert.equal(host.dispatched[0]?.v?.type, 'bus_event_v2', 'formal submit must keep bus_event_v2 envelope');
+  return { key: 'button_local_updates_can_close_dialog_before_formal_submit', status: 'PASS' };
+}
+
+async function test_button_local_updates_only_does_not_fall_through_to_generic_event() {
+  const openRef = ref(9420, 'create_dialog_open');
+  const snapshot = snapshotWithModel(9420, {
+    create_dialog_open: label('create_dialog_open', 'bool', false),
+  });
+  const host = hostWithSnapshot(snapshot);
+  const renderer = createRenderer({ host, vue: fakeVue() });
+  const button = renderer.renderVNode({
+    id: 'it0420_open_with_local_updates_only',
+    type: 'Button',
+    cell_ref: { model_id: 9420, p: 2, r: 6, c: 0 },
+    props: { label: 'Open' },
+    bind: {
+      write: {
+        local_updates: [
+          {
+            p: 0,
+            r: 0,
+            c: 0,
+            k: 'create_dialog_open',
+            value_ref: true,
+          },
+        ],
+        persist_policy: 'never',
+      },
+    },
+  });
+
+  assert.doesNotThrow(() => button.props.onClick(), 'pure local_updates Button must not fall through to generic event dispatch');
+  assert.equal(host.dispatched.length, 0, 'pure local_updates Button must not dispatch a ModelTable event');
+  assert.deepEqual(
+    host.staged.map((entry) => ({ ref: entry.ref, value: entry.value })),
+    [{ ref: openRef, value: true }],
+    'pure local_updates Button must stage the requested local overlay',
+  );
+  return { key: 'button_local_updates_only_does_not_fall_through_to_generic_event', status: 'PASS' };
+}
+
 async function test_on_submit_overlay_flush_stays_before_formal_bus_event() {
   const fetchBodies = [];
   globalThis.EventSource = undefined;
@@ -335,6 +454,50 @@ async function test_on_submit_overlay_flush_stays_before_formal_bus_event() {
     globalThis.EventSource = originalEventSource;
   }
   return { key: 'on_submit_overlay_flush_stays_before_formal_bus_event', status: 'PASS' };
+}
+
+async function test_persist_never_overlay_is_not_flushed_before_formal_bus_event() {
+  const fetchBodies = [];
+  globalThis.EventSource = undefined;
+  globalThis.fetch = async (url, options = {}) => {
+    const href = String(url);
+    const path = new URL(href).pathname;
+    if (path === '/bus_event') {
+      fetchBodies.push(JSON.parse(String(options.body || '{}')));
+      return jsonResponse({ ok: true, result: 'ok', snapshot: { models: {}, v1nConfig: {} } });
+    }
+    if (path === '/snapshot') {
+      return jsonResponse({ snapshot: { models: {}, v1nConfig: {} } });
+    }
+    throw new Error(`unexpected fetch ${href}`);
+  };
+
+  try {
+    const store = createRemoteStore({
+      baseUrl: 'http://127.0.0.1:30900',
+      autoBootstrap: false,
+      snapshotFallbackDelayMs: 60_000,
+    });
+    const openRef = ref(9420, 'create_dialog_open');
+    store.stageOverlayValue({
+      ref: openRef,
+      value: true,
+      writeTarget: {
+        action: 'label_update',
+        target_ref: openRef,
+        persist_policy: 'never',
+      },
+    });
+
+    await dispatchEvent(store, formalSubmitEnvelope());
+
+    assert.equal(fetchBodies.length, 1, 'persist_policy=never overlay must not flush before formal bus_event_v2');
+    assert.equal(fetchBodies[0]?.type, 'bus_event_v2', 'only formal bus_event_v2 should be sent');
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.EventSource = originalEventSource;
+  }
+  return { key: 'persist_never_overlay_is_not_flushed_before_formal_bus_event', status: 'PASS' };
 }
 
 async function test_local_ui_sync_does_not_block_formal_bus_event_dispatch() {
@@ -726,7 +889,11 @@ const tests = [
   test_default_input_submit_policy_is_local_only,
   test_submit_reads_visible_overlay_and_keeps_model0_bus_path,
   test_dialog_tabs_and_view_state_are_local_only,
+  test_button_local_label_update_stages_overlay_without_dispatch,
+  test_button_local_updates_can_close_dialog_before_formal_submit,
+  test_button_local_updates_only_does_not_fall_through_to_generic_event,
   test_on_submit_overlay_flush_stays_before_formal_bus_event,
+  test_persist_never_overlay_is_not_flushed_before_formal_bus_event,
   test_local_ui_sync_does_not_block_formal_bus_event_dispatch,
   test_readonly_authenticated_local_ui_state_stays_browser_local,
   test_app_write_authenticated_local_ui_state_still_syncs,

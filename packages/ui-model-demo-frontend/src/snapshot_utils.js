@@ -1,16 +1,32 @@
-export function getSnapshotModel(snapshot, modelId) {
-  if (!snapshot || !snapshot.models) return null;
-  return snapshot.models[modelId] || snapshot.models[String(modelId)] || null;
+import { HOST_TABLE_ID, normalizeLabelRef, normalizeModelRef } from './model_ref.js';
+
+export function getSnapshotModel(snapshot, modelRef, options = {}) {
+  if (!snapshot) return null;
+  const ref = normalizeModelRef(modelRef, {
+    defaultTableId: HOST_TABLE_ID,
+    ...options,
+  });
+  const table = snapshot.tables && snapshot.tables[ref.table_id];
+  if (table && table.models) {
+    return table.models[ref.model_id] || table.models[String(ref.model_id)] || null;
+  }
+  if (ref.table_id === HOST_TABLE_ID && snapshot.models) {
+    return snapshot.models[ref.model_id] || snapshot.models[String(ref.model_id)] || null;
+  }
+  return null;
 }
 
-export function getSnapshotLabelValue(snapshot, ref) {
-  const modelId = ref && typeof ref.model_id === 'number' ? ref.model_id : 0;
-  const model = getSnapshotModel(snapshot, modelId);
+export function getSnapshotLabelValue(snapshot, ref, options = {}) {
+  const labelRef = normalizeLabelRef(ref, {
+    defaultTableId: HOST_TABLE_ID,
+    ...options,
+  });
+  const model = getSnapshotModel(snapshot, labelRef);
   if (!model || !model.cells) return undefined;
-  const key = `${ref.p},${ref.r},${ref.c}`;
+  const key = `${labelRef.p},${labelRef.r},${labelRef.c}`;
   const cell = model.cells[key];
   if (!cell || !cell.labels) return undefined;
-  const label = cell.labels[ref.k];
+  const label = cell.labels[labelRef.k];
   if (!label) return undefined;
   return label.v;
 }
