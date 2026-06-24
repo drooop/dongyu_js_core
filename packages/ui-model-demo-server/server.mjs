@@ -17,7 +17,7 @@ import rehypeStringify from 'rehype-stringify';
 
 import { ModelTableRuntime } from '../worker-base/src/index.mjs';
 import { readMatrixBootstrapConfig, readMqttBootstrapConfig } from '../worker-base/src/bootstrap_config.mjs';
-import { applyPersistedAssetEntries, resolvePersistedAssetRoot } from '../worker-base/src/persisted_asset_loader.mjs';
+import { applyPersistedAssetEntries, readPersistedAssetManifest, resolvePersistedAssetRoot } from '../worker-base/src/persisted_asset_loader.mjs';
 import { createLocalBusAdapter } from '../ui-model-demo-frontend/src/local_bus_adapter.js';
 import { buildAstFromCellwiseModel } from '../ui-model-demo-frontend/src/ui_cellwise_projection.js';
 import { buildAstFromSchema } from '../ui-model-demo-frontend/src/ui_schema_projection.js';
@@ -4597,10 +4597,11 @@ function createPrincipalRuntimeRegistry(options = {}) {
           record.entry = entry;
           resolve(entry);
         } catch (err) {
+          const classifiedError = classifyRuntimeInitializationError(err);
           record.status = 'failed';
-          record.code = 'workspace_initialization_failed';
+          record.code = classifiedError.code;
           record.finishedAt = Date.now();
-          record.error = String(err && err.message ? err.message : err);
+          record.error = classifiedError.error;
           reject(err);
         }
       };
@@ -9640,7 +9641,11 @@ function createServerState(options) {
     v: process.env.DY_UI_SERVER_V1N_ID || DEFAULT_UI_SERVER_V1N_ID,
   });
   runtime.addLabel(runtime.getModel(0), 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
-  const assetRoot = resolvePersistedAssetRoot();
+  const skipPersistedAssets = Boolean(options && options.skipPersistedAssets);
+  const explicitPersistedAssetRoot = options && Object.prototype.hasOwnProperty.call(options, 'persistedAssetRoot')
+    ? options.persistedAssetRoot
+    : undefined;
+  const assetRoot = skipPersistedAssets ? null : resolvePersistedAssetRoot(explicitPersistedAssetRoot);
   const bootstrapGeneratedKeys = new Set([
     'matrix_room_id',
     'matrix_server',
@@ -12485,6 +12490,96 @@ function createServerState(options) {
   };
 }
 
+function classifyRuntimeInitializationError(error) {
+  const detail = String(error && error.message ? error.message : error || '');
+  if (/persisted_asset/u.test(detail)) {
+    return {
+      code: 'persisted_asset_not_ready',
+      error: detail || 'persisted_asset_not_ready',
+    };
+  }
+  return {
+    code: 'workspace_initialization_failed',
+    error: detail || 'workspace_initialization_failed',
+  };
+}
+
+function checkPersistedAssetReadiness(assetRoot = resolvePersistedAssetRoot()) {
+  if (!assetRoot) {
+    return {
+      status: 'ready',
+      code: 'persisted_asset_disabled',
+      assetRoot: '',
+      manifestEntryCount: 0,
+    };
+  }
+  try {
+    const manifest = readPersistedAssetManifest(assetRoot);
+    return {
+      status: 'ready',
+      code: 'persisted_asset_ready',
+      assetRoot,
+      manifestEntryCount: Array.isArray(manifest.entries) ? manifest.entries.length : 0,
+    };
+  } catch (err) {
+    return {
+      status: 'not_ready',
+      code: 'persisted_asset_not_ready',
+      assetRoot,
+      error: String(err && err.message ? err.message : err || 'persisted_asset_not_ready'),
+      retryAfterMs: 1000,
+    };
+  }
+}
+
+function persistedAssetNotReadyBody(readiness, requestStartedAt = Date.now()) {
+  return {
+    ok: false,
+    status: 'persisted_asset_not_ready',
+    code: 'persisted_asset_not_ready',
+    error: readiness && readiness.error ? readiness.error : 'persisted_asset_not_ready',
+    asset_root: readiness && readiness.assetRoot ? readiness.assetRoot : '',
+    retry_after_ms: Number.isFinite(readiness && readiness.retryAfterMs) ? readiness.retryAfterMs : 1000,
+    timing: {
+      request_started_at: requestStartedAt,
+      response_started_at: Date.now(),
+      runtime_status: 'not_ready',
+    },
+  };
+}
+
+function writePersistedAssetNotReadyJson(res, cors, readiness, requestStartedAt = Date.now()) {
+  writeJson(res, 503, persistedAssetNotReadyBody(readiness, requestStartedAt), cors);
+}
+
+function writePersistedAssetNotReadyStream(res, cors, readiness, requestStartedAt = Date.now()) {
+  const body = persistedAssetNotReadyBody(readiness, requestStartedAt);
+  res.writeHead(200, {
+    ...cors,
+    'content-type': 'text/event-stream; charset=utf-8',
+    'cache-control': 'no-cache, no-transform',
+    connection: 'close',
+  });
+  res.write(`retry: ${body.retry_after_ms}\n\n`);
+  res.write(`event: persisted_asset_not_ready\ndata: ${JSON.stringify(body)}\n\n`);
+  res.end();
+}
+
+function isPersistedAssetRuntimeEntrypoint(method, pathname) {
+  if (method === 'GET' && (pathname === '/snapshot' || pathname === '/stream')) return true;
+  if (method === 'POST' && (pathname === BUS_EVENT_ENDPOINT_PATH || pathname === UI_EVENT_ENDPOINT_PATH)) return true;
+  if (method === 'POST' && pathname === '/api/runtime/mode') return true;
+  return false;
+}
+
+function writePersistedAssetNotReadyResponse(method, pathname, res, cors, readiness, requestStartedAt = Date.now()) {
+  if (method === 'GET' && pathname === '/stream') {
+    writePersistedAssetNotReadyStream(res, cors, readiness, requestStartedAt);
+    return;
+  }
+  writePersistedAssetNotReadyJson(res, cors, readiness, requestStartedAt);
+}
+
 function startServer(options) {
   const port = Number.isInteger(options && options.port) ? options.port : 9000;
   const corsOrigin = options && options.corsOrigin ? String(options.corsOrigin) : null;
@@ -12495,12 +12590,55 @@ function startServer(options) {
     ? { ok: true, skipped: true }
     : maybeEnsureFrontendBuild(distDir);
 
-  const state = createServerState({
-    dbPath: options && Object.prototype.hasOwnProperty.call(options, 'dbPath') ? options.dbPath : resolveDbPath(),
-  });
+  const configuredPersistedAssetRoot = resolvePersistedAssetRoot();
+  let persistedAssetReadiness = checkPersistedAssetReadiness(configuredPersistedAssetRoot);
   const rootDbPath = options && Object.prototype.hasOwnProperty.call(options, 'dbPath') ? options.dbPath : resolveDbPath();
+  const rootStateOptions = {
+    dbPath: rootDbPath,
+    persistedAssetRoot: configuredPersistedAssetRoot,
+    skipPersistedAssets: persistedAssetReadiness.status !== 'ready',
+  };
+  let state = null;
+  try {
+    state = createServerState(rootStateOptions);
+  } catch (err) {
+    const classifiedError = classifyRuntimeInitializationError(err);
+    if (classifiedError.code !== 'persisted_asset_not_ready') throw err;
+    persistedAssetReadiness = {
+      status: 'not_ready',
+      code: classifiedError.code,
+      assetRoot: configuredPersistedAssetRoot || '',
+      error: classifiedError.error,
+      retryAfterMs: 1000,
+    };
+    state = createServerState({ ...rootStateOptions, dbPath: null, skipPersistedAssets: true });
+  }
   const clients = new Set();
   let clientSnapshotSeq = 1;
+
+  function refreshPersistedAssetReadinessForRequest() {
+    if (persistedAssetReadiness.status === 'ready') return true;
+    const nextReadiness = checkPersistedAssetReadiness(configuredPersistedAssetRoot);
+    if (nextReadiness.status !== 'ready') {
+      persistedAssetReadiness = nextReadiness;
+      return false;
+    }
+    try {
+      state = createServerState({ dbPath: rootDbPath, persistedAssetRoot: configuredPersistedAssetRoot, skipPersistedAssets: false });
+      persistedAssetReadiness = nextReadiness;
+      return true;
+    } catch (err) {
+      const classifiedError = classifyRuntimeInitializationError(err);
+      persistedAssetReadiness = {
+        status: 'not_ready',
+        code: classifiedError.code,
+        assetRoot: configuredPersistedAssetRoot || '',
+        error: classifiedError.error,
+        retryAfterMs: 1000,
+      };
+      return false;
+    }
+  }
 
   // SSE sends filtered client snapshot (excludes snapshot_json, trace entries, function code)
   let _cachedClientSnapByState = new WeakMap();
@@ -13226,6 +13364,15 @@ function startServer(options) {
 
     if (!isPublicPath(req.method, url.pathname) && !isAuthenticated(req)) {
       writeLoginRequired();
+      return;
+    }
+
+    if (
+      persistedAssetReadiness.status !== 'ready'
+      && isPersistedAssetRuntimeEntrypoint(req.method, url.pathname)
+      && !refreshPersistedAssetReadinessForRequest()
+    ) {
+      writePersistedAssetNotReadyResponse(req.method, url.pathname, res, cors, persistedAssetReadiness, Date.now());
       return;
     }
 

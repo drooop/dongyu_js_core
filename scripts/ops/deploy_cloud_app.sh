@@ -197,6 +197,18 @@ verify_target_source_hashes() {
   done
 }
 
+verify_persisted_asset_manifest_in_pod() {
+  local app="$1"
+  local output
+  output="$(exec_in_running_pod "$app" "
+    test -r /app/persisted-assets/manifest.v0.json
+    grep -q '\"version\"[[:space:]]*:[[:space:]]*\"dy.asset_manifest.v0\"' /app/persisted-assets/manifest.v0.json
+    bytes=\$(wc -c < /app/persisted-assets/manifest.v0.json | tr -d ' ')
+    printf 'persisted_asset_manifest=/app/persisted-assets/manifest.v0.json bytes=%s' \"\$bytes\"
+  " "persisted asset manifest check")"
+  echo "  $output"
+}
+
 apply_target_manifest() {
   case "$TARGET" in
     ui-server|mbr-worker|remote-worker|workspace-manager)
@@ -210,9 +222,10 @@ verify_ui_server_secret_contract() {
   local secret_json
   secret_json="$(kubectl -n "$NAMESPACE" get secret ui-server-secret -o json)"
   SECRET_JSON="$secret_json" python3 - <<'PY'
+import os
+import base64
 import json
 import sys
-import os
 
 required = [
     "MODELTABLE_PATCH_JSON",
@@ -236,6 +249,21 @@ if missing:
     for key in missing:
         print(f"  - {key}", file=sys.stderr)
     print("Run deploy_cloud_full.sh once to refresh ui-server-secret before deploy_cloud_app.sh --target ui-server.", file=sys.stderr)
+    sys.exit(1)
+empty = []
+for key in ["DY_SESSION_SECRET", "DY_AUTH_SECRET"]:
+    raw = data.get(key, "")
+    try:
+        decoded = base64.b64decode(raw).decode("utf-8")
+    except Exception:
+        decoded = ""
+    if not decoded:
+        empty.append(key)
+if empty:
+    print("ERROR: ui-server-secret contains empty values required by session persistence:", file=sys.stderr)
+    for key in empty:
+        print(f"  - {key}", file=sys.stderr)
+    print("Run deploy_cloud_full.sh once to generate or refresh non-empty runtime auth secrets.", file=sys.stderr)
     sys.exit(1)
 print("  ui-server-secret: OK")
 PY
@@ -323,6 +351,12 @@ wait_for_rollout "$DEPLOYMENT"
 
 echo "--- Target source gate ---"
 verify_target_source_hashes
+echo "--- Persisted asset manifest gate ---"
+if [ "$TARGET" = "ui-server" ]; then
+  verify_persisted_asset_manifest_in_pod "$APP_LABEL"
+else
+  echo "  skipped for target ${TARGET}; persisted assets are mounted on ui-server only"
+fi
 
 echo "=== Cloud app deploy complete ==="
 echo "TARGET=$TARGET"

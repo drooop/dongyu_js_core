@@ -28,6 +28,8 @@ const requiredSecretKeys = [
 function assertDeployCommonWritesSecretKeys() {
   const source = read('scripts/ops/_deploy_common.sh');
   assert.match(source, /replace_or_create_secret_from_literals\(\)/, '_deploy_common_must_use_replace_or_create_secret_helper');
+  assert.match(source, /resolve_runtime_secret_literal\(\)/, '_deploy_common_must_resolve_runtime_secret_values');
+  assert.match(source, /generate_runtime_secret_literal\(\)/, '_deploy_common_must_generate_runtime_secret_when_missing');
   assert.match(source, /kubectl -n "\$ns" create secret generic "\$secret_name"/, '_deploy_common_must_generate_secret_with_kubectl_create');
   assert.match(source, /kubectl -n "\$ns" replace -f -/, '_deploy_common_must_replace_existing_secret_without_apply_annotation');
   assert.doesNotMatch(source, /kubectl apply -f -/, '_deploy_common_must_not_apply_stringData_secret_manifest');
@@ -35,6 +37,8 @@ function assertDeployCommonWritesSecretKeys() {
   for (const key of requiredSecretKeys) {
     assert.match(source, new RegExp(`--from-literal="${key}=`), `_deploy_common_must_write_${key}`);
   }
+  assert.match(source, /--from-literal="DY_SESSION_SECRET=\$dy_session_secret"/, '_deploy_common_must_write_resolved_session_secret');
+  assert.match(source, /--from-literal="DY_AUTH_SECRET=\$dy_auth_secret"/, '_deploy_common_must_write_resolved_auth_secret');
   assert.doesNotMatch(source, /cat > "\$tmp_ui"/, '_deploy_common_must_not_write_ui_secret_to_temp_yaml');
   assert.doesNotMatch(source, /cat > "\$tmp_mbr"/, '_deploy_common_must_not_write_mbr_secret_to_temp_yaml');
   assert.doesNotMatch(source, /local tmp_ui tmp_mbr/, '_deploy_common_must_not_keep_secret_temp_file_vars');
@@ -115,11 +119,14 @@ function extractBashFunction(source, name) {
   return source.slice(start, end + 3);
 }
 
-function runGuardWithFakeKubectl({ omitKey = '' } = {}) {
+function runGuardWithFakeKubectl({ omitKey = '', emptyKey = '' } = {}) {
   const source = read('scripts/ops/deploy_cloud_app.sh');
   const fn = extractBashFunction(source, 'verify_ui_server_secret_contract');
   const keys = ['MODELTABLE_PATCH_JSON', ...requiredSecretKeys].filter((key) => key !== omitKey);
-  const dataJson = Object.fromEntries(keys.map((key) => [key, Buffer.from('configured').toString('base64')]));
+  const dataJson = Object.fromEntries(keys.map((key) => [
+    key,
+    key === emptyKey ? '' : Buffer.from('configured').toString('base64'),
+  ]));
   const secretJson = JSON.stringify({ data: dataJson }).replace(/'/g, "'\\''");
   const script = `
 set -euo pipefail
@@ -145,6 +152,14 @@ function assertCloudAppDeployGuardExecutes() {
   const missing = runGuardWithFakeKubectl({ omitKey: 'DY_OIDC_CLIENT_ID' });
   assert.notEqual(missing.status, 0, 'cloud_app_deploy_guard_must_fail_when_secret_key_missing');
   assert.match(missing.stderr, /DY_OIDC_CLIENT_ID/, 'cloud_app_deploy_guard_must_report_missing_key');
+
+  const empty = runGuardWithFakeKubectl({ emptyKey: 'DY_SESSION_SECRET' });
+  assert.notEqual(empty.status, 0, 'cloud_app_deploy_guard_must_fail_when_session_secret_empty');
+  assert.match(empty.stderr, /DY_SESSION_SECRET/, 'cloud_app_deploy_guard_must_report_empty_session_secret');
+
+  const emptyAuth = runGuardWithFakeKubectl({ emptyKey: 'DY_AUTH_SECRET' });
+  assert.notEqual(emptyAuth.status, 0, 'cloud_app_deploy_guard_must_fail_when_auth_secret_empty');
+  assert.match(emptyAuth.stderr, /DY_AUTH_SECRET/, 'cloud_app_deploy_guard_must_report_empty_auth_secret');
 }
 
 async function main() {
