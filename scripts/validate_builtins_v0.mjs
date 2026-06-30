@@ -110,7 +110,7 @@ function runValidation() {
       t: 'pin.connect.label',
       v: [{ from: 'cmd', to: ['demo:in'] }],
     });
-    const cellKey = '100|1|0|0';
+    const cellKey = rt._cellConnectGraphKey(model, 1, 0, 0);
     assert(rt.cellConnectGraph.has(cellKey), 'pin.connect.label: graph should be registered');
     const graph = rt.cellConnectGraph.get(cellKey);
     assert(graph.has('self:cmd'), 'pin.connect.label: self:cmd route missing');
@@ -126,7 +126,7 @@ function runValidation() {
       t: 'pin.connect.cell',
       v: [{ from: [0, 0, 0, 'event'], to: [[1, 0, 0, 'event']] }],
     });
-    const routeKey = '101|0|0|0|event';
+    const routeKey = rt._cellConnectionRouteKey(model, 0, 0, 0, 'event');
     assert(rt.cellConnectionRoutes.has(routeKey), 'pin.connect.cell: route should be registered');
     results.push({ key: 'pin.connect.cell', status: 'PASS' });
   }

@@ -836,6 +836,9 @@ class ModelTableRuntime {
     }
     if (
       label.t === 'pin.connect.model'
+      || label.t === 'model.v1n'
+      || label.t === 'model.subtableconnection'
+      || label.t === 'model.submtconnection'
       || label.t === 'pin.bus.in'
       || label.t === 'pin.bus.out'
       || (typeof label.t === 'string' && label.t.startsWith('pin.log.'))
@@ -1080,12 +1083,16 @@ class ModelTableRuntime {
     }
     const busOutKeyLabel = this._payloadLabel(payload, 'bus_out_key');
     const nestedPayloadLabel = this._payloadLabel(payload, 'payload');
+    const payloadModelIdLabel = this._payloadLabel(payload, 'payload_model_id');
     const busLabel = this._payloadLabel(payload, 'bus');
     const routeKindLabel = this._payloadLabel(payload, 'route_kind');
     const topicLabel = this._payloadLabel(payload, 'topic');
     const responseTopicLabel = this._payloadLabel(payload, 'response_topic');
     const messageRoleLabel = this._payloadLabel(payload, 'message_role');
     const replyTargetPrincipalKeyLabel = this._payloadLabel(payload, 'reply_target_principal_key');
+    if (nestedPayloadLabel) {
+      return { ok: false, code: 'nested_payload_removed', requestId };
+    }
     for (const key of ['source_model_id', 'pin', 'route', 'reply_to', 'route.reply_to', 'return_topic', 'returnTopic', 'result_topic']) {
       if (this._payloadLabel(payload, key)) {
         return { ok: false, code: 'legacy_pin_payload_metadata_removed', requestId };
@@ -1103,7 +1110,12 @@ class ModelTableRuntime {
     const busOutKey = busOutKeyLabel && busOutKeyLabel.t === 'str' && typeof busOutKeyLabel.v === 'string' && busOutKeyLabel.v.trim()
       ? busOutKeyLabel.v.trim()
       : (endpoint ? endpoint.pin : '');
-    const nestedPayload = nestedPayloadLabel && nestedPayloadLabel.t === 'json' ? nestedPayloadLabel.v : null;
+    const payloadModelId = payloadModelIdLabel && payloadModelIdLabel.t === 'int' && Number.isInteger(payloadModelIdLabel.v)
+      ? payloadModelIdLabel.v
+      : null;
+    const payloadRecords = Number.isInteger(payloadModelId)
+      ? payload.filter((record) => record && record.id === payloadModelId)
+      : [];
     const bus = busLabel && busLabel.t === 'str' && typeof busLabel.v === 'string'
       ? busLabel.v.trim()
       : null;
@@ -1138,8 +1150,11 @@ class ModelTableRuntime {
     if (origin.table_id !== HOST_TABLE_ID && (!replyTarget.table_id_present || replyTarget.table_id === HOST_TABLE_ID)) {
       return { ok: false, code: 'missing_reply_target_table_id', requestId };
     }
-    if (!this._isTemporaryModelTablePayload(nestedPayload)) {
-      return { ok: false, code: 'invalid_nested_payload', requestId };
+    if (!Number.isInteger(payloadModelId) || payloadModelId <= 0) {
+      return { ok: false, code: 'missing_payload_model_id', requestId };
+    }
+    if (payloadRecords.length === 0) {
+      return { ok: false, code: 'missing_payload_records', requestId };
     }
     if (busLabel && (busLabel.t !== 'str' || (bus !== 'control' && bus !== 'management'))) {
       return { ok: false, code: 'invalid_bus', requestId };
@@ -1167,7 +1182,8 @@ class ModelTableRuntime {
       origin,
       replyTarget,
       busOutKey,
-      payload: nestedPayload,
+      payload: payloadRecords,
+      payloadModelId,
       bus,
       routeKind,
       topic,
@@ -1265,10 +1281,20 @@ class ModelTableRuntime {
   _payloadTableId(payload, key) {
     const label = this._payloadLabel(payload, key);
     if (!label) return { ok: true, value: HOST_TABLE_ID, present: false };
-    if (label.t !== 'str' || typeof label.v !== 'string' || !this._isSafePinRouteSegment(label.v)) {
+    if (label.t !== 'str' || typeof label.v !== 'string' || !this._isValidTableNamespace(label.v)) {
       return { ok: false, code: 'invalid_pin_payload_records' };
     }
     return { ok: true, value: label.v, present: true };
+  }
+
+  _isValidTableNamespace(value) {
+    return typeof value === 'string'
+      && value.trim() === value
+      && value.length > 0
+      && !value.includes('/')
+      && !value.includes('+')
+      && !value.includes('#')
+      && !/\s/u.test(value);
   }
 
   _endpointFromPayloadRecords(payload, prefix, options = {}) {
@@ -1372,6 +1398,7 @@ class ModelTableRuntime {
     const seen = new Set();
     for (const record of value) {
       if (!record || !watched.has(record.k)) continue;
+      if (record.id !== 0) continue;
       if (seen.has(record.k)) return true;
       seen.add(record.k);
     }
@@ -1383,13 +1410,21 @@ class ModelTableRuntime {
       return { ok: false, code: 'invalid_payload' };
     }
     const kind = this._payloadLabel(value, '__mt_payload_kind');
-    if (!kind || kind.t !== 'str' || kind.v !== 'pin_payload.v1') {
+    if (!kind || kind.t !== 'str') {
+      return { ok: false, code: 'invalid_payload_kind' };
+    }
+    if (kind.v === 'pin_payload.v1') {
+      return { ok: false, code: 'legacy_pin_payload_kind_removed' };
+    }
+    if (kind.v !== 'pin_payload.v2') {
       return { ok: false, code: 'invalid_payload_kind' };
     }
     const stringMetadataKeys = [
       '__mt_request_id',
       'op_id',
       'message_role',
+      'bus',
+      'route_kind',
       'topic',
       'response_topic',
       'endpoint_worker_id',
@@ -1408,11 +1443,10 @@ class ModelTableRuntime {
       'endpoint_model_id',
       'origin_model_id',
       'reply_target_model_id',
+      'payload_model_id',
       'payload',
       'timestamp',
       'bus_out_key',
-      'bus',
-      'route_kind',
       'topic',
       'response_topic',
     ]);
@@ -1445,6 +1479,10 @@ class ModelTableRuntime {
     if (!this._isValidPayloadTopic(responseTopic)) {
       return { ok: false, code: 'invalid_response_topic' };
     }
+    const nestedPayloadLabel = this._payloadLabel(value, 'payload');
+    if (nestedPayloadLabel && nestedPayloadLabel.t === 'json' && this._isTemporaryModelTablePayload(nestedPayloadLabel.v)) {
+      return { ok: false, code: 'nested_payload_removed' };
+    }
     const routeKindLabel = this._payloadLabel(value, 'route_kind');
     const routeKind = this._payloadString(value, 'route_kind') || 'control';
     if (routeKindLabel && (routeKindLabel.t !== 'str' || (routeKind !== 'control' && routeKind !== 'management'))) {
@@ -1455,6 +1493,20 @@ class ModelTableRuntime {
     }
     if (this._hasClientAuthoredAuthorityMetadata(value)) {
       return { ok: false, code: 'client_authority_metadata_rejected' };
+    }
+    if (!this._payloadLabel(value, 'origin_table_id')) {
+      return { ok: false, code: 'missing_origin_table_id' };
+    }
+    if (!this._payloadLabel(value, 'reply_target_table_id')) {
+      return { ok: false, code: 'missing_reply_target_table_id' };
+    }
+    const payloadModelId = this._payloadInt(value, 'payload_model_id');
+    if (!Number.isInteger(payloadModelId)) {
+      return { ok: false, code: 'missing_payload_model_id' };
+    }
+    const hasPayloadRecords = value.some((record) => record && record.id === payloadModelId);
+    if (!hasPayloadRecords) {
+      return { ok: false, code: 'missing_payload_records' };
     }
     const endpoint = this._endpointFromPayloadRecords(value, 'endpoint');
     const origin = this._endpointFromPayloadRecords(value, 'origin', { allowNonHostTable: true, allowNonHostModelZero: true });
@@ -1475,11 +1527,6 @@ class ModelTableRuntime {
     if (topicContractError) {
       return { ok: false, code: topicContractError };
     }
-    const nestedPayloadLabel = this._payloadLabel(value, 'payload');
-    const nestedPayload = nestedPayloadLabel && nestedPayloadLabel.t === 'json' ? nestedPayloadLabel.v : null;
-    if (!this._isTemporaryModelTablePayload(nestedPayload)) {
-      return { ok: false, code: 'invalid_nested_payload' };
-    }
     if (options.expectedEndpoint) {
       const expected = options.expectedEndpoint;
       if (
@@ -1491,13 +1538,17 @@ class ModelTableRuntime {
         return { ok: false, code: 'endpoint_mismatch' };
       }
     }
-    return { ok: true, endpoint, origin, replyTarget, nestedPayload, messageRole, topic, responseTopic, routeKind };
+    const payloadRecords = value.filter((record) => record && record.id === payloadModelId);
+    return { ok: true, endpoint, origin, replyTarget, payloadRecords, payloadModelId, messageRole, topic, responseTopic, routeKind };
   }
 
-  _buildPinPayloadValue({ opId, payload, timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null, replyTargetPrincipalKey = '', messageRole = 'request', topic = '', responseTopic = '', routeKind = null, bus = null }) {
+  _buildPinPayloadValue({ opId, payload, payloadModelId = 1, timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null, replyTargetPrincipalKey = '', messageRole = 'request', topic = '', responseTopic = '', routeKind = null, bus = null }) {
     const requestId = opId || `pin_payload_${Date.now()}`;
+    const payloadRecords = Array.isArray(payload)
+      ? payload.filter((record) => record && record.id === payloadModelId)
+      : [];
     const records = [
-      this._mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
+      this._mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v2'),
       this._mtPayloadRecord('__mt_request_id', 'str', requestId),
       this._mtPayloadRecord('op_id', 'str', requestId),
       this._mtPayloadRecord('message_role', 'str', messageRole),
@@ -1513,8 +1564,9 @@ class ModelTableRuntime {
       this._mtPayloadRecord('reply_target_table_id', 'str', replyTarget && replyTarget.table_id ? replyTarget.table_id : HOST_TABLE_ID),
       this._mtPayloadRecord('reply_target_model_id', 'int', replyTarget && Number.isInteger(replyTarget.model_id) ? replyTarget.model_id : 0),
       this._mtPayloadRecord('reply_target_pin', 'str', replyTarget && replyTarget.pin ? replyTarget.pin : ''),
-      this._mtPayloadRecord('payload', 'json', payload),
+      this._mtPayloadRecord('payload_model_id', 'int', payloadModelId),
       this._mtPayloadRecord('timestamp', 'int', timestamp),
+      ...payloadRecords.map((record) => ({ ...record })),
     ];
     if (typeof replyTargetPrincipalKey === 'string' && replyTargetPrincipalKey) {
       records.push(this._mtPayloadRecord('reply_target_principal_key', 'str', replyTargetPrincipalKey));
@@ -1636,13 +1688,13 @@ class ModelTableRuntime {
     if (hasLegacyMetadata) {
       return 'legacy_pin_payload_metadata_removed';
     }
-    if (kind && kind.t === 'str' && kind.v === 'pin_payload.v1') {
-      const parsed = this._validatePinPayloadRecords(label.v);
-      if (!parsed.ok) return `bus_in_${parsed.code || 'invalid_payload'}`;
-    }
     if (this._isBusOutResolvedType(resolvedType)) {
       const parsed = this._parsePinPayloadValue(label.v);
       if (!parsed.ok) return `bus_out_${parsed.code || 'invalid_payload'}`;
+    }
+    if (kind && kind.t === 'str' && (kind.v === 'pin_payload.v1' || kind.v === 'pin_payload.v2')) {
+      const parsed = this._validatePinPayloadRecords(label.v);
+      if (!parsed.ok) return `bus_in_${parsed.code || 'invalid_payload'}`;
     }
     return null;
   }
@@ -1683,7 +1735,7 @@ class ModelTableRuntime {
     if (hasLegacyMetadata) {
       return 'legacy_pin_payload_metadata_removed';
     }
-    if (kind && kind.t === 'str' && kind.v === 'pin_payload.v1') {
+    if (kind && kind.t === 'str' && (kind.v === 'pin_payload.v1' || kind.v === 'pin_payload.v2')) {
       const parsed = this._validatePinPayloadRecords(label.v);
       if (!parsed.ok) return `pin_payload_${parsed.code || 'invalid_payload'}`;
     }
@@ -1694,7 +1746,8 @@ class ModelTableRuntime {
     if (!kind) return false;
     if (kind.t !== 'str' || typeof kind.v !== 'string') return true;
     const normalized = kind.v.trim();
-    return normalized.startsWith('pin_payload.') && (kind.v !== normalized || normalized !== 'pin_payload.v1');
+    return normalized.startsWith('pin_payload.')
+      && (kind.v !== normalized || (normalized !== 'pin_payload.v1' && normalized !== 'pin_payload.v2'));
   }
 
   _applyBusSendPayload(model, p, r, c, payload) {
@@ -1708,6 +1761,7 @@ class ModelTableRuntime {
     const busOutPayload = this._buildPinPayloadValue({
       opId: parsed.requestId,
       payload: parsed.payload,
+      payloadModelId: parsed.payloadModelId,
       endpoint: parsed.endpoint,
       origin: parsed.origin,
       replyTarget: parsed.replyTarget,

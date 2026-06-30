@@ -205,6 +205,113 @@ phase: execution
   changes.
 - Commit: pending
 
+### Stage 3.1: Runtime And Server Hard-Cut
+
+- Command:
+  - `node scripts/tests/test_0430_feishu_operational_ssot_contract.mjs`
+  - `node --check packages/worker-base/src/runtime.mjs`
+  - `node --check packages/ui-model-demo-server/server.mjs`
+  - `node scripts/tests/test_cell_connect_parse.mjs`
+  - `node scripts/tests/test_bus_in_out.mjs`
+  - `node scripts/validate_builtins_v0.mjs`
+  - `node scripts/validate_program_model_loader_v0.mjs --case connect_allowlist`
+  - `node scripts/validate_ui_ast_v0x.mjs --case all`
+  - `git diff --check -- packages/worker-base/src/runtime.mjs packages/ui-model-demo-server/server.mjs scripts/tests/test_0430_feishu_operational_ssot_contract.mjs scripts/validate_builtins_v0.mjs scripts/validate_program_model_loader_v0.mjs`
+- Key output:
+  - 0430 contract now passes for CJS and ESM runtime:
+    - removed Feishu labels are rejected:
+      `model.v1n`, `model.subtableconnection`,
+      `model.submtconnection`, `pin.connect.model`.
+    - `pin_payload.v2` record-array values are accepted for
+      `pin.bus.cb.out` and DEM-only `pin.bus.mb.out`.
+    - stale `pin_payload.v1`, nested `payload.v`, missing
+      `origin_table_id`, and missing `reply_target_table_id` fail closed.
+    - `mt_bus_send` now accepts non-nested `bus_send.v1` input with
+      `payload_model_id` and emits `pin_payload.v2` without `payload.v`.
+    - server `parsePinPayloadRecordEnvelope` and
+      `parsePrincipalRuntimePinPayload` accept the v2 non-nested shape and
+      reject removed v1/nested shapes.
+  - Syntax checks returned no output.
+  - `test_cell_connect_parse`: `8 passed, 0 failed out of 8`.
+  - `test_bus_in_out`: `7 passed, 0 failed out of 7`.
+  - `validate_builtins_v0`: all listed validation cases passed, including
+    removed `pin.connect.model`.
+  - `validate_program_model_loader_v0 --case connect_allowlist`: PASS.
+  - `validate_ui_ast_v0x --case all`: `summary: PASS`.
+  - `git diff --check` returned no whitespace errors.
+- Sub-agent review:
+  - Initial decision: CHANGE_REQUESTED.
+  - Findings:
+    - server receive handlers still consumed `parsedEnvelope.nestedPayload`;
+      accepted v2 packets would not materialize owner labels or install provider
+      bundles.
+    - Workspace Manager provider bundle request builder still emitted
+      `pin_payload.v1` with nested `payload.v`.
+    - Mgmt Bus Console request builder still emitted `pin_payload.v1` with
+      nested `payload.v`.
+    - server direct bus-payload validation still treated `pin_payload.v2` as
+      malformed.
+    - positive-model pins only validated `pin_payload.v1`, not malformed v2.
+  - Fixes:
+    - `parsePinPayloadRecordEnvelope` / `parsePrincipalRuntimePinPayload`
+      consumers now use `payloadRecords`.
+    - Workspace Manager bundle request builder now emits `pin_payload.v2` plus
+      `payload_model_id` and business records in `id=1`.
+    - Mgmt Bus Console builder now emits `pin_payload.v2` plus
+      `payload_model_id` and business records in `id=1`.
+    - server direct bus payload validation accepts only valid
+      `pin_payload.v2` and rejects stale v1 / nested payloads.
+    - positive-model `pin.in` / `pin.out` family validates malformed v2 with
+      the same explicit codes.
+  - Added contract coverage:
+    - Workspace Manager bundle request builder emits v2 non-nested records.
+    - Mgmt Bus Console builder emits v2 non-nested records.
+    - direct bus payload validation accepts v2 and rejects v1/nested.
+    - positive-model pin rejects malformed v2 missing `payload_model_id`.
+  - Follow-up verification:
+    - `node scripts/tests/test_0430_feishu_operational_ssot_contract.mjs`:
+      PASS, including all CJS/ESM runtime and server builder/parser cases.
+    - Syntax, cell connect, bus in/out, builtins, program loader, UI AST, and
+      `git diff --check` commands above still PASS after fixes.
+  - Second review decision: CHANGE_REQUESTED.
+  - Finding:
+    - generated imported slide-app host egress bridge still wrote
+      `mt_bus_send_in` as nested `payload.v`, so installed slide app button
+      egress would be rejected by the new runtime.
+  - Fix:
+    - `materializeImportedHostEgressAdapter` now generates bridge code that
+      maps app-provided payload records into payload model `id=1`, writes
+      `payload_model_id=1`, expands `...payloadRecords`, and does not write
+      `payload`.
+    - 0430 contract now executes the generated bridge function, checks its
+      `mt_bus_send_in` value is non-nested, and proves runtime `mt_bus_send`
+      turns it into `pin_payload.v2`.
+  - Second follow-up verification:
+    - `node scripts/tests/test_0430_feishu_operational_ssot_contract.mjs`:
+      PASS, including generated imported host egress bridge coverage.
+    - Syntax, cell connect, bus in/out, builtins, program loader, UI AST, and
+      `git diff --check` commands above still PASS after the bridge fix.
+  - Final Stage 3 re-review:
+    - Decision: APPROVED.
+    - Findings: none.
+    - Open questions: none.
+    - Verification gaps: none.
+- Files changed:
+  - `packages/worker-base/src/runtime.mjs`
+  - `packages/ui-model-demo-server/server.mjs`
+  - `scripts/tests/test_0430_feishu_operational_ssot_contract.mjs`
+  - `scripts/validate_builtins_v0.mjs`
+  - `scripts/validate_program_model_loader_v0.mjs`
+- Carry-forward to Stage 4:
+  - Project-owned fill-table assets and server business builders still contain
+    active `pin_payload.v1` / nested `payload.v` construction paths. These are
+    not compatibility fallbacks; they must be rewritten in the Tier2 refit
+    stage before local deployment/browser E2E.
+  - After review fixes, active runtime/server builders in Stage 3 scope no
+    longer emit `pin_payload.v1`; remaining v1 hits are explicit rejection
+    paths, historical tests, docs, and project-owned fill-table assets to refit.
+- Result: PASS; sub-agent review approved.
+
 ## Docs Updated / Assessed
 
 - [x] `docs/ssot/feishu_model_label_alignment_v1.md` used as source

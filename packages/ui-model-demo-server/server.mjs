@@ -3578,8 +3578,9 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
     v: {
       code: [
         `const opId = 'imported_${rootModelId}_' + Date.now() + '_' + Math.random().toString(16).slice(2);`,
-        `const mt = (k, t, v) => ({ id: 0, p: 0, r: 0, c: 0, k, t, v });`,
+        `const mt = (k, t, v, id = 0) => ({ id, p: 0, r: 0, c: 0, k, t, v });`,
         `const payload = Array.isArray(label && label.v) ? label.v : [];`,
+        `const payloadRecords = payload.filter((record) => record && typeof record === 'object' && !Array.isArray(record) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && typeof record.t === 'string' && Object.prototype.hasOwnProperty.call(record, 'v')).map((record) => ({ ...record, id: 1 }));`,
         `const principalLabel = V1N.readLabel(0, 0, 0, 'principal_runtime_key');`,
         `const principalKey = principalLabel && principalLabel.t === 'str' && typeof principalLabel.v === 'string' ? principalLabel.v : '';`,
         `V1N.addLabel('mt_bus_send_in', 'pin.in', [`,
@@ -3604,7 +3605,8 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
         `  mt('reply_target_model_id', 'int', ${rootModelId}),`,
         `  mt('reply_target_pin', 'str', ${JSON.stringify(SLIDE_IMPORT_REPLY_PIN)}),`,
         `  ...(principalKey ? [mt('reply_target_principal_key', 'str', principalKey)] : []),`,
-        `  mt('payload', 'json', payload),`,
+        `  mt('payload_model_id', 'int', 1),`,
+        `  ...payloadRecords,`,
         `]);`,
         'return;',
       ].join('\n'),
@@ -4143,8 +4145,24 @@ function findTemporaryPayloadRecord(payload, key) {
     && record.k === key) || null;
 }
 
+function findPayloadModelRecord(payload, key) {
+  if (!Array.isArray(payload) || typeof key !== 'string') return null;
+  return payload.find((record) => record
+    && Number.isInteger(record.id)
+    && record.p === 0
+    && record.r === 0
+    && record.c === 0
+    && record.k === key) || null;
+}
+
 function readTemporaryPayloadString(payload, key, fallback = '') {
   const record = findTemporaryPayloadRecord(payload, key);
+  if (!record) return fallback;
+  return record.t === 'str' && typeof record.v === 'string' ? record.v : fallback;
+}
+
+function readPayloadModelString(payload, key, fallback = '') {
+  const record = findPayloadModelRecord(payload, key);
   if (!record) return fallback;
   return record.t === 'str' && typeof record.v === 'string' ? record.v : fallback;
 }
@@ -4156,6 +4174,11 @@ function readTemporaryPayloadInt(payload, key) {
 
 function readTemporaryPayloadJson(payload, key) {
   const record = findTemporaryPayloadRecord(payload, key);
+  return record && record.t === 'json' ? record.v : null;
+}
+
+function readPayloadModelJson(payload, key) {
+  const record = findPayloadModelRecord(payload, key);
   return record && record.t === 'json' ? record.v : null;
 }
 
@@ -4182,6 +4205,7 @@ function hasDuplicateTemporaryPayloadRecordKeys(payload, keys) {
   const seen = new Set();
   for (const record of payload) {
     if (!record || !watched.has(record.k)) continue;
+    if (record.id !== 0) continue;
     if (seen.has(record.k)) return true;
     seen.add(record.k);
   }
@@ -4205,16 +4229,20 @@ function parsePinPayloadRecordEnvelope(content) {
     return { ok: false, code: 'temporary_modeltable_required' };
   }
   const kind = readTemporaryPayloadString(records, '__mt_payload_kind');
-  if (kind !== 'pin_payload.v1') {
+  if (kind === 'pin_payload.v1') {
+    return { ok: false, code: 'legacy_pin_payload_kind_removed' };
+  }
+  if (kind !== 'pin_payload.v2') {
     return { ok: false, code: 'invalid_payload_kind' };
   }
   const stringMetadataKeys = [
     '__mt_request_id',
     'op_id',
     'message_role',
+    'bus',
+    'route_kind',
     'topic',
     'response_topic',
-    'route_kind',
     'endpoint_worker_id',
     'endpoint_table_id',
     'endpoint_pin',
@@ -4231,10 +4259,10 @@ function parsePinPayloadRecordEnvelope(content) {
     'endpoint_model_id',
     'origin_model_id',
     'reply_target_model_id',
+    'payload_model_id',
     'payload',
     'timestamp',
     'bus_out_key',
-    'bus',
   ]);
   if (hasDuplicateTemporaryPayloadRecordKeys(records, metadataKeys)) {
     return { ok: false, code: 'invalid_pin_payload_records' };
@@ -4266,6 +4294,10 @@ function parsePinPayloadRecordEnvelope(content) {
   if (!isValidControlBusEndpointTopic(responseTopic)) {
     return { ok: false, code: 'invalid_response_topic' };
   }
+  const nestedPayload = readTemporaryPayloadJson(records, 'payload');
+  if (isTemporaryPayloadRecordArray(nestedPayload)) {
+    return { ok: false, code: 'nested_payload_removed' };
+  }
   for (const record of records) {
     if (!record || typeof record.k !== 'string') {
       return { ok: false, code: 'invalid_pin_payload_records' };
@@ -4277,14 +4309,27 @@ function parsePinPayloadRecordEnvelope(content) {
   if (hasClientAuthoredAuthorityMetadata(records)) {
     return { ok: false, code: 'client_authority_metadata_rejected' };
   }
+  if (!findTemporaryPayloadRecord(records, 'origin_table_id')) {
+    return { ok: false, code: 'missing_origin_table_id' };
+  }
+  if (!findTemporaryPayloadRecord(records, 'reply_target_table_id')) {
+    return { ok: false, code: 'missing_reply_target_table_id' };
+  }
+  const payloadModelId = readTemporaryPayloadInt(records, 'payload_model_id');
+  if (!Number.isInteger(payloadModelId)) {
+    return { ok: false, code: 'missing_payload_model_id' };
+  }
+  const payloadRecords = records.filter((record) => record && record.id === payloadModelId);
+  if (payloadRecords.length === 0) {
+    return { ok: false, code: 'missing_payload_records' };
+  }
   const endpoint = readPinPayloadEndpoint(records, 'endpoint');
   const origin = readPinPayloadEndpoint(records, 'origin');
   const replyTarget = readPinPayloadEndpoint(records, 'reply_target');
   const validEndpoint = isValidPinPayloadEndpoint(endpoint) && endpoint.table_id === 'host';
   const validOrigin = isValidPinPayloadEndpoint(origin, { allowNonHostModelZero: true });
   const validReplyTarget = isValidPinPayloadEndpoint(replyTarget, { allowNonHostModelZero: true });
-  const nestedPayload = readTemporaryPayloadJson(records, 'payload');
-  if (!validEndpoint || !validOrigin || !validReplyTarget || !isTemporaryPayloadRecordArray(nestedPayload)) {
+  if (!validEndpoint || !validOrigin || !validReplyTarget) {
     return { ok: false, code: 'invalid_pin_payload_records' };
   }
   if (origin.table_id !== 'host' && (!replyTarget.table_id_present || replyTarget.table_id === 'host')) {
@@ -4301,7 +4346,7 @@ function parsePinPayloadRecordEnvelope(content) {
     return { ok: false, code: topicContractError };
   }
   const opId = opIdLabel || requestId;
-  return { ok: true, records, endpoint, origin, replyTarget, nestedPayload, opId, messageRole, topic: topicValue, responseTopic };
+  return { ok: true, records, endpoint, origin, replyTarget, payloadRecords, payloadModelId, opId, messageRole, topic: topicValue, responseTopic };
 }
 
 function upsertTemporaryPayloadRecord(payload, record) {
@@ -4399,9 +4444,10 @@ function parsePrincipalRuntimePinPayload(payload) {
     return { ok: false, code: 'temporary_modeltable_required' };
   }
   const kind = readTemporaryPayloadString(records, '__mt_payload_kind');
-  if (kind !== 'pin_payload.v1') return { ok: false, code: 'invalid_payload_kind' };
+  if (kind === 'pin_payload.v1') return { ok: false, code: 'legacy_pin_payload_kind_removed' };
+  if (kind !== 'pin_payload.v2') return { ok: false, code: 'invalid_payload_kind' };
   const nestedPayload = readTemporaryPayloadJson(records, 'payload');
-  if (!isTemporaryPayloadRecordArray(nestedPayload)) return { ok: false, code: 'invalid_nested_payload' };
+  if (isTemporaryPayloadRecordArray(nestedPayload)) return { ok: false, code: 'nested_payload_removed' };
   const topic = readTemporaryPayloadString(records, 'topic');
   const responseTopic = readTemporaryPayloadString(records, 'response_topic');
   if (!isValidPrincipalRuntimeControlTopic(topic)) return { ok: false, code: 'invalid_topic' };
@@ -4427,6 +4473,20 @@ function parsePrincipalRuntimePinPayload(payload) {
   if (origin.table_id !== 'host' && (!replyTarget.table_id_present || replyTarget.table_id === 'host')) {
     return { ok: false, code: 'missing_reply_target_table_id' };
   }
+  if (!findTemporaryPayloadRecord(records, 'origin_table_id')) {
+    return { ok: false, code: 'missing_origin_table_id' };
+  }
+  if (!findTemporaryPayloadRecord(records, 'reply_target_table_id')) {
+    return { ok: false, code: 'missing_reply_target_table_id' };
+  }
+  const payloadModelId = readTemporaryPayloadInt(records, 'payload_model_id');
+  if (!Number.isInteger(payloadModelId)) {
+    return { ok: false, code: 'missing_payload_model_id' };
+  }
+  const payloadRecords = records.filter((record) => record && record.id === payloadModelId);
+  if (payloadRecords.length === 0) {
+    return { ok: false, code: 'missing_payload_records' };
+  }
   return {
     ok: true,
     records,
@@ -4438,7 +4498,8 @@ function parsePrincipalRuntimePinPayload(payload) {
     endpoint,
     origin,
     replyTarget,
-    nestedPayload,
+    payloadRecords,
+    payloadModelId,
   };
 }
 
@@ -4754,7 +4815,7 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
       version: 'v1',
       type: 'pin_payload',
       payload: [
-        mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
+        mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v2'),
         mtPayloadRecord('__mt_request_id', 'str', opId),
         mtPayloadRecord('op_id', 'str', opId),
         mtPayloadRecord('message_role', 'str', 'request'),
@@ -4775,8 +4836,9 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
         mtPayloadRecord('reply_target_model_id', 'int', replyTarget.model_id),
         mtPayloadRecord('reply_target_pin', 'str', replyTarget.pin),
         ...(principalKey ? [mtPayloadRecord('reply_target_principal_key', 'str', principalKey)] : []),
-        mtPayloadRecord('payload', 'json', normalizedPayload),
+        mtPayloadRecord('payload_model_id', 'int', 1),
         mtPayloadRecord('timestamp', 'int', now),
+        ...payloadModelRecords(normalizedPayload, 1),
       ],
     },
   };
@@ -4804,6 +4866,13 @@ const GENERIC_PIN_ERROR_LABEL = 'owner_pin_error';
 
 function mtPayloadRecord(k, t, v) {
   return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function payloadModelRecords(records, payloadModelId = 1) {
+  if (!Array.isArray(records)) return [];
+  return records
+    .filter((record) => isTemporaryModelTableRecord(record))
+    .map((record) => ({ ...record, id: payloadModelId }));
 }
 
 function ownerRequestToTemporaryPayload(request, kind = 'owner_request.v1') {
@@ -6224,14 +6293,14 @@ function buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndp
   };
   const principalKey = readRuntimePrincipalKey(runtime);
   const responseTopic = buildEndpointTopic(runtime, replyTarget);
-  const nestedPayload = [
+  const businessPayload = [
     mtPayloadRecord('__mt_payload_kind', 'str', 'slide_app_bundle_request.v1'),
     mtPayloadRecord('__mt_request_id', 'str', requestId),
     mtPayloadRecord('asset_id', 'str', row.id),
     mtPayloadRecord('requested_version', 'str', 'current'),
   ];
   const records = [
-    mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v2'),
     mtPayloadRecord('__mt_request_id', 'str', requestId),
     mtPayloadRecord('op_id', 'str', requestId),
     mtPayloadRecord('message_role', 'str', 'request'),
@@ -6252,8 +6321,9 @@ function buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndp
     mtPayloadRecord('reply_target_model_id', 'int', replyTarget.model_id),
     mtPayloadRecord('reply_target_pin', 'str', replyTarget.pin),
     ...(principalKey ? [mtPayloadRecord('reply_target_principal_key', 'str', principalKey)] : []),
-    mtPayloadRecord('payload', 'json', nestedPayload),
+    mtPayloadRecord('payload_model_id', 'int', 1),
     mtPayloadRecord('timestamp', 'int', now),
+    ...payloadModelRecords(businessPayload, 1),
   ];
   return {
     opId: requestId,
@@ -6697,7 +6767,8 @@ function isMalformedPinPayloadKind(kind) {
   if (!kind) return false;
   if (kind.t !== 'str' || typeof kind.v !== 'string') return true;
   const normalized = kind.v.trim();
-  return normalized.startsWith('pin_payload.') && (kind.v !== normalized || normalized !== 'pin_payload.v1');
+  return normalized.startsWith('pin_payload.')
+    && (kind.v !== normalized || (normalized !== 'pin_payload.v1' && normalized !== 'pin_payload.v2'));
 }
 
 function isValidBusPayloadArray(value) {
@@ -6711,6 +6782,9 @@ function isValidBusPayloadArray(value) {
   if (kind && (kind.t !== 'str' || typeof kind.v !== 'string')) return false;
   if (isMalformedPinPayloadKind(kind)) return false;
   if (kind && kind.t === 'str' && kind.v === 'pin_payload.v1') {
+    return false;
+  }
+  if (kind && kind.t === 'str' && kind.v === 'pin_payload.v2') {
     const parsed = parsePinPayloadRecordEnvelope({ version: 'v1', type: 'pin_payload', payload: value });
     return parsed.ok === true;
   }
@@ -7911,8 +7985,8 @@ class ProgramModelEngine {
 
   handleWorkspaceAssetBundleResponse(parsedEnvelope, packet, topic = '') {
     if (!parsedEnvelope || !parsedEnvelope.ok) return { matched: false, handled: false };
-    const nestedKind = readTemporaryPayloadString(parsedEnvelope.nestedPayload, '__mt_payload_kind');
-    if (nestedKind !== 'slide_app_bundle_response.v1') {
+    const payloadKind = readPayloadModelString(parsedEnvelope.payloadRecords, '__mt_payload_kind');
+    if (payloadKind !== 'slide_app_bundle_response.v1') {
       return { matched: false, handled: false };
     }
     const uiServerWorkerId = resolveUiServerWorkerId();
@@ -7950,8 +8024,8 @@ class ProgramModelEngine {
     const payloadTopic = readTemporaryPayloadString(parsedEnvelope.records, 'topic');
     const responseTopic = readTemporaryPayloadString(parsedEnvelope.records, 'response_topic');
     const routeKind = readTemporaryPayloadString(parsedEnvelope.records, 'route_kind');
-    const assetId = readTemporaryPayloadString(parsedEnvelope.nestedPayload, 'asset_id');
-    const bundlePayload = readTemporaryPayloadJson(parsedEnvelope.nestedPayload, 'bundle_payload');
+    const assetId = readPayloadModelString(parsedEnvelope.payloadRecords, 'asset_id');
+    const bundlePayload = readPayloadModelJson(parsedEnvelope.payloadRecords, 'bundle_payload');
     const expectedEndpoint = pending.provider_endpoint && typeof pending.provider_endpoint === 'object'
       ? pending.provider_endpoint
       : null;
@@ -8061,7 +8135,7 @@ class ProgramModelEngine {
     if (parsedEnvelope.replyTarget.worker_id !== uiServerWorkerId || parsedEnvelope.replyTarget.pin !== 'result') return false;
     const bundleResponse = this.handleWorkspaceAssetBundleResponse(parsedEnvelope, payload, topic);
     if (bundleResponse.matched) return bundleResponse.handled;
-    const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget, parsedEnvelope.nestedPayload, parsedEnvelope.opId);
+    const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget, parsedEnvelope.payloadRecords, parsedEnvelope.opId);
     if (!materialization) return false;
     emitTrace(this.runtime, {
       hop: 'mqtt\u2192server',
@@ -8326,7 +8400,7 @@ class ProgramModelEngine {
         ? validateMgmtBusConsoleAck({
           version: 'v1',
           type: 'mgmt_bus_console_ack',
-          payload: parsedEnvelope.nestedPayload,
+          payload: parsedEnvelope.payloadRecords.map((record) => ({ ...record, id: 0 })),
         })
         : { ok: false };
       if (ackValidation.ok) {
@@ -8360,7 +8434,7 @@ class ProgramModelEngine {
       if (bundleResponse.matched) {
         return;
       }
-      const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget, parsedEnvelope.nestedPayload, opId);
+      const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget, parsedEnvelope.payloadRecords, opId);
       if (!materialization) {
         return;
       }
@@ -13905,6 +13979,8 @@ export {
   buildClientSnapshotProfile,
   buildClientSnapshotProfileStats,
   buildClientSnapshotProfileWithStats,
+  buildMgmtBusConsoleMatrixPacket,
+  buildWorkspaceAssetBundleRequestPacket,
   buildSlideAppExportPayload,
   buildSlideAppExportZip,
   createPrincipalRuntimeRegistry,
@@ -13913,7 +13989,10 @@ export {
   handleSlideAppExportRequest,
   handleMediaUploadRequest,
   handleMatrixMediaProxyRequest,
+  isValidBusPayloadArray,
+  materializeImportedHostEgressAdapter,
   parsePinPayloadRecordEnvelope,
+  parsePrincipalRuntimePinPayload,
   startServer,
 };
 
