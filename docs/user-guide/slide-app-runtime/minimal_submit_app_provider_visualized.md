@@ -2,7 +2,7 @@
 title: "最小 Submit 双总线示例 - Visualized"
 doc_type: user-guide
 status: active
-updated: 2026-05-13
+updated: 2026-07-01
 source: ai
 ---
 
@@ -23,12 +23,12 @@ sequenceDiagram
   UI->>UI: ui_bind_json writes value_ref to click_event
   UI->>UI: click_event -> click_event_wiring -> click_chain -> submit_request -> handle_submit:in
   UI->>M0: submit1 pin.out reaches generated host egress adapter
-  M0->>CB: pin_payload.v1 with topic=UIPUT/ws/dam/pic/de/R1/3000/submit1 and response_topic=UIPUT/ws/dam/pic/de/U1/1087/result
+  M0->>CB: pin_payload.v2 with topic=UIPUT/ws/dam/pic/de/R1/3000/submit1 and response_topic=UIPUT/ws/dam/pic/de/U1/1087/result
   CB->>MBR: control bus packet
   MBR->>MQTT: UIPUT/ws/dam/pic/de/R1/3000/submit1
   MQTT->>R1: root submit1 pin.in
   R1->>R1: root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in`
-  R1->>MQTT: response_topic pin_payload.v1 message_role=response
+  R1->>MQTT: response_topic pin_payload.v2 message_role=response
   MQTT->>MBR: control bus reply
   MBR->>CB: topic=UIPUT/ws/dam/pic/de/U1/1087/result
   CB->>M0: endpoint=U1/host/1087/result + reply_target=U1/app:.../0/result
@@ -93,7 +93,7 @@ flowchart TB
 UIPUT/ws/dam/pic/de/R1/3000/submit1
 ```
 
-请求的 `topic` 描述远端 endpoint；请求还必须携带独立 `response_topic`。回包时，`topic` 与 `response_topic` 都改成本地回包 topic。真正的请求来源、消息方向和回包目标都在 `pin_payload.v1` 的 Temporary ModelTable records 里：
+请求的 `topic` 描述远端 endpoint；请求还必须携带独立 `response_topic`。回包时，`topic` 与 `response_topic` 都改成本地回包 topic。真正的请求来源、消息方向和回包目标都在 `pin_payload.v2` 的 Temporary ModelTable records 里：
 
 | records | 示例 |
 |---|---|
@@ -103,9 +103,9 @@ UIPUT/ws/dam/pic/de/R1/3000/submit1
 | `remote_bus_endpoint_v1` -> `endpoint_worker_id` / `endpoint_model_id` / `endpoint_pin` | `R1 / 3000 / submit1` |
 | `origin_worker_id` / `origin_table_id` / `origin_model_id` / `origin_pin` | `U1 / app:... / 0 / submit1` |
 | `reply_target_worker_id` / `reply_target_table_id` / `reply_target_model_id` / `reply_target_pin` | `U1 / app:... / 0 / result` |
-| nested `payload` | `text`、`source` |
+| `payload_model_id` 指向的 records | `text`、`source` |
 
-外部客户端模拟回包时，向 `UIPUT/ws/dam/pic/de/U1/1087/result` 发送 `pin_payload.v1`，并把 `message_role` 写成 `response`。手工示例的 `op_id` 可以是 `"manual_result_app_table_001"`，嵌套 payload 至少包含：
+外部客户端模拟回包时，向 `UIPUT/ws/dam/pic/de/U1/1087/result` 发送 `pin_payload.v2`，并把 `message_role` 写成 `response`。手工示例的 `op_id` 可以是 `"manual_result_app_table_001"`，`payload_model_id` 指向的业务 records 至少包含：
 
 ```json
 [
@@ -133,7 +133,7 @@ submit1:out -> `(1,1,1).submit1_out` -> root `result`
 | `source_model_id` | 不再作为传输 metadata；使用 table-qualified `origin_table_id + origin_model_id` / `reply_target_table_id + reply_target_model_id`。 |
 | `worker/R1/model/3000/pin/submit1` | 旧 topic 形态，禁止。 |
 | `pin.connect.model` | 已移除；使用 `pin.connect.cell`。 |
-| raw `resultPayload` | 公开 result path 必须包装成 `pin_payload.v1`。 |
+| raw `resultPayload` | 公开 result path 必须包装成 `pin_payload.v2`。 |
 
 ## 导出
 

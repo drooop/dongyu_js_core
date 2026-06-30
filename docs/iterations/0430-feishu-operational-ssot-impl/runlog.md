@@ -434,6 +434,107 @@ phase: execution
   - Verification gaps: none.
 - Result: PASS; sub-agent review approved.
 
+### Stage 5.1: Slide App Examples And Developer Docs Refit
+
+- Command:
+  - Updated slide-app runtime developer docs and interactive/visualized docs
+    with `apply_patch`.
+  - Updated active RemoteWorker provider functions in:
+    - `deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json`
+    - `deploy/sys-v1ns/remote-worker/patches/14_model3100_slide_app_bundle_provider.json`
+  - Added `scripts/tests/test_0430_remote_worker_pin_payload_v2_response_targets.mjs`.
+  - `node scripts/tests/test_0430_remote_worker_pin_payload_v2_response_targets.mjs`
+  - `node --input-type=module <func.js compile check for active remote-worker provider patches>`
+  - `node scripts/tests/test_0384_provider_owned_slide_app_install_flow.mjs`
+  - `node scripts/tests/test_0396_dual_topic_submit_response_contract.mjs`
+  - `node scripts/tests/test_0412_todo_provider_app1_contract.mjs`
+  - `node scripts/validate_mbr_patch_v0.mjs`
+  - `node scripts/validate_model100_records_e2e_v0.mjs`
+  - `node scripts/tests/test_0430_feishu_operational_ssot_contract.mjs`
+  - `node -e <JSON parse checks for app payload examples>`
+  - `zipinfo -1 test_files/minimal_submit_dual_bus.zip`
+  - `node scripts/ops/obsidian_docs_migrate.mjs --root docs --phase all`
+  - `rg -n "pin_payload\\.v1|(^|[^_])payload\\.v|bundle_payload\\.v|json_patch|model_id.*developer" docs/user-guide --glob '!**/*.png' --glob '!**/*.jpg' || true`
+  - `git diff --check -- deploy docs scripts`
+- Key output:
+  - `minimal_submit_response_target: PASS`
+  - `bundle_provider_response_target: PASS`
+  - `PASSED 2 / 2`
+  - Provider `func.js` syntax check:
+    - `PATCH FUNC COMPILE OK deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json`
+    - `PATCH FUNC COMPILE OK deploy/sys-v1ns/remote-worker/patches/14_model3100_slide_app_bundle_provider.json`
+  - Provider-owned install flow: `9 passed, 0 failed out of 9`.
+  - Dual-topic submit/response contract:
+    `PASS test_0396_dual_topic_submit_response_contract`.
+  - Todo provider app1 contract: all five listed checks passed.
+  - MBR patch validator: `TOTAL: 126  PASS: 126  FAIL: 0`.
+  - Model 100 E2E validator:
+    `PASS: model100 temporary-modeltable E2E (MBR -> mqttIncoming -> D0 function)`.
+  - 0430 operational SSOT contract:
+    `0430 FEISHU OPERATIONAL SSOT CONTRACT PASSED`.
+  - JSON examples parsed:
+    - `test_files/minimal_submit_dual_bus_app_payload.json`
+    - `test_files/todo_save_mqtt_event_app_payload.json`
+    - `docs/user-guide/examples/ui_basic_filltable_validation_app_payload.json`
+  - Zip check confirmed `test_files/minimal_submit_dual_bus.zip` contains only
+    `app_payload.json`.
+  - Obsidian docs migration dry-run completed with `frontmatterAdded: 0`.
+  - Stage 5 docs/user-guide strict removed-shape scan returned no output.
+  - `git diff --check -- deploy docs scripts` returned no whitespace errors.
+- Files changed:
+  - `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_guide.md`
+  - `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_interactive.html`
+  - `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_visualized.md`
+  - `docs/user-guide/slide-app-runtime/mqtt_response_to_ui_materialization.md`
+  - `docs/user-guide/slide-app-runtime/todo_save_mqtt_event_example.md`
+  - `docs/user-guide/slide-app-runtime/workspace_manager_interaction_guide.md`
+  - `docs/user-guide/slide-app-runtime/slide_app_runtime_developer_guide.md`
+  - `docs/user-guide/modeltable_user_guide.md`
+  - `docs/iterations/0430-feishu-operational-ssot-impl/resolution.md`
+  - `deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json`
+  - `deploy/sys-v1ns/remote-worker/patches/14_model3100_slide_app_bundle_provider.json`
+  - `scripts/tests/test_0430_remote_worker_pin_payload_v2_response_targets.mjs`
+- Notes:
+  - Minimal Submit and provider bundle response helpers now allow app-local
+    `reply_target_model_id=0`; app authors do not fill deployment-assigned
+    host model/table ids.
+  - `response_topic` is parsed only as the host response endpoint. The durable
+    UI materialization target remains `reply_target_table_id` /
+    `reply_target_model_id` from the app table.
+  - Provider bundle responses use `bundle_record_id_offset`; bundle records are
+    appended to the same `pin_payload.v2` Temporary ModelTable record array.
+  - Developer docs now describe `pin_payload.v2`, `payload_model_id`,
+    same-array business records, and same-model UI refs without generated
+    model ids.
+- First Stage 5 review:
+  - Decision: CHANGE_REQUESTED.
+  - Findings:
+    - Minimal Submit provider guide parser example defaulted missing
+      `endpoint_table_id` and `origin_table_id` to `host`, which conflicted
+      with the strict v2 contract.
+    - Workspace Manager provider response example introduced
+      `pin_payload.v2`, but only showed business and bundle records; it did
+      not show the required `id = 0` envelope records.
+- Fixes after review:
+  - Removed the table-id defaults from the provider parser example so missing
+    table refs remain invalid.
+  - Expanded the Workspace Manager provider response example into a full
+    `pin_payload.v2` packet with envelope records, business records, and
+    same-array bundle records.
+- Follow-up verification:
+  - `node scripts/tests/test_0430_remote_worker_pin_payload_v2_response_targets.mjs`:
+    PASS.
+  - Stage 5 docs/user-guide removed-shape scan returned no output.
+  - `git diff --check -- deploy docs scripts` returned no whitespace errors.
+  - `node scripts/ops/obsidian_docs_migrate.mjs --root docs --phase all`
+    completed dry-run with `frontmatterAdded: 0`.
+- Final Stage 5 re-review:
+  - Decision: APPROVED.
+  - Findings: none.
+  - Open questions: none.
+  - Verification gaps: none.
+- Result: PASS; sub-agent review approved.
+
 ## Docs Updated / Assessed
 
 - [x] `docs/ssot/feishu_model_label_alignment_v1.md` used as source

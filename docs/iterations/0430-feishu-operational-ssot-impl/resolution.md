@@ -176,7 +176,7 @@ payloads.
   - Modify: `docs/user-guide/**ui*` docs discovered in Stage 1.
   - Modify example JSON payloads discovered by `rg`.
 - Verification:
-  - `rg -n "pin_payload.v1|payload\\.v|bundle_payload\\.v|json_patch|model_id.*developer" docs/user-guide`
+  - `rg -n "pin_payload\\.v1|(^|[^_])payload\\.v|bundle_payload\\.v|json_patch|model_id.*developer" docs/user-guide`
   - Validate example JSON files with existing JSON validators or `node -e`
     parse checks.
 - Acceptance:

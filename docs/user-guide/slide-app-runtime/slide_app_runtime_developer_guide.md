@@ -228,22 +228,22 @@ Workspace Manager 的安装按钮不再从 UI Server 本地模型复制 `source_
 
 1. 只接受目录中的 canonical row，拒绝前端伪造 row。
 2. 从 Model 0 `mqtt_topic_base` 计算请求 topic：`UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<provider_worker_id>/<provider_model_id>/<provider_bundle_pin>`，并从 `reply_target_*` 计算 `response_topic`。
-3. 经 Model 0 bus out 发送 `pin_payload.v1 message_role=request`。
-4. nested `payload` 写成 `slide_app_bundle_request.v1`，至少包含 `asset_id`。
+3. 经 Model 0 bus out 发送 `pin_payload.v2 message_role=request`。
+4. `payload_model_id` 指向 `slide_app_bundle_request.v1` 业务 records，至少包含 `asset_id`。
 5. 在本地记录 pending install state：`op_id`、`asset_id`、provider endpoint、computed topic、`route_kind`、`reply_target`。
 
-provider 返回时必须把 response packet 的 `topic` 改为 request 中的 `response_topic`，并把 nested `payload` 写成 `slide_app_bundle_response.v1`：
+provider 返回时必须把 response packet 的 `topic` 改为 request 中的 `response_topic`，并把 `payload_model_id` 指向的业务 records 写成 `slide_app_bundle_response.v1`：
 
 | label | 类型 | 说明 |
 |---|---|---|
 | `__mt_payload_kind` | `str` | 固定为 `slide_app_bundle_response.v1` |
 | `asset_id` | `str` | 必须与 pending install 一致 |
-| `bundle_payload` | `json` | provider 返回的滑动 APP ModelTable record array |
+| `bundle_record_id_offset` | `int` | 实际 bundle records 在同一 Temporary ModelTable array 中的起始 id |
 | `bundle_sha256` | `str` | 可选，用于审计 |
 
 UI Server 在 materialize 前必须确认 response 和 pending install 完全对应：`op_id` 或 request correlation、`asset_id`、provider endpoint、computed topic、`route_kind`、`reply_target` 都必须匹配。任何过期、错资产、错 endpoint、错 reply target 或 malformed response 都只能写可见失败状态，不能创建新模型。
 
-provider 返回的 `bundle_payload` 和用户上传 ZIP 里的 `app_payload.json` 使用同一套 import validator。bundle 内的 `remote_bus_endpoint_v1` 只描述安装后 APP 运行时的业务外发目标，不描述本次 bundle download request。
+provider 回包中的 bundle records 和用户上传 ZIP 里的 `app_payload.json` 使用同一套 import validator。bundle 内的 `remote_bus_endpoint_v1` 只描述安装后 APP 运行时的业务外发目标，不描述本次 bundle download request。
 
 ## 5. 安装时哪些引脚会自动建立
 

@@ -94,7 +94,7 @@
           <div class="node blue">host model.subtable boundary writes table-qualified bus payload</div>
           <div class="arrow">MBR publishes endpoint topic</div>
           <div class="node">request topic: UIPUT/ws/dam/pic/de/R1/3000/submit1</div>
-          <div class="arrow">R1 returns pin_payload.v1 on response_topic with message_role=response</div>
+          <div class="arrow">R1 returns pin_payload.v2 on response_topic with message_role=response</div>
           <div class="node">response topic: UIPUT/ws/dam/pic/de/U1/1087/result</div>
           <div class="node amber">UI Server materializes display_text / remote_status / last_submit_payload / submit_inflight</div>
         </div>
@@ -189,7 +189,7 @@
           <h2>Remote worker R1 的 Model 3000</h2>
           <p>R1 需要填 <code>submit1_route</code>：root <code>submit1</code> -> <code>(1,1,1).submit1_in</code> -> <code>submit1:in</code>，再由 <code>submit1:out</code> -> <code>(1,1,1).submit1_out</code> -> root <code>result</code>。</p>
           <pre>root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in`</pre>
-          <p>程序只处理 <code>message_role=request</code> 的 payload。它读取 <code>payload</code> record 内的 <code>text</code>，返回 <code>message_role=response</code> 的 <code>pin_payload.v1</code>。返回 records 的 <code>topic</code> 必须改为 request 中的 <code>response_topic</code>；<code>endpoint_*</code> 描述当前回包投递到 UI Server 的 host transport endpoint，<code>reply_target_*</code> 原样带回并描述最终写入的 App table 目标。</p>
+          <p>程序只处理 <code>message_role=request</code> 的 payload。它读取 <code>payload_model_id</code> 指向的 <code>text</code> record，返回 <code>message_role=response</code> 的 <code>pin_payload.v2</code>。返回 records 的 <code>topic</code> 必须改为 request 中的 <code>response_topic</code>；<code>endpoint_*</code> 描述当前回包投递到 UI Server 的 host transport endpoint，<code>reply_target_*</code> 原样带回并描述最终写入的 App table 目标。</p>
         </div>
       </div>
     </section>
@@ -199,36 +199,35 @@
         <h2>Topic 收发测试</h2>
         <p>观察 Submit 请求：</p>
         <pre>UIPUT/ws/dam/pic/de/R1/3000/submit1</pre>
-        <p>手动模拟回包时，必须向 request payload 中的 <code>response_topic</code> 发送 <code>pin_payload.v1</code>。示例回包的 <code>op_id</code> 是 <code>manual_result_app_table_001</code>：</p>
+        <p>手动模拟回包时，必须向 request payload 中的 <code>response_topic</code> 发送 <code>pin_payload.v2</code>。示例回包的 <code>op_id</code> 是 <code>manual_result_app_table_001</code>：</p>
         <pre>{
   "version": "v1",
   "type": "pin_payload",
   "payload": [
-    { "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
-    { "k": "op_id", "t": "str", "v": "manual_result_app_table_001" },
-    { "k": "message_role", "t": "str", "v": "response" },
-	    { "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1087/result" },
-	    { "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1087/result" },
-	    { "k": "route_kind", "t": "str", "v": "control" },
-	    { "k": "bus", "t": "str", "v": "control" },
-	    { "k": "endpoint_worker_id", "t": "str", "v": "U1" },
-	    { "k": "endpoint_table_id", "t": "str", "v": "host" },
-	    { "k": "endpoint_model_id", "t": "int", "v": 1087 },
-	    { "k": "endpoint_pin", "t": "str", "v": "result" },
-	    { "k": "origin_worker_id", "t": "str", "v": "R1" },
-	    { "k": "origin_table_id", "t": "str", "v": "host" },
-	    { "k": "origin_model_id", "t": "int", "v": 3000 },
-	    { "k": "origin_pin", "t": "str", "v": "submit1" },
-	    { "k": "reply_target_worker_id", "t": "str", "v": "U1" },
-	    { "k": "reply_target_table_id", "t": "str", "v": "app:subject:drop:minimal-submit:001" },
-	    { "k": "reply_target_model_id", "t": "int", "v": 0 },
-    { "k": "reply_target_pin", "t": "str", "v": "result" },
-    { "k": "payload", "t": "json", "v": [
-      { "k": "display_text", "t": "str", "v": "Submitted: hello from external client" },
-      { "k": "remote_status", "t": "str", "v": "remote_processed" },
-      { "k": "last_submit_payload", "t": "json", "v": [] },
-      { "k": "submit_inflight", "t": "bool", "v": false }
-    ] }
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "manual_result_app_table_001" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1087/result" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1087/result" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "U1" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 1087 },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "result" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "R1" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_table_id", "t": "str", "v": "host" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_model_id", "t": "int", "v": 3000 },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_pin", "t": "str", "v": "submit1" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_worker_id", "t": "str", "v": "U1" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "app:subject:drop:minimal-submit:001" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 0 },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "result" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+    { "id": 1, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Submitted: hello from external client" },
+    { "id": 1, "p": 0, "r": 0, "c": 0, "k": "remote_status", "t": "str", "v": "remote_processed" },
+    { "id": 1, "p": 0, "r": 0, "c": 0, "k": "last_submit_payload", "t": "json", "v": [] },
+    { "id": 1, "p": 0, "r": 0, "c": 0, "k": "submit_inflight", "t": "bool", "v": false }
   ]
 }</pre>
       </div>

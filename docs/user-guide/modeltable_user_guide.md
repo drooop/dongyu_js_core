@@ -648,7 +648,7 @@ remote-worker 内部再通过自己的 `pin.connect.cell` / `pin.connect.label` 
 
 此时 UI Server 安装器会把该 App 的外发出口接到 Model 0 的 `pin.bus.mb.out`。MBR 从管理总线收到请求后，仍只按 payload 里的 `topic` record 转发到目标控制总线 / MQTT。默认缺省 `route_kind` 等同 `"control"`，即 UI Server 直接写 `pin.bus.cb.out`。
 
-这条路径同样只认 `pin_payload.v2` 临时 ModelTable records，不接受旧 envelope、普通 JSON fallback 或 nested `payload.v`。
+这条路径同样只认 `pin_payload.v2` 临时 ModelTable records，不接受旧 envelope、普通 JSON fallback 或把业务 records 嵌进 `payload` label 的旧写法。
 
 ### 6.5 Control To Management Return
 

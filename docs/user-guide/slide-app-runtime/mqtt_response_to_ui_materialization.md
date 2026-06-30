@@ -2,7 +2,7 @@
 title: "MQTT 回包到 UI 显示"
 doc_type: user-guide
 status: active
-updated: 2026-06-04
+updated: 2026-07-01
 source: ai
 ---
 
@@ -23,7 +23,7 @@ remote-worker 程序模型
 
 ## 1. 请求里已经带了回包地址
 
-UI Server 外发请求时，会自动把这几类信息放进 `pin_payload.v1`：
+UI Server 外发请求时，会自动把这几类信息放进 `pin_payload.v2`：
 
 | record | 含义 |
 |---|---|
@@ -32,13 +32,13 @@ UI Server 外发请求时，会自动把这几类信息放进 `pin_payload.v1`�
 | `endpoint_*` | request 的远端投递目标：`R1 / 3000 / submit1`。 |
 | `origin_*` | request 的本地来源：`U1 / <origin_table_id> / <origin_model_id> / submit1`。 |
 | `reply_target_*` | response 要 materialize 回哪个本地 App：`U1 / <reply_target_table_id> / <reply_target_model_id> / result`。 |
-| `payload` | 真正业务数据，仍然是 ModelTable records array。 |
+| `payload_model_id` | 指向真正业务数据所在的临时模型 id。业务 records 与 envelope records 在同一个数组中。 |
 
 remote-worker 不要自己猜本地 model id，也不要把 response 发回 request 的 `topic`。它应直接读取 request 中的 `response_topic` 和 `reply_target_*`。
 
 ## 2. remote-worker 应该发什么 response
 
-回包仍然是 `pin_payload.v1`，但要把 `message_role` 写成 `response`。
+回包仍然是 `pin_payload.v2`，但要把 `message_role` 写成 `response`。
 
 关键规则：
 
@@ -50,13 +50,13 @@ remote-worker 不要自己猜本地 model id，也不要把 response 发回 requ
 | `endpoint_*` | 必须描述当前 response 的 host transport endpoint，例如 `U1 / host / 1087 / result`。 |
 | `origin_*` | 写 remote-worker 自己，例如 `R1 / 3000 / submit1`。 |
 | `reply_target_*` | 继续写 UI Server 本地 App target，例如 `U1 / <app-table-id> / 0 / result`。 |
-| `payload` | 要写回界面的 labels，仍是 ModelTable records array。 |
+| `payload_model_id` | 指向要写回界面的 label records。 |
 
 最小 response 示例：
 
 ```json
 [
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "todo_save_result_001" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "todo_save_result_001" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
@@ -75,11 +75,10 @@ remote-worker 不要自己猜本地 model id，也不要把 response 发回 requ
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "app:subject:drop:todo:001" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 0 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "result" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload", "t": "json", "v": [
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Saved: MQTT task title" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "todo_save_status", "t": "str", "v": "remote_saved" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "submit_inflight", "t": "bool", "v": false }
-  ] }
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Saved: MQTT task title" },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "todo_save_status", "t": "str", "v": "remote_saved" },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "submit_inflight", "t": "bool", "v": false }
 ]
 ```
 
@@ -91,13 +90,13 @@ UI Server 收到 control-bus / MQTT packet 后，会先校验：
 
 - 外层 packet 是 `version=v1`、`type=pin_payload`。
 - 内层 payload 是严格的 ModelTable records array。
-- `__mt_payload_kind=pin_payload.v1`。
+- `__mt_payload_kind=pin_payload.v2`。
 - `message_role=response`。
 - `topic` 等于 `response_topic`。
 - `endpoint_*` 描述当前 response packet 投递到 UI Server 的 host transport endpoint，并与当前 `topic` 对齐；`reply_target_*` 描述最终 materialize 的 App table 目标。二者在 App instance 场景下通常不同。
-- `payload` record 的 `v` 也是 ModelTable records array。
+- `payload_model_id` 指向的 records 是 ModelTable records array，且不能再出现 `payload` 这个 nested record。
 
-校验通过后，UI Server 不按 request topic 推断目标，也不按 remote endpoint 写表。它只按 table-qualified `reply_target_table_id + reply_target_model_id` 找到本地已安装 App，然后把 nested `payload` 中的 labels materialize 到该模型。
+校验通过后，UI Server 不按 request topic 推断目标，也不按 remote endpoint 写表。它只按 table-qualified `reply_target_table_id + reply_target_model_id` 找到本地已安装 App，然后把 `payload_model_id` 指向的 labels materialize 到该模型。
 
 以上面示例为例，UI Server 会向 App table `app:subject:drop:todo:001` 内 model `0` 的 root `(0,0,0)` 写入：
 
@@ -109,7 +108,7 @@ UI Server 收到 control-bus / MQTT packet 后，会先校验：
 ]
 ```
 
-这一步是正式 materialization。传输过程中的 `pin_payload.v1` 只是临时 ModelTable-like 数据，不会自动落表。
+这一步是正式 materialization。传输过程中的 `pin_payload.v2` 只是临时 ModelTable-like 数据，不会自动落表。
 
 ## 4. UI 模型如何显示新内容
 
@@ -167,7 +166,7 @@ const resultLabels = [
 ];
 
 return [
-  mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+  mt('__mt_payload_kind', 'str', 'pin_payload.v2'),
   mt('__mt_request_id', 'str', opId),
   mt('op_id', 'str', opId),
   mt('message_role', 'str', 'response'),
@@ -186,8 +185,9 @@ return [
   mt('reply_target_table_id', 'str', replyTarget.table_id),
   mt('reply_target_model_id', 'int', replyTarget.model_id),
   mt('reply_target_pin', 'str', replyTarget.pin),
-  mt('payload', 'json', resultLabels),
-  mt('timestamp', 'int', Date.now())
+  mt('payload_model_id', 'int', 1),
+  mt('timestamp', 'int', Date.now()),
+  ...resultLabels.map((record) => ({ ...record, id: 1 }))
 ];
 ```
 
@@ -200,6 +200,6 @@ return [
 | response 仍发到 request `topic` | 消息回到 remote-worker submit endpoint，UI 不会更新。 | response 的 `topic` 必须等于 request 的 `response_topic`。 |
 | response 缺少 `reply_target_table_id` 或 `reply_target_model_id` | UI Server 不知道写回哪个本地 App instance。 | 原样携带 request 的 `reply_target_*`。 |
 | response 的 `endpoint_*` 仍写 `R1 / 3000 / submit1` | 当前投递目标被写错，校验会失败。 | response 的 `endpoint_*` 写 UI Server 本地目标。 |
-| nested `payload` 不是 ModelTable records array | UI Server 不会 materialize。 | `payload.v` 必须是 records array。 |
+| 缺少 `payload_model_id` 或指向的 records 不合法 | UI Server 不会 materialize。 | 在同一个 Temporary ModelTable array 中放业务 records，并用 `payload_model_id` 指向它们。 |
 | UI 组件直接订阅 MQTT | 绕过 ModelTable，不符合规约。 | UI 只读取本地 labels。 |
 | remote-worker 直接写 UI label | 远端不拥有本地模型表。 | remote-worker 只发 response，UI Server owner materialization。 |
