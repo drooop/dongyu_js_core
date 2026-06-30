@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0430 Feishu Operational SSOT Implementation Runlog"
 doc_type: iteration-runlog
-status: in-progress
+status: completed
 updated: 2026-07-01
 source: ai
 iteration_id: 0430-feishu-operational-ssot-impl
 id: 0430-feishu-operational-ssot-impl
-phase: execution
+phase: completed
 ---
 
 # Iteration 0430-feishu-operational-ssot-impl Runlog
@@ -534,6 +534,121 @@ phase: execution
   - Open questions: none.
   - Verification gaps: none.
 - Result: PASS; sub-agent review approved.
+
+### Stage 6.1: Provider-Owned App Subtable Runtime And Local E2E
+
+- Command:
+  - Updated `packages/ui-model-demo-server/server.mjs` with table-qualified
+    imported host ingress/egress adapters.
+  - Updated focused tests:
+    - `scripts/tests/test_0322_imported_host_egress_server_flow.mjs`
+    - `scripts/tests/test_0360_minimal_submit_dual_bus_docs_contract.mjs`
+    - `scripts/tests/test_0384_provider_owned_slide_app_install_flow.mjs`
+    - `scripts/tests/test_0409_todo_mqtt_egress_docs_contract.mjs`
+  - Updated Minimal Submit provider docs:
+    - `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_guide.md`
+    - `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_visualized.md`
+    - `docs/user-guide/slide-app-runtime/minimal_submit_app_provider_interactive.html`
+  - Verification:
+    - `node scripts/tests/test_0384_provider_owned_slide_app_install_flow.mjs`
+    - `node scripts/tests/test_0322_imported_host_egress_server_flow.mjs`
+    - `node scripts/tests/test_0360_minimal_submit_dual_bus_docs_contract.mjs`
+    - `node scripts/tests/test_0409_todo_mqtt_egress_docs_contract.mjs`
+    - `node scripts/tests/test_0430_feishu_operational_ssot_contract.mjs`
+    - `npm -C packages/ui-model-demo-frontend run build`
+    - `git diff --check`
+    - `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh && bash scripts/ops/check_runtime_baseline.sh`
+    - Playwright CLI real-browser E2E on `http://localhost:30900`
+- Key output:
+  - Provider-owned install flow: `10 passed, 0 failed out of 10`.
+  - Imported host egress flow: `1 passed, 0 failed out of 1`.
+  - Minimal Submit docs contract: `7 passed, 0 failed out of 7`.
+  - Todo MQTT egress docs contract: `PASS test_0409_todo_mqtt_egress_docs_contract`.
+  - 0430 operational SSOT contract:
+    `0430 FEISHU OPERATIONAL SSOT CONTRACT PASSED`.
+  - Frontend production build passed; Vite reported the existing large chunk
+    warning only.
+  - `git diff --check` returned no whitespace errors.
+  - Local Orbstack deploy completed; baseline passed for `mosquitto`,
+    `synapse`, `remote-worker`, `workspace-manager`, `mbr-worker`, and
+    `ui-server`.
+- Browser evidence:
+  - Injected a local test session accepted by `/auth/me` as `Codex Local E2E`
+    with `app:write`, `workspace:write`, `slide_app:use`,
+    `management_bus:use`, and `matrix:connect`.
+  - Desktop loaded under `http://localhost:30900`.
+  - Workspace Manager installed `最小 Submit 双总线示例` and showed the
+    install success dialog:
+    `app:codex-local-e2e:submit:2-0-22:1/0`.
+  - Opening the new app showed `Workspace app · model 0`.
+  - Submitting `stage6 cleanup verify 0602` displayed:
+    `Submitted: stage6 cleanup verify 0602` and remote status
+    `remote_processed`.
+  - Browser request proof:
+    - `ui_owner_label_update` target:
+      `table_id=app:codex-local-e2e:submit:2-0-22:1`, `model_id=0`;
+      response `routed_by=owner_materialization`.
+    - `bus_event_v2` key:
+      `imported_host_submit_app-codex-local-e2e-submit-2-0-22-1_0`;
+      response `routed_by=model0_busin`.
+  - E2E color generator reopened after the redeploy; clicking
+    `Generate Color` changed the color from `#FFFFFF` to `#4887fc` and status
+    to `processed`.
+  - Browser console error check after the tested flows returned `0` errors.
+  - Fixed Playwright session `dy-0430` was closed and `kill-all` removed the
+    headed daemon; no `dy-0430` Chrome profile process remained.
+- First Stage 6 review:
+  - Decision: CHANGE_REQUESTED.
+  - Findings:
+    - Deleting an app-table install removed the app table but left host Model 0
+      generated ingress/egress labels and mount bridge labels behind.
+    - Minimal Submit docs claimed `host_egress_generated_system_labels` was
+      generated, but the current installer does not write that label.
+- Fixes after review:
+  - Added `cleanupImportedHostGeneratedLabels` and wired it into both
+    host-root imported bundle removal and app-table deletion.
+  - Extended the provider-owned install flow test so desktop delete asserts
+    generated host Model 0 labels and mount labels exist before deletion and
+    are gone after deletion.
+  - Removed the inaccurate `host_egress_generated_system_labels` claim from
+    guide, visualized, and interactive docs while keeping defensive cleanup
+    support for older persisted data that may contain the key.
+- Final Stage 6 review:
+  - Initial decision: CHANGE_REQUESTED.
+  - Finding:
+    - Minimal Submit docs still showed stale app-table response examples using
+      `UIPUT/ws/dam/pic/de/U1/1087/result`; current installer uses the
+      Workspace Manager host endpoint `UIPUT/ws/dam/pic/de/U1/1051/result`
+      for non-host app tables, and the safest authoring rule is to use the
+      actual `response_topic` from request records.
+  - Fixes:
+    - Updated guide, visualized, and interactive docs to use
+      `UIPUT/ws/dam/pic/de/U1/1051/result` as the Workspace Manager install
+      example.
+    - Strengthened the docs wording so external clients must send responses to
+      the actual `response_topic` from the request records rather than
+      hard-coding the example endpoint.
+    - Added `test_0360_minimal_submit_dual_bus_docs_contract.mjs` assertions
+      that the three public docs no longer contain the stale `U1/1087/result`
+      example and do contain the current `U1/1051/result` example plus the
+      actual-`response_topic` instruction.
+  - Follow-up verification:
+    - `node scripts/tests/test_0360_minimal_submit_dual_bus_docs_contract.mjs`:
+      `7 passed, 0 failed out of 7`.
+    - `node scripts/tests/test_0384_provider_owned_slide_app_install_flow.mjs`:
+      `10 passed, 0 failed out of 10`.
+    - `git diff --check` returned no whitespace errors.
+    - `LOCAL_DY_PERSIST_ROOT=/Users/drop/dongyu/volume/persist/ui-server bash scripts/ops/sync_ui_public_docs.sh`
+      synced the corrected guide and static HTML to local persisted docs.
+    - Local persisted docs/static scan returned no stale `U1/1087/result`
+      hits; `curl http://localhost:30900/p/slide-app-runtime-minimal-submit-provider/minimal_submit_app_provider_interactive.html`
+      showed the corrected `UIPUT/ws/dam/pic/de/U1/1051/result` example.
+- Final Stage 6 re-review:
+  - Decision: APPROVED.
+  - Findings: none.
+  - Open questions: none.
+  - Verification gaps: none.
+- Result: PASS; sub-agent review approved and iteration completed.
 
 ## Docs Updated / Assessed
 

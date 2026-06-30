@@ -21,7 +21,7 @@ UI click -> Model 0 control bus -> MBR -> remote provider public pin -> response
 | 项 | 当前写法 |
 |---|---|
 | request topic | `UIPUT/ws/dam/pic/de/R1/3000/submit1` |
-| response topic | `UIPUT/ws/dam/pic/de/U1/1087/result`，这是 host transport endpoint，不是 App table 内部 root id |
+| response topic | 以请求 records 中实际 `response_topic` 为准；Workspace Manager 安装的 App table 示例为 `UIPUT/ws/dam/pic/de/U1/1051/result`，这是 host transport endpoint，不是 App table 内部 root id |
 | topic 含义 | `topic` 表示当前这条消息实际投递到哪里；请求投递到远端 endpoint，回包投递到 `response_topic` |
 | 默认总线 | 同工作区请求默认走控制总线：`pin.bus.cb.out` -> MBR -> MQTT topic |
 | 回包目标 | 由 UI Server 写入 `response_topic` 与 `reply_target_*`：`reply_target_worker_id = U1`、`reply_target_table_id = app:<...>`、`reply_target_model_id = 0`、`reply_target_pin = result` |
@@ -362,6 +362,20 @@ if (text) V1N.addLabel('submit1', 'pin.out', payload);
 8. 后续打开 App 时，前端使用 table-qualified `visible_model_ref={table_id,model_id}` 拉取该 App table 的可见 labels。
 9. 运行时外发与回包必须使用 `origin_table_id` / `reply_target_table_id`；ZIP 不能预先声明这些宿主拥有的值。
 
+安装器会在 App table root 和 host Model 0 上生成以下 labels；这些都不是 provider ZIP 应填写的内容：
+
+| label | 位置 | 作用 |
+|---|---|---|
+| `deletable` / `installed_at` / `imported_bundle_model_ids` / `import_root_temp_id` | App table root model `0` | 标记这是可删除的本地安装实例，并记录安装来源。 |
+| `host_ingress_generated_model0_labels` | App table root model `0` | 记录 host Model 0 上生成的入口 labels，例如 `imported_host_submit_<table>_0`。 |
+| `host_ingress_generated_mount` | App table root model `0` | 记录这个 App table 挂到了哪个 Model 0 mount cell。 |
+| `host_ingress_generated_root_labels` | App table root model `0` | 记录 App root 上为入口中继生成的 root labels。 |
+| `host_egress_generated_model0_labels` | App table root model `0` | 记录 host Model 0 上生成的出站 labels，例如 `imported_submit1_<table>_0_bus` 与 `bridge_imported_submit1_to_mt_bus_send_<table>_0`。 |
+| `host_egress_generated_mount` | App table root model `0` | 记录出站桥接的 mount cell 与 egress semantic。 |
+| `ui_egress_submit1_binding` | App table root model `0` | 记录 `submit1` 已被安装器绑定到 host bus egress，类型是 `ui.egress.binding.v1`。 |
+
+生成 key 的前缀可用于排查：入口通常以 `imported_host_submit_` 开头；出站 bus label 通常以 `imported_submit1_` 开头；桥接函数通常以 `bridge_imported_submit1_to_mt_bus_send_` 开头。最终写到 Model 0 `(0,0,0)` 的仍是 `mt_bus_send_in`，再由 Model 0 发出 `pin.bus.cb.out` 或 `pin.bus.mb.out`。
+
 安装后边界链路是：
 
 ```text
@@ -369,6 +383,8 @@ App table root submit1 pin.out
 -> host Model 0 model.subtable hosting cell boundary
 -> Model 0 pin.bus.cb.out
 ```
+
+换句话说，imported root 的 `submit1` 不会直接跨表连到别的模型；它必须先经过 `model.subtable` hosting Cell 边界，再到 host Model 0，由 Model 0 继续把消息送进 control bus。
 
 如果 `remote_bus_endpoint_v1.route_kind` 显式写为 `management`，最后一步会变为：
 
@@ -391,7 +407,7 @@ host bridge 写入的 `bus_send.v1` records 形态如下：
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/R1/3000/submit1" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1087/result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
@@ -424,13 +440,13 @@ UIPUT/ws/dam/pic/de/R1/3000/submit1
 { "version": "v1", "type": "pin_payload", "payload": "ModelTable records array" }
 ```
 
-要模拟 `R1` 回包，必须发布到请求 records 里的 `response_topic`。注意：这个 topic 是 UI Server 的 host transport endpoint；真正写回哪个 App instance table 由 `reply_target_table_id + reply_target_model_id` 决定。
+要模拟 `R1` 回包，必须发布到请求 records 里的实际 `response_topic`。注意：这个 topic 是 UI Server 的 host transport endpoint；真正写回哪个 App instance table 由 `reply_target_table_id + reply_target_model_id` 决定。Workspace Manager 安装路径下通常是：
 
 ```text
-UIPUT/ws/dam/pic/de/U1/1087/result
+UIPUT/ws/dam/pic/de/U1/1051/result
 ```
 
-回包 records 的 `topic` 和 `response_topic` 都应等于这条 response topic。回包 records 的 `endpoint_*` 描述当前 transport 投递目标，也就是 host endpoint `U1 / 1087 / result`；`reply_target_*` 描述最终 materialize 的 App table 目标；`origin_*` 仍记录远端 provider，即 `R1 / 3000 / submit1`：
+回包 records 的 `topic` 和 `response_topic` 都应等于这条 response topic。回包 records 的 `endpoint_*` 描述当前 transport 投递目标，也就是 host endpoint，例如 `U1 / 1051 / result`；`reply_target_*` 描述最终 materialize 的 App table 目标；`origin_*` 仍记录远端 provider，即 `R1 / 3000 / submit1`：
 
 ```json
 {
@@ -441,11 +457,11 @@ UIPUT/ws/dam/pic/de/U1/1087/result
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "manual_result_app_table_001" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "manual_result_app_table_001" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1087/result" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1087/result" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/result" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/result" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "U1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 1087 },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 1051 },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "result" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "R1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_table_id", "t": "str", "v": "host" },

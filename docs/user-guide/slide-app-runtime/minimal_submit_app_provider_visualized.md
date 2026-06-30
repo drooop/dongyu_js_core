@@ -23,15 +23,15 @@ sequenceDiagram
   UI->>UI: ui_bind_json writes value_ref to click_event
   UI->>UI: click_event -> click_event_wiring -> click_chain -> submit_request -> handle_submit:in
   UI->>M0: submit1 pin.out reaches generated host egress adapter
-  M0->>CB: pin_payload.v2 with topic=UIPUT/ws/dam/pic/de/R1/3000/submit1 and response_topic=UIPUT/ws/dam/pic/de/U1/1087/result
+  M0->>CB: pin_payload.v2 with topic=UIPUT/ws/dam/pic/de/R1/3000/submit1 and response_topic=UIPUT/ws/dam/pic/de/U1/1051/result
   CB->>MBR: control bus packet
   MBR->>MQTT: UIPUT/ws/dam/pic/de/R1/3000/submit1
   MQTT->>R1: root submit1 pin.in
   R1->>R1: root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in`
   R1->>MQTT: response_topic pin_payload.v2 message_role=response
   MQTT->>MBR: control bus reply
-  MBR->>CB: topic=UIPUT/ws/dam/pic/de/U1/1087/result
-  CB->>M0: endpoint=U1/host/1087/result + reply_target=U1/app:.../0/result
+  MBR->>CB: topic=UIPUT/ws/dam/pic/de/U1/1051/result
+  CB->>M0: endpoint=U1/host/1051/result + reply_target=U1/app:.../0/result
   M0->>UI: materialize display_text / remote_status / last_submit_payload / submit_inflight
 ```
 
@@ -85,6 +85,8 @@ flowchart TB
 
 安装器会生成 host-owned 安装态和挂载态 labels，例如 `deletable`、`installed_at`、`import_root_temp_id`、`last_installed_table_id`、`last_installed_model_id` 以及 `model.subtable` 边界。这些不是 provider ZIP 内容。
 
+更具体地说，App table root model `0` 会记录 `imported_bundle_model_ids`、`host_ingress_generated_model0_labels`、`host_ingress_generated_mount`、`host_ingress_generated_root_labels`、`host_egress_generated_model0_labels`、`host_egress_generated_mount` 与 `ui_egress_submit1_binding`。其中 `ui_egress_submit1_binding` 的类型是 `ui.egress.binding.v1`。排查时可看生成 key 前缀：`imported_host_submit_` 表示入口，`imported_submit1_` 表示出站 bus label，`bridge_imported_submit1_to_mt_bus_send_` 表示桥接函数。最终仍由 Model 0 `(0,0,0)` 的 `mt_bus_send_in` 转到 `pin.bus.cb.out`；若显式走 management，则转到 `pin.bus.mb.out`。
+
 ## Endpoint Topic 与 Payload Records
 
 发送给 R1 的 topic 是：
@@ -98,14 +100,14 @@ UIPUT/ws/dam/pic/de/R1/3000/submit1
 | records | 示例 |
 |---|---|
 | `message_role` | 请求为 `request`，回包为 `response` |
-| `topic` | 请求为 `UIPUT/ws/dam/pic/de/R1/3000/submit1`；回包为 `UIPUT/ws/dam/pic/de/U1/1087/result` |
-| `response_topic` | `UIPUT/ws/dam/pic/de/U1/1087/result` |
+| `topic` | 请求为 `UIPUT/ws/dam/pic/de/R1/3000/submit1`；回包等于请求 records 中实际 `response_topic`，Workspace Manager 安装示例为 `UIPUT/ws/dam/pic/de/U1/1051/result` |
+| `response_topic` | 以请求 records 中实际值为准；Workspace Manager 安装示例为 `UIPUT/ws/dam/pic/de/U1/1051/result` |
 | `remote_bus_endpoint_v1` -> `endpoint_worker_id` / `endpoint_model_id` / `endpoint_pin` | `R1 / 3000 / submit1` |
 | `origin_worker_id` / `origin_table_id` / `origin_model_id` / `origin_pin` | `U1 / app:... / 0 / submit1` |
 | `reply_target_worker_id` / `reply_target_table_id` / `reply_target_model_id` / `reply_target_pin` | `U1 / app:... / 0 / result` |
 | `payload_model_id` 指向的 records | `text`、`source` |
 
-外部客户端模拟回包时，向 `UIPUT/ws/dam/pic/de/U1/1087/result` 发送 `pin_payload.v2`，并把 `message_role` 写成 `response`。手工示例的 `op_id` 可以是 `"manual_result_app_table_001"`，`payload_model_id` 指向的业务 records 至少包含：
+外部客户端模拟回包时，向请求 records 中实际 `response_topic` 发送 `pin_payload.v2`，并把 `message_role` 写成 `response`。Workspace Manager 安装示例为 `UIPUT/ws/dam/pic/de/U1/1051/result`。手工示例的 `op_id` 可以是 `"manual_result_app_table_001"`，`payload_model_id` 指向的业务 records 至少包含：
 
 ```json
 [

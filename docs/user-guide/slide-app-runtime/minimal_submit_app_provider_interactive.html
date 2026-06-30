@@ -69,7 +69,7 @@
   <header>
     <h1>最小 Submit 双总线示例</h1>
     <p class="lead">这份交互式文档说明 provider 如何准备一个只含 <code>app_payload.json</code> 的 Zip，UI Server 如何安装它，以及 Submit 如何经 <code>message_role</code> / <code>endpoint_worker_id</code> / <code>origin_worker_id</code> / <code>reply_target_worker_id</code> records 完成真实双总线回流。</p>
-    <p><span class="pill">request: UIPUT/ws/dam/pic/de/R1/3000/submit1</span><span class="pill">response: UIPUT/ws/dam/pic/de/U1/1087/result</span><span class="pill">visible result: Submitted: &lt;输入内容&gt;</span></p>
+    <p><span class="pill">request: UIPUT/ws/dam/pic/de/R1/3000/submit1</span><span class="pill">response: use request response_topic, e.g. UIPUT/ws/dam/pic/de/U1/1051/result</span><span class="pill">visible result: Submitted: &lt;输入内容&gt;</span></p>
   </header>
 
   <main class="wrap">
@@ -95,12 +95,12 @@
           <div class="arrow">MBR publishes endpoint topic</div>
           <div class="node">request topic: UIPUT/ws/dam/pic/de/R1/3000/submit1</div>
           <div class="arrow">R1 returns pin_payload.v2 on response_topic with message_role=response</div>
-          <div class="node">response topic: UIPUT/ws/dam/pic/de/U1/1087/result</div>
+          <div class="node">response topic: use request response_topic, e.g. UIPUT/ws/dam/pic/de/U1/1051/result</div>
           <div class="node amber">UI Server materializes display_text / remote_status / last_submit_payload / submit_inflight</div>
         </div>
         <div class="card">
           <h3>request topic 表达远端 endpoint</h3>
-          <p><code>R1 / 3000 / submit1</code> 是远端 worker、远端 model、远端公开 pin。回包投递到独立的 host transport <code>response_topic</code>，例如 <code>U1 / 1087 / result</code>。</p>
+          <p><code>R1 / 3000 / submit1</code> 是远端 worker、远端 model、远端公开 pin。回包投递到独立的 host transport <code>response_topic</code>，以请求 records 中实际值为准；Workspace Manager 安装示例为 <code>U1 / 1051 / result</code>。</p>
         </div>
         <div class="card">
           <h3>方向和回包目标在 payload records</h3>
@@ -179,7 +179,17 @@
 	          <li>打开 App 时使用 <code>visible_model_ref={table_id,model_id}</code> 加载 App table 的可见 labels。</li>
 	          <li>外发与回包 payload 必须包含 <code>origin_table_id</code> 与 <code>reply_target_table_id</code>。</li>
         </ol>
-	        <p>安装后：App table root 的 <code>submit1</code> 经 host <code>model.subtable</code> 边界进入 Model 0，总线 payload 默认走 <code>pin.bus.cb.out</code>。如果 <code>remote_bus_endpoint_v1.route_kind = "management"</code>，则改走 <code>pin.bus.mb.out</code>，由 MBR 再按 payload <code>topic</code> 转发到控制总线 / MQTT。</p>
+        <table>
+          <thead><tr><th>安装器生成 label</th><th>位置</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td><code>deletable</code>, <code>installed_at</code>, <code>imported_bundle_model_ids</code>, <code>import_root_temp_id</code></td><td>App table root model <code>0</code></td><td>标记可删除实例并记录安装来源。</td></tr>
+            <tr><td><code>host_ingress_generated_model0_labels</code>, <code>host_ingress_generated_mount</code>, <code>host_ingress_generated_root_labels</code></td><td>App table root model <code>0</code></td><td>记录入口桥接 labels；生成 key 常以 <code>imported_host_submit_</code> 开头。</td></tr>
+            <tr><td><code>host_egress_generated_model0_labels</code>, <code>host_egress_generated_mount</code></td><td>App table root model <code>0</code></td><td>记录出站桥接 labels；生成 key 常以 <code>imported_submit1_</code> 和 <code>bridge_imported_submit1_to_mt_bus_send_</code> 开头。</td></tr>
+            <tr><td><code>ui_egress_submit1_binding</code></td><td>App table root model <code>0</code></td><td>类型为 <code>ui.egress.binding.v1</code>，说明 <code>submit1</code> 已接入 host bus egress。</td></tr>
+          </tbody>
+        </table>
+        <p>这些 label 不是 provider ZIP 内容。最终写到 Model 0 <code>(0,0,0)</code> 的仍是 <code>mt_bus_send_in</code>，再由 Model 0 发出 <code>pin.bus.cb.out</code>；显式 management 路线会改发 <code>pin.bus.mb.out</code>。</p>
+	        <p>安装后：App table root 的 <code>submit1</code> 经 host <code>model.subtable</code> 边界进入 Model 0，总线 payload 默认走 <code>pin.bus.cb.out</code>。换句话说，imported root 的 <code>submit1</code> 不会直接跨表连到别的模型；它必须先经过 hosting Cell 边界，再到 host Model 0。如果 <code>remote_bus_endpoint_v1.route_kind = "management"</code>，则改走 <code>pin.bus.mb.out</code>，由 MBR 再按 payload <code>topic</code> 转发到控制总线 / MQTT。</p>
       </div>
     </section>
 
@@ -207,13 +217,13 @@
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "manual_result_app_table_001" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1087/result" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1087/result" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/result" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/result" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "U1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 1087 },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 1051 },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "result" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "R1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_table_id", "t": "str", "v": "host" },

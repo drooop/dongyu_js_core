@@ -5,6 +5,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import AdmZipPkg from 'adm-zip';
+import { payloadRecords as v2PayloadRecords } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const AdmZip = AdmZipPkg && AdmZipPkg.default ? AdmZipPkg.default : AdmZipPkg;
 const repoRoot = new URL('../..', import.meta.url).pathname;
@@ -116,13 +117,15 @@ function assertDocsTeachCurrentMqttEgressPath() {
   assert.match(guide, /UIPUT\/ws\/dam\/pic\/de\/R1\/3000\/submit1/u, 'todo_mqtt_guide_must_name_generated_request_topic');
   assert.match(guide, /只改按钮 `ui_bind_json`.*不够/u, 'todo_mqtt_guide_must_warn_button_only_is_insufficient');
   assert.match(runtimeReadme, /mqtt_response_to_ui_materialization\.md/u, 'runtime_readme_must_link_response_materialization_guide');
-  assert.match(responseGuide, /回包仍然是 `pin_payload\.v1`/u, 'response_guide_must_keep_pin_payload_v1_contract');
+  assert.match(responseGuide, /回包仍然是 `pin_payload\.v2`/u, 'response_guide_must_keep_pin_payload_v2_contract');
   assert.match(responseGuide, /`message_role`\s*\|\s*必须是 `response`/u, 'response_guide_must_require_response_role');
   assert.match(responseGuide, /`topic`\s*\|\s*必须等于 request 中的 `response_topic`/u, 'response_guide_must_require_response_topic');
-  assert.match(responseGuide, /`payload`\s*\|\s*要写回界面的 labels，仍是 ModelTable records array/u, 'response_guide_must_require_nested_modeltable_payload');
-  assert.match(responseGuide, /`payload` record 的 `v` 也是 ModelTable records array/u, 'response_guide_must_require_payload_record_v_modeltable_records');
+  assert.match(responseGuide, /`payload_model_id`\s*\|\s*指向要写回界面的 label records/u, 'response_guide_must_require_payload_model_id');
+  assert.match(responseGuide, /业务 records 与 envelope records 在同一个数组中/u, 'response_guide_must_require_same_array_business_records');
+  assert.match(responseGuide, /不能再出现 `payload` 这个 nested record/u, 'response_guide_must_forbid_nested_payload_record');
+  assert.match(responseGuide, /`reply_target_table_id`/u, 'response_guide_must_explain_reply_target_table_id');
   assert.match(responseGuide, /`reply_target_model_id`/u, 'response_guide_must_explain_reply_target_model_id');
-  assert.match(responseGuide, /只按 `reply_target_model_id` 找到本地已安装 App/u, 'response_guide_must_teach_reply_target_materialization');
+  assert.match(responseGuide, /只按 table-qualified `reply_target_table_id \+ reply_target_model_id` 找到本地已安装 App/u, 'response_guide_must_teach_table_qualified_reply_target_materialization');
   assert.match(responseGuide, /界面组件不需要订阅 MQTT/u, 'response_guide_must_forbid_ui_mqtt_subscription');
   assert.match(responseGuide, /UI 组件读取更新后的 labels/u, 'response_guide_must_teach_ui_reads_materialized_labels');
   assert.match(responseGuide, /UI 组件直接订阅 MQTT\s*\|\s*绕过 ModelTable/u, 'response_guide_must_warn_against_direct_ui_mqtt');
@@ -175,13 +178,21 @@ async function assertImportedTodoSavePublishesMqtt() {
     state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
     state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de' });
     state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'U1' });
-    state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v2' });
     state.runtime.startMqttLoop({
       host: 'localhost',
       port: 1883,
       client_id: '0409-todo-mqtt',
       transport: 'mock',
     });
+    const publishedPackets = [];
+    state.programEngine.controlBusClient = {
+      connected: true,
+      publish(topic, payload, callback) {
+        publishedPackets.push({ topic, payload: JSON.parse(payload) });
+        if (typeof callback === 'function') callback(null);
+      },
+    };
 
     state.cacheUploadedMediaForTest('mxc://localhost/0409-todo-save-mqtt', {
       buffer: buildZipBuffer(readPayload()),
@@ -203,8 +214,14 @@ async function assertImportedTodoSavePublishesMqtt() {
     const importedEntry = registry.find((entry) => entry && entry.name === 'To Do Save MQTT Example');
     assert.ok(importedEntry, 'todo_save_mqtt_app_must_appear_in_registry');
     const importedId = importedEntry.model_id;
-    const ingressKey = `imported_host_submit_${importedId}`;
-    const installedText = JSON.stringify(state.clientSnap().models[String(importedId)] || {});
+    const importedTableId = importedEntry.table_id;
+    assert.equal(importedId, 0, 'todo_save_mqtt_app_must_keep_package_local_root_model_id');
+    assert.ok(typeof importedTableId === 'string' && importedTableId.startsWith('app:'), 'todo_save_mqtt_app_must_install_into_app_table');
+    const installedRoot = state.runtime.getCell(state.runtime.getModel({ table_id: importedTableId, model_id: importedId }), 0, 0, 0).labels;
+    const generatedLabels = installedRoot.get('host_ingress_generated_model0_labels')?.v || [];
+    const ingressKey = generatedLabels.find((key) => typeof key === 'string' && key.startsWith('imported_host_submit_'));
+    assert.ok(ingressKey, 'installed_app_must_record_generated_host_ingress_key');
+    const installedText = JSON.stringify(state.clientSnap().tables?.[importedTableId]?.models?.[String(importedId)] || {});
     assert.equal(installedText.includes(ingressKey), true, 'installed_button_binding_must_use_generated_ingress_key');
     assert.equal(installedText.includes('bus_event_submit_0_0_0_0'), false, 'installed_payload_must_not_keep_placeholder_bus_key');
     assert.equal(installedText.includes('"bus_in_key":"submit_request"'), false, 'installed_payload_must_not_use_internal_submit_request_key');
@@ -239,30 +256,33 @@ async function assertImportedTodoSavePublishesMqtt() {
     assert.equal(submitResult.routed_by, 'model0_busin', 'todo_save_mqtt_submit_must_enter_through_bus_event_v2_model0_ingress');
     await wait(260);
 
-    const importedRoot = state.runtime.getCell(state.runtime.getModel(importedId), 0, 0, 0).labels;
+    const importedRoot = state.runtime.getCell(state.runtime.getModel({ table_id: importedTableId, model_id: importedId }), 0, 0, 0).labels;
     assert.equal(importedRoot.get('todo_save_status')?.v, 'sending: MQTT task title', 'handler_must_update_local_status');
     assert.equal(importedRoot.get('last_submit_payload')?.v?.find?.((record) => record && record.k === 'title')?.v, 'MQTT task title', 'handler_must_materialize_task_payload');
 
-    const publish = state.runtime.mqttTrace.list().find((entry) => (
-      entry.type === 'publish'
-      && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/R1/3000/submit1'
-      && entry.payload?.payload?.type === 'pin_payload'
-      && payloadString(entry.payload.payload.payload, 'message_role') === 'request'
-      && payloadString(entry.payload.payload.payload, 'topic') === 'UIPUT/ws/dam/pic/de/R1/3000/submit1'
-      && payloadString(entry.payload.payload.payload, 'response_topic') === `UIPUT/ws/dam/pic/de/U1/${importedId}/result`
-      && payloadString(entry.payload.payload.payload, 'endpoint_worker_id') === 'R1'
-      && payloadInt(entry.payload.payload.payload, 'endpoint_model_id') === 3000
-      && payloadString(entry.payload.payload.payload, 'endpoint_pin') === 'submit1'
-      && payloadString(entry.payload.payload.payload, 'origin_worker_id') === 'U1'
-      && payloadInt(entry.payload.payload.payload, 'origin_model_id') === importedId
-      && payloadString(entry.payload.payload.payload, 'origin_pin') === 'submit1'
-      && payloadString(entry.payload.payload.payload, 'reply_target_worker_id') === 'U1'
-      && payloadInt(entry.payload.payload.payload, 'reply_target_model_id') === importedId
-      && payloadString(entry.payload.payload.payload, 'reply_target_pin') === 'result'
-      && payloadJson(entry.payload.payload.payload, 'payload')?.find?.((record) => record && record.k === 'title')?.v === 'MQTT task title'
-      && payloadJson(entry.payload.payload.payload, 'payload')?.find?.((record) => record && record.k === 'status')?.v === 'doing'
+    const publish = publishedPackets.find((entry) => (
+      entry.topic === 'UIPUT/ws/dam/pic/de/R1/3000/submit1'
+      && entry.payload?.type === 'pin_payload'
+      && payloadString(entry.payload.payload, '__mt_payload_kind') === 'pin_payload.v2'
+      && payloadString(entry.payload.payload, 'message_role') === 'request'
+      && payloadString(entry.payload.payload, 'topic') === 'UIPUT/ws/dam/pic/de/R1/3000/submit1'
+      && payloadString(entry.payload.payload, 'response_topic') === 'UIPUT/ws/dam/pic/de/U1/1051/result'
+      && payloadString(entry.payload.payload, 'endpoint_worker_id') === 'R1'
+      && payloadString(entry.payload.payload, 'endpoint_table_id') === 'host'
+      && payloadInt(entry.payload.payload, 'endpoint_model_id') === 3000
+      && payloadString(entry.payload.payload, 'endpoint_pin') === 'submit1'
+      && payloadString(entry.payload.payload, 'origin_worker_id') === 'U1'
+      && payloadString(entry.payload.payload, 'origin_table_id') === importedTableId
+      && payloadInt(entry.payload.payload, 'origin_model_id') === importedId
+      && payloadString(entry.payload.payload, 'origin_pin') === 'submit1'
+      && payloadString(entry.payload.payload, 'reply_target_worker_id') === 'U1'
+      && payloadString(entry.payload.payload, 'reply_target_table_id') === importedTableId
+      && payloadInt(entry.payload.payload, 'reply_target_model_id') === importedId
+      && payloadString(entry.payload.payload, 'reply_target_pin') === 'result'
+      && v2PayloadRecords(entry.payload.payload).find?.((record) => record && record.k === 'title')?.v === 'MQTT task title'
+      && v2PayloadRecords(entry.payload.payload).find?.((record) => record && record.k === 'status')?.v === 'doing'
     ));
-    assert.ok(publish, 'todo_save_mqtt_example_must_publish_request_to_remote_worker_topic');
+    assert.ok(publish, `todo_save_mqtt_example_must_publish_request_to_remote_worker_topic; published=${JSON.stringify(publishedPackets, null, 2)}`);
   });
 }
 

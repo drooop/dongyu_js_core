@@ -3342,9 +3342,9 @@ function validateSlideImportPayload(payload) {
   };
 }
 
-function remapImportedValue(value, idMap) {
+function remapImportedValue(value, idMap, busIngressKeyMap = new Map()) {
   if (Array.isArray(value)) {
-    return value.map((item) => remapImportedValue(item, idMap));
+    return value.map((item) => remapImportedValue(item, idMap, busIngressKeyMap));
   }
   if (!isPlainObject(value)) return value;
   const out = {};
@@ -3365,18 +3365,20 @@ function remapImportedValue(value, idMap) {
           void rText;
           void cText;
           const tempId = Number(tempIdText);
+          const mappedIngressKey = busIngressKeyMap.get(`${tempId}|${pinName}`);
+          if (mappedIngressKey) return mappedIngressKey;
           if (!idMap.has(tempId)) return match;
           return buildImportedHostIngressKeys(idMap.get(tempId), pinName).ingressKey;
         },
       );
       continue;
     }
-    out[key] = remapImportedValue(child, idMap);
+    out[key] = remapImportedValue(child, idMap, busIngressKeyMap);
   }
   return out;
 }
 
-function remapImportedLabelValue(record, idMap) {
+function remapImportedLabelValue(record, idMap, busIngressKeyMap = new Map()) {
   if (record.t === 'model.submt' && Number.isInteger(record.v) && idMap.has(record.v)) {
     return idMap.get(record.v);
   }
@@ -3384,7 +3386,7 @@ function remapImportedLabelValue(record, idMap) {
     return idMap.get(record.v);
   }
   if (isPlainObject(record.v) || Array.isArray(record.v)) {
-    return remapImportedValue(record.v, idMap);
+    return remapImportedValue(record.v, idMap, busIngressKeyMap);
   }
   return record.v;
 }
@@ -3440,8 +3442,36 @@ function buildSlideAppInstanceTableId(runtime, validation, mountCell) {
   return candidate;
 }
 
-function buildImportedHostIngressKeys(rootModelId, semantic) {
-  const base = `imported_host_${semantic}_${rootModelId}`;
+function normalizeImportedAdapterRootRef(rootModelRefOrId) {
+  if (Number.isInteger(rootModelRefOrId)) {
+    return { table_id: 'host', model_id: rootModelRefOrId };
+  }
+  if (
+    rootModelRefOrId
+    && typeof rootModelRefOrId === 'object'
+    && !Array.isArray(rootModelRefOrId)
+    && typeof rootModelRefOrId.table_id === 'string'
+    && rootModelRefOrId.table_id.trim()
+    && Number.isInteger(rootModelRefOrId.model_id)
+  ) {
+    return {
+      table_id: rootModelRefOrId.table_id.trim(),
+      model_id: rootModelRefOrId.model_id,
+    };
+  }
+  return null;
+}
+
+function importedAdapterRootSuffix(rootModelRefOrId) {
+  const ref = normalizeImportedAdapterRootRef(rootModelRefOrId);
+  if (!ref) return '';
+  if (ref.table_id === 'host') return String(ref.model_id);
+  return `${sanitizeSlideAppTableSegment(ref.table_id, 'app')}_${ref.model_id}`;
+}
+
+function buildImportedHostIngressKeys(rootModelRefOrId, semantic) {
+  const suffix = importedAdapterRootSuffix(rootModelRefOrId);
+  const base = `imported_host_${semantic}_${suffix}`;
   return {
     ingressKey: base,
     routeKey: `${base}_route`,
@@ -3450,16 +3480,17 @@ function buildImportedHostIngressKeys(rootModelId, semantic) {
   };
 }
 
-function buildImportedHostEgressKeys(rootModelId, semantic) {
-  const base = `imported_${semantic}_${rootModelId}`;
+function buildImportedHostEgressKeys(rootModelRefOrId, semantic) {
+  const suffix = importedAdapterRootSuffix(rootModelRefOrId);
+  const base = `imported_${semantic}_${suffix}`;
   return {
     busOutKey: `${base}_bus`,
-    mountRelayPin: `__host_egress_${semantic}_relay_${rootModelId}`,
-    mountBridgeKey: `__host_egress_${semantic}_bridge_${rootModelId}`,
-    model0BridgeIn: `__host_egress_${semantic}_bridge_in_${rootModelId}`,
+    mountRelayPin: `__host_egress_${semantic}_relay_${suffix}`,
+    mountBridgeKey: `__host_egress_${semantic}_bridge_${suffix}`,
+    model0BridgeIn: `__host_egress_${semantic}_bridge_in_${suffix}`,
     model0BridgeRouteKey: `${base}_route`,
     model0BridgeWiringKey: `${base}_bridge_wiring`,
-    bridgeFunc: `bridge_imported_${semantic}_to_mt_bus_send_${rootModelId}`,
+    bridgeFunc: `bridge_imported_${semantic}_to_mt_bus_send_${suffix}`,
   };
 }
 
@@ -3488,12 +3519,14 @@ function ensureModel0SubmodelMount(runtime, childModelId, preferredCell = null) 
   return mountCell;
 }
 
-function materializeImportedHostIngressAdapter(runtime, rootModelId, mountCell, hostIngress) {
+function materializeImportedHostIngressAdapter(runtime, rootModelRefOrId, mountCell, hostIngress) {
   if (!hostIngress) return null;
-  const rootModel = runtime.getModel(rootModelId);
+  const rootRef = normalizeImportedAdapterRootRef(rootModelRefOrId);
+  if (!rootRef) return null;
+  const rootModel = runtime.getModel(rootRef);
   const model0 = runtime.getModel(0);
   if (!rootModel || !model0 || !mountCell) return null;
-  const keys = buildImportedHostIngressKeys(rootModelId, hostIngress.semantic);
+  const keys = buildImportedHostIngressKeys(rootRef, hostIngress.semantic);
   runtime.addLabel(rootModel, 0, 0, 0, { k: keys.relayPin, t: 'pin.in', v: null });
   runtime.addLabel(rootModel, 0, 0, 0, {
     k: keys.relayRouteKey,
@@ -3520,14 +3553,16 @@ function materializeImportedHostIngressAdapter(runtime, rootModelId, mountCell, 
   return keys;
 }
 
-function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, hostEgress, remoteEndpoint) {
+function materializeImportedHostEgressAdapter(runtime, rootModelRefOrId, mountCell, hostEgress, remoteEndpoint) {
   if (!hostEgress) return null;
-  const rootModel = runtime.getModel(rootModelId);
+  const rootRef = normalizeImportedAdapterRootRef(rootModelRefOrId);
+  if (!rootRef) return null;
+  const rootModel = runtime.getModel(rootRef);
   const model0 = runtime.getModel(0);
   if (!rootModel || !model0 || !mountCell) {
     runtime.eventLog.record({
       op: 'host_egress_adapter_skipped',
-      cell: { model_id: rootModelId, p: 0, r: 0, c: 0 },
+      cell: { table_id: rootRef.table_id, model_id: rootRef.model_id, p: 0, r: 0, c: 0 },
       label: { k: 'host_egress_v1', t: 'json' },
       result: 'skipped',
       reason: !rootModel ? 'root_model_missing'
@@ -3537,15 +3572,23 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
     return null;
   }
   if (!remoteEndpoint || !remoteEndpoint.to) return null;
-  const keys = buildImportedHostEgressKeys(rootModelId, hostEgress.semantic);
+  const keys = buildImportedHostEgressKeys(rootRef, hostEgress.semantic);
   const routeTopic = buildRemoteEndpointTopic(runtime, remoteEndpoint, hostEgress.pinName);
-  const responseTopic = buildEndpointTopic(runtime, {
-    worker_id: resolveUiServerWorkerId(),
-    model_id: rootModelId,
-    pin: SLIDE_IMPORT_REPLY_PIN,
-  });
+  const responseTopicEndpoint = rootRef.table_id === 'host'
+    ? { worker_id: resolveUiServerWorkerId(), model_id: rootRef.model_id, pin: SLIDE_IMPORT_REPLY_PIN }
+    : { worker_id: resolveUiServerWorkerId(), model_id: WORKSPACE_MANAGER_APP_MODEL_ID, pin: SLIDE_IMPORT_REPLY_PIN };
+  const responseTopic = buildEndpointTopic(runtime, responseTopicEndpoint);
+  const hostWorkerId = resolveUiServerWorkerId();
+  const rootTableId = rootRef.table_id;
+  const rootModelId = rootRef.model_id;
+  const endpointWorkerId = remoteEndpoint.to.worker_id;
+  const endpointModelId = remoteEndpoint.to.model_id;
+  const endpointPin = hostEgress.pinName;
+  const replyPin = SLIDE_IMPORT_REPLY_PIN;
   const routeKind = normalizeRemoteEndpointRouteKind(remoteEndpoint) || 'control';
   const hostPinType = routeKind === 'management' ? 'pin.bus.mb.out' : 'pin.bus.cb.out';
+  const responseTopicValue = responseTopic || '';
+  const routeTopicValue = routeTopic || '';
   const rootCell = runtime.getCell(rootModel, 0, 0, 0);
   const rootIngressPins = rootCell
     ? Array.from(rootCell.labels.entries())
@@ -3575,21 +3618,21 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
         `  mt('message_role', 'str', 'request'),`,
         `  mt('bus', 'str', ${JSON.stringify(routeKind)}),`,
         `  mt('route_kind', 'str', ${JSON.stringify(routeKind)}),`,
-        `  mt('topic', 'str', ${JSON.stringify(routeTopic)}),`,
-        `  mt('response_topic', 'str', ${JSON.stringify(responseTopic)}),`,
+        `  mt('topic', 'str', ${JSON.stringify(routeTopicValue)}),`,
+        `  mt('response_topic', 'str', ${JSON.stringify(responseTopicValue)}),`,
         `  mt('bus_out_key', 'str', ${JSON.stringify(keys.busOutKey)}),`,
-        `  mt('endpoint_worker_id', 'str', ${JSON.stringify(remoteEndpoint.to.worker_id)}),`,
+        `  mt('endpoint_worker_id', 'str', ${JSON.stringify(endpointWorkerId)}),`,
         `  mt('endpoint_table_id', 'str', 'host'),`,
-        `  mt('endpoint_model_id', 'int', ${remoteEndpoint.to.model_id}),`,
-        `  mt('endpoint_pin', 'str', ${JSON.stringify(hostEgress.pinName)}),`,
-        `  mt('origin_worker_id', 'str', ${JSON.stringify(resolveUiServerWorkerId())}),`,
-        `  mt('origin_table_id', 'str', 'host'),`,
+        `  mt('endpoint_model_id', 'int', ${endpointModelId}),`,
+        `  mt('endpoint_pin', 'str', ${JSON.stringify(endpointPin)}),`,
+        `  mt('origin_worker_id', 'str', ${JSON.stringify(hostWorkerId)}),`,
+        `  mt('origin_table_id', 'str', ${JSON.stringify(rootTableId)}),`,
         `  mt('origin_model_id', 'int', ${rootModelId}),`,
-        `  mt('origin_pin', 'str', ${JSON.stringify(hostEgress.pinName)}),`,
-        `  mt('reply_target_worker_id', 'str', ${JSON.stringify(resolveUiServerWorkerId())}),`,
-        `  mt('reply_target_table_id', 'str', 'host'),`,
+        `  mt('origin_pin', 'str', ${JSON.stringify(endpointPin)}),`,
+        `  mt('reply_target_worker_id', 'str', ${JSON.stringify(hostWorkerId)}),`,
+        `  mt('reply_target_table_id', 'str', ${JSON.stringify(rootTableId)}),`,
         `  mt('reply_target_model_id', 'int', ${rootModelId}),`,
-        `  mt('reply_target_pin', 'str', ${JSON.stringify(SLIDE_IMPORT_REPLY_PIN)}),`,
+        `  mt('reply_target_pin', 'str', ${JSON.stringify(replyPin)}),`,
         `  ...(principalKey ? [mt('reply_target_principal_key', 'str', principalKey)] : []),`,
         `  mt('payload_model_id', 'int', 1),`,
         `  ...payloadRecords,`,
@@ -3657,12 +3700,12 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
       target: {
         transport: remoteEndpoint.transport,
         route_kind: routeKind,
-        worker_id: remoteEndpoint.to.worker_id,
-        model_id: remoteEndpoint.to.model_id,
+        worker_id: endpointWorkerId,
+        model_id: endpointModelId,
         pin: hostEgress.pinName,
         topic: routeTopic,
       },
-      reply_pin: SLIDE_IMPORT_REPLY_PIN,
+      reply_pin: replyPin,
       owned_by: 'ui-server-installer',
     },
   });
@@ -3768,6 +3811,14 @@ function materializeSlideImportPayload(runtime, payload, validation) {
   const mountCell = resolveNextWorkspaceMountCell(runtime);
   const tableId = buildSlideAppInstanceTableId(runtime, validation, mountCell);
   const ownerPrincipalId = readRuntimePrincipalOwnerId(runtime);
+  const rootModelId = validation.rootTempId;
+  const rootModelRef = { table_id: tableId, model_id: rootModelId };
+  const idMap = new Map(validation.tempIds.map((tempId) => [tempId, tempId]));
+  const busIngressKeyMap = new Map();
+  if (validation.hostIngress) {
+    const precomputedIngressKeys = buildImportedHostIngressKeys(rootModelRef, validation.hostIngress.semantic);
+    busIngressKeyMap.set(`${validation.rootTempId}|${validation.hostIngress.semantic}`, precomputedIngressKeys.ingressKey);
+  }
 
   for (const tempId of validation.tempIds) {
     const name = tempId === validation.rootTempId
@@ -3778,12 +3829,11 @@ function materializeSlideImportPayload(runtime, payload, validation) {
 
   for (const record of payload) {
     const model = runtime.getModel({ table_id: tableId, model_id: record.id });
-    const nextValue = record.v;
+    const nextValue = remapImportedLabelValue(record, idMap, busIngressKeyMap);
     runtime.addLabel(model, record.p, record.r, record.c, { k: record.k, t: record.t, v: nextValue });
   }
 
-  const rootModelId = validation.rootTempId;
-  const rootModel = runtime.getModel({ table_id: tableId, model_id: rootModelId });
+  const rootModel = runtime.getModel(rootModelRef);
   const installedAt = new Date().toISOString();
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'deletable', t: 'bool', v: true });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'installed_at', t: 'str', v: installedAt });
@@ -3814,13 +3864,19 @@ function materializeSlideImportPayload(runtime, payload, validation) {
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'app_name', t: 'str', v: validation.metadata.appName });
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'slide_app_summary', t: 'str', v: validation.metadata.slideSummary });
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'slide_app_table_id', t: 'str', v: tableId });
-  const hostIngressKeys = null;
-  const hostEgressKeys = null;
+  const hostIngressKeys = validation.hostIngress
+    ? materializeImportedHostIngressAdapter(runtime, rootModelRef, mountCell, validation.hostIngress)
+    : null;
+  const hostEgressKeys = validation.hostEgress && validation.remoteEndpoint
+    ? validation.hostEgress.entries
+      .map((entry) => materializeImportedHostEgressAdapter(runtime, rootModelRef, mountCell, entry, validation.remoteEndpoint))
+      .filter(Boolean)
+    : [];
 
   return {
     tableId,
     rootModelId,
-    rootModelRef: { table_id: tableId, model_id: rootModelId },
+    rootModelRef,
     modelIds: [...validation.tempIds],
     mountCell,
     hostIngressKeys,
@@ -3876,11 +3932,8 @@ function buildFilltableCreatedSlidePayload(spec) {
   ];
 }
 
-function removeImportedBundleFromRuntime(runtime, rootModelId) {
-  const rootModel = runtime.getModel(rootModelId);
-  if (!rootModel) {
-    return { ok: false, code: 'model_not_found' };
-  }
+function cleanupImportedHostGeneratedLabels(runtime, rootModel, rootRef = {}) {
+  if (!runtime || !rootModel) return { systemLabels: [] };
   const rootCell = rootModel.getCell(0, 0, 0);
   const generatedModel0Labels = Array.isArray(rootCell.labels.get('host_ingress_generated_model0_labels')?.v)
     ? rootCell.labels.get('host_ingress_generated_model0_labels').v.filter((item) => typeof item === 'string' && item)
@@ -3897,11 +3950,6 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
   const generatedEgressSystemLabels = Array.isArray(rootCell.labels.get('host_egress_generated_system_labels')?.v)
     ? rootCell.labels.get('host_egress_generated_system_labels').v.filter((item) => typeof item === 'string' && item)
     : [];
-  const importedIdsRaw = rootCell.labels.get('imported_bundle_model_ids');
-  const modelIds = Array.isArray(importedIdsRaw && importedIdsRaw.v)
-    ? importedIdsRaw.v.filter((item) => Number.isInteger(item))
-    : [rootModelId];
-  const targetIds = new Set(modelIds);
 
   if (generatedModel0Labels.length > 0) {
     const model0 = runtime.getModel(0);
@@ -3946,13 +3994,34 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
     } else {
       runtime.eventLog.record({
         op: 'host_egress_cleanup_skipped',
-        cell: { model_id: rootModelId, p: 0, r: 0, c: 0 },
+        cell: {
+          table_id: typeof rootRef.table_id === 'string' ? rootRef.table_id : 'host',
+          model_id: Number.isInteger(rootRef.model_id) ? rootRef.model_id : rootModel.id,
+          p: 0,
+          r: 0,
+          c: 0,
+        },
         label: { k: 'host_egress_generated_system_labels', t: 'json' },
         result: 'skipped',
         reason: 'sys_model_missing',
       });
     }
   }
+  return { systemLabels: generatedEgressSystemLabels };
+}
+
+function removeImportedBundleFromRuntime(runtime, rootModelId) {
+  const rootModel = runtime.getModel(rootModelId);
+  if (!rootModel) {
+    return { ok: false, code: 'model_not_found' };
+  }
+  const rootCell = rootModel.getCell(0, 0, 0);
+  const cleanup = cleanupImportedHostGeneratedLabels(runtime, rootModel, { table_id: 'host', model_id: rootModelId });
+  const importedIdsRaw = rootCell.labels.get('imported_bundle_model_ids');
+  const modelIds = Array.isArray(importedIdsRaw && importedIdsRaw.v)
+    ? importedIdsRaw.v.filter((item) => Number.isInteger(item))
+    : [rootModelId];
+  const targetIds = new Set(modelIds);
 
   for (const model of runtime.models.values()) {
     for (const cell of model.cells.values()) {
@@ -3974,7 +4043,7 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
     runtime.models.delete(modelId);
   }
 
-  return { ok: true, modelIds, systemLabels: generatedEgressSystemLabels };
+  return { ok: true, modelIds, systemLabels: cleanup.systemLabels };
 }
 
 function corsHeaders(req, originOverride) {
@@ -11623,6 +11692,9 @@ function createServerState(options) {
 
     const executeGenericOwnerAction = async () => {
       const target = payload && payload.target && typeof payload.target === 'object' ? payload.target : {};
+      const targetTableId = target.table_id === undefined || target.table_id === null
+        ? 'host'
+        : (typeof target.table_id === 'string' && isSafePinRouteSegment(target.table_id) ? target.table_id : '');
       const targetModelId = Number.isInteger(target.model_id) ? target.model_id : null;
       const p = Number.isInteger(target.p) ? target.p : 0;
       const r = Number.isInteger(target.r) ? target.r : 0;
@@ -11630,6 +11702,56 @@ function createServerState(options) {
       const key = typeof target.k === 'string' ? target.k : '';
       if (!runtime.isRunLoopActive()) {
         return finishError('runtime_not_running', `model_id=${targetModelId ?? 'unknown'}`);
+      }
+      if (!targetTableId) {
+        return finishError('invalid_target', 'invalid_table_id');
+      }
+      if (targetTableId !== 'host') {
+        if (!(Number.isInteger(targetModelId) && targetModelId >= 0 && key)) {
+          return finishError('invalid_target', 'app_table_non_negative_target_required');
+        }
+        const targetModel = runtime.getModel({ table_id: targetTableId, model_id: targetModelId });
+        if (!targetModel) {
+          return finishError('invalid_target', `${targetTableId}:${targetModelId}`);
+        }
+        const recordBase = {
+          table_id: targetTableId,
+          model_id: targetModelId,
+          p,
+          r,
+          c,
+          k: key,
+        };
+        if (action === 'ui_owner_label_update') {
+          if (!payload.value || typeof payload.value.t !== 'string' || !Object.prototype.hasOwnProperty.call(payload.value, 'v')) {
+            return finishError('invalid_target', 'missing_value');
+          }
+          const routed = await programEngine.routePinPayloadViaOwnerMaterialization({
+            op_id: opId || `ui_owner_set_${Date.now()}`,
+            records: [{
+              ...recordBase,
+              op: 'add_label',
+              t: payload.value.t,
+              v: payload.value.v,
+            }],
+          });
+          return routed && routed.ok
+            ? finishOk({ routed_by: 'owner_materialization', table_id: targetTableId, model_id: targetModelId })
+            : finishError(routed && routed.code ? routed.code : 'owner_materialization_failed', routed && routed.detail ? routed.detail : `${targetTableId}:${targetModelId}`);
+        }
+        if (action === 'ui_owner_label_remove') {
+          const routed = await programEngine.routePinPayloadViaOwnerMaterialization({
+            op_id: opId || `ui_owner_rm_${Date.now()}`,
+            records: [{
+              ...recordBase,
+              op: 'rm_label',
+            }],
+          });
+          return routed && routed.ok
+            ? finishOk({ routed_by: 'owner_materialization', table_id: targetTableId, model_id: targetModelId })
+            : finishError(routed && routed.code ? routed.code : 'owner_materialization_failed', routed && routed.detail ? routed.detail : `${targetTableId}:${targetModelId}`);
+        }
+        return finishError('unknown_action', action);
       }
       if (!(Number.isInteger(targetModelId) && targetModelId > 0 && key)) {
         return finishError('invalid_target', 'positive_target_required');
@@ -11800,6 +11922,18 @@ function createServerState(options) {
       const tableModels = runtime.modelTables instanceof Map ? runtime.modelTables.get(normalizedTableId) : null;
       if (!tableModels) return { ok: false, code: 'invalid_target', detail: 'table_not_found' };
       const removedModelRefs = Array.from(tableModels.keys()).map((modelId) => ({ table_id: normalizedTableId, model_id: modelId }));
+      const generatedSystemLabels = [];
+      for (const [modelId, model] of tableModels.entries()) {
+        const cleanup = cleanupImportedHostGeneratedLabels(runtime, model, { table_id: normalizedTableId, model_id: modelId });
+        if (cleanup && Array.isArray(cleanup.systemLabels)) generatedSystemLabels.push(...cleanup.systemLabels);
+      }
+      if (generatedSystemLabels.length > 0) {
+        const sys = firstSystemModel(runtime);
+        for (const key of generatedSystemLabels) {
+          programEngine.functions.delete(key);
+          if (sys && sys.functions instanceof Map) sys.functions.delete(key);
+        }
+      }
       const routePrefix = `${normalizedTableId}|`;
       if (runtime.cellConnectGraph instanceof Map) {
         for (const key of Array.from(runtime.cellConnectGraph.keys())) {
