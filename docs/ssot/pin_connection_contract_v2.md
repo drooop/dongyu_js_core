@@ -2,7 +2,7 @@
 title: "PIN Connection Contract v2"
 doc_type: ssot
 status: active
-updated: 2026-05-10
+updated: 2026-07-01
 source: user
 iteration: 0356-pin-connection-contract-realignment
 ---
@@ -219,6 +219,8 @@ Conflict behavior:
 ```
 
 传输中的模型数据默认是临时数据：`format is ModelTable-like, persistence is explicit materialization`。只有接收方明确执行 materialization 时，才会变成正式持久模型表数据。
+
+正式 bus / pin transport 使用 `pin_payload.v2` Temporary ModelTable record array。业务 records 必须在同一数组中出现，并由 `payload_model_id` 指向；不得把 ModelTable records 嵌套到 `payload.v`、`bundle_payload.v` 或其他 `json` label 中。
 
 当模型数据传递到函数的 `{functionName}:in` 时，运行时应把传入记录数组构造成临时模型对象 `input_model`，并与函数所在模型对象 `model` 一起传入函数。函数只能通过受控 API 产生正式副作用。
 

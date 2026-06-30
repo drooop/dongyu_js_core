@@ -220,7 +220,7 @@ frontend/server current path 只提交 `bus_event_v2`，同工作区业务默认
   - Workspace Manager DEM ModelTable 只维护资产索引，不拥有 provider bundle payload
   - installable row 使用 `asset_id`、`provider_worker_id`、`provider_model_id`、`provider_bundle_pin`、`provider_route_kind` 指向 provider bundle endpoint
   - UI Server 从 Model 0 `mqtt_topic_base` 计算请求 `topic`，发出 `slide_app_bundle_request.v1`
-  - provider 回 `slide_app_bundle_response.v1`，其中 `bundle_payload` 必须是 ModelTable record array
+  - provider 回 `pin_payload.v2 message_role=response`，其中 `payload_model_id` 指向 `slide_app_bundle_response.v1`，实际 bundle records 也在同一 record array 中，通过 `bundle_record_id_offset` 区分
   - UI Server 必须按 pending install state 校验 `op_id` / request correlation、`asset_id`、provider endpoint、computed topic、`route_kind`、`reply_target`
   - 只有通过校验的 response 才能 materialize；`source_model_id` 不再是 Workspace Manager 安装来源
 - `0308` 之后，对以上 slide/workspace 主线路径，legacy `action` envelope 已正式退役：
@@ -595,9 +595,13 @@ bus pin 的 `v` 必须是临时 ModelTable record array。常用 record 形状�
 
 ```json
 [
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "op-001" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/R1/3000/submit1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1055/result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "submit1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "U1" },
@@ -608,9 +612,8 @@ bus pin 的 `v` 必须是临时 ModelTable record array。常用 record 形状�
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "app:demo:user-a:submit" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 1055 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "result" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload", "t": "json", "v": [
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello" }
-  ] }
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello" }
 ]
 ```
 
@@ -645,7 +648,7 @@ remote-worker 内部再通过自己的 `pin.connect.cell` / `pin.connect.label` 
 
 此时 UI Server 安装器会把该 App 的外发出口接到 Model 0 的 `pin.bus.mb.out`。MBR 从管理总线收到请求后，仍只按 payload 里的 `topic` record 转发到目标控制总线 / MQTT。默认缺省 `route_kind` 等同 `"control"`，即 UI Server 直接写 `pin.bus.cb.out`。
 
-这条路径同样只认 `pin_payload.v1` 临时 ModelTable records，不接受旧 envelope 或普通 JSON fallback。
+这条路径同样只认 `pin_payload.v2` 临时 ModelTable records，不接受旧 envelope、普通 JSON fallback 或 nested `payload.v`。
 
 ### 6.5 Control To Management Return
 
@@ -735,7 +738,7 @@ Worker：软件工人类型标签固定写法如下：
 
 ```json
 [
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "submit-test-001" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "submit-test-001" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
@@ -743,6 +746,7 @@ Worker：软件工人类型标签固定写法如下：
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1055/result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "submit1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "U1" },
@@ -753,9 +757,8 @@ Worker：软件工人类型标签固定写法如下：
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "app:demo:user-a:submit" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 1055 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "result" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload", "t": "json", "v": [
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello" }
-  ] }
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello" }
 ]
 ```
 
@@ -766,13 +769,13 @@ Worker：软件工人类型标签固定写法如下：
 
 ### 9.2 Result（remote-worker → MBR → UI Server）
 
-remote-worker 程序模型处理完成后，不能直接发 transport。它应返回 `pin_payload.v1` records，先走本 worker 的 Model 0 `pin.bus.cb.out`。
+remote-worker 程序模型处理完成后，不能直接发 transport。它应返回 `pin_payload.v2` records，先走本 worker 的 Model 0 `pin.bus.cb.out`。
 
 返回 payload 必须把 `message_role` 写成 `response`。`topic` 必须等于 request 中的 `response_topic`，例如 `UIPUT/ws/dam/pic/de/U1/1055/result`。response packet 的 `endpoint_*` 必须描述当前 transport 投递 endpoint，并与当前 `topic` 对齐；`reply_target_*` 描述最终 materialize 的本地目标。host-table 目标下二者可以相同；安装后的滑动 App 通常是 host transport endpoint + App table reply target，必须原样携带 request 中的 `reply_target_table_id`，否则 UI Server 无法区分不同用户或不同 App instance 内相同的本地 `model_id`。远端处理者身份写在 `origin_*` 中。
 
 ```json
 [
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "req_123" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
@@ -780,6 +783,7 @@ remote-worker 程序模型处理完成后，不能直接发 transport。它应�
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1055/result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "U1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 1055 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "R1" },
@@ -790,10 +794,9 @@ remote-worker 程序模型处理完成后，不能直接发 transport。它应�
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "app:demo:user-a:submit" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 1055 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "result" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload", "t": "json", "v": [
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Submitted: hello" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "remote_status", "t": "str", "v": "remote_processed" }
-  ] }
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Submitted: hello" },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "remote_status", "t": "str", "v": "remote_processed" }
 ]
 ```
 

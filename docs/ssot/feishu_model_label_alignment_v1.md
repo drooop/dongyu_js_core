@@ -238,7 +238,7 @@ Not allowed as target contract:
 - `bundle_payload.v = [ ...ModelTable records... ]` as the long-term provider
   bundle response shape.
 
-### 3.2 Recommended message shape
+### 3.2 Adopted target message shape
 
 Use temporary `id=0` for the message envelope and separate temporary ids for
 payload tables/models.
@@ -390,10 +390,10 @@ Adjusted for project target:
   - `reply_target_worker_id` / `reply_target_table_id` /
     `reply_target_model_id` / `reply_target_pin` describe where the response
     should be materialized.
-- The source document calls the current version `pin_payload.v1`; this SSOT
-  recommends a follow-up target message shape (`pin_payload.v2` or equivalent)
-  only to remove nested ModelTable arrays from formal payload fields. It does
-  not require changing the Feishu source document before implementation.
+- The source document calls this family `pin_payload.v1`; repo implementation
+  iteration 0430 adopts `pin_payload.v2` as the project target name to remove
+  nested ModelTable arrays from formal payload fields. This does not require
+  changing the Feishu source document before implementation.
 
 ## 5. Follow-Up Implementation Scope
 

@@ -2,7 +2,7 @@
 title: "Label Type Registry"
 doc_type: ssot
 status: active
-updated: 2026-05-12
+updated: 2026-07-01
 source: ai
 ---
 
@@ -13,6 +13,7 @@ source: ai
 >
 > 0356 起，PIN 连接合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。0357 起，runtime 对 `pin.connect.model`、`pin.log.*`、`(self, ...)` / `(func, ...)` 端点写法执行硬拒绝；它们不是当前输入面，也不得通过兼容层恢复。
 > 0424 起，principal-scoped subtable namespace 目标合同由 `docs/ssot/principal_scoped_subtable_namespace_v1.md` 接管；`model.subtable` 是目标 label type，不是 `model.submt` 的别名。
+> 0430 起，正式 bus / pin transport 目标是 `pin_payload.v2` Temporary ModelTable record array。业务 records 必须在同一数组中出现，并由 `payload_model_id` 指向；不得嵌套在 `payload.v`、`bundle_payload.v` 或其他 `json` label 中。
 
 Authority:
 - Below `CLAUDE.md`, architecture SSOT, and runtime semantics.
@@ -73,6 +74,8 @@ Conflict behavior:
 - `model.subtable` 的 child table 内，`model_id >= 0` 是 table-local；child table root 通常是 `{ table_id, model_id: 0 }`。
 - `model.subtable` 不允许让 child table 直接声明或改写 host negative models；host system capabilities 只能通过 host-owned boundary pins 暴露。
 - `model.subtable` 不恢复 `pin.connect.model`。跨 table 连接只能通过 host hosting Cell 与 child table root boundary pins。
+- Feishu source 中的 `model.v1n` 不作为项目 `label.t` 输入面。软件工人仍写成 `model.table` root 加 `sys_worker_role` / `sys_worker_id`。
+- Feishu source 中的 `model.subtableconnection` / `model.submtconnection` 不作为项目 `label.t` 输入面。子模型表和子模型连接仍通过 `model.subtable` / `model.submt` hosting Cell、boundary pins 与 `pin.connect.cell` 表达。
 
 根程序约定：
 - 每个正数 `model.table` root `(0,0,0)` 默认携带 `mt_write` / `mt_bus_receive` / `mt_bus_send` 三类程序入口。
@@ -122,6 +125,7 @@ Conflict behavior:
 - 正式业务 pin 的非空 value 必须是 `docs/ssot/temporary_modeltable_payload_v1.md` 定义的 record array。
 - 对象 envelope（如 `{op, records}` / `{action, target}`）不再是正式 pin value。
 - pin 名称 / 接收程序模型决定动作语义；payload 本身只表达数据。
+- 正式 bus / pin transport 目标为 `pin_payload.v2`。如果需要区分 envelope metadata 和业务数据，必须使用 `payload_model_id` 指向同一 record array 中的业务 records；不得把 ModelTable records 嵌套进 `payload.v`、`bundle_payload.v` 或其他 `json` label。
 
 0347 message / materialization 约束：
 - pin value 中的 record array 是 Temporary ModelTable Message：`format is ModelTable-like; persistence is explicit materialization`。

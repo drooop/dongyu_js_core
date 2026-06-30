@@ -546,7 +546,7 @@ ModelTablePatch v0 仅作为外部补丁 envelope 或历史迁移债务保留：
   3. mt_v0 模式只允许作为外层补丁入口：先 `applyPatch(records)`，再进入相应的 pin / mailbox 迁移路径
   4. 新业务 pin payload 必须在进入 pin value 前转换为临时 ModelTable record array
 
-- 出站：BUS_OUT label 的内部业务 value 必须是 `pin_payload.v1` 临时 ModelTable payload；运行时或 server 在 MQTT / Matrix / MBR 边界发布前可还原为外层 `pin_payload` object packet。
+- 出站：BUS_OUT label 的内部业务 value 必须是 `pin_payload.v2` 临时 ModelTable payload；运行时或 server 在 MQTT / Matrix / MBR 边界发布前可把该 record array 放进外层 `pin_payload` object packet。外层 packet 不是业务 pin value。
 
 ### 5.5 消息路由全链路（0143 最终架构）
 
@@ -597,10 +597,10 @@ MQTT → mqttIncoming → BUS_IN 短路 / 写 IN 到 model(0,0,0)
 
 bus pin 的 `v` 必须是 ModelTable-like temporary record array。标准外发载荷必须包含：
 
-- `__mt_payload_kind = "pin_payload.v1"`
+- `__mt_payload_kind = "pin_payload.v2"`
 - `op_id` / `__mt_request_id`
 - `message_role`，值只能是 `"request"` 或 `"response"`
-- `payload`，其值仍是业务临时 ModelTable records
+- `payload_model_id`，指向同一 record array 中的业务临时 ModelTable records
 - `topic`，当前 packet 的完整控制总线 MQTT topic，例如请求 `UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<worker_id>/<model_id>/<pin>`
 - `response_topic`，request 期待的回包 MQTT topic。host-table 目标可由 `reply_target_*` 派生；App instance 目标必须使用 host transport endpoint，真正 materialization target 由 `reply_target_table_id + reply_target_model_id` 表达
 - `route_kind`，可选；缺省等同 `"control"`；显式 `"management"` 表示本次消息需要先走管理总线到 MBR，再由 MBR 按 `topic` 转为目标控制总线
@@ -610,7 +610,7 @@ bus pin 的 `v` 必须是 ModelTable-like temporary record array。标准外发�
 
 0424 target 下，App instance traffic 的 origin / reply target metadata 必须增加 table 维度：`origin_table_id` / `reply_target_table_id`。仅靠 `origin_model_id` / `reply_target_model_id` 只能描述当前 v1 host-table implementation fact，不能作为 principal-scoped App instance 的长期合同。
 
-这些 metadata 必须作为 Temporary ModelTable record array 中的 records 存在，不能放在外层 JSON object 上。普通业务 JSON、旧 envelope、raw `resultPayload`、loose top-level `origin_*` / `reply_target_*` / `endpoint_*` 字段不能作为 fallback 发送。
+这些 metadata 必须作为 Temporary ModelTable record array 中的 records 存在，不能放在外层 JSON object 上。普通业务 JSON、旧 envelope、raw `resultPayload`、loose top-level `origin_*` / `reply_target_*` / `endpoint_*` 字段不能作为 fallback 发送。正式 bus / pin transport 不允许把 ModelTable records 放进 `payload.v`、`bundle_payload.v`、`json_patch.v` 或其他 `json` label 中；业务 records 必须作为同一数组中的 records 出现，并由 `payload_model_id` 指向。
 
 `message_role="request"` 表示该 payload 会触发目标 worker/model/pin 上的程序链路；`message_role="response"` 表示这是回包，必须发布到 `response_topic`，并由 UI Server 按 `reply_target_*` materialize。远端 runtime 收到请求 endpoint topic 上的 `response` 必须拒绝或忽略，不能再次触发程序。
 

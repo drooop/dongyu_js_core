@@ -417,12 +417,12 @@ provider-owned 安装的硬边界如下：
 - Workspace Manager DEM ModelTable 是资产索引真源。UI Server 可以投影或缓存索引行，但不能把投影当成 bundle truth。
 - installable asset row 不得把 `source_model_id` 当作安装来源。目录行必须提供 `asset_id`、`provider_worker_id`、`provider_model_id`、`provider_bundle_pin`、`provider_route_kind`。
 - UI Server 从 Model 0 `mqtt_topic_base` 和 provider endpoint 计算请求 `topic`：`UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<provider_worker_id>/<provider_model_id>/<provider_bundle_pin>`。UI Server 同时从 `reply_target_*` 计算 `response_topic`。完整 topic 可以作为 derived projection/status label 展示，但不能成为独立目录真源。
-- 点击安装时，UI Server 经 Model 0 bus out 发送 `pin_payload.v1`，其中 nested `payload` 是 `slide_app_bundle_request.v1` Temporary ModelTable records。
+- 点击安装时，UI Server 经 Model 0 bus out 发送 `pin_payload.v2`，其中 `payload_model_id` 指向同一 record array 内的 `slide_app_bundle_request.v1` Temporary ModelTable records。
 - UI Server 必须保存 pending install state：`op_id`、`asset_id`、provider endpoint、computed topic、`route_kind`、`reply_target`。
-- provider 返回 `pin_payload.v1 message_role=response`，其中 nested `payload` 是 `slide_app_bundle_response.v1` Temporary ModelTable records，至少包含 `asset_id`、`bundle_payload`，可选包含 `bundle_sha256`。
+- provider 返回 `pin_payload.v2 message_role=response`，其中 `payload_model_id` 指向同一 record array 内的 `slide_app_bundle_response.v1` Temporary ModelTable records，至少包含 `asset_id`、`bundle_record_id_offset`，可选包含 `bundle_sha256`。实际 bundle records 也必须在同一 record array 中出现，不能嵌入到 `bundle_payload.v`。
 - UI Server materialize 之前必须验证 response 与 pending install state 匹配：`op_id` 或 request correlation、`asset_id`、provider endpoint、computed `topic`、`route_kind`、`reply_target` 都必须一致。
 - malformed、stale、wrong asset、wrong endpoint、wrong topic、wrong route_kind、wrong reply target 的 response 必须写 visible failure，不得创建新模型。
-- 返回 bundle 仍必须通过 slide-app import validator；禁止 provider bundle 携带 `pin.bus.*`、`pin.connect.model`、`ui.egress.binding.v1`、`reply_target_*`、`route.reply_to`、legacy object payload 或 secrets。
+- 返回 bundle 仍必须通过 slide-app import validator；禁止 provider bundle 携带 `pin.bus.*`、`pin.connect.model`、`ui.egress.binding.v1`、`reply_target_*`、`route.reply_to`、legacy object payload、nested ModelTable records 或 secrets。
 - 返回 bundle 内的 `remote_bus_endpoint_v1` 只描述安装后 APP 的正式业务 egress，不描述 bundle download request 自身。
 
 ### 9.1 imported app 侧的 egress 声明
@@ -510,8 +510,8 @@ UI 可把 `ui.egress.binding.v1` 投影出来，让用户看到“这个按钮/�
 2. root pin.out 经过 mount relay / mount bridge 到达 Model 0 `(0,0,0)` 的 `bridge_in`。
 3. `bridge_imported_*_to_mt_bus_send_*` 读取 `remote_bus_endpoint_v1` 的远端 worker / model 默认值，补上当前公开出口 pin，写入 `endpoint_worker_id` / `endpoint_model_id` / `endpoint_pin` records。
 4. 同一个 bridge 写入 `message_role=request`、`origin_worker_id` / `origin_table_id` / `origin_model_id` / `origin_pin`，并生成 server-owned `reply_target_worker_id` / `reply_target_table_id` / `reply_target_model_id` / `reply_target_pin`，指向当前 UI Server / local App instance `ModelRef` / `result` pin；ZIP 内容不能覆盖它。
-5. bridge 把 `bus_send.v1` Temporary ModelTable records 写入 `mt_bus_send_in`，其中包含 `message_role`、`bus_out_key`、`topic`、`response_topic`、`bus`、`route_kind`、endpoint records、origin records、reply target records 与嵌套业务 `payload`。
-6. `mt_bus_send` 构造只含 `version` / `type` / `payload` 三个顶层字段的 `pin_payload.v1` packet，写入 `imported_<semantic>_<id>_bus`；默认同工作区 egress 的 type 是 `pin.bus.cb.out`，显式 `route_kind="management"` 时是 `pin.bus.mb.out`。
+5. bridge 把 `bus_send.v1` Temporary ModelTable records 写入 `mt_bus_send_in`，其中包含 `message_role`、`bus_out_key`、`topic`、`response_topic`、`bus`、`route_kind`、endpoint records、origin records、reply target records 与 `payload_model_id` 指向的业务 records。
+6. `mt_bus_send` 构造 `pin_payload.v2` Temporary ModelTable record array，写入 `imported_<semantic>_<id>_bus`；默认同工作区 egress 的 type 是 `pin.bus.cb.out`，显式 `route_kind="management"` 时是 `pin.bus.mb.out`。跨系统边界时可以把该 record array 放进只含 `version` / `type` / `payload` 三个顶层字段的外层 transport packet，但这个 object packet 不是业务 pin value。
 7. runtime 对 worker root 系统总线出口执行 publish：`pin.bus.cb.out` 走控制总线 / MQTT；`pin.bus.mb.out` 走管理总线到 MBR。
 8. MBR 只按 packet payload 中的 `topic` record 做通用转发，不要求 per-app route registration；management-routed 请求到达 MBR 后转为控制总线 / MQTT 发给 Remote Worker。回包必须使用 request records 中的 `response_topic`，不允许继续投递到 submit endpoint。
 

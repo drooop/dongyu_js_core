@@ -49,6 +49,34 @@ phase: execution
 - Result: PASS
 - Commit: pending
 
+### Stage 1.2: Sub-Agent Review And Fixes
+
+- Command:
+  - Spawned sub-agent with `codex-code-review` skill.
+  - Edited docs with `apply_patch`.
+- Key output:
+  - Initial review decision: CHANGE_REQUESTED.
+  - Finding: runlog checklist still marked Stage 1 docs as pending after Stage
+    1 draft updates.
+  - Fix: updated the checklist below to mark completed Stage 1 docs as done.
+  - Additional local fix before re-review: completed example envelopes in
+    `temporary_modeltable_payload_v1.md` and `modeltable_user_guide.md` so
+    examples include required `topic`, `response_topic`, `route_kind`, and
+    `endpoint_table_id` records where applicable.
+- Follow-up review:
+  - Decision: CHANGE_REQUESTED.
+  - Finding: provider-owned bundle request/response examples still omitted
+    required transport metadata records.
+  - Fix: completed bundle request/response examples with `topic`,
+    `response_topic`, `route_kind`, endpoint, origin, and reply target records.
+- Final re-review:
+  - Decision: APPROVED.
+  - Findings: none.
+  - Open questions: none.
+  - Verification gaps: none.
+- Result: PASS
+- Commit: pending
+
 ### Stage 0.2: Write Implementation Plan
 
 - Command:
@@ -86,15 +114,42 @@ phase: execution
 - Result: PASS
 - Commit: pending
 
+### Stage 1.1: Operational SSOT Propagation Draft
+
+- Command:
+  - Edited docs with `apply_patch`.
+  - `rg -n "pin_payload\\.v1|payload\\.v|bundle_payload\\.v|bundle_payload|model\\.v1n|model\\.subtableconnection|model\\.submtconnection|pin\\.connect\\.model" docs/ssot docs/user-guide/modeltable_user_guide.md`
+  - `git diff --check -- docs/ssot docs/user-guide docs/iterations/0430-feishu-operational-ssot-impl`
+  - `node scripts/ops/obsidian_docs_migrate.mjs --root docs --phase all`
+- Key output:
+  - `git diff --check` returned no whitespace errors.
+  - Obsidian docs migration dry-run completed with `frontmatterAdded: 0`.
+  - Operational examples in current docs now use `pin_payload.v2` and
+    `payload_model_id`.
+  - Remaining keyword hits are historical/negative statements, source-document
+    references, or explicit rejection wording.
+- Files changed:
+  - `docs/ssot/temporary_modeltable_payload_v1.md`
+  - `docs/ssot/runtime_semantics_modeltable_driven.md`
+  - `docs/ssot/label_type_registry.md`
+  - `docs/ssot/pin_connection_contract_v2.md`
+  - `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md`
+  - `docs/ssot/ui_to_matrix_event_flow.md`
+  - `docs/ssot/feishu_model_label_alignment_v1.md`
+  - `docs/user-guide/modeltable_user_guide.md`
+- Result: PASS
+- Commit: pending
+
 ## Docs Updated / Assessed
 
 - [x] `docs/ssot/feishu_model_label_alignment_v1.md` used as source
 - [x] `docs/iterations/0429-feishu-model-label-operational-ssot/resolution.md`
   used as source blueprint
-- [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` to update in Stage 1
-- [ ] `docs/ssot/label_type_registry.md` to update in Stage 1
-- [ ] `docs/ssot/pin_connection_contract_v2.md` to update in Stage 1
-- [ ] `docs/ssot/temporary_modeltable_payload_v1.md` to update in Stage 1
-- [ ] `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md` to update
+- [x] `docs/ssot/runtime_semantics_modeltable_driven.md` updated in Stage 1
+- [x] `docs/ssot/label_type_registry.md` updated in Stage 1
+- [x] `docs/ssot/pin_connection_contract_v2.md` updated in Stage 1
+- [x] `docs/ssot/temporary_modeltable_payload_v1.md` updated in Stage 1
+- [x] `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md` updated
   in Stage 1
-- [ ] `docs/user-guide/modeltable_user_guide.md` to assess/update in Stage 1
+- [x] `docs/ssot/ui_to_matrix_event_flow.md` updated in Stage 1
+- [x] `docs/user-guide/modeltable_user_guide.md` assessed/updated in Stage 1
