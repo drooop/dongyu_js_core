@@ -140,6 +140,71 @@ phase: execution
 - Result: PASS
 - Commit: pending
 
+### Stage 2.1: Validation Contract Red Tests
+
+- Command:
+  - Created `scripts/tests/test_0430_feishu_operational_ssot_contract.mjs`
+    with TDD RED assertions only.
+  - `node scripts/tests/test_0430_feishu_operational_ssot_contract.mjs`
+  - `node scripts/tests/test_bus_in_out.mjs`
+  - `if [ -f scripts/tests/test_program_model_loader_v0.mjs ]; then node scripts/tests/test_program_model_loader_v0.mjs; else echo 'MISSING scripts/tests/test_program_model_loader_v0.mjs'; fi`
+  - `node scripts/validate_program_model_loader_v0.mjs --case connect_allowlist`
+  - `git add -N scripts/tests/test_0430_feishu_operational_ssot_contract.mjs`
+  - `git diff --check -- scripts/tests/test_0430_feishu_operational_ssot_contract.mjs docs/iterations/0430-feishu-operational-ssot-impl/runlog.md`
+- Key output:
+  - New test failed as expected before implementation:
+    - `removed_model_v1n must be rejected`
+    - `pin_payload.v2 record array must be accepted as Model 0 bus out value`
+    - current rejection reason for v2 nested / missing table id is still
+      `invalid_payload_kind`
+    - current runtime rejects flat stale `pin_payload.v1` through the wrong
+      legacy nested-payload reason (`bus_in_invalid_nested_payload`) instead of
+      explicit `bus_out_legacy_pin_payload_kind_removed`
+  - `node scripts/tests/test_bus_in_out.mjs` passed: `7 passed, 0 failed out
+    of 7`
+  - Planned `scripts/tests/test_program_model_loader_v0.mjs` is not present in
+    this repo.
+  - Nearest existing validator `node scripts/validate_program_model_loader_v0.mjs --case connect_allowlist`
+    failed on current baseline with `connect: missing pin.connect.label route`;
+    this failure is recorded for visibility but is not caused by the new test
+    file.
+  - `git diff --check` returned no whitespace errors after intent-to-add made
+    the new test file visible to the diff checker.
+  - After sub-agent review, the management bus accepted-shape case was fixed to
+    declare `sys_worker_role=DEM` and use `bus=management` /
+    `route_kind=management` for `pin.bus.mb.out`; the RED test still fails for
+    the intended unimplemented v2 runtime reasons.
+  - After follow-up review, missing `origin_table_id` and missing
+    `reply_target_table_id` assertions were split into separate test functions
+    so Stage 3 GREEN evidence can isolate both failure paths.
+  - After final review returned `CHANGE_REQUESTED`, the stale
+    `pin_payload.v1` assertion was changed to cover flat `pin_payload.v1`
+    without depending on nested `payload.v`; nested formal payload removal stays
+    covered by the separate `pin_payload.v2` nested-payload test.
+- Final sub-agent re-review:
+  - Decision: APPROVED.
+  - Findings: none.
+  - Open questions: none.
+  - Verification gaps to carry into Stage 3:
+    - Stage 2 test imports CJS runtime only; Stage 3 closeout must add or run an
+      ESM-equivalent check for `packages/worker-base/src/runtime.mjs`.
+    - Planned `scripts/tests/test_program_model_loader_v0.mjs` is absent and
+      fallback validator currently fails on baseline; Stage 3 must record a
+      clean substitute verifier or explicitly retire the missing command in the
+      iteration evidence.
+- Coverage:
+  - Rejected label types: `model.v1n`, `model.subtableconnection`,
+    `model.submtconnection`, `pin.connect.model`.
+  - Target accepted shape: `pin_payload.v2` Temporary ModelTable record array
+    with `payload_model_id` for both `pin.bus.cb.out` and `pin.bus.mb.out`.
+  - Removed nested formal shape: `payload.v` containing ModelTable records.
+  - App instance table qualification: missing `origin_table_id` and missing
+    `reply_target_table_id` as separate RED cases.
+  - Removed stale formal transport: flat `pin_payload.v1`.
+- Result: RED as intended; final sub-agent review approved before runtime
+  changes.
+- Commit: pending
+
 ## Docs Updated / Assessed
 
 - [x] `docs/ssot/feishu_model_label_alignment_v1.md` used as source
