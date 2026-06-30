@@ -2,7 +2,7 @@
 title: "Iteration 0428 Feishu Model Label SSOT Runlog"
 doc_type: iteration-runlog
 status: completed
-updated: 2026-06-24
+updated: 2026-07-01
 source: ai
 iteration_id: 0428-feishu-model-label-ssot-plan
 id: 0428-feishu-model-label-ssot-plan
@@ -110,6 +110,77 @@ phase: completed
 - Command:
   - Sent updated files and fresh verification results back to the same
     sub-agent.
+- Key output:
+  - Decision: APPROVED.
+  - Findings: none.
+  - Open questions: none.
+  - Verification gaps: none.
+- Result: PASS
+- Commit: pending
+
+### Step 8: Additional Feishu Source Review Addendum
+
+- Date: 2026-07-01
+- Command:
+  - `python3 /Users/drop/.claude/skills/drop-feishu-doc/feishu_doc.py read --url 'https://bob3y2gxxp.feishu.cn/wiki/JYNWwQOOjiWcOLktv07cBvIVnOh' > /tmp/feishu_JYNW_doc.md`
+  - `python3 /Users/drop/.claude/skills/drop-feishu-doc/feishu_doc.py read --url 'https://bob3y2gxxp.feishu.cn/wiki/WBZjwY3DSil6pAkQ8DZcpsrWnUf' > /tmp/feishu_WBZj_doc.md`
+  - `wc -l /tmp/feishu_JYNW_doc.md /tmp/feishu_WBZj_doc.md`
+  - `rg -n "model|模型标签|pin|引脚|pin_payload|origin_pin|endpoint_pin|response_pin|model.subtableconnection|model.submtconnection" /tmp/feishu_JYNW_doc.md /tmp/feishu_WBZj_doc.md`
+- Key output:
+  - `/tmp/feishu_JYNW_doc.md` has 1879 lines.
+  - `/tmp/feishu_WBZj_doc.md` has 382 lines.
+  - `JYNW...` is a software-worker model source. It confirms worker labels,
+    one model label per Cell, `model.subtable`, `model.submt`,
+    bus pin families, and `pin.connect.label` / `pin.connect.cell`.
+  - `JYNW...` also lists `model.v1n`, `model.subtableconnection`, and
+    `model.submtconnection`; these remain source concepts only and are mapped
+    or rejected by the project target SSOT.
+  - `WBZj...` is a `pin_payload.v1` message API source. It confirms that
+    worker messages are ModelTable-like data with version/reply metadata,
+    bus/pin metadata, and payload data.
+  - `WBZj...` uses `origin_pin`, `endpoint_pin`, and `response_pin` as full
+    topic examples; the project target keeps `topic` / `response_topic` as
+    transport truth and structured endpoint/origin/reply-target records for
+    semantics.
+- Result: PASS
+- Commit: pending
+
+### Step 9: Update SSOT Source Mapping
+
+- Command:
+  - Edited docs with `apply_patch`.
+- Key output:
+  - `docs/ssot/feishu_model_label_alignment_v1.md` now lists all three Feishu
+    input documents.
+  - Added `Additional Feishu Source Review` section for `JYNW...` and
+    `WBZj...`.
+  - `plan.md` and `resolution.md` now reference the additional Feishu extracts
+    and pin-payload field mapping.
+- Result: PASS
+- Commit: pending
+
+### Step 10: Local Verification For Addendum
+
+- Command:
+  - `git diff --check -- docs/ITERATIONS.md docs/iterations/0428-feishu-model-label-ssot-plan docs/ssot/feishu_model_label_alignment_v1.md`
+  - `rg -n --glob '!runlog.md' "\\[TODO\\]|Describe the iteration objective|Explain implementation approach|PLACEHOLDER" docs/iterations/0428-feishu-model-label-ssot-plan docs/ssot/feishu_model_label_alignment_v1.md`
+  - `test -f docs/ssot/feishu_model_label_alignment_v1.md && rg -n "JYNW|WBZj|model\\.subtableconnection|model\\.submtconnection|origin_pin|endpoint_pin|response_pin|topic|response_topic|pin_payload\\.v1|pin_payload\\.v2" docs/ssot/feishu_model_label_alignment_v1.md docs/iterations/0428-feishu-model-label-ssot-plan docs/ITERATIONS.md`
+  - `node scripts/ops/obsidian_docs_migrate.mjs --root docs --phase all`
+- Key output:
+  - `git diff --check` returned no whitespace errors.
+  - Placeholder search returned no matches.
+  - Keyword check found the additional Feishu source mapping in the target SSOT
+    and iteration docs.
+  - Obsidian docs migration dry-run completed with `frontmatterAdded: 0`; it
+    would update existing frontmatter timestamps if run with apply.
+- Result: PASS
+- Commit: pending
+
+### Step 11: Sub-Agent Review For Addendum
+
+- Command:
+  - Spawned sub-agent with `codex-code-review` skill for the docs-only
+    addendum diff.
 - Key output:
   - Decision: APPROVED.
   - Findings: none.

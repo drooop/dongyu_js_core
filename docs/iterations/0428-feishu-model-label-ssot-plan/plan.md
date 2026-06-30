@@ -2,7 +2,7 @@
 title: "Iteration 0428 Feishu Model Label SSOT Plan"
 doc_type: iteration-plan
 status: completed
-updated: 2026-06-24
+updated: 2026-07-01
 source: ai
 iteration_id: 0428-feishu-model-label-ssot-plan
 id: 0428-feishu-model-label-ssot-plan
@@ -20,8 +20,10 @@ Temporary ModelTable parameter passing without nested JSON patch payloads.
 ## Scope
 
 - In scope:
-- Read and record the relevant Feishu source facts from
-  `https://bob3y2gxxp.feishu.cn/wiki/LGsZwaXMRiHqOXkB2qocbyfwnKh`.
+- Read and record the relevant Feishu source facts from:
+  - `https://bob3y2gxxp.feishu.cn/wiki/LGsZwaXMRiHqOXkB2qocbyfwnKh`
+  - `https://bob3y2gxxp.feishu.cn/wiki/JYNWwQOOjiWcOLktv07cBvIVnOh`
+  - `https://bob3y2gxxp.feishu.cn/wiki/WBZjwY3DSil6pAkQ8DZcpsrWnUf`
 - Freeze repo-local naming decisions for:
   - `model.table`
   - `model.subtable`
@@ -72,5 +74,11 @@ Temporary ModelTable parameter passing without nested JSON patch payloads.
 - Iteration ID: 0428-feishu-model-label-ssot-plan
 - Source Feishu doc:
   `https://bob3y2gxxp.feishu.cn/wiki/LGsZwaXMRiHqOXkB2qocbyfwnKh`
+- Additional Feishu source docs:
+  - `https://bob3y2gxxp.feishu.cn/wiki/JYNWwQOOjiWcOLktv07cBvIVnOh`
+  - `https://bob3y2gxxp.feishu.cn/wiki/WBZjwY3DSil6pAkQ8DZcpsrWnUf`
 - Local Feishu extract used for planning:
   `/tmp/feishu_LGsZ_model_doc.md`
+- Additional local Feishu extracts used for planning:
+  - `/tmp/feishu_JYNW_doc.md`
+  - `/tmp/feishu_WBZj_doc.md`

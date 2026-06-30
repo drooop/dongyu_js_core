@@ -2,7 +2,7 @@
 title: "Feishu Model Label Alignment v1"
 doc_type: ssot
 status: target
-updated: 2026-06-24
+updated: 2026-07-01
 source: feishu
 iteration_id: 0428-feishu-model-label-ssot-plan
 ---
@@ -11,10 +11,18 @@ iteration_id: 0428-feishu-model-label-ssot-plan
 
 ## Positioning
 
-This file freezes the repo-local target interpretation of the Feishu document:
+This file freezes the repo-local target interpretation of the Feishu documents:
 
 - `https://bob3y2gxxp.feishu.cn/wiki/LGsZwaXMRiHqOXkB2qocbyfwnKh`
-- Focus section: `model: 模型标签`
+- `https://bob3y2gxxp.feishu.cn/wiki/JYNWwQOOjiWcOLktv07cBvIVnOh`
+- `https://bob3y2gxxp.feishu.cn/wiki/WBZjwY3DSil6pAkQ8DZcpsrWnUf`
+
+Focus sections:
+
+- `model: 模型标签`
+- `Worker：软件工人类型标签`
+- `pin: 引脚标签`
+- `pin_payload.v1` message structure and UI / task examples
 
 Authority:
 
@@ -34,7 +42,7 @@ Conflict behavior:
 
 ## 1. Feishu Inputs Adopted
 
-The Feishu document establishes these target ideas:
+The Feishu documents establish these target ideas:
 
 - Every Cell has exactly one model label.
 - The model label is fixed at Cell creation time.
@@ -47,6 +55,32 @@ The Feishu document establishes these target ideas:
 - Child ModelTable boundary pins relay to the child table root `(0,0,0)` pins.
 - A child ModelTable mount Cell may only coexist with pin labels.
 - `pin.connect.model` is not part of the current repo target contract.
+- Worker identity is expressed by `sys_worker_role / worker.role` and
+  `sys_worker_id / worker.id`.
+- Control-bus and management-bus communication is sent and received through
+  worker pins.
+- A formal bus message is ModelTable-like data, not an arbitrary JSON object.
+- A message should separate envelope/version metadata, route/pin metadata, and
+  business payload.
+- UI operation data that does not need backend persistence does not need to be
+  sent; explicit submit/refresh style operations should be sent as temporary
+  ModelTable data.
+
+Adoption notes:
+
+- Feishu `model.subtableconnection` and `model.submtconnection` describe useful
+  boundary-relay semantics, but the project does not adopt them as accepted
+  `label.t` values. The boundary is represented by `model.subtable` or
+  `model.submt` plus same-key/same-type boundary pins.
+- Feishu `pin_payload.v1` examples use `origin_pin`, `endpoint_pin`, and
+  `response_pin` with full transport topic strings. The project target keeps
+  `topic` and `response_topic` as explicit transport truth, while structured
+  `origin_*`, `endpoint_*`, and `reply_target_*` records describe the table,
+  model, worker, and pin semantics.
+- Feishu examples that place the payload under a child table are adopted as the
+  source idea that payload is ModelTable-shaped. The project target avoids
+  nesting a second ModelTable record array inside a `json` label for formal
+  business pin/bus payloads.
 
 ## 2. Decisions
 
@@ -283,7 +317,85 @@ Rules:
 - The materializer decides which records become formal labels; transport alone
   does not persist them.
 
-## 4. Follow-Up Implementation Scope
+## 4. Additional Feishu Source Review
+
+### 4.1 `JYNW...` software-worker model document
+
+This source is useful and should be kept as an upstream design input.
+
+Adopted:
+
+- Exact worker labels:
+  - `k = "sys_worker_role"`, `t = "worker.role"`,
+    `v = "WSM" | "DEM" | "V1N"`.
+  - `k = "sys_worker_id"`, `t = "worker.id"`,
+    `v = "ws/dam/pic/de/sw"`.
+- Every Cell has exactly one model label and that model label owns the model
+  boundary lifecycle.
+- ModelTables can run independently; plain models cannot run independently.
+- `model.single`, `model.matrix`, `model.subtable`, and `model.submt` remain
+  meaningful model-boundary concepts.
+- `pin.in`, `pin.out`, `pin.bus.cb.*`, `pin.bus.mb.*`,
+  `pin.connect.label`, and `pin.connect.cell` align with the current project
+  direction.
+- The same-key/same-type boundary-pin relay rule for child ModelTables maps to
+  project `model.subtable` hosting Cell semantics.
+
+Not adopted as project input labels:
+
+- `model.v1n` remains mapped to project `model.table` plus worker labels.
+- `model.subtableconnection` remains a Feishu source concept, not an accepted
+  project `label.t`.
+- `model.submtconnection` remains a Feishu source concept, not an accepted
+  project `label.t`.
+
+Recommended follow-up:
+
+- Use this source when updating `label_type_registry` so the worker-role table
+  and model-boundary table stay aligned.
+- Update developer-facing wording from "main ModelTable" to the repo terms:
+  root `model.table`, child `model.table`, host `model.subtable` mount Cell,
+  and same-table `model.submt`.
+
+### 4.2 `WBZj...` software-worker message API document
+
+This source is also useful and should be kept as an upstream design input.
+
+Adopted:
+
+- A worker-to-worker message is transmitted as one ModelTable-like message with
+  message version, route/pin metadata, and payload data.
+- `route_kind` distinguishes control-bus and management-bus intent.
+- Control-bus messages can use local/global message server information.
+- Management-bus messages can include Matrix sender/receiver user information.
+- Formal UI submit, UI refresh, and task actions are payload records, not
+  direct UI writes.
+- Temporary UI data that is not meant to persist does not need to be sent.
+
+Adjusted for project target:
+
+- The source `pin_payload.v1` examples use `model.subtableconnection` to attach
+  payload records. The project target uses Temporary ModelTable records directly
+  in the same message and does not accept `model.subtableconnection`.
+- The source examples use full topic strings in `origin_pin`, `endpoint_pin`,
+  and `response_pin`. The project target separates transport truth from
+  semantic endpoint truth:
+  - `topic` is the current request/response transport topic.
+  - `response_topic` is the response transport topic and must not equal the
+    request `topic`.
+  - `endpoint_worker_id` / `endpoint_table_id` / `endpoint_model_id` /
+    `endpoint_pin` describe the delivery endpoint.
+  - `origin_worker_id` / `origin_table_id` / `origin_model_id` / `origin_pin`
+    describe where the request came from.
+  - `reply_target_worker_id` / `reply_target_table_id` /
+    `reply_target_model_id` / `reply_target_pin` describe where the response
+    should be materialized.
+- The source document calls the current version `pin_payload.v1`; this SSOT
+  recommends a follow-up target message shape (`pin_payload.v2` or equivalent)
+  only to remove nested ModelTable arrays from formal payload fields. It does
+  not require changing the Feishu source document before implementation.
+
+## 5. Follow-Up Implementation Scope
 
 A follow-up implementation iteration must update at least:
 
@@ -298,7 +410,7 @@ A follow-up implementation iteration must update at least:
 - provider bundle request/response payload shape
 - browser E2E tests for installed App request/response materialization
 
-## 5. Non-Goals
+## 6. Non-Goals
 
 This file does not:
 

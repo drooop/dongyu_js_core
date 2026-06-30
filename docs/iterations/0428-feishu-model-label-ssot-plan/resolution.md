@@ -2,7 +2,7 @@
 title: "Iteration 0428 Feishu Model Label SSOT Resolution"
 doc_type: iteration-resolution
 status: completed
-updated: 2026-06-24
+updated: 2026-07-01
 source: ai
 iteration_id: 0428-feishu-model-label-ssot-plan
 id: 0428-feishu-model-label-ssot-plan
@@ -20,17 +20,19 @@ patches, deployments, or browser tests.
 ## Step 1: Source And Current SSOT Review
 
 - Scope:
-  - Read the updated Feishu document.
+  - Read the updated Feishu documents.
   - Inspect current repo SSOT for model labels, subtable namespace,
     pin connection, and Temporary ModelTable payload.
 - Files:
   - Read: `/tmp/feishu_LGsZ_model_doc.md`
+  - Read: `/tmp/feishu_JYNW_doc.md`
+  - Read: `/tmp/feishu_WBZj_doc.md`
   - Read: `docs/ssot/label_type_registry.md`
   - Read: `docs/ssot/runtime_semantics_modeltable_driven.md`
   - Read: `docs/ssot/principal_scoped_subtable_namespace_v1.md`
   - Read: `docs/ssot/temporary_modeltable_payload_v1.md`
 - Verification:
-  - `rg -n "model.v1n|model.subtableconnection|model.submtconnection|pin.connect.model" /tmp/feishu_LGsZ_model_doc.md docs/ssot`
+  - `rg -n "model.v1n|model.subtableconnection|model.submtconnection|pin.connect.model|pin_payload.v1|origin_pin|endpoint_pin|response_pin" /tmp/feishu_LGsZ_model_doc.md /tmp/feishu_JYNW_doc.md /tmp/feishu_WBZj_doc.md docs/ssot`
 - Acceptance:
   - Feishu/current-repo differences are explicitly named in the target SSOT.
 - Rollback:
@@ -52,6 +54,10 @@ patches, deployments, or browser tests.
   - The document says `model.v1n` is not adopted as project `label.t`.
   - The document says `model.subtableconnection` and `model.submtconnection`
     are not adopted as project `label.t`.
+  - The document says Feishu `pin_payload.v1` topic-style
+    `origin_pin` / `endpoint_pin` / `response_pin` examples are mapped to the
+    project target's explicit `topic`, `response_topic`, and structured
+    endpoint/origin/reply-target records.
   - The document gives a target non-nested Temporary ModelTable message shape.
 - Rollback:
   - Delete `docs/ssot/feishu_model_label_alignment_v1.md`.
@@ -86,6 +92,9 @@ iteration's proposed structure.
      imported slide App ingress docs to reference the 0428 target.
    - Remove current examples that still present nested ModelTable arrays in
      `payload.v` / `bundle_payload.v` as the target shape.
+   - Map Feishu source wording for `pin_payload.v1` to project target wording:
+     `topic` / `response_topic` are transport truth; endpoint/origin/reply
+     target records carry structured worker/table/model/pin semantics.
 
 2. Validation hardening:
    - Add validators/tests that reject `model.v1n`,
