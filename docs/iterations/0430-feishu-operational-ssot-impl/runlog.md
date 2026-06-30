@@ -312,6 +312,128 @@ phase: execution
     paths, historical tests, docs, and project-owned fill-table assets to refit.
 - Result: PASS; sub-agent review approved.
 
+### Stage 4.1: Active Fill-Table Patch Refit
+
+- Command:
+  - `node scripts/validate_mbr_patch_v0.mjs`
+  - `node scripts/validate_model100_records_e2e_v0.mjs`
+  - `node scripts/tests/test_0328_remote_worker_v1n_runtime_contract.mjs`
+  - `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+  - `node scripts/tests/test_0377_workspace_manager_de_contract.mjs`
+  - `node scripts/tests/test_0384_provider_owned_slide_app_install_flow.mjs`
+  - `node scripts/tests/test_0412_todo_provider_app1_contract.mjs`
+  - `node scripts/tests/test_0430_feishu_operational_ssot_contract.mjs`
+  - `node --input-type=module <func.js compile check for active sys-v1ns patches>`
+  - `rg -n "pin_payload\\.v1|model\\.v1n|model\\.subtableconnection|model\\.submtconnection|pin\\.connect\\.model|\\\"payload\\\"\\s*:\\s*\\{|\\\"payload\\\"\\s*:\\s*\\[" deploy/sys-v1ns packages/worker-base/system-models || true`
+  - `git diff --check -- deploy/sys-v1ns packages/worker-base/system-models scripts/tests scripts/validate_mbr_patch_v0.mjs scripts/validate_model100_records_e2e_v0.mjs scripts/lib docs/iterations/0430-feishu-operational-ssot-impl`
+- Key output:
+  - MBR patch validator: `TOTAL: 108  PASS: 108  FAIL: 0`.
+  - Model 100 E2E validator: `PASS: model100 temporary-modeltable E2E (MBR -> mqttIncoming -> D0 function)`.
+  - Remote worker runtime contract: `3 passed, 0 failed out of 3`.
+  - Workspace Manager DEM contract: `9 passed, 0 failed out of 9`.
+  - Provider-owned install flow: `8 passed, 0 failed out of 8`.
+  - Todo provider app1 contract: all five listed checks passed.
+  - 0430 operational SSOT contract: `0430 FEISHU OPERATIONAL SSOT CONTRACT PASSED`.
+  - Function syntax check: `PASS: 12 func.js labels compile across active sys-v1ns patches`.
+  - Removed-shape scan returned no active hits in `deploy/sys-v1ns` or
+    `packages/worker-base/system-models`.
+  - `git diff --check` returned no whitespace errors.
+- Files changed:
+  - `deploy/sys-v1ns/mbr/patches/mbr_role_v0.json`
+  - `deploy/sys-v1ns/remote-worker/patches/10_model100.json`
+  - `deploy/sys-v1ns/remote-worker/patches/11_model1010.json`
+  - `deploy/sys-v1ns/remote-worker/patches/12_model1019.json`
+  - `deploy/sys-v1ns/remote-worker/patches/13_model3000_minimal_submit.json`
+  - `deploy/sys-v1ns/remote-worker/patches/14_model3100_slide_app_bundle_provider.json`
+  - `deploy/sys-v1ns/workspace-manager/patches/00_workspace_manager_dem_config.json`
+  - `scripts/lib/pin_payload_v2_test_helpers.mjs`
+  - `scripts/tests/test_0328_remote_worker_v1n_runtime_contract.mjs`
+  - `scripts/tests/test_0377_workspace_manager_de_contract.mjs`
+  - `scripts/tests/test_0384_provider_owned_slide_app_install_flow.mjs`
+  - `scripts/tests/test_0412_todo_provider_app1_contract.mjs`
+  - `scripts/validate_mbr_patch_v0.mjs`
+  - `scripts/validate_model100_records_e2e_v0.mjs`
+- Notes:
+  - Active MBR, RemoteWorker R1, Workspace Manager, provider bundle service,
+    and Todo provider tests now use `pin_payload.v2` as a non-nested Temporary
+    ModelTable record array with `payload_model_id`.
+  - `origin_table_id`, `reply_target_table_id`, and `payload_model_id` are
+    required by the refitted request/response packets.
+  - The provider-owned minimal Submit bundle no longer uses the old local
+    `ui_bind_json.write.pin = click_event` path; its button emits
+    `bus_event_v2` through the host-generated bus ingress key.
+- First Stage 4 review:
+  - Decision: CHANGE_REQUESTED.
+  - Findings:
+    - active parsers still allowed missing table-qualified references to fall
+      back to `host`;
+    - provider bundle response still used nested `bundle_payload` JSON.
+- Fixes after review:
+  - Runtime/server parsers now require explicit `endpoint_table_id`,
+    `origin_table_id`, and `reply_target_table_id`; missing table refs reject
+    at the boundary instead of falling back to `host`.
+  - Runtime/server legacy metadata scans no longer special-case nested
+    slide-app `bundle_payload`.
+  - Provider bundle response now returns `bundle_record_id_offset` in the
+    business payload and appends the actual bundle records to the same
+    Temporary ModelTable array with offset ids.
+  - Server installer decodes provider bundle records from the same response
+    record array using `bundle_record_id_offset`.
+  - Direct bus-pin validation and MQTT endpoint rejection now write visible
+    ModelTable errors (`bus_in_error` / `bus_out_error` /
+    `mqtt_inbound_error`) through normal `addLabel` semantics so invalid
+    packets are rejected without silent failure.
+- Second Stage 4 review:
+  - Decision: CHANGE_REQUESTED.
+  - Finding:
+    - `scripts/run_worker_v0.mjs` still validated worker bootstrap Matrix/MQTT
+      packets as removed `pin_payload.v1` with nested `payload`.
+- Fix after second review:
+  - `run_worker_v0` now validates bootstrap packets as `pin_payload.v2`
+    record arrays with `payload_model_id`, explicit `endpoint_table_id`,
+    `origin_table_id`, and `reply_target_table_id`; it rejects v1 and nested
+    `payload`.
+  - `test_0375_unified_worker_model_topic_contract.mjs` now covers runner
+    bootstrap acceptance/rejection on strict v2, missing table refs, and
+    provider bundle offset records.
+  - `test_0396_dual_topic_submit_response_contract.mjs` now uses v2 endpoint
+    packets and flat `bus_send.v1` payload records.
+
+### Stage 4.2: Active Patch Refit Review Fix Verification
+
+- Command:
+  - `node scripts/validate_mbr_patch_v0.mjs`
+  - `node scripts/validate_model100_records_e2e_v0.mjs`
+  - `node scripts/tests/test_0328_remote_worker_v1n_runtime_contract.mjs`
+  - `node scripts/tests/test_0377_workspace_manager_de_contract.mjs`
+  - `node scripts/tests/test_0384_provider_owned_slide_app_install_flow.mjs`
+  - `node scripts/tests/test_0396_dual_topic_submit_response_contract.mjs`
+  - `node scripts/tests/test_0412_todo_provider_app1_contract.mjs`
+  - `node scripts/tests/test_0430_feishu_operational_ssot_contract.mjs`
+  - `node --input-type=module <func.js compile check for active sys-v1ns patches>`
+  - `rg -n "pin_payload\\.v1|model\\.v1n|model\\.subtableconnection|model\\.submtconnection|pin\\.connect\\.model|\\\"payload\\\"\\s*:\\s*\\{|\\\"payload\\\"\\s*:\\s*\\[" deploy/sys-v1ns packages/worker-base/system-models || true`
+  - `rg -n "\\\"k\\\"\\s*:\\s*\\\"bundle_payload\\\"|mt\\('bundle_payload'|mt\\(\\\"bundle_payload\\\"|payloadJson\\([^\\n]*'bundle_payload'" deploy/sys-v1ns packages/worker-base/src packages/ui-model-demo-server/server.mjs scripts/run_worker_v0.mjs || true`
+  - `git diff --check`
+- Key output:
+  - MBR patch validator: `TOTAL: 126  PASS: 126  FAIL: 0`.
+  - Model 100 E2E validator: `PASS: model100 temporary-modeltable E2E (MBR -> mqttIncoming -> D0 function)`.
+  - Remote worker runtime contract: `4 passed, 0 failed out of 4`.
+  - Workspace Manager DEM contract: `10 passed, 0 failed out of 10`.
+  - Provider-owned install flow: `9 passed, 0 failed out of 9`.
+  - Unified worker/model topic contract: `74 passed, 0 failed out of 74`.
+  - Dual-topic submit/response contract: `PASS test_0396_dual_topic_submit_response_contract`.
+  - Todo provider app1 contract: all five listed checks passed.
+  - 0430 operational SSOT contract: `0430 FEISHU OPERATIONAL SSOT CONTRACT PASSED`.
+  - Function syntax check: `PASS func.js compile 12`.
+  - Removed-shape scans returned no active hits.
+  - `git diff --check` returned no whitespace errors.
+- Final Stage 4 re-review:
+  - Decision: APPROVED.
+  - Findings: none.
+  - Open questions: none.
+  - Verification gaps: none.
+- Result: PASS; sub-agent review approved.
+
 ## Docs Updated / Assessed
 
 - [x] `docs/ssot/feishu_model_label_alignment_v1.md` used as source

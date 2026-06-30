@@ -1367,23 +1367,6 @@ class ModelTableRuntime {
   }
 
   _hasLegacyPinPayloadMetadataForPinPayloadRecords(value) {
-    const nestedPayload = this._payloadLabel(value, 'payload');
-    if (nestedPayload && nestedPayload.t === 'json' && Array.isArray(nestedPayload.v)) {
-      const nestedKind = this._payloadLabel(nestedPayload.v, '__mt_payload_kind');
-      if (nestedKind && nestedKind.t === 'str' && nestedKind.v === 'slide_app_bundle_response.v1') {
-        const outerRecords = value.map((record) => (record && record.k === 'payload'
-          ? { ...record, v: [] }
-          : record));
-        if (this._hasLegacyPinPayloadMetadata(outerRecords)) return true;
-        for (const nestedRecord of nestedPayload.v) {
-          if (!nestedRecord || typeof nestedRecord.k !== 'string') return true;
-          if (this._isLegacyPinPayloadKey(nestedRecord.k)) return true;
-          if (nestedRecord.k === 'bundle_payload') continue;
-          if (this._valueContainsLegacyPinPayloadMetadata(nestedRecord.v)) return true;
-        }
-        return false;
-      }
-    }
     return this._hasLegacyPinPayloadMetadata(value);
   }
 
@@ -1493,6 +1476,9 @@ class ModelTableRuntime {
     }
     if (this._hasClientAuthoredAuthorityMetadata(value)) {
       return { ok: false, code: 'client_authority_metadata_rejected' };
+    }
+    if (!this._payloadLabel(value, 'endpoint_table_id')) {
+      return { ok: false, code: 'missing_endpoint_table_id' };
     }
     if (!this._payloadLabel(value, 'origin_table_id')) {
       return { ok: false, code: 'missing_origin_table_id' };
@@ -2025,6 +2011,19 @@ class ModelTableRuntime {
     });
   }
 
+  _writeVisibleErrorLabel(model, p, r, c, key, code, detail = {}) {
+    if (!model || !this._validateCell(p, r, c) || typeof key !== 'string' || !key) return;
+    this.addLabel(model, p, r, c, {
+      k: key,
+      t: 'json',
+      v: {
+        code: typeof code === 'string' && code ? code : 'unknown_error',
+        ...detail,
+        ts: Date.now(),
+      },
+    });
+  }
+
   _configCell() {
     return { model_id: 0, p: 0, r: 0, c: 0 };
   }
@@ -2177,6 +2176,17 @@ class ModelTableRuntime {
         result: 'rejected',
         reason: busPinPayloadError,
       });
+      if (this._isBusInResolvedType(resolvedType) || this._isBusOutResolvedType(resolvedType)) {
+        this._writeVisibleErrorLabel(
+          model,
+          p,
+          r,
+          c,
+          this._isBusInResolvedType(resolvedType) ? 'bus_in_error' : 'bus_out_error',
+          busPinPayloadError,
+          { label_key: label.k },
+        );
+      }
       return { applied: false };
     }
     const positivePinPayloadError = this._validatePositiveModelPinPayload(model, label, resolvedType);
@@ -2189,6 +2199,7 @@ class ModelTableRuntime {
         result: 'rejected',
         reason: positivePinPayloadError,
       });
+      this._writeVisibleErrorLabel(model, p, r, c, 'pin_payload_error', positivePinPayloadError, { label_key: label.k });
       return { applied: false };
     }
     const existingSubmodel = this._findSubmodelLabel(cell, label.k);
@@ -2498,6 +2509,10 @@ class ModelTableRuntime {
           payload,
           mode: 'pin_payload_v1',
           reason: parsed.code === 'endpoint_mismatch' ? 'endpoint_mismatch' : 'invalid_pin_payload_records',
+        });
+        this._writeVisibleErrorLabel(model, 0, 0, 0, 'mqtt_inbound_error', parsed.code || 'invalid_pin_payload_records', {
+          topic,
+          pin: pinName,
         });
         return false;
       }

@@ -13,6 +13,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { WorkerEngineV0, loadSystemPatch } from './worker_engine_v0.mjs';
+import {
+  payloadRecords,
+  payloadValue,
+  pinPayloadV2Records,
+} from './lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
@@ -67,33 +72,27 @@ function pinPayloadRecords({
   payload,
   timestamp = 1700000000000,
 }) {
-  return [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mt('__mt_request_id', 'str', opId),
-    mt('op_id', 'str', opId),
-    mt('message_role', 'str', messageRole),
-    mt('topic', 'str', topic),
-    mt('route_kind', 'str', routeKind),
-    mt('endpoint_worker_id', 'str', endpointWorkerId),
-    mt('endpoint_model_id', 'int', endpointModelId),
-    mt('endpoint_pin', 'str', endpointPin),
-    mt('origin_worker_id', 'str', originWorkerId),
-    mt('origin_model_id', 'int', originModelId),
-    mt('origin_pin', 'str', originPin),
-    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
-    mt('reply_target_model_id', 'int', replyTargetModelId),
-    mt('reply_target_pin', 'str', replyTargetPin),
-    mt('payload', 'json', payload),
-    mt('timestamp', 'int', timestamp),
-  ];
+  return pinPayloadV2Records({
+    opId,
+    messageRole,
+    endpointWorkerId,
+    endpointModelId,
+    endpointPin,
+    topic,
+    routeKind,
+    originWorkerId,
+    originModelId,
+    originPin,
+    replyTargetWorkerId,
+    replyTargetModelId,
+    replyTargetPin,
+    payloadRecords: payload,
+    timestamp,
+  });
 }
 
 function externalPacket(records) {
   return { version: 'v1', type: 'pin_payload', payload: records };
-}
-
-function payloadValue(records, key) {
-  return Array.isArray(records) ? records.find((record) => record && record.k === key)?.v : undefined;
 }
 
 async function main() {
@@ -134,15 +133,17 @@ async function main() {
   mbrEngine.tick();
 
   assert(publishedTopic === `${base}/R1/100/submit`, `expected publish topic ${base}/R1/100/submit, got ${publishedTopic}`);
-  assert(publishedPayload && publishedPayload.version === 'v1', 'published payload must be pin_payload v1');
+  assert(publishedPayload && publishedPayload.version === 'v1', 'published payload must be transport packet v1');
   assert(publishedPayload && publishedPayload.type === 'pin_payload', 'published payload must preserve pin_payload type');
   assert(publishedPayload && Object.keys(publishedPayload).sort().join(',') === 'payload,type,version', 'published payload must only expose version/type/payload');
+  assert(payloadValue(publishedPayload.payload, '__mt_payload_kind') === 'pin_payload.v2', 'published payload must declare pin_payload.v2');
   assert(payloadValue(publishedPayload.payload, 'op_id') === 'it0140_m100_submit_001', 'published payload op_id mismatch');
   assert(payloadValue(publishedPayload.payload, 'message_role') === 'request', 'published payload must be a request');
   assert(payloadValue(publishedPayload.payload, 'endpoint_worker_id') === 'R1', 'published payload must target R1');
   assert(payloadValue(publishedPayload.payload, 'endpoint_model_id') === 100, 'published payload must target model 100');
   assert(payloadValue(publishedPayload.payload, 'endpoint_pin') === 'submit', 'published payload must target submit pin');
-  assert(Array.isArray(payloadValue(publishedPayload.payload, 'payload')), 'published payload must carry nested temporary-modeltable array');
+  assert(payloadValue(publishedPayload.payload, 'payload') === undefined, 'published payload must not carry nested temporary-modeltable array');
+  assert(payloadRecords(publishedPayload.payload).some((record) => record.k === 'input_value' && record.v === 'hello'), 'published payload must carry business records by payload_model_id');
 
   // --- Worker side: consume mqttIncoming(pin_payload) -> D0 function -> pin.out ---
   const wRt = new ModelTableRuntime();

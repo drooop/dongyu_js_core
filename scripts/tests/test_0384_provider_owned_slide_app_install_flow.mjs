@@ -7,9 +7,11 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { loadSystemPatch } from '../worker_engine_v0.mjs';
+import { payloadRecords as v2PayloadRecords, pinPayloadV2Records } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
+const BUNDLE_RECORD_ID_OFFSET = 100;
 
 function mt(k, t, v) {
   return { id: 0, p: 0, r: 0, c: 0, k, t, v };
@@ -53,30 +55,43 @@ function pinPayloadPacket({
   payload,
   messageRole = 'response',
   replyTargetPrincipalKey = '',
+  extraRecords = [],
 }) {
   const actualResponseTopic = responseTopic || `UIPUT/ws/dam/pic/de/${replyTarget.worker_id}/${replyTarget.model_id}/${replyTarget.pin}`;
   return externalPacket([
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mt('__mt_request_id', 'str', opId),
-    mt('op_id', 'str', opId),
-    mt('message_role', 'str', messageRole),
-    mt('topic', 'str', topic),
-    mt('response_topic', 'str', actualResponseTopic),
-    mt('route_kind', 'str', routeKind),
-    mt('bus', 'str', routeKind),
-    mt('endpoint_worker_id', 'str', endpoint.worker_id),
-    mt('endpoint_model_id', 'int', endpoint.model_id),
-    mt('endpoint_pin', 'str', endpoint.pin),
-    mt('origin_worker_id', 'str', origin.worker_id),
-    mt('origin_model_id', 'int', origin.model_id),
-    mt('origin_pin', 'str', origin.pin),
-    mt('reply_target_worker_id', 'str', replyTarget.worker_id),
-    mt('reply_target_model_id', 'int', replyTarget.model_id),
-    mt('reply_target_pin', 'str', replyTarget.pin),
-    ...(replyTargetPrincipalKey ? [mt('reply_target_principal_key', 'str', replyTargetPrincipalKey)] : []),
-    mt('payload', 'json', payload),
-    mt('timestamp', 'int', 1700000000000),
+    ...pinPayloadV2Records({
+      opId,
+      messageRole,
+      topic,
+      responseTopic: actualResponseTopic,
+      routeKind,
+      endpointWorkerId: endpoint.worker_id,
+      endpointModelId: endpoint.model_id,
+      endpointPin: endpoint.pin,
+      originWorkerId: origin.worker_id,
+      originModelId: origin.model_id,
+      originPin: origin.pin,
+      replyTargetWorkerId: replyTarget.worker_id,
+      replyTargetModelId: replyTarget.model_id,
+      replyTargetPin: replyTarget.pin,
+      replyTargetPrincipalKey,
+      payloadRecords: payload,
+      extraRecords,
+      timestamp: 1700000000000,
+    }),
   ]);
+}
+
+function encodedBundleRecords(bundlePayload) {
+  return bundlePayload.map((record) => ({ ...record, id: BUNDLE_RECORD_ID_OFFSET + record.id }));
+}
+
+function decodedBundleRecords(records, businessRecords) {
+  const offset = payloadInt(businessRecords, 'bundle_record_id_offset');
+  assert.ok(Number.isInteger(offset) && offset > 1, 'bundle response must declare bundle_record_id_offset');
+  return records
+    .filter((record) => record && Number.isInteger(record.id) && record.id >= offset)
+    .map((record) => ({ ...record, id: record.id - offset }));
 }
 
 function labelValue(runtime, modelId, p, r, c, key) {
@@ -178,9 +193,10 @@ function makeBundleResponse({
     payload: [
       mt('__mt_payload_kind', 'str', 'slide_app_bundle_response.v1'),
       mt('asset_id', 'str', assetId),
-      mt('bundle_payload', 'json', bundlePayload),
+      mt('bundle_record_id_offset', 'int', BUNDLE_RECORD_ID_OFFSET),
       mt('bundle_sha256', 'str', ''),
     ],
+    extraRecords: encodedBundleRecords(bundlePayload),
   });
 }
 
@@ -234,12 +250,13 @@ async function test_install_action_sends_provider_bundle_request_without_materia
     assert.deepEqual(pending?.provider_endpoint, { worker_id: 'R1', table_id: 'host', model_id: 3100, pin: 'bundle_request' }, 'pending install state must record provider endpoint');
     const busLabel = runtime.getCell(runtime.getModel(0), 0, 0, 0).labels.get('workspace_asset_bundle_request_bus');
     assert.equal(busLabel?.t, 'pin.bus.cb.out', 'install request must leave through Model 0 control bus out');
-    assert.equal(payloadString(busLabel?.v, '__mt_payload_kind'), 'pin_payload.v1', 'request bus payload must be pin_payload.v1');
+    assert.equal(payloadString(busLabel?.v, '__mt_payload_kind'), 'pin_payload.v2', 'request bus payload must be pin_payload.v2');
     assert.equal(payloadString(busLabel?.v, 'message_role'), 'request', 'request bus payload must mark message_role=request');
     assert.equal(payloadString(busLabel?.v, 'topic'), 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request', 'request bus payload must carry provider topic');
-    const nested = payloadJson(busLabel?.v, 'payload');
-    assert.equal(payloadString(nested, '__mt_payload_kind'), 'slide_app_bundle_request.v1', 'nested payload must be slide app bundle request');
-    assert.equal(payloadString(nested, 'asset_id'), 'r1-color-generator', 'nested payload must carry selected asset_id');
+    assert.equal(payloadJson(busLabel?.v, 'payload'), null, 'request bus payload must not carry nested payload');
+    const business = v2PayloadRecords(busLabel?.v);
+    assert.equal(payloadString(business, '__mt_payload_kind'), 'slide_app_bundle_request.v1', 'business records must be slide app bundle request');
+    assert.equal(payloadString(business, 'asset_id'), 'r1-color-generator', 'business records must carry selected asset_id');
     const beforeRetryEvents = runtime.eventLog.list().length;
     const retryResult = await state.submitEnvelope({
       type: 'workspace_asset_primary_action',
@@ -448,14 +465,16 @@ async function test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bu
     assert.equal(handled, true, `R1 runtime must accept provider bundle request topic for ${assetId}`);
     await wait(120);
     const response = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('remote_result_bus')?.v;
-    assert.equal(payloadString(response, '__mt_payload_kind'), 'pin_payload.v1', 'provider response must be strict pin_payload.v1');
+    assert.equal(payloadString(response, '__mt_payload_kind'), 'pin_payload.v2', 'provider response must be strict pin_payload.v2');
     assert.equal(payloadString(response, 'message_role'), 'response', 'provider response must use message_role=response');
     assert.equal(payloadString(response, 'reply_target_principal_key'), 'subject:it0384-provider', 'provider response must echo reply_target_principal_key for authenticated UI runtimes');
     assert.equal(payloadInt(response, 'origin_model_id'), 3100, 'provider response must originate from model 3100');
-    const nested = payloadJson(response, 'payload');
-    assert.equal(payloadString(nested, '__mt_payload_kind'), 'slide_app_bundle_response.v1', 'provider nested payload must be bundle response');
-    assert.equal(payloadString(nested, 'asset_id'), assetId, 'provider response must preserve catalog asset_id');
-    const bundlePayload = payloadJson(nested, 'bundle_payload');
+    assert.equal(payloadJson(response, 'payload'), null, 'provider response must not carry nested payload');
+    const business = v2PayloadRecords(response);
+    assert.equal(payloadString(business, '__mt_payload_kind'), 'slide_app_bundle_response.v1', 'provider business records must be bundle response');
+    assert.equal(payloadString(business, 'asset_id'), assetId, 'provider response must preserve catalog asset_id');
+    assert.equal(payloadJson(business, 'bundle_payload'), null, 'provider response must not nest bundle payload as json');
+    const bundlePayload = decodedBundleRecords(response, business);
     assert.ok(Array.isArray(bundlePayload) && bundlePayload.some((record) => record.k === 'app_name' && record.v === appName), `provider response must include ${appName} ModelTable bundle payload`);
     assert.ok(
       bundlePayload.some((record) => record.k === 'slide_app_summary' && record.t === 'str' && record.v.length >= 8),
@@ -463,6 +482,25 @@ async function test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bu
     );
   }
   return { key: 'remote_worker_r1_bundle_provider_patch_returns_modeltable_bundle_response', status: 'PASS' };
+}
+
+async function test_remote_worker_r1_bundle_provider_rejects_missing_table_refs() {
+  for (const missingKey of ['endpoint_table_id', 'origin_table_id', 'reply_target_table_id']) {
+    const rt = loadRemoteWorkerRuntime();
+    const packet = remoteBundleRequestPacket('r1-color-generator');
+    packet.payload = packet.payload.filter((record) => record.k !== missingKey);
+    const handled = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3100/bundle_request', packet);
+    assert.equal(handled, false, `R1 runtime must reject provider bundle request missing ${missingKey}`);
+    await wait(120);
+    const response = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('remote_result_bus')?.v;
+    assert.equal(payloadString(response, '__mt_payload_kind'), '', `R1 provider must not emit response when ${missingKey} is missing`);
+    assert.equal(
+      rt.getCell(rt.getModel(3100), 0, 0, 0).labels.get('mqtt_inbound_error')?.v?.code,
+      `missing_${missingKey}`,
+      `R1 provider must write visible MQTT boundary error when ${missingKey} is missing`,
+    );
+  }
+  return { key: 'remote_worker_r1_bundle_provider_rejects_missing_table_refs', status: 'PASS' };
 }
 
 async function test_principal_registry_delegates_bundle_response_to_user_runtime_installer() {
@@ -735,6 +773,7 @@ const tests = [
   test_principal_install_request_preserves_runtime_key_after_model0_label_loss,
   test_provider_bundle_response_materializes_new_workspace_app_and_rejects_mismatches,
   test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bundle_response,
+  test_remote_worker_r1_bundle_provider_rejects_missing_table_refs,
   test_principal_registry_delegates_bundle_response_to_user_runtime_installer,
   test_two_principals_install_same_provider_app_into_separate_tables,
   test_bundle_payload_exception_is_scoped_to_slide_app_response,

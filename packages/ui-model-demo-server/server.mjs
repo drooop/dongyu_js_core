@@ -2700,21 +2700,7 @@ function containsLegacyPinPayloadMetadata(value, seen = new WeakSet()) {
 }
 
 function containsLegacyPinPayloadMetadataInPinPayloadRecords(records) {
-  const nestedPayloadLabel = findTemporaryPayloadRecord(records, 'payload');
-  const nestedPayload = nestedPayloadLabel && nestedPayloadLabel.t === 'json' ? nestedPayloadLabel.v : null;
-  const nestedKind = readTemporaryPayloadString(nestedPayload, '__mt_payload_kind');
-  if (nestedKind !== 'slide_app_bundle_response.v1') {
-    return containsLegacyPinPayloadMetadata(records);
-  }
-  const outerRecords = records.map((record) => (record && record.k === 'payload' ? { ...record, v: [] } : record));
-  if (containsLegacyPinPayloadMetadata(outerRecords)) return true;
-  for (const nestedRecord of nestedPayload) {
-    if (!nestedRecord || typeof nestedRecord.k !== 'string') return true;
-    if (isLegacyPinPayloadKey(nestedRecord.k)) return true;
-    if (nestedRecord.k === 'bundle_payload') continue;
-    if (containsLegacyPinPayloadMetadata(nestedRecord.v)) return true;
-  }
-  return false;
+  return containsLegacyPinPayloadMetadata(records);
 }
 
 function resolveUiServerWorkerId() {
@@ -4167,6 +4153,11 @@ function readPayloadModelString(payload, key, fallback = '') {
   return record.t === 'str' && typeof record.v === 'string' ? record.v : fallback;
 }
 
+function readPayloadModelInt(payload, key) {
+  const record = findPayloadModelRecord(payload, key);
+  return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null;
+}
+
 function readTemporaryPayloadInt(payload, key) {
   const record = findTemporaryPayloadRecord(payload, key);
   return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null;
@@ -4180,6 +4171,15 @@ function readTemporaryPayloadJson(payload, key) {
 function readPayloadModelJson(payload, key) {
   const record = findPayloadModelRecord(payload, key);
   return record && record.t === 'json' ? record.v : null;
+}
+
+function readSlideAppBundleRecordsFromPayload(records, payloadRecords) {
+  const offset = readPayloadModelInt(payloadRecords, 'bundle_record_id_offset');
+  if (!Number.isInteger(offset) || offset <= 1) return null;
+  const bundleRecords = records
+    .filter((record) => record && Number.isInteger(record.id) && record.id >= offset)
+    .map((record) => ({ ...record, id: record.id - offset }));
+  return bundleRecords.length > 0 ? bundleRecords : null;
 }
 
 function hasClientAuthoredAuthorityMetadata(records) {
@@ -4308,6 +4308,9 @@ function parsePinPayloadRecordEnvelope(content) {
   }
   if (hasClientAuthoredAuthorityMetadata(records)) {
     return { ok: false, code: 'client_authority_metadata_rejected' };
+  }
+  if (!findTemporaryPayloadRecord(records, 'endpoint_table_id')) {
+    return { ok: false, code: 'missing_endpoint_table_id' };
   }
   if (!findTemporaryPayloadRecord(records, 'origin_table_id')) {
     return { ok: false, code: 'missing_origin_table_id' };
@@ -8025,7 +8028,7 @@ class ProgramModelEngine {
     const responseTopic = readTemporaryPayloadString(parsedEnvelope.records, 'response_topic');
     const routeKind = readTemporaryPayloadString(parsedEnvelope.records, 'route_kind');
     const assetId = readPayloadModelString(parsedEnvelope.payloadRecords, 'asset_id');
-    const bundlePayload = readPayloadModelJson(parsedEnvelope.payloadRecords, 'bundle_payload');
+    const bundlePayload = readSlideAppBundleRecordsFromPayload(parsedEnvelope.records, parsedEnvelope.payloadRecords);
     const expectedEndpoint = pending.provider_endpoint && typeof pending.provider_endpoint === 'object'
       ? pending.provider_endpoint
       : null;
