@@ -165,8 +165,6 @@ function test_removed_feishu_label_types_are_rejected(RuntimeClass) {
   const root = rt.getModel(0);
   const cases = [
     ['removed_model_v1n', 'model.v1n'],
-    ['removed_model_subtableconnection', 'model.subtableconnection'],
-    ['removed_model_submtconnection', 'model.submtconnection'],
     ['removed_pin_connect_model', 'pin.connect.model'],
   ];
 

@@ -370,7 +370,6 @@ class ModelTableRuntime {
   }
 
   _resolveLabelType(labelType) {
-    if (labelType === 'model.submt') return 'submt';
     return labelType;
   }
 
@@ -424,6 +423,11 @@ class ModelTableRuntime {
   _modelRefKey(value) {
     const ref = this._normalizeModelRef(value, { defaultHost: true });
     return `${ref.table_id}|${ref.model_id}`;
+  }
+
+  _childModelIndexKey(tableId, modelId) {
+    const normalizedTableId = this._normalizeTableId(tableId, { defaultHost: true });
+    return `${normalizedTableId}|${modelId}`;
   }
 
   _cellConnectGraphKey(model, p, r, c) {
@@ -772,13 +776,13 @@ class ModelTableRuntime {
             const { p: hp, r: hr, c: hc } = subtableMount.hostingCell;
             this.addLabel(parentModel, hp, hr, hc, { k: label.k, t: 'pin.out', v: label.v });
           }
+          return;
         }
-        return;
       }
-      const childInfo = this.parentChildMap.get(model.id);
+      const childInfo = this.parentChildMap.get(this._childModelIndexKey(tableId, model.id));
       if (childInfo) {
-        const { parentModelId, hostingCell: { p: hp, r: hr, c: hc } } = childInfo;
-        const parentModel = this.getModel(parentModelId);
+        const { parent, hostingCell: { p: hp, r: hr, c: hc } } = childInfo;
+        const parentModel = this.getModel(parent);
         if (parentModel) {
           this.addLabel(parentModel, hp, hr, hc, { k: label.k, t: 'pin.out', v: label.v });
         }
@@ -837,8 +841,8 @@ class ModelTableRuntime {
     if (
       label.t === 'pin.connect.model'
       || label.t === 'model.v1n'
-      || label.t === 'model.subtableconnection'
-      || label.t === 'model.submtconnection'
+      || label.t === 'submt'
+      || label.t === 'subModel'
       || label.t === 'pin.bus.in'
       || label.t === 'pin.bus.out'
       || (typeof label.t === 'string' && label.t.startsWith('pin.log.'))
@@ -889,8 +893,15 @@ class ModelTableRuntime {
         return 'management_bus_pin_requires_dem';
       }
     }
-    if (resolvedType === 'model.subtable' && this._modelTableId(model) !== HOST_TABLE_ID) {
-      return 'subtable_requires_host_table';
+    if (resolvedType === 'model.subtable') {
+      if (!model || this._modelTableId(model) === HOST_TABLE_ID || model.id !== 0 || !this._isRootCell(p, r, c)) {
+        return 'subtable_requires_child_table_root';
+      }
+    }
+    if (resolvedType === 'model.submt') {
+      if (!model || model.id === 0 || !this._isRootCell(p, r, c)) {
+        return 'submt_requires_child_model_root';
+      }
     }
     return null;
   }
@@ -905,8 +916,49 @@ class ModelTableRuntime {
       return normalized.ok ? null : normalized.reason;
     }
     if (resolvedType === 'model.subtable') {
-      const normalized = this._normalizeSubtableDescriptor(label);
+      const normalized = this._normalizeSubtableDeclaration(label);
       return normalized.ok ? null : normalized.reason;
+    }
+    if (resolvedType === 'model.subtableconnection') {
+      const normalized = this._normalizeSubtableConnectionDescriptor(label);
+      if (!normalized.ok) return normalized.reason;
+      const currentTableIndex = this.subtableMounts.get(normalized.table_id);
+      if (
+        currentTableIndex
+        && !(
+          currentTableIndex.parent.table_id === this._modelTableId(model)
+          && currentTableIndex.parent.model_id === model.id
+          && currentTableIndex.hostingCell.p === p
+          && currentTableIndex.hostingCell.r === r
+          && currentTableIndex.hostingCell.c === c
+        )
+      ) {
+        return 'subtableconnection_table_already_indexed';
+      }
+      return null;
+    }
+    if (resolvedType === 'model.submt') {
+      const normalized = this._normalizeSubmodelDeclaration(label);
+      return normalized.ok ? null : normalized.reason;
+    }
+    if (resolvedType === 'model.submtconnection') {
+      const normalized = this._normalizeSubmodelConnectionDescriptor(label);
+      if (!normalized.ok) return normalized.reason;
+      const childKey = this._childModelIndexKey(this._modelTableId(model), normalized.model_id);
+      const current = this.parentChildMap.get(childKey);
+      if (
+        current
+        && !(
+          current.parent.table_id === this._modelTableId(model)
+          && current.parent.model_id === model.id
+          && current.hostingCell.p === p
+          && current.hostingCell.r === r
+          && current.hostingCell.c === c
+        )
+      ) {
+        return 'submtconnection_child_already_indexed';
+      }
+      return null;
     }
     return null;
   }
@@ -1776,12 +1828,27 @@ class ModelTableRuntime {
       || typeName === 'pin.logout';
   }
 
+  _isConnectionIndexResolvedType(typeName) {
+    return typeName === 'model.submtconnection'
+      || typeName === 'model.subtableconnection';
+  }
+
+  _findConnectionIndexLabel(cell, excludeKey = null) {
+    if (!cell || !cell.labels) return null;
+    for (const [key, label] of cell.labels.entries()) {
+      if (!label || typeof label !== 'object') continue;
+      if (excludeKey && key === excludeKey) continue;
+      if (this._isConnectionIndexResolvedType(this._resolveLabelType(label.t))) return { key, label };
+    }
+    return null;
+  }
+
   _findSubmodelLabel(cell, excludeKey = null) {
     if (!cell || !cell.labels) return null;
     for (const [key, label] of cell.labels.entries()) {
       if (!label || typeof label !== 'object') continue;
       if (excludeKey && key === excludeKey) continue;
-      if (this._resolveLabelType(label.t) === 'submt') return label;
+      if (this._resolveLabelType(label.t) === 'model.submtconnection') return label;
     }
     return null;
   }
@@ -1791,51 +1858,150 @@ class ModelTableRuntime {
     for (const [key, label] of cell.labels.entries()) {
       if (!label || typeof label !== 'object') continue;
       if (excludeKey && key === excludeKey) continue;
-      if (this._resolveLabelType(label.t) === 'model.subtable') return label;
+      if (this._resolveLabelType(label.t) === 'model.subtableconnection') return label;
     }
     return null;
   }
 
-  _normalizeSubtableDescriptor(label) {
+  _normalizeSubtableDeclaration(label) {
+    if (typeof (label && label.v) !== 'string' || !label.v.trim()) {
+      return { ok: false, reason: 'subtable_invalid_type' };
+    }
+    return { ok: true, type_name: label.v.trim() };
+  }
+
+  _normalizeSubmodelDeclaration(label) {
+    if (typeof (label && label.v) !== 'string' || !label.v.trim()) {
+      return { ok: false, reason: 'submt_invalid_type' };
+    }
+    return { ok: true, type_name: label.v.trim() };
+  }
+
+  _normalizeSubtableConnectionDescriptor(label) {
     const value = label && label.v;
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return { ok: false, reason: 'subtable_invalid_descriptor' };
+      return { ok: false, reason: 'subtableconnection_invalid_descriptor' };
+    }
+    const allowedKeys = new Set(['table_id', 'root_model_id', 'mount_kind', 'owner_principal_id']);
+    for (const key of Object.keys(value)) {
+      if (!allowedKeys.has(key)) {
+        return { ok: false, reason: `subtableconnection_unknown_field:${key}` };
+      }
     }
     let tableId = '';
     try {
       tableId = this._normalizeTableId(value.table_id);
     } catch (_) {
-      return { ok: false, reason: 'subtable_invalid_table_id' };
+      return { ok: false, reason: 'subtableconnection_invalid_table_id' };
     }
-    const rootModelId = value.root_model_id === undefined || value.root_model_id === null
-      ? 0
-      : value.root_model_id;
+    if (tableId === HOST_TABLE_ID) {
+      return { ok: false, reason: 'subtableconnection_invalid_table_id' };
+    }
+    const rootModelId = value.root_model_id;
     if (!Number.isInteger(rootModelId) || rootModelId < 0) {
-      return { ok: false, reason: 'subtable_invalid_root_model_id' };
+      return { ok: false, reason: 'subtableconnection_invalid_root_model_id' };
     }
-    return { ok: true, table_id: tableId, root_model_id: rootModelId };
+    if (typeof value.mount_kind !== 'string' || !value.mount_kind.trim()) {
+      return { ok: false, reason: 'subtableconnection_invalid_mount_kind' };
+    }
+    const ownerPrincipalId = value.owner_principal_id === undefined || value.owner_principal_id === null
+      ? ''
+      : value.owner_principal_id;
+    if (ownerPrincipalId !== '' && typeof ownerPrincipalId !== 'string') {
+      return { ok: false, reason: 'subtableconnection_invalid_owner_principal_id' };
+    }
+    return {
+      ok: true,
+      table_id: tableId,
+      root_model_id: rootModelId,
+      mount_kind: value.mount_kind.trim(),
+      owner_principal_id: typeof ownerPrincipalId === 'string' ? ownerPrincipalId.trim() : '',
+    };
+  }
+
+  _normalizeSubmodelConnectionDescriptor(label) {
+    if (!label || typeof label !== 'object') return null;
+    if (Number.isInteger(label.v)) {
+      if (label.v === 0) return { ok: false, reason: 'submtconnection_invalid_model_id' };
+      return { ok: true, model_id: label.v, mount_kind: '' };
+    }
+    const value = label.v;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return { ok: false, reason: 'submtconnection_invalid_descriptor' };
+    }
+    const allowedKeys = new Set(['model_id', 'mount_kind']);
+    for (const key of Object.keys(value)) {
+      if (!allowedKeys.has(key)) return { ok: false, reason: `submtconnection_unknown_field:${key}` };
+    }
+    if (!Number.isInteger(value.model_id) || value.model_id === 0) {
+      return { ok: false, reason: 'submtconnection_invalid_model_id' };
+    }
+    if (value.mount_kind !== undefined && value.mount_kind !== null && (typeof value.mount_kind !== 'string' || !value.mount_kind.trim())) {
+      return { ok: false, reason: 'submtconnection_invalid_mount_kind' };
+    }
+    return {
+      ok: true,
+      model_id: value.model_id,
+      mount_kind: typeof value.mount_kind === 'string' ? value.mount_kind.trim() : '',
+    };
   }
 
   _getSubmodelChildId(label) {
-    if (!label || typeof label !== 'object') return null;
-    if (Number.isInteger(label.v)) return label.v;
-    const parsed = Number.parseInt(String(label.k ?? ''), 10);
-    return Number.isInteger(parsed) ? parsed : null;
+    const normalized = this._normalizeSubmodelConnectionDescriptor(label);
+    return normalized && normalized.ok ? normalized.model_id : null;
   }
 
   _getHostedChildModelForCell(model, p, r, c) {
     const cell = this.getCell(model, p, r, c);
     const submodelLabel = this._findSubmodelLabel(cell);
     const childModelId = this._getSubmodelChildId(submodelLabel);
-    return Number.isInteger(childModelId) ? this.getModel(childModelId) : null;
+    return Number.isInteger(childModelId)
+      ? this.getModel({ table_id: this._modelTableId(model), model_id: childModelId })
+      : null;
   }
 
   _getHostedSubtableRootForCell(model, p, r, c) {
     const cell = this.getCell(model, p, r, c);
     const subtableLabel = this._findSubtableLabel(cell);
-    const normalized = this._normalizeSubtableDescriptor(subtableLabel);
+    const normalized = this._normalizeSubtableConnectionDescriptor(subtableLabel);
     if (!normalized.ok) return null;
     return this.getModel({ table_id: normalized.table_id, model_id: normalized.root_model_id }) || null;
+  }
+
+  _clearSubmodelConnectionIndex(model, p, r, c, label) {
+    const childModelId = this._getSubmodelChildId(label);
+    const childKey = Number.isInteger(childModelId)
+      ? this._childModelIndexKey(this._modelTableId(model), childModelId)
+      : null;
+    const current = childKey ? this.parentChildMap.get(childKey) : null;
+    if (
+      current
+      && current.parent.table_id === this._modelTableId(model)
+      && current.parent.model_id === model.id
+      && current.hostingCell.p === p
+      && current.hostingCell.r === r
+      && current.hostingCell.c === c
+    ) {
+      this.parentChildMap.delete(childKey);
+    }
+  }
+
+  _clearSubtableConnectionIndex(model, p, r, c) {
+    const hostCellKey = this._subtableHostCellKey(model, p, r, c);
+    const currentTableId = this.subtableMountsByHostCell.get(hostCellKey);
+    if (!currentTableId) return;
+    const current = this.subtableMounts.get(currentTableId);
+    if (
+      current
+      && current.parent.table_id === this._modelTableId(model)
+      && current.parent.model_id === model.id
+      && current.hostingCell.p === p
+      && current.hostingCell.r === r
+      && current.hostingCell.c === c
+    ) {
+      this.subtableMounts.delete(currentTableId);
+    }
+    this.subtableMountsByHostCell.delete(hostCellKey);
   }
 
   applyScopedPatch(currentModelId, patch) {
@@ -2202,41 +2368,27 @@ class ModelTableRuntime {
       this._writeVisibleErrorLabel(model, p, r, c, 'pin_payload_error', positivePinPayloadError, { label_key: label.k });
       return { applied: false };
     }
-    const existingSubmodel = this._findSubmodelLabel(cell, label.k);
-    const existingSubtable = this._findSubtableLabel(cell, label.k);
+    const prevResolvedType = prevLabel ? this._resolveLabelType(prevLabel.t) : null;
+    if (
+      prevLabel
+      && this._isConnectionIndexResolvedType(prevResolvedType)
+      && prevResolvedType !== resolvedType
+    ) {
+      this._recordError(model, p, r, c, label, 'connection_cell_index_type_change_forbidden');
+      return { applied: false };
+    }
+    const existingConnection = this._findConnectionIndexLabel(cell, label.k);
 
-    if (resolvedType === 'submt') {
-      if (existingSubmodel || existingSubtable) {
-        this._recordError(model, p, r, c, label, 'submodel_host_cell_already_bound');
-        return { applied: false };
-      }
-      const purgeKeys = [];
+    if (this._isConnectionIndexResolvedType(resolvedType)) {
       for (const [key, existingLabel] of cell.labels.entries()) {
         if (key === label.k) continue;
         const existingResolvedType = this._resolveLabelType(existingLabel.t);
         if (this._isPinLikeResolvedType(existingResolvedType)) continue;
-        purgeKeys.push(key);
-      }
-      for (const key of purgeKeys) {
-        this.rmLabel(model, p, r, c, key);
-      }
-    } else if (resolvedType === 'model.subtable') {
-      if (existingSubmodel || existingSubtable) {
-        this._recordError(model, p, r, c, label, 'subtable_host_cell_already_bound');
+        this._recordError(model, p, r, c, label, `connection_cell_forbidden_existing_label:${key}`);
         return { applied: false };
       }
-      const purgeKeys = [];
-      for (const [key, existingLabel] of cell.labels.entries()) {
-        if (key === label.k) continue;
-        const existingResolvedType = this._resolveLabelType(existingLabel.t);
-        if (this._isPinLikeResolvedType(existingResolvedType)) continue;
-        purgeKeys.push(key);
-      }
-      for (const key of purgeKeys) {
-        this.rmLabel(model, p, r, c, key);
-      }
-    } else if ((this._findSubmodelLabel(cell) || this._findSubtableLabel(cell)) && !this._isPinLikeResolvedType(resolvedType)) {
-      this._recordError(model, p, r, c, label, 'submodel_host_cell_forbidden_label');
+    } else if (existingConnection && !this._isPinLikeResolvedType(resolvedType)) {
+      this._recordError(model, p, r, c, label, `connection_cell_forbidden_label:${label.k}`);
       return { applied: false };
     }
 
@@ -2287,29 +2439,11 @@ class ModelTableRuntime {
     if (this.persistence && typeof this.persistence.onLabelRemoved === 'function') {
       this.persistence.onLabelRemoved({ model, p, r, c, label: prevLabel });
     }
-    if (this._resolveLabelType(prevLabel.t) === 'submt') {
-      const childModelId = this._getSubmodelChildId(prevLabel);
-      const current = Number.isInteger(childModelId) ? this.parentChildMap.get(childModelId) : null;
-      if (current && current.parentModelId === model.id && current.hostingCell.p === p && current.hostingCell.r === r && current.hostingCell.c === c) {
-        this.parentChildMap.delete(childModelId);
-      }
+    if (this._resolveLabelType(prevLabel.t) === 'model.submtconnection') {
+      this._clearSubmodelConnectionIndex(model, p, r, c, prevLabel);
     }
-    if (this._resolveLabelType(prevLabel.t) === 'model.subtable') {
-      const currentTableId = this.subtableMountsByHostCell.get(this._subtableHostCellKey(model, p, r, c));
-      if (currentTableId) {
-        const current = this.subtableMounts.get(currentTableId);
-        if (
-          current
-          && current.parent.table_id === this._modelTableId(model)
-          && current.parent.model_id === model.id
-          && current.hostingCell.p === p
-          && current.hostingCell.r === r
-          && current.hostingCell.c === c
-        ) {
-          this.subtableMounts.delete(currentTableId);
-        }
-        this.subtableMountsByHostCell.delete(this._subtableHostCellKey(model, p, r, c));
-      }
+    if (this._resolveLabelType(prevLabel.t) === 'model.subtableconnection') {
+      this._clearSubtableConnectionIndex(model, p, r, c);
     }
     const prevResolvedType = this._resolveLabelType(prevLabel.t);
     if (prevResolvedType === 'pin.connect.label') {
@@ -3178,8 +3312,11 @@ class ModelTableRuntime {
       }
       return;
     }
-    if (resolvedType === 'model.subtable') {
-      const normalized = this._normalizeSubtableDescriptor(label);
+    if (resolvedType === 'model.subtableconnection') {
+      if (prevLabel && this._resolveLabelType(prevLabel.t) === 'model.subtableconnection') {
+        this._clearSubtableConnectionIndex(model, p, r, c);
+      }
+      const normalized = this._normalizeSubtableConnectionDescriptor(label);
       if (!normalized.ok) {
         this._recordError(model, p, r, c, label, normalized.reason);
         return;
@@ -3188,9 +3325,8 @@ class ModelTableRuntime {
       const mount = {
         table_id: normalized.table_id,
         root_model_id: normalized.root_model_id,
-        owner_principal_id: typeof label.v.owner_principal_id === 'string' && label.v.owner_principal_id.trim()
-          ? label.v.owner_principal_id.trim()
-          : '',
+        mount_kind: normalized.mount_kind,
+        owner_principal_id: normalized.owner_principal_id,
         parent,
         hostingCell: { p, r, c },
       };
@@ -3200,7 +3336,7 @@ class ModelTableRuntime {
         this.createModel({
           table_id: normalized.table_id,
           id: normalized.root_model_id,
-          name: (label.v && typeof label.v.alias === 'string' && label.v.alias) || String(normalized.root_model_id),
+          name: String(normalized.root_model_id),
           type: 'subtable-root',
         });
       }
@@ -3283,21 +3419,37 @@ class ModelTableRuntime {
       }
       return;
     }
-    // 0142: subModel declaration
-    if (resolvedType === 'submt') {
-      const childModelId = this._getSubmodelChildId(label);
+    // 0142: parent-side child model index
+    if (resolvedType === 'model.submtconnection') {
+      if (prevLabel && this._resolveLabelType(prevLabel.t) === 'model.submtconnection') {
+        this._clearSubmodelConnectionIndex(model, p, r, c, prevLabel);
+      }
+      const normalized = this._normalizeSubmodelConnectionDescriptor(label);
+      const childModelId = normalized && normalized.ok ? normalized.model_id : null;
       if (!Number.isInteger(childModelId)) {
-        this._recordError(model, p, r, c, label, 'submodel_invalid_id');
+        this._recordError(model, p, r, c, label, normalized && normalized.reason ? normalized.reason : 'submtconnection_invalid_model_id');
         return;
       }
-      this.parentChildMap.set(childModelId, {
+      const tableId = this._modelTableId(model);
+      const childKey = this._childModelIndexKey(tableId, childModelId);
+      if (this.parentChildMap.has(childKey)) {
+        this._recordError(model, p, r, c, label, 'submtconnection_child_already_indexed');
+        return;
+      }
+      const parent = this._normalizeModelRef(model, { defaultHost: true });
+      this.parentChildMap.set(childKey, {
+        parent,
         parentModelId: model.id,
+        table_id: tableId,
+        child: { table_id: tableId, model_id: childModelId },
+        mount_kind: normalized.mount_kind,
         hostingCell: { p, r, c },
       });
-      if (!this.getModel(childModelId)) {
+      if (!this.getModel({ table_id: tableId, model_id: childModelId })) {
         this.createModel({
+          table_id: tableId,
           id: childModelId,
-          name: (label.v && typeof label.v === 'object' && label.v.alias) || String(childModelId),
+          name: String(childModelId),
           type: 'sub',
         });
       }

@@ -49,19 +49,19 @@ function testAppTableRejectsNegativeModels(name, Runtime) {
   );
 }
 
-function testModelSubtableMountIsNotSubmtAlias(name, Runtime) {
+function testModelSubtableConnectionIsNotSubmtAlias(name, Runtime) {
   const rt = new Runtime();
   const host = rt.getModel(0);
   const result = rt.addLabel(host, 2, 0, 0, {
     k: 'todo_mount',
-    t: 'model.subtable',
-    v: { table_id: 'app:todo:a', root_model_id: 0, owner_principal_id: `${name}-user` },
+    t: 'model.subtableconnection',
+    v: { table_id: 'app:todo:a', root_model_id: 0, mount_kind: 'slide_app', owner_principal_id: `${name}-user` },
   });
 
-  assert(result.applied, `${name}: model.subtable mount label should apply`);
-  assert(!rt.parentChildMap.has(0), `${name}: model.subtable must not be recorded as model.submt child model`);
+  assert(result.applied, `${name}: model.subtableconnection index label should apply`);
+  assert(!rt.parentChildMap.has('host|0'), `${name}: model.subtableconnection must not be recorded as model.submt child model`);
   assert(rt.subtableMounts instanceof Map, `${name}: runtime must expose subtableMounts map`);
-  assert(rt.subtableMounts.has('app:todo:a'), `${name}: subtable mount must be tracked by table_id`);
+  assert(rt.subtableMounts.has('app:todo:a'), `${name}: subtable index must be tracked by table_id`);
   assert.equal(rt.getModel({ table_id: 'app:todo:a', model_id: 0 }).id, 0, `${name}: mounted child table root model must exist`);
   assert.equal(rt.getModel(0), host, `${name}: host model 0 must remain host table model 0`);
 }
@@ -69,18 +69,18 @@ function testModelSubtableMountIsNotSubmtAlias(name, Runtime) {
 function testSubtableRootOutputIgnoresHostSubmtIdCollision(name, Runtime) {
   const rt = new Runtime();
   const host = rt.getModel(0);
-  rt.addLabel(host, 4, 0, 0, { k: 'legacy_child', t: 'model.submt', v: 7 });
+  rt.addLabel(host, 4, 0, 0, { k: 'legacy_child', t: 'model.submtconnection', v: 7 });
   rt.addLabel(host, 5, 0, 0, {
     k: 'todo_mount',
-    t: 'model.subtable',
-    v: { table_id: 'app:todo:a', root_model_id: 7, owner_principal_id: `${name}-user` },
+    t: 'model.subtableconnection',
+    v: { table_id: 'app:todo:a', root_model_id: 7, mount_kind: 'slide_app', owner_principal_id: `${name}-user` },
   });
   const appRoot = rt.getModel({ table_id: 'app:todo:a', model_id: 7 });
   const payload = [{ id: 0, p: 0, r: 0, c: 0, k: 'value', t: 'str', v: `${name}-done` }];
 
   rt.addLabel(appRoot, 0, 0, 0, { k: 'result', t: 'pin.out', v: payload });
 
-  assert.deepEqual(labelValue(host, 5, 0, 0, 'result'), payload, `${name}: app root output must return to subtable hosting Cell`);
+  assert.deepEqual(labelValue(host, 5, 0, 0, 'result'), payload, `${name}: app root output must return to subtable connection Cell`);
   assert.equal(labelValue(host, 4, 0, 0, 'result'), undefined, `${name}: app root output must not use host parentChildMap collision`);
 }
 
@@ -114,26 +114,26 @@ function testCellConnectRejectsCrossTableEndpoints(name, Runtime) {
   assert.equal(latestReason(rt), 'cell_connection_cross_table_endpoint_forbidden');
 }
 
-function testModelSubtableRequiresHostTable(name, Runtime) {
+function testModelSubtableRequiresChildTableRoot(name, Runtime) {
   const rt = new Runtime();
   const appModel = rt.createModel({ table_id: 'app:todo:a', id: 1, name: 'app', type: 'app' });
   const result = rt.addLabel(appModel, 2, 0, 0, {
     k: 'nested_mount',
     t: 'model.subtable',
-    v: { table_id: 'app:nested:a', root_model_id: 0 },
+    v: 'Slide.App.Table',
   });
-  assert.equal(result.applied, false, `${name}: non-host table must not declare model.subtable`);
-  assert.equal(latestReason(rt), 'subtable_requires_host_table');
+  assert.equal(result.applied, false, `${name}: non-root app model must not declare model.subtable`);
+  assert.equal(latestReason(rt), 'subtable_requires_child_table_root');
 }
 
 const tests = [
   testTableNamespacePreservesSameModelId,
   testAppTableRejectsNegativeModels,
-  testModelSubtableMountIsNotSubmtAlias,
+  testModelSubtableConnectionIsNotSubmtAlias,
   testSubtableRootOutputIgnoresHostSubmtIdCollision,
   testCellConnectRoutesAreTableQualified,
   testCellConnectRejectsCrossTableEndpoints,
-  testModelSubtableRequiresHostTable,
+  testModelSubtableRequiresChildTableRoot,
 ];
 
 let passed = 0;
