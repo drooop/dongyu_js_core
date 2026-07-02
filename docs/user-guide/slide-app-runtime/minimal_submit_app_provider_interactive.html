@@ -91,7 +91,7 @@
           <div class="arrow">ui_bind_json writes value_ref to click_event</div>
           <div class="node amber">click_event -> click_event_wiring -> click_chain -> root_routes -> submit_request -> submit_request_wiring -> handle_submit:in</div>
           <div class="arrow">handle_submit writes business records to submit1 pin.out</div>
-          <div class="node blue">host model.subtable boundary writes table-qualified bus payload</div>
+          <div class="node blue">host model.subtableconnection boundary writes table-qualified bus payload</div>
           <div class="arrow">MBR publishes endpoint topic</div>
           <div class="node">request topic: UIPUT/ws/dam/pic/de/R1/3000/submit1</div>
           <div class="arrow">R1 returns pin_payload.v2 on response_topic with message_role=response</div>
@@ -174,7 +174,7 @@
           <li>读取 Zip，只接受 <code>app_payload.json</code>。</li>
           <li>拒绝 <code>op</code>、正式 <code>model_id</code>、<code>pin.bus.*</code>、<code>ui.egress.binding.v1</code>、<code>pin.connect.model</code>、<code>route.reply_to in zip</code>、<code>reply_target_*</code>。</li>
 	          <li>分配 App instance <code>table_id</code>，包内 <code>id: 0</code> 保持为该表 root model。</li>
-	          <li>写 Workspace 侧边栏条目，并在 host Model 0 的 Workspace mount cell 写 <code>model.subtable</code>。</li>
+	          <li>写 Workspace 侧边栏条目，并在 host Model 0 的 Workspace index cell 写 <code>model.subtableconnection</code>；App table root 声明 <code>model.subtable</code>。</li>
 	          <li>写 <code>deletable</code>、<code>installed_at</code>、<code>import_root_temp_id</code>、<code>last_installed_table_id</code>、<code>last_installed_model_id</code>。</li>
 	          <li>打开 App 时使用 <code>visible_model_ref={table_id,model_id}</code> 加载 App table 的可见 labels。</li>
 	          <li>外发与回包 payload 必须包含 <code>origin_table_id</code> 与 <code>reply_target_table_id</code>。</li>
@@ -183,13 +183,13 @@
           <thead><tr><th>安装器生成 label</th><th>位置</th><th>作用</th></tr></thead>
           <tbody>
             <tr><td><code>deletable</code>, <code>installed_at</code>, <code>imported_bundle_model_ids</code>, <code>import_root_temp_id</code></td><td>App table root model <code>0</code></td><td>标记可删除实例并记录安装来源。</td></tr>
-            <tr><td><code>host_ingress_generated_model0_labels</code>, <code>host_ingress_generated_mount</code>, <code>host_ingress_generated_root_labels</code></td><td>App table root model <code>0</code></td><td>记录入口桥接 labels；生成 key 常以 <code>imported_host_submit_</code> 开头。</td></tr>
-            <tr><td><code>host_egress_generated_model0_labels</code>, <code>host_egress_generated_mount</code></td><td>App table root model <code>0</code></td><td>记录出站桥接 labels；生成 key 常以 <code>imported_submit1_</code> 和 <code>bridge_imported_submit1_to_mt_bus_send_</code> 开头。</td></tr>
+            <tr><td><code>host_ingress_generated_model0_labels</code>, <code>host_ingress_generated_mount</code>, <code>host_ingress_generated_root_labels</code></td><td>App table root model <code>0</code></td><td>记录入口桥接 labels；<code>host_ingress_generated_mount</code> 是 legacy/current key 名，实际语义是 parent-side <code>model.subtableconnection</code> connection/index Cell；生成 key 常以 <code>imported_host_submit_</code> 开头。</td></tr>
+            <tr><td><code>host_egress_generated_model0_labels</code>, <code>host_egress_generated_mount</code></td><td>App table root model <code>0</code></td><td>记录出站桥接 labels；<code>host_egress_generated_mount</code> 是 legacy/current key 名，实际语义是 parent-side connection/index Cell 与 egress semantic；生成 key 常以 <code>imported_submit1_</code> 和 <code>bridge_imported_submit1_to_mt_bus_send_</code> 开头。</td></tr>
             <tr><td><code>ui_egress_submit1_binding</code></td><td>App table root model <code>0</code></td><td>类型为 <code>ui.egress.binding.v1</code>，说明 <code>submit1</code> 已接入 host bus egress。</td></tr>
           </tbody>
         </table>
         <p>这些 label 不是 provider ZIP 内容。最终写到 Model 0 <code>(0,0,0)</code> 的仍是 <code>mt_bus_send_in</code>，再由 Model 0 发出 <code>pin.bus.cb.out</code>；显式 management 路线会改发 <code>pin.bus.mb.out</code>。</p>
-	        <p>安装后：App table root 的 <code>submit1</code> 经 host <code>model.subtable</code> 边界进入 Model 0，总线 payload 默认走 <code>pin.bus.cb.out</code>。换句话说，imported root 的 <code>submit1</code> 不会直接跨表连到别的模型；它必须先经过 hosting Cell 边界，再到 host Model 0。如果 <code>remote_bus_endpoint_v1.route_kind = "management"</code>，则改走 <code>pin.bus.mb.out</code>，由 MBR 再按 payload <code>topic</code> 转发到控制总线 / MQTT。</p>
+	        <p>安装后：App table root 的 <code>submit1</code> 经 host <code>model.subtableconnection</code> 边界进入 Model 0，总线 payload 默认走 <code>pin.bus.cb.out</code>。换句话说，imported root 的 <code>submit1</code> 不会直接跨表连到别的模型；它必须先经过 host 侧 connection Cell 边界，再到 host Model 0。<code>model.subtable</code> 只写在 App table 自己的 root 上。如果 <code>remote_bus_endpoint_v1.route_kind = "management"</code>，则改走 <code>pin.bus.mb.out</code>，由 MBR 再按 payload <code>topic</code> 转发到控制总线 / MQTT。</p>
       </div>
     </section>
 

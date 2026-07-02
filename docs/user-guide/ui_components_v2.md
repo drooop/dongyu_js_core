@@ -75,7 +75,7 @@ Visual nesting uses UI nodes, not submodels.
 | Put three buttons in one row | `Container` with `ui_layout=row`; each button uses `ui_parent` pointing to that container. |
 | Add another row | Add another `Container` cell with a later `ui_order`. |
 | Put a column inside a row | Add a child `Container` with `ui_layout=column`. |
-| Mount an independent child model | Use `model.submt`; do not use it for ordinary visual rows. |
+| Mount an independent child model | Use parent-side `model.submtconnection` plus child root `model.submt`; do not use it for ordinary visual rows. |
 
 Example: a row with three buttons.
 
@@ -450,7 +450,7 @@ node scripts/tests/test_0346_ui_model_compliance_contract.mjs
 | One `Html` component for a whole page | The UI is no longer fill-table editable. | `Container`, `Section`, `Text`, `Markdown`, and child nodes. |
 | A huge `ui_props_json` with text/layout/labels | Users cannot edit the UI by obvious labels. | `ui_text`, `ui_label`, `ui_layout`, `ui_gap`, `ui_options_json`. |
 | Missing `ui_parent` | Components can float to the wrong place. | Explicit parent node ids. |
-| Using `model.submt` for rows | It creates a model boundary where only visual layout is needed. | Nested `Container` nodes. |
+| Using `model.submtconnection` / `model.submt` for rows | It creates a model boundary where only visual layout is needed. | Nested `Container` nodes. |
 | Button writes final business truth directly | It bypasses the runtime chain. | Trigger a pin and let the program model write results. |
 | Loose JSON payload on pins | MBR/worker contracts cannot validate it consistently. | Temporary ModelTable record arrays. |
 
@@ -464,6 +464,6 @@ Add a new renderer component only when labels cannot express a reusable UI capab
 | Add a stable prop used by many pages | Promote it from `ui_props_json` to a named label. |
 | Render a reusable visual pattern | Add a component to the registry and renderer. |
 | Add a new business operation | Define the ModelTable payload and pin route first. |
-| Compose a child app | Use `model.submt` only for an independent child model. |
+| Compose a child app | Use `model.subtableconnection` plus child table root `model.subtable` for an independent child App table; use `model.submtconnection` plus child root `model.submt` for an independent child model. |
 
 The goal is not to eliminate code. The goal is to make user-authored UI pages editable by cells first, with renderer code serving as the component library.

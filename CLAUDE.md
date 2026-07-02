@@ -87,7 +87,7 @@ artifact boundary:
 
 MODEL_FORMS
 
-three model forms. all three are Tier 1 definitions.
+model form labels and model relationship index labels are Tier 1 definitions.
 cell model semantics are authoritative. every materialized Cell has exactly one effective model label.
 for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective model label defaults to model.single.
 
@@ -115,16 +115,31 @@ for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective 
                   replaces (0,1,0) helper executor for model.table only (DEPRECATED here);
                   model.single scenario retains helper scaffold — see runtime_semantics §5.2f.
 
-  model.submt    child-model hosting Cell. value = child model id.
-                  this Cell is the mounting/mapping point for a child model.
-                  only model.submt plus ordinary pin labels may coexist on a model.submt Cell.
-                  0356 target ordinary pin labels are pin.in / pin.out / pin.login / pin.logout.
-                  model.submt is single-parent only: one child model may be mounted by only one parent hosting Cell at a time.
+  model.subtable child ModelTable root declaration. written on the child ModelTable's
+                  own Model 0 (0,0,0). it states that this table is a child ModelTable,
+                  not a parent-side mount/index.
+
+  model.submt    child model root declaration. written inside the child model,
+                  normally on the child model root (0,0,0). it states that this
+                  model is a child model, not a parent-side mount/index.
+
+  model.subtableconnection
+                  parent/main table index to one child ModelTable. written on the
+                  parent/main table side. value points to child table_id and root_model_id.
+                  this is a relationship index, not a pin wiring label.
+
+  model.submtconnection
+                  parent/main or secondary model index to one child model. written
+                  on the parent/main or secondary model side. value points to child model id.
+                  this is a relationship index, not a pin wiring label.
 
   model_type label encodes two dimensions:
-    label.t = form (model.single | model.matrix | model.table | model.submt)
-    label.v = type (Code.JS | Data.Array.One | Flow | Doc.Markdown | ...) for model.single/model.matrix/model.table
-              child model id for model.submt
+    label.t = form / relationship type
+              (model.single | model.matrix | model.table | model.subtable | model.submt |
+               model.subtableconnection | model.submtconnection)
+    label.v = type (Code.JS | Data.Array.One | Flow | Doc.Markdown | ...) for model.single/model.matrix/model.table/model.subtable/model.submt
+              child table ref for model.subtableconnection
+              child model id for model.submtconnection
     invalid form×type combinations MUST be rejected at registration.
 
 
@@ -174,7 +189,7 @@ FORBIDDEN
 - side effects outside add_label / rm_label
 - UI direct bus connection (must go through worker root Model 0 system bus ingress; use pin.bus.mb.in or pin.bus.cb.in)
 - external MQTT writing to arbitrary cells (must go through worker root Model 0 system bus ingress)
-- using legacy connection types: label_connection, trigger_funcs, function_PIN_IN/OUT (use CELL_CONNECT)
+- using legacy connection types: label_connection, trigger_funcs, function_PIN_IN/OUT (use pin.connect.label / pin.connect.cell)
 - using DEPRECATED / historical label types in new models
 - adding or preserving compatibility code/compatibility aliases without explicit user approval
 - silent failure (all failures must write to ModelTable)
@@ -317,7 +332,10 @@ ARCH_INVARIANTS
 - capability detection: worker base must degrade gracefully, never crash silently
 - application-layer = positive model_id user-created models; system-level = negative model_id software-worker capability layers.
 - Model 0 = system root / intermediate layer. system boundary ports live here.
-- every model except Model 0 MUST be explicitly mounted into the hierarchy via model.submt, including bootstrap children such as -1 and 1.
+- every model except Model 0 MUST be explicitly indexed into the hierarchy from
+  its parent/main side via model.submtconnection, including bootstrap children
+  such as -1 and 1. child models declare their own child identity with
+  model.submt.
 - single external entry: worker root system bus pins on Model 0 (0,0,0) = only MQTT/Matrix boundary. no direct cell writes from external.
   Use pin.bus.cb.in/out for control bus and pin.bus.mb.in/out for management bus.
 - connection chain (no skip): worker root bus boundary adapter → pin.connect.cell (inter-cell routing) → pin.connect.label (intra-cell wiring)
@@ -341,7 +359,9 @@ tier 1: runtime base (基座运行能力)
       pin.in, pin.out,
       pin.bus.cb.in, pin.bus.cb.out, pin.bus.mb.in, pin.bus.mb.out,
       pin.login, pin.logout,
-      pin.connect.label, pin.connect.cell, model.submt, func.js, func.python
+      pin.connect.label, pin.connect.cell,
+      model.subtable, model.subtableconnection, model.submt, model.submtconnection,
+      func.js, func.python
     legacy unsplit bus pins, legacy pin.log.*, and pin.connect.model are removed input surfaces and MUST NOT be restored.
   - MQTT loop: startMqttLoop, mqttIncoming, topic routing
   - AsyncFunction executor: _executeFuncViaCellConnect (30s timeout, sandboxed ctx)
@@ -505,7 +525,9 @@ rules:
   - model_id=0 external entry is pin.bus.* only.
   - Imported UI models MUST NOT author bus pins directly; host installation owns bus boundary wiring.
   - Management-bus pins are valid only for DEM workers; ordinary software workers use control-bus pins only.
-  - sub-model external connections are routed through the child root (0,0,0) pins and parent hosting Cell pins, not through a separate pin.connect.model family.
+  - sub-model and subtable external data flow is routed through child root
+    (0,0,0) pins and parent-side connection index boundary pins, not through a
+    separate pin.connect.model family.
   - log pins have NO special runtime behavior. no wiring = log discarded.
   - each function has 3 pins: func:in / func:out / func:logout.
 

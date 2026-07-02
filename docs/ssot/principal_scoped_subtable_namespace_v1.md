@@ -180,20 +180,25 @@ Rules:
 - Installing the same provider App for two different users creates two App instance tables.
 - Provider-owned source assets remain provider assets; installed App instance tables are local materializations owned by the installing principal.
 
-## 5. `model.subtable`
+## 5. `model.subtable` / `model.subtableconnection`
 
-`model.subtable` is the target label type for mounting a child ModelTable namespace.
+0431 correction: `model.subtable` is the child-side declaration label written
+on the child ModelTable root. `model.subtableconnection` is the parent/main-side
+index label written in the host or parent table.
 
-It is not an alias of `model.submt`.
+Neither label is an alias of `model.submt`, and neither label is a pin wiring
+label.
 
 Comparison:
 
 | label.t | meaning | value points to | id namespace |
 |---|---|---|---|
-| `model.submt` | mount one child model | child `model_id` | same table as parent/child relation |
-| `model.subtable` | mount one child ModelTable | child `table_id` and root `model_id` | child table has independent model id domain |
+| `model.submt` | declare one child model | child model's own type | same table as parent/child relation |
+| `model.submtconnection` | index one child model from parent/main side | child `model_id` | same table as parent/child relation |
+| `model.subtable` | declare one child ModelTable | child table's own type | child table has independent model id domain |
+| `model.subtableconnection` | index one child ModelTable from parent/main side | child `table_id` and root `model_id` | child table has independent model id domain |
 
-Target value shape:
+Parent-side `model.subtableconnection` value shape:
 
 ```json
 {
@@ -205,12 +210,16 @@ Target value shape:
 ```
 
 Placement:
-- `model.subtable` is written on a host-table hosting Cell.
-- The hosting Cell may also declare ordinary boundary pins.
-- The mounted child table must have an explicit root model, normally `{ "table_id": "...", "model_id": 0 }`.
+- `model.subtable` is written on the child table's Model 0 root `(0,0,0)`.
+- `model.subtableconnection` is written on a host/parent-table connection Cell.
+- The connection Cell may also declare ordinary boundary pins.
+- The child table must have an explicit root model, normally `{ "table_id": "...", "model_id": 0 }`.
 
 Deletion:
-- Removing `model.subtable` removes the host mount relation.
+- Removing `model.subtableconnection` removes the host/parent index relation.
+- Removing `model.subtable` from the child table root removes the child-side
+  declaration and should be treated as deleting or invalidating that child table
+  root, subject to the explicit uninstall/materialization rule.
 - It must not silently delete the child table data unless an explicit uninstall/materialization rule also deletes that table.
 - Uninstall must define and execute an explicit cleanup plan for host labels, user desktop registry entries, and App instance table data.
 
@@ -222,12 +231,12 @@ Cross-table routing must pass through a host-owned boundary:
 
 ```text
 host table Model 0 / parent model
-  -> host table hosting Cell with model.subtable
+  -> host table connection Cell with model.subtableconnection
   -> app table root model pin.in
   -> app table internal pin.connect.cell
   -> app table internal Cell / function
   -> app table root pin.out
-  -> host table hosting Cell pin.out
+  -> host table connection Cell pin.out
   -> host table pin.connect.cell
 ```
 
@@ -236,7 +245,8 @@ Rules:
 - No cross-table `[modelId, pin]` endpoint.
 - No `pin.connect.cell` endpoint may name another `table_id`.
 - Child table non-root Cells cannot connect directly to the host table.
-- Host routing may only connect to boundary pins declared on the hosting Cell and the child table root.
+- Host routing may only connect to boundary pins declared on the host/parent
+  table `model.subtableconnection` Cell and the child table root.
 
 ## 7. Snapshot And SSE
 

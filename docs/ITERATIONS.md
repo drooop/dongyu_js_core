@@ -331,6 +331,7 @@ source: ai
 | 0428-feishu-model-label-ssot-plan | 2026-06-24 | 按新版飞书模型标签、软件工人模型、消息 API 文档冻结项目 SSOT 命名与后续实现计划：保留 `model.table/subtable/submt`，拒绝恢复 `pin.connect.model`，收敛传参为非嵌套 Temporary ModelTable message | 3 | dropx/dev_0428-feishu-model-label-ssot-plan | Completed | ./docs/iterations/0428-feishu-model-label-ssot-plan/ |
 | 0429-feishu-model-label-operational-ssot | 2026-07-01 | 规划将 0428 飞书模型标签与消息 API 目标下沉到 operational SSOT、validator/runtime hard-cut、fill-table refit 与本地浏览器验证阶段 | 3 | dropx/dev_0429-feishu-model-label-operational-ssot | Planned | ./docs/iterations/0429-feishu-model-label-operational-ssot/ |
 | 0430-feishu-operational-ssot-impl | 2026-07-01 | 实施 0429 蓝图：operational SSOT、validator/runtime hard-cut、fill-table refit、滑动 App 示例文档和本地浏览器 E2E 验证 | 8 | dropx/dev_0430-feishu-operational-ssot-impl | Completed | ./docs/iterations/0430-feishu-operational-ssot-impl/ |
+| 0431-subtable-connection-ssot | 2026-07-01 | 修正子模型表/子模型 connection 标签 SSOT：子侧声明与父侧索引分离，冻结后续实现计划 | 3 | dropx/dev_0431-subtable-connection-ssot | Completed | ./docs/iterations/0431-subtable-connection-ssot/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

@@ -71,7 +71,7 @@ flowchart TB
   Zip["ZIP: app_payload.json<br/>60 条 record"]
   Install["UI Server 安装"]
   Side["Workspace 侧边栏"]
-  Subtable["Model 0 mount cell<br/>model.subtable -> app table"]
+  Subtable["Model 0 index cell<br/>model.subtableconnection -> app table"]
   Boundary["table boundary<br/>App table root model 0"]
   Egress["host bus boundary<br/>table-qualified origin/reply target"]
   Bus["Model 0 (0,0,0)<br/>mt_bus_send_in -> pin.bus.cb.out"]
@@ -83,9 +83,9 @@ flowchart TB
   Egress --> Bus
 ```
 
-安装器会生成 host-owned 安装态和挂载态 labels，例如 `deletable`、`installed_at`、`import_root_temp_id`、`last_installed_table_id`、`last_installed_model_id` 以及 `model.subtable` 边界。这些不是 provider ZIP 内容。
+安装器会生成 host-owned 安装态和索引态 labels，例如 `deletable`、`installed_at`、`import_root_temp_id`、`last_installed_table_id`、`last_installed_model_id` 以及父侧 `model.subtableconnection` 边界。App table 自己的 root 负责声明 `model.subtable`。这些不是 provider ZIP 内容。
 
-更具体地说，App table root model `0` 会记录 `imported_bundle_model_ids`、`host_ingress_generated_model0_labels`、`host_ingress_generated_mount`、`host_ingress_generated_root_labels`、`host_egress_generated_model0_labels`、`host_egress_generated_mount` 与 `ui_egress_submit1_binding`。其中 `ui_egress_submit1_binding` 的类型是 `ui.egress.binding.v1`。排查时可看生成 key 前缀：`imported_host_submit_` 表示入口，`imported_submit1_` 表示出站 bus label，`bridge_imported_submit1_to_mt_bus_send_` 表示桥接函数。最终仍由 Model 0 `(0,0,0)` 的 `mt_bus_send_in` 转到 `pin.bus.cb.out`；若显式走 management，则转到 `pin.bus.mb.out`。
+更具体地说，App table root model `0` 会记录 `imported_bundle_model_ids`、`host_ingress_generated_model0_labels`、`host_ingress_generated_mount`、`host_ingress_generated_root_labels`、`host_egress_generated_model0_labels`、`host_egress_generated_mount` 与 `ui_egress_submit1_binding`。其中 `host_ingress_generated_mount` / `host_egress_generated_mount` 是 legacy/current key 名，实际语义分别是 parent-side `model.subtableconnection` connection/index Cell 和出站桥接 connection/index Cell；`ui_egress_submit1_binding` 的类型是 `ui.egress.binding.v1`。排查时可看生成 key 前缀：`imported_host_submit_` 表示入口，`imported_submit1_` 表示出站 bus label，`bridge_imported_submit1_to_mt_bus_send_` 表示桥接函数。最终仍由 Model 0 `(0,0,0)` 的 `mt_bus_send_in` 转到 `pin.bus.cb.out`；若显式走 management，则转到 `pin.bus.mb.out`。
 
 ## Endpoint Topic 与 Payload Records
 
@@ -134,7 +134,7 @@ submit1:out -> `(1,1,1).submit1_out` -> root `result`
 | `route.reply_to` | 只能作为禁止项出现；ZIP 和 runtime 输入面都不能使用。 |
 | `source_model_id` | 不再作为传输 metadata；使用 table-qualified `origin_table_id + origin_model_id` / `reply_target_table_id + reply_target_model_id`。 |
 | `worker/R1/model/3000/pin/submit1` | 旧 topic 形态，禁止。 |
-| `pin.connect.model` | 已移除；使用 `pin.connect.cell`。 |
+| `pin.connect.model` | 已移除；跨模型必须经父侧 `model.submtconnection` + child root pins，跨 App table 必须经父侧 `model.subtableconnection` + child table root pins；同一模型 / 同一表内部才使用 `pin.connect.cell`。 |
 | raw `resultPayload` | 公开 result path 必须包装成 `pin_payload.v2`。 |
 
 ## 导出

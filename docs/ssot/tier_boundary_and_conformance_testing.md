@@ -153,7 +153,7 @@ source: ai
 - 哪些动作应当仅本地处理？
 - 哪些动作允许外发？
 - 外发 authority 是否只来自现有 pin 接线路径，而不是新的字段或宿主特判？
-- 该动作是否真的通过父模型 hosting cell 逐层 relay 到 Model 0？
+- 该动作是否真的通过父侧 connection Cell 逐层 relay 到 Model 0？
 - 是否存在“深层子模型直接跳到 Model 0”或“默认所有事件都进入外发候选池”的旁路？
 
 颜色生成器类场景的最小 gate：

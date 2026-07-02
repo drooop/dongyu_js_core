@@ -360,8 +360,8 @@ graph TD
     M1014["Model 1014\nDoc Page Truth"]
     WS["Workspace 侧边栏"]
 
-    M0 -->|"model.submt"| M1013
-    M1013 -->|"model.submt (0,2,0)"| M1014
+    M0 -->|"model.submtconnection"| M1013
+    M1013 -->|"model.submtconnection (0,2,0)"| M1014
     WS -. "注册 app 条目" .-> M1013
 
     subgraph host["1013 负责"]

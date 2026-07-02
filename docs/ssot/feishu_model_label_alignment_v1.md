@@ -52,8 +52,10 @@ The Feishu documents establish these target ideas:
 - A plain model cannot run independently.
 - A ModelTable can have an id; a plain model should not be treated as an
   independently runnable unit.
-- Child ModelTable boundary pins relay to the child table root `(0,0,0)` pins.
-- A child ModelTable mount Cell may only coexist with pin labels.
+- Child ModelTable boundary pins relay through the parent/main
+  `model.subtableconnection` Cell and the child table root `(0,0,0)` pins.
+- A parent/main `model.subtableconnection` Cell may only coexist with pin
+  labels.
 - `pin.connect.model` is not part of the current repo target contract.
 - Worker identity is expressed by `sys_worker_role / worker.role` and
   `sys_worker_id / worker.id`.
@@ -68,10 +70,11 @@ The Feishu documents establish these target ideas:
 
 Adoption notes:
 
-- Feishu `model.subtableconnection` and `model.submtconnection` describe useful
-  boundary-relay semantics, but the project does not adopt them as accepted
-  `label.t` values. The boundary is represented by `model.subtable` or
-  `model.submt` plus same-key/same-type boundary pins.
+- 0431 correction: Feishu `model.subtableconnection` and
+  `model.submtconnection` are adopted as accepted parent-side relationship
+  index `label.t` values. They are not pin wiring labels. Child-side identity
+  is declared by `model.subtable` or `model.submt`; parent/main-side indexing
+  is declared by `model.subtableconnection` or `model.submtconnection`.
 - Feishu `pin_payload.v1` examples use `origin_pin`, `endpoint_pin`, and
   `response_pin` with full transport topic strings. The project target keeps
   `topic` and `response_topic` as explicit transport truth, while structured
@@ -111,19 +114,22 @@ Feishu mapping:
   `k = "sys_worker_role"`, `t = "worker.role"`,
   `v = "V1N"` / `"DEM"` / `"WSM"`.
 
-### 2.2 Keep `model.subtable` as the child ModelTable mount label
+### 2.2 Keep `model.subtable` as the child ModelTable declaration label and add `model.subtableconnection`
 
-Project target label:
+Project target labels:
 
 - `model.subtable`
+- `model.subtableconnection`
 
 Meaning:
 
-- A host-table Cell that mounts one child ModelTable namespace.
-- It is a mount/boundary label, not the child table root declaration.
-- The child table root still declares `model.table`.
+- `model.subtable` is written on the child ModelTable Model 0 `(0,0,0)`.
+- It declares that the table is a child ModelTable.
+- `model.subtableconnection` is written on the host/main/parent table side.
+- It indexes one child ModelTable and points to the child `table_id` and root
+  `model_id`.
 
-Target value:
+Parent-side `model.subtableconnection` target value:
 
 ```json
 {
@@ -136,8 +142,9 @@ Target value:
 
 Rules:
 
-- The hosting Cell may only coexist with boundary pin labels.
-- Same-key and same-type pins on the hosting Cell and the child table root
+- The child table root may use `model.subtable` as its effective model label.
+- The parent-side connection Cell may only coexist with boundary pin labels.
+- Same-key and same-type pins on the connection Cell and the child table root
   relay across the boundary.
 - The child ModelTable has its own local non-negative model id space.
 - Host/system negative models are not copied into the child table.
@@ -145,34 +152,44 @@ Rules:
 
 Feishu mapping:
 
-- Feishu child ModelTable / child ModelTable mapping semantics map to project
+- Feishu child ModelTable declaration semantics map to project
   `model.subtable`.
-- The project does not adopt a separate `model.subtableconnection` label.
+- Feishu child ModelTable connection/index semantics map to project
+  `model.subtableconnection`.
 
-### 2.3 Keep `model.submt` as same-table child model mount
+### 2.3 Keep `model.submt` as child model declaration and add `model.submtconnection`
 
-Project target label:
+Project target labels:
 
 - `model.submt`
+- `model.submtconnection`
 
 Meaning:
 
-- A Cell that mounts one same-table child model boundary.
-- It is not a child ModelTable.
+- `model.submt` is written inside the child model, normally on the child model
+  root `(0,0,0)`.
+- It declares that the model is a child model.
+- `model.submtconnection` is written on the parent/main or secondary model
+  side.
+- It indexes one child model and points to the child `model_id`.
+- Neither label is a child ModelTable.
 - It is not an alias of `model.subtable`.
 
 Rules:
 
-- `model.submt` remains single-parent.
-- The hosting Cell may only coexist with ordinary pin labels.
-- Removing `model.submt` removes the mount relation only, not necessarily the
-  child data, unless an explicit deletion/materialization rule says so.
+- `model.submtconnection` remains single-parent for direct parent/child
+  indexing.
+- The parent-side connection Cell may only coexist with ordinary boundary pin
+  labels.
+- Removing `model.submtconnection` removes the index relation only, not
+  necessarily the child data, unless an explicit deletion/materialization rule
+  says so.
 
 Feishu mapping:
 
-- Feishu child model / child model mapping semantics map to project
-  `model.submt`.
-- The project does not adopt a separate `model.submtconnection` label.
+- Feishu child model declaration semantics map to project `model.submt`.
+- Feishu child model connection/index semantics map to project
+  `model.submtconnection`.
 
 ### 2.4 Do not restore `pin.connect.model`
 
@@ -183,9 +200,11 @@ Rules:
 - It must not be accepted as a current input.
 - Feishu examples that still mention it are treated as stale examples, not as a
   target contract.
-- Cross-model routing must use `model.submt` boundary pins plus
+- Cross-model routing must use parent-side `model.submtconnection` boundary
+  pins plus
   `pin.connect.cell`.
-- Cross-table routing must use `model.subtable` boundary pins plus
+- Cross-table routing must use parent-side `model.subtableconnection` boundary
+  pins plus child table root boundary pins and
   table-local `pin.connect.cell` on each side.
 
 ### 2.5 Durable identity is table-qualified
@@ -295,14 +314,14 @@ Target flow:
 ```text
 UI App instance table
   -> app root pin.out
-  -> host model.subtable boundary
+  -> host model.subtableconnection boundary
   -> UI Server Model 0 pin.bus.cb.out / pin.bus.mb.out
   -> transport topic
   -> R1 ModelTable root public pin
   -> R1 program model
   -> response Temporary ModelTable message
   -> UI Server Model 0 ingress
-  -> host model.subtable boundary
+  -> host model.subtableconnection boundary
   -> app instance table materializer
   -> visible label update
 ```
@@ -333,29 +352,28 @@ Adopted:
 - Every Cell has exactly one model label and that model label owns the model
   boundary lifecycle.
 - ModelTables can run independently; plain models cannot run independently.
-- `model.single`, `model.matrix`, `model.subtable`, and `model.submt` remain
-  meaningful model-boundary concepts.
+- `model.single`, `model.matrix`, `model.subtable`, `model.subtableconnection`,
+  `model.submt`, and `model.submtconnection` remain meaningful model-boundary
+  and relationship-index concepts.
 - `pin.in`, `pin.out`, `pin.bus.cb.*`, `pin.bus.mb.*`,
   `pin.connect.label`, and `pin.connect.cell` align with the current project
   direction.
 - The same-key/same-type boundary-pin relay rule for child ModelTables maps to
-  project `model.subtable` hosting Cell semantics.
+  project `model.subtableconnection` parent-side connection Cell semantics plus
+  child root `model.subtable` declaration semantics.
 
 Not adopted as project input labels:
 
 - `model.v1n` remains mapped to project `model.table` plus worker labels.
-- `model.subtableconnection` remains a Feishu source concept, not an accepted
-  project `label.t`.
-- `model.submtconnection` remains a Feishu source concept, not an accepted
-  project `label.t`.
 
 Recommended follow-up:
 
 - Use this source when updating `label_type_registry` so the worker-role table
   and model-boundary table stay aligned.
 - Update developer-facing wording from "main ModelTable" to the repo terms:
-  root `model.table`, child `model.table`, host `model.subtable` mount Cell,
-  and same-table `model.submt`.
+  root `model.table`, child root `model.subtable`, host/main
+  `model.subtableconnection` index Cell, child root `model.submt`, and
+  same-table `model.submtconnection` index Cell.
 
 ### 4.2 `WBZj...` software-worker message API document
 
@@ -374,9 +392,10 @@ Adopted:
 
 Adjusted for project target:
 
-- The source `pin_payload.v1` examples use `model.subtableconnection` to attach
-  payload records. The project target uses Temporary ModelTable records directly
-  in the same message and does not accept `model.subtableconnection`.
+- The source `pin_payload.v1` examples use `model.subtableconnection` as a
+  relationship/index label. The project target accepts the relationship label,
+  but formal bus/pin payload records still travel directly in the same
+  Temporary ModelTable message rather than nested under a JSON payload label.
 - The source examples use full topic strings in `origin_pin`, `endpoint_pin`,
   and `response_pin`. The project target separates transport truth from
   semantic endpoint truth:
@@ -417,8 +436,6 @@ This file does not:
 - implement runtime behavior;
 - create compatibility aliases;
 - make `model.v1n` a project-accepted `label.t`;
-- make `model.subtableconnection` or `model.submtconnection` accepted
-  project labels;
 - restore `pin.connect.model`;
 - define the final database migration SQL;
 - decide collaborative/shared App state semantics.

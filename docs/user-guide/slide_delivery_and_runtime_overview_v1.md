@@ -159,7 +159,7 @@ bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in -> pin route -> target
 - 前端提交 `bus_event_v2`。
 - `bus_event_v2.value` 必须已经是临时 ModelTable record array。
 - server 默认只把合法 envelope 写入 Model 0 的 `pin.bus.cb.in`。
-- `model.submt` hosting Cell + `pin.connect.cell` 再把事件送到目标模型边界。
+- 父侧 `model.submtconnection` Cell boundary pins、child root boundary pins，以及目标模型内 `pin.connect.cell` 再把事件送到目标模型边界。
 - 目标模型 root 的 `mt_bus_receive` 再按 payload 分发到目标 cell / target pin。
 
 这种写法故意把“本地 UI 草稿”和“正式业务入口”分开，避免用户还在编辑时就把草稿误认为正式业务。
@@ -171,14 +171,14 @@ bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in -> pin route -> target
 当前外发回流链可以压缩成：
 
 ```text
-app root pin.out -> host / mount relay -> Model 0 mt_bus_send -> pin.bus.cb.out -> MBR / MQTT -> return packet -> Model 0 -> owner materialization -> target model
+app root pin.out -> host connection relay -> Model 0 mt_bus_send -> pin.bus.cb.out -> MBR / MQTT -> return packet -> Model 0 -> owner materialization -> target model
 ```
 
 逐步展开是：
 
 1. app 内部程序模型完成业务处理。
 2. 需要外发时，app root 写自己的 `pin.out`。
-3. 宿主安装时生成的 host / mount relay 接住这个 `pin.out`。
+3. 宿主安装时生成的 host connection relay 接住这个 `pin.out`。
 4. relay 把 payload 转成 Model 0 的 `mt_bus_send` 请求。
 5. Model 0 `mt_bus_send` 构造 `pin_payload v1`。
 6. runtime 默认写入 Model 0 `pin.bus.cb.out`。
