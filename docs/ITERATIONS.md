@@ -338,6 +338,7 @@ source: ai
 | 0435-visible-snapshot-app-slimming | 2026-07-03 | 收紧 `profile=visible` 的 App/model 粒度：显式可见 App 请求只返回目标 App/model，不重复宿主 bootstrap，并记录本地延时指标 | 4 | dropx/dev_0435-visible-snapshot-app-slimming | Completed | ./docs/iterations/0435-visible-snapshot-app-slimming/ |
 | 0436-runtime-snapshot-build-latency | 2026-07-04 | 优化 runtime snapshot/build 耗时：ready visible 请求直接按目标 App/model 构建，不再先生成全量 client snapshot，并沉淀可量化延时指标 | 4 | dropx/dev_0436-runtime-snapshot-build-latency | Completed | ./docs/iterations/0436-runtime-snapshot-build-latency/ |
 | 0437-bootstrap-sse-first-packet-latency | 2026-07-04 | 优化 bootstrap snapshot 与 SSE 首包耗时：直接构建 bootstrap shell + requested visible refs，不再先生成全量 client snapshot | 4 | dropx/dev_0437-bootstrap-sse-first-packet-latency | Completed | ./docs/iterations/0437-bootstrap-sse-first-packet-latency/ |
+| 0438-app-open-frontend-latency | 2026-07-04 | 测量并优化前端打开滑动 App 的可见延时：拆分 click、visible snapshot、apply、projection、render 与 loading 解除指标 | 4 | dropx/dev_0438-app-open-frontend-latency | Planned | ./docs/iterations/0438-app-open-frontend-latency/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
